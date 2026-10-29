@@ -5,7 +5,7 @@ created: '2026-10-29'
 status: 'done'
 baseline_revision: '5613c2313ac93bdb456b493a25a19045100720eb'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-1-context.md'
   - '{project-root}/AGENTS.md'
@@ -121,6 +121,34 @@ deferred: []
   - `[false]` `[reject]` (blind) pinned seeds do not make failures reproducible — refuted: a fixed `PropTestConfig(seed)` makes the generated inputs deterministic, and Kotest reports the failing input.
   - `[low]` `[patch]` (blind) `isSolved` ignores orientation but `== SOLVED` does not, undocumented — patched: `isSolved` KDoc says to use `isSolved`, not `== SOLVED`.
 
+### 2026-10-29 — Review pass (follow-up)
+- verdicts: 24 findings — high 0, medium 3, low 10, false 11, maybe-false 0
+- findings:
+  - `[low]` `[reject]` (edge) exposed `List<Int>` can be cast to `MutableList`, corrupting shared `SOLVED` — carried: same row as the first pass's mutable-list rejection; needs a deliberate unchecked cast.
+  - `[false]` `[reject]` (edge) internal constructor keeps a caller's `MutableList` that may later be mutated — refuted: the constructor is `internal`, and every in-module call site (`SOLVED`, `compose`, `QUARTER_TURNS`, tests) passes a freshly built list that nobody keeps a reference to.
+  - `[low]` `[reject]` (edge) hard-coded `:core:domain` path silently drops the gate on rename — carried: the CI dry-run guard requires `:core:domain:koverVerifyCube`, so a rename fails loudly.
+  - `[low]` `[reject]` (edge, claim) "highest-covered package" is not enforced — carried: true today (cube 147/147 lines, the only package); a ranking gate needs new build machinery.
+  - `[low]` `[reject]` (edge, claim) deep immutability relies on the read-only `List` contract — carried: grouped with the mutable-list row.
+  - `[low]` `[reject]` (blind) shared lists mutable through a cast — carried: same as the edge mutable-list row.
+  - `[medium]` `[patch]` (blind) D, L and B quarter-turn tables have no exact-effect test — grouped with the verification-gap row; patched: `CubiesTest` now pins D, L and B clockwise from solved. The expected values were checked independently against the standard URF-slot cubie tables, not copied from the code.
+  - `[false]` `[reject]` (blind) exact-effect tests repeat production tables so they cannot catch a wrong table; the "derived from geometry" comment is unbacked — refuted: all six tables were checked in this pass against the standard published cubie tables for this slot order and every entry matches, so no table is wrong. The comment describes the derivation method; the first pass recorded the geometry script.
+  - `[false]` `[reject]` (blind) `face Moves act through orientation` checks `homeFaceAt` against itself — refuted: `homeFaceAt` is pinned on its own by `OrientationTest` (literal home frame, hand-checked x/y/z cases, opposites kept, round trip through `of`), so a wrong `homeFaceAt` fails there.
+  - `[low]` `[reject]` (blind) cube gate can stop working silently on rename or empty filter — carried: same as the path row and the first pass's maybe-false empty-filter row.
+  - `[low]` `[reject]` (blind) Moves allocate (vector lists, up to 3 validated composes) — carried: negligible at current scale.
+  - `[false]` `[reject]` (blind) invariant test only covers the home orientation — refuted: any face Move under any orientation is exactly one home `FaceTurn`, which is checked for all 24×18 cases, so the invariants hold for every orientation.
+  - `[low]` `[reject]` (blind) `apply` clashes with the stdlib scope function — carried: a rename changes the spec's named API.
+  - `[low]` `[reject]` (blind) `kotlinx.coroutines.runBlocking` comes in only through a transitive dependency — carried: it is part of `kotest-property`'s published API dependencies.
+  - `[low]` `[patch]` (blind) no test for `isSolved` vs `== SOLVED` — patched: `CubeStateTest` asserts that `CubeState(Cubies.SOLVED, o) != SOLVED` for all 23 non-home orientations.
+  - `[false]` `[reject]` (blind) no public way to build an arbitrary `Cubies` — refuted: nothing outside `:core:domain` needs one; `Facelets` and `CubeValidator` (1.3/1.4) live in this module, and the intent's bad-construction row is covered.
+  - `[false]` `[reject]` (blind) KDoc gaps (`Turn.inverse`, `Face` index) and `Turn.quarters` being internal — refuted as a defect: no harm is named; Notation (1.3) is in the same module and can read `quarters`.
+  - `[medium]` `[patch]` (verification-gap) D, L and B edge-flip deltas are unpinned; self-consistent mutations pass every property — patched with the D/L/B exact-effect tests above.
+  - `[false]` `[reject]` (intent) `Cubies` construction is internal while the bad-construction row reads like a public API — refuted: same as the public-factory row; the `require` checks run and are tested.
+  - `[false]` `[reject]` (intent) no named `R`/`R2`/`R'` Move values — refuted: the intent leaves Notation to 1.3; `FaceTurn(face, turn)` is the face Move.
+  - `[false]` `[reject]` (intent) "Through orientation" is checked through the same `homeFaceAt` — refuted: same as the blind self-check row.
+  - `[medium]` `[patch]` (intent) D, L and B turn direction is only pinned indirectly — grouped with the D/L/B exact-effect patch.
+  - `[false]` `[reject]` (intent) gate passing and Kover filter/line defaults are not shown — refuted: this pass ran `:core:domain:check` (green), `build --dry-run` lists `:core:domain:koverVerifyCube`, and the first pass showed the rule failing by name at 88.0%.
+  - `[false]` `[reject]` (intent) additions not named in the intent (`Face.opposite`, `Color.home`, `colorAt`, `ALL`, `HOME`) — refuted as a defect: the auditor found no conflict with any Never rule, and `colorAt`/`ALL`/`HOME` are named in the spec's tasks.
+
 ## Design Notes
 
 Cubie model: fix 8 corner slots and 12 edge slots in the home frame; `cornerPermutation[i]` = which corner cubie sits in slot `i`, `cornerOrientation[i]` its twist there (same idea for edges). Each face turn is a 4-cycle of corner slots with twists and a 4-cycle of edge slots with flips. With the usual reference (U/D stickers define corner twist; F/B quarter turns flip edges; R/L/F/B quarter turns twist corners), the "Real-cube orders" and "Invariants" rows catch wrong cycles or twists, which group-identity properties alone cannot.
@@ -140,20 +168,31 @@ Orientation: represent it by the home faces at Learner U and F; the rest follow 
 
 Status: done
 
-**Summary:** Added the AD-2 cube model to `:core:domain` (`dev.rubikxplorer.domain.cube`): `Face`, `Color`, `Cubies`, `Orientation` (24 rotations), sealed `Move` with `FaceTurn`/`Turn`, and immutable `CubeState` whose face Moves act through `orientation` and whose `isSolved` ignores it. Kotest property tests with pinned seeds prove M⁴ = id, M·M⁻¹ = id and sequence + inverse = id. A build-logic Kover variant gates the cube package at ≥ 90% lines inside `check`.
+**Summary:** Story 1.2 adds the AD-2 cube model to `:core:domain` (`dev.rubikxplorer.domain.cube`): `Face`, `Color`, `Cubies`, `Orientation` (24 rotations), sealed `Move` with `FaceTurn`/`Turn`, and immutable `CubeState`. Face Moves act through `orientation`, and `isSolved` ignores it. Kotest property tests with pinned seeds prove M⁴ = id, M·M⁻¹ = id and sequence + inverse = id. A build-logic Kover variant gates the cube package at ≥ 90% lines inside `check`. This follow-up pass pinned the remaining face tables.
 
 **Files changed:**
 - `gradle/libs.versions.toml`, `core/domain/build.gradle.kts` -- Kotest 6.2.6 `kotest-property` test dependency.
 - `core/domain/src/main/kotlin/dev/rubikxplorer/domain/cube/{Face,Color,Move,Orientation,Cubies,CubeState}.kt` -- the cube model.
-- `core/domain/src/test/kotlin/dev/rubikxplorer/domain/cube/{CubeState,Cubies,Move,Orientation}Test.kt` -- 30 tests covering every I/O-matrix row plus fixed-answer R/U/F turns.
-- `build-logic/src/main/kotlin/dev/rubikxplorer/buildlogic/CubeCoverageGate.kt`, `JvmCoreConventionPlugin.kt` -- `cube` Kover variant with a 90% line rule, `check` depends on `koverVerifyCube` (`:core:domain` only).
+- `core/domain/src/test/kotlin/dev/rubikxplorer/domain/cube/{CubeState,Cubies,Move,Orientation}Test.kt` -- 34 tests covering every I/O-matrix row plus exact-effect tests for all six clockwise face turns (D/L/B added in the follow-up) and the `isSolved` vs `==` rule.
+- `build-logic/src/main/kotlin/dev/rubikxplorer/buildlogic/CubeCoverageGate.kt`, `JvmCoreConventionPlugin.kt` -- `cube` Kover variant with a 90% line rule; `check` depends on `koverVerifyCube` (`:core:domain` only).
 - `.github/workflows/ci.yml` -- gate guard also requires `:core:domain:koverVerifyCube`.
-- `epic-1-context.md` -- recompiled (a planning file was newer than the cache).
+- `epic-1-context.md` -- recompiled in the first pass.
 
-**Review findings:** 28 findings (medium 4, low 14, false 8, maybe-false 2). Patched 5 entries: CI guard for the cube gate (medium), fixed-answer turn tests (medium), bounded `order()` helper (low), two more `Cubies` rejection cases (low), `isSolved` vs `==` KDoc (low). Deferred: none. Every rejection and its reason is in the Review Triage Log.
+**Review findings (follow-up pass):** 24 findings (medium 3, low 10, false 11, maybe-false 0).
+- Patched 2 entries:
+  - exact-effect tests for D, L and B clockwise (medium; grouped from the blind, verification-gap and intent rows);
+  - `CubeState(Cubies.SOLVED, o) != SOLVED` for non-home orientations (low).
+- Deferred: none.
+- Rejected: 9 low findings carried from the first pass with their earlier reasons (mutable-list cast ×3, path rename, highest-package ranking, gate on rename/empty filter, allocations, `apply` name, transitive coroutines). 11 false findings were refuted. Every reason is in the Review Triage Log.
 
-**Follow-up review recommended:** true -- two medium entries were patched (patched counts: high 0, medium 2, low 3). Named risk: the new fixed-answer R/U/F expectations were written by the same agent that wrote the tables, so a shared convention error (twist direction) would agree on both sides; an independent sticker-level check (Facelets in 1.3/1.4) should confirm them.
+**Follow-up review recommended:** false -- this is a follow-up pass and it patched no high entry (patched counts: high 0, medium 1, low 1). The first pass's named risk (twist convention shared by tables and tests) is resolved: this pass checked all six quarter-turn tables against the standard published cubie tables for this slot order, and every entry matched.
 
-**Verification:** `./gradlew spotlessCheck build` exit 0; `./gradlew -p build-logic test` exit 0; `:core:domain` tests 30/30 pass; Kover cube package 100% line coverage (only package in `:core:domain`); `./gradlew build --dry-run` lists `:core:domain:koverVerifyCube`; the implementer showed the 90% rule failing by name at 88.0% with a temporary untested function, then removed it.
+**Verification:**
+- `./gradlew :core:domain:check :core:domain:koverXmlReport` -- exit 0; 34/34 tests pass; cube package 147/147 lines (100%), the only package.
+- `./gradlew spotlessCheck build` -- exit 0.
+- `./gradlew -p build-logic test` -- exit 0.
+- `./gradlew build --dry-run` -- lists `:core:domain:koverVerifyCube`.
 
-**Residual risks:** "highest-covered package" is true now but not gated; an empty cube filter after a package rename may pass Kover vacuously (unverified); first `spotlessCheck build` run locally once failed in `:app:lintAnalyzeDebugUnitTest` on a missing generated Hilt file, which passed on rerun and is unrelated to this change.
+**Residual risks:**
+- "Highest-covered package" is true now but not gated.
+- After a package rename, an empty cube filter may pass Kover vacuously (unverified). The CI guard catches a module rename, not a package rename.

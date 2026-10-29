@@ -83,6 +83,49 @@ class CubiesTest {
     }
 
     @Test
+    fun `D clockwise has the exact real-cube effect`() {
+        // Seen from below, DLF moves to DFR and DF to DR; U/D stickers stay down, so nothing twists or flips.
+        assertEquals(
+            Cubies(
+                listOf(0, 1, 2, 3, 5, 6, 7, 4),
+                List(8) { 0 },
+                listOf(0, 1, 2, 3, 5, 6, 7, 4, 8, 9, 10, 11),
+                List(12) { 0 },
+            ),
+            afterClockwise(Face.D),
+        )
+    }
+
+    @Test
+    fun `L clockwise has the exact real-cube effect`() {
+        // Seen from the left, ULB comes down into UFL with its U sticker on F (twist 1) and BL rises into UL;
+        // L turns keep each edge's U/D or F/B reference sticker on a reference facet, so nothing flips.
+        assertEquals(
+            Cubies(
+                listOf(0, 2, 6, 3, 4, 1, 5, 7),
+                listOf(0, 1, 2, 0, 0, 2, 1, 0),
+                listOf(0, 1, 10, 3, 4, 5, 9, 7, 8, 2, 6, 11),
+                List(12) { 0 },
+            ),
+            afterClockwise(Face.L),
+        )
+    }
+
+    @Test
+    fun `B clockwise has the exact real-cube effect`() {
+        // Seen from behind, UBR moves to ULB with its U sticker on L (twist 1), and all four B edges flip.
+        assertEquals(
+            Cubies(
+                listOf(0, 1, 3, 7, 4, 5, 2, 6),
+                listOf(0, 0, 1, 2, 0, 0, 2, 1),
+                listOf(0, 1, 2, 11, 4, 5, 6, 10, 8, 9, 3, 7),
+                listOf(0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1),
+            ),
+            afterClockwise(Face.B),
+        )
+    }
+
+    @Test
     fun `no legality check at construction`() {
         // A single twisted corner is impossible on a real cube but is CubeValidator's concern, not ours.
         val twisted = solved.copy(cornerOrientation = listOf(1, 0, 0, 0, 0, 0, 0, 0))

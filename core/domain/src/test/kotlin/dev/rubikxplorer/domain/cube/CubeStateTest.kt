@@ -132,6 +132,13 @@ class CubeStateTest {
     }
 
     @Test
+    fun `solved in another orientation is not equal to SOLVED`() {
+        Orientation.ALL.filter { it != Orientation.HOME }.forEach {
+            assertNotEquals(CubeState.SOLVED, CubeState(Cubies.SOLVED, it), "$it")
+        }
+    }
+
+    @Test
     fun `face Moves act through orientation`() {
         val withRightOnTop = Orientation.ALL.filter { it.homeFaceAt(Face.U) == Face.R }
         assertEquals(4, withRightOnTop.size)
