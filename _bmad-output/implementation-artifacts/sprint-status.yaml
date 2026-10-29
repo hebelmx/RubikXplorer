@@ -1,0 +1,150 @@
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created, ready for development
+#   - in-progress: Developer actively working on implementation
+#   - review: Implementation complete, ready for review
+#   - done: Story completed
+
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when its first story starts (via build's sprint sync)
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates the next story after the previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Retrospective appends its action items to action_items; the status view surfaces open ones
+generated: 10-29-2026 12:34
+last_updated: 10-29-2026 12:34
+project: RubikXplorer
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+development_status:
+  epic-1: backlog
+  1-1-scaffold-the-gated-multi-module-project: backlog
+  1-2-model-the-cube-state-and-face-moves: backlog
+  1-3-parse-and-format-every-move-type-in-notation: backlog
+  1-4-validate-a-54-sticker-cube: backlog
+  1-5-generate-scrambles: backlog
+  1-6-turn-a-free-cube-on-a-2d-net-with-buttons: backlog
+  1-7-tell-a-helping-move-from-a-harmful-one-objective-proof-of-co: backlog
+  1-8-spike-choose-the-3d-rendering-approach-oq-3: backlog
+  1-9-spike-guided-6-face-scan-prototype-and-recognition-test-matr: backlog
+  1-10-week-2-decision-gate-schedule-reference-devices-and-baseline: backlog
+  epic-1-retrospective: optional
+
+  epic-2: backlog
+  2-1-load-validated-lesson-content-and-strings: backlog
+  2-2-predicate-registry-for-stages-1-3: backlog
+  2-3-run-a-lesson-through-the-session-reducer: backlog
+  2-4-watch-an-explained-demonstration: backlog
+  2-5-lesson-screen-with-show-me-and-guide-me: backlog
+  2-6-test-me-and-let-me-try: backlog
+  2-7-author-stages-1-3-with-path-tests: backlog
+  epic-2-retrospective: optional
+
+  epic-3: backlog
+  3-1-solver-coordinates-and-move-tables-clean-room: backlog
+  3-2-pruning-tables-cached-off-the-main-thread: backlog
+  3-3-two-phase-search-verified-on-a-10-000-state-corpus: backlog
+  3-4-solvecube-use-case: backlog
+  3-5-enter-a-cube-in-the-manual-cube-editor: backlog
+  3-6-step-through-a-solution-with-generated-notes: backlog
+  3-7-solve-tab-end-to-end: backlog
+  epic-3-retrospective: optional
+
+  epic-4: backlog
+  4-1-assess-evidence-and-produce-a-tutordecision: backlog
+  4-2-diagnose-each-error-category-with-tested-copy: backlog
+  4-3-climb-the-hint-ladder: backlog
+  4-4-undo-or-try-again-after-a-mistake-keeping-the-checkpoint: backlog
+  4-5-guided-recovery-by-the-shortest-correction: backlog
+  4-6-adaptive-assistance-from-configuration: backlog
+  epic-4-retrospective: optional
+
+  epic-5: backlog
+  5-1-render-the-cube-in-3d-behind-the-cuberenderer-port: backlog
+  5-2-turn-layers-with-gestures: backlog
+  5-3-rotate-the-view-and-the-cube: backlog
+  5-4-arrows-highlights-and-dimming-in-3d: backlog
+  5-5-describe-the-cube-to-talkback: backlog
+  epic-5-retrospective: optional
+
+  epic-6: backlog
+  6-1-survive-process-death-with-session-snapshots: backlog
+  6-2-versioned-checkpoints-at-objective-boundaries: backlog
+  6-3-record-every-attempt-append-only: backlog
+  6-4-preferences-and-settings: backlog
+  6-5-resume-from-the-continue-card: backlog
+  epic-6-retrospective: optional
+
+  epic-7: backlog
+  7-1-stage-progress-log-and-gating: backlog
+  7-2-learn-tab-and-stage-detail: backlog
+  7-3-author-stages-4-6-to-a-first-solve: backlog
+  7-4-independent-practice-on-a-fresh-scramble: backlog
+  7-5-mastery-condition-and-milestone: backlog
+  7-6-progress-on-the-you-tab-with-reset: backlog
+  7-7-welcome-and-the-skip-ahead-check: backlog
+  7-8-ship-a-pilot-build-to-closed-testing: backlog
+  epic-7-retrospective: optional
+
+  epic-8: backlog
+  8-1-physical-mode-transitions-in-the-reducer: backlog
+  8-2-follow-a-lesson-on-my-real-cube: backlog
+  8-3-report-a-mismatch-honestly-without-a-camera: backlog
+  8-4-leave-and-resume-physical-mode-safely: backlog
+  8-5-follow-a-solution-on-my-real-cube: backlog
+  8-6-confirm-the-first-physical-solve-and-prove-no-desync: backlog
+  epic-8-retrospective: optional
+
+  epic-9: backlog
+  9-1-algorithm-and-case-content-for-all-78: backlog
+  9-2-one-lastlayermatcher-and-build-failing-algorithm-verificatio: backlog
+  9-3-recognition-diagrams-derived-from-state: backlog
+  9-4-browse-and-filter-the-library: backlog
+  9-5-algorithm-detail-with-demonstration: backlog
+  9-6-set-my-algorithm-status: backlog
+  9-7-2-look-ll-lessons: backlog
+  9-8-2-look-completion-and-mastery: backlog
+  epic-9-retrospective: optional
+
+  epic-10: backlog
+  10-1-classify-stickers-and-assemble-a-scan-result: backlog
+  10-2-guided-6-face-scan-viewfinder: backlog
+  10-3-review-and-correct-a-scan-result: backlog
+  10-4-calibrate-colors-for-my-cube: backlog
+  10-5-scan-to-solve: backlog
+  10-6-quick-check-evidence-and-certainty: backlog
+  10-7-quick-check-in-physical-cube-mode-and-playback: backlog
+  10-8-recognition-test-matrix-and-ga-beta-decision: backlog
+  epic-10-retrospective: optional
+
+  epic-11: backlog
+  11-1-quick-scan-from-two-corners: backlog
+  11-2-start-the-course-from-my-cube-placement: backlog
+  11-3-recognize-an-oll-pll-case: backlog
+  epic-11-retrospective: optional
+
+  epic-12: backlog
+  12-1-accessibility-audit-and-fixes: backlog
+  12-2-performance-and-compatibility-on-the-reference-devices: backlog
+  12-3-stability-size-and-privacy-hardening: backlog
+  12-4-pilot-findings-fixed-and-release-gates-passed: backlog
+  12-5-store-listing-and-public-portfolio-repo: backlog
+  epic-12-retrospective: optional
