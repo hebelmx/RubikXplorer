@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Never cancel an in-flight push-to-main run; superseded PR runs may go.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: Build and gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # Guard: `build` must keep running every gate and must never depend on detekt.
+      - name: Verify build wires the gates
+        run: |
+          plan="$(./gradlew build --dry-run)"
+          status=0
+          for task in checkModuleBoundaries koverVerify checkDebugMergedManifest checkReleaseMergedManifest \
+                      checkDebugSdkDenylist checkReleaseSdkDenylist :app:lintDebug; do
+            if ! grep -q -- "$task" <<<"$plan"; then
+              echo "::error::./gradlew build no longer runs $task"
+              status=1
+            fi
+          done
+          if grep -qi -- ":detekt" <<<"$plan"; then
+            echo "::error::./gradlew build depends on a detekt task"
+            status=1
+          fi
+          exit $status
+
+      # build = compile + Android lint + JVM tests + Kover >= 80% on :core:*
+      # + AD-1 module boundaries + AD-13 merged-manifest and SDK-denylist checks.
+      - name: Spotless and build
+        run: ./gradlew spotlessCheck build
+
+      - name: build-logic policy tests
+        run: ./gradlew -p build-logic test
+
+      # AD-14: advisory until detekt has a stable release for Kotlin 2.4.
+      - name: detekt (non-blocking)
+        continue-on-error: true
+        run: ./gradlew detekt
