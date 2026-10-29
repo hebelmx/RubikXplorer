@@ -40,7 +40,7 @@ jobs:
           plan="$(./gradlew build --dry-run)"
           status=0
           for task in :app:checkModuleBoundaries \
-                      :core:domain:checkModuleBoundaries :core:domain:koverVerify \
+                      :core:domain:checkModuleBoundaries :core:domain:koverVerify :core:domain:koverVerifyCube \
                       :core:solver:checkModuleBoundaries :core:solver:koverVerify \
                       :core:application:checkModuleBoundaries :core:application:koverVerify \
                       :app:checkDebugMergedManifest :app:checkReleaseMergedManifest \
