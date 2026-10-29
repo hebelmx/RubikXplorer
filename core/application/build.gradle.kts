@@ -1,0 +1,7 @@
+plugins {
+    alias(libs.plugins.rubikxplorer.jvm.core)
+}
+
+dependencies {
+    implementation(project(":core:domain"))
+}
