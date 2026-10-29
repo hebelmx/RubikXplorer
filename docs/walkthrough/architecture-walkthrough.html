@@ -1,0 +1,402 @@
+<title>RubikXplorer Architecture Walkthrough</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: six chapters, one per cube face in URFDLB order; a face-sticker rail on the left, chapter on the right. */
+:root {
+  --bg: #eef1f4;
+  --panel: #ffffff;
+  --ink: #17202b;
+  --muted: #5a6573;
+  --line: #d3d9e0;
+  --accent: #e8590c;
+  --code-bg: #f5f7f9;
+  --st-white: #fbfbf8; --st-red: #c92a2a; --st-green: #2b8a3e;
+  --st-yellow: #f5c518; --st-orange: #f76707; --st-blue: #1864ab;
+  --st-edge: #1c2530;
+  --ok: #2b8a3e; --warn: #b35c00; --bad: #c92a2a;
+  --display: "Chivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161c; --panel: #192029; --ink: #e6ebf0; --muted: #98a3b0; --line: #2c3642;
+    --accent: #ff8a3d; --code-bg: #141a21; --st-edge: #05080b;
+    --ok: #69db7c; --warn: #ffb35c; --bad: #ff8787;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161c; --panel: #192029; --ink: #e6ebf0; --muted: #98a3b0; --line: #2c3642;
+  --accent: #ff8a3d; --code-bg: #141a21; --st-edge: #05080b;
+  --ok: #69db7c; --warn: #ffb35c; --bad: #ff8787;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.6; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; border-bottom: 2px solid var(--ink); padding-bottom: 14px; }
+header.top h1 { font-family: var(--display); font-weight: 900; font-size: clamp(28px, 5vw, 44px); line-height: 1.05; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+header.top p { margin: 4px 0 0; color: var(--muted); max-width: 60ch; }
+.tag { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+.layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 32px; margin-top: 28px; }
+nav.rail { position: sticky; top: calc(16px + env(safe-area-inset-top, 0px)); align-self: start; display: flex; flex-direction: column; gap: 6px; }
+nav.rail .hint { font-size: 12px; color: var(--muted); margin-top: 10px; }
+.facebtn { display: grid; grid-template-columns: 34px 1fr; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.facebtn:hover { border-color: var(--line); }
+.facebtn[aria-current="true"] { border-color: var(--ink); background: var(--panel); }
+.facebtn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.facebtn .lbl { display: flex; flex-direction: column; line-height: 1.2; }
+.facebtn .lbl b { font-family: var(--mono); font-size: 13px; }
+.facebtn .lbl span { font-size: 13px; color: var(--muted); }
+.face { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 2px; background: var(--st-edge); border-radius: 4px; width: 34px; height: 34px; }
+.face i { border-radius: 2px; }
+.face.big { width: 72px; height: 72px; gap: 3px; padding: 3px; border-radius: 7px; }
+article { min-width: 0; }
+.chap-head { display: flex; gap: 20px; align-items: center; }
+.chap-head h2 { font-family: var(--display); font-weight: 900; font-size: clamp(26px, 4vw, 36px); line-height: 1.1; margin: 0; text-wrap: balance; }
+.chap-head .tag { display: block; margin-bottom: 4px; }
+.lede { font-size: 18px; max-width: 65ch; margin: 18px 0 8px; }
+h3 { font-family: var(--display); font-weight: 700; font-size: 19px; margin: 28px 0 8px; }
+p, li { max-width: 68ch; }
+code, .mono { font-family: var(--mono); font-size: 0.92em; }
+pre { font-family: var(--mono); font-size: 13.5px; background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; overflow-x: auto; line-height: 1.5; }
+pre.mermaid { background: var(--panel); text-align: center; }
+.ads { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
+.ads li { font-family: var(--mono); font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; color: var(--muted); }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 12px; }
+.note { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 14px 16px; }
+.note h4 { margin: 0 0 6px; font-family: var(--display); font-size: 16px; }
+.note p { margin: 0; font-size: 15px; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; margin-top: 8px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 500; }
+.pager { display: flex; justify-content: space-between; gap: 12px; margin-top: 40px; border-top: 1px solid var(--line); padding-top: 16px; }
+.pager button { font: inherit; font-weight: 600; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+.pager button:hover:not(:disabled) { border-color: var(--ink); }
+.pager button:disabled { opacity: 0.4; cursor: default; }
+.pager button:focus-visible, .demo button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+/* Sync demo */
+.demo { border: 2px solid var(--ink); border-radius: 10px; background: var(--panel); padding: 16px; margin-top: 16px; }
+.demo .row { display: flex; flex-wrap: wrap; gap: 8px; }
+.demo button { font: inherit; font-size: 14px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+.demo button:hover:not(:disabled) { border-color: var(--ink); }
+.demo button:disabled { opacity: 0.4; cursor: default; }
+.machine { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin: 14px 0; }
+.node { border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; font-family: var(--mono); font-size: 13px; color: var(--muted); }
+.node.on { border: 2px solid var(--accent); color: var(--ink); background: var(--bg); }
+.status { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; font-size: 14px; }
+.status div { border-left: 3px solid var(--line); padding-left: 8px; }
+.status b { display: block; font-family: var(--mono); font-size: 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+.pill { display: inline-block; font-family: var(--mono); font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; }
+.pill.v { color: var(--ok); } .pill.l { color: var(--warn); } .pill.u { color: var(--muted); }
+.log { margin-top: 12px; font-family: var(--mono); font-size: 12.5px; background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; max-height: 190px; overflow: auto; }
+.log div { white-space: pre-wrap; }
+.log .x { color: var(--bad); }
+.log .ok { color: var(--ok); }
+@media (max-width: 760px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  nav.rail { position: static; flex-direction: row; flex-wrap: wrap; }
+  .facebtn { grid-template-columns: 28px auto; padding: 6px 8px; }
+  .facebtn .lbl span { display: none; }
+  .face { width: 28px; height: 28px; }
+  nav.rail .hint { display: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  article { animation: in .25s ease-out; }
+  @keyframes in { from { transform: translateY(4px); } to { transform: none; } }
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <span class="tag">Android · Kotlin · Hexagonal · Functional core</span>
+      <h1>RubikXplorer Architecture</h1>
+      <p>An offline cube tutor that keeps three cubes in sync: the one on screen, the one the tutor expects, and the one in your hands.</p>
+    </div>
+    <span class="tag">Spine: 20 decisions · AD-1…AD-20</span>
+  </header>
+
+  <div class="layout">
+    <nav class="rail" aria-label="Chapters, one per cube face">
+      <div id="rail"></div>
+      <div class="hint">Use ← → to move between chapters. Each chapter is a face of the cube, in solver order: U R F D L B.</div>
+    </nav>
+    <main id="main" aria-live="polite"></main>
+  </div>
+</div>
+
+<template id="ch-u">
+  <h3>The tutor never claims what it doesn't know</h3>
+  <p>Most cube apps are solvers with a tutorial bolted on. RubikXplorer explains why each Move matters, checks the result against a verified cube model, and corrects mistakes. That ambition creates the problem the whole architecture solves: the app has to track <em>three</em> cubes.</p>
+  <div class="cols">
+    <div class="note"><h4>Virtual</h4><p>The cube on screen. When the Learner works on screen, this one is the truth.</p></div>
+    <div class="note"><h4>Expected</h4><p>What the tutor believes the Learner is holding, built from the Moves they confirmed.</p></div>
+    <div class="note"><h4>Physical</h4><p>The real cube. The app only knows it when the Learner enters it or the camera sees it.</p></div>
+  </div>
+  <h3>The drivers</h3>
+  <ul>
+    <li><b>Correctness can be proved.</b> Cube math is deterministic, so it lives in pure code with property-based tests.</li>
+    <li><b>Teaching is content.</b> 7 Stages, a 2-look course and 78 OLL/PLL Algorithms change more often than the engine.</li>
+    <li><b>Private by design.</b> No account, no network permission, no analytics. The build enforces it.</li>
+    <li><b>Portfolio-grade.</b> The repo has to back up every claim: CI gates, coverage, a documented architecture.</li>
+  </ul>
+</template>
+
+<template id="ch-r">
+  <h3>Three of four modules can't import Android</h3>
+  <p>Ports and adapters, sized for one developer: four Gradle modules, and the compiler enforces the dependency direction.</p>
+  <pre class="mermaid">
+graph TD
+  app[":app — Compose · ViewModels · SessionHost · Hilt · renderer · CameraX · Room"]
+  application[":core:application — use cases · ports · reducer"]
+  solver[":core:solver — own Kociemba two-phase"]
+  domain[":core:domain — cube · notation · content · tutor · recognition · playback"]
+  app --> application
+  app --> solver
+  app --> domain
+  application --> domain
+  solver --> application
+  solver --> domain
+  </pre>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Layer</th><th>Module</th><th>Holds</th></tr></thead>
+    <tbody>
+      <tr><td>Functional core</td><td class="mono">:core:domain</td><td>cube model, Notation, validation, predicates, tutor rules, recognition classification</td></tr>
+      <tr><td>Solver adapter</td><td class="mono">:core:solver</td><td>clean-room Kotlin Kociemba, behind the <code>CubeSolver</code> port</td></tr>
+      <tr><td>Application</td><td class="mono">:core:application</td><td>use cases, ports, the session reducer</td></tr>
+      <tr><td>Imperative shell</td><td class="mono">:app</td><td>Compose UI, renderer, camera, Room, Hilt: everything with side effects</td></tr>
+    </tbody>
+  </table></div>
+  <ul class="ads"><li>AD-1 module direction</li><li>AD-11 DI &amp; concurrency</li><li>AD-12 errors are values</li></ul>
+</template>
+
+<template id="ch-f">
+  <h3>One model, one home frame, one sticker layout</h3>
+  <p>The canonical <code>CubeState</code> is <b>cubies + orientation</b>: the permutation and orientation of 8 corners and 12 edges, plus which of the 24 ways the cube is being held. The 54-sticker form exists only where data enters or leaves the app.</p>
+  <pre>data class CubeState(val cubies: Cubies, val orientation: Orientation)   // 24 values
+
+// home: WHITE on U, GREEN on F → RED on R
+// Facelets: List&lt;Color&gt;(54), URFDLB order, row-major per the Kociemba net
+// the only way in:  CubeValidator.validate(facelets): ValidationResult</pre>
+  <div class="cols">
+    <div class="note"><h4>Why orientation is explicit</h4><p><code>y R</code> must turn the face that's on the Learner's right <em>now</em>. Cube Rotations change only <code>orientation</code>. Slice and wide Moves are a face turn plus a rotation. "You're holding it the wrong way" becomes a state the tutor can diagnose.</p></div>
+    <div class="note"><h4>Why one layout</h4><p>The renderer, editor, scanner and Solver all read the same sticker indices. Otherwise a scanned solved cube could look rotated and fail validation.</p></div>
+    <div class="note"><h4>Notation</h4><p>One parser, one printer. Moves are equal when they have the same effect (<code>R2 == R2'</code>). Slices follow WCA: <code>M</code> turns like <code>L</code>.</p></div>
+  </div>
+  <ul class="ads"><li>AD-2 cube state</li><li>AD-7 notation</li><li>AD-17 one sticker-appearance table</li></ul>
+</template>
+
+<template id="ch-d">
+  <h3>A reducer, like Redux, in Kotlin</h3>
+  <p>Every change, whether a Move, a confirmation, a scan or an undo, is an event handled by one pure function. ViewModels send events and observe state. They never mutate it.</p>
+  <pre>fun reduce(state: SessionState, event: SessionEvent): Transition
+// Transition = new state + effects (persist, scan, solve…) + presentation (Animate | Snap)</pre>
+  <ul>
+    <li><b>Commit before animate.</b> The Move lands in state first and the animation catches up. The renderer is a projection with a test hook.</li>
+    <li><b>Revisioned effects.</b> Every async effect carries the revision it was issued at. Results for an older revision are discarded.</li>
+    <li><b>Restore is humble.</b> After process death, a physical session always asks the Learner to confirm their cube.</li>
+  </ul>
+  <h3>Try it: physical-cube sync</h3>
+  <p>Step through a Lesson with a real cube. Start a Quick Check, then confirm another Move <em>before</em> the scan result comes back, and watch the stale result get discarded instead of producing a false "verified".</p>
+  <div class="demo" id="demo">
+    <div class="machine" id="machine"></div>
+    <div class="status">
+      <div><b>Mode</b><span id="s-mode"></span></div>
+      <div><b>Revision</b><span id="s-rev" class="mono"></span></div>
+      <div><b>Observed</b><span id="s-obs"></span></div>
+      <div><b>Certainty</b><span id="s-cert"></span></div>
+    </div>
+    <div class="row" style="margin-top:14px" id="controls"></div>
+    <div class="log" id="log" aria-live="polite"></div>
+  </div>
+  <ul class="ads"><li>AD-3 one state owner</li><li>AD-4 commit before animate</li><li>AD-10 snapshots &amp; checkpoints</li></ul>
+</template>
+
+<template id="ch-l">
+  <h3>Honesty is encoded in types</h3>
+  <p>PRD Principle 3, <em>never claim what you don't know</em>, is enforced by the compiler.</p>
+  <pre>sealed interface PhysicalObservation {
+  data class Full(val state: CubeState) : PhysicalObservation      // only via CubeValidator
+  data class Partial(val faces: Map&lt;Face, List&lt;Color&gt;&gt;) : PhysicalObservation  // never filled from "expected"
+}
+enum class Certainty { VERIFIED, LIKELY, UNKNOWN }                    // no uncalibrated percentages
+fun Diagnosis.Companion.verified(evidence: Evidence, match: Match.Unique): Diagnosis</pre>
+  <p>Only <code>tutor/Assess</code> produces Certainty, through one shared candidate enumerator. VERIFIED requires two things: the camera saw every face that recent Moves could have changed, and exactly one explanation fits.</p>
+  <h3>Recognition without a cloud</h3>
+  <pre class="mermaid">
+graph LR
+  F[Camera frames] -->|CameraX adapter: only pixel code| S[FaceSample: 9 CIELAB colors + pose]
+  S --> A[ScanAssembler: rotate into URFDLB]
+  A --> C[StickerClassifier vs. calibration]
+  C --> V{Full or Partial}
+  V -->|Full| X[CubeValidator]
+  V -->|Partial| P[Quick Check / case candidates]
+  X --> U[Learner reviews uncertain stickers]
+  </pre>
+  <p>The 6-face scan uses a fixed on-screen grid, so it needs no computer-vision library. Images never leave memory. Recognition accuracy is tested in CI from recorded <code>FaceSample</code> fixtures.</p>
+  <ul class="ads"><li>AD-5 observations &amp; Certainty</li><li>AD-9 recognition</li><li>AD-19 one last-layer matcher</li></ul>
+</template>
+
+<template id="ch-b">
+  <h3>Teaching as data, solver as a tool</h3>
+  <div class="cols">
+    <div class="note"><h4>Content</h4><p>Lessons and Algorithms are versioned JSON, checked by JSON Schema. Predicates come from a closed, typed Kotlin registry. They find faces by center color, and each reports the pieces it preserves.</p></div>
+    <div class="note"><h4>78 Algorithms, verified</h4><p>A build test derives each Case from the solved cube and checks that its Algorithm solves it. A typo fails CI.</p></div>
+    <div class="note"><h4>Own Kociemba solver</h4><p>A clean-room Kotlin two-phase solver, because the best-known JVM implementation is GPLv3-only. It finds paths but never teaches. It runs as an effect with a 3 s timeout, and its results are re-verified.</p></div>
+  </div>
+  <h3>Guarantees the build enforces</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Guarantee</th><th>Mechanism</th></tr></thead>
+    <tbody>
+      <tr><td>Offline, collects nothing</td><td>No <code>INTERNET</code> permission; <code>allowBackup=false</code>. CI fails if an analytics, ads or crash SDK appears.</td></tr>
+      <tr><td>Correct cube math</td><td>Kotest property tests: inverse restores the state, M⁴ = identity, illegal states rejected.</td></tr>
+      <tr><td>No state drift</td><td>Transition-table tests, checkpoint round-trips, renderer-sync tests.</td></tr>
+      <tr><td>Quality</td><td>≥ 80% Kover coverage on pure modules; Spotless/ktlint; Android lint, including accessibility.</td></tr>
+      <tr><td>Safe scope cuts</td><td><code>FeatureFlags</code>: OFF / BETA / GA per build type, matching the PRD's cut order.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Delivery</h3>
+  <pre class="mermaid">
+graph LR
+  dev[PR to main] --> ci[CI gates]
+  ci -->|tag vX.Y.Z| aab[Signed AAB + R8 mapping]
+  aab --> internal[Play internal] --> closed[Closed pilot] --> prod[Production]
+  </pre>
+  <p class="tag">Stack, verified Oct 2026: Kotlin 2.4.21 · AGP 9.5 · Compose BOM 2026.09.00 · Room 3.0 · CameraX 1.6.2 · Hilt 2.60 · SceneView 4.62 · Kotest 6.2</p>
+  <ul class="ads"><li>AD-6 content as data</li><li>AD-8 solver</li><li>AD-13 privacy</li><li>AD-14 CI gates</li><li>AD-15 release</li><li>AD-18 flags</li></ul>
+</template>
+
+<script>
+(function () {
+  var C = { W: "var(--st-white)", R: "var(--st-red)", G: "var(--st-green)", Y: "var(--st-yellow)", O: "var(--st-orange)", B: "var(--st-blue)" };
+  var chapters = [
+    { id: "u", face: "U", color: "W", title: "Why it's hard", sub: "Problem & drivers" },
+    { id: "r", face: "R", color: "R", title: "Hexagonal shape", sub: "Modules & ports" },
+    { id: "f", face: "F", color: "G", title: "The cube model", sub: "Cubies + orientation" },
+    { id: "d", face: "D", color: "Y", title: "One state owner", sub: "Reducer & sync" },
+    { id: "l", face: "L", color: "O", title: "Honest by type", sub: "Certainty & camera" },
+    { id: "b", face: "B", color: "B", title: "Content, solver, delivery", sub: "Quality gates" }
+  ];
+  function face(color, big) {
+    var d = document.createElement("div");
+    d.className = "face" + (big ? " big" : "");
+    d.setAttribute("aria-hidden", "true");
+    for (var i = 0; i < 9; i++) { var s = document.createElement("i"); s.style.background = C[color]; d.appendChild(s); }
+    return d;
+  }
+  var rail = document.getElementById("rail");
+  var main = document.getElementById("main");
+  var current = 0;
+  chapters.forEach(function (c, i) {
+    var b = document.createElement("button");
+    b.className = "facebtn"; b.type = "button"; b.id = "nav-" + c.id;
+    b.appendChild(face(c.color));
+    var l = document.createElement("span"); l.className = "lbl";
+    l.innerHTML = "<b>" + c.face + " · " + c.title + "</b><span>" + c.sub + "</span>";
+    b.appendChild(l);
+    b.addEventListener("click", function () { go(i); });
+    rail.appendChild(b);
+  });
+  function go(i, fromHash) {
+    current = Math.max(0, Math.min(chapters.length - 1, i));
+    var c = chapters[current];
+    main.innerHTML = "";
+    var art = document.createElement("article");
+    var head = document.createElement("div"); head.className = "chap-head";
+    head.appendChild(face(c.color, true));
+    var h = document.createElement("div");
+    h.innerHTML = '<span class="tag">Face ' + c.face + " · chapter " + (current + 1) + " of 6</span><h2>" + c.title + "</h2>";
+    head.appendChild(h);
+    art.appendChild(head);
+    art.appendChild(document.getElementById("ch-" + c.id).content.cloneNode(true));
+    var pager = document.createElement("div"); pager.className = "pager";
+    var prev = document.createElement("button"); prev.type = "button"; prev.textContent = "← Previous"; prev.disabled = current === 0;
+    prev.addEventListener("click", function () { go(current - 1); window.scrollTo(0, 0); });
+    var next = document.createElement("button"); next.type = "button"; next.textContent = current === 5 ? "Back to start" : "Next →";
+    next.addEventListener("click", function () { go(current === 5 ? 0 : current + 1); window.scrollTo(0, 0); });
+    pager.appendChild(prev); pager.appendChild(next);
+    art.appendChild(pager);
+    main.appendChild(art);
+    chapters.forEach(function (x, j) { document.getElementById("nav-" + x.id).setAttribute("aria-current", j === current ? "true" : "false"); });
+    if (!fromHash && location.hash !== "#" + c.id) { try { history.replaceState(null, "", "#" + c.id); } catch (e) {} }
+    if (window.mermaid && window.mermaid.run) { try { window.mermaid.run({ nodes: art.querySelectorAll("pre.mermaid") }); } catch (e) {} }
+    if (c.id === "d") initDemo();
+  }
+  function fromHash() {
+    var h = (location.hash || "").replace("#", "");
+    var idx = chapters.findIndex(function (c) { return c.id === h; });
+    go(idx >= 0 ? idx : 0, true);
+  }
+  window.addEventListener("hashchange", fromHash);
+  document.addEventListener("keydown", function (e) {
+    if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+    if (e.key === "ArrowRight") go(current + 1);
+    if (e.key === "ArrowLeft") go(current - 1);
+  });
+
+  /* ---- Physical-cube sync demo: a simplified model of the AD-3 state machine ---- */
+  function initDemo() {
+    var nodes = ["Virtual", "AwaitingConfirm", "Predicted", "Verified", "Mismatch"];
+    var s = { node: "Virtual", rev: 0, obs: "none", cert: "UNKNOWN", pending: null };
+    var logEl = document.getElementById("log");
+    function log(msg, cls) { var d = document.createElement("div"); if (cls) d.className = cls; d.textContent = msg; logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight; }
+    function bump(evt) { s.rev += 1; log("rev " + s.rev + "  " + evt); }
+    var actions = [
+      { id: "phys", label: "Switch to physical", ok: function () { return s.node === "Virtual"; },
+        run: function () { s.node = "AwaitingConfirm"; s.obs = "none"; s.cert = "UNKNOWN"; bump("ModeSwitched(physical) → confirm your cube matches"); } },
+      { id: "match", label: "My cube matches", ok: function () { return s.node === "AwaitingConfirm"; },
+        run: function () { s.node = "Predicted"; bump("PhysicalConfirmed(match)"); } },
+      { id: "done", label: "Done (did the Move)", ok: function () { return s.node === "Predicted" || s.node === "Verified"; },
+        run: function () { s.node = "Predicted"; if (s.obs !== "none") s.obs = "stale"; s.cert = "UNKNOWN"; bump("PhysicalConfirmed(R U R')  [prior observation marked stale]"); } },
+      { id: "qc", label: "Start Quick Check", ok: function () { return (s.node === "Predicted" || s.node === "Mismatch") && !s.pending; },
+        run: function () { s.pending = { rev: s.rev }; log("        effect StartQuickCheck issued at rev " + s.rev); } },
+      { id: "qcm", label: "Scan returns: matches", ok: function () { return !!s.pending; },
+        run: function () { finishScan(true); } },
+      { id: "qcd", label: "Scan returns: differs", ok: function () { return !!s.pending; },
+        run: function () { finishScan(false); } },
+      { id: "undo", label: "Undo", ok: function () { return s.node === "Predicted" || s.node === "Mismatch"; },
+        run: function () { s.node = "Predicted"; s.cert = "UNKNOWN"; bump("Undo → revert expected; please do the inverse on your cube"); } },
+      { id: "kill", label: "App killed & restored", ok: function () { return s.node !== "Virtual"; },
+        run: function () { s.node = "AwaitingConfirm"; s.obs = "none"; s.cert = "UNKNOWN"; s.pending = null; bump("CheckpointRestored → can't know your cube; confirm or scan"); } },
+      { id: "virt", label: "Switch to virtual", ok: function () { return s.node === "Predicted" || s.node === "Verified"; },
+        run: function () { s.node = "Virtual"; s.obs = "none"; s.cert = "UNKNOWN"; bump("ModeSwitched(virtual)  [virtual := expected]"); } }
+    ];
+    function finishScan(matches) {
+      var p = s.pending; s.pending = null;
+      if (p.rev !== s.rev) {
+        log("        result for rev " + p.rev + " DISCARDED: state is now rev " + s.rev + " (no false VERIFIED)", "x");
+        return;
+      }
+      s.obs = "Full";
+      if (matches) { s.node = "Verified"; s.cert = "VERIFIED"; bump("ScanAccepted(matches expected) → Assess = VERIFIED"); log("        unique candidate · all touched faces seen", "ok"); }
+      else { s.node = "Mismatch"; s.cert = "LIKELY"; bump("ScanAccepted(differs) → Diagnosis: R instead of R' (LIKELY → offer full scan)"); }
+    }
+    var machine = document.getElementById("machine");
+    var controls = document.getElementById("controls");
+    function render() {
+      machine.innerHTML = "";
+      nodes.forEach(function (n) { var d = document.createElement("div"); d.className = "node" + (n === s.node ? " on" : ""); d.textContent = n; machine.appendChild(d); });
+      document.getElementById("s-mode").textContent = s.node === "Virtual" ? "virtual" : "physical";
+      document.getElementById("s-rev").textContent = String(s.rev) + (s.pending ? "  (Quick Check pending @" + s.pending.rev + ")" : "");
+      document.getElementById("s-obs").textContent = s.obs;
+      var cls = s.cert === "VERIFIED" ? "v" : s.cert === "LIKELY" ? "l" : "u";
+      document.getElementById("s-cert").innerHTML = '<span class="pill ' + cls + '">' + s.cert + "</span>";
+      controls.innerHTML = "";
+      actions.forEach(function (a) {
+        var b = document.createElement("button"); b.type = "button"; b.id = "demo-" + a.id; b.textContent = a.label; b.disabled = !a.ok();
+        b.addEventListener("click", function () { a.run(); render(); });
+        controls.appendChild(b);
+      });
+    }
+    log("rev 0  Lesson started (virtual mode)");
+    render();
+  }
+  fromHash();
+})();
+</script>
