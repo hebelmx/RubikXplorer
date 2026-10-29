@@ -39,9 +39,14 @@ jobs:
         run: |
           plan="$(./gradlew build --dry-run)"
           status=0
-          for task in checkModuleBoundaries koverVerify checkDebugMergedManifest checkReleaseMergedManifest \
-                      checkDebugSdkDenylist checkReleaseSdkDenylist :app:lintDebug; do
-            if ! grep -q -- "$task" <<<"$plan"; then
+          for task in :app:checkModuleBoundaries \
+                      :core:domain:checkModuleBoundaries :core:domain:koverVerify \
+                      :core:solver:checkModuleBoundaries :core:solver:koverVerify \
+                      :core:application:checkModuleBoundaries :core:application:koverVerify \
+                      :app:checkDebugMergedManifest :app:checkReleaseMergedManifest \
+                      :app:checkDebugSdkDenylist :app:checkReleaseSdkDenylist :app:lintDebug; do
+            # Match the whole task path at line start, so one module's task cannot stand in for another's.
+            if ! grep -qE -- "^${task} " <<<"$plan"; then
               echo "::error::./gradlew build no longer runs $task"
               status=1
             fi

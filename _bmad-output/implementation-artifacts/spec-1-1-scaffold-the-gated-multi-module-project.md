@@ -5,7 +5,7 @@ created: '2026-10-29'
 status: 'done'
 baseline_revision: '45192a871135894a27e2267b354fbeee8f146065'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-1-context.md'
@@ -159,6 +159,45 @@ deferred:
   - `[low]` `[reject]` (intent) release unit tests do not run the release branch — release levels covered by `FeatureFlagLevelsTest` and checked in generated BuildConfig.
   - `[low]` `[reject]` (intent) no automated kotlin-android/kapt check for `:app` — verified absent by the Verification grep; AC requires absence, not a gate.
 
+### 2026-10-29 — Review pass (follow-up)
+- verdicts: 35 findings — high 0, medium 3, low 26, false 6, maybe-false 0
+- findings:
+  - `[medium]` `[patch]` (verification-gap) gate input collection (`collect`, `coordinates`, quality wiring) has no functional test — carried: same claim as the earlier "no functional tests for gate wiring" row; the dry-run guard and manual negative runs still stand; not patched again.
+  - `[low]` `[patch]` (verification-gap) CI dry-run guard greps bare task names, so one module's task stands in for another's — patched: guard now lists every fully qualified path (`:app:checkModuleBoundaries`, `:core:{domain,solver,application}:checkModuleBoundaries`/`:koverVerify`, `:app:*` manifest/denylist/lint) and matches `^<path> ` at line start.
+  - `[medium]` `[patch]` (intent) boundary/manifest failures shown only on pure policies, not a red `build` — carried: same as the earlier "failure paths not shown end to end" row; manual negative runs recorded.
+  - `[low]` `[reject]` (intent) boundary sees declared, not transitive, groups — carried: earlier reject still holds.
+  - `[low]` `[reject]` (intent) dangerous permissions judged by a fixed list, not library-declared `<permission protectionLevel=dangerous>` — a custom dangerous permission the app also uses is unlikely; detecting it adds a new branch.
+  - `[low]` `[reject]` (intent) `CheckSdkDenylistTask.coordinates` walk untested — carried: earlier reject still holds.
+  - `[false]` `[reject]` (intent) malformed levels reach build-logic's `IllegalArgumentException` first — the adapter still throws `IllegalStateException` at construction (tested); an earlier, louder failure in build-logic is not a defect.
+  - `[low]` `[reject]` (intent) BuildConfig scan is text-based and would flag comments — a false positive fails loudly and is fixed by rewording; a parser-based scan adds complexity.
+  - `[low]` `[reject]` (intent) `foojay-resolver-convention` 1.0.0 pinned in `settings.gradle.kts` outside the catalog — the settings `plugins {}` block cannot read the version catalog; the version is the one the spec names.
+  - `[false]` `[reject]` (intent) KSP result not in Design Notes — the Design Notes entry exists in this spec; the reviewed diff excluded the spec file.
+  - `[low]` `[reject]` (blind) backup gate does not require `dataExtractionRules` — carried: earlier reject still holds; both attributes are present.
+  - `[low]` `[reject]` (blind) denylist misses datatransport/appcenter/onesignal etc. and `AD_ID` — carried: earlier rejects for the denylist set and AD_ID still hold.
+  - `[low]` `[reject]` (blind) raw-text denylist prefixes over-match — carried: earlier reject still holds.
+  - `[low]` `[reject]` (blind) Gradle plugin ids (google-services, crashlytics) not denylisted — those plugins require their runtime SDK, which the runtime-classpath denylist catches.
+  - `[low]` `[reject]` (blind) boundary check misses file deps, transitives and Android libs outside the groups — carried: earlier rejects still hold.
+  - `[low]` `[reject]` (blind) dependency snapshot depends on `afterEvaluate` order — carried: earlier reject still holds.
+  - `[medium]` `[patch]` (blind) no end-to-end tests of the gate wiring — carried: same as the earlier gate-wiring row; not patched again.
+  - `[low]` `[patch]` (blind) dry-run guard substring match and no unit-test tasks in it — grouped with the fully-qualified-path patch; unit-test tasks left out because `check` always pulls `test`, and the guard targets the custom gates.
+  - `[low]` `[reject]` (blind) CI uploads no reports on failure — carried: earlier reject still holds.
+  - `[false]` `[reject]` (blind) detekt decoupling fragile / `continue-on-error` redundant — carried: dry-run shows no detekt task and CI guards it; `continue-on-error` deliberately keeps a detekt tool crash advisory.
+  - `[low]` `[reject]` (blind) no edge-to-edge insets or launcher icon in the placeholder activity — carried for edge-to-edge; icon is cosmetic on a placeholder replaced by later UI stories.
+  - `[low]` `[reject]` (blind) lint warnings never fail the build — AGP default `abortOnError` fails on errors; making warnings fatal is a policy choice the intent does not make.
+  - `[low]` `[reject]` (blind) configuration cache not enabled or tested — not enabled, so nothing breaks today; enabling it is new work.
+  - `[false]` `[reject]` (blind) flag names synced by hand — carried: `BuildConfigFeatureFlagsTest` constructs the adapter from real BuildConfig in `build`, so drift fails CI.
+  - `[false]` `[reject]` (blind) extra build type fails configuration — carried: deliberate loud failure with a message naming the fix.
+  - `[low]` `[reject]` (blind) BuildConfigUsageTest misfires on comments / misses generated dirs — same reasoning as the intent BuildConfig row; generated sources are not hand-written reads.
+  - `[low]` `[reject]` (edge) merged manifest without `dataExtractionRules` passes — carried: earlier reject still holds.
+  - `[low]` `[reject]` (edge) custom/library dangerous permissions pass — same as the intent dangerous-permission row.
+  - `[low]` `[reject]` (edge) transitive androidx/dagger into `:core:*` — carried: earlier reject still holds.
+  - `[low]` `[reject]` (edge) `files(...)` dependencies dropped by boundary check — carried: earlier reject still holds.
+  - `[low]` `[reject]` (edge) denylisted SDK as a local jar/aar is invisible — no file dependencies exist; reporting non-module artifacts adds a new branch for an unlikely edit.
+  - `[low]` `[reject]` (edge) `org.jetbrains.androidx`, `com.google.mlkit`, `com.google.firebase` not forbidden in `:core:*` — outside the matrix's group list; firebase is caught by the app denylist and an ML Kit dep in pure-JVM core would not compile against it unnoticed.
+  - `[low]` `[reject]` (edge) late-added dependencies missed by `afterEvaluate` snapshot — carried: earlier reject still holds.
+  - `[false]` `[reject]` (edge) quality plugin ignores `com.android.library` modules — only `:app` applies it and no library module exists; nothing reaches the missing path.
+  - `[low]` `[patch]` (edge) per-module gate regression passes the substring grep — grouped with the fully-qualified-path patch.
+
 ## Design Notes
 
 - Flag levels: debug = all `GA` (AD-15 "debug includes every feature flag"); release = all `OFF` until each feature story raises its own. Encoded as `FEATURE_FLAG_LEVELS = "QUICK_SCAN=GA,PLACEMENT=GA,..."`.
@@ -181,22 +220,16 @@ deferred:
 
 Status: done
 
-**Summary:** Gradle 9.8.2 multi-module scaffold (`:app`, `:core:domain`, `:core:solver`, `:core:application`) on Kotlin 2.4.21 / AGP 9.5.0 built-in Kotlin, with `build-logic` convention plugins enforcing AD-1 module boundaries, AD-13 merged-manifest and SDK-denylist checks, Kover ≥ 80% on `:core:*`, advisory detekt, AD-18 flag levels per build type, and a GitHub Actions CI workflow. KSP 2.3.12 confirmed working with Kotlin 2.4.21 (Hilt 2.60.1).
+**Summary:** Follow-up review pass over the Story 1.1 scaffold (Gradle 9.8.2 multi-module build with `build-logic` gates for AD-1, AD-13, AD-14, AD-18 and a CI workflow). One low patch applied: the CI "Verify build wires the gates" guard now checks fully qualified task paths per module instead of bare-name substrings.
 
-**Files changed:**
-- `gradlew`, `gradlew.bat`, `gradle/wrapper/*` -- Gradle 9.8.2 wrapper.
-- `gradle/libs.versions.toml` -- all versions; KSP result comment.
-- `settings.gradle.kts`, `build.gradle.kts`, `gradle.properties` -- module graph, root plugin pinning, Spotless/ktlint.
-- `build-logic/**` -- jvm-core, android-app, quality, release plugins; pure policies (boundary, codec, manifest, denylist, flag levels) and tasks; 69 unit tests.
-- `core/*/build.gradle.kts` -- AD-1 edges; `core/application/.../port/FeatureFlags.kt` + test -- AD-18 port.
-- `app/**` -- Hilt + Compose shell, `BuildConfigFeatureFlags` adapter, Hilt binding, manifest and exclude-all backup rules, adapter and BuildConfig-scan tests.
-- `.github/workflows/ci.yml` -- wrapper validation, gate-wiring dry-run, `spotlessCheck build`, build-logic tests, non-blocking detekt.
-- `.gitignore` -- `.kotlin/`.
+**Files changed (this pass):**
+- `.github/workflows/ci.yml` -- dry-run guard lists `:app:` and each `:core:*` gate task path and matches it at line start.
+- this spec -- follow-up triage log and result.
 
-**Review findings:** 43 findings; 8 patch entries applied (2 medium: backup device domains, gate-wiring verification; 6 low: plugin prefix rule, `:app` boundary, permission-list source, BuildConfig scan scope, `.kotlin/`, CI cancel policy); 3 deferred (memlog append, AGENTS.md refresh, required status check); all rejections and their reasons are in the Review Triage Log.
+**Review findings:** 35 findings (medium 3, low 26, false 6). Patched: 1 entry (low; CI guard per-module paths, grouping 3 findings). Carried from the first pass without re-patching: 3 medium gate-wiring rows. Deferred: none new (the 3 earlier deferrals stand). All rejections and reasons are in the follow-up Review Triage Log.
 
-**Follow-up review recommended:** true -- two medium entries were patched. Unverified risk: the new CI steps ("Verify build wires the gates" dry-run grep and the `cancel-in-progress` expression) and the GitHub-hosted SDK provisioning have never run on GitHub Actions.
+**Follow-up review recommended:** false -- follow-up pass patched no `high` (patched counts: high 0, medium 0, low 1).
 
-**Verification:** `./gradlew spotlessCheck build` succeeds; `./gradlew -p build-logic test` succeeds (69 tests); `./gradlew assembleDebug assembleRelease` succeeds; `buildEnvironment` resolves KGP 2.2.10 → 2.4.21; adding `androidx.core:core:1.17.0` to `:core:domain` makes `./gradlew build` fail with the AD-1 boundary message (reverted); temporarily adding INTERNET and RECORD_AUDIO made `checkDebugMergedManifest` fail (reverted, by the implementer); kotlin-android/kapt grep has no matches; `./gradlew detekt` runs without affecting `build`; `build --dry-run` contains every gate task and no detekt task.
+**Verification:** patched guard run locally under bash against `./gradlew build --dry-run`: all 12 paths found, no detekt task (rc 0); negative probe `^:app:koverVerify ` correctly not matched. `./gradlew spotlessCheck build`, `./gradlew -p build-logic test`, `./gradlew assembleDebug assembleRelease` all exit 0; `buildEnvironment` resolves `kotlin-gradle-plugin:2.2.10 -> 2.4.21`; kotlin-android/kapt grep has no matches.
 
-**Residual risks:** CI not yet run on GitHub; Kover gate vacuous on empty `:core:domain`/`:core:solver`; boundary check covers declared (not transitive) dependencies; local `core.autocrlf=true` could produce CRLF files that fail CI Spotless if committed that way.
+**Residual risks:** CI still has never run on GitHub Actions; gate input collection (`collect`, `coordinates`) is covered only by the dry-run guard and manual negative runs, not TestKit; boundary check sees declared, not transitive, dependencies; Kover gate vacuous on empty `:core:domain`/`:core:solver`.
