@@ -35,6 +35,8 @@ class JvmCoreConventionPlugin : Plugin<Project> {
                 }
             }
 
+            if (path == CubeCoverageGate.MODULE_PATH) applyCubeCoverageGate()
+
             val boundaryCheck = CheckModuleBoundariesTask.register(this)
             tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) {
                 dependsOn("koverVerify")
