@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Library and algorithm detail</title>
+<style>
+/*
+Governing spine sections — key-library.html
+LEFT (Library tab, DARK): EXPERIENCE.md Information Architecture (Library, Recognize case entry), Navigation (bottom bar, 4 tabs);
+  Component Patterns: Algorithm tile (tap opens detail; no status change here), Beta label; State Patterns: "Feature flag BETA";
+  Flow 2 step 5 (filter by Learning), Flow 5 step 1, Flow 6 step 3.
+  DESIGN.md Components: Algorithm tile (derived recognition diagram, label, notation, text status; no stars/scores), Beta label;
+  Colors (dark chrome tokens; sticker colors theme-invariant); Typography (notation/data in Plex Mono).
+RIGHT (Algorithm detail, LIGHT): EXPERIENCE.md Flow 5 steps 2-3 (explicit Mark as Learning), Flow 6 step 3 (scrub Demonstration);
+  Component Patterns: Playback transport (AD-20 shared controller, 0.5x/1x/2x, snaps to Move boundaries), Cube stage (VIRTUAL label);
+  Voice and Tone (Playback note template only).
+  DESIGN.md Components: Playback transport (counter in data, current Move in large notation), Cube stage, Notation chip, Algorithm tile diagram.
+*/
+
+@font-face{font-family:'IBM Plex Sans';src:local('IBM Plex Sans'),local('IBMPlexSans');}
+@font-face{font-family:'IBM Plex Mono';src:local('IBM Plex Mono'),local('IBMPlexMono');}
+:root{--sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--mono:'IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;}
+.t-light{--base:#F4F5F7;--raised:#FFFFFF;--stage:#E8EBEF;--ink:#15181C;--ink2:#5A6370;--ink3:#A3AAB3;--hair:#D5DAE0;--accent:#5B3FD1;--on-accent:#FFFFFF;
+ --ok:#1E7A4C;--likely:#9A5B00;--unk:#5A6370;--bad:#B3261E;}
+.t-dark{--base:#111317;--raised:#1A1D22;--stage:#0B0C0F;--ink:#E7EAEE;--ink2:#9AA3AE;--ink3:#4D545E;--hair:#2A2F36;--accent:#A797FF;--on-accent:#160F33;
+ --ok:#5FD39A;--likely:#F2B45A;--unk:#9AA3AE;--bad:#FF8A80;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#C7CCD3;font-family:var(--sans);color:#15181C;padding:32px 16px 48px}
+.sheet-title{font:600 18px/1.3 var(--sans);text-align:center;margin-bottom:4px}
+.sheet-sub{font:400 13px/1.4 var(--sans);color:#3A4048;text-align:center;margin-bottom:24px}
+.row{display:flex;gap:40px;justify-content:center;flex-wrap:wrap;align-items:flex-start}
+.col{display:flex;flex-direction:column;gap:12px;width:412px;max-width:100%}
+.cap{font:400 13px/1.45 var(--sans);color:#2A2F36}
+.cap b{font-weight:600}
+.phone{width:412px;height:915px;border-radius:36px;border:10px solid #0B0C0F;background:var(--base);color:var(--ink);overflow:hidden;display:flex;flex-direction:column;position:relative}
+.sb{height:28px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 20px;font:500 12px var(--mono);color:var(--ink2)}
+.appbar{height:64px;flex:none;display:flex;align-items:center;gap:4px;padding:0 8px}
+.ib{width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:var(--ink)}
+.ib svg{width:24px;height:24px}
+.ab-t{flex:1;min-width:0}
+.ab-t h1{font:600 20px/1.2 var(--sans);display:flex;align-items:center;gap:8px}
+.ab-t p{font:400 12px/1.3 var(--sans);color:var(--ink2)}
+.beta{font:500 10px/1 var(--sans);letter-spacing:.06em;border:1px solid var(--ink2);color:var(--ink2);border-radius:2px;padding:3px 4px 2px}
+.stage{background:var(--stage);border-radius:12px;margin:0 16px;position:relative;display:flex;align-items:center;justify-content:center;flex:none}
+.flabel{position:absolute;top:10px;left:10px;font:500 11px/1 var(--sans);letter-spacing:.06em;padding:6px 8px;border-radius:4px;display:flex;gap:6px;align-items:center;background:var(--raised)}
+.flabel.exp{border:1.5px dashed var(--ink2);color:var(--ink2);background:transparent}
+.flabel.ver{color:var(--ok);border:1px solid var(--ok)}
+.flabel.vir{color:var(--ink2);border:1px solid var(--hair)}
+.reset{position:absolute;top:2px;right:2px}
+.panel{flex:1;overflow:hidden;padding:16px 16px 0;display:flex;flex-direction:column;gap:12px}
+.obj{font:600 18px/1.3 var(--sans)}
+.card{background:var(--raised);border-radius:8px;padding:12px 14px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border-radius:9999px;font:500 13px/1 var(--sans);letter-spacing:.02em;border:1px solid currentColor}
+.chip.ok{color:var(--ok)} .chip.unk{color:var(--unk)}
+.msg{font:400 16px/1.4 var(--sans);margin-top:8px}
+.meta{font:400 12px/1.4 var(--sans);color:var(--ink2)}
+.btn{height:48px;border-radius:8px;font:500 14px/1 var(--sans);letter-spacing:.02em;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 14px;white-space:nowrap}
+.btn.pri{background:var(--accent);color:var(--on-accent)}
+.btn.sec{border:1px solid var(--hair);color:var(--ink);background:transparent}
+.btn.ter{color:var(--ink);background:transparent;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--hair)}
+.btn.dis{background:var(--hair);color:var(--ink3)}
+.btn svg{width:18px;height:18px}
+.btns{display:flex;gap:8px;margin-top:12px}
+.btns .btn{flex:1;padding:0 8px}
+.sc dl{display:grid;grid-template-columns:62px 1fr;row-gap:6px;column-gap:8px}
+.sc dt{font:500 13px/1.45 var(--sans);letter-spacing:.02em;color:var(--ink2)}
+.sc dd{font:400 15px/1.45 var(--sans)}
+.nc{font:500 15px/1 var(--mono);background:var(--stage);border-radius:2px;padding:5px 7px;display:inline-block}
+.ncs{display:flex;gap:6px;flex-wrap:wrap}
+.dock{flex:none;padding:12px 16px 16px;background:var(--base);border-top:1px solid var(--hair);display:flex;flex-direction:column;gap:6px}
+.dock .btn.pri{width:100%}
+.dock-row{display:flex;justify-content:space-between}
+.nav{height:80px;flex:none;border-top:1px solid var(--hair);display:flex;background:var(--raised)}
+.nav a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font:500 12px/1 var(--sans);color:var(--ink2);text-decoration:none}
+.nav a .pill{width:56px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center}
+.nav a.on{color:var(--ink)} .nav a.on .pill{background:var(--stage)}
+.nav svg{width:22px;height:22px}
+.inset{background:#F4F5F7;border:1px solid #A3AAB3;border-radius:12px;padding:14px;color:#15181C}
+.inset h3{font:600 13px/1.3 var(--sans);margin-bottom:10px;color:#5A6370}
+
+
+.fchips{display:flex;gap:8px;padding:4px 16px 10px;overflow:hidden}
+.fc{height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--hair);font:500 13px/1 var(--sans);letter-spacing:.02em;display:inline-flex;align-items:center;gap:6px;color:var(--ink2);white-space:nowrap}
+.fc.on{border-color:var(--ink2);color:var(--ink);background:var(--raised)}
+.libscroll{flex:1;overflow:hidden;padding:4px 16px 0}
+.sec h2{font:500 13px/1 var(--sans);letter-spacing:.02em;color:var(--ink2);display:flex;justify-content:space-between;margin:10px 0 8px}
+.sec h2 span{font-family:var(--mono);font-weight:400}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile{background:var(--raised);border-radius:8px;padding:10px;display:grid;grid-template-columns:76px 1fr;grid-template-rows:auto 1fr auto;column-gap:10px;row-gap:4px;min-height:96px}
+.tdiag{grid-row:1/4;border-radius:4px;padding:0;align-self:start}
+.tname{font:500 14px/1.2 var(--sans);letter-spacing:.02em}
+.tnot{font:500 12.5px/1.35 var(--mono);color:var(--ink)}
+.status{font:400 12px/1 var(--sans);color:var(--ink2);align-self:end}
+.status.none{height:12px}
+.rd{display:block}
+.transport{margin:10px 16px 0;background:var(--raised);border-radius:8px;padding:10px 12px 6px}
+.tp-now{display:flex;gap:14px;align-items:center}
+.bigmove{font:500 40px/1 var(--mono);min-width:56px;height:56px;display:flex;align-items:center;justify-content:center;background:var(--stage);border-radius:4px}
+.tp-note{font:400 14px/1.4 var(--sans)}
+.tp-row{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
+.tb{font:500 15px/1 var(--mono);width:44px;letter-spacing:-.08em}
+.tb.play{background:var(--accent);color:var(--on-accent);border-radius:8px}
+.speed{display:inline-flex;border:1px solid var(--hair);border-radius:8px;overflow:hidden;height:36px}
+.speed span{font:400 13px/34px var(--mono);padding:0 9px;color:var(--ink2)}
+.speed span.on{background:var(--stage);color:var(--ink);font-weight:500}
+.nc.cur{outline:1.5px solid var(--ink);outline-offset:1px}
+
+</style></head><body>
+<div class="sheet-title">Library and algorithm detail</div><div class="sheet-sub">RubikXplorer key screens · compact phone, dark + light</div>
+<div class="row">
+<div class="col"><div class="phone t-dark"><div class="sb"><span>9:41</span><span>100%</span></div>
+<div class="appbar" style="padding-left:16px"><div class="ab-t"><h1 style="font-size:22px">Library</h1></div>
+ <span class="btn sec" style="height:40px;padding:0 10px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Recognize case <span class="beta">BETA</span></span></div>
+<div class="fchips"><span class="fc on"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3 3 7-7"/></svg>All</span><span class="fc">OLL</span><span class="fc">PLL</span><span class="fc">Learning</span><span class="fc">Learned</span></div>
+<p class="meta" style="padding:0 16px 4px"><span style="font-family:var(--mono)">78</span> algorithms · <span style="font-family:var(--mono)">2</span> Learning · <span style="font-family:var(--mono)">2</span> Learned</p>
+<div class="libscroll"><div class="sec"><h2>OLL · T-shape<span>2</span></h2><div class="grid"><div class="tile"><div class="tdiag"><svg class="rd" viewBox="0 0 76 76" width="76" height="76" aria-hidden="true"><rect x="11.0" y="11.0" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="11.0" y="29.4" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="11.0" y="47.7" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="29.4" y="11.0" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="29.4" y="29.4" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="29.4" y="47.7" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="47.7" y="11.0" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="47.7" y="29.4" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="47.7" y="47.7" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="11.0" y="1.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="11.0" y="66.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="29.4" y="1.1" width="16.2" height="7.7" rx="1.5" fill="#FFD500"/><rect x="29.4" y="66.1" width="16.2" height="7.7" rx="1.5" fill="#FFD500"/><rect x="47.7" y="1.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="47.7" y="66.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="1.1" y="11.0" width="7.7" height="16.2" rx="1.5" fill="#FFD500"/><rect x="66.1" y="11.0" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="1.1" y="29.4" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="66.1" y="29.4" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="1.1" y="47.7" width="7.7" height="16.2" rx="1.5" fill="#FFD500"/><rect x="66.1" y="47.7" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/></svg></div><div class="tname">OLL 45</div><div class="tnot">F R U R' U' F'</div><span class="status">Learning</span></div><div class="tile"><div class="tdiag"><svg class="rd" viewBox="0 0 76 76" width="76" height="76" aria-hidden="true"><rect x="11.0" y="11.0" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="11.0" y="29.4" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="11.0" y="47.7" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="29.4" y="11.0" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="29.4" y="29.4" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="29.4" y="47.7" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="47.7" y="11.0" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="47.7" y="29.4" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="47.7" y="47.7" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="11.0" y="1.1" width="16.2" height="7.7" rx="1.5" fill="#FFD500"/><rect x="11.0" y="66.1" width="16.2" height="7.7" rx="1.5" fill="#FFD500"/><rect x="29.4" y="1.1" width="16.2" height="7.7" rx="1.5" fill="#FFD500"/><rect x="29.4" y="66.1" width="16.2" height="7.7" rx="1.5" fill="#FFD500"/><rect x="47.7" y="1.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="47.7" y="66.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="1.1" y="11.0" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="66.1" y="11.0" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="1.1" y="29.4" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="66.1" y="29.4" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="1.1" y="47.7" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="66.1" y="47.7" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/></svg></div><div class="tname">OLL 33</div><div class="tnot">R U R' U' R' F R F'</div><span class="status none"></span></div></div></div><div class="sec"><h2>OLL · P-shape<span>2</span></h2><div class="grid"><div class="tile"><div class="tdiag"><svg class="rd" viewBox="0 0 76 76" width="76" height="76" aria-hidden="true"><rect x="11.0" y="11.0" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="11.0" y="29.4" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="11.0" y="47.7" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="29.4" y="11.0" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="29.4" y="29.4" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="29.4" y="47.7" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="47.7" y="11.0" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="47.7" y="29.4" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="47.7" y="47.7" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="11.0" y="1.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="11.0" y="66.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="29.4" y="1.1" width="16.2" height="7.7" rx="1.5" fill="#FFD500"/><rect x="29.4" y="66.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="47.7" y="1.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="47.7" y="66.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="1.1" y="11.0" width="7.7" height="16.2" rx="1.5" fill="#FFD500"/><rect x="66.1" y="11.0" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="1.1" y="29.4" width="7.7" height="16.2" rx="1.5" fill="#FFD500"/><rect x="66.1" y="29.4" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="1.1" y="47.7" width="7.7" height="16.2" rx="1.5" fill="#FFD500"/><rect x="66.1" y="47.7" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/></svg></div><div class="tname">OLL 44</div><div class="tnot">f R U R' U' f'</div><span class="status">Learning</span></div><div class="tile"><div class="tdiag"><svg class="rd" viewBox="0 0 76 76" width="76" height="76" aria-hidden="true"><rect x="11.0" y="11.0" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="11.0" y="29.4" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="11.0" y="47.7" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="29.4" y="11.0" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="29.4" y="29.4" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="29.4" y="47.7" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="47.7" y="11.0" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="47.7" y="29.4" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="47.7" y="47.7" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="11.0" y="1.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="11.0" y="66.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="29.4" y="1.1" width="16.2" height="7.7" rx="1.5" fill="#FFD500"/><rect x="29.4" y="66.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="47.7" y="1.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="47.7" y="66.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="1.1" y="11.0" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="66.1" y="11.0" width="7.7" height="16.2" rx="1.5" fill="#FFD500"/><rect x="1.1" y="29.4" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="66.1" y="29.4" width="7.7" height="16.2" rx="1.5" fill="#FFD500"/><rect x="1.1" y="47.7" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="66.1" y="47.7" width="7.7" height="16.2" rx="1.5" fill="#FFD500"/></svg></div><div class="tname">OLL 43</div><div class="tnot">f' L' U' L U f</div><span class="status none"></span></div></div></div><div class="sec"><h2>OLL · Cross<span>2</span></h2><div class="grid"><div class="tile"><div class="tdiag"><svg class="rd" viewBox="0 0 76 76" width="76" height="76" aria-hidden="true"><rect x="11.0" y="11.0" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="11.0" y="29.4" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="11.0" y="47.7" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="29.4" y="11.0" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="29.4" y="29.4" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="29.4" y="47.7" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="47.7" y="11.0" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="47.7" y="29.4" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="47.7" y="47.7" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="11.0" y="1.1" width="16.2" height="7.7" rx="1.5" fill="#FFD500"/><rect x="11.0" y="66.1" width="16.2" height="7.7" rx="1.5" fill="#FFD500"/><rect x="29.4" y="1.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="29.4" y="66.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="47.7" y="1.1" width="16.2" height="7.7" rx="1.5" fill="#FFD500"/><rect x="47.7" y="66.1" width="16.2" height="7.7" rx="1.5" fill="#FFD500"/><rect x="1.1" y="11.0" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="66.1" y="11.0" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="1.1" y="29.4" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="66.1" y="29.4" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="1.1" y="47.7" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="66.1" y="47.7" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/></svg></div><div class="tname">OLL 21</div><div class="tnot">R U2 R' U' R U R' U' R U' R'</div><span class="status">Learned</span></div><div class="tile"><div class="tdiag"><svg class="rd" viewBox="0 0 76 76" width="76" height="76" aria-hidden="true"><rect x="11.0" y="11.0" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="11.0" y="29.4" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="11.0" y="47.7" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="29.4" y="11.0" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="29.4" y="29.4" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="29.4" y="47.7" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="47.7" y="11.0" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="47.7" y="29.4" width="16.2" height="16.2" rx="2" fill="#FFD500"/><rect x="47.7" y="47.7" width="16.2" height="16.2" rx="2" fill="#3A4048"/><rect x="11.0" y="1.1" width="16.2" height="7.7" rx="1.5" fill="#FFD500"/><rect x="11.0" y="66.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="29.4" y="1.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="29.4" y="66.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="47.7" y="1.1" width="16.2" height="7.7" rx="1.5" fill="#3A4048"/><rect x="47.7" y="66.1" width="16.2" height="7.7" rx="1.5" fill="#FFD500"/><rect x="1.1" y="11.0" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="66.1" y="11.0" width="7.7" height="16.2" rx="1.5" fill="#FFD500"/><rect x="1.1" y="29.4" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="66.1" y="29.4" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="1.1" y="47.7" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/><rect x="66.1" y="47.7" width="7.7" height="16.2" rx="1.5" fill="#3A4048"/></svg></div><div class="tname">OLL 27 · Sune</div><div class="tnot">R U R' U R U2 R'</div><span class="status">Learned</span></div></div></div></div>
+<nav class="nav"><a class=""><span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 9l9-5 9 5-9 5z"/><path d="M7 11.5V16c3 2 7 2 10 0v-4.5"/></svg></span>Learn</a><a class=""><span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg></span>Solve</a><a class="on"><span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg></span>Library</a><a class=""><span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20c1.5-4 4.3-5.5 7.5-5.5s6 1.5 7.5 5.5"/></svg></span>You</a></nav></div>
+<p class="cap"><b>Library tab, dark theme.</b> Filter chips, OLL families, tiles with derived recognition diagrams (yellow last layer), Plex Mono notation, text-only Algorithm Status. Recognize case carries BETA.</p></div>
+<div class="col"><div class="phone t-light"><div class="sb"><span>9:41</span><span>100%</span></div>
+<div class="appbar"><span class="ib"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></span><div class="ab-t"><h1>OLL 45</h1><p>T-shape · 2-look OLL</p></div></div>
+<div class="stage" style="height:268px">
+  <span class="flabel vir">VIRTUAL</span>
+  <span class="ib reset" aria-label="Reset view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/></svg></span>
+  <svg viewBox="0 0 230 230" width="230" height="230" role="img" aria-label="Cube"><polygon points="115.0,5.5 209.9,60.2 115.0,115.0 115.0,224.5 20.1,169.8 20.1,60.2" fill="#121417" /><polygon points="115.0,7.7 142.8,23.7 115.0,39.8 87.2,23.7" fill="#C41E3A" /><polygon points="83.4,25.9 111.2,42.0 83.4,58.0 55.6,42.0" fill="#C41E3A" /><polygon points="51.8,44.2 79.6,60.2 51.8,76.3 23.9,60.2" fill="#C41E3A" /><polygon points="146.6,25.9 174.4,42.0 146.6,58.0 118.8,42.0" fill="#FFD500" /><polygon points="115.0,44.2 142.8,60.2 115.0,76.3 87.2,60.2" fill="#FFD500" /><polygon points="83.4,62.4 111.2,78.5 83.4,94.6 55.6,78.5" fill="#FFD500" /><polygon points="178.2,44.2 206.1,60.2 178.2,76.3 150.4,60.2" fill="#FF5800" /><polygon points="146.6,62.4 174.4,78.5 146.6,94.6 118.8,78.5" fill="#009E60" /><polygon points="115.0,80.7 142.8,96.7 115.0,112.8 87.2,96.7" fill="#009E60" /><polygon points="22.0,136.5 49.9,152.6 49.9,184.7 22.0,168.7" fill="#009E60" /><polygon points="22.0,100.0 49.9,116.1 49.9,148.2 22.0,132.2" fill="#009E60" /><polygon points="22.0,63.5 49.9,79.6 49.9,111.7 22.0,95.7" fill="#FFD500" /><polygon points="53.7,154.8 81.5,170.9 81.5,203.0 53.7,186.9" fill="#009E60" /><polygon points="53.7,118.3 81.5,134.3 81.5,166.5 53.7,150.4" fill="#009E60" /><polygon points="53.7,81.8 81.5,97.8 81.5,130.0 53.7,113.9" fill="#FF5800" /><polygon points="85.3,173.0 113.1,189.1 113.1,221.2 85.3,205.2" fill="#F4F5F0" /><polygon points="85.3,136.5 113.1,152.6 113.1,184.7 85.3,168.7" fill="#F4F5F0" /><polygon points="85.3,100.0 113.1,116.1 113.1,148.2 85.3,132.2" fill="#FF5800" /><polygon points="208.0,136.5 180.1,152.6 180.1,184.7 208.0,168.7" fill="#0051BA" /><polygon points="208.0,100.0 180.1,116.1 180.1,148.2 208.0,132.2" fill="#0051BA" /><polygon points="208.0,63.5 180.1,79.6 180.1,111.7 208.0,95.7" fill="#0051BA" /><polygon points="176.3,154.8 148.5,170.9 148.5,203.0 176.3,186.9" fill="#FF5800" /><polygon points="176.3,118.3 148.5,134.3 148.5,166.5 176.3,150.4" fill="#FF5800" /><polygon points="176.3,81.8 148.5,97.8 148.5,130.0 176.3,113.9" fill="#FFD500" /><polygon points="144.7,173.0 116.9,189.1 116.9,221.2 144.7,205.2" fill="#FF5800" /><polygon points="144.7,136.5 116.9,152.6 116.9,184.7 144.7,168.7" fill="#FF5800" /><polygon points="144.7,100.0 116.9,116.1 116.9,148.2 144.7,132.2" fill="#FFD500" /></svg>
+</div>
+<div class="transport">
+  <div class="tp-now"><span class="bigmove">U</span><div><p class="tp-note">Turn the Up face clockwise: the front row moves to the left.</p><p class="meta"><span style="font-family:var(--mono);color:var(--ink)">3 / 6</span> moves</p></div></div>
+  <div class="tp-row">
+   <span class="ib tb" aria-label="Restart">|◀</span><span class="ib tb" aria-label="Step back">◀</span><span class="ib tb play" aria-label="Play">▶</span><span class="ib tb" aria-label="Step forward">▶</span><span class="ib tb" aria-label="Go to end">▶|</span>
+   <span class="speed"><span>0.5×</span><span class="on">1×</span><span>2×</span></span>
+  </div>
+</div>
+<div class="panel" style="padding-top:10px;gap:10px">
+  <div class="card" style="display:flex;gap:14px;align-items:center">
+    <div class="tdiag" style="background:var(--stage)"><svg class="rd" viewBox="0 0 96 96" width="96" height="96" aria-hidden="true"><rect x="13.9" y="13.9" width="20.4" height="20.4" rx="2" fill="#C9CED6"/><rect x="13.9" y="37.1" width="20.4" height="20.4" rx="2" fill="#FFD500"/><rect x="13.9" y="60.3" width="20.4" height="20.4" rx="2" fill="#C9CED6"/><rect x="37.1" y="13.9" width="20.4" height="20.4" rx="2" fill="#C9CED6"/><rect x="37.1" y="37.1" width="20.4" height="20.4" rx="2" fill="#FFD500"/><rect x="37.1" y="60.3" width="20.4" height="20.4" rx="2" fill="#C9CED6"/><rect x="60.3" y="13.9" width="20.4" height="20.4" rx="2" fill="#FFD500"/><rect x="60.3" y="37.1" width="20.4" height="20.4" rx="2" fill="#FFD500"/><rect x="60.3" y="60.3" width="20.4" height="20.4" rx="2" fill="#FFD500"/><rect x="13.9" y="1.4" width="20.4" height="9.7" rx="1.5" fill="#C9CED6"/><rect x="13.9" y="83.5" width="20.4" height="9.7" rx="1.5" fill="#C9CED6"/><rect x="37.1" y="1.4" width="20.4" height="9.7" rx="1.5" fill="#FFD500"/><rect x="37.1" y="83.5" width="20.4" height="9.7" rx="1.5" fill="#FFD500"/><rect x="60.3" y="1.4" width="20.4" height="9.7" rx="1.5" fill="#C9CED6"/><rect x="60.3" y="83.5" width="20.4" height="9.7" rx="1.5" fill="#C9CED6"/><rect x="1.4" y="13.9" width="9.7" height="20.4" rx="1.5" fill="#FFD500"/><rect x="83.5" y="13.9" width="9.7" height="20.4" rx="1.5" fill="#C9CED6"/><rect x="1.4" y="37.1" width="9.7" height="20.4" rx="1.5" fill="#C9CED6"/><rect x="83.5" y="37.1" width="9.7" height="20.4" rx="1.5" fill="#C9CED6"/><rect x="1.4" y="60.3" width="9.7" height="20.4" rx="1.5" fill="#FFD500"/><rect x="83.5" y="60.3" width="9.7" height="20.4" rx="1.5" fill="#C9CED6"/></svg></div>
+    <div style="min-width:0">
+      <p class="meta" style="font-weight:500;letter-spacing:.02em">Recognize it</p>
+      <p style="font:400 14px/1.4 var(--sans);margin:2px 0 8px">Yellow makes a T on top: the right column and the middle row.</p>
+      <div class="ncs"><span class="nc">F</span><span class="nc">R</span><span class="nc cur">U</span><span class="nc">R'</span><span class="nc">U'</span><span class="nc">F'</span></div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="btn pri" style="flex:1">Mark as Learning</span>
+  </div>
+  <p class="meta">Not in your set yet. You choose when it moves to Learning or Learned.</p>
+</div>
+<nav class="nav"><a class=""><span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 9l9-5 9 5-9 5z"/><path d="M7 11.5V16c3 2 7 2 10 0v-4.5"/></svg></span>Learn</a><a class=""><span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg></span>Solve</a><a class="on"><span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg></span>Library</a><a class=""><span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20c1.5-4 4.3-5.5 7.5-5.5s6 1.5 7.5 5.5"/></svg></span>You</a></nav></div>
+<p class="cap"><b>Algorithm detail, light theme.</b> OLL 45 Demonstration paused at <span style="font-family:var(--mono)">3 / 6</span> (current Move U), shared playback transport at 1×, recognition diagram, explicit Mark as Learning.</p></div>
+</div>
+</body></html>

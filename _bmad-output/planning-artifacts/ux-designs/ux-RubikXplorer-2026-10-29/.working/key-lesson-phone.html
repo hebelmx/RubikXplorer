@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson — phone</title>
+<style>
+/*
+  Key screen: Lesson — compact phone, portrait (Guide me, step shown, before the Move)
+  Governing spine sections (the spine is the contract; this mock only illustrates):
+  - DESIGN.md: Colors (graphite chrome, signal-violet accent, sticker tokens theme-invariant,
+    sticker-highlight, sticker-dimmed-overlay); Typography (Plex Sans UI / Plex Mono notation,
+    notation one step larger); Layout & Spacing (compact split: stacked, stage ~45% height,
+    Move key bar on stage bottom edge, 16dp gutter, 48dp touch-min); Elevation & Depth
+    (recessed surface-stage well, no card shadows); Shapes; Components (Cube stage, Move key bar,
+    Lesson panel, Step card, Teaching Mode switcher, Hint button).
+  - EXPERIENCE.md: Information Architecture (Lesson = full-screen task flow, top app bar + back,
+    no bottom bar); Voice and Tone (Goal / Keep / Watch; Notice only after the Move);
+    Component Patterns (Cube stage, Move key bar, Teaching Mode switcher, Step card, Hint button);
+    Accessibility Floor (48dp targets); Responsive & Platform (Compact row); Key Flows: Flow 4 step 2-3 / Flow 1 step 5 (Stage 3).
+  Tokens: light set on .theme-light, *-dark set on .theme-dark.
+*/
+:root {
+  --sans: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'Roboto Mono', Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #C9CED5; font-family: var(--sans); color: #15181C; padding: 32px 16px 48px; }
+.page-head { max-width: 1340px; margin: 0 auto 24px; font-size: 14px; color: #3A414B; line-height: 1.5; }
+.page-head h1 { font-size: 18px; font-weight: 600; color: #15181C; margin-bottom: 4px; }
+.theme-light {   --surface-base:#F4F5F7; --surface-raised:#FFFFFF; --surface-stage:#E8EBEF;
+  --ink-primary:#15181C; --ink-secondary:#5A6370; --ink-disabled:#A3AAB3; --hairline:#D5DAE0;
+  --accent:#5B3FD1; --on-accent:#FFFFFF; }
+.theme-dark {   --surface-base:#111317; --surface-raised:#1A1D22; --surface-stage:#0B0C0F;
+  --ink-primary:#E7EAEE; --ink-secondary:#9AA3AE; --ink-disabled:#4D545E; --hairline:#2A2F36;
+  --accent:#A797FF; --on-accent:#160F33; }
+.screen { background: var(--surface-base); color: var(--ink-primary); font-family: var(--sans);
+  display: flex; flex-direction: column; overflow: hidden; position: relative; }
+/* Status bar + gesture handle (Android chrome, not product UI) */
+.statusbar { height: 28px; flex: none; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; font-size: 13px; font-weight: 500; color: var(--ink-primary); font-family: var(--sans); }
+.statusbar .icons { display: flex; gap: 6px; align-items: center; }
+.statusbar .icons i { display: block; background: var(--ink-primary); border-radius: 1px; }
+.gesture { height: 20px; flex: none; display: flex; align-items: center; justify-content: center; }
+.gesture span { width: 108px; height: 4px; border-radius: 2px; background: var(--ink-primary); opacity: .55; }
+/* Top app bar (task flow: back + lesson title, no bottom nav / rail) */
+.appbar { height: 64px; flex: none; display: flex; align-items: center; gap: 4px; padding: 0 4px; }
+.iconbtn { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+  color: var(--ink-primary); border-radius: 9999px; }
+.appbar .t { display: flex; flex-direction: column; }
+.appbar .t b { font-size: 20px; font-weight: 600; line-height: 26px; }
+.appbar .t small { font-size: 12px; color: var(--ink-secondary); line-height: 16px; }
+/* Cube stage */
+.stage { background: var(--surface-stage); border-radius: 12px; position: relative; overflow: hidden; }
+.well { position: relative; display: flex; align-items: center; justify-content: center; }
+.frame-label { position: absolute; top: 12px; left: 12px; font-family: var(--sans); font-size: 11px; font-weight: 500;
+  letter-spacing: .08em; color: var(--ink-secondary); border: 1px solid var(--hairline); border-radius: 2px;
+  padding: 2px 6px; background: var(--surface-stage); }
+.reset-view { position: absolute; top: 0; right: 0; }
+/* Move keys */
+.key { min-width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-weight: 500; font-size: 17px; color: var(--ink-primary);
+  background: var(--surface-raised); border: 1px solid var(--hairline); border-bottom-width: 2px; border-radius: 4px;
+  font-variant-ligatures: none; flex: none; }
+.key.word { font-family: var(--sans); font-size: 14px; letter-spacing: .02em; padding: 0 12px; }
+.key.rot { font-size: 15px; gap: 2px; }
+.key.rot .g { font-family: var(--sans); font-size: 15px; color: var(--ink-secondary); }
+/* Lesson panel */
+.objective .meta { font-size: 12px; color: var(--ink-secondary); line-height: 16px; margin-bottom: 2px; }
+.objective h2 { font-size: 20px; font-weight: 600; line-height: 26px; }
+.step-card { background: var(--surface-raised); border-radius: 8px; padding: 16px; }
+.step-card .head { display: flex; justify-content: space-between; align-items: center; font-size: 12px;
+  color: var(--ink-secondary); margin-bottom: 10px; }
+.step-card .head .data { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.line { display: grid; grid-template-columns: 60px 1fr; column-gap: 8px; padding: 6px 0; }
+.line + .line { border-top: 1px solid var(--hairline); }
+.line dt { font-size: 14px; font-weight: 500; letter-spacing: .02em; color: var(--ink-secondary); line-height: 22px; }
+.line dd { font-size: 16px; line-height: 22px; color: var(--ink-primary); }
+.moves { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+.moves .lbl { font-size: 14px; font-weight: 500; letter-spacing: .02em; color: var(--ink-secondary); width: 60px; margin-right: 0; }
+.chip { font-family: var(--mono); font-weight: 500; font-size: 17px; line-height: 22px; padding: 5px 10px;
+  background: var(--surface-stage); border-radius: 2px; color: var(--ink-primary); font-variant-ligatures: none; }
+.segmented { display: flex; border: 1px solid var(--hairline); border-radius: 8px; overflow: hidden; height: 48px; }
+.segmented span { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500;
+  letter-spacing: .02em; color: var(--ink-primary); white-space: nowrap; }
+.segmented span + span { border-left: 1px solid var(--hairline); }
+.segmented span.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.actions { display: flex; gap: 12px; }
+.btn { height: 48px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 500; letter-spacing: .02em; padding: 0 20px; font-family: var(--sans); }
+.btn.secondary { border: 1px solid var(--hairline); color: var(--ink-primary); background: transparent; }
+.btn.secondary .data { font-family: var(--mono); font-variant-numeric: tabular-nums; margin-left: 4px; }
+.btn.primary { background: var(--accent); color: var(--on-accent); flex: 1; }
+.btn.primary[aria-disabled="true"] { background: var(--hairline); color: var(--ink-disabled); }
+.caption { font-size: 13px; color: #3A414B; margin-top: 12px; line-height: 1.45; max-width: 436px; }
+.caption b { color: #15181C; }
+
+.row { display: flex; gap: 48px; flex-wrap: wrap; justify-content: center; max-width: 1340px; margin: 0 auto; }
+.device { display: flex; flex-direction: column; align-items: center; }
+.dev-title { font-size: 13px; font-weight: 600; color: #3A414B; margin-bottom: 10px; letter-spacing: .02em; }
+.bezel { background: #050607; border-radius: 44px; padding: 12px; position: relative; box-shadow: 0 0 0 2px #2B2F35; }
+.punch { position: absolute; top: 22px; left: 50%; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: #000; z-index: 3; box-shadow: 0 0 0 2px #1B1E22; }
+.screen.phone { width: 412px; height: 915px; border-radius: 34px; }
+.phone .stage { margin: 0 16px; flex: none; }
+.phone .well { height: 332px; }
+.keybar { display: flex; align-items: center; gap: 8px; padding: 6px 8px 8px; border-top: 1px solid var(--hairline); height: 64px; }
+.keyscroll { flex: 1; display: flex; gap: 6px; overflow: hidden; }
+.keypin { flex: none; display: flex; gap: 6px; padding-left: 8px; border-left: 1px solid var(--hairline); }
+.phone .panel { flex: 1; overflow: hidden; padding: 16px 16px 8px; display: flex; flex-direction: column; gap: 12px; }
+.phone .step-card { padding: 12px 16px 14px; }
+.phone .step-card .head { margin-bottom: 4px; }
+.phone .line { padding: 5px 0; }
+.phone .moves { margin-top: 8px; }
+.phone .segmented span { font-size: 13px; }
+</style>
+</head><body>
+<div class="page-head"><h1>Key screen · Lesson on a compact phone (portrait)</h1>
+Stage 3 <i>First-layer corners</i>, <i>Guide me</i>, first step shown before the Move. The target corner is outlined in sticker-highlight violet; pieces outside the step are dimmed, the centers and cross edges (the <i>Keep</i>) stay lit. <i>Notice</i> is not shown yet and <i>Next</i> is disabled until the Objective is met.</div>
+<div class="row">
+
+<figure class="device">
+  <figcaption class="dev-title">Light</figcaption>
+  <div class="bezel"><div class="punch"></div>
+  <div class="screen phone theme-light">
+    <div class="statusbar"><span>9:41</span><span class="icons"><i style="width:14px;height:10px;clip-path:polygon(0 100%,100% 0,100% 100%)"></i><i style="width:16px;height:9px;border-radius:2px"></i></span></div>
+    <header class="appbar"><span class="iconbtn" aria-label="Back"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></span><div class="t"><b>First-layer corners</b><small>Stage 3 · Lesson 2</small></div></header>
+    <section class="stage" aria-label="Cube stage">
+      <div class="well">
+        <span class="frame-label">VIRTUAL</span>
+        <span class="iconbtn reset-view" aria-label="Reset view" style="color:var(--ink-secondary)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg></span>
+        <svg class="cube" role="img" aria-label="Virtual cube. White cross solved; 2 of 4 first-layer corners placed. Target corner highlighted." viewBox="-113.9 -130.0 227.8 260.0" width="236">
+<polygon points="0.0,-120.0 103.9,-60.0 0.0,0.0 -103.9,-60.0" fill="#121417" stroke="#121417" stroke-width="5" stroke-linejoin="round"/>
+<polygon points="-103.9,-60.0 0.0,0.0 0.0,120.0 -103.9,60.0" fill="#121417" stroke="#121417" stroke-width="5" stroke-linejoin="round"/>
+<polygon points="0.0,0.0 103.9,-60.0 103.9,60.0 0.0,120.0" fill="#121417" stroke="#121417" stroke-width="5" stroke-linejoin="round"/>
+<polygon points="0.0,-117.0 29.4,-100.0 0.0,-83.0 -29.4,-100.0" fill="#FF5800" stroke="#FF5800" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="34.6,-97.0 64.1,-80.0 34.6,-63.0 5.2,-80.0" fill="#FFD500" stroke="#FFD500" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="69.3,-77.0 98.7,-60.0 69.3,-43.0 39.8,-60.0" fill="#0051BA" stroke="#0051BA" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-34.6,-97.0 -5.2,-80.0 -34.6,-63.0 -64.1,-80.0" fill="#C41E3A" stroke="#C41E3A" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="0.0,-77.0 29.4,-60.0 0.0,-43.0 -29.4,-60.0" fill="#FFD500" stroke="#FFD500" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="34.6,-57.0 64.1,-40.0 34.6,-23.0 5.2,-40.0" fill="#FFD500" stroke="#FFD500" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-69.3,-77.0 -39.8,-60.0 -69.3,-43.0 -98.7,-60.0" fill="#FFD500" stroke="#FFD500" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-34.6,-57.0 -5.2,-40.0 -34.6,-23.0 -64.1,-40.0" fill="#009E60" stroke="#009E60" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="0.0,-37.0 29.4,-20.0 0.0,-3.0 -29.4,-20.0" fill="#FF5800" stroke="#FF5800" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-101.3,-55.5 -71.9,-38.5 -71.9,-4.5 -101.3,-21.5" fill="#FFD500" stroke="#FFD500" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-66.7,-35.5 -37.2,-18.5 -37.2,15.5 -66.7,-1.5" fill="#C41E3A" stroke="#C41E3A" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-32.0,-15.5 -2.6,1.5 -2.6,35.5 -32.0,18.5" fill="#0051BA" stroke="#0051BA" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-101.3,-15.5 -71.9,1.5 -71.9,35.5 -101.3,18.5" fill="#FF5800" stroke="#FF5800" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-66.7,4.5 -37.2,21.5 -37.2,55.5 -66.7,38.5" fill="#009E60" stroke="#009E60" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-32.0,24.5 -2.6,41.5 -2.6,75.5 -32.0,58.5" fill="#FFD500" stroke="#FFD500" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-101.3,24.5 -71.9,41.5 -71.9,75.5 -101.3,58.5" fill="#009E60" stroke="#009E60" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-66.7,44.5 -37.2,61.5 -37.2,95.5 -66.7,78.5" fill="#009E60" stroke="#009E60" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-32.0,64.5 -2.6,81.5 -2.6,115.5 -32.0,98.5" fill="#F4F5F0" stroke="#F4F5F0" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="2.6,1.5 32.0,-15.5 32.0,18.5 2.6,35.5" fill="#0051BA" stroke="#0051BA" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="37.2,-18.5 66.7,-35.5 66.7,-1.5 37.2,15.5" fill="#FF5800" stroke="#FF5800" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="71.9,-38.5 101.3,-55.5 101.3,-21.5 71.9,-4.5" fill="#FFD500" stroke="#FFD500" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="2.6,41.5 32.0,24.5 32.0,58.5 2.6,75.5" fill="#0051BA" stroke="#0051BA" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="37.2,21.5 66.7,4.5 66.7,38.5 37.2,55.5" fill="#C41E3A" stroke="#C41E3A" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="71.9,1.5 101.3,-15.5 101.3,18.5 71.9,35.5" fill="#009E60" stroke="#009E60" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="2.6,81.5 32.0,64.5 32.0,98.5 2.6,115.5" fill="#009E60" stroke="#009E60" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="37.2,61.5 66.7,44.5 66.7,78.5 37.2,95.5" fill="#C41E3A" stroke="#C41E3A" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="71.9,41.5 101.3,24.5 101.3,58.5 71.9,75.5" fill="#0051BA" stroke="#0051BA" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-103.9,-60.0 0.0,0.0 0.0,120.0 -103.9,60.0" fill="#000" opacity="0.10"/>
+<polygon points="0.0,0.0 103.9,-60.0 103.9,60.0 0.0,120.0" fill="#000" opacity="0.24"/>
+<polygon points="0.0,-120.0 34.6,-100.0 0.0,-80.0 -34.6,-100.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="34.6,-100.0 69.3,-80.0 34.6,-60.0 0.0,-80.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="69.3,-80.0 103.9,-60.0 69.3,-40.0 34.6,-60.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="-34.6,-100.0 0.0,-80.0 -34.6,-60.0 -69.3,-80.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="34.6,-60.0 69.3,-40.0 34.6,-20.0 0.0,-40.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="-69.3,-80.0 -34.6,-60.0 -69.3,-40.0 -103.9,-60.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="-34.6,-60.0 0.0,-40.0 -34.6,-20.0 -69.3,-40.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="0.0,-40.0 34.6,-20.0 0.0,0.0 -34.6,-20.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="-103.9,-60.0 -69.3,-40.0 -69.3,0.0 -103.9,-20.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="-69.3,-40.0 -34.6,-20.0 -34.6,20.0 -69.3,0.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="-34.6,-20.0 0.0,0.0 0.0,40.0 -34.6,20.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="-103.9,-20.0 -69.3,0.0 -69.3,40.0 -103.9,20.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="-34.6,20.0 0.0,40.0 0.0,80.0 -34.6,60.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="-103.9,20.0 -69.3,40.0 -69.3,80.0 -103.9,60.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="0.0,0.0 34.6,-20.0 34.6,20.0 0.0,40.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="34.6,-20.0 69.3,-40.0 69.3,0.0 34.6,20.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="69.3,-40.0 103.9,-60.0 103.9,-20.0 69.3,0.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="0.0,40.0 34.6,20.0 34.6,60.0 0.0,80.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="69.3,0.0 103.9,-20.0 103.9,20.0 69.3,40.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="69.3,40.0 103.9,20.0 103.9,60.0 69.3,80.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="-33.9,61.2 -0.7,80.4 -0.7,118.8 -33.9,99.6" fill="none" stroke="#5B3FD1" stroke-width="4.5" stroke-linejoin="round"/>
+<polygon points="0.7,80.4 33.9,61.2 33.9,99.6 0.7,118.8" fill="none" stroke="#5B3FD1" stroke-width="4.5" stroke-linejoin="round"/>
+</svg>
+      </div>
+      <div class="keybar" aria-label="Move keys">
+        <div class="keyscroll"><span class="key">U</span><span class="key">U'</span><span class="key">U2</span><span class="key">R</span><span class="key">R'</span><span class="key">R2</span><span class="key">F</span><span class="key">F'</span><span class="key">F2</span><span class="key">L</span><span class="key">L'</span><span class="key">L2</span><span class="key">D</span><span class="key">D'</span><span class="key">D2</span><span class="key">B</span><span class="key">B'</span><span class="key">B2</span></div>
+        <div class="keypin"><span class="key rot" aria-label="Cube rotations x, y, z"><span class="g">&#10227;</span>xyz</span><span class="key word">more</span></div>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="objective"><p class="meta">Objective</p><h2>Place the white-green-red corner</h2></div>
+      <article class="step-card">
+        <div class="head"><span></span><span class="data">Step 1 / 2</span></div>
+        <dl>
+          <div class="line"><dt>Goal</dt><dd>Bring the corner up into the top layer, away from the cross.</dd></div>
+          <div class="line"><dt>Keep</dt><dd>The white cross stays solved.</dd></div>
+          <div class="line"><dt>Watch</dt><dd>The right face — only that column moves.</dd></div>
+        </dl>
+        <div class="moves"><span class="lbl">Moves</span><span class="chip">R</span><span class="chip">U</span><span class="chip">R'</span></div>
+      </article>
+      <div class="segmented" role="radiogroup" aria-label="Teaching Mode"><span>Show me</span><span class="on" aria-checked="true">Guide me</span><span>Test me</span><span>Let me try</span></div>
+      <div class="actions"><span class="btn secondary">Hint <span class="data">(1/3)</span></span><span class="btn primary" aria-disabled="true">Next</span></div>
+    </section>
+    <div class="gesture"><span></span></div>
+  </div></div>
+</figure>
+
+<figure class="device">
+  <figcaption class="dev-title">Dark</figcaption>
+  <div class="bezel"><div class="punch"></div>
+  <div class="screen phone theme-dark">
+    <div class="statusbar"><span>9:41</span><span class="icons"><i style="width:14px;height:10px;clip-path:polygon(0 100%,100% 0,100% 100%)"></i><i style="width:16px;height:9px;border-radius:2px"></i></span></div>
+    <header class="appbar"><span class="iconbtn" aria-label="Back"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></span><div class="t"><b>First-layer corners</b><small>Stage 3 · Lesson 2</small></div></header>
+    <section class="stage" aria-label="Cube stage">
+      <div class="well">
+        <span class="frame-label">VIRTUAL</span>
+        <span class="iconbtn reset-view" aria-label="Reset view" style="color:var(--ink-secondary)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg></span>
+        <svg class="cube" role="img" aria-label="Virtual cube. White cross solved; 2 of 4 first-layer corners placed. Target corner highlighted." viewBox="-113.9 -130.0 227.8 260.0" width="236">
+<polygon points="0.0,-120.0 103.9,-60.0 0.0,0.0 -103.9,-60.0" fill="#121417" stroke="#121417" stroke-width="5" stroke-linejoin="round"/>
+<polygon points="-103.9,-60.0 0.0,0.0 0.0,120.0 -103.9,60.0" fill="#121417" stroke="#121417" stroke-width="5" stroke-linejoin="round"/>
+<polygon points="0.0,0.0 103.9,-60.0 103.9,60.0 0.0,120.0" fill="#121417" stroke="#121417" stroke-width="5" stroke-linejoin="round"/>
+<polygon points="0.0,-117.0 29.4,-100.0 0.0,-83.0 -29.4,-100.0" fill="#FF5800" stroke="#FF5800" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="34.6,-97.0 64.1,-80.0 34.6,-63.0 5.2,-80.0" fill="#FFD500" stroke="#FFD500" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="69.3,-77.0 98.7,-60.0 69.3,-43.0 39.8,-60.0" fill="#0051BA" stroke="#0051BA" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-34.6,-97.0 -5.2,-80.0 -34.6,-63.0 -64.1,-80.0" fill="#C41E3A" stroke="#C41E3A" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="0.0,-77.0 29.4,-60.0 0.0,-43.0 -29.4,-60.0" fill="#FFD500" stroke="#FFD500" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="34.6,-57.0 64.1,-40.0 34.6,-23.0 5.2,-40.0" fill="#FFD500" stroke="#FFD500" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-69.3,-77.0 -39.8,-60.0 -69.3,-43.0 -98.7,-60.0" fill="#FFD500" stroke="#FFD500" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-34.6,-57.0 -5.2,-40.0 -34.6,-23.0 -64.1,-40.0" fill="#009E60" stroke="#009E60" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="0.0,-37.0 29.4,-20.0 0.0,-3.0 -29.4,-20.0" fill="#FF5800" stroke="#FF5800" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-101.3,-55.5 -71.9,-38.5 -71.9,-4.5 -101.3,-21.5" fill="#FFD500" stroke="#FFD500" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-66.7,-35.5 -37.2,-18.5 -37.2,15.5 -66.7,-1.5" fill="#C41E3A" stroke="#C41E3A" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-32.0,-15.5 -2.6,1.5 -2.6,35.5 -32.0,18.5" fill="#0051BA" stroke="#0051BA" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-101.3,-15.5 -71.9,1.5 -71.9,35.5 -101.3,18.5" fill="#FF5800" stroke="#FF5800" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-66.7,4.5 -37.2,21.5 -37.2,55.5 -66.7,38.5" fill="#009E60" stroke="#009E60" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-32.0,24.5 -2.6,41.5 -2.6,75.5 -32.0,58.5" fill="#FFD500" stroke="#FFD500" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-101.3,24.5 -71.9,41.5 -71.9,75.5 -101.3,58.5" fill="#009E60" stroke="#009E60" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-66.7,44.5 -37.2,61.5 -37.2,95.5 -66.7,78.5" fill="#009E60" stroke="#009E60" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-32.0,64.5 -2.6,81.5 -2.6,115.5 -32.0,98.5" fill="#F4F5F0" stroke="#F4F5F0" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="2.6,1.5 32.0,-15.5 32.0,18.5 2.6,35.5" fill="#0051BA" stroke="#0051BA" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="37.2,-18.5 66.7,-35.5 66.7,-1.5 37.2,15.5" fill="#FF5800" stroke="#FF5800" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="71.9,-38.5 101.3,-55.5 101.3,-21.5 71.9,-4.5" fill="#FFD500" stroke="#FFD500" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="2.6,41.5 32.0,24.5 32.0,58.5 2.6,75.5" fill="#0051BA" stroke="#0051BA" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="37.2,21.5 66.7,4.5 66.7,38.5 37.2,55.5" fill="#C41E3A" stroke="#C41E3A" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="71.9,1.5 101.3,-15.5 101.3,18.5 71.9,35.5" fill="#009E60" stroke="#009E60" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="2.6,81.5 32.0,64.5 32.0,98.5 2.6,115.5" fill="#009E60" stroke="#009E60" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="37.2,61.5 66.7,44.5 66.7,78.5 37.2,95.5" fill="#C41E3A" stroke="#C41E3A" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="71.9,41.5 101.3,24.5 101.3,58.5 71.9,75.5" fill="#0051BA" stroke="#0051BA" stroke-width="2.2" stroke-linejoin="round"/>
+<polygon points="-103.9,-60.0 0.0,0.0 0.0,120.0 -103.9,60.0" fill="#000" opacity="0.10"/>
+<polygon points="0.0,0.0 103.9,-60.0 103.9,60.0 0.0,120.0" fill="#000" opacity="0.24"/>
+<polygon points="0.0,-120.0 34.6,-100.0 0.0,-80.0 -34.6,-100.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="34.6,-100.0 69.3,-80.0 34.6,-60.0 0.0,-80.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="69.3,-80.0 103.9,-60.0 69.3,-40.0 34.6,-60.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="-34.6,-100.0 0.0,-80.0 -34.6,-60.0 -69.3,-80.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="34.6,-60.0 69.3,-40.0 34.6,-20.0 0.0,-40.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="-69.3,-80.0 -34.6,-60.0 -69.3,-40.0 -103.9,-60.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="-34.6,-60.0 0.0,-40.0 -34.6,-20.0 -69.3,-40.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="0.0,-40.0 34.6,-20.0 0.0,0.0 -34.6,-20.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="-103.9,-60.0 -69.3,-40.0 -69.3,0.0 -103.9,-20.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="-69.3,-40.0 -34.6,-20.0 -34.6,20.0 -69.3,0.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="-34.6,-20.0 0.0,0.0 0.0,40.0 -34.6,20.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="-103.9,-20.0 -69.3,0.0 -69.3,40.0 -103.9,20.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="-34.6,20.0 0.0,40.0 0.0,80.0 -34.6,60.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="-103.9,20.0 -69.3,40.0 -69.3,80.0 -103.9,60.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="0.0,0.0 34.6,-20.0 34.6,20.0 0.0,40.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="34.6,-20.0 69.3,-40.0 69.3,0.0 34.6,20.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="69.3,-40.0 103.9,-60.0 103.9,-20.0 69.3,0.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="0.0,40.0 34.6,20.0 34.6,60.0 0.0,80.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="69.3,0.0 103.9,-20.0 103.9,20.0 69.3,40.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="69.3,40.0 103.9,20.0 103.9,60.0 69.3,80.0" fill="#000000" fill-opacity="0.6"/>
+<polygon points="-33.9,61.2 -0.7,80.4 -0.7,118.8 -33.9,99.6" fill="none" stroke="#5B3FD1" stroke-width="4.5" stroke-linejoin="round"/>
+<polygon points="0.7,80.4 33.9,61.2 33.9,99.6 0.7,118.8" fill="none" stroke="#5B3FD1" stroke-width="4.5" stroke-linejoin="round"/>
+</svg>
+      </div>
+      <div class="keybar" aria-label="Move keys">
+        <div class="keyscroll"><span class="key">U</span><span class="key">U'</span><span class="key">U2</span><span class="key">R</span><span class="key">R'</span><span class="key">R2</span><span class="key">F</span><span class="key">F'</span><span class="key">F2</span><span class="key">L</span><span class="key">L'</span><span class="key">L2</span><span class="key">D</span><span class="key">D'</span><span class="key">D2</span><span class="key">B</span><span class="key">B'</span><span class="key">B2</span></div>
+        <div class="keypin"><span class="key rot" aria-label="Cube rotations x, y, z"><span class="g">&#10227;</span>xyz</span><span class="key word">more</span></div>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="objective"><p class="meta">Objective</p><h2>Place the white-green-red corner</h2></div>
+      <article class="step-card">
+        <div class="head"><span></span><span class="data">Step 1 / 2</span></div>
+        <dl>
+          <div class="line"><dt>Goal</dt><dd>Bring the corner up into the top layer, away from the cross.</dd></div>
+          <div class="line"><dt>Keep</dt><dd>The white cross stays solved.</dd></div>
+          <div class="line"><dt>Watch</dt><dd>The right face — only that column moves.</dd></div>
+        </dl>
+        <div class="moves"><span class="lbl">Moves</span><span class="chip">R</span><span class="chip">U</span><span class="chip">R'</span></div>
+      </article>
+      <div class="segmented" role="radiogroup" aria-label="Teaching Mode"><span>Show me</span><span class="on" aria-checked="true">Guide me</span><span>Test me</span><span>Let me try</span></div>
+      <div class="actions"><span class="btn secondary">Hint <span class="data">(1/3)</span></span><span class="btn primary" aria-disabled="true">Next</span></div>
+    </section>
+    <div class="gesture"><span></span></div>
+  </div></div>
+</figure>
+</div>
+</body></html>
