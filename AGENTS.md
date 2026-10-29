@@ -1,9 +1,9 @@
 <!-- bmad:context -->
-<!-- Verified 2026-10-29 against b38f8b6. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
+<!-- Verified 2026-10-29 against 9ee1ee6. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
 
 ## RubikXplorer
 
-Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual or physical cube, with on-device camera recognition. Kotlin, Jetpack Compose, hexagonal ports and adapters with a functional core. Greenfield: no code yet. Planning lives in `_bmad-output/planning-artifacts/` (PRD, architecture spine); the reader-facing overview is `docs/ARCHITECTURE.md`.
+Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual or physical cube, with on-device camera recognition. Kotlin, Jetpack Compose, hexagonal ports and adapters with a functional core. Scaffolded: `:app` plus pure-JVM `:core:domain`, `:core:solver`, `:core:application`, built through convention plugins in `build-logic/`. Planning lives in `_bmad-output/planning-artifacts/` (PRD, architecture spine); the reader-facing overview is `docs/ARCHITECTURE.md`.
 
 ## Policy
 
@@ -19,12 +19,16 @@ Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual o
 
 - Binding decisions AD-1…AD-20: `_bmad-output/planning-artifacts/architecture/architecture-RubikXplorer-2026-10-29/ARCHITECTURE-SPINE.md` — read it before adding a module, port, persisted entity, `SessionEvent`, or content field.
 - Requirements and IDs (FR-n, NFR-n, Glossary): `_bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/prd.md`; use Glossary terms verbatim in type names.
+- Build gates (AD-1 module boundaries, AD-13 manifest and SDK denylist, Kover, R8 keep rules): `build-logic/src/main/kotlin/dev/rubikxplorer/buildlogic/`; change gates there, never in per-module build scripts.
 - Next planning step or unsure which workflow fits: run the `bmad-help` skill.
 
 ## Running and verifying
 
-- TODO(scaffold): Gradle wrapper, `./gradlew` task names and CI do not exist yet; record the real invocations here on the first refresh after scaffolding.
-- Toolchain (verified 2026-10-29): Kotlin 2.4.21, AGP 9.5.0, Gradle ≥ 9.6, JDK 17, compileSdk 37 / targetSdk 36 / minSdk 29; versions live only in `gradle/libs.versions.toml`.
+- Env: `export JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64 ANDROID_HOME=$HOME/Android/Sdk`; JDK 25 runs Gradle locally (CI uses 17), and `ANDROID_HOME` is required wherever the gitignored `local.properties` is absent (fresh clone or worktree).
+- Before pushing, run what CI gates: `./gradlew spotlessCheck build` (compile, lint, JVM tests, Kover, boundary/manifest/denylist checks, debug and release APKs); fix formatting with `./gradlew spotlessApply`.
+- `build` does not test the included `build-logic` build; after touching it also run `./gradlew -p build-logic test`.
+- APKs only: `./gradlew assembleDebug assembleRelease`. `./gradlew detekt` is advisory (AD-14); never make `build` depend on it — CI fails if it does.
+- Toolchain (verified 2026-10-29): Kotlin 2.4.21, AGP 9.5.0, Gradle wrapper 9.8.2, Java 17 bytecode target, compileSdk 37 / targetSdk 36 / minSdk 29; versions live only in `gradle/libs.versions.toml`.
 - Pure JVM modules (`:core:*`) are where tests and the ≥ 80% Kover gate apply; prefer JVM tests over instrumented tests for any logic.
 
 ## Conventions that differ from defaults
@@ -41,6 +45,7 @@ Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual o
 
 - AGP 9 has built-in Kotlin: never apply `kotlin("android")` or kapt (build error); use KSP, and pin KGP 2.4.21 on the root classpath or Android modules compile with AGP's bundled 2.2.10.
 - Verify Android/Gradle/Compose APIs and versions against current docs before using them; training-data versions were wrong in this project's own planning.
+- `./gradlew: bad interpreter: /bin/sh^M`: global `core.autocrlf=true` checks `gradlew` out with CRLF; restore it with `rm gradlew && git -c core.autocrlf=false checkout -- gradlew`, never commit a CRLF `gradlew`.
 - Don't add modules, layers, or abstractions the spine doesn't require — split `:app` into feature modules only after P0.3.
 
 <!-- /bmad:context -->
