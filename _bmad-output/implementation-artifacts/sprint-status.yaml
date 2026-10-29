@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-29-2026 12:34
-last_updated: 10-29-2026 14:50
+last_updated: 10-29-2026 15:09
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -37,7 +37,7 @@ story_location: _bmad-output/implementation-artifacts
 development_status:
   epic-1: in-progress
   1-1-scaffold-the-gated-multi-module-project: done
-  1-2-model-the-cube-state-and-face-moves: backlog
+  1-2-model-the-cube-state-and-face-moves: in-progress
   1-3-parse-and-format-every-move-type-in-notation: backlog
   1-4-validate-a-54-sticker-cube: backlog
   1-5-generate-scrambles: backlog
