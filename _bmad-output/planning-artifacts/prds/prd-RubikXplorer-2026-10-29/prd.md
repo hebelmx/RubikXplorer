@@ -583,7 +583,7 @@ Targets are validated on a defined set of **reference devices**. [ASSUMPTION: th
 
 ### 6.2 MVP Scope
 
-**In scope (P0, about 14 weeks, solo):**
+**In scope (P0, about 16 weeks, solo):**
 - Interactive 3D cube with undo, redo and reset (FR-1 – FR-3).
 - The full beginner Course, with four Teaching Modes and explained Demonstrations (FR-4 – FR-6).
 - Physical-cube Mode with honest mismatch handling (FR-7 – FR-9).
@@ -615,7 +615,9 @@ Targets are validated on a defined set of **reference devices**. [ASSUMPTION: th
   - a personal solve timer with history and averages [ASSUMPTION: P2].
 - **Not planned:** importing photos from the gallery; tracking Moves from live video.
 
-> [NOTE FOR PM] **The schedule grew from 10 weeks to about 14** [ASSUMPTION: ~14 weeks, to be confirmed by the end of week 2 — OQ-9]. The cause is Camera Cube Recognition moving into P0. The draft estimated 2–4 weeks for a basic scan. Two capture modes plus four uses puts this at the top of that range, and color classification under real lighting is the most uncertain item in the MVP.
+> [NOTE FOR PM] **The schedule grew from 10 weeks to about 16** [ASSUMPTION: ~16 weeks, to be confirmed by the end of week 2 — OQ-9]. Two changes caused it:
+> - Camera Cube Recognition moved into P0, adding about 4 weeks. The draft estimated 2–4 weeks for a basic scan, and two capture modes plus four uses puts this at the top of that range. Color classification under real lighting is the most uncertain item in the MVP.
+> - The Solver is now written in-house (OQ-4), adding about 2 weeks.
 >
 > **Recognition spike, weeks 1–2:** run it alongside the cube engine. Its exit criterion: a Guided 6-face Scan prototype reads ≥ 99% of stickers correctly under normal indoor light on two reference devices.
 >
@@ -692,12 +694,12 @@ The app has no analytics (NFR-8). Learning metrics therefore come from **observe
 1. **OQ-1:** official store name and icon. Chosen after a trademark search, before publishing. "Rubik's" is a Spin Master trademark and must not appear in the listing name or icon. RubikXplorer remains the codename.
 2. **OQ-2:** the exact 2-look LL Case set, and the primary Algorithm for each OLL and PLL Case. Decided during curriculum authoring and verified by FR-18's test.
 3. **OQ-3:** rendering approach: OpenGL ES, or a 3D library such as Filament or SceneView. Decided by a spike during architecture.
-4. **OQ-4:** Solver implementation: port Kociemba two-phase to Kotlin, or adopt an existing JVM implementation. Requires a license check for the public repo, and a check of pruning-table size against NFR-11.
+4. **OQ-4 (resolved 2026-10-29):** the Solver is a clean-room Kotlin implementation of Kociemba's two-phase algorithm, written from the published description. The best-known JVM implementation (min2phase) turned out to be GPLv3-only, so no third-party solver code is used. Still open, within the solver epic: whether pruning tables are bundled or built at first run, and how big they are against NFR-11 (architecture AD-8).
 5. **OQ-5:** pilot logistics: who the ~8 beginner testers are and when closed testing starts (proposed: after the Course is usable). Also whether the pilot runs the A/B comparison of plain Move-by-Move instruction versus contextual explanation with error feedback (addendum §H).
 6. **OQ-6:** source and licensing of Algorithm data and Case names. The standard Algorithms are common knowledge; copied diagrams or text are not.
 7. **OQ-7:** recognition approach: classical CV, an on-device ML model, or a hybrid. Decided by the week 1–2 spike. Perspective correction for Quick Scan is the hardest part.
 8. **OQ-8:** recognition test matrix: which physical cubes, lighting setups and reference devices, and how ground-truth states are recorded.
-9. **OQ-9:** confirm the P0 schedule of about 14 weeks, or move scan uses to P1 to bring it back toward 10. **Deadline: end of week 2**, together with the spike result.
+9. **OQ-9:** confirm the P0 schedule of about 16 weeks, or move scan uses to P1 to shorten it. **Deadline: end of week 2**, together with the spike result.
 
 ## 10. Decisions Taken During PRD Creation
 
@@ -710,6 +712,7 @@ Recorded in `.memlog.md`:
 - Placement unlocks the suggested Stage.
 - Spike failure → launch with the camera features in beta.
 - Free, with no ads; English only; the repo stays private until the app works.
+- The Solver is written in-house in Kotlin, because min2phase is GPLv3-only (architecture review).
 
 ## 11. Assumptions Index
 
@@ -731,5 +734,5 @@ Recorded in `.memlog.md`:
 - NFR-11 — install size < 30 MB.
 - NFR-13 — minSdk 29.
 - §6.2 — personal solve timer is P2.
-- §6.2 NOTE — P0 is about 14 weeks.
+- §6.2 NOTE — P0 is about 16 weeks (camera recognition plus the in-house Solver).
 - SM-12 — rating ≥ 4.3 once there are at least 20 ratings.

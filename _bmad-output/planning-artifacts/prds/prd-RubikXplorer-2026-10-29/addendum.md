@@ -16,7 +16,7 @@ This file preserves depth from `docs/mvp-draft-product-and-architecture.md` and 
 | UI | Jetpack Compose | ViewModels + unidirectional data flow (Android official guidance). |
 | 3D rendering | OpenGL ES or a vetted 3D library | Decide by spike (PRD OQ-3). The geometry is modest; the risks are gesture and animation correctness and sync. |
 | Cube logic | Pure Kotlin/JVM module | No Android deps; tested on JVM. |
-| Solver | Kociemba two-phase | Adapter behind a port; licence check (PRD OQ-4). |
+| Solver | Kociemba two-phase, **own clean-room Kotlin implementation** | Resolved: min2phase is GPLv3-only, so no third-party code (PRD OQ-4, architecture AD-8). |
 | Persistence | Room | Progress, Checkpoints, learning events, Algorithm Status. |
 | Async | Kotlin coroutines | Solver off the main thread; timeout → controlled failure. |
 | Camera (**now P0**) | CameraX (ImageAnalysis for the live grid; ImageCapture for Quick Scan) + on-device color classification | Candidate approaches for the spike (PRD OQ-7): (a) classical CV: detect the 3×3 grid, sample sticker regions, classify in a perceptual color space (e.g. CIELAB/HSV) by nearest calibrated center; (b) a small on-device model (TFLite/LiteRT) for grid/sticker detection, with color still classified against calibrated centers; (c) a hybrid. Quick Scan needs corner-view detection and a perspective unwarp of each of the three visible faces. Validity is still checked by the cube engine, so a perfect classifier is not required, only a well-calibrated "uncertain." Keep recognition behind an **observation port** so manual input, scan and future sources all feed the same validation. |
@@ -104,19 +104,20 @@ A `TutorDecision` carries: the current Objective; whether it is satisfied; the D
 
 ## F. Roadmap (draft estimates, solo, planning assumptions only)
 
-*Revised after camera recognition moved to P0 (about 14 weeks, an assumption; see PRD OQ-9).*
+*Revised after camera recognition moved to P0 and the Solver became an in-house build (about 16 weeks, an assumption; see PRD OQ-9).*
 
 | Phase | Weeks | Scope | Exit criterion |
 |---|---|---|---|
-| P0.1 | 1–2 | Cube engine, validation, basic rendering, Solver integration, one Objective check (proof of concept) · **recognition spike** (Guided Scan prototype on 2 devices) | A random Scramble applies, renders, solves and verifies with no mismatch, and one Completion Predicate tells a helping Move from a harmful one · spike reaches ≥ 99% per-sticker accuracy in indoor light, otherwise the camera ships as beta (PRD §6.2) · OQ-9 decided |
+| P0.1 | 1–2 | Cube engine (cubies + orientation), validation, 2D net renderer, one Objective check (proof of concept) · **recognition spike** (Guided Scan prototype on 2 devices) | A random Scramble applies, renders and validates with no mismatch, and one Completion Predicate tells a helping Move from a harmful one · spike reaches ≥ 99% per-sticker accuracy in indoor light, otherwise the camera ships as beta (PRD §6.2) · OQ-9 decided |
+| P0.S | 3–6 (parallel track) | **Own Kociemba two-phase Solver**: coordinates, move and pruning tables, search, the 10,000-state solve corpus | Solves the corpus within NFR-3, and every solution is re-verified |
 | P0.2 | 3–5 | Lesson framework, Objective checks, explanations, hints, undo, recovery | Cross and corner Lessons pass scenario tests |
-| P0.3 | 6–8 | Full Course, Physical-cube Mode, persistence, playback, 2-look LL, Algorithm Library | Full path usable offline; e2e tests pass |
-| P0.4 | 9–11 | Guided 6-face Scan, validation/correction, calibration, scan to solve, Quick Check | Guided Scan meets accuracy targets on the test matrix |
-| P0.5 | 12 | Quick Scan, start from my cube, Case recognition | Each passes scenario tests; Quick Scan beta-or-GA decision |
-| P0.6 | 13–14 | Pilot wrap-up, polish, performance, accessibility, store listing | All release gates met |
-
-The closed-test pilot should **start after P0.3 (around week 8)**, not in P0.6. Learners need several sessions to finish the Course, and the results have to come back in time for fixes. P0.5 packs three camera features into one week, which is the most compressed phase, and the PRD's cut order is expected to fire there first.
+| P0.3 | 6–9 | Full Course, Physical-cube Mode, persistence, playback, 2-look LL, Algorithm Library | Full path usable offline; e2e tests pass |
+| P0.4 | 10–12 | Guided 6-face Scan, validation/correction, calibration, scan to solve, Quick Check | Guided Scan meets accuracy targets on the test matrix |
+| P0.5 | 13–14 | Quick Scan, start from my cube, Case recognition | Each passes scenario tests; Quick Scan beta-or-GA decision |
+| P0.6 | 15–16 | Pilot wrap-up, polish, performance, accessibility, store listing | All release gates met |
 | P1 | — | Drill training, alternative Algorithms, threshold tuning | — |
+
+The closed-test pilot should **start after P0.3 (around week 9)**, not in P0.6. Learners need several sessions to finish the Course, and the results have to come back in time for fixes. P0.5 now has two weeks for its three camera features. It is still the phase where the PRD's cut order is expected to fire first.
 
 Draft advice that still holds: prove the three riskiest pieces first. These are a correct engine, 3D animation in sync with it, and one Objective that detects whether a Move helps or harms progress. Use a simple 2D or basic visualization before investing in full interactive 3D.
 
