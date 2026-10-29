@@ -45,7 +45,7 @@ Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual o
 
 - AGP 9 has built-in Kotlin: never apply `kotlin("android")` or kapt (build error); use KSP, and pin KGP 2.4.21 on the root classpath or Android modules compile with AGP's bundled 2.2.10.
 - Verify Android/Gradle/Compose APIs and versions against current docs before using them; training-data versions were wrong in this project's own planning.
-- `./gradlew: bad interpreter: /bin/sh^M`: global `core.autocrlf=true` checks `gradlew` out with CRLF; restore it with `rm gradlew && git -c core.autocrlf=false checkout -- gradlew`, never commit a CRLF `gradlew`.
+- `./gradlew: bad interpreter: /bin/sh^M`: `.gitattributes` now forces LF for `gradlew`; on an older checkout run `rm gradlew && git checkout -- gradlew`, and never commit a CRLF `gradlew`.
 - Don't add modules, layers, or abstractions the spine doesn't require — split `:app` into feature modules only after P0.3.
 
 <!-- /bmad:context -->
