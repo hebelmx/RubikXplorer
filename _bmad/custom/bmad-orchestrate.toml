@@ -1,0 +1,81 @@
+# RubikXplorer overrides for the user-level bmad-orchestrate skill
+# (~/.claude/skills/bmad-orchestrate/defaults.toml documents every key).
+
+[git]
+merge_method = "merge"   # keep each story's Conventional Commits in main's history
+
+[verify]
+# Empty until Story 1.1 lands the Gradle wrapper; then the orchestrator uses
+# AGENTS.md "Running and verifying" (refreshed by the post-merge action below).
+commands = []
+
+[epic]
+retrospective = "auto"
+
+# Work that needs a person: devices, camera hardware, secrets, Play Console, pilots, decisions.
+[[gates]]
+key = "1-8-spike-choose-the-3d-rendering-approach-oq-3"
+when = "before-merge"
+reason = "frame-time and APK-size measurements on real devices; renderer decision goes to the memlog"
+
+[[gates]]
+key = "1-9-spike-guided-6-face-scan-prototype-and-recognition-test-matr"
+when = "before-start"
+reason = "needs physical cubes, two devices, lighting setups and recorded ground truth"
+
+[[gates]]
+key = "1-10-week-2-decision-gate-schedule-reference-devices-and-baseline"
+when = "before-start"
+reason = "OQ-9 schedule and ARCH-OQ-1 reference devices are product-owner decisions"
+
+[[gates]]
+key = "5-1-render-the-cube-in-3d-behind-the-cuberenderer-port"
+when = "before-merge"
+reason = "250 ms animation and visual sync must be checked on the reference device"
+
+[[gates]]
+key = "7-8-ship-a-pilot-build-to-closed-testing"
+when = "before-start"
+reason = "upload keystore secrets, Play Console promotion, pilot recruitment (OQ-5)"
+
+[[gates]]
+key = "10-2-guided-6-face-scan-viewfinder"
+when = "before-merge"
+reason = "camera behavior needs a hands-on check on a device"
+
+[[gates]]
+key = "10-8-recognition-test-matrix-and-ga-beta-decision"
+when = "before-start"
+reason = "physical test matrix and the GA/BETA product decision"
+
+[[gates]]
+key = "11-1-quick-scan-from-two-corners"
+when = "before-merge"
+reason = "Quick Scan accuracy must be measured on devices before GA/BETA"
+
+[[gates]]
+key = "12-2-performance-and-compatibility-on-the-reference-devices"
+when = "before-start"
+reason = "Macrobenchmarks on physical reference devices"
+
+[[gates]]
+key = "12-3-stability-size-and-privacy-hardening"
+when = "before-merge"
+reason = "Android vitals review and the Play data-safety form"
+
+[[gates]]
+key = "12-4-pilot-findings-fixed-and-release-gates-passed"
+when = "before-start"
+reason = "needs pilot results and severity triage by the product owner"
+
+[[gates]]
+key = "12-5-store-listing-and-public-portfolio-repo"
+when = "before-start"
+reason = "OQ-1 trademark search, store assets, making the repo public"
+
+# After the scaffold merges, refresh AGENTS.md with the real ./gradlew commands.
+[[post_merge]]
+key = "1-1-scaffold-the-gated-multi-module-project"
+skill = "bmad-project-context"
+args = "refresh"
+branch = "chore/refresh-agent-context"

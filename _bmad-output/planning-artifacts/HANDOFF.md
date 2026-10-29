@@ -16,10 +16,14 @@ Planning is complete on branch `docs/mvp-prd`, with a PR open to `main`. No app 
 
 ## Next task
 
-1. Merge the planning PR into `main`.
-2. Create a feature branch from `main`, for example `feat/1-1-scaffold`.
-3. Run **`bmad-build`** on **Story 1.1, "Scaffold the gated multi-module project"**. Then work through Epic 1 in order. Stories 1.8 and 1.9 are spikes and can run alongside 1.2–1.7.
-4. After the scaffold, run `bmad-project-context` (refresh) to put the real `./gradlew` commands into `AGENTS.md`.
+1. Run **`/bmad-orchestrate`**, the user-level skill in `~/.claude/skills/bmad-orchestrate/`. It starts at Story 1.1, "Scaffold the gated multi-module project", and for each story:
+   - creates a branch;
+   - runs `bmad-build-auto` in a fresh subagent;
+   - verifies the result independently and runs an adversarial acceptance gate;
+   - opens a PR, waits for CI, and merges.
+2. The orchestrator stops and asks at every human gate. The RubikXplorer gates are in `_bmad/custom/bmad-orchestrate.toml`; Stories 1.9 and 1.10 need devices and decisions.
+3. After Story 1.1 merges, the orchestrator runs `bmad-project-context` (refresh) as a post-merge action. That puts the real `./gradlew` commands into `AGENTS.md`.
+4. Use `/bmad-orchestrate status` to see progress, and `/bmad-orchestrate resume` in a fresh session to continue.
 
 ## Decisions due in Epic 1, by the end of week 2
 
