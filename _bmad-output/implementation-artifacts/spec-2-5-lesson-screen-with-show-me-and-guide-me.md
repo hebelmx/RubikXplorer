@@ -5,12 +5,19 @@ created: '2026-10-30'
 status: 'done'
 baseline_revision: 'b1d7816059f693fbf16ef38c38978fdd8a788e7f'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-2-context.md'
   - '{project-root}/AGENTS.md'
 warnings: ['oversized']
-deferred: []
+deferred:
+  - summary: >-
+      ContentValidator accepts Lessons whose steps make the tutor's step rule degenerate: zero steps, a step with no Moves or self-cancelling Moves, or a final path state that fails the Completion Predicate.
+    evidence: |-
+      lesson.schema.json has no minItems on steps and ContentValidator only checks step Notation. With such content Tutor.decide reports advance=true at a step's start (empty or cancelling Moves, or zero steps where pathState(1) == entry), or Next is enabled on the last step but StepAdvanced is a no-op (path end reached, predicate unsatisfied). No shipped content triggers it; Story 2.7 authors the first Lessons, so the validator (or a content test) should reject these shapes then.
+    location: >-
+      core/domain/src/main/kotlin/dev/rubikxplorer/domain/content/ContentValidator.kt:53
+    severity: low
 ---
 
 <intent-contract>
@@ -133,6 +140,38 @@ deferred: []
   - `[false]` `[reject]` (edge) Learn stuck on Failed with no retry — the shipped bundle is read from the APK; a retry yields the same result.
   - `[low]` `[reject]` (edge) opening another Lesson discards progress silently — same as blind #5.
 
+### 2026-10-30 — Review pass (follow-up)
+- verdicts: 28 findings — high 0, medium 2, low 22, false 4, maybe-false 0
+- findings:
+  - `[low]` `[patch]` (blind) compact stage is 264dp inside its gutter, below the 280dp minimum, and the test allowed it — minimum now `COMPACT_STAGE_MIN + 2 × Spacing.s2` so the stage itself is ≥ 280dp; AppShellTest asserts `stage.height >= 280.dp`.
+  - `[low]` `[reject]` (blind) expanded layout leaves a blank strip right of the capped panel — the spec fixes the stage at ≈55% with the panel capped at 560dp; 16dp at 1280dp is negligible, and reflowing the stage changes the specified layout.
+  - `[low]` `[patch]` (blind) system back on Solve exits the app instead of returning to Learn — `BackHandler(enabled = tab != LEARN)` in AppShell; new test `system back on Solve returns to Learn first`.
+  - `[low]` `[patch]` (blind) Learn forgets its scroll position whenever a Lesson opens — grouped with edge #5; scroll state hoisted into AppShell above the Lesson early return and passed to `LearnScreen(scrollState)`.
+  - `[low]` `[reject]` (blind) restore after process death flashes the shell and restarts the Lesson — session persistence is Epic 6, so a restart after process death is expected; the flash lasts one bundled-resource load.
+  - `[low]` `[patch]` (blind) `MODE_LABELS` list would silently omit Story 2.6's modes — replaced by an exhaustive `when` over `TeachingMode.entries`, so a new mode fails to compile until labelled.
+  - `[low]` `[reject]` (blind) Show me can never complete a Lesson and shows Guide me cube status — carried: spec rule "Next iff decision.advance"; fix would edit the spec.
+  - `[low]` `[reject]` (blind) Hint and "Show the Move" do the same thing — the intent contract mandates both dispatching `RevealRequested` until the Hint Ladder; fix would edit the spec.
+  - `[low]` `[reject]` (blind) finishing a Lesson is recorded nowhere; reopening lands on Objective met — the intent fixes "LessonStarted only when the session does not hold that Lesson"; completion records are progress (Epic 6).
+  - `[low]` `[reject]` (blind) solving a multi-step Lesson early by another route shows the current step's Notice/target — needs a new summary state (not a direct fix); rare for a beginner, and the card still shows "Objective met".
+  - `[false]` `[reject]` (blind) shell and Lesson can disagree on width class — the Lesson replaces the shell (early return), so the two layouts are never on screen together; each lays out its own container as specified.
+  - `[low]` `[reject]` (blind) no test switches Guide me → Show me → Guide me — only GuideMeStage dispatches Cube State events and ResetConfirmation lives inside it, so nothing can stale the remembered renderer while Show me shows; no defect shown.
+  - `[low]` `[reject]` (blind) spec frontmatter vs result status, unlisted drawables, gradle files owner — fix would edit this build's spec (status was mid-review by design).
+  - `[false]` `[reject]` (edge) a configuration change mid-dispatch leaves the net out of sync — a recreated composition builds a new renderer from `virtual` after the synchronous `host.dispatch`; if the launch was cancelled before dispatch, neither session nor net changed.
+  - `[low]` `[defer]` (edge) a step with empty or self-cancelling Moves makes `advance` true at the step's start — ContentValidator gap (pre-existing, Story 2.1); no such content exists; deferred for Story 2.7 authoring.
+  - `[low]` `[defer]` (edge) a Lesson with zero steps enables Next at entry and shows "Step 1 of 0" — same validator gap (schema has no `minItems`); deferred.
+  - `[low]` `[defer]` (edge) last-step path state reached but predicate unsatisfied leaves Next enabled as a no-op — same validator gap (content whose Demonstration does not meet its Objective); deferred.
+  - `[low]` `[patch]` (edge) Learn list jumps to the top after a Lesson closes — grouped with blind #4; scroll state hoisted.
+  - `[medium]` `[patch]` (verification-gap) Guide me net never compared with the session after reopen or saved-state restore — AppShellTest reopen and restore tests now assert every sticker color equals `virtual`.
+  - `[medium]` `[patch]` (verification-gap) step-2 emphasis never checked to follow `stepIndex` — new LessonScreenTest asserts the highlighted stickers equal step 1's then step 2's `focus.target` on the two-step Lesson.
+  - `[low]` `[reject]` (verification-gap) reopening an already-satisfied Lesson does not pulse, unpinned — matches the intent (pulse when the Objective turns met); pinning it adds a test for non-behavior.
+  - `[false]` `[reject]` (intent) the shipped bundle has no Lessons — carried: authored content is Story 2.7.
+  - `[low]` `[reject]` (intent) rotation tested via `StateRestorationTester`, not Activity recreation — the singleton SessionHost plus `rememberSaveable` is the mechanism, and the restore test now also checks the net.
+  - `[low]` `[reject]` (intent) some UI tests dispatch Moves directly — the key-bar input path is exercised by the Objective-met, two-step and net-sync tests.
+  - `[low]` `[reject]` (intent) Show me Next untested — carried with blind #7.
+  - `[false]` `[reject]` (intent) container width vs window width — same refutation as blind #11.
+  - `[low]` `[reject]` (intent) pulse only in Guide me — the pulse is `NetEmphasis.pulse` on the session's net, which only Guide me shows; Show me's stage is the Demonstration (spec-fixed).
+  - `[low]` `[reject]` (intent) ICU resolver never run against shipped strings — there are none until 2.7; message patterns are validated at load by IcuArguments.
+
 ## Design Notes
 
 - **Why a partial `TutorDecision`:** AD-5 fixes the full field set, but `diagnosis`, `certainty`, `nextAction`, `explanation` and `recovery` need `tutor/Assess` (Story 4.1, which owns Certainty construction). Adding them now would mean fabricating Certainty outside `Assess`. This story adds the fields it can fill honestly; 4.1 completes the set.
@@ -168,3 +207,16 @@ Status: done
 
 **Residual risks:** no shipped Lessons until Story 2.7 (Learn shows the empty line); `gradle.properties` (`org.gradle.tooling.parallel`) and `gradle/gradle-daemon-jvm.properties` appeared in the working tree during the run from tooling outside this story and were left uncommitted.
 
+### Follow-up review pass — 2026-10-30
+
+**Changes:** compact stage minimum now excludes its gutter (stage itself ≥ 280dp); system back on Solve returns to Learn; Learn's scroll state hoisted into the shell so it survives an open Lesson; Teaching Mode labels via an exhaustive `when`; tests added for net-vs-session after reopen and restore, step-2 emphasis, and back on Solve.
+
+**Files changed:** `ui/lesson/LessonScreen.kt` (stage min), `ui/lesson/TeachingModeSwitcher.kt` (exhaustive labels), `ui/shell/AppShell.kt` (BackHandler, hoisted scroll), `ui/shell/LearnScreen.kt` (`scrollState` parameter), `AppShellTest` (12 tests), `LessonScreenTest` (10 tests).
+
+**Review findings:** 28 (high 0, medium 2, low 22, false 4). Patched entries: medium 2 (net sync after reopen/restore, step-2 emphasis), low 4 (stage minimum, back on Solve, Learn scroll, exhaustive labels). Deferred: 1 (ContentValidator accepts degenerate step shapes — for Story 2.7). Rejected with reasons in the triage log.
+
+**Follow-up review recommended:** false — follow-up pass patched no high finding; the work has converged.
+
+**Verification:** `./gradlew spotlessCheck build` exit 0 (AppShellTest 12/12, LessonScreenTest 10/10, all module tests, Kover, Learner-text, boundary and lint gates).
+
+**Residual risks:** degenerate step content (deferred) until Story 2.7 adds validation; Show me's Next stays disabled by spec.

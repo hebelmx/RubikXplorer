@@ -1,5 +1,6 @@
 package dev.rubikxplorer.app.ui.shell
 
+import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -66,6 +68,8 @@ fun AppShell(
     val content by catalog.state.collectAsState()
     var tab by rememberSaveable { mutableStateOf(Tab.LEARN) }
     var openLesson by rememberSaveable { mutableStateOf<String?>(null) }
+    // Held above the Lesson task flow so closing a Lesson returns to the same place in the list.
+    val learnScroll = rememberScrollState()
 
     val ready = content as? CatalogState.Ready
     val entry = openLesson?.let { ready?.find(LessonId(it)) }
@@ -73,6 +77,8 @@ fun AppShell(
         LessonScreen(host = host, entry = entry, strings = ready.strings, onClose = { openLesson = null }, modifier = modifier)
         return
     }
+    // Back from another tab returns to Learn, the start destination, before it leaves the app.
+    BackHandler(enabled = tab != Tab.LEARN) { tab = Tab.LEARN }
 
     val destination: @Composable (Modifier) -> Unit = { destinationModifier ->
         when (tab) {
@@ -80,6 +86,7 @@ fun AppShell(
                 LearnScreen(
                     catalog = content,
                     onOpen = { openLesson = it.value },
+                    scrollState = learnScroll,
                     // The inset area takes surfaceBase too, not the window background.
                     modifier = destinationModifier.background(RubikTheme.tokens.surfaceBase).safeDrawingPadding(),
                 )

@@ -27,12 +27,12 @@ import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.app.ui.theme.Spacing
 import dev.rubikxplorer.domain.tutor.TeachingMode
 
-/** The label of each [TeachingMode] segment, in switcher order. */
-private val MODE_LABELS: List<Pair<TeachingMode, Int>> =
-    listOf(
-        TeachingMode.SHOW_ME to R.string.mode_show_me,
-        TeachingMode.GUIDE_ME to R.string.mode_guide_me,
-    )
+/** The label of each [TeachingMode] segment; exhaustive, so a new mode cannot be left out of the switcher. */
+private fun labelOf(mode: TeachingMode): Int =
+    when (mode) {
+        TeachingMode.SHOW_ME -> R.string.mode_show_me
+        TeachingMode.GUIDE_ME -> R.string.mode_guide_me
+    }
 
 /**
  * The Teaching Mode segmented switcher: one segment per mode, the active one filled with `accent`.
@@ -56,8 +56,8 @@ fun TeachingModeSwitcher(
                 .selectableGroup()
                 .semantics { contentDescription = description },
     ) {
-        MODE_LABELS.forEach { (mode, label) ->
-            Segment(mode, label, mode == selected, onSelect, Modifier.weight(1f))
+        TeachingMode.entries.forEach { mode ->
+            Segment(mode, labelOf(mode), mode == selected, onSelect, Modifier.weight(1f))
         }
     }
 }

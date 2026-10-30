@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.StateRestorationTester
@@ -15,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
 import dev.rubikxplorer.app.content.LessonCatalog
+import dev.rubikxplorer.app.render.StickerColorKey
 import dev.rubikxplorer.app.session.STAGE_TITLE
 import dev.rubikxplorer.app.session.SessionHost
 import dev.rubikxplorer.app.session.TickingClock
@@ -23,10 +25,12 @@ import dev.rubikxplorer.app.session.whiteCrossLesson
 import dev.rubikxplorer.app.ui.freecube.FreeCubeViewModel
 import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
 import dev.rubikxplorer.application.session.SessionEvent
+import dev.rubikxplorer.domain.appearance.StickerAppearance
 import dev.rubikxplorer.domain.content.ContentLoadError
 import dev.rubikxplorer.domain.content.ContentLoadResult
 import dev.rubikxplorer.domain.cube.Face
 import dev.rubikxplorer.domain.cube.FaceTurn
+import dev.rubikxplorer.domain.cube.Facelets
 import dev.rubikxplorer.domain.cube.Turn
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -63,6 +67,18 @@ class AppShellTest {
     }
 
     private fun bounds(tag: String): DpRect = rule.onNodeWithTag(tag).getUnclippedBoundsInRoot()
+
+    /** The Guide me net shows the session's Cube State, sticker for sticker. */
+    private fun assertNetMatchesSession(step: String) {
+        rule.waitForIdle()
+        val expected =
+            host.state.value.virtual
+                .toFacelets()
+                .colors
+                .map { Color(StickerAppearance.of(it).fill) }
+        val drawn = (0 until Facelets.SIZE).map { rule.onNodeWithTag("sticker:$it").fetchSemanticsNode().config[StickerColorKey] }
+        assertEquals(step, expected, drawn)
+    }
 
     private fun openWhiteCross() {
         rule.onNodeWithTag("learn:lesson:lesson-01-01").performClick()
@@ -122,7 +138,7 @@ class AppShellTest {
         assertTrue(hint.right <= next.left)
         val stage = bounds("lesson:stage")
         assertTrue("panel below stage", bounds("lesson:panel").top >= stage.bottom)
-        assertTrue("stage at least 280dp", stage.height >= 280.dp - 16.dp)
+        assertTrue("stage ${stage.height} at least 280dp", stage.height >= 280.dp)
     }
 
     @Test
@@ -163,6 +179,7 @@ class AppShellTest {
         rule.onNodeWithTag("lesson").assertExists()
         rule.onNodeWithTag("learn").assertDoesNotExist()
         assertEquals(before, host.state.value)
+        assertNetMatchesSession("restored")
     }
 
     @Test
@@ -190,6 +207,17 @@ class AppShellTest {
         rule.waitForIdle()
         rule.onNodeWithTag("lesson").assertExists()
         assertEquals(before, host.state.value)
+        assertNetMatchesSession("reopened")
+    }
+
+    @Test
+    fun `system back on Solve returns to Learn first`() {
+        launch()
+        rule.onNodeWithTag("nav:solve").performClick()
+        rule.onNodeWithTag("toolbar:undo").assertExists()
+        rule.runOnIdle { back.onBackPressed() }
+        rule.onNodeWithTag("learn").assertExists()
+        rule.onNodeWithTag("toolbar:undo").assertDoesNotExist()
     }
 
     @Test

@@ -32,7 +32,10 @@ import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.domain.appearance.StickerAppearance
 import dev.rubikxplorer.domain.content.ContentLoadResult
 import dev.rubikxplorer.domain.cube.Facelets
+import dev.rubikxplorer.domain.playback.Demonstration
+import dev.rubikxplorer.domain.playback.DemonstrationResult
 import dev.rubikxplorer.domain.playback.PlaybackSpeed
+import dev.rubikxplorer.domain.predicate.Piece
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -206,6 +209,37 @@ class LessonScreenTest {
         node("lesson:notice").assertDoesNotExist()
         node("lesson:showMove").assertExists()
         assertEquals(0, closed)
+    }
+
+    /** The sticker tags of the current net whose piece is in the target of [lesson]'s step [index]. */
+    private fun targetStickers(
+        demonstration: Demonstration,
+        index: Int,
+    ): Set<String> {
+        val facelets =
+            host.state.value.virtual
+                .toFacelets()
+        val target = demonstration.steps[index].focus.target
+        return (0 until Facelets.SIZE).filter { Piece.at(facelets, it) in target }.map { "sticker:$it" }.toSet()
+    }
+
+    @Test
+    fun `guide me emphasis follows the current step, so step 2 outlines step 2's target`() {
+        val lesson = twoStepLesson()
+        val demonstration = (Demonstration.of(lesson) as DemonstrationResult.Ready).demonstration
+        open(lesson.id.value)
+        assertEquals("step 1", targetStickers(demonstration, 0), stickersWith(StickerHighlightedKey))
+        node("moveKey:U").performScrollTo().performClick()
+        rule.waitUntil(5_000) {
+            host.state.value.decision!!
+                .advance
+        }
+        node("lesson:next").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.stepIndex == 1 }
+        rule.waitForIdle()
+        val step2 = targetStickers(demonstration, 1)
+        assertTrue("step 2 has a target", step2.isNotEmpty())
+        assertEquals("step 2", step2, stickersWith(StickerHighlightedKey))
     }
 
     @Test

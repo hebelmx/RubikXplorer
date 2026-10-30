@@ -227,7 +227,8 @@ private fun LessonBody(
         val widthClass = WindowWidthClass.of(width.value)
         when (widthClass) {
             WindowWidthClass.COMPACT -> {
-                val stageHeight = min(max(height * COMPACT_STAGE_FRACTION, COMPACT_STAGE_MIN), height)
+                // The stage's own height (inside its gutter) is at least COMPACT_STAGE_MIN.
+                val stageHeight = min(max(height * COMPACT_STAGE_FRACTION, COMPACT_STAGE_MIN + Spacing.s2 * 2), height)
                 Column(Modifier.fillMaxSize()) {
                     stage(Modifier.fillMaxWidth().height(stageHeight).stageSurface())
                     panel(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()))
