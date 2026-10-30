@@ -1,4 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">RubikXplorer</string>
+
+    <!-- Free cube stage -->
+    <string name="frame_virtual">VIRTUAL</string>
+    <string name="toolbar_undo">Undo</string>
+    <string name="toolbar_redo">Redo</string>
+    <string name="toolbar_reset">Reset</string>
+
+    <!-- Move key bar -->
+    <string name="move_group_rotations">⟳</string>
+    <string name="move_group_rotations_description">Cube rotations</string>
+    <string name="move_more">more</string>
+    <string name="move_more_description">More turns: wide and slice</string>
+    <string name="move_less">less</string>
+    <string name="move_less_description">Hide wide and slice turns</string>
+    <string name="move_show_name">Show name</string>
+
+    <!-- Move plain names: "<spoken>: <layer> <direction>[, like <face>]" -->
+    <string name="move_name">%1$s: %2$s %3$s</string>
+    <string name="move_name_like">%1$s: %2$s %3$s, like %4$s</string>
+    <string name="move_spoken_prime">%1$s prime</string>
+    <string name="move_spoken_two">%1$s two</string>
+    <string name="move_spoken_wide">wide %1$s</string>
+    <string name="move_layer_face">%1$s face</string>
+    <string name="move_layer_wide">%1$s two layers</string>
+    <string name="move_layer_rotation">whole cube</string>
+    <string name="move_face_u">up</string>
+    <string name="move_face_r">right</string>
+    <string name="move_face_f">front</string>
+    <string name="move_face_d">down</string>
+    <string name="move_face_l">left</string>
+    <string name="move_face_b">back</string>
+    <string name="move_slice_m">middle slice</string>
+    <string name="move_slice_e">equator slice</string>
+    <string name="move_slice_s">standing slice</string>
+    <string name="move_turn_clockwise">clockwise</string>
+    <string name="move_turn_counterclockwise">counter-clockwise</string>
+    <string name="move_turn_half">half turn</string>
+
+    <!-- Debug toggles -->
+    <string name="debug_glyphs">Color-blind glyphs</string>
 </resources>
