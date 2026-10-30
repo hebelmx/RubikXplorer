@@ -1,18 +1,26 @@
 package dev.rubikxplorer.domain.cube
 
 /**
- * The free cube's undo/redo history (FR-3): an immutable value starting from [CubeState.SOLVED].
- * [commit] pushes a Move and clears redo; [undo] and [redo] are no-ops when there is nothing to
- * undo or redo; [reset] returns to solved with both stacks empty. The free cube is not a Learning
- * Session, so this history is never persisted.
+ * An undo/redo history of Moves (FR-3): an immutable value starting from [start] ([CubeState.SOLVED]
+ * for the free cube, a Lesson's entry state in a Learning Session). [commit] pushes a Move and clears
+ * redo; [undo] and [redo] are no-ops when there is nothing to undo or redo; [reset] returns to
+ * [start] with both stacks empty. The history itself is never persisted.
  */
 class MoveHistory private constructor(
+    /** Where the history starts and where [reset] returns. */
+    val start: CubeState,
     /** The Cube State after every committed, not-undone Move. */
     val state: CubeState,
-    private val done: List<Move>,
-    private val undone: List<Move>,
+    /** The committed, not-undone Moves, oldest first. */
+    val done: List<Move>,
+    /** The undone Moves; [redo] applies the last one. */
+    val undone: List<Move>,
 ) {
-    constructor() : this(CubeState.SOLVED, emptyList(), emptyList())
+    /** An empty history starting from solved (the free cube). */
+    constructor() : this(CubeState.SOLVED)
+
+    /** An empty history starting from [start]. */
+    constructor(start: CubeState) : this(start, start, emptyList(), emptyList())
 
     val canUndo: Boolean get() = done.isNotEmpty()
 
@@ -25,26 +33,28 @@ class MoveHistory private constructor(
     val redoable: Move? get() = undone.lastOrNull()
 
     /** Applies [move] and clears redo. */
-    fun commit(move: Move): MoveHistory = MoveHistory(state.apply(move), done + move, emptyList())
+    fun commit(move: Move): MoveHistory = MoveHistory(start, state.apply(move), done + move, emptyList())
 
     /** Takes back the last committed Move; unchanged when there is none. */
     fun undo(): MoveHistory {
         val move = undoable ?: return this
-        return MoveHistory(state.apply(move.inverse()), done.dropLast(1), undone + move)
+        return MoveHistory(start, state.apply(move.inverse()), done.dropLast(1), undone + move)
     }
 
     /** Applies the last undone Move again; unchanged when there is none. */
     fun redo(): MoveHistory {
         val move = redoable ?: return this
-        return MoveHistory(state.apply(move), done + move, undone.dropLast(1))
+        return MoveHistory(start, state.apply(move), done + move, undone.dropLast(1))
     }
 
-    /** Solved, with nothing to undo or redo. */
-    fun reset(): MoveHistory = MoveHistory()
+    /** Back at [start], with nothing to undo or redo. */
+    fun reset(): MoveHistory = MoveHistory(start)
 
-    override fun equals(other: Any?): Boolean = other is MoveHistory && state == other.state && done == other.done && undone == other.undone
+    override fun equals(other: Any?): Boolean =
+        other is MoveHistory && start == other.start && state == other.state && done == other.done && undone == other.undone
 
-    override fun hashCode(): Int = (state.hashCode() * 31 + done.hashCode()) * 31 + undone.hashCode()
+    override fun hashCode(): Int = ((start.hashCode() * 31 + state.hashCode()) * 31 + done.hashCode()) * 31 + undone.hashCode()
 
-    override fun toString(): String = "MoveHistory(state=$state, done=${Notation.format(done)}, undone=${Notation.format(undone)})"
+    override fun toString(): String =
+        "MoveHistory(start=$start, state=$state, done=${Notation.format(done)}, undone=${Notation.format(undone)})"
 }
