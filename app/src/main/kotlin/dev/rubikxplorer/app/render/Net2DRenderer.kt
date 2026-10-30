@@ -19,7 +19,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -30,11 +36,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.rubikxplorer.app.ui.theme.CubeTokens
 import dev.rubikxplorer.app.ui.theme.PlexSans
 import dev.rubikxplorer.app.ui.theme.Radii
 import dev.rubikxplorer.domain.appearance.StickerAppearance
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Facelets
+import dev.rubikxplorer.domain.predicate.Piece
 import kotlinx.coroutines.channels.Channel
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
@@ -48,6 +56,25 @@ var SemanticsPropertyReceiver.stickerColor by StickerColorKey
 /** The glyph ink drawn on a sticker while color-blind glyphs are on. */
 val StickerGlyphInkKey = SemanticsPropertyKey<Color>("StickerGlyphInk")
 var SemanticsPropertyReceiver.stickerGlyphInk by StickerGlyphInkKey
+
+/** Whether the dim overlay is drawn over a sticker; set only while a [NetEmphasis] is drawn. */
+val StickerDimmedKey = SemanticsPropertyKey<Boolean>("StickerDimmed")
+var SemanticsPropertyReceiver.stickerDimmed by StickerDimmedKey
+
+/** Whether a sticker carries the highlight outline; set only while a [NetEmphasis] is drawn. */
+val StickerHighlightedKey = SemanticsPropertyKey<Boolean>("StickerHighlighted")
+var SemanticsPropertyReceiver.stickerHighlighted by StickerHighlightedKey
+
+/**
+ * Which pieces stand out on the net (a Demonstration step's focus). Centers and the [lit] pieces
+ * draw normally, every other sticker gets the `sticker-dimmed-overlay`, and the stickers of the
+ * [highlighted] pieces get the `sticker-highlight` outline. Pieces are mapped to stickers through the
+ * facelets drawn at that moment, so the emphasis follows a moving piece. Stickers are never recolored.
+ */
+data class NetEmphasis(
+    val lit: Set<Piece>,
+    val highlighted: Set<Piece>,
+)
 
 /**
  * The first [CubeRenderer] adapter: a flat Kociemba cross net. It keeps the drawn [Facelets] in
@@ -103,11 +130,15 @@ class Net2DRenderer(
         animate(HALF, 1f, animationSpec = tween(half, easing = LinearEasing)) { value, _ -> progress = value }
     }
 
-    /** The net, drawn from [renderedFacelets] in [style]; also drains the presentation queue. */
+    /**
+     * The net, drawn from [renderedFacelets] in [style] with the optional [emphasis] (none: every
+     * sticker plain); also drains the presentation queue.
+     */
     @Composable
     fun Content(
         style: RenderStyle,
         modifier: Modifier = Modifier,
+        emphasis: NetEmphasis? = null,
     ) {
         LaunchedEffect(this) { drain() }
         BoxWithConstraints(modifier = modifier, contentAlignment = Alignment.Center) {
@@ -118,6 +149,7 @@ class Net2DRenderer(
                     Sticker(
                         index = index,
                         style = style,
+                        emphasis = emphasis,
                         cell = cell,
                         modifier = Modifier.offset(cell * column, cell * row),
                     )
@@ -130,6 +162,7 @@ class Net2DRenderer(
     private fun Sticker(
         index: Int,
         style: RenderStyle,
+        emphasis: NetEmphasis?,
         cell: Dp,
         modifier: Modifier,
     ) {
@@ -137,6 +170,9 @@ class Net2DRenderer(
         val fill = Color(appearance.fill)
         val ink = Color(appearance.glyphInk)
         val flipping = index in changed
+        val piece = if (emphasis == null) null else Piece.at(rendered, index)
+        val dimmed = emphasis != null && piece != null && piece !in emphasis.lit && piece !in emphasis.highlighted
+        val highlighted = emphasis != null && piece != null && piece in emphasis.highlighted
         Box(
             modifier =
                 modifier
@@ -144,10 +180,18 @@ class Net2DRenderer(
                     .padding(cell * GAP_FRACTION)
                     .graphicsLayer { if (flipping) scaleY = abs(1f - 2f * progress) }
                     .background(fill, RoundedCornerShape(Radii.xs))
-                    .testTag("sticker:$index")
+                    .drawWithContent {
+                        drawContent()
+                        if (dimmed) drawDimOverlay()
+                        if (highlighted) drawHighlight()
+                    }.testTag("sticker:$index")
                     .semantics {
                         stickerColor = fill
                         if (style.colorBlindGlyphs) stickerGlyphInk = ink
+                        if (emphasis != null) {
+                            stickerDimmed = dimmed
+                            stickerHighlighted = highlighted
+                        }
                     },
             contentAlignment = Alignment.Center,
         ) {
@@ -170,7 +214,36 @@ class Net2DRenderer(
         }
     }
 
+    private fun DrawScope.drawDimOverlay() {
+        val radius = CornerRadius(Radii.xs.toPx())
+        drawRoundRect(CubeTokens.stickerDimmedOverlay, cornerRadius = radius)
+    }
+
+    /** A 3dp `sticker-highlight` outline with a 1dp `cubie-body` inner stroke, inside the sticker. */
+    private fun DrawScope.drawHighlight() {
+        val outer = HIGHLIGHT_DP.dp.toPx()
+        val inner = INNER_STROKE_DP.dp.toPx()
+        val radius = Radii.xs.toPx()
+        drawRoundRect(
+            color = CubeTokens.stickerHighlight,
+            topLeft = Offset(outer / 2, outer / 2),
+            size = Size(size.width - outer, size.height - outer),
+            cornerRadius = CornerRadius(radius),
+            style = Stroke(outer),
+        )
+        drawRoundRect(
+            color = CubeTokens.cubieBody,
+            topLeft = Offset(outer + inner / 2, outer + inner / 2),
+            size = Size(size.width - 2 * outer - inner, size.height - 2 * outer - inner),
+            cornerRadius = CornerRadius(max(0f, radius - outer)),
+            style = Stroke(inner),
+        )
+    }
+
     internal companion object {
+        private const val HIGHLIGHT_DP = 3
+        private const val INNER_STROKE_DP = 1
+
         /** Longest a single presentation item may take. */
         const val ITEM_MILLIS = 200
         const val FAST_FORWARD_AFTER = 3

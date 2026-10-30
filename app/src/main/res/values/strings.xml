@@ -11,6 +11,25 @@
     <!-- Lesson -->
     <string name="dialog_cancel">Cancel</string>
 
+    <!-- Playback transport -->
+    <string name="playback_restart" translatable="false">|◀</string>
+    <string name="playback_restart_description">Restart</string>
+    <string name="playback_step_back" translatable="false">◀</string>
+    <string name="playback_step_back_description">Step back</string>
+    <string name="playback_play" translatable="false">▶</string>
+    <string name="playback_play_description">Play</string>
+    <string name="playback_pause" translatable="false">❚❚</string>
+    <string name="playback_pause_description">Pause</string>
+    <string name="playback_step_forward" translatable="false">▶</string>
+    <string name="playback_step_forward_description">Step forward</string>
+    <string name="playback_end" translatable="false">▶|</string>
+    <string name="playback_end_description">Skip to end</string>
+    <string name="playback_speed_half" translatable="false">0.5×</string>
+    <string name="playback_speed_normal" translatable="false">1×</string>
+    <string name="playback_speed_double" translatable="false">2×</string>
+    <string name="playback_speed_description">Playback speed</string>
+    <string name="playback_counter" translatable="false">%1$d / %2$d</string>
+
     <!-- Move key bar -->
     <string name="move_group_rotations">⟳</string>
     <string name="move_group_rotations_description">Cube rotations</string>
