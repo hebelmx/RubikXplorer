@@ -1,0 +1,7 @@
+{
+  "msg.validation.wrong-color-counts": "Each color should appear on exactly nine stickers. Check the colors you entered.",
+  "msg.validation.impossible-piece": "One {piece} shows colors that no real {piece} has. Check its stickers.",
+  "msg.validation.twisted-corner": "One corner looks twisted in place. A real cube cannot reach this state by turning.",
+  "msg.validation.flipped-edge": "One edge looks flipped in place. A real cube cannot reach this state by turning.",
+  "msg.validation.parity": "Two pieces look swapped. A real cube cannot reach this state by turning."
+}

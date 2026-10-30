@@ -1,6 +1,7 @@
 package dev.rubikxplorer.buildlogic
 
 import com.android.build.api.dsl.ApplicationExtension
+import dev.rubikxplorer.buildlogic.tasks.CheckLearnerTextTask
 import dev.rubikxplorer.buildlogic.tasks.CheckModuleBoundariesTask
 import org.gradle.api.JavaVersion
 import org.gradle.api.Plugin
@@ -40,6 +41,8 @@ class AndroidAppConventionPlugin : Plugin<Project> {
 
             // AD-1 edges for :app (Android dependencies are allowed here).
             CheckModuleBoundariesTask.register(this)
+            // NFR-10: no Learner-facing literals in :app main sources.
+            CheckLearnerTextTask.register(this)
             Unit
         }
 }

@@ -39,10 +39,12 @@ jobs:
         run: |
           plan="$(./gradlew build --dry-run)"
           status=0
-          for task in :app:checkModuleBoundaries \
+          for task in :app:checkModuleBoundaries :app:checkLearnerText \
                       :core:domain:checkModuleBoundaries :core:domain:koverVerify :core:domain:koverVerifyCube \
-                      :core:solver:checkModuleBoundaries :core:solver:koverVerify \
+                      :core:domain:checkLearnerText \
+                      :core:solver:checkModuleBoundaries :core:solver:koverVerify :core:solver:checkLearnerText \
                       :core:application:checkModuleBoundaries :core:application:koverVerify \
+                      :core:application:checkLearnerText \
                       :app:checkDebugMergedManifest :app:checkReleaseMergedManifest \
                       :app:checkDebugSdkDenylist :app:checkReleaseSdkDenylist :app:lintDebug; do
             # Match the whole task path at line start, so one module's task cannot stand in for another's.
