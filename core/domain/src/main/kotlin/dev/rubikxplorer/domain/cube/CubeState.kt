@@ -28,6 +28,29 @@ data class CubeState(
             is SliceTurn -> apply(parts(move))
         }
 
+    /**
+     * The 54 stickers as the Learner sees them, through [orientation]. Each Learner sticker is mapped
+     * to the home sticker it shows, then read from the cubie in that home slot using the [Cubies]
+     * twist and flip conventions.
+     */
+    fun toFacelets(): Facelets = Facelets(List(Facelets.SIZE) { homeColor(FaceletTables.toHome(orientation, it)) })
+
+    private fun homeColor(index: Int): Color {
+        val t = FaceletTables
+        val corner = t.CORNER_FACELETS.indexOfFirst { index in it }
+        if (corner >= 0) {
+            val facet = t.CORNER_FACELETS[corner].indexOf(index)
+            val twist = cubies.cornerOrientation[corner]
+            return Color.home(t.CORNER_FACES[cubies.cornerPermutation[corner]][(facet - twist + Cubies.TWISTS) % Cubies.TWISTS])
+        }
+        val edge = t.EDGE_FACELETS.indexOfFirst { index in it }
+        if (edge >= 0) {
+            val facet = t.EDGE_FACELETS[edge].indexOf(index)
+            return Color.home(t.EDGE_FACES[cubies.edgePermutation[edge]][(facet + cubies.edgeOrientation[edge]) % Cubies.FLIPS])
+        }
+        return Color.home(Face.entries[index / 9])
+    }
+
     /** A new state with [moves] applied in order. */
     fun apply(moves: List<Move>): CubeState = moves.fold(this) { state, move -> state.apply(move) }
 
