@@ -33,6 +33,23 @@ class MoveHistoryTest {
     }
 
     @Test
+    fun `a history from a start state undoes back to it and resets to it`() {
+        val entry = CubeState.SOLVED.apply(f)
+        val history = MoveHistory(entry)
+        assertEquals(entry, history.start)
+        assertEquals(entry, history.state)
+        assertFalse(history.canUndo)
+        val walked = history.commit(r).commit(u)
+        assertEquals(entry.apply(r, u), walked.state)
+        assertEquals(entry, walked.undo().undo().state)
+        assertEquals(history, walked.reset())
+        assertEquals(history.hashCode(), walked.reset().hashCode())
+        assertNotEquals(MoveHistory(), history)
+        assertEquals(MoveHistory(), MoveHistory(CubeState.SOLVED))
+        assertTrue(history.toString().contains("start="))
+    }
+
+    @Test
     fun `commit applies the Move and enables undo only`() {
         val history = MoveHistory().commit(r)
         assertEquals(CubeState.SOLVED.apply(r), history.state)

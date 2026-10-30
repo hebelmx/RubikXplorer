@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import dagger.hilt.android.AndroidEntryPoint
+import dev.rubikxplorer.app.session.SessionHost
 import dev.rubikxplorer.app.ui.freecube.FreeCubeScreen
 import dev.rubikxplorer.app.ui.freecube.FreeCubeViewModel
 import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
@@ -16,6 +17,10 @@ class MainActivity : ComponentActivity() {
     /** Injected so the Hilt graph (port → flags adapter) is exercised from the first build. */
     @Inject
     lateinit var featureFlags: FeatureFlags
+
+    /** The one Learning Session owner; injected so Hilt wires it (and its Clock) from the first build. */
+    @Inject
+    lateinit var sessionHost: SessionHost
 
     private val freeCube: FreeCubeViewModel by viewModels()
 

@@ -8,6 +8,9 @@
     <string name="toolbar_redo">Redo</string>
     <string name="toolbar_reset">Reset</string>
 
+    <!-- Lesson -->
+    <string name="dialog_cancel">Cancel</string>
+
     <!-- Move key bar -->
     <string name="move_group_rotations">⟳</string>
     <string name="move_group_rotations_description">Cube rotations</string>
