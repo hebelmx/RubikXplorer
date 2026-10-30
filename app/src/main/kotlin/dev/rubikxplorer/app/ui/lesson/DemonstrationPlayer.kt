@@ -129,8 +129,8 @@ fun rememberDemonstrationPlayerState(
 ): DemonstrationPlayerState = remember(demonstration, reduceMotion) { DemonstrationPlayerState(demonstration, reduceMotion) }
 
 /**
- * A Demonstration (FR-6) on the 2D net: the focused step's off-step pieces dimmed, Keep and centers
- * lit, the target outlined; below it the shared playback transport (|◀ ◀ ▶/❚❚ ▶ ▶|), speed, the
+ * A Demonstration (FR-6) on the 2D net: the focused step's off-step pieces dimmed, its Keep,
+ * involved and target pieces and the centers lit, the target outlined; below it the shared playback transport (|◀ ◀ ▶/❚❚ ▶ ▶|), speed, the
  * step counter and the current Move. Under reduce motion the Moves step instead of animating.
  */
 @Composable
@@ -144,8 +144,7 @@ fun DemonstrationPlayer(
         var last = withFrameMillis { it }
         while (state.isPlaying) {
             withFrameMillis { now ->
-                // Capped, so a stalled frame (backgrounded app, jank) never emits a burst of Moves.
-                state.advance(min(now - last, state.speed.stepMillis))
+                state.advance(frameDelta(now, last, state.speed))
                 last = now
             }
         }
@@ -248,6 +247,16 @@ private fun TransportButton(
         Text(stringResource(glyph), color = if (enabled) RubikTheme.tokens.inkPrimary else RubikTheme.tokens.inkDisabled)
     }
 }
+
+/**
+ * The time a frame lets pass: [now] − [last], capped at one Move's step, so a stalled frame
+ * (backgrounded app, jank) never emits a burst of Moves.
+ */
+internal fun frameDelta(
+    now: Long,
+    last: Long,
+    speed: PlaybackSpeed,
+): Long = min(now - last, speed.stepMillis)
 
 /** Width over height of the 12 × 9 cross net. */
 private const val NET_ASPECT = 12f / 9f

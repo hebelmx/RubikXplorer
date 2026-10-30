@@ -17,6 +17,8 @@ import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.cube.NotationError
 import dev.rubikxplorer.domain.cube.NotationResult
 import dev.rubikxplorer.domain.predicate.Piece
+import dev.rubikxplorer.domain.predicate.Predicate
+import dev.rubikxplorer.domain.predicate.WhiteCornersSolved
 import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -32,6 +34,7 @@ class DemonstrationTest {
         entry: String,
         vararg stepMoves: String,
         entryState: String = FaceletString.encode(CubeState.SOLVED.apply(moves(entry)).toFacelets()),
+        completion: Predicate = WhiteCrossSolved,
     ): Lesson =
         Lesson(
             id = LessonId("lesson-01-01"),
@@ -41,7 +44,7 @@ class DemonstrationTest {
             entryState = entryState,
             demonstration = stepMoves.joinToString(" "),
             learnerAction = TextKey("lesson.lesson-01-01.learner-action"),
-            completion = WhiteCrossSolved,
+            completion = completion,
             preserve = WhiteCrossSolved,
             recovery = RecoveryRef("recovery-undo-last-move"),
             steps =
@@ -82,6 +85,14 @@ class DemonstrationTest {
         assertTrue(piece(Color.YELLOW, Color.BLUE) in dimmed)
         assertTrue(piece(Color.YELLOW, Color.BLUE, Color.ORANGE) in dimmed)
         assertEquals(20 - 8 - 3, dimmed.size)
+    }
+
+    @Test
+    fun `Keep comes from preserve and the target from completion`() {
+        // preserve = white cross, completion = white corners: a swap would make Keep the corners.
+        val focus = ready(lesson("F", "F'", completion = WhiteCornersSolved)).steps.single().focus
+        assertEquals(otherCrossEdges, focus.keep)
+        assertEquals(setOf(piece(Color.WHITE, Color.GREEN, Color.RED), piece(Color.WHITE, Color.GREEN, Color.ORANGE)), focus.target)
     }
 
     @Test

@@ -346,4 +346,11 @@ class DemonstrationPlayerTest {
         // No step, no emphasis: stickers carry no dim or highlight semantics.
         assertEquals(null, flag(StickerDimmedKey, 0))
     }
+
+    @Test
+    fun `a stalled frame lets at most one Move's step pass`() {
+        assertEquals(PlaybackSpeed.NORMAL.stepMillis, frameDelta(now = 6_000, last = 1_000, speed = PlaybackSpeed.NORMAL))
+        assertEquals(PlaybackSpeed.DOUBLE.stepMillis, frameDelta(now = 6_000, last = 1_000, speed = PlaybackSpeed.DOUBLE))
+        assertEquals(16L, frameDelta(now = 1_016, last = 1_000, speed = PlaybackSpeed.NORMAL))
+    }
 }

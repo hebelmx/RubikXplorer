@@ -5,7 +5,7 @@ created: '2026-10-30'
 status: 'done'
 baseline_revision: 'a9084a1276cad4b5d9df44cbdeb4b9038b5022c5'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-2-context.md'
   - '{project-root}/AGENTS.md'
@@ -144,6 +144,42 @@ deferred:
   - `[low]` `[reject]` (edge) scan does not recurse into field types — same group as blind #6.
   - `[low]` `[reject]` (edge, claim) scan uses `declaredClasses`, missing top-level subtypes — all current variants are nested; same group as blind #6.
 
+### 2026-10-30 — Review pass
+- verdicts: 32 findings — high 0, medium 2, low 22, false 7, maybe-false 1
+- findings:
+  - `[medium]` `[patch]` (verification-gap) the frame-delta cap has no test; removing it keeps every player test green — extracted `internal fun frameDelta(now, last, speed)` in `DemonstrationPlayer.kt` and added a test that a 5 000 ms stall yields one step (600 / 300 ms) while a 16 ms frame passes through.
+  - `[false]` `[reject]` (blind) step Goal/Keep/Watch/Notice text not shown — the intent's Never list gives the step card to Story 2.5.
+  - `[false]` `[reject]` (blind) player not wired into any screen — carried: the Lesson screen and navigation are Story 2.5.
+  - `[low]` `[reject]` (blind) emphasis can run ahead of the flip at a step boundary — carried: cosmetic lag; renderer-driven focus would add a callback API.
+  - `[low]` `[reject]` (blind) next step's focus appears only after its first Move; Move label same before and after — carried: the spec defines the focus and current Move as `max(position − 1, 0)`; fix would edit the spec.
+  - `[low]` `[reject]` (blind) TalkBack reads glyph and description; no live announcements; emphasis not spoken — a node with `contentDescription` is spoken by its description, not its text; live/emphasis announcements carried to the cube-semantics accessibility story (UX-DR29).
+  - `[maybe-false]` `[reject]` (blind) `◀`/`▶` may render as emoji; play and step forward share `▶` — U+25B6/U+25C0 are `Emoji_Presentation=No` (text by default); would need on-device rendering on an emoji-forward font to settle; low if true. Shared glyph carried (DESIGN.md transport).
+  - `[low]` `[reject]` (blind) reduce motion read once; rotation/config change resets playback — carried: ephemeral by design, rare setting change.
+  - `[low]` `[reject]` (blind) not-checkpointed scan one level deep; count assertion brittle — carried for depth; the assertion is `>=`, so adding events cannot break it.
+  - `[low]` `[defer]` (blind) `Lesson.demonstration` never checked against steps — carried (already in deferred list).
+  - `[low]` `[reject]` (blind) a Cube Rotation or slice step lights the whole cube — real for `x/y/z`, but it is exactly the spec's "involved" definition (every sticker moves); changing it would edit the spec.
+  - `[low]` `[reject]` (blind) no scrub control in the transport — carried: controller snapping is the AC surface.
+  - `[low]` `[reject]` (blind) one-Move restart test cannot fail — the three-Move restart test (counter back to `1 / 3`, net at start) already pins replay.
+  - `[low]` `[patch]` (blind) every DemonstrationTest uses the same predicate for preserve and completion, so a keep/target swap goes unnoticed — added `Keep comes from preserve and the target from completion` (preserve = cross, completion = corners on SOLVED+F / `F'`).
+  - `[low]` `[reject]` (blind) `Piece.at` recomputed per sticker — carried: negligible cost.
+  - `[low]` `[patch]` (blind) `DemonstrationPlayer` KDoc says only Keep and centers are lit — reworded to Keep, involved, target and centers.
+  - `[low]` `[reject]` (edge) HALF → DOUBLE with accumulated time bursts Moves — carried: spec keeps accumulated time on a speed change.
+  - `[low]` `[reject]` (edge) `scrubTo(NaN)` throws — carried: no caller; loud failure on a programmer error.
+  - `[low]` `[reject]` (edge) `advance(Long.MAX_VALUE)` overflows `elapsed` — the only caller passes a delta capped at one step; a guard covers an undemonstrated input.
+  - `[low]` `[reject]` (edge) `Demonstration` identity equality resets the player if a caller rebuilds it every composition — no caller exists; remembering derived objects is the standard Compose contract for Story 2.5's host.
+  - `[low]` `[reject]` (edge) a reduce-motion flip recreates the state — carried.
+  - `[low]` `[reject]` (edge) highlight strokes go negative under 7dp stickers — carried: unreachable at net sizes.
+  - `[medium]` `[defer]` (intent) dim overlay / outline only checked through semantics flags — carried (already in deferred list).
+  - `[false]` `[reject]` (intent) `|◀` restarts and plays instead of a paused start — the intent's Replay row defines replay as pos 0 and playing; the diff matches it.
+  - `[false]` `[reject]` (intent) Learner cannot reach the player — carried: Story 2.5.
+  - `[false]` `[reject]` (intent) `advance` could be read as cumulative time — the Speed row ("next Move after 1200 ms of advance") and "time arrives as advance(elapsedMillis)" fix the delta reading.
+  - `[false]` `[reject]` (intent) `pause()` drops accumulated time — the intent only requires keeping it across a speed change; no bad outcome named.
+  - `[low]` `[reject]` (intent) never-checkpointed proof is direct, not transitive — carried.
+  - `[low]` `[defer]` (intent) `lesson.demonstration` vs steps — carried (already in deferred list).
+  - `[low]` `[reject]` (intent) "free cube unchanged" not tested by this diff — with `emphasis = null` the draw block only calls `drawContent()` and no emphasis semantics are set; the existing freecube/render suites ran green.
+  - `[false]` `[reject]` (intent) no emphasis for an empty Demonstration — matches the matrix (empty list: nothing to focus); no bad outcome.
+  - `[low]` `[reject]` (intent) current Move at position 0 shows m0 before it plays — carried: spec definition.
+
 ## Design Notes
 
 - **Why derive focus instead of a content field:** the epic fixes the Step shape (`goal, preserve, watch, notice, moves`, all required). The predicates already name what matters: `preserve` gives Keep, and the pieces a step newly brings into the `completion` set are exactly "the target" (the mockup's Stage 3 target corner). A step that places nothing has no outline — still correct.
@@ -179,3 +215,20 @@ Status: done
 **Verification:** `./gradlew :core:domain:test :core:application:test` exit 0 (PlaybackControllerTest 16, DemonstrationTest 7, PlaybackNotCheckpointedTest 3); `./gradlew :app:testDebugUnitTest --tests '*lesson*' --tests '*freecube*'` exit 0 (DemonstrationPlayerTest 15); `./gradlew spotlessCheck build` exit 0 (Kover, Learner-text, boundary, lint gates). Every I/O matrix row is covered by a passing test.
 
 **Residual risks:** nothing in the shipped app hosts `DemonstrationPlayer` until Story 2.5; overlay/outline visuals are checked only through semantics (deferred); `Lesson.demonstration` may diverge from the steps (deferred).
+
+### Follow-up review pass (2026-10-30)
+
+**Summary:** Fresh four-layer review of the shipped Story 2.4 diff. No high findings; three small patches applied, nothing new deferred.
+
+**Files changed this pass:**
+- `app/src/main/kotlin/dev/rubikxplorer/app/ui/lesson/DemonstrationPlayer.kt` — frame-delta cap extracted to `internal fun frameDelta`; KDoc corrected.
+- `app/src/test/kotlin/dev/rubikxplorer/app/ui/lesson/DemonstrationPlayerTest.kt` — stalled-frame cap test.
+- `core/domain/src/test/kotlin/dev/rubikxplorer/domain/playback/DemonstrationTest.kt` — distinct preserve/completion test.
+
+**Review findings:** 32 (high 0, medium 2, low 22, false 7, maybe-false 1). Patched: 3 entries — medium 1 (frame-delta cap test), low 2 (keep/target swap test, KDoc). Deferred: none new (2 carried). Rejected with reasons in the triage log.
+
+**Follow-up review recommended:** false — follow-up pass patched no high finding; the work has converged.
+
+**Verification:** `./gradlew :core:domain:test :core:application:test` exit 0; `./gradlew :app:testDebugUnitTest --tests '*lesson*' --tests '*render*' --tests '*freecube*'` exit 0; `./gradlew spotlessCheck build` exit 0 (after `spotlessApply` on the new tests).
+
+**Residual risks:** unchanged — no host for the player until Story 2.5; visuals verified via semantics only (deferred); `Lesson.demonstration` drift (deferred).
