@@ -27,6 +27,9 @@ fun reduce(
         is SessionEvent.Reset -> if (state.hasUnsavedSteps) askReset(state) else reset(state)
         is SessionEvent.ResetConfirmed -> confirmed(state, event)
         is SessionEvent.ResetDeclined -> declined(state, event)
+        is SessionEvent.TeachingModeChanged -> Transition(state.copy(teachingMode = event.mode))
+        is SessionEvent.RevealRequested -> Transition(state.copy(revealRequested = true))
+        is SessionEvent.StepAdvanced -> advance(state)
     }
 }
 
@@ -40,6 +43,8 @@ private fun start(
             kind = SessionKind.LESSON,
             lesson = lesson,
             lastDiscarded = null,
+            stepIndex = 0,
+            revealRequested = false,
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, entry)))
 }
@@ -62,10 +67,15 @@ private fun move(
     return Transition(next, presentation = listOf(Presentation.Animate(animate, next.revision, next.virtual)))
 }
 
-/** Back to the entry state with nothing to undo or redo. Advances [SessionState.revision] only if that changes anything. */
+/**
+ * Back to the entry state and the first step with nothing to undo or redo. Advances
+ * [SessionState.revision] only if the history changes.
+ */
 private fun reset(state: SessionState): Transition {
     val history = state.history.reset()
-    val next = if (history == state.history) state.copy(pendingReset = null) else withHistory(state, history)
+    val next =
+        (if (history == state.history) state.copy(pendingReset = null) else withHistory(state, history))
+            .copy(stepIndex = 0, revealRequested = false)
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.entry)))
 }
 
@@ -110,6 +120,17 @@ private fun declined(
     } else {
         Transition(discarded(state, event.effectId, event.revision))
     }
+
+/**
+ * The next step, when the current one is done but the Lesson is not and a step is left; the Learner
+ * then starts it with its Moves hidden again. Otherwise nothing changes.
+ */
+private fun advance(state: SessionState): Transition {
+    val decision = state.decision ?: return Transition(state)
+    val lastStep = state.lesson?.steps?.lastIndex ?: return Transition(state)
+    val applies = decision.advance && !decision.satisfied && state.stepIndex < lastStep
+    return Transition(if (applies) state.copy(stepIndex = state.stepIndex + 1, revealRequested = false) else state)
+}
 
 /**
  * [state] with [history] as its new history: the next revision, the Completion Predicate recomputed

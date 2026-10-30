@@ -154,7 +154,8 @@ fun DemonstrationPlayer(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Spacing.s2),
     ) {
-        state.renderer.Content(style, Modifier.fillMaxWidth().aspectRatio(NET_ASPECT), state.emphasis)
+        // Takes what the transport leaves, so a short stage shrinks the net rather than the controls.
+        state.renderer.Content(style, Modifier.fillMaxWidth().weight(1f, fill = false).aspectRatio(NET_ASPECT), state.emphasis)
         PlaybackTransport(state)
     }
 }

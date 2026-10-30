@@ -148,7 +148,7 @@ private fun CubeStage(
 }
 
 @Composable
-private fun ToolbarButton(
+internal fun ToolbarButton(
     @DrawableRes icon: Int,
     @StringRes label: Int,
     tag: String,

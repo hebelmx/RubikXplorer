@@ -2,6 +2,7 @@ package dev.rubikxplorer.application.session
 
 import dev.rubikxplorer.domain.content.Lesson
 import dev.rubikxplorer.domain.cube.Move
+import dev.rubikxplorer.domain.tutor.TeachingMode
 import kotlin.time.Instant
 
 /**
@@ -49,6 +50,22 @@ sealed interface SessionEvent {
     data class ResetDeclined(
         val effectId: Long,
         val revision: Long,
+        override val at: Instant,
+    ) : SessionEvent
+
+    /** The Learner chose to be taught in [mode]; the Cube State and progress stay. */
+    data class TeachingModeChanged(
+        val mode: TeachingMode,
+        override val at: Instant,
+    ) : SessionEvent
+
+    /** The Learner asked to see the current step's Moves (Guide me "Show the Move", Hint). */
+    data class RevealRequested(
+        override val at: Instant,
+    ) : SessionEvent
+
+    /** The Learner moved on to the next step; applies only once the current step's path state is reached. */
+    data class StepAdvanced(
         override val at: Instant,
     ) : SessionEvent
 }

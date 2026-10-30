@@ -8,8 +8,30 @@
     <string name="toolbar_redo">Redo</string>
     <string name="toolbar_reset">Reset</string>
 
+    <!-- Navigation -->
+    <string name="nav_learn">Learn</string>
+    <string name="nav_solve">Solve</string>
+
+    <!-- Learn -->
+    <string name="learn_empty">No lessons yet.</string>
+    <string name="learn_error">Lessons could not be loaded.</string>
+
     <!-- Lesson -->
     <string name="dialog_cancel">Cancel</string>
+    <string name="lesson_close">Close lesson</string>
+    <string name="lesson_goal">Goal</string>
+    <string name="lesson_keep">Keep</string>
+    <string name="lesson_watch">Watch</string>
+    <string name="lesson_notice">Notice</string>
+    <string name="lesson_moves">Moves</string>
+    <string name="lesson_objective_met">Objective met</string>
+    <string name="lesson_show_move">Show the Move</string>
+    <string name="lesson_hint">Hint</string>
+    <string name="lesson_next">Next</string>
+    <string name="lesson_step">Step %1$d of %2$d</string>
+    <string name="lesson_mode_description">Teaching mode</string>
+    <string name="mode_show_me">Show me</string>
+    <string name="mode_guide_me">Guide me</string>
 
     <!-- Playback transport -->
     <string name="playback_restart" translatable="false">|◀</string>

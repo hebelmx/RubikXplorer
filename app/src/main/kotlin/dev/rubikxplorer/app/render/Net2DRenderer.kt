@@ -65,15 +65,22 @@ var SemanticsPropertyReceiver.stickerDimmed by StickerDimmedKey
 val StickerHighlightedKey = SemanticsPropertyKey<Boolean>("StickerHighlighted")
 var SemanticsPropertyReceiver.stickerHighlighted by StickerHighlightedKey
 
+/** Whether a highlighted sticker carries the pulse fill now; set only while a [NetEmphasis] is drawn. */
+val StickerPulsingKey = SemanticsPropertyKey<Boolean>("StickerPulsing")
+var SemanticsPropertyReceiver.stickerPulsing by StickerPulsingKey
+
 /**
  * Which pieces stand out on the net (a Demonstration step's focus). Centers and the [lit] pieces
  * draw normally, every other sticker gets the `sticker-dimmed-overlay`, and the stickers of the
- * [highlighted] pieces get the `sticker-highlight` outline. Pieces are mapped to stickers through the
- * facelets drawn at that moment, so the emphasis follows a moving piece. Stickers are never recolored.
+ * [highlighted] pieces get the `sticker-highlight` outline. While [pulse] (0..1) is above 0 the
+ * highlighted stickers also get a translucent `sticker-highlight` fill of that strength (the
+ * Objective-met pulse). Pieces are mapped to stickers through the facelets drawn at that moment, so
+ * the emphasis follows a moving piece. Stickers are never recolored.
  */
 data class NetEmphasis(
     val lit: Set<Piece>,
     val highlighted: Set<Piece>,
+    val pulse: Float = 0f,
 )
 
 /**
@@ -173,6 +180,7 @@ class Net2DRenderer(
         val piece = if (emphasis == null) null else Piece.at(rendered, index)
         val dimmed = emphasis != null && piece != null && piece !in emphasis.lit && piece !in emphasis.highlighted
         val highlighted = emphasis != null && piece != null && piece in emphasis.highlighted
+        val pulse = if (highlighted) emphasis.pulse.coerceIn(0f, 1f) else 0f
         Box(
             modifier =
                 modifier
@@ -183,6 +191,7 @@ class Net2DRenderer(
                     .drawWithContent {
                         drawContent()
                         if (dimmed) drawDimOverlay()
+                        if (pulse > 0f) drawPulse(pulse)
                         if (highlighted) drawHighlight()
                     }.testTag("sticker:$index")
                     .semantics {
@@ -191,6 +200,7 @@ class Net2DRenderer(
                         if (emphasis != null) {
                             stickerDimmed = dimmed
                             stickerHighlighted = highlighted
+                            stickerPulsing = pulse > 0f
                         }
                     },
             contentAlignment = Alignment.Center,
@@ -219,6 +229,14 @@ class Net2DRenderer(
         drawRoundRect(CubeTokens.stickerDimmedOverlay, cornerRadius = radius)
     }
 
+    /** The `sticker-highlight` color as a translucent fill, at [strength] of its full pulse alpha. */
+    private fun DrawScope.drawPulse(strength: Float) {
+        drawRoundRect(
+            CubeTokens.stickerHighlight.copy(alpha = PULSE_ALPHA * strength),
+            cornerRadius = CornerRadius(Radii.xs.toPx()),
+        )
+    }
+
     /** A 3dp `sticker-highlight` outline with a 1dp `cubie-body` inner stroke, inside the sticker. */
     private fun DrawScope.drawHighlight() {
         val outer = HIGHLIGHT_DP.dp.toPx()
@@ -243,6 +261,7 @@ class Net2DRenderer(
     internal companion object {
         private const val HIGHLIGHT_DP = 3
         private const val INNER_STROKE_DP = 1
+        private const val PULSE_ALPHA = 0.55f
 
         /** Longest a single presentation item may take. */
         const val ITEM_MILLIS = 200

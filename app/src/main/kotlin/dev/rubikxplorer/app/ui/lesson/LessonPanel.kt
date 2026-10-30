@@ -1,0 +1,237 @@
+package dev.rubikxplorer.app.ui.lesson
+
+import androidx.annotation.StringRes
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import dev.rubikxplorer.app.R
+import dev.rubikxplorer.app.ui.theme.RubikTheme
+import dev.rubikxplorer.app.ui.theme.Spacing
+import dev.rubikxplorer.domain.cube.Move
+import dev.rubikxplorer.domain.cube.Notation
+import dev.rubikxplorer.domain.tutor.TeachingMode
+
+/**
+ * What the step card shows, already resolved: step [number] of [count], its Goal, Keep and Watch,
+ * its [notice] (null until it is due), its [moves] (null while hidden) and whether the Lesson's
+ * Objective is met.
+ */
+internal data class StepCardContent(
+    val number: Int,
+    val count: Int,
+    val goal: String,
+    val keep: String,
+    val watch: String,
+    val notice: String?,
+    val moves: List<Move>?,
+    val objectiveMet: Boolean,
+)
+
+/**
+ * The Lesson panel, top to bottom (UX-DR8): the Objective, the step card, the Teaching Mode
+ * switcher, then Hint (secondary) and Next (primary). It decides nothing: every flag comes from the
+ * session's `TutorDecision`.
+ */
+@Composable
+internal fun LessonPanel(
+    objective: String,
+    step: StepCardContent,
+    mode: TeachingMode,
+    onModeChange: (TeachingMode) -> Unit,
+    onShowMove: () -> Unit,
+    hintEnabled: Boolean,
+    onHint: () -> Unit,
+    nextEnabled: Boolean,
+    onNext: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val tokens = RubikTheme.tokens
+    Column(
+        modifier = modifier.testTag("lesson:panel").padding(Spacing.s4),
+        verticalArrangement = Arrangement.spacedBy(Spacing.s4),
+    ) {
+        Text(
+            text = objective,
+            style = MaterialTheme.typography.titleLarge,
+            color = tokens.inkPrimary,
+            modifier = Modifier.testTag("lesson:objective").semantics { heading() },
+        )
+        StepCard(step, onShowMove, Modifier.fillMaxWidth())
+        TeachingModeSwitcher(mode, onModeChange, Modifier.fillMaxWidth())
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s3), modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = onHint,
+                enabled = hintEnabled,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:hint"),
+            ) {
+                Text(stringResource(R.string.lesson_hint), color = if (hintEnabled) tokens.inkPrimary else tokens.inkDisabled)
+            }
+            Button(
+                onClick = onNext,
+                enabled = nextEnabled,
+                shape = MaterialTheme.shapes.medium,
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = tokens.accent,
+                        contentColor = tokens.onAccent,
+                        disabledContainerColor = tokens.surfaceStage,
+                        disabledContentColor = tokens.inkDisabled,
+                    ),
+                modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:next"),
+            ) {
+                Text(stringResource(R.string.lesson_next))
+            }
+        }
+    }
+}
+
+@Composable
+private fun StepCard(
+    step: StepCardContent,
+    onShowMove: () -> Unit,
+    modifier: Modifier,
+) {
+    val tokens = RubikTheme.tokens
+    val shape = MaterialTheme.shapes.large
+    Column(
+        modifier =
+            modifier
+                .testTag("lesson:stepCard")
+                .clip(shape)
+                .background(tokens.surfaceRaised)
+                .border(1.dp, tokens.hairline, shape)
+                .padding(Spacing.s4),
+        verticalArrangement = Arrangement.spacedBy(Spacing.s3),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = stringResource(R.string.lesson_step, step.number, step.count),
+                style = RubikTheme.textStyles.data,
+                color = tokens.inkSecondary,
+                modifier = Modifier.testTag("lesson:stepNumber"),
+            )
+            Spacer(Modifier.weight(1f))
+            if (step.objectiveMet) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.s1),
+                    modifier =
+                        Modifier.testTag("lesson:objectiveMet").semantics(mergeDescendants = true) {
+                            liveRegion =
+                                LiveRegionMode.Polite
+                        },
+                ) {
+                    Icon(
+                        painterResource(R.drawable.ic_check),
+                        contentDescription = null,
+                        tint = tokens.accent,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Text(
+                        stringResource(R.string.lesson_objective_met),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = tokens.inkPrimary,
+                    )
+                }
+            }
+        }
+        Field(R.string.lesson_goal, step.goal, "lesson:goal")
+        Field(R.string.lesson_keep, step.keep, "lesson:keep")
+        Field(R.string.lesson_watch, step.watch, "lesson:watch")
+        MovesRow(step.moves, onShowMove)
+        step.notice?.let { Field(R.string.lesson_notice, it, "lesson:notice") }
+    }
+}
+
+@Composable
+private fun Field(
+    @StringRes label: Int,
+    text: String,
+    tag: String,
+) {
+    val tokens = RubikTheme.tokens
+    Column(modifier = Modifier.semantics(mergeDescendants = true) {}.testTag(tag)) {
+        Text(stringResource(label), style = MaterialTheme.typography.labelMedium, color = tokens.inkSecondary)
+        Text(text, style = MaterialTheme.typography.bodyLarge, color = tokens.inkPrimary)
+    }
+}
+
+/** The step's Moves as `notation-chip`s, or, while they are hidden, the "Show the Move" control. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MovesRow(
+    moves: List<Move>?,
+    onShowMove: () -> Unit,
+) {
+    val tokens = RubikTheme.tokens
+    Column(modifier = Modifier.testTag("lesson:moves")) {
+        Text(stringResource(R.string.lesson_moves), style = MaterialTheme.typography.labelMedium, color = tokens.inkSecondary)
+        if (moves == null) {
+            TextButton(
+                onClick = onShowMove,
+                modifier = Modifier.heightIn(min = Spacing.touchMin).testTag("lesson:showMove"),
+            ) {
+                Text(stringResource(R.string.lesson_show_move), color = tokens.accent)
+            }
+        } else {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.s2),
+                verticalArrangement = Arrangement.spacedBy(Spacing.s2),
+                modifier = Modifier.padding(top = Spacing.s1),
+            ) {
+                moves.forEach { NotationChip(it) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NotationChip(move: Move) {
+    val tokens = RubikTheme.tokens
+    val shape = MaterialTheme.shapes.small
+    val token = Notation.format(move)
+    Box(
+        modifier =
+            Modifier
+                .testTag("moveChip:$token")
+                .sizeIn(minWidth = Spacing.touchMin, minHeight = Spacing.s6)
+                .clip(shape)
+                .background(tokens.surfaceStage)
+                .border(1.dp, tokens.hairline, shape)
+                .padding(horizontal = Spacing.s2),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(token, style = RubikTheme.textStyles.notation, color = tokens.inkPrimary)
+    }
+}
