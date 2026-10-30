@@ -21,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -171,22 +172,43 @@ private fun ToolbarButton(
 
 @Composable
 private fun DebugToggles(viewModel: FreeCubeViewModel) {
-    val glyphs = viewModel.style.colorBlindGlyphs
+    var objective by rememberSaveable { mutableStateOf(false) }
+    DebugSwitch(R.string.debug_glyphs, "debug:glyphs", viewModel.style.colorBlindGlyphs, viewModel::onColorBlindGlyphsChange)
+    DebugSwitch(R.string.debug_objective, "debug:objective", objective) { objective = it }
+    OutlinedButton(
+        onClick = viewModel::onScramble,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth().heightIn(min = Spacing.touchMin).testTag("debug:scramble"),
+    ) {
+        Text(text = stringResource(R.string.debug_scramble), color = RubikTheme.tokens.inkPrimary)
+    }
+    if (objective) {
+        ObjectiveOverlay(viewModel, Modifier.fillMaxWidth())
+    }
+}
+
+@Composable
+private fun DebugSwitch(
+    @StringRes label: Int,
+    tag: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier =
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = Spacing.touchMin)
-                .testTag("debug:glyphs")
-                .toggleable(value = glyphs, role = Role.Switch, onValueChange = viewModel::onColorBlindGlyphsChange),
+                .testTag(tag)
+                .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
     ) {
         Text(
-            text = stringResource(R.string.debug_glyphs),
+            text = stringResource(label),
             style = MaterialTheme.typography.bodyLarge,
             color = RubikTheme.tokens.inkPrimary,
             modifier = Modifier.weight(1f),
         )
-        Switch(checked = glyphs, onCheckedChange = null)
+        Switch(checked = checked, onCheckedChange = null)
     }
 }

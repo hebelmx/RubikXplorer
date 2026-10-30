@@ -41,4 +41,21 @@
 
     <!-- Debug toggles -->
     <string name="debug_glyphs">Color-blind glyphs</string>
+    <string name="debug_objective">Objective overlay</string>
+    <string name="debug_scramble">Scramble</string>
+
+    <!-- Debug Objective overlay (not Learner-facing) -->
+    <string name="objective_solved">White cross: solved</string>
+    <string name="objective_not_solved">White cross: not solved</string>
+    <string name="objective_progress">Progress: %1$d/%2$d</string>
+    <string name="objective_change">Last Move: %1$s</string>
+    <string name="objective_change_closer">closer</string>
+    <string name="objective_change_unchanged">no change</string>
+    <string name="objective_change_further">further</string>
+    <string name="objective_change_none">—</string>
+    <string name="objective_valid">Validates: %1$s</string>
+    <string name="objective_yes">yes</string>
+    <string name="objective_no">no</string>
+    <string name="objective_in_sync">Rendered: in sync</string>
+    <string name="objective_catching_up">Rendered: catching up</string>
 </resources>
