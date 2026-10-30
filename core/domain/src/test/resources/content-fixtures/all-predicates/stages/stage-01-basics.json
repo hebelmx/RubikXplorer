@@ -1,0 +1,48 @@
+{
+  "id": "stage-01-basics",
+  "title": "stage.stage-01-basics.title",
+  "lessons": [
+    {
+      "id": "lesson-01-01",
+      "stageId": "stage-01-basics",
+      "prerequisites": [],
+      "objective": "lesson.lesson-01-01.objective",
+      "entryState": "WWWWWWOOOWRRWRRWRRGGGGGGGGGRRRYYYYYYOOYOOYOOYBBBBBBBBB",
+      "demonstration": "F'",
+      "learnerAction": "lesson.lesson-01-01.learner-action",
+      "completion": {
+        "predicate": "all-of",
+        "predicates": [
+          {
+            "predicate": "white-cross-solved"
+          },
+          {
+            "predicate": "white-corners-solved"
+          }
+        ]
+      },
+      "preserve": {
+        "predicate": "any-of",
+        "predicates": [
+          {
+            "predicate": "state-reached",
+            "moves": "F"
+          },
+          {
+            "predicate": "white-cross-solved"
+          }
+        ]
+      },
+      "recovery": "recovery-undo-last-move",
+      "steps": [
+        {
+          "goal": "lesson.lesson-01-01.goal.1",
+          "preserve": "lesson.lesson-01-01.keep.1",
+          "watch": "lesson.lesson-01-01.watch.1",
+          "notice": "lesson.lesson-01-01.notice.1",
+          "moves": "F'"
+        }
+      ]
+    }
+  ]
+}
