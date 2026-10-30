@@ -4,6 +4,7 @@ import dev.rubikxplorer.domain.content.Lesson
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.MoveHistory
 import dev.rubikxplorer.domain.predicate.ObjectiveProgress
+import dev.rubikxplorer.domain.tutor.MoveFeedback
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import dev.rubikxplorer.domain.tutor.Tutor
 import dev.rubikxplorer.domain.tutor.TutorDecision
@@ -18,8 +19,9 @@ import dev.rubikxplorer.domain.tutor.TutorDecision
  * - [history] starts at [entry]; [virtual] is its current state.
  * - [objectiveMet] and [progress] are the Lesson's Completion Predicate on [virtual], recomputed on
  *   every change of [virtual].
- * - The tutor fields ([teachingMode], [stepIndex], [revealRequested]) never advance [revision]: a
- *   mode switch or a reveal does not change the Cube State, so it must not stale a pending effect.
+ * - The tutor fields ([teachingMode], [stepIndex], [revealRequested], [lastMoveFeedback]) never
+ *   advance [revision]: a mode switch or a reveal does not change the Cube State, so it must not
+ *   stale a pending effect.
  */
 @ConsistentCopyVisibility
 data class SessionState internal constructor(
@@ -44,10 +46,16 @@ data class SessionState internal constructor(
     val stepIndex: Int,
     /** True once the Learner asked to see the current step's Moves. */
     val revealRequested: Boolean,
+    /**
+     * How the last committed Move changed progress toward the Objective, set by every `MoveCommitted`
+     * whatever the mode (only [decision] decides whether it shows); cleared by anything else that
+     * moves the cube or the step, and by a change of mode.
+     */
+    val lastMoveFeedback: MoveFeedback?,
 ) {
     /** The tutor's decision for the current step; `null` in [IDLE]. Derived, never stored. */
     val decision: TutorDecision? by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        lesson?.let { Tutor.decide(it, entry, virtual, teachingMode, stepIndex, revealRequested) }
+        lesson?.let { Tutor.decide(it, entry, virtual, teachingMode, stepIndex, revealRequested, lastMoveFeedback) }
     }
 
     /** The Lesson's entry state; where Reset returns. */
@@ -78,6 +86,7 @@ data class SessionState internal constructor(
                 teachingMode = TeachingMode.DEFAULT,
                 stepIndex = 0,
                 revealRequested = false,
+                lastMoveFeedback = null,
             )
     }
 }

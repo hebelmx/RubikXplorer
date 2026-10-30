@@ -1,5 +1,6 @@
 package dev.rubikxplorer.application.session
 
+import dev.rubikxplorer.domain.tutor.MoveFeedback
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -64,6 +65,10 @@ class TransitionsTableTest {
     private val twoAtStep1 = two.after(commit(U))
     private val twoAtStep1WithRedo = two.after(commit(U), commit(R), undo)
 
+    // Undo and Redo always leave no feedback, so a redo with feedback still standing is unreachable
+    // through reduce(); this fixture checks Redo clears it all the same.
+    private val bWithFeedback = b.copy(lastMoveFeedback = MoveFeedback.NEUTRAL)
+
     /** Scenarios per event type; the exhaustive `when` fails to compile when an event type is added. */
     private fun scenarios(sample: SessionEvent): List<Pair<SessionState, SessionEvent>> =
         when (sample) {
@@ -80,7 +85,7 @@ class TransitionsTableTest {
             }
 
             is SessionEvent.Redo -> {
-                listOf(fresh, b, c, askedB).map { it to redo }
+                listOf(fresh, b, c, askedB, bWithFeedback).map { it to redo }
             }
 
             is SessionEvent.Reset -> {
@@ -135,8 +140,9 @@ class TransitionsTableTest {
             if (before.lesson != after.lesson || before.entry != after.entry) add("session")
             if (before.virtual != after.virtual) add("virtual")
             if (before.pendingReset != after.pendingReset) add("pending")
-            val tutorBefore = Triple(before.teachingMode, before.stepIndex, before.revealRequested)
-            if (tutorBefore != Triple(after.teachingMode, after.stepIndex, after.revealRequested)) add("tutor")
+
+            fun tutor(s: SessionState) = listOf(s.teachingMode, s.stepIndex, s.revealRequested, s.lastMoveFeedback)
+            if (tutor(before) != tutor(after)) add("tutor")
         }
 
     @Test

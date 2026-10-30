@@ -1,5 +1,6 @@
 package dev.rubikxplorer.application.session
 
+import dev.rubikxplorer.domain.tutor.MoveFeedback
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import dev.rubikxplorer.domain.tutor.TutorDecision
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -18,7 +19,10 @@ class TutorEventsTest {
         assertEquals(TeachingMode.GUIDE_ME, s.teachingMode)
         assertEquals(0, s.stepIndex)
         assertFalse(s.revealRequested)
-        assertEquals(TutorDecision(whiteCrossLesson().objective, satisfied = false, reveal = false, advance = false), s.decision)
+        assertEquals(
+            TutorDecision(whiteCrossLesson().objective, satisfied = false, reveal = false, advance = false, feedback = null),
+            s.decision,
+        )
     }
 
     @Test
@@ -128,5 +132,81 @@ class TutorEventsTest {
         assertEquals(TeachingMode.SHOW_ME, next.teachingMode)
         assertEquals(0, next.stepIndex)
         assertFalse(next.revealRequested)
+    }
+
+    // Story 2.6: Test me feedback and Let me try.
+
+    private val testMe = started().after(modeChanged(TeachingMode.TEST_ME))
+
+    @Test
+    fun `test me neutral and harmful Moves`() {
+        val neutral = testMe.after(commit(D))
+        assertEquals(MoveFeedback.NEUTRAL, neutral.lastMoveFeedback)
+        assertEquals(MoveFeedback.NEUTRAL, decision(neutral).feedback)
+        assertFalse(decision(neutral).reveal)
+        assertEquals(MoveFeedback.HARMFUL, decision(testMe.after(commit(U))).feedback)
+        assertEquals(MoveFeedback.HARMFUL, decision(neutral.after(commit(U))).feedback)
+    }
+
+    @Test
+    fun `test me progress short of the step, then completion hands over to Notice and Next`() {
+        val s = started(oneLongStepLesson()).after(modeChanged(TeachingMode.TEST_ME), commit(U))
+        assertEquals(MoveFeedback.PROGRESS, decision(s).feedback)
+        assertFalse(decision(s).advance)
+        val done = s.after(commit(F_PRIME))
+        assertEquals(MoveFeedback.PROGRESS, done.lastMoveFeedback)
+        assertTrue(decision(done).satisfied)
+        assertTrue(decision(done).advance)
+        assertNull(decision(done).feedback)
+    }
+
+    @Test
+    fun `feedback clears on undo, redo, an applied reset, an applied step advance and a mode change, without a revision bump`() {
+        val moved = testMe.after(commit(D))
+
+        fun assertCleared(
+            label: String,
+            after: SessionState,
+            bumps: Long,
+        ) {
+            assertNull(after.lastMoveFeedback, label)
+            assertNull(decision(after).feedback, label)
+            assertEquals(moved.revision + bumps, after.revision, label)
+        }
+        assertCleared("undo", moved.after(undo), 1)
+        assertCleared("redo", moved.after(undo, redo), 2)
+        val asked = moved.after(resetEvent)
+        assertEquals(MoveFeedback.NEUTRAL, asked.lastMoveFeedback, "a reset that only asks keeps it")
+        assertCleared("reset confirmed", asked.after(asked.pendingReset!!.confirm()), 1)
+        assertCleared("mode change", moved.after(modeChanged(TeachingMode.GUIDE_ME)), 0)
+        assertEquals(moved, moved.after(modeChanged(TeachingMode.TEST_ME)), "same mode: unchanged")
+        assertCleared("lesson started", moved.after(SessionEvent.LessonStarted(whiteCrossLesson("lesson-01-02"), T0)), 1)
+
+        val atStep1 = started(twoStepLesson()).after(modeChanged(TeachingMode.TEST_ME), commit(U))
+        assertEquals(MoveFeedback.PROGRESS, atStep1.lastMoveFeedback)
+        val advanced = atStep1.after(stepAdvanced)
+        assertEquals(1, advanced.stepIndex)
+        assertNull(advanced.lastMoveFeedback)
+        assertEquals(atStep1.revision, advanced.revision)
+        // A StepAdvanced that does not apply leaves it.
+        val notDone = testMe.after(commit(D))
+        assertEquals(notDone, notDone.after(stepAdvanced))
+    }
+
+    @Test
+    fun `other modes record the feedback but never show it`() {
+        listOf(TeachingMode.SHOW_ME, TeachingMode.GUIDE_ME, TeachingMode.LET_ME_TRY).forEach { mode ->
+            val s = started().after(modeChanged(mode), commit(D))
+            assertEquals(MoveFeedback.NEUTRAL, s.lastMoveFeedback, "$mode")
+            assertNull(decision(s).feedback, "$mode")
+        }
+    }
+
+    @Test
+    fun `let me try reveals only after a hint request`() {
+        val s = started().after(modeChanged(TeachingMode.LET_ME_TRY))
+        assertFalse(decision(s).reveal)
+        assertFalse(decision(s.after(commit(D))).reveal)
+        assertTrue(decision(s.after(reveal)).reveal)
     }
 }

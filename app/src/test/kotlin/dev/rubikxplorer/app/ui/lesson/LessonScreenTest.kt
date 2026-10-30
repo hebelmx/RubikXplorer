@@ -18,11 +18,14 @@ import androidx.compose.ui.test.performScrollTo
 import dev.rubikxplorer.app.content.CatalogState
 import dev.rubikxplorer.app.content.LessonCatalog
 import dev.rubikxplorer.app.render.StickerColorKey
+import dev.rubikxplorer.app.render.StickerDimmedKey
 import dev.rubikxplorer.app.render.StickerHighlightedKey
 import dev.rubikxplorer.app.render.StickerPulsingKey
 import dev.rubikxplorer.app.session.SessionHost
 import dev.rubikxplorer.app.session.TickingClock
+import dev.rubikxplorer.app.session.oneLongStepLesson
 import dev.rubikxplorer.app.session.testBundle
+import dev.rubikxplorer.app.session.testFlags
 import dev.rubikxplorer.app.session.twoStepLesson
 import dev.rubikxplorer.app.session.whiteCrossLesson
 import dev.rubikxplorer.app.ui.freecube.FreeCubeViewModel
@@ -57,17 +60,20 @@ class LessonScreenTest {
     val rule = createComposeRule()
 
     private val host = SessionHost(TickingClock())
-    private val catalog = LessonCatalog.of(ContentLoadResult.Loaded(testBundle()))
+    private val catalog = LessonCatalog.of(ContentLoadResult.Loaded(testBundle(whiteCrossLesson(), twoStepLesson(), oneLongStepLesson())))
     private var closed = 0
 
     /** The Lesson screen alone for [lessonId]. */
-    private fun open(lessonId: String) {
+    private fun open(
+        lessonId: String,
+        modes: List<TeachingMode> = TeachingMode.entries,
+    ) {
         runBlocking { catalog.load() }
         val ready = catalog.state.value as CatalogState.Ready
         val entry = ready.lessons.single { it.lesson.id.value == lessonId }
         rule.setContent {
             RubikXplorerTheme {
-                LessonScreen(host = host, entry = entry, strings = ready.strings, onClose = { closed++ })
+                LessonScreen(host = host, entry = entry, strings = ready.strings, modes = modes, onClose = { closed++ })
             }
         }
         rule.waitUntil(5_000) {
@@ -285,7 +291,7 @@ class LessonScreenTest {
     fun `next on a satisfied Lesson returns to Learn`() {
         rule.setContent {
             RubikXplorerTheme {
-                AppShell(host = host, catalog = catalog, freeCube = FreeCubeViewModel(), showDebugToggles = false)
+                AppShell(host = host, catalog = catalog, freeCube = FreeCubeViewModel(), showDebugToggles = false, flags = testFlags())
             }
         }
         node("learn:lesson:lesson-01-01").performClick()
@@ -362,6 +368,142 @@ class LessonScreenTest {
         }
         rule.mainClock.autoAdvance = true
         node("lesson:objectiveMet").assertTextContains("Objective met")
+    }
+
+    private fun switchTo(mode: TeachingMode) {
+        node("mode:${mode.name}").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.teachingMode == mode }
+        rule.waitForIdle()
+    }
+
+    private fun press(
+        key: String,
+        moves: Int,
+    ) {
+        node("moveKey:$key").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.history.done.size == moves }
+        rule.waitForIdle()
+    }
+
+    /** The test tags of every node now shown whose tag starts with [prefix]. */
+    private fun tagsStartingWith(prefix: String): List<String> =
+        rule
+            .onAllNodes(
+                SemanticsMatcher("tag starts with $prefix") {
+                    it.config.getOrNull(SemanticsProperties.TestTag)?.startsWith(prefix) ==
+                        true
+                },
+            ).fetchSemanticsNodes()
+            .mapNotNull { it.config.getOrNull(SemanticsProperties.TestTag) }
+
+    @Test
+    fun `test me tells how each Move did and keeps the Moves hidden until Hint`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.TEST_ME)
+        node("mode:TEST_ME").assertIsSelected()
+        node("lesson:feedback").assertDoesNotExist()
+        node("lesson:movesHidden").assertTextContains("Hidden until you ask for a hint.")
+
+        press("D", 1)
+        node("lesson:feedback").assertTextContains("That didn't change much. Try another turn.")
+        press("U", 2)
+        node("lesson:feedback").assertTextContains("That moved a piece you need.")
+        assertEquals(emptyList<String>(), tagsStartingWith("moveChip:"))
+        node("lesson:showMove").assertDoesNotExist()
+        assertFalse(
+            host.state.value.decision!!
+                .reveal,
+        )
+
+        node("lesson:hint").performScrollTo().assertIsEnabled().performClick()
+        rule.waitUntil(5_000) {
+            host.state.value.decision!!
+                .reveal
+        }
+        rule.waitForIdle()
+        node("moveChip:F'").assertExists()
+        node("lesson:movesHidden").assertDoesNotExist()
+        node("lesson:hint").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `let me try shows Goal, Keep and Watch, hides the Moves, never gives feedback and meets the Objective as Guide me does`() {
+        val id = whiteCrossLesson().id.value
+        open(id)
+        switchTo(TeachingMode.LET_ME_TRY)
+        assertStepTexts(1, id)
+        assertEquals(emptyList<String>(), tagsStartingWith("moveChip:"))
+        node("lesson:showMove").assertDoesNotExist()
+        node("lesson:movesHidden").assertExists()
+        node("lesson:hint").assertIsEnabled()
+        // No dimming or target outline outside Guide me.
+        assertTrue(stickersWith(StickerHighlightedKey).isEmpty())
+
+        press("D", 1)
+        node("lesson:feedback").assertDoesNotExist()
+        press("D'", 2)
+        node("lesson:feedback").assertDoesNotExist()
+        press("F'", 3)
+        rule.waitUntil(5_000) {
+            host.state.value.decision!!
+                .satisfied
+        }
+        rule.waitForIdle()
+        node("lesson:objectiveMet").assertTextContains("Objective met")
+        node("lesson:notice").assertTextContains("Notice 1 of $id")
+        node("lesson:next").assertIsEnabled()
+        node("lesson:feedback").assertDoesNotExist()
+        assertEquals(emptyList<String>(), tagsStartingWith("moveChip:"))
+    }
+
+    @Test
+    fun `test me says a Move that helps brings the Learner closer`() {
+        open(oneLongStepLesson().id.value)
+        switchTo(TeachingMode.TEST_ME)
+        press("U", 1)
+        node("lesson:feedback").assertTextContains("That works too — you're closer.")
+        assertFalse(
+            host.state.value.decision!!
+                .advance,
+        )
+    }
+
+    @Test
+    fun `outside Guide me the net is plain until the Objective-met pulse lights the target`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.LET_ME_TRY)
+        assertTrue(stickersWith(StickerDimmedKey).isEmpty())
+        assertTrue(stickersWith(StickerHighlightedKey).isEmpty())
+
+        node("moveKey:F'").performScrollTo().performClick()
+        rule.waitUntil(5_000) {
+            host.state.value.decision!!
+                .satisfied
+        }
+        rule.mainClock.autoAdvance = false
+        var pulsed = false
+        repeat(PULSE_CHECKS) {
+            if (!pulsed) {
+                rule.mainClock.advanceTimeBy(PULSE_CHECK_MILLIS)
+                pulsed = anyPulsing()
+                if (pulsed) {
+                    assertTrue(stickersWith(StickerHighlightedKey).containsAll(stickersWith(StickerPulsingKey)))
+                    assertTrue("dimmed during the pulse", stickersWith(StickerDimmedKey).isEmpty())
+                }
+            }
+        }
+        assertTrue("satisfied=${host.state.value.decision} but no sticker pulsed", pulsed)
+        rule.mainClock.advanceTimeBy(2_000)
+        assertFalse(anyPulsing())
+        assertTrue(stickersWith(StickerHighlightedKey).isEmpty())
+        rule.mainClock.autoAdvance = true
+    }
+
+    @Test
+    fun `the switcher shows only the modes it is given`() {
+        open(whiteCrossLesson().id.value, modes = TeachingMode.entries - TeachingMode.TEST_ME)
+        node("mode:TEST_ME").assertDoesNotExist()
+        node("mode:LET_ME_TRY").assertExists()
     }
 
     private companion object {

@@ -11,6 +11,7 @@ import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
@@ -21,6 +22,7 @@ import dev.rubikxplorer.app.session.STAGE_TITLE
 import dev.rubikxplorer.app.session.SessionHost
 import dev.rubikxplorer.app.session.TickingClock
 import dev.rubikxplorer.app.session.testBundle
+import dev.rubikxplorer.app.session.testFlags
 import dev.rubikxplorer.app.session.whiteCrossLesson
 import dev.rubikxplorer.app.ui.freecube.FreeCubeViewModel
 import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
@@ -32,6 +34,7 @@ import dev.rubikxplorer.domain.cube.Face
 import dev.rubikxplorer.domain.cube.FaceTurn
 import dev.rubikxplorer.domain.cube.Facelets
 import dev.rubikxplorer.domain.cube.Turn
+import dev.rubikxplorer.domain.tutor.TeachingMode
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -55,13 +58,20 @@ class AppShellTest {
     private fun launch(
         result: ContentLoadResult = ContentLoadResult.Loaded(testBundle()),
         restoration: StateRestorationTester? = null,
+        testMe: Boolean = true,
     ) {
         val catalog = LessonCatalog.of(result)
         val setContent: (@Composable () -> Unit) -> Unit = restoration?.let { it::setContent } ?: rule::setContent
         setContent {
             back = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
             RubikXplorerTheme {
-                AppShell(host = host, catalog = catalog, freeCube = FreeCubeViewModel(), showDebugToggles = false)
+                AppShell(
+                    host = host,
+                    catalog = catalog,
+                    freeCube = FreeCubeViewModel(),
+                    showDebugToggles = false,
+                    flags = testFlags(testMe),
+                )
             }
         }
     }
@@ -231,5 +241,36 @@ class AppShellTest {
                 ?.id
                 ?.value == "lesson-01-03"
         }
+    }
+
+    @Test
+    fun `with TEST_ME off the Lesson offers three modes, and switching keeps the cube, history and step`() {
+        launch(testMe = false)
+        openWhiteCross()
+        rule.onNodeWithTag("mode:TEST_ME").assertDoesNotExist()
+        listOf(TeachingMode.SHOW_ME, TeachingMode.GUIDE_ME, TeachingMode.LET_ME_TRY).forEach {
+            rule.onNodeWithTag("mode:${it.name}").assertExists()
+        }
+        rule.onNodeWithTag("moveKey:R").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.history.canUndo }
+        rule.waitForIdle()
+        val before = host.state.value
+        listOf(TeachingMode.LET_ME_TRY, TeachingMode.SHOW_ME, TeachingMode.GUIDE_ME).forEach { mode ->
+            rule.onNodeWithTag("mode:${mode.name}").performScrollTo().performClick()
+            rule.waitUntil(5_000) { host.state.value.teachingMode == mode }
+            rule.waitForIdle()
+            val now = host.state.value
+            assertEquals("$mode virtual", before.virtual, now.virtual)
+            assertEquals("$mode history", before.history, now.history)
+            assertEquals("$mode step", before.stepIndex, now.stepIndex)
+        }
+        assertNetMatchesSession("after switching")
+    }
+
+    @Test
+    fun `with TEST_ME on the Lesson offers all four modes`() {
+        launch(testMe = true)
+        openWhiteCross()
+        TeachingMode.entries.forEach { rule.onNodeWithTag("mode:${it.name}").assertExists() }
     }
 }

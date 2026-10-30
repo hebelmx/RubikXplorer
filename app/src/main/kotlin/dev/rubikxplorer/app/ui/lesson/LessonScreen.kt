@@ -67,9 +67,12 @@ import dev.rubikxplorer.app.ui.theme.Spacing
 import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.application.session.SessionState
 import dev.rubikxplorer.domain.content.Lesson
+import dev.rubikxplorer.domain.cube.CubeState
+import dev.rubikxplorer.domain.cube.Facelets
 import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.playback.DemonstrationResult
+import dev.rubikxplorer.domain.predicate.Piece
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import dev.rubikxplorer.domain.tutor.TutorDecision
 import kotlinx.coroutines.launch
@@ -81,14 +84,16 @@ import kotlin.time.Instant
  * [host] unless the session already holds it, so a configuration change never restarts it. System
  * back and the close button call [onClose] at once; so does Next once the Objective is met.
  *
- * The screen decides nothing about teaching: every reveal, Notice and Next flag comes from the
- * session's [TutorDecision].
+ * The screen decides nothing about teaching: every reveal, Notice, feedback and Next flag comes from
+ * the session's [TutorDecision]. The switcher offers only [modes] (the shell drops a mode whose
+ * feature flag is off).
  */
 @Composable
 fun LessonScreen(
     host: SessionHost,
     entry: CatalogEntry,
     strings: ContentStrings,
+    modes: List<TeachingMode>,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -114,7 +119,7 @@ fun LessonScreen(
         val decision = session.decision
         val demonstration = remember(lesson) { (Demonstration.of(lesson) as? DemonstrationResult.Ready)?.demonstration }
         if (session.lesson?.id == lesson.id && decision != null && demonstration != null) {
-            LessonBody(host, session, decision, lesson, demonstration, strings, onClose)
+            LessonBody(host, session, decision, lesson, demonstration, strings, modes, onClose)
         }
     }
 }
@@ -160,6 +165,7 @@ private fun LessonBody(
     lesson: Lesson,
     demonstration: Demonstration,
     strings: ContentStrings,
+    modes: List<TeachingMode>,
     onClose: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -184,6 +190,7 @@ private fun LessonBody(
         LessonPanel(
             objective = strings.resolve(lesson.objective),
             step = step,
+            modes = modes,
             mode = mode,
             onModeChange = { chosen -> if (chosen != mode) send { SessionEvent.TeachingModeChanged(chosen, it) } },
             onShowMove = { send(SessionEvent::RevealRequested) },
@@ -201,13 +208,22 @@ private fun LessonBody(
                     DemonstrationPlayer(player, Modifier.fillMaxSize().padding(Spacing.s2))
                 }
 
-                TeachingMode.GUIDE_ME -> {
+                TeachingMode.GUIDE_ME, TeachingMode.TEST_ME, TeachingMode.LET_ME_TRY -> {
                     val focus = demonstration.steps.getOrNull(session.stepIndex)?.focus
-                    GuideMeStage(
+                    // Dimming and the target outline guide only in Guide me; the other Learner modes
+                    // light the target just for the Objective-met pulse.
+                    val emphasis =
+                        when {
+                            focus == null -> null
+                            mode == TeachingMode.GUIDE_ME -> NetEmphasis(lit = focus.lit, highlighted = focus.target, pulse = pulse)
+                            pulse > 0f -> NetEmphasis(lit = ALL_PIECES, highlighted = focus.target, pulse = pulse)
+                            else -> null
+                        }
+                    LearnerStage(
                         host = host,
                         session = session,
                         renderer = renderer,
-                        emphasis = focus?.let { NetEmphasis(lit = it.lit, highlighted = it.target, pulse = pulse) },
+                        emphasis = emphasis,
                         strings = strings,
                         send = send,
                     )
@@ -253,7 +269,10 @@ private fun LessonBody(
     }
 }
 
-/** The step card's content for [mode]: Show me follows the Demonstration's focused step, Guide me the session's step. */
+/**
+ * The step card's content for [mode]: Show me follows the Demonstration's focused step; Guide me,
+ * Test me and Let me try follow the session's step, and only Guide me offers "Show the Move".
+ */
 private fun stepCard(
     mode: TeachingMode,
     session: SessionState,
@@ -274,7 +293,7 @@ private fun stepCard(
             moves = if (decision.reveal) shown?.moves.orEmpty() else null
         }
 
-        TeachingMode.GUIDE_ME -> {
+        TeachingMode.GUIDE_ME, TeachingMode.TEST_ME, TeachingMode.LET_ME_TRY -> {
             index = session.stepIndex.coerceIn(0, maxOf(lesson.steps.lastIndex, 0))
             notice = decision.advance
             moves =
@@ -298,15 +317,19 @@ private fun stepCard(
         notice = if (notice) step?.let { strings.resolve(it.notice) } else null,
         moves = moves,
         objectiveMet = decision.satisfied,
+        feedback = decision.feedback?.let { strings.resolve(it.text) },
+        feedbackMove = session.revision,
+        showMoveControl = mode == TeachingMode.GUIDE_ME,
     )
 }
 
 /**
- * The Learner's stage in Guide me: Undo / Redo / Reset over the session's net (the current step's
- * focus as emphasis) and the Move key bar; Reset asks through [ResetConfirmation] when steps would be lost.
+ * The Learner's stage in Guide me, Test me and Let me try: Undo / Redo / Reset over the session's
+ * net (drawn with [emphasis]: the step's focus in Guide me, only the Objective-met pulse otherwise)
+ * and the Move key bar; Reset asks through [ResetConfirmation] when steps would be lost.
  */
 @Composable
-private fun GuideMeStage(
+private fun LearnerStage(
     host: SessionHost,
     session: SessionState,
     renderer: Net2DRenderer,
@@ -384,6 +407,10 @@ private fun rememberObjectivePulse(
     }
     return pulse.value
 }
+
+/** Every edge and corner, so a pulse-only emphasis dims nothing. */
+private val ALL_PIECES: Set<Piece> =
+    CubeState.SOLVED.toFacelets().let { facelets -> (0 until Facelets.SIZE).mapNotNull { Piece.at(facelets, it) }.toSet() }
 
 private const val PULSE_MILLIS = 600
 private const val COMPACT_STAGE_FRACTION = 0.45f

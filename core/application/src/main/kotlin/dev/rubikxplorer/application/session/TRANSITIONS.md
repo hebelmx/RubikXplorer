@@ -8,9 +8,9 @@ Columns:
 
 - **Mutates** — the fields the event may change, from `session` (the Lesson and its entry state),
   `virtual` (the current Cube State), `pending` (the reset confirmation awaiting the Learner) and
-  `tutor` (`teachingMode`, `stepIndex`, `revealRequested`); `—` for none. Any change of `session`,
-  `virtual` or the undo/redo history advances `revision` by exactly 1 and cancels a pending
-  confirmation; a change of `pending` or `tutor` alone does not advance it.
+  `tutor` (`teachingMode`, `stepIndex`, `revealRequested`, `lastMoveFeedback`); `—` for none. Any
+  change of `session`, `virtual` or the undo/redo history advances `revision` by exactly 1 and
+  cancels a pending confirmation; a change of `pending` or `tutor` alone does not advance it.
 - **Undoable** — `yes` when the event pushes a Move onto the undo history, so a following `Undo`
   returns `virtual` to where it was before the event.
 - **Clears redo** — `yes` when nothing is left to redo whenever the event advances `revision`.
@@ -24,9 +24,9 @@ steps remain.
 | Event | Mutates | Undoable | Clears redo |
 |-------|---------|----------|-------------|
 | LessonStarted | session, virtual, pending, tutor | no | yes |
-| MoveCommitted | virtual, pending | yes | yes |
-| Undo | virtual, pending | no | no |
-| Redo | virtual, pending | yes | no |
+| MoveCommitted | virtual, pending, tutor | yes | yes |
+| Undo | virtual, pending, tutor | no | no |
+| Redo | virtual, pending, tutor | yes | no |
 | Reset | pending, tutor | no | yes |
 | ResetConfirmed | virtual, pending, tutor | no | yes |
 | ResetDeclined | pending | no | no |
@@ -45,3 +45,10 @@ that only asks leaves them until it is confirmed. `TeachingModeChanged` sets `te
 `advance`, the Lesson is not yet satisfied and a later step exists; it then moves `stepIndex` on by
 one and hides the Moves again (`revealRequested` false). None of the three changes the Cube State,
 the history or `revision`.
+
+`lastMoveFeedback` is how the last committed Move changed the Completion Predicate's
+`ObjectiveProgress` (`MoveFeedback`: Progress, Neutral or Harmful). `MoveCommitted` sets it in every
+Teaching Mode; the tutor's decision shows it only in *Test me* and only while the step is not yet
+done (`advance`). `LessonStarted`, `Undo`, `Redo`, an applied `Reset` or `ResetConfirmed`, an
+applied `StepAdvanced` and a `TeachingModeChanged` to a different mode clear it; none of these
+clearings advances `revision` by itself.

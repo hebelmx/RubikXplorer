@@ -39,7 +39,10 @@ import dev.rubikxplorer.app.ui.freecube.FreeCubeScreen
 import dev.rubikxplorer.app.ui.freecube.FreeCubeViewModel
 import dev.rubikxplorer.app.ui.lesson.LessonScreen
 import dev.rubikxplorer.app.ui.theme.RubikTheme
+import dev.rubikxplorer.application.port.FeatureFlag
+import dev.rubikxplorer.application.port.FeatureFlags
 import dev.rubikxplorer.domain.content.LessonId
+import dev.rubikxplorer.domain.tutor.TeachingMode
 
 /** The top-level destinations of the navigation shell. */
 enum class Tab(
@@ -54,7 +57,8 @@ enum class Tab(
  * The navigation shell (UX-DR7): Learn and Solve (the free cube) behind a `NavigationBar` when
  * compact and a `NavigationRail` from medium width. An open Lesson replaces the shell as a
  * full-screen task flow, with no bar. The tab and the open Lesson survive configuration changes; the
- * Lesson's progress lives in [host]'s session.
+ * Lesson's progress lives in [host]'s session. [flags] decides which Teaching Modes the Lesson offers:
+ * *Test me* only while `TEST_ME` is enabled.
  */
 @Composable
 fun AppShell(
@@ -62,6 +66,7 @@ fun AppShell(
     catalog: LessonCatalog,
     freeCube: FreeCubeViewModel,
     showDebugToggles: Boolean,
+    flags: FeatureFlags,
     modifier: Modifier = Modifier,
 ) {
     LaunchedEffect(catalog) { catalog.load() }
@@ -74,7 +79,14 @@ fun AppShell(
     val ready = content as? CatalogState.Ready
     val entry = openLesson?.let { ready?.find(LessonId(it)) }
     if (ready != null && entry != null) {
-        LessonScreen(host = host, entry = entry, strings = ready.strings, onClose = { openLesson = null }, modifier = modifier)
+        LessonScreen(
+            host = host,
+            entry = entry,
+            strings = ready.strings,
+            modes = availableModes(flags),
+            onClose = { openLesson = null },
+            modifier = modifier,
+        )
         return
     }
     // Back from another tab returns to Learn, the start destination, before it leaves the app.
@@ -135,3 +147,7 @@ fun AppShell(
         }
     }
 }
+
+/** The Teaching Modes a Lesson offers under [flags]: every mode, less *Test me* while `TEST_ME` is off (AD-18). */
+internal fun availableModes(flags: FeatureFlags): List<TeachingMode> =
+    TeachingMode.entries.filter { it != TeachingMode.TEST_ME || flags.isEnabled(FeatureFlag.TEST_ME) }

@@ -15,7 +15,7 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    /** Injected so the Hilt graph (port → flags adapter) is exercised from the first build. */
+    /** The feature-flag port (AD-18); the shell gates Teaching Modes on it. */
     @Inject
     lateinit var featureFlags: FeatureFlags
 
@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
                     catalog = lessonCatalog,
                     freeCube = freeCube,
                     showDebugToggles = DebugOptions.SHOW_DEBUG_TOGGLES,
+                    flags = featureFlags,
                 )
             }
         }

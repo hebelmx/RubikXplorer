@@ -32,14 +32,18 @@ private fun labelOf(mode: TeachingMode): Int =
     when (mode) {
         TeachingMode.SHOW_ME -> R.string.mode_show_me
         TeachingMode.GUIDE_ME -> R.string.mode_guide_me
+        TeachingMode.TEST_ME -> R.string.mode_test_me
+        TeachingMode.LET_ME_TRY -> R.string.mode_let_me_try
     }
 
 /**
- * The Teaching Mode segmented switcher: one segment per mode, the active one filled with `accent`.
- * Choosing a segment only reports it through [onSelect]; the mode lives in the session.
+ * The Teaching Mode segmented switcher: one segment per available mode in [modes] (feature flags
+ * may hide one), the active one filled with `accent`. Choosing a segment only reports it through
+ * [onSelect]; the mode lives in the session.
  */
 @Composable
 fun TeachingModeSwitcher(
+    modes: List<TeachingMode>,
     selected: TeachingMode,
     onSelect: (TeachingMode) -> Unit,
     modifier: Modifier = Modifier,
@@ -56,7 +60,7 @@ fun TeachingModeSwitcher(
                 .selectableGroup()
                 .semantics { contentDescription = description },
     ) {
-        TeachingMode.entries.forEach { mode ->
+        modes.forEach { mode ->
             Segment(mode, labelOf(mode), mode == selected, onSelect, Modifier.weight(1f))
         }
     }
