@@ -15,10 +15,17 @@ data class CubeState(
     val isSolved: Boolean
         get() = cubies == Cubies.SOLVED
 
-    /** A new state with [move] applied; face Moves act through [orientation] and never change it. */
+    /**
+     * A new state with [move] applied. Face Moves act through [orientation] and never change it; a
+     * Cube Rotation changes only [orientation]; wide and slice Moves apply as their face-turn
+     * equivalent plus a rotation (e.g. `r = L x`, `M = R L' x'`), so they also act through [orientation].
+     */
     fun apply(move: Move): CubeState =
         when (move) {
             is FaceTurn -> copy(cubies = cubies.turn(orientation.homeFaceAt(move.face), move.turn))
+            is CubeRotation -> copy(orientation = orientation.rotated(move.axis, move.turn))
+            is WideTurn -> apply(parts(move))
+            is SliceTurn -> apply(parts(move))
         }
 
     /** A new state with [moves] applied in order. */
@@ -30,5 +37,38 @@ data class CubeState(
     companion object {
         /** Solved, in the home frame. */
         val SOLVED: CubeState = CubeState(Cubies.SOLVED, Orientation.HOME)
+
+        /**
+         * The Learner-frame face turns and rotation equal to a wide Move, each part taking the
+         * Move's turn (primes flip it): `r = L x`, `l = R x'`, `u = D y`, `d = U y'`, `f = B z`,
+         * `b = F z'`. The rotation turns all layers; the opposite face turn cancels it on the far layer.
+         */
+        internal fun parts(move: WideTurn): List<Move> {
+            val t = move.turn
+            val i = t.inverse()
+            return when (move.face) {
+                Face.R -> listOf(FaceTurn(Face.L, t), CubeRotation(Axis.X, t))
+                Face.L -> listOf(FaceTurn(Face.R, t), CubeRotation(Axis.X, i))
+                Face.U -> listOf(FaceTurn(Face.D, t), CubeRotation(Axis.Y, t))
+                Face.D -> listOf(FaceTurn(Face.U, t), CubeRotation(Axis.Y, i))
+                Face.F -> listOf(FaceTurn(Face.B, t), CubeRotation(Axis.Z, t))
+                Face.B -> listOf(FaceTurn(Face.F, t), CubeRotation(Axis.Z, i))
+            }
+        }
+
+        /**
+         * The Learner-frame face turns and rotation equal to a slice Move (WCA: M like L, E like D,
+         * S like F), each part taking the Move's turn (primes flip it): `M = R L' x'`,
+         * `E = U D' y'`, `S = F' B z`. The two face turns cancel the rotation on both outer layers.
+         */
+        internal fun parts(move: SliceTurn): List<Move> {
+            val t = move.turn
+            val i = t.inverse()
+            return when (move.slice) {
+                Slice.M -> listOf(FaceTurn(Face.R, t), FaceTurn(Face.L, i), CubeRotation(Axis.X, i))
+                Slice.E -> listOf(FaceTurn(Face.U, t), FaceTurn(Face.D, i), CubeRotation(Axis.Y, i))
+                Slice.S -> listOf(FaceTurn(Face.F, i), FaceTurn(Face.B, t), CubeRotation(Axis.Z, t))
+            }
+        }
     }
 }

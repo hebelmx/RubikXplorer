@@ -23,6 +23,24 @@ data class Orientation private constructor(
     /** The center color shown on the Learner-facing [face]. */
     fun colorAt(face: Face): Color = Color.home(homeFaceAt(face))
 
+    /** This orientation after the whole cube is turned about [axis] by [turn], as seen by the Learner. */
+    internal fun rotated(
+        axis: Axis,
+        turn: Turn,
+    ): Orientation {
+        var result = this
+        repeat(turn.quarters) { result = result.quarterTurn(axis) }
+        return result
+    }
+
+    // One clockwise quarter: x brings Learner F up, y brings Learner R to the front, z brings Learner L up.
+    private fun quarterTurn(axis: Axis): Orientation =
+        when (axis) {
+            Axis.X -> Orientation(homeFaceAt(Face.F), homeFaceAt(Face.D))
+            Axis.Y -> Orientation(up, homeFaceAt(Face.R))
+            Axis.Z -> Orientation(homeFaceAt(Face.L), front)
+        }
+
     private val right: Face
         get() = faceOf(cross(axis(up), axis(front)))
 
