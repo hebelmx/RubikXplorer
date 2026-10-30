@@ -1,0 +1,10 @@
+{
+  "stage.stage-01-basics.title": "Fixture basics",
+  "lesson.lesson-01-01.objective": "Return the white-green edge to the cross.",
+  "lesson.lesson-01-01.learner-action": "Turn the front face back.",
+  "lesson.lesson-01-01.goal.1": "Bring the white-green edge up.",
+  "lesson.lesson-01-01.keep.1": "The other three cross edges.",
+  "lesson.lesson-01-01.watch.1": "The white-green edge.",
+  "lesson.lesson-01-01.notice.1": "The cross is whole again.",
+  "msg.fixture.count": "{count, plural, one {# move} other {# moves}} left for {name}"
+}

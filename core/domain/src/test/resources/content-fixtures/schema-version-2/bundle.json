@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 2,
+  "stages": [
+    "stages/stage-01-basics.json"
+  ]
+}

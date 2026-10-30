@@ -1,5 +1,6 @@
 package dev.rubikxplorer.buildlogic
 
+import dev.rubikxplorer.buildlogic.tasks.CheckLearnerTextTask
 import dev.rubikxplorer.buildlogic.tasks.CheckModuleBoundariesTask
 import kotlinx.kover.gradle.plugin.dsl.KoverProjectExtension
 import org.gradle.api.Plugin
@@ -11,7 +12,10 @@ import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-/** `:core:*` modules: pure Kotlin/JVM, JUnit Platform, Kover ≥ 80% line coverage, AD-1 boundary check. */
+/**
+ * `:core:*` modules: pure Kotlin/JVM, JUnit Platform, Kover ≥ 80% line coverage, AD-1 boundary check
+ * and the Learner-text literal gate.
+ */
 class JvmCoreConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) =
         with(target) {
@@ -38,6 +42,7 @@ class JvmCoreConventionPlugin : Plugin<Project> {
             if (path == CubeCoverageGate.MODULE_PATH) applyCubeCoverageGate()
 
             val boundaryCheck = CheckModuleBoundariesTask.register(this)
+            CheckLearnerTextTask.register(this)
             tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) {
                 dependsOn("koverVerify")
             }

@@ -4,12 +4,16 @@ import dev.rubikxplorer.domain.cube.Color
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Face
 import dev.rubikxplorer.domain.cube.FaceletTables
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 /**
  * The white cross, aligned: each of the 4 edges on the face whose center is WHITE shows WHITE there,
  * and its other sticker matches the center color of the face it sits on. Color-anchored: it reads the
  * Learner's stickers and finds every face by its center, never assuming WHITE is on U.
  */
+@Serializable
+@SerialName("white-cross-solved")
 data object WhiteCrossSolved : Predicate {
     private const val CROSS_EDGES = 4
     private const val PER_FACE = 9

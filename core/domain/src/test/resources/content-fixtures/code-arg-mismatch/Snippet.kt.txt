@@ -1,0 +1,9 @@
+package fixture
+
+// Text("lesson.lesson-01-01.goal.1", mapOf("ignored" to 1)) is a comment and is not scanned.
+val ok = Text("msg.fixture.count", mapOf("count" to 3, "name" to "Ada"))
+val wrongArgs = Text("msg.fixture.count", mapOf("a" to 1))
+val missing =
+    Text(
+        "msg.fixture.absent",
+    )
