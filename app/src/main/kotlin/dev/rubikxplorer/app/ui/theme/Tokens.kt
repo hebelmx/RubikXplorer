@@ -38,6 +38,9 @@ data class RubikTokens(
 object CubeTokens {
     val cubieBody = Color(0xFF121417)
     val stickerHighlight = Color(0xFFA797FF)
+
+    /** `sticker-dimmed-overlay` (#00000099), drawn over a sticker to mute it; the sticker is never recolored. */
+    val stickerDimmedOverlay = Color(0x99000000)
 }
 
 val LightTokens =
