@@ -19,6 +19,11 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // Robolectric Compose tests read the merged resources (fonts, strings, drawables).
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 dependencies {
@@ -33,4 +38,11 @@ dependencies {
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+
+    // Compose UI tests on the JVM: Robolectric runs JUnit4 tests under JUnit Platform via vintage.
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.robolectric)
+    testRuntimeOnly(libs.junit.vintage.engine)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

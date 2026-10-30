@@ -3,13 +3,11 @@ package dev.rubikxplorer.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import androidx.activity.viewModels
 import dagger.hilt.android.AndroidEntryPoint
+import dev.rubikxplorer.app.ui.freecube.FreeCubeScreen
+import dev.rubikxplorer.app.ui.freecube.FreeCubeViewModel
+import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
 import dev.rubikxplorer.application.port.FeatureFlags
 import javax.inject.Inject
 
@@ -19,13 +17,13 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var featureFlags: FeatureFlags
 
+    private val freeCube: FreeCubeViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    Text(text = stringResource(R.string.app_name))
-                }
+            RubikXplorerTheme {
+                FreeCubeScreen(viewModel = freeCube, showDebugToggles = DebugOptions.SHOW_DEBUG_TOGGLES)
             }
         }
     }
