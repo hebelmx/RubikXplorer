@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- OQ-3 spike overlay (Story 1.8), merged only with -Prubikxplorer.spike3d=true. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- SceneView's own manifest declares both; AD-13 keeps the app offline, and the spike needs no haptics. -->
+    <uses-permission
+        android:name="android.permission.INTERNET"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.VIBRATE"
+        tools:node="remove" />
+
+    <uses-feature
+        android:glEsVersion="0x00030000"
+        android:required="true" />
+
+    <application>
+        <activity
+            android:name=".spike3d.Spike3dActivity"
+            android:exported="true"
+            android:label="Spike 3D">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
