@@ -18,10 +18,10 @@ class PredicateJsonTest {
             """{"predicate":"white-cross-solved"}""" to WhiteCrossSolved,
             """{"predicate":"white-corners-solved"}""" to WhiteCornersSolved,
             """{"predicate":"state-reached","moves":"R U"}""" to StateReached("R U"),
-            """{"predicate":"all-of","predicates":[{"predicate":"white-cross-solved"},{"predicate":"white-corners-solved"}]}""" to
+            """{"predicate":"allOf","predicates":[{"predicate":"white-cross-solved"},{"predicate":"white-corners-solved"}]}""" to
                 AllOf(listOf(WhiteCrossSolved, WhiteCornersSolved)),
-            """{"predicate":"any-of","predicates":[{"predicate":"state-reached","moves":"R"},""" +
-                """{"predicate":"all-of","predicates":[{"predicate":"white-cross-solved"}]}]}""" to
+            """{"predicate":"anyOf","predicates":[{"predicate":"state-reached","moves":"R"},""" +
+                """{"predicate":"allOf","predicates":[{"predicate":"white-cross-solved"}]}]}""" to
                 AnyOf(listOf(StateReached("R"), AllOf(listOf(WhiteCrossSolved)))),
         )
 
@@ -39,7 +39,7 @@ class PredicateJsonTest {
     fun `an unknown nested discriminator, bad moves or an empty combinator fail to decode`() {
         val nested =
             assertThrows(SerializationException::class.java) {
-                json.decodeFromString<Predicate>("""{"predicate":"all-of","predicates":[{"predicate":"nope"}]}""")
+                json.decodeFromString<Predicate>("""{"predicate":"allOf","predicates":[{"predicate":"nope"}]}""")
             }
         assertTrue("nope" in nested.message.orEmpty(), nested.message)
         val badMoves =
@@ -49,9 +49,9 @@ class PredicateJsonTest {
         assertTrue("not valid Notation" in badMoves.message.orEmpty(), badMoves.message)
         val empty =
             assertThrows(IllegalArgumentException::class.java) {
-                json.decodeFromString<Predicate>("""{"predicate":"any-of","predicates":[]}""")
+                json.decodeFromString<Predicate>("""{"predicate":"anyOf","predicates":[]}""")
             }
-        assertTrue("any-of needs at least one predicate" in empty.message.orEmpty(), empty.message)
+        assertTrue("anyOf needs at least one predicate" in empty.message.orEmpty(), empty.message)
         val missing =
             assertThrows(MissingFieldException::class.java) {
                 json.decodeFromString<Predicate>("""{"predicate":"state-reached"}""")

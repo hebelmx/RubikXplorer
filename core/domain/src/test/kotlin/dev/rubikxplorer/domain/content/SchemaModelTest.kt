@@ -108,7 +108,7 @@ class SchemaModelTest {
                         .getValue("predicate")
                         .jsonObject["const"]
                         ?.jsonPrimitive
-                        ?.content == "all-of"
+                        ?.content == "allOf"
                 if (!isAllOf) {
                     option
                 } else {
@@ -125,7 +125,7 @@ class SchemaModelTest {
             SchemaComparator(
                 schemas + ("predicate.schema.json" to broken),
             ).compare("predicate.schema.json", Predicate.serializer().descriptor)
-        assertTrue(problems.any { "all-of" in it && "root schema" in it }, problems.toString())
+        assertTrue(problems.any { "allOf" in it && "root schema" in it }, problems.toString())
     }
 
     private companion object {

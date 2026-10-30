@@ -13,10 +13,10 @@ import kotlinx.serialization.Serializable
  * - `white-cross-solved` → [WhiteCrossSolved] (Stage 2)
  * - `white-corners-solved` → [WhiteCornersSolved] (Stage 3)
  * - `state-reached` (`moves`) → [StateReached] (Stage 1 Notation exercises)
- * - `all-of` (`predicates`) → [AllOf]
- * - `any-of` (`predicates`) → [AnyOf]
+ * - `allOf` (`predicates`) → [AllOf]
+ * - `anyOf` (`predicates`) → [AnyOf]
  *
- * For example `{"predicate":"all-of","predicates":[{"predicate":"white-cross-solved"},{"predicate":"white-corners-solved"}]}`.
+ * For example `{"predicate":"allOf","predicates":[{"predicate":"white-cross-solved"},{"predicate":"white-corners-solved"}]}`.
  */
 @Serializable
 sealed interface Predicate {
