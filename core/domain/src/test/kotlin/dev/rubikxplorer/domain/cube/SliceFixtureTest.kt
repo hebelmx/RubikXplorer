@@ -27,12 +27,14 @@ class SliceFixtureTest {
                 token to stickers.map { letters.getValue(it) }
             }
 
-    private fun after(token: String): List<Color> =
+    private fun stateAfter(token: String): CubeState =
         if (token == "SOLVED") {
-            StickerReader.read(CubeState.SOLVED)
+            CubeState.SOLVED
         } else {
-            StickerReader.read(CubeState.SOLVED.apply((Notation.parse(token) as NotationResult.Parsed).moves))
+            CubeState.SOLVED.apply((Notation.parse(token) as NotationResult.Parsed).moves)
         }
+
+    private fun after(token: String): List<Color> = StickerReader.read(stateAfter(token))
 
     private fun idx(
         face: Face,
@@ -58,6 +60,11 @@ class SliceFixtureTest {
     @Test
     fun `solved and each Move from solved match the fixture`() {
         fixtures.forEach { (token, expected) -> assertEquals(expected, after(token), token) }
+    }
+
+    @Test
+    fun `toFacelets matches the hand-derived fixture`() {
+        fixtures.forEach { (token, expected) -> assertEquals(expected, stateAfter(token).toFacelets().colors, token) }
     }
 
     @Test
