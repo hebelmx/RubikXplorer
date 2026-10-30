@@ -9,6 +9,7 @@ import kotlinx.serialization.descriptors.StructureKind
 import kotlinx.serialization.descriptors.elementNames
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
@@ -96,6 +97,37 @@ class SchemaModelTest {
         assertTrue(predicateProblems.any { "nope" in it }, predicateProblems.toString())
     }
 
+    @Test
+    fun `a combinator whose items do not refer back to the predicate root is a mismatch`() {
+        val predicate = schemas.getValue("predicate.schema.json")
+        val options =
+            predicate.getValue("oneOf").jsonArray.map { option ->
+                val properties = option.jsonObject.getValue("properties").jsonObject
+                val isAllOf =
+                    properties
+                        .getValue("predicate")
+                        .jsonObject["const"]
+                        ?.jsonPrimitive
+                        ?.content == "all-of"
+                if (!isAllOf) {
+                    option
+                } else {
+                    val predicates = properties.getValue("predicates").jsonObject
+                    val brokenItems = JsonObject(mapOf("\$ref" to JsonPrimitive("#/oneOf/0")))
+                    JsonObject(
+                        option.jsonObject +
+                            ("properties" to JsonObject(properties + ("predicates" to JsonObject(predicates + ("items" to brokenItems))))),
+                    )
+                }
+            }
+        val broken = JsonObject(predicate + ("oneOf" to JsonArray(options)))
+        val problems =
+            SchemaComparator(
+                schemas + ("predicate.schema.json" to broken),
+            ).compare("predicate.schema.json", Predicate.serializer().descriptor)
+        assertTrue(problems.any { "all-of" in it && "root schema" in it }, problems.toString())
+    }
+
     private companion object {
         const val DRAFT = "https://json-schema.org/draft/2020-12/schema"
     }
@@ -111,11 +143,18 @@ internal class SchemaComparator(
 ) {
     private val problems = mutableListOf<String>()
 
+    /**
+     * Sealed descriptors on the current path, with the file and schema each is walked against.
+     * Re-entering one (a combinator's `$ref "#"`) stops the walk, and must land on that same schema.
+     */
+    private val sealedOnPath = mutableMapOf<String, Pair<String, JsonObject>>()
+
     fun compare(
         file: String,
         descriptor: SerialDescriptor,
     ): List<String> {
         problems.clear()
+        sealedOnPath.clear()
         node(file, schemas.getValue(file), descriptor, file)
         return problems.toList()
     }
@@ -127,13 +166,13 @@ internal class SchemaComparator(
     ): Pair<String, JsonObject> {
         val ref = schema["\$ref"]?.jsonPrimitive?.content ?: return file to schema
         val target = ref.substringBefore('#').ifEmpty { file }
-        var resolved = schemas[target] ?: return target to JsonObject(emptyMap()).also { problems += "unresolved \$ref $ref" }
+        var resolved: JsonElement = schemas[target] ?: return target to JsonObject(emptyMap()).also { problems += "unresolved \$ref $ref" }
         ref
             .substringAfter('#', "")
             .split('/')
             .filter { it.isNotEmpty() }
-            .forEach { resolved = resolved.getValue(it).jsonObject }
-        return resolve(target, resolved)
+            .forEach { resolved = (resolved as? JsonArray)?.get(it.toInt()) ?: resolved.jsonObject.getValue(it) }
+        return resolve(target, resolved.jsonObject)
     }
 
     private fun node(
@@ -216,6 +255,25 @@ internal class SchemaComparator(
     }
 
     private fun sealedNode(
+        file: String,
+        schema: JsonObject,
+        descriptor: SerialDescriptor,
+        path: String,
+    ) {
+        val walking = sealedOnPath[descriptor.serialName]
+        if (walking != null) {
+            if (walking != (file to schema)) problems += "$path: recursive ${descriptor.serialName} must refer to its own root schema"
+            return
+        }
+        sealedOnPath[descriptor.serialName] = file to schema
+        try {
+            sealedVariants(file, schema, descriptor, path)
+        } finally {
+            sealedOnPath.remove(descriptor.serialName)
+        }
+    }
+
+    private fun sealedVariants(
         file: String,
         schema: JsonObject,
         descriptor: SerialDescriptor,

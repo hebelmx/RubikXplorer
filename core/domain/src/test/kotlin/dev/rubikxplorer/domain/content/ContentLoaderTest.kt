@@ -4,6 +4,10 @@ import dev.rubikxplorer.domain.cube.CubeValidator
 import dev.rubikxplorer.domain.cube.NotationError
 import dev.rubikxplorer.domain.cube.NotationResult
 import dev.rubikxplorer.domain.cube.ValidationResult
+import dev.rubikxplorer.domain.predicate.AllOf
+import dev.rubikxplorer.domain.predicate.AnyOf
+import dev.rubikxplorer.domain.predicate.StateReached
+import dev.rubikxplorer.domain.predicate.WhiteCornersSolved
 import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -109,6 +113,34 @@ class ContentLoaderTest {
         assertTrue("recovery" in malformed("missing-recovery").detail)
         assertTrue("hint" in malformed("unknown-key").detail)
         assertTrue("nope" in malformed("unknown-predicate").detail)
+    }
+
+    @Test
+    fun `a Lesson using every predicate variant loads with no problems`() {
+        val bundle = loaded(fixture("all-predicates"))
+        val lesson =
+            bundle.stages
+                .single()
+                .lessons
+                .single()
+        assertEquals(AllOf(listOf(WhiteCrossSolved, WhiteCornersSolved)), lesson.completion)
+        assertEquals(AnyOf(listOf(StateReached("F"), WhiteCrossSolved)), lesson.preserve)
+        assertEquals(emptyList<ContentProblem>(), ContentValidator.validate(bundle))
+        val entry = (FaceletString.decode(lesson.entryState) as FaceletStringResult.Decoded).facelets
+        val state = (CubeValidator.validate(entry) as ValidationResult.Valid).state
+        assertTrue(lesson.preserve.isSatisfied(state))
+        assertFalse(lesson.completion.isSatisfied(state))
+        assertTrue(lesson.completion.isSatisfied(state.apply((CubeNotation.parse(lesson.demonstration) as NotationResult.Parsed).moves)))
+    }
+
+    @Test
+    fun `an unknown nested predicate, bad predicate moves and an empty all-of are Malformed`() {
+        listOf("unknown-nested-predicate", "bad-predicate-moves", "empty-all-of").forEach { variant ->
+            assertEquals("stages/stage-01-basics.json", malformed(variant).path, variant)
+        }
+        assertTrue("nope" in malformed("unknown-nested-predicate").detail)
+        assertTrue("not valid Notation: \"Q\"" in malformed("bad-predicate-moves").detail)
+        assertTrue("all-of needs at least one predicate" in malformed("empty-all-of").detail)
     }
 
     @Test
