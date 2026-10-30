@@ -9,12 +9,12 @@ import kotlinx.serialization.Serializable
  * children's; the preserved pieces are the union of theirs.
  */
 @Serializable
-@SerialName("all-of")
+@SerialName("allOf")
 data class AllOf(
     val predicates: List<Predicate>,
 ) : Predicate {
     init {
-        require(predicates.isNotEmpty()) { "all-of needs at least one predicate" }
+        require(predicates.isNotEmpty()) { "allOf needs at least one predicate" }
     }
 
     override fun isSatisfied(state: CubeState): Boolean = predicates.all { it.isSatisfied(state) }

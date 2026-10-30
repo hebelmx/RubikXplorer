@@ -10,12 +10,12 @@ import kotlinx.serialization.Serializable
  * pieces are those of the first child with that best progress.
  */
 @Serializable
-@SerialName("any-of")
+@SerialName("anyOf")
 data class AnyOf(
     val predicates: List<Predicate>,
 ) : Predicate {
     init {
-        require(predicates.isNotEmpty()) { "any-of needs at least one predicate" }
+        require(predicates.isNotEmpty()) { "anyOf needs at least one predicate" }
     }
 
     override fun isSatisfied(state: CubeState): Boolean = predicates.any { it.isSatisfied(state) }

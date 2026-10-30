@@ -11,7 +11,7 @@
       "demonstration": "F'",
       "learnerAction": "lesson.lesson-01-01.learner-action",
       "completion": {
-        "predicate": "all-of",
+        "predicate": "allOf",
         "predicates": [
           {
             "predicate": "white-cross-solved"
@@ -22,7 +22,7 @@
         ]
       },
       "preserve": {
-        "predicate": "any-of",
+        "predicate": "anyOf",
         "predicates": [
           {
             "predicate": "state-reached",

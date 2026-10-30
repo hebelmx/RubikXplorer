@@ -80,7 +80,7 @@ class CombinatorsTest {
     }
 
     @Test
-    fun `any-of is satisfied by either child and takes the best child's progress`() {
+    fun `anyOf is satisfied by either child and takes the best child's progress`() {
         assertTrue(eitherTurn.isSatisfied(state("U")))
         assertEquals(ObjectiveProgress(20, 20), eitherTurn.progress(state("U")))
         assertEquals(StateReached("U").preservedPieces(state("U")), eitherTurn.preservedPieces(state("U")))
@@ -90,7 +90,7 @@ class CombinatorsTest {
     }
 
     @Test
-    fun `any-of scales children to the LCM of their totals`() {
+    fun `anyOf scales children to the LCM of their totals`() {
         // Cross 3/4 scales to 15/20; state-reached R is 7/20 after F.
         val s = state("F")
         assertEquals(ObjectiveProgress(7, 20), StateReached("R").progress(s))
@@ -111,9 +111,9 @@ class CombinatorsTest {
     @Test
     fun `every fixture gives the same result in all 24 orientations`() {
         fixtures.forEach { (label, s) ->
-            assertSameInEveryOrientation(stage3, "all-of $label", s)
-            assertSameInEveryOrientation(eitherTurn, "any-of $label", s, countsPieces = false)
-            assertSameInEveryOrientation(mixed, "mixed any-of $label", s, countsPieces = false)
+            assertSameInEveryOrientation(stage3, "allOf $label", s)
+            assertSameInEveryOrientation(eitherTurn, "anyOf $label", s, countsPieces = false)
+            assertSameInEveryOrientation(mixed, "mixed anyOf $label", s, countsPieces = false)
         }
     }
 

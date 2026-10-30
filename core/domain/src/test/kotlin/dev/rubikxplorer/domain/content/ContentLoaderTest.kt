@@ -134,13 +134,13 @@ class ContentLoaderTest {
     }
 
     @Test
-    fun `an unknown nested predicate, bad predicate moves and an empty all-of are Malformed`() {
+    fun `an unknown nested predicate, bad predicate moves and an empty allOf are Malformed`() {
         listOf("unknown-nested-predicate", "bad-predicate-moves", "empty-all-of").forEach { variant ->
             assertEquals("stages/stage-01-basics.json", malformed(variant).path, variant)
         }
         assertTrue("nope" in malformed("unknown-nested-predicate").detail)
         assertTrue("not valid Notation: \"Q\"" in malformed("bad-predicate-moves").detail)
-        assertTrue("all-of needs at least one predicate" in malformed("empty-all-of").detail)
+        assertTrue("allOf needs at least one predicate" in malformed("empty-all-of").detail)
     }
 
     @Test
