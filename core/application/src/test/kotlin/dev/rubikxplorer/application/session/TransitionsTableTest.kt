@@ -1,5 +1,6 @@
 package dev.rubikxplorer.application.session
 
+import dev.rubikxplorer.domain.tutor.TeachingMode
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -55,11 +56,19 @@ class TransitionsTableTest {
     private val askedPending = askedB.pendingReset!!
     private val staleB = askedB.after(commit(F))
 
+    // Tutor fixtures: a revealed fresh start; b revealed and asked; a two-step Lesson on its step-1 path state, with and without redo.
+    private val revealed = fresh.after(reveal)
+    private val askedRevealedB = asked(b.after(reveal))
+    private val showMe = fresh.after(modeChanged(TeachingMode.SHOW_ME))
+    private val two = started(twoStepLesson())
+    private val twoAtStep1 = two.after(commit(U))
+    private val twoAtStep1WithRedo = two.after(commit(U), commit(R), undo)
+
     /** Scenarios per event type; the exhaustive `when` fails to compile when an event type is added. */
     private fun scenarios(sample: SessionEvent): List<Pair<SessionState, SessionEvent>> =
         when (sample) {
             is SessionEvent.LessonStarted -> {
-                listOf(SessionState.IDLE, a, b, askedB).map { it to SessionEvent.LessonStarted(other, T0) }
+                listOf(SessionState.IDLE, a, b, askedB, revealed).map { it to SessionEvent.LessonStarted(other, T0) }
             }
 
             is SessionEvent.MoveCommitted -> {
@@ -75,7 +84,7 @@ class TransitionsTableTest {
             }
 
             is SessionEvent.Reset -> {
-                listOf(fresh, a, b, c).map { it to resetEvent }
+                listOf(fresh, a, b, c, revealed).map { it to resetEvent }
             }
 
             is SessionEvent.ResetConfirmed -> {
@@ -83,11 +92,24 @@ class TransitionsTableTest {
                     askedB to askedPending.confirm(),
                     staleB to askedPending.confirm(),
                     fresh to askedPending.confirm(),
+                    askedRevealedB to askedRevealedB.pendingReset!!.confirm(),
                 )
             }
 
             is SessionEvent.ResetDeclined -> {
                 listOf(askedB to askedPending.decline(), staleB to askedPending.decline())
+            }
+
+            is SessionEvent.TeachingModeChanged -> {
+                listOf(SessionState.IDLE, fresh, b, askedB, showMe).map { it to modeChanged(TeachingMode.SHOW_ME) }
+            }
+
+            is SessionEvent.RevealRequested -> {
+                listOf(SessionState.IDLE, fresh, b, askedB, revealed).map { it to reveal }
+            }
+
+            is SessionEvent.StepAdvanced -> {
+                listOf(SessionState.IDLE, fresh, b, twoAtStep1, twoAtStep1WithRedo).map { it to stepAdvanced }
             }
         }
 
@@ -100,6 +122,9 @@ class TransitionsTableTest {
             resetEvent,
             askedPending.confirm(),
             askedPending.decline(),
+            modeChanged(TeachingMode.SHOW_ME),
+            reveal,
+            stepAdvanced,
         ).associateBy { it::class.java.simpleName }
 
     private fun changed(
@@ -110,6 +135,8 @@ class TransitionsTableTest {
             if (before.lesson != after.lesson || before.entry != after.entry) add("session")
             if (before.virtual != after.virtual) add("virtual")
             if (before.pendingReset != after.pendingReset) add("pending")
+            val tutorBefore = Triple(before.teachingMode, before.stepIndex, before.revealRequested)
+            if (tutorBefore != Triple(after.teachingMode, after.stepIndex, after.revealRequested)) add("tutor")
         }
 
     @Test
@@ -118,7 +145,7 @@ class TransitionsTableTest {
         assertEquals(names.size, names.toSet().size, "duplicate rows: $names")
         assertEquals(eventTypes, names.toSet())
         assertEquals(eventTypes, samples.keys)
-        assertEquals(7, eventTypes.size)
+        assertEquals(10, eventTypes.size)
     }
 
     @Test

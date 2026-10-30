@@ -1,10 +1,15 @@
 package dev.rubikxplorer.app.session
 
 import dev.rubikxplorer.application.port.Clock
+import dev.rubikxplorer.domain.content.ContentBundle
+import dev.rubikxplorer.domain.content.ContentLoadResult
+import dev.rubikxplorer.domain.content.ContentLoader
+import dev.rubikxplorer.domain.content.ContentSource
 import dev.rubikxplorer.domain.content.FaceletString
 import dev.rubikxplorer.domain.content.Lesson
 import dev.rubikxplorer.domain.content.LessonId
 import dev.rubikxplorer.domain.content.RecoveryRef
+import dev.rubikxplorer.domain.content.Stage
 import dev.rubikxplorer.domain.content.StageId
 import dev.rubikxplorer.domain.content.Step
 import dev.rubikxplorer.domain.content.TextKey
@@ -46,6 +51,56 @@ internal fun whiteCrossLesson(id: String = "lesson-01-01"): Lesson =
                 ),
             ),
     )
+
+/** A two-step white-cross Lesson: entry SOLVED + F + U', step 1 `U` (back to SOLVED + F), step 2 `F'`. */
+internal fun twoStepLesson(id: String = "lesson-01-03"): Lesson {
+    val base = whiteCrossLesson(id)
+    return base.copy(
+        entryState =
+            FaceletString.encode(
+                CubeState.SOLVED.apply(FaceTurn(Face.F, Turn.CLOCKWISE), FaceTurn(Face.U, Turn.COUNTERCLOCKWISE)).toFacelets(),
+            ),
+        demonstration = "U F'",
+        steps =
+            (1..2).map { n ->
+                Step(
+                    goal = TextKey("lesson.$id.goal.$n"),
+                    preserve = TextKey("lesson.$id.keep.$n"),
+                    watch = TextKey("lesson.$id.watch.$n"),
+                    notice = TextKey("lesson.$id.notice.$n"),
+                    moves = if (n == 1) "U" else "F'",
+                )
+            },
+    )
+}
+
+/** The English strings of [lesson]: each text field resolves to `<field> <n> of <lesson id>`. */
+internal fun stringsOf(lesson: Lesson): Map<String, String> {
+    val id = lesson.id.value
+    return buildMap {
+        put(lesson.objective.value, "Objective of $id")
+        put(lesson.learnerAction.value, "Action of $id")
+        lesson.steps.forEachIndexed { i, step ->
+            val n = i + 1
+            put(step.goal.value, "Goal $n of $id")
+            put(step.preserve.value, "Keep $n of $id")
+            put(step.watch.value, "Watch $n of $id")
+            put(step.notice.value, "Notice $n of $id")
+        }
+    }
+}
+
+/** The stage the test bundles hold their Lessons in, titled by [STAGE_TITLE]. */
+internal const val STAGE_TITLE = "Basics"
+
+/** A bundle of one Stage holding [lessons], with their strings, the Stage title and the shipped `msg.*` strings. */
+internal fun testBundle(vararg lessons: Lesson = arrayOf(whiteCrossLesson(), twoStepLesson())): ContentBundle {
+    val shipped = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+    val stage = Stage(StageId("stage-01-basics"), TextKey("stage.stage-01-basics.title"), lessons.toList())
+    val strings =
+        shipped.strings + mapOf(stage.title.value to STAGE_TITLE) + lessons.flatMap { stringsOf(it).entries.map { e -> e.toPair() } }
+    return ContentBundle(shipped.schemaVersion, "test", listOf(stage), strings)
+}
 
 /** Every Move value of every type: 18 face, 18 wide, 9 slice, 9 rotation. */
 internal val allMoves: List<Move> =

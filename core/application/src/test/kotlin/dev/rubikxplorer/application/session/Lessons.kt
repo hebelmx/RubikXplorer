@@ -12,12 +12,14 @@ import dev.rubikxplorer.domain.cube.Face
 import dev.rubikxplorer.domain.cube.FaceTurn
 import dev.rubikxplorer.domain.cube.Turn
 import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
+import dev.rubikxplorer.domain.tutor.TeachingMode
 import kotlin.time.Instant
 
 internal val F = FaceTurn(Face.F, Turn.CLOCKWISE)
 internal val F_PRIME = FaceTurn(Face.F, Turn.COUNTERCLOCKWISE)
 internal val R = FaceTurn(Face.R, Turn.CLOCKWISE)
 internal val U = FaceTurn(Face.U, Turn.CLOCKWISE)
+internal val U_PRIME = FaceTurn(Face.U, Turn.COUNTERCLOCKWISE)
 
 internal val T0: Instant = Instant.fromEpochMilliseconds(1_000)
 
@@ -46,6 +48,27 @@ internal fun whiteCrossLesson(id: String = "lesson-01-01"): Lesson =
             ),
     )
 
+/** A two-step white-cross Lesson: entry SOLVED + F + U', step 1 `U` (back to SOLVED + F), step 2 `F'`. */
+internal fun twoStepLesson(id: String = "lesson-01-03"): Lesson {
+    val base = whiteCrossLesson(id)
+    val step = base.steps.single()
+    return base.copy(
+        entryState = FaceletString.encode(CubeState.SOLVED.apply(F, U_PRIME).toFacelets()),
+        demonstration = "U F'",
+        steps =
+            listOf(
+                step.copy(moves = "U"),
+                Step(
+                    goal = TextKey("lesson.$id.goal.2"),
+                    preserve = TextKey("lesson.$id.keep.2"),
+                    watch = TextKey("lesson.$id.watch.2"),
+                    notice = TextKey("lesson.$id.notice.2"),
+                    moves = "F'",
+                ),
+            ),
+    )
+}
+
 /** Runs [events] from [start], returning every transition. */
 internal fun run(
     start: SessionState,
@@ -64,6 +87,10 @@ internal fun commit(move: dev.rubikxplorer.domain.cube.Move) = SessionEvent.Move
 internal val undo = SessionEvent.Undo(T0)
 internal val redo = SessionEvent.Redo(T0)
 internal val resetEvent = SessionEvent.Reset(T0)
+internal val reveal = SessionEvent.RevealRequested(T0)
+internal val stepAdvanced = SessionEvent.StepAdvanced(T0)
+
+internal fun modeChanged(mode: TeachingMode) = SessionEvent.TeachingModeChanged(mode, T0)
 
 internal fun Effect.ConfirmReset.confirm() = SessionEvent.ResetConfirmed(effectId, revision, T0)
 

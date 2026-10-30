@@ -14,6 +14,7 @@ import dev.rubikxplorer.app.R
 import dev.rubikxplorer.app.session.SessionHost
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.application.session.SessionEvent
+import dev.rubikxplorer.application.session.Transition
 import kotlinx.coroutines.launch
 import dev.rubikxplorer.domain.text.Text as ContentText
 
@@ -21,20 +22,22 @@ import dev.rubikxplorer.domain.text.Text as ContentText
  * Asks before a Reset that would lose Lesson steps (FR-3). Shown while [host]'s session has a
  * pending reset confirmation; the prompt comes from the content strings through [resolve]. Confirm
  * dispatches `ResetConfirmed`, dismiss `ResetDeclined`, each echoing the pending effect's id and
- * revision. The dialog holds no state: the pending confirmation lives in the session.
+ * revision; each [Transition] is handed to [onTransition] (so a screen can draw the Reset snap). The
+ * dialog holds no state: the pending confirmation lives in the session.
  */
 @Composable
 fun ResetConfirmation(
     host: SessionHost,
     resolve: (ContentText) -> String,
     modifier: Modifier = Modifier,
+    onTransition: (Transition) -> Unit = {},
 ) {
     val session by host.state.collectAsState()
     val pending = session.pendingReset ?: return
     val scope = rememberCoroutineScope()
     val tokens = RubikTheme.tokens
-    val decline = { scope.launch { host.dispatch { SessionEvent.ResetDeclined(pending.effectId, pending.revision, it) } } }
-    val confirm = { scope.launch { host.dispatch { SessionEvent.ResetConfirmed(pending.effectId, pending.revision, it) } } }
+    val decline = { scope.launch { onTransition(host.dispatch { SessionEvent.ResetDeclined(pending.effectId, pending.revision, it) }) } }
+    val confirm = { scope.launch { onTransition(host.dispatch { SessionEvent.ResetConfirmed(pending.effectId, pending.revision, it) }) } }
     AlertDialog(
         onDismissRequest = { decline() },
         confirmButton = {

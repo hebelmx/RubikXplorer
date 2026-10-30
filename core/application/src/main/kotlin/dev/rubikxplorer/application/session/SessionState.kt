@@ -4,6 +4,9 @@ import dev.rubikxplorer.domain.content.Lesson
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.MoveHistory
 import dev.rubikxplorer.domain.predicate.ObjectiveProgress
+import dev.rubikxplorer.domain.tutor.TeachingMode
+import dev.rubikxplorer.domain.tutor.Tutor
+import dev.rubikxplorer.domain.tutor.TutorDecision
 
 /**
  * The state of the one `LearningSession` (AD-3), or [IDLE] when none is active. Only [reduce] makes
@@ -15,6 +18,8 @@ import dev.rubikxplorer.domain.predicate.ObjectiveProgress
  * - [history] starts at [entry]; [virtual] is its current state.
  * - [objectiveMet] and [progress] are the Lesson's Completion Predicate on [virtual], recomputed on
  *   every change of [virtual].
+ * - The tutor fields ([teachingMode], [stepIndex], [revealRequested]) never advance [revision]: a
+ *   mode switch or a reveal does not change the Cube State, so it must not stale a pending effect.
  */
 @ConsistentCopyVisibility
 data class SessionState internal constructor(
@@ -33,7 +38,18 @@ data class SessionState internal constructor(
     val nextEffectId: Long,
     /** The last effect result that arrived stale, if any. */
     val lastDiscarded: EffectResultDiscarded?,
+    /** How the tutor teaches; kept across Lessons for the app process. */
+    val teachingMode: TeachingMode,
+    /** The 0-based Lesson step the Learner is on. */
+    val stepIndex: Int,
+    /** True once the Learner asked to see the current step's Moves. */
+    val revealRequested: Boolean,
 ) {
+    /** The tutor's decision for the current step; `null` in [IDLE]. Derived, never stored. */
+    val decision: TutorDecision? by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        lesson?.let { Tutor.decide(it, entry, virtual, teachingMode, stepIndex, revealRequested) }
+    }
+
     /** The Lesson's entry state; where Reset returns. */
     val entry: CubeState get() = history.start
 
@@ -59,6 +75,9 @@ data class SessionState internal constructor(
                 pendingReset = null,
                 nextEffectId = 1,
                 lastDiscarded = null,
+                teachingMode = TeachingMode.DEFAULT,
+                stepIndex = 0,
+                revealRequested = false,
             )
     }
 }
