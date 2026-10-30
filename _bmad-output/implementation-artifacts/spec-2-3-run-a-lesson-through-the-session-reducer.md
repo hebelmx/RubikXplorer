@@ -5,7 +5,7 @@ created: '2026-10-30'
 status: 'done'
 baseline_revision: '4124dcd6ac2b086fb58d3cc36d38d7b678bbe7ca'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-2-context.md'
   - '{project-root}/AGENTS.md'
@@ -17,6 +17,13 @@ deferred:
       maybe-false (if true: medium, unverified). dispatch returns the Transition and the caller submits presentation itself; Net2DRenderer never checks revision. Settle by driving two concurrent callers on different dispatchers and checking submit order, or by publishing presentation from inside the confined block when Story 2.5 adds the first production caller.
     location: >-
       app/src/main/kotlin/dev/rubikxplorer/app/session/SessionHost.kt
+    severity: medium (unverified)
+  - summary: >-
+      ResetConfirmation dispatches ResetConfirmed and drops the returned Transition, so a renderer never receives the reset Snap.
+    evidence: |-
+      maybe-false (if true: medium, unverified). Today no screen hosts the dialog next to a renderer, so nothing desyncs. Same root cause as the item above (presentation is delivered by callers, not the host). Settle when Story 2.5 places the dialog in the Lesson screen: either the host publishes presentation itself or the dialog hands its Transition to the screen's renderer; a test confirming Reset there must assert renderedFacelets() == entry.
+    location: >-
+      app/src/main/kotlin/dev/rubikxplorer/app/ui/lesson/ResetConfirmation.kt
     severity: medium (unverified)
 ---
 
@@ -141,6 +148,48 @@ deferred:
   - `[low]` `[patch]` (blind) 30-minute sync test timeout; per-burst checking — timeout lowered to 300 000 ms; burst checking is the spec's drained-step design.
   - `[maybe-false]` `[reject]` (blind) unused `SessionKind` values — AD-3 and the spec require all four kinds; no exhaustive `when` over it exists yet, so no harm shown.
 
+### 2026-10-30 — Review pass (follow-up)
+- verdicts: 38 findings — high 0, medium 4, low 19, false 12, maybe-false 3
+- findings:
+  - `[medium]` `[patch]` (blind) late confirm from an earlier Lesson re-offers a Reset prompt in the new Lesson — carried: same claim as the logged stale-confirm/another-Lesson row; code still re-offers when `event.revision < state.revision`; the intent's literal rule re-offers any stale confirm while unsaved steps exist.
+  - `[false]` `[reject]` (blind) a second Reset while pending replaces the first effect — carried: the dialog reads `state.pendingReset`, so only the latest effect is shown and answered.
+  - `[maybe-false]` `[defer]` (blind) renderer can receive presentation out of order with concurrent callers — carried: already in the deferred list.
+  - `[low]` `[reject]` (blind) `Transition.effects` has no consumer — carried: no effect runner until 2.5; pending copy in state is by design.
+  - `[low]` `[reject]` (blind) no-op Reset emits a Snap at an unchanged revision — carried: the I/O matrix specifies the Snap; `Net2DRenderer` ignores revision.
+  - `[false]` `[reject]` (blind) Reset after undoing every Move discards redo without asking — the intent defines unsaved steps as committed, not-undone Moves and the matrix row "all Moves undone" resets at once.
+  - `[low]` `[reject]` (blind) `MoveHistory.done/undone` now public — carried: read-only immutable lists; a cast to a mutable list is deliberate misuse.
+  - `[false]` `[reject]` (blind) `SessionHost`/`ResetConfirmation` unused; `MainActivity` field unused — carried: no Lesson screen until 2.5; the injection is spec-required.
+  - `[low]` `[reject]` (blind) purity scan non-recursive, misses other nondeterminism APIs, mis-strips raw strings — carried: no session subpackages or raw strings exist; the AC names `Clock` and `RandomSource`.
+  - `[low]` `[reject]` (blind) `app.clock.SystemClock` shares its name with `android.os.SystemClock` — the name is the one the spec's task list fixes; only an IDE auto-import inconvenience, and the fix is a rename away from spec.
+  - `[low]` `[patch]` (blind) lesson test fixtures duplicated across modules — carried: duplication rejected last pass (needs a test-fixtures plugin); not re-patched.
+  - `[low]` `[reject]` (blind) dialog mixes string systems, no title, destructive confirm in neutral ink — carried: spec chose content prompt + chrome buttons and "neutral ink".
+  - `[false]` `[reject]` (blind) `objectiveMet`/`progress` after a confirmed Reset not asserted — the outcome (stale predicate after Reset) does not occur: `reset()` goes through `withHistory`, the same path the Undo/Redo assertions cover.
+  - `[false]` `[reject]` (blind) a `reduce` throw inside `dispatch` would crash the app — carried: only on an invalid entry state, programmer error by spec (AD-12).
+  - `[low]` `[reject]` (blind) double confirm in the dialog untested — carried: the second confirm is a non-current result and is discarded (reducer tests).
+  - `[low]` `[patch]` (verification-gap) nothing asserts `Presentation` → `PresentationItem` mapping — added `PresentationMappingTest` (Animate, Snap, list order); 3 tests green.
+  - `[medium]` `[patch]` (verification-gap, other) stale/unknown-id confirm at an older revision re-offers in a new Lesson — carried: same as the first row.
+  - `[maybe-false]` `[defer]` (edge) dialog drops the confirm's Transition, so a renderer never gets the reset Snap — grouped with the edge claim row below; no screen hosts the dialog with a renderer yet; settle in 2.5 (new deferred item).
+  - `[low]` `[reject]` (edge) caller cancelled after `reduce` published state loses the Transition — a cancelled caller is leaving its screen (and renderer); fix (`NonCancellable` or host-published presentation) adds machinery for a rare case.
+  - `[low]` `[reject]` (edge) dialog leaving composition cancels its in-flight dispatch — carried: same as the logged dialog-scope row.
+  - `[medium]` `[patch]` (edge) stale confirm from the previous Lesson re-offers — carried: same as the first row.
+  - `[medium]` `[patch]` (edge) unknown effect id with a lower revision re-offers — carried: same as the first row.
+  - `[false]` `[reject]` (edge) double Reset issues a second ConfirmReset — carried: only the latest pending effect is shown.
+  - `[low]` `[reject]` (edge) no-op Reset Snap breaks "revision increases with every item" — carried: same as the Snap row.
+  - `[low]` `[reject]` (edge) wall clock moving backwards makes `at` stamps go backwards — nothing orders by `at` (revision orders); clamping adds state for no named consumer.
+  - `[low]` `[patch]` (edge, claim) sync assertion runs once per burst, not per step — carried: burst checking is the spec's drained-step design; not re-patched.
+  - `[low]` `[reject]` (edge, claim) the dispatch builder may ignore the stamped `at` — callers build events from the passed stamp (`SessionEvent::Undo`, `{ MoveCommitted(m, it) }`); closing it needs an API change for a misuse no caller makes.
+  - `[maybe-false]` `[defer]` (edge, claim) confirming Reset never submits the Snap to a renderer — same group and deferred item as the dialog row above.
+  - `[false]` `[reject]` (intent) revision advances only on content changes, not every state change — the I/O matrix (Reset-asks keeps N; stale row N → N+1 on the Move) only fits this reading.
+  - `[false]` `[reject]` (intent) stale re-offer narrowed to overtaken confirmations — the clause ties re-offer to "the Learner started it"; a declined or unknown result was not, and the matrix's stale row is honored.
+  - `[low]` `[reject]` (intent) TRANSITIONS.md cells checked over chosen scenarios, not every state — exhaustive state coverage is infeasible; each row is asserted against the reducer as asked.
+  - `[false]` `[reject]` (intent) `:core:domain` `MoveHistory` changed — the spec's Code Map directs this change; free-cube behavior unchanged (`MoveHistoryTest`).
+  - `[false]` `[reject]` (intent) dialog not hosted in production — carried: no Lesson screen until 2.5.
+  - `[false]` `[reject]` (intent) render sync pipeline assembled in the test — carried: same as the logged harness row.
+  - `[low]` `[reject]` (intent) host hands the stamp to a builder rather than stamping the event — same group as the builder row above.
+  - `[low]` `[reject]` (intent) purity scan omits I/O and bounded work — carried: AC names `Clock`/`RandomSource`.
+  - `[low]` `[reject]` (intent) no-op Reset Snap shares a revision — carried: same as the Snap row.
+  - `[false]` `[reject]` (intent) Kover and `spotlessCheck build` not visible in the diff — verified: `./gradlew spotlessCheck build` exit 0.
+
 ## Design Notes
 
 - **The reset confirmation is the async Effect.** It waits on the Learner, so it carries `effectId` + `revision` like any async effect. If a Move lands while the dialog is up, the late `ResetConfirmed` is stale: it is discarded and re-offered, so Reset never wipes a Move the Learner did not see in the prompt. This gives AC 2 a real effect instead of a test-only one.
@@ -178,3 +227,16 @@ Status: done
 
 **Residual risks:** cross-Lesson stale confirm re-offer (above); presentation order relies on callers (deferred); nothing in the shipped app dispatches to `SessionHost` until Story 2.5.
 
+### Follow-up review pass (2026-10-30)
+
+**Summary:** Follow-up review of the story 2.3 diff (four layers). One new test added; no production code changed.
+
+**Files changed:** `app/src/test/kotlin/dev/rubikxplorer/app/session/PresentationMappingTest.kt` — asserts `Presentation` → `PresentationItem` mapping (kind, Move, revision, target, order).
+
+**Review findings:** 38 (high 0, medium 4, low 19, false 12, maybe-false 3). Patches applied this pass: 1 (low: mapping test). Patched counts by verdict: high 0, medium 0, low 1. Deferred: 1 new (dialog drops the reset Snap presentation; unverified medium, settle in 2.5). Rejected with reasons in the Review Triage Log: redo loss on Reset (spec-defined), `SystemClock` name, completion after Reset (covered path), cancelled-caller loss, wall clock going backwards, builder stamp, revision semantics, re-offer narrowing, scenario-based table test, `MoveHistory` change, Kover/build visibility; the rest carried from the first pass.
+
+**Follow-up review recommended:** false — follow-up pass patched no high finding.
+
+**Verification:** `./gradlew :core:application:test :core:domain:test :app:testDebugUnitTest --tests '*session*' --tests '*lesson*'` green (PresentationMappingTest 3/3); `./gradlew spotlessCheck build` exit 0.
+
+**Residual risks:** a late confirm from a previous Lesson can still re-open the Reset prompt in a new Lesson with steps (carried, matches the intent's literal re-offer rule); presentation delivery is the caller's job (two deferred items) until 2.5 adds the first production caller.
