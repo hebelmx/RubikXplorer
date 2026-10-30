@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-29-2026 12:34
-last_updated: 10-29-2026 21:32
+last_updated: 10-29-2026 21:37
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -40,7 +40,7 @@ development_status:
   1-2-model-the-cube-state-and-face-moves: done
   1-3-parse-and-format-every-move-type-in-notation: done
   1-4-validate-a-54-sticker-cube: done
-  1-5-generate-scrambles: backlog
+  1-5-generate-scrambles: in-progress
   1-6-turn-a-free-cube-on-a-2d-net-with-buttons: backlog
   1-7-tell-a-helping-move-from-a-harmful-one-objective-proof-of-co: backlog
   1-8-spike-choose-the-3d-rendering-approach-oq-3: backlog
