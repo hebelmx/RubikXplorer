@@ -163,7 +163,8 @@ action_items:
       a Move against the current step (not whole-Objective progress) and revisit the
       exact-path-state step-advance rule, via bmad-correct-course"
     owner: "PM (John)"
-    status: open
+    status: done
+    resolution: "Correct course approved (#22); AD-5/AD-6 updated (#23); Neutral AC aligned (#24), 2026-10-31"
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-30.md"
   - id: "epic-2-retro-item-3-move-learner-facing-copy-out-of-strings"
     epic: 2
