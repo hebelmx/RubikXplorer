@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-29-2026 12:34
-last_updated: 10-31-2026 12:00
+last_updated: 10-31-2026 15:00
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -45,7 +45,8 @@ development_status:
   1-7-tell-a-helping-move-from-a-harmful-one-objective-proof-of-co: done
   1-8-spike-choose-the-3d-rendering-approach-oq-3: done
   1-9-spike-guided-6-face-scan-prototype-and-recognition-test-matr: backlog
-  1-10-week-2-decision-gate-schedule-reference-devices-and-baseline: backlog
+  1-10-week-2-decision-gate-schedule-and-benchmark-harnesses: backlog
+  1-11-reference-device-baselines-and-sceneview-spike-removal: backlog
   epic-1-retrospective: optional
 
   epic-2: done
@@ -197,10 +198,10 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-30.md"
   - id: "story-1-10-deferred-delete-sceneview-spike"
     epic: 1
-    action: "After Story 1.10 confirms the OpenGL ES renderer on the reference devices
+    action: "Story 1.11 AC3: after Story 1.11 confirms the OpenGL ES renderer on the reference devices
       (p90 <= 33.3 ms), delete the Story 1.8 SceneView spike: spike3dSceneView and
       spike3dNoSceneView source sets, the rubikxplorer.spike3d.sceneview switch in
       app/build.gradle.kts, and the sceneview catalog entry"
     owner: "Dev (Amelia)"
     status: open
-    ref: "_bmad-output/planning-artifacts/epics.md (Story 1.10, Deferred after this story)"
+    ref: "_bmad-output/planning-artifacts/epics.md (Story 1.11)"

@@ -467,29 +467,49 @@ So that the camera features ship as GA or, by the decided fallback, as BETA.
 **When** the spike closes
 **Then** the test matrix (cubes × four lighting conditions × devices) and the `FaceSample` JSON fixture format with ground truth are written down for Epic 10, and an initial Quick Scan method recommendation (Kotlin, OpenCV or LiteRT) for OQ-7 is recorded with its size cost
 
-### Story 1.10: Week-2 decision gate: schedule, reference devices and baselines
+### Story 1.10: Week-2 decision gate: schedule and benchmark harnesses
 
 As the developer,
-I want the open week-2 decisions closed with numbers,
-So that the rest of P0 is planned against real devices and a confirmed scope.
+I want the open week-2 decisions closed and the benchmark harnesses in place,
+So that the rest of P0 is planned against a confirmed scope and performance can be measured on demand.
 
-**Refs:** NFR-1, NFR-2, NFR-3, NFR-13 · AD-14 · OQ-9, ARCH-OQ-1
+**Refs:** NFR-2, NFR-3 · AD-14 · OQ-9, ARCH-OQ-1
 
 **Acceptance Criteria:**
 
-**Given** the spike results from Stories 1.8 and 1.9
-**When** the gate is held at the end of week 2
-**Then** OQ-9 is decided (confirm ~16 weeks, or move scan uses to P1) and recorded, and if scope moves, `bmad-correct-course` is run on this epic list
+**Given** the Story 1.8 spike result and the PRD §6.2 fallback (camera ships as beta if recognition misses ≥ 99%)
+**When** the gate is held
+**Then** OQ-9 is recorded as decided (PO 2026-10-30: keep ~16 weeks) in the PRD memlog, and a Story 1.9 result below the exit criterion is recorded as a trigger to reopen OQ-9
 
-**Given** ARCH-OQ-1
+**Given** ARCH-OQ-1, closed by the PO on 2026-10-30
 **When** the gate closes
-**Then** a minimum and a mid-tier reference device are named and recorded in the architecture memlog
+**Then** the architecture memlog and the spine's Reference devices row are confirmed to name the minimum and mid-tier devices, and nothing is re-recorded
 
-**Given** the reference devices
-**When** a Macrobenchmark module and a JVM benchmark harness are added
-**Then** they produce a baseline for frame timing on the 2D net (NFR-2) and a placeholder for the solve corpus (NFR-3), runnable on demand
+**Given** no physical device is required
+**When** a Macrobenchmark module (2D net frame timing, NFR-2) and a JVM benchmark harness (solve-corpus placeholder, NFR-3) are added
+**Then** both build in CI, the JVM harness runs on demand with one Gradle command and prints its metrics, and the Macrobenchmark runs on demand against a connected device or emulator; device baselines are Story 1.11
 
-**Deferred after this story:** once 1.10 has re-measured the OpenGL ES renderer on the reference devices and the choice stands (p90 ≤ 33.3 ms), delete the Story 1.8 SceneView spike: `app/src/spike3dSceneView/`, `app/src/spike3dNoSceneView/`, the `rubikxplorer.spike3d.sceneview` switch in `app/build.gradle.kts`, and the `sceneview` entry in `gradle/libs.versions.toml`. Tracked as a sprint-status action item.
+### Story 1.11: Reference-device baselines and SceneView spike removal
+
+As the developer,
+I want frame-timing baselines measured on the two reference devices,
+So that the rendering choice is confirmed on real hardware and the spike code can go.
+
+**Refs:** NFR-1, NFR-2, NFR-13 · AD-4, AD-14 · ARCH-OQ-1
+
+**Acceptance Criteria:**
+
+**Given** the reference devices (minimum Galaxy Tab S7 FE 5G, mid Galaxy S24 FE) and the Story 1.10 Macrobenchmark module
+**When** it runs on each device
+**Then** a 2D net frame-timing baseline (NFR-2) is recorded per device
+
+**Given** the OpenGL ES renderer from Story 1.8
+**When** it is re-measured on both devices with the in-app `onDrawFrame` log
+**Then** p90 ≤ 33.3 ms confirms the choice, and the result is appended to the architecture memlog; a p90 above 33.3 ms reopens the rendering choice (AD-4)
+
+**Given** the choice is confirmed
+**When** the story closes
+**Then** the Story 1.8 SceneView spike is deleted: `app/src/spike3dSceneView/`, `app/src/spike3dNoSceneView/`, the `rubikxplorer.spike3d.sceneview` switch in `app/build.gradle.kts`, and the `sceneview` entry in `gradle/libs.versions.toml`
 
 ## Epic 2: Learn with a guided Lesson
 

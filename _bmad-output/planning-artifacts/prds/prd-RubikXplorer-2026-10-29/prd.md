@@ -615,7 +615,7 @@ Targets are validated on a defined set of **reference devices**. [ASSUMPTION: th
   - a personal solve timer with history and averages [ASSUMPTION: P2].
 - **Not planned:** importing photos from the gallery; tracking Moves from live video.
 
-> [NOTE FOR PM] **The schedule grew from 10 weeks to about 16** [ASSUMPTION: ~16 weeks, to be confirmed by the end of week 2 — OQ-9]. Two changes caused it:
+> [NOTE FOR PM] **The schedule grew from 10 weeks to about 16** (confirmed by the PO on 2026-10-30, OQ-9; reopened if the recognition spike misses its exit criterion). Two changes caused it:
 > - Camera Cube Recognition moved into P0, adding about 4 weeks. The draft estimated 2–4 weeks for a basic scan, and two capture modes plus four uses puts this at the top of that range. Color classification under real lighting is the most uncertain item in the MVP.
 > - The Solver is now written in-house (OQ-4), adding about 2 weeks.
 >
@@ -699,7 +699,7 @@ The app has no analytics (NFR-8). Learning metrics therefore come from **observe
 6. **OQ-6:** source and licensing of Algorithm data and Case names. The standard Algorithms are common knowledge; copied diagrams or text are not.
 7. **OQ-7:** recognition approach: classical CV, an on-device ML model, or a hybrid. Decided by the week 1–2 spike. Perspective correction for Quick Scan is the hardest part.
 8. **OQ-8:** recognition test matrix: which physical cubes, lighting setups and reference devices, and how ground-truth states are recorded.
-9. **OQ-9:** confirm the P0 schedule of about 16 weeks, or move scan uses to P1 to shorten it. **Deadline: end of week 2**, together with the spike result.
+9. **OQ-9 (closed 2026-10-30):** the P0 schedule of about 16 weeks is confirmed, and scan uses stay in P0. Reopen it if the Story 1.9 recognition spike misses ≥ 99% per-sticker accuracy.
 
 ## 10. Decisions Taken During PRD Creation
 
