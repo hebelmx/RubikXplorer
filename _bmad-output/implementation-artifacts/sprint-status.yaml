@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-29-2026 12:34
-last_updated: 10-30-2026 22:05
+last_updated: 10-31-2026 04:00
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -48,7 +48,7 @@ development_status:
   1-10-week-2-decision-gate-schedule-reference-devices-and-baseline: backlog
   epic-1-retrospective: optional
 
-  epic-2: in-progress
+  epic-2: done
   2-1-load-validated-lesson-content-and-strings: done
   2-2-predicate-registry-for-stages-1-3: done
   2-3-run-a-lesson-through-the-session-reducer: done
@@ -56,7 +56,7 @@ development_status:
   2-5-lesson-screen-with-show-me-and-guide-me: done
   2-6-test-me-and-let-me-try: done
   2-7-author-stages-1-3-with-path-tests: done
-  epic-2-retrospective: optional
+  epic-2-retrospective: done
 
   epic-3: backlog
   3-1-solver-coordinates-and-move-tables-clean-room: backlog
@@ -148,3 +148,49 @@ development_status:
   12-4-pilot-findings-fixed-and-release-gates-passed: backlog
   12-5-store-listing-and-public-portfolio-repo: backlog
   epic-12-retrospective: optional
+action_items:
+  - id: "epic-2-retro-item-1-create-a-deferred-findings-ledger-or-rou"
+    epic: 2
+    action: "Create a deferred-findings ledger (or route [defer] triage rows into
+      sprint-status action items at story close) so deferrals survive past the story
+      spec"
+    owner: "SM / orchestrator"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-30.md"
+  - id: "epic-2-retro-item-2-before-creating-epic-4-stories-add-acs-t"
+    epic: 2
+    action: "Before creating Epic 4 stories, add ACs to 4.1/4.2 so Test me classifies
+      a Move against the current step (not whole-Objective progress) and revisit the
+      exact-path-state step-advance rule, via bmad-correct-course"
+    owner: "PM (John)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-30.md"
+  - id: "epic-2-retro-item-3-move-learner-facing-copy-out-of-strings"
+    epic: 2
+    action: "Move Learner-facing copy out of strings.xml into content strings (or
+      have the architect classify it as chrome) and extend the Learner-text gate to
+      strings.xml"
+    owner: "Dev (Amelia) + Architect (Winston)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-30.md"
+  - id: "epic-2-retro-item-4-add-a-gradle-testkit-test-proving-checkl"
+    epic: 2
+    action: "Add a Gradle TestKit test proving checkLearnerText fails on a violating
+      source tree"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-30.md"
+  - id: "epic-2-retro-item-5-story-spec-authoring-copies-binding-ad-i"
+    epic: 2
+    action: "Story-spec authoring copies binding-AD identifiers verbatim; reviews
+      treat a known AD deviation as a blocker or escalation, never a residual risk"
+    owner: "SM"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-30.md"
+  - id: "epic-2-retro-item-6-device-emulator-smoke-of-the-release-bui"
+    epic: 2
+    action: "Device/emulator smoke of the release build: 12 Lessons listed, content
+      decodes under R8, a Stage 2 Lesson completes in Guide me, switcher fits at 411dp"
+    owner: "hebelmx"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-30.md"
