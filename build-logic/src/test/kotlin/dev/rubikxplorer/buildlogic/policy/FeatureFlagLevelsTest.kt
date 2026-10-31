@@ -22,6 +22,12 @@ class FeatureFlagLevelsTest {
     }
 
     @Test
+    fun `benchmark carries the release levels`() {
+        assertEquals(FeatureFlagLevels.forBuildType("release"), FeatureFlagLevels.forBuildType("benchmark"))
+        assertEquals(FeatureFlagLevels.byBuildType["release"], FeatureFlagLevels.byBuildType["benchmark"])
+    }
+
+    @Test
     fun `unknown build type is rejected`() {
         assertThrows<IllegalArgumentException> { FeatureFlagLevels.forBuildType("staging") }
     }

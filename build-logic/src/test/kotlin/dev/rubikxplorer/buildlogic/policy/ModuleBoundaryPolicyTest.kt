@@ -81,6 +81,7 @@ class ModuleBoundaryPolicyTest {
                 ":core:application" to listOf(":core:domain"),
                 ":core:solver" to listOf(":core:application", ":core:domain"),
                 ":core:domain" to emptyList(),
+                ":macrobenchmark" to emptyList(),
             )
         graph.forEach { (module, targets) ->
             assertEquals(emptyList<String>(), ModuleBoundaryPolicy.check(module, targets.map(::project)), module)
@@ -102,5 +103,37 @@ class ModuleBoundaryPolicyTest {
     @Test
     fun `app may use Android dependencies`() {
         assertEquals(emptyList<String>(), ModuleBoundaryPolicy.check(":app", listOf(external("androidx.core:core:1.17.0"))))
+    }
+
+    @Test
+    fun `macrobenchmark passes with only external dependencies`() {
+        val violations =
+            ModuleBoundaryPolicy.check(
+                ":macrobenchmark",
+                listOf(
+                    external("androidx.benchmark:benchmark-macro-junit4:1.5.0"),
+                    external("androidx.test.ext:junit:1.3.0"),
+                    external("androidx.test.uiautomator:uiautomator:2.4.0"),
+                ),
+                listOf("com.android.test"),
+            )
+        assertEquals(emptyList<String>(), violations)
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = [":app", ":core:domain", ":core:application", ":core:solver"])
+    fun `macrobenchmark with a project edge fails`(path: String) {
+        val violations = ModuleBoundaryPolicy.check(":macrobenchmark", listOf(project(path)))
+        assertEquals(1, violations.size)
+        assertTrue(path in violations.single())
+    }
+
+    @Test
+    fun `macrobenchmark may reach app only as its tested APK`() {
+        val testedApk = DeclaredDependency.OnProject(ModuleBoundaryPolicy.TESTED_APKS_CONFIGURATION, ":app")
+        assertEquals(emptyList<String>(), ModuleBoundaryPolicy.check(":macrobenchmark", listOf(testedApk)))
+        val otherTarget = DeclaredDependency.OnProject(ModuleBoundaryPolicy.TESTED_APKS_CONFIGURATION, ":core:domain")
+        assertEquals(1, ModuleBoundaryPolicy.check(":macrobenchmark", listOf(otherTarget)).size)
+        assertEquals(1, ModuleBoundaryPolicy.check(":core:domain", listOf(testedApk)).size)
     }
 }
