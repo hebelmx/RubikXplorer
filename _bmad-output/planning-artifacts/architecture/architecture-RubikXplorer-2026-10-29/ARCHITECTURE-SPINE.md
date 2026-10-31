@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports & adapters) + functional core / imperative shell'
 scope: 'RubikXplorer Android app MVP — whole system (FR-1..FR-28, NFR-1..NFR-13); FR-29 (P1) deferred'
 status: final
 created: '2026-10-29'
-updated: '2026-10-29'
+updated: '2026-10-31'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, NFR-12, NFR-13]
 sources:
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/prd.md
@@ -169,7 +169,16 @@ stateDiagram-v2
     - Every category maps to exactly one Recovery Path.
     - `when` over it must be exhaustive.
     - There is one test per category.
-  - **TutorDecision:** has exactly these fields: `objectiveId`, `satisfied`, `diagnosis?`, `certainty`, `nextAction`, `explanation: Text`, `recovery: Pending(effectId) | Ready(moves) | Unavailable`, `reveal`, `advance`.
+  - **TutorDecision:** has exactly these fields: `objectiveId`, `satisfied`, `diagnosis?`, `certainty`, `nextAction`, `explanation: Text`, `recovery: Pending(effectId) | Ready(moves) | Unavailable`, `reveal`, `advance`, `feedback: MoveFeedback?`.
+  - **Test me feedback:** `MoveFeedback` is a closed enum, `ON_PATH | PROGRESS | NEUTRAL | HARMFUL`. Only `Assess.classify(lesson, entry, before, move, after)` produces it.
+    - **When:** it is computed only on `MoveCommitted` in *Test me*, and every other event clears it.
+    - **Against what:** it judges the Move against the step derived from `before` (AD-6), never against whole-Objective progress. It checks the outcomes in this order:
+      - `ON_PATH`: `before` is an authored path state and `move` is the next authored Move, compared as canonical Moves (AD-7). Either quarter turn of an authored half turn in its direction also counts. This is a state match, never a stored move counter.
+      - `HARMFUL`: the Move disturbs a piece the step preserves. It produces a Diagnosis.
+      - `PROGRESS`: the step's effective `done` progress rises.
+      - `NEUTRAL`: any other case, including a progress drop that disturbs no preserved piece.
+    - **On path wins:** while the state is on the authored path, Assess emits no disturbance Diagnosis (`COMPLETED_LAYER_DISTURBED`). This covers the taught Moves that lift a solved piece for a moment.
+    - **Physical mode:** a Harmful Diagnosis is `VERIFIED` only on the virtual cube or after a verified observation; on a predicted state it is at most `LIKELY`. While awaiting confirmation or after a mismatch, there is no feedback.
   - **Information-request order** (FR-9): Quick Check → which Move → one face → full re-entry.
 
 ### AD-6 — Content is data: schema, predicates, IDs, text
@@ -180,7 +189,16 @@ stateDiagram-v2
   - **Storage:** Stages, Lessons, Algorithms, tutor configuration and Mastery Conditions are JSON under `:core:domain` resources, parsed by kotlinx.serialization.
     - `content/schema/*.schema.json` is the single shape source, and a test checks it against the Kotlin model.
     - Every bundle carries a `schemaVersion` and a `contentRevision` (a hash of the bundle).
-  - **Lesson shape:** `{ id, stageId, prerequisites[], objective: TextKey, entryState, demonstration: MoveSeq, learnerAction, completion: Predicate, preserve: Predicate, recovery: RecoveryRef, steps[]: { goal, preserve, watch, notice: TextKey, moves } }`. Every field is required.
+  - **Lesson shape:** `{ id, stageId, prerequisites[], objective: TextKey, entryState, demonstration: MoveSeq, learnerAction, completion: Predicate, preserve: Predicate, recovery: RecoveryRef, steps[]: { goal, done: Predicate, preserve, watch, notice: TextKey, moves } }`. Every field is required.
+  - **Steps:**
+    - **Effective done:** a step's effective `done` is `allOf(lesson.preserve, done)`. The last step's `done` equals `completion`, and the content test checks that they are structurally equal. So when every `done` holds, the Lesson is complete; only `completion` decides that.
+    - **Current step:** it is a pure function `Tutor.currentStep(lesson, entry, state)`. It is never stored in `SessionState`, a Checkpoint or a Snapshot.
+      - On the authored path (an exact `CubeState` match with a path state), it is the step whose Moves lead to the next path state. After the final Move it is the last step.
+      - Off the path, it is the first step whose effective `done` is unmet.
+      - So steps done out of order and Undo across a step boundary re-derive it. Per-step UI state (`revealRequested`) resets whenever the derived step changes.
+      - In *Show me*, the step card follows the Demonstration's playback position (AD-20).
+    - **Preserved pieces:** a step's preserved pieces are derived, never authored. They are the `preservedPieces` of the Lesson's `preserve`, plus those of every other step whose effective `done` holds before the Move. `steps[].preserve` is the Keep card text only.
+    - **Content test:** along the authored path, step k's `done` is false at every state before step k's last Move. It holds at the end of step k and at every later step boundary; it may lapse mid-step, as when F' in step 4 of `lesson-03-04` lifts step 1's corner. A step `done` that the registry cannot express uses `state-reached` or a new color-anchored predicate added in Story 4.1.
   - **Predicates:**
     - `Predicate` is a `@Serializable` sealed hierarchy with discriminator `"predicate"` and flat parameters. The registry provides the only combinators, `allOf` and `anyOf`.
     - Predicates are **color-anchored** (they find faces by center color) and orientation-invariant.
@@ -416,7 +434,8 @@ stateDiagram-v2
 | Room | androidx.room3 3.0.3 (KSP) |
 | CameraX | 1.6.2 |
 | kotlinx.serialization / coroutines | 1.12.0 / 1.11.0 |
-| 3D rendering | SceneView 4.62.0 (Filament 1.72.x) [ASSUMPTION: OQ-3 spike] |
+| 3D rendering | custom OpenGL ES 3.0 on `GLSurfaceView`, no dependency; the manifest declares `glEsVersion 0x00030000` as required (OQ-3, Story 1.8 spike) |
+| Reference devices | minimum Samsung Galaxy Tab S7 FE 5G, mid Samsung Galaxy S24 FE (ARCH-OQ-1, PO 2026-10-30; supersedes the PRD §5 device assumption). API 29–30 coverage is emulator-only. |
 | Solver | own clean-room Kotlin Kociemba (no dependency) |
 | Testing | JUnit Jupiter 6.1.x, Kotest 6.2.6, Compose UI test (AndroidX JUnit4), Kover 0.9.11 |
 | Lint / format | Spotless 8.10.x + ktlint 1.8.0, Android lint, detekt 2.0.0-alpha (non-blocking) |
@@ -448,7 +467,7 @@ RubikXplorer/
   app/src/main/kotlin/…/
     session/                           # SessionHost (@Singleton)
     ui/{home,course,lesson,physical,solve,scan,library,progress,settings}/
-    render/                            # Net2DRenderer (P0.1), SceneView renderer, GestureInterpreter host
+    render/                            # Net2DRenderer (P0.1), OpenGL ES renderer, GestureInterpreter host
     camera/                            # CameraX adapter → FaceSample; debug fixture recorder
     data/                              # Room db, DAOs, serial writer, repositories
     di/
@@ -499,8 +518,7 @@ graph LR
 
 ## Deferred
 
-- **Reference devices** (minimum and mid tier): to be named by the end of week 2 (ARCH-OQ-1). [ASSUMPTION: minimum is Android 10, 3 GB RAM, a 2020 mid/low SoC.] Benchmarks use a JVM benchmark for the solve corpus and Macrobenchmark for frame timing.
-- **Rendering engine** (SceneView vs. custom OpenGL ES): the OQ-3 spike decides. It is contained behind `CubeRenderer` (AD-4). The 2D net renderer ships first.
+- **Performance on the reference devices:** Story 1.10 measures it. The solve corpus uses a JVM benchmark. GL frame timing uses the in-app per-frame log from the GL thread (`onDrawFrame` intervals), optionally traced for Macrobenchmark's `TraceSectionMetric`, because `FrameTimingMetric` and `FrameMetrics` do not see `GLSurfaceView` frames. It covers View Rotation as well as face turns (NFR-2). A physical-device p90 above 33.3 ms reopens the rendering choice, which stays behind `CubeRenderer` (AD-4). Neither reference device is truly low-end.
 - **Quick Scan detection method** (Kotlin, OpenCV or LiteRT): the OQ-7 spike decides. It is contained in `:app/camera` (AD-9), and its size is checked against NFR-11.
 - **Solver internals** (coordinate encoding, whether pruning tables are bundled or built at first run, the search depth limit): decided in the solver epic, within AD-8's 3 s timeout and NFR-11.
 - **`RecoveryPlanner` search** (bounded IDA* over `preservedPieces`): decided in the FR-12 epic, within AD-3, AD-5 and AD-8.

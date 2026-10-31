@@ -28,7 +28,7 @@ graph TD
   subgraph Shell [":app — Android shell"]
     UI[Compose screens + ViewModels]
     Host[SessionHost]
-    R[Renderer: 2D net → 3D SceneView]
+    R[Renderer: 2D net → 3D OpenGL ES]
     Cam[CameraX adapter]
     DB[Room repositories]
   end
@@ -128,10 +128,12 @@ Lessons, Algorithms and tutor thresholds are versioned JSON, checked by JSON Sch
       { "predicate": "crossSolved", "color": "WHITE" },
       { "predicate": "cornersSolved", "color": "WHITE", "count": 2 } ] },
   "preserve":   { "predicate": "crossSolved", "color": "WHITE" },
-  "steps": [ { "goal": "lesson.lesson-03-02.step-1.goal", "preserve": "…", "watch": "…", "notice": "…", "moves": "R U R'" } ] }
+  "steps": [ { "goal": "lesson.lesson-03-02.step-1.goal",
+               "done": { "predicate": "cornersSolved", "color": "WHITE", "count": 1 }, "preserve": "…", "watch": "…", "notice": "…", "moves": "R U R'" } ] }
 ```
 
 - **Predicates are a closed, typed Kotlin registry,** not an expression language. They are anchored to colors and work whatever way the cube is held. Each one also reports which pieces must be preserved, which drives diagnosis ("you disturbed the cross") and guided recovery.
+- **Step guidance follows the cube, not a script.** Each step carries a `done` predicate, and the current step is always derived from the cube's state. A Learner who reaches a goal another way, or undoes a Move, still sees the right step. *Test me* judges each Move against that step, so the taught opening Move of an insert reads as "on path", never as harmful.
 - **Algorithms are verified in the build.** For each of the 78 Algorithms, a test derives its Case from the solved cube and checks that the Algorithm solves it, so a typo fails CI (AD-14). One `LastLayerMatcher` serves the Library, the verification test, 2-look Lessons and camera recognition (AD-19).
 - **All text is keyed and localizable** (`Text(key, args)` with ICU arguments), so adding a language needs no code change.
 
@@ -185,13 +187,12 @@ graph LR
 
 ## 11. Stack (verified October 2026)
 
-Kotlin 2.4.21 · AGP 9.5 (built-in Kotlin) · Compose BOM 2026.09.00 · Material3 1.4 · Hilt 2.60 · Room 3.0 · CameraX 1.6.2 · kotlinx.serialization 1.12 · coroutines 1.11 · SceneView 4.62 (Filament) · Kotest 6.2 · JUnit Jupiter 6 · Kover · Spotless/ktlint · GitHub Actions · minSdk 29, targetSdk 36.
+Kotlin 2.4.21 · AGP 9.5 (built-in Kotlin) · Compose BOM 2026.09.00 · Material3 1.4 · Hilt 2.60 · Room 3.0 · CameraX 1.6.2 · kotlinx.serialization 1.12 · coroutines 1.11 · custom OpenGL ES 3.0 renderer (no 3D library) · Kotest 6.2 · JUnit Jupiter 6 · Kover · Spotless/ktlint · GitHub Actions · minSdk 29, targetSdk 36.
 
 ## 12. Open technical questions
 
 | Question | Resolved by |
 | --- | --- |
-| SceneView vs. custom OpenGL ES renderer | week 1–2 spike; a 2D net renderer ships first behind the same port |
 | Quick Scan corner detection (Kotlin / OpenCV / LiteRT) | recognition spike; contained in the camera adapter |
-| Reference devices for the performance budgets | end of week 2 |
+| Performance on the reference devices (Galaxy Tab S7 FE 5G, Galaxy S24 FE) | Story 1.10 benchmark; above 33.3 ms p90 per frame reopens the renderer choice |
 | Solver internals (bundled or generated pruning tables) | solver epic, within the 3 s timeout and 30 MB app size |
