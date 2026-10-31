@@ -25,14 +25,27 @@ sealed interface DeclaredDependency {
  * Pure: the Gradle task gathers declared dependencies and applied plugin ids and calls [check].
  */
 object ModuleBoundaryPolicy {
-    /** Allowed project edges; nothing else may depend on anything else. */
+    /**
+     * Allowed project edges; nothing else may depend on anything else. `:macrobenchmark` targets
+     * `:app` through `targetProjectPath`, never through a project dependency (see [testedTargets]).
+     */
     val allowedEdges: Map<String, Set<String>> =
         mapOf(
             ":app" to setOf(":core:application", ":core:solver", ":core:domain"),
             ":core:application" to setOf(":core:domain"),
             ":core:solver" to setOf(":core:application", ":core:domain"),
             ":core:domain" to emptySet(),
+            ":macrobenchmark" to emptySet(),
         )
+
+    /** AGP's `com.android.test` wires `targetProjectPath` as a project edge on this configuration. */
+    const val TESTED_APKS_CONFIGURATION = "testedApks"
+
+    /**
+     * The one target each test module may reach on [TESTED_APKS_CONFIGURATION]; that edge carries
+     * the APK under test, not code. Any other project edge of a test module is still a violation.
+     */
+    val testedTargets: Map<String, String> = mapOf(":macrobenchmark" to ":app")
 
     /** Group prefixes matched on dot-separated segments (`androidx` matches `androidx.core`, not `androidxyz`). */
     private val forbiddenGroupRoots = listOf("androidx", "com.android", "com.google.android")
@@ -81,7 +94,9 @@ object ModuleBoundaryPolicy {
         dependencies.forEach { dependency ->
             when (dependency) {
                 is DeclaredDependency.OnProject -> {
-                    if (dependency.path != module && allowed != null && dependency.path !in allowed) {
+                    val isTestedTarget =
+                        dependency.configuration == TESTED_APKS_CONFIGURATION && testedTargets[module] == dependency.path
+                    if (dependency.path != module && allowed != null && dependency.path !in allowed && !isTestedTarget) {
                         violations +=
                             "Module $module must not depend on ${dependency.path} (${dependency.configuration}); " +
                             "AD-1 allows only ${allowed.sorted()}."

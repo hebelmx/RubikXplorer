@@ -4,7 +4,7 @@
 
 ## Goal
 
-Build a correct, pure-Kotlin cube engine (state, Moves, Notation, validation, Scrambles) on the gated multi-module scaffold, so a Learner can turn a validated cube on a 2D net with buttons, undo and redo, and one Completion Predicate can tell a helping Move from a harmful one. Exit criterion (P0.1, weeks 1–2): a random Scramble applies, renders and validates with no mismatch, and the predicate proof of concept works end to end. The epic also closes the week-2 spikes (3D engine, scan recognition) and decisions (schedule, reference devices, baselines), so the rest of P0 is planned against evidence rather than assumptions.
+Build a correct, pure-Kotlin cube engine (state, Moves, Notation, validation, Scrambles) on a gated multi-module scaffold, so a Learner can turn a validated cube on a 2D net with buttons, undo and redo, and one Completion Predicate can tell a helping Move from a harmful one. Exit criterion (P0.1, weeks 1–2): a random Scramble applies, renders and validates with no mismatch. The epic also closes the week-2 spikes and decisions (3D engine, scan recognition, schedule, reference devices) and puts benchmark harnesses in place, so the rest of P0 is planned against evidence. Device-dependent work (Stories 1.9, 1.11) is deferred until the hardware is on hand and must land before Story 5.1 merges.
 
 ## Stories
 
@@ -17,52 +17,41 @@ Build a correct, pure-Kotlin cube engine (state, Moves, Notation, validation, Sc
 - Story 1.7: Tell a helping Move from a harmful one (Objective proof of concept)
 - Story 1.8: Spike — choose the 3D rendering approach (OQ-3)
 - Story 1.9: Spike — Guided 6-face Scan prototype and recognition test matrix (OQ-7, OQ-8)
-- Story 1.10: Week-2 decision gate: schedule, reference devices and baselines
+- Story 1.10: Week-2 decision gate: schedule and benchmark harnesses
+- Story 1.11: Reference-device baselines and SceneView spike removal
 
 ## Requirements & Constraints
 
-- **Correctness:** zero mismatches between engine state and rendered state. Property tests (Kotest, pinned seeds) prove M⁴ = identity, M·M⁻¹ = identity, and sequence + inverse = identity. The cube package has the strongest coverage, assumed ≥ 90%; all `:core:*` stay ≥ 80%.
-- **Offline and privacy:** works fully with no network; no `INTERNET`, `CAMERA` is the only runtime permission; no analytics, ads, crash SDK, account or PII; release logs never contain Cube States or scan samples (log only through the `Logger` port in `:app`).
-- **Validation:** rejects wrong color counts, impossible pieces, a twisted corner, a flipped edge and a parity violation, each as its own failure with a plain-language reason and offending positions where local. 54 colors entered is never valid by itself.
-- **Free cube controls:** buttons cover every Move type (face, wide, slice, Cube Rotation). Undo restores the exact previous state, redo restores an undone state, any new Move clears redo, and Reset needs no confirmation.
-- **Accessibility:** every control has a content label and a ≥ 48dp target; Move keys announce plain names ("R prime: right face counter-clockwise"); color-blind glyphs are P0; contrast meets WCAG AA.
-- **Compatibility:** minSdk 29; phones and tablets; portrait and landscape.
-- **Recognition spike exit:** ≥ 99% of stickers correct under indoor light on two reference devices. Otherwise `CAMERA_SCAN` ships as BETA and the Manual Cube Editor becomes the primary Solve action.
+- **Rendering performance:** ≥ 30 FPS during face turns and View Rotation on the minimum reference device; 60 FPS target on mid-range. A quarter turn animates in ≤ 250 ms; face-turn input acknowledged within 100 ms.
+- **Solver performance:** 95% of a representative random-legal-state corpus (not only easy Scrambles) solved within 3 s on the reference device; report median, p95, memory and failure rate. Until the solver exists (Epic 3), the harness carries a placeholder corpus; Epic 3 runs the real corpus as a JVM proxy in CI, confirmed on device in the release-readiness epic.
+- **Correctness:** zero mismatches between engine and rendered state; property tests with pinned seeds (M⁴ = identity, M·M⁻¹ = identity, sequence + inverse = identity). Cube package has the strongest coverage (≥ 90% assumed); all `:core:*` ≥ 80%.
+- **Offline and privacy:** no `INTERNET`, `CAMERA` the only runtime permission, `allowBackup="false"`, no analytics/ads/crash SDK. Any new module (including benchmark modules) must not break these manifest/dependency checks.
+- **Validation:** wrong color counts, impossible piece, twisted corner, flipped edge and parity each fail with a plain-language reason; 54 colors entered is never valid by itself.
+- **Compatibility:** minSdk 29; phones and tablets, portrait and landscape.
+- **Schedule (OQ-9):** decided — keep P0 at ~16 weeks with scan uses in P0. A Story 1.9 result below ≥ 99% per-sticker accuracy is a trigger to reopen it (camera then ships as BETA, Manual Cube Editor becomes the primary Solve action). The decision is already in the PRD memlog; record only what is missing.
 
 ## Technical Decisions
 
-- **Layering:** hexagonal, functional core / imperative shell. `:core:domain` (cube, Notation, `CubeValidator`, predicates, `StickerAppearance`), `:core:application` (use cases, ports), `:app` (Compose UI, adapters, Hilt). `:core:*` are pure JVM with plain constructor injection; Hilt only in `:app`.
-- **Cube State:** `CubeState = (cubies, orientation)`, immutable; `cubies` are corner/edge permutation and orientation relative to centers; `orientation` is one of 24 whole-cube rotations mapping U R F D L B to center colors.
-  - Home frame: WHITE on U, GREEN on F, RED on R. Scrambles and fixtures are expressed from home.
-  - Face Moves apply through `orientation`; x/y/z change only `orientation`; slice and wide Moves are their face-turn equivalent plus a rotation.
-  - `isSolved` and every predicate ignore `orientation`.
-- **Facelets:** `List<Color>` of 54 in URFDLB order, row-major per the Kociemba net (U: B edge on top; D: F edge on top; F, R, B, L: U edge on top). A diagram fixture of this layout is checked in. Stored form is a 54-char facelet string plus an orientation ID.
-- **Single gates:** `CubeValidator.validate(Facelets): ValidationResult` is the only route from `Facelets` to `CubeState`. `Notation.parse`/`format` are the only string↔Move conversions; modules exchange `Move` values. Move equality is by effect (`R2 == R2'`); `format` emits the canonical form. Slices follow WCA: M like L, E like D, S like F.
-- **Naming:** `Face` = `U R F D L B`; `Color` = `WHITE YELLOW GREEN BLUE RED ORANGE`.
-- **Errors are values:** sealed results with "unknown" as an explicit variant; parse and validation errors never throw. Exceptions only for programmer error. User-facing text is `Text(key, args)` with keys `<area>.<contentId>.<field>[.<n>]` (domain messages under `msg.*`).
-- **Randomness:** `NewScramble` uses an injected `RandomSource` and returns an explicit `List<Move>`; seeds only reproduce tests and are never persisted in place of Moves.
-- **Predicates:** color-anchored (find faces by center color) and orientation-invariant; each implements `preservedPieces(state)` and a pure `ObjectiveProgress` measure.
-- **Rendering:** commit before animate. Every input (button, gesture, accessibility action) becomes a `MoveIntent` mapped to the same `MoveCommitted` path. The presentation queue holds `Animate(move)`/`Snap` items (undo animates the inverse) and fast-forwards when more than 3 are queued, never dropping a Move. `CubeRenderer` never mutates state and exposes `renderedFacelets()` for tests; `Net2DRenderer` is the first adapter. The free cube is not a `LearningSession`; its history is a pure `MoveHistory` in `:core:domain`.
-- **Sticker appearance:** one `StickerAppearance(Color) → {fill, glyph, pattern}` table serves every sticker surface.
-- **Feature flags:** read through the `FeatureFlags` port only (closed enum incl. `CAMERA_SCAN`, levels OFF/BETA/GA per build type); never read `BuildConfig` directly.
-- **3D engine:** SceneView (Filament) is an assumption until the OQ-3 spike; custom OpenGL ES is the alternative, contained behind `CubeRenderer`.
-- **Recognition:** the camera adapter emits platform-neutral `FaceSample`s (9 CIELAB colors per face plus quality flags); a pure-JVM nearest-calibrated-center classifier produces categorical confidence; every scan result goes through `CubeValidator`. The Guided Scan uses a fixed overlay with fixed sample regions (no CV library).
-- **Tests:** same package as the subject; fixtures in `src/test/resources/fixtures/`; JUnit Jupiter for JVM tests, AndroidX JUnit4 runner for instrumented/Compose tests.
+- **Module boundaries (AD-1):** `:core:domain`, `:core:solver`, `:core:application` are `kotlin("jvm")` with no Android, Compose, Room, CameraX or Hilt; `:app` depends on all three, `:core:solver` on application + domain, application on domain, nothing else. `:core:application` declares every port; only `:app` wires adapters. A `build-logic` convention check fails the build on violations. A benchmark harness must respect this: the JVM harness stays pure JVM, Android Macrobenchmark lives in its own Android test module targeting `:app`.
+- **Build conventions:** versions only in `gradle/libs.versions.toml`; `build-logic` convention plugins (jvm-core, android-app, quality, release); Kotlin 2.4.21 pinned on the root classpath; AGP 9.5.0 built-in Kotlin (no `kotlin-android`, no kapt); compileSdk 37 / targetSdk 36 / minSdk 29; JDK 17; Gradle ≥ 9.6.0.
+- **CI gates (AD-14):** every PR to `main` runs build, Spotless/ktlint, Android lint (incl. accessibility), JVM tests, Kover ≥ 80% on `:core:*`, AD-13 privacy checks and an AAB size check; detekt non-blocking. Instrumentation, UI and renderer-sync tests run only on release tags. Benchmarks must *build* in CI but run on demand, never as a blocking PR step requiring a device.
+- **Reference devices (ARCH-OQ-1, closed):** minimum Samsung Galaxy Tab S7 FE 5G, mid Samsung Galaxy S24 FE; neither is truly low-end. API 29–30 coverage is emulator-only. Already recorded in the architecture memlog and spine — confirm, do not re-record.
+- **Frame-timing method:** the 2D net (`Net2DRenderer`, Compose) can be measured with Macrobenchmark frame timing. The 3D renderer is custom OpenGL ES 3.0 on `GLSurfaceView` (OQ-3 decided by Story 1.8); `FrameTimingMetric`/`FrameMetrics` cannot see GL surface frames, so GL timing uses an in-app `onDrawFrame` interval log, optionally traced for `TraceSectionMetric`. Cover View Rotation as well as face turns. A physical-device p90 above 33.3 ms reopens the rendering choice, which stays behind the `CubeRenderer` port (AD-4).
+- **Solve corpus:** measured by a JVM benchmark, not on-device Macrobenchmark.
+- **Spike leftovers:** Story 1.8 left a SceneView variant (`app/src/spike3dSceneView/`, `app/src/spike3dNoSceneView/`, the `rubikxplorer.spike3d.sceneview` switch in `app/build.gradle.kts`, `sceneview` in the version catalog). It stays until Story 1.11 confirms the GL choice on device, then is deleted.
+- **Cube model:** `CubeState = (cubies, orientation)`, immutable; home frame WHITE U, GREEN F, RED R; `Facelets` 54 × URFDLB row-major per Kociemba net. `CubeValidator` is the only `Facelets → CubeState` route; `Notation.parse`/`format` the only string↔Move conversion; Move equality by effect; WCA slices.
+- **Rendering pipeline:** commit before animate; every input → `MoveIntent` → `MoveCommitted`; presentation queue fast-forwards above 3 queued; `CubeRenderer` never mutates state and exposes `renderedFacelets()`.
+- **Conventions:** sealed results, errors as values; `RandomSource`/`Clock` injected; `Logger` port implemented only in `:app`; `FeatureFlags` port only, no `BuildConfig` checks; decisions recorded with `uv run _bmad/scripts/memlog.py append` (architecture memlog for rendering/devices, PRD memlog for schedule/recognition).
 
 ## UX & Interaction Patterns
 
-- **Theme:** Material3 from DESIGN.md tokens, light and dark following the system. Sticker tokens, `cubie-body` and highlight are identical in both themes. Text contrast ≥ 4.5:1, status ≥ 3:1.
-- **Type:** bundled IBM Plex Sans and IBM Plex Mono (no network fonts); the `notation` role sits one step above surrounding text.
-- **Spacing and shape:** 4/8/12/16/24/32/48dp; shapes `xs` 2dp stickers, `sm` 4dp keys, `md` 8dp cards/buttons, `lg` 12dp stage well. No pill buttons, no card shadows.
-- **Cube stage:** a `surface-stage` well with an Undo · Redo · Reset icon toolbar; icons carry TalkBack labels and use `ink-disabled` when disabled; frame label VIRTUAL.
-- **Move key bar:** keys labeled in `notation` (`U`, `U'`, `U2`…), a ⟳ x/y/z group, and "more" for wide and slice. Long-press shows the plain name; a light haptic tick on commit. Labels never change with View Rotation. Scrolls horizontally on compact widths, vertical grid on expanded.
-- **Color-blind glyphs:** W Y R O G B legible at 16dp; drawn in `cubie-body` on light stickers (including orange) and `sticker-white` on dark ones.
+- Material3 theme from DESIGN.md tokens, light and dark following the system; bundled IBM Plex Sans/Mono; sticker colors identical in both themes.
+- Cube stage with Undo · Redo · Reset toolbar and VIRTUAL frame label; Move key bar labeled in `notation` with x/y/z group and "more" for wide/slice; ≥ 48dp targets; plain-name TalkBack announcements; color-blind glyphs W Y R O G B from one `StickerAppearance` table.
 
 ## Cross-Story Dependencies
 
-- 1.1 (scaffold and CI gates) is merged and gates everything.
-- 1.3 builds on 1.2's Moves; 1.4 builds on 1.2's state and the `Text` key convention; 1.5 needs 1.2–1.4.
-- 1.6 needs 1.2–1.3 (all Move types); 1.7 runs on the free cube from 1.6 via a debug overlay.
-- 1.8 and 1.9 are time-boxed spikes in weeks 1–2; record decisions with `uv run _bmad/scripts/memlog.py append` (architecture memlog for 1.8, PRD memlog for 1.9's GA/BETA outcome).
-- 1.10 needs 1.8 and 1.9; it decides the schedule (OQ-9, run `bmad-correct-course` if scope moves), names minimum and mid-tier reference devices (ARCH-OQ-1), and adds Macrobenchmark and JVM benchmark baselines.
-- Downstream: Epic 3 uses `CubeValidator`; Epic 5 uses the OQ-3 decision and the `CubeRenderer` port; Epic 10 uses the recognition test matrix and the `FaceSample` JSON fixture format.
+- 1.1–1.8 are done. 1.10 is not device-gated; 1.9 (needs a stickerless cube) and 1.11 (needs both reference devices) are gated and deferred, and must happen before Story 5.1 merges.
+- 1.10 builds on 1.6's `Net2DRenderer` free-cube screen as the Macrobenchmark target, and on 1.8's spike result for the schedule decision.
+- 1.11 depends on 1.10's Macrobenchmark module (per-device 2D net baselines) and 1.8's OpenGL ES renderer (re-measure with the `onDrawFrame` log), then removes the SceneView spike; it closes the sprint action item for the spike deletion.
+- Downstream: Story 3.3 runs the 10,000-state solve corpus through 1.10's JVM benchmark harness; Story 12.2 does the full on-device performance check reusing the same harnesses; Epic 5 uses the OQ-3 decision and `CubeRenderer` port; Epic 10 uses 1.9's test matrix and `FaceSample` fixture format.
+- Pending doc fix (not this epic's code): the architecture spine's performance note still says "Story 1.10 measures it"; it should read Story 1.11, via a `bmad-architecture` update.

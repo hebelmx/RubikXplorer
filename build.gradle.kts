@@ -3,6 +3,7 @@
 // falls back to its bundled KGP. Convention plugins in build-logic compile against them.
 plugins {
     alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.android.test) apply false
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.kotlin.serialization) apply false

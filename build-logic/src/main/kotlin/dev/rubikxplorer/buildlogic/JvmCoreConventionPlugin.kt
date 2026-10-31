@@ -30,6 +30,10 @@ class JvmCoreConventionPlugin : Plugin<Project> {
             tasks.withType<Test>().configureEach { useJUnitPlatform() }
 
             extensions.configure<KoverProjectExtension> {
+                // On-demand benchmark harnesses (Story 1.10) never ship, so they stay out of the gate.
+                currentProject {
+                    sources { excludedSourceSets.add(BENCHMARK_SOURCE_SET) }
+                }
                 reports {
                     verify {
                         rule {
@@ -54,5 +58,6 @@ class JvmCoreConventionPlugin : Plugin<Project> {
 
     private companion object {
         const val MIN_LINE_COVERAGE_PERCENT = 80
+        const val BENCHMARK_SOURCE_SET = "benchmark"
     }
 }

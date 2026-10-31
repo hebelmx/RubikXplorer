@@ -13,11 +13,17 @@ object FeatureFlagLevels {
 
     val levels: Set<String> = setOf("OFF", "BETA", "GA")
 
-    /** debug includes every feature (AD-15); release raises each flag in its own feature story. */
+    private val releaseLevels: Map<String, String> = flags.associateWith { "OFF" }
+
+    /**
+     * debug includes every feature (AD-15); release raises each flag in its own feature story.
+     * benchmark measures what ships, so it always carries the release levels.
+     */
     val byBuildType: Map<String, Map<String, String>> =
         mapOf(
             "debug" to flags.associateWith { "GA" },
-            "release" to flags.associateWith { "OFF" },
+            "release" to releaseLevels,
+            "benchmark" to releaseLevels,
         )
 
     /** Encodes [levelsByFlag] as `FLAG=LEVEL,...` in [flags] order, rejecting a missing or unknown entry. */

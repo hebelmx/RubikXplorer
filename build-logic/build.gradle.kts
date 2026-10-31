@@ -57,5 +57,12 @@ gradlePlugin {
                     .pluginId
             implementationClass = "dev.rubikxplorer.buildlogic.ReleaseConventionPlugin"
         }
+        register("androidMacrobenchmark") {
+            id =
+                libs.plugins.rubikxplorer.android.macrobenchmark
+                    .get()
+                    .pluginId
+            implementationClass = "dev.rubikxplorer.buildlogic.AndroidMacrobenchmarkConventionPlugin"
+        }
     }
 }
