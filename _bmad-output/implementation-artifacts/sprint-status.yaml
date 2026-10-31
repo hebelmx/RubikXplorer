@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-29-2026 12:34
-last_updated: 10-31-2026 15:00
+last_updated: 10-31-2026 09:09
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -45,7 +45,7 @@ development_status:
   1-7-tell-a-helping-move-from-a-harmful-one-objective-proof-of-co: done
   1-8-spike-choose-the-3d-rendering-approach-oq-3: done
   1-9-spike-guided-6-face-scan-prototype-and-recognition-test-matr: backlog
-  1-10-week-2-decision-gate-schedule-and-benchmark-harnesses: backlog
+  1-10-week-2-decision-gate-schedule-and-benchmark-harnesses: in-progress
   1-11-reference-device-baselines-and-sceneview-spike-removal: backlog
   epic-1-retrospective: optional
 
@@ -165,7 +165,8 @@ action_items:
       exact-path-state step-advance rule, via bmad-correct-course"
     owner: "PM (John)"
     status: done
-    resolution: "Correct course approved (#22); AD-5/AD-6 updated (#23); Neutral AC aligned (#24), 2026-10-31"
+    resolution: "Correct course approved (#22); AD-5/AD-6 updated (#23); Neutral AC
+      aligned (#24), 2026-10-31"
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-30.md"
   - id: "epic-2-retro-item-3-move-learner-facing-copy-out-of-strings"
     epic: 2
@@ -198,10 +199,10 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-30.md"
   - id: "story-1-10-deferred-delete-sceneview-spike"
     epic: 1
-    action: "Story 1.11 AC3: after Story 1.11 confirms the OpenGL ES renderer on the reference devices
-      (p90 <= 33.3 ms), delete the Story 1.8 SceneView spike: spike3dSceneView and
-      spike3dNoSceneView source sets, the rubikxplorer.spike3d.sceneview switch in
-      app/build.gradle.kts, and the sceneview catalog entry"
+    action: "Story 1.11 AC3: after Story 1.11 confirms the OpenGL ES renderer on the
+      reference devices (p90 <= 33.3 ms), delete the Story 1.8 SceneView spike: spike3dSceneView
+      and spike3dNoSceneView source sets, the rubikxplorer.spike3d.sceneview switch
+      in app/build.gradle.kts, and the sceneview catalog entry"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/planning-artifacts/epics.md (Story 1.11)"
