@@ -9,6 +9,12 @@ import dev.rubikxplorer.domain.predicate.AnyOf
 import dev.rubikxplorer.domain.predicate.StateReached
 import dev.rubikxplorer.domain.predicate.WhiteCornersSolved
 import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -81,15 +87,16 @@ class ContentLoaderTest {
         val first = loaded(fixture("valid")).contentRevision
         assertEquals(first, loaded(fixture("valid")).contentRevision)
         val valid = fixture("valid")
+        val files = listOf(ContentLoader.STRINGS, "stages/stage-01-basics.json", ContentLoader.MANIFEST, ContentLoader.TUTOR_CONFIG)
         val revisions =
-            listOf(ContentLoader.STRINGS, "stages/stage-01-basics.json", ContentLoader.MANIFEST).map { changed ->
+            files.map { changed ->
                 val touched =
                     ContentSource { path ->
                         valid.read(path)?.let { if (path == changed) it + ' '.code.toByte() else it }
                     }
                 loaded(touched).contentRevision.also { assertNotEquals(first, it, changed) }
             }
-        assertEquals(3, revisions.toSet().size)
+        assertEquals(4, revisions.toSet().size)
     }
 
     @Test
@@ -207,6 +214,78 @@ class ContentLoaderTest {
             listOf(ContentProblem.ImpossibleEntryState(LessonId("lesson-01-01"), ValidationResult.TwistedCorner)),
             problems("invalid-entry-state"),
         )
+    }
+
+    /** The valid fixture with its one Lesson's JSON members overridden by those [change] returns for it. */
+    private fun lessonVariant(change: (JsonObject) -> Map<String, JsonElement>): ContentSource {
+        val valid = fixture("valid")
+        val path = "stages/stage-01-basics.json"
+        val stage = ContentLoader.json.parseToJsonElement(resourceText("content-fixtures/valid/$path")).jsonObject
+        val lesson =
+            stage
+                .getValue("lessons")
+                .jsonArray
+                .single()
+                .jsonObject
+        val changed = JsonObject(stage + ("lessons" to JsonArray(listOf(JsonObject(lesson + change(lesson))))))
+        return ContentSource { if (it == path) changed.toString().toByteArray() else valid.read(it) }
+    }
+
+    private fun stepMoves(
+        lesson: JsonObject,
+        vararg moves: String,
+    ): JsonArray {
+        val step =
+            lesson
+                .getValue("steps")
+                .jsonArray
+                .single()
+                .jsonObject
+        return JsonArray(moves.map { JsonObject(step + ("moves" to JsonPrimitive(it))) })
+    }
+
+    private fun invalid(source: ContentSource): List<ContentProblem> {
+        val error = failed(source)
+        assertInstanceOf(ContentLoadError.Invalid::class.java, error, error.toString())
+        return (error as ContentLoadError.Invalid).problems
+    }
+
+    @Test
+    fun `a Lesson with no steps, an empty step, a no-op step or a mismatched Demonstration is Invalid`() {
+        val id = LessonId("lesson-01-01")
+        assertEquals(listOf(ContentProblem.NoSteps(id)), invalid(lessonVariant { mapOf("steps" to JsonArray(emptyList())) }))
+        assertEquals(
+            listOf(ContentProblem.EmptyStep(id, 0)),
+            invalid(lessonVariant { mapOf("demonstration" to JsonPrimitive(""), "steps" to stepMoves(it, "")) }),
+        )
+        assertEquals(
+            listOf(ContentProblem.NoOpStep(id, 0)),
+            invalid(lessonVariant { mapOf("demonstration" to JsonPrimitive("R R' F'"), "steps" to stepMoves(it, "R R'", "F'")) }),
+        )
+        assertEquals(
+            listOf(ContentProblem.DemonstrationMismatch(id)),
+            invalid(lessonVariant { mapOf("demonstration" to JsonPrimitive("F")) }),
+        )
+    }
+
+    @Test
+    fun `a Demonstration in equivalent Notation loads`() {
+        loaded(lessonVariant { mapOf("demonstration" to JsonPrimitive("F' R2'"), "steps" to stepMoves(it, "F'", "R2")) })
+    }
+
+    @Test
+    fun `the tutor config loads strictly, and a missing one is MissingResource`() {
+        assertEquals(TutorConfig, loaded(fixture("valid")).tutorConfig)
+        assertEquals(TutorConfig, loaded(ContentSource.SHIPPED).tutorConfig)
+        val valid = fixture("valid")
+        listOf("""{"x":1}""", "[]", "{").forEach { config ->
+            val source = ContentSource { path -> if (path == ContentLoader.TUTOR_CONFIG) config.toByteArray() else valid.read(path) }
+            val error = failed(source)
+            assertInstanceOf(ContentLoadError.Malformed::class.java, error, config)
+            assertEquals(ContentLoader.TUTOR_CONFIG, (error as ContentLoadError.Malformed).path)
+        }
+        val noConfig = ContentSource { path -> if (path == ContentLoader.TUTOR_CONFIG) null else valid.read(path) }
+        assertEquals(ContentLoadError.MissingResource(ContentLoader.TUTOR_CONFIG), failed(noConfig))
     }
 
     private companion object {

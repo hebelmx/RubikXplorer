@@ -85,4 +85,29 @@ sealed interface ContentProblem {
         val key: String,
         val index: Int,
     ) : ContentProblem
+
+    /** Lesson [lesson] has no steps, so it has no path to teach. */
+    data class NoSteps(
+        val lesson: LessonId,
+    ) : ContentProblem
+
+    /** Step [index] (0-based) of Lesson [lesson] has Moves that parse to nothing. */
+    data class EmptyStep(
+        val lesson: LessonId,
+        val index: Int,
+    ) : ContentProblem
+
+    /**
+     * Step [index] (0-based) of Lesson [lesson] ends on the same Cube State it started from, so
+     * `Tutor.decide` would mark it done at once, before the Learner turns anything.
+     */
+    data class NoOpStep(
+        val lesson: LessonId,
+        val index: Int,
+    ) : ContentProblem
+
+    /** The `demonstration` of Lesson [lesson] is not the Moves of its steps in order. */
+    data class DemonstrationMismatch(
+        val lesson: LessonId,
+    ) : ContentProblem
 }

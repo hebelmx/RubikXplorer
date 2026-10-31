@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tutor-config.schema.json",
+  "title": "Tutor configuration",
+  "description": "Tutor values read as data (AR-22). Empty until Epic 4 adds maxDepth, moveSet, hint and mastery thresholds.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}

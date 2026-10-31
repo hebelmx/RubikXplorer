@@ -96,4 +96,78 @@ class ContentValidatorTest {
         val broken = valid.copy(strings = valid.strings + ("msg.fixture.broken" to "Turn {face"))
         assertEquals(listOf(ContentProblem.MalformedMessage("msg.fixture.broken", 5)), ContentValidator.validate(broken))
     }
+
+    @Test
+    fun `a Lesson needs at least one step`() {
+        assertEquals(listOf(ContentProblem.NoSteps(id)), ContentValidator.validate(withLesson { copy(steps = emptyList()) }))
+    }
+
+    @Test
+    fun `a step whose Moves parse to nothing is empty`() {
+        val step = lesson.steps.single()
+        assertEquals(
+            listOf(ContentProblem.EmptyStep(id, 1)),
+            ContentValidator.validate(withLesson { copy(steps = listOf(step, step.copy(moves = " "))) }),
+        )
+    }
+
+    @Test
+    fun `a step that ends on the state it started from is a no-op`() {
+        val step = lesson.steps.single()
+        assertEquals(
+            listOf(ContentProblem.NoOpStep(id, 0)),
+            ContentValidator.validate(withLesson { copy(demonstration = "R R' F'", steps = listOf(step.copy(moves = "R R'"), step)) }),
+        )
+        // A whole-cube rotation changes the orientation, so the path state differs, as Tutor.decide sees it.
+        assertEquals(
+            emptyList<ContentProblem>(),
+            ContentValidator.validate(withLesson { copy(demonstration = "y F'", steps = listOf(step.copy(moves = "y"), step)) }),
+        )
+    }
+
+    @Test
+    fun `the no-op rule waits for a valid entry state`() {
+        val step = lesson.steps.single()
+        assertEquals(
+            listOf(ContentProblem.MalformedEntryState(id, FaceletStringResult.WrongLength(3))),
+            ContentValidator.validate(
+                withLesson { copy(entryState = "WWW", demonstration = "R R'", steps = listOf(step.copy(moves = "R R'"))) },
+            ),
+        )
+    }
+
+    @Test
+    fun `an unparseable step suppresses the no-op and Demonstration checks`() {
+        val step = lesson.steps.single()
+        assertEquals(
+            listOf(
+                ContentProblem.BadNotation(id, ContentValidator.DEMONSTRATION_FIELD, NotationError.BadToken("F3", 0)),
+                ContentProblem.BadNotation(id, "steps.0.moves", NotationError.BadToken("F3", 0)),
+            ),
+            ContentValidator.validate(
+                withLesson { copy(demonstration = "F3 R R'", steps = listOf(step.copy(moves = "F3"), step.copy(moves = "R R'"))) },
+            ),
+        )
+    }
+
+    @Test
+    fun `the Demonstration must be the steps' Moves in order`() {
+        assertEquals(
+            listOf(ContentProblem.DemonstrationMismatch(id)),
+            ContentValidator.validate(withLesson { copy(demonstration = "F") }),
+        )
+        assertEquals(
+            listOf(ContentProblem.DemonstrationMismatch(id)),
+            ContentValidator.validate(withLesson { copy(demonstration = "F' R") }),
+        )
+    }
+
+    @Test
+    fun `equivalent Notation in the Demonstration matches`() {
+        val step = lesson.steps.single()
+        assertEquals(
+            emptyList<ContentProblem>(),
+            ContentValidator.validate(withLesson { copy(demonstration = "  F'   R2' ", steps = listOf(step.copy(moves = "F' R2"))) }),
+        )
+    }
 }

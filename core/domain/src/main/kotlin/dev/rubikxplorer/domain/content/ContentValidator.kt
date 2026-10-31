@@ -1,5 +1,6 @@
 package dev.rubikxplorer.domain.content
 
+import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.CubeValidator
 import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.cube.NotationResult
@@ -54,6 +55,7 @@ object ContentValidator {
             notationProblem(id, stepMovesField(index), step.moves)?.let { problems += it }
         }
         entryStateProblem(lesson)?.let { problems += it }
+        problems += stepProblems(lesson)
 
         val keys =
             listOf(lesson.objective, lesson.learnerAction) +
@@ -74,6 +76,42 @@ object ContentValidator {
             is NotationResult.Parsed -> null
             is NotationResult.Invalid -> ContentProblem.BadNotation(lesson, field, parsed.error)
         }
+
+    /**
+     * The path rules: a Lesson has steps; each step has Moves; each step changes the Cube State (judged
+     * by [CubeState] equality, as `Tutor.decide` judges a step done, and only when the entry state and
+     * every step parse); and the Demonstration is the steps' Moves in order (only when all parse).
+     */
+    private fun stepProblems(lesson: Lesson): List<ContentProblem> {
+        val id = lesson.id
+        if (lesson.steps.isEmpty()) return listOf(ContentProblem.NoSteps(id))
+        val problems = mutableListOf<ContentProblem>()
+        val parsed = lesson.steps.map { (Notation.parse(it.moves) as? NotationResult.Parsed)?.moves }
+        parsed.forEachIndexed { index, moves -> if (moves?.isEmpty() == true) problems += ContentProblem.EmptyStep(id, index) }
+        val parsedSteps = parsed.filterNotNull().takeIf { it.size == parsed.size } ?: return problems
+
+        val entry = entryState(lesson)
+        if (entry != null) {
+            var state: CubeState = entry
+            parsedSteps.forEachIndexed { index, moves ->
+                val next = state.apply(moves)
+                if (moves.isNotEmpty() && next == state) problems += ContentProblem.NoOpStep(id, index)
+                state = next
+            }
+        }
+
+        val demonstration = (Notation.parse(lesson.demonstration) as? NotationResult.Parsed)?.moves
+        if (demonstration != null && demonstration != parsedSteps.flatten()) {
+            problems += ContentProblem.DemonstrationMismatch(id)
+        }
+        return problems
+    }
+
+    /** The validated entry [CubeState] of [lesson], or null when it is malformed or impossible. */
+    private fun entryState(lesson: Lesson): CubeState? {
+        val decoded = FaceletString.decode(lesson.entryState) as? FaceletStringResult.Decoded ?: return null
+        return (CubeValidator.validate(decoded.facelets) as? ValidationResult.Valid)?.state
+    }
 
     private fun entryStateProblem(lesson: Lesson): ContentProblem? =
         when (val decoded = FaceletString.decode(lesson.entryState)) {

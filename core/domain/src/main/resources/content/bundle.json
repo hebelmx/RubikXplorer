@@ -1,4 +1,8 @@
 {
   "schemaVersion": 1,
-  "stages": []
+  "stages": [
+    "stages/stage-01-fundamentals.json",
+    "stages/stage-02-first-cross.json",
+    "stages/stage-03-first-layer-corners.json"
+  ]
 }
