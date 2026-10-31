@@ -116,7 +116,7 @@ These are behavioral rules. Visual specs are in DESIGN.md Components.
 | Verified | Physical mode | A ✓ *Verified* chip and a VERIFIED frame. It reverts to EXPECTED on the next *Done*. |
 | Mismatch, unknown | Physical mode | Chip ? *Unknown*, with the next request in FR-9 order. Never a guessed cause. |
 | Mismatch, likely | Physical mode | Chip ≈ *Likely*, with the candidate shown and *Scan all six faces* (Guided 6-face Scan) offered to confirm it. |
-| Test me outcomes | Lesson | **Progress** (a different Move that still helps): "That works too — you're closer." **Neutral**: "That didn't change much. Try another turn." **Harmful**: the same as a diagnosed error, with a recovery prompt. |
+| Test me outcomes | Lesson | **On path** (the next Move of the current step's authored path): "That's the move — keep going." **Progress** (a different Move that still helps): "That works too — you're closer." **Neutral**: "That didn't change much. Try another turn." **Harmful** (disturbs a piece the current step preserves): the same as a diagnosed error, with a recovery prompt. |
 | Error category copy | Lesson | **Unexpected orientation:** "Your cube is turned — hold it with white on the bottom, green in front." Offers *Show me how*, no undo. **Wrong piece:** "That moved the white-orange corner; we want white-red-green." **Wrong orientation:** "Right corner, but twisted — white should face down." **Invalid entry:** see the Editor rows. |
 | Stale scan result | Physical mode | Silently discarded (AD-3). If the Learner started it, re-offer: "Your cube changed while scanning — scan again?" |
 | Completed layer disturbed | Lesson | The disturbed pieces get a violet outline. A recovery prompt appears, and the Checkpoint is kept. |
