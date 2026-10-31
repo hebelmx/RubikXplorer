@@ -489,6 +489,8 @@ So that the rest of P0 is planned against real devices and a confirmed scope.
 **When** a Macrobenchmark module and a JVM benchmark harness are added
 **Then** they produce a baseline for frame timing on the 2D net (NFR-2) and a placeholder for the solve corpus (NFR-3), runnable on demand
 
+**Deferred after this story:** once 1.10 has re-measured the OpenGL ES renderer on the reference devices and the choice stands (p90 ≤ 33.3 ms), delete the Story 1.8 SceneView spike: `app/src/spike3dSceneView/`, `app/src/spike3dNoSceneView/`, the `rubikxplorer.spike3d.sceneview` switch in `app/build.gradle.kts`, and the `sceneview` entry in `gradle/libs.versions.toml`. Tracked as a sprint-status action item.
+
 ## Epic 2: Learn with a guided Lesson
 
 A Learner can open a data-defined Lesson, see its Objective, watch an explained Demonstration, and work through it in any of the four Teaching Modes until the Completion Predicate is met. P0.2 exit: cross and corner Lessons pass scenario tests.
@@ -879,7 +881,7 @@ So that I understand it instead of just being told "wrong".
 
 **Given** *Test me* and a Move off the authored path
 **When** it is committed
-**Then** it is judged against the current step (its `preserve` set and the step's ObjectiveProgress), not whole-Objective progress: Progress if it gets closer without disturbing the step's preserved pieces, Neutral if nothing changes, Harmful only if it disturbs a preserved piece
+**Then** it is judged against the current step (its `preserve` set and the step's ObjectiveProgress), not whole-Objective progress: Progress if it gets closer without disturbing the step's preserved pieces, Neutral if it neither gets closer nor disturbs a preserved piece (including a step back that touches no preserved piece), Harmful only if it disturbs a preserved piece
 
 **Given** a Harmful Move in *Test me*
 **When** it is committed
