@@ -24,9 +24,9 @@ when = "before-start"
 reason = "needs physical cubes, two devices, lighting setups and recorded ground truth"
 
 [[gates]]
-key = "1-10-week-2-decision-gate-schedule-reference-devices-and-baseline"
+key = "1-11-reference-device-baselines-and-sceneview-spike-removal"
 when = "before-start"
-reason = "OQ-9 schedule and ARCH-OQ-1 reference devices are product-owner decisions"
+reason = "needs both reference devices connected for on-device baselines"
 
 [[gates]]
 key = "5-1-render-the-cube-in-3d-behind-the-cuberenderer-port"
