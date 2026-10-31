@@ -20,6 +20,7 @@ internal val F_PRIME = FaceTurn(Face.F, Turn.COUNTERCLOCKWISE)
 internal val R = FaceTurn(Face.R, Turn.CLOCKWISE)
 internal val U = FaceTurn(Face.U, Turn.CLOCKWISE)
 internal val U_PRIME = FaceTurn(Face.U, Turn.COUNTERCLOCKWISE)
+internal val D = FaceTurn(Face.D, Turn.CLOCKWISE)
 
 internal val T0: Instant = Instant.fromEpochMilliseconds(1_000)
 
@@ -66,6 +67,16 @@ internal fun twoStepLesson(id: String = "lesson-01-03"): Lesson {
                     moves = "F'",
                 ),
             ),
+    )
+}
+
+/** A one-step white-cross Lesson: entry SOLVED + F + U' (no cross edge home), its one step `U F'`. */
+internal fun oneLongStepLesson(id: String = "lesson-01-04"): Lesson {
+    val base = whiteCrossLesson(id)
+    return base.copy(
+        entryState = FaceletString.encode(CubeState.SOLVED.apply(F, U_PRIME).toFacelets()),
+        demonstration = "U F'",
+        steps = listOf(base.steps.single().copy(moves = "U F'")),
     )
 }
 

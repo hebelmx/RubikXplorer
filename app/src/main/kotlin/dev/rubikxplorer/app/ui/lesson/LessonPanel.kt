@@ -23,6 +23,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,8 +44,12 @@ import dev.rubikxplorer.domain.tutor.TeachingMode
 
 /**
  * What the step card shows, already resolved: step [number] of [count], its Goal, Keep and Watch,
- * its [notice] (null until it is due), its [moves] (null while hidden) and whether the Lesson's
- * Objective is met.
+ * its [notice] (null until it is due), its [moves] (null while hidden), whether the Lesson's
+ * Objective is met, the Test me [feedback] on the last Move (null when there is none to show) with
+ * [feedbackMove] naming that Move (the session's revision, so each Move's line is a fresh node that
+ * screen readers announce even when its text repeats) and,
+ * while the Moves are hidden, whether the "Show the Move" control offers them ([showMoveControl],
+ * Guide me) or a quiet line says they wait for a Hint.
  */
 internal data class StepCardContent(
     val number: Int,
@@ -55,6 +60,9 @@ internal data class StepCardContent(
     val notice: String?,
     val moves: List<Move>?,
     val objectiveMet: Boolean,
+    val feedback: String? = null,
+    val feedbackMove: Long = 0,
+    val showMoveControl: Boolean = true,
 )
 
 /**
@@ -66,6 +74,7 @@ internal data class StepCardContent(
 internal fun LessonPanel(
     objective: String,
     step: StepCardContent,
+    modes: List<TeachingMode>,
     mode: TeachingMode,
     onModeChange: (TeachingMode) -> Unit,
     onShowMove: () -> Unit,
@@ -87,7 +96,7 @@ internal fun LessonPanel(
             modifier = Modifier.testTag("lesson:objective").semantics { heading() },
         )
         StepCard(step, onShowMove, Modifier.fillMaxWidth())
-        TeachingModeSwitcher(mode, onModeChange, Modifier.fillMaxWidth())
+        TeachingModeSwitcher(modes, mode, onModeChange, Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s3), modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(
                 onClick = onHint,
@@ -169,7 +178,8 @@ private fun StepCard(
         Field(R.string.lesson_goal, step.goal, "lesson:goal")
         Field(R.string.lesson_keep, step.keep, "lesson:keep")
         Field(R.string.lesson_watch, step.watch, "lesson:watch")
-        MovesRow(step.moves, onShowMove)
+        MovesRow(step.moves, step.showMoveControl, onShowMove)
+        step.feedback?.let { key(step.feedbackMove) { Feedback(it) } }
         step.notice?.let { Field(R.string.lesson_notice, it, "lesson:notice") }
     }
 }
@@ -187,17 +197,42 @@ private fun Field(
     }
 }
 
-/** The step's Moves as `notation-chip`s, or, while they are hidden, the "Show the Move" control. */
+/**
+ * Test me's word on the last Move: neutral ink in a polite live region, never red and never shaken,
+ * whether the Move helped or not.
+ */
+@Composable
+private fun Feedback(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyLarge,
+        color = RubikTheme.tokens.inkPrimary,
+        modifier = Modifier.testTag("lesson:feedback").semantics { liveRegion = LiveRegionMode.Polite },
+    )
+}
+
+/**
+ * The step's Moves as `notation-chip`s, or, while they are hidden, the "Show the Move" control when
+ * [showMoveControl] (Guide me) and otherwise a quiet line saying a Hint shows them.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MovesRow(
     moves: List<Move>?,
+    showMoveControl: Boolean,
     onShowMove: () -> Unit,
 ) {
     val tokens = RubikTheme.tokens
     Column(modifier = Modifier.testTag("lesson:moves")) {
         Text(stringResource(R.string.lesson_moves), style = MaterialTheme.typography.labelMedium, color = tokens.inkSecondary)
-        if (moves == null) {
+        if (moves == null && !showMoveControl) {
+            Text(
+                stringResource(R.string.lesson_moves_hidden),
+                style = MaterialTheme.typography.bodyMedium,
+                color = tokens.inkSecondary,
+                modifier = Modifier.padding(top = Spacing.s1).testTag("lesson:movesHidden"),
+            )
+        } else if (moves == null) {
             TextButton(
                 onClick = onShowMove,
                 modifier = Modifier.heightIn(min = Spacing.touchMin).testTag("lesson:showMove"),

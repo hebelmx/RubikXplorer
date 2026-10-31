@@ -1,6 +1,9 @@
 package dev.rubikxplorer.app.session
 
 import dev.rubikxplorer.application.port.Clock
+import dev.rubikxplorer.application.port.FeatureFlag
+import dev.rubikxplorer.application.port.FeatureFlags
+import dev.rubikxplorer.application.port.FlagLevel
 import dev.rubikxplorer.domain.content.ContentBundle
 import dev.rubikxplorer.domain.content.ContentLoadResult
 import dev.rubikxplorer.domain.content.ContentLoader
@@ -74,6 +77,19 @@ internal fun twoStepLesson(id: String = "lesson-01-03"): Lesson {
     )
 }
 
+/** A one-step white-cross Lesson: entry SOLVED + F + U' (no cross edge home), its one step `U F'`. */
+internal fun oneLongStepLesson(id: String = "lesson-01-04"): Lesson {
+    val base = whiteCrossLesson(id)
+    return base.copy(
+        entryState =
+            FaceletString.encode(
+                CubeState.SOLVED.apply(FaceTurn(Face.F, Turn.CLOCKWISE), FaceTurn(Face.U, Turn.COUNTERCLOCKWISE)).toFacelets(),
+            ),
+        demonstration = "U F'",
+        steps = listOf(base.steps.single().copy(moves = "U F'")),
+    )
+}
+
 /** The English strings of [lesson]: each text field resolves to `<field> <n> of <lesson id>`. */
 internal fun stringsOf(lesson: Lesson): Map<String, String> {
     val id = lesson.id.value
@@ -119,3 +135,9 @@ internal class TickingClock(
 
     override fun now(): Instant = Instant.fromEpochMilliseconds(millis.getAndIncrement())
 }
+
+/** Feature flags with every flag at GA, except `TEST_ME` OFF unless [testMe]. */
+internal fun testFlags(testMe: Boolean = true): FeatureFlags =
+    object : FeatureFlags {
+        override fun level(flag: FeatureFlag): FlagLevel = if (flag == FeatureFlag.TEST_ME && !testMe) FlagLevel.OFF else FlagLevel.GA
+    }

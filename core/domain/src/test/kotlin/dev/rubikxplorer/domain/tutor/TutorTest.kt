@@ -14,6 +14,7 @@ import dev.rubikxplorer.domain.cube.NotationResult
 import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -61,12 +62,13 @@ class TutorTest {
         mode: TeachingMode = TeachingMode.GUIDE_ME,
         stepIndex: Int = 0,
         revealRequested: Boolean = false,
-    ) = Tutor.decide(lesson, state(entry), state(current), mode, stepIndex, revealRequested)
+        lastMoveFeedback: MoveFeedback? = null,
+    ) = Tutor.decide(lesson, state(entry), state(current), mode, stepIndex, revealRequested, lastMoveFeedback)
 
     @Test
     fun `guide me at the entry state reveals nothing and cannot advance`() {
         val d = decide(oneStep, "F", "F")
-        assertEquals(TutorDecision(oneStep.objective, satisfied = false, reveal = false, advance = false), d)
+        assertEquals(TutorDecision(oneStep.objective, satisfied = false, reveal = false, advance = false, feedback = null), d)
     }
 
     @Test
@@ -110,6 +112,41 @@ class TutorTest {
     fun `invalid step notation is a programmer error`() {
         val broken = oneStep.copy(steps = listOf(oneStep.steps.single().copy(moves = "Q")))
         assertThrows<IllegalStateException> { Tutor.pathState(broken, CubeState.SOLVED, 1) }
+    }
+
+    @Test
+    fun `test me and let me try reveal only on request`() {
+        listOf(TeachingMode.TEST_ME, TeachingMode.LET_ME_TRY).forEach { mode ->
+            assertFalse(decide(oneStep, "F", "F", mode = mode).reveal, "$mode")
+            assertFalse(decide(oneStep, "F", "F D", mode = mode, lastMoveFeedback = MoveFeedback.NEUTRAL).reveal, "$mode")
+            assertTrue(decide(oneStep, "F", "F", mode = mode, revealRequested = true).reveal, "$mode")
+        }
+    }
+
+    @Test
+    fun `feedback shows only in test me and only while the step is not done`() {
+        MoveFeedback.entries.forEach { feedback ->
+            TeachingMode.entries.forEach { mode ->
+                val shown = decide(oneStep, "F", "F D", mode = mode, lastMoveFeedback = feedback).feedback
+                assertEquals(if (mode == TeachingMode.TEST_ME) feedback else null, shown, "$mode $feedback")
+            }
+        }
+        assertNull(decide(oneStep, "F", "F D", mode = TeachingMode.TEST_ME).feedback)
+        // Once the step is done, Notice and Next speak instead.
+        val done = decide(oneStep, "F", "F F'", mode = TeachingMode.TEST_ME, lastMoveFeedback = MoveFeedback.PROGRESS)
+        assertTrue(done.advance)
+        assertNull(done.feedback)
+        val atPathState = decide(twoStep, "F U'", "F U' U", mode = TeachingMode.TEST_ME, lastMoveFeedback = MoveFeedback.PROGRESS)
+        assertTrue(atPathState.advance)
+        assertNull(atPathState.feedback)
+    }
+
+    @Test
+    fun `the modes are ordered show me, guide me, test me, let me try`() {
+        assertEquals(
+            listOf(TeachingMode.SHOW_ME, TeachingMode.GUIDE_ME, TeachingMode.TEST_ME, TeachingMode.LET_ME_TRY),
+            TeachingMode.entries,
+        )
     }
 
     @Test

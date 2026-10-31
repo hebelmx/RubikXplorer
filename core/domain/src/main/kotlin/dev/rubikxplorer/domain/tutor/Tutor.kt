@@ -10,12 +10,16 @@ import dev.rubikxplorer.domain.cube.NotationResult
 object Tutor {
     /**
      * The [TutorDecision] for step [stepIndex] of [lesson], started at [entry] and now at [current],
-     * taught in [mode]; [revealRequested] is true once the Learner asked to see the step's Moves.
+     * taught in [mode]; [revealRequested] is true once the Learner asked to see the step's Moves, and
+     * [lastMoveFeedback] is the classification of the last committed Move, if it still stands.
      *
      * - `satisfied` is the Completion Predicate on [current];
      * - `reveal` is true in [TeachingMode.SHOW_ME] or once [revealRequested];
      * - `advance` is true when satisfied, or when [current] equals the path state after step
-     *   [stepIndex] (an intermediate step is done when its state is reached, never by counting Moves).
+     *   [stepIndex] (an intermediate step is done when its state is reached, never by counting Moves);
+     * - `feedback` is [lastMoveFeedback] in [TeachingMode.TEST_ME] while not `advance`, else null (once
+     *   the step is done, Notice and Next take over). Story 4.2 replaces the Harmful placeholder with
+     *   a Diagnosis.
      */
     fun decide(
         lesson: Lesson,
@@ -24,13 +28,16 @@ object Tutor {
         mode: TeachingMode,
         stepIndex: Int,
         revealRequested: Boolean,
+        lastMoveFeedback: MoveFeedback?,
     ): TutorDecision {
         val satisfied = lesson.completion.isSatisfied(current)
+        val advance = satisfied || current == pathState(lesson, entry, stepIndex + 1)
         return TutorDecision(
             objectiveId = lesson.objective,
             satisfied = satisfied,
             reveal = mode == TeachingMode.SHOW_ME || revealRequested,
-            advance = satisfied || current == pathState(lesson, entry, stepIndex + 1),
+            advance = advance,
+            feedback = lastMoveFeedback.takeIf { mode == TeachingMode.TEST_ME && !advance },
         )
     }
 
