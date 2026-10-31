@@ -843,6 +843,18 @@ So that it never tells me something it can't know.
 **When** CI runs
 **Then** no module other than `tutor/Assess` constructs a Certainty value
 
+**Given** a multi-step Lesson in *Let me try* or *Test me*
+**When** the Learner meets a step's `done` predicate by any legal route (including steps out of order)
+**Then** `TutorDecision.advance` moves to the first step whose `done` is unmet, and the step card follows
+
+**Given** an Undo across a step boundary
+**When** the state is re-assessed
+**Then** the current step is re-derived from the state, so the card returns to the earlier step
+
+**Given** the shipped Stages 1–3 content
+**When** the content test runs
+**Then** every step has a `done` predicate, the authored path satisfies each step's `done` in order (extends `ShippedLessonPathsTest`), and the final step's `done` agrees with the Lesson's Completion Predicate
+
 ### Story 4.2: Diagnose each Error Category with tested copy
 
 As a Learner,
@@ -861,9 +873,17 @@ So that I understand it instead of just being told "wrong".
 **When** it is diagnosed
 **Then** it is `UNEXPECTED_ORIENTATION` with "Your cube is turned — hold it with white on the bottom, green in front." and *Show me how*, without undo
 
+**Given** *Test me* on any shipped Lesson
+**When** the Learner commits the next Move of the current step's authored path
+**Then** it is never classified Harmful, even if it temporarily lifts a solved piece (e.g. R' opening R' D' R); it is classified On path and shows "That's the move — keep going."
+
+**Given** *Test me* and a Move off the authored path
+**When** it is committed
+**Then** it is judged against the current step (its `preserve` set and the step's ObjectiveProgress), not whole-Objective progress: Progress if it gets closer without disturbing the step's preserved pieces, Neutral if nothing changes, Harmful only if it disturbs a preserved piece
+
 **Given** a Harmful Move in *Test me*
 **When** it is committed
-**Then** it now produces the diagnosed error and a recovery prompt (replacing Story 2.6's placeholder)
+**Then** it produces the diagnosed error and a recovery prompt, replacing both Story 2.6's placeholder copy and its whole-Objective classifier (`MoveFeedback`); scenario tests cover a taught insert in Stages 2 and 3
 
 **Given** any diagnosis
 **When** it is shown
