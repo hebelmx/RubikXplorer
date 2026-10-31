@@ -54,12 +54,23 @@ data class Step(
 )
 
 /**
+ * The tutor's tunable values (AR-22), `content/tutor-config.json`: data, never code constants, so
+ * they change without a release of the rules. It holds none yet: the first values (`maxDepth`,
+ * `moveSet`, hint and mastery thresholds) arrive with their first consumer in Epic 4, which turns this
+ * object into a class with those fields. Decoded strictly, so an unknown key does not load.
+ */
+@Serializable
+data object TutorConfig
+
+/**
  * Loaded, validated content: the manifest's [schemaVersion], a [contentRevision] hash of the exact
- * bytes read, the [stages] in manifest order and the English [strings] (`key → ICU message`).
+ * bytes read, the [stages] in manifest order, the English [strings] (`key → ICU message`) and the
+ * [tutorConfig].
  */
 data class ContentBundle(
     val schemaVersion: Int,
     val contentRevision: String,
     val stages: List<Stage>,
     val strings: Map<String, String>,
+    val tutorConfig: TutorConfig,
 )

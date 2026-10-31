@@ -66,9 +66,10 @@ sealed interface ContentLoadError {
 }
 
 /**
- * Decodes and validates a content bundle (AD-6): the manifest, each Stage it lists in order, then
- * `strings/en.json`. Strict JSON: unknown keys, missing fields and unknown predicates are
- * [ContentLoadError.Malformed]. Never throws.
+ * Decodes and validates a content bundle (AD-6): the manifest, each Stage it lists in order,
+ * `strings/en.json`, then `tutor-config.json`; every file read is part of the `contentRevision`.
+ * Strict JSON: unknown keys, missing fields and unknown predicates are [ContentLoadError.Malformed].
+ * Never throws.
  */
 object ContentLoader {
     /** The classpath directory holding the shipped bundle. */
@@ -79,6 +80,9 @@ object ContentLoader {
 
     /** The English strings path, relative to the content root. */
     const val STRINGS = "strings/en.json"
+
+    /** The tutor configuration path, relative to the content root. */
+    const val TUTOR_CONFIG = "tutor-config.json"
 
     /** The only `schemaVersion` this build reads. */
     const val SUPPORTED_SCHEMA_VERSION = 1
@@ -122,9 +126,10 @@ object ContentLoader {
         val manifest = parse(MANIFEST) { json.decodeFromString<BundleManifest>(manifestText) }
         val stages = manifest.stages.map { path -> read(path).let { parse(path) { json.decodeFromString<Stage>(it) } } }
         val strings = read(STRINGS).let { parse(STRINGS) { json.decodeFromString<Map<String, String>>(it) } }
+        val tutorConfig = read(TUTOR_CONFIG).let { parse(TUTOR_CONFIG) { json.decodeFromString<TutorConfig>(it) } }
 
         val revision = digest.digest().joinToString("") { "%02x".format(it) }
-        val bundle = ContentBundle(manifest.schemaVersion, revision, stages, strings)
+        val bundle = ContentBundle(manifest.schemaVersion, revision, stages, strings, tutorConfig)
         val problems = parse(MANIFEST) { ContentValidator.validate(bundle) }
         if (problems.isNotEmpty()) fail(ContentLoadError.Invalid(problems))
         return bundle

@@ -26,7 +26,7 @@ class SchemaModelTest {
     private fun shipped(file: String): JsonObject = Json.parseToJsonElement(resourceText("content/schema/$file")).jsonObject
 
     private val schemas: Map<String, JsonObject> =
-        listOf("bundle", "stage", "lesson", "predicate").associate { "$it.schema.json" to shipped("$it.schema.json") }
+        listOf("bundle", "stage", "lesson", "predicate", "tutor-config").associate { "$it.schema.json" to shipped("$it.schema.json") }
 
     @Test
     fun `every schema file is draft 2020-12 and matches its Kotlin class`() {
@@ -36,6 +36,7 @@ class SchemaModelTest {
                 "stage.schema.json" to Stage.serializer().descriptor,
                 "lesson.schema.json" to Lesson.serializer().descriptor,
                 "predicate.schema.json" to Predicate.serializer().descriptor,
+                "tutor-config.schema.json" to TutorConfig.serializer().descriptor,
             )
         roots.keys.forEach { file ->
             assertEquals(DRAFT, schemas.getValue(file)["\$schema"]?.jsonPrimitive?.content, file)
@@ -43,6 +44,25 @@ class SchemaModelTest {
         roots.forEach { (file, descriptor) ->
             assertEquals(emptyList<String>(), SchemaComparator(schemas).compare(file, descriptor), file)
         }
+    }
+
+    @Test
+    fun `a tutor config schema with a field the model lacks, or open to unknown keys, is a mismatch`() {
+        val config = schemas.getValue("tutor-config.schema.json")
+        val broken =
+            JsonObject(
+                config +
+                    mapOf(
+                        "properties" to JsonObject(mapOf("maxDepth" to JsonObject(mapOf("type" to JsonPrimitive("integer"))))),
+                        "additionalProperties" to JsonPrimitive(true),
+                    ),
+            )
+        val problems =
+            SchemaComparator(
+                schemas + ("tutor-config.schema.json" to broken),
+            ).compare("tutor-config.schema.json", TutorConfig.serializer().descriptor)
+        assertTrue(problems.any { "maxDepth" in it }, problems.toString())
+        assertTrue(problems.any { "additionalProperties" in it }, problems.toString())
     }
 
     @Test

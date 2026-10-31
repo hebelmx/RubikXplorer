@@ -1,0 +1,105 @@
+{
+  "id": "stage-01-fundamentals",
+  "title": "stage.stage-01-fundamentals.title",
+  "lessons": [
+    {
+      "id": "lesson-01-01",
+      "stageId": "stage-01-fundamentals",
+      "prerequisites": [],
+      "objective": "lesson.lesson-01-01.objective",
+      "entryState": "WWWWWWWWWRRRRRRRRRGGGGGGGGGYYYYYYYYYOOOOOOOOOBBBBBBBBB",
+      "demonstration": "U",
+      "learnerAction": "lesson.lesson-01-01.learner-action",
+      "completion": {
+        "predicate": "state-reached",
+        "moves": "U"
+      },
+      "preserve": {
+        "predicate": "state-reached",
+        "moves": "U"
+      },
+      "recovery": "recovery-undo-last-move",
+      "steps": [
+        {
+          "goal": "lesson.lesson-01-01.goal.1",
+          "preserve": "lesson.lesson-01-01.keep.1",
+          "watch": "lesson.lesson-01-01.watch.1",
+          "notice": "lesson.lesson-01-01.notice.1",
+          "moves": "U"
+        }
+      ]
+    },
+    {
+      "id": "lesson-01-02",
+      "stageId": "stage-01-fundamentals",
+      "prerequisites": [
+        "lesson-01-01"
+      ],
+      "objective": "lesson.lesson-01-02.objective",
+      "entryState": "WWWWWWWWWRRRRRRRRRGGGGGGGGGYYYYYYYYYOOOOOOOOOBBBBBBBBB",
+      "demonstration": "R U",
+      "learnerAction": "lesson.lesson-01-02.learner-action",
+      "completion": {
+        "predicate": "state-reached",
+        "moves": "R U"
+      },
+      "preserve": {
+        "predicate": "state-reached",
+        "moves": "R U"
+      },
+      "recovery": "recovery-undo-last-move",
+      "steps": [
+        {
+          "goal": "lesson.lesson-01-02.goal.1",
+          "preserve": "lesson.lesson-01-02.keep.1",
+          "watch": "lesson.lesson-01-02.watch.1",
+          "notice": "lesson.lesson-01-02.notice.1",
+          "moves": "R"
+        },
+        {
+          "goal": "lesson.lesson-01-02.goal.2",
+          "preserve": "lesson.lesson-01-02.keep.2",
+          "watch": "lesson.lesson-01-02.watch.2",
+          "notice": "lesson.lesson-01-02.notice.2",
+          "moves": "U"
+        }
+      ]
+    },
+    {
+      "id": "lesson-01-03",
+      "stageId": "stage-01-fundamentals",
+      "prerequisites": [
+        "lesson-01-02"
+      ],
+      "objective": "lesson.lesson-01-03.objective",
+      "entryState": "WWWWWWWWWRRRRRRRRRGGGGGGGGGYYYYYYYYYOOOOOOOOOBBBBBBBBB",
+      "demonstration": "R' U2",
+      "learnerAction": "lesson.lesson-01-03.learner-action",
+      "completion": {
+        "predicate": "state-reached",
+        "moves": "R' U2"
+      },
+      "preserve": {
+        "predicate": "state-reached",
+        "moves": "R' U2"
+      },
+      "recovery": "recovery-undo-last-move",
+      "steps": [
+        {
+          "goal": "lesson.lesson-01-03.goal.1",
+          "preserve": "lesson.lesson-01-03.keep.1",
+          "watch": "lesson.lesson-01-03.watch.1",
+          "notice": "lesson.lesson-01-03.notice.1",
+          "moves": "R'"
+        },
+        {
+          "goal": "lesson.lesson-01-03.goal.2",
+          "preserve": "lesson.lesson-01-03.keep.2",
+          "watch": "lesson.lesson-01-03.watch.2",
+          "notice": "lesson.lesson-01-03.notice.2",
+          "moves": "U2"
+        }
+      ]
+    }
+  ]
+}
