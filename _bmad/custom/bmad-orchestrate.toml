@@ -14,19 +14,14 @@ retrospective = "auto"
 
 # Work that needs a person: devices, camera hardware, secrets, Play Console, pilots, decisions.
 [[gates]]
-key = "1-8-spike-choose-the-3d-rendering-approach-oq-3"
-when = "before-merge"
-reason = "frame-time and APK-size measurements on real devices; renderer decision goes to the memlog"
-
-[[gates]]
 key = "1-9-spike-guided-6-face-scan-prototype-and-recognition-test-matr"
-when = "before-start"
-reason = "needs physical cubes, two devices, lighting setups and recorded ground truth"
+when = "before-merge"
+reason = "photos and both device models are available; complete the live four-lighting-condition matrix and per-sticker ground-truth measurements on the physical cubes and both devices"
 
 [[gates]]
 key = "1-11-reference-device-baselines-and-sceneview-spike-removal"
-when = "before-start"
-reason = "needs both reference devices connected for on-device baselines"
+when = "before-merge"
+reason = "connect both reference devices and record 2D Macrobenchmark and OpenGL ES onDrawFrame baselines; record the deferred SceneView size comparison before deleting the spike"
 
 [[gates]]
 key = "5-1-render-the-cube-in-3d-behind-the-cuberenderer-port"
