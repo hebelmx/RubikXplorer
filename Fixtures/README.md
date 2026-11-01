@@ -1,6 +1,6 @@
 # Cube photo fixtures
 
-This directory contains 64 original JPEG photos of two physical 3×3 cubes, photographed with two Samsung devices. Each photo shows one cube from one camera view. The eight subfolders organize the photos by cube, device, and the first or second capture state.
+This directory contains 132 original JPEG photos of two physical 3×3 cubes, photographed with two Samsung devices. Each photo shows one cube from one camera view. The 16 populated subfolders organize photos by cube, device, and capture state S1 through S4.
 
 ## Folder contents
 
@@ -15,21 +15,41 @@ This directory contains 64 original JPEG photos of two physical 3×3 cubes, phot
 | `GANStickerless_GalaxyTab_S2/` | Stickerless GAN cube, second capture state | Galaxy Tab (`SM-T738U`) | 8 | 13:43:58–13:44:50 |
 | `RubikStickered_GalaxyTab_S2/` | Stickered Rubik cube, second capture state | Galaxy Tab (`SM-T738U`) | 11 | 13:44:59–13:46:14 |
 
-All photos were taken on 2026-10-31. Times above are local camera times from EXIF `DateTimeOriginal`.
+The S1/S2 photos were taken on 2026-10-31. Times above are local camera times from EXIF `DateTimeOriginal`.
+
+## S3 and S4 folder contents
+
+| Folder | What is pictured | Camera model | Photos | Filename capture times |
+| --- | --- | --- | ---: | --- |
+| `RubikStickered_GalaxyS24FE_S3/` | Stickered Rubik cube, third capture state | Galaxy S24 FE | 9 | 16:29:28–16:33:11 |
+| `GANStickerless_GalaxyS24FE_S3/` | Stickerless GAN cube, third capture state | Galaxy S24 FE | 8 | 16:29:59–16:33:39 |
+| `GANStickerless_GalaxyTab_S3/` | Stickerless GAN cube, third capture state | Galaxy Tab (`SM-T738U`) | 10 | 16:31:13–16:32:50 |
+| `RubikStickered_GalaxyTab_S3/` | Stickered Rubik cube, third capture state | Galaxy Tab (`SM-T738U`) | 8 | 16:32:43–17:03:50 |
+| `RubikStickered_GalaxyS24FE_S4/` | Stickered Rubik cube, fourth capture state | Galaxy S24 FE | 8 | 16:38:52–16:39:38 |
+| `GANStickerless_GalaxyS24FE_S4/` | Stickerless GAN cube, fourth capture state | Galaxy S24 FE | 9 | 16:39:45–16:40:54 |
+| `GANStickerless_GalaxyTab_S4/` | Stickerless GAN cube, fourth capture state | Galaxy Tab (`SM-T738U`) | 8 | 16:41:59–16:42:37 |
+| `RubikStickered_GalaxyTab_S4/` | Stickered Rubik cube, fourth capture state | Galaxy Tab (`SM-T738U`) | 8 | 16:42:52–16:43:21 |
+
+
+
+## Capture states
+
+S1 through S4 label four capture groups for each cube/device combination. Each folder keeps photos of one cube state from that capture group; rotating the whole cube is fine, but do not turn its layers between views. The S3 Galaxy Tab stickered set contains photos from 16:32 and 17:03; both timestamp groups are retained in that folder.
+
 
 ## State assignment
 
-`S1` means the first chronological pass through the four device/cube combinations. It runs from 13:32:36 to 13:36:35. `S2` means the later pass, from 13:41:59 to 13:46:14. Within each pass, the next combination starts about a minute after the previous one. This order is the evidence for matching S1 and S2 across devices and cube types. The labels describe capture groups; they are not a solver-verified comparison of every sticker in the cube state.
+`S1` is the first chronological pass through the four device/cube combinations (13:32–13:36); `S2` is the later pass (13:41–13:46). S3 and S4 are the third and fourth capture groups. Capture order and timestamps help audit which folder a photo belongs to, but do not prove that sticker arrangements match across devices. The labels describe capture groups; they are not a solver-verified comparison of every sticker in the cube state.
 
 The uploaded folders originally used V1/V2 labels inconsistently. The folders here use S1/S2 according to the timestamps. One Galaxy Tab GAN photo, `20261031_134358.jpg`, was originally in the early-labeled V2 folder, but its EXIF time places it at the start of the later capture pass, so it is in `GANStickerless_GalaxyTab_S2/`.
 
 ## Filenames and metadata
 
-Original timestamp filenames are retained. Their `YYYYMMDD_HHMMSS.jpg` portion can be used to sort photos approximately by capture time. All 64 photos contain EXIF `DateTimeOriginal`, and the filename time agrees within one second; four filenames are one second earlier than the EXIF value. Use the EXIF time when a second-level tie matters.
+Original timestamp filenames are retained. Their `YYYYMMDD_HHMMSS.jpg` portion can be used to sort photos approximately by capture time. The original S1/S2 photos contain EXIF `DateTimeOriginal`; in four cases, the filename is one second earlier than the EXIF value. Use EXIF time when a second-level tie matters. S3/S4 folder counts and filename time ranges are listed above.
 
-The Galaxy S24 FE photos report camera model `Galaxy S24 FE`; Galaxy Tab photos report `SM-T738U`. All timestamps are local. Twenty-six Galaxy Tab photos omit `OffsetTimeOriginal`; the others report `-06:00`.
+The Galaxy S24 FE photos report camera model `Galaxy S24 FE`; Galaxy Tab photos report `SM-T738U`. All timestamps are local. Some Galaxy Tab photos omit `OffsetTimeOriginal`; where present, the offset is `-06:00`.
 
-`state-assignment.csv` is the audit trail for this organization. Each row gives the previous folder name, filename, EXIF timestamp, timezone offset when present, camera model, assigned state, and destination folder.
+`state-assignment.csv` records the original S1/S2 reorganization. Each row gives the previous folder name, filename, EXIF timestamp, timezone offset when present, camera model, assigned state, and destination folder. S3/S4 photos retain their uploaded folder placement and timestamp filenames.
 
 ## Intended use and limits
 
