@@ -2,7 +2,25 @@
 
 ## Result and recommendation
 
-**Release recommendation: BETA.** No independently ground-truthed physical face captures have been evaluated, so this spike does not establish sticker accuracy and cannot support GA. Keep the Manual Cube Editor as the primary entry path. Recommend the guided scan for the next measured prototype; do not promote Quick Scan until the normal indoor live-device gate below reaches at least 99% correct stickers.
+**Release recommendation: BETA.** The offline JPEG check below measures sticker color classification on captured photos, but does not evaluate the live CameraX pipeline. It does not satisfy the normal indoor live-device gate or support GA. Keep the Manual Cube Editor as the primary entry path; do not promote Quick Scan until the live-device gate below reaches at least 99% correct stickers.
+
+## Offline S3-to-S4 source-photo evaluation (2026-10-31)
+
+The fixture photos were visually inspected. For each cube/device group, six face-on, single-face S3 images (one visibly uniform face per canonical color) supplied calibration; six face-on S4 images supplied nine row-major sticker labels each. The checked-in manifest records every exact image, explicit color label, normalized S4 grid rectangle, S3 sample point, and excluded image. S3 and S4 are treated as distinct captured lighting groups, as reported by the user; no named illumination, photometric level, or relationship between the cube states is inferred. Face identity and orientation remain unknown, so this scores color classification only.
+
+The evaluator extracts four small RGB patches around each sticker-center region to reduce center-logo contamination, converts them with the prototype's D65 sRGB-to-CIELAB constants, derives one center per color from the corresponding S3 image, and uses the same squared Euclidean nearest-center rule. The four patches avoid literal center pixels; this is an offline image-space color check, not a CameraX/YUV measurement. `Fixtures/labeled/photo-evaluation-overlay.jpg` marks each S4 grid, center, and four patch sites (green means predicted color matched visual truth, red means it did not; cyan marks the patch sites); `photo-calibration-overlay.jpg` shows the S3 calibration patches. Labels and sample rectangles were visually checked against the source views; logo centers are labeled by the visible underlying sticker/plastic color. No image was unavailable.
+
+Run `python3 -m pip install -r tools/requirements-photo-eval.txt`, then `python3 tools/evaluate_fixture_photos.py`. `--check` verifies deterministic regeneration against the checked-in result. The machine-readable inventory and all predictions are in `Fixtures/labeled/photo-evaluation-results.json`; the source labels and sample rectangles are in `Fixtures/labeled/photo-evaluation.json`.
+
+| Cube | Device | Correct stickers | Accuracy |
+|---|---|---:|---:|
+| Rubik stickered | Galaxy S24 FE | 34/54 | 62.9630% |
+| GAN stickerless | Galaxy S24 FE | 39/54 | 72.2222% |
+| Rubik stickered | Galaxy Tab S7 FE 5G | 26/54 | 48.1481% |
+| GAN stickerless | Galaxy Tab S7 FE 5G | 36/54 | 66.6667% |
+| **All four groups** | **2 cubes × 2 devices** | **135/216** | **62.5000%** |
+
+The low offline score is evidence against promoting the current simple color-center method; it is not a live accuracy estimate. Because illumination was not metered or held to a named level in the source photos, the score cannot isolate lighting effects or be generalized to a particular lighting condition. The task's AC requiring both physical devices and both cubes to reach 99% in a controlled normal indoor live capture remains human-gated and unrun.
 
 Current classifier fixture score is synthetic contract validation only. It checks the nearest-center implementation and JSON reader, not camera recognition. The 132 JPEGs in `Fixtures/` are source photos organized into 16 capture folders spanning S1 through S4 for two cubes and two devices. Their folder names and capture-group labels are not per-image ground truth, face orientation, or sticker truth. The photos have no established lighting conditions, and do not constitute the physical sticker-accuracy measurement. The single labeled JSON sample under `Fixtures/labeled/` is a deterministic synthetic sample, clearly separated from those photos.
 
