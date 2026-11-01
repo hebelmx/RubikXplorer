@@ -4,7 +4,7 @@
 
 **Release recommendation: BETA.** No independently ground-truthed physical face captures have been evaluated, so this spike does not establish sticker accuracy and cannot support GA. Keep the Manual Cube Editor as the primary entry path. Recommend the guided scan for the next measured prototype; do not promote Quick Scan until the normal indoor live-device gate below reaches at least 99% correct stickers.
 
-Current classifier fixture score is synthetic contract validation only. It checks the nearest-center implementation and JSON reader, not camera recognition. The 64 JPEGs in `Fixtures/` remain source-only multi-view images: their folder names and S1/S2 labels are not face orientation or sticker truth. The single labeled JSON sample under `Fixtures/labeled/` is a deterministic synthetic sample, clearly separated from those photos.
+Current classifier fixture score is synthetic contract validation only. It checks the nearest-center implementation and JSON reader, not camera recognition. The 132 JPEGs in `Fixtures/` are source photos organized into 16 capture folders spanning S1 through S4 for two cubes and two devices. Their folder names and capture-group labels are not per-image ground truth, face orientation, or sticker truth. The photos have no established lighting conditions, and do not constitute the physical sticker-accuracy measurement. The single labeled JSON sample under `Fixtures/labeled/` is a deterministic synthetic sample, clearly separated from those photos.
 
 ## Live capture matrix
 

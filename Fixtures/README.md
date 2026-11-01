@@ -1,6 +1,6 @@
 # Cube photo fixtures
 
-This directory contains 132 original JPEG photos of two physical 3×3 cubes, photographed with two Samsung devices. Each photo shows one cube from one camera view. The 16 populated subfolders organize photos by cube, device, and capture state S1 through S4.
+This directory contains 132 original JPEG photos of two physical 3×3 cubes, photographed with two Samsung devices. Each photo shows one cube from one camera view. The 16 populated subfolders organize photos by cube, device, and capture group S1 through S4 (four groups for each cube/device combination).
 
 ## Folder contents
 
@@ -53,8 +53,8 @@ The Galaxy S24 FE photos report camera model `Galaxy S24 FE`; Galaxy Tab photos 
 
 ## Intended use and limits
 
-These are multi-view camera fixtures for cube framing, lighting, focus, and recognition work. Views vary in angle, distance, sharpness, and illumination. The photos are not labeled face scans, and this dataset does not include a manually verified 54-facelet cube state for each scramble. Do not treat folder names as face orientation or color ground truth.
+These are source photos organized into multi-view capture groups for cube framing, lighting, focus, and recognition work. Views vary in angle, distance, sharpness, and illumination; lighting conditions were not established or controlled. There are no per-image ground-truth labels, labeled face scans, or manually verified 54-facelet cube states. Do not treat folder names as face orientation or color ground truth. These photos do not constitute a physical sticker-accuracy measurement.
 
 ## Guided scan spike fixtures
 
-`labeled/face-samples.json` contains one deterministic **synthetic** CIELAB face sample, six explicit synthetic calibration centers, and explicit nine-sticker truth. It validates the JSON contract and classifier only; it is not derived from the JPEGs and is not camera accuracy evidence. Run it with `./gradlew :core:domain:test --tests 'dev.rubikxplorer.domain.recognition.ScanFixtureEvaluationTest'`. The live test matrix and scoring rules are in `docs/spikes/oq-4-guided-scan.md`. The original 64 JPEGs above remain unlabeled source-only data.
+`labeled/face-samples.json` contains one deterministic **synthetic** CIELAB face sample, six explicit synthetic calibration centers, and explicit nine-sticker truth. It validates the JSON contract and classifier only; it is not derived from the JPEGs and is not camera accuracy evidence. Run it with `./gradlew :core:domain:test --tests 'dev.rubikxplorer.domain.recognition.ScanFixtureEvaluationTest'`. The live test matrix and scoring rules are in `docs/spikes/oq-4-guided-scan.md`. The 132 JPEGs above remain unlabeled source photos in four capture groups per cube/device combination.
