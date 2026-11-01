@@ -10,7 +10,7 @@ package dev.rubikxplorer.buildlogic.policy
  *   `title`, `stateDescription` or `onClickLabel` named argument; or
  * - holds two or more whitespace-separated words, unless it sits in a programmer-error context:
  *   `require`, `requireNotNull`, `check`, `checkNotNull`, `error`, `throw`, an `*Exception(` constructor or a
- *   `toString()` override.
+ *   `toString()` override or an `Unavailable` result constructor.
  *
  * Pure: the Gradle task reads the files and calls [check].
  */
@@ -96,7 +96,15 @@ object LearnerTextPolicy {
         literal: KotlinLexer.Literal,
     ): Boolean {
         val context = KotlinLexer.enclosingCalls(code, literal.start)
-        if (context.any { it.callee in programmerErrorCalls || isExceptionConstructor(it.callee) || it.afterThrow }) return true
+        if (context.any {
+                it.callee in programmerErrorCalls ||
+                    it.callee == "Unavailable" ||
+                    isExceptionConstructor(it.callee) ||
+                    it.afterThrow
+            }
+        ) {
+            return true
+        }
         return KotlinLexer.enclosingFunction(code, literal.start) == "toString"
     }
 }

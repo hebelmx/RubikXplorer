@@ -131,6 +131,12 @@ class LearnerTextPolicyTest {
     }
 
     @Test
+    fun `Unavailable result diagnostics may hold prose`() {
+        assertEquals(emptyList<Pair<Int, Rule>>(), rules("ClassificationResult.Unavailable(\"two word diagnostic\")"))
+        assertEquals(listOf(1 to Rule.PROSE), rules("val reason = \"two word diagnostic\""))
+    }
+
+    @Test
     fun `a template counts as a word`() {
         val source =
             """
