@@ -1,0 +1,31 @@
+[workflow]
+max_stories = 3 # Stories to execute per run without an explicit count.
+handoff_every = 5 # Stories before writing a fresh-session handoff.
+default_branch = "main" # Protected destination branch for pull requests.
+remote = "origin" # Git remote that owns the project repository.
+branch_prefix_default = "feat" # Prefix when no title rule matches.
+worktree_dir = "../RubikXplorer-worktrees" # Sibling directory for isolated story worktrees.
+merge_method = "merge" # Allowed: merge, squash, rebase.
+verify_commands = [] # Independent verification commands; empty uses AGENTS.md or the spec.
+log_tail_lines = 40 # Failure-log lines included in orchestrator context.
+max_fix_rounds = 2 # Acceptance-gate repair rounds before stopping.
+gate_fail_on = ["high"] # Finding severities that block merge.
+followup_passes = 1 # Follow-up build-auto reviews before stopping.
+ci_timeout_minutes = 45 # Maximum wait for pull-request checks.
+epic_retrospective = "auto" # Allowed: auto, ask, skip.
+gates = [] # Optional entries: id, when = before-start|before-merge, and reason.
+
+[[workflow.branch_prefix_rules]]
+id = "spike"
+match = "^spike"
+prefix = "spike"
+
+[[workflow.branch_prefix_rules]]
+id = "chore"
+match = "scaffold|ci|pipeline|release|build"
+prefix = "chore"
+
+[[workflow.branch_prefix_rules]]
+id = "content"
+match = "author|content"
+prefix = "content"
