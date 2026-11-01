@@ -34,3 +34,7 @@ The Galaxy S24 FE photos report camera model `Galaxy S24 FE`; Galaxy Tab photos 
 ## Intended use and limits
 
 These are multi-view camera fixtures for cube framing, lighting, focus, and recognition work. Views vary in angle, distance, sharpness, and illumination. The photos are not labeled face scans, and this dataset does not include a manually verified 54-facelet cube state for each scramble. Do not treat folder names as face orientation or color ground truth.
+
+## Guided scan spike fixtures
+
+`labeled/face-samples.json` contains one deterministic **synthetic** CIELAB face sample, six explicit synthetic calibration centers, and explicit nine-sticker truth. It validates the JSON contract and classifier only; it is not derived from the JPEGs and is not camera accuracy evidence. Run it with `./gradlew :core:domain:test --tests 'dev.rubikxplorer.domain.recognition.ScanFixtureEvaluationTest'`. The live test matrix and scoring rules are in `docs/spikes/oq-4-guided-scan.md`. The original 64 JPEGs above remain unlabeled source-only data.

@@ -1,6 +1,9 @@
 package dev.rubikxplorer.domain.cube
 
+import kotlinx.serialization.Serializable
+
 /** Sticker colors. In the home frame WHITE is on U, GREEN on F and RED on R. */
+@Serializable
 enum class Color {
     WHITE,
     YELLOW,
