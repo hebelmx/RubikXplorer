@@ -64,3 +64,17 @@ if (providers.gradleProperty("rubikxplorer.spike3d").orNull == "true") {
         if (withSceneView) implementation(libs.sceneview)
     }
 }
+
+// Story 1.9 guided camera scan prototype. Opt-in debug source and manifest only; release stays clean.
+if (providers.gradleProperty("rubikxplorer.spikeScan").orNull == "true") {
+    android {
+        sourceSets.getByName("debug").kotlin.directories += "src/spikeScan/kotlin"
+        sourceSets.getByName("debug").manifest.srcFile("src/spikeScan/AndroidManifest.xml")
+    }
+    dependencies {
+        debugImplementation(libs.androidx.camera.camera2)
+        debugImplementation(libs.androidx.camera.lifecycle)
+        debugImplementation(libs.androidx.camera.view)
+        debugImplementation(libs.kotlinx.serialization.json)
+    }
+}

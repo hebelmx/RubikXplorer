@@ -1,6 +1,9 @@
 package dev.rubikxplorer.domain.cube
 
+import kotlinx.serialization.Serializable
+
 /** The six faces of the cube, in URFDLB order. A face Move names the Learner-facing face it turns. */
+@Serializable
 enum class Face {
     U,
     R,

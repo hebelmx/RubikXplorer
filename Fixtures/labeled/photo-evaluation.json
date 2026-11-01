@@ -1,0 +1,763 @@
+{
+  "schemaVersion": 1,
+  "method": "Normalized visible-face rectangle; row-major interpolated centers; center-region RGB patch converted to CIELAB D65. Calibration uses four offset center patches on visually monochrome S3 face photos.",
+  "groups": [
+    {
+      "cubeDevice": "RubikStickered_GalaxyS24FE",
+      "calibrationState": "S3",
+      "scoredState": "S4",
+      "calibration": [
+        {
+          "image": "Fixtures/RubikStickered_GalaxyS24FE_S3/20261031_162928.jpg",
+          "color": "WHITE",
+          "point": [
+            0.54,
+            0.58
+          ]
+        },
+        {
+          "image": "Fixtures/RubikStickered_GalaxyS24FE_S3/20261031_162932.jpg",
+          "color": "ORANGE",
+          "point": [
+            0.51,
+            0.63
+          ]
+        },
+        {
+          "image": "Fixtures/RubikStickered_GalaxyS24FE_S3/20261031_162937.jpg",
+          "color": "YELLOW",
+          "point": [
+            0.53,
+            0.62
+          ]
+        },
+        {
+          "image": "Fixtures/RubikStickered_GalaxyS24FE_S3/20261031_162940.jpg",
+          "color": "RED",
+          "point": [
+            0.5,
+            0.6
+          ]
+        },
+        {
+          "image": "Fixtures/RubikStickered_GalaxyS24FE_S3/20261031_162950.jpg",
+          "color": "BLUE",
+          "point": [
+            0.53,
+            0.61
+          ]
+        },
+        {
+          "image": "Fixtures/RubikStickered_GalaxyS24FE_S3/20261031_162953.jpg",
+          "color": "GREEN",
+          "point": [
+            0.55,
+            0.64
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "image": "Fixtures/RubikStickered_GalaxyS24FE_S4/20261031_163852.jpg",
+          "rect": [
+            0.36,
+            0.28,
+            0.82,
+            0.87
+          ],
+          "truth": [
+            "RED",
+            "ORANGE",
+            "RED",
+            "RED",
+            "GREEN",
+            "BLUE",
+            "WHITE",
+            "BLUE",
+            "WHITE"
+          ]
+        },
+        {
+          "image": "Fixtures/RubikStickered_GalaxyS24FE_S4/20261031_163855.jpg",
+          "rect": [
+            0.35,
+            0.31,
+            0.86,
+            0.86
+          ],
+          "truth": [
+            "YELLOW",
+            "BLUE",
+            "ORANGE",
+            "ORANGE",
+            "YELLOW",
+            "YELLOW",
+            "ORANGE",
+            "GREEN",
+            "GREEN"
+          ]
+        },
+        {
+          "image": "Fixtures/RubikStickered_GalaxyS24FE_S4/20261031_163858.jpg",
+          "rect": [
+            0.27,
+            0.32,
+            0.75,
+            0.89
+          ],
+          "truth": [
+            "BLUE",
+            "GREEN",
+            "BLUE",
+            "GREEN",
+            "BLUE",
+            "ORANGE",
+            "RED",
+            "YELLOW",
+            "YELLOW"
+          ]
+        },
+        {
+          "image": "Fixtures/RubikStickered_GalaxyS24FE_S4/20261031_163901.jpg",
+          "rect": [
+            0.38,
+            0.35,
+            0.86,
+            0.86
+          ],
+          "truth": [
+            "WHITE",
+            "GREEN",
+            "GREEN",
+            "WHITE",
+            "WHITE",
+            "WHITE",
+            "RED",
+            "ORANGE",
+            "ORANGE"
+          ]
+        },
+        {
+          "image": "Fixtures/RubikStickered_GalaxyS24FE_S4/20261031_163910.jpg",
+          "rect": [
+            0.3,
+            0.34,
+            0.77,
+            0.88
+          ],
+          "truth": [
+            "YELLOW",
+            "RED",
+            "GREEN",
+            "YELLOW",
+            "RED",
+            "GREEN",
+            "RED",
+            "RED",
+            "WHITE"
+          ]
+        },
+        {
+          "image": "Fixtures/RubikStickered_GalaxyS24FE_S4/20261031_163914.jpg",
+          "rect": [
+            0.42,
+            0.39,
+            0.86,
+            0.9
+          ],
+          "truth": [
+            "BLUE",
+            "YELLOW",
+            "GREEN",
+            "BLUE",
+            "ORANGE",
+            "WHITE",
+            "YELLOW",
+            "WHITE",
+            "BLUE"
+          ]
+        }
+      ],
+      "excluded": {
+        "calibrationMultiFace": [
+          "20261031_163300.jpg",
+          "20261031_163303.jpg",
+          "20261031_163311.jpg"
+        ],
+        "duplicateCalibrationSingleFace": [],
+        "scoringMultiFace": [
+          "20261031_163929.jpg",
+          "20261031_163938.jpg"
+        ]
+      }
+    },
+    {
+      "cubeDevice": "GANStickerless_GalaxyS24FE",
+      "calibrationState": "S3",
+      "scoredState": "S4",
+      "calibration": [
+        {
+          "image": "Fixtures/GANStickerless_GalaxyS24FE_S3/20261031_162959.jpg",
+          "color": "BLUE",
+          "point": [
+            0.51,
+            0.53
+          ]
+        },
+        {
+          "image": "Fixtures/GANStickerless_GalaxyS24FE_S3/20261031_163001.jpg",
+          "color": "RED",
+          "point": [
+            0.53,
+            0.53
+          ]
+        },
+        {
+          "image": "Fixtures/GANStickerless_GalaxyS24FE_S3/20261031_163005.jpg",
+          "color": "GREEN",
+          "point": [
+            0.54,
+            0.56
+          ]
+        },
+        {
+          "image": "Fixtures/GANStickerless_GalaxyS24FE_S3/20261031_163008.jpg",
+          "color": "ORANGE",
+          "point": [
+            0.56,
+            0.56
+          ]
+        },
+        {
+          "image": "Fixtures/GANStickerless_GalaxyS24FE_S3/20261031_163031.jpg",
+          "color": "WHITE",
+          "point": [
+            0.61,
+            0.6
+          ]
+        },
+        {
+          "image": "Fixtures/GANStickerless_GalaxyS24FE_S3/20261031_163034.jpg",
+          "color": "YELLOW",
+          "point": [
+            0.61,
+            0.6
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "image": "Fixtures/GANStickerless_GalaxyS24FE_S4/20261031_164035.jpg",
+          "rect": [
+            0.45,
+            0.32,
+            0.88,
+            0.89
+          ],
+          "truth": [
+            "RED",
+            "RED",
+            "WHITE",
+            "ORANGE",
+            "GREEN",
+            "RED",
+            "BLUE",
+            "ORANGE",
+            "ORANGE"
+          ]
+        },
+        {
+          "image": "Fixtures/GANStickerless_GalaxyS24FE_S4/20261031_164038.jpg",
+          "rect": [
+            0.45,
+            0.32,
+            0.9,
+            0.89
+          ],
+          "truth": [
+            "GREEN",
+            "WHITE",
+            "BLUE",
+            "YELLOW",
+            "ORANGE",
+            "WHITE",
+            "GREEN",
+            "WHITE",
+            "RED"
+          ]
+        },
+        {
+          "image": "Fixtures/GANStickerless_GalaxyS24FE_S4/20261031_164041.jpg",
+          "rect": [
+            0.42,
+            0.29,
+            0.86,
+            0.91
+          ],
+          "truth": [
+            "YELLOW",
+            "BLUE",
+            "GREEN",
+            "GREEN",
+            "BLUE",
+            "YELLOW",
+            "BLUE",
+            "GREEN",
+            "GREEN"
+          ]
+        },
+        {
+          "image": "Fixtures/GANStickerless_GalaxyS24FE_S4/20261031_164044.jpg",
+          "rect": [
+            0.45,
+            0.32,
+            0.89,
+            0.89
+          ],
+          "truth": [
+            "WHITE",
+            "GREEN",
+            "WHITE",
+            "ORANGE",
+            "RED",
+            "WHITE",
+            "RED",
+            "RED",
+            "ORANGE"
+          ]
+        },
+        {
+          "image": "Fixtures/GANStickerless_GalaxyS24FE_S4/20261031_164051.jpg",
+          "rect": [
+            0.45,
+            0.35,
+            0.89,
+            0.88
+          ],
+          "truth": [
+            "YELLOW",
+            "BLUE",
+            "WHITE",
+            "YELLOW",
+            "BLUE",
+            "WHITE",
+            "YELLOW",
+            "BLUE",
+            "YELLOW"
+          ]
+        },
+        {
+          "image": "Fixtures/GANStickerless_GalaxyS24FE_S4/20261031_164054.jpg",
+          "rect": [
+            0.45,
+            0.34,
+            0.89,
+            0.89
+          ],
+          "truth": [
+            "ORANGE",
+            "RED",
+            "RED",
+            "YELLOW",
+            "YELLOW",
+            "GREEN",
+            "ORANGE",
+            "ORANGE",
+            "BLUE"
+          ]
+        }
+      ],
+      "excluded": {
+        "calibrationMultiFace": [
+          "20261031_163318.jpg",
+          "20261031_163339.jpg"
+        ],
+        "duplicateCalibrationSingleFace": [],
+        "scoringMultiFace": [
+          "20261031_163945.jpg",
+          "20261031_163951.jpg",
+          "20261031_164005.jpg"
+        ]
+      }
+    },
+    {
+      "cubeDevice": "RubikStickered_GalaxyTab",
+      "calibrationState": "S3",
+      "scoredState": "S4",
+      "calibration": [
+        {
+          "image": "Fixtures/RubikStickered_GalaxyTab_S3/20261031_170330.jpg",
+          "color": "YELLOW",
+          "point": [
+            0.58,
+            0.62
+          ]
+        },
+        {
+          "image": "Fixtures/RubikStickered_GalaxyTab_S3/20261031_170335.jpg",
+          "color": "BLUE",
+          "point": [
+            0.66,
+            0.66
+          ]
+        },
+        {
+          "image": "Fixtures/RubikStickered_GalaxyTab_S3/20261031_170338.jpg",
+          "color": "WHITE",
+          "point": [
+            0.63,
+            0.65
+          ]
+        },
+        {
+          "image": "Fixtures/RubikStickered_GalaxyTab_S3/20261031_170342.jpg",
+          "color": "GREEN",
+          "point": [
+            0.59,
+            0.67
+          ]
+        },
+        {
+          "image": "Fixtures/RubikStickered_GalaxyTab_S3/20261031_170346.jpg",
+          "color": "ORANGE",
+          "point": [
+            0.64,
+            0.67
+          ]
+        },
+        {
+          "image": "Fixtures/RubikStickered_GalaxyTab_S3/20261031_170350.jpg",
+          "color": "RED",
+          "point": [
+            0.63,
+            0.65
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "image": "Fixtures/RubikStickered_GalaxyTab_S4/20261031_164305.jpg",
+          "rect": [
+            0.29,
+            0.3,
+            0.77,
+            0.88
+          ],
+          "truth": [
+            "WHITE",
+            "RED",
+            "RED",
+            "BLUE",
+            "GREEN",
+            "ORANGE",
+            "WHITE",
+            "BLUE",
+            "ORANGE"
+          ]
+        },
+        {
+          "image": "Fixtures/RubikStickered_GalaxyTab_S4/20261031_164308.jpg",
+          "rect": [
+            0.47,
+            0.24,
+            0.89,
+            0.84
+          ],
+          "truth": [
+            "ORANGE",
+            "ORANGE",
+            "YELLOW",
+            "GREEN",
+            "YELLOW",
+            "BLUE",
+            "GREEN",
+            "YELLOW",
+            "ORANGE"
+          ]
+        },
+        {
+          "image": "Fixtures/RubikStickered_GalaxyTab_S4/20261031_164311.jpg",
+          "rect": [
+            0.42,
+            0.27,
+            0.85,
+            0.85
+          ],
+          "truth": [
+            "RED",
+            "RED",
+            "BLUE",
+            "YELLOW",
+            "BLUE",
+            "GREEN",
+            "YELLOW",
+            "ORANGE",
+            "BLUE"
+          ]
+        },
+        {
+          "image": "Fixtures/RubikStickered_GalaxyTab_S4/20261031_164314.jpg",
+          "rect": [
+            0.33,
+            0.35,
+            0.76,
+            0.88
+          ],
+          "truth": [
+            "RED",
+            "WHITE",
+            "WHITE",
+            "ORANGE",
+            "WHITE",
+            "GREEN",
+            "ORANGE",
+            "WHITE",
+            "GREEN"
+          ]
+        },
+        {
+          "image": "Fixtures/RubikStickered_GalaxyTab_S4/20261031_164317.jpg",
+          "rect": [
+            0.39,
+            0.3,
+            0.84,
+            0.89
+          ],
+          "truth": [
+            "RED",
+            "YELLOW",
+            "YELLOW",
+            "RED",
+            "RED",
+            "RED",
+            "WHITE",
+            "GREEN",
+            "GREEN"
+          ]
+        },
+        {
+          "image": "Fixtures/RubikStickered_GalaxyTab_S4/20261031_164321.jpg",
+          "rect": [
+            0.42,
+            0.27,
+            0.85,
+            0.9
+          ],
+          "truth": [
+            "YELLOW",
+            "BLUE",
+            "BLUE",
+            "WHITE",
+            "ORANGE",
+            "YELLOW",
+            "BLUE",
+            "WHITE",
+            "GREEN"
+          ]
+        }
+      ],
+      "excluded": {
+        "calibrationMultiFace": [
+          "20261031_163243.jpg",
+          "20261031_163249.jpg"
+        ],
+        "duplicateCalibrationSingleFace": [],
+        "scoringMultiFace": [
+          "20261031_164252.jpg",
+          "20261031_164258.jpg"
+        ]
+      }
+    },
+    {
+      "cubeDevice": "GANStickerless_GalaxyTab",
+      "calibrationState": "S3",
+      "scoredState": "S4",
+      "calibration": [
+        {
+          "image": "Fixtures/GANStickerless_GalaxyTab_S3/20261031_163113.jpg",
+          "color": "YELLOW",
+          "point": [
+            0.46,
+            0.56
+          ]
+        },
+        {
+          "image": "Fixtures/GANStickerless_GalaxyTab_S3/20261031_163121.jpg",
+          "color": "WHITE",
+          "point": [
+            0.73,
+            0.62
+          ]
+        },
+        {
+          "image": "Fixtures/GANStickerless_GalaxyTab_S3/20261031_163125.jpg",
+          "color": "ORANGE",
+          "point": [
+            0.67,
+            0.66
+          ]
+        },
+        {
+          "image": "Fixtures/GANStickerless_GalaxyTab_S3/20261031_163129.jpg",
+          "color": "GREEN",
+          "point": [
+            0.65,
+            0.66
+          ]
+        },
+        {
+          "image": "Fixtures/GANStickerless_GalaxyTab_S3/20261031_163134.jpg",
+          "color": "RED",
+          "point": [
+            0.65,
+            0.66
+          ]
+        },
+        {
+          "image": "Fixtures/GANStickerless_GalaxyTab_S3/20261031_163138.jpg",
+          "color": "BLUE",
+          "point": [
+            0.69,
+            0.65
+          ]
+        }
+      ],
+      "samples": [
+        {
+          "image": "Fixtures/GANStickerless_GalaxyTab_S4/20261031_164217.jpg",
+          "rect": [
+            0.32,
+            0.24,
+            0.76,
+            0.86
+          ],
+          "truth": [
+            "BLUE",
+            "GREEN",
+            "YELLOW",
+            "GREEN",
+            "WHITE",
+            "BLUE",
+            "GREEN",
+            "YELLOW",
+            "GREEN"
+          ]
+        },
+        {
+          "image": "Fixtures/GANStickerless_GalaxyTab_S4/20261031_164221.jpg",
+          "rect": [
+            0.41,
+            0.28,
+            0.86,
+            0.89
+          ],
+          "truth": [
+            "GREEN",
+            "YELLOW",
+            "GREEN",
+            "WHITE",
+            "ORANGE",
+            "WHITE",
+            "RED",
+            "WHITE",
+            "BLUE"
+          ]
+        },
+        {
+          "image": "Fixtures/GANStickerless_GalaxyTab_S4/20261031_164224.jpg",
+          "rect": [
+            0.35,
+            0.36,
+            0.84,
+            0.92
+          ],
+          "truth": [
+            "BLUE",
+            "RED",
+            "RED",
+            "ORANGE",
+            "GREEN",
+            "RED",
+            "ORANGE",
+            "RED",
+            "WHITE"
+          ]
+        },
+        {
+          "image": "Fixtures/GANStickerless_GalaxyTab_S4/20261031_164228.jpg",
+          "rect": [
+            0.34,
+            0.33,
+            0.85,
+            0.93
+          ],
+          "truth": [
+            "RED",
+            "ORANGE",
+            "WHITE",
+            "RED",
+            "RED",
+            "GREEN",
+            "ORANGE",
+            "WHITE",
+            "WHITE"
+          ]
+        },
+        {
+          "image": "Fixtures/GANStickerless_GalaxyTab_S4/20261031_164232.jpg",
+          "rect": [
+            0.43,
+            0.4,
+            0.85,
+            0.93
+          ],
+          "truth": [
+            "ORANGE",
+            "YELLOW",
+            "ORANGE",
+            "ORANGE",
+            "YELLOW",
+            "RED",
+            "BLUE",
+            "GREEN",
+            "RED"
+          ]
+        },
+        {
+          "image": "Fixtures/GANStickerless_GalaxyTab_S4/20261031_164237.jpg",
+          "rect": [
+            0.45,
+            0.36,
+            0.89,
+            0.93
+          ],
+          "truth": [
+            "YELLOW",
+            "YELLOW",
+            "YELLOW",
+            "BLUE",
+            "BLUE",
+            "BLUE",
+            "YELLOW",
+            "BLUE",
+            "WHITE"
+          ]
+        }
+      ],
+      "excluded": {
+        "calibrationMultiFace": [
+          "20261031_163210.jpg",
+          "20261031_163232.jpg"
+        ],
+        "duplicateCalibrationSingleFace": [
+          "20261031_163142.jpg",
+          "20261031_163145.jpg"
+        ],
+        "scoringMultiFace": [
+          "20261031_164159.jpg",
+          "20261031_164207.jpg"
+        ]
+      }
+    }
+  ]
+}
