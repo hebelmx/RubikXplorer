@@ -3,21 +3,28 @@ title: 'Pruning tables, cached off the main thread'
 type: 'feature'
 ticket: ''
 created: '2026-11-02'
-status: 'blocked'
+status: 'built'
 baseline_revision: 'aab7e880d09087e2606e97a2354c3d76e029c397'
 route: 'full'
 route_source: 'auto'
 risk: 'high'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'quick'
+review_source: 'pinned'
+lenses_ran: [quick]
 review_loop_iteration: 0
 followup_review_recommended: false
 context:
   - /mnt/e/Dynamic/IndFun/RubikXplorer/AGENTS.md
   - /mnt/e/Dynamic/IndFun/RubikXplorer/_bmad-output/planning-artifacts/architecture/architecture-RubikXplorer-2026-10-29/ARCHITECTURE-SPINE.md
 warnings: []
-deferred: []
+deferred:
+  - summary: >-
+      Minimum-reference-device acceptance evidence and packaging decision remain a before-merge human gate.
+    evidence: |-
+      No adb devices were attached. Story 3.2 requires Tab S7 FE 5G generation size/time measurements, NFR-11 installed-size evaluation, a packaging decision in the architecture memlog, and physical StrictMode evidence. Orchestration explicitly authorized completing independently useful infrastructure before this external gate.
+    location: >-
+      docs/pruning-tables.md
+    severity: medium
 ---
 
 <intent-contract>
@@ -34,13 +41,9 @@ deferred: []
 
 **Never:** Substitute host timing for the device acceptance measurement, claim unrun StrictMode results, copy third-party solver code, implement search or SolveCube, or edit protected planning artifacts.
 
-## I/O & Edge-Case Matrix
+## Delivery scope authorized by orchestration
 
-| Scenario | Input / State | Expected Output / Behavior | Error Handling |
-|----------|---------------|---------------------------|----------------|
-| Generation measurement | Minimum reference device and generated pruning tables | Record table size and build duration, then decide packaging against NFR-11 | Device unavailable blocks acceptance and the evidence-based decision |
-| First run, if selected | No app-private cache | Build on Dispatchers.Default without delaying Lessons; cache valid results | Report generation/cache failure as a value |
-| Subsequent run, if selected | Valid app-private cache | Reuse tables off-main with no StrictMode disk violations | Reject incompatible or corrupt cache and regenerate off-main |
+Implement independently useful generation, cache infrastructure, and device measurement support now. Keep the bundled-versus-first-run production choice pending real minimum-device measurement. Do not wire a startup wait or claim Story 3.2 acceptance before the human before-merge gate passes. The table/cache API must be ready for the subsequent search story while staying unused by Lessons.
 
 </intent-contract>
 
@@ -56,10 +59,10 @@ deferred: []
 
 **Execution:**
 
-- [ ] `core/solver/src/main/kotlin/dev/rubikxplorer/solver/` — implement and test clean-room pruning table generation after an executable verification plan is available.
-- [ ] `app/` — provide the minimum-device measurement surface and measure generation size/time; use results to decide bundled versus first-run.
-- [ ] Architecture memlog — record the measured evidence and packaging choice using `uv run _bmad/scripts/memlog.py append`.
-- [ ] `app/` — if first-run is chosen, implement Dispatchers.Default generation, app-private caching, Lesson independence, and StrictMode verification.
+- [x] `core/solver/src/main/kotlin/dev/rubikxplorer/solver/` — implement clean-room phase-1 twist/slice and flip/slice and phase-2 corner/slice and edge/slice admissible distance tables; breadth-first distances from solved coordinates over existing phase move tables. Test completeness, solved distance, and one-step Lipschitz consistency. Keep table storage compact and provide size/build-time reporting.
+- [x] `app/` — add an on-demand debug measurement surface reporting device identity, generation duration, table bytes and cache timing; document reproducible adb invocation and StrictMode setup. Physical measurements remain an explicit before-merge gate.
+- [x] `docs/` — record pending packaging options with available host evidence and physical acceptance procedure; do not append a fabricated architecture decision.
+- [x] `core/solver/` and `app/` — implement optional off-main generation and versioned, bounded, checksummed private-file cache infrastructure, corruption recovery and atomic replace; use Dispatchers.Default for CPU generation and an I/O dispatcher for disk. Add only catalog-pinned coroutines if needed. Cover cold/warm/corrupt cache, cancellation, concurrent callers, and error-value behavior with JVM tests. Do not enable production first-run policy before measurement.
 
 **Acceptance Criteria:**
 
@@ -68,20 +71,47 @@ deferred: []
 
 ## Implementation Notes
 
-No implementation dispatched: the first AC requires a physical measurement that this environment cannot execute, and its result selects the conditional implementation branch.
+Initial planning detected the unavailable physical gate. Parent orchestration subsequently explicitly authorized independently useful implementation and tests, with device measurements and final delivery mode left pending before merge.
+
+- Added four clean-room breadth-first byte distance projections and phase lookup methods, retaining existing coordinate semantics. Total payload is 4,031,685 bytes; cache format adds 40 bytes. Move-table construction now reuses each decoded row and checks cooperative cancellation before publishing.
+- Added an optional mutex-serialized provider: generation on Default, disk work on IO, bounded versioned SHA-256 cache reads, corrupt-cache recovery, atomic replacement, retryable cancellation and sealed load results. No production startup or Lesson dependency was introduced.
+- Added a debug-only Activity to measure cold/warm loads under main-thread StrictMode disk detection. Private directory lookup itself runs on IO. Added docs/pruning-tables.md with adb procedure, installed-size measurement requirements and pending packaging decision.
+- Added nine pruning/cache tests: exhaustive graph completeness/consistency/descent; cold/warm, corruption/truncation/oversize/version; concurrent callers; cancellation and actual caller cancel/retry; dispatcher execution; failure values; failed atomic replace preserves destination and cleans temporary files.
+- Full gates initially rejected internal fallback/log messages as learner text; changed fallbacks and logs to machine identifiers/structured fields. No gate was weakened. A transient Spotless read raced changing Android ASM build outputs; the final separate formatting and --no-parallel gate run succeeded.
 
 ## Plan Change Log
 
+- 2026-11-02: Orchestration directed completion of reversible implementation, measurement support, and cache infrastructure before the device gate. Keep original story ACs; report blocked acceptance if physical evidence remains unavailable.
+
 ## Review Triage Log
+
+### 2026-11-02 — Review pass
+- verdicts: 2 findings — high 0, medium 2, low 0, false 0, maybe-false 0
+- findings:
+  - `[medium]` `[patch]` Documented adb shorthand resolves against applicationId rather than namespace — checked merged debug manifest: actual class is dev.rubikxplorer.app.solver.PruningTablesBenchmarkActivity, while applicationId is dev.rubikxplorer. Re-engaged implementer and corrected docs to the fully qualified component.
+  - `[medium]` `[defer]` Physical Story 3.2 acceptance evidence remains unavailable — adb lists no devices; the architecture names Tab S7 FE 5G as minimum. This external verification condition predates the code and orchestration explicitly authorized a before-merge human gate. No packaging decision, memlog decision, device timing, installed-size or StrictMode result claimed.
 
 ## Verification
 
-- `$HOME/Android/Sdk/platform-tools/adb devices -l` — executed 2026-11-02; output contained only `List of devices attached`, with no attached device.
-- Architecture spine Stack identifies minimum Samsung Galaxy Tab S7 FE 5G and mid Samsung Galaxy S24 FE. Story 3.3 explicitly allows a JVM proxy; Story 3.2 does not.
-- Once the minimum reference device is available, measure real table generation, storage bytes, install size, and the selected cache path under StrictMode before claiming acceptance.
+- `./gradlew :core:solver:test :app:testDebugUnitTest` — pruning, cache and existing app JVM tests pass; new cache tests prove cold/warm/corrupt paths and concurrency/cancellation/error behavior.
+- `./gradlew spotlessCheck build` — all CI-equivalent gates pass.
+- Minimum reference-device measurement and StrictMode check remain explicitly unrun; adb devices currently lists no devices.
 
 ## Auto Run Result
 
-Status: blocked
+Implementation status: built. Story acceptance and merge remain gated on physical measurements; no unavailable result has been invented.
 
-Blocking condition: unavailable minimum reference device for Story 3.2 AC1 (Samsung Galaxy Tab S7 FE 5G); no attached adb devices. The plan cannot meet the full route's testable/sufficient Ready for Development standard because the required measurement and resulting packaging decision are unavailable. No timing, packaging choice, cache verification, or StrictMode result has been invented. No implementation or review subagents were launched because execution halted during planning, before those steps.
+- Implemented four clean-room BFS pruning projections, optional off-main checksummed cache infrastructure, debug device measurement surface, and reproducible device/size decision documentation. No production packaging policy was selected and no Lesson/startup wait was introduced.
+- Files changed:
+  - `core/solver/src/main/kotlin/dev/rubikxplorer/solver/PruningTables.kt` — four projected distance tables, generation timing and admissible phase lookup methods.
+  - `core/solver/src/main/kotlin/dev/rubikxplorer/solver/PruningTableProvider.kt` — Default/IO dispatch, versioned SHA-256 cache, bounded reads, atomic writes, serialized callers and failure values.
+  - `core/solver/src/main/kotlin/dev/rubikxplorer/solver/MoveTables.kt` — cancel-aware transition generation with per-row decode reuse.
+  - `core/solver/src/test/kotlin/dev/rubikxplorer/solver/PruningTablesTest.kt` — nine exhaustive graph/cache/dispatch/concurrency/cancellation/failure tests.
+  - `app/src/debug/kotlin/dev/rubikxplorer/app/solver/PruningTablesBenchmarkActivity.kt` — opt-in cold/warm measurement with main-thread disk StrictMode policy.
+  - `app/src/debug/AndroidManifest.xml` — debug-only measurement entry point.
+  - `core/solver/build.gradle.kts`, `app/build.gradle.kts`, `gradle/libs.versions.toml` — catalog-pinned coroutines dependency.
+  - `docs/pruning-tables.md` — minimum-device adb procedure and pending packaging/installed-size evidence requirements.
+  - This plan — execution, review and remaining acceptance evidence record.
+- Fresh context-free quick review: two findings, both medium. Patched one documented Activity component; deferred one external physical acceptance gate. No rejected findings. Patched counts: high 0, medium 1, low 0. Follow-up review recommended: false.
+- Verification: `./gradlew :core:solver:test :core:solver:koverVerify` passed. Test XML records 40 solver tests and 97 app debug JVM tests, zero failures/errors/skips. `./gradlew --no-parallel :core:solver:test :app:testDebugUnitTest spotlessCheck build` passed full CI-equivalent gates, including Kover, boundaries, privacy/text policy, Android lint and debug/release/benchmark APK builds. Repeated after the documentation review patch.
+- Residual human before-merge gate: connect the minimum Samsung Galaxy Tab S7 FE 5G, collect generation duration/table/cache bytes and release-equivalent installed-size evidence against NFR-11, verify StrictMode and Lesson independence, choose bundled versus first-run, record the decision using the architecture memlog script, and wire/verify the selected production mode. `adb devices -l` returned no attached devices in this run. Hardware absence is not a code-build failure; Story 3.2 ACs are not yet fully accepted.

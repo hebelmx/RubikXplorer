@@ -7,6 +7,7 @@ plugins {
 val benchmark: SourceSet by sourceSets.creating
 
 dependencies {
+    implementation(libs.kotlinx.coroutines.core)
     implementation(project(":core:application"))
     implementation(project(":core:domain"))
 

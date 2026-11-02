@@ -19,17 +19,29 @@ internal object MoveTables {
             it.face == Face.U || it.face == Face.D || it.turn == Turn.HALF
         }
 
-    // Lazy tables are independent: querying one coordinate does not allocate the other five.
-    private val tables =
-        Coordinate.entries.associateWith { coordinate ->
-            lazy {
-                val moves = moves(coordinate)
-                val transforms = moves.map { CubeState.SOLVED.apply(it).cubies }
-                IntArray(coordinate.size * moves.size) { offset ->
-                    coordinate.encode(coordinate.decode(offset / moves.size).apply(transforms[offset % moves.size]))
+    // Independent tables; cancelled builds are never published.
+    private val tables = mutableMapOf<Coordinate, IntArray>()
+
+    @Synchronized
+    internal fun transitions(
+        coordinate: Coordinate,
+        checkCancellation: () -> Unit = {},
+    ): IntArray {
+        checkCancellation()
+        return tables.getOrPut(coordinate) {
+            val moves = moves(coordinate)
+            val transforms = moves.map { CubeState.SOLVED.apply(it).cubies }
+            val result = IntArray(coordinate.size * moves.size)
+            for (value in 0 until coordinate.size) {
+                if (value % 256 == 0) checkCancellation()
+                val representative = coordinate.decode(value)
+                for (column in moves.indices) {
+                    result[value * moves.size + column] = coordinate.encode(representative.apply(transforms[column]))
                 }
             }
+            result
         }
+    }
 
     fun moves(coordinate: Coordinate): List<FaceTurn> =
         when (coordinate) {
@@ -47,6 +59,6 @@ internal object MoveTables {
         val moves = moves(coordinate)
         val column = moves.indexOf(move)
         require(column >= 0)
-        return tables.getValue(coordinate).value[value * moves.size + column]
+        return transitions(coordinate)[value * moves.size + column]
     }
 }
