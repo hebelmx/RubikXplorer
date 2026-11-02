@@ -1,10 +1,11 @@
 ---
 title: Device validation splits — Story 3.2 and backlog safety assessment
-status: draft-awaiting-approval
+status: approved
 created: 2026-11-02
 scope: moderate-backlog-reorganization
 mode: batch
-implementation_authorized: false
+implementation_authorized: true
+approved: 2026-11-02
 ---
 
 # Sprint Change Proposal
@@ -25,7 +26,7 @@ Story 1.8's emulator-based merge was likewise explicitly approved; Story 1.11 re
 
 ## 2. Exact immediate edit: retain Story 3.2; add Story 3.8
 
-Retain stable ID **3.2**, title and key `3-2-pruning-tables-cached-off-the-main-thread`; this preserves PR36 and implementation-plan traceability. Add numeric **3.8**, key `3-8-reference-device-pruning-table-delivery-decision-and-production-integration`. Do not use suffix IDs such as 3.2a/3.2b or renumber 3.3–3.7.
+Retain stable ID **3.2**, title and key `3-2-pruning-tables-cached-off-the-main-thread`; this preserves PR36 and implementation-plan traceability. Add numeric **3.8**, key `3-8-reference-device-pruning-table-delivery-decision-and-product`. The installed sprint helper truncates title slugs to 60 characters; this canonical key is a mechanical normalization of the approved full-title key and preserves numeric ID, title, ACs and dependencies. Do not use suffix IDs such as 3.2a/3.2b or renumber 3.3–3.7.
 
 ### Story 3.2 — before
 
@@ -186,7 +187,7 @@ No new epic is required; none is obsolete. Feature order only changes to make in
 ## 5. Exact artifact changes proposed for approval
 
 1. **epics.md:** replace Story 3.2 body/ACs with section2; append Story3.8; replace ordering convention and extend Epic3 overview exactly as section3. Preserve every other story, FR/NFR inventory, cut order and phase gate.
-2. **implementation-artifacts/sprint-status.yaml:** add `3-8-reference-device-pruning-table-delivery-decision-and-production-integration: backlog` within Epic3. Retain 3.2's exact key and `review` until independent acceptance; retain Epic3 `in-progress`. Do not mark 3.8 or Epic3 done. Record required follow-up/dependency in supported action/notes form rather than inventing a new status enum.
+2. **implementation-artifacts/sprint-status.yaml:** add `3-8-reference-device-pruning-table-delivery-decision-and-product: backlog` within Epic3. Retain 3.2's exact key and `review` until independent acceptance; retain Epic3 `in-progress`. Do not mark 3.8 or Epic3 done. Record required follow-up/dependency in supported action/notes form rather than inventing a new status enum. Implementation note: the installed generator exposes status updates but no action/notes mutation API; the required dependency is recorded in the epics, operative plan and operational ledger while YAML is synchronized exclusively by the unmodified generator.
 3. **plan-3-2-pruning-tables-cached-off-the-main-thread.md:** preserve historical original ACs/gate results as history; add dated approved scope amendment, replacement acceptance contract and explicit transfer to3.8. Replace current operative “before merge” references only with this approved scoped gate; retain truthful missing evidence.
 4. **docs/pruning-tables.md:** explain infrastructure closure versus mandatory3.8, keeping exact physical measurement/installed-size/production StrictMode procedure and all missing-evidence disclaimers. `docs/benchmarks.md` only needs a cross-reference if its current references conflict; do not broaden performance claims.
 5. **Architecture memlog:** append approved split/traceability decision with memlog.py, explicitly saying production bundled/first-run remains pending. This is not the eventual delivery-choice append. No substantive AD change.
@@ -210,12 +211,12 @@ No new epic is required; none is obsolete. Feature order only changes to make in
 | 4.3 MVP reduction | [N/A] | Not requested or necessary; goals retained. |
 | 4.4 chosen path | [x] | Direct Adjustment; Moderate backlog reorganization. |
 | 5.1–5.5 proposal/handoff | [x] | Concrete ACs, transfer, sequencing and ownership included. |
-| 6.1 checklist review | [x] | Pending approval/mutations explicitly recorded. |
-| 6.2 proposal accuracy | [x] | Independent acceptance reviewer confirmed proposed 3.2 matches implemented/tested scope, all original obligations transfer to 3.8, and production dependency gates remain intact. User approval remains pending below. |
-| 6.3 explicit approval | [!] | Awaiting user approval; not implied by preparing draft. |
-| 6.4 sprint updates | [!] | Only after approval; no existing artifacts changed in this drafting step. |
-| 6.5 confirm handoff | [!] | Proposed roles below; confirm on approval. |
+| 6.1 checklist review | [x] | Approval and immediate artifact synchronization recorded; execution gates remain pending. |
+| 6.2 proposal accuracy | [x] | Independent acceptance reviewer confirmed proposed 3.2 matches implemented/tested scope, all original obligations transfer to 3.8, and production dependency gates remain intact. User explicitly approved the complete proposal on 2026-11-02. |
+| 6.3 explicit approval | [x] | User explicitly approved the complete proposal on 2026-11-02; immediate 3.2/3.8 edits authorized. |
+| 6.4 sprint updates | [x] | Approved 3.2/3.8 epics, plan, docs and sprint synchronization applied; 3.2 review, 3.8 backlog, Epic 3 in-progress. |
+| 6.5 confirm handoff | [x] | PO artifact synchronization handed to Developer/orchestrator for revised independent acceptance, PR36 scope update, normal CI and merge; Story 3.8 remains required. |
 
 PO owns approved backlog/AC/traceability synchronization. Developer owns revised3.2 acceptance, selected-mode implementation in3.8 and evidence links. Owner supplies reference-device access and human/external Play/pilot/trademark decisions. Architect reviews measured results that reopen binding choices; append decisions only with memlog tool. No user messages or publication actions are sent by this proposal.
 
-Success means PR36 can be judged on a concrete independent infrastructure contract, Story3.3 can proceed without pretending that physical measurements passed, mandatory3.8 blocks production solver acceptance, and all original MVP/release evidence remains discoverable and required. This document is a reviewable draft; implementation approval is still pending.
+Success means PR36 can be judged on a concrete independent infrastructure contract, Story3.3 can proceed without pretending that physical measurements passed, mandatory3.8 blocks production solver acceptance, and all original MVP/release evidence remains discoverable and required. Approved by the user on 2026-11-02. Immediate planning synchronization is applied; revised independent acceptance, PR36 description update, normal CI and merge remain pending. Approval does not complete Story 3.2 or any transferred Story 3.8 obligation.

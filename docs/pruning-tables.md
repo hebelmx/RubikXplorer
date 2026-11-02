@@ -1,4 +1,4 @@
-# Pruning table measurement (Story 3.2)
+# Pruning table infrastructure (Story 3.2) and delivery acceptance (Story 3.8)
 
 The production bundled-versus-first-run choice is **pending** minimum-reference-device measurements.
 The generator and optional private-file cache are infrastructure, called only by the debug measurement
@@ -8,6 +8,10 @@ No third-party solver implementation is used.
 The generator stores four breadth-first distance projections: twist/slice position, flip/slice position,
 corner permutation/slice permutation, and edge permutation/slice permutation. Their maxima provide
 admissible phase heuristics. Transitions reuse the clean-room Story 3.1 move tables.
+
+## Approved acceptance boundary — 2026-11-02
+
+[Story 3.2](../_bmad-output/planning-artifacts/epics.md#story-32-pruning-tables-cached-off-the-main-thread) owns tested generation/cache APIs and this reproducible harness. It can close only after revised independent acceptance and normal PR/CI gates. [Mandatory Story 3.8](../_bmad-output/planning-artifacts/epics.md#story-38-reference-device-pruning-table-delivery-decision-and-production-integration) owns all device measurements, installed-size evaluation, delivery-choice memlog append and selected production integration below. It must pass before production end-to-end acceptance of 3.7 and Epic 3/P0.S delivery readiness. Search and injected SolveCube contracts can proceed against accepted APIs without choosing packaging. See the [approved proposal](../_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-02-device-validation-splits.md) for requirement transfer; NFR-3 physical solve-corpus confirmation remains Story 12.2.
 
 ## Run on the minimum reference device
 
@@ -27,7 +31,7 @@ adb logcat -s PruningTablesBenchmark:I StrictMode:D AndroidRuntime:E
 ```
 
 Wait for `cacheBytes=...,mainThreadDiskViolations=...`. Save the whole report with device model,
-Android version, build revision, thermal/battery state and repeated-run timings. `first` must report
+Android version, build revision, thermal/battery state available memory evidence and repeated-run timings. `first` must report
 `GENERATED`; `warm` must report `CACHE`; any `failed` or `measurement-incomplete` means the run is
 not valid. The `cold` extra deletes only the benchmark cache on an I/O dispatcher. Restarting the
 process discards lazy move tables, so cold timing includes their initialization. The second provider
@@ -59,8 +63,8 @@ Do not hand-edit the memlog. Do not select a delivery mode solely from host numb
 ## Evidence available in this run
 
 `adb devices -l` on 2026-11-02 listed no devices. No minimum-device build time, installed size,
-physical StrictMode result, or production delivery decision is claimed. These are a human
-before-merge acceptance gate. JVM tests validate distance tables and cache behavior; CI-equivalent
+physical StrictMode result, or production delivery decision is claimed. These are mandatory Story 3.8
+acceptance obligations after the approved split, not the revised Story 3.2 before-merge gate. JVM tests validate distance tables and cache behavior; CI-equivalent
 Gradle gates validate the reversible implementation separately.
 
 The deterministic table payload is **4,031,685 bytes**; the versioned cache adds 40 bytes for its

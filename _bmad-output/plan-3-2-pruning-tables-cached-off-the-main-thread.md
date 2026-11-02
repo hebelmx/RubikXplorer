@@ -19,13 +19,57 @@ context:
 warnings: []
 deferred:
   - summary: >-
-      Minimum-reference-device acceptance evidence and packaging decision remain a before-merge human gate.
+      Mandatory Story 3.8 owns reference-device acceptance, delivery decision and production integration; no longer a revised Story 3.2 before-merge gate.
     evidence: |-
-      No adb devices were attached. Story 3.2 requires Tab S7 FE 5G generation size/time measurements, NFR-11 installed-size evaluation, a packaging decision in the architecture memlog, and physical StrictMode evidence. Orchestration explicitly authorized completing independently useful infrastructure before this external gate.
+      No adb devices were attached. The approved 2026-11-02 split transfers Tab S7 FE 5G measurements, NFR-11 installed-size evaluation, architecture delivery decision and production StrictMode verification to mandatory Story 3.8. This is tracked follow-up scope, not a high-severity defect or deferred acceptance criterion in revised Story 3.2.
     location: >-
       docs/pruning-tables.md
     severity: medium
 ---
+
+## Approved scope amendment — 2026-11-02 (operative contract)
+
+The user approved [the course-correction proposal](planning-artifacts/sprint-change-proposal-2026-11-02-device-validation-splits.md). The replacement Story 3.2 contract below supersedes the original before-merge hardware gate for infrastructure acceptance only. The original intent, ACs, review and gate results below remain historical evidence. Missing hardware is not a defect in revised 3.2 and must not trigger futile code retries.
+
+As the developer,
+I want tested clean-room pruning-table generation, optional off-main cache infrastructure and a reproducible device measurement harness,
+So that search can use verified table APIs while production delivery is decided from real-device evidence in Story 3.8.
+
+**Refs:** FR-15 · NFR-3, NFR-11, NFR-12 · AD-1, AD-8, AD-11, AD-12, AD-16 · AR-12, AR-22 · UX-DR25
+
+**Acceptance Criteria:**
+
+**Given** the clean-room Story 3.1 coordinate transitions
+**When** phase-1 twist/slice and flip/slice and phase-2 corner/slice and edge/slice pruning projections are generated
+**Then** all reachable entries have breadth-first distances from solved, solved entries have distance zero, graph consistency and descending-path tests pass, and the API exposes admissible phase heuristics and deterministic payload size without third-party solver code
+
+**Given** the optional pruning-table provider
+**When** tables are generated or a versioned private-file cache is loaded or replaced
+**Then** CPU generation uses `Dispatchers.Default`, disk access uses an I/O dispatcher, the bounded cache validates its version and checksum, corrupt data is regenerated, replacement is atomic, and load failures are sealed values
+
+**Given** cancellation, concurrent callers and failed cache writes
+**When** provider tests run
+**Then** cancellation is cooperative and retryable, concurrent loads are serialized, no partial table result is published, and a failed replacement preserves the prior destination and cleans temporary files
+
+**Given** the debug measurement Activity and documented adb procedure
+**When** the debug build is produced
+**Then** the harness can report device identity, cold-process generation duration, payload/cache bytes, an independent warm disk-cache load and main-thread StrictMode violations; no unrun physical result is claimed
+
+**Given** app startup and Lessons
+**When** the infrastructure is installed
+**Then** neither calls or awaits it, and no bundled-versus-first-run production policy is selected by this story
+
+**Given** the implementation and acceptance record
+**When** Story 3.2 is independently reviewed
+**Then** JVM/cache/cancellation tests and CI-equivalent gates pass, host and format facts are distinguished from device results, and every physical measurement, delivery decision, production wiring and applicable StrictMode obligation transferred below remains required in Story 3.8
+
+**Closure boundary:** Story 3.2 can close independently after this replacement is approved, its independent acceptance gate is rerun and normal PR/CI gates pass. Approval alone does not mark it done or authorize a fabricated production decision. Its current before-merge hardware gate is superseded only for this revised infrastructure scope.
+
+**Required follow-up:** `3-8-reference-device-pruning-table-delivery-decision-and-product` owns every transferred measurement, installed-size decision, architecture delivery-choice append and production wiring/StrictMode/Lesson-independence check. Production bundled-versus-first-run remains pending. Story 3.8 depends on accepted 3.2 and must pass before production acceptance of 3.7 and Epic 3/P0.S delivery readiness. Stories 3.3–3.6 may proceed against accepted APIs; 3.4's injected contract can be built before final loading integration in 3.8. NFR-3 physical corpus confirmation remains 12.2; no phase/release gate or requirement is lost.
+
+**Current status:** 3.2 remains `review`, 3.8 `backlog`, Epic 3 `in-progress`. Independent acceptance must be rerun against the revised contract, followed by normal PR/CI gates and merge before 3.2 is done. No production decision or physical result is claimed.
+
+## Historical original plan and gate evidence (superseded scope)
 
 <intent-contract>
 
@@ -97,7 +141,7 @@ Initial planning detected the unavailable physical gate. Parent orchestration su
 - `./gradlew spotlessCheck build` — all CI-equivalent gates pass.
 - Minimum reference-device measurement and StrictMode check remain explicitly unrun; adb devices currently lists no devices.
 
-## Auto Run Result
+## Historical Auto Run Result (original acceptance contract)
 
 Implementation status: built. Story acceptance and merge remain gated on physical measurements; no unavailable result has been invented.
 
@@ -115,3 +159,7 @@ Implementation status: built. Story acceptance and merge remain gated on physica
 - Fresh context-free quick review: two findings, both medium. Patched one documented Activity component; deferred one external physical acceptance gate. No rejected findings. Patched counts: high 0, medium 1, low 0. Follow-up review recommended: false.
 - Verification: `./gradlew :core:solver:test :core:solver:koverVerify` passed. Test XML records 40 solver tests and 97 app debug JVM tests, zero failures/errors/skips. `./gradlew --no-parallel :core:solver:test :app:testDebugUnitTest spotlessCheck build` passed full CI-equivalent gates, including Kover, boundaries, privacy/text policy, Android lint and debug/release/benchmark APK builds. Repeated after the documentation review patch.
 - Residual human before-merge gate: connect the minimum Samsung Galaxy Tab S7 FE 5G, collect generation duration/table/cache bytes and release-equivalent installed-size evidence against NFR-11, verify StrictMode and Lesson independence, choose bundled versus first-run, record the decision using the architecture memlog script, and wire/verify the selected production mode. `adb devices -l` returned no attached devices in this run. Hardware absence is not a code-build failure; Story 3.2 ACs are not yet fully accepted.
+
+## Amendment history
+
+- 2026-11-02: User approved the 3.2 infrastructure / mandatory 3.8 device-delivery split; operative contract above replaces only the original hardware-before-merge condition. Historical gate failures remain recorded, without carrying that external high finding into revised 3.2 acceptance. Revised independent acceptance and CI/merge remain pending.
