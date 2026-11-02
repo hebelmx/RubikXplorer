@@ -17,3 +17,8 @@ Thumbs.db
 # Claude Code local settings
 .claude/settings.local.json
 .kotlin/
+# BMAD installer answers scoped to this machine
+_bmad/config.user.toml
+# Python helper test caches
+__pycache__/
+.pytest_cache/
