@@ -27,6 +27,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.kotlinx.coroutines.core)
     implementation(project(":core:application"))
     implementation(project(":core:solver"))
     implementation(project(":core:domain"))

@@ -28,7 +28,7 @@ This document provides the complete epic and story breakdown for RubikXplorer, d
 - Epics are grouped by user value and sequenced by the ~16-week roadmap (addendum §F). Each epic lists the addendum sketch IDs (E01–E11) it absorbs.
 - Every story carries a **Refs** line citing its FR, NFR, AD (architecture spine), UX-DR (below) and UX Key Flow IDs.
 - Glossary terms are used verbatim. `[ASSUMPTION: …]` marks Fast-path inferences to confirm.
-- Stories never depend on a later story in the same epic. Across epics, an epic may use only the epics numbered before it, except where the roadmap's parallel track is noted (Epic 3 stories 3.1–3.4 have no dependency on Epic 2).
+- Story IDs are stable identifiers. Stories normally execute in numeric order; approved split follow-ups may execute earlier than their appended ID. Story 3.8 depends on 3.2 and must pass before production acceptance of 3.7. Stories 3.3–3.6 may proceed against accepted APIs without selecting an unmeasured production delivery policy. Across epics, preserve the existing dependency direction and explicitly documented parallel tracks.
 
 ## Requirements Inventory
 
@@ -693,6 +693,8 @@ So that I can go from zero to a solved first layer.
 
 A Learner can enter any cube's colors, get a verified Solution from the in-house Solver, and step through it. Stories 3.1–3.4 are the P0.S parallel track and depend only on Epic 1. P0.S exit: solves the corpus within NFR-3, and every Solution is re-verified.
 
+Story 3.8 owns reference-device pruning-table measurements, the production delivery decision and its integration. Story 3.3 depends on 3.2's verified APIs, not on the packaging decision. Story 3.4 may implement and test its injected port/effect contract before 3.8; final production loading is integrated and accepted in 3.8. Story 3.7 cannot receive production end-to-end acceptance before 3.8 passes. Epic 3/P0.S closure preserves NFR-3 and all original exit criteria; the existing JVM proxy does not establish physical performance.
+
 ### Story 3.1: Solver coordinates and move tables (clean room)
 
 As the developer,
@@ -713,21 +715,39 @@ So that the Solver is fast and license-clean.
 
 ### Story 3.2: Pruning tables, cached off the main thread
 
-As a Learner,
-I want the Solver ready quickly without bloating the app,
-So that solving feels instant and the download stays small.
+As the developer,
+I want tested clean-room pruning-table generation, optional off-main cache infrastructure and a reproducible device measurement harness,
+So that search can use verified table APIs while production delivery is decided from real-device evidence in Story 3.8.
 
-**Refs:** FR-15 · NFR-3, NFR-11 · AD-8, AD-16 · AR-12, AR-22 · UX-DR25
+**Refs:** FR-15 · NFR-3, NFR-11, NFR-12 · AD-1, AD-8, AD-11, AD-12, AD-16 · AR-12, AR-22 · UX-DR25
 
 **Acceptance Criteria:**
 
-**Given** the pruning tables
-**When** they are generated
-**Then** their size and build time are measured on the minimum reference device, and the bundled-vs-first-run choice is decided against NFR-11 and recorded in the architecture memlog
+**Given** the clean-room Story 3.1 coordinate transitions
+**When** phase-1 twist/slice and flip/slice and phase-2 corner/slice and edge/slice pruning projections are generated
+**Then** all reachable entries have breadth-first distances from solved, solved entries have distance zero, graph consistency and descending-path tests pass, and the API exposes admissible phase heuristics and deterministic payload size without third-party solver code
 
-**Given** first-run generation (if chosen)
-**When** tables are built
-**Then** it happens on `Dispatchers.Default`, results are cached in app-private storage, Lessons never wait on them, and StrictMode reports no main-thread disk access
+**Given** the optional pruning-table provider
+**When** tables are generated or a versioned private-file cache is loaded or replaced
+**Then** CPU generation uses `Dispatchers.Default`, disk access uses an I/O dispatcher, the bounded cache validates its version and checksum, corrupt data is regenerated, replacement is atomic, and load failures are sealed values
+
+**Given** cancellation, concurrent callers and failed cache writes
+**When** provider tests run
+**Then** cancellation is cooperative and retryable, concurrent loads are serialized, no partial table result is published, and a failed replacement preserves the prior destination and cleans temporary files
+
+**Given** the debug measurement Activity and documented adb procedure
+**When** the debug build is produced
+**Then** the harness can report device identity, cold-process generation duration, payload/cache bytes, an independent warm disk-cache load and main-thread StrictMode violations; no unrun physical result is claimed
+
+**Given** app startup and Lessons
+**When** the infrastructure is installed
+**Then** neither calls or awaits it, and no bundled-versus-first-run production policy is selected by this story
+
+**Given** the implementation and acceptance record
+**When** Story 3.2 is independently reviewed
+**Then** JVM/cache/cancellation tests and CI-equivalent gates pass, host and format facts are distinguished from device results, and every physical measurement, delivery decision, production wiring and applicable StrictMode obligation transferred below remains required in Story 3.8
+
+**Closure boundary:** Story 3.2 can close independently after this replacement is approved, its independent acceptance gate is rerun and normal PR/CI gates pass. Approval alone does not mark it done or authorize a fabricated production decision. Its current before-merge hardware gate is superseded only for this revised infrastructure scope.
 
 ### Story 3.3: Two-phase search verified on a 10,000-state corpus
 
@@ -834,6 +854,42 @@ So that I don't have to take a course first.
 **Given** the last Playback step
 **When** the cube is solved
 **Then** a quiet offer "Want to learn how to do this yourself?" links to Learn, and solves are not resumed after the app closes
+
+### Story 3.8: Reference-device pruning-table delivery decision and production integration
+
+As a Learner,
+I want pruning tables delivered using a measured production strategy,
+So that solving is ready without freezing Lessons or exceeding the app's size budget.
+
+**Refs:** FR-15 · NFR-3, NFR-5, NFR-11 · AD-8, AD-11, AD-13, AD-16 · AR-12, AR-22 · UX-DR25
+
+**Dependencies:** accepted Story 3.2 infrastructure; production loading integration coordinated with Story 3.4. May proceed after 3.2 while search is developed. Required before production end-to-end acceptance of Story 3.7 and closure of Epic 3/P0.S delivery readiness. Story 12.2 remains the final device solve-corpus performance confirmation.
+
+**Acceptance Criteria:**
+
+**Given** the minimum reference device, Samsung Galaxy Tab S7 FE 5G, and the Story 3.2 harness
+**When** repeated cold-process generation and independent warm-cache loads run
+**Then** generation duration, payload/cache bytes and cache loading duration are recorded with device/Android identity, revision, run conditions and available memory evidence; no host timing or emulator measurement substitutes for the minimum-device result
+
+**Given** a release-equivalent unbundled baseline and a temporary bundled candidate
+**When** installed size and table delivery costs are measured
+**Then** the measurement method, installed totals/deltas, cache cost and recognition-model budget are recorded against NFR-11's install size below 30 MB; APK file size alone is not accepted as installed-size evidence
+
+**Given** those device and size measurements
+**When** bundled versus first-run delivery is selected
+**Then** the rationale, tradeoffs and evidence are appended to the architecture memlog using `uv run _bmad/scripts/memlog.py append`, and the selected mode respects AD-8, offline operation and NFR-11
+
+**Given** the selected production delivery mode
+**When** it is integrated into the production Solver loading path
+**Then** table generation/access remains off-main; if first-run is chosen, generation uses `Dispatchers.Default` and results are cached in app-private storage; bundled delivery also uses off-main loading and any applicable private cache; Lessons never wait for readiness and no app-startup wait is introduced
+
+**Given** the actual selected production integration on the minimum reference device
+**When** cold and warm loading paths run under debug StrictMode
+**Then** no main-thread disk access is reported, logs are inspected, Lessons remain independently usable, and cancellation/failure never publishes an invented or partial Solution
+
+**Given** completed integration
+**When** the story is reviewed
+**Then** affected correctness, CI and release-size checks pass and link their evidence; Story 3.8 remains open if any required hardware result, delivery decision, memlog append or production verification is unavailable
 
 ## Epic 4: Get help when I go wrong
 
