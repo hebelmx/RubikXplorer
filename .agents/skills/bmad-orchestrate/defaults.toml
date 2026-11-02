@@ -1,10 +1,10 @@
-# Defaults for bmad-orchestrate (OpenCode).
+# Defaults for bmad-orchestrate (any coding-agent host).
 # Override per project in {project-root}/_bmad/custom/bmad-orchestrate.toml.
 
 [run]
 max_stories = 3          # Stories to execute per run when no count is passed
 handoff_every = 5        # Pause with a resume handoff after this many stories for context hygiene
-worker = "subagent"      # "subagent" (Task tool -> subagent) or "headless" (`opencode run` per story)
+worker = "subagent"      # "subagent" (host-native coding agent) or "headless" (available coding-agent CLI)
 
 [git]
 default_branch = "main"

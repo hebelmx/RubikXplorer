@@ -17,7 +17,7 @@ Notation:
 
 ## Phase B: Build (worker)
 
-1. Dispatch the **build worker** from `worker-prompts.md`: one fresh subagent via the Task tool, or one headless `opencode run` process when `run.worker = "headless"`. Wait for it to return.
+1. Dispatch the **build worker** from `worker-prompts.md`: one fresh coding agent via the current host’s native dispatch, or one available coding-agent CLI process when `run.worker = "headless"` (or native dispatch is unavailable). Wait for it to return.
 2. It returns a JSON block. Parse it. If it is missing or malformed, ask the same worker once to re-emit the JSON. If it still fails, stop.
 3. Route on `status`:
    - `done`: go to C.
