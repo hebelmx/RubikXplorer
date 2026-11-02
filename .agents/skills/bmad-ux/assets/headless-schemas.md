@@ -1,4 +1,4 @@
-# Headless Mode Output Examples
+# Headless Mode JSON Schemas
 
 Every headless run ends with one of these payloads. Omit keys for artifacts not produced.
 
