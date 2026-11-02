@@ -8,8 +8,9 @@ scope: '{what this spine governs}'
 status: draft               # draft · final
 created: '{date}'
 updated: '{date}'
-binds: []                   # the ticket's R ids or unit ids governed (at epic altitude, also the inherited parent AD ids)
-sources: []                 # the ticket, plus any companion the spine read
+binds: []                   # capability / unit IDs governed (from the driving spec; at epic altitude, also the inherited parent AD ids)
+sources: []
+companions: []
 ---
 
 # Architecture Spine — {name}
@@ -34,7 +35,7 @@ sources: []                 # the ticket, plus any companion the spine read
 
 ### AD-1 — {decision}
 
-- **Binds:** {R ids / unit ids, areas, or `all`}
+- **Binds:** {capability / unit ids / fr/nfr's, areas, or `all`}
 - **Prevents:** {the divergence this stops}
 - **Rule:** {the constraint downstream must follow}
 
@@ -67,11 +68,11 @@ sources: []                 # the ticket, plus any companion the spine read
 
 ## Capability → Architecture Map
 
-<!-- Present when a ticket drove this run. Bridges the ticket's requirements to where they live + what governs them; the consistency auditor's checklist. Cut otherwise. -->
+<!-- Present when a spec drove this run. Bridges the spec's capabilities to where they live + what governs them; the consistency auditor's checklist. Cut otherwise. -->
 
 | Capability / Area | Lives in | Governed by |
 | --- | --- | --- |
-| {R-id / area} | {component / module} | {AD-id, convention, paradigm} |
+| {CAP-id / area} | {component / module} | {AD-id, convention, paradigm} |
 
 ## Deferred
 

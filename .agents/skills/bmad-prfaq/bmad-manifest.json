@@ -7,15 +7,10 @@
       "description": "Produces a PRFAQ document and an optional condensed version for use as PRD input.",
       "supports-headless": true,
       "phase-name": "plan",
-      "preceded-by": [
-        "brainstorming",
-        "perform-research"
-      ],
-      "followed-by": [
-        "create-prd"
-      ],
+      "preceded-by": ["brainstorming", "perform-research"],
+      "followed-by": ["create-prd"],
       "is-required": false,
-      "output-location": "{output_folder}/{active_initiative}"
+      "output-location": "{planning_artifacts}"
     }
   ]
 }

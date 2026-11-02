@@ -1,4 +1,6 @@
-**Output Location:** `{doc_workspace}`
+**Language:** Use `{communication_language}` for all output.
+**Output Language:** Use `{document_output_language}` for documents.
+**Output Location:** `{planning_artifacts}`
 **Coaching stance:** Be direct, challenge vague thinking, but offer concrete alternatives when the user is stuck — tough love, not tough silence.
 **Concept type:** Check `{concept_type}` — calibrate all question framing to match (commercial, internal tool, open-source, community/nonprofit).
 
@@ -50,4 +52,4 @@ Before moving on, append a `<!-- coaching-notes-stage-3 -->` block to the output
 
 This stage is complete when every question has an honest, specific answer — and the user has confronted the hardest customer objections their concept faces. No softballs survived.
 
-Route to `references/internal-faq.md`.
+Route to `./internal-faq.md`.
