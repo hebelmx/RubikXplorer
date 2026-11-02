@@ -4,15 +4,17 @@ Substitute every `{placeholder}` before sending. Each worker starts with no cont
 
 Dispatch (`run.worker`):
 
-- **subagent:** one Task-tool dispatch to a fresh subagent (for example the OpenCode `general` subagent, or a configured BMAD worker subagent). Wait for the subagent's completion before continuing.
-- **headless:** `opencode run "<prompt>"`, run from `{project-root}`, then wait for the run to complete. Parse the JSON block from the run's output.
+- **subagent:** dispatch a fresh coding agent using the current host’s native API (for example Codex `spawn_agent`, Claude Code Task/Agent, or OpenCode subagents). Use an empty conversation context where supported and pass the prompt below. Wait for completion before continuing.
+- **headless:** use an available coding-agent CLI from `{project-root}`. Check its help for the supported noninteractive invocation and pass the prompt as data. Wait for completion and parse the JSON block from its output. Preserve the host’s permissions; do not enable bypass modes.
+
+Use any compatible coding agent; a provider change alone needs no approval. Confirm it can read the repository, follow `bmad-build-auto`, and dispatch that skill’s required independent subagents. If neither native nor headless dispatch supports those capabilities, stop and report the missing capability.
 
 ## Build worker
 
 ```text
 You are the build worker for one story in a BMAD project at {project-root}. You are on branch {branch}; do not switch branches, push, or open PRs.
 
-Invoke the Skill tool with skill "bmad-build-auto" and this exact intent as its args:
+Load and follow the installed `bmad-build-auto` skill using your host’s skill mechanism, or read its SKILL.md when no Skill tool exists. Use this exact intent:
 
   Story {id} ({key}) from {epics_file}: "{story_title}". Implement exactly this story's acceptance criteria. {clarifications}
 
