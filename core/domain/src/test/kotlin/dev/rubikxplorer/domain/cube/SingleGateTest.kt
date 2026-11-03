@@ -52,7 +52,18 @@ class SingleGateTest {
                 .filter { e -> e.parameterTypes.contains(Facelets::class.java) }
                 .filter { returnsGated(it) }
                 .map { "${it.declaringClass.simpleName}.${it.name}" }
-        assertEquals(listOf("CubeValidator.validate"), routes)
+                .sorted()
+        // problems reports failures only: its elements are Invalid, which carries no state.
+        assertEquals(listOf("CubeValidator.problems", "CubeValidator.validate"), routes)
+    }
+
+    @Test
+    fun `CubeValidator problems returns only Invalid results`() {
+        val problems = CubeValidator::class.java.getMethod("problems", Facelets::class.java)
+        assertEquals(
+            "java.util.List<${ValidationResult.Invalid::class.java.name}>",
+            problems.genericReturnType.typeName.replace("? extends ", ""),
+        )
     }
 
     @Test

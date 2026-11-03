@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,17 +26,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.SemanticsPropertyReceiver
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.rubikxplorer.app.ui.theme.CubeTokens
-import dev.rubikxplorer.app.ui.theme.PlexSans
 import dev.rubikxplorer.app.ui.theme.Radii
 import dev.rubikxplorer.domain.appearance.StickerAppearance
 import dev.rubikxplorer.domain.cube.CubeState
@@ -185,7 +180,7 @@ class Net2DRenderer(
             modifier =
                 modifier
                     .requiredSize(cell)
-                    .padding(cell * GAP_FRACTION)
+                    .padding(cell * STICKER_GAP_FRACTION)
                     .graphicsLayer { if (flipping) scaleY = abs(1f - 2f * progress) }
                     .background(fill, RoundedCornerShape(Radii.xs))
                     .drawWithContent {
@@ -205,22 +200,7 @@ class Net2DRenderer(
                     },
             contentAlignment = Alignment.Center,
         ) {
-            if (style.colorBlindGlyphs) {
-                // Sized in dp so font scaling never shrinks it below legibility (≥ 16dp, weight 600),
-                // but never larger than the sticker, so it cannot spill onto its neighbours.
-                val inner = cell.value * (1f - 2f * GAP_FRACTION)
-                val glyphDp = min(max(MIN_GLYPH_DP, cell.value * GLYPH_FRACTION), inner)
-                val fontSize = with(LocalDensity.current) { (glyphDp / fontScale).sp }
-                Text(
-                    text = appearance.glyph.toString(),
-                    color = ink,
-                    fontFamily = PlexSans,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = fontSize,
-                    lineHeight = fontSize,
-                    softWrap = false,
-                )
-            }
+            if (style.colorBlindGlyphs) StickerGlyph(appearance, cell)
         }
     }
 
@@ -268,11 +248,8 @@ class Net2DRenderer(
         const val FAST_FORWARD_AFTER = 3
         const val FAST_FORWARD_DIVISOR = 4
         private const val HALF = 0.5f
-        private const val NET_COLUMNS = 12
-        private const val NET_ROWS = 9
-        private const val GAP_FRACTION = 0.04f
-        private const val GLYPH_FRACTION = 0.55f
-        private const val MIN_GLYPH_DP = 16f
+        const val NET_COLUMNS = 12
+        const val NET_ROWS = 9
 
         /** Top-left cell (column, row) of each URFDLB face in the Kociemba cross net. */
         private val FACE_ORIGIN = listOf(3 to 0, 6 to 3, 3 to 3, 3 to 6, 0 to 3, 9 to 3)
