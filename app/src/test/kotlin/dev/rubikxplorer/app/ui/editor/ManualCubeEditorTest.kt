@@ -9,15 +9,19 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.dp
 import dev.rubikxplorer.app.content.ContentStrings
 import dev.rubikxplorer.app.render.RenderStyle
 import dev.rubikxplorer.app.render.StickerColorKey
@@ -125,6 +129,20 @@ class ManualCubeEditorTest {
             assertEquals(false, sticker(index).fetchSemanticsNode().config.getOrNull(SemanticsProperties.Selected))
         }
         accept().assertIsEnabled()
+    }
+
+    @Test
+    @Config(qualifiers = "w320dp-h640dp")
+    fun `at 320dp every swatch keeps a full touch target inside the window and paints`() {
+        launch()
+        CubeColor.entries.forEach { color ->
+            val node = swatch(color).assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
+            val bounds = node.getUnclippedBoundsInRoot()
+            assertTrue("$color left edge", bounds.left >= 0.dp)
+            assertTrue("$color right edge", bounds.right <= 320.dp)
+            paint(0, color)
+            assertEquals(fill(color), drawnColor(0))
+        }
     }
 
     @Test

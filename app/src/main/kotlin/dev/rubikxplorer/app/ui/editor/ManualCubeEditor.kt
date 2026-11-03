@@ -6,7 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -84,7 +84,11 @@ fun ManualCubeEditor(
                     .fillMaxWidth()
                     .aspectRatio(Net2DRenderer.NET_COLUMNS.toFloat() / Net2DRenderer.NET_ROWS),
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s2)) {
+        // Wraps onto more rows when a narrow window cannot fit all six touch-sized swatches (AD-17).
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(Spacing.s2, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(Spacing.s2),
+        ) {
             PALETTE.forEach { color -> Swatch(color, style) { state.paint(color) } }
         }
         Column(
