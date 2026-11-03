@@ -41,8 +41,13 @@ successful attempts within three seconds, and prints median/p95/memory/failures.
 
 Measured profile: Linux x86_64, Intel Core i7-12800H (20 logical CPUs), OpenJDK 25 local Gradle runtime and JDK 17.0.21 test worker (512 MiB max heap). CI uses ubuntu-latest with Temurin 17. Neither environment has a measured reference-device
 equivalence calibration. Host results below are JVM proxy evidence only; the missing calibration
-remains before-merge acceptance evidence. Story 12.2 must confirm the corpus on physical reference
-devices. Story 3.8 still owns production table delivery, cold/warm physical loading and installed size.
+is deferred by the approved 2026-11-02 course correction to mandatory Story 3.8 acceptance.
+Story 3.8 must establish a measured reference-device-equivalent JVM profile and rerun the full
+corpus with zero failures and at least 95% successful solves within 3 s, reporting median, p95,
+memory and failure rate. This blocks production Story 3.7 acceptance and Epic 3/P0.S closure.
+Story 12.2 still confirms the production corpus on physical reference devices. Story 3.8 also
+owns production table delivery, cold/warm physical loading and installed size.
+See [the approved calibration deferral](../_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-02-search-calibration-deferral.md).
 
 Mandatory CI corpus (`./gradlew :core:solver:test`, JDK 17 worker with Kover), seed 20261031:
 

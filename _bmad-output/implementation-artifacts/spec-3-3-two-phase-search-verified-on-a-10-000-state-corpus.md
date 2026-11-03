@@ -12,9 +12,9 @@ context:
 warnings: [oversized]
 deferred:
   - summary: >-
-      Reference-device-equivalent JVM profile calibration remains a before-merge acceptance gate.
+      Reference-device-equivalent JVM profile calibration and calibrated corpus performance are mandatory Story 3.8 acceptance under the approved 2026-11-02 course correction.
     evidence: |-
-      Existing CI uses ubuntu-latest and Temurin17 with no reference-device calibration. Host corpus results prove host correctness and speed only. Original Story3.3 criterion remains unchanged; no equivalence is claimed. Physical corpus confirmation remains Story12.2.
+      Existing CI uses ubuntu-latest and Temurin17 with no reference-device calibration. Host corpus results prove host correctness and speed only. Story3.8 must calibrate the JVM proxy and rerun the full corpus with zero failures and at least95% successful within3s before production3.7/Epic3/P0.S acceptance. Physical production corpus confirmation remains Story12.2; NFR-3 is unchanged.
     location: >-
       docs/benchmarks.md
     severity: medium
@@ -37,7 +37,7 @@ deferred:
 
 ## Boundaries & Constraints
 
-**Always:** Follow AD-1/8/11/12: application owns CubeSolver port, solver adapter pure JVM, plain injection, computation on Default, sealed Solved/Invalid/TimedOut/Failed results, center-relative Moves, cooperative cancellation propagates without partial result. Use accepted coordinate/pruning APIs and original code written from published mathematical description (https://kociemba.org/math/twophase.htm); no third-party solver source. Preserve all original Story3.3 criteria: median/p95/memory/failure reporting;95% within3s on reference-device-equivalent profile (CI JVM proxy assumption, device confirmation12.2). Report actual host profile honestly; missing calibration is residual before-merge acceptance evidence, never claim equivalence. No weakening corpus, thresholds, or gates.
+**Always:** Follow AD-1/8/11/12: application owns CubeSolver port, solver adapter pure JVM, plain injection, computation on Default, sealed Solved/Invalid/TimedOut/Failed results, center-relative Moves, cooperative cancellation propagates without partial result. Use accepted coordinate/pruning APIs and original code written from published mathematical description (https://kociemba.org/math/twophase.htm); no third-party solver source. Preserve full corpus correctness, median/p95/memory/failure reporting, active cancellation and the3s search timeout. Report the actual host profile and require zero failures plus at least95% within3s as a host regression check, never claim device equivalence. Under the approved2026-11-02 course correction, measured JVM/device calibration and the full calibrated corpus threshold transfer to mandatory3.8 before production3.7/Epic3/P0.S acceptance; final production physical confirmation remains12.2. NFR-3, corpus size and thresholds are unchanged.
 
 **Never:** Change protected planning artifacts, domain constructor/validation gate, production table delivery policy (mandatory3.8), startup/Lesson wiring, UI/SolveCube effects (3.4), or other stories. No branch switching, pushing, PR creation or commits by implementation subagent.
 
@@ -74,10 +74,13 @@ deferred:
 
 **Acceptance Criteria:**
 - Given CubeSolver returning Solved/Invalid/TimedOut/Failed, when solved plus≥10000 random legal states including deep Scrambles run in CI, then applying every Solved Solution solves its exact input.
-- Given Story1.10 harness, when real corpus runs, then median,p95,memory,failure rate are reported and95% solve within3s on the reference-device-equivalent profile [ASSUMPTION:JVM proxy in CI, confirmed on device12.2]. Record any missing equivalence evidence without changing criterion.
+- Given Story1.10 harness, when the real corpus runs, then median,p95,memory,failure rate and actual host/JVM profile are reported, zero failures and at least95% successful solves within3s pass as a host regression check; uncalibrated host results never claim device equivalence. Mandatory Story3.8 owns calibrated equivalence/performance;12.2 confirms production physical performance.
 - Given a cancelled coroutine, when search is in progress, then it stops promptly and returns no partial result.
 
 ## Spec Change Log
+
+### 2026-11-02 — Approved calibration deferral
+User explicitly requested: “lets defere the device calibration, and merge as it is but with a course correction”. Revised operative acceptance above retains implementation, correctness, cancellation and host reporting/regression; calibration and calibrated performance transfer to mandatory Story3.8 before production3.7/Epic3/P0.S closure. Story12.2 retains final physical confirmation. The historical review/finalization statements below describe the pre-correction gate and are superseded only for this narrow calibration deferral. No source implementation, test, timeout, corpus size, production delivery choice or NFR changes. See `../planning-artifacts/sprint-change-proposal-2026-11-02-search-calibration-deferral.md`.
 
 ## Review Triage Log
 
@@ -144,3 +147,7 @@ Status: done.
 Blocking condition: none.
 
 The user authorized the unrelated settings change, committed separately as8401a7845ca7aed755d9d91ede74482269d86b4f. The working copy was verified clean before this result update; the dirty-tree halt is resolved. This continuation changes only this execution record, with no implementation changes or additional review required. Follow-up review recommended:false. All deferred findings and the explicit reference-device-equivalence calibration before-merge acceptance gate remain unchanged; done records implementation/workflow completion, not approval of that external gate.
+
+## Operative acceptance after approved course correction
+
+The earlier residual before-merge calibration gate is superseded for revised Story3.3 only. Missing calibration remains real and tracked in Story3.8, which must pass measured calibration and the full calibrated corpus criterion before production3.7/Epic3/P0.S closure. Revised independent acceptance, CI and merge are still required; this amendment does not mark the story accepted or merged. Physical production NFR-3 confirmation remains12.2.
