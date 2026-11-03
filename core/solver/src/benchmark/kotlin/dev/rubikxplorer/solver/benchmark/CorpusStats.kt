@@ -57,7 +57,7 @@ data class CorpusStats(
                 p95Nanos = nearestRank(sorted, P95),
                 maxNanos = sorted.last(),
                 budgetNanos = budgetNanos,
-                withinBudget = sorted.count { it <= budgetNanos },
+                withinBudget = samples.count { it.succeeded && it.nanos <= budgetNanos },
                 failures = samples.count { !it.succeeded },
                 peakHeapBytes = peakHeapBytes,
             )

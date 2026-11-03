@@ -70,7 +70,7 @@ class CorpusStatsTest {
             "median",
             "p95",
             "max",
-            "within budget  100.0% (2/2 at or under 3000.000 ms)",
+            "within budget  50.0% (1/2 at or under 3000.000 ms)",
             "(50.0%)",
             "failures       1",
             "peak heap      3.0 MiB",

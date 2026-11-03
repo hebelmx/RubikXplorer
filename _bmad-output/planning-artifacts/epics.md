@@ -693,7 +693,7 @@ So that I can go from zero to a solved first layer.
 
 A Learner can enter any cube's colors, get a verified Solution from the in-house Solver, and step through it. Stories 3.1–3.4 are the P0.S parallel track and depend only on Epic 1. P0.S exit: solves the corpus within NFR-3, and every Solution is re-verified.
 
-Story 3.8 owns reference-device pruning-table measurements, the production delivery decision and its integration. Story 3.3 depends on 3.2's verified APIs, not on the packaging decision. Story 3.4 may implement and test its injected port/effect contract before 3.8; final production loading is integrated and accepted in 3.8. Story 3.7 cannot receive production end-to-end acceptance before 3.8 passes. Epic 3/P0.S closure preserves NFR-3 and all original exit criteria; the existing JVM proxy does not establish physical performance.
+Story 3.8 owns reference-device pruning-table measurements, the production delivery decision and its integration, plus the reference-device-equivalent JVM profile calibration and calibrated solve-corpus evidence deferred from Story 3.3. Story 3.3 depends on 3.2's verified APIs, not on the packaging decision. Story 3.4 may implement and test its injected port/effect contract before 3.8; final production loading is integrated and accepted in 3.8. Story 3.7 cannot receive production end-to-end acceptance before 3.8 passes. Epic 3/P0.S closure preserves NFR-3 and all original exit criteria; the existing JVM proxy does not establish physical performance.
 
 ### Story 3.1: Solver coordinates and move tables (clean room)
 
@@ -765,11 +765,13 @@ So that I can trust it with the real thing.
 
 **Given** the JVM benchmark harness from Story 1.10
 **When** the corpus runs
-**Then** median, p95, memory and failure rate are reported, and 95% solve within 3 s on the reference-device-equivalent profile [ASSUMPTION: JVM proxy in CI, confirmed on device in Story 12.2]
+**Then** median, p95, memory and failure rate are reported with the actual host/JVM profile, zero failures and at least 95% successful solves within 3 s pass as a host regression check; no reference-device equivalence is claimed from uncalibrated host results
 
 **Given** a cancelled coroutine
 **When** search is in progress
 **Then** it stops promptly and returns no partial result
+
+**Approved calibration deferral (2026-11-02):** Story 3.3 may close after independent acceptance and normal CI on the revised implementation/host-evidence scope. Reference-device-equivalent JVM profile calibration and the calibrated corpus performance criterion are mandatory Story 3.8 acceptance, before production Story 3.7 acceptance or Epic 3/P0.S closure. Story 12.2 retains final physical production corpus confirmation. NFR-3 and the 3 s timeout are unchanged. See `sprint-change-proposal-2026-11-02-search-calibration-deferral.md`.
 
 ### Story 3.4: SolveCube use case
 
@@ -887,9 +889,13 @@ So that solving is ready without freezing Lessons or exceeding the app's size bu
 **When** cold and warm loading paths run under debug StrictMode
 **Then** no main-thread disk access is reported, logs are inspected, Lessons remain independently usable, and cancellation/failure never publishes an invented or partial Solution
 
-**Given** completed integration
+**Given** the minimum reference device and the reproducible Story 3.3 solve corpus (solved plus at least 10,000 random legal states including deep Scrambles)
+**When** the Developer establishes a reference-device-equivalent JVM profile using measured paired device/JVM runs and reruns that corpus on the calibrated profile
+**Then** calibration method, device/Android and host/JVM identities, revision, seed, warmup/table-readiness boundaries and run conditions are linked; every returned Solution is independently verified, zero failures are required, median, p95, memory and failure rate are reported, and at least 95% solve within 3 s on the calibrated profile; uncalibrated host or emulator results cannot close this criterion
+
+**Given** completed integration and the calibration evidence transferred from Story 3.3
 **When** the story is reviewed
-**Then** affected correctness, CI and release-size checks pass and link their evidence; Story 3.8 remains open if any required hardware result, delivery decision, memlog append or production verification is unavailable
+**Then** affected correctness, CI and release-size checks pass and link their evidence; Story 3.8 remains open if any required hardware result, calibration or calibrated corpus result, delivery decision, memlog append or production verification is unavailable; production acceptance of Story 3.7 and closure of Epic 3/P0.S remain blocked until all pass
 
 ## Epic 4: Get help when I go wrong
 
@@ -2013,7 +2019,7 @@ So that it works on the device I have.
 **When** face turns and View Rotation run
 **Then** ≥ 30 FPS on minimum and 60 FPS on mid-range, with input acknowledged within 100 ms
 
-**Given** the solve corpus on the minimum device
+**Given** the production solve corpus on the minimum device, with Story 3.8 calibration and calibrated corpus evidence linked
 **When** run
 **Then** 95% solve within 3 s, with median, p95, memory and failure rate reported
 

@@ -79,3 +79,10 @@ key = "1-1-scaffold-the-gated-multi-module-project"
 skill = "bmad-project-context"
 args = "refresh"
 branch = "chore/refresh-agent-context"
+
+
+# Approved Story 3.3 calibration deferral; mandatory hardware follow-up.
+[[gates]]
+key = "3-8-reference-device-pruning-table-delivery-decision-and-product"
+when = "before-start"
+reason = "needs the reference device for pruning-table measurements, installed-size/delivery decision, production StrictMode and measured JVM/device calibration plus the full calibrated solve-corpus pass; required before production 3.7 acceptance and Epic 3/P0.S closure"

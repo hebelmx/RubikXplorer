@@ -10,7 +10,7 @@ class SolveCorpusBenchmarkMainTest {
     @Test
     fun `no arguments gives the defaults`() {
         assertEquals(ParsedArgs.Ok(BenchmarkOptions()), parseArgs(emptyList()))
-        assertEquals(1_000, BenchmarkOptions().cases)
+        assertEquals(10_000, BenchmarkOptions().cases)
     }
 
     @Test
@@ -50,7 +50,7 @@ class SolveCorpusBenchmarkMainTest {
     @Test
     fun `custom run reports over cases plus the solved state`() {
         val report = runBenchmark(BenchmarkOptions(cases = 50, seed = 7, warmup = 0))
-        assertTrue("cases          51" in report, report)
+        assertTrue("cases          151" in report, report)
         assertTrue("failures       0 (0.0%)" in report, report)
     }
 }
