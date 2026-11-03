@@ -1,10 +1,12 @@
 package dev.rubikxplorer.application.session
 
 import dev.rubikxplorer.domain.content.Lesson
+import dev.rubikxplorer.domain.content.TutorConfig
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.MoveHistory
 import dev.rubikxplorer.domain.predicate.ObjectiveProgress
+import dev.rubikxplorer.domain.tutor.Assess
 import dev.rubikxplorer.domain.tutor.MoveFeedback
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import dev.rubikxplorer.domain.tutor.Tutor
@@ -20,9 +22,10 @@ import dev.rubikxplorer.domain.tutor.TutorDecision
  * - [history] starts at [entry]; [virtual] is its current state.
  * - [objectiveMet] and [progress] are the Lesson's Completion Predicate on [virtual], recomputed on
  *   every change of [virtual].
- * - The tutor fields ([teachingMode], [stepIndex], [revealRequested], [lastMoveFeedback]) never
+ * - The tutor fields ([teachingMode], [noticeStep], [revealRequested], [lastMoveFeedback]) never
  *   advance [revision]: a mode switch or a reveal does not change the Cube State, so it must not
  *   stale a pending effect.
+ * - The current step is never stored: [stepIndex] derives it from the Cube State (AD-6).
  */
 @ConsistentCopyVisibility
 data class SessionState internal constructor(
@@ -31,6 +34,8 @@ data class SessionState internal constructor(
     val kind: SessionKind?,
     /** The Lesson of a [SessionKind.LESSON] session; `null` otherwise. */
     val lesson: Lesson?,
+    /** The tutor configuration the Lesson started with; `null` exactly when [lesson] is. */
+    val tutorConfig: TutorConfig?,
     val history: MoveHistory,
     /** The verified Solution a [SessionKind.SOLVE_PLAYBACK] session plays from [entry]; empty otherwise. */
     val solution: List<Move>,
@@ -45,8 +50,11 @@ data class SessionState internal constructor(
     val lastDiscarded: EffectResultDiscarded?,
     /** How the tutor teaches; kept across Lessons for the app process. */
     val teachingMode: TeachingMode,
-    /** The 0-based Lesson step the Learner is on. */
-    val stepIndex: Int,
+    /**
+     * A completed step whose Notice stays on the card until *Next* (`StepAdvanced`); transient, it
+     * holds no current step and any change of the Cube State re-derives it.
+     */
+    val noticeStep: Int?,
     /** True once the Learner asked to see the current step's Moves. */
     val revealRequested: Boolean,
     /**
@@ -56,9 +64,14 @@ data class SessionState internal constructor(
      */
     val lastMoveFeedback: MoveFeedback?,
 ) {
-    /** The tutor's decision for the current step; `null` in [IDLE]. Derived, never stored. */
+    /** The tutor's decision for the shown step; `null` outside a Lesson. Derived, never stored. */
     val decision: TutorDecision? by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        lesson?.let { Tutor.decide(it, entry, virtual, teachingMode, stepIndex, revealRequested, lastMoveFeedback) }
+        lesson?.let { Assess.decide(it, history, checkNotNull(tutorConfig), teachingMode, revealRequested, noticeStep, lastMoveFeedback) }
+    }
+
+    /** The 0-based Lesson step the card shows ([Tutor.shownStep]); 0 outside a Lesson. Derived, never stored. */
+    val stepIndex: Int by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        lesson?.let { Tutor.shownStep(it, entry, virtual, noticeStep) } ?: 0
     }
 
     /** The session's start: a Lesson's entry state (where Reset returns) or the state a Solution plays from. */
@@ -80,6 +93,7 @@ data class SessionState internal constructor(
                 revision = 0,
                 kind = null,
                 lesson = null,
+                tutorConfig = null,
                 history = MoveHistory(),
                 solution = emptyList(),
                 objectiveMet = false,
@@ -88,7 +102,7 @@ data class SessionState internal constructor(
                 nextEffectId = 1,
                 lastDiscarded = null,
                 teachingMode = TeachingMode.DEFAULT,
-                stepIndex = 0,
+                noticeStep = null,
                 revealRequested = false,
                 lastMoveFeedback = null,
             )

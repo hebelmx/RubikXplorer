@@ -53,7 +53,11 @@ class SchemaModelTest {
             JsonObject(
                 config +
                     mapOf(
-                        "properties" to JsonObject(mapOf("maxDepth" to JsonObject(mapOf("type" to JsonPrimitive("integer"))))),
+                        "properties" to
+                            JsonObject(
+                                config.getValue("properties").jsonObject +
+                                    ("hintThreshold" to JsonObject(mapOf("type" to JsonPrimitive("integer")))),
+                            ),
                         "additionalProperties" to JsonPrimitive(true),
                     ),
             )
@@ -61,7 +65,7 @@ class SchemaModelTest {
             SchemaComparator(
                 schemas + ("tutor-config.schema.json" to broken),
             ).compare("tutor-config.schema.json", TutorConfig.serializer().descriptor)
-        assertTrue(problems.any { "maxDepth" in it }, problems.toString())
+        assertTrue(problems.any { "hintThreshold" in it }, problems.toString())
         assertTrue(problems.any { "additionalProperties" in it }, problems.toString())
     }
 

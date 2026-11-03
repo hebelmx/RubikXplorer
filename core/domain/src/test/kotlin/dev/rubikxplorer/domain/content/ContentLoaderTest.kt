@@ -9,6 +9,7 @@ import dev.rubikxplorer.domain.predicate.AnyOf
 import dev.rubikxplorer.domain.predicate.StateReached
 import dev.rubikxplorer.domain.predicate.WhiteCornersSolved
 import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
+import dev.rubikxplorer.domain.predicate.WhitePieceSolved
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -131,7 +132,7 @@ class ContentLoaderTest {
                 .lessons
                 .single()
         assertEquals(AllOf(listOf(WhiteCrossSolved, WhiteCornersSolved)), lesson.completion)
-        assertEquals(AnyOf(listOf(StateReached("F"), WhiteCrossSolved)), lesson.preserve)
+        assertEquals(AnyOf(listOf(StateReached("F"), WhiteCrossSolved, WhitePieceSolved("white-red-blue"))), lesson.preserve)
         assertEquals(emptyList<ContentProblem>(), ContentValidator.validate(bundle))
         val entry = (FaceletString.decode(lesson.entryState) as FaceletStringResult.Decoded).facelets
         val state = (CubeValidator.validate(entry) as ValidationResult.Valid).state
@@ -275,10 +276,11 @@ class ContentLoaderTest {
 
     @Test
     fun `the tutor config loads strictly, and a missing one is MissingResource`() {
-        assertEquals(TutorConfig, loaded(fixture("valid")).tutorConfig)
-        assertEquals(TutorConfig, loaded(ContentSource.SHIPPED).tutorConfig)
+        assertEquals(SHIPPED_CONFIG, loaded(fixture("valid")).tutorConfig)
+        assertEquals(SHIPPED_CONFIG, loaded(ContentSource.SHIPPED).tutorConfig)
+        assertEquals(18, SHIPPED_CONFIG.moves.size)
         val valid = fixture("valid")
-        listOf("""{"x":1}""", "[]", "{").forEach { config ->
+        listOf("""{"x":1}""", "{}", """{"maxDepth":2}""", "[]", "{").forEach { config ->
             val source = ContentSource { path -> if (path == ContentLoader.TUTOR_CONFIG) config.toByteArray() else valid.read(path) }
             val error = failed(source)
             assertInstanceOf(ContentLoadError.Malformed::class.java, error, config)
@@ -288,7 +290,34 @@ class ContentLoaderTest {
         assertEquals(ContentLoadError.MissingResource(ContentLoader.TUTOR_CONFIG), failed(noConfig))
     }
 
+    @Test
+    fun `a tutor config with maxDepth outside 1 to 3 or an invalid or empty moveSet does not load`() {
+        val valid = fixture("valid")
+
+        fun withConfig(config: String) =
+            ContentSource { path -> if (path == ContentLoader.TUTOR_CONFIG) config.toByteArray() else valid.read(path) }
+
+        val depth = ContentValidator.MAX_DEPTH_FIELD
+        val moveSet = ContentValidator.MOVE_SET_FIELD
+        val cases =
+            mapOf(
+                """{"maxDepth":0,"moveSet":"U"}""" to depth,
+                """{"maxDepth":4,"moveSet":"U"}""" to depth,
+                """{"maxDepth":2,"moveSet":"U Q"}""" to moveSet,
+                """{"maxDepth":2,"moveSet":"  "}""" to moveSet,
+            )
+        cases.forEach { (config, field) ->
+            val problems = invalid(withConfig(config))
+            assertEquals(1, problems.size, "$config: $problems")
+            val problem = problems.single()
+            assertInstanceOf(ContentProblem.InvalidTutorConfig::class.java, problem, config)
+            assertEquals(field, (problem as ContentProblem.InvalidTutorConfig).field, config)
+        }
+        listOf(1, 3).forEach { loaded(withConfig("""{"maxDepth":$it,"moveSet":"U R"}""")) }
+    }
+
     private companion object {
         val REVISION = Regex("[0-9a-f]{64}")
+        val SHIPPED_CONFIG = TutorConfig(maxDepth = 2, moveSet = "U U' U2 D D' D2 R R' R2 L L' L2 F F' F2 B B' B2")
     }
 }

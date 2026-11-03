@@ -24,6 +24,8 @@ import org.junit.jupiter.api.TestFactory
 /**
  * Story 2.7 AC 2 (FR-4, AR-10): every shipped Lesson's authored step path, driven through [reduce]
  * from its entry state, reaches its Completion Predicate, and its authored harmful Move fails it.
+ * Story 4.1 AC 4 (AD-6): every step's `done` holds in order along that path, and the last equals
+ * `completion`.
  */
 class ShippedLessonPathsTest {
     /** How a Lesson's entry state was made from SOLVED, and one Move that disturbs placed pieces. */
@@ -116,6 +118,47 @@ class ShippedLessonPathsTest {
             val undone = done.committing(harmful)
             assertFalse(undone.objectiveMet)
             assertFalse(lesson.completion.isSatisfied(undone.virtual))
+        }
+
+    @TestFactory
+    fun `the last step's done is the Completion Predicate`() =
+        perLesson { lesson, _ -> assertEquals(lesson.completion, lesson.steps.last().done) }
+
+    @TestFactory
+    fun `along the authored path each step's done first holds at its end and keeps holding at every later boundary`() =
+        perLesson { lesson, _ ->
+            val entry = started(lesson).entry
+            val stepMoves = lesson.steps.map { moves(it.moves) }
+            // ends[k] is the number of Moves after which step k is complete.
+            val ends = stepMoves.runningFold(0) { total, m -> total + m.size }.drop(1)
+            val states = stepMoves.flatten().runningFold(entry) { state, move -> state.apply(move) }
+            lesson.steps.forEachIndexed { k, step ->
+                (0 until ends[k]).forEach { i ->
+                    assertFalse(step.done.isSatisfied(states[i]), "step ${k + 1}'s done holds after $i Moves, before its last Move")
+                }
+                ends.drop(k).forEach { end ->
+                    assertTrue(step.done.isSatisfied(states[end]), "step ${k + 1}'s done fails at the boundary after $end Moves")
+                }
+            }
+        }
+
+    @TestFactory
+    fun `at each step boundary through reduce the card shows that step's Notice and Next moves on`() =
+        perLesson { lesson, _ ->
+            var state = started(lesson)
+            lesson.steps.forEachIndexed { k, step ->
+                assertEquals(k, state.stepIndex, "before step ${k + 1}")
+                moves(step.moves).forEach { move ->
+                    state = reduce(state, commit(move)).state
+                }
+                assertEquals(k, state.stepIndex, "at the end of step ${k + 1}")
+                assertTrue(checkNotNull(state.decision).advance, "at the end of step ${k + 1}")
+                if (k < lesson.steps.lastIndex) {
+                    state = reduce(state, stepAdvanced).state
+                    assertEquals(k + 1, state.stepIndex, "Next after step ${k + 1}")
+                    assertFalse(checkNotNull(state.decision).advance, "Next after step ${k + 1}")
+                }
+            }
         }
 
     private fun lesson(id: String): Lesson = lessons.single { it.id.value == id }

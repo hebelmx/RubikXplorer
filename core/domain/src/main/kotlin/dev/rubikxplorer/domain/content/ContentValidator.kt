@@ -2,6 +2,7 @@ package dev.rubikxplorer.domain.content
 
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.CubeValidator
+import dev.rubikxplorer.domain.cube.FaceTurn
 import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.cube.NotationResult
 import dev.rubikxplorer.domain.cube.ValidationResult
@@ -13,6 +14,15 @@ import dev.rubikxplorer.domain.cube.ValidationResult
 object ContentValidator {
     /** Field name of a Lesson's Demonstration, as reported by [ContentProblem.BadNotation]. */
     const val DEMONSTRATION_FIELD = "demonstration"
+
+    /** The `tutor-config.json` field naming the enumeration depth, as reported by [ContentProblem.InvalidTutorConfig]. */
+    const val MAX_DEPTH_FIELD = "maxDepth"
+
+    /** The `tutor-config.json` field naming the enumerated Moves, as reported by [ContentProblem.InvalidTutorConfig]. */
+    const val MOVE_SET_FIELD = "moveSet"
+
+    /** The enumeration depths the tutor supports: deeper sequences are not bounded work for the reducer. */
+    val MAX_DEPTH_RANGE: IntRange = 1..3
 
     fun validate(bundle: ContentBundle): List<ContentProblem> {
         val problems = mutableListOf<ContentProblem>()
@@ -31,6 +41,38 @@ object ContentValidator {
         bundle.strings.forEach { (key, message) ->
             val parsed = IcuArguments.parse(message)
             if (parsed is IcuResult.Malformed) problems += ContentProblem.MalformedMessage(key, parsed.index)
+        }
+        problems += tutorConfigProblems(bundle.tutorConfig)
+        return problems
+    }
+
+    /** [config]'s `maxDepth` must lie in [MAX_DEPTH_RANGE]; its `moveSet` must be valid, non-empty Notation of distinct face turns. */
+    private fun tutorConfigProblems(config: TutorConfig): List<ContentProblem> {
+        val problems = mutableListOf<ContentProblem>()
+        if (config.maxDepth !in MAX_DEPTH_RANGE) {
+            problems += ContentProblem.InvalidTutorConfig(MAX_DEPTH_FIELD, ContentProblem.InvalidTutorConfig.Detail.OUT_OF_RANGE)
+        }
+        when (val parsed = Notation.parse(config.moveSet)) {
+            is NotationResult.Invalid -> {
+                problems += ContentProblem.InvalidTutorConfig(MOVE_SET_FIELD, ContentProblem.InvalidTutorConfig.Detail.BAD_NOTATION)
+            }
+
+            is NotationResult.Parsed -> {
+                if (parsed.moves.isEmpty()) {
+                    problems +=
+                        ContentProblem.InvalidTutorConfig(MOVE_SET_FIELD, ContentProblem.InvalidTutorConfig.Detail.NO_MOVES)
+                }
+                // Non-face-turn Moves and repeated Moves give several ways to one state, which would leave a
+                // one-move mistake ambiguous.
+                if (parsed.moves.any { it !is FaceTurn }) {
+                    problems +=
+                        ContentProblem.InvalidTutorConfig(MOVE_SET_FIELD, ContentProblem.InvalidTutorConfig.Detail.NOT_FACE_TURN)
+                }
+                if (parsed.moves.toSet().size != parsed.moves.size) {
+                    problems +=
+                        ContentProblem.InvalidTutorConfig(MOVE_SET_FIELD, ContentProblem.InvalidTutorConfig.Detail.DUPLICATE_MOVE)
+                }
+            }
         }
         return problems
     }
@@ -79,8 +121,8 @@ object ContentValidator {
 
     /**
      * The path rules: a Lesson has steps; each step has Moves; each step changes the Cube State (judged
-     * by [CubeState] equality, as `Tutor.decide` judges a step done, and only when the entry state and
-     * every step parse); and the Demonstration is the steps' Moves in order (only when all parse).
+     * by [CubeState] equality, as `Tutor.currentStep` matches the authored path, and only when the entry
+     * state and every step parse); and the Demonstration is the steps' Moves in order (only when all parse).
      */
     private fun stepProblems(lesson: Lesson): List<ContentProblem> {
         val id = lesson.id

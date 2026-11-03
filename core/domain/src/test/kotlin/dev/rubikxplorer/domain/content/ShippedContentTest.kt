@@ -3,6 +3,7 @@ package dev.rubikxplorer.domain.content
 import dev.rubikxplorer.domain.cube.PieceKind
 import dev.rubikxplorer.domain.cube.ValidationResult
 import dev.rubikxplorer.domain.predicate.AllOf
+import dev.rubikxplorer.domain.predicate.AlwaysTrue
 import dev.rubikxplorer.domain.predicate.StateReached
 import dev.rubikxplorer.domain.predicate.WhiteCornersSolved
 import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
@@ -144,9 +145,9 @@ class ShippedContentTest {
         fundamentals.lessons.forEach { lesson ->
             val exercise = StateReached(lesson.steps.joinToString(" ") { it.moves })
             assertEquals(exercise, lesson.completion, "${lesson.id}")
-            assertEquals(exercise, lesson.preserve, "${lesson.id}")
+            assertEquals(AlwaysTrue, lesson.preserve, "${lesson.id}")
         }
-        firstCross.lessons.forEach { assertEquals(cross to cross, it.completion to it.preserve, "${it.id}") }
+        firstCross.lessons.forEach { assertEquals(cross to AlwaysTrue, it.completion to it.preserve, "${it.id}") }
         corners.lessons.forEach { assertEquals(layer to cross, it.completion to it.preserve, "${it.id}") }
     }
 
@@ -211,7 +212,7 @@ class ShippedContentTest {
 
     @Test
     fun `the shipped tutor config loads, and tutor and session code declare no numeric constants`() {
-        assertEquals(TutorConfig, bundle.tutorConfig)
+        assertEquals(TutorConfig(maxDepth = 2, moveSet = "U U' U2 D D' D2 R R' R2 L L' L2 F F' F2 B B' B2"), bundle.tutorConfig)
         val repo = File("../..")
         val roots =
             listOf(

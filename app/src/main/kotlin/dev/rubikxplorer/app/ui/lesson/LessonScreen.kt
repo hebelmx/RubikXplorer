@@ -104,7 +104,7 @@ fun LessonScreen(
         if (host.state.value.lesson
                 ?.id != lesson.id
         ) {
-            host.dispatch { SessionEvent.LessonStarted(lesson, it) }
+            host.dispatch { SessionEvent.LessonStarted(lesson, entry.tutorConfig, it) }
         }
     }
     Column(

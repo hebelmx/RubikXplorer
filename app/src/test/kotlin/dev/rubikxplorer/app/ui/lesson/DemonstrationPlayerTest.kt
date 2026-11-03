@@ -34,6 +34,7 @@ import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.playback.DemonstrationResult
 import dev.rubikxplorer.domain.playback.PlaybackSpeed
 import dev.rubikxplorer.domain.predicate.Piece
+import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -53,7 +54,9 @@ class DemonstrationPlayerTest {
     @get:Rule
     val rule = createComposeRule()
 
-    private val demonstration = (Demonstration.of(whiteCrossLesson()) as DemonstrationResult.Ready).demonstration
+    // Preserving the cross, as a later Lesson would (AD-6), so the Keep emphasis has pieces to light.
+    private val demonstration =
+        (Demonstration.of(whiteCrossLesson().copy(preserve = WhiteCrossSolved)) as DemonstrationResult.Ready).demonstration
     private val entry = CubeState.SOLVED.apply(FaceTurn(Face.F, Turn.CLOCKWISE))
     private val whiteGreen = Piece(setOf(Color.WHITE, Color.GREEN))
     private val centers = Face.entries.map { it.ordinal * 9 + 4 }

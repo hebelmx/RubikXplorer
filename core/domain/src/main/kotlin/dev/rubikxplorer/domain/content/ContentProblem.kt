@@ -98,8 +98,8 @@ sealed interface ContentProblem {
     ) : ContentProblem
 
     /**
-     * Step [index] (0-based) of Lesson [lesson] ends on the same Cube State it started from, so
-     * `Tutor.decide` would mark it done at once, before the Learner turns anything.
+     * Step [index] (0-based) of Lesson [lesson] ends on the same Cube State it started from, so the
+     * authored path would reach its end state before the Learner turns anything.
      */
     data class NoOpStep(
         val lesson: LessonId,
@@ -110,4 +110,28 @@ sealed interface ContentProblem {
     data class DemonstrationMismatch(
         val lesson: LessonId,
     ) : ContentProblem
+
+    /** Field [field] of `tutor-config.json` holds a value the tutor cannot use, for the reason [detail]. */
+    data class InvalidTutorConfig(
+        val field: String,
+        val detail: Detail,
+    ) : ContentProblem {
+        /** Why the value is unusable. */
+        enum class Detail {
+            /** A number outside the supported range. */
+            OUT_OF_RANGE,
+
+            /** Text that is not valid Notation. */
+            BAD_NOTATION,
+
+            /** Notation that names no Moves. */
+            NO_MOVES,
+
+            /** A Move that is not a face turn (wide, slice or Cube Rotation). */
+            NOT_FACE_TURN,
+
+            /** The same Move listed twice. */
+            DUPLICATE_MOVE,
+        }
+    }
 }

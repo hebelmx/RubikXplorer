@@ -77,7 +77,7 @@ class TransitionsTableTest {
     private fun scenarios(sample: SessionEvent): List<Pair<SessionState, SessionEvent>> =
         when (sample) {
             is SessionEvent.LessonStarted -> {
-                listOf(SessionState.IDLE, a, b, askedB, revealed, playback).map { it to SessionEvent.LessonStarted(other, T0) }
+                listOf(SessionState.IDLE, a, b, askedB, revealed, playback).map { it to lessonStarted(other) }
             }
 
             is SessionEvent.SolvePlaybackStarted -> {
@@ -129,7 +129,7 @@ class TransitionsTableTest {
 
     private val samples: Map<String, SessionEvent> =
         listOf(
-            SessionEvent.LessonStarted(other, T0),
+            lessonStarted(other),
             playbackStarted(),
             commit(F),
             undo,
@@ -142,8 +142,8 @@ class TransitionsTableTest {
             stepAdvanced,
         ).associateBy { it::class.java.simpleName }
 
-    /** What the `session` column covers: the kind, its Lesson or Solution, and its entry state. */
-    private fun session(s: SessionState) = listOf(s.kind, s.lesson, s.solution, s.entry)
+    /** What the `session` column covers: the kind, its Lesson and tutor configuration or its Solution, and its entry state. */
+    private fun session(s: SessionState) = listOf(s.kind, s.lesson, s.tutorConfig, s.solution, s.entry)
 
     private fun changed(
         before: SessionState,
@@ -154,7 +154,7 @@ class TransitionsTableTest {
             if (before.virtual != after.virtual) add("virtual")
             if (before.pendingReset != after.pendingReset) add("pending")
 
-            fun tutor(s: SessionState) = listOf(s.teachingMode, s.stepIndex, s.revealRequested, s.lastMoveFeedback)
+            fun tutor(s: SessionState) = listOf(s.teachingMode, s.noticeStep, s.revealRequested, s.lastMoveFeedback)
             if (tutor(before) != tutor(after)) add("tutor")
         }
 

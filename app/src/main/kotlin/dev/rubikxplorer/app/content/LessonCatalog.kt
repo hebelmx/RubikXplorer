@@ -8,6 +8,7 @@ import dev.rubikxplorer.domain.content.ContentSource
 import dev.rubikxplorer.domain.content.Lesson
 import dev.rubikxplorer.domain.content.LessonId
 import dev.rubikxplorer.domain.content.Stage
+import dev.rubikxplorer.domain.content.TutorConfig
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,10 +20,11 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** A Lesson with the Stage that holds it. */
+/** A Lesson with the Stage that holds it and the [tutorConfig] its bundle ships. */
 data class CatalogEntry(
     val lesson: Lesson,
     val stage: Stage,
+    val tutorConfig: TutorConfig,
 )
 
 /** What the [LessonCatalog] holds. */
@@ -34,7 +36,10 @@ sealed interface CatalogState {
     data class Ready(
         val bundle: ContentBundle,
     ) : CatalogState {
-        val lessons: List<CatalogEntry> = bundle.stages.flatMap { stage -> stage.lessons.map { CatalogEntry(it, stage) } }
+        val lessons: List<CatalogEntry> =
+            bundle.stages.flatMap { stage ->
+                stage.lessons.map { CatalogEntry(it, stage, bundle.tutorConfig) }
+            }
         val strings: ContentStrings = ContentStrings(bundle.strings)
 
         fun find(id: LessonId): CatalogEntry? = lessons.firstOrNull { it.lesson.id == id }

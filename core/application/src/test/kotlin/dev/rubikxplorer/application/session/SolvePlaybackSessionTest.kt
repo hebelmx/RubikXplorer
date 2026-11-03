@@ -30,7 +30,7 @@ class SolvePlaybackSessionTest {
     @Test
     fun `starting while a Lesson is active leaves the Lesson, its history and tutor state unchanged`() {
         val lesson =
-            started(twoStepLesson()).after(modeChanged(TeachingMode.TEST_ME), commit(U), stepAdvanced, reveal, commit(R), resetEvent)
+            started(twoStepLesson()).after(modeChanged(TeachingMode.TEST_ME), commit(U), stepAdvanced, reveal, commit(F_PRIME), resetEvent)
         check(lesson.pendingReset != null && lesson.stepIndex == 1 && lesson.revealRequested && lesson.history.canUndo)
         val withFeedback = lesson.copy(lastMoveFeedback = MoveFeedback.NEUTRAL)
         assertEquals(Transition(withFeedback), reduce(withFeedback, playbackStarted()))
@@ -78,7 +78,7 @@ class SolvePlaybackSessionTest {
     @Test
     fun `a Lesson start replaces a playback session and drops its Solution`() {
         val playback = SessionState.IDLE.after(playbackStarted())
-        val t = reduce(playback, SessionEvent.LessonStarted(whiteCrossLesson(), T0))
+        val t = reduce(playback, lessonStarted(whiteCrossLesson()))
         assertEquals(SessionKind.LESSON, t.state.kind)
         assertEquals(whiteCrossLesson(), t.state.lesson)
         assertEquals(emptyList<Any>(), t.state.solution)

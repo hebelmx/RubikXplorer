@@ -3,6 +3,7 @@ package dev.rubikxplorer.application.session
 import dev.rubikxplorer.domain.content.FaceletString
 import dev.rubikxplorer.domain.content.FaceletStringResult
 import dev.rubikxplorer.domain.content.Lesson
+import dev.rubikxplorer.domain.content.TutorConfig
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.CubeValidator
 import dev.rubikxplorer.domain.cube.Move
@@ -10,6 +11,7 @@ import dev.rubikxplorer.domain.cube.MoveHistory
 import dev.rubikxplorer.domain.cube.ValidationResult
 import dev.rubikxplorer.domain.text.Text
 import dev.rubikxplorer.domain.tutor.MoveFeedback
+import dev.rubikxplorer.domain.tutor.Tutor
 
 /**
  * The pure `LearningSession` reducer (AD-3): no I/O, no wall clock, no randomness, bounded work.
@@ -23,7 +25,7 @@ fun reduce(
     // Only a Lesson session takes Moves and tutor events; idle and playback sessions ignore them.
     if (!starts && state.kind != SessionKind.LESSON) return Transition(state)
     return when (event) {
-        is SessionEvent.LessonStarted -> start(state, event.lesson)
+        is SessionEvent.LessonStarted -> start(state, event.lesson, event.tutorConfig)
         is SessionEvent.SolvePlaybackStarted -> startPlayback(state, event.state, event.solution)
         is SessionEvent.MoveCommitted -> committed(state, event.move)
         is SessionEvent.Undo -> state.history.undoable?.let { move(state, state.history.undo(), it.inverse(), null) } ?: Transition(state)
@@ -40,15 +42,17 @@ fun reduce(
 private fun start(
     state: SessionState,
     lesson: Lesson,
+    tutorConfig: TutorConfig,
 ): Transition {
     val entry = entryState(lesson)
     val next =
         withHistory(state, MoveHistory(entry), lesson).copy(
             kind = SessionKind.LESSON,
             lesson = lesson,
+            tutorConfig = tutorConfig,
             solution = emptyList(),
             lastDiscarded = null,
-            stepIndex = 0,
+            noticeStep = null,
             revealRequested = false,
             lastMoveFeedback = null,
         )
@@ -72,9 +76,10 @@ private fun startPlayback(
         withHistory(state, MoveHistory(start), lesson = null).copy(
             kind = SessionKind.SOLVE_PLAYBACK,
             lesson = null,
+            tutorConfig = null,
             solution = solution.toList(),
             lastDiscarded = null,
-            stepIndex = 0,
+            noticeStep = null,
             revealRequested = false,
             lastMoveFeedback = null,
         )
@@ -100,15 +105,34 @@ private fun committed(
     return move(state, history, move, feedback)
 }
 
-/** [state] moved to [history], animating [animate]; [feedback] becomes the last Move's feedback. */
+/**
+ * [state] moved to [history], animating [animate]; [feedback] becomes the last Move's feedback. With
+ * `s0` the step shown before and `d1` the current step after: when `d1 > s0` and the Lesson is not
+ * complete, `s0`'s Notice stays until *Next* (no auto-advance past a Notice); otherwise no Notice is
+ * pending. The reveal resets whenever the shown step changes.
+ */
 private fun move(
     state: SessionState,
     history: MoveHistory,
     animate: Move,
     feedback: MoveFeedback?,
 ): Transition {
-    val next = withHistory(state, history).copy(lastMoveFeedback = feedback)
+    val moved = withHistory(state, history).copy(lastMoveFeedback = feedback)
+    val next = moved.lesson?.let { lesson -> withNotice(state, moved, lesson) } ?: moved
     return Transition(next, presentation = listOf(Presentation.Animate(animate, next.revision, next.virtual)))
+}
+
+private fun withNotice(
+    before: SessionState,
+    moved: SessionState,
+    lesson: Lesson,
+): SessionState {
+    val shownBefore = before.stepIndex
+    val current = Tutor.currentStep(lesson, moved.entry, moved.virtual)
+    // Only a step that is done now (effective done, AD-6) earns its Notice: a return onto the path mid-step may not redo earlier steps.
+    val notice = shownBefore.takeIf { current > it && !moved.objectiveMet && Tutor.stepDone(lesson, it, moved.virtual) }
+    val next = moved.copy(noticeStep = notice)
+    return if (next.stepIndex == shownBefore) next else next.copy(revealRequested = false)
 }
 
 /**
@@ -119,7 +143,7 @@ private fun reset(state: SessionState): Transition {
     val history = state.history.reset()
     val next =
         (if (history == state.history) state.copy(pendingReset = null) else withHistory(state, history))
-            .copy(stepIndex = 0, revealRequested = false, lastMoveFeedback = null)
+            .copy(noticeStep = null, revealRequested = false, lastMoveFeedback = null)
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.entry)))
 }
 
@@ -166,16 +190,14 @@ private fun declined(
     }
 
 /**
- * The next step, when the current one is done but the Lesson is not and a step is left; the Learner
- * then starts it with its Moves hidden again. Otherwise nothing changes.
+ * Past a completed step's Notice, when the tutor says `advance` and the Lesson is not complete: the
+ * Notice clears, so the card shows the step derived from the cube, with its Moves hidden again.
+ * Otherwise nothing changes.
  */
 private fun advance(state: SessionState): Transition {
     val decision = state.decision ?: return Transition(state)
-    val lastStep = state.lesson?.steps?.lastIndex ?: return Transition(state)
-    val applies = decision.advance && !decision.satisfied && state.stepIndex < lastStep
-    return Transition(
-        if (applies) state.copy(stepIndex = state.stepIndex + 1, revealRequested = false, lastMoveFeedback = null) else state,
-    )
+    val applies = decision.advance && !decision.satisfied
+    return Transition(if (applies) state.copy(noticeStep = null, revealRequested = false, lastMoveFeedback = null) else state)
 }
 
 /** A different mode clears the last Move's feedback (it belonged to the old mode's attempt); the same mode changes nothing. */

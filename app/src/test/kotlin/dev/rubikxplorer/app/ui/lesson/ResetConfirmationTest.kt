@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import dev.rubikxplorer.app.session.SessionHost
 import dev.rubikxplorer.app.session.TickingClock
+import dev.rubikxplorer.app.session.shippedTutorConfig
 import dev.rubikxplorer.app.session.whiteCrossLesson
 import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
 import dev.rubikxplorer.application.session.SessionEvent
@@ -51,7 +52,7 @@ class ResetConfirmationTest {
 
     @Before
     fun setUp() {
-        runBlocking { host.dispatch { SessionEvent.LessonStarted(whiteCrossLesson(), it) } }
+        runBlocking { host.dispatch { SessionEvent.LessonStarted(whiteCrossLesson(), shippedTutorConfig, it) } }
         rule.setContent {
             RubikXplorerTheme {
                 val scope = rememberCoroutineScope()

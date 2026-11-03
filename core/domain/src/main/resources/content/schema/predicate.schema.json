@@ -31,6 +31,29 @@
     {
       "type": "object",
       "additionalProperties": false,
+      "required": ["predicate", "piece"],
+      "properties": {
+        "predicate": { "const": "white-piece-solved" },
+        "piece": {
+          "type": "string",
+          "enum": [
+            "white-green", "white-red", "white-blue", "white-orange",
+            "white-green-red", "white-red-blue", "white-blue-orange", "white-orange-green"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["predicate"],
+      "properties": {
+        "predicate": { "const": "nothing" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
       "required": ["predicate", "predicates"],
       "properties": {
         "predicate": { "const": "allOf" },
