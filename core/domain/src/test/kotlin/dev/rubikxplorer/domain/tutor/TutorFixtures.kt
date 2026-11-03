@@ -15,6 +15,7 @@ import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.cube.NotationResult
 import dev.rubikxplorer.domain.cube.ValidationResult
+import dev.rubikxplorer.domain.predicate.AlwaysTrue
 import dev.rubikxplorer.domain.predicate.AnyOf
 import dev.rubikxplorer.domain.predicate.Predicate
 import dev.rubikxplorer.domain.predicate.StateReached
@@ -51,7 +52,7 @@ internal object TutorFixtures {
             demonstration = steps.joinToString(" ") { it.first },
             learnerAction = TextKey("lesson.lesson-01-01.learner-action"),
             completion = completion,
-            preserve = WhiteCrossSolved,
+            preserve = AlwaysTrue, // a first Lesson: nothing earlier to keep (AD-6)
             recovery = RecoveryRef("recovery-undo-last-move"),
             steps =
                 steps.mapIndexed { i, (m, done) ->

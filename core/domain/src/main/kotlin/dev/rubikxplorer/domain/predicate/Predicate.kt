@@ -14,6 +14,7 @@ import kotlinx.serialization.Serializable
  * - `white-corners-solved` → [WhiteCornersSolved] (Stage 3)
  * - `state-reached` (`moves`) → [StateReached] (Stage 1 Notation exercises)
  * - `white-piece-solved` (`piece`) → [WhitePieceSolved] (one white-layer edge or corner, a step's `done`)
+ * - `nothing` → [AlwaysTrue] (a Lesson `preserve` with no earlier solved pieces)
  * - `allOf` (`predicates`) → [AllOf]
  * - `anyOf` (`predicates`) → [AnyOf]
  *

@@ -19,6 +19,7 @@ class PredicateJsonTest {
             """{"predicate":"white-corners-solved"}""" to WhiteCornersSolved,
             """{"predicate":"state-reached","moves":"R U"}""" to StateReached("R U"),
             """{"predicate":"white-piece-solved","piece":"white-green-red"}""" to WhitePieceSolved("white-green-red"),
+            """{"predicate":"nothing"}""" to AlwaysTrue,
             """{"predicate":"allOf","predicates":[{"predicate":"white-cross-solved"},{"predicate":"white-corners-solved"}]}""" to
                 AllOf(listOf(WhiteCrossSolved, WhiteCornersSolved)),
             """{"predicate":"anyOf","predicates":[{"predicate":"state-reached","moves":"R"},""" +

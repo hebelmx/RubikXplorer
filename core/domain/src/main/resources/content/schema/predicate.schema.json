@@ -46,6 +46,14 @@
     {
       "type": "object",
       "additionalProperties": false,
+      "required": ["predicate"],
+      "properties": {
+        "predicate": { "const": "nothing" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
       "required": ["predicate", "predicates"],
       "properties": {
         "predicate": { "const": "allOf" },

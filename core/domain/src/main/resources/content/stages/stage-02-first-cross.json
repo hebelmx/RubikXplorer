@@ -16,7 +16,7 @@
         "predicate": "white-cross-solved"
       },
       "preserve": {
-        "predicate": "white-cross-solved"
+        "predicate": "nothing"
       },
       "recovery": "recovery-undo-last-move",
       "steps": [
@@ -46,7 +46,7 @@
         "predicate": "white-cross-solved"
       },
       "preserve": {
-        "predicate": "white-cross-solved"
+        "predicate": "nothing"
       },
       "recovery": "recovery-undo-last-move",
       "steps": [
@@ -95,7 +95,7 @@
         "predicate": "white-cross-solved"
       },
       "preserve": {
-        "predicate": "white-cross-solved"
+        "predicate": "nothing"
       },
       "recovery": "recovery-undo-last-move",
       "steps": [
@@ -125,7 +125,7 @@
         "predicate": "white-cross-solved"
       },
       "preserve": {
-        "predicate": "white-cross-solved"
+        "predicate": "nothing"
       },
       "recovery": "recovery-undo-last-move",
       "steps": [
@@ -174,7 +174,7 @@
         "predicate": "white-cross-solved"
       },
       "preserve": {
-        "predicate": "white-cross-solved"
+        "predicate": "nothing"
       },
       "recovery": "recovery-undo-last-move",
       "steps": [

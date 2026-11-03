@@ -7,6 +7,7 @@ import dev.rubikxplorer.domain.content.Lesson
 import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.cube.NotationResult
+import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
 import dev.rubikxplorer.domain.predicate.WhitePieceSolved
 import dev.rubikxplorer.domain.tutor.NextAction
 import dev.rubikxplorer.domain.tutor.TeachingMode
@@ -135,5 +136,23 @@ class StepDerivationScenarioTest {
         assertEquals(0, first.stepIndex)
         assertTrue(first.advanceFlag())
         assertEquals(2, first.after(stepAdvanced).stepIndex)
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = TeachingMode::class, names = ["LET_ME_TRY", "TEST_ME"])
+    fun `lesson 03-04 a broken cross holds the card on the first step, without a Notice`(mode: TeachingMode) {
+        val lesson = lesson("lesson-03-04")
+        val advanced = start(lesson.id.value, mode).turning(lesson.steps[0].moves).after(stepAdvanced)
+        assertEquals(1, advanced.stepIndex)
+
+        // L keeps step 1's corner but breaks the cross the Lesson preserves, so no step's effective done holds (AD-6).
+        val broken = advanced.turning("L")
+        assertTrue(lesson.steps[0].done.isSatisfied(broken.virtual), "L keeps the white-green-red corner")
+        assertFalse(WhiteCrossSolved.isSatisfied(broken.virtual), "L breaks the white cross")
+        assertFalse(lesson.preserve.isSatisfied(broken.virtual))
+        assertEquals(0, broken.stepIndex, "a broken preserved piece leaves the first step unmet")
+        assertNull(broken.noticeStep, "no Notice while the cross is broken")
+        assertFalse(broken.advanceFlag())
+        assertEquals(NextAction.TURN, checkNotNull(broken.decision).nextAction)
     }
 }

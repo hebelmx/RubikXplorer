@@ -14,7 +14,7 @@ object Tutor {
      *
      * - On the authored path ([state] equals [entry] with the first `i` of the steps' flattened Moves
      *   applied, first match): the step holding Move `i + 1`, or the last step after the final Move.
-     * - Off the path: the first step whose `done` is unmet, else the last step.
+     * - Off the path: the first step whose effective done ([stepDone]) is unmet, else the last step.
      */
     fun currentStep(
         lesson: Lesson,
@@ -29,8 +29,18 @@ object Tutor {
         }
         val last = lesson.steps.lastIndex.coerceAtLeast(0)
         if (path == state) return last
-        return lesson.steps.indexOfFirst { !it.done.isSatisfied(state) }.takeIf { it >= 0 } ?: last
+        return lesson.steps.indices.firstOrNull { !stepDone(lesson, it, state) } ?: last
     }
+
+    /**
+     * Step [index]'s effective done on [state]: `allOf(lesson.preserve, done)` (AD-6). A step is not
+     * done while a piece an earlier Lesson solved is broken.
+     */
+    fun stepDone(
+        lesson: Lesson,
+        index: Int,
+        state: CubeState,
+    ): Boolean = lesson.preserve.isSatisfied(state) && lesson.steps[index].done.isSatisfied(state)
 
     /**
      * The step the step card shows: the last step once [lesson]'s `completion` holds on [state], else

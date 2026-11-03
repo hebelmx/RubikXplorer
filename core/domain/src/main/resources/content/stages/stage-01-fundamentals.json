@@ -15,8 +15,7 @@
         "moves": "U"
       },
       "preserve": {
-        "predicate": "state-reached",
-        "moves": "U"
+        "predicate": "nothing"
       },
       "recovery": "recovery-undo-last-move",
       "steps": [
@@ -48,8 +47,7 @@
         "moves": "R U"
       },
       "preserve": {
-        "predicate": "state-reached",
-        "moves": "R U"
+        "predicate": "nothing"
       },
       "recovery": "recovery-undo-last-move",
       "steps": [
@@ -101,8 +99,7 @@
         "moves": "R' U2"
       },
       "preserve": {
-        "predicate": "state-reached",
-        "moves": "R' U2"
+        "predicate": "nothing"
       },
       "recovery": "recovery-undo-last-move",
       "steps": [

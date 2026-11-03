@@ -102,6 +102,7 @@ deferred: []
 ## Spec Change Log
 
 - 2026-11-03 (review pass 1, no loopback): lesson-03-04 steps 2 and 3 ship cumulative `allOf[WP white-green-red, WP white-red-blue(, WP white-blue-orange)]` instead of the single `WP` in the Design Notes table. Why: the single form breaks AD-6's content rule, because step 1's `R'` briefly seats white-red-blue and step 2's `B'` briefly seats white-blue-orange. The cumulative form derives the same current step. KEEP: the cumulative form.
+- 2026-11-03 (product owner decision, review fix): apply AD-6 as written. Current step, off-path selection and Notice eligibility use effective done `allOf(lesson.preserve, done)`, which replaces the earlier deviation that used each step's raw `done`. Why: with raw `done`, later-step guidance showed while preserved pieces were broken (lesson-03-04: step 1, Next, then L keeps the white-green-red corner but breaks the cross). Lesson content was fixed so that `preserve` means only pieces earlier Lessons solved. A new always-true predicate, `{"predicate":"nothing"}` (`AlwaysTrue`: no preserved pieces, progress 1/1), is the `preserve` of the eight Stage 1–2 Lessons, which previously shipped `preserve == completion`. `preserve` stays required, and Stage 3 is unchanged. KEEP: effective done, and `nothing` for Lessons with no prior solved pieces.
 
 ## Review Triage Log
 
@@ -191,7 +192,7 @@ Step `done` predicates (`SR x` = `{"predicate":"state-reached","moves":"x"}`; `W
 
 `anyOf[SR <path state>, C]` keeps a positional step done at every later boundary, as AD-6's content rule demands. If the extended path test shows a row breaking that rule, fix the row (never weaken the test).
 
-Current-step derivation uses each step's own `done`, not AD-6's effective `allOf(lesson.preserve, done)`: Stage 1–2 Lessons ship `preserve == completion`, which would leave every step unmet until the Lesson is complete and break the AC's out-of-order advance. Effective done and preserved pieces stay for Story 4.2's classifier.
+Current-step derivation, off-path selection and Notice eligibility use AD-6's effective done, `allOf(lesson.preserve, done)` (`Tutor.stepDone`). A Lesson's `preserve` names only pieces that earlier Lessons solved, never its own completion: Stage 1–2 Lessons ship `{"predicate":"nothing"}` (always true, no preserved pieces), and Stage 3 Lessons ship `white-cross-solved`. So a broken preserved piece leaves every step unmet, and the card drops to the first step without a Notice. Preserved pieces and Harmful judging stay for Story 4.2's classifier.
 
 The transient `noticeStep` holds no current step. It only keeps a completed step's Notice on screen until *Next* (EXPERIENCE bans auto-advancing past a Notice). Any change of the Cube State re-derives it.
 

@@ -15,6 +15,7 @@ import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Face
 import dev.rubikxplorer.domain.cube.FaceTurn
 import dev.rubikxplorer.domain.cube.Turn
+import dev.rubikxplorer.domain.predicate.AlwaysTrue
 import dev.rubikxplorer.domain.predicate.AnyOf
 import dev.rubikxplorer.domain.predicate.StateReached
 import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
@@ -52,7 +53,7 @@ internal fun whiteCrossLesson(id: String = "lesson-01-01"): Lesson =
         demonstration = "F'",
         learnerAction = TextKey("lesson.$id.learner-action"),
         completion = WhiteCrossSolved,
-        preserve = WhiteCrossSolved,
+        preserve = AlwaysTrue, // a first Lesson: nothing earlier to keep (AD-6)
         recovery = RecoveryRef("recovery-undo-last-move"),
         steps =
             listOf(
