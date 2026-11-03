@@ -1,6 +1,7 @@
 package dev.rubikxplorer.application.session
 
 import dev.rubikxplorer.domain.content.Lesson
+import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import kotlin.time.Instant
@@ -15,6 +16,17 @@ sealed interface SessionEvent {
     /** Starts a Lesson session at the Lesson's entry state, replacing any current session. */
     data class LessonStarted(
         val lesson: Lesson,
+        override val at: Instant,
+    ) : SessionEvent
+
+    /**
+     * Starts a [SessionKind.SOLVE_PLAYBACK] session that plays [solution] from [state], replacing any
+     * current session. Applies only when [solution] leaves [state] solved, so an unverified list never
+     * becomes a session. Playback position and speed are not part of the session (AD-20).
+     */
+    data class SolvePlaybackStarted(
+        val state: CubeState,
+        val solution: List<Move>,
         override val at: Instant,
     ) : SessionEvent
 

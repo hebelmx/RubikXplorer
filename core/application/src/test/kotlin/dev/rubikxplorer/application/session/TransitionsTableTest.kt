@@ -1,5 +1,6 @@
 package dev.rubikxplorer.application.session
 
+import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.tutor.MoveFeedback
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -65,6 +66,9 @@ class TransitionsTableTest {
     private val twoAtStep1 = two.after(commit(U))
     private val twoAtStep1WithRedo = two.after(commit(U), commit(R), undo)
 
+    // A Solve Playback session: the start of a Lesson replaces it, other events leave it as it is.
+    private val playback = SessionState.IDLE.after(playbackStarted()).also { check(it.kind == SessionKind.SOLVE_PLAYBACK) }
+
     // Undo and Redo always leave no feedback, so a redo with feedback still standing is unreachable
     // through reduce(); this fixture checks Redo clears it all the same.
     private val bWithFeedback = b.copy(lastMoveFeedback = MoveFeedback.NEUTRAL)
@@ -73,15 +77,20 @@ class TransitionsTableTest {
     private fun scenarios(sample: SessionEvent): List<Pair<SessionState, SessionEvent>> =
         when (sample) {
             is SessionEvent.LessonStarted -> {
-                listOf(SessionState.IDLE, a, b, askedB, revealed).map { it to SessionEvent.LessonStarted(other, T0) }
+                listOf(SessionState.IDLE, a, b, askedB, revealed, playback).map { it to SessionEvent.LessonStarted(other, T0) }
+            }
+
+            is SessionEvent.SolvePlaybackStarted -> {
+                listOf(SessionState.IDLE, a, b, askedB, revealed).map { it to playbackStarted() } +
+                    listOf(a to playbackStarted(solution = listOf(U_PRIME)), playback to playbackStarted(CubeState.SOLVED, emptyList()))
             }
 
             is SessionEvent.MoveCommitted -> {
-                listOf(fresh to commit(F), b to commit(R), askedB to commit(F))
+                listOf(fresh to commit(F), b to commit(R), askedB to commit(F), playback to commit(F))
             }
 
             is SessionEvent.Undo -> {
-                listOf(fresh, a, b, askedB).map { it to undo }
+                listOf(fresh, a, b, askedB, playback).map { it to undo }
             }
 
             is SessionEvent.Redo -> {
@@ -89,7 +98,7 @@ class TransitionsTableTest {
             }
 
             is SessionEvent.Reset -> {
-                listOf(fresh, a, b, c, revealed).map { it to resetEvent }
+                listOf(fresh, a, b, c, revealed, playback).map { it to resetEvent }
             }
 
             is SessionEvent.ResetConfirmed -> {
@@ -106,11 +115,11 @@ class TransitionsTableTest {
             }
 
             is SessionEvent.TeachingModeChanged -> {
-                listOf(SessionState.IDLE, fresh, b, askedB, showMe).map { it to modeChanged(TeachingMode.SHOW_ME) }
+                listOf(SessionState.IDLE, fresh, b, askedB, showMe, playback).map { it to modeChanged(TeachingMode.SHOW_ME) }
             }
 
             is SessionEvent.RevealRequested -> {
-                listOf(SessionState.IDLE, fresh, b, askedB, revealed).map { it to reveal }
+                listOf(SessionState.IDLE, fresh, b, askedB, revealed, playback).map { it to reveal }
             }
 
             is SessionEvent.StepAdvanced -> {
@@ -121,6 +130,7 @@ class TransitionsTableTest {
     private val samples: Map<String, SessionEvent> =
         listOf(
             SessionEvent.LessonStarted(other, T0),
+            playbackStarted(),
             commit(F),
             undo,
             redo,
@@ -132,12 +142,15 @@ class TransitionsTableTest {
             stepAdvanced,
         ).associateBy { it::class.java.simpleName }
 
+    /** What the `session` column covers: the kind, its Lesson or Solution, and its entry state. */
+    private fun session(s: SessionState) = listOf(s.kind, s.lesson, s.solution, s.entry)
+
     private fun changed(
         before: SessionState,
         after: SessionState,
     ): Set<String> =
         buildSet {
-            if (before.lesson != after.lesson || before.entry != after.entry) add("session")
+            if (session(before) != session(after)) add("session")
             if (before.virtual != after.virtual) add("virtual")
             if (before.pendingReset != after.pendingReset) add("pending")
 
@@ -151,7 +164,7 @@ class TransitionsTableTest {
         assertEquals(names.size, names.toSet().size, "duplicate rows: $names")
         assertEquals(eventTypes, names.toSet())
         assertEquals(eventTypes, samples.keys)
-        assertEquals(10, eventTypes.size)
+        assertEquals(11, eventTypes.size)
     }
 
     @Test
@@ -165,7 +178,7 @@ class TransitionsTableTest {
 
             runs.forEach { (before, event, after) ->
                 assertTrue(after.revision - before.revision in 0..1, "${row.event}: revision step from $event")
-                val contentChanged = before.lesson != after.lesson || before.history != after.history
+                val contentChanged = session(before) != session(after) || before.history != after.history
                 assertEquals(contentChanged, after.revision == before.revision + 1, "${row.event}: revision iff content changed")
             }
 
