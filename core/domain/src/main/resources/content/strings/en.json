@@ -1,4 +1,6 @@
 {
+  "msg.solve.timed-out": "Solving took too long. Your colors are saved here; try again.",
+  "msg.solve.failed": "A verified solution could not be found. Check your colors or try again.",
   "msg.validation.wrong-color-counts": "Each color should appear on exactly nine stickers. Check the colors you entered.",
   "msg.validation.impossible-piece": "One {piece} shows colors that no real {piece} has. Check its stickers.",
   "msg.validation.twisted-corner": "One corner looks twisted in place. A real cube cannot reach this state by turning.",
