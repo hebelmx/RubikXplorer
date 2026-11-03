@@ -1,6 +1,9 @@
 package dev.rubikxplorer.domain.playback
 
+import dev.rubikxplorer.domain.content.ContentLoadResult
+import dev.rubikxplorer.domain.content.ContentLoader
 import dev.rubikxplorer.domain.content.ContentProblem
+import dev.rubikxplorer.domain.content.ContentSource
 import dev.rubikxplorer.domain.content.FaceletString
 import dev.rubikxplorer.domain.content.Lesson
 import dev.rubikxplorer.domain.content.LessonId
@@ -21,6 +24,7 @@ import dev.rubikxplorer.domain.predicate.Predicate
 import dev.rubikxplorer.domain.predicate.WhiteCornersSolved
 import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -94,6 +98,25 @@ class DemonstrationTest {
         val focus = ready(lesson("F", "F'", completion = WhiteCornersSolved)).steps.single().focus
         assertEquals(otherCrossEdges, focus.keep)
         assertEquals(setOf(piece(Color.WHITE, Color.GREEN, Color.RED), piece(Color.WHITE, Color.GREEN, Color.ORANGE)), focus.target)
+    }
+
+    @Test
+    fun `a shipped Stage 2 demonstration keeps the cross edges earlier steps solved lit`() {
+        val loaded = ContentLoader.load(ContentSource.SHIPPED)
+        check(loaded is ContentLoadResult.Loaded) { "the shipped content does not load: $loaded" }
+        val lesson =
+            loaded.bundle.stages
+                .flatMap { it.lessons }
+                .single { it.id.value == "lesson-02-05" }
+        val steps = ready(lesson).steps
+        // Its preserve is `nothing`, so Keep comes from the steps already done (AD-6).
+        assertEquals(emptySet<Piece>(), steps[0].focus.keep)
+        val whiteRed = piece(Color.WHITE, Color.RED)
+        val whiteBlue = piece(Color.WHITE, Color.BLUE)
+        assertEquals(setOf(whiteGreen), steps[1].focus.keep)
+        assertEquals(setOf(whiteGreen, whiteRed), steps[2].focus.keep)
+        assertEquals(setOf(whiteGreen, whiteRed, whiteBlue), steps[3].focus.keep)
+        steps.forEachIndexed { i, step -> assertTrue(step.focus.keep.all { it in step.focus.lit }, "step ${i + 1}") }
     }
 
     @Test

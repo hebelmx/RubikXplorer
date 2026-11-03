@@ -17,7 +17,8 @@ import dev.rubikxplorer.domain.predicate.Piece
 
 /**
  * What a Demonstration step puts in focus, derived from the Lesson's predicates (no content field):
- * - [keep]: the pieces the Lesson's `preserve` predicate holds at the step's start;
+ * - [keep]: the step's preserved pieces at its start (AD-6): those of the Lesson's `preserve`, plus
+ *   those of every other step whose effective done, `allOf(preserve, done)`, holds there;
  * - [target]: the pieces the step newly brings into the `completion` predicate's preserved set;
  * - [involved]: the pieces that leave their stickers' start positions at any Move of the step.
  *
@@ -77,13 +78,13 @@ class Demonstration private constructor(
             var state = start
             var first = 0
             val steps =
-                stepMoves.map { moves ->
+                stepMoves.mapIndexed { index, moves ->
                     val s0 = state
                     val path = moves.runningFold(s0) { s, m -> s.apply(m) }
                     val s1 = path.last()
                     val focus =
                         StepFocus(
-                            keep = lesson.preserve.preservedPieces(s0),
+                            keep = keep(lesson, index, s0),
                             target = lesson.completion.preservedPieces(s1) - lesson.completion.preservedPieces(s0),
                             involved = involved(s0, path.drop(1)),
                         )
@@ -93,6 +94,21 @@ class Demonstration private constructor(
                     }
                 }
             return DemonstrationResult.Ready(Demonstration(start, steps))
+        }
+
+        /** AD-6's preserved pieces of step [index] at [s0]: the Lesson's `preserve`, plus every other effectively done step's. */
+        private fun keep(
+            lesson: Lesson,
+            index: Int,
+            s0: CubeState,
+        ): Set<Piece> {
+            val kept = lesson.preserve.preservedPieces(s0).toMutableSet()
+            if (lesson.preserve.isSatisfied(s0)) {
+                lesson.steps.forEachIndexed { other, step ->
+                    if (other != index && step.done.isSatisfied(s0)) kept += step.done.preservedPieces(s0)
+                }
+            }
+            return kept
         }
 
         private sealed interface EntryState {
