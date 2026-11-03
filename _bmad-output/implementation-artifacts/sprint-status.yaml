@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-29-2026 12:34
-last_updated: 11-02-2026 20:00
+last_updated: 11-02-2026 21:00
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -63,7 +63,7 @@ development_status:
   3-1-solver-coordinates-and-move-tables-clean-room: done
   3-2-pruning-tables-cached-off-the-main-thread: done
   3-3-two-phase-search-verified-on-a-10-000-state-corpus: done
-  3-4-solvecube-use-case: in-progress
+  3-4-solvecube-use-case: review
   3-5-enter-a-cube-in-the-manual-cube-editor: backlog
   3-6-step-through-a-solution-with-generated-notes: backlog
   3-7-solve-tab-end-to-end: backlog
