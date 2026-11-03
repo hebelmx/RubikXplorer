@@ -28,24 +28,12 @@ class SolvePlaybackSessionTest {
     }
 
     @Test
-    fun `starting replaces a Lesson, clears pending and the tutor step but keeps the mode`() {
+    fun `starting while a Lesson is active leaves the Lesson, its history and tutor state unchanged`() {
         val lesson =
             started(twoStepLesson()).after(modeChanged(TeachingMode.TEST_ME), commit(U), stepAdvanced, reveal, commit(R), resetEvent)
-        check(lesson.pendingReset != null && lesson.stepIndex == 1 && lesson.revealRequested)
+        check(lesson.pendingReset != null && lesson.stepIndex == 1 && lesson.revealRequested && lesson.history.canUndo)
         val withFeedback = lesson.copy(lastMoveFeedback = MoveFeedback.NEUTRAL)
-        val t = reduce(withFeedback, playbackStarted())
-        val s = t.state
-        assertEquals(SessionKind.SOLVE_PLAYBACK, s.kind)
-        assertNull(s.lesson)
-        assertEquals(withFeedback.revision + 1, s.revision)
-        assertNull(s.pendingReset)
-        assertEquals(0, s.stepIndex)
-        assertEquals(false, s.revealRequested)
-        assertNull(s.lastMoveFeedback)
-        assertEquals(TeachingMode.TEST_ME, s.teachingMode)
-        assertEquals(withFeedback.nextEffectId, s.nextEffectId)
-        assertEquals(false, s.history.canUndo)
-        assertEquals(listOf(Presentation.Snap(s.revision, SCRAMBLED)), t.presentation)
+        assertEquals(Transition(withFeedback), reduce(withFeedback, playbackStarted()))
     }
 
     @Test

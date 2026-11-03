@@ -58,12 +58,15 @@ private fun start(
 /**
  * Starts a Solve Playback session at [start] holding [solution], when [solution] verifiably solves
  * [start] (bounded: one pass over the list); otherwise nothing changes. The Teaching Mode is kept.
+ * AD-3 suspends a session of another kind before a new one starts; until suspension exists
+ * (Story 3.7), an active session of another kind rejects the start and stays unchanged.
  */
 private fun startPlayback(
     state: SessionState,
     start: CubeState,
     solution: List<Move>,
 ): Transition {
+    if (state.isActive && state.kind != SessionKind.SOLVE_PLAYBACK) return Transition(state)
     if (!start.apply(solution).isSolved) return Transition(state)
     val next =
         withHistory(state, MoveHistory(start), lesson = null).copy(

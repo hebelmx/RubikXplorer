@@ -26,7 +26,7 @@ steps remain.
 | Event | Mutates | Undoable | Clears redo |
 |-------|---------|----------|-------------|
 | LessonStarted | session, virtual, pending, tutor | no | yes |
-| SolvePlaybackStarted | session, virtual, pending, tutor | no | yes |
+| SolvePlaybackStarted | session, virtual | no | no |
 | MoveCommitted | virtual, pending, tutor | yes | yes |
 | Undo | virtual, pending, tutor | no | no |
 | Redo | virtual, pending, tutor | yes | no |
@@ -38,8 +38,9 @@ steps remain.
 | StepAdvanced | tutor | no | no |
 
 Solve Playback sessions (`SOLVE_PLAYBACK`, Story 3.6): `SolvePlaybackStarted(state, solution)`
-replaces any current session with one whose entry and `virtual` are `state` and which holds
-`solution`, with no Lesson; like `LessonStarted` it keeps `teachingMode`, resets the step, the reveal
+starts, from no session or over a playing one, a session whose entry and `virtual` are `state` and
+which holds `solution`, with no Lesson; while a session of another kind (a Lesson) is active it
+changes nothing, because AD-3 suspends that session first and suspension arrives with Story 3.7; like `LessonStarted` it keeps `teachingMode`, resets the step, the reveal
 and the last Move's feedback, cancels a pending confirmation and snaps the net to `state`. It applies
 only when `solution` leaves `state` solved; an unverified Solution changes nothing. A playback
 session takes no other event but `LessonStarted` (which replaces it): `MoveCommitted`, `Undo`,
