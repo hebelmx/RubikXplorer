@@ -2,7 +2,7 @@
 title: 'Two-phase search verified on a 10,000-state corpus'
 type: feature
 created: '2026-11-02'
-status: blocked
+status: done
 baseline_revision: 07426471a933aa38488e3a47ecba496673cb991e
 review_loop_iteration: 0
 followup_review_recommended: false
@@ -131,9 +131,16 @@ Residual acceptance gate: host results do not establish reference-device-equival
 
 Final verification after review patch: `:core:solver:test spotlessCheck build` SUCCESS in1m29s. Corpus10101/10101 solved,0 failures,100% within3s,median3.637ms,p9521.348ms,max229.863ms,peak334.2MiB; corpus test69.745s,all five search tests70.251s. Final retained evidence:`/tmp/story33-corpus-final.xml` and `/tmp/story33-final-verification.log`.
 
-## Finalization Halt
+## Historical Finalization Halt
 
 Status: blocked.
 Blocking condition: finalization left repository dirty.
 
 Reviewed implementation committed as95f1913ddff67ddb5654246abbae6b293bf0121c. The only remaining unrelated change is `.claude/settings.json` (enabledPlugins). It was not authored by this run, was excluded from the story commit and is preserved unchanged. Parent explicitly instructed preservation without revert/stash/commit. Build-auto step04 Finalize2 requires: "Verify the version-controlled working copy is clean. Otherwise HALT with status blocked and blocking condition finalization left repository dirty." This finalization condition is separate from the external profile-equivalence before-merge acceptance gate.
+
+## Finalization Complete
+
+Status: done.
+Blocking condition: none.
+
+The user authorized the unrelated settings change, committed separately as8401a7845ca7aed755d9d91ede74482269d86b4f. The working copy was verified clean before this result update; the dirty-tree halt is resolved. This continuation changes only this execution record, with no implementation changes or additional review required. Follow-up review recommended:false. All deferred findings and the explicit reference-device-equivalence calibration before-merge acceptance gate remain unchanged; done records implementation/workflow completion, not approval of that external gate.
