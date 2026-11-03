@@ -1,6 +1,6 @@
 package dev.rubikxplorer.application.session
 
-/** What a `LearningSession` is for (AD-3). Lessons run as [LESSON]; the others arrive with later epics. */
+/** What a `LearningSession` is for (AD-3). Lessons run as [LESSON], Solutions play as [SOLVE_PLAYBACK]; the others arrive with later epics. */
 enum class SessionKind {
     LESSON,
     PRACTICE,

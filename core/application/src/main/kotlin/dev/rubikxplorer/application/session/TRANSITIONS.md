@@ -6,7 +6,8 @@ or a row naming no type, fails the build. Physical-mode rows (`expected`, `obser
 
 Columns:
 
-- **Mutates** — the fields the event may change, from `session` (the Lesson and its entry state),
+- **Mutates** — the fields the event may change, from `session` (the session's kind, its Lesson or
+  Solution, and its entry state),
   `virtual` (the current Cube State), `pending` (the reset confirmation awaiting the Learner) and
   `tutor` (`teachingMode`, `stepIndex`, `revealRequested`, `lastMoveFeedback`); `—` for none. Any
   change of `session`, `virtual` or the undo/redo history advances `revision` by exactly 1 and
@@ -15,7 +16,8 @@ Columns:
   returns `virtual` to where it was before the event.
 - **Clears redo** — `yes` when nothing is left to redo whenever the event advances `revision`.
 
-Every event other than `LessonStarted` leaves an idle state (no session) unchanged. A result
+Every event other than `LessonStarted` and `SolvePlaybackStarted` leaves an idle state (no session)
+unchanged. A result
 (`ResetConfirmed`, `ResetDeclined`) whose `effectId` and `revision` do not match the pending
 confirmation at the current revision changes nothing but `lastDiscarded`
 (`EffectResultDiscarded`); a `ResetConfirmed` overtaken by a newer revision re-offers a fresh confirmation while unsaved
@@ -24,6 +26,7 @@ steps remain.
 | Event | Mutates | Undoable | Clears redo |
 |-------|---------|----------|-------------|
 | LessonStarted | session, virtual, pending, tutor | no | yes |
+| SolvePlaybackStarted | session, virtual, pending, tutor | no | yes |
 | MoveCommitted | virtual, pending, tutor | yes | yes |
 | Undo | virtual, pending, tutor | no | no |
 | Redo | virtual, pending, tutor | yes | no |
@@ -33,6 +36,15 @@ steps remain.
 | TeachingModeChanged | tutor | no | no |
 | RevealRequested | tutor | no | no |
 | StepAdvanced | tutor | no | no |
+
+Solve Playback sessions (`SOLVE_PLAYBACK`, Story 3.6): `SolvePlaybackStarted(state, solution)`
+replaces any current session with one whose entry and `virtual` are `state` and which holds
+`solution`, with no Lesson; like `LessonStarted` it keeps `teachingMode`, resets the step, the reveal
+and the last Move's feedback, cancels a pending confirmation and snaps the net to `state`. It applies
+only when `solution` leaves `state` solved; an unverified Solution changes nothing. A playback
+session takes no other event but `LessonStarted` (which replaces it): `MoveCommitted`, `Undo`,
+`Redo`, `Reset`, the reset results and the tutor events leave it unchanged. Playback position and
+speed belong to the `PlaybackController`, never to the session, and are never checkpointed (AD-20).
 
 `Reset` with unsaved steps (at least one committed, not-undone Move) only issues
 `Effect.ConfirmReset` and records it as `pending`; without unsaved steps it resets at once, which

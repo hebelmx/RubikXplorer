@@ -19,9 +19,12 @@ fun reduce(
     state: SessionState,
     event: SessionEvent,
 ): Transition {
-    if (!state.isActive && event !is SessionEvent.LessonStarted) return Transition(state)
+    val starts = event is SessionEvent.LessonStarted || event is SessionEvent.SolvePlaybackStarted
+    // Only a Lesson session takes Moves and tutor events; idle and playback sessions ignore them.
+    if (!starts && state.kind != SessionKind.LESSON) return Transition(state)
     return when (event) {
         is SessionEvent.LessonStarted -> start(state, event.lesson)
+        is SessionEvent.SolvePlaybackStarted -> startPlayback(state, event.state, event.solution)
         is SessionEvent.MoveCommitted -> committed(state, event.move)
         is SessionEvent.Undo -> state.history.undoable?.let { move(state, state.history.undo(), it.inverse(), null) } ?: Transition(state)
         is SessionEvent.Redo -> state.history.redoable?.let { move(state, state.history.redo(), it, null) } ?: Transition(state)
@@ -43,12 +46,36 @@ private fun start(
         withHistory(state, MoveHistory(entry), lesson).copy(
             kind = SessionKind.LESSON,
             lesson = lesson,
+            solution = emptyList(),
             lastDiscarded = null,
             stepIndex = 0,
             revealRequested = false,
             lastMoveFeedback = null,
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, entry)))
+}
+
+/**
+ * Starts a Solve Playback session at [start] holding [solution], when [solution] verifiably solves
+ * [start] (bounded: one pass over the list); otherwise nothing changes. The Teaching Mode is kept.
+ */
+private fun startPlayback(
+    state: SessionState,
+    start: CubeState,
+    solution: List<Move>,
+): Transition {
+    if (!start.apply(solution).isSolved) return Transition(state)
+    val next =
+        withHistory(state, MoveHistory(start), lesson = null).copy(
+            kind = SessionKind.SOLVE_PLAYBACK,
+            lesson = null,
+            solution = solution.toList(),
+            lastDiscarded = null,
+            stepIndex = 0,
+            revealRequested = false,
+            lastMoveFeedback = null,
+        )
+    return Transition(next, presentation = listOf(Presentation.Snap(next.revision, start)))
 }
 
 /** Loaded content is validated (Story 2.1), so an undecodable entry state is a programmer error. */

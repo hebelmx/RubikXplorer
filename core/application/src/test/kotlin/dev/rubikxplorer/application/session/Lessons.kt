@@ -18,6 +18,7 @@ import kotlin.time.Instant
 internal val F = FaceTurn(Face.F, Turn.CLOCKWISE)
 internal val F_PRIME = FaceTurn(Face.F, Turn.COUNTERCLOCKWISE)
 internal val R = FaceTurn(Face.R, Turn.CLOCKWISE)
+internal val R_PRIME = FaceTurn(Face.R, Turn.COUNTERCLOCKWISE)
 internal val U = FaceTurn(Face.U, Turn.CLOCKWISE)
 internal val U_PRIME = FaceTurn(Face.U, Turn.COUNTERCLOCKWISE)
 internal val D = FaceTurn(Face.D, Turn.CLOCKWISE)
@@ -92,6 +93,17 @@ internal fun run(
 internal fun SessionState.after(vararg events: SessionEvent): SessionState = run(this, *events).lastOrNull()?.state ?: this
 
 internal fun started(lesson: Lesson = whiteCrossLesson()): SessionState = SessionState.IDLE.after(SessionEvent.LessonStarted(lesson, T0))
+
+/** A Solve Playback fixture: SOLVED + R U, solved by its [SOLUTION]. */
+internal val SCRAMBLED: CubeState = CubeState.SOLVED.apply(R, U)
+
+/** The verified Solution of [SCRAMBLED]. */
+internal val SOLUTION: List<dev.rubikxplorer.domain.cube.Move> = listOf(U_PRIME, R_PRIME)
+
+internal fun playbackStarted(
+    state: CubeState = SCRAMBLED,
+    solution: List<dev.rubikxplorer.domain.cube.Move> = SOLUTION,
+) = SessionEvent.SolvePlaybackStarted(state, solution, T0)
 
 internal fun commit(move: dev.rubikxplorer.domain.cube.Move) = SessionEvent.MoveCommitted(move, T0)
 

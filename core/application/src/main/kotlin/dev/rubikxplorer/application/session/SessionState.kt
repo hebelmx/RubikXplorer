@@ -2,6 +2,7 @@ package dev.rubikxplorer.application.session
 
 import dev.rubikxplorer.domain.content.Lesson
 import dev.rubikxplorer.domain.cube.CubeState
+import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.MoveHistory
 import dev.rubikxplorer.domain.predicate.ObjectiveProgress
 import dev.rubikxplorer.domain.tutor.MoveFeedback
@@ -28,11 +29,13 @@ data class SessionState internal constructor(
     val revision: Long,
     /** `null` only in [IDLE]. */
     val kind: SessionKind?,
-    /** `null` only in [IDLE]. */
+    /** The Lesson of a [SessionKind.LESSON] session; `null` otherwise. */
     val lesson: Lesson?,
     val history: MoveHistory,
+    /** The verified Solution a [SessionKind.SOLVE_PLAYBACK] session plays from [entry]; empty otherwise. */
+    val solution: List<Move>,
     val objectiveMet: Boolean,
-    /** `null` only in [IDLE]. */
+    /** `null` in [IDLE] and outside a Lesson. */
     val progress: ObjectiveProgress?,
     /** The reset confirmation awaiting the Learner, if any. */
     val pendingReset: Effect.ConfirmReset?,
@@ -58,26 +61,27 @@ data class SessionState internal constructor(
         lesson?.let { Tutor.decide(it, entry, virtual, teachingMode, stepIndex, revealRequested, lastMoveFeedback) }
     }
 
-    /** The Lesson's entry state; where Reset returns. */
+    /** The session's start: a Lesson's entry state (where Reset returns) or the state a Solution plays from. */
     val entry: CubeState get() = history.start
 
     /** The current Cube State. */
     val virtual: CubeState get() = history.state
 
-    /** True while a Lesson session is active. */
-    val isActive: Boolean get() = lesson != null
+    /** True while any session is active. */
+    val isActive: Boolean get() = kind != null
 
     /** At least one committed, not-undone Move since the Lesson started; Reset would lose it. */
     val hasUnsavedSteps: Boolean get() = history.canUndo
 
     companion object {
-        /** No session: every event but `LessonStarted` leaves it unchanged. */
+        /** No session: every event but `LessonStarted` and `SolvePlaybackStarted` leaves it unchanged. */
         val IDLE: SessionState =
             SessionState(
                 revision = 0,
                 kind = null,
                 lesson = null,
                 history = MoveHistory(),
+                solution = emptyList(),
                 objectiveMet = false,
                 progress = null,
                 pendingReset = null,
