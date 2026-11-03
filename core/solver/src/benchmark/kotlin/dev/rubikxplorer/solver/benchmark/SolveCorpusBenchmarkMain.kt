@@ -9,7 +9,7 @@ data class BenchmarkOptions(
     val warmup: Int = SolveCorpusHarness.DEFAULT_WARMUP,
 ) {
     companion object {
-        const val DEFAULT_CASES = 1_000
+        const val DEFAULT_CASES = 10_000
         const val DEFAULT_SEED = 20_261_031L
     }
 }
@@ -63,11 +63,14 @@ fun parseArgs(args: List<String>): ParsedArgs {
     return ParsedArgs.Ok(options)
 }
 
-/** Runs the placeholder corpus and returns the report; Story 3.3 swaps in the solver workload. */
+/** Runs the independently verified real solve corpus. */
 fun runBenchmark(options: BenchmarkOptions): String {
-    val workload = PlaceholderWorkload(options.cases, options.seed)
+    val workload = SolverWorkload(options.cases, options.seed)
     val stats = SolveCorpusHarness(warmup = options.warmup).run(workload)
-    return stats.report(workload.name)
+    return stats.report(workload.name) + "\n  profile        " + System.getProperty("java.vm.name") + " " +
+        System.getProperty("java.version") + "; " + System.getProperty("os.name") + " " +
+        System.getProperty("os.arch") + "; CPUs=" + Runtime.getRuntime().availableProcessors() +
+        "; maxHeap=" + Runtime.getRuntime().maxMemory() + "; uncalibrated JVM host"
 }
 
 /** Entry point of `./gradlew :core:solver:solveCorpusBenchmark [--args="--cases N --seed N --warmup N"]`. */

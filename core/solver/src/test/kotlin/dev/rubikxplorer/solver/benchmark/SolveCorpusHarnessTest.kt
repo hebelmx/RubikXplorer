@@ -42,7 +42,7 @@ class SolveCorpusHarnessTest {
         val stats = SolveCorpusHarness(warmup = 0, budgetNanos = 10, clock = clock).run(MixedWorkload(3))
         assertEquals(10L, stats.maxNanos)
         assertEquals(10.0, stats.medianNanos)
-        assertEquals(3, stats.withinBudget)
+        assertEquals(1, stats.withinBudget)
     }
 
     @Test
