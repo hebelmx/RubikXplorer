@@ -176,6 +176,79 @@ class CubeValidatorTest {
         assertEquals(960, cases)
     }
 
+    private fun problems(colors: List<Color>) = CubeValidator.problems(Facelets(colors))
+
+    @Test
+    fun `problems is empty for a valid cube in every orientation`() {
+        Orientation.ALL.forEach { o -> assertEquals(emptyList<ValidationResult.Invalid>(), problems(solvedIn(o)), "$o") }
+    }
+
+    @Test
+    fun `problems leads with the validate failure for every single failure case`() {
+        Orientation.ALL.forEach { o ->
+            cases.forEach { (name, transform) ->
+                val colors = transform(solvedIn(o))
+                assertEquals(listOf(expected(name)), problems(colors), "$o $name")
+                assertEquals(validate(colors), problems(colors).first(), "$o $name")
+            }
+        }
+    }
+
+    @Test
+    fun `problems lists a twisted corner and a flipped edge together`() {
+        val colors = swap(cycle(solved, 8, 9, 20), 5, 10)
+        assertEquals(TwistedCorner, validate(colors))
+        assertEquals(listOf(TwistedCorner, FlippedEdge), problems(colors))
+    }
+
+    @Test
+    fun `problems lists twist flip and parity together`() {
+        // Twist URF, flip DF, and swap the UR and UF edges.
+        val colors = swap(swap(swap(cycle(solved, 8, 9, 20), 28, 25), 5, 7), 10, 19)
+        assertEquals(listOf(TwistedCorner, FlippedEdge, ParityViolation), problems(colors))
+        assertEquals(TwistedCorner, validate(colors))
+    }
+
+    @Test
+    fun `problems lists impossible corners and edges together, corners first`() {
+        // Mirrored URF corner and the UR/UF edge mix-up, counts unchanged.
+        val colors = swap(swap(solved, 9, 20), 10, 7)
+        assertEquals(
+            listOf(
+                ImpossiblePiece(listOf(8, 9, 20), PieceKind.CORNER),
+                ImpossiblePiece(listOf(5, 7, 10, 12, 19, 23), PieceKind.EDGE),
+            ),
+            problems(colors),
+        )
+        assertEquals(problems(colors).first(), validate(colors))
+    }
+
+    @Test
+    fun `problems reports wrong color counts alone`() {
+        val colors = solved.toMutableList().also { it[0] = Color.YELLOW }
+        val found = problems(colors)
+        assertEquals(1, found.size)
+        assertTrue(found.single() is WrongColorCounts)
+    }
+
+    @Test
+    fun `problems is empty exactly when validate is valid for random shuffles`() =
+        runBlocking<Unit> {
+            val nonCenters = (0 until 54).filter { it % 9 != 4 }
+            checkAll(config(seed = 8_404L), Arb.long()) { seed ->
+                val shuffled = nonCenters.map { solved[it] }.shuffled(Random(seed))
+                val colors = solved.toMutableList()
+                nonCenters.forEachIndexed { k, i -> colors[i] = shuffled[k] }
+                val result = validate(colors)
+                val found = problems(colors)
+                if (result is ValidationResult.Valid) {
+                    assertTrue(found.isEmpty(), "$colors")
+                } else {
+                    assertEquals(result, found.first(), "$colors")
+                }
+            }
+        }
+
     @OptIn(ExperimentalKotest::class)
     private fun config(seed: Long) = PropTestConfig(seed = seed, iterations = 1000)
 

@@ -86,6 +86,26 @@
     <string name="move_turn_counterclockwise">counter-clockwise</string>
     <string name="move_turn_half">half turn</string>
 
+    <!-- Manual Cube Editor -->
+    <string name="editor_accept">Accept</string>
+    <string name="editor_sticker">%1$s sticker, %2$s face, position %3$d</string>
+    <string name="editor_sticker_invalid">Check this piece</string>
+    <string name="editor_face_u">Up</string>
+    <string name="editor_face_r">Right</string>
+    <string name="editor_face_f">Front</string>
+    <string name="editor_face_d">Down</string>
+    <string name="editor_face_l">Left</string>
+    <string name="editor_face_b">Back</string>
+    <string name="editor_face_tab">%1$s face</string>
+    <string name="editor_face_invalid">Has pieces to check</string>
+    <string name="editor_face_with_problems">%1$s !</string>
+    <string name="color_white">White</string>
+    <string name="color_yellow">Yellow</string>
+    <string name="color_red">Red</string>
+    <string name="color_orange">Orange</string>
+    <string name="color_green">Green</string>
+    <string name="color_blue">Blue</string>
+
     <!-- Debug toggles -->
     <string name="debug_glyphs">Color-blind glyphs</string>
     <string name="debug_objective">Objective overlay</string>

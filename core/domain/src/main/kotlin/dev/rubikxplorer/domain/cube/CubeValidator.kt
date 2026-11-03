@@ -2,7 +2,10 @@ package dev.rubikxplorer.domain.cube
 
 import dev.rubikxplorer.domain.text.Text
 
-/** The outcome of [CubeValidator.validate]: a legal [Valid] state or one [Invalid] reason. */
+/**
+ * The outcome of [CubeValidator.validate]: a legal [Valid] state or its first [Invalid] reason.
+ * [CubeValidator.problems] lists every [Invalid] reason at once.
+ */
 sealed interface ValidationResult {
     /** The stickers form a real cube; `state.toFacelets()` equals the validated input. */
     @ConsistentCopyVisibility
@@ -68,32 +71,52 @@ enum class PieceKind(
 }
 
 /**
- * The single gate from [Facelets] to [CubeState]. Rules run in order and the first failure is
- * returned: color counts, impossible pieces (centers, corners, edges), twisted corner, flipped edge,
- * parity. Never throws.
+ * The single gate from [Facelets] to [CubeState]. Rules run in order: color counts, impossible
+ * pieces (centers, corners, edges), twisted corner, flipped edge, parity. [validate] returns the first
+ * failure (or `Valid`); [problems] reports all failures for an editor, never a state. Never throws.
  */
 object CubeValidator {
     private const val PER_COLOR = 9
 
     fun validate(facelets: Facelets): ValidationResult {
+        val analysis = analyze(facelets)
+        return analysis.problems.firstOrNull() ?: ValidationResult.Valid.of(checkNotNull(analysis.state))
+    }
+
+    /**
+     * Every failure an editor can report at once, in [validate]'s rule order; empty exactly when
+     * [validate] is `Valid`, and otherwise led by [validate]'s failure. Wrong color counts and
+     * impossible centers stand alone; impossible corners and edges are both listed; once every piece
+     * decodes, each applicable non-local failure (twist, flip, parity) gets its own entry. Only reports
+     * failures: a `Valid` result is reachable through [validate] alone.
+     */
+    fun problems(facelets: Facelets): List<ValidationResult.Invalid> = analyze(facelets).problems
+
+    /** The failures found, and the validated state when there are none. */
+    private class Analysis(
+        val problems: List<ValidationResult.Invalid>,
+        val state: CubeState? = null,
+    )
+
+    private fun analyze(facelets: Facelets): Analysis {
         val colors = facelets.colors
         val counts = Color.entries.associateWith { c -> colors.count { it == c } }
-        if (counts.values.any { it != PER_COLOR }) return ValidationResult.WrongColorCounts(counts)
+        if (counts.values.any { it != PER_COLOR }) return Analysis(listOf(ValidationResult.WrongColorCounts(counts)))
 
         val orientation =
             orientationOf(colors)
-                ?: return ValidationResult.ImpossiblePiece(FaceletTables.CENTERS.sorted(), PieceKind.CENTER)
+                ?: return Analysis(listOf(ValidationResult.ImpossiblePiece(FaceletTables.CENTERS.sorted(), PieceKind.CENTER)))
         val learnerOf = FaceletTables.learnerOf(orientation)
         val home = List(Facelets.SIZE) { colors[learnerOf[it]] }
 
         val corners = FaceletTables.CORNER_FACELETS.map { slot -> decodeCorner(slot.map { home[it] }) }
-        faults(corners, FaceletTables.CORNER_FACELETS, learnerOf)?.let {
-            return ValidationResult.ImpossiblePiece(it, PieceKind.CORNER)
-        }
         val edges = FaceletTables.EDGE_FACELETS.map { slot -> decodeEdge(slot.map { home[it] }) }
-        faults(edges, FaceletTables.EDGE_FACELETS, learnerOf)?.let {
-            return ValidationResult.ImpossiblePiece(it, PieceKind.EDGE)
-        }
+        val impossible =
+            listOfNotNull(
+                faults(corners, FaceletTables.CORNER_FACELETS, learnerOf)?.let { ValidationResult.ImpossiblePiece(it, PieceKind.CORNER) },
+                faults(edges, FaceletTables.EDGE_FACELETS, learnerOf)?.let { ValidationResult.ImpossiblePiece(it, PieceKind.EDGE) },
+            )
+        if (impossible.isNotEmpty()) return Analysis(impossible)
 
         val cubies =
             Cubies(
@@ -102,12 +125,13 @@ object CubeValidator {
                 edgePermutation = edges.map { it!!.cubie },
                 edgeOrientation = edges.map { it!!.twist },
             )
-        return when {
-            cubies.cornerOrientation.sum() % Cubies.TWISTS != 0 -> ValidationResult.TwistedCorner
-            cubies.edgeOrientation.sum() % Cubies.FLIPS != 0 -> ValidationResult.FlippedEdge
-            parity(cubies.cornerPermutation) != parity(cubies.edgePermutation) -> ValidationResult.ParityViolation
-            else -> ValidationResult.Valid.of(CubeState(cubies, orientation))
-        }
+        val global =
+            buildList {
+                if (cubies.cornerOrientation.sum() % Cubies.TWISTS != 0) add(ValidationResult.TwistedCorner)
+                if (cubies.edgeOrientation.sum() % Cubies.FLIPS != 0) add(ValidationResult.FlippedEdge)
+                if (parity(cubies.cornerPermutation) != parity(cubies.edgePermutation)) add(ValidationResult.ParityViolation)
+            }
+        return Analysis(global, if (global.isEmpty()) CubeState(cubies, orientation) else null)
     }
 
     /** A decoded piece: which cubie sits in the slot and its twist (or flip) there. */
