@@ -1,5 +1,6 @@
 package dev.rubikxplorer.application.session
 
+import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.text.Text
 
 /**
@@ -9,6 +10,13 @@ import dev.rubikxplorer.domain.text.Text
 sealed interface Effect {
     val effectId: Long
     val revision: Long
+
+    /** Solve a validated Cube State without changing the session. */
+    data class SolveCube(
+        override val effectId: Long,
+        override val revision: Long,
+        val state: CubeState,
+    ) : Effect
 
     /** Ask the Learner whether to reset, with [prompt]; answered by `ResetConfirmed` or `ResetDeclined`. */
     data class ConfirmReset(

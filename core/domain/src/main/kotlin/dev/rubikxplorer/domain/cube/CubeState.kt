@@ -4,7 +4,8 @@ package dev.rubikxplorer.domain.cube
  * An immutable Cube State: the [cubies] relative to the centers plus the whole-cube [orientation]
  * that maps Learner-facing faces to home faces.
  */
-data class CubeState(
+@ConsistentCopyVisibility
+data class CubeState internal constructor(
     val cubies: Cubies,
     val orientation: Orientation,
 ) {

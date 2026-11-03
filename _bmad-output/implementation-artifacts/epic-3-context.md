@@ -43,6 +43,6 @@ Solving shows cancelable indeterminate progress and a preparation message while 
 
 ## Cross-Story Dependencies
 
-Stories 3.1–3.4 form a parallel track depending on Epic 1. Search depends on accepted coordinate/move-table and pruning APIs, not a production packaging decision. SolveCube can implement its injected effect/port contract before production loading is selected. Editor and playback feed the integrated Solve flow.
+Stories 3.1–3.4 form a parallel track depending on Epic 1. Search depends on accepted coordinate/move-table and pruning APIs, not a production packaging decision. SolveCube can implement and test its injected effect/port contract before production loading is selected; this does not establish production loading readiness. Editor and playback feed the integrated Solve flow.
 
 The approved split permits independent closure of Story 3.2 infrastructure and development of 3.3–3.6. Story 3.8 retains physical cold-generation/warm-cache measurements, installed-size comparison, production delivery decision and integration, minimum-device StrictMode/independent-Lesson evidence, and the measured reference-device-equivalent JVM calibration plus calibrated corpus performance acceptance transferred from Story 3.3. It must pass before production end-to-end acceptance of 3.7 or Epic 3/P0.S delivery closure. Story 12.2 still confirms final physical solve-corpus performance; no performance requirement is waived.
