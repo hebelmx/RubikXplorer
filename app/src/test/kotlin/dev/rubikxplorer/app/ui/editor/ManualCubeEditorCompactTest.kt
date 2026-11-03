@@ -19,6 +19,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
+import androidx.window.core.layout.WindowSizeClass
 import dev.rubikxplorer.app.content.ContentStrings
 import dev.rubikxplorer.app.render.RenderStyle
 import dev.rubikxplorer.app.render.StickerColorKey
@@ -63,15 +64,26 @@ class ManualCubeEditorCompactTest {
         initial: Facelets = CubeState.SOLVED.toFacelets(),
         glyphs: Boolean = false,
         restoration: StateRestorationTester? = null,
+        windowSizeClass: WindowSizeClass? = null,
     ) {
         val content: @androidx.compose.runtime.Composable () -> Unit = {
             RubikXplorerTheme {
-                ManualCubeEditor(
-                    strings = strings,
-                    onAccept = {},
-                    initial = initial,
-                    style = RenderStyle(colorBlindGlyphs = glyphs),
-                )
+                if (windowSizeClass == null) {
+                    ManualCubeEditor(
+                        strings = strings,
+                        onAccept = {},
+                        initial = initial,
+                        style = RenderStyle(colorBlindGlyphs = glyphs),
+                    )
+                } else {
+                    ManualCubeEditor(
+                        strings = strings,
+                        onAccept = {},
+                        initial = initial,
+                        style = RenderStyle(colorBlindGlyphs = glyphs),
+                        windowSizeClass = windowSizeClass,
+                    )
+                }
             }
         }
         if (restoration != null) restoration.setContent(content) else rule.setContent(content)
@@ -239,5 +251,43 @@ class ManualCubeEditorCompactTest {
         (0 until Facelets.SIZE).filter(ManualCubeEditorState::isEditable).forEach {
             assertTrue("$it", sticker(it).bounds().let { r -> r.right - r.left } >= 48.dp)
         }
+    }
+
+    private fun assertFullNet() {
+        assertEquals((0 until Facelets.SIZE).toList(), visibleStickers())
+        assertTrue(rule.onAllNodesWithTag("editor:face:0").fetchSemanticsNodes().isEmpty())
+    }
+
+    private fun assertOneFace() {
+        assertEquals((0 until PER_FACE).toList(), visibleStickers())
+        faceTab(0).assertIsSelected()
+    }
+
+    @Test
+    @Config(qualifiers = "w640dp-h891dp")
+    fun `the compact width class edits one face at a time even when the net would fit`() {
+        launch(windowSizeClass = WindowSizeClass(minWidthDp = 0, minHeightDp = 0))
+        assertOneFace()
+    }
+
+    @Test
+    @Config(qualifiers = "w640dp-h891dp")
+    fun `the medium width class with room for 48dp cells shows the full net`() {
+        launch(windowSizeClass = WindowSizeClass(minWidthDp = WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND, minHeightDp = 0))
+        assertFullNet()
+    }
+
+    @Test
+    @Config(qualifiers = "w900dp-h891dp")
+    fun `the expanded width class with room for 48dp cells shows the full net`() {
+        launch(windowSizeClass = WindowSizeClass(minWidthDp = WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND, minHeightDp = 0))
+        assertFullNet()
+    }
+
+    @Test
+    fun `a wider class still edits one face at a time when the width cannot fit 48dp stickers`() {
+        launch(windowSizeClass = WindowSizeClass(minWidthDp = WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND, minHeightDp = 0))
+        assertOneFace()
+        sticker(0).bounds().let { assertTrue(it.right - it.left >= 48.dp) }
     }
 }

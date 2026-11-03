@@ -27,6 +27,8 @@ compile-sdk = "37"
 target-sdk = "36"
 min-sdk = "29"
 camera = "1.6.2"
+# AD-17 WindowSizeClass; same version the Compose BOM already resolves transitively.
+window = "1.5.0"
 
 [libraries]
 # App
@@ -37,6 +39,7 @@ androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "
 androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
 androidx-compose-ui = { module = "androidx.compose.ui:ui" }
 androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
+androidx-window-core = { module = "androidx.window:window-core", version.ref = "window" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hilt" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }

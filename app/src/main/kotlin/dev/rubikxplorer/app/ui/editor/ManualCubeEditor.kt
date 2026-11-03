@@ -27,6 +27,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -37,6 +39,8 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import androidx.window.core.layout.WindowSizeClass
+import androidx.window.core.layout.computeWindowSizeClass
 import dev.rubikxplorer.app.R
 import dev.rubikxplorer.app.content.ContentStrings
 import dev.rubikxplorer.app.render.Net2DRenderer
@@ -80,8 +84,10 @@ private val FACE_MAX = Spacing.touchMin * 6
  * produced for exactly the entered stickers. Starts from [initial] (centers overwritten), drawn in
  * [style]. Not a session: it returns its result to the caller.
  *
- * When the window is too narrow to give every net sticker a [Spacing.touchMin] cell, the editor
- * shows one face at a time with a face selector that marks faces holding outlined stickers.
+ * Layout is keyed on [windowSizeClass] (AD-17): the compact width class edits one face at a time
+ * with a face selector that marks faces holding outlined stickers; wider classes show the full net.
+ * As a fallback, a wider class still gets one-face mode whenever the available width cannot give
+ * every net sticker a [Spacing.touchMin] cell.
  */
 @Composable
 fun ManualCubeEditor(
@@ -90,11 +96,13 @@ fun ManualCubeEditor(
     modifier: Modifier = Modifier,
     initial: Facelets = CubeState.SOLVED.toFacelets(),
     style: RenderStyle = RenderStyle(),
+    windowSizeClass: WindowSizeClass = currentWindowSizeClass(),
 ) {
+    val compact = !windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
     val state = rememberSaveable(initial, saver = ManualCubeEditorState.Saver) { ManualCubeEditorState(initial) }
     val tokens = RubikTheme.tokens
     BoxWithConstraints(modifier = modifier) {
-        val onePerFace = (maxWidth - Spacing.s4 * 2) / Net2DRenderer.NET_COLUMNS < Spacing.touchMin
+        val onePerFace = compact || (maxWidth - Spacing.s4 * 2) / Net2DRenderer.NET_COLUMNS < Spacing.touchMin
         Column(
             modifier = Modifier.verticalScroll(rememberScrollState()).padding(Spacing.s4),
             verticalArrangement = Arrangement.spacedBy(Spacing.s4),
@@ -147,6 +155,16 @@ fun ManualCubeEditor(
                 Text(stringResource(R.string.editor_accept))
             }
         }
+    }
+}
+
+/** The [WindowSizeClass] of the current window, from its container size. */
+@Composable
+private fun currentWindowSizeClass(): WindowSizeClass {
+    val size = LocalWindowInfo.current.containerSize
+    val density = LocalDensity.current
+    return with(density) {
+        WindowSizeClass.BREAKPOINTS_V1.computeWindowSizeClass(size.width.toDp().value, size.height.toDp().value)
     }
 }
 
