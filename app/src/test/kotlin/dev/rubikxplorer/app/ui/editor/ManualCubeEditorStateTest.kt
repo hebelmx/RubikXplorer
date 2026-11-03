@@ -100,6 +100,35 @@ class ManualCubeEditorStateTest {
     }
 
     @Test
+    fun `the shown face follows the selection and switching faces clears a selection elsewhere`() {
+        val state = ManualCubeEditorState()
+        assertEquals(0, state.face)
+        state.select(20)
+        assertEquals(2, state.face)
+        state.showFace(2)
+        assertEquals(20, state.selected)
+        state.showFace(5)
+        assertEquals(5, state.face)
+        assertNull(state.selected)
+        state.showFace(6)
+        state.showFace(-1)
+        assertEquals(5, state.face)
+
+        val saved = with(ManualCubeEditorState.Saver) { SaverScope { true }.save(state) }
+        assertEquals(5, ManualCubeEditorState.Saver.restore(saved!!)!!.face)
+    }
+
+    @Test
+    fun `faces with problems are the faces of outlined stickers`() {
+        val state = ManualCubeEditorState()
+        state.select(18)
+        state.paint(Color.WHITE)
+        state.select(8)
+        state.paint(Color.GREEN)
+        assertEquals(setOf(0, 1, 2, 4), state.facesWithProblems)
+    }
+
+    @Test
     fun `a twisted corner and a flipped edge give two lines and no outlines`() {
         val state = ManualCubeEditorState(twistedAndFlipped)
         assertEquals(listOf(ValidationResult.TwistedCorner, ValidationResult.FlippedEdge), state.problems)

@@ -54,9 +54,10 @@ private const val OUTLINE_DP = 3
 private const val INNER_STROKE_DP = 1
 private const val DASH_DP = 4
 private const val CELLS_PER_FACE = 9
+private const val FACE_SIDE = 3
 
 /** Plain face names in URFDLB order, for sticker descriptions. */
-private val FACE_NAMES =
+internal val FACE_NAMES =
     listOf(
         R.string.move_face_u,
         R.string.move_face_r,
@@ -70,7 +71,9 @@ private val FACE_NAMES =
  * A tappable Kociemba cross net of [facelets] (Sticker review net, UX-DR16): fills and glyphs come
  * from [StickerAppearance] (glyphs while [style] asks for them), the [selected] sticker gets an
  * `accent` ring and every [invalid] sticker a `status-invalid` outline. Tapping an [editable] sticker
- * calls [onStickerClick]; other stickers are not clickable. Reusable for scan review.
+ * calls [onStickerClick]; other stickers are not clickable. With a [face] (URFDLB index) only that
+ * face's 3×3 stickers are drawn, for windows too narrow to give every net sticker a touch-sized cell.
+ * Reusable for scan review.
  */
 @Composable
 fun StickerReviewNet(
@@ -81,14 +84,21 @@ fun StickerReviewNet(
     onStickerClick: (Int) -> Unit,
     modifier: Modifier = Modifier,
     editable: (Int) -> Boolean = { true },
+    face: Int? = null,
 ) {
-    val columns = Net2DRenderer.NET_COLUMNS
-    val rows = Net2DRenderer.NET_ROWS
+    val columns = if (face == null) Net2DRenderer.NET_COLUMNS else FACE_SIDE
+    val rows = if (face == null) Net2DRenderer.NET_ROWS else FACE_SIDE
+    val indices = if (face == null) 0 until Facelets.SIZE else face * CELLS_PER_FACE until (face + 1) * CELLS_PER_FACE
     BoxWithConstraints(modifier = modifier, contentAlignment = Alignment.Center) {
         val cell = min(maxWidth.value / columns, maxHeight.value / rows).dp
         Box(Modifier.requiredSize(cell * columns, cell * rows).testTag("reviewNet")) {
-            for (index in 0 until Facelets.SIZE) {
-                val (column, row) = Net2DRenderer.netCell(index)
+            for (index in indices) {
+                val (column, row) =
+                    if (face == null) {
+                        Net2DRenderer.netCell(index)
+                    } else {
+                        (index % CELLS_PER_FACE % FACE_SIDE) to (index % CELLS_PER_FACE / FACE_SIDE)
+                    }
                 ReviewSticker(
                     color = facelets.colors[index],
                     index = index,

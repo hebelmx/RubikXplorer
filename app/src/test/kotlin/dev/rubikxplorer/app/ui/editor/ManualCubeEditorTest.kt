@@ -51,7 +51,8 @@ import dev.rubikxplorer.domain.cube.Color as CubeColor
 
 /** The editor's I/O matrix and ACs at the composable surface, on the JVM through Robolectric. */
 @RunWith(RobolectricTestRunner::class)
-@Config(application = Application::class, qualifiers = "w411dp-h891dp")
+// Wide enough for the full net: every net sticker gets a 48dp cell (one-face mode is ManualCubeEditorCompactTest).
+@Config(application = Application::class, qualifiers = "w640dp-h891dp")
 class ManualCubeEditorTest {
     @get:Rule
     val rule = createComposeRule()

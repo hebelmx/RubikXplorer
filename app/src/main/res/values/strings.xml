@@ -90,6 +90,15 @@
     <string name="editor_accept">Accept</string>
     <string name="editor_sticker">%1$s sticker, %2$s face, position %3$d</string>
     <string name="editor_sticker_invalid">Check this piece</string>
+    <string name="editor_face_u">Up</string>
+    <string name="editor_face_r">Right</string>
+    <string name="editor_face_f">Front</string>
+    <string name="editor_face_d">Down</string>
+    <string name="editor_face_l">Left</string>
+    <string name="editor_face_b">Back</string>
+    <string name="editor_face_tab">%1$s face</string>
+    <string name="editor_face_invalid">Has pieces to check</string>
+    <string name="editor_face_with_problems">%1$s !</string>
     <string name="color_white">White</string>
     <string name="color_yellow">Yellow</string>
     <string name="color_red">Red</string>
