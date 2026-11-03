@@ -209,7 +209,7 @@ class ContentValidatorTest {
     }
 
     @Test
-    fun `the tutor move set lists each Move once, compared by effect`() {
+    fun `the tutor move set lists each Move once, compared after parsing`() {
         listOf("U U R", "R2 R2'").forEach { moves ->
             assertEquals(
                 listOf(ContentProblem.InvalidTutorConfig(ContentValidator.MOVE_SET_FIELD, DUPLICATE_MOVE)),

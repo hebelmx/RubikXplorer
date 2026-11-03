@@ -52,6 +52,17 @@ class StepDerivationScenarioTest {
         assertFalse(lesson.steps[0].done.isSatisfied(lifted.virtual), "F' lifts step 1's corner")
         assertEquals(3, lifted.stepIndex)
         assertFalse(lifted.advanceFlag())
+
+        // A wrong Move off the path drops the card to the first unmet step; Undo returns to step 4
+        // without a Notice for step 1, whose corner is still lifted.
+        val off = lifted.turning("B")
+        assertEquals(0, off.stepIndex)
+        assertNull(off.noticeStep)
+        val back = off.after(undo)
+        assertEquals(lifted.virtual, back.virtual)
+        assertEquals(3, back.stepIndex)
+        assertNull(back.noticeStep)
+        assertFalse(back.advanceFlag())
     }
 
     @ParameterizedTest
@@ -65,6 +76,7 @@ class StepDerivationScenarioTest {
         val both = second.after(reveal).turning("F2")
         assertEquals(0, both.stepIndex)
         assertEquals(0, both.noticeStep)
+        assertTrue(both.revealRequested, "the shown step did not change, so the reveal stays")
         assertTrue(both.advanceFlag())
         assertEquals(NextAction.NEXT_STEP, checkNotNull(both.decision).nextAction)
         assertNull(checkNotNull(both.decision).feedback, "Notice and Next speak once a step is done")

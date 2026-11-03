@@ -5,7 +5,7 @@ created: '2026-11-03'
 status: 'done'
 baseline_revision: 5dc0b9f7d223aafd332a05f34257795f3c534e8c
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-4-context.md'
@@ -144,6 +144,36 @@ deferred: []
   - `[low]` `[patch]` VG-1: no test that an applied Reset/ResetConfirmed and LessonStarted clear a pending `noticeStep` — added a `TutorEventsTest` case.
   - `[low]` `[patch]` VG-other: the schema pattern disagrees with the decoder — same fix as BH-9.
 
+### 2026-11-03 — Review pass (follow-up)
+- verdicts: 26 findings — high 0, medium 1, low 13, false 12, maybe-false 0 (the verification-gap layer reported no gaps)
+- findings:
+  - `[medium]` `[patch]` ECH-1: an off-path Move mid-step that drops the card, then Undo back onto the path mid-step, shows the dropped step's Notice (advance true) while its `done` is unmet. Reproduced on lesson-03-04: steps 1–3, `F'`, `B`, Undo. Fix: `withNotice` gives a Notice only when step `s0`'s `done` holds now. Test added to `StepDerivationScenarioTest`.
+  - `[low]` `[reject]` ECH-2: an acknowledged Notice comes back after a wrong Move drops the card and Undo restores the step. This is the specified rule (`noticeStep = s0` when `d1 > s0`); the Learner did redo that step, and skipping it needs an acknowledged-step field.
+  - `[low]` `[reject]` ECH-3: at `maxDepth` 3 commuting sequences (`L R L'` = `R`) make every one-move mistake LIKELY. Shipped config is 2, and the intent allows 1–3 (the matrix rejects only 0 and 4). Deduping by state would contradict matrix row 3. Worth settling before anyone raises the depth.
+  - `[false]` `[reject]` ECH-4: Certainty counts sequences, so commuting pairs are LIKELY. That is the intent: matrix row 3 names `U D`/`D U` as LIKELY.
+  - `[low]` `[reject]` ECH-5: an aliased import (`Certainty as C`) evades the scan. Contrived; covering aliases adds regex machinery for a case nobody writes by accident.
+  - `[low]` `[reject]` ECH-6: the spec does not say depth 3 keeps one-move evidence VERIFIED. Same root as ECH-3; latent at the shipped depth 2.
+  - `[false]` `[reject]` IA-1: decision certainty is constant VERIFIED. Carried: in virtual mode the observation is Full by definition, and the evidence paths are tested on `Assess` directly.
+  - `[false]` `[reject]` IA-2: the Certainty rule is a lexical scan. Carried: the AC asks for a code search in CI.
+  - `[false]` `[reject]` IA-3: the rendered card is untested. Carried: `LessonScreen` passes `session.stepIndex` straight to the card, and the reducer tests pin that value.
+  - `[false]` `[reject]` IA-4: `canReset` now reads a derived `stepIndex`. A derived step above 0 means the state left the entry state, so history is non-empty or Reset already applies; the button enables exactly as before.
+  - `[false]` `[reject]` IA-5: the shown step depends on event order through `noticeStep`. The intent allows a transient Notice acknowledgement; `currentStep` itself is pure.
+  - `[false]` `[reject]` IA-6: last `done == completion` is enforced only by a test. Carried: only shipped content exists, and the content test enforces it per the AC.
+  - `[false]` `[reject]` BH-1: depth 3 breaks uniqueness. Same as ECH-3; recorded there.
+  - `[false]` `[reject]` BH-2: candidates are never merged by state. Same as ECH-4; the matrix asks for this.
+  - `[low]` `[patch]` BH-3: the `CandidateEnumerator` KDoc bound `|moveSet|^maxDepth` is wrong (n=1, depth 1 gives 2). Now states `1 + n + … + n^maxDepth` (289 at depth 2).
+  - `[low]` `[reject]` BH-4: the enumeration is rebuilt on every state. Carried in substance: 289 candidates at the shipped depth, and the 10k-step render-sync test passes; a short-circuit adds a branch.
+  - `[low]` `[patch]` BH-5: `CertaintyProducerTest` flags legal matching: multi-constant `when` branches, `==`/`!=` comparisons, and constants in comments. Comments are now stripped, and a constant is allowed when compared or listed before `->`. Self-test extended, including a `listOf(...)` that must still fail.
+  - `[low]` `[reject]` BH-6: `internal` factories still let other `:core:domain` code build a Diagnosis. The spec names `Diagnosis.verified`, so it lives on `Diagnosis`; only `Assess.kt` calls it today, and a narrower guard means restructuring.
+  - `[false]` `[reject]` BH-7: a bad `white-piece-solved` piece could escape `ContentLoader.load`. `ContentLoader.parse` catches every decode exception into `ContentLoadError.Malformed`, so load never throws.
+  - `[low]` `[patch]` BH-8: off-path deviation mid-step is untested. Covered by the ECH-1 test (`B` after `F'` drops the card to step 1).
+  - `[low]` `[patch]` BH-9: no assertion that the reveal survives while a Notice shows. Added `assertTrue(both.revealRequested)`.
+  - `[low]` `[reject]` BH-10: the `?: lesson.objective` fallback is untested. Harmless; validated content always has steps.
+  - `[low]` `[patch]` BH-11: a validator comment covers only one of two rules, and a test name says "by effect". Comment reworded to cover both rules; test renamed to "compared after parsing".
+  - `[false]` `[reject]` BH-12: the spec contradicts what shipped. The fix edits this build's spec; the Spec Change Log already records the cumulative form.
+  - `[low]` `[patch]` BH-13: `epic-4-context.md` says `tutor-config.json` ships as `{}`. Later Epic 4 stories plan from this file. Line updated to the shipped values.
+  - `[false]` `[reject]` BH-14: `CatalogEntry.tutorConfig` repeats bundle data. Every entry is built from the same `bundle.tutorConfig`, so no copy can drift; the spec task asks for this.
+
 ## Design Notes
 
 Step `done` predicates (`SR x` = `{"predicate":"state-reached","moves":"x"}`; `WP p` = `white-piece-solved` with `piece` p; `C` = the Lesson's own `completion` object, verbatim):
@@ -178,3 +208,24 @@ The transient `noticeStep` holds no current step. It only keeps a completed step
 - **Follow-up review recommended:** true. Two or more medium entries were patched (moveSet validation; `Diagnosis.verified` visibility). Patched counts: high 0, medium 2 entries (4 rows), low 4 entries. Unverified risk: the moveSet rules and the internal `verified` constructor were patched after the reviewers ran, and no second review read them.
 - **Verification:** `./gradlew spotlessCheck build` exit 0 before and after the patches (JVM tests, Kover, boundary and learner-text gates, APKs).
 - **Residual risks:** in virtual mode certainty is always VERIFIED by construction; real evidence paths are exercised only by unit tests until Stories 4.2 and Epic 8. Steps finished while a Notice is pending skip their own Notice, as specified.
+
+### Follow-up review pass (2026-11-03)
+
+- **Summary:** Follow-up review of the shipped Story 4.1 change. Four layers ran (blind, edge case, verification gap, intent alignment) and reported 26 findings. Patches tighten the Notice rule and the Certainty scan, fix docs, and add tests.
+- **Files changed:**
+  - `core/application/.../session/Reduce.kt`: `withNotice` gives a Notice only when the earlier step's `done` holds now.
+  - `core/application/src/test/.../StepDerivationScenarioTest.kt`: covers an off-path drop followed by Undo mid-step, and the reveal surviving while a Notice shows.
+  - `core/domain/.../tutor/CandidateEnumerator.kt`: KDoc gives the correct candidate bound.
+  - `core/domain/.../content/ContentValidator.kt`: the moveSet comment now covers both rules.
+  - `core/domain/src/test/.../ContentValidatorTest.kt`: test renamed.
+  - `core/domain/src/test/.../tutor/CertaintyProducerTest.kt`: comments are stripped before scanning, and comparisons and multi-constant `when` branches are allowed. Self-test extended.
+  - `_bmad-output/implementation-artifacts/epic-4-context.md`: corrects the stale `tutor-config.json` line.
+- **Review findings:**
+  - 7 rows patched across 6 fixes: 1 medium entry (ECH-1) and 5 low entries (BH-3, BH-5, BH-8/ECH-1 test, BH-9, BH-11, BH-13).
+  - 0 deferred.
+  - 19 rejected: 12 false and 7 low (ECH-2, ECH-3, ECH-5, ECH-6, BH-4, BH-6, BH-10). Each has its reason in the triage log.
+- **Follow-up review recommended:** false. This is a follow-up pass and it patched no high finding. Patched counts: high 0, medium 1, low 5.
+- **Verification:** `./gradlew spotlessApply && ./gradlew spotlessCheck build` gave BUILD SUCCESSFUL, exit 0, including the new scenario and scan self-tests.
+- **Residual risks:**
+  - `tutor-config.json` allows `maxDepth` 3. At that depth, commuting sequences (`L R L'` = `R`) would turn every one-move Diagnosis into LIKELY. The shipped depth is 2; settle this before raising it.
+  - A Notice the Learner already acknowledged can come back after a wrong Move followed by Undo. The spec specifies this.

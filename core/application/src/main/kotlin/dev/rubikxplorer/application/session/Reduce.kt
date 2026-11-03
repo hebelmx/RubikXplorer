@@ -129,7 +129,8 @@ private fun withNotice(
 ): SessionState {
     val shownBefore = before.stepIndex
     val current = Tutor.currentStep(lesson, moved.entry, moved.virtual)
-    val notice = shownBefore.takeIf { current > it && !moved.objectiveMet }
+    // Only a step that is done now earns its Notice: a return onto the path mid-step may not redo earlier steps.
+    val notice = shownBefore.takeIf { current > it && !moved.objectiveMet && lesson.steps[it].done.isSatisfied(moved.virtual) }
     val next = moved.copy(noticeStep = notice)
     return if (next.stepIndex == shownBefore) next else next.copy(revealRequested = false)
 }

@@ -60,6 +60,20 @@ class CertaintyProducerTest {
             }
             """.trimIndent()
         assertEquals(emptyList<String>(), producers(matching))
+        val listedAndCompared =
+            """
+            import dev.rubikxplorer.domain.tutor.Certainty
+            /** Shown when VERIFIED. */
+            fun sure(c: Certainty) = when (c) {
+                Certainty.VERIFIED, Certainty.LIKELY -> c == Certainty.VERIFIED // UNKNOWN never
+                Certainty.UNKNOWN -> c != Certainty.LIKELY
+            }
+            """.trimIndent()
+        assertEquals(emptyList<String>(), producers(listedAndCompared))
+        assertEquals(
+            listOf("VERIFIED", "LIKELY"),
+            producers("import dev.rubikxplorer.domain.tutor.Certainty\nval cs = listOf(Certainty.VERIFIED, Certainty.LIKELY)"),
+        )
         assertEquals(listOf("Certainty.valueOf"), producers("val c = Certainty.valueOf(name)"))
         assertEquals(listOf("Certainty.entries"), producers("val c = Certainty.entries.first()"))
         assertEquals(listOf("Certainty.values"), producers("val c = Certainty.values()[0]"))
@@ -86,7 +100,7 @@ class CertaintyProducerTest {
         // A bare constant counts only where the file names Certainty, and never inside its own import line.
         val bare =
             if ("Certainty" in source) {
-                BARE.findAll(MEMBER_IMPORT.replace(source, "")).map { it.value }.toList()
+                BARE.findAll(MEMBER_IMPORT.replace(COMMENT.replace(source, ""), "")).map { it.value }.toList()
             } else {
                 emptyList()
             }
@@ -104,6 +118,14 @@ class CertaintyProducerTest {
                 """\bCertainty\s*(\.|::)\s*(valueOf|values|entries)\b|\benum(Values|ValueOf)\s*<\s*([\w.]*\.)?Certainty\s*>""",
             )
         val MEMBER_IMPORT = Regex("""import\s+[\w.]*\bCertainty\.\w+""")
-        val BARE = Regex("""\b(VERIFIED|LIKELY|UNKNOWN)\b(?!\s*->)""")
+        val COMMENT = Regex("""/\*[\s\S]*?\*/|//[^\n]*""")
+
+        // A constant matches when it is compared (`==`, `!=`) or opens a `when` branch, alone or
+        // listed with others (`Certainty.VERIFIED, Certainty.LIKELY ->`); anything else produces one.
+        val BARE =
+            Regex(
+                """(?<!(==|!=)\s{0,4}(Certainty\.)?)\b(VERIFIED|LIKELY|UNKNOWN)\b""" +
+                    """(?!(\s*,\s*(Certainty\.)?(VERIFIED|LIKELY|UNKNOWN)\b)*\s*->)""",
+            )
     }
 }

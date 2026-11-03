@@ -15,7 +15,8 @@ data class Candidate(
  * The one source of candidates the tutor weighs evidence against (AD-5): every Move sequence of
  * length 0..[maxDepth] over [moveSet] applied to [expected]. A Move is never followed by itself or by
  * another turn of the same face, since that pair is one shorter sequence. Bounded work: at most
- * `|moveSet|^maxDepth` sequences, and `maxDepth` is capped by `tutor-config.json`'s validation.
+ * `1 + n + n² + … + n^maxDepth` sequences for `n = |moveSet|` (289 for the 18 face turns at depth 2),
+ * and `maxDepth` is capped by `tutor-config.json`'s validation.
  */
 class CandidateEnumerator(
     val expected: CubeState,

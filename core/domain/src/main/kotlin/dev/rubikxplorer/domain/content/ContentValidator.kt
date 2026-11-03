@@ -62,7 +62,8 @@ object ContentValidator {
                     problems +=
                         ContentProblem.InvalidTutorConfig(MOVE_SET_FIELD, ContentProblem.InvalidTutorConfig.Detail.NO_MOVES)
                 }
-                // Several ways to one state would leave a one-move mistake ambiguous.
+                // Non-face-turn Moves and repeated Moves give several ways to one state, which would leave a
+                // one-move mistake ambiguous.
                 if (parsed.moves.any { it !is FaceTurn }) {
                     problems +=
                         ContentProblem.InvalidTutorConfig(MOVE_SET_FIELD, ContentProblem.InvalidTutorConfig.Detail.NOT_FACE_TURN)
