@@ -1,5 +1,8 @@
 package dev.rubikxplorer.application.session
 
+import dev.rubikxplorer.domain.content.ContentLoadResult
+import dev.rubikxplorer.domain.content.ContentLoader
+import dev.rubikxplorer.domain.content.ContentSource
 import dev.rubikxplorer.domain.content.FaceletString
 import dev.rubikxplorer.domain.content.Lesson
 import dev.rubikxplorer.domain.content.LessonId
@@ -7,10 +10,13 @@ import dev.rubikxplorer.domain.content.RecoveryRef
 import dev.rubikxplorer.domain.content.StageId
 import dev.rubikxplorer.domain.content.Step
 import dev.rubikxplorer.domain.content.TextKey
+import dev.rubikxplorer.domain.content.TutorConfig
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Face
 import dev.rubikxplorer.domain.cube.FaceTurn
 import dev.rubikxplorer.domain.cube.Turn
+import dev.rubikxplorer.domain.predicate.AnyOf
+import dev.rubikxplorer.domain.predicate.StateReached
 import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import kotlin.time.Instant
@@ -24,6 +30,16 @@ internal val U_PRIME = FaceTurn(Face.U, Turn.COUNTERCLOCKWISE)
 internal val D = FaceTurn(Face.D, Turn.CLOCKWISE)
 
 internal val T0: Instant = Instant.fromEpochMilliseconds(1_000)
+
+/** The shipped `tutor-config.json`, loaded once. */
+internal val TUTOR_CONFIG: TutorConfig by lazy {
+    val result = ContentLoader.load(ContentSource.SHIPPED)
+    check(result is ContentLoadResult.Loaded) { "the shipped content does not load: $result" }
+    result.bundle.tutorConfig
+}
+
+/** Starts [lesson] with the shipped tutor configuration. */
+internal fun lessonStarted(lesson: Lesson) = SessionEvent.LessonStarted(lesson, TUTOR_CONFIG, T0)
 
 /** The white-cross Lesson of the `stage-01-basics` fixture: entry SOLVED + F, solved by F'. */
 internal fun whiteCrossLesson(id: String = "lesson-01-01"): Lesson =
@@ -46,6 +62,7 @@ internal fun whiteCrossLesson(id: String = "lesson-01-01"): Lesson =
                     watch = TextKey("lesson.$id.watch.1"),
                     notice = TextKey("lesson.$id.notice.1"),
                     moves = "F'",
+                    done = WhiteCrossSolved,
                 ),
             ),
     )
@@ -59,13 +76,14 @@ internal fun twoStepLesson(id: String = "lesson-01-03"): Lesson {
         demonstration = "U F'",
         steps =
             listOf(
-                step.copy(moves = "U"),
+                step.copy(moves = "U", done = AnyOf(listOf(StateReached("F"), WhiteCrossSolved))),
                 Step(
                     goal = TextKey("lesson.$id.goal.2"),
                     preserve = TextKey("lesson.$id.keep.2"),
                     watch = TextKey("lesson.$id.watch.2"),
                     notice = TextKey("lesson.$id.notice.2"),
                     moves = "F'",
+                    done = WhiteCrossSolved,
                 ),
             ),
     )
@@ -92,7 +110,7 @@ internal fun run(
 
 internal fun SessionState.after(vararg events: SessionEvent): SessionState = run(this, *events).lastOrNull()?.state ?: this
 
-internal fun started(lesson: Lesson = whiteCrossLesson()): SessionState = SessionState.IDLE.after(SessionEvent.LessonStarted(lesson, T0))
+internal fun started(lesson: Lesson = whiteCrossLesson()): SessionState = SessionState.IDLE.after(lessonStarted(lesson))
 
 /** A Solve Playback fixture: SOLVED + R U, solved by its [SOLUTION]. */
 internal val SCRAMBLED: CubeState = CubeState.SOLVED.apply(R, U)

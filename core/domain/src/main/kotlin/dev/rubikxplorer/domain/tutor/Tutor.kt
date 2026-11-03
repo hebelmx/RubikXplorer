@@ -6,40 +6,47 @@ import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.cube.NotationResult
 
-/** The tutor's pure rules (AD-5). */
+/** The tutor's pure step rules (AD-5, AD-6); [Assess] builds the decision from them. */
 object Tutor {
     /**
-     * The [TutorDecision] for step [stepIndex] of [lesson], started at [entry] and now at [current],
-     * taught in [mode]; [revealRequested] is true once the Learner asked to see the step's Moves, and
-     * [lastMoveFeedback] is the classification of the last committed Move, if it still stands.
+     * The 0-based step of [lesson], started at [entry], that the Learner is on at [state]: a pure
+     * function of the Cube State, never stored (AD-6).
      *
-     * - `satisfied` is the Completion Predicate on [current];
-     * - `reveal` is true in [TeachingMode.SHOW_ME] or once [revealRequested];
-     * - `advance` is true when satisfied, or when [current] equals the path state after step
-     *   [stepIndex] (an intermediate step is done when its state is reached, never by counting Moves);
-     * - `feedback` is [lastMoveFeedback] in [TeachingMode.TEST_ME] while not `advance`, else null (once
-     *   the step is done, Notice and Next take over). Story 4.2 replaces the Harmful placeholder with
-     *   a Diagnosis.
+     * - On the authored path ([state] equals [entry] with the first `i` of the steps' flattened Moves
+     *   applied, first match): the step holding Move `i + 1`, or the last step after the final Move.
+     * - Off the path: the first step whose `done` is unmet, else the last step.
      */
-    fun decide(
+    fun currentStep(
         lesson: Lesson,
         entry: CubeState,
-        current: CubeState,
-        mode: TeachingMode,
-        stepIndex: Int,
-        revealRequested: Boolean,
-        lastMoveFeedback: MoveFeedback?,
-    ): TutorDecision {
-        val satisfied = lesson.completion.isSatisfied(current)
-        val advance = satisfied || current == pathState(lesson, entry, stepIndex + 1)
-        return TutorDecision(
-            objectiveId = lesson.objective,
-            satisfied = satisfied,
-            reveal = mode == TeachingMode.SHOW_ME || revealRequested,
-            advance = advance,
-            feedback = lastMoveFeedback.takeIf { mode == TeachingMode.TEST_ME && !advance },
-        )
+        state: CubeState,
+    ): Int {
+        val owners = lesson.steps.flatMapIndexed { index, step -> stepMoves(lesson, step.moves).map { index to it } }
+        var path = entry
+        owners.forEach { (index, move) ->
+            if (path == state) return index
+            path = path.apply(move)
+        }
+        val last = lesson.steps.lastIndex.coerceAtLeast(0)
+        if (path == state) return last
+        return lesson.steps.indexOfFirst { !it.done.isSatisfied(state) }.takeIf { it >= 0 } ?: last
     }
+
+    /**
+     * The step the step card shows: the last step once [lesson]'s `completion` holds on [state], else
+     * [noticeStep] (a completed step whose Notice waits for *Next*) or, without one, [currentStep].
+     */
+    fun shownStep(
+        lesson: Lesson,
+        entry: CubeState,
+        state: CubeState,
+        noticeStep: Int?,
+    ): Int =
+        if (lesson.completion.isSatisfied(state)) {
+            lesson.steps.lastIndex.coerceAtLeast(0)
+        } else {
+            noticeStep ?: currentStep(lesson, entry, state)
+        }
 
     /** [entry] with the Moves of the first [steps] steps of [lesson] applied (all of them when [steps] exceeds their count). */
     fun pathState(

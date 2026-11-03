@@ -33,7 +33,18 @@
           "preserve": "lesson.lesson-03-01.keep.1",
           "watch": "lesson.lesson-03-01.watch.1",
           "notice": "lesson.lesson-03-01.notice.1",
-          "moves": "R' D' R"
+          "moves": "R' D' R",
+          "done": {
+            "predicate": "allOf",
+            "predicates": [
+              {
+                "predicate": "white-cross-solved"
+              },
+              {
+                "predicate": "white-corners-solved"
+              }
+            ]
+          }
         }
       ]
     },
@@ -68,7 +79,18 @@
           "preserve": "lesson.lesson-03-02.keep.1",
           "watch": "lesson.lesson-03-02.watch.1",
           "notice": "lesson.lesson-03-02.notice.1",
-          "moves": "F D F'"
+          "moves": "F D F'",
+          "done": {
+            "predicate": "allOf",
+            "predicates": [
+              {
+                "predicate": "white-cross-solved"
+              },
+              {
+                "predicate": "white-corners-solved"
+              }
+            ]
+          }
         }
       ]
     },
@@ -103,14 +125,45 @@
           "preserve": "lesson.lesson-03-03.keep.1",
           "watch": "lesson.lesson-03-03.watch.1",
           "notice": "lesson.lesson-03-03.notice.1",
-          "moves": "R' D2 R D"
+          "moves": "R' D2 R D",
+          "done": {
+            "predicate": "anyOf",
+            "predicates": [
+              {
+                "predicate": "state-reached",
+                "moves": "R' D R"
+              },
+              {
+                "predicate": "allOf",
+                "predicates": [
+                  {
+                    "predicate": "white-cross-solved"
+                  },
+                  {
+                    "predicate": "white-corners-solved"
+                  }
+                ]
+              }
+            ]
+          }
         },
         {
           "goal": "lesson.lesson-03-03.goal.2",
           "preserve": "lesson.lesson-03-03.keep.2",
           "watch": "lesson.lesson-03-03.watch.2",
           "notice": "lesson.lesson-03-03.notice.2",
-          "moves": "R' D' R"
+          "moves": "R' D' R",
+          "done": {
+            "predicate": "allOf",
+            "predicates": [
+              {
+                "predicate": "white-cross-solved"
+              },
+              {
+                "predicate": "white-corners-solved"
+              }
+            ]
+          }
         }
       ]
     },
@@ -145,28 +198,73 @@
           "preserve": "lesson.lesson-03-04.keep.1",
           "watch": "lesson.lesson-03-04.watch.1",
           "notice": "lesson.lesson-03-04.notice.1",
-          "moves": "R' D' R"
+          "moves": "R' D' R",
+          "done": {
+            "predicate": "white-piece-solved",
+            "piece": "white-green-red"
+          }
         },
         {
           "goal": "lesson.lesson-03-04.goal.2",
           "preserve": "lesson.lesson-03-04.keep.2",
           "watch": "lesson.lesson-03-04.watch.2",
           "notice": "lesson.lesson-03-04.notice.2",
-          "moves": "B' D' B"
+          "moves": "B' D' B",
+          "done": {
+            "predicate": "allOf",
+            "predicates": [
+              {
+                "predicate": "white-piece-solved",
+                "piece": "white-green-red"
+              },
+              {
+                "predicate": "white-piece-solved",
+                "piece": "white-red-blue"
+              }
+            ]
+          }
         },
         {
           "goal": "lesson.lesson-03-04.goal.3",
           "preserve": "lesson.lesson-03-04.keep.3",
           "watch": "lesson.lesson-03-04.watch.3",
           "notice": "lesson.lesson-03-04.notice.3",
-          "moves": "L' D' L"
+          "moves": "L' D' L",
+          "done": {
+            "predicate": "allOf",
+            "predicates": [
+              {
+                "predicate": "white-piece-solved",
+                "piece": "white-green-red"
+              },
+              {
+                "predicate": "white-piece-solved",
+                "piece": "white-red-blue"
+              },
+              {
+                "predicate": "white-piece-solved",
+                "piece": "white-blue-orange"
+              }
+            ]
+          }
         },
         {
           "goal": "lesson.lesson-03-04.goal.4",
           "preserve": "lesson.lesson-03-04.keep.4",
           "watch": "lesson.lesson-03-04.watch.4",
           "notice": "lesson.lesson-03-04.notice.4",
-          "moves": "F' D' F"
+          "moves": "F' D' F",
+          "done": {
+            "predicate": "allOf",
+            "predicates": [
+              {
+                "predicate": "white-cross-solved"
+              },
+              {
+                "predicate": "white-corners-solved"
+              }
+            ]
+          }
         }
       ]
     }

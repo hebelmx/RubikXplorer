@@ -1,6 +1,7 @@
 package dev.rubikxplorer.application.session
 
 import dev.rubikxplorer.domain.content.Lesson
+import dev.rubikxplorer.domain.content.TutorConfig
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.tutor.TeachingMode
@@ -13,9 +14,13 @@ import kotlin.time.Instant
 sealed interface SessionEvent {
     val at: Instant
 
-    /** Starts a Lesson session at the Lesson's entry state, replacing any current session. */
+    /**
+     * Starts a Lesson session at the Lesson's entry state, replacing any current session; the tutor
+     * judges it with [tutorConfig] (the content bundle's `tutor-config.json`).
+     */
     data class LessonStarted(
         val lesson: Lesson,
+        val tutorConfig: TutorConfig,
         override val at: Instant,
     ) : SessionEvent
 
@@ -76,7 +81,7 @@ sealed interface SessionEvent {
         override val at: Instant,
     ) : SessionEvent
 
-    /** The Learner moved on to the next step; applies only once the current step's path state is reached. */
+    /** The Learner moved on past a completed step's Notice; applies only while one is shown and the Lesson is not complete. */
     data class StepAdvanced(
         override val at: Instant,
     ) : SessionEvent

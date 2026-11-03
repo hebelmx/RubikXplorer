@@ -25,7 +25,10 @@
           "preserve": "lesson.lesson-02-01.keep.1",
           "watch": "lesson.lesson-02-01.watch.1",
           "notice": "lesson.lesson-02-01.notice.1",
-          "moves": "F2"
+          "moves": "F2",
+          "done": {
+            "predicate": "white-cross-solved"
+          }
         }
       ]
     },
@@ -52,14 +55,29 @@
           "preserve": "lesson.lesson-02-02.keep.1",
           "watch": "lesson.lesson-02-02.watch.1",
           "notice": "lesson.lesson-02-02.notice.1",
-          "moves": "D'"
+          "moves": "D'",
+          "done": {
+            "predicate": "anyOf",
+            "predicates": [
+              {
+                "predicate": "state-reached",
+                "moves": "F2"
+              },
+              {
+                "predicate": "white-cross-solved"
+              }
+            ]
+          }
         },
         {
           "goal": "lesson.lesson-02-02.goal.2",
           "preserve": "lesson.lesson-02-02.keep.2",
           "watch": "lesson.lesson-02-02.watch.2",
           "notice": "lesson.lesson-02-02.notice.2",
-          "moves": "F2"
+          "moves": "F2",
+          "done": {
+            "predicate": "white-cross-solved"
+          }
         }
       ]
     },
@@ -86,7 +104,10 @@
           "preserve": "lesson.lesson-02-03.keep.1",
           "watch": "lesson.lesson-02-03.watch.1",
           "notice": "lesson.lesson-02-03.notice.1",
-          "moves": "F'"
+          "moves": "F'",
+          "done": {
+            "predicate": "white-cross-solved"
+          }
         }
       ]
     },
@@ -113,14 +134,29 @@
           "preserve": "lesson.lesson-02-04.keep.1",
           "watch": "lesson.lesson-02-04.watch.1",
           "notice": "lesson.lesson-02-04.notice.1",
-          "moves": "U' R' U"
+          "moves": "U' R' U",
+          "done": {
+            "predicate": "anyOf",
+            "predicates": [
+              {
+                "predicate": "state-reached",
+                "moves": "F"
+              },
+              {
+                "predicate": "white-cross-solved"
+              }
+            ]
+          }
         },
         {
           "goal": "lesson.lesson-02-04.goal.2",
           "preserve": "lesson.lesson-02-04.keep.2",
           "watch": "lesson.lesson-02-04.watch.2",
           "notice": "lesson.lesson-02-04.notice.2",
-          "moves": "F'"
+          "moves": "F'",
+          "done": {
+            "predicate": "white-cross-solved"
+          }
         }
       ]
     },
@@ -147,28 +183,43 @@
           "preserve": "lesson.lesson-02-05.keep.1",
           "watch": "lesson.lesson-02-05.watch.1",
           "notice": "lesson.lesson-02-05.notice.1",
-          "moves": "F2"
+          "moves": "F2",
+          "done": {
+            "predicate": "white-piece-solved",
+            "piece": "white-green"
+          }
         },
         {
           "goal": "lesson.lesson-02-05.goal.2",
           "preserve": "lesson.lesson-02-05.keep.2",
           "watch": "lesson.lesson-02-05.watch.2",
           "notice": "lesson.lesson-02-05.notice.2",
-          "moves": "R2"
+          "moves": "R2",
+          "done": {
+            "predicate": "white-piece-solved",
+            "piece": "white-red"
+          }
         },
         {
           "goal": "lesson.lesson-02-05.goal.3",
           "preserve": "lesson.lesson-02-05.keep.3",
           "watch": "lesson.lesson-02-05.watch.3",
           "notice": "lesson.lesson-02-05.notice.3",
-          "moves": "B2"
+          "moves": "B2",
+          "done": {
+            "predicate": "white-piece-solved",
+            "piece": "white-blue"
+          }
         },
         {
           "goal": "lesson.lesson-02-05.goal.4",
           "preserve": "lesson.lesson-02-05.keep.4",
           "watch": "lesson.lesson-02-05.watch.4",
           "notice": "lesson.lesson-02-05.notice.4",
-          "moves": "L2"
+          "moves": "L2",
+          "done": {
+            "predicate": "white-cross-solved"
+          }
         }
       ]
     }

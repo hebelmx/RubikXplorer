@@ -1,101 +1,47 @@
 package dev.rubikxplorer.domain.tutor
 
-import dev.rubikxplorer.domain.content.FaceletString
-import dev.rubikxplorer.domain.content.Lesson
-import dev.rubikxplorer.domain.content.LessonId
-import dev.rubikxplorer.domain.content.RecoveryRef
-import dev.rubikxplorer.domain.content.StageId
-import dev.rubikxplorer.domain.content.Step
-import dev.rubikxplorer.domain.content.TextKey
 import dev.rubikxplorer.domain.cube.CubeState
-import dev.rubikxplorer.domain.cube.Move
-import dev.rubikxplorer.domain.cube.Notation
-import dev.rubikxplorer.domain.cube.NotationResult
-import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
+import dev.rubikxplorer.domain.tutor.TutorFixtures.fourEdges
+import dev.rubikxplorer.domain.tutor.TutorFixtures.oneStep
+import dev.rubikxplorer.domain.tutor.TutorFixtures.state
+import dev.rubikxplorer.domain.tutor.TutorFixtures.twoStep
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
-/** AC 3–4: reveal per mode, advance on the path state or the predicate, satisfied independent of mode. */
+/** Story 4.1: the current step follows the Cube State, on the authored path and off it. */
 class TutorTest {
-    private fun moves(text: String): List<Move> = (Notation.parse(text) as NotationResult.Parsed).moves
-
-    private fun state(text: String): CubeState = CubeState.SOLVED.apply(moves(text))
-
-    private fun lesson(
-        entry: String,
-        vararg stepMoves: String,
-    ): Lesson =
-        Lesson(
-            id = LessonId("lesson-01-01"),
-            stageId = StageId("stage-01-basics"),
-            prerequisites = emptyList(),
-            objective = TextKey("lesson.lesson-01-01.objective"),
-            entryState = FaceletString.encode(state(entry).toFacelets()),
-            demonstration = stepMoves.joinToString(" "),
-            learnerAction = TextKey("lesson.lesson-01-01.learner-action"),
-            completion = WhiteCrossSolved,
-            preserve = WhiteCrossSolved,
-            recovery = RecoveryRef("recovery-undo-last-move"),
-            steps =
-                stepMoves.mapIndexed { i, m ->
-                    Step(
-                        goal = TextKey("lesson.lesson-01-01.goal.${i + 1}"),
-                        preserve = TextKey("lesson.lesson-01-01.keep.${i + 1}"),
-                        watch = TextKey("lesson.lesson-01-01.watch.${i + 1}"),
-                        notice = TextKey("lesson.lesson-01-01.notice.${i + 1}"),
-                        moves = m,
-                    )
-                },
-        )
-
-    private val oneStep = lesson("F", "F'")
-    private val twoStep = lesson("F U'", "U", "F'")
-
-    private fun decide(
-        lesson: Lesson,
-        entry: String,
-        current: String,
-        mode: TeachingMode = TeachingMode.GUIDE_ME,
-        stepIndex: Int = 0,
-        revealRequested: Boolean = false,
-        lastMoveFeedback: MoveFeedback? = null,
-    ) = Tutor.decide(lesson, state(entry), state(current), mode, stepIndex, revealRequested, lastMoveFeedback)
-
     @Test
-    fun `guide me at the entry state reveals nothing and cannot advance`() {
-        val d = decide(oneStep, "F", "F")
-        assertEquals(TutorDecision(oneStep.objective, satisfied = false, reveal = false, advance = false, feedback = null), d)
+    fun `on the authored path the current step holds the next authored Move`() {
+        val entry = state("F U'")
+        assertEquals(0, Tutor.currentStep(twoStep, entry, entry))
+        assertEquals(1, Tutor.currentStep(twoStep, entry, state("F U' U")))
+        assertEquals(1, Tutor.currentStep(twoStep, entry, CubeState.SOLVED), "after the final Move: the last step")
     }
 
     @Test
-    fun `show me always reveals and a reveal request reveals in guide me`() {
-        assertTrue(decide(oneStep, "F", "F", mode = TeachingMode.SHOW_ME).reveal)
-        assertTrue(decide(oneStep, "F", "F", revealRequested = true).reveal)
+    fun `off the path the current step is the first step whose done is unmet`() {
+        val entry = state("L2 B2 R2 F2")
+        assertEquals(0, Tutor.currentStep(fourEdges, entry, state("L2 B2 R2 F2 R2")))
+        assertEquals(2, Tutor.currentStep(fourEdges, entry, state("L2 B2 R2 F2 R2 F2")))
+        assertEquals(3, Tutor.currentStep(fourEdges, entry, state("L2 B2 R2 F2 R2 F2 B2")))
+        // Every done met off the path: the last step.
+        assertEquals(1, Tutor.currentStep(twoStep, state("F U'"), state("D")))
     }
 
     @Test
-    fun `satisfied is the predicate on the current state in every mode`() {
-        TeachingMode.entries.forEach { mode ->
-            val met = decide(oneStep, "F", "F F'", mode = mode)
-            assertTrue(met.satisfied, "$mode")
-            assertTrue(met.advance, "$mode")
-            assertFalse(decide(oneStep, "F", "F R", mode = mode).satisfied, "$mode")
-        }
+    fun `the path match wins over an unmet done mid-step`() {
+        val long = TutorFixtures.lesson("F U'", "U F'" to TutorFixtures.twoStep.completion)
+        assertEquals(0, Tutor.currentStep(long, state("F U'"), state("F U' U")))
     }
 
     @Test
-    fun `an intermediate step advances when its path state is reached, without satisfying the lesson`() {
-        val d = decide(twoStep, "F U'", "F U' U")
-        assertTrue(d.advance)
-        assertFalse(d.satisfied)
-        assertFalse(decide(twoStep, "F U'", "F U' R").advance)
-        // On step 2 the step-1 path state is no longer enough.
-        assertFalse(decide(twoStep, "F U'", "F U' U", stepIndex = 1).advance)
-        assertTrue(decide(twoStep, "F U'", "F U' U F'", stepIndex = 1).advance)
+    fun `the shown step is the last once complete, else the Notice step, else the current step`() {
+        val entry = state("F U'")
+        assertEquals(1, Tutor.shownStep(twoStep, entry, CubeState.SOLVED, noticeStep = 0))
+        assertEquals(0, Tutor.shownStep(twoStep, entry, state("F U' U"), noticeStep = 0))
+        assertEquals(1, Tutor.shownStep(twoStep, entry, state("F U' U"), noticeStep = null))
+        assertEquals(0, Tutor.shownStep(oneStep, state("F"), state("F"), noticeStep = null))
     }
 
     @Test
@@ -112,33 +58,7 @@ class TutorTest {
     fun `invalid step notation is a programmer error`() {
         val broken = oneStep.copy(steps = listOf(oneStep.steps.single().copy(moves = "Q")))
         assertThrows<IllegalStateException> { Tutor.pathState(broken, CubeState.SOLVED, 1) }
-    }
-
-    @Test
-    fun `test me and let me try reveal only on request`() {
-        listOf(TeachingMode.TEST_ME, TeachingMode.LET_ME_TRY).forEach { mode ->
-            assertFalse(decide(oneStep, "F", "F", mode = mode).reveal, "$mode")
-            assertFalse(decide(oneStep, "F", "F D", mode = mode, lastMoveFeedback = MoveFeedback.NEUTRAL).reveal, "$mode")
-            assertTrue(decide(oneStep, "F", "F", mode = mode, revealRequested = true).reveal, "$mode")
-        }
-    }
-
-    @Test
-    fun `feedback shows only in test me and only while the step is not done`() {
-        MoveFeedback.entries.forEach { feedback ->
-            TeachingMode.entries.forEach { mode ->
-                val shown = decide(oneStep, "F", "F D", mode = mode, lastMoveFeedback = feedback).feedback
-                assertEquals(if (mode == TeachingMode.TEST_ME) feedback else null, shown, "$mode $feedback")
-            }
-        }
-        assertNull(decide(oneStep, "F", "F D", mode = TeachingMode.TEST_ME).feedback)
-        // Once the step is done, Notice and Next speak instead.
-        val done = decide(oneStep, "F", "F F'", mode = TeachingMode.TEST_ME, lastMoveFeedback = MoveFeedback.PROGRESS)
-        assertTrue(done.advance)
-        assertNull(done.feedback)
-        val atPathState = decide(twoStep, "F U'", "F U' U", mode = TeachingMode.TEST_ME, lastMoveFeedback = MoveFeedback.PROGRESS)
-        assertTrue(atPathState.advance)
-        assertNull(atPathState.feedback)
+        assertThrows<IllegalStateException> { Tutor.currentStep(broken, CubeState.SOLVED, CubeState.SOLVED) }
     }
 
     @Test

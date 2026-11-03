@@ -16,6 +16,7 @@ import dev.rubikxplorer.domain.content.Stage
 import dev.rubikxplorer.domain.content.StageId
 import dev.rubikxplorer.domain.content.Step
 import dev.rubikxplorer.domain.content.TextKey
+import dev.rubikxplorer.domain.content.TutorConfig
 import dev.rubikxplorer.domain.cube.Axis
 import dev.rubikxplorer.domain.cube.CubeRotation
 import dev.rubikxplorer.domain.cube.CubeState
@@ -26,6 +27,8 @@ import dev.rubikxplorer.domain.cube.Slice
 import dev.rubikxplorer.domain.cube.SliceTurn
 import dev.rubikxplorer.domain.cube.Turn
 import dev.rubikxplorer.domain.cube.WideTurn
+import dev.rubikxplorer.domain.predicate.AnyOf
+import dev.rubikxplorer.domain.predicate.StateReached
 import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Instant
@@ -51,6 +54,7 @@ internal fun whiteCrossLesson(id: String = "lesson-01-01"): Lesson =
                     watch = TextKey("lesson.$id.watch.1"),
                     notice = TextKey("lesson.$id.notice.1"),
                     moves = "F'",
+                    done = WhiteCrossSolved,
                 ),
             ),
     )
@@ -72,9 +76,15 @@ internal fun twoStepLesson(id: String = "lesson-01-03"): Lesson {
                     watch = TextKey("lesson.$id.watch.$n"),
                     notice = TextKey("lesson.$id.notice.$n"),
                     moves = if (n == 1) "U" else "F'",
+                    done = if (n == 1) AnyOf(listOf(StateReached("F"), WhiteCrossSolved)) else WhiteCrossSolved,
                 )
             },
     )
+}
+
+/** The shipped `tutor-config.json`, loaded once. */
+internal val shippedTutorConfig: TutorConfig by lazy {
+    (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.tutorConfig
 }
 
 /** A one-step white-cross Lesson: entry SOLVED + F + U' (no cross edge home), its one step `U F'`. */

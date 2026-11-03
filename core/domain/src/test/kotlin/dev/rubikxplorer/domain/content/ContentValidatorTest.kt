@@ -1,5 +1,10 @@
 package dev.rubikxplorer.domain.content
 
+import dev.rubikxplorer.domain.content.ContentProblem.InvalidTutorConfig.Detail.BAD_NOTATION
+import dev.rubikxplorer.domain.content.ContentProblem.InvalidTutorConfig.Detail.DUPLICATE_MOVE
+import dev.rubikxplorer.domain.content.ContentProblem.InvalidTutorConfig.Detail.NOT_FACE_TURN
+import dev.rubikxplorer.domain.content.ContentProblem.InvalidTutorConfig.Detail.NO_MOVES
+import dev.rubikxplorer.domain.content.ContentProblem.InvalidTutorConfig.Detail.OUT_OF_RANGE
 import dev.rubikxplorer.domain.cube.NotationError
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -118,7 +123,7 @@ class ContentValidatorTest {
             listOf(ContentProblem.NoOpStep(id, 0)),
             ContentValidator.validate(withLesson { copy(demonstration = "R R' F'", steps = listOf(step.copy(moves = "R R'"), step)) }),
         )
-        // A whole-cube rotation changes the orientation, so the path state differs, as Tutor.decide sees it.
+        // A whole-cube rotation changes the orientation, so the path state differs, as Tutor.currentStep sees it.
         assertEquals(
             emptyList<ContentProblem>(),
             ContentValidator.validate(withLesson { copy(demonstration = "y F'", steps = listOf(step.copy(moves = "y"), step)) }),
@@ -169,5 +174,48 @@ class ContentValidatorTest {
             emptyList<ContentProblem>(),
             ContentValidator.validate(withLesson { copy(demonstration = "  F'   R2' ", steps = listOf(step.copy(moves = "F' R2"))) }),
         )
+    }
+
+    @Test
+    fun `the tutor config needs maxDepth in 1 to 3 and a non-empty valid moveSet`() {
+        fun problems(config: TutorConfig) = ContentValidator.validate(valid.copy(tutorConfig = config))
+        assertEquals(emptyList<ContentProblem>(), problems(TutorConfig(1, "U")))
+        assertEquals(emptyList<ContentProblem>(), problems(TutorConfig(3, "U R")))
+        assertEquals(
+            listOf(
+                ContentProblem.InvalidTutorConfig(ContentValidator.MAX_DEPTH_FIELD, OUT_OF_RANGE),
+                ContentProblem.InvalidTutorConfig(ContentValidator.MOVE_SET_FIELD, NO_MOVES),
+            ),
+            problems(TutorConfig(0, "")),
+        )
+        assertEquals(
+            listOf(
+                ContentProblem.InvalidTutorConfig(ContentValidator.MAX_DEPTH_FIELD, OUT_OF_RANGE),
+                ContentProblem.InvalidTutorConfig(ContentValidator.MOVE_SET_FIELD, BAD_NOTATION),
+            ),
+            problems(TutorConfig(4, "U Q")),
+        )
+    }
+
+    @Test
+    fun `the tutor move set holds only face turns`() {
+        listOf("U r", "U M", "U x").forEach { moves ->
+            assertEquals(
+                listOf(ContentProblem.InvalidTutorConfig(ContentValidator.MOVE_SET_FIELD, NOT_FACE_TURN)),
+                ContentValidator.validate(valid.copy(tutorConfig = TutorConfig(2, moves))),
+                moves,
+            )
+        }
+    }
+
+    @Test
+    fun `the tutor move set lists each Move once, compared by effect`() {
+        listOf("U U R", "R2 R2'").forEach { moves ->
+            assertEquals(
+                listOf(ContentProblem.InvalidTutorConfig(ContentValidator.MOVE_SET_FIELD, DUPLICATE_MOVE)),
+                ContentValidator.validate(valid.copy(tutorConfig = TutorConfig(2, moves))),
+                moves,
+            )
+        }
     }
 }

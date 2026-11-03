@@ -1,6 +1,10 @@
 package dev.rubikxplorer.application.session
 
+import dev.rubikxplorer.domain.text.Text
+import dev.rubikxplorer.domain.tutor.Certainty
 import dev.rubikxplorer.domain.tutor.MoveFeedback
+import dev.rubikxplorer.domain.tutor.NextAction
+import dev.rubikxplorer.domain.tutor.Recovery
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import dev.rubikxplorer.domain.tutor.TutorDecision
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -20,7 +24,18 @@ class TutorEventsTest {
         assertEquals(0, s.stepIndex)
         assertFalse(s.revealRequested)
         assertEquals(
-            TutorDecision(whiteCrossLesson().objective, satisfied = false, reveal = false, advance = false, feedback = null),
+            TutorDecision(
+                objectiveId = whiteCrossLesson().objective,
+                satisfied = false,
+                diagnosis = null,
+                certainty = Certainty.VERIFIED,
+                nextAction = NextAction.TURN,
+                explanation = Text("lesson.lesson-01-01.goal.1"),
+                recovery = Recovery.Unavailable,
+                reveal = false,
+                advance = false,
+                feedback = null,
+            ),
             s.decision,
         )
     }
@@ -126,9 +141,29 @@ class TutorEventsTest {
     }
 
     @Test
+    fun `an applied reset and a new lesson clear a pending Notice`() {
+        val pending = started(twoStepLesson()).after(commit(U))
+        assertEquals(0, pending.noticeStep)
+        assertTrue(decision(pending).advance)
+
+        fun assertNoNotice(
+            label: String,
+            after: SessionState,
+        ) {
+            assertNull(after.noticeStep, label)
+            assertFalse(decision(after).advance, label)
+            assertEquals(NextAction.TURN, decision(after).nextAction, label)
+        }
+        val asked = pending.after(resetEvent)
+        assertEquals(0, asked.noticeStep, "a reset that only asks keeps it")
+        assertNoNotice("reset confirmed", asked.after(asked.pendingReset!!.confirm()))
+        assertNoNotice("lesson started", pending.after(lessonStarted(twoStepLesson("lesson-01-02"))))
+    }
+
+    @Test
     fun `a new lesson keeps the teaching mode and starts at step 1`() {
         val s = started(twoStepLesson()).after(modeChanged(TeachingMode.SHOW_ME), commit(U), stepAdvanced)
-        val next = s.after(SessionEvent.LessonStarted(whiteCrossLesson(), T0))
+        val next = s.after(lessonStarted(whiteCrossLesson()))
         assertEquals(TeachingMode.SHOW_ME, next.teachingMode)
         assertEquals(0, next.stepIndex)
         assertFalse(next.revealRequested)
@@ -180,7 +215,7 @@ class TutorEventsTest {
         assertCleared("reset confirmed", asked.after(asked.pendingReset!!.confirm()), 1)
         assertCleared("mode change", moved.after(modeChanged(TeachingMode.GUIDE_ME)), 0)
         assertEquals(moved, moved.after(modeChanged(TeachingMode.TEST_ME)), "same mode: unchanged")
-        assertCleared("lesson started", moved.after(SessionEvent.LessonStarted(whiteCrossLesson("lesson-01-02"), T0)), 1)
+        assertCleared("lesson started", moved.after(lessonStarted(whiteCrossLesson("lesson-01-02"))), 1)
 
         val atStep1 = started(twoStepLesson()).after(modeChanged(TeachingMode.TEST_ME), commit(U))
         assertEquals(MoveFeedback.PROGRESS, atStep1.lastMoveFeedback)

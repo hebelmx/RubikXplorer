@@ -48,7 +48,7 @@ class SessionRenderSyncTest {
     @Test(timeout = 300_000)
     fun `ten thousand random steps keep the net equal to the virtual state`() {
         rule.setContent { renderer.Content(RenderStyle(), Modifier.fillMaxSize()) }
-        dispatch { SessionEvent.LessonStarted(whiteCrossLesson(), it) }
+        dispatch { SessionEvent.LessonStarted(whiteCrossLesson(), shippedTutorConfig, it) }
         rule.waitForIdle()
         assertInSync(0)
 

@@ -31,7 +31,7 @@ class SessionHostTest {
             val started =
                 host.dispatch { at ->
                     stamped += at
-                    SessionEvent.LessonStarted(whiteCrossLesson(), at)
+                    SessionEvent.LessonStarted(whiteCrossLesson(), shippedTutorConfig, at)
                 }
             val moved =
                 host.dispatch { at ->
@@ -49,10 +49,10 @@ class SessionHostTest {
     fun `holds at most one session - a new Lesson replaces the current one`() =
         runBlocking {
             val host = SessionHost(TickingClock())
-            host.dispatch { SessionEvent.LessonStarted(whiteCrossLesson(), it) }
+            host.dispatch { SessionEvent.LessonStarted(whiteCrossLesson(), shippedTutorConfig, it) }
             host.dispatch { SessionEvent.MoveCommitted(r, it) }
             val second = whiteCrossLesson("lesson-01-02")
-            host.dispatch { SessionEvent.LessonStarted(second, it) }
+            host.dispatch { SessionEvent.LessonStarted(second, shippedTutorConfig, it) }
             val state = host.state.value
             assertEquals(second, state.lesson)
             assertEquals(state.entry, state.virtual)
@@ -63,7 +63,7 @@ class SessionHostTest {
     fun `concurrent dispatches apply one at a time with strictly increasing revisions`() =
         runBlocking {
             val host = SessionHost(TickingClock())
-            host.dispatch { SessionEvent.LessonStarted(whiteCrossLesson(), it) }
+            host.dispatch { SessionEvent.LessonStarted(whiteCrossLesson(), shippedTutorConfig, it) }
             val count = 500
             val transitions =
                 (0 until count)
@@ -83,7 +83,7 @@ class SessionHostTest {
     fun `the clock is read inside the confined loop, so stamps follow revision order`() =
         runBlocking {
             val host = SessionHost(TickingClock())
-            host.dispatch { SessionEvent.LessonStarted(whiteCrossLesson(), it) }
+            host.dispatch { SessionEvent.LessonStarted(whiteCrossLesson(), shippedTutorConfig, it) }
             val seen = Collections.synchronizedList(mutableListOf<Pair<Long, Instant>>())
             (0 until 200)
                 .map { i ->

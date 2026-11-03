@@ -21,7 +21,7 @@ class ReduceTest {
 
     @Test
     fun `start sets virtual to the entry state at revision 1 with a snap and the predicate's progress`() {
-        val t = reduce(SessionState.IDLE, SessionEvent.LessonStarted(whiteCrossLesson(), T0))
+        val t = reduce(SessionState.IDLE, lessonStarted(whiteCrossLesson()))
         val s = t.state
         assertEquals(SessionKind.LESSON, s.kind)
         assertEquals(whiteCrossLesson(), s.lesson)
@@ -141,7 +141,7 @@ class ReduceTest {
     fun `starting a Lesson replaces the session and keeps counting revisions and effect ids`() {
         val asked = started().after(commit(R), resetEvent)
         val other = whiteCrossLesson("lesson-01-02")
-        val t = reduce(asked, SessionEvent.LessonStarted(other, T0))
+        val t = reduce(asked, lessonStarted(other))
         assertEquals(asked.revision + 1, t.state.revision)
         assertEquals(other, t.state.lesson)
         assertFalse(t.state.hasUnsavedSteps)
@@ -163,7 +163,7 @@ class ReduceTest {
     @Test
     fun `an undecodable or impossible entry state is a programmer error`() {
         val malformed = whiteCrossLesson().copy(entryState = "W")
-        assertThrows<IllegalStateException> { reduce(SessionState.IDLE, SessionEvent.LessonStarted(malformed, T0)) }
+        assertThrows<IllegalStateException> { reduce(SessionState.IDLE, lessonStarted(malformed)) }
         val solved = CubeState.SOLVED.toFacelets().colors
         val twisted =
             solved.toMutableList().apply {
@@ -178,7 +178,7 @@ class ReduceTest {
                             .Facelets(twisted),
                     ),
             )
-        assertThrows<IllegalStateException> { reduce(SessionState.IDLE, SessionEvent.LessonStarted(impossible, T0)) }
+        assertThrows<IllegalStateException> { reduce(SessionState.IDLE, lessonStarted(impossible)) }
     }
 
     @Test

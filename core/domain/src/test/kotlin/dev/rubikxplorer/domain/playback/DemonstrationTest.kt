@@ -55,6 +55,7 @@ class DemonstrationTest {
                         watch = TextKey("lesson.lesson-01-01.watch.${i + 1}"),
                         notice = TextKey("lesson.lesson-01-01.notice.${i + 1}"),
                         moves = m,
+                        done = completion,
                     )
                 },
         )

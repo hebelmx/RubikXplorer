@@ -2,7 +2,7 @@ package dev.rubikxplorer.domain.tutor
 
 /**
  * How the tutor teaches a Lesson (FR-5). Every mode evaluates the same Completion Predicate; the mode
- * only decides what [Tutor.decide] reveals and whether it shows [MoveFeedback].
+ * only decides what [Assess.decide] reveals and whether it shows [MoveFeedback].
  */
 enum class TeachingMode {
     /** The Demonstration plays; every step's Moves are shown. */

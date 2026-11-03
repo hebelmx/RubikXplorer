@@ -1,5 +1,8 @@
 package dev.rubikxplorer.domain.content
 
+import dev.rubikxplorer.domain.cube.Move
+import dev.rubikxplorer.domain.cube.Notation
+import dev.rubikxplorer.domain.cube.NotationResult
 import dev.rubikxplorer.domain.predicate.Predicate
 import kotlinx.serialization.Serializable
 
@@ -43,7 +46,12 @@ data class Lesson(
     val steps: List<Step>,
 )
 
-/** One explained step of a Demonstration: Goal, Keep ([preserve]), Watch, then Notice after the [moves]. */
+/**
+ * One explained step of a Demonstration: Goal, Keep ([preserve]), Watch, then Notice after the [moves].
+ * [done] says when the step's goal holds (AD-6): the tutor derives the current step from it off the
+ * authored path, so the Learner may reach it in any order. The last step's [done] equals the Lesson's
+ * `completion`, which alone decides that the Lesson is complete.
+ */
 @Serializable
 data class Step(
     val goal: TextKey,
@@ -51,16 +59,26 @@ data class Step(
     val watch: TextKey,
     val notice: TextKey,
     val moves: String,
+    val done: Predicate,
 )
 
 /**
  * The tutor's tunable values (AR-22), `content/tutor-config.json`: data, never code constants, so
- * they change without a release of the rules. It holds none yet: the first values (`maxDepth`,
- * `moveSet`, hint and mastery thresholds) arrive with their first consumer in Epic 4, which turns this
- * object into a class with those fields. Decoded strictly, so an unknown key does not load.
+ * they change without a release of the rules. Decoded strictly, so an unknown or missing key does not
+ * load; `ContentValidator` checks the values.
+ *
+ * - [maxDepth]: the longest Move sequence the `CandidateEnumerator` tries (1..3);
+ * - [moveSet]: the Moves it tries, as Notation.
  */
 @Serializable
-data object TutorConfig
+data class TutorConfig(
+    val maxDepth: Int,
+    val moveSet: String,
+) {
+    /** [moveSet] parsed; empty when it is not valid Notation (which `ContentValidator` rejects). */
+    val moves: List<Move>
+        get() = (Notation.parse(moveSet) as? NotationResult.Parsed)?.moves.orEmpty()
+}
 
 /**
  * Loaded, validated content: the manifest's [schemaVersion], a [contentRevision] hash of the exact

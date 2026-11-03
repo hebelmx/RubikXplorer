@@ -28,13 +28,14 @@
     "step": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["goal", "preserve", "watch", "notice", "moves"],
+      "required": ["goal", "preserve", "watch", "notice", "moves", "done"],
       "properties": {
         "goal": { "$ref": "#/$defs/textKey" },
         "preserve": { "$ref": "#/$defs/textKey" },
         "watch": { "$ref": "#/$defs/textKey" },
         "notice": { "$ref": "#/$defs/textKey" },
-        "moves": { "$ref": "#/$defs/notation" }
+        "moves": { "$ref": "#/$defs/notation" },
+        "done": { "$ref": "predicate.schema.json" }
       }
     }
   }
