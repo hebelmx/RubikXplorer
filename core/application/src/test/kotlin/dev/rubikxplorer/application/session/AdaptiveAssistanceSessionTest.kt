@@ -131,6 +131,21 @@ class AdaptiveAssistanceSessionTest {
     }
 
     @Test
+    fun `a step that used a Hint is not clean even after a Reset, so help is not reduced`() {
+        val reset = start("lesson-02-05", TeachingMode.GUIDE_ME).after(hint, resetEvent)
+        assertEquals(HintRung.NONE, reset.hintRung)
+        assertEquals(setOf(0), reset.stepHelped)
+        val first = reset.after(commit(f2))
+        assertEquals(0, first.cleanSteps, "the hinted step stays unclean after the Reset")
+        val second = first.after(stepAdvanced, commit(r2))
+        assertEquals(1, second.cleanSteps)
+        val third = second.after(stepAdvanced)
+        assertEquals(2, third.stepIndex)
+        assertEquals(AssistanceLevel.USUAL, third.assistance, "help is not reduced")
+        assertEquals(emptySet<Int>(), third.after(lessonStarted(shippedLesson("lesson-02-05"), true, TUTOR_CONFIG)).stepHelped)
+    }
+
+    @Test
     fun `the configured thresholds decide each level change`() {
         val config = AdaptiveThresholds(2, 4, 6, 3)
         val expected =

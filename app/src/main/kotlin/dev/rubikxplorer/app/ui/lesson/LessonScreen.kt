@@ -210,6 +210,20 @@ private fun LessonBody(
             }
         }
     }
+    // Adaptive assistance's demonstrate level shows the turn (FR-13): when a step escalates to it, the
+    // step's Moves play once on the net like the Hint Ladder's top rung, as the running demonstration,
+    // so any session interaction stops it. It dispatches nothing; a new Lesson (no mistakes) re-arms it.
+    val demonstrated = remember(lesson.id) { mutableStateOf(emptySet<Int>()) }
+    val escalated = session.assistance == AssistanceLevel.DEMONSTRATE
+    val shownStep = session.stepIndex
+    LaunchedEffect(session.stepMistakes.isEmpty()) { if (session.stepMistakes.isEmpty()) demonstrated.value = emptySet() }
+    LaunchedEffect(escalated, shownStep) {
+        if (escalated && shownStep !in demonstrated.value) {
+            demonstrated.value += shownStep
+            stopReorientation()
+            reorientation.value = scope.launch { demonstrateStep(host, renderer, demonstration, shownStep, reduceMotion) }
+        }
+    }
     val send: ((Instant) -> SessionEvent) -> Unit = { event ->
         stopReorientation()
         scope.launch { renderer.submit(host.dispatch(event).presentation.toItems()) }
@@ -433,8 +447,9 @@ private fun stepCard(
         showMeHowLabel = strings.resolve(SHOW_ME_HOW_LABEL),
         feedbackMove = session.revision,
         showMoveControl = mode == TeachingMode.GUIDE_ME,
+        // Off the path the target line's "The Moves are below." would point at chips that are not shown.
         hint =
-            if (mode == TeachingMode.SHOW_ME) {
+            if (mode == TeachingMode.SHOW_ME || (offPath && session.shownRung == HintRung.TARGET)) {
                 null
             } else {
                 HintLadder.line(lesson, index, session.shownRung)?.let { strings.resolve(it) }

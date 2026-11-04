@@ -57,7 +57,7 @@ private fun transition(
         is SessionEvent.ResetConfirmed -> confirmed(state, event)
         is SessionEvent.ResetDeclined -> declined(state, event)
         is SessionEvent.TeachingModeChanged -> modeChanged(state, event)
-        is SessionEvent.RevealRequested -> Transition(state.copy(revealRequested = true))
+        is SessionEvent.RevealRequested -> Transition(state.copy(revealRequested = true, stepHelped = state.stepHelped + state.stepIndex))
         is SessionEvent.HintRequested -> hint(state)
         is SessionEvent.UsualHelpRequested -> usualHelp(state)
         is SessionEvent.StepAdvanced -> advance(state)
@@ -82,6 +82,7 @@ private fun start(
             stepMistakes = emptyMap(),
             cleanSteps = 0,
             cleanCredited = emptySet(),
+            stepHelped = emptySet(),
             assistanceDismissed = emptyMap(),
             solution = emptyList(),
             lastDiscarded = null,
@@ -119,6 +120,7 @@ private fun startPlayback(
             stepMistakes = emptyMap(),
             cleanSteps = 0,
             cleanCredited = emptySet(),
+            stepHelped = emptySet(),
             assistanceDismissed = emptyMap(),
             solution = solution.toList(),
             lastDiscarded = null,
@@ -180,7 +182,8 @@ private val ADAPTIVE_MODES = setOf(TeachingMode.GUIDE_ME, TeachingMode.LET_ME_TR
  * Adaptive assistance's counts (FR-13) after a commit from [before] to [moved]: a [harmful] Move adds 1
  * to the mistakes of the step derived before it and ends the clean run. A commit that makes a Notice
  * newly pending or newly completes the Lesson completes `s0` (the step shown before): clean when `s0`
- * has no mistakes and [before] had no Hint rung and no revealed Moves, which raises the clean run by 1 the
+ * has no mistakes, [before] had no Hint rung and no revealed Moves, and `s0` used no help in this Lesson
+ * ([SessionState.stepHelped], kept across Reset and *Try again*), which raises the clean run by 1 the
  * first time `s0` is credited (a credited step completed cleanly again leaves the run); else the run is 0.
  */
 private fun adapted(
@@ -199,7 +202,8 @@ private fun adapted(
     val completed =
         (moved.noticeStep != null && moved.noticeStep != before.noticeStep) || (moved.objectiveMet && !before.objectiveMet)
     val s0 = before.stepIndex
-    val clean = completed && (mistakes[s0] ?: 0) == 0 && before.hintRung == HintRung.NONE && !before.revealRequested
+    val helped = s0 in before.stepHelped || before.hintRung != HintRung.NONE || before.revealRequested
+    val clean = completed && (mistakes[s0] ?: 0) == 0 && !helped
     val cleanSteps =
         when {
             harmful -> 0
@@ -420,7 +424,7 @@ private fun hint(state: SessionState): Transition {
     val decision = state.decision ?: return Transition(state)
     val rung = state.shownRung
     if (!HintLadder.canClimb(state.teachingMode, rung, decision.advance, state.assistance.top)) return Transition(state)
-    return Transition(state.copy(hintRung = rung.next(), hintsUsed = state.hintsUsed + 1))
+    return Transition(state.copy(hintRung = rung.next(), hintsUsed = state.hintsUsed + 1, stepHelped = state.stepHelped + state.stepIndex))
 }
 
 /**

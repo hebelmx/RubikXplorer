@@ -1170,12 +1170,96 @@ class LessonScreenTest {
             .performScrollTo()
             .assertTextContains("You're off the path now — Undo back to it, and I'll show one turn at a time again.")
         assertEquals("off the path, the authored step's Moves are not shown", emptyList<String>(), tagsStartingWith("moveChip:"))
+        assertEquals(HintRung.TARGET, host.state.value.shownRung)
+        node("lesson:hint:line").assertDoesNotExist()
 
         runBlocking { host.dispatch(SessionEvent::Undo) }
         rule.waitForIdle()
+        node("lesson:hint:line").performScrollTo().assertTextContains("The Moves are below.", substring = true)
         node("lesson:assistance").performScrollTo().assertTextContains("One turn at a time, since this step tripped you up 3 times.")
         assertEquals(listOf("moveChip:R'"), tagsStartingWith("moveChip:"))
         node("mode:TEST_ME").assertIsSelected()
+    }
+
+    /** Two mistakes on the corner Lesson's step, dispatched without waiting for idle, so a paused clock can watch what follows. */
+    private fun tripUpTwiceWithPausedClock() {
+        rule.mainClock.autoAdvance = false
+        runBlocking {
+            repeat(2) {
+                host.dispatch { SessionEvent.MoveCommitted(FaceTurn(Face.R, Turn.CLOCKWISE), it) }
+                host.dispatch(SessionEvent::Undo)
+            }
+        }
+    }
+
+    private fun sessionColors() =
+        host.state.value.virtual
+            .toFacelets()
+            .colors
+            .map { Color(StickerAppearance.of(it).fill) }
+
+    @Test
+    fun `escalating to demonstrate plays the step on the net once with no Hint tap and changes nothing`() {
+        open(cornerLesson.id.value, adaptiveAssistance = true)
+        switchTo(TeachingMode.TEST_ME)
+        val demonstration = (Demonstration.of(cornerLesson) as DemonstrationResult.Ready).demonstration
+        val endColors =
+            demonstration.start
+                .apply(demonstration.steps[0].moves)
+                .toFacelets()
+                .colors
+                .map { Color(StickerAppearance.of(it).fill) }
+        tripUpTwiceWithPausedClock()
+        val before = host.state.value
+        assertEquals(AssistanceLevel.DEMONSTRATE, before.assistance)
+        var played = false
+        repeat(DEMO_CHECKS * 2) {
+            if (!played) {
+                rule.mainClock.advanceTimeBy(DEMO_CHECK_MILLIS)
+                played = drawnColors() == endColors
+            }
+        }
+        assertTrue("the net never played the step without a Hint tap", played)
+        rule.mainClock.advanceTimeBy(REORIENT_HOLD_MILLIS + REORIENT_STEP_MILLIS + 500)
+        rule.mainClock.autoAdvance = true
+        assertNetMatchesSession("net returns to the session after the demonstration")
+        assertEquals(HintRung.NONE, host.state.value.hintRung)
+        assertEquals(0, host.state.value.hintsUsed)
+        assertEquals(TeachingMode.TEST_ME, host.state.value.teachingMode)
+        assertEquals(before.revision, host.state.value.revision)
+        assertEquals(before.history, host.state.value.history)
+
+        // Recomposition and leaving and returning to the level do not replay it.
+        switchTo(TeachingMode.SHOW_ME)
+        switchTo(TeachingMode.TEST_ME)
+        assertEquals(AssistanceLevel.DEMONSTRATE, host.state.value.assistance)
+        rule.mainClock.autoAdvance = false
+        repeat(DEMO_CHECKS) {
+            rule.mainClock.advanceTimeBy(DEMO_CHECK_MILLIS)
+            assertEquals("the demonstration played again", sessionColors(), drawnColors())
+        }
+        rule.mainClock.autoAdvance = true
+    }
+
+    @Test
+    fun `a Move during the escalation demonstration stops it and the net shows the post-Move session`() {
+        open(cornerLesson.id.value, adaptiveAssistance = true)
+        switchTo(TeachingMode.TEST_ME)
+        tripUpTwiceWithPausedClock()
+        var running = false
+        repeat(DEMO_CHECKS * 2) {
+            if (!running) {
+                rule.mainClock.advanceTimeBy(DEMO_CHECK_MILLIS)
+                running = drawnColors() != sessionColors()
+            }
+        }
+        assertTrue("the escalation demonstration never started", running)
+        // Scroll while the clock runs: a paused clock never ends the scroll.
+        rule.mainClock.autoAdvance = true
+        node("moveKey:L").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.history.done.size == 1 }
+        assertNetMatchesSession("after a Move interrupts the demonstration")
+        assertEquals(TeachingMode.TEST_ME, host.state.value.teachingMode)
     }
 
     @Test

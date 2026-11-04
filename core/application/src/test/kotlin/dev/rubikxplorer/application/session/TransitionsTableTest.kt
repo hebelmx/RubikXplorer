@@ -240,6 +240,7 @@ class TransitionsTableTest {
                     s.stepMistakes,
                     s.cleanSteps,
                     s.cleanCredited,
+                    s.stepHelped,
                     s.assistanceDismissed,
                 )
             if (tutor(before) != tutor(after)) add("tutor")
