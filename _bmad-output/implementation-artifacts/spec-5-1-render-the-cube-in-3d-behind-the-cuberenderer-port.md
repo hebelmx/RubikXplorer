@@ -5,7 +5,7 @@ created: '2026-11-04'
 status: 'done'
 baseline_revision: '9cc623ca2952f50e2c53a0392c509d0bfc56ba8a'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-5-context.md'
   - '{project-root}/AGENTS.md'
@@ -130,6 +130,32 @@ deferred:
   - `[medium]` `[patch]` (intent) glyph vertex data and atlas mapping untested — see blind #4; the new test also checks each glyph has its own in-range atlas cell.
   - `[false]` `[reject]` (intent) collateral test moves (Kociemba layout test to `Net2DRendererTest`, free-cube asserts via the 3D hook) — descriptive; behavior is still asserted on the surface that shows it.
 
+### 2026-11-04 — Review pass (follow-up)
+- verdicts: 22 findings — high 0, medium 5, low 7, false 9, maybe-false 1
+- findings:
+  - `[low]` `[reject]` (blind) `publish()` updates `drawn` before GL consumes the snapshot — carried: same claim as pass 1 blind #1; at most one vsync lead; a GL acknowledgement handshake is more than a direct correction.
+  - `[low]` `[reject]` (blind) single-slot `snapshot` can be overwritten before GL draws an intermediate state — carried: pass 1 blind #2; every item spans ≥ 50 ms of frames, committed state never lost.
+  - `[medium]` `[patch]` (blind) sync suite asserts GL only via `drawnFrames > 0`; per-step asserts read the CPU model — carried: pass 1 intent "GL path checked only by a frame count"; matrices handed to GL asserted on the JVM (`CubieModelTest.modelMatricesAnimateExactlyTheTurningLayer`), pixel readback still not present as that row records; not patched again.
+  - `[medium]` `[patch]` (blind) no test of the rasterized glyph atlas or shader output — carried: pass 1 intent "glyph vertex data and atlas mapping untested"; vertex/atlas-cell decode test in `CubeMeshTest` stands; not patched again.
+  - `[false]` `[reject]` (blind) GL program/VBO/texture never explicitly released — `GLSurfaceView` calls `onSurfaceCreated` only after creating a new EGL context, and without `setPreserveEGLContextOnPause` the old context (and every handle in it) is destroyed on pause/detach, so nothing leaks.
+  - `[false]` `[reject]` (blind) shader compile/link failure throws on the GL thread — the shaders are fixed bundled resources and the manifest requires GLES 3.0; a loud failure on a state the program is not shown to reach is correct behavior.
+  - `[low]` `[reject]` (blind) no automated pause/resume, context-recreation or disposal-mid-burst test — carried: pass 1 blind lifecycle row; code still rebuilds everything in `onSurfaceCreated` and commits the active item on dispose.
+  - `[low]` `[reject]` (blind) no in-app `onDrawFrame` frame-time measurement despite the epic's measurement note — the intent says "no logging at all in this story"; the epic assigns the on-device p90 confirmation to Story 1.11; adding an opt-in measurement path is more than a direct correction.
+  - `[low]` `[reject]` (blind) per-frame allocations and per-frame recomposition via `geometryRevision` — carried: pass 1 per-frame allocations row; no measured jank, no named harm.
+  - `[low]` `[reject]` (edge) GL lag lets successive snapshots overwrite completed states — carried: pass 1 edge #1 / blind #2.
+  - `[false]` `[reject]` (edge) Snap appended behind animations so Reset/Scramble is not visible within one frame — carried: pass 1 edge row; FIFO is required by the I/O matrix "Snap" row.
+  - `[medium]` `[patch]` (verification-gap) GL output can regress (e.g. model-matrix offset `i * MAT4` → `0` in `CubeGlRenderer.onDrawFrame`) while the sync suite passes — carried: same claim and location as pass 1 intent "GL path checked only by a frame count"; code reads as that row describes; not patched again.
+  - `[false]` `[reject]` (intent) adapter checks only one Move mid-turn — `renderedFacelets()` is `model.facelets()`, and `CubieModelTest` covers all 54 Moves at progress 0.5 and 1; no bad outcome at the adapter.
+  - `[false]` `[reject]` (intent) "+50 ms not equal" checked only in `PresentationQueueTest` — `FreeCubeScreenTest` "one Move settles within 250 ms on the frame clock" asserts not-equal at +50 ms and equal at +250 ms through the adapter.
+  - `[false]` `[reject]` (intent) burst-of-8 queue test counts a trailing Snap toward fast-forward — carried: pass 1 threshold row; counting every queued item matches `Net2DRenderer`.
+  - `[false]` `[reject]` (intent) random-sequence model test calls `model.reset()` directly rather than queue Snaps — Snap-through-queue is asserted in `PresentationQueueTest` and by the reducer's Snaps in the 10,000-step instrumented suite.
+  - `[medium]` `[patch]` (intent) `cube3d` hook derives from `stickerDraws`, not the VBO; glyph orientation unchecked — carried: pass 1 blind #4 vertex-attribute decode test; orientation belongs to the same pixel-readback gap.
+  - `[medium]` `[patch]` (intent) GL layer (snapshot drawing, context-loss rebuild, pause/resume) covered only by `drawnFrames > 0` — carried: pass 1 intent frame-count row.
+  - `[low]` `[reject]` (intent) instrumented suite is not run by CI — `.github/workflows/ci.yml` forbids `connected*` tasks by project rule; adding an emulator CI job is more than a direct correction; already recorded as a residual risk.
+  - `[false]` `[reject]` (intent) Snap readback equals `item.target` by construction — the intent requires `Snap` to reset the model to its target; Animate readback still comes from geometry.
+  - `[maybe-false]` `[defer]` (intent) 250 ms settle measured only on the paused Compose clock — carried: existing `deferred` entry (Story 1.11 on-device timing); not deferred again.
+  - `[false]` `[reject]` (intent) hook uses `style` while the mesh uses `latestStyle` — `rememberUpdatedState(style)` makes them the same value in every composition; no divergence.
+
 ## Design Notes
 
 Generic turn = (axis, layers, quarters) in the viewer frame. Clockwise as seen from the outward face is −90° about that face's outward axis (the spike's `FaceTurn` convention):
@@ -178,3 +204,12 @@ Status: done
 
 **Residual risks:** emulator-only timing (deferred to Story 1.11); no pixel-level check of what GL draws; the instrumented suite is not run by CI (`build` does not run connected tests). Implementation ran on Codex; its sandbox had no KVM, so the emulator run and review patches were done by the build-auto runner.
 
+### Follow-up review pass (2026-11-04)
+
+**Summary:** Fresh four-layer review (blind, edge-case and verification-gap on Codex; intent alignment on Claude) of the full diff since `9cc623ca2952f50e2c53a0392c509d0bfc56ba8a`. No code changed in this pass.
+
+**Review:** 22 findings (high 0, medium 5, low 7, false 9, maybe-false 1). Patches applied: none (all 5 medium rows are carried from pass 1's already-patched rows and are not patched again). Deferred: none new (the reference-device timing row is carried onto the existing `deferred` entry). Rejected: 16 rows with reasons in the triage log — 9 false (GL resource release, shader failure path, Snap FIFO, one-Move adapter mid-turn, +50 ms adapter assert, burst Snap counting, random-sequence reset path, Snap readback by construction, `style` vs `latestStyle`) and 7 low (one-frame readback lead, single-slot snapshot (blind + edge), lifecycle test, frame-time logging forbidden this story, per-frame allocations/recomposition, instrumented suite not in CI). Follow-up review recommended: false (patched: high 0, medium 0, low 0) — the work has converged.
+
+**Verification:** no files outside this spec changed, so pass-1 results stand (`./gradlew spotlessCheck build` pass; targeted unit tests pass; `Cube3DRenderSyncTest` 10,000 steps pass on `spike3d_api29`). Reviewers confirmed existing JUnit XML reports for the renderer and mesh tests show passes.
+
+**Residual risks:** unchanged — what GL draws is still not checked by pixel readback (a wrong model-matrix offset in `CubeGlRenderer.onDrawFrame` would pass every test); emulator-only timing (Story 1.11); instrumented suite not run by CI.
