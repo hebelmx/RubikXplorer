@@ -5,7 +5,7 @@ created: '2026-11-04'
 baseline_revision: 'b5190dafa2f0851a50c2a53bce5c56dac9b63e87'
 status: 'done'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-5-context.md'
   - '{project-root}/AGENTS.md'
@@ -124,6 +124,34 @@ deferred:
   - `[false]` `[reject]` (intent) Lesson pulse untested — existing LessonScreenTest pulse tests read `pulsing` from `RenderedStickersKey` on `cube3d`, and the snapshot pulse comes from the same `latestEmphasis`.
   - `[low]` `[patch]` (intent) `glSnapshot` inserted under `glEye`'s KDoc — gave `glSnapshot` its own KDoc and restored `glEye`'s.
 
+### 2026-11-04 — Review pass
+- verdicts: 24 findings — high 0, medium 9, low 12, false 3, maybe-false 0
+- findings:
+  - `[low]` `[reject]` (blind) Show me hides back/bottom targets with no view controls — carried: the intent fixes Show me as "square aspect, no gestures" and gives view controls to the Lesson toolbar only.
+  - `[low]` `[reject]` (blind) Arrow collapses to a line when the eye lies in its plane — carried: needs an orbit exactly in that plane; fix adds a presentation fallback branch.
+  - `[low]` `[reject]` (blind) Notation label at `tip + 8.dp` unclamped — carried: rare at stage sizes in use; fix needs measured-bounds layout logic.
+  - `[false]` `[reject]` (blind) Gestures during a demonstration commit against a different state — `onMoveIntent` goes through `send`, which calls `stopReorientation()` (snapping the renderer back to the session state) before dispatching `MoveCommitted`; layer Moves are positional, so this is exactly the Move-key path the intent requires.
+  - `[low]` `[reject]` (blind) Rapid stepping in Show me shows a later Move's arrow while earlier queued turns still animate — real but transient (at most one `TURN_MILLIS` per queued turn) and matches the intent's `arrow = currentMove`; syncing to the drained item needs new renderer state plumbing.
+  - `[low]` `[reject]` (blind) Repeated identical Moves get no fresh draw-in — carried: matches the spec ("becomes non-null or changes"); fix adds an occurrence key parameter.
+  - `[medium]` `[defer]` (blind) No device render test of shader dim/outline/pulse or free-cube appearance — carried: part of the deferred rendered-output gap.
+  - `[medium]` `[defer]` (blind) Arrow tests never check drawn path/arrowhead/label under orbit changes — carried: part of the deferred rendered-output gap.
+  - `[medium]` `[patch]` (blind) Lesson view controls (an Always item) have no integration coverage — added `lesson view controls rotate and reset the camera without touching the session` in LessonScreenTest: rotate right leaves virtual/history unchanged, a drag projected through the rotated orbit commits U, reset records nothing, a drag through the default orbit commits U again, net matches session.
+  - `[low]` `[patch]` (blind) `NetPlayback`'s injected renderer lost its "starts at `start`" doc — the class KDoc now states the owner supplies a renderer already showing `start` (both owners do).
+  - `[low]` `[reject]` (edge) Edge-on slice/rotation arc — carried, same as the blind row.
+  - `[low]` `[reject]` (edge) Label outside stage at large font scale / small stage — carried, same as the blind row.
+  - `[medium]` `[defer]` (verification-gap) Shader emphasis can disappear while tests stay green — carried: deferred rendered-output gap.
+  - `[medium]` `[defer]` (verification-gap) Arrow semantics do not verify the visible overlay — carried: deferred rendered-output gap.
+  - `[medium]` `[defer]` (intent) Dim/outline/pulse pixels untested — carried: deferred rendered-output gap.
+  - `[false]` `[reject]` (intent) Emphasis tests compare code with itself and never check mid-turn — the per-sticker loop checks against `NetEmphasis.dims`/`highlights`, and `CubeMesh.emphasisFlags` keys on each cubie's own sticker colors, which a turn never changes, so flags cannot drift mid-animation.
+  - `[medium]` `[defer]` (intent) Projected arrow overlay drawing untested — carried: deferred rendered-output gap.
+  - `[low]` `[reject]` (intent) Value-equality arrow keying (identical Move no restart) — carried, same as the repeated-Moves row.
+  - `[low]` `[reject]` (intent) Toggling `reduceMotion` restarts the draw-in — a system-setting change mid-arrow is rare and the result (a 200 ms redraw, or instant) is harmless; fix adds keying logic.
+  - `[low]` `[reject]` (intent) Show me how / adaptive demonstrate arrow not tested — both pass the same `onPlayingMove` into the same `demonstrateOnNet` that the tested Hint top-rung path uses; an extra test adds little.
+  - `[medium]` `[patch]` (intent) Lesson `ViewControls` untested — same root and fix as the blind view-controls row.
+  - `[medium]` `[defer]` (intent) Free cube pixel identity under the new vertex layout — carried: deferred rendered-output gap.
+  - `[false]` `[reject]` (intent) DemonstrationPlayerTest asserts `false` where it asserted `null` — the meaning ("not dimmed / not highlighted") is unchanged; `RenderedStickersKey` always carries flags, so `false` is the exact equivalent of the net's absent key.
+  - `[low]` `[reject]` (intent) Net2D emphasis refactor covered only by existing tests — no production caller now passes emphasis to `Net2DRenderer` (Solve Playback has none), and the shared `dims`/`highlights` are exercised by Cube3DEmphasisTest.
+
 ## Design Notes
 
 The arrow is a Compose overlay rather than a GL mesh: it needs text at the tip, must be testable without a GL context, and is never occluded. Emphasis is per cubie because a piece is a cubie; the pixel-exact 3dp/1dp stroke comes from `fwidth` of the sticker-local edge distance. Lesson view controls are needed because the Lesson cube now accepts gestures (NFR-7: every gesture has a non-gesture equivalent).
@@ -162,3 +190,19 @@ Status: done
 **Verification:** `./gradlew :core:domain:test --tests 'dev.rubikxplorer.domain.input.*'` — pass. `./gradlew :app:testDebugUnitTest --tests 'dev.rubikxplorer.app.render.*' --tests 'dev.rubikxplorer.app.ui.*'` — pass (LessonScreenTest 47, Cube3DEmphasisTest 2, CubeMeshTest, 0 failures). `./gradlew spotlessCheck build` — pass (after `spotlessApply` normalized line endings of new files to the checkout's CRLF). Scope check: no changes under `_bmad-output/planning-artifacts/`, `_bmad/`, `.claude/`, `build-logic/`, spike source sets. Matrix audit: every I/O row covered (MoveArrowTest for arc rows; Cube3DEmphasisTest for No emphasis; LessonScreenTest rung-3 test for Off-path hint).
 
 **Residual risks:** shader and overlay visuals unverified on device; the GLSL compiles only at runtime on a GL ES 3 context; label placement on very small stages; Show me cannot be rotated to see hidden faces (by design).
+
+### Follow-up review pass (2026-11-04)
+
+**Summary:** Fresh four-layer review (Codex blind, edge-case and verification-gap layers; Claude intent-alignment) of the full 5.4 diff since `b5190dafa2f0851a50c2a53bce5c56dac9b63e87`. No high findings; two small patches applied.
+
+**Files changed this pass:**
+- `app/src/test/kotlin/dev/rubikxplorer/app/ui/lesson/LessonScreenTest.kt` — new test: Lesson view controls rotate and reset the camera without changing the session.
+- `app/src/main/kotlin/dev/rubikxplorer/app/ui/playback/PlaybackTransport.kt` — `NetPlayback` KDoc states the injected renderer must already show `start`.
+
+**Review findings:** 24 findings. Patches applied: 2 entries (medium 1: Lesson view-controls test; low 1: `NetPlayback` renderer KDoc). Deferred: none new (rendered-output pixel gap already deferred; carried rows). Rejected: Show me view rotation, edge-on arc, label overflow, identical-Move draw-in (all carried); gesture-during-demonstration (false: `send` snaps back first, same as Move keys); rapid-step arrow lead (low, transient, matches `arrow = currentMove`); `reduceMotion` toggle restart (low, harmless); Show me how/adaptive arrow test (low, shared callback path is tested); mid-turn emphasis drift (false: flags keyed on cubie colors); `false` vs `null` assertion (false: same meaning); Net2D emphasis coverage (low, no production caller passes emphasis).
+
+**Follow-up review recommendation:** false — follow-up pass patched no high (patched: high 0, medium 1, low 1); the work has converged.
+
+**Verification:** `./gradlew :app:testDebugUnitTest --tests 'dev.rubikxplorer.app.ui.lesson.LessonScreenTest'` — pass (48 tests, 0 failures, new test included). `./gradlew :core:domain:test --tests 'dev.rubikxplorer.domain.input.*'` — pass. `./gradlew :app:testDebugUnitTest --tests 'dev.rubikxplorer.app.render.*' --tests 'dev.rubikxplorer.app.ui.*'` — pass. `./gradlew spotlessCheck build` — pass.
+
+**Residual risks:** unchanged from the first pass: shader and arrow overlay visuals are unverified on a real GPU (deferred); label placement on very small stages; Show me cannot be rotated.

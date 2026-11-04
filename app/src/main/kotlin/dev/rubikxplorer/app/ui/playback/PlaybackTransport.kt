@@ -78,7 +78,8 @@ interface PlaybackTransportState {
 
 /**
  * The pure [PlaybackController] over [moves] from [start] driving a [renderer] (AD-20). Ephemeral:
- * it never touches the session and is never checkpointed. Use from the main thread.
+ * it never touches the session and is never checkpointed. Use from the main thread. The owner
+ * supplies [renderer], which must already show [start].
  */
 @Stable
 class NetPlayback(

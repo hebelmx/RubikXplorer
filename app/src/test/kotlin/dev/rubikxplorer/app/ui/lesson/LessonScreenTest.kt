@@ -224,6 +224,44 @@ class LessonScreenTest {
         assertNetMatchesSession("Move key and drag agree")
     }
 
+    @Test
+    fun `lesson view controls rotate and reset the camera without touching the session`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.LET_ME_TRY)
+        val before = host.state.value
+        val bounds = node("cube3d").fetchSemanticsNode().boundsInRoot
+        val from = Vector3(0.0, 1.0, 1.5)
+        val u = FaceTurn(Face.U, Turn.CLOCKWISE)
+
+        fun dragU(orbit: ViewOrbit) {
+            val pose = ViewPose(bounds.width.toInt(), bounds.height.toInt(), orbit.eye())
+
+            fun offset(point: Vector3): Offset = pose.project(point).let { Offset(it.x.toFloat(), it.y.toFloat()) }
+            node("cube3d").performTouchInput {
+                down(offset(from))
+                moveTo(offset(from + Vector3(-1.0, 0.0, 0.0)))
+                up()
+            }
+        }
+        node("stage:resetView").assertIsEnabled()
+        node("stage:viewMenu").performClick()
+        node("viewRotate:right").performClick()
+        rule.waitForIdle()
+        assertEquals("rotating the view changes no Cube State", before.virtual, host.state.value.virtual)
+        assertEquals("rotating the view records no Move", before.history, host.state.value.history)
+        // The drag lands where the rotated camera projects the top-front edge: the Lesson cube uses that orbit.
+        dragU(ViewOrbit.DEFAULT.rotated(-ViewOrbit.STEP_DEGREES, 0.0))
+        rule.waitUntil(5_000) { host.state.value.history.done.size == 1 }
+        assertEquals(before.virtual.apply(u), host.state.value.virtual)
+        node("stage:resetView").performClick()
+        rule.waitForIdle()
+        assertEquals("resetting the view records no Move", listOf(u), host.state.value.history.done)
+        dragU(ViewOrbit.DEFAULT)
+        rule.waitUntil(5_000) { host.state.value.history.done.size == 2 }
+        assertEquals(before.virtual.apply(u).apply(u), host.state.value.virtual)
+        assertNetMatchesSession("view controls leave the cube in step with the session")
+    }
+
     private fun node(tag: String) = rule.onNodeWithTag(tag)
 
     private fun stickersWith(key: SemanticsPropertyKey<Boolean>): Set<String> =
