@@ -76,8 +76,16 @@ sealed interface SessionEvent {
         override val at: Instant,
     ) : SessionEvent
 
-    /** The Learner asked to see the current step's Moves (Guide me "Show the Move", Hint). */
+    /** The Learner asked to see the current step's Moves (Guide me "Show the Move"); not a Hint. */
     data class RevealRequested(
+        override val at: Instant,
+    ) : SessionEvent
+
+    /**
+     * The Learner asked for a Hint (FR-11): climbs the shown step's Hint Ladder exactly one rung and
+     * counts it, when the ladder allows a climb (`HintLadder.canClimb`).
+     */
+    data class HintRequested(
         override val at: Instant,
     ) : SessionEvent
 

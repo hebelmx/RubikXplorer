@@ -131,7 +131,8 @@ object Assess {
     /**
      * The [TutorDecision] for [lesson] with Move [history] (started at the Lesson's entry state), in
      * virtual mode, taught in [mode]; [config] configures the [CandidateEnumerator]. [revealRequested]
-     * is true once the Learner asked to see the step's Moves, [noticeStep] is a completed step whose
+     * is true once the Learner asked to see the step's Moves, [hintRung] is the shown step's Hint Ladder
+     * rung ([HintLadder]), [noticeStep] is a completed step whose
      * Notice waits for *Next*, and [lastMoveFeedback] and [lastDiagnosis] are [classify]'s word on the
      * last committed Move.
      *
@@ -140,7 +141,8 @@ object Assess {
      * - `certainty` confirms the virtual state against itself (a Full observation);
      * - `diagnosis` is [lastDiagnosis] in [TeachingMode.TEST_ME] while not `advance`, else null;
      * - no Guided recovery yet (Story 4.5);
-     * - `reveal` is true in [TeachingMode.SHOW_ME] or once [revealRequested];
+     * - `reveal` is true in [TeachingMode.SHOW_ME], once [revealRequested], or once [hintRung] reached
+     *   [HintRung.TARGET] (a Hint never shows more than the shown step's Moves);
      * - `feedback` is [lastMoveFeedback] in [TeachingMode.TEST_ME], else null: a Move that completes a
      *   step or the Lesson keeps its word (On path) beside the Notice or completion;
      * - `nextAction` is FINISH when satisfied, NEXT_STEP when `advance`, WATCH in *Show me*, else TURN;
@@ -154,6 +156,7 @@ object Assess {
         config: TutorConfig,
         mode: TeachingMode,
         revealRequested: Boolean,
+        hintRung: HintRung,
         noticeStep: Int?,
         lastMoveFeedback: MoveFeedback?,
         lastDiagnosis: Diagnosis?,
@@ -180,7 +183,7 @@ object Assess {
             nextAction = nextAction,
             explanation = diagnosis?.explanation ?: Text((explanationKey ?: lesson.objective).value),
             recovery = Recovery.Unavailable,
-            reveal = mode == TeachingMode.SHOW_ME || revealRequested,
+            reveal = mode == TeachingMode.SHOW_ME || revealRequested || hintRung >= HintRung.TARGET,
             advance = advance,
             feedback = lastMoveFeedback.takeIf { mode == TeachingMode.TEST_ME },
         )

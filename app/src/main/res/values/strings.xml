@@ -26,7 +26,7 @@
     <string name="lesson_moves">Moves</string>
     <string name="lesson_objective_met">Objective met</string>
     <string name="lesson_show_move">Show the Move</string>
-    <string name="lesson_hint">Hint</string>
+    <string name="lesson_hint">Hint (%1$d/%2$d)</string>
     <string name="lesson_next">Next</string>
     <string name="lesson_step">Step %1$d of %2$d</string>
     <string name="lesson_mode_description">Teaching mode</string>
