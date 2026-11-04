@@ -14,6 +14,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -39,10 +40,12 @@ import dev.rubikxplorer.app.session.whiteCrossLesson
 import dev.rubikxplorer.app.ui.freecube.FreeCubeViewModel
 import dev.rubikxplorer.app.ui.shell.AppShell
 import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
+import dev.rubikxplorer.application.port.FlagLevel
 import dev.rubikxplorer.application.session.GuidedRecovery
 import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.application.usecase.PlanRecovery
 import dev.rubikxplorer.domain.appearance.StickerAppearance
+import dev.rubikxplorer.domain.content.AdaptiveThresholds
 import dev.rubikxplorer.domain.content.ContentLoadResult
 import dev.rubikxplorer.domain.content.ContentLoader
 import dev.rubikxplorer.domain.content.ContentSource
@@ -123,10 +126,13 @@ class LessonScreenTest {
         modes: List<TeachingMode> = TeachingMode.entries,
         planRecovery: PlanRecovery = PlanRecovery(),
         adaptiveAssistance: Boolean = false,
+        adaptiveLevel: FlagLevel = if (adaptiveAssistance) FlagLevel.GA else FlagLevel.OFF,
+        thresholds: AdaptiveThresholds? = null,
     ) {
         runBlocking { catalog.load() }
         val ready = catalog.state.value as CatalogState.Ready
-        val entry = ready.lessons.single { it.lesson.id.value == lessonId }
+        val shipped = ready.lessons.single { it.lesson.id.value == lessonId }
+        val entry = thresholds?.let { shipped.copy(tutorConfig = shipped.tutorConfig.copy(adaptive = it)) } ?: shipped
         rule.setContent {
             RubikXplorerTheme {
                 LessonScreen(
@@ -136,7 +142,7 @@ class LessonScreenTest {
                     modes = modes,
                     onClose = { closed++ },
                     planRecovery = planRecovery,
-                    adaptiveAssistance = adaptiveAssistance,
+                    adaptiveAssistance = adaptiveLevel,
                 )
             }
         }
@@ -1120,6 +1126,7 @@ class LessonScreenTest {
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
         node("lesson:assistance").assert(hasAnyAncestor(hasTestTag("lesson:stepCard")).not())
         node("lesson:assistance:usual").assertTextContains("Back to my usual help")
+        node("lesson:assistance:beta").assertDoesNotExist()
         node("mode:TEST_ME").assertIsSelected()
         assertEquals(listOf("moveChip:R'", "moveChip:D'", "moveChip:R"), tagsStartingWith("moveChip:"))
         assertTrue("the target is outlined", stickersWith(StickerHighlightedKey).isNotEmpty())
@@ -1146,6 +1153,35 @@ class LessonScreenTest {
         node("lesson:assistance").assertDoesNotExist()
         node("lesson:hint").performScrollTo().assertTextContains("Hint (0/3)")
         assertEquals(emptyList<String>(), tagsStartingWith("moveChip:"))
+    }
+
+    @Test
+    fun `with the flag at BETA, the Assistance line carries the beta label`() {
+        open(cornerLesson.id.value, adaptiveLevel = FlagLevel.BETA)
+        switchTo(TeachingMode.TEST_ME)
+        node("lesson:assistance:beta").assertDoesNotExist()
+        tripUp(1)
+        node("lesson:assistance").performScrollTo().assertTextContains("Pointing out the piece, since this step tripped you up.")
+        node("lesson:assistance:beta").assertTextEquals("BETA")
+        assertTrue(host.state.value.adaptiveAssistance)
+    }
+
+    @Test
+    fun `at the guide level a half turn done as two quarters guides the second quarter, not Undo`() {
+        open(crossLesson.id.value, adaptiveAssistance = true, thresholds = AdaptiveThresholds(0, 0, 0, 2))
+        assertEquals(AssistanceLevel.GUIDE, host.state.value.assistance)
+        assertEquals(listOf("moveChip:F2"), tagsStartingWith("moveChip:"))
+
+        runBlocking { host.dispatch { SessionEvent.MoveCommitted(FaceTurn(Face.F, Turn.CLOCKWISE), it) } }
+        rule.waitForIdle()
+        assertEquals(AssistanceLevel.GUIDE, host.state.value.assistance)
+        assertEquals("the remaining quarter is guided", listOf("moveChip:F"), tagsStartingWith("moveChip:"))
+        node("lesson:assistance").performScrollTo().assertTextContains("One turn at a time", substring = true)
+        node("lesson:hint:line").performScrollTo().assertTextContains("The Moves are below.", substring = true)
+
+        runBlocking { host.dispatch { SessionEvent.MoveCommitted(FaceTurn(Face.F, Turn.CLOCKWISE), it) } }
+        rule.waitForIdle()
+        assertEquals("F then F completes step 1", 0, host.state.value.noticeStep)
     }
 
     @Test

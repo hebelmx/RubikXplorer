@@ -66,6 +66,7 @@ import dev.rubikxplorer.app.ui.freecube.ToolbarButton
 import dev.rubikxplorer.app.ui.shell.WindowWidthClass
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.app.ui.theme.Spacing
+import dev.rubikxplorer.application.port.FlagLevel
 import dev.rubikxplorer.application.session.GuidedRecovery
 import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.application.session.SessionState
@@ -99,8 +100,8 @@ import kotlin.time.Instant
  * The screen decides nothing about teaching: every reveal, Notice, feedback and Next flag comes from
  * the session's [TutorDecision]. The switcher offers only [modes] (the shell drops a mode whose
  * feature flag is off). [planRecovery] runs a requested Guided recovery's search (tests inject one).
- * [adaptiveAssistance] is the `ADAPTIVE_ASSISTANCE` flag the Lesson starts with: off, the Hint Ladder
- * is fixed and no Assistance line shows.
+ * [adaptiveAssistance] is the `ADAPTIVE_ASSISTANCE` flag level the Lesson starts with: off, the Hint Ladder
+ * is fixed and no Assistance line shows; BETA adds the beta label to the Assistance line (AD-18).
  */
 @Composable
 fun LessonScreen(
@@ -111,7 +112,7 @@ fun LessonScreen(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
     planRecovery: PlanRecovery = remember { PlanRecovery() },
-    adaptiveAssistance: Boolean = false,
+    adaptiveAssistance: FlagLevel = FlagLevel.OFF,
 ) {
     val lesson = entry.lesson
     val session by host.state.collectAsState()
@@ -120,7 +121,7 @@ fun LessonScreen(
         if (host.state.value.lesson
                 ?.id != lesson.id
         ) {
-            host.dispatch { SessionEvent.LessonStarted(lesson, entry.tutorConfig, it, adaptiveAssistance) }
+            host.dispatch { SessionEvent.LessonStarted(lesson, entry.tutorConfig, it, adaptiveAssistance != FlagLevel.OFF) }
         }
     }
     Column(
@@ -135,7 +136,7 @@ fun LessonScreen(
         val decision = session.decision
         val demonstration = remember(lesson) { (Demonstration.of(lesson) as? DemonstrationResult.Ready)?.demonstration }
         if (session.lesson?.id == lesson.id && decision != null && demonstration != null) {
-            LessonBody(host, session, decision, lesson, demonstration, strings, modes, onClose)
+            LessonBody(host, session, decision, lesson, demonstration, strings, modes, onClose, adaptiveAssistance == FlagLevel.BETA)
         }
     }
     GuidedRecoveryRunner(host, planRecovery)
@@ -184,6 +185,7 @@ private fun LessonBody(
     strings: ContentStrings,
     modes: List<TeachingMode>,
     onClose: () -> Unit,
+    beta: Boolean,
 ) {
     val scope = rememberCoroutineScope()
     val reduceMotion = rememberReduceMotion()
@@ -231,7 +233,7 @@ private fun LessonBody(
     val pulse = rememberObjectivePulse(decision.satisfied, reduceMotion)
     val mode = session.teachingMode
 
-    val step = stepCard(mode, session, decision, lesson, demonstration, player, strings)
+    val step = stepCard(mode, session, decision, lesson, demonstration, player, strings, beta)
     val panel: @Composable (Modifier) -> Unit = { panelModifier ->
         LessonPanel(
             objective = strings.resolve(lesson.objective),
@@ -387,6 +389,7 @@ private fun stepCard(
     demonstration: Demonstration,
     player: DemonstrationPlayerState,
     strings: ContentStrings,
+    beta: Boolean,
 ): StepCardContent {
     val index: Int
     val notice: Boolean
@@ -456,7 +459,7 @@ private fun stepCard(
             },
         recoveryActions = recoveryActions(session, decision, strings),
         guidedRecovery = guidedRecoveryContent(session.guidedRecovery, strings),
-        assistance = if (mode == TeachingMode.SHOW_ME) null else assistanceContent(session, strings, offPath),
+        assistance = if (mode == TeachingMode.SHOW_ME) null else assistanceContent(session, strings, offPath, beta),
     )
 }
 

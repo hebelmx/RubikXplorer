@@ -100,4 +100,14 @@ class AdaptivePolicyTest {
         assertNull(Tutor.nextMove(twoStep, entry, state("F U' R")))
         assertNull(Tutor.nextMove(twoStep, entry, state("F U' U F'")))
     }
+
+    @Test
+    fun `halfway through an authored half turn the next Move is the quarter that finishes it`() {
+        val entry = state("L2 B2 R2 F2")
+        val (f, fPrime) = TutorFixtures.moves("F F'")
+        assertEquals(f, Tutor.nextMove(TutorFixtures.fourEdges, entry, state("L2 B2 R2 F2 F")))
+        assertEquals(fPrime, Tutor.nextMove(TutorFixtures.fourEdges, entry, state("L2 B2 R2 F2 F'")))
+        assertTrue(Tutor.isOnPath(TutorFixtures.fourEdges, entry, state("L2 B2 R2 F2 F"), f))
+        assertEquals(TutorFixtures.moves("R2").single(), Tutor.nextMove(TutorFixtures.fourEdges, entry, state("L2 B2 R2 F2 F F")))
+    }
 }

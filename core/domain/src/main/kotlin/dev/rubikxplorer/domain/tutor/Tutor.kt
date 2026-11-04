@@ -41,8 +41,9 @@ object Tutor {
 
     /**
      * The next authored Move of [lesson] (entered at [entry]) when [state] is an authored path state
-     * (the first match, as [currentStep] walks the path), else null; null after the final Move. Adaptive
-     * assistance's guide level shows only this Move.
+     * (the first match, as [currentStep] walks the path), else null; null after the final Move. Halfway
+     * through an authored half turn (one quarter done, which [isOnPath] accepts) it is the quarter that
+     * finishes it. Adaptive assistance's guide level shows only this Move.
      */
     fun nextMove(
         lesson: Lesson,
@@ -52,6 +53,7 @@ object Tutor {
         var path = entry
         pathOwners(lesson).forEach { (_, move) ->
             if (path == state) return move
+            quartersOf(move).firstOrNull { path.apply(it) == state }?.let { return it }
             path = path.apply(move)
         }
         return null

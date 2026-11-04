@@ -197,6 +197,13 @@ The Learner's own climbs stay in `hintRung` and `hintsUsed` counts only taps, so
 
 **What counts.** A mistake is a Move that `Assess.classify` judges HARMFUL against the step derived before it. That step is the key, because a harmful Move usually moves the derived step back. So "this step tripped you up twice" survives the Undo in between. A success is a step completed by a commit with no mistake and no Hint on it. Mistakes and hint use, but not retries, feed the policy; FR-13's "repeated attempts" tuning is P1.
 
+**Product owner decisions (2026-11-04).** These supersede the matching parts of the Boundaries above (including the "auto-playing a Demonstration" Never) and the BH-1 to BH-4 rejections in the triage log:
+- **Auto-play on DEMONSTRATE.** When a step escalates to DEMONSTRATE, the screen plays the step's Moves once on the net, like the Hint Ladder's top rung. It dispatches nothing, changes no Move or Hint count, never switches the Teaching Mode, and any session interaction stops it. It plays once per step per Lesson.
+- **Help taints a step until `LessonStarted`.** A step that used a Hint or "Show the Move" (`stepHelped`) never counts as clean again in that Lesson, across Reset and *Try again*, and each step is credited to the clean run at most once (`cleanCredited`).
+- **Off the path at GUIDE.** When there is no next authored Move, GUIDE shows no Move chips, the Assistance line says to Undo back (`msg.assistance.guide-off-path`), and the target rung's hint line, which points at the chips, is hidden.
+- **Half turns at GUIDE.** Halfway through an authored half turn, `Tutor.nextMove` returns the quarter turn that finishes it, matching `Tutor.isOnPath`.
+- **Beta label.** `AppShell` passes the `ADAPTIVE_ASSISTANCE` flag level to `LessonScreen`; at BETA the Assistance line carries an outlined `msg.feature.beta` label (AD-18). ON (GA) and OFF are unchanged.
+
 ## Verification
 
 **Commands:**
@@ -208,25 +215,26 @@ The Learner's own climbs stay in `hintRung` and `hintsUsed` counts only taps, so
   - **Policy:** `AdaptivePolicy` maps the shown step's Harmful-Move count and the run of clean steps to an `AssistanceLevel` (REDUCED, USUAL, EXPLAIN, DEMONSTRATE, GUIDE). The thresholds come from `tutor-config.json` (`adaptive`: 1, 2, 3, 2).
   - **Hint Ladder:** each level is a floor and a top on the shown step's rung, so the level acts only through the ladder.
   - **Assistance line:** says why help changed, and offers *Back to my usual help* (`UsualHelpRequested`).
-  - **Flag:** `ADAPTIVE_ASSISTANCE` reaches the reducer only through `LessonStarted`. With it OFF, the level is always USUAL: the ladder is fixed and the line is absent.
+  - **Flag:** `ADAPTIVE_ASSISTANCE` reaches the reducer only through `LessonStarted`. With it OFF, the level is always USUAL: the ladder is fixed and the line is absent. At BETA the Assistance line carries the beta label.
+  - **Product owner decisions:** DEMONSTRATE auto-plays the step once on the net; help taints a step until `LessonStarted`; GUIDE hides the chips and the target hint line off the path and guides the remaining quarter of a half turn (Design Notes).
   - The Teaching Mode never changes.
 - **Files:**
   - `core/domain`:
     - `content/{Model,ContentValidator,ContentProblem}.kt`: `AdaptiveThresholds`, its validation and `NOT_INCREASING`;
     - `tutor/AdaptivePolicy.kt` (new): the levels and the policy;
     - `tutor/HintLadder.kt`: `canClimb` takes a `top`;
-    - `tutor/Tutor.kt`: `nextMove`;
+    - `tutor/Tutor.kt`: `nextMove`, including the remaining quarter of a half turn;
     - `tutor-config.json`, its schema and the test fixture;
-    - `en.json`: 5 strings.
+    - `en.json`: 7 strings (the 5 above, `msg.assistance.guide-off-path` and `msg.feature.beta`).
   - `core/application/session`:
     - `SessionEvent.kt`: `LessonStarted.adaptiveAssistance` and `UsualHelpRequested`;
     - `SessionState.kt`: the counts, plus the derived `assistance` and `shownRung`;
     - `Reduce.kt`: counting, the Hint climbing from `shownRung`, and the dismissal;
     - `TRANSITIONS.md`: the new row and prose.
   - `app`:
-    - `AppShell.kt`: passes the flag;
+    - `AppShell.kt`: passes the flag level;
     - `LessonScreen.kt`, `LessonPanel.kt`, `HintLine.kt`: the shown rung, `Hint (n/top)`, the EXPLAIN outline, and the GUIDE level's single chip;
-    - `AssistanceLine.kt` (new).
+    - `AssistanceLine.kt` (new), with the beta label.
   - Tests:
     - new: `AdaptivePolicyTest`, `AdaptiveAssistanceSessionTest`, `AssistanceCopyTest`;
     - updated: `TransitionsTableTest`, `LessonScreenTest` (8 new cases), `ContentValidatorTest`, the content tests and fixtures.
@@ -237,7 +245,5 @@ The Learner's own climbs stay in `hintRung` and `hintsUsed` counts only taps, so
 - **Follow-up review recommended:** false. Patched counts by entry verdict: high 0, medium 1, low 2.
 - **Verification:** `./gradlew spotlessApply && ./gradlew spotlessCheck build` gave BUILD SUCCESSFUL before review and again after the patches. Every I/O matrix row has a passing test: `AdaptivePolicyTest` 6, `AdaptiveAssistanceSessionTest` 12, `LessonScreenTest` 40, `ContentValidatorTest` 22, `AssistanceCopyTest` 3.
 - **Residual risks:**
-  - Undoing a step's last Move and committing it again, or a Hint followed by Retry or Reset, can still count a step as clean.
-  - GUIDE falls back to the whole step's Moves off the path and halfway through an authored half turn.
   - Help that escalates after a Harmful Move shows only once the Learner is back on the step (by design).
   - The flag is read when the Lesson starts, not live.
