@@ -69,6 +69,7 @@ import dev.rubikxplorer.app.ui.theme.Spacing
 import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.application.session.SessionState
 import dev.rubikxplorer.domain.content.Lesson
+import dev.rubikxplorer.domain.content.TextKey
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Facelets
 import dev.rubikxplorer.domain.cube.Move
@@ -347,6 +348,7 @@ private fun stepCard(
             decision.diagnosis
                 ?.takeIf { RecoveryOffer.SHOW_ME_HOW in it.recoveryPath.offers }
                 ?.let { Tutor.reorient(session.virtual.orientation, session.entry.orientation) },
+        showMeHowLabel = strings.resolve(SHOW_ME_HOW_LABEL),
         feedbackMove = session.revision,
         showMoveControl = mode == TeachingMode.GUIDE_ME,
     )
@@ -491,3 +493,6 @@ private const val WIDE_STAGE_FRACTION = 0.55f
 private val COMPACT_STAGE_MIN: Dp = 280.dp
 private val EXPANDED_PANEL_MAX: Dp = 560.dp
 private val TOP_BAR_HEIGHT: Dp = 56.dp
+
+/** The *Show me how* Recovery offer's label: learner-facing content text, resolved from `strings/en.json` (AD-6). */
+internal val SHOW_ME_HOW_LABEL = TextKey("msg.recovery.offer.show-me-how")

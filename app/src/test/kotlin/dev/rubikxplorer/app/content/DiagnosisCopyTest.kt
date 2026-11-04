@@ -1,6 +1,7 @@
 package dev.rubikxplorer.app.content
 
 import android.app.Application
+import dev.rubikxplorer.app.ui.lesson.SHOW_ME_HOW_LABEL
 import dev.rubikxplorer.domain.content.ContentLoadResult
 import dev.rubikxplorer.domain.content.ContentLoader
 import dev.rubikxplorer.domain.content.ContentSource
@@ -114,5 +115,10 @@ class DiagnosisCopyTest {
             ),
             RecoveryPath.entries.associateWith { strings.resolve(it.prompt) },
         )
+    }
+
+    @Test
+    fun `show me how offer label`() {
+        assertEquals("Show me how", strings.resolve(SHOW_ME_HOW_LABEL))
     }
 }

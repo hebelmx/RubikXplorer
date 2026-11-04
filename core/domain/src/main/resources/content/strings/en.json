@@ -21,6 +21,7 @@
   "msg.recovery.retry": "Undo, or start this step again.",
   "msg.recovery.reorient": "Turn it back with the rotation keys.",
   "msg.recovery.re-enter": "Fix the outlined stickers and enter your cube again.",
+  "msg.recovery.offer.show-me-how": "Show me how",
   "msg.move-note.face.u.clockwise": "Turn the Up face clockwise: the top row moves left.",
   "msg.move-note.face.u.counterclockwise": "Turn the Up face counter-clockwise: the top row moves right.",
   "msg.move-note.face.u.half": "Turn the Up face a half turn: the top row moves halfway around.",

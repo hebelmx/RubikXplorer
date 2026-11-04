@@ -48,7 +48,7 @@ import dev.rubikxplorer.domain.tutor.TeachingMode
  * Objective is met, the Test me [feedback] on the last Move (null when there is none to show) or,
  * when the tutor names a mistake, its [diagnosis] with the Recovery Path's [recoveryPrompt] instead
  * (and, for a turned cube, the [showMeHow] Cube Rotations back to the Lesson's hold, which the
- * stage animates as a demonstration when the offer is tapped),
+ * stage animates as a demonstration when the offer, labelled [showMeHowLabel], is tapped),
  * with [feedbackMove] naming that Move (the session's revision, so each Move's line is a fresh node that
  * screen readers announce even when its text repeats) and,
  * while the Moves are hidden, whether the "Show the Move" control offers them ([showMoveControl],
@@ -67,6 +67,7 @@ internal data class StepCardContent(
     val diagnosis: String? = null,
     val recoveryPrompt: String? = null,
     val showMeHow: List<Move>? = null,
+    val showMeHowLabel: String = "",
     val feedbackMove: Long = 0,
     val showMoveControl: Boolean = true,
 )
@@ -189,7 +190,15 @@ private fun StepCard(
         MovesRow(step.moves, step.showMoveControl, onShowMove)
         val diagnosis = step.diagnosis
         if (diagnosis != null) {
-            key(step.feedbackMove) { DiagnosisLine(diagnosis, step.recoveryPrompt, showMeHow = step.showMeHow, onShowMeHow = onShowMeHow) }
+            key(step.feedbackMove) {
+                DiagnosisLine(
+                    diagnosis,
+                    step.recoveryPrompt,
+                    showMeHow = step.showMeHow,
+                    showMeHowLabel = step.showMeHowLabel,
+                    onShowMeHow = onShowMeHow,
+                )
+            }
         } else {
             step.feedback?.let { key(step.feedbackMove) { Feedback(it) } }
         }
