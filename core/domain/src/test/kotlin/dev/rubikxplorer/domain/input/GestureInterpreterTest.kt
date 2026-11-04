@@ -1,5 +1,6 @@
 package dev.rubikxplorer.domain.input
 
+import dev.rubikxplorer.domain.cube.CubeGeometry
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Face
 import dev.rubikxplorer.domain.cube.FaceTurn
@@ -118,5 +119,32 @@ class GestureInterpreterTest {
                 }
             }
         }
+    }
+
+    @Test
+    fun `grazing poses pick the rendered sticker the ray reaches, not the bounding box face`() {
+        val lift = 1.0 + CubeGeometry.STICKER_LIFT
+        val cases =
+            listOf(
+                // The F centre is visible past the R edge; the bounding box would hit R first and pick F.
+                Triple(
+                    Vector3(8.0, 0.0, 1.6),
+                    Vector3(0.0, 0.0, lift) to Vector3(0.0, 0.6, 0.0),
+                    SliceTurn(Slice.M, Turn.COUNTERCLOCKWISE),
+                ),
+                // The U centre is visible past the F edge; the bounding box would hit F first and pick U.
+                Triple(Vector3(0.0, 1.6, 8.0), Vector3(0.0, lift, 0.0) to Vector3(0.6, 0.0, 0.0), SliceTurn(Slice.S, Turn.CLOCKWISE)),
+            )
+        cases.forEach { (eye, drag, expected) ->
+            val pose = ViewPose(800, 600, eye)
+            assertEquals(MoveIntent(expected), GestureInterpreter.interpret(path(pose, drag.first, drag.second), pose), "$eye")
+        }
+    }
+
+    @Test
+    fun `a touch in the gap between stickers does nothing`() {
+        val pose = ViewPose(800, 600)
+        val gap = Vector3(0.5, 0.0, CubeGeometry.STICKER_LIFT + 1.0)
+        assertNull(GestureInterpreter.interpret(path(pose, gap, Vector3(0.0, 0.6, 0.0)), pose))
     }
 }
