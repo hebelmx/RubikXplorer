@@ -17,6 +17,9 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import dev.rubikxplorer.app.render.RenderedArrow
+import dev.rubikxplorer.app.render.RenderedArrowKey
+import dev.rubikxplorer.app.render.RenderedStickersKey
 import dev.rubikxplorer.app.render.StickerDimmedKey
 import dev.rubikxplorer.app.render.StickerHighlightedKey
 import dev.rubikxplorer.app.session.whiteCrossLesson
@@ -109,16 +112,17 @@ class DemonstrationPlayerTest {
         }
     }
 
-    private fun sticker(index: Int) = rule.onNodeWithTag("sticker:$index")
-
     private fun flag(
         key: SemanticsPropertyKey<Boolean>,
         index: Int,
-    ): Boolean? =
-        sticker(index)
-            .fetchSemanticsNode()
-            .config
-            .getOrNull(key)
+    ): Boolean {
+        val draw = rule.onNodeWithTag("cube3d").fetchSemanticsNode().config[RenderedStickersKey][index]
+        return when (key) {
+            StickerDimmedKey -> draw.dimmed
+            StickerHighlightedKey -> draw.highlighted
+            else -> error("Unknown sticker flag")
+        }
+    }
 
     /** Every sticker is dimmed exactly when its piece is outside the step, and outlined exactly when it is the white-green edge. */
     private fun assertEmphasis(drawn: Facelets) {
@@ -140,6 +144,7 @@ class DemonstrationPlayerTest {
         rule.waitForIdle()
         assertEquals(entry.toFacelets(), state.renderer.renderedFacelets())
         assertEmphasis(entry.toFacelets())
+        assertEquals(RenderedArrow("F'", 1f), rule.onNodeWithTag("cube3d").fetchSemanticsNode().config[RenderedArrowKey])
         // Off the F layer and not a cross edge: the DB edge (34, 52) and the DBL corner (33, 42, 53).
         listOf(34, 52, 33, 42, 53).forEach { assertEquals(true, flag(StickerDimmedKey, it)) }
         // Keep: the white-red edge (5, 10) stays lit, without the outline.
@@ -323,7 +328,7 @@ class DemonstrationPlayerTest {
         show(demo = demo("F", "", ""))
         rule.waitForIdle()
         assertCounter("0 / 0")
-        assertEquals(null, flag(StickerDimmedKey, 0))
+        assertEquals(false, flag(StickerDimmedKey, 0))
     }
 
     @Test
@@ -347,7 +352,7 @@ class DemonstrationPlayerTest {
         rule.onNodeWithTag("playback:counter").assertTextEquals("0 / 0")
         rule.onNodeWithTag("playback:move").assertTextEquals("")
         // No step, no emphasis: stickers carry no dim or highlight semantics.
-        assertEquals(null, flag(StickerDimmedKey, 0))
+        assertEquals(false, flag(StickerDimmedKey, 0))
     }
 
     @Test

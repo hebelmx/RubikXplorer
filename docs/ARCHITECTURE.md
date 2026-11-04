@@ -201,3 +201,5 @@ Kotlin 2.4.21 · AGP 9.5 (built-in Kotlin) · Compose BOM 2026.09.00 · Material
 Gestures are interpreted by the pure `domain/input/GestureInterpreter`; `ViewPose` drives both picking and the GL camera.
 
 View Rotation is renderer-local `ViewOrbit`; a twist is a z Cube Rotation through the free-cube commit.
+
+Lessons draw on `Cube3DRenderer`; arrows are a projected `MoveArrow` overlay, and emphasis uses per-cubie shader flags.

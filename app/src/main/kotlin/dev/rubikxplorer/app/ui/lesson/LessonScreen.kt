@@ -54,7 +54,8 @@ import androidx.compose.ui.unit.min
 import dev.rubikxplorer.app.R
 import dev.rubikxplorer.app.content.CatalogEntry
 import dev.rubikxplorer.app.content.ContentStrings
-import dev.rubikxplorer.app.render.Net2DRenderer
+import dev.rubikxplorer.app.render.Cube3DRenderer
+import dev.rubikxplorer.app.render.CubeRenderer
 import dev.rubikxplorer.app.render.NetEmphasis
 import dev.rubikxplorer.app.render.PresentationItem
 import dev.rubikxplorer.app.render.RenderStyle
@@ -62,6 +63,7 @@ import dev.rubikxplorer.app.session.SessionHost
 import dev.rubikxplorer.app.session.toItems
 import dev.rubikxplorer.app.ui.freecube.MoveKeyBar
 import dev.rubikxplorer.app.ui.freecube.ToolbarButton
+import dev.rubikxplorer.app.ui.freecube.ViewControls
 import dev.rubikxplorer.app.ui.shell.WindowWidthClass
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.app.ui.theme.Spacing
@@ -193,7 +195,7 @@ private fun LessonBody(
     // The session's net, drawn from the current Cube State whenever the Lesson screen (re)enters.
     val renderer =
         remember(lesson.id) {
-            Net2DRenderer(
+            Cube3DRenderer(
                 host.state.value.virtual
                     .toFacelets(),
             )
@@ -201,8 +203,11 @@ private fun LessonBody(
     // The running net demonstration (Show me how, or the Hint Ladder's top rung), if any. Any session
     // interaction stops it first and puts the session's own state back on the net, so no obsolete
     // demonstration frame is ever drawn.
+    var playingMove by remember(lesson.id) { mutableStateOf<Move?>(null) }
+    val onPlayingMove: (Move?) -> Unit = { playingMove = it }
     val reorientation = remember(lesson.id) { mutableStateOf<Job?>(null) }
     val stopReorientation = {
+        playingMove = null
         reorientation.value?.let { job ->
             reorientation.value = null
             if (job.isActive) {
@@ -223,7 +228,7 @@ private fun LessonBody(
         if (escalated && shownStep !in demonstrated.value) {
             demonstrated.value += shownStep
             stopReorientation()
-            reorientation.value = scope.launch { demonstrateStep(host, renderer, demonstration, shownStep, reduceMotion) }
+            reorientation.value = scope.launch { demonstrateStep(host, renderer, demonstration, shownStep, reduceMotion, onPlayingMove) }
         }
     }
     val send: ((Instant) -> SessionEvent) -> Unit = { event ->
@@ -247,7 +252,7 @@ private fun LessonBody(
             hintEnabled = HintLadder.canClimb(mode, session.shownRung, decision.advance, session.assistance.top),
             onHint = {
                 stopReorientation()
-                reorientation.value = scope.launch { climbHintLadder(host, renderer, demonstration, reduceMotion) }
+                reorientation.value = scope.launch { climbHintLadder(host, renderer, demonstration, reduceMotion, onPlayingMove) }
             },
             nextEnabled = decision.advance,
             onNext = { if (decision.satisfied) onClose() else send(SessionEvent::StepAdvanced) },
@@ -268,7 +273,7 @@ private fun LessonBody(
             onShowMeHow = { rotations ->
                 stopReorientation()
                 reorientation.value =
-                    scope.launch { demonstrateOnNet(host, renderer, host.state.value.virtual, rotations, reduceMotion) }
+                    scope.launch { demonstrateOnNet(host, renderer, host.state.value.virtual, rotations, reduceMotion, onPlayingMove) }
             },
         )
     }
@@ -331,6 +336,16 @@ private fun LessonBody(
                         session = session,
                         renderer = renderer,
                         emphasis = emphasis,
+                        arrow =
+                            playingMove
+                                ?: if (session.shownRung >= HintRung.TARGET &&
+                                    !decision.advance
+                                ) {
+                                    Tutor.nextMove(lesson, session.entry, session.virtual)
+                                } else {
+                                    null
+                                },
+                        reduceMotion = reduceMotion,
                         strings = strings,
                         send = send,
                     )
@@ -495,8 +510,10 @@ private fun recoveryActions(
 private fun LearnerStage(
     host: SessionHost,
     session: SessionState,
-    renderer: Net2DRenderer,
+    renderer: Cube3DRenderer,
     emphasis: NetEmphasis?,
+    arrow: Move?,
+    reduceMotion: Boolean,
     strings: ContentStrings,
     send: ((Instant) -> SessionEvent) -> Unit,
 ) {
@@ -529,8 +546,19 @@ private fun LearnerStage(
                 caption = null
                 send(SessionEvent::Reset)
             }
+            ViewControls(renderer)
         }
-        renderer.Content(RenderStyle(), Modifier.fillMaxWidth().weight(1f), emphasis)
+        renderer.Content(
+            RenderStyle(),
+            Modifier.fillMaxWidth().weight(1f),
+            onMoveIntent = { intent ->
+                caption = null
+                send { SessionEvent.MoveCommitted(intent.move, it) }
+            },
+            emphasis = emphasis,
+            arrow = arrow,
+            reduceMotion = reduceMotion,
+        )
         MoveKeyBar(
             onMove = { move ->
                 caption = null
@@ -556,29 +584,35 @@ private fun LearnerStage(
  */
 internal suspend fun demonstrateOnNet(
     host: SessionHost,
-    renderer: Net2DRenderer,
+    renderer: CubeRenderer,
     from: CubeState,
     moves: List<Move>,
     reduceMotion: Boolean,
+    onMove: (Move?) -> Unit = {},
 ) {
-    val held = host.state.value
-    if (from != held.virtual) renderer.submit(listOf(PresentationItem.Snap(held.revision, from.toFacelets())))
-    var shown = from
-    moves.forEach { move ->
-        shown = shown.apply(move)
-        val target = shown.toFacelets()
-        val item =
-            if (reduceMotion) {
-                PresentationItem.Snap(held.revision, target)
-            } else {
-                PresentationItem.Animate(move, held.revision, target)
-            }
-        renderer.submit(listOf(item))
-        awaitFrameMillis(REORIENT_STEP_MILLIS)
+    try {
+        val held = host.state.value
+        if (from != held.virtual) renderer.submit(listOf(PresentationItem.Snap(held.revision, from.toFacelets())))
+        var shown = from
+        moves.forEach { move ->
+            onMove(move)
+            shown = shown.apply(move)
+            val target = shown.toFacelets()
+            val item =
+                if (reduceMotion) {
+                    PresentationItem.Snap(held.revision, target)
+                } else {
+                    PresentationItem.Animate(move, held.revision, target)
+                }
+            renderer.submit(listOf(item))
+            awaitFrameMillis(REORIENT_STEP_MILLIS)
+        }
+        awaitFrameMillis(REORIENT_HOLD_MILLIS)
+        val now = host.state.value
+        renderer.submit(listOf(PresentationItem.Snap(now.revision, now.virtual.toFacelets())))
+    } finally {
+        onMove(null)
     }
-    awaitFrameMillis(REORIENT_HOLD_MILLIS)
-    val now = host.state.value
-    renderer.submit(listOf(PresentationItem.Snap(now.revision, now.virtual.toFacelets())))
 }
 
 /** Suspends for [millis] on the Compose frame clock, timed by a tween as the renderer's own animations are. */
@@ -619,7 +653,7 @@ private val ALL_PIECES: Set<Piece> =
 
 private const val PULSE_MILLIS = 600
 
-/** Each net demonstration Move's slot (*Show me how*, the Hint Ladder's top rung): the renderer's flip ([Net2DRenderer.ITEM_MILLIS]) plus a pause. */
+/** Each net demonstration Move's slot (*Show me how*, the Hint Ladder's top rung): the renderer's flip ([Cube3DRenderer.TURN_MILLIS]) plus a pause. */
 internal const val REORIENT_STEP_MILLIS = 600L
 
 /** How long the net holds a demonstration's last frame before returning to the session's state. */

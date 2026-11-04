@@ -10,10 +10,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import dev.rubikxplorer.app.render.Net2DRenderer
+import dev.rubikxplorer.app.render.Cube3DRenderer
 import dev.rubikxplorer.app.render.NetEmphasis
 import dev.rubikxplorer.app.render.RenderStyle
-import dev.rubikxplorer.app.ui.playback.NET_ASPECT
 import dev.rubikxplorer.app.ui.playback.NetPlayback
 import dev.rubikxplorer.app.ui.playback.PlaybackFrameLoop
 import dev.rubikxplorer.app.ui.playback.PlaybackTransport
@@ -33,12 +32,17 @@ import dev.rubikxplorer.app.ui.playback.frameDelta as sharedFrameDelta
 class DemonstrationPlayerState private constructor(
     val demonstration: Demonstration,
     private val playback: NetPlayback,
+    val reduceMotion: Boolean,
 ) : PlaybackTransportState by playback {
     internal constructor(demonstration: Demonstration, reduceMotion: Boolean) :
-        this(demonstration, NetPlayback(demonstration.start, demonstration.moves, reduceMotion))
+        this(
+            demonstration,
+            NetPlayback(demonstration.start, demonstration.moves, reduceMotion, Cube3DRenderer(demonstration.start.toFacelets())),
+            reduceMotion,
+        )
 
     /** The net the Demonstration plays on, starting at the Lesson's entry state. */
-    val renderer: Net2DRenderer get() = playback.renderer
+    val renderer: Cube3DRenderer get() = playback.renderer as Cube3DRenderer
 
     /** The step holding the current Move, or null when the Demonstration has no steps. */
     val focusedStep: DemonstrationStep?
@@ -80,7 +84,13 @@ fun DemonstrationPlayer(
         verticalArrangement = Arrangement.spacedBy(Spacing.s2),
     ) {
         // Takes what the transport leaves, so a short stage shrinks the net rather than the controls.
-        state.renderer.Content(style, Modifier.fillMaxWidth().weight(1f, fill = false).aspectRatio(NET_ASPECT), state.emphasis)
+        state.renderer.Content(
+            style,
+            Modifier.fillMaxWidth().weight(1f, fill = false).aspectRatio(1f),
+            emphasis = state.emphasis,
+            arrow = state.currentMove,
+            reduceMotion = state.reduceMotion,
+        )
         PlaybackTransport(state)
     }
 }

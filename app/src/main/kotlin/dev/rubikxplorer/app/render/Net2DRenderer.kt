@@ -76,7 +76,11 @@ data class NetEmphasis(
     val lit: Set<Piece>,
     val highlighted: Set<Piece>,
     val pulse: Float = 0f,
-)
+) {
+    fun dims(piece: Piece?): Boolean = piece != null && piece !in lit && !highlights(piece)
+
+    fun highlights(piece: Piece?): Boolean = piece != null && piece in highlighted
+}
 
 /**
  * The first [CubeRenderer] adapter: a flat Kociemba cross net. It keeps the drawn [Facelets] in
@@ -173,9 +177,9 @@ class Net2DRenderer(
         val ink = Color(appearance.glyphInk)
         val flipping = index in changed
         val piece = if (emphasis == null) null else Piece.at(rendered, index)
-        val dimmed = emphasis != null && piece != null && piece !in emphasis.lit && piece !in emphasis.highlighted
-        val highlighted = emphasis != null && piece != null && piece in emphasis.highlighted
-        val pulse = if (highlighted) emphasis.pulse.coerceIn(0f, 1f) else 0f
+        val dimmed = emphasis?.dims(piece) == true
+        val highlighted = emphasis?.highlights(piece) == true
+        val pulse = if (highlighted) emphasis!!.pulse.coerceIn(0f, 1f) else 0f
         Box(
             modifier =
                 modifier

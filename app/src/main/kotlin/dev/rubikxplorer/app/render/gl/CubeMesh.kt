@@ -1,18 +1,23 @@
 package dev.rubikxplorer.app.render.gl
 
+import dev.rubikxplorer.app.render.NetEmphasis
 import dev.rubikxplorer.app.render.RenderStyle
 import dev.rubikxplorer.domain.appearance.StickerAppearance
 import dev.rubikxplorer.domain.cube.CubeGeometry
+import dev.rubikxplorer.domain.predicate.Piece
 
 /** The same appearance values used to build GL vertices, in read-back facelet order. */
 data class StickerDraw(
     val fill: Long,
     val glyph: Char?,
     val glyphInk: Long?,
+    val dimmed: Boolean = false,
+    val highlighted: Boolean = false,
+    val pulsing: Boolean = false,
 )
 
 object CubeMesh {
-    const val FLOATS_PER_VERTEX = 15
+    const val FLOATS_PER_VERTEX = 18
     private const val BODY_HALF = CubeGeometry.BODY_HALF
     private const val STICKER_HALF = CubeGeometry.STICKER_HALF
     private const val STICKER_LIFT = CubeGeometry.STICKER_LIFT
@@ -20,7 +25,32 @@ object CubeMesh {
     fun stickerDraws(
         model: CubieModel,
         style: RenderStyle,
-    ): List<StickerDraw> = model.facelets().colors.map { appearance(it, style) }
+        emphasis: NetEmphasis? = null,
+    ): List<StickerDraw> {
+        val flags = emphasisFlags(model, emphasis)
+        val byPiece = model.cubies.mapIndexed { i, cubie -> cubie.stickers.map { it.color }.toSet() to flags[i] }.toMap()
+        val facelets = model.facelets()
+        return facelets.colors.mapIndexed { index, color ->
+            val flag = Piece.at(facelets, index)?.let { byPiece[it.colors] } ?: 0
+            appearance(color, style).copy(
+                dimmed = flag and 1 != 0,
+                highlighted = flag and 2 != 0,
+                pulsing =
+                    flag and 2 != 0 && (emphasis?.pulse ?: 0f) > 0f,
+            )
+        }
+    }
+
+    /** One pure rule shared by the GL snapshot and read-back semantics. */
+    fun emphasisFlags(
+        model: CubieModel,
+        emphasis: NetEmphasis?,
+    ): IntArray =
+        model.cubies
+            .map { cubie ->
+                val piece = cubie.stickers.takeIf { it.size > 1 }?.let { Piece(it.map { sticker -> sticker.color }.toSet()) }
+                (if (emphasis?.dims(piece) == true) 1 else 0) or (if (emphasis?.highlights(piece) == true) 2 else 0)
+            }.toIntArray()
 
     private fun appearance(
         color: dev.rubikxplorer.domain.cube.Color,
@@ -87,6 +117,9 @@ object CubeMesh {
             out += (1f - b) / 2f
             for (k in 0 until 3) out += ink[k]
             out += if (glyph == null) 0f else 1f
+            out += a
+            out += b
+            out += if (lift == STICKER_LIFT) 1f else 0f
         }
         corner(-1f, -1f)
         corner(1f, -1f)

@@ -56,6 +56,7 @@ class CubeMeshTest {
                 repeat(BOX_VERTICES) {
                     assertEquals(CubeMesh.rgb(StickerAppearance.CUBIE_BODY).toList(), attr(COLOR, 3))
                     assertEquals(0f, attr(FLAG, 1).single())
+                    assertEquals("body is not a sticker", 0f, attr(STICKER, 1).single())
                     vertex++
                 }
                 val position = cubie.position()
@@ -68,6 +69,8 @@ class CubeMeshTest {
                     repeat(QUAD_VERTICES) {
                         assertEquals("fill at $index", CubeMesh.rgb(appearance.fill).toList(), attr(COLOR, 3))
                         assertEquals(if (glyphs) 1f else 0f, attr(FLAG, 1).single())
+                        assertEquals("sticker marker at $index", 1f, attr(STICKER, 1).single())
+                        attr(LOCAL, 2).forEach { assertTrue("sticker-local corner $it", it == -1f || it == 1f) }
                         if (glyphs) {
                             assertEquals("ink at $index", CubeMesh.rgb(appearance.glyphInk).toList(), attr(INK, 3))
                             val u = attr(UV, 1).single()
@@ -91,5 +94,7 @@ class CubeMeshTest {
         const val UV = 9
         const val INK = 11
         const val FLAG = 14
+        const val LOCAL = 15
+        const val STICKER = 17
     }
 }

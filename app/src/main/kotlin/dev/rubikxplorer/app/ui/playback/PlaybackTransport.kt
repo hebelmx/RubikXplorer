@@ -28,7 +28,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import dev.rubikxplorer.app.R
-import dev.rubikxplorer.app.render.Net2DRenderer
+import dev.rubikxplorer.app.render.CubeRenderer
 import dev.rubikxplorer.app.render.PresentationItem
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.app.ui.theme.Spacing
@@ -85,10 +85,8 @@ class NetPlayback(
     start: CubeState,
     moves: List<Move>,
     reduceMotion: Boolean,
+    val renderer: CubeRenderer,
 ) : PlaybackTransportState {
-    /** The net the Moves play on, starting at [start]. */
-    val renderer: Net2DRenderer = Net2DRenderer(start.toFacelets())
-
     private var controller by mutableStateOf(PlaybackController.of(start, moves, reduceMotion))
 
     /** Increases with every submitted item, as [PresentationItem.revision] requires. */

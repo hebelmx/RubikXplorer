@@ -172,30 +172,7 @@ private fun CubeStage(
                 onClearCaption()
                 viewModel.onReset()
             }
-            ToolbarButton(R.drawable.ic_reset_view, R.string.reset_view, "stage:resetView", true) { viewModel.renderer.resetView() }
-            var menu by remember { mutableStateOf(false) }
-            Box {
-                ToolbarButton(R.drawable.ic_more_vert, R.string.view_options, "stage:viewMenu", true) { menu = true }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    val directions =
-                        listOf(
-                            Triple("left", R.string.rotate_view_left, ViewOrbit.STEP_DEGREES to 0.0),
-                            Triple("right", R.string.rotate_view_right, -ViewOrbit.STEP_DEGREES to 0.0),
-                            Triple("up", R.string.rotate_view_up, 0.0 to -ViewOrbit.STEP_DEGREES),
-                            Triple("down", R.string.rotate_view_down, 0.0 to ViewOrbit.STEP_DEGREES),
-                        )
-                    directions.forEach { (tag, label, angles) ->
-                        DropdownMenuItem(
-                            text = { Text(stringResource(label)) },
-                            modifier = Modifier.testTag("viewRotate:$tag").heightIn(min = Spacing.touchMin),
-                            onClick = {
-                                viewModel.renderer.rotateView(angles.first, angles.second)
-                                menu = false
-                            },
-                        )
-                    }
-                }
-            }
+            ViewControls(viewModel.renderer)
         }
         viewModel.renderer.Content(
             style = viewModel.style,
