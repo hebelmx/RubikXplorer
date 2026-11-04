@@ -955,7 +955,7 @@ So that I understand it instead of just being told "wrong".
 
 **Given** an orientation-only difference
 **When** it is diagnosed
-**Then** it is `UNEXPECTED_ORIENTATION` with "Your cube is turned — hold it with white on the bottom, green in front." and *Show me how*, without undo
+**Then** it is `UNEXPECTED_ORIENTATION` with "Your cube is turned — hold it with {bottom} on the bottom, {front} in front.", the colors naming the Lesson's authored hold (for the shipped home-frame Lessons, WHITE on U and GREEN on F: "…hold it with yellow on the bottom, green in front."), and *Show me how*, without undo
 
 **Given** *Test me* on any shipped Lesson
 **When** the Learner commits the next Move of the current step's authored path

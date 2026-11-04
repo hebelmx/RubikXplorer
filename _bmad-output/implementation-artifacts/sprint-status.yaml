@@ -212,7 +212,9 @@ action_items:
     action: "Run bmad-correct-course to align the 4.2 AC (epics.md:958) and EXPERIENCE.md:120
       orientation copy with the shipped hold-naming copy"
     owner: "PM (John) + UX (Sally)"
-    status: open
+    status: done
+    resolution: "Correct course approved (sprint-change-proposal-2026-11-04-orientation-hold-copy.md);
+      4.2 AC and EXPERIENCE.md copy now name the Lesson's hold, 2026-11-04"
     ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-11-04.md"
   - id: "epic-4-retro-item-9-keep-the-4-6-auto-demonstration-from-rep"
     epic: 4
