@@ -248,7 +248,7 @@ private fun LessonBody(
                             lesson,
                             session.stepIndex,
                             hinted,
-                        ) { if (hinted) HintLadder.target(lesson, session.stepIndex) else emptySet() }
+                        ) { if (hinted) HintLadder.highlight(lesson, session.stepIndex) else emptySet() }
                     // Dimming and the target outline guide in Guide me; the other Learner modes outline
                     // the Hint Ladder's target from rung 2 (everything lit), else light the target just
                     // for the Objective-met pulse.

@@ -101,4 +101,26 @@ object HintLadder {
             ?.target
             .orEmpty()
     }
+
+    /**
+     * The pieces outlined at [HintRung.TARGET] on step [step] of [lesson]: its [target] when it has
+     * one; else, for a setup step that brings nothing into place itself, the pieces of the nearest
+     * later step's target that this step's Moves carry (its focus `involved`). Empty when neither
+     * exists, the Demonstration cannot be built, or [step] is out of range.
+     */
+    fun highlight(
+        lesson: Lesson,
+        step: Int,
+    ): Set<Piece> {
+        val demonstration = (Demonstration.of(lesson) as? DemonstrationResult.Ready)?.demonstration ?: return emptySet()
+        val focus = demonstration.steps.getOrNull(step)?.focus ?: return emptySet()
+        if (focus.target.isNotEmpty()) return focus.target
+        return demonstration.steps
+            .drop(step + 1)
+            .firstOrNull { it.focus.target.isNotEmpty() }
+            ?.focus
+            ?.target
+            .orEmpty()
+            .intersect(focus.involved)
+    }
 }

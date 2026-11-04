@@ -70,6 +70,16 @@ class HintLadderTest {
     }
 
     @Test
+    fun `rung 2 outlines a setup step's piece through the later step that brings it into place`() {
+        // lesson-02-04 step 1 (U' R' U) brings nothing into place itself; F' then completes the white-green edge.
+        val lesson = shipped("lesson-02-04")
+        assertEquals(setOf(WhitePieceSolved.pieceNamed("white-green")), HintLadder.highlight(lesson, 0))
+        assertEquals(HintLadder.target(lesson, 1), HintLadder.highlight(lesson, 1))
+        assertEquals(HintLadder.target(shipped("lesson-02-05"), 0), HintLadder.highlight(shipped("lesson-02-05"), 0))
+        assertEquals(emptySet<Any>(), HintLadder.highlight(lesson, 99))
+    }
+
+    @Test
     fun `each rung has its line, and none at rung zero`() {
         val lesson = shipped("lesson-02-05")
         assertNull(HintLadder.line(lesson, 0, HintRung.NONE))

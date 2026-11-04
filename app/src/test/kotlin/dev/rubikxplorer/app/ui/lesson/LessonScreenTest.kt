@@ -53,6 +53,7 @@ import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.playback.DemonstrationResult
 import dev.rubikxplorer.domain.playback.PlaybackSpeed
 import dev.rubikxplorer.domain.predicate.Piece
+import dev.rubikxplorer.domain.tutor.HintLadder
 import dev.rubikxplorer.domain.tutor.HintRung
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import kotlinx.coroutines.runBlocking
@@ -84,8 +85,18 @@ class LessonScreenTest {
             .flatMap { it.lessons }
             .single { it.id.value == "lesson-02-05" }
             .copy(stageId = StageId("stage-01-basics"), prerequisites = emptyList())
+
+    /** The shipped `lesson-02-04` (U' R' U, then F'), whose first step has no target of its own. */
+    private val flippedEdgeLesson =
+        (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded)
+            .bundle.stages
+            .flatMap { it.lessons }
+            .single { it.id.value == "lesson-02-04" }
+            .copy(stageId = StageId("stage-01-basics"), prerequisites = emptyList())
     private val catalog =
-        LessonCatalog.of(ContentLoadResult.Loaded(testBundle(whiteCrossLesson(), twoStepLesson(), oneLongStepLesson(), crossLesson)))
+        LessonCatalog.of(
+            ContentLoadResult.Loaded(testBundle(whiteCrossLesson(), twoStepLesson(), oneLongStepLesson(), crossLesson, flippedEdgeLesson)),
+        )
     private var closed = 0
 
     /** The Lesson screen alone for [lessonId]. */
@@ -252,6 +263,35 @@ class LessonScreenTest {
         assertEquals(3, host.state.value.hintsUsed)
         assertEquals(before.revision, host.state.value.revision)
         assertEquals(before.history, host.state.value.history)
+    }
+
+    @Test
+    fun `rung 2 on shipped lesson-02-04's setup step outlines the piece it carries in test me`() =
+        assertSetupStepRung2(TeachingMode.TEST_ME)
+
+    @Test
+    fun `rung 2 on shipped lesson-02-04's setup step outlines the piece it carries in let me try`() =
+        assertSetupStepRung2(TeachingMode.LET_ME_TRY)
+
+    /** Rung 2 on `lesson-02-04` step 1, whose own target is empty, still outlines the piece it carries (white-green, checked in HintLadderTest). */
+    private fun assertSetupStepRung2(mode: TeachingMode) {
+        open(flippedEdgeLesson.id.value)
+        switchTo(mode)
+        assertEquals(emptySet<Any>(), HintLadder.target(flippedEdgeLesson, 0))
+        tapHint(HintRung.CLUE)
+        tapHint(HintRung.TARGET)
+        rule.waitForIdle()
+        val facelets =
+            host.state.value.virtual
+                .toFacelets()
+        val expected =
+            (0 until Facelets.SIZE)
+                .filter { Piece.at(facelets, it) in HintLadder.highlight(flippedEdgeLesson, 0) }
+                .map { "sticker:$it" }
+                .toSet()
+        assertTrue(expected.isNotEmpty())
+        assertEquals(expected, stickersWith(StickerHighlightedKey))
+        node("moveChip:U'").assertExists()
     }
 
     @Test
