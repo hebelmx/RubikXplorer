@@ -10,9 +10,9 @@ Columns:
   tutor configuration or its Solution, and its entry state),
   `virtual` (the current Cube State), `pending` (the reset confirmation awaiting the Learner) and
   `tutor` (`teachingMode`, `noticeStep`, `revealRequested`, `hintRung`, `hintsUsed`, `lastMoveFeedback`,
-  `lastDiagnosis`); `—` for none. Any
+  `lastDiagnosis`) and `checkpoint` (the Checkpoint history *Try again* returns to); `—` for none. Any
   change of `session`, `virtual` or the undo/redo history advances `revision` by exactly 1 and
-  cancels a pending confirmation; a change of `pending` or `tutor` alone does not advance it.
+  cancels a pending confirmation; a change of `pending`, `tutor` or `checkpoint` alone does not advance it.
 - **Undoable** — `yes` when the event pushes a Move onto the undo history, so a following `Undo`
   returns `virtual` to where it was before the event.
 - **Clears redo** — `yes` when nothing is left to redo whenever the event advances `revision`.
@@ -26,18 +26,19 @@ steps remain.
 
 | Event | Mutates | Undoable | Clears redo |
 |-------|---------|----------|-------------|
-| LessonStarted | session, virtual, pending, tutor | no | yes |
+| LessonStarted | session, virtual, pending, tutor, checkpoint | no | yes |
 | SolvePlaybackStarted | session, virtual | no | no |
-| MoveCommitted | virtual, pending, tutor | yes | yes |
-| Undo | virtual, pending, tutor | no | no |
-| Redo | virtual, pending, tutor | yes | no |
-| Reset | pending, tutor | no | yes |
-| ResetConfirmed | virtual, pending, tutor | no | yes |
+| MoveCommitted | virtual, pending, tutor, checkpoint | yes | yes |
+| Undo | virtual, pending, tutor, checkpoint | no | no |
+| Redo | virtual, pending, tutor, checkpoint | yes | no |
+| Reset | pending, tutor, checkpoint | no | yes |
+| ResetConfirmed | virtual, pending, tutor, checkpoint | no | yes |
 | ResetDeclined | pending, tutor | no | no |
 | TeachingModeChanged | tutor | no | no |
 | RevealRequested | tutor | no | no |
 | HintRequested | tutor | no | no |
 | StepAdvanced | tutor | no | no |
+| RetryRequested | virtual, pending, tutor | no | yes |
 
 Solve Playback sessions (`SOLVE_PLAYBACK`, Story 3.6): `SolvePlaybackStarted(state, solution)`
 starts, from no session or over a playing one, a session whose entry and `virtual` are `state` and
@@ -90,6 +91,24 @@ shows the feedback only in *Test me* (beside the Notice or completion when the M
 or the Lesson) and the Diagnosis only in *Test me* while the step is not yet done (`advance`). Every
 other event in a Lesson session clears both (AD-5): `LessonStarted`, `Undo`, `Redo`, `Reset` (also
 when it only asks for confirmation), `ResetConfirmed` and `ResetDeclined` (also when discarded),
-`TeachingModeChanged`, `RevealRequested`, `HintRequested` and `StepAdvanced`; none of these clearings advances
+`TeachingModeChanged`, `RevealRequested`, `HintRequested`, `StepAdvanced` and `RetryRequested`; none of these clearings advances
 `revision` by itself. A Diagnosis never replaces or rewinds `virtual`: the Cube State stays
 the Learner's own.
+
+The Checkpoint (FR-12): `checkpoint` is the history at the last Objective boundary, `null` in an idle
+or Solve Playback session (AD-20) and, in a Lesson, always with nothing to redo. `LessonStarted` and
+an applied `Reset` or `ResetConfirmed` set it to the entry history. After any history change in a
+Lesson (`MoveCommitted`, `Undo`, `Redo`) whose result has a pending Notice (`noticeStep`) or meets the
+Lesson's Completion Predicate (`objectiveMet`), it becomes the new history with redo dropped. Nothing
+else writes it: a Move that disturbs preserved pieces, the tutor events and `RetryRequested` leave it,
+and an `Undo` below a boundary does not lower it. It never holds the current step (AD-6), and its
+changes never advance `revision`.
+
+*Try again* (`RetryRequested`): in a Lesson whose history differs from `checkpoint`, the history
+becomes `checkpoint` (the next `revision`, a pending confirmation cancelled), `noticeStep` clears,
+`revealRequested` is false and `hintRung` is `NONE`; the Lesson, its entry, `teachingMode`,
+`hintsUsed` and `checkpoint` stay, and the net snaps to the Checkpoint's state. It pushes nothing
+undoable and leaves nothing to redo, though the restored history can still be undone Move by Move.
+When the history already equals `checkpoint` it changes nothing but the last Move's feedback and
+Diagnosis, which it clears like every other non-commit Lesson event; idle and playback sessions
+ignore it.

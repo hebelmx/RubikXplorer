@@ -226,6 +226,16 @@ private fun LessonBody(
             nextEnabled = decision.advance,
             onNext = { if (decision.satisfied) onClose() else send(SessionEvent::StepAdvanced) },
             modifier = panelModifier,
+            onRecovery = { offer ->
+                when (offer) {
+                    RecoveryOffer.UNDO -> send(SessionEvent::Undo)
+
+                    RecoveryOffer.TRY_AGAIN -> send(SessionEvent::RetryRequested)
+
+                    // Guide me back waits on Story 4.5; Show me how and re-entry have their own controls.
+                    RecoveryOffer.GUIDE_ME_BACK, RecoveryOffer.SHOW_ME_HOW, RecoveryOffer.RE_ENTER -> Unit
+                }
+            },
             onShowMeHow = { rotations ->
                 stopReorientation()
                 reorientation.value =
@@ -251,9 +261,15 @@ private fun LessonBody(
                         ) { if (hinted) HintLadder.highlight(lesson, session.stepIndex) else emptySet() }
                     // Dimming and the target outline guide in Guide me (the Hint Ladder's target from
                     // rung 2); the other Learner modes outline the Hint Ladder's target from rung 2
-                    // (everything lit), else light the target just for the Objective-met pulse.
+                    // (everything lit), else light the target just for the Objective-met pulse. A
+                    // shown Diagnosis outlines the pieces it disturbed first (UX-DR28: violet outline only).
+                    val disturbed = decision.diagnosis?.disturbed.orEmpty()
                     val emphasis =
                         when {
+                            disturbed.isNotEmpty() -> {
+                                NetEmphasis(lit = ALL_PIECES, highlighted = disturbed, pulse = pulse)
+                            }
+
                             focus == null -> {
                                 null
                             }
@@ -389,8 +405,32 @@ private fun stepCard(
             } else {
                 HintLadder.line(lesson, index, session.hintRung)?.let { strings.resolve(it) }
             },
+        recoveryActions = recoveryActions(session, decision, strings),
     )
 }
+
+/**
+ * The shown Diagnosis's Recovery Path offers that the recovery prompt draws as buttons, in the
+ * order offered: *Undo* (while there is a Move to take back), *Guide me back* (disabled until the
+ * Guided recovery exists) and *Try again*. *Show me how* keeps its own control in the Diagnosis line.
+ */
+private fun recoveryActions(
+    session: SessionState,
+    decision: TutorDecision,
+    strings: ContentStrings,
+): List<RecoveryAction> =
+    decision.diagnosis
+        ?.recoveryPath
+        ?.offers
+        .orEmpty()
+        .mapNotNull { offer ->
+            when (offer) {
+                RecoveryOffer.UNDO -> RecoveryAction(offer, strings.resolve(UNDO_LABEL), session.history.canUndo)
+                RecoveryOffer.GUIDE_ME_BACK -> RecoveryAction(offer, strings.resolve(GUIDE_ME_BACK_LABEL), enabled = false)
+                RecoveryOffer.TRY_AGAIN -> RecoveryAction(offer, strings.resolve(TRY_AGAIN_LABEL), enabled = true)
+                RecoveryOffer.SHOW_ME_HOW, RecoveryOffer.RE_ENTER -> null
+            }
+        }
 
 /**
  * The Learner's stage in Guide me, Test me and Let me try: Undo / Redo / Reset over the session's
@@ -538,3 +578,12 @@ private val TOP_BAR_HEIGHT: Dp = 56.dp
 
 /** The *Show me how* Recovery offer's label: learner-facing content text, resolved from `strings/en.json` (AD-6). */
 internal val SHOW_ME_HOW_LABEL = TextKey("msg.recovery.offer.show-me-how")
+
+/** The recovery prompt's *Undo* label (content text, AD-6). */
+internal val UNDO_LABEL = TextKey("msg.recovery.offer.undo")
+
+/** The recovery prompt's *Guide me back* label (content text, AD-6). */
+internal val GUIDE_ME_BACK_LABEL = TextKey("msg.recovery.offer.guide-me-back")
+
+/** The recovery prompt's *Try again* label (content text, AD-6). */
+internal val TRY_AGAIN_LABEL = TextKey("msg.recovery.offer.try-again")

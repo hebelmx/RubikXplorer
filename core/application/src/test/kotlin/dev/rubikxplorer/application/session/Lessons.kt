@@ -141,6 +141,7 @@ internal val resetEvent = SessionEvent.Reset(T0)
 internal val reveal = SessionEvent.RevealRequested(T0)
 internal val hint = SessionEvent.HintRequested(T0)
 internal val stepAdvanced = SessionEvent.StepAdvanced(T0)
+internal val retry = SessionEvent.RetryRequested(T0)
 
 internal fun modeChanged(mode: TeachingMode) = SessionEvent.TeachingModeChanged(mode, T0)
 

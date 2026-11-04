@@ -9,6 +9,7 @@ import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
@@ -16,6 +17,7 @@ import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -93,9 +95,19 @@ class LessonScreenTest {
             .flatMap { it.lessons }
             .single { it.id.value == "lesson-02-04" }
             .copy(stageId = StageId("stage-01-basics"), prerequisites = emptyList())
+
+    /** The shipped `lesson-03-01` (R' D' R), whose entry has the cross solved, moved into the test Stage with no prerequisite. */
+    private val cornerLesson =
+        (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded)
+            .bundle.stages
+            .flatMap { it.lessons }
+            .single { it.id.value == "lesson-03-01" }
+            .copy(stageId = StageId("stage-01-basics"), prerequisites = emptyList())
     private val catalog =
         LessonCatalog.of(
-            ContentLoadResult.Loaded(testBundle(whiteCrossLesson(), twoStepLesson(), oneLongStepLesson(), crossLesson, flippedEdgeLesson)),
+            ContentLoadResult.Loaded(
+                testBundle(whiteCrossLesson(), twoStepLesson(), oneLongStepLesson(), crossLesson, flippedEdgeLesson, cornerLesson),
+            ),
         )
     private var closed = 0
 
@@ -709,6 +721,7 @@ class LessonScreenTest {
 
         // A turned cube offers Show me how and no Undo; tapping it shows the rotation back, never turns the cube.
         rule.onNode(hasText("Undo") and hasAnyAncestor(hasTestTag("lesson:stepCard"))).assertDoesNotExist()
+        node("lesson:recovery").assertDoesNotExist()
         node("lesson:reorientMoves").assertDoesNotExist()
         val turned = host.state.value.virtual
         node("lesson:showMeHow").performScrollTo().assertTextContains("Show me how").performClick()
@@ -830,6 +843,85 @@ class LessonScreenTest {
         node("lesson:feedback").assertDoesNotExist()
         assertEquals(before.apply(FaceTurn(Face.D, Turn.CLOCKWISE)), host.state.value.virtual)
         assertEquals(emptyList<String>(), tagsStartingWith("moveChip:"))
+    }
+
+    /** Commits `R` in *Test me* on `lesson-03-01`, which moves the solved cross, and waits for its Diagnosis. */
+    private fun disturbCross() {
+        press("R", 1)
+        rule.waitUntil(5_000) {
+            host.state.value.decision
+                ?.diagnosis != null
+        }
+        rule.waitForIdle()
+    }
+
+    private fun left(tag: String): Float =
+        node(tag)
+            .performScrollTo()
+            .fetchSemanticsNode()
+            .boundsInRoot.left
+
+    @Test
+    fun `a disturbed cross offers Undo, Guide me back and Try again inline and outlines the disturbed pieces`() {
+        val id = cornerLesson.id.value
+        open(id)
+        switchTo(TeachingMode.TEST_ME)
+        disturbCross()
+        node("lesson:diagnosis").assertTextContains("That turn moved the cross.", substring = true)
+        node("lesson:diagnosis").assertTextContains("Undo, or let me guide you back.", substring = true)
+
+        node("lesson:recovery").assert(hasAnyAncestor(hasTestTag("lesson:stepCard")))
+        node("lesson:recovery:undo").assertTextContains("Undo").assertIsEnabled()
+        node("lesson:recovery:guideMeBack").assertTextContains("Guide me back").assertIsNotEnabled()
+        node("lesson:recovery:tryAgain").assertTextContains("Try again").assertIsEnabled()
+        val lefts = listOf("lesson:recovery:undo", "lesson:recovery:guideMeBack", "lesson:recovery:tryAgain").map { left(it) }
+        assertEquals("left to right: $lefts", lefts.sorted(), lefts)
+        assertEquals(3, lefts.toSet().size)
+        rule.onAllNodes(isDialog()).assertCountEquals(0)
+
+        // Exactly the disturbed pieces are outlined; no sticker is recolored.
+        val facelets =
+            host.state.value.virtual
+                .toFacelets()
+        val disturbed =
+            host.state.value.decision!!
+                .diagnosis!!
+                .disturbed
+        assertTrue(disturbed.isNotEmpty())
+        val expected = (0 until Facelets.SIZE).filter { Piece.at(facelets, it) in disturbed }.map { "sticker:$it" }.toSet()
+        assertEquals(expected, stickersWith(StickerHighlightedKey))
+        assertNetMatchesSession("the Learner's cube is drawn as it is")
+
+        // Try again returns to the Checkpoint (the entry here) without restarting the Lesson.
+        val entry = host.state.value.entry
+        node("lesson:recovery:tryAgain").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.virtual == entry }
+        assertNetMatchesSession("net shows the Checkpoint after Try again")
+        node("lesson:recovery").assertDoesNotExist()
+        assertEquals(
+            id,
+            host.state.value.lesson
+                ?.id
+                ?.value,
+        )
+        assertEquals(TeachingMode.TEST_ME, host.state.value.teachingMode)
+
+        // Undo takes the harmful Move back.
+        disturbCross()
+        node("lesson:recovery:undo").performScrollTo().performClick()
+        rule.waitUntil(5_000) {
+            host.state.value.history.done
+                .isEmpty()
+        }
+        assertNetMatchesSession("net shows the entry after Undo")
+        assertEquals(entry, host.state.value.virtual)
+        node("lesson:recovery").assertDoesNotExist()
+        assertEquals(
+            id,
+            host.state.value.lesson
+                ?.id
+                ?.value,
+        )
     }
 
     @Test
