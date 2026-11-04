@@ -179,22 +179,35 @@ class ContentValidatorTest {
     @Test
     fun `the tutor config needs maxDepth in 1 to 3 and a non-empty valid moveSet`() {
         fun problems(config: TutorConfig) = ContentValidator.validate(valid.copy(tutorConfig = config))
-        assertEquals(emptyList<ContentProblem>(), problems(TutorConfig(1, "U")))
-        assertEquals(emptyList<ContentProblem>(), problems(TutorConfig(3, "U R")))
+        assertEquals(emptyList<ContentProblem>(), problems(TutorConfig(1, "U", 1)))
+        assertEquals(emptyList<ContentProblem>(), problems(TutorConfig(3, "U R", 8)))
         assertEquals(
             listOf(
                 ContentProblem.InvalidTutorConfig(ContentValidator.MAX_DEPTH_FIELD, OUT_OF_RANGE),
                 ContentProblem.InvalidTutorConfig(ContentValidator.MOVE_SET_FIELD, NO_MOVES),
             ),
-            problems(TutorConfig(0, "")),
+            problems(TutorConfig(0, "", 5)),
         )
         assertEquals(
             listOf(
                 ContentProblem.InvalidTutorConfig(ContentValidator.MAX_DEPTH_FIELD, OUT_OF_RANGE),
                 ContentProblem.InvalidTutorConfig(ContentValidator.MOVE_SET_FIELD, BAD_NOTATION),
             ),
-            problems(TutorConfig(4, "U Q")),
+            problems(TutorConfig(4, "U Q", 5)),
         )
+    }
+
+    @Test
+    fun `the tutor config needs recoveryMaxDepth in 1 to 8`() {
+        fun problems(depth: Int) = ContentValidator.validate(valid.copy(tutorConfig = TutorConfig(2, "U R", depth)))
+        listOf(0, 9, -1).forEach { depth ->
+            assertEquals(
+                listOf(ContentProblem.InvalidTutorConfig(ContentValidator.RECOVERY_MAX_DEPTH_FIELD, OUT_OF_RANGE)),
+                problems(depth),
+                "recoveryMaxDepth $depth",
+            )
+        }
+        assertEquals(ContentValidator.RECOVERY_MAX_DEPTH_RANGE, 1..8)
     }
 
     @Test
@@ -202,7 +215,7 @@ class ContentValidatorTest {
         listOf("U r", "U M", "U x").forEach { moves ->
             assertEquals(
                 listOf(ContentProblem.InvalidTutorConfig(ContentValidator.MOVE_SET_FIELD, NOT_FACE_TURN)),
-                ContentValidator.validate(valid.copy(tutorConfig = TutorConfig(2, moves))),
+                ContentValidator.validate(valid.copy(tutorConfig = TutorConfig(2, moves, 5))),
                 moves,
             )
         }
@@ -213,7 +226,7 @@ class ContentValidatorTest {
         listOf("U U R", "R2 R2'").forEach { moves ->
             assertEquals(
                 listOf(ContentProblem.InvalidTutorConfig(ContentValidator.MOVE_SET_FIELD, DUPLICATE_MOVE)),
-                ContentValidator.validate(valid.copy(tutorConfig = TutorConfig(2, moves))),
+                ContentValidator.validate(valid.copy(tutorConfig = TutorConfig(2, moves, 5))),
                 moves,
             )
         }

@@ -133,14 +133,15 @@ object Assess {
      * virtual mode, taught in [mode]; [config] configures the [CandidateEnumerator]. [revealRequested]
      * is true once the Learner asked to see the step's Moves, [hintRung] is the shown step's Hint Ladder
      * rung ([HintLadder]), [noticeStep] is a completed step whose
-     * Notice waits for *Next*, and [lastMoveFeedback] and [lastDiagnosis] are [classify]'s word on the
-     * last committed Move.
+     * Notice waits for *Next*, [lastMoveFeedback] and [lastDiagnosis] are [classify]'s word on the
+     * last committed Move, and [recovery] is the Guided recovery the session holds (pending or ready,
+     * computed by the `PlanRecovery` Effect, never here).
      *
      * - `satisfied` is the Completion Predicate on the current state;
      * - the shown step is [Tutor.shownStep]; `advance` is `satisfied` or a pending [noticeStep];
      * - `certainty` confirms the virtual state against itself (a Full observation);
      * - `diagnosis` is [lastDiagnosis] in [TeachingMode.TEST_ME] while not `advance`, else null;
-     * - no Guided recovery yet (Story 4.5);
+     * - `recovery` is [recovery], passed through;
      * - `reveal` is true in [TeachingMode.SHOW_ME], once [revealRequested], or once [hintRung] reached
      *   [HintRung.TARGET] (a Hint never shows more than the shown step's Moves);
      * - `feedback` is [lastMoveFeedback] in [TeachingMode.TEST_ME], else null: a Move that completes a
@@ -160,6 +161,7 @@ object Assess {
         noticeStep: Int?,
         lastMoveFeedback: MoveFeedback?,
         lastDiagnosis: Diagnosis?,
+        recovery: Recovery,
     ): TutorDecision {
         val state = history.state
         val satisfied = lesson.completion.isSatisfied(state)
@@ -182,7 +184,7 @@ object Assess {
             certainty = confirm(CandidateEnumerator.of(state, config), state),
             nextAction = nextAction,
             explanation = diagnosis?.explanation ?: Text((explanationKey ?: lesson.objective).value),
-            recovery = Recovery.Unavailable,
+            recovery = recovery,
             reveal = mode == TeachingMode.SHOW_ME || revealRequested || hintRung >= HintRung.TARGET,
             advance = advance,
             feedback = lastMoveFeedback.takeIf { mode == TeachingMode.TEST_ME },

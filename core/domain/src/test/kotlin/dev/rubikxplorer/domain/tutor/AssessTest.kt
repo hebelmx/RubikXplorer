@@ -90,6 +90,7 @@ class AssessTest {
         noticeStep: Int? = null,
         lastMoveFeedback: MoveFeedback? = null,
         lastDiagnosis: Diagnosis? = null,
+        recovery: Recovery = Recovery.Unavailable,
     ) = Assess.decide(
         lesson,
         history(lesson, *played),
@@ -100,7 +101,15 @@ class AssessTest {
         noticeStep,
         lastMoveFeedback,
         lastDiagnosis,
+        recovery,
     )
+
+    @Test
+    fun `the Guided recovery is passed through as given`() {
+        listOf(Recovery.Unavailable, Recovery.Pending(7), Recovery.Ready(moves("R'"))).forEach { recovery ->
+            assertEquals(recovery, decide(oneStep, "R", mode = TeachingMode.TEST_ME, recovery = recovery).recovery)
+        }
+    }
 
     @Test
     fun `a virtual decision is verified, with no Diagnosis and no Guided recovery`() {

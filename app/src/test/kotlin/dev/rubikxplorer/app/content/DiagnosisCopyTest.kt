@@ -11,6 +11,7 @@ import dev.rubikxplorer.domain.content.ContentSource
 import dev.rubikxplorer.domain.text.Text
 import dev.rubikxplorer.domain.tutor.MoveFeedback
 import dev.rubikxplorer.domain.tutor.RecoveryPath
+import dev.rubikxplorer.domain.tutor.RecoveryPlanner
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -131,5 +132,22 @@ class DiagnosisCopyTest {
             listOf("Undo", "Guide me back", "Try again"),
             listOf(UNDO_LABEL, GUIDE_ME_BACK_LABEL, TRY_AGAIN_LABEL).map { strings.resolve(it) },
         )
+    }
+
+    @Test
+    fun `guided recovery lines - pending, the plan by count and layer, and no plan`() {
+        assertEquals("Finding the shortest way back…", strings.resolve(RecoveryPlanner.PENDING))
+        assertEquals("I can't find a short way back. Undo, or start this step again.", strings.resolve(RecoveryPlanner.NOT_FOUND))
+
+        fun plan(
+            count: Int,
+            layer: String,
+        ) = strings.resolve(Text("msg.recovery.plan", mapOf("count" to count, "layer" to layer)))
+        assertEquals("1 move — your cross stays", plan(1, "cross"))
+        assertEquals("3 moves — your cross stays", plan(3, "cross"))
+        assertEquals("1 move — your first layer stays", plan(1, "first_layer"))
+        assertEquals("3 moves — your first layer stays", plan(3, "first_layer"))
+        assertEquals("1 move — your solved pieces stay", plan(1, "other"))
+        assertEquals("3 moves — your solved pieces stay", plan(3, "other"))
     }
 }

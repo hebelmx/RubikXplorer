@@ -39,7 +39,9 @@ import dev.rubikxplorer.app.session.whiteCrossLesson
 import dev.rubikxplorer.app.ui.freecube.FreeCubeViewModel
 import dev.rubikxplorer.app.ui.shell.AppShell
 import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
+import dev.rubikxplorer.application.session.GuidedRecovery
 import dev.rubikxplorer.application.session.SessionEvent
+import dev.rubikxplorer.application.usecase.PlanRecovery
 import dev.rubikxplorer.domain.appearance.StickerAppearance
 import dev.rubikxplorer.domain.content.ContentLoadResult
 import dev.rubikxplorer.domain.content.ContentLoader
@@ -57,6 +59,8 @@ import dev.rubikxplorer.domain.playback.PlaybackSpeed
 import dev.rubikxplorer.domain.predicate.Piece
 import dev.rubikxplorer.domain.tutor.HintLadder
 import dev.rubikxplorer.domain.tutor.HintRung
+import dev.rubikxplorer.domain.tutor.RecoveryPlan
+import dev.rubikxplorer.domain.tutor.RecoveryPlanner
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -70,6 +74,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** AC 2–4: Show me follows the Demonstration, Guide me reveals on request, and the Objective-met state. */
 @RunWith(RobolectricTestRunner::class)
@@ -115,13 +120,21 @@ class LessonScreenTest {
     private fun open(
         lessonId: String,
         modes: List<TeachingMode> = TeachingMode.entries,
+        planRecovery: PlanRecovery = PlanRecovery(),
     ) {
         runBlocking { catalog.load() }
         val ready = catalog.state.value as CatalogState.Ready
         val entry = ready.lessons.single { it.lesson.id.value == lessonId }
         rule.setContent {
             RubikXplorerTheme {
-                LessonScreen(host = host, entry = entry, strings = ready.strings, modes = modes, onClose = { closed++ })
+                LessonScreen(
+                    host = host,
+                    entry = entry,
+                    strings = ready.strings,
+                    modes = modes,
+                    onClose = { closed++ },
+                    planRecovery = planRecovery,
+                )
             }
         }
         rule.waitUntil(5_000) {
@@ -872,7 +885,7 @@ class LessonScreenTest {
 
         node("lesson:recovery").assert(hasAnyAncestor(hasTestTag("lesson:stepCard")))
         node("lesson:recovery:undo").assertTextContains("Undo").assertIsEnabled()
-        node("lesson:recovery:guideMeBack").assertTextContains("Guide me back").assertIsNotEnabled()
+        node("lesson:recovery:guideMeBack").assertTextContains("Guide me back").assertIsEnabled()
         node("lesson:recovery:tryAgain").assertTextContains("Try again").assertIsEnabled()
         val lefts = listOf("lesson:recovery:undo", "lesson:recovery:guideMeBack", "lesson:recovery:tryAgain").map { left(it) }
         assertEquals("left to right: $lefts", lefts.sorted(), lefts)
@@ -922,6 +935,108 @@ class LessonScreenTest {
                 ?.id
                 ?.value,
         )
+    }
+
+    @Test
+    fun `guide me back shows the pending line, then the plan with its chip and the kept cross outlined`() {
+        val release = AtomicBoolean(false)
+        val held =
+            PlanRecovery({ from, goal, depth, set, go ->
+                while (!release.get() && go()) Thread.onSpinWait()
+                RecoveryPlanner.plan(from, goal, depth, set, go)
+            })
+        open(cornerLesson.id.value, planRecovery = held)
+        switchTo(TeachingMode.TEST_ME)
+        disturbCross()
+        node("lesson:recovery:guideMeBack").performScrollTo().assertIsEnabled().performClick()
+        rule.waitUntil(5_000) { host.state.value.guidedRecovery is GuidedRecovery.Planning }
+        rule.waitForIdle()
+        node("lesson:guidedRecovery:pending")
+            .performScrollTo()
+            .assertTextContains("Finding the shortest way back…")
+            .assert(hasAnyAncestor(hasTestTag("lesson:stepCard")))
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+        node("lesson:recovery:guideMeBack").assertIsNotEnabled()
+
+        release.set(true)
+        rule.waitUntil(5_000) { host.state.value.guidedRecovery is GuidedRecovery.Planned }
+        rule.waitForIdle()
+        node("lesson:guidedRecovery:pending").assertDoesNotExist()
+        node("lesson:guidedRecovery:plan")
+            .performScrollTo()
+            .assertTextContains("1 move — your cross stays", substring = true)
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+        rule
+            .onNode(
+                hasTestTag("moveChip:R'") and hasAnyAncestor(hasTestTag("lesson:guidedRecovery:plan")),
+                useUnmergedTree = true,
+            ).assertExists()
+        node("lesson:recovery:guideMeBack").assertIsNotEnabled()
+        rule.onAllNodes(isDialog()).assertCountEquals(0)
+
+        // The cross edges the plan keeps are outlined (not the disturbed pieces); no sticker is recolored.
+        val planned = (host.state.value.guidedRecovery as GuidedRecovery.Planned).pieces
+        val facelets =
+            host.state.value.virtual
+                .toFacelets()
+        val expected = (0 until Facelets.SIZE).filter { Piece.at(facelets, it) in planned }.map { "sticker:$it" }.toSet()
+        assertEquals(8, expected.size)
+        assertEquals(expected, stickersWith(StickerHighlightedKey))
+        assertNetMatchesSession("the Learner's cube is drawn as it is")
+
+        // The Learner turns the plan's Move; the line goes.
+        press("R'", 2)
+        rule.waitUntil(5_000) { host.state.value.guidedRecovery == GuidedRecovery.None }
+        rule.waitForIdle()
+        node("lesson:guidedRecovery:plan").assertDoesNotExist()
+        assertEquals(host.state.value.entry, host.state.value.virtual)
+    }
+
+    @Test
+    fun `a Move while the plan is pending stops the search and offers Guide me back again`() {
+        val running = AtomicBoolean(false)
+        val stopped = AtomicBoolean(false)
+        val spinning =
+            PlanRecovery({ _, _, _, _, go ->
+                running.set(true)
+                while (go()) Thread.onSpinWait()
+                stopped.set(true)
+                RecoveryPlan.Stopped
+            })
+        open(cornerLesson.id.value, planRecovery = spinning)
+        switchTo(TeachingMode.TEST_ME)
+        disturbCross()
+        node("lesson:recovery:guideMeBack").performScrollTo().performClick()
+        rule.waitUntil(2_000) { running.get() }
+        rule.waitForIdle()
+        node("lesson:guidedRecovery:pending").assertExists()
+
+        // F disturbs another cross edge: the pending plan is cancelled well before its 3 s deadline.
+        press("F", 2)
+        rule.waitUntil(1_000) { stopped.get() }
+        rule.waitForIdle()
+        assertEquals(GuidedRecovery.None, host.state.value.guidedRecovery)
+        assertTrue(
+            host.state.value.decision
+                ?.diagnosis != null,
+        )
+        node("lesson:guidedRecovery:pending").assertDoesNotExist()
+        node("lesson:recovery:guideMeBack").performScrollTo().assertIsEnabled()
+    }
+
+    @Test
+    fun `guide me back with no plan says to undo or start the step again`() {
+        open(cornerLesson.id.value, planRecovery = PlanRecovery({ _, _, _, _, _ -> RecoveryPlan.NotFound }))
+        switchTo(TeachingMode.TEST_ME)
+        disturbCross()
+        node("lesson:recovery:guideMeBack").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.guidedRecovery == GuidedRecovery.NotFound }
+        rule.waitForIdle()
+        node("lesson:guidedRecovery:notFound")
+            .performScrollTo()
+            .assertTextContains("I can't find a short way back. Undo, or start this step again.")
+        node("lesson:recovery:guideMeBack").assertIsNotEnabled()
+        rule.onAllNodes(isDialog()).assertCountEquals(0)
     }
 
     @Test

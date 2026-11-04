@@ -36,12 +36,17 @@ internal val Y = CubeRotation(Axis.Y, Turn.CLOCKWISE)
 
 internal val T0: Instant = Instant.fromEpochMilliseconds(1_000)
 
-/** The shipped `tutor-config.json`, loaded once. */
-internal val TUTOR_CONFIG: TutorConfig by lazy {
+private val SHIPPED by lazy {
     val result = ContentLoader.load(ContentSource.SHIPPED)
     check(result is ContentLoadResult.Loaded) { "the shipped content does not load: $result" }
-    result.bundle.tutorConfig
+    result.bundle
 }
+
+/** The shipped `tutor-config.json`, loaded once. */
+internal val TUTOR_CONFIG: TutorConfig by lazy { SHIPPED.tutorConfig }
+
+/** The shipped Lesson [id]. */
+internal fun shippedLesson(id: String): Lesson = SHIPPED.stages.flatMap { it.lessons }.single { it.id.value == id }
 
 /** A real Diagnosis (a turned cube in *Test me*), for fixtures that need one standing. */
 internal val TURNED_DIAGNOSIS: Diagnosis by lazy {
@@ -148,3 +153,10 @@ internal fun modeChanged(mode: TeachingMode) = SessionEvent.TeachingModeChanged(
 internal fun Effect.ConfirmReset.confirm() = SessionEvent.ResetConfirmed(effectId, revision, T0)
 
 internal fun Effect.ConfirmReset.decline() = SessionEvent.ResetDeclined(effectId, revision, T0)
+
+internal val guideBack = SessionEvent.GuidedRecoveryRequested(T0)
+
+internal fun Effect.PlanRecovery.planned(moves: List<dev.rubikxplorer.domain.cube.Move>) =
+    SessionEvent.RecoveryPlanned(effectId, revision, moves, T0)
+
+internal fun Effect.PlanRecovery.failed() = SessionEvent.RecoveryPlanFailed(effectId, revision, T0)

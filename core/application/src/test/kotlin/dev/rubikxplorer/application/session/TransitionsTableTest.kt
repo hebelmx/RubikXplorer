@@ -82,6 +82,12 @@ class TransitionsTableTest {
     private val backAtCrossWithRedo = recrossed.after(undo, undo, redo)
     private val crossedRedoR = crossed.after(commit(R), undo).also { check(it.history.canRedo && it.checkpoint != it.history) }
 
+    // Guided recovery fixtures (shipped 03-01 in Test me): R disturbs the cross; Guide me back plans.
+    private val harmed = started(shippedLesson("lesson-03-01")).after(modeChanged(TeachingMode.TEST_ME), commit(R))
+    private val planning = harmed.after(guideBack).also { check(it.guidedRecovery is GuidedRecovery.Planning) }
+    private val planEffect = (planning.guidedRecovery as GuidedRecovery.Planning).effect
+    private val overtaken = planning.after(commit(F))
+
     /** Scenarios per event type; the exhaustive `when` fails to compile when an event type is added. */
     private fun scenarios(sample: SessionEvent): List<Pair<SessionState, SessionEvent>> =
         when (sample) {
@@ -160,6 +166,20 @@ class TransitionsTableTest {
                     )
                 (ignored + applied).map { it to retry }
             }
+
+            is SessionEvent.GuidedRecoveryRequested -> {
+                // Applies to a disturbed cross in Test me; ignored idle, without a Diagnosis (with redo kept), while planning and in playback.
+                listOf(SessionState.IDLE, fresh, b, harmed, planning, playback).map { it to guideBack }
+            }
+
+            is SessionEvent.RecoveryPlanned -> {
+                // Current; overtaken and re-offered; stale after Undo; stale with redo kept.
+                listOf(planning, overtaken, planning.after(undo), b, SessionState.IDLE).map { it to planEffect.planned(listOf(R_PRIME)) }
+            }
+
+            is SessionEvent.RecoveryPlanFailed -> {
+                listOf(planning, overtaken, planning.after(undo), b, SessionState.IDLE).map { it to planEffect.failed() }
+            }
         }
 
     private val samples: Map<String, SessionEvent> =
@@ -177,6 +197,9 @@ class TransitionsTableTest {
             hint,
             stepAdvanced,
             retry,
+            guideBack,
+            planEffect.planned(listOf(R_PRIME)),
+            planEffect.failed(),
         ).associateBy { it::class.java.simpleName }
 
     /** What the `session` column covers: the kind, its Lesson and tutor configuration or its Solution, and its entry state. */
@@ -200,6 +223,7 @@ class TransitionsTableTest {
                     s.hintsUsed,
                     s.lastMoveFeedback,
                     s.lastDiagnosis,
+                    s.guidedRecovery,
                 )
             if (tutor(before) != tutor(after)) add("tutor")
             if (before.checkpoint != after.checkpoint) add("checkpoint")
@@ -211,7 +235,7 @@ class TransitionsTableTest {
         assertEquals(names.size, names.toSet().size, "duplicate rows: $names")
         assertEquals(eventTypes, names.toSet())
         assertEquals(eventTypes, samples.keys)
-        assertEquals(13, eventTypes.size)
+        assertEquals(16, eventTypes.size)
     }
 
     @Test

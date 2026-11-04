@@ -24,6 +24,12 @@ object ContentValidator {
     /** The enumeration depths the tutor supports: deeper sequences are not bounded work for the reducer. */
     val MAX_DEPTH_RANGE: IntRange = 1..3
 
+    /** The `tutor-config.json` field naming the Guided recovery search bound, as reported by [ContentProblem.InvalidTutorConfig]. */
+    const val RECOVERY_MAX_DEPTH_FIELD = "recoveryMaxDepth"
+
+    /** The Guided recovery depths the tutor supports: the `RecoveryPlanner` runs as a timed Effect, never in the reducer. */
+    val RECOVERY_MAX_DEPTH_RANGE: IntRange = 1..8
+
     fun validate(bundle: ContentBundle): List<ContentProblem> {
         val problems = mutableListOf<ContentProblem>()
         val lessons = bundle.stages.flatMap { it.lessons }
@@ -46,11 +52,18 @@ object ContentValidator {
         return problems
     }
 
-    /** [config]'s `maxDepth` must lie in [MAX_DEPTH_RANGE]; its `moveSet` must be valid, non-empty Notation of distinct face turns. */
+    /**
+     * [config]'s `maxDepth` must lie in [MAX_DEPTH_RANGE] and its `recoveryMaxDepth` in
+     * [RECOVERY_MAX_DEPTH_RANGE]; its `moveSet` must be valid, non-empty Notation of distinct face turns.
+     */
     private fun tutorConfigProblems(config: TutorConfig): List<ContentProblem> {
         val problems = mutableListOf<ContentProblem>()
         if (config.maxDepth !in MAX_DEPTH_RANGE) {
             problems += ContentProblem.InvalidTutorConfig(MAX_DEPTH_FIELD, ContentProblem.InvalidTutorConfig.Detail.OUT_OF_RANGE)
+        }
+        if (config.recoveryMaxDepth !in RECOVERY_MAX_DEPTH_RANGE) {
+            problems +=
+                ContentProblem.InvalidTutorConfig(RECOVERY_MAX_DEPTH_FIELD, ContentProblem.InvalidTutorConfig.Detail.OUT_OF_RANGE)
         }
         when (val parsed = Notation.parse(config.moveSet)) {
             is NotationResult.Invalid -> {
