@@ -76,6 +76,8 @@ import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.playback.DemonstrationResult
 import dev.rubikxplorer.domain.predicate.Piece
+import dev.rubikxplorer.domain.tutor.HintLadder
+import dev.rubikxplorer.domain.tutor.HintRung
 import dev.rubikxplorer.domain.tutor.RecoveryOffer
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import dev.rubikxplorer.domain.tutor.Tutor
@@ -185,8 +187,9 @@ private fun LessonBody(
                     .toFacelets(),
             )
         }
-    // The running Show me how demonstration, if any. Any session interaction stops it first and puts
-    // the session's own state back on the net, so no obsolete demonstration frame is ever drawn.
+    // The running net demonstration (Show me how, or the Hint Ladder's top rung), if any. Any session
+    // interaction stops it first and puts the session's own state back on the net, so no obsolete
+    // demonstration frame is ever drawn.
     val reorientation = remember(lesson.id) { mutableStateOf<Job?>(null) }
     val stopReorientation = {
         reorientation.value?.let { job ->
@@ -214,14 +217,19 @@ private fun LessonBody(
             mode = mode,
             onModeChange = { chosen -> if (chosen != mode) send { SessionEvent.TeachingModeChanged(chosen, it) } },
             onShowMove = { send(SessionEvent::RevealRequested) },
-            hintEnabled = !decision.reveal,
-            onHint = { send(SessionEvent::RevealRequested) },
+            hintRung = session.hintRung.ordinal,
+            hintEnabled = HintLadder.canClimb(mode, session.hintRung, decision.advance),
+            onHint = {
+                stopReorientation()
+                reorientation.value = scope.launch { climbHintLadder(host, renderer, demonstration, reduceMotion) }
+            },
             nextEnabled = decision.advance,
             onNext = { if (decision.satisfied) onClose() else send(SessionEvent::StepAdvanced) },
             modifier = panelModifier,
             onShowMeHow = { rotations ->
                 stopReorientation()
-                reorientation.value = scope.launch { demonstrateReorientation(host, renderer, rotations, reduceMotion) }
+                reorientation.value =
+                    scope.launch { demonstrateOnNet(host, renderer, host.state.value.virtual, rotations, reduceMotion) }
             },
         )
     }
@@ -234,12 +242,21 @@ private fun LessonBody(
 
                 TeachingMode.GUIDE_ME, TeachingMode.TEST_ME, TeachingMode.LET_ME_TRY -> {
                     val focus = demonstration.steps.getOrNull(session.stepIndex)?.focus
-                    // Dimming and the target outline guide only in Guide me; the other Learner modes
-                    // light the target just for the Objective-met pulse.
+                    val hinted = session.hintRung >= HintRung.TARGET
+                    val hintTarget =
+                        remember(
+                            lesson,
+                            session.stepIndex,
+                            hinted,
+                        ) { if (hinted) HintLadder.target(lesson, session.stepIndex) else emptySet() }
+                    // Dimming and the target outline guide in Guide me; the other Learner modes outline
+                    // the Hint Ladder's target from rung 2 (everything lit), else light the target just
+                    // for the Objective-met pulse.
                     val emphasis =
                         when {
                             focus == null -> null
                             mode == TeachingMode.GUIDE_ME -> NetEmphasis(lit = focus.lit, highlighted = focus.target, pulse = pulse)
+                            hinted -> NetEmphasis(lit = ALL_PIECES, highlighted = hintTarget, pulse = pulse)
                             pulse > 0f -> NetEmphasis(lit = ALL_PIECES, highlighted = focus.target, pulse = pulse)
                             else -> null
                         }
@@ -295,7 +312,8 @@ private fun LessonBody(
 
 /**
  * The step card's content for [mode]: Show me follows the Demonstration's focused step; Guide me,
- * Test me and Let me try follow the session's step, and only Guide me offers "Show the Move".
+ * Test me and Let me try follow the session's step, with its Hint Ladder line, and only Guide me
+ * offers "Show the Move".
  */
 private fun stepCard(
     mode: TeachingMode,
@@ -351,6 +369,12 @@ private fun stepCard(
         showMeHowLabel = strings.resolve(SHOW_ME_HOW_LABEL),
         feedbackMove = session.revision,
         showMoveControl = mode == TeachingMode.GUIDE_ME,
+        hint =
+            if (mode == TeachingMode.SHOW_ME) {
+                null
+            } else {
+                HintLadder.line(lesson, index, session.hintRung)?.let { strings.resolve(it) }
+            },
     )
 }
 
@@ -413,29 +437,33 @@ private fun LearnerStage(
 }
 
 /**
- * *Show me how* for a turned cube: plays [rotations] on the session's net from the current Cube
- * State, one per [REORIENT_STEP_MILLIS] (stepped, not animated, under [reduceMotion]), holds the
- * Lesson's hold for a moment, then snaps the net back to the session's current state. A
- * demonstration only: it dispatches nothing, so the session (and its undo history) never changes
- * (AD-3, AD-5), and the net matches the session again once it ends. The caller cancels it before
- * any session interaction and restores the session's net itself.
+ * A demonstration on the session's net: from [from] (snapped to first when it is not the current
+ * Cube State) plays [moves], one per [REORIENT_STEP_MILLIS] (stepped, not animated, under
+ * [reduceMotion]), holds the last frame for a moment, then snaps the net back to the session's
+ * current state. *Show me how* plays a turned cube's Cube Rotations from the current state; the Hint
+ * Ladder's top rung plays the shown step's Moves from that step's authored start. A demonstration
+ * only: it dispatches nothing, so the session (and its undo history) never changes (AD-3, AD-5),
+ * and the net matches the session again once it ends. The caller cancels it before any session
+ * interaction and restores the session's net itself.
  */
-private suspend fun demonstrateReorientation(
+internal suspend fun demonstrateOnNet(
     host: SessionHost,
     renderer: Net2DRenderer,
-    rotations: List<Move>,
+    from: CubeState,
+    moves: List<Move>,
     reduceMotion: Boolean,
 ) {
     val held = host.state.value
-    var shown = held.virtual
-    rotations.forEach { rotation ->
-        shown = shown.apply(rotation)
+    if (from != held.virtual) renderer.submit(listOf(PresentationItem.Snap(held.revision, from.toFacelets())))
+    var shown = from
+    moves.forEach { move ->
+        shown = shown.apply(move)
         val target = shown.toFacelets()
         val item =
             if (reduceMotion) {
                 PresentationItem.Snap(held.revision, target)
             } else {
-                PresentationItem.Animate(rotation, held.revision, target)
+                PresentationItem.Animate(move, held.revision, target)
             }
         renderer.submit(listOf(item))
         awaitFrameMillis(REORIENT_STEP_MILLIS)
@@ -483,10 +511,10 @@ private val ALL_PIECES: Set<Piece> =
 
 private const val PULSE_MILLIS = 600
 
-/** Each *Show me how* Cube Rotation's slot: the renderer's flip ([Net2DRenderer.ITEM_MILLIS]) plus a pause. */
+/** Each net demonstration Move's slot (*Show me how*, the Hint Ladder's top rung): the renderer's flip ([Net2DRenderer.ITEM_MILLIS]) plus a pause. */
 internal const val REORIENT_STEP_MILLIS = 600L
 
-/** How long the net holds the Lesson's hold before returning to the session's state. */
+/** How long the net holds a demonstration's last frame before returning to the session's state. */
 internal const val REORIENT_HOLD_MILLIS = 1_200L
 private const val COMPACT_STAGE_FRACTION = 0.45f
 private const val WIDE_STAGE_FRACTION = 0.55f

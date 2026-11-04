@@ -126,6 +126,12 @@ class TransitionsTableTest {
                 listOf(SessionState.IDLE, fresh, b, askedB, revealed, playback, bWithFeedback).map { it to reveal }
             }
 
+            is SessionEvent.HintRequested -> {
+                // Climbs in Guide me (fresh, b with redo, a pending ask, standing feedback); ignored idle, in Show me, at the top and in playback.
+                val top = fresh.after(hint, hint, hint)
+                listOf(SessionState.IDLE, fresh, b, askedB, showMe, top, playback, bWithFeedback).map { it to hint }
+            }
+
             is SessionEvent.StepAdvanced -> {
                 listOf(SessionState.IDLE, fresh, b, twoAtStep1, twoAtStep1WithRedo).map { it to stepAdvanced }
             }
@@ -143,6 +149,7 @@ class TransitionsTableTest {
             askedPending.decline(),
             modeChanged(TeachingMode.SHOW_ME),
             reveal,
+            hint,
             stepAdvanced,
         ).associateBy { it::class.java.simpleName }
 
@@ -158,7 +165,16 @@ class TransitionsTableTest {
             if (before.virtual != after.virtual) add("virtual")
             if (before.pendingReset != after.pendingReset) add("pending")
 
-            fun tutor(s: SessionState) = listOf(s.teachingMode, s.noticeStep, s.revealRequested, s.lastMoveFeedback, s.lastDiagnosis)
+            fun tutor(s: SessionState) =
+                listOf(
+                    s.teachingMode,
+                    s.noticeStep,
+                    s.revealRequested,
+                    s.hintRung,
+                    s.hintsUsed,
+                    s.lastMoveFeedback,
+                    s.lastDiagnosis,
+                )
             if (tutor(before) != tutor(after)) add("tutor")
         }
 
@@ -168,7 +184,7 @@ class TransitionsTableTest {
         assertEquals(names.size, names.toSet().size, "duplicate rows: $names")
         assertEquals(eventTypes, names.toSet())
         assertEquals(eventTypes, samples.keys)
-        assertEquals(11, eventTypes.size)
+        assertEquals(12, eventTypes.size)
     }
 
     @Test

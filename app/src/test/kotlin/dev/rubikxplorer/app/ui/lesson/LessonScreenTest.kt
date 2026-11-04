@@ -40,6 +40,9 @@ import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
 import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.domain.appearance.StickerAppearance
 import dev.rubikxplorer.domain.content.ContentLoadResult
+import dev.rubikxplorer.domain.content.ContentLoader
+import dev.rubikxplorer.domain.content.ContentSource
+import dev.rubikxplorer.domain.content.StageId
 import dev.rubikxplorer.domain.cube.Axis
 import dev.rubikxplorer.domain.cube.CubeRotation
 import dev.rubikxplorer.domain.cube.Face
@@ -50,6 +53,7 @@ import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.playback.DemonstrationResult
 import dev.rubikxplorer.domain.playback.PlaybackSpeed
 import dev.rubikxplorer.domain.predicate.Piece
+import dev.rubikxplorer.domain.tutor.HintRung
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -72,7 +76,16 @@ class LessonScreenTest {
     val rule = createComposeRule()
 
     private val host = SessionHost(TickingClock())
-    private val catalog = LessonCatalog.of(ContentLoadResult.Loaded(testBundle(whiteCrossLesson(), twoStepLesson(), oneLongStepLesson())))
+
+    /** The shipped four-step `lesson-02-05` (F2 R2 B2 L2), moved into the test Stage with no prerequisite. */
+    private val crossLesson =
+        (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded)
+            .bundle.stages
+            .flatMap { it.lessons }
+            .single { it.id.value == "lesson-02-05" }
+            .copy(stageId = StageId("stage-01-basics"), prerequisites = emptyList())
+    private val catalog =
+        LessonCatalog.of(ContentLoadResult.Loaded(testBundle(whiteCrossLesson(), twoStepLesson(), oneLongStepLesson(), crossLesson)))
     private var closed = 0
 
     /** The Lesson screen alone for [lessonId]. */
@@ -193,17 +206,167 @@ class LessonScreenTest {
         rule.waitForIdle()
         node("moveChip:F'").assertExists()
         node("lesson:showMove").assertDoesNotExist()
-        node("lesson:hint").assertIsNotEnabled()
+        // Show the Move is not a Hint: the ladder stays at rung 0 and can still be climbed.
+        node("lesson:hint").assertIsEnabled().assertTextContains("Hint (0/3)")
+        assertEquals(0, host.state.value.hintsUsed)
         assertEquals(host.state.value.entry, host.state.value.virtual)
     }
 
-    @Test
-    fun `hint reveals the Move through the session too`() {
-        open(whiteCrossLesson().id.value)
-        node("lesson:hint").performScrollTo().performClick()
-        rule.waitUntil(5_000) { host.state.value.revealRequested }
+    private fun tapHint(rung: HintRung) {
+        node("lesson:hint").performScrollTo().assertIsEnabled().performClick()
+        rule.waitUntil(5_000) { host.state.value.hintRung == rung }
         rule.waitForIdle()
+    }
+
+    @Test
+    fun `each hint climbs one rung, its label and line following, and the Moves show from rung 2 in test me`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.TEST_ME)
+        node("lesson:hint").performScrollTo().assertTextContains("Hint (0/3)")
+        node("lesson:hint:line").assertDoesNotExist()
+        assertEquals(emptyList<String>(), tagsStartingWith("moveChip:"))
+
+        tapHint(HintRung.CLUE)
+        node("lesson:hint").assertTextContains("Hint (1/3)")
+        node("lesson:hint:line").assertTextContains(
+            "Find the white-green edge. Where does it belong, and which face can carry it there?",
+        )
+        assertEquals(emptyList<String>(), tagsStartingWith("moveChip:"))
+        node("lesson:movesHidden").assertExists()
+        assertTrue("no outline at the clue", stickersWith(StickerHighlightedKey).isEmpty())
+
+        tapHint(HintRung.TARGET)
+        node("lesson:hint").assertTextContains("Hint (2/3)")
+        node("lesson:hint:line").assertTextContains("The outlined piece is the one to move. The Moves are below.")
         node("moveChip:F'").assertExists()
+        node("lesson:movesHidden").assertDoesNotExist()
+        // Rung 2 outlines the target in violet with nothing dimmed.
+        val demonstration = (Demonstration.of(whiteCrossLesson()) as DemonstrationResult.Ready).demonstration
+        assertEquals(targetStickers(demonstration, 0), stickersWith(StickerHighlightedKey))
+        assertTrue(stickersWith(StickerDimmedKey).isEmpty())
+
+        val before = host.state.value
+        tapHint(HintRung.DEMONSTRATION)
+        node("lesson:hint").assertTextContains("Hint (3/3)").assertIsNotEnabled()
+        node("lesson:hint:line").assertTextContains("Watch this step on the cube, then try it yourself.")
+        assertEquals(3, host.state.value.hintsUsed)
+        assertEquals(before.revision, host.state.value.revision)
+        assertEquals(before.history, host.state.value.history)
+    }
+
+    @Test
+    fun `the rung 3 demonstration plays the step from its authored start on the net, then shows the session again`() {
+        val lesson = whiteCrossLesson()
+        open(lesson.id.value)
+        switchTo(TeachingMode.TEST_ME)
+        // Off the authored start, so the demonstration's frames differ from the session's cube.
+        press("D", 1)
+        tapHint(HintRung.CLUE)
+        tapHint(HintRung.TARGET)
+        val before = host.state.value
+        assertNetMatchesSession("before the demonstration")
+
+        rule.mainClock.autoAdvance = false
+        node("lesson:hint").performScrollTo().performClick()
+        var played = false
+        repeat(DEMO_CHECKS) {
+            if (!played) {
+                rule.mainClock.advanceTimeBy(DEMO_CHECK_MILLIS)
+                played = drawnColors() == solvedColors
+            }
+        }
+        assertTrue("the net never showed the step's Move played from its authored start", played)
+        assertEquals(before.virtual, host.state.value.virtual)
+        assertEquals(before.revision, host.state.value.revision)
+        assertEquals(before.history, host.state.value.history)
+
+        rule.mainClock.advanceTimeBy(REORIENT_HOLD_MILLIS + REORIENT_STEP_MILLIS + 500)
+        rule.mainClock.autoAdvance = true
+        assertNetMatchesSession("net returns to the session after the demonstration")
+        assertEquals(HintRung.DEMONSTRATION, host.state.value.hintRung)
+        assertEquals(before.revision, host.state.value.revision)
+        assertEquals(before.history, host.state.value.history)
+    }
+
+    @Test
+    fun `on a later step the rung 3 demonstration plays only that step from its authored start`() {
+        val demonstration = (Demonstration.of(crossLesson) as DemonstrationResult.Ready).demonstration
+        open(crossLesson.id.value)
+        switchTo(TeachingMode.LET_ME_TRY)
+        // Steps 1 and 2 by their authored Moves, each past its Notice; then D (away from the white face, U here), off the path, keeps step 3 shown.
+        press("F2", 1)
+        node("lesson:next").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.stepIndex == 1 }
+        press("R2", 2)
+        node("lesson:next").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.stepIndex == 2 }
+        press("D", 3)
+        assertEquals(2, host.state.value.stepIndex)
+        tapHint(HintRung.CLUE)
+        tapHint(HintRung.TARGET)
+        val before = host.state.value
+
+        fun colors(state: dev.rubikxplorer.domain.cube.CubeState) = state.toFacelets().colors.map { Color(StickerAppearance.of(it).fill) }
+        val step = demonstration.steps[2]
+        val start = demonstration.start.apply(demonstration.moves.take(step.firstMove))
+        val end = start.apply(step.moves)
+        val later = end.apply(demonstration.steps[3].moves)
+        assertNotEquals(colors(before.virtual), colors(start))
+
+        rule.mainClock.autoAdvance = false
+        node("lesson:hint").performScrollTo().performClick()
+        val seen = mutableListOf<List<Color>>()
+        repeat(DEMO_CHECKS * 2) {
+            rule.mainClock.advanceTimeBy(DEMO_CHECK_MILLIS)
+            drawnColors().let { if (seen.lastOrNull() != it) seen += it }
+        }
+        rule.mainClock.autoAdvance = true
+        val first = seen.indexOf(colors(start))
+        val last = seen.indexOf(colors(end))
+        assertTrue("the net never showed step 3's authored start", first >= 0)
+        assertTrue("the net never showed step 3's authored end after its start", last > first)
+        assertFalse("the net showed a later step's state", colors(later) in seen)
+        assertFalse("the net showed the Lesson's entry", colors(demonstration.start) in seen)
+        assertNetMatchesSession("net returns to the session after the demonstration")
+        assertEquals(before.virtual, host.state.value.virtual)
+        assertEquals(before.revision, host.state.value.revision)
+        assertEquals(before.history, host.state.value.history)
+    }
+
+    @Test
+    fun `a Move during the rung 3 demonstration stops it and the net shows the post-Move session`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.LET_ME_TRY)
+        tapHint(HintRung.CLUE)
+        tapHint(HintRung.TARGET)
+        node("lesson:hint").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.hintRung == HintRung.DEMONSTRATION }
+        node("moveKey:R").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.history.done.size == 1 }
+        rule.waitForIdle()
+        assertNetMatchesSession("after a Move interrupts the demonstration")
+    }
+
+    @Test
+    fun `a new Objective starts the ladder at Hint (0 of 3)`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.TEST_ME)
+        tapHint(HintRung.CLUE)
+        node("lesson:hint").assertTextContains("Hint (1/3)")
+        val session = host.state.value
+        runBlocking { host.dispatch { SessionEvent.LessonStarted(session.lesson!!, session.tutorConfig!!, it) } }
+        rule.waitForIdle()
+        node("lesson:hint").performScrollTo().assertTextContains("Hint (0/3)").assertIsEnabled()
+        node("lesson:hint:line").assertDoesNotExist()
+        assertEquals(0, host.state.value.hintsUsed)
+    }
+
+    @Test
+    fun `show me offers no hint to climb`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.SHOW_ME)
+        node("lesson:hint").performScrollTo().assertIsNotEnabled().assertTextContains("Hint (0/3)")
+        node("lesson:hint:line").assertDoesNotExist()
     }
 
     @Test
@@ -429,15 +592,17 @@ class LessonScreenTest {
                 .reveal,
         )
 
-        node("lesson:hint").performScrollTo().assertIsEnabled().performClick()
-        rule.waitUntil(5_000) {
+        // The first Hint is a clue; the Moves wait for the second.
+        tapHint(HintRung.CLUE)
+        assertEquals(emptyList<String>(), tagsStartingWith("moveChip:"))
+        tapHint(HintRung.TARGET)
+        assertTrue(
             host.state.value.decision!!
-                .reveal
-        }
-        rule.waitForIdle()
+                .reveal,
+        )
         node("moveChip:F'").assertExists()
         node("lesson:movesHidden").assertDoesNotExist()
-        node("lesson:hint").assertIsNotEnabled()
+        node("lesson:hint").assertIsEnabled().assertTextContains("Hint (2/3)")
     }
 
     @Test
@@ -664,7 +829,16 @@ class LessonScreenTest {
     private companion object {
         const val PULSE_CHECKS = 6
         const val PULSE_CHECK_MILLIS = 80L
+        const val DEMO_CHECKS = 40
+        const val DEMO_CHECK_MILLIS = 50L
     }
+
+    /** The solved cube's drawn colors: the whiteCross step's F' played from its authored start (SOLVED + F). */
+    private val solvedColors: List<Color> =
+        dev.rubikxplorer.domain.cube.CubeState.SOLVED
+            .toFacelets()
+            .colors
+            .map { Color(StickerAppearance.of(it).fill) }
 
     private val whiteCrossSolvingMove =
         dev.rubikxplorer.domain.cube

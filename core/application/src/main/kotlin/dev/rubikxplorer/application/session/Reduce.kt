@@ -11,6 +11,8 @@ import dev.rubikxplorer.domain.cube.MoveHistory
 import dev.rubikxplorer.domain.cube.ValidationResult
 import dev.rubikxplorer.domain.text.Text
 import dev.rubikxplorer.domain.tutor.Assess
+import dev.rubikxplorer.domain.tutor.HintLadder
+import dev.rubikxplorer.domain.tutor.HintRung
 import dev.rubikxplorer.domain.tutor.MoveAssessment
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import dev.rubikxplorer.domain.tutor.Tutor
@@ -49,6 +51,7 @@ private fun transition(
         is SessionEvent.ResetDeclined -> declined(state, event)
         is SessionEvent.TeachingModeChanged -> modeChanged(state, event)
         is SessionEvent.RevealRequested -> Transition(state.copy(revealRequested = true))
+        is SessionEvent.HintRequested -> hint(state)
         is SessionEvent.StepAdvanced -> advance(state)
     }
 
@@ -67,6 +70,8 @@ private fun start(
             lastDiscarded = null,
             noticeStep = null,
             revealRequested = false,
+            hintRung = HintRung.NONE,
+            hintsUsed = 0,
             lastMoveFeedback = null,
             lastDiagnosis = null,
         )
@@ -95,6 +100,8 @@ private fun startPlayback(
             lastDiscarded = null,
             noticeStep = null,
             revealRequested = false,
+            hintRung = HintRung.NONE,
+            hintsUsed = 0,
             lastMoveFeedback = null,
             lastDiagnosis = null,
         )
@@ -157,7 +164,7 @@ private fun withNotice(
     // Only a step that is done now (effective done, AD-6) earns its Notice: a return onto the path mid-step may not redo earlier steps.
     val notice = shownBefore.takeIf { current > it && !moved.objectiveMet && Tutor.stepDone(lesson, it, moved.virtual) }
     val next = moved.copy(noticeStep = notice)
-    return if (next.stepIndex == shownBefore) next else next.copy(revealRequested = false)
+    return if (next.stepIndex == shownBefore) next else next.copy(revealRequested = false, hintRung = HintRung.NONE)
 }
 
 /**
@@ -168,7 +175,7 @@ private fun reset(state: SessionState): Transition {
     val history = state.history.reset()
     val next =
         (if (history == state.history) state.copy(pendingReset = null) else withHistory(state, history))
-            .copy(noticeStep = null, revealRequested = false, lastMoveFeedback = null, lastDiagnosis = null)
+            .copy(noticeStep = null, revealRequested = false, hintRung = HintRung.NONE, lastMoveFeedback = null, lastDiagnosis = null)
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.entry)))
 }
 
@@ -222,8 +229,20 @@ private fun declined(
 private fun advance(state: SessionState): Transition {
     val decision = state.decision ?: return Transition(state)
     val applies = decision.advance && !decision.satisfied
-    val next = state.copy(noticeStep = null, revealRequested = false, lastMoveFeedback = null, lastDiagnosis = null)
+    val next =
+        state.copy(noticeStep = null, revealRequested = false, hintRung = HintRung.NONE, lastMoveFeedback = null, lastDiagnosis = null)
     return Transition(if (applies) next else state)
+}
+
+/**
+ * A Hint (FR-11): when [HintLadder.canClimb] allows it (not in *Show me*, below the top rung, and
+ * the step not done), the shown step's rung climbs exactly one and the attempt's count rises by one;
+ * otherwise nothing changes. The Cube State and [SessionState.revision] stay.
+ */
+private fun hint(state: SessionState): Transition {
+    val decision = state.decision ?: return Transition(state)
+    if (!HintLadder.canClimb(state.teachingMode, state.hintRung, decision.advance)) return Transition(state)
+    return Transition(state.copy(hintRung = state.hintRung.next(), hintsUsed = state.hintsUsed + 1))
 }
 
 /** A different mode clears the last Move's feedback and Diagnosis (they belonged to the old mode's attempt); the same mode changes nothing. */

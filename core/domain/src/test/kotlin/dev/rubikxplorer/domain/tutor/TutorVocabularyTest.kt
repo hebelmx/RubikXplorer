@@ -100,6 +100,12 @@ class TutorVocabularyTest {
     }
 
     @Test
+    fun `hint rung is exactly none, clue, target and demonstration, three rungs above none`() {
+        assertEquals(listOf("NONE", "CLUE", "TARGET", "DEMONSTRATION"), HintRung.entries.map { it.name })
+        assertEquals(HintRung.entries.size - 1, HintLadder.RUNGS)
+    }
+
+    @Test
     fun `tutor decision declares exactly the AD-5 fields`() {
         val fields =
             TutorDecision::class.java.declaredFields

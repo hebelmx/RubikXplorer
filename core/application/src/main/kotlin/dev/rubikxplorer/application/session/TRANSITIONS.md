@@ -9,7 +9,8 @@ Columns:
 - **Mutates** — the fields the event may change, from `session` (the session's kind, its Lesson and
   tutor configuration or its Solution, and its entry state),
   `virtual` (the current Cube State), `pending` (the reset confirmation awaiting the Learner) and
-  `tutor` (`teachingMode`, `noticeStep`, `revealRequested`, `lastMoveFeedback`, `lastDiagnosis`); `—` for none. Any
+  `tutor` (`teachingMode`, `noticeStep`, `revealRequested`, `hintRung`, `hintsUsed`, `lastMoveFeedback`,
+  `lastDiagnosis`); `—` for none. Any
   change of `session`, `virtual` or the undo/redo history advances `revision` by exactly 1 and
   cancels a pending confirmation; a change of `pending` or `tutor` alone does not advance it.
 - **Undoable** — `yes` when the event pushes a Move onto the undo history, so a following `Undo`
@@ -35,6 +36,7 @@ steps remain.
 | ResetDeclined | pending, tutor | no | no |
 | TeachingModeChanged | tutor | no | no |
 | RevealRequested | tutor | no | no |
+| HintRequested | tutor | no | no |
 | StepAdvanced | tutor | no | no |
 
 Solve Playback sessions (`SOLVE_PLAYBACK`, Story 3.6): `SolvePlaybackStarted(state, solution)`
@@ -56,6 +58,20 @@ mode is remembered) and, like an applied `Reset` or `ResetConfirmed`, clears `no
 `revealRequested` to false; a `Reset` that only asks leaves them until it is confirmed.
 `TeachingModeChanged` sets `teachingMode`, `RevealRequested` sets `revealRequested`.
 
+The Hint Ladder (FR-11): `hintRung` is the shown step's rung (`NONE`, `CLUE`, `TARGET`,
+`DEMONSTRATION`) and `hintsUsed` the Hints applied in this attempt. `HintRequested` applies only when
+`HintLadder.canClimb(teachingMode, hintRung, decision.advance)` holds: not in *Show me*, below
+`DEMONSTRATION`, and not while the tutor says `advance` (a Notice or completion is shown); it then
+raises `hintRung` by exactly one rung and `hintsUsed` by exactly one, and otherwise changes nothing
+(beyond clearing the last Move's feedback). The decision reveals the Moves from `TARGET` up
+(`reveal` = *Show me* or `revealRequested` or `hintRung` ≥ `TARGET`); `RevealRequested` (Guide me's
+*Show the Move*) is not a Hint and leaves both fields. `hintRung` is per-step state (AD-6): it resets
+to `NONE` wherever `revealRequested` resets — `LessonStarted`, `SolvePlaybackStarted`, an applied
+`Reset` or `ResetConfirmed`, `StepAdvanced`, and any history change that changes the shown step —
+and `TeachingModeChanged` keeps it. `hintsUsed` counts per attempt: `LessonStarted` and
+`SolvePlaybackStarted` set it to 0 and no other event lowers it (not a step change, `Undo`, `Reset`
+or a mode change); Story 6.3 persists it.
+
 The current step is never stored: `stepIndex` is derived (`Tutor.shownStep`) from the Lesson, the
 entry state, the Cube State and `noticeStep`, which only keeps a completed step's Notice on the card
 until *Next*. After any history change in a Lesson (`MoveCommitted`, `Undo`, `Redo`), with `s0` the
@@ -63,7 +79,7 @@ step shown before and `d1` the current step after (`Tutor.currentStep`), `notice
 when `d1 > s0` and the Lesson is not satisfied, else none; `revealRequested` resets whenever the
 shown step changes. `StepAdvanced` applies only when the tutor's decision says `advance` and the
 Lesson is not yet satisfied; it then clears `noticeStep` and hides the Moves again
-(`revealRequested` false). None of `TeachingModeChanged`, `RevealRequested` and `StepAdvanced`
+(`revealRequested` false). None of `TeachingModeChanged`, `RevealRequested`, `HintRequested` and `StepAdvanced`
 changes the Cube State, the history or `revision`.
 
 `lastMoveFeedback` and `lastDiagnosis` are `Assess.classify`'s word on the last committed Move,
@@ -74,6 +90,6 @@ shows the feedback only in *Test me* (beside the Notice or completion when the M
 or the Lesson) and the Diagnosis only in *Test me* while the step is not yet done (`advance`). Every
 other event in a Lesson session clears both (AD-5): `LessonStarted`, `Undo`, `Redo`, `Reset` (also
 when it only asks for confirmation), `ResetConfirmed` and `ResetDeclined` (also when discarded),
-`TeachingModeChanged`, `RevealRequested` and `StepAdvanced`; none of these clearings advances
+`TeachingModeChanged`, `RevealRequested`, `HintRequested` and `StepAdvanced`; none of these clearings advances
 `revision` by itself. A Diagnosis never replaces or rewinds `virtual`: the Cube State stays
 the Learner's own.

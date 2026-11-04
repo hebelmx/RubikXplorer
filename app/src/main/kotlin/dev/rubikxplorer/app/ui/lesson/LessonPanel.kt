@@ -40,6 +40,7 @@ import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.app.ui.theme.Spacing
 import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.Notation
+import dev.rubikxplorer.domain.tutor.HintLadder
 import dev.rubikxplorer.domain.tutor.TeachingMode
 
 /**
@@ -52,7 +53,8 @@ import dev.rubikxplorer.domain.tutor.TeachingMode
  * with [feedbackMove] naming that Move (the session's revision, so each Move's line is a fresh node that
  * screen readers announce even when its text repeats) and,
  * while the Moves are hidden, whether the "Show the Move" control offers them ([showMoveControl],
- * Guide me) or a quiet line says they wait for a Hint.
+ * Guide me) or a quiet line says they wait for a Hint. [hint] is the resolved Hint Ladder line of the
+ * shown rung (null at rung 0), drawn by [HintLine] under the Moves.
  */
 internal data class StepCardContent(
     val number: Int,
@@ -70,12 +72,13 @@ internal data class StepCardContent(
     val showMeHowLabel: String = "",
     val feedbackMove: Long = 0,
     val showMoveControl: Boolean = true,
+    val hint: String? = null,
 )
 
 /**
  * The Lesson panel, top to bottom (UX-DR8): the Objective, the step card, the Teaching Mode
- * switcher, then Hint (secondary) and Next (primary). It decides nothing: every flag comes from the
- * session's `TutorDecision`.
+ * switcher, then Hint (secondary, labelled **Hint (n/3)** with [hintRung] as n) and Next (primary).
+ * It decides nothing: every flag comes from the session's `TutorDecision` and Hint Ladder rung.
  */
 @Composable
 internal fun LessonPanel(
@@ -85,6 +88,7 @@ internal fun LessonPanel(
     mode: TeachingMode,
     onModeChange: (TeachingMode) -> Unit,
     onShowMove: () -> Unit,
+    hintRung: Int,
     hintEnabled: Boolean,
     onHint: () -> Unit,
     nextEnabled: Boolean,
@@ -112,7 +116,10 @@ internal fun LessonPanel(
                 shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:hint"),
             ) {
-                Text(stringResource(R.string.lesson_hint), color = if (hintEnabled) tokens.inkPrimary else tokens.inkDisabled)
+                Text(
+                    stringResource(R.string.lesson_hint, hintRung, HintLadder.RUNGS),
+                    color = if (hintEnabled) tokens.inkPrimary else tokens.inkDisabled,
+                )
             }
             Button(
                 onClick = onNext,
@@ -188,6 +195,7 @@ private fun StepCard(
         Field(R.string.lesson_keep, step.keep, "lesson:keep")
         Field(R.string.lesson_watch, step.watch, "lesson:watch")
         MovesRow(step.moves, step.showMoveControl, onShowMove)
+        HintLine(step.hint)
         val diagnosis = step.diagnosis
         if (diagnosis != null) {
             key(step.feedbackMove) {

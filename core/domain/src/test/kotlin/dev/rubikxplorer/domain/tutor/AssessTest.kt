@@ -86,10 +86,21 @@ class AssessTest {
         vararg played: String,
         mode: TeachingMode = TeachingMode.GUIDE_ME,
         revealRequested: Boolean = false,
+        hintRung: HintRung = HintRung.NONE,
         noticeStep: Int? = null,
         lastMoveFeedback: MoveFeedback? = null,
         lastDiagnosis: Diagnosis? = null,
-    ) = Assess.decide(lesson, history(lesson, *played), CONFIG, mode, revealRequested, noticeStep, lastMoveFeedback, lastDiagnosis)
+    ) = Assess.decide(
+        lesson,
+        history(lesson, *played),
+        CONFIG,
+        mode,
+        revealRequested,
+        hintRung,
+        noticeStep,
+        lastMoveFeedback,
+        lastDiagnosis,
+    )
 
     @Test
     fun `a virtual decision is verified, with no Diagnosis and no Guided recovery`() {
@@ -158,6 +169,17 @@ class AssessTest {
             assertFalse(decide(oneStep, mode = mode).reveal, "$mode")
             assertFalse(decide(oneStep, "D", mode = mode, lastMoveFeedback = MoveFeedback.NEUTRAL).reveal, "$mode")
             assertTrue(decide(oneStep, mode = mode, revealRequested = true).reveal, "$mode")
+        }
+    }
+
+    @Test
+    fun `a hint reveals the Moves from the target rung up, never at the clue`() {
+        listOf(TeachingMode.TEST_ME, TeachingMode.LET_ME_TRY, TeachingMode.GUIDE_ME).forEach { mode ->
+            assertEquals(
+                listOf(false, false, true, true),
+                HintRung.entries.map { decide(oneStep, mode = mode, hintRung = it).reveal },
+                "$mode",
+            )
         }
     }
 

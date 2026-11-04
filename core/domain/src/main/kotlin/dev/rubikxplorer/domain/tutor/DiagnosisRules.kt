@@ -193,5 +193,5 @@ internal object DiagnosisRules {
     private fun colorId(color: Color): String = color.name.lowercase()
 
     /** ICU select keywords cannot hold `-`, so a canonical piece name is passed with `_` (`white_green`). */
-    private fun selectId(name: String): String = name.replace('-', '_')
+    internal fun selectId(name: String): String = name.replace('-', '_')
 }
