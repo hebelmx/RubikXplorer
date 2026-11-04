@@ -1,6 +1,9 @@
 package dev.rubikxplorer.app.render
 
 import android.opengl.GLSurfaceView
+import android.view.View
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -17,8 +20,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.SemanticsPropertyKey
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
@@ -97,6 +100,8 @@ class Cube3DRenderer(
                     setEGLConfigChooser(8, 8, 8, 8, 16, 0)
                     setRenderer(renderer)
                     renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
+                    // The surface has no accessible content; the wrapping Compose node speaks for it.
+                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
                 }
             }
 
@@ -163,15 +168,18 @@ class Cube3DRenderer(
                 stringResource(colorName(drawn.colors[F_CENTER])),
             )
         val state = stringResource(if (isSolved(drawn)) R.string.cube_state_solved else R.string.cube_state_unsolved)
-        AndroidView(
-            factory = { view },
+        // Semantics on an AndroidView's own node never reach TalkBack (the interop view replaces it),
+        // so a plain Compose node wraps the surface and is the single focusable leaf that speaks for it.
+        Box(
             modifier =
-                modifier.testTag("cube3d").semantics {
+                modifier.testTag("cube3d").clearAndSetSemantics {
                     this[RenderedStickersKey] = stickers
                     contentDescription = description
                     stateDescription = state
                 },
-        )
+        ) {
+            AndroidView(factory = { view }, modifier = Modifier.fillMaxSize())
+        }
     }
 
     companion object {
