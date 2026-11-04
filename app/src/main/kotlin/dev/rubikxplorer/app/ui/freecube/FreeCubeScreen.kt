@@ -156,8 +156,8 @@ private fun CubeStage(
                 color = tokens.inkSecondary,
                 modifier =
                     Modifier.weight(1f).padding(start = Spacing.s2).testTag("stage:frame").semantics {
-                        liveRegion =
-                            LiveRegionMode.Polite
+                        // Announce the front notice only, not the return to the plain frame label.
+                        if (front != null) liveRegion = LiveRegionMode.Polite
                     },
             )
             ToolbarButton(R.drawable.ic_undo, R.string.toolbar_undo, "toolbar:undo", history.canUndo) {

@@ -5,7 +5,7 @@ created: '2026-11-04'
 status: 'done'
 baseline_revision: 'bf3c778a729fa44ad1328007fce5cbe6f45dab04'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-5-context.md'
   - '{project-root}/AGENTS.md'
@@ -120,6 +120,40 @@ deferred: []
   - `[low]` `[patch]` (intent) only `viewRotate:left` tested — test now exercises right, up and down too.
   - `[false]` `[reject]` (intent) double-tap only inside `cube3d`, and extra scope (1500 ms, z notice, lock, 45°, 85°) — `cube3d` fills the stage well below the toolbar, whose buttons would conflict with double-tap; the extra choices are spec decisions inside the intent, not divergences.
 
+### 2026-11-04 — Review pass (follow-up)
+- verdicts: 30 findings — high 0, medium 3, low 17, false 10, maybe-false 0
+- findings:
+  - `[low]` `[reject]` (blind) double-tap has no spatial tolerance, so two quick taps far apart reset the view — matches the contract ("anywhere on the stage"); resetting the view is harmless and two rapid unrelated taps are rare; a distance guard adds a branch.
+  - `[low]` `[reject]` (blind) a second tap held for a long time still counts on release — rare and harmless (view reset only, no commit); a duration guard adds a branch.
+  - `[low]` `[reject]` (blind) nearly coincident pointers can jitter past 30° and twist — real touch panels report two fingers well apart (finger contact width), so a few-pixel span is not met in everyday use; a minimum-span guard adds a constant and a branch. Grouped with edge #1.
+  - `[low]` `[reject]` (blind) sub-slop off-cube jitter moves the camera — carried: at most about 1.5°, invisible; gating on slop adds a visible jump and a branch.
+  - `[low]` `[reject]` (blind) toolbar notice can wrap beside five 48dp buttons — carried: only at very large font scales; a responsive toolbar is more than a direct correction.
+  - `[low]` `[reject]` (blind) `ViewRotationInvarianceTest` never drains the queue — carried: the property is the `history` assertion; rendered equality after orbit changes is in `FreeCubeScreenTest`.
+  - `[medium]` `[patch]` (blind) `glEye` check verifies assignment only, not the matrix used to draw — grouped with verification-gap #1 and intent #8; moved the view-projection rebuild into internal `gl/ViewProjectionCache` (used by `CubeGlRenderer.onSurfaceChanged`/`onDrawFrame`), and new `ViewProjectionCacheTest` asserts the drawn matrix equals `ViewPose(w, h, eye).viewProjection()` after an eye change and after a resize.
+  - `[low]` `[reject]` (blind) z/z' chosen by the sign of `eye.z` flips near side-on views — the rule is fixed inside the intent contract, and x/y twist alternatives are excluded (5.4/5.5); changing it is not this story's call.
+  - `[low]` `[reject]` (edge) nearly coincident pointers commit an unintended twist — same root cause as blind #3; rejected there.
+  - `[medium]` `[patch]` (verification-gap) GL camera update not verified at the drawing boundary — see blind #7; patched there.
+  - `[low]` `[patch]` (verification-gap) two-finger drag test does not check centroid direction or scale — `FreeCubeScreenTest` now asserts the exact orbit: `DEFAULT.dragged(40, 18, side)` for the off-cube drag and `DEFAULT.dragged(0, 30, side)` for the two-finger centroid drag (`side` = the `cube3d` node's narrower side).
+  - `[low]` `[patch]` (intent) twist reference is the orbit at pair formation, not gesture start — carried: the earlier pass's deliberate `pairPose` patch; equal to gesture start for a pure two-finger gesture.
+  - `[false]` `[reject]` (intent) double-tap timed from the first down rather than the first up — the contract says "second down within `doubleTapTimeoutMillis`", which the code implements.
+  - `[false]` `[reject]` (intent) double-tap only inside `cube3d` — carried: `cube3d` fills the stage below the toolbar, whose buttons would conflict.
+  - `[false]` `[reject]` (intent) undo/redo/reset also clear a notice that is showing — "show no notice" holds either way; no bad outcome.
+  - `[low]` `[reject]` (intent) overflow entries are text items, not arrow glyphs — carried: labelled ≥48dp controls; glyphs are cosmetic.
+  - `[low]` `[patch]` (intent) frame label is a live region permanently, so the return to `VIRTUAL` is announced — `FreeCubeScreen.kt` sets `liveRegion = Polite` only while the front notice shows; the front-notice test asserts Polite during the notice and none after.
+  - `[false]` `[reject]` (intent) property test drives the renderer API, not gestures — carried: every gesture orbit path calls the same `orbit` setters; gesture examples are in `FreeCubeScreenTest`.
+  - `[medium]` `[patch]` (intent) "one pose source" checked only at `CubeGlRenderer.eye` — see blind #7; patched there.
+  - `[false]` `[reject]` (intent) GL surface size vs. Compose overlay size — the `AndroidView` and the gesture `Box` both fill the same parent box, so their sizes match; unchanged since 5.1.
+  - `[low]` `[patch]` (intent) twist from back / off cube only tested in the domain — carried: earlier pass's host-coverage row (retreat test added; `pairPose` passed straight through).
+  - `[low]` `[patch]` (intent) small twist at lift only tested in the domain — carried: same host-coverage row as above.
+  - `[false]` `[reject]` (intent) pitch clamp tested with one call, not repeated drags — repeated drags are covered by the Kotest property's ±85 bound.
+  - `[false]` `[reject]` (intent) drag right tested from `ViewOrbit(0, 0)`, not `DEFAULT` — yaw change is linear and independent of the start orbit; same formula.
+  - `[false]` `[reject]` (intent) only face-key labels compared — carried: labels come from `Notation.format` over constant `MoveKeys`.
+  - `[false]` `[reject]` (intent) third pointer moving or arriving later untested — the handler reads only the changes whose ids are `down.id` or `secondId`, so a third pointer cannot affect the gesture.
+  - `[low]` `[reject]` (intent) double-tap timeout boundary, slop and off-stage taps untested — test-only gap on a harmless view reset; not worth extra tests.
+  - `[low]` `[reject]` (intent) a single off-cube tap leaves a sub-slop orbit change — carried: same as blind #4.
+  - `[low]` `[patch]` (intent) 48dp asserted only for `stage:resetView` width — test now also asserts height for `stage:resetView` and width and height for `stage:viewMenu` and `viewRotate:left`.
+  - `[false]` `[reject]` (intent) 200 ms not measured — carried: `PresentationQueue.TURN_MILLIS = 200` unchanged; 250 ms settle tests bound it.
+
 ## Design Notes
 
 Twist angle: θ = atan2 of (endB − endA) minus atan2 of (startB − startA) in y-down screen pixels, normalized to (−180°, 180°]; θ > 0 is screen-clockwise. From the F side, screen-clockwise is F-clockwise, i.e. `z`; from the back it is `z'`.
@@ -157,3 +191,20 @@ Status: done
 **Verification:** `./gradlew :core:domain:test --tests 'dev.rubikxplorer.domain.input.*'` — pass (ViewOrbit 2, GestureInterpreter 7, ViewPose 3). `./gradlew :app:testDebugUnitTest --tests 'dev.rubikxplorer.app.render.*' --tests 'dev.rubikxplorer.app.ui.freecube.*'` — pass (FreeCubeScreen 26, ViewRotationInvariance 1). `./gradlew spotlessCheck build` — pass after patches. Implementation fix in verify: the Kotest property test returned a non-Unit value and was silently skipped by JUnit 5; changed to `runBlocking<Unit>` and confirmed 2 tests ran. Matrix audit: default/drag right/pitch clamp/yaw wrap — `ViewOrbitTest`; twist CW/CCW/back/small/off cube and start test — `GestureInterpreterTest.cube start and twist matrix`.
 
 **Residual risks:** gestures, orbit and twist were exercised only under Robolectric, never on a real touchscreen or emulator; `CubeGlRenderer.onDrawFrame`'s matrix rebuild runs only with a GL context (not unit-tested); the frame notice can grow the toolbar row at very large font scales. Implementation ran on Codex.
+
+### Follow-up review pass (2026-11-04)
+
+**Summary:** Fresh four-layer review (Blind, Edge Case and Verification Gap on Codex; Intent Alignment on Claude) of the full diff since `bf3c778a729fa44ad1328007fce5cbe6f45dab04`. No behavior defects in the orbit, twist or commit paths; patches close the GL-matrix verification gap and three small gaps.
+
+**Files changed in this pass:**
+- `app/src/main/kotlin/dev/rubikxplorer/app/render/gl/ViewProjectionCache.kt` — new internal cache that rebuilds the view-projection from `ViewPose(w, h, eye)` on eye or size change.
+- `app/src/main/kotlin/dev/rubikxplorer/app/render/gl/CubeGlRenderer.kt` — uses `ViewProjectionCache` instead of inline fields.
+- `app/src/main/kotlin/dev/rubikxplorer/app/ui/freecube/FreeCubeScreen.kt` — frame label is a polite live region only while the front notice shows.
+- `app/src/test/kotlin/dev/rubikxplorer/app/render/gl/ViewProjectionCacheTest.kt` — drawn matrix follows the eye and the surface size.
+- `app/src/test/kotlin/dev/rubikxplorer/app/ui/freecube/FreeCubeScreenTest.kt` — exact orbit after off-cube and two-finger drags; live-region on/off; 48dp on view controls.
+
+**Review:** 30 findings (high 0, medium 3, low 17, false 10). Patched 4 entries: GL view-projection boundary (medium; blind #7, verification-gap #1, intent #8), two-finger centroid scale (low), live region only during notice (low), 48dp on view controls (low). Deferred 0. Rejected: 10 false (double-tap timing, double-tap area, undo clears notice, property via renderer API, GL vs overlay size, pitch clamp repeats, drag-right start, face-key labels, third pointer, 200 ms) and 9 low (double-tap distance, long second tap, near-coincident pointers ×2, sub-slop jitter ×2, notice wrap, self-comparing facelet assertion, eye.z twist rule, text menu items, double-tap test gaps) — reasons in the triage log. Follow-up review recommended: false (follow-up pass; patched high 0, medium 1, low 3).
+
+**Verification:** `./gradlew :core:domain:test --tests 'dev.rubikxplorer.domain.input.*' :app:testDebugUnitTest --tests 'dev.rubikxplorer.app.render.*' --tests 'dev.rubikxplorer.app.ui.freecube.*'` — pass (ViewProjectionCacheTest 1, FreeCubeScreenTest 26). `./gradlew spotlessCheck build` — pass.
+
+**Residual risks:** `onDrawFrame` still runs only with a GL context; its matrix now comes from the tested `ViewProjectionCache`, but the `glUniformMatrix4fv` upload itself is not unit-tested. Gestures were exercised only under Robolectric, never on a device.

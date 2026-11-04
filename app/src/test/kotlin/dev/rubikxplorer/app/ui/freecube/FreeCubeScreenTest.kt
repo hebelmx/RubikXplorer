@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsNodeInteraction
@@ -380,7 +381,13 @@ class FreeCubeScreenTest {
             down(Offset(2f, 2f))
             moveTo(Offset(42f, 20f))
         }
-        assertNotEquals(ViewOrbit.DEFAULT, viewModel.renderer.orbit)
+        val side =
+            stage
+                .fetchSemanticsNode()
+                .size
+                .let { minOf(it.width, it.height) }
+                .toDouble()
+        assertEquals(ViewOrbit.DEFAULT.dragged(40.0, 18.0, side), viewModel.renderer.orbit)
         stage.performTouchInput { up() }
         rule.runOnIdle { viewModel.renderer.resetView() }
         stage.performTouchInput {
@@ -389,7 +396,8 @@ class FreeCubeScreenTest {
             moveTo(0, center - Offset(40f, 0f) + Offset(0f, 30f), delayMillis = 0)
             moveTo(1, center + Offset(40f, 0f) + Offset(0f, 30f))
         }
-        assertNotEquals(ViewOrbit.DEFAULT, viewModel.renderer.orbit)
+        // The camera follows the pair's centroid: both fingers moved down 30px.
+        assertEquals(ViewOrbit.DEFAULT.dragged(0.0, 30.0, side), viewModel.renderer.orbit)
         stage.performTouchInput {
             up(0)
             up(1)
@@ -403,8 +411,18 @@ class FreeCubeScreenTest {
     fun `view menu reset button and double tap keep history unchanged`() {
         launch()
         rule.onNodeWithTag("stage:resetView").assertContentDescriptionEquals("Reset view").assertTouchWidthIsAtLeast(48.dp)
-        rule.onNodeWithTag("stage:viewMenu").assertContentDescriptionEquals("View options").performClick()
-        rule.onNodeWithTag("viewRotate:left").performClick()
+        rule.onNodeWithTag("stage:resetView").assertTouchHeightIsAtLeast(48.dp)
+        rule
+            .onNodeWithTag("stage:viewMenu")
+            .assertContentDescriptionEquals("View options")
+            .assertTouchWidthIsAtLeast(48.dp)
+            .assertTouchHeightIsAtLeast(48.dp)
+            .performClick()
+        rule
+            .onNodeWithTag("viewRotate:left")
+            .assertTouchHeightIsAtLeast(48.dp)
+            .assertTouchWidthIsAtLeast(48.dp)
+            .performClick()
         assertEquals(ViewOrbit.DEFAULT.rotated(45.0, 0.0), viewModel.renderer.orbit)
         rule.waitForIdle()
         assertEquals(viewModel.renderer.orbit.eye(), viewModel.renderer.glEye)
@@ -468,9 +486,12 @@ class FreeCubeScreenTest {
         stage.performTouchInput { up(2) }
         rule.mainClock.advanceTimeBy(250)
         assertRenderedMatchesState()
-        rule.onNodeWithTag("stage:frame").assertTextEquals("VIRTUAL · Green front")
+        val frame = rule.onNodeWithTag("stage:frame")
+        frame.assertTextEquals("VIRTUAL · Green front")
+        assertEquals(LiveRegionMode.Polite, frame.fetchSemanticsNode().config.getOrNull(SemanticsProperties.LiveRegion))
         rule.mainClock.advanceTimeBy(1500)
-        rule.onNodeWithTag("stage:frame").assertTextEquals("VIRTUAL")
+        frame.assertTextEquals("VIRTUAL")
+        assertEquals(null, frame.fetchSemanticsNode().config.getOrNull(SemanticsProperties.LiveRegion))
     }
 
     @Test

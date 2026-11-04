@@ -23,9 +23,7 @@ class CubeGlRenderer(
     private val fragmentShader: String,
 ) : GLSurfaceView.Renderer {
     @Volatile var eye = ViewPose.DEFAULT_EYE
-    private var drawnEye: dev.rubikxplorer.domain.input.Vector3? = null
-    private var width = 1
-    private var height = 1
+    private val camera = ViewProjectionCache()
 
     @Volatile var snapshot: GlSnapshot? = null
 
@@ -43,7 +41,6 @@ class CubeGlRenderer(
     private val first = IntArray(CubieModel.CUBIE_COUNT)
     private val count = IntArray(CubieModel.CUBIE_COUNT)
     private val models = FloatArray(CubieModel.CUBIE_COUNT * MAT4)
-    private var viewProj = FloatArray(MAT4)
 
     override fun onSurfaceCreated(
         unused: GL10?,
@@ -74,17 +71,11 @@ class CubeGlRenderer(
         height: Int,
     ) {
         GLES30.glViewport(0, 0, width, height)
-        this.width = width
-        this.height = height
-        drawnEye = null
+        camera.resize(width, height)
     }
 
     override fun onDrawFrame(unused: GL10?) {
-        val currentEye = eye
-        if (drawnEye != currentEye) {
-            viewProj = ViewPose(width, height, currentEye).viewProjection()
-            drawnEye = currentEye
-        }
+        val viewProj = camera.matrixFor(eye)
         val frame = snapshot ?: return
         frame.models.copyInto(models)
         var cursor = 0
