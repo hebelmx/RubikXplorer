@@ -249,16 +249,30 @@ private fun LessonBody(
                             session.stepIndex,
                             hinted,
                         ) { if (hinted) HintLadder.highlight(lesson, session.stepIndex) else emptySet() }
-                    // Dimming and the target outline guide in Guide me; the other Learner modes outline
-                    // the Hint Ladder's target from rung 2 (everything lit), else light the target just
-                    // for the Objective-met pulse.
+                    // Dimming and the target outline guide in Guide me (the Hint Ladder's target from
+                    // rung 2); the other Learner modes outline the Hint Ladder's target from rung 2
+                    // (everything lit), else light the target just for the Objective-met pulse.
                     val emphasis =
                         when {
-                            focus == null -> null
-                            mode == TeachingMode.GUIDE_ME -> NetEmphasis(lit = focus.lit, highlighted = focus.target, pulse = pulse)
-                            hinted -> NetEmphasis(lit = ALL_PIECES, highlighted = hintTarget, pulse = pulse)
-                            pulse > 0f -> NetEmphasis(lit = ALL_PIECES, highlighted = focus.target, pulse = pulse)
-                            else -> null
+                            focus == null -> {
+                                null
+                            }
+
+                            mode == TeachingMode.GUIDE_ME -> {
+                                NetEmphasis(lit = focus.lit, highlighted = if (hinted) hintTarget else focus.target, pulse = pulse)
+                            }
+
+                            hinted -> {
+                                NetEmphasis(lit = ALL_PIECES, highlighted = hintTarget, pulse = pulse)
+                            }
+
+                            pulse > 0f -> {
+                                NetEmphasis(lit = ALL_PIECES, highlighted = focus.target, pulse = pulse)
+                            }
+
+                            else -> {
+                                null
+                            }
                         }
                     LearnerStage(
                         host = host,

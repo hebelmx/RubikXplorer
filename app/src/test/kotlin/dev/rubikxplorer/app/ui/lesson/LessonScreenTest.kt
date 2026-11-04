@@ -266,6 +266,10 @@ class LessonScreenTest {
     }
 
     @Test
+    fun `rung 2 on shipped lesson-02-04's setup step outlines the piece it carries in guide me`() =
+        assertSetupStepRung2(TeachingMode.GUIDE_ME)
+
+    @Test
     fun `rung 2 on shipped lesson-02-04's setup step outlines the piece it carries in test me`() =
         assertSetupStepRung2(TeachingMode.TEST_ME)
 
