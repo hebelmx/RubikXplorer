@@ -107,6 +107,18 @@ class AdaptiveAssistanceSessionTest {
     }
 
     @Test
+    fun `completing the same step again after an Undo across its boundary is not a second clean step`() {
+        val first = start("lesson-02-05", TeachingMode.GUIDE_ME).after(commit(f2))
+        assertEquals(1, first.cleanSteps)
+        val again = first.after(undo, commit(f2))
+        assertEquals(1, again.cleanSteps, "no second step was mastered")
+        assertEquals(setOf(0), again.cleanCredited)
+        assertEquals(AssistanceLevel.USUAL, again.after(stepAdvanced).assistance)
+        val second = again.after(stepAdvanced, commit(r2))
+        assertEquals(2, second.cleanSteps, "the next step still counts")
+    }
+
+    @Test
     fun `a step completed after a Hint is not clean`() {
         val unclean = start("lesson-02-05", TeachingMode.GUIDE_ME).after(hint, commit(f2))
         assertEquals(0, unclean.cleanSteps)

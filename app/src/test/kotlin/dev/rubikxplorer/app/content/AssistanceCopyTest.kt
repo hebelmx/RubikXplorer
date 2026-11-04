@@ -1,6 +1,7 @@
 package dev.rubikxplorer.app.content
 
 import android.app.Application
+import dev.rubikxplorer.app.ui.lesson.GUIDE_OFF_PATH
 import dev.rubikxplorer.app.ui.lesson.USUAL_HELP_LABEL
 import dev.rubikxplorer.domain.content.ContentLoadResult
 import dev.rubikxplorer.domain.content.ContentLoader
@@ -45,5 +46,13 @@ class AssistanceCopyTest {
     @Test
     fun `the usual help label`() {
         assertEquals("Back to my usual help", strings.resolve(USUAL_HELP_LABEL))
+    }
+
+    @Test
+    fun `the guide level's off-path line`() {
+        assertEquals(
+            "You're off the path now — Undo back to it, and I'll show one turn at a time again.",
+            strings.resolve(GUIDE_OFF_PATH),
+        )
     }
 }

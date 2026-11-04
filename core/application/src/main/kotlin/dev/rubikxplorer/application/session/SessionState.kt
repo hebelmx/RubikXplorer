@@ -32,7 +32,7 @@ import dev.rubikxplorer.domain.tutor.TutorDecision
  *   every change of [virtual].
  * - The tutor fields ([teachingMode], [noticeStep], [revealRequested], [hintRung], [hintsUsed],
  *   [lastMoveFeedback], [lastDiagnosis], [guidedRecovery], [stepMistakes], [cleanSteps],
- *   [assistanceDismissed]) never advance [revision]: a mode switch, a reveal or a Hint
+ *   [cleanCredited], [assistanceDismissed]) never advance [revision]: a mode switch, a reveal or a Hint
  *   does not change the Cube State, so it must not stale a pending effect.
  * - [checkpoint] is the Objective-boundary history *Try again* returns to; its changes never
  *   advance [revision] either.
@@ -116,6 +116,11 @@ data class SessionState internal constructor(
      * other completed step or a Harmful Move sets it to 0. Reset only by `LessonStarted`.
      */
     val cleanSteps: Int,
+    /**
+     * The steps whose clean completion already raised [cleanSteps]; a credited step completed cleanly
+     * again (after an Undo across its boundary, a Reset or *Try again*) does not raise it twice. Reset only by `LessonStarted`.
+     */
+    val cleanCredited: Set<Int>,
     /** The adaptive level *Back to my usual help* dismissed, per step. Reset only by `LessonStarted`. */
     val assistanceDismissed: Map<Int, AssistanceLevel>,
 ) {
@@ -229,6 +234,7 @@ data class SessionState internal constructor(
                 adaptiveAssistance = false,
                 stepMistakes = emptyMap(),
                 cleanSteps = 0,
+                cleanCredited = emptySet(),
                 assistanceDismissed = emptyMap(),
             )
     }

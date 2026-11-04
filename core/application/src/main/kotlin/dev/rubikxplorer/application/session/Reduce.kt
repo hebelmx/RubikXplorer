@@ -81,6 +81,7 @@ private fun start(
             adaptiveAssistance = event.adaptiveAssistance,
             stepMistakes = emptyMap(),
             cleanSteps = 0,
+            cleanCredited = emptySet(),
             assistanceDismissed = emptyMap(),
             solution = emptyList(),
             lastDiscarded = null,
@@ -117,6 +118,7 @@ private fun startPlayback(
             adaptiveAssistance = false,
             stepMistakes = emptyMap(),
             cleanSteps = 0,
+            cleanCredited = emptySet(),
             assistanceDismissed = emptyMap(),
             solution = solution.toList(),
             lastDiscarded = null,
@@ -178,7 +180,8 @@ private val ADAPTIVE_MODES = setOf(TeachingMode.GUIDE_ME, TeachingMode.LET_ME_TR
  * Adaptive assistance's counts (FR-13) after a commit from [before] to [moved]: a [harmful] Move adds 1
  * to the mistakes of the step derived before it and ends the clean run. A commit that makes a Notice
  * newly pending or newly completes the Lesson completes `s0` (the step shown before): clean when `s0`
- * has no mistakes and [before] had no Hint rung and no revealed Moves, which raises the clean run by 1; else the run is 0.
+ * has no mistakes and [before] had no Hint rung and no revealed Moves, which raises the clean run by 1 the
+ * first time `s0` is credited (a credited step completed cleanly again leaves the run); else the run is 0.
  */
 private fun adapted(
     before: SessionState,
@@ -196,14 +199,22 @@ private fun adapted(
     val completed =
         (moved.noticeStep != null && moved.noticeStep != before.noticeStep) || (moved.objectiveMet && !before.objectiveMet)
     val s0 = before.stepIndex
+    val clean = completed && (mistakes[s0] ?: 0) == 0 && before.hintRung == HintRung.NONE && !before.revealRequested
     val cleanSteps =
         when {
             harmful -> 0
+
             !completed -> before.cleanSteps
-            (mistakes[s0] ?: 0) == 0 && before.hintRung == HintRung.NONE && !before.revealRequested -> before.cleanSteps + 1
+
+            // A step is credited once per Lesson: completing it again (say after an Undo across its boundary) masters nothing new.
+            clean && s0 in before.cleanCredited -> before.cleanSteps
+
+            clean -> before.cleanSteps + 1
+
             else -> 0
         }
-    return moved.copy(stepMistakes = mistakes, cleanSteps = cleanSteps)
+    val credited = if (clean) before.cleanCredited + s0 else before.cleanCredited
+    return moved.copy(stepMistakes = mistakes, cleanSteps = cleanSteps, cleanCredited = credited)
 }
 
 /**

@@ -18,6 +18,7 @@ import dev.rubikxplorer.app.ui.theme.Spacing
 import dev.rubikxplorer.application.session.SessionState
 import dev.rubikxplorer.domain.content.TextKey
 import dev.rubikxplorer.domain.tutor.AdaptivePolicy
+import dev.rubikxplorer.domain.tutor.AssistanceLevel
 
 /** The Assistance line, already resolved: why help changed ([text]) and the *Back to my usual help* [label]. */
 internal data class AssistanceContent(
@@ -25,13 +26,18 @@ internal data class AssistanceContent(
     val label: String,
 )
 
-/** The session's Assistance line ([AdaptivePolicy.line] for its level and the shown step's mistakes), resolved; null at the usual level. */
+/**
+ * The session's Assistance line ([AdaptivePolicy.line] for its level and the shown step's mistakes), resolved; null at the usual level.
+ * At the guide level [offPath] (the cube is off the authored path, so there is no next Move to show) says to Undo back instead.
+ */
 internal fun assistanceContent(
     session: SessionState,
     strings: ContentStrings,
+    offPath: Boolean = false,
 ): AssistanceContent? =
     AdaptivePolicy.line(session.assistance, session.stepMistakes[session.stepIndex] ?: 0)?.let {
-        AssistanceContent(strings.resolve(it), strings.resolve(USUAL_HELP_LABEL))
+        val text = if (offPath && session.assistance == AssistanceLevel.GUIDE) strings.resolve(GUIDE_OFF_PATH) else strings.resolve(it)
+        AssistanceContent(text, strings.resolve(USUAL_HELP_LABEL))
     }
 
 /**
@@ -64,3 +70,6 @@ internal fun AssistanceLine(
 
 /** The Assistance line's *Back to my usual help* label (content text, AD-6). */
 internal val USUAL_HELP_LABEL = TextKey("msg.assistance.usual-help")
+
+/** The guide level's line off the authored path: Undo back to it before one-Move guidance resumes (content text, AD-6). */
+internal val GUIDE_OFF_PATH = TextKey("msg.assistance.guide-off-path")

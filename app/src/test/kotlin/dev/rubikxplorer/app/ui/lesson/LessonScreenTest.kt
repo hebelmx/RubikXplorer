@@ -57,6 +57,7 @@ import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.playback.DemonstrationResult
 import dev.rubikxplorer.domain.playback.PlaybackSpeed
 import dev.rubikxplorer.domain.predicate.Piece
+import dev.rubikxplorer.domain.tutor.AssistanceLevel
 import dev.rubikxplorer.domain.tutor.HintLadder
 import dev.rubikxplorer.domain.tutor.HintRung
 import dev.rubikxplorer.domain.tutor.RecoveryPlan
@@ -1152,6 +1153,26 @@ class LessonScreenTest {
         open(cornerLesson.id.value, adaptiveAssistance = true)
         switchTo(TeachingMode.TEST_ME)
         tripUp(3)
+        node("lesson:assistance").performScrollTo().assertTextContains("One turn at a time, since this step tripped you up 3 times.")
+        assertEquals(listOf("moveChip:R'"), tagsStartingWith("moveChip:"))
+        node("mode:TEST_ME").assertIsSelected()
+    }
+
+    @Test
+    fun `escalating to guide without undoing the last mistake says to Undo back before showing one Move`() {
+        open(cornerLesson.id.value, adaptiveAssistance = true)
+        switchTo(TeachingMode.TEST_ME)
+        tripUp(2)
+        runBlocking { host.dispatch { SessionEvent.MoveCommitted(FaceTurn(Face.R, Turn.CLOCKWISE), it) } }
+        rule.waitForIdle()
+        assertEquals(AssistanceLevel.GUIDE, host.state.value.assistance)
+        node("lesson:assistance")
+            .performScrollTo()
+            .assertTextContains("You're off the path now — Undo back to it, and I'll show one turn at a time again.")
+        assertEquals("off the path, the authored step's Moves are not shown", emptyList<String>(), tagsStartingWith("moveChip:"))
+
+        runBlocking { host.dispatch(SessionEvent::Undo) }
+        rule.waitForIdle()
         node("lesson:assistance").performScrollTo().assertTextContains("One turn at a time, since this step tripped you up 3 times.")
         assertEquals(listOf("moveChip:R'"), tagsStartingWith("moveChip:"))
         node("mode:TEST_ME").assertIsSelected()

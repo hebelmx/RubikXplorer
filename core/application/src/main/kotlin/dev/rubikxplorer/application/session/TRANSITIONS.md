@@ -10,7 +10,7 @@ Columns:
   tutor configuration or its Solution, its `adaptiveAssistance` flag, and its entry state),
   `virtual` (the current Cube State), `pending` (the reset confirmation awaiting the Learner) and
   `tutor` (`teachingMode`, `noticeStep`, `revealRequested`, `hintRung`, `hintsUsed`, `lastMoveFeedback`,
-  `lastDiagnosis`, `guidedRecovery`, `stepMistakes`, `cleanSteps`, `assistanceDismissed`) and `checkpoint` (the Checkpoint history *Try again* returns to); `—` for none. Any
+  `lastDiagnosis`, `guidedRecovery`, `stepMistakes`, `cleanSteps`, `cleanCredited`, `assistanceDismissed`) and `checkpoint` (the Checkpoint history *Try again* returns to); `—` for none. Any
   change of `session`, `virtual` or the undo/redo history advances `revision` by exactly 1 and
   cancels a pending confirmation; a change of `pending`, `tutor` or `checkpoint` alone does not advance it.
 - **Undoable** — `yes` when the event pushes a Move onto the undo history, so a following `Undo`
@@ -146,14 +146,17 @@ Learner turns its Moves.
 Adaptive assistance (FR-13, Story 4.6): `LessonStarted(lesson, tutorConfig, at, adaptiveAssistance)`
 records the `ADAPTIVE_ASSISTANCE` flag (a `session` field; the app reads the flag, `:core:*` never
 does) and resets `stepMistakes` (Harmful Moves per step), `cleanSteps` (steps in a row completed
-cleanly) and `assistanceDismissed` (the level dismissed per step); no other event resets them, not
+cleanly), `cleanCredited` (the steps whose clean completion already counted) and `assistanceDismissed`
+(the level dismissed per step); no other event resets them, not
 `Reset` and not `RetryRequested`, and idle and playback sessions hold them empty or 0. `MoveCommitted`
 assesses the Move with `Assess.classify` in *Test me*, and also in *Guide me* and *Let me try* while
 `adaptiveAssistance` is on; only *Test me* keeps `lastMoveFeedback` and `lastDiagnosis`. A Harmful
 result adds 1 to `stepMistakes[Tutor.currentStep(before)]` and sets `cleanSteps` to 0. A commit that
 makes a Notice newly pending or newly completes the Lesson completes `s0`, the step shown before: it
 is clean when `s0` has no mistakes (counted after this Move) and the before-state `hintRung` is
-`NONE`, which raises `cleanSteps` by 1; any other completed step sets it to 0. `Undo`, `Redo`,
+`NONE`, which raises `cleanSteps` by 1 and adds `s0` to `cleanCredited` — once per Lesson: a clean
+completion of a step already in `cleanCredited` (say after an `Undo` across its boundary) leaves
+`cleanSteps`; any other completed step sets it to 0. `Undo`, `Redo`,
 `Reset` and `RetryRequested` never count.
 
 `assistance` is derived, never stored: `USUAL` outside a Lesson, with the flag off, in *Show me*, or

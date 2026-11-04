@@ -377,6 +377,7 @@ private fun stepCard(
     val index: Int
     val notice: Boolean
     val moves: List<Move>?
+    var offPath = false
     when (mode) {
         TeachingMode.SHOW_ME -> {
             index = demonstration.stepIndexAt(maxOf(player.position - 1, 0))
@@ -391,9 +392,11 @@ private fun stepCard(
             // Adaptive assistance's guide level narrows the chips to the next authored Move (FR-13).
             val guiding = session.assistance == AssistanceLevel.GUIDE && session.noticeStep == null
             val guided = if (guiding) Tutor.nextMove(lesson, session.entry, session.virtual) else null
+            // Off the authored path there is no next Move to guide: no chips, and the Assistance line says to Undo back.
+            offPath = guiding && guided == null && !decision.advance
             moves =
                 when {
-                    !decision.reveal -> {
+                    !decision.reveal || offPath -> {
                         null
                     }
 
@@ -438,7 +441,7 @@ private fun stepCard(
             },
         recoveryActions = recoveryActions(session, decision, strings),
         guidedRecovery = guidedRecoveryContent(session.guidedRecovery, strings),
-        assistance = if (mode == TeachingMode.SHOW_ME) null else assistanceContent(session, strings),
+        assistance = if (mode == TeachingMode.SHOW_ME) null else assistanceContent(session, strings, offPath),
     )
 }
 

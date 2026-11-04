@@ -26,6 +26,7 @@
   "msg.assistance.guide": "One turn at a time, since this step tripped you up {count, plural, =1 {once} =2 {twice} other {# times}}.",
   "msg.assistance.reduced": "Fewer hints now — you've got this step.",
   "msg.assistance.usual-help": "Back to my usual help",
+  "msg.assistance.guide-off-path": "You're off the path now — Undo back to it, and I'll show one turn at a time again.",
   "msg.recovery.undo": "Undo, or try another turn.",
   "msg.recovery.guided-recovery": "Undo, or let me guide you back.",
   "msg.recovery.retry": "Undo, or start this step again.",
