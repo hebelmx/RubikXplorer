@@ -155,3 +155,8 @@ Status: done
 
 **Residual risks:** 100 ms acknowledgement not timed on hardware (Story 12.2); the gesture was not tried on a real touchscreen or emulator (Robolectric only); picking ignores the in-flight turn for up to 200 ms. Implementation ran on Codex.
 
+
+### Product owner decisions (2026-11-04)
+
+- **(a) Gesture commit path.** On the free cube, Move keys and gestures share `FreeCubeViewModel.onMoveIntent` → `MoveHistory.commit` (commit before animate). `MoveCommitted` is the Learning Session's event, and the free cube has no session, so the product owner accepts the shared `onMoveIntent` path as meeting the AC's "same MoveCommitted path as a Move key". A follow-up story for a free-cube event/reducer owner will be planned through bmad-correct-course after Epic 5. Gestures in lessons (Story 5.4) must send `MoveCommitted`.
+- **(b) Haptics switch.** The Haptics switch is visible in release builds on the free cube screen (one labelled switch, default on, not persisted yet), and it is no longer among the debug toggles.

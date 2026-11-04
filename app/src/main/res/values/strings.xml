@@ -128,5 +128,5 @@
     <string name="objective_no">no</string>
     <string name="objective_in_sync">Rendered: in sync</string>
     <string name="objective_catching_up">Rendered: catching up</string>
-    <string name="debug_haptics">Haptics</string>
+    <string name="free_cube_haptics">Haptics</string>
 </resources>

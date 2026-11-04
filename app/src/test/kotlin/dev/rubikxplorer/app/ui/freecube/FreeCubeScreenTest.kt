@@ -18,6 +18,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsToggleable
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -442,7 +443,7 @@ class FreeCubeScreenTest {
     @Test
     fun `haptics switch controls both gestures and keys without blocking commits`() {
         launch()
-        val toggle = rule.onNodeWithTag("debug:haptics")
+        val toggle = rule.onNodeWithTag("freeCube:haptics")
         toggle
             .performScrollTo()
             .assertIsOn()
@@ -457,6 +458,26 @@ class FreeCubeScreenTest {
         tap(move(Face.U))
         assertEquals(CubeState.SOLVED, viewModel.history.state)
         assertEquals(listOf(HapticFeedbackType.KeyboardTap, HapticFeedbackType.KeyboardTap), ticks)
+        rule.waitForIdle()
+        assertRenderedMatchesState()
+    }
+
+    @Test
+    fun `haptics switch is visible in release and turning it off silences gestures that still commit`() {
+        launch(showDebugToggles = false)
+        rule.onNodeWithTag("debug:glyphs").assertDoesNotExist()
+        rule
+            .onNodeWithTag("freeCube:haptics")
+            .performScrollTo()
+            .assertIsToggleable()
+            .assertTextEquals("Haptics", includeEditableText = false)
+            .assertIsOn()
+            .performClick()
+            .assertIsOff()
+        assertFalse(viewModel.hapticsEnabled)
+        drag()
+        assertEquals(CubeState.SOLVED.apply(move(Face.U)), viewModel.history.state)
+        assertTrue(ticks.isEmpty())
         rule.waitForIdle()
         assertRenderedMatchesState()
     }

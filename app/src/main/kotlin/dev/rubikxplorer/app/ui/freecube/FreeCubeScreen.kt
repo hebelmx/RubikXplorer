@@ -48,7 +48,7 @@ import dev.rubikxplorer.domain.input.MoveIntent
 
 /**
  * The free cube (FR-1, FR-3): the cube stage (toolbar, frame label, 2D net, name caption) over the
- * Move key bar, then the debug toggles when [showDebugToggles].
+ * Move key bar and the Haptics switch, then the debug toggles when [showDebugToggles].
  */
 @Composable
 fun FreeCubeScreen(
@@ -91,6 +91,7 @@ fun FreeCubeScreen(
                 onShowName = { caption = it },
                 modifier = Modifier.fillMaxWidth(),
             )
+            LabelledSwitch(R.string.free_cube_haptics, "freeCube:haptics", viewModel.hapticsEnabled, viewModel::onHapticsChange)
             if (showDebugToggles) {
                 DebugToggles(viewModel)
             }
@@ -182,9 +183,8 @@ internal fun ToolbarButton(
 @Composable
 private fun DebugToggles(viewModel: FreeCubeViewModel) {
     var objective by rememberSaveable { mutableStateOf(false) }
-    DebugSwitch(R.string.debug_glyphs, "debug:glyphs", viewModel.style.colorBlindGlyphs, viewModel::onColorBlindGlyphsChange)
-    DebugSwitch(R.string.debug_haptics, "debug:haptics", viewModel.hapticsEnabled, viewModel::onHapticsChange)
-    DebugSwitch(R.string.debug_objective, "debug:objective", objective) { objective = it }
+    LabelledSwitch(R.string.debug_glyphs, "debug:glyphs", viewModel.style.colorBlindGlyphs, viewModel::onColorBlindGlyphsChange)
+    LabelledSwitch(R.string.debug_objective, "debug:objective", objective) { objective = it }
     OutlinedButton(
         onClick = viewModel::onScramble,
         shape = MaterialTheme.shapes.medium,
@@ -198,7 +198,7 @@ private fun DebugToggles(viewModel: FreeCubeViewModel) {
 }
 
 @Composable
-private fun DebugSwitch(
+private fun LabelledSwitch(
     @StringRes label: Int,
     tag: String,
     checked: Boolean,
