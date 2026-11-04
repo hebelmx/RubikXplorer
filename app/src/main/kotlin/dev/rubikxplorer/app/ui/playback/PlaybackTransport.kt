@@ -93,6 +93,9 @@ class NetPlayback(
     /** Increases with every submitted item, as [PresentationItem.revision] requires. */
     private var revision = 0L
 
+    /** The index in [moves] of each submitted Animate item's Move, by its revision. */
+    private val animatedIndex = HashMap<Long, Int>()
+
     /** The Moves played. */
     val moves: List<Move> get() = controller.moves
 
@@ -131,9 +134,24 @@ class NetPlayback(
 
     override fun advance(elapsedMillis: Long) = apply(controller.advance(elapsedMillis))
 
+    /**
+     * The index in [moves] of the Move the item submitted with [revision] animates: the Move played
+     * forward, or the undone Move on Step Back; null for a Snap or an unknown revision.
+     */
+    fun moveIndexOf(revision: Long): Int? = animatedIndex[revision]
+
     private fun apply(update: PlaybackUpdate) {
+        var from = controller.position
         controller = update.controller
-        if (update.items.isNotEmpty()) renderer.submit(update.items.map { it.toPresentation(++revision) })
+        if (update.items.isEmpty()) return
+        renderer.submit(
+            update.items.map { item ->
+                val presentation = item.toPresentation(++revision)
+                if (item is PlaybackItem.Animate) animatedIndex[revision] = if (item.position > from) item.position - 1 else item.position
+                from = item.position
+                presentation
+            },
+        )
     }
 
     private fun PlaybackItem.toPresentation(revision: Long): PresentationItem =

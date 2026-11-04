@@ -45,9 +45,16 @@ class DemonstrationPlayerState private constructor(
     /** The net the Demonstration plays on, starting at the Lesson's entry state. */
     val renderer: Cube3DRenderer get() = playback.renderer as Cube3DRenderer
 
-    /** The step holding the current Move, or null when the Demonstration has no steps. */
+    /**
+     * The index of the Move being shown: the one the renderer is turning (the undone Move on Step
+     * Back, the earlier Moves while rapid steps drain), else the current Move's once it is idle.
+     */
+    private val presentedIndex: Int
+        get() = renderer.presentedRevision?.let(playback::moveIndexOf) ?: playback.focusIndex
+
+    /** The step holding the Move being shown, or null when the Demonstration has no steps. */
     val focusedStep: DemonstrationStep?
-        get() = demonstration.steps.getOrNull(demonstration.stepIndexAt(playback.focusIndex))
+        get() = demonstration.steps.getOrNull(demonstration.stepIndexAt(presentedIndex))
 
     /** The focused step's emphasis: its Keep, involved and target pieces lit, the target outlined. */
     val emphasis: NetEmphasis?

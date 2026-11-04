@@ -17,6 +17,7 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import dev.rubikxplorer.app.render.NetEmphasis
 import dev.rubikxplorer.app.render.RenderedArrow
 import dev.rubikxplorer.app.render.RenderedArrowKey
 import dev.rubikxplorer.app.render.RenderedStickersKey
@@ -215,8 +216,20 @@ class DemonstrationPlayerTest {
     }
 
     @Test
-    fun `rapid steps keep the arrow on the Move the renderer is turning`() {
+    fun `rapid steps keep the arrow and the targets on the Move the renderer is turning`() {
         val three = demo("F U R", "R'", "U'", "F'")
+        val emphases = three.steps.map { NetEmphasis(lit = it.focus.lit, highlighted = it.focus.target) }
+        // Each step lights a different layer, so a mismatched step shows.
+        assertEquals(3, emphases.toSet().size)
+
+        fun assertShowing(
+            move: String,
+            step: Int,
+        ) {
+            assertEquals(move, arrow())
+            assertEquals(emphases[step], state.emphasis)
+            assertHighlighted(three.steps[step].focus.target)
+        }
         show(demo = three)
         rule.waitForIdle()
         rule.mainClock.autoAdvance = false
@@ -224,14 +237,26 @@ class DemonstrationPlayerTest {
         rule.mainClock.advanceTimeByFrame()
         rule.mainClock.advanceTimeByFrame()
         assertCounter("3 / 3")
-        assertEquals("R'", arrow())
+        assertShowing("R'", 0)
         rule.mainClock.advanceTimeBy(210)
-        assertEquals("U'", arrow())
+        assertShowing("U'", 1)
         rule.mainClock.advanceTimeBy(210)
-        assertEquals("F'", arrow())
+        assertShowing("F'", 2)
         rule.mainClock.advanceTimeBy(300)
         assertEquals(CubeState.SOLVED.toFacelets(), state.renderer.renderedFacelets())
-        assertEquals("F'", arrow())
+        assertShowing("F'", 2)
+
+        // Step Back twice: the undone Moves' steps, in the order their inverses turn.
+        repeat(2) { rule.onNodeWithTag("playback:back").performClick() }
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeByFrame()
+        assertCounter("1 / 3")
+        assertShowing("F", 2)
+        rule.mainClock.advanceTimeBy(210)
+        assertShowing("U", 1)
+        rule.mainClock.advanceTimeBy(300)
+        assertEquals(CubeState.SOLVED.apply(moves("F U")).toFacelets(), state.renderer.renderedFacelets())
+        assertShowing("R'", 0)
     }
 
     @Test
