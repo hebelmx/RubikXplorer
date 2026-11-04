@@ -18,6 +18,37 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 class GestureInterpreterTest {
+    @Test
+    fun `cube start and twist matrix`() {
+        val pose = ViewPose(800, 600)
+        assertEquals(true, GestureInterpreter.startsOnCube(pose.project(Vector3(0.0, 0.0, 1.5)), pose))
+        assertEquals(false, GestureInterpreter.startsOnCube(ScreenPoint(0.0, 0.0), pose))
+
+        fun twist(
+            degrees: Double,
+            camera: ViewPose = pose,
+            cx: Double = 400.0,
+            cy: Double = 300.0,
+        ): MoveIntent? {
+            val radians = Math.toRadians(degrees)
+            return GestureInterpreter.interpretTwist(
+                ScreenPoint(cx - 50, cy),
+                ScreenPoint(cx + 50, cy),
+                ScreenPoint(cx - 50 * kotlin.math.cos(radians), cy - 50 * kotlin.math.sin(radians)),
+                ScreenPoint(cx + 50 * kotlin.math.cos(radians), cy + 50 * kotlin.math.sin(radians)),
+                camera,
+            )
+        }
+        val z =
+            dev.rubikxplorer.domain.cube
+                .CubeRotation(dev.rubikxplorer.domain.cube.Axis.Z, Turn.CLOCKWISE)
+        assertEquals(MoveIntent(z), twist(40.0))
+        assertEquals(MoveIntent(z.inverse()), twist(-40.0))
+        assertEquals(MoveIntent(z.inverse()), twist(40.0, ViewPose(800, 600, Vector3(0.0, 0.0, -9.0))))
+        assertNull(twist(29.0))
+        assertNull(twist(40.0, cx = 0.0, cy = 0.0))
+    }
+
     private val axes = listOf(Vector3(1.0, 0.0, 0.0), Vector3(0.0, 1.0, 0.0), Vector3(0.0, 0.0, 1.0))
     private val eyes = listOf(Vector3(4.2, 4.6, 6.4), Vector3(-4.2, -4.6, 6.4), Vector3(-4.2, 4.6, -6.4), Vector3(4.2, -4.6, -6.4))
 

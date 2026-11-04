@@ -22,6 +22,9 @@ class CubeGlRenderer(
     private val vertexShader: String,
     private val fragmentShader: String,
 ) : GLSurfaceView.Renderer {
+    @Volatile var eye = ViewPose.DEFAULT_EYE
+    private val camera = ViewProjectionCache()
+
     @Volatile var snapshot: GlSnapshot? = null
 
     /** The stage color (ARGB) the cube is drawn on, so the GL surface blends into the themed stage. */
@@ -38,7 +41,6 @@ class CubeGlRenderer(
     private val first = IntArray(CubieModel.CUBIE_COUNT)
     private val count = IntArray(CubieModel.CUBIE_COUNT)
     private val models = FloatArray(CubieModel.CUBIE_COUNT * MAT4)
-    private var viewProj = FloatArray(MAT4)
 
     override fun onSurfaceCreated(
         unused: GL10?,
@@ -69,10 +71,11 @@ class CubeGlRenderer(
         height: Int,
     ) {
         GLES30.glViewport(0, 0, width, height)
-        viewProj = ViewPose(width, height).viewProjection()
+        camera.resize(width, height)
     }
 
     override fun onDrawFrame(unused: GL10?) {
+        val viewProj = camera.matrixFor(eye)
         val frame = snapshot ?: return
         frame.models.copyInto(models)
         var cursor = 0

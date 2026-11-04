@@ -46,6 +46,8 @@ import dev.rubikxplorer.domain.input.GestureInterpreter
 import dev.rubikxplorer.domain.input.MoveIntent
 import dev.rubikxplorer.domain.input.ScreenPoint
 import dev.rubikxplorer.domain.input.TouchPath
+import dev.rubikxplorer.domain.input.Vector3
+import dev.rubikxplorer.domain.input.ViewOrbit
 import dev.rubikxplorer.domain.input.ViewPose
 import kotlinx.coroutines.channels.Channel
 
@@ -55,6 +57,28 @@ val RenderedStickersKey = SemanticsPropertyKey<List<StickerDraw>>("RenderedStick
 class Cube3DRenderer(
     initial: Facelets = CubeState.SOLVED.toFacelets(),
 ) : CubeRenderer {
+    var orbit by mutableStateOf(ViewOrbit.DEFAULT)
+        private set
+
+    fun rotateView(
+        yaw: Double,
+        pitch: Double,
+    ) {
+        orbit = orbit.rotated(yaw, pitch)
+    }
+
+    fun dragView(
+        dx: Double,
+        dy: Double,
+        sidePx: Double,
+    ) {
+        orbit = orbit.dragged(dx, dy, sidePx)
+    }
+
+    fun resetView() {
+        orbit = ViewOrbit.DEFAULT
+    }
+
     private val model = CubieModel(initial)
     private val queue = PresentationQueue(model)
     private val wake = Channel<Unit>(Channel.CONFLATED)
@@ -67,6 +91,9 @@ class Cube3DRenderer(
     private var geometryRevision by mutableIntStateOf(0)
     private var gl: CubeGlRenderer? = null
     val drawnFrames: Long get() = gl?.drawnFrames?.get() ?: 0
+
+    /** The camera eye last handed to the GL renderer; null before [Content] first composes. */
+    internal val glEye: Vector3? get() = gl?.eye
 
     override fun submit(items: List<PresentationItem>) {
         queue.submit(items)
@@ -129,6 +156,8 @@ class Cube3DRenderer(
             drawn = model.facelets()
             view.requestRender()
         }
+        renderer.eye = orbit.eye()
+        LaunchedEffect(orbit) { view.requestRender() }
         renderer.background = stage
         LaunchedEffect(style, stage) { wake.trySend(Unit) }
         LaunchedEffect(this, view) {
@@ -192,25 +221,105 @@ class Cube3DRenderer(
             if (onMoveIntent != null) {
                 Box(
                     Modifier.matchParentSize().pointerInput(Unit) {
+                        var previousTap: Long? = null
                         awaitEachGesture {
                             val down = awaitFirstDown()
-                            // The interpreter reads only the endpoints, so keep just those.
-                            val first = ScreenPoint(down.position.x.toDouble(), down.position.y.toDouble())
+
+                            fun point(p: androidx.compose.ui.geometry.Offset) = ScreenPoint(p.x.toDouble(), p.y.toDouble())
+                            val first = point(down.position)
                             var last = first
-                            val pose = ViewPose(size.width, size.height)
-                            var valid = currentEvent.changes.size == 1
+                            val initialOrbit = orbit
+                            val pose = ViewPose(size.width, size.height, initialOrbit.eye())
+                            val onCube = GestureInterpreter.startsOnCube(first, pose)
+                            val side = minOf(size.width, size.height).toDouble()
+                            val initialSecond = currentEvent.changes.firstOrNull { it.id != down.id && it.pressed }
+                            var secondId = initialSecond?.id
+                            var startA = first
+                            var startB = initialSecond?.let { point(it.position) } ?: first
+                            var endA = first
+                            var endB = startB
+                            var pairOrbit = initialOrbit
+                            var pairPose = pose
+                            var twisted = false
+                            var moved = false
+                            var valid = true
                             down.consume()
+                            initialSecond?.consume()
                             do {
                                 val event = awaitPointerEvent()
-                                if (event.changes.any { it.id != down.id }) valid = false
-                                val change = event.changes.firstOrNull { it.id == down.id }
-                                if (change == null || change.isConsumed) valid = false
-                                if (change != null) {
-                                    last = ScreenPoint(change.position.x.toDouble(), change.position.y.toDouble())
-                                    change.consume()
+                                val primary = event.changes.firstOrNull { it.id == down.id }
+                                if (secondId == null) {
+                                    val second = event.changes.firstOrNull { it.id != down.id && it.pressed }
+                                    if (second != null && primary != null && primary.pressed) {
+                                        secondId = second.id
+                                        startA = point(primary.position)
+                                        startB = point(second.position)
+                                        endA = startA
+                                        endB = startB
+                                        pairOrbit = orbit
+                                        // Judge the twist against the camera shown when the pair formed.
+                                        pairPose = ViewPose(size.width, size.height, pairOrbit.eye())
+                                    }
                                 }
-                            } while (event.changes.any { it.pressed })
-                            if (valid) GestureInterpreter.interpret(TouchPath(listOf(first, last)), pose)?.let { latestCommit?.invoke(it) }
+                                if ((primary == null && secondId == null) || primary?.isConsumed == true) valid = false
+                                if (primary != null) {
+                                    last = point(primary.position)
+                                    val dx = last.x - first.x
+                                    val dy = last.y - first.y
+                                    if (dx * dx + dy * dy >= viewConfiguration.touchSlop * viewConfiguration.touchSlop) moved = true
+                                }
+                                if (secondId != null) {
+                                    val second = event.changes.firstOrNull { it.id == secondId }
+                                    if (primary != null && second != null && primary.previousPressed && second.previousPressed) {
+                                        endA = point(primary.position)
+                                        endB = point(second.position)
+                                        if (GestureInterpreter.interpretTwist(startA, startB, endA, endB, pairPose) != null) twisted = true
+                                        orbit =
+                                            if (twisted) {
+                                                pairOrbit
+                                            } else {
+                                                pairOrbit.dragged(
+                                                    (endA.x + endB.x - startA.x - startB.x) / 2,
+                                                    (endA.y + endB.y - startA.y - startB.y) / 2,
+                                                    side,
+                                                )
+                                            }
+                                    }
+                                } else if (!onCube) {
+                                    orbit = initialOrbit.dragged(last.x - first.x, last.y - first.y, side)
+                                }
+                                event.changes.filter { it.id == down.id || it.id == secondId }.forEach { it.consume() }
+                            } while (event.changes.any { (it.id == down.id || it.id == secondId) && it.pressed })
+                            if (secondId != null) {
+                                previousTap = null
+                                if (valid &&
+                                    twisted
+                                ) {
+                                    GestureInterpreter
+                                        .interpretTwist(
+                                            startA,
+                                            startB,
+                                            endA,
+                                            endB,
+                                            pairPose,
+                                        )?.let { latestCommit?.invoke(it) }
+                                }
+                            } else if (!moved && valid) {
+                                val previous = previousTap
+                                if (previous != null && down.uptimeMillis - previous <= viewConfiguration.doubleTapTimeoutMillis) {
+                                    resetView()
+                                    previousTap = null
+                                } else {
+                                    previousTap = down.uptimeMillis
+                                }
+                            } else {
+                                previousTap = null
+                                if (valid &&
+                                    onCube
+                                ) {
+                                    GestureInterpreter.interpret(TouchPath(listOf(first, last)), pose)?.let { latestCommit?.invoke(it) }
+                                }
+                            }
                         }
                     },
                 )

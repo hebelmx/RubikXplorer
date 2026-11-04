@@ -1,17 +1,44 @@
 package dev.rubikxplorer.domain.input
 
+import dev.rubikxplorer.domain.cube.Axis
 import dev.rubikxplorer.domain.cube.CubeGeometry
+import dev.rubikxplorer.domain.cube.CubeRotation
 import dev.rubikxplorer.domain.cube.Face
 import dev.rubikxplorer.domain.cube.FaceTurn
 import dev.rubikxplorer.domain.cube.Slice
 import dev.rubikxplorer.domain.cube.SliceTurn
 import dev.rubikxplorer.domain.cube.Turn
 import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.max
 import kotlin.math.min
 
 /** Pure start-sticker picking and layer recognition. Uncertain drags produce no intent. */
 object GestureInterpreter {
+    const val TWIST_MIN_DEGREES = 30.0
+
+    fun startsOnCube(
+        point: ScreenPoint,
+        pose: ViewPose,
+    ): Boolean = boxEntry(pose.ray(point.x, point.y), Vector3(0.0, 0.0, 0.0), 1.5) != null
+
+    fun interpretTwist(
+        startA: ScreenPoint,
+        startB: ScreenPoint,
+        endA: ScreenPoint,
+        endB: ScreenPoint,
+        pose: ViewPose,
+    ): MoveIntent? {
+        if (!startsOnCube(ScreenPoint((startA.x + startB.x) / 2, (startA.y + startB.y) / 2), pose)) return null
+        if (startA == startB || endA == endB) return null
+        val angle = Math.toDegrees(atan2(endB.y - endA.y, endB.x - endA.x) - atan2(startB.y - startA.y, startB.x - startA.x))
+        val positive = ((angle % 360) + 360) % 360
+        val wrapped = if (positive > 180) positive - 360 else positive
+        if (abs(wrapped) < TWIST_MIN_DEGREES) return null
+        val clockwise = (wrapped > 0) == (pose.eye.z >= 0)
+        return MoveIntent(CubeRotation(Axis.Z, if (clockwise) Turn.CLOCKWISE else Turn.COUNTERCLOCKWISE))
+    }
+
     const val MIN_DRAG = 0.35
     const val DOMINANCE = 2
     private val axes = listOf(Vector3(1.0, 0.0, 0.0), Vector3(0.0, 1.0, 0.0), Vector3(0.0, 0.0, 1.0))
