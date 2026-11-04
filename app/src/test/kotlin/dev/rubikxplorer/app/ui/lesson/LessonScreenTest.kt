@@ -3,20 +3,26 @@ package dev.rubikxplorer.app.ui.lesson
 import android.app.Application
 import android.provider.Settings
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import dev.rubikxplorer.app.content.CatalogState
 import dev.rubikxplorer.app.content.LessonCatalog
+import dev.rubikxplorer.app.render.Net2DRenderer
 import dev.rubikxplorer.app.render.StickerColorKey
 import dev.rubikxplorer.app.render.StickerDimmedKey
 import dev.rubikxplorer.app.render.StickerHighlightedKey
@@ -34,7 +40,12 @@ import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
 import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.domain.appearance.StickerAppearance
 import dev.rubikxplorer.domain.content.ContentLoadResult
+import dev.rubikxplorer.domain.cube.Axis
+import dev.rubikxplorer.domain.cube.CubeRotation
+import dev.rubikxplorer.domain.cube.Face
+import dev.rubikxplorer.domain.cube.FaceTurn
 import dev.rubikxplorer.domain.cube.Facelets
+import dev.rubikxplorer.domain.cube.Turn
 import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.playback.DemonstrationResult
 import dev.rubikxplorer.domain.playback.PlaybackSpeed
@@ -44,6 +55,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -406,8 +418,10 @@ class LessonScreenTest {
 
         press("D", 1)
         node("lesson:feedback").assertTextContains("That didn't change much. Try another turn.")
+        node("lesson:diagnosis").assertDoesNotExist()
+        // U lifts three cross edges, but no step has kept them yet: neutral, never harmful.
         press("U", 2)
-        node("lesson:feedback").assertTextContains("That moved a piece you need.")
+        node("lesson:feedback").assertTextContains("That didn't change much. Try another turn.")
         assertEquals(emptyList<String>(), tagsStartingWith("moveChip:"))
         node("lesson:showMove").assertDoesNotExist()
         assertFalse(
@@ -457,15 +471,156 @@ class LessonScreenTest {
     }
 
     @Test
-    fun `test me says a Move that helps brings the Learner closer`() {
+    fun `test me says the taught Move is on path`() {
         open(oneLongStepLesson().id.value)
         switchTo(TeachingMode.TEST_ME)
         press("U", 1)
-        node("lesson:feedback").assertTextContains("That works too — you're closer.")
+        node("lesson:feedback").assertTextContains("That's the move — keep going.")
         assertFalse(
             host.state.value.decision!!
                 .advance,
         )
+    }
+
+    @Test
+    fun `test me names a turned cube in a polite live region, with the reorient prompt, Show me how and no undo`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.TEST_ME)
+        press("y", 1)
+        rule.waitUntil(5_000) {
+            host.state.value.decision
+                ?.diagnosis != null
+        }
+        rule.waitForIdle()
+        node("lesson:diagnosis")
+            .assertTextContains("Your cube is turned — hold it with yellow on the bottom, green in front.", substring = true)
+        node("lesson:diagnosis").assertTextContains("Turn it back with the rotation keys.", substring = true)
+        node("lesson:diagnosis").assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+        node("lesson:feedback").assertDoesNotExist()
+
+        // A turned cube offers Show me how and no Undo; tapping it shows the rotation back, never turns the cube.
+        rule.onNode(hasText("Undo") and hasAnyAncestor(hasTestTag("lesson:stepCard"))).assertDoesNotExist()
+        node("lesson:reorientMoves").assertDoesNotExist()
+        val turned = host.state.value.virtual
+        node("lesson:showMeHow").performScrollTo().assertTextContains("Show me how").performClick()
+        rule.waitForIdle()
+        node("lesson:reorientMoves").assertExists()
+        node("moveChip:y'").assertExists()
+        node("lesson:showMeHow").assertDoesNotExist()
+        assertEquals(turned, host.state.value.virtual)
+    }
+
+    @Test
+    fun `Show me how animates the Cube Rotation back on the net and leaves the session unchanged`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.TEST_ME)
+        press("y", 1)
+        rule.waitUntil(5_000) {
+            host.state.value.decision
+                ?.diagnosis != null
+        }
+        rule.waitForIdle()
+        val before = host.state.value
+        val turned = before.virtual
+        assertNetMatchesSession("turned cube drawn before Show me how")
+
+        node("lesson:showMeHow").performScrollTo()
+        rule.mainClock.autoAdvance = false
+        node("lesson:showMeHow").performClick()
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeBy(REORIENT_STEP_MILLIS)
+        // The net shows the cube turned back to the Lesson's hold, yet the session still holds it turned.
+        val back =
+            turned
+                .apply(CubeRotation(Axis.Y, Turn.COUNTERCLOCKWISE))
+                .toFacelets()
+                .colors
+                .map { Color(StickerAppearance.of(it).fill) }
+        assertEquals(back, drawnColors())
+        assertEquals(turned, host.state.value.virtual)
+        assertEquals(before.revision, host.state.value.revision)
+        assertEquals(before.history, host.state.value.history)
+
+        rule.mainClock.advanceTimeBy(REORIENT_HOLD_MILLIS + 500)
+        rule.mainClock.autoAdvance = true
+        // The demonstration ends on the session's own state; nothing was committed.
+        assertNetMatchesSession("net returns to the session after Show me how")
+        assertEquals(before, host.state.value)
+    }
+
+    @Test
+    fun `a Move committed between Show me how rotations stops the demonstration and the net shows the post-Move session`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.TEST_ME)
+        press("y", 1)
+        press("x", 2)
+        rule.waitUntil(5_000) {
+            host.state.value.decision
+                ?.diagnosis != null
+        }
+        rule.waitForIdle()
+        val turned = host.state.value.virtual
+
+        node("lesson:showMeHow").performScrollTo()
+        rule.mainClock.autoAdvance = false
+        node("lesson:showMeHow").performClick()
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeBy(REORIENT_STEP_MILLIS / 2)
+        // Midway through the first demonstration step: its rotation is drawn; the session still holds the turned cube.
+        assertNotEquals(
+            turned.toFacelets().colors.map { Color(StickerAppearance.of(it).fill) },
+            drawnColors(),
+        )
+        assertEquals(turned, host.state.value.virtual)
+
+        // Commit F before the second demonstration rotation, then step past where it would have played.
+        node("moveKey:F").performClick()
+        rule.waitUntil(5_000) { host.state.value.history.done.size == 3 }
+        val afterMove =
+            host.state.value.virtual
+                .toFacelets()
+                .colors
+                .map { Color(StickerAppearance.of(it).fill) }
+        // Where the second rotation would have been drawn, and again past the demonstration's hold.
+        rule.mainClock.advanceTimeBy(REORIENT_STEP_MILLIS + Net2DRenderer.ITEM_MILLIS * 2)
+        assertEquals("net shows the post-Move session, not stale demonstration cubies", afterMove, drawnColors())
+        rule.mainClock.advanceTimeBy(REORIENT_HOLD_MILLIS + 500)
+        assertEquals("net still shows the post-Move session after the hold", afterMove, drawnColors())
+        rule.mainClock.autoAdvance = true
+        assertNetMatchesSession("net still matches the session once the clock runs freely")
+    }
+
+    @Test
+    fun `test me says an off-path Move that helps brings the Learner closer`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.TEST_ME)
+        // U lifts the three placed cross edges (nothing kept yet); U' off the path brings them back.
+        press("U", 1)
+        press("U'", 2)
+        node("lesson:feedback").assertTextContains("That works too — you're closer.")
+        node("lesson:diagnosis").assertDoesNotExist()
+    }
+
+    @Test
+    fun `test me names a harmful Move calmly with its recovery prompt, and keeps the Learner's cube`() {
+        val id = twoStepLesson().id.value
+        open(id)
+        switchTo(TeachingMode.TEST_ME)
+        press("U", 1)
+        node("lesson:next").performScrollTo().assertIsEnabled().performClick()
+        rule.waitUntil(5_000) { host.state.value.stepIndex == 1 }
+        val before = host.state.value.virtual
+        press("D", 2)
+        rule.waitUntil(5_000) {
+            host.state.value.decision
+                ?.diagnosis != null
+        }
+        rule.waitForIdle()
+        node("lesson:diagnosis").assertTextContains("That turn moved a piece you'd placed.", substring = true)
+        node("lesson:diagnosis").assertTextContains("Undo, or try another turn.", substring = true)
+        node("lesson:feedback").assertDoesNotExist()
+        assertEquals(before.apply(FaceTurn(Face.D, Turn.CLOCKWISE)), host.state.value.virtual)
+        assertEquals(emptyList<String>(), tagsStartingWith("moveChip:"))
     }
 
     @Test

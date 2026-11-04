@@ -3,7 +3,13 @@ package dev.rubikxplorer.domain.tutor
 import dev.rubikxplorer.domain.content.Lesson
 import dev.rubikxplorer.domain.content.TutorConfig
 import dev.rubikxplorer.domain.cube.CubeState
+import dev.rubikxplorer.domain.cube.CubeValidator
+import dev.rubikxplorer.domain.cube.Facelets
+import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.MoveHistory
+import dev.rubikxplorer.domain.cube.ValidationResult
+import dev.rubikxplorer.domain.predicate.AllOf
+import dev.rubikxplorer.domain.predicate.Piece
 import dev.rubikxplorer.domain.text.Text
 
 /**
@@ -20,44 +26,126 @@ object Assess {
         observed: CubeState,
     ): Certainty = certaintyOf(enumerator.consistentWith(observed).size)
 
-    /** A Diagnosis of [category] for [observed], as sure as [enumerator]'s consistent candidates allow. */
+    /**
+     * A Diagnosis of [category] for [observed], explained by [explanation] and naming the [disturbed]
+     * pieces, as sure as [enumerator]'s consistent candidates allow.
+     */
     fun diagnose(
         category: ErrorCategory,
         enumerator: CandidateEnumerator,
         observed: CubeState,
+        explanation: Text,
+        disturbed: Set<Piece> = emptySet(),
     ): Diagnosis {
         val consistent = enumerator.consistentWith(observed)
-        return when (val result = Diagnosis.verified(category, consistent)) {
+        return when (val result = Diagnosis.verified(category, consistent, explanation, disturbed)) {
             is DiagnosisResult.Verified -> {
                 result.diagnosis
             }
 
             is DiagnosisResult.NotUnique -> {
                 if (consistent.isEmpty()) {
-                    Diagnosis.unknown(
-                        category,
-                    )
+                    Diagnosis.unknown(category, explanation, disturbed)
                 } else {
-                    Diagnosis.likely(category, consistent)
+                    Diagnosis.likely(category, consistent, explanation, disturbed)
                 }
             }
         }
     }
 
     /**
+     * What went wrong between the [expected] and the [observed] Cube State of [lesson] (entered at
+     * [entry]), by the ordered rules of [DiagnosisRules], or null when nothing did. Candidates come
+     * from one [CandidateEnumerator] over [expected] re-held in [observed]'s orientation, configured by
+     * [config]: when none explains [observed] (and the cube is not merely turned) the Diagnosis is an
+     * UNKNOWN_DISCREPANCY.
+     */
+    fun diagnose(
+        lesson: Lesson,
+        entry: CubeState,
+        expected: CubeState,
+        observed: CubeState,
+        config: TutorConfig,
+    ): Diagnosis? {
+        val held = CubeState(expected.cubies, observed.orientation)
+        val enumerator = CandidateEnumerator.of(held, config)
+        DiagnosisRules.orientation(entry, expected, observed)?.let { return diagnose(it, enumerator, observed) }
+        if (enumerator.consistentWith(observed).isEmpty()) {
+            return Diagnosis.unknown(
+                ErrorCategory.UNKNOWN_DISCREPANCY,
+                Text("msg.diagnosis.unknown-discrepancy"),
+                DiagnosisRules.disturbed(lesson, entry, expected, observed),
+            )
+        }
+        return DiagnosisRules.findings(lesson, entry, expected, observed)?.let { diagnose(it, enumerator, observed) }
+    }
+
+    /**
+     * The Diagnosis of entered [facelets] that cannot be a real cube: INVALID_ENTERED_STATE, explained
+     * by the validator's reason. With no Cube State there is no candidate, so it is UNKNOWN. Null when
+     * the facelets are valid.
+     */
+    fun diagnoseEntry(facelets: Facelets): Diagnosis? =
+        when (val result = CubeValidator.validate(facelets)) {
+            is ValidationResult.Valid -> null
+            is ValidationResult.Invalid -> Diagnosis.unknown(ErrorCategory.INVALID_ENTERED_STATE, result.reason, emptySet())
+        }
+
+    /**
+     * How the *Test me* Move [move] from [before] to [after] relates to the step of [lesson] (entered
+     * at [entry]) derived from [before], checked in order:
+     * - ON_PATH, with no Diagnosis: [before] is an authored path state and [move] its next authored
+     *   Move ([Tutor.isOnPath]);
+     * - HARMFUL: the Diagnosis is a disturbance (a preserved piece moved);
+     * - PROGRESS: the step's effective done, `allOf(lesson.preserve, done)`, made progress;
+     * - NEUTRAL: anything else.
+     * A Diagnosis that is not a disturbance (a turned cube, a twisted piece, an unknown change) rides
+     * along with PROGRESS or NEUTRAL. A Cube Rotation back to the entry's hold is a recovery: it is
+     * NEUTRAL with no Diagnosis.
+     */
+    @Suppress("LongParameterList")
+    fun classify(
+        lesson: Lesson,
+        entry: CubeState,
+        before: CubeState,
+        move: Move,
+        after: CubeState,
+        config: TutorConfig,
+    ): MoveAssessment {
+        if (Tutor.isOnPath(lesson, entry, before, move)) return MoveAssessment(MoveFeedback.ON_PATH, null)
+        val recovered = after.cubies == before.cubies && after.orientation == entry.orientation
+        val diagnosis = if (recovered) null else diagnose(lesson, entry, before, after, config)
+        if (diagnosis != null && diagnosis.category in DiagnosisRules.DISTURBANCE) return MoveAssessment(MoveFeedback.HARMFUL, diagnosis)
+        val step = lesson.steps.getOrNull(Tutor.currentStep(lesson, entry, before))
+        val done = AllOf(listOfNotNull(lesson.preserve, step?.done))
+        val feedback = if (done.progress(after) > done.progress(before)) MoveFeedback.PROGRESS else MoveFeedback.NEUTRAL
+        return MoveAssessment(feedback, diagnosis)
+    }
+
+    private fun diagnose(
+        finding: Finding,
+        enumerator: CandidateEnumerator,
+        observed: CubeState,
+    ): Diagnosis = diagnose(finding.category, enumerator, observed, finding.explanation, finding.disturbed)
+
+    /**
      * The [TutorDecision] for [lesson] with Move [history] (started at the Lesson's entry state), in
      * virtual mode, taught in [mode]; [config] configures the [CandidateEnumerator]. [revealRequested]
      * is true once the Learner asked to see the step's Moves, [noticeStep] is a completed step whose
-     * Notice waits for *Next*, and [lastMoveFeedback] classifies the last committed Move.
+     * Notice waits for *Next*, and [lastMoveFeedback] and [lastDiagnosis] are [classify]'s word on the
+     * last committed Move.
      *
      * - `satisfied` is the Completion Predicate on the current state;
      * - the shown step is [Tutor.shownStep]; `advance` is `satisfied` or a pending [noticeStep];
      * - `certainty` confirms the virtual state against itself (a Full observation);
-     * - no Diagnosis and no Guided recovery yet (Stories 4.2 and 4.5);
+     * - `diagnosis` is [lastDiagnosis] in [TeachingMode.TEST_ME] while not `advance`, else null;
+     * - no Guided recovery yet (Story 4.5);
      * - `reveal` is true in [TeachingMode.SHOW_ME] or once [revealRequested];
-     * - `feedback` is [lastMoveFeedback] in [TeachingMode.TEST_ME] while not `advance`, else null;
+     * - `feedback` is [lastMoveFeedback] in [TeachingMode.TEST_ME], else null: a Move that completes a
+     *   step or the Lesson keeps its word (On path) beside the Notice or completion;
      * - `nextAction` is FINISH when satisfied, NEXT_STEP when `advance`, WATCH in *Show me*, else TURN;
-     * - `explanation` is the shown step's Notice when `advance`, else its Goal.
+     * - `explanation` is the shown Diagnosis's explanation, else the shown step's Notice when
+     *   `advance`, else its Goal.
      */
     @Suppress("LongParameterList")
     fun decide(
@@ -68,6 +156,7 @@ object Assess {
         revealRequested: Boolean,
         noticeStep: Int?,
         lastMoveFeedback: MoveFeedback?,
+        lastDiagnosis: Diagnosis?,
     ): TutorDecision {
         val state = history.state
         val satisfied = lesson.completion.isSatisfied(state)
@@ -81,17 +170,19 @@ object Assess {
                 else -> NextAction.TURN
             }
         val explanationKey = if (advance) shown?.notice else shown?.goal
+        val testing = mode == TeachingMode.TEST_ME && !advance
+        val diagnosis = lastDiagnosis.takeIf { testing }
         return TutorDecision(
             objectiveId = lesson.objective,
             satisfied = satisfied,
-            diagnosis = null,
+            diagnosis = diagnosis,
             certainty = confirm(CandidateEnumerator.of(state, config), state),
             nextAction = nextAction,
-            explanation = Text((explanationKey ?: lesson.objective).value),
+            explanation = diagnosis?.explanation ?: Text((explanationKey ?: lesson.objective).value),
             recovery = Recovery.Unavailable,
             reveal = mode == TeachingMode.SHOW_ME || revealRequested,
             advance = advance,
-            feedback = lastMoveFeedback.takeIf { mode == TeachingMode.TEST_ME && !advance },
+            feedback = lastMoveFeedback.takeIf { mode == TeachingMode.TEST_ME },
         )
     }
 
@@ -104,15 +195,18 @@ object Assess {
 }
 
 /**
- * A named mistake (AD-5): its [category], how sure the tutor is ([certainty]) and the [candidates]
- * that explain the evidence. Made only here: [verified] for the one-candidate case, which refuses any
- * other count (AD-12), and [Assess.diagnose] for the rest.
+ * A named mistake (AD-5): its [category], how sure the tutor is ([certainty]), the [candidates]
+ * that explain the evidence, the keyed [explanation] the Learner reads and the [disturbed] preserved
+ * pieces (Story 4.4 outlines them). Made only here: [verified] for the one-candidate case, which
+ * refuses any other count (AD-12), and [Assess.diagnose] for the rest.
  */
 @ConsistentCopyVisibility
 data class Diagnosis private constructor(
     val category: ErrorCategory,
     val certainty: Certainty,
     val candidates: List<Candidate>,
+    val explanation: Text,
+    val disturbed: Set<Piece>,
 ) {
     /** The Recovery Path the [category] calls for. */
     val recoveryPath: RecoveryPath get() = category.recoveryPath
@@ -122,9 +216,11 @@ data class Diagnosis private constructor(
         internal fun verified(
             category: ErrorCategory,
             consistent: List<Candidate>,
+            explanation: Text,
+            disturbed: Set<Piece> = emptySet(),
         ): DiagnosisResult =
             if (consistent.size == 1) {
-                DiagnosisResult.Verified(Diagnosis(category, Certainty.VERIFIED, consistent.toList()))
+                DiagnosisResult.Verified(Diagnosis(category, Certainty.VERIFIED, consistent.toList(), explanation, disturbed.toSet()))
             } else {
                 DiagnosisResult.NotUnique(consistent.size)
             }
@@ -132,14 +228,26 @@ data class Diagnosis private constructor(
         internal fun likely(
             category: ErrorCategory,
             consistent: List<Candidate>,
+            explanation: Text,
+            disturbed: Set<Piece> = emptySet(),
         ): Diagnosis {
             require(consistent.size > 1) { "a likely Diagnosis needs several candidates, had ${consistent.size}" }
-            return Diagnosis(category, Certainty.LIKELY, consistent.toList())
+            return Diagnosis(category, Certainty.LIKELY, consistent.toList(), explanation, disturbed.toSet())
         }
 
-        internal fun unknown(category: ErrorCategory): Diagnosis = Diagnosis(category, Certainty.UNKNOWN, emptyList())
+        internal fun unknown(
+            category: ErrorCategory,
+            explanation: Text,
+            disturbed: Set<Piece> = emptySet(),
+        ): Diagnosis = Diagnosis(category, Certainty.UNKNOWN, emptyList(), explanation, disturbed.toSet())
     }
 }
+
+/** What [Assess.classify] says about one *Test me* Move: its [feedback] and, if it names a mistake, the [diagnosis]. */
+data class MoveAssessment(
+    val feedback: MoveFeedback,
+    val diagnosis: Diagnosis?,
+)
 
 /** The outcome of [Diagnosis.verified]. */
 sealed interface DiagnosisResult {

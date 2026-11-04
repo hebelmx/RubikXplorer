@@ -11,11 +11,15 @@ import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.cube.NotationResult
 import dev.rubikxplorer.domain.predicate.WhiteCornersSolved
 import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
+import dev.rubikxplorer.domain.tutor.Assess
+import dev.rubikxplorer.domain.tutor.ErrorCategory
 import dev.rubikxplorer.domain.tutor.MoveFeedback
+import dev.rubikxplorer.domain.tutor.TeachingMode
 import dev.rubikxplorer.domain.tutor.Tutor
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
@@ -24,30 +28,37 @@ import org.junit.jupiter.api.TestFactory
 /**
  * Story 2.7 AC 2 (FR-4, AR-10): every shipped Lesson's authored step path, driven through [reduce]
  * from its entry state, reaches its Completion Predicate, and its authored harmful Move fails it.
+ * Story 4.2 AC 3–4 (AD-5): in *Test me* every authored Move is On path, and an off-path Move is
+ * judged against the current step's preserved pieces.
  * Story 4.1 AC 4 (AD-6): every step's `done` holds in order along that path, and the last equals
  * `completion`.
  */
 class ShippedLessonPathsTest {
-    /** How a Lesson's entry state was made from SOLVED, and one Move that disturbs placed pieces. */
+    /**
+     * How a Lesson's entry state was made from SOLVED, and one off-path Move at the last step's path
+     * state with what *Test me* says about it: the Diagnosis [category] when pieces the step preserves
+     * are disturbed (HARMFUL), or null when nothing is preserved yet (NEUTRAL).
+     */
     private data class Path(
         val setup: String,
         val harmful: String,
+        val category: ErrorCategory?,
     )
 
     private val table: Map<String, Path> =
         mapOf(
-            "lesson-01-01" to Path("", "L"),
-            "lesson-01-02" to Path("", "L"),
-            "lesson-01-03" to Path("", "L"),
-            "lesson-02-01" to Path("F2", "U"),
-            "lesson-02-02" to Path("F2 D", "U"),
-            "lesson-02-03" to Path("F", "U"),
-            "lesson-02-04" to Path("F U' R U", "U"),
-            "lesson-02-05" to Path("L2 B2 R2 F2", "U"),
-            "lesson-03-01" to Path("R' D R", "U"),
-            "lesson-03-02" to Path("F D' F'", "U"),
-            "lesson-03-03" to Path("R' D R D' R' D2 R", "U"),
-            "lesson-03-04" to Path("F' D F L' D L B' D B R' D R", "U"),
+            "lesson-01-01" to Path("", "L", null),
+            "lesson-01-02" to Path("", "L", WRONG_MOVE),
+            "lesson-01-03" to Path("", "L", WRONG_MOVE),
+            "lesson-02-01" to Path("F2", "U", null),
+            "lesson-02-02" to Path("F2 D", "U", WRONG_MOVE),
+            "lesson-02-03" to Path("F", "U", null),
+            "lesson-02-04" to Path("F U' R U", "U", WRONG_MOVE),
+            "lesson-02-05" to Path("L2 B2 R2 F2", "U", WRONG_MOVE),
+            "lesson-03-01" to Path("R' D R", "U", LAYER),
+            "lesson-03-02" to Path("F D' F'", "U", LAYER),
+            "lesson-03-03" to Path("R' D R D' R' D2 R", "U", LAYER),
+            "lesson-03-04" to Path("F' D F L' D L B' D B R' D R", "U", LAYER),
         )
 
     private val lessons: List<Lesson> by lazy {
@@ -102,16 +113,40 @@ class ShippedLessonPathsTest {
         }
 
     @TestFactory
-    fun `the harmful Move before the last step is HARMFUL, and after the path it fails the predicate`() =
+    fun `in test me every authored Move is on path through reduce, and its line shows, also on the Move that finishes a step`() =
+        perLesson { lesson, _ ->
+            var state = reduce(started(lesson), modeChanged(TeachingMode.TEST_ME)).state
+            lesson.steps.forEachIndexed { k, step ->
+                moves(step.moves).forEach { move ->
+                    state = reduce(state, commit(move)).state
+                    val decision = checkNotNull(state.decision)
+                    assertEquals(MoveFeedback.ON_PATH, state.lastMoveFeedback, "step ${k + 1}: $move")
+                    assertNull(state.lastDiagnosis, "step ${k + 1}: $move")
+                    assertNull(decision.diagnosis, "step ${k + 1}: $move")
+                    // Also on a step-final or Lesson-final Move, beside the Notice or completion.
+                    assertEquals(MoveFeedback.ON_PATH, decision.feedback, "step ${k + 1}: $move")
+                }
+                if (k < lesson.steps.lastIndex) state = reduce(state, stepAdvanced).state
+            }
+            assertTrue(state.objectiveMet)
+        }
+
+    @TestFactory
+    fun `the off-path Move at the last step is diagnosed against the step, and after the path it fails the predicate`() =
         perLesson { lesson, path ->
             val harmful = moves(path.harmful)
-            var state = started(lesson)
+            var state = reduce(started(lesson), modeChanged(TeachingMode.TEST_ME)).state
             lesson.steps.dropLast(1).forEach { step -> state = reduce(state.committing(moves(step.moves)), stepAdvanced).state }
             assertEquals(lesson.steps.lastIndex, state.stepIndex)
             val before = state.virtual
             val harmed = state.committing(harmful)
-            assertEquals(MoveFeedback.HARMFUL, MoveFeedback.classify(lesson.completion, before, harmed.virtual))
-            assertEquals(MoveFeedback.HARMFUL, harmed.lastMoveFeedback)
+            val expected = Assess.classify(lesson, state.entry, before, harmful.single(), harmed.virtual, TUTOR_CONFIG)
+            assertEquals(expected.feedback, harmed.lastMoveFeedback)
+            assertEquals(expected.diagnosis, harmed.lastDiagnosis)
+            assertEquals(if (path.category == null) MoveFeedback.NEUTRAL else MoveFeedback.HARMFUL, harmed.lastMoveFeedback)
+            assertEquals(path.category, harmed.lastDiagnosis?.category)
+            assertEquals(path.category, checkNotNull(harmed.decision).diagnosis?.category)
+            assertEquals(before.apply(harmful), harmed.virtual, "the Learner's state is kept")
 
             val done = state.committing(moves(lesson.steps.last().moves))
             assertTrue(done.objectiveMet)
@@ -196,5 +231,10 @@ class ShippedLessonPathsTest {
         val steps = lesson("lesson-03-04").steps.size
         assertEquals(4, steps)
         assertEquals((0..steps).toList(), (0..steps).map { WhiteCornersSolved.progress(pathState("lesson-03-04", it)).done })
+    }
+
+    private companion object {
+        val WRONG_MOVE = ErrorCategory.WRONG_MOVE_OR_DIRECTION
+        val LAYER = ErrorCategory.COMPLETED_LAYER_DISTURBED
     }
 }

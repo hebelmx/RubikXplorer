@@ -11,6 +11,8 @@ import dev.rubikxplorer.domain.content.StageId
 import dev.rubikxplorer.domain.content.Step
 import dev.rubikxplorer.domain.content.TextKey
 import dev.rubikxplorer.domain.content.TutorConfig
+import dev.rubikxplorer.domain.cube.Axis
+import dev.rubikxplorer.domain.cube.CubeRotation
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Face
 import dev.rubikxplorer.domain.cube.FaceTurn
@@ -19,6 +21,7 @@ import dev.rubikxplorer.domain.predicate.AlwaysTrue
 import dev.rubikxplorer.domain.predicate.AnyOf
 import dev.rubikxplorer.domain.predicate.StateReached
 import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
+import dev.rubikxplorer.domain.tutor.Diagnosis
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import kotlin.time.Instant
 
@@ -29,6 +32,7 @@ internal val R_PRIME = FaceTurn(Face.R, Turn.COUNTERCLOCKWISE)
 internal val U = FaceTurn(Face.U, Turn.CLOCKWISE)
 internal val U_PRIME = FaceTurn(Face.U, Turn.COUNTERCLOCKWISE)
 internal val D = FaceTurn(Face.D, Turn.CLOCKWISE)
+internal val Y = CubeRotation(Axis.Y, Turn.CLOCKWISE)
 
 internal val T0: Instant = Instant.fromEpochMilliseconds(1_000)
 
@@ -37,6 +41,11 @@ internal val TUTOR_CONFIG: TutorConfig by lazy {
     val result = ContentLoader.load(ContentSource.SHIPPED)
     check(result is ContentLoadResult.Loaded) { "the shipped content does not load: $result" }
     result.bundle.tutorConfig
+}
+
+/** A real Diagnosis (a turned cube in *Test me*), for fixtures that need one standing. */
+internal val TURNED_DIAGNOSIS: Diagnosis by lazy {
+    checkNotNull(started().after(modeChanged(TeachingMode.TEST_ME), commit(Y)).lastDiagnosis)
 }
 
 /** Starts [lesson] with the shipped tutor configuration. */

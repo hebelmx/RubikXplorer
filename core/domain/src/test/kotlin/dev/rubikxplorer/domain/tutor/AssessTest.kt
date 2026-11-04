@@ -21,6 +21,8 @@ class AssessTest {
     /** A fixed scrambled expected state. */
     private val s: CubeState = state("D2 B' R2 U F' L D' B2 R' U2 F")
 
+    private val why = Text("msg.diagnosis.wrong-move-or-direction")
+
     private fun enumerator(expected: CubeState = s) = CandidateEnumerator(expected, 2, CONFIG.moves)
 
     @Test
@@ -31,17 +33,19 @@ class AssessTest {
 
     @Test
     fun `one-move evidence gives a verified Diagnosis naming that Move`() {
-        val d = Assess.diagnose(ErrorCategory.WRONG_MOVE_OR_DIRECTION, enumerator(), s.apply(moves("R")))
+        val d = Assess.diagnose(ErrorCategory.WRONG_MOVE_OR_DIRECTION, enumerator(), s.apply(moves("R")), why)
         assertEquals(Certainty.VERIFIED, d.certainty)
         assertEquals(listOf(moves("R")), d.candidates.map { it.moves })
         assertEquals(ErrorCategory.WRONG_MOVE_OR_DIRECTION, d.category)
         assertEquals(RecoveryPath.UNDO, d.recoveryPath)
+        assertEquals(why, d.explanation)
+        assertEquals(emptySet<Any>(), d.disturbed)
     }
 
     @Test
     fun `ambiguous evidence is likely, never verified`() {
         val observed = s.apply(moves("U D"))
-        val d = Assess.diagnose(ErrorCategory.WRONG_PIECE, enumerator(), observed)
+        val d = Assess.diagnose(ErrorCategory.WRONG_PIECE, enumerator(), observed, why)
         assertEquals(Certainty.LIKELY, d.certainty)
         assertEquals(setOf(moves("U D"), moves("D U")), d.candidates.map { it.moves }.toSet())
         assertEquals(Certainty.LIKELY, Assess.confirm(enumerator(), observed))
@@ -50,7 +54,7 @@ class AssessTest {
     @Test
     fun `evidence out of reach is unknown`() {
         val observed = s.apply(moves("R U F"))
-        val d = Assess.diagnose(ErrorCategory.UNKNOWN_DISCREPANCY, enumerator(), observed)
+        val d = Assess.diagnose(ErrorCategory.UNKNOWN_DISCREPANCY, enumerator(), observed, why)
         assertEquals(Certainty.UNKNOWN, d.certainty)
         assertEquals(emptyList<Candidate>(), d.candidates)
         assertEquals(Certainty.UNKNOWN, Assess.confirm(enumerator(), observed))
@@ -60,9 +64,9 @@ class AssessTest {
     fun `the verified smart constructor refuses any count but one`() {
         val two = enumerator().consistentWith(s.apply(moves("U D")))
         assertEquals(2, two.size)
-        assertEquals(DiagnosisResult.NotUnique(2), Diagnosis.verified(ErrorCategory.WRONG_PIECE, two))
-        assertEquals(DiagnosisResult.NotUnique(0), Diagnosis.verified(ErrorCategory.WRONG_PIECE, emptyList()))
-        val one = Diagnosis.verified(ErrorCategory.WRONG_PIECE, enumerator().consistentWith(s.apply(moves("R"))))
+        assertEquals(DiagnosisResult.NotUnique(2), Diagnosis.verified(ErrorCategory.WRONG_PIECE, two, why))
+        assertEquals(DiagnosisResult.NotUnique(0), Diagnosis.verified(ErrorCategory.WRONG_PIECE, emptyList(), why))
+        val one = Diagnosis.verified(ErrorCategory.WRONG_PIECE, enumerator().consistentWith(s.apply(moves("R"))), why)
         assertInstanceOf(DiagnosisResult.Verified::class.java, one)
         assertEquals(Certainty.VERIFIED, (one as DiagnosisResult.Verified).diagnosis.certainty)
     }
@@ -84,7 +88,8 @@ class AssessTest {
         revealRequested: Boolean = false,
         noticeStep: Int? = null,
         lastMoveFeedback: MoveFeedback? = null,
-    ) = Assess.decide(lesson, history(lesson, *played), CONFIG, mode, revealRequested, noticeStep, lastMoveFeedback)
+        lastDiagnosis: Diagnosis? = null,
+    ) = Assess.decide(lesson, history(lesson, *played), CONFIG, mode, revealRequested, noticeStep, lastMoveFeedback, lastDiagnosis)
 
     @Test
     fun `a virtual decision is verified, with no Diagnosis and no Guided recovery`() {
@@ -157,7 +162,7 @@ class AssessTest {
     }
 
     @Test
-    fun `feedback shows only in test me and only while the step is not done`() {
+    fun `feedback shows only in test me, also beside the Notice or completion of the Move that finished a step`() {
         MoveFeedback.entries.forEach { feedback ->
             TeachingMode.entries.forEach { mode ->
                 val shown = decide(oneStep, "D", mode = mode, lastMoveFeedback = feedback).feedback
@@ -165,11 +170,33 @@ class AssessTest {
             }
         }
         assertNull(decide(oneStep, "D", mode = TeachingMode.TEST_ME).feedback)
-        val done = decide(oneStep, "F'", mode = TeachingMode.TEST_ME, lastMoveFeedback = MoveFeedback.PROGRESS)
+        val done = decide(oneStep, "F'", mode = TeachingMode.TEST_ME, lastMoveFeedback = MoveFeedback.ON_PATH)
         assertTrue(done.advance)
-        assertNull(done.feedback)
-        val atNotice = decide(twoStep, "U", mode = TeachingMode.TEST_ME, noticeStep = 0, lastMoveFeedback = MoveFeedback.PROGRESS)
+        assertEquals(MoveFeedback.ON_PATH, done.feedback)
+        assertEquals(Text("lesson.lesson-01-01.notice.1"), done.explanation)
+        val atNotice = decide(twoStep, "U", mode = TeachingMode.TEST_ME, noticeStep = 0, lastMoveFeedback = MoveFeedback.ON_PATH)
         assertTrue(atNotice.advance)
-        assertNull(atNotice.feedback)
+        assertEquals(MoveFeedback.ON_PATH, atNotice.feedback)
+        assertNull(decide(twoStep, "U", mode = TeachingMode.GUIDE_ME, noticeStep = 0, lastMoveFeedback = MoveFeedback.ON_PATH).feedback)
+    }
+
+    @Test
+    fun `a diagnosis shows only in test me while the step is not done, and explains the decision`() {
+        val diagnosis = Assess.diagnose(ErrorCategory.WRONG_MOVE_OR_DIRECTION, enumerator(), s.apply(moves("R")), why)
+        TeachingMode.entries.forEach { mode ->
+            val d = decide(oneStep, "D", mode = mode, lastMoveFeedback = MoveFeedback.HARMFUL, lastDiagnosis = diagnosis)
+            if (mode == TeachingMode.TEST_ME) {
+                assertEquals(diagnosis, d.diagnosis)
+                assertEquals(why, d.explanation)
+                assertEquals(MoveFeedback.HARMFUL, d.feedback)
+            } else {
+                assertNull(d.diagnosis, "$mode")
+                assertEquals(Text("lesson.lesson-01-01.goal.1"), d.explanation, "$mode")
+            }
+            assertEquals(Recovery.Unavailable, d.recovery)
+        }
+        val done = decide(oneStep, "F'", mode = TeachingMode.TEST_ME, lastDiagnosis = diagnosis)
+        assertNull(done.diagnosis)
+        assertEquals(Text("lesson.lesson-01-01.notice.1"), done.explanation)
     }
 }

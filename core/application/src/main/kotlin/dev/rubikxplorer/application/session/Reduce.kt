@@ -10,7 +10,9 @@ import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.MoveHistory
 import dev.rubikxplorer.domain.cube.ValidationResult
 import dev.rubikxplorer.domain.text.Text
-import dev.rubikxplorer.domain.tutor.MoveFeedback
+import dev.rubikxplorer.domain.tutor.Assess
+import dev.rubikxplorer.domain.tutor.MoveAssessment
+import dev.rubikxplorer.domain.tutor.TeachingMode
 import dev.rubikxplorer.domain.tutor.Tutor
 
 /**
@@ -24,7 +26,19 @@ fun reduce(
     val starts = event is SessionEvent.LessonStarted || event is SessionEvent.SolvePlaybackStarted
     // Only a Lesson session takes Moves and tutor events; idle and playback sessions ignore them.
     if (!starts && state.kind != SessionKind.LESSON) return Transition(state)
-    return when (event) {
+    val transition = transition(state, event)
+    // AD-5: feedback and its Diagnosis belong to the last committed Move; every other Lesson event
+    // clears them (a playback start rejected by an active Lesson is not one, and changes nothing).
+    val keeps = event is SessionEvent.MoveCommitted || event is SessionEvent.SolvePlaybackStarted
+    if (keeps || transition.state.kind != SessionKind.LESSON) return transition
+    return transition.copy(state = transition.state.copy(lastMoveFeedback = null, lastDiagnosis = null))
+}
+
+private fun transition(
+    state: SessionState,
+    event: SessionEvent,
+): Transition =
+    when (event) {
         is SessionEvent.LessonStarted -> start(state, event.lesson, event.tutorConfig)
         is SessionEvent.SolvePlaybackStarted -> startPlayback(state, event.state, event.solution)
         is SessionEvent.MoveCommitted -> committed(state, event.move)
@@ -37,7 +51,6 @@ fun reduce(
         is SessionEvent.RevealRequested -> Transition(state.copy(revealRequested = true))
         is SessionEvent.StepAdvanced -> advance(state)
     }
-}
 
 private fun start(
     state: SessionState,
@@ -55,6 +68,7 @@ private fun start(
             noticeStep = null,
             revealRequested = false,
             lastMoveFeedback = null,
+            lastDiagnosis = null,
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, entry)))
 }
@@ -82,6 +96,7 @@ private fun startPlayback(
             noticeStep = null,
             revealRequested = false,
             lastMoveFeedback = null,
+            lastDiagnosis = null,
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, start)))
 }
@@ -95,18 +110,28 @@ private fun entryState(lesson: Lesson): CubeState {
     return validated.state
 }
 
-/** Commits [move] and classifies it against the Completion Predicate, whatever the Teaching Mode. */
+/**
+ * Commits [move]; in *Test me* only, [Assess.classify] judges it against the step derived from the
+ * state before it (AD-5). In any other mode the last Move's feedback and Diagnosis are cleared.
+ */
 private fun committed(
     state: SessionState,
     move: Move,
 ): Transition {
     val history = state.history.commit(move)
-    val feedback = state.lesson?.let { MoveFeedback.classify(it.completion, state.virtual, history.state) }
-    return move(state, history, move, feedback)
+    val lesson = state.lesson
+    val assessment =
+        if (lesson != null && state.teachingMode == TeachingMode.TEST_ME) {
+            Assess.classify(lesson, state.entry, state.virtual, move, history.state, checkNotNull(state.tutorConfig))
+        } else {
+            null
+        }
+    return move(state, history, move, assessment)
 }
 
 /**
- * [state] moved to [history], animating [animate]; [feedback] becomes the last Move's feedback. With
+ * [state] moved to [history], animating [animate]; [assessment] becomes the last Move's feedback and
+ * Diagnosis (both cleared when it is null). With
  * `s0` the step shown before and `d1` the current step after: when `d1 > s0` and the Lesson is not
  * complete, `s0`'s Notice stays until *Next* (no auto-advance past a Notice); otherwise no Notice is
  * pending. The reveal resets whenever the shown step changes.
@@ -115,9 +140,9 @@ private fun move(
     state: SessionState,
     history: MoveHistory,
     animate: Move,
-    feedback: MoveFeedback?,
+    assessment: MoveAssessment?,
 ): Transition {
-    val moved = withHistory(state, history).copy(lastMoveFeedback = feedback)
+    val moved = withHistory(state, history).copy(lastMoveFeedback = assessment?.feedback, lastDiagnosis = assessment?.diagnosis)
     val next = moved.lesson?.let { lesson -> withNotice(state, moved, lesson) } ?: moved
     return Transition(next, presentation = listOf(Presentation.Animate(animate, next.revision, next.virtual)))
 }
@@ -143,7 +168,7 @@ private fun reset(state: SessionState): Transition {
     val history = state.history.reset()
     val next =
         (if (history == state.history) state.copy(pendingReset = null) else withHistory(state, history))
-            .copy(noticeStep = null, revealRequested = false, lastMoveFeedback = null)
+            .copy(noticeStep = null, revealRequested = false, lastMoveFeedback = null, lastDiagnosis = null)
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.entry)))
 }
 
@@ -197,14 +222,22 @@ private fun declined(
 private fun advance(state: SessionState): Transition {
     val decision = state.decision ?: return Transition(state)
     val applies = decision.advance && !decision.satisfied
-    return Transition(if (applies) state.copy(noticeStep = null, revealRequested = false, lastMoveFeedback = null) else state)
+    val next = state.copy(noticeStep = null, revealRequested = false, lastMoveFeedback = null, lastDiagnosis = null)
+    return Transition(if (applies) next else state)
 }
 
-/** A different mode clears the last Move's feedback (it belonged to the old mode's attempt); the same mode changes nothing. */
+/** A different mode clears the last Move's feedback and Diagnosis (they belonged to the old mode's attempt); the same mode changes nothing. */
 private fun modeChanged(
     state: SessionState,
     event: SessionEvent.TeachingModeChanged,
-): Transition = Transition(if (event.mode == state.teachingMode) state else state.copy(teachingMode = event.mode, lastMoveFeedback = null))
+): Transition =
+    Transition(
+        if (event.mode == state.teachingMode) {
+            state
+        } else {
+            state.copy(teachingMode = event.mode, lastMoveFeedback = null, lastDiagnosis = null)
+        },
+    )
 
 /**
  * [state] with [history] as its new history: the next revision, the Completion Predicate recomputed

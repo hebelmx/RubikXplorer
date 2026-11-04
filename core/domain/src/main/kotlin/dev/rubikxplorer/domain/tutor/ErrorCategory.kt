@@ -1,5 +1,7 @@
 package dev.rubikxplorer.domain.tutor
 
+import dev.rubikxplorer.domain.text.Text
+
 /**
  * What kind of mistake a Diagnosis names (AD-5, FR-9): a closed set. Every `when` over it is
  * exhaustive, and each category has exactly one [recoveryPath].
@@ -41,7 +43,10 @@ enum class ErrorCategory {
             }
 }
 
-/** How the Learner gets back on track after a mistake (FR-10). */
+/**
+ * How the Learner gets back on track after a mistake (FR-10): its [prompt] sentence and the
+ * [offers] the lesson panel presents, in that order (Story 4.4 renders them as inline buttons).
+ */
 enum class RecoveryPath {
     /** Take back the last Move. */
     UNDO,
@@ -56,5 +61,44 @@ enum class RecoveryPath {
     REORIENT,
 
     /** Enter the cube's state again. */
+    RE_ENTER,
+    ;
+
+    /** The one sentence that says how to get back. */
+    val prompt: Text
+        get() =
+            when (this) {
+                UNDO -> Text("msg.recovery.undo")
+                GUIDED_RECOVERY -> Text("msg.recovery.guided-recovery")
+                RETRY -> Text("msg.recovery.retry")
+                REORIENT -> Text("msg.recovery.reorient")
+                RE_ENTER -> Text("msg.recovery.re-enter")
+            }
+
+    /** What the Learner may choose, in the order offered; a turned cube is shown how, never undone. */
+    val offers: List<RecoveryOffer>
+        get() =
+            when (this) {
+                UNDO, GUIDED_RECOVERY, RETRY -> listOf(RecoveryOffer.UNDO, RecoveryOffer.GUIDE_ME_BACK, RecoveryOffer.TRY_AGAIN)
+                REORIENT -> listOf(RecoveryOffer.SHOW_ME_HOW)
+                RE_ENTER -> listOf(RecoveryOffer.RE_ENTER)
+            }
+}
+
+/** One choice a Recovery Path offers the Learner (UX-DR25); Story 4.4 renders them. */
+enum class RecoveryOffer {
+    /** *Undo*: take back the last Move. */
+    UNDO,
+
+    /** *Guide me back*: the Guided recovery (enabled by Story 4.5). */
+    GUIDE_ME_BACK,
+
+    /** *Try again*: restart the Objective from the last Checkpoint. */
+    TRY_AGAIN,
+
+    /** *Show me how*: show how to hold the cube again. */
+    SHOW_ME_HOW,
+
+    /** Enter the cube again. */
     RE_ENTER,
 }

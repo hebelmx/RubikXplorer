@@ -32,7 +32,7 @@ class SolvePlaybackSessionTest {
         val lesson =
             started(twoStepLesson()).after(modeChanged(TeachingMode.TEST_ME), commit(U), stepAdvanced, reveal, commit(F_PRIME), resetEvent)
         check(lesson.pendingReset != null && lesson.stepIndex == 1 && lesson.revealRequested && lesson.history.canUndo)
-        val withFeedback = lesson.copy(lastMoveFeedback = MoveFeedback.NEUTRAL)
+        val withFeedback = lesson.copy(lastMoveFeedback = MoveFeedback.NEUTRAL, lastDiagnosis = TURNED_DIAGNOSIS)
         assertEquals(Transition(withFeedback), reduce(withFeedback, playbackStarted()))
     }
 

@@ -30,5 +30,24 @@ internal object WhiteLayer {
             }.toSet()
     }
 
+    /**
+     * True when [piece]'s colors sit in the slot whose face centers are exactly its colors, but the
+     * piece is not correct there: twisted (a corner) or flipped (an edge). Color-anchored like
+     * [correctPieces], so it never reads `state.orientation` in effect.
+     */
+    fun misorientedInSlot(
+        state: CubeState,
+        piece: Piece,
+    ): Boolean {
+        val colors = state.toFacelets().colors
+        val slot =
+            (FaceletTables.CORNER_FACELETS + FaceletTables.EDGE_FACELETS).firstOrNull { stickers ->
+                stickers.map { colors[FaceletTables.center(faceOf(it))] }.toSet() == piece.colors
+            } ?: return false
+        val holds = slot.map { colors[it] }.toSet() == piece.colors
+        val correct = slot.all { colors[it] == colors[FaceletTables.center(faceOf(it))] }
+        return holds && !correct
+    }
+
     private fun faceOf(index: Int): Face = Face.entries[index / PER_FACE]
 }

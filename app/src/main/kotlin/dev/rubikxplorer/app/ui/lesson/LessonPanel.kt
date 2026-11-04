@@ -45,8 +45,11 @@ import dev.rubikxplorer.domain.tutor.TeachingMode
 /**
  * What the step card shows, already resolved: step [number] of [count], its Goal, Keep and Watch,
  * its [notice] (null until it is due), its [moves] (null while hidden), whether the Lesson's
- * Objective is met, the Test me [feedback] on the last Move (null when there is none to show) with
- * [feedbackMove] naming that Move (the session's revision, so each Move's line is a fresh node that
+ * Objective is met, the Test me [feedback] on the last Move (null when there is none to show) or,
+ * when the tutor names a mistake, its [diagnosis] with the Recovery Path's [recoveryPrompt] instead
+ * (and, for a turned cube, the [showMeHow] Cube Rotations back to the Lesson's hold, which the
+ * stage animates as a demonstration when the offer, labelled [showMeHowLabel], is tapped),
+ * with [feedbackMove] naming that Move (the session's revision, so each Move's line is a fresh node that
  * screen readers announce even when its text repeats) and,
  * while the Moves are hidden, whether the "Show the Move" control offers them ([showMoveControl],
  * Guide me) or a quiet line says they wait for a Hint.
@@ -61,6 +64,10 @@ internal data class StepCardContent(
     val moves: List<Move>?,
     val objectiveMet: Boolean,
     val feedback: String? = null,
+    val diagnosis: String? = null,
+    val recoveryPrompt: String? = null,
+    val showMeHow: List<Move>? = null,
+    val showMeHowLabel: String = "",
     val feedbackMove: Long = 0,
     val showMoveControl: Boolean = true,
 )
@@ -83,6 +90,7 @@ internal fun LessonPanel(
     nextEnabled: Boolean,
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
+    onShowMeHow: (List<Move>) -> Unit = {},
 ) {
     val tokens = RubikTheme.tokens
     Column(
@@ -95,7 +103,7 @@ internal fun LessonPanel(
             color = tokens.inkPrimary,
             modifier = Modifier.testTag("lesson:objective").semantics { heading() },
         )
-        StepCard(step, onShowMove, Modifier.fillMaxWidth())
+        StepCard(step, onShowMove, onShowMeHow, Modifier.fillMaxWidth())
         TeachingModeSwitcher(modes, mode, onModeChange, Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s3), modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(
@@ -129,6 +137,7 @@ internal fun LessonPanel(
 private fun StepCard(
     step: StepCardContent,
     onShowMove: () -> Unit,
+    onShowMeHow: (List<Move>) -> Unit,
     modifier: Modifier,
 ) {
     val tokens = RubikTheme.tokens
@@ -179,7 +188,20 @@ private fun StepCard(
         Field(R.string.lesson_keep, step.keep, "lesson:keep")
         Field(R.string.lesson_watch, step.watch, "lesson:watch")
         MovesRow(step.moves, step.showMoveControl, onShowMove)
-        step.feedback?.let { key(step.feedbackMove) { Feedback(it) } }
+        val diagnosis = step.diagnosis
+        if (diagnosis != null) {
+            key(step.feedbackMove) {
+                DiagnosisLine(
+                    diagnosis,
+                    step.recoveryPrompt,
+                    showMeHow = step.showMeHow,
+                    showMeHowLabel = step.showMeHowLabel,
+                    onShowMeHow = onShowMeHow,
+                )
+            }
+        } else {
+            step.feedback?.let { key(step.feedbackMove) { Feedback(it) } }
+        }
         step.notice?.let { Field(R.string.lesson_notice, it, "lesson:notice") }
     }
 }
@@ -252,7 +274,7 @@ private fun MovesRow(
 }
 
 @Composable
-private fun NotationChip(move: Move) {
+internal fun NotationChip(move: Move) {
     val tokens = RubikTheme.tokens
     val shape = MaterialTheme.shapes.small
     val token = Notation.format(move)

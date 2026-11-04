@@ -7,6 +7,7 @@ import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.MoveHistory
 import dev.rubikxplorer.domain.predicate.ObjectiveProgress
 import dev.rubikxplorer.domain.tutor.Assess
+import dev.rubikxplorer.domain.tutor.Diagnosis
 import dev.rubikxplorer.domain.tutor.MoveFeedback
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import dev.rubikxplorer.domain.tutor.Tutor
@@ -22,7 +23,8 @@ import dev.rubikxplorer.domain.tutor.TutorDecision
  * - [history] starts at [entry]; [virtual] is its current state.
  * - [objectiveMet] and [progress] are the Lesson's Completion Predicate on [virtual], recomputed on
  *   every change of [virtual].
- * - The tutor fields ([teachingMode], [noticeStep], [revealRequested], [lastMoveFeedback]) never
+ * - The tutor fields ([teachingMode], [noticeStep], [revealRequested], [lastMoveFeedback],
+ *   [lastDiagnosis]) never
  *   advance [revision]: a mode switch or a reveal does not change the Cube State, so it must not
  *   stale a pending effect.
  * - The current step is never stored: [stepIndex] derives it from the Cube State (AD-6).
@@ -58,15 +60,28 @@ data class SessionState internal constructor(
     /** True once the Learner asked to see the current step's Moves. */
     val revealRequested: Boolean,
     /**
-     * How the last committed Move changed progress toward the Objective, set by every `MoveCommitted`
-     * whatever the mode (only [decision] decides whether it shows); cleared by anything else that
-     * moves the cube or the step, and by a change of mode.
+     * How the last committed Move related to the current step ([Assess.classify]), set by a
+     * `MoveCommitted` in *Test me* only (only [decision] decides whether it shows); cleared by a commit
+     * in any other mode, by anything else that moves the cube or the step, and by a change of mode.
      */
     val lastMoveFeedback: MoveFeedback?,
+    /** The mistake [Assess.classify] named for the last committed Move, if any; set and cleared with [lastMoveFeedback]. */
+    val lastDiagnosis: Diagnosis?,
 ) {
     /** The tutor's decision for the shown step; `null` outside a Lesson. Derived, never stored. */
     val decision: TutorDecision? by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        lesson?.let { Assess.decide(it, history, checkNotNull(tutorConfig), teachingMode, revealRequested, noticeStep, lastMoveFeedback) }
+        lesson?.let {
+            Assess.decide(
+                it,
+                history,
+                checkNotNull(tutorConfig),
+                teachingMode,
+                revealRequested,
+                noticeStep,
+                lastMoveFeedback,
+                lastDiagnosis,
+            )
+        }
     }
 
     /** The 0-based Lesson step the card shows ([Tutor.shownStep]); 0 outside a Lesson. Derived, never stored. */
@@ -105,6 +120,7 @@ data class SessionState internal constructor(
                 noticeStep = null,
                 revealRequested = false,
                 lastMoveFeedback = null,
+                lastDiagnosis = null,
             )
     }
 }
