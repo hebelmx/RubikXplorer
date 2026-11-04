@@ -17,17 +17,14 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
-import androidx.compose.ui.test.onChildren
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
-import dev.rubikxplorer.app.render.Net2DRenderer
-import dev.rubikxplorer.app.render.StickerColorKey
-import dev.rubikxplorer.app.render.StickerGlyphInkKey
+import dev.rubikxplorer.app.render.Cube3DRenderer
+import dev.rubikxplorer.app.render.RenderedStickersKey
 import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
 import dev.rubikxplorer.domain.appearance.StickerAppearance
 import dev.rubikxplorer.domain.cube.CubeState
@@ -76,7 +73,11 @@ class FreeCubeScreenTest {
     private fun openMore() = rule.onNodeWithTag("moveKey:more").performScrollTo().performClick()
 
     private fun drawnColors(): List<Color> =
-        (0 until Facelets.SIZE).map { rule.onNodeWithTag("sticker:$it").fetchSemanticsNode().config[StickerColorKey] }
+        rule
+            .onNodeWithTag("cube3d")
+            .fetchSemanticsNode()
+            .config[RenderedStickersKey]
+            .map { Color(it.fill) }
 
     private fun expectedColors(facelets: Facelets) = facelets.colors.map { Color(StickerAppearance.of(it).fill) }
 
@@ -221,15 +222,14 @@ class FreeCubeScreenTest {
         val colors = viewModel.renderer.renderedFacelets().colors
         colors.forEachIndexed { index, color ->
             val appearance = StickerAppearance.of(color)
-            val node = rule.onNodeWithTag("sticker:$index", useUnmergedTree = true)
-            val ink = node.fetchSemanticsNode().config.getOrNull(StickerGlyphInkKey)
-            val children = node.onChildren().fetchSemanticsNodes()
+            val draw = rule.onNodeWithTag("cube3d").fetchSemanticsNode().config[RenderedStickersKey][index]
+            assertEquals(appearance.fill, draw.fill)
             if (on) {
-                assertEquals(Color(appearance.glyphInk), ink)
-                node.onChildren()[0].assertTextEquals(appearance.glyph.toString())
+                assertEquals(appearance.glyphInk, draw.glyphInk)
+                assertEquals(appearance.glyph, draw.glyph)
             } else {
-                assertNull(ink)
-                assertTrue(children.isEmpty())
+                assertNull(draw.glyphInk)
+                assertNull(draw.glyph)
             }
         }
     }
@@ -289,28 +289,6 @@ class FreeCubeScreenTest {
         }
     }
 
-    private fun DpRect.centerX(): Float = (left.value + right.value) / 2
-
-    private fun DpRect.centerY(): Float = (top.value + bottom.value) / 2
-
-    @Test
-    fun `every sticker sits in its Kociemba cross cell`() {
-        launch()
-        val net = rule.onNodeWithTag("net").getUnclippedBoundsInRoot()
-        val cell = (net.right.value - net.left.value) / 12
-        assertEquals(cell * 9, net.bottom.value - net.top.value, 0.5f)
-        // Top-left (column, row) of each URFDLB face: U 3/0, R 6/3, F 3/3, D 3/6, L 0/3, B 9/3.
-        val origin = listOf(3 to 0, 6 to 3, 3 to 3, 3 to 6, 0 to 3, 9 to 3)
-        (0 until Facelets.SIZE).forEach { index ->
-            val (faceColumn, faceRow) = origin[index / 9]
-            val column = faceColumn + index % 9 % 3
-            val row = faceRow + index % 9 / 3
-            val bounds = rule.onNodeWithTag("sticker:$index").getUnclippedBoundsInRoot()
-            assertEquals("sticker $index column", column, ((bounds.centerX() - net.left.value) / cell).toInt())
-            assertEquals("sticker $index row", row, ((bounds.centerY() - net.top.value) / cell).toInt())
-        }
-    }
-
     /** Steps the paused clock a frame at a time until [target] is drawn; fails past [budgetMs]. */
     private fun stepUntilRendered(
         target: Facelets,
@@ -352,23 +330,12 @@ class FreeCubeScreenTest {
         rule.mainClock.autoAdvance = false
         burst.forEach { rule.onNodeWithTag("moveKey:${Notation.format(it)}").performClick() }
 
-        // Item 1 starts on the first tap, alone in the queue; later ones fast-forward while more than
-        // FAST_FORWARD_AFTER items are queued (counting themselves). An item is drawn at its midpoint,
-        // so the gap between two settles is the second half of one item plus the first half of the next.
-        fun fast(k: Int) = k > 1 && burst.size - k >= Net2DRenderer.FAST_FORWARD_AFTER
-
-        fun half(k: Int) =
-            if (k == 0) {
-                0L
-            } else if (fast(k)) {
-                MAX_ITEM_MS / 4 / 2
-            } else {
-                MAX_ITEM_MS / 2
-            }
+        // The first tap starts alone; later taps accumulate behind it.
+        // Geometry readback changes at completion, rather than the net flip midpoint.
+        fun fast(k: Int) = k > 1 && burst.size - k >= Cube3DRenderer.FAST_FORWARD_AFTER
         (1..burst.size).forEach { k ->
-            // Each half starts on the next frame, so allow one frame per half plus one of slack.
-            val budget = half(k - 1) + half(k) + 3 * FRAME_MS
-            stepUntilRendered(targets[k], budget, "item $k (fast=${fast(k)})", allowed = setOf(targets[k - 1], targets[k]))
+            val budget = (if (fast(k)) Cube3DRenderer.TURN_MILLIS / 4 else Cube3DRenderer.TURN_MILLIS) + 3 * FRAME_MS
+            stepUntilRendered(targets[k], budget, "item $k", allowed = setOf(targets[k - 1], targets[k]))
         }
         assertEquals(viewModel.history.state.toFacelets(), viewModel.renderer.renderedFacelets())
     }

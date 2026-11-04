@@ -12,6 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "dev.rubikxplorer"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = 1
         versionName = "0.1.0"
     }
@@ -19,6 +20,9 @@ android {
     buildFeatures {
         compose = true
     }
+
+    sourceSets.getByName("test").kotlin.directories += "src/sharedTest/kotlin"
+    sourceSets.getByName("androidTest").kotlin.directories += "src/sharedTest/kotlin"
 
     // Robolectric Compose tests read the merged resources (fonts, strings, drawables).
     testOptions {
@@ -40,6 +44,11 @@ dependencies {
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
 
     // Compose UI tests on the JVM: Robolectric runs JUnit4 tests under JUnit Platform via vintage.
     testImplementation(platform(libs.androidx.compose.bom))

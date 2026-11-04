@@ -7,6 +7,9 @@
     <string name="toolbar_undo">Undo</string>
     <string name="toolbar_redo">Redo</string>
     <string name="toolbar_reset">Reset</string>
+    <string name="cube_description">Cube, %1$s on top, %2$s in front</string>
+    <string name="cube_state_solved">Solved</string>
+    <string name="cube_state_unsolved">Not solved</string>
 
     <!-- Navigation -->
     <string name="nav_learn">Learn</string>
