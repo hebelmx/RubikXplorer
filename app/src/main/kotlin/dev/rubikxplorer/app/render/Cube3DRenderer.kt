@@ -106,6 +106,13 @@ class Cube3DRenderer(
     private val queue = PresentationQueue(model)
     private val wake = Channel<Unit>(Channel.CONFLATED)
     private var drawn by mutableStateOf(initial)
+
+    /**
+     * The Move the queue is presenting: the animating item's Move (the inverse during Undo or Step
+     * Back), kept across the gap to the next waiting item; null once the queue is idle.
+     */
+    var presentedMove by mutableStateOf<Move?>(null)
+        private set
     private var meshVersion = 0
     private var builtColors = -1
     private var builtStyle: RenderStyle? = null
@@ -205,6 +212,7 @@ class Cube3DRenderer(
                 )
             geometryRevision++
             drawn = model.facelets()
+            presentedMove = queue.activeMove ?: presentedMove?.takeIf { queue.isBusy }
             view.requestRender()
         }
         renderer.eye = orbit.eye()

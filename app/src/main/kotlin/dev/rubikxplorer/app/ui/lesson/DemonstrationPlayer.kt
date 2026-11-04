@@ -18,6 +18,7 @@ import dev.rubikxplorer.app.ui.playback.PlaybackFrameLoop
 import dev.rubikxplorer.app.ui.playback.PlaybackTransport
 import dev.rubikxplorer.app.ui.playback.PlaybackTransportState
 import dev.rubikxplorer.app.ui.theme.Spacing
+import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.playback.DemonstrationStep
 import dev.rubikxplorer.domain.playback.PlaybackSpeed
@@ -51,6 +52,12 @@ class DemonstrationPlayerState private constructor(
     /** The focused step's emphasis: its Keep, involved and target pieces lit, the target outlined. */
     val emphasis: NetEmphasis?
         get() = if (size == 0) null else focusedStep?.focus?.let { NetEmphasis(lit = it.lit, highlighted = it.target) }
+
+    /**
+     * The Move the arrow shows: the one the renderer is turning (its inverse on Step Back, the
+     * earlier Moves while rapid steps drain), else the [currentMove] once the renderer is idle.
+     */
+    val arrow: Move? get() = renderer.presentedMove ?: currentMove
 
     fun play() = playback.play()
 
@@ -88,7 +95,7 @@ fun DemonstrationPlayer(
             style,
             Modifier.fillMaxWidth().weight(1f, fill = false).aspectRatio(1f),
             emphasis = state.emphasis,
-            arrow = state.currentMove,
+            arrow = state.arrow,
             reduceMotion = state.reduceMotion,
         )
         PlaybackTransport(state)

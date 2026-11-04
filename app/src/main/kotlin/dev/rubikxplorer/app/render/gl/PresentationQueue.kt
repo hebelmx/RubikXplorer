@@ -1,6 +1,7 @@
 package dev.rubikxplorer.app.render.gl
 
 import dev.rubikxplorer.app.render.PresentationItem
+import dev.rubikxplorer.domain.cube.Move
 
 /** Pure FIFO. One completion per frame preserves every intermediate committed geometry. */
 class PresentationQueue(
@@ -13,6 +14,10 @@ class PresentationQueue(
 
     @get:Synchronized
     val isBusy: Boolean get() = current != null || waiting.isNotEmpty()
+
+    /** The Move of the item animating now; null between items and when idle. */
+    @get:Synchronized
+    val activeMove: Move? get() = current?.move
 
     @Synchronized
     fun submit(items: List<PresentationItem>) {

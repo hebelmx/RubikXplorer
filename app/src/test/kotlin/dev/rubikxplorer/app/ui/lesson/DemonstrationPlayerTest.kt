@@ -189,6 +189,51 @@ class DemonstrationPlayerTest {
         assertEquals(CubeState.SOLVED.toFacelets(), state.renderer.renderedFacelets())
     }
 
+    private fun arrow() =
+        rule
+            .onNodeWithTag("cube3d")
+            .fetchSemanticsNode()
+            .config[RenderedArrowKey]
+            .notation
+
+    @Test
+    fun `step back points the arrow at the inverse Move being turned`() {
+        show()
+        rule.onNodeWithTag("playback:forward").performClick()
+        rule.waitForIdle()
+        assertEquals("F'", arrow())
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithTag("playback:back").performClick()
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeByFrame()
+        // Mid-flip the cube turns F, and so does the arrow.
+        assertNotEquals(entry.toFacelets(), state.renderer.renderedFacelets())
+        assertEquals("F", arrow())
+        rule.mainClock.advanceTimeBy(300)
+        assertEquals(entry.toFacelets(), state.renderer.renderedFacelets())
+        assertEquals("F'", arrow())
+    }
+
+    @Test
+    fun `rapid steps keep the arrow on the Move the renderer is turning`() {
+        val three = demo("F U R", "R'", "U'", "F'")
+        show(demo = three)
+        rule.waitForIdle()
+        rule.mainClock.autoAdvance = false
+        repeat(3) { rule.onNodeWithTag("playback:forward").performClick() }
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeByFrame()
+        assertCounter("3 / 3")
+        assertEquals("R'", arrow())
+        rule.mainClock.advanceTimeBy(210)
+        assertEquals("U'", arrow())
+        rule.mainClock.advanceTimeBy(210)
+        assertEquals("F'", arrow())
+        rule.mainClock.advanceTimeBy(300)
+        assertEquals(CubeState.SOLVED.toFacelets(), state.renderer.renderedFacelets())
+        assertEquals("F'", arrow())
+    }
+
     @Test
     fun `speed buttons select the speed`() {
         show()
