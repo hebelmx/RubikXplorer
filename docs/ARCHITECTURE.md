@@ -91,6 +91,7 @@ sequenceDiagram
 ```
 
 - **Commit before animate (AD-4).** A Move is committed to state first, and the animation only catches up. Fast or overlapping input therefore can't leave a half-turned cube. The renderer is a projection with a test hook (`renderedFacelets()`), so "screen equals model" is checked automatically.
+  The production 3D adapter lives in `app/render/gl` behind `Cube3DRenderer`; the free cube uses it, while lessons keep the net until Story 5.4. Run its instrumented sync suite with `./gradlew :app:connectedDebugAndroidTest`.
 - **Revisioned effects.** Scans, solves and recovery planning are asynchronous. Every effect carries the state revision it was issued at, and results for a stale revision are discarded. This prevents a subtle bug: a Quick Check captured *before* an undo being judged against the state *after* it, which would produce a false "verified".
 - **A single owner per thing.** An ownership matrix in the spine gives every entity exactly one writer: cube states, checkpoints, attempts, progress, Algorithm Status, calibration and preferences.
 

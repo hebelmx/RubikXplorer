@@ -5,9 +5,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import dev.rubikxplorer.app.random.KotlinRandomSource
+import dev.rubikxplorer.app.render.Cube3DRenderer
 import dev.rubikxplorer.app.render.CubeRenderer
 import dev.rubikxplorer.app.render.MoveIntent
-import dev.rubikxplorer.app.render.Net2DRenderer
 import dev.rubikxplorer.app.render.PresentationItem
 import dev.rubikxplorer.app.render.RenderStyle
 import dev.rubikxplorer.application.usecase.NewScramble
@@ -27,8 +27,8 @@ enum class ProgressChange {
  * history. The free cube is not a Learning Session: nothing here is persisted.
  */
 class FreeCubeViewModel(
-    /** The 2D net adapter; its queue and drawn state outlive configuration changes with this ViewModel. */
-    val renderer: Net2DRenderer = Net2DRenderer(),
+    /** The 3D adapter; its queue and drawn state outlive configuration changes with this ViewModel. */
+    val renderer: Cube3DRenderer = Cube3DRenderer(),
     private val scramble: NewScramble = NewScramble(KotlinRandomSource()),
 ) : ViewModel() {
     private val port: CubeRenderer = renderer
