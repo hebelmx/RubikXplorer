@@ -39,6 +39,8 @@ import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
 import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.domain.appearance.StickerAppearance
 import dev.rubikxplorer.domain.content.ContentLoadResult
+import dev.rubikxplorer.domain.cube.Axis
+import dev.rubikxplorer.domain.cube.CubeRotation
 import dev.rubikxplorer.domain.cube.Face
 import dev.rubikxplorer.domain.cube.FaceTurn
 import dev.rubikxplorer.domain.cube.Facelets
@@ -504,6 +506,44 @@ class LessonScreenTest {
         node("moveChip:y'").assertExists()
         node("lesson:showMeHow").assertDoesNotExist()
         assertEquals(turned, host.state.value.virtual)
+    }
+
+    @Test
+    fun `Show me how animates the Cube Rotation back on the net and leaves the session unchanged`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.TEST_ME)
+        press("y", 1)
+        rule.waitUntil(5_000) {
+            host.state.value.decision
+                ?.diagnosis != null
+        }
+        rule.waitForIdle()
+        val before = host.state.value
+        val turned = before.virtual
+        assertNetMatchesSession("turned cube drawn before Show me how")
+
+        node("lesson:showMeHow").performScrollTo()
+        rule.mainClock.autoAdvance = false
+        node("lesson:showMeHow").performClick()
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeBy(REORIENT_STEP_MILLIS)
+        // The net shows the cube turned back to the Lesson's hold, yet the session still holds it turned.
+        val back =
+            turned
+                .apply(CubeRotation(Axis.Y, Turn.COUNTERCLOCKWISE))
+                .toFacelets()
+                .colors
+                .map { Color(StickerAppearance.of(it).fill) }
+        assertEquals(back, drawnColors())
+        assertEquals(turned, host.state.value.virtual)
+        assertEquals(before.revision, host.state.value.revision)
+        assertEquals(before.history, host.state.value.history)
+
+        rule.mainClock.advanceTimeBy(REORIENT_HOLD_MILLIS + 500)
+        rule.mainClock.autoAdvance = true
+        // The demonstration ends on the session's own state; nothing was committed.
+        assertNetMatchesSession("net returns to the session after Show me how")
+        assertEquals(before, host.state.value)
     }
 
     @Test

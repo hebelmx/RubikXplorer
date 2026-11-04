@@ -47,7 +47,8 @@ import dev.rubikxplorer.domain.tutor.TeachingMode
  * its [notice] (null until it is due), its [moves] (null while hidden), whether the Lesson's
  * Objective is met, the Test me [feedback] on the last Move (null when there is none to show) or,
  * when the tutor names a mistake, its [diagnosis] with the Recovery Path's [recoveryPrompt] instead
- * (and, for a turned cube, the [showMeHow] Cube Rotations back to the Lesson's hold),
+ * (and, for a turned cube, the [showMeHow] Cube Rotations back to the Lesson's hold, which the
+ * stage animates as a demonstration when the offer is tapped),
  * with [feedbackMove] naming that Move (the session's revision, so each Move's line is a fresh node that
  * screen readers announce even when its text repeats) and,
  * while the Moves are hidden, whether the "Show the Move" control offers them ([showMoveControl],
@@ -88,6 +89,7 @@ internal fun LessonPanel(
     nextEnabled: Boolean,
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
+    onShowMeHow: (List<Move>) -> Unit = {},
 ) {
     val tokens = RubikTheme.tokens
     Column(
@@ -100,7 +102,7 @@ internal fun LessonPanel(
             color = tokens.inkPrimary,
             modifier = Modifier.testTag("lesson:objective").semantics { heading() },
         )
-        StepCard(step, onShowMove, Modifier.fillMaxWidth())
+        StepCard(step, onShowMove, onShowMeHow, Modifier.fillMaxWidth())
         TeachingModeSwitcher(modes, mode, onModeChange, Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s3), modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(
@@ -134,6 +136,7 @@ internal fun LessonPanel(
 private fun StepCard(
     step: StepCardContent,
     onShowMove: () -> Unit,
+    onShowMeHow: (List<Move>) -> Unit,
     modifier: Modifier,
 ) {
     val tokens = RubikTheme.tokens
@@ -186,7 +189,7 @@ private fun StepCard(
         MovesRow(step.moves, step.showMoveControl, onShowMove)
         val diagnosis = step.diagnosis
         if (diagnosis != null) {
-            key(step.feedbackMove) { DiagnosisLine(diagnosis, step.recoveryPrompt, showMeHow = step.showMeHow) }
+            key(step.feedbackMove) { DiagnosisLine(diagnosis, step.recoveryPrompt, showMeHow = step.showMeHow, onShowMeHow = onShowMeHow) }
         } else {
             step.feedback?.let { key(step.feedbackMove) { Feedback(it) } }
         }

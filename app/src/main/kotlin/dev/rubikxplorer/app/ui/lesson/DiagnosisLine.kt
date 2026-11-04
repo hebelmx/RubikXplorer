@@ -29,7 +29,8 @@ import dev.rubikxplorer.domain.cube.Move
  * Path's [prompt], both already resolved. Neutral ink in one polite live region, with no icon, no
  * red, no shake and no animation: a mistake is named calmly, never staged. When the Recovery Path
  * offers *Show me how* (a turned cube, never undone), [showMeHow] holds the Cube Rotations back to
- * the Lesson's hold, shown as notation chips once the offer is tapped; it never turns the cube.
+ * the Lesson's hold: tapping the offer calls [onShowMeHow] with them (the stage animates them as a
+ * demonstration) and shows them as notation chips for a caption; it never turns the session's cube.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -38,6 +39,7 @@ internal fun DiagnosisLine(
     prompt: String?,
     modifier: Modifier = Modifier,
     showMeHow: List<Move>? = null,
+    onShowMeHow: (List<Move>) -> Unit = {},
 ) {
     val tokens = RubikTheme.tokens
     var shown by remember { mutableStateOf(false) }
@@ -63,7 +65,10 @@ internal fun DiagnosisLine(
                 }
             } else {
                 TextButton(
-                    onClick = { shown = true },
+                    onClick = {
+                        shown = true
+                        onShowMeHow(showMeHow)
+                    },
                     modifier = Modifier.heightIn(min = Spacing.touchMin).testTag("lesson:showMeHow"),
                 ) {
                     Text(stringResource(R.string.lesson_show_me_how), color = tokens.accent)

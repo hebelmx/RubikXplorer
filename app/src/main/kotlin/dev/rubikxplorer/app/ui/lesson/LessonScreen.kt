@@ -3,6 +3,7 @@ package dev.rubikxplorer.app.ui.lesson
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -56,6 +57,7 @@ import dev.rubikxplorer.app.content.ContentStrings
 import dev.rubikxplorer.app.render.MoveIntent
 import dev.rubikxplorer.app.render.Net2DRenderer
 import dev.rubikxplorer.app.render.NetEmphasis
+import dev.rubikxplorer.app.render.PresentationItem
 import dev.rubikxplorer.app.render.RenderStyle
 import dev.rubikxplorer.app.session.SessionHost
 import dev.rubikxplorer.app.session.toItems
@@ -201,6 +203,7 @@ private fun LessonBody(
             nextEnabled = decision.advance,
             onNext = { if (decision.satisfied) onClose() else send(SessionEvent::StepAdvanced) },
             modifier = panelModifier,
+            onShowMeHow = { rotations -> scope.launch { demonstrateReorientation(host, renderer, rotations, reduceMotion) } },
         )
     }
     val stage: @Composable (Modifier) -> Unit = { stageModifier ->
@@ -389,6 +392,43 @@ private fun LearnerStage(
     ResetConfirmation(host = host, resolve = strings::resolve, onTransition = { renderer.submit(it.presentation.toItems()) })
 }
 
+/**
+ * *Show me how* for a turned cube: plays [rotations] on the session's net from the current Cube
+ * State, one per [REORIENT_STEP_MILLIS] (stepped, not animated, under [reduceMotion]), holds the
+ * Lesson's hold for a moment, then snaps the net back to the session's current state. A
+ * demonstration only: it dispatches nothing, so the session (and its undo history) never changes
+ * (AD-3, AD-5), and the net matches the session again once it ends.
+ */
+private suspend fun demonstrateReorientation(
+    host: SessionHost,
+    renderer: Net2DRenderer,
+    rotations: List<Move>,
+    reduceMotion: Boolean,
+) {
+    val held = host.state.value
+    var shown = held.virtual
+    rotations.forEach { rotation ->
+        shown = shown.apply(rotation)
+        val target = shown.toFacelets()
+        val item =
+            if (reduceMotion) {
+                PresentationItem.Snap(held.revision, target)
+            } else {
+                PresentationItem.Animate(rotation, held.revision, target)
+            }
+        renderer.submit(listOf(item))
+        awaitFrameMillis(REORIENT_STEP_MILLIS)
+    }
+    awaitFrameMillis(REORIENT_HOLD_MILLIS)
+    val now = host.state.value
+    renderer.submit(listOf(PresentationItem.Snap(now.revision, now.virtual.toFacelets())))
+}
+
+/** Suspends for [millis] on the Compose frame clock, timed by a tween as the renderer's own animations are. */
+private suspend fun awaitFrameMillis(millis: Long) {
+    animate(0f, 1f, animationSpec = tween(millis.toInt(), easing = LinearEasing)) { _, _ -> }
+}
+
 /** Reset changes something: a Move to take back or redo, or a later step to return from. */
 private fun canReset(session: SessionState): Boolean = session.history.canUndo || session.history.canRedo || session.stepIndex > 0
 
@@ -421,6 +461,12 @@ private val ALL_PIECES: Set<Piece> =
     CubeState.SOLVED.toFacelets().let { facelets -> (0 until Facelets.SIZE).mapNotNull { Piece.at(facelets, it) }.toSet() }
 
 private const val PULSE_MILLIS = 600
+
+/** Each *Show me how* Cube Rotation's slot: the renderer's flip ([Net2DRenderer.ITEM_MILLIS]) plus a pause. */
+internal const val REORIENT_STEP_MILLIS = 600L
+
+/** How long the net holds the Lesson's hold before returning to the session's state. */
+internal const val REORIENT_HOLD_MILLIS = 1_200L
 private const val COMPACT_STAGE_FRACTION = 0.45f
 private const val WIDE_STAGE_FRACTION = 0.55f
 private val COMPACT_STAGE_MIN: Dp = 280.dp
