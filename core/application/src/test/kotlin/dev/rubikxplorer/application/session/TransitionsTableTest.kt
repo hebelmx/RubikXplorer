@@ -1,6 +1,7 @@
 package dev.rubikxplorer.application.session
 
 import dev.rubikxplorer.domain.cube.CubeState
+import dev.rubikxplorer.domain.tutor.AssistanceLevel
 import dev.rubikxplorer.domain.tutor.MoveFeedback
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -88,6 +89,12 @@ class TransitionsTableTest {
     private val planEffect = (planning.guidedRecovery as GuidedRecovery.Planning).effect
     private val overtaken = planning.after(commit(F))
 
+    // Adaptive assistance fixtures (shipped 03-01 in Test me, the flag on): R then Undo explains, with R left to redo.
+    private val adaptiveHarmed =
+        SessionState.IDLE
+            .after(lessonStarted(shippedLesson("lesson-03-01"), adaptiveAssistance = true), modeChanged(TeachingMode.TEST_ME), commit(R))
+    private val explained = adaptiveHarmed.after(undo).also { check(it.assistance == AssistanceLevel.EXPLAIN && it.history.canRedo) }
+
     /** Scenarios per event type; the exhaustive `when` fails to compile when an event type is added. */
     private fun scenarios(sample: SessionEvent): List<Pair<SessionState, SessionEvent>> =
         when (sample) {
@@ -149,6 +156,11 @@ class TransitionsTableTest {
                 listOf(SessionState.IDLE, fresh, b, askedB, showMe, top, playback, bWithFeedback).map { it to hint }
             }
 
+            is SessionEvent.UsualHelpRequested -> {
+                // Dismisses an adaptive level (with redo kept); ignored idle, at the usual level, once dismissed and in playback.
+                listOf(SessionState.IDLE, fresh, b, explained, explained.after(usualHelp), adaptiveHarmed, playback).map { it to usualHelp }
+            }
+
             is SessionEvent.StepAdvanced -> {
                 listOf(SessionState.IDLE, fresh, b, twoAtStep1, twoAtStep1WithRedo).map { it to stepAdvanced }
             }
@@ -195,6 +207,7 @@ class TransitionsTableTest {
             modeChanged(TeachingMode.SHOW_ME),
             reveal,
             hint,
+            usualHelp,
             stepAdvanced,
             retry,
             guideBack,
@@ -202,8 +215,8 @@ class TransitionsTableTest {
             planEffect.failed(),
         ).associateBy { it::class.java.simpleName }
 
-    /** What the `session` column covers: the kind, its Lesson and tutor configuration or its Solution, and its entry state. */
-    private fun session(s: SessionState) = listOf(s.kind, s.lesson, s.tutorConfig, s.solution, s.entry)
+    /** What the `session` column covers: the kind, its Lesson and tutor configuration or its Solution, the adaptive flag, and its entry state. */
+    private fun session(s: SessionState) = listOf(s.kind, s.lesson, s.tutorConfig, s.adaptiveAssistance, s.solution, s.entry)
 
     private fun changed(
         before: SessionState,
@@ -224,6 +237,9 @@ class TransitionsTableTest {
                     s.lastMoveFeedback,
                     s.lastDiagnosis,
                     s.guidedRecovery,
+                    s.stepMistakes,
+                    s.cleanSteps,
+                    s.assistanceDismissed,
                 )
             if (tutor(before) != tutor(after)) add("tutor")
             if (before.checkpoint != after.checkpoint) add("checkpoint")
@@ -235,7 +251,7 @@ class TransitionsTableTest {
         assertEquals(names.size, names.toSet().size, "duplicate rows: $names")
         assertEquals(eventTypes, names.toSet())
         assertEquals(eventTypes, samples.keys)
-        assertEquals(16, eventTypes.size)
+        assertEquals(17, eventTypes.size)
     }
 
     @Test

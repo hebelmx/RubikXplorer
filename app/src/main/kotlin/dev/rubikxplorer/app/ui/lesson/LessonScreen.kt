@@ -78,6 +78,7 @@ import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.playback.DemonstrationResult
 import dev.rubikxplorer.domain.predicate.Piece
+import dev.rubikxplorer.domain.tutor.AssistanceLevel
 import dev.rubikxplorer.domain.tutor.HintLadder
 import dev.rubikxplorer.domain.tutor.HintRung
 import dev.rubikxplorer.domain.tutor.Recovery
@@ -98,6 +99,8 @@ import kotlin.time.Instant
  * The screen decides nothing about teaching: every reveal, Notice, feedback and Next flag comes from
  * the session's [TutorDecision]. The switcher offers only [modes] (the shell drops a mode whose
  * feature flag is off). [planRecovery] runs a requested Guided recovery's search (tests inject one).
+ * [adaptiveAssistance] is the `ADAPTIVE_ASSISTANCE` flag the Lesson starts with: off, the Hint Ladder
+ * is fixed and no Assistance line shows.
  */
 @Composable
 fun LessonScreen(
@@ -108,6 +111,7 @@ fun LessonScreen(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
     planRecovery: PlanRecovery = remember { PlanRecovery() },
+    adaptiveAssistance: Boolean = false,
 ) {
     val lesson = entry.lesson
     val session by host.state.collectAsState()
@@ -116,7 +120,7 @@ fun LessonScreen(
         if (host.state.value.lesson
                 ?.id != lesson.id
         ) {
-            host.dispatch { SessionEvent.LessonStarted(lesson, entry.tutorConfig, it) }
+            host.dispatch { SessionEvent.LessonStarted(lesson, entry.tutorConfig, it, adaptiveAssistance) }
         }
     }
     Column(
@@ -222,8 +226,9 @@ private fun LessonBody(
             mode = mode,
             onModeChange = { chosen -> if (chosen != mode) send { SessionEvent.TeachingModeChanged(chosen, it) } },
             onShowMove = { send(SessionEvent::RevealRequested) },
-            hintRung = session.hintRung.ordinal,
-            hintEnabled = HintLadder.canClimb(mode, session.hintRung, decision.advance),
+            hintRung = session.shownRung.ordinal,
+            hintTop = session.assistance.top,
+            hintEnabled = HintLadder.canClimb(mode, session.shownRung, decision.advance, session.assistance.top),
             onHint = {
                 stopReorientation()
                 reorientation.value = scope.launch { climbHintLadder(host, renderer, demonstration, reduceMotion) }
@@ -243,6 +248,7 @@ private fun LessonBody(
                     RecoveryOffer.SHOW_ME_HOW, RecoveryOffer.RE_ENTER -> Unit
                 }
             },
+            onUsualHelp = { send(SessionEvent::UsualHelpRequested) },
             onShowMeHow = { rotations ->
                 stopReorientation()
                 reorientation.value =
@@ -259,7 +265,8 @@ private fun LessonBody(
 
                 TeachingMode.GUIDE_ME, TeachingMode.TEST_ME, TeachingMode.LET_ME_TRY -> {
                     val focus = demonstration.steps.getOrNull(session.stepIndex)?.focus
-                    val hinted = session.hintRung >= HintRung.TARGET
+                    // Adaptive assistance outlines the target from its explain level (FR-13).
+                    val hinted = session.shownRung >= HintRung.TARGET || session.assistance >= AssistanceLevel.EXPLAIN
                     val hintTarget =
                         remember(
                             lesson,
@@ -355,8 +362,8 @@ private fun LessonBody(
 
 /**
  * The step card's content for [mode]: Show me follows the Demonstration's focused step; Guide me,
- * Test me and Let me try follow the session's step, with its Hint Ladder line, and only Guide me
- * offers "Show the Move".
+ * Test me and Let me try follow the session's step, with its Hint Ladder line at the shown rung and
+ * the Assistance line, and only Guide me offers "Show the Move".
  */
 private fun stepCard(
     mode: TeachingMode,
@@ -381,14 +388,25 @@ private fun stepCard(
         TeachingMode.GUIDE_ME, TeachingMode.TEST_ME, TeachingMode.LET_ME_TRY -> {
             index = session.stepIndex.coerceIn(0, maxOf(lesson.steps.lastIndex, 0))
             notice = decision.advance
+            // Adaptive assistance's guide level narrows the chips to the next authored Move (FR-13).
+            val guiding = session.assistance == AssistanceLevel.GUIDE && session.noticeStep == null
+            val guided = if (guiding) Tutor.nextMove(lesson, session.entry, session.virtual) else null
             moves =
-                if (decision.reveal) {
-                    demonstration.steps
-                        .getOrNull(index)
-                        ?.moves
-                        .orEmpty()
-                } else {
-                    null
+                when {
+                    !decision.reveal -> {
+                        null
+                    }
+
+                    guided != null -> {
+                        listOf(guided)
+                    }
+
+                    else -> {
+                        demonstration.steps
+                            .getOrNull(index)
+                            ?.moves
+                            .orEmpty()
+                    }
                 }
         }
     }
@@ -416,10 +434,11 @@ private fun stepCard(
             if (mode == TeachingMode.SHOW_ME) {
                 null
             } else {
-                HintLadder.line(lesson, index, session.hintRung)?.let { strings.resolve(it) }
+                HintLadder.line(lesson, index, session.shownRung)?.let { strings.resolve(it) }
             },
         recoveryActions = recoveryActions(session, decision, strings),
         guidedRecovery = guidedRecoveryContent(session.guidedRecovery, strings),
+        assistance = if (mode == TeachingMode.SHOW_ME) null else assistanceContent(session, strings),
     )
 }
 

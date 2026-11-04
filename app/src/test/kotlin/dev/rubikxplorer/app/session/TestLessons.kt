@@ -148,7 +148,15 @@ internal class TickingClock(
 }
 
 /** Feature flags with every flag at GA, except `TEST_ME` OFF unless [testMe]. */
-internal fun testFlags(testMe: Boolean = true): FeatureFlags =
+internal fun testFlags(
+    testMe: Boolean = true,
+    adaptive: Boolean = true,
+): FeatureFlags =
     object : FeatureFlags {
-        override fun level(flag: FeatureFlag): FlagLevel = if (flag == FeatureFlag.TEST_ME && !testMe) FlagLevel.OFF else FlagLevel.GA
+        override fun level(flag: FeatureFlag): FlagLevel =
+            when {
+                flag == FeatureFlag.TEST_ME && !testMe -> FlagLevel.OFF
+                flag == FeatureFlag.ADAPTIVE_ASSISTANCE && !adaptive -> FlagLevel.OFF
+                else -> FlagLevel.GA
+            }
     }

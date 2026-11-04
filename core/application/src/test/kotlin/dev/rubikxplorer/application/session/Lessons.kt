@@ -54,7 +54,11 @@ internal val TURNED_DIAGNOSIS: Diagnosis by lazy {
 }
 
 /** Starts [lesson] with the shipped tutor configuration. */
-internal fun lessonStarted(lesson: Lesson) = SessionEvent.LessonStarted(lesson, TUTOR_CONFIG, T0)
+internal fun lessonStarted(
+    lesson: Lesson,
+    adaptiveAssistance: Boolean = false,
+    config: TutorConfig = TUTOR_CONFIG,
+) = SessionEvent.LessonStarted(lesson, config, T0, adaptiveAssistance)
 
 /** The white-cross Lesson of the `stage-01-basics` fixture: entry SOLVED + F, solved by F'. */
 internal fun whiteCrossLesson(id: String = "lesson-01-01"): Lesson =
@@ -147,6 +151,7 @@ internal val reveal = SessionEvent.RevealRequested(T0)
 internal val hint = SessionEvent.HintRequested(T0)
 internal val stepAdvanced = SessionEvent.StepAdvanced(T0)
 internal val retry = SessionEvent.RetryRequested(T0)
+internal val usualHelp = SessionEvent.UsualHelpRequested(T0)
 
 internal fun modeChanged(mode: TeachingMode) = SessionEvent.TeachingModeChanged(mode, T0)
 

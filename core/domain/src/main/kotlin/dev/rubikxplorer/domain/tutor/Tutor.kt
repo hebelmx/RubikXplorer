@@ -40,6 +40,24 @@ object Tutor {
     }
 
     /**
+     * The next authored Move of [lesson] (entered at [entry]) when [state] is an authored path state
+     * (the first match, as [currentStep] walks the path), else null; null after the final Move. Adaptive
+     * assistance's guide level shows only this Move.
+     */
+    fun nextMove(
+        lesson: Lesson,
+        entry: CubeState,
+        state: CubeState,
+    ): Move? {
+        var path = entry
+        pathOwners(lesson).forEach { (_, move) ->
+            if (path == state) return move
+            path = path.apply(move)
+        }
+        return null
+    }
+
+    /**
      * Step [index]'s effective done on [state]: `allOf(lesson.preserve, done)` (AD-6). A step is not
      * done while a piece an earlier Lesson solved is broken.
      */

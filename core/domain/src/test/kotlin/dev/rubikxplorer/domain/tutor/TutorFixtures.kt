@@ -1,5 +1,6 @@
 package dev.rubikxplorer.domain.tutor
 
+import dev.rubikxplorer.domain.content.AdaptiveThresholds
 import dev.rubikxplorer.domain.content.ContentLoadResult
 import dev.rubikxplorer.domain.content.ContentLoader
 import dev.rubikxplorer.domain.content.ContentSource
@@ -30,7 +31,13 @@ import dev.rubikxplorer.domain.predicate.WhitePieceSolved
 /** Shared tutor test fixtures: Lessons built in code, with explicit step `done`s. */
 internal object TutorFixtures {
     /** The shipped `tutor-config.json` values. */
-    val CONFIG = TutorConfig(maxDepth = 2, moveSet = "U U' U2 D D' D2 R R' R2 L L' L2 F F' F2 B B' B2", recoveryMaxDepth = 5)
+    val CONFIG =
+        TutorConfig(
+            maxDepth = 2,
+            moveSet = "U U' U2 D D' D2 R R' R2 L L' L2 F F' F2 B B' B2",
+            recoveryMaxDepth = 5,
+            adaptive = AdaptiveThresholds(1, 2, 3, 2),
+        )
 
     fun moves(text: String): List<Move> = (Notation.parse(text) as NotationResult.Parsed).moves
 

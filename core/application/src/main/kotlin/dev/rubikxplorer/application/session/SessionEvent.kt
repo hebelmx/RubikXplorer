@@ -16,12 +16,15 @@ sealed interface SessionEvent {
 
     /**
      * Starts a Lesson session at the Lesson's entry state, replacing any current session; the tutor
-     * judges it with [tutorConfig] (the content bundle's `tutor-config.json`).
+     * judges it with [tutorConfig] (the content bundle's `tutor-config.json`). [adaptiveAssistance] is
+     * the `ADAPTIVE_ASSISTANCE` feature flag, read by the app (never by `:core:*`): off, the Hint
+     * Ladder stays fixed.
      */
     data class LessonStarted(
         val lesson: Lesson,
         val tutorConfig: TutorConfig,
         override val at: Instant,
+        val adaptiveAssistance: Boolean = false,
     ) : SessionEvent
 
     /**
@@ -86,6 +89,15 @@ sealed interface SessionEvent {
      * counts it, when the ladder allows a climb (`HintLadder.canClimb`).
      */
     data class HintRequested(
+        override val at: Instant,
+    ) : SessionEvent
+
+    /**
+     * *Back to my usual help* (FR-13): while adaptive assistance changes the shown step's help
+     * ([SessionState.assistance] is not USUAL), dismisses that level for the step; a later rise to a
+     * different level shows again. Otherwise nothing changes. Never changes the Teaching Mode.
+     */
+    data class UsualHelpRequested(
         override val at: Instant,
     ) : SessionEvent
 

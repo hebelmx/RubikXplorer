@@ -6,7 +6,9 @@ import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.MoveHistory
 import dev.rubikxplorer.domain.predicate.ObjectiveProgress
+import dev.rubikxplorer.domain.tutor.AdaptivePolicy
 import dev.rubikxplorer.domain.tutor.Assess
+import dev.rubikxplorer.domain.tutor.AssistanceLevel
 import dev.rubikxplorer.domain.tutor.Diagnosis
 import dev.rubikxplorer.domain.tutor.HintRung
 import dev.rubikxplorer.domain.tutor.MoveFeedback
@@ -29,7 +31,8 @@ import dev.rubikxplorer.domain.tutor.TutorDecision
  * - [objectiveMet] and [progress] are the Lesson's Completion Predicate on [virtual], recomputed on
  *   every change of [virtual].
  * - The tutor fields ([teachingMode], [noticeStep], [revealRequested], [hintRung], [hintsUsed],
- *   [lastMoveFeedback], [lastDiagnosis], [guidedRecovery]) never advance [revision]: a mode switch, a reveal or a Hint
+ *   [lastMoveFeedback], [lastDiagnosis], [guidedRecovery], [stepMistakes], [cleanSteps],
+ *   [assistanceDismissed]) never advance [revision]: a mode switch, a reveal or a Hint
  *   does not change the Cube State, so it must not stale a pending effect.
  * - [checkpoint] is the Objective-boundary history *Try again* returns to; its changes never
  *   advance [revision] either.
@@ -98,6 +101,23 @@ data class SessionState internal constructor(
      * Lesson event return it to None (AD-3 cancels the effect); following a plan's next Move keeps it.
      */
     val guidedRecovery: GuidedRecovery,
+    /**
+     * The `ADAPTIVE_ASSISTANCE` flag the Lesson started with (`LessonStarted.adaptiveAssistance`); a
+     * session field. False in [IDLE] and Solve Playback.
+     */
+    val adaptiveAssistance: Boolean,
+    /**
+     * Harmful Moves per step (FR-13): a Harmful [Assess.classify] result adds 1 to the step derived
+     * before the Move. Reset only by `LessonStarted`; empty in [IDLE] and Solve Playback.
+     */
+    val stepMistakes: Map<Int, Int>,
+    /**
+     * Steps in a row completed cleanly (no mistake on the step and no Hint before its last Move); any
+     * other completed step or a Harmful Move sets it to 0. Reset only by `LessonStarted`.
+     */
+    val cleanSteps: Int,
+    /** The adaptive level *Back to my usual help* dismissed, per step. Reset only by `LessonStarted`. */
+    val assistanceDismissed: Map<Int, AssistanceLevel>,
 ) {
     /** The tutor's decision for the shown step; `null` outside a Lesson. Derived, never stored. */
     val decision: TutorDecision? by lazy(LazyThreadSafetyMode.PUBLICATION) {
@@ -108,7 +128,7 @@ data class SessionState internal constructor(
                 checkNotNull(tutorConfig),
                 teachingMode,
                 revealRequested,
-                hintRung,
+                shownRung,
                 noticeStep,
                 lastMoveFeedback,
                 lastDiagnosis,
@@ -152,6 +172,24 @@ data class SessionState internal constructor(
         lesson?.let { Tutor.shownStep(it, entry, virtual, noticeStep) } ?: 0
     }
 
+    /**
+     * The adaptive assistance on the shown step (FR-13): USUAL outside a Lesson, with the flag off, in
+     * *Show me*, or when the Learner dismissed this level for [stepIndex]; else [AdaptivePolicy.level]
+     * from the step's mistakes and [cleanSteps]. Derived, never stored.
+     */
+    val assistance: AssistanceLevel by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        val config = tutorConfig
+        if (lesson == null || config == null || !adaptiveAssistance || teachingMode == TeachingMode.SHOW_ME) {
+            AssistanceLevel.USUAL
+        } else {
+            val level = AdaptivePolicy.level(config.adaptive, stepMistakes[stepIndex] ?: 0, cleanSteps)
+            if (assistanceDismissed[stepIndex] == level) AssistanceLevel.USUAL else level
+        }
+    }
+
+    /** The Hint Ladder rung the shown step acts on: [hintRung] held within [assistance]'s floor and top. Derived, never stored. */
+    val shownRung: HintRung get() = hintRung.coerceAtLeast(assistance.floor).coerceAtMost(assistance.top)
+
     /** The session's start: a Lesson's entry state (where Reset returns) or the state a Solution plays from. */
     val entry: CubeState get() = history.start
 
@@ -188,6 +226,10 @@ data class SessionState internal constructor(
                 lastDiagnosis = null,
                 checkpoint = null,
                 guidedRecovery = GuidedRecovery.None,
+                adaptiveAssistance = false,
+                stepMistakes = emptyMap(),
+                cleanSteps = 0,
+                assistanceDismissed = emptyMap(),
             )
     }
 }

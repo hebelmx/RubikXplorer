@@ -42,14 +42,17 @@ object HintLadder {
     val RUNGS: Int = HintRung.DEMONSTRATION.ordinal
 
     /**
-     * True when a Hint may climb from [rung]: not in [TeachingMode.SHOW_ME] (everything is shown), not
-     * at the top, and not while the tutor says [advance] (the step is done; its Notice speaks).
+     * True when a Hint may climb from [rung]: not in [TeachingMode.SHOW_ME] (everything is shown), below
+     * the ladder's [top] (the full [HintRung.DEMONSTRATION], or a lower rung while adaptive assistance
+     * reduces help, [AssistanceLevel.top]), and not while the tutor says [advance] (the step is done;
+     * its Notice speaks).
      */
     fun canClimb(
         mode: TeachingMode,
         rung: HintRung,
         advance: Boolean,
-    ): Boolean = mode != TeachingMode.SHOW_ME && rung != HintRung.DEMONSTRATION && !advance
+        top: HintRung = HintRung.DEMONSTRATION,
+    ): Boolean = mode != TeachingMode.SHOW_ME && rung < top && !advance
 
     /**
      * The conceptual clue for step [step] of [lesson]: `msg.hint.clue.piece` naming the piece when the

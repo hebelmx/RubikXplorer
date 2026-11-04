@@ -58,7 +58,7 @@ enum class Tab(
  * compact and a `NavigationRail` from medium width. An open Lesson replaces the shell as a
  * full-screen task flow, with no bar. The tab and the open Lesson survive configuration changes; the
  * Lesson's progress lives in [host]'s session. [flags] decides which Teaching Modes the Lesson offers:
- * *Test me* only while `TEST_ME` is enabled.
+ * *Test me* only while `TEST_ME` is enabled; `ADAPTIVE_ASSISTANCE` decides whether help adapts in the Lesson.
  */
 @Composable
 fun AppShell(
@@ -86,6 +86,7 @@ fun AppShell(
             modes = availableModes(flags),
             onClose = { openLesson = null },
             modifier = modifier,
+            adaptiveAssistance = flags.isEnabled(FeatureFlag.ADAPTIVE_ASSISTANCE),
         )
         return
     }

@@ -3,6 +3,7 @@ package dev.rubikxplorer.domain.content
 import dev.rubikxplorer.domain.content.ContentProblem.InvalidTutorConfig.Detail.BAD_NOTATION
 import dev.rubikxplorer.domain.content.ContentProblem.InvalidTutorConfig.Detail.DUPLICATE_MOVE
 import dev.rubikxplorer.domain.content.ContentProblem.InvalidTutorConfig.Detail.NOT_FACE_TURN
+import dev.rubikxplorer.domain.content.ContentProblem.InvalidTutorConfig.Detail.NOT_INCREASING
 import dev.rubikxplorer.domain.content.ContentProblem.InvalidTutorConfig.Detail.NO_MOVES
 import dev.rubikxplorer.domain.content.ContentProblem.InvalidTutorConfig.Detail.OUT_OF_RANGE
 import dev.rubikxplorer.domain.cube.NotationError
@@ -179,27 +180,27 @@ class ContentValidatorTest {
     @Test
     fun `the tutor config needs maxDepth in 1 to 3 and a non-empty valid moveSet`() {
         fun problems(config: TutorConfig) = ContentValidator.validate(valid.copy(tutorConfig = config))
-        assertEquals(emptyList<ContentProblem>(), problems(TutorConfig(1, "U", 1)))
-        assertEquals(emptyList<ContentProblem>(), problems(TutorConfig(3, "U R", 8)))
+        assertEquals(emptyList<ContentProblem>(), problems(TutorConfig(1, "U", 1, ADAPTIVE)))
+        assertEquals(emptyList<ContentProblem>(), problems(TutorConfig(3, "U R", 8, ADAPTIVE)))
         assertEquals(
             listOf(
                 ContentProblem.InvalidTutorConfig(ContentValidator.MAX_DEPTH_FIELD, OUT_OF_RANGE),
                 ContentProblem.InvalidTutorConfig(ContentValidator.MOVE_SET_FIELD, NO_MOVES),
             ),
-            problems(TutorConfig(0, "", 5)),
+            problems(TutorConfig(0, "", 5, ADAPTIVE)),
         )
         assertEquals(
             listOf(
                 ContentProblem.InvalidTutorConfig(ContentValidator.MAX_DEPTH_FIELD, OUT_OF_RANGE),
                 ContentProblem.InvalidTutorConfig(ContentValidator.MOVE_SET_FIELD, BAD_NOTATION),
             ),
-            problems(TutorConfig(4, "U Q", 5)),
+            problems(TutorConfig(4, "U Q", 5, ADAPTIVE)),
         )
     }
 
     @Test
     fun `the tutor config needs recoveryMaxDepth in 1 to 8`() {
-        fun problems(depth: Int) = ContentValidator.validate(valid.copy(tutorConfig = TutorConfig(2, "U R", depth)))
+        fun problems(depth: Int) = ContentValidator.validate(valid.copy(tutorConfig = TutorConfig(2, "U R", depth, ADAPTIVE)))
         listOf(0, 9, -1).forEach { depth ->
             assertEquals(
                 listOf(ContentProblem.InvalidTutorConfig(ContentValidator.RECOVERY_MAX_DEPTH_FIELD, OUT_OF_RANGE)),
@@ -215,7 +216,7 @@ class ContentValidatorTest {
         listOf("U r", "U M", "U x").forEach { moves ->
             assertEquals(
                 listOf(ContentProblem.InvalidTutorConfig(ContentValidator.MOVE_SET_FIELD, NOT_FACE_TURN)),
-                ContentValidator.validate(valid.copy(tutorConfig = TutorConfig(2, moves, 5))),
+                ContentValidator.validate(valid.copy(tutorConfig = TutorConfig(2, moves, 5, ADAPTIVE))),
                 moves,
             )
         }
@@ -226,9 +227,56 @@ class ContentValidatorTest {
         listOf("U U R", "R2 R2'").forEach { moves ->
             assertEquals(
                 listOf(ContentProblem.InvalidTutorConfig(ContentValidator.MOVE_SET_FIELD, DUPLICATE_MOVE)),
-                ContentValidator.validate(valid.copy(tutorConfig = TutorConfig(2, moves, 5))),
+                ContentValidator.validate(valid.copy(tutorConfig = TutorConfig(2, moves, 5, ADAPTIVE))),
                 moves,
             )
         }
+    }
+
+    @Test
+    fun `each adaptive threshold lies in 1 to 10, reported as adaptive dot its name`() {
+        fun problems(adaptive: AdaptiveThresholds) =
+            ContentValidator.validate(valid.copy(tutorConfig = valid.tutorConfig.copy(adaptive = adaptive)))
+        assertEquals(emptyList<ContentProblem>(), problems(AdaptiveThresholds(1, 2, 3, 1)))
+        assertEquals(emptyList<ContentProblem>(), problems(AdaptiveThresholds(8, 9, 10, 10)))
+        val cases =
+            mapOf(
+                AdaptiveThresholds(0, 2, 3, 2) to "explainAfterMistakes",
+                AdaptiveThresholds(1, 2, 11, 2) to "guideAfterMistakes",
+                AdaptiveThresholds(1, 2, 3, 0) to "reduceAfterCleanSteps",
+                AdaptiveThresholds(1, 2, 3, 11) to "reduceAfterCleanSteps",
+            )
+        cases.forEach { (adaptive, name) ->
+            assertEquals(
+                listOf(ContentProblem.InvalidTutorConfig("${ContentValidator.ADAPTIVE_FIELD}.$name", OUT_OF_RANGE)),
+                problems(adaptive),
+                adaptive.toString(),
+            )
+        }
+        assertEquals(
+            listOf(
+                ContentProblem.InvalidTutorConfig("adaptive.demonstrateAfterMistakes", OUT_OF_RANGE),
+                ContentProblem.InvalidTutorConfig("adaptive.guideAfterMistakes", OUT_OF_RANGE),
+            ),
+            problems(AdaptiveThresholds(1, 11, 12, 2)),
+        )
+        assertEquals(ContentValidator.ADAPTIVE_THRESHOLD_RANGE, 1..10)
+    }
+
+    @Test
+    fun `the adaptive mistake thresholds rise strictly`() {
+        fun problems(adaptive: AdaptiveThresholds) =
+            ContentValidator.validate(valid.copy(tutorConfig = valid.tutorConfig.copy(adaptive = adaptive)))
+        listOf(AdaptiveThresholds(2, 2, 3, 2), AdaptiveThresholds(1, 3, 3, 2), AdaptiveThresholds(3, 2, 1, 2)).forEach { adaptive ->
+            assertEquals(
+                listOf(ContentProblem.InvalidTutorConfig(ContentValidator.ADAPTIVE_FIELD, NOT_INCREASING)),
+                problems(adaptive),
+                adaptive.toString(),
+            )
+        }
+    }
+
+    private companion object {
+        val ADAPTIVE = AdaptiveThresholds(1, 2, 3, 2)
     }
 }

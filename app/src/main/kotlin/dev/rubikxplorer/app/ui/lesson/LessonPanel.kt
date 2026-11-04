@@ -40,7 +40,7 @@ import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.app.ui.theme.Spacing
 import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.Notation
-import dev.rubikxplorer.domain.tutor.HintLadder
+import dev.rubikxplorer.domain.tutor.HintRung
 import dev.rubikxplorer.domain.tutor.RecoveryOffer
 import dev.rubikxplorer.domain.tutor.TeachingMode
 
@@ -59,7 +59,9 @@ import dev.rubikxplorer.domain.tutor.TeachingMode
  * Diagnosis's Recovery Path offers as buttons (*Undo*, *Guide me back*, *Try again*), drawn by
  * [RecoveryPrompt] under the Diagnosis; empty when there is none. [guidedRecovery] is the Guided
  * recovery line (pending, the plan, or no plan), drawn by [GuidedRecoveryLine] after the recovery
- * prompt whenever the session has one, even once the Diagnosis is gone.
+ * prompt whenever the session has one, even once the Diagnosis is gone. [assistance] is the
+ * Assistance line (why adaptive help changed), drawn by [AssistanceLine] directly under the card;
+ * null at the usual level and whenever `ADAPTIVE_ASSISTANCE` is off.
  */
 internal data class StepCardContent(
     val number: Int,
@@ -80,11 +82,13 @@ internal data class StepCardContent(
     val hint: String? = null,
     val recoveryActions: List<RecoveryAction> = emptyList(),
     val guidedRecovery: GuidedRecoveryContent? = null,
+    val assistance: AssistanceContent? = null,
 )
 
 /**
  * The Lesson panel, top to bottom (UX-DR8): the Objective, the step card, the Teaching Mode
- * switcher, then Hint (secondary, labelled **Hint (n/3)** with [hintRung] as n) and Next (primary).
+ * switcher, then Hint (secondary, labelled **Hint (n/top)** with [hintRung] as n and [hintTop] the
+ * ladder's top: 3, or 2 while adaptive assistance reduces help) and Next (primary).
  * It decides nothing: every flag comes from the session's `TutorDecision` and Hint Ladder rung.
  */
 @Composable
@@ -96,6 +100,7 @@ internal fun LessonPanel(
     onModeChange: (TeachingMode) -> Unit,
     onShowMove: () -> Unit,
     hintRung: Int,
+    hintTop: HintRung,
     hintEnabled: Boolean,
     onHint: () -> Unit,
     nextEnabled: Boolean,
@@ -103,6 +108,7 @@ internal fun LessonPanel(
     modifier: Modifier = Modifier,
     onShowMeHow: (List<Move>) -> Unit = {},
     onRecovery: (RecoveryOffer) -> Unit = {},
+    onUsualHelp: () -> Unit = {},
 ) {
     val tokens = RubikTheme.tokens
     Column(
@@ -116,6 +122,7 @@ internal fun LessonPanel(
             modifier = Modifier.testTag("lesson:objective").semantics { heading() },
         )
         StepCard(step, onShowMove, onShowMeHow, onRecovery, Modifier.fillMaxWidth())
+        step.assistance?.let { AssistanceLine(it, onUsualHelp, Modifier.fillMaxWidth()) }
         TeachingModeSwitcher(modes, mode, onModeChange, Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s3), modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(
@@ -125,7 +132,7 @@ internal fun LessonPanel(
                 modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:hint"),
             ) {
                 Text(
-                    stringResource(R.string.lesson_hint, hintRung, HintLadder.RUNGS),
+                    stringResource(R.string.lesson_hint, hintRung, hintTop.ordinal),
                     color = if (hintEnabled) tokens.inkPrimary else tokens.inkDisabled,
                 )
             }

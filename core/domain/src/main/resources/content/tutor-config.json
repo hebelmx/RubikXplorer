@@ -1,5 +1,11 @@
 {
   "maxDepth": 2,
   "moveSet": "U U' U2 D D' D2 R R' R2 L L' L2 F F' F2 B B' B2",
-  "recoveryMaxDepth": 5
+  "recoveryMaxDepth": 5,
+  "adaptive": {
+    "explainAfterMistakes": 1,
+    "demonstrateAfterMistakes": 2,
+    "guideAfterMistakes": 3,
+    "reduceAfterCleanSteps": 2
+  }
 }
