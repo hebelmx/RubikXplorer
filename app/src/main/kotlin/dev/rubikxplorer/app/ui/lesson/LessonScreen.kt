@@ -79,6 +79,7 @@ import dev.rubikxplorer.domain.tutor.RecoveryOffer
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import dev.rubikxplorer.domain.tutor.Tutor
 import dev.rubikxplorer.domain.tutor.TutorDecision
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.time.Instant
 
@@ -183,7 +184,21 @@ private fun LessonBody(
                     .toFacelets(),
             )
         }
+    // The running Show me how demonstration, if any. Any session interaction stops it first and puts
+    // the session's own state back on the net, so no obsolete demonstration frame is ever drawn.
+    val reorientation = remember(lesson.id) { mutableStateOf<Job?>(null) }
+    val stopReorientation = {
+        reorientation.value?.let { job ->
+            reorientation.value = null
+            if (job.isActive) {
+                job.cancel()
+                val now = host.state.value
+                renderer.submit(listOf(PresentationItem.Snap(now.revision, now.virtual.toFacelets())))
+            }
+        }
+    }
     val send: ((Instant) -> SessionEvent) -> Unit = { event ->
+        stopReorientation()
         scope.launch { renderer.submit(host.dispatch(event).presentation.toItems()) }
     }
     val pulse = rememberObjectivePulse(decision.satisfied, reduceMotion)
@@ -203,7 +218,10 @@ private fun LessonBody(
             nextEnabled = decision.advance,
             onNext = { if (decision.satisfied) onClose() else send(SessionEvent::StepAdvanced) },
             modifier = panelModifier,
-            onShowMeHow = { rotations -> scope.launch { demonstrateReorientation(host, renderer, rotations, reduceMotion) } },
+            onShowMeHow = { rotations ->
+                stopReorientation()
+                reorientation.value = scope.launch { demonstrateReorientation(host, renderer, rotations, reduceMotion) }
+            },
         )
     }
     val stage: @Composable (Modifier) -> Unit = { stageModifier ->
@@ -397,7 +415,8 @@ private fun LearnerStage(
  * State, one per [REORIENT_STEP_MILLIS] (stepped, not animated, under [reduceMotion]), holds the
  * Lesson's hold for a moment, then snaps the net back to the session's current state. A
  * demonstration only: it dispatches nothing, so the session (and its undo history) never changes
- * (AD-3, AD-5), and the net matches the session again once it ends.
+ * (AD-3, AD-5), and the net matches the session again once it ends. The caller cancels it before
+ * any session interaction and restores the session's net itself.
  */
 private suspend fun demonstrateReorientation(
     host: SessionHost,

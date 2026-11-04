@@ -22,6 +22,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import dev.rubikxplorer.app.content.CatalogState
 import dev.rubikxplorer.app.content.LessonCatalog
+import dev.rubikxplorer.app.render.Net2DRenderer
 import dev.rubikxplorer.app.render.StickerColorKey
 import dev.rubikxplorer.app.render.StickerDimmedKey
 import dev.rubikxplorer.app.render.StickerHighlightedKey
@@ -54,6 +55,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -544,6 +546,48 @@ class LessonScreenTest {
         // The demonstration ends on the session's own state; nothing was committed.
         assertNetMatchesSession("net returns to the session after Show me how")
         assertEquals(before, host.state.value)
+    }
+
+    @Test
+    fun `a Move committed between Show me how rotations stops the demonstration and the net shows the post-Move session`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.TEST_ME)
+        press("y", 1)
+        press("x", 2)
+        rule.waitUntil(5_000) {
+            host.state.value.decision
+                ?.diagnosis != null
+        }
+        rule.waitForIdle()
+        val turned = host.state.value.virtual
+
+        node("lesson:showMeHow").performScrollTo()
+        rule.mainClock.autoAdvance = false
+        node("lesson:showMeHow").performClick()
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeBy(REORIENT_STEP_MILLIS / 2)
+        // Midway through the first demonstration step: its rotation is drawn; the session still holds the turned cube.
+        assertNotEquals(
+            turned.toFacelets().colors.map { Color(StickerAppearance.of(it).fill) },
+            drawnColors(),
+        )
+        assertEquals(turned, host.state.value.virtual)
+
+        // Commit F before the second demonstration rotation, then step past where it would have played.
+        node("moveKey:F").performClick()
+        rule.waitUntil(5_000) { host.state.value.history.done.size == 3 }
+        val afterMove =
+            host.state.value.virtual
+                .toFacelets()
+                .colors
+                .map { Color(StickerAppearance.of(it).fill) }
+        // Where the second rotation would have been drawn, and again past the demonstration's hold.
+        rule.mainClock.advanceTimeBy(REORIENT_STEP_MILLIS + Net2DRenderer.ITEM_MILLIS * 2)
+        assertEquals("net shows the post-Move session, not stale demonstration cubies", afterMove, drawnColors())
+        rule.mainClock.advanceTimeBy(REORIENT_HOLD_MILLIS + 500)
+        assertEquals("net still shows the post-Move session after the hold", afterMove, drawnColors())
+        rule.mainClock.autoAdvance = true
+        assertNetMatchesSession("net still matches the session once the clock runs freely")
     }
 
     @Test
