@@ -2,13 +2,25 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "tutor-config.schema.json",
   "title": "Tutor configuration",
-  "description": "Tutor values read as data (AR-22): the CandidateEnumerator's depth and Move set, and the RecoveryPlanner's search bound. Hint and mastery thresholds arrive with their consumers.",
+  "description": "Tutor values read as data (AR-22): the CandidateEnumerator's depth and Move set, the RecoveryPlanner's search bound, and the adaptive assistance thresholds (FR-13). Mastery thresholds arrive with their consumers.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["maxDepth", "moveSet", "recoveryMaxDepth"],
+  "required": ["maxDepth", "moveSet", "recoveryMaxDepth", "adaptive"],
   "properties": {
     "maxDepth": { "type": "integer", "minimum": 1, "maximum": 3 },
     "moveSet": { "type": "string" },
-    "recoveryMaxDepth": { "type": "integer", "minimum": 1, "maximum": 8 }
+    "recoveryMaxDepth": { "type": "integer", "minimum": 1, "maximum": 8 },
+    "adaptive": {
+      "description": "When adaptive assistance changes the help: Harmful Moves on a step before it explains, demonstrates or guides (strictly increasing), and clean steps in a row before it reduces help.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["explainAfterMistakes", "demonstrateAfterMistakes", "guideAfterMistakes", "reduceAfterCleanSteps"],
+      "properties": {
+        "explainAfterMistakes": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "demonstrateAfterMistakes": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "guideAfterMistakes": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "reduceAfterCleanSteps": { "type": "integer", "minimum": 1, "maximum": 10 }
+      }
+    }
   }
 }

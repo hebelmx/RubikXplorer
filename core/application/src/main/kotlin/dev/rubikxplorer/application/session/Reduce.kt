@@ -3,7 +3,6 @@ package dev.rubikxplorer.application.session
 import dev.rubikxplorer.domain.content.FaceletString
 import dev.rubikxplorer.domain.content.FaceletStringResult
 import dev.rubikxplorer.domain.content.Lesson
-import dev.rubikxplorer.domain.content.TutorConfig
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.CubeValidator
 import dev.rubikxplorer.domain.cube.Move
@@ -11,9 +10,11 @@ import dev.rubikxplorer.domain.cube.MoveHistory
 import dev.rubikxplorer.domain.cube.ValidationResult
 import dev.rubikxplorer.domain.text.Text
 import dev.rubikxplorer.domain.tutor.Assess
+import dev.rubikxplorer.domain.tutor.AssistanceLevel
 import dev.rubikxplorer.domain.tutor.HintLadder
 import dev.rubikxplorer.domain.tutor.HintRung
 import dev.rubikxplorer.domain.tutor.MoveAssessment
+import dev.rubikxplorer.domain.tutor.MoveFeedback
 import dev.rubikxplorer.domain.tutor.RecoveryPlanner
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import dev.rubikxplorer.domain.tutor.Tutor
@@ -47,7 +48,7 @@ private fun transition(
     event: SessionEvent,
 ): Transition =
     when (event) {
-        is SessionEvent.LessonStarted -> start(state, event.lesson, event.tutorConfig)
+        is SessionEvent.LessonStarted -> start(state, event)
         is SessionEvent.SolvePlaybackStarted -> startPlayback(state, event.state, event.solution)
         is SessionEvent.MoveCommitted -> committed(state, event.move)
         is SessionEvent.Undo -> state.history.undoable?.let { move(state, state.history.undo(), it.inverse(), null) } ?: Transition(state)
@@ -56,8 +57,9 @@ private fun transition(
         is SessionEvent.ResetConfirmed -> confirmed(state, event)
         is SessionEvent.ResetDeclined -> declined(state, event)
         is SessionEvent.TeachingModeChanged -> modeChanged(state, event)
-        is SessionEvent.RevealRequested -> Transition(state.copy(revealRequested = true))
+        is SessionEvent.RevealRequested -> Transition(state.copy(revealRequested = true, stepHelped = state.stepHelped + state.stepIndex))
         is SessionEvent.HintRequested -> hint(state)
+        is SessionEvent.UsualHelpRequested -> usualHelp(state)
         is SessionEvent.StepAdvanced -> advance(state)
         is SessionEvent.RetryRequested -> retry(state)
         is SessionEvent.GuidedRecoveryRequested -> guideBack(state)
@@ -67,15 +69,21 @@ private fun transition(
 
 private fun start(
     state: SessionState,
-    lesson: Lesson,
-    tutorConfig: TutorConfig,
+    event: SessionEvent.LessonStarted,
 ): Transition {
+    val lesson = event.lesson
     val entry = entryState(lesson)
     val next =
         withHistory(state, MoveHistory(entry), lesson).copy(
             kind = SessionKind.LESSON,
             lesson = lesson,
-            tutorConfig = tutorConfig,
+            tutorConfig = event.tutorConfig,
+            adaptiveAssistance = event.adaptiveAssistance,
+            stepMistakes = emptyMap(),
+            cleanSteps = 0,
+            cleanCredited = emptySet(),
+            stepHelped = emptySet(),
+            assistanceDismissed = emptyMap(),
             solution = emptyList(),
             lastDiscarded = null,
             noticeStep = null,
@@ -108,6 +116,12 @@ private fun startPlayback(
             kind = SessionKind.SOLVE_PLAYBACK,
             lesson = null,
             tutorConfig = null,
+            adaptiveAssistance = false,
+            stepMistakes = emptyMap(),
+            cleanSteps = 0,
+            cleanCredited = emptySet(),
+            stepHelped = emptySet(),
+            assistanceDismissed = emptyMap(),
             solution = solution.toList(),
             lastDiscarded = null,
             noticeStep = null,
@@ -132,10 +146,11 @@ private fun entryState(lesson: Lesson): CubeState {
 }
 
 /**
- * Commits [move]; in *Test me* only, [Assess.classify] judges it against the step derived from the
- * state before it (AD-5). In any other mode the last Move's feedback and Diagnosis are cleared. A
- * [move] that is the next Move of a Planned Guided recovery keeps the plan with the Moves left (none
- * left: no Guided recovery); any other Move ends it.
+ * Commits [move]. [Assess.classify] judges it against the step derived from the state before it
+ * (AD-5) in *Test me*, and also in *Guide me* and *Let me try* while adaptive assistance is on; only
+ * *Test me* keeps its feedback and Diagnosis, which any other mode clears. The result feeds adaptive
+ * assistance ([adapted]). A [move] that is the next Move of a Planned Guided recovery keeps the plan
+ * with the Moves left (none left: no Guided recovery); any other Move ends it.
  */
 private fun committed(
     state: SessionState,
@@ -143,18 +158,67 @@ private fun committed(
 ): Transition {
     val history = state.history.commit(move)
     val lesson = state.lesson
+    val mode = state.teachingMode
+    val assessed = mode == TeachingMode.TEST_ME || (state.adaptiveAssistance && mode in ADAPTIVE_MODES)
     val assessment =
-        if (lesson != null && state.teachingMode == TeachingMode.TEST_ME) {
+        if (lesson != null && assessed) {
             Assess.classify(lesson, state.entry, state.virtual, move, history.state, checkNotNull(state.tutorConfig))
         } else {
             null
         }
-    val moved = move(state, history, move, assessment)
+    val moved = move(state, history, move, assessment.takeIf { mode == TeachingMode.TEST_ME })
+    val counted = lesson?.let { moved.copy(state = adapted(state, moved.state, it, assessment?.feedback == MoveFeedback.HARMFUL)) } ?: moved
     val plan = state.guidedRecovery as? GuidedRecovery.Planned
-    if (plan == null || plan.moves.firstOrNull() != move) return moved
+    if (plan == null || plan.moves.firstOrNull() != move) return counted
     val left = plan.moves.drop(1)
     val following = if (left.isEmpty()) GuidedRecovery.None else plan.copy(moves = left, text = RecoveryPlanner.describe(left, plan.pieces))
-    return moved.copy(state = moved.state.copy(guidedRecovery = following))
+    return counted.copy(state = counted.state.copy(guidedRecovery = following))
+}
+
+/** The modes besides *Test me* whose Moves adaptive assistance assesses. */
+private val ADAPTIVE_MODES = setOf(TeachingMode.GUIDE_ME, TeachingMode.LET_ME_TRY)
+
+/**
+ * Adaptive assistance's counts (FR-13) after a commit from [before] to [moved]: a [harmful] Move adds 1
+ * to the mistakes of the step derived before it and ends the clean run. A commit that makes a Notice
+ * newly pending or newly completes the Lesson completes `s0` (the step shown before): clean when `s0`
+ * has no mistakes, [before] had no Hint rung and no revealed Moves, and `s0` used no help in this Lesson
+ * ([SessionState.stepHelped], kept across Reset and *Try again*), which raises the clean run by 1 the
+ * first time `s0` is credited (a credited step completed cleanly again leaves the run); else the run is 0.
+ */
+private fun adapted(
+    before: SessionState,
+    moved: SessionState,
+    lesson: Lesson,
+    harmful: Boolean,
+): SessionState {
+    val mistakes =
+        if (harmful) {
+            val step = Tutor.currentStep(lesson, before.entry, before.virtual)
+            before.stepMistakes + (step to (before.stepMistakes[step] ?: 0) + 1)
+        } else {
+            before.stepMistakes
+        }
+    val completed =
+        (moved.noticeStep != null && moved.noticeStep != before.noticeStep) || (moved.objectiveMet && !before.objectiveMet)
+    val s0 = before.stepIndex
+    val helped = s0 in before.stepHelped || before.hintRung != HintRung.NONE || before.revealRequested
+    val clean = completed && (mistakes[s0] ?: 0) == 0 && !helped
+    val cleanSteps =
+        when {
+            harmful -> 0
+
+            !completed -> before.cleanSteps
+
+            // A step is credited once per Lesson: completing it again (say after an Undo across its boundary) masters nothing new.
+            clean && s0 in before.cleanCredited -> before.cleanSteps
+
+            clean -> before.cleanSteps + 1
+
+            else -> 0
+        }
+    val credited = if (clean) before.cleanCredited + s0 else before.cleanCredited
+    return moved.copy(stepMistakes = mistakes, cleanSteps = cleanSteps, cleanCredited = credited)
 }
 
 /**
@@ -352,14 +416,26 @@ private fun advance(state: SessionState): Transition {
 }
 
 /**
- * A Hint (FR-11): when [HintLadder.canClimb] allows it (not in *Show me*, below the top rung, and
- * the step not done), the shown step's rung climbs exactly one and the attempt's count rises by one;
- * otherwise nothing changes. The Cube State and [SessionState.revision] stay.
+ * A Hint (FR-11): when [HintLadder.canClimb] allows it (not in *Show me*, below the ladder's top, which
+ * adaptive assistance may lower, and the step not done), the shown rung ([SessionState.shownRung])
+ * climbs exactly one and the attempt's count rises by one; otherwise nothing changes. The Cube State and [SessionState.revision] stay.
  */
 private fun hint(state: SessionState): Transition {
     val decision = state.decision ?: return Transition(state)
-    if (!HintLadder.canClimb(state.teachingMode, state.hintRung, decision.advance)) return Transition(state)
-    return Transition(state.copy(hintRung = state.hintRung.next(), hintsUsed = state.hintsUsed + 1))
+    val rung = state.shownRung
+    if (!HintLadder.canClimb(state.teachingMode, rung, decision.advance, state.assistance.top)) return Transition(state)
+    return Transition(state.copy(hintRung = rung.next(), hintsUsed = state.hintsUsed + 1, stepHelped = state.stepHelped + state.stepIndex))
+}
+
+/**
+ * *Back to my usual help* (FR-13): while the shown step has adaptive assistance, that level is
+ * dismissed for the step, so the step's help is USUAL until the level changes; otherwise nothing
+ * changes. The Teaching Mode stays.
+ */
+private fun usualHelp(state: SessionState): Transition {
+    val level = state.assistance
+    if (level == AssistanceLevel.USUAL) return Transition(state)
+    return Transition(state.copy(assistanceDismissed = state.assistanceDismissed + (state.stepIndex to level)))
 }
 
 /** A different mode clears the last Move's feedback and Diagnosis (they belonged to the old mode's attempt); the same mode changes nothing. */

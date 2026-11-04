@@ -30,6 +30,12 @@ object ContentValidator {
     /** The Guided recovery depths the tutor supports: the `RecoveryPlanner` runs as a timed Effect, never in the reducer. */
     val RECOVERY_MAX_DEPTH_RANGE: IntRange = 1..8
 
+    /** The `tutor-config.json` object holding the adaptive assistance thresholds, as reported by [ContentProblem.InvalidTutorConfig]. */
+    const val ADAPTIVE_FIELD = "adaptive"
+
+    /** The values each adaptive assistance threshold may take. */
+    val ADAPTIVE_THRESHOLD_RANGE: IntRange = 1..10
+
     fun validate(bundle: ContentBundle): List<ContentProblem> {
         val problems = mutableListOf<ContentProblem>()
         val lessons = bundle.stages.flatMap { it.lessons }
@@ -54,7 +60,9 @@ object ContentValidator {
 
     /**
      * [config]'s `maxDepth` must lie in [MAX_DEPTH_RANGE] and its `recoveryMaxDepth` in
-     * [RECOVERY_MAX_DEPTH_RANGE]; its `moveSet` must be valid, non-empty Notation of distinct face turns.
+     * [RECOVERY_MAX_DEPTH_RANGE]; its `moveSet` must be valid, non-empty Notation of distinct face turns;
+     * each `adaptive` threshold must lie in [ADAPTIVE_THRESHOLD_RANGE], and its mistake thresholds must
+     * rise strictly (explain < demonstrate < guide).
      */
     private fun tutorConfigProblems(config: TutorConfig): List<ContentProblem> {
         val problems = mutableListOf<ContentProblem>()
@@ -86,6 +94,27 @@ object ContentValidator {
                         ContentProblem.InvalidTutorConfig(MOVE_SET_FIELD, ContentProblem.InvalidTutorConfig.Detail.DUPLICATE_MOVE)
                 }
             }
+        }
+        problems += adaptiveProblems(config.adaptive)
+        return problems
+    }
+
+    private fun adaptiveProblems(adaptive: AdaptiveThresholds): List<ContentProblem> {
+        val problems = mutableListOf<ContentProblem>()
+        listOf(
+            "explainAfterMistakes" to adaptive.explainAfterMistakes,
+            "demonstrateAfterMistakes" to adaptive.demonstrateAfterMistakes,
+            "guideAfterMistakes" to adaptive.guideAfterMistakes,
+            "reduceAfterCleanSteps" to adaptive.reduceAfterCleanSteps,
+        ).filter { (_, value) -> value !in ADAPTIVE_THRESHOLD_RANGE }
+            .mapTo(problems) { (name, _) ->
+                ContentProblem.InvalidTutorConfig("$ADAPTIVE_FIELD.$name", ContentProblem.InvalidTutorConfig.Detail.OUT_OF_RANGE)
+            }
+        val increasing =
+            adaptive.explainAfterMistakes < adaptive.demonstrateAfterMistakes &&
+                adaptive.demonstrateAfterMistakes < adaptive.guideAfterMistakes
+        if (!increasing) {
+            problems += ContentProblem.InvalidTutorConfig(ADAPTIVE_FIELD, ContentProblem.InvalidTutorConfig.Detail.NOT_INCREASING)
         }
         return problems
     }

@@ -280,7 +280,15 @@ class ContentLoaderTest {
         assertEquals(SHIPPED_CONFIG, loaded(ContentSource.SHIPPED).tutorConfig)
         assertEquals(18, SHIPPED_CONFIG.moves.size)
         val valid = fixture("valid")
-        listOf("""{"x":1}""", "{}", """{"maxDepth":2}""", """{"maxDepth":2,"moveSet":"U"}""", "[]", "{").forEach { config ->
+        listOf(
+            """{"x":1}""",
+            "{}",
+            """{"maxDepth":2}""",
+            """{"maxDepth":2,"moveSet":"U"}""",
+            """{"maxDepth":2,"moveSet":"U","recoveryMaxDepth":5}""",
+            "[]",
+            "{",
+        ).forEach { config ->
             val source = ContentSource { path -> if (path == ContentLoader.TUTOR_CONFIG) config.toByteArray() else valid.read(path) }
             val error = failed(source)
             assertInstanceOf(ContentLoadError.Malformed::class.java, error, config)
@@ -302,12 +310,22 @@ class ContentLoaderTest {
         val recovery = ContentValidator.RECOVERY_MAX_DEPTH_FIELD
         val cases =
             mapOf(
-                """{"maxDepth":0,"moveSet":"U","recoveryMaxDepth":5}""" to depth,
-                """{"maxDepth":4,"moveSet":"U","recoveryMaxDepth":5}""" to depth,
-                """{"maxDepth":2,"moveSet":"U Q","recoveryMaxDepth":5}""" to moveSet,
-                """{"maxDepth":2,"moveSet":"  ","recoveryMaxDepth":5}""" to moveSet,
-                """{"maxDepth":2,"moveSet":"U","recoveryMaxDepth":0}""" to recovery,
-                """{"maxDepth":2,"moveSet":"U","recoveryMaxDepth":9}""" to recovery,
+                """{"maxDepth":0,"moveSet":"U","recoveryMaxDepth":5,$ADAPTIVE_JSON}""" to depth,
+                """{"maxDepth":4,"moveSet":"U","recoveryMaxDepth":5,$ADAPTIVE_JSON}""" to depth,
+                """{"maxDepth":2,"moveSet":"U Q","recoveryMaxDepth":5,$ADAPTIVE_JSON}""" to moveSet,
+                """{"maxDepth":2,"moveSet":"  ","recoveryMaxDepth":5,$ADAPTIVE_JSON}""" to moveSet,
+                """{"maxDepth":2,"moveSet":"U","recoveryMaxDepth":0,$ADAPTIVE_JSON}""" to recovery,
+                """{"maxDepth":2,"moveSet":"U","recoveryMaxDepth":9,$ADAPTIVE_JSON}""" to recovery,
+                """{"maxDepth":2,"moveSet":"U","recoveryMaxDepth":5,${ADAPTIVE_JSON.replace(
+                    "\"guideAfterMistakes\":3",
+                    "\"guideAfterMistakes\":11",
+                )}}""" to
+                    "adaptive.guideAfterMistakes",
+                """{"maxDepth":2,"moveSet":"U","recoveryMaxDepth":5,${ADAPTIVE_JSON.replace(
+                    "\"demonstrateAfterMistakes\":2",
+                    "\"demonstrateAfterMistakes\":1",
+                )}}""" to
+                    ContentValidator.ADAPTIVE_FIELD,
             )
         cases.forEach { (config, field) ->
             val problems = invalid(withConfig(config))
@@ -316,11 +334,19 @@ class ContentLoaderTest {
             assertInstanceOf(ContentProblem.InvalidTutorConfig::class.java, problem, config)
             assertEquals(field, (problem as ContentProblem.InvalidTutorConfig).field, config)
         }
-        listOf(1, 3).forEach { loaded(withConfig("""{"maxDepth":$it,"moveSet":"U R","recoveryMaxDepth":5}""")) }
+        listOf(1, 3).forEach { loaded(withConfig("""{"maxDepth":$it,"moveSet":"U R","recoveryMaxDepth":5,$ADAPTIVE_JSON}""")) }
     }
 
     private companion object {
         val REVISION = Regex("[0-9a-f]{64}")
-        val SHIPPED_CONFIG = TutorConfig(maxDepth = 2, moveSet = "U U' U2 D D' D2 R R' R2 L L' L2 F F' F2 B B' B2", recoveryMaxDepth = 5)
+        const val ADAPTIVE_JSON =
+            "\"adaptive\":{\"explainAfterMistakes\":1,\"demonstrateAfterMistakes\":2,\"guideAfterMistakes\":3,\"reduceAfterCleanSteps\":2}"
+        val SHIPPED_CONFIG =
+            TutorConfig(
+                maxDepth = 2,
+                moveSet = "U U' U2 D D' D2 R R' R2 L L' L2 F F' F2 B B' B2",
+                recoveryMaxDepth = 5,
+                adaptive = AdaptiveThresholds(1, 2, 3, 2),
+            )
     }
 }

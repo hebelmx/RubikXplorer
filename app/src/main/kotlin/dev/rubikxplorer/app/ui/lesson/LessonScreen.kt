@@ -66,6 +66,7 @@ import dev.rubikxplorer.app.ui.freecube.ToolbarButton
 import dev.rubikxplorer.app.ui.shell.WindowWidthClass
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.app.ui.theme.Spacing
+import dev.rubikxplorer.application.port.FlagLevel
 import dev.rubikxplorer.application.session.GuidedRecovery
 import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.application.session.SessionState
@@ -78,6 +79,7 @@ import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.playback.DemonstrationResult
 import dev.rubikxplorer.domain.predicate.Piece
+import dev.rubikxplorer.domain.tutor.AssistanceLevel
 import dev.rubikxplorer.domain.tutor.HintLadder
 import dev.rubikxplorer.domain.tutor.HintRung
 import dev.rubikxplorer.domain.tutor.Recovery
@@ -98,6 +100,8 @@ import kotlin.time.Instant
  * The screen decides nothing about teaching: every reveal, Notice, feedback and Next flag comes from
  * the session's [TutorDecision]. The switcher offers only [modes] (the shell drops a mode whose
  * feature flag is off). [planRecovery] runs a requested Guided recovery's search (tests inject one).
+ * [adaptiveAssistance] is the `ADAPTIVE_ASSISTANCE` flag level the Lesson starts with: off, the Hint Ladder
+ * is fixed and no Assistance line shows; BETA adds the beta label to the Assistance line (AD-18).
  */
 @Composable
 fun LessonScreen(
@@ -108,6 +112,7 @@ fun LessonScreen(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
     planRecovery: PlanRecovery = remember { PlanRecovery() },
+    adaptiveAssistance: FlagLevel = FlagLevel.OFF,
 ) {
     val lesson = entry.lesson
     val session by host.state.collectAsState()
@@ -116,7 +121,7 @@ fun LessonScreen(
         if (host.state.value.lesson
                 ?.id != lesson.id
         ) {
-            host.dispatch { SessionEvent.LessonStarted(lesson, entry.tutorConfig, it) }
+            host.dispatch { SessionEvent.LessonStarted(lesson, entry.tutorConfig, it, adaptiveAssistance != FlagLevel.OFF) }
         }
     }
     Column(
@@ -131,7 +136,7 @@ fun LessonScreen(
         val decision = session.decision
         val demonstration = remember(lesson) { (Demonstration.of(lesson) as? DemonstrationResult.Ready)?.demonstration }
         if (session.lesson?.id == lesson.id && decision != null && demonstration != null) {
-            LessonBody(host, session, decision, lesson, demonstration, strings, modes, onClose)
+            LessonBody(host, session, decision, lesson, demonstration, strings, modes, onClose, adaptiveAssistance == FlagLevel.BETA)
         }
     }
     GuidedRecoveryRunner(host, planRecovery)
@@ -180,6 +185,7 @@ private fun LessonBody(
     strings: ContentStrings,
     modes: List<TeachingMode>,
     onClose: () -> Unit,
+    beta: Boolean,
 ) {
     val scope = rememberCoroutineScope()
     val reduceMotion = rememberReduceMotion()
@@ -206,6 +212,20 @@ private fun LessonBody(
             }
         }
     }
+    // Adaptive assistance's demonstrate level shows the turn (FR-13): when a step escalates to it, the
+    // step's Moves play once on the net like the Hint Ladder's top rung, as the running demonstration,
+    // so any session interaction stops it. It dispatches nothing; a new Lesson (no mistakes) re-arms it.
+    val demonstrated = remember(lesson.id) { mutableStateOf(emptySet<Int>()) }
+    val escalated = session.assistance == AssistanceLevel.DEMONSTRATE
+    val shownStep = session.stepIndex
+    LaunchedEffect(session.stepMistakes.isEmpty()) { if (session.stepMistakes.isEmpty()) demonstrated.value = emptySet() }
+    LaunchedEffect(escalated, shownStep) {
+        if (escalated && shownStep !in demonstrated.value) {
+            demonstrated.value += shownStep
+            stopReorientation()
+            reorientation.value = scope.launch { demonstrateStep(host, renderer, demonstration, shownStep, reduceMotion) }
+        }
+    }
     val send: ((Instant) -> SessionEvent) -> Unit = { event ->
         stopReorientation()
         scope.launch { renderer.submit(host.dispatch(event).presentation.toItems()) }
@@ -213,7 +233,7 @@ private fun LessonBody(
     val pulse = rememberObjectivePulse(decision.satisfied, reduceMotion)
     val mode = session.teachingMode
 
-    val step = stepCard(mode, session, decision, lesson, demonstration, player, strings)
+    val step = stepCard(mode, session, decision, lesson, demonstration, player, strings, beta)
     val panel: @Composable (Modifier) -> Unit = { panelModifier ->
         LessonPanel(
             objective = strings.resolve(lesson.objective),
@@ -222,8 +242,9 @@ private fun LessonBody(
             mode = mode,
             onModeChange = { chosen -> if (chosen != mode) send { SessionEvent.TeachingModeChanged(chosen, it) } },
             onShowMove = { send(SessionEvent::RevealRequested) },
-            hintRung = session.hintRung.ordinal,
-            hintEnabled = HintLadder.canClimb(mode, session.hintRung, decision.advance),
+            hintRung = session.shownRung.ordinal,
+            hintTop = session.assistance.top,
+            hintEnabled = HintLadder.canClimb(mode, session.shownRung, decision.advance, session.assistance.top),
             onHint = {
                 stopReorientation()
                 reorientation.value = scope.launch { climbHintLadder(host, renderer, demonstration, reduceMotion) }
@@ -243,6 +264,7 @@ private fun LessonBody(
                     RecoveryOffer.SHOW_ME_HOW, RecoveryOffer.RE_ENTER -> Unit
                 }
             },
+            onUsualHelp = { send(SessionEvent::UsualHelpRequested) },
             onShowMeHow = { rotations ->
                 stopReorientation()
                 reorientation.value =
@@ -259,7 +281,8 @@ private fun LessonBody(
 
                 TeachingMode.GUIDE_ME, TeachingMode.TEST_ME, TeachingMode.LET_ME_TRY -> {
                     val focus = demonstration.steps.getOrNull(session.stepIndex)?.focus
-                    val hinted = session.hintRung >= HintRung.TARGET
+                    // Adaptive assistance outlines the target from its explain level (FR-13).
+                    val hinted = session.shownRung >= HintRung.TARGET || session.assistance >= AssistanceLevel.EXPLAIN
                     val hintTarget =
                         remember(
                             lesson,
@@ -355,8 +378,8 @@ private fun LessonBody(
 
 /**
  * The step card's content for [mode]: Show me follows the Demonstration's focused step; Guide me,
- * Test me and Let me try follow the session's step, with its Hint Ladder line, and only Guide me
- * offers "Show the Move".
+ * Test me and Let me try follow the session's step, with its Hint Ladder line at the shown rung and
+ * the Assistance line, and only Guide me offers "Show the Move".
  */
 private fun stepCard(
     mode: TeachingMode,
@@ -366,10 +389,12 @@ private fun stepCard(
     demonstration: Demonstration,
     player: DemonstrationPlayerState,
     strings: ContentStrings,
+    beta: Boolean,
 ): StepCardContent {
     val index: Int
     val notice: Boolean
     val moves: List<Move>?
+    var offPath = false
     when (mode) {
         TeachingMode.SHOW_ME -> {
             index = demonstration.stepIndexAt(maxOf(player.position - 1, 0))
@@ -381,14 +406,27 @@ private fun stepCard(
         TeachingMode.GUIDE_ME, TeachingMode.TEST_ME, TeachingMode.LET_ME_TRY -> {
             index = session.stepIndex.coerceIn(0, maxOf(lesson.steps.lastIndex, 0))
             notice = decision.advance
+            // Adaptive assistance's guide level narrows the chips to the next authored Move (FR-13).
+            val guiding = session.assistance == AssistanceLevel.GUIDE && session.noticeStep == null
+            val guided = if (guiding) Tutor.nextMove(lesson, session.entry, session.virtual) else null
+            // Off the authored path there is no next Move to guide: no chips, and the Assistance line says to Undo back.
+            offPath = guiding && guided == null && !decision.advance
             moves =
-                if (decision.reveal) {
-                    demonstration.steps
-                        .getOrNull(index)
-                        ?.moves
-                        .orEmpty()
-                } else {
-                    null
+                when {
+                    !decision.reveal || offPath -> {
+                        null
+                    }
+
+                    guided != null -> {
+                        listOf(guided)
+                    }
+
+                    else -> {
+                        demonstration.steps
+                            .getOrNull(index)
+                            ?.moves
+                            .orEmpty()
+                    }
                 }
         }
     }
@@ -412,14 +450,16 @@ private fun stepCard(
         showMeHowLabel = strings.resolve(SHOW_ME_HOW_LABEL),
         feedbackMove = session.revision,
         showMoveControl = mode == TeachingMode.GUIDE_ME,
+        // Off the path the target line's "The Moves are below." would point at chips that are not shown.
         hint =
-            if (mode == TeachingMode.SHOW_ME) {
+            if (mode == TeachingMode.SHOW_ME || (offPath && session.shownRung == HintRung.TARGET)) {
                 null
             } else {
-                HintLadder.line(lesson, index, session.hintRung)?.let { strings.resolve(it) }
+                HintLadder.line(lesson, index, session.shownRung)?.let { strings.resolve(it) }
             },
         recoveryActions = recoveryActions(session, decision, strings),
         guidedRecovery = guidedRecoveryContent(session.guidedRecovery, strings),
+        assistance = if (mode == TeachingMode.SHOW_ME) null else assistanceContent(session, strings, offPath, beta),
     )
 }
 

@@ -132,6 +132,9 @@ sealed interface ContentProblem {
 
             /** The same Move listed twice. */
             DUPLICATE_MOVE,
+
+            /** Thresholds that must rise strictly, in order, do not. */
+            NOT_INCREASING,
         }
     }
 }

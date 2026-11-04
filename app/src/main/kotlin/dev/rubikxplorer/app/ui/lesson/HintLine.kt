@@ -37,7 +37,7 @@ internal fun HintLine(
 
 /**
  * The Hint button's action: dispatches `HintRequested` and draws its presentation; when that climb
- * lands on [HintRung.DEMONSTRATION], plays the shown step's Moves on the net from the step's authored
+ * takes the shown rung (`SessionState.shownRung`) from [HintRung.TARGET] to [HintRung.DEMONSTRATION], plays the shown step's Moves on the net from the step's authored
  * start in [demonstration] ([demonstrateOnNet]), then snaps back to the session's state. The
  * playback dispatches nothing: the session's revision and undo history stay as they are. The caller
  * runs it as a cancellable job and stops it before any other session interaction.
@@ -48,14 +48,29 @@ internal suspend fun climbHintLadder(
     demonstration: Demonstration,
     reduceMotion: Boolean,
 ) {
-    val before = host.state.value.hintRung
+    val before = host.state.value.shownRung
     val transition = host.dispatch(SessionEvent::HintRequested)
     renderer.submit(transition.presentation.toItems())
     val landed = transition.state
-    if (before == HintRung.TARGET && landed.hintRung == HintRung.DEMONSTRATION) {
-        demonstration.steps.getOrNull(landed.stepIndex)?.let { shown ->
-            val from = demonstration.start.apply(demonstration.moves.take(shown.firstMove))
-            demonstrateOnNet(host, renderer, from, shown.moves, reduceMotion)
-        }
+    if (before == HintRung.TARGET && landed.shownRung == HintRung.DEMONSTRATION) {
+        demonstrateStep(host, renderer, demonstration, landed.stepIndex, reduceMotion)
+    }
+}
+
+/**
+ * Plays step [stepIndex]'s Moves on the net from the step's authored start in [demonstration]
+ * ([demonstrateOnNet]); dispatches nothing. Used by the Hint Ladder's top rung and by adaptive
+ * assistance's demonstrate level. The caller runs it as a cancellable job.
+ */
+internal suspend fun demonstrateStep(
+    host: SessionHost,
+    renderer: Net2DRenderer,
+    demonstration: Demonstration,
+    stepIndex: Int,
+    reduceMotion: Boolean,
+) {
+    demonstration.steps.getOrNull(stepIndex)?.let { shown ->
+        val from = demonstration.start.apply(demonstration.moves.take(shown.firstMove))
+        demonstrateOnNet(host, renderer, from, shown.moves, reduceMotion)
     }
 }

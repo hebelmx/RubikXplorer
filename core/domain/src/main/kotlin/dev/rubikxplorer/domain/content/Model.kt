@@ -69,18 +69,38 @@ data class Step(
  *
  * - [maxDepth]: the longest Move sequence the `CandidateEnumerator` tries (1..3);
  * - [moveSet]: the Moves it tries, as Notation (also the Moves the `RecoveryPlanner` searches);
- * - [recoveryMaxDepth]: the longest Guided recovery the `RecoveryPlanner` searches for (1..8).
+ * - [recoveryMaxDepth]: the longest Guided recovery the `RecoveryPlanner` searches for (1..8);
+ * - [adaptive]: the thresholds of adaptive assistance (`AdaptivePolicy`, FR-13).
  */
 @Serializable
 data class TutorConfig(
     val maxDepth: Int,
     val moveSet: String,
     val recoveryMaxDepth: Int,
+    val adaptive: AdaptiveThresholds,
 ) {
     /** [moveSet] parsed; empty when it is not valid Notation (which `ContentValidator` rejects). */
     val moves: List<Move>
         get() = (Notation.parse(moveSet) as? NotationResult.Parsed)?.moves.orEmpty()
 }
+
+/**
+ * When adaptive assistance (`AdaptivePolicy`, FR-13) changes the help on the shown step: data in
+ * `tutor-config.json`, each in 1..10, with [explainAfterMistakes] < [demonstrateAfterMistakes] <
+ * [guideAfterMistakes] (`ContentValidator` checks them).
+ *
+ * - [explainAfterMistakes]: Harmful Moves on a step before the tutor explains and outlines the piece;
+ * - [demonstrateAfterMistakes]: before it shows the step's Moves;
+ * - [guideAfterMistakes]: before it guides one Move at a time;
+ * - [reduceAfterCleanSteps]: steps in a row completed with no mistake and no Hint before it offers fewer Hints.
+ */
+@Serializable
+data class AdaptiveThresholds(
+    val explainAfterMistakes: Int,
+    val demonstrateAfterMistakes: Int,
+    val guideAfterMistakes: Int,
+    val reduceAfterCleanSteps: Int,
+)
 
 /**
  * Loaded, validated content: the manifest's [schemaVersion], a [contentRevision] hash of the exact

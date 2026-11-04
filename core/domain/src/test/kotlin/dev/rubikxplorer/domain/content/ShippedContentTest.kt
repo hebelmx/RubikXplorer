@@ -213,7 +213,12 @@ class ShippedContentTest {
     @Test
     fun `the shipped tutor config loads, and tutor and session code declare no numeric constants`() {
         assertEquals(
-            TutorConfig(maxDepth = 2, moveSet = "U U' U2 D D' D2 R R' R2 L L' L2 F F' F2 B B' B2", recoveryMaxDepth = 5),
+            TutorConfig(
+                maxDepth = 2,
+                moveSet = "U U' U2 D D' D2 R R' R2 L L' L2 F F' F2 B B' B2",
+                recoveryMaxDepth = 5,
+                adaptive = AdaptiveThresholds(1, 2, 3, 2),
+            ),
             bundle.tutorConfig,
         )
         val repo = File("../..")

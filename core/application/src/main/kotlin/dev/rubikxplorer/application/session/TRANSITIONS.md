@@ -7,10 +7,10 @@ or a row naming no type, fails the build. Physical-mode rows (`expected`, `obser
 Columns:
 
 - **Mutates** — the fields the event may change, from `session` (the session's kind, its Lesson and
-  tutor configuration or its Solution, and its entry state),
+  tutor configuration or its Solution, its `adaptiveAssistance` flag, and its entry state),
   `virtual` (the current Cube State), `pending` (the reset confirmation awaiting the Learner) and
   `tutor` (`teachingMode`, `noticeStep`, `revealRequested`, `hintRung`, `hintsUsed`, `lastMoveFeedback`,
-  `lastDiagnosis`, `guidedRecovery`) and `checkpoint` (the Checkpoint history *Try again* returns to); `—` for none. Any
+  `lastDiagnosis`, `guidedRecovery`, `stepMistakes`, `cleanSteps`, `cleanCredited`, `stepHelped`, `assistanceDismissed`) and `checkpoint` (the Checkpoint history *Try again* returns to); `—` for none. Any
   change of `session`, `virtual` or the undo/redo history advances `revision` by exactly 1 and
   cancels a pending confirmation; a change of `pending`, `tutor` or `checkpoint` alone does not advance it.
 - **Undoable** — `yes` when the event pushes a Move onto the undo history, so a following `Undo`
@@ -37,6 +37,7 @@ steps remain.
 | TeachingModeChanged | tutor | no | no |
 | RevealRequested | tutor | no | no |
 | HintRequested | tutor | no | no |
+| UsualHelpRequested | tutor | no | no |
 | StepAdvanced | tutor | no | no |
 | RetryRequested | virtual, pending, tutor | no | yes |
 | GuidedRecoveryRequested | tutor | no | no |
@@ -64,7 +65,7 @@ mode is remembered) and, like an applied `Reset` or `ResetConfirmed`, clears `no
 
 The Hint Ladder (FR-11): `hintRung` is the shown step's rung (`NONE`, `CLUE`, `TARGET`,
 `DEMONSTRATION`) and `hintsUsed` the Hints applied in this attempt. `HintRequested` applies only when
-`HintLadder.canClimb(teachingMode, hintRung, decision.advance)` holds: not in *Show me*, below
+`HintLadder.canClimb(teachingMode, shownRung, decision.advance, assistance.top)` holds (with adaptive assistance off, `shownRung` is `hintRung` and the top is `DEMONSTRATION`): not in *Show me*, below
 `DEMONSTRATION`, and not while the tutor says `advance` (a Notice or completion is shown); it then
 raises `hintRung` by exactly one rung and `hintsUsed` by exactly one, and otherwise changes nothing
 (beyond clearing the last Move's feedback). The decision reveals the Moves from `TARGET` up
@@ -94,7 +95,7 @@ shows the feedback only in *Test me* (beside the Notice or completion when the M
 or the Lesson) and the Diagnosis only in *Test me* while the step is not yet done (`advance`). Every
 other event in a Lesson session clears both (AD-5): `LessonStarted`, `Undo`, `Redo`, `Reset` (also
 when it only asks for confirmation), `ResetConfirmed` and `ResetDeclined` (also when discarded),
-`TeachingModeChanged`, `RevealRequested`, `HintRequested`, `StepAdvanced` and `RetryRequested`, and
+`TeachingModeChanged`, `RevealRequested`, `HintRequested`, `UsualHelpRequested`, `StepAdvanced` and `RetryRequested`, and
 each of these also returns `guidedRecovery` to `None`; none of these clearings advances
 `revision` by itself. The three Guided recovery events (`GuidedRecoveryRequested`, `RecoveryPlanned`,
 `RecoveryPlanFailed`) act on the Diagnosis and never clear it. A Diagnosis never replaces or rewinds `virtual`: the Cube State stays
@@ -141,3 +142,34 @@ Every history change (`withHistory`) returns `guidedRecovery` to `None`, which c
 (AD-3), with one exception: a `MoveCommitted` equal to the first Move of a `Planned` plan keeps it
 `Planned` with the Moves left, and `None` once none are left. A plan is never applied to the cube; the
 Learner turns its Moves.
+
+Adaptive assistance (FR-13, Story 4.6): `LessonStarted(lesson, tutorConfig, at, adaptiveAssistance)`
+records the `ADAPTIVE_ASSISTANCE` flag (a `session` field; the app reads the flag, `:core:*` never
+does) and resets `stepMistakes` (Harmful Moves per step), `cleanSteps` (steps in a row completed
+cleanly), `cleanCredited` (the steps whose clean completion already counted), `stepHelped` (the steps
+that used help: an applied `HintRequested` or a `RevealRequested` adds the shown step) and `assistanceDismissed`
+(the level dismissed per step); no other event resets them, not
+`Reset` and not `RetryRequested`, and idle and playback sessions hold them empty or 0. `MoveCommitted`
+assesses the Move with `Assess.classify` in *Test me*, and also in *Guide me* and *Let me try* while
+`adaptiveAssistance` is on; only *Test me* keeps `lastMoveFeedback` and `lastDiagnosis`. A Harmful
+result adds 1 to `stepMistakes[Tutor.currentStep(before)]` and sets `cleanSteps` to 0. A commit that
+makes a Notice newly pending or newly completes the Lesson completes `s0`, the step shown before: it
+is clean when `s0` has no mistakes (counted after this Move) and the before-state `hintRung` is
+`NONE` with no reveal, and `s0` is not in `stepHelped` (a step that used help is never clean in this
+Lesson, even after `Reset` or `RetryRequested`), which raises `cleanSteps` by 1 and adds `s0` to `cleanCredited` — once per Lesson: a clean
+completion of a step already in `cleanCredited` (say after an `Undo` across its boundary) leaves
+`cleanSteps`; any other completed step sets it to 0. `Undo`, `Redo`,
+`Reset` and `RetryRequested` never count.
+
+`assistance` is derived, never stored: `USUAL` outside a Lesson, with the flag off, in *Show me*, or
+when the level equals `assistanceDismissed[stepIndex]`; else `AdaptivePolicy.level(tutorConfig.adaptive,
+stepMistakes[stepIndex], cleanSteps)` — `GUIDE`, `DEMONSTRATE`, `EXPLAIN` at their mistake thresholds,
+`REDUCED` at the clean-step threshold, else `USUAL`. Each level is a floor and a top on the Hint
+Ladder: `shownRung` is `hintRung` held within them, the decision reveals from `shownRung`, and
+`HintRequested` climbs from `shownRung` (`hintRung = shownRung.next()`) only below the level's top
+(`TARGET` when `REDUCED`). `UsualHelpRequested` sets `assistanceDismissed[stepIndex]` to the current
+level when it is not `USUAL` and otherwise changes nothing (beyond the generic clear); a later rise to
+a different level shows again. No level, and no adaptive event, ever changes `teachingMode`, plays a
+Demonstration in `reduce` or applies a Move, and none of these fields advances `revision`. (The app
+plays the shown step's Moves once on the net when the step escalates to `DEMONSTRATE`; it dispatches
+nothing and any session interaction cancels it.)

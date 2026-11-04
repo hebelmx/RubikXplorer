@@ -14,6 +14,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -39,10 +40,12 @@ import dev.rubikxplorer.app.session.whiteCrossLesson
 import dev.rubikxplorer.app.ui.freecube.FreeCubeViewModel
 import dev.rubikxplorer.app.ui.shell.AppShell
 import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
+import dev.rubikxplorer.application.port.FlagLevel
 import dev.rubikxplorer.application.session.GuidedRecovery
 import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.application.usecase.PlanRecovery
 import dev.rubikxplorer.domain.appearance.StickerAppearance
+import dev.rubikxplorer.domain.content.AdaptiveThresholds
 import dev.rubikxplorer.domain.content.ContentLoadResult
 import dev.rubikxplorer.domain.content.ContentLoader
 import dev.rubikxplorer.domain.content.ContentSource
@@ -57,6 +60,7 @@ import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.playback.DemonstrationResult
 import dev.rubikxplorer.domain.playback.PlaybackSpeed
 import dev.rubikxplorer.domain.predicate.Piece
+import dev.rubikxplorer.domain.tutor.AssistanceLevel
 import dev.rubikxplorer.domain.tutor.HintLadder
 import dev.rubikxplorer.domain.tutor.HintRung
 import dev.rubikxplorer.domain.tutor.RecoveryPlan
@@ -121,10 +125,14 @@ class LessonScreenTest {
         lessonId: String,
         modes: List<TeachingMode> = TeachingMode.entries,
         planRecovery: PlanRecovery = PlanRecovery(),
+        adaptiveAssistance: Boolean = false,
+        adaptiveLevel: FlagLevel = if (adaptiveAssistance) FlagLevel.GA else FlagLevel.OFF,
+        thresholds: AdaptiveThresholds? = null,
     ) {
         runBlocking { catalog.load() }
         val ready = catalog.state.value as CatalogState.Ready
-        val entry = ready.lessons.single { it.lesson.id.value == lessonId }
+        val shipped = ready.lessons.single { it.lesson.id.value == lessonId }
+        val entry = thresholds?.let { shipped.copy(tutorConfig = shipped.tutorConfig.copy(adaptive = it)) } ?: shipped
         rule.setContent {
             RubikXplorerTheme {
                 LessonScreen(
@@ -134,6 +142,7 @@ class LessonScreenTest {
                     modes = modes,
                     onClose = { closed++ },
                     planRecovery = planRecovery,
+                    adaptiveAssistance = adaptiveLevel,
                 )
             }
         }
@@ -1094,4 +1103,307 @@ class LessonScreenTest {
     private val whiteCrossSolvingMove =
         dev.rubikxplorer.domain.cube
             .FaceTurn(dev.rubikxplorer.domain.cube.Face.F, dev.rubikxplorer.domain.cube.Turn.COUNTERCLOCKWISE)
+
+    /** [times] mistakes on the corner Lesson's step in Test me: R disturbs the cross, Undo takes it back. */
+    private fun tripUp(times: Int) {
+        repeat(times) {
+            runBlocking {
+                host.dispatch { SessionEvent.MoveCommitted(FaceTurn(Face.R, Turn.CLOCKWISE), it) }
+                host.dispatch(SessionEvent::Undo)
+            }
+        }
+        rule.waitForIdle()
+    }
+
+    @Test
+    fun `with the flag on, two mistakes show why help changed, and back to my usual help hides the Moves again`() {
+        open(cornerLesson.id.value, adaptiveAssistance = true)
+        switchTo(TeachingMode.TEST_ME)
+        node("lesson:assistance").assertDoesNotExist()
+        tripUp(2)
+        node("lesson:assistance").performScrollTo().assertTextContains("Showing the turn, since this step tripped you up twice.")
+        node("lesson:assistance")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+        node("lesson:assistance").assert(hasAnyAncestor(hasTestTag("lesson:stepCard")).not())
+        node("lesson:assistance:usual").assertTextContains("Back to my usual help")
+        node("lesson:assistance:beta").assertDoesNotExist()
+        node("mode:TEST_ME").assertIsSelected()
+        assertEquals(listOf("moveChip:R'", "moveChip:D'", "moveChip:R"), tagsStartingWith("moveChip:"))
+        assertTrue("the target is outlined", stickersWith(StickerHighlightedKey).isNotEmpty())
+        rule.onAllNodes(isDialog()).assertCountEquals(0)
+
+        node("lesson:assistance:usual").performScrollTo().performClick()
+        rule.waitUntil(5_000) {
+            host.state.value.assistanceDismissed
+                .isNotEmpty()
+        }
+        rule.waitForIdle()
+        node("lesson:assistance").assertDoesNotExist()
+        assertEquals(emptyList<String>(), tagsStartingWith("moveChip:"))
+        node("lesson:hint").performScrollTo().assertTextContains("Hint (0/3)")
+        node("mode:TEST_ME").assertIsSelected()
+        assertEquals(TeachingMode.TEST_ME, host.state.value.teachingMode)
+    }
+
+    @Test
+    fun `with the flag off, the same mistakes leave the Hint Ladder fixed and show no Assistance line`() {
+        open(cornerLesson.id.value)
+        switchTo(TeachingMode.TEST_ME)
+        tripUp(3)
+        node("lesson:assistance").assertDoesNotExist()
+        node("lesson:hint").performScrollTo().assertTextContains("Hint (0/3)")
+        assertEquals(emptyList<String>(), tagsStartingWith("moveChip:"))
+    }
+
+    @Test
+    fun `with the flag at BETA, the Assistance line carries the beta label`() {
+        open(cornerLesson.id.value, adaptiveLevel = FlagLevel.BETA)
+        switchTo(TeachingMode.TEST_ME)
+        node("lesson:assistance:beta").assertDoesNotExist()
+        tripUp(1)
+        node("lesson:assistance").performScrollTo().assertTextContains("Pointing out the piece, since this step tripped you up.")
+        node("lesson:assistance:beta").assertTextEquals("BETA")
+        assertTrue(host.state.value.adaptiveAssistance)
+    }
+
+    @Test
+    fun `at the guide level a half turn done as two quarters guides the second quarter, not Undo`() {
+        open(crossLesson.id.value, adaptiveAssistance = true, thresholds = AdaptiveThresholds(0, 0, 0, 2))
+        assertEquals(AssistanceLevel.GUIDE, host.state.value.assistance)
+        assertEquals(listOf("moveChip:F2"), tagsStartingWith("moveChip:"))
+
+        runBlocking { host.dispatch { SessionEvent.MoveCommitted(FaceTurn(Face.F, Turn.CLOCKWISE), it) } }
+        rule.waitForIdle()
+        assertEquals(AssistanceLevel.GUIDE, host.state.value.assistance)
+        assertEquals("the remaining quarter is guided", listOf("moveChip:F"), tagsStartingWith("moveChip:"))
+        node("lesson:assistance").performScrollTo().assertTextContains("One turn at a time", substring = true)
+        node("lesson:hint:line").performScrollTo().assertTextContains("The Moves are below.", substring = true)
+
+        runBlocking { host.dispatch { SessionEvent.MoveCommitted(FaceTurn(Face.F, Turn.CLOCKWISE), it) } }
+        rule.waitForIdle()
+        assertEquals("F then F completes step 1", 0, host.state.value.noticeStep)
+    }
+
+    @Test
+    fun `continued difficulty shows only the next Move's chip`() {
+        open(cornerLesson.id.value, adaptiveAssistance = true)
+        switchTo(TeachingMode.TEST_ME)
+        tripUp(3)
+        node("lesson:assistance").performScrollTo().assertTextContains("One turn at a time, since this step tripped you up 3 times.")
+        assertEquals(listOf("moveChip:R'"), tagsStartingWith("moveChip:"))
+        node("mode:TEST_ME").assertIsSelected()
+    }
+
+    @Test
+    fun `escalating to guide without undoing the last mistake says to Undo back before showing one Move`() {
+        open(cornerLesson.id.value, adaptiveAssistance = true)
+        switchTo(TeachingMode.TEST_ME)
+        tripUp(2)
+        runBlocking { host.dispatch { SessionEvent.MoveCommitted(FaceTurn(Face.R, Turn.CLOCKWISE), it) } }
+        rule.waitForIdle()
+        assertEquals(AssistanceLevel.GUIDE, host.state.value.assistance)
+        node("lesson:assistance")
+            .performScrollTo()
+            .assertTextContains("You're off the path now — Undo back to it, and I'll show one turn at a time again.")
+        assertEquals("off the path, the authored step's Moves are not shown", emptyList<String>(), tagsStartingWith("moveChip:"))
+        assertEquals(HintRung.TARGET, host.state.value.shownRung)
+        node("lesson:hint:line").assertDoesNotExist()
+
+        runBlocking { host.dispatch(SessionEvent::Undo) }
+        rule.waitForIdle()
+        node("lesson:hint:line").performScrollTo().assertTextContains("The Moves are below.", substring = true)
+        node("lesson:assistance").performScrollTo().assertTextContains("One turn at a time, since this step tripped you up 3 times.")
+        assertEquals(listOf("moveChip:R'"), tagsStartingWith("moveChip:"))
+        node("mode:TEST_ME").assertIsSelected()
+    }
+
+    /** Two mistakes on the corner Lesson's step, dispatched without waiting for idle, so a paused clock can watch what follows. */
+    private fun tripUpTwiceWithPausedClock() {
+        rule.mainClock.autoAdvance = false
+        runBlocking {
+            repeat(2) {
+                host.dispatch { SessionEvent.MoveCommitted(FaceTurn(Face.R, Turn.CLOCKWISE), it) }
+                host.dispatch(SessionEvent::Undo)
+            }
+        }
+    }
+
+    private fun sessionColors() =
+        host.state.value.virtual
+            .toFacelets()
+            .colors
+            .map { Color(StickerAppearance.of(it).fill) }
+
+    @Test
+    fun `escalating to demonstrate plays the step on the net once with no Hint tap and changes nothing`() {
+        open(cornerLesson.id.value, adaptiveAssistance = true)
+        switchTo(TeachingMode.TEST_ME)
+        val demonstration = (Demonstration.of(cornerLesson) as DemonstrationResult.Ready).demonstration
+        val endColors =
+            demonstration.start
+                .apply(demonstration.steps[0].moves)
+                .toFacelets()
+                .colors
+                .map { Color(StickerAppearance.of(it).fill) }
+        tripUpTwiceWithPausedClock()
+        val before = host.state.value
+        assertEquals(AssistanceLevel.DEMONSTRATE, before.assistance)
+        var played = false
+        repeat(DEMO_CHECKS * 2) {
+            if (!played) {
+                rule.mainClock.advanceTimeBy(DEMO_CHECK_MILLIS)
+                played = drawnColors() == endColors
+            }
+        }
+        assertTrue("the net never played the step without a Hint tap", played)
+        rule.mainClock.advanceTimeBy(REORIENT_HOLD_MILLIS + REORIENT_STEP_MILLIS + 500)
+        rule.mainClock.autoAdvance = true
+        assertNetMatchesSession("net returns to the session after the demonstration")
+        assertEquals(HintRung.NONE, host.state.value.hintRung)
+        assertEquals(0, host.state.value.hintsUsed)
+        assertEquals(TeachingMode.TEST_ME, host.state.value.teachingMode)
+        assertEquals(before.revision, host.state.value.revision)
+        assertEquals(before.history, host.state.value.history)
+
+        // Recomposition and leaving and returning to the level do not replay it.
+        switchTo(TeachingMode.SHOW_ME)
+        switchTo(TeachingMode.TEST_ME)
+        assertEquals(AssistanceLevel.DEMONSTRATE, host.state.value.assistance)
+        rule.mainClock.autoAdvance = false
+        repeat(DEMO_CHECKS) {
+            rule.mainClock.advanceTimeBy(DEMO_CHECK_MILLIS)
+            assertEquals("the demonstration played again", sessionColors(), drawnColors())
+        }
+        rule.mainClock.autoAdvance = true
+    }
+
+    @Test
+    fun `a Move during the escalation demonstration stops it and the net shows the post-Move session`() {
+        open(cornerLesson.id.value, adaptiveAssistance = true)
+        switchTo(TeachingMode.TEST_ME)
+        tripUpTwiceWithPausedClock()
+        var running = false
+        repeat(DEMO_CHECKS * 2) {
+            if (!running) {
+                rule.mainClock.advanceTimeBy(DEMO_CHECK_MILLIS)
+                running = drawnColors() != sessionColors()
+            }
+        }
+        assertTrue("the escalation demonstration never started", running)
+        // Scroll while the clock runs: a paused clock never ends the scroll.
+        rule.mainClock.autoAdvance = true
+        node("moveKey:L").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.history.done.size == 1 }
+        assertNetMatchesSession("after a Move interrupts the demonstration")
+        assertEquals(TeachingMode.TEST_ME, host.state.value.teachingMode)
+    }
+
+    @Test
+    fun `repeated success reduces the Hint Ladder to two rungs`() {
+        open(crossLesson.id.value, adaptiveAssistance = true)
+        runBlocking {
+            host.dispatch { SessionEvent.MoveCommitted(FaceTurn(Face.F, Turn.HALF), it) }
+            host.dispatch(SessionEvent::StepAdvanced)
+            host.dispatch { SessionEvent.MoveCommitted(FaceTurn(Face.R, Turn.HALF), it) }
+            host.dispatch(SessionEvent::StepAdvanced)
+        }
+        rule.waitForIdle()
+        node("lesson:assistance").performScrollTo().assertTextContains("Fewer hints now — you've got this step.")
+        node("lesson:hint").performScrollTo().assertTextContains("Hint (0/2)").assertIsEnabled()
+        tapHint(HintRung.CLUE)
+        node("lesson:hint").assertTextContains("Hint (1/2)")
+        tapHint(HintRung.TARGET)
+        node("lesson:hint").assertTextContains("Hint (2/2)").assertIsNotEnabled()
+        node("mode:GUIDE_ME").assertIsSelected()
+    }
+
+    private fun openFromShell(adaptive: Boolean) {
+        rule.setContent {
+            RubikXplorerTheme {
+                AppShell(
+                    host = host,
+                    catalog = catalog,
+                    freeCube = FreeCubeViewModel(),
+                    showDebugToggles = false,
+                    flags = testFlags(adaptive = adaptive),
+                )
+            }
+        }
+        node("learn:lesson:lesson-01-01").performClick()
+        rule.waitUntil(5_000) {
+            host.state.value.lesson
+                ?.id == whiteCrossLesson().id
+        }
+        rule.waitForIdle()
+    }
+
+    @Test
+    fun `the shell starts a Lesson with adaptive assistance when its flag is on`() {
+        openFromShell(adaptive = true)
+        assertTrue(host.state.value.adaptiveAssistance)
+    }
+
+    @Test
+    fun `the shell starts a Lesson without adaptive assistance when its flag is off`() {
+        openFromShell(adaptive = false)
+        assertFalse(host.state.value.adaptiveAssistance)
+    }
+
+    @Test
+    fun `one mistake outlines exactly the step's target with no Move chips`() {
+        open(cornerLesson.id.value, adaptiveAssistance = true)
+        switchTo(TeachingMode.TEST_ME)
+        tripUp(1)
+        assertEquals(HintRung.NONE, host.state.value.hintRung)
+        node("lesson:assistance").performScrollTo().assertTextContains("Pointing out the piece, since this step tripped you up.")
+        val facelets =
+            host.state.value.virtual
+                .toFacelets()
+        val expected =
+            (0 until Facelets.SIZE)
+                .filter { Piece.at(facelets, it) in HintLadder.highlight(cornerLesson, 0) }
+                .map { "sticker:$it" }
+                .toSet()
+        assertTrue(expected.isNotEmpty())
+        assertEquals(expected, stickersWith(StickerHighlightedKey))
+        assertEquals(emptyList<String>(), tagsStartingWith("moveChip:"))
+    }
+
+    @Test
+    fun `one Hint from the demonstrate floor plays the step on the net, then shows the session again`() {
+        open(cornerLesson.id.value, adaptiveAssistance = true)
+        switchTo(TeachingMode.TEST_ME)
+        tripUp(2)
+        val before = host.state.value
+        assertEquals(HintRung.NONE, before.hintRung)
+        assertEquals(HintRung.TARGET, before.shownRung)
+        assertNetMatchesSession("before the demonstration")
+
+        val demonstration = (Demonstration.of(cornerLesson) as DemonstrationResult.Ready).demonstration
+        val end = demonstration.start.apply(demonstration.steps[0].moves)
+        val endColors = end.toFacelets().colors.map { Color(StickerAppearance.of(it).fill) }
+        // Scroll while the clock runs: the Assistance line pushes Hint below the fold, and a paused clock never ends the scroll.
+        node("lesson:hint").performScrollTo()
+        rule.waitForIdle()
+        rule.mainClock.autoAdvance = false
+        node("lesson:hint").performClick()
+        var played = false
+        repeat(DEMO_CHECKS * 2) {
+            if (!played) {
+                rule.mainClock.advanceTimeBy(DEMO_CHECK_MILLIS)
+                played = drawnColors() == endColors
+            }
+        }
+        assertTrue("the net never showed the step played from its authored start", played)
+        assertEquals(before.revision, host.state.value.revision)
+        assertEquals(before.history, host.state.value.history)
+
+        rule.mainClock.advanceTimeBy(REORIENT_HOLD_MILLIS + REORIENT_STEP_MILLIS + 500)
+        rule.mainClock.autoAdvance = true
+        assertNetMatchesSession("net returns to the session after the demonstration")
+        assertEquals(HintRung.DEMONSTRATION, host.state.value.hintRung)
+        assertEquals(1, host.state.value.hintsUsed)
+        assertEquals(before.revision, host.state.value.revision)
+        assertEquals(before.history, host.state.value.history)
+    }
 }
