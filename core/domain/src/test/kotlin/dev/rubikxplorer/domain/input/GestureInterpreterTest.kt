@@ -87,4 +87,36 @@ class GestureInterpreterTest {
         val behind = pose.project(pose.eye + Vector3(-10.0, -10.0, 1.0))
         for (end in listOf(parallel, behind)) assertNull(GestureInterpreter.interpret(TouchPath(listOf(pose.project(start), end)), pose))
     }
+
+    @Test
+    fun `top-down and bottom-up poses recognize every U and D row and column like an oblique pose`() {
+        val cases =
+            listOf(
+                Triple(Vector3(0.0, 8.0, 0.0), Vector3(0.0, 1.0, 0.0), Vector3(4.2, 4.6, 6.4)),
+                Triple(Vector3(0.0, -8.0, 0.0), Vector3(0.0, -1.0, 0.0), Vector3(-4.2, -4.6, 6.4)),
+            )
+        cases.forEach { (eye, normal, obliqueEye) ->
+            for ((width, height) in listOf(800 to 600, 600 to 800)) {
+                val pose = ViewPose(width, height, eye)
+                val oblique = ViewPose(width, height, obliqueEye)
+                val centre = pose.ray(width / 2.0, height / 2.0).direction
+                assert(!centre.x.isNaN() && !centre.y.isNaN() && !centre.z.isNaN()) { "$eye ray is NaN" }
+                val tangent = axes.filter { it.dot(normal) == 0.0 }
+                for (row in -1..1) {
+                    for (col in -1..1) {
+                        for (direction in tangent.flatMap { listOf(it, it * -1.0) }) {
+                            val start = normal * 1.5 + tangent[0] * row.toDouble() + tangent[1] * col.toDouble()
+                            val actual = GestureInterpreter.interpret(path(pose, start, direction * 0.6), pose)
+                            assertNotNull(actual, "$eye $start $direction")
+                            assertEquals(GestureInterpreter.interpret(path(oblique, start, direction * 0.6), oblique), actual)
+                            assertEquals(
+                                actual!!.move.inverse(),
+                                GestureInterpreter.interpret(path(pose, start, direction * -0.6), pose)!!.move,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

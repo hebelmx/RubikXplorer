@@ -1,5 +1,6 @@
 package dev.rubikxplorer.domain.input
 
+import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.sqrt
 import kotlin.math.tan
@@ -50,7 +51,12 @@ data class ViewPose(
     val fovDegrees: Double = 38.0,
 ) {
     private val forward = (Vector3(0.0, 0.0, 0.0) - eye).normalized()
-    private val right = forward.cross(Vector3(0.0, 1.0, 0.0)).normalized()
+
+    // World up is degenerate when looking straight down or up; then screen-up is world back (top-down)
+    // or world front (bottom-up), so F sits at the near/bottom edge of a top-down view.
+    private val worldUp =
+        if (abs(forward.y) > 1 - 1e-9) Vector3(0.0, 0.0, if (forward.y < 0) -1.0 else 1.0) else Vector3(0.0, 1.0, 0.0)
+    private val right = forward.cross(worldUp).normalized()
     private val up = right.cross(forward)
     private val aspect = width.coerceAtLeast(1).toDouble() / height.coerceAtLeast(1)
     private val tanY = tan(Math.toRadians(fovDegrees / 2)) / min(aspect, 1.0)
