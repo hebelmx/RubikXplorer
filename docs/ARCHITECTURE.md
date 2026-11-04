@@ -197,3 +197,5 @@ Kotlin 2.4.21 · AGP 9.5 (built-in Kotlin) · Compose BOM 2026.09.00 · Material
 | Quick Scan corner detection (Kotlin / OpenCV / LiteRT) | recognition spike; contained in the camera adapter |
 | Performance on the reference devices (Galaxy Tab S7 FE 5G, Galaxy S24 FE) | Story 1.10 benchmark; above 33.3 ms p90 per frame reopens the renderer choice |
 | Solver internals (bundled or generated pruning tables) | solver epic, within the 3 s timeout and 30 MB app size |
+
+Gestures are interpreted by the pure `domain/input/GestureInterpreter`; `ViewPose` drives both picking and the GL camera.

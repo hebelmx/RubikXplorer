@@ -1,0 +1,90 @@
+package dev.rubikxplorer.domain.input
+
+import dev.rubikxplorer.domain.cube.CubeState
+import dev.rubikxplorer.domain.cube.Face
+import dev.rubikxplorer.domain.cube.FaceTurn
+import dev.rubikxplorer.domain.cube.Slice
+import dev.rubikxplorer.domain.cube.SliceTurn
+import dev.rubikxplorer.domain.cube.Turn
+import dev.rubikxplorer.domain.input.GestureInterpreter
+import dev.rubikxplorer.domain.input.MoveIntent
+import dev.rubikxplorer.domain.input.TouchPath
+import dev.rubikxplorer.domain.input.Vector3
+import dev.rubikxplorer.domain.input.ViewPose
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Test
+
+class GestureInterpreterTest {
+    private val axes = listOf(Vector3(1.0, 0.0, 0.0), Vector3(0.0, 1.0, 0.0), Vector3(0.0, 0.0, 1.0))
+    private val eyes = listOf(Vector3(4.2, 4.6, 6.4), Vector3(-4.2, -4.6, 6.4), Vector3(-4.2, 4.6, -6.4), Vector3(4.2, -4.6, -6.4))
+
+    private fun path(
+        pose: ViewPose,
+        start: Vector3,
+        delta: Vector3,
+    ) = TouchPath(listOf(pose.project(start), pose.project(start + delta)))
+
+    @Test
+    fun `documented front face moves`() {
+        val pose = ViewPose(800, 600)
+        val cases =
+            listOf(
+                Triple(Vector3(0.0, 1.0, 1.5), Vector3(-0.6, 0.0, 0.0), FaceTurn(Face.U, Turn.CLOCKWISE)),
+                Triple(Vector3(0.0, 1.0, 1.5), Vector3(0.6, 0.0, 0.0), FaceTurn(Face.U, Turn.COUNTERCLOCKWISE)),
+                Triple(Vector3(1.0, 0.0, 1.5), Vector3(0.0, 0.6, 0.0), FaceTurn(Face.R, Turn.CLOCKWISE)),
+                Triple(Vector3(0.0, 0.0, 1.5), Vector3(0.0, 0.6, 0.0), SliceTurn(Slice.M, Turn.COUNTERCLOCKWISE)),
+                Triple(Vector3(0.0, 0.0, 1.5), Vector3(0.6, 0.0, 0.0), SliceTurn(Slice.E, Turn.CLOCKWISE)),
+            )
+        cases.forEach { (start, delta, expected) ->
+            assertEquals(MoveIntent(expected), GestureInterpreter.interpret(path(pose, start, delta), pose))
+        }
+    }
+
+    @Test
+    fun `every visible row and column has the same world move across poses`() {
+        val expected = mutableMapOf<Pair<Vector3, Vector3>, MoveIntent>()
+        eyes.forEach { eye ->
+            for ((width, height) in listOf(800 to 600, 600 to 800)) {
+                val pose = ViewPose(width, height, eye)
+                for (normal in axes.flatMap { listOf(it, it * -1.0) }.filter { it.dot(eye) > 1.5 }) {
+                    val tangent = axes.filter { it.dot(normal) == 0.0 }
+                    for (row in -1..1) {
+                        for (col in -1..1) {
+                            for (direction in tangent.flatMap { listOf(it, it * -1.0) }) {
+                                val start = normal * 1.5 + tangent[0] * row.toDouble() + tangent[1] * col.toDouble()
+                                val actual = GestureInterpreter.interpret(path(pose, start, direction * 0.6), pose)
+                                assertNotNull(actual, "$eye $start $direction")
+                                val key = start to direction
+                                val previous = expected.putIfAbsent(key, actual!!)
+                                if (previous != null) assertEquals(previous, actual)
+                                assertEquals(
+                                    actual.move.inverse(),
+                                    GestureInterpreter.interpret(path(pose, start, direction * -0.6), pose)!!.move,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assertEquals(6 * 9 * 4, expected.size)
+    }
+
+    @Test
+    fun `uncertain missing and degenerate paths do nothing`() {
+        val pose = ViewPose(800, 600)
+        val start = Vector3(0.0, 0.0, 1.5)
+        for (delta in listOf(Vector3(0.34, 0.0, 0.0), Vector3(0.6, 0.4, 0.0), Vector3(0.0, 0.0, 0.0))) {
+            assertNull(GestureInterpreter.interpret(path(pose, start, delta), pose))
+        }
+        assertNull(GestureInterpreter.interpret(TouchPath(emptyList()), pose))
+        assertNull(GestureInterpreter.interpret(TouchPath(listOf(pose.project(start))), pose))
+        assertNull(GestureInterpreter.interpret(TouchPath(listOf(ScreenPoint(0.0, 0.0), ScreenPoint(400.0, 300.0))), pose))
+        // A direction tangent to the picked F plane, then one pointing away from it.
+        val parallel = pose.project(pose.eye + Vector3(-1.0, 0.0, 0.0))
+        val behind = pose.project(pose.eye + Vector3(-10.0, -10.0, 1.0))
+        for (end in listOf(parallel, behind)) assertNull(GestureInterpreter.interpret(TouchPath(listOf(pose.project(start), end)), pose))
+    }
+}

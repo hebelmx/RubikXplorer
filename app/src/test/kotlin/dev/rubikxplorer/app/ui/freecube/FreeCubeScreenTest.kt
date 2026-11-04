@@ -1,10 +1,15 @@
 package dev.rubikxplorer.app.ui.freecube
 
 import android.app.Application
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsNodeInteraction
@@ -34,6 +39,8 @@ import dev.rubikxplorer.domain.cube.Facelets
 import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.cube.Turn
+import dev.rubikxplorer.domain.input.Vector3
+import dev.rubikxplorer.domain.input.ViewPose
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -54,12 +61,21 @@ class FreeCubeScreenTest {
 
     private lateinit var viewModel: FreeCubeViewModel
     private var dark by mutableStateOf(false)
+    private val ticks = mutableListOf<HapticFeedbackType>()
+    private val haptics =
+        object : HapticFeedback {
+            override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) {
+                ticks.add(hapticFeedbackType)
+            }
+        }
 
     private fun launch(showDebugToggles: Boolean = true) {
         viewModel = FreeCubeViewModel()
         rule.setContent {
-            RubikXplorerTheme(darkTheme = dark) {
-                FreeCubeScreen(viewModel = viewModel, showDebugToggles = showDebugToggles)
+            CompositionLocalProvider(LocalHapticFeedback provides haptics) {
+                RubikXplorerTheme(darkTheme = dark) {
+                    FreeCubeScreen(viewModel = viewModel, showDebugToggles = showDebugToggles)
+                }
             }
         }
     }
@@ -350,6 +366,113 @@ class FreeCubeScreenTest {
         toolbar("reset").performClick()
         rule.mainClock.advanceTimeByFrame()
         assertEquals(CubeState.SOLVED.toFacelets(), viewModel.renderer.renderedFacelets())
+    }
+
+    private fun gesturePoints(delta: Vector3 = Vector3(-1.0, 0.0, 0.0)): Pair<Offset, Offset> {
+        val bounds = rule.onNodeWithTag("cube3d").fetchSemanticsNode().boundsInRoot
+        val pose = ViewPose(bounds.width.toInt(), bounds.height.toInt())
+        val start = Vector3(0.0, 1.0, 1.5)
+
+        fun offset(point: Vector3): Offset = pose.project(point).let { Offset(it.x.toFloat(), it.y.toFloat()) }
+        return offset(start) to offset(start + delta)
+    }
+
+    private fun drag(delta: Vector3 = Vector3(-1.0, 0.0, 0.0)) {
+        val (start, end) = gesturePoints(delta)
+        rule.onNodeWithTag("cube3d").performTouchInput {
+            down(start)
+            moveTo(end)
+            up()
+        }
+    }
+
+    @Test
+    fun `swipe commits and ticks only on lift and draws the same U as a key within 250 ms`() {
+        launch()
+        rule.waitForIdle()
+        val (start, end) = gesturePoints()
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithTag("cube3d").performTouchInput {
+            down(start)
+            moveTo(end)
+        }
+        assertEquals(CubeState.SOLVED, viewModel.history.state)
+        assertTrue(ticks.isEmpty())
+        rule.onNodeWithTag("cube3d").performTouchInput { up() }
+        val expected = CubeState.SOLVED.apply(move(Face.U))
+        assertEquals(expected, viewModel.history.state)
+        assertEquals(listOf(HapticFeedbackType.KeyboardTap), ticks)
+        rule.mainClock.advanceTimeBy(250)
+        assertRenderedMatchesState()
+        rule.mainClock.autoAdvance = true
+        toolbar("reset").performClick()
+        ticks.clear()
+        tap(move(Face.U))
+        assertEquals(expected, viewModel.history.state)
+        assertEquals(listOf(HapticFeedbackType.KeyboardTap), ticks)
+        rule.waitForIdle()
+        assertRenderedMatchesState()
+    }
+
+    @Test
+    fun `short diagonal off cube and multi pointer gestures leave history haptics and drawing unchanged`() {
+        launch()
+        drag(Vector3(-0.2, 0.0, 0.0))
+        drag(Vector3(-0.6, -0.5, 0.0))
+        val (start, end) = gesturePoints()
+        rule.onNodeWithTag("cube3d").performTouchInput {
+            down(Offset(1f, 1f))
+            moveTo(end)
+            up()
+        }
+        rule.onNodeWithTag("cube3d").performTouchInput {
+            down(0, start)
+            down(1, start + Offset(5f, 5f))
+            up(1)
+            moveTo(0, end)
+            up(0)
+        }
+        rule.waitForIdle()
+        assertEquals(CubeState.SOLVED, viewModel.history.state)
+        assertFalse(viewModel.history.canUndo)
+        assertTrue(ticks.isEmpty())
+        assertRenderedMatchesState()
+    }
+
+    @Test
+    fun `haptics switch controls both gestures and keys without blocking commits`() {
+        launch()
+        val toggle = rule.onNodeWithTag("debug:haptics")
+        toggle
+            .performScrollTo()
+            .assertIsOn()
+            .performClick()
+            .assertIsOff()
+        drag()
+        tap(move(Face.U))
+        assertEquals(CubeState.SOLVED.apply(move(Face.U), move(Face.U)), viewModel.history.state)
+        assertTrue(ticks.isEmpty())
+        toggle.performScrollTo().performClick().assertIsOn()
+        drag()
+        tap(move(Face.U))
+        assertEquals(CubeState.SOLVED, viewModel.history.state)
+        assertEquals(listOf(HapticFeedbackType.KeyboardTap, HapticFeedbackType.KeyboardTap), ticks)
+        rule.waitForIdle()
+        assertRenderedMatchesState()
+    }
+
+    @Test
+    fun `gesture during animation commits immediately`() {
+        launch()
+        rule.waitForIdle()
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithTag("moveKey:R").performClick()
+        drag()
+        assertEquals(CubeState.SOLVED.apply(move(Face.R), move(Face.U)), viewModel.history.state)
+        assertEquals(2, ticks.size)
+        rule.mainClock.autoAdvance = true
+        rule.waitForIdle()
+        assertRenderedMatchesState()
     }
 
     private companion object {

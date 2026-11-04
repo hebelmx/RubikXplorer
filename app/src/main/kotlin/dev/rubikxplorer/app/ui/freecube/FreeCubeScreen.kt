@@ -31,6 +31,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -39,10 +41,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import dev.rubikxplorer.app.R
-import dev.rubikxplorer.app.render.MoveIntent
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.app.ui.theme.Spacing
 import dev.rubikxplorer.domain.cube.MoveHistory
+import dev.rubikxplorer.domain.input.MoveIntent
 
 /**
  * The free cube (FR-1, FR-3): the cube stage (toolbar, frame label, 2D net, name caption) over the
@@ -56,6 +58,12 @@ fun FreeCubeScreen(
 ) {
     val tokens = RubikTheme.tokens
     var caption by rememberSaveable { mutableStateOf<String?>(null) }
+    val haptics = LocalHapticFeedback.current
+    val commit: (MoveIntent) -> Unit = { intent ->
+        caption = null
+        if (viewModel.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+        viewModel.onMoveIntent(intent)
+    }
     Column(
         modifier =
             modifier
@@ -68,6 +76,7 @@ fun FreeCubeScreen(
         CubeStage(
             viewModel = viewModel,
             caption = caption,
+            onMoveIntent = commit,
             onClearCaption = { caption = null },
             modifier = Modifier.fillMaxWidth().weight(1f),
         )
@@ -77,10 +86,8 @@ fun FreeCubeScreen(
             verticalArrangement = Arrangement.spacedBy(Spacing.s3),
         ) {
             MoveKeyBar(
-                onMove = {
-                    caption = null
-                    viewModel.onMoveIntent(MoveIntent(it))
-                },
+                onMove = { commit(MoveIntent(it)) },
+                tickOnCommit = false,
                 onShowName = { caption = it },
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -95,6 +102,7 @@ fun FreeCubeScreen(
 private fun CubeStage(
     viewModel: FreeCubeViewModel,
     caption: String?,
+    onMoveIntent: (MoveIntent) -> Unit,
     onClearCaption: () -> Unit,
     modifier: Modifier,
 ) {
@@ -129,6 +137,7 @@ private fun CubeStage(
         }
         viewModel.renderer.Content(
             style = viewModel.style,
+            onMoveIntent = onMoveIntent,
             modifier = Modifier.fillMaxWidth().weight(1f).padding(Spacing.s2),
         )
         Box(Modifier.fillMaxWidth().heightIn(min = Spacing.s5), contentAlignment = Alignment.Center) {
@@ -174,6 +183,7 @@ internal fun ToolbarButton(
 private fun DebugToggles(viewModel: FreeCubeViewModel) {
     var objective by rememberSaveable { mutableStateOf(false) }
     DebugSwitch(R.string.debug_glyphs, "debug:glyphs", viewModel.style.colorBlindGlyphs, viewModel::onColorBlindGlyphsChange)
+    DebugSwitch(R.string.debug_haptics, "debug:haptics", viewModel.hapticsEnabled, viewModel::onHapticsChange)
     DebugSwitch(R.string.debug_objective, "debug:objective", objective) { objective = it }
     OutlinedButton(
         onClick = viewModel::onScramble,

@@ -69,11 +69,12 @@ fun MoveKeyBar(
     onMove: (Move) -> Unit,
     onShowName: (String) -> Unit,
     modifier: Modifier = Modifier,
+    tickOnCommit: Boolean = true,
 ) {
     var more by rememberSaveable { mutableStateOf(false) }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Spacing.s2)) {
-        KeyRow(MoveKeys.face, onMove, onShowName)
-        KeyRow(MoveKeys.rotation, onMove, onShowName) {
+        KeyRow(MoveKeys.face, onMove, onShowName, tickOnCommit)
+        KeyRow(MoveKeys.rotation, onMove, onShowName, tickOnCommit) {
             val description = stringResource(R.string.move_group_rotations_description)
             Text(
                 text = stringResource(R.string.move_group_rotations),
@@ -92,8 +93,8 @@ fun MoveKeyBar(
             )
         }
         if (more) {
-            KeyRow(MoveKeys.wide, onMove, onShowName)
-            KeyRow(MoveKeys.slice, onMove, onShowName)
+            KeyRow(MoveKeys.wide, onMove, onShowName, tickOnCommit)
+            KeyRow(MoveKeys.slice, onMove, onShowName, tickOnCommit)
         }
     }
 }
@@ -103,6 +104,7 @@ private fun KeyRow(
     moves: List<Move>,
     onMove: (Move) -> Unit,
     onShowName: (String) -> Unit,
+    tickOnCommit: Boolean,
     leading: @Composable () -> Unit = {},
 ) {
     val haptics = LocalHapticFeedback.current
@@ -120,7 +122,7 @@ private fun KeyRow(
                 description = name,
                 tag = "moveKey:$token",
                 onClick = {
-                    haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+                    if (tickOnCommit) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
                     onMove(move)
                 },
                 onLongClick = { onShowName(name) },
