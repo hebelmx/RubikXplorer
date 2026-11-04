@@ -15,8 +15,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.SemanticsPropertyKey
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -29,6 +32,7 @@ import dev.rubikxplorer.app.render.gl.GlSnapshot
 import dev.rubikxplorer.app.render.gl.GlyphAtlas
 import dev.rubikxplorer.app.render.gl.PresentationQueue
 import dev.rubikxplorer.app.render.gl.StickerDraw
+import dev.rubikxplorer.app.ui.editor.colorName
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Facelets
@@ -151,10 +155,33 @@ class Cube3DRenderer(
         // Track model updates so semantics always describe committed geometry.
         geometryRevision
         val stickers = CubeMesh.stickerDraws(model, style)
-        AndroidView(factory = { view }, modifier = modifier.testTag("cube3d").semantics { this[RenderedStickersKey] = stickers })
+        // Minimal AD-17 description from the drawn state; Story 5.5 owns the full TalkBack experience.
+        val description =
+            stringResource(
+                R.string.cube_description,
+                stringResource(colorName(drawn.colors[U_CENTER])),
+                stringResource(colorName(drawn.colors[F_CENTER])),
+            )
+        val state = stringResource(if (isSolved(drawn)) R.string.cube_state_solved else R.string.cube_state_unsolved)
+        AndroidView(
+            factory = { view },
+            modifier =
+                modifier.testTag("cube3d").semantics {
+                    this[RenderedStickersKey] = stickers
+                    contentDescription = description
+                    stateDescription = state
+                },
+        )
     }
 
     companion object {
+        private const val PER_FACE = 9
+        private const val U_CENTER = 4
+        private const val F_CENTER = 2 * PER_FACE + 4
+
+        /** True when every face shows one color, in any orientation. */
+        internal fun isSolved(facelets: Facelets): Boolean = facelets.colors.chunked(PER_FACE).all { face -> face.all { it == face[0] } }
+
         const val TURN_MILLIS = PresentationQueue.TURN_MILLIS
         const val FAST_FORWARD_AFTER = PresentationQueue.FAST_FORWARD_AFTER
         const val FAST_FORWARD_DIVISOR = PresentationQueue.FAST_FORWARD_DIVISOR

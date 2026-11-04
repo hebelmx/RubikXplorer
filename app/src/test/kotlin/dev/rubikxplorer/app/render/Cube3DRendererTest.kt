@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -71,5 +72,19 @@ class Cube3DRendererTest {
         assertEquals(target, cube.renderedFacelets())
         val draws = rule.onNodeWithTag("cube3d").fetchSemanticsNode().config[RenderedStickersKey]
         assertTrue(draws.all { it.glyph != null && it.glyphInk != null })
+    }
+
+    @Test fun exposesLocalizedStateDerivedDescription() {
+        val cube = Cube3DRenderer()
+        rule.setContent { cube.Content(RenderStyle(false), Modifier.size(300.dp)) }
+        rule.waitForIdle()
+
+        fun config() = rule.onNodeWithTag("cube3d").fetchSemanticsNode().config
+        assertEquals(listOf("Cube, White on top, Green in front"), config()[SemanticsProperties.ContentDescription])
+        assertEquals("Solved", config()[SemanticsProperties.StateDescription])
+        val move = allMoves.first()
+        rule.runOnIdle { cube.submit(listOf(PresentationItem.Snap(1, CubeState.SOLVED.apply(move).toFacelets()))) }
+        rule.waitForIdle()
+        assertEquals("Not solved", config()[SemanticsProperties.StateDescription])
     }
 }
