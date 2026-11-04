@@ -20,6 +20,7 @@ import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsToggleable
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
@@ -41,6 +42,7 @@ import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.cube.Turn
 import dev.rubikxplorer.domain.input.Vector3
+import dev.rubikxplorer.domain.input.ViewOrbit
 import dev.rubikxplorer.domain.input.ViewPose
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -369,9 +371,173 @@ class FreeCubeScreenTest {
         assertEquals(CubeState.SOLVED.toFacelets(), viewModel.renderer.renderedFacelets())
     }
 
+    @Test
+    fun `off cube and two finger drags orbit live with no commit or tick`() {
+        launch()
+        val history = viewModel.history
+        val stage = rule.onNodeWithTag("cube3d")
+        stage.performTouchInput {
+            down(Offset(2f, 2f))
+            moveTo(Offset(42f, 20f))
+        }
+        assertNotEquals(ViewOrbit.DEFAULT, viewModel.renderer.orbit)
+        stage.performTouchInput { up() }
+        rule.runOnIdle { viewModel.renderer.resetView() }
+        stage.performTouchInput {
+            down(0, center - Offset(40f, 0f))
+            down(1, center + Offset(40f, 0f))
+            moveTo(0, center - Offset(40f, 0f) + Offset(0f, 30f), delayMillis = 0)
+            moveTo(1, center + Offset(40f, 0f) + Offset(0f, 30f))
+        }
+        assertNotEquals(ViewOrbit.DEFAULT, viewModel.renderer.orbit)
+        stage.performTouchInput {
+            up(0)
+            up(1)
+        }
+        assertEquals(history, viewModel.history)
+        assertTrue(ticks.isEmpty())
+        assertRenderedMatchesState()
+    }
+
+    @Test
+    fun `view menu reset button and double tap keep history unchanged`() {
+        launch()
+        rule.onNodeWithTag("stage:resetView").assertContentDescriptionEquals("Reset view").assertTouchWidthIsAtLeast(48.dp)
+        rule.onNodeWithTag("stage:viewMenu").assertContentDescriptionEquals("View options").performClick()
+        rule.onNodeWithTag("viewRotate:left").performClick()
+        assertEquals(ViewOrbit.DEFAULT.rotated(45.0, 0.0), viewModel.renderer.orbit)
+        rule.waitForIdle()
+        assertEquals(viewModel.renderer.orbit.eye(), viewModel.renderer.glEye)
+        rule.onNodeWithTag("stage:resetView").performClick()
+        assertEquals(ViewOrbit.DEFAULT, viewModel.renderer.orbit)
+        rule.waitForIdle()
+        assertEquals(ViewOrbit.DEFAULT.eye(), viewModel.renderer.glEye)
+        listOf("right" to (-45.0 to 0.0), "up" to (0.0 to -45.0), "down" to (0.0 to 45.0)).forEach { (direction, angles) ->
+            rule.onNodeWithTag("stage:viewMenu").performClick()
+            rule.onNodeWithTag("viewRotate:$direction").performClick()
+            assertEquals(ViewOrbit.DEFAULT.rotated(angles.first, angles.second), viewModel.renderer.orbit)
+            rule.onNodeWithTag("stage:resetView").performClick()
+        }
+        rule.runOnIdle { viewModel.renderer.rotateView(45.0, 10.0) }
+        rule.onNodeWithTag("cube3d").performTouchInput { doubleClick() }
+        assertEquals(ViewOrbit.DEFAULT, viewModel.renderer.orbit)
+        assertEquals(CubeState.SOLVED, viewModel.history.state)
+        assertTrue(ticks.isEmpty())
+    }
+
+    @Test
+    fun `rotated view keeps key labels and current pose layer turns`() {
+        launch()
+        val labels = MoveKeys.face.associateWith { key(it).fetchSemanticsNode().config[SemanticsProperties.ContentDescription] }
+        rule.runOnIdle { viewModel.renderer.rotateView(-15.0, -10.0) }
+        labels.forEach { (move, label) ->
+            assertEquals(label, key(move).fetchSemanticsNode().config[SemanticsProperties.ContentDescription])
+        }
+        tap(move(Face.R))
+        assertEquals(CubeState.SOLVED.apply(move(Face.R)), viewModel.history.state)
+        toolbar("reset").performClick()
+        drag()
+        assertEquals(CubeState.SOLVED.apply(move(Face.U)), viewModel.history.state)
+        rule.waitForIdle()
+        assertRenderedMatchesState()
+    }
+
+    @Test
+    fun `clockwise twist commits z restores camera ticks and announces front briefly`() {
+        launch()
+        rule.waitForIdle()
+        rule.mainClock.autoAdvance = false
+        val stage = rule.onNodeWithTag("cube3d")
+        stage.performTouchInput {
+            down(0, center - Offset(50f, 0f))
+            down(1, center + Offset(50f, 0f))
+            down(2, Offset(2f, 2f))
+            moveTo(0, center - Offset(35f, 35f), delayMillis = 0)
+            moveTo(1, center + Offset(35f, 35f))
+        }
+        assertEquals(ViewOrbit.DEFAULT, viewModel.renderer.orbit)
+        stage.performTouchInput {
+            up(0)
+            up(1)
+        }
+        val z =
+            dev.rubikxplorer.domain.cube
+                .CubeRotation(dev.rubikxplorer.domain.cube.Axis.Z, Turn.CLOCKWISE)
+        assertEquals(CubeState.SOLVED.apply(z), viewModel.history.state)
+        assertEquals(listOf(HapticFeedbackType.KeyboardTap), ticks)
+        stage.performTouchInput { up(2) }
+        rule.mainClock.advanceTimeBy(250)
+        assertRenderedMatchesState()
+        rule.onNodeWithTag("stage:frame").assertTextEquals("VIRTUAL · Green front")
+        rule.mainClock.advanceTimeBy(1500)
+        rule.onNodeWithTag("stage:frame").assertTextEquals("VIRTUAL")
+    }
+
+    @Test
+    fun `rotation keys announce their new front and newer rotations restart the timer`() {
+        launch()
+        openMore()
+        rule.mainClock.autoAdvance = false
+        val x =
+            dev.rubikxplorer.domain.cube
+                .CubeRotation(dev.rubikxplorer.domain.cube.Axis.X, Turn.CLOCKWISE)
+        tap(x)
+        rule.mainClock.advanceTimeBy(250)
+        assertEquals(CubeState.SOLVED.apply(x), viewModel.history.state)
+        assertRenderedMatchesState()
+        rule.onNodeWithTag("stage:frame").assertTextEquals("VIRTUAL · Yellow front")
+        rule.mainClock.advanceTimeBy(700)
+        tap(x)
+        rule.mainClock.advanceTimeBy(700)
+        rule.onNodeWithTag("stage:frame").assertTextEquals("VIRTUAL · Blue front")
+        toolbar("undo").performClick()
+        rule.mainClock.advanceTimeByFrame()
+        rule.onNodeWithTag("stage:frame").assertTextEquals("VIRTUAL")
+        toolbar("reset").performClick()
+        val y =
+            dev.rubikxplorer.domain.cube
+                .CubeRotation(dev.rubikxplorer.domain.cube.Axis.Y, Turn.CLOCKWISE)
+        tap(y)
+        rule.mainClock.advanceTimeBy(250)
+        assertEquals(CubeState.SOLVED.apply(y), viewModel.history.state)
+        rule.onNodeWithTag("stage:frame").assertTextEquals("VIRTUAL · Red front")
+    }
+
+    @Test
+    fun `a locked twist that retreats below the threshold keeps the camera and commits nothing`() {
+        launch()
+        rule.waitForIdle()
+        val stage = rule.onNodeWithTag("cube3d")
+
+        fun pair(degrees: Double): Pair<Offset, Offset> {
+            val r = Math.toRadians(degrees)
+            val arm = Offset((50 * kotlin.math.cos(r)).toFloat(), (50 * kotlin.math.sin(r)).toFloat())
+            return arm to -arm
+        }
+        stage.performTouchInput {
+            down(0, center - Offset(50f, 0f))
+            down(1, center + Offset(50f, 0f))
+            val (a40, b40) = pair(40.0)
+            moveTo(0, center - a40, delayMillis = 0)
+            moveTo(1, center - b40)
+            val (a20, b20) = pair(20.0)
+            moveTo(0, center - a20 + Offset(0f, 40f), delayMillis = 0)
+            moveTo(1, center - b20 + Offset(0f, 40f))
+        }
+        assertEquals(ViewOrbit.DEFAULT, viewModel.renderer.orbit)
+        stage.performTouchInput {
+            up(0)
+            up(1)
+        }
+        rule.waitForIdle()
+        assertEquals(ViewOrbit.DEFAULT, viewModel.renderer.orbit)
+        assertEquals(CubeState.SOLVED, viewModel.history.state)
+        assertTrue(ticks.isEmpty())
+    }
+
     private fun gesturePoints(delta: Vector3 = Vector3(-1.0, 0.0, 0.0)): Pair<Offset, Offset> {
         val bounds = rule.onNodeWithTag("cube3d").fetchSemanticsNode().boundsInRoot
-        val pose = ViewPose(bounds.width.toInt(), bounds.height.toInt())
+        val pose = ViewPose(bounds.width.toInt(), bounds.height.toInt(), viewModel.renderer.orbit.eye())
         val start = Vector3(0.0, 1.0, 1.5)
 
         fun offset(point: Vector3): Offset = pose.project(point).let { Offset(it.x.toFloat(), it.y.toFloat()) }

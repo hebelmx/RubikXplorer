@@ -22,6 +22,11 @@ class CubeGlRenderer(
     private val vertexShader: String,
     private val fragmentShader: String,
 ) : GLSurfaceView.Renderer {
+    @Volatile var eye = ViewPose.DEFAULT_EYE
+    private var drawnEye: dev.rubikxplorer.domain.input.Vector3? = null
+    private var width = 1
+    private var height = 1
+
     @Volatile var snapshot: GlSnapshot? = null
 
     /** The stage color (ARGB) the cube is drawn on, so the GL surface blends into the themed stage. */
@@ -69,10 +74,17 @@ class CubeGlRenderer(
         height: Int,
     ) {
         GLES30.glViewport(0, 0, width, height)
-        viewProj = ViewPose(width, height).viewProjection()
+        this.width = width
+        this.height = height
+        drawnEye = null
     }
 
     override fun onDrawFrame(unused: GL10?) {
+        val currentEye = eye
+        if (drawnEye != currentEye) {
+            viewProj = ViewPose(width, height, currentEye).viewProjection()
+            drawnEye = currentEye
+        }
         val frame = snapshot ?: return
         frame.models.copyInto(models)
         var cursor = 0

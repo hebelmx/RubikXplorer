@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -17,6 +16,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -25,8 +26,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -41,10 +44,16 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import dev.rubikxplorer.app.R
+import dev.rubikxplorer.app.ui.editor.colorName
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.app.ui.theme.Spacing
+import dev.rubikxplorer.domain.cube.Color
+import dev.rubikxplorer.domain.cube.CubeRotation
+import dev.rubikxplorer.domain.cube.Face
 import dev.rubikxplorer.domain.cube.MoveHistory
 import dev.rubikxplorer.domain.input.MoveIntent
+import dev.rubikxplorer.domain.input.ViewOrbit
+import kotlinx.coroutines.delay
 
 /**
  * The free cube (FR-1, FR-3): the cube stage (toolbar, frame label, 2D net, name caption) over the
@@ -58,11 +67,25 @@ fun FreeCubeScreen(
 ) {
     val tokens = RubikTheme.tokens
     var caption by rememberSaveable { mutableStateOf<String?>(null) }
+    var front by remember { mutableStateOf<Color?>(null) }
+    var notice by remember { mutableStateOf(0) }
+    LaunchedEffect(notice) {
+        if (front != null) {
+            delay(FRONT_NOTICE_MILLIS)
+            front = null
+        }
+    }
     val haptics = LocalHapticFeedback.current
     val commit: (MoveIntent) -> Unit = { intent ->
         caption = null
         if (viewModel.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
         viewModel.onMoveIntent(intent)
+        if (intent.move is CubeRotation) {
+            front =
+                viewModel.history.state.orientation
+                    .colorAt(Face.F)
+            notice++
+        }
     }
     Column(
         modifier =
@@ -76,8 +99,12 @@ fun FreeCubeScreen(
         CubeStage(
             viewModel = viewModel,
             caption = caption,
+            front = front,
             onMoveIntent = commit,
-            onClearCaption = { caption = null },
+            onClearCaption = {
+                caption = null
+                front = null
+            },
             modifier = Modifier.fillMaxWidth().weight(1f),
         )
         // Takes at most half the height left after the stage's share, scrolling when it needs more.
@@ -103,12 +130,19 @@ fun FreeCubeScreen(
 private fun CubeStage(
     viewModel: FreeCubeViewModel,
     caption: String?,
+    front: Color?,
     onMoveIntent: (MoveIntent) -> Unit,
     onClearCaption: () -> Unit,
     modifier: Modifier,
 ) {
     val tokens = RubikTheme.tokens
     val history = viewModel.history
+    val frameLabel =
+        if (front == null) {
+            stringResource(R.string.frame_virtual)
+        } else {
+            stringResource(R.string.frame_virtual_front, stringResource(colorName(front)))
+        }
     Column(
         modifier =
             modifier
@@ -117,12 +151,15 @@ private fun CubeStage(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(
-                text = stringResource(R.string.frame_virtual),
+                text = frameLabel,
                 style = MaterialTheme.typography.labelMedium,
                 color = tokens.inkSecondary,
-                modifier = Modifier.padding(start = Spacing.s2),
+                modifier =
+                    Modifier.weight(1f).padding(start = Spacing.s2).testTag("stage:frame").semantics {
+                        liveRegion =
+                            LiveRegionMode.Polite
+                    },
             )
-            Spacer(Modifier.weight(1f))
             ToolbarButton(R.drawable.ic_undo, R.string.toolbar_undo, "toolbar:undo", history.canUndo) {
                 onClearCaption()
                 viewModel.onUndo()
@@ -134,6 +171,30 @@ private fun CubeStage(
             ToolbarButton(R.drawable.ic_reset, R.string.toolbar_reset, "toolbar:reset", history != MoveHistory()) {
                 onClearCaption()
                 viewModel.onReset()
+            }
+            ToolbarButton(R.drawable.ic_reset_view, R.string.reset_view, "stage:resetView", true) { viewModel.renderer.resetView() }
+            var menu by remember { mutableStateOf(false) }
+            Box {
+                ToolbarButton(R.drawable.ic_more_vert, R.string.view_options, "stage:viewMenu", true) { menu = true }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    val directions =
+                        listOf(
+                            Triple("left", R.string.rotate_view_left, ViewOrbit.STEP_DEGREES to 0.0),
+                            Triple("right", R.string.rotate_view_right, -ViewOrbit.STEP_DEGREES to 0.0),
+                            Triple("up", R.string.rotate_view_up, 0.0 to -ViewOrbit.STEP_DEGREES),
+                            Triple("down", R.string.rotate_view_down, 0.0 to ViewOrbit.STEP_DEGREES),
+                        )
+                    directions.forEach { (tag, label, angles) ->
+                        DropdownMenuItem(
+                            text = { Text(stringResource(label)) },
+                            modifier = Modifier.testTag("viewRotate:$tag").heightIn(min = Spacing.touchMin),
+                            onClick = {
+                                viewModel.renderer.rotateView(angles.first, angles.second)
+                                menu = false
+                            },
+                        )
+                    }
+                }
             }
         }
         viewModel.renderer.Content(
@@ -222,3 +283,5 @@ private fun LabelledSwitch(
         Switch(checked = checked, onCheckedChange = null)
     }
 }
+
+internal const val FRONT_NOTICE_MILLIS = 1500L

@@ -129,4 +129,11 @@
     <string name="objective_in_sync">Rendered: in sync</string>
     <string name="objective_catching_up">Rendered: catching up</string>
     <string name="free_cube_haptics">Haptics</string>
+    <string name="frame_virtual_front">VIRTUAL · %1$s front</string>
+    <string name="reset_view">Reset view</string>
+    <string name="view_options">View options</string>
+    <string name="rotate_view_left">Rotate view left</string>
+    <string name="rotate_view_right">Rotate view right</string>
+    <string name="rotate_view_up">Rotate view up</string>
+    <string name="rotate_view_down">Rotate view down</string>
 </resources>
