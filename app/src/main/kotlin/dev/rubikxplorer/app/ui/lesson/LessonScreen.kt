@@ -317,7 +317,9 @@ private fun stepCard(
         notice = if (notice) step?.let { strings.resolve(it.notice) } else null,
         moves = moves,
         objectiveMet = decision.satisfied,
-        feedback = decision.feedback?.let { strings.resolve(it.text) },
+        feedback = decision.feedback?.text?.let { strings.resolve(it) },
+        diagnosis = decision.diagnosis?.let { strings.resolve(it.explanation) },
+        recoveryPrompt = decision.diagnosis?.let { strings.resolve(it.recoveryPath.prompt) },
         feedbackMove = session.revision,
         showMoveControl = mode == TeachingMode.GUIDE_ME,
     )

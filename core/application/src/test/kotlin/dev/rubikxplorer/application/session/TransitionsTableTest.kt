@@ -69,9 +69,10 @@ class TransitionsTableTest {
     // A Solve Playback session: the start of a Lesson replaces it, other events leave it as it is.
     private val playback = SessionState.IDLE.after(playbackStarted()).also { check(it.kind == SessionKind.SOLVE_PLAYBACK) }
 
-    // Undo and Redo always leave no feedback, so a redo with feedback still standing is unreachable
-    // through reduce(); this fixture checks Redo clears it all the same.
-    private val bWithFeedback = b.copy(lastMoveFeedback = MoveFeedback.NEUTRAL)
+    // Feedback and a Diagnosis standing with redo available is unreachable through reduce() (only a
+    // Test me commit sets them, and a commit clears redo); this fixture checks Undo, Redo and a
+    // commit in another mode clear them all the same.
+    private val bWithFeedback = b.copy(lastMoveFeedback = MoveFeedback.NEUTRAL, lastDiagnosis = TURNED_DIAGNOSIS)
 
     /** Scenarios per event type; the exhaustive `when` fails to compile when an event type is added. */
     private fun scenarios(sample: SessionEvent): List<Pair<SessionState, SessionEvent>> =
@@ -86,11 +87,13 @@ class TransitionsTableTest {
             }
 
             is SessionEvent.MoveCommitted -> {
-                listOf(fresh to commit(F), b to commit(R), askedB to commit(F), playback to commit(F))
+                listOf(fresh to commit(F), b to commit(R), askedB to commit(F), playback to commit(F)) +
+                    // Test me sets the feedback; a commit in another mode clears a standing one.
+                    listOf(fresh.after(modeChanged(TeachingMode.TEST_ME)) to commit(D), bWithFeedback to commit(F))
             }
 
             is SessionEvent.Undo -> {
-                listOf(fresh, a, b, askedB, playback).map { it to undo }
+                listOf(fresh, a, b, askedB, playback, bWithFeedback).map { it to undo }
             }
 
             is SessionEvent.Redo -> {
@@ -154,7 +157,7 @@ class TransitionsTableTest {
             if (before.virtual != after.virtual) add("virtual")
             if (before.pendingReset != after.pendingReset) add("pending")
 
-            fun tutor(s: SessionState) = listOf(s.teachingMode, s.noticeStep, s.revealRequested, s.lastMoveFeedback)
+            fun tutor(s: SessionState) = listOf(s.teachingMode, s.noticeStep, s.revealRequested, s.lastMoveFeedback, s.lastDiagnosis)
             if (tutor(before) != tutor(after)) add("tutor")
         }
 

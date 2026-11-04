@@ -35,11 +35,11 @@ data class WhitePieceSolved(
 
     override fun progress(state: CubeState): ObjectiveProgress = ObjectiveProgress(if (isSatisfied(state)) 1 else 0, 1)
 
-    private companion object {
-        const val EDGE_COLORS = 2
+    internal companion object {
+        private const val EDGE_COLORS = 2
 
         /** The 8 white-layer pieces by their one canonical name: 4 edges, then 4 corners in side order. */
-        val PIECES: Map<String, Piece> =
+        private val PIECES: Map<String, Piece> =
             mapOf(
                 "white-green" to setOf(Color.GREEN),
                 "white-red" to setOf(Color.RED),
@@ -52,6 +52,22 @@ data class WhitePieceSolved(
             ).mapValues { (_, sides) -> Piece(sides + Color.WHITE) }
 
         /** The white-layer piece [name] spells, or null unless it is one of the canonical [PIECES] names. */
-        fun parse(name: String): Piece? = PIECES[name]
+        private fun parse(name: String): Piece? = PIECES[name]
+
+        /** The 8 canonical names in [PIECES] order: the 4 edges, then the 4 corners. */
+        val NAMES: List<String> get() = PIECES.keys.toList()
+
+        /** The 4 edge names, then the 4 corner names, each in [NAMES] order. */
+        val EDGE_NAMES: List<String> get() = NAMES.filter { isEdge(PIECES.getValue(it)) }
+        val CORNER_NAMES: List<String> get() = NAMES.filterNot { isEdge(PIECES.getValue(it)) }
+
+        /** True when [piece] is an edge (two colors), false for a corner. */
+        fun isEdge(piece: Piece): Boolean = piece.colors.size == EDGE_COLORS
+
+        /** The canonical name of [piece], or null unless it is one of the 8 white-layer pieces. */
+        fun nameOf(piece: Piece): String? = PIECES.entries.firstOrNull { it.value == piece }?.key
+
+        /** The white-layer piece called [name], or null unless it is a canonical name. */
+        fun pieceNamed(name: String): Piece? = parse(name)
     }
 }

@@ -1,10 +1,15 @@
 package dev.rubikxplorer.domain.tutor
 
 import dev.rubikxplorer.domain.content.Lesson
+import dev.rubikxplorer.domain.cube.CubeRotation
 import dev.rubikxplorer.domain.cube.CubeState
+import dev.rubikxplorer.domain.cube.FaceTurn
 import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.cube.NotationResult
+import dev.rubikxplorer.domain.cube.SliceTurn
+import dev.rubikxplorer.domain.cube.Turn
+import dev.rubikxplorer.domain.cube.WideTurn
 
 /** The tutor's pure step rules (AD-5, AD-6); [Assess] builds the decision from them. */
 object Tutor {
@@ -21,7 +26,7 @@ object Tutor {
         entry: CubeState,
         state: CubeState,
     ): Int {
-        val owners = lesson.steps.flatMapIndexed { index, step -> stepMoves(lesson, step.moves).map { index to it } }
+        val owners = pathOwners(lesson)
         var path = entry
         owners.forEach { (index, move) ->
             if (path == state) return index
@@ -64,6 +69,43 @@ object Tutor {
         entry: CubeState,
         steps: Int,
     ): CubeState = entry.apply(lesson.steps.take(steps.coerceAtLeast(0)).flatMap { stepMoves(lesson, it.moves) })
+
+    /**
+     * True when [before] is an authored path state of [lesson] (entered at [entry]) and [move] is the
+     * next authored Move there, compared as canonical [Move] values. Either quarter of an authored
+     * half turn counts, and so does the same quarter again from that half-done state. A state match,
+     * never a counter.
+     */
+    internal fun isOnPath(
+        lesson: Lesson,
+        entry: CubeState,
+        before: CubeState,
+        move: Move,
+    ): Boolean {
+        var path = entry
+        pathOwners(lesson).forEach { (_, next) ->
+            val quarters = quartersOf(next)
+            if (path == before && (move == next || move in quarters)) return true
+            if (move in quarters && path.apply(move) == before) return true
+            path = path.apply(next)
+        }
+        return false
+    }
+
+    /** The two quarter turns that make up the half turn [move], in either direction; empty unless [move] is a half turn. */
+    private fun quartersOf(move: Move): List<Move> =
+        when (move) {
+            is FaceTurn -> if (move.turn == Turn.HALF) QUARTERS.map { FaceTurn(move.face, it) } else emptyList()
+            is WideTurn -> if (move.turn == Turn.HALF) QUARTERS.map { WideTurn(move.face, it) } else emptyList()
+            is SliceTurn -> if (move.turn == Turn.HALF) QUARTERS.map { SliceTurn(move.slice, it) } else emptyList()
+            is CubeRotation -> if (move.turn == Turn.HALF) QUARTERS.map { CubeRotation(move.axis, it) } else emptyList()
+        }
+
+    private val QUARTERS = listOf(Turn.CLOCKWISE, Turn.COUNTERCLOCKWISE)
+
+    /** The steps' flattened Moves, each paired with the 0-based step that owns it. */
+    private fun pathOwners(lesson: Lesson): List<Pair<Int, Move>> =
+        lesson.steps.flatMapIndexed { index, step -> stepMoves(lesson, step.moves).map { index to it } }
 
     /** Loaded content is validated (Story 2.1 checks `steps.N.moves`), so bad Notation is a programmer error. */
     private fun stepMoves(

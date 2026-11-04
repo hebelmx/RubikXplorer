@@ -9,7 +9,7 @@ Columns:
 - **Mutates** — the fields the event may change, from `session` (the session's kind, its Lesson and
   tutor configuration or its Solution, and its entry state),
   `virtual` (the current Cube State), `pending` (the reset confirmation awaiting the Learner) and
-  `tutor` (`teachingMode`, `noticeStep`, `revealRequested`, `lastMoveFeedback`); `—` for none. Any
+  `tutor` (`teachingMode`, `noticeStep`, `revealRequested`, `lastMoveFeedback`, `lastDiagnosis`); `—` for none. Any
   change of `session`, `virtual` or the undo/redo history advances `revision` by exactly 1 and
   cancels a pending confirmation; a change of `pending` or `tutor` alone does not advance it.
 - **Undoable** — `yes` when the event pushes a Move onto the undo history, so a following `Undo`
@@ -66,9 +66,12 @@ Lesson is not yet satisfied; it then clears `noticeStep` and hides the Moves aga
 (`revealRequested` false). None of `TeachingModeChanged`, `RevealRequested` and `StepAdvanced`
 changes the Cube State, the history or `revision`.
 
-`lastMoveFeedback` is how the last committed Move changed the Completion Predicate's
-`ObjectiveProgress` (`MoveFeedback`: Progress, Neutral or Harmful). `MoveCommitted` sets it in every
-Teaching Mode; the tutor's decision shows it only in *Test me* and only while the step is not yet
-done (`advance`). `LessonStarted`, `Undo`, `Redo`, an applied `Reset` or `ResetConfirmed`, an
-applied `StepAdvanced` and a `TeachingModeChanged` to a different mode clear it; none of these
-clearings advances `revision` by itself.
+`lastMoveFeedback` and `lastDiagnosis` are `Assess.classify`'s word on the last committed Move,
+judged against the step derived from the state before it (`MoveFeedback`: On path, Progress,
+Neutral or Harmful, and the `Diagnosis` it names, if any). `MoveCommitted` sets them only while the
+Teaching Mode is *Test me*; a `MoveCommitted` in any other mode clears both. The tutor's decision
+shows them only in *Test me* and only while the step is not yet done (`advance`). `LessonStarted`,
+`SolvePlaybackStarted`, `Undo`, `Redo`, an applied `Reset` or `ResetConfirmed`, an applied
+`StepAdvanced` and a `TeachingModeChanged` to a different mode clear both; none of these clearings
+advances `revision` by itself. A Diagnosis never replaces or rewinds `virtual`: the Cube State stays
+the Learner's own.

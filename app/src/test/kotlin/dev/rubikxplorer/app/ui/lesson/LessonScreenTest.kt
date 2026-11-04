@@ -3,10 +3,12 @@ package dev.rubikxplorer.app.ui.lesson
 import android.app.Application
 import android.provider.Settings
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
@@ -34,7 +36,10 @@ import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
 import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.domain.appearance.StickerAppearance
 import dev.rubikxplorer.domain.content.ContentLoadResult
+import dev.rubikxplorer.domain.cube.Face
+import dev.rubikxplorer.domain.cube.FaceTurn
 import dev.rubikxplorer.domain.cube.Facelets
+import dev.rubikxplorer.domain.cube.Turn
 import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.playback.DemonstrationResult
 import dev.rubikxplorer.domain.playback.PlaybackSpeed
@@ -406,8 +411,10 @@ class LessonScreenTest {
 
         press("D", 1)
         node("lesson:feedback").assertTextContains("That didn't change much. Try another turn.")
+        node("lesson:diagnosis").assertDoesNotExist()
+        // U lifts three cross edges, but no step has kept them yet: neutral, never harmful.
         press("U", 2)
-        node("lesson:feedback").assertTextContains("That moved a piece you need.")
+        node("lesson:feedback").assertTextContains("That didn't change much. Try another turn.")
         assertEquals(emptyList<String>(), tagsStartingWith("moveChip:"))
         node("lesson:showMove").assertDoesNotExist()
         assertFalse(
@@ -457,15 +464,65 @@ class LessonScreenTest {
     }
 
     @Test
-    fun `test me says a Move that helps brings the Learner closer`() {
+    fun `test me says the taught Move is on path`() {
         open(oneLongStepLesson().id.value)
         switchTo(TeachingMode.TEST_ME)
         press("U", 1)
-        node("lesson:feedback").assertTextContains("That works too — you're closer.")
+        node("lesson:feedback").assertTextContains("That's the move — keep going.")
         assertFalse(
             host.state.value.decision!!
                 .advance,
         )
+    }
+
+    @Test
+    fun `test me names a turned cube in a polite live region, with the reorient prompt and no feedback line`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.TEST_ME)
+        press("y", 1)
+        rule.waitUntil(5_000) {
+            host.state.value.decision
+                ?.diagnosis != null
+        }
+        rule.waitForIdle()
+        node("lesson:diagnosis")
+            .assertTextContains("Your cube is turned — hold it with yellow on the bottom, green in front.", substring = true)
+        node("lesson:diagnosis").assertTextContains("Turn it back with the rotation keys.", substring = true)
+        node("lesson:diagnosis").assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+        node("lesson:feedback").assertDoesNotExist()
+    }
+
+    @Test
+    fun `test me says an off-path Move that helps brings the Learner closer`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.TEST_ME)
+        // U lifts the three placed cross edges (nothing kept yet); U' off the path brings them back.
+        press("U", 1)
+        press("U'", 2)
+        node("lesson:feedback").assertTextContains("That works too — you're closer.")
+        node("lesson:diagnosis").assertDoesNotExist()
+    }
+
+    @Test
+    fun `test me names a harmful Move calmly with its recovery prompt, and keeps the Learner's cube`() {
+        val id = twoStepLesson().id.value
+        open(id)
+        switchTo(TeachingMode.TEST_ME)
+        press("U", 1)
+        node("lesson:next").performScrollTo().assertIsEnabled().performClick()
+        rule.waitUntil(5_000) { host.state.value.stepIndex == 1 }
+        val before = host.state.value.virtual
+        press("D", 2)
+        rule.waitUntil(5_000) {
+            host.state.value.decision
+                ?.diagnosis != null
+        }
+        rule.waitForIdle()
+        node("lesson:diagnosis").assertTextContains("That turn moved a piece you'd placed.", substring = true)
+        node("lesson:diagnosis").assertTextContains("Undo, or try another turn.", substring = true)
+        node("lesson:feedback").assertDoesNotExist()
+        assertEquals(before.apply(FaceTurn(Face.D, Turn.CLOCKWISE)), host.state.value.virtual)
+        assertEquals(emptyList<String>(), tagsStartingWith("moveChip:"))
     }
 
     @Test

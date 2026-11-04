@@ -59,6 +59,47 @@ class TutorVocabularyTest {
     }
 
     @Test
+    fun `each recovery path has its prompt and offers, a turned cube offering show me how and no undo`() {
+        assertEquals(
+            mapOf(
+                RecoveryPath.UNDO to "msg.recovery.undo",
+                RecoveryPath.GUIDED_RECOVERY to "msg.recovery.guided-recovery",
+                RecoveryPath.RETRY to "msg.recovery.retry",
+                RecoveryPath.REORIENT to "msg.recovery.reorient",
+                RecoveryPath.RE_ENTER to "msg.recovery.re-enter",
+            ),
+            RecoveryPath.entries.associateWith { it.prompt.key },
+        )
+        val back = listOf(RecoveryOffer.UNDO, RecoveryOffer.GUIDE_ME_BACK, RecoveryOffer.TRY_AGAIN)
+        assertEquals(
+            mapOf(
+                RecoveryPath.UNDO to back,
+                RecoveryPath.GUIDED_RECOVERY to back,
+                RecoveryPath.RETRY to back,
+                RecoveryPath.REORIENT to listOf(RecoveryOffer.SHOW_ME_HOW),
+                RecoveryPath.RE_ENTER to listOf(RecoveryOffer.RE_ENTER),
+            ),
+            RecoveryPath.entries.associateWith { it.offers },
+        )
+        assertEquals(listOf("UNDO", "GUIDE_ME_BACK", "TRY_AGAIN", "SHOW_ME_HOW", "RE_ENTER"), RecoveryOffer.entries.map { it.name })
+    }
+
+    @Test
+    fun `move feedback is exactly on path, progress, neutral and harmful, and harmful speaks through its diagnosis`() {
+        assertEquals(listOf("ON_PATH", "PROGRESS", "NEUTRAL", "HARMFUL"), MoveFeedback.entries.map { it.name })
+        assertEquals(
+            listOf("msg.test-me.on-path", "msg.test-me.progress", "msg.test-me.neutral", null),
+            MoveFeedback.entries.map { it.text?.key },
+        )
+        assertEquals(
+            emptyList<String>(),
+            MoveFeedback::class.java.declaredMethods
+                .map { it.name }
+                .filter { it == "classify" },
+        )
+    }
+
+    @Test
     fun `tutor decision declares exactly the AD-5 fields`() {
         val fields =
             TutorDecision::class.java.declaredFields

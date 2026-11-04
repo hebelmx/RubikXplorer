@@ -45,8 +45,9 @@ import dev.rubikxplorer.domain.tutor.TeachingMode
 /**
  * What the step card shows, already resolved: step [number] of [count], its Goal, Keep and Watch,
  * its [notice] (null until it is due), its [moves] (null while hidden), whether the Lesson's
- * Objective is met, the Test me [feedback] on the last Move (null when there is none to show) with
- * [feedbackMove] naming that Move (the session's revision, so each Move's line is a fresh node that
+ * Objective is met, the Test me [feedback] on the last Move (null when there is none to show) or,
+ * when the tutor names a mistake, its [diagnosis] with the Recovery Path's [recoveryPrompt] instead,
+ * with [feedbackMove] naming that Move (the session's revision, so each Move's line is a fresh node that
  * screen readers announce even when its text repeats) and,
  * while the Moves are hidden, whether the "Show the Move" control offers them ([showMoveControl],
  * Guide me) or a quiet line says they wait for a Hint.
@@ -61,6 +62,8 @@ internal data class StepCardContent(
     val moves: List<Move>?,
     val objectiveMet: Boolean,
     val feedback: String? = null,
+    val diagnosis: String? = null,
+    val recoveryPrompt: String? = null,
     val feedbackMove: Long = 0,
     val showMoveControl: Boolean = true,
 )
@@ -179,7 +182,12 @@ private fun StepCard(
         Field(R.string.lesson_keep, step.keep, "lesson:keep")
         Field(R.string.lesson_watch, step.watch, "lesson:watch")
         MovesRow(step.moves, step.showMoveControl, onShowMove)
-        step.feedback?.let { key(step.feedbackMove) { Feedback(it) } }
+        val diagnosis = step.diagnosis
+        if (diagnosis != null) {
+            key(step.feedbackMove) { DiagnosisLine(diagnosis, step.recoveryPrompt) }
+        } else {
+            step.feedback?.let { key(step.feedbackMove) { Feedback(it) } }
+        }
         step.notice?.let { Field(R.string.lesson_notice, it, "lesson:notice") }
     }
 }

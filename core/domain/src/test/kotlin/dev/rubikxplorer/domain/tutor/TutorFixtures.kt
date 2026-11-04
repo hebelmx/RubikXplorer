@@ -1,5 +1,8 @@
 package dev.rubikxplorer.domain.tutor
 
+import dev.rubikxplorer.domain.content.ContentLoadResult
+import dev.rubikxplorer.domain.content.ContentLoader
+import dev.rubikxplorer.domain.content.ContentSource
 import dev.rubikxplorer.domain.content.FaceletString
 import dev.rubikxplorer.domain.content.FaceletStringResult
 import dev.rubikxplorer.domain.content.Lesson
@@ -9,6 +12,7 @@ import dev.rubikxplorer.domain.content.StageId
 import dev.rubikxplorer.domain.content.Step
 import dev.rubikxplorer.domain.content.TextKey
 import dev.rubikxplorer.domain.content.TutorConfig
+import dev.rubikxplorer.domain.cube.Color
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.CubeValidator
 import dev.rubikxplorer.domain.cube.Move
@@ -17,6 +21,7 @@ import dev.rubikxplorer.domain.cube.NotationResult
 import dev.rubikxplorer.domain.cube.ValidationResult
 import dev.rubikxplorer.domain.predicate.AlwaysTrue
 import dev.rubikxplorer.domain.predicate.AnyOf
+import dev.rubikxplorer.domain.predicate.Piece
 import dev.rubikxplorer.domain.predicate.Predicate
 import dev.rubikxplorer.domain.predicate.StateReached
 import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
@@ -30,6 +35,16 @@ internal object TutorFixtures {
     fun moves(text: String): List<Move> = (Notation.parse(text) as NotationResult.Parsed).moves
 
     fun state(text: String): CubeState = CubeState.SOLVED.apply(moves(text))
+
+    /** Every shipped Lesson, in Stage order. */
+    val shipped: List<Lesson> by lazy {
+        val result = ContentLoader.load(ContentSource.SHIPPED)
+        check(result is ContentLoadResult.Loaded) { "the shipped content does not load: $result" }
+        result.bundle.stages.flatMap { it.lessons }
+    }
+
+    /** The shipped Lesson [id]. */
+    fun shipped(id: String): Lesson = shipped.single { it.id.value == id }
 
     /** The validated entry state of [lesson]. */
     fun entryOf(lesson: Lesson): CubeState {
@@ -82,4 +97,11 @@ internal object TutorFixtures {
             "B2" to WhitePieceSolved("white-blue"),
             "L2" to WhiteCrossSolved,
         )
+}
+
+/** White-layer pieces by their colors, for Diagnosis assertions. */
+internal object Pieces {
+    val WHITE_GREEN = Piece(setOf(Color.WHITE, Color.GREEN))
+    val WHITE_RED = Piece(setOf(Color.WHITE, Color.RED))
+    val WHITE_GREEN_RED = Piece(setOf(Color.WHITE, Color.GREEN, Color.RED))
 }
