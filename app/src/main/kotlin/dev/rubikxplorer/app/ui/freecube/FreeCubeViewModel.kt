@@ -7,11 +7,11 @@ import androidx.lifecycle.ViewModel
 import dev.rubikxplorer.app.random.KotlinRandomSource
 import dev.rubikxplorer.app.render.Cube3DRenderer
 import dev.rubikxplorer.app.render.CubeRenderer
-import dev.rubikxplorer.app.render.MoveIntent
 import dev.rubikxplorer.app.render.PresentationItem
 import dev.rubikxplorer.app.render.RenderStyle
 import dev.rubikxplorer.application.usecase.NewScramble
 import dev.rubikxplorer.domain.cube.MoveHistory
+import dev.rubikxplorer.domain.input.MoveIntent
 import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
 
 /** How the last history change moved [WhiteCrossSolved] progress (debug Objective overlay only). */
@@ -43,6 +43,13 @@ class FreeCubeViewModel(
 
     var style by mutableStateOf(RenderStyle())
         private set
+
+    var hapticsEnabled by mutableStateOf(true)
+        private set
+
+    fun onHapticsChange(enabled: Boolean) {
+        hapticsEnabled = enabled
+    }
 
     fun onMoveIntent(intent: MoveIntent) {
         record(history.commit(intent.move))

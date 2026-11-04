@@ -2,6 +2,7 @@ package dev.rubikxplorer.app.render.gl
 
 import dev.rubikxplorer.app.render.RenderStyle
 import dev.rubikxplorer.domain.appearance.StickerAppearance
+import dev.rubikxplorer.domain.cube.CubeGeometry
 
 /** The same appearance values used to build GL vertices, in read-back facelet order. */
 data class StickerDraw(
@@ -12,9 +13,9 @@ data class StickerDraw(
 
 object CubeMesh {
     const val FLOATS_PER_VERTEX = 15
-    private const val BODY_HALF = 0.47f
-    private const val STICKER_HALF = 0.40f
-    private const val STICKER_LIFT = 0.472f
+    private const val BODY_HALF = CubeGeometry.BODY_HALF
+    private const val STICKER_HALF = CubeGeometry.STICKER_HALF
+    private const val STICKER_LIFT = CubeGeometry.STICKER_LIFT
 
     fun stickerDraws(
         model: CubieModel,

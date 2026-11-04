@@ -1,4 +1,4 @@
-package dev.rubikxplorer.app.render
+package dev.rubikxplorer.domain.input
 
 import dev.rubikxplorer.domain.cube.Move
 

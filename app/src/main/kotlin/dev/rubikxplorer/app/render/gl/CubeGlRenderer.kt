@@ -2,7 +2,7 @@ package dev.rubikxplorer.app.render.gl
 
 import android.opengl.GLES30
 import android.opengl.GLSurfaceView
-import android.opengl.Matrix
+import dev.rubikxplorer.domain.input.ViewPose
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -38,9 +38,7 @@ class CubeGlRenderer(
     private val first = IntArray(CubieModel.CUBIE_COUNT)
     private val count = IntArray(CubieModel.CUBIE_COUNT)
     private val models = FloatArray(CubieModel.CUBIE_COUNT * MAT4)
-    private val view = FloatArray(MAT4)
-    private val projection = FloatArray(MAT4)
-    private val viewProj = FloatArray(MAT4)
+    private var viewProj = FloatArray(MAT4)
 
     override fun onSurfaceCreated(
         unused: GL10?,
@@ -63,7 +61,6 @@ class CubeGlRenderer(
         builtVersion = -1
         GLES30.glEnable(GLES30.GL_DEPTH_TEST)
         GLES30.glEnable(GLES30.GL_CULL_FACE)
-        Matrix.setLookAtM(view, 0, EYE_X, EYE_Y, EYE_Z, 0f, 0f, 0f, 0f, 1f, 0f)
     }
 
     override fun onSurfaceChanged(
@@ -72,12 +69,7 @@ class CubeGlRenderer(
         height: Int,
     ) {
         GLES30.glViewport(0, 0, width, height)
-        val aspect = width.toFloat() / height.coerceAtLeast(1)
-        // Keep FOV_DEGREES across the narrower side, so the cube fits in portrait too.
-        val halfTan = Math.tan(Math.toRadians(FOV_DEGREES / 2.0)) / minOf(aspect, 1f)
-        val fovY = Math.toDegrees(2 * Math.atan(halfTan)).toFloat()
-        Matrix.perspectiveM(projection, 0, fovY, aspect, NEAR, FAR)
-        Matrix.multiplyMM(viewProj, 0, projection, 0, view, 0)
+        viewProj = ViewPose(width, height).viewProjection()
     }
 
     override fun onDrawFrame(unused: GL10?) {
@@ -128,12 +120,6 @@ class CubeGlRenderer(
         const val MAT4 = 16
         const val FLOATS_PER_VERTEX = 15
         const val DEFAULT_BACKGROUND = 0xFFE8EBEF
-        const val EYE_X = 4.2f
-        const val EYE_Y = 4.6f
-        const val EYE_Z = 6.4f
-        const val FOV_DEGREES = 38f
-        const val NEAR = 1f
-        const val FAR = 30f
 
         fun link(
             vertex: String,

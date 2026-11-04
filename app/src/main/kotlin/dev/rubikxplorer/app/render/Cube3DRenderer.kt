@@ -2,6 +2,8 @@ package dev.rubikxplorer.app.render
 
 import android.opengl.GLSurfaceView
 import android.view.View
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -16,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -39,6 +42,11 @@ import dev.rubikxplorer.app.ui.editor.colorName
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Facelets
+import dev.rubikxplorer.domain.input.GestureInterpreter
+import dev.rubikxplorer.domain.input.MoveIntent
+import dev.rubikxplorer.domain.input.ScreenPoint
+import dev.rubikxplorer.domain.input.TouchPath
+import dev.rubikxplorer.domain.input.ViewPose
 import kotlinx.coroutines.channels.Channel
 
 val RenderedStickersKey = SemanticsPropertyKey<List<StickerDraw>>("RenderedStickers")
@@ -71,7 +79,9 @@ class Cube3DRenderer(
     fun Content(
         style: RenderStyle,
         modifier: Modifier = Modifier,
+        onMoveIntent: ((MoveIntent) -> Unit)? = null,
     ) {
+        val latestCommit by rememberUpdatedState(onMoveIntent)
         val latestStyle by rememberUpdatedState(style)
         val stage =
             RubikTheme.tokens.surfaceStage
@@ -179,6 +189,32 @@ class Cube3DRenderer(
                 },
         ) {
             AndroidView(factory = { view }, modifier = Modifier.fillMaxSize())
+            if (onMoveIntent != null) {
+                Box(
+                    Modifier.matchParentSize().pointerInput(Unit) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown()
+                            // The interpreter reads only the endpoints, so keep just those.
+                            val first = ScreenPoint(down.position.x.toDouble(), down.position.y.toDouble())
+                            var last = first
+                            val pose = ViewPose(size.width, size.height)
+                            var valid = currentEvent.changes.size == 1
+                            down.consume()
+                            do {
+                                val event = awaitPointerEvent()
+                                if (event.changes.any { it.id != down.id }) valid = false
+                                val change = event.changes.firstOrNull { it.id == down.id }
+                                if (change == null || change.isConsumed) valid = false
+                                if (change != null) {
+                                    last = ScreenPoint(change.position.x.toDouble(), change.position.y.toDouble())
+                                    change.consume()
+                                }
+                            } while (event.changes.any { it.pressed })
+                            if (valid) GestureInterpreter.interpret(TouchPath(listOf(first, last)), pose)?.let { latestCommit?.invoke(it) }
+                        }
+                    },
+                )
+            }
         }
     }
 

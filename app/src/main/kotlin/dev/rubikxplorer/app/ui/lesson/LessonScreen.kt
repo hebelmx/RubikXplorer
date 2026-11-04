@@ -54,7 +54,6 @@ import androidx.compose.ui.unit.min
 import dev.rubikxplorer.app.R
 import dev.rubikxplorer.app.content.CatalogEntry
 import dev.rubikxplorer.app.content.ContentStrings
-import dev.rubikxplorer.app.render.MoveIntent
 import dev.rubikxplorer.app.render.Net2DRenderer
 import dev.rubikxplorer.app.render.NetEmphasis
 import dev.rubikxplorer.app.render.PresentationItem
@@ -76,6 +75,7 @@ import dev.rubikxplorer.domain.content.TextKey
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Facelets
 import dev.rubikxplorer.domain.cube.Move
+import dev.rubikxplorer.domain.input.MoveIntent
 import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.playback.DemonstrationResult
 import dev.rubikxplorer.domain.predicate.Piece
