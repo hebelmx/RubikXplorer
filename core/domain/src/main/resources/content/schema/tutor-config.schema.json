@@ -2,12 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "tutor-config.schema.json",
   "title": "Tutor configuration",
-  "description": "Tutor values read as data (AR-22): the CandidateEnumerator's depth and Move set. Hint and mastery thresholds arrive with their consumers.",
+  "description": "Tutor values read as data (AR-22): the CandidateEnumerator's depth and Move set, and the RecoveryPlanner's search bound. Hint and mastery thresholds arrive with their consumers.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["maxDepth", "moveSet"],
+  "required": ["maxDepth", "moveSet", "recoveryMaxDepth"],
   "properties": {
     "maxDepth": { "type": "integer", "minimum": 1, "maximum": 3 },
-    "moveSet": { "type": "string" }
+    "moveSet": { "type": "string" },
+    "recoveryMaxDepth": { "type": "integer", "minimum": 1, "maximum": 8 }
   }
 }

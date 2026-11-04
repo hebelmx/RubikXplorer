@@ -10,7 +10,7 @@ Columns:
   tutor configuration or its Solution, and its entry state),
   `virtual` (the current Cube State), `pending` (the reset confirmation awaiting the Learner) and
   `tutor` (`teachingMode`, `noticeStep`, `revealRequested`, `hintRung`, `hintsUsed`, `lastMoveFeedback`,
-  `lastDiagnosis`) and `checkpoint` (the Checkpoint history *Try again* returns to); `—` for none. Any
+  `lastDiagnosis`, `guidedRecovery`) and `checkpoint` (the Checkpoint history *Try again* returns to); `—` for none. Any
   change of `session`, `virtual` or the undo/redo history advances `revision` by exactly 1 and
   cancels a pending confirmation; a change of `pending`, `tutor` or `checkpoint` alone does not advance it.
 - **Undoable** — `yes` when the event pushes a Move onto the undo history, so a following `Undo`
@@ -39,6 +39,9 @@ steps remain.
 | HintRequested | tutor | no | no |
 | StepAdvanced | tutor | no | no |
 | RetryRequested | virtual, pending, tutor | no | yes |
+| GuidedRecoveryRequested | tutor | no | no |
+| RecoveryPlanned | tutor | no | no |
+| RecoveryPlanFailed | tutor | no | no |
 
 Solve Playback sessions (`SOLVE_PLAYBACK`, Story 3.6): `SolvePlaybackStarted(state, solution)`
 starts, from no session or over a playing one, a session whose entry and `virtual` are `state` and
@@ -91,8 +94,10 @@ shows the feedback only in *Test me* (beside the Notice or completion when the M
 or the Lesson) and the Diagnosis only in *Test me* while the step is not yet done (`advance`). Every
 other event in a Lesson session clears both (AD-5): `LessonStarted`, `Undo`, `Redo`, `Reset` (also
 when it only asks for confirmation), `ResetConfirmed` and `ResetDeclined` (also when discarded),
-`TeachingModeChanged`, `RevealRequested`, `HintRequested`, `StepAdvanced` and `RetryRequested`; none of these clearings advances
-`revision` by itself. A Diagnosis never replaces or rewinds `virtual`: the Cube State stays
+`TeachingModeChanged`, `RevealRequested`, `HintRequested`, `StepAdvanced` and `RetryRequested`, and
+each of these also returns `guidedRecovery` to `None`; none of these clearings advances
+`revision` by itself. The three Guided recovery events (`GuidedRecoveryRequested`, `RecoveryPlanned`,
+`RecoveryPlanFailed`) act on the Diagnosis and never clear it. A Diagnosis never replaces or rewinds `virtual`: the Cube State stays
 the Learner's own.
 
 The Checkpoint (FR-12): `checkpoint` is the history at the last Objective boundary, `null` in an idle
@@ -112,3 +117,27 @@ undoable and leaves nothing to redo, though the restored history can still be un
 When the history already equals `checkpoint` it changes nothing but the last Move's feedback and
 Diagnosis, which it clears like every other non-commit Lesson event; idle and playback sessions
 ignore it.
+
+Guided recovery (FR-12, Story 4.5): `guidedRecovery` is `None`, `Planning(effect)`, `Planned(moves,
+pieces, text)` or `NotFound`, and `None` in an idle state, at `LessonStarted` and `SolvePlaybackStarted`.
+The goal (`RecoveryPlanner.goal`) is the preserved pieces at the Checkpoint's state and at the state
+before the last Move (`history.undo().state`). `canGuideBack` holds in a Lesson whose shown Diagnosis
+offers *Guide me back*, while `guidedRecovery` is `None`, with a Checkpoint and the goal unmet on
+`virtual`. `GuidedRecoveryRequested` then issues `Effect.PlanRecovery(nextEffectId, revision, virtual,
+goal, recoveryMaxDepth, moves)` and sets `Planning`; `nextEffectId` rises by 1 and `revision` stays.
+Otherwise it changes nothing. The plan is searched by the `PlanRecovery` use case off the reducer
+(IDA*, 3 s timeout, `Dispatchers.Default`), never in `reduce`.
+
+A result (`RecoveryPlanned`, `RecoveryPlanFailed`) is current when `guidedRecovery` is `Planning` with
+the same `effectId` and `revision`, and that `revision` is the current one. A current `RecoveryPlanned`
+is verified again: when its Moves take `virtual` to a state meeting the goal it becomes `Planned` (the
+plan copy, `RecoveryPlanner.describe`), else `NotFound`; a current `RecoveryPlanFailed` becomes
+`NotFound`. A result that is not current changes nothing but `lastDiscarded`
+(`EffectResultDiscarded`); when a newer revision overtook it and `canGuideBack` holds, a fresh
+`Effect.PlanRecovery` is issued at the current revision and `guidedRecovery` is `Planning` (the
+re-offer, as for a stale `ResetConfirmed`).
+
+Every history change (`withHistory`) returns `guidedRecovery` to `None`, which cancels a running plan
+(AD-3), with one exception: a `MoveCommitted` equal to the first Move of a `Planned` plan keeps it
+`Planned` with the Moves left, and `None` once none are left. A plan is never applied to the cube; the
+Learner turns its Moves.

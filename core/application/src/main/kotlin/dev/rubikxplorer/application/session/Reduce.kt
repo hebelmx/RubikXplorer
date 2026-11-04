@@ -14,6 +14,7 @@ import dev.rubikxplorer.domain.tutor.Assess
 import dev.rubikxplorer.domain.tutor.HintLadder
 import dev.rubikxplorer.domain.tutor.HintRung
 import dev.rubikxplorer.domain.tutor.MoveAssessment
+import dev.rubikxplorer.domain.tutor.RecoveryPlanner
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import dev.rubikxplorer.domain.tutor.Tutor
 
@@ -30,10 +31,15 @@ fun reduce(
     if (!starts && state.kind != SessionKind.LESSON) return Transition(state)
     val transition = transition(state, event)
     // AD-5: feedback and its Diagnosis belong to the last committed Move; every other Lesson event
-    // clears them (a playback start rejected by an active Lesson is not one, and changes nothing).
-    val keeps = event is SessionEvent.MoveCommitted || event is SessionEvent.SolvePlaybackStarted
+    // clears them and the Guided recovery (a playback start rejected by an active Lesson is not one,
+    // and changes nothing). The Guided recovery events act on that Diagnosis, so they keep it.
+    val recovery =
+        event is SessionEvent.GuidedRecoveryRequested || event is SessionEvent.RecoveryPlanned || event is SessionEvent.RecoveryPlanFailed
+    val keeps = event is SessionEvent.MoveCommitted || event is SessionEvent.SolvePlaybackStarted || recovery
     if (keeps || transition.state.kind != SessionKind.LESSON) return transition
-    return transition.copy(state = transition.state.copy(lastMoveFeedback = null, lastDiagnosis = null))
+    return transition.copy(
+        state = transition.state.copy(lastMoveFeedback = null, lastDiagnosis = null, guidedRecovery = GuidedRecovery.None),
+    )
 }
 
 private fun transition(
@@ -54,6 +60,9 @@ private fun transition(
         is SessionEvent.HintRequested -> hint(state)
         is SessionEvent.StepAdvanced -> advance(state)
         is SessionEvent.RetryRequested -> retry(state)
+        is SessionEvent.GuidedRecoveryRequested -> guideBack(state)
+        is SessionEvent.RecoveryPlanned -> planned(state, event)
+        is SessionEvent.RecoveryPlanFailed -> planFailed(state, event)
     }
 
 private fun start(
@@ -76,6 +85,7 @@ private fun start(
             lastMoveFeedback = null,
             lastDiagnosis = null,
             checkpoint = MoveHistory(entry),
+            guidedRecovery = GuidedRecovery.None,
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, entry)))
 }
@@ -107,6 +117,7 @@ private fun startPlayback(
             lastMoveFeedback = null,
             lastDiagnosis = null,
             checkpoint = null,
+            guidedRecovery = GuidedRecovery.None,
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, start)))
 }
@@ -122,7 +133,9 @@ private fun entryState(lesson: Lesson): CubeState {
 
 /**
  * Commits [move]; in *Test me* only, [Assess.classify] judges it against the step derived from the
- * state before it (AD-5). In any other mode the last Move's feedback and Diagnosis are cleared.
+ * state before it (AD-5). In any other mode the last Move's feedback and Diagnosis are cleared. A
+ * [move] that is the next Move of a Planned Guided recovery keeps the plan with the Moves left (none
+ * left: no Guided recovery); any other Move ends it.
  */
 private fun committed(
     state: SessionState,
@@ -136,7 +149,12 @@ private fun committed(
         } else {
             null
         }
-    return move(state, history, move, assessment)
+    val moved = move(state, history, move, assessment)
+    val plan = state.guidedRecovery as? GuidedRecovery.Planned
+    if (plan == null || plan.moves.firstOrNull() != move) return moved
+    val left = plan.moves.drop(1)
+    val following = if (left.isEmpty()) GuidedRecovery.None else plan.copy(moves = left, text = RecoveryPlanner.describe(left, plan.pieces))
+    return moved.copy(state = moved.state.copy(guidedRecovery = following))
 }
 
 /**
@@ -248,6 +266,79 @@ private fun declined(
     }
 
 /**
+ * *Guide me back* (FR-12): while [SessionState.canGuideBack] holds, issues [Effect.PlanRecovery] for
+ * the current Cube State and goal at the current revision, and records it as Planning; nothing else
+ * changes. Otherwise nothing changes at all.
+ */
+private fun guideBack(state: SessionState): Transition {
+    if (!state.canGuideBack) return Transition(state)
+    val config = checkNotNull(state.tutorConfig)
+    val effect =
+        Effect.PlanRecovery(
+            effectId = state.nextEffectId,
+            revision = state.revision,
+            state = state.virtual,
+            goal = checkNotNull(state.recoveryGoal),
+            maxDepth = config.recoveryMaxDepth,
+            moveSet = config.moves,
+        )
+    val next = state.copy(guidedRecovery = GuidedRecovery.Planning(effect), nextEffectId = state.nextEffectId + 1)
+    return Transition(next, effects = listOf(effect))
+}
+
+/** The Planning recovery [effectId] issued at [revision] is the one awaited, at the current revision. */
+private fun isCurrentPlan(
+    state: SessionState,
+    effectId: Long,
+    revision: Long,
+): GuidedRecovery.Planning? {
+    val planning = state.guidedRecovery as? GuidedRecovery.Planning ?: return null
+    val current = planning.effect.effectId == effectId && planning.effect.revision == revision && revision == state.revision
+    return planning.takeIf { current }
+}
+
+/**
+ * A stale plan result: recorded as discarded and, when a newer revision overtook it, offered again
+ * (a fresh [Effect.PlanRecovery]) while *Guide me back* still applies (AD-3, like a stale Reset).
+ */
+private fun stalePlan(
+    state: SessionState,
+    effectId: Long,
+    revision: Long,
+): Transition {
+    val next = discarded(state, effectId, revision)
+    return if (revision < state.revision && next.canGuideBack) guideBack(next) else Transition(next)
+}
+
+/**
+ * The current plan's [SessionEvent.RecoveryPlanned.moves], verified once more on the Cube State: when
+ * they meet the goal it is Planned with its copy, else NotFound. A stale result is [stalePlan].
+ */
+private fun planned(
+    state: SessionState,
+    event: SessionEvent.RecoveryPlanned,
+): Transition {
+    val planning = isCurrentPlan(state, event.effectId, event.revision) ?: return stalePlan(state, event.effectId, event.revision)
+    val goal = planning.effect.goal
+    val result =
+        if (goal.isMet(state.virtual.apply(event.moves))) {
+            GuidedRecovery.Planned(event.moves.toList(), goal.pieces, RecoveryPlanner.describe(event.moves, goal.pieces))
+        } else {
+            GuidedRecovery.NotFound
+        }
+    return Transition(state.copy(guidedRecovery = result))
+}
+
+/** The current plan found nothing: NotFound. A stale result is [stalePlan]. */
+private fun planFailed(
+    state: SessionState,
+    event: SessionEvent.RecoveryPlanFailed,
+): Transition {
+    isCurrentPlan(state, event.effectId, event.revision) ?: return stalePlan(state, event.effectId, event.revision)
+    return Transition(state.copy(guidedRecovery = GuidedRecovery.NotFound))
+}
+
+/**
  * Past a completed step's Notice, when the tutor says `advance` and the Lesson is not complete: the
  * Notice clears, so the card shows the step derived from the cube, with its Moves hidden again.
  * Otherwise nothing changes.
@@ -286,7 +377,8 @@ private fun modeChanged(
 
 /**
  * [state] with [history] as its new history: the next revision, the Completion Predicate recomputed
- * on the new state, and any pending confirmation cancelled (it depended on the old state, AD-3).
+ * on the new state, and any pending confirmation and Guided recovery cancelled (they depended on the
+ * old state, AD-3).
  */
 private fun withHistory(
     state: SessionState,
@@ -300,5 +392,6 @@ private fun withHistory(
         objectiveMet = completion?.isSatisfied(history.state) ?: false,
         progress = completion?.progress(history.state),
         pendingReset = null,
+        guidedRecovery = GuidedRecovery.None,
     )
 }

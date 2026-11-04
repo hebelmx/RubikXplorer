@@ -57,7 +57,9 @@ import dev.rubikxplorer.domain.tutor.TeachingMode
  * Guide me) or a quiet line says they wait for a Hint. [hint] is the resolved Hint Ladder line of the
  * shown rung (null at rung 0), drawn by [HintLine] under the Moves. [recoveryActions] are the
  * Diagnosis's Recovery Path offers as buttons (*Undo*, *Guide me back*, *Try again*), drawn by
- * [RecoveryPrompt] under the Diagnosis; empty when there is none.
+ * [RecoveryPrompt] under the Diagnosis; empty when there is none. [guidedRecovery] is the Guided
+ * recovery line (pending, the plan, or no plan), drawn by [GuidedRecoveryLine] after the recovery
+ * prompt whenever the session has one, even once the Diagnosis is gone.
  */
 internal data class StepCardContent(
     val number: Int,
@@ -77,6 +79,7 @@ internal data class StepCardContent(
     val showMoveControl: Boolean = true,
     val hint: String? = null,
     val recoveryActions: List<RecoveryAction> = emptyList(),
+    val guidedRecovery: GuidedRecoveryContent? = null,
 )
 
 /**
@@ -217,6 +220,7 @@ private fun StepCard(
         } else {
             step.feedback?.let { key(step.feedbackMove) { Feedback(it) } }
         }
+        step.guidedRecovery?.let { GuidedRecoveryLine(it) }
         step.notice?.let { Field(R.string.lesson_notice, it, "lesson:notice") }
     }
 }

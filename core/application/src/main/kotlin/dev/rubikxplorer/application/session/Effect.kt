@@ -1,7 +1,9 @@
 package dev.rubikxplorer.application.session
 
 import dev.rubikxplorer.domain.cube.CubeState
+import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.text.Text
+import dev.rubikxplorer.domain.tutor.RecoveryGoal
 
 /**
  * An asynchronous request a [Transition] hands to the host (AD-3). Each carries its [effectId] and the
@@ -23,6 +25,20 @@ sealed interface Effect {
         override val effectId: Long,
         override val revision: Long,
         val prompt: Text,
+    ) : Effect
+
+    /**
+     * Plan the Guided recovery (FR-12, AD-8): the shortest sequence of at most [maxDepth] Moves of
+     * [moveSet] that takes [state] to one meeting [goal], run by `PlanRecovery` off the reducer;
+     * answered by `RecoveryPlanned` or `RecoveryPlanFailed`.
+     */
+    data class PlanRecovery(
+        override val effectId: Long,
+        override val revision: Long,
+        val state: CubeState,
+        val goal: RecoveryGoal,
+        val maxDepth: Int,
+        val moveSet: List<Move>,
     ) : Effect
 }
 

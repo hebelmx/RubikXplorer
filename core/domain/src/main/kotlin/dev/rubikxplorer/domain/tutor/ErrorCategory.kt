@@ -90,7 +90,7 @@ enum class RecoveryOffer {
     /** *Undo*: take back the last Move. */
     UNDO,
 
-    /** *Guide me back*: the Guided recovery (enabled by Story 4.5). */
+    /** *Guide me back*: the Guided recovery, offered while a plan can restore the preserved pieces. */
     GUIDE_ME_BACK,
 
     /** *Try again*: restart the Objective from the last Checkpoint. */

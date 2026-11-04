@@ -30,7 +30,7 @@ import dev.rubikxplorer.domain.predicate.WhitePieceSolved
 /** Shared tutor test fixtures: Lessons built in code, with explicit step `done`s. */
 internal object TutorFixtures {
     /** The shipped `tutor-config.json` values. */
-    val CONFIG = TutorConfig(maxDepth = 2, moveSet = "U U' U2 D D' D2 R R' R2 L L' L2 F F' F2 B B' B2")
+    val CONFIG = TutorConfig(maxDepth = 2, moveSet = "U U' U2 D D' D2 R R' R2 L L' L2 F F' F2 B B' B2", recoveryMaxDepth = 5)
 
     fun moves(text: String): List<Move> = (Notation.parse(text) as NotationResult.Parsed).moves
 

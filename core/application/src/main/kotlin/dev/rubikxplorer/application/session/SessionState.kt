@@ -10,6 +10,10 @@ import dev.rubikxplorer.domain.tutor.Assess
 import dev.rubikxplorer.domain.tutor.Diagnosis
 import dev.rubikxplorer.domain.tutor.HintRung
 import dev.rubikxplorer.domain.tutor.MoveFeedback
+import dev.rubikxplorer.domain.tutor.Recovery
+import dev.rubikxplorer.domain.tutor.RecoveryGoal
+import dev.rubikxplorer.domain.tutor.RecoveryOffer
+import dev.rubikxplorer.domain.tutor.RecoveryPlanner
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import dev.rubikxplorer.domain.tutor.Tutor
 import dev.rubikxplorer.domain.tutor.TutorDecision
@@ -25,7 +29,7 @@ import dev.rubikxplorer.domain.tutor.TutorDecision
  * - [objectiveMet] and [progress] are the Lesson's Completion Predicate on [virtual], recomputed on
  *   every change of [virtual].
  * - The tutor fields ([teachingMode], [noticeStep], [revealRequested], [hintRung], [hintsUsed],
- *   [lastMoveFeedback], [lastDiagnosis]) never advance [revision]: a mode switch, a reveal or a Hint
+ *   [lastMoveFeedback], [lastDiagnosis], [guidedRecovery]) never advance [revision]: a mode switch, a reveal or a Hint
  *   does not change the Cube State, so it must not stale a pending effect.
  * - [checkpoint] is the Objective-boundary history *Try again* returns to; its changes never
  *   advance [revision] either.
@@ -88,6 +92,12 @@ data class SessionState internal constructor(
      * It holds a history, never the current step (AD-6). `null` in [IDLE] and Solve Playback (AD-20).
      */
     val checkpoint: MoveHistory?,
+    /**
+     * The Guided recovery (FR-12): [GuidedRecovery.None] until *Guide me back*, then Planning while the
+     * [Effect.PlanRecovery] runs, then Planned or NotFound. Any history change and any other non-commit
+     * Lesson event return it to None (AD-3 cancels the effect); following a plan's next Move keeps it.
+     */
+    val guidedRecovery: GuidedRecovery,
 ) {
     /** The tutor's decision for the shown step; `null` outside a Lesson. Derived, never stored. */
     val decision: TutorDecision? by lazy(LazyThreadSafetyMode.PUBLICATION) {
@@ -102,8 +112,39 @@ data class SessionState internal constructor(
                 noticeStep,
                 lastMoveFeedback,
                 lastDiagnosis,
+                when (val recovery = guidedRecovery) {
+                    is GuidedRecovery.Planning -> Recovery.Pending(recovery.effect.effectId)
+                    is GuidedRecovery.Planned -> Recovery.Ready(recovery.moves)
+                    GuidedRecovery.None, GuidedRecovery.NotFound -> Recovery.Unavailable
+                },
             )
         }
+    }
+
+    /**
+     * What a Guided recovery restores now ([RecoveryPlanner.goal]): the preserved pieces at the
+     * Checkpoint and just before the last Move; `null` outside a Lesson. Derived, never stored.
+     */
+    val recoveryGoal: RecoveryGoal? by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        val lesson = lesson ?: return@lazy null
+        val checkpoint = checkpoint ?: return@lazy null
+        RecoveryPlanner.goal(lesson, listOf(checkpoint.state, history.undo().state))
+    }
+
+    /**
+     * True when *Guide me back* applies: a Lesson whose shown Diagnosis offers it, no Guided recovery
+     * under way or shown, a Checkpoint, and preserved pieces still to restore on [virtual].
+     */
+    val canGuideBack: Boolean by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        kind == SessionKind.LESSON &&
+            guidedRecovery == GuidedRecovery.None &&
+            checkpoint != null &&
+            decision
+                ?.diagnosis
+                ?.recoveryPath
+                ?.offers
+                ?.contains(RecoveryOffer.GUIDE_ME_BACK) == true &&
+            recoveryGoal?.isMet(virtual) == false
     }
 
     /** The 0-based Lesson step the card shows ([Tutor.shownStep]); 0 outside a Lesson. Derived, never stored. */
@@ -146,6 +187,7 @@ data class SessionState internal constructor(
                 lastMoveFeedback = null,
                 lastDiagnosis = null,
                 checkpoint = null,
+                guidedRecovery = GuidedRecovery.None,
             )
     }
 }

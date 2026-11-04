@@ -66,8 +66,10 @@ import dev.rubikxplorer.app.ui.freecube.ToolbarButton
 import dev.rubikxplorer.app.ui.shell.WindowWidthClass
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.app.ui.theme.Spacing
+import dev.rubikxplorer.application.session.GuidedRecovery
 import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.application.session.SessionState
+import dev.rubikxplorer.application.usecase.PlanRecovery
 import dev.rubikxplorer.domain.content.Lesson
 import dev.rubikxplorer.domain.content.TextKey
 import dev.rubikxplorer.domain.cube.CubeState
@@ -78,6 +80,7 @@ import dev.rubikxplorer.domain.playback.DemonstrationResult
 import dev.rubikxplorer.domain.predicate.Piece
 import dev.rubikxplorer.domain.tutor.HintLadder
 import dev.rubikxplorer.domain.tutor.HintRung
+import dev.rubikxplorer.domain.tutor.Recovery
 import dev.rubikxplorer.domain.tutor.RecoveryOffer
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import dev.rubikxplorer.domain.tutor.Tutor
@@ -94,7 +97,7 @@ import kotlin.time.Instant
  *
  * The screen decides nothing about teaching: every reveal, Notice, feedback and Next flag comes from
  * the session's [TutorDecision]. The switcher offers only [modes] (the shell drops a mode whose
- * feature flag is off).
+ * feature flag is off). [planRecovery] runs a requested Guided recovery's search (tests inject one).
  */
 @Composable
 fun LessonScreen(
@@ -104,6 +107,7 @@ fun LessonScreen(
     modes: List<TeachingMode>,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    planRecovery: PlanRecovery = remember { PlanRecovery() },
 ) {
     val lesson = entry.lesson
     val session by host.state.collectAsState()
@@ -130,6 +134,7 @@ fun LessonScreen(
             LessonBody(host, session, decision, lesson, demonstration, strings, modes, onClose)
         }
     }
+    GuidedRecoveryRunner(host, planRecovery)
 }
 
 @Composable
@@ -232,8 +237,10 @@ private fun LessonBody(
 
                     RecoveryOffer.TRY_AGAIN -> send(SessionEvent::RetryRequested)
 
-                    // Guide me back waits on Story 4.5; Show me how and re-entry have their own controls.
-                    RecoveryOffer.GUIDE_ME_BACK, RecoveryOffer.SHOW_ME_HOW, RecoveryOffer.RE_ENTER -> Unit
+                    RecoveryOffer.GUIDE_ME_BACK -> send(SessionEvent::GuidedRecoveryRequested)
+
+                    // Show me how and re-entry have their own controls.
+                    RecoveryOffer.SHOW_ME_HOW, RecoveryOffer.RE_ENTER -> Unit
                 }
             },
             onShowMeHow = { rotations ->
@@ -262,10 +269,16 @@ private fun LessonBody(
                     // Dimming and the target outline guide in Guide me (the Hint Ladder's target from
                     // rung 2); the other Learner modes outline the Hint Ladder's target from rung 2
                     // (everything lit), else light the target just for the Objective-met pulse. A
-                    // shown Diagnosis outlines the pieces it disturbed first (UX-DR28: violet outline only).
+                    // shown Diagnosis outlines the pieces it disturbed first (UX-DR28: violet outline only),
+                    // and a ready Guided recovery's preserved pieces before that (UX-DR11).
                     val disturbed = decision.diagnosis?.disturbed.orEmpty()
+                    val planned = (session.guidedRecovery as? GuidedRecovery.Planned)?.pieces.orEmpty()
                     val emphasis =
                         when {
+                            decision.recovery is Recovery.Ready && planned.isNotEmpty() -> {
+                                NetEmphasis(lit = ALL_PIECES, highlighted = planned, pulse = pulse)
+                            }
+
                             disturbed.isNotEmpty() -> {
                                 NetEmphasis(lit = ALL_PIECES, highlighted = disturbed, pulse = pulse)
                             }
@@ -406,13 +419,14 @@ private fun stepCard(
                 HintLadder.line(lesson, index, session.hintRung)?.let { strings.resolve(it) }
             },
         recoveryActions = recoveryActions(session, decision, strings),
+        guidedRecovery = guidedRecoveryContent(session.guidedRecovery, strings),
     )
 }
 
 /**
  * The shown Diagnosis's Recovery Path offers that the recovery prompt draws as buttons, in the
- * order offered: *Undo* (while there is a Move to take back), *Guide me back* (disabled until the
- * Guided recovery exists) and *Try again*. *Show me how* keeps its own control in the Diagnosis line.
+ * order offered: *Undo* (while there is a Move to take back), *Guide me back* (while
+ * [SessionState.canGuideBack]) and *Try again*. *Show me how* keeps its own control in the Diagnosis line.
  */
 private fun recoveryActions(
     session: SessionState,
@@ -426,7 +440,7 @@ private fun recoveryActions(
         .mapNotNull { offer ->
             when (offer) {
                 RecoveryOffer.UNDO -> RecoveryAction(offer, strings.resolve(UNDO_LABEL), session.history.canUndo)
-                RecoveryOffer.GUIDE_ME_BACK -> RecoveryAction(offer, strings.resolve(GUIDE_ME_BACK_LABEL), enabled = false)
+                RecoveryOffer.GUIDE_ME_BACK -> RecoveryAction(offer, strings.resolve(GUIDE_ME_BACK_LABEL), session.canGuideBack)
                 RecoveryOffer.TRY_AGAIN -> RecoveryAction(offer, strings.resolve(TRY_AGAIN_LABEL), enabled = true)
                 RecoveryOffer.SHOW_ME_HOW, RecoveryOffer.RE_ENTER -> null
             }

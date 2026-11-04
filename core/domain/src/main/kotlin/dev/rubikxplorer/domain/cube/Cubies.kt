@@ -53,6 +53,9 @@ data class Cubies internal constructor(
         internal const val TWISTS = 3
         internal const val FLIPS = 2
 
+        /** One face turn moves this many corners and this many edges. */
+        internal const val PER_FACE_TURN = 4
+
         /** Every cubie in its own slot, untwisted and unflipped. */
         val SOLVED: Cubies =
             Cubies(List(CORNERS) { it }, List(CORNERS) { 0 }, List(EDGES) { it }, List(EDGES) { 0 })

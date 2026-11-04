@@ -68,12 +68,14 @@ data class Step(
  * load; `ContentValidator` checks the values.
  *
  * - [maxDepth]: the longest Move sequence the `CandidateEnumerator` tries (1..3);
- * - [moveSet]: the Moves it tries, as Notation.
+ * - [moveSet]: the Moves it tries, as Notation (also the Moves the `RecoveryPlanner` searches);
+ * - [recoveryMaxDepth]: the longest Guided recovery the `RecoveryPlanner` searches for (1..8).
  */
 @Serializable
 data class TutorConfig(
     val maxDepth: Int,
     val moveSet: String,
+    val recoveryMaxDepth: Int,
 ) {
     /** [moveSet] parsed; empty when it is not valid Notation (which `ContentValidator` rejects). */
     val moves: List<Move>

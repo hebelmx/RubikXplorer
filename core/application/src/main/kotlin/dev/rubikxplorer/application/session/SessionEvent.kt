@@ -98,6 +98,29 @@ sealed interface SessionEvent {
         override val at: Instant,
     ) : SessionEvent
 
+    /**
+     * *Guide me back* (FR-12): while [SessionState.canGuideBack] holds, issues [Effect.PlanRecovery]
+     * at the current revision and records it as Planning; otherwise nothing changes.
+     */
+    data class GuidedRecoveryRequested(
+        override val at: Instant,
+    ) : SessionEvent
+
+    /** The [Effect.PlanRecovery] issued as [effectId] at [revision] found the correction [moves]. */
+    data class RecoveryPlanned(
+        val effectId: Long,
+        val revision: Long,
+        val moves: List<Move>,
+        override val at: Instant,
+    ) : SessionEvent
+
+    /** The [Effect.PlanRecovery] issued as [effectId] at [revision] found no correction in its bound or time. */
+    data class RecoveryPlanFailed(
+        val effectId: Long,
+        val revision: Long,
+        override val at: Instant,
+    ) : SessionEvent
+
     /** The Learner moved on past a completed step's Notice; applies only while one is shown and the Lesson is not complete. */
     data class StepAdvanced(
         override val at: Instant,
