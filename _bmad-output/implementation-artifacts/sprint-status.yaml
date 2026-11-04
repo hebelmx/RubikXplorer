@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-29-2026 12:34
-last_updated: 11-04-2026 04:42
+last_updated: 11-04-2026 04:43
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -70,7 +70,7 @@ development_status:
   3-8-reference-device-pruning-table-delivery-decision-and-product: backlog
   epic-3-retrospective: optional
 
-  epic-4: in-progress
+  epic-4: done
   4-1-assess-evidence-and-produce-a-tutordecision: done
   4-2-diagnose-each-error-category-with-tested-copy: done
   4-3-climb-the-hint-ladder: done
