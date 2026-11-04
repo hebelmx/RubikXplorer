@@ -13,6 +13,9 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -476,7 +479,7 @@ class LessonScreenTest {
     }
 
     @Test
-    fun `test me names a turned cube in a polite live region, with the reorient prompt and no feedback line`() {
+    fun `test me names a turned cube in a polite live region, with the reorient prompt, Show me how and no undo`() {
         open(whiteCrossLesson().id.value)
         switchTo(TeachingMode.TEST_ME)
         press("y", 1)
@@ -490,6 +493,17 @@ class LessonScreenTest {
         node("lesson:diagnosis").assertTextContains("Turn it back with the rotation keys.", substring = true)
         node("lesson:diagnosis").assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
         node("lesson:feedback").assertDoesNotExist()
+
+        // A turned cube offers Show me how and no Undo; tapping it shows the rotation back, never turns the cube.
+        rule.onNode(hasText("Undo") and hasAnyAncestor(hasTestTag("lesson:stepCard"))).assertDoesNotExist()
+        node("lesson:reorientMoves").assertDoesNotExist()
+        val turned = host.state.value.virtual
+        node("lesson:showMeHow").performScrollTo().assertTextContains("Show me how").performClick()
+        rule.waitForIdle()
+        node("lesson:reorientMoves").assertExists()
+        node("moveChip:y'").assertExists()
+        node("lesson:showMeHow").assertDoesNotExist()
+        assertEquals(turned, host.state.value.virtual)
     }
 
     @Test

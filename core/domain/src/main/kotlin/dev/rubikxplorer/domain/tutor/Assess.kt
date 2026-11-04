@@ -100,7 +100,8 @@ object Assess {
      * - PROGRESS: the step's effective done, `allOf(lesson.preserve, done)`, made progress;
      * - NEUTRAL: anything else.
      * A Diagnosis that is not a disturbance (a turned cube, a twisted piece, an unknown change) rides
-     * along with PROGRESS or NEUTRAL.
+     * along with PROGRESS or NEUTRAL. A Cube Rotation back to the entry's hold is a recovery: it is
+     * NEUTRAL with no Diagnosis.
      */
     @Suppress("LongParameterList")
     fun classify(
@@ -112,7 +113,8 @@ object Assess {
         config: TutorConfig,
     ): MoveAssessment {
         if (Tutor.isOnPath(lesson, entry, before, move)) return MoveAssessment(MoveFeedback.ON_PATH, null)
-        val diagnosis = diagnose(lesson, entry, before, after, config)
+        val recovered = after.cubies == before.cubies && after.orientation == entry.orientation
+        val diagnosis = if (recovered) null else diagnose(lesson, entry, before, after, config)
         if (diagnosis != null && diagnosis.category in DiagnosisRules.DISTURBANCE) return MoveAssessment(MoveFeedback.HARMFUL, diagnosis)
         val step = lesson.steps.getOrNull(Tutor.currentStep(lesson, entry, before))
         val done = AllOf(listOfNotNull(lesson.preserve, step?.done))
@@ -139,7 +141,8 @@ object Assess {
      * - `diagnosis` is [lastDiagnosis] in [TeachingMode.TEST_ME] while not `advance`, else null;
      * - no Guided recovery yet (Story 4.5);
      * - `reveal` is true in [TeachingMode.SHOW_ME] or once [revealRequested];
-     * - `feedback` is [lastMoveFeedback] in [TeachingMode.TEST_ME] while not `advance`, else null;
+     * - `feedback` is [lastMoveFeedback] in [TeachingMode.TEST_ME], else null: a Move that completes a
+     *   step or the Lesson keeps its word (On path) beside the Notice or completion;
      * - `nextAction` is FINISH when satisfied, NEXT_STEP when `advance`, WATCH in *Show me*, else TURN;
      * - `explanation` is the shown Diagnosis's explanation, else the shown step's Notice when
      *   `advance`, else its Goal.
@@ -179,7 +182,7 @@ object Assess {
             recovery = Recovery.Unavailable,
             reveal = mode == TeachingMode.SHOW_ME || revealRequested,
             advance = advance,
-            feedback = lastMoveFeedback.takeIf { testing },
+            feedback = lastMoveFeedback.takeIf { mode == TeachingMode.TEST_ME },
         )
     }
 

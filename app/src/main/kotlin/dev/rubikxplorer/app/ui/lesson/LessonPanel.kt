@@ -46,7 +46,8 @@ import dev.rubikxplorer.domain.tutor.TeachingMode
  * What the step card shows, already resolved: step [number] of [count], its Goal, Keep and Watch,
  * its [notice] (null until it is due), its [moves] (null while hidden), whether the Lesson's
  * Objective is met, the Test me [feedback] on the last Move (null when there is none to show) or,
- * when the tutor names a mistake, its [diagnosis] with the Recovery Path's [recoveryPrompt] instead,
+ * when the tutor names a mistake, its [diagnosis] with the Recovery Path's [recoveryPrompt] instead
+ * (and, for a turned cube, the [showMeHow] Cube Rotations back to the Lesson's hold),
  * with [feedbackMove] naming that Move (the session's revision, so each Move's line is a fresh node that
  * screen readers announce even when its text repeats) and,
  * while the Moves are hidden, whether the "Show the Move" control offers them ([showMoveControl],
@@ -64,6 +65,7 @@ internal data class StepCardContent(
     val feedback: String? = null,
     val diagnosis: String? = null,
     val recoveryPrompt: String? = null,
+    val showMeHow: List<Move>? = null,
     val feedbackMove: Long = 0,
     val showMoveControl: Boolean = true,
 )
@@ -184,7 +186,7 @@ private fun StepCard(
         MovesRow(step.moves, step.showMoveControl, onShowMove)
         val diagnosis = step.diagnosis
         if (diagnosis != null) {
-            key(step.feedbackMove) { DiagnosisLine(diagnosis, step.recoveryPrompt) }
+            key(step.feedbackMove) { DiagnosisLine(diagnosis, step.recoveryPrompt, showMeHow = step.showMeHow) }
         } else {
             step.feedback?.let { key(step.feedbackMove) { Feedback(it) } }
         }
@@ -260,7 +262,7 @@ private fun MovesRow(
 }
 
 @Composable
-private fun NotationChip(move: Move) {
+internal fun NotationChip(move: Move) {
     val tokens = RubikTheme.tokens
     val shape = MaterialTheme.shapes.small
     val token = Notation.format(move)

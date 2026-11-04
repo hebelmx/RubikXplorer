@@ -26,7 +26,19 @@ fun reduce(
     val starts = event is SessionEvent.LessonStarted || event is SessionEvent.SolvePlaybackStarted
     // Only a Lesson session takes Moves and tutor events; idle and playback sessions ignore them.
     if (!starts && state.kind != SessionKind.LESSON) return Transition(state)
-    return when (event) {
+    val transition = transition(state, event)
+    // AD-5: feedback and its Diagnosis belong to the last committed Move; every other Lesson event
+    // clears them (a playback start rejected by an active Lesson is not one, and changes nothing).
+    val keeps = event is SessionEvent.MoveCommitted || event is SessionEvent.SolvePlaybackStarted
+    if (keeps || transition.state.kind != SessionKind.LESSON) return transition
+    return transition.copy(state = transition.state.copy(lastMoveFeedback = null, lastDiagnosis = null))
+}
+
+private fun transition(
+    state: SessionState,
+    event: SessionEvent,
+): Transition =
+    when (event) {
         is SessionEvent.LessonStarted -> start(state, event.lesson, event.tutorConfig)
         is SessionEvent.SolvePlaybackStarted -> startPlayback(state, event.state, event.solution)
         is SessionEvent.MoveCommitted -> committed(state, event.move)
@@ -39,7 +51,6 @@ fun reduce(
         is SessionEvent.RevealRequested -> Transition(state.copy(revealRequested = true))
         is SessionEvent.StepAdvanced -> advance(state)
     }
-}
 
 private fun start(
     state: SessionState,

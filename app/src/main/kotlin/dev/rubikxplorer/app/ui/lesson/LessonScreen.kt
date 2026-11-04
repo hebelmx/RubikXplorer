@@ -73,7 +73,9 @@ import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.playback.DemonstrationResult
 import dev.rubikxplorer.domain.predicate.Piece
+import dev.rubikxplorer.domain.tutor.RecoveryOffer
 import dev.rubikxplorer.domain.tutor.TeachingMode
+import dev.rubikxplorer.domain.tutor.Tutor
 import dev.rubikxplorer.domain.tutor.TutorDecision
 import kotlinx.coroutines.launch
 import kotlin.time.Instant
@@ -320,6 +322,10 @@ private fun stepCard(
         feedback = decision.feedback?.text?.let { strings.resolve(it) },
         diagnosis = decision.diagnosis?.let { strings.resolve(it.explanation) },
         recoveryPrompt = decision.diagnosis?.let { strings.resolve(it.recoveryPath.prompt) },
+        showMeHow =
+            decision.diagnosis
+                ?.takeIf { RecoveryOffer.SHOW_ME_HOW in it.recoveryPath.offers }
+                ?.let { Tutor.reorient(session.virtual.orientation, session.entry.orientation) },
         feedbackMove = session.revision,
         showMoveControl = mode == TeachingMode.GUIDE_ME,
     )

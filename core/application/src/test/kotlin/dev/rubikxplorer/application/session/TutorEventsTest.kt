@@ -10,6 +10,7 @@ import dev.rubikxplorer.domain.tutor.TeachingMode
 import dev.rubikxplorer.domain.tutor.TutorDecision
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -205,11 +206,22 @@ class TutorEventsTest {
         assertEquals(MoveFeedback.ON_PATH, done.lastMoveFeedback)
         assertTrue(decision(done).satisfied)
         assertTrue(decision(done).advance)
-        assertNull(decision(done).feedback)
+        // The Lesson-final authored Move keeps its On path word beside the completion.
+        assertEquals(MoveFeedback.ON_PATH, decision(done).feedback)
+        assertNull(decision(done).diagnosis)
     }
 
     @Test
-    fun `feedback and diagnosis clear on undo, redo, applied reset or step advance and a mode change, with no revision bump`() {
+    fun `a step-final authored Move shows On path beside the step's Notice`() {
+        val atStep1 = started(twoStepLesson()).after(modeChanged(TeachingMode.TEST_ME), commit(U))
+        assertTrue(decision(atStep1).advance)
+        assertEquals(0, atStep1.noticeStep)
+        assertEquals(MoveFeedback.ON_PATH, decision(atStep1).feedback)
+        assertEquals(Text("lesson.lesson-01-03.notice.1"), decision(atStep1).explanation)
+    }
+
+    @Test
+    fun `feedback and diagnosis clear on every event but a commit, with no revision bump of their own`() {
         val moved = testMe.after(commit(Y))
         check(moved.lastDiagnosis != null)
 
@@ -227,11 +239,16 @@ class TutorEventsTest {
         assertCleared("undo", moved.after(undo), 1)
         assertCleared("redo", moved.after(undo, redo), 2)
         val asked = moved.after(resetEvent)
-        assertEquals(MoveFeedback.NEUTRAL, asked.lastMoveFeedback, "a reset that only asks keeps it")
-        assertEquals(moved.lastDiagnosis, asked.lastDiagnosis, "a reset that only asks keeps it")
+        assertNotNull(asked.pendingReset, "a reset with unsaved steps only asks")
+        assertCleared("reset asked", asked, 0)
         assertCleared("reset confirmed", asked.after(asked.pendingReset!!.confirm()), 1)
+        val declined = moved.after(resetEvent).copy(lastMoveFeedback = moved.lastMoveFeedback, lastDiagnosis = moved.lastDiagnosis)
+        assertCleared("reset declined", declined.after(declined.pendingReset!!.decline()), 0)
+        assertCleared("reveal requested", moved.after(reveal), 0)
+        assertTrue(moved.after(reveal).revealRequested)
         assertCleared("mode change", moved.after(modeChanged(TeachingMode.GUIDE_ME)), 0)
-        assertEquals(moved, moved.after(modeChanged(TeachingMode.TEST_ME)), "same mode: unchanged")
+        assertCleared("same mode", moved.after(modeChanged(TeachingMode.TEST_ME)), 0)
+        assertEquals(moved.teachingMode, moved.after(modeChanged(TeachingMode.TEST_ME)).teachingMode)
         assertCleared("lesson started", moved.after(lessonStarted(whiteCrossLesson("lesson-01-02"))), 1)
 
         val atStep1 = started(twoStepLesson()).after(modeChanged(TeachingMode.TEST_ME), commit(U))
@@ -240,9 +257,9 @@ class TutorEventsTest {
         assertEquals(1, advanced.stepIndex)
         assertNull(advanced.lastMoveFeedback)
         assertEquals(atStep1.revision, advanced.revision)
-        // A StepAdvanced that does not apply leaves it.
+        // A StepAdvanced that does not apply changes nothing else, but still clears the feedback (AD-5).
         val notDone = testMe.after(commit(D))
-        assertEquals(notDone, notDone.after(stepAdvanced))
+        assertEquals(notDone.copy(lastMoveFeedback = null, lastDiagnosis = null), notDone.after(stepAdvanced))
     }
 
     @Test

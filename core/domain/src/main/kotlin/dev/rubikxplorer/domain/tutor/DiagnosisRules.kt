@@ -40,18 +40,16 @@ internal object DiagnosisRules {
         )
 
     /**
-     * Rule 1: the cubies are unchanged but the cube is held in an orientation that is neither the
-     * expected one nor the entry's. The copy names the entry's colors on the Learner's D and F.
+     * Rule 1 (AD-2): the cubies are unchanged but the cube is held in another orientation than the
+     * expected one, whatever it is. The copy names the entry's colors on the Learner's D and F.
+     * Rotating back to the Lesson's hold is a recovery, which [Assess.classify] tells apart.
      */
     fun orientation(
         entry: CubeState,
         expected: CubeState,
         observed: CubeState,
     ): Finding? {
-        val turned =
-            observed.cubies == expected.cubies &&
-                observed.orientation != expected.orientation &&
-                observed.orientation != entry.orientation
+        val turned = observed.cubies == expected.cubies && observed.orientation != expected.orientation
         if (!turned) return null
         val explanation =
             Text(

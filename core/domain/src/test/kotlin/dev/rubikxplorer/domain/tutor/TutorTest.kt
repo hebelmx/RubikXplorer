@@ -1,11 +1,13 @@
 package dev.rubikxplorer.domain.tutor
 
 import dev.rubikxplorer.domain.cube.CubeState
+import dev.rubikxplorer.domain.cube.Orientation
 import dev.rubikxplorer.domain.tutor.TutorFixtures.fourEdges
 import dev.rubikxplorer.domain.tutor.TutorFixtures.oneStep
 import dev.rubikxplorer.domain.tutor.TutorFixtures.state
 import dev.rubikxplorer.domain.tutor.TutorFixtures.twoStep
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
@@ -72,5 +74,19 @@ class TutorTest {
     @Test
     fun `guide me is the default mode`() {
         assertEquals(TeachingMode.GUIDE_ME, TeachingMode.DEFAULT)
+    }
+
+    @Test
+    fun `reorient finds the fewest Cube Rotations between any two holds`() {
+        Orientation.ALL.forEach { from ->
+            Orientation.ALL.forEach { to ->
+                val rotations = Tutor.reorient(from, to)
+                assertTrue(rotations.size <= 2, "$from -> $to: $rotations")
+                assertEquals(to, rotations.fold(from) { held, r -> held.rotated(r.axis, r.turn) }, "$from -> $to")
+                assertEquals(from == to, rotations.isEmpty(), "$from -> $to")
+            }
+        }
+        val turned = CubeState.SOLVED.apply(TutorFixtures.moves("y"))
+        assertEquals(TutorFixtures.moves("y'"), Tutor.reorient(turned.orientation, CubeState.SOLVED.orientation))
     }
 }

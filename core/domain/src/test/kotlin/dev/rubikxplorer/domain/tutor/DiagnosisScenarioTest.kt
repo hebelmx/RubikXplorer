@@ -136,8 +136,12 @@ class DiagnosisScenarioTest {
         assertEquals(listOf(RecoveryOffer.SHOW_ME_HOW), d!!.recoveryPath.offers)
         assertFalse(RecoveryOffer.UNDO in d.recoveryPath.offers)
         assertEquals(Text("msg.recovery.reorient"), d.recoveryPath.prompt)
-        // Back in the entry's orientation, nothing is wrong.
-        assertNull(diagnose(lesson, entry.apply(moves("y")), entry.apply(moves("y y'"))))
+        // AD-2: any orientation-only difference from the expected state is diagnosed, even one in the
+        // entry's hold; rotating back after a turn is a recovery that Assess.classify clears.
+        val held = diagnose(lesson, entry.apply(moves("y")), entry.apply(moves("y y'")))
+        assertEquals(ErrorCategory.UNEXPECTED_ORIENTATION, held?.category)
+        val back = Assess.classify(lesson, entry, entry.apply(moves("y")), moves("y'").single(), entry, CONFIG)
+        assertEquals(MoveAssessment(MoveFeedback.NEUTRAL, null), back)
     }
 
     @Test

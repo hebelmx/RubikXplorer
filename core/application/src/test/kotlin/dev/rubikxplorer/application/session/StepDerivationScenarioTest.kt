@@ -9,6 +9,7 @@ import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.cube.NotationResult
 import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
 import dev.rubikxplorer.domain.predicate.WhitePieceSolved
+import dev.rubikxplorer.domain.tutor.MoveFeedback
 import dev.rubikxplorer.domain.tutor.NextAction
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -80,7 +81,9 @@ class StepDerivationScenarioTest {
         assertTrue(both.revealRequested, "the shown step did not change, so the reveal stays")
         assertTrue(both.advanceFlag())
         assertEquals(NextAction.NEXT_STEP, checkNotNull(both.decision).nextAction)
-        assertNull(checkNotNull(both.decision).feedback, "Notice and Next speak once a step is done")
+        // The Move that finished the step keeps its Test me word beside the Notice (F2 off the path: Progress).
+        val word = if (mode == TeachingMode.TEST_ME) MoveFeedback.PROGRESS else null
+        assertEquals(word, checkNotNull(both.decision).feedback, "the finishing Move's word stays beside the Notice")
 
         val next = both.after(stepAdvanced)
         assertEquals(2, next.stepIndex, "the first step whose done is unmet")
@@ -117,7 +120,8 @@ class StepDerivationScenarioTest {
         assertTrue(decision.advance)
         assertEquals(lesson.steps.lastIndex, done.stepIndex)
         assertEquals(NextAction.FINISH, decision.nextAction)
-        assertEquals(done, done.after(stepAdvanced), "Next past the last step is the screen's to close")
+        // Next past the last step is the screen's to close: only the last Move's word clears (AD-5).
+        assertEquals(done.copy(lastMoveFeedback = null, lastDiagnosis = null), done.after(stepAdvanced), "Next past the last step")
     }
 
     @ParameterizedTest

@@ -101,7 +101,7 @@ class TransitionsTableTest {
             }
 
             is SessionEvent.Reset -> {
-                listOf(fresh, a, b, c, revealed, playback).map { it to resetEvent }
+                listOf(fresh, a, b, c, revealed, playback, bWithFeedback).map { it to resetEvent }
             }
 
             is SessionEvent.ResetConfirmed -> {
@@ -114,7 +114,8 @@ class TransitionsTableTest {
             }
 
             is SessionEvent.ResetDeclined -> {
-                listOf(askedB to askedPending.decline(), staleB to askedPending.decline())
+                listOf(askedB to askedPending.decline(), staleB to askedPending.decline()) +
+                    listOf(askedB.copy(lastMoveFeedback = MoveFeedback.NEUTRAL, lastDiagnosis = TURNED_DIAGNOSIS) to askedPending.decline())
             }
 
             is SessionEvent.TeachingModeChanged -> {
@@ -122,7 +123,7 @@ class TransitionsTableTest {
             }
 
             is SessionEvent.RevealRequested -> {
-                listOf(SessionState.IDLE, fresh, b, askedB, revealed, playback).map { it to reveal }
+                listOf(SessionState.IDLE, fresh, b, askedB, revealed, playback, bWithFeedback).map { it to reveal }
             }
 
             is SessionEvent.StepAdvanced -> {

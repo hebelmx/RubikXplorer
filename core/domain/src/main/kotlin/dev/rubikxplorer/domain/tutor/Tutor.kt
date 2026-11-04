@@ -1,12 +1,14 @@
 package dev.rubikxplorer.domain.tutor
 
 import dev.rubikxplorer.domain.content.Lesson
+import dev.rubikxplorer.domain.cube.Axis
 import dev.rubikxplorer.domain.cube.CubeRotation
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.FaceTurn
 import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.cube.NotationResult
+import dev.rubikxplorer.domain.cube.Orientation
 import dev.rubikxplorer.domain.cube.SliceTurn
 import dev.rubikxplorer.domain.cube.Turn
 import dev.rubikxplorer.domain.cube.WideTurn
@@ -90,6 +92,30 @@ object Tutor {
             path = path.apply(next)
         }
         return false
+    }
+
+    /**
+     * The fewest Cube Rotations that turn a cube held in [from] to the hold [to] (*Show me how* for a
+     * turned cube, RecoveryPath.REORIENT): empty when they match, else at most two, since one rotation
+     * reaches nine of the 24 holds and two reach the rest. Breadth-first over x, y, z, so bounded.
+     */
+    fun reorient(
+        from: Orientation,
+        to: Orientation,
+    ): List<CubeRotation> {
+        val rotations = Axis.entries.flatMap { axis -> Turn.entries.map { CubeRotation(axis, it) } }
+        val seen = mutableMapOf(from to emptyList<CubeRotation>())
+        var frontier = listOf(from)
+        while (to !in seen) {
+            frontier =
+                frontier.flatMap { held ->
+                    rotations.mapNotNull { rotation ->
+                        val next = held.rotated(rotation.axis, rotation.turn)
+                        if (next in seen) null else next.also { seen[it] = seen.getValue(held) + rotation }
+                    }
+                }
+        }
+        return seen.getValue(to)
     }
 
     /** The two quarter turns that make up the half turn [move], in either direction; empty unless [move] is a half turn. */

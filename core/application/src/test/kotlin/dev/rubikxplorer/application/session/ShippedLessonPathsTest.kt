@@ -113,7 +113,7 @@ class ShippedLessonPathsTest {
         }
 
     @TestFactory
-    fun `in test me every authored Move is on path through reduce, and its line shows while the step is not done`() =
+    fun `in test me every authored Move is on path through reduce, and its line shows, also on the Move that finishes a step`() =
         perLesson { lesson, _ ->
             var state = reduce(started(lesson), modeChanged(TeachingMode.TEST_ME)).state
             lesson.steps.forEachIndexed { k, step ->
@@ -123,7 +123,8 @@ class ShippedLessonPathsTest {
                     assertEquals(MoveFeedback.ON_PATH, state.lastMoveFeedback, "step ${k + 1}: $move")
                     assertNull(state.lastDiagnosis, "step ${k + 1}: $move")
                     assertNull(decision.diagnosis, "step ${k + 1}: $move")
-                    assertEquals(if (decision.advance) null else MoveFeedback.ON_PATH, decision.feedback, "step ${k + 1}: $move")
+                    // Also on a step-final or Lesson-final Move, beside the Notice or completion.
+                    assertEquals(MoveFeedback.ON_PATH, decision.feedback, "step ${k + 1}: $move")
                 }
                 if (k < lesson.steps.lastIndex) state = reduce(state, stepAdvanced).state
             }

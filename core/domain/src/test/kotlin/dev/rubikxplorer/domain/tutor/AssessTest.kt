@@ -162,7 +162,7 @@ class AssessTest {
     }
 
     @Test
-    fun `feedback shows only in test me and only while the step is not done`() {
+    fun `feedback shows only in test me, also beside the Notice or completion of the Move that finished a step`() {
         MoveFeedback.entries.forEach { feedback ->
             TeachingMode.entries.forEach { mode ->
                 val shown = decide(oneStep, "D", mode = mode, lastMoveFeedback = feedback).feedback
@@ -170,12 +170,14 @@ class AssessTest {
             }
         }
         assertNull(decide(oneStep, "D", mode = TeachingMode.TEST_ME).feedback)
-        val done = decide(oneStep, "F'", mode = TeachingMode.TEST_ME, lastMoveFeedback = MoveFeedback.PROGRESS)
+        val done = decide(oneStep, "F'", mode = TeachingMode.TEST_ME, lastMoveFeedback = MoveFeedback.ON_PATH)
         assertTrue(done.advance)
-        assertNull(done.feedback)
-        val atNotice = decide(twoStep, "U", mode = TeachingMode.TEST_ME, noticeStep = 0, lastMoveFeedback = MoveFeedback.PROGRESS)
+        assertEquals(MoveFeedback.ON_PATH, done.feedback)
+        assertEquals(Text("lesson.lesson-01-01.notice.1"), done.explanation)
+        val atNotice = decide(twoStep, "U", mode = TeachingMode.TEST_ME, noticeStep = 0, lastMoveFeedback = MoveFeedback.ON_PATH)
         assertTrue(atNotice.advance)
-        assertNull(atNotice.feedback)
+        assertEquals(MoveFeedback.ON_PATH, atNotice.feedback)
+        assertNull(decide(twoStep, "U", mode = TeachingMode.GUIDE_ME, noticeStep = 0, lastMoveFeedback = MoveFeedback.ON_PATH).feedback)
     }
 
     @Test
