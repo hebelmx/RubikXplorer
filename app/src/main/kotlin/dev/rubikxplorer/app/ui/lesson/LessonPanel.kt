@@ -41,6 +41,7 @@ import dev.rubikxplorer.app.ui.theme.Spacing
 import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.tutor.HintLadder
+import dev.rubikxplorer.domain.tutor.RecoveryOffer
 import dev.rubikxplorer.domain.tutor.TeachingMode
 
 /**
@@ -54,7 +55,9 @@ import dev.rubikxplorer.domain.tutor.TeachingMode
  * screen readers announce even when its text repeats) and,
  * while the Moves are hidden, whether the "Show the Move" control offers them ([showMoveControl],
  * Guide me) or a quiet line says they wait for a Hint. [hint] is the resolved Hint Ladder line of the
- * shown rung (null at rung 0), drawn by [HintLine] under the Moves.
+ * shown rung (null at rung 0), drawn by [HintLine] under the Moves. [recoveryActions] are the
+ * Diagnosis's Recovery Path offers as buttons (*Undo*, *Guide me back*, *Try again*), drawn by
+ * [RecoveryPrompt] under the Diagnosis; empty when there is none.
  */
 internal data class StepCardContent(
     val number: Int,
@@ -73,6 +76,7 @@ internal data class StepCardContent(
     val feedbackMove: Long = 0,
     val showMoveControl: Boolean = true,
     val hint: String? = null,
+    val recoveryActions: List<RecoveryAction> = emptyList(),
 )
 
 /**
@@ -95,6 +99,7 @@ internal fun LessonPanel(
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
     onShowMeHow: (List<Move>) -> Unit = {},
+    onRecovery: (RecoveryOffer) -> Unit = {},
 ) {
     val tokens = RubikTheme.tokens
     Column(
@@ -107,7 +112,7 @@ internal fun LessonPanel(
             color = tokens.inkPrimary,
             modifier = Modifier.testTag("lesson:objective").semantics { heading() },
         )
-        StepCard(step, onShowMove, onShowMeHow, Modifier.fillMaxWidth())
+        StepCard(step, onShowMove, onShowMeHow, onRecovery, Modifier.fillMaxWidth())
         TeachingModeSwitcher(modes, mode, onModeChange, Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s3), modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(
@@ -145,6 +150,7 @@ private fun StepCard(
     step: StepCardContent,
     onShowMove: () -> Unit,
     onShowMeHow: (List<Move>) -> Unit,
+    onRecovery: (RecoveryOffer) -> Unit,
     modifier: Modifier,
 ) {
     val tokens = RubikTheme.tokens
@@ -207,6 +213,7 @@ private fun StepCard(
                     onShowMeHow = onShowMeHow,
                 )
             }
+            RecoveryPrompt(step.recoveryActions, onRecovery)
         } else {
             step.feedback?.let { key(step.feedbackMove) { Feedback(it) } }
         }

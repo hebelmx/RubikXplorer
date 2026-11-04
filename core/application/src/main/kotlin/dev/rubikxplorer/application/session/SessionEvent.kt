@@ -89,6 +89,15 @@ sealed interface SessionEvent {
         override val at: Instant,
     ) : SessionEvent
 
+    /**
+     * *Try again* (FR-12): the Lesson's history returns to its [SessionState.checkpoint], so the
+     * current step starts again from the last Objective boundary; the Lesson, the Teaching Mode and
+     * the Hint count stay. Not undoable, and leaves nothing to redo.
+     */
+    data class RetryRequested(
+        override val at: Instant,
+    ) : SessionEvent
+
     /** The Learner moved on past a completed step's Notice; applies only while one is shown and the Lesson is not complete. */
     data class StepAdvanced(
         override val at: Instant,

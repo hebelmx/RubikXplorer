@@ -45,7 +45,7 @@ enum class ErrorCategory {
 
 /**
  * How the Learner gets back on track after a mistake (FR-10): its [prompt] sentence and the
- * [offers] the lesson panel presents, in that order (Story 4.4 renders them as inline buttons).
+ * [offers] the lesson panel presents, in that order (the inline `RecoveryPrompt` renders them as buttons).
  */
 enum class RecoveryPath {
     /** Take back the last Move. */
@@ -85,7 +85,7 @@ enum class RecoveryPath {
             }
 }
 
-/** One choice a Recovery Path offers the Learner (UX-DR25); Story 4.4 renders them. */
+/** One choice a Recovery Path offers the Learner (UX-DR25); the lesson panel renders them, never decides them. */
 enum class RecoveryOffer {
     /** *Undo*: take back the last Move. */
     UNDO,

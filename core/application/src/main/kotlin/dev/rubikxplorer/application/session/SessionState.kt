@@ -27,7 +27,10 @@ import dev.rubikxplorer.domain.tutor.TutorDecision
  * - The tutor fields ([teachingMode], [noticeStep], [revealRequested], [hintRung], [hintsUsed],
  *   [lastMoveFeedback], [lastDiagnosis]) never advance [revision]: a mode switch, a reveal or a Hint
  *   does not change the Cube State, so it must not stale a pending effect.
- * - The current step is never stored: [stepIndex] derives it from the Cube State (AD-6).
+ * - [checkpoint] is the Objective-boundary history *Try again* returns to; its changes never
+ *   advance [revision] either.
+ * - The current step is never stored: [stepIndex] derives it from the Cube State (AD-6), and never
+ *   from [checkpoint].
  */
 @ConsistentCopyVisibility
 data class SessionState internal constructor(
@@ -77,6 +80,14 @@ data class SessionState internal constructor(
     val lastMoveFeedback: MoveFeedback?,
     /** The mistake [Assess.classify] named for the last committed Move, if any; set and cleared with [lastMoveFeedback]. */
     val lastDiagnosis: Diagnosis?,
+    /**
+     * The Checkpoint (FR-12): the history at the last Objective boundary, which *Try again*
+     * (`RetryRequested`) restores. In a Lesson it is the entry history after `LessonStarted` or an
+     * applied Reset, then the history wherever a step's Notice became pending or the Lesson became
+     * complete, always with nothing to redo; a Move that disturbs preserved pieces never moves it.
+     * It holds a history, never the current step (AD-6). `null` in [IDLE] and Solve Playback (AD-20).
+     */
+    val checkpoint: MoveHistory?,
 ) {
     /** The tutor's decision for the shown step; `null` outside a Lesson. Derived, never stored. */
     val decision: TutorDecision? by lazy(LazyThreadSafetyMode.PUBLICATION) {
@@ -134,6 +145,7 @@ data class SessionState internal constructor(
                 hintsUsed = 0,
                 lastMoveFeedback = null,
                 lastDiagnosis = null,
+                checkpoint = null,
             )
     }
 }

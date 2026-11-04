@@ -53,6 +53,7 @@ private fun transition(
         is SessionEvent.RevealRequested -> Transition(state.copy(revealRequested = true))
         is SessionEvent.HintRequested -> hint(state)
         is SessionEvent.StepAdvanced -> advance(state)
+        is SessionEvent.RetryRequested -> retry(state)
     }
 
 private fun start(
@@ -74,6 +75,7 @@ private fun start(
             hintsUsed = 0,
             lastMoveFeedback = null,
             lastDiagnosis = null,
+            checkpoint = MoveHistory(entry),
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, entry)))
 }
@@ -104,6 +106,7 @@ private fun startPlayback(
             hintsUsed = 0,
             lastMoveFeedback = null,
             lastDiagnosis = null,
+            checkpoint = null,
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, start)))
 }
@@ -141,7 +144,8 @@ private fun committed(
  * Diagnosis (both cleared when it is null). With
  * `s0` the step shown before and `d1` the current step after: when `d1 > s0` and the Lesson is not
  * complete, `s0`'s Notice stays until *Next* (no auto-advance past a Notice); otherwise no Notice is
- * pending. The reveal resets whenever the shown step changes.
+ * pending. The reveal resets whenever the shown step changes. A result with a pending Notice or a
+ * complete Lesson is an Objective boundary and becomes the Checkpoint (redo dropped).
  */
 private fun move(
     state: SessionState,
@@ -150,7 +154,9 @@ private fun move(
     assessment: MoveAssessment?,
 ): Transition {
     val moved = withHistory(state, history).copy(lastMoveFeedback = assessment?.feedback, lastDiagnosis = assessment?.diagnosis)
-    val next = moved.lesson?.let { lesson -> withNotice(state, moved, lesson) } ?: moved
+    val noticed = moved.lesson?.let { lesson -> withNotice(state, moved, lesson) } ?: moved
+    val boundary = noticed.lesson != null && (noticed.noticeStep != null || noticed.objectiveMet)
+    val next = if (boundary) noticed.copy(checkpoint = noticed.history.withoutRedo()) else noticed
     return Transition(next, presentation = listOf(Presentation.Animate(animate, next.revision, next.virtual)))
 }
 
@@ -168,15 +174,35 @@ private fun withNotice(
 }
 
 /**
- * Back to the entry state and the first step with nothing to undo or redo. Advances
- * [SessionState.revision] only if the history changes.
+ * Back to the entry state and the first step with nothing to undo or redo; the Checkpoint returns to
+ * the entry too. Advances [SessionState.revision] only if the history changes.
  */
 private fun reset(state: SessionState): Transition {
     val history = state.history.reset()
     val next =
         (if (history == state.history) state.copy(pendingReset = null) else withHistory(state, history))
-            .copy(noticeStep = null, revealRequested = false, hintRung = HintRung.NONE, lastMoveFeedback = null, lastDiagnosis = null)
+            .copy(
+                noticeStep = null,
+                revealRequested = false,
+                hintRung = HintRung.NONE,
+                lastMoveFeedback = null,
+                lastDiagnosis = null,
+                checkpoint = history,
+            )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.entry)))
+}
+
+/**
+ * *Try again* (FR-12): when the history differs from the Checkpoint, it becomes the Checkpoint (the
+ * next revision, any pending confirmation cancelled), the shown step's Notice, reveal and Hint rung
+ * reset, and the net snaps to the Checkpoint's state; the Lesson, Teaching Mode, [SessionState.hintsUsed]
+ * and the Checkpoint itself stay. Otherwise nothing changes.
+ */
+private fun retry(state: SessionState): Transition {
+    val checkpoint = state.checkpoint ?: return Transition(state)
+    if (checkpoint == state.history) return Transition(state)
+    val next = withHistory(state, checkpoint).copy(noticeStep = null, revealRequested = false, hintRung = HintRung.NONE)
+    return Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.virtual)))
 }
 
 /** Issues a reset confirmation at the current revision, warning that Lesson steps would be lost; nothing else changes. */

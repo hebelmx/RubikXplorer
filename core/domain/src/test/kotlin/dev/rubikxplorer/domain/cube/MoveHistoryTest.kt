@@ -93,6 +93,19 @@ class MoveHistoryTest {
     }
 
     @Test
+    fun `withoutRedo keeps the start, state and done Moves and drops redo`() {
+        val history = MoveHistory(CubeState.SOLVED.apply(f)).commit(r).commit(u).undo()
+        val kept = history.withoutRedo()
+        assertEquals(history.start, kept.start)
+        assertEquals(history.state, kept.state)
+        assertEquals(listOf<Move>(r), kept.done)
+        assertFalse(kept.canRedo)
+        assertTrue(kept.canUndo)
+        assertEquals(MoveHistory(CubeState.SOLVED.apply(f)).commit(r), kept)
+        assertEquals(kept, kept.withoutRedo())
+    }
+
+    @Test
     fun `equality covers the stacks, not just the state`() {
         val viaUndo = MoveHistory().commit(r).undo()
         assertEquals(MoveHistory().state, viaUndo.state)

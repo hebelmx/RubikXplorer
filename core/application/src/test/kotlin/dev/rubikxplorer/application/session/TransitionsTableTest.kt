@@ -74,6 +74,14 @@ class TransitionsTableTest {
     // commit in another mode clear them all the same.
     private val bWithFeedback = b.copy(lastMoveFeedback = MoveFeedback.NEUTRAL, lastDiagnosis = TURNED_DIAGNOSIS)
 
+    // Checkpoint fixtures (white cross, entry SOLVED + F): F' completes it, so the Checkpoint moves to [F'];
+    // R then R' completes it again ([F', R, R']); undoing back onto [F'] makes [F'] the Checkpoint again.
+    private val crossed = fresh.after(commit(F_PRIME)).also { check(it.checkpoint == it.history) }
+    private val recrossed = crossed.after(commit(R), commit(R_PRIME))
+    private val recrossedUndone = recrossed.after(undo)
+    private val backAtCrossWithRedo = recrossed.after(undo, undo, redo)
+    private val crossedRedoR = crossed.after(commit(R), undo).also { check(it.history.canRedo && it.checkpoint != it.history) }
+
     /** Scenarios per event type; the exhaustive `when` fails to compile when an event type is added. */
     private fun scenarios(sample: SessionEvent): List<Pair<SessionState, SessionEvent>> =
         when (sample) {
@@ -89,19 +97,21 @@ class TransitionsTableTest {
             is SessionEvent.MoveCommitted -> {
                 listOf(fresh to commit(F), b to commit(R), askedB to commit(F), playback to commit(F)) +
                     // Test me sets the feedback; a commit in another mode clears a standing one.
-                    listOf(fresh.after(modeChanged(TeachingMode.TEST_ME)) to commit(D), bWithFeedback to commit(F))
+                    listOf(fresh.after(modeChanged(TeachingMode.TEST_ME)) to commit(D), bWithFeedback to commit(F)) +
+                    // Completing the cross is a boundary: the Checkpoint follows.
+                    listOf(fresh to commit(F_PRIME))
             }
 
             is SessionEvent.Undo -> {
-                listOf(fresh, a, b, askedB, playback, bWithFeedback).map { it to undo }
+                listOf(fresh, a, b, askedB, playback, bWithFeedback, recrossedUndone).map { it to undo }
             }
 
             is SessionEvent.Redo -> {
-                listOf(fresh, b, c, askedB, bWithFeedback).map { it to redo }
+                listOf(fresh, b, c, askedB, bWithFeedback, backAtCrossWithRedo).map { it to redo }
             }
 
             is SessionEvent.Reset -> {
-                listOf(fresh, a, b, c, revealed, playback, bWithFeedback).map { it to resetEvent }
+                listOf(fresh, a, b, c, revealed, playback, bWithFeedback, crossed.after(undo)).map { it to resetEvent }
             }
 
             is SessionEvent.ResetConfirmed -> {
@@ -110,6 +120,7 @@ class TransitionsTableTest {
                     staleB to askedPending.confirm(),
                     fresh to askedPending.confirm(),
                     askedRevealedB to askedRevealedB.pendingReset!!.confirm(),
+                    asked(crossed).let { it to it.pendingReset!!.confirm() },
                 )
             }
 
@@ -135,6 +146,20 @@ class TransitionsTableTest {
             is SessionEvent.StepAdvanced -> {
                 listOf(SessionState.IDLE, fresh, b, twoAtStep1, twoAtStep1WithRedo).map { it to stepAdvanced }
             }
+
+            is SessionEvent.RetryRequested -> {
+                // Ignored idle, in playback and at the Checkpoint; moves the cube back, clears redo, cancels an ask, resets the rung.
+                val ignored = listOf(SessionState.IDLE, playback, fresh, crossed)
+                val applied =
+                    listOf(
+                        fresh.after(commit(R)),
+                        crossedRedoR,
+                        asked(crossed.after(commit(R))),
+                        fresh.after(commit(R), hint),
+                        bWithFeedback,
+                    )
+                (ignored + applied).map { it to retry }
+            }
         }
 
     private val samples: Map<String, SessionEvent> =
@@ -151,6 +176,7 @@ class TransitionsTableTest {
             reveal,
             hint,
             stepAdvanced,
+            retry,
         ).associateBy { it::class.java.simpleName }
 
     /** What the `session` column covers: the kind, its Lesson and tutor configuration or its Solution, and its entry state. */
@@ -176,6 +202,7 @@ class TransitionsTableTest {
                     s.lastDiagnosis,
                 )
             if (tutor(before) != tutor(after)) add("tutor")
+            if (before.checkpoint != after.checkpoint) add("checkpoint")
         }
 
     @Test
@@ -184,7 +211,7 @@ class TransitionsTableTest {
         assertEquals(names.size, names.toSet().size, "duplicate rows: $names")
         assertEquals(eventTypes, names.toSet())
         assertEquals(eventTypes, samples.keys)
-        assertEquals(12, eventTypes.size)
+        assertEquals(13, eventTypes.size)
     }
 
     @Test

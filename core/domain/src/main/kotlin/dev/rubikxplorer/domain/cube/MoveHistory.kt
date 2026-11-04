@@ -50,6 +50,12 @@ class MoveHistory private constructor(
     /** Back at [start], with nothing to undo or redo. */
     fun reset(): MoveHistory = MoveHistory(start)
 
+    /**
+     * The same start, state and committed Moves with nothing to redo: what a Checkpoint holds, so
+     * returning to it never brings back an undone Move.
+     */
+    fun withoutRedo(): MoveHistory = if (undone.isEmpty()) this else MoveHistory(start, state, done, emptyList())
+
     override fun equals(other: Any?): Boolean =
         other is MoveHistory && start == other.start && state == other.state && done == other.done && undone == other.undone
 
