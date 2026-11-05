@@ -38,7 +38,9 @@ class DemonstrationPlayerState private constructor(
     internal constructor(demonstration: Demonstration, reduceMotion: Boolean) :
         this(
             demonstration,
-            NetPlayback(demonstration.start, demonstration.moves, reduceMotion, Cube3DRenderer(demonstration.start.toFacelets())),
+            Cube3DRenderer(demonstration.start.toFacelets()).let { renderer ->
+                NetPlayback(demonstration.start, demonstration.moves, reduceMotion, renderer) { renderer.oldestLiveRevision }
+            },
             reduceMotion,
         )
 
@@ -61,10 +63,14 @@ class DemonstrationPlayerState private constructor(
         get() = if (size == 0) null else focusedStep?.focus?.let { NetEmphasis(lit = it.lit, highlighted = it.target) }
 
     /**
-     * The Move the arrow shows: the one the renderer is turning (its inverse on Step Back, the
-     * earlier Moves while rapid steps drain), else the [currentMove] once the renderer is idle.
+     * The Move shown, by the transport's Move label as by the arrow: the one the renderer is turning
+     * (its inverse on Step Back, the earlier Moves while rapid steps drain), else the controller's
+     * current Move once the renderer is idle.
      */
-    val arrow: Move? get() = renderer.presentedMove ?: currentMove
+    override val currentMove: Move? get() = renderer.presentedMove ?: playback.currentMove
+
+    /** The Move the arrow shows: the [currentMove]. */
+    val arrow: Move? get() = currentMove
 
     fun play() = playback.play()
 

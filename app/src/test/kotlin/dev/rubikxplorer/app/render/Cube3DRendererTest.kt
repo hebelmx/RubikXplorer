@@ -11,23 +11,37 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityNodeProvider
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import dev.rubikxplorer.app.R
 import dev.rubikxplorer.app.session.allMoves
 import dev.rubikxplorer.app.ui.editor.colorName
+import dev.rubikxplorer.app.ui.theme.RubikTheme
+import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Facelets
+import dev.rubikxplorer.domain.cube.Notation
+import dev.rubikxplorer.domain.cube.NotationResult
+import dev.rubikxplorer.domain.input.MoveArrow
+import dev.rubikxplorer.domain.input.ViewOrbit
+import dev.rubikxplorer.domain.input.ViewPose
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -173,6 +187,44 @@ class Cube3DRendererTest {
             }
         assertTrue(rule.runOnIdle { host.dispatchGenericMotionEvent(hover) })
         hover.recycle()
+    }
+
+    @Test fun arrowLabelStaysInsideTheStageAtALargeFontScaleNearTheEdge() {
+        val move = (Notation.parse("B'") as NotationResult.Parsed).moves.single()
+        var label = IntSize.Zero
+        var sidePx = 0f
+        var gap = 0f
+        rule.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 2f)) {
+                RubikXplorerTheme {
+                    label =
+                        rememberTextMeasurer().measure(Notation.format(move), RubikTheme.textStyles.notation).size
+                    with(LocalDensity.current) {
+                        sidePx = 300.dp.toPx()
+                        gap = 8.dp.toPx()
+                    }
+                }
+            }
+        }
+        rule.waitForIdle()
+        // Robolectric measures the scaled line height but no glyph advances, so give each glyph a
+        // line-height width, as wide as enlarged notation renders on a device.
+        label = IntSize(label.height * Notation.format(move).length, label.height)
+        val stage = Size(sidePx, sidePx)
+        val pose = ViewPose(sidePx.toInt(), sidePx.toInt(), ViewOrbit.DEFAULT.eye())
+        val tip = pose.project(MoveArrow.arc(move, ViewOrbit.DEFAULT.eye()).last()).let { Offset(it.x.toFloat(), it.y.toFloat()) }
+        // The tip sits near the right edge: a label placed past it would leave the stage.
+        assertTrue(tip.x + gap + label.width > stage.width)
+        val topLeft = Cube3DRenderer.arrowLabelTopLeft(tip, label, stage, gap)
+        assertTrue(topLeft.x >= 0f && topLeft.y >= 0f)
+        assertTrue(topLeft.x + label.width <= stage.width && topLeft.y + label.height <= stage.height)
+        // Inward beside the tip: left of it, not over it.
+        assertTrue(topLeft.x + label.width <= tip.x)
+        // Every edge clamps, and a label larger than the stage pins to its top-left.
+        assertEquals(Offset(10f, 0f), Cube3DRenderer.arrowLabelTopLeft(Offset(2f, -40f), IntSize(30, 20), Size(100f, 100f), 8f))
+        assertEquals(Offset(0f, 80f), Cube3DRenderer.arrowLabelTopLeft(Offset(60f, 140f), IntSize(80, 20), Size(100f, 100f), 8f))
+        assertEquals(Offset(0f, 0f), Cube3DRenderer.arrowLabelTopLeft(Offset(60f, 50f), IntSize(300, 200), Size(100f, 100f), 8f))
     }
 
     private companion object {

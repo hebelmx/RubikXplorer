@@ -79,7 +79,9 @@ interface PlaybackTransportState {
 /**
  * The pure [PlaybackController] over [moves] from [start] driving a [renderer] (AD-20). Ephemeral:
  * it never touches the session and is never checkpointed. Use from the main thread. The owner
- * supplies [renderer], which must already show [start].
+ * supplies [renderer], which must already show [start]. An owner that asks [moveIndexOf] supplies
+ * [oldestLiveRevision]: the oldest revision the renderer may still present, or null once it is idle;
+ * without it no mapping is kept.
  */
 @Stable
 class NetPlayback(
@@ -87,14 +89,21 @@ class NetPlayback(
     moves: List<Move>,
     reduceMotion: Boolean,
     val renderer: CubeRenderer,
+    private val oldestLiveRevision: (() -> Long?)? = null,
 ) : PlaybackTransportState {
     private var controller by mutableStateOf(PlaybackController.of(start, moves, reduceMotion))
 
     /** Increases with every submitted item, as [PresentationItem.revision] requires. */
     private var revision = 0L
 
-    /** The index in [moves] of each submitted Animate item's Move, by its revision. */
+    /**
+     * The index in [moves] of each Animate item's Move, by its revision, for items the renderer may
+     * still present; drained items are discarded on the next submit.
+     */
     private val animatedIndex = HashMap<Long, Int>()
+
+    /** How many revisions [moveIndexOf] still maps. */
+    internal val mappedRevisions: Int get() = animatedIndex.size
 
     /** The Moves played. */
     val moves: List<Move> get() = controller.moves
@@ -144,10 +153,14 @@ class NetPlayback(
         var from = controller.position
         controller = update.controller
         if (update.items.isEmpty()) return
+        val live = oldestLiveRevision?.invoke()
+        if (live == null) animatedIndex.clear() else animatedIndex.keys.removeIf { it < live }
         renderer.submit(
             update.items.map { item ->
                 val presentation = item.toPresentation(++revision)
-                if (item is PlaybackItem.Animate) animatedIndex[revision] = if (item.position > from) item.position - 1 else item.position
+                if (oldestLiveRevision != null && item is PlaybackItem.Animate) {
+                    animatedIndex[revision] = if (item.position > from) item.position - 1 else item.position
+                }
                 from = item.position
                 presentation
             },

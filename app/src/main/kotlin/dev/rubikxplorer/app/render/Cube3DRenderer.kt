@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
@@ -37,6 +38,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
@@ -66,6 +68,7 @@ import dev.rubikxplorer.domain.input.Vector3
 import dev.rubikxplorer.domain.input.ViewOrbit
 import dev.rubikxplorer.domain.input.ViewPose
 import kotlinx.coroutines.channels.Channel
+import kotlin.math.max
 
 val RenderedStickersKey = SemanticsPropertyKey<List<StickerDraw>>("RenderedStickers")
 
@@ -118,6 +121,12 @@ class Cube3DRenderer(
 
     /** The presented item's [PresentationItem.revision]; null once the queue is idle. */
     val presentedRevision: Long? get() = presented?.revision
+
+    /**
+     * The oldest revision [presentedRevision] may still report: the presented item's, else the
+     * oldest item not yet finished; null once idle. Every earlier item has drained (FIFO).
+     */
+    val oldestLiveRevision: Long? get() = presented?.revision ?: queue.oldestRevision
     private var meshVersion = 0
     private var builtColors = -1
     private var builtStyle: RenderStyle? = null
@@ -322,7 +331,7 @@ class Cube3DRenderer(
                         val side = Offset(-direction.y, direction.x) * 6.dp.toPx()
                         drawLine(CubeTokens.stickerHighlight, tip, back + side, 4.dp.toPx())
                         drawLine(CubeTokens.stickerHighlight, tip, back - side, 4.dp.toPx())
-                        drawText(label, topLeft = tip + Offset(8.dp.toPx(), 0f))
+                        drawText(label, topLeft = arrowLabelTopLeft(tip, label.size, size, 8.dp.toPx()))
                     }
                 }
             }
@@ -444,6 +453,26 @@ class Cube3DRenderer(
         internal fun isSolved(facelets: Facelets): Boolean = facelets.colors.chunked(PER_FACE).all { face -> face.all { it == face[0] } }
 
         const val ARROW_IN_MILLIS = 200
+
+        /**
+         * Where the arrow's notation label of [label] size goes in a [stage]: beside the [tip], [gap]
+         * away on the side toward the stage's center, vertically centered on it, then clamped so the
+         * whole label stays inside the stage (pinned to its top-left when larger than the stage).
+         */
+        internal fun arrowLabelTopLeft(
+            tip: Offset,
+            label: IntSize,
+            stage: Size,
+            gap: Float,
+        ): Offset {
+            val x = if (tip.x > stage.width / 2) tip.x - gap - label.width else tip.x + gap
+            val y = tip.y - label.height / 2f
+            return Offset(
+                x.coerceIn(0f, max(0f, stage.width - label.width)),
+                y.coerceIn(0f, max(0f, stage.height - label.height)),
+            )
+        }
+
         const val TURN_MILLIS = PresentationQueue.TURN_MILLIS
         const val FAST_FORWARD_AFTER = PresentationQueue.FAST_FORWARD_AFTER
         const val FAST_FORWARD_DIVISOR = PresentationQueue.FAST_FORWARD_DIVISOR

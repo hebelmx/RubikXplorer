@@ -260,6 +260,41 @@ class DemonstrationPlayerTest {
     }
 
     @Test
+    fun `rapid steps keep the transport's Move label on the Move the renderer is turning`() {
+        val three = demo("F U R", "R'", "U'", "F'")
+
+        fun assertLabel(move: String) {
+            rule.onNodeWithTag("playback:move").assertTextEquals(move)
+            assertEquals(move, arrow())
+        }
+        show(demo = three)
+        rule.waitForIdle()
+        rule.mainClock.autoAdvance = false
+        repeat(3) { rule.onNodeWithTag("playback:forward").performClick() }
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeByFrame()
+        assertCounter("3 / 3")
+        assertLabel("R'")
+        rule.mainClock.advanceTimeBy(210)
+        assertLabel("U'")
+        rule.mainClock.advanceTimeBy(210)
+        assertLabel("F'")
+        rule.mainClock.advanceTimeBy(300)
+        assertLabel("F'")
+
+        repeat(2) { rule.onNodeWithTag("playback:back").performClick() }
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeByFrame()
+        assertCounter("1 / 3")
+        assertLabel("F")
+        rule.mainClock.advanceTimeBy(210)
+        assertLabel("U")
+        rule.mainClock.advanceTimeBy(300)
+        // Idle: back to the controller's current Move.
+        assertLabel("R'")
+    }
+
+    @Test
     fun `speed buttons select the speed`() {
         show()
         rule.onNodeWithTag("playback:speed:NORMAL").assertIsSelected()
