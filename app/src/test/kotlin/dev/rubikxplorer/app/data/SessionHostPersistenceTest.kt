@@ -16,6 +16,8 @@ import dev.rubikxplorer.domain.cube.FaceTurn
 import dev.rubikxplorer.domain.cube.Turn
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
@@ -26,6 +28,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.util.concurrent.atomic.AtomicInteger
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
@@ -84,6 +87,62 @@ class SessionHostPersistenceTest {
             writer.flush()
             assertTrue(host.state.value.isActive)
             writer.close()
+        }
+
+    @Test fun cancelledRestoreStaysOpenForTheNextCall() =
+        runBlocking {
+            val bundle =
+                (
+                    ContentLoader.load(ContentSource.SHIPPED)
+                        as ContentLoadResult.Loaded
+                ).bundle
+            val lesson =
+                bundle.stages
+                    .first()
+                    .lessons
+                    .first()
+            val source = SessionHost(TickingClock())
+            source.dispatch { SessionEvent.LessonStarted(lesson, bundle.tutorConfig, it) }
+            source.dispatch { SessionEvent.MoveCommitted(FaceTurn(Face.R, Turn.CLOCKWISE), it) }
+            val saved = checkNotNull(SessionSnapshot.of(source.state.value, "saved", bundle.contentRevision))
+            val reading = CompletableDeferred<Unit>()
+            val gate = CompletableDeferred<Unit>()
+            val reads = AtomicInteger()
+            val repository =
+                object : SessionSnapshotRepository {
+                    override suspend fun latest(): SnapshotLoad {
+                        if (reads.getAndIncrement() == 0) {
+                            reading.complete(Unit)
+                            gate.await()
+                        }
+                        return SnapshotLoad.Found(saved)
+                    }
+
+                    override suspend fun save(snapshot: SessionSnapshot) = SnapshotSave.Saved
+                }
+            val writer = SerialWriter()
+            val host =
+                SessionHost(
+                    TickingClock(),
+                    Dispatchers.Default.limitedParallelism(1),
+                    repository,
+                    writer,
+                )
+            try {
+                // The shell leaves composition mid-read (for example a rotation on cold start).
+                val first = launch(Dispatchers.Default) { host.restore(bundle) }
+                withTimeout(5_000) { reading.await() }
+                first.cancelAndJoin()
+                gate.complete(Unit)
+                withTimeout(5_000) {
+                    host.restore(bundle)
+                    host.awaitRestored()
+                }
+                assertEquals(listOf(FaceTurn(Face.R, Turn.CLOCKWISE)), host.state.value.history.done)
+            } finally {
+                gate.complete(Unit)
+                writer.close()
+            }
         }
 
     @Test

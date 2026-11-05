@@ -11,7 +11,7 @@ import kotlinx.serialization.json.Json
 
 @Serializable
 internal data class SnapshotPayload(
-    val format: Int = 1,
+    val format: Int,
     val kind: String,
     val sessionId: String,
     val revision: Long,
@@ -67,6 +67,7 @@ internal data class SnapshotPayload(
         fun encode(snapshot: SessionSnapshot): String =
             json.encodeToString(
                 SnapshotPayload(
+                    format = 1,
                     kind = snapshot.kind.name,
                     sessionId = snapshot.sessionId,
                     revision = snapshot.revision,

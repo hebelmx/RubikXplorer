@@ -5,7 +5,7 @@ created: '2026-11-05'
 baseline_revision: '98ad6e599908d694efdd12608ea21b60e5d251d0'
 status: 'done'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-6-context.md'
   - '{project-root}/AGENTS.md'
@@ -160,6 +160,33 @@ deferred:
   - `[false]` `[reject]` (intent) dropping a snapshot whose `contentRevision` changed, with no message, is ground Story 6.2 owns — 6.1 has no copy for that case; 6.2 adds the restart-with-stored-cube message for Checkpoints.
   - `[false]` `[reject]` (intent) the migration harness only validates v1 — there is no v2 schema to migrate yet; the harness (exported schema plus `MigrationTestHelper`) is what AD-10 requires per schema change.
 
+### 2026-11-05 — Review pass
+- verdicts: 23 findings — high 0, medium 3, low 12, false 8, maybe-false 0
+- findings:
+  - `[low]` `[reject]` (blind) tutor counters, `noticeStep` and collection keys are not range-checked on restore — carried: the earlier "tutor fields get no semantic validation" row; `Reduce.kt` restore still copies them unchecked, and only a hand-corrupted row could carry bad values.
+  - `[low]` `[reject]` (blind) a LESSON snapshot with `checkpoint = null` restores with no Checkpoint — only a hand-corrupted row can carry it: `LessonStarted` always sets the entry Checkpoint (`Reduce.kt:99`) and nothing clears it for a Lesson; the guard adds a branch for an unreachable case.
+  - `[low]` `[patch]` (blind) `SnapshotPayload.format` defaulted to `1`, so JSON with no `format` decoded as the current format. Removed the default; `encode` passes `format = 1` explicitly (the written JSON is unchanged, `encodeDefaults` already wrote it). `RoomSessionSnapshotRepositoryTest` now also asserts a row with the `format` field stripped loads as `Failed`.
+  - `[low]` `[reject]` (blind) the unlimited writer queue holds whole growing histories — carried: same claim as the earlier unlimited-queue row.
+  - `[low]` `[reject]` (blind) a `SnapshotSave.Failed` is never retried — carried: same claim as the earlier no-retry row.
+  - `[low]` `[reject]` (blind) production never flushes pending saves on backgrounding; the device test sleeps 1 s — carried for the sleep; the writer drains in milliseconds, far inside the time Android takes to kill a backgrounded process, and a lifecycle flush adds new surface for no observed loss.
+  - `[low]` `[reject]` (blind) `LessonProcessDeathTest` compares only the cube description — carried: same claim as the earlier summary-text row; Undo enabled is also asserted.
+  - `[medium]` `[patch]` (blind) the cancellation fix in `SessionHost.restore` has no regression test — grouped with the verification-gap row. Added `SessionHostPersistenceTest.cancelledRestoreStaysOpenForTheNextCall`: a gated read is cancelled, the next `restore` loads the snapshot and `awaitRestored` completes. A mutation (complete on cancellation) makes it fail with `[]` instead of `[R]`.
+  - `[false]` `[reject]` (blind) the round trip never covers several undone Moves or Cube Rotations — the seeded 400-event sequence draws `undo` repeatedly, producing multi-entry redo stacks, and asserts full `history` equality (done and undone order); rotation formatting round-trips in `NotationTest`.
+  - `[low]` `[reject]` (edge) a relaunch after task removal leaves the restored Lesson hidden and another Lesson overwrites it — carried: same claim as the earlier swipe-away row; surfacing it is Story 6.5's Continue card.
+  - `[low]` `[reject]` (edge) an out-of-range `noticeStep` is restored — carried: the tutor-validation row above.
+  - `[low]` `[reject]` (edge) quadratic history rebuild on restore — carried: same claim as the earlier quadratic row.
+  - `[medium]` `[patch]` (verification-gap) restore retry after lifecycle cancellation is unverified — same root cause and patch as the blind cancellation-test row.
+  - `[false]` `[reject]` (intent) swipe-away is only partly delivered (reading A2) — carried: same claim as the earlier "fresh cold launch does not navigate" row.
+  - `[low]` `[reject]` (intent) the macrobenchmark checks only the cube description and Undo, after a fixed 1 s sleep — carried: the earlier summary-text and sleep rows.
+  - `[false]` `[reject]` (intent) the `AppShell` → saved `openLesson` → `LessonScreen` chain is exercised only on the device — it is exercised, by `LessonProcessDeathTest`, which passed; no defect at that surface.
+  - `[false]` `[reject]` (intent) the Checkpoint is validated by replay, not as a strict prefix of `done` — deliberate: the earlier high patch showed the reducer produces branched Checkpoints, so the strict reading rejects reachable states.
+  - `[medium]` `[patch]` (intent) no test cancels a restore — same root cause and patch as the blind cancellation-test row.
+  - `[low]` `[reject]` (intent) DB failure is tested with a closed DB and a fake repository, not through the Hilt graph — the graph binds the same `RoomSessionSnapshotRepository` whose catch is under test; a device-graph failure test adds a harness for no distinct risk.
+  - `[false]` `[reject]` (intent) `PersistenceModule` exposes an unused `SessionSnapshotDao` — Hilt providers are lazy; an unused binding causes no runtime or build harm.
+  - `[false]` `[reject]` (intent) a host from the test constructor saves `contentRevision = null` — that host has no repository or writer, so it saves nothing.
+  - `[false]` `[reject]` (intent) starting a different Lesson overwrites the LESSON row — the intent keys rows by `SessionKind`; one LESSON row is the specified behavior.
+  - `[false]` `[reject]` (intent) a later playback hides an older LESSON row — carried: same claim as the earlier latest-wins row.
+
 ## Design Notes
 
 - **Revision on restore.** A restored session restarts its revision at IDLE + 1 with a fresh `sessionId`. The conditional write then simply replaces the old row, and the TRANSITIONS revision rule needs no exception. Revisions and effect ids are process-local bookkeeping: no effect survives a restart.
@@ -221,3 +248,27 @@ deferred:
 - The device tests are not run by CI (`connected*` is excluded by rule).
 - A cold launch after swipe-away resumes the session in memory, but nothing shows it until Story 6.5's Continue card.
 
+### Follow-up review pass (2026-11-05)
+
+**Summary:** A fresh four-layer review of the full 6.1 diff. No high finding; two small patches.
+
+**Files changed in this pass:**
+- `app/.../data/SnapshotPayload.kt` — `format` has no default; `encode` writes `format = 1` explicitly.
+- `app/src/test/.../data/RoomSessionSnapshotRepositoryTest.kt` — a row with no `format` field loads as `Failed`.
+- `app/src/test/.../data/SessionHostPersistenceTest.kt` — `cancelledRestoreStaysOpenForTheNextCall`, the regression test for the cancelled-restore fix.
+
+**Review:** 23 findings: high 0, medium 3, low 12, false 8.
+- Patched: the missing cancelled-restore regression test (medium; reported by the blind, verification-gap and intent layers) and the defaulted payload `format` (low).
+- Deferred: none new.
+- Rejected: 10 low and 8 false, with reasons in the triage log (most carried from the first pass).
+
+**Follow-up review recommended:** false. This was a follow-up pass and patched no high (patched: medium 1 entry, low 1), so the work has converged.
+
+**Verification:**
+- `./gradlew :app:testDebugUnitTest --tests '*SessionHostPersistence*' --tests '*RoomSessionSnapshotRepository*'`: pass.
+- Mutation check: making `restore` complete on cancellation fails the new test (`expected [R] but was []`); reverted.
+- `./gradlew spotlessCheck build`: pass.
+- `./gradlew :core:application:test :app:testDebugUnitTest --tests '*Snapshot*' --tests '*Persistence*' --tests '*Migration*' --tests '*TransitionsTable*'`: pass.
+- Device tests not re-run: this pass changes no runtime behavior on the device path (the encoded JSON is identical).
+
+**Residual risks:** unchanged from the first pass.

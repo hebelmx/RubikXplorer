@@ -80,6 +80,8 @@ class RoomSessionSnapshotRepositoryTest {
                 val row = checkNotNull(db.snapshots().latest())
                 db.snapshots().replace(row.copy(payload = row.payload.replace("\"format\":1", "\"format\":99")))
                 assertEquals(SnapshotLoad.Failed, repo.latest())
+                db.snapshots().replace(row.copy(payload = row.payload.replace("\"format\":1,", "")))
+                assertEquals(SnapshotLoad.Failed, repo.latest())
                 db.snapshots().replace(row.copy(payload = "broken json"))
                 assertEquals(SnapshotLoad.Failed, repo.latest())
             } finally {
