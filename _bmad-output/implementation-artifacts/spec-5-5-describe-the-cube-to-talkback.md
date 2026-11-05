@@ -14,7 +14,7 @@ deferred:
   - summary: >-
       Nothing verifies on a device that TalkBack actually speaks the live-region changes: the Read faces text when the action toggles it, and a Certainty change on the Lesson frame label (nor that the label stays silent on first composition).
     evidence: |-
-      maybe-false. FrameLabelTest and Cube3DRendererTest assert Compose semantics and platform AccessibilityNodeInfo (Polite live region, stateDescription, contentDescription) only; Robolectric has no TalkBack, and virtual Lessons always confirm VERIFIED, so no real Certainty change occurs yet. Settle with a TalkBack run on a device or emulator (toggle Read faces; force a Certainty change once Physical-cube Mode lands in Epic 8) alongside the pending hardware stories.
+      maybe-false. Cube3DRendererTest asserts Compose semantics and platform AccessibilityNodeInfo (Polite live region, contentDescription) only. FrameLabelTest now also covers event delivery: with an accessibility service enabled (ShadowAccessibilityManager), each Certainty change (VERIFIED → LIKELY → UNKNOWN) sends a TYPE_WINDOW_CONTENT_CHANGED event with CONTENT_CHANGE_TYPE_STATE_DESCRIPTION from the real Compose View, sourced on the Polite live-region frame label carrying the new Certainty. Actual TalkBack speech on a device stays a deferred medium check: Robolectric has no TalkBack, and virtual Lessons always confirm VERIFIED, so no real Certainty change occurs yet. Settle with a TalkBack run on a device or emulator (toggle Read faces; force a Certainty change once Physical-cube Mode lands in Epic 8) alongside the pending hardware stories.
     location: >-
       app/src/main/kotlin/dev/rubikxplorer/app/ui/lesson/LessonScreen.kt FrameLabel; app/src/main/kotlin/dev/rubikxplorer/app/render/Cube3DRenderer.kt Content semantics
     severity: medium (unverified)
@@ -106,7 +106,7 @@ deferred:
 - Given that node, when "Read faces" is performed, then its contentDescription is the six "<Face> face: …" sentences of the drawn facelets in URFDLB order, it is a Polite live region, and the action reads "Read summary"; performing that action restores the summary with no live region.
 - Given a Move committed through the Move keys, when it drains, then the summary reflects the new progress, and faces mode (if on) has reset.
 - Given the Lesson screen in Guide me, Test me or Let me try with TalkBack enabled, when the platform traversal chain is walked, then `stage:frame` comes before `cube3d`, `cube3d` before the first Move key, the Move key bar before `lesson:objective`, and `lesson:next` before `lesson:modeSwitcher`.
-- Given `FrameLabel` composed with VERIFIED, when the certainty changes to LIKELY and then UNKNOWN, then the node is a Polite live region and its stateDescription follows ("Verified" → "Likely" → "Unknown").
+- Given `FrameLabel` composed with VERIFIED, when the certainty changes to LIKELY and then UNKNOWN, then the node is a Polite live region and its stateDescription follows ("Verified" → "Likely" → "Unknown"), and with an accessibility service enabled each change sends a TYPE_WINDOW_CONTENT_CHANGED (state description) accessibility event from that node.
 - Given the free cube, when TalkBack reads it, then the existing `cube_description` and Solved state are unchanged (existing tests stay green) and "Read faces" is available.
 - Given `./gradlew spotlessCheck build`, when it runs, then it passes (Kover ≥ 80 % on `:core:domain`, LearnerText, no new dependency).
 
@@ -216,11 +216,12 @@ Follow-up pass: 18 findings (10 carried from the first pass).
 **Verification:**
 - `./gradlew :core:domain:test --tests 'dev.rubikxplorer.domain.predicate.*' --tests 'dev.rubikxplorer.domain.content.*'`: pass (CubeSummaryTest 8).
 - `./gradlew :app:testDebugUnitTest --tests 'dev.rubikxplorer.app.render.*' --tests 'dev.rubikxplorer.app.ui.*'`: pass. LessonScreenTest 53, Cube3DRendererTest 7, FrameLabelTest 1, 0 failures.
+- Acceptance-gate round 3 follow-up: `FrameLabelTest.eachCertaintyChangeSendsAnAnnounceableAccessibilityEvent` (Robolectric, ShadowAccessibilityManager) proves event delivery for each Certainty change: a TYPE_WINDOW_CONTENT_CHANGED state-description event from the frame label's virtual node, which carries the new Certainty and a Polite live region. It fails if `stateDescription` is removed. TalkBack speech on a device remains the deferred medium check.
 - `./gradlew spotlessCheck build`: pass. It must run on its own: chaining it after the filtered `:core:domain:test` in one invocation fails `koverVerify` with partial coverage.
 - Scope check: `DemonstrationPlayer.kt` changes only for the Show me summary, certainty, frame label and stage order, and nothing changed under `_bmad-output/planning-artifacts/`, `_bmad/`, `.claude/`, `build-logic/` or spike source sets.
 
 **Residual risks:**
-- TalkBack speech is unverified on a device (deferred).
+- TalkBack speech is unverified on a device (deferred). Accessibility-event delivery for Certainty changes is covered by `FrameLabelTest`.
 - Certainty never changes in virtual Lessons, so only the `FrameLabel` component proves the announcement wiring.
 - On a short compact screen, a scrolled-away panel drops out of the traversal until TalkBack scrolls (platform behaviour).
 
