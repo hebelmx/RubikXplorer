@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.traversalIndex
+import dev.rubikxplorer.app.preferences.LocalRenderStyle
 import dev.rubikxplorer.app.render.Cube3DRenderer
 import dev.rubikxplorer.app.render.NetEmphasis
 import dev.rubikxplorer.app.render.RenderStyle
@@ -107,7 +108,7 @@ fun rememberDemonstrationPlayerState(
 fun DemonstrationPlayer(
     state: DemonstrationPlayerState,
     modifier: Modifier = Modifier,
-    style: RenderStyle = RenderStyle(),
+    style: RenderStyle = LocalRenderStyle.current,
     summary: String? = null,
     certainty: Certainty? = null,
 ) {

@@ -1,6 +1,8 @@
 package dev.rubikxplorer.app.render
 import android.app.Application
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -18,6 +20,37 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class Net2DRendererTest {
+    @Test fun speedScalesTurnTiming() {
+        val renderer = Net2DRenderer()
+        var speed by androidx.compose.runtime.mutableStateOf(dev.rubikxplorer.application.preference.AnimationSpeed.FAST)
+        rule.mainClock.autoAdvance = false
+        rule.setContent { renderer.Content(RenderStyle(animationSpeed = speed), Modifier.size(360.dp, 270.dp)) }
+        rule.mainClock.advanceTimeByFrame()
+        val start = dev.rubikxplorer.domain.cube.CubeState.SOLVED
+        val move =
+            dev.rubikxplorer.domain.cube
+                .FaceTurn(dev.rubikxplorer.domain.cube.Face.R, dev.rubikxplorer.domain.cube.Turn.CLOCKWISE)
+        val target = start.apply(move).toFacelets()
+        rule.runOnIdle { renderer.submit(listOf(PresentationItem.Animate(move, 1, target))) }
+        rule.mainClock.advanceTimeBy(48)
+        assertEquals(start.toFacelets(), renderer.renderedFacelets())
+        rule.mainClock.advanceTimeBy(48)
+        assertEquals(target, renderer.renderedFacelets())
+        rule.mainClock.advanceTimeBy(80)
+        rule.runOnIdle { speed = dev.rubikxplorer.application.preference.AnimationSpeed.SLOW }
+        androidx.compose.runtime.snapshots.Snapshot
+            .sendApplyNotifications()
+        rule.mainClock.advanceTimeBy(32)
+        rule.waitForIdle()
+        val back = move.inverse()
+        rule.runOnIdle { renderer.submit(listOf(PresentationItem.Animate(back, 2, start.toFacelets()))) }
+        rule.mainClock.advanceTimeBy(176)
+        assertEquals(target, renderer.renderedFacelets())
+        rule.mainClock.advanceTimeBy(80)
+        assertEquals(start.toFacelets(), renderer.renderedFacelets())
+        rule.mainClock.advanceTimeBy(240)
+    }
+
     @get:Rule val rule = createComposeRule()
 
     private fun DpRect.centerX(): Float = (left.value + right.value) / 2

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +35,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.rubikxplorer.app.ui.theme.CubeTokens
 import dev.rubikxplorer.app.ui.theme.Radii
+import dev.rubikxplorer.application.preference.AnimationSpeed
 import dev.rubikxplorer.domain.appearance.StickerAppearance
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Facelets
@@ -108,6 +110,8 @@ class Net2DRenderer(
     override fun renderedFacelets(): Facelets = rendered
 
     /** Draws queued items one at a time until cancelled. */
+    private var animationSpeed = AnimationSpeed.NORMAL
+
     private suspend fun drain() {
         for (item in queue) {
             val behind = queued.decrementAndGet()
@@ -129,7 +133,7 @@ class Net2DRenderer(
         target: Facelets,
         fast: Boolean,
     ) {
-        val half = (if (fast) ITEM_MILLIS / FAST_FORWARD_DIVISOR else ITEM_MILLIS) / 2
+        val half = (animationSpeed.scale(ITEM_MILLIS.toLong()) / (if (fast) FAST_FORWARD_DIVISOR else 1) / 2).toInt()
         changed = target.colors.indices.filterTo(mutableSetOf()) { target.colors[it] != rendered.colors[it] }
         animate(0f, HALF, animationSpec = tween(half, easing = LinearEasing)) { value, _ -> progress = value }
         rendered = target
@@ -146,6 +150,7 @@ class Net2DRenderer(
         modifier: Modifier = Modifier,
         emphasis: NetEmphasis? = null,
     ) {
+        SideEffect { animationSpeed = style.animationSpeed }
         LaunchedEffect(this) { drain() }
         BoxWithConstraints(modifier = modifier, contentAlignment = Alignment.Center) {
             val cell = min(maxWidth.value / NET_COLUMNS, maxHeight.value / NET_ROWS).dp

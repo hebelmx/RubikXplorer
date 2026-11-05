@@ -48,6 +48,7 @@ sealed interface SessionEvent {
         val tutorConfig: TutorConfig,
         override val at: Instant,
         val adaptiveAssistance: Boolean = false,
+        val mode: TeachingMode? = null,
     ) : SessionEvent
 
     /**

@@ -25,6 +25,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -34,10 +35,13 @@ import androidx.compose.ui.res.stringResource
 import dev.rubikxplorer.app.R
 import dev.rubikxplorer.app.content.CatalogState
 import dev.rubikxplorer.app.content.LessonCatalog
+import dev.rubikxplorer.app.preferences.PreferenceProvider
+import dev.rubikxplorer.app.preferences.PreferenceStore
 import dev.rubikxplorer.app.session.SessionHost
 import dev.rubikxplorer.app.ui.freecube.FreeCubeScreen
 import dev.rubikxplorer.app.ui.freecube.FreeCubeViewModel
 import dev.rubikxplorer.app.ui.lesson.LessonScreen
+import dev.rubikxplorer.app.ui.settings.SettingsScreen
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.application.port.FeatureFlag
 import dev.rubikxplorer.application.port.FeatureFlags
@@ -51,6 +55,7 @@ enum class Tab(
 ) {
     LEARN(R.drawable.ic_learn, R.string.nav_learn),
     SOLVE(R.drawable.ic_solve, R.string.nav_solve),
+    YOU(R.drawable.ic_you, R.string.nav_you),
 }
 
 /**
@@ -69,13 +74,36 @@ fun AppShell(
     showDebugToggles: Boolean,
     flags: FeatureFlags,
     modifier: Modifier = Modifier,
+    preferenceStore: PreferenceStore =
+        remember {
+            PreferenceStore()
+        },
+) {
+    PreferenceProvider(preferenceStore) {
+        ShellContent(host, catalog, freeCube, showDebugToggles, flags, modifier)
+    }
+}
+
+@Composable
+private fun ShellContent(
+    host: SessionHost,
+    catalog: LessonCatalog,
+    freeCube: FreeCubeViewModel,
+    showDebugToggles: Boolean,
+    flags: FeatureFlags,
+    modifier: Modifier,
 ) {
     LaunchedEffect(catalog) { catalog.load() }
     val content by catalog.state.collectAsState()
     var tab by rememberSaveable { mutableStateOf(Tab.LEARN) }
+    var settings by rememberSaveable { mutableStateOf(false) }
     var openLesson by rememberSaveable { mutableStateOf<String?>(null) }
-    // Held above the Lesson task flow so closing a Lesson returns to the same place in the list.
+    // Held above the Lesson and Settings task flows so closing either returns to the same place in the list.
     val learnScroll = rememberScrollState()
+    if (settings) {
+        SettingsScreen(onClose = { settings = false })
+        return
+    }
 
     LaunchedEffect(content, host) { (content as? CatalogState.Ready)?.let { host.restore(it.bundle) } }
     val ready = content as? CatalogState.Ready
@@ -97,6 +125,10 @@ fun AppShell(
 
     val destination: @Composable (Modifier) -> Unit = { destinationModifier ->
         when (tab) {
+            Tab.YOU -> {
+                YouScreen(onSettings = { settings = true }, modifier = destinationModifier)
+            }
+
             Tab.LEARN -> {
                 LearnScreen(
                     catalog = content,

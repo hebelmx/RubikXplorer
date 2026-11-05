@@ -56,7 +56,22 @@ class CheckpointTest {
     @Test fun `ordinary moves tutor events idle playback and snapshot restore never persist`() {
         assertTrue(reduce(initial, commit(R)).effects.isEmpty())
         for (event in listOf(hint, reveal, modeChanged(TeachingMode.TEST_ME), stepAdvanced, retry)) {
-            assertTrue(reduce(initial, event).effects.isEmpty())
+            val effects = reduce(initial, event).effects
+            if (event is SessionEvent.TeachingModeChanged) {
+                assertEquals(
+                    listOf(
+                        Effect.UpdatePreference(
+                            initial.nextEffectId,
+                            initial.revision,
+                            dev.rubikxplorer.application.preference.Preference
+                                .LastTeachingMode(event.mode),
+                        ),
+                    ),
+                    effects,
+                )
+            } else {
+                assertTrue(effects.isEmpty())
+            }
             assertTrue(reduce(SessionState.IDLE, event).effects.isEmpty())
         }
         assertTrue(reduce(SessionState.IDLE, playbackStarted()).effects.isEmpty())

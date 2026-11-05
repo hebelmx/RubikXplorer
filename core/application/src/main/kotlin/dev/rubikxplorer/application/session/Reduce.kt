@@ -1,5 +1,6 @@
 package dev.rubikxplorer.application.session
 
+import dev.rubikxplorer.application.preference.Preference
 import dev.rubikxplorer.domain.content.FaceletString
 import dev.rubikxplorer.domain.content.FaceletStringResult
 import dev.rubikxplorer.domain.content.Lesson
@@ -122,6 +123,7 @@ private fun start(
             lesson = lesson,
             tutorConfig = event.tutorConfig,
             adaptiveAssistance = event.adaptiveAssistance,
+            teachingMode = event.mode ?: state.teachingMode,
             stepMistakes = emptyMap(),
             cleanSteps = 0,
             cleanCredited = emptySet(),
@@ -494,8 +496,21 @@ private fun modeChanged(
         if (event.mode == state.teachingMode) {
             state
         } else {
-            state.copy(teachingMode = event.mode, lastMoveFeedback = null, lastDiagnosis = null)
+            state.copy(teachingMode = event.mode, lastMoveFeedback = null, lastDiagnosis = null, nextEffectId = state.nextEffectId + 1)
         },
+        effects =
+            if (event.mode == state.teachingMode) {
+                emptyList()
+            } else {
+                listOf(
+                    Effect.UpdatePreference(
+                        state.nextEffectId,
+                        state.revision,
+                        Preference
+                            .LastTeachingMode(event.mode),
+                    ),
+                )
+            },
     )
 
 /**

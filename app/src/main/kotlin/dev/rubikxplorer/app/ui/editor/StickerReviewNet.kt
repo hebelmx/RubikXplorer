@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.rubikxplorer.app.R
+import dev.rubikxplorer.app.preferences.LocalRenderStyle
 import dev.rubikxplorer.app.render.Net2DRenderer
 import dev.rubikxplorer.app.render.RenderStyle
 import dev.rubikxplorer.app.render.STICKER_GAP_FRACTION
@@ -78,7 +79,7 @@ internal val FACE_NAMES =
 @Composable
 fun StickerReviewNet(
     facelets: Facelets,
-    style: RenderStyle,
+    style: RenderStyle = LocalRenderStyle.current,
     selected: Int?,
     invalid: Set<Int>,
     onStickerClick: (Int) -> Unit,

@@ -368,6 +368,31 @@ class DemonstrationPlayerTest {
     }
 
     @Test
+    fun `the Reduce motion preference makes the default player snap with system animations on`() {
+        Settings.Global.putFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
+        val store =
+            dev.rubikxplorer.app.preferences
+                .PreferenceStore()
+        store.update(
+            dev.rubikxplorer.application.preference.Preference
+                .ReduceMotion(true),
+        )
+        rule.setContent {
+            RubikXplorerTheme {
+                dev.rubikxplorer.app.preferences.PreferenceProvider(store) {
+                    state = rememberDemonstrationPlayerState(demonstration)
+                    DemonstrationPlayer(state, Modifier.fillMaxSize())
+                }
+            }
+        }
+        rule.waitForIdle()
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithTag("playback:playPause").performClick()
+        rule.mainClock.advanceTimeByFrame()
+        assertEquals(CubeState.SOLVED.toFacelets(), state.renderer.renderedFacelets())
+    }
+
+    @Test
     fun `the player reads reduce motion from the system by default`() {
         Settings.Global.putFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 0f)
         rule.setContent {

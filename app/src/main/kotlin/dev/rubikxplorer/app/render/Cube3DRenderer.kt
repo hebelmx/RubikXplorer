@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -168,6 +169,7 @@ class Cube3DRenderer(
     ) {
         val latestCommit by rememberUpdatedState(onMoveIntent)
         val latestStyle by rememberUpdatedState(style)
+        SideEffect { queue.animationSpeed = style.animationSpeed }
         val latestEmphasis by rememberUpdatedState(emphasis)
         val density by rememberUpdatedState(LocalDensity.current.density)
         var arrowProgress by remember(arrow, reduceMotion) { mutableFloatStateOf(if (reduceMotion) 1f else 0f) }

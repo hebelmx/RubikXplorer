@@ -211,3 +211,5 @@ Session snapshots use Room 3 and a serial I/O writer in `app/data`, with pure po
 The `checkpoint` table stores versioned Objective boundaries as the Lesson fallback when a snapshot cannot resume.
 
 The Room v3 `attempt` table records STARTED and ENDED events append-only, keyed by `(session_id, revision)`, in the snapshot transaction.
+
+Preferences live in the single-row Room `preferences` table (schema v4); `UpdatePreference` is its only writer.
