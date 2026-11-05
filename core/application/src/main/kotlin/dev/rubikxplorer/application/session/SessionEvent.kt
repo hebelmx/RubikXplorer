@@ -140,6 +140,22 @@ sealed interface SessionEvent {
         override val at: Instant,
     ) : SessionEvent
 
+    /**
+     * Storing the session snapshot failed (AD-12, AD-16): the session is unchanged and keeps running
+     * in memory; the next committed transition writes again.
+     */
+    data class SnapshotSaveFailed(
+        override val at: Instant,
+    ) : SessionEvent
+
+    /**
+     * Reading the latest session snapshot on cold start failed (AD-12, AD-16): nothing is restored
+     * and the session is unchanged, so the Learner starts fresh.
+     */
+    data class SnapshotLoadFailed(
+        override val at: Instant,
+    ) : SessionEvent
+
     /** The Learner moved on past a completed step's Notice; applies only while one is shown and the Lesson is not complete. */
     data class StepAdvanced(
         override val at: Instant,

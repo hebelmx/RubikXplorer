@@ -205,6 +205,11 @@ class TransitionsTableTest {
             is SessionEvent.RecoveryPlanFailed -> {
                 listOf(planning, overtaken, planning.after(undo), b, SessionState.IDLE).map { it to planEffect.failed() }
             }
+
+            is SessionEvent.SnapshotSaveFailed, is SessionEvent.SnapshotLoadFailed -> {
+                // Change nothing anywhere, not even standing feedback, a Diagnosis, a pending ask or a plan in flight.
+                listOf(SessionState.IDLE, fresh, b, askedB, bWithFeedback, planning, playback).map { it to sample }
+            }
         }
 
     private val samples: Map<String, SessionEvent> =
@@ -232,6 +237,8 @@ class TransitionsTableTest {
             guideBack,
             planEffect.planned(listOf(R_PRIME)),
             planEffect.failed(),
+            SessionEvent.SnapshotSaveFailed(lessonStarted(other).at),
+            SessionEvent.SnapshotLoadFailed(lessonStarted(other).at),
         ).associateBy { it::class.java.simpleName }
 
     /** What the `session` column covers: the kind, its Lesson and tutor configuration or its Solution, the adaptive flag, and its entry state. */
@@ -272,7 +279,7 @@ class TransitionsTableTest {
         assertEquals(names.size, names.toSet().size, "duplicate rows: $names")
         assertEquals(eventTypes, names.toSet())
         assertEquals(eventTypes, samples.keys)
-        assertEquals(18, eventTypes.size)
+        assertEquals(20, eventTypes.size)
     }
 
     @Test

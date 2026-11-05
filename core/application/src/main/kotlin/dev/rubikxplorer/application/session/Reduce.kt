@@ -30,6 +30,8 @@ fun reduce(
     event: SessionEvent,
 ): Transition {
     if (event is SessionEvent.SessionRestored) return restore(state, event)
+    // Persistence failures are reported, never applied: the session and its feedback stay as they are.
+    if (event is SessionEvent.SnapshotSaveFailed || event is SessionEvent.SnapshotLoadFailed) return Transition(state)
     val starts = event is SessionEvent.LessonStarted || event is SessionEvent.SolvePlaybackStarted
     // Only a Lesson session takes Moves and tutor events; idle and playback sessions ignore them.
     if (!starts && state.kind != SessionKind.LESSON) return Transition(state)
@@ -69,6 +71,7 @@ private fun transition(
         is SessionEvent.GuidedRecoveryRequested -> guideBack(state)
         is SessionEvent.RecoveryPlanned -> planned(state, event)
         is SessionEvent.RecoveryPlanFailed -> planFailed(state, event)
+        is SessionEvent.SnapshotSaveFailed, is SessionEvent.SnapshotLoadFailed -> Transition(state)
     }
 
 private fun start(

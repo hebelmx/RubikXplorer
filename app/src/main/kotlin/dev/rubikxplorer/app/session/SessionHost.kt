@@ -4,6 +4,7 @@ import dev.rubikxplorer.app.data.SerialWriter
 import dev.rubikxplorer.application.port.Clock
 import dev.rubikxplorer.application.port.SessionSnapshotRepository
 import dev.rubikxplorer.application.port.SnapshotLoad
+import dev.rubikxplorer.application.port.SnapshotSave
 import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.application.session.SessionSnapshot
 import dev.rubikxplorer.application.session.SessionState
@@ -35,6 +36,8 @@ class SessionHost internal constructor(
     private val confined: CoroutineDispatcher,
     private val repository: SessionSnapshotRepository? = null,
     private val writer: SerialWriter? = null,
+    /** Sees every event this host reduced, in order; tests use it to observe events that change no state. */
+    private val reduced: (SessionEvent) -> Unit = {},
 ) {
     @Inject
     constructor(clock: Clock, repository: SessionSnapshotRepository, writer: SerialWriter) :
@@ -71,7 +74,17 @@ class SessionHost internal constructor(
 
     private suspend fun restoreLatest(bundle: ContentBundle) {
         withContext(confined) { contentRevision = bundle.contentRevision }
-        val latest = writer?.read { repository?.latest() } as? SnapshotLoad.Found ?: return
+        val loaded =
+            try {
+                writer?.read { repository?.latest() }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                SnapshotLoad.Failed
+            }
+        // AD-16: a failed read is an event, not an absent snapshot; the state stays idle, so the Lesson starts fresh.
+        if (loaded is SnapshotLoad.Failed) dispatch { SessionEvent.SnapshotLoadFailed(it) }
+        val latest = loaded as? SnapshotLoad.Found ?: return
         val snapshot = latest.snapshot
         if (!snapshot.kind.resumesOnColdStart || snapshot.contentRevision != bundle.contentRevision) return
         val lesson = bundle.stages.flatMap { it.lessons }.firstOrNull { it.id.value == snapshot.lessonId } ?: return
@@ -92,6 +105,7 @@ class SessionHost internal constructor(
             val stamped = event(clock.now())
             val transition = reduce(before, stamped)
             current.value = transition.state
+            reduced(stamped)
             if (transition.state !== before && transition.state.isActive) {
                 if (stamped is SessionEvent.LessonStarted || stamped is SessionEvent.SolvePlaybackStarted ||
                     stamped is SessionEvent.SessionRestored
@@ -99,7 +113,20 @@ class SessionHost internal constructor(
                     sessionId = UUID.randomUUID().toString()
                 }
                 val snapshot = SessionSnapshot.of(transition.state, sessionId, contentRevision)
-                if (snapshot != null && repository != null) writer?.enqueue { repository.save(snapshot) }
+                if (snapshot != null && repository != null) {
+                    writer?.enqueue {
+                        // AD-16: a failed write is an event; the session keeps running and the next commit writes again.
+                        val saved =
+                            try {
+                                repository.save(snapshot)
+                            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                throw cancelled
+                            } catch (_: Exception) {
+                                SnapshotSave.Failed
+                            }
+                        if (saved is SnapshotSave.Failed) dispatch { SessionEvent.SnapshotSaveFailed(it) }
+                    }
+                }
             }
             transition
         }

@@ -8,6 +8,7 @@ import dev.rubikxplorer.application.port.SnapshotLoad
 import dev.rubikxplorer.application.port.SnapshotSave
 import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.application.session.SessionSnapshot
+import dev.rubikxplorer.application.session.SessionState
 import dev.rubikxplorer.domain.content.ContentLoadResult
 import dev.rubikxplorer.domain.content.ContentLoader
 import dev.rubikxplorer.domain.content.ContentSource
@@ -28,6 +29,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 
 @RunWith(RobolectricTestRunner::class)
@@ -67,15 +69,19 @@ class SessionHostPersistenceTest {
                     override suspend fun save(snapshot: SessionSnapshot) = SnapshotSave.Failed
                 }
             val writer = SerialWriter()
+            val events = CopyOnWriteArrayList<SessionEvent>()
             val host =
                 SessionHost(
                     TickingClock(),
                     Dispatchers.Default.limitedParallelism(1),
                     repository,
                     writer,
-                )
+                ) { events += it }
             host.restore(bundle)
             host.awaitRestored()
+            // AD-16: the failed read is an event, and the Learner starts fresh.
+            assertEquals(listOf(SessionEvent.SnapshotLoadFailed::class), events.map { it::class })
+            assertEquals(SessionState.IDLE, host.state.value)
             val lesson =
                 bundle.stages
                     .first()
@@ -84,9 +90,60 @@ class SessionHostPersistenceTest {
             host.dispatch {
                 SessionEvent.LessonStarted(lesson, bundle.tutorConfig, it)
             }
+            val started = host.state.value
             writer.flush()
+            assertEquals(
+                listOf(SessionEvent.SnapshotLoadFailed::class, SessionEvent.LessonStarted::class, SessionEvent.SnapshotSaveFailed::class),
+                events.map { it::class },
+            )
+            // The failed write changes nothing; the session keeps running.
+            assertTrue(started === host.state.value)
             assertTrue(host.state.value.isActive)
             writer.close()
+        }
+
+    @Test fun thrownLoadAndSaveBecomeFailureEvents() =
+        runBlocking {
+            val bundle =
+                (
+                    ContentLoader.load(ContentSource.SHIPPED)
+                        as ContentLoadResult.Loaded
+                ).bundle
+            val repository =
+                object : SessionSnapshotRepository {
+                    override suspend fun latest(): SnapshotLoad = throw IllegalStateException("disk")
+
+                    override suspend fun save(snapshot: SessionSnapshot): SnapshotSave = throw IllegalStateException("disk")
+                }
+            val writer = SerialWriter()
+            val events = CopyOnWriteArrayList<SessionEvent>()
+            val host =
+                SessionHost(
+                    TickingClock(),
+                    Dispatchers.Default.limitedParallelism(1),
+                    repository,
+                    writer,
+                ) { events += it }
+            try {
+                withTimeout(5_000) {
+                    host.restore(bundle)
+                    host.awaitRestored()
+                }
+                assertEquals(listOf(SessionEvent.SnapshotLoadFailed::class), events.map { it::class })
+                assertEquals(SessionState.IDLE, host.state.value)
+                val lesson =
+                    bundle.stages
+                        .first()
+                        .lessons
+                        .first()
+                host.dispatch { SessionEvent.LessonStarted(lesson, bundle.tutorConfig, it) }
+                host.dispatch { SessionEvent.MoveCommitted(FaceTurn(Face.R, Turn.CLOCKWISE), it) }
+                writer.flush()
+                assertEquals(2, events.count { it is SessionEvent.SnapshotSaveFailed })
+                assertEquals(listOf(FaceTurn(Face.R, Turn.CLOCKWISE)), host.state.value.history.done)
+            } finally {
+                writer.close()
+            }
         }
 
     @Test fun cancelledRestoreStaysOpenForTheNextCall() =
