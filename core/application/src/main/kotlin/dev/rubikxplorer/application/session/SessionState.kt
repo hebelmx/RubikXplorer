@@ -27,12 +27,13 @@ import dev.rubikxplorer.domain.tutor.TutorDecision
  * - [revision] increases by exactly 1 whenever the session, its Cube State or its undo/redo
  *   history changes. Bookkeeping alone ([pendingReset], [nextEffectId], [lastDiscarded]) does not
  *   advance it.
- * - [history] starts at [entry]; [virtual] is its current state.
+ * - [history] starts at [entry], where Reset returns; [virtual] is its current state.
+ *   The Tutor walks the authored path from [pathEntry].
  * - [objectiveMet] and [progress] are the Lesson's Completion Predicate on [virtual], recomputed on
  *   every change of [virtual].
  * - The tutor fields ([teachingMode], [noticeStep], [revealRequested], [hintRung], [hintsUsed],
  *   [lastMoveFeedback], [lastDiagnosis], [guidedRecovery], [stepMistakes], [cleanSteps],
- *   [cleanCredited], [stepHelped], [assistanceDismissed]) never advance [revision]: a mode switch, a reveal or a Hint
+ *   [cleanCredited], [stepHelped], [assistanceDismissed], [restoreNote]) never advance [revision]: a mode switch, a reveal or a Hint
  *   does not change the Cube State, so it must not stale a pending effect.
  * - [checkpoint] is the Objective-boundary history *Try again* returns to; its changes never
  *   advance [revision] either.
@@ -42,12 +43,15 @@ import dev.rubikxplorer.domain.tutor.TutorDecision
 @ConsistentCopyVisibility
 data class SessionState internal constructor(
     val revision: Long,
+    /** Transient content-update note; never snapshotted. */
+    val restoreNote: dev.rubikxplorer.domain.text.Text? = null,
     /** `null` only in [IDLE]. */
     val kind: SessionKind?,
     /** The Lesson of a [SessionKind.LESSON] session; `null` otherwise. */
     val lesson: Lesson?,
     /** The tutor configuration the Lesson started with; `null` exactly when [lesson] is. */
     val tutorConfig: TutorConfig?,
+    /** Session history from the Reset target [entry]; Tutor guidance starts from [pathEntry]. */
     val history: MoveHistory,
     /** The verified Solution a [SessionKind.SOLVE_PLAYBACK] session plays from [entry]; empty otherwise. */
     val solution: List<Move>,
@@ -147,6 +151,7 @@ data class SessionState internal constructor(
                     is GuidedRecovery.Planned -> Recovery.Ready(recovery.moves)
                     GuidedRecovery.None, GuidedRecovery.NotFound -> Recovery.Unavailable
                 },
+                entry = pathEntry,
             )
         }
     }
@@ -179,7 +184,7 @@ data class SessionState internal constructor(
 
     /** The 0-based Lesson step the card shows ([Tutor.shownStep]); 0 outside a Lesson. Derived, never stored. */
     val stepIndex: Int by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        lesson?.let { Tutor.shownStep(it, entry, virtual, noticeStep) } ?: 0
+        lesson?.let { Tutor.shownStep(it, pathEntry, virtual, noticeStep) } ?: 0
     }
 
     /**
@@ -200,8 +205,13 @@ data class SessionState internal constructor(
     /** The Hint Ladder rung the shown step acts on: [hintRung] held within [assistance]'s floor and top. Derived, never stored. */
     val shownRung: HintRung get() = hintRung.coerceAtLeast(assistance.floor).coerceAtMost(assistance.top)
 
-    /** The session's start: a Lesson's entry state (where Reset returns) or the state a Solution plays from. */
+    /** The session's start and Reset target, possibly a stored cube; Solution Playback also starts here. */
     val entry: CubeState get() = history.start
+
+    /** The authored Tutor path entry in a Lesson; otherwise the session start. Never stored. */
+    val pathEntry: CubeState by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        lesson?.let { entryState(it) } ?: history.start
+    }
 
     /** The current Cube State. */
     val virtual: CubeState get() = history.state

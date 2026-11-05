@@ -17,7 +17,7 @@ Columns:
   returns `virtual` to where it was before the event.
 - **Clears redo** — `yes` when nothing is left to redo whenever the event advances `revision`.
 
-Every event other than `LessonStarted` and `SolvePlaybackStarted` and `SessionRestored` leaves an idle state (no session)
+Every event other than `LessonStarted` and `SolvePlaybackStarted` and `SessionRestored` and `CheckpointRestored` leaves an idle state (no session)
 unchanged. A result
 (`ResetConfirmed`, `ResetDeclined`) whose `effectId` and `revision` do not match the pending
 confirmation at the current revision changes nothing but `lastDiscarded`
@@ -26,6 +26,9 @@ steps remain.
 
 | Event | Mutates | Undoable | Clears redo |
 |-------|---------|----------|-------------|
+| CheckpointRestored | session, virtual, tutor, checkpoint | no | yes |
+| CheckpointSaveFailed | — | no | no |
+| CheckpointLoadFailed | — | no | no |
 | SessionRestored | session, virtual, tutor, checkpoint | no | no |
 | LessonStarted | session, virtual, pending, tutor, checkpoint | no | yes |
 | SolvePlaybackStarted | session, virtual | no | no |
@@ -182,3 +185,19 @@ a different level shows again. No level, and no adaptive event, ever changes `te
 Demonstration in `reduce` or applies a Move, and none of these fields advances `revision`. (The app
 plays the shown step's Moves once on the net when the step escalates to `DEMONSTRATE`; it dispatches
 nothing and any session interaction cancels it.)
+
+`PersistCheckpoint` is appended after Lesson transitions when the Checkpoint changes, on every
+`LessonStarted`, and on an applied `CheckpointRestored`. It consumes one effect ID, carrying the
+committed revision, content IDs, boundary history, teaching settings and event time. Snapshot
+restoration, playback and tutor-only changes never emit it. The host serializes it off the main thread.
+
+`CheckpointRestored` applies only from IDLE for the matching Lesson (or, when that Lesson was
+removed, another Lesson of the Checkpoint's Stage, which the host picks as the Stage's first), with
+validated Facelets, matching orientation IDs and a parsed history that reaches the stored cube.
+Matching content, stage and Lesson resume the boundary history without redo. Otherwise the stored cube becomes the entry with
+empty history and `restoreNote = Text("msg.lesson.updated")`. Tutor counters are fresh in both cases.
+`restoreNote` is transient, null in IDLE and never snapshotted. Every later event taken by a Lesson
+clears it except `SnapshotSaveFailed`, `SnapshotLoadFailed`, `CheckpointSaveFailed` and
+`CheckpointLoadFailed`, which change nothing.
+
+After a restart, the Tutor's step and path come from the Lesson's authored entry; history and Reset come from the stored cube.

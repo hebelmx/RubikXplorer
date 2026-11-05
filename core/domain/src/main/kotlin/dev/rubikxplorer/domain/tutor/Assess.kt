@@ -162,10 +162,11 @@ object Assess {
         lastMoveFeedback: MoveFeedback?,
         lastDiagnosis: Diagnosis?,
         recovery: Recovery,
+        entry: CubeState = history.start,
     ): TutorDecision {
         val state = history.state
         val satisfied = lesson.completion.isSatisfied(state)
-        val shown = lesson.steps.getOrNull(Tutor.shownStep(lesson, history.start, state, noticeStep))
+        val shown = lesson.steps.getOrNull(Tutor.shownStep(lesson, entry, state, noticeStep))
         val advance = satisfied || noticeStep != null
         val nextAction =
             when {
