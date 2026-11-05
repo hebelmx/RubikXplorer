@@ -4,15 +4,20 @@ import androidx.room3.withWriteTransaction
 import dev.rubikxplorer.application.port.SessionSnapshotRepository
 import dev.rubikxplorer.application.port.SnapshotLoad
 import dev.rubikxplorer.application.port.SnapshotSave
+import dev.rubikxplorer.application.session.AttemptRecord
 import dev.rubikxplorer.application.session.SessionSnapshot
 import kotlinx.coroutines.CancellationException
 
 class RoomSessionSnapshotRepository(
     private val database: RubikDatabase,
 ) : SessionSnapshotRepository {
-    override suspend fun save(snapshot: SessionSnapshot): SnapshotSave =
+    override suspend fun save(
+        snapshot: SessionSnapshot,
+        attempts: List<AttemptRecord>,
+    ): SnapshotSave =
         try {
             database.withWriteTransaction {
+                database.attempts().insert(attempts.map(AttemptEntity::of))
                 val dao = database.snapshots()
                 val stored = dao.find(snapshot.kind.name)
                 if (stored != null && stored.sessionId == snapshot.sessionId && stored.revision > snapshot.revision) {

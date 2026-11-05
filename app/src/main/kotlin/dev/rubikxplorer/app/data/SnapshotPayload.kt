@@ -11,6 +11,8 @@ import kotlinx.serialization.json.Json
 
 @Serializable
 internal data class SnapshotPayload(
+    val attemptOpen: Boolean = false,
+    val attemptAssistance: String = "USUAL",
     val format: Int,
     val kind: String,
     val sessionId: String,
@@ -37,6 +39,8 @@ internal data class SnapshotPayload(
     fun snapshot(): SessionSnapshot {
         require(format == 1)
         return SessionSnapshot(
+            attemptOpen = attemptOpen,
+            attemptAssistance = AssistanceLevel.valueOf(attemptAssistance),
             kind = SessionKind.valueOf(kind),
             sessionId = sessionId,
             revision = revision,
@@ -67,6 +71,8 @@ internal data class SnapshotPayload(
         fun encode(snapshot: SessionSnapshot): String =
             json.encodeToString(
                 SnapshotPayload(
+                    attemptOpen = snapshot.attemptOpen,
+                    attemptAssistance = snapshot.attemptAssistance.name,
                     format = 1,
                     kind = snapshot.kind.name,
                     sessionId = snapshot.sessionId,

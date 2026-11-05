@@ -8,6 +8,8 @@ import dev.rubikxplorer.domain.tutor.TeachingMode
 
 /** Process-death data only: no content, derived step or pending effect is persisted. */
 data class SessionSnapshot(
+    val attemptOpen: Boolean = false,
+    val attemptAssistance: AssistanceLevel = AssistanceLevel.USUAL,
     val kind: SessionKind,
     val sessionId: String,
     val revision: Long,
@@ -38,6 +40,8 @@ data class SessionSnapshot(
         ): SessionSnapshot? {
             val kind = state.kind ?: return null
             return SessionSnapshot(
+                attemptOpen = state.attemptOpen,
+                attemptAssistance = state.attemptAssistance,
                 kind = kind,
                 sessionId = sessionId,
                 revision = state.revision,

@@ -8,6 +8,8 @@ import dev.rubikxplorer.application.port.Clock
 import dev.rubikxplorer.application.port.SessionSnapshotRepository
 import dev.rubikxplorer.application.port.SnapshotLoad
 import dev.rubikxplorer.application.port.SnapshotSave
+import dev.rubikxplorer.application.session.AttemptOutcome
+import dev.rubikxplorer.application.session.AttemptRecord
 import dev.rubikxplorer.application.session.Checkpoint
 import dev.rubikxplorer.application.session.Effect
 import dev.rubikxplorer.application.session.SessionEvent
@@ -131,6 +133,7 @@ class SessionHost internal constructor(
      */
     suspend fun dispatch(event: (at: Instant) -> SessionEvent): Transition =
         withContext(confined) {
+            val previousSessionId = sessionId
             val before = current.value
             val stamped = event(clock.now())
             val transition = reduce(before, stamped)
@@ -142,13 +145,39 @@ class SessionHost internal constructor(
                 ) {
                     sessionId = UUID.randomUUID().toString()
                 }
+                val attempts =
+                    transition.effects.mapNotNull { effect ->
+                        when (effect) {
+                            is Effect.AttemptStarted -> {
+                                AttemptRecord
+                                    .of(effect, sessionId)
+                            }
+
+                            is Effect.AttemptEnded -> {
+                                AttemptRecord.of(
+                                    effect,
+                                    if (effect.outcome ==
+                                        AttemptOutcome.ABANDONED
+                                    ) {
+                                        previousSessionId
+                                    } else {
+                                        sessionId
+                                    },
+                                )
+                            }
+
+                            else -> {
+                                null
+                            }
+                        }
+                    }
                 val snapshot = SessionSnapshot.of(transition.state, sessionId, contentRevision)
                 if (snapshot != null && repository != null) {
                     writer?.enqueue {
                         // AD-16: a failed write is an event; the session keeps running and the next commit writes again.
                         val saved =
                             try {
-                                repository.save(snapshot)
+                                repository.save(snapshot, attempts)
                             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                                 throw cancelled
                             } catch (_: Exception) {

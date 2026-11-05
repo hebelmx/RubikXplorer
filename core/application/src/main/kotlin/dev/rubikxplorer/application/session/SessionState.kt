@@ -32,7 +32,7 @@ import dev.rubikxplorer.domain.tutor.TutorDecision
  * - [objectiveMet] and [progress] are the Lesson's Completion Predicate on [virtual], recomputed on
  *   every change of [virtual].
  * - The tutor fields ([teachingMode], [noticeStep], [revealRequested], [hintRung], [hintsUsed],
- *   [lastMoveFeedback], [lastDiagnosis], [guidedRecovery], [stepMistakes], [cleanSteps],
+ *   [attemptOpen], [attemptAssistance], [lastMoveFeedback], [lastDiagnosis], [guidedRecovery], [stepMistakes], [cleanSteps],
  *   [cleanCredited], [stepHelped], [assistanceDismissed], [restoreNote]) never advance [revision]: a mode switch, a reveal or a Hint
  *   does not change the Cube State, so it must not stale a pending effect.
  * - [checkpoint] is the Objective-boundary history *Try again* returns to; its changes never
@@ -43,6 +43,10 @@ import dev.rubikxplorer.domain.tutor.TutorDecision
 @ConsistentCopyVisibility
 data class SessionState internal constructor(
     val revision: Long,
+    /** Open Lesson run; bookkeeping never advances revision. */
+    val attemptOpen: Boolean = false,
+    /** Highest assistance shown during the run. */
+    val attemptAssistance: AssistanceLevel = AssistanceLevel.USUAL,
     /** Transient content-update note; never snapshotted. */
     val restoreNote: dev.rubikxplorer.domain.text.Text? = null,
     /** `null` only in [IDLE]. */

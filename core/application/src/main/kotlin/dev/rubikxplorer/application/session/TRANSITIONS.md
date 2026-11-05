@@ -9,7 +9,7 @@ Columns:
 - **Mutates** — the fields the event may change, from `session` (the session's kind, its Lesson and
   tutor configuration or its Solution, its `adaptiveAssistance` flag, and its entry state),
   `virtual` (the current Cube State), `pending` (the reset confirmation awaiting the Learner) and
-  `tutor` (`teachingMode`, `noticeStep`, `revealRequested`, `hintRung`, `hintsUsed`, `lastMoveFeedback`,
+  `tutor` (`teachingMode`, `noticeStep`, `revealRequested`, `hintRung`, `hintsUsed`, `attemptOpen`, `attemptAssistance`, `lastMoveFeedback`,
   `lastDiagnosis`, `guidedRecovery`, `stepMistakes`, `cleanSteps`, `cleanCredited`, `stepHelped`, `assistanceDismissed`) and `checkpoint` (the Checkpoint history *Try again* returns to); `—` for none. Any
   change of `session`, `virtual` or the undo/redo history advances `revision` by exactly 1 and
   cancels a pending confirmation; a change of `pending`, `tutor` or `checkpoint` alone does not advance it.
@@ -201,3 +201,15 @@ clears it except `SnapshotSaveFailed`, `SnapshotLoadFailed`, `CheckpointSaveFail
 `CheckpointLoadFailed`, which change nothing.
 
 After a restart, the Tutor's step and path come from the Lesson's authored entry; history and Reset come from the stored cube.
+
+`attemptOpen` and `attemptAssistance` never advance `revision`. `LessonStarted` and an applied
+`CheckpointRestored` start an attempt only for an unmet Objective; `SessionRestored` continues the
+saved attempt without effects. Reset and *Try again* retain the attempt and its counters.
+The peak assistance is raised after every Lesson transition before completion closes the attempt
+once. Undo and Redo after completion never reopen it. Replacing an open Lesson emits ABANDONED
+with its old counters and peak help.
+
+Attempt effects follow existing effects in order: `AttemptEnded(ABANDONED)`, `PersistCheckpoint`,
+`AttemptStarted`, `AttemptEnded(COMPLETED)`. Each consumes one effect ID at the resulting revision
+and carries the event time. The host uses the previous session ID for ABANDONED and the current ID
+for other rows, saving them atomically with the transition's snapshot.

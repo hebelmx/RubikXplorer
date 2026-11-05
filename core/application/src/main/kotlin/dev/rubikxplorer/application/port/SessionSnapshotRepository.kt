@@ -1,9 +1,13 @@
 package dev.rubikxplorer.application.port
 
+import dev.rubikxplorer.application.session.AttemptRecord
 import dev.rubikxplorer.application.session.SessionSnapshot
 
 interface SessionSnapshotRepository {
-    suspend fun save(snapshot: SessionSnapshot): SnapshotSave
+    suspend fun save(
+        snapshot: SessionSnapshot,
+        attempts: List<AttemptRecord> = emptyList(),
+    ): SnapshotSave
 
     suspend fun latest(): SnapshotLoad
 }

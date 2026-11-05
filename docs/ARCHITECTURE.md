@@ -209,3 +209,5 @@ The cube TalkBack summary uses `CubeSummary(CubeState, completion)` with a Read 
 Session snapshots use Room 3 and a serial I/O writer in `app/data`, with pure ports and DTOs in `core/application`; device checks: `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.rubikxplorer.app.data.SessionSnapshotRestartTest` and `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.rubikxplorer.macrobenchmark.LessonProcessDeathTest`.
 
 The `checkpoint` table stores versioned Objective boundaries as the Lesson fallback when a snapshot cannot resume.
+
+The Room v3 `attempt` table records STARTED and ENDED events append-only, keyed by `(session_id, revision)`, in the snapshot transaction.
