@@ -19,12 +19,16 @@ import javax.inject.Singleton
 
 @Singleton
 class PreferenceStore private constructor(
-    private val repository: PreferencesRepository?,
     private val writer: SerialWriter?,
+    private val repository: PreferencesRepository?,
     private val updater: UpdatePreference?,
 ) {
+    /** The app's store: [updater] is the injected single writer of [repository]. */
     @Inject
-    constructor(repository: PreferencesRepository, writer: SerialWriter) : this(repository, writer, UpdatePreference(repository))
+    constructor(repository: PreferencesRepository, writer: SerialWriter, updater: UpdatePreference) : this(writer, repository, updater)
+
+    /** A store over [repository] with its own [UpdatePreference], for tests. */
+    constructor(repository: PreferencesRepository, writer: SerialWriter) : this(writer, repository, UpdatePreference(repository))
     constructor() : this(null, null, null)
 
     private val current = MutableStateFlow(Preferences.DEFAULT)

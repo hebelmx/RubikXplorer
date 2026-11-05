@@ -5,7 +5,7 @@ created: '2026-11-05'
 baseline_revision: '84d4c495131e8c7e8b99a87eab0ffeb148314104'
 status: 'done'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-6-context.md'
   - '{project-root}/AGENTS.md'
@@ -152,6 +152,34 @@ deferred:
   - `[false]` `[reject]` (intent) Objective-met haptic and gesture ticks are not switched — no Objective-met haptic exists in the app to switch, and gesture commits never ticked before this story; the haptics preference governs every haptic that exists.
   - `[false]` `[reject]` (intent) the store changes its in-memory value directly, so `UpdatePreference` is not the only writer — the persisted preference has one writer, `UpdatePreference`, called only from `PreferenceStore`; the in-memory `StateFlow` is a read model of the same change (spec Always: Store), and the debug toggle and the reducer effect both go through `PreferenceStore.update`.
 
+### 2026-11-05 — Review pass
+- verdicts: 24 findings — high 0, medium 2, low 13, false 9, maybe-false 0
+- findings:
+  - `[low]` `[reject]` (blind) after a failed load, the next change saves a default-based row — carried: same as the logged failed-load row; `written` still starts at DEFAULT when the load fails; needs a Room read failure, and a reload/retry path is new machinery.
+  - `[low]` `[reject]` (blind) save and reset failures are discarded, no UI feedback — carried: same as the logged failed-save row; `PreferenceStore` still ignores `PreferenceSave.Failed`.
+  - `[low]` `[reject]` (blind) `PreferredTheme` draws the default (system) theme until the load finishes — real: the first frames use `Preferences.DEFAULT` while `SerialWriter.read` opens Room; only Learners whose override differs from the system theme see it, for the cold-start database open, and holding the first frame needs new splash/gating machinery.
+  - `[false]` `[reject]` (blind) `LocalPreferenceStore` silently falls back to an in-memory store — `AppShell` provides the injected store through `PreferenceProvider` at the top of every production composition (`MainActivity` passes it); the default exists only for tests the spec keeps compiling.
+  - `[false]` `[reject]` (blind) a speed change does not retime an active turn — speed changes only on the full-screen Settings screen, and `ShellContent` returns early there, so no renderer is composed or animating while the value changes.
+  - `[false]` `[reject]` (blind) Demonstration and solution playback cadence ignores the speed preference — the intent scopes Animation speed to the renderers' turn duration (`Cube3DRenderer`/`Net2DRenderer` scale `TURN_MILLIS`/`ITEM_MILLIS`), and the Design Notes keep step timing on `PlaybackSpeed`; the backlog fast-forward still keeps a SLOW turn from lagging a DOUBLE cadence.
+  - `[low]` `[reject]` (blind) radio options are not associated with their group title — real for assistive tech that jumps straight to an option, but linear TalkBack reads the title right before each group; the fix adds new semantics structure for a cosmetic gain.
+  - `[false]` `[reject]` (blind) the Reduce-motion test cannot tell a snap from an animation — with animation, `Net2DRenderer` keeps `rendered` at the start state until half the turn (≥ 100 ms), so the one-frame `SOLVED` assertion fails unless the player snaps.
+  - `[low]` `[reject]` (blind) glyph preference not tested at each consumer surface — carried: same as the logged no-glyph-surface-test row.
+  - `[low]` `[patch]` (blind) the DI-provided `UpdatePreference` is never used; the injected store builds its own — the `@Inject` constructor now takes `UpdatePreference`, so production uses the bound instance; a two-argument constructor remains for tests (the private primary constructor's parameters were reordered to avoid a JVM signature clash).
+  - `[false]` `[reject]` (edge) free-cube turns keep animating with Reduce motion on — carried: same as the logged free-cube reduce-motion rows.
+  - `[medium]` `[patch]` (verification-gap) 3D animation speed is tested only below the renderer — `Cube3DRendererTest.animationSpeedPreferenceScalesTheTurnThroughTheProvidedStyle` renders through `PreferenceProvider` + `LocalRenderStyle`, sets FAST (turn done by 150 ms) then SLOW (not done at 300 ms, done by 500 ms); removing the `SideEffect` at `Cube3DRenderer.kt:172` makes it fail (checked).
+  - `[low]` `[reject]` (intent) glyph immediate-apply is tested only at the store, not a sticker surface — carried: same as the logged no-glyph-surface-test row.
+  - `[medium]` `[patch]` (intent) the speed path from preference to surface is untested — same root cause as the verification-gap row; same fix.
+  - `[low]` `[reject]` (intent) haptics off is not tested on the Lesson's `MoveKeyBar` — `tickOnCommit` defaults to `LocalHaptics.current`, the same local the tested free-cube tick reads; a Lesson haptics test adds a fake-haptics harness to `LessonScreenTest` for one default-parameter read.
+  - `[low]` `[reject]` (intent) Reduce motion is tested only through `DemonstrationPlayer` — every caller goes through `rememberReduceMotion()`, whose override is now behavior-tested; per-caller tests repeat it.
+  - `[low]` `[reject]` (intent) reset through the Settings dialog is not tested against Room — carried: same as the logged no-Settings→DB-test row.
+  - `[low]` `[reject]` (intent) the remembered mode is not tested from a mode-change event down to Room — same stance as the carried Settings→DB row: reducer → `SessionHost` → store (`AppShellTest`) and store → Room (`RoomPreferencesRepositoryTest`) are each tested.
+  - `[low]` `[reject]` (intent) "Reset cancelled" asserts the theme only — the cancel path only closes the dialog and calls nothing on the store; extending the assertion adds no coverage of a reachable change.
+  - `[low]` `[reject]` (intent) `MainActivity` itself is not exercised for the theme — it is a one-line call of `PreferredTheme(store)`, which `SettingsScreenTest` renders; an activity test needs Hilt test wiring.
+  - `[false]` `[reject]` (intent) the store accepts edits before the load finishes beyond the intent — not a defect; replaying them keeps every change the Learner made, the previous pass's fix.
+  - `[false]` `[reject]` (intent) after a failed save `written` drifts from disk — each save replaces the whole row with `written.with(change)`, so the next save carries the failed change; tracking the intended value is what keeps it.
+  - `[false]` `[reject]` (intent) the catalog-restore effect does not run while Settings is open — `SessionHost.restore` is idempotent behind `restored`, and the `LaunchedEffect` runs on return from Settings; a cancelled restore leaves `restored` incomplete and reruns.
+  - `[false]` `[reject]` (intent) the You screen's Settings `TextButton` has no explicit 48dp height — Material 3 buttons apply `minimumInteractiveComponentSize`, so the touch target is 48dp.
+
 ## Design Notes
 
 - **Room, not DataStore.** The spine allows either; Room is already wired (serial writer, migration harness, in-memory tests) and adds no dependency. Preferences are a single current value, not a log, so the one row is replaced by its only writer and deleted by its scoped reset.
@@ -206,3 +234,27 @@ deferred:
 - Local Spotless depends on line endings under the global `core.autocrlf=true`; the Codex run left LF files that `spotlessApply` converted back to CRLF before the index refreshed clean.
 - A failed preference save is silent; the in-memory value stays until restart.
 - The free cube keeps animating turns with Reduce motion on, as before this story.
+
+### Follow-up review pass (2026-11-05)
+
+**Summary:** A fresh four-layer review of the whole story diff (Codex blind, edge-case and verification-gap layers; Claude intent-alignment). Two small patches; the implementation is otherwise unchanged.
+
+**Files:**
+- `app/.../preferences/PreferenceStore.kt`: the `@Inject` constructor now takes the DI-bound `UpdatePreference`, so production uses one writer instance; a two-argument constructor stays for tests.
+- `app/src/test/.../render/Cube3DRendererTest.kt`: new `animationSpeedPreferenceScalesTheTurnThroughTheProvidedStyle`, which drives FAST then SLOW through `PreferenceProvider` and `LocalRenderStyle` into `Cube3DRenderer.Content`.
+
+**Review:** 24 findings — high 0, medium 2, low 13, false 9.
+- Patched: 1 medium entry (the 3D speed path was untested above the queue; the verification-gap and intent rows share the root cause) and 1 low (the DI `UpdatePreference` binding was unused).
+- Deferred: none.
+- Rejected: 12 low and 9 false. Seven of them are carried from the first pass: failed-load overwrite, failed-save feedback, glyph-surface test ×2, Settings→DB test, free-cube reduce motion, and the pre-load replay. The new rejections are the theme flash before load, radio-group title association, Lesson haptics test, per-caller reduce-motion tests, mode→Room end-to-end test, cancel assertion breadth, `MainActivity` theme test, and the false claims about in-memory fallback, retiming active turns, playback cadence, the reduce-motion test strength, `written` drift, catalog restore and the button touch target. Each reason is in the triage log.
+
+**Follow-up review recommended:** false. This was a follow-up pass and it patched no `high` (patched by verdict: medium 1, low 1).
+
+**Verification:**
+- Targeted: `:app:testDebugUnitTest --tests '*Cube3DRendererTest*' --tests '*PreferenceStore*' --tests '*RoomPreferences*'` passed. As a mutation check, removing the speed `SideEffect` in `Cube3DRenderer` made the new test fail; the code was then restored.
+- `./gradlew spotlessCheck build`: the first attempt failed in `lintAnalyzeDebugUnitTest` and `lintAnalyzeDebugAndroidTest` with an internal lint/FIR crash on an untouched file (`SessionSnapshotRestartTest.kt`, "Unexpected failure during lint analysis"). The retry passed, with all 280 JVM test cases green.
+- The spec's targeted `--tests` command (plus `*Cube3DRenderer*`) passed.
+
+**Residual risks:**
+- The lint analysis crash looks intermittent (a Kotlin analysis-API bug), not caused by this change; CI may hit it too.
+- The risks the first pass recorded still apply: silent failed saves, the default theme drawn for the first frames before the load, and the free cube ignoring Reduce motion.

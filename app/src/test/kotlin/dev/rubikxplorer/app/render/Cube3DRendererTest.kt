@@ -31,10 +31,15 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import dev.rubikxplorer.app.R
+import dev.rubikxplorer.app.preferences.LocalRenderStyle
+import dev.rubikxplorer.app.preferences.PreferenceProvider
+import dev.rubikxplorer.app.preferences.PreferenceStore
 import dev.rubikxplorer.app.session.allMoves
 import dev.rubikxplorer.app.ui.editor.colorName
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
+import dev.rubikxplorer.application.preference.AnimationSpeed
+import dev.rubikxplorer.application.preference.Preference
 import dev.rubikxplorer.domain.cube.Axis
 import dev.rubikxplorer.domain.cube.CubeRotation
 import dev.rubikxplorer.domain.cube.CubeState
@@ -109,6 +114,31 @@ class Cube3DRendererTest {
         assertEquals(target, cube.renderedFacelets())
         val draws = rule.onNodeWithTag("cube3d").fetchSemanticsNode().config[RenderedStickersKey]
         assertTrue(draws.all { it.glyph != null && it.glyphInk != null })
+    }
+
+    @Test
+    fun animationSpeedPreferenceScalesTheTurnThroughTheProvidedStyle() {
+        val cube = Cube3DRenderer()
+        val store = PreferenceStore()
+        store.update(Preference.Speed(AnimationSpeed.FAST))
+        rule.setContent { PreferenceProvider(store) { cube.Content(LocalRenderStyle.current, Modifier.size(300.dp)) } }
+        rule.waitForIdle()
+        rule.mainClock.autoAdvance = false
+        val first = CubeState.SOLVED.apply(allMoves.first())
+        rule.runOnIdle { cube.submit(listOf(PresentationItem.Animate(allMoves.first(), 1, first.toFacelets()))) }
+        // FAST: 100 ms instead of 200 ms.
+        rule.mainClock.advanceTimeBy(150)
+        assertEquals(first.toFacelets(), cube.renderedFacelets())
+
+        rule.runOnIdle { store.update(Preference.Speed(AnimationSpeed.SLOW)) }
+        rule.mainClock.advanceTimeByFrame()
+        val second = first.apply(allMoves.first())
+        rule.runOnIdle { cube.submit(listOf(PresentationItem.Animate(allMoves.first(), 2, second.toFacelets()))) }
+        // SLOW: 400 ms instead of 200 ms.
+        rule.mainClock.advanceTimeBy(300)
+        assertEquals(first.toFacelets(), cube.renderedFacelets())
+        rule.mainClock.advanceTimeBy(200)
+        assertEquals(second.toFacelets(), cube.renderedFacelets())
     }
 
     @Test fun exposesLocalizedStateDerivedDescription() {
