@@ -44,16 +44,29 @@ fun reduce(
     ) {
         return Transition(state)
     }
+    if (event is SessionEvent.SolvePlaybackEnded) {
+        return if (state.kind == SessionKind.SOLVE_PLAYBACK) {
+            Transition(SessionState.IDLE.copy(revision = state.revision + 1, nextEffectId = state.nextEffectId))
+        } else {
+            Transition(state)
+        }
+    }
     val starts = event is SessionEvent.LessonStarted || event is SessionEvent.SolvePlaybackStarted
     // Only a Lesson session takes Moves and tutor events; idle and playback sessions ignore them.
     if (!starts && state.kind != SessionKind.LESSON) return Transition(state)
     val transition =
         attempts(state, persistCheckpoint(state, transition(state, event), event), event).let {
-            if (it.state.restoreNote == null) it else it.copy(state = it.state.copy(restoreNote = null))
+            if (it.state.restoreNote == null ||
+                (event is SessionEvent.SolvePlaybackStarted && it.state === state)
+            ) {
+                it
+            } else {
+                it.copy(state = it.state.copy(restoreNote = null))
+            }
         }
     // AD-5: feedback and its Diagnosis belong to the last committed Move; every other Lesson event
-    // clears them and the Guided recovery (a playback start rejected by an active Lesson is not one,
-    // and changes nothing). The Guided recovery events act on that Diagnosis, so they keep it.
+    // clears them and the Guided recovery. An unverified playback start changes nothing.
+    // The Guided recovery events act on that Diagnosis, so they keep it.
     val recovery =
         event is SessionEvent.GuidedRecoveryRequested || event is SessionEvent.RecoveryPlanned || event is SessionEvent.RecoveryPlanFailed
     val keeps = event is SessionEvent.MoveCommitted || event is SessionEvent.SolvePlaybackStarted || recovery
@@ -75,6 +88,8 @@ private fun transition(
         is SessionEvent.LessonStarted -> start(state, event)
 
         is SessionEvent.SolvePlaybackStarted -> startPlayback(state, event.state, event.solution)
+
+        is SessionEvent.SolvePlaybackEnded -> Transition(state)
 
         is SessionEvent.MoveCommitted -> committed(state, event.move)
 
@@ -148,15 +163,13 @@ private fun start(
 /**
  * Starts a Solve Playback session at [start] holding [solution], when [solution] verifiably solves
  * [start] (bounded: one pass over the list); otherwise nothing changes. The Teaching Mode is kept.
- * AD-3 suspends a session of another kind before a new one starts; until suspension exists
- * (Story 3.7), an active session of another kind rejects the start and stays unchanged.
+ * An active Lesson is suspended; it resumes separately from its stored Checkpoint (AD-3).
  */
 private fun startPlayback(
     state: SessionState,
     start: CubeState,
     solution: List<Move>,
 ): Transition {
-    if (state.isActive && state.kind != SessionKind.SOLVE_PLAYBACK) return Transition(state)
     if (!start.apply(solution).isSolved) return Transition(state)
     val next =
         withHistory(state, MoveHistory(start), lesson = null).copy(
@@ -577,6 +590,7 @@ private fun restore(
             cleanCredited = snapshot.cleanCredited,
             stepHelped = snapshot.stepHelped,
             assistanceDismissed = snapshot.assistanceDismissed,
+            restoreNote = Text("msg.lesson.resumed"),
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.virtual)))
 }
@@ -641,7 +655,7 @@ private fun restoreCheckpoint(
         withHistory(fresh.copy(revision = state.revision), history).copy(
             checkpoint = history,
             teachingMode = checkpoint.teachingMode,
-            restoreNote = if (restart) Text("msg.lesson.updated") else null,
+            restoreNote = if (restart) Text("msg.lesson.updated") else Text("msg.lesson.resumed"),
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.virtual)))
 }
@@ -653,7 +667,9 @@ private fun attempts(
     event: SessionEvent,
 ): Transition {
     var next = transition.state
-    if (next.kind != SessionKind.LESSON || next === before) return transition
+    if (next === before) return transition
+    val suspends = event is SessionEvent.SolvePlaybackStarted && before.kind == SessionKind.LESSON
+    if (next.kind != SessionKind.LESSON && !suspends) return transition
     val starts = event is SessionEvent.LessonStarted || event is SessionEvent.CheckpointRestored
     val checkpoint = transition.effects.filterIsInstance<Effect.PersistCheckpoint>()
     val effects = transition.effects.filterNot { it is Effect.PersistCheckpoint }.toMutableList()
@@ -675,7 +691,7 @@ private fun attempts(
                 event.at,
             )
     }
-    if (event is SessionEvent.LessonStarted && before.attemptOpen) end(before, AttemptOutcome.ABANDONED)
+    if ((event is SessionEvent.LessonStarted || suspends) && before.attemptOpen) end(before, AttemptOutcome.ABANDONED)
     checkpoint.forEach { effects += it.copy(effectId = id++) }
     if (starts) {
         next = next.copy(attemptOpen = !next.objectiveMet, attemptAssistance = next.assistance)

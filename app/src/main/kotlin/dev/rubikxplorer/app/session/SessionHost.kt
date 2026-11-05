@@ -108,12 +108,22 @@ class SessionHost internal constructor(
         // AD-16: a failed read is an event, not an absent snapshot; the state stays idle, so the Lesson starts fresh.
         if (loaded is SnapshotLoad.Failed) dispatch { SessionEvent.SnapshotLoadFailed(it) }
         val snapshot = (loaded as? SnapshotLoad.Found)?.snapshot
-        if (snapshot?.kind == SessionKind.SOLVE_PLAYBACK) return
         if (snapshot != null && snapshot.kind.resumesOnColdStart && snapshot.contentRevision == bundle.contentRevision) {
             val lesson = bundle.stages.flatMap { it.lessons }.firstOrNull { it.id.value == snapshot.lessonId }
             if (lesson != null) dispatch { SessionEvent.SessionRestored(snapshot, lesson, bundle.tutorConfig, it) }
         }
         if (state.value.isActive) return
+        resumeCheckpoint(bundle)
+    }
+
+    /** End playback, then read the Lesson Checkpoint after all queued writes. */
+    suspend fun endSolve(bundle: ContentBundle) {
+        dispatch { SessionEvent.SolvePlaybackEnded(it) }
+        if (!state.value.isActive) resumeCheckpoint(bundle)
+    }
+
+    private suspend fun resumeCheckpoint(bundle: ContentBundle) {
+        withContext(confined) { contentRevision = bundle.contentRevision }
         val checkpoint =
             try {
                 writer?.read { checkpoints?.find(SessionKind.LESSON) }

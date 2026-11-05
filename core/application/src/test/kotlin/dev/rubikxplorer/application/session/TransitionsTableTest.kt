@@ -120,6 +120,13 @@ class TransitionsTableTest {
                 listOf(SessionState.IDLE, a, b, askedB, revealed, playback).map { it to lessonStarted(other) }
             }
 
+            is SessionEvent.SolvePlaybackEnded -> {
+                listOf(SessionState.IDLE, b, playback, playback.copy(history = b.history, teachingMode = TeachingMode.SHOW_ME)).map {
+                    it to
+                        sample
+                }
+            }
+
             is SessionEvent.SolvePlaybackStarted -> {
                 listOf(SessionState.IDLE, a, b, askedB, revealed).map { it to playbackStarted() } +
                     listOf(a to playbackStarted(solution = listOf(U_PRIME)), playback to playbackStarted(CubeState.SOLVED, emptyList()))
@@ -245,6 +252,7 @@ class TransitionsTableTest {
             SessionEvent.CheckpointLoadFailed(lessonStarted(other).at),
             lessonStarted(other),
             playbackStarted(),
+            SessionEvent.SolvePlaybackEnded(lessonStarted(other).at),
             commit(F),
             undo,
             redo,
@@ -305,7 +313,7 @@ class TransitionsTableTest {
         assertEquals(names.size, names.toSet().size, "duplicate rows: $names")
         assertEquals(eventTypes, names.toSet())
         assertEquals(eventTypes, samples.keys)
-        assertEquals(23, eventTypes.size)
+        assertEquals(24, eventTypes.size)
     }
 
     @Test

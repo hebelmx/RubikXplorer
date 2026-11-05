@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -40,6 +41,7 @@ fun LearnScreen(
     onOpen: (LessonId) -> Unit,
     modifier: Modifier = Modifier,
     scrollState: ScrollState = rememberScrollState(),
+    continueEntry: CatalogEntry? = null,
 ) {
     Column(
         modifier =
@@ -59,6 +61,25 @@ fun LearnScreen(
 
             is CatalogState.Ready -> {
                 if (catalog.lessons.isEmpty()) Message(R.string.learn_empty, "learn:empty")
+                continueEntry?.let { entry ->
+                    Column(
+                        modifier =
+                            Modifier
+                                .padding(Spacing.s4)
+                                .fillMaxWidth()
+                                .heightIn(min = Spacing.touchMin)
+                                .clip(MaterialTheme.shapes.medium)
+                                .background(RubikTheme.tokens.surfaceRaised)
+                                .clickable(role = Role.Button) { onOpen(entry.lesson.id) }
+                                .testTag("learn:continue")
+                                .padding(Spacing.s4),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.s1),
+                    ) {
+                        Text(stringResource(R.string.learn_continue), color = RubikTheme.tokens.inkPrimary)
+                        Text(catalog.strings.resolve(entry.lesson.objective), color = RubikTheme.tokens.inkPrimary)
+                        Text(catalog.strings.resolve(entry.stage.title), color = RubikTheme.tokens.inkSecondary)
+                    }
+                }
                 catalog.lessons.forEach { entry ->
                     LessonRow(entry, catalog.strings, onOpen)
                     HorizontalDivider(color = RubikTheme.tokens.hairline)

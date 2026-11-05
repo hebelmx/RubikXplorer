@@ -45,6 +45,7 @@ import dev.rubikxplorer.app.ui.settings.SettingsScreen
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.application.port.FeatureFlag
 import dev.rubikxplorer.application.port.FeatureFlags
+import dev.rubikxplorer.application.session.SessionKind
 import dev.rubikxplorer.domain.content.LessonId
 import dev.rubikxplorer.domain.tutor.TeachingMode
 
@@ -95,6 +96,7 @@ private fun ShellContent(
 ) {
     LaunchedEffect(catalog) { catalog.load() }
     val content by catalog.state.collectAsState()
+    val session by host.state.collectAsState()
     var tab by rememberSaveable { mutableStateOf(Tab.LEARN) }
     var settings by rememberSaveable { mutableStateOf(false) }
     var openLesson by rememberSaveable { mutableStateOf<String?>(null) }
@@ -132,6 +134,12 @@ private fun ShellContent(
             Tab.LEARN -> {
                 LearnScreen(
                     catalog = content,
+                    continueEntry =
+                        if (session.kind == SessionKind.LESSON) {
+                            session.lesson?.let { ready?.find(it.id) }
+                        } else {
+                            null
+                        },
                     onOpen = { openLesson = it.value },
                     scrollState = learnScroll,
                     // The inset area takes surfaceBase too, not the window background.

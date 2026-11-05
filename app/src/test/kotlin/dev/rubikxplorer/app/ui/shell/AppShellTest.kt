@@ -55,7 +55,7 @@ class AppShellTest {
     private val preferences =
         dev.rubikxplorer.app.preferences
             .PreferenceStore()
-    private val host =
+    private var host =
         SessionHost(
             TickingClock(),
             kotlinx.coroutines.Dispatchers.Default
@@ -63,6 +63,61 @@ class AppShellTest {
             preferences = preferences,
         )
     private lateinit var back: OnBackPressedDispatcher
+
+    @Test fun storedCheckpointContinuesSilently() {
+        val bundle = testBundle()
+        val lesson = whiteCrossLesson()
+        val started =
+            dev.rubikxplorer.application.session.reduce(
+                dev.rubikxplorer.application.session.SessionState.IDLE,
+                SessionEvent.LessonStarted(lesson, bundle.tutorConfig, kotlin.time.Instant.fromEpochMilliseconds(0)),
+            )
+        val checkpoint =
+            dev.rubikxplorer.application.session.Checkpoint.of(
+                started.effects.filterIsInstance<dev.rubikxplorer.application.session.Effect.PersistCheckpoint>().single(),
+                bundle.contentRevision,
+            )
+        val events = java.util.concurrent.CopyOnWriteArrayList<SessionEvent>()
+        val writer =
+            dev.rubikxplorer.app.data
+                .SerialWriter()
+        val repository =
+            object : dev.rubikxplorer.application.port.CheckpointRepository {
+                override suspend fun find(kind: dev.rubikxplorer.application.session.SessionKind) =
+                    dev.rubikxplorer.application.port.CheckpointLoad
+                        .Found(checkpoint)
+
+                override suspend fun save(checkpoint: dev.rubikxplorer.application.session.Checkpoint) =
+                    dev.rubikxplorer.application.port.CheckpointSave.Saved
+            }
+        host =
+            SessionHost(
+                TickingClock(),
+                kotlinx.coroutines.Dispatchers.Default
+                    .limitedParallelism(1),
+                writer = writer,
+                checkpoints = repository,
+                reduced = { events.add(it) },
+                preferences = preferences,
+            )
+        try {
+            launch(ContentLoadResult.Loaded(bundle))
+            rule.waitUntil { host.state.value.lesson != null }
+            rule
+                .onNodeWithTag(
+                    "learn:continue",
+                ).assertTextContains("Continue")
+                .assertTextContains("Objective of lesson-01-01")
+                .assertTextContains(STAGE_TITLE)
+                .performClick()
+            rule.onNodeWithTag("lesson:restoreNote").assertTextContains("Picked up where you left off.")
+            assertEquals(started.state.virtual, host.state.value.virtual)
+            assertTrue(events.none { it is SessionEvent.LessonStarted })
+            assertEquals(null, ShadowDialog.getLatestDialog())
+        } finally {
+            runBlocking { writer.close() }
+        }
+    }
 
     @Test fun storedModeStartsLessonAndHostRemembersChanges() {
         preferences.update(
@@ -142,6 +197,7 @@ class AppShellTest {
     @Test
     fun `Learn lists every Lesson in order with its Objective and Stage title, over a navigation bar`() {
         launch()
+        rule.onNodeWithTag("learn:continue").assertDoesNotExist()
         rule.onNodeWithTag("nav:bar").assertExists()
         rule.onNodeWithTag("nav:rail").assertDoesNotExist()
         rule.onNodeWithTag("learn:lesson:lesson-01-01").assertTextContains("Objective of lesson-01-01").assertTextContains(STAGE_TITLE)

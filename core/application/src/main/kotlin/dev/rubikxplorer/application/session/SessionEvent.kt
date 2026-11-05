@@ -62,6 +62,11 @@ sealed interface SessionEvent {
         override val at: Instant,
     ) : SessionEvent
 
+    /** Ends playback; a held Lesson is resumed separately from its stored Checkpoint. */
+    data class SolvePlaybackEnded(
+        override val at: Instant,
+    ) : SessionEvent
+
     /** The Learner committed [move] (commit before animate, AD-4). */
     data class MoveCommitted(
         val move: Move,

@@ -26,7 +26,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -112,7 +111,7 @@ class SessionHostCheckpointTest {
                             }
                         }
                     }
-                    if (scenario == "decoded-invalid-history") {
+                    if (scenario == "decoded-invalid-history" || scenario == "playback") {
                         val snapshot = checkNotNull(SessionSnapshot.of(host.state.value, "invalid-history", bundle.contentRevision))
                         writer.read { RoomSessionSnapshotRepository(db).save(snapshot.copy(done = "invalid")) }
                     }
@@ -172,15 +171,17 @@ class SessionHostCheckpointTest {
                     restored.restore(content)
                     restored.awaitRestored()
                     val state = restored.state.value
-                    if (scenario == "playback" || scenario == "missing-stage") {
+                    if (scenario == "missing-stage") {
                         assertSame(SessionState.IDLE, state)
                     } else {
                         assertEquals(saved.cube, FaceletString.encode(state.virtual.toFacelets()))
                         assertEquals(saved.teachingMode, state.teachingMode)
                         assertTrue(state.adaptiveAssistance)
                         assertFalse(state.history.canRedo)
-                        if (scenario == "same" || scenario == "kept" || scenario == "corrupt" || scenario == "decoded-invalid-history") {
-                            assertNull(state.restoreNote)
+                        if (scenario == "same" || scenario == "kept" || scenario == "corrupt" || scenario == "decoded-invalid-history" ||
+                            scenario == "playback"
+                        ) {
+                            assertEquals(Text("msg.lesson.resumed"), state.restoreNote)
                             assertEquals(saved.history, Notation.format(state.history.done))
                         } else {
                             assertEquals(Text("msg.lesson.updated"), state.restoreNote)
@@ -204,7 +205,7 @@ class SessionHostCheckpointTest {
                             )
                         }
                     }
-                    assertEquals(if (scenario == "playback" || scenario == "kept") 0 else 1, reads)
+                    assertEquals(if (scenario == "kept") 0 else 1, reads)
                     assertEquals(
                         scenario == "kept" || scenario == "decoded-invalid-history",
                         events.any { it is SessionEvent.SessionRestored },
@@ -216,6 +217,68 @@ class SessionHostCheckpointTest {
                     context.deleteDatabase(name)
                 }
             }
+        }
+
+    @Test fun endingSolveReadsQueuedCheckpointAndDropsLaterMoves() =
+        runBlocking {
+            val bundle =
+                dev.rubikxplorer.app.session
+                    .testBundle(
+                        dev.rubikxplorer.app.session
+                            .twoStepLesson(),
+                    )
+            val lesson =
+                bundle.stages
+                    .first()
+                    .lessons
+                    .first()
+            val context = RuntimeEnvironment.getApplication()
+            val db = Room.inMemoryDatabaseBuilder<RubikDatabase>(context).setDriver(AndroidSQLiteDriver()).build()
+            val writer = SerialWriter()
+            try {
+                val host =
+                    SessionHost(
+                        TickingClock(),
+                        Dispatchers.Default.limitedParallelism(1),
+                        RoomSessionSnapshotRepository(db),
+                        writer,
+                        checkpoints = RoomCheckpointRepository(db),
+                    )
+                host.restore(bundle)
+                host.dispatch { SessionEvent.LessonStarted(lesson, bundle.tutorConfig, it) }
+                val moves = (Notation.parse(lesson.demonstration) as NotationResult.Parsed).moves
+                host.dispatch { SessionEvent.MoveCommitted(moves.first(), it) }
+                val checkpoint = host.state.value.checkpoint!!
+                host.dispatch { SessionEvent.MoveCommitted((Notation.parse("R") as NotationResult.Parsed).moves.single(), it) }
+                host.dispatch { SessionEvent.SolvePlaybackStarted(CubeState.SOLVED, emptyList(), it) }
+                host.endSolve(bundle)
+                val resumed = host.state.value
+                assertEquals(SessionKind.LESSON, resumed.kind)
+                assertEquals(checkpoint, resumed.history)
+                assertEquals(checkpoint.state, resumed.virtual)
+                assertEquals(Text("msg.lesson.resumed"), resumed.restoreNote)
+                assertTrue(resumed.attemptOpen)
+                writer.flush()
+                val rows = db.attempts().all()
+                assertEquals(listOf("STARTED", "ENDED", "STARTED"), rows.map { it.event })
+                assertEquals("ABANDONED", rows[1].outcome)
+                assertEquals(rows[0].sessionId, rows[1].sessionId)
+                assertFalse(rows[1].sessionId == rows[2].sessionId)
+            } finally {
+                writer.close()
+                db.close()
+            }
+        }
+
+    @Test fun endingSolveWithoutCheckpointStaysIdle() =
+        runBlocking {
+            val bundle =
+                dev.rubikxplorer.app.session
+                    .testBundle()
+            val host = SessionHost(TickingClock(), Dispatchers.Default.limitedParallelism(1))
+            host.dispatch { SessionEvent.SolvePlaybackStarted(CubeState.SOLVED, emptyList(), it) }
+            host.endSolve(bundle)
+            assertFalse(host.state.value.isActive)
         }
 
     @Test fun failedAndThrowingRepositoriesDispatchFailureEvents() =
@@ -247,6 +310,10 @@ class SessionHostCheckpointTest {
                         )
                     host.restore(bundle)
                     host.awaitRestored()
+                    host.dispatch { SessionEvent.SolvePlaybackStarted(CubeState.SOLVED, emptyList(), it) }
+                    events.clear()
+                    host.endSolve(bundle)
+                    assertFalse(host.state.value.isActive)
                     assertTrue(events.any { it is SessionEvent.CheckpointLoadFailed })
                     host.dispatch {
                         SessionEvent.LessonStarted(

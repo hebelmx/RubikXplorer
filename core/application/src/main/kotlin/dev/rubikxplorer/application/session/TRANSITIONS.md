@@ -31,7 +31,8 @@ steps remain.
 | CheckpointLoadFailed | — | no | no |
 | SessionRestored | session, virtual, tutor, checkpoint | no | no |
 | LessonStarted | session, virtual, pending, tutor, checkpoint | no | yes |
-| SolvePlaybackStarted | session, virtual | no | no |
+| SolvePlaybackStarted | session, virtual, pending, tutor, checkpoint | no | yes |
+| SolvePlaybackEnded | session, virtual, tutor | no | yes |
 | MoveCommitted | virtual, pending, tutor, checkpoint | yes | yes |
 | Undo | virtual, pending, tutor, checkpoint | no | no |
 | Redo | virtual, pending, tutor, checkpoint | yes | no |
@@ -57,12 +58,15 @@ feedback): a failed save leaves the session running in memory and the next commi
 again; a failed load leaves the state idle, so the Learner starts a fresh Lesson.
 
 Solve Playback sessions (`SOLVE_PLAYBACK`, Story 3.6): `SolvePlaybackStarted(state, solution)`
-starts, from no session or over a playing one, a session whose entry and `virtual` are `state` and
-which holds `solution`, with no Lesson; while a session of another kind (a Lesson) is active it
-changes nothing, because AD-3 suspends that session first and suspension arrives with Story 3.7; like `LessonStarted` it keeps `teachingMode`, clears `noticeStep`, the reveal
+starts a session whose entry and `virtual` are `state` and which holds `solution`, with no Lesson.
+An active Lesson is suspended, closing its open attempt with ABANDONED and retaining its stored Checkpoint.
+Like `LessonStarted` it keeps `teachingMode`, clears `noticeStep`, the reveal
 and the last Move's feedback, cancels a pending confirmation and snaps the net to `state`. It applies
 only when `solution` leaves `state` solved; an unverified Solution changes nothing. A playback
-session takes no other event but `LessonStarted` (which replaces it): `MoveCommitted`, `Undo`,
+session also accepts `SolvePlaybackEnded`, which returns to IDLE with revision advanced once and
+nextEffectId kept, without effects or presentation; outside playback this event changes nothing.
+`SessionHost.endSolve` then reads the stored Checkpoint through the serial writer and restores it.
+A playback session accepts `LessonStarted` (which replaces it): `MoveCommitted`, `Undo`,
 `Redo`, `Reset`, the reset results and the tutor events leave it unchanged. Playback position and
 speed belong to the `PlaybackController`, never to the session, and are never checkpointed (AD-20).
 
@@ -195,7 +199,8 @@ restoration, playback and tutor-only changes never emit it. The host serializes 
 removed, another Lesson of the Checkpoint's Stage, which the host picks as the Stage's first), with
 validated Facelets, matching orientation IDs and a parsed history that reaches the stored cube.
 Matching content, stage and Lesson resume the boundary history without redo. Otherwise the stored cube becomes the entry with
-empty history and `restoreNote = Text("msg.lesson.updated")`. Tutor counters are fresh in both cases.
+empty history and `restoreNote = Text("msg.lesson.updated")`. Tutor counters are fresh in both cases. A matching restore sets `restoreNote = Text("msg.lesson.resumed")`,
+as does every applied `SessionRestored`.
 `restoreNote` is transient, null in IDLE and never snapshotted. Every later event taken by a Lesson
 clears it except `SnapshotSaveFailed`, `SnapshotLoadFailed`, `CheckpointSaveFailed` and
 `CheckpointLoadFailed`, which change nothing.
