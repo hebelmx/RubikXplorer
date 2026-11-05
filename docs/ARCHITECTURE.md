@@ -203,3 +203,5 @@ Gestures are interpreted by the pure `domain/input/GestureInterpreter`; `ViewPos
 View Rotation is renderer-local `ViewOrbit`; a twist is a z Cube Rotation through the free-cube commit.
 
 Lessons draw on `Cube3DRenderer`; arrows are a projected `MoveArrow` overlay, and emphasis uses per-cubie shader flags.
+
+The cube TalkBack summary uses `CubeSummary(CubeState, completion)` with a Read faces action; the Lesson frame label announces Certainty changes.

@@ -97,6 +97,7 @@ class LessonScreenTest {
     val rule = createComposeRule()
 
     private val host = SessionHost(TickingClock())
+    private lateinit var accessibilityHost: android.view.View
 
     /** The shipped four-step `lesson-02-05` (F2 R2 B2 L2), moved into the test Stage with no prerequisite. */
     private val crossLesson =
@@ -143,6 +144,7 @@ class LessonScreenTest {
         val shipped = ready.lessons.single { it.lesson.id.value == lessonId }
         val entry = thresholds?.let { shipped.copy(tutorConfig = shipped.tutorConfig.copy(adaptive = it)) } ?: shipped
         rule.setContent {
+            accessibilityHost = androidx.compose.ui.platform.LocalView.current
             RubikXplorerTheme {
                 LessonScreen(
                     host = host,
@@ -1467,6 +1469,121 @@ class LessonScreenTest {
         tapHint(HintRung.TARGET)
         node("lesson:hint").assertTextContains("Hint (2/2)").assertIsNotEnabled()
         node("mode:GUIDE_ME").assertIsSelected()
+    }
+
+    @Test
+    fun `learner summary follows committed Moves in all learner modes`() {
+        open(cornerLesson.id.value)
+        listOf(TeachingMode.GUIDE_ME, TeachingMode.TEST_ME, TeachingMode.LET_ME_TRY).forEach { mode ->
+            switchTo(mode)
+
+            fun assertSummary() {
+                val state = host.state.value.virtual
+                val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+                val strings =
+                    dev.rubikxplorer.app.content
+                        .ContentStrings(bundle.strings)
+                val expected =
+                    dev.rubikxplorer.domain.predicate.CubeSummary
+                        .of(state, cornerLesson.completion)
+                        .joinToString("; ") { strings.resolve(it) }
+                assertEquals(listOf(expected), node("cube3d").fetchSemanticsNode().config[SemanticsProperties.ContentDescription])
+            }
+            assertSummary()
+            val revision = host.state.value.revision
+            node("moveKey:F").performClick()
+            rule.waitUntil(5_000) { host.state.value.revision > revision }
+            rule.waitForIdle()
+            assertSummary()
+        }
+    }
+
+    @Test
+    fun `platform traversal follows learner stage order in every learner mode on a wide screen`() {
+        RuntimeEnvironment.setQualifiers("w1200dp-h1600dp")
+        assertLearnerTraversal()
+    }
+
+    @Test
+    fun `platform traversal follows learner stage order in every learner mode on a compact screen`() {
+        // Tall enough that the scrolling panel shows whole; TalkBack only walks nodes on screen.
+        RuntimeEnvironment.setQualifiers("w400dp-h2400dp")
+        assertLearnerTraversal()
+    }
+
+    @Test
+    fun `the corner lesson cube reads its Objective progress in words`() {
+        open(cornerLesson.id.value)
+        switchTo(TeachingMode.TEST_ME)
+
+        fun spoken() = node("cube3d").fetchSemanticsNode().config[SemanticsProperties.ContentDescription].single()
+        assertEquals("White cross solved; 3 of 4 first-layer corners placed", spoken())
+        // L D L' takes the front-left white corner out of its slot and keeps the cross.
+        press("L", 1)
+        press("D", 2)
+        press("L'", 3)
+        assertEquals("White cross solved; 2 of 4 first-layer corners placed", spoken())
+    }
+
+    @Test
+    fun `Show me reads the shown Demonstration state's Objective progress`() {
+        open(cornerLesson.id.value)
+        switchTo(TeachingMode.SHOW_ME)
+
+        fun spoken() = node("cube3d").fetchSemanticsNode().config[SemanticsProperties.ContentDescription].single()
+        assertEquals("White cross solved; 3 of 4 first-layer corners placed", spoken())
+        node("playback:end").performClick()
+        rule.waitForIdle()
+        assertEquals("White cross solved; First-layer corners solved", spoken())
+    }
+
+    /**
+     * Walks Compose's platform traversal chain (what TalkBack follows) in each Learner mode and checks
+     * frame label → cube → Move key bar → stage toolbar → lesson panel → Teaching Mode switcher.
+     */
+    private fun assertLearnerTraversal() {
+        val app =
+            androidx.test.core.app.ApplicationProvider
+                .getApplicationContext<Application>()
+        org.robolectric.Shadows.shadowOf(app.getSystemService(android.view.accessibility.AccessibilityManager::class.java)).apply {
+            setEnabled(true)
+            setTouchExplorationEnabled(true)
+            setEnabledAccessibilityServiceList(listOf(android.accessibilityservice.AccessibilityServiceInfo()))
+        }
+        open(cornerLesson.id.value)
+        listOf(TeachingMode.GUIDE_ME, TeachingMode.TEST_ME, TeachingMode.LET_ME_TRY).forEach { mode ->
+            switchTo(mode)
+            val frame = node("stage:frame").fetchSemanticsNode().id
+            val cube = node("cube3d").fetchSemanticsNode().id
+            val move = node("moveKey:U").fetchSemanticsNode().id
+            val undo = node("toolbar:undo").fetchSemanticsNode().id
+            val objective = node("lesson:objective").fetchSemanticsNode().id
+            val hint = node("lesson:hint").fetchSemanticsNode().id
+            val next = node("lesson:next").fetchSemanticsNode().id
+            val modeOption = node("mode:SHOW_ME").fetchSemanticsNode().id
+            val chain =
+                rule.runOnIdle {
+                    val provider = accessibilityHost.accessibilityNodeProvider!!
+                    val key = "android.view.accessibility.extra.EXTRA_DATA_TEST_TRAVERSALBEFORE_VAL"
+                    val result = mutableListOf<Int>()
+                    var id = frame
+                    while (id != -1 && id !in result) {
+                        result += id
+                        val info = provider.createAccessibilityNodeInfo(id) ?: break
+                        provider.addExtraDataToAccessibilityNodeInfo(id, info, key, null)
+                        id = info.extras.getInt(key, -1)
+                    }
+                    result
+                }
+            assertEquals("$mode: the cube follows the frame label directly: $chain", cube, chain.getOrNull(1))
+            listOf(cube to move, move to undo, undo to objective, objective to hint, hint to next, next to modeOption)
+                .forEach { (before, after) ->
+                    assertTrue(
+                        "$mode traversal $before before $after: $chain",
+                        before in chain && after in chain && chain.indexOf(before) < chain.indexOf(after),
+                    )
+                }
+        }
     }
 
     private fun openFromShell(adaptive: Boolean) {

@@ -32,8 +32,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.unit.dp
 import dev.rubikxplorer.app.R
 import dev.rubikxplorer.app.ui.theme.RubikTheme
@@ -112,7 +114,13 @@ internal fun LessonPanel(
 ) {
     val tokens = RubikTheme.tokens
     Column(
-        modifier = modifier.testTag("lesson:panel").padding(Spacing.s4),
+        modifier =
+            modifier
+                .semantics {
+                    isTraversalGroup = true
+                    traversalIndex = 4f
+                }.testTag("lesson:panel")
+                .padding(Spacing.s4),
         verticalArrangement = Arrangement.spacedBy(Spacing.s4),
     ) {
         Text(
@@ -123,7 +131,15 @@ internal fun LessonPanel(
         )
         StepCard(step, onShowMove, onShowMeHow, onRecovery, Modifier.fillMaxWidth())
         step.assistance?.let { AssistanceLine(it, onUsualHelp, Modifier.fillMaxWidth()) }
-        TeachingModeSwitcher(modes, mode, onModeChange, Modifier.fillMaxWidth())
+        TeachingModeSwitcher(
+            modes,
+            mode,
+            onModeChange,
+            Modifier.fillMaxWidth().semantics {
+                isTraversalGroup = true
+                traversalIndex = 1f
+            },
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s3), modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(
                 onClick = onHint,

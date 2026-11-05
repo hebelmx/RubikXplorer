@@ -155,6 +155,76 @@ class Cube3DRendererTest {
         assertSpoken(host, describe(scrambled), app.getString(R.string.cube_state_unsolved))
     }
 
+    @Test fun facesActionTogglesAndResetsWhenDrawnFaceletsChange() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        shadowOf(app.getSystemService(AccessibilityManager::class.java)).apply {
+            setEnabled(true)
+            setTouchExplorationEnabled(true)
+            setEnabledAccessibilityServiceList(listOf(AccessibilityServiceInfo()))
+        }
+        val cube = Cube3DRenderer()
+        lateinit var host: View
+        rule.setContent {
+            host = LocalView.current
+            cube.Content(RenderStyle(), Modifier.size(300.dp), summary = "White cross solved")
+        }
+        rule.waitForIdle()
+        assertSpoken(host, "White cross solved", "Solved")
+
+        fun config() = rule.onNodeWithTag("cube3d").fetchSemanticsNode().config
+
+        fun toggle(label: String) {
+            val id = rule.onNodeWithTag("cube3d").fetchSemanticsNode().id
+            rule.runOnIdle {
+                val provider = host.accessibilityNodeProvider!!
+                val info = provider.createAccessibilityNodeInfo(id)!!
+                val action = info.actionList.single { it.label?.toString() == label }
+                assertTrue(provider.performAction(id, action.id, null))
+            }
+            rule.waitForIdle()
+        }
+        assertEquals(null, config().getOrNull(SemanticsProperties.LiveRegion))
+        toggle("Read faces")
+        val names = listOf("Up" to "white", "Right" to "red", "Front" to "green", "Down" to "yellow", "Left" to "orange", "Back" to "blue")
+        val expected = names.joinToString(" ") { (face, color) -> "$face face: ${List(9) { color }.joinToString(", ")}." }
+        assertEquals(listOf(expected), config()[SemanticsProperties.ContentDescription])
+        assertEquals(androidx.compose.ui.semantics.LiveRegionMode.Polite, config()[SemanticsProperties.LiveRegion])
+        val faceNodeId = rule.onNodeWithTag("cube3d").fetchSemanticsNode().id
+        rule.runOnIdle {
+            val info = host.accessibilityNodeProvider!!.createAccessibilityNodeInfo(faceNodeId)!!
+            assertEquals(expected, info.contentDescription.toString())
+            assertEquals(View.ACCESSIBILITY_LIVE_REGION_POLITE, info.liveRegion)
+        }
+        toggle("Read summary")
+        assertSpoken(host, "White cross solved", "Solved")
+        assertEquals(null, config().getOrNull(SemanticsProperties.LiveRegion))
+        toggle("Read faces")
+        rule.runOnIdle { cube.submit(listOf(PresentationItem.Snap(1, CubeState.SOLVED.apply(allMoves.first()).toFacelets()))) }
+        rule.waitForIdle()
+        assertSpoken(host, "White cross solved", "Not solved")
+        assertEquals(null, config().getOrNull(SemanticsProperties.LiveRegion))
+        assertEquals("Read faces", config()[androidx.compose.ui.semantics.SemanticsActions.CustomActions].single().label)
+
+        // A turned cube reads each face's own nine stickers, row-major, not its center color nine times.
+        val turnR = (Notation.parse("R") as NotationResult.Parsed).moves.single()
+        rule.runOnIdle { cube.submit(listOf(PresentationItem.Snap(2, CubeState.SOLVED.apply(turnR).toFacelets()))) }
+        rule.waitForIdle()
+        toggle("Read faces")
+        val afterR =
+            listOf(
+                "Up face: white, white, green, white, white, green, white, white, green.",
+                "Right face: red, red, red, red, red, red, red, red, red.",
+                "Front face: green, green, yellow, green, green, yellow, green, green, yellow.",
+                "Down face: yellow, yellow, blue, yellow, yellow, blue, yellow, yellow, blue.",
+                "Left face: orange, orange, orange, orange, orange, orange, orange, orange, orange.",
+                "Back face: white, blue, blue, white, blue, blue, white, blue, blue.",
+            ).joinToString(" ")
+        rule.runOnIdle {
+            val info = host.accessibilityNodeProvider!!.createAccessibilityNodeInfo(rule.onNodeWithTag("cube3d").fetchSemanticsNode().id)!!
+            assertEquals(afterR, info.contentDescription.toString())
+        }
+    }
+
     /** Asserts what TalkBack actually gets: the platform node tree and touch-explore hit testing. */
     private fun assertSpoken(
         host: View,

@@ -32,9 +32,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -160,6 +164,7 @@ class Cube3DRenderer(
         emphasis: NetEmphasis? = null,
         arrow: Move? = null,
         reduceMotion: Boolean = false,
+        summary: String? = null,
     ) {
         val latestCommit by rememberUpdatedState(onMoveIntent)
         val latestStyle by rememberUpdatedState(style)
@@ -275,13 +280,35 @@ class Cube3DRenderer(
         // Track model updates so semantics always describe committed geometry.
         geometryRevision
         val stickers = CubeMesh.stickerDraws(model, style, emphasis)
-        // Minimal AD-17 description from the drawn state; Story 5.5 owns the full TalkBack experience.
+        // The fallback frame description and face reading both follow the drawn geometry.
         val description =
             stringResource(
                 R.string.cube_description,
                 stringResource(colorName(drawn.colors[U_CENTER])),
                 stringResource(colorName(drawn.colors[F_CENTER])),
             )
+        var facesMode by remember(drawn) { mutableStateOf(false) }
+        val faceNames =
+            listOf(
+                R.string.editor_face_u,
+                R.string.editor_face_r,
+                R.string.editor_face_f,
+                R.string.editor_face_d,
+                R.string.editor_face_l,
+                R.string.editor_face_b,
+            )
+        val faces =
+            if (facesMode) {
+                drawn.colors
+                    .chunked(PER_FACE)
+                    .mapIndexed { index, colors ->
+                        val names = colors.map { stringResource(colorName(it)).lowercase(java.util.Locale.ROOT) }
+                        stringResource(R.string.cube_face_colors, stringResource(faceNames[index]), names.joinToString(", "))
+                    }.joinToString(" ")
+            } else {
+                ""
+            }
+        val actionLabel = stringResource(if (facesMode) R.string.cube_read_summary else R.string.cube_read_faces)
         val state = stringResource(if (isSolved(drawn)) R.string.cube_state_solved else R.string.cube_state_unsolved)
         // Semantics on an AndroidView's own node never reach TalkBack (the interop view replaces it),
         // so a plain Compose node wraps the surface and is the single focusable leaf that speaks for it.
@@ -290,7 +317,15 @@ class Cube3DRenderer(
                 modifier.testTag("cube3d").clearAndSetSemantics {
                     this[RenderedStickersKey] = stickers
                     if (arrow != null) this[RenderedArrowKey] = RenderedArrow(Notation.format(arrow), arrowProgress)
-                    contentDescription = description
+                    contentDescription = if (facesMode) faces else summary ?: description
+                    customActions =
+                        listOf(
+                            CustomAccessibilityAction(actionLabel) {
+                                facesMode = !facesMode
+                                true
+                            },
+                        )
+                    if (facesMode) liveRegion = LiveRegionMode.Polite
                     stateDescription = state
                 },
         ) {

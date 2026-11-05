@@ -212,5 +212,13 @@
   "lesson.lesson-03-04.goal.4": "You insert the white-orange-green corner with F' D' F.",
   "lesson.lesson-03-04.keep.4": "Keep the cross and the three placed corners. F' moves some of them aside, and F brings them back.",
   "lesson.lesson-03-04.watch.4": "Look at the corner at the bottom front left. Its white sticker faces you.",
-  "lesson.lesson-03-04.notice.4": "All four corners are in place. The first layer is solved."
+  "lesson.lesson-03-04.notice.4": "All four corners are in place. The first layer is solved.",
+  "msg.cube-summary.cross-solved": "White cross solved",
+  "msg.cube-summary.cross-progress": "{done} of {total} white cross edges placed",
+  "msg.cube-summary.corners-solved": "First-layer corners solved",
+  "msg.cube-summary.corners-progress": "{done} of {total} first-layer corners placed",
+  "msg.cube-summary.piece-placed": "{piece, select, white_green {white-green edge} white_red {white-red edge} white_blue {white-blue edge} white_orange {white-orange edge} white_green_red {white-green-red corner} white_red_blue {white-red-blue corner} white_blue_orange {white-blue-orange corner} white_orange_green {white-orange-green corner} other {piece}} placed",
+  "msg.cube-summary.piece-not-placed": "{piece, select, white_green {white-green edge} white_red {white-red edge} white_blue {white-blue edge} white_orange {white-orange edge} white_green_red {white-green-red corner} white_red_blue {white-red-blue corner} white_blue_orange {white-blue-orange corner} white_orange_green {white-orange-green corner} other {piece}} not placed yet",
+  "msg.cube-summary.pattern-reached": "Pattern reached",
+  "msg.cube-summary.pattern-progress": "{done} of {total} pieces match the pattern"
 }
