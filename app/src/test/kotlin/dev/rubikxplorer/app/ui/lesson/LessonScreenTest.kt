@@ -154,6 +154,56 @@ class LessonScreenTest {
         }
     }
 
+    @Test fun contentChangedCheckpointShowsNoteAndKeepsStoredCube() {
+        val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val ready = CatalogState.Ready(bundle)
+        val entry = ready.lessons.first()
+        val start = reduce(SessionState.IDLE, SessionEvent.LessonStarted(entry.lesson, entry.tutorConfig, Instant.fromEpochMilliseconds(0)))
+        val storedCube = start.state.virtual.apply(FaceTurn(Face.R, Turn.CLOCKWISE))
+        val checkpoint =
+            dev.rubikxplorer.application.session.Checkpoint
+                .of(
+                    start.effects.single() as dev.rubikxplorer.application.session.Effect.PersistCheckpoint,
+                    "old-content",
+                ).copy(
+                    cube =
+                        dev.rubikxplorer.domain.content.FaceletString
+                            .encode(storedCube.toFacelets()),
+                    history = "R",
+                )
+        val writer = SerialWriter()
+        val repository =
+            object : dev.rubikxplorer.application.port.CheckpointRepository {
+                override suspend fun find(kind: dev.rubikxplorer.application.session.SessionKind) =
+                    dev.rubikxplorer.application.port.CheckpointLoad
+                        .Found(checkpoint)
+
+                override suspend fun save(checkpoint: dev.rubikxplorer.application.session.Checkpoint) =
+                    dev.rubikxplorer.application.port.CheckpointSave.Saved
+            }
+        val restoringHost =
+            SessionHost(TickingClock(), Dispatchers.Default.limitedParallelism(1), writer = writer, checkpoints = repository)
+        try {
+            runBlocking {
+                restoringHost.restore(bundle)
+                restoringHost.awaitRestored()
+            }
+            rule.setContent { RubikXplorerTheme { LessonScreen(restoringHost, entry, ready.strings, TeachingMode.entries, {}) } }
+            rule.waitForIdle()
+            rule
+                .onNodeWithTag(
+                    "lesson:restoreNote",
+                ).assertTextEquals("This lesson was updated. We've restarted it with your cube as it was.")
+            assertEquals(storedCube, restoringHost.state.value.virtual)
+            assertTrue(
+                restoringHost.state.value.history.done
+                    .isEmpty(),
+            )
+        } finally {
+            runBlocking { writer.close() }
+        }
+    }
+
     private val host = SessionHost(TickingClock())
     private lateinit var accessibilityHost: android.view.View
 

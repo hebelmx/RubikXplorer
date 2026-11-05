@@ -141,6 +141,9 @@ fun LessonScreen(
                 .testTag("lesson"),
     ) {
         LessonTopBar(strings.resolve(entry.stage.title), onClose)
+        session.restoreNote?.let { note ->
+            Text(strings.resolve(note), modifier = Modifier.testTag("lesson:restoreNote"))
+        }
         val decision = session.decision
         val demonstration = remember(lesson) { (Demonstration.of(lesson) as? DemonstrationResult.Ready)?.demonstration }
         if (session.lesson?.id == lesson.id && decision != null && demonstration != null) {
