@@ -68,7 +68,10 @@ import dev.rubikxplorer.domain.input.Vector3
 import dev.rubikxplorer.domain.input.ViewOrbit
 import dev.rubikxplorer.domain.input.ViewPose
 import kotlinx.coroutines.channels.Channel
+import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 val RenderedStickersKey = SemanticsPropertyKey<List<StickerDraw>>("RenderedStickers")
 
@@ -301,12 +304,7 @@ class Cube3DRenderer(
                     )
                 Canvas(Modifier.matchParentSize()) {
                     val pose = ViewPose(size.width.toInt(), size.height.toInt(), orbit.eye())
-                    val points =
-                        MoveArrow.arc(arrow, orbit.eye()).map {
-                            pose.project(it).let { p ->
-                                Offset(p.x.toFloat(), p.y.toFloat())
-                            }
-                        }
+                    val points = arrowPoints(arrow, pose)
                     val position = arrowProgress * points.lastIndex
                     val whole = position.toInt().coerceAtMost(points.lastIndex)
                     val tip =
@@ -471,6 +469,44 @@ class Cube3DRenderer(
                 x.coerceIn(0f, max(0f, stage.width - label.width)),
                 y.coerceIn(0f, max(0f, stage.height - label.height)),
             )
+        }
+
+        /** Projected curvature (sagitta over chord) below which the drawn arc would read as a straight line. */
+        internal const val MIN_ARC_CURVATURE = 0.05
+
+        /** How far, in arc radii, a degenerate arc bows out of its turn plane at its middle. */
+        private const val ARC_BOW = 0.35
+
+        /**
+         * Screen points of the teaching arc for [move] seen through [pose]; the last point is the tip.
+         * When the camera lies in (or nearly in) the turn plane the projected arc collapses to a line,
+         * so the arc is then bowed out of its plane, as that circle looks from just off the plane, which
+         * keeps it a visible curve with the same start, end and direction of travel.
+         */
+        internal fun arrowPoints(
+            move: Move,
+            pose: ViewPose,
+        ): List<Offset> {
+            val arc = MoveArrow.arc(move, pose.eye)
+            val plain = arc.map { pose.project(it) }
+            if (curvature(plain) >= MIN_ARC_CURVATURE) return plain.map { Offset(it.x.toFloat(), it.y.toFloat()) }
+            val middle = arc[arc.size / 2]
+            val normal = (arc.first() - middle).cross(arc.last() - middle).normalized()
+            // Bow the near middle away from the camera's side of the plane, as perspective would.
+            val away = if ((pose.eye - middle).dot(normal) >= 0) -1.0 else 1.0
+            return arc.mapIndexed { i, point ->
+                val bow = sin(Math.PI * i / arc.lastIndex) * MoveArrow.ARROW_RADIUS * ARC_BOW * away
+                pose.project(point + normal * bow).let { Offset(it.x.toFloat(), it.y.toFloat()) }
+            }
+        }
+
+        /** Largest distance of [points] from the chord between their ends, over the chord's length. */
+        internal fun curvature(points: List<ScreenPoint>): Double {
+            val dx = points.last().x - points.first().x
+            val dy = points.last().y - points.first().y
+            val chord = sqrt(dx * dx + dy * dy)
+            if (chord == 0.0) return 0.0
+            return points.maxOf { abs((it.x - points.first().x) * dy - (it.y - points.first().y) * dx) } / (chord * chord)
         }
 
         const val TURN_MILLIS = PresentationQueue.TURN_MILLIS
