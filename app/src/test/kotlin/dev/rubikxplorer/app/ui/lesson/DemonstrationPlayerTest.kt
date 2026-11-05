@@ -17,6 +17,10 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import dev.rubikxplorer.app.render.NetEmphasis
+import dev.rubikxplorer.app.render.RenderedArrow
+import dev.rubikxplorer.app.render.RenderedArrowKey
+import dev.rubikxplorer.app.render.RenderedStickersKey
 import dev.rubikxplorer.app.render.StickerDimmedKey
 import dev.rubikxplorer.app.render.StickerHighlightedKey
 import dev.rubikxplorer.app.session.whiteCrossLesson
@@ -30,6 +34,7 @@ import dev.rubikxplorer.domain.cube.Facelets
 import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.cube.NotationResult
 import dev.rubikxplorer.domain.cube.Turn
+import dev.rubikxplorer.domain.input.ViewOrbit
 import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.playback.DemonstrationResult
 import dev.rubikxplorer.domain.playback.PlaybackSpeed
@@ -109,16 +114,17 @@ class DemonstrationPlayerTest {
         }
     }
 
-    private fun sticker(index: Int) = rule.onNodeWithTag("sticker:$index")
-
     private fun flag(
         key: SemanticsPropertyKey<Boolean>,
         index: Int,
-    ): Boolean? =
-        sticker(index)
-            .fetchSemanticsNode()
-            .config
-            .getOrNull(key)
+    ): Boolean {
+        val draw = rule.onNodeWithTag("cube3d").fetchSemanticsNode().config[RenderedStickersKey][index]
+        return when (key) {
+            StickerDimmedKey -> draw.dimmed
+            StickerHighlightedKey -> draw.highlighted
+            else -> error("Unknown sticker flag")
+        }
+    }
 
     /** Every sticker is dimmed exactly when its piece is outside the step, and outlined exactly when it is the white-green edge. */
     private fun assertEmphasis(drawn: Facelets) {
@@ -140,6 +146,7 @@ class DemonstrationPlayerTest {
         rule.waitForIdle()
         assertEquals(entry.toFacelets(), state.renderer.renderedFacelets())
         assertEmphasis(entry.toFacelets())
+        assertEquals(RenderedArrow("F'", 1f), rule.onNodeWithTag("cube3d").fetchSemanticsNode().config[RenderedArrowKey])
         // Off the F layer and not a cross edge: the DB edge (34, 52) and the DBL corner (33, 42, 53).
         listOf(34, 52, 33, 42, 53).forEach { assertEquals(true, flag(StickerDimmedKey, it)) }
         // Keep: the white-red edge (5, 10) stays lit, without the outline.
@@ -182,6 +189,132 @@ class DemonstrationPlayerTest {
         rule.waitForIdle()
         rule.onNodeWithTag("playback:counter").assertTextEquals("1 / 1")
         assertEquals(CubeState.SOLVED.toFacelets(), state.renderer.renderedFacelets())
+    }
+
+    private fun arrow() =
+        rule
+            .onNodeWithTag("cube3d")
+            .fetchSemanticsNode()
+            .config[RenderedArrowKey]
+            .notation
+
+    @Test
+    fun `step back points the arrow at the inverse Move being turned`() {
+        show()
+        rule.onNodeWithTag("playback:forward").performClick()
+        rule.waitForIdle()
+        assertEquals("F'", arrow())
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithTag("playback:back").performClick()
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeByFrame()
+        // Mid-flip the cube turns F, and so does the arrow.
+        assertNotEquals(entry.toFacelets(), state.renderer.renderedFacelets())
+        assertEquals("F", arrow())
+        rule.mainClock.advanceTimeBy(300)
+        assertEquals(entry.toFacelets(), state.renderer.renderedFacelets())
+        assertEquals("F'", arrow())
+    }
+
+    @Test
+    fun `rapid steps keep the arrow and the targets on the Move the renderer is turning`() {
+        val three = demo("F U R", "R'", "U'", "F'")
+        val emphases = three.steps.map { NetEmphasis(lit = it.focus.lit, highlighted = it.focus.target) }
+        // Each step lights a different layer, so a mismatched step shows.
+        assertEquals(3, emphases.toSet().size)
+
+        fun assertShowing(
+            move: String,
+            step: Int,
+        ) {
+            assertEquals(move, arrow())
+            assertEquals(emphases[step], state.emphasis)
+            assertHighlighted(three.steps[step].focus.target)
+        }
+        show(demo = three)
+        rule.waitForIdle()
+        rule.mainClock.autoAdvance = false
+        repeat(3) { rule.onNodeWithTag("playback:forward").performClick() }
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeByFrame()
+        assertCounter("3 / 3")
+        assertShowing("R'", 0)
+        rule.mainClock.advanceTimeBy(210)
+        assertShowing("U'", 1)
+        rule.mainClock.advanceTimeBy(210)
+        assertShowing("F'", 2)
+        rule.mainClock.advanceTimeBy(300)
+        assertEquals(CubeState.SOLVED.toFacelets(), state.renderer.renderedFacelets())
+        assertShowing("F'", 2)
+
+        // Step Back twice: the undone Moves' steps, in the order their inverses turn.
+        repeat(2) { rule.onNodeWithTag("playback:back").performClick() }
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeByFrame()
+        assertCounter("1 / 3")
+        assertShowing("F", 2)
+        rule.mainClock.advanceTimeBy(210)
+        assertShowing("U", 1)
+        rule.mainClock.advanceTimeBy(300)
+        assertEquals(CubeState.SOLVED.apply(moves("F U")).toFacelets(), state.renderer.renderedFacelets())
+        assertShowing("R'", 0)
+    }
+
+    @Test
+    fun `rapid steps keep the transport's Move label on the Move the renderer is turning`() {
+        val three = demo("F U R", "R'", "U'", "F'")
+
+        fun assertLabel(move: String) {
+            rule.onNodeWithTag("playback:move").assertTextEquals(move)
+            assertEquals(move, arrow())
+        }
+        show(demo = three)
+        rule.waitForIdle()
+        rule.mainClock.autoAdvance = false
+        repeat(3) { rule.onNodeWithTag("playback:forward").performClick() }
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeByFrame()
+        assertCounter("3 / 3")
+        assertLabel("R'")
+        rule.mainClock.advanceTimeBy(210)
+        assertLabel("U'")
+        rule.mainClock.advanceTimeBy(210)
+        assertLabel("F'")
+        rule.mainClock.advanceTimeBy(300)
+        assertLabel("F'")
+
+        repeat(2) { rule.onNodeWithTag("playback:back").performClick() }
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeByFrame()
+        assertCounter("1 / 3")
+        assertLabel("F")
+        rule.mainClock.advanceTimeBy(210)
+        assertLabel("U")
+        rule.mainClock.advanceTimeBy(300)
+        // Idle: back to the controller's current Move.
+        assertLabel("R'")
+    }
+
+    @Test
+    fun `view controls turn and reset the camera without moving the playback`() {
+        show(reduceMotion = true)
+        rule.onNodeWithTag("playback:forward").performClick()
+        rule.waitForIdle()
+        assertCounter("1 / 1")
+        val drawn = state.renderer.renderedFacelets()
+        rule.onNodeWithTag("stage:viewMenu").performClick()
+        rule.onNodeWithTag("viewRotate:right").performClick()
+        rule.waitForIdle()
+        assertEquals(ViewOrbit.DEFAULT.rotated(-ViewOrbit.STEP_DEGREES, 0.0), state.renderer.orbit)
+        assertCounter("1 / 1")
+        assertEquals(1, state.position)
+        assertFalse(state.isPlaying)
+        assertEquals(drawn, state.renderer.renderedFacelets())
+        rule.onNodeWithTag("stage:resetView").performClick()
+        rule.waitForIdle()
+        assertEquals(ViewOrbit.DEFAULT, state.renderer.orbit)
+        assertCounter("1 / 1")
+        assertEquals(drawn, state.renderer.renderedFacelets())
     }
 
     @Test
@@ -323,7 +456,7 @@ class DemonstrationPlayerTest {
         show(demo = demo("F", "", ""))
         rule.waitForIdle()
         assertCounter("0 / 0")
-        assertEquals(null, flag(StickerDimmedKey, 0))
+        assertEquals(false, flag(StickerDimmedKey, 0))
     }
 
     @Test
@@ -347,7 +480,7 @@ class DemonstrationPlayerTest {
         rule.onNodeWithTag("playback:counter").assertTextEquals("0 / 0")
         rule.onNodeWithTag("playback:move").assertTextEquals("")
         // No step, no emphasis: stickers carry no dim or highlight semantics.
-        assertEquals(null, flag(StickerDimmedKey, 0))
+        assertEquals(false, flag(StickerDimmedKey, 0))
     }
 
     @Test

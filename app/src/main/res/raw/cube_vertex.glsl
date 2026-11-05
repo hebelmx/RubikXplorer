@@ -7,6 +7,10 @@ layout(location = 2) in vec3 aColor;
 layout(location = 3) in vec2 aUv;
 layout(location = 4) in vec3 aInk;
 layout(location = 5) in float aGlyph;
+layout(location = 6) in vec2 aLocal;
+layout(location = 7) in float aSticker;
+out vec2 vLocal;
+out float vSticker;
 out vec2 vUv;
 out vec3 vInk;
 out float vGlyph;
@@ -17,6 +21,8 @@ void main() {
     vColor = aColor * light;
     vInk = aInk * light;
     vUv = aUv;
+    vLocal = aLocal;
+    vSticker = aSticker;
     vGlyph = aGlyph;
     gl_Position = uViewProj * uModel * vec4(aPos, 1.0);
 }

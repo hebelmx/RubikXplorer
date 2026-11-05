@@ -8,11 +8,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import dev.rubikxplorer.app.render.Net2DRenderer
+import dev.rubikxplorer.app.render.CubeRenderer
 import dev.rubikxplorer.app.session.SessionHost
 import dev.rubikxplorer.app.session.toItems
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.application.session.SessionEvent
+import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.tutor.HintRung
 
@@ -44,16 +45,17 @@ internal fun HintLine(
  */
 internal suspend fun climbHintLadder(
     host: SessionHost,
-    renderer: Net2DRenderer,
+    renderer: CubeRenderer,
     demonstration: Demonstration,
     reduceMotion: Boolean,
+    onMove: (Move?) -> Unit = {},
 ) {
     val before = host.state.value.shownRung
     val transition = host.dispatch(SessionEvent::HintRequested)
     renderer.submit(transition.presentation.toItems())
     val landed = transition.state
     if (before == HintRung.TARGET && landed.shownRung == HintRung.DEMONSTRATION) {
-        demonstrateStep(host, renderer, demonstration, landed.stepIndex, reduceMotion)
+        demonstrateStep(host, renderer, demonstration, landed.stepIndex, reduceMotion, onMove)
     }
 }
 
@@ -64,13 +66,14 @@ internal suspend fun climbHintLadder(
  */
 internal suspend fun demonstrateStep(
     host: SessionHost,
-    renderer: Net2DRenderer,
+    renderer: CubeRenderer,
     demonstration: Demonstration,
     stepIndex: Int,
     reduceMotion: Boolean,
+    onMove: (Move?) -> Unit = {},
 ) {
     demonstration.steps.getOrNull(stepIndex)?.let { shown ->
         val from = demonstration.start.apply(demonstration.moves.take(shown.firstMove))
-        demonstrateOnNet(host, renderer, from, shown.moves, reduceMotion)
+        demonstrateOnNet(host, renderer, from, shown.moves, reduceMotion, onMove)
     }
 }

@@ -14,6 +14,14 @@ class PresentationQueue(
     @get:Synchronized
     val isBusy: Boolean get() = current != null || waiting.isNotEmpty()
 
+    /** The item animating now; null between items and when idle. */
+    @get:Synchronized
+    val active: PresentationItem.Animate? get() = current
+
+    /** The revision of the oldest item not yet finished: the animating one, else the next waiting; null when idle. */
+    @get:Synchronized
+    val oldestRevision: Long? get() = (current ?: waiting.firstOrNull())?.revision
+
     @Synchronized
     fun submit(items: List<PresentationItem>) {
         waiting.addAll(items)

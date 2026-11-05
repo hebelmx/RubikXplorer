@@ -28,7 +28,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import dev.rubikxplorer.app.R
-import dev.rubikxplorer.app.render.Net2DRenderer
+import dev.rubikxplorer.app.render.CubeRenderer
 import dev.rubikxplorer.app.render.PresentationItem
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.app.ui.theme.Spacing
@@ -78,21 +78,32 @@ interface PlaybackTransportState {
 
 /**
  * The pure [PlaybackController] over [moves] from [start] driving a [renderer] (AD-20). Ephemeral:
- * it never touches the session and is never checkpointed. Use from the main thread.
+ * it never touches the session and is never checkpointed. Use from the main thread. The owner
+ * supplies [renderer], which must already show [start]. An owner that asks [moveIndexOf] supplies
+ * [oldestLiveRevision]: the oldest revision the renderer may still present, or null once it is idle;
+ * without it no mapping is kept.
  */
 @Stable
 class NetPlayback(
     start: CubeState,
     moves: List<Move>,
     reduceMotion: Boolean,
+    val renderer: CubeRenderer,
+    private val oldestLiveRevision: (() -> Long?)? = null,
 ) : PlaybackTransportState {
-    /** The net the Moves play on, starting at [start]. */
-    val renderer: Net2DRenderer = Net2DRenderer(start.toFacelets())
-
     private var controller by mutableStateOf(PlaybackController.of(start, moves, reduceMotion))
 
     /** Increases with every submitted item, as [PresentationItem.revision] requires. */
     private var revision = 0L
+
+    /**
+     * The index in [moves] of each Animate item's Move, by its revision, for items the renderer may
+     * still present; drained items are discarded on the next submit.
+     */
+    private val animatedIndex = HashMap<Long, Int>()
+
+    /** How many revisions [moveIndexOf] still maps. */
+    internal val mappedRevisions: Int get() = animatedIndex.size
 
     /** The Moves played. */
     val moves: List<Move> get() = controller.moves
@@ -132,9 +143,28 @@ class NetPlayback(
 
     override fun advance(elapsedMillis: Long) = apply(controller.advance(elapsedMillis))
 
+    /**
+     * The index in [moves] of the Move the item submitted with [revision] animates: the Move played
+     * forward, or the undone Move on Step Back; null for a Snap or an unknown revision.
+     */
+    fun moveIndexOf(revision: Long): Int? = animatedIndex[revision]
+
     private fun apply(update: PlaybackUpdate) {
+        var from = controller.position
         controller = update.controller
-        if (update.items.isNotEmpty()) renderer.submit(update.items.map { it.toPresentation(++revision) })
+        if (update.items.isEmpty()) return
+        val live = oldestLiveRevision?.invoke()
+        if (live == null) animatedIndex.clear() else animatedIndex.keys.removeIf { it < live }
+        renderer.submit(
+            update.items.map { item ->
+                val presentation = item.toPresentation(++revision)
+                if (oldestLiveRevision != null && item is PlaybackItem.Animate) {
+                    animatedIndex[revision] = if (item.position > from) item.position - 1 else item.position
+                }
+                from = item.position
+                presentation
+            },
+        )
     }
 
     private fun PlaybackItem.toPresentation(revision: Long): PresentationItem =

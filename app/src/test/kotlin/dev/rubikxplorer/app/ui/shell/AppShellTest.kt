@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
 import dev.rubikxplorer.app.content.LessonCatalog
-import dev.rubikxplorer.app.render.StickerColorKey
+import dev.rubikxplorer.app.render.RenderedStickersKey
 import dev.rubikxplorer.app.session.STAGE_TITLE
 import dev.rubikxplorer.app.session.SessionHost
 import dev.rubikxplorer.app.session.TickingClock
@@ -86,7 +86,12 @@ class AppShellTest {
                 .toFacelets()
                 .colors
                 .map { Color(StickerAppearance.of(it).fill) }
-        val drawn = (0 until Facelets.SIZE).map { rule.onNodeWithTag("sticker:$it").fetchSemanticsNode().config[StickerColorKey] }
+        val drawn =
+            rule
+                .onNodeWithTag("cube3d")
+                .fetchSemanticsNode()
+                .config[RenderedStickersKey]
+                .map { Color(it.fill) }
         assertEquals(step, expected, drawn)
     }
 

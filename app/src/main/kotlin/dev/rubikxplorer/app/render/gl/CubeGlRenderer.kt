@@ -15,6 +15,9 @@ data class GlSnapshot(
     val vertices: FloatArray,
     val counts: IntArray,
     val meshVersion: Int,
+    val emphasisFlags: IntArray = IntArray(27),
+    val pulse: Float = 0f,
+    val pxPerDp: Float = 1f,
 )
 
 class CubeGlRenderer(
@@ -37,6 +40,10 @@ class CubeGlRenderer(
     private var vbo = 0
     private var uViewProj = 0
     private var uModel = 0
+    private var uDim = 0
+    private var uHighlight = 0
+    private var uPulse = 0
+    private var uPxPerDp = 0
     private var builtVersion = -1
     private val first = IntArray(CubieModel.CUBIE_COUNT)
     private val count = IntArray(CubieModel.CUBIE_COUNT)
@@ -49,6 +56,10 @@ class CubeGlRenderer(
         program = link(vertexShader, fragmentShader)
         uViewProj = GLES30.glGetUniformLocation(program, "uViewProj")
         uModel = GLES30.glGetUniformLocation(program, "uModel")
+        uDim = GLES30.glGetUniformLocation(program, "uDim")
+        uHighlight = GLES30.glGetUniformLocation(program, "uHighlight")
+        uPulse = GLES30.glGetUniformLocation(program, "uPulse")
+        uPxPerDp = GLES30.glGetUniformLocation(program, "uPxPerDp")
         val ids = IntArray(1)
         GLES30.glGenBuffers(1, ids, 0)
         vbo = ids[0]
@@ -99,16 +110,20 @@ class CubeGlRenderer(
         val stride = FLOATS_PER_VERTEX * Float.SIZE_BYTES
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, texture)
-        val sizes = intArrayOf(3, 3, 3, 2, 3, 1)
+        val sizes = intArrayOf(3, 3, 3, 2, 3, 1, 2, 1)
         var offset = 0
         for (attribute in sizes.indices) {
             GLES30.glEnableVertexAttribArray(attribute)
             GLES30.glVertexAttribPointer(attribute, sizes[attribute], GLES30.GL_FLOAT, false, stride, offset * 4)
             offset += sizes[attribute]
         }
+        GLES30.glUniform1f(uPulse, frame.pulse)
+        GLES30.glUniform1f(uPxPerDp, frame.pxPerDp)
         for (i in 0 until CubieModel.CUBIE_COUNT) {
             if (count[i] == 0) continue
             GLES30.glUniformMatrix4fv(uModel, 1, false, models, i * MAT4)
+            GLES30.glUniform1f(uDim, if (frame.emphasisFlags[i] and 1 != 0) 1f else 0f)
+            GLES30.glUniform1f(uHighlight, if (frame.emphasisFlags[i] and 2 != 0) 1f else 0f)
             GLES30.glDrawArrays(GLES30.GL_TRIANGLES, first[i], count[i])
         }
         drawnFrames.incrementAndGet()
@@ -121,7 +136,7 @@ class CubeGlRenderer(
 
     private companion object {
         const val MAT4 = 16
-        const val FLOATS_PER_VERTEX = 15
+        const val FLOATS_PER_VERTEX = CubeMesh.FLOATS_PER_VERTEX
         const val DEFAULT_BACKGROUND = 0xFFE8EBEF
 
         fun link(

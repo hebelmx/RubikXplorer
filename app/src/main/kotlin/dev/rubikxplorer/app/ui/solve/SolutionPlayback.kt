@@ -36,12 +36,12 @@ class SolutionPlaybackState private constructor(
     private val playback: NetPlayback,
 ) : PlaybackTransportState by playback {
     internal constructor(session: SessionState, reduceMotion: Boolean) :
-        this(NetPlayback(session.entry, session.solution, reduceMotion)) {
+        this(NetPlayback(session.entry, session.solution, reduceMotion, Net2DRenderer(session.entry.toFacelets()))) {
         require(session.kind == SessionKind.SOLVE_PLAYBACK) { "not a Solve Playback session: ${session.kind}" }
     }
 
     /** The net the Solution plays on, starting at the session's entry state. */
-    val renderer: Net2DRenderer get() = playback.renderer
+    val renderer: Net2DRenderer get() = playback.renderer as Net2DRenderer
 
     /** The Solution being played. */
     val solution: List<Move> get() = playback.moves

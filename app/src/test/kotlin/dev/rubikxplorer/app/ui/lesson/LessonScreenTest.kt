@@ -2,6 +2,7 @@ package dev.rubikxplorer.app.ui.lesson
 
 import android.app.Application
 import android.provider.Settings
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -23,10 +24,13 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
 import dev.rubikxplorer.app.content.CatalogState
 import dev.rubikxplorer.app.content.LessonCatalog
 import dev.rubikxplorer.app.render.Net2DRenderer
-import dev.rubikxplorer.app.render.StickerColorKey
+import dev.rubikxplorer.app.render.RenderedArrow
+import dev.rubikxplorer.app.render.RenderedArrowKey
+import dev.rubikxplorer.app.render.RenderedStickersKey
 import dev.rubikxplorer.app.render.StickerDimmedKey
 import dev.rubikxplorer.app.render.StickerHighlightedKey
 import dev.rubikxplorer.app.render.StickerPulsingKey
@@ -55,7 +59,11 @@ import dev.rubikxplorer.domain.cube.CubeRotation
 import dev.rubikxplorer.domain.cube.Face
 import dev.rubikxplorer.domain.cube.FaceTurn
 import dev.rubikxplorer.domain.cube.Facelets
+import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.cube.Turn
+import dev.rubikxplorer.domain.input.Vector3
+import dev.rubikxplorer.domain.input.ViewOrbit
+import dev.rubikxplorer.domain.input.ViewPose
 import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.playback.DemonstrationResult
 import dev.rubikxplorer.domain.playback.PlaybackSpeed
@@ -66,6 +74,7 @@ import dev.rubikxplorer.domain.tutor.HintRung
 import dev.rubikxplorer.domain.tutor.RecoveryPlan
 import dev.rubikxplorer.domain.tutor.RecoveryPlanner
 import dev.rubikxplorer.domain.tutor.TeachingMode
+import dev.rubikxplorer.domain.tutor.Tutor
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -154,14 +163,121 @@ class LessonScreenTest {
         rule.waitForIdle()
     }
 
+    @Test
+    fun `lesson twist commits through the session and drains to the virtual state like the Move key`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.LET_ME_TRY)
+        val before = host.state.value
+        node("cube3d").performTouchInput {
+            down(0, center - Offset(50f, 0f))
+            down(1, center + Offset(50f, 0f))
+            moveTo(0, center - Offset(35f, 35f), delayMillis = 0)
+            moveTo(1, center + Offset(35f, 35f))
+            up(0)
+            up(1)
+        }
+        rule.waitUntil(5_000) { host.state.value.history.done.size == 1 }
+        val z = CubeRotation(Axis.Z, Turn.CLOCKWISE)
+        assertEquals(before.virtual.apply(z), host.state.value.virtual)
+        assertEquals(before.history.done + z, host.state.value.history.done)
+        assertNetMatchesSession("gesture drains to the committed virtual state")
+        node("toolbar:undo").performClick()
+        rule.waitUntil(5_000) {
+            host.state.value.history.done
+                .isEmpty()
+        }
+        node("moveKey:z").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.history.done.size == 1 }
+        assertEquals(before.virtual.apply(z), host.state.value.virtual)
+        assertNetMatchesSession("Move key and gesture agree")
+    }
+
+    @Test
+    fun `lesson layer-turn drag commits through the session like the Move key`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.LET_ME_TRY)
+        val before = host.state.value
+        val bounds = node("cube3d").fetchSemanticsNode().boundsInRoot
+        val pose = ViewPose(bounds.width.toInt(), bounds.height.toInt(), ViewOrbit.DEFAULT.eye())
+        // Across the top of the front face, right to left: a U turn.
+        val from = Vector3(0.0, 1.0, 1.5)
+
+        fun offset(point: Vector3): Offset = pose.project(point).let { Offset(it.x.toFloat(), it.y.toFloat()) }
+        node("cube3d").performTouchInput {
+            down(offset(from))
+            moveTo(offset(from + Vector3(-1.0, 0.0, 0.0)))
+            up()
+        }
+        rule.waitUntil(5_000) { host.state.value.history.done.size == 1 }
+        val u = FaceTurn(Face.U, Turn.CLOCKWISE)
+        assertEquals(before.virtual.apply(u), host.state.value.virtual)
+        assertEquals(before.history.done + u, host.state.value.history.done)
+        assertNetMatchesSession("drag drains to the committed virtual state")
+        node("toolbar:undo").performClick()
+        rule.waitUntil(5_000) {
+            host.state.value.history.done
+                .isEmpty()
+        }
+        node("moveKey:U").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.history.done.size == 1 }
+        assertEquals(before.virtual.apply(u), host.state.value.virtual)
+        assertNetMatchesSession("Move key and drag agree")
+    }
+
+    @Test
+    fun `lesson view controls rotate and reset the camera without touching the session`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.LET_ME_TRY)
+        val before = host.state.value
+        val bounds = node("cube3d").fetchSemanticsNode().boundsInRoot
+        val from = Vector3(0.0, 1.0, 1.5)
+        val u = FaceTurn(Face.U, Turn.CLOCKWISE)
+
+        fun dragU(orbit: ViewOrbit) {
+            val pose = ViewPose(bounds.width.toInt(), bounds.height.toInt(), orbit.eye())
+
+            fun offset(point: Vector3): Offset = pose.project(point).let { Offset(it.x.toFloat(), it.y.toFloat()) }
+            node("cube3d").performTouchInput {
+                down(offset(from))
+                moveTo(offset(from + Vector3(-1.0, 0.0, 0.0)))
+                up()
+            }
+        }
+        node("stage:resetView").assertIsEnabled()
+        node("stage:viewMenu").performClick()
+        node("viewRotate:right").performClick()
+        rule.waitForIdle()
+        assertEquals("rotating the view changes no Cube State", before.virtual, host.state.value.virtual)
+        assertEquals("rotating the view records no Move", before.history, host.state.value.history)
+        // The drag lands where the rotated camera projects the top-front edge: the Lesson cube uses that orbit.
+        dragU(ViewOrbit.DEFAULT.rotated(-ViewOrbit.STEP_DEGREES, 0.0))
+        rule.waitUntil(5_000) { host.state.value.history.done.size == 1 }
+        assertEquals(before.virtual.apply(u), host.state.value.virtual)
+        node("stage:resetView").performClick()
+        rule.waitForIdle()
+        assertEquals("resetting the view records no Move", listOf(u), host.state.value.history.done)
+        dragU(ViewOrbit.DEFAULT)
+        rule.waitUntil(5_000) { host.state.value.history.done.size == 2 }
+        assertEquals(before.virtual.apply(u).apply(u), host.state.value.virtual)
+        assertNetMatchesSession("view controls leave the cube in step with the session")
+    }
+
     private fun node(tag: String) = rule.onNodeWithTag(tag)
 
     private fun stickersWith(key: SemanticsPropertyKey<Boolean>): Set<String> =
-        rule
-            .onAllNodes(SemanticsMatcher.expectValue(key, true))
-            .fetchSemanticsNodes()
-            .mapNotNull { it.config.getOrNull(SemanticsProperties.TestTag) }
-            .toSet()
+        node("cube3d")
+            .fetchSemanticsNode()
+            .config[RenderedStickersKey]
+            .mapIndexedNotNull { index, draw ->
+                val flag =
+                    when (key) {
+                        StickerDimmedKey -> draw.dimmed
+                        StickerHighlightedKey -> draw.highlighted
+                        StickerPulsingKey -> draw.pulsing
+                        else -> error("Unknown sticker flag")
+                    }
+                if (flag) "sticker:$index" else null
+            }.toSet()
 
     private val resolver get() = RuntimeEnvironment.getApplication().contentResolver
 
@@ -170,8 +286,7 @@ class LessonScreenTest {
         Settings.Global.putFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
     }
 
-    private fun drawnColors(): List<Color> =
-        (0 until Facelets.SIZE).map { node("sticker:$it").fetchSemanticsNode().config[StickerColorKey] }
+    private fun drawnColors(): List<Color> = node("cube3d").fetchSemanticsNode().config[RenderedStickersKey].map { Color(it.fill) }
 
     private fun assertNetMatchesSession(step: String) {
         rule.waitForIdle()
@@ -291,12 +406,15 @@ class LessonScreenTest {
         assertTrue(stickersWith(StickerDimmedKey).isEmpty())
 
         val before = host.state.value
+        val next = Tutor.nextMove(whiteCrossLesson(), before.entry, before.virtual)!!
+        assertEquals(RenderedArrow(Notation.format(next), 1f), node("cube3d").fetchSemanticsNode().config[RenderedArrowKey])
         tapHint(HintRung.DEMONSTRATION)
         node("lesson:hint").assertTextContains("Hint (3/3)").assertIsNotEnabled()
         node("lesson:hint:line").assertTextContains("Watch this step on the cube, then try it yourself.")
         assertEquals(3, host.state.value.hintsUsed)
         assertEquals(before.revision, host.state.value.revision)
         assertEquals(before.history, host.state.value.history)
+        assertEquals(RenderedArrow(Notation.format(next), 1f), node("cube3d").fetchSemanticsNode().config[RenderedArrowKey])
     }
 
     @Test
@@ -343,6 +461,10 @@ class LessonScreenTest {
         tapHint(HintRung.TARGET)
         val before = host.state.value
         assertNetMatchesSession("before the demonstration")
+        // Off the path at rung TARGET: no next Move, so no arrow, but the target outline stays.
+        assertEquals(null, Tutor.nextMove(lesson, before.entry, before.virtual))
+        assertEquals(null, node("cube3d").fetchSemanticsNode().config.getOrNull(RenderedArrowKey))
+        assertTrue(stickersWith(StickerHighlightedKey).isNotEmpty())
 
         rule.mainClock.autoAdvance = false
         node("lesson:hint").performScrollTo().performClick()
@@ -354,6 +476,7 @@ class LessonScreenTest {
             }
         }
         assertTrue("the net never showed the step's Move played from its authored start", played)
+        assertEquals(RenderedArrow("F'", 1f), node("cube3d").fetchSemanticsNode().config[RenderedArrowKey])
         assertEquals(before.virtual, host.state.value.virtual)
         assertEquals(before.revision, host.state.value.revision)
         assertEquals(before.history, host.state.value.history)
@@ -361,6 +484,7 @@ class LessonScreenTest {
         rule.mainClock.advanceTimeBy(REORIENT_HOLD_MILLIS + REORIENT_STEP_MILLIS + 500)
         rule.mainClock.autoAdvance = true
         assertNetMatchesSession("net returns to the session after the demonstration")
+        assertEquals(null, node("cube3d").fetchSemanticsNode().config.getOrNull(RenderedArrowKey))
         assertEquals(HintRung.DEMONSTRATION, host.state.value.hintRung)
         assertEquals(before.revision, host.state.value.revision)
         assertEquals(before.history, host.state.value.history)
@@ -437,6 +561,34 @@ class LessonScreenTest {
         node("lesson:hint").performScrollTo().assertTextContains("Hint (0/3)").assertIsEnabled()
         node("lesson:hint:line").assertDoesNotExist()
         assertEquals(0, host.state.value.hintsUsed)
+    }
+
+    @Test
+    fun `show me offers the view controls, which leave the playback and the session alone`() {
+        open(crossLesson.id.value)
+        switchTo(TeachingMode.SHOW_ME)
+        node("playback:forward").performClick()
+        rule.waitForIdle()
+        node("playback:counter").assertTextContains("1 / 4")
+        val before = host.state.value
+        val drawn = drawnColors()
+        // The cube stays inside its slot, so the controls above and below it take their own taps.
+        val cube = node("cube3d").fetchSemanticsNode().boundsInRoot
+        assertTrue(cube.top >= node("stage:viewMenu").fetchSemanticsNode().boundsInRoot.bottom)
+        assertTrue(cube.bottom <= node("playback:playPause").fetchSemanticsNode().boundsInRoot.top)
+        node("stage:viewMenu").performClick()
+        node("viewRotate:left").performClick()
+        rule.waitForIdle()
+        node("stage:viewMenu").performClick()
+        node("viewRotate:left").performClick()
+        rule.waitForIdle()
+        node("playback:counter").assertTextContains("1 / 4")
+        assertEquals("turning the view leaves the Session alone", before, host.state.value)
+        assertEquals("turning the view leaves the drawn Cube State alone", drawn, drawnColors())
+        node("stage:resetView").performClick()
+        rule.waitForIdle()
+        node("playback:counter").assertTextContains("1 / 4")
+        assertEquals("resetting the view leaves the Session alone", before, host.state.value)
     }
 
     @Test
