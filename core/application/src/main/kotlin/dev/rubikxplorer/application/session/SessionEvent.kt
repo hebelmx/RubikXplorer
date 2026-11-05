@@ -14,6 +14,13 @@ import kotlin.time.Instant
 sealed interface SessionEvent {
     val at: Instant
 
+    data class SessionRestored(
+        val snapshot: SessionSnapshot,
+        val lesson: Lesson,
+        val tutorConfig: TutorConfig,
+        override val at: Instant,
+    ) : SessionEvent
+
     /**
      * Starts a Lesson session at the Lesson's entry state, replacing any current session; the tutor
      * judges it with [tutorConfig] (the content bundle's `tutor-config.json`). [adaptiveAssistance] is

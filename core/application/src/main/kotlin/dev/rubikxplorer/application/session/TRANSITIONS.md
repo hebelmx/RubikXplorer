@@ -17,7 +17,7 @@ Columns:
   returns `virtual` to where it was before the event.
 - **Clears redo** — `yes` when nothing is left to redo whenever the event advances `revision`.
 
-Every event other than `LessonStarted` and `SolvePlaybackStarted` leaves an idle state (no session)
+Every event other than `LessonStarted` and `SolvePlaybackStarted` and `SessionRestored` leaves an idle state (no session)
 unchanged. A result
 (`ResetConfirmed`, `ResetDeclined`) whose `effectId` and `revision` do not match the pending
 confirmation at the current revision changes nothing but `lastDiscarded`
@@ -26,6 +26,7 @@ steps remain.
 
 | Event | Mutates | Undoable | Clears redo |
 |-------|---------|----------|-------------|
+| SessionRestored | session, virtual, tutor, checkpoint | no | no |
 | LessonStarted | session, virtual, pending, tutor, checkpoint | no | yes |
 | SolvePlaybackStarted | session, virtual | no | no |
 | MoveCommitted | virtual, pending, tutor, checkpoint | yes | yes |

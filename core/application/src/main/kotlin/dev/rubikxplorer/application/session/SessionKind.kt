@@ -6,4 +6,7 @@ enum class SessionKind {
     PRACTICE,
     TWO_LOOK,
     SOLVE_PLAYBACK,
+    ;
+
+    val resumesOnColdStart: Boolean get() = this != SOLVE_PLAYBACK
 }

@@ -2,15 +2,22 @@
 title: 'Story 6.1: Survive process death with session snapshots'
 type: 'feature'
 created: '2026-11-05'
-baseline_revision: '5aca3695b71e4a2a2d03ec5f5465d1cc5237bb7b'
-status: 'ready-for-dev'
+baseline_revision: '98ad6e599908d694efdd12608ea21b60e5d251d0'
+status: 'done'
 review_loop_iteration: 0
-followup_review_recommended: false
+followup_review_recommended: true
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-6-context.md'
   - '{project-root}/AGENTS.md'
 warnings: ['oversized']
-deferred: []
+deferred:
+  - summary: >-
+      SOLVE_PLAYBACK non-resume is proven only by a same-process restart of the persistence graph on the device, not by a real process kill.
+    evidence: |-
+      Intent audit: LessonProcessDeathTest kills the app with am kill only for a Lesson; playback has no in-app entry until Story 3.7, so SessionSnapshotRestartTest (device) and SessionHostPersistenceTest close and reopen the file DB in one process instead. Settle by adding a playback leg to LessonProcessDeathTest once Story 3.7 wires playback into the Solve tab.
+    location: >-
+      macrobenchmark/src/main/kotlin/dev/rubikxplorer/macrobenchmark/LessonProcessDeathTest.kt
+    severity: medium
 ---
 
 <intent-contract>
@@ -130,6 +137,29 @@ deferred: []
 
 ## Review Triage Log
 
+### 2026-11-05 — Review pass
+- verdicts: 19 findings — high 1, medium 3, low 10, false 5, maybe-false 0
+- findings:
+  - `[high]` `[patch]` (blind) restore rejects a valid snapshot whose Checkpoint sits on another branch (Undo below a boundary, then a different Move) — reachable: `move()` moves the Checkpoint only at boundaries, so the prefix check dropped the whole Lesson. Removed the prefix check in `Reduce.kt` restore; the Checkpoint is rebuilt from `start` on its own. Added the `SessionSnapshotTest` branching regression and dropped the `done = "R", checkpoint = "F"` "bad" case that encoded the bug.
+  - `[medium]` `[patch]` (blind) `SessionHost.restore` completed `restored` in `finally` even when cancelled — a shell leaving composition mid-read (for example a rotation on cold start) left restoration marked done without loading, so the reopened Lesson restarted fresh and overwrote the snapshot. Moved the work into `restoreLatest` and complete only after a non-cancelled attempt.
+  - `[medium]` `[patch]` (blind) an operation throwing `CancellationException` ended the `SerialWriter` consumer, so later saves queued forever and `read`/`flush` hung. The wrapper now calls `currentCoroutineContext().ensureActive()`: only the consumer's own cancellation stops the queue.
+  - `[low]` `[reject]` (blind) tutor fields get no semantic validation on restore — only a hand-corrupted row could carry them, since the payload is written by this code; the guards would add branches for an unlikely case.
+  - `[low]` `[reject]` (blind) the history rebuild by repeated commit/undo is quadratic — Lesson histories are tens of Moves; negligible.
+  - `[low]` `[reject]` (blind) the unlimited writer queue can hold many snapshots — they are small strings and the single writer drains in milliseconds; coalescing adds complexity for no seen harm.
+  - `[low]` `[reject]` (blind) a `SnapshotSave.Failed` is not retried — the next committed transition writes again; retry machinery is more than a direct fix.
+  - `[low]` `[reject]` (blind) the process-death test compares only the cube summary text — it also asserts Undo is enabled, which a fresh restart never has, so a lost session fails the test.
+  - `[low]` `[reject]` (blind) the 1 s sleep before the kill is timing-based — the writer commits within milliseconds and the test app exposes no cross-process signal; it passed on the emulator.
+  - `[high]` `[patch]` (edge) the Checkpoint prefix check rejects branched history — the same root cause as the first blind row, fixed by the same patch.
+  - `[low]` `[reject]` (edge) a cold launch after swipe-away does not reopen the restored Lesson — by design: the session resumes in `SessionHost`, and the Continue card that surfaces it is Story 6.5's acceptance criterion, outside this story's intent.
+  - `[medium]` `[patch]` (edge) a cancelled restore is marked complete — the same root cause and patch as the second blind row.
+  - `[medium]` `[patch]` (edge) a `CancellationException` from an operation kills the writer consumer — the same root cause and patch as the third blind row.
+  - `[low]` `[patch]` (verification-gap) a non-empty `assistanceDismissed` and the other tutor collections were never round-tripped through JSON and Room. `RoomSessionSnapshotRepositoryTest` now saves and reloads a snapshot with non-empty `stepMistakes`, `cleanCredited`, `stepHelped`, `assistanceDismissed` and a `noticeStep`; the derived assistance is covered by the reducer round-trip.
+  - `[medium]` `[defer]` (intent) SOLVE_PLAYBACK non-resume is not proven under a real kill — playback has no in-app entry until Story 3.7. Recorded in `deferred`.
+  - `[false]` `[reject]` (intent) a fresh cold launch does not navigate to the Lesson — the session does resume, and the UI entry is Story 6.5.
+  - `[false]` `[reject]` (intent) latest-wins across kinds could hide a Lesson behind a later playback — unreachable: the reducer rejects a playback start while a Lesson is active, and a Lesson never ends.
+  - `[false]` `[reject]` (intent) dropping a snapshot whose `contentRevision` changed, with no message, is ground Story 6.2 owns — 6.1 has no copy for that case; 6.2 adds the restart-with-stored-cube message for Checkpoints.
+  - `[false]` `[reject]` (intent) the migration harness only validates v1 — there is no v2 schema to migrate yet; the harness (exported schema plus `MigrationTestHelper`) is what AD-10 requires per schema change.
+
 ## Design Notes
 
 - **Revision on restore.** A restored session restarts its revision at IDLE + 1 with a fresh `sessionId`. The conditional write then simply replaces the old row, and the TRANSITIONS revision rule needs no exception. Revisions and effect ids are process-local bookkeeping: no effect survives a restart.
@@ -142,3 +172,52 @@ deferred: []
 - `./gradlew spotlessCheck build` -- expected: pass (JVM tests, Kover, gates, APKs, `assembleBenchmark`).
 - `./gradlew :core:application:test :app:testDebugUnitTest --tests '*Snapshot*' --tests '*Persistence*' --tests '*Migration*' --tests '*TransitionsTable*'` -- expected: pass.
 - Boot `spike3d_api29` headless, then `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.rubikxplorer.app.data.SessionSnapshotRestartTest` and `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.rubikxplorer.macrobenchmark.LessonProcessDeathTest` -- expected: pass. If no emulator boots, record "not run" with the reason.
+
+## Auto Run Result
+
+**Summary:**
+- A Lesson now survives process death. Every committed transition writes a pure `SessionSnapshot` through one serial writer to Room 3 (`session_snapshot`, keyed by `SessionKind`). The write is conditional on `revision` and happens off the main thread.
+- On cold start `SessionHost.restore` reads the latest row. A resumable `LESSON` comes back through the new `SessionEvent.SessionRestored`. `SOLVE_PLAYBACK`, changed content or a corrupt row stays idle.
+- `LessonScreen` waits for restoration before deciding whether to start the Lesson, so the reopened Lesson is kept.
+
+**Files:**
+- `core/application/.../session/SessionSnapshot.kt` — the pure DTO and `of(state, sessionId, contentRevision)`.
+- `core/application/.../session/{SessionEvent,SessionKind,Reduce,SessionState}.kt`, `TRANSITIONS.md` — the `SessionRestored` reduction (revision IDLE + 1), `resumesOnColdStart`, and the table row.
+- `core/application/.../port/SessionSnapshotRepository.kt` — the port with the sealed `SnapshotSave`/`SnapshotLoad` results.
+- `app/.../data/{RubikDatabase,SessionSnapshotEntity,SessionSnapshotDao,SnapshotPayload,RoomSessionSnapshotRepository,SerialWriter}.kt` — Room v1, the JSON payload, the transactional conditional write, and the FIFO writer.
+- `app/.../di/PersistenceModule.kt` — Hilt wiring for `rubikxplorer.db`.
+- `app/.../session/SessionHost.kt` — capture on each commit, sessionId, `restore`, `awaitRestored`.
+- `app/.../ui/shell/AppShell.kt`, `app/.../ui/lesson/LessonScreen.kt` — trigger the restore and await it.
+- `app/schemas/.../1.json` — the exported schema.
+- `app/build.gradle.kts`, `gradle/libs.versions.toml` — Room 3.0.3, sqlite-framework 2.7.1, serialization and room3-testing.
+- `build-logic/.../LearnerTextPolicy.kt` (+ test) — Room `@Query` SQL is exempt from the learner-text gate.
+- Tests: `SessionSnapshotTest`, `TransitionsTableTest`, `RoomSessionSnapshotRepositoryTest`, `SerialWriterTest`, `SessionDatabaseMigrationTest`, `SessionHostPersistenceTest`, `LessonScreenTest`; instrumented `SessionSnapshotRestartTest` and `LessonProcessDeathTest`.
+- `docs/ARCHITECTURE.md` — one line on the layer and the device checks.
+
+**Review:** 19 findings: high 1, medium 3, low 10, false 5.
+- Patched: the branched-Checkpoint restore (high), the cancelled restore marked complete (medium), and the writer consumer dying on `CancellationException` (medium). Each was reported twice, by the blind and edge-case layers. Also patched: the tutor-collection payload round-trip test (low).
+- Deferred: a real-kill proof of SOLVE_PLAYBACK non-resume (medium, until Story 3.7).
+- Rejected: 7 low and 5 false, with reasons in the triage log.
+
+**Follow-up review recommended:** true (patched: high 1, medium 2, low 1). The named risk: the seeded 400-event round-trip in `SessionSnapshotTest` passed before the high fix, so it never explored a branched history. Other unexplored history and Checkpoint shapes are unverified until a follow-up pass, or a generator that targets Undo across boundaries, checks them.
+
+**Verification:**
+- `./gradlew spotlessCheck build`: pass, after the patches.
+  - The Codex implementation run had normalized the CRLF checkout to LF, which made Spotless fail in this checkout (global `core.autocrlf=true`). `./gradlew spotlessApply` restored the line endings with no content change.
+- `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.rubikxplorer.app.data.SessionSnapshotRestartTest`: pass, 4/4 on AVD `spike3d_api29` (API 29, headless, KVM).
+- `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.rubikxplorer.macrobenchmark.LessonProcessDeathTest`: pass, 1/1. A real `am kill` followed by a relaunch from the launcher.
+- Matrix audit, every row covered by a passing test:
+  - Lesson resumes: `SessionSnapshotTest` and the restart scenario.
+  - Playback: the restart scenario `playback`.
+  - Content changed: the restart scenario `changed` / `missing`.
+  - Corrupt row: the `SessionSnapshotTest` bad list, plus the repository test (`format` 99, broken JSON).
+  - Stale write and new session: `RoomSessionSnapshotRepositoryTest`.
+  - Non-IDLE: `SessionSnapshotTest` active.
+  - DB failure: the repository test on a closed DB, plus `failureCompletesRestorationAndWriterContinues`.
+
+**Residual risks:**
+- SOLVE_PLAYBACK non-resume has no real-kill proof (deferred to Story 3.7).
+- `LessonProcessDeathTest` relies on a 1 s wait for the async writer before the kill.
+- The device tests are not run by CI (`connected*` is excluded by rule).
+- A cold launch after swipe-away resumes the session in memory, but nothing shows it until Story 6.5's Continue card.
+

@@ -205,3 +205,5 @@ View Rotation is renderer-local `ViewOrbit`; a twist is a z Cube Rotation throug
 Lessons draw on `Cube3DRenderer`; arrows are a projected `MoveArrow` overlay, and emphasis uses per-cubie shader flags.
 
 The cube TalkBack summary uses `CubeSummary(CubeState, completion)` with a Read faces action; the Lesson frame label announces Certainty changes.
+
+Session snapshots use Room 3 and a serial I/O writer in `app/data`, with pure ports and DTOs in `core/application`; device checks: `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.rubikxplorer.app.data.SessionSnapshotRestartTest` and `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.rubikxplorer.macrobenchmark.LessonProcessDeathTest`.

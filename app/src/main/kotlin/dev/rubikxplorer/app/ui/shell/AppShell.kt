@@ -77,6 +77,7 @@ fun AppShell(
     // Held above the Lesson task flow so closing a Lesson returns to the same place in the list.
     val learnScroll = rememberScrollState()
 
+    LaunchedEffect(content, host) { (content as? CatalogState.Ready)?.let { host.restore(it.bundle) } }
     val ready = content as? CatalogState.Ready
     val entry = openLesson?.let { ready?.find(LessonId(it)) }
     if (ready != null && entry != null) {

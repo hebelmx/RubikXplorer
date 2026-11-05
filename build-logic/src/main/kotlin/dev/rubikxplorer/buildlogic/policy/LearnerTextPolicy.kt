@@ -12,6 +12,8 @@ package dev.rubikxplorer.buildlogic.policy
  *   `require`, `requireNotNull`, `check`, `checkNotNull`, `error`, `throw`, an `*Exception(` constructor or a
  *   `toString()` override or an `Unavailable` result constructor.
  *
+ * Room 3 `@Query` SQL literals are also exempt: Room validates them, and they are not display copy.
+ *
  * Pure: the Gradle task reads the files and calls [check].
  */
 object LearnerTextPolicy {
@@ -55,12 +57,26 @@ object LearnerTextPolicy {
                 when {
                     !text.any(Char::isLetter) -> null
                     isUiText(code, literal, text) -> Rule.UI_TEXT
+                    isRoomQuery(code, literal) -> null
                     wordCount(text) >= 2 && !isProgrammerError(code, literal) -> Rule.PROSE
                     else -> null
                 } ?: return@mapNotNull null
             Violation(file, KotlinLexer.lineOf(code, literal.start), literal.raw, rule)
         }
     }
+
+    /** Room validates this annotation argument as SQL; it is never display copy. */
+    private fun isRoomQuery(
+        code: String,
+        literal: KotlinLexer.Literal,
+    ): Boolean {
+        val before = code.substring(0, literal.start)
+        val annotation = ROOM_QUERY.find(before) ?: return false
+        return annotation.groupValues[1].isNotEmpty() || ROOM_QUERY_IMPORT.containsMatchIn(code)
+    }
+
+    private val ROOM_QUERY = Regex("""@(?:(androidx\.room3\.)?Query)\s*\(\s*(?:value\s*=\s*)?$""")
+    private val ROOM_QUERY_IMPORT = Regex("""(?m)^\s*import\s+androidx\.room3\.Query\s*$""")
 
     private fun wordCount(text: String): Int = WORD.findAll(text).count()
 

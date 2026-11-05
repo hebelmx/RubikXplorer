@@ -98,6 +98,19 @@ class TransitionsTableTest {
     /** Scenarios per event type; the exhaustive `when` fails to compile when an event type is added. */
     private fun scenarios(sample: SessionEvent): List<Pair<SessionState, SessionEvent>> =
         when (sample) {
+            is SessionEvent.SessionRestored -> {
+                listOf(
+                    SessionState.IDLE to
+                        SessionEvent.SessionRestored(
+                            checkNotNull(SessionSnapshot.of(fresh.after(hint), "saved", "v1")),
+                            checkNotNull(fresh.lesson),
+                            checkNotNull(fresh.tutorConfig),
+                            sample.at,
+                        ),
+                    b to sample,
+                )
+            }
+
             is SessionEvent.LessonStarted -> {
                 listOf(SessionState.IDLE, a, b, askedB, revealed, playback).map { it to lessonStarted(other) }
             }
@@ -196,6 +209,12 @@ class TransitionsTableTest {
 
     private val samples: Map<String, SessionEvent> =
         listOf(
+            SessionEvent.SessionRestored(
+                checkNotNull(SessionSnapshot.of(fresh.after(hint), "saved", "v1")),
+                checkNotNull(fresh.lesson),
+                checkNotNull(fresh.tutorConfig),
+                lessonStarted(other).at,
+            ),
             lessonStarted(other),
             playbackStarted(),
             commit(F),
@@ -253,7 +272,7 @@ class TransitionsTableTest {
         assertEquals(names.size, names.toSet().size, "duplicate rows: $names")
         assertEquals(eventTypes, names.toSet())
         assertEquals(eventTypes, samples.keys)
-        assertEquals(17, eventTypes.size)
+        assertEquals(18, eventTypes.size)
     }
 
     @Test

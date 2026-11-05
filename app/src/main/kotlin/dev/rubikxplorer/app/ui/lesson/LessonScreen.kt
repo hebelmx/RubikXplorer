@@ -125,6 +125,7 @@ fun LessonScreen(
     val session by host.state.collectAsState()
     BackHandler(onBack = onClose)
     LaunchedEffect(lesson.id) {
+        host.awaitRestored()
         if (host.state.value.lesson
                 ?.id != lesson.id
         ) {

@@ -27,6 +27,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import dev.rubikxplorer.app.content.CatalogState
 import dev.rubikxplorer.app.content.LessonCatalog
+import dev.rubikxplorer.app.data.SerialWriter
 import dev.rubikxplorer.app.render.Net2DRenderer
 import dev.rubikxplorer.app.render.RenderedArrow
 import dev.rubikxplorer.app.render.RenderedArrowKey
@@ -45,8 +46,14 @@ import dev.rubikxplorer.app.ui.freecube.FreeCubeViewModel
 import dev.rubikxplorer.app.ui.shell.AppShell
 import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
 import dev.rubikxplorer.application.port.FlagLevel
+import dev.rubikxplorer.application.port.SessionSnapshotRepository
+import dev.rubikxplorer.application.port.SnapshotLoad
+import dev.rubikxplorer.application.port.SnapshotSave
 import dev.rubikxplorer.application.session.GuidedRecovery
 import dev.rubikxplorer.application.session.SessionEvent
+import dev.rubikxplorer.application.session.SessionSnapshot
+import dev.rubikxplorer.application.session.SessionState
+import dev.rubikxplorer.application.session.reduce
 import dev.rubikxplorer.application.usecase.PlanRecovery
 import dev.rubikxplorer.domain.appearance.StickerAppearance
 import dev.rubikxplorer.domain.content.AdaptiveThresholds
@@ -76,6 +83,7 @@ import dev.rubikxplorer.domain.tutor.RecoveryPlan
 import dev.rubikxplorer.domain.tutor.RecoveryPlanner
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import dev.rubikxplorer.domain.tutor.Tutor
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -89,6 +97,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.time.Instant
 
 /** AC 2–4: Show me follows the Demonstration, Guide me reveals on request, and the Objective-met state. */
 @RunWith(RobolectricTestRunner::class)
@@ -96,6 +105,54 @@ import java.util.concurrent.atomic.AtomicBoolean
 class LessonScreenTest {
     @get:Rule
     val rule = createComposeRule()
+
+    @Test
+    fun restoredLessonIsKeptBeforeStartCheck() {
+        val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val ready = CatalogState.Ready(bundle)
+        val entry = ready.lessons.first()
+        val original =
+            reduce(
+                reduce(
+                    SessionState.IDLE,
+                    SessionEvent.LessonStarted(entry.lesson, entry.tutorConfig, Instant.fromEpochMilliseconds(0)),
+                ).state,
+                SessionEvent.MoveCommitted(FaceTurn(Face.R, Turn.CLOCKWISE), Instant.fromEpochMilliseconds(1)),
+            ).state
+        val snapshot =
+            checkNotNull(
+                SessionSnapshot.of(original, "old", bundle.contentRevision),
+            )
+        val repository =
+            object : SessionSnapshotRepository {
+                override suspend fun latest() = SnapshotLoad.Found(snapshot)
+
+                override suspend fun save(snapshot: SessionSnapshot) = SnapshotSave.Saved
+            }
+        val writer = SerialWriter()
+        val restoringHost =
+            SessionHost(
+                TickingClock(),
+                Dispatchers.Default.limitedParallelism(1),
+                repository,
+                writer,
+            )
+        try {
+            rule.setContent {
+                RubikXplorerTheme {
+                    LessonScreen(restoringHost, entry, ready.strings, TeachingMode.entries, {})
+                }
+            }
+            rule.waitForIdle()
+            assertFalse(restoringHost.state.value.isActive)
+            runBlocking { restoringHost.restore(bundle) }
+            rule.waitForIdle()
+            assertEquals(original.history, restoringHost.state.value.history)
+            assertEquals(1L, restoringHost.state.value.revision)
+        } finally {
+            runBlocking { writer.close() }
+        }
+    }
 
     private val host = SessionHost(TickingClock())
     private lateinit var accessibilityHost: android.view.View
@@ -1256,8 +1313,7 @@ class LessonScreenTest {
             .map { Color(StickerAppearance.of(it).fill) }
 
     private val whiteCrossSolvingMove =
-        dev.rubikxplorer.domain.cube
-            .FaceTurn(dev.rubikxplorer.domain.cube.Face.F, dev.rubikxplorer.domain.cube.Turn.COUNTERCLOCKWISE)
+        FaceTurn(Face.F, Turn.COUNTERCLOCKWISE)
 
     /** [times] mistakes on the corner Lesson's step in Test me: R disturbs the cross, Undo takes it back. */
     private fun tripUp(times: Int) {
