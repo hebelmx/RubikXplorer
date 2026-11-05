@@ -29,13 +29,21 @@ fun reduce(
     state: SessionState,
     event: SessionEvent,
 ): Transition {
+    if (event is SessionEvent.CheckpointRestored) return persistCheckpoint(state, restoreCheckpoint(state, event), event)
     if (event is SessionEvent.SessionRestored) return restore(state, event)
     // Persistence failures are reported, never applied: the session and its feedback stay as they are.
-    if (event is SessionEvent.SnapshotSaveFailed || event is SessionEvent.SnapshotLoadFailed) return Transition(state)
+    if (event is SessionEvent.SnapshotSaveFailed || event is SessionEvent.SnapshotLoadFailed ||
+        event is SessionEvent.CheckpointSaveFailed || event is SessionEvent.CheckpointLoadFailed
+    ) {
+        return Transition(state)
+    }
     val starts = event is SessionEvent.LessonStarted || event is SessionEvent.SolvePlaybackStarted
     // Only a Lesson session takes Moves and tutor events; idle and playback sessions ignore them.
     if (!starts && state.kind != SessionKind.LESSON) return Transition(state)
-    val transition = transition(state, event)
+    val transition =
+        persistCheckpoint(state, transition(state, event), event).let {
+            if (it.state.restoreNote == null) it else it.copy(state = it.state.copy(restoreNote = null))
+        }
     // AD-5: feedback and its Diagnosis belong to the last committed Move; every other Lesson event
     // clears them and the Guided recovery (a playback start rejected by an active Lesson is not one,
     // and changes nothing). The Guided recovery events act on that Diagnosis, so they keep it.
@@ -53,25 +61,47 @@ private fun transition(
     event: SessionEvent,
 ): Transition =
     when (event) {
+        is SessionEvent.CheckpointRestored -> restoreCheckpoint(state, event)
+
         is SessionEvent.SessionRestored -> restore(state, event)
+
         is SessionEvent.LessonStarted -> start(state, event)
+
         is SessionEvent.SolvePlaybackStarted -> startPlayback(state, event.state, event.solution)
+
         is SessionEvent.MoveCommitted -> committed(state, event.move)
+
         is SessionEvent.Undo -> state.history.undoable?.let { move(state, state.history.undo(), it.inverse(), null) } ?: Transition(state)
+
         is SessionEvent.Redo -> state.history.redoable?.let { move(state, state.history.redo(), it, null) } ?: Transition(state)
+
         is SessionEvent.Reset -> if (state.hasUnsavedSteps) askReset(state) else reset(state)
+
         is SessionEvent.ResetConfirmed -> confirmed(state, event)
+
         is SessionEvent.ResetDeclined -> declined(state, event)
+
         is SessionEvent.TeachingModeChanged -> modeChanged(state, event)
+
         is SessionEvent.RevealRequested -> Transition(state.copy(revealRequested = true, stepHelped = state.stepHelped + state.stepIndex))
+
         is SessionEvent.HintRequested -> hint(state)
+
         is SessionEvent.UsualHelpRequested -> usualHelp(state)
+
         is SessionEvent.StepAdvanced -> advance(state)
+
         is SessionEvent.RetryRequested -> retry(state)
+
         is SessionEvent.GuidedRecoveryRequested -> guideBack(state)
+
         is SessionEvent.RecoveryPlanned -> planned(state, event)
+
         is SessionEvent.RecoveryPlanFailed -> planFailed(state, event)
-        is SessionEvent.SnapshotSaveFailed, is SessionEvent.SnapshotLoadFailed -> Transition(state)
+
+        is SessionEvent.CheckpointSaveFailed, is SessionEvent.CheckpointLoadFailed,
+        is SessionEvent.SnapshotSaveFailed, is SessionEvent.SnapshotLoadFailed,
+        -> Transition(state)
     }
 
 private fun start(
@@ -144,7 +174,7 @@ private fun startPlayback(
 }
 
 /** Loaded content is validated (Story 2.1), so an undecodable entry state is a programmer error. */
-private fun entryState(lesson: Lesson): CubeState {
+internal fun entryState(lesson: Lesson): CubeState {
     val decoded = FaceletString.decode(lesson.entryState)
     check(decoded is FaceletStringResult.Decoded) { "Lesson ${lesson.id} has a malformed entry state: $decoded" }
     val validated = CubeValidator.validate(decoded.facelets)
@@ -169,7 +199,7 @@ private fun committed(
     val assessed = mode == TeachingMode.TEST_ME || (state.adaptiveAssistance && mode in ADAPTIVE_MODES)
     val assessment =
         if (lesson != null && assessed) {
-            Assess.classify(lesson, state.entry, state.virtual, move, history.state, checkNotNull(state.tutorConfig))
+            Assess.classify(lesson, state.pathEntry, state.virtual, move, history.state, checkNotNull(state.tutorConfig))
         } else {
             null
         }
@@ -201,7 +231,7 @@ private fun adapted(
 ): SessionState {
     val mistakes =
         if (harmful) {
-            val step = Tutor.currentStep(lesson, before.entry, before.virtual)
+            val step = Tutor.currentStep(lesson, before.pathEntry, before.virtual)
             before.stepMistakes + (step to (before.stepMistakes[step] ?: 0) + 1)
         } else {
             before.stepMistakes
@@ -255,7 +285,7 @@ private fun withNotice(
     lesson: Lesson,
 ): SessionState {
     val shownBefore = before.stepIndex
-    val current = Tutor.currentStep(lesson, moved.entry, moved.virtual)
+    val current = Tutor.currentStep(lesson, moved.pathEntry, moved.virtual)
     // Only a step that is done now (effective done, AD-6) earns its Notice: a return onto the path mid-step may not redo earlier steps.
     val notice = shownBefore.takeIf { current > it && !moved.objectiveMet && Tutor.stepDone(lesson, it, moved.virtual) }
     val next = moved.copy(noticeStep = notice)
@@ -491,7 +521,6 @@ private fun restore(
     }
     val decoded = FaceletString.decode(snapshot.start) as? FaceletStringResult.Decoded ?: return Transition(state)
     val validated = CubeValidator.validate(decoded.facelets) as? ValidationResult.Valid ?: return Transition(state)
-    if (validated.state != entryState(event.lesson)) return Transition(state)
     val done = (Notation.parse(snapshot.done) as? NotationResult.Parsed)?.moves ?: return Transition(state)
     val undone = (Notation.parse(snapshot.undone) as? NotationResult.Parsed)?.moves ?: return Transition(state)
     val solution = (Notation.parse(snapshot.solution) as? NotationResult.Parsed)?.moves ?: return Transition(state)
@@ -521,6 +550,67 @@ private fun restore(
             cleanCredited = snapshot.cleanCredited,
             stepHelped = snapshot.stepHelped,
             assistanceDismissed = snapshot.assistanceDismissed,
+        )
+    return Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.virtual)))
+}
+
+/** Append after existing effects so IDs and serial writes follow commit order. */
+private fun persistCheckpoint(
+    before: SessionState,
+    transition: Transition,
+    event: SessionEvent,
+): Transition {
+    val next = transition.state
+    val lesson = next.lesson ?: return transition
+    val history = next.checkpoint ?: return transition
+    val restored = event is SessionEvent.CheckpointRestored && next !== before
+    if (event is SessionEvent.SessionRestored ||
+        (history == before.checkpoint && event !is SessionEvent.LessonStarted && !restored)
+    ) {
+        return transition
+    }
+    val effect =
+        Effect.PersistCheckpoint(
+            next.nextEffectId,
+            next.revision,
+            lesson.id.value,
+            lesson.stageId.value,
+            history,
+            next.teachingMode,
+            next.adaptiveAssistance,
+            event.at,
+        )
+    return transition.copy(state = next.copy(nextEffectId = next.nextEffectId + 1), effects = transition.effects + effect)
+}
+
+private fun restoreCheckpoint(
+    state: SessionState,
+    event: SessionEvent.CheckpointRestored,
+): Transition {
+    val checkpoint = event.checkpoint
+    if (state.isActive || checkpoint.kind != SessionKind.LESSON || checkpoint.lessonId != event.lesson.id.value) return Transition(state)
+
+    fun decode(
+        facelets: String,
+        orientation: String,
+    ): CubeState? {
+        val decoded = FaceletString.decode(facelets) as? FaceletStringResult.Decoded ?: return null
+        val valid = CubeValidator.validate(decoded.facelets) as? ValidationResult.Valid ?: return null
+        return valid.state.takeIf { it.orientation.id() == orientation }
+    }
+    val start = decode(checkpoint.start, checkpoint.startOrientation) ?: return Transition(state)
+    val cube = decode(checkpoint.cube, checkpoint.cubeOrientation) ?: return Transition(state)
+    val moves = (Notation.parse(checkpoint.history) as? NotationResult.Parsed)?.moves ?: return Transition(state)
+    val stored = moves.fold(MoveHistory(start)) { history, move -> history.commit(move) }
+    if (stored.state != cube) return Transition(state)
+    val restart = checkpoint.contentRevision != event.contentRevision || checkpoint.stageId != event.lesson.stageId.value
+    val history = if (restart) MoveHistory(cube) else stored
+    val fresh = start(state, SessionEvent.LessonStarted(event.lesson, event.tutorConfig, event.at, checkpoint.adaptiveAssistance)).state
+    val next =
+        withHistory(fresh.copy(revision = state.revision), history).copy(
+            checkpoint = history,
+            teachingMode = checkpoint.teachingMode,
+            restoreNote = if (restart) Text("msg.lesson.updated") else null,
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.virtual)))
 }

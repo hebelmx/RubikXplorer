@@ -1,11 +1,17 @@
 package dev.rubikxplorer.app.session
 
 import dev.rubikxplorer.app.data.SerialWriter
+import dev.rubikxplorer.application.port.CheckpointLoad
+import dev.rubikxplorer.application.port.CheckpointRepository
+import dev.rubikxplorer.application.port.CheckpointSave
 import dev.rubikxplorer.application.port.Clock
 import dev.rubikxplorer.application.port.SessionSnapshotRepository
 import dev.rubikxplorer.application.port.SnapshotLoad
 import dev.rubikxplorer.application.port.SnapshotSave
+import dev.rubikxplorer.application.session.Checkpoint
+import dev.rubikxplorer.application.session.Effect
 import dev.rubikxplorer.application.session.SessionEvent
+import dev.rubikxplorer.application.session.SessionKind
 import dev.rubikxplorer.application.session.SessionSnapshot
 import dev.rubikxplorer.application.session.SessionState
 import dev.rubikxplorer.application.session.Transition
@@ -36,16 +42,17 @@ class SessionHost internal constructor(
     private val confined: CoroutineDispatcher,
     private val repository: SessionSnapshotRepository? = null,
     private val writer: SerialWriter? = null,
+    private val checkpoints: CheckpointRepository? = null,
     /** Sees every event this host reduced, in order; tests use it to observe events that change no state. */
     private val reduced: (SessionEvent) -> Unit = {},
 ) {
     @Inject
-    constructor(clock: Clock, repository: SessionSnapshotRepository, writer: SerialWriter) :
-        this(clock, Dispatchers.Default.limitedParallelism(1), repository, writer)
+    constructor(clock: Clock, repository: SessionSnapshotRepository, writer: SerialWriter, checkpoints: CheckpointRepository) :
+        this(clock, Dispatchers.Default.limitedParallelism(1), repository, writer, checkpoints = checkpoints)
 
     constructor(clock: Clock) : this(clock, Dispatchers.Default.limitedParallelism(1))
 
-    private val restored = CompletableDeferred<Unit>().also { if (repository == null) it.complete(Unit) }
+    private val restored = CompletableDeferred<Unit>().also { if (repository == null && checkpoints == null) it.complete(Unit) }
     private val restoring = Mutex()
     private var sessionId = ""
     private var contentRevision: String? = null
@@ -84,11 +91,26 @@ class SessionHost internal constructor(
             }
         // AD-16: a failed read is an event, not an absent snapshot; the state stays idle, so the Lesson starts fresh.
         if (loaded is SnapshotLoad.Failed) dispatch { SessionEvent.SnapshotLoadFailed(it) }
-        val latest = loaded as? SnapshotLoad.Found ?: return
-        val snapshot = latest.snapshot
-        if (!snapshot.kind.resumesOnColdStart || snapshot.contentRevision != bundle.contentRevision) return
-        val lesson = bundle.stages.flatMap { it.lessons }.firstOrNull { it.id.value == snapshot.lessonId } ?: return
-        dispatch { SessionEvent.SessionRestored(snapshot, lesson, bundle.tutorConfig, it) }
+        val snapshot = (loaded as? SnapshotLoad.Found)?.snapshot
+        if (snapshot?.kind == SessionKind.SOLVE_PLAYBACK) return
+        if (snapshot != null && snapshot.kind.resumesOnColdStart && snapshot.contentRevision == bundle.contentRevision) {
+            val lesson = bundle.stages.flatMap { it.lessons }.firstOrNull { it.id.value == snapshot.lessonId }
+            if (lesson != null) dispatch { SessionEvent.SessionRestored(snapshot, lesson, bundle.tutorConfig, it) }
+        }
+        if (state.value.isActive) return
+        val checkpoint =
+            try {
+                writer?.read { checkpoints?.find(SessionKind.LESSON) }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                CheckpointLoad.Failed
+            }
+        if (checkpoint is CheckpointLoad.Failed) dispatch { SessionEvent.CheckpointLoadFailed(it) }
+        if (checkpoint is CheckpointLoad.Found) {
+            val lesson = bundle.stages.flatMap { it.lessons }.firstOrNull { it.id.value == checkpoint.checkpoint.lessonId } ?: return
+            dispatch { SessionEvent.CheckpointRestored(checkpoint.checkpoint, lesson, bundle.tutorConfig, bundle.contentRevision, it) }
+        }
     }
 
     private val current = MutableStateFlow(SessionState.IDLE)
@@ -108,7 +130,7 @@ class SessionHost internal constructor(
             reduced(stamped)
             if (transition.state !== before && transition.state.isActive) {
                 if (stamped is SessionEvent.LessonStarted || stamped is SessionEvent.SolvePlaybackStarted ||
-                    stamped is SessionEvent.SessionRestored
+                    stamped is SessionEvent.SessionRestored || stamped is SessionEvent.CheckpointRestored
                 ) {
                     sessionId = UUID.randomUUID().toString()
                 }
@@ -125,6 +147,24 @@ class SessionHost internal constructor(
                                 SnapshotSave.Failed
                             }
                         if (saved is SnapshotSave.Failed) dispatch { SessionEvent.SnapshotSaveFailed(it) }
+                    }
+                }
+            }
+            transition.effects.filterIsInstance<Effect.PersistCheckpoint>().forEach { effect ->
+                val dto = Checkpoint.of(effect, contentRevision.orEmpty())
+                if (checkpoints != null) {
+                    writer?.enqueue {
+                        val saved =
+                            try {
+                                checkpoints.save(dto)
+                            } catch (
+                                cancelled: kotlinx.coroutines.CancellationException,
+                            ) {
+                                throw cancelled
+                            } catch (_: Exception) {
+                                CheckpointSave.Failed
+                            }
+                        if (saved is CheckpointSave.Failed) dispatch { SessionEvent.CheckpointSaveFailed(it) }
                     }
                 }
             }

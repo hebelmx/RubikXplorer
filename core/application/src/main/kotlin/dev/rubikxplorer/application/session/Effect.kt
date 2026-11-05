@@ -13,6 +13,17 @@ sealed interface Effect {
     val effectId: Long
     val revision: Long
 
+    data class PersistCheckpoint(
+        override val effectId: Long,
+        override val revision: Long,
+        val lessonId: String,
+        val stageId: String,
+        val history: dev.rubikxplorer.domain.cube.MoveHistory,
+        val teachingMode: dev.rubikxplorer.domain.tutor.TeachingMode,
+        val adaptiveAssistance: Boolean,
+        val at: kotlin.time.Instant,
+    ) : Effect
+
     /** Solve a validated Cube State without changing the session. */
     data class SolveCube(
         override val effectId: Long,

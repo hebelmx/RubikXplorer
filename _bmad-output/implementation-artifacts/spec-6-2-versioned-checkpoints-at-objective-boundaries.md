@@ -2,8 +2,8 @@
 title: 'Story 6.2: Versioned Checkpoints at Objective boundaries'
 type: 'feature'
 created: '2026-11-05'
-baseline_revision: '8570775fa83d0e56c6fbe336668897119f8a4092'
-status: 'blocked'
+baseline_revision: 'c44b99a51cbef067d7a10447667de7108fac10b9'
+status: 'done'
 review_loop_iteration: 0
 followup_review_recommended: false
 context:
@@ -81,60 +81,77 @@ deferred: []
 
 ## Code Map
 
-- `core/application/.../session/Reduce.kt` -- `reduce()` is the top-level guard: add `CheckpointRestored` beside `SessionRestored` and the failure events beside `SnapshotSaveFailed`. Put the central PersistCheckpoint append and the `restoreNote` clear there.
-  - Reuse: `start()` for the fresh tutor fields, `withHistory` (revision +1, objectiveMet/progress), and `restore()` (6.1) as the decode pattern. Drop its `validated.state != entryState(lesson)` check.
-  - `move()` sets the boundary Checkpoint; `reset()` sets it to the entry.
-- `.../session/Effect.kt` -- add `PersistCheckpoint`. `SessionEvent.kt` -- add `CheckpointRestored`, `CheckpointSaveFailed` and `CheckpointLoadFailed`. `SessionState.kt` -- add `restoreNote` (IDLE null; KDoc in the tutor list).
-- `.../session/SessionSnapshot.kt` -- the 6.1 DTO pattern to mirror. `TRANSITIONS.md` and `TransitionsTableTest.kt` need new rows (the `when` is exhaustive, and the samples map needs each event):
-  - `CheckpointRestored | session, virtual, tutor, checkpoint | no | yes`
-  - `CheckpointSaveFailed | — | no | no`
-  - `CheckpointLoadFailed | — | no | no`
-  - Also update the idle sentence and add prose for emission and `restoreNote`.
-- Existing core tests that assert `effects` empty or exact `nextEffectId` after `LessonStarted`/Reset/boundaries (`ReduceTest`, `SessionSnapshotTest:59-61`, `StaleEffectTest`, `GuidedRecoverySessionTest`, `TutorEventsTest`, `HintLadderSessionTest`) -- update to ignore or expect `PersistCheckpoint`. Never weaken what they assert about the other effects.
-- `core/domain/.../cube/Orientation.kt` -- `Orientation.of(up, front)`, `up`, `front`. `CubeState.orientation`. `FaceletString` + `CubeValidator` derive the orientation from the centers.
-- `core/domain/src/main/resources/content/strings/en.json` -- add `msg.lesson.updated`. `ContentStringsTest` shows the resolve pattern.
-- `app/.../data/` -- mirror 6.1's files:
-  - `RubikDatabase.kt` (v1 → 2; an `@AutoMigration` or `Migration`, verified against room3 3.0.3 docs).
-  - `SnapshotPayload.kt` / `RoomSessionSnapshotRepository.kt` are the codec and repository patterns.
-  - `SerialWriter` has `enqueue`, `read` and `flush`.
-- `app/.../session/SessionHost.kt` -- `dispatch` (the effect handling goes beside the snapshot enqueue) and `restoreLatest`. Default the new `checkpoints` param to null so the test constructor keeps working. Update the `@Inject` constructor.
-- `app/.../di/PersistenceModule.kt` -- bind `CheckpointRepository`, and add the migration if it is manual.
-- `app/.../ui/lesson/LessonScreen.kt` (`LessonBody`/panel) -- render the note. The start check at l.127-133 already keeps a restored Lesson with the same id.
-- `app/src/test/.../data/{SessionDatabaseMigrationTest,SessionHostPersistenceTest}.kt`, `app/src/sharedTest/.../data/SnapshotRestartScenario.kt` -- the file-DB restart harness to reuse.
+**Starting point.** The working tree already holds the earlier full implementation of this spec (applied from the saved intent-gap patch, uncommitted). It covers the DTO, the port, Room v2, the host write and restore paths, the note and their tests. Keep it and add only the **Tutor path entry** delta and the extra test below. Do not rewrite what exists.
+
+**The delta: the Tutor path entry (PO clarifications 1 and 2).**
+- `core/application/.../session/SessionState.kt` -- `entry` (l.~206) is `history.start`. It stays the session's start: Reset target, snapshot `start`, Solution Playback's start. Add a derived `pathEntry: CubeState`:
+  - in a Lesson, the Lesson's decoded authored `entryState`;
+  - otherwise `history.start`.
+  - Make it a `by lazy(PUBLICATION)` like `decision`. It is never stored or snapshotted.
+  - `stepIndex` (l.~184) passes `pathEntry` to `Tutor.shownStep`, and `decision` passes it to `Assess.decide`.
+- `core/application/.../session/Reduce.kt`:
+  - `entryState(lesson)` (l.177) is the decoder to share. Make it `internal` or move it beside `SessionState`.
+  - `move()` (l.~202, l.~234, l.~288) passes `pathEntry` instead of `entry` to `Assess.classify` and `Tutor.currentStep`.
+  - `reset()` and `restoreCheckpoint()` stay as they are: the history starts at the stored cube.
+- `core/domain/.../tutor/Assess.kt` -- `decide` (l.~168) derives the shown step from `history.start`. Add an `entry: CubeState` parameter for the path entry and use it there. Default it to `history.start` only if that keeps existing tests compiling; never change their expectations.
+- `app/.../ui/lesson/LessonScreen.kt` -- `Tutor.nextMove` (l.~371 arrow, l.~464 guide) and `Tutor.reorient` (l.~502, the Lesson's hold) take `session.pathEntry`.
+- The existing off-path behavior is already "the recovery behavior" the PO names:
+  - `nextMove` returns null off the path, so there is no guide chip, no hint arrow, the Assistance line says to Undo back, and the TARGET hint line is hidden (`stepCard`, l.~464-511).
+  - `isOnPath` is false, so there is no ON_PATH feedback. `currentStep` falls back to the first unmet step.
+  - No new recovery code is needed. It must simply be reached through `pathEntry`.
+
+**Already implemented (patch); reference only.**
+- `core/application/.../session/{Checkpoint,Effect,SessionEvent,SessionState,Reduce}.kt`, `TRANSITIONS.md`, `port/CheckpointRepository.kt`.
+- `core/domain/src/main/resources/content/strings/en.json` (`msg.lesson.updated`).
+- `app/.../data/{CheckpointEntity,CheckpointDao,CheckpointPayload,RoomCheckpointRepository,RubikDatabase}.kt`, `app/schemas/.../2.json`.
+- `app/.../di/PersistenceModule.kt`, `app/.../session/SessionHost.kt` (`dispatch`, `restoreLatest`), and `LessonScreen.kt` (the `lesson:restoreNote` line).
+- Tests:
+  - core: `CheckpointTest`, `ReduceTest`, `SessionSnapshotTest`, `TransitionsTableTest`;
+  - app: `CheckpointPayloadTest`, `RoomCheckpointRepositoryTest`, `SessionDatabaseMigrationTest`, `SessionHostCheckpointTest`, `LessonScreenTest`, fixture `app/src/test/resources/checkpoint/format-1.json`.
+- `docs/ARCHITECTURE.md`.
 
 ## Tasks & Acceptance
 
 **Execution:**
-- `core/application/.../session/{Checkpoint.kt (new),Effect.kt,SessionEvent.kt,SessionState.kt,Reduce.kt,TRANSITIONS.md}` -- the DTO, `Checkpoint.of`, orientation-id helpers, `CubeMode`, the emission, `CheckpointRestored` (resume/restart), the relaxed snapshot start, the failure events and `restoreNote`.
-- `core/application/.../port/CheckpointRepository.kt` (new) -- the port and its sealed results.
-- `core/domain/src/main/resources/content/strings/en.json` -- `"msg.lesson.updated": "This lesson was updated. We've restarted it with your cube as it was."`
-- `app/.../data/{CheckpointEntity,CheckpointDao,CheckpointPayload,RoomCheckpointRepository}.kt` (new), `RubikDatabase.kt` -- v2 and the versioned codec. Export `app/schemas/.../2.json`.
-- `app/.../session/SessionHost.kt`, `app/.../di/PersistenceModule.kt` -- the write path and the Checkpoint fallback restore.
-- `app/.../ui/lesson/LessonScreen.kt` -- the note line (`testTag("lesson:restoreNote")`).
-- Tests (JVM, core):
-  - `CheckpointTest`: the emission cases, effect ids, `Checkpoint.of` fields, every reducer row of the matrix, and that the restored IDLE/non-IDLE guards hold.
-  - Updated `TransitionsTableTest`, `SessionSnapshotTest` (the start-mismatch case now restores), and the effect assertions listed in the Code Map.
-- Tests (app):
-  - `CheckpointPayloadTest`: round-trip of format 1, and an exact JSON key set. It decodes the frozen fixtures `app/src/test/resources/checkpoint/format-<n>.json` for every n in 1..CURRENT to their expected DTOs, so a test fails if a fixture is missing. Unknown format and broken JSON throw.
-  - `RoomCheckpointRepositoryTest`: replace per kind, corrupt → `Failed`, closed DB → `Failed`.
-  - `SessionDatabaseMigrationTest`: v1 with a snapshot row migrates to v2, validates, and keeps the row.
-  - `SessionHostCheckpointTest` (file DB, restart through a new DB/writer/host):
-    - The boundary writes a row with the DTO keys.
-    - A changed revision restarts at the stored cube with the note.
-    - A changed stage restarts with the note.
-    - A missing lesson stays IDLE.
-    - The same revision with the snapshot row deleted resumes silently.
-    - A latest playback snapshot means no fallback.
-    - A failing repository dispatches the failure events.
-  - `LessonScreenTest`: a content-changed restore shows the exact English sentence and keeps the stored cube.
-- `docs/ARCHITECTURE.md` -- one line: the `checkpoint` table and its fallback role.
+- `core/application/.../session/SessionState.kt` -- add `pathEntry` and use it in `stepIndex` and `decision`. Update the KDoc on `entry`, `history` and the class to say that the Tutor walks the authored path from `pathEntry`, while `entry` is where Reset returns.
+- `core/application/.../session/Reduce.kt` -- share `entryState`, and use `pathEntry` in `move()`'s classify and current-step calls.
+- `core/domain/.../tutor/Assess.kt` -- give `decide` the path entry.
+- `app/.../ui/lesson/LessonScreen.kt` -- use `session.pathEntry` for `nextMove` and `reorient`.
+- `core/application/.../session/TRANSITIONS.md` -- one sentence: after a restart, the Tutor's step and path come from the Lesson's authored entry; history and Reset come from the stored cube.
+- `core/application/src/test/.../session/CheckpointTest.kt` -- add the restart-path cases:
+  - (a) **On-path cube.** The stored cube is the authored entry plus all of step 0's Moves (a Lesson with at least 2 steps).
+    - After a revision-changed `CheckpointRestored`, `stepIndex` is 1.
+    - `Tutor.nextMove(lesson, s.pathEntry, s.virtual)` is step 1's first authored Move.
+    - Committing that Move in *Test me* gives `ON_PATH`.
+    - `history.start` is the stored cube, and Reset returns there.
+  - (b) **Off-path cube.** The stored cube is on no authored path (for example, the entry plus a Move that is not authored).
+    - `nextMove` is null, and `stepIndex` is the first unmet step.
+    - Committing step 0's first authored Move gives no `ON_PATH`.
+    - After Moves that return the cube to an authored path state, `nextMove` is non-null again.
+- `app/src/test/.../ui/lesson/LessonScreenTest.kt` -- a revision-changed restore with an on-path mid-Lesson cube shows step 2 of N (not step 1).
+- `app/src/test/.../data/SessionHostCheckpointTest.kt` -- add `decoded-invalid-history`: a snapshot row that decodes, but whose `done` Notation is invalid, is rejected by the reducer, and the host falls back to the Checkpoint (resume, no note).
 
 **Acceptance Criteria:**
 - Given a Lesson Move that reaches an Objective boundary, when the reducer emits `PersistCheckpoint`, then the stored `checkpoint` row's payload holds exactly `checkpointFormat`, `kind`, `contentRevision`, `lessonId`, `stageId`, `start`, `startOrientation`, `cube`, `cubeOrientation`, `history`, `mode`, `teachingMode`, `adaptiveAssistance` and `savedAt`, written off the main thread through the serial writer.
 - Given a stored Checkpoint whose `contentRevision` or `stageId` no longer matches the loaded content, when the app restores on cold start, then the Lesson screen shows the stored cube at the start of the Lesson and the text "This lesson was updated. We've restarted it with your cube as it was."
+- Given that restart with a stored cube on the updated Lesson's authored path after step k, when the Tutor derives the step, then the step card shows step k+1 and the guide Move, hint arrow and ON_PATH feedback follow the authored path from there, while Undo has nothing to undo and Reset returns to the stored cube.
+- Given that restart with a stored cube on no authored path, when the Learner opens guidance, then there is no guide Move or hint arrow, a Move gives no ON_PATH feedback, the existing off-path recovery line shows, and path guidance returns once the cube reaches an authored path state.
 - Given every Checkpoint format from 1 to the current one, when `./gradlew spotlessCheck build` runs, then the round-trip test and the frozen-fixture decoder tests pass, and the v1→v2 migration test passes.
 
 ## Spec Change Log
+
+### 2026-11-05 — Re-plan after the intent gap (PO clarifications)
+- **Trigger.** The follow-up review's medium intent gap: after a content-update restart, the Tutor used the stored cube as its path entry (step 0), so the guidance undid mid-Lesson progress.
+- **PO answers.**
+  1. The Tutor derives the step and the authored path from the updated Lesson's authored entry, so a mid-Lesson stored cube lands on its first unmet step. The move history and Reset still start at the stored cube.
+  2. A stored cube on no authored path gets the existing recovery behavior instead of path guidance (guide Move, ON_PATH feedback, hints) until it is back on an authored path.
+- **Amended.**
+  - Added `SessionState.pathEntry` and routed every Tutor and Assess path call to it.
+  - Added two ACs and the restart-path tests.
+  - Rewrote the Design Note "Why the restart enters at the stored cube".
+  - Carried the verification-gap test from the follow-up pass.
+- **Avoids.** Guidance that leads a restarted Learner to undo work already done.
+- **KEEP.** Everything from the earlier implementation: the DTO, emission, write path, codec and fixtures, migration, host fallback, the note (which wraps, with no `maxLines`), and the rotated-cube and host-matrix tests.
 
 ## Review Triage Log
 
@@ -180,10 +197,31 @@ deferred: []
   - `[low]` `[reject]` (intent) `LessonScreen` shows `restoreNote` without checking that the session's Lesson is the one on screen — opening another Lesson dispatches `LessonStarted`, which clears the note; at most one frame.
   - `[false]` `[reject]` (intent) a `PersistCheckpoint` handled before `restore()` stores `contentRevision = ""` — `LessonScreen` waits on `awaitRestored()` before any `LessonStarted`, so no Lesson effect can precede the revision being set.
 
+### 2026-11-05 — Review pass (re-plan after PO clarifications)
+- verdicts: 16 findings — high 0, medium 1, low 8, false 7, maybe-false 0
+- findings:
+  - `[false]` `[reject]` (blind) at USUAL assistance, the off-path check in `LessonScreen.stepCard` is skipped, so a revealed card still shows the step's authored Move chips — PO clarification 2 asks for "the existing recovery behavior". The diff delivers exactly that: every off-path cube already behaves this way today, and the arrow (`nextMove` returns null) and ON_PATH (`isOnPath` returns false) are suppressed at every level. Hiding chips at USUAL would be new behavior.
+  - `[low]` `[reject]` (blind) the off-path Assistance line says "Undo back", but a restart has nothing to undo, and Try again returns to the same off-path cube — this is the existing off-path behavior PO clarification 2 selects. GUIDE only appears after Harmful Moves on the step, so Moves exist by then. New copy or branches would be new behavior.
+  - `[low]` `[reject]` (blind) the v1→v2 migration leaves the checkpoint table empty, so an upgrade together with a content change loses the cube — carried: no released v1 install exists, and the next Objective boundary writes the row.
+  - `[low]` `[reject]` (blind) the snapshot and Checkpoint writes are separate, so process death between them can leave mismatched records — carried: both writes are adjacent on one serial writer; a cross-table transaction adds a new API for an unlikely case.
+  - `[low]` `[patch]` (blind) the restart-path tests change only the revision string, never the Lesson — added the `CheckpointTest` "restart walks the updated lesson's authored path while history starts at the stored cube" test (a `copy` with a new entry and steps; `pathEntry`, `stepIndex` and `nextMove` follow it). It passes.
+  - `[false]` `[reject]` (blind) the host matrix saves only after the whole demonstration, so Moves after a boundary are untested — a row is written only on `PersistCheckpoint`, and `CheckpointTest` "ordinary moves … never persist" shows that ordinary Moves never emit it, so later Moves cannot reach the row.
+  - `[false]` `[reject]` (blind) the snapshot round trip after a restart is untested for step, next Move and Reset — `pathEntry` is derived from the Lesson in every state, never stored or snapshotted. `CheckpointTest` "changed content … later snapshot preserves its entry" round-trips a restarted snapshot and keeps its start.
+  - `[low]` `[patch]` (blind) the frozen `format-1.json` fixture was trivial (start equal to cube, the same orientations, empty history), so a decoder that swapped fields would still pass — the fixture and `checkpointFixture()` now hold a real example: `x F U'` start in `FD`, history `R U y F'`, cube in `FR`. `CheckpointPayloadTest` and `RoomCheckpointRepositoryTest` pass.
+  - `[low]` `[reject]` (blind) there is no test that cancels and retries the Checkpoint read — the restore runs once at start-up, so cancelling it is unlikely; the test needs suspendable fakes, which is more than a direct fix.
+  - `[medium]` `[patch]` (blind) no screen test covers restored guidance — same root cause as the verification-gap row.
+  - `[false]` `[reject]` (edge) at USUAL, off-path restarts show authored Moves instead of the promised recovery — same as the first blind row: the promise is the existing off-path behavior, and the diff delivers it.
+  - `[medium]` `[patch]` (verification-gap) reverting the screen's `nextMove` calls to `session.entry` failed no test — added `LessonScreenTest` restored on-path cases (arrow `R2`, single chip `moveChip:R2`, Step 2 of 4) and an off-path case (no arrow, no chips, the off-path Assistance line). A mutation check reverted each call in turn, and both tests failed each time.
+  - `[false]` `[reject]` (intent) the contract's "(the new entry)" conflicts with a Tutor that walks from the authored entry — PO clarification 1 resolves it: the history entry and Reset target are the stored cube, and only the Tutor's path entry is the authored one.
+  - `[false]` `[reject]` (intent) off the path, hint lines and chips at non-GUIDE levels remain (reading C1 against C2) — "existing recovery behavior" selects C1: the diff adds no new suppression, as the PO asked.
+  - `[low]` `[reject]` (intent) right after a restart the Undo-back line and the recovery offers point back to the stored off-path cube — same as the blind Undo row; this is the existing behavior.
+  - `[low]` `[patch]` (intent) no test restores against a Lesson that really changed — same root cause and patch as the blind restart-path row.
+
 ## Design Notes
 
-- **Why the restart enters at the stored cube.** AD-10 says "falls back to the start of the Lesson with the stored cube". The changed Lesson's entry state and path may no longer lead to the Learner's cube, so the stored cube becomes the session's entry. `Tutor` then derives the step from there (step 0). Reset returns to it, and a Notation history from the new content's entry is never invented. A later snapshot therefore has `start ≠ lesson.entryState`, which is why `SessionRestored` drops that check.
-- **Undo barrier.** The restart has nothing to undo or redo. The same-content resume clears redo, but keeps the Checkpoint's Moves undoable, because the step derivation walks the authored path from the Lesson entry (AD-6). A history re-rooted at the Checkpoint would misplace the step. Physical-mode barriers arrive with Epic 8.
+- **Two entries after a restart.** AD-10 says "falls back to the start of the Lesson with the stored cube". So the session's history, its Undo barrier and Reset start at the stored cube (`entry` = `history.start`). The Tutor still judges the cube against the updated Lesson's authored path from the Lesson's own entry (`pathEntry`, AD-6). A mid-Lesson cube is therefore on its real step, as `currentStep`'s path match and first-unmet-step rules already define. With unchanged content, `entry` and `pathEntry` are equal. A later snapshot has `start ≠ lesson.entryState`, which is why `SessionRestored` drops that check.
+- **Off the path.** No new code is needed. `nextMove` returns null and `isOnPath` returns false, so the screen's existing off-path branch (no chips or arrow, the Undo-back Assistance line, the TARGET line hidden) and the Diagnosis and recovery offers apply. Guidance returns by itself once the cube reaches an authored path state.
+- **Undo barrier.** The restart has nothing to undo or redo. The same-content resume clears redo but keeps the Checkpoint's Moves undoable. Physical-mode barriers arrive with Epic 8.
 - **Format versioning.** There is only format 1 today. The frozen `format-1.json` fixture is its permanent decoder test: a future bump adds `format-2.json` and keeps the format-1 decoder, and the fixture loop fails if either is missing.
 - **Missing lesson.** No Lesson exists to restart, so the state stays IDLE. Surfacing this belongs to 6.5's Continue card.
 
@@ -191,77 +229,58 @@ deferred: []
 
 **Commands:**
 - `./gradlew spotlessCheck build` -- expected: pass (JVM tests, Kover ≥ 80% on `:core:*`, gates, APKs).
-- `./gradlew :core:application:test :app:testDebugUnitTest --tests '*Checkpoint*' --tests '*Snapshot*' --tests '*Persistence*' --tests '*Migration*' --tests '*TransitionsTable*' --tests '*LessonScreen*'` -- expected: pass.
+- `./gradlew :core:domain:test :core:application:test :app:testDebugUnitTest --tests '*Checkpoint*' --tests '*Snapshot*' --tests '*Persistence*' --tests '*Migration*' --tests '*TransitionsTable*' --tests '*LessonScreen*' --tests '*Assess*' --tests '*Tutor*'` -- expected: pass.
 
 ## Auto Run Result
 
 **Summary:**
-- The reducer now emits `Effect.PersistCheckpoint` whenever a Lesson's Checkpoint is set: at `LessonStarted`, at an applied Reset, at each Objective boundary, and at an applied `CheckpointRestored`. `SessionHost` turns it into a pure, versioned `Checkpoint` DTO and writes it through the serial writer to a new Room `checkpoint` table (schema v2, auto-migrated from v1).
-- On cold start, when no snapshot resumes, the host restores the LESSON Checkpoint through `SessionEvent.CheckpointRestored`:
+- The reducer emits `Effect.PersistCheckpoint` whenever a Lesson's Checkpoint is set: at `LessonStarted`, at an applied Reset, at each Objective boundary, and at an applied `CheckpointRestored`. `SessionHost` stores it as a versioned `Checkpoint` DTO through the serial writer in a new Room `checkpoint` table (schema v2, migrated from v1).
+- On cold start, when no snapshot resumes, the host restores the LESSON Checkpoint:
   - With unchanged content it resumes at the Checkpoint history.
-  - With a changed `contentRevision` or `stageId` it restarts the Lesson at the stored cube.
-  - The Lesson screen then shows "This lesson was updated. We've restarted it with your cube as it was."
+  - With a changed `contentRevision` or `stageId` it restarts the Lesson at the stored cube, and the Lesson screen shows "This lesson was updated. We've restarted it with your cube as it was."
+- The PO clarifications are implemented by a new derived field, `SessionState.pathEntry`, the updated Lesson's authored entry:
+  - The Tutor's step, the guide Move, the hint arrow, ON_PATH and Diagnoses walk the path from `pathEntry`. A mid-Lesson stored cube lands on its first unmet step.
+  - History, Undo and Reset start at the stored cube (`entry`).
+  - A stored cube on no authored path gets the existing off-path behavior until it rejoins the path.
+- The saved intent-gap patch was used as the starting point and then deleted.
 
 **Files:**
-- `core/application/.../session/Checkpoint.kt` (new) — the DTO, `Checkpoint.of`, `CubeMode`, and the orientation ids.
-- `core/application/.../session/{Effect,SessionEvent,SessionState,Reduce}.kt`, `TRANSITIONS.md`:
-  - `PersistCheckpoint`, `CheckpointRestored`, `CheckpointSaveFailed`, `CheckpointLoadFailed` and `restoreNote`.
-  - The central emission and the resume/restart reduction.
-  - The relaxed snapshot start check.
-- `core/application/.../port/CheckpointRepository.kt` (new) — the port with sealed results.
-- `core/domain/.../content/strings/en.json` — `msg.lesson.updated`.
-- `app/.../data/{CheckpointEntity,CheckpointDao,CheckpointPayload,RoomCheckpointRepository}.kt` (new), `RubikDatabase.kt` — v2 and the format-dispatching codec.
-- `app/schemas/.../2.json` — the exported schema.
-- `app/.../di/PersistenceModule.kt`, `app/.../session/SessionHost.kt` — the wiring, the write path and the Checkpoint fallback restore.
-- `app/.../ui/lesson/LessonScreen.kt` — the note line (`lesson:restoreNote`), which wraps.
+- `core/application/.../session/{Checkpoint,Effect,SessionEvent,SessionState,Reduce}.kt`, `TRANSITIONS.md`:
+  - the DTO, the emission, the restore events, `restoreNote`, `pathEntry`, and the relaxed snapshot start check.
+- `core/application/.../port/CheckpointRepository.kt`: the port, with sealed results.
+- `core/domain/.../tutor/Assess.kt`: `decide` takes the path entry.
+- `core/domain/.../strings/en.json`: `msg.lesson.updated`.
+- `app/.../data/{CheckpointEntity,CheckpointDao,CheckpointPayload,RoomCheckpointRepository,RubikDatabase}.kt` and `app/schemas/.../2.json`: v2 and the codec that dispatches on format.
+- `app/.../di/PersistenceModule.kt` and `app/.../session/SessionHost.kt`: the write path and the fallback restore.
+- `app/.../ui/lesson/LessonScreen.kt`: the note, and guidance from `pathEntry`.
 - Tests:
-  - `CheckpointTest` (new), `CheckpointPayloadTest` (new), `RoomCheckpointRepositoryTest` (new), `SessionHostCheckpointTest` (new).
-  - Updated: `SessionDatabaseMigrationTest` (v1→v2 keeps a snapshot row), `LessonScreenTest`, `TransitionsTableTest`, `ReduceTest`, `SessionSnapshotTest`.
-  - Fixture: `app/src/test/resources/checkpoint/format-1.json`.
-- `docs/ARCHITECTURE.md` — one line on the `checkpoint` table.
+  - `CheckpointTest`, `CheckpointPayloadTest` (with the `format-1.json` fixture), `RoomCheckpointRepositoryTest` and `SessionHostCheckpointTest`, including `decoded-invalid-history`.
+  - Updated: `LessonScreenTest`, `SessionDatabaseMigrationTest`, `ReduceTest`, `SessionSnapshotTest` and `TransitionsTableTest`.
+- `docs/ARCHITECTURE.md`: one line on the checkpoint table.
 
-**Review:** 17 findings: high 0, medium 5, low 8, false 4.
+**Review:** 16 findings: high 0, medium 1, low 8, false 7.
 - Patched (3 entries):
-  - The clipped update note (medium; reported by the blind, edge and intent layers).
-  - The missing host fallback cases, a failed snapshot read and a usable snapshot (medium; reported by the blind and verification-gap layers).
-  - Rotated-cube coverage (low).
+  - restored-screen guidance tests (medium);
+  - a restore against an updated Lesson (low);
+  - a nontrivial frozen fixture (low).
 - Deferred: none.
-- Rejected: 7 low and 4 false, with reasons in the triage log.
+- Rejected: 5 low and 7 false, with reasons in the triage log.
 
-**Follow-up review recommended:** true (patched: medium 2 entries, low 1). The named risk is that the note's wrapping was fixed without a visual check at phone width or with large fonts. `LessonScreenTest` asserts the node text, not its rendered layout.
+**Follow-up review recommended:** false. One medium entry and two low entries were patched, and every patch changes only tests.
 
 **Verification:**
-- `./gradlew spotlessCheck build`: pass, both after implementation and after the review patches.
-- `./gradlew :core:application:test :app:testDebugUnitTest --tests '*Checkpoint*' --tests '*Snapshot*' --tests '*Persistence*' --tests '*Migration*' --tests '*TransitionsTable*' --tests '*LessonScreen*'`: pass.
-- The Codex implementation run normalized the CRLF checkout to LF. `./gradlew spotlessApply` restored the line endings with no content change.
-- Matrix audit, every row covered by a passing test:
-  - Boundary and no boundary: `CheckpointTest`, with the payload key set in `CheckpointPayloadTest`.
-  - Content changed: `SessionHostCheckpointTest` `revision` and `LessonScreenTest`.
-  - Stage changed: `stage`.
-  - Same content: `same`, `corrupt`.
-  - Lesson gone: `missing`.
-  - Corrupt: the `CheckpointTest` invalid list, plus `CheckpointPayloadTest` for an unknown format and broken JSON.
-  - Playback latest: `playback` (zero reads).
-  - DB failure: `failedAndThrowingRepositoriesDispatchFailureEvents` and the closed DB in `RoomCheckpointRepositoryTest`.
+- `./gradlew spotlessCheck build`: pass, after implementation and again after the patches.
+  - One run after the patches failed in `Cube3DEmphasisTest`, a frame-clock animation test that this story does not touch. The test passed when run alone, and the full rerun passed.
+- The targeted `--tests` command: pass.
+- Matrix audit: every row is covered by tests that passed:
+  - `CheckpointTest`: boundary, no boundary, corrupt;
+  - `SessionHostCheckpointTest`: revision, stage, same, missing, playback, DB failure;
+  - `CheckpointPayloadTest`: keys, unknown format, broken JSON;
+  - `LessonScreenTest`: the note.
 
 **Residual risks:**
-- After a cold start, the restored Lesson and its note are visible only when the Learner reopens that Lesson, until Story 6.5's Continue card.
-- A Checkpoint whose Lesson was removed from the content is dropped silently.
-- Only format 1 exists. The previous-format decoder test is the frozen `format-1.json` fixture, which a future bump must keep decoding.
-- The same-content resume keeps the Checkpoint's Moves undoable, which is not a strict undo barrier (see Design Notes).
-- No device test covers Checkpoints; all coverage is JVM and Robolectric.
-
-### Follow-up review pass (2026-11-05)
-
-Status: blocked
-Blocking condition: intent gap
-
-- 17 findings (high 0, medium 1, low 11, false 5). One medium routes to `intent_gap`; everything else is rejected or moot (see the follow-up entry in the Review Triage Log).
-- **The gap.** After a content-update restart, the stored cube becomes the Lesson's entry (as the intent requires). The Tutor then derives step 0 and the authored path from that cube, so hints, the guide Move and ON_PATH feedback lead a Learner whose Checkpoint was mid-Lesson to undo work already done. Because `contentRevision` hashes all content, every content release hits this for every Learner mid-Lesson.
-- **Code reverted.** The story's code changes were reverted to `baseline_revision` (8570775fa83d0e56c6fbe336668897119f8a4092). The full implementation is saved in `_bmad-output/implementation-artifacts/spec-6-2-versioned-checkpoints-at-objective-boundaries-intent-gap.patch`, which `git apply` re-applies cleanly.
-- **Unresolved questions:**
-  1. After a content-update restart, should the Tutor derive the step and the authored path from the updated Lesson's authored entry (so a mid-Lesson cube lands on its first unmet step through the off-path rule), while the history and Reset still start at the stored cube? Or should the stored cube stay the Tutor's entry (step 0, authored Moves from there)?
-  2. If the stored cube stays the Tutor's entry, should path guidance (guide Move, ON_PATH feedback, hints) be suppressed or replaced by recovery until the cube is back on an authored path?
-- **When re-implemented:** add the verification-gap case (a decoded snapshot with invalid `done` Notation falls back to the Checkpoint) to `SessionHostCheckpointTest`.
-- **Verification:** the revert was checked against `baseline_revision` (only this spec differs), and `git apply --check` confirms the saved patch applies. No Gradle run, because no code changed beyond the reversion.
-
+- After a cold start, the restored Lesson is visible only when the Learner reopens it, until 6.5's Continue card.
+- An off-path restart at USUAL assistance still shows the step's authored chips when revealed. This is the existing off-path behavior that the PO chose.
+- The Undo-back line can appear when Undo cannot reach the path.
+- `Cube3DEmphasisTest` can fail intermittently and is unrelated to this story.
+- No device test covers process death.

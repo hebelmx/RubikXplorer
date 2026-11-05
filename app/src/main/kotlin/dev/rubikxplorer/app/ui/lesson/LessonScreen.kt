@@ -141,6 +141,9 @@ fun LessonScreen(
                 .testTag("lesson"),
     ) {
         LessonTopBar(strings.resolve(entry.stage.title), onClose)
+        session.restoreNote?.let { note ->
+            Text(strings.resolve(note), modifier = Modifier.testTag("lesson:restoreNote"))
+        }
         val decision = session.decision
         val demonstration = remember(lesson) { (Demonstration.of(lesson) as? DemonstrationResult.Ready)?.demonstration }
         if (session.lesson?.id == lesson.id && decision != null && demonstration != null) {
@@ -365,7 +368,7 @@ private fun LessonBody(
                                 ?: if (session.shownRung >= HintRung.TARGET &&
                                     !decision.advance
                                 ) {
-                                    Tutor.nextMove(lesson, session.entry, session.virtual)
+                                    Tutor.nextMove(lesson, session.pathEntry, session.virtual)
                                 } else {
                                     null
                                 },
@@ -458,7 +461,7 @@ private fun stepCard(
             notice = decision.advance
             // Adaptive assistance's guide level narrows the chips to the next authored Move (FR-13).
             val guiding = session.assistance == AssistanceLevel.GUIDE && session.noticeStep == null
-            val guided = if (guiding) Tutor.nextMove(lesson, session.entry, session.virtual) else null
+            val guided = if (guiding) Tutor.nextMove(lesson, session.pathEntry, session.virtual) else null
             // Off the authored path there is no next Move to guide: no chips, and the Assistance line says to Undo back.
             offPath = guiding && guided == null && !decision.advance
             moves =
@@ -496,7 +499,7 @@ private fun stepCard(
         showMeHow =
             decision.diagnosis
                 ?.takeIf { RecoveryOffer.SHOW_ME_HOW in it.recoveryPath.offers }
-                ?.let { Tutor.reorient(session.virtual.orientation, session.entry.orientation) },
+                ?.let { Tutor.reorient(session.virtual.orientation, session.pathEntry.orientation) },
         showMeHowLabel = strings.resolve(SHOW_ME_HOW_LABEL),
         feedbackMove = session.revision,
         showMoveControl = mode == TeachingMode.GUIDE_ME,

@@ -79,7 +79,6 @@ class SessionSnapshotTest {
             listOf(
                 saved.copy(start = "bad"),
                 saved.copy(start = "W".repeat(54)),
-                saved.copy(start = whiteCrossLesson().entryState),
                 saved.copy(lessonId = "missing"),
                 saved.copy(done = "bad"),
                 saved.copy(undone = "bad"),
@@ -96,6 +95,13 @@ class SessionSnapshotTest {
                 SessionEvent.SessionRestored(saved, lesson.copy(id = LessonId("different")), TUTOR_CONFIG, T0),
             ).state,
         )
+    }
+
+    @Test fun `snapshot entry may be a stored cube from a restarted Lesson`() {
+        val saved = snapshot(started(lesson)).copy(start = whiteCrossLesson().entryState)
+        val restored = restore(saved).state
+        assertTrue(restored.isActive)
+        assertEquals(saved.start, snapshot(restored).start)
     }
 
     @Test fun `seeded lesson events round trip at many points`() {

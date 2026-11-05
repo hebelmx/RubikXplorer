@@ -154,6 +154,121 @@ class LessonScreenTest {
         }
     }
 
+    @Test fun contentChangedCheckpointShowsNoteAndKeepsStoredCube() {
+        val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val ready = CatalogState.Ready(bundle)
+        val entry = ready.lessons.single { it.lesson.id.value == "lesson-02-05" }
+        val start = reduce(SessionState.IDLE, SessionEvent.LessonStarted(entry.lesson, entry.tutorConfig, Instant.fromEpochMilliseconds(0)))
+        val moves =
+            (
+                dev.rubikxplorer.domain.cube.Notation
+                    .parse(
+                        entry.lesson.steps
+                            .first()
+                            .moves,
+                    ) as
+                    dev.rubikxplorer.domain.cube.NotationResult.Parsed
+            ).moves
+        val storedCube = moves.fold(start.state.virtual) { cube, move -> cube.apply(move) }
+        val checkpoint =
+            dev.rubikxplorer.application.session.Checkpoint
+                .of(
+                    start.effects.single() as dev.rubikxplorer.application.session.Effect.PersistCheckpoint,
+                    "old-content",
+                ).copy(
+                    cube =
+                        dev.rubikxplorer.domain.content.FaceletString
+                            .encode(storedCube.toFacelets()),
+                    history =
+                        dev.rubikxplorer.domain.cube.Notation
+                            .format(moves),
+                )
+        val writer = SerialWriter()
+        val repository =
+            object : dev.rubikxplorer.application.port.CheckpointRepository {
+                override suspend fun find(kind: dev.rubikxplorer.application.session.SessionKind) =
+                    dev.rubikxplorer.application.port.CheckpointLoad
+                        .Found(checkpoint)
+
+                override suspend fun save(checkpoint: dev.rubikxplorer.application.session.Checkpoint) =
+                    dev.rubikxplorer.application.port.CheckpointSave.Saved
+            }
+        val restoringHost =
+            SessionHost(TickingClock(), Dispatchers.Default.limitedParallelism(1), writer = writer, checkpoints = repository)
+        try {
+            runBlocking {
+                restoringHost.restore(bundle)
+                restoringHost.awaitRestored()
+            }
+            rule.setContent { RubikXplorerTheme { LessonScreen(restoringHost, entry, ready.strings, TeachingMode.entries, {}) } }
+            rule.waitForIdle()
+            rule
+                .onNodeWithTag(
+                    "lesson:restoreNote",
+                ).assertTextEquals("This lesson was updated. We've restarted it with your cube as it was.")
+            rule.onNodeWithTag("lesson:stepNumber").assertTextEquals("Step 2 of 4")
+            assertEquals(storedCube, restoringHost.state.value.virtual)
+            assertTrue(
+                restoringHost.state.value.history.done
+                    .isEmpty(),
+            )
+        } finally {
+            runBlocking { writer.close() }
+        }
+    }
+
+    /**
+     * Restores [crossLesson] at the guide level from a content-changed Checkpoint whose stored cube is the
+     * authored entry after [stored], then opens the screen on it.
+     */
+    private fun openRestoredCross(stored: String) {
+        runBlocking { catalog.load() }
+        val ready = catalog.state.value as CatalogState.Ready
+        val shipped = ready.lessons.single { it.lesson.id == crossLesson.id }
+        val config = shipped.tutorConfig.copy(adaptive = AdaptiveThresholds(0, 0, 0, 2))
+        val started = reduce(SessionState.IDLE, SessionEvent.LessonStarted(crossLesson, config, Instant.fromEpochMilliseconds(0), true))
+        val moves = (Notation.parse(stored) as dev.rubikxplorer.domain.cube.NotationResult.Parsed).moves
+        val history = moves.fold(started.state.history) { h, move -> h.commit(move) }
+        val checkpoint =
+            dev.rubikxplorer.application.session.Checkpoint.of(
+                dev.rubikxplorer.application.session.Effect.PersistCheckpoint(
+                    1,
+                    1,
+                    crossLesson.id.value,
+                    crossLesson.stageId.value,
+                    history,
+                    TeachingMode.GUIDE_ME,
+                    true,
+                    Instant.fromEpochMilliseconds(0),
+                ),
+                "old-content",
+            )
+        runBlocking { host.dispatch { SessionEvent.CheckpointRestored(checkpoint, crossLesson, config, "new-content", it) } }
+        val restored = host.state.value
+        assertEquals(history.state, restored.entry)
+        assertNotEquals("the stored cube is not the authored entry", restored.pathEntry, restored.entry)
+        open(crossLesson.id.value, adaptiveAssistance = true, thresholds = AdaptiveThresholds(0, 0, 0, 2))
+        assertEquals(AssistanceLevel.GUIDE, host.state.value.assistance)
+        assertEquals(HintRung.TARGET, host.state.value.shownRung)
+    }
+
+    @Test fun `restored on path mid lesson the arrow and guide chip follow the authored path`() {
+        openRestoredCross("F2")
+        assertEquals(1, host.state.value.stepIndex)
+        node("lesson:stepNumber").assertTextEquals("Step 2 of 4")
+        assertEquals(RenderedArrow("R2", 1f), node("cube3d").fetchSemanticsNode().config[RenderedArrowKey])
+        assertEquals(listOf("moveChip:R2"), tagsStartingWith("moveChip:"))
+    }
+
+    @Test fun `restored off path shows no arrow, no guide chip and the off path Assistance line`() {
+        openRestoredCross("R")
+        assertEquals(null, node("cube3d").fetchSemanticsNode().config.getOrNull(RenderedArrowKey))
+        assertEquals(emptyList<String>(), tagsStartingWith("moveChip:"))
+        node("lesson:assistance")
+            .performScrollTo()
+            .assertTextContains("You're off the path now — Undo back to it, and I'll show one turn at a time again.")
+    }
+
     private val host = SessionHost(TickingClock())
     private lateinit var accessibilityHost: android.view.View
 
