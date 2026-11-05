@@ -210,9 +210,13 @@ private fun LessonBody(
     // demonstration frame is ever drawn.
     var playingMove by remember(lesson.id) { mutableStateOf<Move?>(null) }
     val onPlayingMove: (Move?) -> Unit = { playingMove = it }
+    // The Cube State the running demonstration shows on the net, so its summary describes that cube.
+    var playingState by remember(lesson.id) { mutableStateOf<CubeState?>(null) }
+    val onPlayingState: (CubeState?) -> Unit = { playingState = it }
     val reorientation = remember(lesson.id) { mutableStateOf<Job?>(null) }
     val stopReorientation = {
         playingMove = null
+        playingState = null
         reorientation.value?.let { job ->
             reorientation.value = null
             if (job.isActive) {
@@ -233,7 +237,8 @@ private fun LessonBody(
         if (escalated && shownStep !in demonstrated.value) {
             demonstrated.value += shownStep
             stopReorientation()
-            reorientation.value = scope.launch { demonstrateStep(host, renderer, demonstration, shownStep, reduceMotion, onPlayingMove) }
+            reorientation.value =
+                scope.launch { demonstrateStep(host, renderer, demonstration, shownStep, reduceMotion, onPlayingMove, onPlayingState) }
         }
     }
     val send: ((Instant) -> SessionEvent) -> Unit = { event ->
@@ -257,7 +262,8 @@ private fun LessonBody(
             hintEnabled = HintLadder.canClimb(mode, session.shownRung, decision.advance, session.assistance.top),
             onHint = {
                 stopReorientation()
-                reorientation.value = scope.launch { climbHintLadder(host, renderer, demonstration, reduceMotion, onPlayingMove) }
+                reorientation.value =
+                    scope.launch { climbHintLadder(host, renderer, demonstration, reduceMotion, onPlayingMove, onPlayingState) }
             },
             nextEnabled = decision.advance,
             onNext = { if (decision.satisfied) onClose() else send(SessionEvent::StepAdvanced) },
@@ -278,7 +284,9 @@ private fun LessonBody(
             onShowMeHow = { rotations ->
                 stopReorientation()
                 reorientation.value =
-                    scope.launch { demonstrateOnNet(host, renderer, host.state.value.virtual, rotations, reduceMotion, onPlayingMove) }
+                    scope.launch {
+                        demonstrateOnNet(host, renderer, host.state.value.virtual, rotations, reduceMotion, onPlayingMove, onPlayingState)
+                    }
             },
         )
     }
@@ -348,7 +356,8 @@ private fun LessonBody(
                         session = session,
                         renderer = renderer,
                         certainty = decision.certainty,
-                        summary = cubeSummary(session.virtual, lesson, strings),
+                        // A running demonstration's shown cube, so the summary agrees with Read faces and Solved.
+                        summary = cubeSummary(playingState ?: session.virtual, lesson, strings),
                         emphasis = emphasis,
                         arrow =
                             playingMove
@@ -637,14 +646,17 @@ internal suspend fun demonstrateOnNet(
     moves: List<Move>,
     reduceMotion: Boolean,
     onMove: (Move?) -> Unit = {},
+    onShown: (CubeState?) -> Unit = {},
 ) {
     try {
         val held = host.state.value
         if (from != held.virtual) renderer.submit(listOf(PresentationItem.Snap(held.revision, from.toFacelets())))
         var shown = from
+        onShown(shown)
         moves.forEach { move ->
             onMove(move)
             shown = shown.apply(move)
+            onShown(shown)
             val target = shown.toFacelets()
             val item =
                 if (reduceMotion) {
@@ -660,6 +672,7 @@ internal suspend fun demonstrateOnNet(
         renderer.submit(listOf(PresentationItem.Snap(now.revision, now.virtual.toFacelets())))
     } finally {
         onMove(null)
+        onShown(null)
     }
 }
 

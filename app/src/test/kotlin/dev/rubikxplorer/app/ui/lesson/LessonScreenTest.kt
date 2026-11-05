@@ -1527,6 +1527,52 @@ class LessonScreenTest {
     }
 
     @Test
+    fun `the rung 3 demonstration's held frame reads the shown cube's Objective progress, then the session's again`() {
+        val demonstration = (Demonstration.of(cornerLesson) as DemonstrationResult.Ready).demonstration
+        open(cornerLesson.id.value)
+        switchTo(TeachingMode.TEST_ME)
+
+        fun spoken() = node("cube3d").fetchSemanticsNode().config[SemanticsProperties.ContentDescription].single()
+        // L D L' takes the front-left white corner out of its slot, so the session's cube differs from the shown one.
+        press("L", 1)
+        press("D", 2)
+        press("L'", 3)
+        val session = spoken()
+        tapHint(HintRung.CLUE)
+        tapHint(HintRung.TARGET)
+        val step = demonstration.steps[host.state.value.stepIndex]
+        val end = demonstration.start.apply(demonstration.moves.take(step.firstMove)).apply(step.moves)
+        val strings = (catalog.state.value as CatalogState.Ready).strings
+        val expected =
+            dev.rubikxplorer.domain.predicate.CubeSummary
+                .of(end, cornerLesson.completion)
+                .joinToString("; ") { strings.resolve(it) }
+        assertNotEquals(session, expected)
+
+        rule.mainClock.autoAdvance = false
+        node("lesson:hint").performScrollTo().performClick()
+        val endColors = end.toFacelets().colors.map { Color(StickerAppearance.of(it).fill) }
+        var held = false
+        repeat(DEMO_CHECKS) {
+            if (!held) {
+                rule.mainClock.advanceTimeBy(DEMO_CHECK_MILLIS)
+                held = drawnColors() == endColors
+            }
+        }
+        assertTrue("the net never held the step's end", held)
+        // Summary, Read faces and Solved all describe the presented cube at the held frame.
+        rule.mainClock.advanceTimeBy(REORIENT_STEP_MILLIS)
+        assertEquals(endColors, drawnColors())
+        assertEquals(expected, spoken())
+
+        rule.mainClock.advanceTimeBy(REORIENT_HOLD_MILLIS + REORIENT_STEP_MILLIS + 500)
+        rule.mainClock.autoAdvance = true
+        rule.waitForIdle()
+        assertNetMatchesSession("net returns to the session after the demonstration")
+        assertEquals(session, spoken())
+    }
+
+    @Test
     fun `Show me reads the shown Demonstration state's Objective progress`() {
         open(cornerLesson.id.value)
         switchTo(TeachingMode.SHOW_ME)

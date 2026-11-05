@@ -172,11 +172,11 @@ A live region only while in faces mode makes TalkBack speak the faces right afte
 
 Status: done
 
-**Summary:** TalkBack now reads the cube's Objective progress through a pure `CubeSummary.of(CubeState, Predicate)` in `:core:domain`, which returns `msg.cube-summary.*` `Text` parts. In the Learner modes (Guide me, Test me, Let me try), the Lesson resolves it against its `completion` and passes it to `Cube3DRenderer` as `summary`. Show me's `DemonstrationPlayer` stage is unchanged, as the intent's Never list requires.
+**Summary:** TalkBack now reads the cube's Objective progress through a pure `CubeSummary.of(CubeState, Predicate)` in `:core:domain`, which returns `msg.cube-summary.*` `Text` parts. In the Learner modes (Guide me, Test me, Let me try), the Lesson resolves it against its `completion` and passes it to `Cube3DRenderer` as `summary`; while a Hint Ladder or adaptive demonstration plays, the summary describes the demonstration's shown cube. Show me's `DemonstrationPlayer` passes the same summary for the shown Demonstration state (see the acceptance-gate follow-up below).
 
 The `cube3d` node has a *Read faces* / *Read summary* custom action. Faces mode reads six "<Face> face: …" sentences from the drawn facelets as a Polite live region, and it resets when the drawn state changes.
 
-The Learner stage gained a `FrameLabel` (VIRTUAL, with Certainty as a Polite-live-region `stateDescription`). Traversal groups and indices set the focus order: frame label → cube → Move key bar → stage toolbar → lesson panel → Teaching Mode switcher.
+The Learner stage and Show me's stage gained a `FrameLabel` (VIRTUAL, with Certainty as a Polite-live-region `stateDescription`). Traversal groups and indices set the focus order: frame label → cube → Move key bar → stage toolbar → lesson panel → Teaching Mode switcher.
 
 **Files changed (since baseline):**
 - `core/domain/.../predicate/CubeSummary.kt` (new) and `CubeSummaryTest.kt` (new): summary rules per predicate.
@@ -190,7 +190,8 @@ The Learner stage gained a `FrameLabel` (VIRTUAL, with Certainty as a Polite-liv
   - `FrameLabelTest` (new).
   - `LessonScreenTest`: summary follows Moves, the literal corner summary, and platform traversal on wide and compact screens.
 - `docs/ARCHITECTURE.md`: one line on `CubeSummary`, Read faces and the Certainty frame label.
-- `DemonstrationPlayer.kt` is back to the baseline: the first pass had changed it, and this pass reverted that.
+- `app/.../ui/lesson/DemonstrationPlayer.kt`: optional `summary` and `certainty`, the `FrameLabel`, and Show me's traversal order (added by the acceptance-gate follow-up, after the follow-up pass had reverted the first pass's version).
+- `app/.../ui/lesson/HintLine.kt`: the Hint Ladder and adaptive demonstrations report the cube they show.
 
 **Review findings:**
 
@@ -216,7 +217,7 @@ Follow-up pass: 18 findings (10 carried from the first pass).
 - `./gradlew :core:domain:test --tests 'dev.rubikxplorer.domain.predicate.*' --tests 'dev.rubikxplorer.domain.content.*'`: pass (CubeSummaryTest 8).
 - `./gradlew :app:testDebugUnitTest --tests 'dev.rubikxplorer.app.render.*' --tests 'dev.rubikxplorer.app.ui.*'`: pass. LessonScreenTest 53, Cube3DRendererTest 7, FrameLabelTest 1, 0 failures.
 - `./gradlew spotlessCheck build`: pass. It must run on its own: chaining it after the filtered `:core:domain:test` in one invocation fails `koverVerify` with partial coverage.
-- Scope check: `DemonstrationPlayer.kt` matches the baseline, and nothing changed under `_bmad-output/planning-artifacts/`, `_bmad/`, `.claude/`, `build-logic/` or spike source sets.
+- Scope check: `DemonstrationPlayer.kt` changes only for the Show me summary, certainty, frame label and stage order, and nothing changed under `_bmad-output/planning-artifacts/`, `_bmad/`, `.claude/`, `build-logic/` or spike source sets.
 
 **Residual risks:**
 - TalkBack speech is unverified on a device (deferred).
@@ -229,3 +230,7 @@ The story's ACs apply to the whole Lesson screen, and they win over this spec's 
 - `DemonstrationPlayer` takes an optional `summary` and `certainty`. In Show me the Lesson passes `CubeSummary.of(start.apply(moves.take(position)), completion)` (through the same `cubeSummary` helper as the Learner modes) and `decision.certainty`, so the cube reads the shown state's Objective progress, keeps the Read faces action, and the stage shows the same `FrameLabel`.
 - Show me's focus order: frame label → cube → playback controls (where the Move key bar would be) → view controls → lesson panel → Teaching Mode switcher.
 - Tests (`LessonScreenTest`): the Show me summary at the start and end of the Demonstration, Read faces and the frame label in Show me, and platform traversal for SHOW_ME on wide and compact screens.
+
+## Acceptance-gate follow-up: demonstration summary
+
+During a Hint Ladder (rung 3) or adaptive (demonstrate level) demonstration, the cube's summary still came from `session.virtual`, while Read faces and Solved described the demonstration cube on the net. `demonstrateOnNet` now reports each shown `CubeState` (and null when it ends), `demonstrateStep` and `climbHintLadder` pass it through, and the Learner stage summarizes `playingState ?: session.virtual`, so summary, Read faces and Solved describe the same cube; stopping a demonstration clears it. Test (`LessonScreenTest`): at the rung 3 demonstration's held frame the summary matches the shown step end, then the session's again after it returns.
