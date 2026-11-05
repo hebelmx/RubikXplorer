@@ -1,5 +1,4 @@
 {
-  "msg.lesson.updated": "This lesson was updated. We've restarted it with your cube as it was.",
   "msg.solve.timed-out": "Solving took too long. Your colors are saved here; try again.",
   "msg.solve.failed": "A verified solution could not be found. Check your colors or try again.",
   "msg.validation.wrong-color-counts": "Each color should appear on exactly nine stickers. Check the colors you entered.",

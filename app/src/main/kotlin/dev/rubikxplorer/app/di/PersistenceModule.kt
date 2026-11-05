@@ -8,12 +8,10 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import dev.rubikxplorer.app.data.RoomCheckpointRepository
 import dev.rubikxplorer.app.data.RoomSessionSnapshotRepository
 import dev.rubikxplorer.app.data.RubikDatabase
 import dev.rubikxplorer.app.data.SerialWriter
 import dev.rubikxplorer.app.data.SessionSnapshotDao
-import dev.rubikxplorer.application.port.CheckpointRepository
 import dev.rubikxplorer.application.port.SessionSnapshotRepository
 import javax.inject.Singleton
 
@@ -24,9 +22,6 @@ object PersistenceModule {
     fun database(
         @ApplicationContext context: Context,
     ): RubikDatabase = Room.databaseBuilder<RubikDatabase>(context, "rubikxplorer.db").setDriver(AndroidSQLiteDriver()).build()
-
-    @Provides @Singleton
-    fun checkpoints(database: RubikDatabase): CheckpointRepository = RoomCheckpointRepository(database)
 
     @Provides fun dao(database: RubikDatabase): SessionSnapshotDao = database.snapshots()
 

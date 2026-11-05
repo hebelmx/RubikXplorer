@@ -14,22 +14,6 @@ import kotlin.time.Instant
 sealed interface SessionEvent {
     val at: Instant
 
-    data class CheckpointRestored(
-        val checkpoint: Checkpoint,
-        val lesson: Lesson,
-        val tutorConfig: TutorConfig,
-        val contentRevision: String,
-        override val at: Instant,
-    ) : SessionEvent
-
-    data class CheckpointSaveFailed(
-        override val at: Instant,
-    ) : SessionEvent
-
-    data class CheckpointLoadFailed(
-        override val at: Instant,
-    ) : SessionEvent
-
     data class SessionRestored(
         val snapshot: SessionSnapshot,
         val lesson: Lesson,

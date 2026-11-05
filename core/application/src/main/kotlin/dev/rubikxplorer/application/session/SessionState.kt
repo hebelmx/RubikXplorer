@@ -32,7 +32,7 @@ import dev.rubikxplorer.domain.tutor.TutorDecision
  *   every change of [virtual].
  * - The tutor fields ([teachingMode], [noticeStep], [revealRequested], [hintRung], [hintsUsed],
  *   [lastMoveFeedback], [lastDiagnosis], [guidedRecovery], [stepMistakes], [cleanSteps],
- *   [cleanCredited], [stepHelped], [assistanceDismissed], [restoreNote]) never advance [revision]: a mode switch, a reveal or a Hint
+ *   [cleanCredited], [stepHelped], [assistanceDismissed]) never advance [revision]: a mode switch, a reveal or a Hint
  *   does not change the Cube State, so it must not stale a pending effect.
  * - [checkpoint] is the Objective-boundary history *Try again* returns to; its changes never
  *   advance [revision] either.
@@ -42,8 +42,6 @@ import dev.rubikxplorer.domain.tutor.TutorDecision
 @ConsistentCopyVisibility
 data class SessionState internal constructor(
     val revision: Long,
-    /** Transient content-update note; never snapshotted. */
-    val restoreNote: dev.rubikxplorer.domain.text.Text? = null,
     /** `null` only in [IDLE]. */
     val kind: SessionKind?,
     /** The Lesson of a [SessionKind.LESSON] session; `null` otherwise. */

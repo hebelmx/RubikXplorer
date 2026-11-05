@@ -3,9 +3,9 @@ title: 'Story 6.2: Versioned Checkpoints at Objective boundaries'
 type: 'feature'
 created: '2026-11-05'
 baseline_revision: '8570775fa83d0e56c6fbe336668897119f8a4092'
-status: 'done'
+status: 'blocked'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-6-context.md'
   - '{project-root}/AGENTS.md'
@@ -159,6 +159,27 @@ deferred: []
   - `[false]` `[reject]` (intent) the DTO carries fields the AC does not list (`teachingMode`, `adaptiveAssistance`, `savedAt`, start orientation) — none is raw `SessionState` or content; no bad outcome.
   - `[false]` `[reject]` (intent) Checkpoints are also written at Lesson start and Reset — both set the Objective-boundary Checkpoint (FR-12, TRANSITIONS.md); documented and tested, no bad outcome.
 
+### 2026-11-05 — Review pass (follow-up)
+- verdicts: 17 findings — high 0, medium 1, low 11, false 5, maybe-false 0
+- findings:
+  - `[medium]` `[intent_gap]` (blind) after a content-update restart the Tutor treats the stored cube as the authored entry: `currentStep` returns step 0 and `nextMove`/`isOnPath` offer and praise step 0's first authored Move, although a mid-Lesson Checkpoint cube already has earlier steps done, so following the guidance undoes the Learner's progress — verified: `SessionState.entry` is `history.start`, and `restoreCheckpoint` sets the history to `MoveHistory(cube)`; `contentRevision` hashes every content file, so any content release hits this for every Learner mid-Lesson. The intent itself makes the stored cube "the new entry", so the fix is inside `<intent-contract>`. Story code reverted to `baseline_revision`; attempted change saved as `_bmad-output/implementation-artifacts/spec-6-2-versioned-checkpoints-at-objective-boundaries-intent-gap.patch` (applies cleanly with `git apply`).
+  - `[low]` `[reject]` (blind) the Demonstration still plays from the authored entry after a restart — carried: a Demonstration is the authored lesson by design, and AD-10 restarts "with the stored cube"; re-rooting Demonstrations adds new behavior for a rare case.
+  - `[low]` `[reject]` (blind) the snapshot and Checkpoint writes are separate, so process death between them leaves the Checkpoint one boundary behind — the two writes are adjacent on one serial writer, so the window is tiny; a cross-table transaction adds a new API for an unlikely case.
+  - `[low]` `[reject]` (blind) a failed snapshot write beside a successful Checkpoint write lets restart resume the older snapshot — both rows live in one database, so one failing and the next succeeding is unlikely; ordering metadata adds fields. Same stance as the carried no-retry row.
+  - `[low]` `[reject]` (blind) a failed Checkpoint write is not retried — carried: same stance as 6.1's snapshot no-retry row; the next boundary writes again.
+  - `[low]` `[reject]` (blind) a new Lesson whose Checkpoint write failed can fall back to the previous Lesson's Checkpoint — carried: needs a failed write plus a content update before the next boundary; a cross-check adds branches for an unlikely case.
+  - `[low]` `[reject]` (blind) `restoreNote` is not persisted, so process death before the Learner sees it loses the explanation — the intent says the note is "never snapshotted"; out of scope by intent.
+  - `[low]` `[reject]` (blind) the note has no announcement semantics and any later event (even a stale one) clears it — the stale-event part is carried `false` (nothing dispatches without the Learner after a fresh restore); a live region does not announce on first composition, and TalkBack reads the note as plain text in traversal.
+  - `[low]` `[reject]` (blind) no device test kills the process around a boundary — already a recorded residual risk; device process-death infrastructure is far more than a direct fix.
+  - `[low]` `[patch]` (verification-gap) the fallback after a decoded-but-rejected snapshot (e.g. invalid `done` Notation) is untested — the code is right (`SessionHost.kt:100` checks `isActive`), only regression protection is missing; not applied, moot under the intent gap. Add a `decoded-invalid-history` case to `SessionHostCheckpointTest` when the story is re-implemented.
+  - `[false]` `[reject]` (intent) emission is keyed on the `checkpoint` field, so Moves after a boundary while the Notice is pending or the Objective is met emit again — `move()`'s boundary rule (`Reduce.kt:278`) predates this story, and the persisted value always equals the in-memory Checkpoint (FR-12); the only effect is an extra replace-by-kind write.
+  - `[false]` `[reject]` (intent) a rejected `SolvePlaybackStarted` during a Lesson now changes state by clearing the note — the intent clears the note on every later event a Lesson session takes; the only effect is one snapshot write of the same session, with no Learner-visible change.
+  - `[false]` `[reject]` (intent) a failed snapshot read still reads the Checkpoint — an unknown latest kind is "not SOLVE_PLAYBACK"; the fallback only restores a LESSON Checkpoint whose Lesson exists, and playback never resumes on cold start anyway.
+  - `[false]` `[reject]` (intent) the migration is an `AutoMigration` — the intent asks for "a 1→2 migration"; Room validates it in `SessionDatabaseMigrationTest`.
+  - `[low]` `[reject]` (intent) the tests never reach the real app path or the Hilt wiring — Hilt validates the graph at compile time in `build`; the reopen-the-Lesson path is the carried 6.5 Continue-card stance; device coverage is a recorded residual risk.
+  - `[low]` `[reject]` (intent) `LessonScreen` shows `restoreNote` without checking that the session's Lesson is the one on screen — opening another Lesson dispatches `LessonStarted`, which clears the note; at most one frame.
+  - `[false]` `[reject]` (intent) a `PersistCheckpoint` handled before `restore()` stores `contentRevision = ""` — `LessonScreen` waits on `awaitRestored()` before any `LessonStarted`, so no Lesson effect can precede the revision being set.
+
 ## Design Notes
 
 - **Why the restart enters at the stored cube.** AD-10 says "falls back to the start of the Lesson with the stored cube". The changed Lesson's entry state and path may no longer lead to the Learner's cube, so the stored cube becomes the session's entry. `Tutor` then derives the step from there (step 0). Reset returns to it, and a Notation history from the new content's entry is never invented. A later snapshot therefore has `start ≠ lesson.entryState`, which is why `SessionRestored` drops that check.
@@ -229,4 +250,18 @@ deferred: []
 - Only format 1 exists. The previous-format decoder test is the frozen `format-1.json` fixture, which a future bump must keep decoding.
 - The same-content resume keeps the Checkpoint's Moves undoable, which is not a strict undo barrier (see Design Notes).
 - No device test covers Checkpoints; all coverage is JVM and Robolectric.
+
+### Follow-up review pass (2026-11-05)
+
+Status: blocked
+Blocking condition: intent gap
+
+- 17 findings (high 0, medium 1, low 11, false 5). One medium routes to `intent_gap`; everything else is rejected or moot (see the follow-up entry in the Review Triage Log).
+- **The gap.** After a content-update restart, the stored cube becomes the Lesson's entry (as the intent requires). The Tutor then derives step 0 and the authored path from that cube, so hints, the guide Move and ON_PATH feedback lead a Learner whose Checkpoint was mid-Lesson to undo work already done. Because `contentRevision` hashes all content, every content release hits this for every Learner mid-Lesson.
+- **Code reverted.** The story's code changes were reverted to `baseline_revision` (8570775fa83d0e56c6fbe336668897119f8a4092). The full implementation is saved in `_bmad-output/implementation-artifacts/spec-6-2-versioned-checkpoints-at-objective-boundaries-intent-gap.patch`, which `git apply` re-applies cleanly.
+- **Unresolved questions:**
+  1. After a content-update restart, should the Tutor derive the step and the authored path from the updated Lesson's authored entry (so a mid-Lesson cube lands on its first unmet step through the off-path rule), while the history and Reset still start at the stored cube? Or should the stored cube stay the Tutor's entry (step 0, authored Moves from there)?
+  2. If the stored cube stays the Tutor's entry, should path guidance (guide Move, ON_PATH feedback, hints) be suppressed or replaced by recovery until the cube is back on an authored path?
+- **When re-implemented:** add the verification-gap case (a decoded snapshot with invalid `done` Notation falls back to the Checkpoint) to `SessionHostCheckpointTest`.
+- **Verification:** the revert was checked against `baseline_revision` (only this spec differs), and `git apply --check` confirms the saved patch applies. No Gradle run, because no code changed beyond the reversion.
 

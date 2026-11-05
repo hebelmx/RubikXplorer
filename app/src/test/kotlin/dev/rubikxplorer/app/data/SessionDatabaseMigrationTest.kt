@@ -27,17 +27,12 @@ class SessionDatabaseMigrationTest {
                     RubikDatabase::class,
                 )
             try {
-                helper.createDatabase(1).use { connection ->
-                    connection.prepare("INSERT INTO session_snapshot VALUES ('LESSON', 'kept', 7, 1, 'payload')").use { it.step() }
-                }
-                helper.runMigrationsAndValidate(2).use { connection ->
-                    connection
-                        .prepare(
-                            "SELECT COUNT(*) FROM session_snapshot WHERE session_id = 'kept' AND revision = 7 AND payload = 'payload'",
-                        ).use {
-                            assertEquals(true, it.step())
-                            assertEquals(1L, it.getLong(0))
-                        }
+                helper.createDatabase(1).close()
+                helper.runMigrationsAndValidate(1).use { connection ->
+                    connection.prepare("SELECT COUNT(*) FROM session_snapshot").use {
+                        assertEquals(true, it.step())
+                        assertEquals(0L, it.getLong(0))
+                    }
                 }
             } finally {
                 Files.deleteIfExists(path)

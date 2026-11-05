@@ -98,11 +98,6 @@ class TransitionsTableTest {
     /** Scenarios per event type; the exhaustive `when` fails to compile when an event type is added. */
     private fun scenarios(sample: SessionEvent): List<Pair<SessionState, SessionEvent>> =
         when (sample) {
-            is SessionEvent.CheckpointRestored -> {
-                val idleWithRedo = SessionState.IDLE.copy(history = b.history)
-                listOf(SessionState.IDLE to sample, idleWithRedo to sample, b to sample)
-            }
-
             is SessionEvent.SessionRestored -> {
                 listOf(
                     SessionState.IDLE to
@@ -211,9 +206,7 @@ class TransitionsTableTest {
                 listOf(planning, overtaken, planning.after(undo), b, SessionState.IDLE).map { it to planEffect.failed() }
             }
 
-            is SessionEvent.CheckpointSaveFailed, is SessionEvent.CheckpointLoadFailed,
-            is SessionEvent.SnapshotSaveFailed, is SessionEvent.SnapshotLoadFailed,
-            -> {
+            is SessionEvent.SnapshotSaveFailed, is SessionEvent.SnapshotLoadFailed -> {
                 // Change nothing anywhere, not even standing feedback, a Diagnosis, a pending ask or a plan in flight.
                 listOf(SessionState.IDLE, fresh, b, askedB, bWithFeedback, planning, playback).map { it to sample }
             }
@@ -227,17 +220,6 @@ class TransitionsTableTest {
                 checkNotNull(fresh.tutorConfig),
                 lessonStarted(other).at,
             ),
-            SessionEvent.CheckpointRestored(
-                Checkpoint
-                    .of(reduce(SessionState.IDLE, lessonStarted(other)).effects.single() as Effect.PersistCheckpoint, "v1")
-                    .copy(teachingMode = TeachingMode.TEST_ME),
-                other,
-                TUTOR_CONFIG,
-                "changed",
-                lessonStarted(other).at,
-            ),
-            SessionEvent.CheckpointSaveFailed(lessonStarted(other).at),
-            SessionEvent.CheckpointLoadFailed(lessonStarted(other).at),
             lessonStarted(other),
             playbackStarted(),
             commit(F),
@@ -273,7 +255,6 @@ class TransitionsTableTest {
 
             fun tutor(s: SessionState) =
                 listOf(
-                    s.restoreNote,
                     s.teachingMode,
                     s.noticeStep,
                     s.revealRequested,
@@ -298,7 +279,7 @@ class TransitionsTableTest {
         assertEquals(names.size, names.toSet().size, "duplicate rows: $names")
         assertEquals(eventTypes, names.toSet())
         assertEquals(eventTypes, samples.keys)
-        assertEquals(23, eventTypes.size)
+        assertEquals(20, eventTypes.size)
     }
 
     @Test
@@ -323,11 +304,8 @@ class TransitionsTableTest {
                     assertEquals(before.virtual, reduce(after, undo).state.virtual, "${row.event}: Undo returns")
                 }
             } else {
-                runs.forEach { (before, event, after) ->
-                    assertTrue(
-                        event is SessionEvent.CheckpointRestored || after.history.done.size <= before.history.done.size,
-                        "${row.event}: pushes nothing undoable",
-                    )
+                runs.forEach { (before, _, after) ->
+                    assertTrue(after.history.done.size <= before.history.done.size, "${row.event}: pushes nothing undoable")
                 }
             }
 

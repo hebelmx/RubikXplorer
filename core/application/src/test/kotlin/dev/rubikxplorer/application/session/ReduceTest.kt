@@ -29,7 +29,7 @@ class ReduceTest {
         assertEquals(entry, s.virtual)
         assertEquals(1L, s.revision)
         assertEquals(listOf(Presentation.Snap(1, entry)), t.presentation)
-        assertEquals(emptyList<Effect>(), t.effects.filterNot { it is Effect.PersistCheckpoint })
+        assertEquals(emptyList<Effect>(), t.effects)
         assertFalse(s.objectiveMet)
         assertEquals(WhiteCrossSolved.progress(entry), s.progress)
         assertFalse(s.hasUnsavedSteps)
@@ -146,7 +146,7 @@ class ReduceTest {
         assertEquals(other, t.state.lesson)
         assertFalse(t.state.hasUnsavedSteps)
         assertNull(t.state.pendingReset)
-        assertEquals(asked.nextEffectId + 1, t.state.nextEffectId)
+        assertEquals(asked.nextEffectId, t.state.nextEffectId)
     }
 
     @Test
@@ -204,7 +204,7 @@ class ReduceTest {
             assertEquals(if (changed) state.revision + 1 else state.revision, t.state.revision, e.toString())
             t.presentation.forEach { assertEquals(t.state.revision, it.revision) }
             t.presentation.lastOrNull()?.let { assertEquals(t.state.virtual, it.target) }
-            effect = (t.effects.filterIsInstance<Effect.ConfirmReset>().lastOrNull()) ?: effect
+            effect = (t.effects.lastOrNull() as Effect.ConfirmReset?) ?: effect
             state = t.state
         }
     }
