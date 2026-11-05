@@ -43,6 +43,7 @@ import androidx.window.core.layout.WindowSizeClass
 import androidx.window.core.layout.computeWindowSizeClass
 import dev.rubikxplorer.app.R
 import dev.rubikxplorer.app.content.ContentStrings
+import dev.rubikxplorer.app.preferences.LocalRenderStyle
 import dev.rubikxplorer.app.render.Net2DRenderer
 import dev.rubikxplorer.app.render.RenderStyle
 import dev.rubikxplorer.app.render.StickerGlyph
@@ -95,7 +96,7 @@ fun ManualCubeEditor(
     onAccept: (CubeState) -> Unit,
     modifier: Modifier = Modifier,
     initial: Facelets = CubeState.SOLVED.toFacelets(),
-    style: RenderStyle = RenderStyle(),
+    style: RenderStyle = LocalRenderStyle.current,
     windowSizeClass: WindowSizeClass = currentWindowSizeClass(),
 ) {
     val compact = !windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)

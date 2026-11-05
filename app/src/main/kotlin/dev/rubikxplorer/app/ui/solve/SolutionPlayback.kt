@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import dev.rubikxplorer.app.content.ContentStrings
+import dev.rubikxplorer.app.preferences.LocalRenderStyle
 import dev.rubikxplorer.app.render.Net2DRenderer
 import dev.rubikxplorer.app.render.RenderStyle
 import dev.rubikxplorer.app.ui.lesson.rememberReduceMotion
@@ -73,7 +74,7 @@ fun SolutionPlayback(
     state: SolutionPlaybackState,
     strings: ContentStrings,
     modifier: Modifier = Modifier,
-    style: RenderStyle = RenderStyle(),
+    style: RenderStyle = LocalRenderStyle.current,
 ) {
     PlaybackFrameLoop(state)
     Column(

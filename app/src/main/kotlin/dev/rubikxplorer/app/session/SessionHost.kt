@@ -1,6 +1,7 @@
 package dev.rubikxplorer.app.session
 
 import dev.rubikxplorer.app.data.SerialWriter
+import dev.rubikxplorer.app.preferences.PreferenceStore
 import dev.rubikxplorer.application.port.CheckpointLoad
 import dev.rubikxplorer.application.port.CheckpointRepository
 import dev.rubikxplorer.application.port.CheckpointSave
@@ -45,12 +46,19 @@ class SessionHost internal constructor(
     private val repository: SessionSnapshotRepository? = null,
     private val writer: SerialWriter? = null,
     private val checkpoints: CheckpointRepository? = null,
+    private val preferences: PreferenceStore? = null,
     /** Sees every event this host reduced, in order; tests use it to observe events that change no state. */
     private val reduced: (SessionEvent) -> Unit = {},
 ) {
     @Inject
-    constructor(clock: Clock, repository: SessionSnapshotRepository, writer: SerialWriter, checkpoints: CheckpointRepository) :
-        this(clock, Dispatchers.Default.limitedParallelism(1), repository, writer, checkpoints = checkpoints)
+    constructor(
+        clock: Clock,
+        repository: SessionSnapshotRepository,
+        writer: SerialWriter,
+        checkpoints: CheckpointRepository,
+        preferences: PreferenceStore,
+    ) :
+        this(clock, Dispatchers.Default.limitedParallelism(1), repository, writer, checkpoints = checkpoints, preferences = preferences)
 
     constructor(clock: Clock) : this(clock, Dispatchers.Default.limitedParallelism(1))
 
@@ -213,6 +221,7 @@ class SessionHost internal constructor(
                     }
                 }
             }
+            transition.effects.filterIsInstance<Effect.UpdatePreference>().forEach { preferences?.update(it.preference) }
             transition
         }
 }

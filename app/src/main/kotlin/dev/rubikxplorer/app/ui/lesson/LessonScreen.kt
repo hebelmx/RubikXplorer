@@ -57,6 +57,8 @@ import androidx.compose.ui.unit.min
 import dev.rubikxplorer.app.R
 import dev.rubikxplorer.app.content.CatalogEntry
 import dev.rubikxplorer.app.content.ContentStrings
+import dev.rubikxplorer.app.preferences.LocalPreferenceStore
+import dev.rubikxplorer.app.preferences.LocalRenderStyle
 import dev.rubikxplorer.app.render.Cube3DRenderer
 import dev.rubikxplorer.app.render.CubeRenderer
 import dev.rubikxplorer.app.render.NetEmphasis
@@ -121,15 +123,26 @@ fun LessonScreen(
     planRecovery: PlanRecovery = remember { PlanRecovery() },
     adaptiveAssistance: FlagLevel = FlagLevel.OFF,
 ) {
+    val preferenceStore = LocalPreferenceStore.current
     val lesson = entry.lesson
     val session by host.state.collectAsState()
     BackHandler(onBack = onClose)
     LaunchedEffect(lesson.id) {
         host.awaitRestored()
+        preferenceStore.awaitLoaded()
         if (host.state.value.lesson
                 ?.id != lesson.id
         ) {
-            host.dispatch { SessionEvent.LessonStarted(lesson, entry.tutorConfig, it, adaptiveAssistance != FlagLevel.OFF) }
+            host.dispatch {
+                SessionEvent.LessonStarted(
+                    lesson,
+                    entry.tutorConfig,
+                    it,
+                    adaptiveAssistance != FlagLevel.OFF,
+                    preferenceStore.preferences.value.lastTeachingMode
+                        .takeIf { it in modes } ?: TeachingMode.DEFAULT,
+                )
+            }
         }
     }
     Column(
@@ -605,7 +618,7 @@ private fun LearnerStage(
             }
         }
         renderer.Content(
-            RenderStyle(),
+            LocalRenderStyle.current,
             Modifier.fillMaxWidth().weight(1f).semantics { traversalIndex = 1f },
             onMoveIntent = { intent ->
                 caption = null

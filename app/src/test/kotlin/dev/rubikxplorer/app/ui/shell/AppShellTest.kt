@@ -52,8 +52,42 @@ class AppShellTest {
     @get:Rule
     val rule = createComposeRule()
 
-    private val host = SessionHost(TickingClock())
+    private val preferences =
+        dev.rubikxplorer.app.preferences
+            .PreferenceStore()
+    private val host =
+        SessionHost(
+            TickingClock(),
+            kotlinx.coroutines.Dispatchers.Default
+                .limitedParallelism(1),
+            preferences = preferences,
+        )
     private lateinit var back: OnBackPressedDispatcher
+
+    @Test fun storedModeStartsLessonAndHostRemembersChanges() {
+        preferences.update(
+            dev.rubikxplorer.application.preference.Preference
+                .LastTeachingMode(TeachingMode.LET_ME_TRY),
+        )
+        launch()
+        rule.onNodeWithTag("nav:you").assertExists()
+        rule.onNodeWithTag("learn:lesson:lesson-01-01").performScrollTo().performClick()
+        rule.waitUntil { host.state.value.lesson != null }
+        rule.runOnIdle { assertEquals(TeachingMode.LET_ME_TRY, host.state.value.teachingMode) }
+        runBlocking { host.dispatch { SessionEvent.TeachingModeChanged(TeachingMode.SHOW_ME, it) } }
+        assertEquals(TeachingMode.SHOW_ME, preferences.preferences.value.lastTeachingMode)
+    }
+
+    @Test fun unavailableStoredModeFallsBack() {
+        preferences.update(
+            dev.rubikxplorer.application.preference.Preference
+                .LastTeachingMode(TeachingMode.TEST_ME),
+        )
+        launch(testMe = false)
+        rule.onNodeWithTag("learn:lesson:lesson-01-01").performScrollTo().performClick()
+        rule.waitUntil { host.state.value.lesson != null }
+        rule.runOnIdle { assertEquals(TeachingMode.DEFAULT, host.state.value.teachingMode) }
+    }
 
     private fun launch(
         result: ContentLoadResult = ContentLoadResult.Loaded(testBundle()),
@@ -66,6 +100,7 @@ class AppShellTest {
             back = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
             RubikXplorerTheme {
                 AppShell(
+                    preferenceStore = preferences,
                     host = host,
                     catalog = catalog,
                     freeCube = FreeCubeViewModel(),

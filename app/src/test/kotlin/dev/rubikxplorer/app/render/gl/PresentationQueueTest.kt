@@ -10,6 +10,22 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PresentationQueueTest {
+    @Test fun speedScalesDuration() {
+        for ((speed, millis) in listOf(
+            dev.rubikxplorer.application.preference.AnimationSpeed.FAST to 100L,
+            dev.rubikxplorer.application.preference.AnimationSpeed.SLOW to 400L,
+        )) {
+            val q = PresentationQueue().also { it.animationSpeed = speed }
+            val move = allMoves[0]
+            q.submit(listOf(PresentationItem.Animate(move, 1, CubeState.SOLVED.apply(move).toFacelets())))
+            q.onFrame(0)
+            q.onFrame((millis - 1) * 1_000_000)
+            assertTrue(q.isBusy)
+            q.onFrame(millis * 1_000_000)
+            assertFalse(q.isBusy)
+        }
+    }
+
     @Test fun timingAndCancellationCommitGeometryRatherThanTarget() {
         val q = PresentationQueue()
         val move = allMoves[0]

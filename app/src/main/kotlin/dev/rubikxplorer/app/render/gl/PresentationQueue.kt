@@ -1,11 +1,13 @@
 package dev.rubikxplorer.app.render.gl
 
 import dev.rubikxplorer.app.render.PresentationItem
+import dev.rubikxplorer.application.preference.AnimationSpeed
 
 /** Pure FIFO. One completion per frame preserves every intermediate committed geometry. */
 class PresentationQueue(
     val model: CubieModel = CubieModel(),
 ) {
+    @Volatile var animationSpeed = AnimationSpeed.NORMAL
     private val waiting = ArrayDeque<PresentationItem>()
     private var current: PresentationItem.Animate? = null
     private var started = 0L
@@ -43,7 +45,9 @@ class PresentationQueue(
             is PresentationItem.Animate -> {
                 current = item
                 started = nanos
-                duration = TURN_MILLIS * 1_000_000L / if (waiting.size >= FAST_FORWARD_AFTER) FAST_FORWARD_DIVISOR else 1
+                duration =
+                    animationSpeed.scale(TURN_MILLIS.toLong()) * 1_000_000L /
+                    if (waiting.size >= FAST_FORWARD_AFTER) FAST_FORWARD_DIVISOR else 1
                 model.begin(item.move)
             }
         }

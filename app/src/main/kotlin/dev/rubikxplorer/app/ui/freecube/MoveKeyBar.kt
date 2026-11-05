@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.rubikxplorer.app.R
+import dev.rubikxplorer.app.preferences.LocalHaptics
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.app.ui.theme.Spacing
 import dev.rubikxplorer.domain.cube.Axis
@@ -69,7 +70,7 @@ fun MoveKeyBar(
     onMove: (Move) -> Unit,
     onShowName: (String) -> Unit,
     modifier: Modifier = Modifier,
-    tickOnCommit: Boolean = true,
+    tickOnCommit: Boolean = LocalHaptics.current,
 ) {
     var more by rememberSaveable { mutableStateOf(false) }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Spacing.s2)) {

@@ -63,6 +63,9 @@ class FreeCubeScreenTest {
     @get:Rule
     val rule = createComposeRule()
 
+    private val preferences =
+        dev.rubikxplorer.app.preferences
+            .PreferenceStore()
     private lateinit var viewModel: FreeCubeViewModel
     private var dark by mutableStateOf(false)
     private val ticks = mutableListOf<HapticFeedbackType>()
@@ -78,7 +81,9 @@ class FreeCubeScreenTest {
         rule.setContent {
             CompositionLocalProvider(LocalHapticFeedback provides haptics) {
                 RubikXplorerTheme(darkTheme = dark) {
-                    FreeCubeScreen(viewModel = viewModel, showDebugToggles = showDebugToggles)
+                    dev.rubikxplorer.app.preferences.PreferenceProvider(preferences) {
+                        FreeCubeScreen(viewModel = viewModel, showDebugToggles = showDebugToggles)
+                    }
                 }
             }
         }
@@ -661,7 +666,7 @@ class FreeCubeScreenTest {
             .assertIsOn()
             .performClick()
             .assertIsOff()
-        assertFalse(viewModel.hapticsEnabled)
+        assertFalse(preferences.preferences.value.haptics)
         drag()
         assertEquals(CubeState.SOLVED.apply(move(Face.U)), viewModel.history.state)
         assertTrue(ticks.isEmpty())

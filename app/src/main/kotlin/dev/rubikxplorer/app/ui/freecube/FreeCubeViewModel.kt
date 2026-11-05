@@ -8,7 +8,6 @@ import dev.rubikxplorer.app.random.KotlinRandomSource
 import dev.rubikxplorer.app.render.Cube3DRenderer
 import dev.rubikxplorer.app.render.CubeRenderer
 import dev.rubikxplorer.app.render.PresentationItem
-import dev.rubikxplorer.app.render.RenderStyle
 import dev.rubikxplorer.application.usecase.NewScramble
 import dev.rubikxplorer.domain.cube.MoveHistory
 import dev.rubikxplorer.domain.input.MoveIntent
@@ -41,16 +40,6 @@ class FreeCubeViewModel(
     var lastChange by mutableStateOf<ProgressChange?>(null)
         private set
 
-    var style by mutableStateOf(RenderStyle())
-        private set
-
-    var hapticsEnabled by mutableStateOf(true)
-        private set
-
-    fun onHapticsChange(enabled: Boolean) {
-        hapticsEnabled = enabled
-    }
-
     fun onMoveIntent(intent: MoveIntent) {
         record(history.commit(intent.move))
         port.submit(listOf(PresentationItem.Animate(intent.move, ++revision, history.state.toFacelets())))
@@ -78,10 +67,6 @@ class FreeCubeViewModel(
     fun onScramble() {
         record(scramble().fold(history.reset()) { h, move -> h.commit(move) })
         port.submit(listOf(PresentationItem.Snap(++revision, history.state.toFacelets())))
-    }
-
-    fun onColorBlindGlyphsChange(enabled: Boolean) {
-        style = style.copy(colorBlindGlyphs = enabled)
     }
 
     /** The one writer of [history]; also recomputes [lastChange]. */

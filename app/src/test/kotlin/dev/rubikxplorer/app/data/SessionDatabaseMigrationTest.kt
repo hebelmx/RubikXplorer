@@ -76,4 +76,47 @@ class SessionDatabaseMigrationTest {
                 Files.deleteIfExists(path)
             }
         }
+
+    @Test fun versionThreeToFourKeepsRowsAndCreatesPreferences() =
+        runBlocking {
+            val path = Files.createTempFile("attempt-migration", ".db")
+            Files.delete(path)
+            val helper =
+                MigrationTestHelper(
+                    InstrumentationRegistry.getInstrumentation(),
+                    path.toFile(),
+                    AndroidSQLiteDriver(),
+                    RubikDatabase::class,
+                )
+            try {
+                helper.createDatabase(3).use { connection ->
+                    connection.prepare("INSERT INTO session_snapshot VALUES ('LESSON', 'kept', 7, 1, 'snapshot')").use { it.step() }
+                    connection.prepare("INSERT INTO checkpoint VALUES ('LESSON', 'checkpoint')").use { it.step() }
+                    connection
+                        .prepare(
+                            "INSERT INTO attempt (attempt_id, session_id, revision, event, objective_id, at_ms) VALUES ('attempt', 'session', 1, 'STARTED', 'objective', 0)",
+                        ).use {
+                            it.step()
+                        }
+                }
+                helper.runMigrationsAndValidate(4).use { connection ->
+                    for ((table, payload) in listOf("session_snapshot" to "snapshot", "checkpoint" to "checkpoint")) {
+                        connection.prepare("SELECT payload FROM $table").use {
+                            assertEquals(true, it.step())
+                            assertEquals(payload, it.getText(0))
+                        }
+                    }
+                    connection.prepare("SELECT attempt_id FROM attempt").use {
+                        assertEquals(true, it.step())
+                        assertEquals("attempt", it.getText(0))
+                    }
+                    connection.prepare("SELECT COUNT(id) FROM preferences").use {
+                        assertEquals(true, it.step())
+                        assertEquals(0L, it.getLong(0))
+                    }
+                }
+            } finally {
+                Files.deleteIfExists(path)
+            }
+        }
 }

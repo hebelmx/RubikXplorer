@@ -44,9 +44,13 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import dev.rubikxplorer.app.R
+import dev.rubikxplorer.app.preferences.LocalHaptics
+import dev.rubikxplorer.app.preferences.LocalPreferenceStore
+import dev.rubikxplorer.app.preferences.LocalRenderStyle
 import dev.rubikxplorer.app.ui.editor.colorName
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.app.ui.theme.Spacing
+import dev.rubikxplorer.application.preference.Preference
 import dev.rubikxplorer.domain.cube.Color
 import dev.rubikxplorer.domain.cube.CubeRotation
 import dev.rubikxplorer.domain.cube.Face
@@ -65,6 +69,8 @@ fun FreeCubeScreen(
     showDebugToggles: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val preferenceStore = LocalPreferenceStore.current
+    val hapticsEnabled = LocalHaptics.current
     val tokens = RubikTheme.tokens
     var caption by rememberSaveable { mutableStateOf<String?>(null) }
     var front by remember { mutableStateOf<Color?>(null) }
@@ -78,7 +84,7 @@ fun FreeCubeScreen(
     val haptics = LocalHapticFeedback.current
     val commit: (MoveIntent) -> Unit = { intent ->
         caption = null
-        if (viewModel.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+        if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
         viewModel.onMoveIntent(intent)
         if (intent.move is CubeRotation) {
             front =
@@ -118,7 +124,12 @@ fun FreeCubeScreen(
                 onShowName = { caption = it },
                 modifier = Modifier.fillMaxWidth(),
             )
-            LabelledSwitch(R.string.free_cube_haptics, "freeCube:haptics", viewModel.hapticsEnabled, viewModel::onHapticsChange)
+            LabelledSwitch(R.string.free_cube_haptics, "freeCube:haptics", hapticsEnabled, {
+                preferenceStore.update(
+                    Preference
+                        .Haptics(it),
+                )
+            })
             if (showDebugToggles) {
                 DebugToggles(viewModel)
             }
@@ -175,7 +186,7 @@ private fun CubeStage(
             ViewControls(viewModel.renderer)
         }
         viewModel.renderer.Content(
-            style = viewModel.style,
+            style = LocalRenderStyle.current,
             onMoveIntent = onMoveIntent,
             modifier = Modifier.fillMaxWidth().weight(1f).padding(Spacing.s2),
         )
@@ -220,8 +231,14 @@ internal fun ToolbarButton(
 
 @Composable
 private fun DebugToggles(viewModel: FreeCubeViewModel) {
+    val preferenceStore = LocalPreferenceStore.current
     var objective by rememberSaveable { mutableStateOf(false) }
-    LabelledSwitch(R.string.debug_glyphs, "debug:glyphs", viewModel.style.colorBlindGlyphs, viewModel::onColorBlindGlyphsChange)
+    LabelledSwitch(R.string.debug_glyphs, "debug:glyphs", LocalRenderStyle.current.colorBlindGlyphs, {
+        preferenceStore.update(
+            Preference
+                .ColorBlindGlyphs(it),
+        )
+    })
     LabelledSwitch(R.string.debug_objective, "debug:objective", objective) { objective = it }
     OutlinedButton(
         onClick = viewModel::onScramble,

@@ -213,3 +213,5 @@ Attempt effects follow existing effects in order: `AttemptEnded(ABANDONED)`, `Pe
 `AttemptStarted`, `AttemptEnded(COMPLETED)`. Each consumes one effect ID at the resulting revision
 and carries the event time. The host uses the previous session ID for ABANDONED and the current ID
 for other rows, saving them atomically with the transition's snapshot.
+
+TeachingModeChanged emits one UpdatePreference(LastTeachingMode) effect only when the mode changes, consuming one effect id. LessonStarted uses its optional mode; restores retain their stored mode.

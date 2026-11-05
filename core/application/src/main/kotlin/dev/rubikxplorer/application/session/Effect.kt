@@ -1,5 +1,6 @@
 package dev.rubikxplorer.application.session
 
+import dev.rubikxplorer.application.preference.Preference
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.text.Text
@@ -12,6 +13,12 @@ import dev.rubikxplorer.domain.tutor.RecoveryGoal
 sealed interface Effect {
     val effectId: Long
     val revision: Long
+
+    data class UpdatePreference(
+        override val effectId: Long,
+        override val revision: Long,
+        val preference: Preference,
+    ) : Effect
 
     data class AttemptStarted(
         override val effectId: Long,

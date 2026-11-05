@@ -142,4 +142,20 @@
     <string name="certainty_verified">Verified</string>
     <string name="certainty_likely">Likely</string>
     <string name="certainty_unknown">Unknown</string>
+    <string name="nav_you">You</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_close">Close settings</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_system">System</string>
+    <string name="settings_light">Light</string>
+    <string name="settings_dark">Dark</string>
+    <string name="settings_glyphs">Color-blind glyphs</string>
+    <string name="settings_speed">Animation speed</string>
+    <string name="settings_slow">Slow</string>
+    <string name="settings_normal">Normal</string>
+    <string name="settings_fast">Fast</string>
+    <string name="settings_reduce_motion">Reduce motion</string>
+    <string name="settings_reset">Reset preferences</string>
+    <string name="settings_confirm">Confirm</string>
+    <string name="settings_reset_description">Theme, glyphs, animation speed, haptics, reduce motion and last Teaching Mode return to defaults. Lesson progress, attempts and saved Lessons are kept.</string>
 </resources>
