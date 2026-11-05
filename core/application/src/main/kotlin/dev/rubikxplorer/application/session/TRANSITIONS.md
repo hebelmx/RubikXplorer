@@ -17,7 +17,7 @@ Columns:
   returns `virtual` to where it was before the event.
 - **Clears redo** — `yes` when nothing is left to redo whenever the event advances `revision`.
 
-Every event other than `LessonStarted` and `SolvePlaybackStarted` leaves an idle state (no session)
+Every event other than `LessonStarted` and `SolvePlaybackStarted` and `SessionRestored` leaves an idle state (no session)
 unchanged. A result
 (`ResetConfirmed`, `ResetDeclined`) whose `effectId` and `revision` do not match the pending
 confirmation at the current revision changes nothing but `lastDiscarded`
@@ -26,6 +26,7 @@ steps remain.
 
 | Event | Mutates | Undoable | Clears redo |
 |-------|---------|----------|-------------|
+| SessionRestored | session, virtual, tutor, checkpoint | no | no |
 | LessonStarted | session, virtual, pending, tutor, checkpoint | no | yes |
 | SolvePlaybackStarted | session, virtual | no | no |
 | MoveCommitted | virtual, pending, tutor, checkpoint | yes | yes |
@@ -43,6 +44,14 @@ steps remain.
 | GuidedRecoveryRequested | tutor | no | no |
 | RecoveryPlanned | tutor | no | no |
 | RecoveryPlanFailed | tutor | no | no |
+| SnapshotSaveFailed | — | no | no |
+| SnapshotLoadFailed | — | no | no |
+
+Persistence failures (Story 6.1, AD-12, AD-16): `SessionHost` dispatches `SnapshotSaveFailed` when the
+serial writer reports `SnapshotSave.Failed`, and `SnapshotLoadFailed` when the cold-start read reports
+`SnapshotLoad.Failed` or throws. Neither changes anything, in any session (not even the last Move's
+feedback): a failed save leaves the session running in memory and the next committed transition writes
+again; a failed load leaves the state idle, so the Learner starts a fresh Lesson.
 
 Solve Playback sessions (`SOLVE_PLAYBACK`, Story 3.6): `SolvePlaybackStarted(state, solution)`
 starts, from no session or over a playing one, a session whose entry and `virtual` are `state` and

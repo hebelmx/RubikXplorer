@@ -5,7 +5,11 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.room)
+    alias(libs.plugins.kotlin.serialization)
 }
+
+room3 { schemaDirectory("$projectDir/schemas") }
 
 android {
     namespace = "dev.rubikxplorer.app"
@@ -24,6 +28,10 @@ android {
     sourceSets.getByName("test").kotlin.directories += "src/sharedTest/kotlin"
     sourceSets.getByName("androidTest").kotlin.directories += "src/sharedTest/kotlin"
 
+    // Robolectric reads debug assets; Android unit-test source-set assets are not merged by AGP.
+    sourceSets.getByName("debug").assets.directories += "schemas"
+    sourceSets.getByName("androidTest").assets.directories += "schemas"
+
     // Robolectric Compose tests read the merged resources (fonts, strings, drawables).
     testOptions {
         unitTests.isIncludeAndroidResources = true
@@ -31,6 +39,12 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.sqlite.framework)
+    implementation(libs.kotlinx.serialization.json)
+    ksp(libs.androidx.room.compiler)
+    testImplementation(libs.androidx.room.testing)
+    androidTestImplementation(libs.androidx.room.testing)
     implementation(libs.kotlinx.coroutines.core)
     implementation(project(":core:application"))
     implementation(project(":core:solver"))

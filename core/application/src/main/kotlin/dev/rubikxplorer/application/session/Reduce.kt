@@ -7,6 +7,8 @@ import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.CubeValidator
 import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.MoveHistory
+import dev.rubikxplorer.domain.cube.Notation
+import dev.rubikxplorer.domain.cube.NotationResult
 import dev.rubikxplorer.domain.cube.ValidationResult
 import dev.rubikxplorer.domain.text.Text
 import dev.rubikxplorer.domain.tutor.Assess
@@ -27,6 +29,9 @@ fun reduce(
     state: SessionState,
     event: SessionEvent,
 ): Transition {
+    if (event is SessionEvent.SessionRestored) return restore(state, event)
+    // Persistence failures are reported, never applied: the session and its feedback stay as they are.
+    if (event is SessionEvent.SnapshotSaveFailed || event is SessionEvent.SnapshotLoadFailed) return Transition(state)
     val starts = event is SessionEvent.LessonStarted || event is SessionEvent.SolvePlaybackStarted
     // Only a Lesson session takes Moves and tutor events; idle and playback sessions ignore them.
     if (!starts && state.kind != SessionKind.LESSON) return Transition(state)
@@ -48,6 +53,7 @@ private fun transition(
     event: SessionEvent,
 ): Transition =
     when (event) {
+        is SessionEvent.SessionRestored -> restore(state, event)
         is SessionEvent.LessonStarted -> start(state, event)
         is SessionEvent.SolvePlaybackStarted -> startPlayback(state, event.state, event.solution)
         is SessionEvent.MoveCommitted -> committed(state, event.move)
@@ -65,6 +71,7 @@ private fun transition(
         is SessionEvent.GuidedRecoveryRequested -> guideBack(state)
         is SessionEvent.RecoveryPlanned -> planned(state, event)
         is SessionEvent.RecoveryPlanFailed -> planFailed(state, event)
+        is SessionEvent.SnapshotSaveFailed, is SessionEvent.SnapshotLoadFailed -> Transition(state)
     }
 
 private fun start(
@@ -470,4 +477,50 @@ private fun withHistory(
         pendingReset = null,
         guidedRecovery = GuidedRecovery.None,
     )
+}
+
+private fun restore(
+    state: SessionState,
+    event: SessionEvent.SessionRestored,
+): Transition {
+    val snapshot = event.snapshot
+    if (state.isActive || !snapshot.kind.resumesOnColdStart || snapshot.kind != SessionKind.LESSON ||
+        snapshot.lessonId != event.lesson.id.value
+    ) {
+        return Transition(state)
+    }
+    val decoded = FaceletString.decode(snapshot.start) as? FaceletStringResult.Decoded ?: return Transition(state)
+    val validated = CubeValidator.validate(decoded.facelets) as? ValidationResult.Valid ?: return Transition(state)
+    if (validated.state != entryState(event.lesson)) return Transition(state)
+    val done = (Notation.parse(snapshot.done) as? NotationResult.Parsed)?.moves ?: return Transition(state)
+    val undone = (Notation.parse(snapshot.undone) as? NotationResult.Parsed)?.moves ?: return Transition(state)
+    val solution = (Notation.parse(snapshot.solution) as? NotationResult.Parsed)?.moves ?: return Transition(state)
+    val checkpoint =
+        snapshot.checkpoint?.let {
+            // The Checkpoint may sit on another branch: an Undo below a boundary and a different Move keep it.
+            val moves = (Notation.parse(it) as? NotationResult.Parsed)?.moves ?: return Transition(state)
+            moves.fold(MoveHistory(validated.state)) { history, move -> history.commit(move) }
+        }
+    var history = (done + undone.reversed()).fold(MoveHistory(validated.state)) { h, move -> h.commit(move) }
+    repeat(undone.size) { history = history.undo() }
+    val next =
+        withHistory(SessionState.IDLE.copy(revision = state.revision), history, event.lesson).copy(
+            kind = SessionKind.LESSON,
+            lesson = event.lesson,
+            tutorConfig = event.tutorConfig,
+            solution = solution,
+            checkpoint = checkpoint,
+            teachingMode = snapshot.teachingMode,
+            adaptiveAssistance = snapshot.adaptiveAssistance,
+            hintsUsed = snapshot.hintsUsed,
+            hintRung = snapshot.hintRung,
+            revealRequested = snapshot.revealRequested,
+            noticeStep = snapshot.noticeStep,
+            stepMistakes = snapshot.stepMistakes,
+            cleanSteps = snapshot.cleanSteps,
+            cleanCredited = snapshot.cleanCredited,
+            stepHelped = snapshot.stepHelped,
+            assistanceDismissed = snapshot.assistanceDismissed,
+        )
+    return Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.virtual)))
 }

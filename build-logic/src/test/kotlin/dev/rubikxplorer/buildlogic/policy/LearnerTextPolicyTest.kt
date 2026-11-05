@@ -169,4 +169,23 @@ class LearnerTextPolicyTest {
     fun `a char literal inside a template does not end the scan`() {
         assertEquals(listOf(2 to Rule.PROSE), rules("val s = \"${'$'}{s.trim('{')}\"\nval t = \"two words\""))
     }
+
+    @Test
+    fun `Room Query annotations hold SQL while ordinary calls and literals remain checked`() {
+        val source = """
+            import androidx.room3.Query
+            @Query("SELECT * FROM session_snapshot")
+            suspend fun latest(): Row?
+            @Query(value = "SELECT COUNT(*) FROM session_snapshot")
+            suspend fun count(): Long
+            @androidx.room3.Query("SELECT * FROM session_snapshot WHERE kind = :kind")
+            suspend fun find(kind: String): Row?
+            val text = "Turn the top"
+            Query("Turn the top")
+            Text("Turn the top")
+        """
+        assertEquals(listOf(8 to Rule.UI_TEXT, 9 to Rule.PROSE, 10 to Rule.UI_TEXT), rules(source))
+        assertEquals(listOf(1 to Rule.PROSE), rules("@Query(\"SELECT * FROM session_snapshot\")"))
+        assertEquals(emptyList<Pair<Int, Rule>>(), rules("@androidx.room3.Query(\"SELECT * FROM session_snapshot\")"))
+    }
 }

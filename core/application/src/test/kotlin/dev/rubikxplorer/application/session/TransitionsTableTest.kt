@@ -98,6 +98,19 @@ class TransitionsTableTest {
     /** Scenarios per event type; the exhaustive `when` fails to compile when an event type is added. */
     private fun scenarios(sample: SessionEvent): List<Pair<SessionState, SessionEvent>> =
         when (sample) {
+            is SessionEvent.SessionRestored -> {
+                listOf(
+                    SessionState.IDLE to
+                        SessionEvent.SessionRestored(
+                            checkNotNull(SessionSnapshot.of(fresh.after(hint), "saved", "v1")),
+                            checkNotNull(fresh.lesson),
+                            checkNotNull(fresh.tutorConfig),
+                            sample.at,
+                        ),
+                    b to sample,
+                )
+            }
+
             is SessionEvent.LessonStarted -> {
                 listOf(SessionState.IDLE, a, b, askedB, revealed, playback).map { it to lessonStarted(other) }
             }
@@ -192,10 +205,21 @@ class TransitionsTableTest {
             is SessionEvent.RecoveryPlanFailed -> {
                 listOf(planning, overtaken, planning.after(undo), b, SessionState.IDLE).map { it to planEffect.failed() }
             }
+
+            is SessionEvent.SnapshotSaveFailed, is SessionEvent.SnapshotLoadFailed -> {
+                // Change nothing anywhere, not even standing feedback, a Diagnosis, a pending ask or a plan in flight.
+                listOf(SessionState.IDLE, fresh, b, askedB, bWithFeedback, planning, playback).map { it to sample }
+            }
         }
 
     private val samples: Map<String, SessionEvent> =
         listOf(
+            SessionEvent.SessionRestored(
+                checkNotNull(SessionSnapshot.of(fresh.after(hint), "saved", "v1")),
+                checkNotNull(fresh.lesson),
+                checkNotNull(fresh.tutorConfig),
+                lessonStarted(other).at,
+            ),
             lessonStarted(other),
             playbackStarted(),
             commit(F),
@@ -213,6 +237,8 @@ class TransitionsTableTest {
             guideBack,
             planEffect.planned(listOf(R_PRIME)),
             planEffect.failed(),
+            SessionEvent.SnapshotSaveFailed(lessonStarted(other).at),
+            SessionEvent.SnapshotLoadFailed(lessonStarted(other).at),
         ).associateBy { it::class.java.simpleName }
 
     /** What the `session` column covers: the kind, its Lesson and tutor configuration or its Solution, the adaptive flag, and its entry state. */
@@ -253,7 +279,7 @@ class TransitionsTableTest {
         assertEquals(names.size, names.toSet().size, "duplicate rows: $names")
         assertEquals(eventTypes, names.toSet())
         assertEquals(eventTypes, samples.keys)
-        assertEquals(17, eventTypes.size)
+        assertEquals(20, eventTypes.size)
     }
 
     @Test

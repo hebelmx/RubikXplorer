@@ -14,6 +14,13 @@ import kotlin.time.Instant
 sealed interface SessionEvent {
     val at: Instant
 
+    data class SessionRestored(
+        val snapshot: SessionSnapshot,
+        val lesson: Lesson,
+        val tutorConfig: TutorConfig,
+        override val at: Instant,
+    ) : SessionEvent
+
     /**
      * Starts a Lesson session at the Lesson's entry state, replacing any current session; the tutor
      * judges it with [tutorConfig] (the content bundle's `tutor-config.json`). [adaptiveAssistance] is
@@ -130,6 +137,22 @@ sealed interface SessionEvent {
     data class RecoveryPlanFailed(
         val effectId: Long,
         val revision: Long,
+        override val at: Instant,
+    ) : SessionEvent
+
+    /**
+     * Storing the session snapshot failed (AD-12, AD-16): the session is unchanged and keeps running
+     * in memory; the next committed transition writes again.
+     */
+    data class SnapshotSaveFailed(
+        override val at: Instant,
+    ) : SessionEvent
+
+    /**
+     * Reading the latest session snapshot on cold start failed (AD-12, AD-16): nothing is restored
+     * and the session is unchanged, so the Learner starts fresh.
+     */
+    data class SnapshotLoadFailed(
         override val at: Instant,
     ) : SessionEvent
 
