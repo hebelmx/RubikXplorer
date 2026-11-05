@@ -588,7 +588,11 @@ private fun restoreCheckpoint(
     event: SessionEvent.CheckpointRestored,
 ): Transition {
     val checkpoint = event.checkpoint
-    if (state.isActive || checkpoint.kind != SessionKind.LESSON || checkpoint.lessonId != event.lesson.id.value) return Transition(state)
+    // A different Lesson is accepted only as the replacement for a removed one: the first Lesson of the Checkpoint's Stage.
+    val replaced = checkpoint.lessonId != event.lesson.id.value
+    if (state.isActive || checkpoint.kind != SessionKind.LESSON || (replaced && checkpoint.stageId != event.lesson.stageId.value)) {
+        return Transition(state)
+    }
 
     fun decode(
         facelets: String,
@@ -603,7 +607,7 @@ private fun restoreCheckpoint(
     val moves = (Notation.parse(checkpoint.history) as? NotationResult.Parsed)?.moves ?: return Transition(state)
     val stored = moves.fold(MoveHistory(start)) { history, move -> history.commit(move) }
     if (stored.state != cube) return Transition(state)
-    val restart = checkpoint.contentRevision != event.contentRevision || checkpoint.stageId != event.lesson.stageId.value
+    val restart = replaced || checkpoint.contentRevision != event.contentRevision || checkpoint.stageId != event.lesson.stageId.value
     val history = if (restart) MoveHistory(cube) else stored
     val fresh = start(state, SessionEvent.LessonStarted(event.lesson, event.tutorConfig, event.at, checkpoint.adaptiveAssistance)).state
     val next =

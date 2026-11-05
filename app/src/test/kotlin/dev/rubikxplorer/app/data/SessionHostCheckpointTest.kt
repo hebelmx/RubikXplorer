@@ -48,7 +48,17 @@ class SessionHostCheckpointTest {
                     .lessons
                     .first()
             val context = RuntimeEnvironment.getApplication()
-            for (scenario in listOf("same", "revision", "stage", "missing", "playback", "kept", "corrupt", "decoded-invalid-history")) {
+            for (scenario in listOf(
+                "same",
+                "revision",
+                "stage",
+                "missing",
+                "missing-stage",
+                "playback",
+                "kept",
+                "corrupt",
+                "decoded-invalid-history",
+            )) {
                 val name = "checkpoint-${java.util.UUID.randomUUID()}.db"
 
                 fun database() = Room.databaseBuilder<RubikDatabase>(context, name).setDriver(AndroidSQLiteDriver()).build()
@@ -141,14 +151,28 @@ class SessionHostCheckpointTest {
                         )
                     val content =
                         when (scenario) {
-                            "revision" -> bundle.copy(contentRevision = "updated")
-                            "missing" -> bundle.copy(stages = emptyList())
-                            else -> bundle
+                            "revision" -> {
+                                bundle.copy(contentRevision = "updated")
+                            }
+
+                            "missing" -> {
+                                val stage = bundle.stages.first()
+                                check(stage.lessons.size > 1) { "the first Stage needs a second Lesson to replace the removed one" }
+                                bundle.copy(stages = listOf(stage.copy(lessons = stage.lessons.drop(1))) + bundle.stages.drop(1))
+                            }
+
+                            "missing-stage" -> {
+                                bundle.copy(stages = emptyList())
+                            }
+
+                            else -> {
+                                bundle
+                            }
                         }
                     restored.restore(content)
                     restored.awaitRestored()
                     val state = restored.state.value
-                    if (scenario == "playback" || scenario == "missing") {
+                    if (scenario == "playback" || scenario == "missing-stage") {
                         assertSame(SessionState.IDLE, state)
                     } else {
                         assertEquals(saved.cube, FaceletString.encode(state.virtual.toFacelets()))
@@ -162,6 +186,17 @@ class SessionHostCheckpointTest {
                             assertEquals(Text("msg.lesson.updated"), state.restoreNote)
                             assertTrue(state.history.done.isEmpty())
                             assertEquals(state.virtual, state.entry)
+                            val expected =
+                                if (scenario == "missing") {
+                                    content.stages
+                                        .first()
+                                        .lessons
+                                        .first()
+                                        .id
+                                } else {
+                                    lesson.id
+                                }
+                            assertEquals(expected, state.lesson!!.id)
                             writer.flush()
                             assertEquals(
                                 content.contentRevision,

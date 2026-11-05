@@ -191,9 +191,10 @@ nothing and any session interaction cancels it.)
 committed revision, content IDs, boundary history, teaching settings and event time. Snapshot
 restoration, playback and tutor-only changes never emit it. The host serializes it off the main thread.
 
-`CheckpointRestored` applies only from IDLE for the matching Lesson, with validated Facelets,
-matching orientation IDs and a parsed history that reaches the stored cube. Matching content and
-stage resume the boundary history without redo. Otherwise the stored cube becomes the entry with
+`CheckpointRestored` applies only from IDLE for the matching Lesson (or, when that Lesson was
+removed, another Lesson of the Checkpoint's Stage, which the host picks as the Stage's first), with
+validated Facelets, matching orientation IDs and a parsed history that reaches the stored cube.
+Matching content, stage and Lesson resume the boundary history without redo. Otherwise the stored cube becomes the entry with
 empty history and `restoreNote = Text("msg.lesson.updated")`. Tutor counters are fresh in both cases.
 `restoreNote` is transient, null in IDLE and never snapshotted. Every later event taken by a Lesson
 clears it except `SnapshotSaveFailed`, `SnapshotLoadFailed`, `CheckpointSaveFailed` and

@@ -218,11 +218,23 @@ class CheckpointTest {
         assertEquals(MoveFeedback.ON_PATH, reduce(recovered, commit(U)).state.lastMoveFeedback)
     }
 
+    @Test fun `a removed lesson restarts the stage's replacement lesson at the stored cube`() {
+        val replaced = restore(dto.copy(lessonId = "gone"))
+        assertEquals(lesson.id, replaced.state.lesson!!.id)
+        assertEquals(boundary.state.virtual, replaced.state.virtual)
+        assertTrue(
+            replaced.state.history.done
+                .isEmpty(),
+        )
+        assertEquals(Text("msg.lesson.updated"), replaced.state.restoreNote)
+        assertEquals(lesson.id.value, (replaced.effects.single() as Effect.PersistCheckpoint).lessonId)
+    }
+
     @Test fun `invalid checkpoints and non idle restores are ignored without effects`() {
         val invalid =
             listOf(
                 dto.copy(kind = SessionKind.SOLVE_PLAYBACK),
-                dto.copy(lessonId = "gone"),
+                dto.copy(lessonId = "gone", stageId = "other-stage"),
                 dto.copy(start = "bad"),
                 dto.copy(cube = "W".repeat(54)),
                 dto.copy(cube = "bad"),

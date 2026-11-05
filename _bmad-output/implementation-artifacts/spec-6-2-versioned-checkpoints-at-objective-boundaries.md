@@ -40,18 +40,19 @@ deferred: []
 - **Storage.** Room schema v2 adds table `checkpoint`, with `kind` as the PK and a `payload` JSON column, plus a 1→2 migration. The v2 schema is exported to `app/schemas/`.
   - The JSON payload holds `checkpointFormat` (now 1) and the DTO fields only.
   - Decoding reads `checkpointFormat` first and dispatches to the decoder for that format. The decoders are kept for every past format. An unknown format or invalid JSON → `Failed`.
-- **Restore event.** `CheckpointRestored(checkpoint, lesson, tutorConfig, contentRevision, at)` applies only from IDLE, with `kind == LESSON` and `lessonId == lesson.id`. All of these must also hold, or the state stays IDLE:
+- **Restore event.** `CheckpointRestored(checkpoint, lesson, tutorConfig, contentRevision, at)` applies only from IDLE, with `kind == LESSON` and either `lessonId == lesson.id` or (a removed Lesson) `stageId == lesson.stageId`. All of these must also hold, or the state stays IDLE:
   - both Facelets decode and validate, and each orientation id equals the validated state's orientation;
   - `history` parses;
   - `start` + `history` equals `cube`.
-  - **Resume.** When `contentRevision` and `stageId` both match: the history is `start` + `history` with nothing to redo, `checkpoint` is that history, and `restoreNote` is null.
+  - **Resume.** When `contentRevision`, `stageId` and `lessonId` all match: the history is `start` + `history` with nothing to redo, `checkpoint` is that history, and `restoreNote` is null.
   - **Restart.** Otherwise: the history is empty at `cube` (the new entry), `checkpoint` is that history, and `restoreNote = Text("msg.lesson.updated")`.
   - In both cases `teachingMode` and `adaptiveAssistance` come from the DTO, the other tutor fields are fresh (as `LessonStarted`), the revision is IDLE's + 1, and the presentation is `Snap`.
 - **Note.** `restoreNote: Text?` is a transient tutor field: null in IDLE, never snapshotted, and cleared by every later event a Lesson session takes except the four persistence-failure events.
 - **Host restore.** `restoreLatest` keeps 6.1's snapshot path. Then, if no session is active and the latest snapshot is not `SOLVE_PLAYBACK`:
   - it reads `checkpoints.find(LESSON)` through the writer;
   - when the Checkpoint's `lessonId` resolves in the bundle, it dispatches `CheckpointRestored`;
-  - a missing lesson stays IDLE;
+  - a missing lesson whose `stageId` still resolves dispatches `CheckpointRestored` with that Stage's first Lesson, which restarts with the note (PO decision);
+  - a missing Stage stays IDLE;
   - a `Failed` read (or a throw) dispatches `SessionEvent.CheckpointLoadFailed`;
   - `awaitRestored` completes in every outcome.
 - **Snapshot start.** `SessionRestored` no longer requires `start` to equal the Lesson's entry state; it still requires valid Facelets. A restarted Lesson's entry is the stored cube.
@@ -72,7 +73,8 @@ deferred: []
 | Content changed | Stored `contentRevision` ≠ bundle's | Lesson at the stored cube, empty history, note shown, new Checkpoint persisted | — |
 | Stage changed | Same revision, different `stageId` | Restart with note | — |
 | Same content | Matching Checkpoint, no usable snapshot | Resumes at the Checkpoint history, no note | — |
-| Lesson gone | `lessonId` not in bundle | Stays IDLE | — |
+| Lesson gone | `lessonId` not in bundle, Stage present | Stage's first Lesson restarts at the stored cube with note | — |
+| Stage gone | `lessonId` and `stageId` not in bundle | Stays IDLE | — |
 | Corrupt | Bad Facelets, orientation mismatch, bad Notation, `start + history ≠ cube`, unknown format | Stays IDLE | decode → `Failed` / reducer ignores |
 | Playback latest | Latest snapshot is SOLVE_PLAYBACK | No Checkpoint read | — |
 | DB failure | Room throws on save or find | `CheckpointSaveFailed` / `CheckpointLoadFailed`; the app runs on | caught |
@@ -169,7 +171,7 @@ deferred: []
   - `[medium]` `[patch]` (blind) the host restart matrix omitted a failed snapshot read and a usable snapshot that skips the Checkpoint lookup — added `kept` and `corrupt` scenarios to `SessionHostCheckpointTest` (asserts zero Checkpoint reads and `SessionRestored` for `kept`; `SnapshotLoadFailed` plus silent Checkpoint resume for `corrupt`).
   - `[medium]` `[patch]` (edge) the restore sentence is clipped on compact screens or large fonts — same root cause and patch as the blind `maxLines` row.
   - `[medium]` `[patch]` (verification-gap) a failed snapshot read falling back to a valid Checkpoint was untested — same patch as the blind host-matrix row (the `corrupt` scenario); an early return after `SnapshotLoadFailed` now fails it.
-  - `[low]` `[reject]` (intent) a Checkpoint whose `lessonId` is gone stays IDLE silently instead of "restarting the Lesson" — there is no Lesson to restart, and picking a substitute would invent behavior; recorded in Design Notes, surfacing it belongs to 6.5's Continue card.
+  - `[low]` `[reject]` (intent) a Checkpoint whose `lessonId` is gone stays IDLE silently instead of "restarting the Lesson" — there is no Lesson to restart, and picking a substitute would invent behavior; recorded in Design Notes, surfacing it belongs to 6.5's Continue card. Superseded by PO decision: restart the Stage's first Lesson with the note; only a missing Stage stays IDLE.
   - `[low]` `[reject]` (intent) after a cold start the note is seen only when the Learner reopens that same Lesson — the session is restored in `SessionHost`, and surfacing it is Story 6.5's Continue card (same stance as 6.1's swipe-away row).
   - `[medium]` `[patch]` (intent) the note may be clipped by `maxLines = 1` — same root cause and patch as the blind `maxLines` row.
   - `[false]` `[reject]` (intent) 6.1 behavior changed (snapshot start check relaxed, playback snapshot skips Checkpoint fallback, migration test targets v2) — each is specified in this spec's Always/Design Notes; a restarted Lesson's snapshot must restore, and suspend/resume is 6.5's.
@@ -223,7 +225,7 @@ deferred: []
 - **Off the path.** No new code is needed. `nextMove` returns null and `isOnPath` returns false, so the screen's existing off-path branch (no chips or arrow, the Undo-back Assistance line, the TARGET line hidden) and the Diagnosis and recovery offers apply. Guidance returns by itself once the cube reaches an authored path state.
 - **Undo barrier.** The restart has nothing to undo or redo. The same-content resume clears redo but keeps the Checkpoint's Moves undoable. Physical-mode barriers arrive with Epic 8.
 - **Format versioning.** There is only format 1 today. The frozen `format-1.json` fixture is its permanent decoder test: a future bump adds `format-2.json` and keeps the format-1 decoder, and the fixture loop fails if either is missing.
-- **Missing lesson.** No Lesson exists to restart, so the state stays IDLE. Surfacing this belongs to 6.5's Continue card.
+- **Missing lesson.** PO decision: when the Lesson ID is gone but its Stage remains, the Stage's first Lesson restarts at the stored cube through the same content-changed path (note shown, Tutor derives the first unmet step from that Lesson's authored path, history and Reset start at the stored cube, an off-path cube gets recovery). Only a missing Stage stays IDLE.
 
 ## Verification
 
@@ -274,7 +276,7 @@ deferred: []
 - The targeted `--tests` command: pass.
 - Matrix audit: every row is covered by tests that passed:
   - `CheckpointTest`: boundary, no boundary, corrupt;
-  - `SessionHostCheckpointTest`: revision, stage, same, missing, playback, DB failure;
+  - `SessionHostCheckpointTest`: revision, stage, same, missing (Stage's first Lesson restarts), missing-stage (IDLE), playback, DB failure;
   - `CheckpointPayloadTest`: keys, unknown format, broken JSON;
   - `LessonScreenTest`: the note.
 

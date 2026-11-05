@@ -108,7 +108,15 @@ class SessionHost internal constructor(
             }
         if (checkpoint is CheckpointLoad.Failed) dispatch { SessionEvent.CheckpointLoadFailed(it) }
         if (checkpoint is CheckpointLoad.Found) {
-            val lesson = bundle.stages.flatMap { it.lessons }.firstOrNull { it.id.value == checkpoint.checkpoint.lessonId } ?: return
+            val stored = checkpoint.checkpoint
+            // A removed Lesson restarts its Stage's first Lesson at the stored cube; a removed Stage stays IDLE.
+            val lesson =
+                bundle.stages.flatMap { it.lessons }.firstOrNull { it.id.value == stored.lessonId }
+                    ?: bundle.stages
+                        .firstOrNull { it.id.value == stored.stageId }
+                        ?.lessons
+                        ?.firstOrNull()
+                    ?: return
             dispatch { SessionEvent.CheckpointRestored(checkpoint.checkpoint, lesson, bundle.tutorConfig, bundle.contentRevision, it) }
         }
     }
