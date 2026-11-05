@@ -44,8 +44,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -80,8 +83,10 @@ import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.input.MoveIntent
 import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.playback.DemonstrationResult
+import dev.rubikxplorer.domain.predicate.CubeSummary
 import dev.rubikxplorer.domain.predicate.Piece
 import dev.rubikxplorer.domain.tutor.AssistanceLevel
+import dev.rubikxplorer.domain.tutor.Certainty
 import dev.rubikxplorer.domain.tutor.HintLadder
 import dev.rubikxplorer.domain.tutor.HintRung
 import dev.rubikxplorer.domain.tutor.Recovery
@@ -205,9 +210,13 @@ private fun LessonBody(
     // demonstration frame is ever drawn.
     var playingMove by remember(lesson.id) { mutableStateOf<Move?>(null) }
     val onPlayingMove: (Move?) -> Unit = { playingMove = it }
+    // The Cube State the running demonstration shows on the net, so its summary describes that cube.
+    var playingState by remember(lesson.id) { mutableStateOf<CubeState?>(null) }
+    val onPlayingState: (CubeState?) -> Unit = { playingState = it }
     val reorientation = remember(lesson.id) { mutableStateOf<Job?>(null) }
     val stopReorientation = {
         playingMove = null
+        playingState = null
         reorientation.value?.let { job ->
             reorientation.value = null
             if (job.isActive) {
@@ -228,7 +237,8 @@ private fun LessonBody(
         if (escalated && shownStep !in demonstrated.value) {
             demonstrated.value += shownStep
             stopReorientation()
-            reorientation.value = scope.launch { demonstrateStep(host, renderer, demonstration, shownStep, reduceMotion, onPlayingMove) }
+            reorientation.value =
+                scope.launch { demonstrateStep(host, renderer, demonstration, shownStep, reduceMotion, onPlayingMove, onPlayingState) }
         }
     }
     val send: ((Instant) -> SessionEvent) -> Unit = { event ->
@@ -252,7 +262,8 @@ private fun LessonBody(
             hintEnabled = HintLadder.canClimb(mode, session.shownRung, decision.advance, session.assistance.top),
             onHint = {
                 stopReorientation()
-                reorientation.value = scope.launch { climbHintLadder(host, renderer, demonstration, reduceMotion, onPlayingMove) }
+                reorientation.value =
+                    scope.launch { climbHintLadder(host, renderer, demonstration, reduceMotion, onPlayingMove, onPlayingState) }
             },
             nextEnabled = decision.advance,
             onNext = { if (decision.satisfied) onClose() else send(SessionEvent::StepAdvanced) },
@@ -273,7 +284,9 @@ private fun LessonBody(
             onShowMeHow = { rotations ->
                 stopReorientation()
                 reorientation.value =
-                    scope.launch { demonstrateOnNet(host, renderer, host.state.value.virtual, rotations, reduceMotion, onPlayingMove) }
+                    scope.launch {
+                        demonstrateOnNet(host, renderer, host.state.value.virtual, rotations, reduceMotion, onPlayingMove, onPlayingState)
+                    }
             },
         )
     }
@@ -281,7 +294,14 @@ private fun LessonBody(
         Box(stageModifier.testTag("lesson:stage")) {
             when (mode) {
                 TeachingMode.SHOW_ME -> {
-                    DemonstrationPlayer(player, Modifier.fillMaxSize().padding(Spacing.s2))
+                    // The Demonstration's shown state, summarized against the Lesson's Objective like the Learner stage.
+                    val shown = demonstration.start.apply(demonstration.moves.take(player.position))
+                    DemonstrationPlayer(
+                        player,
+                        Modifier.fillMaxSize().padding(Spacing.s2),
+                        summary = cubeSummary(shown, lesson, strings),
+                        certainty = decision.certainty,
+                    )
                 }
 
                 TeachingMode.GUIDE_ME, TeachingMode.TEST_ME, TeachingMode.LET_ME_TRY -> {
@@ -335,6 +355,9 @@ private fun LessonBody(
                         host = host,
                         session = session,
                         renderer = renderer,
+                        certainty = decision.certainty,
+                        // A running demonstration's shown cube, so the summary agrees with Read faces and Solved.
+                        summary = cubeSummary(playingState ?: session.virtual, lesson, strings),
                         emphasis = emphasis,
                         arrow =
                             playingMove
@@ -390,6 +413,17 @@ private fun LessonBody(
         }
     }
 }
+
+/** What TalkBack reads for a Lesson cube in [state]: its Objective progress, or null when there is none to tell. */
+private fun cubeSummary(
+    state: CubeState,
+    lesson: Lesson,
+    strings: ContentStrings,
+): String? =
+    CubeSummary
+        .of(state, lesson.completion)
+        .takeIf { it.isNotEmpty() }
+        ?.joinToString("; ") { strings.resolve(it) }
 
 /**
  * The step card's content for [mode]: Show me follows the Demonstration's focused step; Guide me,
@@ -511,6 +545,8 @@ private fun LearnerStage(
     host: SessionHost,
     session: SessionState,
     renderer: Cube3DRenderer,
+    certainty: Certainty,
+    summary: String?,
     emphasis: NetEmphasis?,
     arrow: Move?,
     reduceMotion: Boolean,
@@ -519,38 +555,54 @@ private fun LearnerStage(
 ) {
     val tokens = RubikTheme.tokens
     var caption by remember { mutableStateOf<String?>(null) }
-    Column(Modifier.fillMaxSize().padding(Spacing.s2), verticalArrangement = Arrangement.spacedBy(Spacing.s1)) {
+    Column(
+        Modifier.fillMaxSize().padding(Spacing.s2).semantics {
+            isTraversalGroup = true
+        },
+        verticalArrangement = Arrangement.spacedBy(Spacing.s1),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = caption.orEmpty(),
-                style = MaterialTheme.typography.bodyMedium,
-                color = tokens.inkPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .padding(start = Spacing.s2)
-                        .testTag("stage:caption")
-                        .semantics { liveRegion = LiveRegionMode.Polite },
-            )
-            ToolbarButton(R.drawable.ic_undo, R.string.toolbar_undo, "toolbar:undo", session.history.canUndo) {
-                caption = null
-                send(SessionEvent::Undo)
+            FrameLabel(certainty)
+            Row(
+                Modifier.weight(1f).semantics {
+                    isTraversalGroup = true
+                    traversalIndex = 3f
+                },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = caption.orEmpty(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = tokens.inkPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .padding(start = Spacing.s2)
+                            .testTag("stage:caption")
+                            .semantics {
+                                liveRegion = LiveRegionMode.Polite
+                            },
+                )
+                ToolbarButton(R.drawable.ic_undo, R.string.toolbar_undo, "toolbar:undo", session.history.canUndo) {
+                    caption = null
+                    send(SessionEvent::Undo)
+                }
+                ToolbarButton(R.drawable.ic_redo, R.string.toolbar_redo, "toolbar:redo", session.history.canRedo) {
+                    caption = null
+                    send(SessionEvent::Redo)
+                }
+                ToolbarButton(R.drawable.ic_reset, R.string.toolbar_reset, "toolbar:reset", canReset(session)) {
+                    caption = null
+                    send(SessionEvent::Reset)
+                }
+                ViewControls(renderer)
             }
-            ToolbarButton(R.drawable.ic_redo, R.string.toolbar_redo, "toolbar:redo", session.history.canRedo) {
-                caption = null
-                send(SessionEvent::Redo)
-            }
-            ToolbarButton(R.drawable.ic_reset, R.string.toolbar_reset, "toolbar:reset", canReset(session)) {
-                caption = null
-                send(SessionEvent::Reset)
-            }
-            ViewControls(renderer)
         }
         renderer.Content(
             RenderStyle(),
-            Modifier.fillMaxWidth().weight(1f),
+            Modifier.fillMaxWidth().weight(1f).semantics { traversalIndex = 1f },
             onMoveIntent = { intent ->
                 caption = null
                 send { SessionEvent.MoveCommitted(intent.move, it) }
@@ -558,6 +610,7 @@ private fun LearnerStage(
             emphasis = emphasis,
             arrow = arrow,
             reduceMotion = reduceMotion,
+            summary = summary,
         )
         MoveKeyBar(
             onMove = { move ->
@@ -565,7 +618,11 @@ private fun LearnerStage(
                 send { SessionEvent.MoveCommitted(MoveIntent(move).move, it) }
             },
             onShowName = { caption = it },
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier.fillMaxWidth().semantics {
+                    isTraversalGroup = true
+                    traversalIndex = 2f
+                },
         )
         Spacer(Modifier.height(Spacing.s1))
     }
@@ -589,14 +646,17 @@ internal suspend fun demonstrateOnNet(
     moves: List<Move>,
     reduceMotion: Boolean,
     onMove: (Move?) -> Unit = {},
+    onShown: (CubeState?) -> Unit = {},
 ) {
     try {
         val held = host.state.value
         if (from != held.virtual) renderer.submit(listOf(PresentationItem.Snap(held.revision, from.toFacelets())))
         var shown = from
+        onShown(shown)
         moves.forEach { move ->
             onMove(move)
             shown = shown.apply(move)
+            onShown(shown)
             val target = shown.toFacelets()
             val item =
                 if (reduceMotion) {
@@ -612,6 +672,7 @@ internal suspend fun demonstrateOnNet(
         renderer.submit(listOf(PresentationItem.Snap(now.revision, now.virtual.toFacelets())))
     } finally {
         onMove(null)
+        onShown(null)
     }
 }
 
@@ -675,3 +736,27 @@ internal val GUIDE_ME_BACK_LABEL = TextKey("msg.recovery.offer.guide-me-back")
 
 /** The recovery prompt's *Try again* label (content text, AD-6). */
 internal val TRY_AGAIN_LABEL = TextKey("msg.recovery.offer.try-again")
+
+/** Certainty changes are announced by the frame's live region; initial insertion is silent. */
+@Composable
+internal fun FrameLabel(certainty: Certainty) {
+    val description =
+        stringResource(
+            when (certainty) {
+                Certainty.VERIFIED -> R.string.certainty_verified
+                Certainty.LIKELY -> R.string.certainty_likely
+                Certainty.UNKNOWN -> R.string.certainty_unknown
+            },
+        )
+    Text(
+        stringResource(R.string.frame_virtual),
+        style = MaterialTheme.typography.labelMedium,
+        color = RubikTheme.tokens.inkSecondary,
+        modifier =
+            Modifier.padding(start = Spacing.s2).testTag("stage:frame").semantics {
+                traversalIndex = 0f
+                stateDescription = description
+                liveRegion = LiveRegionMode.Polite
+            },
+    )
+}

@@ -13,6 +13,7 @@ import dev.rubikxplorer.app.session.SessionHost
 import dev.rubikxplorer.app.session.toItems
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.application.session.SessionEvent
+import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.tutor.HintRung
@@ -49,13 +50,14 @@ internal suspend fun climbHintLadder(
     demonstration: Demonstration,
     reduceMotion: Boolean,
     onMove: (Move?) -> Unit = {},
+    onShown: (CubeState?) -> Unit = {},
 ) {
     val before = host.state.value.shownRung
     val transition = host.dispatch(SessionEvent::HintRequested)
     renderer.submit(transition.presentation.toItems())
     val landed = transition.state
     if (before == HintRung.TARGET && landed.shownRung == HintRung.DEMONSTRATION) {
-        demonstrateStep(host, renderer, demonstration, landed.stepIndex, reduceMotion, onMove)
+        demonstrateStep(host, renderer, demonstration, landed.stepIndex, reduceMotion, onMove, onShown)
     }
 }
 
@@ -71,9 +73,10 @@ internal suspend fun demonstrateStep(
     stepIndex: Int,
     reduceMotion: Boolean,
     onMove: (Move?) -> Unit = {},
+    onShown: (CubeState?) -> Unit = {},
 ) {
     demonstration.steps.getOrNull(stepIndex)?.let { shown ->
         val from = demonstration.start.apply(demonstration.moves.take(shown.firstMove))
-        demonstrateOnNet(host, renderer, from, shown.moves, reduceMotion, onMove)
+        demonstrateOnNet(host, renderer, from, shown.moves, reduceMotion, onMove, onShown)
     }
 }

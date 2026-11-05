@@ -136,4 +136,10 @@
     <string name="rotate_view_right">Rotate view right</string>
     <string name="rotate_view_up">Rotate view up</string>
     <string name="rotate_view_down">Rotate view down</string>
+    <string name="cube_read_faces">Read faces</string>
+    <string name="cube_read_summary">Read summary</string>
+    <string name="cube_face_colors">%1$s face: %2$s.</string>
+    <string name="certainty_verified">Verified</string>
+    <string name="certainty_likely">Likely</string>
+    <string name="certainty_unknown">Unknown</string>
 </resources>
