@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-29-2026 12:34
-last_updated: 11-05-2026 02:27
+last_updated: 11-05-2026 02:36
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -79,13 +79,13 @@ development_status:
   4-6-adaptive-assistance-from-configuration: done
   epic-4-retrospective: done
 
-  epic-5: in-progress
+  epic-5: done
   5-1-render-the-cube-in-3d-behind-the-cuberenderer-port: done
   5-2-turn-layers-with-gestures: done
   5-3-rotate-the-view-and-the-cube: done
   5-4-arrows-highlights-and-dimming-in-3d: done
   5-5-describe-the-cube-to-talkback: done
-  epic-5-retrospective: optional
+  epic-5-retrospective: done
 
   epic-6: backlog
   6-1-survive-process-death-with-session-snapshots: backlog
@@ -266,3 +266,61 @@ action_items:
     owner: "Dev (Amelia) + Architect (Winston)"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-11-04.md"
+  - id: "epic-5-retro-item-16-run-bmad-correct-course-to-plan-the-free"
+    epic: 5
+    action: "Run bmad-correct-course to plan the free-cube event/reducer owner story
+      (5.2 PO decision) and reconcile the 5.2 MoveCommitted AC wording"
+    owner: "PM (John) + Architect (Winston)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-11-05.md"
+  - id: "epic-5-retro-item-17-one-device-validation-session-for-epic-5"
+    epic: 5
+    action: "One device validation session for Epic 5 hardware deferrals: Tab S7 FE
+      turn timing/p90, touch-to-tick <=100 ms, on-GPU emphasis and arrow overlay,
+      TalkBack speech of Read faces and Certainty, gestures on a real touchscreen"
+    owner: "hebelmx"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-11-05.md"
+  - id: "epic-5-retro-item-18-double-tap-reset-also-checks-tap-distanc"
+    epic: 5
+    action: "Double-tap reset also checks tap distance (Cube3DRenderer.kt:458-459,
+      doubleTapSlop) with a far-apart-taps test"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-11-05.md"
+  - id: "epic-5-retro-item-19-split-cube3drenderer-kt-551-lines-gestur"
+    epic: 5
+    action: "Split Cube3DRenderer.kt (551 lines): gesture host and arrow overlay into
+      own components; one presented-frame source for arrow, emphasis, Move label and
+      summary"
+    owner: "Dev (Amelia) + Architect (Winston)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-11-05.md"
+  - id: "epic-5-retro-item-20-every-story-commit-subject-carries-its-s"
+    epic: 5
+    action: "Every story commit subject carries its story id, including gate-fix and
+      device-fix commits (orchestrator fix-worker and build prompts)"
+    owner: "SM / orchestrator"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-11-05.md"
+  - id: "epic-5-retro-item-21-run-cube3drendersynctest-at-every-render"
+    epic: 5
+    action: "Run Cube3DRenderSyncTest at every renderer-touching story gate or as
+      an opt-in CI emulator job"
+    owner: "Dev (Amelia) + SM"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-11-05.md"
+  - id: "epic-5-retro-item-22-orchestrator-story-start-pre-build-scope"
+    epic: 5
+    action: "Orchestrator story-start pre-build scope check: surfaces a spec excludes
+      or fixes by design need a recorded PO decision the gate treats as scope"
+    owner: "SM / orchestrator"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-11-05.md"
+  - id: "epic-5-retro-item-23-provide-robolectric-android-all-artifact"
+    epic: 5
+    action: "Provide Robolectric android-all artifacts to CI without a live Maven
+      fetch (cache or offline) to remove the MavenArtifactFetcher flake"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-11-05.md"
