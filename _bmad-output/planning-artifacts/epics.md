@@ -205,7 +205,7 @@ A Learner can turn and inspect a smooth 3D cube with gestures, rotate the view f
 **FRs covered:** FR-1 (3D, gestures), FR-2, FR-6 (3D overlays). **Also:** NFR-1, NFR-2, NFR-4, NFR-7, AR-8, AR-17, UX-DR6, UX-DR26, UX-DR27, UX-DR29.
 
 ### Epic 6: Pick up where I left off (P0.3, week 6)
-A Learner's Lesson survives closing the app or process death, their attempts are recorded, and their preferences stick.
+A Learner's Lesson survives closing the app or process death, their attempts are recorded, and their preferences stick. The free cube also gets one event owner (Story 6.6), with no persistence.
 **Absorbs:** E07.
 **FRs covered:** FR-19 (snapshots, Checkpoints, attempts, preferences). **Also:** NFR-6, AR-14, AR-21, UX-DR25, UX-DR30.
 
@@ -1115,7 +1115,7 @@ So that the screen cube feels like a real one.
 
 **Given** a recognized gesture
 **When** the `MoveIntent` is produced
-**Then** it goes through the same `MoveCommitted` path as a Move key, the input is acknowledged within 100 ms, and a light haptic tick fires (switchable off)
+**Then** it goes through the same `MoveCommitted` path as a Move key (a `SessionEvent` in a Lesson; on the free cube, the shared `FreeCubeViewModel.onMoveIntent` commit, replaced by the free-cube reducer in Story 6.6), the input is acknowledged within 100 ms, and a light haptic tick fires (switchable off)
 
 ### Story 5.3: Rotate the view and the cube
 
@@ -1288,6 +1288,28 @@ So that coming back is effortless.
 **Given** a Lesson suspended by a solve (Story 3.7)
 **When** the solve ends
 **Then** the Lesson resumes from its Checkpoint
+
+### Story 6.6: Give the free cube one event owner
+
+As a Learner,
+I want every way of turning the free cube to behave the same,
+So that the cube I see always matches the turns I made.
+
+**Refs:** FR-1, FR-3 · NFR-4 · AD-3, AD-4, AD-20 · AR-8
+
+**Acceptance Criteria:**
+
+**Given** a pure `FreeCubeEvent` (`MoveCommitted(move)`, `Undo`, `Redo`, `Reset`, `Scrambled(moves)`) and `reduceFreeCube(state, event)` in `:core:application`, where the state holds the `MoveHistory` and a monotonic `revision`
+**When** an event is reduced
+**Then** it returns the next state and a revision-stamped presentation: `Animate(move)` for a commit, `Animate(inverse)` for Undo, `Animate(move)` for Redo, and `Snap` for Reset and Scramble. Undo or Redo with nothing to undo or redo returns the state unchanged with no presentation. JVM tests cover Story 1.6's undo, redo, reset and redo-clearing rules
+
+**Given** the free cube screen
+**When** a gesture, a Move key or an accessibility action produces a `MoveIntent`, or the Learner taps Undo, Redo, Reset or Scramble
+**Then** `FreeCubeViewModel` only dispatches a `FreeCubeEvent` and submits the returned presentation. It is not a second writer of the history, the Scramble Moves are generated outside the reducer (no `RandomSource` in `reduce`), and a test shows a gesture and the equal Move key produce identical transitions
+
+**Given** the existing free-cube suites (the 2D/3D randomized sync suite and the Story 5.2 gesture tests)
+**When** they run
+**Then** they pass unchanged, and the free cube is still not a Learning Session and persists nothing (AD-20)
 
 ## Epic 7: Complete the Course to a first solve and mastery
 
