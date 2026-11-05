@@ -3,6 +3,7 @@ package dev.rubikxplorer.app.ui.lesson
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
@@ -11,6 +12,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.isTraversalGroup
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.traversalIndex
 import dev.rubikxplorer.app.render.Cube3DRenderer
 import dev.rubikxplorer.app.render.NetEmphasis
 import dev.rubikxplorer.app.render.RenderStyle
@@ -24,6 +28,7 @@ import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.playback.DemonstrationStep
 import dev.rubikxplorer.domain.playback.PlaybackSpeed
+import dev.rubikxplorer.domain.tutor.Certainty
 import dev.rubikxplorer.app.ui.playback.frameDelta as sharedFrameDelta
 
 /**
@@ -93,31 +98,52 @@ fun rememberDemonstrationPlayerState(
  * involved and target pieces and the centers lit, the target outlined; below it the shared playback transport (|◀ ◀ ▶/❚❚ ▶ ▶|), speed, the
  * step counter and the current Move. Under reduce motion the Moves step instead of animating.
  * Above the cube the shared view controls turn and reset the camera, view-only as on the lesson
- * stage: they change neither the playback position nor the session.
+ * stage: they change neither the playback position nor the session. [summary], when given, is
+ * what TalkBack reads for the cube (the shown state's Objective progress), and [certainty], when
+ * given, adds the Lesson stage's frame label. TalkBack then walks frame label, cube, playback
+ * controls (where the Learner stage has its Move key bar), then the view controls.
  */
 @Composable
 fun DemonstrationPlayer(
     state: DemonstrationPlayerState,
     modifier: Modifier = Modifier,
     style: RenderStyle = RenderStyle(),
+    summary: String? = null,
+    certainty: Certainty? = null,
 ) {
     PlaybackFrameLoop(state)
     Column(
-        modifier = modifier.testTag("demonstrationPlayer"),
+        modifier = modifier.testTag("demonstrationPlayer").semantics { isTraversalGroup = true },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Spacing.s2),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { ViewControls(state.renderer) }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            certainty?.let { FrameLabel(it) }
+            Spacer(Modifier.weight(1f))
+            Row(
+                Modifier.semantics {
+                    isTraversalGroup = true
+                    traversalIndex = 3f
+                },
+            ) { ViewControls(state.renderer) }
+        }
         // Takes what the view controls and the transport leave (as wide as it is tall, never wider
         // than its slot), so a short stage shrinks the net rather than overlapping the controls.
         state.renderer.Content(
             style,
-            Modifier.weight(1f, fill = false).aspectRatio(1f),
+            Modifier.weight(1f, fill = false).aspectRatio(1f).semantics { traversalIndex = 1f },
             emphasis = state.emphasis,
             arrow = state.arrow,
             reduceMotion = state.reduceMotion,
+            summary = summary,
         )
-        PlaybackTransport(state)
+        PlaybackTransport(
+            state,
+            Modifier.semantics {
+                isTraversalGroup = true
+                traversalIndex = 2f
+            },
+        )
     }
 }
 

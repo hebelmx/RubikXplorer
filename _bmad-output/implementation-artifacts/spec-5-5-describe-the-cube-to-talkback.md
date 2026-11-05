@@ -54,7 +54,7 @@ deferred:
 - All new Learner text goes in `en.json` (`msg.cube-summary.*`) or `strings.xml`. No literals (LearnerTextPolicy).
 
 **Never:**
-- No change to `CubeRenderer`, `PresentationItem`, `SessionEvent`, `Reduce`, `Assess`, `TutorDecision`, predicates' behaviour, the free cube's frame label, Show me's `DemonstrationPlayer` stage, `build-logic/`, `_bmad/`, `.claude/skills/`, `_bmad-output/planning-artifacts/`, or spike source sets.
+- No change to `CubeRenderer`, `PresentationItem`, `SessionEvent`, `Reduce`, `Assess`, `TutorDecision`, predicates' behaviour, the free cube's frame label, `build-logic/`, `_bmad/`, `.claude/skills/`, `_bmad-output/planning-artifacts/`, or spike source sets.
 - No `View.announceForAccessibility` (deprecated). No new dependency. No logging of Cube States. No live region on the cube node in summary mode (a Move must not trigger a re-read).
 
 ## I/O & Edge-Case Matrix
@@ -222,4 +222,10 @@ Follow-up pass: 18 findings (10 carried from the first pass).
 - TalkBack speech is unverified on a device (deferred).
 - Certainty never changes in virtual Lessons, so only the `FrameLabel` component proves the announcement wiring.
 - On a short compact screen, a scrolled-away panel drops out of the traversal until TalkBack scrolls (platform behaviour).
-- Show me still reads the generic `cube_description` (the baseline behaviour, kept on purpose under the intent's Never list).
+
+## Acceptance-gate follow-up: Show me covered
+
+The story's ACs apply to the whole Lesson screen, and they win over this spec's earlier exclusion of Show me (the Never list no longer names Show me's `DemonstrationPlayer` stage).
+- `DemonstrationPlayer` takes an optional `summary` and `certainty`. In Show me the Lesson passes `CubeSummary.of(start.apply(moves.take(position)), completion)` (through the same `cubeSummary` helper as the Learner modes) and `decision.certainty`, so the cube reads the shown state's Objective progress, keeps the Read faces action, and the stage shows the same `FrameLabel`.
+- Show me's focus order: frame label → cube → playback controls (where the Move key bar would be) → view controls → lesson panel → Teaching Mode switcher.
+- Tests (`LessonScreenTest`): the Show me summary at the start and end of the Demonstration, Read faces and the frame label in Show me, and platform traversal for SHOW_ME on wide and compact screens.

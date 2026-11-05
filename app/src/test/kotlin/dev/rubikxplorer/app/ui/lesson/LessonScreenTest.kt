@@ -69,6 +69,7 @@ import dev.rubikxplorer.domain.playback.DemonstrationResult
 import dev.rubikxplorer.domain.playback.PlaybackSpeed
 import dev.rubikxplorer.domain.predicate.Piece
 import dev.rubikxplorer.domain.tutor.AssistanceLevel
+import dev.rubikxplorer.domain.tutor.Certainty
 import dev.rubikxplorer.domain.tutor.HintLadder
 import dev.rubikxplorer.domain.tutor.HintRung
 import dev.rubikxplorer.domain.tutor.RecoveryPlan
@@ -1525,11 +1526,61 @@ class LessonScreenTest {
         assertEquals("White cross solved; 2 of 4 first-layer corners placed", spoken())
     }
 
+    @Test
+    fun `Show me reads the shown Demonstration state's Objective progress`() {
+        open(cornerLesson.id.value)
+        switchTo(TeachingMode.SHOW_ME)
+
+        fun spoken() = node("cube3d").fetchSemanticsNode().config[SemanticsProperties.ContentDescription].single()
+        assertEquals("White cross solved; 3 of 4 first-layer corners placed", spoken())
+        node("playback:end").performClick()
+        rule.waitForIdle()
+        assertEquals("White cross solved; First-layer corners solved", spoken())
+    }
+
+    @Test
+    fun `Show me offers Read faces on the cube and the Lesson stage's frame label`() {
+        open(cornerLesson.id.value)
+        switchTo(TeachingMode.SHOW_ME)
+        val cube = node("cube3d").fetchSemanticsNode().config
+        assertEquals("Read faces", cube[androidx.compose.ui.semantics.SemanticsActions.CustomActions].single().label)
+        val frame = node("stage:frame").fetchSemanticsNode().config
+        node("stage:frame").assertTextEquals("VIRTUAL")
+        assertEquals(LiveRegionMode.Polite, frame[SemanticsProperties.LiveRegion])
+        val certainty =
+            when (
+                host.state.value.decision!!
+                    .certainty
+            ) {
+                Certainty.VERIFIED -> "Verified"
+                Certainty.LIKELY -> "Likely"
+                Certainty.UNKNOWN -> "Unknown"
+            }
+        assertEquals(certainty, frame[SemanticsProperties.StateDescription])
+    }
+
+    @Test
+    fun `platform traversal follows Show me stage order on a wide screen`() {
+        RuntimeEnvironment.setQualifiers("w1200dp-h1600dp")
+        assertStageTraversal(listOf(TeachingMode.SHOW_ME))
+    }
+
+    @Test
+    fun `platform traversal follows Show me stage order on a compact screen`() {
+        // Tall enough that the scrolling panel shows whole; TalkBack only walks nodes on screen.
+        RuntimeEnvironment.setQualifiers("w400dp-h2400dp")
+        assertStageTraversal(listOf(TeachingMode.SHOW_ME))
+    }
+
+    private fun assertLearnerTraversal() =
+        assertStageTraversal(listOf(TeachingMode.GUIDE_ME, TeachingMode.TEST_ME, TeachingMode.LET_ME_TRY))
+
     /**
-     * Walks Compose's platform traversal chain (what TalkBack follows) in each Learner mode and checks
-     * frame label → cube → Move key bar → stage toolbar → lesson panel → Teaching Mode switcher.
+     * Walks Compose's platform traversal chain (what TalkBack follows) in each of [modes] and checks
+     * frame label → cube → Move key bar → stage toolbar → lesson panel → Teaching Mode switcher; Show me
+     * has the playback controls where the Move key bar is and its view controls in the toolbar's place.
      */
-    private fun assertLearnerTraversal() {
+    private fun assertStageTraversal(modes: List<TeachingMode>) {
         val app =
             androidx.test.core.app.ApplicationProvider
                 .getApplicationContext<Application>()
@@ -1539,12 +1590,13 @@ class LessonScreenTest {
             setEnabledAccessibilityServiceList(listOf(android.accessibilityservice.AccessibilityServiceInfo()))
         }
         open(cornerLesson.id.value)
-        listOf(TeachingMode.GUIDE_ME, TeachingMode.TEST_ME, TeachingMode.LET_ME_TRY).forEach { mode ->
+        modes.forEach { mode ->
             switchTo(mode)
+            val showMe = mode == TeachingMode.SHOW_ME
             val frame = node("stage:frame").fetchSemanticsNode().id
             val cube = node("cube3d").fetchSemanticsNode().id
-            val move = node("moveKey:U").fetchSemanticsNode().id
-            val undo = node("toolbar:undo").fetchSemanticsNode().id
+            val move = node(if (showMe) "playback:playPause" else "moveKey:U").fetchSemanticsNode().id
+            val undo = node(if (showMe) "stage:viewMenu" else "toolbar:undo").fetchSemanticsNode().id
             val objective = node("lesson:objective").fetchSemanticsNode().id
             val hint = node("lesson:hint").fetchSemanticsNode().id
             val next = node("lesson:next").fetchSemanticsNode().id

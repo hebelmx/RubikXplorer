@@ -286,7 +286,14 @@ private fun LessonBody(
         Box(stageModifier.testTag("lesson:stage")) {
             when (mode) {
                 TeachingMode.SHOW_ME -> {
-                    DemonstrationPlayer(player, Modifier.fillMaxSize().padding(Spacing.s2))
+                    // The Demonstration's shown state, summarized against the Lesson's Objective like the Learner stage.
+                    val shown = demonstration.start.apply(demonstration.moves.take(player.position))
+                    DemonstrationPlayer(
+                        player,
+                        Modifier.fillMaxSize().padding(Spacing.s2),
+                        summary = cubeSummary(shown, lesson, strings),
+                        certainty = decision.certainty,
+                    )
                 }
 
                 TeachingMode.GUIDE_ME, TeachingMode.TEST_ME, TeachingMode.LET_ME_TRY -> {
@@ -341,13 +348,7 @@ private fun LessonBody(
                         session = session,
                         renderer = renderer,
                         certainty = decision.certainty,
-                        summary =
-                            CubeSummary
-                                .of(
-                                    session.virtual,
-                                    lesson.completion,
-                                ).takeIf { it.isNotEmpty() }
-                                ?.joinToString("; ") { strings.resolve(it) },
+                        summary = cubeSummary(session.virtual, lesson, strings),
                         emphasis = emphasis,
                         arrow =
                             playingMove
@@ -403,6 +404,17 @@ private fun LessonBody(
         }
     }
 }
+
+/** What TalkBack reads for a Lesson cube in [state]: its Objective progress, or null when there is none to tell. */
+private fun cubeSummary(
+    state: CubeState,
+    lesson: Lesson,
+    strings: ContentStrings,
+): String? =
+    CubeSummary
+        .of(state, lesson.completion)
+        .takeIf { it.isNotEmpty() }
+        ?.joinToString("; ") { strings.resolve(it) }
 
 /**
  * The step card's content for [mode]: Show me follows the Demonstration's focused step; Guide me,
