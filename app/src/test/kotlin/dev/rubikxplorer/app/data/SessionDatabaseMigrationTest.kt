@@ -43,4 +43,37 @@ class SessionDatabaseMigrationTest {
                 Files.deleteIfExists(path)
             }
         }
+
+    @Test fun versionTwoToThreeKeepsRowsAndCreatesAttempt() =
+        runBlocking {
+            val path = Files.createTempFile("attempt-migration", ".db")
+            Files.delete(path)
+            val helper =
+                MigrationTestHelper(
+                    InstrumentationRegistry.getInstrumentation(),
+                    path.toFile(),
+                    AndroidSQLiteDriver(),
+                    RubikDatabase::class,
+                )
+            try {
+                helper.createDatabase(2).use { connection ->
+                    connection.prepare("INSERT INTO session_snapshot VALUES ('LESSON', 'kept', 7, 1, 'snapshot')").use { it.step() }
+                    connection.prepare("INSERT INTO checkpoint VALUES ('LESSON', 'checkpoint')").use { it.step() }
+                }
+                helper.runMigrationsAndValidate(3).use { connection ->
+                    for ((table, payload) in listOf("session_snapshot" to "snapshot", "checkpoint" to "checkpoint")) {
+                        connection.prepare("SELECT payload FROM $table").use {
+                            assertEquals(true, it.step())
+                            assertEquals(payload, it.getText(0))
+                        }
+                    }
+                    connection.prepare("SELECT COUNT(attempt_id) FROM attempt").use {
+                        assertEquals(true, it.step())
+                        assertEquals(0L, it.getLong(0))
+                    }
+                }
+            } finally {
+                Files.deleteIfExists(path)
+            }
+        }
 }

@@ -29,7 +29,13 @@ fun reduce(
     state: SessionState,
     event: SessionEvent,
 ): Transition {
-    if (event is SessionEvent.CheckpointRestored) return persistCheckpoint(state, restoreCheckpoint(state, event), event)
+    if (event is SessionEvent.CheckpointRestored) {
+        return attempts(
+            state,
+            persistCheckpoint(state, restoreCheckpoint(state, event), event),
+            event,
+        )
+    }
     if (event is SessionEvent.SessionRestored) return restore(state, event)
     // Persistence failures are reported, never applied: the session and its feedback stay as they are.
     if (event is SessionEvent.SnapshotSaveFailed || event is SessionEvent.SnapshotLoadFailed ||
@@ -41,7 +47,7 @@ fun reduce(
     // Only a Lesson session takes Moves and tutor events; idle and playback sessions ignore them.
     if (!starts && state.kind != SessionKind.LESSON) return Transition(state)
     val transition =
-        persistCheckpoint(state, transition(state, event), event).let {
+        attempts(state, persistCheckpoint(state, transition(state, event), event), event).let {
             if (it.state.restoreNote == null) it else it.copy(state = it.state.copy(restoreNote = null))
         }
     // AD-5: feedback and its Diagnosis belong to the last committed Move; every other Lesson event
@@ -127,6 +133,8 @@ private fun start(
             revealRequested = false,
             hintRung = HintRung.NONE,
             hintsUsed = 0,
+            attemptOpen = false,
+            attemptAssistance = AssistanceLevel.USUAL,
             lastMoveFeedback = null,
             lastDiagnosis = null,
             checkpoint = MoveHistory(entry),
@@ -165,6 +173,8 @@ private fun startPlayback(
             revealRequested = false,
             hintRung = HintRung.NONE,
             hintsUsed = 0,
+            attemptOpen = false,
+            attemptAssistance = AssistanceLevel.USUAL,
             lastMoveFeedback = null,
             lastDiagnosis = null,
             checkpoint = null,
@@ -542,6 +552,8 @@ private fun restore(
             teachingMode = snapshot.teachingMode,
             adaptiveAssistance = snapshot.adaptiveAssistance,
             hintsUsed = snapshot.hintsUsed,
+            attemptOpen = snapshot.attemptOpen,
+            attemptAssistance = snapshot.attemptAssistance,
             hintRung = snapshot.hintRung,
             revealRequested = snapshot.revealRequested,
             noticeStep = snapshot.noticeStep,
@@ -617,4 +629,50 @@ private fun restoreCheckpoint(
             restoreNote = if (restart) Text("msg.lesson.updated") else null,
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.virtual)))
+}
+
+/** Fold peak help before closing; attempt bookkeeping never changes the revision. */
+private fun attempts(
+    before: SessionState,
+    transition: Transition,
+    event: SessionEvent,
+): Transition {
+    var next = transition.state
+    if (next.kind != SessionKind.LESSON || next === before) return transition
+    val starts = event is SessionEvent.LessonStarted || event is SessionEvent.CheckpointRestored
+    val checkpoint = transition.effects.filterIsInstance<Effect.PersistCheckpoint>()
+    val effects = transition.effects.filterNot { it is Effect.PersistCheckpoint }.toMutableList()
+    var id = next.nextEffectId - checkpoint.size
+
+    fun end(
+        state: SessionState,
+        outcome: AttemptOutcome,
+    ) {
+        effects +=
+            Effect.AttemptEnded(
+                id++,
+                next.revision,
+                checkNotNull(state.lesson).id.value,
+                outcome,
+                state.stepMistakes.values.sum(),
+                state.hintsUsed,
+                state.attemptAssistance,
+                event.at,
+            )
+    }
+    if (event is SessionEvent.LessonStarted && before.attemptOpen) end(before, AttemptOutcome.ABANDONED)
+    checkpoint.forEach { effects += it.copy(effectId = id++) }
+    if (starts) {
+        next = next.copy(attemptOpen = !next.objectiveMet, attemptAssistance = next.assistance)
+        if (next.attemptOpen) effects += Effect.AttemptStarted(id++, next.revision, checkNotNull(next.lesson).id.value, event.at)
+    }
+    if (next.attemptOpen) {
+        next = next.copy(attemptAssistance = maxOf(next.attemptAssistance, next.assistance))
+        if (next.objectiveMet) {
+            end(next, AttemptOutcome.COMPLETED)
+            next = next.copy(attemptOpen = false)
+        }
+    }
+    val result = transition.copy(state = next.copy(nextEffectId = id), effects = effects)
+    return if (result == transition) transition else result
 }

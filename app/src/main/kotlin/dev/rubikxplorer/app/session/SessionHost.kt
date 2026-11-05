@@ -8,6 +8,8 @@ import dev.rubikxplorer.application.port.Clock
 import dev.rubikxplorer.application.port.SessionSnapshotRepository
 import dev.rubikxplorer.application.port.SnapshotLoad
 import dev.rubikxplorer.application.port.SnapshotSave
+import dev.rubikxplorer.application.session.AttemptOutcome
+import dev.rubikxplorer.application.session.AttemptRecord
 import dev.rubikxplorer.application.session.Checkpoint
 import dev.rubikxplorer.application.session.Effect
 import dev.rubikxplorer.application.session.SessionEvent
@@ -56,6 +58,12 @@ class SessionHost internal constructor(
     private val restoring = Mutex()
     private var sessionId = ""
     private var contentRevision: String? = null
+
+    /** The open attempt's id; confined like [sessionId]. */
+    private var attemptId: String? = null
+
+    /** Attempt rows whose snapshot save failed; touched only inside [writer] operations, which run one at a time. */
+    private var pendingAttempts = emptyList<AttemptRecord>()
 
     suspend fun awaitRestored() {
         restored.await()
@@ -131,6 +139,7 @@ class SessionHost internal constructor(
      */
     suspend fun dispatch(event: (at: Instant) -> SessionEvent): Transition =
         withContext(confined) {
+            val previousSessionId = sessionId
             val before = current.value
             val stamped = event(clock.now())
             val transition = reduce(before, stamped)
@@ -142,18 +151,46 @@ class SessionHost internal constructor(
                 ) {
                     sessionId = UUID.randomUUID().toString()
                 }
-                val snapshot = SessionSnapshot.of(transition.state, sessionId, contentRevision)
+                // The open attempt keeps its id across a snapshot restore, so its STARTED and ENDED rows pair exactly.
+                if (stamped is SessionEvent.SessionRestored) attemptId = stamped.snapshot.attemptId
+                val attempts =
+                    transition.effects.mapNotNull { effect ->
+                        when (effect) {
+                            is Effect.AttemptStarted -> {
+                                val id = UUID.randomUUID().toString()
+                                attemptId = id
+                                AttemptRecord.of(effect, sessionId, id)
+                            }
+
+                            is Effect.AttemptEnded -> {
+                                val id = attemptId ?: UUID.randomUUID().toString()
+                                attemptId = null
+                                val owner = if (effect.outcome == AttemptOutcome.ABANDONED) previousSessionId else sessionId
+                                AttemptRecord.of(effect, owner, id)
+                            }
+
+                            else -> {
+                                null
+                            }
+                        }
+                    }
+                val snapshot = SessionSnapshot.of(transition.state, sessionId, contentRevision, attemptId)
                 if (snapshot != null && repository != null) {
                     writer?.enqueue {
                         // AD-16: a failed write is an event; the session keeps running and the next commit writes again.
+                        // Attempt rows of a failed write stay pending and retry with that next commit; their
+                        // (sessionId, revision) keys make a replay a no-op.
+                        val batch = pendingAttempts + attempts
                         val saved =
                             try {
-                                repository.save(snapshot)
+                                repository.save(snapshot, batch)
                             } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                pendingAttempts = batch
                                 throw cancelled
                             } catch (_: Exception) {
                                 SnapshotSave.Failed
                             }
+                        pendingAttempts = if (saved is SnapshotSave.Failed) batch else emptyList()
                         if (saved is SnapshotSave.Failed) dispatch { SessionEvent.SnapshotSaveFailed(it) }
                     }
                 }

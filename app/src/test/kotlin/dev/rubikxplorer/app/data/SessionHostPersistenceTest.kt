@@ -6,6 +6,7 @@ import dev.rubikxplorer.app.session.TickingClock
 import dev.rubikxplorer.application.port.SessionSnapshotRepository
 import dev.rubikxplorer.application.port.SnapshotLoad
 import dev.rubikxplorer.application.port.SnapshotSave
+import dev.rubikxplorer.application.session.AttemptRecord
 import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.application.session.SessionSnapshot
 import dev.rubikxplorer.application.session.SessionState
@@ -66,7 +67,10 @@ class SessionHostPersistenceTest {
                 object : SessionSnapshotRepository {
                     override suspend fun latest() = SnapshotLoad.Failed
 
-                    override suspend fun save(snapshot: SessionSnapshot) = SnapshotSave.Failed
+                    override suspend fun save(
+                        snapshot: SessionSnapshot,
+                        attempts: List<AttemptRecord>,
+                    ) = SnapshotSave.Failed
                 }
             val writer = SerialWriter()
             val events = CopyOnWriteArrayList<SessionEvent>()
@@ -113,7 +117,10 @@ class SessionHostPersistenceTest {
                 object : SessionSnapshotRepository {
                     override suspend fun latest(): SnapshotLoad = throw IllegalStateException("disk")
 
-                    override suspend fun save(snapshot: SessionSnapshot): SnapshotSave = throw IllegalStateException("disk")
+                    override suspend fun save(
+                        snapshot: SessionSnapshot,
+                        attempts: List<AttemptRecord>,
+                    ): SnapshotSave = throw IllegalStateException("disk")
                 }
             val writer = SerialWriter()
             val events = CopyOnWriteArrayList<SessionEvent>()
@@ -175,7 +182,10 @@ class SessionHostPersistenceTest {
                         return SnapshotLoad.Found(saved)
                     }
 
-                    override suspend fun save(snapshot: SessionSnapshot) = SnapshotSave.Saved
+                    override suspend fun save(
+                        snapshot: SessionSnapshot,
+                        attempts: List<AttemptRecord>,
+                    ) = SnapshotSave.Saved
                 }
             val writer = SerialWriter()
             val host =
@@ -216,7 +226,10 @@ class SessionHostPersistenceTest {
                 object : SessionSnapshotRepository {
                     override suspend fun latest() = SnapshotLoad.None
 
-                    override suspend fun save(snapshot: SessionSnapshot): SnapshotSave {
+                    override suspend fun save(
+                        snapshot: SessionSnapshot,
+                        attempts: List<AttemptRecord>,
+                    ): SnapshotSave {
                         gate.await()
                         snapshots += snapshot
                         return SnapshotSave.Saved

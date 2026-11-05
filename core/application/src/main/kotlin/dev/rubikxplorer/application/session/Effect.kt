@@ -13,6 +13,24 @@ sealed interface Effect {
     val effectId: Long
     val revision: Long
 
+    data class AttemptStarted(
+        override val effectId: Long,
+        override val revision: Long,
+        val objectiveId: String,
+        val at: kotlin.time.Instant,
+    ) : Effect
+
+    data class AttemptEnded(
+        override val effectId: Long,
+        override val revision: Long,
+        val objectiveId: String,
+        val outcome: AttemptOutcome,
+        val errors: Int,
+        val hints: Int,
+        val assistanceLevel: dev.rubikxplorer.domain.tutor.AssistanceLevel,
+        val at: kotlin.time.Instant,
+    ) : Effect
+
     data class PersistCheckpoint(
         override val effectId: Long,
         override val revision: Long,

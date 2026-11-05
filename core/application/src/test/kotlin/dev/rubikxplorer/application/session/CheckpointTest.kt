@@ -28,9 +28,9 @@ class CheckpointTest {
     ) = reduce(state, SessionEvent.CheckpointRestored(dto, lesson, TUTOR_CONFIG, revision, T0))
 
     @Test fun `start and boundaries persist exact committed data with sequential ids`() {
-        val first = started.effects.single() as Effect.PersistCheckpoint
+        val first = started.effects.filterIsInstance<Effect.PersistCheckpoint>().single() as Effect.PersistCheckpoint
         assertEquals(1L, first.effectId)
-        assertEquals(2L, initial.nextEffectId)
+        assertEquals(3L, initial.nextEffectId)
         assertEquals(initial.nextEffectId, effect.effectId)
         assertEquals(boundary.state.revision, effect.revision)
         assertEquals(effect.effectId + 1, boundary.state.nextEffectId)
@@ -77,7 +77,7 @@ class CheckpointTest {
         assertTrue(restored.stepMistakes.isEmpty())
         assertEquals(1L, restored.revision)
         assertEquals(listOf(Presentation.Snap(1, restored.virtual)), restore().presentation)
-        assertTrue(restore().effects.single() is Effect.PersistCheckpoint)
+        assertTrue(restore().effects.map { it::class } == listOf(Effect.PersistCheckpoint::class, Effect.AttemptStarted::class))
     }
 
     @Test fun `rotated cubes with wide and slice turns round trip through both restore paths`() {
@@ -227,7 +227,10 @@ class CheckpointTest {
                 .isEmpty(),
         )
         assertEquals(Text("msg.lesson.updated"), replaced.state.restoreNote)
-        assertEquals(lesson.id.value, (replaced.effects.single() as Effect.PersistCheckpoint).lessonId)
+        assertEquals(
+            lesson.id.value,
+            (replaced.effects.filterIsInstance<Effect.PersistCheckpoint>().single() as Effect.PersistCheckpoint).lessonId,
+        )
     }
 
     @Test fun `invalid checkpoints and non idle restores are ignored without effects`() {

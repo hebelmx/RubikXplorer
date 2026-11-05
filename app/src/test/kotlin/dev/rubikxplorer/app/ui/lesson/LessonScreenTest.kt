@@ -49,6 +49,7 @@ import dev.rubikxplorer.application.port.FlagLevel
 import dev.rubikxplorer.application.port.SessionSnapshotRepository
 import dev.rubikxplorer.application.port.SnapshotLoad
 import dev.rubikxplorer.application.port.SnapshotSave
+import dev.rubikxplorer.application.session.AttemptRecord
 import dev.rubikxplorer.application.session.GuidedRecovery
 import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.application.session.SessionSnapshot
@@ -127,7 +128,10 @@ class LessonScreenTest {
             object : SessionSnapshotRepository {
                 override suspend fun latest() = SnapshotLoad.Found(snapshot)
 
-                override suspend fun save(snapshot: SessionSnapshot) = SnapshotSave.Saved
+                override suspend fun save(
+                    snapshot: SessionSnapshot,
+                    attempts: List<AttemptRecord>,
+                ) = SnapshotSave.Saved
             }
         val writer = SerialWriter()
         val restoringHost =
@@ -173,7 +177,7 @@ class LessonScreenTest {
         val checkpoint =
             dev.rubikxplorer.application.session.Checkpoint
                 .of(
-                    start.effects.single() as dev.rubikxplorer.application.session.Effect.PersistCheckpoint,
+                    start.effects.filterIsInstance<dev.rubikxplorer.application.session.Effect.PersistCheckpoint>().single(),
                     "old-content",
                 ).copy(
                     cube =

@@ -28,6 +28,11 @@ object PersistenceModule {
     @Provides @Singleton
     fun checkpoints(database: RubikDatabase): CheckpointRepository = RoomCheckpointRepository(database)
 
+    @Provides @Singleton
+    fun attempts(database: RubikDatabase): dev.rubikxplorer.application.port.AttemptRepository =
+        dev.rubikxplorer.app.data
+            .RoomAttemptRepository(database)
+
     @Provides fun dao(database: RubikDatabase): SessionSnapshotDao = database.snapshots()
 
     @Provides @Singleton

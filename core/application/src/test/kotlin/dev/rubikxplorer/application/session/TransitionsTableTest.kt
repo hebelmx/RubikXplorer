@@ -229,8 +229,13 @@ class TransitionsTableTest {
             ),
             SessionEvent.CheckpointRestored(
                 Checkpoint
-                    .of(reduce(SessionState.IDLE, lessonStarted(other)).effects.single() as Effect.PersistCheckpoint, "v1")
-                    .copy(teachingMode = TeachingMode.TEST_ME),
+                    .of(
+                        reduce(
+                            SessionState.IDLE,
+                            lessonStarted(other),
+                        ).effects.filterIsInstance<Effect.PersistCheckpoint>().single() as Effect.PersistCheckpoint,
+                        "v1",
+                    ).copy(teachingMode = TeachingMode.TEST_ME),
                 other,
                 TUTOR_CONFIG,
                 "changed",
@@ -279,6 +284,8 @@ class TransitionsTableTest {
                     s.revealRequested,
                     s.hintRung,
                     s.hintsUsed,
+                    s.attemptOpen,
+                    s.attemptAssistance,
                     s.lastMoveFeedback,
                     s.lastDiagnosis,
                     s.guidedRecovery,
