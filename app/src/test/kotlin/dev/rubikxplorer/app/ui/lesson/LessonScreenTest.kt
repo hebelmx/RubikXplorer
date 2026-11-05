@@ -564,6 +564,34 @@ class LessonScreenTest {
     }
 
     @Test
+    fun `show me offers the view controls, which leave the playback and the session alone`() {
+        open(crossLesson.id.value)
+        switchTo(TeachingMode.SHOW_ME)
+        node("playback:forward").performClick()
+        rule.waitForIdle()
+        node("playback:counter").assertTextContains("1 / 4")
+        val before = host.state.value
+        val drawn = drawnColors()
+        // The cube stays inside its slot, so the controls above and below it take their own taps.
+        val cube = node("cube3d").fetchSemanticsNode().boundsInRoot
+        assertTrue(cube.top >= node("stage:viewMenu").fetchSemanticsNode().boundsInRoot.bottom)
+        assertTrue(cube.bottom <= node("playback:playPause").fetchSemanticsNode().boundsInRoot.top)
+        node("stage:viewMenu").performClick()
+        node("viewRotate:left").performClick()
+        rule.waitForIdle()
+        node("stage:viewMenu").performClick()
+        node("viewRotate:left").performClick()
+        rule.waitForIdle()
+        node("playback:counter").assertTextContains("1 / 4")
+        assertEquals("turning the view leaves the Session alone", before, host.state.value)
+        assertEquals("turning the view leaves the drawn Cube State alone", drawn, drawnColors())
+        node("stage:resetView").performClick()
+        rule.waitForIdle()
+        node("playback:counter").assertTextContains("1 / 4")
+        assertEquals("resetting the view leaves the Session alone", before, host.state.value)
+    }
+
+    @Test
     fun `show me offers no hint to climb`() {
         open(whiteCrossLesson().id.value)
         switchTo(TeachingMode.SHOW_ME)

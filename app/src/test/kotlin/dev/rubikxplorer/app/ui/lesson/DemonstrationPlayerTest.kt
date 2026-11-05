@@ -34,6 +34,7 @@ import dev.rubikxplorer.domain.cube.Facelets
 import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.cube.NotationResult
 import dev.rubikxplorer.domain.cube.Turn
+import dev.rubikxplorer.domain.input.ViewOrbit
 import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.playback.DemonstrationResult
 import dev.rubikxplorer.domain.playback.PlaybackSpeed
@@ -292,6 +293,28 @@ class DemonstrationPlayerTest {
         rule.mainClock.advanceTimeBy(300)
         // Idle: back to the controller's current Move.
         assertLabel("R'")
+    }
+
+    @Test
+    fun `view controls turn and reset the camera without moving the playback`() {
+        show(reduceMotion = true)
+        rule.onNodeWithTag("playback:forward").performClick()
+        rule.waitForIdle()
+        assertCounter("1 / 1")
+        val drawn = state.renderer.renderedFacelets()
+        rule.onNodeWithTag("stage:viewMenu").performClick()
+        rule.onNodeWithTag("viewRotate:right").performClick()
+        rule.waitForIdle()
+        assertEquals(ViewOrbit.DEFAULT.rotated(-ViewOrbit.STEP_DEGREES, 0.0), state.renderer.orbit)
+        assertCounter("1 / 1")
+        assertEquals(1, state.position)
+        assertFalse(state.isPlaying)
+        assertEquals(drawn, state.renderer.renderedFacelets())
+        rule.onNodeWithTag("stage:resetView").performClick()
+        rule.waitForIdle()
+        assertEquals(ViewOrbit.DEFAULT, state.renderer.orbit)
+        assertCounter("1 / 1")
+        assertEquals(drawn, state.renderer.renderedFacelets())
     }
 
     @Test

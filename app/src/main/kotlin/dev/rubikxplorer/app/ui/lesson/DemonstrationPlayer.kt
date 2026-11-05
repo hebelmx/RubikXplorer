@@ -2,6 +2,7 @@ package dev.rubikxplorer.app.ui.lesson
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
@@ -13,6 +14,7 @@ import androidx.compose.ui.platform.testTag
 import dev.rubikxplorer.app.render.Cube3DRenderer
 import dev.rubikxplorer.app.render.NetEmphasis
 import dev.rubikxplorer.app.render.RenderStyle
+import dev.rubikxplorer.app.ui.freecube.ViewControls
 import dev.rubikxplorer.app.ui.playback.NetPlayback
 import dev.rubikxplorer.app.ui.playback.PlaybackFrameLoop
 import dev.rubikxplorer.app.ui.playback.PlaybackTransport
@@ -90,6 +92,8 @@ fun rememberDemonstrationPlayerState(
  * A Demonstration (FR-6) on the 2D net: the focused step's off-step pieces dimmed, its Keep,
  * involved and target pieces and the centers lit, the target outlined; below it the shared playback transport (|◀ ◀ ▶/❚❚ ▶ ▶|), speed, the
  * step counter and the current Move. Under reduce motion the Moves step instead of animating.
+ * Above the cube the shared view controls turn and reset the camera, view-only as on the lesson
+ * stage: they change neither the playback position nor the session.
  */
 @Composable
 fun DemonstrationPlayer(
@@ -103,10 +107,12 @@ fun DemonstrationPlayer(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Spacing.s2),
     ) {
-        // Takes what the transport leaves, so a short stage shrinks the net rather than the controls.
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { ViewControls(state.renderer) }
+        // Takes what the view controls and the transport leave (as wide as it is tall, never wider
+        // than its slot), so a short stage shrinks the net rather than overlapping the controls.
         state.renderer.Content(
             style,
-            Modifier.fillMaxWidth().weight(1f, fill = false).aspectRatio(1f),
+            Modifier.weight(1f, fill = false).aspectRatio(1f),
             emphasis = state.emphasis,
             arrow = state.arrow,
             reduceMotion = state.reduceMotion,
