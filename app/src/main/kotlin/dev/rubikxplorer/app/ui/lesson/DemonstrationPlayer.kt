@@ -93,15 +93,13 @@ fun rememberDemonstrationPlayerState(
  * involved and target pieces and the centers lit, the target outlined; below it the shared playback transport (|◀ ◀ ▶/❚❚ ▶ ▶|), speed, the
  * step counter and the current Move. Under reduce motion the Moves step instead of animating.
  * Above the cube the shared view controls turn and reset the camera, view-only as on the lesson
- * stage: they change neither the playback position nor the session. [summary], when given, is
- * what TalkBack reads for the cube (the shown state's Objective progress).
+ * stage: they change neither the playback position nor the session.
  */
 @Composable
 fun DemonstrationPlayer(
     state: DemonstrationPlayerState,
     modifier: Modifier = Modifier,
     style: RenderStyle = RenderStyle(),
-    summary: String? = null,
 ) {
     PlaybackFrameLoop(state)
     Column(
@@ -118,7 +116,6 @@ fun DemonstrationPlayer(
             emphasis = state.emphasis,
             arrow = state.arrow,
             reduceMotion = state.reduceMotion,
-            summary = summary,
         )
         PlaybackTransport(state)
     }

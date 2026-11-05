@@ -286,17 +286,7 @@ private fun LessonBody(
         Box(stageModifier.testTag("lesson:stage")) {
             when (mode) {
                 TeachingMode.SHOW_ME -> {
-                    // The Demonstration's shown state, summarized against the Lesson's Objective like the Learner stage.
-                    val shown = demonstration.start.apply(demonstration.moves.take(player.position))
-                    DemonstrationPlayer(
-                        player,
-                        Modifier.fillMaxSize().padding(Spacing.s2),
-                        summary =
-                            CubeSummary
-                                .of(shown, lesson.completion)
-                                .takeIf { it.isNotEmpty() }
-                                ?.joinToString("; ") { strings.resolve(it) },
-                    )
+                    DemonstrationPlayer(player, Modifier.fillMaxSize().padding(Spacing.s2))
                 }
 
                 TeachingMode.GUIDE_ME, TeachingMode.TEST_ME, TeachingMode.LET_ME_TRY -> {

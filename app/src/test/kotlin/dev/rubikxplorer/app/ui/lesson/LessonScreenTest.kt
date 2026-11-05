@@ -1525,18 +1525,6 @@ class LessonScreenTest {
         assertEquals("White cross solved; 2 of 4 first-layer corners placed", spoken())
     }
 
-    @Test
-    fun `Show me reads the shown Demonstration state's Objective progress`() {
-        open(cornerLesson.id.value)
-        switchTo(TeachingMode.SHOW_ME)
-
-        fun spoken() = node("cube3d").fetchSemanticsNode().config[SemanticsProperties.ContentDescription].single()
-        assertEquals("White cross solved; 3 of 4 first-layer corners placed", spoken())
-        node("playback:end").performClick()
-        rule.waitForIdle()
-        assertEquals("White cross solved; First-layer corners solved", spoken())
-    }
-
     /**
      * Walks Compose's platform traversal chain (what TalkBack follows) in each Learner mode and checks
      * frame label → cube → Move key bar → stage toolbar → lesson panel → Teaching Mode switcher.

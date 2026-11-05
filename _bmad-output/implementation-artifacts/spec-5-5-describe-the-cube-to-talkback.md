@@ -5,7 +5,7 @@ created: '2026-11-04'
 baseline_revision: '354fceed74ef973d0e541bf7d7d191fe3c416315'
 status: 'done'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-5-context.md'
   - '{project-root}/AGENTS.md'
@@ -132,6 +132,28 @@ deferred:
   - `[maybe-false]` `[defer]` (intent) No audible Certainty announcement, and a real Lesson never changes Certainty. This is the deferred device-TalkBack gap; virtual Lessons always confirm VERIFIED until Epic 8.
   - `[low]` `[patch]` (intent) Show me's cube had no summary, so TalkBack heard only the generic description there. `DemonstrationPlayer` gained an optional `summary`. The Lesson now passes `CubeSummary.of(start.apply(moves.take(position)), completion)`. A new test checks "3 of 4" at the start and "First-layer corners solved" at the end. Show me has no Move key bar, so the focus-order AC stays with the Learner modes.
 
+### 2026-11-04 — Review pass
+- verdicts: 18 findings — high 0, medium 1, low 12, false 1, maybe-false 4
+- findings:
+  - `[low]` `[reject]` (blind) Summary comes from `session.virtual`, faces and Solved from the drawn state, so they can disagree while Moves drain. carried: same location and claim as the first-pass row, and the code still reads that way. Transient lag; the intended reading is the Learner's `CubeState`.
+  - `[low]` `[reject]` (blind) The Lesson summary drops the "white on top, green in front" orientation. carried: same as the first-pass row. The intent's example wording leaves it out, and Read faces gives the centers.
+  - `[maybe-false]` `[reject]` (blind) The compact traversal test uses a 2,400 dp screen, so it misses phone heights where part of the panel is scrolled away. Settle with a TalkBack run on a short phone screen. If true it is only low: the order is set by traversal groups, and an off-screen node is reached once TalkBack scrolls (platform behaviour, already listed as a residual risk).
+  - `[low]` `[patch]` (blind) The traversal assertions skip Redo, Reset, view controls, the step card and Assistance. carried: same claim as the first-pass traversal row, and the test still reads as that row describes. Not patched again.
+  - `[maybe-false]` `[defer]` (blind) FrameLabelTest checks semantics, not accessibility events, so it does not show silence on first composition or speech on a change. carried: the existing device-TalkBack deferred item.
+  - `[maybe-false]` `[defer]` (blind) Nothing shows that Read faces is spoken, or that Read summary gives audible feedback as it drops the live region. carried: same device-TalkBack deferred item; settle on a device.
+  - `[low]` `[reject]` (blind) CubeSummaryTest has no literal case for an AnyOf tie between unsatisfied children, and no nested AllOf/AnyOf case. `CubeSummary.of` keeps the earlier child on a tie (strict `>` in the reduce) and recurses through `of` for nested predicates, which the code shows. A test-only addition that no Lesson exercises today.
+  - `[low]` `[patch]` (blind) The diff changes `DemonstrationPlayer` and Show me's stage, which the intent's Never list forbids ("No change to … Show me's `DemonstrationPlayer` stage"). Patched by removing the change: `DemonstrationPlayer.kt` is back to the baseline, the SHOW_ME branch of `LessonScreen` again calls `DemonstrationPlayer(player, …)` with no summary, and the "Show me reads the shown Demonstration state's Objective progress" test is gone. This undoes the first pass's Show me patch, which went against the intent.
+  - `[low]` `[reject]` (edge) In Show me the summary used `player.position`, which can run ahead of the drawn state while a queued Move animates. Transient one-Move lag, the same kind as the carried rows. It no longer applies, since the Show me summary was removed by the patch above.
+  - `[low]` `[reject]` (edge) The Learner summary describes committed progress while the drawn state is still draining. carried: same as the first-pass edge row.
+  - `[low]` `[patch]` (intent) The intent's Never list forbids touching Show me's `DemonstrationPlayer` stage, yet the diff changes it and a test locks the change in. Same root and fix as the `DemonstrationPlayer` row above.
+  - `[low]` `[reject]` (intent) No test checks that `LessonScreen` passes `decision.certainty` to `FrameLabel`. The diff shows the wiring as one argument (`certainty = decision.certainty`), and virtual Lessons always give VERIFIED, so a Lesson-level test could only check one constant. Speech is the carried device item.
+  - `[maybe-false]` `[defer]` (intent) "The first composition is not announced" is only a doc comment and is not tested. carried: device-TalkBack deferred item.
+  - `[low]` `[reject]` (intent) Faces-mode reset after a Move-key Move is tested only on the bare renderer, not through the Lesson. The reset is `remember(drawn)` inside `Cube3DRenderer.Content`, which every caller shares, and the Lesson's Move keys drain through that same renderer. Adding a Lesson-level test would only repeat the renderer test.
+  - `[medium]` `[patch]` (intent) The all-modes summary test builds its expectation with `CubeSummary` itself. carried: same root as the first-pass literal-summary row, which added the literal "3 of 4" / "2 of 4" test. Not patched again.
+  - `[low]` `[patch]` (intent) The full focus order is only partly asserted (no caption, Redo, Reset, view controls, step card or Assistance). carried: same as the first-pass traversal row. Not patched again.
+  - `[low]` `[reject]` (intent) Read faces and the unchanged description are not tested on `FreeCubeScreen` itself, only on the bare renderer. The free cube calls `renderer.Content` with no `summary`, so it gets the default description and the always-present action; the existing free-cube tests stay green. A screen-level copy would add little.
+  - `[false]` `[reject]` (intent) The Pattern matrix row uses the fixture `state("U")` instead of `SOLVED.apply(U)`. `Fixtures.state` is `CubeState.SOLVED.apply(moves(text))`, so they are the same state.
+
 ## Design Notes
 
 A live region only while in faces mode makes TalkBack speak the faces right after the action, without re-reading the summary after every Move. Virtual Lessons always confirm VERIFIED, so the Certainty announcement is tested on `FrameLabel` itself. The Physical-cube Mode (Epic 8) is where the label's value will change.
@@ -150,45 +172,54 @@ A live region only while in faces mode makes TalkBack speak the faces right afte
 
 Status: done
 
-**Summary:** TalkBack now reads the cube's Objective progress through a pure `CubeSummary.of(CubeState, Predicate)` in `:core:domain`, which returns `msg.cube-summary.*` `Text` parts. Lessons resolve it against the Lesson's `completion` and pass it to `Cube3DRenderer` as `summary`, in the Learner modes and in Show me, where it describes the Demonstration's shown state.
+**Summary:** TalkBack now reads the cube's Objective progress through a pure `CubeSummary.of(CubeState, Predicate)` in `:core:domain`, which returns `msg.cube-summary.*` `Text` parts. In the Learner modes (Guide me, Test me, Let me try), the Lesson resolves it against its `completion` and passes it to `Cube3DRenderer` as `summary`. Show me's `DemonstrationPlayer` stage is unchanged, as the intent's Never list requires.
 
 The `cube3d` node has a *Read faces* / *Read summary* custom action. Faces mode reads six "<Face> face: …" sentences from the drawn facelets as a Polite live region, and it resets when the drawn state changes.
 
 The Learner stage gained a `FrameLabel` (VIRTUAL, with Certainty as a Polite-live-region `stateDescription`). Traversal groups and indices set the focus order: frame label → cube → Move key bar → stage toolbar → lesson panel → Teaching Mode switcher.
 
-**Files changed:**
+**Files changed (since baseline):**
 - `core/domain/.../predicate/CubeSummary.kt` (new) and `CubeSummaryTest.kt` (new): summary rules per predicate.
 - `core/domain/src/main/resources/content/strings/en.json`: 8 `msg.cube-summary.*` messages.
 - `app/.../render/Cube3DRenderer.kt`: the `summary` parameter, the Read faces/summary action, and the faces-mode live region.
-- `app/.../ui/lesson/LessonScreen.kt`: summary wiring (Learner modes and Show me), `FrameLabel`, and traversal indices.
+- `app/.../ui/lesson/LessonScreen.kt`: Learner-mode summary wiring, `FrameLabel`, and traversal indices.
 - `app/.../ui/lesson/LessonPanel.kt`: the panel traversal group, with the switcher last.
-- `app/.../ui/lesson/DemonstrationPlayer.kt`: optional `summary` passed through.
-- `app/src/main/res/values/strings.xml`: Read faces/summary, face line, and Certainty words.
+- `app/src/main/res/values/strings.xml`: Read faces/summary, the face line, and the Certainty words.
 - Tests:
   - `Cube3DRendererTest`: faces toggle, reset, and scrambled ordering.
   - `FrameLabelTest` (new).
-  - `LessonScreenTest`: summary follows Moves, literal corner summary, Show me summary, and platform traversal on wide and compact screens.
+  - `LessonScreenTest`: summary follows Moves, the literal corner summary, and platform traversal on wide and compact screens.
 - `docs/ARCHITECTURE.md`: one line on `CubeSummary`, Read faces and the Certainty frame label.
+- `DemonstrationPlayer.kt` is back to the baseline: the first pass had changed it, and this pass reverted that.
 
-**Review findings:** 14 findings.
-- Patches applied: 4 entries.
-  - medium 2: scrambled Read faces test; literal summary test.
-  - low 2: full traversal order on wide and compact screens; Show me summary.
-- Deferred: 1 entry. Device TalkBack speech of the live-region changes (Read faces, Certainty) is unverified (medium, unverified).
+**Review findings:**
+
+First pass: 14 findings, patches applied to 4 entries.
+
+Follow-up pass: 18 findings (10 carried from the first pass).
+- Patched: 1 entry (low). Reverted the first pass's Show me summary (`DemonstrationPlayer` parameter, the SHOW_ME wiring, and its test), because the intent's Never list forbids changing Show me's `DemonstrationPlayer` stage.
+- Deferred: no new items. The carried device-TalkBack item covers Read faces speech, Certainty announcements, and the silent first composition.
+- Carried patches, not repeated: the partial traversal assertions and the self-derived summary test.
 - Rejected:
-  - Summary vs drawn-state lag (low, transient; the intended reading is the Learner's `CubeState`).
-  - Orientation dropped from the Lesson description (low; the intent's example wording excludes it, and Read faces gives the centers).
+  - Summary vs drawn-state lag (low, transient, carried). Its Show me variant no longer applies after the revert.
+  - Orientation dropped from the Lesson description (low, carried).
+  - Scrolled-panel traversal on short screens (maybe-false; low if true; platform scroll behaviour).
+  - No literal AnyOf-tie or nested-predicate summary test (low; the code shows the tie rule and the recursion).
+  - Certainty wiring not tested at Lesson level (low; one-argument wiring, and the value is always VERIFIED today).
+  - Faces reset after a Move key not tested through the Lesson (low; the reset is shared renderer code).
+  - Free cube not tested at screen level (low; it inherits the renderer defaults).
+  - Pattern fixture (false; `state("U")` is `SOLVED.apply(U)`).
 
-**Follow-up review recommendation:** true. Two medium entries were patched on this first pass (patched: high 0, medium 2, low 2). Named unverified risk: the new tests prove Compose semantics and the platform node tree, but no run has confirmed TalkBack speaks the faces or the Certainty live-region changes.
+**Follow-up review recommendation:** false. This was a follow-up pass and it patched no `high` entry (patched: high 0, medium 0, low 1).
 
 **Verification:**
-- `./gradlew :core:domain:test --tests 'dev.rubikxplorer.domain.predicate.*' --tests 'dev.rubikxplorer.domain.content.*'`: pass. CubeSummaryTest has 8 tests.
-- `./gradlew :app:testDebugUnitTest --tests 'dev.rubikxplorer.app.render.*' --tests 'dev.rubikxplorer.app.ui.*'`: pass. LessonScreenTest 54, Cube3DRendererTest 7, FrameLabelTest 1, 0 failures.
-- `./gradlew spotlessCheck build`: pass after the patches (Kover, LearnerText, lint, APKs).
-- Scope check: nothing changed under `_bmad-output/planning-artifacts/`, `_bmad/`, `.claude/`, `build-logic/` or spike source sets.
-- Matrix audit: every row is covered in CubeSummaryTest, including an explicit AnyOf row where the corners read better and the solved-cube pattern-progress row. The "Nothing" fallback is covered by Cube3DRendererTest's default description.
+- `./gradlew :core:domain:test --tests 'dev.rubikxplorer.domain.predicate.*' --tests 'dev.rubikxplorer.domain.content.*'`: pass (CubeSummaryTest 8).
+- `./gradlew :app:testDebugUnitTest --tests 'dev.rubikxplorer.app.render.*' --tests 'dev.rubikxplorer.app.ui.*'`: pass. LessonScreenTest 53, Cube3DRendererTest 7, FrameLabelTest 1, 0 failures.
+- `./gradlew spotlessCheck build`: pass. It must run on its own: chaining it after the filtered `:core:domain:test` in one invocation fails `koverVerify` with partial coverage.
+- Scope check: `DemonstrationPlayer.kt` matches the baseline, and nothing changed under `_bmad-output/planning-artifacts/`, `_bmad/`, `.claude/`, `build-logic/` or spike source sets.
 
 **Residual risks:**
 - TalkBack speech is unverified on a device (deferred).
 - Certainty never changes in virtual Lessons, so only the `FrameLabel` component proves the announcement wiring.
 - On a short compact screen, a scrolled-away panel drops out of the traversal until TalkBack scrolls (platform behaviour).
+- Show me still reads the generic `cube_description` (the baseline behaviour, kept on purpose under the intent's Never list).
