@@ -67,7 +67,7 @@ class SessionDatabaseMigrationTest {
                             assertEquals(payload, it.getText(0))
                         }
                     }
-                    connection.prepare("SELECT COUNT(*) FROM attempt").use {
+                    connection.prepare("SELECT COUNT(attempt_id) FROM attempt").use {
                         assertEquals(true, it.step())
                         assertEquals(0L, it.getLong(0))
                     }

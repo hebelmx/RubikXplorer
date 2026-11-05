@@ -22,7 +22,7 @@ class AttemptTest {
         assertFalse(done.state.attemptOpen)
         assertEquals(listOf(3L, 4L), done.effects.map { it.effectId })
         assertTrue(reduce(done.state.after(undo), redo).effects.none { it is Effect.AttemptEnded })
-        assertEquals(AttemptEvent.ENDED, AttemptRecord.of(end, "session").event)
+        assertEquals(AttemptEvent.ENDED, AttemptRecord.of(end, "session", "attempt").event)
     }
 
     @Test fun `abandon carries old counters and peak help before checkpoint and start`() {

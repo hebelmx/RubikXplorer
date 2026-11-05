@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 3,
-    "identityHash": "b9b10f3118cd281492583022253bfaaf",
+    "identityHash": "6cfc85471a88362f2fb679cdc7d4f4df",
     "entities": [
       {
         "tableName": "session_snapshot",
@@ -72,12 +72,18 @@
       },
       {
         "tableName": "attempt",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`seq` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `session_id` TEXT NOT NULL, `revision` INTEGER NOT NULL, `event` TEXT NOT NULL, `objective_id` TEXT NOT NULL, `outcome` TEXT, `errors` INTEGER, `hints` INTEGER, `assistance_level` TEXT, `at_ms` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`seq` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `attempt_id` TEXT NOT NULL, `session_id` TEXT NOT NULL, `revision` INTEGER NOT NULL, `event` TEXT NOT NULL, `objective_id` TEXT NOT NULL, `outcome` TEXT, `errors` INTEGER, `hints` INTEGER, `assistance_level` TEXT, `at_ms` INTEGER NOT NULL)",
         "fields": [
           {
             "fieldPath": "seq",
             "columnName": "seq",
             "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attemptId",
+            "columnName": "attempt_id",
+            "affinity": "TEXT",
             "notNull": true
           },
           {
@@ -153,7 +159,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'b9b10f3118cd281492583022253bfaaf')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6cfc85471a88362f2fb679cdc7d4f4df')"
     ]
   }
 }

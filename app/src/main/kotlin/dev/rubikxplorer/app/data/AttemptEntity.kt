@@ -13,6 +13,7 @@ import kotlin.time.Instant
 @Entity(tableName = "attempt", indices = [Index(value = ["session_id", "revision"], unique = true)])
 data class AttemptEntity(
     @PrimaryKey(autoGenerate = true) val seq: Long = 0,
+    @ColumnInfo(name = "attempt_id") val attemptId: String,
     @ColumnInfo(name = "session_id") val sessionId: String,
     val revision: Long,
     val event: String,
@@ -25,6 +26,7 @@ data class AttemptEntity(
 ) {
     fun record(): AttemptRecord =
         AttemptRecord(
+            attemptId,
             sessionId,
             revision,
             AttemptEvent.valueOf(event),
@@ -39,6 +41,7 @@ data class AttemptEntity(
     companion object {
         fun of(record: AttemptRecord): AttemptEntity =
             AttemptEntity(
+                attemptId = record.attemptId,
                 sessionId = record.sessionId,
                 revision = record.revision,
                 event = record.event.name,

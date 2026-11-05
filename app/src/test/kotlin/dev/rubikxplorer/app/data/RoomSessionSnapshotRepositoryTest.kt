@@ -76,6 +76,7 @@ class RoomSessionSnapshotRepositoryTest {
                         assistanceDismissed = mapOf(1 to AssistanceLevel.EXPLAIN),
                         attemptOpen = true,
                         attemptAssistance = AssistanceLevel.GUIDE,
+                        attemptId = "attempt-1",
                     )
                 repo.save(tutored)
                 assertEquals(SnapshotLoad.Found(tutored), repo.latest())
@@ -85,7 +86,11 @@ class RoomSessionSnapshotRepositoryTest {
                             tutored,
                         ).replace(Regex("\"attemptOpen\":(?:true|false),"), "")
                         .replace(Regex("\"attemptAssistance\":\"[A-Z]+\","), "")
-                assertEquals(tutored.copy(attemptOpen = false, attemptAssistance = AssistanceLevel.USUAL), SnapshotPayload.decode(legacy))
+                        .replace(Regex("\"attemptId\":\"[^\"]*\","), "")
+                assertEquals(
+                    tutored.copy(attemptOpen = false, attemptAssistance = AssistanceLevel.USUAL, attemptId = null),
+                    SnapshotPayload.decode(legacy),
+                )
                 val row = checkNotNull(db.snapshots().latest())
                 db.snapshots().replace(row.copy(payload = row.payload.replace("\"format\":1", "\"format\":99")))
                 assertEquals(SnapshotLoad.Failed, repo.latest())

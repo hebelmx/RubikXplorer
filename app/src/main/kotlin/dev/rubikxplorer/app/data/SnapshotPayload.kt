@@ -13,6 +13,7 @@ import kotlinx.serialization.json.Json
 internal data class SnapshotPayload(
     val attemptOpen: Boolean = false,
     val attemptAssistance: String = "USUAL",
+    val attemptId: String? = null,
     val format: Int,
     val kind: String,
     val sessionId: String,
@@ -41,6 +42,7 @@ internal data class SnapshotPayload(
         return SessionSnapshot(
             attemptOpen = attemptOpen,
             attemptAssistance = AssistanceLevel.valueOf(attemptAssistance),
+            attemptId = attemptId,
             kind = SessionKind.valueOf(kind),
             sessionId = sessionId,
             revision = revision,
@@ -73,6 +75,7 @@ internal data class SnapshotPayload(
                 SnapshotPayload(
                     attemptOpen = snapshot.attemptOpen,
                     attemptAssistance = snapshot.attemptAssistance.name,
+                    attemptId = snapshot.attemptId,
                     format = 1,
                     kind = snapshot.kind.name,
                     sessionId = snapshot.sessionId,

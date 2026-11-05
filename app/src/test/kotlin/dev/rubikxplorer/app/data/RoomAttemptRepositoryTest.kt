@@ -42,7 +42,7 @@ class RoomAttemptRepositoryTest {
                     SessionEvent.LessonStarted(whiteCrossLesson(), shippedTutorConfig, Instant.fromEpochMilliseconds(0)),
                 )
             val snapshot = checkNotNull(SessionSnapshot.of(start.state, "s", "v1")).copy(revision = 9)
-            val row = AttemptRecord.of(start.effects.filterIsInstance<Effect.AttemptStarted>().single(), "s")
+            val row = AttemptRecord.of(start.effects.filterIsInstance<Effect.AttemptStarted>().single(), "s", "a")
             try {
                 assertEquals(SnapshotSave.Saved, repo.save(snapshot, listOf(row)))
                 assertEquals(SnapshotLoad.Found(snapshot), repo.latest())
@@ -80,7 +80,7 @@ class RoomAttemptRepositoryTest {
                         SessionEvent.LessonStarted(whiteCrossLesson(), shippedTutorConfig, Instant.fromEpochMilliseconds(0)),
                     )
                 val snapshot = checkNotNull(SessionSnapshot.of(start.state, "s", "v1"))
-                val row = AttemptRecord.of(start.effects.filterIsInstance<Effect.AttemptStarted>().single(), "s")
+                val row = AttemptRecord.of(start.effects.filterIsInstance<Effect.AttemptStarted>().single(), "s", "a")
                 db.withWriteTransaction {
                     usePrepared("DROP TABLE session_snapshot") {
                         it.step()

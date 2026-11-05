@@ -130,6 +130,8 @@ deferred: []
 
 ## Spec Change Log
 
+- 2026-11-05 — review fixes: failed-save attempt rows now retry with the next snapshot save (supersedes "there is no retry" under Transaction), and attempts carry a stable `attemptId` on both rows (supersedes the `seq`-order pairing in Design Notes).
+
 ## Review Triage Log
 
 ### 2026-11-05 — Review pass
@@ -214,6 +216,6 @@ deferred: []
 
 **Residual risks:**
 - In the app, reopening a Lesson the session still holds does not dispatch `LessonStarted` (`LessonScreen` guard), so repeating the same Lesson back to back needs another Lesson in between. Reset after completion stays in the ended run and records nothing new. Resume and restart UX belongs to Story 6.5.
-- Attempt rows from a failed save are lost; there is no retry.
-- Epic 7 must pair STARTED and ENDED rows by `seq` order, not by `sessionId`.
+- Removed: attempt rows from a failed save are no longer lost. `SessionHost` keeps them pending and retries them with the next snapshot save under their existing `(sessionId, revision)` keys (IGNORE makes a replay a no-op). Rows still pending when the process dies are lost.
+- Removed: pairing no longer relies on `seq` order. Each attempt has a stable `attemptId` (column `attempt_id` in the unreleased v3 schema), assigned by `SessionHost` on STARTED, carried across snapshot restore in the payload, and written on both rows; Epic 7 pairs by `attemptId`. A STARTED row whose run was lost to process death without a usable snapshot stays unpaired.
 - Local Spotless fails under the user's global `core.autocrlf=true` whenever its cache misses. This is an environment issue, not a code issue.
