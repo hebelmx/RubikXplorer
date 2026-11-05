@@ -135,7 +135,7 @@ stateDiagram-v2
 - **Binds:** FR-1, FR-2, FR-3, FR-6, FR-16, FR-18, NFR-1, NFR-2, NFR-4, NFR-7
 - **Prevents:** half-applied Moves; the rendered cube differing from logical state; buttons and gestures taking different paths.
 - **Rule:**
-  - **Commit first:** every input source (gesture, button, accessibility action) produces a `MoveIntent`. The ViewModel maps every `MoveIntent` to the same `MoveCommitted` event. Input during an animation is committed immediately.
+  - **Commit first:** every input source (gesture, button, accessibility action) produces a `MoveIntent`. The ViewModel maps every `MoveIntent` to the same `MoveCommitted` event: a `SessionEvent` in a Learning Session, or a `FreeCubeEvent` reduced by the pure free-cube reducer on the free cube, which stays outside the session model (AD-3, AD-20). Input during an animation is committed immediately.
   - **Presentation:** each `Transition.presentation` is a list of `Animate(move)` or `Snap` items, each carrying its target `revision` and `CubeState`.
     - Undo produces `Animate(inverse)`.
     - Restores and scans produce `Snap`.
@@ -404,6 +404,7 @@ stateDiagram-v2
 | Certainty | `tutor/Assess` | in `TutorDecision` |
 | Content | build (JSON resources) | read-only |
 | Feature flags | `build-logic` per build type | read-only |
+| Free cube `MoveHistory` | `reduceFreeCube` (dispatched by `FreeCubeViewModel`) | memory only (not persisted) |
 
 ## Consistency Conventions
 
