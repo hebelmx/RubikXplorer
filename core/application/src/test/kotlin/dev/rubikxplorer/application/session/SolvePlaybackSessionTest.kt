@@ -28,12 +28,39 @@ class SolvePlaybackSessionTest {
     }
 
     @Test
-    fun `starting while a Lesson is active leaves the Lesson, its history and tutor state unchanged`() {
+    fun `starting while a completed Lesson is active suspends it without an attempt end`() {
         val lesson =
             started(twoStepLesson()).after(modeChanged(TeachingMode.TEST_ME), commit(U), stepAdvanced, reveal, commit(F_PRIME), resetEvent)
         check(lesson.pendingReset != null && lesson.stepIndex == 1 && lesson.revealRequested && lesson.history.canUndo)
         val withFeedback = lesson.copy(lastMoveFeedback = MoveFeedback.NEUTRAL, lastDiagnosis = TURNED_DIAGNOSIS)
-        assertEquals(Transition(withFeedback), reduce(withFeedback, playbackStarted()))
+        val transition = reduce(withFeedback, playbackStarted())
+        assertEquals(SessionKind.SOLVE_PLAYBACK, transition.state.kind)
+        assertTrue(transition.effects.isEmpty())
+    }
+
+    @Test
+    fun `suspension closes an open attempt with counters peak help and sequential ids`() {
+        val before = started().after(hint, commit(R)).copy(stepMistakes = mapOf(0 to 3))
+        val result = reduce(before, playbackStarted())
+        val end = result.effects.single() as Effect.AttemptEnded
+        assertEquals(AttemptOutcome.ABANDONED, end.outcome)
+        assertEquals(3, end.errors)
+        assertEquals(before.hintsUsed, end.hints)
+        assertEquals(before.attemptAssistance, end.assistanceLevel)
+        assertEquals(before.nextEffectId, end.effectId)
+        assertEquals(result.state.revision, end.revision)
+        assertEquals(end.effectId + 1, result.state.nextEffectId)
+        assertNull(result.state.checkpoint)
+    }
+
+    @Test
+    fun `ending playback empties the session preserving monotonic revision and effect ids`() {
+        val playback = started().after(playbackStarted())
+        val result = reduce(playback, SessionEvent.SolvePlaybackEnded(T0))
+        assertEquals(Transition(SessionState.IDLE.copy(revision = playback.revision + 1, nextEffectId = playback.nextEffectId)), result)
+        for (before in listOf(SessionState.IDLE, started())) {
+            assertEquals(Transition(before), reduce(before, SessionEvent.SolvePlaybackEnded(T0)))
+        }
     }
 
     @Test

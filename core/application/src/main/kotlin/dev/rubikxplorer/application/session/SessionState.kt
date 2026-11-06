@@ -227,7 +227,10 @@ data class SessionState internal constructor(
     val hasUnsavedSteps: Boolean get() = history.canUndo
 
     companion object {
-        /** No session: every event but `LessonStarted` and `SolvePlaybackStarted` and `SessionRestored` leaves it unchanged. */
+        /**
+         * No session: starts and restores may activate it. Ended playback uses this empty state
+         * with its monotonic revision and effect ID preserved.
+         */
         val IDLE: SessionState =
             SessionState(
                 revision = 0,

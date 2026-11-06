@@ -158,4 +158,5 @@
     <string name="settings_reset">Reset preferences</string>
     <string name="settings_confirm">Confirm</string>
     <string name="settings_reset_description">Theme, glyphs, animation speed, haptics, reduce motion and last Teaching Mode return to defaults. Lesson progress, attempts and saved Lessons are kept.</string>
+    <string name="learn_continue">Continue</string>
 </resources>

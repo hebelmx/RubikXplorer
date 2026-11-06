@@ -85,7 +85,7 @@ class CheckpointTest {
         assertEquals(restored.history, restored.checkpoint)
         assertFalse(restored.history.canRedo)
         assertTrue(restored.history.canUndo)
-        assertNull(restored.restoreNote)
+        assertEquals(Text("msg.lesson.resumed"), restored.restoreNote)
         assertEquals(TeachingMode.TEST_ME, restored.teachingMode)
         assertTrue(restored.adaptiveAssistance)
         assertEquals(0, restored.hintsUsed)
@@ -93,6 +93,18 @@ class CheckpointTest {
         assertEquals(1L, restored.revision)
         assertEquals(listOf(Presentation.Snap(1, restored.virtual)), restore().presentation)
         assertTrue(restore().effects.map { it::class } == listOf(Effect.PersistCheckpoint::class, Effect.AttemptStarted::class))
+    }
+
+    @Test fun `resumed checkpoint and snapshot notes clear on Lesson events and survive persistence failures`() {
+        val snapshot = checkNotNull(SessionSnapshot.of(boundary.state, "saved", "v1"))
+        val states =
+            listOf(restore().state, reduce(SessionState.IDLE, SessionEvent.SessionRestored(snapshot, lesson, TUTOR_CONFIG, T0)).state)
+        for (state in states) {
+            assertEquals(Text("msg.lesson.resumed"), state.restoreNote)
+            assertNull(reduce(state, hint).state.restoreNote)
+            assertSame(state, reduce(state, SessionEvent.CheckpointLoadFailed(T0)).state)
+            assertSame(state, reduce(state, playbackStarted(solution = emptyList())).state)
+        }
     }
 
     @Test fun `rotated cubes with wide and slice turns round trip through both restore paths`() {
@@ -115,7 +127,7 @@ class CheckpointTest {
         assertFalse(rotated.cubeOrientation == "UF")
         val resumed = restore(rotated).state
         assertEquals(history, resumed.history)
-        assertNull(resumed.restoreNote)
+        assertEquals(Text("msg.lesson.resumed"), resumed.restoreNote)
         val restarted = restore(rotated, revision = "v2").state
         assertEquals(history.state, restarted.entry)
         assertEquals(history.state, restarted.virtual)
@@ -131,7 +143,7 @@ class CheckpointTest {
                 revision = "v2",
             ).state
         assertEquals(history.state, again.virtual)
-        assertNull(again.restoreNote)
+        assertEquals(Text("msg.lesson.resumed"), again.restoreNote)
     }
 
     @Test fun `changed content or stage restarts at cube and later snapshot preserves its entry`() {
@@ -145,7 +157,7 @@ class CheckpointTest {
             val snapshot = checkNotNull(SessionSnapshot.of(restored, "id", "v1"))
             val again = reduce(SessionState.IDLE, SessionEvent.SessionRestored(snapshot, lesson, TUTOR_CONFIG, T0)).state
             assertEquals(restored.history, again.history)
-            assertNull(again.restoreNote)
+            assertEquals(Text("msg.lesson.resumed"), again.restoreNote)
             for (event in listOf(
                 hint,
                 reveal,
