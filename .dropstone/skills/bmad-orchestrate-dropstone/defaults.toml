@@ -1,0 +1,79 @@
+# Defaults for bmad-orchestrate-dropstone.
+# Override per project in {project-root}/_bmad/custom/bmad-orchestrate-dropstone.toml.
+
+# Human gates: stories that need a person (devices, secrets, consoles, decisions).
+# when = "before-start" | "before-merge"
+gates = []
+
+# Post-merge actions: run after a given story merges, each on its own branch and PR.
+# { key = "<story_key>", skill = "<skill-name>", args = "<args>", branch = "<branch>" }
+post_merge = []
+
+[run]
+max_stories = 3          # Stories to execute per run when no count is passed
+handoff_every = 5        # Pause with a resume handoff after this many stories for context hygiene
+worker = "headless"      # Fallback for any role without its own setting: "subagent" | "headless"
+
+# Dropstone subagents have no subagent tool, and bmad-build-auto requires one.
+# The build worker must be a top-level headless CLI process, which can spawn its own subagents.
+build_worker = "headless"
+build_headless_command = "claude"   # must be a full agent that can spawn subagents
+build_headless_args = ["-p"]        # noninteractive flag; the prompt goes on stdin
+
+# The fix worker and acceptance gate never spawn subagents, so native Dropstone
+# subagents are cheaper and are the default.
+fix_worker = "subagent"
+gate_worker = "subagent"
+
+[git]
+default_branch = "main"
+remote = "origin"
+branch_prefix_default = "feat"
+branch_prefix_rules = [
+  { match = "^spike", prefix = "spike" },
+  { match = "scaffold|ci|pipeline|release|build", prefix = "chore" },
+  { match = "author|content", prefix = "content" },
+]
+merge_method = "merge"   # merge | squash | rebase  (gh pr merge --<method>)
+delete_branch = true     # delete remote branch upon merge
+
+[verify]
+# Commands the orchestrator runs itself after the worker returns, independent of the
+# worker's own verification. If empty, it uses the commands listed under the
+# "Running and verifying" section of AGENTS.md; if that has none, the spec's
+# `## Verification` section.
+commands = []
+log_tail_lines = 40      # only this many lines of a failing log are read into context
+
+[gate]
+# The adversarial acceptance gate (references/worker-prompts.md § Acceptance gate).
+enabled = true
+max_fix_rounds = 2
+fail_on = ["high"]       # gate severities that block a merge
+
+[review]
+# A bmad-build-auto spec with followup_review_recommended = true gets this many extra review passes.
+followup_passes = 1
+
+[ci]
+require_checks = true
+timeout_minutes = 45
+allow_merge_without_ci = false   # only honored when the repo has no workflow files at all
+
+[epic]
+retrospective = "auto"   # auto | ask | skip
+
+[codex]
+# Provider split (references/codex-delegation.md). Falls back to Claude when Codex
+# is missing, logged out, or fails.
+enabled = true
+gate = "codex"           # acceptance gate (phase D): "codex" | "claude"
+fix_verify = "codex"     # fix worker after a verification failure (C.3)
+fix_ci = "codex"         # fix worker after red CI (F.3)
+build_review = true      # route 3 of build-auto's 4 review layers to Codex (needs the override file)
+build_implement = true   # route build-auto's implementation subagent (step-03) to Codex --write
+fix_gate = "auto"        # fix worker for gate findings (D.3): "auto" = the provider that did NOT run the gate
+model = ""               # empty = Codex default; e.g. "gpt-5.4-mini" or "spark"
+effort = ""              # empty = Codex default; none|minimal|low|medium|high|xhigh
+timeout_minutes = 30
+max_failures = 2         # consecutive Codex failures before switching it off for the run

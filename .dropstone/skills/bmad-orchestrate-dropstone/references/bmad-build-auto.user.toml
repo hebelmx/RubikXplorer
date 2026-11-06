@@ -1,0 +1,90 @@
+# Local only (gitignored). Moves bmad-build-auto's implementation and three of its review layers to Codex so
+# Claude and Codex share the token load. Written for the bmad-orchestrate-dropstone skill;
+# see its references/codex-delegation.md, section "build-auto review layers".
+#
+# Scope guard: each layer goes to Codex only when ALL of these hold.
+#   1. You, the build-auto runner, are a Claude agent. Codex and any other agent use the default.
+#   2. The marker file {project-root}/.git/bmad-orchestrate/codex-review.on exists.
+#      The orchestrator creates it at run start and deletes it on STOP, so a
+#      manual build-auto run outside the orchestrator keeps the stock Claude layers.
+#   3. A codex-companion.mjs exists under ~/.claude/plugins/cache/openai-codex/codex/.
+# If any check fails, or the Codex run fails (non-zero exit, empty output, or no
+# findings section), launch that layer as the stock context-free Claude subagent
+# from the skill's customize.toml defaults. A failed Codex call never fails the review.
+#
+# Codex invocation (blocking; run it in the foreground and wait — never background it):
+#   C=$(ls -d ~/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs | sort -V | tail -1)
+#   node "$C" task --cwd <project-root> --prompt-file <prompt-file> > <out-file> 2>&1
+# Read-only sandbox: no --write. Write <prompt-file> and <out-file> under
+# <project-root>/.git/bmad-orchestrate/ and name them build-review-<layer-id>.*.
+# Read back only what follows the last "[codex]" progress line; that is the layer's final message.
+# Launch all Codex layers and the Claude intent-alignment layer before you read any result.
+# For example, put the three Codex calls in one Bash command joined with `&` plus `wait`,
+# in the same turn as the Claude subagent.
+
+# Implementation on Codex (step-03). Extra guard condition: the marker
+# {project-root}/.git/bmad-orchestrate/codex-implement.on must ALSO exist (the orchestrator
+# creates it only when its [codex] build_implement = true).
+[workflow]
+implementation_handoff = """
+Apply the scope guard at the top of {project-root}/_bmad/custom/bmad-build-auto.user.toml, and also require that {project-root}/.git/bmad-orchestrate/codex-implement.on exists. Let D = {project-root}/.git/bmad-orchestrate.
+
+If the guard FAILS, do the stock handoff: launch a subagent with no prior conversation context, with this prompt:
+> Read {spec_file} fully and implement it — the spec is the sole source of truth. Load every file listed in its frontmatter `context:` before you start.
+>
+> When done, report what you changed, how you verified it, and anything left incomplete or risky.
+Then write `claude (guard)` to D/build-implement.result.
+
+If the guard PASSES, implement on Codex with write access:
+1. Write this prompt to D/build-implement.prompt.md:
+   > Read {spec_file} fully and implement it — the spec is the sole source of truth. Load every file listed in its frontmatter `context:` before you start. Obey {project-root}/AGENTS.md, including its "Running and verifying" environment and commands.
+   > Run the spec's `## Verification` commands yourself and fix what fails. Never weaken, skip or delete a test to make it pass.
+   > Do not edit {spec_file}. Never touch files under _bmad-output/planning-artifacts/, _bmad/, .claude/, .agents/ or .git/. Do not run git commands that write (commit, add, checkout, switch, stash, reset, push). Do not invoke any skill and do not spawn subagents.
+   > Your final message: what you changed (file list), each verification command with its result, and anything left incomplete or risky.
+2. Launch it detached, so the 10-minute tool timeout cannot kill it:
+   `cd {project-root} && C=$(ls -d ~/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs | sort -V | tail -1) && nohup node "$C" task --cwd {project-root} --write --prompt-file .git/bmad-orchestrate/build-implement.prompt.md > .git/bmad-orchestrate/build-implement.out 2>&1 & echo $! > .git/bmad-orchestrate/build-implement.pid`
+3. Wait in the FOREGROUND. Repeat this blocking call until the process has exited: `timeout 540 tail --pid=$(cat .git/bmad-orchestrate/build-implement.pid) -f /dev/null; kill -0 $(cat .git/bmad-orchestrate/build-implement.pid) 2>/dev/null && echo running || echo exited`. Each call blocks, which is not detaching a subagent. After 60 minutes in total, kill the process and treat it as a failure.
+4. Read ONLY the text after the last line that starts with `[codex]` in D/build-implement.out. That text is the implementation report. Never read the whole transcript.
+5. **Fallback.** The Codex run failed if any of these hold: the report is empty, it says the run errored (auth, rate limit, sandbox), you hit the timeout, or `git status --porcelain` shows no change outside {spec_file}. Then launch the stock Claude subagent above, telling it the tree may already hold partial work, and write `claude (codex fallback: <reason>)` to D/build-implement.result. Otherwise write `codex` to it. A failed Codex run never fails the step.
+
+The Codex task cannot be re-engaged. When step-04 would send review fixes back to the implementation subagent, apply them yourself or launch a fresh stock Claude subagent. Then continue with step-03 "Verify" as usual: you still read the diff and run verification yourself.
+"""
+
+[[workflow.review_layers]]
+id = "blind-hunter"
+name = "Blind Hunter (Codex when available)"
+instruction = """
+Apply the scope guard at the top of {project-root}/_bmad/custom/bmad-build-auto.user.toml. If it passes, write this prompt to the prompt file and run it on Codex read-only. Otherwise launch it as a context-free Claude subagent:
+Conduct a review of CONTENT.
+Look for what's missing, not only what's wrong.
+Compute your finding floor N from the diff file's size: N = min(floor(sqrt(kB) + 1), 10), where kB is the file's size in kilobytes. State the arithmetic in one line, then find at least N issues to fix or improve.
+Output a Markdown list of findings only — no severity, priority, or ranking.
+If the content is empty, stop and say so.
+If you have zero findings, re-check and keep thinking; do not stop with an empty list.
+CONTENT: the unified diff at `{diff_file}`. Read that file — it is the content under review.
+Do not modify any file. Do not invoke any skill or spawn subagents — you are the reviewer. Return your findings as text in your final message.
+"""
+
+[[workflow.review_layers]]
+id = "edge-case-hunter"
+name = "Edge Case Hunter (Codex when available)"
+instruction = """
+Apply the scope guard at the top of {project-root}/_bmad/custom/bmad-build-auto.user.toml. If it passes, write this prompt to the prompt file and run it on Codex read-only. Otherwise launch it as a context-free Claude subagent:
+Read `{skill-root}/review-prompts/edge-case-hunter.md` completely and follow it as your review instructions.
+claims_file (leave unread until your instructions call for it): {claims_file}
+Review content: the unified diff at `{diff_file}`. Read that file — it is the content under review.
+Do not modify any file. Do not invoke any skill or spawn subagents — you are the reviewer. If the instruction file is unreadable, report that exact failure and stop. Return your findings as text in your final message.
+"""
+
+[[workflow.review_layers]]
+id = "verification-gap"
+name = "Verification Gap Reviewer (Codex when available)"
+instruction = """
+Apply the scope guard at the top of {project-root}/_bmad/custom/bmad-build-auto.user.toml. If it passes, write this prompt to the prompt file and run it on Codex read-only. Otherwise launch it as a context-free Claude subagent:
+Read `{skill-root}/review-prompts/verification-gap.md` completely and follow it as your review instructions.
+Review content: the unified diff at `{diff_file}`. Read that file — it is the content under review.
+The read-only sandbox may block Gradle. If it does, ground your claims by reading the tests and the build config, plus any existing JUnit XML reports under build/test-results; never claim a test ran when you could not run it.
+Do not modify any file. Do not invoke any skill or spawn subagents — you are the reviewer. If the instruction file is unreadable, report that exact failure and stop. Return your findings as text in your final message.
+"""
+
+# intent-alignment stays on the stock Claude subagent (not overridden).
