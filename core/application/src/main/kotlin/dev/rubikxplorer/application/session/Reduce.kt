@@ -51,9 +51,9 @@ fun reduce(
             Transition(state)
         }
     }
-    val starts = event is SessionEvent.LessonStarted || event is SessionEvent.SolvePlaybackStarted
-    // Only a Lesson session takes Moves and tutor events; idle and playback sessions ignore them.
-    if (!starts && state.kind != SessionKind.LESSON) return Transition(state)
+    val starts = event is SessionEvent.LessonStarted || event is SessionEvent.PracticeStarted || event is SessionEvent.SolvePlaybackStarted
+    // Only a Lesson or Practice session takes Moves and tutor events; idle and playback sessions ignore them.
+    if (!starts && state.kind != SessionKind.LESSON && state.kind != SessionKind.PRACTICE) return Transition(state)
     val transition =
         attempts(state, persistCheckpoint(state, transition(state, event), event), event).let {
             if (it.state.restoreNote == null ||
@@ -70,7 +70,7 @@ fun reduce(
     val recovery =
         event is SessionEvent.GuidedRecoveryRequested || event is SessionEvent.RecoveryPlanned || event is SessionEvent.RecoveryPlanFailed
     val keeps = event is SessionEvent.MoveCommitted || event is SessionEvent.SolvePlaybackStarted || recovery
-    if (keeps || transition.state.kind != SessionKind.LESSON) return transition
+    if (keeps || (transition.state.kind != SessionKind.LESSON && transition.state.kind != SessionKind.PRACTICE)) return transition
     return transition.copy(
         state = transition.state.copy(lastMoveFeedback = null, lastDiagnosis = null, guidedRecovery = GuidedRecovery.None),
     )
@@ -86,6 +86,8 @@ private fun transition(
         is SessionEvent.SessionRestored -> restore(state, event)
 
         is SessionEvent.LessonStarted -> start(state, event)
+
+        is SessionEvent.PracticeStarted -> startPractice(state, event)
 
         is SessionEvent.SolvePlaybackStarted -> startPlayback(state, event.state, event.solution)
 
@@ -160,6 +162,40 @@ private fun start(
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, entry)))
 }
 
+private fun startPractice(
+    state: SessionState,
+    event: SessionEvent.PracticeStarted,
+): Transition {
+    val lesson = event.lesson
+    val entry = entryState(lesson)
+    val next =
+        withHistory(state, MoveHistory(entry), lesson).copy(
+            kind = SessionKind.PRACTICE,
+            lesson = lesson,
+            tutorConfig = event.tutorConfig,
+            adaptiveAssistance = false,
+            teachingMode = state.teachingMode,
+            stepMistakes = emptyMap(),
+            cleanSteps = 0,
+            cleanCredited = emptySet(),
+            stepHelped = emptySet(),
+            assistanceDismissed = emptyMap(),
+            solution = emptyList(),
+            lastDiscarded = null,
+            noticeStep = null,
+            revealRequested = false,
+            hintRung = HintRung.NONE,
+            hintsUsed = 0,
+            attemptOpen = false,
+            attemptAssistance = AssistanceLevel.REDUCED,
+            lastMoveFeedback = null,
+            lastDiagnosis = null,
+            checkpoint = MoveHistory(entry),
+            guidedRecovery = GuidedRecovery.None,
+        )
+    return Transition(next, presentation = listOf(Presentation.Snap(next.revision, entry)))
+}
+
 /**
  * Starts a Solve Playback session at [start] holding [solution], when [solution] verifiably solves
  * [start] (bounded: one pass over the list); otherwise nothing changes. The Teaching Mode is kept.
@@ -221,7 +257,8 @@ private fun committed(
     val history = state.history.commit(move)
     val lesson = state.lesson
     val mode = state.teachingMode
-    val assessed = mode == TeachingMode.TEST_ME || (state.adaptiveAssistance && mode in ADAPTIVE_MODES)
+    val assessed =
+        state.kind == SessionKind.PRACTICE || mode == TeachingMode.TEST_ME || (state.adaptiveAssistance && mode in ADAPTIVE_MODES)
     val assessment =
         if (lesson != null && assessed) {
             Assess.classify(lesson, state.pathEntry, state.virtual, move, history.state, checkNotNull(state.tutorConfig))
@@ -552,7 +589,8 @@ private fun restore(
     event: SessionEvent.SessionRestored,
 ): Transition {
     val snapshot = event.snapshot
-    if (state.isActive || !snapshot.kind.resumesOnColdStart || snapshot.kind != SessionKind.LESSON ||
+    if (state.isActive || !snapshot.kind.resumesOnColdStart ||
+        snapshot.kind != SessionKind.LESSON ||
         snapshot.lessonId != event.lesson.id.value
     ) {
         return Transition(state)
@@ -572,7 +610,7 @@ private fun restore(
     repeat(undone.size) { history = history.undo() }
     val next =
         withHistory(SessionState.IDLE.copy(revision = state.revision), history, event.lesson).copy(
-            kind = SessionKind.LESSON,
+            kind = snapshot.kind,
             lesson = event.lesson,
             tutorConfig = event.tutorConfig,
             solution = solution,
@@ -602,6 +640,7 @@ private fun persistCheckpoint(
     event: SessionEvent,
 ): Transition {
     val next = transition.state
+    if (next.kind != SessionKind.LESSON) return transition
     val lesson = next.lesson ?: return transition
     val history = next.checkpoint ?: return transition
     val restored = event is SessionEvent.CheckpointRestored && next !== before
@@ -668,9 +707,9 @@ private fun attempts(
 ): Transition {
     var next = transition.state
     if (next === before) return transition
-    val suspends = event is SessionEvent.SolvePlaybackStarted && before.kind == SessionKind.LESSON
-    if (next.kind != SessionKind.LESSON && !suspends) return transition
-    val starts = event is SessionEvent.LessonStarted || event is SessionEvent.CheckpointRestored
+    val suspends = event is SessionEvent.SolvePlaybackStarted && (before.kind == SessionKind.LESSON || before.kind == SessionKind.PRACTICE)
+    if (next.kind != SessionKind.LESSON && next.kind != SessionKind.PRACTICE && !suspends) return transition
+    val starts = event is SessionEvent.LessonStarted || event is SessionEvent.PracticeStarted || event is SessionEvent.CheckpointRestored
     val checkpoint = transition.effects.filterIsInstance<Effect.PersistCheckpoint>()
     val effects = transition.effects.filterNot { it is Effect.PersistCheckpoint }.toMutableList()
     var id = next.nextEffectId - checkpoint.size
@@ -691,7 +730,9 @@ private fun attempts(
                 event.at,
             )
     }
-    if ((event is SessionEvent.LessonStarted || suspends) && before.attemptOpen) end(before, AttemptOutcome.ABANDONED)
+    if ((event is SessionEvent.LessonStarted || event is SessionEvent.PracticeStarted || suspends) && before.attemptOpen) {
+        end(before, AttemptOutcome.ABANDONED)
+    }
     checkpoint.forEach { effects += it.copy(effectId = id++) }
     if (starts) {
         next = next.copy(attemptOpen = !next.objectiveMet, attemptAssistance = next.assistance)

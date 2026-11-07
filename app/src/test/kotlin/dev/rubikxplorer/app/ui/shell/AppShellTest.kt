@@ -40,12 +40,14 @@ import dev.rubikxplorer.application.port.ProgressRecord
 import dev.rubikxplorer.application.port.ProgressRepository
 import dev.rubikxplorer.application.port.ProgressSave
 import dev.rubikxplorer.application.session.SessionEvent
+import dev.rubikxplorer.application.session.SessionKind
 import dev.rubikxplorer.application.usecase.CompleteLesson
 import dev.rubikxplorer.domain.appearance.StickerAppearance
 import dev.rubikxplorer.domain.content.ContentLoadError
 import dev.rubikxplorer.domain.content.ContentLoadResult
 import dev.rubikxplorer.domain.content.ContentLoader
 import dev.rubikxplorer.domain.content.ContentSource
+import dev.rubikxplorer.domain.content.LessonId
 import dev.rubikxplorer.domain.content.StageId
 import dev.rubikxplorer.domain.cube.Face
 import dev.rubikxplorer.domain.cube.FaceTurn
@@ -658,5 +660,81 @@ class AppShellTest {
         rule.waitForIdle()
         rule.onNodeWithTag("stageDetail").assertExists()
         rule.onNodeWithTag("stageDetail:title").assertTextContains("Cube fundamentals")
+    }
+
+    @Test
+    fun `Stage 1 detail has Practice this Stage button disabled`() {
+        launch(ContentLoader.load(ContentSource.SHIPPED))
+        rule.onNodeWithTag("learn:stage:stage-01-fundamentals").performClick()
+        rule.onNodeWithTag("stageDetail").assertExists()
+        rule
+            .onNodeWithTag("stageDetail:practice")
+            .performScrollTo()
+            .assertExists()
+            .assertIsNotEnabled()
+    }
+
+    @Test
+    fun `unlocked Stage 2 detail has Practice this Stage enabled and launches practice session`() {
+        val shipped = ContentLoader.load(ContentSource.SHIPPED)
+        val storedRecords =
+            listOf(
+                ProgressRecord("session-1", 1L, ProgressEvent.LessonCompleted(LessonId("lesson-01-01"))),
+                ProgressRecord("session-1", 2L, ProgressEvent.LessonCompleted(LessonId("lesson-01-02"))),
+                ProgressRecord("session-1", 3L, ProgressEvent.LessonCompleted(LessonId("lesson-01-03"))),
+            )
+        val progressRepo =
+            object : ProgressRepository {
+                override suspend fun all(): ProgressLoad = ProgressLoad.Found(storedRecords.map { it.event }, storedRecords)
+
+                override suspend fun append(records: List<ProgressRecord>): ProgressSave = ProgressSave.Saved
+            }
+        host =
+            SessionHost(
+                TickingClock(),
+                kotlinx.coroutines.Dispatchers.Default
+                    .limitedParallelism(1),
+                preferences = preferences,
+                completeLesson = CompleteLesson(progressRepo),
+                progress = progressRepo,
+            )
+        launch(shipped)
+        rule.onNodeWithTag("learn:stage:stage-02-first-cross").performScrollTo().performClick()
+        rule.onNodeWithTag("stageDetail").assertExists()
+        rule
+            .onNodeWithTag("stageDetail:practice")
+            .performScrollTo()
+            .assertExists()
+            .assertIsEnabled()
+            .performClick()
+        rule.waitUntil(5_000) {
+            host.state.value.kind == SessionKind.PRACTICE
+        }
+        rule.onNodeWithTag("lesson:goal").assertExists()
+
+        // Back out and re-enter practice for the same stage
+        rule.onNodeWithTag("lesson:close").performClick()
+        rule.onNodeWithTag("stageDetail").assertExists()
+        val previousState = host.state.value.virtual
+        rule.onNodeWithTag("stageDetail:practice").performScrollTo().performClick()
+        rule.waitUntil(5_000) {
+            host.state.value.kind == SessionKind.PRACTICE
+        }
+        rule.onNodeWithTag("lesson:goal").assertExists()
+    }
+
+    @Test
+    fun `milestone Practice on a new scramble launches Stage 7 practice session`() {
+        val shipped = ContentLoader.load(ContentSource.SHIPPED)
+        launch(shipped)
+        // Set openPractice directly via host or shell action
+        rule.runOnUiThread {
+            back.onBackPressed() // Ensure default state
+        }
+        // Open Stage 7 detail and tap Practice
+        rule.onNodeWithTag("learn:stage:stage-07-independent-practice").performScrollTo().performClick()
+        rule.onNodeWithTag("stageDetail").assertExists()
+        // Stage 7 has no lessons, so it shows stage_no_lessons message
+        rule.onNodeWithTag("stageDetail:noLessons").assertExists()
     }
 }

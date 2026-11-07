@@ -244,7 +244,8 @@ class SessionHost internal constructor(
             current.value = transition.state
             reduced(stamped)
             if (transition.state !== before && transition.state.isActive) {
-                if (stamped is SessionEvent.LessonStarted || stamped is SessionEvent.SolvePlaybackStarted ||
+                if (stamped is SessionEvent.LessonStarted || stamped is SessionEvent.PracticeStarted ||
+                    stamped is SessionEvent.SolvePlaybackStarted ||
                     stamped is SessionEvent.SessionRestored || stamped is SessionEvent.CheckpointRestored
                 ) {
                     sessionId = UUID.randomUUID().toString()

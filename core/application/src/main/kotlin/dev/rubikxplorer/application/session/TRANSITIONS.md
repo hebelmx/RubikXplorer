@@ -17,7 +17,7 @@ Columns:
   returns `virtual` to where it was before the event.
 - **Clears redo** — `yes` when nothing is left to redo whenever the event advances `revision`.
 
-Every event other than `LessonStarted` and `SolvePlaybackStarted` and `SessionRestored` and `CheckpointRestored` leaves an idle state (no session)
+Every event other than `LessonStarted`, `PracticeStarted`, `SolvePlaybackStarted`, `SessionRestored` and `CheckpointRestored` leaves an idle state (no session)
 unchanged. A result
 (`ResetConfirmed`, `ResetDeclined`) whose `effectId` and `revision` do not match the pending
 confirmation at the current revision changes nothing but `lastDiscarded`
@@ -31,6 +31,7 @@ steps remain.
 | CheckpointLoadFailed | — | no | no |
 | SessionRestored | session, virtual, tutor, checkpoint | no | no |
 | LessonStarted | session, virtual, pending, tutor, checkpoint | no | yes |
+| PracticeStarted | session, virtual, pending, tutor, checkpoint | no | yes |
 | SolvePlaybackStarted | session, virtual, pending, tutor, checkpoint | no | yes |
 | SolvePlaybackEnded | session, virtual, tutor | no | yes |
 | MoveCommitted | virtual, pending, tutor, checkpoint | yes | yes |
@@ -69,6 +70,15 @@ nextEffectId kept, without effects or presentation; outside playback this event 
 A playback session accepts `LessonStarted` (which replaces it): `MoveCommitted`, `Undo`,
 `Redo`, `Reset`, the reset results and the tutor events leave it unchanged. Playback position and
 speed belong to the `PlaybackController`, never to the session, and are never checkpointed (AD-20).
+
+Practice sessions (`PRACTICE`, Story 7.4): `PracticeStarted(lesson, tutorConfig)` starts an
+independent practice session for `lesson` at its generated scramble entry state, replacing any active
+session. Like `LessonStarted` it resets undo/redo history to the entry state, clears `noticeStep`,
+`revealRequested` and the last Move's feedback, cancels pending confirmations, and snaps to the entry
+state. An active attempt is closed with `ABANDONED` when replaced or suspended. Practice sessions run with
+`assistanceLevel = REDUCED`, capping the Hint Ladder at `TARGET` (2 rungs: `Hint (0/2)`, `Hint (1/2)`,
+`Hint (2/2)`). Moves, `Undo`, `Redo`, `Reset`, and `HintRequested` mutate practice sessions like Lessons;
+when the Stage completion predicate is satisfied, `AttemptEnded(COMPLETED, REDUCED)` is emitted.
 
 `Reset` with unsaved steps (at least one committed, not-undone Move) only issues
 `Effect.ConfirmReset` and records it as `pending`; without unsaved steps it resets at once, which

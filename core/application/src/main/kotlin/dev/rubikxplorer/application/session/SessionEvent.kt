@@ -52,6 +52,16 @@ sealed interface SessionEvent {
     ) : SessionEvent
 
     /**
+     * Starts an independent [SessionKind.PRACTICE] session for [lesson] on a fresh scramble, replacing
+     * any current session; judged by [tutorConfig] with reduced assistance.
+     */
+    data class PracticeStarted(
+        val lesson: Lesson,
+        val tutorConfig: TutorConfig,
+        override val at: Instant,
+    ) : SessionEvent
+
+    /**
      * Starts a [SessionKind.SOLVE_PLAYBACK] session that plays [solution] from [state], replacing any
      * current session. Applies only when [solution] leaves [state] solved, so an unverified list never
      * becomes a session. Playback position and speed are not part of the session (AD-20).

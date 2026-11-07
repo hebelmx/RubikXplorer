@@ -85,6 +85,7 @@ internal data class StepCardContent(
     val recoveryActions: List<RecoveryAction> = emptyList(),
     val guidedRecovery: GuidedRecoveryContent? = null,
     val assistance: AssistanceContent? = null,
+    val isPractice: Boolean = false,
 )
 
 /**
@@ -131,15 +132,17 @@ internal fun LessonPanel(
         )
         StepCard(step, onShowMove, onShowMeHow, onRecovery, Modifier.fillMaxWidth())
         step.assistance?.let { AssistanceLine(it, onUsualHelp, Modifier.fillMaxWidth()) }
-        TeachingModeSwitcher(
-            modes,
-            mode,
-            onModeChange,
-            Modifier.fillMaxWidth().semantics {
-                isTraversalGroup = true
-                traversalIndex = 1f
-            },
-        )
+        if (!step.isPractice) {
+            TeachingModeSwitcher(
+                modes,
+                mode,
+                onModeChange,
+                Modifier.fillMaxWidth().semantics {
+                    isTraversalGroup = true
+                    traversalIndex = 1f
+                },
+            )
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s3), modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(
                 onClick = onHint,
@@ -192,12 +195,14 @@ private fun StepCard(
         verticalArrangement = Arrangement.spacedBy(Spacing.s3),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = stringResource(R.string.lesson_step, step.number, step.count),
-                style = RubikTheme.textStyles.data,
-                color = tokens.inkSecondary,
-                modifier = Modifier.testTag("lesson:stepNumber"),
-            )
+            if (!step.isPractice) {
+                Text(
+                    text = stringResource(R.string.lesson_step, step.number, step.count),
+                    style = RubikTheme.textStyles.data,
+                    color = tokens.inkSecondary,
+                    modifier = Modifier.testTag("lesson:stepNumber"),
+                )
+            }
             Spacer(Modifier.weight(1f))
             if (step.objectiveMet) {
                 Row(
@@ -223,10 +228,12 @@ private fun StepCard(
                 }
             }
         }
-        Field(R.string.lesson_goal, step.goal, "lesson:goal")
+        Field(R.string.lesson_goal, step.goal, "lesson:goal", showLabel = !step.isPractice)
         Field(R.string.lesson_keep, step.keep, "lesson:keep")
         Field(R.string.lesson_watch, step.watch, "lesson:watch")
-        MovesRow(step.moves, step.showMoveControl, onShowMove)
+        if (!step.isPractice) {
+            MovesRow(step.moves, step.showMoveControl, onShowMove)
+        }
         HintLine(step.hint)
         val diagnosis = step.diagnosis
         if (diagnosis != null) {
@@ -253,10 +260,14 @@ private fun Field(
     @StringRes label: Int,
     text: String,
     tag: String,
+    showLabel: Boolean = true,
 ) {
+    if (text.isEmpty()) return
     val tokens = RubikTheme.tokens
     Column(modifier = Modifier.semantics(mergeDescendants = true) {}.testTag(tag)) {
-        Text(stringResource(label), style = MaterialTheme.typography.labelMedium, color = tokens.inkSecondary)
+        if (showLabel) {
+            Text(stringResource(label), style = MaterialTheme.typography.labelMedium, color = tokens.inkSecondary)
+        }
         Text(text, style = MaterialTheme.typography.bodyLarge, color = tokens.inkPrimary)
     }
 }

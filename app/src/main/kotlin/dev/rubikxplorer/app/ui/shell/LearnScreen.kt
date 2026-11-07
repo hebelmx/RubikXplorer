@@ -103,6 +103,8 @@ fun LearnScreen(
                 val activeStage = stages.getOrNull(stageIndex)
                 if (activeStage != null) {
                     val status = StageProgress.status(activeStage, stages, progressEvents, masteredStages)
+                    val isPracticeEnabled =
+                        activeStage.id != StageId("stage-01-fundamentals") && status != StageStatus.LOCKED
                     StageDetailScreen(
                         stage = activeStage,
                         stageNumber = stageIndex + 1,
@@ -113,7 +115,7 @@ fun LearnScreen(
                         masteredStages = masteredStages,
                         onBack = { onSelectStage(null) },
                         onOpen = onOpen,
-                        practiceEnabled = practiceEnabled,
+                        practiceEnabled = isPracticeEnabled,
                         onPracticeStage = { onPracticeStage(activeStage.id) },
                         skipCheckEnabled = skipCheckEnabled,
                         onSkipCheck = { onSkipCheck(activeStage.id) },
