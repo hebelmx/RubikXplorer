@@ -21,6 +21,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -351,7 +352,8 @@ class LessonScreenTest {
         rule.waitUntil(5_000) {
             host.state.value.lesson
                 ?.id
-                ?.value == lessonId
+                ?.value == lessonId &&
+                rule.onAllNodesWithTag("lesson:panel").fetchSemanticsNodes().isNotEmpty()
         }
         rule.waitForIdle()
     }
@@ -475,8 +477,10 @@ class LessonScreenTest {
     private val resolver get() = RuntimeEnvironment.getApplication().contentResolver
 
     @After
-    fun resetAnimatorScale() {
+    fun tearDown() {
+        rule.mainClock.autoAdvance = true
         Settings.Global.putFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
+        RuntimeEnvironment.setQualifiers("w411dp-h891dp")
     }
 
     private fun drawnColors(): List<Color> = node("cube3d").fetchSemanticsNode().config[RenderedStickersKey].map { Color(it.fill) }
@@ -534,6 +538,7 @@ class LessonScreenTest {
         node("playback:counter").assertTextContains("2 / 2")
         // Playback never touches the session.
         assertEquals(host.state.value.entry, host.state.value.virtual)
+        rule.mainClock.autoAdvance = true
     }
 
     @Test
@@ -896,7 +901,8 @@ class LessonScreenTest {
         node("learn:lesson:lesson-01-01").performClick()
         rule.waitUntil(5_000) {
             host.state.value.lesson
-                ?.id == whiteCrossLesson().id
+                ?.id == whiteCrossLesson().id &&
+                rule.onAllNodesWithTag("lesson:panel").fetchSemanticsNodes().isNotEmpty()
         }
         rule.waitForIdle()
         runBlocking { host.dispatch { SessionEvent.MoveCommitted(whiteCrossSolvingMove, it) } }
@@ -970,6 +976,10 @@ class LessonScreenTest {
     }
 
     private fun switchTo(mode: TeachingMode) {
+        rule.waitUntil(5_000) {
+            rule.onAllNodesWithTag("mode:${mode.name}").fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.waitForIdle()
         node("mode:${mode.name}").performScrollTo().performClick()
         rule.waitUntil(5_000) { host.state.value.teachingMode == mode }
         rule.waitForIdle()
@@ -1878,7 +1888,8 @@ class LessonScreenTest {
         node("learn:lesson:lesson-01-01").performClick()
         rule.waitUntil(5_000) {
             host.state.value.lesson
-                ?.id == whiteCrossLesson().id
+                ?.id == whiteCrossLesson().id &&
+                rule.onAllNodesWithTag("lesson:panel").fetchSemanticsNodes().isNotEmpty()
         }
         rule.waitForIdle()
     }
