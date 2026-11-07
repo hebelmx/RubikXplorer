@@ -158,6 +158,12 @@
     <string name="settings_reset">Reset preferences</string>
     <string name="settings_confirm">Confirm</string>
     <string name="settings_reset_description">Theme, glyphs, animation speed, haptics, reduce motion and last Teaching Mode return to defaults. Lesson progress, attempts and saved Lessons are kept.</string>
+    <string name="settings_reset_progress">Reset progress</string>
+    <string name="settings_reset_progress_confirm">Reset progress</string>
+    <string name="settings_reset_progress_description">Stage progress and attempts will be erased. Color calibration and preferences are kept.</string>
+    <string name="trend_description">Trend: %1$d attempts, latest %2$d hints</string>
+    <string name="trend_description_empty">Trend: 0 attempts</string>
+    <string name="stage_trend_label">Trend</string>
     <string name="learn_continue">Continue</string>
     <string name="stage_status_locked">Locked</string>
     <string name="stage_status_in_progress">In progress</string>

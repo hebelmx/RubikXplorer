@@ -46,6 +46,8 @@ import dev.rubikxplorer.app.content.CatalogState
 import dev.rubikxplorer.app.content.ContentStrings
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.app.ui.theme.Spacing
+import dev.rubikxplorer.app.ui.trend.TrendRow
+import dev.rubikxplorer.application.session.AttemptRecord
 import dev.rubikxplorer.domain.content.Lesson
 import dev.rubikxplorer.domain.content.LessonId
 import dev.rubikxplorer.domain.content.Stage
@@ -55,6 +57,7 @@ import dev.rubikxplorer.domain.tutor.MasteryAttempt
 import dev.rubikxplorer.domain.tutor.ProgressEvent
 import dev.rubikxplorer.domain.tutor.StageProgress
 import dev.rubikxplorer.domain.tutor.StageStatus
+import dev.rubikxplorer.domain.tutor.StageTrendCalculator
 
 /**
  * The Learn tab (FR-4, FR-17, FR-20, AD-10, AD-17, UX-DR18): shows the [continueEntry] card when a
@@ -142,6 +145,7 @@ fun LearnScreen(
                         stages = stages,
                         strings = catalog.strings,
                         progressEvents = progressEvents,
+                        attemptRecords = attemptRecords,
                         masteredStages = effectiveMasteredStages,
                         onBack = { onSelectStage(null) },
                         onOpen = onOpen,
@@ -316,6 +320,7 @@ fun StageDetailScreen(
     stages: List<Stage>,
     strings: ContentStrings,
     progressEvents: List<ProgressEvent> = emptyList(),
+    attemptRecords: List<MasteryAttempt> = emptyList(),
     masteredStages: Set<StageId> = emptySet(),
     onBack: () -> Unit,
     onOpen: (LessonId) -> Unit,
@@ -330,6 +335,10 @@ fun StageDetailScreen(
     reducedHelpRequired: Int = DEFAULT_MASTERY_REDUCED_REQUIRED,
 ) {
     val tokens = RubikTheme.tokens
+    val stageTrend =
+        remember(stage, attemptRecords, progressEvents) {
+            StageTrendCalculator.evaluate(stage, attemptRecords, progressEvents)
+        }
     Column(
         modifier =
             modifier
@@ -420,6 +429,12 @@ fun StageDetailScreen(
                             .testTag("stageDetail:mastery:segment:2"),
                 )
             }
+            TrendRow(
+                attemptsCount = stageTrend.attemptsCount,
+                hintCounts = stageTrend.hintCounts,
+                label = stringResource(R.string.stage_trend_label),
+                modifier = Modifier.testTag("stageDetail:trend"),
+            )
             OutlinedButton(
                 onClick = onPracticeStage,
                 enabled = practiceEnabled,

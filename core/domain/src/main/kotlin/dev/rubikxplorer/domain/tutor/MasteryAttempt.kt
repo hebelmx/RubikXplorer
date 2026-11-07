@@ -18,6 +18,7 @@ interface MasteryAttempt {
     val outcome: AttemptOutcome?
     val assistanceLevel: AssistanceLevel?
     val at: Instant
+    val hints: Int? get() = null
 }
 
 /**
@@ -28,4 +29,5 @@ data class StageAttempt(
     override val outcome: AttemptOutcome? = AttemptOutcome.COMPLETED,
     override val assistanceLevel: AssistanceLevel? = AssistanceLevel.REDUCED,
     override val at: Instant = Instant.fromEpochMilliseconds(0),
+    override val hints: Int? = null,
 ) : MasteryAttempt

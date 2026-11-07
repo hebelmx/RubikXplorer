@@ -25,9 +25,11 @@ import dev.rubikxplorer.application.session.SessionState
 import dev.rubikxplorer.application.session.Transition
 import dev.rubikxplorer.application.session.reduce
 import dev.rubikxplorer.application.usecase.CompleteLesson
+import dev.rubikxplorer.application.usecase.ResetProgress
 import dev.rubikxplorer.domain.content.ContentBundle
 import dev.rubikxplorer.domain.content.Stage
 import dev.rubikxplorer.domain.tutor.ProgressEvent
+import dev.rubikxplorer.domain.tutor.StageProgress
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -58,6 +60,7 @@ class SessionHost internal constructor(
     private val completeLesson: CompleteLesson? = null,
     private val progress: ProgressRepository? = null,
     private val attempts: AttemptRepository? = null,
+    private val resetProgress: ResetProgress? = null,
     /** Sees every event this host reduced, in order; tests use it to observe events that change no state. */
     private val reduced: (SessionEvent) -> Unit = {},
 ) {
@@ -71,6 +74,7 @@ class SessionHost internal constructor(
         completeLesson: CompleteLesson,
         progress: ProgressRepository,
         attempts: AttemptRepository,
+        resetProgress: ResetProgress,
     ) :
         this(
             clock,
@@ -82,9 +86,12 @@ class SessionHost internal constructor(
             completeLesson = completeLesson,
             progress = progress,
             attempts = attempts,
+            resetProgress = resetProgress,
         )
 
     constructor(clock: Clock) : this(clock, Dispatchers.Default.limitedParallelism(1))
+
+    private val resetProgressUseCase = resetProgress ?: progress?.let { ResetProgress(it) }
 
     private val restored =
         CompletableDeferred<Unit>().also {
@@ -218,6 +225,44 @@ class SessionHost internal constructor(
             }
         if (loaded is ProgressLoad.Found) {
             currentProgress.value = loaded.events
+        }
+    }
+
+    /**
+     * Appends a [ProgressEvent.ProgressReset] via [resetProgress] single-writer use case
+     * and refreshes [progressEvents].
+     *
+     * Returns true if the reset succeeded, or false if the repository write failed.
+     */
+    suspend fun resetProgress(): Boolean {
+        val useCase = resetProgressUseCase
+        if (useCase == null) {
+            val nextEpoch = StageProgress.currentEpoch(currentProgress.value) + 1L
+            val event = ProgressEvent.ProgressReset(nextEpoch, clock.now())
+            currentProgress.value = currentProgress.value + event
+            return true
+        }
+        val result =
+            try {
+                if (writer != null) {
+                    writer.read { useCase(at = clock.now()) }
+                } else {
+                    useCase(at = clock.now())
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                ProgressWrite.Failed
+            }
+        return when (result) {
+            is ProgressWrite.Written -> {
+                refreshProgressAfterWrite(result.events)
+                true
+            }
+
+            else -> {
+                false
+            }
         }
     }
 

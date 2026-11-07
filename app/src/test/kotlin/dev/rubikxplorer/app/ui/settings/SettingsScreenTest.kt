@@ -18,6 +18,7 @@ import dev.rubikxplorer.app.ui.freecube.FreeCubeViewModel
 import dev.rubikxplorer.app.ui.shell.AppShell
 import dev.rubikxplorer.app.ui.theme.DarkTokens
 import dev.rubikxplorer.app.ui.theme.RubikTheme
+import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
 import dev.rubikxplorer.app.ui.theme.isDarkTheme
 import dev.rubikxplorer.application.preference.AnimationSpeed
 import dev.rubikxplorer.application.preference.Preferences
@@ -84,5 +85,71 @@ class SettingsScreenTest {
         }
         rule.onNodeWithTag("you:settings").assertExists()
         rule.onNodeWithTag("settings:screen").assertDoesNotExist()
+    }
+
+    @Test fun resetProgressDialogCancelsWithoutAction() {
+        var resetCalled = false
+        rule.setContent {
+            RubikXplorerTheme {
+                SettingsScreen(
+                    onClose = {},
+                    onResetProgress = { resetCalled = true },
+                )
+            }
+        }
+        rule.onNodeWithTag("settings:resetProgress").performScrollTo().performClick()
+        rule.onNodeWithTag("settings:resetProgress:cancel").assertExists().performClick()
+        rule.runOnIdle {
+            assertFalse(resetCalled)
+        }
+    }
+
+    @Test fun resetProgressDialogConfirmsAndTriggersAction() {
+        var resetCalled = false
+        rule.setContent {
+            RubikXplorerTheme {
+                SettingsScreen(
+                    onClose = {},
+                    onResetProgress = { resetCalled = true },
+                )
+            }
+        }
+        rule.onNodeWithTag("settings:resetProgress").performScrollTo().performClick()
+        rule.onNodeWithTag("settings:resetProgress:confirm").assertExists().performClick()
+        rule.runOnIdle {
+            assertTrue(resetCalled)
+        }
+    }
+
+    @Test fun resetProgressInAppShellResetsProgressAndLeavesPreferencesUntouched() {
+        val store = PreferenceStore()
+        val host = SessionHost(TickingClock())
+        val catalog = LessonCatalog.of(ContentLoadResult.Loaded(testBundle()))
+        val cube = FreeCubeViewModel()
+
+        rule.setContent {
+            PreferredTheme(store) {
+                AppShell(host, catalog, cube, false, testFlags(true), preferenceStore = store)
+            }
+        }
+
+        // Set preference to DARK
+        rule.onNodeWithTag("nav:you").performClick()
+        rule.onNodeWithTag("you:settings").performClick()
+        rule.onNodeWithTag("settings:theme:dark").performScrollTo().performClick()
+        rule.runOnIdle {
+            assertEquals(ThemeChoice.DARK, store.preferences.value.theme)
+        }
+
+        // Trigger Reset Progress
+        rule.onNodeWithTag("settings:resetProgress").performScrollTo().performClick()
+        rule.onNodeWithTag("settings:resetProgress:confirm").performClick()
+
+        rule.runOnIdle {
+            // Preferences remain untouched (still DARK)
+            assertEquals(ThemeChoice.DARK, store.preferences.value.theme)
+            // Progress events in host now contain a ProgressReset event
+            assertTrue(host.progressEvents.value.any { it is dev.rubikxplorer.domain.tutor.ProgressEvent.ProgressReset })
+        }
     }
 }

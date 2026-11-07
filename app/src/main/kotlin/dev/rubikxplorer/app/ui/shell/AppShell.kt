@@ -27,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -54,6 +55,7 @@ import dev.rubikxplorer.application.usecase.StagePractice
 import dev.rubikxplorer.domain.content.LessonId
 import dev.rubikxplorer.domain.content.StageId
 import dev.rubikxplorer.domain.tutor.TeachingMode
+import kotlinx.coroutines.launch
 
 /** The top-level destinations of the navigation shell. */
 enum class Tab(
@@ -107,6 +109,7 @@ private fun ShellContent(
     val session by host.state.collectAsState()
     val progressEvents by host.progressEvents.collectAsState()
     val attemptRecords by host.attemptRecords.collectAsState()
+    val scope = rememberCoroutineScope()
     var tab by rememberSaveable { mutableStateOf(Tab.LEARN) }
     var settings by rememberSaveable { mutableStateOf(false) }
     var selectedStage by rememberSaveable { mutableStateOf<String?>(null) }
@@ -116,7 +119,13 @@ private fun ShellContent(
     // Held above the Lesson and Settings task flows so closing either returns to the same place in the list.
     val learnScroll = rememberScrollState()
     if (settings) {
-        SettingsScreen(onClose = { settings = false })
+        SettingsScreen(
+            onClose = { settings = false },
+            onResetProgress = {
+                selectedStage = null
+                scope.launch { host.resetProgress() }
+            },
+        )
         return
     }
 
@@ -198,7 +207,13 @@ private fun ShellContent(
     val destination: @Composable (Modifier) -> Unit = { destinationModifier ->
         when (tab) {
             Tab.YOU -> {
-                YouScreen(onSettings = { settings = true }, modifier = destinationModifier)
+                YouScreen(
+                    catalog = content,
+                    progressEvents = progressEvents,
+                    attemptRecords = attemptRecords,
+                    onSettings = { settings = true },
+                    modifier = destinationModifier,
+                )
             }
 
             Tab.LEARN -> {

@@ -21,7 +21,7 @@ data class AttemptRecord(
     override val objectiveId: String,
     override val outcome: AttemptOutcome?,
     val errors: Int?,
-    val hints: Int?,
+    override val hints: Int?,
     override val assistanceLevel: AssistanceLevel?,
     override val at: Instant,
 ) : MasteryAttempt {

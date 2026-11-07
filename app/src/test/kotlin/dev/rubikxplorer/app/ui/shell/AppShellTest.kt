@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
@@ -591,6 +592,8 @@ class AppShellTest {
             .assertTextContains("Mastery: 2 of 2 solves · 1 with reduced help")
         rule.onNodeWithTag("stageDetail:mastery:segment:1").assertExists()
         rule.onNodeWithTag("stageDetail:mastery:segment:2").assertExists()
+        rule.onNodeWithTag("stageDetail:trend").assertExists().assertIsDisplayed()
+        rule.onNodeWithTag("trend:attempts").assertTextContains("2")
     }
 
     @Test
