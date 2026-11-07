@@ -147,16 +147,18 @@ internal class TickingClock(
     override fun now(): Instant = Instant.fromEpochMilliseconds(millis.getAndIncrement())
 }
 
-/** Feature flags with every flag at GA, except `TEST_ME` OFF unless [testMe]. */
+/** Feature flags with every flag at GA, except `TEST_ME` OFF unless [testMe], and `PLACEMENT` OFF unless [placement]. */
 internal fun testFlags(
     testMe: Boolean = true,
     adaptive: Boolean = true,
+    placement: Boolean = false,
 ): FeatureFlags =
     object : FeatureFlags {
         override fun level(flag: FeatureFlag): FlagLevel =
             when {
                 flag == FeatureFlag.TEST_ME && !testMe -> FlagLevel.OFF
                 flag == FeatureFlag.ADAPTIVE_ASSISTANCE && !adaptive -> FlagLevel.OFF
+                flag == FeatureFlag.PLACEMENT && !placement -> FlagLevel.OFF
                 else -> FlagLevel.GA
             }
     }
