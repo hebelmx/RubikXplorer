@@ -49,3 +49,7 @@ Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual o
 - Don't add modules, layers, or abstractions the spine doesn't require — split `:app` into feature modules only after P0.3.
 
 <!-- /bmad:context -->
+
+## Emulators
+
+- Reference-device AVDs (Galaxy S24 FE on Android 15/16/17, Galaxy Tab S7 FE 5G on Android 14), KVM checks, launch/install commands and how to recreate them: `docs/emulators.md`. Emulators give indicative numbers only; performance and camera acceptance stay on the physical devices.
