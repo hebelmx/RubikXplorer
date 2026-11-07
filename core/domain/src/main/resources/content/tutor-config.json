@@ -7,5 +7,9 @@
     "demonstrateAfterMistakes": 2,
     "guideAfterMistakes": 3,
     "reduceAfterCleanSteps": 2
+  },
+  "mastery": {
+    "solvesRequired": 2,
+    "reducedHelpRequired": 1
   }
 }

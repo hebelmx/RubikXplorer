@@ -77,6 +77,8 @@ fun FirstSolveMilestone(
     onContinue: () -> Unit,
     modifier: Modifier = Modifier,
     reduceMotion: Boolean = rememberReduceMotion(),
+    nextStageLabel: String? = null,
+    onNextStage: (() -> Unit)? = null,
 ) {
     val tokens = RubikTheme.tokens
     var animationPlayed by rememberSaveable { mutableStateOf(false) }
@@ -135,19 +137,53 @@ fun FirstSolveMilestone(
 
             Spacer(modifier = Modifier.height(Spacing.s6))
 
-            Button(
-                onClick = onPracticeNewScramble,
-                colors = ButtonDefaults.buttonColors(containerColor = tokens.accent, contentColor = tokens.onAccent),
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(Spacing.touchMin)
-                        .testTag("milestone:practice"),
-            ) {
-                Text(
-                    text = stringResource(R.string.milestone_practice),
-                    style = MaterialTheme.typography.labelLarge,
-                )
+            if (onNextStage != null) {
+                Button(
+                    onClick = onNextStage,
+                    colors = ButtonDefaults.buttonColors(containerColor = tokens.accent, contentColor = tokens.onAccent),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(Spacing.touchMin)
+                            .testTag("milestone:nextStage"),
+                ) {
+                    Text(
+                        text = nextStageLabel ?: stringResource(R.string.milestone_next_stage),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(Spacing.s3))
+
+                OutlinedButton(
+                    onClick = onPracticeNewScramble,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = tokens.inkPrimary),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(Spacing.touchMin)
+                            .testTag("milestone:practice"),
+                ) {
+                    Text(
+                        text = stringResource(R.string.milestone_practice),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            } else {
+                Button(
+                    onClick = onPracticeNewScramble,
+                    colors = ButtonDefaults.buttonColors(containerColor = tokens.accent, contentColor = tokens.onAccent),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(Spacing.touchMin)
+                            .testTag("milestone:practice"),
+                ) {
+                    Text(
+                        text = stringResource(R.string.milestone_practice),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(Spacing.s3))

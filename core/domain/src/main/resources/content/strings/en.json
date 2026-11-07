@@ -338,5 +338,6 @@
   "msg.cube-summary.last-layer-corners-progress": "{done} of {total} last-layer corners placed",
   "msg.cube-summary.cube-solved": "Cube solved",
   "msg.cube-summary.cube-progress": "{done} of {total} pieces placed",
-  "msg.milestone.first-solve": "You solved the Rubik's cube!"
+  "msg.milestone.first-solve": "You solved the Rubik's cube!",
+  "msg.milestone.stage-mastered": "{stage} mastered."
 }

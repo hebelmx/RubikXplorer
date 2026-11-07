@@ -244,6 +244,7 @@ class ShippedContentTest {
                 moveSet = "U U' U2 D D' D2 R R' R2 L L' L2 F F' F2 B B' B2",
                 recoveryMaxDepth = 5,
                 adaptive = AdaptiveThresholds(1, 2, 3, 2),
+                mastery = MasteryThresholds(2, 1),
             ),
             bundle.tutorConfig,
         )

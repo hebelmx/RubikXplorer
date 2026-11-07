@@ -26,6 +26,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,6 +50,8 @@ import dev.rubikxplorer.domain.content.Lesson
 import dev.rubikxplorer.domain.content.LessonId
 import dev.rubikxplorer.domain.content.Stage
 import dev.rubikxplorer.domain.content.StageId
+import dev.rubikxplorer.domain.tutor.Mastery
+import dev.rubikxplorer.domain.tutor.MasteryAttempt
 import dev.rubikxplorer.domain.tutor.ProgressEvent
 import dev.rubikxplorer.domain.tutor.StageProgress
 import dev.rubikxplorer.domain.tutor.StageStatus
@@ -81,6 +84,7 @@ fun LearnScreen(
     solvesRequired: Int = DEFAULT_MASTERY_SOLVES_REQUIRED,
     reducedHelpSolves: Int = 0,
     reducedHelpRequired: Int = DEFAULT_MASTERY_REDUCED_REQUIRED,
+    attemptRecords: List<MasteryAttempt> = emptyList(),
 ) {
     Box(
         modifier =
@@ -101,10 +105,36 @@ fun LearnScreen(
                 val stages = catalog.bundle.stages
                 val stageIndex = selectedStage?.let { id -> stages.indexOfFirst { it.id == id } } ?: -1
                 val activeStage = stages.getOrNull(stageIndex)
+                val effectiveMasteredStages =
+                    remember(masteredStages, stages, attemptRecords, progressEvents, catalog.bundle.tutorConfig.mastery) {
+                        masteredStages +
+                            Mastery.masteredStages(stages, attemptRecords, progressEvents, catalog.bundle.tutorConfig.mastery)
+                    }
                 if (activeStage != null) {
-                    val status = StageProgress.status(activeStage, stages, progressEvents, masteredStages)
+                    val status = StageProgress.status(activeStage, stages, progressEvents, effectiveMasteredStages)
                     val isPracticeEnabled =
                         activeStage.id != StageId("stage-01-fundamentals") && status != StageStatus.LOCKED
+                    val masteryProgress =
+                        Mastery.evaluate(
+                            activeStage,
+                            attemptRecords,
+                            progressEvents,
+                            catalog.bundle.tutorConfig.mastery,
+                        )
+                    val effectiveSolvesCompleted =
+                        solvesCompleted.takeIf { attemptRecords.isEmpty() && it != 0 } ?: masteryProgress.solvesCompleted
+                    val effectiveSolvesRequired =
+                        if (solvesRequired != DEFAULT_MASTERY_SOLVES_REQUIRED) solvesRequired else masteryProgress.solvesRequired
+                    val effectiveReducedSolves =
+                        reducedHelpSolves.takeIf { attemptRecords.isEmpty() && it != 0 } ?: masteryProgress.reducedHelpSolves
+                    val effectiveReducedRequired =
+                        if (reducedHelpRequired !=
+                            DEFAULT_MASTERY_REDUCED_REQUIRED
+                        ) {
+                            reducedHelpRequired
+                        } else {
+                            masteryProgress.reducedHelpRequired
+                        }
                     StageDetailScreen(
                         stage = activeStage,
                         stageNumber = stageIndex + 1,
@@ -112,24 +142,24 @@ fun LearnScreen(
                         stages = stages,
                         strings = catalog.strings,
                         progressEvents = progressEvents,
-                        masteredStages = masteredStages,
+                        masteredStages = effectiveMasteredStages,
                         onBack = { onSelectStage(null) },
                         onOpen = onOpen,
                         practiceEnabled = isPracticeEnabled,
                         onPracticeStage = { onPracticeStage(activeStage.id) },
                         skipCheckEnabled = skipCheckEnabled,
                         onSkipCheck = { onSkipCheck(activeStage.id) },
-                        solvesCompleted = solvesCompleted,
-                        solvesRequired = solvesRequired,
-                        reducedHelpSolves = reducedHelpSolves,
-                        reducedHelpRequired = reducedHelpRequired,
+                        solvesCompleted = effectiveSolvesCompleted,
+                        solvesRequired = effectiveSolvesRequired,
+                        reducedHelpSolves = effectiveReducedSolves,
+                        reducedHelpRequired = effectiveReducedRequired,
                     )
                 } else {
                     StageListContent(
                         catalog = catalog,
                         continueEntry = continueEntry,
                         progressEvents = progressEvents,
-                        masteredStages = masteredStages,
+                        masteredStages = effectiveMasteredStages,
                         scrollState = scrollState,
                         showFasterLastLayer = showFasterLastLayer,
                         onOpen = onOpen,

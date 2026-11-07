@@ -106,6 +106,7 @@ private fun ShellContent(
     val content by catalog.state.collectAsState()
     val session by host.state.collectAsState()
     val progressEvents by host.progressEvents.collectAsState()
+    val attemptRecords by host.attemptRecords.collectAsState()
     var tab by rememberSaveable { mutableStateOf(Tab.LEARN) }
     var settings by rememberSaveable { mutableStateOf(false) }
     var selectedStage by rememberSaveable { mutableStateOf<String?>(null) }
@@ -133,8 +134,16 @@ private fun ShellContent(
             adaptiveAssistance = flags.level(FeatureFlag.ADAPTIVE_ASSISTANCE),
             onPracticeNewScramble = {
                 openLesson = null
-                openPractice = "stage-07-independent-practice"
+                openPractice =
+                    if (entry.stage.id != StagePractice.STAGE_1_ID) entry.stage.id.value else "stage-07-independent-practice"
                 practiceEpoch++
+            },
+            stages = ready.bundle.stages,
+            onNextStage = { nextStageId ->
+                openLesson = null
+                openPractice = null
+                selectedStage = nextStageId.value
+                tab = Tab.LEARN
             },
         )
         return
@@ -163,6 +172,13 @@ private fun ShellContent(
             onPracticeNewScramble = {
                 openPractice = practiceEntry.stage.id.value
                 practiceEpoch++
+            },
+            stages = ready.bundle.stages,
+            onNextStage = { nextStageId ->
+                openLesson = null
+                openPractice = null
+                selectedStage = nextStageId.value
+                tab = Tab.LEARN
             },
             isPractice = true,
         )
@@ -195,6 +211,7 @@ private fun ShellContent(
                             null
                         },
                     progressEvents = progressEvents,
+                    attemptRecords = attemptRecords,
                     selectedStage = selectedStage?.let(::StageId),
                     onSelectStage = { selectedStage = it?.value },
                     onOpen = { openLesson = it.value },
