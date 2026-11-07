@@ -46,6 +46,10 @@ import dev.rubikxplorer.app.ui.freecube.FreeCubeViewModel
 import dev.rubikxplorer.app.ui.shell.AppShell
 import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
 import dev.rubikxplorer.application.port.FlagLevel
+import dev.rubikxplorer.application.port.ProgressLoad
+import dev.rubikxplorer.application.port.ProgressRecord
+import dev.rubikxplorer.application.port.ProgressRepository
+import dev.rubikxplorer.application.port.ProgressSave
 import dev.rubikxplorer.application.port.SessionSnapshotRepository
 import dev.rubikxplorer.application.port.SnapshotLoad
 import dev.rubikxplorer.application.port.SnapshotSave
@@ -61,6 +65,7 @@ import dev.rubikxplorer.domain.content.AdaptiveThresholds
 import dev.rubikxplorer.domain.content.ContentLoadResult
 import dev.rubikxplorer.domain.content.ContentLoader
 import dev.rubikxplorer.domain.content.ContentSource
+import dev.rubikxplorer.domain.content.LessonId
 import dev.rubikxplorer.domain.content.StageId
 import dev.rubikxplorer.domain.cube.Axis
 import dev.rubikxplorer.domain.cube.CubeRotation
@@ -80,6 +85,7 @@ import dev.rubikxplorer.domain.tutor.AssistanceLevel
 import dev.rubikxplorer.domain.tutor.Certainty
 import dev.rubikxplorer.domain.tutor.HintLadder
 import dev.rubikxplorer.domain.tutor.HintRung
+import dev.rubikxplorer.domain.tutor.ProgressEvent
 import dev.rubikxplorer.domain.tutor.RecoveryPlan
 import dev.rubikxplorer.domain.tutor.RecoveryPlanner
 import dev.rubikxplorer.domain.tutor.TeachingMode
@@ -306,6 +312,7 @@ class LessonScreenTest {
             ),
         )
     private var closed = 0
+    private var practiceNewScrambleClicked = 0
 
     /** The Lesson screen alone for [lessonId]. */
     private fun open(
@@ -331,6 +338,7 @@ class LessonScreenTest {
                     onClose = { closed++ },
                     planRecovery = planRecovery,
                     adaptiveAssistance = adaptiveLevel,
+                    onPracticeNewScramble = { practiceNewScrambleClicked++ },
                 )
             }
         }
@@ -1937,5 +1945,124 @@ class LessonScreenTest {
         assertEquals(1, host.state.value.hintsUsed)
         assertEquals(before.revision, host.state.value.revision)
         assertEquals(before.history, host.state.value.history)
+    }
+
+    @Test
+    fun `completing lesson-06-03 for the first time displays the first solve milestone overlay`() {
+        val shipped = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val ready = CatalogState.Ready(shipped)
+        val entry = ready.lessons.single { it.lesson.id.value == "lesson-06-03" }
+        rule.setContent {
+            accessibilityHost = androidx.compose.ui.platform.LocalView.current
+            RubikXplorerTheme {
+                LessonScreen(
+                    host = host,
+                    entry = entry,
+                    strings = ready.strings,
+                    modes = TeachingMode.entries,
+                    onClose = { closed++ },
+                    onPracticeNewScramble = { practiceNewScrambleClicked++ },
+                )
+            }
+        }
+        rule.waitUntil(5_000) {
+            host.state.value.lesson
+                ?.id
+                ?.value == "lesson-06-03"
+        }
+        rule.waitForIdle()
+
+        node("milestone:overlay").assertDoesNotExist()
+
+        val lesson = entry.lesson
+        // Step 1: D L D' R' D L' D' R
+        val step1Moves = (Notation.parse(lesson.steps[0].moves) as dev.rubikxplorer.domain.cube.NotationResult.Parsed).moves
+        step1Moves.forEach { move ->
+            runBlocking { host.dispatch { SessionEvent.MoveCommitted(move, it) } }
+        }
+        runBlocking { host.dispatch(SessionEvent::StepAdvanced) }
+
+        // Step 2: L D' L D L D L D' L' D' L2
+        val step2Moves = (Notation.parse(lesson.steps[1].moves) as dev.rubikxplorer.domain.cube.NotationResult.Parsed).moves
+        step2Moves.forEach { move ->
+            runBlocking { host.dispatch { SessionEvent.MoveCommitted(move, it) } }
+        }
+        rule.waitForIdle()
+
+        assertTrue(
+            host.state.value.decision
+                ?.satisfied == true,
+        )
+        node("milestone:overlay").assertExists()
+        node("milestone:burst").assertExists()
+        node("milestone:headline").assertExists()
+
+        node("milestone:practice").performClick()
+        assertEquals(1, practiceNewScrambleClicked)
+    }
+
+    @Test
+    fun `completing lesson-06-03 when already completed suppresses the first solve milestone overlay`() {
+        val progressRepo =
+            object : ProgressRepository {
+                override suspend fun all(): ProgressLoad =
+                    ProgressLoad.Found(
+                        listOf(ProgressEvent.LessonCompleted(LessonId("lesson-06-03"))),
+                    )
+
+                override suspend fun append(records: List<ProgressRecord>): ProgressSave = ProgressSave.Saved
+            }
+        val replayHost =
+            SessionHost(
+                clock = TickingClock(),
+                confined = Dispatchers.Main.immediate,
+                progress = progressRepo,
+            )
+        val shipped = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        runBlocking { replayHost.restore(shipped) }
+        val ready = CatalogState.Ready(shipped)
+        val entry = ready.lessons.single { it.lesson.id.value == "lesson-06-03" }
+        rule.setContent {
+            accessibilityHost = androidx.compose.ui.platform.LocalView.current
+            RubikXplorerTheme {
+                LessonScreen(
+                    host = replayHost,
+                    entry = entry,
+                    strings = ready.strings,
+                    modes = TeachingMode.entries,
+                    onClose = { closed++ },
+                    onPracticeNewScramble = { practiceNewScrambleClicked++ },
+                )
+            }
+        }
+        rule.waitUntil(5_000) {
+            replayHost.state.value.lesson
+                ?.id
+                ?.value == "lesson-06-03"
+        }
+        rule.waitForIdle()
+
+        node("milestone:overlay").assertDoesNotExist()
+
+        val lesson = entry.lesson
+        // Step 1: D L D' R' D L' D' R
+        val step1Moves = (Notation.parse(lesson.steps[0].moves) as dev.rubikxplorer.domain.cube.NotationResult.Parsed).moves
+        step1Moves.forEach { move ->
+            runBlocking { replayHost.dispatch { SessionEvent.MoveCommitted(move, it) } }
+        }
+        runBlocking { replayHost.dispatch(SessionEvent::StepAdvanced) }
+
+        // Step 2: L D' L D L D L D' L' D' L2
+        val step2Moves = (Notation.parse(lesson.steps[1].moves) as dev.rubikxplorer.domain.cube.NotationResult.Parsed).moves
+        step2Moves.forEach { move ->
+            runBlocking { replayHost.dispatch { SessionEvent.MoveCommitted(move, it) } }
+        }
+        rule.waitForIdle()
+
+        assertTrue(
+            replayHost.state.value.decision
+                ?.satisfied == true,
+        )
+        node("milestone:overlay").assertDoesNotExist()
     }
 }

@@ -6,6 +6,11 @@ import dev.rubikxplorer.domain.cube.NotationResult
 import dev.rubikxplorer.domain.cube.ValidationResult
 import dev.rubikxplorer.domain.predicate.AllOf
 import dev.rubikxplorer.domain.predicate.AnyOf
+import dev.rubikxplorer.domain.predicate.CubeSolved
+import dev.rubikxplorer.domain.predicate.LastLayerCornersPlaced
+import dev.rubikxplorer.domain.predicate.LastLayerCrossSolved
+import dev.rubikxplorer.domain.predicate.LastLayerOriented
+import dev.rubikxplorer.domain.predicate.MiddleLayerSolved
 import dev.rubikxplorer.domain.predicate.StateReached
 import dev.rubikxplorer.domain.predicate.WhiteCornersSolved
 import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
@@ -132,7 +137,21 @@ class ContentLoaderTest {
                 .lessons
                 .single()
         assertEquals(AllOf(listOf(WhiteCrossSolved, WhiteCornersSolved)), lesson.completion)
-        assertEquals(AnyOf(listOf(StateReached("F"), WhiteCrossSolved, WhitePieceSolved("white-red-blue"))), lesson.preserve)
+        assertEquals(
+            AnyOf(
+                listOf(
+                    StateReached("F"),
+                    WhiteCrossSolved,
+                    WhitePieceSolved("white-red-blue"),
+                    MiddleLayerSolved,
+                    LastLayerCrossSolved,
+                    LastLayerOriented,
+                    LastLayerCornersPlaced,
+                    CubeSolved,
+                ),
+            ),
+            lesson.preserve,
+        )
         assertEquals(emptyList<ContentProblem>(), ContentValidator.validate(bundle))
         val entry = (FaceletString.decode(lesson.entryState) as FaceletStringResult.Decoded).facelets
         val state = (CubeValidator.validate(entry) as ValidationResult.Valid).state

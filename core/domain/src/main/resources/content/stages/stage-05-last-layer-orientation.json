@@ -1,5 +1,184 @@
 {
   "id": "stage-05-last-layer-orientation",
   "title": "stage.stage-05-last-layer-orientation.title",
-  "lessons": []
+  "lessons": [
+    {
+      "id": "lesson-05-01",
+      "stageId": "stage-05-last-layer-orientation",
+      "prerequisites": [
+        "lesson-04-04"
+      ],
+      "objective": "lesson.lesson-05-01.objective",
+      "entryState": "WWWWWWWWWRRRRRRYRYGGGGGGRYGYOOYYYYGOOOOOOOBBGBBBBBBBYR",
+      "demonstration": "F L D L' D' F'",
+      "learnerAction": "lesson.lesson-05-01.learner-action",
+      "completion": {
+        "predicate": "last-layer-cross-solved"
+      },
+      "preserve": {
+        "predicate": "allOf",
+        "predicates": [
+          { "predicate": "white-cross-solved" },
+          { "predicate": "white-corners-solved" },
+          { "predicate": "middle-layer-solved" }
+        ]
+      },
+      "recovery": "recovery-undo-last-move",
+      "steps": [
+        {
+          "goal": "lesson.lesson-05-01.goal.1",
+          "preserve": "lesson.lesson-05-01.keep.1",
+          "watch": "lesson.lesson-05-01.watch.1",
+          "notice": "lesson.lesson-05-01.notice.1",
+          "moves": "F L D L' D' F'",
+          "done": {
+            "predicate": "last-layer-cross-solved"
+          }
+        }
+      ]
+    },
+    {
+      "id": "lesson-05-02",
+      "stageId": "stage-05-last-layer-orientation",
+      "prerequisites": [
+        "lesson-05-01"
+      ],
+      "objective": "lesson.lesson-05-02.objective",
+      "entryState": "WWWWWWWWWRRRRRROYYGGGGGGBOYOYGYYGYRROOOOOOBBYBBBBBBGYR",
+      "demonstration": "F L D L' D' F' D F L D L' D' F'",
+      "learnerAction": "lesson.lesson-05-02.learner-action",
+      "completion": {
+        "predicate": "last-layer-cross-solved"
+      },
+      "preserve": {
+        "predicate": "allOf",
+        "predicates": [
+          { "predicate": "white-cross-solved" },
+          { "predicate": "white-corners-solved" },
+          { "predicate": "middle-layer-solved" }
+        ]
+      },
+      "recovery": "recovery-undo-last-move",
+      "steps": [
+        {
+          "goal": "lesson.lesson-05-02.goal.1",
+          "preserve": "lesson.lesson-05-02.keep.1",
+          "watch": "lesson.lesson-05-02.watch.1",
+          "notice": "lesson.lesson-05-02.notice.1",
+          "moves": "F L D L' D' F'",
+          "done": {
+            "predicate": "anyOf",
+            "predicates": [
+              {
+                "predicate": "state-reached",
+                "moves": "F D L D' L' F' D'"
+              },
+              {
+                "predicate": "last-layer-cross-solved"
+              }
+            ]
+          }
+        },
+        {
+          "goal": "lesson.lesson-05-02.goal.2",
+          "preserve": "lesson.lesson-05-02.keep.2",
+          "watch": "lesson.lesson-05-02.watch.2",
+          "notice": "lesson.lesson-05-02.notice.2",
+          "moves": "D F L D L' D' F'",
+          "done": {
+            "predicate": "last-layer-cross-solved"
+          }
+        }
+      ]
+    },
+    {
+      "id": "lesson-05-03",
+      "stageId": "stage-05-last-layer-orientation",
+      "prerequisites": [
+        "lesson-05-02"
+      ],
+      "objective": "lesson.lesson-05-03.objective",
+      "entryState": "WWWWWWWWWRRRRRROOGGGGGGGYGBRYYYYYGYOOOOOOOYBBBBBBBBYRR",
+      "demonstration": "L D L' D L D2 L'",
+      "learnerAction": "lesson.lesson-05-03.learner-action",
+      "completion": {
+        "predicate": "last-layer-oriented"
+      },
+      "preserve": {
+        "predicate": "allOf",
+        "predicates": [
+          { "predicate": "white-cross-solved" },
+          { "predicate": "white-corners-solved" },
+          { "predicate": "middle-layer-solved" }
+        ]
+      },
+      "recovery": "recovery-undo-last-move",
+      "steps": [
+        {
+          "goal": "lesson.lesson-05-03.goal.1",
+          "preserve": "lesson.lesson-05-03.keep.1",
+          "watch": "lesson.lesson-05-03.watch.1",
+          "notice": "lesson.lesson-05-03.notice.1",
+          "moves": "L D L' D L D2 L'",
+          "done": {
+            "predicate": "last-layer-oriented"
+          }
+        }
+      ]
+    },
+    {
+      "id": "lesson-05-04",
+      "stageId": "stage-05-last-layer-orientation",
+      "prerequisites": [
+        "lesson-05-03"
+      ],
+      "objective": "lesson.lesson-05-04.objective",
+      "entryState": "WWWWWWWWWRRRRRRYGOGGGGGGGOBRYRYYYGYBOOOOOOOBYBBBBBBYRY",
+      "demonstration": "L D L' D L D2 L' D L D L' D L D2 L'",
+      "learnerAction": "lesson.lesson-05-04.learner-action",
+      "completion": {
+        "predicate": "last-layer-oriented"
+      },
+      "preserve": {
+        "predicate": "allOf",
+        "predicates": [
+          { "predicate": "white-cross-solved" },
+          { "predicate": "white-corners-solved" },
+          { "predicate": "middle-layer-solved" }
+        ]
+      },
+      "recovery": "recovery-undo-last-move",
+      "steps": [
+        {
+          "goal": "lesson.lesson-05-04.goal.1",
+          "preserve": "lesson.lesson-05-04.keep.1",
+          "watch": "lesson.lesson-05-04.watch.1",
+          "notice": "lesson.lesson-05-04.notice.1",
+          "moves": "L D L' D L D2 L'",
+          "done": {
+            "predicate": "anyOf",
+            "predicates": [
+              {
+                "predicate": "state-reached",
+                "moves": "L D2 L' D' L D' L' D'"
+              },
+              {
+                "predicate": "last-layer-oriented"
+              }
+            ]
+          }
+        },
+        {
+          "goal": "lesson.lesson-05-04.goal.2",
+          "preserve": "lesson.lesson-05-04.keep.2",
+          "watch": "lesson.lesson-05-04.watch.2",
+          "notice": "lesson.lesson-05-04.notice.2",
+          "moves": "D L D L' D L D2 L'",
+          "done": {
+            "predicate": "last-layer-oriented"
+          }
+        }
+      ]
+    }
+  ]
 }

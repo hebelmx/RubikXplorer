@@ -17,6 +17,11 @@ class PredicateJsonTest {
         mapOf(
             """{"predicate":"white-cross-solved"}""" to WhiteCrossSolved,
             """{"predicate":"white-corners-solved"}""" to WhiteCornersSolved,
+            """{"predicate":"middle-layer-solved"}""" to MiddleLayerSolved,
+            """{"predicate":"last-layer-cross-solved"}""" to LastLayerCrossSolved,
+            """{"predicate":"last-layer-oriented"}""" to LastLayerOriented,
+            """{"predicate":"last-layer-corners-placed"}""" to LastLayerCornersPlaced,
+            """{"predicate":"cube-solved"}""" to CubeSolved,
             """{"predicate":"state-reached","moves":"R U"}""" to StateReached("R U"),
             """{"predicate":"white-piece-solved","piece":"white-green-red"}""" to WhitePieceSolved("white-green-red"),
             """{"predicate":"nothing"}""" to AlwaysTrue,

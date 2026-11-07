@@ -34,6 +34,21 @@
           {
             "predicate": "white-piece-solved",
             "piece": "white-red-blue"
+          },
+          {
+            "predicate": "middle-layer-solved"
+          },
+          {
+            "predicate": "last-layer-cross-solved"
+          },
+          {
+            "predicate": "last-layer-oriented"
+          },
+          {
+            "predicate": "last-layer-corners-placed"
+          },
+          {
+            "predicate": "cube-solved"
           }
         ]
       },

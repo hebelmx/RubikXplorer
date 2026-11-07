@@ -122,6 +122,7 @@ private fun ShellContent(
             onClose = { openLesson = null },
             modifier = modifier,
             adaptiveAssistance = flags.level(FeatureFlag.ADAPTIVE_ASSISTANCE),
+            onPracticeNewScramble = { openLesson = null },
         )
         return
     }

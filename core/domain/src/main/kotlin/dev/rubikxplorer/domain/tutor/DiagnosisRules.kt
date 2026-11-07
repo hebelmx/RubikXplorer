@@ -8,6 +8,11 @@ import dev.rubikxplorer.domain.cube.FaceletTables
 import dev.rubikxplorer.domain.predicate.AllOf
 import dev.rubikxplorer.domain.predicate.AlwaysTrue
 import dev.rubikxplorer.domain.predicate.AnyOf
+import dev.rubikxplorer.domain.predicate.CubeSolved
+import dev.rubikxplorer.domain.predicate.LastLayerCornersPlaced
+import dev.rubikxplorer.domain.predicate.LastLayerCrossSolved
+import dev.rubikxplorer.domain.predicate.LastLayerOriented
+import dev.rubikxplorer.domain.predicate.MiddleLayerSolved
 import dev.rubikxplorer.domain.predicate.Piece
 import dev.rubikxplorer.domain.predicate.Predicate
 import dev.rubikxplorer.domain.predicate.StateReached
@@ -131,8 +136,12 @@ internal object DiagnosisRules {
     private fun leaves(predicate: Predicate): List<Predicate> =
         when (predicate) {
             is AllOf -> predicate.predicates.flatMap(::leaves)
+
             is AnyOf -> predicate.predicates.flatMap(::leaves)
-            is AlwaysTrue, is StateReached, is WhiteCornersSolved, is WhiteCrossSolved, is WhitePieceSolved -> listOf(predicate)
+
+            is AlwaysTrue, is StateReached, is WhiteCornersSolved, is WhiteCrossSolved, is WhitePieceSolved,
+            MiddleLayerSolved, LastLayerCrossSolved, LastLayerOriented, LastLayerCornersPlaced, CubeSolved,
+            -> listOf(predicate)
         }
 
     /** The white-layer pieces [predicate] watches, in canonical order. */
@@ -141,9 +150,14 @@ internal object DiagnosisRules {
             leaves(predicate).flatMapTo(mutableSetOf()) { leaf ->
                 when (leaf) {
                     is WhiteCrossSolved -> WhitePieceSolved.EDGE_NAMES
+
                     is WhiteCornersSolved -> WhitePieceSolved.CORNER_NAMES
+
                     is WhitePieceSolved -> listOf(leaf.piece)
-                    is AllOf, is AnyOf, is AlwaysTrue, is StateReached -> emptyList()
+
+                    is AllOf, is AnyOf, is AlwaysTrue, is StateReached,
+                    MiddleLayerSolved, LastLayerCrossSolved, LastLayerOriented, LastLayerCornersPlaced, CubeSolved,
+                    -> emptyList()
                 }
             }
         return WhitePieceSolved.NAMES.filter { it in pieces }.mapNotNull(WhitePieceSolved::pieceNamed)

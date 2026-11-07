@@ -22,6 +22,46 @@
     {
       "type": "object",
       "additionalProperties": false,
+      "required": ["predicate"],
+      "properties": {
+        "predicate": { "const": "middle-layer-solved" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["predicate"],
+      "properties": {
+        "predicate": { "const": "last-layer-cross-solved" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["predicate"],
+      "properties": {
+        "predicate": { "const": "last-layer-oriented" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["predicate"],
+      "properties": {
+        "predicate": { "const": "last-layer-corners-placed" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["predicate"],
+      "properties": {
+        "predicate": { "const": "cube-solved" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
       "required": ["predicate", "moves"],
       "properties": {
         "predicate": { "const": "state-reached" },

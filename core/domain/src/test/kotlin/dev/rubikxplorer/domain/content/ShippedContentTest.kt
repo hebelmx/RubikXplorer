@@ -4,6 +4,11 @@ import dev.rubikxplorer.domain.cube.PieceKind
 import dev.rubikxplorer.domain.cube.ValidationResult
 import dev.rubikxplorer.domain.predicate.AllOf
 import dev.rubikxplorer.domain.predicate.AlwaysTrue
+import dev.rubikxplorer.domain.predicate.CubeSolved
+import dev.rubikxplorer.domain.predicate.LastLayerCornersPlaced
+import dev.rubikxplorer.domain.predicate.LastLayerCrossSolved
+import dev.rubikxplorer.domain.predicate.LastLayerOriented
+import dev.rubikxplorer.domain.predicate.MiddleLayerSolved
 import dev.rubikxplorer.domain.predicate.StateReached
 import dev.rubikxplorer.domain.predicate.WhiteCornersSolved
 import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
@@ -113,7 +118,7 @@ class ShippedContentTest {
     }
 
     @Test
-    fun `the shipped bundle holds Stages 1 to 7 with 3, 5 and 4 Lessons in Stages 1 to 3 and stable IDs`() {
+    fun `the shipped bundle holds Stages 1 to 7 with Lessons in Stages 1 to 6 and stable IDs`() {
         assertEquals(
             listOf(
                 "stage-01-fundamentals",
@@ -126,7 +131,7 @@ class ShippedContentTest {
             ),
             bundle.stages.map { it.id.value },
         )
-        assertEquals(listOf(3, 5, 4, 0, 0, 0, 0), bundle.stages.map { it.lessons.size })
+        assertEquals(listOf(3, 5, 4, 4, 4, 3, 0), bundle.stages.map { it.lessons.size })
         bundle.stages.forEachIndexed { s, stage ->
             assertEquals(TextKey("stage.${stage.id}.title"), stage.title)
             stage.lessons.forEachIndexed { l, lesson ->
@@ -149,7 +154,15 @@ class ShippedContentTest {
     fun `each Stage judges its Lessons by its own predicate and keeps what the Stage built`() {
         val cross = WhiteCrossSolved
         val layer = AllOf(listOf(WhiteCrossSolved, WhiteCornersSolved))
-        val (fundamentals, firstCross, corners) = bundle.stages
+        val middle = AllOf(listOf(WhiteCrossSolved, WhiteCornersSolved, MiddleLayerSolved))
+        val oriented = AllOf(listOf(WhiteCrossSolved, WhiteCornersSolved, MiddleLayerSolved, LastLayerOriented))
+        val stages = bundle.stages
+        val fundamentals = stages[0]
+        val firstCross = stages[1]
+        val corners = stages[2]
+        val middleLayer = stages[3]
+        val orientation = stages[4]
+        val completion = stages[5]
         fundamentals.lessons.forEach { lesson ->
             val exercise = StateReached(lesson.steps.joinToString(" ") { it.moves })
             assertEquals(exercise, lesson.completion, "${lesson.id}")
@@ -157,6 +170,11 @@ class ShippedContentTest {
         }
         firstCross.lessons.forEach { assertEquals(cross to AlwaysTrue, it.completion to it.preserve, "${it.id}") }
         corners.lessons.forEach { assertEquals(layer to cross, it.completion to it.preserve, "${it.id}") }
+        middleLayer.lessons.forEach { assertEquals(middle to layer, it.completion to it.preserve, "${it.id}") }
+        orientation.lessons.take(2).forEach { assertEquals(LastLayerCrossSolved to middle, it.completion to it.preserve, "${it.id}") }
+        orientation.lessons.drop(2).forEach { assertEquals(LastLayerOriented to middle, it.completion to it.preserve, "${it.id}") }
+        completion.lessons.take(1).forEach { assertEquals(LastLayerCornersPlaced to oriented, it.completion to it.preserve, "${it.id}") }
+        completion.lessons.drop(1).forEach { assertEquals(CubeSolved to oriented, it.completion to it.preserve, "${it.id}") }
     }
 
     @Test
