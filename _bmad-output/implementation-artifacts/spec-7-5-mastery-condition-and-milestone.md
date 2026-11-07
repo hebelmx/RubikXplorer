@@ -5,7 +5,7 @@ created: '2026-11-07'
 status: 'done'
 baseline_revision: 'e6f6c32c44ec3c724f3dcb3084ccae196f8514a6'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-7-context.md'
   - '{project-root}/_bmad-output/implementation-artifacts/spec-7-2-learn-tab-and-stage-detail.md'
@@ -117,6 +117,27 @@ deferred: []
   - `[false]` `[reject]` `FirstSolveMilestone.kt` (lines 140-154, 303-317) & `strings.xml`: Dead localized resource `R.string.milestone_next_stage` — the string resource is an active fallback when `nextStageLabel` is null in previews and tests.
   - `[false]` `[reject]` `StageDetailScreen` / `Mastery.evaluate`: Uncapped solve counts in progress text and rigid two-segment visual indicator — spec explicitly mandates accurate counts and two-segment indicator reflecting first solve and mastery condition.
 
+### 2026-11-07 — Review pass (follow-up)
+- verdicts: 17 findings — high 0, medium 5, low 4, false 8, maybe-false 0
+- findings:
+  - `[low]` `[patch]` `LearnScreen.kt` (lines 118–131): `masteryProgress` guarded by `if (attemptRecords.isNotEmpty())` falls back to default parameters instead of `catalog.bundle.tutorConfig.mastery` — patched `LearnScreen.kt` to evaluate `Mastery.evaluate` directly, adopting configured thresholds when attempts are empty while preserving preview/test overrides.
+  - `[false]` `[reject]` `LearnScreen.kt` (lines 396–416): Mastery indicator segments in `StageDetailScreen` are hardcoded to two boxes — carried: spec explicitly mandates a two-segment visual indicator reflecting first solve and mastery condition.
+  - `[false]` `[reject]` `LearnScreen.kt` (line 387) and `Mastery.kt` (lines 73–89): Solves completed and reduced help counts are unbounded rather than clamped to required count — carried: spec explicitly mandates accurate counts formatted via `R.string.stage_mastery_progress`, not clamped counts.
+  - `[false]` `[reject]` `app/src/main/res/values/strings.xml`: `stage_mastery_progress` formats as "Mastery: %1$d of %2$d solves · %3$d with reduced help" omitting `reducedHelpRequired` — refuted: format string template and parameters are explicitly mandated by the spec's intent contract and UX Flow 7.
+  - `[false]` `[reject]` `LessonScreen.kt` (lines 154–159): `isMasteryMilestone` ignores `session.teachingMode` in Physical-cube Mode — refuted: Physical-cube Mode is part of Epic 8 and does not exist in the codebase yet.
+  - `[medium]` `[patch]` `AppShell.kt` (lines 136–138): `onPracticeNewScramble` launches `entry.stage.id` instead of Stage 7 — carried: patched in pass 1 to launch `entry.stage.id.value` practice instead of defaulting to stage 7, ensuring stage-specific practice is launched for stages other than stage 1.
+  - `[false]` `[reject]` `LessonScreen.kt` (lines 142–144): `rememberSaveable` key on `lesson.id.value` persists `milestoneDismissed = true` across practice scrambles — refuted: the milestone is constrained to play once upon transition to Mastered; suppressing it on subsequent practice attempts of the already-mastered stage is the intended behavior.
+  - `[false]` `[reject]` `MasteryAttempt.kt`: Minimal interface lacks `attemptId` identity field for domain deduplication — refuted: pure domain model contains minimal fields for evaluation; attempt uniqueness is guaranteed by append-only Room database constraints.
+  - `[low]` `[patch]` `Mastery.kt` (lines 27–38): KDoc "at or after" differs from strictly greater-than check `it.at > lastReset.at` — carried: `Mastery.currentEpochAttempts` was patched in pass 1 to strictly filter `it.at > lastReset.at` so attempts at reset timestamp do not leak into the new epoch, with verified unit tests.
+  - `[false]` `[reject]` `FirstSolveMilestone.kt` (line 151): Next stage button falls back to `R.string.milestone_next_stage` rather than content JSON string — carried: `R.string.milestone_next_stage` is an active fallback in `strings.xml` following the established pattern of milestone action buttons in `FirstSolveMilestone`.
+  - `[low]` `[reject]` `FirstSolveMilestone.kt` (lines 140–186): Next stage button with fixed touchMin height could overflow or wrap on narrow screens — rejected low: all shipped Stage titles are short (≤ 20 chars) and fit on a single line; unlikely to overflow in everyday use.
+  - `[false]` `[reject]` `SessionHost.kt` (lines 258–260): `refreshAttemptsAfterWrite` appends without deduplication when attempts repository is null — refuted: exact architectural parity with `refreshProgressAfterWrite`; production always injects `RoomAttemptRepository`, and memory-only test hosts do not simulate failed-retry deduplication.
+  - `[medium]` `[patch]` `LessonScreen.kt` (line 457): Practice attempt completion triggering stage mastery milestone is unverified — patched `LessonScreenTest.kt` with a test solving an independent practice scramble and asserting `milestone:overlay`, burst, headline, and Next Stage navigation offer.
+  - `[medium]` `[patch]` `LessonScreen.kt` (lines 185–188, 454): Suppression of stage mastery milestone on already-mastered stages is unverified — patched `LessonScreenTest.kt` with a test verifying that completing a lesson on an already-mastered stage suppresses the milestone overlay.
+  - `[medium]` `[patch]` `AppShell.kt` (lines 142–147, 177–182): AppShell navigation callback for Next Stage on milestone is unexercised — patched `AppShellTest.kt` with an integration test triggering the milestone, clicking `node("milestone:nextStage")`, and asserting `AppShell` displays the next stage detail on `Tab.LEARN`.
+  - `[medium]` `[patch]` `AppShell.kt` (lines 135–140): AppShell milestone practice routing test does not test milestone practice action — patched `AppShellTest.kt` with an integration test triggering the milestone, clicking `node("milestone:practice")`, and asserting that a practice session is launched for the current stage.
+  - `[low]` `[patch]` `LearnScreen.kt` (lines 118–131): `masteryProgress` guarded by `if (attemptRecords.isNotEmpty())` bypasses configured thresholds when empty — patched `LearnScreen.kt` to evaluate `Mastery.evaluate` directly so `catalog.bundle.tutorConfig.mastery` is used when attempts are empty while preserving preview/test overrides.
+
 ## Design Notes
 
 - Mastery evaluation uses:
@@ -173,12 +194,12 @@ deferred: []
   - `app/src/test/kotlin/dev/rubikxplorer/app/ui/lesson/LessonScreenTest.kt` — Tests verifying milestone trigger and next stage offer on attempt completion.
   - `app/src/test/kotlin/dev/rubikxplorer/app/ui/shell/AppShellTest.kt` — Verified Stage detail and Learn tab mastery display.
 - **Review Findings Breakdown:**
-  - Patches applied: 9 findings (5 medium, 4 low) patched across `SessionHost.kt`, `SessionHostAttemptTest.kt`, `AppShell.kt`, `LessonScreen.kt`, `LearnScreen.kt`, and `Mastery.kt`.
+  - Patches applied: 14 findings across two review passes (pass 1: 5 medium, 4 low; follow-up pass: 4 medium verification gaps [practice scramble milestone, suppression on already-mastered stages, AppShell Next Stage navigation, AppShell milestone practice routing] and 1 low [LearnScreen config threshold fallback]).
   - Deferred items: 0
-  - Rejected findings: 5 findings rejected with evidence (4 false refutations, 1 low-harm design choice).
-- **Follow-up Review Recommendation:** `true`. Patched counts by verdict: high 0, medium 6, low 3. Unverified risk: Reactive attempt refresh and milestone navigation interactions across multiple UI screens (`LessonScreen`, `AppShell`, `LearnScreen`) during long-running sessions with retried writes have been patched and verified via automated JVM and Robolectric tests, but benefit from follow-up review for full end-to-end multi-stage navigation continuity.
+  - Rejected findings: 12 findings rejected with evidence (10 false refutations, 2 low-harm design choices).
+- **Follow-up Review Recommendation:** `false`. Patched counts by verdict for this follow-up pass: high 0, medium 4, low 1. On a follow-up pass (`followup_pass = true`), recommendation is true only if a high-severity finding was patched; otherwise work has converged. All verification gaps have been closed with automated tests and full build verification passed clean.
 - **Verification:**
-  - `./gradlew test` passed (310+ unit tests across `:core:domain`, `:core:solver`, `:core:application`, and `:app`).
-  - `./gradlew spotlessCheck build` passed (including Spotless checks, module boundaries, checkLearnerText, checkReleaseManifestAndDenylist, Kover ≥ 80% on `:core:*`, debug and release APK generation).
-- **Residual Risks:** None known; all acceptance criteria are fully met and verified.
+  - `./gradlew test` passed (313 unit tests across `:core:domain`, `:core:solver`, `:core:application`, and `:app`).
+  - `./gradlew spotlessCheck build` passed (including Spotless checks, module boundaries, checkLearnerText, checkReleaseManifestAndDenylist, Kover ≥ 80% on `:core:*`, debug, release, and benchmark APK generation).
+- **Residual Risks:** None known; all acceptance criteria and verification gaps are fully addressed and verified.
 - **Status:** Done

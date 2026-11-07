@@ -115,20 +115,26 @@ fun LearnScreen(
                     val isPracticeEnabled =
                         activeStage.id != StageId("stage-01-fundamentals") && status != StageStatus.LOCKED
                     val masteryProgress =
-                        if (attemptRecords.isNotEmpty()) {
-                            Mastery.evaluate(
-                                activeStage,
-                                attemptRecords,
-                                progressEvents,
-                                catalog.bundle.tutorConfig.mastery,
-                            )
+                        Mastery.evaluate(
+                            activeStage,
+                            attemptRecords,
+                            progressEvents,
+                            catalog.bundle.tutorConfig.mastery,
+                        )
+                    val effectiveSolvesCompleted =
+                        solvesCompleted.takeIf { attemptRecords.isEmpty() && it != 0 } ?: masteryProgress.solvesCompleted
+                    val effectiveSolvesRequired =
+                        if (solvesRequired != DEFAULT_MASTERY_SOLVES_REQUIRED) solvesRequired else masteryProgress.solvesRequired
+                    val effectiveReducedSolves =
+                        reducedHelpSolves.takeIf { attemptRecords.isEmpty() && it != 0 } ?: masteryProgress.reducedHelpSolves
+                    val effectiveReducedRequired =
+                        if (reducedHelpRequired !=
+                            DEFAULT_MASTERY_REDUCED_REQUIRED
+                        ) {
+                            reducedHelpRequired
                         } else {
-                            null
+                            masteryProgress.reducedHelpRequired
                         }
-                    val effectiveSolvesCompleted = masteryProgress?.solvesCompleted ?: solvesCompleted
-                    val effectiveSolvesRequired = masteryProgress?.solvesRequired ?: solvesRequired
-                    val effectiveReducedSolves = masteryProgress?.reducedHelpSolves ?: reducedHelpSolves
-                    val effectiveReducedRequired = masteryProgress?.reducedHelpRequired ?: reducedHelpRequired
                     StageDetailScreen(
                         stage = activeStage,
                         stageNumber = stageIndex + 1,

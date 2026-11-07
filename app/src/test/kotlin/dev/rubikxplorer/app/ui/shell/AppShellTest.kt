@@ -57,6 +57,7 @@ import dev.rubikxplorer.domain.content.StageId
 import dev.rubikxplorer.domain.cube.Face
 import dev.rubikxplorer.domain.cube.FaceTurn
 import dev.rubikxplorer.domain.cube.Facelets
+import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.cube.Turn
 import dev.rubikxplorer.domain.tutor.AssistanceLevel
 import dev.rubikxplorer.domain.tutor.ProgressEvent
@@ -808,5 +809,182 @@ class AppShellTest {
         rule.onNodeWithTag("stageDetail").assertExists()
         // Stage 7 has no lessons, so it shows stage_no_lessons message
         rule.onNodeWithTag("stageDetail:noLessons").assertExists()
+    }
+
+    @Test
+    fun `mastery milestone Next Stage button navigates to next stage detail on Learn tab in AppShell`() {
+        val attempts =
+            listOf(
+                AttemptRecord(
+                    attemptId = "att-1",
+                    sessionId = "s-1",
+                    revision = 1L,
+                    event = AttemptEvent.ENDED,
+                    objectiveId = "practice-stage-02-first-cross",
+                    outcome = AttemptOutcome.COMPLETED,
+                    errors = 0,
+                    hints = 0,
+                    assistanceLevel = AssistanceLevel.REDUCED,
+                    at = Instant.fromEpochMilliseconds(100),
+                ),
+            )
+        val attemptRepo =
+            object : AttemptRepository {
+                override suspend fun all(): AttemptLoad = AttemptLoad.Found(attempts)
+            }
+        val storedEvents =
+            listOf(
+                ProgressEvent.StageUnlocked(StageId("stage-02-first-cross"), Instant.fromEpochMilliseconds(10)),
+                ProgressEvent.LessonCompleted(LessonId("lesson-02-01"), Instant.fromEpochMilliseconds(20)),
+                ProgressEvent.LessonCompleted(LessonId("lesson-02-02"), Instant.fromEpochMilliseconds(30)),
+                ProgressEvent.LessonCompleted(LessonId("lesson-02-03"), Instant.fromEpochMilliseconds(40)),
+                ProgressEvent.LessonCompleted(LessonId("lesson-02-04"), Instant.fromEpochMilliseconds(50)),
+            )
+        val progressRepo =
+            object : ProgressRepository {
+                override suspend fun all(): ProgressLoad =
+                    ProgressLoad.Found(storedEvents, storedEvents.map { ProgressRecord("s-1", 0L, it) })
+
+                override suspend fun append(records: List<ProgressRecord>): ProgressSave = ProgressSave.Saved
+            }
+        host =
+            SessionHost(
+                clock = TickingClock(),
+                confined = Dispatchers.Main.immediate,
+                preferences = preferences,
+                attempts = attemptRepo,
+                progress = progressRepo,
+            )
+        val shipped = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        launch(ContentLoadResult.Loaded(shipped))
+
+        // Open Stage 2 detail
+        rule.onNodeWithTag("learn:stage:stage-02-first-cross").performScrollTo().performClick()
+        rule.onNodeWithTag("stageDetail").assertExists()
+
+        // Open last lesson of Stage 2 (lesson-02-05)
+        rule.onNodeWithTag("learn:lesson:lesson-02-05").performScrollTo().performClick()
+        val stage2 = shipped.stages.first { it.id == StageId("stage-02-first-cross") }
+        val lastLesson = stage2.lessons.last()
+        rule.waitUntil(5_000) {
+            host.state.value.lesson
+                ?.id == lastLesson.id
+        }
+        rule.waitForIdle()
+
+        // Complete the lesson's steps
+        lastLesson.steps.forEachIndexed { index, step ->
+            val moves = (Notation.parse(step.moves) as dev.rubikxplorer.domain.cube.NotationResult.Parsed).moves
+            moves.forEach { move ->
+                runBlocking { host.dispatch { SessionEvent.MoveCommitted(move, it) } }
+            }
+            if (index < lastLesson.steps.size - 1) {
+                runBlocking { host.dispatch(SessionEvent::StepAdvanced) }
+            }
+        }
+        rule.waitForIdle()
+
+        rule.onNodeWithTag("milestone:overlay").assertExists()
+        rule.onNodeWithTag("milestone:headline").assertExists().assertTextContains("First cross mastered.")
+
+        // Click Next Stage
+        rule.onNodeWithTag("milestone:nextStage").assertExists().performClick()
+        rule.waitForIdle()
+
+        // AppShell closes lesson and displays Stage 3 detail on Learn tab
+        rule.onNodeWithTag("milestone:overlay").assertDoesNotExist()
+        rule.onNodeWithTag("stageDetail").assertExists()
+        rule.onNodeWithTag("stageDetail:title").assertTextContains("First-layer corners")
+    }
+
+    @Test
+    fun `mastery milestone Practice on a new scramble button launches practice session for the stage in AppShell`() {
+        val attempts =
+            listOf(
+                AttemptRecord(
+                    attemptId = "att-1",
+                    sessionId = "s-1",
+                    revision = 1L,
+                    event = AttemptEvent.ENDED,
+                    objectiveId = "practice-stage-02-first-cross",
+                    outcome = AttemptOutcome.COMPLETED,
+                    errors = 0,
+                    hints = 0,
+                    assistanceLevel = AssistanceLevel.REDUCED,
+                    at = Instant.fromEpochMilliseconds(100),
+                ),
+            )
+        val attemptRepo =
+            object : AttemptRepository {
+                override suspend fun all(): AttemptLoad = AttemptLoad.Found(attempts)
+            }
+        val storedEvents =
+            listOf(
+                ProgressEvent.StageUnlocked(StageId("stage-02-first-cross"), Instant.fromEpochMilliseconds(10)),
+                ProgressEvent.LessonCompleted(LessonId("lesson-02-01"), Instant.fromEpochMilliseconds(20)),
+                ProgressEvent.LessonCompleted(LessonId("lesson-02-02"), Instant.fromEpochMilliseconds(30)),
+                ProgressEvent.LessonCompleted(LessonId("lesson-02-03"), Instant.fromEpochMilliseconds(40)),
+                ProgressEvent.LessonCompleted(LessonId("lesson-02-04"), Instant.fromEpochMilliseconds(50)),
+            )
+        val progressRepo =
+            object : ProgressRepository {
+                override suspend fun all(): ProgressLoad =
+                    ProgressLoad.Found(storedEvents, storedEvents.map { ProgressRecord("s-1", 0L, it) })
+
+                override suspend fun append(records: List<ProgressRecord>): ProgressSave = ProgressSave.Saved
+            }
+        host =
+            SessionHost(
+                clock = TickingClock(),
+                confined = Dispatchers.Main.immediate,
+                preferences = preferences,
+                attempts = attemptRepo,
+                progress = progressRepo,
+            )
+        val shipped = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        launch(ContentLoadResult.Loaded(shipped))
+
+        // Open Stage 2 detail
+        rule.onNodeWithTag("learn:stage:stage-02-first-cross").performScrollTo().performClick()
+        rule.onNodeWithTag("stageDetail").assertExists()
+
+        // Open last lesson of Stage 2 (lesson-02-05)
+        rule.onNodeWithTag("learn:lesson:lesson-02-05").performScrollTo().performClick()
+        val stage2 = shipped.stages.first { it.id == StageId("stage-02-first-cross") }
+        val lastLesson = stage2.lessons.last()
+        rule.waitUntil(5_000) {
+            host.state.value.lesson
+                ?.id == lastLesson.id
+        }
+        rule.waitForIdle()
+
+        // Complete the lesson's steps
+        lastLesson.steps.forEachIndexed { index, step ->
+            val moves = (Notation.parse(step.moves) as dev.rubikxplorer.domain.cube.NotationResult.Parsed).moves
+            moves.forEach { move ->
+                runBlocking { host.dispatch { SessionEvent.MoveCommitted(move, it) } }
+            }
+            if (index < lastLesson.steps.size - 1) {
+                runBlocking { host.dispatch(SessionEvent::StepAdvanced) }
+            }
+        }
+        rule.waitForIdle()
+
+        rule.onNodeWithTag("milestone:overlay").assertExists()
+
+        // Click Practice on a new scramble
+        rule.onNodeWithTag("milestone:practice").assertExists().performClick()
+        rule.waitUntil(5_000) {
+            host.state.value.kind == SessionKind.PRACTICE
+        }
+        rule.waitForIdle()
+
+        assertEquals(SessionKind.PRACTICE, host.state.value.kind)
+        assertEquals(
+            StageId("stage-02-first-cross"),
+            host.state.value.lesson
+                ?.stageId,
+        )
+        rule.onNodeWithTag("lesson:goal").assertExists()
     }
 }
