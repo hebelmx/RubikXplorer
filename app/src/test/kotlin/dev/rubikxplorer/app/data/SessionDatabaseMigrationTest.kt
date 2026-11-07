@@ -119,4 +119,57 @@ class SessionDatabaseMigrationTest {
                 Files.deleteIfExists(path)
             }
         }
+
+    @Test fun versionFourToFiveKeepsRowsAndCreatesProgressEvent() =
+        runBlocking {
+            val path = Files.createTempFile("progress-migration", ".db")
+            Files.delete(path)
+            val helper =
+                MigrationTestHelper(
+                    InstrumentationRegistry.getInstrumentation(),
+                    path.toFile(),
+                    AndroidSQLiteDriver(),
+                    RubikDatabase::class,
+                )
+            try {
+                helper.createDatabase(4).use { connection ->
+                    connection.prepare("INSERT INTO session_snapshot VALUES ('LESSON', 'kept', 7, 1, 'snapshot')").use { it.step() }
+                    connection.prepare("INSERT INTO checkpoint VALUES ('LESSON', 'checkpoint')").use { it.step() }
+                    connection
+                        .prepare(
+                            "INSERT INTO attempt (attempt_id, session_id, revision, event, objective_id, at_ms) VALUES ('attempt', 'session', 1, 'STARTED', 'objective', 0)",
+                        ).use {
+                            it.step()
+                        }
+                    connection
+                        .prepare(
+                            "INSERT INTO preferences VALUES (1, 'DARK', 1, 'FAST', 0, 1, 'SHOW_ME')",
+                        ).use {
+                            it.step()
+                        }
+                }
+                helper.runMigrationsAndValidate(5).use { connection ->
+                    for ((table, payload) in listOf("session_snapshot" to "snapshot", "checkpoint" to "checkpoint")) {
+                        connection.prepare("SELECT payload FROM $table").use {
+                            assertEquals(true, it.step())
+                            assertEquals(payload, it.getText(0))
+                        }
+                    }
+                    connection.prepare("SELECT attempt_id FROM attempt").use {
+                        assertEquals(true, it.step())
+                        assertEquals("attempt", it.getText(0))
+                    }
+                    connection.prepare("SELECT theme FROM preferences WHERE id = 1").use {
+                        assertEquals(true, it.step())
+                        assertEquals("DARK", it.getText(0))
+                    }
+                    connection.prepare("SELECT COUNT(seq) FROM progress_event").use {
+                        assertEquals(true, it.step())
+                        assertEquals(0L, it.getLong(0))
+                    }
+                }
+            } finally {
+                Files.deleteIfExists(path)
+            }
+        }
 }
