@@ -8,6 +8,11 @@ import dev.rubikxplorer.app.random.KotlinRandomSource
 import dev.rubikxplorer.app.render.Cube3DRenderer
 import dev.rubikxplorer.app.render.CubeRenderer
 import dev.rubikxplorer.app.render.PresentationItem
+import dev.rubikxplorer.app.session.toItem
+import dev.rubikxplorer.application.freecube.FreeCubeEvent
+import dev.rubikxplorer.application.freecube.FreeCubeState
+import dev.rubikxplorer.application.freecube.FreeCubeTransition
+import dev.rubikxplorer.application.freecube.reduceFreeCube
 import dev.rubikxplorer.application.usecase.NewScramble
 import dev.rubikxplorer.domain.cube.MoveHistory
 import dev.rubikxplorer.domain.input.MoveIntent
@@ -31,54 +36,41 @@ class FreeCubeViewModel(
     private val scramble: NewScramble = NewScramble(KotlinRandomSource()),
 ) : ViewModel() {
     private val port: CubeRenderer = renderer
-    private var revision = 0L
-
-    var history by mutableStateOf(MoveHistory())
+    var state by mutableStateOf(FreeCubeState())
         private set
+
+    val history: MoveHistory get() = state.history
 
     /** How the last history change moved [WhiteCrossSolved] progress; `null` before the first change. */
     var lastChange by mutableStateOf<ProgressChange?>(null)
         private set
 
-    fun onMoveIntent(intent: MoveIntent) {
-        record(history.commit(intent.move))
-        port.submit(listOf(PresentationItem.Animate(intent.move, ++revision, history.state.toFacelets())))
-    }
+    fun onMoveIntent(intent: MoveIntent) = dispatch(FreeCubeEvent.MoveCommitted(intent.move))
 
-    fun onUndo() {
-        val undone = history.undoable ?: return
-        record(history.undo())
-        port.submit(listOf(PresentationItem.Animate(undone.inverse(), ++revision, history.state.toFacelets())))
-    }
+    fun onUndo() = dispatch(FreeCubeEvent.Undo)
 
-    fun onRedo() {
-        val redone = history.redoable ?: return
-        record(history.redo())
-        port.submit(listOf(PresentationItem.Animate(redone, ++revision, history.state.toFacelets())))
-    }
+    fun onRedo() = dispatch(FreeCubeEvent.Redo)
 
     /** Back to solved with no confirmation; not undoable. */
-    fun onReset() {
-        record(history.reset())
-        port.submit(listOf(PresentationItem.Snap(++revision, history.state.toFacelets())))
-    }
+    fun onReset() = dispatch(FreeCubeEvent.Reset)
 
-    /** A fresh random Scramble from solved: each of its Moves is committed (and undoable), then drawn in one snap. */
-    fun onScramble() {
-        record(scramble().fold(history.reset()) { h, move -> h.commit(move) })
-        port.submit(listOf(PresentationItem.Snap(++revision, history.state.toFacelets())))
-    }
+    /** Generate outside the reducer, then commit the Scramble in one transition. */
+    fun onScramble() = dispatch(FreeCubeEvent.Scrambled(scramble()))
 
-    /** The one writer of [history]; also recomputes [lastChange]. */
-    private fun record(next: MoveHistory) {
+    /** Dispatch every input through the sole history owner before submitting its presentation. */
+    fun dispatch(event: FreeCubeEvent): FreeCubeTransition {
+        val transition = reduceFreeCube(state, event)
+        val presentation = transition.presentation ?: return transition
         val before = WhiteCrossSolved.progress(history.state)
-        val after = WhiteCrossSolved.progress(next.state)
-        history = next
+        val after = WhiteCrossSolved.progress(transition.state.history.state)
+        state = transition.state
         lastChange =
             when {
                 after > before -> ProgressChange.CLOSER
                 after < before -> ProgressChange.FURTHER
                 else -> ProgressChange.UNCHANGED
             }
+        port.submit(listOf(presentation.toItem()))
+        return transition
     }
 }
