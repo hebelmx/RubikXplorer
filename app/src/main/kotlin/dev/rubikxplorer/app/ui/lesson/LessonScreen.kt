@@ -136,6 +136,7 @@ fun LessonScreen(
         entry.lesson.id.value == "lesson-06-03" &&
             initialCompleted == false &&
             !milestoneDismissed &&
+            session.lesson?.id == lesson.id &&
             (session.decision?.satisfied == true)
 
     BackHandler(onBack = {
@@ -168,38 +169,40 @@ fun LessonScreen(
             }
         }
     }
-    Column(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .background(RubikTheme.tokens.surfaceBase)
-                .safeDrawingPadding()
-                .testTag("lesson"),
-    ) {
-        LessonTopBar(strings.resolve(entry.stage.title), onClose)
-        session.restoreNote?.let { note ->
-            Text(strings.resolve(note), modifier = Modifier.testTag("lesson:restoreNote"))
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(RubikTheme.tokens.surfaceBase)
+                    .safeDrawingPadding()
+                    .testTag("lesson"),
+        ) {
+            LessonTopBar(strings.resolve(entry.stage.title), onClose)
+            session.restoreNote?.let { note ->
+                Text(strings.resolve(note), modifier = Modifier.testTag("lesson:restoreNote"))
+            }
+            val decision = session.decision
+            val demonstration = remember(lesson) { (Demonstration.of(lesson) as? DemonstrationResult.Ready)?.demonstration }
+            if (session.lesson?.id == lesson.id && decision != null && demonstration != null) {
+                LessonBody(host, session, decision, lesson, demonstration, strings, modes, onClose, adaptiveAssistance == FlagLevel.BETA)
+            }
         }
-        val decision = session.decision
-        val demonstration = remember(lesson) { (Demonstration.of(lesson) as? DemonstrationResult.Ready)?.demonstration }
-        if (session.lesson?.id == lesson.id && decision != null && demonstration != null) {
-            LessonBody(host, session, decision, lesson, demonstration, strings, modes, onClose, adaptiveAssistance == FlagLevel.BETA)
+        if (showMilestone) {
+            FirstSolveMilestone(
+                headline = strings.resolve(TextKey("msg.milestone.first-solve")),
+                onPracticeNewScramble = {
+                    milestoneDismissed = true
+                    onPracticeNewScramble()
+                },
+                onContinue = {
+                    milestoneDismissed = true
+                    onClose()
+                },
+            )
         }
+        GuidedRecoveryRunner(host, planRecovery)
     }
-    if (showMilestone) {
-        FirstSolveMilestone(
-            headline = strings.resolve(TextKey("msg.milestone.first-solve")),
-            onPracticeNewScramble = {
-                milestoneDismissed = true
-                onPracticeNewScramble()
-            },
-            onContinue = {
-                milestoneDismissed = true
-                onClose()
-            },
-        )
-    }
-    GuidedRecoveryRunner(host, planRecovery)
 }
 
 @Composable

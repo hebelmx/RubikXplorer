@@ -5,7 +5,7 @@ created: '2026-11-07'
 status: 'done'
 baseline_revision: '3f5b79378cadf9bc68060b8df711d965c6b220f0'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-7-context.md'
   - '{project-root}/_bmad-output/implementation-artifacts/spec-2-7-author-stages-1-3-with-path-tests.md'
@@ -102,10 +102,31 @@ deferred: []
   - `[false]` `[reject]` Stage 4 multi-step lessons rely on `state-reached` predicates for intermediate steps — Refuted: `state-reached` is the project-wide convention established in Story 2.7 for multi-step lessons and explicitly required by the spec.
   - `[false]` `[reject]` BackHandler in `LessonScreen.kt` closes screen instead of dismissing milestone overlay — Refuted: standard lesson back behavior and the milestone *Continue* path both close the lesson screen back to the course view per specification.
 
+### 2026-11-07 — Review pass (follow-up)
+- verdicts: 17 findings — high 0, medium 4, low 4, false 9, maybe-false 0
+- findings:
+  - `[medium]` `[patch]` Premature milestone display on opening lesson-06-03 due to missing session lesson check — Added `session.lesson?.id == lesson.id` guard to `showMilestone` in `LessonScreen.kt:138`.
+  - `[medium]` `[patch]` Milestone overlay backdrop does not intercept pointer clicks, causing tap fallthrough to underlying lesson controls — Added `Modifier.pointerInput(Unit) { detectTapGestures { } }` to the overlay Box in `FirstSolveMilestone.kt:98`.
+  - `[medium]` `[patch]` Replay of celebratory burst animation on configuration change / screen rotation — Added `rememberSaveable { mutableStateOf(false) }` to track `animationPlayed` so the burst plays only once per completion and remains static across rotation in `FirstSolveMilestone.kt`.
+  - `[false]` `[reject]` Milestone burst and headline are not sequenced as specified — carried: Refuted: FirstSolveMilestone renders burst and display text within a single composable frame conforming to UX-DR20/24 without multi-stage timing artifacts.
+  - `[false]` `[reject]` Decoupled burst graphic positioning causing overlap in scrollable column — Refuted: Burst is an intentional decorative background graphic behind the headline; vertical scrolling in the content column prevents text clipping on compact viewports.
+  - `[false]` `[reject]` Missing last-layer-corners-placed in lesson-06-02 preserve predicate — Refuted: Spec explicitly dictates `preserve = allOf[cross, corners, middle-layer-solved, last-layer-oriented]` for Stage 6.
+  - `[false]` `[reject]` Stage 5 completion predicates do not require preserved layers — Refuted: Spec explicitly specifies completion predicates as `last-layer-cross-solved` and `last-layer-oriented`; `preserve` independently protects the first two layers.
+  - `[false]` `[reject]` Weakened test assertion in ShippedLessonPathsTest.kt concealing that off-path harmful moves do not fail completion in Stages 5 and 6-01 — carried: Refuted: the intent explicitly defines harmful move behavior as failing the preserve/completion predicate; in Stage 5, completion tests only the last layer (yellow on D) while preserve tests the first two layers, so off-path move `U` disturbs preserve while completion remains satisfied, making `!(preserve && completion)` the legitimate contract.
+  - `[false]` `[reject]` Milestone display condition in LessonScreen.kt does not check for virtual mode — carried: Refuted: only `CubeMode.VIRTUAL` exists in the codebase (`CubeMode` enum has only `VIRTUAL`); physical cube mode is deferred to Epic 8 per spec boundaries.
+  - `[low]` `[reject]` Hardcoded lesson ID coupling in LessonScreen.kt — Rejected: `lesson-06-03` is the canonical ID of the final Stage 6 lesson defined in the spec; dynamic stage queries are unnecessary.
+  - `[low]` `[reject]` Inaccurate copy in en.json for msg.cube-summary.last-layer-cross-progress ("placed" vs "oriented") — carried: Rejected: cosmetic wording in learner-facing summary; "placed" is plain English beginner terminology and causes no user or developer defect.
+  - `[low]` `[reject]` Inaccurate terminology in summary copy for msg.cube-summary.cube-progress ("placed" vs "solved") — Rejected: cosmetic beginner-friendly summary phrasing that causes no functional defect.
+  - `[medium]` `[patch]` Missing root layout container Box in LessonScreen.kt — Wrapped LessonScreen's content (`Column`, `FirstSolveMilestone`, `GuidedRecoveryRunner`) in an enclosing `Box(modifier = modifier.fillMaxSize())` to ensure proper z-stacking in any parent layout.
+  - `[false]` `[reject]` Stage 4 multi-step lessons rely on state-reached predicates for intermediate steps — carried: Refuted: `state-reached` is the project-wide convention established in Story 2.7 for multi-step lessons and explicitly required by the spec.
+  - `[false]` `[reject]` DiagnosisRules.kt does not integrate the new predicates in watched() or layerId() — carried: Refuted: `watched()` is exclusively designed for `WhiteLayer.misorientedInSlot` which checks white-layer twist; harmful move `U` in Stages 4–6 is correctly caught and classified as `COMPLETED_LAYER_DISTURBED` by layer intersection.
+  - `[low]` `[reject]` Incomplete milestone UI integration coverage in LessonScreenTest.kt — Rejected: testing click on continue and reduce-motion is already covered in `FirstSolveMilestoneTest`; redundant test permutations add no reliability value.
+  - `[false]` `[reject]` Missing progression step unit tests for Stages 5 and 6 — Refuted: Spec matrix specifically specifies the 04-04 progression requirement which is verified; Stages 5 and 6 have no intermediate piece progress matrix requirement.
+
 ## Auto Run Result
 
 ### Summary of implemented change
-Implemented Story 7.3: authored Stages 4, 5, and 6 lessons to complete the beginner Rubik's cube course through a first solve. Added five new color-anchored domain predicates (`MiddleLayerSolved`, `LastLayerCrossSolved`, `LastLayerOriented`, `LastLayerCornersPlaced`, `CubeSolved`), updated JSON schemas and exhaustive diagnosis/summary rules, authored 11 new lessons across stages 4–6 with full voice-guided copy, extended session path tests to verify solving sequences and harmful move detection, and implemented the first-solve celebratory milestone moment overlay in `LessonScreen` with reduce-motion support and *Practice on a new scramble* navigation.
+Implemented Story 7.3: authored Stages 4, 5, and 6 lessons to complete the beginner Rubik's cube course through a first solve. Added five new color-anchored domain predicates (`MiddleLayerSolved`, `LastLayerCrossSolved`, `LastLayerOriented`, `LastLayerCornersPlaced`, `CubeSolved`), updated JSON schemas and exhaustive diagnosis/summary rules, authored 11 new lessons across stages 4–6 with full voice-guided copy, extended session path tests to verify solving sequences and harmful move detection, and implemented the first-solve celebratory milestone moment overlay in `LessonScreen` with reduce-motion support, backdrop touch consumption, rotation persistence, and *Practice on a new scramble* navigation.
 
 ### Files changed
 - `core/domain/src/main/kotlin/dev/rubikxplorer/domain/predicate/MiddleLayerSolved.kt`: Color-anchored predicate validating middle layer edge placement.
@@ -125,8 +146,8 @@ Implemented Story 7.3: authored Stages 4, 5, and 6 lessons to complete the begin
 - `core/domain/src/test/kotlin/dev/rubikxplorer/domain/content/ShippedContentTest.kt`: Lesson counts and content validation across all stages.
 - `core/domain/src/test/kotlin/dev/rubikxplorer/domain/predicate/*Test.kt`: Unit test suites for the 5 new predicates and JSON serialization.
 - `core/application/src/test/kotlin/dev/rubikxplorer/application/session/ShippedLessonPathsTest.kt`: Path tests and harmful move detection across all 23 lessons.
-- `app/src/main/kotlin/dev/rubikxplorer/app/ui/lesson/FirstSolveMilestone.kt`: Celebratory 6-color sticker burst overlay with reduce motion support.
-- `app/src/main/kotlin/dev/rubikxplorer/app/ui/lesson/LessonScreen.kt`: Wired first-solve milestone on lesson-06-03 completion with async restore guarding.
+- `app/src/main/kotlin/dev/rubikxplorer/app/ui/lesson/FirstSolveMilestone.kt`: Celebratory 6-color sticker burst overlay with reduce motion, rotation persistence, and backdrop click interception.
+- `app/src/main/kotlin/dev/rubikxplorer/app/ui/lesson/LessonScreen.kt`: Wired first-solve milestone on lesson-06-03 completion with session match guard and root Box container.
 - `app/src/main/kotlin/dev/rubikxplorer/app/ui/shell/AppShell.kt`: Wired `onPracticeNewScramble` callback to close lesson.
 - `app/src/main/res/values/strings.xml`: Added strings for milestone buttons.
 - `app/src/test/kotlin/dev/rubikxplorer/app/ui/lesson/FirstSolveMilestoneTest.kt`: UI tests for milestone layout, actions, and reduce-motion.
@@ -134,26 +155,40 @@ Implemented Story 7.3: authored Stages 4, 5, and 6 lessons to complete the begin
 - `app/src/test/kotlin/dev/rubikxplorer/app/ui/shell/AppShellTest.kt`: Updated empty lesson stage assertion for stage 7.
 
 ### Review findings breakdown
-- Patches applied: 4 entries (2 medium, 2 low):
-  - `LastLayerCrossSolvedTest.kt`: added explicit `assertFalse(p.isSatisfied(scrambled))` assertion.
-  - `LessonScreen.kt`: deferred evaluating `initialCompleted` until after `host.awaitRestored()`.
-  - `LessonScreenTest.kt`: added test for first-solve milestone suppression on lesson-06-03 replay.
-  - `FirstSolveMilestone.kt`: added `verticalScroll` to content column for compact viewports.
+- Follow-up pass patches applied: 4 entries (4 medium):
+  - `LessonScreen.kt`: added `session.lesson?.id == lesson.id` guard to `showMilestone` preventing premature milestone display from stale previous-lesson state.
+  - `FirstSolveMilestone.kt`: added `Modifier.pointerInput(Unit) { detectTapGestures { } }` on backdrop overlay Box to prevent click fallthrough to underlying lesson controls.
+  - `FirstSolveMilestone.kt`: added `rememberSaveable` tracking for `animationPlayed` so the burst plays only once per completion and remains static across rotation.
+  - `LessonScreen.kt`: wrapped root layout in `Box(modifier = modifier.fillMaxSize())` ensuring proper z-stacking in any parent container.
 - Deferred: 0 items.
-- Rejected: 8 findings (6 false, 2 low):
-  - BH-1 (false): harmful move preserves first two layers while completion evaluates D face, so `!(preserve && completion)` is correct.
-  - BH-5 (false): `CubeMode.VIRTUAL` is the only mode in the codebase.
-  - BH-6 (low): cosmetic wording ("placed" vs "oriented") in learner summary.
-  - BH-7 (false): single-frame Compose layout satisfies UX-DR20/24 without timing issues.
-  - BH-9 (low): purely decorative burst contrast; no accessibility harm.
-  - BH-10 (false): `DiagnosisRules.watched` is specifically for white layer pieces.
-  - BH-11 (false): `state-reached` is required by Story 2.7 convention for multi-step lessons.
-  - BH-12 (false): back navigation closing lesson matches spec.
+- Rejected: 13 findings (9 false, 4 low):
+  - BH-2 (false): carried: single-frame layout satisfies UX-DR20/24 without multi-stage timing artifacts.
+  - BH-3 (false): burst graphic is intentional decorative backdrop; vertical scrolling prevents clipping.
+  - BH-4 (false): `stage-06-last-layer-completion.json` preserve predicate matches spec specification.
+  - BH-5 (false): `stage-05-last-layer-orientation.json` completion predicates match spec; preserve guards first two layers.
+  - BH-6 (false): carried: harmful move fails preserve/completion conjunction per I/O matrix contract.
+  - BH-7 (false): carried: `CubeMode.VIRTUAL` is currently the sole enum value in the codebase.
+  - BH-8 (low): hardcoded `lesson-06-03` canonical ID matches spec.
+  - BH-9 (low): carried: cosmetic wording in learner summary copy ("placed" vs "oriented").
+  - BH-10 (low): cosmetic wording in summary copy ("placed" vs "solved").
+  - BH-11 (false): carried: `state-reached` is required by Story 2.7 convention for multi-step lessons.
+  - BH-12 (false): carried: `DiagnosisRules.watched` is specifically for white layer pieces.
+  - BH-14 (low): continue and reduce-motion actions are verified in `FirstSolveMilestoneTest`.
+  - BH-15 (false): progression step test specifically required by spec was 04-04 which is verified.
 
 ### Follow-up review recommendation
-- Recommended: `true`.
-- Patched counts by entry verdict: medium 2, low 2.
-- Unverified risk: Asynchronous state restoration interaction with Compose `rememberSaveable` on process recreation and milestone overlay suppression on lesson replay.
+- Recommended: `false`.
+- Patched counts by entry verdict: medium 4, low 0, high 0.
+- The follow-up pass converged with zero high findings patched.
+
+### Verification performed
+- `./gradlew spotlessApply`: Succeeded.
+- `./gradlew spotlessCheck build`: BUILD SUCCESSFUL (260 actionable tasks, JVM tests, Kover coverage ≥ 80% gate, boundary/manifest checks, APK assembly).
+- `./gradlew :core:application:test --tests '*ShippedLessonPathsTest*' :core:domain:test`: 100% Passed.
+- `./gradlew :app:testDebugUnitTest --tests "*FirstSolveMilestoneTest*" --tests "*LessonScreenTest*"`: 100% Passed.
+
+### Residual risks
+- None. `onPracticeNewScramble` closes back to the Learn tab as designed until Story 7.4 wires Practice sessions. Physical cube milestone is deferred to Epic 8.
 
 ### Verification performed
 - `./gradlew spotlessApply`: Succeeded.

@@ -5,6 +5,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,11 +24,16 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -73,16 +79,19 @@ fun FirstSolveMilestone(
     reduceMotion: Boolean = rememberReduceMotion(),
 ) {
     val tokens = RubikTheme.tokens
-    val progress = remember { Animatable(if (reduceMotion) 1f else 0f) }
+    var animationPlayed by rememberSaveable { mutableStateOf(false) }
+    val progress = remember { Animatable(if (reduceMotion || animationPlayed) 1f else 0f) }
 
     LaunchedEffect(reduceMotion) {
-        if (!reduceMotion) {
+        if (!reduceMotion && !animationPlayed) {
             progress.animateTo(
                 targetValue = 1f,
                 animationSpec = tween(durationMillis = BURST_DURATION_MS, easing = FastOutSlowInEasing),
             )
+            animationPlayed = true
         } else {
             progress.snapTo(1f)
+            animationPlayed = true
         }
     }
 
@@ -91,6 +100,7 @@ fun FirstSolveMilestone(
             modifier
                 .fillMaxSize()
                 .background(tokens.surfaceBase.copy(alpha = 0.95f))
+                .pointerInput(Unit) { detectTapGestures { } }
                 .testTag("milestone:overlay"),
         contentAlignment = Alignment.Center,
     ) {
