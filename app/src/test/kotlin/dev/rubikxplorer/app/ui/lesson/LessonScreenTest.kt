@@ -878,6 +878,7 @@ class LessonScreenTest {
                 AppShell(host = host, catalog = catalog, freeCube = FreeCubeViewModel(), showDebugToggles = false, flags = testFlags())
             }
         }
+        node("learn:stage:stage-01-basics").performClick()
         node("learn:lesson:lesson-01-01").performClick()
         rule.waitUntil(5_000) {
             host.state.value.lesson
@@ -1859,6 +1860,7 @@ class LessonScreenTest {
                 )
             }
         }
+        node("learn:stage:stage-01-basics").performClick()
         node("learn:lesson:lesson-01-01").performClick()
         rule.waitUntil(5_000) {
             host.state.value.lesson

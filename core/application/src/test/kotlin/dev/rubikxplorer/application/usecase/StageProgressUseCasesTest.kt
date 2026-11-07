@@ -32,6 +32,10 @@ class StageProgressUseCasesTest {
     private val stage1 = stages[0]
     private val stage2 = stages[1]
     private val stage3 = stages[2]
+    private val stage4 = stages[3]
+    private val stage5 = stages[4]
+    private val stage6 = stages[5]
+    private val stage7 = stages[6]
     private val t0 = Instant.fromEpochMilliseconds(1_000)
 
     private fun solvedStateFor(lesson: Lesson): CubeState {
@@ -136,6 +140,10 @@ class StageProgressUseCasesTest {
                     stage1.id to StageStatus.SKIPPED_BY_PLACEMENT,
                     stage2.id to StageStatus.SKIPPED_BY_PLACEMENT,
                     stage3.id to StageStatus.IN_PROGRESS,
+                    stage4.id to StageStatus.LOCKED,
+                    stage5.id to StageStatus.LOCKED,
+                    stage6.id to StageStatus.LOCKED,
+                    stage7.id to StageStatus.LOCKED,
                 ),
                 StageProgress.statuses(stages, repo.storedEvents),
             )
@@ -181,6 +189,10 @@ class StageProgressUseCasesTest {
                     stage1.id to StageStatus.IN_PROGRESS,
                     stage2.id to StageStatus.LOCKED,
                     stage3.id to StageStatus.LOCKED,
+                    stage4.id to StageStatus.LOCKED,
+                    stage5.id to StageStatus.LOCKED,
+                    stage6.id to StageStatus.LOCKED,
+                    stage7.id to StageStatus.LOCKED,
                 ),
                 StageProgress.statuses(stages, repo.storedEvents),
             )

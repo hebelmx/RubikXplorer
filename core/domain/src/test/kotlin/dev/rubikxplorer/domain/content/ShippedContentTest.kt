@@ -113,12 +113,20 @@ class ShippedContentTest {
     }
 
     @Test
-    fun `the shipped bundle holds Stages 1 to 3 with 3, 5 and 4 Lessons in stable IDs`() {
+    fun `the shipped bundle holds Stages 1 to 7 with 3, 5 and 4 Lessons in Stages 1 to 3 and stable IDs`() {
         assertEquals(
-            listOf("stage-01-fundamentals", "stage-02-first-cross", "stage-03-first-layer-corners"),
+            listOf(
+                "stage-01-fundamentals",
+                "stage-02-first-cross",
+                "stage-03-first-layer-corners",
+                "stage-04-middle-layer",
+                "stage-05-last-layer-orientation",
+                "stage-06-last-layer-completion",
+                "stage-07-independent-practice",
+            ),
             bundle.stages.map { it.id.value },
         )
-        assertEquals(listOf(3, 5, 4), bundle.stages.map { it.lessons.size })
+        assertEquals(listOf(3, 5, 4, 0, 0, 0, 0), bundle.stages.map { it.lessons.size })
         bundle.stages.forEachIndexed { s, stage ->
             assertEquals(TextKey("stage.${stage.id}.title"), stage.title)
             stage.lessons.forEachIndexed { l, lesson ->

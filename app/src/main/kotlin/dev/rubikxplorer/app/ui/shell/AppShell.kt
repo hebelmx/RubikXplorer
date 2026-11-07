@@ -47,6 +47,7 @@ import dev.rubikxplorer.application.port.FeatureFlag
 import dev.rubikxplorer.application.port.FeatureFlags
 import dev.rubikxplorer.application.session.SessionKind
 import dev.rubikxplorer.domain.content.LessonId
+import dev.rubikxplorer.domain.content.StageId
 import dev.rubikxplorer.domain.tutor.TeachingMode
 
 /** The top-level destinations of the navigation shell. */
@@ -97,8 +98,10 @@ private fun ShellContent(
     LaunchedEffect(catalog) { catalog.load() }
     val content by catalog.state.collectAsState()
     val session by host.state.collectAsState()
+    val progressEvents by host.progressEvents.collectAsState()
     var tab by rememberSaveable { mutableStateOf(Tab.LEARN) }
     var settings by rememberSaveable { mutableStateOf(false) }
+    var selectedStage by rememberSaveable { mutableStateOf<String?>(null) }
     var openLesson by rememberSaveable { mutableStateOf<String?>(null) }
     // Held above the Lesson and Settings task flows so closing either returns to the same place in the list.
     val learnScroll = rememberScrollState()
@@ -122,8 +125,14 @@ private fun ShellContent(
         )
         return
     }
-    // Back from another tab returns to Learn, the start destination, before it leaves the app.
-    BackHandler(enabled = tab != Tab.LEARN) { tab = Tab.LEARN }
+    // Back from another tab returns to Learn first; back from Stage detail returns to the Stage list before leaving the app.
+    BackHandler(enabled = tab != Tab.LEARN || selectedStage != null) {
+        if (tab != Tab.LEARN) {
+            tab = Tab.LEARN
+        } else {
+            selectedStage = null
+        }
+    }
 
     val destination: @Composable (Modifier) -> Unit = { destinationModifier ->
         when (tab) {
@@ -140,6 +149,9 @@ private fun ShellContent(
                         } else {
                             null
                         },
+                    progressEvents = progressEvents,
+                    selectedStage = selectedStage?.let(::StageId),
+                    onSelectStage = { selectedStage = it?.value },
                     onOpen = { openLesson = it.value },
                     scrollState = learnScroll,
                     // The inset area takes surfaceBase too, not the window background.

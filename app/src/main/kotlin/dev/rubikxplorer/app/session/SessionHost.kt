@@ -6,6 +6,9 @@ import dev.rubikxplorer.application.port.CheckpointLoad
 import dev.rubikxplorer.application.port.CheckpointRepository
 import dev.rubikxplorer.application.port.CheckpointSave
 import dev.rubikxplorer.application.port.Clock
+import dev.rubikxplorer.application.port.ProgressLoad
+import dev.rubikxplorer.application.port.ProgressRepository
+import dev.rubikxplorer.application.port.ProgressWrite
 import dev.rubikxplorer.application.port.SessionSnapshotRepository
 import dev.rubikxplorer.application.port.SnapshotLoad
 import dev.rubikxplorer.application.port.SnapshotSave
@@ -22,6 +25,7 @@ import dev.rubikxplorer.application.session.reduce
 import dev.rubikxplorer.application.usecase.CompleteLesson
 import dev.rubikxplorer.domain.content.ContentBundle
 import dev.rubikxplorer.domain.content.Stage
+import dev.rubikxplorer.domain.tutor.ProgressEvent
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -50,6 +54,7 @@ class SessionHost internal constructor(
     private val checkpoints: CheckpointRepository? = null,
     private val preferences: PreferenceStore? = null,
     private val completeLesson: CompleteLesson? = null,
+    private val progress: ProgressRepository? = null,
     /** Sees every event this host reduced, in order; tests use it to observe events that change no state. */
     private val reduced: (SessionEvent) -> Unit = {},
 ) {
@@ -61,6 +66,7 @@ class SessionHost internal constructor(
         checkpoints: CheckpointRepository,
         preferences: PreferenceStore,
         completeLesson: CompleteLesson,
+        progress: ProgressRepository,
     ) :
         this(
             clock,
@@ -70,11 +76,15 @@ class SessionHost internal constructor(
             checkpoints = checkpoints,
             preferences = preferences,
             completeLesson = completeLesson,
+            progress = progress,
         )
 
     constructor(clock: Clock) : this(clock, Dispatchers.Default.limitedParallelism(1))
 
-    private val restored = CompletableDeferred<Unit>().also { if (repository == null && checkpoints == null) it.complete(Unit) }
+    private val restored =
+        CompletableDeferred<Unit>().also {
+            if (repository == null && checkpoints == null && progress == null) it.complete(Unit)
+        }
     private val restoring = Mutex()
     private var sessionId = ""
     private var contentRevision: String? = null
@@ -117,6 +127,7 @@ class SessionHost internal constructor(
             contentRevision = bundle.contentRevision
             stages = bundle.stages
         }
+        reloadProgress()
         val loaded =
             try {
                 writer?.read { repository?.latest() }
@@ -177,6 +188,48 @@ class SessionHost internal constructor(
     private val current = MutableStateFlow(SessionState.IDLE)
 
     val state: StateFlow<SessionState> = current.asStateFlow()
+
+    private val currentProgress = MutableStateFlow<List<ProgressEvent>>(emptyList())
+
+    /** Reactive `progress_event` log loaded from [progress] on [restore] and refreshed on Lesson completion or [reloadProgress]. */
+    val progressEvents: StateFlow<List<ProgressEvent>> = currentProgress.asStateFlow()
+
+    /** Reloads [progressEvents] from [progress], ordered with queued writes when [writer] is present. */
+    suspend fun reloadProgress() {
+        val repo = progress ?: return
+        val loaded =
+            try {
+                if (writer != null) writer.read { repo.all() } else repo.all()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                ProgressLoad.Failed
+            }
+        if (loaded is ProgressLoad.Found) {
+            currentProgress.value = loaded.events
+        }
+    }
+
+    private suspend fun refreshProgressAfterWrite(written: List<ProgressEvent>) {
+        val repo = progress
+        if (repo != null) {
+            val loaded =
+                try {
+                    repo.all()
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    ProgressLoad.Failed
+                }
+            if (loaded is ProgressLoad.Found) {
+                currentProgress.value = loaded.events
+            } else {
+                currentProgress.value = currentProgress.value + written
+            }
+        } else {
+            currentProgress.value = currentProgress.value + written
+        }
+    }
 
     /**
      * Builds the event with the dispatch time (`SessionEvent::Undo`, or `{ MoveCommitted(move, it) }`),
@@ -256,10 +309,16 @@ class SessionHost internal constructor(
                 val currentRevision = transition.state.revision
                 if (writer != null) {
                     writer.enqueue {
-                        completeLesson.invoke(lesson, cube, currentStages, at, currentSessionId, currentRevision)
+                        val written = completeLesson.invoke(lesson, cube, currentStages, at, currentSessionId, currentRevision)
+                        if (written is ProgressWrite.Written) {
+                            refreshProgressAfterWrite(written.events)
+                        }
                     }
                 } else {
-                    completeLesson.invoke(lesson, cube, currentStages, at, currentSessionId, currentRevision)
+                    val written = completeLesson.invoke(lesson, cube, currentStages, at, currentSessionId, currentRevision)
+                    if (written is ProgressWrite.Written) {
+                        refreshProgressAfterWrite(written.events)
+                    }
                 }
             }
             transition.effects.filterIsInstance<Effect.PersistCheckpoint>().forEach { effect ->
