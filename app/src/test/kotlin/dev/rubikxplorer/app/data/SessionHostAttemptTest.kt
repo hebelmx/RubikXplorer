@@ -44,14 +44,15 @@ class SessionHostAttemptTest {
                     .setDriver(AndroidSQLiteDriver())
                     .build()
             val writer = SerialWriter()
+            val log = RoomAttemptRepository(db)
             val host =
                 SessionHost(
-                    Clock { Instant.fromEpochMilliseconds(0) },
-                    Dispatchers.Default.limitedParallelism(1),
-                    RoomSessionSnapshotRepository(db),
-                    writer,
+                    clock = Clock { Instant.fromEpochMilliseconds(0) },
+                    confined = Dispatchers.Default.limitedParallelism(1),
+                    repository = RoomSessionSnapshotRepository(db),
+                    writer = writer,
+                    attempts = log,
                 )
-            val log = RoomAttemptRepository(db)
             val move = (Notation.parse("F'") as NotationResult.Parsed).moves.single()
             var previous = emptyList<AttemptRecord>()
 
@@ -59,6 +60,7 @@ class SessionHostAttemptTest {
                 writer.flush()
                 val rows = (log.all() as AttemptLoad.Found).records
                 assertEquals(previous, rows.take(previous.size))
+                assertEquals(rows, host.attemptRecords.value)
                 previous = rows
                 return rows
             }

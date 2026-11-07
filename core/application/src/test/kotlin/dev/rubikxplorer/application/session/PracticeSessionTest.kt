@@ -3,6 +3,7 @@ package dev.rubikxplorer.application.session
 import dev.rubikxplorer.application.usecase.SeededRandomSource
 import dev.rubikxplorer.application.usecase.StagePractice
 import dev.rubikxplorer.domain.content.AdaptiveThresholds
+import dev.rubikxplorer.domain.content.MasteryThresholds
 import dev.rubikxplorer.domain.content.TutorConfig
 import dev.rubikxplorer.domain.cube.Face
 import dev.rubikxplorer.domain.cube.FaceTurn
@@ -24,6 +25,7 @@ class PracticeSessionTest {
             moveSet = "U U' U2 D D' D2 R R' R2 L L' L2 F F' F2 B B' B2",
             recoveryMaxDepth = 5,
             adaptive = AdaptiveThresholds(1, 2, 3, 2),
+            mastery = MasteryThresholds(2, 1),
         )
 
     private val stagePractice = StagePractice(SeededRandomSource(42))

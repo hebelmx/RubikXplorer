@@ -1,9 +1,10 @@
 package dev.rubikxplorer.application.session
 
 import dev.rubikxplorer.domain.tutor.AssistanceLevel
+import dev.rubikxplorer.domain.tutor.MasteryAttempt
 import kotlin.time.Instant
 
-enum class AttemptOutcome { COMPLETED, ABANDONED }
+typealias AttemptOutcome = dev.rubikxplorer.domain.tutor.AttemptOutcome
 
 enum class AttemptEvent { STARTED, ENDED }
 
@@ -17,13 +18,13 @@ data class AttemptRecord(
     val sessionId: String,
     val revision: Long,
     val event: AttemptEvent,
-    val objectiveId: String,
-    val outcome: AttemptOutcome?,
+    override val objectiveId: String,
+    override val outcome: AttemptOutcome?,
     val errors: Int?,
     val hints: Int?,
-    val assistanceLevel: AssistanceLevel?,
-    val at: Instant,
-) {
+    override val assistanceLevel: AssistanceLevel?,
+    override val at: Instant,
+) : MasteryAttempt {
     companion object {
         fun of(
             effect: Effect.AttemptStarted,

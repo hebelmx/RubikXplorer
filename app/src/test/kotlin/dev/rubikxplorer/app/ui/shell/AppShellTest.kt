@@ -35,10 +35,15 @@ import dev.rubikxplorer.app.session.testFlags
 import dev.rubikxplorer.app.session.whiteCrossLesson
 import dev.rubikxplorer.app.ui.freecube.FreeCubeViewModel
 import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
+import dev.rubikxplorer.application.port.AttemptLoad
+import dev.rubikxplorer.application.port.AttemptRepository
 import dev.rubikxplorer.application.port.ProgressLoad
 import dev.rubikxplorer.application.port.ProgressRecord
 import dev.rubikxplorer.application.port.ProgressRepository
 import dev.rubikxplorer.application.port.ProgressSave
+import dev.rubikxplorer.application.session.AttemptEvent
+import dev.rubikxplorer.application.session.AttemptOutcome
+import dev.rubikxplorer.application.session.AttemptRecord
 import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.application.session.SessionKind
 import dev.rubikxplorer.application.usecase.CompleteLesson
@@ -53,8 +58,10 @@ import dev.rubikxplorer.domain.cube.Face
 import dev.rubikxplorer.domain.cube.FaceTurn
 import dev.rubikxplorer.domain.cube.Facelets
 import dev.rubikxplorer.domain.cube.Turn
+import dev.rubikxplorer.domain.tutor.AssistanceLevel
 import dev.rubikxplorer.domain.tutor.ProgressEvent
 import dev.rubikxplorer.domain.tutor.TeachingMode
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -64,6 +71,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowDialog
+import kotlin.time.Instant
 
 /** AC 1 and AC 5: the navigation shell, the Learn list, the Lesson task flow's layout and back. */
 @RunWith(RobolectricTestRunner::class)
@@ -518,6 +526,70 @@ class AppShellTest {
         rule.runOnIdle { back.onBackPressed() }
         rule.onNodeWithTag("stageDetail").assertDoesNotExist()
         rule.onNodeWithTag("learn:stage:stage-01-fundamentals").assertExists()
+    }
+
+    @Test
+    fun `meeting stage mastery condition updates stage status to Mastered on Learn and shows full mastery in Stage detail`() {
+        val attempts =
+            listOf(
+                AttemptRecord(
+                    attemptId = "att-1",
+                    sessionId = "s-1",
+                    revision = 1L,
+                    event = AttemptEvent.ENDED,
+                    objectiveId = "practice-stage-02-first-cross",
+                    outcome = AttemptOutcome.COMPLETED,
+                    errors = 0,
+                    hints = 0,
+                    assistanceLevel = AssistanceLevel.USUAL,
+                    at = Instant.fromEpochMilliseconds(100),
+                ),
+                AttemptRecord(
+                    attemptId = "att-2",
+                    sessionId = "s-2",
+                    revision = 2L,
+                    event = AttemptEvent.ENDED,
+                    objectiveId = "practice-stage-02-first-cross",
+                    outcome = AttemptOutcome.COMPLETED,
+                    errors = 0,
+                    hints = 0,
+                    assistanceLevel = AssistanceLevel.REDUCED,
+                    at = Instant.fromEpochMilliseconds(200),
+                ),
+            )
+        val attemptRepo =
+            object : AttemptRepository {
+                override suspend fun all(): AttemptLoad = AttemptLoad.Found(attempts)
+            }
+        host =
+            SessionHost(
+                clock = TickingClock(),
+                confined = Dispatchers.Main.immediate,
+                preferences = preferences,
+                attempts = attemptRepo,
+            )
+        val shipped = ContentLoader.load(ContentSource.SHIPPED)
+        launch(shipped)
+
+        // On Learn tab, Stage 2 is mastered
+        rule.onNodeWithTag("learn:stage:stage-02-first-cross").performScrollTo().assertExists()
+        rule
+            .onNodeWithTag("learn:stage:status:stage-02-first-cross")
+            .assertTextContains("Mastered")
+            .assertTextContains("◆")
+
+        // Open Stage 2 detail
+        rule.onNodeWithTag("learn:stage:stage-02-first-cross").performClick()
+        rule.onNodeWithTag("stageDetail").assertExists()
+        rule
+            .onNodeWithTag("stageDetail:status")
+            .assertTextContains("Mastered")
+            .assertTextContains("◆")
+        rule
+            .onNodeWithTag("stageDetail:mastery")
+            .assertTextContains("Mastery: 2 of 2 solves · 1 with reduced help")
+        rule.onNodeWithTag("stageDetail:mastery:segment:1").assertExists()
+        rule.onNodeWithTag("stageDetail:mastery:segment:2").assertExists()
     }
 
     @Test

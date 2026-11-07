@@ -80,6 +80,8 @@ import dev.rubikxplorer.application.session.SessionKind
 import dev.rubikxplorer.application.session.SessionState
 import dev.rubikxplorer.application.usecase.PlanRecovery
 import dev.rubikxplorer.domain.content.Lesson
+import dev.rubikxplorer.domain.content.Stage
+import dev.rubikxplorer.domain.content.StageId
 import dev.rubikxplorer.domain.content.TextKey
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Facelets
@@ -93,6 +95,7 @@ import dev.rubikxplorer.domain.tutor.AssistanceLevel
 import dev.rubikxplorer.domain.tutor.Certainty
 import dev.rubikxplorer.domain.tutor.HintLadder
 import dev.rubikxplorer.domain.tutor.HintRung
+import dev.rubikxplorer.domain.tutor.Mastery
 import dev.rubikxplorer.domain.tutor.ProgressEvent
 import dev.rubikxplorer.domain.tutor.Recovery
 import dev.rubikxplorer.domain.tutor.RecoveryOffer
@@ -128,18 +131,41 @@ fun LessonScreen(
     adaptiveAssistance: FlagLevel = FlagLevel.OFF,
     onPracticeNewScramble: () -> Unit = onClose,
     isPractice: Boolean = false,
+    stages: List<Stage> = emptyList(),
+    onNextStage: ((StageId) -> Unit)? = null,
 ) {
     val preferenceStore = LocalPreferenceStore.current
     val lesson = entry.lesson
     val session by host.state.collectAsState()
+    val attemptRecords by host.attemptRecords.collectAsState()
+    val progressEvents by host.progressEvents.collectAsState()
     var initialCompleted by rememberSaveable(lesson.id.value) { mutableStateOf<Boolean?>(null) }
+    var initialMastered by rememberSaveable(lesson.id.value) { mutableStateOf<Boolean?>(null) }
     var milestoneDismissed by rememberSaveable(lesson.id.value) { mutableStateOf(false) }
-    val showMilestone =
+
+    val currentEpochAttempts =
+        remember(attemptRecords, progressEvents) {
+            Mastery.currentEpochAttempts(attemptRecords, progressEvents)
+        }
+    val masteryProgress =
+        remember(entry.stage, currentEpochAttempts, entry.tutorConfig.mastery) {
+            Mastery.evaluate(entry.stage, currentEpochAttempts, entry.tutorConfig.mastery)
+        }
+    val isMasteryMilestone =
+        initialMastered == false &&
+            !milestoneDismissed &&
+            session.lesson?.id == lesson.id &&
+            (session.decision?.satisfied == true || session.objectiveMet) &&
+            masteryProgress.isMastered
+
+    val isFirstSolveMilestone =
         entry.lesson.id.value == "lesson-06-03" &&
             initialCompleted == false &&
             !milestoneDismissed &&
             session.lesson?.id == lesson.id &&
             (session.decision?.satisfied == true)
+
+    val showMilestone = isFirstSolveMilestone || isMasteryMilestone
 
     BackHandler(onBack = {
         if (showMilestone) {
@@ -155,6 +181,10 @@ fun LessonScreen(
         if (initialCompleted == null) {
             val epochEvents = StageProgress.currentEpochEvents(host.progressEvents.value)
             initialCompleted = epochEvents.any { it is ProgressEvent.LessonCompleted && it.lessonId == lesson.id }
+        }
+        if (initialMastered == null) {
+            val epochAttempts = Mastery.currentEpochAttempts(host.attemptRecords.value, host.progressEvents.value)
+            initialMastered = Mastery.evaluate(entry.stage, epochAttempts, entry.tutorConfig.mastery).isMastered
         }
         val practicing = isPractice || host.state.value.kind == SessionKind.PRACTICE
         val shouldStart =
@@ -220,8 +250,40 @@ fun LessonScreen(
             }
         }
         if (showMilestone) {
+            val stageIndex = stages.indexOfFirst { it.id == entry.stage.id }
+            val nextStage = if (stageIndex >= 0 && stageIndex < stages.size - 1) stages[stageIndex + 1] else null
+
+            val headline =
+                if (isFirstSolveMilestone) {
+                    strings.resolve(TextKey("msg.milestone.first-solve"))
+                } else {
+                    strings.resolve(
+                        dev.rubikxplorer.domain.text.Text(
+                            "msg.milestone.stage-mastered",
+                            mapOf("stage" to strings.resolve(entry.stage.title)),
+                        ),
+                    )
+                }
+
+            val offerNextStage =
+                if (isMasteryMilestone && nextStage != null && onNextStage != null) {
+                    {
+                        milestoneDismissed = true
+                        onNextStage(nextStage.id)
+                    }
+                } else {
+                    null
+                }
+
+            val nextStageLabel =
+                if (isMasteryMilestone && nextStage != null) {
+                    strings.resolve(nextStage.title)
+                } else {
+                    null
+                }
+
             FirstSolveMilestone(
-                headline = strings.resolve(TextKey("msg.milestone.first-solve")),
+                headline = headline,
                 onPracticeNewScramble = {
                     milestoneDismissed = true
                     onPracticeNewScramble()
@@ -230,6 +292,8 @@ fun LessonScreen(
                     milestoneDismissed = true
                     onClose()
                 },
+                nextStageLabel = nextStageLabel,
+                onNextStage = offerNextStage,
             )
         }
         GuidedRecoveryRunner(host, planRecovery)

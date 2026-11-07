@@ -25,6 +25,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
+import dev.rubikxplorer.app.content.CatalogEntry
 import dev.rubikxplorer.app.content.CatalogState
 import dev.rubikxplorer.app.content.LessonCatalog
 import dev.rubikxplorer.app.data.SerialWriter
@@ -53,6 +54,7 @@ import dev.rubikxplorer.application.port.ProgressSave
 import dev.rubikxplorer.application.port.SessionSnapshotRepository
 import dev.rubikxplorer.application.port.SnapshotLoad
 import dev.rubikxplorer.application.port.SnapshotSave
+import dev.rubikxplorer.application.session.AttemptOutcome
 import dev.rubikxplorer.application.session.AttemptRecord
 import dev.rubikxplorer.application.session.GuidedRecovery
 import dev.rubikxplorer.application.session.SessionEvent
@@ -2064,5 +2066,84 @@ class LessonScreenTest {
                 ?.satisfied == true,
         )
         node("milestone:overlay").assertDoesNotExist()
+    }
+
+    @Test
+    fun `completing an attempt meeting stage mastery condition displays the stage mastery milestone overlay`() {
+        val attemptRepo =
+            object : dev.rubikxplorer.application.port.AttemptRepository {
+                override suspend fun all(): dev.rubikxplorer.application.port.AttemptLoad =
+                    dev.rubikxplorer.application.port.AttemptLoad.Found(
+                        listOf(
+                            AttemptRecord(
+                                attemptId = "att-1",
+                                sessionId = "s-1",
+                                revision = 1L,
+                                event = dev.rubikxplorer.application.session.AttemptEvent.ENDED,
+                                objectiveId = "practice-stage-02-first-cross",
+                                outcome = AttemptOutcome.COMPLETED,
+                                errors = 0,
+                                hints = 0,
+                                assistanceLevel = AssistanceLevel.REDUCED,
+                                at = Instant.fromEpochMilliseconds(100),
+                            ),
+                        ),
+                    )
+            }
+        val masteryHost =
+            SessionHost(
+                clock = TickingClock(),
+                confined = Dispatchers.Main.immediate,
+                attempts = attemptRepo,
+            )
+        val shipped = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        runBlocking { masteryHost.restore(shipped) }
+        val ready = CatalogState.Ready(shipped)
+        val stage2 = ready.bundle.stages.first { it.id == StageId("stage-02-first-cross") }
+        val lastLesson = stage2.lessons.last()
+        val entry = ready.lessons.single { it.lesson.id == lastLesson.id }
+        var nextStageOffered: StageId? = null
+        rule.setContent {
+            accessibilityHost = androidx.compose.ui.platform.LocalView.current
+            RubikXplorerTheme {
+                LessonScreen(
+                    host = masteryHost,
+                    entry = entry,
+                    strings = ready.strings,
+                    modes = TeachingMode.entries,
+                    onClose = { closed++ },
+                    stages = ready.bundle.stages,
+                    onNextStage = { nextStageOffered = it },
+                )
+            }
+        }
+        rule.waitUntil(5_000) {
+            masteryHost.state.value.lesson
+                ?.id == lastLesson.id
+        }
+        rule.waitForIdle()
+        node("milestone:overlay").assertDoesNotExist()
+
+        // Complete the lesson's steps
+        lastLesson.steps.forEachIndexed { index, step ->
+            val moves = (Notation.parse(step.moves) as dev.rubikxplorer.domain.cube.NotationResult.Parsed).moves
+            moves.forEach { move ->
+                runBlocking { masteryHost.dispatch { SessionEvent.MoveCommitted(move, it) } }
+            }
+            if (index < lastLesson.steps.size - 1) {
+                runBlocking { masteryHost.dispatch(SessionEvent::StepAdvanced) }
+            }
+        }
+        rule.waitForIdle()
+
+        assertTrue(
+            masteryHost.state.value.decision
+                ?.satisfied == true,
+        )
+        node("milestone:overlay").assertExists()
+        node("milestone:burst").assertExists()
+        node("milestone:headline").assertExists().assertTextContains("First cross mastered.")
+        node("milestone:nextStage").assertExists().assertTextContains("First-layer corners").performClick()
+        assertEquals(StageId("stage-03-first-layer-corners"), nextStageOffered)
     }
 }

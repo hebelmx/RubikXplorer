@@ -6,6 +6,7 @@ import dev.rubikxplorer.domain.content.ContentProblem.InvalidTutorConfig.Detail.
 import dev.rubikxplorer.domain.content.ContentProblem.InvalidTutorConfig.Detail.NOT_INCREASING
 import dev.rubikxplorer.domain.content.ContentProblem.InvalidTutorConfig.Detail.NO_MOVES
 import dev.rubikxplorer.domain.content.ContentProblem.InvalidTutorConfig.Detail.OUT_OF_RANGE
+import dev.rubikxplorer.domain.content.ContentProblem.InvalidTutorConfig.Detail.REDUCED_EXCEEDS_SOLVES
 import dev.rubikxplorer.domain.cube.NotationError
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -180,27 +181,27 @@ class ContentValidatorTest {
     @Test
     fun `the tutor config needs maxDepth in 1 to 3 and a non-empty valid moveSet`() {
         fun problems(config: TutorConfig) = ContentValidator.validate(valid.copy(tutorConfig = config))
-        assertEquals(emptyList<ContentProblem>(), problems(TutorConfig(1, "U", 1, ADAPTIVE)))
-        assertEquals(emptyList<ContentProblem>(), problems(TutorConfig(3, "U R", 8, ADAPTIVE)))
+        assertEquals(emptyList<ContentProblem>(), problems(TutorConfig(1, "U", 1, ADAPTIVE, MASTERY)))
+        assertEquals(emptyList<ContentProblem>(), problems(TutorConfig(3, "U R", 8, ADAPTIVE, MASTERY)))
         assertEquals(
             listOf(
                 ContentProblem.InvalidTutorConfig(ContentValidator.MAX_DEPTH_FIELD, OUT_OF_RANGE),
                 ContentProblem.InvalidTutorConfig(ContentValidator.MOVE_SET_FIELD, NO_MOVES),
             ),
-            problems(TutorConfig(0, "", 5, ADAPTIVE)),
+            problems(TutorConfig(0, "", 5, ADAPTIVE, MASTERY)),
         )
         assertEquals(
             listOf(
                 ContentProblem.InvalidTutorConfig(ContentValidator.MAX_DEPTH_FIELD, OUT_OF_RANGE),
                 ContentProblem.InvalidTutorConfig(ContentValidator.MOVE_SET_FIELD, BAD_NOTATION),
             ),
-            problems(TutorConfig(4, "U Q", 5, ADAPTIVE)),
+            problems(TutorConfig(4, "U Q", 5, ADAPTIVE, MASTERY)),
         )
     }
 
     @Test
     fun `the tutor config needs recoveryMaxDepth in 1 to 8`() {
-        fun problems(depth: Int) = ContentValidator.validate(valid.copy(tutorConfig = TutorConfig(2, "U R", depth, ADAPTIVE)))
+        fun problems(depth: Int) = ContentValidator.validate(valid.copy(tutorConfig = TutorConfig(2, "U R", depth, ADAPTIVE, MASTERY)))
         listOf(0, 9, -1).forEach { depth ->
             assertEquals(
                 listOf(ContentProblem.InvalidTutorConfig(ContentValidator.RECOVERY_MAX_DEPTH_FIELD, OUT_OF_RANGE)),
@@ -216,7 +217,7 @@ class ContentValidatorTest {
         listOf("U r", "U M", "U x").forEach { moves ->
             assertEquals(
                 listOf(ContentProblem.InvalidTutorConfig(ContentValidator.MOVE_SET_FIELD, NOT_FACE_TURN)),
-                ContentValidator.validate(valid.copy(tutorConfig = TutorConfig(2, moves, 5, ADAPTIVE))),
+                ContentValidator.validate(valid.copy(tutorConfig = TutorConfig(2, moves, 5, ADAPTIVE, MASTERY))),
                 moves,
             )
         }
@@ -227,7 +228,7 @@ class ContentValidatorTest {
         listOf("U U R", "R2 R2'").forEach { moves ->
             assertEquals(
                 listOf(ContentProblem.InvalidTutorConfig(ContentValidator.MOVE_SET_FIELD, DUPLICATE_MOVE)),
-                ContentValidator.validate(valid.copy(tutorConfig = TutorConfig(2, moves, 5, ADAPTIVE))),
+                ContentValidator.validate(valid.copy(tutorConfig = TutorConfig(2, moves, 5, ADAPTIVE, MASTERY))),
                 moves,
             )
         }
@@ -276,7 +277,50 @@ class ContentValidatorTest {
         }
     }
 
+    @Test
+    fun `mastery thresholds need solvesRequired in 1 to 10 and reducedHelpRequired in 0 to 10`() {
+        fun problems(mastery: MasteryThresholds) =
+            ContentValidator.validate(valid.copy(tutorConfig = valid.tutorConfig.copy(mastery = mastery)))
+        assertEquals(emptyList<ContentProblem>(), problems(MasteryThresholds(1, 0)))
+        assertEquals(emptyList<ContentProblem>(), problems(MasteryThresholds(10, 10)))
+        assertEquals(
+            listOf(ContentProblem.InvalidTutorConfig("${ContentValidator.MASTERY_FIELD}.solvesRequired", OUT_OF_RANGE)),
+            problems(MasteryThresholds(0, 0)),
+        )
+        assertEquals(
+            listOf(ContentProblem.InvalidTutorConfig("${ContentValidator.MASTERY_FIELD}.solvesRequired", OUT_OF_RANGE)),
+            problems(MasteryThresholds(11, 5)),
+        )
+        assertEquals(
+            listOf(ContentProblem.InvalidTutorConfig("${ContentValidator.MASTERY_FIELD}.reducedHelpRequired", OUT_OF_RANGE)),
+            problems(MasteryThresholds(2, -1)),
+        )
+        assertEquals(
+            listOf(
+                ContentProblem.InvalidTutorConfig("${ContentValidator.MASTERY_FIELD}.reducedHelpRequired", OUT_OF_RANGE),
+                ContentProblem.InvalidTutorConfig(ContentValidator.MASTERY_FIELD, REDUCED_EXCEEDS_SOLVES),
+            ),
+            problems(MasteryThresholds(5, 11)),
+        )
+        assertEquals(ContentValidator.MASTERY_SOLVES_RANGE, 1..10)
+        assertEquals(ContentValidator.MASTERY_REDUCED_RANGE, 0..10)
+    }
+
+    @Test
+    fun `mastery reducedHelpRequired cannot exceed solvesRequired`() {
+        fun problems(mastery: MasteryThresholds) =
+            ContentValidator.validate(valid.copy(tutorConfig = valid.tutorConfig.copy(mastery = mastery)))
+        listOf(MasteryThresholds(2, 3), MasteryThresholds(1, 2)).forEach { mastery ->
+            assertEquals(
+                listOf(ContentProblem.InvalidTutorConfig(ContentValidator.MASTERY_FIELD, REDUCED_EXCEEDS_SOLVES)),
+                problems(mastery),
+                mastery.toString(),
+            )
+        }
+    }
+
     private companion object {
         val ADAPTIVE = AdaptiveThresholds(1, 2, 3, 2)
+        val MASTERY = MasteryThresholds(2, 1)
     }
 }

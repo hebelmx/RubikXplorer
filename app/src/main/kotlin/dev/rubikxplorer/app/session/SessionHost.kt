@@ -2,6 +2,8 @@ package dev.rubikxplorer.app.session
 
 import dev.rubikxplorer.app.data.SerialWriter
 import dev.rubikxplorer.app.preferences.PreferenceStore
+import dev.rubikxplorer.application.port.AttemptLoad
+import dev.rubikxplorer.application.port.AttemptRepository
 import dev.rubikxplorer.application.port.CheckpointLoad
 import dev.rubikxplorer.application.port.CheckpointRepository
 import dev.rubikxplorer.application.port.CheckpointSave
@@ -55,6 +57,7 @@ class SessionHost internal constructor(
     private val preferences: PreferenceStore? = null,
     private val completeLesson: CompleteLesson? = null,
     private val progress: ProgressRepository? = null,
+    private val attempts: AttemptRepository? = null,
     /** Sees every event this host reduced, in order; tests use it to observe events that change no state. */
     private val reduced: (SessionEvent) -> Unit = {},
 ) {
@@ -67,6 +70,7 @@ class SessionHost internal constructor(
         preferences: PreferenceStore,
         completeLesson: CompleteLesson,
         progress: ProgressRepository,
+        attempts: AttemptRepository,
     ) :
         this(
             clock,
@@ -77,13 +81,14 @@ class SessionHost internal constructor(
             preferences = preferences,
             completeLesson = completeLesson,
             progress = progress,
+            attempts = attempts,
         )
 
     constructor(clock: Clock) : this(clock, Dispatchers.Default.limitedParallelism(1))
 
     private val restored =
         CompletableDeferred<Unit>().also {
-            if (repository == null && checkpoints == null && progress == null) it.complete(Unit)
+            if (repository == null && checkpoints == null && progress == null && attempts == null) it.complete(Unit)
         }
     private val restoring = Mutex()
     private var sessionId = ""
@@ -128,6 +133,7 @@ class SessionHost internal constructor(
             stages = bundle.stages
         }
         reloadProgress()
+        reloadAttempts()
         val loaded =
             try {
                 writer?.read { repository?.latest() }
@@ -194,6 +200,11 @@ class SessionHost internal constructor(
     /** Reactive `progress_event` log loaded from [progress] on [restore] and refreshed on Lesson completion or [reloadProgress]. */
     val progressEvents: StateFlow<List<ProgressEvent>> = currentProgress.asStateFlow()
 
+    private val currentAttempts = MutableStateFlow<List<AttemptRecord>>(emptyList())
+
+    /** Reactive `attempt` log loaded from [attempts] on [restore] and refreshed on attempt completion or [reloadAttempts]. */
+    val attemptRecords: StateFlow<List<AttemptRecord>> = currentAttempts.asStateFlow()
+
     /** Reloads [progressEvents] from [progress], ordered with queued writes when [writer] is present. */
     suspend fun reloadProgress() {
         val repo = progress ?: return
@@ -207,6 +218,45 @@ class SessionHost internal constructor(
             }
         if (loaded is ProgressLoad.Found) {
             currentProgress.value = loaded.events
+        }
+    }
+
+    /** Reloads [attemptRecords] from [attempts], ordered with queued writes when [writer] is present. */
+    suspend fun reloadAttempts() {
+        val repo = attempts ?: return
+        val loaded =
+            try {
+                if (writer != null) writer.read { repo.all() } else repo.all()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                AttemptLoad.Failed
+            }
+        if (loaded is AttemptLoad.Found) {
+            currentAttempts.value = loaded.records
+        }
+    }
+
+    private suspend fun refreshAttemptsAfterWrite(written: List<AttemptRecord>) {
+        val repo = attempts
+        if (repo != null) {
+            val loaded =
+                try {
+                    repo.all()
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    AttemptLoad.Failed
+                }
+            if (loaded is AttemptLoad.Found) {
+                val knownKeys = loaded.records.map { it.attemptId to it.revision }.toSet()
+                val uncommitted = written.filter { (it.attemptId to it.revision) !in knownKeys }
+                currentAttempts.value = loaded.records + uncommitted
+            } else {
+                currentAttempts.value = currentAttempts.value + written
+            }
+        } else {
+            currentAttempts.value = currentAttempts.value + written
         }
     }
 
@@ -274,8 +324,8 @@ class SessionHost internal constructor(
                         }
                     }
                 val snapshot = SessionSnapshot.of(transition.state, sessionId, contentRevision, attemptId)
-                if (snapshot != null && repository != null) {
-                    writer?.enqueue {
+                if (snapshot != null && repository != null && writer != null) {
+                    writer.enqueue {
                         // AD-16: a failed write is an event; the session keeps running and the next commit writes again.
                         // Attempt rows of a failed write stay pending and retry with that next commit; their
                         // (sessionId, revision) keys make a replay a no-op.
@@ -290,8 +340,13 @@ class SessionHost internal constructor(
                                 SnapshotSave.Failed
                             }
                         pendingAttempts = if (saved is SnapshotSave.Failed) batch else emptyList()
+                        if (saved !is SnapshotSave.Failed && batch.isNotEmpty()) {
+                            refreshAttemptsAfterWrite(batch)
+                        }
                         if (saved is SnapshotSave.Failed) dispatch { SessionEvent.SnapshotSaveFailed(it) }
                     }
+                } else if (attempts.isNotEmpty()) {
+                    refreshAttemptsAfterWrite(attempts)
                 }
             }
             val lesson = transition.state.lesson

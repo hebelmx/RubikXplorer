@@ -135,6 +135,9 @@ sealed interface ContentProblem {
 
             /** Thresholds that must rise strictly, in order, do not. */
             NOT_INCREASING,
+
+            /** Reduced help required exceeds the total solves required. */
+            REDUCED_EXCEEDS_SOLVES,
         }
     }
 }

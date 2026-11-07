@@ -70,7 +70,8 @@ data class Step(
  * - [maxDepth]: the longest Move sequence the `CandidateEnumerator` tries (1..3);
  * - [moveSet]: the Moves it tries, as Notation (also the Moves the `RecoveryPlanner` searches);
  * - [recoveryMaxDepth]: the longest Guided recovery the `RecoveryPlanner` searches for (1..8);
- * - [adaptive]: the thresholds of adaptive assistance (`AdaptivePolicy`, FR-13).
+ * - [adaptive]: the thresholds of adaptive assistance (`AdaptivePolicy`, FR-13);
+ * - [mastery]: the thresholds required to master a Stage (FR-4, FR-20, AD-6, UX Flow 7).
  */
 @Serializable
 data class TutorConfig(
@@ -78,11 +79,25 @@ data class TutorConfig(
     val moveSet: String,
     val recoveryMaxDepth: Int,
     val adaptive: AdaptiveThresholds,
+    val mastery: MasteryThresholds,
 ) {
     /** [moveSet] parsed; empty when it is not valid Notation (which `ContentValidator` rejects). */
     val moves: List<Move>
         get() = (Notation.parse(moveSet) as? NotationResult.Parsed)?.moves.orEmpty()
 }
+
+/**
+ * The thresholds required to mark a Stage mastered (FR-4, FR-20, AD-6, UX Flow 7): data in
+ * `tutor-config.json`, validated by `ContentValidator`.
+ *
+ * - [solvesRequired]: completed attempts of the Stage Objective required (1..10);
+ * - [reducedHelpRequired]: of those completed attempts, how many must use reduced assistance (0..10, <= [solvesRequired]).
+ */
+@Serializable
+data class MasteryThresholds(
+    val solvesRequired: Int,
+    val reducedHelpRequired: Int,
+)
 
 /**
  * When adaptive assistance (`AdaptivePolicy`, FR-13) changes the help on the shown step: data in

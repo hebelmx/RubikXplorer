@@ -2,10 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "tutor-config.schema.json",
   "title": "Tutor configuration",
-  "description": "Tutor values read as data (AR-22): the CandidateEnumerator's depth and Move set, the RecoveryPlanner's search bound, and the adaptive assistance thresholds (FR-13). Mastery thresholds arrive with their consumers.",
+  "description": "Tutor values read as data (AR-22): the CandidateEnumerator's depth and Move set, the RecoveryPlanner's search bound, adaptive assistance thresholds (FR-13), and stage mastery thresholds (FR-4, FR-20, AD-6, UX Flow 7).",
   "type": "object",
   "additionalProperties": false,
-  "required": ["maxDepth", "moveSet", "recoveryMaxDepth", "adaptive"],
+  "required": ["maxDepth", "moveSet", "recoveryMaxDepth", "adaptive", "mastery"],
   "properties": {
     "maxDepth": { "type": "integer", "minimum": 1, "maximum": 3 },
     "moveSet": { "type": "string" },
@@ -20,6 +20,16 @@
         "demonstrateAfterMistakes": { "type": "integer", "minimum": 1, "maximum": 10 },
         "guideAfterMistakes": { "type": "integer", "minimum": 1, "maximum": 10 },
         "reduceAfterCleanSteps": { "type": "integer", "minimum": 1, "maximum": 10 }
+      }
+    },
+    "mastery": {
+      "description": "Thresholds required to master a Stage: successful completions of the Stage Objective and how many must use reduced assistance (FR-4, FR-20, AD-6, UX Flow 7).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["solvesRequired", "reducedHelpRequired"],
+      "properties": {
+        "solvesRequired": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "reducedHelpRequired": { "type": "integer", "minimum": 0, "maximum": 10 }
       }
     }
   }

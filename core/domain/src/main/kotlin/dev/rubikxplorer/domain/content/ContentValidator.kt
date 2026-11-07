@@ -36,6 +36,15 @@ object ContentValidator {
     /** The values each adaptive assistance threshold may take. */
     val ADAPTIVE_THRESHOLD_RANGE: IntRange = 1..10
 
+    /** The `tutor-config.json` object holding the mastery thresholds, as reported by [ContentProblem.InvalidTutorConfig]. */
+    const val MASTERY_FIELD = "mastery"
+
+    /** The values `solvesRequired` may take. */
+    val MASTERY_SOLVES_RANGE: IntRange = 1..10
+
+    /** The values `reducedHelpRequired` may take. */
+    val MASTERY_REDUCED_RANGE: IntRange = 0..10
+
     fun validate(bundle: ContentBundle): List<ContentProblem> {
         val problems = mutableListOf<ContentProblem>()
         val lessons = bundle.stages.flatMap { it.lessons }
@@ -96,6 +105,27 @@ object ContentValidator {
             }
         }
         problems += adaptiveProblems(config.adaptive)
+        problems += masteryProblems(config.mastery)
+        return problems
+    }
+
+    private fun masteryProblems(mastery: MasteryThresholds): List<ContentProblem> {
+        val problems = mutableListOf<ContentProblem>()
+        if (mastery.solvesRequired !in MASTERY_SOLVES_RANGE) {
+            problems +=
+                ContentProblem.InvalidTutorConfig("$MASTERY_FIELD.solvesRequired", ContentProblem.InvalidTutorConfig.Detail.OUT_OF_RANGE)
+        }
+        if (mastery.reducedHelpRequired !in MASTERY_REDUCED_RANGE) {
+            problems +=
+                ContentProblem.InvalidTutorConfig(
+                    "$MASTERY_FIELD.reducedHelpRequired",
+                    ContentProblem.InvalidTutorConfig.Detail.OUT_OF_RANGE,
+                )
+        }
+        if (mastery.reducedHelpRequired > mastery.solvesRequired) {
+            problems +=
+                ContentProblem.InvalidTutorConfig(MASTERY_FIELD, ContentProblem.InvalidTutorConfig.Detail.REDUCED_EXCEEDS_SOLVES)
+        }
         return problems
     }
 
