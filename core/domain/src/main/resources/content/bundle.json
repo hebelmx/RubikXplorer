@@ -3,6 +3,10 @@
   "stages": [
     "stages/stage-01-fundamentals.json",
     "stages/stage-02-first-cross.json",
-    "stages/stage-03-first-layer-corners.json"
+    "stages/stage-03-first-layer-corners.json",
+    "stages/stage-04-middle-layer.json",
+    "stages/stage-05-last-layer-orientation.json",
+    "stages/stage-06-last-layer-completion.json",
+    "stages/stage-07-independent-practice.json"
   ]
 }

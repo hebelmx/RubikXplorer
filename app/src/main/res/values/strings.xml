@@ -159,4 +159,18 @@
     <string name="settings_confirm">Confirm</string>
     <string name="settings_reset_description">Theme, glyphs, animation speed, haptics, reduce motion and last Teaching Mode return to defaults. Lesson progress, attempts and saved Lessons are kept.</string>
     <string name="learn_continue">Continue</string>
+    <string name="stage_status_locked">Locked</string>
+    <string name="stage_status_in_progress">In progress</string>
+    <string name="stage_status_completed">Completed</string>
+    <string name="stage_status_skipped">Skipped</string>
+    <string name="stage_status_skipped_by_placement">Skipped by placement</string>
+    <string name="stage_status_mastered">Mastered</string>
+    <string name="stage_icon_skipped" translatable="false">◇</string>
+    <string name="stage_icon_mastered" translatable="false">◆</string>
+    <string name="learn_faster_last_layer">Faster last layer</string>
+    <string name="stage_detail_back">Back to stages</string>
+    <string name="stage_mastery_progress">Mastery: %1$d of %2$d solves · %3$d with reduced help</string>
+    <string name="stage_practice">Practice this Stage</string>
+    <string name="stage_skip_check">I already know this</string>
+    <string name="stage_no_lessons">Practice on a fresh scramble in this Stage.</string>
 </resources>

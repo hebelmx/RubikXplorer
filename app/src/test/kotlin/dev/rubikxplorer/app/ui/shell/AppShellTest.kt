@@ -4,7 +4,15 @@ import android.app.Application
 import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.StateRestorationTester
@@ -16,6 +24,7 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
+import dev.rubikxplorer.app.content.CatalogState
 import dev.rubikxplorer.app.content.LessonCatalog
 import dev.rubikxplorer.app.render.RenderedStickersKey
 import dev.rubikxplorer.app.session.STAGE_TITLE
@@ -26,14 +35,23 @@ import dev.rubikxplorer.app.session.testFlags
 import dev.rubikxplorer.app.session.whiteCrossLesson
 import dev.rubikxplorer.app.ui.freecube.FreeCubeViewModel
 import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
+import dev.rubikxplorer.application.port.ProgressLoad
+import dev.rubikxplorer.application.port.ProgressRecord
+import dev.rubikxplorer.application.port.ProgressRepository
+import dev.rubikxplorer.application.port.ProgressSave
 import dev.rubikxplorer.application.session.SessionEvent
+import dev.rubikxplorer.application.usecase.CompleteLesson
 import dev.rubikxplorer.domain.appearance.StickerAppearance
 import dev.rubikxplorer.domain.content.ContentLoadError
 import dev.rubikxplorer.domain.content.ContentLoadResult
+import dev.rubikxplorer.domain.content.ContentLoader
+import dev.rubikxplorer.domain.content.ContentSource
+import dev.rubikxplorer.domain.content.StageId
 import dev.rubikxplorer.domain.cube.Face
 import dev.rubikxplorer.domain.cube.FaceTurn
 import dev.rubikxplorer.domain.cube.Facelets
 import dev.rubikxplorer.domain.cube.Turn
+import dev.rubikxplorer.domain.tutor.ProgressEvent
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -126,6 +144,7 @@ class AppShellTest {
         )
         launch()
         rule.onNodeWithTag("nav:you").assertExists()
+        rule.onNodeWithTag("learn:stage:stage-01-basics").performScrollTo().performClick()
         rule.onNodeWithTag("learn:lesson:lesson-01-01").performScrollTo().performClick()
         rule.waitUntil { host.state.value.lesson != null }
         rule.runOnIdle { assertEquals(TeachingMode.LET_ME_TRY, host.state.value.teachingMode) }
@@ -139,6 +158,7 @@ class AppShellTest {
                 .LastTeachingMode(TeachingMode.TEST_ME),
         )
         launch(testMe = false)
+        rule.onNodeWithTag("learn:stage:stage-01-basics").performScrollTo().performClick()
         rule.onNodeWithTag("learn:lesson:lesson-01-01").performScrollTo().performClick()
         rule.waitUntil { host.state.value.lesson != null }
         rule.runOnIdle { assertEquals(TeachingMode.DEFAULT, host.state.value.teachingMode) }
@@ -186,6 +206,7 @@ class AppShellTest {
     }
 
     private fun openWhiteCross() {
+        rule.onNodeWithTag("learn:stage:stage-01-basics").performClick()
         rule.onNodeWithTag("learn:lesson:lesson-01-01").performClick()
         rule.waitUntil(5_000) {
             host.state.value.lesson
@@ -195,11 +216,20 @@ class AppShellTest {
     }
 
     @Test
-    fun `Learn lists every Lesson in order with its Objective and Stage title, over a navigation bar`() {
+    fun `Learn lists Stage rows and tapping a Stage opens its Lessons in order over a navigation bar`() {
         launch()
         rule.onNodeWithTag("learn:continue").assertDoesNotExist()
+        rule.onNodeWithTag("learn:fasterLastLayer").assertDoesNotExist()
         rule.onNodeWithTag("nav:bar").assertExists()
         rule.onNodeWithTag("nav:rail").assertDoesNotExist()
+        rule
+            .onNodeWithTag("learn:stage:stage-01-basics")
+            .assertTextContains("1")
+            .assertTextContains(STAGE_TITLE)
+            .assertTextContains("In progress")
+            .performClick()
+        rule.onNodeWithTag("nav:bar").assertExists()
+        rule.onNodeWithTag("stageDetail").assertExists()
         rule.onNodeWithTag("learn:lesson:lesson-01-01").assertTextContains("Objective of lesson-01-01").assertTextContains(STAGE_TITLE)
         rule.onNodeWithTag("learn:lesson:lesson-01-03").assertTextContains("Objective of lesson-01-03")
         assertTrue(bounds("learn:lesson:lesson-01-01").top < bounds("learn:lesson:lesson-01-03").top)
@@ -368,5 +398,265 @@ class AppShellTest {
         launch(testMe = true)
         openWhiteCross()
         TeachingMode.entries.forEach { rule.onNodeWithTag("mode:${it.name}").assertExists() }
+    }
+
+    @Test
+    fun `shipped Learn tab shows 7 Stage rows with numbers, titles, status text and icon, and hides Faster last layer`() {
+        val shipped = ContentLoader.load(ContentSource.SHIPPED)
+        launch(shipped)
+        rule.onNodeWithTag("learn:fasterLastLayer").assertDoesNotExist()
+        val expectedStages =
+            listOf(
+                Triple("stage-01-fundamentals", "1", "Cube fundamentals" to "In progress"),
+                Triple("stage-02-first-cross", "2", "First cross" to "Locked"),
+                Triple("stage-03-first-layer-corners", "3", "First-layer corners" to "Locked"),
+                Triple("stage-04-middle-layer", "4", "Middle layer" to "Locked"),
+                Triple("stage-05-last-layer-orientation", "5", "Last-layer orientation" to "Locked"),
+                Triple("stage-06-last-layer-completion", "6", "Last-layer completion" to "Locked"),
+                Triple("stage-07-independent-practice", "7", "Independent practice" to "Locked"),
+            )
+        expectedStages.forEach { (id, number, titleAndStatus) ->
+            val (title, status) = titleAndStatus
+            rule.onNodeWithTag("learn:stage:$id").performScrollTo().assertTextContains(title)
+            rule.onNodeWithTag("learn:stage:number:$id").assertTextContains(number)
+            rule
+                .onNodeWithTag("learn:stage:status:$id")
+                .assertTextContains(status)
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, status))
+        }
+    }
+
+    @Test
+    fun `Faster last layer placeholder row is hidden by default and rendered when enabled`() {
+        val shipped = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val ready = CatalogState.Ready(shipped)
+        var clicked = 0
+        rule.setContent {
+            RubikXplorerTheme {
+                LearnScreen(
+                    catalog = ready,
+                    onOpen = {},
+                    showFasterLastLayer = true,
+                    onOpenFasterLastLayer = { clicked++ },
+                )
+            }
+        }
+        rule
+            .onNodeWithTag("learn:fasterLastLayer")
+            .performScrollTo()
+            .assertTextContains("Faster last layer")
+            .performClick()
+        assertEquals(1, clicked)
+    }
+
+    @Test
+    fun `tapping a Stage row opens Stage detail with Lessons, Mastery line, disabled Practice and enabled Skip check`() {
+        val shipped = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val ready = CatalogState.Ready(shipped)
+        var selectedStage by mutableStateOf<StageId?>(null)
+        var skipCheckedStage: StageId? = null
+        rule.setContent {
+            RubikXplorerTheme {
+                LearnScreen(
+                    catalog = ready,
+                    selectedStage = selectedStage,
+                    onSelectStage = { selectedStage = it },
+                    onOpen = {},
+                    onSkipCheck = { skipCheckedStage = it },
+                )
+            }
+        }
+        rule.onNodeWithTag("learn:stage:stage-01-fundamentals").performScrollTo().performClick()
+        rule
+            .onNodeWithTag("stageDetail:title")
+            .assertTextContains("1")
+            .assertTextContains("Cube fundamentals")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Heading, Unit))
+        rule
+            .onNodeWithTag("stageDetail:status")
+            .assertTextContains("In progress")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "In progress"))
+        rule
+            .onNodeWithTag("stageDetail:mastery")
+            .assertTextContains("Mastery: 0 of 2 solves · 0 with reduced help")
+        rule.onNodeWithTag("stageDetail:mastery:segment:1").assertExists()
+        rule.onNodeWithTag("stageDetail:mastery:segment:2").assertExists()
+        rule
+            .onNodeWithTag("stageDetail:practice")
+            .assertTextContains("Practice this Stage")
+            .assertIsNotEnabled()
+        rule
+            .onNodeWithTag("stageDetail:skipCheck")
+            .assertTextContains("I already know this")
+            .assertIsEnabled()
+            .performClick()
+        assertEquals(StageId("stage-01-fundamentals"), skipCheckedStage)
+        rule.onNodeWithTag("learn:lesson:lesson-01-01").performScrollTo().assertIsEnabled()
+        rule.onNodeWithTag("learn:lesson:lesson-01-02").performScrollTo().assertIsNotEnabled()
+        rule.onNodeWithTag("learn:lesson:lesson-01-03").performScrollTo().assertIsNotEnabled()
+    }
+
+    @Test
+    fun `tapping a locked Stage opens Stage detail with all Lessons disabled and empty-Lesson Stage shows note`() {
+        val shipped = ContentLoader.load(ContentSource.SHIPPED)
+        launch(shipped)
+        rule.onNodeWithTag("learn:stage:stage-02-first-cross").performScrollTo().performClick()
+        rule.onNodeWithTag("stageDetail").assertExists()
+        rule.onNodeWithTag("nav:bar").assertExists()
+        rule.onNodeWithTag("stageDetail:status").assertTextContains("Locked")
+        rule.onNodeWithTag("stageDetail:practice").assertIsNotEnabled()
+        rule.onNodeWithTag("stageDetail:skipCheck").assertIsEnabled()
+        (1..5).forEach { n ->
+            rule.onNodeWithTag("learn:lesson:lesson-02-0$n").performScrollTo().assertIsNotEnabled()
+        }
+        rule.onNodeWithTag("stageDetail:back").performClick()
+        rule.onNodeWithTag("stageDetail").assertDoesNotExist()
+        rule.onNodeWithTag("learn:stage:stage-04-middle-layer").performScrollTo().performClick()
+        rule.onNodeWithTag("stageDetail:noLessons").assertExists()
+        rule.runOnIdle { back.onBackPressed() }
+        rule.onNodeWithTag("stageDetail").assertDoesNotExist()
+        rule.onNodeWithTag("learn:stage:stage-01-fundamentals").assertExists()
+    }
+
+    @Test
+    fun `all six StageStatus values render their exact state text and icon on Learn and Stage detail`() {
+        val shipped = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val ready = CatalogState.Ready(shipped)
+        val stage1 = shipped.stages[0]
+        val stage2 = shipped.stages[1]
+        val stage3 = shipped.stages[2]
+        val stage4 = shipped.stages[3]
+        val stage5 = shipped.stages[4]
+        val events =
+            stage1.lessons.map { ProgressEvent.LessonCompleted(it.id) } +
+                listOf(
+                    ProgressEvent.StageSkippedByCheck(stage2.id),
+                    ProgressEvent.StageSkippedByPlacement(stage3.id),
+                    ProgressEvent.StageUnlocked(stage5.id),
+                )
+        val mastered = setOf(stage4.id)
+        var selectedStage by mutableStateOf<StageId?>(null)
+        rule.setContent {
+            RubikXplorerTheme {
+                LearnScreen(
+                    catalog = ready,
+                    progressEvents = events,
+                    masteredStages = mastered,
+                    selectedStage = selectedStage,
+                    onSelectStage = { selectedStage = it },
+                    onOpen = {},
+                )
+            }
+        }
+        val expectedStatuses =
+            listOf(
+                Triple("stage-01-fundamentals", "Completed", null),
+                Triple("stage-02-first-cross", "Skipped", "◇"),
+                Triple("stage-03-first-layer-corners", "Skipped by placement", "◇"),
+                Triple("stage-04-middle-layer", "Mastered", "◆"),
+                Triple("stage-05-last-layer-orientation", "In progress", null),
+                Triple("stage-06-last-layer-completion", "Locked", null),
+            )
+        expectedStatuses.forEach { (id, status, symbol) ->
+            val rowStatus =
+                rule
+                    .onNodeWithTag("learn:stage:status:$id")
+                    .performScrollTo()
+                    .assertTextContains(status)
+                    .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, status))
+            if (symbol != null) rowStatus.assertTextContains(symbol)
+            rule.onNodeWithTag("learn:stage:$id").performScrollTo().performClick()
+            val detailStatus =
+                rule
+                    .onNodeWithTag("stageDetail:status")
+                    .assertTextContains(status)
+                    .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, status))
+            if (symbol != null) detailStatus.assertTextContains(symbol)
+            rule.onNodeWithTag("stageDetail:back").performClick()
+        }
+    }
+
+    @Test
+    fun `completing Lesson 1 in LessonScreen and tapping Next returns to Stage detail and unlocks Lesson 2`() {
+        val shipped = ContentLoader.load(ContentSource.SHIPPED)
+        val storedRecords = mutableListOf<ProgressRecord>()
+        val progressRepo =
+            object : ProgressRepository {
+                override suspend fun all(): ProgressLoad = ProgressLoad.Found(storedRecords.map { it.event }, storedRecords.toList())
+
+                override suspend fun append(records: List<ProgressRecord>): ProgressSave {
+                    storedRecords += records
+                    return ProgressSave.Saved
+                }
+            }
+        host =
+            SessionHost(
+                TickingClock(),
+                kotlinx.coroutines.Dispatchers.Default
+                    .limitedParallelism(1),
+                preferences = preferences,
+                completeLesson = CompleteLesson(progressRepo),
+                progress = progressRepo,
+            )
+        launch(shipped)
+        rule.onNodeWithTag("learn:stage:stage-01-fundamentals").performClick()
+        rule
+            .onNodeWithTag("learn:lesson:lesson-01-01")
+            .assertIsEnabled()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "In progress"))
+        rule
+            .onNodeWithTag("learn:lesson:lesson-01-02")
+            .assertIsNotEnabled()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Locked"))
+        rule
+            .onNodeWithTag("learn:lesson:lesson-01-03")
+            .assertIsNotEnabled()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Locked"))
+        rule.onNodeWithTag("learn:lesson:lesson-01-01").performClick()
+        rule.waitUntil(5_000) {
+            host.state.value.lesson
+                ?.id
+                ?.value == "lesson-01-01"
+        }
+        runBlocking { host.dispatch { SessionEvent.MoveCommitted(FaceTurn(Face.U, Turn.CLOCKWISE), it) } }
+        rule.waitForIdle()
+        rule
+            .onNodeWithTag("lesson:next")
+            .performScrollTo()
+            .assertIsEnabled()
+            .performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("stageDetail").assertExists()
+        rule
+            .onNodeWithTag("learn:lesson:lesson-01-01")
+            .performScrollTo()
+            .assertIsEnabled()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Completed"))
+        rule
+            .onNodeWithTag("learn:lesson:lesson-01-02")
+            .performScrollTo()
+            .assertIsEnabled()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "In progress"))
+        rule
+            .onNodeWithTag("learn:lesson:lesson-01-03")
+            .performScrollTo()
+            .assertIsNotEnabled()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Locked"))
+    }
+
+    @Test
+    fun `Stage detail survives saved-state restoration and tab switching`() {
+        val restoration = StateRestorationTester(rule)
+        launch(ContentLoader.load(ContentSource.SHIPPED), restoration = restoration)
+        rule.onNodeWithTag("learn:stage:stage-01-fundamentals").performClick()
+        rule.onNodeWithTag("stageDetail").assertExists()
+        rule.onNodeWithTag("nav:solve").performClick()
+        rule.onNodeWithTag("toolbar:undo").assertExists()
+        rule.onNodeWithTag("nav:learn").performClick()
+        rule.onNodeWithTag("stageDetail").assertExists()
+        restoration.emulateSavedInstanceStateRestore()
+        rule.waitForIdle()
+        rule.onNodeWithTag("stageDetail").assertExists()
+        rule.onNodeWithTag("stageDetail:title").assertTextContains("Cube fundamentals")
     }
 }
