@@ -19,7 +19,9 @@ import dev.rubikxplorer.application.session.SessionSnapshot
 import dev.rubikxplorer.application.session.SessionState
 import dev.rubikxplorer.application.session.Transition
 import dev.rubikxplorer.application.session.reduce
+import dev.rubikxplorer.application.usecase.CompleteLesson
 import dev.rubikxplorer.domain.content.ContentBundle
+import dev.rubikxplorer.domain.content.Stage
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -47,6 +49,7 @@ class SessionHost internal constructor(
     private val writer: SerialWriter? = null,
     private val checkpoints: CheckpointRepository? = null,
     private val preferences: PreferenceStore? = null,
+    private val completeLesson: CompleteLesson? = null,
     /** Sees every event this host reduced, in order; tests use it to observe events that change no state. */
     private val reduced: (SessionEvent) -> Unit = {},
 ) {
@@ -57,8 +60,17 @@ class SessionHost internal constructor(
         writer: SerialWriter,
         checkpoints: CheckpointRepository,
         preferences: PreferenceStore,
+        completeLesson: CompleteLesson,
     ) :
-        this(clock, Dispatchers.Default.limitedParallelism(1), repository, writer, checkpoints = checkpoints, preferences = preferences)
+        this(
+            clock,
+            Dispatchers.Default.limitedParallelism(1),
+            repository,
+            writer,
+            checkpoints = checkpoints,
+            preferences = preferences,
+            completeLesson = completeLesson,
+        )
 
     constructor(clock: Clock) : this(clock, Dispatchers.Default.limitedParallelism(1))
 
@@ -66,6 +78,7 @@ class SessionHost internal constructor(
     private val restoring = Mutex()
     private var sessionId = ""
     private var contentRevision: String? = null
+    private var stages: List<Stage> = emptyList()
 
     /** The open attempt's id; confined like [sessionId]. */
     private var attemptId: String? = null
@@ -82,6 +95,10 @@ class SessionHost internal constructor(
      * screens. A cancelled attempt (the shell left composition mid-read) stays open for the next call.
      */
     suspend fun restore(bundle: ContentBundle) {
+        withContext(confined) {
+            contentRevision = bundle.contentRevision
+            stages = bundle.stages
+        }
         restoring.withLock {
             if (restored.isCompleted) return
             try {
@@ -96,7 +113,10 @@ class SessionHost internal constructor(
     }
 
     private suspend fun restoreLatest(bundle: ContentBundle) {
-        withContext(confined) { contentRevision = bundle.contentRevision }
+        withContext(confined) {
+            contentRevision = bundle.contentRevision
+            stages = bundle.stages
+        }
         val loaded =
             try {
                 writer?.read { repository?.latest() }
@@ -118,12 +138,19 @@ class SessionHost internal constructor(
 
     /** End playback, then read the Lesson Checkpoint after all queued writes. */
     suspend fun endSolve(bundle: ContentBundle) {
+        withContext(confined) {
+            contentRevision = bundle.contentRevision
+            stages = bundle.stages
+        }
         dispatch { SessionEvent.SolvePlaybackEnded(it) }
         if (!state.value.isActive) resumeCheckpoint(bundle)
     }
 
     private suspend fun resumeCheckpoint(bundle: ContentBundle) {
-        withContext(confined) { contentRevision = bundle.contentRevision }
+        withContext(confined) {
+            contentRevision = bundle.contentRevision
+            stages = bundle.stages
+        }
         val checkpoint =
             try {
                 writer?.read { checkpoints?.find(SessionKind.LESSON) }
@@ -211,6 +238,28 @@ class SessionHost internal constructor(
                         pendingAttempts = if (saved is SnapshotSave.Failed) batch else emptyList()
                         if (saved is SnapshotSave.Failed) dispatch { SessionEvent.SnapshotSaveFailed(it) }
                     }
+                }
+            }
+            val lesson = transition.state.lesson
+            if (completeLesson != null &&
+                transition.state.kind == SessionKind.LESSON &&
+                lesson != null &&
+                stamped !is SessionEvent.SessionRestored &&
+                stamped !is SessionEvent.CheckpointRestored &&
+                transition.state.objectiveMet &&
+                (!before.objectiveMet || before.lesson?.id != lesson.id)
+            ) {
+                val cube = transition.state.virtual
+                val currentStages = stages
+                val at = stamped.at
+                val currentSessionId = sessionId
+                val currentRevision = transition.state.revision
+                if (writer != null) {
+                    writer.enqueue {
+                        completeLesson.invoke(lesson, cube, currentStages, at, currentSessionId, currentRevision)
+                    }
+                } else {
+                    completeLesson.invoke(lesson, cube, currentStages, at, currentSessionId, currentRevision)
                 }
             }
             transition.effects.filterIsInstance<Effect.PersistCheckpoint>().forEach { effect ->

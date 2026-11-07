@@ -213,3 +213,5 @@ The `checkpoint` table stores versioned Objective boundaries as the Lesson fallb
 The Room v3 `attempt` table records STARTED and ENDED events append-only, keyed by `(session_id, revision)`, in the snapshot transaction.
 
 Preferences live in the single-row Room `preferences` table (schema v4); `UpdatePreference` is its only writer.
+
+Stage progress lives in the append-only Room `progress_event` table (schema v5), written only by `CompleteLesson`, `PassSkipCheck`, `PlaceFromScan`, and `ResetProgress`, with `StageProgress` deriving Stage status purely from the current epoch's events.
