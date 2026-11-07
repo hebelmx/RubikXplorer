@@ -76,6 +76,7 @@ import dev.rubikxplorer.app.ui.theme.Spacing
 import dev.rubikxplorer.application.port.FlagLevel
 import dev.rubikxplorer.application.session.GuidedRecovery
 import dev.rubikxplorer.application.session.SessionEvent
+import dev.rubikxplorer.application.session.SessionKind
 import dev.rubikxplorer.application.session.SessionState
 import dev.rubikxplorer.application.usecase.PlanRecovery
 import dev.rubikxplorer.domain.content.Lesson
@@ -126,6 +127,7 @@ fun LessonScreen(
     planRecovery: PlanRecovery = remember { PlanRecovery() },
     adaptiveAssistance: FlagLevel = FlagLevel.OFF,
     onPracticeNewScramble: () -> Unit = onClose,
+    isPractice: Boolean = false,
 ) {
     val preferenceStore = LocalPreferenceStore.current
     val lesson = entry.lesson
@@ -147,25 +149,43 @@ fun LessonScreen(
             onClose()
         }
     })
-    LaunchedEffect(lesson.id) {
+    LaunchedEffect(lesson.id, lesson.entryState) {
         host.awaitRestored()
         preferenceStore.awaitLoaded()
         if (initialCompleted == null) {
             val epochEvents = StageProgress.currentEpochEvents(host.progressEvents.value)
             initialCompleted = epochEvents.any { it is ProgressEvent.LessonCompleted && it.lessonId == lesson.id }
         }
-        if (host.state.value.lesson
-                ?.id != lesson.id
-        ) {
-            host.dispatch {
-                SessionEvent.LessonStarted(
-                    lesson,
-                    entry.tutorConfig,
-                    it,
-                    adaptiveAssistance != FlagLevel.OFF,
-                    preferenceStore.preferences.value.lastTeachingMode
-                        .takeIf { it in modes } ?: TeachingMode.DEFAULT,
-                )
+        val practicing = isPractice || host.state.value.kind == SessionKind.PRACTICE
+        val shouldStart =
+            if (practicing) {
+                host.state.value.lesson
+                    ?.id != lesson.id || host.state.value.lesson
+                    ?.entryState != lesson.entryState
+            } else {
+                host.state.value.lesson
+                    ?.id != lesson.id
+            }
+        if (shouldStart) {
+            if (practicing) {
+                host.dispatch {
+                    SessionEvent.PracticeStarted(
+                        lesson,
+                        entry.tutorConfig,
+                        it,
+                    )
+                }
+            } else {
+                host.dispatch {
+                    SessionEvent.LessonStarted(
+                        lesson,
+                        entry.tutorConfig,
+                        it,
+                        adaptiveAssistance != FlagLevel.OFF,
+                        preferenceStore.preferences.value.lastTeachingMode
+                            .takeIf { it in modes } ?: TeachingMode.DEFAULT,
+                    )
+                }
             }
         }
     }
@@ -185,7 +205,18 @@ fun LessonScreen(
             val decision = session.decision
             val demonstration = remember(lesson) { (Demonstration.of(lesson) as? DemonstrationResult.Ready)?.demonstration }
             if (session.lesson?.id == lesson.id && decision != null && demonstration != null) {
-                LessonBody(host, session, decision, lesson, demonstration, strings, modes, onClose, adaptiveAssistance == FlagLevel.BETA)
+                LessonBody(
+                    host,
+                    session,
+                    decision,
+                    lesson,
+                    demonstration,
+                    strings,
+                    modes,
+                    onClose,
+                    adaptiveAssistance == FlagLevel.BETA,
+                    isPractice = isPractice,
+                )
             }
         }
         if (showMilestone) {
@@ -249,6 +280,7 @@ private fun LessonBody(
     modes: List<TeachingMode>,
     onClose: () -> Unit,
     beta: Boolean,
+    isPractice: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
     val reduceMotion = rememberReduceMotion()
@@ -304,12 +336,12 @@ private fun LessonBody(
     val pulse = rememberObjectivePulse(decision.satisfied, reduceMotion)
     val mode = session.teachingMode
 
-    val step = stepCard(mode, session, decision, lesson, demonstration, player, strings, beta)
+    val step = stepCard(mode, session, decision, lesson, demonstration, player, strings, beta, isPractice)
     val panel: @Composable (Modifier) -> Unit = { panelModifier ->
         LessonPanel(
             objective = strings.resolve(lesson.objective),
             step = step,
-            modes = modes,
+            modes = if (isPractice || session.kind == SessionKind.PRACTICE) emptyList() else modes,
             mode = mode,
             onModeChange = { chosen -> if (chosen != mode) send { SessionEvent.TeachingModeChanged(chosen, it) } },
             onShowMove = { send(SessionEvent::RevealRequested) },
@@ -495,7 +527,52 @@ private fun stepCard(
     player: DemonstrationPlayerState,
     strings: ContentStrings,
     beta: Boolean,
+    isPractice: Boolean = false,
 ): StepCardContent {
+    if (isPractice || session.kind == SessionKind.PRACTICE) {
+        return StepCardContent(
+            number = 1,
+            count = 1,
+            goal = strings.resolve(lesson.objective),
+            keep = "",
+            watch = "",
+            notice = null,
+            moves = null,
+            objectiveMet = decision.satisfied,
+            feedback = null,
+            diagnosis = null,
+            recoveryPrompt = null,
+            showMeHow = null,
+            showMeHowLabel = "",
+            feedbackMove = session.revision,
+            showMoveControl = false,
+            hint =
+                when (session.shownRung) {
+                    HintRung.NONE -> {
+                        null
+                    }
+
+                    HintRung.CLUE -> {
+                        strings.resolve(HintLadder.clue(lesson, 0))
+                    }
+
+                    HintRung.TARGET -> {
+                        strings.resolve(
+                            dev.rubikxplorer.domain.text
+                                .Text("msg.practice.hint.target"),
+                        )
+                    }
+
+                    HintRung.DEMONSTRATION -> {
+                        null
+                    }
+                },
+            recoveryActions = emptyList(),
+            guidedRecovery = null,
+            assistance = null,
+            isPractice = true,
+        )
+    }
     val index: Int
     val notice: Boolean
     val moves: List<Move>?

@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -33,10 +34,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import dev.rubikxplorer.app.R
+import dev.rubikxplorer.app.content.CatalogEntry
 import dev.rubikxplorer.app.content.CatalogState
 import dev.rubikxplorer.app.content.LessonCatalog
 import dev.rubikxplorer.app.preferences.PreferenceProvider
 import dev.rubikxplorer.app.preferences.PreferenceStore
+import dev.rubikxplorer.app.random.KotlinRandomSource
 import dev.rubikxplorer.app.session.SessionHost
 import dev.rubikxplorer.app.ui.freecube.FreeCubeScreen
 import dev.rubikxplorer.app.ui.freecube.FreeCubeViewModel
@@ -45,7 +48,9 @@ import dev.rubikxplorer.app.ui.settings.SettingsScreen
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.application.port.FeatureFlag
 import dev.rubikxplorer.application.port.FeatureFlags
+import dev.rubikxplorer.application.port.FlagLevel
 import dev.rubikxplorer.application.session.SessionKind
+import dev.rubikxplorer.application.usecase.StagePractice
 import dev.rubikxplorer.domain.content.LessonId
 import dev.rubikxplorer.domain.content.StageId
 import dev.rubikxplorer.domain.tutor.TeachingMode
@@ -80,9 +85,10 @@ fun AppShell(
         remember {
             PreferenceStore()
         },
+    stagePractice: StagePractice = remember { StagePractice(KotlinRandomSource()) },
 ) {
     PreferenceProvider(preferenceStore) {
-        ShellContent(host, catalog, freeCube, showDebugToggles, flags, modifier)
+        ShellContent(host, catalog, freeCube, showDebugToggles, flags, modifier, stagePractice)
     }
 }
 
@@ -94,6 +100,7 @@ private fun ShellContent(
     showDebugToggles: Boolean,
     flags: FeatureFlags,
     modifier: Modifier,
+    stagePractice: StagePractice,
 ) {
     LaunchedEffect(catalog) { catalog.load() }
     val content by catalog.state.collectAsState()
@@ -103,6 +110,8 @@ private fun ShellContent(
     var settings by rememberSaveable { mutableStateOf(false) }
     var selectedStage by rememberSaveable { mutableStateOf<String?>(null) }
     var openLesson by rememberSaveable { mutableStateOf<String?>(null) }
+    var openPractice by rememberSaveable { mutableStateOf<String?>(null) }
+    var practiceEpoch by rememberSaveable { mutableIntStateOf(0) }
     // Held above the Lesson and Settings task flows so closing either returns to the same place in the list.
     val learnScroll = rememberScrollState()
     if (settings) {
@@ -122,13 +131,48 @@ private fun ShellContent(
             onClose = { openLesson = null },
             modifier = modifier,
             adaptiveAssistance = flags.level(FeatureFlag.ADAPTIVE_ASSISTANCE),
-            onPracticeNewScramble = { openLesson = null },
+            onPracticeNewScramble = {
+                openLesson = null
+                openPractice = "stage-07-independent-practice"
+                practiceEpoch++
+            },
+        )
+        return
+    }
+
+    val practiceEntry =
+        remember(openPractice, practiceEpoch, ready) {
+            val stageId = openPractice?.let(::StageId)
+            val stage = stageId?.takeIf { it != StagePractice.STAGE_1_ID }?.let { id -> ready?.bundle?.stages?.firstOrNull { it.id == id } }
+            if (stageId != null && stage != null && ready != null) {
+                val lesson = stagePractice(stageId)
+                CatalogEntry(lesson, stage, ready.bundle.tutorConfig)
+            } else {
+                null
+            }
+        }
+    if (ready != null && practiceEntry != null) {
+        LessonScreen(
+            host = host,
+            entry = practiceEntry,
+            strings = ready.strings,
+            modes = emptyList(),
+            onClose = { openPractice = null },
+            modifier = modifier,
+            adaptiveAssistance = FlagLevel.OFF,
+            onPracticeNewScramble = {
+                openPractice = practiceEntry.stage.id.value
+                practiceEpoch++
+            },
+            isPractice = true,
         )
         return
     }
     // Back from another tab returns to Learn first; back from Stage detail returns to the Stage list before leaving the app.
-    BackHandler(enabled = tab != Tab.LEARN || selectedStage != null) {
-        if (tab != Tab.LEARN) {
+    BackHandler(enabled = tab != Tab.LEARN || selectedStage != null || openPractice != null) {
+        if (openPractice != null) {
+            openPractice = null
+        } else if (tab != Tab.LEARN) {
             tab = Tab.LEARN
         } else {
             selectedStage = null
@@ -154,6 +198,10 @@ private fun ShellContent(
                     selectedStage = selectedStage?.let(::StageId),
                     onSelectStage = { selectedStage = it?.value },
                     onOpen = { openLesson = it.value },
+                    onPracticeStage = { stageId ->
+                        openPractice = stageId.value
+                        practiceEpoch++
+                    },
                     scrollState = learnScroll,
                     // The inset area takes surfaceBase too, not the window background.
                     modifier = destinationModifier.background(RubikTheme.tokens.surfaceBase).safeDrawingPadding(),

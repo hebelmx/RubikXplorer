@@ -197,12 +197,16 @@ data class SessionState internal constructor(
      * from the step's mistakes and [cleanSteps]. Derived, never stored.
      */
     val assistance: AssistanceLevel by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        val config = tutorConfig
-        if (lesson == null || config == null || !adaptiveAssistance || teachingMode == TeachingMode.SHOW_ME) {
-            AssistanceLevel.USUAL
+        if (kind == SessionKind.PRACTICE) {
+            AssistanceLevel.REDUCED
         } else {
-            val level = AdaptivePolicy.level(config.adaptive, stepMistakes[stepIndex] ?: 0, cleanSteps)
-            if (assistanceDismissed[stepIndex] == level) AssistanceLevel.USUAL else level
+            val config = tutorConfig
+            if (lesson == null || config == null || !adaptiveAssistance || teachingMode == TeachingMode.SHOW_ME) {
+                AssistanceLevel.USUAL
+            } else {
+                val level = AdaptivePolicy.level(config.adaptive, stepMistakes[stepIndex] ?: 0, cleanSteps)
+                if (assistanceDismissed[stepIndex] == level) AssistanceLevel.USUAL else level
+            }
         }
     }
 
