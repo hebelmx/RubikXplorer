@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test
 /** AC 1: [AllOf] and [AnyOf] combine children's judgments, progress and preserved pieces. */
 class CombinatorsTest {
     private val stage3 = AllOf(listOf(WhiteCrossSolved, WhiteCornersSolved))
+    private val stage4 = AllOf(listOf(WhiteCrossSolved, WhiteCornersSolved, MiddleLayerSolved))
     private val eitherTurn = AnyOf(listOf(StateReached("R"), StateReached("U")))
     private val mixed = AnyOf(listOf(WhiteCrossSolved, StateReached("R")))
 
@@ -42,6 +43,13 @@ class CombinatorsTest {
         assertTrue(stage3.isSatisfied(CubeState.SOLVED))
         assertEquals(ObjectiveProgress(8, 8), stage3.progress(CubeState.SOLVED))
         assertEquals(8, stage3.preservedPieces(CubeState.SOLVED).size)
+    }
+
+    @Test
+    fun `the Stage 4 composite is 12 of 12 on solved`() {
+        assertTrue(stage4.isSatisfied(CubeState.SOLVED))
+        assertEquals(ObjectiveProgress(12, 12), stage4.progress(CubeState.SOLVED))
+        assertEquals(12, stage4.preservedPieces(CubeState.SOLVED).size)
     }
 
     @Test

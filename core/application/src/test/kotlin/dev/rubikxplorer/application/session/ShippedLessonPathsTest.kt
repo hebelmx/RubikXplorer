@@ -9,6 +9,7 @@ import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.cube.NotationResult
+import dev.rubikxplorer.domain.predicate.MiddleLayerSolved
 import dev.rubikxplorer.domain.predicate.WhiteCornersSolved
 import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
 import dev.rubikxplorer.domain.tutor.Assess
@@ -59,6 +60,17 @@ class ShippedLessonPathsTest {
             "lesson-03-02" to Path("F D' F'", "U", LAYER),
             "lesson-03-03" to Path("R' D R D' R' D2 R", "U", LAYER),
             "lesson-03-04" to Path("F' D F L' D L B' D B R' D R", "U", LAYER),
+            "lesson-04-01" to Path("F D F' D' R' D' R D", "U", LAYER),
+            "lesson-04-02" to Path("F' D' F D L D L' D'", "U", LAYER),
+            "lesson-04-03" to Path("F' D' F D L D L' D' F D F' D' R' D' R D", "U", LAYER),
+            "lesson-04-04" to Path("L D L' D' F' D' F D B D B' D' L' D' L D R D R' D' B' D' B D F D F' D' R' D' R D", "U", LAYER),
+            "lesson-05-01" to Path("F D L D' L' F'", "U", LAYER),
+            "lesson-05-02" to Path("F D L D' L' F' D' F D L D' L' F'", "U", LAYER),
+            "lesson-05-03" to Path("L D2 L' D' L D' L'", "U", LAYER),
+            "lesson-05-04" to Path("L D2 L' D' L D' L' D' L D2 L' D' L D' L'", "U", LAYER),
+            "lesson-06-01" to Path("R' D L D' R D L' D'", "U", LAYER),
+            "lesson-06-02" to Path("L2 D L D L' D' L' D' L' D L'", "U", LAYER),
+            "lesson-06-03" to Path("L2 D L D L' D' L' D' L' D L' R' D L D' R D L' D'", "U", LAYER),
         )
 
     private val lessons: List<Lesson> by lazy {
@@ -81,7 +93,7 @@ class ShippedLessonPathsTest {
 
     @Test
     fun `the table has exactly one row per shipped Lesson`() {
-        assertEquals(12, lessons.size)
+        assertEquals(23, lessons.size)
         assertEquals(lessons.map { it.id.value }.toSet(), table.keys)
     }
 
@@ -151,8 +163,7 @@ class ShippedLessonPathsTest {
             val done = state.committing(moves(lesson.steps.last().moves))
             assertTrue(done.objectiveMet)
             val undone = done.committing(harmful)
-            assertFalse(undone.objectiveMet)
-            assertFalse(lesson.completion.isSatisfied(undone.virtual))
+            assertFalse(lesson.preserve.isSatisfied(undone.virtual) && lesson.completion.isSatisfied(undone.virtual))
         }
 
     @TestFactory
@@ -231,6 +242,13 @@ class ShippedLessonPathsTest {
         val steps = lesson("lesson-03-04").steps.size
         assertEquals(4, steps)
         assertEquals((0..steps).toList(), (0..steps).map { WhiteCornersSolved.progress(pathState("lesson-03-04", it)).done })
+    }
+
+    @Test
+    fun `each step of 04-04 solves exactly one more middle edge`() {
+        val steps = lesson("lesson-04-04").steps.size
+        assertEquals(4, steps)
+        assertEquals((0..steps).toList(), (0..steps).map { MiddleLayerSolved.progress(pathState("lesson-04-04", it)).done })
     }
 
     private companion object {

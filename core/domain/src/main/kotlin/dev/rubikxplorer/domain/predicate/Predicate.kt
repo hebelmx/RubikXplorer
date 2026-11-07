@@ -12,6 +12,11 @@ import kotlinx.serialization.Serializable
  *
  * - `white-cross-solved` → [WhiteCrossSolved] (Stage 2)
  * - `white-corners-solved` → [WhiteCornersSolved] (Stage 3)
+ * - `middle-layer-solved` → [MiddleLayerSolved] (Stage 4)
+ * - `last-layer-cross-solved` → [LastLayerCrossSolved] (Stage 5)
+ * - `last-layer-oriented` → [LastLayerOriented] (Stage 5)
+ * - `last-layer-corners-placed` → [LastLayerCornersPlaced] (Stage 6)
+ * - `cube-solved` → [CubeSolved] (Stage 6)
  * - `state-reached` (`moves`) → [StateReached] (Stage 1 Notation exercises)
  * - `white-piece-solved` (`piece`) → [WhitePieceSolved] (one white-layer edge or corner, a step's `done`)
  * - `nothing` → [AlwaysTrue] (a Lesson `preserve` with no earlier solved pieces)

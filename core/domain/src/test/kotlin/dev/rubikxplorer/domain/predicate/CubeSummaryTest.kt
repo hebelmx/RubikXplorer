@@ -31,7 +31,16 @@ class CubeSummaryTest {
     }
 
     @Test fun `leaf progress comes from the predicate`() {
-        listOf(WhiteCrossSolved to "cross", WhiteCornersSolved to "corners", StateReached("U") to "pattern").forEach { (predicate, name) ->
+        listOf(
+            WhiteCrossSolved to "cross",
+            WhiteCornersSolved to "corners",
+            MiddleLayerSolved to "middle-layer",
+            LastLayerCrossSolved to "last-layer-cross",
+            LastLayerOriented to "last-layer-oriented",
+            LastLayerCornersPlaced to "last-layer-corners",
+            CubeSolved to "cube",
+            StateReached("U") to "pattern",
+        ).forEach { (predicate, name) ->
             val cube = state("R F")
             val progress = predicate.progress(cube)
             assertEquals(
@@ -40,6 +49,11 @@ class CubeSummaryTest {
             )
         }
         assertEquals(listOf(Text("msg.cube-summary.pattern-reached")), CubeSummary.of(state("U"), StateReached("U")))
+        assertEquals(listOf(Text("msg.cube-summary.cube-solved")), CubeSummary.of(solved, CubeSolved))
+        assertEquals(listOf(Text("msg.cube-summary.middle-layer-solved")), CubeSummary.of(solved, MiddleLayerSolved))
+        assertEquals(listOf(Text("msg.cube-summary.last-layer-cross-solved")), CubeSummary.of(solved, LastLayerCrossSolved))
+        assertEquals(listOf(Text("msg.cube-summary.last-layer-oriented")), CubeSummary.of(solved, LastLayerOriented))
+        assertEquals(listOf(Text("msg.cube-summary.last-layer-corners-placed")), CubeSummary.of(solved, LastLayerCornersPlaced))
     }
 
     @Test fun `piece names use select identifiers`() {

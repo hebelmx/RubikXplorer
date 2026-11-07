@@ -173,4 +173,6 @@
     <string name="stage_practice">Practice this Stage</string>
     <string name="stage_skip_check">I already know this</string>
     <string name="stage_no_lessons">Practice on a fresh scramble in this Stage.</string>
+    <string name="milestone_practice">Practice on a new scramble</string>
+    <string name="milestone_continue">Continue</string>
 </resources>

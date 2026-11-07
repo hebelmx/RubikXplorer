@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-29-2026 12:34
-last_updated: 11-07-2026 01:51
+last_updated: 11-07-2026 08:15
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -99,7 +99,7 @@ development_status:
   epic-7: in-progress
   7-1-stage-progress-log-and-gating: done
   7-2-learn-tab-and-stage-detail: done
-  7-3-author-stages-4-6-to-a-first-solve: backlog
+  7-3-author-stages-4-6-to-a-first-solve: done
   7-4-independent-practice-on-a-fresh-scramble: backlog
   7-5-mastery-condition-and-milestone: backlog
   7-6-progress-on-the-you-tab-with-reset: backlog

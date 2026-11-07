@@ -511,7 +511,7 @@ class AppShellTest {
         }
         rule.onNodeWithTag("stageDetail:back").performClick()
         rule.onNodeWithTag("stageDetail").assertDoesNotExist()
-        rule.onNodeWithTag("learn:stage:stage-04-middle-layer").performScrollTo().performClick()
+        rule.onNodeWithTag("learn:stage:stage-07-independent-practice").performScrollTo().performClick()
         rule.onNodeWithTag("stageDetail:noLessons").assertExists()
         rule.runOnIdle { back.onBackPressed() }
         rule.onNodeWithTag("stageDetail").assertDoesNotExist()

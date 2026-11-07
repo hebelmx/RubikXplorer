@@ -47,6 +47,26 @@ object CubeSummary {
                 progress(state, predicate, "msg.cube-summary.corners-solved", "msg.cube-summary.corners-progress")
             }
 
+            MiddleLayerSolved -> {
+                progress(state, predicate, "msg.cube-summary.middle-layer-solved", "msg.cube-summary.middle-layer-progress")
+            }
+
+            LastLayerCrossSolved -> {
+                progress(state, predicate, "msg.cube-summary.last-layer-cross-solved", "msg.cube-summary.last-layer-cross-progress")
+            }
+
+            LastLayerOriented -> {
+                progress(state, predicate, "msg.cube-summary.last-layer-oriented", "msg.cube-summary.last-layer-oriented-progress")
+            }
+
+            LastLayerCornersPlaced -> {
+                progress(state, predicate, "msg.cube-summary.last-layer-corners-placed", "msg.cube-summary.last-layer-corners-progress")
+            }
+
+            CubeSolved -> {
+                progress(state, predicate, "msg.cube-summary.cube-solved", "msg.cube-summary.cube-progress")
+            }
+
             is StateReached -> {
                 progress(state, predicate, "msg.cube-summary.pattern-reached", "msg.cube-summary.pattern-progress")
             }
