@@ -136,7 +136,7 @@ class SessionHostProgressTest {
 
                 // Prior events remain intact in the Room database (append-only).
                 val allInDb = (progressRepo.all() as ProgressLoad.Found).events
-                assertTrue(allInDb.size > postResetEvents.size || allInDb.containsAll(events))
+                assertTrue(allInDb.containsAll(events))
             } finally {
                 writer.close()
                 db.close()

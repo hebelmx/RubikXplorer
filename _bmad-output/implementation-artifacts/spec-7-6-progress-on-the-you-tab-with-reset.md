@@ -5,7 +5,7 @@ created: '2026-11-07'
 status: 'done'
 baseline_revision: '1b37411d5d0f2af9b09131bde26091c85371d53f'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-7-context.md'
   - '{project-root}/_bmad-output/implementation-artifacts/spec-7-2-learn-tab-and-stage-detail.md'
@@ -97,7 +97,7 @@ deferred: []
 
 ## Review Triage Log
 
-### 2026-11-07 — Review pass
+### 2026-11-07 — Review pass 1
 - verdicts: 14 findings — high 0, medium 2, low 9, false 3, maybe-false 0
 - findings:
   - `[medium]` `[patch]` Unverified TrendRow integration on StageDetailScreen — patched `AppShellTest.kt` with assertions verifying that when Stage 2 detail is open with attempt records, `stageDetail:trend` is displayed and shows the attempt count.
@@ -114,6 +114,22 @@ deferred: []
   - `[low]` `[patch]` Missing Stage number and layout divergence on the You tab — patched `YouScreen.kt` to display 1-based stage numbers in `data` style before each stage title.
   - `[low]` `[patch]` Unlabelled trend data in StageDetailScreen — patched `LearnScreen.kt` to pass `label = stringResource(R.string.stage_trend_label)` and `Modifier.testTag("stageDetail:trend")` to `TrendRow`.
   - `[low]` `[patch]` Silent empty state when catalog fails to load in YouScreen — patched `YouScreen.kt` to render `Message(R.string.learn_error, "you:error")` when `catalog is CatalogState.Failed`.
+
+### 2026-11-07 — Review pass 2 (Follow-up pass)
+- verdicts: 12 findings — high 0, medium 0, low 8, false 4, maybe-false 0
+- findings:
+  - `[low]` `[reject]` TalkBack content description pluralization in strings.xml — rejected; plural branching adds complexity for an everyday cosmetic text string.
+  - `[false]` `[reject]` Stage matching definition discrepancy between StageTrendCalculator and Mastery — refuted; StageTrendCalculator intentionally includes all attempts in the stage per spec design notes, whereas Mastery measures completion of the stage milestone.
+  - `[low]` `[patch]` carried: Active session, checkpoint, and navigation state not invalidated on progress reset — selectedStage = null cleared on reset in pass 1.
+  - `[low]` `[reject]` Accessibility semantics in TrendRow (missing mergeDescendants) — rejected; merging descendants would break child testTags and direct exploration of attempt count.
+  - `[false]` `[reject]` Hardcoded testTag chaining in DotSparkline defeats caller customization — refuted; Compose semantics retains both tags and onNodeWithTag("you:stage:sparkline:...") resolves correctly.
+  - `[low]` `[patch]` Contrast failure for empty sparkline baseline in dark theme — patched DotSparkline.kt to use tokens.hairline instead of inkSecondary at 20% alpha.
+  - `[false]` `[reject]` Missing loading state in YouScreen — refuted; intentional architectural parity with LearnScreen where CatalogState.Loading intentionally renders empty while local JSON loads.
+  - `[low]` `[reject]` Unconstrained sparkline width on wide screens and tablets — rejected; DESIGN.md specifies standard flexible row layout with no width cap.
+  - `[false]` `[reject]` Disjointed hairline line segments in DotSparkline — refuted; circles drawn at each vertex with radius 2.5dp/4.5dp fully occlude line endpoints and vertex joins, preventing any gaps.
+  - `[low]` `[reject]` Silent drop of reset failure in AppShell — rejected; DB failures return false without altering state, and no toast/snackbar UI is specified in DESIGN.md.
+  - `[low]` `[patch]` Tautological assertion in SessionHostProgressTest — patched SessionHostProgressTest.kt by removing redundant size disjunction, asserting allInDb.containsAll(events) directly.
+  - `[low]` `[reject]` High-contrast styling for attempt counts on locked stages — rejected; DESIGN.md specifies attempt count in data style beside sparkline without dimming parameters.
 
 ## Design Notes
 
@@ -154,23 +170,22 @@ deferred: []
   - `core/domain/src/test/kotlin/dev/rubikxplorer/domain/tutor/StageTrendTest.kt` — Unit tests for domain trend calculation and epoch isolation.
   - `core/application/src/main/kotlin/dev/rubikxplorer/application/session/AttemptRecord.kt` — Added `override` to `hints` property to implement `MasteryAttempt`.
   - `app/src/main/kotlin/dev/rubikxplorer/app/session/SessionHost.kt` — Added `resetProgress()` executing `ResetProgress` use case.
-  - `app/src/main/kotlin/dev/rubikxplorer/app/ui/trend/DotSparkline.kt` — Canvas sparkline drawing dots in `ink-secondary` with latest point emphasized.
+  - `app/src/main/kotlin/dev/rubikxplorer/app/ui/trend/DotSparkline.kt` — Canvas sparkline drawing dots in `ink-secondary` with latest point emphasized (and `hairline` empty baseline).
   - `app/src/main/kotlin/dev/rubikxplorer/app/ui/trend/TrendRow.kt` — Reusable trend row with sparkline and attempt count in `data`.
   - `app/src/main/kotlin/dev/rubikxplorer/app/ui/shell/YouScreen.kt` — Full You tab implementation showing stage status badges and trend rows.
   - `app/src/main/kotlin/dev/rubikxplorer/app/ui/shell/LearnScreen.kt` — Embedded `TrendRow` into `StageDetailScreen`.
   - `app/src/main/kotlin/dev/rubikxplorer/app/ui/settings/SettingsScreen.kt` — Added reset progress action and confirmation dialog.
   - `app/src/main/kotlin/dev/rubikxplorer/app/ui/shell/AppShell.kt` — Wired `content`, `progressEvents`, `attemptRecords`, and `onResetProgress`.
   - `app/src/main/res/values/strings.xml` — Localized strings for reset progress dialog and trend descriptions.
-  - `app/src/test/kotlin/dev/rubikxplorer/app/data/SessionHostProgressTest.kt` — Test for SessionHost progress reset and state refresh.
+  - `app/src/test/kotlin/dev/rubikxplorer/app/data/SessionHostProgressTest.kt` — Test for SessionHost progress reset and state refresh (cleaned tautological disjunction).
   - `app/src/test/kotlin/dev/rubikxplorer/app/ui/settings/SettingsScreenTest.kt` — Tests for reset progress confirmation, dismissal, and preference preservation.
   - `app/src/test/kotlin/dev/rubikxplorer/app/ui/shell/YouScreenTest.kt` — Tests for You tab stages, badges, trend rows, attempt counts, and sparklines.
   - `app/src/test/kotlin/dev/rubikxplorer/app/ui/shell/AppShellTest.kt` — Integration test for stage detail trend row display.
 - **Review Findings Breakdown:**
-  - 11 patches applied: 2 medium verification gaps (`AppShellTest` stage detail trend assertion, `YouScreenTest` epoch isolation test), 9 low quality and accessibility improvements (DotSparkline windowing, minimum scale ceiling, muted empty baseline, TrendRow semantics, clean testTag chaining, 1-based stage numbers in YouScreen, stage detail trend label and tag, AppShell selectedStage reset, YouScreen catalog failed error message).
-  - 0 items deferred.
-  - 3 rejected findings: Algorithm Statuses omission in reset copy (refuted: Algorithm Statuses belong to Epic 9 and do not exist yet; AC explicitly specifies Stages and attempts), SerialWriter.read usage for reset use case (refuted: SerialWriter.read is the designated suspend method for synchronously executing work on the serial queue and returning the result), refreshProgressAfterWrite direct DB read (refuted: prevents channel self-deadlock established in Story 7.5).
+  - Pass 1: 11 patches applied (2 medium verification gaps in AppShellTest and YouScreenTest, 9 low quality improvements); 3 rejected findings (Algorithm Statuses copy, SerialWriter.read usage, direct DB read).
+  - Pass 2 (Follow-up pass): 2 low patches applied (DotSparkline baseline contrast using `tokens.hairline`, SessionHostProgressTest tautological disjunction removal); 1 carried patch (active session and navigation state invalidation on reset); 4 refuted findings (Stage matching discrepancy with Mastery, testTag chaining in DotSparkline, missing Loading state in YouScreen, disjointed hairline line segments in DotSparkline); 5 rejected low findings (TalkBack pluralization branching, mergeDescendants in TrendRow, unconstrained sparkline width on tablets, silent drop of reset failure, high-contrast attempt count styling on locked stages). 0 items deferred.
 - **Follow-up Review Recommendation:**
-  - `true` — 2 medium findings patched in pass 1 (`AppShellTest` stage detail trend integration and `YouScreenTest` epoch isolation assertion). While all tests passed clean, follow-up review is recommended per protocol for first-pass runs patching two or more medium findings.
+  - `false` — Follow-up review pass 2 converged cleanly with 0 high and 0 medium findings; only 2 low refinements patched, satisfying convergence criteria.
 - **Verification Performed:**
   - `./gradlew :core:domain:test` — passed clean.
   - `./gradlew checkLearnerText` — passed clean.

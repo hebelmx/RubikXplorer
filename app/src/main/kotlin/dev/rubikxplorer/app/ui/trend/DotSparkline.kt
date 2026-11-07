@@ -35,7 +35,7 @@ fun DotSparkline(
         if (hintCounts.isEmpty()) {
             val y = size.height - paddingY
             drawLine(
-                color = tokens.inkSecondary.copy(alpha = 0.2f),
+                color = tokens.hairline,
                 start = Offset(paddingX, y),
                 end = Offset(size.width - paddingX, y),
                 strokeWidth = 1.dp.toPx(),
