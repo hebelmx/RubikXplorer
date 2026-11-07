@@ -122,6 +122,21 @@ class SessionHostProgressTest {
                 restoredHost.restore(bundle)
                 restoredHost.awaitRestored()
                 assertEquals(events, restoredHost.progressEvents.value)
+
+                // resetProgress appends a ProgressReset event and resets current-epoch stage statuses.
+                val resetSuccess = restoredHost.resetProgress()
+                assertTrue(resetSuccess)
+                writer.flush()
+                val postResetEvents = restoredHost.progressEvents.value
+                assertTrue(postResetEvents.any { it is ProgressEvent.ProgressReset && it.epoch == 1L })
+                val postResetStatuses = StageProgress.statuses(bundle.stages, postResetEvents)
+                assertEquals(StageStatus.IN_PROGRESS, postResetStatuses[stage1.id])
+                assertEquals(StageStatus.LOCKED, postResetStatuses[stage2.id])
+                assertEquals(StageStatus.LOCKED, postResetStatuses[stage3.id])
+
+                // Prior events remain intact in the Room database (append-only).
+                val allInDb = (progressRepo.all() as ProgressLoad.Found).events
+                assertTrue(allInDb.size > postResetEvents.size || allInDb.containsAll(events))
             } finally {
                 writer.close()
                 db.close()

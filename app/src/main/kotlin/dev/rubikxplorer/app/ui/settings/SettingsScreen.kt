@@ -42,10 +42,12 @@ import dev.rubikxplorer.application.preference.ThemeChoice
 @Composable
 fun SettingsScreen(
     onClose: () -> Unit,
+    onResetProgress: () -> Unit = {},
     store: PreferenceStore = LocalPreferenceStore.current,
 ) {
     val prefs by store.preferences.collectAsState()
     var confirm by rememberSaveable { mutableStateOf(false) }
+    var confirmProgress by rememberSaveable { mutableStateOf(false) }
     BackHandler(onBack = onClose)
     val tokens = RubikTheme.tokens
     CompositionLocalProvider(LocalContentColor provides tokens.inkPrimary) {
@@ -97,6 +99,11 @@ fun SettingsScreen(
             TextButton(onClick = {
                 confirm = true
             }, modifier = Modifier.heightIn(min = 48.dp).testTag("settings:reset")) { Text(stringResource(R.string.settings_reset)) }
+            TextButton(onClick = {
+                confirmProgress = true
+            }, modifier = Modifier.heightIn(min = 48.dp).testTag("settings:resetProgress")) {
+                Text(stringResource(R.string.settings_reset_progress))
+            }
         }
     }
     if (confirm) {
@@ -122,6 +129,38 @@ fun SettingsScreen(
                     onClick = { confirm = false },
                     modifier = Modifier.heightIn(min = 48.dp).testTag("settings:cancel"),
                 ) { Text(stringResource(R.string.dialog_cancel)) }
+            },
+        )
+    }
+    if (confirmProgress) {
+        AlertDialog(
+            onDismissRequest = { confirmProgress = false },
+            title = { Text(stringResource(R.string.settings_reset_progress)) },
+            text = { Text(stringResource(R.string.settings_reset_progress_description)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onResetProgress()
+                        confirmProgress = false
+                    },
+                    modifier =
+                        Modifier
+                            .heightIn(min = 48.dp)
+                            .testTag("settings:resetProgress:confirm"),
+                ) {
+                    Text(stringResource(R.string.settings_reset_progress_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { confirmProgress = false },
+                    modifier =
+                        Modifier
+                            .heightIn(min = 48.dp)
+                            .testTag("settings:resetProgress:cancel"),
+                ) {
+                    Text(stringResource(R.string.dialog_cancel))
+                }
             },
         )
     }
