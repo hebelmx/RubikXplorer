@@ -344,6 +344,29 @@ class FreeCubeScreenTest {
     }
 
     @Test(timeout = 120_000)
+    fun `undo and redo animate on the frame clock rather than snapping`() {
+        launch()
+        tap(move(Face.R))
+        rule.waitForIdle()
+        rule.mainClock.autoAdvance = false
+        toolbar("undo").performClick()
+        rule.mainClock.advanceTimeBy(50)
+        assertNotEquals("undo animates rather than jumping", CubeState.SOLVED.toFacelets(), viewModel.renderer.renderedFacelets())
+        rule.mainClock.advanceTimeBy(200)
+        assertEquals(CubeState.SOLVED.toFacelets(), viewModel.renderer.renderedFacelets())
+
+        toolbar("redo").performClick()
+        rule.mainClock.advanceTimeBy(50)
+        assertNotEquals(
+            "redo animates rather than jumping",
+            CubeState.SOLVED.apply(move(Face.R)).toFacelets(),
+            viewModel.renderer.renderedFacelets(),
+        )
+        rule.mainClock.advanceTimeBy(200)
+        assertEquals(CubeState.SOLVED.apply(move(Face.R)).toFacelets(), viewModel.renderer.renderedFacelets())
+    }
+
+    @Test(timeout = 120_000)
     fun `a burst passes through every intermediate state in order, fast-forwarded`() {
         launch()
         rule.waitForIdle()
@@ -604,6 +627,28 @@ class FreeCubeScreenTest {
         assertEquals(expected, viewModel.history.state)
         assertEquals(listOf(HapticFeedbackType.KeyboardTap), ticks)
         rule.waitForIdle()
+        assertRenderedMatchesState()
+    }
+
+    @Test
+    fun `gesture and equal Move key produce identical reducer transitions at the screen`() {
+        launch()
+        rule.waitForIdle()
+        val initial = viewModel.state
+        drag()
+        rule.waitForIdle()
+        val gestureState = viewModel.state
+        val gestureChange = viewModel.lastChange
+        val gestureDrawing = viewModel.renderer.renderedFacelets()
+        toolbar("reset").performClick()
+        rule.waitForIdle()
+        val keyInitial = viewModel.state
+        tap(move(Face.U))
+        rule.waitForIdle()
+        assertEquals(gestureState.history, viewModel.state.history)
+        assertEquals(gestureState.revision - initial.revision, viewModel.state.revision - keyInitial.revision)
+        assertEquals(gestureChange, viewModel.lastChange)
+        assertEquals(gestureDrawing, viewModel.renderer.renderedFacelets())
         assertRenderedMatchesState()
     }
 
