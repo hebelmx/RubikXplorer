@@ -62,6 +62,20 @@ class ShippedContentTest {
     }
 
     @Test
+    fun `Stage 6 first-solve prompt ships a camera-free and a camera variant`() {
+        // Story 8.7: CAMERA_SCAN off (v1.0) picks the camera-free copy; BETA/GA pick the camera copy.
+        assertEquals(
+            "Your cube should be solved now. Compare it with the picture, then tell me if it is.",
+            bundle.strings["msg.physical.first-solve-prompt"],
+        )
+        assertEquals(
+            "Your cube should be solved now. Check it with the camera, or tell me if it is.",
+            bundle.strings["msg.physical.first-solve-prompt-camera"],
+        )
+        assertFalse("camera" in bundle.strings.getValue("msg.physical.first-solve-prompt").lowercase())
+    }
+
+    @Test
     fun `every CubeValidator reason resolves, with calm copy`() {
         val reasons =
             listOf(

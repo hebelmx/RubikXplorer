@@ -13,7 +13,6 @@ Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual o
 - Never hand-edit `prd.md` or `ARCHITECTURE-SPINE.md` (status: final); change them through `bmad-prd` / `bmad-architecture` update or `bmad-correct-course`.
 - Never edit a `.memlog.md` by hand; append with `uv run _bmad/scripts/memlog.py append`.
 - Never add the `INTERNET` permission, backup, or any analytics/ads/crash SDK — NFR-8 promises "no data collected" (AD-13).
-- Never add a runtime permission to the release manifest in v1.0, `CAMERA` included — v1.0 is camera-free (AD-13); camera code stays in debug-only source sets such as `app/src/spikeScan/`.
 - Never copy third-party solver code; `:core:solver` is a clean-room Kociemba implementation (min2phase is GPLv3-only).
 
 ## Where things are

@@ -178,6 +178,7 @@ private fun ShellContent(
             onClose = { openLesson = null },
             modifier = modifier,
             adaptiveAssistance = flags.level(FeatureFlag.ADAPTIVE_ASSISTANCE),
+            cameraScan = flags.level(FeatureFlag.CAMERA_SCAN),
             onPracticeNewScramble = {
                 openLesson = null
                 openPractice =
@@ -215,6 +216,7 @@ private fun ShellContent(
             onClose = { openPractice = null },
             modifier = modifier,
             adaptiveAssistance = FlagLevel.OFF,
+            cameraScan = flags.level(FeatureFlag.CAMERA_SCAN),
             onPracticeNewScramble = {
                 openPractice = practiceEntry.stage.id.value
                 practiceEpoch++
@@ -274,6 +276,7 @@ private fun ShellContent(
             },
             modifier = modifier,
             adaptiveAssistance = FlagLevel.OFF,
+            cameraScan = flags.level(FeatureFlag.CAMERA_SCAN),
             stages = ready.bundle.stages,
             isSkipCheck = true,
             skipCheckInstruction = stringResource(R.string.skip_check_instruction),

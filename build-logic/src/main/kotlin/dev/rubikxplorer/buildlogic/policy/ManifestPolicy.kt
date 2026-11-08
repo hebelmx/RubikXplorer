@@ -7,15 +7,22 @@ import javax.xml.XMLConstants
 import javax.xml.parsers.DocumentBuilderFactory
 
 /**
- * AD-13 rules for a merged `AndroidManifest.xml`: offline (no `INTERNET`), `CAMERA` as the only
- * runtime (dangerous) permission, and no backup.
+ * AD-13 rules for a merged `AndroidManifest.xml`: offline (no `INTERNET`), no backup, and only the
+ * runtime (dangerous) permissions the build type allows — none for `release` (v1.0 is camera-free)
+ * and any other non-debug build type such as `benchmark`; `debug` may declare `CAMERA` (the
+ * debug-only `spikeScan` source set).
  */
 object ManifestPolicy {
     private const val ANDROID_NS = "http://schemas.android.com/apk/res/android"
 
     const val INTERNET = "android.permission.INTERNET"
 
-    val allowedRuntimePermissions: Set<String> = setOf("android.permission.CAMERA")
+    const val CAMERA = "android.permission.CAMERA"
+
+    private const val DEBUG_BUILD_TYPE = "debug"
+
+    /** Runtime permissions a variant of [buildType] may declare: `CAMERA` for `debug`, none otherwise. */
+    fun allowedRuntimePermissions(buildType: String?): Set<String> = if (buildType == DEBUG_BUILD_TYPE) setOf(CAMERA) else emptySet()
 
     /**
      * Android permissions with `protectionLevel="dangerous"` (runtime permissions).
@@ -74,8 +81,14 @@ object ManifestPolicy {
 
     fun isRuntimePermission(name: String): Boolean = name in dangerousPermissions || name.startsWith(HEALTH_PERMISSION_PREFIX)
 
-    /** Returns one violation per broken rule; empty when the manifest satisfies AD-13. */
-    fun check(manifestXml: String): List<String> {
+    /**
+     * Returns one violation per broken rule; empty when the manifest satisfies AD-13. Any runtime
+     * permission not in [allowedRuntimePermissions] is a violation.
+     */
+    fun check(
+        manifestXml: String,
+        allowedRuntimePermissions: Set<String>,
+    ): List<String> {
         val document =
             DocumentBuilderFactory
                 .newInstance()
@@ -100,9 +113,13 @@ object ManifestPolicy {
                 }
 
                 isRuntimePermission(permission) && permission !in allowedRuntimePermissions -> {
-                    violations +=
-                        "Manifest declares runtime permission $permission; " +
-                        "only ${allowedRuntimePermissions.sorted()} is allowed (AD-13)."
+                    val allowed =
+                        if (allowedRuntimePermissions.isEmpty()) {
+                            "no runtime permission is allowed"
+                        } else {
+                            "only ${allowedRuntimePermissions.sorted()} is allowed"
+                        }
+                    violations += "Manifest declares runtime permission $permission; $allowed (AD-13)."
                 }
             }
         }
