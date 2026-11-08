@@ -48,6 +48,7 @@ import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.application.session.SessionKind
 import dev.rubikxplorer.application.session.SessionState
 import dev.rubikxplorer.application.session.reduce
+import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.playback.MoveNote
@@ -86,6 +87,8 @@ class SolutionPlaybackState private constructor(
         require(session.kind == SessionKind.SOLVE_PLAYBACK) { "not a Solve Playback session: ${session.kind}" }
     }
 
+    private var start: CubeState = session.entry
+
     var session: SessionState by mutableStateOf(session)
         internal set
 
@@ -116,8 +119,20 @@ class SolutionPlaybackState private constructor(
     fun followOnMyCube() {
         if (isPhysical) return
         playback.pause()
-        if (playback.position > 0) {
-            playback.scrubTo(0.0)
+        val expectedPosition =
+            if (size > 0) {
+                (0..size).firstOrNull { index ->
+                    start.apply(solution.take(index)) == session.expected
+                } ?: 0
+            } else {
+                0
+            }
+        if (playback.position != expectedPosition) {
+            if (expectedPosition == 0) {
+                playback.scrubTo(0.0)
+            } else {
+                playback.scrubTo(expectedPosition.toDouble() / size)
+            }
         }
         dispatch(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, clock()))
     }
@@ -158,6 +173,7 @@ class SolutionPlaybackState private constructor(
             ) {
                 playback.pause()
                 playback.scrubTo(0.0)
+                start = newSession.entry
             }
         }
     }

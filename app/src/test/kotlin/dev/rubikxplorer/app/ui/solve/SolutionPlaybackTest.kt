@@ -363,4 +363,68 @@ class SolutionPlaybackTest {
         assertNull(state.session.observed)
         assertEquals(SyncState.PHYSICAL_PREDICTED, state.session.syncState)
     }
+
+    @Test
+    fun `re-entering physical follow after confirmed progress keeps position and expected aligned`() {
+        show()
+        click("followOnMyCube")
+        assertTrue(state.isPhysical)
+        assertEquals(0, state.position)
+        assertEquals(scrambled, state.session.expected)
+
+        // Done x 2 (N = 2)
+        click("done")
+        assertEquals(1, state.position)
+        assertEquals(scrambled.apply(solution.take(1)), state.session.expected)
+
+        click("done")
+        assertEquals(2, state.position)
+        assertEquals(scrambled.apply(solution.take(2)), state.session.expected)
+
+        // Switch to virtual
+        click("switchToVirtual")
+        assertFalse(state.isPhysical)
+        assertEquals(2, state.position)
+        assertEquals(scrambled.apply(solution.take(2)), state.session.expected)
+
+        // Follow again: should keep position and expected aligned (no rewinding to 0)
+        click("followOnMyCube")
+        assertTrue(state.isPhysical)
+        assertEquals(2, state.position)
+        assertEquals(scrambled.apply(solution.take(2)), state.session.expected)
+        tag("counter").assertTextEquals("2 / 3")
+        tag("move").assertTextEquals("R'")
+
+        // Confirm final move to reach solved
+        click("done")
+        assertEquals(3, state.position)
+        assertTrue(state.atEnd)
+        assertEquals(CubeState.SOLVED, state.session.expected)
+        tag("solvedNow").assertTextEquals("Your cube should be solved now.")
+        assertEquals(CubeState.SOLVED.toFacelets(), state.renderer.renderedFacelets())
+    }
+
+    @Test
+    fun `re-entering physical follow after virtual scrub re-aligns position to expected`() {
+        show()
+        click("followOnMyCube")
+        click("done")
+        assertEquals(1, state.position)
+        assertEquals(scrambled.apply(solution.take(1)), state.session.expected)
+
+        click("switchToVirtual")
+        assertFalse(state.isPhysical)
+
+        // User scrubs in virtual mode
+        click("back")
+        assertEquals(0, state.position)
+
+        // Follow again: re-aligns playback position to expected (1)
+        click("followOnMyCube")
+        assertTrue(state.isPhysical)
+        assertEquals(1, state.position)
+        assertEquals(scrambled.apply(solution.take(1)), state.session.expected)
+        tag("counter").assertTextEquals("1 / 3")
+        tag("move").assertTextEquals("U'")
+    }
 }
