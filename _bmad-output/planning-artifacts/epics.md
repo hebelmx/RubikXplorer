@@ -153,26 +153,26 @@ FR-5: Epic 2 — four Teaching Modes
 FR-6: Epic 2 (explained Demonstrations on the net) · Epic 5 (3D arrows and highlights)
 FR-7: Epic 8 — confirm physical Moves, Expected label
 FR-8: Epic 8 — switch modes mid-Lesson
-FR-9: Epic 8 (honest mismatch, no-camera ladder) · Epic 10 (Quick Check rung)
+FR-9: Epic 8 (honest mismatch, no-camera ladder) · Epic 10 (Quick Check rung, v1.1)
 FR-10: Epic 4 — Diagnosis of Error Categories
 FR-11: Epic 4 — Hint Ladder
 FR-12: Epic 4 — retry, undo, Guided recovery
 FR-13: Epic 4 — rule-based adaptive assistance
 FR-14: Epic 1 (`CubeValidator` rules) · Epic 3 (Manual Cube Editor)
 FR-15: Epic 3 — offline Solver
-FR-16: Epic 3 (Solution Playback) · Epic 8 (physical follow-along) · Epic 10 (Quick Check in playback)
+FR-16: Epic 3 (Solution Playback) · Epic 8 (physical follow-along) · Epic 10 (Quick Check in playback, v1.1)
 FR-17: Epic 9 — 2-look LL mini-Course
 FR-18: Epic 9 — Algorithm Library
-FR-19: Epic 6 (snapshots, Checkpoints, attempts, preferences) · Epic 7 (progress reset) · Epic 9 (Algorithm Status) · Epic 10 (calibration reset)
+FR-19: Epic 6 (snapshots, Checkpoints, attempts, preferences) · Epic 7 (progress reset) · Epic 9 (Algorithm Status) · Epic 10 (calibration reset, v1.1)
 FR-20: Epic 7 — Independent practice, mastery, trend
-FR-21: Epic 10 — Guided 6-face Scan
-FR-22: Epic 11 — Quick Scan
-FR-23: Epic 10 — validate and correct a Scan Result
-FR-24: Epic 10 — Color Calibration
-FR-25: Epic 10 — scan to solve
-FR-26: Epic 10 — Quick Check
-FR-27: Epic 11 — Placement
-FR-28: Epic 11 — Case recognition
+FR-21: Epic 10 — Guided 6-face Scan (v1.1)
+FR-22: Epic 11 — Quick Scan (v1.1)
+FR-23: Epic 10 — validate and correct a Scan Result (v1.1)
+FR-24: Epic 10 — Color Calibration (v1.1)
+FR-25: Epic 10 — scan to solve (v1.1)
+FR-26: Epic 10 — Quick Check (v1.1)
+FR-27: Epic 11 — Placement (v1.1)
+FR-28: Epic 11 — Case recognition (v1.1)
 FR-29: not covered — P1, out of MVP scope (deferred in PRD §6.2 and spine Deferred)
 
 NFRs: NFR-1/2 Epics 5, 12 · NFR-3 Epic 3 · NFR-4 Epics 1, 2, 5, 8 · NFR-5/8 Epic 1 (build checks), Epic 12 · NFR-6 Epic 6 · NFR-7 Epics 1, 5, 12 (+ every UI story) · NFR-9/11 Epics 7, 12 · NFR-10 Epic 2 · NFR-12 Epic 1 (gates), all `:core:*` stories · NFR-13 Epic 12 (+ every UI story).
@@ -224,15 +224,11 @@ A Learner can browse and watch all 78 verified OLL/PLL Algorithms, track their o
 **Absorbs:** E11.
 **FRs covered:** FR-17, FR-18, FR-19 (Algorithm Status). **Also:** AR-19, AR-23, UX-DR17.
 
-### Epic 10: Scan my cube (P0.4, weeks 10–12)
-A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check.
-**Absorbs:** E10a (Guided capture + calibration), E10b, E10c (scan to solve, Quick Check).
-**FRs covered:** FR-9 (Quick Check rung), FR-16 (Quick Check in playback), FR-19 (calibration reset), FR-21, FR-23, FR-24, FR-25, FR-26. **Also:** recognition NFRs, NFR-5, NFR-8, AR-13, UX-DR15, UX-DR16, UX-DR19.
+### Epic 10: Scan my cube — deferred to v1.1
+Moved to `post-launch/v1.1-camera-recognition.md` (PO decision 2026-11-08, `sprint-change-proposal-2026-11-08-vision-deferral.md`). Covered FR-21, FR-23 – FR-26, plus the Quick Check rung of FR-9 and FR-16, and the calibration reset of FR-19.
 
-### Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition (P0.5, weeks 13–14)
-A Learner can scan faster from corners, start the Course from their own cube, and ask which OLL/PLL Case they're looking at. These are first on the cut order and ship behind flags.
-**Absorbs:** E10a (Quick Scan), E10c (Placement, Case recognition).
-**FRs covered:** FR-22, FR-27, FR-28. **Also:** AR-18, UX-DR19, UX-DR25.
+### Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition — deferred to v1.1
+Moved to `post-launch/v1.1-camera-recognition.md` (same decision). Covered FR-22, FR-27, FR-28.
 
 ### Epic 12: Release-ready for learners and reviewers (P0.6, weeks 15–16)
 The app meets every release gate. It is accessible, fast and stable on the reference devices, the pilot's findings are fixed, and the store listing and public repo are ready for a hiring manager's five-minute look.
@@ -1591,6 +1587,28 @@ So that the moment means something.
 **When** it runs virtual and physical flows with Moves, confirmations, undo, mode switches, pause, kill and resume
 **Then** there is zero silent desync between `virtual`, `expected` and the rendered cube
 
+### Story 8.7: Camera-free Stage 6 prompt
+
+As a Learner on a real cube without camera support,
+I want the end-of-Stage-6 prompt to ask only for what the app can use,
+So that it never promises a camera check that doesn't exist.
+
+**Refs:** FR-7, FR-26 · NFR-10 · AD-6, AD-18 · UX-DR19, UX-DR20, UX-DR25 · `sprint-change-proposal-2026-11-08-vision-deferral.md`
+
+**Acceptance Criteria:**
+
+**Given** `CAMERA_SCAN` is OFF (the v1.0 release level)
+**When** Stage 6's Objective is met in Physical-cube Mode
+**Then** the panel reads "Your cube should be solved now. Compare it with the picture, then tell me if it is." and offers *Yes, it's solved* and *I did something else*; no camera wording or Quick Check entry appears
+
+**Given** `CAMERA_SCAN` is BETA or GA
+**When** the same happens
+**Then** the camera wording "Your cube should be solved now. Check it with the camera, or tell me if it is." shows
+
+**Given** the two prompt variants
+**When** content tests run
+**Then** both live as content string keys (NFR-10), any duplicate in `strings.xml` is removed or aligned, `ShippedContentTest` covers both, and the 8.6 milestone gating is unchanged
+
 ## Epic 9: Faster last layer and the Algorithm Library
 
 A Learner can browse and watch all 78 verified OLL/PLL Algorithms, track their own Algorithm Status, and take the 2-look LL mini-Course to mastery.
@@ -1743,264 +1761,6 @@ So that I know when to move to the full set.
 **When** the Learner twice solves the LL using only 2-look Algorithms with no hints
 **Then** the mini-Course becomes *Mastered*, the milestone plays; after the first such solve the row reads "Mastery: 1 of 2"
 
-## Epic 10: Scan my cube
-
-A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. P0.4 exit: the Guided Scan meets its accuracy targets on the test matrix, or `CAMERA_SCAN` ships as BETA.
-
-### Story 10.1: Classify stickers and assemble a Scan Result
-
-As a Learner,
-I want stickers read against my own cube's colors with honest uncertainty,
-So that the app flags what it isn't sure of instead of guessing.
-
-**Refs:** FR-21, FR-23, FR-24 · recognition NFRs, NFR-12 · AD-2, AD-5, AD-9 · AR-13
-
-**Acceptance Criteria:**
-
-**Given** `FaceSample` fixtures from the Story 1.9 matrix
-**When** `StickerClassifier` (calibration as a parameter) and `ScanAssembler` run on the JVM
-**Then** they produce `ScanResult.Full(Facelets + StickerConfidence)` or `Partial`, rotating samples into URFDLB order using center and up-neighbor colors
-
-**Given** the fixture suite
-**When** accuracy is reported
-**Then** per-sticker and per-scan accuracy and the confidently-wrong rate (target ≤ 0.1%) are printed, and only categorical confidence leaves the module
-
-### Story 10.2: Guided 6-face Scan viewfinder
-
-As a Learner,
-I want the camera to guide me face by face and capture on its own,
-So that scanning is quick even for a beginner.
-
-**Refs:** FR-21, FR-23 · NFR-5, NFR-8 · AD-9, AD-13, AD-18 · AR-13 · UX-DR15, UX-DR19, UX-DR21, UX-DR25 · UX Flows 4, 6
-
-**Acceptance Criteria:**
-
-**Given** the first scan
-**When** the camera permission is requested
-**Then** an explanation shows first; if denied, an explanation card with *Enter colors instead* (and a Settings deep-link when permanently denied) is shown
-
-**Given** the CameraX adapter in `:app/camera`
-**When** the grid is aligned and steady for ~600 ms
-**Then** the face is captured automatically (manual shutter also available), the prompt names the center and up colors with a glyph swatch, and the mini net advances
-
-**Given** a wrong orientation, glare, blur or low light
-**When** detected
-**Then** the Learner is re-prompted with specific coaching ("Too much glare — tilt the cube"), not an error
-
-**Given** frames
-**When** processed
-**Then** they stay in memory, are never persisted or sent, and release logs contain no samples; a debug-only recorder exports `FaceSample` JSON with ground truth
-
-### Story 10.3: Review and correct a Scan Result
-
-As a Learner,
-I want to fix any sticker the camera misread before it's used,
-So that a bad read never reaches the Solver or the tutor.
-
-**Refs:** FR-23, FR-14 · AD-3, AD-9 · AR-13 · UX-DR16, UX-DR22, UX-DR25
-
-**Acceptance Criteria:**
-
-**Given** a scan sub-flow returning `ScanOutcome {Accepted, Cancelled, FellBackToEditor}` through a typed navigation result
-**When** review opens
-**Then** uncertain stickers are pre-selected, corrections use tap-sticker-then-color, and invalid states name the likely bad stickers ("This corner shows two whites.")
-
-**Given** any uncertain sticker unresolved or an invalid state
-**When** the Learner looks at Accept
-**Then** it is disabled
-
-**Given** the scan flow
-**When** it completes
-**Then** only the caller dispatches the result, and the flow never touches a session
-
-### Story 10.4: Calibrate colors for my cube
-
-As a Learner with a stickerless or unusual cube,
-I want to teach the app my cube's colors,
-So that scans read it correctly.
-
-**Refs:** FR-24, FR-19 · AD-9, AD-10 · AR-13, AR-21 · UX-DR25 · UX Flow 9
-
-**Acceptance Criteria:**
-
-**Given** many uncertain stickers in a scan, a first stickerless scan, or Settings
-**When** "Colors look off — calibrate?" or Settings → Color Calibration is chosen
-**Then** each of the six centers is shown in turn, the Learner confirms each swatch, and *Save* calls `UpdateCalibration`
-
-**Given** `CalibrationRepository` as the only owner
-**When** a rescan runs
-**Then** the classifier uses the saved calibration, which is never in `SessionState` or a Checkpoint
-
-**Given** *Reset calibration* in Settings
-**When** confirmed
-**Then** `ResetCalibration` clears only calibration
-
-### Story 10.5: Scan to solve
-
-As a Learner who just wants it solved,
-I want to scan instead of typing colors,
-So that I go from scrambled to solving in under a minute.
-
-**Refs:** FR-25, FR-15, FR-16 · AD-8, AD-9, AD-18 · UX-DR19, UX-DR25 · UX Flow 3
-
-**Acceptance Criteria:**
-
-**Given** the Solve tab
-**When** *Scan my cube* is chosen
-**Then** scan → review → validate → solve → playback runs without leaving the flow, and *Enter colors instead* is always visible
-
-**Given** `CAMERA_SCAN` is BETA
-**When** the Solve tab renders
-**Then** *Enter colors* is the primary action and scan carries the BETA label and tooltip
-
-**Given** camera permission denied from Solve
-**When** the Learner taps *Scan my cube*
-**Then** the Manual Cube Editor opens directly with a one-line note
-
-### Story 10.6: Quick Check evidence and Certainty
-
-As a Learner with a real cube,
-I want a quick photo to confirm what I actually did,
-So that the tutor's verdict is based on evidence.
-
-**Refs:** FR-26, FR-9, FR-10 · recognition NFRs · AD-3, AD-5, AD-9 · AR-9, AR-13
-
-**Acceptance Criteria:**
-
-**Given** a Quick Check of the faces the recent Moves touched (≤ 2 captures [ASSUMPTION])
-**When** it returns a `Partial` observation
-**Then** it is checked for internal consistency only and never completed from `expected`
-
-**Given** `Assess`
-**When** the observed faces cover every face any Move since the last Full verified observation could touch and exactly one candidate fits
-**Then** Certainty is VERIFIED; otherwise LIKELY or UNKNOWN, and a scenario suite yields 0 false *verified*
-
-**Given** a stale result (the Learner confirmed a Move during the scan)
-**When** it arrives
-**Then** it is discarded, and if the Learner started it, "Your cube changed while scanning — scan again?" is offered
-
-### Story 10.7: Quick Check in Physical-cube Mode and playback
-
-As a Learner,
-I want to check my cube at key moments and recover from what the scan shows,
-So that I fix the real problem.
-
-**Refs:** FR-26, FR-9, FR-12, FR-16, FR-8 · AD-3, AD-5 · UX-DR4, UX-DR12, UX-DR13, UX-DR20, UX-DR25 · UX Flows 1, 3, 4
-
-**Acceptance Criteria:**
-
-**Given** physical mode
-**When** an Objective boundary, a Stage milestone or a mismatch report occurs
-**Then** *Quick Check* is offered (never required; *Done* still works), and it is the first rung of the mismatch ladder
-
-**Given** a matching result
-**When** shown
-**Then** a ✓ *Verified* chip and a VERIFIED frame appear until the next *Done*; a mismatch shows the SEEN strip with differing stickers outlined, never a whole cube from a Partial
-
-**Given** a Full observation in mismatch
-**When** *Use my cube as it is now* is chosen
-**Then** `AdoptObserved` replaces the Expected State and starts a Guided recovery; a Partial must first be completed by a Guided Scan or the Editor
-
-**Given** physical Solution Playback or the Stage 6 end
-**When** the Learner runs a Quick Check
-**Then** it is available at any step, and a verified solved cube triggers the first-solve milestone; *Scan it* now appears on the Confirm-your-cube card
-
-### Story 10.8: Recognition test matrix and GA/BETA decision
-
-As the developer,
-I want the scan features measured against their targets before release,
-So that each ships with an honest GA or BETA label.
-
-**Refs:** FR-21, FR-26 · recognition NFRs · AD-14, AD-18 · OQ-8 · PRD §7 gate 6
-
-**Acceptance Criteria:**
-
-**Given** the OQ-8 matrix (cubes × daylight, warm indoor, cool LED, low light × reference devices)
-**When** Guided 6-face Scan and Quick Check are run with recorded ground truth
-**Then** accuracy, corrections, time and confidently-wrong rates are reported against the §4.8 targets
-
-**Given** the results
-**When** a target is missed
-**Then** `CAMERA_SCAN` is set to BETA for release, recorded in the PRD memlog, and every scan flow is verified to have a working manual fallback
-
-## Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition
-
-These are first on the PRD cut order (Quick Scan → beta, then Case recognition, then Placement). Each ships behind its AD-18 flag and can be turned OFF without dead UI.
-
-### Story 11.1: Quick Scan from two corners
-
-As a Learner,
-I want to scan my cube in two photos,
-So that scanning takes seconds.
-
-**Refs:** FR-22, FR-23 · recognition NFRs, NFR-11 · AD-9, AD-18 · OQ-7 · UX-DR15, UX-DR19 · UX Flow 3
-
-**Acceptance Criteria:**
-
-**Given** `QUICK_SCAN` is BETA or GA
-**When** the Learner holds the cube by a corner and captures twice ("1 / 2")
-**Then** the adapter's corner detection and perspective unwarp (method from OQ-7) emit `FaceSample`s, and two opposite-corner captures yield 54 stickers
-
-**Given** faces that are uncertain or an invalid state
-**When** assembly finishes
-**Then** the Guided Scan grid asks for only those faces, never a guessed state
-
-**Given** the test matrix
-**When** Quick Scan is measured
-**Then** it ships GA only at ≥ 95% valid after ≤ 3 corrections and < 15 s, otherwise BETA; its size cost fits NFR-11
-
-### Story 11.2: Start the Course from my cube (Placement)
-
-As a Learner who already knows some steps,
-I want the app to look at my cube and suggest where to start,
-So that I continue from where I really am.
-
-**Refs:** FR-27, FR-4 · AD-6, AD-10, AD-18 · AR-21 · UX-DR19, UX-DR25 · UX Flow 4
-
-**Acceptance Criteria:**
-
-**Given** `PLACEMENT` is BETA or GA
-**When** Welcome → *Start from my cube* (or Recognize's link) scans an accepted Full state
-**Then** `PlaceFromScan` evaluates each Stage Predicate and suggests the first unmet Stage, with *Choose another Stage*
-
-**Given** acceptance
-**When** recorded
-**Then** that Stage unlocks and earlier Stages get `StageSkippedByPlacement` (◇ *Skipped by placement*, never mastered, always revisitable)
-
-**Given** edge outcomes
-**When** the cube is unsolved, has a non-white cross, is at the LL, or is solved
-**Then** the EXPERIENCE.md Placement-outcome copy and options show
-
-**Given** `PLACEMENT` is OFF
-**When** Welcome and Recognize render
-**Then** *Start from my cube* is absent everywhere
-
-### Story 11.3: Recognize an OLL/PLL Case
-
-As a Learner practicing the last layer,
-I want to photograph my top layer and be told which Case it is,
-So that I can look up the right Algorithm.
-
-**Refs:** FR-28, FR-18, FR-27 · recognition NFRs · AD-9, AD-18, AD-19 · UX-DR19, UX-DR25 · UX Flow 5
-
-**Acceptance Criteria:**
-
-**Given** `CASE_RECOGNITION` is BETA or GA
-**When** Library → *Recognize case* captures one top-corner view (U + two sides)
-**Then** `RecognizeCase` matches the visible stickers through `LastLayerMatcher` under AUF and returns the Case within 1 s
-
-**Given** a unique match
-**When** shown
-**Then** "OLL 45 · T-shape" opens the Algorithm detail with its Demonstration playing, and *Mark as Learning* is offered, never automatic
-
-**Given** several candidate Cases
-**When** shown
-**Then** "This could be one of 3 cases" lists candidate tiles with *Scan another angle*, never a silent pick
-
-**Given** the first two layers are unsolved
-**When** recognized
-**Then** "The first two layers aren't solved yet." shows with *Start from my cube* when `PLACEMENT` is on
-
 ## Epic 12: Release-ready for learners and reviewers
 
 The app meets every release gate in PRD §7, and a hiring manager's five-minute evaluation (UJ-6, Flow 6) goes cleanly.
@@ -2061,10 +1821,10 @@ So that I can trust it.
 
 **Given** the release AAB
 **When** CI checks run
-**Then** size is < 30 MB installed, the merged manifest has no `INTERNET` and only `CAMERA`, and no denylisted SDK is present
+**Then** size is < 30 MB installed, the merged manifest has no `INTERNET` and no runtime permissions (v1.0 is camera-free), and no denylisted SDK is present
 
 **Given** a fresh install in airplane mode
-**When** the Course, Library, scan and solve are exercised
+**When** the Course, Library, cube entry and solve are exercised
 **Then** all work (NFR-5)
 
 **Given** the closed-testing build's Android vitals
@@ -2087,7 +1847,7 @@ So that production ships with evidence, not hope.
 
 **Given** the release-gate checklist
 **When** it is run
-**Then** gates 1–6 each link to their passing evidence (CI runs, scenario suites, e2e suite, pilot notes, offline/a11y checks, scan GA/BETA decision)
+**Then** gates 1–5 each link to their passing evidence (CI runs, scenario suites, e2e suite, pilot notes, offline/a11y checks), and gate 6 is recorded N/A for v1.0 (camera flags OFF in release, no `CAMERA` permission)
 
 ### Story 12.5: Store listing and public portfolio repo
 

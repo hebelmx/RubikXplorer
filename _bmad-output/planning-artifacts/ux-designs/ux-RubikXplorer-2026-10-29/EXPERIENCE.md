@@ -2,7 +2,7 @@
 name: RubikXplorer
 status: final
 created: 2026-10-29
-updated: 2026-10-29
+updated: 2026-11-08
 sources:
   - ../../prds/prd-RubikXplorer-2026-10-29/prd.md
   - ../../prds/prd-RubikXplorer-2026-10-29/addendum.md
@@ -31,16 +31,16 @@ sources:
 | **Lesson** | Continue, Stage detail | Split cube + lesson panel: Teaching Modes, Demonstration, hints, recovery. | FR-1–FR-13 |
 | Physical-cube Mode | Lesson toggle | The same Lesson with the Expected State, *Done*, *Report a mismatch* and Quick Check. | FR-7–FR-9, FR-26 |
 | Independent practice | Stage detail, end of Course | A fresh Scramble, assistance reduced. | FR-20 |
-| **Solve** (tab) | Bottom nav | *Scan my cube* and *Enter colors*. If `CAMERA_SCAN` is BETA (the spike-failure fallback), *Enter colors* becomes the primary action. Solves are not resumed after the app closes (AD-10). | FR-14, FR-25 |
+| **Solve** (tab) | Bottom nav | *Scan my cube* and *Enter colors*. If `CAMERA_SCAN` is BETA (the spike-failure fallback), *Enter colors* becomes the primary action. **v1.0:** *Enter colors* is the only action, and *Scan my cube* arrives in v1.1. Solves are not resumed after the app closes (AD-10). | FR-14, FR-25 |
 | Manual Cube Editor | Solve, scan fallback, mode switch | Paint the 54 stickers; validation feedback. | FR-14 |
-| Scan (sub-flow) | Solve, Physical mode, Welcome, Recognize | Guided 6-face Scan, or Quick Scan, then sticker review and correction. Returns a result to its caller. | FR-21–FR-23 |
+| Scan (sub-flow) *(v1.1: hidden while the flag is OFF, UX-DR19)* | Solve, Physical mode, Welcome, Recognize | Guided 6-face Scan, or Quick Scan, then sticker review and correction. Returns a result to its caller. | FR-21–FR-23 |
 | Solution Playback | After a valid scan or entry | Step through the Solution, with optional physical confirmation. | FR-15, FR-16 |
 | **Library** (tab) | Bottom nav | 78 Algorithms grouped by OLL and PLL family, with filters by family and Algorithm Status. | FR-18 |
 | Algorithm detail | Library tile, 2-look Lesson, Recognize | Demonstration, recognition diagram, Notation, Algorithm Status. | FR-18 |
-| Recognize case | Library top bar | Scan the top layer and get the Case, or candidates. | FR-28 |
+| Recognize case *(v1.1: hidden while the flag is OFF, UX-DR19)* | Library top bar | Scan the top layer and get the Case, or candidates. | FR-28 |
 | **You** (tab) | Bottom nav | Progress: Stage states, a trend row per Stage (hints and errors per attempt), and Algorithm Status counts shown as plain counts, not achievements. Also holds Settings. | FR-19, FR-20 |
 | Settings | You | Theme, color-blind glyphs, animation speed, haptics, reduce motion, the separate resets, about/licences. | FR-19, NFR-7 |
-| Color Calibration | Settings, scan prompt ("Colors look off — calibrate?"), first scan of a stickerless cube | Show each of the six centers in turn and confirm the swatch, then save. A separate reset is available. | FR-24 |
+| Color Calibration *(v1.1: hidden while the flag is OFF, UX-DR19)* | Settings, scan prompt ("Colors look off — calibrate?"), first scan of a stickerless cube | Show each of the six centers in turn and confirm the swatch, then save. A separate reset is available. | FR-24 |
 
 - **Navigation:** a bottom navigation bar with four tabs: Learn, Solve, Library, You. Medium and expanded widths switch to a navigation rail.
 - **Full-screen task flows:** Lesson, Scan and Playback hide the bottom bar and use a top app bar with back.
@@ -71,7 +71,7 @@ Some UI labels differ from their Glossary terms:
 | "I can't tell what happened on your cube yet. Can you scan the front and right faces?" | "You turned the wrong face." (without evidence) |
 | "Verified: you turned R instead of R'." | "Probably you turned R instead of R'" labeled as fact |
 | "This corner shows two whites. Check these two stickers." | "Invalid cube state." |
-| "Your cube should be solved now. Check it with the camera, or tell me if it is." (physical, before evidence) | "Solved!" on the strength of a *Done* tap |
+| "Your cube should be solved now. Compare it with the picture, then tell me if it is." (physical, before evidence, v1.0). With `CAMERA_SCAN` on (v1.1): "Your cube should be solved now. Check it with the camera, or tell me if it is." | "Solved!" on the strength of a *Done* tap |
 | "Solved. That's your first solve — on your own cube." (after evidence) | Streak counters, points, leaderboards |
 
 **Certainty wording is fixed.** Only *Verified*, *Likely* and *Unknown* are used, and each comes with the action available next. Solution Playback notes use the generated template only, for example "Turn the Right face clockwise: the right column moves up". They never claim a purpose (AD-20).
@@ -110,7 +110,7 @@ These are behavioral rules. Visual specs are in DESIGN.md Components.
 | Resume after kill (physical) | Lesson | Shows the **Confirm your cube** card with three options: *It matches* / *Scan it* / *Enter it*. The cube frame shows EXPECTED (AD-10). |
 | Content changed since save | Lesson | "This lesson was updated. We've restarted it with your cube as it was." |
 | Expected only | Physical mode | Dashed EXPECTED frame. No certainty chip until there's evidence: the EXPECTED frame is itself the honest label (decision logged). |
-| Objective met, physical (expected) | Physical mode | "If your cube matches the picture, this step is done." The frame stays EXPECTED, a Quick Check is offered, and *Next* is enabled. No celebration. |
+| Objective met, physical (expected) | Physical mode | "If your cube matches the picture, this step is done." The frame stays EXPECTED, a Quick Check is offered, and *Next* is enabled. No celebration. The Quick Check offer appears only when `CAMERA_SCAN` ≠ OFF (v1.1). |
 | Mismatch ladder | Physical mode | The tutor asks for information in this order: (1) a Quick Check of the named faces; (2) "Which turn did you make?" with the Move key bar; (3) "Look at the front face — which corner is white?" with a one-face picker; (4) "Let's re-enter your cube" with a Guided Scan or the Editor. Each rung stays at ? *Unknown* until it yields evidence. |
 | Adopt observed | Mismatch, Full observation | *Use my cube as it is now* replaces the Expected State and starts a Guided recovery. A Partial observation must first be completed by a Guided Scan or the Editor. |
 | Verified | Physical mode | A ✓ *Verified* chip and a VERIFIED frame. It reverts to EXPECTED on the next *Done*. |
@@ -121,7 +121,7 @@ These are behavioral rules. Visual specs are in DESIGN.md Components.
 | Stale scan result | Physical mode | Silently discarded (AD-3). If the Learner started it, re-offer: "Your cube changed while scanning — scan again?" |
 | Completed layer disturbed | Lesson | The disturbed pieces get a violet outline. A recovery prompt appears, and the Checkpoint is kept. |
 | Objective met (virtual or verified) | Lesson | A subtle check, a brief violet pulse on the affected pieces, and a light haptic. Notice text appears, and *Next* is enabled. |
-| First solve | End of Stage 6 | The milestone moment. In Physical-cube Mode it shows only after a Quick Check or *Yes, it's solved*. |
+| First solve | End of Stage 6 | The milestone moment. In Physical-cube Mode it shows only after a Quick Check or *Yes, it's solved*. In v1.0 it shows only after *Yes, it's solved*. |
 | Stage mastered | When the Mastery Condition is met (usually in Practice) | The milestone moment, then the next Stage offered. |
 | Skip-ahead check | Stage detail, Welcome | Passed: ◇ *Skipped*, and the next Stage unlocks (not mastered). Not passed: "Let's do this Stage together — it'll be quick." No penalty and no record against the Learner. |
 | Placement outcomes | Placement | A partly solved cube: suggest the first unmet Stage, with *Choose another Stage*. Nothing solved: suggest Stage 1. Cross or more done but a non-white cross: "Start with a white cross for this course." Already at the last layer: offer *Faster last layer* or Stage 5. Solved: "Your cube is solved — scramble it and scan again, or start Stage 1." |
@@ -217,6 +217,8 @@ The flows mirror the PRD's user journeys UJ-1 to UJ-6.
 7. Sessions later, Stage 6 ends. "Your cube should be solved now. Check it with the camera, or tell me if it is." She runs a Quick Check, and it comes back ✓ *Verified*.
 8. **Climax:** the milestone moment. "Solved. That's your first solve — on your own cube." Then *Practice on a new scramble* is offered.
 
+**v1.0 (camera-free):** steps 4–7 offer no Quick Check. At step 5 the tutor starts at rung 2 of the mismatch ladder, and at step 7 she taps *Yes, it's solved*. This is the failure path below, and it is the main path until v1.1.
+
 **Failure path:** she has no camera permission at step 5. The tutor works down the mismatch ladder instead: "Which turn did you make?" with the Move keys, then a one-face question. Certainty stays *Unknown* until she answers. At step 7, she taps *Yes, it's solved* instead of scanning.
 
 ### Flow 2 — Diego goes faster: 2-look LL (UJ-2)
@@ -229,6 +231,8 @@ The flows mirror the PRD's user journeys UJ-1 to UJ-6.
 
 ### Flow 3 — Lucía just wants it solved (UJ-3)
 
+*v1.0: Solve → *Enter colors* replaces steps 1–2 (Manual Cube Editor); Quick Scan and the Quick Check in playback arrive in v1.1.*
+
 1. Solve tab → **Scan my cube** → Quick Scan (BETA) → two corner photos.
 2. The review net opens with 2 uncertain stickers pre-selected. She fixes them, and Accept enables.
 3. Playback opens. She taps *I'm following on my cube*, and each step advances on *Done*, with the MoveNote under each Move. A Quick Check is available at any step.
@@ -236,14 +240,14 @@ The flows mirror the PRD's user journeys UJ-1 to UJ-6.
 
 **Failure path:** glare spoils the bottom face. The app asks for a Guided Scan of that face only, with *Enter colors instead* always visible.
 
-### Flow 4 — Marco starts from his own cube (UJ-4)
+### Flow 4 — Marco starts from his own cube (UJ-4) *(v1.1)*
 
 1. Welcome → **Start from my cube** → Guided 6-face Scan → review → Accept.
 2. Placement: "Your cross is done and 2 of 4 corners are in. Start at *First-layer corners*?" He can also tap *Choose another Stage*, but he accepts. Stages 1–2 show ◇ *Skipped by placement*.
 3. In Physical mode he makes a mistake. A Quick Check gives ✓ *Verified*: "You turned R instead of R'." The fix is shown.
 4. **Climax:** the layer is complete, Stage 3 is marked *Completed*, and Stages 1–2 remain open to visit.
 
-### Flow 5 — Diego asks which OLL this is (UJ-5)
+### Flow 5 — Diego asks which OLL this is (UJ-5) *(v1.1)*
 
 1. Library → **Recognize case** (BETA) → one top-corner photo.
 2. **Climax:** "OLL 45 · T-shape". The Algorithm detail opens with its Demonstration playing.
@@ -258,7 +262,7 @@ The flows mirror the PRD's user journeys UJ-1 to UJ-6.
 1. She installs the app and opens it, offline and with no sign-up. Welcome → *I'm new*.
 2. She turns the cube with gestures, then rotates the view.
 3. Library → an OLL tile → she scrubs the Demonstration back and forth.
-4. Solve → *Scan my cube*, and she accepts the camera permission.
+4. Solve → *Scan my cube*, and she accepts the camera permission. *(v1.1; in v1.0 she opens* Enter colors *and solves.)*
 5. **Climax:** smooth 60 FPS turns, an honest scan review, and a clean, consistent visual system in both themes. Nothing crashes and nothing asks for an account.
 
 ### Flow 7 — Ana practices to mastery (FR-20)
@@ -277,6 +281,8 @@ The flows mirror the PRD's user journeys UJ-1 to UJ-6.
 4. **Failure path:** if he gives up, "Let's find where to start" offers Placement or Stage 1, with no penalty.
 
 ### Flow 9 — Calibration and resets (FR-19, FR-24)
+
+*Steps 1–3 (calibration) are v1.1. Step 4 (resets) ships in v1.0, without a calibration reset.*
 
 1. On Lucía's stickerless cube the scan flags many uncertain stickers, and the scan offers "Colors look off — calibrate?"
 2. Calibration shows each of the six centers in turn: "Show the white center." She confirms each swatch, then taps *Save*.
@@ -316,7 +322,7 @@ These mockups show composition only. Where a mockup and this spine disagree, the
 | --- | --- |
 | `mockups/key-lesson-phone.html` | Compact Lesson, *Guide me* before the Move, light and dark |
 | `mockups/key-lesson-tablet.html` | Expanded Lesson, Objective met |
-| `mockups/key-physical-and-scan.html` | Physical-cube Mode after a Quick Check (Verified, recovery prompt) with an inset of the Unknown state; Quick Scan sticker review with glyphs on |
+| `mockups/key-physical-and-scan.html` | **v1.1 reference.** Physical-cube Mode after a Quick Check (Verified, recovery prompt) with an inset of the Unknown state; Quick Scan sticker review with glyphs on |
 | `mockups/key-library.html` | Library (dark) and Algorithm detail with the playback transport |
 
 The mockups predate the finalize edits, so they don't show a few of them: the cube-stage toolbar (Undo / Redo / Reset), the Assistance line and the SEEN strip. The tablet mockup also shows the virtual Objective-met state; the physical variant uses the "If your cube matches…" wording. [NOTE FOR UX: re-render them if a visual reference is needed for these.]
