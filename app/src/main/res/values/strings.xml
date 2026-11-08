@@ -4,6 +4,7 @@
 
     <!-- Free cube stage -->
     <string name="frame_virtual">VIRTUAL</string>
+    <string name="frame_expected">EXPECTED</string>
     <string name="toolbar_undo">Undo</string>
     <string name="toolbar_redo">Redo</string>
     <string name="toolbar_reset">Reset</string>
@@ -38,6 +39,13 @@
     <string name="mode_test_me">Test me</string>
     <string name="mode_let_me_try">Let me try</string>
     <string name="lesson_moves_hidden">Hidden until you ask for a hint.</string>
+    <string name="physical_mode">Physical mode</string>
+    <string name="confirm_your_cube">Confirm your cube</string>
+    <string name="confirm_cube_matches">It matches</string>
+    <string name="confirm_cube_enter">Enter it</string>
+    <string name="physical_done">Done</string>
+    <string name="physical_did_something_else">I did something else</string>
+    <string name="physical_objective_met">If your cube matches the picture, this step is done.</string>
 
     <!-- Playback transport -->
     <string name="playback_restart" translatable="false">|◀</string>

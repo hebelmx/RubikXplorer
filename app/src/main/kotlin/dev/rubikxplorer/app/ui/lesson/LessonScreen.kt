@@ -6,6 +6,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -28,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -40,10 +42,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.liveRegion
@@ -67,17 +77,21 @@ import dev.rubikxplorer.app.render.PresentationItem
 import dev.rubikxplorer.app.render.RenderStyle
 import dev.rubikxplorer.app.session.SessionHost
 import dev.rubikxplorer.app.session.toItems
+import dev.rubikxplorer.app.ui.editor.ManualCubeEditor
 import dev.rubikxplorer.app.ui.freecube.MoveKeyBar
 import dev.rubikxplorer.app.ui.freecube.ToolbarButton
 import dev.rubikxplorer.app.ui.freecube.ViewControls
 import dev.rubikxplorer.app.ui.shell.WindowWidthClass
+import dev.rubikxplorer.app.ui.theme.Radii
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.app.ui.theme.Spacing
 import dev.rubikxplorer.application.port.FlagLevel
+import dev.rubikxplorer.application.session.CubeMode
 import dev.rubikxplorer.application.session.GuidedRecovery
 import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.application.session.SessionKind
 import dev.rubikxplorer.application.session.SessionState
+import dev.rubikxplorer.application.session.SyncState
 import dev.rubikxplorer.application.usecase.PlanRecovery
 import dev.rubikxplorer.domain.content.Lesson
 import dev.rubikxplorer.domain.content.Stage
@@ -146,6 +160,8 @@ fun LessonScreen(
     var initialMastered by rememberSaveable(lesson.id.value) { mutableStateOf<Boolean?>(null) }
     var milestoneDismissed by rememberSaveable(lesson.id.value) { mutableStateOf(false) }
 
+    val isPhysical = session.syncState != SyncState.VIRTUAL
+
     val currentEpochAttempts =
         remember(attemptRecords, progressEvents) {
             Mastery.currentEpochAttempts(attemptRecords, progressEvents)
@@ -155,14 +171,16 @@ fun LessonScreen(
             Mastery.evaluate(entry.stage, currentEpochAttempts, entry.tutorConfig.mastery)
         }
     val isMasteryMilestone =
-        initialMastered == false &&
+        !isPhysical &&
+            initialMastered == false &&
             !milestoneDismissed &&
             session.lesson?.id == lesson.id &&
             (session.decision?.satisfied == true || session.objectiveMet) &&
             masteryProgress.isMastered
 
     val isFirstSolveMilestone =
-        entry.lesson.id.value == "lesson-06-03" &&
+        !isPhysical &&
+            entry.lesson.id.value == "lesson-06-03" &&
             initialCompleted == false &&
             !milestoneDismissed &&
             session.lesson?.id == lesson.id &&
@@ -222,6 +240,7 @@ fun LessonScreen(
             }
         }
     }
+    val scope = rememberCoroutineScope()
     Box(modifier = modifier.fillMaxSize()) {
         Column(
             modifier =
@@ -231,7 +250,18 @@ fun LessonScreen(
                     .safeDrawingPadding()
                     .testTag("lesson"),
         ) {
-            LessonTopBar(strings.resolve(entry.stage.title), onClose)
+            LessonTopBar(
+                title = strings.resolve(entry.stage.title),
+                isPhysical = isPhysical,
+                onPhysicalToggle = { enabled ->
+                    scope.launch {
+                        host.dispatch {
+                            SessionEvent.ModeSwitched(if (enabled) CubeMode.PHYSICAL else CubeMode.VIRTUAL, it)
+                        }
+                    }
+                },
+                onClose = onClose,
+            )
             session.restoreNote?.let { note ->
                 Text(strings.resolve(note), modifier = Modifier.testTag("lesson:restoreNote"))
             }
@@ -319,6 +349,8 @@ fun LessonScreen(
 @Composable
 private fun LessonTopBar(
     title: String,
+    isPhysical: Boolean,
+    onPhysicalToggle: (Boolean) -> Unit,
     onClose: () -> Unit,
 ) {
     val tokens = RubikTheme.tokens
@@ -346,6 +378,26 @@ private fun LessonTopBar(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(start = Spacing.s2).semantics { heading() },
         )
+        Spacer(Modifier.weight(1f))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier =
+                Modifier
+                    .testTag("lesson:physicalMode")
+                    .padding(horizontal = Spacing.s2),
+        ) {
+            Text(
+                text = stringResource(R.string.physical_mode),
+                style = MaterialTheme.typography.labelMedium,
+                color = tokens.inkSecondary,
+                modifier = Modifier.padding(end = Spacing.s2),
+            )
+            Switch(
+                checked = isPhysical,
+                onCheckedChange = onPhysicalToggle,
+                modifier = Modifier.testTag("lesson:physicalModeSwitch"),
+            )
+        }
     }
 }
 
@@ -365,6 +417,18 @@ private fun LessonBody(
     onSkipCheckPassed: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
+    val isPhysical = session.syncState != SyncState.VIRTUAL
+    var showManualEditor by rememberSaveable { mutableStateOf(false) }
+    var showMoveKeyBar by rememberSaveable(isPhysical) { mutableStateOf(!isPhysical) }
+
+    LaunchedEffect(isPhysical) {
+        showMoveKeyBar = !isPhysical
+    }
+
+    BackHandler(enabled = showManualEditor) {
+        showManualEditor = false
+    }
+
     val reduceMotion = rememberReduceMotion()
     val player = rememberDemonstrationPlayerState(demonstration, reduceMotion)
     // The session's net, drawn from the current Cube State whenever the Lesson screen (re)enters.
@@ -415,8 +479,14 @@ private fun LessonBody(
         stopReorientation()
         scope.launch { renderer.submit(host.dispatch(event).presentation.toItems()) }
     }
-    val pulse = rememberObjectivePulse(decision.satisfied, reduceMotion)
+    val pulse = if (isPhysical) 0f else rememberObjectivePulse(decision.satisfied, reduceMotion)
     val mode = session.teachingMode
+    val stepMove =
+        Tutor.nextMove(lesson, session.pathEntry, session.virtual)
+            ?: demonstration.steps
+                .getOrNull(session.stepIndex)
+                ?.moves
+                ?.firstOrNull()
 
     val step = stepCard(mode, session, decision, lesson, demonstration, player, strings, beta, isPractice || isSkipCheck)
     val panel: @Composable (Modifier) -> Unit = { panelModifier ->
@@ -435,9 +505,10 @@ private fun LessonBody(
                 reorientation.value =
                     scope.launch { climbHintLadder(host, renderer, demonstration, reduceMotion, onPlayingMove, onPlayingState) }
             },
-            nextEnabled = decision.advance,
+            nextEnabled = decision.advance || (isPhysical && (decision.satisfied || session.objectiveMet)),
             onNext = {
-                if (decision.satisfied) {
+                if (isPhysical) showMoveKeyBar = false
+                if (decision.satisfied || (isPhysical && session.objectiveMet)) {
                     if (isSkipCheck && onSkipCheckPassed != null) {
                         onSkipCheckPassed()
                     } else {
@@ -468,6 +539,17 @@ private fun LessonBody(
                         demonstrateOnNet(host, renderer, host.state.value.virtual, rotations, reduceMotion, onPlayingMove, onPlayingState)
                     }
             },
+            isPhysical = isPhysical,
+            syncState = session.syncState,
+            onConfirmMatches = { send { SessionEvent.PhysicalConfirmed(null, it) } },
+            onConfirmEnter = { showManualEditor = true },
+            onDone = {
+                showMoveKeyBar = false
+                stepMove?.let { move ->
+                    send { SessionEvent.PhysicalConfirmed(move, it) }
+                }
+            },
+            onDidSomethingElse = { showMoveKeyBar = true },
         )
     }
     val stage: @Composable (Modifier) -> Unit = { stageModifier ->
@@ -531,6 +613,14 @@ private fun LessonBody(
                                 null
                             }
                         }
+                    val onMoveKey: (Move) -> Unit = { move ->
+                        if (isPhysical) {
+                            showMoveKeyBar = false
+                            send { SessionEvent.PhysicalConfirmed(move, it) }
+                        } else {
+                            send { SessionEvent.MoveCommitted(MoveIntent(move).move, it) }
+                        }
+                    }
                     LearnerStage(
                         host = host,
                         session = session,
@@ -551,6 +641,8 @@ private fun LessonBody(
                         reduceMotion = reduceMotion,
                         strings = strings,
                         send = send,
+                        showMoveKeyBar = !isPhysical || showMoveKeyBar,
+                        onMove = onMoveKey,
                     )
                 }
             }
@@ -589,6 +681,26 @@ private fun LessonBody(
                             .verticalScroll(rememberScrollState()),
                     )
                 }
+            }
+        }
+        if (showManualEditor) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .background(RubikTheme.tokens.surfaceBase)
+                        .safeDrawingPadding()
+                        .testTag("lesson:manualEditor"),
+            ) {
+                ManualCubeEditor(
+                    strings = strings,
+                    initial = session.expected.toFacelets(),
+                    onAccept = { state ->
+                        showManualEditor = false
+                        send { SessionEvent.EditorEntered(state, it) }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
         }
     }
@@ -630,7 +742,7 @@ private fun stepCard(
             watch = "",
             notice = null,
             moves = null,
-            objectiveMet = decision.satisfied,
+            objectiveMet = decision.satisfied || (session.syncState != SyncState.VIRTUAL && session.objectiveMet),
             feedback = null,
             diagnosis = null,
             recoveryPrompt = null,
@@ -663,6 +775,8 @@ private fun stepCard(
             guidedRecovery = null,
             assistance = null,
             isPractice = true,
+            isPhysical = session.syncState != SyncState.VIRTUAL,
+            objectiveMetCopy = if (session.syncState != SyncState.VIRTUAL) strings.resolve(TextKey("msg.physical.objective-met")) else null,
         )
     }
     val index: Int
@@ -713,7 +827,7 @@ private fun stepCard(
         watch = step?.let { strings.resolve(it.watch) }.orEmpty(),
         notice = if (notice) step?.let { strings.resolve(it.notice) } else null,
         moves = moves,
-        objectiveMet = decision.satisfied,
+        objectiveMet = decision.satisfied || (session.syncState != SyncState.VIRTUAL && session.objectiveMet),
         feedback = decision.feedback?.text?.let { strings.resolve(it) },
         diagnosis = decision.diagnosis?.let { strings.resolve(it.explanation) },
         recoveryPrompt = decision.diagnosis?.let { strings.resolve(it.recoveryPath.prompt) },
@@ -734,6 +848,8 @@ private fun stepCard(
         recoveryActions = recoveryActions(session, decision, strings),
         guidedRecovery = guidedRecoveryContent(session.guidedRecovery, strings),
         assistance = if (mode == TeachingMode.SHOW_ME) null else assistanceContent(session, strings, offPath, beta),
+        isPhysical = session.syncState != SyncState.VIRTUAL,
+        objectiveMetCopy = if (session.syncState != SyncState.VIRTUAL) strings.resolve(TextKey("msg.physical.objective-met")) else null,
     )
 }
 
@@ -777,6 +893,8 @@ private fun LearnerStage(
     reduceMotion: Boolean,
     strings: ContentStrings,
     send: ((Instant) -> SessionEvent) -> Unit,
+    showMoveKeyBar: Boolean = true,
+    onMove: (Move) -> Unit = {},
 ) {
     val tokens = RubikTheme.tokens
     var caption by remember { mutableStateOf<String?>(null) }
@@ -787,7 +905,7 @@ private fun LearnerStage(
         verticalArrangement = Arrangement.spacedBy(Spacing.s1),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            FrameLabel(certainty)
+            FrameLabel(certainty, session.syncState)
             Row(
                 Modifier.weight(1f).semantics {
                     isTraversalGroup = true
@@ -830,25 +948,33 @@ private fun LearnerStage(
             Modifier.fillMaxWidth().weight(1f).semantics { traversalIndex = 1f },
             onMoveIntent = { intent ->
                 caption = null
-                send { SessionEvent.MoveCommitted(intent.move, it) }
+                if (session.syncState != SyncState.VIRTUAL) {
+                    if (showMoveKeyBar) {
+                        onMove(intent.move)
+                    }
+                } else {
+                    onMove(intent.move)
+                }
             },
             emphasis = emphasis,
             arrow = arrow,
             reduceMotion = reduceMotion,
             summary = summary,
         )
-        MoveKeyBar(
-            onMove = { move ->
-                caption = null
-                send { SessionEvent.MoveCommitted(MoveIntent(move).move, it) }
-            },
-            onShowName = { caption = it },
-            modifier =
-                Modifier.fillMaxWidth().semantics {
-                    isTraversalGroup = true
-                    traversalIndex = 2f
+        if (showMoveKeyBar) {
+            MoveKeyBar(
+                onMove = { move ->
+                    caption = null
+                    onMove(move)
                 },
-        )
+                onShowName = { caption = it },
+                modifier =
+                    Modifier.fillMaxWidth().semantics {
+                        isTraversalGroup = true
+                        traversalIndex = 2f
+                    },
+            )
+        }
         Spacer(Modifier.height(Spacing.s1))
     }
     ResetConfirmation(host = host, resolve = strings::resolve, onTransition = { renderer.submit(it.presentation.toItems()) })
@@ -907,7 +1033,8 @@ private suspend fun awaitFrameMillis(millis: Long) {
 }
 
 /** Reset changes something: a Move to take back or redo, or a later step to return from. */
-private fun canReset(session: SessionState): Boolean = session.history.canUndo || session.history.canRedo || session.stepIndex > 0
+private fun canReset(session: SessionState): Boolean =
+    session.syncState == SyncState.VIRTUAL && (session.history.canUndo || session.history.canRedo || session.stepIndex > 0)
 
 /**
  * The Objective-met pulse (0..1): a brief rise and fall of the target's `sticker-highlight` fill when
@@ -962,26 +1089,70 @@ internal val GUIDE_ME_BACK_LABEL = TextKey("msg.recovery.offer.guide-me-back")
 /** The recovery prompt's *Try again* label (content text, AD-6). */
 internal val TRY_AGAIN_LABEL = TextKey("msg.recovery.offer.try-again")
 
+internal val DashedBorderKey = SemanticsPropertyKey<Boolean>("DashedBorder")
+
 /** Certainty changes are announced by the frame's live region; initial insertion is silent. */
 @Composable
-internal fun FrameLabel(certainty: Certainty) {
+internal fun FrameLabel(
+    certainty: Certainty,
+    syncState: SyncState = SyncState.VIRTUAL,
+) {
+    val isPhysical = syncState != SyncState.VIRTUAL
+    val tokens = RubikTheme.tokens
+    val text = stringResource(if (isPhysical) R.string.frame_expected else R.string.frame_virtual)
     val description =
-        stringResource(
-            when (certainty) {
-                Certainty.VERIFIED -> R.string.certainty_verified
-                Certainty.LIKELY -> R.string.certainty_likely
-                Certainty.UNKNOWN -> R.string.certainty_unknown
-            },
-        )
+        if (isPhysical) {
+            null
+        } else {
+            stringResource(
+                when (certainty) {
+                    Certainty.VERIFIED -> R.string.certainty_verified
+                    Certainty.LIKELY -> R.string.certainty_likely
+                    Certainty.UNKNOWN -> R.string.certainty_unknown
+                },
+            )
+        }
+    val strokeWidth = 1.5.dp
+    val strokePx = with(LocalDensity.current) { strokeWidth.toPx() }
+    val dashPx = with(LocalDensity.current) { 4.dp.toPx() }
+    val borderColor = tokens.inkSecondary
+    val cornerRadiusPx = with(LocalDensity.current) { Radii.xs.toPx() }
+
+    val baseModifier = Modifier.padding(start = Spacing.s2).testTag("stage:frame")
+    val styledModifier =
+        if (isPhysical) {
+            baseModifier
+                .drawBehind {
+                    drawRoundRect(
+                        color = borderColor,
+                        topLeft = Offset(strokePx / 2, strokePx / 2),
+                        size = Size(size.width - strokePx, size.height - strokePx),
+                        cornerRadius = CornerRadius(cornerRadiusPx),
+                        style =
+                            Stroke(
+                                width = strokePx,
+                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(dashPx, dashPx)),
+                            ),
+                    )
+                }.padding(horizontal = Spacing.s2, vertical = 2.dp)
+        } else {
+            baseModifier
+        }
+
     Text(
-        stringResource(R.string.frame_virtual),
+        text = text,
         style = MaterialTheme.typography.labelMedium,
-        color = RubikTheme.tokens.inkSecondary,
+        color = tokens.inkSecondary,
         modifier =
-            Modifier.padding(start = Spacing.s2).testTag("stage:frame").semantics {
+            styledModifier.semantics {
                 traversalIndex = 0f
-                stateDescription = description
-                liveRegion = LiveRegionMode.Polite
+                if (isPhysical) {
+                    set(DashedBorderKey, true)
+                }
+                if (description != null) {
+                    stateDescription = description
+                    liveRegion = LiveRegionMode.Polite
+                }
             },
     )
 }

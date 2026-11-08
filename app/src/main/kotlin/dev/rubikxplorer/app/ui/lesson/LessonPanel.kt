@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import dev.rubikxplorer.app.R
 import dev.rubikxplorer.app.ui.theme.RubikTheme
 import dev.rubikxplorer.app.ui.theme.Spacing
+import dev.rubikxplorer.application.session.SyncState
 import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.tutor.HintRung
@@ -86,6 +87,8 @@ internal data class StepCardContent(
     val guidedRecovery: GuidedRecoveryContent? = null,
     val assistance: AssistanceContent? = null,
     val isPractice: Boolean = false,
+    val isPhysical: Boolean = false,
+    val objectiveMetCopy: String? = null,
 )
 
 /**
@@ -112,6 +115,12 @@ internal fun LessonPanel(
     onShowMeHow: (List<Move>) -> Unit = {},
     onRecovery: (RecoveryOffer) -> Unit = {},
     onUsualHelp: () -> Unit = {},
+    isPhysical: Boolean = false,
+    syncState: SyncState = SyncState.VIRTUAL,
+    onConfirmMatches: () -> Unit = {},
+    onConfirmEnter: () -> Unit = {},
+    onDone: () -> Unit = {},
+    onDidSomethingElse: () -> Unit = {},
 ) {
     val tokens = RubikTheme.tokens
     Column(
@@ -143,32 +152,91 @@ internal fun LessonPanel(
                 },
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s3), modifier = Modifier.fillMaxWidth()) {
-            OutlinedButton(
-                onClick = onHint,
-                enabled = hintEnabled,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:hint"),
-            ) {
-                Text(
-                    stringResource(R.string.lesson_hint, hintRung, hintTop.ordinal),
-                    color = if (hintEnabled) tokens.inkPrimary else tokens.inkDisabled,
-                )
+        if (syncState == SyncState.PHYSICAL_AWAITING_CONFIRM) {
+            ConfirmCubeCard(
+                onMatches = onConfirmMatches,
+                onEnter = onConfirmEnter,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else if (isPhysical) {
+            if (nextEnabled || step.objectiveMet) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s3), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = onDidSomethingElse,
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:didSomethingElse"),
+                    ) {
+                        Text(stringResource(R.string.physical_did_something_else), color = tokens.inkPrimary)
+                    }
+                    Button(
+                        onClick = onNext,
+                        enabled = true,
+                        shape = MaterialTheme.shapes.medium,
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = tokens.accent,
+                                contentColor = tokens.onAccent,
+                                disabledContainerColor = tokens.surfaceStage,
+                                disabledContentColor = tokens.inkDisabled,
+                            ),
+                        modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:next"),
+                    ) {
+                        Text(stringResource(R.string.lesson_next))
+                    }
+                }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s3), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = onDidSomethingElse,
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:didSomethingElse"),
+                    ) {
+                        Text(stringResource(R.string.physical_did_something_else), color = tokens.inkPrimary)
+                    }
+                    Button(
+                        onClick = onDone,
+                        shape = MaterialTheme.shapes.medium,
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = tokens.accent,
+                                contentColor = tokens.onAccent,
+                                disabledContainerColor = tokens.surfaceStage,
+                                disabledContentColor = tokens.inkDisabled,
+                            ),
+                        modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:done"),
+                    ) {
+                        Text(stringResource(R.string.physical_done))
+                    }
+                }
             }
-            Button(
-                onClick = onNext,
-                enabled = nextEnabled,
-                shape = MaterialTheme.shapes.medium,
-                colors =
-                    ButtonDefaults.buttonColors(
-                        containerColor = tokens.accent,
-                        contentColor = tokens.onAccent,
-                        disabledContainerColor = tokens.surfaceStage,
-                        disabledContentColor = tokens.inkDisabled,
-                    ),
-                modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:next"),
-            ) {
-                Text(stringResource(R.string.lesson_next))
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s3), modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = onHint,
+                    enabled = hintEnabled,
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:hint"),
+                ) {
+                    Text(
+                        stringResource(R.string.lesson_hint, hintRung, hintTop.ordinal),
+                        color = if (hintEnabled) tokens.inkPrimary else tokens.inkDisabled,
+                    )
+                }
+                Button(
+                    onClick = onNext,
+                    enabled = nextEnabled,
+                    shape = MaterialTheme.shapes.medium,
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = tokens.accent,
+                            contentColor = tokens.onAccent,
+                            disabledContainerColor = tokens.surfaceStage,
+                            disabledContentColor = tokens.inkDisabled,
+                        ),
+                    modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:next"),
+                ) {
+                    Text(stringResource(R.string.lesson_next))
+                }
             }
         }
     }
@@ -221,7 +289,7 @@ private fun StepCard(
                         modifier = Modifier.size(20.dp),
                     )
                     Text(
-                        stringResource(R.string.lesson_objective_met),
+                        step.objectiveMetCopy ?: stringResource(R.string.lesson_objective_met),
                         style = MaterialTheme.typography.labelLarge,
                         color = tokens.inkPrimary,
                     )

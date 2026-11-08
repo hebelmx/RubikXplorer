@@ -11,11 +11,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.test.core.app.ApplicationProvider
+import dev.rubikxplorer.application.session.SyncState
 import dev.rubikxplorer.domain.tutor.Certainty
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -42,6 +46,49 @@ class FrameLabelTest {
             assertEquals(description, config[SemanticsProperties.StateDescription])
             assertEquals(LiveRegionMode.Polite, config[SemanticsProperties.LiveRegion])
         }
+    }
+
+    @Test fun physicalModeDisplaysExpectedBadgeWithDashedBorderAndSuppressedCertainty() {
+        val syncState = mutableStateOf(SyncState.PHYSICAL_PREDICTED)
+        rule.setContent { FrameLabel(Certainty.VERIFIED, syncState.value) }
+
+        rule.onNodeWithTag("stage:frame").assertTextEquals("EXPECTED")
+        var config = rule.onNodeWithTag("stage:frame").fetchSemanticsNode().config
+        assertTrue(config[DashedBorderKey])
+        assertNull(config.getOrNull(SemanticsProperties.StateDescription))
+        assertNull(config.getOrNull(SemanticsProperties.LiveRegion))
+
+        rule.runOnIdle { syncState.value = SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.onNodeWithTag("stage:frame").assertTextEquals("EXPECTED")
+        config = rule.onNodeWithTag("stage:frame").fetchSemanticsNode().config
+        assertTrue(config[DashedBorderKey])
+        assertNull(config.getOrNull(SemanticsProperties.StateDescription))
+        assertNull(config.getOrNull(SemanticsProperties.LiveRegion))
+    }
+
+    @Test fun modeSwitchTransitionsFrameLabelBetweenVirtualAndExpected() {
+        val syncState = mutableStateOf(SyncState.VIRTUAL)
+        rule.setContent { FrameLabel(Certainty.VERIFIED, syncState.value) }
+
+        rule.onNodeWithTag("stage:frame").assertTextEquals("VIRTUAL")
+        var config = rule.onNodeWithTag("stage:frame").fetchSemanticsNode().config
+        assertEquals("Verified", config[SemanticsProperties.StateDescription])
+        assertEquals(LiveRegionMode.Polite, config[SemanticsProperties.LiveRegion])
+        assertNull(config.getOrNull(DashedBorderKey))
+
+        rule.runOnIdle { syncState.value = SyncState.PHYSICAL_PREDICTED }
+        rule.onNodeWithTag("stage:frame").assertTextEquals("EXPECTED")
+        config = rule.onNodeWithTag("stage:frame").fetchSemanticsNode().config
+        assertTrue(config[DashedBorderKey])
+        assertNull(config.getOrNull(SemanticsProperties.StateDescription))
+        assertNull(config.getOrNull(SemanticsProperties.LiveRegion))
+
+        rule.runOnIdle { syncState.value = SyncState.VIRTUAL }
+        rule.onNodeWithTag("stage:frame").assertTextEquals("VIRTUAL")
+        config = rule.onNodeWithTag("stage:frame").fetchSemanticsNode().config
+        assertEquals("Verified", config[SemanticsProperties.StateDescription])
+        assertEquals(LiveRegionMode.Polite, config[SemanticsProperties.LiveRegion])
+        assertNull(config.getOrNull(DashedBorderKey))
     }
 
     /**
