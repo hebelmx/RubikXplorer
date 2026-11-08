@@ -31,6 +31,7 @@
   "msg.feature.beta": "BETA",
   "msg.assistance.guide-off-path": "You're off the path now — Undo back to it, and I'll show one turn at a time again.",
   "msg.recovery.undo": "Undo, or try another turn.",
+  "msg.physical.undo": "Turn {move} on your cube to undo.",
   "msg.recovery.guided-recovery": "Undo, or let me guide you back.",
   "msg.recovery.retry": "Undo, or start this step again.",
   "msg.recovery.reorient": "Turn it back with the rotation keys.",

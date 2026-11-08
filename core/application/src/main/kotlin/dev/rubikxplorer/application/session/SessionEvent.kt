@@ -192,4 +192,27 @@ sealed interface SessionEvent {
     data class StepAdvanced(
         override val at: Instant,
     ) : SessionEvent
+
+    /** The Learner toggled between virtual and physical cube mode (AD-3). */
+    data class ModeSwitched(
+        val mode: CubeMode,
+        override val at: Instant,
+    ) : SessionEvent
+
+    /** The Learner confirmed matching their cube or performing [move] on their physical cube (AD-3). */
+    data class PhysicalConfirmed(
+        val move: Move? = null,
+        override val at: Instant,
+    ) : SessionEvent
+
+    /** The Learner reported a discrepancy between the app's predicted state and their physical cube (AD-3). */
+    data class MismatchReported(
+        override val at: Instant,
+    ) : SessionEvent
+
+    /** The Learner accepted a validated [state] entered through the manual cube editor (AD-3, AD-5). */
+    data class EditorEntered(
+        val state: CubeState,
+        override val at: Instant,
+    ) : SessionEvent
 }

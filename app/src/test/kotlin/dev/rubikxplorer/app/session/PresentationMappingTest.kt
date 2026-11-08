@@ -31,6 +31,14 @@ class PresentationMappingTest {
     }
 
     @Test
+    fun `instruct maps to an animate item with the same move, revision and target`() {
+        assertEquals(
+            PresentationItem.Animate(r, 9, turned.toFacelets()),
+            Presentation.instruct(r, 9, turned).toItem(),
+        )
+    }
+
+    @Test
     fun `a list maps item by item, in order`() {
         val items = listOf(Presentation.Snap(1, CubeState.SOLVED), Presentation.Animate(r, 2, turned)).toItems()
         assertEquals(

@@ -8,6 +8,7 @@ fun Presentation.toItem(): PresentationItem =
     when (this) {
         is Presentation.Animate -> PresentationItem.Animate(move, revision, target.toFacelets())
         is Presentation.Snap -> PresentationItem.Snap(revision, target.toFacelets())
+        is Presentation.Instruct -> PresentationItem.Animate(move, revision, target.toFacelets())
     }
 
 /** [toItem] for each, in order. */

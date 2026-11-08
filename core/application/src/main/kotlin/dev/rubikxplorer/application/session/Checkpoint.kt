@@ -46,6 +46,6 @@ data class Checkpoint(
     }
 }
 
-enum class CubeMode { VIRTUAL }
+enum class CubeMode { VIRTUAL, PHYSICAL }
 
 internal fun Orientation.id(): String = up.name + front.name
