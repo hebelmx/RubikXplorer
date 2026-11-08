@@ -1593,7 +1593,7 @@ As a Learner on a real cube without camera support,
 I want the end-of-Stage-6 prompt to ask only for what the app can use,
 So that it never promises a camera check that doesn't exist.
 
-**Refs:** FR-7, FR-26 · NFR-10 · AD-6, AD-18 · UX-DR19, UX-DR20, UX-DR25 · `sprint-change-proposal-2026-11-08-vision-deferral.md`
+**Refs:** FR-7, FR-26 · NFR-8, NFR-10 · AD-6, AD-13, AD-18 · UX-DR19, UX-DR20, UX-DR25 · `sprint-change-proposal-2026-11-08-vision-deferral.md`
 
 **Acceptance Criteria:**
 
@@ -1608,6 +1608,10 @@ So that it never promises a camera check that doesn't exist.
 **Given** the two prompt variants
 **When** content tests run
 **Then** both live as content string keys (NFR-10), any duplicate in `strings.xml` is removed or aligned, `ShippedContentTest` covers both, and the 8.6 milestone gating is unchanged
+
+**Given** the AD-13 manifest check in `build-logic` (`ManifestPolicy`)
+**When** the release manifest declares any runtime permission, `CAMERA` included
+**Then** CI fails; debug builds may still declare `CAMERA` for the opt-in spike source set, and the `AGENTS.md` Policy line on v1.0 runtime permissions is removed once this check is live
 
 ## Epic 9: Faster last layer and the Algorithm Library
 
