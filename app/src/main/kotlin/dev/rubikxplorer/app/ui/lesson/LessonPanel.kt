@@ -97,6 +97,7 @@ internal data class StepCardContent(
     val isPhysical: Boolean = false,
     val objectiveMetCopy: String? = null,
     val candidate: String? = null,
+    val isEndOfStage6: Boolean = false,
 )
 
 /**
@@ -130,6 +131,8 @@ internal fun LessonPanel(
     onDone: () -> Unit = {},
     onDidSomethingElse: () -> Unit = {},
     onMismatchReported: () -> Unit = {},
+    isEndOfStage6: Boolean = step.isEndOfStage6,
+    onYesItsSolved: () -> Unit = {},
 ) {
     val tokens = RubikTheme.tokens
     Column(
@@ -187,29 +190,47 @@ internal fun LessonPanel(
                 ) {
                     Text(stringResource(R.string.physical_did_something_else), color = tokens.inkPrimary)
                 }
-                Button(
-                    onClick = if (nextEnabled || step.objectiveMet) onNext else onDone,
-                    enabled = true,
-                    shape = MaterialTheme.shapes.medium,
-                    colors =
-                        ButtonDefaults.buttonColors(
-                            containerColor = tokens.accent,
-                            contentColor = tokens.onAccent,
-                            disabledContainerColor = tokens.surfaceStage,
-                            disabledContentColor = tokens.inkDisabled,
-                        ),
-                    modifier =
-                        Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag(
-                            if (nextEnabled ||
-                                step.objectiveMet
-                            ) {
-                                "lesson:next"
-                            } else {
-                                "lesson:done"
-                            },
-                        ),
-                ) {
-                    Text(stringResource(if (nextEnabled || step.objectiveMet) R.string.lesson_next else R.string.physical_done))
+                if (isEndOfStage6 && step.objectiveMet) {
+                    Button(
+                        onClick = onYesItsSolved,
+                        enabled = true,
+                        shape = MaterialTheme.shapes.medium,
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = tokens.accent,
+                                contentColor = tokens.onAccent,
+                                disabledContainerColor = tokens.surfaceStage,
+                                disabledContentColor = tokens.inkDisabled,
+                            ),
+                        modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:yesItsSolved"),
+                    ) {
+                        Text(stringResource(R.string.physical_yes_its_solved))
+                    }
+                } else {
+                    Button(
+                        onClick = if (nextEnabled || step.objectiveMet) onNext else onDone,
+                        enabled = true,
+                        shape = MaterialTheme.shapes.medium,
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = tokens.accent,
+                                contentColor = tokens.onAccent,
+                                disabledContainerColor = tokens.surfaceStage,
+                                disabledContentColor = tokens.inkDisabled,
+                            ),
+                        modifier =
+                            Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag(
+                                if (nextEnabled ||
+                                    step.objectiveMet
+                                ) {
+                                    "lesson:next"
+                                } else {
+                                    "lesson:done"
+                                },
+                            ),
+                    ) {
+                        Text(stringResource(if (nextEnabled || step.objectiveMet) R.string.lesson_next else R.string.physical_done))
+                    }
                 }
                 Box {
                     IconButton(

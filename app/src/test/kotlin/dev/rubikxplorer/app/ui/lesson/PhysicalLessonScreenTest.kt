@@ -310,6 +310,44 @@ class PhysicalLessonScreenTest {
 
     @Test
     fun ac3_objectiveMetInPhysicalMode_showsHonestCopy_keepsExpected_enablesNext_andSuppressesRealMilestones() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host, lessonEntry)
+
+        // Enter physical mode and confirm match
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.waitForIdle()
+        node("confirmCube:matches").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+
+        // Tap Done for taught move U in lesson-01-01
+        node("lesson:done").performScrollTo().performClick()
+        rule.waitUntil(5_000) {
+            host.state.value.decision
+                ?.satisfied == true || host.state.value.objectiveMet
+        }
+        rule.waitForIdle()
+
+        // Panel reads honest physical completion copy from domain strings
+        rule.onNodeWithText("If your cube matches the picture, this step is done.").assertExists()
+
+        // Frame badge remains dashed EXPECTED
+        node("stage:frame").assertTextEquals("EXPECTED")
+        val physicalConfig = node("stage:frame").fetchSemanticsNode().config
+        assertTrue(physicalConfig[DashedBorderKey])
+
+        // Next button is enabled
+        node("lesson:next").assertExists()
+        node("lesson:next").assertIsEnabled()
+
+        // Real milestone overlay and burst must NOT exist on standard lesson in physical mode
+        node("milestone:overlay").assertDoesNotExist()
+        node("milestone:burst").assertDoesNotExist()
+    }
+
+    @Test
+    fun story8_6_ac1_stage6ObjectiveMetInPhysicalMode_showsFirstSolvePrompt_suppressesMilestone_untilYesItsSolved() {
         val milestoneEntry = ready.lessons.single { it.lesson.id.value == "lesson-06-03" }
         val host = SessionHost(TickingClock())
         setLessonContent(host, milestoneEntry)
@@ -337,25 +375,85 @@ class PhysicalLessonScreenTest {
         }
         rule.waitUntil(5_000) {
             host.state.value.decision
-                ?.satisfied == true
+                ?.satisfied == true || host.state.value.objectiveMet
         }
         rule.waitForIdle()
 
-        // Panel reads honest physical completion copy from domain strings
-        rule.onNodeWithText("If your cube matches the picture, this step is done.").assertExists()
+        // Panel displays "Your cube should be solved now. Check it with the camera, or tell me if it is."
+        rule.onNodeWithText("Your cube should be solved now. Check it with the camera, or tell me if it is.").assertExists()
 
         // Frame badge remains dashed EXPECTED
         node("stage:frame").assertTextEquals("EXPECTED")
         val physicalConfig = node("stage:frame").fetchSemanticsNode().config
         assertTrue(physicalConfig[DashedBorderKey])
 
-        // Next button is enabled
-        node("lesson:next").assertExists()
-        node("lesson:next").assertIsEnabled()
-
-        // Real milestone overlay and burst must NOT exist on milestone-eligible lesson in physical mode
+        // Milestone celebration is initially suppressed
         node("milestone:overlay").assertDoesNotExist()
         node("milestone:burst").assertDoesNotExist()
+
+        // "Yes, it's solved" button is present and primary
+        node("lesson:yesItsSolved").assertExists()
+        node("lesson:yesItsSolved").assertIsEnabled()
+        rule.onNodeWithText("Yes, it's solved").assertExists()
+
+        // "I did something else" button remains present alongside
+        node("lesson:didSomethingElse").assertExists()
+        node("lesson:didSomethingElse").assertIsEnabled()
+
+        // Tapping "Yes, it's solved" triggers the celebratory first-solve milestone
+        node("lesson:yesItsSolved").performScrollTo().performClick()
+        rule.waitForIdle()
+
+        node("milestone:overlay").assertExists()
+        node("milestone:burst").assertExists()
+        rule.onNodeWithText("You solved the Rubik's cube!").assertExists()
+        node("milestone:practice").assertExists()
+        node("milestone:continue").assertExists()
+
+        // Tapping continue dismisses milestone overlay
+        node("milestone:continue").performClick()
+        rule.waitForIdle()
+        node("milestone:overlay").assertDoesNotExist()
+    }
+
+    @Test
+    fun story8_6_ac1_stage6ObjectiveMet_didSomethingElseRevealsMoveKeys_milestoneSuppressed() {
+        val milestoneEntry = ready.lessons.single { it.lesson.id.value == "lesson-06-03" }
+        val host = SessionHost(TickingClock())
+        setLessonContent(host, milestoneEntry)
+
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.waitForIdle()
+        node("confirmCube:matches").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+
+        val lesson = milestoneEntry.lesson
+        val step1Moves = (Notation.parse(lesson.steps[0].moves) as NotationResult.Parsed).moves
+        step1Moves.forEach { move ->
+            runBlocking { host.dispatch { SessionEvent.PhysicalConfirmed(move, it) } }
+        }
+        runBlocking { host.dispatch(SessionEvent::StepAdvanced) }
+
+        val step2Moves = (Notation.parse(lesson.steps[1].moves) as NotationResult.Parsed).moves
+        step2Moves.forEach { move ->
+            runBlocking { host.dispatch { SessionEvent.PhysicalConfirmed(move, it) } }
+        }
+        rule.waitUntil(5_000) {
+            host.state.value.decision
+                ?.satisfied == true || host.state.value.objectiveMet
+        }
+        rule.waitForIdle()
+
+        // Tapping "I did something else"
+        node("moveKey:U").assertDoesNotExist()
+        node("lesson:didSomethingElse").performScrollTo().performClick()
+        rule.waitForIdle()
+
+        // Move keys are revealed, milestone stays suppressed
+        node("moveKey:U").assertExists()
+        node("milestone:overlay").assertDoesNotExist()
     }
 
     @Test

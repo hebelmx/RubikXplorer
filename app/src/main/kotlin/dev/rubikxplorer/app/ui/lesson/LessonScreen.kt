@@ -160,8 +160,10 @@ fun LessonScreen(
     var initialCompleted by rememberSaveable(lesson.id.value) { mutableStateOf<Boolean?>(null) }
     var initialMastered by rememberSaveable(lesson.id.value) { mutableStateOf<Boolean?>(null) }
     var milestoneDismissed by rememberSaveable(lesson.id.value) { mutableStateOf(false) }
+    var physicalFirstSolveConfirmed by rememberSaveable(lesson.id.value) { mutableStateOf(false) }
 
     val isPhysical = session.syncState != SyncState.VIRTUAL
+    val isEndOfStage6 = entry.lesson.id.value == "lesson-06-03"
 
     val currentEpochAttempts =
         remember(attemptRecords, progressEvents) {
@@ -180,12 +182,15 @@ fun LessonScreen(
             masteryProgress.isMastered
 
     val isFirstSolveMilestone =
-        !isPhysical &&
-            entry.lesson.id.value == "lesson-06-03" &&
+        isEndOfStage6 &&
             initialCompleted == false &&
             !milestoneDismissed &&
             session.lesson?.id == lesson.id &&
-            (session.decision?.satisfied == true)
+            if (isPhysical) {
+                physicalFirstSolveConfirmed && (session.decision?.satisfied == true || session.objectiveMet)
+            } else {
+                session.decision?.satisfied == true
+            }
 
     val showMilestone = isFirstSolveMilestone || isMasteryMilestone
 
@@ -302,6 +307,12 @@ fun LessonScreen(
                     isPractice = isPractice,
                     isSkipCheck = isSkipCheck,
                     onSkipCheckPassed = onSkipCheckPassed,
+                    onYesItsSolved = {
+                        physicalFirstSolveConfirmed = true
+                        if (initialCompleted == true) {
+                            onClose()
+                        }
+                    },
                 )
             }
         }
@@ -425,6 +436,7 @@ private fun LessonBody(
     isPractice: Boolean = false,
     isSkipCheck: Boolean = false,
     onSkipCheckPassed: (() -> Unit)? = null,
+    onYesItsSolved: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val isPhysical = session.syncState != SyncState.VIRTUAL
@@ -561,6 +573,8 @@ private fun LessonBody(
             },
             onDidSomethingElse = { showMoveKeyBar = true },
             onMismatchReported = { send { SessionEvent.MismatchReported(it) } },
+            isEndOfStage6 = lesson.id.value == "lesson-06-03",
+            onYesItsSolved = onYesItsSolved,
         )
     }
     val stage: @Composable (Modifier) -> Unit = { stageModifier ->
@@ -790,7 +804,17 @@ private fun stepCard(
             assistance = null,
             isPractice = true,
             isPhysical = session.syncState != SyncState.VIRTUAL,
-            objectiveMetCopy = if (session.syncState != SyncState.VIRTUAL) strings.resolve(TextKey("msg.physical.objective-met")) else null,
+            objectiveMetCopy =
+                if (session.syncState != SyncState.VIRTUAL) {
+                    if (lesson.id.value == "lesson-06-03") {
+                        strings.resolve(TextKey("msg.physical.first-solve-prompt"))
+                    } else {
+                        strings.resolve(TextKey("msg.physical.objective-met"))
+                    }
+                } else {
+                    null
+                },
+            isEndOfStage6 = lesson.id.value == "lesson-06-03",
         )
     }
     val index: Int
@@ -871,8 +895,18 @@ private fun stepCard(
         guidedRecovery = guidedRecoveryContent(session.guidedRecovery, strings),
         assistance = if (mode == TeachingMode.SHOW_ME) null else assistanceContent(session, strings, offPath, beta),
         isPhysical = session.syncState != SyncState.VIRTUAL,
-        objectiveMetCopy = if (session.syncState != SyncState.VIRTUAL) strings.resolve(TextKey("msg.physical.objective-met")) else null,
+        objectiveMetCopy =
+            if (session.syncState != SyncState.VIRTUAL) {
+                if (lesson.id.value == "lesson-06-03") {
+                    strings.resolve(TextKey("msg.physical.first-solve-prompt"))
+                } else {
+                    strings.resolve(TextKey("msg.physical.objective-met"))
+                }
+            } else {
+                null
+            },
         candidate = diagnosisCandidate,
+        isEndOfStage6 = lesson.id.value == "lesson-06-03",
     )
 }
 
