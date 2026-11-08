@@ -81,6 +81,30 @@ object Assess {
     }
 
     /**
+     * Diagnoses an entered physical Move [move] as evidence when the Learner reports a mismatch.
+     * Evaluates [move] applied to [stateBeforeMove] against [expected]. Certainty is VERIFIED only if
+     * exactly one candidate sequence in [CandidateEnumerator] fits, otherwise LIKELY with the candidate(s)
+     * shown, or UNKNOWN if no candidate fits.
+     */
+    fun diagnosePhysicalMove(
+        lesson: Lesson,
+        entry: CubeState,
+        expected: CubeState,
+        stateBeforeMove: CubeState,
+        move: Move,
+        config: TutorConfig,
+    ): Diagnosis {
+        val observed = stateBeforeMove.apply(move)
+        val held = CubeState(expected.cubies, observed.orientation)
+        val enumerator = CandidateEnumerator.of(held, config)
+        DiagnosisRules.orientation(entry, expected, observed)?.let { return diagnose(it, enumerator, observed) }
+        val finding =
+            DiagnosisRules.findings(lesson, entry, expected, observed)
+                ?: Finding(ErrorCategory.WRONG_MOVE_OR_DIRECTION, Text("msg.diagnosis.wrong-move-or-direction"), emptySet())
+        return diagnose(finding.category, enumerator, observed, finding.explanation, finding.disturbed)
+    }
+
+    /**
      * The Diagnosis of entered [facelets] that cannot be a real cube: INVALID_ENTERED_STATE, explained
      * by the validator's reason. With no Cube State there is no candidate, so it is UNKNOWN. Null when
      * the facelets are valid.
@@ -90,6 +114,16 @@ object Assess {
             is ValidationResult.Valid -> null
             is ValidationResult.Invalid -> Diagnosis.unknown(ErrorCategory.INVALID_ENTERED_STATE, result.reason, emptySet())
         }
+
+    /**
+     * An UNKNOWN Certainty Diagnosis (AD-5): used when no candidate explains the discrepancy or when
+     * evidence is unknown.
+     */
+    fun unknown(
+        category: ErrorCategory = ErrorCategory.UNKNOWN_DISCREPANCY,
+        explanation: Text = Text("msg.diagnosis.unknown-discrepancy"),
+        disturbed: Set<Piece> = emptySet(),
+    ): Diagnosis = Diagnosis.unknown(category, explanation, disturbed)
 
     /**
      * How the *Test me* Move [move] from [before] to [after] relates to the step of [lesson] (entered
@@ -163,6 +197,8 @@ object Assess {
         lastDiagnosis: Diagnosis?,
         recovery: Recovery,
         entry: CubeState = history.start,
+        isPhysical: Boolean = false,
+        isMismatch: Boolean = false,
     ): TutorDecision {
         val state = history.state
         val satisfied = lesson.completion.isSatisfied(state)
@@ -177,12 +213,18 @@ object Assess {
             }
         val explanationKey = if (advance) shown?.notice else shown?.goal
         val testing = mode == TeachingMode.TEST_ME && !advance
-        val diagnosis = lastDiagnosis.takeIf { testing }
+        val diagnosis = lastDiagnosis.takeIf { testing || (isPhysical && !advance) }
+        val certainty =
+            when {
+                isPhysical && diagnosis != null -> diagnosis.certainty
+                isPhysical && isMismatch -> Certainty.UNKNOWN
+                else -> confirm(CandidateEnumerator.of(state, config), state)
+            }
         return TutorDecision(
             objectiveId = lesson.objective,
             satisfied = satisfied,
             diagnosis = diagnosis,
-            certainty = confirm(CandidateEnumerator.of(state, config), state),
+            certainty = certainty,
             nextAction = nextAction,
             explanation = diagnosis?.explanation ?: Text((explanationKey ?: lesson.objective).value),
             recovery = recovery,

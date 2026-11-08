@@ -100,6 +100,7 @@ import dev.rubikxplorer.domain.content.TextKey
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Facelets
 import dev.rubikxplorer.domain.cube.Move
+import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.input.MoveIntent
 import dev.rubikxplorer.domain.playback.Demonstration
 import dev.rubikxplorer.domain.playback.DemonstrationResult
@@ -550,6 +551,7 @@ private fun LessonBody(
                 }
             },
             onDidSomethingElse = { showMoveKeyBar = true },
+            onMismatchReported = { send { SessionEvent.MismatchReported(it) } },
         )
     }
     val stage: @Composable (Modifier) -> Unit = { stageModifier ->
@@ -613,9 +615,12 @@ private fun LessonBody(
                                 null
                             }
                         }
+                    val isMismatch = session.syncState == SyncState.PHYSICAL_MISMATCH
                     val onMoveKey: (Move) -> Unit = { move ->
                         if (isPhysical) {
-                            showMoveKeyBar = false
+                            if (!isMismatch) {
+                                showMoveKeyBar = false
+                            }
                             send { SessionEvent.PhysicalConfirmed(move, it) }
                         } else {
                             send { SessionEvent.MoveCommitted(MoveIntent(move).move, it) }
@@ -641,7 +646,7 @@ private fun LessonBody(
                         reduceMotion = reduceMotion,
                         strings = strings,
                         send = send,
-                        showMoveKeyBar = !isPhysical || showMoveKeyBar,
+                        showMoveKeyBar = if (isMismatch) true else (!isPhysical || showMoveKeyBar),
                         onMove = onMoveKey,
                     )
                 }
@@ -819,6 +824,14 @@ private fun stepCard(
         }
     }
     val step = lesson.steps.getOrNull(index)
+    val diagnosisCandidate =
+        decision.diagnosis?.candidates?.firstOrNull()?.moves?.let { moves ->
+            if (moves.isNotEmpty()) {
+                moves.joinToString(" ") { Notation.format(it) }
+            } else {
+                null
+            }
+        }
     return StepCardContent(
         number = index + 1,
         count = lesson.steps.size,
@@ -850,6 +863,7 @@ private fun stepCard(
         assistance = if (mode == TeachingMode.SHOW_ME) null else assistanceContent(session, strings, offPath, beta),
         isPhysical = session.syncState != SyncState.VIRTUAL,
         objectiveMetCopy = if (session.syncState != SyncState.VIRTUAL) strings.resolve(TextKey("msg.physical.objective-met")) else null,
+        candidate = diagnosisCandidate,
     )
 }
 
@@ -906,6 +920,12 @@ private fun LearnerStage(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             FrameLabel(certainty, session.syncState)
+            val isPhysical = session.syncState != SyncState.VIRTUAL
+            if (session.syncState == SyncState.PHYSICAL_MISMATCH || session.syncState == SyncState.PHYSICAL_VERIFIED ||
+                (isPhysical && session.lastDiagnosis != null)
+            ) {
+                CertaintyChip(certainty, Modifier.padding(start = Spacing.s2))
+            }
             Row(
                 Modifier.weight(1f).semantics {
                     isTraversalGroup = true

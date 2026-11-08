@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-29-2026 12:34
-last_updated: 11-07-2026 23:45
+last_updated: 11-08-2026 00:45
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -110,7 +110,7 @@ development_status:
   epic-8: in-progress
   8-1-physical-mode-transitions-in-the-reducer: done
   8-2-follow-a-lesson-on-my-real-cube: done
-  8-3-report-a-mismatch-honestly-without-a-camera: backlog
+  8-3-report-a-mismatch-honestly-without-a-camera: done
   8-4-leave-and-resume-physical-mode-safely: backlog
   8-5-follow-a-solution-on-my-real-cube: backlog
   8-6-confirm-the-first-physical-solve-and-prove-no-desync: backlog

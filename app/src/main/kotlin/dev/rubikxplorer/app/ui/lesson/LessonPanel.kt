@@ -17,13 +17,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -89,6 +96,7 @@ internal data class StepCardContent(
     val isPractice: Boolean = false,
     val isPhysical: Boolean = false,
     val objectiveMetCopy: String? = null,
+    val candidate: String? = null,
 )
 
 /**
@@ -121,6 +129,7 @@ internal fun LessonPanel(
     onConfirmEnter: () -> Unit = {},
     onDone: () -> Unit = {},
     onDidSomethingElse: () -> Unit = {},
+    onMismatchReported: () -> Unit = {},
 ) {
     val tokens = RubikTheme.tokens
     Column(
@@ -158,54 +167,81 @@ internal fun LessonPanel(
                 onEnter = onConfirmEnter,
                 modifier = Modifier.fillMaxWidth(),
             )
+        } else if (syncState == SyncState.PHYSICAL_MISMATCH) {
+            MismatchLadder(
+                onOpenEditor = onConfirmEnter,
+                candidate = step.candidate,
+                modifier = Modifier.fillMaxWidth(),
+            )
         } else if (isPhysical) {
-            if (nextEnabled || step.objectiveMet) {
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s3), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(
-                        onClick = onDidSomethingElse,
-                        shape = MaterialTheme.shapes.medium,
-                        modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:didSomethingElse"),
-                    ) {
-                        Text(stringResource(R.string.physical_did_something_else), color = tokens.inkPrimary)
-                    }
-                    Button(
-                        onClick = onNext,
-                        enabled = true,
-                        shape = MaterialTheme.shapes.medium,
-                        colors =
-                            ButtonDefaults.buttonColors(
-                                containerColor = tokens.accent,
-                                contentColor = tokens.onAccent,
-                                disabledContainerColor = tokens.surfaceStage,
-                                disabledContentColor = tokens.inkDisabled,
-                            ),
-                        modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:next"),
-                    ) {
-                        Text(stringResource(R.string.lesson_next))
-                    }
+            var menuExpanded by remember { mutableStateOf(false) }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.s3),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                OutlinedButton(
+                    onClick = onDidSomethingElse,
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:didSomethingElse"),
+                ) {
+                    Text(stringResource(R.string.physical_did_something_else), color = tokens.inkPrimary)
                 }
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s3), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(
-                        onClick = onDidSomethingElse,
-                        shape = MaterialTheme.shapes.medium,
-                        modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:didSomethingElse"),
+                Button(
+                    onClick = if (nextEnabled || step.objectiveMet) onNext else onDone,
+                    enabled = true,
+                    shape = MaterialTheme.shapes.medium,
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = tokens.accent,
+                            contentColor = tokens.onAccent,
+                            disabledContainerColor = tokens.surfaceStage,
+                            disabledContentColor = tokens.inkDisabled,
+                        ),
+                    modifier =
+                        Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag(
+                            if (nextEnabled ||
+                                step.objectiveMet
+                            ) {
+                                "lesson:next"
+                            } else {
+                                "lesson:done"
+                            },
+                        ),
+                ) {
+                    Text(stringResource(if (nextEnabled || step.objectiveMet) R.string.lesson_next else R.string.physical_done))
+                }
+                Box {
+                    IconButton(
+                        onClick = { menuExpanded = true },
+                        modifier = Modifier.testTag("lesson:overflowMenu"),
                     ) {
-                        Text(stringResource(R.string.physical_did_something_else), color = tokens.inkPrimary)
+                        Icon(
+                            painter = painterResource(R.drawable.ic_more_vert),
+                            contentDescription = stringResource(R.string.physical_overflow_menu),
+                            tint = tokens.inkPrimary,
+                        )
                     }
-                    Button(
-                        onClick = onDone,
-                        shape = MaterialTheme.shapes.medium,
-                        colors =
-                            ButtonDefaults.buttonColors(
-                                containerColor = tokens.accent,
-                                contentColor = tokens.onAccent,
-                                disabledContainerColor = tokens.surfaceStage,
-                                disabledContentColor = tokens.inkDisabled,
-                            ),
-                        modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:done"),
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
                     ) {
-                        Text(stringResource(R.string.physical_done))
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.physical_mismatch_my_cube_doesnt_match)) },
+                            onClick = {
+                                menuExpanded = false
+                                onMismatchReported()
+                            },
+                            modifier = Modifier.testTag("lesson:menuMismatch"),
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.physical_mismatch_not_sure_what_i_did)) },
+                            onClick = {
+                                menuExpanded = false
+                                onMismatchReported()
+                            },
+                            modifier = Modifier.testTag("lesson:menuNotSure"),
+                        )
                     }
                 }
             }

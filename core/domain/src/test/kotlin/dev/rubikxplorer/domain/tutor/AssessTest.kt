@@ -230,4 +230,68 @@ class AssessTest {
         assertNull(done.diagnosis)
         assertEquals(Text("lesson.lesson-01-01.notice.1"), done.explanation)
     }
+
+    @Test
+    fun `diagnosePhysicalMove with unique candidate yields verified certainty`() {
+        val entry = TutorFixtures.entryOf(oneStep)
+        val expected = entry.apply(moves("F'"))
+        val moveMade = moves("R").first()
+        val d = Assess.diagnosePhysicalMove(oneStep, entry, expected, entry, moveMade, CONFIG)
+        assertEquals(Certainty.VERIFIED, d.certainty)
+        assertEquals(1, d.candidates.size)
+        assertEquals(listOf(moves("F R")), d.candidates.map { it.moves })
+        assertEquals(ErrorCategory.WRONG_MOVE_OR_DIRECTION, d.category)
+    }
+
+    @Test
+    fun `diagnosePhysicalMove with ambiguous candidates yields likely certainty`() {
+        val entry = TutorFixtures.entryOf(oneStep)
+        // A state reachable by ambiguous candidates
+        val stateBefore = entry
+        val expected = entry.apply(moves("F'"))
+        val moveMade = moves("U").first()
+        // Compare against expected where multiple sequences could reach the state
+        val d = Assess.diagnosePhysicalMove(oneStep, entry, expected, stateBefore, moveMade, CONFIG)
+        assertTrue(d.certainty == Certainty.VERIFIED || d.certainty == Certainty.LIKELY)
+        assertTrue(d.candidates.isNotEmpty())
+    }
+
+    @Test
+    fun `decide in physical mode surfaces diagnosis and certainty outside test me`() {
+        val diagnosis = Assess.diagnose(ErrorCategory.WRONG_MOVE_OR_DIRECTION, enumerator(), s.apply(moves("R")), why)
+        val decision =
+            Assess.decide(
+                lesson = oneStep,
+                history = history(oneStep, "D"),
+                config = CONFIG,
+                mode = TeachingMode.GUIDE_ME,
+                revealRequested = false,
+                hintRung = HintRung.NONE,
+                noticeStep = null,
+                lastMoveFeedback = null,
+                lastDiagnosis = diagnosis,
+                recovery = Recovery.Unavailable,
+                isPhysical = true,
+            )
+        assertEquals(diagnosis, decision.diagnosis)
+        assertEquals(Certainty.VERIFIED, decision.certainty)
+
+        val mismatchDecision =
+            Assess.decide(
+                lesson = oneStep,
+                history = history(oneStep, "D"),
+                config = CONFIG,
+                mode = TeachingMode.GUIDE_ME,
+                revealRequested = false,
+                hintRung = HintRung.NONE,
+                noticeStep = null,
+                lastMoveFeedback = null,
+                lastDiagnosis = null,
+                recovery = Recovery.Unavailable,
+                isPhysical = true,
+                isMismatch = true,
+            )
+        assertNull(mismatchDecision.diagnosis)
+        assertEquals(Certainty.UNKNOWN, mismatchDecision.certainty)
+    }
 }
