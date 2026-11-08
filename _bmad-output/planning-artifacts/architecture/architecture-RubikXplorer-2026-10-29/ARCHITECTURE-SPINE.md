@@ -4,10 +4,10 @@ type: architecture-spine
 purpose: build-substrate
 altitude: feature
 paradigm: 'hexagonal (ports & adapters) + functional core / imperative shell'
-scope: 'RubikXplorer Android app MVP — whole system (FR-1..FR-28, NFR-1..NFR-13); FR-29 (P1) deferred'
+scope: 'RubikXplorer Android app MVP — whole system (FR-1..FR-28, NFR-1..NFR-13); FR-21..FR-28 ship in v1.1; FR-29 (P1) deferred'
 status: final
 created: '2026-10-29'
-updated: '2026-10-31'
+updated: '2026-11-08'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, NFR-12, NFR-13]
 sources:
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/prd.md
@@ -238,6 +238,7 @@ stateDiagram-v2
 ### AD-9 — Recognition: neutral samples in, validated observations out
 
 - **Binds:** FR-21–FR-28, NFR-5, NFR-8, NFR-11, NFR-12
+- **Status:** v1.1. No v1.0 code implements this AD; it binds the first camera story.
 - **Prevents:** pixel code spreading across features; camera types reaching the domain; unvalidated or partial scans reaching the Solver; two owners of Color Calibration.
 - **Rule:**
   - **Camera adapter:**
@@ -307,7 +308,7 @@ stateDiagram-v2
 - **Binds:** NFR-5, NFR-8, PRD §7
 - **Prevents:** a dependency quietly adding network access, analytics or cloud backup.
 - **Rule:**
-  - The merged manifest declares no `INTERNET` permission. `CAMERA` is the only runtime permission.
+  - The merged manifest declares no `INTERNET` permission. v1.0 declares no runtime permission. From v1.1, `CAMERA` is the only one, added by the first camera story.
   - It sets `android:allowBackup="false"`, with `dataExtractionRules` that exclude everything.
   - Release logs never contain Cube States or samples from scans.
   - A CI check fails on any violation, or on any dependency from the analytics/ads/crash-SDK denylist.
@@ -509,8 +510,8 @@ graph LR
 | FR-14–FR-16 Editor, Solver, playback | `CubeValidator`, `:core:solver`, `SolveCube` | AD-2, AD-8, AD-20 |
 | FR-17–FR-18 2-look LL, Library | content, `lastlayer/`, `ui/library` | AD-6, AD-19, AD-20 |
 | FR-19–FR-20 Progress, mastery | Room logs, `tutor/Mastery` | AD-10 |
-| FR-21–FR-24 Scan capture, validation, calibration | `camera/`, `recognition/` | AD-9, AD-2, AD-17 |
-| FR-25–FR-28 Scan uses | `SolveCube`, `ConfirmPhysical`, `PlaceFromScan`, `RecognizeCase` | AD-9, AD-5, AD-19, AD-18 |
+| FR-21–FR-24 Scan capture, validation, calibration (v1.1) | `camera/`, `recognition/` | AD-9, AD-2, AD-17 |
+| FR-25–FR-28 Scan uses (v1.1) | `SolveCube`, `ConfirmPhysical`, `PlaceFromScan`, `RecognizeCase` | AD-9, AD-5, AD-19, AD-18 |
 | NFR-1–NFR-3, NFR-9 Performance and stability | reducer bounds, effects, vitals | AD-3, AD-8, AD-16 |
 | NFR-4, NFR-11, NFR-12 Correctness, size, quality | CI | AD-14, AD-15 |
 | NFR-5, NFR-8 Offline and privacy | manifest, CI | AD-13 |
@@ -520,6 +521,7 @@ graph LR
 ## Deferred
 
 - **Performance on the reference devices:** Story 1.10 measures it. The solve corpus uses a JVM benchmark. GL frame timing uses the in-app per-frame log from the GL thread (`onDrawFrame` intervals), optionally traced for Macrobenchmark's `TraceSectionMetric`, because `FrameTimingMetric` and `FrameMetrics` do not see `GLSurfaceView` frames. It covers View Rotation as well as face turns (NFR-2). A physical-device p90 above 33.3 ms reopens the rendering choice, which stays behind `CubeRenderer` (AD-4). Neither reference device is truly low-end.
+- **Camera Cube Recognition** (AD-9, FR-21 – FR-28) ships in v1.1 (`sprint-change-proposal-2026-11-08-vision-deferral`). v1.0 keeps the AD-18 camera flags OFF in release.
 - **Quick Scan detection method** (Kotlin, OpenCV or LiteRT): the OQ-7 spike decides. It is contained in `:app/camera` (AD-9), and its size is checked against NFR-11.
 - **Solver internals** (coordinate encoding, whether pruning tables are bundled or built at first run, the search depth limit): decided in the solver epic, within AD-8's 3 s timeout and NFR-11.
 - **`RecoveryPlanner` search** (bounded IDA* over `preservedPieces`): decided in the FR-12 epic, within AD-3, AD-5 and AD-8.
