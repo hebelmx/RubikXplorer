@@ -28,8 +28,10 @@
 # - Developer typically creates the next story after the previous one is 'done' to incorporate learnings
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
+# 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
+#   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: 11-08-2026 13:35
+last_updated: 11-08-2026 17:00
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -114,6 +116,7 @@ development_status:
   8-4-leave-and-resume-physical-mode-safely: done
   8-5-follow-a-solution-on-my-real-cube: done
   8-6-confirm-the-first-physical-solve-and-prove-no-desync: done
+  8-7-camera-free-stage-6-prompt: backlog
   epic-8-retrospective: optional
 
   epic-9: backlog
@@ -127,22 +130,7 @@ development_status:
   9-8-2-look-completion-and-mastery: backlog
   epic-9-retrospective: optional
 
-  epic-10: backlog
-  10-1-classify-stickers-and-assemble-a-scan-result: backlog
-  10-2-guided-6-face-scan-viewfinder: backlog
-  10-3-review-and-correct-a-scan-result: backlog
-  10-4-calibrate-colors-for-my-cube: backlog
-  10-5-scan-to-solve: backlog
-  10-6-quick-check-evidence-and-certainty: backlog
-  10-7-quick-check-in-physical-cube-mode-and-playback: backlog
-  10-8-recognition-test-matrix-and-ga-beta-decision: backlog
-  epic-10-retrospective: optional
 
-  epic-11: backlog
-  11-1-quick-scan-from-two-corners: backlog
-  11-2-start-the-course-from-my-cube-placement: backlog
-  11-3-recognize-an-oll-pll-case: backlog
-  epic-11-retrospective: optional
 
   epic-12: backlog
   12-1-accessibility-audit-and-fixes: backlog
