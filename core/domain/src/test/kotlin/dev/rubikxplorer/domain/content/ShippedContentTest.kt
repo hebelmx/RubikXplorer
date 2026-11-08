@@ -205,7 +205,7 @@ class ShippedContentTest {
                         listOf(lesson.objective, lesson.learnerAction) +
                             lesson.steps.flatMap { listOf(it.goal, it.preserve, it.watch, it.notice) }
                     }.map { it.value }
-        val content = bundle.strings.filterKeys { !it.startsWith("msg.") }
+        val content = bundle.strings.filterKeys { !it.startsWith("msg.") && !it.startsWith("btn.") }
         assertEquals(content.keys, used, "every stage and lesson string is used by content, and only those")
         val problems =
             content.flatMap { (key, message) -> VoiceGuide.problems(message, title = key in titles).map { "$key $it: $message" } }

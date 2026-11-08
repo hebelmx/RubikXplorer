@@ -34,6 +34,8 @@
   "msg.physical.undo": "Turn {move} on your cube to undo.",
   "msg.physical.back-to-virtual": "The on-screen cube now matches what we expected on yours.",
   "msg.physical.objective-met": "If your cube matches the picture, this step is done.",
+  "msg.physical.first-solve-prompt": "Your cube should be solved now. Check it with the camera, or tell me if it is.",
+  "btn.physical.yes-its-solved": "Yes, it's solved",
   "msg.physical.mismatch.which-turn": "Which turn did you make?",
   "msg.physical.mismatch.one-face": "Look at the front face — which corner is white?",
   "msg.physical.mismatch.re-enter": "Let's re-enter your cube",
