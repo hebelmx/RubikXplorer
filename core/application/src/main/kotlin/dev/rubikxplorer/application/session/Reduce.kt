@@ -15,6 +15,8 @@ import dev.rubikxplorer.domain.recognition.PhysicalObservation
 import dev.rubikxplorer.domain.text.Text
 import dev.rubikxplorer.domain.tutor.Assess
 import dev.rubikxplorer.domain.tutor.AssistanceLevel
+import dev.rubikxplorer.domain.tutor.Diagnosis
+import dev.rubikxplorer.domain.tutor.ErrorCategory
 import dev.rubikxplorer.domain.tutor.HintLadder
 import dev.rubikxplorer.domain.tutor.HintRung
 import dev.rubikxplorer.domain.tutor.MoveAssessment
@@ -72,7 +74,7 @@ fun reduce(
         event is SessionEvent.GuidedRecoveryRequested || event is SessionEvent.RecoveryPlanned || event is SessionEvent.RecoveryPlanFailed
     val keeps =
         event is SessionEvent.MoveCommitted || (event is SessionEvent.PhysicalConfirmed && event.move != null) ||
-            event is SessionEvent.SolvePlaybackStarted || recovery
+            event is SessionEvent.EditorEntered || event is SessionEvent.SolvePlaybackStarted || recovery
     if (keeps || (transition.state.kind != SessionKind.LESSON && transition.state.kind != SessionKind.PRACTICE)) return transition
     return transition.copy(
         state = transition.state.copy(lastMoveFeedback = null, lastDiagnosis = null, guidedRecovery = GuidedRecovery.None),
@@ -526,7 +528,25 @@ private fun confirmPhysical(
             Transition(counted, presentation = listOf(Presentation.Animate(move, counted.revision, counted.virtual)))
         }
 
-        SyncState.VIRTUAL, SyncState.PHYSICAL_MISMATCH -> {
+        SyncState.PHYSICAL_MISMATCH -> {
+            val move = event.move ?: return Transition(state)
+            val lesson = state.lesson
+            val config = state.tutorConfig
+            val stateBefore =
+                state.history
+                    .undo()
+                    .state
+                    .takeIf { state.history.canUndo } ?: state.expected
+            val diagnosis =
+                if (lesson != null && config != null) {
+                    Assess.diagnosePhysicalMove(lesson, state.pathEntry, state.expected, stateBefore, move, config)
+                } else {
+                    null
+                }
+            Transition(state.copy(lastDiagnosis = diagnosis))
+        }
+
+        SyncState.VIRTUAL -> {
             Transition(state)
         }
     }
@@ -555,13 +575,23 @@ private fun enterEditor(
     if (state.syncState == SyncState.VIRTUAL) return Transition(state)
     val nextHistory = MoveHistory(event.state)
     val lesson = state.lesson
+    val config = state.tutorConfig
+    val previousCheckpoint = state.checkpoint
+    val diagnosis =
+        if (lesson != null && config != null && !lesson.completion.isSatisfied(event.state)) {
+            val expectedBase = previousCheckpoint?.state ?: state.pathEntry
+            Assess.diagnose(lesson, state.pathEntry, expectedBase, event.state, config)
+                ?: Assess.unknown(ErrorCategory.UNKNOWN_DISCREPANCY, Text("msg.diagnosis.unknown-discrepancy"))
+        } else {
+            null
+        }
     val moved =
         withHistory(state, nextHistory).copy(
             expected = event.state,
             observed = PhysicalObservation.Full(event.state),
             syncState = SyncState.PHYSICAL_PREDICTED,
             lastMoveFeedback = null,
-            lastDiagnosis = null,
+            lastDiagnosis = diagnosis,
             checkpoint = nextHistory,
         )
     val next = lesson?.let { l -> withNotice(state, moved, l) } ?: moved

@@ -27,9 +27,12 @@ import dev.rubikxplorer.domain.cube.FaceTurn
 import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.cube.NotationResult
 import dev.rubikxplorer.domain.cube.Turn
+import dev.rubikxplorer.domain.recognition.PhysicalObservation
+import dev.rubikxplorer.domain.tutor.Certainty
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -379,5 +382,159 @@ class PhysicalLessonScreenTest {
 
         // MoveKeyBar is visible by default in virtual mode
         node("moveKey:U").assertExists()
+    }
+
+    @Test
+    fun story8_3_ac1_reportMismatch_showsUnknownChip_andAsksInFR9Order() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host)
+
+        // Enter physical mode and confirm match
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.waitForIdle()
+        node("confirmCube:matches").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+
+        // Certainty chip does not exist yet in predicted
+        node("certainty:chip").assertDoesNotExist()
+
+        // Open overflow menu
+        node("lesson:overflowMenu").performScrollTo().performClick()
+        rule.waitForIdle()
+
+        // Choose "My cube doesn't match"
+        node("lesson:menuMismatch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_MISMATCH }
+        rule.waitForIdle()
+
+        // Chip shows ? Unknown
+        node("certainty:chip").assertExists()
+        node("certainty:icon").assertTextEquals("?")
+        node("certainty:label").assertTextEquals("Unknown")
+
+        // Rung 1: "Which turn did you make?" with Move keys
+        node("mismatch:ladder").assertExists()
+        rule.onNodeWithText("Which turn did you make?").assertExists()
+        node("moveKey:U").assertExists()
+
+        // Advance to Rung 2: one-face picker
+        node("mismatch:nextQuestion").performScrollTo().performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("Look at the front face — which corner is white?").assertExists()
+        node("mismatch:corner:top_left").assertExists()
+        node("mismatch:corner:top_right").assertExists()
+        node("mismatch:corner:bottom_left").assertExists()
+        node("mismatch:corner:bottom_right").assertExists()
+
+        // Advance to Rung 3: "Let's re-enter your cube"
+        node("mismatch:nextQuestion").performScrollTo().performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("Let's re-enter your cube").assertExists()
+        node("mismatch:reenter").assertExists()
+
+        // Tapping Enter it opens ManualCubeEditor
+        node("mismatch:reenter").performScrollTo().performClick()
+        rule.waitForIdle()
+        node("lesson:manualEditor").assertExists()
+    }
+
+    @Test
+    fun story8_3_ac2_enteredMoveDiagnosedAsEvidence_certaintyUpdates() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host)
+
+        // Enter physical mode and confirm match
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.waitForIdle()
+        node("confirmCube:matches").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+
+        // Open overflow menu and report "I'm not sure what I did"
+        node("lesson:overflowMenu").performScrollTo().performClick()
+        rule.waitForIdle()
+        node("lesson:menuNotSure").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_MISMATCH }
+        rule.waitForIdle()
+
+        // Chip shows ? Unknown initially
+        node("certainty:icon").assertTextEquals("?")
+        node("certainty:label").assertTextEquals("Unknown")
+
+        // In Rung 1, enter move key U' (counter-clockwise U)
+        node("moveKey:U'").performClick()
+        rule.waitUntil(5_000) { host.state.value.lastDiagnosis != null }
+        rule.waitForIdle()
+
+        // Diagnosis was evaluated using entered move as evidence
+        val diagnosis = host.state.value.lastDiagnosis
+        assertNotNull(diagnosis)
+        // Certainty chip updates to Verified or Likely
+        node("certainty:chip").assertExists()
+        val certainty =
+            host.state.value.decision
+                ?.certainty
+        assertTrue(certainty == Certainty.VERIFIED || certainty == Certainty.LIKELY)
+        if (certainty == Certainty.VERIFIED) {
+            node("certainty:icon").assertTextEquals("✓")
+            node("certainty:label").assertTextEquals("Verified")
+        } else {
+            node("certainty:icon").assertTextEquals("≈")
+            node("certainty:label").assertTextEquals("Likely")
+            node("mismatch:candidate").assertExists()
+        }
+    }
+
+    @Test
+    fun story8_3_ac3_reenteredCubeBecomesFullObservation_andGuidedRecoveryOffered() {
+        val entry0301 = ready.lessons.first { it.lesson.id.value == "lesson-03-01" }
+        val host = SessionHost(TickingClock())
+        setLessonContent(host, entry0301)
+
+        // Enter physical mode and confirm match
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.waitForIdle()
+        node("confirmCube:matches").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+
+        // Report mismatch
+        node("lesson:overflowMenu").performScrollTo().performClick()
+        rule.waitForIdle()
+        node("lesson:menuMismatch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_MISMATCH }
+        rule.waitForIdle()
+
+        // Move down ladder to re-enter
+        node("mismatch:nextQuestion").performScrollTo().performClick()
+        rule.waitForIdle()
+        node("mismatch:nextQuestion").performScrollTo().performClick()
+        rule.waitForIdle()
+        node("mismatch:reenter").performScrollTo().performClick()
+        rule.waitForIdle()
+        node("lesson:manualEditor").assertExists()
+
+        // Simulate editor entry that disturbs preserved white cross pieces
+        val disturbedState =
+            host.state.value.expected
+                .apply(FaceTurn(Face.R, Turn.CLOCKWISE))
+        runBlocking {
+            host.dispatch { SessionEvent.EditorEntered(disturbedState, it) }
+        }
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+
+        // Becomes Full observation
+        val observation = host.state.value.observed
+        assertTrue(observation is PhysicalObservation.Full)
+        assertEquals(disturbedState, (observation as PhysicalObservation.Full).state)
+
+        // Guided recovery is offered
+        assertTrue(host.state.value.canGuideBack)
+        node("lesson:recovery:guideMeBack").assertExists()
     }
 }

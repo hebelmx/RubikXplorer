@@ -166,6 +166,8 @@ data class SessionState internal constructor(
                     GuidedRecovery.None, GuidedRecovery.NotFound -> Recovery.Unavailable
                 },
                 entry = pathEntry,
+                isPhysical = syncState != SyncState.VIRTUAL,
+                isMismatch = syncState == SyncState.PHYSICAL_MISMATCH,
             )
         }
     }
@@ -177,7 +179,7 @@ data class SessionState internal constructor(
     val recoveryGoal: RecoveryGoal? by lazy(LazyThreadSafetyMode.PUBLICATION) {
         val lesson = lesson ?: return@lazy null
         val checkpoint = checkpoint ?: return@lazy null
-        RecoveryPlanner.goal(lesson, listOf(checkpoint.state, history.undo().state))
+        RecoveryPlanner.goal(lesson, listOfNotNull(pathEntry, checkpoint.state, history.undo().state))
     }
 
     /**

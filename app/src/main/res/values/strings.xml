@@ -46,6 +46,19 @@
     <string name="physical_done">Done</string>
     <string name="physical_did_something_else">I did something else</string>
     <string name="physical_objective_met">If your cube matches the picture, this step is done.</string>
+    <string name="physical_mismatch_my_cube_doesnt_match">My cube doesn\'t match</string>
+    <string name="physical_mismatch_not_sure_what_i_did">I\'m not sure what I did</string>
+    <string name="physical_mismatch_which_turn">Which turn did you make?</string>
+    <string name="physical_mismatch_one_face">Look at the front face — which corner is white?</string>
+    <string name="physical_mismatch_reenter">Let\'s re-enter your cube</string>
+    <string name="physical_mismatch_corner_top_left">Top-left</string>
+    <string name="physical_mismatch_corner_top_right">Top-right</string>
+    <string name="physical_mismatch_corner_bottom_left">Bottom-left</string>
+    <string name="physical_mismatch_corner_bottom_right">Bottom-right</string>
+    <string name="physical_mismatch_corner_none">None of these</string>
+    <string name="physical_mismatch_next_question">Next question</string>
+    <string name="physical_mismatch_candidate">Candidate: %1$s</string>
+    <string name="physical_overflow_menu">More options</string>
 
     <!-- Playback transport -->
     <string name="playback_restart" translatable="false">|◀</string>

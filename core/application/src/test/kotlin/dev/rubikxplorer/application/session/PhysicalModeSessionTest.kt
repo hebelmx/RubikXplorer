@@ -12,6 +12,7 @@ import dev.rubikxplorer.domain.cube.Turn
 import dev.rubikxplorer.domain.input.ViewOrbit
 import dev.rubikxplorer.domain.recognition.PhysicalObservation
 import dev.rubikxplorer.domain.text.Text
+import dev.rubikxplorer.domain.tutor.Certainty
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -263,6 +264,43 @@ class PhysicalModeSessionTest {
         val confirmedShowMe = reduce(showMeSession, SessionEvent.PhysicalConfirmed(Y, T0)).state
         assertNull(confirmedShowMe.lastMoveFeedback)
         assertNull(confirmedShowMe.lastDiagnosis)
+    }
+
+    @Test
+    fun `mismatch reporting and entered move diagnosis and editor re-entry with guided recovery`() {
+        val lesson = shippedLesson("lesson-03-01")
+        val session =
+            started(lesson)
+                .after(
+                    SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0),
+                    SessionEvent.PhysicalConfirmed(null, T0),
+                )
+        assertEquals(SyncState.PHYSICAL_PREDICTED, session.syncState)
+
+        // Reporting mismatch transitions to PHYSICAL_MISMATCH with Certainty UNKNOWN
+        val mismatchState = reduce(session, SessionEvent.MismatchReported(T0)).state
+        assertEquals(SyncState.PHYSICAL_MISMATCH, mismatchState.syncState)
+        assertNull(mismatchState.lastDiagnosis)
+        assertEquals(Certainty.UNKNOWN, mismatchState.decision?.certainty)
+
+        // Entering move during mismatch runs Assess and provides Diagnosis with evidence
+        val afterEnteredMove = reduce(mismatchState, SessionEvent.PhysicalConfirmed(R, T0)).state
+        assertEquals(SyncState.PHYSICAL_MISMATCH, afterEnteredMove.syncState)
+        val diagnosis = afterEnteredMove.lastDiagnosis
+        org.junit.jupiter.api.Assertions
+            .assertNotNull(diagnosis)
+        assertEquals(afterEnteredMove.decision?.certainty, diagnosis?.certainty)
+        assertTrue(diagnosis!!.certainty == Certainty.VERIFIED || diagnosis.certainty == Certainty.LIKELY)
+
+        // Re-entering cube via EditorEntered transitions to PHYSICAL_PREDICTED with Full observation and offers Guided recovery
+        val brokenState = CubeState.SOLVED.apply(R, U, F)
+        val afterEditor = reduce(afterEnteredMove, SessionEvent.EditorEntered(brokenState, T0)).state
+        assertEquals(SyncState.PHYSICAL_PREDICTED, afterEditor.syncState)
+        assertEquals(PhysicalObservation.Full(brokenState), afterEditor.observed)
+        assertEquals(brokenState, afterEditor.expected)
+        assertEquals(brokenState, afterEditor.virtual)
+        assertTrue(afterEditor.decision?.diagnosis != null)
+        assertTrue(afterEditor.canGuideBack)
     }
 
     @Test
