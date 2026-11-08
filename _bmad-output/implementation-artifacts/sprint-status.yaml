@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: 11-08-2026 17:29
+last_updated: 11-08-2026 17:58
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -130,18 +130,17 @@ development_status:
   9-8-2-look-completion-and-mastery: backlog
   epic-9-retrospective: optional
 
-  epic-10: backlog
-  epic-10-retrospective: optional
-
-  epic-11: backlog
-  epic-11-retrospective: optional
-
   epic-12: backlog
   12-1-accessibility-audit-and-fixes: backlog
   12-2-performance-and-compatibility-on-the-reference-devices: backlog
   12-3-stability-size-and-privacy-hardening: backlog
   12-4-pilot-findings-fixed-and-release-gates-passed: backlog
   12-5-store-listing-and-public-portfolio-repo: backlog
+  12-6-rebrand-to-cubentia: backlog
+  12-7-physical-progress-is-recorded-only-when-true: backlog
+  12-8-the-mismatch-ladder-resolves-a-mismatch: backlog
+  12-9-one-source-for-physical-copy-skip-check-needs-the-virtual-cu: backlog
+  12-10-prove-the-release-permission-gate-end-to-end: backlog
   epic-12-retrospective: optional
 action_items:
   - id: "epic-2-retro-item-1-create-a-deferred-findings-ledger-or-rou"
@@ -353,7 +352,7 @@ action_items:
       (SessionHost.kt:474-483) on a session-level confirmation event, move the confirm
       flags out of rememberSaveable, replace the five lesson-06-03 literals"
     owner: "Dev (Amelia)"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-08.md"
   - id: "epic-8-retro-item-29-show-physical-undo-redo-instructions-ren"
     epic: 8
@@ -361,14 +360,14 @@ action_items:
       instead of mapping it to Animate (PresentationMapping.kt:11); disable or instruct
       physical Redo (Reduce.kt:129-136)"
     owner: "Dev (Amelia)"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-08.md"
   - id: "epic-8-retro-item-30-persist-a-physical-checkpoint-on-modeswi"
     epic: 8
     action: "Persist a physical Checkpoint on ModeSwitched (Reduce.kt switchMode/persistCheckpoint)
       and add the SessionHostCheckpointTest switch-then-endSolve case"
     owner: "Dev (Amelia)"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-08.md"
   - id: "epic-8-retro-item-31-settle-the-mismatch-ladder-contract-rung"
     epic: 8
@@ -376,7 +375,7 @@ action_items:
       rung-2 Partial evidence, PHYSICAL_VERIFIED, physical Guided recovery) and align
       Reduce.kt, MismatchLadder.kt and TRANSITIONS.md"
     owner: "Architect (Winston) + Dev (Amelia)"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-08.md"
   - id: "epic-8-retro-item-32-before-story-3-7-wires-physical-playback"
     epic: 8
@@ -391,13 +390,13 @@ action_items:
     action: "One source for physical-mode copy: move mismatch-ladder strings to en.json
       keys and delete the four unreferenced strings.xml duplicates"
     owner: "Dev (Amelia)"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-08.md"
   - id: "epic-8-retro-item-34-close-the-skip-ahead-check-self-report-p"
     epic: 8
     action: "Close the skip-ahead check self-report path in physical mode (LessonScreen.kt:557-563)"
     owner: "PM (John) + Dev (Amelia)"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-08.md"
   - id: "epic-8-retro-item-35-run-instrumented-endtoendsyncverificatio"
     epic: 8
@@ -418,7 +417,7 @@ action_items:
     action: "Prove the release-permission gate end to end: TestKit test for checkReleaseMergedManifest
       on CAMERA, AppShell CAMERA_SCAN wiring test, key policy on variant debuggable"
     owner: "Dev (Amelia)"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-08.md"
   - id: "epic-8-retro-item-38-add-an-epic-boundary-cross-story-review"
     epic: 8
@@ -432,5 +431,5 @@ action_items:
     action: "Reconcile planning text with SCP 2026-11-08: Epic 8 intro and 8.2 Scan-it
       wording, and stop sprint generate re-adding epic-10/epic-11 keys"
     owner: "PM (John) / SM"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-08.md"
