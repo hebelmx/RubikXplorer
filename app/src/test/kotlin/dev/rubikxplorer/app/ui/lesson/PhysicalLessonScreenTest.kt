@@ -457,6 +457,40 @@ class PhysicalLessonScreenTest {
     }
 
     @Test
+    fun story8_6_review_stage6ObjectiveMet_switchToVirtualWithoutConfirming_milestoneSuppressed() {
+        val milestoneEntry = ready.lessons.single { it.lesson.id.value == "lesson-06-03" }
+        val host = SessionHost(TickingClock())
+        setLessonContent(host, milestoneEntry)
+
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.waitForIdle()
+        node("confirmCube:matches").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+
+        val lesson = milestoneEntry.lesson
+        lesson.steps.take(2).forEachIndexed { index, step ->
+            (Notation.parse(step.moves) as NotationResult.Parsed).moves.forEach { move ->
+                runBlocking { host.dispatch { SessionEvent.PhysicalConfirmed(move, it) } }
+            }
+            if (index == 0) runBlocking { host.dispatch(SessionEvent::StepAdvanced) }
+        }
+        rule.waitUntil(5_000) {
+            host.state.value.decision
+                ?.satisfied == true || host.state.value.objectiveMet
+        }
+        rule.waitForIdle()
+        node("lesson:yesItsSolved").assertExists()
+
+        // Switching to virtual must not skip the honest *Yes, it's solved* confirmation
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.VIRTUAL }
+        rule.waitForIdle()
+        node("milestone:overlay").assertDoesNotExist()
+    }
+
+    @Test
     fun togglePhysicalModeOff_returnsToVirtual_withCertainty_andDefaultMoveKeyBar() {
         val host = SessionHost(TickingClock())
         setLessonContent(host)

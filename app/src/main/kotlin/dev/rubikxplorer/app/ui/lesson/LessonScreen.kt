@@ -161,6 +161,9 @@ fun LessonScreen(
     var initialMastered by rememberSaveable(lesson.id.value) { mutableStateOf<Boolean?>(null) }
     var milestoneDismissed by rememberSaveable(lesson.id.value) { mutableStateOf(false) }
     var physicalFirstSolveConfirmed by rememberSaveable(lesson.id.value) { mutableStateOf(false) }
+    // Set once the Stage 6 objective is met on the real cube without *Yes, it's solved*; blocks the
+    // virtual-mode milestone so switching modes cannot skip the honest confirmation (AC 1).
+    var physicalSolveUnconfirmed by rememberSaveable(lesson.id.value) { mutableStateOf(false) }
 
     val isPhysical = session.syncState != SyncState.VIRTUAL
     val isEndOfStage6 = entry.lesson.id.value == "lesson-06-03"
@@ -189,8 +192,16 @@ fun LessonScreen(
             if (isPhysical) {
                 physicalFirstSolveConfirmed && (session.decision?.satisfied == true || session.objectiveMet)
             } else {
-                session.decision?.satisfied == true
+                session.decision?.satisfied == true && !physicalSolveUnconfirmed
             }
+
+    val objectiveSatisfied = session.decision?.satisfied == true || session.objectiveMet
+    LaunchedEffect(isEndOfStage6, isPhysical, objectiveSatisfied, physicalFirstSolveConfirmed) {
+        when {
+            !objectiveSatisfied -> physicalSolveUnconfirmed = false
+            isEndOfStage6 && isPhysical && !physicalFirstSolveConfirmed -> physicalSolveUnconfirmed = true
+        }
+    }
 
     val showMilestone = isFirstSolveMilestone || isMasteryMilestone
 
@@ -207,7 +218,18 @@ fun LessonScreen(
         preferenceStore.awaitLoaded()
         if (initialCompleted == null) {
             val epochEvents = StageProgress.currentEpochEvents(host.progressEvents.value)
-            initialCompleted = epochEvents.any { it is ProgressEvent.LessonCompleted && it.lessonId == lesson.id }
+            // SessionHost records LessonCompleted as soon as the physical objective is met, before the
+            // learner confirms. Re-entering at that pending prompt must not count as already completed,
+            // or *Yes, it's solved* would close the screen and the first-solve milestone would be lost.
+            val resumed = host.state.value
+            val pendingPhysicalSolve =
+                isEndOfStage6 &&
+                    resumed.lesson?.id == lesson.id &&
+                    resumed.syncState != SyncState.VIRTUAL &&
+                    (resumed.decision?.satisfied == true || resumed.objectiveMet)
+            initialCompleted =
+                !pendingPhysicalSolve &&
+                epochEvents.any { it is ProgressEvent.LessonCompleted && it.lessonId == lesson.id }
         }
         if (initialMastered == null) {
             val epochAttempts = Mastery.currentEpochAttempts(host.attemptRecords.value, host.progressEvents.value)

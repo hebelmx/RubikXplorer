@@ -181,9 +181,14 @@ internal suspend fun endToEndSyncScenario(
 
         // 6. Switch to physical mode again and advance before pause/kill
         dispatch { SessionEvent.ModeSwitched(CubeMode.PHYSICAL, it) }
+        assertZeroDesync("ModeSwitched to physical again")
         dispatch { SessionEvent.PhysicalConfirmed(null, it) }
+        assertZeroDesync("Physical match confirmed again")
         dispatch { SessionEvent.PhysicalConfirmed(FaceTurn(Face.U, Turn.CLOCKWISE), it) }
         assertZeroDesync("Physical move U before process kill")
+        // Independent oracle for the resume check: the cube as it stood before the kill.
+        val preKillExpected = host.state.value.expected
+        val preKillVirtual = host.state.value.virtual
 
         // 7. Pause, process kill (database recreation), and session resumption
         writer.flush()
@@ -207,6 +212,8 @@ internal suspend fun endToEndSyncScenario(
 
         assertEquals(SyncState.PHYSICAL_AWAITING_CONFIRM, host.state.value.syncState)
         val restoredExpected = host.state.value.expected
+        assertEquals("Resume must restore the pre-kill expected cube", preKillExpected, restoredExpected)
+        assertEquals("Resume must restore the pre-kill virtual cube", preKillVirtual, host.state.value.virtual)
 
         currentCube3D = Cube3DRenderer(restoredExpected.toFacelets())
         currentNet2D = Net2DRenderer(restoredExpected.toFacelets())
