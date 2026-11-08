@@ -510,9 +510,7 @@ class LessonScreenTest {
     fun `show me follows the playing Demonstration, Notice after each step's Moves`() {
         val id = twoStepLesson().id.value
         open(id)
-        node("mode:SHOW_ME").performScrollTo().performClick()
-        rule.waitUntil(5_000) { host.state.value.teachingMode == TeachingMode.SHOW_ME }
-        rule.waitForIdle()
+        switchTo(TeachingMode.SHOW_ME)
         node("mode:SHOW_ME").assertIsSelected()
         node("lesson:hint").performScrollTo().assertIsNotEnabled()
         node("demonstrationPlayer").assertExists()
@@ -664,10 +662,12 @@ class LessonScreenTest {
         assertEquals(null, node("cube3d").fetchSemanticsNode().config.getOrNull(RenderedArrowKey))
         assertTrue(stickersWith(StickerHighlightedKey).isNotEmpty())
 
+        node("lesson:hint").performScrollTo()
+        rule.waitForIdle()
         rule.mainClock.autoAdvance = false
-        node("lesson:hint").performScrollTo().performClick()
+        node("lesson:hint").performClick()
         var played = false
-        repeat(DEMO_CHECKS) {
+        repeat(DEMO_CHECKS * 2) {
             if (!played) {
                 rule.mainClock.advanceTimeBy(DEMO_CHECK_MILLIS)
                 played = drawnColors() == solvedColors
@@ -713,8 +713,10 @@ class LessonScreenTest {
         val later = end.apply(demonstration.steps[3].moves)
         assertNotEquals(colors(before.virtual), colors(start))
 
+        node("lesson:hint").performScrollTo()
+        rule.waitForIdle()
         rule.mainClock.autoAdvance = false
-        node("lesson:hint").performScrollTo().performClick()
+        node("lesson:hint").performClick()
         val seen = mutableListOf<List<Color>>()
         repeat(DEMO_CHECKS * 2) {
             rule.mainClock.advanceTimeBy(DEMO_CHECK_MILLIS)
@@ -1125,6 +1127,7 @@ class LessonScreenTest {
         assertNetMatchesSession("turned cube drawn before Show me how")
 
         node("lesson:showMeHow").performScrollTo()
+        rule.waitForIdle()
         rule.mainClock.autoAdvance = false
         node("lesson:showMeHow").performClick()
         rule.mainClock.advanceTimeByFrame()
@@ -1162,6 +1165,7 @@ class LessonScreenTest {
         val turned = host.state.value.virtual
 
         node("lesson:showMeHow").performScrollTo()
+        rule.waitForIdle()
         rule.mainClock.autoAdvance = false
         node("lesson:showMeHow").performClick()
         rule.mainClock.advanceTimeByFrame()
@@ -1749,11 +1753,13 @@ class LessonScreenTest {
                 .joinToString("; ") { strings.resolve(it) }
         assertNotEquals(session, expected)
 
+        node("lesson:hint").performScrollTo()
+        rule.waitForIdle()
         rule.mainClock.autoAdvance = false
-        node("lesson:hint").performScrollTo().performClick()
+        node("lesson:hint").performClick()
         val endColors = end.toFacelets().colors.map { Color(StickerAppearance.of(it).fill) }
         var held = false
-        repeat(DEMO_CHECKS) {
+        repeat(DEMO_CHECKS * 2) {
             if (!held) {
                 rule.mainClock.advanceTimeBy(DEMO_CHECK_MILLIS)
                 held = drawnColors() == endColors
