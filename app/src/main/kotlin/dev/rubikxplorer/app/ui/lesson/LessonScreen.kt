@@ -133,6 +133,9 @@ fun LessonScreen(
     isPractice: Boolean = false,
     stages: List<Stage> = emptyList(),
     onNextStage: ((StageId) -> Unit)? = null,
+    isSkipCheck: Boolean = false,
+    skipCheckInstruction: String? = null,
+    onSkipCheckPassed: (() -> Unit)? = null,
 ) {
     val preferenceStore = LocalPreferenceStore.current
     val lesson = entry.lesson
@@ -186,7 +189,7 @@ fun LessonScreen(
             val epochAttempts = Mastery.currentEpochAttempts(host.attemptRecords.value, host.progressEvents.value)
             initialMastered = Mastery.evaluate(entry.stage, epochAttempts, entry.tutorConfig.mastery).isMastered
         }
-        val practicing = isPractice || host.state.value.kind == SessionKind.PRACTICE
+        val practicing = isPractice || isSkipCheck || host.state.value.kind == SessionKind.PRACTICE
         val shouldStart =
             if (practicing) {
                 host.state.value.lesson
@@ -232,6 +235,17 @@ fun LessonScreen(
             session.restoreNote?.let { note ->
                 Text(strings.resolve(note), modifier = Modifier.testTag("lesson:restoreNote"))
             }
+            if (skipCheckInstruction != null) {
+                Text(
+                    text = skipCheckInstruction,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = RubikTheme.tokens.inkSecondary,
+                    modifier =
+                        Modifier
+                            .padding(horizontal = Spacing.s4, vertical = Spacing.s2)
+                            .testTag("lesson:skipCheckInstruction"),
+                )
+            }
             val decision = session.decision
             val demonstration = remember(lesson) { (Demonstration.of(lesson) as? DemonstrationResult.Ready)?.demonstration }
             if (session.lesson?.id == lesson.id && decision != null && demonstration != null) {
@@ -246,6 +260,8 @@ fun LessonScreen(
                     onClose,
                     adaptiveAssistance == FlagLevel.BETA,
                     isPractice = isPractice,
+                    isSkipCheck = isSkipCheck,
+                    onSkipCheckPassed = onSkipCheckPassed,
                 )
             }
         }
@@ -345,6 +361,8 @@ private fun LessonBody(
     onClose: () -> Unit,
     beta: Boolean,
     isPractice: Boolean = false,
+    isSkipCheck: Boolean = false,
+    onSkipCheckPassed: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     val reduceMotion = rememberReduceMotion()
@@ -400,25 +418,35 @@ private fun LessonBody(
     val pulse = rememberObjectivePulse(decision.satisfied, reduceMotion)
     val mode = session.teachingMode
 
-    val step = stepCard(mode, session, decision, lesson, demonstration, player, strings, beta, isPractice)
+    val step = stepCard(mode, session, decision, lesson, demonstration, player, strings, beta, isPractice || isSkipCheck)
     val panel: @Composable (Modifier) -> Unit = { panelModifier ->
         LessonPanel(
             objective = strings.resolve(lesson.objective),
             step = step,
-            modes = if (isPractice || session.kind == SessionKind.PRACTICE) emptyList() else modes,
+            modes = if (isPractice || isSkipCheck || session.kind == SessionKind.PRACTICE) emptyList() else modes,
             mode = mode,
             onModeChange = { chosen -> if (chosen != mode) send { SessionEvent.TeachingModeChanged(chosen, it) } },
             onShowMove = { send(SessionEvent::RevealRequested) },
             hintRung = session.shownRung.ordinal,
             hintTop = session.assistance.top,
-            hintEnabled = HintLadder.canClimb(mode, session.shownRung, decision.advance, session.assistance.top),
+            hintEnabled = !isSkipCheck && HintLadder.canClimb(mode, session.shownRung, decision.advance, session.assistance.top),
             onHint = {
                 stopReorientation()
                 reorientation.value =
                     scope.launch { climbHintLadder(host, renderer, demonstration, reduceMotion, onPlayingMove, onPlayingState) }
             },
             nextEnabled = decision.advance,
-            onNext = { if (decision.satisfied) onClose() else send(SessionEvent::StepAdvanced) },
+            onNext = {
+                if (decision.satisfied) {
+                    if (isSkipCheck && onSkipCheckPassed != null) {
+                        onSkipCheckPassed()
+                    } else {
+                        onClose()
+                    }
+                } else {
+                    send(SessionEvent::StepAdvanced)
+                }
+            },
             modifier = panelModifier,
             onRecovery = { offer ->
                 when (offer) {

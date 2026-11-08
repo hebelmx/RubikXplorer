@@ -125,4 +125,91 @@ class StagePracticeTest {
             assertFalse(CubeSolved.isSatisfied(state), "Cube must not already be solved on entry for Stage 7")
         }
     }
+
+    @Test
+    fun `skipCheckLesson for stage 1 generates simple 1-move scramble returning to CubeSolved`() {
+        val practice = StagePractice(SeededRandomSource(10))
+        repeat(20) {
+            val lesson = practice.skipCheckLesson(StagePractice.STAGE_1_ID)
+            assertEquals("skip-check-stage-01-fundamentals", lesson.id.value)
+            assertEquals(StagePractice.STAGE_1_ID, lesson.stageId)
+            assertEquals(CubeSolved, lesson.completion)
+            val state = entryState(lesson)
+            assertFalse(CubeSolved.isSatisfied(state), "Cube must not already be solved on entry for Stage 1 skip check")
+        }
+    }
+
+    @Test
+    fun `skipCheckLesson for stages 2 to 7 validates preservation of earlier stages and non-satisfaction of target`() {
+        repeat(10) { iteration ->
+            val practice = StagePractice(SeededRandomSource(77L + iteration))
+
+            // Stage 2
+            val lesson2 = practice.skipCheckLesson(StagePractice.STAGE_2_ID)
+            assertEquals("skip-check-stage-02-first-cross", lesson2.id.value)
+            assertEquals(WhiteCrossSolved, lesson2.completion)
+            assertFalse(WhiteCrossSolved.isSatisfied(entryState(lesson2)))
+
+            // Stage 3
+            val lesson3 = practice.skipCheckLesson(StagePractice.STAGE_3_ID)
+            assertEquals("skip-check-stage-03-first-layer-corners", lesson3.id.value)
+            val state3 = entryState(lesson3)
+            assertTrue(WhiteCrossSolved.isSatisfied(state3))
+            assertFalse(AllOf(listOf(WhiteCrossSolved, WhiteCornersSolved)).isSatisfied(state3))
+
+            // Stage 4
+            val lesson4 = practice.skipCheckLesson(StagePractice.STAGE_4_ID)
+            assertEquals("skip-check-stage-04-middle-layer", lesson4.id.value)
+            val state4 = entryState(lesson4)
+            assertTrue(WhiteCrossSolved.isSatisfied(state4))
+            assertTrue(WhiteCornersSolved.isSatisfied(state4))
+            assertFalse(MiddleLayerSolved.isSatisfied(state4))
+
+            // Stage 5
+            val lesson5 = practice.skipCheckLesson(StagePractice.STAGE_5_ID)
+            assertEquals("skip-check-stage-05-last-layer-orientation", lesson5.id.value)
+            val state5 = entryState(lesson5)
+            assertTrue(WhiteCrossSolved.isSatisfied(state5))
+            assertTrue(WhiteCornersSolved.isSatisfied(state5))
+            assertTrue(MiddleLayerSolved.isSatisfied(state5))
+            assertFalse(LastLayerOriented.isSatisfied(state5))
+
+            // Stage 6
+            val lesson6 = practice.skipCheckLesson(StagePractice.STAGE_6_ID)
+            assertEquals("skip-check-stage-06-last-layer-completion", lesson6.id.value)
+            val state6 = entryState(lesson6)
+            assertTrue(WhiteCrossSolved.isSatisfied(state6))
+            assertTrue(WhiteCornersSolved.isSatisfied(state6))
+            assertTrue(MiddleLayerSolved.isSatisfied(state6))
+            assertTrue(LastLayerOriented.isSatisfied(state6))
+            assertFalse(CubeSolved.isSatisfied(state6))
+
+            // Stage 7
+            val lesson7 = practice.skipCheckLesson(StagePractice.STAGE_7_ID)
+            assertEquals("skip-check-stage-07-independent-practice", lesson7.id.value)
+            assertEquals(CubeSolved, lesson7.completion)
+            assertFalse(CubeSolved.isSatisfied(entryState(lesson7)))
+        }
+    }
+
+    @Test
+    fun `courseSkipCheckLesson generates full 25-move scramble targeting CubeSolved`() {
+        val practice = StagePractice(SeededRandomSource(99))
+        repeat(20) {
+            val lesson = practice.courseSkipCheckLesson()
+            assertEquals("skip-check-course", lesson.id.value)
+            assertEquals(StagePractice.STAGE_7_ID, lesson.stageId)
+            assertEquals(CubeSolved, lesson.completion)
+            val state = entryState(lesson)
+            assertFalse(CubeSolved.isSatisfied(state), "Cube must not already be solved on entry for course skip check")
+        }
+    }
+
+    @Test
+    fun `skipCheckLesson with unknown stage throws`() {
+        val practice = StagePractice(SeededRandomSource(1))
+        assertThrows(IllegalArgumentException::class.java) {
+            practice.skipCheckLesson(StageId("stage-unknown"))
+        }
+    }
 }

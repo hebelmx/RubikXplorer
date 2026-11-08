@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import dagger.hilt.android.AndroidEntryPoint
 import dev.rubikxplorer.app.content.LessonCatalog
 import dev.rubikxplorer.app.preferences.PreferenceStore
@@ -35,6 +37,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
+            val progressEvents by sessionHost.progressEvents.collectAsState()
+            val attemptRecords by sessionHost.attemptRecords.collectAsState()
             PreferredTheme(preferenceStore) {
                 AppShell(
                     preferenceStore = preferenceStore,
@@ -43,6 +47,7 @@ class MainActivity : ComponentActivity() {
                     freeCube = freeCube,
                     showDebugToggles = DebugOptions.SHOW_DEBUG_TOGGLES,
                     flags = featureFlags,
+                    showWelcome = progressEvents.isEmpty() && attemptRecords.isEmpty(),
                 )
             }
         }

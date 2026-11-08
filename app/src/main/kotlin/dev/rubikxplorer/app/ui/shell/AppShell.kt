@@ -47,6 +47,7 @@ import dev.rubikxplorer.app.ui.freecube.FreeCubeViewModel
 import dev.rubikxplorer.app.ui.lesson.LessonScreen
 import dev.rubikxplorer.app.ui.settings.SettingsScreen
 import dev.rubikxplorer.app.ui.theme.RubikTheme
+import dev.rubikxplorer.app.ui.welcome.WelcomeScreen
 import dev.rubikxplorer.application.port.FeatureFlag
 import dev.rubikxplorer.application.port.FeatureFlags
 import dev.rubikxplorer.application.port.FlagLevel
@@ -54,6 +55,8 @@ import dev.rubikxplorer.application.session.SessionKind
 import dev.rubikxplorer.application.usecase.StagePractice
 import dev.rubikxplorer.domain.content.LessonId
 import dev.rubikxplorer.domain.content.StageId
+import dev.rubikxplorer.domain.tutor.StageProgress
+import dev.rubikxplorer.domain.tutor.StageStatus
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import kotlinx.coroutines.launch
 
@@ -88,9 +91,10 @@ fun AppShell(
             PreferenceStore()
         },
     stagePractice: StagePractice = remember { StagePractice(KotlinRandomSource()) },
+    showWelcome: Boolean = false,
 ) {
     PreferenceProvider(preferenceStore) {
-        ShellContent(host, catalog, freeCube, showDebugToggles, flags, modifier, stagePractice)
+        ShellContent(host, catalog, freeCube, showDebugToggles, flags, modifier, stagePractice, preferenceStore, showWelcome)
     }
 }
 
@@ -103,6 +107,8 @@ private fun ShellContent(
     flags: FeatureFlags,
     modifier: Modifier,
     stagePractice: StagePractice,
+    preferenceStore: PreferenceStore,
+    showWelcome: Boolean,
 ) {
     LaunchedEffect(catalog) { catalog.load() }
     val content by catalog.state.collectAsState()
@@ -112,10 +118,15 @@ private fun ShellContent(
     val scope = rememberCoroutineScope()
     var tab by rememberSaveable { mutableStateOf(Tab.LEARN) }
     var settings by rememberSaveable { mutableStateOf(false) }
+    var welcome by rememberSaveable { mutableStateOf(showWelcome) }
+    var welcomeAbandoned by rememberSaveable { mutableStateOf(false) }
+    var stageAbandoned by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedStage by rememberSaveable { mutableStateOf<String?>(null) }
     var openLesson by rememberSaveable { mutableStateOf<String?>(null) }
     var openPractice by rememberSaveable { mutableStateOf<String?>(null) }
     var practiceEpoch by rememberSaveable { mutableIntStateOf(0) }
+    var openSkipCheck by rememberSaveable { mutableStateOf<String?>(null) }
+    var skipCheckEpoch by rememberSaveable { mutableIntStateOf(0) }
     // Held above the Lesson and Settings task flows so closing either returns to the same place in the list.
     val learnScroll = rememberScrollState()
     if (settings) {
@@ -123,6 +134,9 @@ private fun ShellContent(
             onClose = { settings = false },
             onResetProgress = {
                 selectedStage = null
+                stageAbandoned = null
+                welcomeAbandoned = false
+                welcome = true
                 scope.launch { host.resetProgress() }
             },
         )
@@ -131,6 +145,29 @@ private fun ShellContent(
 
     LaunchedEffect(content, host) { (content as? CatalogState.Ready)?.let { host.restore(it.bundle) } }
     val ready = content as? CatalogState.Ready
+    if (welcome && openSkipCheck == null) {
+        val readyBundle = ready?.bundle
+        WelcomeScreen(
+            onImNew = {
+                welcome = false
+                selectedStage = readyBundle
+                    ?.stages
+                    ?.firstOrNull()
+                    ?.id
+                    ?.value ?: "stage-01-fundamentals"
+                tab = Tab.LEARN
+            },
+            onCanAlreadySolve = {
+                openSkipCheck = "course"
+                skipCheckEpoch++
+            },
+            flags = flags,
+            preferenceStore = preferenceStore,
+            abandoned = welcomeAbandoned,
+            modifier = modifier,
+        )
+        return
+    }
     val entry = openLesson?.let { ready?.find(LessonId(it)) }
     if (ready != null && entry != null) {
         LessonScreen(
@@ -193,9 +230,92 @@ private fun ShellContent(
         )
         return
     }
+
+    val skipCheckEntry =
+        remember(openSkipCheck, skipCheckEpoch, ready) {
+            val key = openSkipCheck
+            if (key == null || ready == null) {
+                null
+            } else if (key == "course") {
+                val lesson = stagePractice.courseSkipCheckLesson()
+                val stage = ready.bundle.stages.lastOrNull() ?: return@remember null
+                CatalogEntry(lesson, stage, ready.bundle.tutorConfig)
+            } else {
+                val stageId = StageId(key)
+                val stage = ready.bundle.stages.firstOrNull { it.id == stageId }
+                if (stage != null) {
+                    val lesson = stagePractice.skipCheckLesson(stageId)
+                    CatalogEntry(lesson, stage, ready.bundle.tutorConfig)
+                } else {
+                    null
+                }
+            }
+        }
+    if (ready != null && skipCheckEntry != null) {
+        LessonScreen(
+            host = host,
+            entry = skipCheckEntry,
+            strings = ready.strings,
+            modes = emptyList(),
+            onClose = {
+                val isCourse = openSkipCheck == "course"
+                val stageId = openSkipCheck
+                val wasSatisfied =
+                    host.state.value.decision
+                        ?.satisfied == true
+                openSkipCheck = null
+                if (!wasSatisfied) {
+                    if (isCourse) {
+                        welcomeAbandoned = true
+                    } else if (stageId != null) {
+                        stageAbandoned = stageId
+                    }
+                }
+            },
+            modifier = modifier,
+            adaptiveAssistance = FlagLevel.OFF,
+            stages = ready.bundle.stages,
+            isSkipCheck = true,
+            skipCheckInstruction = stringResource(R.string.skip_check_instruction),
+            onSkipCheckPassed = {
+                val isCourse = openSkipCheck == "course"
+                val currentStageId = openSkipCheck?.let(::StageId)
+                openSkipCheck = null
+                if (isCourse) {
+                    welcome = false
+                    welcomeAbandoned = false
+                    tab = Tab.LEARN
+                    selectedStage = null
+                    scope.launch {
+                        host.passSkipCheck(ready.bundle.stages.map { it.id }, ready.bundle.stages)
+                    }
+                } else if (currentStageId != null) {
+                    stageAbandoned = null
+                    val stageIndex = ready.bundle.stages.indexOfFirst { it.id == currentStageId }
+                    if (stageIndex >= 0) {
+                        val nextStage = ready.bundle.stages.getOrNull(stageIndex + 1)
+                        selectedStage = nextStage?.id?.value
+                    }
+                    scope.launch {
+                        host.passSkipCheck(listOf(currentStageId), ready.bundle.stages)
+                    }
+                }
+            },
+        )
+        return
+    }
     // Back from another tab returns to Learn first; back from Stage detail returns to the Stage list before leaving the app.
-    BackHandler(enabled = tab != Tab.LEARN || selectedStage != null || openPractice != null) {
-        if (openPractice != null) {
+    BackHandler(enabled = tab != Tab.LEARN || selectedStage != null || openPractice != null || openSkipCheck != null) {
+        if (openSkipCheck != null) {
+            val isCourse = openSkipCheck == "course"
+            val stageId = openSkipCheck
+            openSkipCheck = null
+            if (isCourse) {
+                welcomeAbandoned = true
+            } else if (stageId != null) {
+                stageAbandoned = stageId
+            }
+        } else if (openPractice != null) {
             openPractice = null
         } else if (tab != Tab.LEARN) {
             tab = Tab.LEARN
@@ -217,6 +337,13 @@ private fun ShellContent(
             }
 
             Tab.LEARN -> {
+                val allStagesFinished =
+                    ready != null && ready.bundle.stages.isNotEmpty() &&
+                        ready.bundle.stages.all { stage ->
+                            val s = StageProgress.status(stage, ready.bundle.stages, progressEvents)
+                            s == StageStatus.SKIPPED || s == StageStatus.SKIPPED_BY_PLACEMENT || s == StageStatus.COMPLETED ||
+                                s == StageStatus.MASTERED
+                        }
                 LearnScreen(
                     catalog = content,
                     continueEntry =
@@ -228,12 +355,23 @@ private fun ShellContent(
                     progressEvents = progressEvents,
                     attemptRecords = attemptRecords,
                     selectedStage = selectedStage?.let(::StageId),
-                    onSelectStage = { selectedStage = it?.value },
+                    onSelectStage = {
+                        selectedStage = it?.value
+                        stageAbandoned = null
+                    },
                     onOpen = { openLesson = it.value },
                     onPracticeStage = { stageId ->
                         openPractice = stageId.value
                         practiceEpoch++
                     },
+                    skipCheckEnabled = true,
+                    onSkipCheck = { stageId ->
+                        openSkipCheck = stageId.value
+                        skipCheckEpoch++
+                        stageAbandoned = null
+                    },
+                    abandonedSkipCheckStage = stageAbandoned?.let(::StageId),
+                    showFasterLastLayer = allStagesFinished,
                     scrollState = learnScroll,
                     // The inset area takes surfaceBase too, not the window background.
                     modifier = destinationModifier.background(RubikTheme.tokens.surfaceBase).safeDrawingPadding(),

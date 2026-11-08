@@ -88,6 +88,7 @@ fun LearnScreen(
     reducedHelpSolves: Int = 0,
     reducedHelpRequired: Int = DEFAULT_MASTERY_REDUCED_REQUIRED,
     attemptRecords: List<MasteryAttempt> = emptyList(),
+    abandonedSkipCheckStage: StageId? = null,
 ) {
     Box(
         modifier =
@@ -138,6 +139,8 @@ fun LearnScreen(
                         } else {
                             masteryProgress.reducedHelpRequired
                         }
+                    val isSkipCheckEnabled =
+                        skipCheckEnabled && (status == StageStatus.LOCKED || status == StageStatus.IN_PROGRESS)
                     StageDetailScreen(
                         stage = activeStage,
                         stageNumber = stageIndex + 1,
@@ -151,12 +154,18 @@ fun LearnScreen(
                         onOpen = onOpen,
                         practiceEnabled = isPracticeEnabled,
                         onPracticeStage = { onPracticeStage(activeStage.id) },
-                        skipCheckEnabled = skipCheckEnabled,
+                        skipCheckEnabled = isSkipCheckEnabled,
                         onSkipCheck = { onSkipCheck(activeStage.id) },
                         solvesCompleted = effectiveSolvesCompleted,
                         solvesRequired = effectiveSolvesRequired,
                         reducedHelpSolves = effectiveReducedSolves,
                         reducedHelpRequired = effectiveReducedRequired,
+                        abandonedSkipCheckMessage =
+                            if (abandonedSkipCheckStage == activeStage.id) {
+                                stringResource(R.string.stage_skip_check_abandoned)
+                            } else {
+                                null
+                            },
                     )
                 } else {
                     StageListContent(
@@ -333,6 +342,7 @@ fun StageDetailScreen(
     solvesRequired: Int = DEFAULT_MASTERY_SOLVES_REQUIRED,
     reducedHelpSolves: Int = 0,
     reducedHelpRequired: Int = DEFAULT_MASTERY_REDUCED_REQUIRED,
+    abandonedSkipCheckMessage: String? = null,
 ) {
     val tokens = RubikTheme.tokens
     val stageTrend =
@@ -404,6 +414,14 @@ fun StageDetailScreen(
                 color = tokens.inkSecondary,
                 modifier = Modifier.testTag("stageDetail:mastery"),
             )
+            if (abandonedSkipCheckMessage != null) {
+                Text(
+                    text = abandonedSkipCheckMessage,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = tokens.inkSecondary,
+                    modifier = Modifier.testTag("stageDetail:skipCheckAbandoned"),
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.s2),

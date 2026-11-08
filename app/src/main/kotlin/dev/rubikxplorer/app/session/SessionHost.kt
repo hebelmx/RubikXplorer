@@ -25,11 +25,14 @@ import dev.rubikxplorer.application.session.SessionState
 import dev.rubikxplorer.application.session.Transition
 import dev.rubikxplorer.application.session.reduce
 import dev.rubikxplorer.application.usecase.CompleteLesson
+import dev.rubikxplorer.application.usecase.PassSkipCheck
 import dev.rubikxplorer.application.usecase.ResetProgress
 import dev.rubikxplorer.domain.content.ContentBundle
 import dev.rubikxplorer.domain.content.Stage
+import dev.rubikxplorer.domain.content.StageId
 import dev.rubikxplorer.domain.tutor.ProgressEvent
 import dev.rubikxplorer.domain.tutor.StageProgress
+import dev.rubikxplorer.domain.tutor.StageStatus
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -61,6 +64,7 @@ class SessionHost internal constructor(
     private val progress: ProgressRepository? = null,
     private val attempts: AttemptRepository? = null,
     private val resetProgress: ResetProgress? = null,
+    private val passSkipCheck: PassSkipCheck? = null,
     /** Sees every event this host reduced, in order; tests use it to observe events that change no state. */
     private val reduced: (SessionEvent) -> Unit = {},
 ) {
@@ -75,6 +79,7 @@ class SessionHost internal constructor(
         progress: ProgressRepository,
         attempts: AttemptRepository,
         resetProgress: ResetProgress,
+        passSkipCheck: PassSkipCheck,
     ) :
         this(
             clock,
@@ -87,11 +92,13 @@ class SessionHost internal constructor(
             progress = progress,
             attempts = attempts,
             resetProgress = resetProgress,
+            passSkipCheck = passSkipCheck,
         )
 
     constructor(clock: Clock) : this(clock, Dispatchers.Default.limitedParallelism(1))
 
     private val resetProgressUseCase = resetProgress ?: progress?.let { ResetProgress(it) }
+    private val passSkipCheckUseCase = passSkipCheck ?: progress?.let { PassSkipCheck(it) }
 
     private val restored =
         CompletableDeferred<Unit>().also {
@@ -266,6 +273,68 @@ class SessionHost internal constructor(
         }
     }
 
+    /**
+     * Appends a [ProgressEvent.StageSkippedByCheck] for [stageIds] and [ProgressEvent.StageUnlocked]
+     * for newly unlocked stages via [passSkipCheck] single-writer use case and refreshes [progressEvents].
+     */
+    suspend fun passSkipCheck(
+        stageIds: List<StageId>,
+        stages: List<Stage>,
+    ): Boolean {
+        val useCase = passSkipCheckUseCase
+        if (useCase == null) {
+            val now = clock.now()
+            val skipped = stageIds.map { ProgressEvent.StageSkippedByCheck(it, now) }
+            val skippedSet = stageIds.toSet()
+            val newlyUnlocked =
+                StageProgress.newlyUnlocked(stages, currentProgress.value, currentProgress.value + skipped).toSet()
+            val immediatelyFollowingLocked =
+                stageIds
+                    .mapNotNull { id ->
+                        val index = stages.indexOfFirst { it.id == id }
+                        stages.getOrNull(index + 1)?.id
+                    }.filter { nextId ->
+                        nextId !in skippedSet &&
+                            StageProgress.status(stages.first { it.id == nextId }, stages, currentProgress.value) == StageStatus.LOCKED
+                    }.toSet()
+            val unlocked =
+                stages
+                    .map { it.id }
+                    .filter { it in newlyUnlocked || it in immediatelyFollowingLocked }
+                    .map { ProgressEvent.StageUnlocked(it, now) }
+            val written = skipped + unlocked
+            currentProgress.value = currentProgress.value + written
+            return true
+        }
+        val result =
+            try {
+                if (writer != null) {
+                    writer.read { useCase(stageIds, stages, at = clock.now()) }
+                } else {
+                    useCase(stageIds, stages, at = clock.now())
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                ProgressWrite.Failed
+            }
+        return when (result) {
+            is ProgressWrite.Written -> {
+                refreshProgressAfterWrite(result.events)
+                true
+            }
+
+            else -> {
+                false
+            }
+        }
+    }
+
+    suspend fun passSkipCheck(
+        stageId: StageId,
+        stages: List<Stage>,
+    ): Boolean = passSkipCheck(listOf(stageId), stages)
+
     /** Reloads [attemptRecords] from [attempts], ordered with queued writes when [writer] is present. */
     suspend fun reloadAttempts() {
         val repo = attempts ?: return
@@ -351,16 +420,25 @@ class SessionHost internal constructor(
                     transition.effects.mapNotNull { effect ->
                         when (effect) {
                             is Effect.AttemptStarted -> {
-                                val id = UUID.randomUUID().toString()
-                                attemptId = id
-                                AttemptRecord.of(effect, sessionId, id)
+                                if (effect.objectiveId.startsWith("skip-check-")) {
+                                    null
+                                } else {
+                                    val id = UUID.randomUUID().toString()
+                                    attemptId = id
+                                    AttemptRecord.of(effect, sessionId, id)
+                                }
                             }
 
                             is Effect.AttemptEnded -> {
-                                val id = attemptId ?: UUID.randomUUID().toString()
-                                attemptId = null
-                                val owner = if (effect.outcome == AttemptOutcome.ABANDONED) previousSessionId else sessionId
-                                AttemptRecord.of(effect, owner, id)
+                                if (effect.objectiveId.startsWith("skip-check-")) {
+                                    attemptId = null
+                                    null
+                                } else {
+                                    val id = attemptId ?: UUID.randomUUID().toString()
+                                    attemptId = null
+                                    val owner = if (effect.outcome == AttemptOutcome.ABANDONED) previousSessionId else sessionId
+                                    AttemptRecord.of(effect, owner, id)
+                                }
                             }
 
                             else -> {
@@ -398,6 +476,7 @@ class SessionHost internal constructor(
             if (completeLesson != null &&
                 transition.state.kind == SessionKind.LESSON &&
                 lesson != null &&
+                !lesson.id.value.startsWith("skip-check-") &&
                 stamped !is SessionEvent.SessionRestored &&
                 stamped !is SessionEvent.CheckpointRestored &&
                 transition.state.objectiveMet &&

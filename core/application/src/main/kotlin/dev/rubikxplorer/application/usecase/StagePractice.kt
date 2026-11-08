@@ -33,13 +33,13 @@ import dev.rubikxplorer.domain.predicate.WhiteCrossSolved
  *
  * Scramble generation ensures the earlier Stage predicates hold on entry while the Stage's own completion predicate does not hold.
  */
-class StagePractice(
+open class StagePractice(
     private val random: RandomSource,
     private val newScramble: NewScramble = NewScramble(random),
 ) {
     operator fun invoke(stageId: StageId): Lesson = practiceLesson(stageId)
 
-    fun practiceLesson(stageId: StageId): Lesson {
+    open fun practiceLesson(stageId: StageId): Lesson {
         require(stageId != STAGE_1_ID) { "Stage 1 does not support independent practice" }
         val config = CONFIGS[stageId] ?: throw IllegalArgumentException("Unknown stage for practice: $stageId")
         val state = generateScramble(stageId, config)
@@ -75,6 +75,81 @@ class StagePractice(
         )
     }
 
+    open fun skipCheckLesson(stageId: StageId): Lesson {
+        val config =
+            if (stageId == STAGE_1_ID) {
+                STAGE_1_CONFIG
+            } else {
+                CONFIGS[stageId] ?: throw IllegalArgumentException("Unknown stage for skip check: $stageId")
+            }
+        val state = generateScramble(stageId, config)
+        check(config.earlierPredicate.isSatisfied(state)) {
+            "Earlier stage predicate violated for stage $stageId"
+        }
+        check(!config.completionPredicate.isSatisfied(state)) {
+            "Stage completion predicate already met for stage $stageId"
+        }
+        val objective = config.objectiveKey
+        return Lesson(
+            id = LessonId("skip-check-${stageId.value}"),
+            stageId = stageId,
+            prerequisites = emptyList(),
+            objective = objective,
+            entryState = FaceletString.encode(state.toFacelets()),
+            demonstration = "",
+            learnerAction = objective,
+            completion = config.completionPredicate,
+            preserve = config.preservePredicate,
+            recovery = RecoveryRef("recovery-undo-last-move"),
+            steps =
+                listOf(
+                    Step(
+                        goal = objective,
+                        preserve = TextKey(""),
+                        watch = TextKey(""),
+                        notice = TextKey(""),
+                        moves = "",
+                        done = config.completionPredicate,
+                    ),
+                ),
+        )
+    }
+
+    open fun courseSkipCheckLesson(): Lesson {
+        val config = CONFIGS[STAGE_7_ID] ?: error("Missing config for stage 7")
+        var state: CubeState
+        var attempts = 0
+        do {
+            state = CubeState.SOLVED.apply(newScramble())
+            attempts++
+            check(attempts < MAX_REDRAW_ATTEMPTS) { "Failed to generate valid course skip check scramble after $attempts attempts" }
+        } while (CubeSolved.isSatisfied(state))
+        val objective = config.objectiveKey
+        return Lesson(
+            id = LessonId("skip-check-course"),
+            stageId = STAGE_7_ID,
+            prerequisites = emptyList(),
+            objective = objective,
+            entryState = FaceletString.encode(state.toFacelets()),
+            demonstration = "",
+            learnerAction = objective,
+            completion = CubeSolved,
+            preserve = AlwaysTrue,
+            recovery = RecoveryRef("recovery-undo-last-move"),
+            steps =
+                listOf(
+                    Step(
+                        goal = objective,
+                        preserve = TextKey(""),
+                        watch = TextKey(""),
+                        notice = TextKey(""),
+                        moves = "",
+                        done = CubeSolved,
+                    ),
+                ),
+        )
+    }
+
     private fun generateScramble(
         stageId: StageId,
         config: StageConfig,
@@ -84,6 +159,11 @@ class StagePractice(
         do {
             state =
                 when (stageId) {
+                    STAGE_1_ID -> {
+                        val drawn = STAGE_1_MOVES[draw(STAGE_1_MOVES.size)]
+                        CubeState.SOLVED.apply(drawn)
+                    }
+
                     STAGE_2_ID, STAGE_7_ID -> {
                         CubeState.SOLVED.apply(newScramble())
                     }
@@ -154,6 +234,16 @@ class StagePractice(
                     ?: error("Failed to parse single move: $token")
             }
 
+        private val STAGE_1_MOVES =
+            listOf(
+                seq("U"),
+                seq("U'"),
+                seq("R"),
+                seq("R'"),
+                seq("F"),
+                seq("F'"),
+            )
+
         private val STAGE_3_MOVES =
             listOf(
                 seq("D"),
@@ -193,6 +283,14 @@ class StagePractice(
                 seq("D'", "L", "D'", "L", "D", "L", "D", "L", "D'", "L'", "D'", "L2", "D"),
                 seq("D2", "L", "D'", "L", "D", "L", "D", "L", "D'", "L'", "D'", "L2", "D2"),
                 seq("L2", "D", "L", "D", "L'", "D'", "L'", "D'", "L'", "D", "L'"),
+            )
+
+        private val STAGE_1_CONFIG =
+            StageConfig(
+                earlierPredicate = AlwaysTrue,
+                completionPredicate = CubeSolved,
+                preservePredicate = AlwaysTrue,
+                objectiveKey = TextKey("msg.skip-check.stage-01-fundamentals.objective"),
             )
 
         private val CONFIGS =
