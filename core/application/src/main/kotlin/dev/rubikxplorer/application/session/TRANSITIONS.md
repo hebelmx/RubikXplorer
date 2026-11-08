@@ -49,6 +49,10 @@ steps remain.
 | GuidedRecoveryRequested | tutor | no | no |
 | RecoveryPlanned | tutor | no | no |
 | RecoveryPlanFailed | tutor | no | no |
+| ModeSwitched | session, pending, tutor | no | yes |
+| PhysicalConfirmed | virtual, tutor, checkpoint | yes | yes |
+| MismatchReported | tutor | no | no |
+| EditorEntered | session, virtual, tutor, checkpoint | no | yes |
 | SnapshotSaveFailed | — | no | no |
 | SnapshotLoadFailed | — | no | no |
 
@@ -230,3 +234,14 @@ and carries the event time. The host uses the previous session ID for ABANDONED 
 for other rows, saving them atomically with the transition's snapshot.
 
 TeachingModeChanged emits one UpdatePreference(LastTeachingMode) effect only when the mode changes, consuming one effect id. LessonStarted uses its optional mode; restores retain their stored mode.
+
+Physical-mode transitions (Epic 8, AD-3, AD-5):
+- The 5-state Sync State Machine (`VIRTUAL`, `PHYSICAL_AWAITING_CONFIRM`, `PHYSICAL_PREDICTED`, `PHYSICAL_VERIFIED`, `PHYSICAL_MISMATCH`) tracks the physical cube's expected state honestly without guessing.
+- In physical mode, `virtual` mirrors `expected`.
+- `ModeSwitched`, `EditorEntered`, and `CheckpointRestored` act as undo barriers that clear redo and prevent undo from crossing mode boundaries.
+- `Undo` in physical mode reverts `expected` (and `virtual`), transitions `PHYSICAL_MISMATCH` back to `PHYSICAL_PREDICTED`, and emits `Presentation.Instruct` with the inverse move and text `"Turn {move} on your cube to undo."`. At an undo barrier, `Undo` is a no-op.
+- `PhysicalConfirmed(null)` in `PHYSICAL_AWAITING_CONFIRM` confirms that the physical cube matches the expected state, transitioning to `PHYSICAL_PREDICTED` without changing revision.
+- `PhysicalConfirmed(move)` in `PHYSICAL_PREDICTED` or `PHYSICAL_VERIFIED` advances `expected := expected.apply(move)`, updates `virtual`, marks prior observations as stale, and advances revision.
+- `MismatchReported` transitions from `PHYSICAL_PREDICTED` or `PHYSICAL_VERIFIED` to `PHYSICAL_MISMATCH`, keeping `expected`, `virtual`, and revision unchanged.
+- `EditorEntered(state)` in physical mode accepts a validated cube state, transitioning to `PHYSICAL_PREDICTED`, setting `expected := state`, `virtual := state`, `observed := PhysicalObservation.Full(state)`, resetting history as an undo barrier, and advancing revision.
+- `expected` changes ONLY upon `PhysicalConfirmed` with a move, `Undo` of a `PhysicalConfirmed`, or an accepted Full observation (`EditorEntered`).

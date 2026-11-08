@@ -6,6 +6,7 @@ import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.MoveHistory
 import dev.rubikxplorer.domain.predicate.ObjectiveProgress
+import dev.rubikxplorer.domain.recognition.PhysicalObservation
 import dev.rubikxplorer.domain.tutor.AdaptivePolicy
 import dev.rubikxplorer.domain.tutor.Assess
 import dev.rubikxplorer.domain.tutor.AssistanceLevel
@@ -136,7 +137,16 @@ data class SessionState internal constructor(
     val stepHelped: Set<Int>,
     /** The adaptive level *Back to my usual help* dismissed, per step. Reset only by `LessonStarted`. */
     val assistanceDismissed: Map<Int, AssistanceLevel>,
+    /** The expected state of the physical cube (AD-5); mirrors [virtual] in physical mode. */
+    val expected: CubeState = history.state,
+    /** The latest validated observation of the physical cube (AD-5); null when unobserved or stale. */
+    val observed: PhysicalObservation? = null,
+    /** The current state in the 5-state sync state machine (AD-3). */
+    val syncState: SyncState = SyncState.VIRTUAL,
 ) {
+    /** Whether the session is currently in virtual or physical mode. */
+    val mode: CubeMode get() = if (syncState == SyncState.VIRTUAL) CubeMode.VIRTUAL else CubeMode.PHYSICAL
+
     /** The tutor's decision for the shown step; `null` outside a Lesson. Derived, never stored. */
     val decision: TutorDecision? by lazy(LazyThreadSafetyMode.PUBLICATION) {
         lesson?.let {
@@ -263,6 +273,9 @@ data class SessionState internal constructor(
                 cleanCredited = emptySet(),
                 stepHelped = emptySet(),
                 assistanceDismissed = emptyMap(),
+                expected = CubeState.SOLVED,
+                observed = null,
+                syncState = SyncState.VIRTUAL,
             )
     }
 }

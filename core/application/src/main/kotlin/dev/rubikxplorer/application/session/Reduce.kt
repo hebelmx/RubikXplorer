@@ -11,6 +11,7 @@ import dev.rubikxplorer.domain.cube.MoveHistory
 import dev.rubikxplorer.domain.cube.Notation
 import dev.rubikxplorer.domain.cube.NotationResult
 import dev.rubikxplorer.domain.cube.ValidationResult
+import dev.rubikxplorer.domain.recognition.PhysicalObservation
 import dev.rubikxplorer.domain.text.Text
 import dev.rubikxplorer.domain.tutor.Assess
 import dev.rubikxplorer.domain.tutor.AssistanceLevel
@@ -69,7 +70,9 @@ fun reduce(
     // The Guided recovery events act on that Diagnosis, so they keep it.
     val recovery =
         event is SessionEvent.GuidedRecoveryRequested || event is SessionEvent.RecoveryPlanned || event is SessionEvent.RecoveryPlanFailed
-    val keeps = event is SessionEvent.MoveCommitted || event is SessionEvent.SolvePlaybackStarted || recovery
+    val keeps =
+        event is SessionEvent.MoveCommitted || (event is SessionEvent.PhysicalConfirmed && event.move != null) ||
+            event is SessionEvent.SolvePlaybackStarted || recovery
     if (keeps || (transition.state.kind != SessionKind.LESSON && transition.state.kind != SessionKind.PRACTICE)) return transition
     return transition.copy(
         state = transition.state.copy(lastMoveFeedback = null, lastDiagnosis = null, guidedRecovery = GuidedRecovery.None),
@@ -81,51 +84,120 @@ private fun transition(
     event: SessionEvent,
 ): Transition =
     when (event) {
-        is SessionEvent.CheckpointRestored -> restoreCheckpoint(state, event)
+        is SessionEvent.CheckpointRestored -> {
+            restoreCheckpoint(state, event)
+        }
 
-        is SessionEvent.SessionRestored -> restore(state, event)
+        is SessionEvent.SessionRestored -> {
+            restore(state, event)
+        }
 
-        is SessionEvent.LessonStarted -> start(state, event)
+        is SessionEvent.LessonStarted -> {
+            start(state, event)
+        }
 
-        is SessionEvent.PracticeStarted -> startPractice(state, event)
+        is SessionEvent.PracticeStarted -> {
+            startPractice(state, event)
+        }
 
-        is SessionEvent.SolvePlaybackStarted -> startPlayback(state, event.state, event.solution)
+        is SessionEvent.SolvePlaybackStarted -> {
+            startPlayback(state, event.state, event.solution)
+        }
 
-        is SessionEvent.SolvePlaybackEnded -> Transition(state)
+        is SessionEvent.SolvePlaybackEnded -> {
+            Transition(state)
+        }
 
-        is SessionEvent.MoveCommitted -> committed(state, event.move)
+        is SessionEvent.MoveCommitted -> {
+            if (state.syncState == SyncState.VIRTUAL) committed(state, event.move) else Transition(state)
+        }
 
-        is SessionEvent.Undo -> state.history.undoable?.let { move(state, state.history.undo(), it.inverse(), null) } ?: Transition(state)
+        is SessionEvent.Undo -> {
+            undo(state)
+        }
 
-        is SessionEvent.Redo -> state.history.redoable?.let { move(state, state.history.redo(), it, null) } ?: Transition(state)
+        is SessionEvent.Redo -> {
+            if (state.syncState == SyncState.VIRTUAL) {
+                state.history.redoable?.let { move(state, state.history.redo(), it, null) } ?: Transition(state)
+            } else {
+                state.history.redoable?.let { confirmPhysical(state, SessionEvent.PhysicalConfirmed(it, event.at), isRedo = true) }
+                    ?: Transition(state)
+            }
+        }
 
-        is SessionEvent.Reset -> if (state.hasUnsavedSteps) askReset(state) else reset(state)
+        is SessionEvent.Reset -> {
+            if (state.syncState == SyncState.VIRTUAL) {
+                if (state.hasUnsavedSteps) askReset(state) else reset(state)
+            } else {
+                Transition(state)
+            }
+        }
 
-        is SessionEvent.ResetConfirmed -> confirmed(state, event)
+        is SessionEvent.ResetConfirmed -> {
+            confirmed(state, event)
+        }
 
-        is SessionEvent.ResetDeclined -> declined(state, event)
+        is SessionEvent.ResetDeclined -> {
+            declined(state, event)
+        }
 
-        is SessionEvent.TeachingModeChanged -> modeChanged(state, event)
+        is SessionEvent.TeachingModeChanged -> {
+            modeChanged(state, event)
+        }
 
-        is SessionEvent.RevealRequested -> Transition(state.copy(revealRequested = true, stepHelped = state.stepHelped + state.stepIndex))
+        is SessionEvent.RevealRequested -> {
+            Transition(state.copy(revealRequested = true, stepHelped = state.stepHelped + state.stepIndex))
+        }
 
-        is SessionEvent.HintRequested -> hint(state)
+        is SessionEvent.HintRequested -> {
+            hint(state)
+        }
 
-        is SessionEvent.UsualHelpRequested -> usualHelp(state)
+        is SessionEvent.UsualHelpRequested -> {
+            usualHelp(state)
+        }
 
-        is SessionEvent.StepAdvanced -> advance(state)
+        is SessionEvent.StepAdvanced -> {
+            advance(state)
+        }
 
-        is SessionEvent.RetryRequested -> retry(state)
+        is SessionEvent.RetryRequested -> {
+            if (state.syncState == SyncState.VIRTUAL) retry(state) else Transition(state)
+        }
 
-        is SessionEvent.GuidedRecoveryRequested -> guideBack(state)
+        is SessionEvent.GuidedRecoveryRequested -> {
+            guideBack(state)
+        }
 
-        is SessionEvent.RecoveryPlanned -> planned(state, event)
+        is SessionEvent.RecoveryPlanned -> {
+            planned(state, event)
+        }
 
-        is SessionEvent.RecoveryPlanFailed -> planFailed(state, event)
+        is SessionEvent.RecoveryPlanFailed -> {
+            planFailed(state, event)
+        }
+
+        is SessionEvent.ModeSwitched -> {
+            switchMode(state, event)
+        }
+
+        is SessionEvent.PhysicalConfirmed -> {
+            confirmPhysical(state, event)
+        }
+
+        is SessionEvent.MismatchReported -> {
+            reportMismatch(state, event)
+        }
+
+        is SessionEvent.EditorEntered -> {
+            enterEditor(state, event)
+        }
 
         is SessionEvent.CheckpointSaveFailed, is SessionEvent.CheckpointLoadFailed,
         is SessionEvent.SnapshotSaveFailed, is SessionEvent.SnapshotLoadFailed,
-        -> Transition(state)
+        -> {
+            Transition(state)
+        }
     }
 
 private fun start(
@@ -158,6 +230,9 @@ private fun start(
             lastDiagnosis = null,
             checkpoint = MoveHistory(entry),
             guidedRecovery = GuidedRecovery.None,
+            expected = entry,
+            observed = null,
+            syncState = SyncState.VIRTUAL,
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, entry)))
 }
@@ -192,6 +267,9 @@ private fun startPractice(
             lastDiagnosis = null,
             checkpoint = MoveHistory(entry),
             guidedRecovery = GuidedRecovery.None,
+            expected = entry,
+            observed = null,
+            syncState = SyncState.VIRTUAL,
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, entry)))
 }
@@ -230,6 +308,9 @@ private fun startPlayback(
             lastDiagnosis = null,
             checkpoint = null,
             guidedRecovery = GuidedRecovery.None,
+            expected = start,
+            observed = null,
+            syncState = SyncState.VIRTUAL,
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, start)))
 }
@@ -341,6 +422,152 @@ private fun move(
     return Transition(next, presentation = listOf(Presentation.Animate(animate, next.revision, next.virtual)))
 }
 
+private fun undo(state: SessionState): Transition {
+    val undoable = state.history.undoable ?: return Transition(state)
+    return if (state.syncState == SyncState.VIRTUAL) {
+        move(state, state.history.undo(), undoable.inverse(), null)
+    } else {
+        val nextHistory = state.history.undo()
+        val nextExpected = nextHistory.state
+        val inverse = undoable.inverse()
+        val moved =
+            withHistory(state, nextHistory).copy(
+                expected = nextExpected,
+                observed = null,
+                syncState = SyncState.PHYSICAL_PREDICTED,
+                lastMoveFeedback = null,
+                lastDiagnosis = null,
+            )
+        val noticed = moved.lesson?.let { lesson -> withNotice(state, moved, lesson) } ?: moved
+        val boundary = noticed.lesson != null && (noticed.noticeStep != null || noticed.objectiveMet)
+        val next = if (boundary) noticed.copy(checkpoint = noticed.history.withoutRedo()) else noticed
+        val instruct = Presentation.Instruct.of(inverse, next.revision, next.virtual)
+        Transition(next, presentation = listOf(instruct))
+    }
+}
+
+private fun switchMode(
+    state: SessionState,
+    event: SessionEvent.ModeSwitched,
+): Transition {
+    val currentMode = if (state.syncState == SyncState.VIRTUAL) CubeMode.VIRTUAL else CubeMode.PHYSICAL
+    if (event.mode == currentMode) return Transition(state)
+    return when (event.mode) {
+        CubeMode.PHYSICAL -> {
+            val nextHistory = MoveHistory(state.virtual)
+            val next =
+                withHistory(state, nextHistory).copy(
+                    expected = state.virtual,
+                    syncState = SyncState.PHYSICAL_AWAITING_CONFIRM,
+                    noticeStep = null,
+                    lastMoveFeedback = null,
+                    lastDiagnosis = null,
+                    guidedRecovery = GuidedRecovery.None,
+                )
+            Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.virtual)))
+        }
+
+        CubeMode.VIRTUAL -> {
+            val nextHistory = MoveHistory(state.expected)
+            val next =
+                withHistory(state, nextHistory).copy(
+                    syncState = SyncState.VIRTUAL,
+                    observed = null,
+                    noticeStep = null,
+                    lastMoveFeedback = null,
+                    lastDiagnosis = null,
+                    guidedRecovery = GuidedRecovery.None,
+                )
+            Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.virtual)))
+        }
+    }
+}
+
+private fun confirmPhysical(
+    state: SessionState,
+    event: SessionEvent.PhysicalConfirmed,
+    isRedo: Boolean = false,
+): Transition {
+    return when (state.syncState) {
+        SyncState.PHYSICAL_AWAITING_CONFIRM -> {
+            if (event.move == null) {
+                Transition(state.copy(syncState = SyncState.PHYSICAL_PREDICTED))
+            } else {
+                Transition(state)
+            }
+        }
+
+        SyncState.PHYSICAL_PREDICTED, SyncState.PHYSICAL_VERIFIED -> {
+            val move = event.move ?: return Transition(state)
+            val nextExpected = state.expected.apply(move)
+            val history = if (isRedo) state.history.redo() else state.history.commit(move)
+            val lesson = state.lesson
+            val mode = state.teachingMode
+            val assessed =
+                state.kind == SessionKind.PRACTICE || mode == TeachingMode.TEST_ME || (state.adaptiveAssistance && mode in ADAPTIVE_MODES)
+            val assessment =
+                if (lesson != null && assessed) {
+                    Assess.classify(lesson, state.pathEntry, state.virtual, move, history.state, checkNotNull(state.tutorConfig))
+                } else {
+                    null
+                }
+            val moved =
+                withHistory(state, history).copy(
+                    expected = nextExpected,
+                    observed = null,
+                    syncState = SyncState.PHYSICAL_PREDICTED,
+                    lastMoveFeedback = assessment?.feedback?.takeIf { mode == TeachingMode.TEST_ME },
+                    lastDiagnosis = assessment?.diagnosis?.takeIf { mode == TeachingMode.TEST_ME },
+                )
+            val noticed = moved.lesson?.let { l -> withNotice(state, moved, l) } ?: moved
+            val boundary = noticed.lesson != null && (noticed.noticeStep != null || noticed.objectiveMet)
+            val next = if (boundary) noticed.copy(checkpoint = noticed.history.withoutRedo()) else noticed
+            val counted = lesson?.let { l -> adapted(state, next, l, assessment?.feedback == MoveFeedback.HARMFUL) } ?: next
+            Transition(counted, presentation = listOf(Presentation.Animate(move, counted.revision, counted.virtual)))
+        }
+
+        SyncState.VIRTUAL, SyncState.PHYSICAL_MISMATCH -> {
+            Transition(state)
+        }
+    }
+}
+
+private fun reportMismatch(
+    state: SessionState,
+    event: SessionEvent.MismatchReported,
+): Transition =
+    if (state.syncState == SyncState.PHYSICAL_PREDICTED || state.syncState == SyncState.PHYSICAL_VERIFIED) {
+        Transition(
+            state.copy(
+                syncState = SyncState.PHYSICAL_MISMATCH,
+                lastMoveFeedback = null,
+                lastDiagnosis = null,
+            ),
+        )
+    } else {
+        Transition(state)
+    }
+
+private fun enterEditor(
+    state: SessionState,
+    event: SessionEvent.EditorEntered,
+): Transition {
+    if (state.syncState == SyncState.VIRTUAL) return Transition(state)
+    val nextHistory = MoveHistory(event.state)
+    val lesson = state.lesson
+    val moved =
+        withHistory(state, nextHistory).copy(
+            expected = event.state,
+            observed = PhysicalObservation.Full(event.state),
+            syncState = SyncState.PHYSICAL_PREDICTED,
+            lastMoveFeedback = null,
+            lastDiagnosis = null,
+            checkpoint = nextHistory,
+        )
+    val next = lesson?.let { l -> withNotice(state, moved, l) } ?: moved
+    return Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.virtual)))
+}
+
 private fun withNotice(
     before: SessionState,
     moved: SessionState,
@@ -415,7 +642,13 @@ private fun confirmed(
     val next = discarded(state, event.effectId, event.revision)
     // AD-3: the Learner started this Reset, so a confirmation overtaken by a newer revision is offered again.
     val overtaken = event.revision < state.revision
-    return if (overtaken && next.hasUnsavedSteps && next.pendingReset == null) askReset(next) else Transition(next)
+    return if (overtaken && next.syncState == SyncState.VIRTUAL && next.hasUnsavedSteps &&
+        next.pendingReset == null
+    ) {
+        askReset(next)
+    } else {
+        Transition(next)
+    }
 }
 
 private fun declined(
@@ -629,6 +862,9 @@ private fun restore(
             stepHelped = snapshot.stepHelped,
             assistanceDismissed = snapshot.assistanceDismissed,
             restoreNote = Text("msg.lesson.resumed"),
+            expected = history.state,
+            observed = null,
+            syncState = SyncState.VIRTUAL,
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.virtual)))
 }
@@ -688,13 +924,18 @@ private fun restoreCheckpoint(
     val stored = moves.fold(MoveHistory(start)) { history, move -> history.commit(move) }
     if (stored.state != cube) return Transition(state)
     val restart = replaced || checkpoint.contentRevision != event.contentRevision || checkpoint.stageId != event.lesson.stageId.value
-    val history = if (restart) MoveHistory(cube) else stored
+    val isPhysical = checkpoint.mode == CubeMode.PHYSICAL
+    val storedHistory = if (restart) MoveHistory(cube) else stored
+    val history = if (isPhysical) MoveHistory(storedHistory.state) else storedHistory
     val fresh = start(state, SessionEvent.LessonStarted(event.lesson, event.tutorConfig, event.at, checkpoint.adaptiveAssistance)).state
     val next =
         withHistory(fresh.copy(revision = state.revision), history).copy(
             checkpoint = history,
             teachingMode = checkpoint.teachingMode,
             restoreNote = if (restart) Text("msg.lesson.updated") else Text("msg.lesson.resumed"),
+            expected = history.state,
+            observed = null,
+            syncState = if (isPhysical) SyncState.PHYSICAL_AWAITING_CONFIRM else SyncState.VIRTUAL,
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.virtual)))
 }

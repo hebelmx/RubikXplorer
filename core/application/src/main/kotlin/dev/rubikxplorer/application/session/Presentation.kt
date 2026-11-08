@@ -2,6 +2,8 @@ package dev.rubikxplorer.application.session
 
 import dev.rubikxplorer.domain.cube.CubeState
 import dev.rubikxplorer.domain.cube.Move
+import dev.rubikxplorer.domain.cube.Notation
+import dev.rubikxplorer.domain.text.Text
 
 /** One step for the renderer (AD-4): the committed [target] state at [revision], reached by the step. */
 sealed interface Presentation {
@@ -20,4 +22,34 @@ sealed interface Presentation {
         override val revision: Long,
         override val target: CubeState,
     ) : Presentation
+
+    /** Instruct the Learner to turn their physical cube. */
+    data class Instruct(
+        val move: Move,
+        val text: Text,
+        override val revision: Long,
+        override val target: CubeState,
+    ) : Presentation {
+        companion object {
+            fun of(
+                move: Move,
+                revision: Long,
+                target: CubeState,
+            ): Instruct =
+                Instruct(
+                    move = move,
+                    text = Text("msg.physical.undo", mapOf("move" to Notation.format(move))),
+                    revision = revision,
+                    target = target,
+                )
+        }
+    }
+
+    companion object {
+        fun instruct(
+            move: Move,
+            revision: Long,
+            target: CubeState,
+        ): Instruct = Instruct.of(move, revision, target)
+    }
 }

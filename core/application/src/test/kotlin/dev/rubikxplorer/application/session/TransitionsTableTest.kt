@@ -230,6 +230,63 @@ class TransitionsTableTest {
                 // Change nothing anywhere, not even standing feedback, a Diagnosis, a pending ask or a plan in flight.
                 listOf(SessionState.IDLE, fresh, b, askedB, bWithFeedback, planning, playback).map { it to sample }
             }
+
+            is SessionEvent.ModeSwitched -> {
+                val physicalAwaiting = fresh.after(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, sample.at))
+                listOf(
+                    SessionState.IDLE to sample,
+                    playback to sample,
+                    fresh to sample,
+                    a to sample,
+                    b to sample,
+                    askedB to sample,
+                    bWithFeedback to sample,
+                    physicalAwaiting to sample,
+                    physicalAwaiting to SessionEvent.ModeSwitched(CubeMode.VIRTUAL, sample.at),
+                )
+            }
+
+            is SessionEvent.PhysicalConfirmed -> {
+                val physicalAwaiting = fresh.after(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, sample.at))
+                val physicalPredicted = physicalAwaiting.after(SessionEvent.PhysicalConfirmed(null, sample.at))
+                listOf(
+                    SessionState.IDLE to sample,
+                    playback to sample,
+                    physicalAwaiting to SessionEvent.PhysicalConfirmed(null, sample.at),
+                    physicalPredicted to sample,
+                    physicalPredicted.copy(history = b.history) to sample,
+                    physicalPredicted to SessionEvent.PhysicalConfirmed(F_PRIME, sample.at),
+                    bWithFeedback to sample,
+                )
+            }
+
+            is SessionEvent.MismatchReported -> {
+                val physicalAwaiting = fresh.after(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, sample.at))
+                val physicalPredicted = physicalAwaiting.after(SessionEvent.PhysicalConfirmed(null, sample.at))
+                listOf(
+                    SessionState.IDLE to sample,
+                    fresh to sample,
+                    physicalPredicted to sample,
+                    physicalPredicted.copy(lastMoveFeedback = MoveFeedback.NEUTRAL, lastDiagnosis = TURNED_DIAGNOSIS) to sample,
+                    physicalPredicted.after(sample) to sample,
+                    physicalPredicted.copy(history = b.history) to sample,
+                )
+            }
+
+            is SessionEvent.EditorEntered -> {
+                val physicalAwaiting = fresh.after(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, sample.at))
+                val physicalPredicted = physicalAwaiting.after(SessionEvent.PhysicalConfirmed(null, sample.at))
+                val physicalMismatch = physicalPredicted.after(SessionEvent.MismatchReported(sample.at))
+                val differentState = CubeState.SOLVED.apply(R)
+                listOf(
+                    SessionState.IDLE to sample,
+                    physicalAwaiting to SessionEvent.EditorEntered(differentState, sample.at),
+                    physicalPredicted.copy(history = b.history) to SessionEvent.EditorEntered(differentState, sample.at),
+                    physicalMismatch to SessionEvent.EditorEntered(differentState, sample.at),
+                    physicalPredicted.copy(lastMoveFeedback = MoveFeedback.NEUTRAL, lastDiagnosis = TURNED_DIAGNOSIS) to
+                        SessionEvent.EditorEntered(differentState, sample.at),
+                )
+            }
         }
 
     private val samples: Map<String, SessionEvent> =
@@ -277,10 +334,14 @@ class TransitionsTableTest {
             planEffect.failed(),
             SessionEvent.SnapshotSaveFailed(lessonStarted(other).at),
             SessionEvent.SnapshotLoadFailed(lessonStarted(other).at),
+            SessionEvent.ModeSwitched(CubeMode.PHYSICAL, lessonStarted(other).at),
+            SessionEvent.PhysicalConfirmed(F, lessonStarted(other).at),
+            SessionEvent.MismatchReported(lessonStarted(other).at),
+            SessionEvent.EditorEntered(CubeState.SOLVED, lessonStarted(other).at),
         ).associateBy { it::class.java.simpleName }
 
-    /** What the `session` column covers: the kind, its Lesson and tutor configuration or its Solution, the adaptive flag, and its entry state. */
-    private fun session(s: SessionState) = listOf(s.kind, s.lesson, s.tutorConfig, s.adaptiveAssistance, s.solution, s.entry)
+    /** What the `session` column covers: the kind, its Lesson and tutor configuration or its Solution, the adaptive flag, its entry state and its mode. */
+    private fun session(s: SessionState) = listOf(s.kind, s.lesson, s.tutorConfig, s.adaptiveAssistance, s.solution, s.entry, s.mode)
 
     private fun changed(
         before: SessionState,
@@ -320,7 +381,7 @@ class TransitionsTableTest {
         assertEquals(names.size, names.toSet().size, "duplicate rows: $names")
         assertEquals(eventTypes, names.toSet())
         assertEquals(eventTypes, samples.keys)
-        assertEquals(25, eventTypes.size)
+        assertEquals(29, eventTypes.size)
     }
 
     @Test
