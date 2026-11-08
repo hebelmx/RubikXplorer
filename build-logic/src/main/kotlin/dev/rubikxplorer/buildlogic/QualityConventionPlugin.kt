@@ -26,6 +26,7 @@ class QualityConventionPlugin : Plugin<Project> {
                             group = LifecycleBasePlugin.VERIFICATION_GROUP
                             description = "Fails when the ${variant.name} merged manifest breaks AD-13."
                             variantName.set(variant.name)
+                            buildType.set(variant.buildType.orEmpty())
                             mergedManifest.set(variant.artifacts.get(SingleArtifact.MERGED_MANIFEST))
                             report.set(layout.buildDirectory.file("reports/rubikxplorer/${variant.name}/manifest.txt"))
                         }

@@ -19,19 +19,42 @@ class ManifestPolicyTest {
         </manifest>
         """.trimIndent()
 
+    private val release = ManifestPolicy.allowedRuntimePermissions("release")
+    private val debug = ManifestPolicy.allowedRuntimePermissions("debug")
+
     @Test
-    fun `clean manifest with CAMERA and no backup passes`() {
-        assertEquals(emptyList<String>(), ManifestPolicy.check(manifest(listOf("android.permission.CAMERA"))))
+    fun `debug allows only CAMERA, release and benchmark allow none`() {
+        assertEquals(setOf("android.permission.CAMERA"), debug)
+        assertEquals(emptySet<String>(), release)
+        assertEquals(emptySet<String>(), ManifestPolicy.allowedRuntimePermissions("benchmark"))
+        assertEquals(emptySet<String>(), ManifestPolicy.allowedRuntimePermissions(null))
+    }
+
+    @Test
+    fun `debug manifest with CAMERA and no backup passes`() {
+        assertEquals(emptyList<String>(), ManifestPolicy.check(manifest(listOf("android.permission.CAMERA")), debug))
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["release", "benchmark"])
+    fun `release-like manifest with CAMERA fails naming it`(buildType: String) {
+        val violations =
+            ManifestPolicy.check(
+                manifest(listOf("android.permission.CAMERA")),
+                ManifestPolicy.allowedRuntimePermissions(buildType),
+            )
+        assertEquals(1, violations.size)
+        assertTrue("android.permission.CAMERA" in violations.single())
     }
 
     @Test
     fun `no permissions passes`() {
-        assertEquals(emptyList<String>(), ManifestPolicy.check(manifest()))
+        assertEquals(emptyList<String>(), ManifestPolicy.check(manifest(), release))
     }
 
     @Test
     fun `INTERNET fails naming it`() {
-        val violations = ManifestPolicy.check(manifest(listOf("android.permission.INTERNET")))
+        val violations = ManifestPolicy.check(manifest(listOf("android.permission.INTERNET")), release)
         assertEquals(1, violations.size)
         assertTrue("android.permission.INTERNET" in violations.single())
     }
@@ -44,7 +67,7 @@ class ManifestPolicyTest {
                     """<uses-permission-sdk-23 android:name="android.permission.INTERNET" />""" +
                         """<application android:allowBackup="false" />""",
             )
-        assertEquals(1, ManifestPolicy.check(xml).size)
+        assertEquals(1, ManifestPolicy.check(xml, release).size)
     }
 
     @ParameterizedTest
@@ -57,10 +80,12 @@ class ManifestPolicyTest {
             "android.permission.health.READ_STEPS",
         ],
     )
-    fun `runtime permission other than CAMERA fails naming it`(permission: String) {
-        val violations = ManifestPolicy.check(manifest(listOf(permission)))
-        assertEquals(1, violations.size)
-        assertTrue(permission in violations.single())
+    fun `runtime permission other than CAMERA fails naming it in debug and release`(permission: String) {
+        listOf(debug, release).forEach { allowed ->
+            val violations = ManifestPolicy.check(manifest(listOf(permission)), allowed)
+            assertEquals(1, violations.size)
+            assertTrue(permission in violations.single())
+        }
     }
 
     @ParameterizedTest
@@ -72,25 +97,25 @@ class ManifestPolicyTest {
         ],
     )
     fun `normal and signature permissions pass`(permission: String) {
-        assertEquals(emptyList<String>(), ManifestPolicy.check(manifest(listOf(permission))))
+        assertEquals(emptyList<String>(), ManifestPolicy.check(manifest(listOf(permission)), release))
     }
 
     @Test
     fun `allowBackup missing fails`() {
-        val violations = ManifestPolicy.check(manifest(application = "<application />"))
+        val violations = ManifestPolicy.check(manifest(application = "<application />"), release)
         assertEquals(1, violations.size)
         assertTrue("allowBackup" in violations.single())
     }
 
     @Test
     fun `allowBackup true fails`() {
-        val violations = ManifestPolicy.check(manifest(application = """<application android:allowBackup="true" />"""))
+        val violations = ManifestPolicy.check(manifest(application = """<application android:allowBackup="true" />"""), release)
         assertEquals(1, violations.size)
         assertTrue("allowBackup" in violations.single())
     }
 
     @Test
     fun `missing application element fails`() {
-        assertEquals(1, ManifestPolicy.check(manifest(application = "")).size)
+        assertEquals(1, ManifestPolicy.check(manifest(application = ""), release).size)
     }
 }

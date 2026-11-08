@@ -4,9 +4,11 @@ import android.app.Application
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -17,6 +19,7 @@ import dev.rubikxplorer.app.content.CatalogState
 import dev.rubikxplorer.app.session.SessionHost
 import dev.rubikxplorer.app.session.TickingClock
 import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
+import dev.rubikxplorer.application.port.FlagLevel
 import dev.rubikxplorer.application.session.Checkpoint
 import dev.rubikxplorer.application.session.CubeMode
 import dev.rubikxplorer.application.session.SessionEvent
@@ -71,6 +74,7 @@ class PhysicalLessonScreenTest {
     private fun setLessonContent(
         host: SessionHost,
         entry: CatalogEntry = lessonEntry,
+        cameraScan: FlagLevel = FlagLevel.OFF,
     ) {
         rule.setContent {
             RubikXplorerTheme {
@@ -80,11 +84,43 @@ class PhysicalLessonScreenTest {
                     strings = ready.strings,
                     modes = TeachingMode.entries,
                     onClose = {},
+                    cameraScan = cameraScan,
                 )
             }
         }
         rule.waitForIdle()
         rule.waitUntil(5_000) { host.state.value.isActive }
+    }
+
+    /** Opens `lesson-06-03` in Physical-cube Mode at [cameraScan] and confirms its moves until the Objective is met. */
+    private fun meetStage6ObjectiveInPhysicalMode(cameraScan: FlagLevel = FlagLevel.OFF): SessionHost {
+        val milestoneEntry = ready.lessons.single { it.lesson.id.value == "lesson-06-03" }
+        val host = SessionHost(TickingClock())
+        setLessonContent(host, milestoneEntry, cameraScan)
+
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.waitForIdle()
+        node("confirmCube:matches").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+
+        val lesson = milestoneEntry.lesson
+        val step1Moves = (Notation.parse(lesson.steps[0].moves) as NotationResult.Parsed).moves
+        step1Moves.forEach { move ->
+            runBlocking { host.dispatch { SessionEvent.PhysicalConfirmed(move, it) } }
+        }
+        runBlocking { host.dispatch(SessionEvent::StepAdvanced) }
+        val step2Moves = (Notation.parse(lesson.steps[1].moves) as NotationResult.Parsed).moves
+        step2Moves.forEach { move ->
+            runBlocking { host.dispatch { SessionEvent.PhysicalConfirmed(move, it) } }
+        }
+        rule.waitUntil(5_000) {
+            host.state.value.decision
+                ?.satisfied == true || host.state.value.objectiveMet
+        }
+        rule.waitForIdle()
+        return host
     }
 
     @Test
@@ -347,40 +383,13 @@ class PhysicalLessonScreenTest {
     }
 
     @Test
-    fun story8_6_ac1_stage6ObjectiveMetInPhysicalMode_showsFirstSolvePrompt_suppressesMilestone_untilYesItsSolved() {
-        val milestoneEntry = ready.lessons.single { it.lesson.id.value == "lesson-06-03" }
-        val host = SessionHost(TickingClock())
-        setLessonContent(host, milestoneEntry)
+    fun story8_6_ac1_story8_7_ac1_cameraOff_stage6PhysicalObjectiveMet_showsCameraFreePrompt_milestoneOnlyAfterYesItsSolved() {
+        meetStage6ObjectiveInPhysicalMode(FlagLevel.OFF)
 
-        // Enter physical mode and confirm match
-        node("lesson:physicalModeSwitch").performClick()
-        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
-        rule.waitForIdle()
-        node("confirmCube:matches").performScrollTo().performClick()
-        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
-        rule.waitForIdle()
-
-        val lesson = milestoneEntry.lesson
-        // Step 1 moves for lesson-06-03
-        val step1Moves = (Notation.parse(lesson.steps[0].moves) as NotationResult.Parsed).moves
-        step1Moves.forEach { move ->
-            runBlocking { host.dispatch { SessionEvent.PhysicalConfirmed(move, it) } }
-        }
-        runBlocking { host.dispatch(SessionEvent::StepAdvanced) }
-
-        // Step 2 moves for lesson-06-03
-        val step2Moves = (Notation.parse(lesson.steps[1].moves) as NotationResult.Parsed).moves
-        step2Moves.forEach { move ->
-            runBlocking { host.dispatch { SessionEvent.PhysicalConfirmed(move, it) } }
-        }
-        rule.waitUntil(5_000) {
-            host.state.value.decision
-                ?.satisfied == true || host.state.value.objectiveMet
-        }
-        rule.waitForIdle()
-
-        // Panel displays "Your cube should be solved now. Check it with the camera, or tell me if it is."
-        rule.onNodeWithText("Your cube should be solved now. Check it with the camera, or tell me if it is.").assertExists()
+        // Story 8.7: v1.0 is camera-free, so the prompt compares with the picture and never mentions a camera
+        rule.onNodeWithText("Your cube should be solved now. Compare it with the picture, then tell me if it is.").assertExists()
+        rule.onAllNodes(hasText("camera", substring = true, ignoreCase = true), useUnmergedTree = true).assertCountEquals(0)
+        rule.onAllNodes(hasText("Quick Check", substring = true, ignoreCase = true), useUnmergedTree = true).assertCountEquals(0)
 
         // Frame badge remains dashed EXPECTED
         node("stage:frame").assertTextEquals("EXPECTED")
@@ -817,5 +826,25 @@ class PhysicalLessonScreenTest {
         node("confirmCube:matches").assertExists()
         node("confirmCube:enter").assertExists()
         node("stage:frame").assertTextEquals("EXPECTED")
+    }
+
+    @Test
+    fun story8_7_ac2_cameraScanBeta_stage6ObjectiveMetInPhysicalMode_showsCameraPrompt() {
+        assertCameraPrompt(FlagLevel.BETA)
+    }
+
+    @Test
+    fun story8_7_ac2_cameraScanGa_stage6ObjectiveMetInPhysicalMode_showsCameraPrompt() {
+        assertCameraPrompt(FlagLevel.GA)
+    }
+
+    private fun assertCameraPrompt(cameraScan: FlagLevel) {
+        meetStage6ObjectiveInPhysicalMode(cameraScan)
+
+        rule.onNodeWithText("Your cube should be solved now. Check it with the camera, or tell me if it is.").assertExists()
+        rule.onNodeWithText("Your cube should be solved now. Compare it with the picture, then tell me if it is.").assertDoesNotExist()
+        node("lesson:yesItsSolved").assertExists()
+        node("lesson:didSomethingElse").assertExists()
+        node("milestone:overlay").assertDoesNotExist()
     }
 }

@@ -19,6 +19,10 @@ abstract class CheckMergedManifestTask : DefaultTask() {
     @get:Input
     abstract val variantName: Property<String>
 
+    /** The variant's build type; decides the allowed runtime permissions (see [ManifestPolicy.allowedRuntimePermissions]). */
+    @get:Input
+    abstract val buildType: Property<String>
+
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val mergedManifest: RegularFileProperty
@@ -28,7 +32,11 @@ abstract class CheckMergedManifestTask : DefaultTask() {
 
     @TaskAction
     fun check() {
-        val violations = ManifestPolicy.check(mergedManifest.get().asFile.readText())
+        val violations =
+            ManifestPolicy.check(
+                mergedManifest.get().asFile.readText(),
+                ManifestPolicy.allowedRuntimePermissions(buildType.get()),
+            )
         report.get().asFile.writeText(violations.joinToString("\n"))
         if (violations.isNotEmpty()) {
             throw GradleException(

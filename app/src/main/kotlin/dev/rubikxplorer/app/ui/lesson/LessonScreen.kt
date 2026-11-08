@@ -133,6 +133,8 @@ import kotlin.time.Instant
  * feature flag is off). [planRecovery] runs a requested Guided recovery's search (tests inject one).
  * [adaptiveAssistance] is the `ADAPTIVE_ASSISTANCE` flag level the Lesson starts with: off, the Hint Ladder
  * is fixed and no Assistance line shows; BETA adds the beta label to the Assistance line (AD-18).
+ * [cameraScan] is the `CAMERA_SCAN` flag level: off (v1.0), Stage 6's end-of-course physical prompt
+ * asks the learner to compare the cube with the picture; BETA or GA, it offers the camera check.
  */
 @Composable
 fun LessonScreen(
@@ -144,6 +146,7 @@ fun LessonScreen(
     modifier: Modifier = Modifier,
     planRecovery: PlanRecovery = remember { PlanRecovery() },
     adaptiveAssistance: FlagLevel = FlagLevel.OFF,
+    cameraScan: FlagLevel = FlagLevel.OFF,
     onPracticeNewScramble: () -> Unit = onClose,
     isPractice: Boolean = false,
     stages: List<Stage> = emptyList(),
@@ -326,6 +329,7 @@ fun LessonScreen(
                     modes,
                     onClose,
                     adaptiveAssistance == FlagLevel.BETA,
+                    camera = cameraScan != FlagLevel.OFF,
                     isPractice = isPractice,
                     isSkipCheck = isSkipCheck,
                     onSkipCheckPassed = onSkipCheckPassed,
@@ -455,6 +459,7 @@ private fun LessonBody(
     modes: List<TeachingMode>,
     onClose: () -> Unit,
     beta: Boolean,
+    camera: Boolean,
     isPractice: Boolean = false,
     isSkipCheck: Boolean = false,
     onSkipCheckPassed: (() -> Unit)? = null,
@@ -532,7 +537,7 @@ private fun LessonBody(
                 ?.moves
                 ?.firstOrNull()
 
-    val step = stepCard(mode, session, decision, lesson, demonstration, player, strings, beta, isPractice || isSkipCheck)
+    val step = stepCard(mode, session, decision, lesson, demonstration, player, strings, beta, camera, isPractice || isSkipCheck)
     val panel: @Composable (Modifier) -> Unit = { panelModifier ->
         LessonPanel(
             objective = strings.resolve(lesson.objective),
@@ -768,6 +773,27 @@ private fun cubeSummary(
         ?.joinToString("; ") { strings.resolve(it) }
 
 /**
+ * Physical-cube Mode's Objective-met copy, or null in Virtual Mode. Stage 6's last Lesson asks for
+ * the first-solve confirmation: the camera variant only when [camera] (`CAMERA_SCAN` BETA/GA), else
+ * the camera-free "compare it with the picture" copy.
+ */
+private fun physicalObjectiveMetCopy(
+    session: SessionState,
+    lesson: Lesson,
+    strings: ContentStrings,
+    camera: Boolean,
+): String? {
+    if (session.syncState == SyncState.VIRTUAL) return null
+    val key =
+        when {
+            lesson.id.value != "lesson-06-03" -> "msg.physical.objective-met"
+            camera -> "msg.physical.first-solve-prompt-camera"
+            else -> "msg.physical.first-solve-prompt"
+        }
+    return strings.resolve(TextKey(key))
+}
+
+/**
  * The step card's content for [mode]: Show me follows the Demonstration's focused step; Guide me,
  * Test me and Let me try follow the session's step, with its Hint Ladder line at the shown rung and
  * the Assistance line, and only Guide me offers "Show the Move".
@@ -781,6 +807,7 @@ private fun stepCard(
     player: DemonstrationPlayerState,
     strings: ContentStrings,
     beta: Boolean,
+    camera: Boolean,
     isPractice: Boolean = false,
 ): StepCardContent {
     if (isPractice || session.kind == SessionKind.PRACTICE) {
@@ -826,16 +853,7 @@ private fun stepCard(
             assistance = null,
             isPractice = true,
             isPhysical = session.syncState != SyncState.VIRTUAL,
-            objectiveMetCopy =
-                if (session.syncState != SyncState.VIRTUAL) {
-                    if (lesson.id.value == "lesson-06-03") {
-                        strings.resolve(TextKey("msg.physical.first-solve-prompt"))
-                    } else {
-                        strings.resolve(TextKey("msg.physical.objective-met"))
-                    }
-                } else {
-                    null
-                },
+            objectiveMetCopy = physicalObjectiveMetCopy(session, lesson, strings, camera),
             isEndOfStage6 = lesson.id.value == "lesson-06-03",
         )
     }
@@ -917,16 +935,7 @@ private fun stepCard(
         guidedRecovery = guidedRecoveryContent(session.guidedRecovery, strings),
         assistance = if (mode == TeachingMode.SHOW_ME) null else assistanceContent(session, strings, offPath, beta),
         isPhysical = session.syncState != SyncState.VIRTUAL,
-        objectiveMetCopy =
-            if (session.syncState != SyncState.VIRTUAL) {
-                if (lesson.id.value == "lesson-06-03") {
-                    strings.resolve(TextKey("msg.physical.first-solve-prompt"))
-                } else {
-                    strings.resolve(TextKey("msg.physical.objective-met"))
-                }
-            } else {
-                null
-            },
+        objectiveMetCopy = physicalObjectiveMetCopy(session, lesson, strings, camera),
         candidate = diagnosisCandidate,
         isEndOfStage6 = lesson.id.value == "lesson-06-03",
     )
