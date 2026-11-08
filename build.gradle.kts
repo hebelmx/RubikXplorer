@@ -15,6 +15,7 @@ plugins {
 }
 
 spotless {
+    lineEndings = com.diffplug.spotless.LineEnding.PRESERVE
     val ktlintVersion = libs.versions.ktlint.get()
     kotlin {
         target("**/*.kt")
