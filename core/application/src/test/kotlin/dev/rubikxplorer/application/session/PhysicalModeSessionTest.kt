@@ -118,6 +118,8 @@ class PhysicalModeSessionTest {
         assertFalse(backToVirtual.history.canUndo)
         assertFalse(backToVirtual.history.canRedo)
         assertEquals(afterEditor.revision + 1, backToVirtual.revision)
+        assertEquals(Text("msg.physical.back-to-virtual"), backToVirtual.restoreNote)
+        assertEquals("The on-screen cube now matches what we expected on yours.", resolveText(backToVirtual.restoreNote!!))
     }
 
     @Test
@@ -175,9 +177,12 @@ class PhysicalModeSessionTest {
         val backToVirtual = reduce(physicalMoved, SessionEvent.ModeSwitched(CubeMode.VIRTUAL, T0)).state
         assertFalse(backToVirtual.history.canUndo)
         assertFalse(backToVirtual.history.canRedo)
+        assertEquals(Text("msg.physical.back-to-virtual"), backToVirtual.restoreNote)
+        assertEquals("The on-screen cube now matches what we expected on yours.", resolveText(backToVirtual.restoreNote!!))
 
         val undoVirtualAtBarrier = reduce(backToVirtual, SessionEvent.Undo(T0))
-        assertEquals(backToVirtual, undoVirtualAtBarrier.state)
+        assertEquals(backToVirtual.copy(restoreNote = null), undoVirtualAtBarrier.state)
+        assertNull(undoVirtualAtBarrier.state.restoreNote)
     }
 
     @Test
@@ -233,6 +238,129 @@ class PhysicalModeSessionTest {
         assertFalse(restored.history.canUndo)
         assertFalse(restored.history.canRedo)
         assertEquals(listOf(Presentation.Snap(restored.revision, restored.virtual)), restoredTransition.presentation)
+    }
+
+    @Test
+    fun `story 8 4 ac1 - switch from physical to virtual aligns virtual to expected, sets restoreNote, and acts as undo barrier`() {
+        val session = started()
+        val physicalTransition = reduce(session, SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0))
+        val physical = physicalTransition.state
+        assertEquals(SyncState.PHYSICAL_AWAITING_CONFIRM, physical.syncState)
+        assertNull(physical.restoreNote)
+
+        // Confirm match and make a physical move
+        val confirmed = reduce(physical, SessionEvent.PhysicalConfirmed(null, T0)).state
+        val moved = reduce(confirmed, SessionEvent.PhysicalConfirmed(R, T0)).state
+        assertEquals(SyncState.PHYSICAL_PREDICTED, moved.syncState)
+        assertEquals(physical.expected.apply(R), moved.expected)
+        assertEquals(moved.expected, moved.virtual)
+        assertTrue(moved.history.canUndo)
+
+        // Switch to virtual: virtual becomes expected, restoreNote set, undo/redo cleared
+        val toVirtualTransition = reduce(moved, SessionEvent.ModeSwitched(CubeMode.VIRTUAL, T0))
+        val virtual = toVirtualTransition.state
+        assertEquals(SyncState.VIRTUAL, virtual.syncState)
+        assertEquals(CubeMode.VIRTUAL, virtual.mode)
+        assertEquals(moved.expected, virtual.virtual)
+        assertNull(virtual.observed)
+        assertFalse(virtual.history.canUndo, "Undo barrier: cannot undo back into physical mode")
+        assertFalse(virtual.history.canRedo)
+        assertEquals(Text("msg.physical.back-to-virtual"), virtual.restoreNote)
+        assertEquals("The on-screen cube now matches what we expected on yours.", resolveText(virtual.restoreNote!!))
+
+        // Subsequent event clears restoreNote
+        val commitMove = reduce(virtual, SessionEvent.MoveCommitted(U, T0)).state
+        assertNull(commitMove.restoreNote)
+
+        // Undo barrier prevents undoing further
+        val undoAtStart = reduce(virtual, SessionEvent.Undo(T0)).state
+        assertFalse(undoAtStart.history.canUndo)
+        assertEquals(virtual.virtual, undoAtStart.virtual)
+    }
+
+    @Test
+    fun `story 8 4 ac2 - physical snapshot restored lands in physical awaiting confirm with observed cleared and no async effects`() {
+        val session = started()
+        val lesson = checkNotNull(session.lesson)
+        val physical =
+            session.after(
+                SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0),
+                SessionEvent.PhysicalConfirmed(null, T0),
+                SessionEvent.PhysicalConfirmed(R, T0),
+            )
+        val snapshot = checkNotNull(SessionSnapshot.of(physical, "session-test", "v1"))
+        assertEquals(CubeMode.PHYSICAL, snapshot.mode)
+
+        val restoredTransition =
+            reduce(
+                SessionState.IDLE,
+                SessionEvent.SessionRestored(snapshot, lesson, checkNotNull(session.tutorConfig), T0),
+            )
+        val restored = restoredTransition.state
+
+        assertEquals(SyncState.PHYSICAL_AWAITING_CONFIRM, restored.syncState)
+        assertEquals(CubeMode.PHYSICAL, restored.mode)
+        assertEquals(physical.expected, restored.expected)
+        assertEquals(restored.expected, restored.virtual)
+        assertNull(restored.observed)
+        assertTrue(restoredTransition.effects.isEmpty(), "No async effects resumed on physical snapshot restore")
+        assertEquals(listOf(Presentation.Snap(restored.revision, restored.virtual)), restoredTransition.presentation)
+        assertEquals(Text("msg.lesson.resumed"), restored.restoreNote)
+    }
+
+    @Test
+    fun `story 8 4 - mode recorded across persist checkpoint, checkpoint of, and session snapshot`() {
+        val session = started()
+        // Initial start emits PersistCheckpoint with mode = VIRTUAL
+        val startCheckpoint =
+            reduce(SessionState.IDLE, SessionEvent.LessonStarted(checkNotNull(session.lesson), checkNotNull(session.tutorConfig), T0))
+                .effects
+                .filterIsInstance<Effect.PersistCheckpoint>()
+                .single()
+        assertEquals(CubeMode.VIRTUAL, startCheckpoint.mode)
+        assertEquals(CubeMode.VIRTUAL, Checkpoint.of(startCheckpoint, "v1").mode)
+
+        val toPhysical = reduce(session, SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0))
+        val physicalSnapshot = checkNotNull(SessionSnapshot.of(toPhysical.state, "sess-1", "v1"))
+        assertEquals(CubeMode.PHYSICAL, physicalSnapshot.mode)
+
+        // Switching to physical and reaching boundary emits PersistCheckpoint with mode = PHYSICAL
+        val confirmed = reduce(toPhysical.state, SessionEvent.PhysicalConfirmed(null, T0)).state
+        val boundaryTransition = reduce(confirmed, SessionEvent.PhysicalConfirmed(F_PRIME, T0))
+        val boundaryCheckpoint = boundaryTransition.effects.filterIsInstance<Effect.PersistCheckpoint>().single()
+        assertEquals(CubeMode.PHYSICAL, boundaryCheckpoint.mode)
+        val physicalCheckpoint = Checkpoint.of(boundaryCheckpoint, "v1")
+        assertEquals(CubeMode.PHYSICAL, physicalCheckpoint.mode)
+
+        // Restoring physical checkpoint emits PersistCheckpoint with mode = PHYSICAL
+        val restoredTransition =
+            reduce(
+                SessionState.IDLE,
+                SessionEvent.CheckpointRestored(
+                    physicalCheckpoint,
+                    checkNotNull(session.lesson),
+                    checkNotNull(session.tutorConfig),
+                    "v1",
+                    T0,
+                ),
+            )
+        val restoredCheckpoint = restoredTransition.effects.filterIsInstance<Effect.PersistCheckpoint>().single()
+        assertEquals(CubeMode.PHYSICAL, restoredCheckpoint.mode)
+    }
+
+    @Test
+    fun `story 8 4 - objective boundary in physical mode persists physical checkpoint`() {
+        val session = started()
+        val physical =
+            session.after(
+                SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0),
+                SessionEvent.PhysicalConfirmed(null, T0),
+            )
+        // Committing move that completes a step / boundary (F_PRIME completes WhiteCrossSolved)
+        val boundaryTransition = reduce(physical, SessionEvent.PhysicalConfirmed(F_PRIME, T0))
+        val effect = boundaryTransition.effects.filterIsInstance<Effect.PersistCheckpoint>().single()
+        assertEquals(CubeMode.PHYSICAL, effect.mode)
+        assertEquals(CubeMode.PHYSICAL, Checkpoint.of(effect, "v1").mode)
     }
 
     @Test

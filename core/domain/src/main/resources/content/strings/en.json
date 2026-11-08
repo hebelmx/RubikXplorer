@@ -32,6 +32,7 @@
   "msg.assistance.guide-off-path": "You're off the path now — Undo back to it, and I'll show one turn at a time again.",
   "msg.recovery.undo": "Undo, or try another turn.",
   "msg.physical.undo": "Turn {move} on your cube to undo.",
+  "msg.physical.back-to-virtual": "The on-screen cube now matches what we expected on yours.",
   "msg.physical.objective-met": "If your cube matches the picture, this step is done.",
   "msg.physical.mismatch.which-turn": "Which turn did you make?",
   "msg.physical.mismatch.one-face": "Look at the front face — which corner is white?",

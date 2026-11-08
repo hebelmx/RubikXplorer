@@ -9,10 +9,12 @@ import dev.rubikxplorer.application.port.CheckpointLoad
 import dev.rubikxplorer.application.port.CheckpointRepository
 import dev.rubikxplorer.application.port.CheckpointSave
 import dev.rubikxplorer.application.session.Checkpoint
+import dev.rubikxplorer.application.session.CubeMode
 import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.application.session.SessionKind
 import dev.rubikxplorer.application.session.SessionSnapshot
 import dev.rubikxplorer.application.session.SessionState
+import dev.rubikxplorer.application.session.SyncState
 import dev.rubikxplorer.application.session.reduce
 import dev.rubikxplorer.domain.content.ContentLoadResult
 import dev.rubikxplorer.domain.content.ContentLoader
@@ -264,6 +266,122 @@ class SessionHostCheckpointTest {
                 assertEquals("ABANDONED", rows[1].outcome)
                 assertEquals(rows[0].sessionId, rows[1].sessionId)
                 assertFalse(rows[1].sessionId == rows[2].sessionId)
+            } finally {
+                writer.close()
+                db.close()
+            }
+        }
+
+    @Test fun suspendWithSolvePlaybackAndResumePhysicalLesson() =
+        runBlocking {
+            val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+            val lesson =
+                bundle.stages
+                    .first()
+                    .lessons
+                    .first()
+            val context = RuntimeEnvironment.getApplication()
+            val db = Room.inMemoryDatabaseBuilder<RubikDatabase>(context).setDriver(AndroidSQLiteDriver()).build()
+            val writer = SerialWriter()
+            try {
+                val host =
+                    SessionHost(
+                        TickingClock(),
+                        Dispatchers.Default.limitedParallelism(1),
+                        RoomSessionSnapshotRepository(db),
+                        writer,
+                        checkpoints = RoomCheckpointRepository(db),
+                    )
+                host.restore(bundle)
+                host.dispatch { SessionEvent.LessonStarted(lesson, bundle.tutorConfig, it) }
+                host.dispatch { SessionEvent.ModeSwitched(CubeMode.PHYSICAL, it) }
+                host.dispatch { SessionEvent.PhysicalConfirmed(null, it) }
+                val moves = (Notation.parse(lesson.demonstration) as NotationResult.Parsed).moves
+                host.dispatch { SessionEvent.PhysicalConfirmed(moves.first(), it) }
+                writer.flush()
+
+                val saved = db.checkpoints().find("LESSON")
+                org.junit.Assert.assertNotNull(saved)
+                val decoded = CheckpointPayload.decode(saved!!.payload)
+                assertEquals(CubeMode.PHYSICAL, decoded.mode)
+
+                val checkpoint = host.state.value.checkpoint!!
+                host.dispatch { SessionEvent.SolvePlaybackStarted(CubeState.SOLVED, emptyList(), it) }
+                host.endSolve(bundle)
+
+                val resumed = host.state.value
+                assertEquals(SessionKind.LESSON, resumed.kind)
+                assertEquals(CubeMode.PHYSICAL, resumed.mode)
+                assertEquals(SyncState.PHYSICAL_AWAITING_CONFIRM, resumed.syncState)
+                assertEquals(checkpoint.state, resumed.expected)
+                assertEquals(checkpoint.state, resumed.virtual)
+                org.junit.Assert.assertNull(resumed.observed)
+                assertEquals(Text("msg.lesson.resumed"), resumed.restoreNote)
+                assertFalse(resumed.history.canRedo)
+            } finally {
+                writer.close()
+                db.close()
+            }
+        }
+
+    @Test fun restorePhysicalSnapshotAfterProcessDeath() =
+        runBlocking {
+            val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+            val lesson =
+                bundle.stages
+                    .first()
+                    .lessons
+                    .first()
+            val context = RuntimeEnvironment.getApplication()
+            val name = "snapshot-physical-${java.util.UUID.randomUUID()}.db"
+
+            fun database() = Room.databaseBuilder<RubikDatabase>(context, name).setDriver(AndroidSQLiteDriver()).build()
+            var db = database()
+            var writer = SerialWriter()
+            try {
+                val host =
+                    SessionHost(
+                        TickingClock(),
+                        Dispatchers.Default.limitedParallelism(1),
+                        RoomSessionSnapshotRepository(db),
+                        writer,
+                        checkpoints = RoomCheckpointRepository(db),
+                    )
+                host.restore(bundle)
+                host.dispatch { SessionEvent.LessonStarted(lesson, bundle.tutorConfig, it) }
+                host.dispatch { SessionEvent.ModeSwitched(CubeMode.PHYSICAL, it) }
+                host.dispatch { SessionEvent.PhysicalConfirmed(null, it) }
+                val moves = (Notation.parse(lesson.demonstration) as NotationResult.Parsed).moves
+                host.dispatch { SessionEvent.PhysicalConfirmed(moves.first(), it) }
+                writer.flush()
+
+                val snapshotRow = db.snapshots().find("LESSON")
+                org.junit.Assert.assertNotNull(snapshotRow)
+                val snapshot = SnapshotPayload.decode(snapshotRow!!.payload)
+                assertEquals(CubeMode.PHYSICAL, snapshot.mode)
+
+                writer.close()
+                db.close()
+
+                db = database()
+                writer = SerialWriter()
+                val restoredHost =
+                    SessionHost(
+                        TickingClock(),
+                        Dispatchers.Default.limitedParallelism(1),
+                        RoomSessionSnapshotRepository(db),
+                        writer,
+                        checkpoints = RoomCheckpointRepository(db),
+                    )
+                restoredHost.restore(bundle)
+                restoredHost.awaitRestored()
+
+                val state = restoredHost.state.value
+                assertEquals(SessionKind.LESSON, state.kind)
+                assertEquals(CubeMode.PHYSICAL, state.mode)
+                assertEquals(SyncState.PHYSICAL_AWAITING_CONFIRM, state.syncState)
+                org.junit.Assert.assertNull(state.observed)
+                assertEquals(Text("msg.lesson.resumed"), state.restoreNote)
             } finally {
                 writer.close()
                 db.close()

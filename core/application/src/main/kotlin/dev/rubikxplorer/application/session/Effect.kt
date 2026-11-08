@@ -47,6 +47,7 @@ sealed interface Effect {
         val teachingMode: dev.rubikxplorer.domain.tutor.TeachingMode,
         val adaptiveAssistance: Boolean,
         val at: kotlin.time.Instant,
+        val mode: CubeMode = CubeMode.VIRTUAL,
     ) : Effect
 
     /** Solve a validated Cube State without changing the session. */

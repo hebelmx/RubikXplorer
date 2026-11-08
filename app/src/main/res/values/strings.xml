@@ -40,6 +40,7 @@
     <string name="mode_let_me_try">Let me try</string>
     <string name="lesson_moves_hidden">Hidden until you ask for a hint.</string>
     <string name="physical_mode">Physical mode</string>
+    <string name="physical_back_to_virtual">The on-screen cube now matches what we expected on yours.</string>
     <string name="confirm_your_cube">Confirm your cube</string>
     <string name="confirm_cube_matches">It matches</string>
     <string name="confirm_cube_enter">Enter it</string>

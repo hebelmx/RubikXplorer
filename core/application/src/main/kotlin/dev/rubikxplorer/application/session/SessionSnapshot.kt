@@ -33,6 +33,7 @@ data class SessionSnapshot(
     val cleanCredited: Set<Int>,
     val stepHelped: Set<Int>,
     val assistanceDismissed: Map<Int, AssistanceLevel>,
+    val mode: CubeMode = CubeMode.VIRTUAL,
 ) {
     companion object {
         fun of(
@@ -67,6 +68,7 @@ data class SessionSnapshot(
                 cleanCredited = state.cleanCredited,
                 stepHelped = state.stepHelped,
                 assistanceDismissed = state.assistanceDismissed,
+                mode = state.mode,
             )
         }
     }
