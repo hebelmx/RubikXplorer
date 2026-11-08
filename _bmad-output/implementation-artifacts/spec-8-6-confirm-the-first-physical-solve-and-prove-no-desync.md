@@ -4,7 +4,7 @@ type: 'feature'
 created: '2026-11-08'
 status: 'in-review'
 baseline_revision: '2f4ee9bf37b4e48da1c43f354d5badec42b646b7'
-review_loop_iteration: 0
+review_loop_iteration: 1
 followup_review_recommended: false
 context: []
 warnings: []
@@ -79,6 +79,12 @@ deferred: []
 ## Spec Change Log
 
 ## Review Triage Log
+
+Review 1 (Codex, 2026-11-08, diff 2f4ee9b..c1c9ce5) — gates green (build, unit tests, kover, spotless, androidTest compile); 4 findings OPEN, not yet fixed:
+- [ ] MAJOR `LessonScreen.kt:192` — toggling physical→virtual at the Stage 6 solve prompt bypasses *Yes, it's solved*: solved `expected` becomes `virtual`, `decision.satisfied` holds, milestone shows without confirmation.
+- [ ] MAJOR `LessonScreen.kt:186` — `SessionHost` records `LessonCompleted` when the physical objective is met, before confirmation; on re-entry `initialCompleted` is true, so *Yes, it's solved* closes the screen and the milestone never plays.
+- [ ] MAJOR `EndToEndSyncScenario.kt:208` — resume check uses the restored state as its own oracle (renderers initialised from `restoredExpected`, compared to it); pre-kill cube never retained/compared.
+- [ ] MINOR `EndToEndSyncScenario.kt:183` — no desync assertion after second physical mode switch / initial confirmation; "pause" only closes persistence, no lifecycle events.
 
 ## Design Notes
 
