@@ -5,7 +5,7 @@ created: '2026-11-07'
 baseline_revision: '91b8414089b2b66efcae3ff5d6d9d0e8d1ad3915'
 status: 'done'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context: []
 warnings: []
 deferred:
@@ -36,6 +36,13 @@ deferred:
       Tutor diagnosis adaptation and error certainty rules without a camera are explicitly scoped to Story 8.3 ("Harmful Move diagnosis on a predicted state is at most Likely, never false Verified").
     location: >-
       core/application/src/main/kotlin/dev/rubikxplorer/application/session/Reduce.kt:376
+    severity: medium
+  - summary: >-
+      Switching from physical to virtual mode omits notification text ("The on-screen cube now matches what we expected on yours.").
+    evidence: |-
+      Learner-facing notifications and restore copy when leaving physical mode are explicitly scoped to Story 8.4 ("Leave and resume physical mode safely").
+    location: >-
+      core/application/src/main/kotlin/dev/rubikxplorer/application/session/Reduce.kt:472
     severity: medium
 ---
 
@@ -140,6 +147,21 @@ deferred:
   - `[low]` `[patch]` CheckpointRestored physical mode missing test coverage — added test in PhysicalModeSessionTest.kt
   - `[low]` `[patch]` PhysicalConfirmed in TEST_ME mode feedback/diagnosis retention missing test coverage — added test in PhysicalModeSessionTest.kt
 
+### 2026-11-08 — Review pass
+- verdicts: 20 findings — high 0, medium 2, low 4, false 13, maybe-false 1
+- findings:
+  - `[medium]` `[patch]` Multi-move Redo in physical mode cleared undone history stack instead of advancing it — patched confirmPhysical to call state.history.redo() when isRedo is true
+  - `[low]` `[patch]` Switch to virtual mode retained stale noticeStep if set — patched switchMode(VIRTUAL) to clear noticeStep = null
+  - `[low]` `[patch]` Property test Invariant 3 compared expectedBeforeRotation against expectedBeforeRotation — patched to compare against stateAfter.expected
+  - `[low]` `[patch]` RetryRequested in physical mode was handled like virtual mode — patched to no-op RetryRequested in physical mode
+  - `[low]` `[patch]` Reset and overtaken ResetConfirmed could mutate state in physical mode — patched to no-op Reset in physical mode and guard ResetConfirmed
+  - `[medium]` `[patch]` PhysicalObservation sealed interface lacked dedicated unit tests — added PhysicalObservationTest.kt in :core:domain
+  - `[medium]` `[defer]` ModeSwitched to VIRTUAL lacks informative notice text — deferred to Story 8.4 (learner-facing leave/resume copy)
+  - `[false]` `[reject]` withHistory drops pendingReset — pendingReset is already explicitly set to null by withHistory
+  - `[false]` `[reject]` withHistory does not increment revision — withHistory explicitly increments revision
+  - `[false]` `[reject]` SOLVE_PLAYBACK physical mode handling — SOLVE_PLAYBACK is virtual only by design
+  - `[false]` `[reject]` Remaining 10 findings rejected as working as designed / false positives
+
 ## Auto Run Result
 
 ### Summary
@@ -148,6 +170,7 @@ Implemented the 5-state Sync State Machine (`VIRTUAL`, `PHYSICAL_AWAITING_CONFIR
 ### Files Changed
 - `core/domain/src/main/resources/content/strings/en.json` — Added `"msg.physical.undo": "Turn {move} on your cube to undo."`.
 - `core/domain/src/main/kotlin/dev/rubikxplorer/domain/recognition/PhysicalObservation.kt` — Created `PhysicalObservation` sealed interface (`Full` and `Partial`).
+- `core/domain/src/test/kotlin/dev/rubikxplorer/domain/recognition/PhysicalObservationTest.kt` — Added unit tests covering `PhysicalObservation` data classes.
 - `core/application/src/main/kotlin/dev/rubikxplorer/application/session/SyncState.kt` — Created `SyncState` enum for the 5-state sync machine.
 - `core/application/src/main/kotlin/dev/rubikxplorer/application/session/Checkpoint.kt` — Extended `CubeMode` with `PHYSICAL`.
 - `core/application/src/main/kotlin/dev/rubikxplorer/application/session/SessionEvent.kt` — Added `ModeSwitched`, `PhysicalConfirmed`, `MismatchReported`, and `EditorEntered`.
@@ -158,18 +181,17 @@ Implemented the 5-state Sync State Machine (`VIRTUAL`, `PHYSICAL_AWAITING_CONFIR
 - `core/application/src/main/kotlin/dev/rubikxplorer/application/session/Reduce.kt` — Implemented physical mode reducer transitions, undo barrier, physical undo instructions, and editor entry.
 - `core/application/src/main/kotlin/dev/rubikxplorer/application/session/TRANSITIONS.md` — Added normative physical mode transition rows and documentation.
 - `core/application/src/test/kotlin/dev/rubikxplorer/application/session/TransitionsTableTest.kt` — Updated event inventory and added physical event scenarios.
-- `core/application/src/test/kotlin/dev/rubikxplorer/application/session/PhysicalModeSessionTest.kt` — Added unit and property tests covering all acceptance criteria.
+- `core/application/src/test/kotlin/dev/rubikxplorer/application/session/PhysicalModeSessionTest.kt` — Added unit and property tests covering all acceptance criteria, multi-move redo preservation, and retry/reset guards.
 
 ### Review Findings Breakdown
-- Patches applied: 13 findings across 8 distinct fixes (1 high, 2 medium, 10 low).
-- Items deferred: 4 findings deferred to their dedicated stories (BH4 & BH5 to Story 8.4; BH7 & BH14 to Story 8.3).
-- Findings rejected: 2 findings rejected as false (BH9: 3D renderer queue does not render text; BH10: normative table format).
+- Pass 1: 19 findings — 13 patched across 8 fixes (1 high, 2 medium, 10 low), 4 deferred, 2 rejected.
+- Pass 2: 20 findings — 6 patched (0 high, 2 medium, 4 low), 1 deferred (BH4 to Story 8.4), 13 rejected.
 
 ### Follow-up Review Recommendation
-`followup_review_recommended: true` — Patched high-severity finding BH1 (ensuring virtual moves are preserved across switch to physical mode). While thoroughly verified by unit and property tests, a follow-up review pass is recommended per standard procedure when a high-severity finding was patched on the first pass. Patched counts: high 1, medium 2, low 10.
+`followup_review_recommended: false` — All findings from both review passes addressed or deferred to scoped stories. Zero high findings in follow-up pass. Review has converged.
 
 ### Verification Performed
-- `./gradlew :core:domain:test` passed (ShippedContentTest validated all strings and arguments).
+- `./gradlew :core:domain:test` passed (ShippedContentTest validated all strings and arguments; PhysicalObservationTest passed).
 - `./gradlew :core:application:test` passed (TransitionsTableTest, PhysicalModeSessionTest, and all session tests passed).
 - `./gradlew :app:testDebugUnitTest` passed (PresentationMappingTest and all app tests passed).
 - `./gradlew spotlessCheck` passed with no formatting violations.

@@ -294,6 +294,48 @@ class PhysicalModeSessionTest {
         assertEquals(SyncState.PHYSICAL_PREDICTED, redone.syncState)
         assertFalse(redone.history.canRedo)
         assertTrue(redone.history.canUndo)
+
+        // Multi-move redo preserves subsequent undone moves
+        val move1 = reduce(redone, SessionEvent.PhysicalConfirmed(U, T0)).state
+        val move2 = reduce(move1, SessionEvent.PhysicalConfirmed(F, T0)).state
+        val undo1 = reduce(move2, SessionEvent.Undo(T0)).state
+        val undo2 = reduce(undo1, SessionEvent.Undo(T0)).state
+        assertEquals(2, undo2.history.undone.size)
+        val redo1 = reduce(undo2, SessionEvent.Redo(T0)).state
+        assertTrue(redo1.history.canRedo, "Subsequent undone moves must remain available after redone first move")
+        assertEquals(F, redo1.history.redoable)
+        val redo2 = reduce(redo1, SessionEvent.Redo(T0)).state
+        assertFalse(redo2.history.canRedo)
+        assertEquals(move2.expected, redo2.expected)
+    }
+
+    @Test
+    fun `retry in physical mode is suppressed`() {
+        val session = reduce(started(), SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0)).state
+        val confirmed = reduce(session, SessionEvent.PhysicalConfirmed(null, T0)).state
+        val moved = reduce(confirmed, SessionEvent.PhysicalConfirmed(R, T0)).state
+
+        val retried = reduce(moved, SessionEvent.RetryRequested(T0))
+        assertEquals(moved, retried.state)
+        assertTrue(retried.effects.isEmpty())
+    }
+
+    @Test
+    fun `reset and overtaken reset confirmation in physical mode are suppressed`() {
+        val session = reduce(started(), SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0)).state
+        val confirmed = reduce(session, SessionEvent.PhysicalConfirmed(null, T0)).state
+        val moved = reduce(confirmed, SessionEvent.PhysicalConfirmed(R, T0)).state
+
+        // Reset does not ask confirmation in physical mode
+        val resetAttempt = reduce(moved, SessionEvent.Reset(T0))
+        assertEquals(moved, resetAttempt.state)
+        assertNull(resetAttempt.state.pendingReset)
+        assertTrue(resetAttempt.effects.isEmpty())
+
+        // Overtaken ResetConfirmed from previous virtual mode is discarded without re-prompting reset
+        val overtaken = reduce(moved, SessionEvent.ResetConfirmed(effectId = 1L, revision = 0L, at = T0))
+        assertNull(overtaken.state.pendingReset)
+        assertTrue(overtaken.effects.isEmpty())
     }
 
     @Test
@@ -363,13 +405,14 @@ class PhysicalModeSessionTest {
                 }
 
                 // Invariant 3: View Rotation changes neither Notation nor expected
+                val expectedBeforeRotation = next.expected
                 val orbit = ViewOrbit.DEFAULT.rotated((rng.nextDouble() - 0.5) * 360.0, (rng.nextDouble() - 0.5) * 170.0)
                 val testMove = moves[rng.nextInt(moves.size)]
                 val notationBefore = Notation.format(testMove)
                 assertTrue(orbit.eye().length() > 0.0)
                 assertEquals(notationBefore, Notation.format(testMove), "Move notation must not change with View Rotation")
                 // View rotation never mutates expected
-                assertEquals(next.expected, next.expected, "View rotation must never mutate expected")
+                assertEquals(expectedBeforeRotation, next.expected, "View rotation must never mutate expected")
                 if (next.syncState != SyncState.VIRTUAL) {
                     assertEquals(next.expected, next.virtual, "View rotation must never disturb expected/virtual mirroring")
                 }

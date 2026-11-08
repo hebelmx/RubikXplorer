@@ -120,7 +120,8 @@ private fun transition(
             if (state.syncState == SyncState.VIRTUAL) {
                 state.history.redoable?.let { move(state, state.history.redo(), it, null) } ?: Transition(state)
             } else {
-                state.history.redoable?.let { confirmPhysical(state, SessionEvent.PhysicalConfirmed(it, event.at)) } ?: Transition(state)
+                state.history.redoable?.let { confirmPhysical(state, SessionEvent.PhysicalConfirmed(it, event.at), isRedo = true) }
+                    ?: Transition(state)
             }
         }
 
@@ -472,6 +473,7 @@ private fun switchMode(
                 withHistory(state, nextHistory).copy(
                     syncState = SyncState.VIRTUAL,
                     observed = null,
+                    noticeStep = null,
                     lastMoveFeedback = null,
                     lastDiagnosis = null,
                     guidedRecovery = GuidedRecovery.None,
@@ -484,6 +486,7 @@ private fun switchMode(
 private fun confirmPhysical(
     state: SessionState,
     event: SessionEvent.PhysicalConfirmed,
+    isRedo: Boolean = false,
 ): Transition {
     return when (state.syncState) {
         SyncState.PHYSICAL_AWAITING_CONFIRM -> {
@@ -497,7 +500,7 @@ private fun confirmPhysical(
         SyncState.PHYSICAL_PREDICTED, SyncState.PHYSICAL_VERIFIED -> {
             val move = event.move ?: return Transition(state)
             val nextExpected = state.expected.apply(move)
-            val history = state.history.commit(move)
+            val history = if (isRedo) state.history.redo() else state.history.commit(move)
             val lesson = state.lesson
             val mode = state.teachingMode
             val assessed =
