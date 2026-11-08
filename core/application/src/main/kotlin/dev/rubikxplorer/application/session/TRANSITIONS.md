@@ -71,8 +71,11 @@ only when `solution` leaves `state` solved; an unverified Solution changes nothi
 session also accepts `SolvePlaybackEnded`, which returns to IDLE with revision advanced once and
 nextEffectId kept, without effects or presentation; outside playback this event changes nothing.
 `SessionHost.endSolve` then reads the stored Checkpoint through the serial writer and restores it.
-A playback session accepts `LessonStarted` (which replaces it): `MoveCommitted`, `Undo`,
-`Redo`, `Reset`, the reset results and the tutor events leave it unchanged. Playback position and
+A playback session accepts `ModeSwitched` (Story 8.5: transitions directly to `PHYSICAL_PREDICTED`
+on physical switch, or returns to `VIRTUAL` with `restoreNote` and `virtual := expected`),
+`PhysicalConfirmed` (advances `expected` and `history` without modifying `observed`), and in physical mode
+`Undo` (reverts `expected` and `history` by one move). It also accepts
+`LessonStarted` (which replaces it). `MoveCommitted`, `Redo`, `Reset`, the reset results and the tutor events leave it unchanged. Playback position and
 speed belong to the `PlaybackController`, never to the session, and are never checkpointed (AD-20).
 
 Practice sessions (`PRACTICE`, Story 7.4): `PracticeStarted(lesson, tutorConfig)` starts an

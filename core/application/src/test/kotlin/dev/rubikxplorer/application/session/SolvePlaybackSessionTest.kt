@@ -1,9 +1,11 @@
 package dev.rubikxplorer.application.session
 
 import dev.rubikxplorer.domain.cube.CubeState
+import dev.rubikxplorer.domain.text.Text
 import dev.rubikxplorer.domain.tutor.MoveFeedback
 import dev.rubikxplorer.domain.tutor.TeachingMode
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -121,5 +123,102 @@ class SolvePlaybackSessionTest {
         assertEquals(other, s.entry)
         assertEquals(listOf(F_PRIME), s.solution)
         assertEquals(playback.revision + 1, s.revision)
+    }
+
+    @Test
+    fun `switching to physical mode enters PHYSICAL_PREDICTED without awaiting confirm`() {
+        val playback = SessionState.IDLE.after(playbackStarted())
+        val transition = reduce(playback, SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0))
+        val s = transition.state
+        assertEquals(SessionKind.SOLVE_PLAYBACK, s.kind)
+        assertEquals(CubeMode.PHYSICAL, s.mode)
+        assertEquals(SyncState.PHYSICAL_PREDICTED, s.syncState)
+        assertTrue(s.isPhysical)
+        assertEquals(SCRAMBLED, s.expected)
+        assertNull(s.observed)
+        assertEquals(playback.revision + 1, s.revision)
+        assertEquals(listOf(Presentation.Snap(s.revision, SCRAMBLED)), transition.presentation)
+    }
+
+    @Test
+    fun `physical confirmations advance expected and history without modifying observed`() {
+        val playback = SessionState.IDLE.after(playbackStarted())
+        val physical = reduce(playback, SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0)).state
+
+        val m0 = SOLUTION[0]
+        val t1 = reduce(physical, SessionEvent.PhysicalConfirmed(m0, T0))
+        val s1 = t1.state
+        assertEquals(SCRAMBLED.apply(m0), s1.expected)
+        assertEquals(SCRAMBLED.apply(m0), s1.virtual)
+        assertNull(s1.observed)
+        assertEquals(SyncState.PHYSICAL_PREDICTED, s1.syncState)
+        assertEquals(listOf(Presentation.Animate(m0, s1.revision, s1.virtual)), t1.presentation)
+
+        val m1 = SOLUTION[1]
+        val t2 = reduce(s1, SessionEvent.PhysicalConfirmed(m1, T0))
+        val s2 = t2.state
+        assertEquals(SCRAMBLED.apply(m0, m1), s2.expected)
+        assertEquals(SCRAMBLED.apply(m0, m1), s2.virtual)
+        assertNull(s2.observed)
+        assertEquals(SyncState.PHYSICAL_PREDICTED, s2.syncState)
+    }
+
+    @Test
+    fun `confirming the final step reaches SOLVED expected while observed remains null`() {
+        val playback = SessionState.IDLE.after(playbackStarted())
+        var current = reduce(playback, SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0)).state
+
+        for (move in SOLUTION) {
+            current = reduce(current, SessionEvent.PhysicalConfirmed(move, T0)).state
+        }
+
+        assertEquals(CubeState.SOLVED, current.expected)
+        assertTrue(current.expected.isSolved)
+        assertNull(current.observed)
+        assertEquals(SyncState.PHYSICAL_PREDICTED, current.syncState)
+    }
+
+    @Test
+    fun `switching back to virtual sets virtual to expected with restore note and clears observed`() {
+        val playback = SessionState.IDLE.after(playbackStarted())
+        val physical = reduce(playback, SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0)).state
+        val afterOne = reduce(physical, SessionEvent.PhysicalConfirmed(SOLUTION[0], T0)).state
+
+        val transition = reduce(afterOne, SessionEvent.ModeSwitched(CubeMode.VIRTUAL, T0))
+        val virtual = transition.state
+        assertEquals(CubeMode.VIRTUAL, virtual.mode)
+        assertEquals(SyncState.VIRTUAL, virtual.syncState)
+        assertFalse(virtual.isPhysical)
+        assertEquals(afterOne.expected, virtual.virtual)
+        assertEquals(Text("msg.physical.back-to-virtual"), virtual.restoreNote)
+        assertNull(virtual.observed)
+        assertEquals(listOf(Presentation.Snap(virtual.revision, virtual.virtual)), transition.presentation)
+    }
+
+    @Test
+    fun `mode switches to the same mode or confirmations in virtual mode are ignored`() {
+        val playback = SessionState.IDLE.after(playbackStarted())
+        assertEquals(Transition(playback), reduce(playback, SessionEvent.ModeSwitched(CubeMode.VIRTUAL, T0)))
+        assertEquals(Transition(playback), reduce(playback, SessionEvent.PhysicalConfirmed(SOLUTION[0], T0)))
+
+        val physical = reduce(playback, SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0)).state
+        assertEquals(Transition(physical), reduce(physical, SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0)))
+        assertEquals(Transition(physical), reduce(physical, SessionEvent.PhysicalConfirmed(null, T0)))
+    }
+
+    @Test
+    fun `undo in physical playback reverts expected and history`() {
+        val playback = SessionState.IDLE.after(playbackStarted())
+        val physical = reduce(playback, SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0)).state
+        val m0 = SOLUTION[0]
+        val moved = reduce(physical, SessionEvent.PhysicalConfirmed(m0, T0)).state
+        assertEquals(SCRAMBLED.apply(m0), moved.expected)
+
+        val undone = reduce(moved, SessionEvent.Undo(T0)).state
+        assertEquals(SCRAMBLED, undone.expected)
+        assertEquals(SCRAMBLED, undone.virtual)
+        assertNull(undone.observed)
+        assertEquals(SyncState.PHYSICAL_PREDICTED, undone.syncState)
+        assertFalse(undone.history.canUndo)
     }
 }

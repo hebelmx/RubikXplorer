@@ -55,8 +55,15 @@ fun reduce(
         }
     }
     val starts = event is SessionEvent.LessonStarted || event is SessionEvent.PracticeStarted || event is SessionEvent.SolvePlaybackStarted
-    // Only a Lesson or Practice session takes Moves and tutor events; idle and playback sessions ignore them.
-    if (!starts && state.kind != SessionKind.LESSON && state.kind != SessionKind.PRACTICE) return Transition(state)
+    // Only a Lesson or Practice session takes Moves and tutor events; idle and playback sessions ignore them,
+    // except SOLVE_PLAYBACK which permits ModeSwitched, PhysicalConfirmed, and Undo in physical mode (Story 8.5).
+    val playbackAllowed =
+        state.kind == SessionKind.SOLVE_PLAYBACK &&
+            (
+                event is SessionEvent.ModeSwitched || event is SessionEvent.PhysicalConfirmed ||
+                    (event is SessionEvent.Undo && state.isPhysical)
+            )
+    if (!starts && state.kind != SessionKind.LESSON && state.kind != SessionKind.PRACTICE && !playbackAllowed) return Transition(state)
     val transition =
         attempts(state, persistCheckpoint(state, transition(state, event), event), event).let {
             if (it.state.restoreNote == null ||
@@ -461,7 +468,14 @@ private fun switchMode(
             val next =
                 withHistory(state, nextHistory).copy(
                     expected = state.virtual,
-                    syncState = SyncState.PHYSICAL_AWAITING_CONFIRM,
+                    syncState =
+                        if (state.kind ==
+                            SessionKind.SOLVE_PLAYBACK
+                        ) {
+                            SyncState.PHYSICAL_PREDICTED
+                        } else {
+                            SyncState.PHYSICAL_AWAITING_CONFIRM
+                        },
                     restoreNote = null,
                     noticeStep = null,
                     lastMoveFeedback = null,

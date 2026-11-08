@@ -79,6 +79,8 @@
     <string name="playback_speed_double" translatable="false">2×</string>
     <string name="playback_speed_description">Playback speed</string>
     <string name="playback_counter" translatable="false">%1$d / %2$d</string>
+    <string name="playback_follow_on_my_cube">I\'m following on my cube</string>
+    <string name="playback_cube_should_be_solved">Your cube should be solved now.</string>
 
     <!-- Move key bar -->
     <string name="move_group_rotations">⟳</string>

@@ -347,5 +347,7 @@
   "msg.cube-summary.cube-solved": "Cube solved",
   "msg.cube-summary.cube-progress": "{done} of {total} pieces placed",
   "msg.milestone.first-solve": "You solved the Rubik's cube!",
-  "msg.milestone.stage-mastered": "{stage} mastered."
+  "msg.milestone.stage-mastered": "{stage} mastered.",
+  "msg.playback.follow-on-my-cube": "I'm following on my cube",
+  "msg.playback.cube-should-be-solved": "Your cube should be solved now."
 }

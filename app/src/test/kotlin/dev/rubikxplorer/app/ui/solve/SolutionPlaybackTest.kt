@@ -17,9 +17,11 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import dev.rubikxplorer.app.content.ContentStrings
+import dev.rubikxplorer.app.ui.lesson.DashedBorderKey
 import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
 import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.application.session.SessionState
+import dev.rubikxplorer.application.session.SyncState
 import dev.rubikxplorer.application.session.reduce
 import dev.rubikxplorer.domain.content.ContentLoadResult
 import dev.rubikxplorer.domain.content.ContentLoader
@@ -31,6 +33,7 @@ import dev.rubikxplorer.domain.cube.Move
 import dev.rubikxplorer.domain.cube.Turn
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -202,5 +205,226 @@ class SolutionPlaybackTest {
     @Test
     fun `only a Solve Playback session can be played`() {
         assertThrows(IllegalArgumentException::class.java) { SolutionPlaybackState(SessionState.IDLE, reduceMotion = true) }
+    }
+
+    @Test
+    fun `tapping follow on cube enters physical mode and each done advances one step with MoveNote`() {
+        show()
+        click("followOnMyCube")
+        assertTrue(state.isPhysical)
+        assertEquals(SyncState.PHYSICAL_PREDICTED, state.session.syncState)
+        rule.onNodeWithTag("stage:frame").assertTextEquals("EXPECTED")
+        assertTrue(rule.onNodeWithTag("stage:frame").fetchSemanticsNode().config[DashedBorderKey])
+
+        // First step (0 / 3) awaiting F'
+        tag("counter").assertTextEquals("0 / 3")
+        tag("move").assertTextEquals("F'")
+        tag("note").assertTextEquals("Turn the Front face counter-clockwise: the front layer turns to the left.")
+        tag("back").assertIsNotEnabled()
+        tag("done").assertIsEnabled()
+
+        // Done advances to step 1 (1 / 3) awaiting U'
+        click("done")
+        assertEquals(1, state.position)
+        assertEquals(scrambled.apply(solution.take(1)), state.session.expected)
+        assertNull(state.session.observed)
+        tag("counter").assertTextEquals("1 / 3")
+        tag("move").assertTextEquals("U'")
+        tag("note").assertTextEquals("Turn the Up face counter-clockwise: the top row moves right.")
+        tag("back").assertIsEnabled()
+        tag("done").assertIsEnabled()
+
+        // Done advances to step 2 (2 / 3) awaiting R'
+        click("done")
+        assertEquals(2, state.position)
+        assertEquals(scrambled.apply(solution.take(2)), state.session.expected)
+        assertNull(state.session.observed)
+        tag("counter").assertTextEquals("2 / 3")
+        tag("move").assertTextEquals("R'")
+        tag("note").assertTextEquals("Turn the Right face counter-clockwise: the right column moves down.")
+        tag("back").assertIsEnabled()
+        tag("done").assertIsEnabled()
+    }
+
+    @Test
+    fun `confirming final step says cube should be solved without asserting observed`() {
+        show()
+        click("followOnMyCube")
+        repeat(3) { click("done") }
+
+        assertEquals(3, state.position)
+        assertTrue(state.atEnd)
+        assertEquals(CubeState.SOLVED, state.session.expected)
+        assertNull(state.session.observed)
+        assertEquals(SyncState.PHYSICAL_PREDICTED, state.session.syncState)
+        rule.onNodeWithTag("stage:frame").assertTextEquals("EXPECTED")
+        assertTrue(rule.onNodeWithTag("stage:frame").fetchSemanticsNode().config[DashedBorderKey])
+
+        tag("counter").assertTextEquals("3 / 3")
+        tag("move").assertTextEquals("")
+        tag("note").assertDoesNotExist()
+        tag("done").assertIsNotEnabled()
+        tag("solvedNow").assertTextEquals("Your cube should be solved now.")
+        tag("solvedNow").assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+        assertEquals(CubeState.SOLVED.toFacelets(), state.renderer.renderedFacelets())
+    }
+
+    @Test
+    fun `stepping back in physical playback decrements position and redisplays move note`() {
+        show()
+        click("followOnMyCube")
+        click("done")
+        tag("counter").assertTextEquals("1 / 3")
+        tag("move").assertTextEquals("U'")
+        assertEquals(scrambled.apply(solution.take(1)), state.session.expected)
+
+        click("back")
+        tag("counter").assertTextEquals("0 / 3")
+        tag("move").assertTextEquals("F'")
+        tag("note").assertTextEquals("Turn the Front face counter-clockwise: the front layer turns to the left.")
+        tag("back").assertIsNotEnabled()
+        tag("done").assertIsEnabled()
+        assertEquals(scrambled, state.session.expected)
+
+        repeat(3) { click("done") }
+        assertEquals(CubeState.SOLVED, state.session.expected)
+        tag("solvedNow").assertTextEquals("Your cube should be solved now.")
+    }
+
+    @Test
+    fun `entering physical mode after virtual progression rewinds position and pauses`() {
+        show()
+        click("forward")
+        assertEquals(1, state.position)
+
+        click("followOnMyCube")
+        assertTrue(state.isPhysical)
+        assertEquals(0, state.position)
+        assertEquals(scrambled, state.session.expected)
+        assertFalse(state.isPlaying)
+        tag("counter").assertTextEquals("0 / 3")
+        tag("move").assertTextEquals("F'")
+    }
+
+    @Test
+    fun `toggling physical mode via switch alternates between virtual and physical`() {
+        show()
+        click("followOnMyCube")
+        assertTrue(state.isPhysical)
+
+        tag("physicalModeSwitch").performClick()
+        rule.waitForIdle()
+        assertFalse(state.isPhysical)
+        assertEquals(SyncState.VIRTUAL, state.session.syncState)
+    }
+
+    @Test
+    fun `active autoplay pauses when entering physical mode`() {
+        show()
+        rule.mainClock.autoAdvance = false
+        tag("playPause").performClick()
+        rule.mainClock.advanceTimeByFrame()
+        assertTrue(state.isPlaying)
+
+        tag("followOnMyCube").performClick()
+        rule.mainClock.advanceTimeByFrame()
+        assertFalse(state.isPlaying)
+        assertTrue(state.isPhysical)
+        rule.mainClock.autoAdvance = true
+    }
+
+    @Test
+    fun `switching back to virtual restores virtual state and note`() {
+        show()
+        click("followOnMyCube")
+        click("done")
+        assertTrue(state.isPhysical)
+
+        click("switchToVirtual")
+        assertFalse(state.isPhysical)
+        assertEquals(SyncState.VIRTUAL, state.session.syncState)
+        assertEquals(state.session.expected, state.session.virtual)
+        assertNull(state.session.observed)
+        tag("restoreNote").assertTextEquals("The on-screen cube now matches what we expected on yours.")
+        tag("playPause").assertExists()
+    }
+
+    @Test
+    fun `empty solution in physical mode displays solved now notice without asserting observed`() {
+        show(session(CubeState.SOLVED, emptyList()))
+        click("followOnMyCube")
+        assertTrue(state.isPhysical)
+        assertTrue(state.atEnd)
+        tag("counter").assertTextEquals("0 / 0")
+        tag("move").assertTextEquals("")
+        tag("note").assertDoesNotExist()
+        tag("done").assertIsNotEnabled()
+        tag("solvedNow").assertTextEquals("Your cube should be solved now.")
+        assertNull(state.session.observed)
+        assertEquals(SyncState.PHYSICAL_PREDICTED, state.session.syncState)
+    }
+
+    @Test
+    fun `re-entering physical follow after confirmed progress keeps position and expected aligned`() {
+        show()
+        click("followOnMyCube")
+        assertTrue(state.isPhysical)
+        assertEquals(0, state.position)
+        assertEquals(scrambled, state.session.expected)
+
+        // Done x 2 (N = 2)
+        click("done")
+        assertEquals(1, state.position)
+        assertEquals(scrambled.apply(solution.take(1)), state.session.expected)
+
+        click("done")
+        assertEquals(2, state.position)
+        assertEquals(scrambled.apply(solution.take(2)), state.session.expected)
+
+        // Switch to virtual
+        click("switchToVirtual")
+        assertFalse(state.isPhysical)
+        assertEquals(2, state.position)
+        assertEquals(scrambled.apply(solution.take(2)), state.session.expected)
+
+        // Follow again: should keep position and expected aligned (no rewinding to 0)
+        click("followOnMyCube")
+        assertTrue(state.isPhysical)
+        assertEquals(2, state.position)
+        assertEquals(scrambled.apply(solution.take(2)), state.session.expected)
+        tag("counter").assertTextEquals("2 / 3")
+        tag("move").assertTextEquals("R'")
+
+        // Confirm final move to reach solved
+        click("done")
+        assertEquals(3, state.position)
+        assertTrue(state.atEnd)
+        assertEquals(CubeState.SOLVED, state.session.expected)
+        tag("solvedNow").assertTextEquals("Your cube should be solved now.")
+        assertEquals(CubeState.SOLVED.toFacelets(), state.renderer.renderedFacelets())
+    }
+
+    @Test
+    fun `re-entering physical follow after virtual scrub re-aligns position to expected`() {
+        show()
+        click("followOnMyCube")
+        click("done")
+        assertEquals(1, state.position)
+        assertEquals(scrambled.apply(solution.take(1)), state.session.expected)
+
+        click("switchToVirtual")
+        assertFalse(state.isPhysical)
+
+        // User scrubs in virtual mode
+        click("back")
+        assertEquals(0, state.position)
+
+        // Follow again: re-aligns playback position to expected (1)
+        click("followOnMyCube")
+        assertTrue(state.isPhysical)
+        assertEquals(1, state.position)
+        assertEquals(scrambled.apply(solution.take(1)), state.session.expected)
+        tag("counter").assertTextEquals("1 / 3")
+        tag("move").assertTextEquals("U'")
     }
 }

@@ -1123,14 +1123,14 @@ internal val DashedBorderKey = SemanticsPropertyKey<Boolean>("DashedBorder")
 /** Certainty changes are announced by the frame's live region; initial insertion is silent. */
 @Composable
 internal fun FrameLabel(
-    certainty: Certainty,
+    certainty: Certainty? = null,
     syncState: SyncState = SyncState.VIRTUAL,
 ) {
     val isPhysical = syncState != SyncState.VIRTUAL
     val tokens = RubikTheme.tokens
     val text = stringResource(if (isPhysical) R.string.frame_expected else R.string.frame_virtual)
     val description =
-        if (isPhysical) {
+        if (isPhysical || certainty == null) {
             null
         } else {
             stringResource(
