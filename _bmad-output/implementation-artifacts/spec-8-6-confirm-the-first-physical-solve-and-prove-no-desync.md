@@ -2,13 +2,13 @@
 title: 'Story 8.6: Confirm the first physical solve and prove no desync'
 type: 'feature'
 created: '2026-11-08'
-status: 'in-review'
+status: 'done'
 baseline_revision: '2f4ee9bf37b4e48da1c43f354d5badec42b646b7'
 review_loop_iteration: 1
 followup_review_recommended: false
 context: []
 warnings: []
-deferred: []
+deferred: ['real lifecycle pause in EndToEndSyncScenario', 'automated test for Stage 6 re-entry path', 'run instrumented EndToEndSyncVerificationTest on device']
 ---
 
 <intent-contract>
@@ -80,11 +80,16 @@ deferred: []
 
 ## Review Triage Log
 
-Review 1 (Codex, 2026-11-08, diff 2f4ee9b..c1c9ce5) — gates green (build, unit tests, kover, spotless, androidTest compile); 4 findings OPEN, not yet fixed:
-- [ ] MAJOR `LessonScreen.kt:192` — toggling physical→virtual at the Stage 6 solve prompt bypasses *Yes, it's solved*: solved `expected` becomes `virtual`, `decision.satisfied` holds, milestone shows without confirmation.
-- [ ] MAJOR `LessonScreen.kt:186` — `SessionHost` records `LessonCompleted` when the physical objective is met, before confirmation; on re-entry `initialCompleted` is true, so *Yes, it's solved* closes the screen and the milestone never plays.
-- [ ] MAJOR `EndToEndSyncScenario.kt:208` — resume check uses the restored state as its own oracle (renderers initialised from `restoredExpected`, compared to it); pre-kill cube never retained/compared.
-- [ ] MINOR `EndToEndSyncScenario.kt:183` — no desync assertion after second physical mode switch / initial confirmation; "pause" only closes persistence, no lifecycle events.
+Review 1 (Codex, 2026-11-08, diff 2f4ee9b..c1c9ce5) — gates green (build, unit tests, kover, spotless, androidTest compile); findings resolved in fix commit (Claude, 2026-11-08):
+- [x] MAJOR `LessonScreen.kt:192` — toggling physical→virtual at the Stage 6 solve prompt bypasses *Yes, it's solved*: solved `expected` becomes `virtual`, `decision.satisfied` holds, milestone shows without confirmation.
+- [x] MAJOR `LessonScreen.kt:186` — `SessionHost` records `LessonCompleted` when the physical objective is met, before confirmation; on re-entry `initialCompleted` is true, so *Yes, it's solved* closes the screen and the milestone never plays.
+- [x] MAJOR `EndToEndSyncScenario.kt:208` — resume check uses the restored state as its own oracle (renderers initialised from `restoredExpected`, compared to it); pre-kill cube never retained/compared.
+- [~] MINOR `EndToEndSyncScenario.kt:183` (partial: missing assertions added; real lifecycle pause DEFERRED) — no desync assertion after second physical mode switch / initial confirmation; "pause" only closes persistence, no lifecycle events.
+
+Fix notes / residual risk:
+- Mode-switch bypass: `physicalSolveUnconfirmed` (saveable) blocks the virtual milestone; regression test `story8_6_review_stage6ObjectiveMet_switchToVirtualWithoutConfirming_milestoneSuppressed`.
+- Re-entry: a pending physical solve (same lesson, physical, objective met) is not treated as already completed. Trade-off: a learner who already celebrated and re-enters the still-solved session can replay the milestone by tapping *Yes, it's solved* again (benign). No automated test for the re-entry path — DEFERRED.
+- Instrumented `EndToEndSyncVerificationTest` compiled, not run on a device/emulator — DEFERRED to hardware pass.
 
 ## Design Notes
 
