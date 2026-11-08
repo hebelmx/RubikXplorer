@@ -233,9 +233,11 @@ class TransitionsTableTest {
 
             is SessionEvent.ModeSwitched -> {
                 val physicalAwaiting = fresh.after(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, sample.at))
+                val physicalPlayback = playback.after(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, sample.at))
                 listOf(
                     SessionState.IDLE to sample,
                     playback to sample,
+                    physicalPlayback to SessionEvent.ModeSwitched(CubeMode.VIRTUAL, sample.at),
                     fresh to sample,
                     a to sample,
                     b to sample,
@@ -249,9 +251,11 @@ class TransitionsTableTest {
             is SessionEvent.PhysicalConfirmed -> {
                 val physicalAwaiting = fresh.after(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, sample.at))
                 val physicalPredicted = physicalAwaiting.after(SessionEvent.PhysicalConfirmed(null, sample.at))
+                val physicalPlayback = playback.after(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, sample.at))
                 listOf(
                     SessionState.IDLE to sample,
                     playback to sample,
+                    physicalPlayback to SessionEvent.PhysicalConfirmed(F_PRIME, sample.at),
                     physicalAwaiting to SessionEvent.PhysicalConfirmed(null, sample.at),
                     physicalPredicted to sample,
                     physicalPredicted.copy(history = b.history) to sample,

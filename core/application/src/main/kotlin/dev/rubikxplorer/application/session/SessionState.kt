@@ -147,6 +147,9 @@ data class SessionState internal constructor(
     /** Whether the session is currently in virtual or physical mode. */
     val mode: CubeMode get() = if (syncState == SyncState.VIRTUAL) CubeMode.VIRTUAL else CubeMode.PHYSICAL
 
+    /** Whether the session is currently in physical mode. */
+    val isPhysical: Boolean get() = syncState != SyncState.VIRTUAL
+
     /** The tutor's decision for the shown step; `null` outside a Lesson. Derived, never stored. */
     val decision: TutorDecision? by lazy(LazyThreadSafetyMode.PUBLICATION) {
         lesson?.let {
