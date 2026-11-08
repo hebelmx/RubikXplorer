@@ -2,7 +2,7 @@
 title: RubikXplorer — MVP Product Requirements Document
 status: final
 created: 2026-10-29
-updated: 2026-10-29
+updated: 2026-11-08
 ---
 
 # PRD: RubikXplorer
@@ -64,7 +64,8 @@ These principles break ties wherever the FRs leave a choice to UX, curriculum au
     3. In *First-layer corners* she turns the wrong way without realizing it and reports "my cube doesn't match."
     4. The tutor doesn't guess. It says it can't tell what happened yet and offers a **Quick Check**.
     5. The scan shows that her cross was disturbed. Now with Certainty *verified*, the tutor explains this and offers *Undo* or **Guided recovery**.
-  - **Climax:** sessions later, the final Stage ends with her physical cube solved. The app confirms it and offers **Independent practice** on a new Scramble.
+  - *v1.0 (no camera):* at step 4 the tutor goes straight to "Which turn did you make?" (FR-9, rung 2). The Quick Check rung (steps 4–5) arrives in v1.1.
+  - **Climax:** sessions later, the final Stage ends with her physical cube solved. The app confirms it and offers **Independent practice** on a new Scramble. *v1.0: she confirms with* Yes, it's solved*; v1.1 adds the Quick Check.*
   - **Resolution:** her progress is saved. The home screen shows her next step: practice without hints, then *Faster last layer*.
   - **Edge cases:**
     - If she has no camera permission, the tutor instead asks which turn she made, or which face looks wrong.
@@ -89,8 +90,9 @@ These principles break ties wherever the FRs leave a choice to UX, curriculum au
   - **Climax:** **Solution Playback** walks her through each Move with a short note. She steps forward and back as she turns her cube.
   - **Resolution:** her cube is solved. The app offers, without insisting, "Want to learn how to do this yourself?"
   - **Edge case:** glare stops Quick Scan from reading the bottom face, so the app asks her to scan only that face with the **Guided 6-face Scan**. Without a camera she types the colors into the **Manual Cube Editor** instead.
+  - *v1.0 (no camera):* she enters the colors in the Manual Cube Editor (steps 1–2 become manual entry); Quick Scan arrives in v1.1.
 
-- **UJ-4. Marco picks up where his cube is, not where the course starts.**
+- **UJ-4. Marco picks up where his cube is, not where the course starts.** *(v1.1)*
   - **Persona + context:** Marco, 12, half-learned from a video. He can make the white cross and a few corners, then gets lost.
   - **Path:**
     1. On first launch he chooses *Start from my cube* and does a Guided 6-face Scan.
@@ -99,7 +101,7 @@ These principles break ties wherever the FRs leave a choice to UX, curriculum au
   - **Climax:** in Physical-cube Mode he turns the wrong way, and a Quick Check shows he did `R` instead of `R'`. That is the only Move consistent with what the scan saw, so the tutor reports it as *verified* and shows the fix.
   - **Resolution:** he completes the layer. Stages 1–2 stay open to revisit but are not forced on him, and his progress is saved.
 
-- **UJ-5. Diego asks "which OLL is this?"**
+- **UJ-5. Diego asks "which OLL is this?"** *(v1.1)*
   - **Persona + context:** Diego (UJ-2) is practicing on a friend's Scramble and doesn't recognize the top-layer pattern.
   - **Path:** he solves the first two layers, opens *Recognize case*, and photographs the cube from a top corner.
   - **Climax:** the app reports "OLL 45 (T-shape family)," opens that Algorithm in the Algorithm Library, and plays its Demonstration.
@@ -107,7 +109,7 @@ These principles break ties wherever the FRs leave a choice to UX, curriculum au
 
 - **UJ-6. Laura, a hiring manager, evaluates the developer in five minutes.**
   - **Persona + context:** Laura screens Android candidates. She has the Play Store link and, once it is public, the repository.
-  - **Path:** she installs the app, turns the cube, opens an OLL Algorithm in the library, scrubs through its animation, and tries a scan.
+  - **Path:** she installs the app, turns the cube, opens an OLL Algorithm in the library, scrubs through its animation, and tries a scan (v1.1).
   - **Climax:** it is smooth, correct and accessible, with no crash, no sign-up and no ads.
   - **Resolution:** she opens the repo. Its README shows screenshots, an architecture overview and green CI, and the code has a pure-Kotlin domain core with meaningful tests (§7). She shortlists the candidate.
 
@@ -451,6 +453,8 @@ The Learner can do Independent practice on a fresh Scramble with reduced help. A
 
 ### 4.8 Camera Cube Recognition
 
+> **Release: v1.1 (post-launch).** Deferred from P0 on 2026-11-08 (`sprint-change-proposal-2026-11-08-vision-deferral`). The requirements below are unchanged. v1.0 hides every entry point behind the AD-18 flags and declares no camera permission.
+
 **Description:** the Learner points the phone camera at a physical cube and the app reads its Cube State. This is how the app comes to *know* the Physical State instead of predicting it. Recognition serves four uses:
 - **Core:** solving without typing colors (FR-25), and verifying physical Moves (FR-26), which turns the tutor's guesses into evidence.
 - **Opportunistic, cut first on slip:** Placement (FR-27) and Case recognition (FR-28).
@@ -561,13 +565,13 @@ Targets are validated on a defined set of **reference devices**. [ASSUMPTION: th
 | NFR-2 | Rendering | ≥ 30 FPS during face turns and View Rotation on the minimum reference device; 60 FPS target on mid-range. |
 | NFR-3 | Solver performance | 95% of a representative corpus of random legal states (not only easy Scrambles) solved within 3 s on the reference device. Median, p95, memory use and failure rate are reported. |
 | NFR-4 | Correctness | **Zero state mismatches** between engine, rendering and Expected State across the randomized Move, undo and interruption suite. Cube-engine invariants pass as property-based tests: inverse restores the state, M⁴ = identity, a random sequence followed by its inverse = identity, illegal states are rejected. The cube engine has the strongest test coverage of any component. |
-| NFR-5 | Offline | A fresh install with no network can complete the Course, use the Algorithm Library, scan a cube and solve it. [ASSUMPTION: the MVP declares no network permission; the camera is its only runtime permission.] |
+| NFR-5 | Offline | A fresh install with no network can complete the Course, use the Algorithm Library, and enter a cube and solve it (and scan it, from v1.1). v1.0 declares no runtime permissions; from v1.1 the camera is the only one. [ASSUMPTION: no network permission is declared.] |
 | NFR-6 | Persistence | The latest Checkpoint survives forced process death. |
 | NFR-7 | Accessibility | Content labels on every control, WCAG AA contrast, scalable text, and a non-gesture alternative for every essential action. **Color-blind display** (optional letters or patterns on stickers) means the cube can be used without telling colors apart. [ASSUMPTION: color-blind display is P0.] |
 | NFR-8 | Privacy | No account and no personal information collected. No analytics SDK and no ads. All data stays in app-private storage and never leaves the device. The Play Store data-safety form declares "no data collected." |
 | NFR-9 | Stability | ≥ 99.5% crash-free sessions; ANR rate below the Play Store's bad-behavior threshold (Android vitals). |
 | NFR-10 | Localizability | All Learner-facing text lives outside code, in resources and Lesson data, so adding a language needs no code change. English only at launch. |
-| NFR-11 | App size | [ASSUMPTION: install size < 30 MB, including Solver tables and any recognition model; checked when OQ-4 and OQ-7 are decided.] |
+| NFR-11 | App size | [ASSUMPTION: install size < 30 MB, including Solver tables (and, from v1.1, any recognition model); checked when OQ-4 and OQ-7 are decided.] |
 | NFR-12 | Code quality (portfolio) | The cube domain, Solver adapter, tutor rules and recognition classification are pure Kotlin with no Android dependencies, and have ≥ 80% line coverage. Static analysis and formatting are enforced in CI, and every merge to main builds, tests and lints green. |
 | NFR-13 | Compatibility | [ASSUMPTION: minSdk Android 10 (API 29).] Phones and tablets, portrait and landscape. targetSdk meets current Play Store policy. |
 
@@ -591,13 +595,15 @@ Targets are validated on a defined set of **reference devices**. [ASSUMPTION: th
 - Manual Cube Editor, offline Solver and Solution Playback (FR-14 – FR-16).
 - 2-look LL mini-Course and the **Algorithm Library of all 78 OLL and PLL Algorithms** with animated Demonstrations (FR-17, FR-18).
 - Local progress, Checkpoints, mastery and Independent practice (FR-19, FR-20).
-- **Camera Cube Recognition** (FR-21 – FR-28):
-  - capture: Guided 6-face Scan and Quick Scan;
-  - validation and correction, plus Color Calibration;
-  - uses: scan to solve, Quick Check, Placement and Case recognition.
 - English, every NFR in §5, and a Play Store release.
 
 **Out of scope for MVP:**
+- **v1.1 (post-launch): Camera Cube Recognition** (FR-21 – FR-28):
+  - capture: Guided 6-face Scan and Quick Scan;
+  - validation and correction, plus Color Calibration;
+  - uses: scan to solve, Quick Check, Placement and Case recognition.
+
+  Deferred by PO decision on 2026-11-08 (`sprint-change-proposal-2026-11-08-vision-deferral`). The AD-18 flags stay OFF in v1.0.
 - **P1:**
   - recognition and execution drills (FR-29);
   - alternative Algorithms per Case;
@@ -631,7 +637,9 @@ Targets are validated on a defined set of **reference devices**. [ASSUMPTION: th
 > 5. *Test me* mode.
 > 6. Adaptive assistance (FR-13) reduced to a fixed Hint Ladder.
 >
-> Always keep: the Course, Physical-cube Mode, the Guided 6-face Scan with scan to solve and Quick Check, and the verified Library animations.
+> Always keep: the Course, Physical-cube Mode (with camera-free confirmation), the Manual Cube Editor with the Solver, and the verified Library animations.
+>
+> **2026-11-08:** the spike missed (62.5% per-sticker accuracy). Instead of shipping the camera features as beta, the PO moved all of them to v1.1 (`sprint-change-proposal-2026-11-08-vision-deferral`).
 
 ## 7. Release and Portfolio Requirements
 
@@ -653,7 +661,7 @@ Targets are validated on a defined set of **reference devices**. [ASSUMPTION: th
   - say what each taught Move or sequence is for;
   - resume a Lesson after closing the app;
   - attempt a fresh Scramble with reduced help;
-  - scan or enter a cube and solve it with the local Solver;
+  - enter a cube and solve it with the local Solver (scanning arrives in v1.1);
   - learn 2-look LL, and browse and watch all 78 Algorithms.
 - **Release gates** (all are required for production):
   1. Cube-engine invariants and Algorithm Library verification pass in CI.
@@ -661,7 +669,7 @@ Targets are validated on a defined set of **reference devices**. [ASSUMPTION: th
   3. The end-to-end suite shows no silent desync between virtual and physical state. Undo, pause, restart and resume all preserve a valid state.
   4. A pilot group of beginners completes the Course. It confirms that Move instructions make sense without prior knowledge of Notation and that Learners recover from deliberate mistakes. Task completion, hint use and points of confusion are recorded, and every severity-1 and severity-2 usability issue is fixed.
   5. Offline behavior, state recovery and accessibility are verified.
-  6. Every scan flow has a working manual fallback, and no unvalidated Scan Result is ever used. Camera features ship as GA if they meet their §4.8 targets on the test matrix, otherwise as "beta" (the spike-failure decision, §6.2).
+  6. *(v1.1)* Every scan flow has a working manual fallback, and no unvalidated Scan Result is ever used. Camera features ship as GA if they meet their §4.8 targets on the test matrix, otherwise as "beta" (the spike-failure decision, §6.2). **For v1.0 this gate is N/A:** every camera flag is OFF in release, and the manifest declares no CAMERA permission.
 
 ## 8. Success Metrics
 
@@ -699,7 +707,7 @@ The app has no analytics (NFR-8). Learning metrics therefore come from **observe
 6. **OQ-6:** source and licensing of Algorithm data and Case names. The standard Algorithms are common knowledge; copied diagrams or text are not.
 7. **OQ-7:** recognition approach: classical CV, an on-device ML model, or a hybrid. Decided by the week 1–2 spike. Perspective correction for Quick Scan is the hardest part.
 8. **OQ-8:** recognition test matrix: which physical cubes, lighting setups and reference devices, and how ground-truth states are recorded.
-9. **OQ-9 (closed 2026-10-30):** the P0 schedule of about 16 weeks is confirmed, and scan uses stay in P0. Reopen it if the Story 1.9 recognition spike misses ≥ 99% per-sticker accuracy.
+9. **OQ-9 (closed 2026-10-30; reopened by the Story 1.9 spike at 62.5%; closed again 2026-11-08):** the schedule stays within about 16 weeks. All camera features move to v1.1, and v1.0 ships camera-free.
 
 ## 10. Decisions Taken During PRD Creation
 
@@ -713,6 +721,7 @@ Recorded in `.memlog.md`:
 - Spike failure → launch with the camera features in beta.
 - Free, with no ads; English only; the repo stays private until the app works.
 - The Solver is written in-house in Kotlin, because min2phase is GPLv3-only (architecture review).
+- Camera Cube Recognition deferred to v1.1 (PO, 2026-11-08, after the spike scored 62.5%). This supersedes "camera recognition in P0" and "spike failure → camera ships as beta".
 
 ## 11. Assumptions Index
 
