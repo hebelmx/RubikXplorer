@@ -1,9 +1,9 @@
 <!-- bmad:context -->
-<!-- Verified 2026-10-29 against 9ee1ee6. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
+<!-- Verified 2026-11-08 against 2cfa628. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
 
 ## RubikXplorer
 
-Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual or physical cube, with on-device camera recognition. Kotlin, Jetpack Compose, hexagonal ports and adapters with a functional core. Scaffolded: `:app` plus pure-JVM `:core:domain`, `:core:solver`, `:core:application`, built through convention plugins in `build-logic/`. Planning lives in `_bmad-output/planning-artifacts/` (PRD, architecture spine); the reader-facing overview is `docs/ARCHITECTURE.md`.
+Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual or physical cube. v1.0 ships camera-free; on-device camera recognition is planned for v1.1. Kotlin, Jetpack Compose, hexagonal ports and adapters with a functional core: `:app` plus pure-JVM `:core:domain`, `:core:solver`, `:core:application` (and `:macrobenchmark`), built through convention plugins in `build-logic/`. Planning lives in `_bmad-output/planning-artifacts/` (PRD, architecture spine); the reader-facing overview is `docs/ARCHITECTURE.md`.
 
 ## Policy
 
@@ -13,6 +13,7 @@ Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual o
 - Never hand-edit `prd.md` or `ARCHITECTURE-SPINE.md` (status: final); change them through `bmad-prd` / `bmad-architecture` update or `bmad-correct-course`.
 - Never edit a `.memlog.md` by hand; append with `uv run _bmad/scripts/memlog.py append`.
 - Never add the `INTERNET` permission, backup, or any analytics/ads/crash SDK — NFR-8 promises "no data collected" (AD-13).
+- Never add a runtime permission to the release manifest in v1.0, `CAMERA` included — v1.0 is camera-free (AD-13); camera code stays in debug-only source sets such as `app/src/spikeScan/`.
 - Never copy third-party solver code; `:core:solver` is a clean-room Kociemba implementation (min2phase is GPLv3-only).
 
 ## Where things are
@@ -20,6 +21,7 @@ Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual o
 - Binding decisions AD-1…AD-20: `_bmad-output/planning-artifacts/architecture/architecture-RubikXplorer-2026-10-29/ARCHITECTURE-SPINE.md` — read it before adding a module, port, persisted entity, `SessionEvent`, or content field.
 - Requirements and IDs (FR-n, NFR-n, Glossary): `_bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/prd.md`; use Glossary terms verbatim in type names.
 - Build gates (AD-1 module boundaries, AD-13 manifest and SDK denylist, Kover, R8 keep rules): `build-logic/src/main/kotlin/dev/rubikxplorer/buildlogic/`; change gates there, never in per-module build scripts.
+- Camera, scan, Quick Check, Placement or Case-recognition work is v1.1: plan it from `_bmad-output/planning-artifacts/post-launch/v1.1-camera-recognition.md`, and keep `CAMERA_SCAN`, `QUICK_SCAN`, `PLACEMENT`, `CASE_RECOGNITION` OFF for release in `FeatureFlagLevels.kt`.
 - Next planning step or unsure which workflow fits: run the `bmad-help` skill.
 
 ## Running and verifying
