@@ -239,6 +239,10 @@ Physical-mode transitions (Epic 8, AD-3, AD-5):
 - The 5-state Sync State Machine (`VIRTUAL`, `PHYSICAL_AWAITING_CONFIRM`, `PHYSICAL_PREDICTED`, `PHYSICAL_VERIFIED`, `PHYSICAL_MISMATCH`) tracks the physical cube's expected state honestly without guessing.
 - In physical mode, `virtual` mirrors `expected`.
 - `ModeSwitched`, `EditorEntered`, and `CheckpointRestored` act as undo barriers that clear redo and prevent undo from crossing mode boundaries.
+- When switching from physical mode to virtual mode (`ModeSwitched(VIRTUAL)`), `virtual := expected`, undo/redo is cleared as an undo barrier, and `restoreNote` is set to `Text("msg.physical.back-to-virtual")`. `reduce` preserves `restoreNote` across the `ModeSwitched` transition.
+- When switching to physical mode (`ModeSwitched(PHYSICAL)`), `expected := virtual`, `syncState` becomes `PHYSICAL_AWAITING_CONFIRM`, undo/redo is cleared, and `restoreNote` is cleared.
+- Restoring a physical Checkpoint (`CheckpointRestored`) or physical snapshot (`SessionRestored`) after a kill or suspended session lands in `PHYSICAL_AWAITING_CONFIRM` with `observed` cleared, `expected` and `virtual` set to the stored/history cube state, and no effects resumed, displaying the Confirm-your-cube card.
+- `Effect.PersistCheckpoint`, `Checkpoint.of`, and `SessionSnapshot` record the session mode (`CubeMode.PHYSICAL` or `CubeMode.VIRTUAL`).
 - `Undo` in physical mode reverts `expected` (and `virtual`), transitions `PHYSICAL_MISMATCH` back to `PHYSICAL_PREDICTED`, and emits `Presentation.Instruct` with the inverse move and text `"Turn {move} on your cube to undo."`. At an undo barrier, `Undo` is a no-op.
 - `PhysicalConfirmed(null)` in `PHYSICAL_AWAITING_CONFIRM` confirms that the physical cube matches the expected state, transitioning to `PHYSICAL_PREDICTED` without changing revision.
 - `PhysicalConfirmed(move)` in `PHYSICAL_PREDICTED` or `PHYSICAL_VERIFIED` advances `expected := expected.apply(move)`, updates `virtual`, marks prior observations as stale, and advances revision. In `PHYSICAL_MISMATCH`, entering `move` diagnoses the physical move evidence and commits it.

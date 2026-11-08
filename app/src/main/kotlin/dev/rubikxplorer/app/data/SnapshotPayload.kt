@@ -1,5 +1,6 @@
 package dev.rubikxplorer.app.data
 
+import dev.rubikxplorer.application.session.CubeMode
 import dev.rubikxplorer.application.session.SessionKind
 import dev.rubikxplorer.application.session.SessionSnapshot
 import dev.rubikxplorer.domain.tutor.AssistanceLevel
@@ -36,6 +37,7 @@ internal data class SnapshotPayload(
     val cleanCredited: Set<Int>,
     val stepHelped: Set<Int>,
     val assistanceDismissed: Map<Int, String>,
+    val mode: String = "VIRTUAL",
 ) {
     fun snapshot(): SessionSnapshot {
         require(format == 1)
@@ -64,6 +66,12 @@ internal data class SnapshotPayload(
             cleanCredited = cleanCredited,
             stepHelped = stepHelped,
             assistanceDismissed = assistanceDismissed.mapValues { AssistanceLevel.valueOf(it.value) },
+            mode =
+                try {
+                    CubeMode.valueOf(mode)
+                } catch (e: IllegalArgumentException) {
+                    CubeMode.VIRTUAL
+                },
         )
     }
 
@@ -98,6 +106,7 @@ internal data class SnapshotPayload(
                     cleanCredited = snapshot.cleanCredited,
                     stepHelped = snapshot.stepHelped,
                     assistanceDismissed = snapshot.assistanceDismissed.mapValues { it.value.name },
+                    mode = snapshot.mode.name,
                 ),
             )
 

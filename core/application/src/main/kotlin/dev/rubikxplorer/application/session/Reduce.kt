@@ -60,6 +60,7 @@ fun reduce(
     val transition =
         attempts(state, persistCheckpoint(state, transition(state, event), event), event).let {
             if (it.state.restoreNote == null ||
+                event is SessionEvent.ModeSwitched ||
                 (event is SessionEvent.SolvePlaybackStarted && it.state === state)
             ) {
                 it
@@ -461,6 +462,7 @@ private fun switchMode(
                 withHistory(state, nextHistory).copy(
                     expected = state.virtual,
                     syncState = SyncState.PHYSICAL_AWAITING_CONFIRM,
+                    restoreNote = null,
                     noticeStep = null,
                     lastMoveFeedback = null,
                     lastDiagnosis = null,
@@ -474,6 +476,7 @@ private fun switchMode(
             val next =
                 withHistory(state, nextHistory).copy(
                     syncState = SyncState.VIRTUAL,
+                    restoreNote = Text("msg.physical.back-to-virtual"),
                     observed = null,
                     noticeStep = null,
                     lastMoveFeedback = null,
@@ -871,8 +874,9 @@ private fun restore(
         }
     var history = (done + undone.reversed()).fold(MoveHistory(validated.state)) { h, move -> h.commit(move) }
     repeat(undone.size) { history = history.undo() }
+    val effectiveHistory = if (snapshot.mode == CubeMode.PHYSICAL) MoveHistory(history.state) else history
     val next =
-        withHistory(SessionState.IDLE.copy(revision = state.revision), history, event.lesson).copy(
+        withHistory(SessionState.IDLE.copy(revision = state.revision), effectiveHistory, event.lesson).copy(
             kind = snapshot.kind,
             lesson = event.lesson,
             tutorConfig = event.tutorConfig,
@@ -892,9 +896,9 @@ private fun restore(
             stepHelped = snapshot.stepHelped,
             assistanceDismissed = snapshot.assistanceDismissed,
             restoreNote = Text("msg.lesson.resumed"),
-            expected = history.state,
+            expected = effectiveHistory.state,
             observed = null,
-            syncState = SyncState.VIRTUAL,
+            syncState = if (snapshot.mode == CubeMode.PHYSICAL) SyncState.PHYSICAL_AWAITING_CONFIRM else SyncState.VIRTUAL,
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.virtual)))
 }
@@ -925,6 +929,7 @@ private fun persistCheckpoint(
             next.teachingMode,
             next.adaptiveAssistance,
             event.at,
+            mode = next.mode,
         )
     return transition.copy(state = next.copy(nextEffectId = next.nextEffectId + 1), effects = transition.effects + effect)
 }

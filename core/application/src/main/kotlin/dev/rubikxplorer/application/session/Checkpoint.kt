@@ -38,7 +38,7 @@ data class Checkpoint(
                 effect.history.state.orientation
                     .id(),
                 Notation.format(effect.history.done),
-                CubeMode.VIRTUAL,
+                effect.mode,
                 effect.teachingMode,
                 effect.adaptiveAssistance,
                 effect.at.toEpochMilliseconds(),

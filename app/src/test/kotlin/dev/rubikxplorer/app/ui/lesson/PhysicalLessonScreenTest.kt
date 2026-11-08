@@ -17,7 +17,11 @@ import dev.rubikxplorer.app.content.CatalogState
 import dev.rubikxplorer.app.session.SessionHost
 import dev.rubikxplorer.app.session.TickingClock
 import dev.rubikxplorer.app.ui.theme.RubikXplorerTheme
+import dev.rubikxplorer.application.session.Checkpoint
+import dev.rubikxplorer.application.session.CubeMode
 import dev.rubikxplorer.application.session.SessionEvent
+import dev.rubikxplorer.application.session.SessionKind
+import dev.rubikxplorer.application.session.SessionSnapshot
 import dev.rubikxplorer.application.session.SyncState
 import dev.rubikxplorer.domain.content.ContentLoadResult
 import dev.rubikxplorer.domain.content.ContentLoader
@@ -536,5 +540,150 @@ class PhysicalLessonScreenTest {
         // Guided recovery is offered
         assertTrue(host.state.value.canGuideBack)
         node("lesson:recovery:guideMeBack").assertExists()
+    }
+
+    @Test
+    fun story8_4_ac1_switchFromPhysicalToVirtual_alignsVirtualToExpected_showsNotice_andStopsUndo() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host)
+
+        // Switch to physical mode
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.waitForIdle()
+
+        // Confirm match
+        node("confirmCube:matches").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+
+        // Advance a step / move
+        val initialExpected = host.state.value.expected
+        val expectedAfterMove = initialExpected.apply(FaceTurn(Face.U, Turn.CLOCKWISE))
+        node("lesson:done").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.expected == expectedAfterMove }
+        rule.waitForIdle()
+
+        val expectedBeforeSwitch = host.state.value.expected
+
+        // Switch toggle back to virtual mode
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.VIRTUAL }
+        rule.waitForIdle()
+
+        // 1. virtual := expected
+        assertEquals(expectedBeforeSwitch, host.state.value.virtual)
+        // 2. "The on-screen cube now matches what we expected on yours." shows
+        node("lesson:restoreNote").assertTextEquals("The on-screen cube now matches what we expected on yours.")
+        // 3. Undo stops there
+        node("toolbar:undo").assertIsNotEnabled()
+        node("toolbar:redo").assertIsNotEnabled()
+
+        // Committing a new move in virtual mode allows undoing up to the barrier
+        val virtualMove = FaceTurn(Face.R, Turn.CLOCKWISE)
+        runBlocking {
+            host.dispatch { SessionEvent.MoveCommitted(virtualMove, it) }
+        }
+        rule.waitForIdle()
+        node("toolbar:undo").assertIsEnabled()
+        node("toolbar:undo").performClick()
+        rule.waitUntil(5_000) { !host.state.value.history.canUndo }
+        rule.waitForIdle()
+        assertEquals(expectedBeforeSwitch, host.state.value.virtual)
+        node("toolbar:undo").assertIsNotEnabled()
+    }
+
+    @Test
+    fun story8_4_ac2_physicalCheckpointRestored_landsInAwaitingConfirm_clearsObserved_andShowsConfirmCard() {
+        val checkpoint =
+            Checkpoint(
+                kind = SessionKind.LESSON,
+                lessonId = lessonEntry.lesson.id.value,
+                stageId = lessonEntry.stage.id.value,
+                contentRevision = bundle.contentRevision,
+                start = lessonEntry.lesson.entryState,
+                cube = lessonEntry.lesson.entryState,
+                startOrientation = "UF",
+                cubeOrientation = "UF",
+                history = "",
+                mode = CubeMode.PHYSICAL,
+                teachingMode = TeachingMode.GUIDE_ME,
+                adaptiveAssistance = false,
+                savedAt = 0L,
+            )
+        val host = SessionHost(TickingClock())
+        runBlocking {
+            host.dispatch {
+                SessionEvent.CheckpointRestored(
+                    checkpoint = checkpoint,
+                    lesson = lessonEntry.lesson,
+                    tutorConfig = bundle.tutorConfig,
+                    contentRevision = bundle.contentRevision,
+                    at = it,
+                )
+            }
+        }
+        setLessonContent(host)
+
+        // Lands in PHYSICAL_AWAITING_CONFIRM with observed cleared
+        assertEquals(SyncState.PHYSICAL_AWAITING_CONFIRM, host.state.value.syncState)
+        assertNull(host.state.value.observed)
+
+        // Confirm-your-cube card shows
+        node("confirmCube:card").assertExists()
+        node("confirmCube:matches").assertExists()
+        node("confirmCube:enter").assertExists()
+        node("stage:frame").assertTextEquals("EXPECTED")
+    }
+
+    @Test
+    fun story8_4_ac2_physicalSnapshotRestored_landsInAwaitingConfirm_clearsObserved_andShowsConfirmCard() {
+        val snapshot =
+            SessionSnapshot(
+                kind = SessionKind.LESSON,
+                sessionId = "test-session",
+                revision = 1L,
+                lessonId = lessonEntry.lesson.id.value,
+                contentRevision = bundle.contentRevision,
+                start = lessonEntry.lesson.entryState,
+                done = "",
+                undone = "",
+                solution = "",
+                checkpoint = null,
+                teachingMode = TeachingMode.GUIDE_ME,
+                adaptiveAssistance = false,
+                hintsUsed = 0,
+                hintRung = dev.rubikxplorer.domain.tutor.HintRung.NONE,
+                revealRequested = false,
+                noticeStep = null,
+                stepMistakes = emptyMap(),
+                cleanSteps = 0,
+                cleanCredited = emptySet(),
+                stepHelped = emptySet(),
+                assistanceDismissed = emptyMap(),
+                mode = CubeMode.PHYSICAL,
+            )
+        val host = SessionHost(TickingClock())
+        runBlocking {
+            host.dispatch {
+                SessionEvent.SessionRestored(
+                    snapshot = snapshot,
+                    lesson = lessonEntry.lesson,
+                    tutorConfig = bundle.tutorConfig,
+                    at = it,
+                )
+            }
+        }
+        setLessonContent(host)
+
+        // Lands in PHYSICAL_AWAITING_CONFIRM with observed cleared
+        assertEquals(SyncState.PHYSICAL_AWAITING_CONFIRM, host.state.value.syncState)
+        assertNull(host.state.value.observed)
+
+        // Confirm-your-cube card shows
+        node("confirmCube:card").assertExists()
+        node("confirmCube:matches").assertExists()
+        node("confirmCube:enter").assertExists()
+        node("stage:frame").assertTextEquals("EXPECTED")
     }
 }

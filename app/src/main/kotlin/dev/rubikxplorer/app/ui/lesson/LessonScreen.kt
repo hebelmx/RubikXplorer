@@ -264,7 +264,16 @@ fun LessonScreen(
                 onClose = onClose,
             )
             session.restoreNote?.let { note ->
-                Text(strings.resolve(note), modifier = Modifier.testTag("lesson:restoreNote"))
+                Text(
+                    text = strings.resolve(note),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = RubikTheme.tokens.inkSecondary,
+                    modifier =
+                        Modifier
+                            .padding(horizontal = Spacing.s4, vertical = Spacing.s2)
+                            .semantics { liveRegion = LiveRegionMode.Polite }
+                            .testTag("lesson:restoreNote"),
+                )
             }
             if (skipCheckInstruction != null) {
                 Text(

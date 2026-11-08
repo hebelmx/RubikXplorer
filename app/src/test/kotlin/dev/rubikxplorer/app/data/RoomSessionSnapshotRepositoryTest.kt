@@ -7,6 +7,7 @@ import dev.rubikxplorer.app.session.shippedTutorConfig
 import dev.rubikxplorer.app.session.whiteCrossLesson
 import dev.rubikxplorer.application.port.SnapshotLoad
 import dev.rubikxplorer.application.port.SnapshotSave
+import dev.rubikxplorer.application.session.CubeMode
 import dev.rubikxplorer.application.session.SessionEvent
 import dev.rubikxplorer.application.session.SessionKind
 import dev.rubikxplorer.application.session.SessionSnapshot
@@ -87,8 +88,9 @@ class RoomSessionSnapshotRepositoryTest {
                         ).replace(Regex("\"attemptOpen\":(?:true|false),"), "")
                         .replace(Regex("\"attemptAssistance\":\"[A-Z]+\","), "")
                         .replace(Regex("\"attemptId\":\"[^\"]*\","), "")
+                        .replace(Regex("\"mode\":\"[^\"]*\","), "")
                 assertEquals(
-                    tutored.copy(attemptOpen = false, attemptAssistance = AssistanceLevel.USUAL, attemptId = null),
+                    tutored.copy(attemptOpen = false, attemptAssistance = AssistanceLevel.USUAL, attemptId = null, mode = CubeMode.VIRTUAL),
                     SnapshotPayload.decode(legacy),
                 )
                 val row = checkNotNull(db.snapshots().latest())
