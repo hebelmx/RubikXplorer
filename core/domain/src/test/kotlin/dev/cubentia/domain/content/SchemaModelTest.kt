@@ -5,6 +5,7 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.descriptors.PolymorphicKind
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.SerialKind
 import kotlinx.serialization.descriptors.StructureKind
 import kotlinx.serialization.descriptors.elementNames
 import kotlinx.serialization.json.Json
@@ -26,7 +27,10 @@ class SchemaModelTest {
     private fun shipped(file: String): JsonObject = Json.parseToJsonElement(resourceText("content/schema/$file")).jsonObject
 
     private val schemas: Map<String, JsonObject> =
-        listOf("bundle", "stage", "lesson", "predicate", "tutor-config").associate { "$it.schema.json" to shipped("$it.schema.json") }
+        listOf("bundle", "stage", "lesson", "predicate", "tutor-config", "algorithms").associate {
+            "$it.schema.json" to
+                shipped("$it.schema.json")
+        }
 
     @Test
     fun `every schema file is draft 2020-12 and matches its Kotlin class`() {
@@ -37,6 +41,7 @@ class SchemaModelTest {
                 "lesson.schema.json" to Lesson.serializer().descriptor,
                 "predicate.schema.json" to Predicate.serializer().descriptor,
                 "tutor-config.schema.json" to TutorConfig.serializer().descriptor,
+                "algorithms.schema.json" to AlgorithmFile.serializer().descriptor,
             )
         roots.keys.forEach { file ->
             assertEquals(DRAFT, schemas.getValue(file)["\$schema"]?.jsonPrimitive?.content, file)
@@ -119,6 +124,25 @@ class SchemaModelTest {
                 schemas + ("predicate.schema.json" to unknown),
             ).compare("predicate.schema.json", Predicate.serializer().descriptor)
         assertTrue(predicateProblems.any { "nope" in it }, predicateProblems.toString())
+    }
+
+    @Test
+    fun `an enum schema without the string type or with other names is a mismatch`() {
+        val file = schemas.getValue("algorithms.schema.json")
+        val defs = file.getValue("\$defs").jsonObject
+        val case = defs.getValue("case").jsonObject
+        val properties = case.getValue("properties").jsonObject
+
+        fun problemsWith(set: String): List<String> {
+            val brokenCase = JsonObject(properties + ("set" to Json.parseToJsonElement(set)))
+            val brokenDefs = JsonObject(defs + ("case" to JsonObject(case + ("properties" to brokenCase))))
+            return SchemaComparator(
+                schemas + ("algorithms.schema.json" to JsonObject(file + ("\$defs" to brokenDefs))),
+            ).compare("algorithms.schema.json", AlgorithmFile.serializer().descriptor)
+        }
+        assertTrue(problemsWith("""{"enum":["OLL","PLL"]}""").any { "needs string" in it })
+        assertTrue(problemsWith("""{"type":"string","enum":["OLL","F2L"]}""").any { "F2L" in it })
+        assertTrue(problemsWith("""{"type":"string"}""").any { "enum" in it })
     }
 
     @Test
@@ -215,6 +239,13 @@ internal class SchemaComparator(
 
             PrimitiveKind.INT -> {
                 expectType(path, type, "integer")
+            }
+
+            SerialKind.ENUM -> {
+                expectType(path, type, "string")
+                val names = schema["enum"]?.jsonArray?.map { it.jsonPrimitive.content }
+                val model = actual.elementNames.toList()
+                if (names != model) problems += "$path: schema enum $names, model $model"
             }
 
             StructureKind.LIST -> {

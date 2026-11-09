@@ -111,6 +111,66 @@ sealed interface ContentProblem {
         val lesson: LessonId,
     ) : ContentProblem
 
+    /** Two Cases share [id], in one Algorithm file or across files. */
+    data class DuplicateCaseId(
+        val id: CaseId,
+    ) : ContentProblem
+
+    /** Two Algorithms share [id], in one Algorithm file or across files. */
+    data class DuplicateAlgorithmId(
+        val id: AlgorithmId,
+    ) : ContentProblem
+
+    /** [id] is not of the form `case-oll-NN` or `case-pll-<letters>`. */
+    data class MalformedCaseId(
+        val id: CaseId,
+    ) : ContentProblem
+
+    /** [id] is not of the form `alg-<case suffix>-<letter>`. */
+    data class MalformedAlgorithmId(
+        val id: AlgorithmId,
+    ) : ContentProblem
+
+    /** Case [case] has no `-a` Algorithm. */
+    data class NoPrimaryAlgorithm(
+        val case: CaseId,
+    ) : ContentProblem
+
+    /** The ID of Algorithm [algorithm] names another Case than the [declared] `caseId`. */
+    data class AlgorithmCaseMismatch(
+        val algorithm: AlgorithmId,
+        val declared: CaseId,
+    ) : ContentProblem
+
+    /** Algorithm [algorithm] declares [case], which no Algorithm file defines. */
+    data class UnknownCase(
+        val algorithm: AlgorithmId,
+        val case: CaseId,
+    ) : ContentProblem
+
+    /** The Notation of Algorithm [algorithm] does not parse. */
+    data class BadAlgorithmNotation(
+        val algorithm: AlgorithmId,
+        val error: NotationError,
+    ) : ContentProblem
+
+    /** The Notation of Algorithm [algorithm] names no Moves. */
+    data class EmptyAlgorithm(
+        val algorithm: AlgorithmId,
+    ) : ContentProblem
+
+    /** Case [case] declares [set], which disagrees with its ID. */
+    data class CaseSetMismatch(
+        val case: CaseId,
+        val set: CaseSet,
+    ) : ContentProblem
+
+    /** Case [case] has [family], which is malformed or belongs to the other set than its ID names. */
+    data class MalformedFamily(
+        val case: CaseId,
+        val family: FamilyId,
+    ) : ContentProblem
+
     /** Field [field] of `tutor-config.json` holds a value the tutor cannot use, for the reason [detail]. */
     data class InvalidTutorConfig(
         val field: String,
