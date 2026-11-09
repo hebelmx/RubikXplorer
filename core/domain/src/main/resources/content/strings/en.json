@@ -447,5 +447,6 @@
   "case.case-pll-ub.name": "Ub perm",
   "case.case-pll-v.name": "V perm",
   "case.case-pll-y.name": "Y perm",
-  "case.case-pll-z.name": "Z perm"
+  "case.case-pll-z.name": "Z perm",
+  "msg.library.diagram.description": "Last layer diagram for {caseName}"
 }
