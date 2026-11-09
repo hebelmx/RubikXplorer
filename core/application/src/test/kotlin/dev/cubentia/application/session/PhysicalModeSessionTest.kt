@@ -435,14 +435,15 @@ class PhysicalModeSessionTest {
     private fun evidence(
         state: SessionState,
         move: Move,
-    ) = Assess.diagnosePhysicalMove(
-        checkNotNull(state.lesson),
-        state.pathEntry,
-        state.expected,
-        state.expected,
-        move,
-        checkNotNull(state.tutorConfig),
-    )
+    ) = Assess
+        .diagnosePhysicalMove(
+            checkNotNull(state.lesson),
+            state.pathEntry,
+            state.expected,
+            state.expected,
+            move,
+            checkNotNull(state.tutorConfig),
+        ).predicted()
 
     private val slice = SliceTurn(Slice.M, Turn.CLOCKWISE)
 
@@ -459,7 +460,7 @@ class PhysicalModeSessionTest {
         assertEquals(mismatch.revision + 1, next.revision)
         assertEquals(listOf(R), next.history.done)
         assertEquals(evidence(mismatch, R), next.lastDiagnosis)
-        assertEquals(Certainty.VERIFIED, next.lastDiagnosis?.certainty)
+        assertEquals(Certainty.LIKELY, next.lastDiagnosis?.certainty)
         assertEquals(next.lastDiagnosis?.certainty, next.decision?.certainty)
         assertNull(next.lastMoveFeedback)
         assertEquals(listOf(Presentation.Animate(R, next.revision, next.virtual)), transition.presentation)
@@ -592,6 +593,53 @@ class PhysicalModeSessionTest {
         assertEquals(SyncState.PHYSICAL_MISMATCH, next.syncState)
         assertEquals(verified.expected, next.expected)
         assertEquals(verified.revision, next.revision)
+    }
+
+    @Test
+    fun `a harmful test me diagnosis on a predicted cube is at most likely`() {
+        val physical = started(shippedLesson("lesson-03-01")).after(modeChanged(TeachingMode.TEST_ME), toPhysical, matches)
+        val classified =
+            Assess.classify(
+                checkNotNull(physical.lesson),
+                physical.pathEntry,
+                physical.virtual,
+                R,
+                physical.virtual.apply(R),
+                checkNotNull(physical.tutorConfig),
+            )
+        assertEquals(MoveFeedback.HARMFUL, classified.feedback)
+        val diagnosis = checkNotNull(classified.diagnosis)
+        assertEquals(Certainty.VERIFIED, diagnosis.certainty)
+
+        val next = physical.after(confirm(R))
+
+        assertEquals(MoveFeedback.HARMFUL, next.lastMoveFeedback)
+        assertEquals(diagnosis.predicted(), next.lastDiagnosis)
+        assertEquals(Certainty.LIKELY, next.decision?.certainty)
+    }
+
+    @Test
+    fun `an accepted re-entry reports the full observation and keeps the diagnosis as the explanation`() {
+        val mismatch = mismatched()
+        val entered = reduce(mismatch, SessionEvent.EditorEntered(CubeState.SOLVED.apply(R, U, F), T0)).state
+
+        assertEquals(SyncState.PHYSICAL_VERIFIED, entered.syncState)
+        val diagnosis = checkNotNull(entered.decision?.diagnosis)
+        assertEquals(Certainty.UNKNOWN, diagnosis.certainty)
+        assertEquals(Certainty.VERIFIED, entered.decision?.certainty)
+        assertEquals(diagnosis.explanation, entered.decision?.explanation)
+    }
+
+    @Test
+    fun `an accepted re-entry that finds nothing has no diagnosis`() {
+        val physical = started().after(toPhysical, matches)
+        assertFalse(physical.objectiveMet)
+
+        val entered = physical.after(SessionEvent.EditorEntered(physical.expected, T0))
+
+        assertEquals(SyncState.PHYSICAL_VERIFIED, entered.syncState)
+        assertNull(entered.lastDiagnosis)
+        assertEquals(Certainty.VERIFIED, entered.decision?.certainty)
     }
 
     @Test

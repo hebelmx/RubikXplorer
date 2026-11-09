@@ -16,7 +16,6 @@ import dev.cubentia.domain.text.Text
 import dev.cubentia.domain.tutor.Assess
 import dev.cubentia.domain.tutor.AssistanceLevel
 import dev.cubentia.domain.tutor.Diagnosis
-import dev.cubentia.domain.tutor.ErrorCategory
 import dev.cubentia.domain.tutor.HintLadder
 import dev.cubentia.domain.tutor.HintRung
 import dev.cubentia.domain.tutor.MoveAssessment
@@ -608,7 +607,8 @@ private fun confirmPhysical(
  * entered in `PHYSICAL_MISMATCH` carries its evidence as the Diagnosis in every Teaching Mode, with no
  * Move feedback; otherwise *Test me* keeps [Assess.classify]'s word, as [committed] does, and a Diagnosis
  * still offering *Guide me back* after this commit stays when there is no new one, so the offer survives
- * the confirm for as long as it applies.
+ * the confirm for as long as it applies. The commit leaves a predicted cube, so a new Diagnosis is at most
+ * LIKELY ([Diagnosis.predicted], AD-5).
  */
 private fun commitPhysical(
     state: SessionState,
@@ -619,7 +619,7 @@ private fun commitPhysical(
     val lesson = state.lesson
     val assessment = assessment(state, move, history)
     val shown = assessment.takeIf { state.teachingMode == TeachingMode.TEST_ME && !reported }
-    val own = if (reported) evidenceDiagnosis(state, move) else shown?.diagnosis
+    val own = (if (reported) evidenceDiagnosis(state, move) else shown?.diagnosis)?.predicted()
     val carried = state.lastDiagnosis?.takeIf { own == null && state.canGuideBack }?.carried()
     val moved =
         withHistory(state, history).copy(
@@ -686,7 +686,6 @@ private fun enterEditor(
         if (lesson != null && config != null && !lesson.completion.isSatisfied(event.state)) {
             val expectedBase = previousCheckpoint?.state ?: state.pathEntry
             Assess.diagnose(lesson, state.pathEntry, expectedBase, event.state, config)
-                ?: Assess.unknown(ErrorCategory.UNKNOWN_DISCREPANCY, Text("msg.diagnosis.unknown-discrepancy"))
         } else {
             null
         }

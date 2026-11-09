@@ -655,9 +655,9 @@ class PhysicalLessonScreenTest {
 
         assertEquals(before.apply(FaceTurn(Face.U, Turn.COUNTERCLOCKWISE)), host.state.value.expected)
         assertNotNull(host.state.value.lastDiagnosis)
-        node("certainty:icon").assertTextEquals("✓")
-        node("certainty:label").assertTextEquals("Verified")
-        node("mismatch:candidate").assertDoesNotExist()
+        node("certainty:icon").assertTextEquals("≈")
+        node("certainty:label").assertTextEquals("Likely")
+        node("mismatch:candidate").performScrollTo().assertExists()
         node("moveKey:U").assertDoesNotExist()
     }
 

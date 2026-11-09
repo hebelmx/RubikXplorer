@@ -186,6 +186,7 @@ data class SessionState internal constructor(
                 entry = pathEntry,
                 isPhysical = syncState != SyncState.VIRTUAL,
                 isMismatch = syncState == SyncState.PHYSICAL_MISMATCH,
+                isVerified = syncState == SyncState.PHYSICAL_VERIFIED,
             )
         }
     }

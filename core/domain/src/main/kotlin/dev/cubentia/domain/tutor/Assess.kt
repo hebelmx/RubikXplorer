@@ -116,16 +116,6 @@ object Assess {
         }
 
     /**
-     * An UNKNOWN Certainty Diagnosis (AD-5): used when no candidate explains the discrepancy or when
-     * evidence is unknown.
-     */
-    fun unknown(
-        category: ErrorCategory = ErrorCategory.UNKNOWN_DISCREPANCY,
-        explanation: Text = Text("msg.diagnosis.unknown-discrepancy"),
-        disturbed: Set<Piece> = emptySet(),
-    ): Diagnosis = Diagnosis.unknown(category, explanation, disturbed)
-
-    /**
      * How the *Test me* Move [move] from [before] to [after] relates to the step of [lesson] (entered
      * at [entry]) derived from [before], checked in order:
      * - ON_PATH, with no Diagnosis: [before] is an authored path state and [move] its next authored
@@ -173,9 +163,10 @@ object Assess {
      *
      * - `satisfied` is the Completion Predicate on the current state;
      * - the shown step is [Tutor.shownStep]; `advance` is `satisfied` or a pending [noticeStep];
-     * - `certainty` confirms the virtual state against itself (a Full observation); with [isPhysical] it
-     *   is [lastDiagnosis]'s Certainty whenever there is one, even while `advance` hides that Diagnosis,
-     *   and [Certainty.UNKNOWN] during [isMismatch];
+     * - `certainty` confirms the virtual state against itself (a Full observation); with [isPhysical] and
+     *   not [isVerified] (the session holding a Full observation of the current state) it is
+     *   [lastDiagnosis]'s Certainty whenever there is one, even while `advance` hides that Diagnosis, and
+     *   [Certainty.UNKNOWN] during [isMismatch];
      * - `diagnosis` is [lastDiagnosis] in [TeachingMode.TEST_ME] or with [isPhysical], while not `advance`, else null;
      * - `recovery` is [recovery], passed through;
      * - `reveal` is true in [TeachingMode.SHOW_ME], once [revealRequested], or once [hintRung] reached
@@ -201,6 +192,7 @@ object Assess {
         entry: CubeState = history.start,
         isPhysical: Boolean = false,
         isMismatch: Boolean = false,
+        isVerified: Boolean = false,
     ): TutorDecision {
         val state = history.state
         val satisfied = lesson.completion.isSatisfied(state)
@@ -218,7 +210,7 @@ object Assess {
         val diagnosis = lastDiagnosis.takeIf { testing || (isPhysical && !advance) }
         val certainty =
             when {
-                isPhysical && lastDiagnosis != null -> lastDiagnosis.certainty
+                isPhysical && !isVerified && lastDiagnosis != null -> lastDiagnosis.certainty
                 isPhysical && isMismatch -> Certainty.UNKNOWN
                 else -> confirm(CandidateEnumerator.of(state, config), state)
             }
@@ -262,12 +254,16 @@ data class Diagnosis private constructor(
     val recoveryPath: RecoveryPath get() = category.recoveryPath
 
     /**
-     * This Diagnosis once the cube has moved on the Learner's word since its evidence: [Certainty.VERIFIED]
-     * would overstate it, so it is at most [Certainty.LIKELY] (AD-5), and its [candidates] explained the
-     * cube before that Move, so it names none.
+     * This Diagnosis of a Move known only from the Learner's word, on a cube no face of which was observed:
+     * [Certainty.VERIFIED] would overstate it, so it is at most [Certainty.LIKELY] (AD-5).
      */
-    fun carried(): Diagnosis =
-        copy(certainty = if (certainty == Certainty.VERIFIED) Certainty.LIKELY else certainty, candidates = emptyList())
+    fun predicted(): Diagnosis = copy(certainty = if (certainty == Certainty.VERIFIED) Certainty.LIKELY else certainty)
+
+    /**
+     * This Diagnosis once the cube has moved on the Learner's word since its evidence: it is [predicted],
+     * and its [candidates] explained the cube before that Move, so it names none.
+     */
+    fun carried(): Diagnosis = predicted().copy(candidates = emptyList())
 
     companion object {
         /** A verified Diagnosis of [category] when [consistent] holds exactly one candidate; otherwise a refusal with the count. */
