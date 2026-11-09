@@ -252,11 +252,19 @@ class TransitionsTableTest {
                 val physicalAwaiting = fresh.after(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, sample.at))
                 val physicalPredicted = physicalAwaiting.after(SessionEvent.PhysicalConfirmed(null, sample.at))
                 val physicalPlayback = playback.after(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, sample.at))
+                val physicalMismatch = physicalPredicted.after(SessionEvent.MismatchReported(sample.at))
+                val physicalVerified = physicalPredicted.after(SessionEvent.EditorEntered(CubeState.SOLVED.apply(R), sample.at))
                 listOf(
                     SessionState.IDLE to sample,
                     playback to sample,
                     physicalPlayback to SessionEvent.PhysicalConfirmed(F_PRIME, sample.at),
                     physicalAwaiting to SessionEvent.PhysicalConfirmed(null, sample.at),
+                    physicalMismatch to SessionEvent.PhysicalConfirmed(null, sample.at),
+                    physicalMismatch to sample,
+                    physicalMismatch.copy(history = b.history) to SessionEvent.PhysicalConfirmed(F_PRIME, sample.at),
+                    physicalVerified to sample,
+                    physicalPredicted.copy(lastMoveFeedback = MoveFeedback.NEUTRAL, lastDiagnosis = TURNED_DIAGNOSIS) to
+                        SessionEvent.PhysicalConfirmed(null, sample.at),
                     physicalPredicted to sample,
                     physicalPredicted.copy(history = b.history) to sample,
                     physicalPredicted to SessionEvent.PhysicalConfirmed(F_PRIME, sample.at),

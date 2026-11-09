@@ -173,7 +173,9 @@ object Assess {
      *
      * - `satisfied` is the Completion Predicate on the current state;
      * - the shown step is [Tutor.shownStep]; `advance` is `satisfied` or a pending [noticeStep];
-     * - `certainty` confirms the virtual state against itself (a Full observation);
+     * - `certainty` confirms the virtual state against itself (a Full observation); with [isPhysical] it
+     *   is [lastDiagnosis]'s Certainty whenever there is one, even while `advance` hides that Diagnosis,
+     *   and [Certainty.UNKNOWN] during [isMismatch];
      * - `diagnosis` is [lastDiagnosis] in [TeachingMode.TEST_ME] while not `advance`, else null;
      * - `recovery` is [recovery], passed through;
      * - `reveal` is true in [TeachingMode.SHOW_ME], once [revealRequested], or once [hintRung] reached
@@ -216,7 +218,7 @@ object Assess {
         val diagnosis = lastDiagnosis.takeIf { testing || (isPhysical && !advance) }
         val certainty =
             when {
-                isPhysical && diagnosis != null -> diagnosis.certainty
+                isPhysical && lastDiagnosis != null -> lastDiagnosis.certainty
                 isPhysical && isMismatch -> Certainty.UNKNOWN
                 else -> confirm(CandidateEnumerator.of(state, config), state)
             }
@@ -258,6 +260,12 @@ data class Diagnosis private constructor(
 ) {
     /** The Recovery Path the [category] calls for. */
     val recoveryPath: RecoveryPath get() = category.recoveryPath
+
+    /**
+     * This Diagnosis once the cube has moved on the Learner's word since its evidence: [Certainty.VERIFIED]
+     * would overstate it, so it is at most [Certainty.LIKELY] (AD-5).
+     */
+    fun carried(): Diagnosis = if (certainty == Certainty.VERIFIED) copy(certainty = Certainty.LIKELY) else this
 
     companion object {
         /** A verified Diagnosis of [category] when [consistent] holds exactly one candidate; otherwise a refusal with the count. */

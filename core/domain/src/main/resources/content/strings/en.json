@@ -41,6 +41,7 @@
   "msg.physical.mismatch.one-face": "Look at the front face — which corner is white?",
   "msg.physical.mismatch.re-enter": "Let's re-enter your cube",
   "msg.physical.mismatch.candidate": "Candidate: {candidate}",
+  "msg.physical.mismatch.matches-after-all": "It matches after all",
   "msg.recovery.guided-recovery": "Undo, or let me guide you back.",
   "msg.recovery.retry": "Undo, or start this step again.",
   "msg.recovery.reorient": "Turn it back with the rotation keys.",

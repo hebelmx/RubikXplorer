@@ -35,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -450,6 +451,7 @@ private fun LessonBody(
     val isPhysical = session.syncState != SyncState.VIRTUAL
     var showManualEditor by rememberSaveable { mutableStateOf(false) }
     var showMoveKeyBar by rememberSaveable(isPhysical) { mutableStateOf(!isPhysical) }
+    var mismatchRung by rememberSaveable { mutableIntStateOf(1) }
 
     // The last physical Undo's instruction; presentation only, so it is cleared by the next send.
     var physicalInstruction by rememberSaveable(lesson.id) { mutableStateOf<String?>(null) }
@@ -459,6 +461,7 @@ private fun LessonBody(
     }
 
     LaunchedEffect(session.syncState) {
+        if (session.syncState != SyncState.PHYSICAL_MISMATCH) mismatchRung = 1
         if (session.syncState == SyncState.VIRTUAL || session.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM) {
             physicalInstruction = null
         }
@@ -530,7 +533,8 @@ private fun LessonBody(
     val pulse = if (isPhysical) 0f else rememberObjectivePulse(decision.satisfied, reduceMotion)
     val mode = session.teachingMode
     val stepMove =
-        Tutor.nextMove(lesson, session.pathEntry, session.virtual)
+        (session.guidedRecovery as? GuidedRecovery.Planned)?.moves?.firstOrNull()
+            ?: Tutor.nextMove(lesson, session.pathEntry, session.virtual)
             ?: demonstration.steps
                 .getOrNull(session.stepIndex)
                 ?.moves
@@ -605,6 +609,13 @@ private fun LessonBody(
             },
             onDidSomethingElse = { showMoveKeyBar = true },
             onMismatchReported = { send { SessionEvent.MismatchReported(it) } },
+            matchesAfterAllLabel = strings.resolve(TextKey("msg.physical.mismatch.matches-after-all")),
+            onMatchesAfterAll = {
+                showMoveKeyBar = false
+                send { SessionEvent.PhysicalConfirmed(null, it) }
+            },
+            mismatchRung = mismatchRung,
+            onMismatchRungChange = { mismatchRung = it },
             isEndOfStage6 = lesson.isCourseFinale,
             onYesItsSolved = onYesItsSolved,
         )
@@ -673,9 +684,7 @@ private fun LessonBody(
                     val isMismatch = session.syncState == SyncState.PHYSICAL_MISMATCH
                     val onMoveKey: (Move) -> Unit = { move ->
                         if (isPhysical) {
-                            if (!isMismatch) {
-                                showMoveKeyBar = false
-                            }
+                            showMoveKeyBar = false
                             send { SessionEvent.PhysicalConfirmed(move, it) }
                         } else {
                             send { SessionEvent.MoveCommitted(MoveIntent(move).move, it) }
@@ -701,7 +710,7 @@ private fun LessonBody(
                         reduceMotion = reduceMotion,
                         strings = strings,
                         send = send,
-                        showMoveKeyBar = if (isMismatch) true else (!isPhysical || showMoveKeyBar),
+                        showMoveKeyBar = if (isMismatch) mismatchRung == 1 else (!isPhysical || showMoveKeyBar),
                         onMove = onMoveKey,
                     )
                 }
@@ -921,7 +930,7 @@ private fun stepCard(
     }
     val step = lesson.steps.getOrNull(index)
     val diagnosisCandidate =
-        decision.diagnosis?.candidates?.firstOrNull()?.moves?.let { moves ->
+        decision.diagnosis?.takeIf { it.certainty == Certainty.LIKELY }?.candidates?.firstOrNull()?.moves?.let { moves ->
             if (moves.isNotEmpty()) {
                 moves.joinToString(" ") { Notation.format(it) }
             } else {

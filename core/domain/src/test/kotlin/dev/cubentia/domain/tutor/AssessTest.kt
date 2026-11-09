@@ -257,6 +257,33 @@ class AssessTest {
     }
 
     @Test
+    fun `decide in physical mode takes certainty from a diagnosis the done step hides`() {
+        val likely = Assess.diagnose(ErrorCategory.WRONG_MOVE_OR_DIRECTION, enumerator(), s.apply(moves("U D")), why)
+        assertEquals(Certainty.LIKELY, likely.certainty)
+
+        fun doneDecision(isPhysical: Boolean) =
+            Assess.decide(
+                lesson = oneStep,
+                history = history(oneStep, "F'"),
+                config = CONFIG,
+                mode = TeachingMode.GUIDE_ME,
+                revealRequested = false,
+                hintRung = HintRung.NONE,
+                noticeStep = null,
+                lastMoveFeedback = null,
+                lastDiagnosis = likely,
+                recovery = Recovery.Unavailable,
+                isPhysical = isPhysical,
+            )
+
+        val physical = doneDecision(isPhysical = true)
+        assertTrue(physical.advance)
+        assertNull(physical.diagnosis)
+        assertEquals(Certainty.LIKELY, physical.certainty)
+        assertEquals(Certainty.VERIFIED, doneDecision(isPhysical = false).certainty)
+    }
+
+    @Test
     fun `decide in physical mode surfaces diagnosis and certainty outside test me`() {
         val diagnosis = Assess.diagnose(ErrorCategory.WRONG_MOVE_OR_DIRECTION, enumerator(), s.apply(moves("R")), why)
         val decision =

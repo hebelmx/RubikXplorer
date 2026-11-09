@@ -94,7 +94,12 @@ data class SessionState internal constructor(
      * in any other mode, by anything else that moves the cube or the step, and by a change of mode.
      */
     val lastMoveFeedback: MoveFeedback?,
-    /** The mistake [Assess.classify] named for the last committed Move, if any; set and cleared with [lastMoveFeedback]. */
+    /**
+     * The mistake [Assess.classify] named for the last committed Move, if any; set and cleared with
+     * [lastMoveFeedback]. A physical Move entered on the mismatch ladder sets it alone, from
+     * [Assess.diagnosePhysicalMove], an accepted Manual Cube Editor entry sets it too, and a physical
+     * commit with no Diagnosis of its own keeps one that still offers *Guide me back* ([canGuideBack]).
+     */
     val lastDiagnosis: Diagnosis?,
     /**
      * The Checkpoint (FR-12): the history at the last Objective boundary, which *Try again*
