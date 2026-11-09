@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: 11-09-2026 03:16
+last_updated: 11-09-2026 07:59
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -140,7 +140,7 @@ development_status:
   12-7-physical-progress-is-recorded-only-when-true: done
   12-8-the-mismatch-ladder-resolves-a-mismatch: done
   12-9-one-source-for-physical-copy-skip-check-needs-the-virtual-cu: done
-  12-10-prove-the-release-permission-gate-end-to-end: backlog
+  12-10-prove-the-release-permission-gate-end-to-end: done
   epic-12-retrospective: optional
 action_items:
   - id: "epic-2-retro-item-1-create-a-deferred-findings-ledger-or-rou"
