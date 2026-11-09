@@ -144,6 +144,9 @@ class Cube3DRenderer(
     private val counts = CubeMesh.vertexCounts(model)
     private var geometryRevision by mutableIntStateOf(0)
     private var gl: CubeGlRenderer? = null
+
+    /** Publishes the model to the composed [Content]; null while it is not composed. */
+    private var publishNow: (() -> Unit)? = null
     val drawnFrames: Long get() = gl?.drawnFrames?.get() ?: 0
 
     /** The GL snapshot last published; null before [Content] first composes. */
@@ -158,6 +161,12 @@ class Cube3DRenderer(
     }
 
     override fun renderedFacelets(): Facelets = drawn
+
+    /** Discards everything outstanding and draws [target] at once, without waiting for a frame. */
+    fun snapNow(target: Facelets) {
+        queue.snapNow(target)
+        publishNow?.invoke()
+    }
 
     @Composable
     fun Content(
@@ -241,6 +250,10 @@ class Cube3DRenderer(
             drawn = model.facelets()
             presented = queue.active ?: presented?.takeIf { queue.isBusy }
             view.requestRender()
+        }
+        DisposableEffect(this, view) {
+            publishNow = { publish() }
+            onDispose { publishNow = null }
         }
         renderer.eye = orbit.eye()
         LaunchedEffect(orbit) { view.requestRender() }

@@ -2,6 +2,7 @@ package dev.cubentia.app.render.gl
 
 import dev.cubentia.app.render.PresentationItem
 import dev.cubentia.application.preference.AnimationSpeed
+import dev.cubentia.domain.cube.Facelets
 
 /** Pure FIFO. One completion per frame preserves every intermediate committed geometry. */
 class PresentationQueue(
@@ -51,6 +52,14 @@ class PresentationQueue(
                 model.begin(item.move)
             }
         }
+    }
+
+    /** Drops every outstanding item, the turn in flight included, and shows [target] now. */
+    @Synchronized
+    fun snapNow(target: Facelets) {
+        waiting.clear()
+        current = null
+        model.reset(target)
     }
 
     /** Cancellation completes only the active item; waiting items survive recomposition. */

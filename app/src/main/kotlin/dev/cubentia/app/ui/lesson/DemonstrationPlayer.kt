@@ -88,7 +88,8 @@ class DemonstrationPlayerState private constructor(
 
     fun pause() = playback.pause()
 
-    fun scrubTo(fraction: Double) = playback.scrubTo(fraction)
+    /** Pauses on the nearest Move boundary and shows it at once, abandoning any turn still presenting. */
+    fun scrubTo(fraction: Double) = playback.scrubNow(fraction, renderer::snapNow)
 }
 
 /** The state of a [DemonstrationPlayer] for [demonstration]; new when it or [reduceMotion] changes. */

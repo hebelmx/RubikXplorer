@@ -49,6 +49,9 @@ import dev.cubentia.domain.playback.DemonstrationResult
 import dev.cubentia.domain.playback.MoveNote
 import dev.cubentia.domain.text.Text as ContentText
 
+/** Narrowest pane that fits the transport's row of five buttons, at the largest font scale. */
+private val MinLandscapePaneWidth = 320.dp
+
 /** Test-only marker of the strip's current Move; the merged card would otherwise misreport a `selected` state. */
 internal val CurrentMoveKey = SemanticsPropertyKey<Boolean>("CurrentMove")
 
@@ -137,7 +140,7 @@ fun AlgorithmDetailScreen(
     }
     BoxWithConstraints(modifier.fillMaxSize().padding(8.dp)) {
         val portraitControlsHeight = maxHeight * 0.55f
-        if (maxHeight >= maxWidth) {
+        if (maxHeight >= maxWidth || maxWidth / 2 < MinLandscapePaneWidth) {
             Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
                 title()
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {

@@ -11,14 +11,17 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
@@ -30,7 +33,9 @@ import dev.cubentia.app.render.Cube3DRenderer
 import dev.cubentia.app.render.RenderStyle
 import dev.cubentia.app.render.RenderedOrbitKey
 import dev.cubentia.app.render.RenderedStickersKey
+import dev.cubentia.app.ui.lesson.DemonstrationPlayerState
 import dev.cubentia.app.ui.theme.CubentiaTheme
+import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.domain.appearance.StickerAppearance
 import dev.cubentia.domain.content.Algorithm
 import dev.cubentia.domain.content.ContentLoadResult
@@ -42,6 +47,8 @@ import dev.cubentia.domain.playback.DemonstrationResult
 import dev.cubentia.domain.playback.MoveNote
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -117,13 +124,34 @@ class AlgorithmDetailScreenTest {
         rule.onNodeWithTag("playback:note").assertTextEquals(strings.resolve(MoveNote.of(demo.moves[2])))
     }
 
-    @Test fun `scrub during turn waits for animation then settles paused`() {
+    @Test fun `scrub cancels outstanding turns and agrees with its boundary before the clock advances`() {
+        val state = DemonstrationPlayerState(demo, reduceMotion = false)
+        val boundary = demo.start.apply(demo.moves.take(2)).toFacelets()
+        rule.setContent { CubentiaTheme { state.renderer.Content(RenderStyle(false), Modifier.size(300.dp)) } }
+        rule.waitForIdle()
+        rule.mainClock.autoAdvance = false
+        rule.runOnIdle { repeat(4) { state.stepForward() } }
+        repeat(3) { rule.mainClock.advanceTimeByFrame() }
+        rule.runOnIdle {
+            assertNotNull(state.renderer.presentedMove)
+            state.scrubTo(2.0 / demo.moves.size)
+            assertEquals(2, state.position)
+            assertEquals(boundary, state.renderer.renderedFacelets())
+            assertNull(state.renderer.presentedMove)
+        }
+        rule.mainClock.advanceTimeBy(1000)
+        rule.runOnIdle { assertEquals(boundary, state.renderer.renderedFacelets()) }
+    }
+
+    @Test fun `scrub during turn shows its boundary on the next frame and stays paused`() {
         show()
         rule.mainClock.autoAdvance = false
         rule.onNodeWithTag("playback:playPause").performClick()
         rule.mainClock.advanceTimeByFrame()
         rule.mainClock.advanceTimeByFrame()
         scrub(3)
+        rule.mainClock.advanceTimeByFrame()
+        assertBoundary(3)
         rule.mainClock.advanceTimeBy(1000)
         assertBoundary(3)
         rule.onNodeWithTag("playback:playPause").assertContentDescriptionEquals("Play")
@@ -283,5 +311,32 @@ class AlgorithmDetailScreenTest {
         show()
         rule.onNodeWithTag("cube3d").assertIsDisplayed()
         rule.onNodeWithTag("playback:playPause").assertIsDisplayed()
+    }
+
+    @Test
+    @Config(qualifiers = "w560dp-h400dp")
+    fun `landscape just under the two pane width keeps every transport button usable`() = assertTransportUsable()
+
+    @Test
+    @Config(qualifiers = "w400dp-h300dp")
+    fun `narrow landscape stacks so every transport button is displayed and clickable`() = assertTransportUsable()
+
+    private fun assertTransportUsable() {
+        show()
+        rule.onNodeWithTag("cube3d").assertIsDisplayed()
+        val rootWidth = rule.onRoot().getUnclippedBoundsInRoot().right
+        for (button in listOf("restart", "back", "playPause", "forward", "end")) {
+            val node =
+                rule
+                    .onNodeWithTag("playback:$button")
+                    .assertIsDisplayed()
+                    .assertHasClickAction()
+                    .assertWidthIsAtLeast(Spacing.touchMin)
+            assertTrue("$button runs past the window", node.getUnclippedBoundsInRoot().right <= rootWidth)
+        }
+        rule.onNodeWithTag("playback:forward").performClick()
+        rule.onNodeWithTag("playback:counter").assertTextEquals("1 / ${demo.moves.size}")
+        rule.onNodeWithTag("playback:back").performClick()
+        rule.onNodeWithTag("playback:counter").assertTextEquals("0 / ${demo.moves.size}")
     }
 }

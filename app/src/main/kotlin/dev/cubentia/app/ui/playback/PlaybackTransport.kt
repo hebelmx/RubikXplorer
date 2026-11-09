@@ -36,6 +36,7 @@ import dev.cubentia.app.render.PresentationItem
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.playback.PlaybackController
@@ -142,6 +143,20 @@ class NetPlayback(
     override fun seekToEnd() = apply(controller.seek(size))
 
     fun scrubTo(fraction: Double) = apply(controller.scrubTo(fraction))
+
+    /**
+     * [scrubTo] that does not queue: everything outstanding is abandoned and [show] receives the
+     * snapped boundary, for a renderer able to replace what it is presenting.
+     */
+    fun scrubNow(
+        fraction: Double,
+        show: (Facelets) -> Unit,
+    ) {
+        if (size == 0) return
+        controller = controller.scrubTo(fraction).controller
+        animatedIndex.clear()
+        show(controller.state.toFacelets())
+    }
 
     override fun setSpeed(speed: PlaybackSpeed) = apply(controller.withSpeed(speed))
 
