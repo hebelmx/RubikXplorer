@@ -42,7 +42,7 @@ class LastLayerMatcher private constructor(
     }
 
     companion object {
-        /** Algorithm Notation assumes the home frame, so a derived Case has this color on its LL. */
+        /** The default last-layer color, used for pattern derivation because Notation assumes the home frame. */
         val CASE_LAST_LAYER: Color = Color.WHITE
 
         private const val SIDE_COUNT = 4
@@ -79,11 +79,20 @@ class LastLayerMatcher private constructor(
             }
         }
 
-        /** The Case state of [algorithm]: its inverse applied to solved, in the home frame. */
-        fun caseState(algorithm: Algorithm): CaseStateResult =
+        /** The Case state of [algorithm]: its inverse applied to solved, held with [lastLayer] on U. */
+        fun caseState(
+            algorithm: Algorithm,
+            lastLayer: Color = CASE_LAST_LAYER,
+        ): CaseStateResult =
             when (val parsed = Notation.parse(algorithm.notation)) {
-                is NotationResult.Invalid -> CaseStateResult.BadNotation(parsed.error)
-                is NotationResult.Parsed -> CaseStateResult.Derived(CubeState.SOLVED.apply(parsed.moves.inverse()))
+                is NotationResult.Invalid -> {
+                    CaseStateResult.BadNotation(parsed.error)
+                }
+
+                is NotationResult.Parsed -> {
+                    val solved = CubeState.SOLVED.copy(orientation = LastLayerView.canonicalFrame(lastLayer))
+                    CaseStateResult.Derived(solved.apply(parsed.moves.inverse()))
+                }
             }
 
         /** The color-neutral pattern of a fully seen [view]: the minimum encoding over the [set]'s AUF orbit. */

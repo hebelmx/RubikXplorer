@@ -51,8 +51,8 @@ data class LastLayerView private constructor(
             state: CubeState,
             lastLayer: Color,
         ): LastLayerReading {
-            val up = homeFaceOf(lastLayer)
-            val frame = if (state.orientation.up == up) state.orientation else Orientation.of(up, fixedFront(up))
+            val canonical = canonicalFrame(lastLayer)
+            val frame = if (state.orientation.up == canonical.up) state.orientation else canonical
             val colors = state.copy(orientation = frame).toFacelets().colors
             if (!isFirstTwoLayersSolved(colors)) return LastLayerReading.FirstTwoLayersUnsolved
             return LastLayerReading.View(LastLayerView(LAYOUT.map { colors[it] }, lastLayer, ringOf(frame)))
@@ -70,6 +70,12 @@ data class LastLayerView private constructor(
         ): LastLayerView {
             require(stickers.size == STICKERS) { "a view must have $STICKERS stickers, was ${stickers.size}" }
             return LastLayerView(stickers, lastLayer, ringOf(Orientation.of(homeFaceOf(lastLayer), homeFaceOf(front))))
+        }
+
+        /** The frame a cube is held in to read the [lastLayer] color: that color on U and a fixed front. */
+        internal fun canonicalFrame(lastLayer: Color): Orientation {
+            val up = homeFaceOf(lastLayer)
+            return Orientation.of(up, fixedFront(up))
         }
 
         private fun ringOf(frame: Orientation): List<Color> = SIDES.map { frame.colorAt(it) }
