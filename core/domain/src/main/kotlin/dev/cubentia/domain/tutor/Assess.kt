@@ -176,7 +176,7 @@ object Assess {
      * - `certainty` confirms the virtual state against itself (a Full observation); with [isPhysical] it
      *   is [lastDiagnosis]'s Certainty whenever there is one, even while `advance` hides that Diagnosis,
      *   and [Certainty.UNKNOWN] during [isMismatch];
-     * - `diagnosis` is [lastDiagnosis] in [TeachingMode.TEST_ME] while not `advance`, else null;
+     * - `diagnosis` is [lastDiagnosis] in [TeachingMode.TEST_ME] or with [isPhysical], while not `advance`, else null;
      * - `recovery` is [recovery], passed through;
      * - `reveal` is true in [TeachingMode.SHOW_ME], once [revealRequested], or once [hintRung] reached
      *   [HintRung.TARGET] (a Hint never shows more than the shown step's Moves);
@@ -263,9 +263,11 @@ data class Diagnosis private constructor(
 
     /**
      * This Diagnosis once the cube has moved on the Learner's word since its evidence: [Certainty.VERIFIED]
-     * would overstate it, so it is at most [Certainty.LIKELY] (AD-5).
+     * would overstate it, so it is at most [Certainty.LIKELY] (AD-5), and its [candidates] explained the
+     * cube before that Move, so it names none.
      */
-    fun carried(): Diagnosis = if (certainty == Certainty.VERIFIED) copy(certainty = Certainty.LIKELY) else this
+    fun carried(): Diagnosis =
+        copy(certainty = if (certainty == Certainty.VERIFIED) Certainty.LIKELY else certainty, candidates = emptyList())
 
     companion object {
         /** A verified Diagnosis of [category] when [consistent] holds exactly one candidate; otherwise a refusal with the count. */

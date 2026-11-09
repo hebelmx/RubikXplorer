@@ -461,7 +461,10 @@ private fun LessonBody(
     }
 
     LaunchedEffect(session.syncState) {
-        if (session.syncState != SyncState.PHYSICAL_MISMATCH) mismatchRung = 1
+        if (session.syncState != SyncState.PHYSICAL_MISMATCH) {
+            mismatchRung = 1
+            if (isPhysical) showMoveKeyBar = false
+        }
         if (session.syncState == SyncState.VIRTUAL || session.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM) {
             physicalInstruction = null
         }

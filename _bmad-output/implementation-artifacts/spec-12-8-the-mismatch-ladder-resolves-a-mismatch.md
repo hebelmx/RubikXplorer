@@ -5,7 +5,7 @@ created: '2026-11-08'
 baseline_revision: 'd89b6b109647a09671efbfe59ba1cfc94cd96617'
 status: 'done'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-12-context.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-8-retro-2026-11-08.md'
@@ -143,6 +143,41 @@ deferred:
   - `[low]` `[defer]` Intent: `PHYSICAL_VERIFIED` chip versus state — as the Blind row.
   - `[false]` `[reject]` Intent: additions beyond the ACs — the adaptive count, candidate move and key-bar close follow from "committed as their real move" and Story 8.3's candidate rule.
 
+### 2026-11-08 — Review pass (follow-up)
+- verdicts: 31 findings — high 0, medium 5, low 21, false 5, maybe-false 0
+- findings:
+  - `[medium]` `[patch]` Blind: `Diagnosis.carried()` makes a stale Candidate line appear — fixed: a VERIFIED editor Diagnosis passed the LIKELY filter after one confirm and named Moves from before it; `carried()` now also empties `candidates`, reducer test asserts it.
+  - `[medium]` `[patch]` Blind: the carry checks `canGuideBack` on the pre-commit state — fixed: `commitPhysical` drops a carried Diagnosis when `canGuideBack` no longer holds after the commit (Notice included), so a confirm that meets the goal stops the explanation and chip; test added and mutation-checked, `TRANSITIONS.md` updated.
+  - `[low]` `[reject]` Blind: a confirm during `Planning` or off a plan loses the offer and the re-offer — needs a turn inside the planner window or *I did something else* during a plan, and the off-plan half is the contract's "any other Move ends it"; a fix adds a branch.
+  - `[low]` `[reject]` Blind: `recoveryGoal` drifts for a carried Diagnosis — the goal keeps the Checkpoint and path-entry references, so only pieces preserved since the Checkpoint can drop; pinning the diagnosed reference needs a stored field, which the intent forbids.
+  - `[low]` `[reject]` Blind: Undo removes a carried offer — `undo` clearing the Diagnosis predates this story and restoring it needs saved state.
+  - `[low]` `[patch]` Blind: the key bar closes on only two of the four ways out of a mismatch — fixed: `LaunchedEffect(session.syncState)` closes it in physical mode on leaving `PHYSICAL_MISMATCH`; editor-exit test added and mutation-checked.
+  - `[low]` `[reject]` Blind: rungs 2 and 3 have no way back to rung 1 — *It matches after all* then a fresh report, or re-entry, gets the Learner there; a back control is new UI and copy.
+  - `[low]` `[reject]` Blind: a mistaken rung-1 key has no safe correction — real for a mis-tap, but the contract makes the commit undoable with the physical Undo instruction; a confirmation step or an Undo back to the ladder changes that contract.
+  - `[low]` `[reject]` Blind: rung 1 does not say whether the turn replaces or follows the last *Done* — carried: as the logged *Done*-then-a-different-turn row; Flow 1 step 5 selects on top of Expected.
+  - `[low]` `[patch]` Blind: the carry-cap test is too weak — fixed: asserts VERIFIED before the confirm, exactly LIKELY after, and no candidates.
+  - `[low]` `[reject]` Blind: rung-1 coverage lacks a step Notice, a rotation key and Practice — all run the same `commitPhysical` the `PHYSICAL_PREDICTED` tests cover and the unchanged `diagnosePhysicalMove`; no defect shown.
+  - `[low]` `[patch]` Blind: the hoisted `mismatchRung` is only partly tested — fixed by the restoration test in the Verification row below; every exit shares the one `LaunchedEffect` reset.
+  - `[low]` `[patch]` Blind: the `Assess.decide` KDoc is wrong beside the edited line — fixed: `diagnosis` now reads *Test me* or physical, while not `advance`.
+  - `[low]` `[patch]` Blind: the `PHYSICAL_MISMATCH` branch is split oddly (`if (move ==` / `null`) — a contract branch a next reader must decode; fixed: `move?.let { commitPhysical(state, it) } ?: ...`.
+  - `[low]` `[reject]` Edge: a second rung-1 tap before the state updates commits twice — the window is one `host.dispatch`, and the guard offered is an out-of-range rung value.
+  - `[low]` `[patch]` Edge: key bar stays open after an editor accept or Undo — same entry as the Blind key-bar row.
+  - `[low]` `[reject]` Edge: a false alarm cancels a plan or offer — carried: as the logged false-alarm row; `MismatchReported` still clears them.
+  - `[medium]` `[patch]` Edge: Candidate line shows Moves from an earlier state — same entry as the Blind Candidate row, for the carried Diagnosis; the non-ladder LIKELY half is the logged rejected row.
+  - `[low]` `[defer]` Edge: a move that disturbs nothing is told it moved a placed piece — carried: the deferred `diagnosePhysicalMove` fallback (Story 8.3), already in `deferred`, not added again.
+  - `[false]` `[reject]` Edge: a Verified chip rests only on the Learner's word — carried: the AC says "the diagnosed one" and Story 8.3 defines VERIFIED by a unique candidate.
+  - `[low]` `[reject]` Edge: in *Test me* a classified confirm replaces a carried offer — the last committed Move's own Diagnosis is the rule, as the spec states ("no Diagnosis of its own"); a precedence rule is a new branch.
+  - `[low]` `[patch]` Verification: nothing pins that a Diagnosis without an offer ends on the next commit — fixed: two reducer tests (a shown non-offering Diagnosis, and a rung-1 Diagnosis then a confirm).
+  - `[low]` `[patch]` Verification: the hoisted rung's survival across restoration is unverified — fixed: `StateRestorationTester` test at rung 3, keys still hidden; mutation-checked with `remember`.
+  - `[medium]` `[patch]` Verification other: `carried()` makes a stale Candidate line — same entry as the Blind Candidate row.
+  - `[low]` `[reject]` Intent: report then dismiss loses a plan or Diagnosis — carried: as the logged false-alarm row.
+  - `[false]` `[reject]` Intent: plan following in `commitPhysical` is unreachable from `PHYSICAL_MISMATCH` — no bad outcome: the shared commit only has nothing to follow there, so no rule breaks.
+  - `[medium]` `[patch]` Intent: the carried Diagnosis can surface a stale Candidate line — same entry as the Blind Candidate row.
+  - `[false]` `[reject]` Intent: a no-Diagnosis commit can read VERIFIED, and two standards apply — carried: as the logged "lasts one commit" and "self-report" rows; no chip is drawn without a Diagnosis in `PHYSICAL_PREDICTED`.
+  - `[false]` `[reject]` Intent: presentation changes the intent does not state — carried: as the logged "additions beyond the ACs" row; the rung hoist is the fix for the medium keys-past-rung-1 entry.
+  - `[low]` `[reject]` Intent: tests sit below some clauses (helper-based base check, runtime no-`Partial`, editor via dispatch) — each clause has an independent signal: the `candidates` assertion, the Verification grep, and the pre-existing Accept test.
+  - `[false]` `[reject]` Intent: the playback sentence in `TRANSITIONS.md` changed — the removed code also cleared `observed`, so it corrects the document and changes no behaviour.
+
 ## Design Notes
 
 **Rung 1 applies on top of Expected.** "Committed as their real move" with "Expected updates" and `TRANSITIONS.md`'s "commits it" name the one commit the reducer has; the retro lists the old `history.undo().state` base as a defect because its meaning depends on hidden history. A Learner who tapped *Done* and turned something else first takes *Undo* or re-entry.
@@ -181,3 +216,22 @@ Blocking condition: none
 **Verification:** `./gradlew spotlessApply`, `./gradlew spotlessCheck build` and `./gradlew compileDebugAndroidTestKotlin`: BUILD SUCCESSFUL after the patches (JUnit XML: 1320 tests, 0 failures, 0 errors, 0 skipped). `grep 'PhysicalObservation.Partial' app/src/main core/application/src/main`: no match. Matrix audit: every row has a covering test that ran and passed.
 
 **Residual risks:** Nothing ran on a device or emulator. A Learner who tapped *Done* and had actually turned something else gets a wrong Expected from rung 1 (the Move goes on top, as the contract says), with a chip that can read Verified; only re-entry corrects it, and nothing on the ladder says so. `Cube3DEmphasisTest` failed once during implementation and passed on the next full run; it is outside this diff and may be flaky in CI. Deferred items above.
+
+### Follow-up review pass, 2026-11-08
+
+**Summary:** A fresh review of the hoisted `mismatchRung` and the carried offer. A carried Diagnosis now ends once `canGuideBack` no longer holds after the commit and names no candidates, the key bar closes on every exit from `PHYSICAL_MISMATCH`, and the gaps it found have tests.
+
+**Files changed in this pass:**
+- `core/application/.../session/Reduce.kt` -- carried Diagnosis rechecked after the commit; dismiss branch reshaped.
+- `core/domain/.../tutor/Assess.kt` -- `Diagnosis.carried()` empties `candidates`; `decide` KDoc corrected.
+- `core/application/.../session/TRANSITIONS.md` -- carried Diagnosis rule.
+- `app/.../ui/lesson/LessonScreen.kt` -- key bar closes on any exit from `PHYSICAL_MISMATCH`.
+- `PhysicalModeSessionTest.kt` and `PhysicalLessonScreenTest.kt` -- 3 reducer tests, a stronger carry assertion, editor-exit and restoration screen tests.
+
+**Review:** 31 findings: high 0, medium 5, low 21, false 5. Patched entries: 2 medium (stale Candidate line; carry checked before the commit) and 6 low (key bar exits, carry-cap test, non-offering Diagnosis test, rung restoration test, `decide` KDoc, dismiss branch shape). Deferred: none new (one carried row is already in `deferred`). Rejected: every remaining row, with its reason in the Review Triage Log.
+
+**Follow-up review recommended:** false (follow-up pass, patched: high 0, medium 2, low 6).
+
+**Verification:** `./gradlew spotlessCheck build` BUILD SUCCESSFUL on the final tree (JUnit XML: 1426 tests, 0 failures, 0 errors, 0 skipped), `./gradlew compileDebugAndroidTestKotlin` BUILD SUCCESSFUL, `grep 'PhysicalObservation.Partial' app/src/main core/application/src/main`: no match. Two earlier full-gate runs in this pass failed and were not code failures of this diff: one `spotlessKotlin` could not read a generated KSP file during a parallel build, and one `Cube3DEmphasisTest` assertion (`Cube3DEmphasisTest.kt:101`, not in this diff) failed and passed on an unchanged rerun. Mutations confirmed the new tests catch removal of the post-commit recheck (reducer), of the key-bar close and of `rememberSaveable` (screen).
+
+**Residual risks:** Nothing ran on a device or emulator. `Cube3DEmphasisTest` is intermittent and can fail CI. Unchanged from the first pass: a Learner who tapped *Done* and turned something else gets a wrong Expected from rung 1, and only re-entry corrects it.

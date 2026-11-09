@@ -593,13 +593,8 @@ private fun confirmPhysical(
         }
 
         SyncState.PHYSICAL_MISMATCH -> {
-            if (move ==
-                null
-            ) {
-                Transition(state.copy(syncState = SyncState.PHYSICAL_PREDICTED, observed = null))
-            } else {
-                commitPhysical(state, move)
-            }
+            move?.let { commitPhysical(state, it) }
+                ?: Transition(state.copy(syncState = SyncState.PHYSICAL_PREDICTED, observed = null))
         }
 
         SyncState.VIRTUAL -> {
@@ -612,7 +607,8 @@ private fun confirmPhysical(
  * Commits a physical [move] on top of Expected, back to `PHYSICAL_PREDICTED` with no observation. A Move
  * entered in `PHYSICAL_MISMATCH` carries its evidence as the Diagnosis in every Teaching Mode, with no
  * Move feedback; otherwise *Test me* keeps [Assess.classify]'s word, as [committed] does, and a Diagnosis
- * still offering *Guide me back* stays when there is no new one, so the offer survives the confirm.
+ * still offering *Guide me back* after this commit stays when there is no new one, so the offer survives
+ * the confirm for as long as it applies.
  */
 private fun commitPhysical(
     state: SessionState,
@@ -623,21 +619,19 @@ private fun commitPhysical(
     val lesson = state.lesson
     val assessment = assessment(state, move, history)
     val shown = assessment.takeIf { state.teachingMode == TeachingMode.TEST_ME && !reported }
+    val own = if (reported) evidenceDiagnosis(state, move) else shown?.diagnosis
+    val carried = state.lastDiagnosis?.takeIf { own == null && state.canGuideBack }?.carried()
     val moved =
         withHistory(state, history).copy(
             expected = state.expected.apply(move),
             observed = null,
             syncState = SyncState.PHYSICAL_PREDICTED,
             lastMoveFeedback = shown?.feedback,
-            lastDiagnosis =
-                if (reported) {
-                    evidenceDiagnosis(state, move)
-                } else {
-                    shown?.diagnosis
-                        ?: state.lastDiagnosis?.takeIf { state.canGuideBack }?.carried()
-                },
+            lastDiagnosis = own ?: carried,
         )
-    val noticed = moved.lesson?.let { l -> withNotice(state, moved, l) } ?: moved
+    val noticed =
+        (moved.lesson?.let { l -> withNotice(state, moved, l) } ?: moved)
+            .let { if (carried != null && !it.canGuideBack) it.copy(lastDiagnosis = null) else it }
     val boundary = noticed.lesson != null && (noticed.noticeStep != null || noticed.objectiveMet)
     val next = if (boundary) noticed.copy(checkpoint = noticed.history.withoutRedo()) else noticed
     val counted = lesson?.let { l -> adapted(state, next, l, assessment?.feedback == MoveFeedback.HARMFUL) } ?: next

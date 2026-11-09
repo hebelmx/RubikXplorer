@@ -720,6 +720,56 @@ class PhysicalLessonScreenTest {
     }
 
     @Test
+    fun story12_8_keyBarOpenedBeforeTheReport_closesAfterAnEditorEntry() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host)
+        enterPhysicalMode(host)
+        node("lesson:didSomethingElse").performScrollTo().performClick()
+        rule.waitForIdle()
+        node("moveKey:U").assertExists()
+        reportMismatch(host)
+
+        val entered = host.state.value.expected
+        runBlocking { host.dispatch { SessionEvent.EditorEntered(entered, it) } }
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_VERIFIED }
+        rule.waitForIdle()
+
+        node("moveKey:U").assertDoesNotExist()
+    }
+
+    @Test
+    fun story12_8_mismatchRungSurvivesRecreation_withTheKeysStillHidden() {
+        val host = SessionHost(TickingClock())
+        val restoration = StateRestorationTester(rule)
+        restoration.setContent {
+            CubentiaTheme {
+                LessonScreen(
+                    host = host,
+                    entry = lessonEntry,
+                    strings = ready.strings,
+                    modes = TeachingMode.entries,
+                    onClose = {},
+                    cameraScan = FlagLevel.OFF,
+                )
+            }
+        }
+        rule.waitForIdle()
+        rule.waitUntil(5_000) { host.state.value.isActive }
+        enterPhysicalMode(host)
+        reportMismatch(host)
+        repeat(2) {
+            node("mismatch:nextQuestion").performScrollTo().performClick()
+            rule.waitForIdle()
+        }
+
+        restoration.emulateSavedInstanceStateRestore()
+        rule.waitForIdle()
+
+        rule.onNodeWithText("Let's re-enter your cube").assertExists()
+        node("moveKey:U").assertDoesNotExist()
+    }
+
+    @Test
     fun story12_8_verifiedWithNoDiagnosis_showsTheVerifiedChip() {
         val host = SessionHost(TickingClock())
         setLessonContent(host)

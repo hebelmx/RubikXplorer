@@ -604,11 +604,44 @@ class PhysicalModeSessionTest {
         assertTrue(once.canGuideBack)
         assertEquals(SyncState.PHYSICAL_PREDICTED, once.syncState)
         // Carried past a confirm, the Diagnosis is never a false VERIFIED on a predicted cube.
-        assertTrue(once.decision?.certainty != Certainty.VERIFIED)
+        assertEquals(Certainty.VERIFIED, verified.decision?.certainty)
+        assertEquals(Certainty.LIKELY, once.decision?.certainty)
+        // Its candidates explained the cube before this confirm.
+        assertTrue(checkNotNull(once.lastDiagnosis).candidates.isEmpty())
         val twice = once.after(confirm(U))
         assertEquals(TeachingMode.GUIDE_ME, twice.teachingMode)
         assertEquals(SyncState.PHYSICAL_PREDICTED, twice.syncState)
         assertTrue(twice.canGuideBack)
+    }
+
+    @Test
+    fun `a confirm that meets the recovery goal drops the carried diagnosis`() {
+        val physical = started(shippedLesson("lesson-03-01")).after(toPhysical, matches)
+        val verified = physical.after(SessionEvent.EditorEntered(physical.expected.apply(R, U), T0))
+
+        val halfway = verified.after(confirm(U_PRIME))
+        assertTrue(halfway.canGuideBack)
+        val repaired = halfway.after(confirm(R_PRIME))
+
+        assertFalse(repaired.canGuideBack)
+        assertNull(repaired.lastDiagnosis)
+    }
+
+    @Test
+    fun `a diagnosis that offers no guide me back ends on the next physical commit`() {
+        val shown = started().after(toPhysical, matches).copy(lastDiagnosis = TURNED_DIAGNOSIS)
+        assertFalse(shown.canGuideBack)
+
+        assertNull(shown.after(confirm(U)).lastDiagnosis)
+    }
+
+    @Test
+    fun `a rung-1 diagnosis ends on the next physical commit`() {
+        val committed = mismatched().after(confirm(R))
+        assertTrue(committed.lastDiagnosis != null)
+        assertFalse(committed.canGuideBack)
+
+        assertNull(committed.after(confirm(U)).lastDiagnosis)
     }
 
     @Test
