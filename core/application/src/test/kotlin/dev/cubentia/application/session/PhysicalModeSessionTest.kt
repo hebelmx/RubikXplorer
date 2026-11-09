@@ -13,11 +13,13 @@ import dev.cubentia.domain.input.ViewOrbit
 import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.text.Text
 import dev.cubentia.domain.tutor.Certainty
+import dev.cubentia.domain.tutor.MoveFeedback
 import dev.cubentia.domain.tutor.TeachingMode
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.util.Random
@@ -432,7 +434,7 @@ class PhysicalModeSessionTest {
     }
 
     @Test
-    fun `redo in physical mode re-confirms undone move and awaiting confirm rejects non-null move`() {
+    fun `redo in physical mode is ignored and awaiting confirm rejects non-null move`() {
         val session =
             started()
                 .after(
@@ -448,31 +450,19 @@ class PhysicalModeSessionTest {
         val confirmedMatch = reduce(session, SessionEvent.PhysicalConfirmed(null, T0)).state
         assertEquals(SyncState.PHYSICAL_PREDICTED, confirmedMatch.syncState)
 
-        // Confirm move, then undo, then redo
+        // Confirm move, then undo: Redo cannot turn the real cube, so it changes nothing.
         val moved = reduce(confirmedMatch, SessionEvent.PhysicalConfirmed(R, T0)).state
         val undone = reduce(moved, SessionEvent.Undo(T0)).state
         assertTrue(undone.history.canRedo)
-        assertEquals(R, undone.history.redoable)
 
-        val redone = reduce(undone, SessionEvent.Redo(T0)).state
-        assertEquals(moved.expected, redone.expected)
-        assertEquals(redone.expected, redone.virtual)
-        assertEquals(SyncState.PHYSICAL_PREDICTED, redone.syncState)
-        assertFalse(redone.history.canRedo)
-        assertTrue(redone.history.canUndo)
+        val redo = reduce(undone, SessionEvent.Redo(T0))
+        assertSame(undone, redo.state)
+        assertTrue(redo.effects.isEmpty())
+        assertTrue(redo.presentation.isEmpty())
 
-        // Multi-move redo preserves subsequent undone moves
-        val move1 = reduce(redone, SessionEvent.PhysicalConfirmed(U, T0)).state
-        val move2 = reduce(move1, SessionEvent.PhysicalConfirmed(F, T0)).state
-        val undo1 = reduce(move2, SessionEvent.Undo(T0)).state
-        val undo2 = reduce(undo1, SessionEvent.Undo(T0)).state
-        assertEquals(2, undo2.history.undone.size)
-        val redo1 = reduce(undo2, SessionEvent.Redo(T0)).state
-        assertTrue(redo1.history.canRedo, "Subsequent undone moves must remain available after redone first move")
-        assertEquals(F, redo1.history.redoable)
-        val redo2 = reduce(redo1, SessionEvent.Redo(T0)).state
-        assertFalse(redo2.history.canRedo)
-        assertEquals(move2.expected, redo2.expected)
+        // Standing feedback is untouched too, unlike the generic clearing of other events.
+        val withFeedback = undone.copy(lastMoveFeedback = MoveFeedback.NEUTRAL)
+        assertSame(withFeedback, reduce(withFeedback, SessionEvent.Redo(T0)).state)
     }
 
     @Test
@@ -520,6 +510,7 @@ class PhysicalModeSessionTest {
                         add(SessionEvent.PhysicalConfirmed(null, T0))
                         add(SessionEvent.PhysicalConfirmed(moves[rng.nextInt(moves.size)], T0))
                         add(SessionEvent.MismatchReported(T0))
+                        add(SessionEvent.PhysicalSolveConfirmed(T0))
                         add(SessionEvent.Undo(T0))
                         add(SessionEvent.Redo(T0))
                         add(SessionEvent.Reset(T0))
@@ -542,7 +533,6 @@ class PhysicalModeSessionTest {
                 // - ModeSwitched to PHYSICAL (which syncs expected := virtual)
                 // - PhysicalConfirmed with a move
                 // - Undo of a physical move
-                // - Redo of a physical move
                 // - EditorEntered (accepted Full observation)
                 val isConfirmedMove =
                     event is SessionEvent.PhysicalConfirmed && event.move != null &&
@@ -550,17 +540,13 @@ class PhysicalModeSessionTest {
                 val isPhysicalUndo =
                     event is SessionEvent.Undo &&
                         current.syncState != SyncState.VIRTUAL && current.history.canUndo
-                val isPhysicalRedo =
-                    event is SessionEvent.Redo &&
-                        current.syncState != SyncState.VIRTUAL && current.history.canRedo &&
-                        (current.syncState == SyncState.PHYSICAL_PREDICTED || current.syncState == SyncState.PHYSICAL_VERIFIED)
                 val isModeSwitchToPhysical =
                     event is SessionEvent.ModeSwitched && event.mode == CubeMode.PHYSICAL && current.syncState == SyncState.VIRTUAL
                 val isEditorEntered = event is SessionEvent.EditorEntered && current.syncState != SyncState.VIRTUAL
 
                 if (isModeSwitchToPhysical) {
                     assertEquals(current.virtual, next.expected, "expected must become virtual on switch to PHYSICAL")
-                } else if (isConfirmedMove || isPhysicalUndo || isPhysicalRedo || isEditorEntered) {
+                } else if (isConfirmedMove || isPhysicalUndo || isEditorEntered) {
                     // expected was allowed to change
                 } else {
                     assertEquals(
@@ -586,5 +572,194 @@ class PhysicalModeSessionTest {
                 current = next
             }
         }
+    }
+
+    private val toPhysical = SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0)
+    private val toVirtual = SessionEvent.ModeSwitched(CubeMode.VIRTUAL, T0)
+    private val matches = SessionEvent.PhysicalConfirmed(null, T0)
+    private val solveConfirmed = SessionEvent.PhysicalSolveConfirmed(T0)
+
+    /** The white cross met on the real cube (Done on F'), not yet confirmed. */
+    private fun physicallySolved(): SessionState = started().after(toPhysical, matches, SessionEvent.PhysicalConfirmed(F_PRIME, T0))
+
+    @Test
+    fun `objective met in physical mode is unconfirmed until the learner confirms`() {
+        val met = physicallySolved()
+        assertTrue(met.objectiveMet)
+        assertTrue(met.physicalSolveUnconfirmed)
+        assertFalse(met.physicalSolveConfirmed)
+    }
+
+    @Test
+    fun `accepted confirmation sets the flags and changes nothing else`() {
+        val met = physicallySolved()
+        val confirmed = reduce(met, solveConfirmed)
+        assertTrue(confirmed.state.physicalSolveConfirmed)
+        assertFalse(confirmed.state.physicalSolveUnconfirmed)
+        assertEquals(met.revision, confirmed.state.revision)
+        assertEquals(met.history, confirmed.state.history)
+        assertEquals(met.expected, confirmed.state.expected)
+        assertEquals(met.checkpoint, confirmed.state.checkpoint)
+        assertTrue(confirmed.effects.isEmpty())
+        assertSame(confirmed.state, reduce(confirmed.state, solveConfirmed).state)
+    }
+
+    @Test
+    fun `confirmation in a wrong state returns the same state`() {
+        val met = physicallySolved()
+        val wrong =
+            listOf(
+                SessionState.IDLE,
+                SessionState.IDLE.after(playbackStarted()),
+                started(),
+                started().after(commit(F_PRIME)),
+                started().after(toPhysical, matches),
+                started().after(commit(F_PRIME), toPhysical),
+                met.after(SessionEvent.MismatchReported(T0)),
+                met.copy(lastMoveFeedback = MoveFeedback.NEUTRAL, syncState = SyncState.VIRTUAL),
+            )
+        wrong.forEach { assertSame(it, reduce(it, solveConfirmed).state) }
+    }
+
+    @Test
+    fun `confirmation is accepted in a practice session`() {
+        val practice = SessionState.IDLE.after(SessionEvent.PracticeStarted(whiteCrossLesson(), TUTOR_CONFIG, T0))
+        assertFalse(practice.physicalSolveConfirmed)
+        val met = practice.after(toPhysical, matches, SessionEvent.EditorEntered(CubeState.SOLVED, T0))
+        assertTrue(met.objectiveMet)
+        assertTrue(met.physicalSolveUnconfirmed)
+        assertTrue(met.after(solveConfirmed).physicalSolveConfirmed)
+    }
+
+    @Test
+    fun `a switch to virtual mode keeps an unconfirmed solve unconfirmed`() {
+        val virtual = physicallySolved().after(toVirtual)
+        assertEquals(SyncState.VIRTUAL, virtual.syncState)
+        assertTrue(virtual.objectiveMet)
+        assertTrue(virtual.physicalSolveUnconfirmed)
+        assertFalse(virtual.physicalSolveConfirmed)
+    }
+
+    @Test
+    fun `an unmet objective clears both flags`() {
+        val met = physicallySolved()
+        val unconfirmedUndone = met.after(undo)
+        assertFalse(unconfirmedUndone.objectiveMet)
+        assertFalse(unconfirmedUndone.physicalSolveUnconfirmed)
+
+        val confirmedUndone = met.after(solveConfirmed, undo)
+        assertFalse(confirmedUndone.physicalSolveConfirmed)
+        assertFalse(confirmedUndone.physicalSolveUnconfirmed)
+    }
+
+    @Test
+    fun `a confirmed solve stays confirmed across a mode switch and a new lesson starts clear`() {
+        val confirmed = physicallySolved().after(solveConfirmed)
+        val virtual = confirmed.after(toVirtual)
+        assertTrue(virtual.physicalSolveConfirmed)
+        assertFalse(virtual.physicalSolveUnconfirmed)
+
+        val fresh = confirmed.after(lessonStarted(whiteCrossLesson("lesson-01-02")))
+        assertFalse(fresh.physicalSolveConfirmed)
+        assertFalse(fresh.physicalSolveUnconfirmed)
+        val playback = physicallySolved().after(playbackStarted())
+        assertFalse(playback.physicalSolveConfirmed)
+        assertFalse(playback.physicalSolveUnconfirmed)
+    }
+
+    @Test
+    fun `an editor-entered solved cube is unconfirmed`() {
+        val entered = started().after(toPhysical, matches, SessionEvent.EditorEntered(CubeState.SOLVED, T0))
+        assertTrue(entered.objectiveMet)
+        assertTrue(entered.physicalSolveUnconfirmed)
+    }
+
+    @Test
+    fun `an ignored event leaves restored flags alone`() {
+        val legacy = reduce(SessionState.IDLE, restoredEvent(physicallySolved(), physicalSolveUnconfirmed = false)).state
+        assertFalse(legacy.physicalSolveUnconfirmed)
+        assertSame(legacy, reduce(legacy, SessionEvent.SnapshotSaveFailed(T0)).state)
+    }
+
+    @Test
+    fun `snapshot restore takes both flags from the snapshot`() {
+        val unconfirmed = reduce(SessionState.IDLE, restoredEvent(physicallySolved())).state
+        assertTrue(unconfirmed.physicalSolveUnconfirmed)
+        assertFalse(unconfirmed.physicalSolveConfirmed)
+        assertEquals(SyncState.PHYSICAL_AWAITING_CONFIRM, unconfirmed.syncState)
+        assertSame(unconfirmed, reduce(unconfirmed, solveConfirmed).state)
+        val resumed = unconfirmed.after(matches, solveConfirmed)
+        assertTrue(resumed.physicalSolveConfirmed)
+
+        val confirmed = reduce(SessionState.IDLE, restoredEvent(physicallySolved().after(solveConfirmed))).state
+        assertTrue(confirmed.physicalSolveConfirmed)
+        assertFalse(confirmed.physicalSolveUnconfirmed)
+    }
+
+    private fun restoredEvent(
+        state: SessionState,
+        physicalSolveUnconfirmed: Boolean = state.physicalSolveUnconfirmed,
+    ) = SessionEvent.SessionRestored(
+        checkNotNull(SessionSnapshot.of(state, "saved", "v1")).copy(physicalSolveUnconfirmed = physicalSolveUnconfirmed),
+        checkNotNull(state.lesson),
+        checkNotNull(state.tutorConfig),
+        T0,
+    )
+
+    @Test
+    fun `an accepted mode switch persists the new mode with the unchanged checkpoint history`() {
+        val virtual = started().after(commit(R))
+        val toPhysicalTransition = reduce(virtual, toPhysical)
+        val physicalEffect = toPhysicalTransition.effects.filterIsInstance<Effect.PersistCheckpoint>().single()
+        assertEquals(CubeMode.PHYSICAL, physicalEffect.mode)
+        assertEquals(virtual.checkpoint, physicalEffect.history)
+        assertEquals(virtual.checkpoint, toPhysicalTransition.state.checkpoint)
+
+        val toVirtualTransition = reduce(toPhysicalTransition.state, toVirtual)
+        val virtualEffect = toVirtualTransition.effects.filterIsInstance<Effect.PersistCheckpoint>().single()
+        assertEquals(CubeMode.VIRTUAL, virtualEffect.mode)
+        assertEquals(virtual.checkpoint, virtualEffect.history)
+        assertEquals(virtual.checkpoint, toVirtualTransition.state.checkpoint)
+    }
+
+    @Test
+    fun `a checkpoint restore keeps a solve left unconfirmed in virtual mode`() {
+        val met = physicallySolved()
+        val switched = reduce(met, toVirtual)
+        val effect = switched.effects.filterIsInstance<Effect.PersistCheckpoint>().single()
+        assertTrue(effect.physicalSolveUnconfirmed)
+
+        val restored =
+            reduce(
+                SessionState.IDLE,
+                SessionEvent.CheckpointRestored(Checkpoint.of(effect, "v1"), checkNotNull(met.lesson), TUTOR_CONFIG, "v1", T0),
+            ).state
+        assertEquals(SyncState.VIRTUAL, restored.syncState)
+        assertTrue(restored.objectiveMet)
+        assertTrue(restored.physicalSolveUnconfirmed)
+        assertFalse(restored.physicalSolveConfirmed)
+    }
+
+    @Test
+    fun `a checkpoint emitted as the objective is met carries the flag the rule then sets`() {
+        val met = reduce(started().after(toPhysical, matches), SessionEvent.PhysicalConfirmed(F_PRIME, T0))
+        assertTrue(
+            met.effects
+                .filterIsInstance<Effect.PersistCheckpoint>()
+                .single()
+                .physicalSolveUnconfirmed,
+        )
+    }
+
+    @Test
+    fun `a rejected mode switch and a practice mode switch persist nothing`() {
+        assertTrue(reduce(started(), toVirtual).effects.isEmpty())
+        val practice = SessionState.IDLE.after(SessionEvent.PracticeStarted(whiteCrossLesson(), TUTOR_CONFIG, T0))
+        assertTrue(
+            reduce(practice, toPhysical)
+                .effects
+                .filterIsInstance<Effect.PersistCheckpoint>()
+                .isEmpty(),
+        )
     }
 }

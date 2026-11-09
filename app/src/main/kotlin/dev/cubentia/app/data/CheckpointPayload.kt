@@ -28,6 +28,7 @@ internal data class CheckpointPayload(
     val teachingMode: String,
     val adaptiveAssistance: Boolean,
     val savedAt: Long,
+    val physicalSolveUnconfirmed: Boolean = false,
 ) {
     private fun checkpoint(): Checkpoint =
         Checkpoint(
@@ -44,6 +45,7 @@ internal data class CheckpointPayload(
             teachingMode = TeachingMode.valueOf(teachingMode),
             adaptiveAssistance = adaptiveAssistance,
             savedAt = savedAt,
+            physicalSolveUnconfirmed = physicalSolveUnconfirmed,
         )
 
     companion object {
@@ -80,6 +82,7 @@ internal data class CheckpointPayload(
                     teachingMode = checkpoint.teachingMode.name,
                     adaptiveAssistance = checkpoint.adaptiveAssistance,
                     savedAt = checkpoint.savedAt,
+                    physicalSolveUnconfirmed = checkpoint.physicalSolveUnconfirmed,
                 ),
             )
     }

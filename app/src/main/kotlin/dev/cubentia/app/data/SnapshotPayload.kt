@@ -38,6 +38,8 @@ internal data class SnapshotPayload(
     val stepHelped: Set<Int>,
     val assistanceDismissed: Map<Int, String>,
     val mode: String = "VIRTUAL",
+    val physicalSolveConfirmed: Boolean = false,
+    val physicalSolveUnconfirmed: Boolean = false,
 ) {
     fun snapshot(): SessionSnapshot {
         require(format == 1)
@@ -72,6 +74,8 @@ internal data class SnapshotPayload(
                 } catch (e: IllegalArgumentException) {
                     CubeMode.VIRTUAL
                 },
+            physicalSolveConfirmed = physicalSolveConfirmed,
+            physicalSolveUnconfirmed = physicalSolveUnconfirmed,
         )
     }
 
@@ -107,6 +111,8 @@ internal data class SnapshotPayload(
                     stepHelped = snapshot.stepHelped,
                     assistanceDismissed = snapshot.assistanceDismissed.mapValues { it.value.name },
                     mode = snapshot.mode.name,
+                    physicalSolveConfirmed = snapshot.physicalSolveConfirmed,
+                    physicalSolveUnconfirmed = snapshot.physicalSolveUnconfirmed,
                 ),
             )
 

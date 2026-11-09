@@ -48,6 +48,7 @@ sealed interface Effect {
         val adaptiveAssistance: Boolean,
         val at: kotlin.time.Instant,
         val mode: CubeMode = CubeMode.VIRTUAL,
+        val physicalSolveUnconfirmed: Boolean = false,
     ) : Effect
 
     /** Solve a validated Cube State without changing the session. */

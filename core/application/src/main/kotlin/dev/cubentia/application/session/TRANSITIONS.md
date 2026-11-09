@@ -10,7 +10,7 @@ Columns:
   tutor configuration or its Solution, its `adaptiveAssistance` flag, and its entry state),
   `virtual` (the current Cube State), `pending` (the reset confirmation awaiting the Learner) and
   `tutor` (`teachingMode`, `noticeStep`, `revealRequested`, `hintRung`, `hintsUsed`, `attemptOpen`, `attemptAssistance`, `lastMoveFeedback`,
-  `lastDiagnosis`, `guidedRecovery`, `stepMistakes`, `cleanSteps`, `cleanCredited`, `stepHelped`, `assistanceDismissed`) and `checkpoint` (the Checkpoint history *Try again* returns to); `—` for none. Any
+  `lastDiagnosis`, `guidedRecovery`, `stepMistakes`, `cleanSteps`, `cleanCredited`, `stepHelped`, `assistanceDismissed`, `physicalSolveConfirmed`, `physicalSolveUnconfirmed`) and `checkpoint` (the Checkpoint history *Try again* returns to); `—` for none. Any
   change of `session`, `virtual` or the undo/redo history advances `revision` by exactly 1 and
   cancels a pending confirmation; a change of `pending`, `tutor` or `checkpoint` alone does not advance it.
 - **Undoable** — `yes` when the event pushes a Move onto the undo history, so a following `Undo`
@@ -51,6 +51,7 @@ steps remain.
 | RecoveryPlanFailed | tutor | no | no |
 | ModeSwitched | session, pending, tutor | no | yes |
 | PhysicalConfirmed | virtual, tutor, checkpoint | yes | yes |
+| PhysicalSolveConfirmed | tutor | no | no |
 | MismatchReported | tutor | no | no |
 | EditorEntered | session, virtual, tutor, checkpoint | no | yes |
 | SnapshotSaveFailed | — | no | no |
@@ -208,7 +209,8 @@ plays the shown step's Moves once on the net when the step escalates to `DEMONST
 nothing and any session interaction cancels it.)
 
 `PersistCheckpoint` is appended after Lesson transitions when the Checkpoint changes, on every
-`LessonStarted`, and on an applied `CheckpointRestored`. It consumes one effect ID, carrying the
+`LessonStarted`, on an applied `CheckpointRestored`, and on every accepted `ModeSwitched` in a Lesson (in both
+directions, with the new `mode` and the unchanged `checkpoint` history: `ModeSwitched` never moves the recovery boundary). It consumes one effect ID, carrying the
 committed revision, content IDs, boundary history, teaching settings and event time. Snapshot
 restoration, playback and tutor-only changes never emit it. The host serializes it off the main thread.
 
@@ -247,8 +249,12 @@ Physical-mode transitions (Epic 8, AD-3, AD-5):
 - Restoring a physical Checkpoint (`CheckpointRestored`) or physical snapshot (`SessionRestored`) after a kill or suspended session lands in `PHYSICAL_AWAITING_CONFIRM` with `observed` cleared, `expected` and `virtual` set to the stored/history cube state, and no effects resumed, displaying the Confirm-your-cube card.
 - `Effect.PersistCheckpoint`, `Checkpoint.of`, and `SessionSnapshot` record the session mode (`CubeMode.PHYSICAL` or `CubeMode.VIRTUAL`).
 - `Undo` in physical mode reverts `expected` (and `virtual`), transitions `PHYSICAL_MISMATCH` back to `PHYSICAL_PREDICTED`, and emits `Presentation.Instruct` with the inverse move and text `"Turn {move} on your cube to undo."`. At an undo barrier, `Undo` is a no-op.
+- `Redo` in physical mode is a no-op: the app cannot redo a turn on the Learner's cube, so `reduce` returns the same state.
 - `PhysicalConfirmed(null)` in `PHYSICAL_AWAITING_CONFIRM` confirms that the physical cube matches the expected state, transitioning to `PHYSICAL_PREDICTED` without changing revision.
 - `PhysicalConfirmed(move)` in `PHYSICAL_PREDICTED` or `PHYSICAL_VERIFIED` advances `expected := expected.apply(move)`, updates `virtual`, marks prior observations as stale, and advances revision. In `PHYSICAL_MISMATCH`, entering `move` diagnoses the physical move evidence and commits it.
 - `MismatchReported` transitions from `PHYSICAL_PREDICTED` or `PHYSICAL_VERIFIED` to `PHYSICAL_MISMATCH`, keeping `expected`, `virtual`, and revision unchanged.
 - `EditorEntered(state)` in physical mode accepts a validated cube state, transitioning to `PHYSICAL_PREDICTED`, setting `expected := state`, `virtual := state`, `observed := PhysicalObservation.Full(state)`, resetting history as an undo barrier, offering Guided recovery, and advancing revision.
 - `expected` changes ONLY upon `PhysicalConfirmed` with a move, `Undo` of a `PhysicalConfirmed`, or an accepted Full observation (`EditorEntered`).
+- `PhysicalSolveConfirmed` is accepted only in a Lesson or Practice session, in `PHYSICAL_PREDICTED` or `PHYSICAL_VERIFIED`, with `objectiveMet` and not yet confirmed; otherwise `reduce` returns the same state. It sets `physicalSolveConfirmed` and clears `physicalSolveUnconfirmed`, and never changes `revision`, history, `expected` or `checkpoint`.
+- Flag rule after every Lesson or Practice transition that changes the state: an unmet Objective clears both flags; an accepted `PhysicalSolveConfirmed` sets confirmed and clears unconfirmed; a physical session with the Objective met and not confirmed is unconfirmed; otherwise both stay, so a switch to virtual mode keeps an unconfirmed solve unconfirmed. `LessonStarted` and `PracticeStarted` start both false, then the rule applies. `SessionRestored` takes both from the snapshot. `PersistCheckpoint` and `Checkpoint` carry `physicalSolveUnconfirmed` (absent in older payloads: false), and `CheckpointRestored` copies it before the rule applies, so resuming from a Checkpoint cannot skip the confirmation; `physicalSolveConfirmed` is not carried.
+- `SessionHost` writes a physical session's completion only on an accepted `PhysicalSolveConfirmed`; a virtual session writes when `objectiveMet` flips.

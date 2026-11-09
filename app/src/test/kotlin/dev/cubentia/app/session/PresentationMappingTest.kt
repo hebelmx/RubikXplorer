@@ -31,9 +31,9 @@ class PresentationMappingTest {
     }
 
     @Test
-    fun `instruct maps to an animate item with the same move, revision and target`() {
+    fun `instruct snaps to its target because the learner turns the real cube`() {
         assertEquals(
-            PresentationItem.Animate(r, 9, turned.toFacelets()),
+            PresentationItem.Snap(9, turned.toFacelets()),
             Presentation.instruct(r, 9, turned).toItem(),
         )
     }

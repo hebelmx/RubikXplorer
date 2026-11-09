@@ -78,6 +78,8 @@ class RoomSessionSnapshotRepositoryTest {
                         attemptOpen = true,
                         attemptAssistance = AssistanceLevel.GUIDE,
                         attemptId = "attempt-1",
+                        physicalSolveConfirmed = true,
+                        physicalSolveUnconfirmed = true,
                     )
                 repo.save(tutored)
                 assertEquals(SnapshotLoad.Found(tutored), repo.latest())
@@ -89,8 +91,17 @@ class RoomSessionSnapshotRepositoryTest {
                         .replace(Regex("\"attemptAssistance\":\"[A-Z]+\","), "")
                         .replace(Regex("\"attemptId\":\"[^\"]*\","), "")
                         .replace(Regex("\"mode\":\"[^\"]*\","), "")
+                        .replace(Regex(",?\"physicalSolveConfirmed\":(?:true|false)"), "")
+                        .replace(Regex(",?\"physicalSolveUnconfirmed\":(?:true|false)"), "")
                 assertEquals(
-                    tutored.copy(attemptOpen = false, attemptAssistance = AssistanceLevel.USUAL, attemptId = null, mode = CubeMode.VIRTUAL),
+                    tutored.copy(
+                        attemptOpen = false,
+                        attemptAssistance = AssistanceLevel.USUAL,
+                        attemptId = null,
+                        mode = CubeMode.VIRTUAL,
+                        physicalSolveConfirmed = false,
+                        physicalSolveUnconfirmed = false,
+                    ),
                     SnapshotPayload.decode(legacy),
                 )
                 val row = checkNotNull(db.snapshots().latest())

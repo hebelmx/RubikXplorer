@@ -63,6 +63,19 @@ class SessionSnapshotTest {
         assertEquals(before.history.redo(), after.after(redo).history)
     }
 
+    @Test fun `physical solve flags are captured and restored`() {
+        val physical = started().after(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0), SessionEvent.PhysicalConfirmed(null, T0))
+        val met = physical.after(SessionEvent.PhysicalConfirmed(F_PRIME, T0))
+        val saved = checkNotNull(SessionSnapshot.of(met, "s", "v1"))
+        assertTrue(saved.physicalSolveUnconfirmed)
+        assertFalse(saved.physicalSolveConfirmed)
+
+        val confirmed = met.after(SessionEvent.PhysicalSolveConfirmed(T0))
+        val savedConfirmed = checkNotNull(SessionSnapshot.of(confirmed, "s", "v1"))
+        assertTrue(savedConfirmed.physicalSolveConfirmed)
+        assertFalse(savedConfirmed.physicalSolveUnconfirmed)
+    }
+
     @Test fun `a Checkpoint left on another branch by Undo and a different Move still restores`() {
         // U completes step 1 (Checkpoint [U]); Undo below the boundary and R keep the Checkpoint at [U].
         val before = started(lesson).after(commit(U), undo, commit(R))

@@ -40,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -88,6 +89,7 @@ import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.application.port.FlagLevel
 import dev.cubentia.application.session.CubeMode
 import dev.cubentia.application.session.GuidedRecovery
+import dev.cubentia.application.session.Presentation
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionKind
 import dev.cubentia.application.session.SessionState
@@ -163,13 +165,9 @@ fun LessonScreen(
     var initialCompleted by rememberSaveable(lesson.id.value) { mutableStateOf<Boolean?>(null) }
     var initialMastered by rememberSaveable(lesson.id.value) { mutableStateOf<Boolean?>(null) }
     var milestoneDismissed by rememberSaveable(lesson.id.value) { mutableStateOf(false) }
-    var physicalFirstSolveConfirmed by rememberSaveable(lesson.id.value) { mutableStateOf(false) }
-    // Set once the Stage 6 objective is met on the real cube without *Yes, it's solved*; blocks the
-    // virtual-mode milestone so switching modes cannot skip the honest confirmation (AC 1).
-    var physicalSolveUnconfirmed by rememberSaveable(lesson.id.value) { mutableStateOf(false) }
 
     val isPhysical = session.syncState != SyncState.VIRTUAL
-    val isEndOfStage6 = entry.lesson.id.value == "lesson-06-03"
+    val isEndOfStage6 = lesson.isCourseFinale
 
     val currentEpochAttempts =
         remember(attemptRecords, progressEvents) {
@@ -193,18 +191,10 @@ fun LessonScreen(
             !milestoneDismissed &&
             session.lesson?.id == lesson.id &&
             if (isPhysical) {
-                physicalFirstSolveConfirmed && (session.decision?.satisfied == true || session.objectiveMet)
+                session.physicalSolveConfirmed
             } else {
-                session.decision?.satisfied == true && !physicalSolveUnconfirmed
+                session.decision?.satisfied == true && !session.physicalSolveUnconfirmed
             }
-
-    val objectiveSatisfied = session.decision?.satisfied == true || session.objectiveMet
-    LaunchedEffect(isEndOfStage6, isPhysical, objectiveSatisfied, physicalFirstSolveConfirmed) {
-        when {
-            !objectiveSatisfied -> physicalSolveUnconfirmed = false
-            isEndOfStage6 && isPhysical && !physicalFirstSolveConfirmed -> physicalSolveUnconfirmed = true
-        }
-    }
 
     val showMilestone = isFirstSolveMilestone || isMasteryMilestone
 
@@ -221,18 +211,7 @@ fun LessonScreen(
         preferenceStore.awaitLoaded()
         if (initialCompleted == null) {
             val epochEvents = StageProgress.currentEpochEvents(host.progressEvents.value)
-            // SessionHost records LessonCompleted as soon as the physical objective is met, before the
-            // learner confirms. Re-entering at that pending prompt must not count as already completed,
-            // or *Yes, it's solved* would close the screen and the first-solve milestone would be lost.
-            val resumed = host.state.value
-            val pendingPhysicalSolve =
-                isEndOfStage6 &&
-                    resumed.lesson?.id == lesson.id &&
-                    resumed.syncState != SyncState.VIRTUAL &&
-                    (resumed.decision?.satisfied == true || resumed.objectiveMet)
-            initialCompleted =
-                !pendingPhysicalSolve &&
-                epochEvents.any { it is ProgressEvent.LessonCompleted && it.lessonId == lesson.id }
+            initialCompleted = epochEvents.any { it is ProgressEvent.LessonCompleted && it.lessonId == lesson.id }
         }
         if (initialMastered == null) {
             val epochAttempts = Mastery.currentEpochAttempts(host.attemptRecords.value, host.progressEvents.value)
@@ -334,9 +313,11 @@ fun LessonScreen(
                     isSkipCheck = isSkipCheck,
                     onSkipCheckPassed = onSkipCheckPassed,
                     onYesItsSolved = {
-                        physicalFirstSolveConfirmed = true
-                        if (initialCompleted == true) {
-                            onClose()
+                        scope.launch {
+                            host.dispatch { SessionEvent.PhysicalSolveConfirmed(it) }
+                            if (initialCompleted == true) {
+                                onClose()
+                            }
                         }
                     },
                 )
@@ -470,8 +451,17 @@ private fun LessonBody(
     var showManualEditor by rememberSaveable { mutableStateOf(false) }
     var showMoveKeyBar by rememberSaveable(isPhysical) { mutableStateOf(!isPhysical) }
 
+    // The last physical Undo's instruction; presentation only, so it is cleared by the next send.
+    var physicalInstruction by rememberSaveable(lesson.id) { mutableStateOf<String?>(null) }
+
     LaunchedEffect(isPhysical) {
         showMoveKeyBar = !isPhysical
+    }
+
+    LaunchedEffect(session.syncState) {
+        if (session.syncState == SyncState.VIRTUAL || session.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM) {
+            physicalInstruction = null
+        }
     }
 
     BackHandler(enabled = showManualEditor) {
@@ -526,7 +516,16 @@ private fun LessonBody(
     }
     val send: ((Instant) -> SessionEvent) -> Unit = { event ->
         stopReorientation()
-        scope.launch { renderer.submit(host.dispatch(event).presentation.toItems()) }
+        physicalInstruction = null
+        scope.launch {
+            val presentation = host.dispatch(event).presentation
+            renderer.submit(presentation.toItems())
+            presentation.filterIsInstance<Presentation.Instruct>().lastOrNull()?.let {
+                // Compose the cleared value first, or a repeated instruction is no change to the live region.
+                withFrameNanos {}
+                physicalInstruction = strings.resolve(it.text)
+            }
+        }
     }
     val pulse = if (isPhysical) 0f else rememberObjectivePulse(decision.satisfied, reduceMotion)
     val mode = session.teachingMode
@@ -560,6 +559,12 @@ private fun LessonBody(
                 if (decision.satisfied || (isPhysical && session.objectiveMet)) {
                     if (isSkipCheck && onSkipCheckPassed != null) {
                         onSkipCheckPassed()
+                    } else if (isPhysical && session.objectiveMet) {
+                        // *Next* answers "If your cube matches the picture, this step is done."
+                        scope.launch {
+                            host.dispatch { SessionEvent.PhysicalSolveConfirmed(it) }
+                            onClose()
+                        }
                     } else {
                         onClose()
                     }
@@ -600,7 +605,7 @@ private fun LessonBody(
             },
             onDidSomethingElse = { showMoveKeyBar = true },
             onMismatchReported = { send { SessionEvent.MismatchReported(it) } },
-            isEndOfStage6 = lesson.id.value == "lesson-06-03",
+            isEndOfStage6 = lesson.isCourseFinale,
             onYesItsSolved = onYesItsSolved,
         )
     }
@@ -704,6 +709,21 @@ private fun LessonBody(
         }
     }
 
+    if (isPhysical) {
+        // Stays composed while empty: a live region announces changes, and its initial insertion is silent.
+        Text(
+            text = physicalInstruction.orEmpty(),
+            style = MaterialTheme.typography.bodyMedium,
+            color = RubikTheme.tokens.inkPrimary,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.s4)
+                    .semantics { liveRegion = LiveRegionMode.Polite }
+                    .testTag("lesson:physicalInstruction"),
+        )
+    }
+
     val stageColor = RubikTheme.tokens.surfaceStage
     val stageShape = MaterialTheme.shapes.large
 
@@ -761,6 +781,9 @@ private fun LessonBody(
     }
 }
 
+/** The course's last Lesson, whose solve is the first-solve milestone; the one place its id is named. */
+private val Lesson.isCourseFinale: Boolean get() = id.value == "lesson-06-03"
+
 /** What TalkBack reads for a Lesson cube in [state]: its Objective progress, or null when there is none to tell. */
 private fun cubeSummary(
     state: CubeState,
@@ -786,7 +809,7 @@ private fun physicalObjectiveMetCopy(
     if (session.syncState == SyncState.VIRTUAL) return null
     val key =
         when {
-            lesson.id.value != "lesson-06-03" -> "msg.physical.objective-met"
+            !lesson.isCourseFinale -> "msg.physical.objective-met"
             camera -> "msg.physical.first-solve-prompt-camera"
             else -> "msg.physical.first-solve-prompt"
         }
@@ -854,7 +877,7 @@ private fun stepCard(
             isPractice = true,
             isPhysical = session.syncState != SyncState.VIRTUAL,
             objectiveMetCopy = physicalObjectiveMetCopy(session, lesson, strings, camera),
-            isEndOfStage6 = lesson.id.value == "lesson-06-03",
+            isEndOfStage6 = lesson.isCourseFinale,
         )
     }
     val index: Int
@@ -937,7 +960,7 @@ private fun stepCard(
         isPhysical = session.syncState != SyncState.VIRTUAL,
         objectiveMetCopy = physicalObjectiveMetCopy(session, lesson, strings, camera),
         candidate = diagnosisCandidate,
-        isEndOfStage6 = lesson.id.value == "lesson-06-03",
+        isEndOfStage6 = lesson.isCourseFinale,
     )
 }
 
@@ -1026,7 +1049,7 @@ private fun LearnerStage(
                     caption = null
                     send(SessionEvent::Undo)
                 }
-                ToolbarButton(R.drawable.ic_redo, R.string.toolbar_redo, "toolbar:redo", session.history.canRedo) {
+                ToolbarButton(R.drawable.ic_redo, R.string.toolbar_redo, "toolbar:redo", session.history.canRedo && !isPhysical) {
                     caption = null
                     send(SessionEvent::Redo)
                 }

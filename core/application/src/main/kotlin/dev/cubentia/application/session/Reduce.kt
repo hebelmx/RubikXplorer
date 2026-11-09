@@ -32,6 +32,39 @@ import dev.cubentia.domain.tutor.Tutor
 fun reduce(
     state: SessionState,
     event: SessionEvent,
+): Transition = withPhysicalSolveFlags(state, applied(state, event), event)
+
+/**
+ * The flag rule after a Lesson or Practice transition: an unmet Objective clears both flags; a physical
+ * session with the Objective met and no confirmation is unconfirmed; otherwise they stay (accepted
+ * [SessionEvent.PhysicalSolveConfirmed] set them, and a switch to virtual mode keeps them).
+ * [SessionEvent.SessionRestored] takes both from the snapshot and an ignored event changes nothing.
+ */
+private fun withPhysicalSolveFlags(
+    before: SessionState,
+    transition: Transition,
+    event: SessionEvent,
+): Transition {
+    val next = transition.state
+    if (next === before || event is SessionEvent.SessionRestored) return transition
+    if (next.kind != SessionKind.LESSON && next.kind != SessionKind.PRACTICE) return transition
+    val confirmed = next.objectiveMet && next.physicalSolveConfirmed
+    val unconfirmed = solveUnconfirmed(next)
+    if (confirmed == next.physicalSolveConfirmed && unconfirmed == next.physicalSolveUnconfirmed) return transition
+    return transition.copy(state = next.copy(physicalSolveConfirmed = confirmed, physicalSolveUnconfirmed = unconfirmed))
+}
+
+/** The unconfirmed flag the rule gives [state]; a Checkpoint emitted before the rule runs carries this too. */
+private fun solveUnconfirmed(state: SessionState): Boolean =
+    when {
+        !state.objectiveMet -> false
+        state.isPhysical && !state.physicalSolveConfirmed -> true
+        else -> state.physicalSolveUnconfirmed
+    }
+
+private fun applied(
+    state: SessionState,
+    event: SessionEvent,
 ): Transition {
     if (event is SessionEvent.CheckpointRestored) {
         return attempts(
@@ -64,6 +97,9 @@ fun reduce(
                     (event is SessionEvent.Undo && state.isPhysical)
             )
     if (!starts && state.kind != SessionKind.LESSON && state.kind != SessionKind.PRACTICE && !playbackAllowed) return Transition(state)
+    // Ignored outright, so not even the generic clearing below applies.
+    if (event is SessionEvent.Redo && state.isPhysical) return Transition(state)
+    if (event is SessionEvent.PhysicalSolveConfirmed && !canConfirmPhysicalSolve(state)) return Transition(state)
     val transition =
         attempts(state, persistCheckpoint(state, transition(state, event), event), event).let {
             if (it.state.restoreNote == null ||
@@ -127,12 +163,8 @@ private fun transition(
         }
 
         is SessionEvent.Redo -> {
-            if (state.syncState == SyncState.VIRTUAL) {
-                state.history.redoable?.let { move(state, state.history.redo(), it, null) } ?: Transition(state)
-            } else {
-                state.history.redoable?.let { confirmPhysical(state, SessionEvent.PhysicalConfirmed(it, event.at), isRedo = true) }
-                    ?: Transition(state)
-            }
+            // Physical mode never reaches here: the app cannot redo a turn on the Learner's cube.
+            state.history.redoable?.let { move(state, state.history.redo(), it, null) } ?: Transition(state)
         }
 
         is SessionEvent.Reset -> {
@@ -195,6 +227,10 @@ private fun transition(
             confirmPhysical(state, event)
         }
 
+        is SessionEvent.PhysicalSolveConfirmed -> {
+            Transition(state.copy(physicalSolveConfirmed = true, physicalSolveUnconfirmed = false))
+        }
+
         is SessionEvent.MismatchReported -> {
             reportMismatch(state, event)
         }
@@ -243,6 +279,8 @@ private fun start(
             expected = entry,
             observed = null,
             syncState = SyncState.VIRTUAL,
+            physicalSolveConfirmed = false,
+            physicalSolveUnconfirmed = false,
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, entry)))
 }
@@ -280,6 +318,8 @@ private fun startPractice(
             expected = entry,
             observed = null,
             syncState = SyncState.VIRTUAL,
+            physicalSolveConfirmed = false,
+            physicalSolveUnconfirmed = false,
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, entry)))
 }
@@ -321,6 +361,8 @@ private fun startPlayback(
             expected = start,
             observed = null,
             syncState = SyncState.VIRTUAL,
+            physicalSolveConfirmed = false,
+            physicalSolveUnconfirmed = false,
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, start)))
 }
@@ -505,7 +547,6 @@ private fun switchMode(
 private fun confirmPhysical(
     state: SessionState,
     event: SessionEvent.PhysicalConfirmed,
-    isRedo: Boolean = false,
 ): Transition {
     return when (state.syncState) {
         SyncState.PHYSICAL_AWAITING_CONFIRM -> {
@@ -519,7 +560,7 @@ private fun confirmPhysical(
         SyncState.PHYSICAL_PREDICTED, SyncState.PHYSICAL_VERIFIED -> {
             val move = event.move ?: return Transition(state)
             val nextExpected = state.expected.apply(move)
-            val history = if (isRedo) state.history.redo() else state.history.commit(move)
+            val history = state.history.commit(move)
             val lesson = state.lesson
             val mode = state.teachingMode
             val assessed =
@@ -568,6 +609,11 @@ private fun confirmPhysical(
         }
     }
 }
+
+private fun canConfirmPhysicalSolve(state: SessionState): Boolean =
+    (state.syncState == SyncState.PHYSICAL_PREDICTED || state.syncState == SyncState.PHYSICAL_VERIFIED) &&
+        state.objectiveMet &&
+        !state.physicalSolveConfirmed
 
 private fun reportMismatch(
     state: SessionState,
@@ -913,6 +959,8 @@ private fun restore(
             expected = effectiveHistory.state,
             observed = null,
             syncState = if (snapshot.mode == CubeMode.PHYSICAL) SyncState.PHYSICAL_AWAITING_CONFIRM else SyncState.VIRTUAL,
+            physicalSolveConfirmed = snapshot.physicalSolveConfirmed,
+            physicalSolveUnconfirmed = snapshot.physicalSolveUnconfirmed,
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.virtual)))
 }
@@ -928,8 +976,10 @@ private fun persistCheckpoint(
     val lesson = next.lesson ?: return transition
     val history = next.checkpoint ?: return transition
     val restored = event is SessionEvent.CheckpointRestored && next !== before
+    // An accepted mode switch records the new mode; the Checkpoint's history stays the recovery boundary.
+    val switched = event is SessionEvent.ModeSwitched && next !== before
     if (event is SessionEvent.SessionRestored ||
-        (history == before.checkpoint && event !is SessionEvent.LessonStarted && !restored)
+        (history == before.checkpoint && event !is SessionEvent.LessonStarted && !restored && !switched)
     ) {
         return transition
     }
@@ -944,6 +994,7 @@ private fun persistCheckpoint(
             next.adaptiveAssistance,
             event.at,
             mode = next.mode,
+            physicalSolveUnconfirmed = solveUnconfirmed(next),
         )
     return transition.copy(state = next.copy(nextEffectId = next.nextEffectId + 1), effects = transition.effects + effect)
 }
@@ -985,6 +1036,7 @@ private fun restoreCheckpoint(
             expected = history.state,
             observed = null,
             syncState = if (isPhysical) SyncState.PHYSICAL_AWAITING_CONFIRM else SyncState.VIRTUAL,
+            physicalSolveUnconfirmed = checkpoint.physicalSolveUnconfirmed,
         )
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.virtual)))
 }

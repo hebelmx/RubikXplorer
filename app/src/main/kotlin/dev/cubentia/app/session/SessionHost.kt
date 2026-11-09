@@ -473,14 +473,20 @@ class SessionHost internal constructor(
                 }
             }
             val lesson = transition.state.lesson
+            // In physical mode objectiveMet is only a prediction: completion waits for the Learner's word.
+            val completed =
+                if (transition.state.isPhysical) {
+                    !before.physicalSolveConfirmed && transition.state.physicalSolveConfirmed
+                } else {
+                    transition.state.objectiveMet && (!before.objectiveMet || before.lesson?.id != lesson?.id)
+                }
             if (completeLesson != null &&
                 transition.state.kind == SessionKind.LESSON &&
                 lesson != null &&
                 !lesson.id.value.startsWith("skip-check-") &&
                 stamped !is SessionEvent.SessionRestored &&
                 stamped !is SessionEvent.CheckpointRestored &&
-                transition.state.objectiveMet &&
-                (!before.objectiveMet || before.lesson?.id != lesson.id)
+                completed
             ) {
                 val cube = transition.state.virtual
                 val currentStages = stages

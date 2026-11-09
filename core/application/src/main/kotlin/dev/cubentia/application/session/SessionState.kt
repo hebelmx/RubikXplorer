@@ -34,7 +34,7 @@ import dev.cubentia.domain.tutor.TutorDecision
  *   every change of [virtual].
  * - The tutor fields ([teachingMode], [noticeStep], [revealRequested], [hintRung], [hintsUsed],
  *   [attemptOpen], [attemptAssistance], [lastMoveFeedback], [lastDiagnosis], [guidedRecovery], [stepMistakes], [cleanSteps],
- *   [cleanCredited], [stepHelped], [assistanceDismissed], [restoreNote]) never advance [revision]: a mode switch, a reveal or a Hint
+ *   [cleanCredited], [stepHelped], [assistanceDismissed], [restoreNote], [physicalSolveConfirmed], [physicalSolveUnconfirmed]) never advance [revision]: a mode switch, a reveal or a Hint
  *   does not change the Cube State, so it must not stale a pending effect.
  * - [checkpoint] is the Objective-boundary history *Try again* returns to; its changes never
  *   advance [revision] either.
@@ -143,6 +143,16 @@ data class SessionState internal constructor(
     val observed: PhysicalObservation? = null,
     /** The current state in the 5-state sync state machine (AD-3). */
     val syncState: SyncState = SyncState.VIRTUAL,
+    /**
+     * True once the Learner confirmed the Objective on their real cube (`PhysicalSolveConfirmed`), while
+     * it stays met; a physical session's completion is recorded only then. Never advances [revision].
+     */
+    val physicalSolveConfirmed: Boolean = false,
+    /**
+     * True while the Objective was met in physical mode and the Learner has not confirmed it, kept
+     * across a switch to virtual mode, so no milestone can skip the confirmation. Never advances [revision].
+     */
+    val physicalSolveUnconfirmed: Boolean = false,
 ) {
     /** Whether the session is currently in virtual or physical mode. */
     val mode: CubeMode get() = if (syncState == SyncState.VIRTUAL) CubeMode.VIRTUAL else CubeMode.PHYSICAL
@@ -281,6 +291,8 @@ data class SessionState internal constructor(
                 expected = CubeState.SOLVED,
                 observed = null,
                 syncState = SyncState.VIRTUAL,
+                physicalSolveConfirmed = false,
+                physicalSolveUnconfirmed = false,
             )
     }
 }
