@@ -4,7 +4,6 @@
 
     <!-- Free cube stage -->
     <string name="frame_virtual">VIRTUAL</string>
-    <string name="frame_expected">EXPECTED</string>
     <string name="toolbar_undo">Undo</string>
     <string name="toolbar_redo">Redo</string>
     <string name="toolbar_reset">Reset</string>
@@ -39,28 +38,6 @@
     <string name="mode_test_me">Test me</string>
     <string name="mode_let_me_try">Let me try</string>
     <string name="lesson_moves_hidden">Hidden until you ask for a hint.</string>
-    <string name="physical_mode">Physical mode</string>
-    <string name="physical_back_to_virtual">The on-screen cube now matches what we expected on yours.</string>
-    <string name="confirm_your_cube">Confirm your cube</string>
-    <string name="confirm_cube_matches">It matches</string>
-    <string name="confirm_cube_enter">Enter it</string>
-    <string name="physical_done">Done</string>
-    <string name="physical_did_something_else">I did something else</string>
-    <string name="physical_objective_met">If your cube matches the picture, this step is done.</string>
-    <string name="physical_yes_its_solved">Yes, it\'s solved</string>
-    <string name="physical_mismatch_my_cube_doesnt_match">My cube doesn\'t match</string>
-    <string name="physical_mismatch_not_sure_what_i_did">I\'m not sure what I did</string>
-    <string name="physical_mismatch_which_turn">Which turn did you make?</string>
-    <string name="physical_mismatch_one_face">Look at the front face — which corner is white?</string>
-    <string name="physical_mismatch_reenter">Let\'s re-enter your cube</string>
-    <string name="physical_mismatch_corner_top_left">Top-left</string>
-    <string name="physical_mismatch_corner_top_right">Top-right</string>
-    <string name="physical_mismatch_corner_bottom_left">Bottom-left</string>
-    <string name="physical_mismatch_corner_bottom_right">Bottom-right</string>
-    <string name="physical_mismatch_corner_none">None of these</string>
-    <string name="physical_mismatch_next_question">Next question</string>
-    <string name="physical_mismatch_candidate">Candidate: %1$s</string>
-    <string name="physical_overflow_menu">More options</string>
 
     <!-- Playback transport -->
     <string name="playback_restart" translatable="false">|◀</string>
@@ -80,8 +57,6 @@
     <string name="playback_speed_double" translatable="false">2×</string>
     <string name="playback_speed_description">Playback speed</string>
     <string name="playback_counter" translatable="false">%1$d / %2$d</string>
-    <string name="playback_follow_on_my_cube">I\'m following on my cube</string>
-    <string name="playback_cube_should_be_solved">Your cube should be solved now.</string>
 
     <!-- Move key bar -->
     <string name="move_group_rotations">⟳</string>

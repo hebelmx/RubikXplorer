@@ -120,7 +120,7 @@ internal object ContentChecks {
             .flatMap { textCalls(it.relativeTo(root).path, it.readText()) }
             .toList()
 
-    private val CALL = Regex("(?<![A-Za-z0-9_.])Text\\(")
+    private val CALL = Regex("(?<![A-Za-z0-9_.])(?:Content)?Text\\(")
     private val LITERAL = Regex("\"([^\"\\\\$]*)\"")
     private val ARG_NAME = Regex("\"([^\"]+)\"\\s+to\\b")
 

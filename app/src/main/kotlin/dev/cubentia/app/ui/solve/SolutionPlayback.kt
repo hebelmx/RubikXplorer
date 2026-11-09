@@ -52,8 +52,8 @@ import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.playback.MoveNote
-import dev.cubentia.domain.text.Text
 import kotlin.time.Instant
+import dev.cubentia.domain.text.Text as ContentText
 
 /**
  * Ephemeral state of one [SolutionPlayback] (FR-16): the shared [NetPlayback] over a
@@ -114,7 +114,7 @@ class SolutionPlaybackState private constructor(
             }
 
     /** The generated note of the current Move (AD-20); null with no Moves or when at end in physical mode. */
-    val note: Text? get() = currentMove?.let(MoveNote::of)
+    val note: ContentText? get() = currentMove?.let(MoveNote::of)
 
     fun followOnMyCube() {
         if (isPhysical) return
@@ -242,7 +242,7 @@ fun SolutionPlayback(
         ) {
             state.renderer.Content(style, Modifier.fillMaxSize())
             if (state.isPhysical) {
-                FrameLabel(syncState = state.session.syncState)
+                FrameLabel(strings, syncState = state.session.syncState)
             }
         }
 
@@ -264,7 +264,7 @@ fun SolutionPlayback(
                             .heightIn(min = Spacing.touchMin)
                             .testTag("playback:followOnMyCube"),
                 ) {
-                    Text(strings.resolve(Text("msg.playback.follow-on-my-cube")))
+                    Text(text = strings.resolve(ContentText("msg.playback.follow-on-my-cube")))
                 }
             }
         }
@@ -348,13 +348,13 @@ private fun PhysicalPlaybackControls(
                         .heightIn(min = Spacing.touchMin)
                         .testTag("playback:done"),
             ) {
-                Text(stringResource(R.string.physical_done))
+                Text(text = strings.resolve(ContentText("btn.physical.done")))
             }
         }
 
         if (state.atEnd) {
             Text(
-                text = strings.resolve(Text("msg.playback.cube-should-be-solved")),
+                text = strings.resolve(ContentText("msg.playback.cube-should-be-solved")),
                 style = MaterialTheme.typography.bodyMedium,
                 color = tokens.inkPrimary,
                 modifier =
@@ -365,7 +365,7 @@ private fun PhysicalPlaybackControls(
             )
         }
 
-        val physicalModeLabel = stringResource(R.string.physical_mode)
+        val physicalModeLabel = strings.resolve(ContentText("msg.physical.mode"))
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.s2),

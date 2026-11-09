@@ -124,6 +124,7 @@ import dev.cubentia.domain.tutor.TutorDecision
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.time.Instant
+import dev.cubentia.domain.text.Text as ContentText
 
 /**
  * The Lesson task flow (FR-5, FR-6): a top bar with close over the stage and the [LessonPanel],
@@ -263,6 +264,9 @@ fun LessonScreen(
         ) {
             LessonTopBar(
                 title = strings.resolve(entry.stage.title),
+                strings = strings,
+                // The skip-ahead check is passed only on the virtual cube.
+                showPhysicalMode = !isSkipCheck,
                 isPhysical = isPhysical,
                 onPhysicalToggle = { enabled ->
                     scope.launch {
@@ -333,7 +337,7 @@ fun LessonScreen(
                     strings.resolve(TextKey("msg.milestone.first-solve"))
                 } else {
                     strings.resolve(
-                        dev.cubentia.domain.text.Text(
+                        ContentText(
                             "msg.milestone.stage-mastered",
                             mapOf("stage" to strings.resolve(entry.stage.title)),
                         ),
@@ -378,6 +382,8 @@ fun LessonScreen(
 @Composable
 private fun LessonTopBar(
     title: String,
+    strings: ContentStrings,
+    showPhysicalMode: Boolean,
     isPhysical: Boolean,
     onPhysicalToggle: (Boolean) -> Unit,
     onClose: () -> Unit,
@@ -408,24 +414,26 @@ private fun LessonTopBar(
             modifier = Modifier.padding(start = Spacing.s2).semantics { heading() },
         )
         Spacer(Modifier.weight(1f))
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier =
-                Modifier
-                    .testTag("lesson:physicalMode")
-                    .padding(horizontal = Spacing.s2),
-        ) {
-            Text(
-                text = stringResource(R.string.physical_mode),
-                style = MaterialTheme.typography.labelMedium,
-                color = tokens.inkSecondary,
-                modifier = Modifier.padding(end = Spacing.s2),
-            )
-            Switch(
-                checked = isPhysical,
-                onCheckedChange = onPhysicalToggle,
-                modifier = Modifier.testTag("lesson:physicalModeSwitch"),
-            )
+        if (showPhysicalMode) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier =
+                    Modifier
+                        .testTag("lesson:physicalMode")
+                        .padding(horizontal = Spacing.s2),
+            ) {
+                Text(
+                    text = strings.resolve(ContentText("msg.physical.mode")),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = tokens.inkSecondary,
+                    modifier = Modifier.padding(end = Spacing.s2),
+                )
+                Switch(
+                    checked = isPhysical,
+                    onCheckedChange = onPhysicalToggle,
+                    modifier = Modifier.testTag("lesson:physicalModeSwitch"),
+                )
+            }
         }
     }
 }
@@ -547,6 +555,7 @@ private fun LessonBody(
     val panel: @Composable (Modifier) -> Unit = { panelModifier ->
         LessonPanel(
             objective = strings.resolve(lesson.objective),
+            strings = strings,
             step = step,
             modes = if (isPractice || isSkipCheck || session.kind == SessionKind.PRACTICE) emptyList() else modes,
             mode = mode,
@@ -612,7 +621,6 @@ private fun LessonBody(
             },
             onDidSomethingElse = { showMoveKeyBar = true },
             onMismatchReported = { send { SessionEvent.MismatchReported(it) } },
-            matchesAfterAllLabel = strings.resolve(TextKey("msg.physical.mismatch.matches-after-all")),
             onMatchesAfterAll = {
                 showMoveKeyBar = false
                 send { SessionEvent.PhysicalConfirmed(null, it) }
@@ -641,6 +649,7 @@ private fun LessonBody(
                     Column(Modifier.fillMaxSize()) {
                         DemonstrationPlayer(
                             player,
+                            strings,
                             Modifier.fillMaxWidth().weight(1f).padding(Spacing.s2),
                             summary = cubeSummary(shown, lesson, strings),
                             certainty = decision.certainty,
@@ -1045,7 +1054,7 @@ private fun LearnerStage(
         verticalArrangement = Arrangement.spacedBy(Spacing.s1),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            FrameLabel(certainty, session.syncState)
+            FrameLabel(strings, certainty, session.syncState)
             val isPhysical = session.syncState != SyncState.VIRTUAL
             if (session.syncState == SyncState.PHYSICAL_MISMATCH || session.syncState == SyncState.PHYSICAL_VERIFIED ||
                 (isPhysical && session.lastDiagnosis != null)
@@ -1240,12 +1249,13 @@ internal val DashedBorderKey = SemanticsPropertyKey<Boolean>("DashedBorder")
 /** Certainty changes are announced by the frame's live region; initial insertion is silent. */
 @Composable
 internal fun FrameLabel(
+    strings: ContentStrings,
     certainty: Certainty? = null,
     syncState: SyncState = SyncState.VIRTUAL,
 ) {
     val isPhysical = syncState != SyncState.VIRTUAL
     val tokens = RubikTheme.tokens
-    val text = stringResource(if (isPhysical) R.string.frame_expected else R.string.frame_virtual)
+    val text = if (isPhysical) strings.resolve(ContentText("msg.physical.frame-expected")) else stringResource(R.string.frame_virtual)
     val description =
         if (isPhysical || certainty == null) {
             null

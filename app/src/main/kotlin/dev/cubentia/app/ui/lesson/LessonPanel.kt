@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.R
+import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.application.session.SyncState
@@ -53,6 +54,7 @@ import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.tutor.HintRung
 import dev.cubentia.domain.tutor.RecoveryOffer
 import dev.cubentia.domain.tutor.TeachingMode
+import dev.cubentia.domain.text.Text as ContentText
 
 /**
  * What the step card shows, already resolved: step [number] of [count], its Goal, Keep and Watch,
@@ -109,6 +111,7 @@ internal data class StepCardContent(
 @Composable
 internal fun LessonPanel(
     objective: String,
+    strings: ContentStrings,
     step: StepCardContent,
     modes: List<TeachingMode>,
     mode: TeachingMode,
@@ -131,7 +134,6 @@ internal fun LessonPanel(
     onDone: () -> Unit = {},
     onDidSomethingElse: () -> Unit = {},
     onMismatchReported: () -> Unit = {},
-    matchesAfterAllLabel: String = "",
     onMatchesAfterAll: () -> Unit = {},
     mismatchRung: Int = 1,
     onMismatchRungChange: (Int) -> Unit = {},
@@ -170,6 +172,7 @@ internal fun LessonPanel(
         }
         if (syncState == SyncState.PHYSICAL_AWAITING_CONFIRM) {
             ConfirmCubeCard(
+                strings = strings,
                 onMatches = onConfirmMatches,
                 onEnter = onConfirmEnter,
                 modifier = Modifier.fillMaxWidth(),
@@ -177,7 +180,7 @@ internal fun LessonPanel(
         } else if (syncState == SyncState.PHYSICAL_MISMATCH) {
             MismatchLadder(
                 onOpenEditor = onConfirmEnter,
-                matchesAfterAllLabel = matchesAfterAllLabel,
+                strings = strings,
                 onMatchesAfterAll = onMatchesAfterAll,
                 rung = mismatchRung,
                 onRungChange = onMismatchRungChange,
@@ -186,7 +189,7 @@ internal fun LessonPanel(
         } else if (isPhysical) {
             step.candidate?.let { candidate ->
                 Text(
-                    text = stringResource(R.string.physical_mismatch_candidate, candidate),
+                    text = strings.resolve(ContentText("msg.physical.mismatch.candidate", mapOf("candidate" to candidate))),
                     style = MaterialTheme.typography.bodyMedium,
                     color = tokens.statusLikely,
                     modifier = Modifier.testTag("mismatch:candidate"),
@@ -203,7 +206,7 @@ internal fun LessonPanel(
                     shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:didSomethingElse"),
                 ) {
-                    Text(stringResource(R.string.physical_did_something_else), color = tokens.inkPrimary)
+                    Text(strings.resolve(ContentText("btn.physical.did-something-else")), color = tokens.inkPrimary)
                 }
                 if (isEndOfStage6 && step.objectiveMet) {
                     Button(
@@ -219,7 +222,7 @@ internal fun LessonPanel(
                             ),
                         modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:yesItsSolved"),
                     ) {
-                        Text(stringResource(R.string.physical_yes_its_solved))
+                        Text(text = strings.resolve(ContentText("btn.physical.yes-its-solved")))
                     }
                 } else {
                     Button(
@@ -244,7 +247,16 @@ internal fun LessonPanel(
                                 },
                             ),
                     ) {
-                        Text(stringResource(if (nextEnabled || step.objectiveMet) R.string.lesson_next else R.string.physical_done))
+                        Text(
+                            text =
+                                if (nextEnabled ||
+                                    step.objectiveMet
+                                ) {
+                                    stringResource(R.string.lesson_next)
+                                } else {
+                                    strings.resolve(ContentText("btn.physical.done"))
+                                },
+                        )
                     }
                 }
                 Box {
@@ -254,7 +266,7 @@ internal fun LessonPanel(
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.ic_more_vert),
-                            contentDescription = stringResource(R.string.physical_overflow_menu),
+                            contentDescription = strings.resolve(ContentText("btn.physical.more-options")),
                             tint = tokens.inkPrimary,
                         )
                     }
@@ -263,7 +275,7 @@ internal fun LessonPanel(
                         onDismissRequest = { menuExpanded = false },
                     ) {
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.physical_mismatch_my_cube_doesnt_match)) },
+                            text = { Text(text = strings.resolve(ContentText("btn.physical.my-cube-doesnt-match"))) },
                             onClick = {
                                 menuExpanded = false
                                 onMismatchReported()
@@ -271,7 +283,7 @@ internal fun LessonPanel(
                             modifier = Modifier.testTag("lesson:menuMismatch"),
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.physical_mismatch_not_sure_what_i_did)) },
+                            text = { Text(text = strings.resolve(ContentText("btn.physical.not-sure-what-i-did"))) },
                             onClick = {
                                 menuExpanded = false
                                 onMismatchReported()
@@ -307,7 +319,7 @@ internal fun LessonPanel(
                         ),
                     modifier = Modifier.weight(1f).heightIn(min = Spacing.touchMin).testTag("lesson:next"),
                 ) {
-                    Text(stringResource(R.string.lesson_next))
+                    Text(text = stringResource(R.string.lesson_next))
                 }
             }
         }

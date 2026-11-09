@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.traversalIndex
+import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.LocalRenderStyle
 import dev.cubentia.app.render.Cube3DRenderer
 import dev.cubentia.app.render.NetEmphasis
@@ -107,6 +108,7 @@ fun rememberDemonstrationPlayerState(
 @Composable
 fun DemonstrationPlayer(
     state: DemonstrationPlayerState,
+    strings: ContentStrings,
     modifier: Modifier = Modifier,
     style: RenderStyle = LocalRenderStyle.current,
     summary: String? = null,
@@ -119,7 +121,7 @@ fun DemonstrationPlayer(
         verticalArrangement = Arrangement.spacedBy(Spacing.s2),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            certainty?.let { FrameLabel(it) }
+            certainty?.let { FrameLabel(strings, it) }
             Spacer(Modifier.weight(1f))
             Row(
                 Modifier.semantics {

@@ -8,6 +8,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -180,6 +181,7 @@ class PhysicalLessonScreenTest {
         setLessonContent(host)
 
         // Initially in virtual mode: frame is VIRTUAL with Certainty description
+        node("lesson:next").assertTextEquals("Next")
         node("stage:frame").assertTextEquals("VIRTUAL")
         val initialConfig = node("stage:frame").fetchSemanticsNode().config
         assertEquals(LiveRegionMode.Polite, initialConfig[SemanticsProperties.LiveRegion])
@@ -200,8 +202,8 @@ class PhysicalLessonScreenTest {
 
         // Confirm-your-cube card offers "It matches" and "Enter it"
         node("confirmCube:card").assertExists()
-        node("confirmCube:matches").assertExists()
-        node("confirmCube:enter").assertExists()
+        node("confirmCube:matches").assertTextEquals("It matches")
+        node("confirmCube:enter").assertTextEquals("Enter it")
 
         // Scan it stays hidden
         rule.onNodeWithText("Scan it").assertDoesNotExist()
@@ -230,8 +232,8 @@ class PhysicalLessonScreenTest {
         node("confirmCube:card").assertDoesNotExist()
 
         // Step controls appear: Done (primary) and I did something else (secondary)
-        node("lesson:done").assertExists()
-        node("lesson:didSomethingElse").assertExists()
+        node("lesson:done").assertTextEquals("Done")
+        node("lesson:didSomethingElse").assertTextEquals("I did something else")
 
         // MoveKeyBar is hidden by default in physical mode
         node("moveKey:U").assertDoesNotExist()
@@ -599,11 +601,13 @@ class PhysicalLessonScreenTest {
         node("certainty:chip").assertDoesNotExist()
 
         // Open overflow menu
-        node("lesson:overflowMenu").performScrollTo().performClick()
+        node("lesson:overflowMenu").assertContentDescriptionEquals("More options").performScrollTo().performClick()
         rule.waitForIdle()
 
+        node("lesson:menuNotSure").assertTextEquals("I'm not sure what I did")
+
         // Choose "My cube doesn't match"
-        node("lesson:menuMismatch").performClick()
+        node("lesson:menuMismatch").assertTextEquals("My cube doesn't match").performClick()
         rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_MISMATCH }
         rule.waitForIdle()
 
@@ -621,16 +625,18 @@ class PhysicalLessonScreenTest {
         node("mismatch:nextQuestion").performScrollTo().performClick()
         rule.waitForIdle()
         rule.onNodeWithText("Look at the front face — which corner is white?").assertExists()
-        node("mismatch:corner:top_left").assertExists()
-        node("mismatch:corner:top_right").assertExists()
-        node("mismatch:corner:bottom_left").assertExists()
-        node("mismatch:corner:bottom_right").assertExists()
+        node("mismatch:corner:top_left").assertTextEquals("Top-left")
+        node("mismatch:corner:top_right").assertTextEquals("Top-right")
+        node("mismatch:corner:bottom_left").assertTextEquals("Bottom-left")
+        node("mismatch:corner:bottom_right").assertTextEquals("Bottom-right")
+        node("mismatch:corner:none").assertTextEquals("None of these")
+        node("mismatch:nextQuestion").assertTextEquals("Next question")
 
         // Advance to Rung 3: "Let's re-enter your cube"
         node("mismatch:nextQuestion").performScrollTo().performClick()
         rule.waitForIdle()
         rule.onNodeWithText("Let's re-enter your cube").assertExists()
-        node("mismatch:reenter").assertExists()
+        node("mismatch:reenter").assertTextEquals("Enter it")
 
         // Tapping Enter it opens ManualCubeEditor
         node("mismatch:reenter").performScrollTo().performClick()
@@ -837,7 +843,20 @@ class PhysicalLessonScreenTest {
         node("certainty:icon").assertTextEquals("≈")
         node("certainty:label").assertTextEquals("Likely")
         // M has several candidates: one that is not the entered Move still tells the Learner something new.
-        node("mismatch:candidate").performScrollTo().assertExists().assert(!hasText("Candidate: M"))
+        val state = host.state.value
+        val ownMove = listOfNotNull(state.history.undoable)
+        val candidate =
+            state.decision
+                ?.diagnosis
+                ?.candidates
+                ?.first { it.moves != ownMove }
+                ?.moves
+                ?.joinToString(" ") { Notation.format(it) }
+        node("mismatch:candidate")
+            .performScrollTo()
+            .assertExists()
+            .assert(!hasText("Candidate: M"))
+            .assertTextEquals("Candidate: $candidate")
     }
 
     @Test

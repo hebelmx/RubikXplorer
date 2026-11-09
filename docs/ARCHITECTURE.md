@@ -111,6 +111,8 @@ stateDiagram-v2
 
 A restored physical session **always** returns to *AwaitingConfirm*. After the app was closed, it can't know what happened to the real cube.
 
+**Accepted v1.0 limitation: Independent practice in Physical mode is self-reported.** v1.0 ships without the camera, so the app can't see the real cube and a physical practice run rests on the Learner's word. Physical mode stays available there because practising on a real cube is the point. The skip-ahead check is different: it skips whole Stages without teaching them, so it hides the Physical mode switch and can be passed only on the virtual cube.
+
 ## 5. Honesty, encoded in types
 
 PRD Principle 3, *never claim what you don't know*, is enforced in the types rather than left as a guideline (AD-5):
