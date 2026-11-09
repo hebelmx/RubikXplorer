@@ -19,30 +19,23 @@ class ManifestPolicyTest {
         </manifest>
         """.trimIndent()
 
-    private val release = ManifestPolicy.allowedRuntimePermissions("release")
-    private val debug = ManifestPolicy.allowedRuntimePermissions("debug")
+    private val release = ManifestPolicy.allowedRuntimePermissions(debuggable = false)
+    private val debug = ManifestPolicy.allowedRuntimePermissions(debuggable = true)
 
     @Test
-    fun `debug allows only CAMERA, release and benchmark allow none`() {
+    fun `a debuggable variant allows only CAMERA, a non-debuggable variant allows none`() {
         assertEquals(setOf("android.permission.CAMERA"), debug)
         assertEquals(emptySet<String>(), release)
-        assertEquals(emptySet<String>(), ManifestPolicy.allowedRuntimePermissions("benchmark"))
-        assertEquals(emptySet<String>(), ManifestPolicy.allowedRuntimePermissions(null))
     }
 
     @Test
-    fun `debug manifest with CAMERA and no backup passes`() {
+    fun `debuggable manifest with CAMERA and no backup passes`() {
         assertEquals(emptyList<String>(), ManifestPolicy.check(manifest(listOf("android.permission.CAMERA")), debug))
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = ["release", "benchmark"])
-    fun `release-like manifest with CAMERA fails naming it`(buildType: String) {
-        val violations =
-            ManifestPolicy.check(
-                manifest(listOf("android.permission.CAMERA")),
-                ManifestPolicy.allowedRuntimePermissions(buildType),
-            )
+    @Test
+    fun `non-debuggable manifest with CAMERA fails naming it`() {
+        val violations = ManifestPolicy.check(manifest(listOf("android.permission.CAMERA")), release)
         assertEquals(1, violations.size)
         assertTrue("android.permission.CAMERA" in violations.single())
     }
@@ -80,7 +73,7 @@ class ManifestPolicyTest {
             "android.permission.health.READ_STEPS",
         ],
     )
-    fun `runtime permission other than CAMERA fails naming it in debug and release`(permission: String) {
+    fun `runtime permission other than CAMERA fails naming it whether or not debuggable`(permission: String) {
         listOf(debug, release).forEach { allowed ->
             val violations = ManifestPolicy.check(manifest(listOf(permission)), allowed)
             assertEquals(1, violations.size)

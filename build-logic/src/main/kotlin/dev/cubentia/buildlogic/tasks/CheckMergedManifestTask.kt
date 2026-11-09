@@ -19,9 +19,12 @@ abstract class CheckMergedManifestTask : DefaultTask() {
     @get:Input
     abstract val variantName: Property<String>
 
-    /** The variant's build type; decides the allowed runtime permissions (see [ManifestPolicy.allowedRuntimePermissions]). */
+    /**
+     * Whether the variant is debuggable; decides the allowed runtime permissions (see
+     * [ManifestPolicy.allowedRuntimePermissions]). Required, with no default: an unset value fails the task.
+     */
     @get:Input
-    abstract val buildType: Property<String>
+    abstract val debuggable: Property<Boolean>
 
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
@@ -35,7 +38,7 @@ abstract class CheckMergedManifestTask : DefaultTask() {
         val violations =
             ManifestPolicy.check(
                 mergedManifest.get().asFile.readText(),
-                ManifestPolicy.allowedRuntimePermissions(buildType.get()),
+                ManifestPolicy.allowedRuntimePermissions(debuggable.get()),
             )
         report.get().asFile.writeText(violations.joinToString("\n"))
         if (violations.isNotEmpty()) {

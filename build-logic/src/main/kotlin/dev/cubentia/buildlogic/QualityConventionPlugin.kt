@@ -26,7 +26,7 @@ class QualityConventionPlugin : Plugin<Project> {
                             group = LifecycleBasePlugin.VERIFICATION_GROUP
                             description = "Fails when the ${variant.name} merged manifest breaks AD-13."
                             variantName.set(variant.name)
-                            buildType.set(variant.buildType.orEmpty())
+                            debuggable.set(variant.debuggable)
                             mergedManifest.set(variant.artifacts.get(SingleArtifact.MERGED_MANIFEST))
                             report.set(layout.buildDirectory.file("reports/cubentia/${variant.name}/manifest.txt"))
                         }
