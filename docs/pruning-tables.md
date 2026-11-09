@@ -25,8 +25,8 @@ export ANDROID_HOME=$HOME/Android/Sdk
 ./gradlew :app:installDebug
 adb devices -l
 adb logcat -c
-adb shell am force-stop dev.rubikxplorer
-adb shell am start -W -n dev.rubikxplorer/dev.rubikxplorer.app.solver.PruningTablesBenchmarkActivity --ez cold true
+adb shell am force-stop com.exxerpro.cubentia
+adb shell am start -W -n com.exxerpro.cubentia/dev.cubentia.app.solver.PruningTablesBenchmarkActivity --ez cold true
 adb logcat -s PruningTablesBenchmark:I StrictMode:D AndroidRuntime:E
 ```
 

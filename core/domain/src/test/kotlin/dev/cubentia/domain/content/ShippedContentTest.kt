@@ -1,0 +1,359 @@
+package dev.cubentia.domain.content
+
+import dev.cubentia.domain.cube.PieceKind
+import dev.cubentia.domain.cube.ValidationResult
+import dev.cubentia.domain.predicate.AllOf
+import dev.cubentia.domain.predicate.AlwaysTrue
+import dev.cubentia.domain.predicate.CubeSolved
+import dev.cubentia.domain.predicate.LastLayerCornersPlaced
+import dev.cubentia.domain.predicate.LastLayerCrossSolved
+import dev.cubentia.domain.predicate.LastLayerOriented
+import dev.cubentia.domain.predicate.MiddleLayerSolved
+import dev.cubentia.domain.predicate.StateReached
+import dev.cubentia.domain.predicate.WhiteCornersSolved
+import dev.cubentia.domain.predicate.WhiteCrossSolved
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import org.w3c.dom.Element
+import java.io.File
+import javax.xml.parsers.DocumentBuilderFactory
+
+/**
+ * Story 2.1 AC 1 and Story 2.7 AC 1, 3: the shipped bundle loads clean with Stages 1–3 in stable IDs,
+ * its copy follows the key rules and the voice guide, `en.json` has no duplicate keys, code
+ * `Text(...)` calls match it, and tutor values live in `tutor-config.json`, not in code.
+ */
+class ShippedContentTest {
+    private val bundle: ContentBundle by lazy {
+        val result = ContentLoader.load(ContentSource.SHIPPED)
+        assertInstanceOf(ContentLoadResult.Loaded::class.java, result, result.toString())
+        (result as ContentLoadResult.Loaded).bundle
+    }
+
+    @Test
+    fun `the shipped bundle loads with schema version 1, a revision and no problems`() {
+        assertEquals(ContentLoader.SUPPORTED_SCHEMA_VERSION, bundle.schemaVersion)
+        assertTrue(Regex("[0-9a-f]{64}").matches(bundle.contentRevision), bundle.contentRevision)
+        assertEquals(emptyList<ContentProblem>(), ContentValidator.validate(bundle))
+    }
+
+    @Test
+    fun `the shipped en dot json has no duplicate keys`() {
+        assertEquals(emptyList<String>(), ContentChecks.duplicateKeys(resourceText("content/strings/en.json")))
+    }
+
+    @Test
+    fun `every Text call in core and app main sources names a key in en dot json with matching arguments`() {
+        // Tests run with the module dir as working dir; scan every main source set in :core:* and :app.
+        val repo = File("../..")
+        val roots =
+            (
+                repo
+                    .resolve("core")
+                    .listFiles()
+                    .orEmpty()
+                    .map { it.resolve("src/main/kotlin") } + repo.resolve("app/src/main/kotlin")
+            ).filter { it.isDirectory }
+        assertTrue(roots.size >= 2, "found no source roots under ${repo.absolutePath}")
+        val calls = roots.flatMap { root -> ContentChecks.textCallsUnder(root).map { it.copy(file = "${root.path}/${it.file}") } }
+        assertTrue(calls.any { it.key == "msg.validation.parity" }, "the scan found no Text calls: $calls")
+        assertEquals(emptyList<String>(), ContentChecks.textCallProblems(calls, bundle.strings))
+    }
+
+    @Test
+    fun `Stage 6 first-solve prompt ships a camera-free and a camera variant`() {
+        // Story 8.7: CAMERA_SCAN off (v1.0) picks the camera-free copy; BETA/GA pick the camera copy.
+        assertEquals(
+            "Your cube should be solved now. Compare it with the picture, then tell me if it is.",
+            bundle.strings["msg.physical.first-solve-prompt"],
+        )
+        assertEquals(
+            "Your cube should be solved now. Check it with the camera, or tell me if it is.",
+            bundle.strings["msg.physical.first-solve-prompt-camera"],
+        )
+        assertFalse("camera" in bundle.strings.getValue("msg.physical.first-solve-prompt").lowercase())
+    }
+
+    @Test
+    fun `no Learner-facing string in en dot json or the app strings dot xml names Rubik`() {
+        // Story 12.6 AC 4: "Rubik's" is a trademark; the app is Cubentia and says "the cube".
+        val res = File("../../app/src/main/res")
+        val xmlFiles =
+            res
+                .listFiles()
+                .orEmpty()
+                .filter { it.isDirectory && it.name.startsWith("values") }
+                .map { it.resolve("strings.xml") }
+                .filter { it.isFile }
+        assertTrue(xmlFiles.isNotEmpty(), "found no strings.xml under ${res.absolutePath}")
+        val texts = bundle.strings.mapKeys { (key, _) -> "en.json $key" } + xmlFiles.flatMap { androidStrings(it) }
+        assertTrue(texts.keys.any { it.endsWith(" app_name") }, "the strings.xml scan found no app_name: ${texts.keys}")
+        assertEquals(emptyList<String>(), trademarkProblems(texts))
+    }
+
+    @Test
+    fun `the trademark guard flags Rubik in any case`() {
+        val samples =
+            mapOf(
+                "a" to "You solved the Rubik's cube!",
+                "b" to "RUBIK",
+                "c" to "You solved the cube!",
+            )
+        assertEquals(listOf("a", "b"), trademarkProblems(samples))
+    }
+
+    @Test
+    fun `every CubeValidator reason resolves, with calm copy`() {
+        val reasons =
+            listOf(
+                ValidationResult.WrongColorCounts(emptyMap()),
+                ValidationResult.ImpossiblePiece(emptyList(), PieceKind.EDGE),
+                ValidationResult.TwistedCorner,
+                ValidationResult.FlippedEdge,
+                ValidationResult.ParityViolation,
+            ).map { it.reason }
+        reasons.forEach { reason ->
+            val message = bundle.strings.getValue(reason.key)
+            assertFalse('!' in message, message)
+            assertEquals(IcuResult.Parsed(reason.args.keys), IcuArguments.parse(message), reason.key)
+        }
+    }
+
+    @Test
+    fun `a duplicate raw key in en dot json is reported`() {
+        val raw = resourceText("content-fixtures/duplicate-string-key/strings/en.json")
+        assertEquals(listOf("lesson.lesson-01-01.goal.1"), ContentChecks.duplicateKeys(raw))
+        assertEquals(emptyList<String>(), ContentChecks.duplicateKeys(resourceText("content-fixtures/valid/strings/en.json")))
+        assertEquals(emptyList<String>(), ContentChecks.duplicateKeys("""{"a": {"b": 1, "b": 2}, "c": "say \"a\": hi"}"""))
+    }
+
+    @Test
+    fun `a Text call whose key is missing or whose arguments differ is reported with both argument sets`() {
+        val calls = ContentChecks.textCalls("Snippet.kt", resourceText("content-fixtures/code-arg-mismatch/Snippet.kt.txt"))
+        assertEquals(listOf(4, 5, 7), calls.map { it.line })
+        val strings = (ContentLoader.load(fixture("valid")) as ContentLoadResult.Loaded).bundle.strings
+        assertEquals(
+            listOf(
+                "Snippet.kt:5 msg.fixture.count passes [a] but its message takes [count, name]",
+                "Snippet.kt:7 msg.fixture.absent is missing from en.json",
+            ),
+            ContentChecks.textCallProblems(calls, strings),
+        )
+    }
+
+    @Test
+    fun `Text calls with a computed key or argument map are skipped`() {
+        val source =
+            """
+            /* Text("block.comment.key") */
+            val a = Text(key)
+            val b = Text("k.k.k", args)
+            val c = Text("k.k.k", mapOf("x" to listOf(1, 2)), )
+            val d = Text("bad.${'$'}key.k")
+            """.trimIndent()
+        assertEquals(listOf(ContentChecks.TextCall("S.kt", 4, "k.k.k", setOf("x"))), ContentChecks.textCalls("S.kt", source))
+        assertEquals(
+            listOf("S.kt:1 k.k.k has a malformed message"),
+            ContentChecks.textCallProblems(listOf(ContentChecks.TextCall("S.kt", 1, "k.k.k", emptySet())), mapOf("k.k.k" to "{")),
+        )
+    }
+
+    @Test
+    fun `the shipped bundle holds Stages 1 to 7 with Lessons in Stages 1 to 6 and stable IDs`() {
+        assertEquals(
+            listOf(
+                "stage-01-fundamentals",
+                "stage-02-first-cross",
+                "stage-03-first-layer-corners",
+                "stage-04-middle-layer",
+                "stage-05-last-layer-orientation",
+                "stage-06-last-layer-completion",
+                "stage-07-independent-practice",
+            ),
+            bundle.stages.map { it.id.value },
+        )
+        assertEquals(listOf(3, 5, 4, 4, 4, 3, 0), bundle.stages.map { it.lessons.size })
+        bundle.stages.forEachIndexed { s, stage ->
+            assertEquals(TextKey("stage.${stage.id}.title"), stage.title)
+            stage.lessons.forEachIndexed { l, lesson ->
+                assertEquals("lesson-%02d-%02d".format(s + 1, l + 1), lesson.id.value)
+            }
+        }
+    }
+
+    @Test
+    fun `every shipped Lesson chains to the one before it, undoes to recover, and demonstrates its steps`() {
+        val lessons = bundle.stages.flatMap { it.lessons }
+        lessons.forEachIndexed { i, lesson ->
+            assertEquals(listOfNotNull(lessons.getOrNull(i - 1)?.id), lesson.prerequisites, "${lesson.id}")
+            assertEquals(RecoveryRef("recovery-undo-last-move"), lesson.recovery, "${lesson.id}")
+            assertEquals(lesson.steps.joinToString(" ") { it.moves }, lesson.demonstration, "${lesson.id}")
+        }
+    }
+
+    @Test
+    fun `each Stage judges its Lessons by its own predicate and keeps what the Stage built`() {
+        val cross = WhiteCrossSolved
+        val layer = AllOf(listOf(WhiteCrossSolved, WhiteCornersSolved))
+        val middle = AllOf(listOf(WhiteCrossSolved, WhiteCornersSolved, MiddleLayerSolved))
+        val oriented = AllOf(listOf(WhiteCrossSolved, WhiteCornersSolved, MiddleLayerSolved, LastLayerOriented))
+        val stages = bundle.stages
+        val fundamentals = stages[0]
+        val firstCross = stages[1]
+        val corners = stages[2]
+        val middleLayer = stages[3]
+        val orientation = stages[4]
+        val completion = stages[5]
+        fundamentals.lessons.forEach { lesson ->
+            val exercise = StateReached(lesson.steps.joinToString(" ") { it.moves })
+            assertEquals(exercise, lesson.completion, "${lesson.id}")
+            assertEquals(AlwaysTrue, lesson.preserve, "${lesson.id}")
+        }
+        firstCross.lessons.forEach { assertEquals(cross to AlwaysTrue, it.completion to it.preserve, "${it.id}") }
+        corners.lessons.forEach { assertEquals(layer to cross, it.completion to it.preserve, "${it.id}") }
+        middleLayer.lessons.forEach { assertEquals(middle to layer, it.completion to it.preserve, "${it.id}") }
+        orientation.lessons.take(2).forEach { assertEquals(LastLayerCrossSolved to middle, it.completion to it.preserve, "${it.id}") }
+        orientation.lessons.drop(2).forEach { assertEquals(LastLayerOriented to middle, it.completion to it.preserve, "${it.id}") }
+        completion.lessons.take(1).forEach { assertEquals(LastLayerCornersPlaced to oriented, it.completion to it.preserve, "${it.id}") }
+        completion.lessons.drop(1).forEach { assertEquals(CubeSolved to oriented, it.completion to it.preserve, "${it.id}") }
+    }
+
+    @Test
+    fun `every shipped text key has its slot and step number`() {
+        bundle.stages.flatMap { it.lessons }.forEach { lesson ->
+            val prefix = "lesson.${lesson.id}"
+            assertEquals(TextKey("$prefix.objective"), lesson.objective)
+            assertEquals(TextKey("$prefix.learner-action"), lesson.learnerAction)
+            lesson.steps.forEachIndexed { i, step ->
+                val n = i + 1
+                assertEquals(
+                    listOf("goal", "keep", "watch", "notice").map { TextKey("$prefix.$it.$n") },
+                    listOf(step.goal, step.preserve, step.watch, step.notice),
+                    "${lesson.id} step $n",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `every shipped content string is used and follows the voice guide`() {
+        val titles = bundle.stages.map { it.title.value }.toSet()
+        val used =
+            titles +
+                bundle.stages
+                    .flatMap { it.lessons }
+                    .flatMap { lesson ->
+                        listOf(lesson.objective, lesson.learnerAction) +
+                            lesson.steps.flatMap { listOf(it.goal, it.preserve, it.watch, it.notice) }
+                    }.map { it.value }
+        val content = bundle.strings.filterKeys { !it.startsWith("msg.") && !it.startsWith("btn.") }
+        assertEquals(content.keys, used, "every stage and lesson string is used by content, and only those")
+        val problems =
+            content.flatMap { (key, message) -> VoiceGuide.problems(message, title = key in titles).map { "$key $it: $message" } }
+        assertEquals(emptyList<String>(), problems)
+    }
+
+    @Test
+    fun `the voice guide flags exclamations, judging words, first person, long sentences and bare Notation`() {
+        assertEquals(emptyList<String>(), VoiceGuide.problems("You turn the right face, R."))
+        assertEquals(emptyList<String>(), VoiceGuide.problems("First cross", title = true))
+        val flagged =
+            listOf(
+                "You did it!",
+                "That was wrong.",
+                "Perform the turn.",
+                "Let's turn R.",
+                "Lets turn R.",
+                "Let us turn R.",
+                "Show me the edge.",
+                "We turn the right face.",
+                "This is the correct edge.",
+                "One error here.",
+                "R U R' U'.",
+                "You turn the face",
+                (1..VoiceGuide.MAX_SENTENCE_WORDS + 1).joinToString(" ") { "word" } + ".",
+            )
+        flagged.forEach { assertTrue(VoiceGuide.problems(it).isNotEmpty(), it) }
+        assertTrue(VoiceGuide.problems("Great!", title = true).isNotEmpty())
+    }
+
+    @Test
+    fun `the shipped tutor config loads, and tutor and session code declare no numeric constants`() {
+        assertEquals(
+            TutorConfig(
+                maxDepth = 2,
+                moveSet = "U U' U2 D D' D2 R R' R2 L L' L2 F F' F2 B B' B2",
+                recoveryMaxDepth = 5,
+                adaptive = AdaptiveThresholds(1, 2, 3, 2),
+                mastery = MasteryThresholds(2, 1),
+            ),
+            bundle.tutorConfig,
+        )
+        val repo = File("../..")
+        val roots =
+            listOf(
+                repo.resolve("core/domain/src/main/kotlin/dev/cubentia/domain/tutor"),
+                repo.resolve("core/application/src/main/kotlin/dev/cubentia/application/session"),
+            )
+        roots.forEach { assertTrue(it.isDirectory, "missing ${it.absolutePath}") }
+        val found =
+            roots.flatMap { root ->
+                root
+                    .walkTopDown()
+                    .filter { it.isFile && it.extension == "kt" }
+                    .flatMap { file -> numericConstants(file.readText()).map { "${file.name}: $it" } }
+                    .toList()
+            }
+        assertEquals(emptyList<String>(), found, "tutor values belong in tutor-config.json")
+    }
+
+    @Test
+    fun `the numeric constant guard finds numbers, not other constants`() {
+        val source =
+            """
+            const val MAX_DEPTH = 22
+            private const val HINTS: Int = -1
+            const val RATE = .5f
+            const val NAME = "x"
+            const val ON = true
+            """.trimIndent()
+        assertEquals(
+            listOf("const val MAX_DEPTH = 22", "const val HINTS: Int = -1", "const val RATE = .5f"),
+            numericConstants(source),
+        )
+    }
+
+    private fun trademarkProblems(texts: Map<String, String>): List<String> =
+        texts.filterValues { it.contains("rubik", ignoreCase = true) }.keys.toList()
+
+    /** Every `<string>` and `<item>` (plurals, arrays) text in [file], keyed by file and resource name. */
+    private fun androidStrings(file: File): List<Pair<String, String>> {
+        val document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
+        val label = "${file.parentFile.name}/${file.name}"
+        return listOf("string", "item").flatMap { tag ->
+            val nodes = document.getElementsByTagName(tag)
+            (0 until nodes.length).map { i ->
+                val element = nodes.item(i) as Element
+                val name =
+                    if (tag == "string" || element.getAttribute("name").isNotEmpty()) {
+                        element.getAttribute("name")
+                    } else {
+                        val parent = element.parentNode as Element
+                        val siblings = parent.getElementsByTagName("item")
+                        val index = (0 until siblings.length).indexOfFirst { siblings.item(it) === element }
+                        "${parent.getAttribute("name")}[${element.getAttribute("quantity").ifEmpty { index.toString() }}]"
+                    }
+                "$label $name" to element.textContent
+            }
+        }
+    }
+
+    private fun numericConstants(source: String): List<String> = NUMERIC_CONST.findAll(source).map { it.value.trim() }.toList()
+
+    private companion object {
+        val NUMERIC_CONST = Regex("const\\s+val\\s+\\w+\\s*(:\\s*\\w+\\s*)?=\\s*[-+]?\\.?\\d[\\w.]*")
+    }
+}

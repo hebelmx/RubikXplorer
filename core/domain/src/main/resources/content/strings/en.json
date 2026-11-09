@@ -328,7 +328,7 @@
   "msg.practice.stage-04-middle-layer.objective": "Solve the middle layer edges.",
   "msg.practice.stage-05-last-layer-orientation.objective": "Orient the yellow face on the bottom layer.",
   "msg.practice.stage-06-last-layer-completion.objective": "Solve the remaining pieces to complete the cube.",
-  "msg.practice.stage-07-independent-practice.objective": "Solve the Rubik's cube from a fresh scramble.",
+  "msg.practice.stage-07-independent-practice.objective": "Solve the cube from a fresh scramble.",
   "msg.skip-check.stage-01-fundamentals.objective": "Turn the scrambled face back to solve the cube.",
   "msg.practice.hint.target": "Focus on the pieces needed for this Stage's goal.",
   "msg.cube-summary.cross-solved": "White cross solved",
@@ -349,7 +349,7 @@
   "msg.cube-summary.last-layer-corners-progress": "{done} of {total} last-layer corners placed",
   "msg.cube-summary.cube-solved": "Cube solved",
   "msg.cube-summary.cube-progress": "{done} of {total} pieces placed",
-  "msg.milestone.first-solve": "You solved the Rubik's cube!",
+  "msg.milestone.first-solve": "You solved the cube!",
   "msg.milestone.stage-mastered": "{stage} mastered.",
   "msg.playback.follow-on-my-cube": "I'm following on my cube",
   "msg.playback.cube-should-be-solved": "Your cube should be solved now."

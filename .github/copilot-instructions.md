@@ -1,4 +1,4 @@
-# Copilot instructions for RubikXplorer
+# Copilot instructions for Cubentia
 
 ## Project context
 
@@ -51,7 +51,7 @@ Run a single test or a filtered set with Gradle's `--tests` option, for example:
 ```bash
 ./gradlew :core:domain:test --tests "*"
 ./gradlew :core:solver:test --tests "*"
-./gradlew :app:testDebugUnitTest --tests "dev.rubikxplorer.app.*"
+./gradlew :app:testDebugUnitTest --tests "dev.cubentia.app.*"
 ```
 
 When fixing or adding logic in `:core:*`, prefer JVM tests over instrumented Android tests.

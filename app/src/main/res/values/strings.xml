@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">RubikXplorer</string>
+    <string name="app_name">Cubentia</string>
 
     <!-- Free cube stage -->
     <string name="frame_virtual">VIRTUAL</string>
@@ -209,7 +209,7 @@
     <string name="milestone_next_stage">Next Stage</string>
 
     <!-- Welcome screen -->
-    <string name="welcome_title">Welcome to RubikXplorer</string>
+    <string name="welcome_title">Welcome to Cubentia</string>
     <string name="welcome_im_new">I\'m new</string>
     <string name="welcome_can_solve">I can already solve it</string>
     <string name="welcome_start_from_cube">Start from my cube</string>

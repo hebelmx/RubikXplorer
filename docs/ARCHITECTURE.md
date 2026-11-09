@@ -1,4 +1,4 @@
-# RubikXplorer — Architecture
+# Cubentia — Architecture
 
 > An Android tutor that teaches beginners to solve a 3×3 cube on a virtual or physical cube, and checks their real cube with the camera.
 > Kotlin · Jetpack Compose · hexagonal architecture · functional core · own Kociemba solver · on-device recognition · fully offline.
@@ -9,7 +9,7 @@ This document explains the architecture for readers: what the system is, how it'
 
 ## 1. The problem that shapes the architecture
 
-Most cube apps are solvers with a tutorial added. RubikXplorer is a **tutor with a solver inside it**. Its central promise, *never claim what you don't know*, is what drives the architecture:
+Most cube apps are solvers with a tutorial added. Cubentia is a **tutor with a solver inside it**. Its central promise, *never claim what you don't know*, is what drives the architecture:
 
 - **Three cubes, one truth.** The app tracks three cubes:
   - the *virtual* cube on screen;
@@ -206,7 +206,7 @@ Lessons draw on `Cube3DRenderer`; arrows are a projected `MoveArrow` overlay, an
 
 The cube TalkBack summary uses `CubeSummary(CubeState, completion)` with a Read faces action; the Lesson frame label announces Certainty changes.
 
-Session snapshots use Room 3 and a serial I/O writer in `app/data`, with pure ports and DTOs in `core/application`; device checks: `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.rubikxplorer.app.data.SessionSnapshotRestartTest` and `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.rubikxplorer.macrobenchmark.LessonProcessDeathTest`.
+Session snapshots use Room 3 and a serial I/O writer in `app/data`, with pure ports and DTOs in `core/application`; device checks: `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.cubentia.app.data.SessionSnapshotRestartTest` and `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.cubentia.macrobenchmark.LessonProcessDeathTest`.
 
 The `checkpoint` table stores versioned Objective boundaries as the Lesson fallback when a snapshot cannot resume.
 

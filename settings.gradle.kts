@@ -19,7 +19,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "RubikXplorer"
+rootProject.name = "Cubentia"
 
 include(":app")
 include(":core:domain")

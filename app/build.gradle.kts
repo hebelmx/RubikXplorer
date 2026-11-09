@@ -1,7 +1,7 @@
 plugins {
-    alias(libs.plugins.rubikxplorer.android.app)
-    alias(libs.plugins.rubikxplorer.quality)
-    alias(libs.plugins.rubikxplorer.release)
+    alias(libs.plugins.cubentia.android.app)
+    alias(libs.plugins.cubentia.quality)
+    alias(libs.plugins.cubentia.release)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
@@ -12,10 +12,10 @@ plugins {
 room3 { schemaDirectory("$projectDir/schemas") }
 
 android {
-    namespace = "dev.rubikxplorer.app"
+    namespace = "dev.cubentia.app"
 
     defaultConfig {
-        applicationId = "dev.rubikxplorer"
+        applicationId = "com.exxerpro.cubentia"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = 1
         versionName = "0.1.0"
@@ -72,11 +72,11 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
 
-// OQ-3 spike (Story 1.8), throwaway: compiled only with -Prubikxplorer.spike3d=true. Without the
+// OQ-3 spike (Story 1.8), throwaway: compiled only with -Pcubentia.spike3d=true. Without the
 // property nothing below adds a source, dependency, manifest entry or task to the default build.
-// -Prubikxplorer.spike3d.sceneview=false leaves SceneView out, to measure the OpenGL ES APK delta alone.
-if (providers.gradleProperty("rubikxplorer.spike3d").orNull == "true") {
-    val withSceneView = providers.gradleProperty("rubikxplorer.spike3d.sceneview").orNull != "false"
+// -Pcubentia.spike3d.sceneview=false leaves SceneView out, to measure the OpenGL ES APK delta alone.
+if (providers.gradleProperty("cubentia.spike3d").orNull == "true") {
+    val withSceneView = providers.gradleProperty("cubentia.spike3d.sceneview").orNull != "false"
     android {
         sourceSets.getByName("main").kotlin.directories +=
             listOf("src/spike3d/kotlin", if (withSceneView) "src/spike3dSceneView/kotlin" else "src/spike3dNoSceneView/kotlin")
@@ -91,7 +91,7 @@ if (providers.gradleProperty("rubikxplorer.spike3d").orNull == "true") {
 }
 
 // Story 1.9 guided camera scan prototype. Opt-in debug source and manifest only; release stays clean.
-if (providers.gradleProperty("rubikxplorer.spikeScan").orNull == "true") {
+if (providers.gradleProperty("cubentia.spikeScan").orNull == "true") {
     android {
         sourceSets.getByName("debug").kotlin.directories += "src/spikeScan/kotlin"
         sourceSets.getByName("debug").manifest.srcFile("src/spikeScan/AndroidManifest.xml")
