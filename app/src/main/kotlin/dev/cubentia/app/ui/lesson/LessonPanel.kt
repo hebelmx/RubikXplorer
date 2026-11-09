@@ -131,6 +131,10 @@ internal fun LessonPanel(
     onDone: () -> Unit = {},
     onDidSomethingElse: () -> Unit = {},
     onMismatchReported: () -> Unit = {},
+    matchesAfterAllLabel: String = "",
+    onMatchesAfterAll: () -> Unit = {},
+    mismatchRung: Int = 1,
+    onMismatchRungChange: (Int) -> Unit = {},
     isEndOfStage6: Boolean = step.isEndOfStage6,
     onYesItsSolved: () -> Unit = {},
 ) {
@@ -173,10 +177,21 @@ internal fun LessonPanel(
         } else if (syncState == SyncState.PHYSICAL_MISMATCH) {
             MismatchLadder(
                 onOpenEditor = onConfirmEnter,
-                candidate = step.candidate,
+                matchesAfterAllLabel = matchesAfterAllLabel,
+                onMatchesAfterAll = onMatchesAfterAll,
+                rung = mismatchRung,
+                onRungChange = onMismatchRungChange,
                 modifier = Modifier.fillMaxWidth(),
             )
         } else if (isPhysical) {
+            step.candidate?.let { candidate ->
+                Text(
+                    text = stringResource(R.string.physical_mismatch_candidate, candidate),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = tokens.statusLikely,
+                    modifier = Modifier.testTag("mismatch:candidate"),
+                )
+            }
             var menuExpanded by remember { mutableStateOf(false) }
             Row(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.s3),

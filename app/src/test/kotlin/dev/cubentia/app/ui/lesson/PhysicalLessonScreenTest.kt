@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -31,11 +32,13 @@ import dev.cubentia.application.port.ProgressRepository
 import dev.cubentia.application.port.ProgressSave
 import dev.cubentia.application.session.Checkpoint
 import dev.cubentia.application.session.CubeMode
+import dev.cubentia.application.session.GuidedRecovery
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionKind
 import dev.cubentia.application.session.SessionSnapshot
 import dev.cubentia.application.session.SyncState
 import dev.cubentia.application.usecase.CompleteLesson
+import dev.cubentia.application.usecase.PlanRecovery
 import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
@@ -48,6 +51,7 @@ import dev.cubentia.domain.cube.Turn
 import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.tutor.Certainty
 import dev.cubentia.domain.tutor.ProgressEvent
+import dev.cubentia.domain.tutor.RecoveryPlan
 import dev.cubentia.domain.tutor.TeachingMode
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -92,6 +96,7 @@ class PhysicalLessonScreenTest {
         cameraScan: FlagLevel = FlagLevel.OFF,
         onClose: () -> Unit = {},
         shown: () -> Boolean = { true },
+        planRecovery: PlanRecovery = PlanRecovery(),
     ) {
         rule.setContent {
             CubentiaTheme {
@@ -103,12 +108,35 @@ class PhysicalLessonScreenTest {
                         modes = TeachingMode.entries,
                         onClose = onClose,
                         cameraScan = cameraScan,
+                        planRecovery = planRecovery,
                     )
                 }
             }
         }
         rule.waitForIdle()
         rule.waitUntil(5_000) { host.state.value.isActive }
+    }
+
+    /** Switches to Physical-cube Mode and confirms the cube matches. */
+    private fun enterPhysicalMode(host: SessionHost) {
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.waitForIdle()
+        node("confirmCube:matches").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+    }
+
+    /** Reports a mismatch through the overflow menu's [item]. */
+    private fun reportMismatch(
+        host: SessionHost,
+        item: String = "lesson:menuMismatch",
+    ) {
+        node("lesson:overflowMenu").performScrollTo().performClick()
+        rule.waitForIdle()
+        node(item).performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_MISMATCH }
+        rule.waitForIdle()
     }
 
     /** Opens `lesson-06-03` in Physical-cube Mode at [cameraScan] and confirms its moves until the Objective is met. */
@@ -232,10 +260,10 @@ class PhysicalLessonScreenTest {
 
         // Tap Accept in editor
         node("editor:accept").performScrollTo().performClick()
-        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_VERIFIED }
         rule.waitForIdle()
 
-        // Editor dismisses, transitions to PHYSICAL_PREDICTED
+        // Editor dismisses, transitions to PHYSICAL_VERIFIED
         node("lesson:manualEditor").assertDoesNotExist()
         node("confirmCube:card").assertDoesNotExist()
     }
@@ -611,51 +639,295 @@ class PhysicalLessonScreenTest {
     }
 
     @Test
-    fun story8_3_ac2_enteredMoveDiagnosedAsEvidence_certaintyUpdates() {
+    fun story12_8_rung1MoveIsCommitted_withItsDiagnosedCertainty_andTheKeyBarCloses() {
         val host = SessionHost(TickingClock())
         setLessonContent(host)
-
-        // Enter physical mode and confirm match
-        node("lesson:physicalModeSwitch").performClick()
-        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
-        rule.waitForIdle()
-        node("confirmCube:matches").performScrollTo().performClick()
-        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
-        rule.waitForIdle()
-
-        // Open overflow menu and report "I'm not sure what I did"
-        node("lesson:overflowMenu").performScrollTo().performClick()
-        rule.waitForIdle()
-        node("lesson:menuNotSure").performClick()
-        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_MISMATCH }
-        rule.waitForIdle()
+        enterPhysicalMode(host)
+        reportMismatch(host, "lesson:menuNotSure")
 
         // Chip shows ? Unknown initially
         node("certainty:icon").assertTextEquals("?")
         node("certainty:label").assertTextEquals("Unknown")
 
-        // In Rung 1, enter move key U' (counter-clockwise U)
+        val before = host.state.value.expected
         node("moveKey:U'").performClick()
-        rule.waitUntil(5_000) { host.state.value.lastDiagnosis != null }
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
         rule.waitForIdle()
 
-        // Diagnosis was evaluated using entered move as evidence
-        val diagnosis = host.state.value.lastDiagnosis
-        assertNotNull(diagnosis)
-        // Certainty chip updates to Verified or Likely
-        node("certainty:chip").assertExists()
-        val certainty =
-            host.state.value.decision
-                ?.certainty
-        assertTrue(certainty == Certainty.VERIFIED || certainty == Certainty.LIKELY)
-        if (certainty == Certainty.VERIFIED) {
-            node("certainty:icon").assertTextEquals("✓")
-            node("certainty:label").assertTextEquals("Verified")
-        } else {
-            node("certainty:icon").assertTextEquals("≈")
-            node("certainty:label").assertTextEquals("Likely")
-            node("mismatch:candidate").assertExists()
+        assertEquals(before.apply(FaceTurn(Face.U, Turn.COUNTERCLOCKWISE)), host.state.value.expected)
+        assertNotNull(host.state.value.lastDiagnosis)
+        node("certainty:icon").assertTextEquals("≈")
+        node("certainty:label").assertTextEquals("Likely")
+        // The only candidate is the Move just entered, which tells the Learner nothing new.
+        node("mismatch:candidate").assertDoesNotExist()
+        node("moveKey:U").assertDoesNotExist()
+    }
+
+    @Test
+    fun story12_8_showMe_rung1OffersMoveKeys_andAMoveResolvesTheMismatch() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host)
+        enterPhysicalMode(host)
+        runBlocking { host.dispatch { SessionEvent.TeachingModeChanged(TeachingMode.SHOW_ME, it) } }
+        rule.waitForIdle()
+        reportMismatch(host)
+        rule.onNodeWithText("Which turn did you make?").assertExists()
+
+        val before = host.state.value.expected
+        node("moveKey:U'").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+
+        assertEquals(before.apply(FaceTurn(Face.U, Turn.COUNTERCLOCKWISE)), host.state.value.expected)
+        node("moveKey:U").assertDoesNotExist()
+
+        reportMismatch(host)
+        node("moveKey:U").assertExists()
+        node("mismatch:nextQuestion").performScrollTo().performClick()
+        rule.waitForIdle()
+        node("moveKey:U").assertDoesNotExist()
+    }
+
+    @Test
+    fun story12_8_moveKeysShowOnlyOnRung1_andReturnOnAFreshReport() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host)
+        enterPhysicalMode(host)
+        reportMismatch(host)
+        node("moveKey:U").assertExists()
+
+        repeat(2) {
+            node("mismatch:nextQuestion").performScrollTo().performClick()
+            rule.waitForIdle()
+            node("moveKey:U").assertDoesNotExist()
         }
+        rule.onNodeWithText("Let's re-enter your cube").assertExists()
+
+        node("mismatch:matchesAfterAll").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+
+        reportMismatch(host)
+        rule.onNodeWithText("Which turn did you make?").assertExists()
+        node("moveKey:U").assertExists()
+    }
+
+    @Test
+    fun story12_8_keyBarOpenedBeforeTheReport_closesAfterARung1Move() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host)
+        enterPhysicalMode(host)
+        node("lesson:didSomethingElse").performScrollTo().performClick()
+        rule.waitForIdle()
+        node("moveKey:U").assertExists()
+        reportMismatch(host)
+
+        node("moveKey:U'").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+
+        node("moveKey:U").assertDoesNotExist()
+    }
+
+    @Test
+    fun story12_8_keyBarOpenedBeforeTheReport_closesAfterItMatchesAfterAll() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host)
+        enterPhysicalMode(host)
+        node("lesson:didSomethingElse").performScrollTo().performClick()
+        rule.waitForIdle()
+        node("moveKey:U").assertExists()
+        reportMismatch(host)
+
+        node("mismatch:matchesAfterAll").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+
+        node("moveKey:U").assertDoesNotExist()
+    }
+
+    @Test
+    fun story12_8_keyBarOpenedBeforeTheReport_closesAfterAnEditorEntry() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host)
+        enterPhysicalMode(host)
+        node("lesson:didSomethingElse").performScrollTo().performClick()
+        rule.waitForIdle()
+        node("moveKey:U").assertExists()
+        reportMismatch(host)
+
+        val entered = host.state.value.expected
+        runBlocking { host.dispatch { SessionEvent.EditorEntered(entered, it) } }
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_VERIFIED }
+        rule.waitForIdle()
+
+        node("moveKey:U").assertDoesNotExist()
+    }
+
+    @Test
+    fun story12_8_mismatchRungSurvivesRecreation_withTheKeysStillHidden() {
+        val host = SessionHost(TickingClock())
+        val restoration = StateRestorationTester(rule)
+        restoration.setContent {
+            CubentiaTheme {
+                LessonScreen(
+                    host = host,
+                    entry = lessonEntry,
+                    strings = ready.strings,
+                    modes = TeachingMode.entries,
+                    onClose = {},
+                    cameraScan = FlagLevel.OFF,
+                )
+            }
+        }
+        rule.waitForIdle()
+        rule.waitUntil(5_000) { host.state.value.isActive }
+        enterPhysicalMode(host)
+        reportMismatch(host)
+        repeat(2) {
+            node("mismatch:nextQuestion").performScrollTo().performClick()
+            rule.waitForIdle()
+        }
+
+        restoration.emulateSavedInstanceStateRestore()
+        rule.waitForIdle()
+
+        rule.onNodeWithText("Let's re-enter your cube").assertExists()
+        node("moveKey:U").assertDoesNotExist()
+    }
+
+    @Test
+    fun story12_8_verifiedWithNoDiagnosis_showsTheVerifiedChip() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host)
+        enterPhysicalMode(host)
+
+        val moves = (Notation.parse(lessonEntry.lesson.demonstration) as NotationResult.Parsed).moves
+        val met =
+            host.state.value.expected
+                .apply(moves)
+        runBlocking { host.dispatch { SessionEvent.EditorEntered(met, it) } }
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_VERIFIED }
+        rule.waitForIdle()
+
+        assertTrue(host.state.value.objectiveMet)
+        assertNull(host.state.value.lastDiagnosis)
+        node("certainty:icon").assertTextEquals("✓")
+        node("certainty:label").assertTextEquals("Verified")
+    }
+
+    @Test
+    fun story12_8_rung1LikelyMove_showsItsCandidateAfterTheCommit() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host)
+        enterPhysicalMode(host)
+        reportMismatch(host)
+
+        node("moveKey:more").performClick()
+        rule.waitForIdle()
+        node("moveKey:M").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+
+        assertEquals(
+            Certainty.LIKELY,
+            host.state.value.decision
+                ?.certainty,
+        )
+        node("certainty:icon").assertTextEquals("≈")
+        node("certainty:label").assertTextEquals("Likely")
+        // M has several candidates: one that is not the entered Move still tells the Learner something new.
+        node("mismatch:candidate").performScrollTo().assertExists().assert(!hasText("Candidate: M"))
+    }
+
+    @Test
+    fun story12_8_itMatchesAfterAll_dismissesFromEveryRung_withExpectedUnchanged() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host)
+        enterPhysicalMode(host)
+        val expected = host.state.value.expected
+        val revision = host.state.value.revision
+
+        listOf(0, 1, 2).forEach { rung ->
+            reportMismatch(host)
+            repeat(rung) {
+                node("mismatch:nextQuestion").performScrollTo().performClick()
+                rule.waitForIdle()
+            }
+            node("mismatch:matchesAfterAll").performScrollTo().assertTextEquals("It matches after all").performClick()
+            rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+            rule.waitForIdle()
+            assertEquals(expected, host.state.value.expected)
+            assertEquals(revision, host.state.value.revision)
+            node("mismatch:ladder").assertDoesNotExist()
+            node("moveKey:U").assertDoesNotExist()
+        }
+    }
+
+    @Test
+    fun story12_8_everyRung2Answer_leadsToRung3_andLeavesTheSessionUnchanged() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host)
+        enterPhysicalMode(host)
+
+        listOf(
+            "mismatch:corner:top_left",
+            "mismatch:corner:top_right",
+            "mismatch:corner:bottom_left",
+            "mismatch:corner:bottom_right",
+            "mismatch:corner:none",
+            "mismatch:nextQuestion",
+        ).forEach { answer ->
+            reportMismatch(host)
+            node("mismatch:nextQuestion").performScrollTo().performClick()
+            rule.waitForIdle()
+            val before = host.state.value
+
+            node(answer).performScrollTo().performClick()
+            rule.waitForIdle()
+
+            rule.onNodeWithText("Let's re-enter your cube").assertExists()
+            node("mismatch:reenter").assertExists()
+            assertEquals(before, host.state.value)
+            assertNull(host.state.value.observed)
+
+            node("mismatch:matchesAfterAll").performScrollTo().performClick()
+            rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+            rule.waitForIdle()
+        }
+    }
+
+    @Test
+    fun story12_8_doneFollowsAPlannedRecovery_thenTheStepMoveAgain() {
+        val entry0301 = ready.lessons.first { it.lesson.id.value == "lesson-03-01" }
+        val host = SessionHost(TickingClock())
+        val plan = listOf(FaceTurn(Face.U, Turn.COUNTERCLOCKWISE), FaceTurn(Face.R, Turn.COUNTERCLOCKWISE))
+        setLessonContent(host, entry0301, planRecovery = PlanRecovery({ _, _, _, _, _ -> RecoveryPlan.Found(plan) }))
+        enterPhysicalMode(host)
+
+        val entered =
+            host.state.value.expected
+                .apply(FaceTurn(Face.R, Turn.CLOCKWISE), FaceTurn(Face.U, Turn.CLOCKWISE))
+        runBlocking { host.dispatch { SessionEvent.EditorEntered(entered, it) } }
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_VERIFIED }
+        rule.waitForIdle()
+
+        node("lesson:recovery:guideMeBack").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.guidedRecovery is GuidedRecovery.Planned }
+        rule.waitForIdle()
+
+        node("lesson:done").performScrollTo().performClick()
+        val afterFirst = entered.apply(plan.first())
+        rule.waitUntil(5_000) { host.state.value.expected == afterFirst }
+        rule.waitForIdle()
+        assertEquals(plan.drop(1), (host.state.value.guidedRecovery as GuidedRecovery.Planned).moves)
+        assertEquals(SyncState.PHYSICAL_PREDICTED, host.state.value.syncState)
+
+        node("lesson:done").performScrollTo().performClick()
+        val afterPlan = afterFirst.apply(plan.last())
+        rule.waitUntil(5_000) { host.state.value.expected == afterPlan }
+        rule.waitForIdle()
+        assertEquals(GuidedRecovery.None, host.state.value.guidedRecovery)
     }
 
     @Test
@@ -695,7 +967,7 @@ class PhysicalLessonScreenTest {
         runBlocking {
             host.dispatch { SessionEvent.EditorEntered(disturbedState, it) }
         }
-        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_VERIFIED }
         rule.waitForIdle()
 
         // Becomes Full observation

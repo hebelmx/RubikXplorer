@@ -236,7 +236,7 @@ class AssessTest {
         val entry = TutorFixtures.entryOf(oneStep)
         val expected = entry.apply(moves("F'"))
         val moveMade = moves("R").first()
-        val d = Assess.diagnosePhysicalMove(oneStep, entry, expected, entry, moveMade, CONFIG)
+        val d = checkNotNull(Assess.diagnosePhysicalMove(oneStep, entry, expected, entry, moveMade, CONFIG))
         assertEquals(Certainty.VERIFIED, d.certainty)
         assertEquals(1, d.candidates.size)
         assertEquals(listOf(moves("F R")), d.candidates.map { it.moves })
@@ -251,9 +251,63 @@ class AssessTest {
         val expected = entry.apply(moves("F'"))
         val moveMade = moves("U").first()
         // Compare against expected where multiple sequences could reach the state
-        val d = Assess.diagnosePhysicalMove(oneStep, entry, expected, stateBefore, moveMade, CONFIG)
+        val d = checkNotNull(Assess.diagnosePhysicalMove(oneStep, entry, expected, stateBefore, moveMade, CONFIG))
         assertTrue(d.certainty == Certainty.VERIFIED || d.certainty == Certainty.LIKELY)
         assertTrue(d.candidates.isNotEmpty())
+    }
+
+    @Test
+    fun `diagnosePhysicalMove of a move on the authored path is no error`() {
+        val entry = TutorFixtures.entryOf(oneStep)
+        assertNull(Assess.diagnosePhysicalMove(oneStep, entry, entry, entry, moves("F'").first(), CONFIG))
+    }
+
+    @Test
+    fun `decide on an unobserved physical cube with no diagnosis is likely, never verified`() {
+        fun decision(isVerified: Boolean) =
+            Assess.decide(
+                lesson = oneStep,
+                history = history(oneStep, ""),
+                config = CONFIG,
+                mode = TeachingMode.GUIDE_ME,
+                revealRequested = false,
+                hintRung = HintRung.NONE,
+                noticeStep = null,
+                lastMoveFeedback = null,
+                lastDiagnosis = null,
+                recovery = Recovery.Unavailable,
+                isPhysical = true,
+                isVerified = isVerified,
+            )
+        assertEquals(Certainty.LIKELY, decision(isVerified = false).certainty)
+        assertEquals(Certainty.VERIFIED, decision(isVerified = true).certainty)
+    }
+
+    @Test
+    fun `decide in physical mode takes certainty from a diagnosis the done step hides`() {
+        val likely = Assess.diagnose(ErrorCategory.WRONG_MOVE_OR_DIRECTION, enumerator(), s.apply(moves("U D")), why)
+        assertEquals(Certainty.LIKELY, likely.certainty)
+
+        fun doneDecision(isPhysical: Boolean) =
+            Assess.decide(
+                lesson = oneStep,
+                history = history(oneStep, "F'"),
+                config = CONFIG,
+                mode = TeachingMode.GUIDE_ME,
+                revealRequested = false,
+                hintRung = HintRung.NONE,
+                noticeStep = null,
+                lastMoveFeedback = null,
+                lastDiagnosis = likely,
+                recovery = Recovery.Unavailable,
+                isPhysical = isPhysical,
+            )
+
+        val physical = doneDecision(isPhysical = true)
+        assertTrue(physical.advance)
+        assertNull(physical.diagnosis)
+        assertEquals(Certainty.LIKELY, physical.certainty)
+        assertEquals(Certainty.VERIFIED, doneDecision(isPhysical = false).certainty)
     }
 
     @Test

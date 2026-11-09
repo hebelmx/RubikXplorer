@@ -4,20 +4,29 @@ import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
 import dev.cubentia.domain.content.FaceletString
+import dev.cubentia.domain.content.Lesson
 import dev.cubentia.domain.cube.Axis
 import dev.cubentia.domain.cube.CubeRotation
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Notation
+import dev.cubentia.domain.cube.Slice
+import dev.cubentia.domain.cube.SliceTurn
 import dev.cubentia.domain.cube.Turn
 import dev.cubentia.domain.input.ViewOrbit
+import dev.cubentia.domain.predicate.StateReached
 import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.text.Text
+import dev.cubentia.domain.tutor.Assess
 import dev.cubentia.domain.tutor.Certainty
 import dev.cubentia.domain.tutor.MoveFeedback
+import dev.cubentia.domain.tutor.RecoveryPlanner
 import dev.cubentia.domain.tutor.TeachingMode
+import dev.cubentia.domain.tutor.Tutor
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -103,7 +112,7 @@ class PhysicalModeSessionTest {
         val enteredState = CubeState.SOLVED.apply(U, F)
         val editorTransition = reduce(afterUndo, SessionEvent.EditorEntered(enteredState, T0))
         val afterEditor = editorTransition.state
-        assertEquals(SyncState.PHYSICAL_PREDICTED, afterEditor.syncState)
+        assertEquals(SyncState.PHYSICAL_VERIFIED, afterEditor.syncState)
         assertEquals(enteredState, afterEditor.expected)
         assertEquals(enteredState, afterEditor.virtual)
         assertEquals(PhysicalObservation.Full(enteredState), afterEditor.observed)
@@ -399,38 +408,463 @@ class PhysicalModeSessionTest {
     @Test
     fun `mismatch reporting and entered move diagnosis and editor re-entry with guided recovery`() {
         val lesson = shippedLesson("lesson-03-01")
-        val session =
-            started(lesson)
-                .after(
-                    SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0),
-                    SessionEvent.PhysicalConfirmed(null, T0),
-                )
+        val session = started(lesson).after(toPhysical, matches)
         assertEquals(SyncState.PHYSICAL_PREDICTED, session.syncState)
 
         // Reporting mismatch transitions to PHYSICAL_MISMATCH with Certainty UNKNOWN
-        val mismatchState = reduce(session, SessionEvent.MismatchReported(T0)).state
+        val mismatchState = reduce(session, reported).state
         assertEquals(SyncState.PHYSICAL_MISMATCH, mismatchState.syncState)
         assertNull(mismatchState.lastDiagnosis)
         assertEquals(Certainty.UNKNOWN, mismatchState.decision?.certainty)
 
-        // Entering move during mismatch runs Assess and provides Diagnosis with evidence
-        val afterEnteredMove = reduce(mismatchState, SessionEvent.PhysicalConfirmed(R, T0)).state
-        assertEquals(SyncState.PHYSICAL_MISMATCH, afterEnteredMove.syncState)
-        val diagnosis = afterEnteredMove.lastDiagnosis
-        org.junit.jupiter.api.Assertions
-            .assertNotNull(diagnosis)
-        assertEquals(afterEnteredMove.decision?.certainty, diagnosis?.certainty)
-        assertTrue(diagnosis!!.certainty == Certainty.VERIFIED || diagnosis.certainty == Certainty.LIKELY)
-
-        // Re-entering cube via EditorEntered transitions to PHYSICAL_PREDICTED with Full observation and offers Guided recovery
+        // Re-entering the cube lands in PHYSICAL_VERIFIED with a Full observation and offers Guided recovery
         val brokenState = CubeState.SOLVED.apply(R, U, F)
-        val afterEditor = reduce(afterEnteredMove, SessionEvent.EditorEntered(brokenState, T0)).state
-        assertEquals(SyncState.PHYSICAL_PREDICTED, afterEditor.syncState)
+        val afterEditor = reduce(mismatchState, SessionEvent.EditorEntered(brokenState, T0)).state
+        assertEquals(SyncState.PHYSICAL_VERIFIED, afterEditor.syncState)
         assertEquals(PhysicalObservation.Full(brokenState), afterEditor.observed)
         assertEquals(brokenState, afterEditor.expected)
         assertEquals(brokenState, afterEditor.virtual)
         assertTrue(afterEditor.decision?.diagnosis != null)
         assertTrue(afterEditor.canGuideBack)
+    }
+
+    private val reported = SessionEvent.MismatchReported(T0)
+
+    private fun confirm(move: Move) = SessionEvent.PhysicalConfirmed(move, T0)
+
+    private fun mismatched(lesson: Lesson = whiteCrossLesson()): SessionState = started(lesson).after(toPhysical, matches, reported)
+
+    private fun evidence(
+        state: SessionState,
+        move: Move,
+    ) = Assess
+        .diagnosePhysicalMove(
+            checkNotNull(state.lesson),
+            state.pathEntry,
+            state.expected,
+            state.expected,
+            move,
+            checkNotNull(state.tutorConfig),
+        )?.predicted()
+
+    private val slice = SliceTurn(Slice.M, Turn.CLOCKWISE)
+
+    @Test
+    fun `rung 1 commits the entered move and carries its diagnosis`() {
+        val mismatch = mismatched()
+        val transition = reduce(mismatch, confirm(R))
+        val next = transition.state
+
+        assertEquals(SyncState.PHYSICAL_PREDICTED, next.syncState)
+        assertEquals(mismatch.expected.apply(R), next.expected)
+        assertEquals(next.expected, next.virtual)
+        assertNull(next.observed)
+        assertEquals(mismatch.revision + 1, next.revision)
+        assertEquals(listOf(R), next.history.done)
+        assertEquals(evidence(mismatch, R), next.lastDiagnosis)
+        assertEquals(Certainty.LIKELY, next.lastDiagnosis?.certainty)
+        assertEquals(next.lastDiagnosis?.certainty, next.decision?.certainty)
+        assertNull(next.lastMoveFeedback)
+        assertEquals(listOf(Presentation.Animate(R, next.revision, next.virtual)), transition.presentation)
+
+        val undone = next.after(undo)
+        assertEquals(mismatch.expected, undone.expected)
+        assertEquals(SyncState.PHYSICAL_PREDICTED, undone.syncState)
+    }
+
+    @Test
+    fun `rung 1 keeps a likely certainty and diagnoses in every teaching mode`() {
+        TeachingMode.entries.forEach { mode ->
+            val mismatch = started().after(modeChanged(mode), toPhysical, matches, reported)
+            val next = mismatch.after(confirm(slice))
+            assertEquals(evidence(mismatch, slice), next.lastDiagnosis, "$mode")
+            assertEquals(Certainty.LIKELY, next.lastDiagnosis?.certainty, "$mode")
+            assertEquals(Certainty.LIKELY, next.decision?.certainty, "$mode")
+            assertNull(next.lastMoveFeedback, "$mode")
+        }
+    }
+
+    @Test
+    fun `rung 1 after a confirm replaces the confirmed move and diagnoses from before it`() {
+        val beforeDone = started().after(toPhysical, matches)
+        val mismatch = beforeDone.after(confirm(U), reported)
+        val transition = reduce(mismatch, confirm(R))
+        val next = transition.state
+
+        assertEquals(listOf(R), next.history.done)
+        assertTrue(next.history.undone.isEmpty())
+        assertEquals(beforeDone.expected.apply(R), next.expected)
+        assertEquals(next.expected, next.virtual)
+        assertEquals(SyncState.PHYSICAL_PREDICTED, next.syncState)
+        assertNull(next.observed)
+        assertEquals(mismatch.revision + 1, next.revision)
+        assertEquals(evidence(beforeDone, R), next.lastDiagnosis)
+        assertEquals(listOf(R), checkNotNull(next.lastDiagnosis).candidates.single().moves)
+        assertEquals(Certainty.LIKELY, next.decision?.certainty)
+        assertEquals(listOf(Presentation.Snap(next.revision, next.virtual)), transition.presentation)
+    }
+
+    @Test
+    fun `rung 1 with no confirmed move goes on top, at a barrier and after an editor entry`() {
+        val atBarrier = mismatched()
+        assertEquals(listOf(R), atBarrier.after(confirm(R)).history.done)
+
+        val edited = started().after(toPhysical, matches, confirm(U))
+        val entered = edited.after(SessionEvent.EditorEntered(edited.expected, T0), reported)
+        val next = entered.after(confirm(R))
+        assertEquals(entered.expected.apply(R), next.expected)
+        assertEquals(listOf(R), next.history.done)
+    }
+
+    @Test
+    fun `rung 1 goes on top once the confirmed moves are undone`() {
+        val mismatch = started().after(toPhysical, matches, confirm(U), undo, reported)
+        val next = mismatch.after(confirm(R))
+
+        assertEquals(mismatch.expected.apply(R), next.expected)
+        assertEquals(listOf(R), next.history.done)
+    }
+
+    @Test
+    fun `undo after a replacement takes back the one replaced entry`() {
+        val beforeDone = started().after(toPhysical, matches, confirm(F))
+        val replaced = beforeDone.after(confirm(U), reported, confirm(R))
+        assertEquals(listOf(F, R), replaced.history.done)
+
+        val transition = reduce(replaced, undo)
+        val undone = transition.state
+        assertEquals(beforeDone.expected, undone.expected)
+        assertEquals(listOf(F), undone.history.done)
+        assertEquals(SyncState.PHYSICAL_PREDICTED, undone.syncState)
+        assertTrue(transition.presentation.single() is Presentation.Instruct)
+    }
+
+    @Test
+    fun `a replacement that meets the objective is evaluated on the replaced state`() {
+        val lesson = whiteCrossLesson().copy(completion = StateReached("F M"))
+        val mismatch = started(lesson).after(toPhysical, matches, confirm(R), reported)
+        assertFalse(mismatch.objectiveMet)
+
+        val next = mismatch.after(confirm(slice))
+        assertTrue(next.objectiveMet)
+        assertEquals(listOf(slice), next.history.done)
+        assertTrue(next.physicalSolveUnconfirmed)
+        assertEquals(next.history, next.checkpoint, "an Objective boundary becomes the Checkpoint")
+    }
+
+    @Test
+    fun `a replacement that undoes the objective clears it and the checkpoint follows`() {
+        val lesson = whiteCrossLesson().copy(completion = StateReached("F M"))
+        val met = started(lesson).after(toPhysical, matches, confirm(slice))
+        assertTrue(met.objectiveMet)
+        assertEquals(met.history, met.checkpoint)
+
+        val transition = reduce(met.after(reported), confirm(R))
+        val next = transition.state
+        assertFalse(next.objectiveMet)
+        assertFalse(next.physicalSolveUnconfirmed)
+        assertEquals(listOf(R), next.history.done)
+        assertEquals(next.history, next.checkpoint, "the Checkpoint never holds the replaced Move")
+        assertEquals(1, transition.effects.filterIsInstance<Effect.PersistCheckpoint>().size)
+    }
+
+    @Test
+    fun `an on-path move entered on rung 1 is no error and stays likely`() {
+        val lesson = whiteCrossLesson()
+        val mismatch = mismatched(lesson)
+        val onPath = checkNotNull(Tutor.nextMove(lesson, mismatch.pathEntry, mismatch.expected))
+        val next = mismatch.after(confirm(onPath))
+
+        assertNull(next.lastDiagnosis)
+        assertEquals(Certainty.LIKELY, next.decision?.certainty)
+    }
+
+    @Test
+    fun `a predicted cube with no diagnosis is never verified`() {
+        val predicted = started().after(toPhysical, matches)
+        assertEquals(Certainty.LIKELY, predicted.decision?.certainty)
+
+        val dismissed = predicted.after(reported, matches)
+        assertEquals(SyncState.PHYSICAL_PREDICTED, dismissed.syncState)
+        assertNull(dismissed.lastDiagnosis)
+        assertEquals(Certainty.LIKELY, dismissed.decision?.certainty)
+
+        val diagnosed = mismatched().after(confirm(R))
+        assertNotNull(diagnosed.lastDiagnosis)
+        listOf(hint, modeChanged(TeachingMode.TEST_ME)).forEach { clearing ->
+            val cleared = diagnosed.after(clearing)
+            assertNull(cleared.lastDiagnosis, "$clearing")
+            assertEquals(Certainty.LIKELY, cleared.decision?.certainty, "$clearing")
+        }
+    }
+
+    @Test
+    fun `rung 1 that meets the objective keeps the diagnosed certainty and still needs the solve confirmation`() {
+        val lesson = whiteCrossLesson().copy(completion = StateReached("F M"))
+        val mismatch = mismatched(lesson)
+        val transition = reduce(mismatch, confirm(slice))
+        val next = transition.state
+
+        assertTrue(next.objectiveMet)
+        assertNull(next.decision?.diagnosis, "the done step hides the Diagnosis")
+        assertEquals(Certainty.LIKELY, next.lastDiagnosis?.certainty)
+        assertEquals(Certainty.LIKELY, next.decision?.certainty, "never the confirm's VERIFIED")
+        assertTrue(next.physicalSolveUnconfirmed)
+        assertFalse(next.physicalSolveConfirmed)
+        assertEquals(next.history, next.checkpoint, "an Objective boundary becomes the Checkpoint")
+        assertEquals(1, transition.effects.filterIsInstance<Effect.PersistCheckpoint>().size)
+        assertTrue(next.after(solveConfirmed).physicalSolveConfirmed)
+    }
+
+    @Test
+    fun `rung 1 outside the enumerator is unknown and expected still updates`() {
+        val mismatch =
+            SessionState.IDLE.after(
+                lessonStarted(whiteCrossLesson(), config = TUTOR_CONFIG.copy(maxDepth = 1)),
+                toPhysical,
+                matches,
+                reported,
+            )
+        val next = mismatch.after(confirm(slice))
+
+        assertEquals(mismatch.expected.apply(slice), next.expected)
+        assertEquals(SyncState.PHYSICAL_PREDICTED, next.syncState)
+        assertEquals(Certainty.UNKNOWN, next.lastDiagnosis?.certainty)
+        assertEquals(Certainty.UNKNOWN, next.decision?.certainty)
+    }
+
+    @Test
+    fun `rung 1 counts for adaptive assistance like any commit`() {
+        val lesson = shippedLesson("lesson-03-01")
+        val mismatch = SessionState.IDLE.after(lessonStarted(lesson, adaptiveAssistance = true), toPhysical, matches, reported)
+        val next = mismatch.after(confirm(R))
+
+        assertEquals(1, next.stepMistakes.values.sum())
+        assertNull(next.lastMoveFeedback)
+    }
+
+    @Test
+    fun `it matches after all returns to predicted with expected and revision unchanged`() {
+        val mismatch = started().after(toPhysical, matches, confirm(R), reported)
+        val next = reduce(mismatch, matches)
+
+        assertEquals(SyncState.PHYSICAL_PREDICTED, next.state.syncState)
+        assertEquals(mismatch.expected, next.state.expected)
+        assertEquals(mismatch.history, next.state.history)
+        assertEquals(mismatch.revision, next.state.revision)
+        assertTrue(next.presentation.isEmpty())
+    }
+
+    @Test
+    fun `an accepted editor entry from every physical state is verified and ignored in virtual mode`() {
+        val entered = CubeState.SOLVED.apply(U, F)
+        val awaiting = started().after(toPhysical)
+        val predicted = awaiting.after(matches)
+        val verified = predicted.after(SessionEvent.EditorEntered(CubeState.SOLVED.apply(R), T0))
+        val mismatch = predicted.after(reported)
+        assertEquals(SyncState.PHYSICAL_VERIFIED, verified.syncState)
+
+        listOf(awaiting, predicted, verified, mismatch).forEach { before ->
+            val next = before.after(SessionEvent.EditorEntered(entered, T0))
+            assertEquals(SyncState.PHYSICAL_VERIFIED, next.syncState, "${before.syncState}")
+            assertEquals(PhysicalObservation.Full(entered), next.observed, "${before.syncState}")
+            assertEquals(entered, next.expected, "${before.syncState}")
+        }
+
+        val virtual = started()
+        val ignored = virtual.after(SessionEvent.EditorEntered(entered, T0))
+        assertEquals(SyncState.VIRTUAL, ignored.syncState)
+        assertEquals(virtual.virtual, ignored.virtual)
+        assertNull(ignored.observed)
+    }
+
+    @Test
+    fun `dismissing a mismatch reported after an editor entry clears the observation`() {
+        val verified = started().after(toPhysical, matches, SessionEvent.EditorEntered(CubeState.SOLVED.apply(U, F), T0))
+        val mismatch = verified.after(reported)
+        val next = mismatch.after(matches)
+
+        assertEquals(SyncState.PHYSICAL_PREDICTED, next.syncState)
+        assertNull(next.observed)
+        assertEquals(verified.expected, next.expected)
+        assertEquals(verified.revision, next.revision)
+    }
+
+    @Test
+    fun `reporting a mismatch from verified keeps expected and revision`() {
+        val verified = started().after(toPhysical, matches, SessionEvent.EditorEntered(CubeState.SOLVED.apply(U, F), T0))
+        val next = verified.after(reported)
+
+        assertEquals(SyncState.PHYSICAL_MISMATCH, next.syncState)
+        assertEquals(verified.expected, next.expected)
+        assertEquals(verified.revision, next.revision)
+    }
+
+    @Test
+    fun `a harmful test me diagnosis on a predicted cube is at most likely`() {
+        val physical = started(shippedLesson("lesson-03-01")).after(modeChanged(TeachingMode.TEST_ME), toPhysical, matches)
+        val classified =
+            Assess.classify(
+                checkNotNull(physical.lesson),
+                physical.pathEntry,
+                physical.virtual,
+                R,
+                physical.virtual.apply(R),
+                checkNotNull(physical.tutorConfig),
+            )
+        assertEquals(MoveFeedback.HARMFUL, classified.feedback)
+        val diagnosis = checkNotNull(classified.diagnosis)
+        assertEquals(Certainty.VERIFIED, diagnosis.certainty)
+
+        val next = physical.after(confirm(R))
+
+        assertEquals(MoveFeedback.HARMFUL, next.lastMoveFeedback)
+        assertEquals(diagnosis.predicted(), next.lastDiagnosis)
+        assertEquals(Certainty.LIKELY, next.decision?.certainty)
+    }
+
+    @Test
+    fun `an accepted re-entry reports the full observation and keeps the diagnosis as the explanation`() {
+        val mismatch = mismatched()
+        val entered = reduce(mismatch, SessionEvent.EditorEntered(CubeState.SOLVED.apply(R, U, F), T0)).state
+
+        assertEquals(SyncState.PHYSICAL_VERIFIED, entered.syncState)
+        val diagnosis = checkNotNull(entered.decision?.diagnosis)
+        assertEquals(Certainty.UNKNOWN, diagnosis.certainty)
+        assertEquals(Certainty.VERIFIED, entered.decision?.certainty)
+        assertEquals(diagnosis.explanation, entered.decision?.explanation)
+    }
+
+    @Test
+    fun `an accepted re-entry that finds nothing has no diagnosis`() {
+        val physical = started().after(toPhysical, matches)
+        assertFalse(physical.objectiveMet)
+
+        val entered = physical.after(SessionEvent.EditorEntered(physical.expected, T0))
+
+        assertEquals(SyncState.PHYSICAL_VERIFIED, entered.syncState)
+        assertNull(entered.lastDiagnosis)
+        assertEquals(Certainty.VERIFIED, entered.decision?.certainty)
+    }
+
+    @Test
+    fun `an offered guided recovery survives physical confirms made before guide me back`() {
+        val physical = started(shippedLesson("lesson-03-01")).after(toPhysical, matches)
+        val verified = physical.after(SessionEvent.EditorEntered(physical.expected.apply(R, U), T0))
+        assertTrue(verified.canGuideBack)
+
+        val once = verified.after(confirm(U))
+        assertTrue(once.canGuideBack)
+        assertEquals(SyncState.PHYSICAL_PREDICTED, once.syncState)
+        // Carried past a confirm, the Diagnosis is never a false VERIFIED on a predicted cube.
+        assertEquals(Certainty.VERIFIED, verified.decision?.certainty)
+        assertEquals(Certainty.LIKELY, once.decision?.certainty)
+        // Its candidates explained the cube before this confirm.
+        assertTrue(checkNotNull(once.lastDiagnosis).candidates.isEmpty())
+        val twice = once.after(confirm(U))
+        assertEquals(TeachingMode.GUIDE_ME, twice.teachingMode)
+        assertEquals(SyncState.PHYSICAL_PREDICTED, twice.syncState)
+        assertTrue(twice.canGuideBack)
+    }
+
+    @Test
+    fun `a confirm that meets the recovery goal drops the carried diagnosis`() {
+        val physical = started(shippedLesson("lesson-03-01")).after(toPhysical, matches)
+        val verified = physical.after(SessionEvent.EditorEntered(physical.expected.apply(R, U), T0))
+
+        val halfway = verified.after(confirm(U_PRIME))
+        assertTrue(halfway.canGuideBack)
+        val repaired = halfway.after(confirm(R_PRIME))
+
+        assertFalse(repaired.canGuideBack)
+        assertNull(repaired.lastDiagnosis)
+    }
+
+    @Test
+    fun `a diagnosis that offers no guide me back ends on the next physical commit`() {
+        val shown = started().after(toPhysical, matches).copy(lastDiagnosis = TURNED_DIAGNOSIS)
+        assertFalse(shown.canGuideBack)
+
+        assertNull(shown.after(confirm(U)).lastDiagnosis)
+    }
+
+    @Test
+    fun `a rung-1 diagnosis ends on the next physical commit`() {
+        val committed = mismatched().after(confirm(R))
+        assertTrue(committed.lastDiagnosis != null)
+        assertFalse(committed.canGuideBack)
+
+        assertNull(committed.after(confirm(U)).lastDiagnosis)
+    }
+
+    @Test
+    fun `a plan left by an off-plan move still ends after an editor entry`() {
+        val physical = started(shippedLesson("lesson-03-01")).after(toPhysical, matches)
+        val asked =
+            reduce(physical.after(SessionEvent.EditorEntered(physical.expected.apply(R, U), T0)), SessionEvent.GuidedRecoveryRequested(T0))
+        val effect = asked.effects.filterIsInstance<Effect.PlanRecovery>().single()
+        val planned = asked.state.after(effect.planned(listOf(U_PRIME, R_PRIME)))
+        assertInstanceOf(GuidedRecovery.Planned::class.java, planned.guidedRecovery)
+
+        assertEquals(GuidedRecovery.None, planned.after(confirm(R)).guidedRecovery)
+    }
+
+    @Test
+    fun `the next confirm after the editor returns to predicted and clears the observation`() {
+        val verified = started().after(toPhysical, matches, SessionEvent.EditorEntered(CubeState.SOLVED.apply(U, F), T0))
+        val next = verified.after(confirm(R))
+
+        assertEquals(SyncState.PHYSICAL_PREDICTED, next.syncState)
+        assertNull(next.observed)
+        assertEquals(verified.expected.apply(R), next.expected)
+    }
+
+    private fun following(vararg moves: Move): SessionState {
+        val plan = listOf(*moves)
+        return started().after(toPhysical, matches).copy(
+            guidedRecovery = GuidedRecovery.Planned(plan, emptySet(), RecoveryPlanner.describe(plan, emptySet())),
+        )
+    }
+
+    @Test
+    fun `confirming the plan's next move keeps the plan with the moves left`() {
+        val next = following(R, U).after(confirm(R))
+        val plan = next.guidedRecovery as GuidedRecovery.Planned
+        assertEquals(listOf<Move>(U), plan.moves)
+        assertEquals(RecoveryPlanner.describe(listOf(U), emptySet()), plan.text)
+
+        assertEquals(GuidedRecovery.None, next.after(confirm(U)).guidedRecovery)
+    }
+
+    @Test
+    fun `confirming another move ends the plan`() {
+        assertEquals(GuidedRecovery.None, following(R, U).after(confirm(U)).guidedRecovery)
+    }
+
+    @Test
+    fun `an idle confirm keeps a plan and a diagnosis`() {
+        val shown = following(R, U).copy(lastMoveFeedback = MoveFeedback.NEUTRAL, lastDiagnosis = TURNED_DIAGNOSIS)
+        assertSame(shown, reduce(shown, matches).state)
+    }
+
+    @Test
+    fun `a guided recovery offered after the editor survives the physical confirms that follow it`() {
+        val physical = started(shippedLesson("lesson-03-01")).after(toPhysical, matches)
+        val entered = physical.expected.apply(R, U)
+        val verified = physical.after(SessionEvent.EditorEntered(entered, T0))
+        assertEquals(SyncState.PHYSICAL_VERIFIED, verified.syncState)
+        assertTrue(verified.canGuideBack)
+
+        val asked = reduce(verified, SessionEvent.GuidedRecoveryRequested(T0))
+        val effect = asked.effects.filterIsInstance<Effect.PlanRecovery>().single()
+        val planned = asked.state.after(effect.planned(listOf(U_PRIME, R_PRIME)))
+        assertInstanceOf(GuidedRecovery.Planned::class.java, planned.guidedRecovery)
+
+        val halfway = planned.after(confirm(U_PRIME))
+        assertEquals(listOf<Move>(R_PRIME), (halfway.guidedRecovery as GuidedRecovery.Planned).moves)
+        assertEquals(SyncState.PHYSICAL_PREDICTED, halfway.syncState)
+        assertEquals(entered.apply(U_PRIME), halfway.expected)
+        assertEquals(GuidedRecovery.None, halfway.after(confirm(R_PRIME)).guidedRecovery)
     }
 
     @Test
@@ -536,7 +970,7 @@ class PhysicalModeSessionTest {
                 // - EditorEntered (accepted Full observation)
                 val isConfirmedMove =
                     event is SessionEvent.PhysicalConfirmed && event.move != null &&
-                        (current.syncState == SyncState.PHYSICAL_PREDICTED || current.syncState == SyncState.PHYSICAL_VERIFIED)
+                        current.syncState in setOf(SyncState.PHYSICAL_PREDICTED, SyncState.PHYSICAL_VERIFIED, SyncState.PHYSICAL_MISMATCH)
                 val isPhysicalUndo =
                     event is SessionEvent.Undo &&
                         current.syncState != SyncState.VIRTUAL && current.history.canUndo
@@ -555,6 +989,9 @@ class PhysicalModeSessionTest {
                         "expected changed unexpectedly from $event in state ${current.syncState}",
                     )
                 }
+
+                // No Partial observation is produced in v1.0
+                assertFalse(next.observed is PhysicalObservation.Partial, "observed must never be Partial, after $event")
 
                 // Invariant 3: View Rotation changes neither Notation nor expected
                 val expectedBeforeRotation = next.expected

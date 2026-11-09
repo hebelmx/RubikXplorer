@@ -16,7 +16,6 @@ import dev.cubentia.domain.text.Text
 import dev.cubentia.domain.tutor.Assess
 import dev.cubentia.domain.tutor.AssistanceLevel
 import dev.cubentia.domain.tutor.Diagnosis
-import dev.cubentia.domain.tutor.ErrorCategory
 import dev.cubentia.domain.tutor.HintLadder
 import dev.cubentia.domain.tutor.HintRung
 import dev.cubentia.domain.tutor.MoveAssessment
@@ -117,7 +116,7 @@ private fun applied(
     val recovery =
         event is SessionEvent.GuidedRecoveryRequested || event is SessionEvent.RecoveryPlanned || event is SessionEvent.RecoveryPlanFailed
     val keeps =
-        event is SessionEvent.MoveCommitted || (event is SessionEvent.PhysicalConfirmed && event.move != null) ||
+        event is SessionEvent.MoveCommitted || event is SessionEvent.PhysicalConfirmed ||
             event is SessionEvent.EditorEntered || event is SessionEvent.SolvePlaybackStarted || recovery
     if (keeps || (transition.state.kind != SessionKind.LESSON && transition.state.kind != SessionKind.PRACTICE)) return transition
     return transition.copy(
@@ -389,22 +388,50 @@ private fun committed(
 ): Transition {
     val history = state.history.commit(move)
     val lesson = state.lesson
+    val assessment = assessment(state, move, history)
+    val moved = move(state, history, move, assessment.takeIf { state.teachingMode == TeachingMode.TEST_ME })
+    val counted = lesson?.let { moved.copy(state = adapted(state, moved.state, it, assessment?.feedback == MoveFeedback.HARMFUL)) } ?: moved
+    return followingPlan(state, counted, move)
+}
+
+/** [Assess.classify]'s word on [move] (now on top of [history]) when the session assesses it, else null. */
+private fun assessment(
+    state: SessionState,
+    move: Move,
+    history: MoveHistory,
+): MoveAssessment? {
+    val lesson = state.lesson ?: return null
     val mode = state.teachingMode
     val assessed =
         state.kind == SessionKind.PRACTICE || mode == TeachingMode.TEST_ME || (state.adaptiveAssistance && mode in ADAPTIVE_MODES)
-    val assessment =
-        if (lesson != null && assessed) {
-            Assess.classify(lesson, state.pathEntry, state.virtual, move, history.state, checkNotNull(state.tutorConfig))
-        } else {
-            null
-        }
-    val moved = move(state, history, move, assessment.takeIf { mode == TeachingMode.TEST_ME })
-    val counted = lesson?.let { moved.copy(state = adapted(state, moved.state, it, assessment?.feedback == MoveFeedback.HARMFUL)) } ?: moved
-    val plan = state.guidedRecovery as? GuidedRecovery.Planned
-    if (plan == null || plan.moves.firstOrNull() != move) return counted
+    return if (assessed) {
+        Assess.classify(
+            lesson,
+            state.pathEntry,
+            state.virtual,
+            move,
+            history.state,
+            checkNotNull(state.tutorConfig),
+        )
+    } else {
+        null
+    }
+}
+
+/**
+ * The Guided recovery after [moved], which committed [move] from [before]: the next Move of a Planned
+ * plan keeps it with the Moves left (none left: no Guided recovery); any other Move ended it already.
+ */
+private fun followingPlan(
+    before: SessionState,
+    moved: Transition,
+    move: Move,
+): Transition {
+    val plan = before.guidedRecovery as? GuidedRecovery.Planned
+    if (plan == null || plan.moves.firstOrNull() != move) return moved
     val left = plan.moves.drop(1)
     val following = if (left.isEmpty()) GuidedRecovery.None else plan.copy(moves = left, text = RecoveryPlanner.describe(left, plan.pieces))
-    return counted.copy(state = counted.state.copy(guidedRecovery = following))
+    return moved.copy(state = moved.state.copy(guidedRecovery = following))
 }
 
 /** The modes besides *Test me* whose Moves adaptive assistance assesses. */
@@ -544,70 +571,99 @@ private fun switchMode(
     }
 }
 
+/**
+ * The Learner's word on their real cube. A Move is committed from `PHYSICAL_PREDICTED`, `PHYSICAL_VERIFIED`
+ * and `PHYSICAL_MISMATCH` (rung 1 of the mismatch ladder, [commitPhysical]). `null` means the cube matches:
+ * it leaves `PHYSICAL_AWAITING_CONFIRM` and dismisses a false alarm in `PHYSICAL_MISMATCH`, with Expected
+ * and the revision unchanged, and changes nothing elsewhere.
+ */
 private fun confirmPhysical(
     state: SessionState,
     event: SessionEvent.PhysicalConfirmed,
 ): Transition {
+    val move = event.move
     return when (state.syncState) {
         SyncState.PHYSICAL_AWAITING_CONFIRM -> {
-            if (event.move == null) {
-                Transition(state.copy(syncState = SyncState.PHYSICAL_PREDICTED))
-            } else {
-                Transition(state)
-            }
+            if (move == null) Transition(state.copy(syncState = SyncState.PHYSICAL_PREDICTED)) else Transition(state)
         }
 
         SyncState.PHYSICAL_PREDICTED, SyncState.PHYSICAL_VERIFIED -> {
-            val move = event.move ?: return Transition(state)
-            val nextExpected = state.expected.apply(move)
-            val history = state.history.commit(move)
-            val lesson = state.lesson
-            val mode = state.teachingMode
-            val assessed =
-                state.kind == SessionKind.PRACTICE || mode == TeachingMode.TEST_ME || (state.adaptiveAssistance && mode in ADAPTIVE_MODES)
-            val assessment =
-                if (lesson != null && assessed) {
-                    Assess.classify(lesson, state.pathEntry, state.virtual, move, history.state, checkNotNull(state.tutorConfig))
-                } else {
-                    null
-                }
-            val moved =
-                withHistory(state, history).copy(
-                    expected = nextExpected,
-                    observed = null,
-                    syncState = SyncState.PHYSICAL_PREDICTED,
-                    lastMoveFeedback = assessment?.feedback?.takeIf { mode == TeachingMode.TEST_ME },
-                    lastDiagnosis = assessment?.diagnosis?.takeIf { mode == TeachingMode.TEST_ME },
-                )
-            val noticed = moved.lesson?.let { l -> withNotice(state, moved, l) } ?: moved
-            val boundary = noticed.lesson != null && (noticed.noticeStep != null || noticed.objectiveMet)
-            val next = if (boundary) noticed.copy(checkpoint = noticed.history.withoutRedo()) else noticed
-            val counted = lesson?.let { l -> adapted(state, next, l, assessment?.feedback == MoveFeedback.HARMFUL) } ?: next
-            Transition(counted, presentation = listOf(Presentation.Animate(move, counted.revision, counted.virtual)))
+            if (move == null) Transition(state) else commitPhysical(state, move)
         }
 
         SyncState.PHYSICAL_MISMATCH -> {
-            val move = event.move ?: return Transition(state)
-            val lesson = state.lesson
-            val config = state.tutorConfig
-            val stateBefore =
-                state.history
-                    .undo()
-                    .state
-                    .takeIf { state.history.canUndo } ?: state.expected
-            val diagnosis =
-                if (lesson != null && config != null) {
-                    Assess.diagnosePhysicalMove(lesson, state.pathEntry, state.expected, stateBefore, move, config)
-                } else {
-                    null
-                }
-            Transition(state.copy(lastDiagnosis = diagnosis))
+            move?.let { commitPhysical(state, it) }
+                ?: Transition(state.copy(syncState = SyncState.PHYSICAL_PREDICTED, observed = null))
         }
 
         SyncState.VIRTUAL -> {
             Transition(state)
         }
     }
+}
+
+/**
+ * Commits a physical [move] on top of Expected, back to `PHYSICAL_PREDICTED` with no observation. A Move
+ * entered in `PHYSICAL_MISMATCH` replaces the last confirmed Move when there is one to take back
+ * ([beforeLastConfirm]; at an undo barrier it goes on top), and carries its evidence as the Diagnosis in
+ * every Teaching Mode, with no Move feedback; otherwise *Test me* keeps [Assess.classify]'s word, as [committed] does, and a Diagnosis
+ * still offering *Guide me back* after this commit stays when there is no new one, so the offer survives
+ * the confirm for as long as it applies. The commit leaves a predicted cube, so a new Diagnosis is at most
+ * LIKELY ([Diagnosis.predicted], AD-5).
+ */
+private fun commitPhysical(
+    state: SessionState,
+    move: Move,
+): Transition {
+    val reported = state.syncState == SyncState.PHYSICAL_MISMATCH
+    val replacing = reported && state.history.canUndo
+    val base = if (replacing) beforeLastConfirm(state) else state
+    val history = base.history.commit(move)
+    val lesson = state.lesson
+    val assessment = assessment(base, move, history)
+    val shown = assessment.takeIf { state.teachingMode == TeachingMode.TEST_ME && !reported }
+    val own = (if (reported) evidenceDiagnosis(base, move) else shown?.diagnosis)?.predicted()
+    val carried = state.lastDiagnosis?.takeIf { own == null && state.canGuideBack }?.carried()
+    val moved =
+        withHistory(base, history).copy(
+            expected = base.expected.apply(move),
+            observed = null,
+            syncState = SyncState.PHYSICAL_PREDICTED,
+            lastMoveFeedback = shown?.feedback,
+            lastDiagnosis = own ?: carried,
+        )
+    val noticed =
+        (moved.lesson?.let { l -> withNotice(base, moved, l) } ?: moved)
+            .let { if (carried != null && !it.canGuideBack) it.copy(lastDiagnosis = null) else it }
+    val boundary = noticed.lesson != null && (noticed.noticeStep != null || noticed.objectiveMet)
+    // A Checkpoint holding the replaced Move would resume a cube that never existed, so it follows the replacement.
+    val replacedCheckpoint = replacing && state.checkpoint == state.history.withoutRedo()
+    val next = if (boundary || replacedCheckpoint) noticed.copy(checkpoint = noticed.history.withoutRedo()) else noticed
+    val counted = lesson?.let { l -> adapted(base, next, l, assessment?.feedback == MoveFeedback.HARMFUL) } ?: next
+    // The net shows the replaced Move, so the entered Move is not one turn from it: it snaps.
+    val shownMove =
+        if (replacing) {
+            Presentation.Snap(counted.revision, counted.virtual)
+        } else {
+            Presentation.Animate(move, counted.revision, counted.virtual)
+        }
+    return followingPlan(state, Transition(counted, presentation = listOf(shownMove)), move)
+}
+
+/** [state] as it stood before its last confirmed Move, which a Move entered on the mismatch ladder replaces. The revision stays. */
+private fun beforeLastConfirm(state: SessionState): SessionState {
+    val history = state.history.undo()
+    return withHistory(state, history).copy(revision = state.revision, expected = history.state, noticeStep = null)
+}
+
+/** The Diagnosis of a Move entered on the mismatch ladder, based on Expected ([state] is already before a replaced Move); null when on the path. */
+private fun evidenceDiagnosis(
+    state: SessionState,
+    move: Move,
+): Diagnosis? {
+    val lesson = state.lesson ?: return null
+    val config = state.tutorConfig ?: return null
+    return Assess.diagnosePhysicalMove(lesson, state.pathEntry, state.expected, state.expected, move, config)
 }
 
 private fun canConfirmPhysicalSolve(state: SessionState): Boolean =
@@ -644,7 +700,6 @@ private fun enterEditor(
         if (lesson != null && config != null && !lesson.completion.isSatisfied(event.state)) {
             val expectedBase = previousCheckpoint?.state ?: state.pathEntry
             Assess.diagnose(lesson, state.pathEntry, expectedBase, event.state, config)
-                ?: Assess.unknown(ErrorCategory.UNKNOWN_DISCREPANCY, Text("msg.diagnosis.unknown-discrepancy"))
         } else {
             null
         }
@@ -652,7 +707,7 @@ private fun enterEditor(
         withHistory(state, nextHistory).copy(
             expected = event.state,
             observed = PhysicalObservation.Full(event.state),
-            syncState = SyncState.PHYSICAL_PREDICTED,
+            syncState = SyncState.PHYSICAL_VERIFIED,
             lastMoveFeedback = null,
             lastDiagnosis = diagnosis,
             checkpoint = nextHistory,

@@ -199,7 +199,10 @@ sealed interface SessionEvent {
         override val at: Instant,
     ) : SessionEvent
 
-    /** The Learner confirmed matching their cube or performing [move] on their physical cube (AD-3). */
+    /**
+     * The Learner confirmed performing [move] on their physical cube, or (`null`) that it matches
+     * Expected, which is also *It matches after all* in `PHYSICAL_MISMATCH` (AD-3).
+     */
     data class PhysicalConfirmed(
         val move: Move? = null,
         override val at: Instant,

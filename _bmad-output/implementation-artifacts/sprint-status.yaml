@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: 11-08-2026 20:38
+last_updated: 11-08-2026 22:33
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -138,7 +138,7 @@ development_status:
   12-5-store-listing-and-public-portfolio-repo: backlog
   12-6-rebrand-to-cubentia: done
   12-7-physical-progress-is-recorded-only-when-true: done
-  12-8-the-mismatch-ladder-resolves-a-mismatch: backlog
+  12-8-the-mismatch-ladder-resolves-a-mismatch: done
   12-9-one-source-for-physical-copy-skip-check-needs-the-virtual-cu: backlog
   12-10-prove-the-release-permission-gate-end-to-end: backlog
   epic-12-retrospective: optional
@@ -352,7 +352,7 @@ action_items:
       (SessionHost.kt:474-483) on a session-level confirmation event, move the confirm
       flags out of rememberSaveable, replace the five lesson-06-03 literals"
     owner: "Dev (Amelia)"
-    status: in-progress
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-08.md"
   - id: "epic-8-retro-item-29-show-physical-undo-redo-instructions-ren"
     epic: 8
@@ -360,14 +360,14 @@ action_items:
       instead of mapping it to Animate (PresentationMapping.kt:11); disable or instruct
       physical Redo (Reduce.kt:129-136)"
     owner: "Dev (Amelia)"
-    status: in-progress
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-08.md"
   - id: "epic-8-retro-item-30-persist-a-physical-checkpoint-on-modeswi"
     epic: 8
     action: "Persist a physical Checkpoint on ModeSwitched (Reduce.kt switchMode/persistCheckpoint)
       and add the SessionHostCheckpointTest switch-then-endSolve case"
     owner: "Dev (Amelia)"
-    status: in-progress
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-08.md"
   - id: "epic-8-retro-item-31-settle-the-mismatch-ladder-contract-rung"
     epic: 8
@@ -375,7 +375,7 @@ action_items:
       rung-2 Partial evidence, PHYSICAL_VERIFIED, physical Guided recovery) and align
       Reduce.kt, MismatchLadder.kt and TRANSITIONS.md"
     owner: "Architect (Winston) + Dev (Amelia)"
-    status: in-progress
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-08.md"
   - id: "epic-8-retro-item-32-before-story-3-7-wires-physical-playback"
     epic: 8

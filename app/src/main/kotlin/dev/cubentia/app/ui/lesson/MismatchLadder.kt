@@ -16,10 +16,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
@@ -34,17 +30,22 @@ import dev.cubentia.app.ui.theme.Spacing
  *
  * Asks in FR-9 order (skipping Quick Check while scanning is unavailable):
  * 1. "Which turn did you make?" with Move keys.
- * 2. One-face picker: "Look at the front face — which corner is white?"
+ * 2. One-face picker: "Look at the front face — which corner is white?" It is a prompt only: every
+ *    answer leads to rung 3, the session does not change and no partial observation is made.
  * 3. "Let's re-enter your cube" via the Manual Cube Editor.
+ *
+ * Every rung also offers [matchesAfterAllLabel], which dismisses a false alarm ([onMatchesAfterAll]).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MismatchLadder(
     onOpenEditor: () -> Unit,
+    matchesAfterAllLabel: String,
+    onMatchesAfterAll: () -> Unit,
+    rung: Int,
+    onRungChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    candidate: String? = null,
 ) {
-    var rung by rememberSaveable { mutableIntStateOf(1) }
     val tokens = RubikTheme.tokens
     val shape = MaterialTheme.shapes.large
 
@@ -66,20 +67,12 @@ fun MismatchLadder(
                     color = tokens.inkPrimary,
                     modifier = Modifier.testTag("mismatch:question"),
                 )
-                if (candidate != null) {
-                    Text(
-                        text = stringResource(R.string.physical_mismatch_candidate, candidate),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = tokens.statusLikely,
-                        modifier = Modifier.testTag("mismatch:candidate"),
-                    )
-                }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(Spacing.s3),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     OutlinedButton(
-                        onClick = { rung = 2 },
+                        onClick = { onRungChange(2) },
                         shape = MaterialTheme.shapes.medium,
                         modifier =
                             Modifier
@@ -108,35 +101,35 @@ fun MismatchLadder(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     OutlinedButton(
-                        onClick = { rung = 3 },
+                        onClick = { onRungChange(3) },
                         shape = MaterialTheme.shapes.small,
                         modifier = Modifier.testTag("mismatch:corner:top_left"),
                     ) {
                         Text(stringResource(R.string.physical_mismatch_corner_top_left))
                     }
                     OutlinedButton(
-                        onClick = { rung = 3 },
+                        onClick = { onRungChange(3) },
                         shape = MaterialTheme.shapes.small,
                         modifier = Modifier.testTag("mismatch:corner:top_right"),
                     ) {
                         Text(stringResource(R.string.physical_mismatch_corner_top_right))
                     }
                     OutlinedButton(
-                        onClick = { rung = 3 },
+                        onClick = { onRungChange(3) },
                         shape = MaterialTheme.shapes.small,
                         modifier = Modifier.testTag("mismatch:corner:bottom_left"),
                     ) {
                         Text(stringResource(R.string.physical_mismatch_corner_bottom_left))
                     }
                     OutlinedButton(
-                        onClick = { rung = 3 },
+                        onClick = { onRungChange(3) },
                         shape = MaterialTheme.shapes.small,
                         modifier = Modifier.testTag("mismatch:corner:bottom_right"),
                     ) {
                         Text(stringResource(R.string.physical_mismatch_corner_bottom_right))
                     }
                     OutlinedButton(
-                        onClick = { rung = 3 },
+                        onClick = { onRungChange(3) },
                         shape = MaterialTheme.shapes.small,
                         modifier = Modifier.testTag("mismatch:corner:none"),
                     ) {
@@ -148,7 +141,7 @@ fun MismatchLadder(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     OutlinedButton(
-                        onClick = { rung = 3 },
+                        onClick = { onRungChange(3) },
                         shape = MaterialTheme.shapes.medium,
                         modifier =
                             Modifier
@@ -188,6 +181,17 @@ fun MismatchLadder(
                     Text(text = stringResource(R.string.confirm_cube_enter))
                 }
             }
+        }
+        OutlinedButton(
+            onClick = onMatchesAfterAll,
+            shape = MaterialTheme.shapes.medium,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = Spacing.touchMin)
+                    .testTag("mismatch:matchesAfterAll"),
+        ) {
+            Text(text = matchesAfterAllLabel, color = tokens.inkPrimary)
         }
     }
 }

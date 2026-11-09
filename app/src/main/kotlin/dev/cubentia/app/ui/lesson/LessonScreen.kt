@@ -35,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -450,6 +451,7 @@ private fun LessonBody(
     val isPhysical = session.syncState != SyncState.VIRTUAL
     var showManualEditor by rememberSaveable { mutableStateOf(false) }
     var showMoveKeyBar by rememberSaveable(isPhysical) { mutableStateOf(!isPhysical) }
+    var mismatchRung by rememberSaveable { mutableIntStateOf(1) }
 
     // The last physical Undo's instruction; presentation only, so it is cleared by the next send.
     var physicalInstruction by rememberSaveable(lesson.id) { mutableStateOf<String?>(null) }
@@ -459,6 +461,10 @@ private fun LessonBody(
     }
 
     LaunchedEffect(session.syncState) {
+        if (session.syncState != SyncState.PHYSICAL_MISMATCH) {
+            mismatchRung = 1
+            if (isPhysical) showMoveKeyBar = false
+        }
         if (session.syncState == SyncState.VIRTUAL || session.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM) {
             physicalInstruction = null
         }
@@ -530,7 +536,8 @@ private fun LessonBody(
     val pulse = if (isPhysical) 0f else rememberObjectivePulse(decision.satisfied, reduceMotion)
     val mode = session.teachingMode
     val stepMove =
-        Tutor.nextMove(lesson, session.pathEntry, session.virtual)
+        (session.guidedRecovery as? GuidedRecovery.Planned)?.moves?.firstOrNull()
+            ?: Tutor.nextMove(lesson, session.pathEntry, session.virtual)
             ?: demonstration.steps
                 .getOrNull(session.stepIndex)
                 ?.moves
@@ -605,22 +612,48 @@ private fun LessonBody(
             },
             onDidSomethingElse = { showMoveKeyBar = true },
             onMismatchReported = { send { SessionEvent.MismatchReported(it) } },
+            matchesAfterAllLabel = strings.resolve(TextKey("msg.physical.mismatch.matches-after-all")),
+            onMatchesAfterAll = {
+                showMoveKeyBar = false
+                send { SessionEvent.PhysicalConfirmed(null, it) }
+            },
+            mismatchRung = mismatchRung,
+            onMismatchRungChange = { mismatchRung = it },
             isEndOfStage6 = lesson.isCourseFinale,
             onYesItsSolved = onYesItsSolved,
         )
     }
     val stage: @Composable (Modifier) -> Unit = { stageModifier ->
         Box(stageModifier.testTag("lesson:stage")) {
+            val isMismatch = session.syncState == SyncState.PHYSICAL_MISMATCH
+            val onMoveKey: (Move) -> Unit = { move ->
+                if (isPhysical) {
+                    showMoveKeyBar = false
+                    send { SessionEvent.PhysicalConfirmed(move, it) }
+                } else {
+                    send { SessionEvent.MoveCommitted(MoveIntent(move).move, it) }
+                }
+            }
             when (mode) {
                 TeachingMode.SHOW_ME -> {
                     // The Demonstration's shown state, summarized against the Lesson's Objective like the Learner stage.
                     val shown = demonstration.start.apply(demonstration.moves.take(player.position))
-                    DemonstrationPlayer(
-                        player,
-                        Modifier.fillMaxSize().padding(Spacing.s2),
-                        summary = cubeSummary(shown, lesson, strings),
-                        certainty = decision.certainty,
-                    )
+                    Column(Modifier.fillMaxSize()) {
+                        DemonstrationPlayer(
+                            player,
+                            Modifier.fillMaxWidth().weight(1f).padding(Spacing.s2),
+                            summary = cubeSummary(shown, lesson, strings),
+                            certainty = decision.certainty,
+                        )
+                        // Rung 1 asks which turn the Learner made, so its keys are here in every Teaching Mode.
+                        if (isMismatch && mismatchRung == 1) {
+                            MoveKeyBar(
+                                onMove = onMoveKey,
+                                onShowName = {},
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.s2),
+                            )
+                        }
+                    }
                 }
 
                 TeachingMode.GUIDE_ME, TeachingMode.TEST_ME, TeachingMode.LET_ME_TRY -> {
@@ -670,17 +703,6 @@ private fun LessonBody(
                                 null
                             }
                         }
-                    val isMismatch = session.syncState == SyncState.PHYSICAL_MISMATCH
-                    val onMoveKey: (Move) -> Unit = { move ->
-                        if (isPhysical) {
-                            if (!isMismatch) {
-                                showMoveKeyBar = false
-                            }
-                            send { SessionEvent.PhysicalConfirmed(move, it) }
-                        } else {
-                            send { SessionEvent.MoveCommitted(MoveIntent(move).move, it) }
-                        }
-                    }
                     LearnerStage(
                         host = host,
                         session = session,
@@ -701,7 +723,7 @@ private fun LessonBody(
                         reduceMotion = reduceMotion,
                         strings = strings,
                         send = send,
-                        showMoveKeyBar = if (isMismatch) true else (!isPhysical || showMoveKeyBar),
+                        showMoveKeyBar = if (isMismatch) mismatchRung == 1 else (!isPhysical || showMoveKeyBar),
                         onMove = onMoveKey,
                     )
                 }
@@ -920,14 +942,21 @@ private fun stepCard(
         }
     }
     val step = lesson.steps.getOrNull(index)
+    // The Learner's own last Move tells them nothing new, so it is never offered as the candidate.
+    val ownMove = listOfNotNull(session.history.undoable)
     val diagnosisCandidate =
-        decision.diagnosis?.candidates?.firstOrNull()?.moves?.let { moves ->
-            if (moves.isNotEmpty()) {
-                moves.joinToString(" ") { Notation.format(it) }
-            } else {
-                null
+        decision.diagnosis
+            ?.takeIf { it.certainty == Certainty.LIKELY }
+            ?.candidates
+            ?.firstOrNull { it.moves != ownMove }
+            ?.moves
+            ?.let { moves ->
+                if (moves.isNotEmpty()) {
+                    moves.joinToString(" ") { Notation.format(it) }
+                } else {
+                    null
+                }
             }
-        }
     return StepCardContent(
         number = index + 1,
         count = lesson.steps.size,
