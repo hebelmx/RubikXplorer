@@ -195,4 +195,6 @@
     <!-- Skip-ahead check -->
     <string name="skip_check_instruction">Solve this scramble your way. Hints are off.</string>
     <string name="stage_skip_check_abandoned">Let\'s do this Stage together — it\'ll be quick.</string>
+    <string name="nav_library">Library</string>
+    <string name="library_error">The Library could not be loaded.</string>
 </resources>
