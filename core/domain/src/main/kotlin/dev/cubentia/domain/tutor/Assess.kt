@@ -84,7 +84,8 @@ object Assess {
      * Diagnoses an entered physical Move [move] as evidence when the Learner reports a mismatch.
      * Evaluates [move] applied to [stateBeforeMove] against [expected]. Certainty is VERIFIED only if
      * exactly one candidate sequence in [CandidateEnumerator] fits, otherwise LIKELY with the candidate(s)
-     * shown, or UNKNOWN if no candidate fits.
+     * shown, or UNKNOWN if no candidate fits. A [move] on the authored path ([Tutor.isOnPath]) is no
+     * error, so it has no Diagnosis (FR-9).
      */
     fun diagnosePhysicalMove(
         lesson: Lesson,
@@ -93,7 +94,8 @@ object Assess {
         stateBeforeMove: CubeState,
         move: Move,
         config: TutorConfig,
-    ): Diagnosis {
+    ): Diagnosis? {
+        if (Tutor.isOnPath(lesson, entry, stateBeforeMove, move)) return null
         val observed = stateBeforeMove.apply(move)
         val held = CubeState(expected.cubies, observed.orientation)
         val enumerator = CandidateEnumerator.of(held, config)
@@ -166,7 +168,7 @@ object Assess {
      * - `certainty` confirms the virtual state against itself (a Full observation); with [isPhysical] and
      *   not [isVerified] (the session holding a Full observation of the current state) it is
      *   [lastDiagnosis]'s Certainty whenever there is one, even while `advance` hides that Diagnosis, and
-     *   [Certainty.UNKNOWN] during [isMismatch];
+     *   [Certainty.UNKNOWN] during [isMismatch], else [Certainty.LIKELY]: a predicted cube is not observed, so never VERIFIED (AD-5);
      * - `diagnosis` is [lastDiagnosis] in [TeachingMode.TEST_ME] or with [isPhysical], while not `advance`, else null;
      * - `recovery` is [recovery], passed through;
      * - `reveal` is true in [TeachingMode.SHOW_ME], once [revealRequested], or once [hintRung] reached
@@ -212,6 +214,7 @@ object Assess {
             when {
                 isPhysical && !isVerified && lastDiagnosis != null -> lastDiagnosis.certainty
                 isPhysical && isMismatch -> Certainty.UNKNOWN
+                isPhysical && !isVerified -> Certainty.LIKELY
                 else -> confirm(CandidateEnumerator.of(state, config), state)
             }
         return TutorDecision(

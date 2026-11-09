@@ -12,13 +12,6 @@ context:
 warnings: ['oversized']
 deferred:
   - summary: >-
-      PHYSICAL_VERIFIED can show a Likely or Unknown chip after an editor entry, because the chip reads the cause's Certainty.
-    evidence: |-
-      enterEditor stores a Diagnosis (with an Assess.unknown fallback) and decide reports its Certainty. The same chip text showed before this story, when the state was PHYSICAL_PREDICTED; the AC names only the state.
-    location: >-
-      core/domain/src/main/kotlin/dev/cubentia/domain/tutor/Assess.kt decide; core/application/src/main/kotlin/dev/cubentia/application/session/Reduce.kt enterEditor
-    severity: low
-  - summary: >-
       A correct on-path Move entered on rung 1 is told it was a wrong move.
     evidence: |-
       diagnosePhysicalMove falls back to WRONG_MOVE_OR_DIRECTION when findings returns null and never checks the path; the fallback predates this story (Story 8.3).
@@ -57,7 +50,7 @@ deferred:
 **Never:**
 - Do not move existing `R.string.physical_mismatch_*` copy (Story 12.9).
 - Do not change the frame label, add camera or scan behavior, or edit `prd.md`, the spine, `_bmad/` or `.claude/skills/`.
-- No numeric certainty; no replacement of the last confirmed move (a rung-1 move is applied on top of Expected).
+- No numeric certainty; no `VERIFIED` on a predicted cube, with or without a Diagnosis (AD-5); never a second history entry for a rung-1 move that replaces the last confirmed move.
 
 ## I/O & Edge-Case Matrix
 
@@ -108,6 +101,13 @@ deferred:
 - Given the cases above, when reducer tests run, then each case has a test, and `TRANSITIONS.md` matches the reducer for every case.
 
 ## Spec Change Log
+
+### 2026-11-08 — Product owner decisions after review
+- A rung-1 move after a confirmed move **replaces** it (Expected = state before the last *Done* + entered move, one history entry, Certainty at most `LIKELY`, Diagnosis from that earlier state); on top only when there is no confirmed move to take back. Supersedes the "applied on top" and "`expected` as the base, always" lines under Always and the "Rung 1 with prior confirms" row of the matrix; `TRANSITIONS.md` is normative.
+- A Checkpoint holding the replaced move follows the replacement, and the net snaps (it is not one turn away).
+- The candidate line is hidden when the only candidate is the Learner's own entered move; other candidates still show.
+- Rung 1 has its Move keys in *Show me*; a move on the authored path entered on rung 1 has no Diagnosis; a predicted cube with no Diagnosis is `LIKELY`, never `VERIFIED`. These resolve the two items still listed under `deferred`.
+- Known limit, same as a physical `Undo`: an attempt closed by a *Done* that met the Objective is not reopened when that move is replaced.
 
 ## Review Triage Log
 

@@ -261,7 +261,13 @@ class TransitionsTableTest {
                     physicalAwaiting to SessionEvent.PhysicalConfirmed(null, sample.at),
                     physicalMismatch to SessionEvent.PhysicalConfirmed(null, sample.at),
                     physicalMismatch to sample,
-                    physicalMismatch.copy(history = b.history) to SessionEvent.PhysicalConfirmed(F_PRIME, sample.at),
+                    // Rung 1 with nothing to take back, redo pending. The replacement of a confirmed Move is not a push: see PhysicalModeSessionTest.
+                    physicalPredicted.after(
+                        SessionEvent.PhysicalConfirmed(F_PRIME, sample.at),
+                        undo,
+                        SessionEvent.MismatchReported(sample.at),
+                    ) to
+                        SessionEvent.PhysicalConfirmed(F_PRIME, sample.at),
                     physicalVerified to sample,
                     physicalPredicted.copy(lastMoveFeedback = MoveFeedback.NEUTRAL, lastDiagnosis = TURNED_DIAGNOSIS) to
                         SessionEvent.PhysicalConfirmed(null, sample.at),

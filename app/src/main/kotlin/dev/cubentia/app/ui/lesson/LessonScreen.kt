@@ -625,16 +625,35 @@ private fun LessonBody(
     }
     val stage: @Composable (Modifier) -> Unit = { stageModifier ->
         Box(stageModifier.testTag("lesson:stage")) {
+            val isMismatch = session.syncState == SyncState.PHYSICAL_MISMATCH
+            val onMoveKey: (Move) -> Unit = { move ->
+                if (isPhysical) {
+                    showMoveKeyBar = false
+                    send { SessionEvent.PhysicalConfirmed(move, it) }
+                } else {
+                    send { SessionEvent.MoveCommitted(MoveIntent(move).move, it) }
+                }
+            }
             when (mode) {
                 TeachingMode.SHOW_ME -> {
                     // The Demonstration's shown state, summarized against the Lesson's Objective like the Learner stage.
                     val shown = demonstration.start.apply(demonstration.moves.take(player.position))
-                    DemonstrationPlayer(
-                        player,
-                        Modifier.fillMaxSize().padding(Spacing.s2),
-                        summary = cubeSummary(shown, lesson, strings),
-                        certainty = decision.certainty,
-                    )
+                    Column(Modifier.fillMaxSize()) {
+                        DemonstrationPlayer(
+                            player,
+                            Modifier.fillMaxWidth().weight(1f).padding(Spacing.s2),
+                            summary = cubeSummary(shown, lesson, strings),
+                            certainty = decision.certainty,
+                        )
+                        // Rung 1 asks which turn the Learner made, so its keys are here in every Teaching Mode.
+                        if (isMismatch && mismatchRung == 1) {
+                            MoveKeyBar(
+                                onMove = onMoveKey,
+                                onShowName = {},
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.s2),
+                            )
+                        }
+                    }
                 }
 
                 TeachingMode.GUIDE_ME, TeachingMode.TEST_ME, TeachingMode.LET_ME_TRY -> {
@@ -684,15 +703,6 @@ private fun LessonBody(
                                 null
                             }
                         }
-                    val isMismatch = session.syncState == SyncState.PHYSICAL_MISMATCH
-                    val onMoveKey: (Move) -> Unit = { move ->
-                        if (isPhysical) {
-                            showMoveKeyBar = false
-                            send { SessionEvent.PhysicalConfirmed(move, it) }
-                        } else {
-                            send { SessionEvent.MoveCommitted(MoveIntent(move).move, it) }
-                        }
-                    }
                     LearnerStage(
                         host = host,
                         session = session,
@@ -932,14 +942,21 @@ private fun stepCard(
         }
     }
     val step = lesson.steps.getOrNull(index)
+    // The Learner's own last Move tells them nothing new, so it is never offered as the candidate.
+    val ownMove = listOfNotNull(session.history.undoable)
     val diagnosisCandidate =
-        decision.diagnosis?.takeIf { it.certainty == Certainty.LIKELY }?.candidates?.firstOrNull()?.moves?.let { moves ->
-            if (moves.isNotEmpty()) {
-                moves.joinToString(" ") { Notation.format(it) }
-            } else {
-                null
+        decision.diagnosis
+            ?.takeIf { it.certainty == Certainty.LIKELY }
+            ?.candidates
+            ?.firstOrNull { it.moves != ownMove }
+            ?.moves
+            ?.let { moves ->
+                if (moves.isNotEmpty()) {
+                    moves.joinToString(" ") { Notation.format(it) }
+                } else {
+                    null
+                }
             }
-        }
     return StepCardContent(
         number = index + 1,
         count = lesson.steps.size,

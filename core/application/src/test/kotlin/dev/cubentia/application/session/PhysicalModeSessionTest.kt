@@ -22,9 +22,11 @@ import dev.cubentia.domain.tutor.Certainty
 import dev.cubentia.domain.tutor.MoveFeedback
 import dev.cubentia.domain.tutor.RecoveryPlanner
 import dev.cubentia.domain.tutor.TeachingMode
+import dev.cubentia.domain.tutor.Tutor
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -443,7 +445,7 @@ class PhysicalModeSessionTest {
             state.expected,
             move,
             checkNotNull(state.tutorConfig),
-        ).predicted()
+        )?.predicted()
 
     private val slice = SliceTurn(Slice.M, Turn.CLOCKWISE)
 
@@ -483,14 +485,117 @@ class PhysicalModeSessionTest {
     }
 
     @Test
-    fun `rung 1 with prior confirms bases the diagnosis on expected and keeps the prior move`() {
-        val mismatch = started().after(toPhysical, matches, confirm(U), reported)
+    fun `rung 1 after a confirm replaces the confirmed move and diagnoses from before it`() {
+        val beforeDone = started().after(toPhysical, matches)
+        val mismatch = beforeDone.after(confirm(U), reported)
+        val transition = reduce(mismatch, confirm(R))
+        val next = transition.state
+
+        assertEquals(listOf(R), next.history.done)
+        assertTrue(next.history.undone.isEmpty())
+        assertEquals(beforeDone.expected.apply(R), next.expected)
+        assertEquals(next.expected, next.virtual)
+        assertEquals(SyncState.PHYSICAL_PREDICTED, next.syncState)
+        assertNull(next.observed)
+        assertEquals(mismatch.revision + 1, next.revision)
+        assertEquals(evidence(beforeDone, R), next.lastDiagnosis)
+        assertEquals(listOf(R), checkNotNull(next.lastDiagnosis).candidates.single().moves)
+        assertEquals(Certainty.LIKELY, next.decision?.certainty)
+        assertEquals(listOf(Presentation.Snap(next.revision, next.virtual)), transition.presentation)
+    }
+
+    @Test
+    fun `rung 1 with no confirmed move goes on top, at a barrier and after an editor entry`() {
+        val atBarrier = mismatched()
+        assertEquals(listOf(R), atBarrier.after(confirm(R)).history.done)
+
+        val edited = started().after(toPhysical, matches, confirm(U))
+        val entered = edited.after(SessionEvent.EditorEntered(edited.expected, T0), reported)
+        val next = entered.after(confirm(R))
+        assertEquals(entered.expected.apply(R), next.expected)
+        assertEquals(listOf(R), next.history.done)
+    }
+
+    @Test
+    fun `rung 1 goes on top once the confirmed moves are undone`() {
+        val mismatch = started().after(toPhysical, matches, confirm(U), undo, reported)
         val next = mismatch.after(confirm(R))
 
-        assertEquals(listOf(U, R), next.history.done)
         assertEquals(mismatch.expected.apply(R), next.expected)
-        assertEquals(evidence(mismatch, R), next.lastDiagnosis)
-        assertEquals(listOf(R), checkNotNull(next.lastDiagnosis).candidates.single().moves)
+        assertEquals(listOf(R), next.history.done)
+    }
+
+    @Test
+    fun `undo after a replacement takes back the one replaced entry`() {
+        val beforeDone = started().after(toPhysical, matches, confirm(F))
+        val replaced = beforeDone.after(confirm(U), reported, confirm(R))
+        assertEquals(listOf(F, R), replaced.history.done)
+
+        val transition = reduce(replaced, undo)
+        val undone = transition.state
+        assertEquals(beforeDone.expected, undone.expected)
+        assertEquals(listOf(F), undone.history.done)
+        assertEquals(SyncState.PHYSICAL_PREDICTED, undone.syncState)
+        assertTrue(transition.presentation.single() is Presentation.Instruct)
+    }
+
+    @Test
+    fun `a replacement that meets the objective is evaluated on the replaced state`() {
+        val lesson = whiteCrossLesson().copy(completion = StateReached("F M"))
+        val mismatch = started(lesson).after(toPhysical, matches, confirm(R), reported)
+        assertFalse(mismatch.objectiveMet)
+
+        val next = mismatch.after(confirm(slice))
+        assertTrue(next.objectiveMet)
+        assertEquals(listOf(slice), next.history.done)
+        assertTrue(next.physicalSolveUnconfirmed)
+        assertEquals(next.history, next.checkpoint, "an Objective boundary becomes the Checkpoint")
+    }
+
+    @Test
+    fun `a replacement that undoes the objective clears it and the checkpoint follows`() {
+        val lesson = whiteCrossLesson().copy(completion = StateReached("F M"))
+        val met = started(lesson).after(toPhysical, matches, confirm(slice))
+        assertTrue(met.objectiveMet)
+        assertEquals(met.history, met.checkpoint)
+
+        val transition = reduce(met.after(reported), confirm(R))
+        val next = transition.state
+        assertFalse(next.objectiveMet)
+        assertFalse(next.physicalSolveUnconfirmed)
+        assertEquals(listOf(R), next.history.done)
+        assertEquals(next.history, next.checkpoint, "the Checkpoint never holds the replaced Move")
+        assertEquals(1, transition.effects.filterIsInstance<Effect.PersistCheckpoint>().size)
+    }
+
+    @Test
+    fun `an on-path move entered on rung 1 is no error and stays likely`() {
+        val lesson = whiteCrossLesson()
+        val mismatch = mismatched(lesson)
+        val onPath = checkNotNull(Tutor.nextMove(lesson, mismatch.pathEntry, mismatch.expected))
+        val next = mismatch.after(confirm(onPath))
+
+        assertNull(next.lastDiagnosis)
+        assertEquals(Certainty.LIKELY, next.decision?.certainty)
+    }
+
+    @Test
+    fun `a predicted cube with no diagnosis is never verified`() {
+        val predicted = started().after(toPhysical, matches)
+        assertEquals(Certainty.LIKELY, predicted.decision?.certainty)
+
+        val dismissed = predicted.after(reported, matches)
+        assertEquals(SyncState.PHYSICAL_PREDICTED, dismissed.syncState)
+        assertNull(dismissed.lastDiagnosis)
+        assertEquals(Certainty.LIKELY, dismissed.decision?.certainty)
+
+        val diagnosed = mismatched().after(confirm(R))
+        assertNotNull(diagnosed.lastDiagnosis)
+        listOf(hint, modeChanged(TeachingMode.TEST_ME)).forEach { clearing ->
+            val cleared = diagnosed.after(clearing)
+            assertNull(cleared.lastDiagnosis, "$clearing")
+            assertEquals(Certainty.LIKELY, cleared.decision?.certainty, "$clearing")
+        }
     }
 
     @Test

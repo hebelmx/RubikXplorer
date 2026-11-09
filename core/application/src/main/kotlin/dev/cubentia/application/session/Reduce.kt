@@ -604,8 +604,9 @@ private fun confirmPhysical(
 
 /**
  * Commits a physical [move] on top of Expected, back to `PHYSICAL_PREDICTED` with no observation. A Move
- * entered in `PHYSICAL_MISMATCH` carries its evidence as the Diagnosis in every Teaching Mode, with no
- * Move feedback; otherwise *Test me* keeps [Assess.classify]'s word, as [committed] does, and a Diagnosis
+ * entered in `PHYSICAL_MISMATCH` replaces the last confirmed Move when there is one to take back
+ * ([beforeLastConfirm]; at an undo barrier it goes on top), and carries its evidence as the Diagnosis in
+ * every Teaching Mode, with no Move feedback; otherwise *Test me* keeps [Assess.classify]'s word, as [committed] does, and a Diagnosis
  * still offering *Guide me back* after this commit stays when there is no new one, so the offer survives
  * the confirm for as long as it applies. The commit leaves a predicted cube, so a new Diagnosis is at most
  * LIKELY ([Diagnosis.predicted], AD-5).
@@ -615,34 +616,47 @@ private fun commitPhysical(
     move: Move,
 ): Transition {
     val reported = state.syncState == SyncState.PHYSICAL_MISMATCH
-    val history = state.history.commit(move)
+    val replacing = reported && state.history.canUndo
+    val base = if (replacing) beforeLastConfirm(state) else state
+    val history = base.history.commit(move)
     val lesson = state.lesson
-    val assessment = assessment(state, move, history)
+    val assessment = assessment(base, move, history)
     val shown = assessment.takeIf { state.teachingMode == TeachingMode.TEST_ME && !reported }
-    val own = (if (reported) evidenceDiagnosis(state, move) else shown?.diagnosis)?.predicted()
+    val own = (if (reported) evidenceDiagnosis(base, move) else shown?.diagnosis)?.predicted()
     val carried = state.lastDiagnosis?.takeIf { own == null && state.canGuideBack }?.carried()
     val moved =
-        withHistory(state, history).copy(
-            expected = state.expected.apply(move),
+        withHistory(base, history).copy(
+            expected = base.expected.apply(move),
             observed = null,
             syncState = SyncState.PHYSICAL_PREDICTED,
             lastMoveFeedback = shown?.feedback,
             lastDiagnosis = own ?: carried,
         )
     val noticed =
-        (moved.lesson?.let { l -> withNotice(state, moved, l) } ?: moved)
+        (moved.lesson?.let { l -> withNotice(base, moved, l) } ?: moved)
             .let { if (carried != null && !it.canGuideBack) it.copy(lastDiagnosis = null) else it }
     val boundary = noticed.lesson != null && (noticed.noticeStep != null || noticed.objectiveMet)
-    val next = if (boundary) noticed.copy(checkpoint = noticed.history.withoutRedo()) else noticed
-    val counted = lesson?.let { l -> adapted(state, next, l, assessment?.feedback == MoveFeedback.HARMFUL) } ?: next
-    return followingPlan(
-        state,
-        Transition(counted, presentation = listOf(Presentation.Animate(move, counted.revision, counted.virtual))),
-        move,
-    )
+    // A Checkpoint holding the replaced Move would resume a cube that never existed, so it follows the replacement.
+    val replacedCheckpoint = replacing && state.checkpoint == state.history.withoutRedo()
+    val next = if (boundary || replacedCheckpoint) noticed.copy(checkpoint = noticed.history.withoutRedo()) else noticed
+    val counted = lesson?.let { l -> adapted(base, next, l, assessment?.feedback == MoveFeedback.HARMFUL) } ?: next
+    // The net shows the replaced Move, so the entered Move is not one turn from it: it snaps.
+    val shownMove =
+        if (replacing) {
+            Presentation.Snap(counted.revision, counted.virtual)
+        } else {
+            Presentation.Animate(move, counted.revision, counted.virtual)
+        }
+    return followingPlan(state, Transition(counted, presentation = listOf(shownMove)), move)
 }
 
-/** The Diagnosis of a Move entered on the mismatch ladder, based on Expected whatever the hidden history holds. */
+/** [state] as it stood before its last confirmed Move, which a Move entered on the mismatch ladder replaces. The revision stays. */
+private fun beforeLastConfirm(state: SessionState): SessionState {
+    val history = state.history.undo()
+    return withHistory(state, history).copy(revision = state.revision, expected = history.state, noticeStep = null)
+}
+
+/** The Diagnosis of a Move entered on the mismatch ladder, based on Expected ([state] is already before a replaced Move); null when on the path. */
 private fun evidenceDiagnosis(
     state: SessionState,
     move: Move,

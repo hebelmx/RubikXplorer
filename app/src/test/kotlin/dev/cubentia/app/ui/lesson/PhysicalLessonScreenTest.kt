@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -657,7 +658,33 @@ class PhysicalLessonScreenTest {
         assertNotNull(host.state.value.lastDiagnosis)
         node("certainty:icon").assertTextEquals("≈")
         node("certainty:label").assertTextEquals("Likely")
-        node("mismatch:candidate").performScrollTo().assertExists()
+        // The only candidate is the Move just entered, which tells the Learner nothing new.
+        node("mismatch:candidate").assertDoesNotExist()
+        node("moveKey:U").assertDoesNotExist()
+    }
+
+    @Test
+    fun story12_8_showMe_rung1OffersMoveKeys_andAMoveResolvesTheMismatch() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host)
+        enterPhysicalMode(host)
+        runBlocking { host.dispatch { SessionEvent.TeachingModeChanged(TeachingMode.SHOW_ME, it) } }
+        rule.waitForIdle()
+        reportMismatch(host)
+        rule.onNodeWithText("Which turn did you make?").assertExists()
+
+        val before = host.state.value.expected
+        node("moveKey:U'").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+
+        assertEquals(before.apply(FaceTurn(Face.U, Turn.COUNTERCLOCKWISE)), host.state.value.expected)
+        node("moveKey:U").assertDoesNotExist()
+
+        reportMismatch(host)
+        node("moveKey:U").assertExists()
+        node("mismatch:nextQuestion").performScrollTo().performClick()
+        rule.waitForIdle()
         node("moveKey:U").assertDoesNotExist()
     }
 
@@ -809,7 +836,8 @@ class PhysicalLessonScreenTest {
         )
         node("certainty:icon").assertTextEquals("≈")
         node("certainty:label").assertTextEquals("Likely")
-        node("mismatch:candidate").performScrollTo().assertExists()
+        // M has several candidates: one that is not the entered Move still tells the Learner something new.
+        node("mismatch:candidate").performScrollTo().assertExists().assert(!hasText("Candidate: M"))
     }
 
     @Test
