@@ -1,9 +1,12 @@
 package dev.cubentia.app.ui.shell
 
 import android.app.Application
+import androidx.activity.OnBackPressedDispatcher
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -36,6 +39,7 @@ import org.robolectric.annotation.Config
 @Config(application = Application::class, qualifiers = "w411dp-h891dp")
 class AppShellLibraryTest {
     @get:Rule val rule = createComposeRule()
+    private lateinit var back: OnBackPressedDispatcher
     private val loaded = ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded
 
     private fun launch(
@@ -55,6 +59,7 @@ class AppShellLibraryTest {
         val freeCube = FreeCubeViewModel()
         val setContent: (@Composable () -> Unit) -> Unit = restoration?.let { it::setContent } ?: rule::setContent
         setContent {
+            back = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
             CubentiaTheme {
                 AppShell(host, catalog, freeCube, false, testFlags(), preferenceStore = preferences)
             }
@@ -63,6 +68,58 @@ class AppShellLibraryTest {
         rule.onNodeWithTag("nav:solve").assertExists()
         rule.onNodeWithTag("nav:library").performClick()
         rule.onNodeWithTag("nav:you").assertExists()
+    }
+
+    @Test fun `detail keeps grid filter and survives tabs and restoration`() {
+        val restoration = StateRestorationTester(rule)
+        launch(restoration = restoration)
+        rule.onNodeWithTag("library:family:oll-line").performScrollTo().performClick()
+        val case = loaded.bundle.cases.first { it.family.value == "oll-line" }
+        val tag = "library:case:${case.id.value}"
+        val before = rule.onNodeWithTag(tag).getUnclippedBoundsInRoot()
+        rule.onNodeWithTag(tag).performClick()
+        rule.onNodeWithTag("algorithmDetail:title").assertExists()
+        rule.onNodeWithTag("nav:bar").assertIsDisplayed()
+        rule.onNodeWithTag("playback:forward").performClick()
+        rule.onNodeWithTag("nav:you").performClick()
+        rule.onNodeWithTag("nav:library").performClick()
+        rule
+            .onNodeWithTag(
+                "playback:counter",
+            ).assertTextEquals("0 / ${loaded.bundle.algorithms.first { it.caseId == case.id }.notation.split(" ").size}")
+        restoration.emulateSavedInstanceStateRestore()
+        rule.onNodeWithTag("algorithmDetail:title").assertExists()
+        rule.onNodeWithTag("algorithmDetail:back").performClick()
+        rule.onNodeWithTag("library:family:oll-line").assertIsSelected()
+        assertEquals(before, rule.onNodeWithTag(tag).getUnclippedBoundsInRoot())
+        rule.onNodeWithTag(tag).performClick()
+        rule.runOnIdle { back.onBackPressed() }
+        rule.onNodeWithTag("library:family:oll-line").assertIsSelected()
+        rule.onNodeWithTag("nav:library").assertIsSelected()
+        assertEquals(before, rule.onNodeWithTag(tag).getUnclippedBoundsInRoot())
+    }
+
+    @Test fun `back from detail keeps a scrolled grid position`() {
+        launch()
+        rule.onNodeWithTag("library:grid").performScrollToKey("case-pll-z")
+        val tag = "library:case:case-pll-z"
+        val before = rule.onNodeWithTag(tag).getUnclippedBoundsInRoot()
+        rule.onNodeWithTag(tag).performClick()
+        rule.onNodeWithTag("algorithmDetail:back").performClick()
+        assertEquals(before, rule.onNodeWithTag(tag).getUnclippedBoundsInRoot())
+        rule.onNodeWithTag(tag).performClick()
+        rule.runOnIdle { back.onBackPressed() }
+        rule.onNodeWithTag("nav:library").assertIsSelected()
+        assertEquals(before, rule.onNodeWithTag(tag).getUnclippedBoundsInRoot())
+    }
+
+    @Test
+    @Config(qualifiers = "w1000dp-h900dp")
+    fun `detail opens beside rail`() {
+        launch()
+        rule.onNodeWithTag("library:case:case-oll-01").performClick()
+        rule.onNodeWithTag("algorithmDetail:title").assertExists()
+        rule.onNodeWithTag("nav:rail").assertIsDisplayed()
     }
 
     private fun assertColumns(columns: Int) {

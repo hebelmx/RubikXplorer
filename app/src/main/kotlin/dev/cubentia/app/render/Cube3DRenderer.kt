@@ -87,6 +87,8 @@ data class RenderedArrow(
 
 val RenderedArrowKey = SemanticsPropertyKey<RenderedArrow>("RenderedArrow")
 
+val RenderedOrbitKey = SemanticsPropertyKey<ViewOrbit>("RenderedOrbit")
+
 /** Main-thread adapter. Compose owns presentation; GL only draws published snapshots. */
 class Cube3DRenderer(
     initial: Facelets = CubeState.SOLVED.toFacelets(),
@@ -142,6 +144,9 @@ class Cube3DRenderer(
     private val counts = CubeMesh.vertexCounts(model)
     private var geometryRevision by mutableIntStateOf(0)
     private var gl: CubeGlRenderer? = null
+
+    /** Publishes the model to the composed [Content]; null while it is not composed. */
+    private var publishNow: (() -> Unit)? = null
     val drawnFrames: Long get() = gl?.drawnFrames?.get() ?: 0
 
     /** The GL snapshot last published; null before [Content] first composes. */
@@ -157,6 +162,12 @@ class Cube3DRenderer(
 
     override fun renderedFacelets(): Facelets = drawn
 
+    /** Discards everything outstanding and draws [target] at once, without waiting for a frame. */
+    fun snapNow(target: Facelets) {
+        queue.snapNow(target)
+        publishNow?.invoke()
+    }
+
     @Composable
     fun Content(
         style: RenderStyle,
@@ -166,6 +177,7 @@ class Cube3DRenderer(
         arrow: Move? = null,
         reduceMotion: Boolean = false,
         summary: String? = null,
+        freeViewRotation: Boolean = false,
     ) {
         val latestCommit by rememberUpdatedState(onMoveIntent)
         val latestStyle by rememberUpdatedState(style)
@@ -238,6 +250,10 @@ class Cube3DRenderer(
             drawn = model.facelets()
             presented = queue.active ?: presented?.takeIf { queue.isBusy }
             view.requestRender()
+        }
+        DisposableEffect(this, view) {
+            publishNow = { publish() }
+            onDispose { publishNow = null }
         }
         renderer.eye = orbit.eye()
         LaunchedEffect(orbit) { view.requestRender() }
@@ -318,6 +334,7 @@ class Cube3DRenderer(
             modifier =
                 modifier.testTag("cube3d").clearAndSetSemantics {
                     this[RenderedStickersKey] = stickers
+                    this[RenderedOrbitKey] = orbit
                     if (arrow != null) this[RenderedArrowKey] = RenderedArrow(Notation.format(arrow), arrowProgress)
                     contentDescription = if (facesMode) faces else summary ?: description
                     customActions =
@@ -370,9 +387,9 @@ class Cube3DRenderer(
                     }
                 }
             }
-            if (onMoveIntent != null) {
+            if (onMoveIntent != null || freeViewRotation) {
                 Box(
-                    Modifier.matchParentSize().pointerInput(Unit) {
+                    Modifier.matchParentSize().pointerInput(freeViewRotation) {
                         var previousTap: Long? = null
                         awaitEachGesture {
                             val down = awaitFirstDown()
@@ -382,7 +399,7 @@ class Cube3DRenderer(
                             var last = first
                             val initialOrbit = orbit
                             val pose = ViewPose(size.width, size.height, initialOrbit.eye())
-                            val onCube = GestureInterpreter.startsOnCube(first, pose)
+                            val onCube = !freeViewRotation && GestureInterpreter.startsOnCube(first, pose)
                             val side = minOf(size.width, size.height).toDouble()
                             val initialSecond = currentEvent.changes.firstOrNull { it.id != down.id && it.pressed }
                             var secondId = initialSecond?.id
@@ -425,7 +442,11 @@ class Cube3DRenderer(
                                     if (primary != null && second != null && primary.previousPressed && second.previousPressed) {
                                         endA = point(primary.position)
                                         endB = point(second.position)
-                                        if (GestureInterpreter.interpretTwist(startA, startB, endA, endB, pairPose) != null) twisted = true
+                                        if (!freeViewRotation &&
+                                            GestureInterpreter.interpretTwist(startA, startB, endA, endB, pairPose) != null
+                                        ) {
+                                            twisted = true
+                                        }
                                         orbit =
                                             if (twisted) {
                                                 pairOrbit
@@ -444,7 +465,7 @@ class Cube3DRenderer(
                             } while (event.changes.any { (it.id == down.id || it.id == secondId) && it.pressed })
                             if (secondId != null) {
                                 previousTap = null
-                                if (valid &&
+                                if (valid && !freeViewRotation &&
                                     twisted
                                 ) {
                                     GestureInterpreter

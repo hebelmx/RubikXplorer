@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -27,12 +29,14 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import dev.cubentia.app.R
 import dev.cubentia.app.render.CubeRenderer
 import dev.cubentia.app.render.PresentationItem
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.playback.PlaybackController
@@ -41,6 +45,7 @@ import dev.cubentia.domain.playback.PlaybackSpeed
 import dev.cubentia.domain.playback.PlaybackUpdate
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 /** What the shared [PlaybackTransport] reads and drives (AD-20): one player over a Move list. */
 @Stable
@@ -139,6 +144,20 @@ class NetPlayback(
 
     fun scrubTo(fraction: Double) = apply(controller.scrubTo(fraction))
 
+    /**
+     * [scrubTo] that does not queue: everything outstanding is abandoned and [show] receives the
+     * snapped boundary, for a renderer able to replace what it is presenting.
+     */
+    fun scrubNow(
+        fraction: Double,
+        show: (Facelets) -> Unit,
+    ) {
+        if (size == 0) return
+        controller = controller.scrubTo(fraction).controller
+        animatedIndex.clear()
+        show(controller.state.toFacelets())
+    }
+
     override fun setSpeed(speed: PlaybackSpeed) = apply(controller.withSpeed(speed))
 
     override fun advance(elapsedMillis: Long) = apply(controller.advance(elapsedMillis))
@@ -198,6 +217,7 @@ fun PlaybackTransport(
     state: PlaybackTransportState,
     modifier: Modifier = Modifier,
     note: String? = null,
+    onScrub: ((Double) -> Unit)? = null,
 ) {
     val tokens = RubikTheme.tokens
     val styles = RubikTheme.textStyles
@@ -234,6 +254,30 @@ fun PlaybackTransport(
                 R.string.playback_end_description,
                 any && !state.atEnd,
                 state::seekToEnd,
+            )
+        }
+        if (onScrub != null && any) {
+            val description = stringResource(R.string.playback_scrub_description)
+            val counter = stringResource(R.string.playback_counter, state.position, state.size)
+            Slider(
+                value = state.position.toFloat(),
+                onValueChange = { value ->
+                    val boundary = value.roundToInt().coerceIn(0, state.size)
+                    if (boundary != state.position || state.isPlaying) onScrub(boundary.toDouble() / state.size)
+                },
+                valueRange = 0f..state.size.toFloat(),
+                steps = state.size - 1,
+                colors =
+                    SliderDefaults.colors(
+                        thumbColor = tokens.inkPrimary,
+                        activeTrackColor = tokens.inkPrimary,
+                        inactiveTrackColor = tokens.hairline,
+                    ),
+                modifier =
+                    Modifier.testTag("playback:scrub").semantics {
+                        contentDescription = description
+                        stateDescription = counter
+                    },
             )
         }
         val speedDescription = stringResource(R.string.playback_speed_description)

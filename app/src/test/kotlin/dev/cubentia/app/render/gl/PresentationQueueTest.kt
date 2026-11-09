@@ -42,6 +42,21 @@ class PresentationQueueTest {
         assertEquals(CubeState.SOLVED.toFacelets(), q.model.facelets())
     }
 
+    @Test fun snapNowDropsTheTurnInFlightAndEverythingWaiting() {
+        val q = PresentationQueue()
+        val move = allMoves[0]
+        val turned = CubeState.SOLVED.apply(move).toFacelets()
+        q.submit(listOf(PresentationItem.Animate(move, 1, turned), PresentationItem.Animate(move, 2, turned)))
+        q.onFrame(0)
+        q.onFrame(50_000_000)
+        val target = CubeState.SOLVED.apply(allMoves[3]).toFacelets()
+        q.snapNow(target)
+        assertEquals(target, q.model.facelets())
+        assertFalse(q.isBusy)
+        q.onFrame(400_000_000)
+        assertEquals(target, q.model.facelets())
+    }
+
     @Test fun burstKeepsEveryTargetAndSnapWaitsForItsFrame() {
         val q = PresentationQueue()
         var state = CubeState.SOLVED

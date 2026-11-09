@@ -1,5 +1,6 @@
 package dev.cubentia.domain.playback
 
+import dev.cubentia.domain.content.Algorithm
 import dev.cubentia.domain.content.ContentProblem
 import dev.cubentia.domain.content.FaceletString
 import dev.cubentia.domain.content.FaceletStringResult
@@ -13,6 +14,9 @@ import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.cube.NotationError
 import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.domain.cube.ValidationResult
+import dev.cubentia.domain.lastlayer.CaseStateResult
+import dev.cubentia.domain.lastlayer.LastLayerMatcher
+import dev.cubentia.domain.lastlayer.RecognitionDiagram
 import dev.cubentia.domain.predicate.Piece
 
 /**
@@ -61,6 +65,31 @@ class Demonstration private constructor(
     }
 
     companion object {
+        fun ofCase(
+            algorithm: Algorithm,
+            lastLayer: Color = RecognitionDiagram.LIBRARY_LAST_LAYER,
+        ): DemonstrationResult {
+            val moves =
+                when (val parsed = Notation.parse(algorithm.notation)) {
+                    is NotationResult.Invalid -> return DemonstrationResult.InvalidNotation(0, parsed.error)
+                    is NotationResult.Parsed -> parsed.moves
+                }
+            val start =
+                when (val derived = LastLayerMatcher.caseState(algorithm, lastLayer)) {
+                    is CaseStateResult.BadNotation -> return DemonstrationResult.InvalidNotation(0, derived.error)
+                    is CaseStateResult.Derived -> derived.state
+                }
+            val path = moves.runningFold(start) { state, move -> state.apply(move) }
+            return DemonstrationResult.Ready(
+                Demonstration(
+                    start,
+                    listOf(
+                        DemonstrationStep(moves, 0, StepFocus(emptySet(), emptySet(), involved(start, path.drop(1)))),
+                    ),
+                ),
+            )
+        }
+
         /** The Demonstration of [lesson], or why its entry state or step Moves cannot be played. Never throws. */
         fun of(lesson: Lesson): DemonstrationResult {
             val start =

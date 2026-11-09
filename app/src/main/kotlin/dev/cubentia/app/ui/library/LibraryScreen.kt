@@ -1,6 +1,7 @@
 package dev.cubentia.app.ui.library
 
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,19 +25,23 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.R
 import dev.cubentia.app.content.CatalogState
+import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.ui.shell.WindowWidthClass
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.domain.content.AlgorithmId
 import dev.cubentia.domain.content.AlgorithmLibrary
 import dev.cubentia.domain.content.AlgorithmStatus
+import dev.cubentia.domain.content.CaseSet
 import dev.cubentia.domain.content.FamilyId
 import dev.cubentia.domain.content.LibraryFilter
 import dev.cubentia.domain.text.Text as ContentText
@@ -71,6 +76,7 @@ fun LibraryScreen(
     modifier: Modifier = Modifier,
     statuses: Map<AlgorithmId, AlgorithmStatus> = emptyMap(),
     familyChipsScroll: ScrollState = rememberScrollState(),
+    onOpenAlgorithm: (AlgorithmId) -> Unit = {},
 ) {
     val ink = RubikTheme.tokens.inkPrimary
     when (catalog) {
@@ -134,15 +140,7 @@ fun LibraryScreen(
                         sections.forEach { section ->
                             item(key = "heading:${section.set}:${section.family}", span = { GridItemSpan(maxLineSpan) }) {
                                 Text(
-                                    strings.resolve(
-                                        ContentText(
-                                            "msg.library.family.heading",
-                                            mapOf(
-                                                "set" to text("msg.library.set.${section.set.name.lowercase()}"),
-                                                "family" to text("msg.library.family.${section.family.value}"),
-                                            ),
-                                        ),
-                                    ),
+                                    familyHeading(strings, section.set, section.family),
                                     modifier = Modifier.semantics { heading() },
                                     color = ink,
                                     style = MaterialTheme.typography.titleMedium,
@@ -153,7 +151,15 @@ fun LibraryScreen(
                                     entry.case,
                                     entry.algorithm,
                                     strings,
-                                    Modifier.fillMaxWidth().testTag("library:case:${entry.case.id.value}"),
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .testTag(
+                                            "library:case:${entry.case.id.value}",
+                                        ).clip(
+                                            MaterialTheme.shapes.medium,
+                                        ).clickable(role = Role.Button, onClickLabel = stringResource(R.string.library_open_detail)) {
+                                            onOpenAlgorithm(entry.algorithm.id)
+                                        },
                                 )
                             }
                         }
@@ -196,3 +202,18 @@ private fun LibraryChip(
             ),
     )
 }
+
+internal fun familyHeading(
+    strings: ContentStrings,
+    set: CaseSet,
+    family: FamilyId,
+): String =
+    strings.resolve(
+        ContentText(
+            "msg.library.family.heading",
+            mapOf(
+                "set" to strings.resolve(ContentText("msg.library.set.${set.name.lowercase()}")),
+                "family" to strings.resolve(ContentText("msg.library.family.${family.value}")),
+            ),
+        ),
+    )
