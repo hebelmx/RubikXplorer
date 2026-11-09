@@ -7,13 +7,14 @@ import dev.cubentia.domain.predicate.Predicate
 import kotlinx.serialization.Serializable
 
 /**
- * The content manifest, `content/bundle.json`: the [schemaVersion] it was written for and the Stage
- * files, as paths relative to `content/`, in teaching order.
+ * The content manifest, `content/bundle.json`: the [schemaVersion] it was written for, the Stage
+ * files in teaching order and the [algorithms] files, as paths relative to `content/`.
  */
 @Serializable
 data class BundleManifest(
     val schemaVersion: Int,
     val stages: List<String>,
+    val algorithms: List<String>,
 )
 
 /** A Stage: a titled, ordered group of Lessons (one file under `content/stages/`). */
@@ -117,10 +118,48 @@ data class AdaptiveThresholds(
     val reduceAfterCleanSteps: Int,
 )
 
+/** The last-layer step a [Case] belongs to. */
+@Serializable
+enum class CaseSet { OLL, PLL }
+
+/**
+ * A last-layer Case: its [set], its [family] and the [name] the Library shows. The Case state is
+ * derived, never stored here (AD-19).
+ */
+@Serializable
+data class Case(
+    val id: CaseId,
+    val set: CaseSet,
+    val family: FamilyId,
+    val name: TextKey,
+)
+
+/** An Algorithm for the Case [caseId], its Moves written as [notation]. */
+@Serializable
+data class Algorithm(
+    val id: AlgorithmId,
+    val caseId: CaseId,
+    val notation: String,
+) {
+    /** True for the `-a` Algorithm, the Case's primary one. */
+    val isPrimary: Boolean get() = id.value.endsWith(PRIMARY_SUFFIX)
+
+    private companion object {
+        const val PRIMARY_SUFFIX = "-a"
+    }
+}
+
+/** One file under `content/algorithms/`: its [cases] and their [algorithms]. */
+@Serializable
+data class AlgorithmFile(
+    val cases: List<Case>,
+    val algorithms: List<Algorithm>,
+)
+
 /**
  * Loaded, validated content: the manifest's [schemaVersion], a [contentRevision] hash of the exact
- * bytes read, the [stages] in manifest order, the English [strings] (`key → ICU message`) and the
- * [tutorConfig].
+ * bytes read, the [stages] in manifest order, the English [strings] (`key → ICU message`), the
+ * [tutorConfig], and the [cases] and [algorithms] of every Algorithm file in manifest order.
  */
 data class ContentBundle(
     val schemaVersion: Int,
@@ -128,4 +167,6 @@ data class ContentBundle(
     val stages: List<Stage>,
     val strings: Map<String, String>,
     val tutorConfig: TutorConfig,
+    val cases: List<Case>,
+    val algorithms: List<Algorithm>,
 )

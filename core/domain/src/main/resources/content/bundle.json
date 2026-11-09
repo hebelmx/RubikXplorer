@@ -8,5 +8,9 @@
     "stages/stage-05-last-layer-orientation.json",
     "stages/stage-06-last-layer-completion.json",
     "stages/stage-07-independent-practice.json"
+  ],
+  "algorithms": [
+    "algorithms/oll.json",
+    "algorithms/pll.json"
   ]
 }

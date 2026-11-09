@@ -1,4 +1,5 @@
 {
   "schemaVersion": 1,
-  "stages": ["stages/stage-01-basics.json"]
+  "stages": ["stages/stage-01-basics.json"],
+  "algorithms": []
 }

@@ -126,7 +126,7 @@ internal fun testBundle(vararg lessons: Lesson = arrayOf(whiteCrossLesson(), two
     val stage = Stage(StageId("stage-01-basics"), TextKey("stage.stage-01-basics.title"), lessons.toList())
     val strings =
         shipped.strings + mapOf(stage.title.value to STAGE_TITLE) + lessons.flatMap { stringsOf(it).entries.map { e -> e.toPair() } }
-    return ContentBundle(shipped.schemaVersion, "test", listOf(stage), strings, shipped.tutorConfig)
+    return ContentBundle(shipped.schemaVersion, "test", listOf(stage), strings, shipped.tutorConfig, shipped.cases, shipped.algorithms)
 }
 
 /** Every Move value of every type: 18 face, 18 wide, 9 slice, 9 rotation. */

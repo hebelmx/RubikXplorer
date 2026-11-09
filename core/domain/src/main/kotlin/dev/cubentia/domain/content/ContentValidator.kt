@@ -45,6 +45,11 @@ object ContentValidator {
     /** The values `reducedHelpRequired` may take. */
     val MASTERY_REDUCED_RANGE: IntRange = 0..10
 
+    private const val CASE_PREFIX = "case-"
+    private const val OLL_CASE_PREFIX = "case-oll-"
+    private const val ALGORITHM_PREFIX = "alg-"
+    private const val PRIMARY_SUFFIX = "-a"
+
     fun validate(bundle: ContentBundle): List<ContentProblem> {
         val problems = mutableListOf<ContentProblem>()
         val lessons = bundle.stages.flatMap { it.lessons }
@@ -59,6 +64,9 @@ object ContentValidator {
             stage.lessons.forEach { problems += lessonProblems(stage, it, known, bundle.strings) }
         }
 
+        problems += caseProblems(bundle)
+        problems += algorithmProblems(bundle)
+
         bundle.strings.forEach { (key, message) ->
             val parsed = IcuArguments.parse(message)
             if (parsed is IcuResult.Malformed) problems += ContentProblem.MalformedMessage(key, parsed.index)
@@ -66,6 +74,61 @@ object ContentValidator {
         problems += tutorConfigProblems(bundle.tutorConfig)
         return problems
     }
+
+    /** Case IDs are unique, well formed and agree with `set` and `family`; each Case has a primary Algorithm and a name. */
+    private fun caseProblems(bundle: ContentBundle): List<ContentProblem> {
+        val problems = mutableListOf<ContentProblem>()
+        val algorithms = bundle.algorithms.map { it.id }.toSet()
+        duplicates(bundle.cases.map { it.id }).mapTo(problems) { ContentProblem.DuplicateCaseId(it) }
+        bundle.cases.forEach { case ->
+            val id = case.id
+            if (!id.isWellFormed) problems += ContentProblem.MalformedCaseId(id)
+            val set = setNamedBy(id)
+            if (set != null && set != case.set) problems += ContentProblem.CaseSetMismatch(id, case.set)
+            val familyAgrees = set == null || case.family.value.startsWith("${set.name.lowercase()}-")
+            if (!case.family.isWellFormed || !familyAgrees) problems += ContentProblem.MalformedFamily(id, case.family)
+            if (id.isWellFormed && primaryAlgorithmOf(id) !in algorithms) problems += ContentProblem.NoPrimaryAlgorithm(id)
+            problems += textProblems(id.value, listOf(case.name), bundle.strings)
+        }
+        return problems
+    }
+
+    /** Algorithm IDs are unique, well formed and agree with a known `caseId`; each Notation parses to Moves. */
+    private fun algorithmProblems(bundle: ContentBundle): List<ContentProblem> {
+        val problems = mutableListOf<ContentProblem>()
+        val cases = bundle.cases.map { it.id }.toSet()
+        duplicates(bundle.algorithms.map { it.id }).mapTo(problems) { ContentProblem.DuplicateAlgorithmId(it) }
+        bundle.algorithms.forEach { algorithm ->
+            val id = algorithm.id
+            if (!id.isWellFormed) {
+                problems += ContentProblem.MalformedAlgorithmId(id)
+            } else if (caseNamedBy(id) != algorithm.caseId) {
+                problems += ContentProblem.AlgorithmCaseMismatch(id, algorithm.caseId)
+            }
+            if (algorithm.caseId !in cases) problems += ContentProblem.UnknownCase(id, algorithm.caseId)
+            when (val parsed = Notation.parse(algorithm.notation)) {
+                is NotationResult.Invalid -> problems += ContentProblem.BadAlgorithmNotation(id, parsed.error)
+                is NotationResult.Parsed -> if (parsed.moves.isEmpty()) problems += ContentProblem.EmptyAlgorithm(id)
+            }
+        }
+        return problems
+    }
+
+    /** The set a well-formed [id] names, or null when [id] is malformed. */
+    private fun setNamedBy(id: CaseId): CaseSet? =
+        when {
+            !id.isWellFormed -> null
+            id.value.startsWith(OLL_CASE_PREFIX) -> CaseSet.OLL
+            else -> CaseSet.PLL
+        }
+
+    /** The ID of the primary Algorithm of [id]: `case-oll-45` has `alg-oll-45-a`. */
+    private fun primaryAlgorithmOf(id: CaseId): AlgorithmId =
+        AlgorithmId("$ALGORITHM_PREFIX${id.value.removePrefix(CASE_PREFIX)}$PRIMARY_SUFFIX")
+
+    /** The Case a well-formed [id] belongs to: `alg-oll-45-a` belongs to `case-oll-45`. */
+    private fun caseNamedBy(id: AlgorithmId): CaseId =
+        CaseId("$CASE_PREFIX${id.value.removePrefix(ALGORITHM_PREFIX).substringBeforeLast('-')}")
 
     /**
      * [config]'s `maxDepth` must lie in [MAX_DEPTH_RANGE] and its `recoveryMaxDepth` in

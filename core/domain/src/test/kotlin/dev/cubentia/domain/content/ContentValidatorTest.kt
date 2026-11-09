@@ -9,6 +9,8 @@ import dev.cubentia.domain.content.ContentProblem.InvalidTutorConfig.Detail.OUT_
 import dev.cubentia.domain.content.ContentProblem.InvalidTutorConfig.Detail.REDUCED_EXCEEDS_SOLVES
 import dev.cubentia.domain.cube.NotationError
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /** AC 1: each [ContentValidator] rule on a bundle built from the valid fixture. */
@@ -319,7 +321,156 @@ class ContentValidatorTest {
         }
     }
 
+    private fun withAlgorithms(
+        cases: List<Case>,
+        algorithms: List<Algorithm>,
+    ): ContentBundle =
+        valid.copy(cases = cases, algorithms = algorithms, strings = valid.strings + cases.associate { it.name.value to "Name" })
+
+    @Test
+    fun `a Case with its primary Algorithm is valid, and a second Algorithm is allowed`() {
+        val second = ALGORITHM_45.copy(id = AlgorithmId("alg-oll-45-b"))
+        assertTrue(ALGORITHM_45.isPrimary)
+        assertFalse(second.isPrimary)
+        assertEquals(emptyList<ContentProblem>(), ContentValidator.validate(withAlgorithms(listOf(CASE_45), listOf(ALGORITHM_45, second))))
+    }
+
+    @Test
+    fun `duplicate Case and Algorithm ids`() {
+        assertEquals(
+            listOf(ContentProblem.DuplicateCaseId(CASE_45.id), ContentProblem.DuplicateAlgorithmId(ALGORITHM_45.id)),
+            ContentValidator.validate(withAlgorithms(listOf(CASE_45, CASE_45), listOf(ALGORITHM_45, ALGORITHM_45))),
+        )
+    }
+
+    @Test
+    fun `malformed Case and Algorithm ids`() {
+        val badCase = CASE_45.copy(id = CaseId("case-oll-5"), name = TextKey("case.case-oll-5.name"))
+        assertEquals(
+            listOf(ContentProblem.MalformedCaseId(badCase.id)),
+            ContentValidator.validate(withAlgorithms(listOf(CASE_45, badCase), listOf(ALGORITHM_45))),
+        )
+        val badAlgorithm = ALGORITHM_45.copy(id = AlgorithmId("alg-oll-45"))
+        assertEquals(
+            listOf(ContentProblem.MalformedAlgorithmId(badAlgorithm.id)),
+            ContentValidator.validate(withAlgorithms(listOf(CASE_45), listOf(ALGORITHM_45, badAlgorithm))),
+        )
+    }
+
+    @Test
+    fun `malformed PLL Case and Algorithm ids`() {
+        val tooLong = Case(CaseId("case-pll-abc"), CaseSet.PLL, FamilyId("pll-edges-only"), TextKey("case.case-pll-abc.name"))
+        assertEquals(
+            listOf(ContentProblem.MalformedCaseId(tooLong.id)),
+            ContentValidator.validate(withAlgorithms(listOf(tooLong), emptyList())),
+        )
+        // An uppercase ID cannot own a key of the TextKey form, so its name is reported too.
+        val upper = tooLong.copy(id = CaseId("case-pll-UA"), name = TextKey("case.case-pll-UA.name"))
+        assertEquals(
+            listOf(ContentProblem.MalformedCaseId(upper.id), ContentProblem.MalformedTextKey(upper.id.value, upper.name)),
+            ContentValidator.validate(withAlgorithms(listOf(upper), emptyList())),
+        )
+        val t = Case(CaseId("case-pll-t"), CaseSet.PLL, FamilyId("pll-adjacent-swap"), TextKey("case.case-pll-t.name"))
+        val primary = Algorithm(AlgorithmId("alg-pll-t-a"), t.id, "R")
+        val badAlgorithm = primary.copy(id = AlgorithmId("alg-pll-t"))
+        assertEquals(
+            listOf(ContentProblem.MalformedAlgorithmId(badAlgorithm.id)),
+            ContentValidator.validate(withAlgorithms(listOf(t), listOf(primary, badAlgorithm))),
+        )
+    }
+
+    @Test
+    fun `a Case needs its primary Algorithm`() {
+        val onlyB = ALGORITHM_45.copy(id = AlgorithmId("alg-oll-45-b"))
+        assertEquals(
+            listOf(ContentProblem.NoPrimaryAlgorithm(CASE_45.id)),
+            ContentValidator.validate(withAlgorithms(listOf(CASE_45), listOf(onlyB))),
+        )
+    }
+
+    @Test
+    fun `an Algorithm id must agree with its caseId`() {
+        val other = CASE_45.copy(id = CaseId("case-oll-46"), family = FamilyId("oll-c"), name = TextKey("case.case-oll-46.name"))
+        val its = Algorithm(AlgorithmId("alg-oll-46-a"), other.id, "R")
+        assertEquals(
+            listOf(ContentProblem.AlgorithmCaseMismatch(ALGORITHM_45.id, other.id)),
+            ContentValidator.validate(withAlgorithms(listOf(CASE_45, other), listOf(ALGORITHM_45.copy(caseId = other.id), its))),
+        )
+    }
+
+    @Test
+    fun `an Algorithm must name a known Case`() {
+        val orphan = Algorithm(AlgorithmId("alg-oll-46-a"), CaseId("case-oll-46"), "R")
+        assertEquals(
+            listOf(ContentProblem.UnknownCase(orphan.id, orphan.caseId)),
+            ContentValidator.validate(withAlgorithms(listOf(CASE_45), listOf(ALGORITHM_45, orphan))),
+        )
+    }
+
+    @Test
+    fun `Algorithm Notation must parse and name Moves`() {
+        assertEquals(
+            listOf(ContentProblem.BadAlgorithmNotation(ALGORITHM_45.id, NotationError.BadToken("Q", 1))),
+            ContentValidator.validate(withAlgorithms(listOf(CASE_45), listOf(ALGORITHM_45.copy(notation = "R Q U")))),
+        )
+        listOf("", "   ").forEach { blank ->
+            assertEquals(
+                listOf(ContentProblem.EmptyAlgorithm(ALGORITHM_45.id)),
+                ContentValidator.validate(withAlgorithms(listOf(CASE_45), listOf(ALGORITHM_45.copy(notation = blank)))),
+                "\"$blank\"",
+            )
+        }
+    }
+
+    @Test
+    fun `a Case set must agree with its id`() {
+        val pll = Case(CaseId("case-pll-t"), CaseSet.OLL, FamilyId("pll-adjacent-swap"), TextKey("case.case-pll-t.name"))
+        val algorithm = Algorithm(AlgorithmId("alg-pll-t-a"), pll.id, "R")
+        assertEquals(
+            listOf(ContentProblem.CaseSetMismatch(pll.id, CaseSet.OLL)),
+            ContentValidator.validate(withAlgorithms(listOf(pll), listOf(algorithm))),
+        )
+    }
+
+    @Test
+    fun `a Case family must be well formed and agree with its id`() {
+        val pll = Case(CaseId("case-pll-t"), CaseSet.PLL, FamilyId("oll-t"), TextKey("case.case-pll-t.name"))
+        val algorithm = Algorithm(AlgorithmId("alg-pll-t-a"), pll.id, "R")
+        assertEquals(
+            listOf(ContentProblem.MalformedFamily(pll.id, pll.family)),
+            ContentValidator.validate(withAlgorithms(listOf(pll), listOf(algorithm))),
+        )
+        val bad = CASE_45.copy(family = FamilyId("OLL T"))
+        assertEquals(
+            listOf(ContentProblem.MalformedFamily(CASE_45.id, bad.family)),
+            ContentValidator.validate(withAlgorithms(listOf(bad), listOf(ALGORITHM_45))),
+        )
+        val rightPrefix = CASE_45.copy(family = FamilyId("oll-T"))
+        assertEquals(
+            listOf(ContentProblem.MalformedFamily(CASE_45.id, rightPrefix.family)),
+            ContentValidator.validate(withAlgorithms(listOf(rightPrefix), listOf(ALGORITHM_45))),
+        )
+        val badId = CASE_45.copy(id = CaseId("case-oll-5"), name = TextKey("case.case-oll-5.name"), family = FamilyId("oll-T"))
+        assertEquals(
+            listOf(ContentProblem.MalformedCaseId(badId.id), ContentProblem.MalformedFamily(badId.id, badId.family)),
+            ContentValidator.validate(withAlgorithms(listOf(badId), emptyList())),
+        )
+    }
+
+    @Test
+    fun `a Case name must have the key form and exist`() {
+        val nameless = withAlgorithms(listOf(CASE_45), listOf(ALGORITHM_45)).let { it.copy(strings = it.strings - CASE_45.name.value) }
+        assertEquals(listOf(ContentProblem.MissingTextKey(CASE_45.name)), ContentValidator.validate(nameless))
+        val foreign = CASE_45.copy(name = TextKey("case.case-oll-46.name"))
+        assertEquals(
+            listOf(ContentProblem.MalformedTextKey(CASE_45.id.value, foreign.name)),
+            ContentValidator.validate(withAlgorithms(listOf(foreign), listOf(ALGORITHM_45))),
+        )
+    }
+
     private companion object {
+        val CASE_45 = Case(CaseId("case-oll-45"), CaseSet.OLL, FamilyId("oll-t"), TextKey("case.case-oll-45.name"))
+        val ALGORITHM_45 = Algorithm(AlgorithmId("alg-oll-45-a"), CASE_45.id, "F R U R' U' F'")
         val ADAPTIVE = AdaptiveThresholds(1, 2, 3, 2)
         val MASTERY = MasteryThresholds(2, 1)
     }

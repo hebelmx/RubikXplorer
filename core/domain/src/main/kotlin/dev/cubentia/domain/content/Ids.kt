@@ -50,9 +50,57 @@ value class RecoveryRef(
     }
 }
 
+/** A Case ID, `case-oll-NN` or `case-pll-<letters>` (for example `case-oll-45`, `case-pll-ua`); stable and never reused once shipped. */
+@Serializable
+@JvmInline
+value class CaseId(
+    val value: String,
+) {
+    /** True when [value] has the `case-oll-NN` or `case-pll-<letters>` form. */
+    val isWellFormed: Boolean get() = FORMAT.matches(value)
+
+    override fun toString(): String = value
+
+    private companion object {
+        val FORMAT = Regex("case-oll-\\d{2}|case-pll-[a-z]{1,2}")
+    }
+}
+
+/** An Algorithm ID, `alg-<case suffix>-<letter>` (for example `alg-oll-45-a`, `alg-pll-ua-a`); stable and never reused once shipped. */
+@Serializable
+@JvmInline
+value class AlgorithmId(
+    val value: String,
+) {
+    /** True when [value] has the `alg-<case suffix>-<letter>` form. */
+    val isWellFormed: Boolean get() = FORMAT.matches(value)
+
+    override fun toString(): String = value
+
+    private companion object {
+        val FORMAT = Regex("alg-oll-\\d{2}-[a-z]|alg-pll-[a-z]{1,2}-[a-z]")
+    }
+}
+
+/** A Case family, `oll-<slug>` or `pll-<slug>` (for example `oll-t`, `pll-edges-only`); stable and never reused once shipped. */
+@Serializable
+@JvmInline
+value class FamilyId(
+    val value: String,
+) {
+    /** True when [value] has the `oll-<slug>` or `pll-<slug>` form. */
+    val isWellFormed: Boolean get() = FORMAT.matches(value)
+
+    override fun toString(): String = value
+
+    private companion object {
+        val FORMAT = Regex("(oll|pll)-[a-z]+(-[a-z]+)*")
+    }
+}
+
 /**
  * A key into `content/strings/en.json`, of the form `<area>.<contentId>.<field>[.<n>]`, where
- * `contentId` is the ID of the Stage or Lesson that owns the text. Content keys carry no arguments.
+ * `contentId` is the ID of the Stage, Lesson or Case that owns the text. Content keys carry no arguments.
  */
 @Serializable
 @JvmInline

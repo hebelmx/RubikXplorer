@@ -366,7 +366,85 @@ class ContentLoaderTest {
         ).forEach { loaded(withConfig("""{"maxDepth":$it,"moveSet":"U R","recoveryMaxDepth":5,$ADAPTIVE_JSON,$MASTERY_JSON}""")) }
     }
 
+    /** The valid fixture with a manifest listing [files] (`path to JSON`), and strings naming `case-oll-45` and `case-oll-46`. */
+    private fun withAlgorithmFiles(files: Map<String, String>): ContentSource {
+        val valid = fixture("valid")
+        val listed = files.keys.joinToString(",") { "\"$it\"" }
+        val manifest = """{"schemaVersion":1,"stages":["stages/stage-01-basics.json"],"algorithms":[$listed]}"""
+        val strings = ContentLoader.json.parseToJsonElement(resourceText("content-fixtures/valid/strings/en.json")).jsonObject
+        val names = listOf("45", "46").associate { "case.case-oll-$it.name" to JsonPrimitive("OLL $it") }
+        val named = JsonObject(strings + names).toString()
+        return ContentSource { path ->
+            when (path) {
+                ContentLoader.MANIFEST -> manifest.toByteArray()
+                ContentLoader.STRINGS -> named.toByteArray()
+                else -> files[path]?.toByteArray() ?: valid.read(path)
+            }
+        }
+    }
+
+    @Test
+    fun `Algorithm files load in manifest order`() {
+        val other = ALGORITHM_FILE.replace("45", "46")
+        val bundle = loaded(withAlgorithmFiles(mapOf("algorithms/a.json" to ALGORITHM_FILE, "algorithms/b.json" to other)))
+        assertEquals(listOf(CaseId("case-oll-45"), CaseId("case-oll-46")), bundle.cases.map { it.id })
+        assertEquals(listOf(AlgorithmId("alg-oll-45-a"), AlgorithmId("alg-oll-46-a")), bundle.algorithms.map { it.id })
+        assertEquals(CaseSet.OLL, bundle.cases.first().set)
+        assertEquals(CaseId("case-oll-45"), bundle.algorithms.first().caseId)
+        assertTrue(bundle.algorithms.first().isPrimary)
+    }
+
+    @Test
+    fun `an Algorithm file's bytes change the revision`() {
+        val empty = """{"cases":[],"algorithms":[]}"""
+        val first = loaded(withAlgorithmFiles(mapOf("algorithms/a.json" to empty))).contentRevision
+        assertEquals(first, loaded(withAlgorithmFiles(mapOf("algorithms/a.json" to empty))).contentRevision)
+        assertNotEquals(first, loaded(withAlgorithmFiles(mapOf("algorithms/a.json" to "$empty "))).contentRevision)
+    }
+
+    @Test
+    fun `the same Case and Algorithm in two files are duplicates`() {
+        assertEquals(
+            listOf(
+                ContentProblem.DuplicateCaseId(CaseId("case-oll-45")),
+                ContentProblem.DuplicateAlgorithmId(AlgorithmId("alg-oll-45-a")),
+            ),
+            invalid(withAlgorithmFiles(mapOf("algorithms/a.json" to ALGORITHM_FILE, "algorithms/b.json" to ALGORITHM_FILE))),
+        )
+    }
+
+    @Test
+    fun `a missing Algorithm file is MissingResource`() {
+        val valid = fixture("valid")
+        val manifest = """{"schemaVersion":1,"stages":[],"algorithms":["algorithms/absent.json"]}"""
+        val source = ContentSource { path -> if (path == ContentLoader.MANIFEST) manifest.toByteArray() else valid.read(path) }
+        assertEquals(ContentLoadError.MissingResource("algorithms/absent.json"), failed(source))
+    }
+
+    @Test
+    fun `an unknown key or set value in an Algorithm file is Malformed, as is a manifest without algorithms`() {
+        val path = "algorithms/a.json"
+        val set = "\"set\":\"OLL\""
+        listOf(
+            ALGORITHM_FILE.replace(set, "\"set\":\"F2L\"") to "F2L",
+            ALGORITHM_FILE.replace(set, "$set,\"state\":\"x\"") to "state",
+        ).forEach { (file, detail) ->
+            val error = failed(withAlgorithmFiles(mapOf(path to file)))
+            assertInstanceOf(ContentLoadError.Malformed::class.java, error, file)
+            assertEquals(path, (error as ContentLoadError.Malformed).path)
+            assertTrue(detail in error.detail, error.detail)
+        }
+        val manifest = """{"schemaVersion":1,"stages":[]}"""
+        val error = failed(ContentSource { if (it == ContentLoader.MANIFEST) manifest.toByteArray() else null })
+        assertInstanceOf(ContentLoadError.Malformed::class.java, error, error.toString())
+        assertEquals(ContentLoader.MANIFEST, (error as ContentLoadError.Malformed).path)
+        assertTrue("algorithms" in error.detail, error.detail)
+    }
+
     private companion object {
+        const val ALGORITHM_FILE =
+            "{\"cases\":[{\"id\":\"case-oll-45\",\"set\":\"OLL\",\"family\":\"oll-t\",\"name\":\"case.case-oll-45.name\"}]," +
+                "\"algorithms\":[{\"id\":\"alg-oll-45-a\",\"caseId\":\"case-oll-45\",\"notation\":\"F R U R' U' F'\"}]}"
         val REVISION = Regex("[0-9a-f]{64}")
         const val ADAPTIVE_JSON =
             "\"adaptive\":{\"explainAfterMistakes\":1,\"demonstrateAfterMistakes\":2,\"guideAfterMistakes\":3,\"reduceAfterCleanSteps\":2}"

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "algorithms.schema.json",
+  "title": "Algorithm file",
+  "description": "OLL and PLL Cases and their Algorithms (FR-17, FR-18). Case states are derived, never stored here (AD-19).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["cases", "algorithms"],
+  "properties": {
+    "cases": { "type": "array", "items": { "$ref": "#/$defs/case" } },
+    "algorithms": { "type": "array", "items": { "$ref": "#/$defs/algorithm" } }
+  },
+  "$defs": {
+    "caseId": { "type": "string", "pattern": "^case-(oll-[0-9]{2}|pll-[a-z]{1,2})$" },
+    "algorithmId": { "type": "string", "pattern": "^alg-(oll-[0-9]{2}|pll-[a-z]{1,2})-[a-z]$" },
+    "familyId": { "type": "string", "pattern": "^(oll|pll)-[a-z]+(-[a-z]+)*$" },
+    "textKey": { "type": "string", "pattern": "^[a-z][a-z0-9-]*\\.[a-z0-9-]+\\.[a-z][a-z0-9-]*(\\.[0-9]+)?$" },
+    "notation": { "type": "string" },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "set", "family", "name"],
+      "properties": {
+        "id": { "$ref": "#/$defs/caseId" },
+        "set": { "type": "string", "enum": ["OLL", "PLL"] },
+        "family": { "$ref": "#/$defs/familyId" },
+        "name": { "$ref": "#/$defs/textKey" }
+      }
+    },
+    "algorithm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "caseId", "notation"],
+      "properties": {
+        "id": { "$ref": "#/$defs/algorithmId" },
+        "caseId": { "$ref": "#/$defs/caseId" },
+        "notation": { "$ref": "#/$defs/notation" }
+      }
+    }
+  }
+}

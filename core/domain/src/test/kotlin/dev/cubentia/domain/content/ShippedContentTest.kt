@@ -1,5 +1,7 @@
 package dev.cubentia.domain.content
 
+import dev.cubentia.domain.cube.Notation
+import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.domain.cube.PieceKind
 import dev.cubentia.domain.cube.ValidationResult
 import dev.cubentia.domain.predicate.AllOf
@@ -260,7 +262,7 @@ class ShippedContentTest {
 
     @Test
     fun `every shipped content string is used and follows the voice guide`() {
-        val titles = bundle.stages.map { it.title.value }.toSet()
+        val titles = (bundle.stages.map { it.title } + bundle.cases.map { it.name }).map { it.value }.toSet()
         val used =
             titles +
                 bundle.stages
@@ -270,10 +272,63 @@ class ShippedContentTest {
                             lesson.steps.flatMap { listOf(it.goal, it.preserve, it.watch, it.notice) }
                     }.map { it.value }
         val content = bundle.strings.filterKeys { !it.startsWith("msg.") && !it.startsWith("btn.") }
-        assertEquals(content.keys, used, "every stage and lesson string is used by content, and only those")
+        assertEquals(content.keys, used, "every stage, lesson and case string is used by content, and only those")
         val problems =
             content.flatMap { (key, message) -> VoiceGuide.problems(message, title = key in titles).map { "$key $it: $message" } }
         assertEquals(emptyList<String>(), problems)
+    }
+
+    @Test
+    fun `the shipped bundle holds all 57 OLL and 21 PLL Cases with set, family and name`() {
+        val oll = bundle.cases.filter { it.set == CaseSet.OLL }
+        val pll = bundle.cases.filter { it.set == CaseSet.PLL }
+        assertEquals((1..57).map { "case-oll-%02d".format(it) }, oll.map { it.id.value })
+        assertEquals(PLL_LETTERS.map { "case-pll-$it" }, pll.map { it.id.value })
+        assertEquals(
+            78,
+            bundle.cases
+                .map { it.id }
+                .toSet()
+                .size,
+        )
+        bundle.cases.forEach { assertTrue(it.id.isWellFormed, "${it.id}") }
+        bundle.cases.forEach { assertEquals(TextKey("case.${it.id}.name"), it.name, "${it.id}") }
+        assertEquals((1..57).map { "OLL $it" }, oll.map { bundle.strings.getValue(it.name.value) })
+        assertEquals(
+            PLL_LETTERS.map { letters -> "${letters.replaceFirstChar { c -> c.uppercase() }} perm" },
+            pll.map { bundle.strings.getValue(it.name.value) },
+        )
+        assertEquals(FAMILY_COUNTS, bundle.cases.groupingBy { it.family.value }.eachCount())
+    }
+
+    @Test
+    fun `the shipped bundle holds 78 Algorithms, one primary per Case, each parsing to Moves`() {
+        assertEquals(78, bundle.algorithms.size)
+        assertEquals(
+            78,
+            bundle.algorithms
+                .map { it.id }
+                .toSet()
+                .size,
+        )
+        assertEquals(
+            78,
+            bundle.algorithms
+                .map { it.notation }
+                .toSet()
+                .size,
+        )
+        bundle.algorithms.forEach { algorithm ->
+            assertTrue(algorithm.id.isWellFormed, "${algorithm.id}")
+            val parsed = Notation.parse(algorithm.notation)
+            assertInstanceOf(NotationResult.Parsed::class.java, parsed, "${algorithm.id}")
+            assertTrue((parsed as NotationResult.Parsed).moves.isNotEmpty(), "${algorithm.id}")
+            assertEquals(algorithm.notation, Notation.format(parsed.moves), "${algorithm.id}")
+        }
+        bundle.cases.forEach { case ->
+            val primaries = bundle.algorithms.filter { it.caseId == case.id && it.isPrimary }
+            assertEquals(listOf(AlgorithmId("alg-${case.id.value.removePrefix("case-")}-a")), primaries.map { it.id }, "${case.id}")
+        }
     }
 
     @Test
@@ -374,6 +429,32 @@ class ShippedContentTest {
     private fun numericConstants(source: String): List<String> = NUMERIC_CONST.findAll(source).map { it.value.trim() }.toList()
 
     private companion object {
+        val PLL_LETTERS =
+            listOf("aa", "ab", "e", "f", "ga", "gb", "gc", "gd", "h", "ja", "jb", "na", "nb", "ra", "rb", "t", "ua", "ub", "v", "y", "z")
+
+        /** Cases per family (Story 9.1 Design Notes). */
+        val FAMILY_COUNTS =
+            mapOf(
+                "oll-dot" to 8,
+                "oll-cross" to 7,
+                "oll-t" to 2,
+                "oll-square" to 2,
+                "oll-c" to 2,
+                "oll-w" to 2,
+                "oll-p" to 4,
+                "oll-line" to 4,
+                "oll-fish" to 4,
+                "oll-knight" to 4,
+                "oll-awkward" to 4,
+                "oll-l-shape" to 6,
+                "oll-lightning" to 6,
+                "oll-corners-oriented" to 2,
+                "pll-edges-only" to 4,
+                "pll-corners-only" to 3,
+                "pll-adjacent-swap" to 10,
+                "pll-diagonal-swap" to 4,
+            )
+
         val MIGRATED_RESOURCES = setOf("playback_follow_on_my_cube", "playback_cube_should_be_solved", "frame_expected")
 
         /** Physical-mode copy that used to live in `strings.xml` too (Story 12.9): key to exact wording. */
