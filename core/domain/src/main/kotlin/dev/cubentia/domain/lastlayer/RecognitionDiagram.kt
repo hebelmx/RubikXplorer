@@ -17,6 +17,8 @@ data class RecognitionDiagram private constructor(
         /** Rows and columns of the grid. */
         const val SIZE: Int = 5
 
+        val LIBRARY_LAST_LAYER: Color = Color.YELLOW
+
         private const val E = -1
         private const val C = -2
 
@@ -46,7 +48,7 @@ data class RecognitionDiagram private constructor(
         /** The diagram of [algorithm]'s Case with the [lastLayer] color on U, as the Library shows it. */
         fun derive(
             algorithm: Algorithm,
-            lastLayer: Color = Color.YELLOW,
+            lastLayer: Color = LIBRARY_LAST_LAYER,
         ): RecognitionDiagramResult =
             when (val derived = LastLayerMatcher.caseState(algorithm, lastLayer)) {
                 is CaseStateResult.BadNotation -> {

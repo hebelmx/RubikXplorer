@@ -47,6 +47,7 @@ import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.ui.freecube.FreeCubeScreen
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
 import dev.cubentia.app.ui.lesson.LessonScreen
+import dev.cubentia.app.ui.library.AlgorithmDetailScreen
 import dev.cubentia.app.ui.library.LibraryFilterSaver
 import dev.cubentia.app.ui.library.LibraryScreen
 import dev.cubentia.app.ui.settings.SettingsScreen
@@ -128,6 +129,7 @@ private fun ShellContent(
     var welcomeAbandoned by rememberSaveable { mutableStateOf(false) }
     var stageAbandoned by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedStage by rememberSaveable { mutableStateOf<String?>(null) }
+    var openAlgorithm by rememberSaveable { mutableStateOf<String?>(null) }
     var openLesson by rememberSaveable { mutableStateOf<String?>(null) }
     var openPractice by rememberSaveable { mutableStateOf<String?>(null) }
     var practiceEpoch by rememberSaveable { mutableIntStateOf(0) }
@@ -339,6 +341,8 @@ private fun ShellContent(
             }
         } else if (openPractice != null) {
             openPractice = null
+        } else if (tab == Tab.LIBRARY && openAlgorithm != null) {
+            openAlgorithm = null
         } else if (tab != Tab.LEARN) {
             tab = Tab.LEARN
         } else {
@@ -358,24 +362,33 @@ private fun ShellContent(
     val destination: @Composable (Modifier, WindowWidthClass) -> Unit = { destinationModifier, widthClass ->
         when (tab) {
             Tab.LIBRARY -> {
-                LibraryScreen(
-                    content,
-                    widthClass,
-                    libraryFilter,
-                    { libraryFilter = it },
-                    libraryGrid,
-                    {
-                        selectedStage = null
-                        tab = Tab.LEARN
-                        scrollToTwoLook = allStagesFinished
-                        twoLookLocked = !allStagesFinished
-                    },
-                    destinationModifier
-                        .background(
-                            RubikTheme.tokens.surfaceBase,
-                        ).safeDrawingPadding(),
-                    familyChipsScroll = libraryFamilyChips,
-                )
+                val algorithm = ready?.bundle?.algorithms?.firstOrNull { it.id.value == openAlgorithm }
+                val case = ready?.bundle?.cases?.firstOrNull { it.id == algorithm?.caseId }
+                if (algorithm != null && case != null && ready != null) {
+                    AlgorithmDetailScreen(case, algorithm, ready.strings, {
+                        openAlgorithm = null
+                    }, destinationModifier.background(RubikTheme.tokens.surfaceBase).safeDrawingPadding())
+                } else {
+                    LibraryScreen(
+                        content,
+                        widthClass,
+                        libraryFilter,
+                        { libraryFilter = it },
+                        libraryGrid,
+                        {
+                            selectedStage = null
+                            tab = Tab.LEARN
+                            scrollToTwoLook = allStagesFinished
+                            twoLookLocked = !allStagesFinished
+                        },
+                        destinationModifier
+                            .background(
+                                RubikTheme.tokens.surfaceBase,
+                            ).safeDrawingPadding(),
+                        familyChipsScroll = libraryFamilyChips,
+                        onOpenAlgorithm = { openAlgorithm = it.value },
+                    )
+                }
             }
 
             Tab.YOU -> {

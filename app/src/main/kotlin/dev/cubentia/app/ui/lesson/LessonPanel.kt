@@ -479,7 +479,10 @@ private fun MovesRow(
 }
 
 @Composable
-internal fun NotationChip(move: Move) {
+internal fun NotationChip(
+    move: Move,
+    current: Boolean = false,
+) {
     val tokens = RubikTheme.tokens
     val shape = MaterialTheme.shapes.small
     val token = Notation.format(move)
@@ -490,7 +493,7 @@ internal fun NotationChip(move: Move) {
                 .sizeIn(minWidth = Spacing.touchMin, minHeight = Spacing.s6)
                 .clip(shape)
                 .background(tokens.surfaceStage)
-                .border(1.dp, tokens.hairline, shape)
+                .border(if (current) 1.5.dp else 1.dp, if (current) tokens.inkPrimary else tokens.hairline, shape)
                 .padding(horizontal = Spacing.s2),
         contentAlignment = Alignment.Center,
     ) {

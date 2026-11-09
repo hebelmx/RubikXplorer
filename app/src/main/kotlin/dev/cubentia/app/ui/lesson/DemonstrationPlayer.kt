@@ -2,6 +2,7 @@ package dev.cubentia.app.ui.lesson
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -63,6 +64,8 @@ class DemonstrationPlayerState private constructor(
     private val presentedIndex: Int
         get() = renderer.presentedRevision?.let(playback::moveIndexOf) ?: playback.focusIndex
 
+    internal val shownMoveIndex: Int get() = presentedIndex
+
     /** The step holding the Move being shown, or null when the Demonstration has no steps. */
     val focusedStep: DemonstrationStep?
         get() = demonstration.steps.getOrNull(demonstration.stepIndexAt(presentedIndex))
@@ -120,26 +123,7 @@ fun DemonstrationPlayer(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Spacing.s2),
     ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            certainty?.let { FrameLabel(strings, it) }
-            Spacer(Modifier.weight(1f))
-            Row(
-                Modifier.semantics {
-                    isTraversalGroup = true
-                    traversalIndex = 3f
-                },
-            ) { ViewControls(state.renderer) }
-        }
-        // Takes what the view controls and the transport leave (as wide as it is tall, never wider
-        // than its slot), so a short stage shrinks the net rather than overlapping the controls.
-        state.renderer.Content(
-            style,
-            Modifier.weight(1f, fill = false).aspectRatio(1f).semantics { traversalIndex = 1f },
-            emphasis = state.emphasis,
-            arrow = state.arrow,
-            reduceMotion = state.reduceMotion,
-            summary = summary,
-        )
+        DemonstrationStage(state, strings, style, summary, certainty)
         PlaybackTransport(
             state,
             Modifier.semantics {
@@ -148,6 +132,39 @@ fun DemonstrationPlayer(
             },
         )
     }
+}
+
+@Composable
+internal fun ColumnScope.DemonstrationStage(
+    state: DemonstrationPlayerState,
+    strings: ContentStrings,
+    style: RenderStyle,
+    summary: String?,
+    certainty: Certainty?,
+    showFrameLabel: Boolean = certainty != null,
+    freeViewRotation: Boolean = false,
+) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        if (showFrameLabel) FrameLabel(strings, certainty)
+        Spacer(Modifier.weight(1f))
+        Row(
+            Modifier.semantics {
+                isTraversalGroup = true
+                traversalIndex = 3f
+            },
+        ) { ViewControls(state.renderer) }
+    }
+    // Takes what the view controls and the transport leave (as wide as it is tall, never wider
+    // than its slot), so a short stage shrinks the net rather than overlapping the controls.
+    state.renderer.Content(
+        style,
+        Modifier.weight(1f, fill = false).aspectRatio(1f).semantics { traversalIndex = 1f },
+        emphasis = state.emphasis,
+        arrow = state.arrow,
+        reduceMotion = state.reduceMotion,
+        summary = summary,
+        freeViewRotation = freeViewRotation,
+    )
 }
 
 /** The shared transport's frame cap ([sharedFrameDelta]), kept here for the Demonstration's tests. */
