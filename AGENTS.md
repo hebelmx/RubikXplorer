@@ -1,5 +1,5 @@
 <!-- bmad:context -->
-<!-- Verified 2026-11-08 against 2cfa628. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
+<!-- Verified 2026-11-08 against 1c9a171. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
 
 ## Cubentia
 
@@ -11,6 +11,7 @@ Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual o
 - Never commit to `main`; work on a feature branch and merge by PR so CI gates run. Conventional Commits.
 - Never hand-edit `_bmad/` or `.claude/skills/` — installer-generated (BMAD 6.12.4); change behavior via `_bmad/custom/` with the `bmad-customize` skill.
 - Never hand-edit `prd.md` or `ARCHITECTURE-SPINE.md` (status: final); change them through `bmad-prd` / `bmad-architecture` update or `bmad-correct-course`.
+- Planning documents and historical records keep the codename RubikXplorer (e.g. `prd-RubikXplorer-…` folders, SCPs, retros, memlogs); never rename them — new code and Learner text say Cubentia.
 - Never edit a `.memlog.md` by hand; append with `uv run _bmad/scripts/memlog.py append`.
 - Never add the `INTERNET` permission, backup, or any analytics/ads/crash SDK — NFR-8 promises "no data collected" (AD-13).
 - Never copy third-party solver code; `:core:solver` is a clean-room Kociemba implementation (min2phase is GPLv3-only).
@@ -37,6 +38,7 @@ Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual o
 - `:core:domain`, `:core:solver`, `:core:application` are `kotlin("jvm")` with no Android, Compose, Room, CameraX or Hilt imports; Android code goes in `:app` only.
 - All session state changes go through `SessionEvent` → `reduce()`; ViewModels and composables never mutate state. Async results must echo the effect's `revision` or be discarded.
 - Each persisted entity has one writer (Ownership Matrix in the spine) — e.g. calibration only via `UpdateCalibration`, Algorithm Status only via `SetAlgorithmStatus`.
+- The applicationId is `com.exxerpro.cubentia`, but Kotlin packages and namespaces are `dev.cubentia.*`; use the applicationId for `adb`, Macrobenchmark targets and Play, never `dev.cubentia`.
 - Cube home frame is WHITE on U, GREEN on F; `Facelets` are URFDLB, row-major per the Kociemba net; reach a `CubeState` only through `CubeValidator`.
 - Certainty is `VERIFIED | LIKELY | UNKNOWN`, produced only by `tutor/Assess`; never a numeric confidence, never fill a partial scan from the expected state.
 - Lessons, Algorithms and tutor thresholds are JSON content with predicates from the closed Kotlin registry; never hard-code lesson logic or Learner-facing text in screens — use `Text(key, args)`.
