@@ -48,13 +48,13 @@ Start with classical computer vision in Kotlin in the CameraX adapter: use cube-
 Evaluation command:
 
 ```sh
-./gradlew :core:domain:test --tests 'dev.rubikxplorer.domain.recognition.ScanFixtureEvaluationTest'
+./gradlew :core:domain:test --tests 'dev.cubentia.domain.recognition.ScanFixtureEvaluationTest'
 ```
 
 Accuracy is `correct predicted stickers / explicitly labeled stickers`. Report unavailable captures separately, and report measured physical accuracy separately from synthetic fixture checks. The classifier uses squared Euclidean distance in CIELAB to the six calibrated centers; it does not claim full CIEDE2000 perceptual difference or solve-state validity.
 
 ## Prototype and size cost
 
-The disposable screen is compiled only with `-Prubikxplorer.spikeScan=true`; CameraX dependencies and CAMERA permission are attached only to the debug variant. Frames are analyzed in memory and are not persisted or exported. The screen supports explicit per-sticker truth entry and reports sticker accuracy only after all nine labels are provided. It automatically flags very low light and multiple near-white samples; the operator must mark blur, misalignment, or an incomplete grid with the quality controls, which reject the face and request recapture. These are prototype aids, not validated automated blur or alignment detection. The default release variant does not include the spike source or camera permission.
+The disposable screen is compiled only with `-Pcubentia.spikeScan=true`; CameraX dependencies and CAMERA permission are attached only to the debug variant. Frames are analyzed in memory and are not persisted or exported. The screen supports explicit per-sticker truth entry and reports sticker accuracy only after all nine labels are provided. It automatically flags very low light and multiple near-white samples; the operator must mark blur, misalignment, or an incomplete grid with the quality controls, which reject the face and request recapture. These are prototype aids, not validated automated blur or alignment detection. The default release variant does not include the spike source or camera permission.
 
 CameraX stable version selected from Android's release notes is 1.6.2. On this checkout, the default debug APK is 41,616,989 bytes; the opt-in spike debug APK is 57,656,639 bytes, a **16,039,650-byte increase**. Both builds used the same local JDK/SDK configuration. The unsigned release APK is 2,516,083 bytes in both builds; the spike has no release APK size cost. These are local build artifacts, not Play-delivered download sizes.

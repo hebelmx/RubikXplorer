@@ -1,9 +1,9 @@
 plugins {
-    alias(libs.plugins.rubikxplorer.android.macrobenchmark)
+    alias(libs.plugins.cubentia.android.macrobenchmark)
 }
 
 android {
-    namespace = "dev.rubikxplorer.macrobenchmark"
+    namespace = "dev.cubentia.macrobenchmark"
 }
 
 dependencies {

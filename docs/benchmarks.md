@@ -56,7 +56,7 @@ Mandatory CI corpus (`./gradlew :core:solver:test`, JDK 17 worker with Kover), s
 | 10,101 | 3.637 ms | 21.348 ms | 229.863 ms | 10,101 (100%) | 0 (0%) | 334.2 MiB |
 
 The corpus test took 69.745 s including generation and warmup. Its result is printed in
-`core/solver/build/test-results/test/TEST-dev.rubikxplorer.solver.TwoPhaseCubeSolverTest.xml`.
+`core/solver/build/test-results/test/TEST-dev.cubentia.solver.TwoPhaseCubeSolverTest.xml`.
 These figures measure the actual host profile above and do not establish reference-device equivalence.
 
 

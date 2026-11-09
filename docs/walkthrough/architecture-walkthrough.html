@@ -1,4 +1,4 @@
-<title>RubikXplorer Architecture Walkthrough</title>
+<title>Cubentia Architecture Walkthrough</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -116,7 +116,7 @@ th { font-family: var(--mono); font-size: 12px; text-transform: uppercase; lette
   <header class="top">
     <div>
       <span class="tag">Android · Kotlin · Hexagonal · Functional core</span>
-      <h1>RubikXplorer Architecture</h1>
+      <h1>Cubentia Architecture</h1>
       <p>An offline cube tutor that keeps three cubes in sync: the one on screen, the one the tutor expects, and the one in your hands.</p>
     </div>
     <span class="tag">Spine: 20 decisions · AD-1…AD-20</span>
@@ -133,7 +133,7 @@ th { font-family: var(--mono); font-size: 12px; text-transform: uppercase; lette
 
 <template id="ch-u">
   <h3>The tutor never claims what it doesn't know</h3>
-  <p>Most cube apps are solvers with a tutorial bolted on. RubikXplorer explains why each Move matters, checks the result against a verified cube model, and corrects mistakes. That ambition creates the problem the whole architecture solves: the app has to track <em>three</em> cubes.</p>
+  <p>Most cube apps are solvers with a tutorial bolted on. Cubentia explains why each Move matters, checks the result against a verified cube model, and corrects mistakes. That ambition creates the problem the whole architecture solves: the app has to track <em>three</em> cubes.</p>
   <div class="cols">
     <div class="note"><h4>Virtual</h4><p>The cube on screen. When the Learner works on screen, this one is the truth.</p></div>
     <div class="note"><h4>Expected</h4><p>What the tutor believes the Learner is holding, built from the Moves they confirmed.</p></div>

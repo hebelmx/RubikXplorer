@@ -1,7 +1,7 @@
 <!-- bmad:context -->
 <!-- Verified 2026-11-08 against 2cfa628. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
 
-## RubikXplorer
+## Cubentia
 
 Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual or physical cube. v1.0 ships camera-free; on-device camera recognition is planned for v1.1. Kotlin, Jetpack Compose, hexagonal ports and adapters with a functional core: `:app` plus pure-JVM `:core:domain`, `:core:solver`, `:core:application` (and `:macrobenchmark`), built through convention plugins in `build-logic/`. Planning lives in `_bmad-output/planning-artifacts/` (PRD, architecture spine); the reader-facing overview is `docs/ARCHITECTURE.md`.
 
@@ -19,7 +19,7 @@ Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual o
 
 - Binding decisions AD-1…AD-20: `_bmad-output/planning-artifacts/architecture/architecture-RubikXplorer-2026-10-29/ARCHITECTURE-SPINE.md` — read it before adding a module, port, persisted entity, `SessionEvent`, or content field.
 - Requirements and IDs (FR-n, NFR-n, Glossary): `_bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/prd.md`; use Glossary terms verbatim in type names.
-- Build gates (AD-1 module boundaries, AD-13 manifest and SDK denylist, Kover, R8 keep rules): `build-logic/src/main/kotlin/dev/rubikxplorer/buildlogic/`; change gates there, never in per-module build scripts.
+- Build gates (AD-1 module boundaries, AD-13 manifest and SDK denylist, Kover, R8 keep rules): `build-logic/src/main/kotlin/dev/cubentia/buildlogic/`; change gates there, never in per-module build scripts.
 - Camera, scan, Quick Check, Placement or Case-recognition work is v1.1: plan it from `_bmad-output/planning-artifacts/post-launch/v1.1-camera-recognition.md`, and keep `CAMERA_SCAN`, `QUICK_SCAN`, `PLACEMENT`, `CASE_RECOGNITION` OFF for release in `FeatureFlagLevels.kt`.
 - Next planning step or unsure which workflow fits: run the `bmad-help` skill.
 

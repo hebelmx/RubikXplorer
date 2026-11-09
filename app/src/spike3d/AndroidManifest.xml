@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- OQ-3 spike overlay (Story 1.8), merged only with -Prubikxplorer.spike3d=true. -->
+<!-- OQ-3 spike overlay (Story 1.8), merged only with -Pcubentia.spike3d=true. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 

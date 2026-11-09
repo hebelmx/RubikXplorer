@@ -1,6 +1,6 @@
 # Spike OQ-3: choose the 3D rendering approach
 
-Story 1.8. Throwaway prototypes of the `CubeRenderer` port in SceneView and in custom OpenGL ES 3.0, measured against the decision rule in the story spec. Spike code compiles only with `-Prubikxplorer.spike3d=true`.
+Story 1.8. Throwaway prototypes of the `CubeRenderer` port in SceneView and in custom OpenGL ES 3.0, measured against the decision rule in the story spec. Spike code compiles only with `-Pcubentia.spike3d=true`.
 
 **Decision: use custom OpenGL ES 3.0 for the Epic 5 3D renderer.** SceneView fails hard criterion 3 (release APK delta ≤ 10 MB): it adds 30,390,600 bytes to the universal release APK and about 10.7 MB even to an arm64-only APK. The OpenGL ES prototype passes all four hard criteria and adds 65,672 bytes. A `bmad-architecture` update is requested to replace the spine's `SceneView 4.62.0 (Filament 1.72.x) [ASSUMPTION: OQ-3 spike]` row.
 
@@ -47,7 +47,7 @@ Measured as (spike release APK) − (default release APK) on the same commit. Bo
 | Build | APK bytes | Delta bytes | Download size (apkanalyzer) |
 |---|---|---|---|
 | Default release (baseline) | 2,126,832 | 0 | 1,233,235 |
-| Spike, OpenGL ES only (`-Prubikxplorer.spike3d.sceneview=false`) | 2,192,504 | **+65,672** | 1,265,408 |
+| Spike, OpenGL ES only (`-Pcubentia.spike3d.sceneview=false`) | 2,192,504 | **+65,672** | 1,265,408 |
 | Spike, SceneView + OpenGL ES | 32,517,432 | **+30,390,600** | 17,673,335 |
 
 Where SceneView's bytes go (stored sizes inside the APK):
@@ -94,7 +94,7 @@ On the emulator, all 176 measured turns logged `readbackOk=true`.
 - With the property unset, the release APK is 2,126,832 bytes. It is byte-identical (same SHA-256) to a release APK built from the pre-spike `app/build.gradle.kts` and `libs.versions.toml` with the spike source folders present.
 - The flag-off release and debug APKs contain no SceneView, Filament or spike classes, no Filament native libraries, and no spike activity (`apkanalyzer dex packages` / `manifest print`).
 - `./gradlew build --dry-run` lists no spike task.
-- With `-Prubikxplorer.spike3d=true`, `checkReleaseMergedManifest`, `checkDebugMergedManifest`, `checkReleaseSdkDenylist` and `checkDebugSdkDenylist` pass, both with and without SceneView.
+- With `-Pcubentia.spike3d=true`, `checkReleaseMergedManifest`, `checkDebugMergedManifest`, `checkReleaseSdkDenylist` and `checkDebugSdkDenylist` pass, both with and without SceneView.
 
 ## Decision against the rule
 
@@ -123,13 +123,13 @@ Tie-breaks, for the record:
 ```sh
 export JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64 ANDROID_HOME=$HOME/Android/Sdk
 # Readback and driver tests
-./gradlew -Prubikxplorer.spike3d=true :app:testDebugUnitTest --tests 'dev.rubikxplorer.app.spike3d.*'
+./gradlew -Pcubentia.spike3d=true :app:testDebugUnitTest --tests 'dev.cubentia.app.spike3d.*'
 # APKs (manifest and SDK-denylist checks are part of `check`; run them too)
 ./gradlew :app:assembleRelease                                                                       # baseline
 cp app/build/outputs/apk/release/app-release-unsigned.apk baseline-release.apk                       # keep it; the next builds overwrite it
-./gradlew -Prubikxplorer.spike3d=true :app:assembleRelease :app:assembleDebug \
+./gradlew -Pcubentia.spike3d=true :app:assembleRelease :app:assembleDebug \
   :app:checkReleaseMergedManifest :app:checkReleaseSdkDenylist                                        # both engines
-./gradlew -Prubikxplorer.spike3d=true -Prubikxplorer.spike3d.sceneview=false :app:assembleRelease    # OpenGL ES only
+./gradlew -Pcubentia.spike3d=true -Pcubentia.spike3d.sceneview=false :app:assembleRelease    # OpenGL ES only
 # Emulator (none was attached)
 sdkmanager --install emulator "system-images;android-29;default;x86_64"
 avdmanager create avd -n spike3d_api29 -k "system-images;android-29;default;x86_64" -d pixel_4
@@ -138,10 +138,10 @@ apksigner sign --ks ~/.android/debug.keystore --ks-pass pass:android --ks-key-al
   --out spike.apk app/build/outputs/apk/release/app-release-unsigned.apk
 adb install -r spike.apk
 for engine in gles sceneview; do
-  adb shell am force-stop dev.rubikxplorer
-  adb shell am start -W -n dev.rubikxplorer/.app.spike3d.Spike3dActivity --es engine $engine --ei turns 40 --ez burst true
+  adb shell am force-stop com.exxerpro.cubentia
+  adb shell am start -W -n com.exxerpro.cubentia/dev.cubentia.app.spike3d.Spike3dActivity --es engine $engine --ei turns 40 --ez burst true
   # wait for "autorun done", then:
-  adb logcat -d --pid=$(adb shell pidof dev.rubikxplorer) -s Spike3d:I   # one line per turn, then "autorun done"
+  adb logcat -d --pid=$(adb shell pidof com.exxerpro.cubentia) -s Spike3d:I   # one line per turn, then "autorun done"
 done
 # Swiftshader stress run: adb emu kill, restart with -gpu swiftshader_indirect, reinstall, repeat the loop.
 ```

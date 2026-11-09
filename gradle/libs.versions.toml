@@ -17,7 +17,7 @@ kotest = "6.2.6"
 kotlinx-serialization = "1.12.0"
 kotlinx-coroutines = "1.11.0"
 robolectric = "4.17"
-# OQ-3 spike only (Story 1.8): latest stable on Maven Central 2026-10-30; Filament 1.72.1. Used only with -Prubikxplorer.spike3d=true.
+# OQ-3 spike only (Story 1.8): latest stable on Maven Central 2026-10-30; Filament 1.72.1. Used only with -Pcubentia.spike3d=true.
 sceneview = "4.63.0"
 detekt = "2.0.0-alpha.6"
 # Story 1.10 benchmarks, latest stables on Google Maven 2026-10-31. Run on demand only, never in `build`.
@@ -92,8 +92,8 @@ detekt = { id = "dev.detekt", version.ref = "detekt" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 
 # Convention plugins (build-logic)
-rubikxplorer-jvm-core = { id = "rubikxplorer.jvm-core" }
-rubikxplorer-android-app = { id = "rubikxplorer.android-app" }
-rubikxplorer-quality = { id = "rubikxplorer.quality" }
-rubikxplorer-release = { id = "rubikxplorer.release" }
-rubikxplorer-android-macrobenchmark = { id = "rubikxplorer.android-macrobenchmark" }
+cubentia-jvm-core = { id = "cubentia.jvm-core" }
+cubentia-android-app = { id = "cubentia.android-app" }
+cubentia-quality = { id = "cubentia.quality" }
+cubentia-release = { id = "cubentia.release" }
+cubentia-android-macrobenchmark = { id = "cubentia.android-macrobenchmark" }

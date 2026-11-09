@@ -1,4 +1,4 @@
-# RubikXplorer
+# Cubentia
 
 An Android app that teaches complete beginners to solve a 3×3 Rubik's Cube. It is an adaptive tutor that works with both a virtual cube and a physical cube.
 

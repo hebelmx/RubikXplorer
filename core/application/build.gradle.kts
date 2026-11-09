@@ -1,5 +1,5 @@
 plugins {
-    alias(libs.plugins.rubikxplorer.jvm.core)
+    alias(libs.plugins.cubentia.jvm.core)
 }
 
 dependencies {
