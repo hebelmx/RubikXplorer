@@ -14,6 +14,7 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -433,6 +434,8 @@ class PhysicalLessonScreenTest {
 
         // Tapping "Yes, it's solved" triggers the celebratory first-solve milestone
         node("lesson:yesItsSolved").performScrollTo().performClick()
+        // The confirmation goes through SessionHost off the main thread, which waitForIdle does not track.
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("milestone:overlay").fetchSemanticsNodes().isNotEmpty() }
         rule.waitForIdle()
 
         node("milestone:overlay").assertExists()
