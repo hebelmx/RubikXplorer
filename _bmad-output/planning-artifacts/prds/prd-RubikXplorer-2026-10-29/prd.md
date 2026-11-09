@@ -6,7 +6,7 @@ updated: 2026-11-08
 ---
 
 # PRD: RubikXplorer
-*Working title / codename. The store name is chosen before publishing, after a trademark search (OQ-1).*
+*Store name: **Cubentia** (koo-BEN-tyah), chosen 2026-11-08 (OQ-1). RubikXplorer remains the codename in planning documents.*
 
 ## 0. Document Purpose
 
@@ -699,7 +699,7 @@ The app has no analytics (NFR-8). Learning metrics therefore come from **observe
 
 ## 9. Open Questions
 
-1. **OQ-1:** official store name and icon. Chosen after a trademark search, before publishing. "Rubik's" is a Spin Master trademark and must not appear in the listing name or icon. RubikXplorer remains the codename.
+1. **OQ-1 (name resolved 2026-11-08):** the store name is **Cubentia**, and the application ID is `com.exxerpro.cubentia`. Still open before publishing (Story 12.5): a trademark search for "Cubentia", and the icon. "Rubik's" is a Spin Master trademark and must not appear in the listing name, the icon or any Learner-facing text.
 2. **OQ-2:** the exact 2-look LL Case set, and the primary Algorithm for each OLL and PLL Case. Decided during curriculum authoring and verified by FR-18's test.
 3. **OQ-3:** rendering approach: OpenGL ES, or a 3D library such as Filament or SceneView. Decided by a spike during architecture.
 4. **OQ-4 (resolved 2026-10-29):** the Solver is a clean-room Kotlin implementation of Kociemba's two-phase algorithm, written from the published description. The best-known JVM implementation (min2phase) turned out to be GPLv3-only, so no third-party solver code is used. Still open, within the solver epic: whether pruning tables are bundled or built at first run, and how big they are against NFR-11 (architecture AD-8).
@@ -721,6 +721,7 @@ Recorded in `.memlog.md`:
 - Spike failure → launch with the camera features in beta.
 - Free, with no ads; English only; the repo stays private until the app works.
 - The Solver is written in-house in Kotlin, because min2phase is GPLv3-only (architecture review).
+- Product name Cubentia and application ID `com.exxerpro.cubentia` (PO, 2026-11-08).
 - Camera Cube Recognition deferred to v1.1 (PO, 2026-11-08, after the spike scored 62.5%). This supersedes "camera recognition in P0" and "spike failure → camera ships as beta".
 
 ## 11. Assumptions Index

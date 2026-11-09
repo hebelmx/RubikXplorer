@@ -224,16 +224,15 @@ A Learner can browse and watch all 78 verified OLL/PLL Algorithms, track their o
 **Absorbs:** E11.
 **FRs covered:** FR-17, FR-18, FR-19 (Algorithm Status). **Also:** AR-19, AR-23, UX-DR17.
 
-### Epic 10: Scan my cube — deferred to v1.1
-Moved to `post-launch/v1.1-camera-recognition.md` (PO decision 2026-11-08, `sprint-change-proposal-2026-11-08-vision-deferral.md`). Covered FR-21, FR-23 – FR-26, plus the Quick Check rung of FR-9 and FR-16, and the calibration reset of FR-19.
+**Deferred to v1.1 — Epic 10 (Scan my cube):** moved to `post-launch/v1.1-camera-recognition.md` (PO decision 2026-11-08, `sprint-change-proposal-2026-11-08-vision-deferral.md`). Covered FR-21, FR-23 – FR-26, plus the Quick Check rung of FR-9 and FR-16, and the calibration reset of FR-19.
 
-### Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition — deferred to v1.1
-Moved to `post-launch/v1.1-camera-recognition.md` (same decision). Covered FR-22, FR-27, FR-28.
+**Deferred to v1.1 — Epic 11 (Scan shortcuts: Quick Scan, Placement and Case recognition):** moved to `post-launch/v1.1-camera-recognition.md` (same decision). Covered FR-22, FR-27, FR-28.
 
 ### Epic 12: Release-ready for learners and reviewers (P0.6, weeks 15–16)
 The app meets every release gate. It is accessible, fast and stable on the reference devices, the pilot's findings are fixed, and the store listing and public repo are ready for a hiring manager's five-minute look.
 **Absorbs:** E09, PRD §7.
 **FRs covered:** none new (verifies all). **Also:** NFR-1, NFR-2, NFR-7, NFR-8, NFR-9, NFR-11, NFR-13, AR-3, AR-5, AR-16, UX-DR28, UX-DR29, Flow 6.
+**Also carries** the pre-pilot stories 12.6–12.10 (Cubentia rebrand; Epic 8 retrospective fixes), which run before Story 7.8 (`sprint-change-proposal-2026-11-08-cubentia-and-pre-pilot.md`).
 
 ## Epic 1: Turn and verify a cube
 
@@ -843,7 +842,7 @@ So that I don't have to take a course first.
 
 **Given** the Solve tab in the bottom bar
 **When** it opens
-**Then** it offers *Enter colors* (and *Scan my cube* only once Epic 10 lands, hidden while absent), and an open Lesson shows "Starting a solve pauses your lesson." before the Lesson session is suspended
+**Then** it offers *Enter colors* (and *Scan my cube* only once v1.1 camera recognition lands, hidden while absent), and an open Lesson shows "Starting a solve pauses your lesson." before the Lesson session is suspended
 
 **Given** a valid entry
 **When** the Solver runs
@@ -1431,7 +1430,7 @@ So that I'm not forced through Stages I've mastered elsewhere.
 
 **Given** first launch with no profile
 **When** Welcome shows
-**Then** it offers *I'm new* (Stage 1) and *I can already solve it*; *Start from my cube* stays hidden until Epic 11 enables `PLACEMENT`; color-blind glyphs are offered
+**Then** it offers *I'm new* (Stage 1) and *I can already solve it*; *Start from my cube* stays hidden until v1.1 enables `PLACEMENT`; color-blind glyphs are offered
 
 **Given** *I already know this* on a Stage, or *I can already solve it* for the whole Course
 **When** the Learner solves that Objective from a fresh Scramble with hints off and no time limit
@@ -1465,7 +1464,7 @@ So that their results come back in time for fixes.
 
 ## Epic 8: Use my real cube
 
-A Learner can follow Lessons and Solution Playback on a physical cube, with the app honestly tracking the Expected State and handling mismatches without a camera. The camera rungs are added in Epic 10.
+A Learner can follow Lessons and Solution Playback on a physical cube, with the app honestly tracking the Expected State and handling mismatches without a camera. The camera rungs arrive with v1.1 camera recognition (`post-launch/v1.1-camera-recognition.md`).
 
 ### Story 8.1: Physical-mode transitions in the reducer
 
@@ -1501,7 +1500,7 @@ So that I learn on the real thing.
 
 **Given** the *Physical mode* toggle in a Lesson
 **When** switched on
-**Then** a Confirm-your-cube card offers *It matches* / *Enter it* (*Scan it* hidden until Epic 10), and the frame turns to dashed EXPECTED with no Certainty chip
+**Then** a Confirm-your-cube card offers *It matches* / *Enter it* (*Scan it* hidden until v1.1 camera recognition), and the frame turns to dashed EXPECTED with no Certainty chip
 
 **Given** a step
 **When** the Learner taps **Done** (always primary) or *I did something else* then a Move key
@@ -1581,7 +1580,7 @@ So that the moment means something.
 
 **Given** the end of Stage 6 in physical mode
 **When** the Objective is met on the Expected State
-**Then** "Your cube should be solved now. Check it with the camera, or tell me if it is." shows, and the milestone plays only after *Yes, it's solved* (or a Quick Check, once Epic 10 lands)
+**Then** "Your cube should be solved now. Check it with the camera, or tell me if it is." shows, and the milestone plays only after *Yes, it's solved* (or a Quick Check, once v1.1 camera recognition lands)
 
 **Given** an end-to-end instrumented suite
 **When** it runs virtual and physical flows with Moves, confirmations, undo, mode switches, pause, kill and resume
@@ -1873,8 +1872,130 @@ So that I can shortlist the developer with confidence.
 
 **Given** the repo goes public after the app works end to end
 **When** a reviewer opens it
-**Then** the README shows screenshots, an architecture overview linking `docs/ARCHITECTURE.md`, green CI and coverage badges, and a Conventional Commits history
+**Then** the README shows screenshots, an architecture overview linking `docs/ARCHITECTURE.md`, green CI and coverage badges, and a Conventional Commits history, and the GitHub repository and local working folder are renamed to Cubentia (deferred here from Story 12.6)
 
 **Given** all gates pass
 **When** the build is promoted
 **Then** it moves closed testing → production manually in Play Console
+
+### Story 12.6: Rebrand to Cubentia
+
+As the developer,
+I want the app, its application ID and its code named Cubentia before the first Play upload,
+So that the store identity is permanent and free of the "Rubik's" trademark.
+
+**Refs:** PRD OQ-1, §7 store readiness · NFR-8, NFR-10 · AD-13, AD-15 · `sprint-change-proposal-2026-11-08-cubentia-and-pre-pilot.md`
+
+**Acceptance Criteria:**
+
+**Given** no rename has been applied
+**When** the story starts
+**Then** a written risk analysis in the spec covers at least: application-ID permanence after the first upload; the Room DB file rename (no installed users yet; developer devices lose local data); package and namespace rename effects (R class, Hilt/KSP/Room generated code, Room schema export paths, R8/ProGuard keep rules, Macrobenchmark target package, `--tests` filters in CI and docs); the excluded paths; and rollback (one revertable commit range)
+
+**Given** the corrected pattern `rubikxplorer` (case-insensitive: `rubikxplorer`, `RubikXplorer`, `RUBIKXPLORER`)
+**When** the rename script runs in dry-run mode
+**Then** it lists every file whose contents change and every directory to `git mv`, with the exclusions applied (`_bmad/`, `.claude/skills/`, `.git/`, build outputs, and historical `_bmad-output` records: `sprint-change-proposal-*`, `*retro*`, `.memlog.md`, `spec-*`, planning folder names), and the listing is recorded in the spec before any write
+
+**Given** the dry run
+**When** the rename runs
+**Then** `applicationId = "com.exxerpro.cubentia"`; packages and folders become `dev.cubentia.*` (`git mv`, history preserved); the Android namespaces become `dev.cubentia.app` and `dev.cubentia.macrobenchmark`; `rootProject.name = "Cubentia"`; `app_name` is "Cubentia"; the DB file is `cubentia.db`; `RubikXplorer*` identifiers become `Cubentia*`; README, docs, `.github/` and `Fixtures/` say Cubentia; and `rg -i rubikxplorer` matches only excluded paths. Other `Rubik*` code identifiers (`RubikTheme`, `RubikDatabase`, …) stay and are listed in the spec for a Story 12.5 decision
+
+**Given** all Learner-facing text (content strings and `strings.xml`)
+**When** content tests run
+**Then** no string contains "Rubik" (a test enforces it), and the two current strings read "…the cube…"
+
+**Given** the renamed tree
+**When** `./gradlew spotlessCheck build`, `./gradlew -p build-logic test` and `./gradlew compileDebugAndroidTestKotlin` run
+**Then** all pass, CI is green, and the merged release manifest's package is `com.exxerpro.cubentia`
+
+### Story 12.7: Physical progress is recorded only when true
+
+As a Learner on a real cube,
+I want my progress, undo and resume to reflect what I actually confirmed,
+So that the app never records or restores something my cube didn't do.
+
+**Refs:** FR-3, FR-7, FR-8, FR-19 · NFR-4, NFR-6 · AD-3, AD-10 · UX-DR20 · Epic 8 retro items 1–3
+
+**Acceptance Criteria:**
+
+**Given** Stage 6 in Physical-cube Mode with the Objective met
+**When** the Learner has not tapped *Yes, it's solved*
+**Then** no `LessonCompleted` is written: a `PhysicalSolveConfirmed` SessionEvent (through `reduce`) gates `completeLesson` in physical sessions, the confirmed and unconfirmed flags live in `SessionState` and the snapshot (not `rememberSaveable`), the `pendingPhysicalSolve` workaround is removed, and the `"lesson-06-03"` literals become one source; tests cover re-entry and process death before and after confirming
+
+**Given** physical mode
+**When** the Learner taps Undo
+**Then** the Instruct text ("Turn {move} on your cube to undo.") is shown and announced in a polite live region instead of being mapped to an animation, and Redo is disabled in physical mode (or emits its own Instruct)
+
+**Given** a mode switch to physical
+**When** it is reduced
+**Then** a physical Checkpoint is persisted without moving the recovery boundary, and a `SessionHostCheckpointTest` covers switch → `SolvePlaybackStarted` → `endSolve` → `PHYSICAL_AWAITING_CONFIRM`
+
+### Story 12.8: The mismatch ladder resolves a mismatch
+
+As a Learner whose cube doesn't match,
+I want the answers I give the tutor to actually fix the tracked state,
+So that I can continue instead of being stuck.
+
+**Refs:** FR-9, FR-10, FR-12 · AD-3, AD-5 · Epic 8 retro item 4 · PO contract decision 2026-11-08
+
+**Acceptance Criteria:**
+
+**Given** `PHYSICAL_MISMATCH`
+**When** the Learner enters the move they made (rung 1)
+**Then** it is committed as their real move: Expected updates, the state returns to `PHYSICAL_PREDICTED`, and Certainty is the diagnosed one (never a false VERIFIED)
+
+**Given** `PHYSICAL_MISMATCH`
+**When** the Learner taps *It matches after all*
+**Then** the state returns to `PHYSICAL_PREDICTED` with Expected unchanged
+
+**Given** rung 2 (the one-face question)
+**When** it is answered
+**Then** it guides to re-entry (rung 3), and no `PhysicalObservation.Partial` is produced in v1.0 (partial observations arrive with v1.1 camera recognition)
+
+**Given** a full state entered in the Manual Cube Editor from physical mode
+**When** it is accepted
+**Then** the state is `PHYSICAL_VERIFIED`, and an offered Guided recovery survives the physical confirms that follow
+
+**Given** the cases above
+**When** reducer tests run
+**Then** each case has a test, and `TRANSITIONS.md` matches the reducer for every case
+
+### Story 12.9: One source for physical copy; skip-check needs the virtual cube
+
+As a Learner,
+I want consistent physical-mode wording and a skip-ahead check that proves I can do it,
+So that the app speaks with one voice and never skips a Stage on my word alone.
+
+**Refs:** FR-4, NFR-10 · AD-6 · UX-DR24 · Epic 8 retro items 6, 7 · PO decision 2026-11-08
+
+**Acceptance Criteria:**
+
+**Given** the mismatch ladder and other physical-mode copy
+**When** it is rendered
+**Then** the text resolves from `en.json` content keys (the existing `msg.physical.mismatch.*`), and the unreferenced `strings.xml` duplicates are deleted
+
+**Given** the skip-ahead check
+**When** it is open
+**Then** the Physical mode switch is hidden, so the check can be passed only on the virtual cube; Independent practice keeps Physical mode, and its self-reported nature is recorded as an accepted v1.0 limitation
+
+### Story 12.10: Prove the release-permission gate end to end
+
+As the developer,
+I want the build to prove that a release can never ship a runtime permission,
+So that the camera-free v1.0 promise is enforced, not assumed.
+
+**Refs:** NFR-8 · AD-13, AD-14 · Epic 8 retro item 10 · epic-2-retro-item-4
+
+**Acceptance Criteria:**
+
+**Given** a Gradle TestKit fixture
+**When** `checkReleaseMergedManifest` runs on a manifest that declares `CAMERA`
+**Then** it fails, and the debug variant passes (shares setup with epic-2-retro-item-4)
+
+**Given** `CAMERA_SCAN` at BETA
+**When** `AppShell` opens the Stage 6 lesson in physical mode
+**Then** the camera wording appears, proving the flag reaches `LessonScreen`
+
+**Given** an unknown or null build type
+**When** the manifest policy runs
+**Then** it keys on `variant.debuggable` (or fails), so no build type can bypass the release rule
