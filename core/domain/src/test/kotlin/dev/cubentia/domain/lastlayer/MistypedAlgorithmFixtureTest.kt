@@ -39,7 +39,13 @@ class MistypedAlgorithmFixtureTest {
             assertThrows(AssertionError::class.java) {
                 AlgorithmVerification.assertVerified(AlgorithmVerification.shippedBundle(mistyped))
             }
-        assertTrue("alg-pll-t-a" in error.message.orEmpty(), error.message)
+        assertEquals(
+            listOf("alg-pll-t-a: disturbs the first two layers"),
+            error.message
+                .orEmpty()
+                .lines()
+                .drop(1),
+        )
     }
 
     @Test

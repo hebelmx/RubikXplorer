@@ -98,6 +98,24 @@ class LastLayerMatcherTest {
     }
 
     @Test
+    fun `an OLL Case keeps its match under any LL permutation, AUF and view`() {
+        ofSet(CaseSet.OLL).forEach { oll ->
+            ofSet(CaseSet.PLL).forEach { pll ->
+                (0..3).forEach { k ->
+                    val state =
+                        CubeState.SOLVED
+                            .apply(turns("U", k))
+                            .apply(inverseOf(pll))
+                            .apply(inverseOf(oll))
+                            .apply(turns("U", k))
+                            .apply(turns("y", k))
+                    assertEquals(setOf(oll.id), matcher.candidates(viewOf(state)), "${oll.id} ${pll.id} $k")
+                }
+            }
+        }
+    }
+
+    @Test
     fun `a PLL Case keeps its match under pre-AUF, post-AUF and y rotations`() {
         ofSet(CaseSet.PLL).forEach { case ->
             for (post in 0..3) {
@@ -158,6 +176,27 @@ class LastLayerMatcherTest {
     }
 
     @Test
+    fun `a state with only second-layer pieces displaced has unsolved first two layers`() {
+        val insert = "U R U' R' U' F' U F"
+        val state = CubeState.SOLVED.apply(moves(insert))
+        assertTrue(
+            state
+                .toFacelets()
+                .colors
+                .slice(27..35)
+                .all { it == Color.YELLOW },
+        )
+        assertEquals(LastLayerReading.FirstTwoLayersUnsolved, LastLayerView.of(state, Color.WHITE))
+
+        val case = bundle.cases.first()
+        val algorithm = Algorithm(AlgorithmId("alg-x-a"), case.id, insert)
+        assertEquals(
+            LastLayerMatcherResult.Invalid(listOf(LastLayerProblem.LeavesFirstTwoLayers(algorithm.id))),
+            LastLayerMatcher.of(listOf(case), listOf(algorithm)),
+        )
+    }
+
+    @Test
     fun `solved and AUF-only states have no candidates and are solved up to AUF`() {
         (0..3).forEach { k ->
             val view = viewOf(CubeState.SOLVED.apply(turns("U", k)))
@@ -206,9 +245,11 @@ class LastLayerMatcherTest {
     }
 
     @Test
-    fun `a partial view with side stickers seen contains the true PLL Case`() {
+    fun `a partial view of the F and R blocks narrows to a set containing the true PLL Case`() {
         ofSet(CaseSet.PLL).forEach { case ->
-            assertTrue(case.id in matcher.candidates(masked(viewOf(caseState(case))) { it < 10 }), case.id.value)
+            val candidates = matcher.candidates(masked(viewOf(caseState(case))) { it < 10 })
+            assertTrue(case.id in candidates, case.id.value)
+            assertTrue(candidates.size < bundle.cases.size, case.id.value)
         }
     }
 

@@ -5,7 +5,7 @@ created: '2026-11-09'
 status: 'done'
 baseline_revision: 'f3b83ec86a4c8840279703190a77698292634c38'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context: []
 warnings: ['oversized']
 deferred:
@@ -119,6 +119,37 @@ deferred:
   - `[low]` `[patch]` Intent: partial views covered on two shapes only — covered by the added all-seen and side-sticker mask tests.
   - `[false]` `[reject]` Intent: the `epic-9-context.md` edit is outside the story — same as the Blind epic-context row.
 
+### 2026-11-09 — Review pass
+- verdicts: 27 findings — high 0, medium 3, low 19, false 5, maybe-false 0
+- findings:
+  - `[low]` `[reject]` Blind: the gate accepts a stray last-layer turn at either end of an Algorithm — true by the AUF-blind contract, and the reviewer's simulation confirms it (also `y'` to `d` and `B`/`F` next to `x`); such an Algorithm still solves its Case up to AUF, no shipped Algorithm starts or ends in `U`, and a rejecting rule adds a branch for a typo that is unlikely and leaves a working Algorithm.
+  - `[low]` `[reject]` Blind: no committed sweep of single-token typos — new test machinery; the simulation of 97,874 mutants, re-run during triage, left only the stray-AUF class and same-state commuting swaps, which answers the risk the previous pass named.
+  - `[low]` `[reject]` Blind: the solve check cannot fail — carried: unchanged since the logged row; `docs/ARCHITECTURE.md` was last changed by story 12.9 and is not part of this diff.
+  - `[low]` `[reject]` Blind: the golden file has no regeneration path or provenance header — the gate's failure message prints the new signature beside the golden one, so a legitimate change copies from it; the independent-oracle part stays in the existing deferred entry.
+  - `[low]` `[patch]` Blind: no test shows an OLL Case matching under a different LL permutation — added `an OLL Case keeps its match under any LL permutation, AUF and view`.
+  - `[low]` `[patch]` Blind: the side-sticker partial-view test is misnamed and asserts containment only — renamed to describe the F and R block mask, and it now also asserts the candidates are fewer than all Cases.
+  - `[low]` `[reject]` Blind: the `LastLayerView.partial` `require` paths are untested — no production caller until v1.1, and both are programmer-error guards.
+  - `[low]` `[patch]` Blind: the mistyped fixture can drift from shipped content — the fixture test now asserts the gate's whole report is the one line for `alg-pll-t-a`.
+  - `[low]` `[reject]` Edge: the does-not-solve branch cannot fire — carried: same as the logged Edge row; `AlgorithmVerification.kt` still reads as described.
+  - `[low]` `[reject]` Edge: a partial sticker in the opposite color yields no candidates — carried: same as the logged Edge row; `partial` is unchanged.
+  - `[false]` `[reject]` Edge: `signature` with null stickers returns a wrong signature — its only caller passes a view from `LastLayerView.of`, which has no null stickers, and its KDoc requires a fully seen view.
+  - `[low]` `[reject]` Edge: a broken primary hides a wrong alternate of the same Case — the build still fails on the primary and the alternate surfaces once it is fixed; all 78 shipped Algorithms are primaries.
+  - `[medium]` `[patch]` Verification gap: the F2L predicate is only exercised by inputs that disturb the D face — added a test using a second-layer insert with D intact, asserting `FirstTwoLayersUnsolved` and `LeavesFirstTwoLayers`; a D-face-only mutant of the predicate now fails exactly that test.
+  - `[false]` `[reject]` Verification gap (other): on-disk JUnit reports do not back the logged 18 and 8 passing counts — they were overwritten by the AC 3 mutation run; the full re-run this pass reports 20, 8 and 1 with no failures.
+  - `[medium]` `[defer]` Intent: "matches its own Case" cannot fail for primaries — carried: same as the logged self-derived Case identity row; existing deferred entry unchanged.
+  - `[low]` `[reject]` Intent: the solve clause cannot fail — carried: same as the logged Intent row.
+  - `[medium]` `[defer]` Intent: the golden file's independence from the Notation cannot be shown — carried: same as the logged "proven correct" row; existing deferred entry unchanged.
+  - `[low]` `[reject]` Intent: the file fixture exits through one gate branch — carried: same as the logged Intent row.
+  - `[low]` `[reject]` Intent: the another-Case row substitutes a whole Notation rather than one token — the matrix row is defined by the Case reached, and the swap row exercises the same check.
+  - `[low]` `[reject]` Intent: no test covers a one-token change that keeps F2L and reaches a new pattern — same machinery as the sweep row; the simulation found no such mutant escaping.
+  - `[low]` `[reject]` Intent: the swap row is the only test of the golden mismatch — that is the row's stated purpose, and a second route adds no new branch.
+  - `[low]` `[reject]` Intent: "fails the build" is inferred rather than observed — carried: same as the logged AC 2 row; the real mutation was re-run this pass.
+  - `[false]` `[reject]` Intent: re-framing is exercised with a synthesized `copy` — the Code Map defines re-framing as exactly that `copy`, and the Course-frame row is reached by moves.
+  - `[low]` `[patch]` Intent: `FirstTwoLayersUnsolved` is exercised by one scramble — same root cause and fix as the Verification gap F2L row.
+  - `[false]` `[reject]` Intent: `LastLayerView.of` does not check the passed LL color against the F2L — a wrong color on an unsolved cube returns `FirstTwoLayersUnsolved`, and on a fully solved cube any color is a correct reading.
+  - `[low]` `[reject]` Intent: the net-rotation failure lives only in the gate — carried: same as the logged row on `of` returning `Built` for degenerate Algorithms.
+  - `[false]` `[reject]` Intent: the `epic-9-context.md` edit is outside the contract — carried: same as the logged Intent row.
+
 ## Design Notes
 
 **Layout of the 20 stickers.** Four blocks of five, in the order F, R, B, L. Each block is: U edge sticker, U corner sticker clockwise of it, then that side's top row. `U^k` is then a cyclic shift by `5k`.
@@ -159,3 +190,19 @@ deferred:
 **Verification.** After the patches, `./gradlew spotlessCheck build` was BUILD SUCCESSFUL. JUnit reports: `LastLayerMatcherTest` 18, `MistypedAlgorithmFixtureTest` 8, `ShippedAlgorithmVerificationTest` 1, no failures or skips. Real mutation (AC 3), run after the patches: changing `alg-oll-27-a` in the shipped `oll.json` to `R U R U R U2 R'` made `:core:domain:test` report `BUILD FAILED` with `alg-oll-27-a: disturbs the first two layers`; the file was restored by `git checkout` and shows no diff. No instrumented or device runs.
 
 **Residual risks.** The golden file pins Case assignments as of Story 9.1 and cannot catch an error already present then. The solve check is required by the AC but cannot fail on its own, as Design Notes state. The gate rejects any future Algorithm that deliberately ends in a net whole-cube rotation.
+
+### Follow-up review pass (2026-11-09)
+
+**Summary.** Fresh four-layer review of the change since `f3b83ec`. No defect was found in `:core:domain` production code; test coverage was tightened and no shipped Notation changed.
+
+**Files changed.**
+- `core/domain/src/test/kotlin/dev/cubentia/domain/lastlayer/LastLayerMatcherTest.kt` -- adds the second-layer F2L test and the OLL permutation test; renames and tightens the F and R block partial-view test.
+- `core/domain/src/test/kotlin/dev/cubentia/domain/lastlayer/MistypedAlgorithmFixtureTest.kt` -- the fixture test now pins the gate's whole report.
+
+**Review.** 27 findings. Patched entries: 4 (medium 1, low 3), covering 5 findings. Deferred: no new items; the two carried rows stay on the existing entry. Rejected: 20, each with its reason in the Review Triage Log.
+
+**Follow-up review: not recommended.** Patched by verdict: high 0, medium 1, low 3. No `high` was patched, so the work has converged.
+
+**Verification.** `./gradlew spotlessCheck build` was BUILD SUCCESSFUL after `spotlessApply` fixed the formatting of the new tests. JUnit reports: `LastLayerMatcherTest` 20, `MistypedAlgorithmFixtureTest` 8, `ShippedAlgorithmVerificationTest` 1, no failures or skips. A D-face-only mutant of the F2L predicate failed only the new second-layer test (`LastLayerView.kt` restored). The spec's mutation check, changing the first token of `alg-oll-27-a` from `R` to `R'`, gave BUILD FAILED with `alg-oll-27-a: disturbs the first two layers`; `oll.json` was restored and shows no diff. The Python mutation simulation in Blind Hunter's finding was re-run and showed the same surviving classes; it is a model of the gate, not the Kotlin gate. No instrumented or device runs.
+
+**Residual risks.** A stray AUF at either end of an Algorithm, `y'` typed as `d`, or `B`/`F` next to `x` passes the gate, because the result still solves up to AUF. Same-state swaps of commuting moves also pass, and are harmless. The independent Case-identity oracle stays deferred.
