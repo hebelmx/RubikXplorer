@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -30,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -45,6 +47,8 @@ import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.ui.freecube.FreeCubeScreen
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
 import dev.cubentia.app.ui.lesson.LessonScreen
+import dev.cubentia.app.ui.library.LibraryFilterSaver
+import dev.cubentia.app.ui.library.LibraryScreen
 import dev.cubentia.app.ui.settings.SettingsScreen
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.welcome.WelcomeScreen
@@ -54,6 +58,7 @@ import dev.cubentia.application.port.FlagLevel
 import dev.cubentia.application.session.SessionKind
 import dev.cubentia.application.usecase.StagePractice
 import dev.cubentia.domain.content.LessonId
+import dev.cubentia.domain.content.LibraryFilter
 import dev.cubentia.domain.content.StageId
 import dev.cubentia.domain.tutor.StageProgress
 import dev.cubentia.domain.tutor.StageStatus
@@ -67,11 +72,12 @@ enum class Tab(
 ) {
     LEARN(R.drawable.ic_learn, R.string.nav_learn),
     SOLVE(R.drawable.ic_solve, R.string.nav_solve),
+    LIBRARY(R.drawable.ic_library, R.string.nav_library),
     YOU(R.drawable.ic_you, R.string.nav_you),
 }
 
 /**
- * The navigation shell (UX-DR7): Learn and Solve (the free cube) behind a `NavigationBar` when
+ * The navigation shell (UX-DR7): Learn, Solve (the free cube), Library and You behind a `NavigationBar` when
  * compact and a `NavigationRail` from medium width. An open Lesson replaces the shell as a
  * full-screen task flow, with no bar. The tab and the open Lesson survive configuration changes; the
  * Lesson's progress lives in [host]'s session. [flags] decides which Teaching Modes the Lesson offers:
@@ -129,11 +135,24 @@ private fun ShellContent(
     var skipCheckEpoch by rememberSaveable { mutableIntStateOf(0) }
     // Held above the Lesson and Settings task flows so closing either returns to the same place in the list.
     val learnScroll = rememberScrollState()
+    var libraryFilter by rememberSaveable(stateSaver = LibraryFilterSaver) { mutableStateOf(LibraryFilter()) }
+    val libraryGrid = rememberLazyGridState()
+    val libraryFamilyChips = rememberScrollState()
+    var scrollToTwoLook by remember { mutableStateOf(false) }
+    var twoLookLocked by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(tab, selectedStage, scrollToTwoLook) {
+        if (tab == Tab.LEARN && selectedStage == null && scrollToTwoLook) {
+            withFrameNanos { }
+            learnScroll.scrollTo(learnScroll.maxValue)
+            scrollToTwoLook = false
+        }
+    }
     if (settings) {
         SettingsScreen(
             onClose = { settings = false },
             onResetProgress = {
                 selectedStage = null
+                twoLookLocked = false
                 stageAbandoned = null
                 welcomeAbandoned = false
                 welcome = true
@@ -308,7 +327,7 @@ private fun ShellContent(
         return
     }
     // Back from another tab returns to Learn first; back from Stage detail returns to the Stage list before leaving the app.
-    BackHandler(enabled = tab != Tab.LEARN || selectedStage != null || openPractice != null || openSkipCheck != null) {
+    BackHandler(enabled = tab != Tab.LEARN || selectedStage != null || twoLookLocked || openPractice != null || openSkipCheck != null) {
         if (openSkipCheck != null) {
             val isCourse = openSkipCheck == "course"
             val stageId = openSkipCheck
@@ -324,11 +343,41 @@ private fun ShellContent(
             tab = Tab.LEARN
         } else {
             selectedStage = null
+            twoLookLocked = false
         }
     }
 
-    val destination: @Composable (Modifier) -> Unit = { destinationModifier ->
+    val allStagesFinished =
+        ready != null && ready.bundle.stages.isNotEmpty() &&
+            ready.bundle.stages.all { stage ->
+                val s = StageProgress.status(stage, ready.bundle.stages, progressEvents)
+                s == StageStatus.SKIPPED || s == StageStatus.SKIPPED_BY_PLACEMENT || s == StageStatus.COMPLETED ||
+                    s == StageStatus.MASTERED
+            }
+
+    val destination: @Composable (Modifier, WindowWidthClass) -> Unit = { destinationModifier, widthClass ->
         when (tab) {
+            Tab.LIBRARY -> {
+                LibraryScreen(
+                    content,
+                    widthClass,
+                    libraryFilter,
+                    { libraryFilter = it },
+                    libraryGrid,
+                    {
+                        selectedStage = null
+                        tab = Tab.LEARN
+                        scrollToTwoLook = allStagesFinished
+                        twoLookLocked = !allStagesFinished
+                    },
+                    destinationModifier
+                        .background(
+                            RubikTheme.tokens.surfaceBase,
+                        ).safeDrawingPadding(),
+                    familyChipsScroll = libraryFamilyChips,
+                )
+            }
+
             Tab.YOU -> {
                 YouScreen(
                     catalog = content,
@@ -340,13 +389,6 @@ private fun ShellContent(
             }
 
             Tab.LEARN -> {
-                val allStagesFinished =
-                    ready != null && ready.bundle.stages.isNotEmpty() &&
-                        ready.bundle.stages.all { stage ->
-                            val s = StageProgress.status(stage, ready.bundle.stages, progressEvents)
-                            s == StageStatus.SKIPPED || s == StageStatus.SKIPPED_BY_PLACEMENT || s == StageStatus.COMPLETED ||
-                                s == StageStatus.MASTERED
-                        }
                 LearnScreen(
                     catalog = content,
                     continueEntry =
@@ -375,6 +417,8 @@ private fun ShellContent(
                     },
                     abandonedSkipCheckStage = stageAbandoned?.let(::StageId),
                     showFasterLastLayer = allStagesFinished,
+                    showTwoLookLocked = twoLookLocked && !allStagesFinished,
+                    onCloseTwoLookLocked = { twoLookLocked = false },
                     scrollState = learnScroll,
                     // The inset area takes surfaceBase too, not the window background.
                     modifier = destinationModifier.background(RubikTheme.tokens.surfaceBase).safeDrawingPadding(),
@@ -387,7 +431,8 @@ private fun ShellContent(
         }
     }
     BoxWithConstraints(modifier.fillMaxSize().testTag("shell")) {
-        if (WindowWidthClass.of(maxWidth.value) == WindowWidthClass.COMPACT) {
+        val widthClass = WindowWidthClass.of(maxWidth.value)
+        if (widthClass == WindowWidthClass.COMPACT) {
             Scaffold(
                 containerColor = RubikTheme.tokens.surfaceBase,
                 bottomBar = {
@@ -404,7 +449,9 @@ private fun ShellContent(
                     }
                 },
             ) { padding ->
-                Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) { destination(Modifier.fillMaxSize()) }
+                Box(
+                    Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding),
+                ) { destination(Modifier.fillMaxSize(), widthClass) }
             }
         } else {
             Row(Modifier.fillMaxSize()) {
@@ -419,7 +466,7 @@ private fun ShellContent(
                         )
                     }
                 }
-                Box(Modifier.weight(1f).fillMaxHeight()) { destination(Modifier.fillMaxSize()) }
+                Box(Modifier.weight(1f).fillMaxHeight()) { destination(Modifier.fillMaxSize(), widthClass) }
             }
         }
     }

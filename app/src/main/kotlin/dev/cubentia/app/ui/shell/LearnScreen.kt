@@ -79,6 +79,8 @@ fun LearnScreen(
     onSelectStage: (StageId?) -> Unit = {},
     showFasterLastLayer: Boolean = false,
     onOpenFasterLastLayer: () -> Unit = {},
+    showTwoLookLocked: Boolean = false,
+    onCloseTwoLookLocked: () -> Unit = {},
     practiceEnabled: Boolean = false,
     onPracticeStage: (StageId) -> Unit = {},
     skipCheckEnabled: Boolean = true,
@@ -167,6 +169,8 @@ fun LearnScreen(
                                 null
                             },
                     )
+                } else if (showTwoLookLocked) {
+                    TwoLookLockedContent(onBack = onCloseTwoLookLocked)
                 } else {
                     StageListContent(
                         catalog = catalog,
@@ -312,6 +316,56 @@ private fun FasterLastLayerRow(onClick: () -> Unit) {
             style = MaterialTheme.typography.titleLarge,
             color = RubikTheme.tokens.inkPrimary,
             modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+/** Where the Library's 2-look link lands before *Faster last layer* unlocks: says it is locked and what unlocks it (FR-17). */
+@Composable
+private fun TwoLookLockedContent(onBack: () -> Unit) {
+    val tokens = RubikTheme.tokens
+    Column(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .testTag("learn:twoLookLocked"),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.s2),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = Spacing.touchMin)
+                    .padding(horizontal = Spacing.s2, vertical = Spacing.s2),
+        ) {
+            IconButton(
+                onClick = onBack,
+                colors = IconButtonDefaults.iconButtonColors(contentColor = tokens.inkPrimary),
+                modifier = Modifier.size(Spacing.touchMin).testTag("learn:twoLookLocked:back"),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_close),
+                    contentDescription = stringResource(R.string.stage_detail_back),
+                )
+            }
+            Text(
+                text = stringResource(R.string.learn_faster_last_layer),
+                style = MaterialTheme.typography.titleLarge,
+                color = tokens.inkPrimary,
+                modifier = Modifier.weight(1f).semantics { heading() },
+            )
+            StageStatusBadge(status = StageStatus.LOCKED, tag = "learn:twoLookLocked:status")
+        }
+        Text(
+            text = stringResource(R.string.learn_two_look_locked_prerequisite),
+            style = MaterialTheme.typography.bodyMedium,
+            color = tokens.inkSecondary,
+            modifier =
+                Modifier
+                    .padding(horizontal = Spacing.s4, vertical = Spacing.s2)
+                    .testTag("learn:twoLookLocked:prerequisite"),
         )
     }
 }
