@@ -1,5 +1,6 @@
 package dev.cubentia.application.usecase
 
+import dev.cubentia.application.port.AlgorithmStatusRecord
 import dev.cubentia.application.port.AlgorithmStatusRepository
 import dev.cubentia.application.port.AlgorithmStatusSave
 import dev.cubentia.application.port.AlgorithmStatusWrite
@@ -15,23 +16,24 @@ import kotlin.time.Instant
 class SetAlgorithmStatusTest {
     @Test fun `each request appends exactly one event and reports save result`() =
         runBlocking {
-            val events = mutableListOf<AlgorithmStatusEvent>()
+            val records = mutableListOf<AlgorithmStatusRecord>()
             var save: AlgorithmStatusSave = AlgorithmStatusSave.Saved
             val repository =
                 object : AlgorithmStatusRepository {
                     override fun statuses() = flowOf(emptyMap<AlgorithmId, AlgorithmStatus>())
 
-                    override suspend fun append(event: AlgorithmStatusEvent): AlgorithmStatusSave {
-                        events.add(event)
+                    override suspend fun append(record: AlgorithmStatusRecord): AlgorithmStatusSave {
+                        records.add(record)
                         return save
                     }
                 }
             val event = AlgorithmStatusEvent(AlgorithmId("a"), AlgorithmStatus.LEARNING, Instant.fromEpochMilliseconds(7))
             val set = SetAlgorithmStatus(repository)
-            assertEquals(AlgorithmStatusWrite.Written(event), set(event.algorithmId, event.status, event.at))
-            assertEquals(listOf(event), events)
+            val record = AlgorithmStatusRecord("run", 3L, event)
+            assertEquals(AlgorithmStatusWrite.Written(event), set(event.algorithmId, event.status, event.at, "run", 3L))
+            assertEquals(listOf(record), records)
             save = AlgorithmStatusSave.Failed
-            assertEquals(AlgorithmStatusWrite.Failed, set(event.algorithmId, event.status, event.at))
-            assertEquals(listOf(event, event), events)
+            assertEquals(AlgorithmStatusWrite.Failed, set(event.algorithmId, event.status, event.at, "run", 3L))
+            assertEquals(listOf(record, record), records)
         }
 }

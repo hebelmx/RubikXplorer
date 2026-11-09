@@ -2,15 +2,27 @@
   "formatVersion": 1,
   "database": {
     "version": 6,
-    "identityHash": "9519d1fae37f5e25539f2b1b6fd12b6a",
+    "identityHash": "02343c3e10428bf5dfb268fe8ad9a5f5",
     "entities": [
       {
         "tableName": "algorithm_status_event",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`seq` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `algorithm_id` TEXT NOT NULL, `status` TEXT NOT NULL, `epoch` INTEGER NOT NULL, `at_ms` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`seq` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `session_id` TEXT NOT NULL, `revision` INTEGER NOT NULL, `algorithm_id` TEXT NOT NULL, `status` TEXT NOT NULL, `epoch` INTEGER NOT NULL, `at_ms` INTEGER NOT NULL)",
         "fields": [
           {
             "fieldPath": "seq",
             "columnName": "seq",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "session_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
             "affinity": "INTEGER",
             "notNull": true
           },
@@ -54,6 +66,16 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_algorithm_status_event_algorithm_id` ON `${TABLE_NAME}` (`algorithm_id`)"
+          },
+          {
+            "name": "index_algorithm_status_event_session_id_revision",
+            "unique": true,
+            "columnNames": [
+              "session_id",
+              "revision"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_algorithm_status_event_session_id_revision` ON `${TABLE_NAME}` (`session_id`, `revision`)"
           }
         ]
       },
@@ -340,7 +362,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9519d1fae37f5e25539f2b1b6fd12b6a')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '02343c3e10428bf5dfb268fe8ad9a5f5')"
     ]
   }
 }

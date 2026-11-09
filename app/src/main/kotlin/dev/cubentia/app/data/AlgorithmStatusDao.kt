@@ -8,11 +8,13 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface AlgorithmStatusDao {
     @Query(
-        """INSERT INTO algorithm_status_event (algorithm_id, status, epoch, at_ms)
-        SELECT :algorithmId, :status,
+        """INSERT OR IGNORE INTO algorithm_status_event (session_id, revision, algorithm_id, status, epoch, at_ms)
+        SELECT :sessionId, :revision, :algorithmId, :status,
         COALESCE((SELECT MAX(epoch) FROM progress_event WHERE type = '$TYPE_PROGRESS_RESET'), 0), :atMs""",
     )
     suspend fun insert(
+        sessionId: String,
+        revision: Long,
         algorithmId: String,
         status: String,
         atMs: Long,

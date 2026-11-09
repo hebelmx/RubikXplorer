@@ -1,8 +1,8 @@
 package dev.cubentia.app.data
 
+import dev.cubentia.application.port.AlgorithmStatusRecord
 import dev.cubentia.application.port.AlgorithmStatusRepository
 import dev.cubentia.application.port.AlgorithmStatusSave
-import dev.cubentia.domain.content.AlgorithmStatusEvent
 import dev.cubentia.domain.content.AlgorithmStatuses
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.catch
@@ -21,9 +21,12 @@ class RoomAlgorithmStatusRepository(
                 emit(emptyMap())
             }
 
-    override suspend fun append(event: AlgorithmStatusEvent): AlgorithmStatusSave =
+    override suspend fun append(record: AlgorithmStatusRecord): AlgorithmStatusSave =
         try {
-            database.algorithmStatuses().insert(event.algorithmId.value, event.status.name, event.at.toEpochMilliseconds())
+            val event = record.event
+            database
+                .algorithmStatuses()
+                .insert(record.sessionId, record.revision, event.algorithmId.value, event.status.name, event.at.toEpochMilliseconds())
             AlgorithmStatusSave.Saved
         } catch (cancelled: CancellationException) {
             throw cancelled

@@ -49,6 +49,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.time.Instant
@@ -113,6 +114,10 @@ class SessionHost internal constructor(
     val algorithmStatuses: Flow<Map<AlgorithmId, AlgorithmStatus>> = algorithmStatusRepository?.statuses() ?: memoryStatuses.asStateFlow()
     private val statusUseCase = setAlgorithmStatus ?: algorithmStatusRepository?.let { SetAlgorithmStatus(it) }
 
+    /** Status taps belong to no solve session; together these name each Learner command for this app run (AD-10). */
+    private val statusSessionId = UUID.randomUUID().toString()
+    private val nextStatusRevision = AtomicLong()
+
     suspend fun setAlgorithmStatus(
         id: AlgorithmId,
         status: AlgorithmStatus,
@@ -122,8 +127,14 @@ class SessionHost internal constructor(
             memoryStatuses.value = memoryStatuses.value + (id to status)
             return true
         }
+        val revision = nextStatusRevision.getAndIncrement()
         return try {
-            val result = if (writer != null) writer.read { useCase(id, status, clock.now()) } else useCase(id, status, clock.now())
+            val result =
+                if (writer != null) {
+                    writer.read { useCase(id, status, clock.now(), statusSessionId, revision) }
+                } else {
+                    useCase(id, status, clock.now(), statusSessionId, revision)
+                }
             result is AlgorithmStatusWrite.Written
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled

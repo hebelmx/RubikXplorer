@@ -5,6 +5,7 @@ import androidx.room3.Room
 import androidx.room3.withReadTransaction
 import androidx.room3.withWriteTransaction
 import androidx.sqlite.driver.AndroidSQLiteDriver
+import dev.cubentia.application.port.AlgorithmStatusRecord
 import dev.cubentia.application.port.AlgorithmStatusSave
 import dev.cubentia.application.port.AlgorithmStatusWrite
 import dev.cubentia.application.usecase.ResetProgress
@@ -55,10 +56,10 @@ class RoomAlgorithmStatusRepositoryTest {
                 val set = SetAlgorithmStatus(RoomAlgorithmStatusRepository(first))
                 assertEquals(
                     AlgorithmStatusWrite.Written(AlgorithmStatusEvent(id, AlgorithmStatus.LEARNING, at)),
-                    set(id, AlgorithmStatus.LEARNING, at),
+                    set(id, AlgorithmStatus.LEARNING, at, "run-1", 0L),
                 )
-                set(id, AlgorithmStatus.LEARNED, at)
-                first.algorithmStatuses().insert("unknown", "FUTURE_STATUS", 0)
+                set(id, AlgorithmStatus.LEARNED, at, "run-1", 1L)
+                first.algorithmStatuses().insert("run-1", 2L, "unknown", "FUTURE_STATUS", 0)
                 assertEquals(3L, scalar(first, "SELECT COUNT(*) FROM algorithm_status_event"))
             } finally {
                 first.close()
@@ -70,7 +71,7 @@ class RoomAlgorithmStatusRepositoryTest {
                 ResetProgress(RoomProgressRepository(db))(at)
                 assertEquals(emptyMap<AlgorithmId, AlgorithmStatus>(), repo.statuses().first())
                 assertEquals(3L, scalar(db, "SELECT COUNT(*) FROM algorithm_status_event"))
-                SetAlgorithmStatus(repo)(id, AlgorithmStatus.NOT_STARTED, at)
+                SetAlgorithmStatus(repo)(id, AlgorithmStatus.NOT_STARTED, at, "run-2", 0L)
                 assertEquals(mapOf(id to AlgorithmStatus.NOT_STARTED), repo.statuses().first())
                 assertEquals(1L, scalar(db, "SELECT epoch FROM algorithm_status_event ORDER BY seq DESC LIMIT 1"))
                 db.withWriteTransaction {
@@ -79,11 +80,42 @@ class RoomAlgorithmStatusRepositoryTest {
                         Unit
                     }
                 }
-                assertEquals(AlgorithmStatusSave.Failed, repo.append(AlgorithmStatusEvent(id, AlgorithmStatus.LEARNING, at)))
+                assertEquals(
+                    AlgorithmStatusSave.Failed,
+                    repo.append(AlgorithmStatusRecord("run-2", 1L, AlgorithmStatusEvent(id, AlgorithmStatus.LEARNING, at))),
+                )
                 assertEquals(emptyMap<AlgorithmId, AlgorithmStatus>(), repo.statuses().first())
             } finally {
                 db.close()
                 app.deleteDatabase(name)
+            }
+        }
+
+    @Test fun `replaying a command leaves one row while new commands still append`() =
+        runBlocking {
+            val db =
+                Room
+                    .inMemoryDatabaseBuilder<RubikDatabase>(RuntimeEnvironment.getApplication())
+                    .setDriver(AndroidSQLiteDriver())
+                    .build()
+            try {
+                val repo = RoomAlgorithmStatusRepository(db)
+                val set = SetAlgorithmStatus(repo)
+                val written = AlgorithmStatusWrite.Written(AlgorithmStatusEvent(id, AlgorithmStatus.LEARNING, at))
+                assertEquals(written, set(id, AlgorithmStatus.LEARNING, at, "run", 0L))
+                assertEquals(written, set(id, AlgorithmStatus.LEARNING, at, "run", 0L))
+                assertEquals(1L, scalar(db, "SELECT COUNT(*) FROM algorithm_status_event"))
+
+                ResetProgress(RoomProgressRepository(db))(at)
+                set(id, AlgorithmStatus.LEARNING, at, "run", 0L)
+                assertEquals(1L, scalar(db, "SELECT COUNT(*) FROM algorithm_status_event"))
+                assertEquals(emptyMap<AlgorithmId, AlgorithmStatus>(), repo.statuses().first())
+
+                set(id, AlgorithmStatus.LEARNED, at, "run", 1L)
+                set(id, AlgorithmStatus.LEARNED, at, "next-run", 0L)
+                assertEquals(3L, scalar(db, "SELECT COUNT(*) FROM algorithm_status_event"))
+            } finally {
+                db.close()
             }
         }
 
@@ -123,7 +155,7 @@ class RoomAlgorithmStatusRepositoryTest {
                     }
                 withTimeout(10000) {
                     initial.await()
-                    SetAlgorithmStatus(repo)(id, AlgorithmStatus.LEARNING, at)
+                    SetAlgorithmStatus(repo)(id, AlgorithmStatus.LEARNING, at, "run", 0L)
                     changed.await()
                     ResetProgress(RoomProgressRepository(db))(at)
                     reset.await()

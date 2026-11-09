@@ -1,11 +1,11 @@
 package dev.cubentia.app.session
 
 import dev.cubentia.app.data.SerialWriter
+import dev.cubentia.application.port.AlgorithmStatusRecord
 import dev.cubentia.application.port.AlgorithmStatusRepository
 import dev.cubentia.application.port.AlgorithmStatusSave
 import dev.cubentia.domain.content.AlgorithmId
 import dev.cubentia.domain.content.AlgorithmStatus
-import dev.cubentia.domain.content.AlgorithmStatusEvent
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -29,10 +30,10 @@ class SessionHostAlgorithmStatusTest {
                 object : AlgorithmStatusRepository {
                     override fun statuses() = statuses
 
-                    override suspend fun append(event: AlgorithmStatusEvent): AlgorithmStatusSave {
+                    override suspend fun append(record: AlgorithmStatusRecord): AlgorithmStatusSave {
                         writes++
                         if (fail) return AlgorithmStatusSave.Failed
-                        statuses.value = statuses.value + (event.algorithmId to event.status)
+                        statuses.value = statuses.value + (record.event.algorithmId to record.event.status)
                         return AlgorithmStatusSave.Saved
                     }
                 }
@@ -56,6 +57,46 @@ class SessionHostAlgorithmStatusTest {
                 assertTrue(host.setAlgorithmStatus(id, AlgorithmStatus.LEARNED))
                 assertEquals(2, writes)
                 assertEquals(mapOf(id to AlgorithmStatus.LEARNED), host.algorithmStatuses.first())
+            } finally {
+                writer.close()
+            }
+        }
+
+    @Test fun eachQueuedCommandGetsItsOwnKeyInOneAppRun() =
+        runBlocking {
+            val records = mutableListOf<AlgorithmStatusRecord>()
+            val repo =
+                object : AlgorithmStatusRepository {
+                    override fun statuses() = MutableStateFlow(emptyMap<AlgorithmId, AlgorithmStatus>())
+
+                    override suspend fun append(record: AlgorithmStatusRecord): AlgorithmStatusSave {
+                        records.add(record)
+                        return AlgorithmStatusSave.Saved
+                    }
+                }
+            val writer = SerialWriter()
+            try {
+                val id = AlgorithmId("a")
+                val run = SessionHost(TickingClock(), Dispatchers.Default, writer = writer, algorithmStatusRepository = repo)
+                val nextRun = SessionHost(TickingClock(), Dispatchers.Default, writer = writer, algorithmStatusRepository = repo)
+                val blocked = CompletableDeferred<Unit>()
+                val release = CompletableDeferred<Unit>()
+                writer.enqueue {
+                    blocked.complete(Unit)
+                    release.await()
+                }
+                blocked.await()
+                val queued =
+                    listOf(AlgorithmStatus.LEARNING, AlgorithmStatus.LEARNING).map {
+                        async(start = CoroutineStart.UNDISPATCHED) { run.setAlgorithmStatus(id, it) }
+                    }
+                release.complete(Unit)
+                assertTrue(queued.all { it.await() })
+                assertTrue(nextRun.setAlgorithmStatus(id, AlgorithmStatus.LEARNED))
+
+                assertEquals(listOf(0L, 1L, 0L), records.map { it.revision })
+                assertEquals(records[0].sessionId, records[1].sessionId)
+                assertNotEquals(records[0].sessionId, records[2].sessionId)
             } finally {
                 writer.close()
             }

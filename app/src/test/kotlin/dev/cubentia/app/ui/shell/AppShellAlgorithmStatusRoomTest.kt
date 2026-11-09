@@ -22,11 +22,11 @@ import dev.cubentia.app.session.TickingClock
 import dev.cubentia.app.session.testFlags
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
 import dev.cubentia.app.ui.theme.CubentiaTheme
+import dev.cubentia.application.port.AlgorithmStatusRecord
 import dev.cubentia.application.port.AlgorithmStatusRepository
 import dev.cubentia.application.port.AlgorithmStatusSave
 import dev.cubentia.domain.content.AlgorithmId
 import dev.cubentia.domain.content.AlgorithmStatus
-import dev.cubentia.domain.content.AlgorithmStatusEvent
 import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
@@ -188,7 +188,7 @@ class AppShellAlgorithmStatusRoomTest {
             object : AlgorithmStatusRepository {
                 override fun statuses() = persisted
 
-                override suspend fun append(event: AlgorithmStatusEvent) = AlgorithmStatusSave.Failed
+                override suspend fun append(record: AlgorithmStatusRecord) = AlgorithmStatusSave.Failed
             }
         val writer = SerialWriter()
         val release = CompletableDeferred<Unit>()

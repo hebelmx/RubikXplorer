@@ -1,5 +1,6 @@
 package dev.cubentia.application.usecase
 
+import dev.cubentia.application.port.AlgorithmStatusRecord
 import dev.cubentia.application.port.AlgorithmStatusRepository
 import dev.cubentia.application.port.AlgorithmStatusSave
 import dev.cubentia.application.port.AlgorithmStatusWrite
@@ -15,9 +16,11 @@ class SetAlgorithmStatus(
         algorithmId: AlgorithmId,
         status: AlgorithmStatus,
         at: Instant,
+        sessionId: String,
+        revision: Long,
     ): AlgorithmStatusWrite {
         val event = AlgorithmStatusEvent(algorithmId, status, at)
-        return when (repository.append(event)) {
+        return when (repository.append(AlgorithmStatusRecord(sessionId, revision, event))) {
             AlgorithmStatusSave.Saved -> AlgorithmStatusWrite.Written(event)
             AlgorithmStatusSave.Failed -> AlgorithmStatusWrite.Failed
         }

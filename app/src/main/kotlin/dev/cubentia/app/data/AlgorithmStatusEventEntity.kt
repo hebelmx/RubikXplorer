@@ -9,9 +9,17 @@ import dev.cubentia.domain.content.AlgorithmStatus
 import dev.cubentia.domain.content.AlgorithmStatusEvent
 import kotlin.time.Instant
 
-@Entity(tableName = "algorithm_status_event", indices = [Index("algorithm_id")])
+@Entity(
+    tableName = "algorithm_status_event",
+    indices = [
+        Index("algorithm_id"),
+        Index(value = ["session_id", "revision"], unique = true),
+    ],
+)
 data class AlgorithmStatusEventEntity(
     @PrimaryKey(autoGenerate = true) val seq: Long = 0,
+    @ColumnInfo(name = "session_id") val sessionId: String,
+    val revision: Long,
     @ColumnInfo(name = "algorithm_id") val algorithmId: String,
     val status: String,
     val epoch: Long,
