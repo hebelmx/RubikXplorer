@@ -37,7 +37,7 @@ deferred: []
 | Nothing matches | *Learning* selected, empty status map | The empty copy and link; no grid | No error expected |
 | Nothing matches, other filter | *Learned* selected, or family + status with no match | The same copy and link | No error expected |
 | Link tapped, 2-look unlocked | Course finished | Learn tab, Stage list, *Faster last layer* row in view | No error expected |
-| Link tapped, 2-look locked | Course not finished | Learn tab, Stage list | No error expected |
+| Link tapped, 2-look locked | Course not finished | Learn tab, a *Faster last layer* destination marked Locked that says what unlocks it; back returns to the Stage list | No error expected |
 | Clear | Selected chip tapped again | That filter is cleared | No error expected |
 | Content failed | `CatalogState.Failed` | "The Library could not be loaded." | Sealed state |
 | Case without a primary | Bundle fails the join | That Case is left out (the validator rejects such a bundle) | No crash |
@@ -107,7 +107,7 @@ deferred: []
 
 **Status source.** Story 9.6 owns persistence and will pass its `Flow` value as `statuses`. Until then the *Learning* and *Learned* chips always reach the empty state, which is the AC's scenario.
 
-**Link target.** 2-look lives on the Learn tab as the *Faster last layer* row (EXPERIENCE.md Information Architecture). The row is gated by Course completion and that gate stays, so a Learner who has not finished the Course lands on the Stage list.
+**Link target.** 2-look lives on the Learn tab as the *Faster last layer* row (EXPERIENCE.md Information Architecture). The row is gated by Course completion and that gate stays, so a Learner who has not finished the Course lands on a locked *Faster last layer* destination on the Learn tab that names the prerequisite.
 
 ## Verification
 

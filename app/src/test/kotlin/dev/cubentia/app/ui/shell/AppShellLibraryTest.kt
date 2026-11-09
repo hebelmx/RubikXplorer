@@ -126,7 +126,7 @@ class AppShellLibraryTest {
         rule.onNodeWithTag("library:case:${dot.id.value}").assertDoesNotExist()
     }
 
-    @Test fun `locked link returns from selected Stage to Stage list`() {
+    @Test fun `locked link leaves selected Stage for the locked 2-look destination and back returns to Stage list`() {
         launch()
         rule.onNodeWithTag("nav:learn").performClick()
         rule.onNodeWithTag("learn:stage:stage-01-fundamentals").performClick()
@@ -137,6 +137,22 @@ class AppShellLibraryTest {
         rule.onNodeWithTag("learn").assertIsDisplayed()
         rule.onNodeWithTag("stageDetail").assertDoesNotExist()
         rule.onNodeWithTag("learn:fasterLastLayer").assertDoesNotExist()
+        rule.onNodeWithTag("learn:twoLookLocked").assertIsDisplayed()
+        rule.onNodeWithText("Faster last layer").assertIsDisplayed()
+        rule.onNodeWithTag("learn:twoLookLocked:status").assertIsDisplayed()
+        rule.onNodeWithText("Complete or skip every Stage of the Course to unlock 2-look.").assertIsDisplayed()
+        rule.onNodeWithTag("learn:twoLookLocked:back").performClick()
+        rule.onNodeWithTag("learn:twoLookLocked").assertDoesNotExist()
+        rule.onNodeWithTag("learn:stage:stage-01-fundamentals").assertIsDisplayed()
+    }
+
+    @Test fun `locked 2-look destination survives state restoration`() {
+        val restoration = StateRestorationTester(rule)
+        launch(restoration = restoration)
+        rule.onNodeWithTag("library:status:LEARNING").performClick()
+        rule.onNodeWithTag("library:two-look").performClick()
+        restoration.emulateSavedInstanceStateRestore()
+        rule.onNodeWithTag("learn:twoLookLocked").assertIsDisplayed()
     }
 
     @Test fun `unlocked link brings Faster last layer into view`() {
@@ -144,5 +160,6 @@ class AppShellLibraryTest {
         rule.onNodeWithTag("library:status:LEARNED").performClick()
         rule.onNodeWithTag("library:two-look").performClick()
         rule.onNodeWithTag("learn:fasterLastLayer").assertIsDisplayed()
+        rule.onNodeWithTag("learn:twoLookLocked").assertDoesNotExist()
     }
 }

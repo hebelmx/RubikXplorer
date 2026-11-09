@@ -139,6 +139,7 @@ private fun ShellContent(
     val libraryGrid = rememberLazyGridState()
     val libraryFamilyChips = rememberScrollState()
     var scrollToTwoLook by remember { mutableStateOf(false) }
+    var twoLookLocked by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(tab, selectedStage, scrollToTwoLook) {
         if (tab == Tab.LEARN && selectedStage == null && scrollToTwoLook) {
             withFrameNanos { }
@@ -151,6 +152,7 @@ private fun ShellContent(
             onClose = { settings = false },
             onResetProgress = {
                 selectedStage = null
+                twoLookLocked = false
                 stageAbandoned = null
                 welcomeAbandoned = false
                 welcome = true
@@ -325,7 +327,7 @@ private fun ShellContent(
         return
     }
     // Back from another tab returns to Learn first; back from Stage detail returns to the Stage list before leaving the app.
-    BackHandler(enabled = tab != Tab.LEARN || selectedStage != null || openPractice != null || openSkipCheck != null) {
+    BackHandler(enabled = tab != Tab.LEARN || selectedStage != null || twoLookLocked || openPractice != null || openSkipCheck != null) {
         if (openSkipCheck != null) {
             val isCourse = openSkipCheck == "course"
             val stageId = openSkipCheck
@@ -341,6 +343,7 @@ private fun ShellContent(
             tab = Tab.LEARN
         } else {
             selectedStage = null
+            twoLookLocked = false
         }
     }
 
@@ -365,6 +368,7 @@ private fun ShellContent(
                         selectedStage = null
                         tab = Tab.LEARN
                         scrollToTwoLook = allStagesFinished
+                        twoLookLocked = !allStagesFinished
                     },
                     destinationModifier
                         .background(
@@ -413,6 +417,8 @@ private fun ShellContent(
                     },
                     abandonedSkipCheckStage = stageAbandoned?.let(::StageId),
                     showFasterLastLayer = allStagesFinished,
+                    showTwoLookLocked = twoLookLocked && !allStagesFinished,
+                    onCloseTwoLookLocked = { twoLookLocked = false },
                     scrollState = learnScroll,
                     // The inset area takes surfaceBase too, not the window background.
                     modifier = destinationModifier.background(RubikTheme.tokens.surfaceBase).safeDrawingPadding(),
