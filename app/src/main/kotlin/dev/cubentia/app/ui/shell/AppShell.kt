@@ -120,6 +120,7 @@ private fun ShellContent(
     LaunchedEffect(catalog) { catalog.load() }
     val content by catalog.state.collectAsState()
     val session by host.state.collectAsState()
+    val algorithmStatuses by host.algorithmStatuses.collectAsState(emptyMap())
     val progressEvents by host.progressEvents.collectAsState()
     val attemptRecords by host.attemptRecords.collectAsState()
     val scope = rememberCoroutineScope()
@@ -365,9 +366,17 @@ private fun ShellContent(
                 val algorithm = ready?.bundle?.algorithms?.firstOrNull { it.id.value == openAlgorithm }
                 val case = ready?.bundle?.cases?.firstOrNull { it.id == algorithm?.caseId }
                 if (algorithm != null && case != null && ready != null) {
-                    AlgorithmDetailScreen(case, algorithm, ready.strings, {
-                        openAlgorithm = null
-                    }, destinationModifier.background(RubikTheme.tokens.surfaceBase).safeDrawingPadding())
+                    AlgorithmDetailScreen(
+                        case,
+                        algorithm,
+                        ready.strings,
+                        {
+                            openAlgorithm = null
+                        },
+                        destinationModifier.background(RubikTheme.tokens.surfaceBase).safeDrawingPadding(),
+                        status = algorithmStatuses[algorithm.id] ?: dev.cubentia.domain.content.AlgorithmStatus.NOT_STARTED,
+                        onSetStatus = { scope.launch { host.setAlgorithmStatus(algorithm.id, it) } },
+                    )
                 } else {
                     LibraryScreen(
                         content,
@@ -385,6 +394,7 @@ private fun ShellContent(
                             .background(
                                 RubikTheme.tokens.surfaceBase,
                             ).safeDrawingPadding(),
+                        statuses = algorithmStatuses,
                         familyChipsScroll = libraryFamilyChips,
                         onOpenAlgorithm = { openAlgorithm = it.value },
                     )

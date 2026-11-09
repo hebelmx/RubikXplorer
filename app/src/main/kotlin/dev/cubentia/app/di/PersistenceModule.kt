@@ -15,6 +15,7 @@ import dev.cubentia.app.data.RoomSessionSnapshotRepository
 import dev.cubentia.app.data.RubikDatabase
 import dev.cubentia.app.data.SerialWriter
 import dev.cubentia.app.data.SessionSnapshotDao
+import dev.cubentia.application.port.AlgorithmStatusRepository
 import dev.cubentia.application.port.CheckpointRepository
 import dev.cubentia.application.port.PreferencesRepository
 import dev.cubentia.application.port.ProgressRepository
@@ -24,6 +25,7 @@ import dev.cubentia.application.usecase.CompleteLesson
 import dev.cubentia.application.usecase.PassSkipCheck
 import dev.cubentia.application.usecase.PlaceFromScan
 import dev.cubentia.application.usecase.ResetProgress
+import dev.cubentia.application.usecase.SetAlgorithmStatus
 import javax.inject.Singleton
 
 @Module
@@ -62,6 +64,14 @@ object PersistenceModule {
 
     @Provides @Singleton
     fun resetProgress(repository: ProgressRepository): ResetProgress = ResetProgress(repository)
+
+    @Provides @Singleton
+    fun algorithmStatuses(database: RubikDatabase): AlgorithmStatusRepository =
+        dev.cubentia.app.data
+            .RoomAlgorithmStatusRepository(database)
+
+    @Provides @Singleton
+    fun setAlgorithmStatus(repository: AlgorithmStatusRepository): SetAlgorithmStatus = SetAlgorithmStatus(repository)
 
     @Provides fun dao(database: RubikDatabase): SessionSnapshotDao = database.snapshots()
 

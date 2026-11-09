@@ -468,6 +468,7 @@
   "msg.library.family.pll-edges-only": "Edges only",
   "msg.library.family.pll-diagonal-swap": "Diagonal swap",
   "msg.library.family.heading": "{set} · {family}",
+  "msg.library.status.not-in-set": "Not in your set yet.",
   "msg.library.status.not-started": "Not started",
   "msg.library.status.learning": "Learning",
   "msg.library.status.learned": "Learned",

@@ -204,4 +204,38 @@ class LibraryScreenTest {
         launch(CatalogState.Failed(ContentLoadError.MissingResource("bundle.json")))
         rule.onNodeWithText("The Library could not be loaded.").assertIsDisplayed()
     }
+
+    @Test fun `tiles label Learning and Learned but never Not started`() {
+        val algorithms = bundle.cases.take(3).map { case -> bundle.algorithms.first { it.caseId == case.id && it.isPrimary } }
+        launch(
+            statuses =
+                mapOf(
+                    algorithms[0].id to AlgorithmStatus.LEARNING,
+                    algorithms[1].id to AlgorithmStatus.LEARNED,
+                    algorithms[2].id to AlgorithmStatus.NOT_STARTED,
+                ),
+        )
+        for ((index, label) in listOf("Learning", "Learned", null).withIndex()) {
+            val caseId = algorithms[index].caseId.value
+            rule.onNodeWithTag("library:grid").performScrollToKey(caseId)
+            val tile = rule.onNodeWithTag("library:case:$caseId", useUnmergedTree = true)
+            if (label != null) {
+                tile.assert(
+                    androidx.compose.ui.test
+                        .hasAnyDescendant(
+                            androidx.compose.ui.test
+                                .hasText(label),
+                        ),
+                )
+            } else {
+                tile.assert(
+                    androidx.compose.ui.test
+                        .hasAnyDescendant(
+                            androidx.compose.ui.test
+                                .hasTestTag("library:status-label"),
+                        ).not(),
+                )
+            }
+        }
+    }
 }

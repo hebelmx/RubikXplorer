@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,6 +42,7 @@ import dev.cubentia.app.ui.playback.PlaybackFrameLoop
 import dev.cubentia.app.ui.playback.PlaybackTransport
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.domain.content.Algorithm
+import dev.cubentia.domain.content.AlgorithmStatus
 import dev.cubentia.domain.content.Case
 import dev.cubentia.domain.lastlayer.RecognitionDiagram
 import dev.cubentia.domain.lastlayer.RecognitionDiagramResult
@@ -64,6 +66,8 @@ fun AlgorithmDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     showDiagram: Boolean = RECOGNITION_DIAGRAMS_ENABLED,
+    status: AlgorithmStatus = AlgorithmStatus.NOT_STARTED,
+    onSetStatus: (AlgorithmStatus) -> Unit = {},
 ) {
     val result = remember(algorithm) { Demonstration.ofCase(algorithm) }
     val tokens = RubikTheme.tokens
@@ -136,6 +140,24 @@ fun AlgorithmDetailScreen(
                     }
                 }
             }
+        }
+        FlowRow(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AlgorithmStatus.entries.forEach { option ->
+                LibraryChip(
+                    strings.resolve(ContentText("msg.library.status.${option.name.lowercase().replace('_', '-')}")),
+                    status == option,
+                    "algorithmDetail:status:${option.name}",
+                ) {
+                    if (option != status) onSetStatus(option)
+                }
+            }
+        }
+        if (status == AlgorithmStatus.NOT_STARTED) {
+            Text(
+                strings.resolve(ContentText("msg.library.status.not-in-set")),
+                Modifier.testTag("algorithmDetail:status-line"),
+                color = tokens.inkSecondary,
+            )
         }
     }
     BoxWithConstraints(modifier.fillMaxSize().padding(8.dp)) {

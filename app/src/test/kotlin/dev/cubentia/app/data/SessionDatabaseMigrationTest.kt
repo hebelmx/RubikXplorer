@@ -172,4 +172,37 @@ class SessionDatabaseMigrationTest {
                 Files.deleteIfExists(path)
             }
         }
+
+    @Test fun versionFiveToSixKeepsRowsAndCreatesAlgorithmStatuses() =
+        runBlocking {
+            val path = Files.createTempFile("status-migration", ".db")
+            Files.delete(path)
+            val helper =
+                MigrationTestHelper(
+                    InstrumentationRegistry.getInstrumentation(),
+                    path.toFile(),
+                    AndroidSQLiteDriver(),
+                    RubikDatabase::class,
+                )
+            try {
+                helper.createDatabase(5).use { connection ->
+                    connection.prepare("INSERT INTO session_snapshot VALUES ('LESSON', 'kept', 7, 1, 'payload')").use { it.step() }
+                    connection
+                        .prepare(
+                            "INSERT INTO progress_event (session_id, revision, type, stage_id, lesson_id, epoch, at_ms) " +
+                                "VALUES ('reset', 0, 'PROGRESS_RESET', '', '', 1, 0)",
+                        ).use { it.step() }
+                }
+                helper.runMigrationsAndValidate(6).use { connection ->
+                    for (table in listOf("session_snapshot", "progress_event", "algorithm_status_event")) {
+                        connection.prepare("SELECT COUNT(*) FROM $table").use {
+                            assertEquals(true, it.step())
+                            assertEquals(if (table == "algorithm_status_event") 0L else 1L, it.getLong(0))
+                        }
+                    }
+                }
+            } finally {
+                Files.deleteIfExists(path)
+            }
+        }
 }
