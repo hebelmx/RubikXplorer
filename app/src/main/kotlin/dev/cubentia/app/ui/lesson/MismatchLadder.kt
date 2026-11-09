@@ -19,11 +19,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import dev.cubentia.app.R
+import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.theme.Spacing
+import dev.cubentia.domain.text.Text as ContentText
 
 /**
  * The physical mismatch ladder (Story 8.3, FR-9).
@@ -34,13 +34,13 @@ import dev.cubentia.app.ui.theme.Spacing
  *    answer leads to rung 3, the session does not change and no partial observation is made.
  * 3. "Let's re-enter your cube" via the Manual Cube Editor.
  *
- * Every rung also offers [matchesAfterAllLabel], which dismisses a false alarm ([onMatchesAfterAll]).
+ * Every rung also offers *It matches after all*, which dismisses a false alarm ([onMatchesAfterAll]).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MismatchLadder(
     onOpenEditor: () -> Unit,
-    matchesAfterAllLabel: String,
+    strings: ContentStrings,
     onMatchesAfterAll: () -> Unit,
     rung: Int,
     onRungChange: (Int) -> Unit,
@@ -62,7 +62,7 @@ fun MismatchLadder(
         when (rung) {
             1 -> {
                 Text(
-                    text = stringResource(R.string.physical_mismatch_which_turn),
+                    text = strings.resolve(ContentText("msg.physical.mismatch.which-turn")),
                     style = MaterialTheme.typography.titleMedium,
                     color = tokens.inkPrimary,
                     modifier = Modifier.testTag("mismatch:question"),
@@ -81,7 +81,7 @@ fun MismatchLadder(
                                 .testTag("mismatch:nextQuestion"),
                     ) {
                         Text(
-                            text = stringResource(R.string.physical_mismatch_next_question),
+                            text = strings.resolve(ContentText("msg.physical.mismatch.next-question")),
                             color = tokens.inkPrimary,
                         )
                     }
@@ -90,7 +90,7 @@ fun MismatchLadder(
 
             2 -> {
                 Text(
-                    text = stringResource(R.string.physical_mismatch_one_face),
+                    text = strings.resolve(ContentText("msg.physical.mismatch.one-face")),
                     style = MaterialTheme.typography.titleMedium,
                     color = tokens.inkPrimary,
                     modifier = Modifier.testTag("mismatch:question"),
@@ -105,35 +105,35 @@ fun MismatchLadder(
                         shape = MaterialTheme.shapes.small,
                         modifier = Modifier.testTag("mismatch:corner:top_left"),
                     ) {
-                        Text(stringResource(R.string.physical_mismatch_corner_top_left))
+                        Text(text = strings.resolve(ContentText("msg.physical.mismatch.corner-top-left")))
                     }
                     OutlinedButton(
                         onClick = { onRungChange(3) },
                         shape = MaterialTheme.shapes.small,
                         modifier = Modifier.testTag("mismatch:corner:top_right"),
                     ) {
-                        Text(stringResource(R.string.physical_mismatch_corner_top_right))
+                        Text(text = strings.resolve(ContentText("msg.physical.mismatch.corner-top-right")))
                     }
                     OutlinedButton(
                         onClick = { onRungChange(3) },
                         shape = MaterialTheme.shapes.small,
                         modifier = Modifier.testTag("mismatch:corner:bottom_left"),
                     ) {
-                        Text(stringResource(R.string.physical_mismatch_corner_bottom_left))
+                        Text(text = strings.resolve(ContentText("msg.physical.mismatch.corner-bottom-left")))
                     }
                     OutlinedButton(
                         onClick = { onRungChange(3) },
                         shape = MaterialTheme.shapes.small,
                         modifier = Modifier.testTag("mismatch:corner:bottom_right"),
                     ) {
-                        Text(stringResource(R.string.physical_mismatch_corner_bottom_right))
+                        Text(text = strings.resolve(ContentText("msg.physical.mismatch.corner-bottom-right")))
                     }
                     OutlinedButton(
                         onClick = { onRungChange(3) },
                         shape = MaterialTheme.shapes.small,
                         modifier = Modifier.testTag("mismatch:corner:none"),
                     ) {
-                        Text(stringResource(R.string.physical_mismatch_corner_none))
+                        Text(text = strings.resolve(ContentText("msg.physical.mismatch.corner-none")))
                     }
                 }
                 Row(
@@ -150,7 +150,7 @@ fun MismatchLadder(
                                 .testTag("mismatch:nextQuestion"),
                     ) {
                         Text(
-                            text = stringResource(R.string.physical_mismatch_next_question),
+                            text = strings.resolve(ContentText("msg.physical.mismatch.next-question")),
                             color = tokens.inkPrimary,
                         )
                     }
@@ -159,7 +159,7 @@ fun MismatchLadder(
 
             3 -> {
                 Text(
-                    text = stringResource(R.string.physical_mismatch_reenter),
+                    text = strings.resolve(ContentText("msg.physical.mismatch.re-enter")),
                     style = MaterialTheme.typography.titleMedium,
                     color = tokens.inkPrimary,
                     modifier = Modifier.testTag("mismatch:question"),
@@ -178,7 +178,7 @@ fun MismatchLadder(
                             .heightIn(min = Spacing.touchMin)
                             .testTag("mismatch:reenter"),
                 ) {
-                    Text(text = stringResource(R.string.confirm_cube_enter))
+                    Text(text = strings.resolve(ContentText("btn.physical.confirm-enter")))
                 }
             }
         }
@@ -191,7 +191,7 @@ fun MismatchLadder(
                     .heightIn(min = Spacing.touchMin)
                     .testTag("mismatch:matchesAfterAll"),
         ) {
-            Text(text = matchesAfterAllLabel, color = tokens.inkPrimary)
+            Text(text = strings.resolve(ContentText("msg.physical.mismatch.matches-after-all")), color = tokens.inkPrimary)
         }
     }
 }

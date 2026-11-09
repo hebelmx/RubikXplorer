@@ -184,7 +184,7 @@ class AppShellSkipCheckTest {
     }
 
     @Test
-    fun `tapping I can already solve it opens course skip check with hints disabled and no mode switcher`() {
+    fun `tapping I can already solve it opens course skip check with hints disabled and no mode or Physical mode switcher`() {
         val host = createHost()
         val shipped = ContentLoader.load(ContentSource.SHIPPED)
         val catalog = LessonCatalog.of(shipped)
@@ -215,6 +215,8 @@ class AppShellSkipCheckTest {
             .assertTextContains("Solve this scramble your way. Hints are off.")
         rule.onNodeWithTag("lesson:hint").assertIsNotEnabled()
         rule.onNodeWithTag("lesson:modeSwitcher").assertDoesNotExist()
+        rule.onNodeWithTag("lesson:physicalMode").assertDoesNotExist()
+        rule.onNodeWithTag("lesson:physicalModeSwitch").assertDoesNotExist()
     }
 
     @Test
@@ -332,6 +334,8 @@ class AppShellSkipCheckTest {
         rule.onNodeWithTag("stageDetail:skipCheck").performClick()
         rule.onNodeWithTag("lesson").assertIsDisplayed()
         rule.onNodeWithTag("lesson:hint").assertIsNotEnabled()
+        rule.onNodeWithTag("lesson:physicalMode").assertDoesNotExist()
+        rule.onNodeWithTag("lesson:physicalModeSwitch").assertDoesNotExist()
 
         // Commit a move
         rule.onNodeWithTag("moveKey:R").performScrollTo().performClick()

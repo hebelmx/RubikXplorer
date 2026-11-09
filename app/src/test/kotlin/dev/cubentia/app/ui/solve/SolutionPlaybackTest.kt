@@ -210,7 +210,9 @@ class SolutionPlaybackTest {
     @Test
     fun `tapping follow on cube enters physical mode and each done advances one step with MoveNote`() {
         show()
+        tag("followOnMyCube").assertTextEquals("I'm following on my cube")
         click("followOnMyCube")
+        tag("done").assertTextEquals("Done")
         assertTrue(state.isPhysical)
         assertEquals(SyncState.PHYSICAL_PREDICTED, state.session.syncState)
         rule.onNodeWithTag("stage:frame").assertTextEquals("EXPECTED")
@@ -340,6 +342,7 @@ class SolutionPlaybackTest {
         click("done")
         assertTrue(state.isPhysical)
 
+        tag("switchToVirtual").assertTextEquals("Physical mode")
         click("switchToVirtual")
         assertFalse(state.isPhysical)
         assertEquals(SyncState.VIRTUAL, state.session.syncState)

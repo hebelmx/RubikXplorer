@@ -17,6 +17,7 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.render.NetEmphasis
 import dev.cubentia.app.render.RenderedArrow
 import dev.cubentia.app.render.RenderedArrowKey
@@ -25,6 +26,9 @@ import dev.cubentia.app.render.StickerDimmedKey
 import dev.cubentia.app.render.StickerHighlightedKey
 import dev.cubentia.app.session.whiteCrossLesson
 import dev.cubentia.app.ui.theme.CubentiaTheme
+import dev.cubentia.domain.content.ContentLoadResult
+import dev.cubentia.domain.content.ContentLoader
+import dev.cubentia.domain.content.ContentSource
 import dev.cubentia.domain.content.FaceletString
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
@@ -59,6 +63,9 @@ class DemonstrationPlayerTest {
     @get:Rule
     val rule = createComposeRule()
 
+    private val strings =
+        ContentStrings((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings)
+
     // Preserving the cross, as a later Lesson would (AD-6), so the Keep emphasis has pieces to light.
     private val demonstration =
         (Demonstration.of(whiteCrossLesson().copy(preserve = WhiteCrossSolved)) as DemonstrationResult.Ready).demonstration
@@ -82,7 +89,7 @@ class DemonstrationPlayerTest {
         rule.setContent {
             CubentiaTheme {
                 state = rememberDemonstrationPlayerState(demo, reduceMotion)
-                DemonstrationPlayer(state, Modifier.fillMaxSize())
+                DemonstrationPlayer(state, strings, Modifier.fillMaxSize())
             }
         }
     }
@@ -381,7 +388,7 @@ class DemonstrationPlayerTest {
             CubentiaTheme {
                 dev.cubentia.app.preferences.PreferenceProvider(store) {
                     state = rememberDemonstrationPlayerState(demonstration)
-                    DemonstrationPlayer(state, Modifier.fillMaxSize())
+                    DemonstrationPlayer(state, strings, Modifier.fillMaxSize())
                 }
             }
         }
@@ -398,7 +405,7 @@ class DemonstrationPlayerTest {
         rule.setContent {
             CubentiaTheme {
                 state = rememberDemonstrationPlayerState(demonstration)
-                DemonstrationPlayer(state, Modifier.fillMaxSize())
+                DemonstrationPlayer(state, strings, Modifier.fillMaxSize())
             }
         }
         rule.waitForIdle()
@@ -498,7 +505,7 @@ class DemonstrationPlayerTest {
         rule.setContent {
             CubentiaTheme {
                 state = rememberDemonstrationPlayerState(empty, reduceMotion = false)
-                DemonstrationPlayer(state, Modifier.fillMaxSize())
+                DemonstrationPlayer(state, strings, Modifier.fillMaxSize())
             }
         }
         listOf("restart", "back", "playPause", "forward", "end").forEach { rule.onNodeWithTag("playback:$it").assertIsNotEnabled() }

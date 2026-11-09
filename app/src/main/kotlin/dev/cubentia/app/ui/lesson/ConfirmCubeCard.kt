@@ -17,11 +17,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import dev.cubentia.app.R
+import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.theme.Spacing
+import dev.cubentia.domain.text.Text as ContentText
 
 /**
  * The Confirm-your-cube card (Epic 8, Story 8.2): shown upon entering physical mode while
@@ -30,6 +30,7 @@ import dev.cubentia.app.ui.theme.Spacing
  */
 @Composable
 fun ConfirmCubeCard(
+    strings: ContentStrings,
     onMatches: () -> Unit,
     onEnter: () -> Unit,
     modifier: Modifier = Modifier,
@@ -47,7 +48,7 @@ fun ConfirmCubeCard(
         verticalArrangement = Arrangement.spacedBy(Spacing.s3),
     ) {
         Text(
-            text = stringResource(R.string.confirm_your_cube),
+            text = strings.resolve(ContentText("msg.physical.confirm.title")),
             style = MaterialTheme.typography.titleMedium,
             color = tokens.inkPrimary,
             modifier = Modifier.testTag("confirmCube:title"),
@@ -66,7 +67,7 @@ fun ConfirmCubeCard(
                         .testTag("confirmCube:enter"),
             ) {
                 Text(
-                    text = stringResource(R.string.confirm_cube_enter),
+                    text = strings.resolve(ContentText("btn.physical.confirm-enter")),
                     color = tokens.inkPrimary,
                 )
             }
@@ -84,7 +85,7 @@ fun ConfirmCubeCard(
                         .heightIn(min = Spacing.touchMin)
                         .testTag("confirmCube:matches"),
             ) {
-                Text(text = stringResource(R.string.confirm_cube_matches))
+                Text(text = strings.resolve(ContentText("btn.physical.confirm-matches")))
             }
         }
     }

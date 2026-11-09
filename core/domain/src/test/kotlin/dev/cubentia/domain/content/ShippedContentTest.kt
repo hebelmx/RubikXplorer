@@ -95,6 +95,26 @@ class ShippedContentTest {
     }
 
     @Test
+    fun `physical-mode copy lives only in en dot json with its wording unchanged`() {
+        val res = File("../../app/src/main/res")
+        val names =
+            res
+                .listFiles()
+                .orEmpty()
+                .filter { it.isDirectory && it.name.startsWith("values") }
+                .map { it.resolve("strings.xml") }
+                .filter { it.isFile }
+                .flatMap { androidStrings(it) }
+                .map { (label, _) -> label.substringAfterLast(' ') }
+        assertTrue("app_name" in names, "the strings.xml scan found no app_name under ${res.absolutePath}")
+        assertEquals(
+            emptyList<String>(),
+            names.filter { it.startsWith("physical_") || it.startsWith("confirm_") || it in MIGRATED_RESOURCES },
+        )
+        assertEquals(PHYSICAL_LABELS, bundle.strings.filterKeys { it in PHYSICAL_LABELS })
+    }
+
+    @Test
     fun `the trademark guard flags Rubik in any case`() {
         val samples =
             mapOf(
@@ -354,6 +374,39 @@ class ShippedContentTest {
     private fun numericConstants(source: String): List<String> = NUMERIC_CONST.findAll(source).map { it.value.trim() }.toList()
 
     private companion object {
+        val MIGRATED_RESOURCES = setOf("playback_follow_on_my_cube", "playback_cube_should_be_solved", "frame_expected")
+
+        /** Physical-mode copy that used to live in `strings.xml` too (Story 12.9): key to exact wording. */
+        val PHYSICAL_LABELS =
+            mapOf(
+                "msg.physical.mode" to "Physical mode",
+                "msg.physical.frame-expected" to "EXPECTED",
+                "msg.physical.back-to-virtual" to "The on-screen cube now matches what we expected on yours.",
+                "msg.physical.objective-met" to "If your cube matches the picture, this step is done.",
+                "msg.playback.follow-on-my-cube" to "I'm following on my cube",
+                "msg.playback.cube-should-be-solved" to "Your cube should be solved now.",
+                "msg.physical.confirm.title" to "Confirm your cube",
+                "btn.physical.confirm-matches" to "It matches",
+                "btn.physical.confirm-enter" to "Enter it",
+                "btn.physical.done" to "Done",
+                "btn.physical.did-something-else" to "I did something else",
+                "btn.physical.yes-its-solved" to "Yes, it's solved",
+                "btn.physical.more-options" to "More options",
+                "btn.physical.my-cube-doesnt-match" to "My cube doesn't match",
+                "btn.physical.not-sure-what-i-did" to "I'm not sure what I did",
+                "msg.physical.mismatch.which-turn" to "Which turn did you make?",
+                "msg.physical.mismatch.one-face" to "Look at the front face — which corner is white?",
+                "msg.physical.mismatch.re-enter" to "Let's re-enter your cube",
+                "msg.physical.mismatch.candidate" to "Candidate: {candidate}",
+                "msg.physical.mismatch.matches-after-all" to "It matches after all",
+                "msg.physical.mismatch.next-question" to "Next question",
+                "msg.physical.mismatch.corner-top-left" to "Top-left",
+                "msg.physical.mismatch.corner-top-right" to "Top-right",
+                "msg.physical.mismatch.corner-bottom-left" to "Bottom-left",
+                "msg.physical.mismatch.corner-bottom-right" to "Bottom-right",
+                "msg.physical.mismatch.corner-none" to "None of these",
+            )
+
         val NUMERIC_CONST = Regex("const\\s+val\\s+\\w+\\s*(:\\s*\\w+\\s*)?=\\s*[-+]?\\.?\\d[\\w.]*")
     }
 }

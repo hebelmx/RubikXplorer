@@ -16,7 +16,11 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.test.core.app.ApplicationProvider
+import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.application.session.SyncState
+import dev.cubentia.domain.content.ContentLoadResult
+import dev.cubentia.domain.content.ContentLoader
+import dev.cubentia.domain.content.ContentSource
 import dev.cubentia.domain.tutor.Certainty
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -33,9 +37,12 @@ import org.robolectric.annotation.Config
 class FrameLabelTest {
     @get:Rule val rule = createComposeRule()
 
+    private val strings =
+        ContentStrings((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings)
+
     @Test fun certaintyChangesUpdateThePoliteFrameLabel() {
         val certainty = mutableStateOf(Certainty.VERIFIED)
-        rule.setContent { FrameLabel(certainty.value) }
+        rule.setContent { FrameLabel(strings, certainty.value) }
         listOf(
             Certainty.VERIFIED to "Verified",
             Certainty.LIKELY to "Likely",
@@ -50,7 +57,7 @@ class FrameLabelTest {
 
     @Test fun physicalModeDisplaysExpectedBadgeWithDashedBorderAndSuppressedCertainty() {
         val syncState = mutableStateOf(SyncState.PHYSICAL_PREDICTED)
-        rule.setContent { FrameLabel(Certainty.VERIFIED, syncState.value) }
+        rule.setContent { FrameLabel(strings, Certainty.VERIFIED, syncState.value) }
 
         rule.onNodeWithTag("stage:frame").assertTextEquals("EXPECTED")
         var config = rule.onNodeWithTag("stage:frame").fetchSemanticsNode().config
@@ -68,7 +75,7 @@ class FrameLabelTest {
 
     @Test fun modeSwitchTransitionsFrameLabelBetweenVirtualAndExpected() {
         val syncState = mutableStateOf(SyncState.VIRTUAL)
-        rule.setContent { FrameLabel(Certainty.VERIFIED, syncState.value) }
+        rule.setContent { FrameLabel(strings, Certainty.VERIFIED, syncState.value) }
 
         rule.onNodeWithTag("stage:frame").assertTextEquals("VIRTUAL")
         var config = rule.onNodeWithTag("stage:frame").fetchSemanticsNode().config
@@ -110,7 +117,7 @@ class FrameLabelTest {
         lateinit var host: View
         rule.setContent {
             host = LocalView.current
-            FrameLabel(certainty.value)
+            FrameLabel(strings, certainty.value)
         }
         rule.mainClock.advanceTimeBy(1_000)
         rule.waitForIdle()

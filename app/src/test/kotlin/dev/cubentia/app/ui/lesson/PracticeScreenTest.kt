@@ -4,7 +4,9 @@ import android.app.Application
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onChildAt
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -15,6 +17,7 @@ import dev.cubentia.app.session.TickingClock
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.application.port.RandomSource
 import dev.cubentia.application.session.SessionKind
+import dev.cubentia.application.session.SyncState
 import dev.cubentia.application.usecase.StagePractice
 import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
@@ -51,6 +54,35 @@ class PracticeScreenTest {
 
     private val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
     private val stagePractice = StagePractice(seededRandom)
+
+    @Test
+    fun `independent practice keeps the Physical mode switch and it reaches physical`() {
+        val ready = CatalogState.Ready(bundle)
+        val stage = bundle.stages.first { it.id == StagePractice.STAGE_2_ID }
+        val entry = CatalogEntry(stagePractice.practiceLesson(StagePractice.STAGE_2_ID), stage, bundle.tutorConfig)
+
+        rule.setContent {
+            CubentiaTheme {
+                LessonScreen(
+                    host = host,
+                    entry = entry,
+                    strings = ready.strings,
+                    modes = TeachingMode.entries,
+                    onClose = {},
+                    isPractice = true,
+                )
+            }
+        }
+        rule.waitUntil(5_000) { host.state.value.kind == SessionKind.PRACTICE }
+        rule.waitForIdle()
+
+        rule.onNodeWithTag("lesson:physicalMode").onChildAt(0).assertTextEquals("Physical mode")
+        rule.onNodeWithTag("lesson:physicalModeSwitch").assertExists().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.waitForIdle()
+
+        rule.onNodeWithTag("confirmCube:title").assertTextContains("Confirm your cube")
+    }
 
     @Test
     fun `practice screen step card shows only objective with hints on request`() {
