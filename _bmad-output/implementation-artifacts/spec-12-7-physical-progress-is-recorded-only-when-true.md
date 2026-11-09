@@ -5,7 +5,7 @@ created: '2026-11-08'
 status: 'done'
 baseline_revision: 'cf23bbdc317d6b7f01322ba4ade9d97e53558123'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-12-context.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-8-retro-2026-11-08.md'
@@ -138,6 +138,40 @@ deferred:
   - `[low]` `[reject]` Intent: single-write guarantee rests on the flag — as the Blind duplicate row.
   - `[false]` `[reject]` Intent: skip-check *Next* bypasses confirmation — the host excludes `skip-check-` Lessons from the write; Story 12.9 owns the self-report path.
 
+### 2026-11-08 — Review pass
+- verdicts: 30 findings — high 0, medium 4, low 17, false 9, maybe-false 0
+- findings:
+  - `[low]` `[reject]` Blind: a virtual solve then a physical confirmation writes a second `LessonCompleted` — carried: harmless repeat row (`StageProgress` uses any-match; virtual re-solves already append), rare path, and a guard adds complexity.
+  - `[low]` `[reject]` Blind: confirmation is not reflected in the persisted Checkpoint, so a resume re-asks and can write again — carried: harmless repeat row that needs Solve playback or a lost snapshot.
+  - `[low]` `[patch]` Blind: `SessionState.physicalSolveUnconfirmed` KDoc says no milestone can skip the confirmation, but `isMasteryMilestone` does not read it — fixed: the KDoc now names the first-solve milestone; the Mastery behaviour stays deferred.
+  - `[low]` `[reject]` Blind: an unconfirmed solve switched to virtual is a silent dead end on *Next* — real, but "no write" is the matrix's required outcome for that state, the Learner must leave physical mode at the prompt to meet it, and a hint needs a new UI branch and copy.
+  - `[low]` `[reject]` Blind: the instruction write in `send` has no staleness guard — carried: needs a second tap within the dispatch latency, and a counter adds state for that timing.
+  - `[low]` `[reject]` Blind: the repeated-instruction behaviour has no test — real, but only identical consecutive Undos under TalkBack reach it, and frame stepping on the JVM still would not prove an announcement; recorded as a residual risk.
+  - `[false]` `[reject]` Blind: the two booleans allow an impossible state — `reduce` cannot produce both true: an accepted confirm clears unconfirmed, the rule sets unconfirmed only when not confirmed, and `restoreCheckpoint` starts from `start()`, which clears confirmed. Only a hand-corrupted payload could, and two flags are what the intent requires.
+  - `[false]` `[reject]` Blind: upgrade behaviour for sessions already in progress — carried: no installed users yet (epic-12 context).
+  - `[false]` `[reject]` Blind: `physicalSolveConfirmed` survives a later mismatch or editor entry — that is the intent's flag rule (only an unmet Objective clears it); the completion was already written on the Learner's word, no second write follows, and no bad outcome results.
+  - `[false]` `[reject]` Blind: the confirm handlers ignore whether the event was accepted — carried: a repeat confirm is rejected, and closing without a write is honest.
+  - `[low]` `[reject]` Blind: the empty live-region `Text` reserves a blank line — a steady one-line gap is not a defect a Learner meets; collapsing it either removes the node from the semantics tree (its insertion is silent, against AC 2) or makes the stage jump on every Undo.
+  - `[low]` `[reject]` Blind: Redo is a dead control in physical mode — the intent's matrix requires "button disabled", so hiding it would contradict the intent.
+  - `[low]` `[reject]` Edge: duplicate `LessonCompleted` after a virtual solve then physical confirm — carried: as the Blind row above.
+  - `[low]` `[reject]` Edge: confirmed flag lost through a physical Checkpoint causes a repeat write — carried: harmless repeat row that needs Solve playback or a lost snapshot.
+  - `[medium]` `[defer]` Edge: completion write failure or kill after the snapshot — carried: already in `deferred`; same non-atomic, no-retry write as virtual completion.
+  - `[low]` `[reject]` Edge: a second send races the first Undo's instruction — carried: as the Blind row above.
+  - `[medium]` `[defer]` Edge: `isMasteryMilestone` ignores the unconfirmed flag — carried: already in `deferred` with the attempts entry.
+  - `[medium]` `[patch]` Verification: a confirmed solve is not verified to survive a close that unmounts the screen — fixed: `story12_7_ac1_nextRecordsTheSolveWhenClosingUnmountsTheScreen` and `story12_7_ac1_yesConfirmsWhenClosingUnmountsTheScreen` unmount on close over a background-confined host with an in-flight write; the already-completed *Yes* test now asserts the confirmation.
+  - `[low]` `[patch]` Verification: clearing the saved instruction on restore is not observed — fixed: `story12_7_ac2_savedInstructionIsClearedWhenRestoredToConfirmYourCube` restores saved state over a host in `PHYSICAL_AWAITING_CONFIRM`.
+  - `[low]` `[reject]` Verification: the repeated-instruction live-region update is not verified — as the Blind row above; the filed disposition was defer, but the gap is caused by this change, so it does not meet the defer route.
+  - `[low]` `[reject]` Intent: a virtual-recorded solve confirmed in physical writes twice — carried: as the Blind row above.
+  - `[low]` `[reject]` Intent: Checkpoint resume after confirming re-asks and writes again — carried: harmless repeat row that needs Solve playback or a lost snapshot.
+  - `[false]` `[reject]` Intent: the Checkpoint carries a flag the intent's persistence list does not name — JSON-only with a false default, so the "no Room schema change" constraint holds, and without it a Checkpoint resume would skip the confirmation.
+  - `[low]` `[reject]` Intent: the on-screen sequence after a real process death is not exercised end to end — carried: host plus Room with a real reopen covers it, and `initialCompleted` reads the same log the remount tests use.
+  - `[medium]` `[defer]` Intent: Mastery and attempt rows outside the gate — carried: already in `deferred`.
+  - `[false]` `[reject]` Intent: "no Animate" is asserted only at `toItem` — `send` submits `presentation.toItems()` directly and `toItem` has one `Instruct` branch, so no other path can animate it.
+  - `[low]` `[reject]` Intent: the `withFrameNanos` wait has no test — as the Blind row above.
+  - `[false]` `[reject]` Intent: Solve playback's physical Undo has no text surface — carried: playback has no caller in `app/src/main` (Story 3.7), and the spec excludes it.
+  - `[false]` `[reject]` Intent: the flag rule skips ignored events — documented in `TRANSITIONS.md` and pinned by a test; it differs from the other reading only for an inconsistent restored state.
+  - `[false]` `[reject]` Intent: additions the intent does not mention — the instruction state is presentation, not confirmed or unconfirmed state, and neither addition breaches the Never list.
+
 ## Design Notes
 
 The gate covers every physical Lesson, not only the finale: the AC says "gates `completeLesson` in physical sessions", and a non-finale physical Lesson already asks "If your cube matches the picture, this step is done." with *Next* as the Learner's answer, so *Next* is that Lesson's confirmation. This keeps the reducer free of any finale knowledge; only the UI needs the single finale source (copy and milestone).
@@ -176,3 +210,19 @@ Blocking condition: none
 **Verification:** `./gradlew spotlessApply`, then `./gradlew spotlessCheck build`: BUILD SUCCESSFUL after the patches (lint, JVM tests, Kover, gates). `grep '"lesson-06-03"' app/src/main`: one match. `grep 'pendingPhysicalSolve|physicalFirstSolveConfirmed' app/src/main`: no match. Matrix audit: every row has a covering test that ran with 0 failures and 0 skipped (JUnit XML before the patches; the full build re-ran them after).
 
 **Residual risks:** Nothing ran on a device or emulator. A virtual-recorded Lesson confirmed in physical mode appends a harmless repeat `LessonCompleted`. *Next* in `PHYSICAL_AWAITING_CONFIRM` or `PHYSICAL_MISMATCH` closes without a write and without telling the Learner. Deferred items above.
+
+### Follow-up review pass (2026-11-08)
+
+**Summary:** A fresh four-layer review of the change (all layers on Claude, because the Codex marker file was absent) found no defect in the production behaviour. It produced one comment correction and two test gaps, now closed.
+
+**Files changed:**
+- `core/application/.../session/SessionState.kt` -- `physicalSolveUnconfirmed` KDoc now names the first-solve milestone.
+- `app/src/test/.../ui/lesson/PhysicalLessonScreenTest.kt` -- three new tests (*Next* and *Yes* when closing unmounts the screen; saved instruction cleared on restore to `PHYSICAL_AWAITING_CONFIRM`), a confirmation assertion on the already-completed *Yes* test, and a shared `physicalSnapshot()` helper.
+
+**Review:** 30 findings: high 0, medium 4, low 17, false 9. Patches applied: 1 medium (unmount on close untested) and 2 low (KDoc, restore clear untested). Deferred: no new items; the 2 carried medium findings are already in `deferred`. Rejected: every `false` row and every remaining `low` row, each with its reason in the Review Triage Log.
+
+**Follow-up review recommended:** false (follow-up pass; patched: high 0, medium 1, low 2).
+
+**Verification:** `./gradlew spotlessApply`, then `./gradlew spotlessCheck build`: the first run failed in `Cube3DEmphasisTest` ("arrow draws in on frame clock...", expected `U2` progress 0.0, got `R` progress 1.0); that test and its code are outside this story's diff, and it passed 3 of 3 isolated reruns; the second full run was BUILD SUCCESSFUL (`:app` JUnit XML: 390 tests, 0 failures, 0 errors, 0 skipped). `grep '"lesson-06-03"' app/src/main`: one match. `grep 'pendingPhysicalSolve|physicalFirstSolveConfirmed' app/src/main`: no match. Mutation check, reverted afterwards: closing before the dispatch fails the *Next* unmount test, and deleting the `PHYSICAL_AWAITING_CONFIRM` clear fails the restore test.
+
+**Residual risks:** `Cube3DEmphasisTest` failed once under a full build and may be timing-sensitive, so CI could hit it; its cause was not investigated. The one-frame wait still has no test and TalkBack has not been run: if Compose samples semantics changes less often than once per frame, the cleared value could be missed and a repeated identical instruction would stay silent (from memory of Compose internals, not checked here). The *Yes* unmount test asserts the confirmed flag, which is set before the write, so it would not catch a close-before-dispatch change on that branch; only the *Next* test does. Nothing ran on a device or emulator. Deferred items above.

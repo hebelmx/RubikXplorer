@@ -150,7 +150,7 @@ data class SessionState internal constructor(
     val physicalSolveConfirmed: Boolean = false,
     /**
      * True while the Objective was met in physical mode and the Learner has not confirmed it, kept
-     * across a switch to virtual mode, so no milestone can skip the confirmation. Never advances [revision].
+     * across a switch to virtual mode, so the first-solve milestone cannot skip the confirmation. Never advances [revision].
      */
     val physicalSolveUnconfirmed: Boolean = false,
 ) {

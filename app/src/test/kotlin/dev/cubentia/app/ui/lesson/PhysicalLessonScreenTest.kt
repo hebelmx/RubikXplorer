@@ -12,6 +12,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -47,7 +48,9 @@ import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.tutor.Certainty
 import dev.cubentia.domain.tutor.ProgressEvent
 import dev.cubentia.domain.tutor.TeachingMode
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -798,36 +801,11 @@ class PhysicalLessonScreenTest {
 
     @Test
     fun story8_4_ac2_physicalSnapshotRestored_landsInAwaitingConfirm_clearsObserved_andShowsConfirmCard() {
-        val snapshot =
-            SessionSnapshot(
-                kind = SessionKind.LESSON,
-                sessionId = "test-session",
-                revision = 1L,
-                lessonId = lessonEntry.lesson.id.value,
-                contentRevision = bundle.contentRevision,
-                start = lessonEntry.lesson.entryState,
-                done = "",
-                undone = "",
-                solution = "",
-                checkpoint = null,
-                teachingMode = TeachingMode.GUIDE_ME,
-                adaptiveAssistance = false,
-                hintsUsed = 0,
-                hintRung = dev.cubentia.domain.tutor.HintRung.NONE,
-                revealRequested = false,
-                noticeStep = null,
-                stepMistakes = emptyMap(),
-                cleanSteps = 0,
-                cleanCredited = emptySet(),
-                stepHelped = emptySet(),
-                assistanceDismissed = emptyMap(),
-                mode = CubeMode.PHYSICAL,
-            )
         val host = SessionHost(TickingClock())
         runBlocking {
             host.dispatch {
                 SessionEvent.SessionRestored(
-                    snapshot = snapshot,
+                    snapshot = physicalSnapshot(),
                     lesson = lessonEntry.lesson,
                     tutorConfig = bundle.tutorConfig,
                     at = it,
@@ -868,12 +846,44 @@ class PhysicalLessonScreenTest {
     }
 
     /** A host recording completions in memory; [written] holds what it appended. */
-    private fun recordingHost(written: MutableList<ProgressEvent>): SessionHost {
+    private fun physicalSnapshot(): SessionSnapshot =
+        SessionSnapshot(
+            kind = SessionKind.LESSON,
+            sessionId = "test-session",
+            revision = 1L,
+            lessonId = lessonEntry.lesson.id.value,
+            contentRevision = bundle.contentRevision,
+            start = lessonEntry.lesson.entryState,
+            done = "",
+            undone = "",
+            solution = "",
+            checkpoint = null,
+            teachingMode = TeachingMode.GUIDE_ME,
+            adaptiveAssistance = false,
+            hintsUsed = 0,
+            hintRung = dev.cubentia.domain.tutor.HintRung.NONE,
+            revealRequested = false,
+            noticeStep = null,
+            stepMistakes = emptyMap(),
+            cleanSteps = 0,
+            cleanCredited = emptySet(),
+            stepHelped = emptySet(),
+            assistanceDismissed = emptyMap(),
+            mode = CubeMode.PHYSICAL,
+        )
+
+    /** [writeDelayMillis] and a background [confined] keep a write in flight long enough for a close to cancel it. */
+    private fun recordingHost(
+        written: MutableList<ProgressEvent>,
+        confined: CoroutineDispatcher = Dispatchers.Main.immediate,
+        writeDelayMillis: Long = 0,
+    ): SessionHost {
         val repository =
             object : ProgressRepository {
                 override suspend fun all(): ProgressLoad = ProgressLoad.Found(written.toList())
 
                 override suspend fun append(records: List<ProgressRecord>): ProgressSave {
+                    delay(writeDelayMillis)
                     written += records.map { it.event }
                     return ProgressSave.Saved
                 }
@@ -881,7 +891,7 @@ class PhysicalLessonScreenTest {
         val host =
             SessionHost(
                 clock = TickingClock(),
-                confined = Dispatchers.Main.immediate,
+                confined = confined,
                 progress = repository,
                 completeLesson = CompleteLesson(repository),
             )
@@ -933,7 +943,83 @@ class PhysicalLessonScreenTest {
         rule.waitForIdle()
 
         assertEquals(1, closed)
+        assertTrue(host.state.value.physicalSolveConfirmed)
         node("milestone:overlay").assertDoesNotExist()
+    }
+
+    @Test
+    fun story12_7_ac1_nextRecordsTheSolveWhenClosingUnmountsTheScreen() {
+        val written = mutableListOf<ProgressEvent>()
+        val host = recordingHost(written, Dispatchers.Default.limitedParallelism(1), writeDelayMillis = 200)
+        var shown by mutableStateOf(true)
+        setLessonContent(host, lessonEntry, onClose = { shown = false }, shown = { shown })
+        physicalLessonObjectiveMet(host)
+
+        node("lesson:next").performScrollTo().performClick()
+        rule.waitUntil(5_000) { !shown }
+        rule.waitForIdle()
+
+        assertTrue(host.state.value.physicalSolveConfirmed)
+        assertEquals(1, written.count { it is ProgressEvent.LessonCompleted })
+    }
+
+    @Test
+    fun story12_7_ac1_yesConfirmsWhenClosingUnmountsTheScreen() {
+        val written = mutableListOf<ProgressEvent>(ProgressEvent.LessonCompleted(LessonId("lesson-06-03")))
+        val host = recordingHost(written, Dispatchers.Default.limitedParallelism(1), writeDelayMillis = 200)
+        var shown by mutableStateOf(true)
+        meetStage6ObjectiveInPhysicalMode(host = host, shown = { shown }, onClose = { shown = false })
+
+        node("lesson:yesItsSolved").performScrollTo().performClick()
+        rule.waitUntil(5_000) { !shown }
+        rule.waitForIdle()
+
+        assertTrue(host.state.value.physicalSolveConfirmed)
+    }
+
+    @Test
+    fun story12_7_ac2_savedInstructionIsClearedWhenRestoredToConfirmYourCube() {
+        var host = SessionHost(TickingClock())
+        val restoration = StateRestorationTester(rule)
+        restoration.setContent {
+            CubentiaTheme {
+                LessonScreen(
+                    host = host,
+                    entry = lessonEntry,
+                    strings = ready.strings,
+                    modes = TeachingMode.entries,
+                    onClose = {},
+                    cameraScan = FlagLevel.OFF,
+                )
+            }
+        }
+        rule.waitForIdle()
+        rule.waitUntil(5_000) { host.state.value.isActive }
+        physicalLessonObjectiveMet(host)
+        node("toolbar:undo").performClick()
+        rule.waitUntil(5_000) { !host.state.value.objectiveMet }
+        rule.waitForIdle()
+        node("lesson:physicalInstruction").assertTextEquals("Turn U' on your cube to undo.")
+
+        // Process death: the saved instruction comes back over a host restored from its snapshot.
+        host =
+            SessionHost(TickingClock()).also { restored ->
+                runBlocking {
+                    restored.dispatch {
+                        SessionEvent.SessionRestored(
+                            snapshot = physicalSnapshot(),
+                            lesson = lessonEntry.lesson,
+                            tutorConfig = bundle.tutorConfig,
+                            at = it,
+                        )
+                    }
+                }
+            }
+        restoration.emulateSavedInstanceStateRestore()
+        rule.waitForIdle()
+
+        assertEquals(SyncState.PHYSICAL_AWAITING_CONFIRM, host.state.value.syncState)
+        node("lesson:physicalInstruction").assertTextEquals("")
     }
 
     @Test
