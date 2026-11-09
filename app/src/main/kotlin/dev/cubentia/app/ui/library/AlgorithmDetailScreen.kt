@@ -20,7 +20,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -56,6 +60,28 @@ private val MinLandscapePaneWidth = 320.dp
 
 /** Test-only marker of the strip's current Move; the merged card would otherwise misreport a `selected` state. */
 internal val CurrentMoveKey = SemanticsPropertyKey<Boolean>("CurrentMove")
+
+/**
+ * The Learner's latest choice on one open detail screen, so a tap made while writes are queued is judged against it.
+ * Once the latest write fails, the persisted status shows again.
+ */
+internal class RequestedAlgorithmStatus {
+    private var latest by mutableStateOf<AlgorithmStatus?>(null)
+    private var queued by mutableIntStateOf(0)
+
+    fun shown(persisted: AlgorithmStatus): AlgorithmStatus = latest ?: persisted
+
+    fun request(status: AlgorithmStatus) {
+        latest = status
+        queued++
+    }
+
+    /** The writer is FIFO, so the write that empties the queue is the latest one. */
+    fun settled(written: Boolean) {
+        queued--
+        if (!written && queued == 0) latest = null
+    }
+}
 
 /** A Library Demonstration is ephemeral and never enters the Learner's session. */
 @Composable

@@ -50,6 +50,7 @@ import dev.cubentia.app.ui.lesson.LessonScreen
 import dev.cubentia.app.ui.library.AlgorithmDetailScreen
 import dev.cubentia.app.ui.library.LibraryFilterSaver
 import dev.cubentia.app.ui.library.LibraryScreen
+import dev.cubentia.app.ui.library.RequestedAlgorithmStatus
 import dev.cubentia.app.ui.settings.SettingsScreen
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.welcome.WelcomeScreen
@@ -366,6 +367,7 @@ private fun ShellContent(
                 val algorithm = ready?.bundle?.algorithms?.firstOrNull { it.id.value == openAlgorithm }
                 val case = ready?.bundle?.cases?.firstOrNull { it.id == algorithm?.caseId }
                 if (algorithm != null && case != null && ready != null) {
+                    val requestedStatus = remember(algorithm.id) { RequestedAlgorithmStatus() }
                     AlgorithmDetailScreen(
                         case,
                         algorithm,
@@ -374,8 +376,14 @@ private fun ShellContent(
                             openAlgorithm = null
                         },
                         destinationModifier.background(RubikTheme.tokens.surfaceBase).safeDrawingPadding(),
-                        status = algorithmStatuses[algorithm.id] ?: dev.cubentia.domain.content.AlgorithmStatus.NOT_STARTED,
-                        onSetStatus = { scope.launch { host.setAlgorithmStatus(algorithm.id, it) } },
+                        status =
+                            requestedStatus.shown(
+                                algorithmStatuses[algorithm.id] ?: dev.cubentia.domain.content.AlgorithmStatus.NOT_STARTED,
+                            ),
+                        onSetStatus = { status ->
+                            requestedStatus.request(status)
+                            scope.launch { requestedStatus.settled(host.setAlgorithmStatus(algorithm.id, status)) }
+                        },
                     )
                 } else {
                     LibraryScreen(
