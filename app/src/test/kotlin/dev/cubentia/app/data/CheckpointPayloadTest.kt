@@ -49,6 +49,7 @@ class CheckpointPayloadTest {
                 "teachingMode",
                 "adaptiveAssistance",
                 "savedAt",
+                "physicalSolveUnconfirmed",
             ),
             Json.parseToJsonElement(encoded).jsonObject.keys,
         )
@@ -56,6 +57,15 @@ class CheckpointPayloadTest {
             val resource = checkNotNull(javaClass.getResource("/checkpoint/format-$format.json"))
             assertEquals(expected, CheckpointPayload.decode(resource.readText()))
         }
+    }
+
+    @Test fun physicalSolveUnconfirmedRoundTripsAndDefaultsFalseInLegacyPayloads() {
+        val unconfirmed = checkpointFixture().copy(physicalSolveUnconfirmed = true)
+        val encoded = CheckpointPayload.encode(unconfirmed)
+        assertEquals(unconfirmed, CheckpointPayload.decode(encoded))
+
+        val legacy = encoded.replace(Regex(",?\"physicalSolveUnconfirmed\":true"), "")
+        assertEquals(checkpointFixture(), CheckpointPayload.decode(legacy))
     }
 
     @Test fun unknownAndBrokenPayloadsFail() {

@@ -324,6 +324,48 @@ class SessionHostCheckpointTest {
             }
         }
 
+    @Test fun modeSwitchPersistsPhysicalCheckpointWithoutMovingTheBoundary() =
+        runBlocking {
+            val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+            val lesson =
+                bundle.stages
+                    .first()
+                    .lessons
+                    .first()
+            val context = RuntimeEnvironment.getApplication()
+            val db = Room.inMemoryDatabaseBuilder<RubikDatabase>(context).setDriver(AndroidSQLiteDriver()).build()
+            val writer = SerialWriter()
+            try {
+                val host =
+                    SessionHost(
+                        TickingClock(),
+                        Dispatchers.Default.limitedParallelism(1),
+                        RoomSessionSnapshotRepository(db),
+                        writer,
+                        checkpoints = RoomCheckpointRepository(db),
+                    )
+                host.restore(bundle)
+                host.dispatch { SessionEvent.LessonStarted(lesson, bundle.tutorConfig, it) }
+                val boundary = host.state.value.checkpoint!!
+                host.dispatch { SessionEvent.ModeSwitched(CubeMode.PHYSICAL, it) }
+                assertEquals(boundary, host.state.value.checkpoint)
+                writer.flush()
+                assertEquals(CubeMode.PHYSICAL, CheckpointPayload.decode(db.checkpoints().find("LESSON")!!.payload).mode)
+
+                // No Objective boundary between the switch and the Solve: the stored mode alone resumes physical.
+                host.dispatch { SessionEvent.SolvePlaybackStarted(CubeState.SOLVED, emptyList(), it) }
+                host.endSolve(bundle)
+
+                val resumed = host.state.value
+                assertEquals(SessionKind.LESSON, resumed.kind)
+                assertEquals(SyncState.PHYSICAL_AWAITING_CONFIRM, resumed.syncState)
+                assertEquals(boundary.state, resumed.expected)
+            } finally {
+                writer.close()
+                db.close()
+            }
+        }
+
     @Test fun restorePhysicalSnapshotAfterProcessDeath() =
         runBlocking {
             val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle

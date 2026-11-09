@@ -1,6 +1,9 @@
 package dev.cubentia.app.ui.lesson
 
 import android.app.Application
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -9,7 +12,9 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -20,15 +25,21 @@ import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.TickingClock
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.application.port.FlagLevel
+import dev.cubentia.application.port.ProgressLoad
+import dev.cubentia.application.port.ProgressRecord
+import dev.cubentia.application.port.ProgressRepository
+import dev.cubentia.application.port.ProgressSave
 import dev.cubentia.application.session.Checkpoint
 import dev.cubentia.application.session.CubeMode
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionKind
 import dev.cubentia.application.session.SessionSnapshot
 import dev.cubentia.application.session.SyncState
+import dev.cubentia.application.usecase.CompleteLesson
 import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
+import dev.cubentia.domain.content.LessonId
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.cube.Notation
@@ -36,7 +47,11 @@ import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.domain.cube.Turn
 import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.tutor.Certainty
+import dev.cubentia.domain.tutor.ProgressEvent
 import dev.cubentia.domain.tutor.TeachingMode
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -75,17 +90,21 @@ class PhysicalLessonScreenTest {
         host: SessionHost,
         entry: CatalogEntry = lessonEntry,
         cameraScan: FlagLevel = FlagLevel.OFF,
+        onClose: () -> Unit = {},
+        shown: () -> Boolean = { true },
     ) {
         rule.setContent {
             CubentiaTheme {
-                LessonScreen(
-                    host = host,
-                    entry = entry,
-                    strings = ready.strings,
-                    modes = TeachingMode.entries,
-                    onClose = {},
-                    cameraScan = cameraScan,
-                )
+                if (shown()) {
+                    LessonScreen(
+                        host = host,
+                        entry = entry,
+                        strings = ready.strings,
+                        modes = TeachingMode.entries,
+                        onClose = onClose,
+                        cameraScan = cameraScan,
+                    )
+                }
             }
         }
         rule.waitForIdle()
@@ -93,10 +112,14 @@ class PhysicalLessonScreenTest {
     }
 
     /** Opens `lesson-06-03` in Physical-cube Mode at [cameraScan] and confirms its moves until the Objective is met. */
-    private fun meetStage6ObjectiveInPhysicalMode(cameraScan: FlagLevel = FlagLevel.OFF): SessionHost {
+    private fun meetStage6ObjectiveInPhysicalMode(
+        cameraScan: FlagLevel = FlagLevel.OFF,
+        host: SessionHost = SessionHost(TickingClock()),
+        shown: () -> Boolean = { true },
+        onClose: () -> Unit = {},
+    ): SessionHost {
         val milestoneEntry = ready.lessons.single { it.lesson.id.value == "lesson-06-03" }
-        val host = SessionHost(TickingClock())
-        setLessonContent(host, milestoneEntry, cameraScan)
+        setLessonContent(host, milestoneEntry, cameraScan, onClose = onClose, shown = shown)
 
         node("lesson:physicalModeSwitch").performClick()
         rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
@@ -411,6 +434,8 @@ class PhysicalLessonScreenTest {
 
         // Tapping "Yes, it's solved" triggers the celebratory first-solve milestone
         node("lesson:yesItsSolved").performScrollTo().performClick()
+        // The confirmation goes through SessionHost off the main thread, which waitForIdle does not track.
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("milestone:overlay").fetchSemanticsNodes().isNotEmpty() }
         rule.waitForIdle()
 
         node("milestone:overlay").assertExists()
@@ -779,36 +804,11 @@ class PhysicalLessonScreenTest {
 
     @Test
     fun story8_4_ac2_physicalSnapshotRestored_landsInAwaitingConfirm_clearsObserved_andShowsConfirmCard() {
-        val snapshot =
-            SessionSnapshot(
-                kind = SessionKind.LESSON,
-                sessionId = "test-session",
-                revision = 1L,
-                lessonId = lessonEntry.lesson.id.value,
-                contentRevision = bundle.contentRevision,
-                start = lessonEntry.lesson.entryState,
-                done = "",
-                undone = "",
-                solution = "",
-                checkpoint = null,
-                teachingMode = TeachingMode.GUIDE_ME,
-                adaptiveAssistance = false,
-                hintsUsed = 0,
-                hintRung = dev.cubentia.domain.tutor.HintRung.NONE,
-                revealRequested = false,
-                noticeStep = null,
-                stepMistakes = emptyMap(),
-                cleanSteps = 0,
-                cleanCredited = emptySet(),
-                stepHelped = emptySet(),
-                assistanceDismissed = emptyMap(),
-                mode = CubeMode.PHYSICAL,
-            )
         val host = SessionHost(TickingClock())
         runBlocking {
             host.dispatch {
                 SessionEvent.SessionRestored(
-                    snapshot = snapshot,
+                    snapshot = physicalSnapshot(),
                     lesson = lessonEntry.lesson,
                     tutorConfig = bundle.tutorConfig,
                     at = it,
@@ -846,5 +846,312 @@ class PhysicalLessonScreenTest {
         node("lesson:yesItsSolved").assertExists()
         node("lesson:didSomethingElse").assertExists()
         node("milestone:overlay").assertDoesNotExist()
+    }
+
+    /** A host recording completions in memory; [written] holds what it appended. */
+    private fun physicalSnapshot(): SessionSnapshot =
+        SessionSnapshot(
+            kind = SessionKind.LESSON,
+            sessionId = "test-session",
+            revision = 1L,
+            lessonId = lessonEntry.lesson.id.value,
+            contentRevision = bundle.contentRevision,
+            start = lessonEntry.lesson.entryState,
+            done = "",
+            undone = "",
+            solution = "",
+            checkpoint = null,
+            teachingMode = TeachingMode.GUIDE_ME,
+            adaptiveAssistance = false,
+            hintsUsed = 0,
+            hintRung = dev.cubentia.domain.tutor.HintRung.NONE,
+            revealRequested = false,
+            noticeStep = null,
+            stepMistakes = emptyMap(),
+            cleanSteps = 0,
+            cleanCredited = emptySet(),
+            stepHelped = emptySet(),
+            assistanceDismissed = emptyMap(),
+            mode = CubeMode.PHYSICAL,
+        )
+
+    /** [writeDelayMillis] and a background [confined] keep a write in flight long enough for a close to cancel it. */
+    private fun recordingHost(
+        written: MutableList<ProgressEvent>,
+        confined: CoroutineDispatcher = Dispatchers.Main.immediate,
+        writeDelayMillis: Long = 0,
+    ): SessionHost {
+        val repository =
+            object : ProgressRepository {
+                override suspend fun all(): ProgressLoad = ProgressLoad.Found(written.toList())
+
+                override suspend fun append(records: List<ProgressRecord>): ProgressSave {
+                    delay(writeDelayMillis)
+                    written += records.map { it.event }
+                    return ProgressSave.Saved
+                }
+            }
+        val host =
+            SessionHost(
+                clock = TickingClock(),
+                confined = confined,
+                progress = repository,
+                completeLesson = CompleteLesson(repository),
+            )
+        runBlocking { host.restore(bundle) }
+        return host
+    }
+
+    private fun physicalLessonObjectiveMet(host: SessionHost) {
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.waitForIdle()
+        node("confirmCube:matches").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+        node("lesson:done").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.objectiveMet }
+        rule.waitForIdle()
+    }
+
+    @Test
+    fun story12_7_ac1_stage6IsRecordedAndCelebratedOnlyAfterYesItsSolved() {
+        val written = mutableListOf<ProgressEvent>()
+        val host = recordingHost(written)
+        var closed = 0
+        meetStage6ObjectiveInPhysicalMode(host = host, onClose = { closed++ })
+
+        assertTrue(host.state.value.physicalSolveUnconfirmed)
+        assertTrue(written.none { it is ProgressEvent.LessonCompleted })
+        node("milestone:overlay").assertDoesNotExist()
+
+        node("lesson:yesItsSolved").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.physicalSolveConfirmed }
+        rule.waitForIdle()
+
+        assertEquals(1, written.count { it is ProgressEvent.LessonCompleted })
+        node("milestone:overlay").assertExists()
+        assertEquals(0, closed)
+    }
+
+    @Test
+    fun story12_7_ac1_yesOnAnAlreadyCompletedFinaleClosesOnce() {
+        val written = mutableListOf<ProgressEvent>(ProgressEvent.LessonCompleted(LessonId("lesson-06-03")))
+        val host = recordingHost(written)
+        var closed = 0
+        meetStage6ObjectiveInPhysicalMode(host = host, onClose = { closed++ })
+
+        node("lesson:yesItsSolved").performScrollTo().performClick()
+        rule.waitUntil(5_000) { closed > 0 }
+        rule.waitForIdle()
+
+        assertEquals(1, closed)
+        assertTrue(host.state.value.physicalSolveConfirmed)
+        node("milestone:overlay").assertDoesNotExist()
+    }
+
+    @Test
+    fun story12_7_ac1_nextRecordsTheSolveWhenClosingUnmountsTheScreen() {
+        val written = mutableListOf<ProgressEvent>()
+        val host = recordingHost(written, Dispatchers.Default.limitedParallelism(1), writeDelayMillis = 200)
+        var shown by mutableStateOf(true)
+        setLessonContent(host, lessonEntry, onClose = { shown = false }, shown = { shown })
+        physicalLessonObjectiveMet(host)
+
+        node("lesson:next").performScrollTo().performClick()
+        rule.waitUntil(5_000) { !shown }
+        rule.waitForIdle()
+
+        assertTrue(host.state.value.physicalSolveConfirmed)
+        assertEquals(1, written.count { it is ProgressEvent.LessonCompleted })
+    }
+
+    @Test
+    fun story12_7_ac1_yesConfirmsWhenClosingUnmountsTheScreen() {
+        val written = mutableListOf<ProgressEvent>(ProgressEvent.LessonCompleted(LessonId("lesson-06-03")))
+        val host = recordingHost(written, Dispatchers.Default.limitedParallelism(1), writeDelayMillis = 200)
+        var shown by mutableStateOf(true)
+        meetStage6ObjectiveInPhysicalMode(host = host, shown = { shown }, onClose = { shown = false })
+
+        node("lesson:yesItsSolved").performScrollTo().performClick()
+        rule.waitUntil(5_000) { !shown }
+        rule.waitForIdle()
+
+        assertTrue(host.state.value.physicalSolveConfirmed)
+    }
+
+    @Test
+    fun story12_7_ac2_savedInstructionIsClearedWhenRestoredToConfirmYourCube() {
+        var host = SessionHost(TickingClock())
+        val restoration = StateRestorationTester(rule)
+        restoration.setContent {
+            CubentiaTheme {
+                LessonScreen(
+                    host = host,
+                    entry = lessonEntry,
+                    strings = ready.strings,
+                    modes = TeachingMode.entries,
+                    onClose = {},
+                    cameraScan = FlagLevel.OFF,
+                )
+            }
+        }
+        rule.waitForIdle()
+        rule.waitUntil(5_000) { host.state.value.isActive }
+        physicalLessonObjectiveMet(host)
+        node("toolbar:undo").performClick()
+        rule.waitUntil(5_000) { !host.state.value.objectiveMet }
+        rule.waitForIdle()
+        node("lesson:physicalInstruction").assertTextEquals("Turn U' on your cube to undo.")
+
+        // Process death: the saved instruction comes back over a host restored from its snapshot.
+        host =
+            SessionHost(TickingClock()).also { restored ->
+                runBlocking {
+                    restored.dispatch {
+                        SessionEvent.SessionRestored(
+                            snapshot = physicalSnapshot(),
+                            lesson = lessonEntry.lesson,
+                            tutorConfig = bundle.tutorConfig,
+                            at = it,
+                        )
+                    }
+                }
+            }
+        restoration.emulateSavedInstanceStateRestore()
+        rule.waitForIdle()
+
+        assertEquals(SyncState.PHYSICAL_AWAITING_CONFIRM, host.state.value.syncState)
+        node("lesson:physicalInstruction").assertTextEquals("")
+    }
+
+    @Test
+    fun story12_7_ac1_reopeningBeforeConfirmingStillAsksAndRecordsOnce() {
+        val written = mutableListOf<ProgressEvent>()
+        val host = recordingHost(written)
+        var shown by mutableStateOf(true)
+        var closed = 0
+        meetStage6ObjectiveInPhysicalMode(host = host, shown = { shown }, onClose = { closed++ })
+
+        shown = false
+        rule.waitForIdle()
+        shown = true
+        rule.waitForIdle()
+
+        assertTrue(written.none { it is ProgressEvent.LessonCompleted })
+        node("lesson:yesItsSolved").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.physicalSolveConfirmed }
+        rule.waitForIdle()
+
+        assertEquals(1, written.count { it is ProgressEvent.LessonCompleted })
+        node("milestone:overlay").assertExists()
+        assertEquals(0, closed)
+    }
+
+    @Test
+    fun story12_7_ac1_reopeningAfterConfirmingWritesNothingFurther() {
+        val written = mutableListOf<ProgressEvent>()
+        val host = recordingHost(written)
+        var shown by mutableStateOf(true)
+        meetStage6ObjectiveInPhysicalMode(host = host, shown = { shown })
+        node("lesson:yesItsSolved").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.physicalSolveConfirmed }
+        rule.waitForIdle()
+        assertEquals(1, written.count { it is ProgressEvent.LessonCompleted })
+
+        shown = false
+        rule.waitForIdle()
+        shown = true
+        rule.waitForIdle()
+
+        assertTrue(host.state.value.physicalSolveConfirmed)
+        assertEquals(1, written.count { it is ProgressEvent.LessonCompleted })
+        node("milestone:overlay").assertDoesNotExist()
+    }
+
+    @Test
+    fun story12_7_ac2_instructionIsEmptyAfterLeavingAndReturningToPhysicalMode() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host, lessonEntry)
+        physicalLessonObjectiveMet(host)
+        node("toolbar:undo").performClick()
+        rule.waitUntil(5_000) { !host.state.value.objectiveMet }
+        rule.waitForIdle()
+        node("lesson:physicalInstruction").assertTextEquals("Turn U' on your cube to undo.")
+
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.VIRTUAL }
+        rule.waitForIdle()
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.waitForIdle()
+
+        node("lesson:physicalInstruction").assertTextEquals("")
+    }
+
+    @Test
+    fun story12_7_ac1_reopenedLessonKeepsTheSolveUnconfirmedInVirtualMode() {
+        val written = mutableListOf<ProgressEvent>()
+        val host = recordingHost(written)
+        var shown by mutableStateOf(true)
+        meetStage6ObjectiveInPhysicalMode(host = host, shown = { shown })
+
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.VIRTUAL }
+        rule.waitForIdle()
+        node("milestone:overlay").assertDoesNotExist()
+
+        shown = false
+        rule.waitForIdle()
+        shown = true
+        rule.waitForIdle()
+
+        assertTrue(host.state.value.physicalSolveUnconfirmed)
+        node("milestone:overlay").assertDoesNotExist()
+        assertTrue(written.none { it is ProgressEvent.LessonCompleted })
+    }
+
+    @Test
+    fun story12_7_ac1_nextOnOtherLessonsConfirmsThenCloses() {
+        val written = mutableListOf<ProgressEvent>()
+        val host = recordingHost(written)
+        var closed = 0
+        setLessonContent(host, lessonEntry, onClose = { closed++ })
+        physicalLessonObjectiveMet(host)
+
+        assertTrue(written.none { it is ProgressEvent.LessonCompleted })
+        assertEquals(0, closed)
+
+        node("lesson:next").performScrollTo().performClick()
+        rule.waitUntil(5_000) { closed == 1 }
+
+        assertTrue(host.state.value.physicalSolveConfirmed)
+        assertEquals(1, written.count { it is ProgressEvent.LessonCompleted })
+    }
+
+    @Test
+    fun story12_7_ac2_undoShowsThePoliteInstruction_andRedoStaysDisabled() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host, lessonEntry)
+        physicalLessonObjectiveMet(host)
+
+        node("lesson:physicalInstruction").assertTextEquals("")
+        node("toolbar:undo").assertIsEnabled().performClick()
+        rule.waitUntil(5_000) { !host.state.value.objectiveMet }
+        rule.waitForIdle()
+
+        node("lesson:physicalInstruction").assertTextEquals("Turn U' on your cube to undo.")
+        assertEquals(
+            LiveRegionMode.Polite,
+            node("lesson:physicalInstruction").fetchSemanticsNode().config[SemanticsProperties.LiveRegion],
+        )
+        assertTrue(host.state.value.history.canRedo)
+        node("toolbar:redo").assertIsNotEnabled()
+
+        // The next action takes the instruction away.
+        node("lesson:done").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.objectiveMet }
+        rule.waitForIdle()
+        node("lesson:physicalInstruction").assertTextEquals("")
     }
 }

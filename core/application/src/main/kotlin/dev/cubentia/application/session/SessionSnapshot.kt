@@ -34,6 +34,8 @@ data class SessionSnapshot(
     val stepHelped: Set<Int>,
     val assistanceDismissed: Map<Int, AssistanceLevel>,
     val mode: CubeMode = CubeMode.VIRTUAL,
+    val physicalSolveConfirmed: Boolean = false,
+    val physicalSolveUnconfirmed: Boolean = false,
 ) {
     companion object {
         fun of(
@@ -69,6 +71,8 @@ data class SessionSnapshot(
                 stepHelped = state.stepHelped,
                 assistanceDismissed = state.assistanceDismissed,
                 mode = state.mode,
+                physicalSolveConfirmed = state.physicalSolveConfirmed,
+                physicalSolveUnconfirmed = state.physicalSolveUnconfirmed,
             )
         }
     }

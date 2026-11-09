@@ -205,6 +205,17 @@ sealed interface SessionEvent {
         override val at: Instant,
     ) : SessionEvent
 
+    /**
+     * The Learner said the Objective is met on their real cube (*Yes, it's solved*, or *Next* with the
+     * Objective met): the only event that records a physical session's completion. Applies in a Lesson
+     * or Practice session in `PHYSICAL_PREDICTED` or `PHYSICAL_VERIFIED` with the Objective met and not
+     * yet confirmed; otherwise nothing changes. Never changes the revision, history, `expected` or the
+     * Checkpoint.
+     */
+    data class PhysicalSolveConfirmed(
+        override val at: Instant,
+    ) : SessionEvent
+
     /** The Learner reported a discrepancy between the app's predicted state and their physical cube (AD-3). */
     data class MismatchReported(
         override val at: Instant,

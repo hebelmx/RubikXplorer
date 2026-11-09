@@ -264,6 +264,28 @@ class TransitionsTableTest {
                 )
             }
 
+            is SessionEvent.PhysicalSolveConfirmed -> {
+                val physicalAwaiting = crossed.after(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, sample.at))
+                val physicalPredicted = physicalAwaiting.after(SessionEvent.PhysicalConfirmed(null, sample.at))
+                val unmet =
+                    fresh.after(
+                        SessionEvent.ModeSwitched(CubeMode.PHYSICAL, sample.at),
+                        SessionEvent.PhysicalConfirmed(null, sample.at),
+                    )
+                listOf(
+                    SessionState.IDLE,
+                    playback,
+                    fresh,
+                    b,
+                    crossed,
+                    unmet,
+                    physicalAwaiting,
+                    physicalPredicted,
+                    physicalPredicted.after(sample),
+                    physicalPredicted.after(SessionEvent.MismatchReported(sample.at)),
+                ).map { it to sample }
+            }
+
             is SessionEvent.MismatchReported -> {
                 val physicalAwaiting = fresh.after(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, sample.at))
                 val physicalPredicted = physicalAwaiting.after(SessionEvent.PhysicalConfirmed(null, sample.at))
@@ -340,6 +362,7 @@ class TransitionsTableTest {
             SessionEvent.SnapshotLoadFailed(lessonStarted(other).at),
             SessionEvent.ModeSwitched(CubeMode.PHYSICAL, lessonStarted(other).at),
             SessionEvent.PhysicalConfirmed(F, lessonStarted(other).at),
+            SessionEvent.PhysicalSolveConfirmed(lessonStarted(other).at),
             SessionEvent.MismatchReported(lessonStarted(other).at),
             SessionEvent.EditorEntered(CubeState.SOLVED, lessonStarted(other).at),
         ).associateBy { it::class.java.simpleName }
@@ -374,6 +397,8 @@ class TransitionsTableTest {
                     s.cleanCredited,
                     s.stepHelped,
                     s.assistanceDismissed,
+                    s.physicalSolveConfirmed,
+                    s.physicalSolveUnconfirmed,
                 )
             if (tutor(before) != tutor(after)) add("tutor")
             if (before.checkpoint != after.checkpoint) add("checkpoint")
@@ -385,7 +410,7 @@ class TransitionsTableTest {
         assertEquals(names.size, names.toSet().size, "duplicate rows: $names")
         assertEquals(eventTypes, names.toSet())
         assertEquals(eventTypes, samples.keys)
-        assertEquals(29, eventTypes.size)
+        assertEquals(30, eventTypes.size)
     }
 
     @Test

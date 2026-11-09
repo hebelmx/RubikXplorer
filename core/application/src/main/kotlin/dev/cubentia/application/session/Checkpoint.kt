@@ -20,6 +20,7 @@ data class Checkpoint(
     val teachingMode: TeachingMode,
     val adaptiveAssistance: Boolean,
     val savedAt: Long,
+    val physicalSolveUnconfirmed: Boolean = false,
 ) {
     companion object {
         fun of(
@@ -42,6 +43,7 @@ data class Checkpoint(
                 effect.teachingMode,
                 effect.adaptiveAssistance,
                 effect.at.toEpochMilliseconds(),
+                effect.physicalSolveUnconfirmed,
             )
     }
 }
