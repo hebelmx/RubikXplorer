@@ -21,7 +21,7 @@ A Learner who can already solve can browse and watch all 78 verified OLL/PLL Alg
 
 - **Library scope.** 57 OLL + 21 PLL, grouped by family, one primary Algorithm per Case (alternatives are out of scope). For any Algorithm the Learner can watch its Demonstration, see its recognition diagram and Notation, and set its Algorithm Status. Filters cover family and status.
 - **Verification fails the build.** For each Algorithm, the inverse applied to solved must match its own Case and no other, and the Algorithm must then solve the LL up to AUF. A mistyped Algorithm breaks the build.
-- **Content provenance.** Algorithms and Case names come from common knowledge, with no copied diagrams or prose. Sources are recorded in the PRD memlog. The primary Algorithms and the exact 2-look set are decided during authoring.
+- **Content provenance.** Algorithms, OLL numbers and PLL letter names are community common knowledge, written from general knowledge with no copied diagrams or prose. `docs/oll-algorithms.odg` and `docs/pll-algorithms.odg` serve only as a read-only check of Case numbering. Sources are recorded in the PRD memlog. The primary Algorithms and the exact 2-look set are decided during authoring.
 - **2-look set.** About 16 Cases (3 + 7 OLL, 2 + 4 PLL), all drawn from the Library. A Case may be solved by a sequence of Library Algorithms, such as the edge-orientation dot.
 - **Unlock.** The mini-Course unlocks after the Course is completed or passed by a skip-ahead check.
 - **2-look states.** *Completed* means every Lesson predicate has been met. *Mastered* means two hint-free LL solves of fresh Scrambles using only 2-look Algorithms. This rule differs from Stage mastery.
