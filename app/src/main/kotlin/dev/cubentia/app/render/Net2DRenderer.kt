@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -27,11 +28,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.SemanticsPropertyReceiver
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.ui.theme.CubeTokens
 import dev.cubentia.app.ui.theme.Radii
@@ -154,16 +157,18 @@ class Net2DRenderer(
         LaunchedEffect(this) { drain() }
         BoxWithConstraints(modifier = modifier, contentAlignment = Alignment.Center) {
             val cell = min(maxWidth.value / NET_COLUMNS, maxHeight.value / NET_ROWS).dp
-            Box(Modifier.requiredSize(cell * NET_COLUMNS, cell * NET_ROWS).testTag("net")) {
-                for (index in 0 until Facelets.SIZE) {
-                    val (column, row) = netCell(index)
-                    Sticker(
-                        index = index,
-                        style = style,
-                        emphasis = emphasis,
-                        cell = cell,
-                        modifier = Modifier.offset(cell * column, cell * row),
-                    )
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Box(Modifier.requiredSize(cell * NET_COLUMNS, cell * NET_ROWS).testTag("net")) {
+                    for (index in 0 until Facelets.SIZE) {
+                        val (column, row) = netCell(index)
+                        Sticker(
+                            index = index,
+                            style = style,
+                            emphasis = emphasis,
+                            cell = cell,
+                            modifier = Modifier.offset(cell * column, cell * row),
+                        )
+                    }
                 }
             }
         }

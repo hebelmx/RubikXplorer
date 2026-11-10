@@ -5,6 +5,7 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -43,6 +44,8 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.min
 import dev.cubentia.app.R
 import dev.cubentia.app.preferences.LocalHaptics
 import dev.cubentia.app.preferences.LocalPreferenceStore
@@ -93,45 +96,51 @@ fun FreeCubeScreen(
             notice++
         }
     }
-    Column(
+    BoxWithConstraints(
         modifier =
             modifier
                 .fillMaxSize()
                 .background(tokens.surfaceBase)
                 .safeDrawingPadding()
                 .padding(Spacing.s4),
-        verticalArrangement = Arrangement.spacedBy(Spacing.s3),
     ) {
-        CubeStage(
-            viewModel = viewModel,
-            caption = caption,
-            front = front,
-            onMoveIntent = commit,
-            onClearCaption = {
-                caption = null
-                front = null
-            },
-            modifier = Modifier.fillMaxWidth().weight(1f),
-        )
-        // Takes at most half the height left after the stage's share, scrolling when it needs more.
+        // The controls take at most half the height (scrolling when they need more), and never so
+        // much that the stage drops below its minimum, e.g. at 200% font scale (AC2, story 12.1).
+        val controlsMax = min((maxHeight - Spacing.s3) / 2, maxHeight - Spacing.s3 - STAGE_MIN).coerceAtLeast(0.dp)
         Column(
-            modifier = Modifier.fillMaxWidth().weight(1f, fill = false).verticalScroll(rememberScrollState()),
+            modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(Spacing.s3),
         ) {
-            MoveKeyBar(
-                onMove = { commit(MoveIntent(it)) },
-                tickOnCommit = false,
-                onShowName = { caption = it },
-                modifier = Modifier.fillMaxWidth(),
+            CubeStage(
+                viewModel = viewModel,
+                caption = caption,
+                front = front,
+                onMoveIntent = commit,
+                onClearCaption = {
+                    caption = null
+                    front = null
+                },
+                modifier = Modifier.fillMaxWidth().weight(1f).testTag("freeCube:stage"),
             )
-            LabelledSwitch(R.string.free_cube_haptics, "freeCube:haptics", hapticsEnabled, {
-                preferenceStore.update(
-                    Preference
-                        .Haptics(it),
+            Column(
+                modifier = Modifier.fillMaxWidth().heightIn(max = controlsMax).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(Spacing.s3),
+            ) {
+                MoveKeyBar(
+                    onMove = { commit(MoveIntent(it)) },
+                    tickOnCommit = false,
+                    onShowName = { caption = it },
+                    modifier = Modifier.fillMaxWidth(),
                 )
-            })
-            if (showDebugToggles) {
-                DebugToggles(viewModel)
+                LabelledSwitch(R.string.free_cube_haptics, "freeCube:haptics", hapticsEnabled, {
+                    preferenceStore.update(
+                        Preference
+                            .Haptics(it),
+                    )
+                })
+                if (showDebugToggles) {
+                    DebugToggles(viewModel)
+                }
             }
         }
     }
@@ -279,3 +288,6 @@ private fun LabelledSwitch(
 }
 
 internal const val FRONT_NOTICE_MILLIS = 1500L
+
+/** The cube stage's minimum height, matching the Lesson stage (compact stage at least 280dp). */
+private val STAGE_MIN = 280.dp

@@ -106,6 +106,11 @@ class ThemeTokensTest {
                 assertAtLeast(4.5, t.inkSecondary, surface, "$name ink-secondary on ${hex(surface)}")
                 t.statuses.forEach { assertAtLeast(3.0, it, surface, "$name status ${hex(it)} on ${hex(surface)}") }
             }
+            listOf(t.surfaceBase, t.surfaceRaised).forEach { surface ->
+                t.statuses.forEach { status ->
+                    assertAtLeast(4.5, status, surface, "$name status text ${hex(status)} on ${hex(surface)}")
+                }
+            }
             assertAtLeast(4.5, t.onAccent, t.accent, "$name on-accent on accent")
             assertAtLeast(7.0, t.stickerHighlight, t.cubieBody, "$name sticker-highlight on cubie-body")
         }

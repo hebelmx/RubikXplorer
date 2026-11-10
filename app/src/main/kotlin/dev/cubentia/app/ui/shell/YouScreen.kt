@@ -128,6 +128,7 @@ fun YouScreen(
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(Spacing.s2),
+                            modifier = Modifier.weight(1f),
                         ) {
                             Text(
                                 text = stageNumber,

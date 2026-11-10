@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
@@ -20,8 +21,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.SemanticsPropertyReceiver
 import androidx.compose.ui.semantics.contentDescription
@@ -29,6 +32,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.R
 import dev.cubentia.app.preferences.LocalRenderStyle
@@ -92,24 +96,26 @@ fun StickerReviewNet(
     val indices = if (face == null) 0 until Facelets.SIZE else face * CELLS_PER_FACE until (face + 1) * CELLS_PER_FACE
     BoxWithConstraints(modifier = modifier, contentAlignment = Alignment.Center) {
         val cell = min(maxWidth.value / columns, maxHeight.value / rows).dp
-        Box(Modifier.requiredSize(cell * columns, cell * rows).testTag("reviewNet")) {
-            for (index in indices) {
-                val (column, row) =
-                    if (face == null) {
-                        Net2DRenderer.netCell(index)
-                    } else {
-                        (index % CELLS_PER_FACE % FACE_SIDE) to (index % CELLS_PER_FACE / FACE_SIDE)
-                    }
-                ReviewSticker(
-                    color = facelets.colors[index],
-                    index = index,
-                    style = style,
-                    isSelected = index == selected,
-                    isInvalid = index in invalid,
-                    onClick = if (editable(index)) ({ onStickerClick(index) }) else null,
-                    cell = cell,
-                    modifier = Modifier.offset(cell * column, cell * row),
-                )
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            Box(Modifier.requiredSize(cell * columns, cell * rows).testTag("reviewNet")) {
+                for (index in indices) {
+                    val (column, row) =
+                        if (face == null) {
+                            Net2DRenderer.netCell(index)
+                        } else {
+                            (index % CELLS_PER_FACE % FACE_SIDE) to (index % CELLS_PER_FACE / FACE_SIDE)
+                        }
+                    ReviewSticker(
+                        color = facelets.colors[index],
+                        index = index,
+                        style = style,
+                        isSelected = index == selected,
+                        isInvalid = index in invalid,
+                        onClick = if (editable(index)) ({ onStickerClick(index) }) else null,
+                        cell = cell,
+                        modifier = Modifier.offset(cell * column, cell * row),
+                    )
+                }
             }
         }
     }
@@ -142,7 +148,7 @@ private fun ReviewSticker(
         modifier =
             modifier
                 .requiredSize(cell)
-                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+                .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
                 .padding(cell * STICKER_GAP_FRACTION)
                 .background(fill, RoundedCornerShape(Radii.xs))
                 .drawWithContent {
