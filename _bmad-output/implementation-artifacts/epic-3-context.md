@@ -4,7 +4,7 @@
 
 ## Goal
 
-A Learner can enter any physical cube's colors, obtain a verified offline Solution from the clean-room Solver, and follow it through shared playback without taking a course. P0.S requires a representative solve corpus meeting the performance target and verification of every returned Solution. JVM evidence enables independent search development; it does not establish physical-device performance or production table delivery readiness.
+A Learner who just wants a stuck cube solved can enter its colors, get a verified Solution from the in-house clean-room Solver, and step through it with a plain note per Move, all offline and without taking the Course. Solve is a secondary tab, not the front door; it must never freeze the app, invent an answer, or slow down Lessons. P0.S closes only when the solve corpus meets the performance target on reference-device-equivalent evidence and every returned Solution is re-verified.
 
 ## Stories
 
@@ -19,30 +19,35 @@ A Learner can enter any physical cube's colors, obtain a verified offline Soluti
 
 ## Requirements & Constraints
 
-Solving must work entirely offline. A valid entered state receives a Solution or a clear failure, never an invented or partial answer. The representative corpus includes random legal states and deep Scrambles, with solved plus at least 10,000 random legal states verified in CI. Story 3.3 reports median, p95, memory and failure rate with the actual host/JVM identity and retains zero failures and at least 95% within three seconds as a host regression check. The approved calibration deferral assigns measured reference-device-equivalent JVM calibration and a full calibrated corpus pass to mandatory Story 3.8; actual production device corpus confirmation remains Story 12.2. Search cancellation must stop promptly without publishing partial results.
-
-The editor validates all stickers and cube legality, points to offending pieces, explains non-local parity/orientation failures, fixes centers to the home frame, and disables acceptance until valid. Color-blind glyphs remain available. No unvalidated or partially inferred state reaches solving.
-
-Production installed size remains below the provisional 30 MB budget including tables and recognition models. Host timings, emulator measurements and APK file size do not substitute for required physical loading and installed-size evidence. The minimum physical device is Samsung Galaxy Tab S7 FE 5G. No INTERNET permission, backup, telemetry, advertising or crash SDK is permitted.
+- Solving works fully offline. Invalid input is rejected before the Solver runs; a timeout or failure yields an explicit error with a recovery prompt, never a made-up or partial Solution. The Solver never blocks the UI thread.
+- Every `Solved` result is re-verified by applying it to the input. CI verifies solved plus at least 10,000 random legal states including deep Scrambles.
+- Performance: 95% of the representative corpus solved within 3 s on the reference device, with median, p95, memory and failure rate reported. Host JVM results are only a regression check; calibrated reference-device-equivalent evidence belongs to Story 3.8, and final physical confirmation to Story 12.2. Minimum device: Samsung Galaxy Tab S7 FE 5G. Emulator or host timings never substitute for device evidence.
+- Install size below 30 MB including Solver tables (recognition models count only from v1.1). APK file size alone is not installed-size evidence.
+- Editor validation rejects wrong color counts, impossible pieces, a twisted corner, a flipped edge and parity violations, explaining each plainly; 54 entered colors never count as valid by themselves. Color-blind glyphs stay available.
+- Notes follow a fixed template (face + direction + piece group, e.g. "Turn the Right face clockwise: the right column moves up") and never claim strategic purpose. In Physical-cube Mode, playback advances one step per *Done* tap.
+- v1.0 is camera-free: no `INTERNET`, no runtime permissions, no backup, telemetry, ads or crash SDK. Camera recognition (and *Scan my cube*, Quick Check) is deferred to v1.1; its flags stay OFF in release.
 
 ## Technical Decisions
 
-Use an original Kotlin Kociemba two-phase implementation based on the published algorithm description. No third-party solver source, including GPL-only min2phase, may be copied; solver sources preserve provenance. Domain and solver logic remain pure JVM, isolated from Android and UI dependencies; app composition wires adapters.
-
-Cube home frame is WHITE on U and GREEN on F. Facelets use URFDLB row-major indexing. CubeValidator alone constructs validated CubeState; failures are sealed values. CubeSolver accepts cubies only and returns Solved, Invalid, TimedOut or Failed. Moves are relative to centers; SolveCube maps them through orientation and re-verifies by applying them to the input before presentation. Only SolveCube and PlanRecovery call the Solver, as timed Effects; predicates, diagnosis and Placement never call it. Search and table work must remain off the main thread, independently of Lessons.
-
-Pruning tables expose admissible phase heuristics from breadth-first phase projections. Optional private cache loading validates bounded versioned/checksummed data, serializes concurrent loads, replaces atomically and supports cancellation/retry without partial publication. Production bundled-versus-first-run delivery is deliberately pending Story 3.8 measurements and architecture memlog decision. First-run generation uses Dispatchers.Default and private storage; any chosen loading path stays off-main and never blocks startup or Lessons.
-
-Session changes use SessionEvent and reduce; asynchronous results echo effect revision or are discarded. Solution playback uses the common pure PlaybackController, is not checkpointed, and derives every note from MoveNote.of(move): Text. Notes describe face, direction and piece movement, never claim strategic intent. Learner-facing text is keyed content, not screen literals.
+- `CubeSolver` is an original Kotlin Kociemba two-phase implementation written from the published description; no third-party solver code (notably GPL min2phase) is copied, and sources cite provenance. Solver and domain code stay pure JVM.
+- Home frame: WHITE on U, GREEN on F; facelets URFDLB row-major. Only `CubeValidator` constructs `CubeState`, so unvalidated input cannot reach the Solver by type. Failures are sealed values; Learner text is `Text(key, args)` content, never screen literals.
+- The Solver receives `cubies` only and returns centers-relative Moves as `SolveResult.{Solved, Invalid, TimedOut, Failed}`. Only `SolveCube` and `PlanRecovery` call it, always as a timed (3 s) Effect; predicates, diagnosis and Placement never do. `SolveCube` maps Moves back through `orientation` and re-verifies.
+- Pruning tables: off-main (`Dispatchers.Default` for generation, I/O dispatcher for disk), versioned/checksummed private cache, serialized loads, atomic replace, cooperative cancellation with no partial publication. Bundled vs first-run delivery is decided in Story 3.8 from device measurements and recorded via the architecture memlog. Lessons and app startup never wait on tables.
+- Sessions: at most one `LearningSession` app-wide, held by a singleton `SessionHost`. Solution Playback is `SessionKind.SOLVE_PLAYBACK`; starting it suspends an open Lesson. `SOLVE_PLAYBACK` is never resumed on cold start. All changes go through `SessionEvent` + pure `reduce`; async results echo `effectId` and `revision` and are discarded when stale. The Manual Cube Editor is not a session; it returns a validated `CubeState` to its caller.
+- Playback uses the shared pure `PlaybackController` (also used by Demonstrations and the Library), is never checkpointed, and takes all note text from `MoveNote.of(move): Text`.
+- Feature visibility (e.g. *Scan my cube*) comes from the `FeatureFlags` port (`CAMERA_SCAN`), never `BuildConfig`.
 
 ## UX & Interaction Patterns
 
-Solve is a separate bottom-navigation destination. Enter colors is available without camera; Scan my cube stays hidden until its feature lands. Starting a solve pauses an open Lesson with an explicit message. The editor returns a validated state to its caller rather than creating a session.
-
-Solving shows cancelable indeterminate progress and a preparation message while tables build. Timeout preserves entered colors and offers retry without a partial answer. Playback offers forward/back, pause, replay and shared speed controls, with generated notes under the current Move. After the final step, a quiet Learn link offers teaching. Solves do not resume after app closure.
+- Solve is one of four bottom-nav tabs (Learn, Solve, Library, You; rail at medium/expanded widths). In v1.0 *Enter colors* is its only action; *Scan my cube* stays hidden until v1.1.
+- With a Lesson open, starting a solve shows "Starting a solve pauses your lesson." before suspending it; the Lesson later resumes from its Checkpoint (a paused physical Lesson returns through *Confirm your cube*).
+- Solving shows a cancelable indeterminate progress bar; while tables build, "Preparing the solver (one time, a few seconds)." Timeout/failure: "Couldn't find a solution in time. Your colors are still here — try again." with no partial result.
+- Playback is a full-screen task flow (bottom bar hidden, top app bar with back) with the shared transport: step back/forward, play/pause, replay, speed 0.5×/1×/2×, step counter, current Move in large notation with its MoveNote beneath. After the final step a quiet "Want to learn how to do this yourself?" links to Learn. Solves are not resumed after app closure.
+- Editor: tap a sticker, then a color; invalid pieces outlined in `status-invalid` with labels; non-local errors on their own lines (twisted corner, flipped edge, swapped pieces); **Accept** disabled until valid. Mistakes in neutral ink; no exclamation marks.
 
 ## Cross-Story Dependencies
 
-Stories 3.1–3.4 form a parallel track depending on Epic 1. Search depends on accepted coordinate/move-table and pruning APIs, not a production packaging decision. SolveCube can implement and test its injected effect/port contract before production loading is selected; this does not establish production loading readiness. Editor and playback feed the integrated Solve flow.
-
-The approved split permits independent closure of Story 3.2 infrastructure and development of 3.3–3.6. Story 3.8 retains physical cold-generation/warm-cache measurements, installed-size comparison, production delivery decision and integration, minimum-device StrictMode/independent-Lesson evidence, and the measured reference-device-equivalent JVM calibration plus calibrated corpus performance acceptance transferred from Story 3.3. It must pass before production end-to-end acceptance of 3.7 or Epic 3/P0.S delivery closure. Story 12.2 still confirms final physical solve-corpus performance; no performance requirement is waived.
+- Stories 3.1–3.6 are done; 3.7 is in progress; 3.8 is in backlog.
+- 3.7 integrates the editor (3.5), `SolveCube` (3.4) and playback (3.6) behind the Solve tab, and relies on `SessionHost` suspend/resume from Epics 6 and 8.
+- Open Epic 8 retro action before 3.7 wires physical playback: stop `stepBack` at an undo barrier, remove the local double-reduce in `SolutionPlayback.kt`, and test against a real `SessionHost`.
+- 3.7 can be implemented against the current table-loading path, but its production end-to-end acceptance, and Epic 3/P0.S closure, are blocked until Story 3.8 passes (device measurements, installed-size comparison, delivery decision + memlog, production integration, StrictMode/independent-Lesson evidence, calibrated 10,000-state corpus). Story 12.2 confirms final physical corpus performance; no performance requirement is waived.
