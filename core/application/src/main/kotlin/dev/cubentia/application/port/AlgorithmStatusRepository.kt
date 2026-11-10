@@ -40,5 +40,8 @@ sealed interface AlgorithmStatusWrite {
         val event: AlgorithmStatusEvent,
     ) : AlgorithmStatusWrite
 
+    /** A conditional write found the persisted status already past its precondition and appended nothing. */
+    data object Unchanged : AlgorithmStatusWrite
+
     data object Failed : AlgorithmStatusWrite
 }

@@ -1,6 +1,8 @@
 package dev.cubentia.app.session
 
 import dev.cubentia.app.data.SerialWriter
+import dev.cubentia.app.ui.shell.algorithmsToOffer
+import dev.cubentia.application.port.AlgorithmStatusLoad
 import dev.cubentia.application.port.AlgorithmStatusRecord
 import dev.cubentia.application.port.AlgorithmStatusRepository
 import dev.cubentia.application.port.AlgorithmStatusSave
@@ -10,8 +12,10 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -119,5 +123,89 @@ class SessionHostAlgorithmStatusTest {
             assertTrue(host.resetProgress())
             assertEquals(emptyMap<AlgorithmId, AlgorithmStatus>(), host.algorithmStatuses.first())
             assertEquals(before, host.state.value)
+        }
+
+    @Test fun acceptanceNeverOverwritesAStatusTheOfferHadNotSeen() =
+        runBlocking {
+            val learned = AlgorithmId("learned")
+            val fresh = AlgorithmId("fresh")
+            val persisted = MutableStateFlow(emptyMap<AlgorithmId, AlgorithmStatus>())
+            val records = mutableListOf<AlgorithmStatusRecord>()
+            val repo =
+                object : AlgorithmStatusRepository {
+                    // Each emission arrives late, so the offer below was built from a map that is already stale.
+                    override fun statuses() =
+                        flow {
+                            delay(50)
+                            emit(AlgorithmStatusLoad.Loaded(persisted.value))
+                        }
+
+                    override suspend fun append(record: AlgorithmStatusRecord): AlgorithmStatusSave {
+                        records.add(record)
+                        persisted.value = persisted.value + (record.event.algorithmId to record.event.status)
+                        return AlgorithmStatusSave.Saved
+                    }
+                }
+            val writer = SerialWriter()
+            try {
+                val host = SessionHost(TickingClock(), Dispatchers.Default, writer = writer, algorithmStatusRepository = repo)
+                val offered = algorithmsToOffer(listOf(learned, fresh), AlgorithmStatusLoad.Loaded(emptyMap()))
+                assertEquals(listOf(learned, fresh), offered)
+                val blocked = CompletableDeferred<Unit>()
+                val release = CompletableDeferred<Unit>()
+                writer.enqueue {
+                    blocked.complete(Unit)
+                    release.await()
+                }
+                blocked.await()
+                // A Learned update queued before acceptance, not yet seen by the offer.
+                val marked = async(start = CoroutineStart.UNDISPATCHED) { host.setAlgorithmStatus(learned, AlgorithmStatus.LEARNED) }
+                val accepted =
+                    offered.map { id -> async(start = CoroutineStart.UNDISPATCHED) { host.startLearning(id) } }
+                release.complete(Unit)
+                assertTrue(marked.await())
+                assertTrue(accepted.all { it.await() })
+                assertEquals(mapOf(learned to AlgorithmStatus.LEARNED, fresh to AlgorithmStatus.LEARNING), persisted.value)
+                assertEquals(listOf(AlgorithmStatus.LEARNED, AlgorithmStatus.LEARNING), records.map { it.event.status })
+                // Accepting again changes nothing: neither Algorithm is Not started any more.
+                assertTrue(offered.map { host.startLearning(it) }.all { it })
+                assertEquals(2, records.size)
+            } finally {
+                writer.close()
+            }
+        }
+
+    @Test fun acceptanceFailsWithoutWritingWhenStatusesCannotBeRead() =
+        runBlocking {
+            var writes = 0
+            val repo =
+                object : AlgorithmStatusRepository {
+                    override fun statuses() = MutableStateFlow<AlgorithmStatusLoad>(AlgorithmStatusLoad.Failed)
+
+                    override suspend fun append(record: AlgorithmStatusRecord): AlgorithmStatusSave {
+                        writes++
+                        return AlgorithmStatusSave.Saved
+                    }
+                }
+            val writer = SerialWriter()
+            try {
+                val host = SessionHost(TickingClock(), Dispatchers.Default, writer = writer, algorithmStatusRepository = repo)
+                assertFalse(host.startLearning(AlgorithmId("a")))
+                assertEquals(0, writes)
+            } finally {
+                writer.close()
+            }
+        }
+
+    @Test fun inMemoryAcceptanceOnlyStartsNotStartedAlgorithms() =
+        runBlocking {
+            val host = SessionHost(TickingClock())
+            assertTrue(host.setAlgorithmStatus(AlgorithmId("a"), AlgorithmStatus.LEARNED))
+            assertTrue(host.startLearning(AlgorithmId("a")))
+            assertTrue(host.startLearning(AlgorithmId("b")))
+            assertEquals(
+                mapOf(AlgorithmId("a") to AlgorithmStatus.LEARNED, AlgorithmId("b") to AlgorithmStatus.LEARNING),
+                host.algorithmStatuses.first(),
+            )
         }
 }

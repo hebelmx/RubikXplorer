@@ -7,7 +7,9 @@ import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.TickingClock
 import dev.cubentia.application.port.AttemptLoad
 import dev.cubentia.application.port.CheckpointLoad
+import dev.cubentia.application.port.SessionSnapshotRepository
 import dev.cubentia.application.port.SnapshotLoad
+import dev.cubentia.application.port.SnapshotSave
 import dev.cubentia.application.session.AttemptEvent
 import dev.cubentia.application.session.AttemptOutcome
 import dev.cubentia.application.session.SessionEvent
@@ -133,6 +135,62 @@ class SessionEndingTest {
                 assertTrue(idle.resetProgress())
                 writer.flush()
                 assertFalse(idle.state.value.isActive)
+                assertEquals(SnapshotLoad.None, snapshots.latest())
+                val cold = host()
+                cold.restore(bundle)
+                assertFalse(cold.state.value.isActive)
+            } finally {
+                writer.close()
+                db.close()
+            }
+        }
+
+    @Test fun `a failed snapshot delete fails the reset so no reset-locked row survives it`() =
+        runBlocking {
+            val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+            val db =
+                Room
+                    .inMemoryDatabaseBuilder<RubikDatabase>(RuntimeEnvironment.getApplication())
+                    .setDriver(AndroidSQLiteDriver())
+                    .build()
+            val writer = SerialWriter()
+            val room = RoomSessionSnapshotRepository(db)
+            var failDeletes = false
+            val snapshots =
+                object : SessionSnapshotRepository by room {
+                    override suspend fun clear(attempts: List<dev.cubentia.application.session.AttemptRecord>): SnapshotSave =
+                        if (failDeletes) SnapshotSave.Failed else room.clear(attempts)
+                }
+            val progress = RoomProgressRepository(db)
+
+            fun host() =
+                SessionHost(
+                    TickingClock(),
+                    Dispatchers.Default.limitedParallelism(1),
+                    repository = snapshots,
+                    writer = writer,
+                    checkpoints = RoomCheckpointRepository(db),
+                    progress = progress,
+                    attempts = RoomAttemptRepository(db),
+                    resetProgress = ResetProgress(progress),
+                )
+            try {
+                val host = host()
+                host.restore(bundle)
+                val lesson = bundle.stages[1].lessons.first()
+                host.dispatch { SessionEvent.LessonStarted(lesson, bundle.tutorConfig, it) }
+                writer.flush()
+                failDeletes = true
+                assertFalse(host.resetProgress())
+                writer.flush()
+                assertFalse(host.state.value.isActive)
+                // The surviving row is not reset-locked: no ProgressReset was written behind it.
+                assertTrue(snapshots.latest() is SnapshotLoad.Found)
+                val events = (progress.all() as dev.cubentia.application.port.ProgressLoad.Found).events
+                assertTrue(events.none { it is ProgressEvent.ProgressReset })
+                failDeletes = false
+                assertTrue(host.resetProgress())
+                writer.flush()
                 assertEquals(SnapshotLoad.None, snapshots.latest())
                 val cold = host()
                 cold.restore(bundle)

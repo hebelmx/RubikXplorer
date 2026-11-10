@@ -40,4 +40,35 @@ class SetAlgorithmStatusTest {
             assertEquals(AlgorithmStatusWrite.Failed, set(event.algorithmId, event.status, event.at, "run", 3L))
             assertEquals(listOf(record, record), records)
         }
+
+    @Test fun `startLearning appends only for a persisted Not started status`() =
+        runBlocking {
+            val records = mutableListOf<AlgorithmStatusRecord>()
+            var load: dev.cubentia.application.port.AlgorithmStatusLoad =
+                dev.cubentia.application.port.AlgorithmStatusLoad
+                    .Loaded(mapOf(AlgorithmId("learned") to AlgorithmStatus.LEARNED, AlgorithmId("idle") to AlgorithmStatus.NOT_STARTED))
+            val repository =
+                object : AlgorithmStatusRepository {
+                    override fun statuses() = flowOf(load)
+
+                    override suspend fun append(record: AlgorithmStatusRecord): AlgorithmStatusSave {
+                        records.add(record)
+                        return AlgorithmStatusSave.Saved
+                    }
+                }
+            val set = SetAlgorithmStatus(repository)
+            val at = Instant.fromEpochMilliseconds(7)
+            assertEquals(AlgorithmStatusWrite.Unchanged, set.startLearning(AlgorithmId("learned"), at, "run", 0L))
+            assertEquals(
+                AlgorithmStatusWrite.Written(AlgorithmStatusEvent(AlgorithmId("idle"), AlgorithmStatus.LEARNING, at)),
+                set.startLearning(AlgorithmId("idle"), at, "run", 1L),
+            )
+            assertEquals(
+                AlgorithmStatusWrite.Written(AlgorithmStatusEvent(AlgorithmId("absent"), AlgorithmStatus.LEARNING, at)),
+                set.startLearning(AlgorithmId("absent"), at, "run", 2L),
+            )
+            load = dev.cubentia.application.port.AlgorithmStatusLoad.Failed
+            assertEquals(AlgorithmStatusWrite.Failed, set.startLearning(AlgorithmId("idle"), at, "run", 3L))
+            assertEquals(listOf(1L, 2L), records.map { it.revision })
+        }
 }

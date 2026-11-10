@@ -232,7 +232,8 @@ private fun ShellContent(
             recognition = recognition,
             offerAlgorithms = notStarted,
             onAddToLearning = {
-                algorithmsToOffer(notStarted, algorithmStatusLoad).map { host.setAlgorithmStatus(it, AlgorithmStatus.LEARNING) }.all { it }
+                // The host re-checks each persisted status in the write step; the collected map may be stale.
+                notStarted.map { host.startLearning(it) }.all { it }
             },
             onPracticeNewScramble = {
                 openLesson = null

@@ -12,9 +12,9 @@ context:
 warnings: ['oversized']
 deferred:
   - summary: >-
-      Session-end and reset cleanup is not durable under a Room write failure: a failed snapshot delete or checkpoint clear is reported but not retried, so a later cold start can restore the closed or reset session.
+      Session-end cleanup on practice close is not durable under a Room write failure: a failed snapshot delete is reported but not retried, so a later cold start can restore the closed practice. (Reset is resolved: it deletes the snapshot and Checkpoint in the same writer step as the ProgressReset write and writes the reset only when both deletes succeed, otherwise it returns false.)
     evidence: |-
-      SessionHost.clearSnapshots keeps failed attempt rows in pendingAttempts but no pending-clear marker; clearCheckpoint dispatches CheckpointSaveFailed and resetProgress still returns true. Needs a durable pending-clear marker or a retry before reporting success. Only reachable on a DB write failure; reset now always re-runs the snapshot clear.
+      SessionHost.clearSnapshots keeps failed attempt rows in pendingAttempts but no pending-clear marker. Needs a durable pending-clear marker or a retry. Only reachable on a DB write failure; nothing reset-locked can reopen, since a failed reset cleanup writes no ProgressReset (SessionEndingTest).
     location: >-
       app/src/main/kotlin/dev/cubentia/app/session/SessionHost.kt
     severity: medium
