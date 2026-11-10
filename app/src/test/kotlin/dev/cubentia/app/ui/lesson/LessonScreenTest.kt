@@ -219,6 +219,11 @@ class LessonScreenTest {
             },
         )
         if (prior == 1 && !hint && !offPath) {
+            // Physical confirmation dispatches on the host's background dispatcher; Compose idleness
+            // alone does not wait for the attempt log update and its milestone recomposition.
+            rule.waitUntil(5_000) {
+                rule.onAllNodesWithTag("milestone:headline").fetchSemanticsNodes().isNotEmpty()
+            }
             rule.onNodeWithTag("milestone:headline").assertTextContains("2-look last layer mastered!")
             rule.onNodeWithTag("milestone:nextStage").assertDoesNotExist()
             rule.onNodeWithTag("milestone:practice").performClick()
