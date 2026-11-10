@@ -490,6 +490,30 @@ class AppShellTest {
         )
         assertTrue(!host.state.value.objectiveMet)
         rule.onNodeWithTag("lesson:modeSwitcher").assertDoesNotExist()
+
+        // Re-entering (the same openPractice + practiceEpoch++ path the milestone's new-scramble action uses)
+        // starts a fresh attempt on a new scramble with the same 2-look set.
+        val firstEntry = host.state.value.entry
+        runBlocking { host.dispatch { SessionEvent.MoveCommitted(FaceTurn(Face.D, Turn.CLOCKWISE), it) } }
+        rule.onNodeWithTag("lesson:close").performClick()
+        rule.onNodeWithTag("learn:twoLookPractice").performScrollTo().performClick()
+        rule.waitUntil(5_000) {
+            host.state.value.lesson
+                ?.id
+                ?.value == "practice-two-look" &&
+                host.state.value.entry != firstEntry
+        }
+        assertEquals(SessionKind.PRACTICE, host.state.value.kind)
+        assertTrue(
+            host.state.value.history.done
+                .isEmpty(),
+        )
+        assertEquals(
+            expected,
+            host.state.value.twoLookAlgorithms
+                .toSet(),
+        )
+        assertTrue(!host.state.value.objectiveMet)
     }
 
     @Test fun `two look heading derives completion mastery and reset and offers practice`() {

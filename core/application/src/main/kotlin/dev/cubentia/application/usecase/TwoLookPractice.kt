@@ -31,7 +31,7 @@ class TwoLookPractice(
         val frame = LastLayerView.canonicalFrame(Color.YELLOW)
         var state = CubeState.SOLVED.reoriented(frame)
         var redraws = 0
-        do {
+        while (true) {
             state = CubeState.SOLVED.reoriented(frame)
             repeat(20) {
                 state =
@@ -40,8 +40,9 @@ class TwoLookPractice(
                         .reoriented(frame)
                         .apply(FaceTurn(Face.U, Turn.entries[random.nextInt(Turn.entries.size)]))
             }
+            if (!LastLayerStepReached(LastLayerStep.SOLVED_UP_TO_AUF).isSatisfied(state)) break
             check(++redraws < 100) { "Could not generate an unsolved last layer" }
-        } while (LastLayerStepReached(LastLayerStep.SOLVED_UP_TO_AUF).isSatisfied(state))
+        }
         val preserve = AllOf(listOf(WhiteCrossSolved, WhiteCornersSolved, MiddleLayerSolved))
         check(preserve.isSatisfied(state))
         val objective = TextKey("msg.practice.two-look.objective")

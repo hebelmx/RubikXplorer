@@ -5,7 +5,7 @@ created: '2026-11-09'
 status: 'done'
 baseline_revision: 'a37da79b2ec846ba2d35a7471e0834d92779ea21'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context: []
 warnings: ['oversized']
 deferred:
@@ -15,6 +15,20 @@ deferred:
       LessonScreen gates isTwoLookMilestone on !isPhysical, the same rule the pre-existing Stage mastery milestone uses (isMasteryMilestone also requires !isPhysical). UX-DR20 allows the milestone in Physical-cube Mode after an explicit "Yes, it's solved", so both milestones should accept a confirmed physical solve. Changing it for 2-look alone would split the rule; it belongs with the Stage mastery milestone.
     location: >-
       app/src/main/kotlin/dev/cubentia/app/ui/lesson/LessonScreen.kt (isMasteryMilestone, isTwoLookMilestone)
+    severity: low
+  - summary: >-
+      Rotating the device during a practice (Course or LL) regenerates the scramble and restarts the attempt.
+    evidence: |-
+      AppShell builds practiceEntry in remember(openPractice, practiceEpoch, ready) with a fresh KotlinRandomSource, and the manifest declares no configChanges, so activity recreation draws a new scramble and LessonScreen starts a new PracticeStarted. The LL practice copies the existing Course practice pattern (stagePractice), so the fix belongs to both.
+    location: >-
+      app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt (practiceEntry)
+    severity: medium
+  - summary: >-
+      Practice Lessons have no demonstration, so later Hint rungs cannot show a solution.
+    evidence: |-
+      TwoLookPractice and StagePractice both build the Lesson with demonstration = "" and one generic Step, while the practice UI still exposes Hint controls. This is the shared practice hint design, not new to the LL practice.
+    location: >-
+      core/application/src/main/kotlin/dev/cubentia/application/usecase/TwoLookPractice.kt, StagePractice.kt
     severity: low
 ---
 
@@ -118,6 +132,31 @@ deferred:
   - `[false]` `[reject]` Intent: "Mastery: 1 of 2" is configurable and not checked alongside *In progress* — the AC text appears at the shipped value, and the line depends only on the count, which `TwoLookMasteryTest` covers.
   - `[false]` `[reject]` Intent: `errors` takes a second meaning, and old records with null `errors` never qualify — the meaning is documented in TRANSITIONS.md and the spec, and no `practice-two-look` records exist before this story.
 
+### 2026-11-09 — Review pass (follow-up)
+- verdicts: 21 findings — high 0, medium 1, low 13, false 5, maybe-false 2
+- findings:
+  - `[low]` `[reject]` Blind: the segment-length bound rejects long equivalent spellings — carried: the Learner then gets a non-qualifying solve, which is the strict reading; normalizing Moves adds a pass for input nobody needs to enter.
+  - `[false]` `[reject]` Blind: replacing the history with the original entry passes the `history.start == entry` check — if the cube is back at the entry state, the whole solve from that state is still in `done`, so no evidence is lost and nothing qualifies unearned.
+  - `[medium]` `[defer]` Blind: practice entries live in `remember`, so activity recreation regenerates the scramble and restarts the attempt — real (no `configChanges` in the manifest), but the LL practice copies the existing Course practice pattern; deferred so both change together.
+  - `[low]` `[reject]` Blind: a repeated random scramble would leave the completed session active — 20 random Algorithm + `U` draws repeating the previous state is negligible in use, and fixing it needs new session-identity plumbing.
+  - `[low]` `[defer]` Blind: the generated Lesson has no demonstration, so later Hint rungs cannot show a solution — same as `StagePractice` (`demonstration = ""`); pre-existing practice hint design, deferred.
+  - `[maybe-false]` `[reject]` Blind: the result line reads live session history rather than the recorded attempt — a Move after the solve clears `objectiveMet` and hides the line, and a re-solve ends a new attempt from the same `twoLookErrors`; settling a mismatch needs a flow that changes history while staying solved. If true it is only low.
+  - `[low]` `[patch]` Blind: the result line has no live-region semantics — added `semantics { liveRegion = LiveRegionMode.Polite }` to `lesson:twoLookResult`, matching `lesson:feedback`.
+  - `[false]` `[reject]` Blind: `TwoLookPractice` can throw during composition — `require` needs an empty Library, which Ready content never has, and 100 consecutive solved-up-to-AUF draws do not happen; these are loud failures on unreachable states.
+  - `[low]` `[patch]` Blind: TRANSITIONS.md describes `errors` without the replaced-history +1 — the note now names `SessionState.twoLookErrors` and the +1 rule.
+  - `[low]` `[reject]` Edge: rotations inside an Algorithm push its spelling past the segment bound — carried, same as the first Blind row.
+  - `[low]` `[patch]` Edge: the redraw `check` ran before the solved test, so an acceptable hundredth draw still threw — the loop now breaks on an unsolved draw before counting the redraw.
+  - `[low]` `[patch]` Verification gap: re-entering the LL practice was not verified through AppShell — the AppShell practice test now commits a Move, closes, reopens through the same `openPractice` + `practiceEpoch++` path the milestone action uses, and asserts a fresh entry, empty history, PRACTICE kind and the same 2-look set.
+  - `[false]` `[reject]` Intent: free `U` turns and runs are refused while the start layer is off U, stricter than the contract's literal wording — the matrix cases still give 0, and the guard closes a loophole where rotations plus `U` reproduce any face turn; no wrong outcome.
+  - `[low]` `[patch]` Intent: the replaced-history +1 is not documented — same root cause and fix as the TRANSITIONS.md row.
+  - `[low]` `[reject]` Intent: `LessonScreenTest` result-line tests do not use the content-derived set — `AppShellTest` checks the real set reaches the session; the result line only reads `twoLookErrors`.
+  - `[low]` `[reject]` Intent: split half turns are tested only at the domain level — the reducer calls the same function; a UI test would add nothing the domain test does not show.
+  - `[low]` `[reject]` Intent: Mastered-before-Completed is tested only in the domain — the row renders `TwoLookMastery.evaluate`'s status directly.
+  - `[maybe-false]` `[reject]` Intent: the result line comes from live state, the milestone from persisted records — same as the Blind result-line row.
+  - `[low]` `[reject]` Intent: reduce motion is not exercised by a new test — the milestone reuses the shared overlay covered by `FirstSolveMilestoneTest` and `StageMasteryMilestoneTest`.
+  - `[false]` `[reject]` Intent: the always-visible *Practice the last layer* entry is unspecified — the spec's tasks name it; no wrong outcome.
+  - `[false]` `[reject]` Intent: the hard F2L `check` relies on shipped content — the Library holds only OLL and PLL Algorithms (`algorithms/oll.json`, `pll.json`), which preserve F2L by definition.
+
 ## Design Notes
 
 **Why `errors`.** AD-10 fixes the attempt row to `AttemptEnded(objectiveId, outcome, errors, hints, assistanceLevel)` and Mastery to a pure function of it. For the LL practice the Objective is "only 2-look Algorithms", so a Move outside them is that attempt's error. This needs no schema change and keeps the reducer the only attempt writer.
@@ -191,3 +230,18 @@ After each solve, a result line says whether it counted. The second qualifying s
   - the result is stored in the attempt's `errors`.
 - The implementation ran on Codex. The review patches were applied in this run.
 
+### Follow-up review pass (2026-11-09)
+
+**Review.** 21 findings from four layers (three on Codex, intent alignment on Claude): 4 entries patched (all low), 2 deferred (1 medium, 1 low), 15 rejected (8 low, 5 false, 2 maybe-false). Every row is in the Review Triage Log.
+- Patched:
+  - `TwoLookPractice.kt` -- the redraw loop no longer throws on an acceptable hundredth draw.
+  - `LessonPanel.kt` -- the 2-look result line is a polite live region.
+  - `TRANSITIONS.md` -- documents the replaced-history error in `AttemptEnded.errors`.
+  - `AppShellTest.kt` -- re-entering LL practice starts a fresh attempt with the same 2-look set.
+- Deferred: device rotation regenerates a practice scramble (shared with Course practice); practice Hints have no demonstration (shared practice design).
+
+**Follow-up review: not recommended.** Patched by verdict: high 0, medium 0, low 4. This follow-up pass patched no high finding, so the work has converged.
+
+**Verification.** `./gradlew spotlessCheck build` was BUILD SUCCESSFUL after the patches; JUnit XML shows 1627 tests, 0 failed, 0 skipped. No Room schema JSON changed. No device or instrumented runs.
+
+**Residual risks.** The two deferred items above; otherwise unchanged from the first pass.

@@ -206,7 +206,7 @@ internal fun LessonPanel(
                 twoLookResult,
                 style = MaterialTheme.typography.bodyMedium,
                 color = RubikTheme.tokens.inkPrimary,
-                modifier = Modifier.testTag("lesson:twoLookResult"),
+                modifier = Modifier.testTag("lesson:twoLookResult").semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
         step.assistance?.let { AssistanceLine(it, onUsualHelp, Modifier.fillMaxWidth()) }
