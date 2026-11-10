@@ -41,8 +41,35 @@ object LearnerTextPolicy {
     enum class Rule(
         val description: String,
     ) {
+        STRING_RESOURCE("string resource outside baseline; use content/strings/en.json"),
         UI_TEXT("Learner-facing literal passed to a text parameter; use a string resource or Text(key)"),
         PROSE("multi-word string literal outside a programmer-error context; move it to content strings or resources"),
+    }
+
+    fun checkStringResources(
+        file: String,
+        xml: String,
+        allowed: Set<String>,
+    ): List<Violation> {
+        val source =
+            Regex("<!--.*?-->", RegexOption.DOT_MATCHES_ALL).replace(xml) { match ->
+                match.value
+                    .map {
+                        if (it ==
+                            '\n'
+                        ) {
+                            '\n'
+                        } else {
+                            ' '
+                        }
+                    }.joinToString("")
+            }
+        return Regex("""<(?:string|plurals|string-array)\b[^>]*\bname\s*=\s*["']([^"']+)["']""")
+            .findAll(source)
+            .mapNotNull { match ->
+                val name = match.groupValues[1]
+                if (name in allowed) null else Violation(file, KotlinLexer.lineOf(source, match.range.first), name, Rule.STRING_RESOURCE)
+            }.toList()
     }
 
     /** Every violation in the Kotlin [source] of [file]; empty when the file passes. */

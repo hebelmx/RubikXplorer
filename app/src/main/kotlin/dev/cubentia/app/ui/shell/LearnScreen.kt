@@ -184,7 +184,7 @@ fun LearnScreen(
                             },
                     )
                 } else if (showTwoLookLocked) {
-                    TwoLookLockedContent(onBack = onCloseTwoLookLocked)
+                    TwoLookLockedContent(strings = catalog.strings, onBack = onCloseTwoLookLocked)
                 } else {
                     StageListContent(
                         catalog = catalog,
@@ -264,7 +264,7 @@ private fun StageListContent(
                 HorizontalDivider(color = RubikTheme.tokens.hairline)
             }
             if (showFasterLastLayer) {
-                FasterLastLayerRow(twoLookProgress, onTwoLookPractice)
+                FasterLastLayerRow(twoLookProgress, onTwoLookPractice, catalog.strings)
                 catalog.bundle.twoLookStages.forEachIndexed { index, stage ->
                     StageRow(
                         stage,
@@ -333,6 +333,7 @@ private fun StageRow(
 private fun FasterLastLayerRow(
     twoLookProgress: dev.cubentia.domain.tutor.TwoLookProgress,
     onTwoLookPractice: () -> Unit,
+    strings: ContentStrings,
 ) {
     Column {
         Row(
@@ -347,30 +348,50 @@ private fun FasterLastLayerRow(
                     .padding(horizontal = Spacing.s4, vertical = Spacing.s3),
         ) {
             Text(
-                text = stringResource(R.string.learn_faster_last_layer),
+                text =
+                    strings.resolve(
+                        dev.cubentia.domain.content
+                            .TextKey("msg.learn.faster-last-layer"),
+                    ),
                 style = MaterialTheme.typography.titleLarge,
                 color = RubikTheme.tokens.inkPrimary,
                 modifier = Modifier.weight(1f),
             )
             StageStatusBadge(twoLookProgress.status, "learn:fasterLastLayer:status")
         }
-        if (twoLookProgress.qualifyingSolves in 1 until twoLookProgress.solvesRequired) {
+        if (twoLookProgress.qualifyingSolves >= 1 && !twoLookProgress.mastered) {
             Text(
-                stringResource(R.string.learn_two_look_mastery, twoLookProgress.qualifyingSolves, twoLookProgress.solvesRequired),
+                strings.resolve(
+                    dev.cubentia.domain.text.Text(
+                        "msg.learn.two-look-mastery",
+                        mapOf(
+                            "done" to minOf(twoLookProgress.qualifyingSolves, twoLookProgress.solvesRequired).toString(),
+                            "total" to twoLookProgress.solvesRequired.toString(),
+                        ),
+                    ),
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = RubikTheme.tokens.inkSecondary,
                 modifier = Modifier.testTag("learn:fasterLastLayer:mastery").padding(horizontal = Spacing.s4),
             )
         }
         TextButton(onClick = onTwoLookPractice, modifier = Modifier.testTag("learn:twoLookPractice")) {
-            Text(stringResource(R.string.learn_two_look_practice))
+            Text(
+                strings.resolve(
+                    dev.cubentia.domain.content
+                        .TextKey("btn.learn.two-look-practice"),
+                ),
+            )
         }
     }
 }
 
 /** Where the Library's 2-look link lands before *Faster last layer* unlocks: says it is locked and what unlocks it (FR-17). */
 @Composable
-private fun TwoLookLockedContent(onBack: () -> Unit) {
+private fun TwoLookLockedContent(
+    strings: ContentStrings,
+    onBack: () -> Unit,
+) {
     val tokens = RubikTheme.tokens
     Column(
         modifier =
@@ -399,7 +420,11 @@ private fun TwoLookLockedContent(onBack: () -> Unit) {
                 )
             }
             Text(
-                text = stringResource(R.string.learn_faster_last_layer),
+                text =
+                    strings.resolve(
+                        dev.cubentia.domain.content
+                            .TextKey("msg.learn.faster-last-layer"),
+                    ),
                 style = MaterialTheme.typography.titleLarge,
                 color = tokens.inkPrimary,
                 modifier = Modifier.weight(1f).semantics { heading() },
@@ -407,7 +432,11 @@ private fun TwoLookLockedContent(onBack: () -> Unit) {
             StageStatusBadge(status = StageStatus.LOCKED, tag = "learn:twoLookLocked:status")
         }
         Text(
-            text = stringResource(R.string.learn_two_look_locked_prerequisite),
+            text =
+                strings.resolve(
+                    dev.cubentia.domain.content
+                        .TextKey("msg.learn.two-look-locked-prerequisite"),
+                ),
             style = MaterialTheme.typography.bodyMedium,
             color = tokens.inkSecondary,
             modifier =

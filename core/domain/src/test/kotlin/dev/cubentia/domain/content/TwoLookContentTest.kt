@@ -63,6 +63,25 @@ class TwoLookContentTest {
         }
     }
 
+    @Test fun `demonstrations agree with the two look solve judge and matcher predicates`() {
+        val lessons = bundle.twoLookStages.flatMap { it.lessons }
+        val ids = lessons.flatMap { bundle.lessonAlgorithms.getValue(it.id) }.toSet()
+        val algorithms = bundle.algorithms.filter { it.id in ids }.map { (Notation.parse(it.notation) as NotationResult.Parsed).moves }
+        lessons.forEach { lesson ->
+            val moves = (Notation.parse(lesson.demonstration) as NotationResult.Parsed).moves
+            assertEquals(
+                0,
+                dev.cubentia.domain.lastlayer.TwoLookSolve
+                    .offPathMoves(moves, algorithms),
+                lesson.id.value,
+            )
+            assertTrue(lesson.completion is LastLayerStepReached)
+            val decoded = FaceletString.decode(lesson.entryState) as FaceletStringResult.Decoded
+            val entry = (CubeValidator.validate(decoded.facelets) as ValidationResult.Valid).state
+            assertTrue(lesson.completion.isSatisfied(entry.apply(moves)), lesson.id.value)
+        }
+    }
+
     @Test fun `authored files contain only Algorithm references`() {
         val manifest = ContentLoader.json.decodeFromString<BundleManifest>(ContentSource.SHIPPED.read("bundle.json")!!.decodeToString())
         assertEquals(2, manifest.twoLook.size)

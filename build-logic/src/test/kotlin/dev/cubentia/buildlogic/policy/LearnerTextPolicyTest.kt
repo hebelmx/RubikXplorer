@@ -7,6 +7,19 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 
 class LearnerTextPolicyTest {
+    @Test fun `resource names must be in the baseline`() {
+        val xml =
+            """<resources><string name="allowed">Text</string><plurals name="new_name" />""" +
+                """<string-array name="new_array" /></resources>"""
+        val found = LearnerTextPolicy.checkStringResources("strings.xml", xml, setOf("allowed"))
+        assertEquals(listOf("new_name", "new_array"), found.map { it.literal })
+        assertEquals(listOf(Rule.STRING_RESOURCE, Rule.STRING_RESOURCE), found.map { it.rule })
+        assertEquals(
+            emptyList<LearnerTextPolicy.Violation>(),
+            LearnerTextPolicy.checkStringResources("strings.xml", xml, setOf("allowed", "new_name", "new_array")),
+        )
+    }
+
     private fun violations(source: String) = LearnerTextPolicy.check("F.kt", source.trimIndent())
 
     private fun rules(source: String) = violations(source).map { it.line to it.rule }

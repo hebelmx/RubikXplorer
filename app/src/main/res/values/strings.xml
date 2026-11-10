@@ -174,8 +174,6 @@
     <string name="stage_status_mastered">Mastered</string>
     <string name="stage_icon_skipped" translatable="false">◇</string>
     <string name="stage_icon_mastered" translatable="false">◆</string>
-    <string name="learn_faster_last_layer">Faster last layer</string>
-    <string name="learn_two_look_locked_prerequisite">Complete or skip every Stage of the Course to unlock 2-look.</string>
     <string name="stage_detail_back">Back to stages</string>
     <string name="stage_mastery_progress">Mastery: %1$d of %2$d solves · %3$d with reduced help</string>
     <string name="stage_practice">Practice this Stage</string>
@@ -202,8 +200,4 @@
     <string name="playback_scrub_description">Move boundary</string>
     <string name="library_open_detail">Open Algorithm detail</string>
     <string name="library_detail_back">Back to Library</string>
-    <string name="learn_two_look_mastery">Mastery: %1$d of %2$d</string>
-    <string name="learn_two_look_practice">Practice the last layer</string>
-    <string name="lesson_two_look_qualified">Last layer solved with 2-look, no hints.</string>
-    <string name="lesson_two_look_not_qualified">Solved. Only 2-look algorithms with no hints count toward mastery.</string>
 </resources>

@@ -11,6 +11,7 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -335,5 +336,88 @@ class AppShellLibraryTest {
         rule.onNodeWithTag("library:status:LEARNING").performClick()
         rule.onNodeWithTag(tag).assertExists()
         rule.onNodeWithTag("library:status-label", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test fun `last two look Lesson milestone practices a fresh LL scramble`() {
+        val lessons = loaded.bundle.twoLookStages.flatMap { it.lessons }
+        val events =
+            loaded.bundle.stages.map {
+                dev.cubentia.domain.tutor.ProgressEvent
+                    .StageSkippedByCheck(it.id, kotlin.time.Instant.fromEpochMilliseconds(0))
+            } +
+                lessons.dropLast(1).map {
+                    dev.cubentia.domain.tutor.ProgressEvent
+                        .LessonCompleted(it.id)
+                }
+        val stored = events.toMutableList<dev.cubentia.domain.tutor.ProgressEvent>()
+        val progress =
+            object : dev.cubentia.application.port.ProgressRepository {
+                override suspend fun all() =
+                    dev.cubentia.application.port.ProgressLoad
+                        .Found(stored.toList())
+
+                override suspend fun append(
+                    records: List<dev.cubentia.application.port.ProgressRecord>,
+                ): dev.cubentia.application.port.ProgressSave {
+                    stored.addAll(records.map { it.event })
+                    return dev.cubentia.application.port.ProgressSave.Saved
+                }
+            }
+        val prior =
+            (0..1).map {
+                dev.cubentia.application.session.AttemptRecord(
+                    "prior-$it",
+                    "prior",
+                    it.toLong(),
+                    dev.cubentia.application.session.AttemptEvent.ENDED,
+                    "practice-two-look",
+                    dev.cubentia.application.session.AttemptOutcome.COMPLETED,
+                    0,
+                    0,
+                    dev.cubentia.domain.tutor.AssistanceLevel.REDUCED,
+                    kotlin.time.Instant.fromEpochMilliseconds(0),
+                )
+            }
+        val attempts =
+            object : dev.cubentia.application.port.AttemptRepository {
+                override suspend fun all() =
+                    dev.cubentia.application.port.AttemptLoad
+                        .Found(prior)
+            }
+        val host =
+            SessionHost(
+                TickingClock(),
+                kotlinx.coroutines.Dispatchers.Default
+                    .limitedParallelism(1),
+                progress = progress,
+                attempts = attempts,
+                completeLesson =
+                    dev.cubentia.application.usecase
+                        .CompleteLesson(progress),
+            )
+        sessionHost = host
+        rule.setContent {
+            CubentiaTheme {
+                AppShell(host, LessonCatalog.of(loaded), FreeCubeViewModel(), false, testFlags(), preferenceStore = PreferenceStore())
+            }
+        }
+        val last = lessons.last()
+        rule.onNodeWithTag("nav:learn").performClick()
+        rule.onNodeWithTag("learn:stage:${last.stageId.value}").performScrollTo().performClick()
+        rule.onNodeWithTag("learn:lesson:${last.id.value}").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.kind == SessionKind.TWO_LOOK }
+        rule.waitForIdle()
+        solve(last)
+        rule.waitUntil(5_000) {
+            rule.onAllNodesWithTag("milestone:headline").fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.onNodeWithTag("milestone:headline").assertTextContains("2-look last layer mastered!")
+        rule.onNodeWithTag("milestone:practice").performClick()
+        rule.waitUntil(5_000) { host.state.value.kind == SessionKind.PRACTICE }
+        rule.waitForIdle()
+        val session = host.state.value
+        assertEquals("practice-two-look", session.lesson?.id?.value)
+        assertTrue(session.twoLookAlgorithms.isNotEmpty())
+        assertTrue(!session.objectiveMet)
     }
 }

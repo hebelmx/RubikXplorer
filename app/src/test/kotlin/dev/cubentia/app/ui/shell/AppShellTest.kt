@@ -912,7 +912,14 @@ class AppShellTest {
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "In progress"))
         rule.onNodeWithTag("learn:fasterLastLayer:status").assertTextContains("In progress")
         rule.onNodeWithTag("learn:fasterLastLayer:mastery").assertDoesNotExist()
+        rule.runOnIdle { attempts = listOf(attempt, attempt.copy(attemptId = "ll2"), attempt.copy(attemptId = "ll3")) }
+        rule.onNodeWithTag("learn:fasterLastLayer:mastery").performScrollTo().assertTextContains("Mastery: 2 of 2")
+        rule.onNodeWithTag("learn:fasterLastLayer:status").assertTextContains("In progress")
+        // Solves made before completion count once the last 2-look Lesson completes (SCP 2026-11-10).
         rule.runOnIdle { events = bundle.twoLookStages.flatMap { it.lessons }.map { ProgressEvent.LessonCompleted(it.id) } }
+        rule.onNodeWithTag("learn:fasterLastLayer:status").performScrollTo().assertTextContains("Mastered")
+        rule.onNodeWithTag("learn:fasterLastLayer:mastery").assertDoesNotExist()
+        rule.runOnIdle { attempts = emptyList() }
         rule
             .onNodeWithTag(
                 "learn:fasterLastLayer:status",

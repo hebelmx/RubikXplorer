@@ -155,6 +155,7 @@ fun LessonScreen(
     cameraScan: FlagLevel = FlagLevel.OFF,
     onPracticeNewScramble: () -> Unit = onClose,
     twoLookPractice: Boolean = false,
+    twoLookStages: List<Stage> = emptyList(),
     twoLookAlgorithms: List<List<dev.cubentia.domain.cube.Move>> = emptyList(),
     isPractice: Boolean = false,
     stages: List<Stage> = emptyList(),
@@ -177,7 +178,7 @@ fun LessonScreen(
     var initialTwoLookMastered by rememberSaveable(lesson.id.value, lesson.entryState) { mutableStateOf<Boolean?>(null) }
     val twoLookProgress =
         dev.cubentia.domain.tutor.TwoLookMastery.evaluate(
-            emptyList(),
+            twoLookStages,
             attemptRecords,
             progressEvents,
             entry.tutorConfig.twoLookSolvesRequired,
@@ -215,10 +216,10 @@ fun LessonScreen(
             }
 
     val isTwoLookMilestone =
-        twoLookPractice && initialTwoLookMastered == false && twoLookProgress.mastered && !milestoneDismissed &&
+        (twoLookPractice || isTwoLook) && initialTwoLookMastered == false && twoLookProgress.mastered && !milestoneDismissed &&
             session.lesson?.id == lesson.id &&
             session.objectiveMet &&
-            if (isPhysical) session.physicalSolveConfirmed else !session.physicalSolveUnconfirmed
+            (!twoLookPractice || if (isPhysical) session.physicalSolveConfirmed else !session.physicalSolveUnconfirmed)
     val showMilestone = isFirstSolveMilestone || isMasteryMilestone || isTwoLookMilestone
 
     BackHandler(onBack = {
@@ -236,7 +237,7 @@ fun LessonScreen(
             initialTwoLookMastered =
                 dev.cubentia.domain.tutor.TwoLookMastery
                     .evaluate(
-                        emptyList(),
+                        twoLookStages,
                         host.attemptRecords.value,
                         host.progressEvents.value,
                         entry.tutorConfig.twoLookSolvesRequired,
@@ -355,7 +356,9 @@ fun LessonScreen(
                         if (twoLookPractice && session.objectiveMet) {
                             val errors = remember(session.history, session.twoLookAlgorithms) { session.twoLookErrors }
                             val qualified = session.hintsUsed == 0 && errors == 0
-                            stringResource(if (qualified) R.string.lesson_two_look_qualified else R.string.lesson_two_look_not_qualified)
+                            strings.resolve(
+                                TextKey(if (qualified) "msg.lesson.two-look.qualified" else "msg.lesson.two-look.not-qualified"),
+                            )
                         } else {
                             null
                         },

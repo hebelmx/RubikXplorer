@@ -221,11 +221,7 @@ private fun ShellContent(
         val notStarted = algorithmsToOffer(lessonAlgorithms, algorithmStatusLoad)
         val recognition =
             remember(entry.lesson.id) {
-                lessonAlgorithms.firstOrNull()?.let { id ->
-                    ready.bundle.algorithms.firstOrNull { it.id == id }?.let { algorithm ->
-                        (RecognitionDiagram.derive(algorithm) as? RecognitionDiagramResult.Derived)?.diagram
-                    }
-                }
+                recognitionDiagramFor(ready.bundle, entry.lesson.id)
             }
         LessonScreen(
             host = host,
@@ -245,10 +241,15 @@ private fun ShellContent(
             },
             onPracticeNewScramble = {
                 openLesson = null
-                openPractice =
-                    if (entry.stage.id != StagePractice.STAGE_1_ID) entry.stage.id.value else "stage-07-independent-practice"
+                if (entry.stage in ready.bundle.twoLookStages) {
+                    twoLookScramble = newTwoLookPractice(ready).entryState
+                    openPractice = "two-look-practice"
+                } else {
+                    openPractice = if (entry.stage.id != StagePractice.STAGE_1_ID) entry.stage.id.value else "stage-07-independent-practice"
+                }
                 practiceEpoch++
             },
+            twoLookStages = ready.bundle.twoLookStages,
             stages = ready.bundle.stages,
             onNextStage = { nextStageId ->
                 openLesson = null
@@ -304,6 +305,7 @@ private fun ShellContent(
                 openPractice = practiceEntry.stage.id.value
                 practiceEpoch++
             },
+            twoLookStages = ready.bundle.twoLookStages,
             stages = ready.bundle.stages,
             onNextStage = { nextStageId ->
                 scope.launch { host.endSession() }
@@ -364,6 +366,7 @@ private fun ShellContent(
             modifier = modifier,
             adaptiveAssistance = FlagLevel.OFF,
             cameraScan = flags.level(FeatureFlag.CAMERA_SCAN),
+            twoLookStages = ready.bundle.twoLookStages,
             stages = ready.bundle.stages,
             isSkipCheck = true,
             skipCheckInstruction = stringResource(R.string.skip_check_instruction),
@@ -635,3 +638,13 @@ internal fun algorithmsToOffer(
     val statuses = (load as? AlgorithmStatusLoad.Loaded)?.statuses ?: return emptyList()
     return ids.filter { (statuses[it] ?: AlgorithmStatus.NOT_STARTED) == AlgorithmStatus.NOT_STARTED }
 }
+
+internal fun recognitionDiagramFor(
+    bundle: dev.cubentia.domain.content.ContentBundle,
+    lessonId: LessonId,
+): RecognitionDiagram? =
+    bundle.lessonAlgorithms[lessonId]?.firstOrNull()?.let { id ->
+        bundle.algorithms.firstOrNull { it.id == id }?.let { algorithm ->
+            (RecognitionDiagram.derive(algorithm) as? RecognitionDiagramResult.Derived)?.diagram
+        }
+    }

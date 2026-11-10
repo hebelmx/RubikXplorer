@@ -11,6 +11,7 @@ data class TwoLookProgress(
     val status: StageStatus,
 )
 
+/** Mastery requires every 2-look Lesson completed and qualifying solves, including pre-completion solves (SCP 2026-11-10). */
 object TwoLookMastery {
     val PRACTICE_ID = LessonId("practice-two-look")
 
@@ -33,7 +34,8 @@ object TwoLookMastery {
         val lessons = twoLookStages.flatMap { it.lessons }
         val completed = lessons.isNotEmpty() && lessons.all { it.id in done }
         val count = Mastery.currentEpochAttempts(attempts, events).count(::qualifies)
-        val mastered = count >= solvesRequired
+        // Qualifying solves before Lesson completion count toward mastery (SCP 2026-11-10).
+        val mastered = completed && count >= solvesRequired
         val status =
             when {
                 mastered -> StageStatus.MASTERED
