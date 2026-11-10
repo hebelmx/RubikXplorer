@@ -3,24 +3,32 @@ package dev.cubentia.app.data
 import android.app.Application
 import androidx.room3.Room
 import androidx.sqlite.driver.AndroidSQLiteDriver
+import dev.cubentia.app.content.twoLookMoves
+import dev.cubentia.app.random.KotlinRandomSource
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.TickingClock
+import dev.cubentia.application.port.AttemptLoad
 import dev.cubentia.application.port.ProgressLoad
 import dev.cubentia.application.session.CubeMode
 import dev.cubentia.application.session.SessionEvent
+import dev.cubentia.application.session.SessionKind
 import dev.cubentia.application.session.SyncState
 import dev.cubentia.application.usecase.CompleteLesson
+import dev.cubentia.application.usecase.TwoLookPractice
 import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
+import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.domain.cube.Turn
+import dev.cubentia.domain.tutor.AttemptOutcome
 import dev.cubentia.domain.tutor.ProgressEvent
 import dev.cubentia.domain.tutor.StageProgress
 import dev.cubentia.domain.tutor.StageStatus
+import dev.cubentia.domain.tutor.TwoLookMastery
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -165,6 +173,7 @@ class SessionHostProgressTest {
                 checkpoints = RoomCheckpointRepository(db),
                 completeLesson = CompleteLesson(progress),
                 progress = progress,
+                attempts = RoomAttemptRepository(db),
             )
 
         suspend fun completions(): Int {
@@ -278,6 +287,59 @@ class SessionHostProgressTest {
                 second.host.dispatch { SessionEvent.PhysicalConfirmed(null, it) }
                 second.host.dispatch { SessionEvent.PhysicalSolveConfirmed(it) }
                 assertEquals(1, second.completions())
+            } finally {
+                second.close()
+            }
+        }
+
+    @Test fun editorReplacedLlPracticeRestoredFromColdStartEarnsNoMasteryCredit() =
+        runBlocking {
+            val name = database()
+            val algorithms = bundle.twoLookMoves()
+            val practice = TwoLookPractice(KotlinRandomSource()).lesson(algorithms)
+            val oneTurnFromSolved = CubeState.SOLVED.apply(FaceTurn(Face.U, Turn.COUNTERCLOCKWISE))
+            val first = Process(name)
+            try {
+                first.host.restore(bundle)
+                first.host.awaitRestored()
+                first.host.dispatch { SessionEvent.PracticeStarted(practice, bundle.tutorConfig, it, algorithms) }
+                first.host.dispatch { SessionEvent.ModeSwitched(CubeMode.PHYSICAL, it) }
+                first.host.dispatch { SessionEvent.PhysicalConfirmed(null, it) }
+                // The Manual Cube Editor replaces the fresh scramble with a cube one U turn from solved.
+                first.host.dispatch { SessionEvent.EditorEntered(oneTurnFromSolved, it) }
+                assertEquals(1, first.host.state.value.twoLookErrors)
+                first.writer.flush()
+            } finally {
+                first.close()
+            }
+            val second = Process(name)
+            try {
+                second.host.restore(bundle)
+                second.host.awaitRestored()
+                assertEquals(SessionKind.PRACTICE, second.host.state.value.kind)
+                assertEquals(
+                    practice.entryState,
+                    second.host.state.value.lesson
+                        ?.entryState,
+                )
+                assertEquals(oneTurnFromSolved, second.host.state.value.virtual)
+                assertEquals(1, second.host.state.value.twoLookErrors)
+
+                second.host.dispatch { SessionEvent.PhysicalConfirmed(null, it) }
+                second.host.dispatch { SessionEvent.PhysicalConfirmed(FaceTurn(Face.U, Turn.CLOCKWISE), it) }
+                assertTrue(second.host.state.value.objectiveMet)
+                second.host.dispatch { SessionEvent.PhysicalSolveConfirmed(it) }
+                second.writer.flush()
+
+                val records = (RoomAttemptRepository(second.db).all() as AttemptLoad.Found).records
+                val completed =
+                    records.filter {
+                        it.objectiveId == TwoLookMastery.PRACTICE_ID.value &&
+                            it.outcome == AttemptOutcome.COMPLETED
+                    }
+                assertEquals(1, completed.size)
+                assertTrue((completed.single().errors ?: 0) >= 1)
+                assertTrue(records.none(TwoLookMastery::qualifies))
             } finally {
                 second.close()
             }

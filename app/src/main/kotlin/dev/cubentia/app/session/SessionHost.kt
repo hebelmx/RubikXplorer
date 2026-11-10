@@ -213,8 +213,9 @@ class SessionHost internal constructor(
             if (lesson != null) {
                 dispatch { SessionEvent.SessionRestored(snapshot, lesson, bundle.tutorConfig, it) }
             } else if (snapshot.kind == SessionKind.PRACTICE && snapshot.lessonId == TwoLookMastery.PRACTICE_ID.value) {
-                // The generated LL practice is not content: rebuild it at the stored start cube with its 2-look set.
-                val practice = TwoLookPractice.lessonAt(snapshot.start)
+                // The generated LL practice is not content: rebuild it at its stored scramble with its 2-look set.
+                // An older snapshot has no practiceEntry and falls back to its start cube.
+                val practice = TwoLookPractice.lessonAt(snapshot.practiceEntry ?: snapshot.start)
                 dispatch { SessionEvent.SessionRestored(snapshot, practice, bundle.tutorConfig, it, bundle.twoLookMoves()) }
             }
         }

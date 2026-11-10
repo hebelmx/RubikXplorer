@@ -19,7 +19,7 @@ deferred:
   - summary: >-
       Rotating the device during a Course Stage practice regenerates the scramble and restarts the attempt, and Course practice does not resume on cold start.
     evidence: |-
-      AppShell builds the Course practiceEntry in remember(openPractice, practiceEpoch, ready) with a fresh scramble, and SessionHost resolves only bundled Lessons and the LL practice on restore. The LL practice now keeps its scramble in rememberSaveable and is rebuilt from the snapshot's start cube on cold start.
+      AppShell builds the Course practiceEntry in remember(openPractice, practiceEpoch, ready) with a fresh scramble, and SessionHost resolves only bundled Lessons and the LL practice on restore. The LL practice now keeps its scramble in rememberSaveable and is rebuilt on cold start from the snapshot's practiceEntry (its original scramble; older snapshots fall back to the start cube).
     location: >-
       app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt (practiceEntry)
     severity: medium
@@ -44,7 +44,9 @@ deferred:
 
 **Always:** The 2-look Algorithm set is `ContentBundle.lessonAlgorithms` over `twoLookStages` (the 16 from 9.7), never a hard-coded list. The 2-look-only check is one pure `:core:domain` function: the fewest Moves of the committed history (`MoveHistory.done`, so undone Moves never count) that are not covered by a split into segments, where each segment is either one free Move (a `U` face turn, any amount, or a Cube Rotation) or a contiguous run whose cubie effect equals one 2-look Algorithm's effect, ignoring the final orientation. That count is the LL practice attempt's `errors`, set by the reducer in `AttemptEnded`. A qualifying solve is an attempt with `objectiveId == "practice-two-look"`, outcome `COMPLETED`, `hints == 0` and `errors == 0`, in the current epoch, so *Reset progress* clears it. The number of solves required is `tutor-config.json` `twoLookSolvesRequired` = 2. Mini-Course status order: *Mastered* (≥ 2 qualifying) over *Completed* (every 2-look Lesson completed) over *In progress*. The LL practice is a `PRACTICE` session: entry state with yellow on U (`LastLayerView.canonicalFrame(YELLOW)`), F2L solved, LL not solved up to AUF, made by applying random Library Algorithms and `U` turns through `RandomSource`; completion `cube-solved`; preserve the first two layers. Learner text is in `en.json` or Android string resources and follows the voice guide.
 
-**Never:** No new Room column, table or `progress_event` type; no `SessionSnapshot` or `Checkpoint` format change (the LL practice, like Course practice, is not restored on cold start). No change to Course Stage mastery, the seven Stage rows, the 2-look Stage rows or 9.7's Lesson offer. No Stage mastery milestone, Trend or Course mastery line for the LL practice. The milestone does not play in Physical-cube Mode (same rule as Stage mastery). No stars, scores or badges. No writes under `_bmad-output/planning-artifacts/`, `_bmad/` or `.claude/`.
+**Never:** No new Room column, table or `progress_event` type, and no `Checkpoint` format change. The only `SessionSnapshot` change is the optional `practiceEntry` field in the JSON payload (no Room column; older snapshots without it decode as `null`). No change to Course Stage mastery, the seven Stage rows, the 2-look Stage rows or 9.7's Lesson offer. No Stage mastery milestone, Trend or Course mastery line for the LL practice. No stars, scores or badges.
+
+**Restore and Physical-cube Mode (final behavior):** The LL practice resumes on cold start: `SessionHost` rebuilds it with `TwoLookPractice.lessonAt(snapshot.practiceEntry ?: snapshot.start)` and the content-derived 2-look set, and a physical LL practice keeps its committed Moves as evidence. `practiceEntry` is the original scramble (`SessionState.pathEntry`), so a history replaced by a mode switch or the Manual Cube Editor before process death still differs from the Lesson entry after restore and still adds one error; a restored session with replaced history can never be a qualifying solve. Course practice is still not restored. In Physical-cube Mode the attempt completes, and the 2-look milestone plays, only after an explicit *Yes, it's solved* (`physicalSolveConfirmed`, UX-DR20); the Stage mastery milestone keeps its `!isPhysical` rule. No writes under `_bmad-output/planning-artifacts/`, `_bmad/` or `.claude/`.
 
 ## I/O & Edge-Case Matrix
 
@@ -60,10 +62,11 @@ deferred:
 | Undone slip | Wrong Move then Undo | Not in `done`; `errors` 0 | No error expected |
 | Rotations and AUF | `y`, `U'`, Algorithm, `U2` | `errors` 0 | No error expected |
 | Reset | *Reset progress* after mastery | Row back to *In progress*, no line | No error expected |
-| Milestone | Second qualifying solve in the virtual LL practice | Milestone burst then "2-look last layer mastered!"; static under reduce motion; *Practice on a new scramble* opens a fresh LL practice | No error expected |
+| Milestone | Second qualifying solve in the LL practice (virtual, or physical after *Yes, it's solved*) | Milestone burst then "2-look last layer mastered!"; static under reduce motion; *Practice on a new scramble* opens a fresh LL practice | No error expected |
 | Not mastered yet | First qualifying solve | "Last layer solved with 2-look, no hints." under the step card; no milestone | No error expected |
 | Non-qualifying solve | Solved with hints or off-2-look Moves | "Solved. Only 2-look algorithms with no hints count toward mastery." | No error expected |
 | Course practice | Any Stage practice | `errors` stays the mistake count; no 2-look line | No error expected |
+| Restored replaced history | Editor or mode switch replaced the LL practice history, then process death and cold-start restore | Practice rebuilt at its original scramble; `errors` ≥ 1; not qualifying | Older snapshot without `practiceEntry` falls back to its start cube |
 
 </intent-contract>
 
@@ -93,7 +96,7 @@ deferred:
 - `core/application/.../session/SessionEvent.kt`, `SessionState.kt`, `Reduce.kt`, `TRANSITIONS.md` -- `PracticeStarted.twoLookAlgorithms: List<List<Move>> = emptyList()` kept in `SessionState.twoLookAlgorithms` (cleared by every other start); `end()` sets `errors = TwoLookSolve.offPathMoves(done, algorithms)` when non-empty.
 - `app/.../ui/shell/LearnScreen.kt` -- `FasterLastLayerRow` shows `StageStatusBadge` (tag `learn:fasterLastLayer:status`), "Mastery: 1 of 2" (tag `learn:fasterLastLayer:mastery`, string `learn_two_look_mastery`, shown only when 0 < qualifying < required), and *Practice the last layer* (tag `learn:twoLookPractice`).
 - `app/.../ui/shell/AppShell.kt` -- compute `TwoLookMastery.evaluate`; LL practice entry state (`openTwoLookPractice` + epoch) built with `TwoLookPractice` from all Library Algorithms and the 2-look set; open `LessonScreen` with `isPractice = true`, `twoLookPractice = true`.
-- `app/.../ui/lesson/LessonScreen.kt` -- `twoLookPractice` param: dispatch `PracticeStarted` with the 2-look Move lists; no Stage mastery milestone; 2-look milestone when `initialTwoLookMastered == false` and now mastered, virtual only; result line (tag `lesson:twoLookResult`) per the matrix.
+- `app/.../ui/lesson/LessonScreen.kt` -- `twoLookPractice` param: dispatch `PracticeStarted` with the 2-look Move lists; no Stage mastery milestone; 2-look milestone when `initialTwoLookMastered == false` and now mastered, in virtual mode or after a confirmed physical solve; result line (tag `lesson:twoLookResult`) per the matrix.
 - `app/src/main/res/values/strings.xml` -- `learn_two_look_mastery`, `learn_two_look_practice`, `lesson_two_look_qualified`, `lesson_two_look_not_qualified`.
 - Tests: `TwoLookSolveTest` (each matrix Move case, every 2-look Algorithm alone, the dot as 45 + `U` + 44), `TwoLookMasteryTest` (status order, hint/errors/outcome/objective filters, epoch reset), `TwoLookPracticeTest` (F2L solved, LL unsolved, yellow on U, seeded), reducer test that LL practice `AttemptEnded.errors` is the off-path count and Course practice is unchanged, `ContentLoaderTest`/`SchemaModelTest` for the new field, `LearnScreen`/`AppShell` tests for the row states, line and practice entry, `LessonScreen` test for the milestone and result lines.
 
@@ -186,7 +189,7 @@ How a solve is judged:
 - `U` turns and Algorithms count only while the starting top layer is on U. A history replaced by a mode switch or the editor adds one error.
 - A solve qualifies when it is completed with no hints and no errors.
 
-After each solve, a result line says whether it counted. The second qualifying solve plays the milestone, "2-look last layer mastered!", in the virtual cube. The required count is `tutor-config.json` `twoLookSolvesRequired` (2). There is no Room, snapshot or Checkpoint change.
+After each solve, a result line says whether it counted. The second qualifying solve plays the milestone, "2-look last layer mastered!", in the virtual cube or, in Physical-cube Mode, after *Yes, it's solved*. The required count is `tutor-config.json` `twoLookSolvesRequired` (2). The LL practice resumes on cold start from its snapshot, rebuilt at the stored original scramble (`practiceEntry`). There is no Room column or Checkpoint change; the snapshot payload gains only the optional `practiceEntry`.
 
 **Files changed.**
 - `core/domain/.../lastlayer/TwoLookSolve.kt` -- the 2-look-only Move judge (effect segments, orientation guard, replaced-history overload).
@@ -209,7 +212,7 @@ After each solve, a result line says whether it counted. The second qualifying s
   - the result line recomputing on every recomposition, now `remember`ed;
   - the test of the practice Algorithm set, which now checks membership;
   - the non-default threshold, which is now tested.
-- Deferred: a confirmed physical-mode mastery plays no milestone. This shares the existing Stage mastery rule.
+- Deferred: a confirmed physical-mode mastery plays no milestone. This shares the existing Stage mastery rule. (Superseded for the 2-look milestone by a later round: it now plays after a confirmed physical solve; the Stage mastery milestone is still deferred.)
 - Every rejected row and its reason is in the Review Triage Log.
 
 **Follow-up review: recommended.** Patched by verdict: high 0, medium 2, low 4 entries. Two fixes changed the qualification rule after review and have had no independent review:
@@ -246,3 +249,13 @@ After each solve, a result line says whether it counted. The second qualifying s
 **Verification.** `./gradlew spotlessCheck build` was BUILD SUCCESSFUL after the patches; JUnit XML shows 1627 tests, 0 failed, 0 skipped. No Room schema JSON changed. No device or instrumented runs.
 
 **Residual risks.** The two deferred items above; otherwise unchanged from the first pass.
+
+### Acceptance-gate fix round (2026-11-09)
+
+**Finding.** `[high]` Cold-start restore erased the replaced-history error: the snapshot stored only `history.start`, and the LL practice was rebuilt at it, so after an editor replacement and process death the rebuilt Lesson entry equalled the replaced start. A cube entered one `U` turn from solved could then earn qualifying mastery credit without solving the fresh scramble.
+
+**Fix.** `SessionSnapshot.practiceEntry` (and `SnapshotPayload.practiceEntry`, default `null`) stores the LL practice's original scramble (`SessionState.pathEntry`); `SessionHost` rebuilds the practice at `practiceEntry ?: start`. After restore `pathEntry` is again the original scramble, so the replaced-history error stays sticky through every later snapshot. Older snapshots without the field restore as before.
+
+**Tests.** `SessionHostProgressTest.editorReplacedLlPracticeRestoredFromColdStartEarnsNoMasteryCredit` (editor replacement → snapshot → cold-start restore → physical completion records a `COMPLETED` attempt with `errors` ≥ 1 and no qualifying attempt; fails without the fix). `RoomSessionSnapshotRepositoryTest` round-trips `practiceEntry` and decodes a legacy payload without it as `null`.
+
+**Verification.** `./gradlew spotlessCheck build` was BUILD SUCCESSFUL after the fix. No Room schema JSON changed.
