@@ -80,6 +80,7 @@ class RoomSessionSnapshotRepositoryTest {
                         attemptId = "attempt-1",
                         physicalSolveConfirmed = true,
                         physicalSolveUnconfirmed = true,
+                        practiceEntry = newer.start,
                     )
                 repo.save(tutored)
                 assertEquals(SnapshotLoad.Found(tutored), repo.latest())
@@ -93,6 +94,7 @@ class RoomSessionSnapshotRepositoryTest {
                         .replace(Regex("\"mode\":\"[^\"]*\","), "")
                         .replace(Regex(",?\"physicalSolveConfirmed\":(?:true|false)"), "")
                         .replace(Regex(",?\"physicalSolveUnconfirmed\":(?:true|false)"), "")
+                        .replace(Regex(",?\"practiceEntry\":\"[^\"]*\""), "")
                 assertEquals(
                     tutored.copy(
                         attemptOpen = false,
@@ -101,6 +103,7 @@ class RoomSessionSnapshotRepositoryTest {
                         mode = CubeMode.VIRTUAL,
                         physicalSolveConfirmed = false,
                         physicalSolveUnconfirmed = false,
+                        practiceEntry = null,
                     ),
                     SnapshotPayload.decode(legacy),
                 )

@@ -586,5 +586,8 @@
   "btn.lesson.two-look.add": "Add to Learning",
   "btn.lesson.two-look.decline": "Not now",
   "msg.lesson.two-look.offer-failed": "Those algorithms were not added to Learning. Try again.",
-  "msg.lesson.recognition.description": "Recognition diagram for: {objective}"
+  "msg.lesson.recognition.description": "Recognition diagram for: {objective}",
+  "stage.two-look-practice.title": "Faster last layer",
+  "msg.practice.two-look.objective": "Solve the last layer using only 2-look algorithms.",
+  "msg.milestone.two-look-mastered": "2-look last layer mastered!"
 }

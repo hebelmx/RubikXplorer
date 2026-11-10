@@ -254,6 +254,7 @@ private fun start(
     val next =
         withHistory(state, MoveHistory(entry), lesson).copy(
             kind = event.kind,
+            twoLookAlgorithms = emptyList(),
             lesson = lesson,
             tutorConfig = event.tutorConfig,
             adaptiveAssistance = event.adaptiveAssistance,
@@ -293,6 +294,7 @@ private fun startPractice(
     val next =
         withHistory(state, MoveHistory(entry), lesson).copy(
             kind = SessionKind.PRACTICE,
+            twoLookAlgorithms = event.twoLookAlgorithms,
             lesson = lesson,
             tutorConfig = event.tutorConfig,
             adaptiveAssistance = false,
@@ -337,6 +339,7 @@ private fun startPlayback(
     val next =
         withHistory(state, MoveHistory(start), lesson = null).copy(
             kind = SessionKind.SOLVE_PLAYBACK,
+            twoLookAlgorithms = emptyList(),
             lesson = null,
             tutorConfig = null,
             adaptiveAssistance = false,
@@ -971,7 +974,7 @@ private fun restore(
 ): Transition {
     val snapshot = event.snapshot
     if (state.isActive || !snapshot.kind.resumesOnColdStart ||
-        !snapshot.kind.isTaught ||
+        !(snapshot.kind.isTaught || snapshot.kind == SessionKind.PRACTICE) ||
         snapshot.lessonId != event.lesson.id.value
     ) {
         return Transition(state)
@@ -989,12 +992,20 @@ private fun restore(
         }
     var history = (done + undone.reversed()).fold(MoveHistory(validated.state)) { h, move -> h.commit(move) }
     repeat(undone.size) { history = history.undo() }
-    val effectiveHistory = if (snapshot.mode == CubeMode.PHYSICAL) MoveHistory(history.state) else history
+    // A physical restore is an undo barrier, except in LL practice: its committed Moves are the 2-look evidence (TwoLookSolve).
+    val llPractice = snapshot.kind == SessionKind.PRACTICE && event.twoLookAlgorithms.isNotEmpty()
+    val effectiveHistory =
+        when {
+            snapshot.mode != CubeMode.PHYSICAL -> history
+            llPractice -> history.withoutRedo()
+            else -> MoveHistory(history.state)
+        }
     val next =
         withHistory(SessionState.IDLE.copy(revision = state.revision), effectiveHistory, event.lesson).copy(
             kind = snapshot.kind,
             lesson = event.lesson,
             tutorConfig = event.tutorConfig,
+            twoLookAlgorithms = event.twoLookAlgorithms,
             solution = solution,
             checkpoint = checkpoint,
             teachingMode = snapshot.teachingMode,
@@ -1121,7 +1132,7 @@ private fun attempts(
                 next.revision,
                 checkNotNull(state.lesson).id.value,
                 outcome,
-                state.stepMistakes.values.sum(),
+                state.twoLookErrors ?: state.stepMistakes.values.sum(),
                 state.hintsUsed,
                 state.attemptAssistance,
                 event.at,
@@ -1137,7 +1148,10 @@ private fun attempts(
     }
     if (next.attemptOpen) {
         next = next.copy(attemptAssistance = maxOf(next.attemptAssistance, next.assistance))
-        if (next.objectiveMet) {
+        // A physical LL practice completes only on the Learner's "Yes, it's solved" (PhysicalSolveConfirmed).
+        val awaitsSolveConfirm =
+            next.kind == SessionKind.PRACTICE && next.twoLookAlgorithms.isNotEmpty() && next.isPhysical && !next.physicalSolveConfirmed
+        if (next.objectiveMet && !awaitsSolveConfirm) {
             end(next, AttemptOutcome.COMPLETED)
             next = next.copy(attemptOpen = false)
         }

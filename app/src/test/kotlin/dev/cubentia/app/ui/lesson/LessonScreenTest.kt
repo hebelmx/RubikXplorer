@@ -47,6 +47,8 @@ import dev.cubentia.app.session.whiteCrossLesson
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
 import dev.cubentia.app.ui.shell.AppShell
 import dev.cubentia.app.ui.theme.CubentiaTheme
+import dev.cubentia.application.port.AttemptLoad
+import dev.cubentia.application.port.AttemptRepository
 import dev.cubentia.application.port.FlagLevel
 import dev.cubentia.application.port.ProgressLoad
 import dev.cubentia.application.port.ProgressRecord
@@ -126,6 +128,110 @@ class LessonScreenTest {
     val rule = createComposeRule()
 
     @Test fun twoLookOfferAcceptsOnlyOnExplicitAction() = twoLookOfferScenario(accept = true)
+
+    @Test fun twoLookPracticeFirstSolveResult() = twoLookPracticeResult(false)
+
+    @Test fun twoLookPracticeHintResult() = twoLookPracticeResult(true)
+
+    @Test fun twoLookPracticeMasteryMilestone() = twoLookPracticeResult(false, 1)
+
+    @Test fun twoLookPracticeOffPathResult() = twoLookPracticeResult(false, offPath = true)
+
+    @Test fun twoLookPracticePhysicalConfirmedMilestone() = twoLookPracticeResult(false, 1, physical = true)
+
+    @Test fun twoLookPracticeAlreadyMasteredHasNoMilestone() = twoLookPracticeResult(false, 2)
+
+    private fun twoLookPracticeResult(
+        hint: Boolean,
+        prior: Int = 0,
+        physical: Boolean = false,
+        offPath: Boolean = false,
+    ) {
+        val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val ready = CatalogState.Ready(bundle)
+        val authored = bundle.twoLookStages.first().lessons[1]
+        val lesson = authored.copy(id = LessonId("practice-two-look"), completion = dev.cubentia.domain.predicate.CubeSolved)
+        val entry = CatalogEntry(lesson, bundle.twoLookStages.first(), bundle.tutorConfig)
+        val selectedAlgorithms =
+            bundle.lessonAlgorithms.values.flatten().toSet().map { id ->
+                (Notation.parse(bundle.algorithms.single { it.id == id }.notation) as NotationResult.Parsed).moves
+            }
+        val algorithms = if (offPath) listOf(listOf(FaceTurn(Face.U, Turn.CLOCKWISE))) else selectedAlgorithms
+        val priorAttempts =
+            (0 until prior).map {
+                AttemptRecord(
+                    "prior-$it",
+                    "prior",
+                    it.toLong(),
+                    dev.cubentia.application.session.AttemptEvent.ENDED,
+                    "practice-two-look",
+                    AttemptOutcome.COMPLETED,
+                    0,
+                    0,
+                    AssistanceLevel.REDUCED,
+                    kotlin.time.Instant.fromEpochMilliseconds(0),
+                )
+            }
+        val repository =
+            object : AttemptRepository {
+                override suspend fun all(): AttemptLoad = AttemptLoad.Found(priorAttempts)
+            }
+        val localHost = SessionHost(TickingClock(), Dispatchers.Default.limitedParallelism(1), attempts = repository)
+        runBlocking { localHost.restore(bundle) }
+        var practiceAgain = 0
+        rule.setContent {
+            CubentiaTheme {
+                LessonScreen(
+                    localHost,
+                    entry,
+                    ready.strings,
+                    emptyList(),
+                    {},
+                    onPracticeNewScramble = { practiceAgain++ },
+                    isPractice = true,
+                    twoLookPractice = true,
+                    twoLookAlgorithms = algorithms,
+                )
+            }
+        }
+        rule.waitUntil(5_000) { localHost.state.value.kind == SessionKind.PRACTICE }
+        runBlocking {
+            if (physical) {
+                localHost.dispatch { SessionEvent.ModeSwitched(dev.cubentia.application.session.CubeMode.PHYSICAL, it) }
+                localHost.dispatch { SessionEvent.PhysicalConfirmed(at = it) }
+            }
+            if (hint) localHost.dispatch { SessionEvent.HintRequested(it) }
+            (Notation.parse(authored.demonstration) as NotationResult.Parsed).moves.forEach { move ->
+                localHost.dispatch {
+                    if (physical) SessionEvent.PhysicalConfirmed(move, it) else SessionEvent.MoveCommitted(move, it)
+                }
+            }
+        }
+        if (physical) rule.onNodeWithTag("lesson:yesItsSolved").performScrollTo().performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("lesson:twoLookResult").assertTextContains(
+            if (hint ||
+                offPath
+            ) {
+                "Solved. Only 2-look algorithms with no hints count toward mastery."
+            } else {
+                "Last layer solved with 2-look, no hints."
+            },
+        )
+        if (prior == 1 && !hint && !offPath) {
+            // Physical confirmation dispatches on the host's background dispatcher; Compose idleness
+            // alone does not wait for the attempt log update and its milestone recomposition.
+            rule.waitUntil(5_000) {
+                rule.onAllNodesWithTag("milestone:headline").fetchSemanticsNodes().isNotEmpty()
+            }
+            rule.onNodeWithTag("milestone:headline").assertTextContains("2-look last layer mastered!")
+            rule.onNodeWithTag("milestone:nextStage").assertDoesNotExist()
+            rule.onNodeWithTag("milestone:practice").performClick()
+            rule.runOnIdle { assertEquals(1, practiceAgain) }
+        } else {
+            rule.onNodeWithTag("milestone:overlay").assertDoesNotExist()
+        }
+    }
 
     @Test fun twoLookOfferDeclinesWithoutWriting() = twoLookOfferScenario(accept = false)
 
@@ -2195,7 +2301,7 @@ class LessonScreenTest {
     @Test
     fun `completing an attempt meeting stage mastery condition displays the stage mastery milestone overlay`() {
         val attemptRepo =
-            object : dev.cubentia.application.port.AttemptRepository {
+            object : AttemptRepository {
                 override suspend fun all(): dev.cubentia.application.port.AttemptLoad =
                     dev.cubentia.application.port.AttemptLoad.Found(
                         listOf(
@@ -2274,7 +2380,7 @@ class LessonScreenTest {
     @Test
     fun `completing an attempt on an already-mastered stage suppresses the stage mastery milestone overlay`() {
         val attemptRepo =
-            object : dev.cubentia.application.port.AttemptRepository {
+            object : AttemptRepository {
                 override suspend fun all(): dev.cubentia.application.port.AttemptLoad =
                     dev.cubentia.application.port.AttemptLoad.Found(
                         listOf(
@@ -2359,7 +2465,7 @@ class LessonScreenTest {
     @Test
     fun `completing a practice scramble meeting stage mastery condition displays the milestone overlay`() {
         val attemptRepo =
-            object : dev.cubentia.application.port.AttemptRepository {
+            object : AttemptRepository {
                 override suspend fun all(): dev.cubentia.application.port.AttemptLoad =
                     dev.cubentia.application.port.AttemptLoad.Found(
                         listOf(

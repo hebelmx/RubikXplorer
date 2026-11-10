@@ -40,6 +40,7 @@ import dev.cubentia.app.R
 import dev.cubentia.app.content.CatalogEntry
 import dev.cubentia.app.content.CatalogState
 import dev.cubentia.app.content.LessonCatalog
+import dev.cubentia.app.content.twoLookMoves
 import dev.cubentia.app.preferences.PreferenceProvider
 import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.app.random.KotlinRandomSource
@@ -58,7 +59,9 @@ import dev.cubentia.application.port.FeatureFlag
 import dev.cubentia.application.port.FeatureFlags
 import dev.cubentia.application.port.FlagLevel
 import dev.cubentia.application.session.SessionKind
+import dev.cubentia.application.session.SessionState
 import dev.cubentia.application.usecase.StagePractice
+import dev.cubentia.application.usecase.TwoLookPractice
 import dev.cubentia.domain.content.AlgorithmStatus
 import dev.cubentia.domain.content.LessonId
 import dev.cubentia.domain.content.LibraryFilter
@@ -68,6 +71,7 @@ import dev.cubentia.domain.lastlayer.RecognitionDiagramResult
 import dev.cubentia.domain.tutor.StageProgress
 import dev.cubentia.domain.tutor.StageStatus
 import dev.cubentia.domain.tutor.TeachingMode
+import dev.cubentia.domain.tutor.TwoLookMastery
 import kotlinx.coroutines.launch
 
 /** The top-level destinations of the navigation shell. */
@@ -138,6 +142,9 @@ private fun ShellContent(
     var openLesson by rememberSaveable { mutableStateOf<String?>(null) }
     var openPractice by rememberSaveable { mutableStateOf<String?>(null) }
     var practiceEpoch by rememberSaveable { mutableIntStateOf(0) }
+
+    // The LL practice's generated scramble, saved so recreation keeps the attempt; replaced only on an explicit new practice.
+    var twoLookScramble by rememberSaveable { mutableStateOf<String?>(null) }
     var openSkipCheck by rememberSaveable { mutableStateOf<String?>(null) }
     var skipCheckEpoch by rememberSaveable { mutableIntStateOf(0) }
     // Held above the Lesson and Settings task flows so closing either returns to the same place in the list.
@@ -238,11 +245,26 @@ private fun ShellContent(
         return
     }
 
+    val twoLookMoves = remember(ready) { ready?.bundle?.twoLookMoves().orEmpty() }
     val practiceEntry =
-        remember(openPractice, practiceEpoch, ready) {
+        remember(openPractice, practiceEpoch, ready, twoLookScramble) {
             val stageId = openPractice?.let(::StageId)
             val stage = stageId?.takeIf { it != StagePractice.STAGE_1_ID }?.let { id -> ready?.bundle?.stages?.firstOrNull { it.id == id } }
-            if (stageId != null && stage != null && ready != null) {
+            if (openPractice == "two-look-practice" && ready != null) {
+                val lesson =
+                    twoLookScramble?.let(TwoLookPractice::lessonAt)
+                        ?: newTwoLookPractice(ready).also { twoLookScramble = it.entryState }
+                CatalogEntry(
+                    lesson,
+                    dev.cubentia.domain.content.Stage(
+                        lesson.stageId,
+                        dev.cubentia.domain.content
+                            .TextKey("stage.two-look-practice.title"),
+                        listOf(lesson),
+                    ),
+                    ready.bundle.tutorConfig,
+                )
+            } else if (stageId != null && stage != null && ready != null) {
                 val lesson = stagePractice(stageId)
                 CatalogEntry(lesson, stage, ready.bundle.tutorConfig)
             } else {
@@ -260,6 +282,7 @@ private fun ShellContent(
             adaptiveAssistance = FlagLevel.OFF,
             cameraScan = flags.level(FeatureFlag.CAMERA_SCAN),
             onPracticeNewScramble = {
+                if (openPractice == "two-look-practice") twoLookScramble = newTwoLookPractice(ready).entryState
                 openPractice = practiceEntry.stage.id.value
                 practiceEpoch++
             },
@@ -271,6 +294,8 @@ private fun ShellContent(
                 tab = Tab.LEARN
             },
             isPractice = true,
+            twoLookPractice = openPractice == "two-look-practice",
+            twoLookAlgorithms = twoLookMoves,
         )
         return
     }
@@ -445,7 +470,7 @@ private fun ShellContent(
                         if (session.kind?.isTaught == true) {
                             session.lesson?.let { ready?.find(it.id) }
                         } else {
-                            null
+                            twoLookPracticeContinue(session, ready)
                         },
                     progressEvents = progressEvents,
                     attemptRecords = attemptRecords,
@@ -454,7 +479,16 @@ private fun ShellContent(
                         selectedStage = it?.value
                         stageAbandoned = null
                     },
-                    onOpen = { openLesson = it.value },
+                    onOpen = {
+                        if (it == TwoLookMastery.PRACTICE_ID) {
+                            // Resumes the live LL practice (also after a cold-start restore) on its own scramble.
+                            twoLookScramble = session.lesson?.entryState
+                            openPractice = "two-look-practice"
+                            practiceEpoch++
+                        } else {
+                            openLesson = it.value
+                        }
+                    },
                     onPracticeStage = { stageId ->
                         openPractice = stageId.value
                         practiceEpoch++
@@ -466,7 +500,21 @@ private fun ShellContent(
                         stageAbandoned = null
                     },
                     abandonedSkipCheckStage = stageAbandoned?.let(::StageId),
+                    twoLookProgress =
+                        ready?.let {
+                            dev.cubentia.domain.tutor.TwoLookMastery.evaluate(
+                                it.bundle.twoLookStages,
+                                attemptRecords,
+                                progressEvents,
+                                it.bundle.tutorConfig.twoLookSolvesRequired,
+                            )
+                        },
                     showFasterLastLayer = allStagesFinished,
+                    onTwoLookPractice = {
+                        twoLookScramble = ready?.let { newTwoLookPractice(it).entryState }
+                        openPractice = "two-look-practice"
+                        practiceEpoch++
+                    },
                     showTwoLookLocked = twoLookLocked && !allStagesFinished,
                     onCloseTwoLookLocked = { twoLookLocked = false },
                     scrollState = learnScroll,
@@ -525,3 +573,33 @@ private fun ShellContent(
 /** The Teaching Modes a Lesson offers under [flags]: every mode, less *Test me* while `TEST_ME` is off (AD-18). */
 internal fun availableModes(flags: FeatureFlags): List<TeachingMode> =
     TeachingMode.entries.filter { it != TeachingMode.TEST_ME || flags.isEnabled(FeatureFlag.TEST_ME) }
+
+/** A fresh LL practice scramble over every bundled Algorithm (Story 9.8). */
+private fun newTwoLookPractice(ready: CatalogState.Ready): dev.cubentia.domain.content.Lesson =
+    TwoLookPractice(KotlinRandomSource()).lesson(
+        ready.bundle.algorithms.map {
+            (
+                dev.cubentia.domain.cube.Notation
+                    .parse(it.notation) as dev.cubentia.domain.cube.NotationResult.Parsed
+            ).moves
+        },
+    )
+
+/** The *Continue* entry for an unfinished LL practice, live or restored on cold start (AD-10). */
+private fun twoLookPracticeContinue(
+    session: SessionState,
+    ready: CatalogState.Ready?,
+): CatalogEntry? {
+    val lesson = session.lesson?.takeIf { it.id == TwoLookMastery.PRACTICE_ID } ?: return null
+    if (session.kind != SessionKind.PRACTICE || session.objectiveMet || ready == null) return null
+    return CatalogEntry(
+        lesson,
+        dev.cubentia.domain.content.Stage(
+            lesson.stageId,
+            dev.cubentia.domain.content
+                .TextKey("stage.two-look-practice.title"),
+            listOf(lesson),
+        ),
+        ready.bundle.tutorConfig,
+    )
+}

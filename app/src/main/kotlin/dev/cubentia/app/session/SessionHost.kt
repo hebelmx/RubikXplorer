@@ -1,5 +1,6 @@
 package dev.cubentia.app.session
 
+import dev.cubentia.app.content.twoLookMoves
 import dev.cubentia.app.data.SerialWriter
 import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.application.port.AlgorithmStatusRepository
@@ -30,6 +31,7 @@ import dev.cubentia.application.usecase.CompleteLesson
 import dev.cubentia.application.usecase.PassSkipCheck
 import dev.cubentia.application.usecase.ResetProgress
 import dev.cubentia.application.usecase.SetAlgorithmStatus
+import dev.cubentia.application.usecase.TwoLookPractice
 import dev.cubentia.domain.content.AlgorithmId
 import dev.cubentia.domain.content.AlgorithmStatus
 import dev.cubentia.domain.content.ContentBundle
@@ -38,6 +40,7 @@ import dev.cubentia.domain.content.StageId
 import dev.cubentia.domain.tutor.ProgressEvent
 import dev.cubentia.domain.tutor.StageProgress
 import dev.cubentia.domain.tutor.StageStatus
+import dev.cubentia.domain.tutor.TwoLookMastery
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -207,7 +210,14 @@ class SessionHost internal constructor(
         val snapshot = (loaded as? SnapshotLoad.Found)?.snapshot
         if (snapshot != null && snapshot.kind.resumesOnColdStart && snapshot.contentRevision == bundle.contentRevision) {
             val lesson = (bundle.stages + bundle.twoLookStages).flatMap { it.lessons }.firstOrNull { it.id.value == snapshot.lessonId }
-            if (lesson != null) dispatch { SessionEvent.SessionRestored(snapshot, lesson, bundle.tutorConfig, it) }
+            if (lesson != null) {
+                dispatch { SessionEvent.SessionRestored(snapshot, lesson, bundle.tutorConfig, it) }
+            } else if (snapshot.kind == SessionKind.PRACTICE && snapshot.lessonId == TwoLookMastery.PRACTICE_ID.value) {
+                // The generated LL practice is not content: rebuild it at its stored scramble with its 2-look set.
+                // An older snapshot has no practiceEntry and falls back to its start cube.
+                val practice = TwoLookPractice.lessonAt(snapshot.practiceEntry ?: snapshot.start)
+                dispatch { SessionEvent.SessionRestored(snapshot, practice, bundle.tutorConfig, it, bundle.twoLookMoves()) }
+            }
         }
         if (state.value.isActive) return
         resumeCheckpoint(bundle)

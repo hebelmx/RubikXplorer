@@ -262,7 +262,11 @@ class ShippedContentTest {
 
     @Test
     fun `every shipped content string is used and follows the voice guide`() {
-        val titles = ((bundle.stages + bundle.twoLookStages).map { it.title } + bundle.cases.map { it.name }).map { it.value }.toSet()
+        val titles =
+            (
+                (bundle.stages + bundle.twoLookStages).map { it.title } + bundle.cases.map { it.name } +
+                    TextKey("stage.two-look-practice.title")
+            ).map { it.value }.toSet()
         val used =
             titles +
                 (bundle.stages + bundle.twoLookStages)

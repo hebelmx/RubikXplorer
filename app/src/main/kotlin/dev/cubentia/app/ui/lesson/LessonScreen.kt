@@ -154,6 +154,8 @@ fun LessonScreen(
     adaptiveAssistance: FlagLevel = FlagLevel.OFF,
     cameraScan: FlagLevel = FlagLevel.OFF,
     onPracticeNewScramble: () -> Unit = onClose,
+    twoLookPractice: Boolean = false,
+    twoLookAlgorithms: List<List<dev.cubentia.domain.cube.Move>> = emptyList(),
     isPractice: Boolean = false,
     stages: List<Stage> = emptyList(),
     onNextStage: ((StageId) -> Unit)? = null,
@@ -172,7 +174,15 @@ fun LessonScreen(
     val progressEvents by host.progressEvents.collectAsState()
     var initialCompleted by rememberSaveable(lesson.id.value) { mutableStateOf<Boolean?>(null) }
     var initialMastered by rememberSaveable(lesson.id.value) { mutableStateOf<Boolean?>(null) }
-    var milestoneDismissed by rememberSaveable(lesson.id.value) { mutableStateOf(false) }
+    var initialTwoLookMastered by rememberSaveable(lesson.id.value, lesson.entryState) { mutableStateOf<Boolean?>(null) }
+    val twoLookProgress =
+        dev.cubentia.domain.tutor.TwoLookMastery.evaluate(
+            emptyList(),
+            attemptRecords,
+            progressEvents,
+            entry.tutorConfig.twoLookSolvesRequired,
+        )
+    var milestoneDismissed by rememberSaveable(lesson.id.value, lesson.entryState) { mutableStateOf(false) }
 
     val isPhysical = session.syncState != SyncState.VIRTUAL
     val isEndOfStage6 = lesson.isCourseFinale
@@ -186,7 +196,7 @@ fun LessonScreen(
             Mastery.evaluate(entry.stage, currentEpochAttempts, entry.tutorConfig.mastery)
         }
     val isMasteryMilestone =
-        !isTwoLook && !isPhysical &&
+        !isTwoLook && !twoLookPractice && !isPhysical &&
             initialMastered == false &&
             !milestoneDismissed &&
             session.lesson?.id == lesson.id &&
@@ -204,7 +214,12 @@ fun LessonScreen(
                 session.decision?.satisfied == true && !session.physicalSolveUnconfirmed
             }
 
-    val showMilestone = isFirstSolveMilestone || isMasteryMilestone
+    val isTwoLookMilestone =
+        twoLookPractice && initialTwoLookMastered == false && twoLookProgress.mastered && !milestoneDismissed &&
+            session.lesson?.id == lesson.id &&
+            session.objectiveMet &&
+            if (isPhysical) session.physicalSolveConfirmed else !session.physicalSolveUnconfirmed
+    val showMilestone = isFirstSolveMilestone || isMasteryMilestone || isTwoLookMilestone
 
     BackHandler(onBack = {
         if (showMilestone) {
@@ -217,6 +232,16 @@ fun LessonScreen(
     LaunchedEffect(lesson.id, lesson.entryState) {
         host.awaitRestored()
         preferenceStore.awaitLoaded()
+        if (initialTwoLookMastered == null) {
+            initialTwoLookMastered =
+                dev.cubentia.domain.tutor.TwoLookMastery
+                    .evaluate(
+                        emptyList(),
+                        host.attemptRecords.value,
+                        host.progressEvents.value,
+                        entry.tutorConfig.twoLookSolvesRequired,
+                    ).mastered
+        }
         if (initialCompleted == null) {
             val epochEvents = StageProgress.currentEpochEvents(host.progressEvents.value)
             initialCompleted = epochEvents.any { it is ProgressEvent.LessonCompleted && it.lessonId == lesson.id }
@@ -242,6 +267,7 @@ fun LessonScreen(
                         lesson,
                         entry.tutorConfig,
                         it,
+                        twoLookAlgorithms = if (twoLookPractice) twoLookAlgorithms else emptyList(),
                     )
                 }
             } else {
@@ -324,6 +350,14 @@ fun LessonScreen(
                     recognition = recognition,
                     offerAlgorithms = offerAlgorithms,
                     onAddToLearning = onAddToLearning,
+                    twoLookResult =
+                        if (twoLookPractice && session.objectiveMet) {
+                            val errors = remember(session.history, session.twoLookAlgorithms) { session.twoLookErrors }
+                            val qualified = session.hintsUsed == 0 && errors == 0
+                            stringResource(if (qualified) R.string.lesson_two_look_qualified else R.string.lesson_two_look_not_qualified)
+                        } else {
+                            null
+                        },
                     isPractice = isPractice,
                     isSkipCheck = isSkipCheck,
                     onSkipCheckPassed = onSkipCheckPassed,
@@ -343,7 +377,9 @@ fun LessonScreen(
             val nextStage = if (stageIndex >= 0 && stageIndex < stages.size - 1) stages[stageIndex + 1] else null
 
             val headline =
-                if (isFirstSolveMilestone) {
+                if (isTwoLookMilestone) {
+                    strings.resolve(TextKey("msg.milestone.two-look-mastered"))
+                } else if (isFirstSolveMilestone) {
                     strings.resolve(TextKey("msg.milestone.first-solve"))
                 } else {
                     strings.resolve(
@@ -463,6 +499,7 @@ private fun LessonBody(
     recognition: RecognitionDiagram? = null,
     offerAlgorithms: List<AlgorithmId> = emptyList(),
     onAddToLearning: suspend () -> Boolean = { true },
+    twoLookResult: String? = null,
     isPractice: Boolean = false,
     isSkipCheck: Boolean = false,
     onSkipCheckPassed: (() -> Unit)? = null,
@@ -574,6 +611,7 @@ private fun LessonBody(
             onAddToLearning = onAddToLearning,
             strings = strings,
             step = step,
+            twoLookResult = twoLookResult,
             modes = if (isPractice || isSkipCheck || session.kind == SessionKind.PRACTICE) emptyList() else modes,
             mode = mode,
             onModeChange = { chosen -> if (chosen != mode) send { SessionEvent.TeachingModeChanged(chosen, it) } },
@@ -644,7 +682,13 @@ private fun LessonBody(
             },
             mismatchRung = mismatchRung,
             onMismatchRungChange = { mismatchRung = it },
-            isEndOfStage6 = lesson.isCourseFinale,
+            isEndOfStage6 =
+                lesson.isCourseFinale ||
+                    (
+                        session.kind == SessionKind.PRACTICE && session.twoLookAlgorithms.isNotEmpty() &&
+                            (session.syncState == SyncState.PHYSICAL_PREDICTED || session.syncState == SyncState.PHYSICAL_VERIFIED) &&
+                            session.objectiveMet && !session.physicalSolveConfirmed
+                    ),
             onYesItsSolved = onYesItsSolved,
         )
     }

@@ -35,6 +35,8 @@ sealed interface SessionEvent {
         val lesson: Lesson,
         val tutorConfig: TutorConfig,
         override val at: Instant,
+        /** A restored LL practice's content-derived 2-look Algorithm set, as [PracticeStarted] carries it. */
+        val twoLookAlgorithms: List<List<Move>> = emptyList(),
     ) : SessionEvent
 
     /**
@@ -60,6 +62,7 @@ sealed interface SessionEvent {
         val lesson: Lesson,
         val tutorConfig: TutorConfig,
         override val at: Instant,
+        val twoLookAlgorithms: List<List<Move>> = emptyList(),
     ) : SessionEvent
 
     /**

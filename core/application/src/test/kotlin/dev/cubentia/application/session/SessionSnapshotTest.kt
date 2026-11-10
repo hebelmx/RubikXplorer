@@ -21,12 +21,16 @@ class SessionSnapshotTest {
         state: SessionState = SessionState.IDLE,
     ) = reduce(state, SessionEvent.SessionRestored(snapshot, lesson, TUTOR_CONFIG, T0))
 
-    @Test fun `idle is not captured and only taught sessions currently resume`() {
+    @Test fun `idle is not captured and only taught sessions and practice resume`() {
         assertNull(SessionSnapshot.of(SessionState.IDLE, "id", "v1"))
         val saved = snapshot(started(lesson))
-        for (kind in SessionKind.entries.filter { !it.isTaught }) {
+        for (kind in SessionKind.entries.filter { !it.isTaught && it != SessionKind.PRACTICE }) {
             assertSame(SessionState.IDLE, restore(saved.copy(kind = kind)).state)
         }
+        // The host resolves only the generated LL practice for a PRACTICE snapshot; the reducer resumes it like a Lesson.
+        val practice = restore(saved.copy(kind = SessionKind.PRACTICE)).state
+        assertEquals(SessionKind.PRACTICE, practice.kind)
+        assertEquals(lesson, practice.lesson)
         assertFalse(SessionKind.SOLVE_PLAYBACK.resumesOnColdStart)
         assertTrue(SessionKind.PRACTICE.resumesOnColdStart)
         assertTrue(SessionKind.TWO_LOOK.resumesOnColdStart)

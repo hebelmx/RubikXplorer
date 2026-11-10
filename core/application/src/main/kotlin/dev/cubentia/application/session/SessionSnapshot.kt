@@ -36,6 +36,12 @@ data class SessionSnapshot(
     val mode: CubeMode = CubeMode.VIRTUAL,
     val physicalSolveConfirmed: Boolean = false,
     val physicalSolveUnconfirmed: Boolean = false,
+    /**
+     * In LL practice, the generated scramble the attempt started from ([SessionState.pathEntry]); [start] may
+     * differ after a mode switch or the Manual Cube Editor replaced the history. A restore rebuilds the practice
+     * here so that replacement still counts as an error. `null` outside LL practice and in older snapshots.
+     */
+    val practiceEntry: String? = null,
 ) {
     companion object {
         fun of(
@@ -53,7 +59,7 @@ data class SessionSnapshot(
                 sessionId = sessionId,
                 revision = state.revision,
                 lessonId = state.lesson?.id?.value,
-                contentRevision = contentRevision.takeIf { kind.isTaught },
+                contentRevision = contentRevision.takeIf { kind.isTaught || kind == SessionKind.PRACTICE },
                 start = FaceletString.encode(state.entry.toFacelets()),
                 done = Notation.format(state.history.done),
                 undone = Notation.format(state.history.undone),
@@ -73,6 +79,12 @@ data class SessionSnapshot(
                 mode = state.mode,
                 physicalSolveConfirmed = state.physicalSolveConfirmed,
                 physicalSolveUnconfirmed = state.physicalSolveUnconfirmed,
+                practiceEntry =
+                    if (kind == SessionKind.PRACTICE && state.twoLookAlgorithms.isNotEmpty()) {
+                        FaceletString.encode(state.pathEntry.toFacelets())
+                    } else {
+                        null
+                    },
             )
         }
     }

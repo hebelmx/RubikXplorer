@@ -40,6 +40,7 @@ internal data class SnapshotPayload(
     val mode: String = "VIRTUAL",
     val physicalSolveConfirmed: Boolean = false,
     val physicalSolveUnconfirmed: Boolean = false,
+    val practiceEntry: String? = null,
 ) {
     fun snapshot(): SessionSnapshot {
         require(format == 1)
@@ -76,6 +77,7 @@ internal data class SnapshotPayload(
                 },
             physicalSolveConfirmed = physicalSolveConfirmed,
             physicalSolveUnconfirmed = physicalSolveUnconfirmed,
+            practiceEntry = practiceEntry,
         )
     }
 
@@ -113,6 +115,7 @@ internal data class SnapshotPayload(
                     mode = snapshot.mode.name,
                     physicalSolveConfirmed = snapshot.physicalSolveConfirmed,
                     physicalSolveUnconfirmed = snapshot.physicalSolveUnconfirmed,
+                    practiceEntry = snapshot.practiceEntry,
                 ),
             )
 

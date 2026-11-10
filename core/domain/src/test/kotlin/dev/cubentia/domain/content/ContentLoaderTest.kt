@@ -294,6 +294,36 @@ class ContentLoaderTest {
     }
 
     @Test
+    fun `two look solve threshold loads defaults and rejects values outside one to ten`() {
+        assertEquals(2, loaded(ContentSource.SHIPPED).tutorConfig.twoLookSolvesRequired)
+        assertEquals(2, loaded(fixture("valid")).tutorConfig.twoLookSolvesRequired)
+        val valid = fixture("valid")
+        val three =
+            ContentSource { path ->
+                if (path == ContentLoader.TUTOR_CONFIG) {
+                    val original = valid.read(path)!!.decodeToString().trimEnd()
+                    (original.dropLast(1) + ", \"twoLookSolvesRequired\": 3}").toByteArray()
+                } else {
+                    valid.read(path)
+                }
+            }
+        assertEquals(3, loaded(three).tutorConfig.twoLookSolvesRequired)
+        for (value in listOf(0, 11)) {
+            val source =
+                ContentSource { path ->
+                    if (path == ContentLoader.TUTOR_CONFIG) {
+                        val original = valid.read(path)!!.decodeToString().trimEnd()
+                        (original.dropLast(1) + ", \"twoLookSolvesRequired\": $value}").toByteArray()
+                    } else {
+                        valid.read(path)
+                    }
+                }
+            val error = failed(source)
+            assertInstanceOf(ContentLoadError.Invalid::class.java, error)
+        }
+    }
+
+    @Test
     fun `the tutor config loads strictly, and a missing one is MissingResource`() {
         assertEquals(SHIPPED_CONFIG, loaded(fixture("valid")).tutorConfig)
         assertEquals(SHIPPED_CONFIG, loaded(ContentSource.SHIPPED).tutorConfig)

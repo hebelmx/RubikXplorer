@@ -131,6 +131,7 @@ internal fun LessonPanel(
     nextEnabled: Boolean,
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
+    twoLookResult: String? = null,
     onShowMeHow: (List<Move>) -> Unit = {},
     onRecovery: (RecoveryOffer) -> Unit = {},
     onUsualHelp: () -> Unit = {},
@@ -200,6 +201,14 @@ internal fun LessonPanel(
             )
         }
         StepCard(step, onShowMove, onShowMeHow, onRecovery, Modifier.fillMaxWidth())
+        if (twoLookResult != null) {
+            Text(
+                twoLookResult,
+                style = MaterialTheme.typography.bodyMedium,
+                color = RubikTheme.tokens.inkPrimary,
+                modifier = Modifier.testTag("lesson:twoLookResult").semantics { liveRegion = LiveRegionMode.Polite },
+            )
+        }
         step.assistance?.let { AssistanceLine(it, onUsualHelp, Modifier.fillMaxWidth()) }
         if (!step.isPractice) {
             TeachingModeSwitcher(
