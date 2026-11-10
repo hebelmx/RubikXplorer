@@ -6,29 +6,40 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.filter
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAncestors
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
 import dev.cubentia.app.content.CatalogEntry
 import dev.cubentia.app.content.CatalogState
 import dev.cubentia.app.content.LessonCatalog
@@ -48,6 +59,7 @@ import dev.cubentia.app.session.testFlags
 import dev.cubentia.app.session.twoStepLesson
 import dev.cubentia.app.session.whiteCrossLesson
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
+import dev.cubentia.app.ui.freecube.MoveKeys
 import dev.cubentia.app.ui.shell.AppShell
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.application.port.AttemptLoad
@@ -85,6 +97,7 @@ import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.cube.Facelets
+import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.domain.cube.Turn
@@ -665,6 +678,7 @@ class LessonScreenTest {
         adaptiveAssistance: Boolean = false,
         adaptiveLevel: FlagLevel = if (adaptiveAssistance) FlagLevel.GA else FlagLevel.OFF,
         thresholds: AdaptiveThresholds? = null,
+        fontScale: Float = 1f,
     ) {
         runBlocking { catalog.load() }
         val ready = catalog.state.value as CatalogState.Ready
@@ -672,17 +686,24 @@ class LessonScreenTest {
         val entry = thresholds?.let { shipped.copy(tutorConfig = shipped.tutorConfig.copy(adaptive = it)) } ?: shipped
         rule.setContent {
             accessibilityHost = androidx.compose.ui.platform.LocalView.current
-            CubentiaTheme {
-                LessonScreen(
-                    host = host,
-                    entry = entry,
-                    strings = ready.strings,
-                    modes = modes,
-                    onClose = { closed++ },
-                    planRecovery = planRecovery,
-                    adaptiveAssistance = adaptiveLevel,
-                    onPracticeNewScramble = { practiceNewScrambleClicked++ },
-                )
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.ui.platform.LocalDensity provides
+                    androidx.compose.ui.unit
+                        .Density(density.density, fontScale = fontScale),
+            ) {
+                CubentiaTheme {
+                    LessonScreen(
+                        host = host,
+                        entry = entry,
+                        strings = ready.strings,
+                        modes = modes,
+                        onClose = { closed++ },
+                        planRecovery = planRecovery,
+                        adaptiveAssistance = adaptiveLevel,
+                        onPracticeNewScramble = { practiceNewScrambleClicked++ },
+                    )
+                }
             }
         }
         rule.waitUntil(5_000) {
@@ -692,6 +713,79 @@ class LessonScreenTest {
                 rule.onAllNodesWithTag("lesson:panel").fetchSemanticsNodes().isNotEmpty()
         }
         rule.waitForIdle()
+    }
+
+    @Test
+    @Config(qualifiers = "w640dp-h240dp")
+    fun `a short window keeps the cube at its minimum and every Move key reachable`() = assertShortStage(fontScale = 1f)
+
+    @Test
+    @Config(qualifiers = "w640dp-h240dp")
+    fun `a short window at 200 percent type keeps the cube at its minimum and every Move key reachable`() = assertShortStage(fontScale = 2f)
+
+    /**
+     * In a stage too short for the cube's 96dp minimum plus a key row, the stage scrolls: the cube
+     * keeps its minimum, and every Move key (with the extra rows open too) can be scrolled into view.
+     */
+    private fun assertShortStage(fontScale: Float) {
+        open(whiteCrossLesson().id.value, fontScale = fontScale)
+        switchTo(TeachingMode.LET_ME_TRY)
+        node("cube3d").assertHeightIsAtLeast(96.dp)
+
+        fun reach(moves: List<Move>) =
+            moves.forEach {
+                assertFullyVisible(scrolledIntoView("moveKey:${Notation.format(it)}").assertHeightIsAtLeast(48.dp))
+            }
+        reach(MoveKeys.face + MoveKeys.rotation)
+        assertFullyVisible(scrolledIntoView("moveKey:more")).performClick()
+        rule.waitForIdle()
+        node("cube3d").assertHeightIsAtLeast(96.dp)
+        reach(MoveKeys.wide + MoveKeys.slice)
+    }
+
+    /** Fails unless [key] is whole on screen inside the Lesson stage: no viewport clips it and it does not spill out of the stage. */
+    private fun assertFullyVisible(key: SemanticsNodeInteraction): SemanticsNodeInteraction {
+        val visible = key.fetchSemanticsNode().boundsInRoot
+        val whole = key.wholeBounds()
+        assertTrue("key clipped: visible $visible of $whole", visible.height >= whole.height - 0.5f && visible.width >= whole.width - 0.5f)
+        val stage = node("lesson:stage").fetchSemanticsNode().boundsInRoot
+        assertTrue("key at $visible spills out of the stage $stage", stage.intersect(visible) == visible)
+        return key
+    }
+
+    /** The node's bounds in root pixels, ignoring any clipping. */
+    private fun SemanticsNodeInteraction.wholeBounds(): Rect =
+        with(rule.density) { getUnclippedBoundsInRoot().let { Rect(it.left.toPx(), it.top.toPx(), it.right.toPx(), it.bottom.toPx()) } }
+
+    /** How far to scroll so [start]..[end] lies inside [viewStart]..[viewEnd]. */
+    private fun scrollDelta(
+        start: Float,
+        end: Float,
+        viewStart: Float,
+        viewEnd: Float,
+    ): Float =
+        when {
+            start < viewStart -> start - viewStart
+            end > viewEnd -> end - viewEnd
+            else -> 0f
+        }
+
+    /**
+     * Scrolls every scrollable ancestor of [tag], outermost first, by just enough to bring the node
+     * into that ancestor's viewport, as a Learner would to reach it. (`performScrollTo` only scrolls
+     * the closest ancestor and cannot see a node its outer viewports clip away entirely.)
+     */
+    private fun scrolledIntoView(tag: String): SemanticsNodeInteraction {
+        val scrollers = node(tag).onAncestors().filter(hasScrollAction())
+        for (i in scrollers.fetchSemanticsNodes().indices.reversed()) {
+            val viewport = scrollers[i].fetchSemanticsNode().boundsInRoot
+            val target = node(tag).wholeBounds()
+            val dx = scrollDelta(target.left, target.right, viewport.left, viewport.right)
+            val dy = scrollDelta(target.top, target.bottom, viewport.top, viewport.bottom)
+            if (dx != 0f || dy != 0f) scrollers[i].performSemanticsAction(SemanticsActions.ScrollBy) { it(dx, dy) }
+            rule.waitForIdle()
+        }
+        return node(tag)
     }
 
     @Test

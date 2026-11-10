@@ -15,6 +15,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
@@ -312,6 +313,16 @@ class FreeCubeScreenTest {
         listOf("undo" to "Undo", "redo" to "Redo", "reset" to "Reset").forEach { (tag, label) ->
             toolbar(tag).assertContentDescriptionEquals(label)
         }
+    }
+
+    @Test
+    @Config(qualifiers = "w640dp-h320dp")
+    fun `a short window keeps the first row of Move keys on screen`() {
+        launch()
+        rule
+            .onNodeWithTag("moveKey:${Notation.format(MoveKeys.face.first())}")
+            .assertIsDisplayed()
+            .assertTouchHeightIsAtLeast(48.dp)
     }
 
     /** Steps the paused clock a frame at a time until [target] is drawn; fails past [budgetMs]. */

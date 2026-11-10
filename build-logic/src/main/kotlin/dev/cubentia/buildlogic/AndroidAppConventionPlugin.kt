@@ -1,6 +1,7 @@
 package dev.cubentia.buildlogic
 
 import com.android.build.api.dsl.ApplicationExtension
+import dev.cubentia.buildlogic.policy.AccessibilityLint
 import dev.cubentia.buildlogic.tasks.CheckLearnerTextTask
 import dev.cubentia.buildlogic.tasks.CheckModuleBoundariesTask
 import org.gradle.api.JavaVersion
@@ -27,6 +28,10 @@ class AndroidAppConventionPlugin : Plugin<Project> {
                 }
                 buildFeatures {
                     buildConfig = true
+                }
+                lint {
+                    abortOnError = true
+                    error += AccessibilityLint.ERROR_ISSUES
                 }
                 testOptions {
                     unitTests.all { it.useJUnitPlatform() }
