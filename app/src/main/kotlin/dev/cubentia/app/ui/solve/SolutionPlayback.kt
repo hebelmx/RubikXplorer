@@ -47,7 +47,6 @@ import dev.cubentia.application.session.CubeMode
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionKind
 import dev.cubentia.application.session.SessionState
-import dev.cubentia.application.session.reduce
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Notation
@@ -80,14 +79,14 @@ class SolutionPlaybackState private constructor(
         },
     ) : this(
         session,
-        NetPlayback(session.entry, session.solution, reduceMotion, Net2DRenderer(session.entry.toFacelets())),
+        origin(session).let { NetPlayback(it, session.solution, reduceMotion, Net2DRenderer(it.toFacelets())) },
         onEvent,
         clock,
     ) {
         require(session.kind == SessionKind.SOLVE_PLAYBACK) { "not a Solve Playback session: ${session.kind}" }
     }
 
-    private var start: CubeState = session.entry
+    private var start: CubeState = origin(session)
 
     var session: SessionState by mutableStateOf(session)
         internal set
@@ -116,9 +115,19 @@ class SolutionPlaybackState private constructor(
     /** The generated note of the current Move (AD-20); null with no Moves or when at end in physical mode. */
     val note: ContentText? get() = currentMove?.let(MoveNote::of)
 
+    init {
+        // A state rebuilt mid-follow (e.g. after Activity recreation) starts at the host's Expected State, not at 0.
+        if (session.isPhysical) alignToExpected()
+    }
+
     fun followOnMyCube() {
         if (isPhysical) return
         playback.pause()
+        alignToExpected()
+        dispatch(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, clock()))
+    }
+
+    private fun alignToExpected() {
         val expectedPosition =
             if (size > 0) {
                 (0..size).firstOrNull { index ->
@@ -134,7 +143,6 @@ class SolutionPlaybackState private constructor(
                 playback.scrubTo(expectedPosition.toDouble() / size)
             }
         }
-        dispatch(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, clock()))
     }
 
     fun switchToVirtual() {
@@ -142,10 +150,24 @@ class SolutionPlaybackState private constructor(
         dispatch(SessionEvent.ModeSwitched(CubeMode.VIRTUAL, clock()))
     }
 
+    /**
+     * The session revision a physical Undo was dispatched at, until the host acknowledges it with a
+     * later revision. Until then the undo barrier in [session] is stale, so Back stays disabled (AD-3).
+     */
+    private var undoPendingFrom: Long? by mutableStateOf(null)
+
+    /**
+     * Whether [stepBack] moves: never past the start, and in physical mode never across the host's undo
+     * barrier nor before the host has acknowledged the previous Back.
+     */
+    val canStepBack: Boolean
+        get() = position > 0 && (!isPhysical || (undoPendingFrom == null && session.history.canUndo))
+
     override fun stepBack() {
-        if (position == 0) return
+        if (!canStepBack) return
         playback.stepBack()
-        if (isPhysical && session.history.canUndo) {
+        if (isPhysical) {
+            undoPendingFrom = session.revision
             dispatch(SessionEvent.Undo(clock()))
         }
     }
@@ -159,14 +181,15 @@ class SolutionPlaybackState private constructor(
 
     private fun dispatch(event: SessionEvent) {
         onEvent(event)
-        session = reduce(session, event).state
     }
 
     internal fun updateSession(newSession: SessionState) {
-        if (newSession.revision > session.revision) {
+        if (newSession.revision >= session.revision) {
             val oldSession = session
             session = newSession
-            if (!newSession.isPhysical &&
+            undoPendingFrom?.let { if (newSession.revision > it || !newSession.isPhysical) undoPendingFrom = null }
+            if (newSession.revision > oldSession.revision &&
+                !newSession.isPhysical &&
                 !oldSession.isPhysical &&
                 newSession.restoreNote == null &&
                 oldSession.restoreNote == null
@@ -177,11 +200,32 @@ class SolutionPlaybackState private constructor(
             }
         }
     }
+
+    private companion object {
+        /**
+         * The cube the Solution starts from. A mode switch restarts session history, so after
+         * physical → virtual the session's entry is the cube part-way through the Solution; a state
+         * rebuilt then (e.g. on Activity recreation) recovers the start by undoing the confirmed prefix
+         * of the verified Solution.
+         */
+        fun origin(session: SessionState): CubeState =
+            (0..session.solution.size)
+                .asSequence()
+                .map { done ->
+                    session.entry.apply(
+                        session.solution
+                            .take(done)
+                            .asReversed()
+                            .map(Move::inverse),
+                    )
+                }.firstOrNull { it.apply(session.solution).isSolved } ?: session.entry
+    }
 }
 
 /**
- * The state of a [SolutionPlayback] for a `SOLVE_PLAYBACK` [session]; new when the session's revision,
- * entry, Solution or [reduceMotion] changes, so a restarted session plays from its start again.
+ * The state of a [SolutionPlayback] for a `SOLVE_PLAYBACK` [session]. Host updates keep the
+ * transport alive across mode switches (which replace session history); a restarted virtual
+ * session rewinds it. A different Solution or [reduceMotion] creates a new transport.
  */
 @Composable
 fun rememberSolutionPlaybackState(
@@ -195,7 +239,7 @@ fun rememberSolutionPlaybackState(
 ): SolutionPlaybackState {
     require(session.kind == SessionKind.SOLVE_PLAYBACK) { "not a Solve Playback session: ${session.kind}" }
     val state =
-        remember(session.entry, session.solution, reduceMotion) {
+        remember(session.solution, reduceMotion) {
             SolutionPlaybackState(session, reduceMotion, onEvent, clock)
         }
     state.updateSession(session)
@@ -319,7 +363,7 @@ private fun PhysicalPlaybackControls(
             val backSpoken = stringResource(R.string.playback_step_back_description)
             TextButton(
                 onClick = state::stepBack,
-                enabled = state.position > 0,
+                enabled = state.canStepBack,
                 modifier =
                     Modifier
                         .heightIn(min = Spacing.touchMin)
@@ -328,7 +372,7 @@ private fun PhysicalPlaybackControls(
             ) {
                 Text(
                     stringResource(R.string.playback_step_back),
-                    color = if (state.position > 0) tokens.inkPrimary else tokens.inkDisabled,
+                    color = if (state.canStepBack) tokens.inkPrimary else tokens.inkDisabled,
                 )
             }
 

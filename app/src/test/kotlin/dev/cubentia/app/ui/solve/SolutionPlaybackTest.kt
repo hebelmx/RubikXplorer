@@ -2,6 +2,7 @@ package dev.cubentia.app.ui.solve
 
 import android.app.Application
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -17,6 +18,8 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import dev.cubentia.app.content.ContentStrings
+import dev.cubentia.app.session.SessionHost
+import dev.cubentia.app.session.TickingClock
 import dev.cubentia.app.ui.lesson.DashedBorderKey
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.application.session.SessionEvent
@@ -31,8 +34,11 @@ import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Turn
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -67,9 +73,15 @@ class SolutionPlaybackTest {
     ): SessionState = reduce(SessionState.IDLE, SessionEvent.SolvePlaybackStarted(start, moves, Instant.fromEpochMilliseconds(0))).state
 
     private fun show(session: SessionState = session()) {
+        val host = SessionHost(TickingClock(), Dispatchers.Unconfined)
+        runBlocking { host.dispatch { SessionEvent.SolvePlaybackStarted(session.entry, session.solution, it) } }
         rule.setContent {
+            val current by host.state.collectAsState()
             CubentiaTheme {
-                state = rememberSolutionPlaybackState(session, reduceMotion = true)
+                state =
+                    rememberSolutionPlaybackState(current, reduceMotion = true, onEvent = { event ->
+                        runBlocking { host.dispatch { event } }
+                    })
                 SolutionPlayback(state, strings, Modifier.fillMaxSize())
             }
         }
@@ -429,5 +441,93 @@ class SolutionPlaybackTest {
         assertEquals(scrambled.apply(solution.take(1)), state.session.expected)
         tag("counter").assertTextEquals("1 / 3")
         tag("move").assertTextEquals("U'")
+    }
+
+    @Test
+    fun physicalStepBackStopsAtHostUndoBarrier() {
+        show()
+        click("followOnMyCube")
+        click("done")
+        click("switchToVirtual")
+        click("followOnMyCube")
+        tag("back").assertIsNotEnabled()
+        rule.runOnIdle {
+            assertFalse(state.session.history.canUndo)
+            assertFalse(state.canStepBack)
+            var dispatched = false
+            state.onEvent = { dispatched = true }
+            state.stepBack()
+            assertEquals(1, state.position)
+            assertFalse(dispatched)
+        }
+    }
+
+    @Test
+    fun aDoubleBackBeforeTheHostAcknowledgesCannotCrossTheUndoBarrier() {
+        show()
+        click("followOnMyCube")
+        click("done")
+        click("switchToVirtual")
+        click("followOnMyCube")
+        rule.runOnIdle {
+            // A delayed host: events queue up and only reach the reducer when acknowledged.
+            val queued = mutableListOf<SessionEvent>()
+            val delayed = SolutionPlaybackState(state.session, reduceMotion = true, onEvent = { queued += it })
+
+            fun acknowledge() {
+                var host = delayed.session
+                queued.forEach { host = reduce(host, it).state }
+                queued.clear()
+                delayed.updateSession(host)
+            }
+            assertEquals(1, delayed.position)
+            assertFalse(delayed.session.history.canUndo)
+
+            delayed.confirmStep()
+            acknowledge()
+            assertEquals(2, delayed.position)
+            assertTrue(delayed.canStepBack)
+
+            delayed.stepBack()
+            assertFalse(delayed.canStepBack)
+            delayed.stepBack()
+            assertEquals(1, delayed.position)
+            assertEquals(1, queued.size)
+
+            acknowledge()
+            assertEquals(1, delayed.position)
+            assertEquals(scrambled.apply(solution.take(1)), delayed.session.expected)
+            assertFalse(delayed.canStepBack)
+        }
+    }
+
+    @Test
+    fun aStateRebuiltMidFollowStartsAtTheHostExpectedStep() {
+        show()
+        click("followOnMyCube")
+        click("done")
+        click("done")
+        rule.runOnIdle {
+            val rebuilt = SolutionPlaybackState(state.session, reduceMotion = true)
+            assertTrue(rebuilt.isPhysical)
+            assertEquals(2, rebuilt.position)
+            assertEquals(solution[2], rebuilt.currentMove)
+        }
+    }
+
+    @Test
+    fun aStateRebuiltAfterReturningToVirtualStillPlaysFromTheSolutionStart() {
+        show()
+        click("followOnMyCube")
+        click("done")
+        click("done")
+        click("switchToVirtual")
+        rule.runOnIdle {
+            assertNotEquals(scrambled, state.session.entry)
+            val rebuilt = SolutionPlaybackState(state.session, reduceMotion = true)
+            assertFalse(rebuilt.isPhysical)
+            assertEquals(0, rebuilt.position)
+            assertEquals(scrambled.toFacelets(), rebuilt.renderer.renderedFacelets())
+        }
     }
 }
