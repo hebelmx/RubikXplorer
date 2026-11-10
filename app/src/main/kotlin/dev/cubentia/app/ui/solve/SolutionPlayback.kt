@@ -150,13 +150,24 @@ class SolutionPlaybackState private constructor(
         dispatch(SessionEvent.ModeSwitched(CubeMode.VIRTUAL, clock()))
     }
 
-    /** Whether [stepBack] moves: never past the start, and in physical mode never across the host's undo barrier. */
-    val canStepBack: Boolean get() = position > 0 && (!isPhysical || session.history.canUndo)
+    /**
+     * The session revision a physical Undo was dispatched at, until the host acknowledges it with a
+     * later revision. Until then the undo barrier in [session] is stale, so Back stays disabled (AD-3).
+     */
+    private var undoPendingFrom: Long? by mutableStateOf(null)
+
+    /**
+     * Whether [stepBack] moves: never past the start, and in physical mode never across the host's undo
+     * barrier nor before the host has acknowledged the previous Back.
+     */
+    val canStepBack: Boolean
+        get() = position > 0 && (!isPhysical || (undoPendingFrom == null && session.history.canUndo))
 
     override fun stepBack() {
         if (!canStepBack) return
         playback.stepBack()
-        if (isPhysical && session.history.canUndo) {
+        if (isPhysical) {
+            undoPendingFrom = session.revision
             dispatch(SessionEvent.Undo(clock()))
         }
     }
@@ -176,6 +187,7 @@ class SolutionPlaybackState private constructor(
         if (newSession.revision >= session.revision) {
             val oldSession = session
             session = newSession
+            undoPendingFrom?.let { if (newSession.revision > it || !newSession.isPhysical) undoPendingFrom = null }
             if (newSession.revision > oldSession.revision &&
                 !newSession.isPhysical &&
                 !oldSession.isPhysical &&

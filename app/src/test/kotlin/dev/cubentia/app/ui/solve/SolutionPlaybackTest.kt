@@ -463,6 +463,45 @@ class SolutionPlaybackTest {
     }
 
     @Test
+    fun aDoubleBackBeforeTheHostAcknowledgesCannotCrossTheUndoBarrier() {
+        show()
+        click("followOnMyCube")
+        click("done")
+        click("switchToVirtual")
+        click("followOnMyCube")
+        rule.runOnIdle {
+            // A delayed host: events queue up and only reach the reducer when acknowledged.
+            val queued = mutableListOf<SessionEvent>()
+            val delayed = SolutionPlaybackState(state.session, reduceMotion = true, onEvent = { queued += it })
+
+            fun acknowledge() {
+                var host = delayed.session
+                queued.forEach { host = reduce(host, it).state }
+                queued.clear()
+                delayed.updateSession(host)
+            }
+            assertEquals(1, delayed.position)
+            assertFalse(delayed.session.history.canUndo)
+
+            delayed.confirmStep()
+            acknowledge()
+            assertEquals(2, delayed.position)
+            assertTrue(delayed.canStepBack)
+
+            delayed.stepBack()
+            assertFalse(delayed.canStepBack)
+            delayed.stepBack()
+            assertEquals(1, delayed.position)
+            assertEquals(1, queued.size)
+
+            acknowledge()
+            assertEquals(1, delayed.position)
+            assertEquals(scrambled.apply(solution.take(1)), delayed.session.expected)
+            assertFalse(delayed.canStepBack)
+        }
+    }
+
+    @Test
     fun aStateRebuiltMidFollowStartsAtTheHostExpectedStep() {
         show()
         click("followOnMyCube")
