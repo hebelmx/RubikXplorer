@@ -401,6 +401,7 @@ class AppShellLibraryTest {
                 AppShell(host, LessonCatalog.of(loaded), FreeCubeViewModel(), false, testFlags(), preferenceStore = PreferenceStore())
             }
         }
+        rule.waitUntil(5_000) { host.progressEvents.value == events && host.attemptRecords.value == prior }
         val last = lessons.last()
         rule.onNodeWithTag("nav:learn").performClick()
         rule.onNodeWithTag("learn:stage:${last.stageId.value}").performScrollTo().performClick()

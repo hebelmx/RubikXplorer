@@ -15,9 +15,27 @@ class SerialWriter {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val queue = Channel<suspend () -> Unit>(Channel.UNLIMITED)
 
+    private val hooks = java.util.concurrent.CopyOnWriteArrayList<suspend () -> Unit>()
+
+    /** Hooks run inside the consumer before every operation, including reads and barriers. */
+    fun beforeEach(hook: suspend () -> Unit) {
+        hooks.add(hook)
+    }
+
     init {
         scope.launch {
-            for (operation in queue) operation()
+            for (operation in queue) {
+                for (hook in hooks) {
+                    try {
+                        hook()
+                    } catch (cancelled: CancellationException) {
+                        currentCoroutineContext().ensureActive()
+                    } catch (_: Exception) {
+                        // A failed retry must not prevent the queued operation.
+                    }
+                }
+                operation()
+            }
         }
     }
 

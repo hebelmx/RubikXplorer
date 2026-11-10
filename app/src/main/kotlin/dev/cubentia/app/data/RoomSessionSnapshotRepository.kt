@@ -62,7 +62,7 @@ class RoomSessionSnapshotRepository(
             } else {
                 val snapshot = SnapshotPayload.decode(row.payload)
                 require(snapshot.kind.name == row.kind && snapshot.sessionId == row.sessionId && snapshot.revision == row.revision)
-                SnapshotLoad.Found(snapshot)
+                if (snapshot.ended) SnapshotLoad.None else SnapshotLoad.Found(snapshot)
             }
         } catch (cancelled: CancellationException) {
             throw cancelled

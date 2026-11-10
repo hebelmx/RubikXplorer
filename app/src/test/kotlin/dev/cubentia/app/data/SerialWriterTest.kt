@@ -14,6 +14,21 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class SerialWriterTest {
+    @Test fun hooksRunBeforeEveryOperationAndSurviveFailures() =
+        runBlocking {
+            val writer = SerialWriter()
+            val order = mutableListOf<String>()
+            writer.beforeEach {
+                order.add("hook")
+                error("retry failed")
+            }
+            writer.beforeEach { throw kotlinx.coroutines.CancellationException("operation cancelled") }
+            writer.enqueue { order.add("write") }
+            writer.read { order.add("read") }
+            assertEquals(listOf("hook", "write", "hook", "read"), order)
+            writer.close()
+        }
+
     @Test fun fifoAndOffMainIncludingSuspendedWork() =
         runBlocking {
             val writer = SerialWriter()

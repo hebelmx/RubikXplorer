@@ -24,6 +24,7 @@ class SessionSnapshotTest {
     @Test fun `idle is not captured and only taught sessions and practice resume`() {
         assertNull(SessionSnapshot.of(SessionState.IDLE, "id", "v1"))
         val saved = snapshot(started(lesson))
+        assertFalse(saved.ended)
         for (kind in SessionKind.entries.filter { !it.isTaught && it != SessionKind.PRACTICE }) {
             assertSame(SessionState.IDLE, restore(saved.copy(kind = kind)).state)
         }

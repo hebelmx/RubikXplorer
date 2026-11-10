@@ -42,6 +42,8 @@ data class SessionSnapshot(
      * here so that replacement still counts as an error. `null` outside LL practice and in older snapshots.
      */
     val practiceEntry: String? = null,
+    /** Written by an ordinary session end; restore treats it as no snapshot. */
+    val ended: Boolean = false,
 ) {
     companion object {
         fun of(

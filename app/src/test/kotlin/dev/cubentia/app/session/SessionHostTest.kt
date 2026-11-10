@@ -21,7 +21,7 @@ import kotlin.time.Instant
 class SessionHostTest {
     private val r = FaceTurn(Face.R, Turn.CLOCKWISE)
 
-    @Test fun `ending deletes once closes the attempt and reports deletion failure while staying idle`() =
+    @Test fun `ending saves marker closes the attempt and reports save failure while staying idle`() =
         runBlocking {
             for (throws in listOf(false, true)) {
                 var deletes = 0
@@ -34,15 +34,20 @@ class SessionHostTest {
                         override suspend fun save(
                             snapshot: dev.cubentia.application.session.SessionSnapshot,
                             attempts: List<dev.cubentia.application.session.AttemptRecord>,
-                        ) = dev.cubentia.application.port.SnapshotSave.Saved
+                        ): dev.cubentia.application.port.SnapshotSave {
+                            if (!snapshot.ended) return dev.cubentia.application.port.SnapshotSave.Saved
+                            assertTrue(!snapshot.attemptOpen)
+                            assertEquals(null, snapshot.attemptId)
+                            rows.addAll(attempts)
+                            if (throws) error("save failed")
+                            return dev.cubentia.application.port.SnapshotSave.Failed
+                        }
 
                         override suspend fun clear(
                             attempts: List<dev.cubentia.application.session.AttemptRecord>,
                         ): dev.cubentia.application.port.SnapshotSave {
                             deletes++
-                            rows.addAll(attempts)
-                            if (throws) error("delete failed")
-                            return dev.cubentia.application.port.SnapshotSave.Failed
+                            error("ordinary end must not delete")
                         }
                     }
                 val writer =
@@ -64,13 +69,13 @@ class SessionHostTest {
                     writer.flush()
                     host.endSession()
                     writer.flush()
-                    assertEquals(1, deletes)
-                    assertEquals(dev.cubentia.application.session.AttemptOutcome.ABANDONED, rows.single().outcome)
+                    assertEquals(0, deletes)
+                    assertEquals(dev.cubentia.application.session.AttemptOutcome.ABANDONED, rows.first().outcome)
                     assertTrue(!host.state.value.isActive)
                     assertTrue(events.any { it is SessionEvent.SnapshotSaveFailed })
                     host.endSession()
                     writer.flush()
-                    assertEquals(1, deletes)
+                    assertEquals(0, deletes)
                 } finally {
                     writer.close()
                 }

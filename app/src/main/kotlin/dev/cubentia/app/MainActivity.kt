@@ -36,6 +36,11 @@ class MainActivity : ComponentActivity() {
 
     private val freeCube: FreeCubeViewModel by viewModels()
 
+    override fun onStop() {
+        super.onStop()
+        sessionHost.retryPendingEnd()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {

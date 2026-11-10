@@ -71,6 +71,45 @@ class RoomSessionSnapshotRepositoryTest {
             }
         }
 
+    @Test fun `literal format one payload defaults ended to false`() {
+        val legacy =
+            """
+            {
+              "format":1,"kind":"LESSON","sessionId":"legacy","revision":1,"lessonId":null,"contentRevision":null,
+              "start":"cube","done":"","undone":"","solution":"","checkpoint":null,"teachingMode":"GUIDE_ME",
+              "adaptiveAssistance":false,"hintsUsed":0,"hintRung":"NONE","revealRequested":false,"noticeStep":null,
+              "stepMistakes":{},"cleanSteps":0,"cleanCredited":[],"stepHelped":[],"assistanceDismissed":{}
+            }
+            """.trimIndent()
+        val decoded = SnapshotPayload.decode(legacy)
+        val expected =
+            SessionSnapshot(
+                kind = SessionKind.LESSON,
+                sessionId = "legacy",
+                revision = 1,
+                lessonId = null,
+                contentRevision = null,
+                start = "cube",
+                done = "",
+                undone = "",
+                solution = "",
+                checkpoint = null,
+                teachingMode = dev.cubentia.domain.tutor.TeachingMode.GUIDE_ME,
+                adaptiveAssistance = false,
+                hintsUsed = 0,
+                hintRung = dev.cubentia.domain.tutor.HintRung.NONE,
+                revealRequested = false,
+                noticeStep = null,
+                stepMistakes = emptyMap(),
+                cleanSteps = 0,
+                cleanCredited = emptySet(),
+                stepHelped = emptySet(),
+                assistanceDismissed = emptyMap(),
+            )
+        assertEquals(expected, decoded)
+        assertEquals(false, decoded.ended)
+    }
+
     @Test fun conditionalWritesAndLatestSequence() =
         runBlocking {
             val db =
@@ -151,10 +190,15 @@ class RoomSessionSnapshotRepositoryTest {
                     ),
                     SnapshotPayload.decode(legacy),
                 )
+                val ended = tutored.copy(ended = true, attemptOpen = false, attemptId = null)
+                assertEquals(ended, SnapshotPayload.decode(SnapshotPayload.encode(ended)))
+                repo.save(ended)
+                assertEquals(SnapshotLoad.None, repo.latest())
+                assertTrue(SnapshotPayload.decode(checkNotNull(db.snapshots().latest()).payload).ended)
                 val row = checkNotNull(db.snapshots().latest())
-                db.snapshots().replace(row.copy(payload = row.payload.replace("\"format\":1", "\"format\":99")))
+                db.snapshots().replace(row.copy(payload = row.payload.replace("\"format\":2", "\"format\":99")))
                 assertEquals(SnapshotLoad.Failed, repo.latest())
-                db.snapshots().replace(row.copy(payload = row.payload.replace("\"format\":1,", "")))
+                db.snapshots().replace(row.copy(payload = row.payload.replace("\"format\":2,", "")))
                 assertEquals(SnapshotLoad.Failed, repo.latest())
                 db.snapshots().replace(row.copy(payload = "broken json"))
                 assertEquals(SnapshotLoad.Failed, repo.latest())
