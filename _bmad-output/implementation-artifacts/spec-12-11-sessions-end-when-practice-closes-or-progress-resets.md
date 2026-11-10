@@ -5,7 +5,7 @@ created: '2026-11-10'
 status: 'done'
 baseline_revision: '906363c4cf4671aa2fcb725273ee12ce233e7350'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-12-context.md'
   - '{project-root}/core/application/src/main/kotlin/dev/cubentia/application/session/TRANSITIONS.md'
@@ -105,6 +105,31 @@ deferred:
   - `[low]` `[reject]` (intent) AC3 accept path not tapped in UI; covered by `algorithmsToOffer` unit test — the lambda is a one-line call of the tested helper.
   - `[maybe-false]` `[reject]` (intent) Port changes (`SessionEnded`, `clear` members, `AlgorithmStatusLoad`) exceed the story surface — they are the spec's chosen mechanism (Code Map); no harm named; would only be low.
 
+### 2026-11-10 — Review pass
+- verdicts: 21 findings — high 0, medium 3, low 15, false 3, maybe-false 0
+- findings:
+  - `[medium]` `[defer]` (blind) Failed snapshot delete keeps attempt rows but drops the delete request; a later cold start can restore the closed practice — carried: same as the logged durable-cleanup deferral; `clearSnapshots` unchanged.
+  - `[low]` `[patch]` (blind) Process death between the `ProgressReset` write and the Checkpoint delete leaves a Checkpoint that reopens locked content — `resetProgress()` now enqueues `clearCheckpoint()` before the reset write (failure path already deleted the Checkpoint, so outcomes are unchanged).
+  - `[medium]` `[defer]` (blind) Checkpoint clear failure is not reflected in the reset result — carried: logged deferral (cleanup not durable under write failure).
+  - `[false]` `[reject]` (blind) Practice close leaves the Lesson Checkpoint, so cold start resumes the older Lesson — the Lesson Checkpoint is the designed Course resume point (`endSolve` falls back to it the same way); the intent requires only snapshot rows deleted on close, and resuming the Lesson does not reopen the practice.
+  - `[low]` `[reject]` (blind) Reset confirmation copy omits that in-progress work ends — the intent forbids new Learner-facing strings in this story.
+  - `[low]` `[reject]` (blind) `AppShell` ignores the `resetProgress()` result — pre-existing (line not changed by this story), reachable only on a DB write failure, and a fix needs new failure UI and copy the intent forbids.
+  - `[low]` `[reject]` (blind) Library shows an initial or failed first load as *Not started* — carried: logged reject (pre-existing loading state; stream retries).
+  - `[low]` `[reject]` (blind) Offer acceptance checks a collected map that can lag a committed write — carried: logged reject (no reachable path).
+  - `[low]` `[reject]` (blind) Offer accept path, partial write failure and retry not exercised in UI — carried: logged reject (lambda is a one-line call of the tested helper).
+  - `[low]` `[reject]` (blind) No Room-backed close → new host → restore test for ordinary practice close — each link is tested: shell close leaves host idle (AppShellTest), `endSession` writes ABANDONED and calls `clear` (SessionHostTest), Room `clear` deletes every kind (RoomSessionSnapshotRepositoryTest); an end-to-end Room shell test adds harness weight for no distinct path.
+  - `[low]` `[patch]` (blind) Recompiled `epic-12-context.md` dropped measurable criteria (contrast ratios; solver median, p95, memory, failure rate) that later Epic 12 stories read from the cache — restored both in the Requirements section.
+  - `[medium]` `[defer]` (edge) Snapshot or Checkpoint clear failure lets cold start restore closed or reset content — carried: logged durable-cleanup deferral.
+  - `[low]` `[reject]` (edge) *Learned* committed before acceptance but not yet collected gets downgraded — carried: logged reject (no reachable path).
+  - `[low]` `[reject]` (edge) Claim "accepting never changes a non-*Not started* status" relies on collected state — carried: logged reject.
+  - `[low]` `[patch]` (verification-gap) System Back from ordinary practice calls `endSession()` but no test asserts it — added `system back from LL practice ends it then opening Course records Lesson completion` (practiceToCourse with `systemBack = true`).
+  - `[low]` `[reject]` (intent) Opening a Course Lesson directly while the host is still PRACTICE is not tested through to `LessonCompleted` — LessonScreenTest asserts the restart to kind `LESSON` with Teaching Modes; completion of a `LESSON` session is covered by existing tests and the shell close-then-open tests.
+  - `[false]` `[reject]` (intent) `shouldStart` adds a new host-kind read — the kind still comes from the caller (`isTwoLook`); the host kind is only compared to restart a mismatched session, never used to choose the Lesson's kind.
+  - `[low]` `[reject]` (intent) Shell close tests never inspect snapshot or attempt rows — same coverage argument as the Room-backed close finding above.
+  - `[low]` `[reject]` (intent) Checkpoint deletion on the failed-reset path is untested — DB-write-failure only; behaviour is the logged spec choice.
+  - `[low]` `[reject]` (intent) No UI test changes a status between offer and accept — carried: logged reject.
+  - `[false]` `[reject]` (intent) Rewriting `epic-12-context.md` violates "never edit planning artifacts" — the file is a compiled cache under implementation-artifacts written by the workflow's own epic-context step, not a planning artifact.
+
 ## Design Notes
 
 - Checkpoint deletion on reset is required by "a cold start restores nothing": `restoreLatest()` falls back to `resumeCheckpoint()`, which would reopen a Lesson the reset locked. AD-10 allows deletes in the Learner's scoped progress reset.
@@ -137,3 +162,20 @@ deferred:
 **Verification:** `./gradlew spotlessApply spotlessCheck build` -- BUILD SUCCESSFUL after the implementation (Codex run: 1,538 tests) and again after the review patches (3m 40s).
 
 **Residual risks:** Room write failures during cleanup are reported but not retried (deferred). The reset sheet copy ("in-progress work ends", EXPERIENCE.md) was not added; it is not in this story's ACs.
+
+### Follow-up review pass (2026-11-10)
+
+**Summary:** Fresh four-layer review of the full story diff. Three small patches: the Checkpoint delete is queued before the `ProgressReset` write, a system-Back practice test was added, and the recompiled Epic 12 context regained its measurable release criteria.
+
+**Files changed this pass:**
+- `app/.../session/SessionHost.kt` -- `resetProgress()` queues `clearCheckpoint()` before the reset write.
+- `app/src/test/.../ui/shell/AppShellTest.kt` -- `practiceToCourse(systemBack = true)` case.
+- `_bmad-output/implementation-artifacts/epic-12-context.md` -- restored contrast ratios and solver reporting metrics.
+
+**Review:** 21 findings (high 0, medium 3, low 15, false 3). Patches applied: 3 (low 3). Deferred: none new (3 medium findings carried onto the existing durable-cleanup deferral). Rejected: 15 -- checkpoint fallback after close (false, designed Lesson resume); reset copy (intent forbids new strings); ignored reset result (pre-existing, needs forbidden copy); Library first-load, offer lag x3, offer UI accept x2 (carried); Room-backed close test and shell row inspection (each link tested); direct-to-Course from PRACTICE completion (kind restart tested); new host-kind read (false); failed-reset checkpoint test (spec choice, write-failure only); context rewrite as planning edit (false).
+
+**Follow-up review recommended:** false -- follow-up pass patched no high (patched counts: high 0, medium 0, low 3).
+
+**Verification:** `./gradlew spotlessApply spotlessCheck build` -- BUILD SUCCESSFUL in 3m 50s; AppShellTest 42 tests, 0 failures (new system-Back test included).
+
+**Residual risks:** unchanged -- Room write failures during cleanup are reported but not retried (deferred).

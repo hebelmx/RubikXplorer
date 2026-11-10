@@ -366,6 +366,8 @@ class SessionHost internal constructor(
             clearCheckpoint()
             return true
         }
+        // Queue the Checkpoint delete before the reset write, so no crash window keeps a Checkpoint past the reset.
+        clearCheckpoint()
         val result =
             try {
                 if (writer != null) {
@@ -378,7 +380,6 @@ class SessionHost internal constructor(
             } catch (_: Exception) {
                 ProgressWrite.Failed
             }
-        clearCheckpoint()
         return when (result) {
             is ProgressWrite.Written -> {
                 refreshProgressAfterWrite(result.events)

@@ -651,9 +651,12 @@ class AppShellTest {
 
     @Test fun `closing Stage practice then opening Course records Lesson completion`() = practiceToCourse(stagePractice = true)
 
+    @Test fun `system back from LL practice ends it then opening Course records Lesson completion`() = practiceToCourse(systemBack = true)
+
     private fun practiceToCourse(
         restored: Boolean = false,
         stagePractice: Boolean = false,
+        systemBack: Boolean = false,
     ) {
         val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
         val events = java.util.concurrent.CopyOnWriteArrayList<ProgressEvent>()
@@ -709,7 +712,7 @@ class AppShellTest {
             rule.onNodeWithTag("learn:twoLookPractice").performScrollTo().performClick()
         }
         rule.waitUntil(5000) { host.state.value.kind == SessionKind.PRACTICE }
-        rule.onNodeWithTag("lesson:close").performClick()
+        if (systemBack) rule.runOnIdle { back.onBackPressed() } else rule.onNodeWithTag("lesson:close").performClick()
         rule.waitUntil(5000) { !host.state.value.isActive }
         if (stagePractice) rule.runOnIdle { back.onBackPressed() }
         openCourseAndComplete(bundle, events)
