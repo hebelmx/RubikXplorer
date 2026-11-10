@@ -141,6 +141,8 @@ development_status:
   12-8-the-mismatch-ladder-resolves-a-mismatch: done
   12-9-one-source-for-physical-copy-skip-check-needs-the-virtual-cu: done
   12-10-prove-the-release-permission-gate-end-to-end: done
+  12-11-sessions-end-when-practice-closes-or-progress-resets: backlog
+  12-12-2-look-rules-reconciled: backlog
   epic-12-retrospective: optional
 action_items:
   - id: "epic-2-retro-item-1-create-a-deferred-findings-ledger-or-rou"
@@ -439,7 +441,7 @@ action_items:
       PRACTICE term in LessonScreen.kt:253 or end practice on close; AppShell test
       LL practice then Course Lesson writes LessonCompleted"
     owner: "Dev (Amelia)"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
   - id: "epic-9-retro-item-41-never-let-the-2-look-offer-downgrade-a-s"
     epic: 9
@@ -447,35 +449,35 @@ action_items:
       load (AppShell.kt:207), stop RoomAlgorithmStatusRepository terminating on emptyMap,
       skip non-NOT_STARTED writes"
     owner: "Dev (Amelia)"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
   - id: "epic-9-retro-item-42-gate-2-look-continue-on-allstagesfinishe"
     epic: 9
     action: "Gate 2-look Continue on allStagesFinished or end 2-look sessions on Reset
       progress (AppShell.kt:467-473); add reset then Continue test"
     owner: "Dev (Amelia)"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
   - id: "epic-9-retro-item-43-fix-stale-transitions-md-lines-223-and-2"
     epic: 9
     action: "Fix stale TRANSITIONS.md lines 223 and 272 to describe SessionSnapshot.practiceEntry
       (9e71566)"
     owner: "Dev (Amelia)"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
   - id: "epic-9-retro-item-44-test-the-shell-per-lesson-recognition-di"
     epic: 9
     action: "Test the shell per-Lesson recognition diagram (AppShell.kt:208-216) against
       RecognitionDiagram.derive for one OLL and one PLL Lesson"
     owner: "Dev (Amelia)"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
   - id: "epic-9-retro-item-45-move-2-look-learner-copy-from-strings-xm"
     epic: 9
     action: "Move 2-look Learner copy from strings.xml:177,204-207 to en.json and
       extend the Learner-text gate (advances epic-2-retro-item-3)"
     owner: "Dev (Amelia)"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
   - id: "epic-9-retro-item-46-spec-reconciliation-via-bmad-correct-cou"
     epic: 9
@@ -484,7 +486,7 @@ action_items:
       an accepted second definition beside AD-19 LastLayerMatcher; add demo-scores-zero
       cross-check test"
     owner: "PM (John) / Architect (Winston)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
   - id: "epic-9-retro-item-47-route-stranded-epic-9-spec-deferrals-9-1"
     epic: 9
@@ -492,7 +494,7 @@ action_items:
       oracle, 9.3 RTL net mirroring, 9.8 practice rotation and physical Stage milestone)
       into action_items; orchestrator copies spec deferred entries at story close"
     owner: "orchestrator / SM"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
   - id: "epic-9-retro-item-48-run-the-epic-boundary-cross-story-review"
     epic: 9
@@ -501,3 +503,33 @@ action_items:
     owner: "orchestrator / SM"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
+  - id: "epic-9-deferred-9-1-9-2-case-family-and-identity-oracle"
+    epic: 9
+    action: "Pin per-Case family membership beyond counts (ShippedContentTest.kt:305) and add a Case-identity oracle independent of Notation (case-signatures.txt) (deferred from 9.1/9.2)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md"
+  - id: "epic-9-deferred-9-3-rtl-net-mirroring"
+    epic: 9
+    action: "Net2DRenderer.kt:165 and StickerReviewNet mirror under RTL (medium; deferred from 9.3; fold into Story 12.1 accessibility)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md"
+  - id: "epic-9-deferred-9-8-rotation-regenerates-course-practice"
+    epic: 9
+    action: "Rotation regenerates a Course practice scramble (medium; deferred from 9.8)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md"
+  - id: "epic-9-deferred-9-8-physical-stage-mastery-milestone"
+    epic: 9
+    action: "Physical Stage mastery plays no milestone (low; deferred from 9.8)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md"
+  - id: "epic-9-deferred-9-8-physical-result-line-before-confirm"
+    epic: 9
+    action: "In physical mode the 2-look result line shows before 'Yes, it's solved' (medium; 9.8 gate round 5, LessonScreen.kt:353)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md"

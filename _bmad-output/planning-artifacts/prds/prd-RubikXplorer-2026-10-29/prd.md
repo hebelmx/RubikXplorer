@@ -397,7 +397,8 @@ The Learner can take a 2-look OLL and 2-look PLL mini-Course. It unlocks after t
 **Consequences (testable):**
 - Each Lesson's Completion Predicate is "this LL step is achieved" (e.g. all LL edges oriented), checked on the Cube State.
 - Each Case Lesson references its Algorithm Library entry or entries, so 2-look and Library data never diverge.
-- The mini-Course is *completed* when every Lesson's predicate has been met. It is *mastered* once the Learner has twice solved the LL of a fresh Scramble using only 2-look Algorithms without hints. [ASSUMPTION: 2-look mastery rule.]
+- The mini-Course is *completed* when every Lesson's predicate has been met. It is *mastered* once it is *completed* and the Learner has twice solved the LL of a fresh Scramble using only 2-look Algorithms without hints. Qualifying solves made before completion count. [ASSUMPTION: 2-look mastery rule.] *(SCP 2026-11-10)*
+- LL practice Scrambles are built from the whole Algorithm Library, so every last-layer Case can appear. *(SCP 2026-11-10)*
 - Finishing a Lesson offers to set the related Algorithm Statuses to *Learning*, but never sets them automatically.
 
 #### FR-18: Algorithm Library
@@ -439,6 +440,7 @@ All of the following persist across app restarts and forced process death:
 - If the Checkpoint was in Physical-cube Mode, the Learner is asked to confirm, scan or re-enter their cube before continuing.
 - Repeating a Lesson adds new records and never corrupts earlier ones.
 - The Learner can reset all progress and Algorithm Statuses, after a confirmation step. Color Calibration and preferences have their own separate resets.
+- *Reset progress* also ends any live Lesson, 2-look or practice session and deletes its snapshot, so nothing locked by the reset can be continued. *(SCP 2026-11-10)*
 
 #### FR-20: Mastery and Independent practice
 The Learner can do Independent practice on a fresh Scramble with reduced help. A Stage is *mastered* only once its Mastery Condition is met.

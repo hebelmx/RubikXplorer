@@ -280,7 +280,7 @@ stateDiagram-v2
     - `progress_event` has the types `LessonCompleted`, `StageSkippedByCheck`, `StageSkippedByPlacement`, `StageUnlocked` and `ProgressReset(epoch)`. Stage status and Mastery are pure functions over the current epoch.
     - `algorithm_status_event` is keyed by `algorithmId` and written only by `SetAlgorithmStatus`.
   - **Preferences:** written only by `UpdatePreference`.
-  - **Changes and deletes:** rows are never updated. The only deletes are the Learner's scoped resets (progress, calibration, preferences).
+  - **Changes and deletes:** rows are never updated. The only deletes are the Learner's scoped resets (progress, calibration, preferences). *Reset progress* also ends the live session and deletes its snapshot (SCP 2026-11-10).
   - **Room:** each Room schema change ships with a migration and a migration test.
 
 ### AD-11 — DI, concurrency, time and randomness
@@ -377,7 +377,8 @@ stateDiagram-v2
 
 - **Binds:** FR-17, FR-18, FR-28
 - **Prevents:** the Library, the verification test, recognition and 2-look predicates each defining Case patterns and AUF differently.
-- **Rule:** `LastLayerMatcher` in `:core:domain` is used by the FR-18 verification, diagram derivation, FR-28 and the 2-look predicates.
+- **Rule:** `LastLayerMatcher` in `:core:domain` is the only definition of Case patterns and AUF. It is used by the FR-18 verification, diagram derivation, FR-28 and the 2-look predicates.
+- **Algorithm-use judge (SCP 2026-11-10):** `TwoLookSolve` decides whether an LL solve used only 2-look Algorithms, U adjustments and rotations, by comparing Move effects. It answers *which Algorithms were used*, not *which Case this is*, and must not define Case patterns or AUF itself. A test pins the two: every 2-look Lesson Demonstration scores 0 off-path Moves under `TwoLookSolve`, and its result satisfies the Lesson's matcher-built predicate.
   - **Canonical frame:** the LL is the face opposite the solved F2L color (YELLOW for the Course), rotated to U.
   - **OLL** is matched by orientation mask under pre-AUF `U^k`.
   - **PLL** is matched by permutation under pre- and post-AUF and under `y^k` viewing.

@@ -232,7 +232,7 @@ A Learner can browse and watch all 78 verified OLL/PLL Algorithms, track their o
 The app meets every release gate. It is accessible, fast and stable on the reference devices, the pilot's findings are fixed, and the store listing and public repo are ready for a hiring manager's five-minute look.
 **Absorbs:** E09, PRD §7.
 **FRs covered:** none new (verifies all). **Also:** NFR-1, NFR-2, NFR-7, NFR-8, NFR-9, NFR-11, NFR-13, AR-3, AR-5, AR-16, UX-DR28, UX-DR29, Flow 6.
-**Also carries** the pre-pilot stories 12.6–12.10 (Cubentia rebrand; Epic 8 retrospective fixes), which run before Story 7.8 (`sprint-change-proposal-2026-11-08-cubentia-and-pre-pilot.md`).
+**Also carries** the pre-pilot stories 12.6–12.10 (Cubentia rebrand; Epic 8 retrospective fixes), which run before Story 7.8 (`sprint-change-proposal-2026-11-08-cubentia-and-pre-pilot.md`), and 12.11–12.12 (Epic 9 seams; 2-look rules), also before 7.8 (`sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md`).
 
 ## Epic 1: Turn and verify a cube
 
@@ -1448,6 +1448,8 @@ So that their results come back in time for fixes.
 
 **Refs:** NFR-8, NFR-9, NFR-11 · AD-13, AD-15 · AR-5 · OQ-5 · PRD §7 gate 4
 
+**Depends on** Stories 12.11 and 12.12 (Epic 9 seams and 2-look rules, `sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md`).
+
 **Acceptance Criteria:**
 
 **Given** a `vX.Y.Z` tag
@@ -1764,6 +1766,8 @@ So that I know when to move to the full set.
 **When** the Learner twice solves the LL using only 2-look Algorithms with no hints
 **Then** the mini-Course becomes *Mastered*, the milestone plays; after the first such solve the row reads "Mastery: 1 of 2"
 
+*Amended by SCP 2026-11-10: Mastered also requires Completed. Implemented in Story 12.12.*
+
 ## Epic 12: Release-ready for learners and reviewers
 
 The app meets every release gate in PRD §7, and a hiring manager's five-minute evaluation (UJ-6, Flow 6) goes cleanly.
@@ -1999,3 +2003,63 @@ So that the camera-free v1.0 promise is enforced, not assumed.
 **Given** an unknown or null build type
 **When** the manifest policy runs
 **Then** it keys on `variant.debuggable` (or fails), so no build type can bypass the release rule
+
+### Story 12.11: Sessions end when practice closes or progress resets
+
+As a Learner,
+I want closing practice and resetting progress to really end what I was doing,
+So that Lessons teach me properly and locked content stays locked.
+
+**Refs:** FR-17, FR-19, FR-4 · AD-3, AD-10 · Epic 9 retro items 1–3 · SCP 2026-11-10
+
+**Acceptance Criteria:**
+
+**Given** LL practice (live, or restored on cold start) or any other practice
+**When** the Learner closes it and opens a Course Lesson
+**Then** the Lesson runs as `LESSON` with its Teaching Modes, and meeting its predicate writes `LessonCompleted`
+
+**Given** a live Lesson, 2-look or practice session
+**When** the Learner confirms *Reset progress*
+**Then** the session ends, its snapshot is deleted, the Continue card offers nothing locked by the reset, and a cold start restores nothing
+
+**Given** Algorithm Statuses not yet loaded, or the status stream failed
+**When** a 2-look Lesson ends
+**Then** the "Add these algorithms to Learning?" offer is not shown, and accepting it never changes an Algorithm whose current status is not *Not started*
+
+**Given** the status repository's upstream fails
+**When** the Library is open
+**Then** the failure is surfaced or retried; the stream does not silently end as "all *Not started*"
+
+### Story 12.12: 2-look rules reconciled
+
+As a Learner,
+I want *Mastered* to mean I've finished and proven 2-look,
+So that the mini-Course status is honest.
+
+**Refs:** FR-17 · AD-19, AD-6 · Epic 9 retro items 4–7 · epic-2-retro-item-3 · SCP 2026-11-10
+
+**Acceptance Criteria:**
+
+**Given** two qualifying LL practice solves but not every 2-look Lesson completed
+**When** progress is read
+**Then** the row shows *Completed* or *In progress* with "Mastery: 2 of 2", not *Mastered*, and no milestone plays
+
+**Given** that state
+**When** the last 2-look Lesson is completed
+**Then** the row becomes ◆ *Mastered* and the milestone plays once
+
+**Given** every 2-look Lesson's Demonstration
+**When** content tests run
+**Then** `TwoLookSolve` scores it 0 off-path Moves, and its end state satisfies the Lesson's `LastLayerMatcher`-built predicate
+
+**Given** the shell picks each 2-look Lesson's recognition diagram
+**When** shell tests run
+**Then** for at least one OLL and one PLL Lesson it equals `RecognitionDiagram.derive` of the Lesson's first referenced Algorithm
+
+**Given** 2-look Learner copy
+**When** the Learner-text gate runs
+**Then** the 2-look strings come from `en.json` keys, and a new Learner string in `strings.xml` fails the gate
+
+**Given** `TRANSITIONS.md`
+**When** it is read
+**Then** it describes the LL-practice `practiceEntry` snapshot field and restore
