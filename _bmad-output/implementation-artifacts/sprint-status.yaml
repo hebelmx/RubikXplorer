@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: 11-09-2026 23:33
+last_updated: 11-10-2026 11:32
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -141,7 +141,7 @@ development_status:
   12-8-the-mismatch-ladder-resolves-a-mismatch: done
   12-9-one-source-for-physical-copy-skip-check-needs-the-virtual-cu: done
   12-10-prove-the-release-permission-gate-end-to-end: done
-  12-11-sessions-end-when-practice-closes-or-progress-resets: backlog
+  12-11-sessions-end-when-practice-closes-or-progress-resets: done
   12-12-2-look-rules-reconciled: backlog
   epic-12-retrospective: optional
 action_items:
@@ -505,19 +505,23 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
   - id: "epic-9-deferred-9-1-9-2-case-family-and-identity-oracle"
     epic: 9
-    action: "Pin per-Case family membership beyond counts (ShippedContentTest.kt:305) and add a Case-identity oracle independent of Notation (case-signatures.txt) (deferred from 9.1/9.2)"
+    action: "Pin per-Case family membership beyond counts (ShippedContentTest.kt:305)
+      and add a Case-identity oracle independent of Notation (case-signatures.txt)
+      (deferred from 9.1/9.2)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md"
   - id: "epic-9-deferred-9-3-rtl-net-mirroring"
     epic: 9
-    action: "Net2DRenderer.kt:165 and StickerReviewNet mirror under RTL (medium; deferred from 9.3; fold into Story 12.1 accessibility)"
+    action: "Net2DRenderer.kt:165 and StickerReviewNet mirror under RTL (medium; deferred
+      from 9.3; fold into Story 12.1 accessibility)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md"
   - id: "epic-9-deferred-9-8-rotation-regenerates-course-practice"
     epic: 9
-    action: "Rotation regenerates a Course practice scramble (medium; deferred from 9.8)"
+    action: "Rotation regenerates a Course practice scramble (medium; deferred from
+      9.8)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md"
@@ -529,7 +533,8 @@ action_items:
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md"
   - id: "epic-9-deferred-9-8-physical-result-line-before-confirm"
     epic: 9
-    action: "In physical mode the 2-look result line shows before 'Yes, it's solved' (medium; 9.8 gate round 5, LessonScreen.kt:353)"
+    action: "In physical mode the 2-look result line shows before 'Yes, it's solved'
+      (medium; 9.8 gate round 5, LessonScreen.kt:353)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md"

@@ -16,6 +16,9 @@ interface SessionSnapshotDao {
     @Query("SELECT COALESCE(MAX(written_seq), 0) FROM session_snapshot")
     suspend fun sequence(): Long
 
+    @Query("DELETE FROM session_snapshot")
+    suspend fun clear()
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun replace(entity: SessionSnapshotEntity)
 }

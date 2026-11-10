@@ -5,6 +5,7 @@ import androidx.room3.Room
 import androidx.room3.withReadTransaction
 import androidx.room3.withWriteTransaction
 import androidx.sqlite.driver.AndroidSQLiteDriver
+import dev.cubentia.application.port.AlgorithmStatusLoad
 import dev.cubentia.application.port.AlgorithmStatusRecord
 import dev.cubentia.application.port.AlgorithmStatusSave
 import dev.cubentia.application.port.AlgorithmStatusWrite
@@ -67,12 +68,12 @@ class RoomAlgorithmStatusRepositoryTest {
             val db = open()
             try {
                 val repo = RoomAlgorithmStatusRepository(db)
-                assertEquals(mapOf(id to AlgorithmStatus.LEARNED), repo.statuses().first())
+                assertEquals(mapOf(id to AlgorithmStatus.LEARNED), (repo.statuses().first() as AlgorithmStatusLoad.Loaded).statuses)
                 ResetProgress(RoomProgressRepository(db))(at)
-                assertEquals(emptyMap<AlgorithmId, AlgorithmStatus>(), repo.statuses().first())
+                assertEquals(emptyMap<AlgorithmId, AlgorithmStatus>(), (repo.statuses().first() as AlgorithmStatusLoad.Loaded).statuses)
                 assertEquals(3L, scalar(db, "SELECT COUNT(*) FROM algorithm_status_event"))
                 SetAlgorithmStatus(repo)(id, AlgorithmStatus.NOT_STARTED, at, "run-2", 0L)
-                assertEquals(mapOf(id to AlgorithmStatus.NOT_STARTED), repo.statuses().first())
+                assertEquals(mapOf(id to AlgorithmStatus.NOT_STARTED), (repo.statuses().first() as AlgorithmStatusLoad.Loaded).statuses)
                 assertEquals(1L, scalar(db, "SELECT epoch FROM algorithm_status_event ORDER BY seq DESC LIMIT 1"))
                 db.withWriteTransaction {
                     usePrepared("DROP TABLE algorithm_status_event") {
@@ -84,7 +85,7 @@ class RoomAlgorithmStatusRepositoryTest {
                     AlgorithmStatusSave.Failed,
                     repo.append(AlgorithmStatusRecord("run-2", 1L, AlgorithmStatusEvent(id, AlgorithmStatus.LEARNING, at))),
                 )
-                assertEquals(emptyMap<AlgorithmId, AlgorithmStatus>(), repo.statuses().first())
+                assertEquals(AlgorithmStatusLoad.Failed, repo.statuses().first())
             } finally {
                 db.close()
                 app.deleteDatabase(name)
@@ -109,11 +110,65 @@ class RoomAlgorithmStatusRepositoryTest {
                 ResetProgress(RoomProgressRepository(db))(at)
                 set(id, AlgorithmStatus.LEARNING, at, "run", 0L)
                 assertEquals(1L, scalar(db, "SELECT COUNT(*) FROM algorithm_status_event"))
-                assertEquals(emptyMap<AlgorithmId, AlgorithmStatus>(), repo.statuses().first())
+                assertEquals(emptyMap<AlgorithmId, AlgorithmStatus>(), (repo.statuses().first() as AlgorithmStatusLoad.Loaded).statuses)
 
                 set(id, AlgorithmStatus.LEARNED, at, "run", 1L)
                 set(id, AlgorithmStatus.LEARNED, at, "next-run", 0L)
                 assertEquals(3L, scalar(db, "SELECT COUNT(*) FROM algorithm_status_event"))
+            } finally {
+                db.close()
+            }
+        }
+
+    @Test fun `failed status stream retries without completing and recovers after table returns`() =
+        runBlocking {
+            val db =
+                Room
+                    .inMemoryDatabaseBuilder<RubikDatabase>(RuntimeEnvironment.getApplication())
+                    .setDriver(AndroidSQLiteDriver())
+                    .build()
+            try {
+                val sql =
+                    db.withReadTransaction {
+                        usePrepared("SELECT sql FROM sqlite_master WHERE name = 'algorithm_status_event'") {
+                            check(it.step())
+                            it.getText(0)
+                        }
+                    }
+                db.withWriteTransaction {
+                    usePrepared("DROP TABLE algorithm_status_event") {
+                        it.step()
+                        Unit
+                    }
+                }
+                val failed = CompletableDeferred<Unit>()
+                val recovered = CompletableDeferred<Unit>()
+                val job =
+                    launch {
+                        RoomAlgorithmStatusRepository(db).statuses().collect { load ->
+                            when (load) {
+                                AlgorithmStatusLoad.Failed -> failed.complete(Unit)
+                                is AlgorithmStatusLoad.Loaded -> recovered.complete(Unit)
+                            }
+                        }
+                    }
+                try {
+                    withTimeout(10000) {
+                        failed.await()
+                        org.junit.Assert.assertTrue(job.isActive)
+                        db.withWriteTransaction {
+                            usePrepared(sql) {
+                                it.step()
+                                Unit
+                            }
+                        }
+                        recovered.await()
+                        org.junit.Assert.assertTrue(job.isActive)
+                    }
+                } finally {
+                    job.cancel()
+                    job.join()
+                }
             } finally {
                 db.close()
             }
@@ -134,7 +189,8 @@ class RoomAlgorithmStatusRepositoryTest {
                 val job =
                     launch {
                         var index = 0
-                        repo.statuses().take(3).collect { map ->
+                        repo.statuses().take(3).collect { load ->
+                            val map = (load as AlgorithmStatusLoad.Loaded).statuses
                             when (index++) {
                                 0 -> {
                                     assertEquals(emptyMap<AlgorithmId, AlgorithmStatus>(), map)

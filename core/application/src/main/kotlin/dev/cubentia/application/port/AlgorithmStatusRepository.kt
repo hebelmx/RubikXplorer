@@ -15,8 +15,16 @@ data class AlgorithmStatusRecord(
     val event: AlgorithmStatusEvent,
 )
 
+sealed interface AlgorithmStatusLoad {
+    data class Loaded(
+        val statuses: Map<AlgorithmId, AlgorithmStatus>,
+    ) : AlgorithmStatusLoad
+
+    data object Failed : AlgorithmStatusLoad
+}
+
 interface AlgorithmStatusRepository {
-    fun statuses(): Flow<Map<AlgorithmId, AlgorithmStatus>>
+    fun statuses(): Flow<AlgorithmStatusLoad>
 
     suspend fun append(record: AlgorithmStatusRecord): AlgorithmStatusSave
 }
@@ -31,6 +39,9 @@ sealed interface AlgorithmStatusWrite {
     data class Written(
         val event: AlgorithmStatusEvent,
     ) : AlgorithmStatusWrite
+
+    /** A conditional write found the persisted status already past its precondition and appended nothing. */
+    data object Unchanged : AlgorithmStatusWrite
 
     data object Failed : AlgorithmStatusWrite
 }

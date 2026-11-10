@@ -2,12 +2,15 @@ package dev.cubentia.app.data
 
 import android.app.Application
 import androidx.room3.Room
+import androidx.room3.withWriteTransaction
 import androidx.sqlite.driver.AndroidSQLiteDriver
 import dev.cubentia.app.session.shippedTutorConfig
 import dev.cubentia.app.session.whiteCrossLesson
 import dev.cubentia.application.port.SnapshotLoad
 import dev.cubentia.application.port.SnapshotSave
+import dev.cubentia.application.session.AttemptRecord
 import dev.cubentia.application.session.CubeMode
+import dev.cubentia.application.session.Effect
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionKind
 import dev.cubentia.application.session.SessionSnapshot
@@ -27,6 +30,47 @@ import kotlin.time.Instant
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class RoomSessionSnapshotRepositoryTest {
+    @Test fun `clear deletes every kind and rolls back attempt insert when deletion fails`() =
+        runBlocking {
+            val db =
+                Room
+                    .inMemoryDatabaseBuilder<RubikDatabase>(RuntimeEnvironment.getApplication())
+                    .setDriver(AndroidSQLiteDriver())
+                    .build()
+            val repo = RoomSessionSnapshotRepository(db)
+            val at = Instant.fromEpochMilliseconds(0)
+            val before = reduce(SessionState.IDLE, SessionEvent.LessonStarted(whiteCrossLesson(), shippedTutorConfig, at)).state
+            val snapshot = checkNotNull(SessionSnapshot.of(before, "run", "v1"))
+            val effect = reduce(before, SessionEvent.SessionEnded(at)).effects.single() as Effect.AttemptEnded
+            val row = AttemptRecord.of(effect, "run", "attempt")
+            try {
+                repo.save(snapshot)
+                repo.save(snapshot.copy(kind = SessionKind.PRACTICE))
+                db.withWriteTransaction {
+                    usePrepared("CREATE TRIGGER fail_delete BEFORE DELETE ON session_snapshot BEGIN SELECT RAISE(ABORT, 'failure'); END") {
+                        it.step()
+                        Unit
+                    }
+                }
+                assertEquals(SnapshotSave.Failed, repo.clear(listOf(row)))
+                assertTrue(db.attempts().all().isEmpty())
+                assertTrue(repo.latest() is SnapshotLoad.Found)
+                db.withWriteTransaction {
+                    usePrepared("DROP TRIGGER fail_delete") {
+                        it.step()
+                        Unit
+                    }
+                }
+                assertEquals(SnapshotSave.Saved, repo.clear(listOf(row)))
+                assertEquals(SnapshotLoad.None, repo.latest())
+                assertEquals(null, db.snapshots().find(SessionKind.LESSON.name))
+                assertEquals(null, db.snapshots().find(SessionKind.PRACTICE.name))
+                assertEquals(listOf(row), db.attempts().all().map { it.record() })
+            } finally {
+                db.close()
+            }
+        }
+
     @Test fun conditionalWritesAndLatestSequence() =
         runBlocking {
             val db =

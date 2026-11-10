@@ -65,6 +65,9 @@ class SessionHostPersistenceTest {
                 ).bundle
             val repository =
                 object : SessionSnapshotRepository {
+                    override suspend fun clear(attempts: List<dev.cubentia.application.session.AttemptRecord>) =
+                        dev.cubentia.application.port.SnapshotSave.Saved
+
                     override suspend fun latest() = SnapshotLoad.Failed
 
                     override suspend fun save(
@@ -115,6 +118,9 @@ class SessionHostPersistenceTest {
                 ).bundle
             val repository =
                 object : SessionSnapshotRepository {
+                    override suspend fun clear(attempts: List<dev.cubentia.application.session.AttemptRecord>) =
+                        dev.cubentia.application.port.SnapshotSave.Saved
+
                     override suspend fun latest(): SnapshotLoad = throw IllegalStateException("disk")
 
                     override suspend fun save(
@@ -174,6 +180,9 @@ class SessionHostPersistenceTest {
             val reads = AtomicInteger()
             val repository =
                 object : SessionSnapshotRepository {
+                    override suspend fun clear(attempts: List<dev.cubentia.application.session.AttemptRecord>) =
+                        dev.cubentia.application.port.SnapshotSave.Saved
+
                     override suspend fun latest(): SnapshotLoad {
                         if (reads.getAndIncrement() == 0) {
                             reading.complete(Unit)
@@ -224,6 +233,9 @@ class SessionHostPersistenceTest {
             val snapshots = mutableListOf<SessionSnapshot>()
             val repository =
                 object : SessionSnapshotRepository {
+                    override suspend fun clear(attempts: List<dev.cubentia.application.session.AttemptRecord>) =
+                        dev.cubentia.application.port.SnapshotSave.Saved
+
                     override suspend fun latest() = SnapshotLoad.None
 
                     override suspend fun save(

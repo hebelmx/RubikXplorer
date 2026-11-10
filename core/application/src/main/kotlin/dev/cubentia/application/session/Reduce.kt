@@ -79,6 +79,23 @@ private fun applied(
     ) {
         return Transition(state)
     }
+    if (event is SessionEvent.SessionEnded) {
+        if (!state.isActive) return Transition(state)
+        val next = SessionState.IDLE.copy(revision = state.revision + 1, nextEffectId = state.nextEffectId)
+        if (!state.attemptOpen) return Transition(next)
+        val effect =
+            Effect.AttemptEnded(
+                state.nextEffectId,
+                next.revision,
+                checkNotNull(state.lesson).id.value,
+                AttemptOutcome.ABANDONED,
+                state.twoLookErrors ?: state.stepMistakes.values.sum(),
+                state.hintsUsed,
+                state.attemptAssistance,
+                event.at,
+            )
+        return Transition(next.copy(nextEffectId = next.nextEffectId + 1), effects = listOf(effect))
+    }
     if (event is SessionEvent.SolvePlaybackEnded) {
         return if (state.kind == SessionKind.SOLVE_PLAYBACK) {
             Transition(SessionState.IDLE.copy(revision = state.revision + 1, nextEffectId = state.nextEffectId))
@@ -149,7 +166,7 @@ private fun transition(
             startPlayback(state, event.state, event.solution)
         }
 
-        is SessionEvent.SolvePlaybackEnded -> {
+        is SessionEvent.SessionEnded, is SessionEvent.SolvePlaybackEnded -> {
             Transition(state)
         }
 

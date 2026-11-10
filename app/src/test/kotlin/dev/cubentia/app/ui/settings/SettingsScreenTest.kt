@@ -4,6 +4,7 @@ import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -95,7 +96,10 @@ class SettingsScreenTest {
             CubentiaTheme {
                 SettingsScreen(
                     onClose = {},
-                    onResetProgress = { resetCalled = true },
+                    onResetProgress = {
+                        resetCalled = true
+                        true
+                    },
                 )
             }
         }
@@ -112,7 +116,10 @@ class SettingsScreenTest {
             CubentiaTheme {
                 SettingsScreen(
                     onClose = {},
-                    onResetProgress = { resetCalled = true },
+                    onResetProgress = {
+                        resetCalled = true
+                        true
+                    },
                 )
             }
         }
@@ -163,6 +170,8 @@ class SettingsScreenTest {
         // Trigger Reset Progress
         rule.onNodeWithTag("settings:resetProgress").performScrollTo().performClick()
         rule.onNodeWithTag("settings:resetProgress:confirm").performClick()
+        // The dialog closes once the reset has completed.
+        rule.waitUntil(5000) { rule.onAllNodesWithTag("settings:resetProgress:confirm").fetchSemanticsNodes().isEmpty() }
 
         rule.runOnIdle {
             assertEquals(

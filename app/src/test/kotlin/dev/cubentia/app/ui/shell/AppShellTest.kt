@@ -19,6 +19,7 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasNoClickAction
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -114,6 +115,8 @@ class AppShellTest {
                 .SerialWriter()
         val repository =
             object : dev.cubentia.application.port.CheckpointRepository {
+                override suspend fun clear() = dev.cubentia.application.port.CheckpointSave.Saved
+
                 override suspend fun find(kind: dev.cubentia.application.session.SessionKind) =
                     dev.cubentia.application.port.CheckpointLoad
                         .Found(checkpoint)
@@ -531,6 +534,9 @@ class AppShellTest {
             }
         val snapshots =
             object : dev.cubentia.application.port.SessionSnapshotRepository {
+                override suspend fun clear(attempts: List<dev.cubentia.application.session.AttemptRecord>) =
+                    dev.cubentia.application.port.SnapshotSave.Saved
+
                 override suspend fun latest() =
                     snapshot?.let {
                         dev.cubentia.application.port.SnapshotLoad
@@ -631,6 +637,232 @@ class AppShellTest {
                 ?.entryState,
         )
         assertEquals(played.history, host.state.value.history)
+        rule.onNodeWithTag("lesson:close").performClick()
+        rule.waitUntil(5000) { !host.state.value.isActive }
+        rule.onNodeWithTag("learn:continue").assertDoesNotExist()
+        rule.onNodeWithTag("learn:stage:stage-01-fundamentals").performScrollTo().performClick()
+        rule.onNodeWithTag("learn:lesson:lesson-01-01").performScrollTo().performClick()
+        rule.waitUntil(5000) { host.state.value.kind == SessionKind.LESSON }
+        rule.onNodeWithTag("lesson:modeSwitcher").assertExists()
+    }
+
+    @Test fun `closing live LL practice then opening Course runs a taught Lesson and records completion`() = practiceToCourse()
+
+    @Test fun `closing restored LL practice then opening Course records Lesson completion`() = practiceToCourse(restored = true)
+
+    @Test fun `closing Stage practice then opening Course records Lesson completion`() = practiceToCourse(stagePractice = true)
+
+    @Test fun `system back from LL practice ends it then opening Course records Lesson completion`() = practiceToCourse(systemBack = true)
+
+    private fun practiceToCourse(
+        restored: Boolean = false,
+        stagePractice: Boolean = false,
+        systemBack: Boolean = false,
+    ) {
+        val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val events = java.util.concurrent.CopyOnWriteArrayList<ProgressEvent>()
+        events.addAll(bundle.stages.flatMap { it.lessons }.map { ProgressEvent.LessonCompleted(it.id) })
+        events.add(ProgressEvent.StageSkippedByCheck(bundle.stages.last().id))
+        val progress =
+            object : ProgressRepository {
+                override suspend fun all() = ProgressLoad.Found(events.toList())
+
+                override suspend fun append(records: List<ProgressRecord>): ProgressSave {
+                    events.addAll(records.map { it.event })
+                    return ProgressSave.Saved
+                }
+            }
+        host =
+            SessionHost(
+                TickingClock(),
+                Dispatchers.Default.limitedParallelism(1),
+                progress = progress,
+                completeLesson = CompleteLesson(progress),
+                preferences = preferences,
+            )
+        launch(ContentLoadResult.Loaded(bundle))
+        rule.waitUntil(5000) { host.progressEvents.value.isNotEmpty() }
+        if (restored) {
+            val practice =
+                dev.cubentia.application.usecase
+                    .TwoLookPractice(
+                        dev.cubentia.app.random
+                            .KotlinRandomSource(),
+                    ).lesson(
+                        bundle.algorithms.map {
+                            (Notation.parse(it.notation) as dev.cubentia.domain.cube.NotationResult.Parsed).moves
+                        },
+                    )
+            val before =
+                dev.cubentia.application.session
+                    .reduce(
+                        dev.cubentia.application.session.SessionState.IDLE,
+                        SessionEvent.PracticeStarted(practice, bundle.tutorConfig, Instant.fromEpochMilliseconds(0)),
+                    ).state
+            val snapshot =
+                checkNotNull(
+                    dev.cubentia.application.session.SessionSnapshot
+                        .of(before, "cold", bundle.contentRevision),
+                )
+            runBlocking { host.dispatch { SessionEvent.SessionRestored(snapshot, practice, bundle.tutorConfig, it) } }
+            rule.onNodeWithTag("learn:continue").performClick()
+        } else if (stagePractice) {
+            rule.onNodeWithTag("learn:stage:stage-02-first-cross").performScrollTo().performClick()
+            rule.onNodeWithTag("stageDetail:practice").performScrollTo().performClick()
+        } else {
+            rule.onNodeWithTag("learn:twoLookPractice").performScrollTo().performClick()
+        }
+        rule.waitUntil(5000) { host.state.value.kind == SessionKind.PRACTICE }
+        if (systemBack) rule.runOnIdle { back.onBackPressed() } else rule.onNodeWithTag("lesson:close").performClick()
+        rule.waitUntil(5000) { !host.state.value.isActive }
+        if (stagePractice) rule.runOnIdle { back.onBackPressed() }
+        openCourseAndComplete(bundle, events)
+    }
+
+    @Test fun `confirming Reset progress ends the live Lesson and empties the Continue card`() {
+        val bundle = testBundle()
+        launch(ContentLoadResult.Loaded(bundle))
+        runBlocking { host.dispatch { SessionEvent.LessonStarted(whiteCrossLesson(), bundle.tutorConfig, it) } }
+        rule.waitUntil(5000) { host.state.value.kind == SessionKind.LESSON }
+        rule.onNodeWithTag("learn:continue").assertExists()
+        rule.onNodeWithTag("nav:you").performClick()
+        rule.onNodeWithTag("you:settings").performClick()
+        rule.onNodeWithTag("settings:resetProgress").performScrollTo().performClick()
+        rule.onNodeWithTag("settings:resetProgress:confirm").performClick()
+        rule.waitUntil(5000) { !host.state.value.isActive }
+        rule.onNodeWithTag("settings:close").performClick()
+        rule.onNodeWithTag("welcome:imNew").performClick()
+        rule.onNodeWithTag("stageDetail:back").performClick()
+        rule.onNodeWithTag("learn").assertExists()
+        rule.onNodeWithTag("learn:continue").assertDoesNotExist()
+        assertTrue(!host.state.value.isActive)
+    }
+
+    @Test fun `a failed Reset progress keeps the dialog with a retryable message and navigates only once a retry succeeds`() {
+        var failuresLeft = 2
+        val saved = mutableListOf<ProgressEvent>()
+        val progress =
+            object : ProgressRepository {
+                override suspend fun all() = ProgressLoad.Found(saved.toList())
+
+                override suspend fun append(records: List<ProgressRecord>) =
+                    if (failuresLeft-- > 0) {
+                        ProgressSave.Failed
+                    } else {
+                        saved += records.map { it.event }
+                        ProgressSave.Saved
+                    }
+            }
+        host =
+            SessionHost(
+                TickingClock(),
+                kotlinx.coroutines.Dispatchers.Default
+                    .limitedParallelism(1),
+                preferences = preferences,
+                progress = progress,
+                resetProgress =
+                    dev.cubentia.application.usecase
+                        .ResetProgress(progress),
+            )
+        launch(ContentLoadResult.Loaded(testBundle()))
+        rule.onNodeWithTag("nav:you").performClick()
+        rule.onNodeWithTag("you:settings").performClick()
+        rule.onNodeWithTag("settings:resetProgress").performScrollTo().performClick()
+        rule.onNodeWithTag("settings:resetProgress:confirm").performClick()
+        rule.waitUntil(5000) { rule.onAllNodesWithTag("settings:resetProgress:error").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("settings:resetProgress:confirm").assertExists()
+        rule.onNodeWithTag("settings:resetProgress:cancel").performClick()
+        rule.onNodeWithTag("settings:close").performClick()
+        rule.onNodeWithTag("welcome:imNew").assertDoesNotExist()
+        rule.onNodeWithTag("you:settings").assertExists()
+        assertTrue(host.progressEvents.value.none { it is ProgressEvent.ProgressReset })
+
+        rule.onNodeWithTag("you:settings").performClick()
+        rule.onNodeWithTag("settings:resetProgress").performScrollTo().performClick()
+        rule.onNodeWithTag("settings:resetProgress:error").assertDoesNotExist()
+        rule.onNodeWithTag("settings:resetProgress:confirm").performClick()
+        rule.waitUntil(5000) { rule.onAllNodesWithTag("settings:resetProgress:error").fetchSemanticsNodes().isNotEmpty() }
+        // Retry from the same dialog re-invokes the reset; this attempt succeeds.
+        rule.onNodeWithTag("settings:resetProgress:confirm").performClick()
+        rule.waitUntil(5000) { rule.onAllNodesWithTag("settings:resetProgress:confirm").fetchSemanticsNodes().isEmpty() }
+        assertTrue(host.progressEvents.value.any { it is ProgressEvent.ProgressReset })
+        rule.onNodeWithTag("settings:close").performClick()
+        rule.onNodeWithTag("welcome:imNew").assertExists()
+    }
+
+    @Test fun `unloaded and failed statuses hide completion offer until a successful load`() {
+        val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val loads = kotlinx.coroutines.flow.MutableSharedFlow<dev.cubentia.application.port.AlgorithmStatusLoad>(replay = 1)
+        val statuses =
+            object : dev.cubentia.application.port.AlgorithmStatusRepository {
+                override fun statuses() = loads
+
+                override suspend fun append(record: dev.cubentia.application.port.AlgorithmStatusRecord) =
+                    dev.cubentia.application.port.AlgorithmStatusSave.Saved
+            }
+        val events =
+            bundle.stages.flatMap { it.lessons }.map { ProgressEvent.LessonCompleted(it.id) } +
+                ProgressEvent.StageSkippedByCheck(bundle.stages.last().id)
+        val progress =
+            object : ProgressRepository {
+                override suspend fun all() = ProgressLoad.Found(events)
+
+                override suspend fun append(records: List<ProgressRecord>) = ProgressSave.Saved
+            }
+        host =
+            SessionHost(
+                TickingClock(),
+                Dispatchers.Default.limitedParallelism(1),
+                progress = progress,
+                algorithmStatusRepository = statuses,
+                preferences = preferences,
+            )
+        launch(ContentLoadResult.Loaded(bundle))
+        rule.waitUntil(5000) { host.progressEvents.value.isNotEmpty() }
+        val stage = bundle.twoLookStages.first()
+        val lesson = stage.lessons.first()
+        rule.onNodeWithTag("learn:stage:${stage.id.value}").performScrollTo().performClick()
+        rule.onNodeWithTag("learn:lesson:${lesson.id.value}").performScrollTo().performClick()
+        rule.waitUntil(5000) { host.state.value.kind == SessionKind.TWO_LOOK }
+        runBlocking {
+            (Notation.parse(lesson.demonstration) as dev.cubentia.domain.cube.NotationResult.Parsed).moves.forEach { move ->
+                host.dispatch { SessionEvent.MoveCommitted(move, it) }
+            }
+        }
+        rule.waitForIdle()
+        assertTrue(host.state.value.objectiveMet)
+        rule.onNodeWithTag("lesson:twoLookOffer").assertDoesNotExist()
+        runBlocking { loads.emit(dev.cubentia.application.port.AlgorithmStatusLoad.Failed) }
+        rule.waitForIdle()
+        rule.onNodeWithTag("lesson:twoLookOffer").assertDoesNotExist()
+        runBlocking {
+            loads.emit(
+                dev.cubentia.application.port.AlgorithmStatusLoad
+                    .Loaded(emptyMap()),
+            )
+        }
+        rule.waitForIdle()
+        rule.onNodeWithTag("lesson:twoLookOffer").assertExists()
+    }
+
+    private fun openCourseAndComplete(
+        bundle: dev.cubentia.domain.content.ContentBundle,
+        events: List<ProgressEvent>,
+    ) {
+        val before = events.size
+        rule.onNodeWithTag("learn:stage:stage-01-fundamentals").performScrollTo().performClick()
+        rule.onNodeWithTag("learn:lesson:lesson-01-01").performScrollTo().performClick()
+        rule.waitUntil(5000) { host.state.value.kind == SessionKind.LESSON }
+        rule.onNodeWithTag("lesson:modeSwitcher").assertExists()
+        val lesson =
+            bundle.stages
+                .first()
+                .lessons
+                .first()
+        val moves = (Notation.parse(lesson.demonstration) as dev.cubentia.domain.cube.NotationResult.Parsed).moves
+        runBlocking { moves.forEach { move -> host.dispatch { SessionEvent.MoveCommitted(move, it) } } }
+        rule.waitUntil(5000) { events.size > before }
+        assertTrue(events.drop(before).any { it is ProgressEvent.LessonCompleted && it.lessonId == lesson.id })
     }
 
     private fun dev.cubentia.domain.content.ContentBundle.twoLookMovesForTest() =

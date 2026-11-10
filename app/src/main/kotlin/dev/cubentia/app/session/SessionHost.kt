@@ -3,6 +3,7 @@ package dev.cubentia.app.session
 import dev.cubentia.app.content.twoLookMoves
 import dev.cubentia.app.data.SerialWriter
 import dev.cubentia.app.preferences.PreferenceStore
+import dev.cubentia.application.port.AlgorithmStatusLoad
 import dev.cubentia.application.port.AlgorithmStatusRepository
 import dev.cubentia.application.port.AlgorithmStatusWrite
 import dev.cubentia.application.port.AttemptLoad
@@ -48,6 +49,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -114,7 +118,15 @@ class SessionHost internal constructor(
     constructor(clock: Clock) : this(clock, Dispatchers.Default.limitedParallelism(1))
 
     private val memoryStatuses = MutableStateFlow<Map<AlgorithmId, AlgorithmStatus>>(emptyMap())
-    val algorithmStatuses: Flow<Map<AlgorithmId, AlgorithmStatus>> = algorithmStatusRepository?.statuses() ?: memoryStatuses.asStateFlow()
+    val algorithmStatusLoad: Flow<AlgorithmStatusLoad> =
+        algorithmStatusRepository?.statuses() ?: memoryStatuses.map {
+            AlgorithmStatusLoad
+                .Loaded(it)
+        }
+    val algorithmStatuses: Flow<Map<AlgorithmId, AlgorithmStatus>> =
+        algorithmStatusLoad.mapNotNull {
+            (it as? AlgorithmStatusLoad.Loaded)?.statuses
+        }
     private val statusUseCase = setAlgorithmStatus ?: algorithmStatusRepository?.let { SetAlgorithmStatus(it) }
 
     /** Status taps belong to no solve session; together these name each Learner command for this app run (AD-10). */
@@ -130,19 +142,39 @@ class SessionHost internal constructor(
             memoryStatuses.value = memoryStatuses.value + (id to status)
             return true
         }
+        return writeStatus { revision -> useCase(id, status, clock.now(), statusSessionId, revision) } is AlgorithmStatusWrite.Written
+    }
+
+    /**
+     * Moves [id] from *Not started* to *Learning*, checking the persisted status in the same writer step as the
+     * append, so a *Learning* or *Learned* status not yet seen by the caller is never overwritten. Returns false
+     * only when the read or write failed.
+     */
+    suspend fun startLearning(id: AlgorithmId): Boolean {
+        val useCase = statusUseCase
+        if (useCase == null) {
+            memoryStatuses.update {
+                if ((it[id] ?: AlgorithmStatus.NOT_STARTED) ==
+                    AlgorithmStatus.NOT_STARTED
+                ) {
+                    it + (id to AlgorithmStatus.LEARNING)
+                } else {
+                    it
+                }
+            }
+            return true
+        }
+        return writeStatus { revision -> useCase.startLearning(id, clock.now(), statusSessionId, revision) } != AlgorithmStatusWrite.Failed
+    }
+
+    private suspend fun writeStatus(write: suspend (revision: Long) -> AlgorithmStatusWrite): AlgorithmStatusWrite {
         val revision = nextStatusRevision.getAndIncrement()
         return try {
-            val result =
-                if (writer != null) {
-                    writer.read { useCase(id, status, clock.now(), statusSessionId, revision) }
-                } else {
-                    useCase(id, status, clock.now(), statusSessionId, revision)
-                }
-            result is AlgorithmStatusWrite.Written
+            if (writer != null) writer.read { write(revision) } else write(revision)
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
         } catch (_: Exception) {
-            false
+            AlgorithmStatusWrite.Failed
         }
     }
 
@@ -291,33 +323,88 @@ class SessionHost internal constructor(
         }
     }
 
+    suspend fun endSession() {
+        dispatch { SessionEvent.SessionEnded(it) }
+    }
+
+    /** Deletes every snapshot row with [rows] and any pending attempt rows, via [writer] when present. */
+    private suspend fun clearSnapshots(rows: List<AttemptRecord>) {
+        if (writer != null) writer.enqueue { clearSnapshotsNow(rows) } else clearSnapshotsNow(rows)
+    }
+
+    /** Runs inside a [writer] operation (or directly without one); returns false when the delete failed. */
+    private suspend fun clearSnapshotsNow(rows: List<AttemptRecord>): Boolean {
+        val batch = pendingAttempts + rows
+        val saved =
+            try {
+                repository?.clear(batch) ?: SnapshotSave.Saved
+            } catch (
+                cancelled: kotlinx.coroutines.CancellationException,
+            ) {
+                pendingAttempts = batch
+                throw cancelled
+            } catch (_: Exception) {
+                SnapshotSave.Failed
+            }
+        pendingAttempts = if (saved is SnapshotSave.Failed) batch else emptyList()
+        if (saved is SnapshotSave.Failed) {
+            dispatch { SessionEvent.SnapshotSaveFailed(it) }
+        } else if (batch.isNotEmpty()) {
+            refreshAttemptsAfterWrite(batch)
+        }
+        return saved !is SnapshotSave.Failed
+    }
+
+    /** Runs inside a [writer] operation (or directly without one); returns false when the delete failed. */
+    private suspend fun clearCheckpointNow(): Boolean {
+        val repo = checkpoints ?: return true
+        val result =
+            try {
+                repo.clear()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                CheckpointSave.Failed
+            }
+        if (result is CheckpointSave.Failed) dispatch { SessionEvent.CheckpointSaveFailed(it) }
+        return result !is CheckpointSave.Failed
+    }
+
     /**
      * Appends a [ProgressEvent.ProgressReset] via [resetProgress] single-writer use case
      * and refreshes [progressEvents].
      *
-     * Returns true if the reset succeeded, or false if the repository write failed.
+     * The snapshot and Checkpoint deletes run first, in the same [writer] operation as the reset write, and the
+     * reset is written only when both succeed, so no row survives a reset to reopen locked content (AD-10).
+     * Returns true if the reset succeeded, or false if a delete or the repository write failed.
      */
     suspend fun resetProgress(): Boolean {
+        endSession()
         val useCase = resetProgressUseCase
-        if (useCase == null) {
+        // Also clear when already idle, so rows left by a failed restore or delete cannot reopen locked content.
+        val operation: suspend () -> ProgressWrite? = {
+            val cleared = clearSnapshotsNow(emptyList()) and clearCheckpointNow()
+            when {
+                !cleared -> ProgressWrite.Failed
+                useCase == null -> null
+                else -> useCase(at = clock.now())
+            }
+        }
+        val result =
+            try {
+                if (writer != null) writer.read(operation) else withContext(confined) { operation() }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                ProgressWrite.Failed
+            }
+        if (useCase == null && result == null) {
             val nextEpoch = StageProgress.currentEpoch(currentProgress.value) + 1L
             val event = ProgressEvent.ProgressReset(nextEpoch, clock.now())
             currentProgress.value = currentProgress.value + event
             if (algorithmStatusRepository == null) memoryStatuses.value = emptyMap()
             return true
         }
-        val result =
-            try {
-                if (writer != null) {
-                    writer.read { useCase(at = clock.now()) }
-                } else {
-                    useCase(at = clock.now())
-                }
-            } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
-                ProgressWrite.Failed
-            }
         return when (result) {
             is ProgressWrite.Written -> {
                 refreshProgressAfterWrite(result.events)
@@ -465,6 +552,15 @@ class SessionHost internal constructor(
             val transition = reduce(before, stamped)
             current.value = transition.state
             reduced(stamped)
+            if (stamped is SessionEvent.SessionEnded && transition.state !== before) {
+                val rows =
+                    transition.effects
+                        .filterIsInstance<Effect.AttemptEnded>()
+                        .filterNot { it.objectiveId.startsWith("skip-check-") }
+                        .map { AttemptRecord.of(it, previousSessionId, attemptId ?: UUID.randomUUID().toString()) }
+                attemptId = null
+                clearSnapshots(rows)
+            }
             if (transition.state !== before && transition.state.isActive) {
                 if (stamped is SessionEvent.LessonStarted || stamped is SessionEvent.PracticeStarted ||
                     stamped is SessionEvent.SolvePlaybackStarted ||

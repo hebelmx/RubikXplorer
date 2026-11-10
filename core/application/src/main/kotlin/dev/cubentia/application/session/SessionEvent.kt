@@ -12,6 +12,10 @@ import kotlin.time.Instant
  * the session host stamped at dispatch; `session/TRANSITIONS.md` lists what each one mutates.
  */
 sealed interface SessionEvent {
+    data class SessionEnded(
+        override val at: Instant,
+    ) : SessionEvent
+
     val at: Instant
 
     data class CheckpointRestored(
