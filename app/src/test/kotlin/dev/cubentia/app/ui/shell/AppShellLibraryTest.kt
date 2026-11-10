@@ -219,4 +219,23 @@ class AppShellLibraryTest {
         rule.onNodeWithTag("learn:fasterLastLayer").assertIsDisplayed()
         rule.onNodeWithTag("learn:twoLookLocked").assertDoesNotExist()
     }
+
+    @Test fun `setting detail status updates tile filter and clearing removes label`() {
+        launch()
+        val tag = "library:case:case-oll-01"
+        rule.onNodeWithTag(tag).performClick()
+        rule.onNodeWithTag("algorithmDetail:status:LEARNING").performClick()
+        rule.onNodeWithTag("algorithmDetail:status:LEARNING").assertIsSelected()
+        rule.onNodeWithTag("algorithmDetail:back").performClick()
+        rule.onNodeWithTag("library:status-label", useUnmergedTree = true).assertTextEquals("Learning")
+        rule.onNodeWithTag("library:status:LEARNING").performClick()
+        rule.onNodeWithTag(tag).performClick()
+        rule.onNodeWithTag("algorithmDetail:status:NOT_STARTED").performClick()
+        rule.onNodeWithTag("algorithmDetail:status-line").assertExists()
+        rule.onNodeWithTag("algorithmDetail:back").performClick()
+        rule.onNodeWithTag(tag).assertDoesNotExist()
+        rule.onNodeWithTag("library:status:LEARNING").performClick()
+        rule.onNodeWithTag(tag).assertExists()
+        rule.onNodeWithTag("library:status-label", useUnmergedTree = true).assertDoesNotExist()
+    }
 }

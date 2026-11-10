@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -100,14 +102,14 @@ class AlgorithmDetailScreenTest {
         rule.onNodeWithTag("playback:scrub").performSemanticsAction(SemanticsActions.SetProgress) { it(boundary.toFloat()) }
     }
 
-    @Test fun `starts at Case with VIRTUAL label diagram notation and no status controls`() {
+    @Test fun `starts at Case with VIRTUAL label diagram notation and default status controls`() {
         show()
         assertBoundary(0)
         rule.onNodeWithTag(DIAGRAM_TAG).assertExists()
         rule.onNodeWithTag("stage:frame").assertExists()
         rule.onNodeWithTag("algorithmDetail:title").assertTextEquals(strings.resolve(case.name))
-        rule.onNodeWithText("Not in your set yet.").assertDoesNotExist()
-        rule.onNodeWithText("Not started").assertDoesNotExist()
+        rule.onNodeWithText("Not in your set yet.").assertExists()
+        rule.onNodeWithTag("algorithmDetail:status:NOT_STARTED").assertIsSelected()
     }
 
     @Test fun `scrubbing both directions settles exactly and selects only indexed repeated Move`() {
@@ -338,5 +340,38 @@ class AlgorithmDetailScreenTest {
         rule.onNodeWithTag("playback:counter").assertTextEquals("1 / ${demo.moves.size}")
         rule.onNodeWithTag("playback:back").performClick()
         rule.onNodeWithTag("playback:counter").assertTextEquals("0 / ${demo.moves.size}")
+    }
+
+    @Test fun `status selection calls only changed options and hides default line`() {
+        val calls = mutableListOf<dev.cubentia.domain.content.AlgorithmStatus>()
+        rule.setContent {
+            var status by androidx.compose.runtime.remember {
+                androidx.compose.runtime.mutableStateOf(dev.cubentia.domain.content.AlgorithmStatus.NOT_STARTED)
+            }
+            CubentiaTheme {
+                AlgorithmDetailScreen(case, algorithm, strings, {}, status = status, onSetStatus = {
+                    calls.add(it)
+                    status = it
+                })
+            }
+        }
+        rule.onNodeWithTag("algorithmDetail:status:NOT_STARTED").performClick()
+        rule.runOnIdle { assertTrue(calls.isEmpty()) }
+        for (status in listOf("LEARNING", "LEARNED", "NOT_STARTED")) {
+            rule.onNodeWithTag("algorithmDetail:status:$status").performClick().assertIsSelected()
+            rule.onNodeWithTag("algorithmDetail:status:$status").performClick()
+            if (status == "NOT_STARTED") {
+                rule.onNodeWithTag("algorithmDetail:status-line").assertExists()
+            } else {
+                rule.onNodeWithTag("algorithmDetail:status-line").assertDoesNotExist()
+            }
+        }
+        rule.runOnIdle {
+            assertEquals(
+                dev.cubentia.domain.content.AlgorithmStatus.entries
+                    .let { listOf(it[1], it[2], it[0]) },
+                calls,
+            )
+        }
     }
 }

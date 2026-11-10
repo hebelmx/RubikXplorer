@@ -160,6 +160,7 @@ fun LibraryScreen(
                                         ).clickable(role = Role.Button, onClickLabel = stringResource(R.string.library_open_detail)) {
                                             onOpenAlgorithm(entry.algorithm.id)
                                         },
+                                    status = statuses[entry.algorithm.id],
                                 )
                             }
                         }
@@ -171,7 +172,7 @@ fun LibraryScreen(
 }
 
 @Composable
-private fun LibraryChip(
+internal fun LibraryChip(
     label: String,
     selected: Boolean,
     tag: String,
@@ -180,7 +181,7 @@ private fun LibraryChip(
     FilterChip(
         selected = selected,
         onClick = onClick,
-        label = { Text(label) },
+        label = { Text(label, color = RubikTheme.tokens.inkPrimary) },
         modifier = Modifier.testTag(tag),
         leadingIcon =
             if (selected) {

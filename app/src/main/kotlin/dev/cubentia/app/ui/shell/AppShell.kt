@@ -50,6 +50,7 @@ import dev.cubentia.app.ui.lesson.LessonScreen
 import dev.cubentia.app.ui.library.AlgorithmDetailScreen
 import dev.cubentia.app.ui.library.LibraryFilterSaver
 import dev.cubentia.app.ui.library.LibraryScreen
+import dev.cubentia.app.ui.library.RequestedAlgorithmStatus
 import dev.cubentia.app.ui.settings.SettingsScreen
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.welcome.WelcomeScreen
@@ -120,6 +121,7 @@ private fun ShellContent(
     LaunchedEffect(catalog) { catalog.load() }
     val content by catalog.state.collectAsState()
     val session by host.state.collectAsState()
+    val algorithmStatuses by host.algorithmStatuses.collectAsState(emptyMap())
     val progressEvents by host.progressEvents.collectAsState()
     val attemptRecords by host.attemptRecords.collectAsState()
     val scope = rememberCoroutineScope()
@@ -365,9 +367,24 @@ private fun ShellContent(
                 val algorithm = ready?.bundle?.algorithms?.firstOrNull { it.id.value == openAlgorithm }
                 val case = ready?.bundle?.cases?.firstOrNull { it.id == algorithm?.caseId }
                 if (algorithm != null && case != null && ready != null) {
-                    AlgorithmDetailScreen(case, algorithm, ready.strings, {
-                        openAlgorithm = null
-                    }, destinationModifier.background(RubikTheme.tokens.surfaceBase).safeDrawingPadding())
+                    val requestedStatus = remember(algorithm.id) { RequestedAlgorithmStatus() }
+                    AlgorithmDetailScreen(
+                        case,
+                        algorithm,
+                        ready.strings,
+                        {
+                            openAlgorithm = null
+                        },
+                        destinationModifier.background(RubikTheme.tokens.surfaceBase).safeDrawingPadding(),
+                        status =
+                            requestedStatus.shown(
+                                algorithmStatuses[algorithm.id] ?: dev.cubentia.domain.content.AlgorithmStatus.NOT_STARTED,
+                            ),
+                        onSetStatus = { status ->
+                            requestedStatus.request(status)
+                            scope.launch { requestedStatus.settled(host.setAlgorithmStatus(algorithm.id, status)) }
+                        },
+                    )
                 } else {
                     LibraryScreen(
                         content,
@@ -385,6 +402,7 @@ private fun ShellContent(
                             .background(
                                 RubikTheme.tokens.surfaceBase,
                             ).safeDrawingPadding(),
+                        statuses = algorithmStatuses,
                         familyChipsScroll = libraryFamilyChips,
                         onOpenAlgorithm = { openAlgorithm = it.value },
                     )

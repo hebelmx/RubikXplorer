@@ -2,6 +2,8 @@ package dev.cubentia.app.session
 
 import dev.cubentia.app.data.SerialWriter
 import dev.cubentia.app.preferences.PreferenceStore
+import dev.cubentia.application.port.AlgorithmStatusRepository
+import dev.cubentia.application.port.AlgorithmStatusWrite
 import dev.cubentia.application.port.AttemptLoad
 import dev.cubentia.application.port.AttemptRepository
 import dev.cubentia.application.port.CheckpointLoad
@@ -27,6 +29,9 @@ import dev.cubentia.application.session.reduce
 import dev.cubentia.application.usecase.CompleteLesson
 import dev.cubentia.application.usecase.PassSkipCheck
 import dev.cubentia.application.usecase.ResetProgress
+import dev.cubentia.application.usecase.SetAlgorithmStatus
+import dev.cubentia.domain.content.AlgorithmId
+import dev.cubentia.domain.content.AlgorithmStatus
 import dev.cubentia.domain.content.ContentBundle
 import dev.cubentia.domain.content.Stage
 import dev.cubentia.domain.content.StageId
@@ -36,6 +41,7 @@ import dev.cubentia.domain.tutor.StageStatus
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,6 +49,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.time.Instant
@@ -65,6 +72,8 @@ class SessionHost internal constructor(
     private val attempts: AttemptRepository? = null,
     private val resetProgress: ResetProgress? = null,
     private val passSkipCheck: PassSkipCheck? = null,
+    private val algorithmStatusRepository: AlgorithmStatusRepository? = null,
+    private val setAlgorithmStatus: SetAlgorithmStatus? = null,
     /** Sees every event this host reduced, in order; tests use it to observe events that change no state. */
     private val reduced: (SessionEvent) -> Unit = {},
 ) {
@@ -80,6 +89,8 @@ class SessionHost internal constructor(
         attempts: AttemptRepository,
         resetProgress: ResetProgress,
         passSkipCheck: PassSkipCheck,
+        algorithmStatusRepository: AlgorithmStatusRepository,
+        setAlgorithmStatus: SetAlgorithmStatus,
     ) :
         this(
             clock,
@@ -93,9 +104,44 @@ class SessionHost internal constructor(
             attempts = attempts,
             resetProgress = resetProgress,
             passSkipCheck = passSkipCheck,
+            algorithmStatusRepository = algorithmStatusRepository,
+            setAlgorithmStatus = setAlgorithmStatus,
         )
 
     constructor(clock: Clock) : this(clock, Dispatchers.Default.limitedParallelism(1))
+
+    private val memoryStatuses = MutableStateFlow<Map<AlgorithmId, AlgorithmStatus>>(emptyMap())
+    val algorithmStatuses: Flow<Map<AlgorithmId, AlgorithmStatus>> = algorithmStatusRepository?.statuses() ?: memoryStatuses.asStateFlow()
+    private val statusUseCase = setAlgorithmStatus ?: algorithmStatusRepository?.let { SetAlgorithmStatus(it) }
+
+    /** Status taps belong to no solve session; together these name each Learner command for this app run (AD-10). */
+    private val statusSessionId = UUID.randomUUID().toString()
+    private val nextStatusRevision = AtomicLong()
+
+    suspend fun setAlgorithmStatus(
+        id: AlgorithmId,
+        status: AlgorithmStatus,
+    ): Boolean {
+        val useCase = statusUseCase
+        if (useCase == null) {
+            memoryStatuses.value = memoryStatuses.value + (id to status)
+            return true
+        }
+        val revision = nextStatusRevision.getAndIncrement()
+        return try {
+            val result =
+                if (writer != null) {
+                    writer.read { useCase(id, status, clock.now(), statusSessionId, revision) }
+                } else {
+                    useCase(id, status, clock.now(), statusSessionId, revision)
+                }
+            result is AlgorithmStatusWrite.Written
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            false
+        }
+    }
 
     private val resetProgressUseCase = resetProgress ?: progress?.let { ResetProgress(it) }
     private val passSkipCheckUseCase = passSkipCheck ?: progress?.let { PassSkipCheck(it) }
@@ -247,6 +293,7 @@ class SessionHost internal constructor(
             val nextEpoch = StageProgress.currentEpoch(currentProgress.value) + 1L
             val event = ProgressEvent.ProgressReset(nextEpoch, clock.now())
             currentProgress.value = currentProgress.value + event
+            if (algorithmStatusRepository == null) memoryStatuses.value = emptyMap()
             return true
         }
         val result =
@@ -264,6 +311,7 @@ class SessionHost internal constructor(
         return when (result) {
             is ProgressWrite.Written -> {
                 refreshProgressAfterWrite(result.events)
+                if (algorithmStatusRepository == null) memoryStatuses.value = emptyMap()
                 true
             }
 

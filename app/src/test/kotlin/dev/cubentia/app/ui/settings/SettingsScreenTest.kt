@@ -5,6 +5,7 @@ import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import dev.cubentia.app.content.LessonCatalog
@@ -24,6 +25,7 @@ import dev.cubentia.application.preference.AnimationSpeed
 import dev.cubentia.application.preference.Preferences
 import dev.cubentia.application.preference.ThemeChoice
 import dev.cubentia.domain.content.ContentLoadResult
+import kotlinx.coroutines.flow.first
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -141,11 +143,32 @@ class SettingsScreenTest {
             assertEquals(ThemeChoice.DARK, store.preferences.value.theme)
         }
 
+        val id =
+            dev.cubentia.domain.content
+                .AlgorithmId("a")
+        kotlinx.coroutines.runBlocking { host.setAlgorithmStatus(id, dev.cubentia.domain.content.AlgorithmStatus.LEARNING) }
+        rule.onNodeWithTag("settings:resetProgress").performScrollTo().performClick()
+        rule
+            .onNodeWithText(
+                "Stage progress, attempts and Algorithm Statuses will be erased. Color calibration and preferences are kept.",
+            ).assertExists()
+        rule.onNodeWithTag("settings:resetProgress:cancel").performClick()
+        assertEquals(
+            mapOf(id to dev.cubentia.domain.content.AlgorithmStatus.LEARNING),
+            kotlinx.coroutines.runBlocking {
+                host.algorithmStatuses.first()
+            },
+        )
+
         // Trigger Reset Progress
         rule.onNodeWithTag("settings:resetProgress").performScrollTo().performClick()
         rule.onNodeWithTag("settings:resetProgress:confirm").performClick()
 
         rule.runOnIdle {
+            assertEquals(
+                emptyMap<dev.cubentia.domain.content.AlgorithmId, dev.cubentia.domain.content.AlgorithmStatus>(),
+                kotlinx.coroutines.runBlocking { host.algorithmStatuses.first() },
+            )
             // Preferences remain untouched (still DARK)
             assertEquals(ThemeChoice.DARK, store.preferences.value.theme)
             // Progress events in host now contain a ProgressReset event

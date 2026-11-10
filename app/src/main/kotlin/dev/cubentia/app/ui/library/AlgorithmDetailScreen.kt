@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -19,7 +20,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -41,6 +46,7 @@ import dev.cubentia.app.ui.playback.PlaybackFrameLoop
 import dev.cubentia.app.ui.playback.PlaybackTransport
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.domain.content.Algorithm
+import dev.cubentia.domain.content.AlgorithmStatus
 import dev.cubentia.domain.content.Case
 import dev.cubentia.domain.lastlayer.RecognitionDiagram
 import dev.cubentia.domain.lastlayer.RecognitionDiagramResult
@@ -55,6 +61,28 @@ private val MinLandscapePaneWidth = 320.dp
 /** Test-only marker of the strip's current Move; the merged card would otherwise misreport a `selected` state. */
 internal val CurrentMoveKey = SemanticsPropertyKey<Boolean>("CurrentMove")
 
+/**
+ * The Learner's latest choice on one open detail screen, so a tap made while writes are queued is judged against it.
+ * Once the latest write fails, the persisted status shows again.
+ */
+internal class RequestedAlgorithmStatus {
+    private var latest by mutableStateOf<AlgorithmStatus?>(null)
+    private var queued by mutableIntStateOf(0)
+
+    fun shown(persisted: AlgorithmStatus): AlgorithmStatus = latest ?: persisted
+
+    fun request(status: AlgorithmStatus) {
+        latest = status
+        queued++
+    }
+
+    /** The writer is FIFO, so the write that empties the queue is the latest one. */
+    fun settled(written: Boolean) {
+        queued--
+        if (!written && queued == 0) latest = null
+    }
+}
+
 /** A Library Demonstration is ephemeral and never enters the Learner's session. */
 @Composable
 fun AlgorithmDetailScreen(
@@ -64,6 +92,8 @@ fun AlgorithmDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     showDiagram: Boolean = RECOGNITION_DIAGRAMS_ENABLED,
+    status: AlgorithmStatus = AlgorithmStatus.NOT_STARTED,
+    onSetStatus: (AlgorithmStatus) -> Unit = {},
 ) {
     val result = remember(algorithm) { Demonstration.ofCase(algorithm) }
     val tokens = RubikTheme.tokens
@@ -136,6 +166,24 @@ fun AlgorithmDetailScreen(
                     }
                 }
             }
+        }
+        FlowRow(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AlgorithmStatus.entries.forEach { option ->
+                LibraryChip(
+                    strings.resolve(ContentText("msg.library.status.${option.name.lowercase().replace('_', '-')}")),
+                    status == option,
+                    "algorithmDetail:status:${option.name}",
+                ) {
+                    if (option != status) onSetStatus(option)
+                }
+            }
+        }
+        if (status == AlgorithmStatus.NOT_STARTED) {
+            Text(
+                strings.resolve(ContentText("msg.library.status.not-in-set")),
+                Modifier.testTag("algorithmDetail:status-line"),
+                color = tokens.inkSecondary,
+            )
         }
     }
     BoxWithConstraints(modifier.fillMaxSize().padding(8.dp)) {
