@@ -219,7 +219,7 @@ private fun ShellContent(
             recognition = recognition,
             offerAlgorithms = notStarted,
             onAddToLearning = {
-                scope.launch { notStarted.forEach { host.setAlgorithmStatus(it, AlgorithmStatus.LEARNING) } }
+                notStarted.map { host.setAlgorithmStatus(it, AlgorithmStatus.LEARNING) }.all { it }
             },
             onPracticeNewScramble = {
                 openLesson = null

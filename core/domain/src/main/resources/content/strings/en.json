@@ -581,5 +581,10 @@
   "lesson.lesson-09-06.goal.1": "You place the four last-layer edges to finish the cube. This is the second look of 2-look PLL.",
   "lesson.lesson-09-06.keep.1": "Keep the first two layers, the yellow top and the placed corners. The Algorithm moves them, then puts them back.",
   "lesson.lesson-09-06.watch.1": "Watch two pairs of neighboring edges swap.",
-  "lesson.lesson-09-06.notice.1": "The last layer is solved. If a side does not match its center, finish with a U turn that lines the layer up."
+  "lesson.lesson-09-06.notice.1": "The last layer is solved. If a side does not match its center, finish with a U turn that lines the layer up.",
+  "msg.lesson.two-look.offer": "Add these algorithms to Learning?",
+  "btn.lesson.two-look.add": "Add to Learning",
+  "btn.lesson.two-look.decline": "Not now",
+  "msg.lesson.two-look.offer-failed": "Those algorithms were not added to Learning. Try again.",
+  "msg.lesson.recognition.description": "Recognition diagram for: {objective}"
 }

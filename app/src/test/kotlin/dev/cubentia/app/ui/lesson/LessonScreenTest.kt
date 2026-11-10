@@ -133,9 +133,12 @@ class LessonScreenTest {
 
     @Test fun twoLookAlreadyLearnedHasNoOffer() = twoLookOfferScenario(accept = null, alreadyLearned = true)
 
+    @Test fun twoLookOfferStaysWithErrorWhenWriteFails() = twoLookOfferScenario(accept = true, writeFails = true)
+
     private fun twoLookOfferScenario(
         accept: Boolean?,
         alreadyLearned: Boolean = false,
+        writeFails: Boolean = false,
     ) {
         val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
         val ready = CatalogState.Ready(bundle)
@@ -174,7 +177,7 @@ class LessonScreenTest {
                     offerAlgorithms = if (alreadyLearned) emptyList() else ids,
                     onAddToLearning = {
                         writes++
-                        runBlocking { ids.forEach { host.setAlgorithmStatus(it, AlgorithmStatus.LEARNING) } }
+                        !writeFails && ids.map { host.setAlgorithmStatus(it, AlgorithmStatus.LEARNING) }.all { it }
                     },
                 )
             }
@@ -205,6 +208,15 @@ class LessonScreenTest {
             return
         }
         rule.onNodeWithTag(if (accept) "lesson:twoLookOffer:add" else "lesson:twoLookOffer:decline").performScrollTo().performClick()
+        rule.waitForIdle()
+        if (writeFails) {
+            rule.onNodeWithTag("lesson:twoLookOffer").assertExists()
+            rule.onNodeWithTag("lesson:twoLookOffer:failed").assertExists()
+            rule.onNodeWithTag("lesson:twoLookOffer:add").assertExists()
+            assertEquals(1, writes)
+            assertEquals(null, runBlocking { host.algorithmStatuses.first() }[ids.first()])
+            return
+        }
         rule.onNodeWithTag("lesson:twoLookOffer").assertDoesNotExist()
         assertEquals(if (accept) 1 else 0, writes)
         val statuses = runBlocking { host.algorithmStatuses.first() }

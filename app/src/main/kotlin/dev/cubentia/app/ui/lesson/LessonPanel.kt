@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -59,6 +60,7 @@ import dev.cubentia.domain.lastlayer.RecognitionDiagram
 import dev.cubentia.domain.tutor.HintRung
 import dev.cubentia.domain.tutor.RecoveryOffer
 import dev.cubentia.domain.tutor.TeachingMode
+import kotlinx.coroutines.launch
 import dev.cubentia.domain.text.Text as ContentText
 
 /**
@@ -147,7 +149,7 @@ internal fun LessonPanel(
     recognition: RecognitionDiagram? = null,
     offerAlgorithms: List<AlgorithmId> = emptyList(),
     offerKey: String = "",
-    onAddToLearning: () -> Unit = {},
+    onAddToLearning: suspend () -> Boolean = { true },
 ) {
     val tokens = RubikTheme.tokens
     Column(
@@ -170,17 +172,32 @@ internal fun LessonPanel(
             Box(Modifier.testTag("lesson:recognition")) {
                 RecognitionDiagramView(
                     diagram,
-                    stringResource(R.string.lesson_recognition_description, objective),
+                    strings.resolve(ContentText("msg.lesson.recognition.description", mapOf("objective" to objective))),
                     LocalRenderStyle.current,
                 )
             }
         }
         var offerDismissed by rememberSaveable(offerKey) { mutableStateOf(false) }
+        var offerFailed by rememberSaveable(offerKey) { mutableStateOf(false) }
+        var offerSaving by remember(offerKey) { mutableStateOf(false) }
+        val offerScope = rememberCoroutineScope()
         if (step.objectiveMet && offerAlgorithms.isNotEmpty() && !offerDismissed) {
-            TwoLookOffer(onAdd = {
-                onAddToLearning()
-                offerDismissed = true
-            }, onDecline = { offerDismissed = true })
+            TwoLookOffer(
+                strings = strings,
+                onAdd = {
+                    if (!offerSaving) {
+                        offerSaving = true
+                        offerScope.launch {
+                            val saved = onAddToLearning()
+                            offerSaving = false
+                            offerFailed = !saved
+                            if (saved) offerDismissed = true
+                        }
+                    }
+                },
+                onDecline = { offerDismissed = true },
+                failed = offerFailed,
+            )
         }
         StepCard(step, onShowMove, onShowMeHow, onRecovery, Modifier.fillMaxWidth())
         step.assistance?.let { AssistanceLine(it, onUsualHelp, Modifier.fillMaxWidth()) }

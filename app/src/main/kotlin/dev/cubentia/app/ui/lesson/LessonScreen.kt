@@ -163,7 +163,7 @@ fun LessonScreen(
     isTwoLook: Boolean = false,
     recognition: RecognitionDiagram? = null,
     offerAlgorithms: List<AlgorithmId> = emptyList(),
-    onAddToLearning: () -> Unit = {},
+    onAddToLearning: suspend () -> Boolean = { true },
 ) {
     val preferenceStore = LocalPreferenceStore.current
     val lesson = entry.lesson
@@ -462,7 +462,7 @@ private fun LessonBody(
     camera: Boolean,
     recognition: RecognitionDiagram? = null,
     offerAlgorithms: List<AlgorithmId> = emptyList(),
-    onAddToLearning: () -> Unit = {},
+    onAddToLearning: suspend () -> Boolean = { true },
     isPractice: Boolean = false,
     isSkipCheck: Boolean = false,
     onSkipCheckPassed: (() -> Unit)? = null,
