@@ -202,6 +202,8 @@ private fun ComposeContentTestRule.auditStageExtras(
 ) {
     onNodeWithTag("moveKey:more").performScrollTo().performClick()
     check("$screen extra Move keys")
+    // With every key row open the cube keeps its own minimum (the Lesson's CUBE_MIN, 96dp).
+    onNodeWithTag("cube3d").assertHeightIsAtLeast(96.dp)
     onNodeWithTag("moveKey:more").performScrollTo().performClick()
     onNodeWithTag("stage:viewMenu").performClick()
     check("$screen View Rotation menu")

@@ -9,7 +9,14 @@ followup_review_recommended: true
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-12-context.md'
 warnings: ['oversized']
-deferred: []
+deferred:
+  - summary: >-
+      The 200% Lesson audit covers only the first lesson in its first virtual and physical states, not mismatch, diagnosis, recovery, skip-check or two-look content.
+    evidence: |-
+      ScreenAudit.kt drives ready.lessons.first() and checks physical mode right after the switch. Unverified: driving the mismatch ladder, diagnosis and recovery states and the other lessons at 200% compact and expanded would show whether any panel text overflows or any control drops below 48dp.
+    location: >-
+      app/src/test/kotlin/dev/cubentia/app/ui/a11y/ScreenAudit.kt
+    severity: medium (unverified)
 ---
 
 <intent-contract>
@@ -109,6 +116,32 @@ deferred: []
   - `[false]` `[reject]` (intent) Status contrast stricter than DESIGN.md — status text appears on `surfaceBase`/`surfaceRaised` (`LessonPanel.kt:245`, `TwoLookOffer.kt:31`), so those pairs are required, and all pass.
   - `[false]` `[reject]` (intent) RTL pinning is out of scope — the deferred item `epic-9-deferred-9-3-rtl-net-mirroring` is assigned to 12.1 by the epic context.
 
+### 2026-11-10 — Review pass
+- verdicts: 22 findings — high 3, medium 1, low 10, false 5, maybe-false 3
+- findings:
+  - `[high]` `[patch]` (blind) `FreeCubeScreen` `controlsMax` is 0 when the window is ≤ 292dp tall, hiding the Move keys and haptics switch in landscape/split screen — the controls now keep a floor of `min(half, CONTROLS_MIN = 2 × touchMin)`; new `FreeCubeScreenTest` case at `w640dp-h320dp` asserts the first Move key is displayed and ≥ 48dp, and fails with the floor removed.
+  - `[low]` `[reject]` (blind) Overflow check misses text clipped by an ancestor — carried: same claim as the earlier pass; a fixed-height parent already shrinks the layout and is caught.
+  - `[false]` `[reject]` (blind) Screen audit never runs both themes — the audit's assertions (overflow, target size, labels) do not depend on colour, and status-coloured text sits only on `surfaceBase`/`surfaceRaised`, whose pairs `ThemeTokensTest` covers in both themes.
+  - `[maybe-false]` `[defer]` (blind) Physical-mode Lesson audit stops right after the switch; mismatch, diagnosis, Certainty and recovery states are not audited at 200% — would need those states driven at 200% to see whether any panel text overflows; if true, medium.
+  - `[maybe-false]` `[defer]` (blind) Only `ready.lessons.first()` is audited; longer titles, skip-check and two-look content are not — same Lesson-fixture coverage gap as the row above; would need the other lessons audited at 200%.
+  - `[low]` `[reject]` (blind) *Read faces* is only checked to exist, not invoked — carried: same claim as "routes asserted by presence"; its output is asserted by `Cube3DRendererTest` (L217-242).
+  - `[low]` `[reject]` (blind) Lint functional test checks the config, not a failing lint run on a seeded issue — testing AGP's own `abortOnError` needs an Android lint run in TestKit; the test proves our configuration and a mutation fails it.
+  - `[low]` `[reject]` (blind) No automated guard against a future lint baseline or `@SuppressLint`/`tools:ignore` — none exist today (grep of `app/src/main`, build files, `build-logic`); a new scanning gate is more than a direct fix for a hypothetical future edit.
+  - `[high]` `[patch]` (edge) `FreeCubeScreen.kt:109` controls get zero height in short windows — same root cause and fix as the first blind row.
+  - `[low]` `[patch]` (edge) `assertNoTextOverflow` passes silently if `GetTextLayoutResult` returns false or nothing — it now asserts the action succeeded with a result, naming the text.
+  - `[medium]` `[patch]` (verification-gap) Lesson audit never checks the cube keeps `CUBE_MIN` with every key row open — `auditStageExtras` now asserts `cube3d` ≥ 96dp while the extra Move keys are open (Solve and Lesson, compact and expanded at 200%).
+  - `[false]` `[reject]` (intent) Stage minimum checked on the `lesson:stage` container, not the drawn cube — the intent's matrix defines the surface as `lesson:stage` height ≥ 280dp; the cube's own floor is now asserted by the verification-gap patch.
+  - `[false]` `[reject]` (intent) 200% simulated via `LocalDensity` rather than the system setting — carried: linear 2× is at least as large as Android's non-linear 200% at every size.
+  - `[low]` `[reject]` (intent) Clipped non-text controls are not detected — clickables are caught by the 48×48dp check; detecting clipped non-interactive icons would need a new bounds-vs-ancestor mechanism for no observed case.
+  - `[low]` `[reject]` (intent) The five lint ids are View/XML checks with little to fire on in Compose — carried: AC3 asks for lint a11y at error and green, which it is; labels are carried by the Compose semantics test.
+  - `[low]` `[reject]` (intent) Build-logic tests check settings, not a failing lint run — same claim and reason as the blind lint-functional row.
+  - `[low]` `[reject]` (intent) `StickerReviewNet` gets a role but no `onClickLabel` — the stickers keep their `editor_sticker` content description as the label; a click label needs a new Learner string, which the boundaries forbid, and no existing string fits.
+  - `[false]` `[reject]` (intent) Only status pairs were added, not "every pair" — the existing `ThemeTokensTest` case already covers text, accent, status-icon and highlight pairs (L102-115); status text was the missing pair.
+  - `[maybe-false]` `[defer]` (intent) "Every screen" exercises one Lesson in its first virtual/physical state — same Lesson-fixture coverage gap as the two blind rows above.
+  - `[high]` `[patch]` (intent) 100% behaviour changed: FreeCube controls also capped by `maxHeight - 280dp` in short windows — same root cause and fix as the first blind row.
+  - `[false]` `[reject]` (intent) 100% behaviour changed: title/caption wrap, top bar is a `FlowRow`, physical caption moved onto the switch — wrapping is what the spec asks for; a `FlowRow` lays out as one row when its items fit; the switch was unlabelled before and the caption now labels it, which is the earlier pass's fix.
+  - `[low]` `[patch]` (intent) Banned-API scan reads only Kotlin sources, so `POST_NOTIFICATIONS` in the manifest would pass — `BannedPatternsTest` now also scans `src/main/AndroidManifest.xml` and fails clearly if it is missing.
+
 ## Design Notes
 
 Overflow check: `TextLayoutResult.hasVisualOverflow` is true both for ellipsized lines and for text cut by a fixed-height parent (the constraint shrinks the layout), so one check covers `maxLines` and fixed `height`. Example:
@@ -155,3 +188,22 @@ Physical-mode Lessons hide the Move key bar by design (the Learner turns a real 
 **Verification:** `./gradlew spotlessCheck build` BUILD SUCCESSFUL (incl. `:app:lintDebug` with a11y ids at error, all JVM/Robolectric tests); `./gradlew -p build-logic test` BUILD SUCCESSFUL; JUnit reports show A11yAssertionsTest 3, BannedPatternsTest 2, DynamicType200Test 2, EssentialActionsTest 2, ThemeTokensTest 6, both RTL tests, AccessibilityLintTest and AccessibilityLintFunctionalTest all passing with 0 skipped. Implementation ran on Codex until its usage limit, then a Claude fallback finished it.
 
 **Residual risks:** AC3's TalkBack/Switch Access device pass is still to be done by the product owner with `docs/accessibility-manual-check.md`; the Solve tab has no *Enter colors* route on this branch (Story 3.7, PR #100), so Flows 3 and 6 record it as unavailable; sprint-status item `epic-9-deferred-9-3-rtl-net-mirroring` is resolved by this change but its status entry was not updated here.
+
+### Follow-up review pass (2026-11-10)
+
+**Summary:** Follow-up review of story 12.1. Four Codex/Claude layers reported 22 findings; four distinct patches applied, one item deferred, the rest rejected with reasons in the triage log.
+
+**Files changed in this pass:**
+- `app/src/main/kotlin/dev/cubentia/app/ui/freecube/FreeCubeScreen.kt` -- controls keep a floor of two Move key rows (`CONTROLS_MIN`) in short windows instead of collapsing to 0dp.
+- `app/src/test/kotlin/dev/cubentia/app/ui/freecube/FreeCubeScreenTest.kt` -- short-window (`w640dp-h320dp`) test that the first Move key row stays on screen.
+- `app/src/test/kotlin/dev/cubentia/app/ui/a11y/A11yAssertions.kt` -- overflow check fails if a text node yields no layout.
+- `app/src/test/kotlin/dev/cubentia/app/ui/a11y/ScreenAudit.kt` -- cube keeps ≥ 96dp with all extra Move keys open at 200%.
+- `app/src/test/kotlin/dev/cubentia/app/ui/a11y/BannedPatternsTest.kt` -- banned-API scan also covers `AndroidManifest.xml`.
+
+**Review findings:** patches applied: 1 high (FreeCube short-window controls, 3 rows), 1 medium (cube minimum assertion), 2 low (silent overflow pass, manifest scan); deferred: 1 (Lesson-fixture coverage at 200%, medium unverified, 3 rows); rejected: 8 low and 5 false, each with its reason in the triage log.
+
+**Follow-up review recommended:** true -- this follow-up pass patched a high (high 1, medium 1, low 2). Unverified risk: the new `CONTROLS_MIN` floor in `FreeCubeScreen.kt` deliberately lets the Solve stage drop below 280dp in windows shorter than ~388dp, and that trade-off is tested only at 100% font scale in one short window, not at 200% or in other short or split-screen sizes.
+
+**Verification:** `./gradlew :app:testDebugUnitTest --tests 'dev.cubentia.app.ui.a11y.*' --tests '*FreeCubeScreenTest'` passed (A11yAssertionsTest 3, BannedPatternsTest 2, DynamicType200Test 2, EssentialActionsTest 2, FreeCubeScreenTest 29); mutation check: removing the `CONTROLS_MIN` floor makes the new short-window test fail. `./gradlew spotlessCheck build` failed once on `Cube3DEmphasisTest` (frame-clock timing; this test also failed in earlier unrelated runs and is untouched by this change), which passed when run alone, and the rerun was BUILD SUCCESSFUL (incl. `:app:lintDebug`); `./gradlew -p build-logic test` BUILD SUCCESSFUL.
+
+**Residual risks:** `Cube3DEmphasisTest` is flaky under full-suite load; the deferred Lesson-state coverage; AC3's device pass with `docs/accessibility-manual-check.md` is still the product owner's.

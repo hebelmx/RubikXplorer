@@ -29,7 +29,8 @@ internal fun ComposeTestRule.assertNoTextOverflow(screen: String) {
     assertTrue("$screen has text", nodes.isNotEmpty())
     nodes.forEach { node ->
         val results = mutableListOf<TextLayoutResult>()
-        node.config[SemanticsActions.GetTextLayoutResult].action?.invoke(results)
+        val measured = node.config[SemanticsActions.GetTextLayoutResult].action?.invoke(results) == true
+        assertTrue("$screen: '${node.config.getOrNull(SemanticsProperties.Text)}' has no text layout", measured && results.isNotEmpty())
         results.forEach { result ->
             assertFalse(
                 "$screen: '${node.config.getOrNull(SemanticsProperties.Text)}' overflows " +

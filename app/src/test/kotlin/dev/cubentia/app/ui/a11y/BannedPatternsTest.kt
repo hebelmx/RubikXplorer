@@ -20,7 +20,9 @@ class BannedPatternsTest {
         val sources = File("src/main/kotlin")
         assertTrue(sources.isDirectory, "Missing app sources: ${sources.absolutePath}")
         val banned = Regex("\\b(HorizontalPager|VerticalPager|Carousel|NotificationCompat|NotificationManager|POST_NOTIFICATIONS)\\b")
-        sources.walkTopDown().filter { it.extension == "kt" }.forEach { file ->
+        val manifest = File("src/main/AndroidManifest.xml")
+        assertTrue(manifest.isFile, "Missing app manifest: ${manifest.absolutePath}")
+        (sources.walkTopDown().filter { it.extension == "kt" } + manifest).forEach { file ->
             assertTrue(!banned.containsMatchIn(file.readText()), "${file.path}: banned API")
         }
     }

@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.min
 import dev.cubentia.app.R
 import dev.cubentia.app.preferences.LocalHaptics
@@ -106,7 +107,9 @@ fun FreeCubeScreen(
     ) {
         // The controls take at most half the height (scrolling when they need more), and never so
         // much that the stage drops below its minimum, e.g. at 200% font scale (AC2, story 12.1).
-        val controlsMax = min((maxHeight - Spacing.s3) / 2, maxHeight - Spacing.s3 - STAGE_MIN).coerceAtLeast(0.dp)
+        // In a short window (landscape, split screen) they still keep CONTROLS_MIN so the Move keys stay reachable.
+        val half = (maxHeight - Spacing.s3) / 2
+        val controlsMax = max(min(half, maxHeight - Spacing.s3 - STAGE_MIN), min(half, CONTROLS_MIN)).coerceAtLeast(0.dp)
         Column(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(Spacing.s3),
@@ -291,3 +294,6 @@ internal const val FRONT_NOTICE_MILLIS = 1500L
 
 /** The cube stage's minimum height, matching the Lesson stage (compact stage at least 280dp). */
 private val STAGE_MIN = 280.dp
+
+/** The controls' floor in a short window: two rows of Move keys. */
+private val CONTROLS_MIN = Spacing.touchMin * 2
