@@ -52,7 +52,7 @@ data class SessionState internal constructor(
     val restoreNote: dev.cubentia.domain.text.Text? = null,
     /** `null` only in [IDLE]. */
     val kind: SessionKind?,
-    /** The Lesson of a [SessionKind.LESSON] session; `null` otherwise. */
+    /** The Lesson of a Lesson-backed session; `null` otherwise. */
     val lesson: Lesson?,
     /** The tutor configuration the Lesson started with; `null` exactly when [lesson] is. */
     val tutorConfig: TutorConfig?,
@@ -206,7 +206,7 @@ data class SessionState internal constructor(
      * under way or shown, a Checkpoint, and preserved pieces still to restore on [virtual].
      */
     val canGuideBack: Boolean by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        kind == SessionKind.LESSON &&
+        kind?.isTaught == true &&
             guidedRecovery == GuidedRecovery.None &&
             checkpoint != null &&
             decision

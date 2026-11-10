@@ -1,6 +1,7 @@
 package dev.cubentia.domain.predicate
 
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.lastlayer.LastLayerStep
 import dev.cubentia.domain.text.Text
 import dev.cubentia.domain.tutor.DiagnosisRules
 
@@ -65,6 +66,46 @@ object CubeSummary {
 
             CubeSolved -> {
                 progress(state, predicate, "msg.cube-summary.cube-solved", "msg.cube-summary.cube-progress")
+            }
+
+            is LastLayerStepReached -> {
+                when (predicate.step) {
+                    LastLayerStep.EDGES_ORIENTED -> {
+                        progress(
+                            state,
+                            predicate,
+                            "msg.cube-summary.two-look-edges-oriented",
+                            "msg.cube-summary.two-look-edges-oriented-progress",
+                        )
+                    }
+
+                    LastLayerStep.ORIENTED -> {
+                        progress(
+                            state,
+                            predicate,
+                            "msg.cube-summary.two-look-oriented",
+                            "msg.cube-summary.two-look-oriented-progress",
+                        )
+                    }
+
+                    LastLayerStep.CORNERS_PERMUTED -> {
+                        progress(
+                            state,
+                            predicate,
+                            "msg.cube-summary.two-look-corners-permuted",
+                            "msg.cube-summary.two-look-corners-permuted-progress",
+                        )
+                    }
+
+                    LastLayerStep.SOLVED_UP_TO_AUF -> {
+                        progress(
+                            state,
+                            predicate,
+                            "msg.cube-summary.two-look-solved-up-to-auf",
+                            "msg.cube-summary.two-look-solved-up-to-auf-progress",
+                        )
+                    }
+                }
             }
 
             is StateReached -> {

@@ -1,0 +1,396 @@
+{
+  "id": "stage-08-two-look-oll",
+  "title": "stage.stage-08-two-look-oll.title",
+  "lessons": [
+    {
+      "id": "lesson-08-01",
+      "stageId": "stage-08-two-look-oll",
+      "prerequisites": [],
+      "objective": "lesson.lesson-08-01.objective",
+      "learnerAction": "lesson.lesson-08-01.learner-action",
+      "completion": {
+        "predicate": "last-layer-step",
+        "step": "edges-oriented"
+      },
+      "preserve": {
+        "predicate": "allOf",
+        "predicates": [
+          {
+            "predicate": "white-cross-solved"
+          },
+          {
+            "predicate": "white-corners-solved"
+          },
+          {
+            "predicate": "middle-layer-solved"
+          }
+        ]
+      },
+      "recovery": "recovery-guided",
+      "steps": [
+        {
+          "goal": "lesson.lesson-08-01.goal.1",
+          "preserve": "lesson.lesson-08-01.keep.1",
+          "watch": "lesson.lesson-08-01.watch.1",
+          "notice": "lesson.lesson-08-01.notice.1",
+          "algorithm": "alg-oll-02-a",
+          "done": {
+            "predicate": "last-layer-step",
+            "step": "edges-oriented"
+          }
+        }
+      ]
+    },
+    {
+      "id": "lesson-08-02",
+      "stageId": "stage-08-two-look-oll",
+      "prerequisites": [],
+      "objective": "lesson.lesson-08-02.objective",
+      "learnerAction": "lesson.lesson-08-02.learner-action",
+      "completion": {
+        "predicate": "last-layer-step",
+        "step": "edges-oriented"
+      },
+      "preserve": {
+        "predicate": "allOf",
+        "predicates": [
+          {
+            "predicate": "white-cross-solved"
+          },
+          {
+            "predicate": "white-corners-solved"
+          },
+          {
+            "predicate": "middle-layer-solved"
+          }
+        ]
+      },
+      "recovery": "recovery-guided",
+      "steps": [
+        {
+          "goal": "lesson.lesson-08-02.goal.1",
+          "preserve": "lesson.lesson-08-02.keep.1",
+          "watch": "lesson.lesson-08-02.watch.1",
+          "notice": "lesson.lesson-08-02.notice.1",
+          "algorithm": "alg-oll-45-a",
+          "done": {
+            "predicate": "last-layer-step",
+            "step": "edges-oriented"
+          }
+        }
+      ]
+    },
+    {
+      "id": "lesson-08-03",
+      "stageId": "stage-08-two-look-oll",
+      "prerequisites": [],
+      "objective": "lesson.lesson-08-03.objective",
+      "learnerAction": "lesson.lesson-08-03.learner-action",
+      "completion": {
+        "predicate": "last-layer-step",
+        "step": "edges-oriented"
+      },
+      "preserve": {
+        "predicate": "allOf",
+        "predicates": [
+          {
+            "predicate": "white-cross-solved"
+          },
+          {
+            "predicate": "white-corners-solved"
+          },
+          {
+            "predicate": "middle-layer-solved"
+          }
+        ]
+      },
+      "recovery": "recovery-guided",
+      "steps": [
+        {
+          "goal": "lesson.lesson-08-03.goal.1",
+          "preserve": "lesson.lesson-08-03.keep.1",
+          "watch": "lesson.lesson-08-03.watch.1",
+          "notice": "lesson.lesson-08-03.notice.1",
+          "algorithm": "alg-oll-44-a",
+          "done": {
+            "predicate": "last-layer-step",
+            "step": "edges-oriented"
+          }
+        }
+      ]
+    },
+    {
+      "id": "lesson-08-04",
+      "stageId": "stage-08-two-look-oll",
+      "prerequisites": [],
+      "objective": "lesson.lesson-08-04.objective",
+      "learnerAction": "lesson.lesson-08-04.learner-action",
+      "completion": {
+        "predicate": "last-layer-step",
+        "step": "oriented"
+      },
+      "preserve": {
+        "predicate": "allOf",
+        "predicates": [
+          {
+            "predicate": "white-cross-solved"
+          },
+          {
+            "predicate": "white-corners-solved"
+          },
+          {
+            "predicate": "middle-layer-solved"
+          }
+        ]
+      },
+      "recovery": "recovery-guided",
+      "steps": [
+        {
+          "goal": "lesson.lesson-08-04.goal.1",
+          "preserve": "lesson.lesson-08-04.keep.1",
+          "watch": "lesson.lesson-08-04.watch.1",
+          "notice": "lesson.lesson-08-04.notice.1",
+          "algorithm": "alg-oll-21-a",
+          "done": {
+            "predicate": "last-layer-step",
+            "step": "oriented"
+          }
+        }
+      ]
+    },
+    {
+      "id": "lesson-08-05",
+      "stageId": "stage-08-two-look-oll",
+      "prerequisites": [],
+      "objective": "lesson.lesson-08-05.objective",
+      "learnerAction": "lesson.lesson-08-05.learner-action",
+      "completion": {
+        "predicate": "last-layer-step",
+        "step": "oriented"
+      },
+      "preserve": {
+        "predicate": "allOf",
+        "predicates": [
+          {
+            "predicate": "white-cross-solved"
+          },
+          {
+            "predicate": "white-corners-solved"
+          },
+          {
+            "predicate": "middle-layer-solved"
+          }
+        ]
+      },
+      "recovery": "recovery-guided",
+      "steps": [
+        {
+          "goal": "lesson.lesson-08-05.goal.1",
+          "preserve": "lesson.lesson-08-05.keep.1",
+          "watch": "lesson.lesson-08-05.watch.1",
+          "notice": "lesson.lesson-08-05.notice.1",
+          "algorithm": "alg-oll-22-a",
+          "done": {
+            "predicate": "last-layer-step",
+            "step": "oriented"
+          }
+        }
+      ]
+    },
+    {
+      "id": "lesson-08-06",
+      "stageId": "stage-08-two-look-oll",
+      "prerequisites": [],
+      "objective": "lesson.lesson-08-06.objective",
+      "learnerAction": "lesson.lesson-08-06.learner-action",
+      "completion": {
+        "predicate": "last-layer-step",
+        "step": "oriented"
+      },
+      "preserve": {
+        "predicate": "allOf",
+        "predicates": [
+          {
+            "predicate": "white-cross-solved"
+          },
+          {
+            "predicate": "white-corners-solved"
+          },
+          {
+            "predicate": "middle-layer-solved"
+          }
+        ]
+      },
+      "recovery": "recovery-guided",
+      "steps": [
+        {
+          "goal": "lesson.lesson-08-06.goal.1",
+          "preserve": "lesson.lesson-08-06.keep.1",
+          "watch": "lesson.lesson-08-06.watch.1",
+          "notice": "lesson.lesson-08-06.notice.1",
+          "algorithm": "alg-oll-23-a",
+          "done": {
+            "predicate": "last-layer-step",
+            "step": "oriented"
+          }
+        }
+      ]
+    },
+    {
+      "id": "lesson-08-07",
+      "stageId": "stage-08-two-look-oll",
+      "prerequisites": [],
+      "objective": "lesson.lesson-08-07.objective",
+      "learnerAction": "lesson.lesson-08-07.learner-action",
+      "completion": {
+        "predicate": "last-layer-step",
+        "step": "oriented"
+      },
+      "preserve": {
+        "predicate": "allOf",
+        "predicates": [
+          {
+            "predicate": "white-cross-solved"
+          },
+          {
+            "predicate": "white-corners-solved"
+          },
+          {
+            "predicate": "middle-layer-solved"
+          }
+        ]
+      },
+      "recovery": "recovery-guided",
+      "steps": [
+        {
+          "goal": "lesson.lesson-08-07.goal.1",
+          "preserve": "lesson.lesson-08-07.keep.1",
+          "watch": "lesson.lesson-08-07.watch.1",
+          "notice": "lesson.lesson-08-07.notice.1",
+          "algorithm": "alg-oll-24-a",
+          "done": {
+            "predicate": "last-layer-step",
+            "step": "oriented"
+          }
+        }
+      ]
+    },
+    {
+      "id": "lesson-08-08",
+      "stageId": "stage-08-two-look-oll",
+      "prerequisites": [],
+      "objective": "lesson.lesson-08-08.objective",
+      "learnerAction": "lesson.lesson-08-08.learner-action",
+      "completion": {
+        "predicate": "last-layer-step",
+        "step": "oriented"
+      },
+      "preserve": {
+        "predicate": "allOf",
+        "predicates": [
+          {
+            "predicate": "white-cross-solved"
+          },
+          {
+            "predicate": "white-corners-solved"
+          },
+          {
+            "predicate": "middle-layer-solved"
+          }
+        ]
+      },
+      "recovery": "recovery-guided",
+      "steps": [
+        {
+          "goal": "lesson.lesson-08-08.goal.1",
+          "preserve": "lesson.lesson-08-08.keep.1",
+          "watch": "lesson.lesson-08-08.watch.1",
+          "notice": "lesson.lesson-08-08.notice.1",
+          "algorithm": "alg-oll-25-a",
+          "done": {
+            "predicate": "last-layer-step",
+            "step": "oriented"
+          }
+        }
+      ]
+    },
+    {
+      "id": "lesson-08-09",
+      "stageId": "stage-08-two-look-oll",
+      "prerequisites": [],
+      "objective": "lesson.lesson-08-09.objective",
+      "learnerAction": "lesson.lesson-08-09.learner-action",
+      "completion": {
+        "predicate": "last-layer-step",
+        "step": "oriented"
+      },
+      "preserve": {
+        "predicate": "allOf",
+        "predicates": [
+          {
+            "predicate": "white-cross-solved"
+          },
+          {
+            "predicate": "white-corners-solved"
+          },
+          {
+            "predicate": "middle-layer-solved"
+          }
+        ]
+      },
+      "recovery": "recovery-guided",
+      "steps": [
+        {
+          "goal": "lesson.lesson-08-09.goal.1",
+          "preserve": "lesson.lesson-08-09.keep.1",
+          "watch": "lesson.lesson-08-09.watch.1",
+          "notice": "lesson.lesson-08-09.notice.1",
+          "algorithm": "alg-oll-26-a",
+          "done": {
+            "predicate": "last-layer-step",
+            "step": "oriented"
+          }
+        }
+      ]
+    },
+    {
+      "id": "lesson-08-10",
+      "stageId": "stage-08-two-look-oll",
+      "prerequisites": [],
+      "objective": "lesson.lesson-08-10.objective",
+      "learnerAction": "lesson.lesson-08-10.learner-action",
+      "completion": {
+        "predicate": "last-layer-step",
+        "step": "oriented"
+      },
+      "preserve": {
+        "predicate": "allOf",
+        "predicates": [
+          {
+            "predicate": "white-cross-solved"
+          },
+          {
+            "predicate": "white-corners-solved"
+          },
+          {
+            "predicate": "middle-layer-solved"
+          }
+        ]
+      },
+      "recovery": "recovery-guided",
+      "steps": [
+        {
+          "goal": "lesson.lesson-08-10.goal.1",
+          "preserve": "lesson.lesson-08-10.keep.1",
+          "watch": "lesson.lesson-08-10.watch.1",
+          "notice": "lesson.lesson-08-10.notice.1",
+          "algorithm": "alg-oll-27-a",
+          "done": {
+            "predicate": "last-layer-step",
+            "step": "oriented"
+          }
+        }
+      ]
+    }
+  ]
+}

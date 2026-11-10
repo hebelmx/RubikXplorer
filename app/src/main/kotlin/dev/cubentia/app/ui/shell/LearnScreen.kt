@@ -78,7 +78,6 @@ fun LearnScreen(
     selectedStage: StageId? = null,
     onSelectStage: (StageId?) -> Unit = {},
     showFasterLastLayer: Boolean = false,
-    onOpenFasterLastLayer: () -> Unit = {},
     showTwoLookLocked: Boolean = false,
     onCloseTwoLookLocked: () -> Unit = {},
     practiceEnabled: Boolean = false,
@@ -108,16 +107,28 @@ fun LearnScreen(
             }
 
             is CatalogState.Ready -> {
-                val stages = catalog.bundle.stages
+                val courseStages = catalog.bundle.stages
+                val stages = courseStages + if (showFasterLastLayer) catalog.bundle.twoLookStages else emptyList()
                 val stageIndex = selectedStage?.let { id -> stages.indexOfFirst { it.id == id } } ?: -1
                 val activeStage = stages.getOrNull(stageIndex)
                 val effectiveMasteredStages =
-                    remember(masteredStages, stages, attemptRecords, progressEvents, catalog.bundle.tutorConfig.mastery) {
+                    remember(masteredStages, courseStages, attemptRecords, progressEvents, catalog.bundle.tutorConfig.mastery) {
                         masteredStages +
-                            Mastery.masteredStages(stages, attemptRecords, progressEvents, catalog.bundle.tutorConfig.mastery)
+                            Mastery.masteredStages(courseStages, attemptRecords, progressEvents, catalog.bundle.tutorConfig.mastery)
                     }
                 if (activeStage != null) {
-                    val status = StageProgress.status(activeStage, stages, progressEvents, effectiveMasteredStages)
+                    val twoLook = activeStage in catalog.bundle.twoLookStages
+                    val status =
+                        if (twoLook) {
+                            StageProgress.status(activeStage, listOf(activeStage), progressEvents)
+                        } else {
+                            StageProgress.status(
+                                activeStage,
+                                courseStages,
+                                progressEvents,
+                                effectiveMasteredStages,
+                            )
+                        }
                     val isPracticeEnabled =
                         activeStage.id != StageId("stage-01-fundamentals") && status != StageStatus.LOCKED
                     val masteryProgress =
@@ -145,7 +156,8 @@ fun LearnScreen(
                         skipCheckEnabled && (status == StageStatus.LOCKED || status == StageStatus.IN_PROGRESS)
                     StageDetailScreen(
                         stage = activeStage,
-                        stageNumber = stageIndex + 1,
+                        stageNumber = if (twoLook) catalog.bundle.twoLookStages.indexOf(activeStage) + 1 else stageIndex + 1,
+                        courseControls = !twoLook,
                         status = status,
                         stages = stages,
                         strings = catalog.strings,
@@ -181,7 +193,6 @@ fun LearnScreen(
                         showFasterLastLayer = showFasterLastLayer,
                         onOpen = onOpen,
                         onSelectStage = { onSelectStage(it) },
-                        onOpenFasterLastLayer = onOpenFasterLastLayer,
                     )
                 }
             }
@@ -199,7 +210,6 @@ private fun StageListContent(
     showFasterLastLayer: Boolean,
     onOpen: (LessonId) -> Unit,
     onSelectStage: (StageId) -> Unit,
-    onOpenFasterLastLayer: () -> Unit,
 ) {
     Column(
         modifier =
@@ -242,7 +252,16 @@ private fun StageListContent(
                 HorizontalDivider(color = RubikTheme.tokens.hairline)
             }
             if (showFasterLastLayer) {
-                FasterLastLayerRow(onClick = onOpenFasterLastLayer)
+                FasterLastLayerRow()
+                catalog.bundle.twoLookStages.forEachIndexed { index, stage ->
+                    StageRow(
+                        stage,
+                        index + 1,
+                        StageProgress.status(stage, listOf(stage), progressEvents),
+                        catalog.strings,
+                        { onSelectStage(stage.id) },
+                    )
+                }
                 HorizontalDivider(color = RubikTheme.tokens.hairline)
             }
         }
@@ -299,7 +318,7 @@ private fun StageRow(
 }
 
 @Composable
-private fun FasterLastLayerRow(onClick: () -> Unit) {
+private fun FasterLastLayerRow() {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.s3),
@@ -307,7 +326,7 @@ private fun FasterLastLayerRow(onClick: () -> Unit) {
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = Spacing.touchMin)
-                .clickable(role = Role.Button, onClick = onClick)
+                .semantics(mergeDescendants = true) { heading() }
                 .testTag("learn:fasterLastLayer")
                 .padding(horizontal = Spacing.s4, vertical = Spacing.s3),
     ) {
@@ -397,6 +416,7 @@ fun StageDetailScreen(
     reducedHelpSolves: Int = 0,
     reducedHelpRequired: Int = DEFAULT_MASTERY_REDUCED_REQUIRED,
     abandonedSkipCheckMessage: String? = null,
+    courseControls: Boolean = true,
 ) {
     val tokens = RubikTheme.tokens
     val stageTrend =
@@ -455,79 +475,81 @@ fun StageDetailScreen(
                 tag = "stageDetail:status",
             )
         }
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = Spacing.s4, vertical = Spacing.s2),
-            verticalArrangement = Arrangement.spacedBy(Spacing.s2),
-        ) {
-            Text(
-                text = stringResource(R.string.stage_mastery_progress, solvesCompleted, solvesRequired, reducedHelpSolves),
-                style = MaterialTheme.typography.bodySmall,
-                color = tokens.inkSecondary,
-                modifier = Modifier.testTag("stageDetail:mastery"),
-            )
-            if (abandonedSkipCheckMessage != null) {
+        if (courseControls) {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.s4, vertical = Spacing.s2),
+                verticalArrangement = Arrangement.spacedBy(Spacing.s2),
+            ) {
                 Text(
-                    text = abandonedSkipCheckMessage,
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = stringResource(R.string.stage_mastery_progress, solvesCompleted, solvesRequired, reducedHelpSolves),
+                    style = MaterialTheme.typography.bodySmall,
                     color = tokens.inkSecondary,
-                    modifier = Modifier.testTag("stageDetail:skipCheckAbandoned"),
+                    modifier = Modifier.testTag("stageDetail:mastery"),
                 )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.s2),
-            ) {
-                val firstMet = solvesCompleted >= 1
-                val secondMet = solvesCompleted >= solvesRequired && reducedHelpSolves >= reducedHelpRequired
-                Box(
+                if (abandonedSkipCheckMessage != null) {
+                    Text(
+                        text = abandonedSkipCheckMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = tokens.inkSecondary,
+                        modifier = Modifier.testTag("stageDetail:skipCheckAbandoned"),
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.s2),
+                ) {
+                    val firstMet = solvesCompleted >= 1
+                    val secondMet = solvesCompleted >= solvesRequired && reducedHelpSolves >= reducedHelpRequired
+                    Box(
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .height(Spacing.s1)
+                                .clip(MaterialTheme.shapes.extraSmall)
+                                .background(if (firstMet) tokens.accent else tokens.hairline)
+                                .testTag("stageDetail:mastery:segment:1"),
+                    )
+                    Box(
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .height(Spacing.s1)
+                                .clip(MaterialTheme.shapes.extraSmall)
+                                .background(if (secondMet) tokens.accent else tokens.hairline)
+                                .testTag("stageDetail:mastery:segment:2"),
+                    )
+                }
+                TrendRow(
+                    attemptsCount = stageTrend.attemptsCount,
+                    hintCounts = stageTrend.hintCounts,
+                    label = stringResource(R.string.stage_trend_label),
+                    modifier = Modifier.testTag("stageDetail:trend"),
+                )
+                OutlinedButton(
+                    onClick = onPracticeStage,
+                    enabled = practiceEnabled,
                     modifier =
                         Modifier
-                            .weight(1f)
-                            .height(Spacing.s1)
-                            .clip(MaterialTheme.shapes.extraSmall)
-                            .background(if (firstMet) tokens.accent else tokens.hairline)
-                            .testTag("stageDetail:mastery:segment:1"),
-                )
-                Box(
+                            .fillMaxWidth()
+                            .heightIn(min = Spacing.touchMin)
+                            .testTag("stageDetail:practice"),
+                ) {
+                    Text(stringResource(R.string.stage_practice))
+                }
+                TextButton(
+                    onClick = onSkipCheck,
+                    enabled = skipCheckEnabled,
                     modifier =
                         Modifier
-                            .weight(1f)
-                            .height(Spacing.s1)
-                            .clip(MaterialTheme.shapes.extraSmall)
-                            .background(if (secondMet) tokens.accent else tokens.hairline)
-                            .testTag("stageDetail:mastery:segment:2"),
-                )
-            }
-            TrendRow(
-                attemptsCount = stageTrend.attemptsCount,
-                hintCounts = stageTrend.hintCounts,
-                label = stringResource(R.string.stage_trend_label),
-                modifier = Modifier.testTag("stageDetail:trend"),
-            )
-            OutlinedButton(
-                onClick = onPracticeStage,
-                enabled = practiceEnabled,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = Spacing.touchMin)
-                        .testTag("stageDetail:practice"),
-            ) {
-                Text(stringResource(R.string.stage_practice))
-            }
-            TextButton(
-                onClick = onSkipCheck,
-                enabled = skipCheckEnabled,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = Spacing.touchMin)
-                        .testTag("stageDetail:skipCheck"),
-            ) {
-                Text(stringResource(R.string.stage_skip_check))
+                            .fillMaxWidth()
+                            .heightIn(min = Spacing.touchMin)
+                            .testTag("stageDetail:skipCheck"),
+                ) {
+                    Text(stringResource(R.string.stage_skip_check))
+                }
             }
         }
         HorizontalDivider(color = tokens.hairline)
@@ -536,7 +558,7 @@ fun StageDetailScreen(
         } else {
             val epochEvents = StageProgress.currentEpochEvents(progressEvents)
             stage.lessons.forEach { lesson ->
-                val unlocked = StageProgress.isLessonUnlocked(lesson, stages, progressEvents, masteredStages)
+                val unlocked = !courseControls || StageProgress.isLessonUnlocked(lesson, stages, progressEvents, masteredStages)
                 val completed = epochEvents.any { it is ProgressEvent.LessonCompleted && it.lessonId == lesson.id }
                 LessonRow(
                     lesson = lesson,

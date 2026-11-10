@@ -15,6 +15,7 @@ data class BundleManifest(
     val schemaVersion: Int,
     val stages: List<String>,
     val algorithms: List<String>,
+    val twoLook: List<String> = emptyList(),
 )
 
 /** A Stage: a titled, ordered group of Lessons (one file under `content/stages/`). */
@@ -169,4 +170,6 @@ data class ContentBundle(
     val tutorConfig: TutorConfig,
     val cases: List<Case>,
     val algorithms: List<Algorithm>,
+    val twoLookStages: List<Stage> = emptyList(),
+    val lessonAlgorithms: Map<LessonId, List<AlgorithmId>> = emptyMap(),
 )

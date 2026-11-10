@@ -46,7 +46,7 @@ private fun withPhysicalSolveFlags(
 ): Transition {
     val next = transition.state
     if (next === before || event is SessionEvent.SessionRestored) return transition
-    if (next.kind != SessionKind.LESSON && next.kind != SessionKind.PRACTICE) return transition
+    if (next.kind?.takesMoves != true) return transition
     val confirmed = next.objectiveMet && next.physicalSolveConfirmed
     val unconfirmed = solveUnconfirmed(next)
     if (confirmed == next.physicalSolveConfirmed && unconfirmed == next.physicalSolveUnconfirmed) return transition
@@ -95,7 +95,7 @@ private fun applied(
                 event is SessionEvent.ModeSwitched || event is SessionEvent.PhysicalConfirmed ||
                     (event is SessionEvent.Undo && state.isPhysical)
             )
-    if (!starts && state.kind != SessionKind.LESSON && state.kind != SessionKind.PRACTICE && !playbackAllowed) return Transition(state)
+    if (!starts && state.kind?.takesMoves != true && !playbackAllowed) return Transition(state)
     // Ignored outright, so not even the generic clearing below applies.
     if (event is SessionEvent.Redo && state.isPhysical) return Transition(state)
     if (event is SessionEvent.PhysicalSolveConfirmed && !canConfirmPhysicalSolve(state)) return Transition(state)
@@ -118,7 +118,7 @@ private fun applied(
     val keeps =
         event is SessionEvent.MoveCommitted || event is SessionEvent.PhysicalConfirmed ||
             event is SessionEvent.EditorEntered || event is SessionEvent.SolvePlaybackStarted || recovery
-    if (keeps || (transition.state.kind != SessionKind.LESSON && transition.state.kind != SessionKind.PRACTICE)) return transition
+    if (keeps || transition.state.kind?.takesMoves != true) return transition
     return transition.copy(
         state = transition.state.copy(lastMoveFeedback = null, lastDiagnosis = null, guidedRecovery = GuidedRecovery.None),
     )
@@ -253,7 +253,7 @@ private fun start(
     val entry = entryState(lesson)
     val next =
         withHistory(state, MoveHistory(entry), lesson).copy(
-            kind = SessionKind.LESSON,
+            kind = event.kind,
             lesson = lesson,
             tutorConfig = event.tutorConfig,
             adaptiveAssistance = event.adaptiveAssistance,
@@ -971,7 +971,7 @@ private fun restore(
 ): Transition {
     val snapshot = event.snapshot
     if (state.isActive || !snapshot.kind.resumesOnColdStart ||
-        snapshot.kind != SessionKind.LESSON ||
+        !snapshot.kind.isTaught ||
         snapshot.lessonId != event.lesson.id.value
     ) {
         return Transition(state)
@@ -1104,8 +1104,8 @@ private fun attempts(
 ): Transition {
     var next = transition.state
     if (next === before) return transition
-    val suspends = event is SessionEvent.SolvePlaybackStarted && (before.kind == SessionKind.LESSON || before.kind == SessionKind.PRACTICE)
-    if (next.kind != SessionKind.LESSON && next.kind != SessionKind.PRACTICE && !suspends) return transition
+    val suspends = event is SessionEvent.SolvePlaybackStarted && before.kind?.takesMoves == true
+    if (next.kind?.takesMoves != true && !suspends) return transition
     val starts = event is SessionEvent.LessonStarted || event is SessionEvent.PracticeStarted || event is SessionEvent.CheckpointRestored
     val checkpoint = transition.effects.filterIsInstance<Effect.PersistCheckpoint>()
     val effects = transition.effects.filterNot { it is Effect.PersistCheckpoint }.toMutableList()

@@ -55,6 +55,43 @@ class LastLayerMatcher private constructor(
                 CaseSet.PLL,
             )
 
+        /** Pieces meeting a step, with permutation judged under the best AUF. */
+        fun stepPieces(
+            view: LastLayerView,
+            step: LastLayerStep,
+        ): List<Set<Color>> {
+            val seen = encode(view, CaseSet.PLL)
+            val targets =
+                if (step == LastLayerStep.CORNERS_PERMUTED || step == LastLayerStep.SOLVED_UP_TO_AUF) {
+                    SOLVED_ORBIT
+                } else {
+                    listOf(SOLVED_ORBIT.first())
+                }
+            return targets
+                .map { target ->
+                    (0 until SIDE_COUNT).flatMap { side ->
+                        val base = side * LastLayerView.BLOCK
+                        val previous = ((side + SIDE_COUNT - 1) % SIDE_COUNT) * LastLayerView.BLOCK
+                        val edge = listOf(base, base + 3)
+                        val corner = listOf(base + 1, base + 2, previous + 4)
+                        val slots =
+                            when (step) {
+                                LastLayerStep.EDGES_ORIENTED -> listOf(edge)
+                                LastLayerStep.CORNERS_PERMUTED -> listOf(corner)
+                                else -> listOf(edge, corner)
+                            }
+                        slots.mapNotNull { slot ->
+                            val oriented = seen[slot.first()] == LAST_LAYER_CODE
+                            val placed =
+                                step == LastLayerStep.EDGES_ORIENTED || step == LastLayerStep.ORIENTED ||
+                                    slot.all { seen[it] == target[it] }
+                            val colors = slot.mapNotNull { view.stickers[it] }
+                            if (oriented && placed && colors.size == slot.size) colors.toSet() else null
+                        }
+                    }
+                }.maxBy { it.size }
+        }
+
         /** Builds the matcher, or reports every Case whose pattern cannot be derived. */
         fun of(
             cases: List<Case>,
@@ -83,8 +120,14 @@ class LastLayerMatcher private constructor(
         fun caseState(
             algorithm: Algorithm,
             lastLayer: Color = CASE_LAST_LAYER,
+        ): CaseStateResult = caseState(algorithm.notation, lastLayer)
+
+        /** Derives a Case from Library Notation, keeping its held frame. */
+        fun caseState(
+            notation: String,
+            lastLayer: Color = CASE_LAST_LAYER,
         ): CaseStateResult =
-            when (val parsed = Notation.parse(algorithm.notation)) {
+            when (val parsed = Notation.parse(notation)) {
                 is NotationResult.Invalid -> {
                     CaseStateResult.BadNotation(parsed.error)
                 }

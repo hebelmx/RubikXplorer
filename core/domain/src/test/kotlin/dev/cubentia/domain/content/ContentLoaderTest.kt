@@ -384,6 +384,17 @@ class ContentLoaderTest {
     }
 
     @Test
+    fun `a 2-look step naming an absent Algorithm is Invalid with UnknownAlgorithm`() {
+        val path = "two-look/stage-08-two-look-oll.json"
+        val source =
+            ContentSource { requested ->
+                val bytes = ContentSource.SHIPPED.read(requested)
+                if (requested == path) bytes?.decodeToString()?.replace("alg-oll-02-a", "alg-oll-99-a")?.toByteArray() else bytes
+            }
+        assertTrue(invalid(source).any { it is ContentProblem.UnknownAlgorithm && it.algorithm.value == "alg-oll-99-a" })
+    }
+
+    @Test
     fun `Algorithm files load in manifest order`() {
         val other = ALGORITHM_FILE.replace("45", "46")
         val bundle = loaded(withAlgorithmFiles(mapOf("algorithms/a.json" to ALGORITHM_FILE, "algorithms/b.json" to other)))

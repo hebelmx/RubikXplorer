@@ -21,10 +21,10 @@ class SessionSnapshotTest {
         state: SessionState = SessionState.IDLE,
     ) = reduce(state, SessionEvent.SessionRestored(snapshot, lesson, TUTOR_CONFIG, T0))
 
-    @Test fun `idle is not captured and only lessons currently resume`() {
+    @Test fun `idle is not captured and only taught sessions currently resume`() {
         assertNull(SessionSnapshot.of(SessionState.IDLE, "id", "v1"))
         val saved = snapshot(started(lesson))
-        for (kind in SessionKind.entries.filter { it != SessionKind.LESSON }) {
+        for (kind in SessionKind.entries.filter { !it.isTaught }) {
             assertSame(SessionState.IDLE, restore(saved.copy(kind = kind)).state)
         }
         assertFalse(SessionKind.SOLVE_PLAYBACK.resumesOnColdStart)

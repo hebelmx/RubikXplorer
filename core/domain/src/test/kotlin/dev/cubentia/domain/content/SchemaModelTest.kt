@@ -27,7 +27,7 @@ class SchemaModelTest {
     private fun shipped(file: String): JsonObject = Json.parseToJsonElement(resourceText("content/schema/$file")).jsonObject
 
     private val schemas: Map<String, JsonObject> =
-        listOf("bundle", "stage", "lesson", "predicate", "tutor-config", "algorithms").associate {
+        listOf("bundle", "stage", "lesson", "predicate", "tutor-config", "algorithms", "two-look").associate {
             "$it.schema.json" to
                 shipped("$it.schema.json")
         }
@@ -36,6 +36,7 @@ class SchemaModelTest {
     fun `every schema file is draft 2020-12 and matches its Kotlin class`() {
         val roots =
             mapOf(
+                "two-look.schema.json" to TwoLookStage.serializer().descriptor,
                 "bundle.schema.json" to BundleManifest.serializer().descriptor,
                 "stage.schema.json" to Stage.serializer().descriptor,
                 "lesson.schema.json" to Lesson.serializer().descriptor,

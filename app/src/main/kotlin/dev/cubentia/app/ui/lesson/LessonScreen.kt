@@ -96,6 +96,7 @@ import dev.cubentia.application.session.SessionKind
 import dev.cubentia.application.session.SessionState
 import dev.cubentia.application.session.SyncState
 import dev.cubentia.application.usecase.PlanRecovery
+import dev.cubentia.domain.content.AlgorithmId
 import dev.cubentia.domain.content.Lesson
 import dev.cubentia.domain.content.Stage
 import dev.cubentia.domain.content.StageId
@@ -105,6 +106,7 @@ import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.input.MoveIntent
+import dev.cubentia.domain.lastlayer.RecognitionDiagram
 import dev.cubentia.domain.playback.Demonstration
 import dev.cubentia.domain.playback.DemonstrationResult
 import dev.cubentia.domain.predicate.CubeSummary
@@ -158,6 +160,10 @@ fun LessonScreen(
     isSkipCheck: Boolean = false,
     skipCheckInstruction: String? = null,
     onSkipCheckPassed: (() -> Unit)? = null,
+    isTwoLook: Boolean = false,
+    recognition: RecognitionDiagram? = null,
+    offerAlgorithms: List<AlgorithmId> = emptyList(),
+    onAddToLearning: suspend () -> Boolean = { true },
 ) {
     val preferenceStore = LocalPreferenceStore.current
     val lesson = entry.lesson
@@ -180,7 +186,7 @@ fun LessonScreen(
             Mastery.evaluate(entry.stage, currentEpochAttempts, entry.tutorConfig.mastery)
         }
     val isMasteryMilestone =
-        !isPhysical &&
+        !isTwoLook && !isPhysical &&
             initialMastered == false &&
             !milestoneDismissed &&
             session.lesson?.id == lesson.id &&
@@ -219,7 +225,7 @@ fun LessonScreen(
             val epochAttempts = Mastery.currentEpochAttempts(host.attemptRecords.value, host.progressEvents.value)
             initialMastered = Mastery.evaluate(entry.stage, epochAttempts, entry.tutorConfig.mastery).isMastered
         }
-        val practicing = isPractice || isSkipCheck || host.state.value.kind == SessionKind.PRACTICE
+        val practicing = !isTwoLook && (isPractice || isSkipCheck || host.state.value.kind == SessionKind.PRACTICE)
         val shouldStart =
             if (practicing) {
                 host.state.value.lesson
@@ -247,6 +253,7 @@ fun LessonScreen(
                         adaptiveAssistance != FlagLevel.OFF,
                         preferenceStore.preferences.value.lastTeachingMode
                             .takeIf { it in modes } ?: TeachingMode.DEFAULT,
+                        kind = if (isTwoLook) SessionKind.TWO_LOOK else SessionKind.LESSON,
                     )
                 }
             }
@@ -314,6 +321,9 @@ fun LessonScreen(
                     onClose,
                     adaptiveAssistance == FlagLevel.BETA,
                     camera = cameraScan != FlagLevel.OFF,
+                    recognition = recognition,
+                    offerAlgorithms = offerAlgorithms,
+                    onAddToLearning = onAddToLearning,
                     isPractice = isPractice,
                     isSkipCheck = isSkipCheck,
                     onSkipCheckPassed = onSkipCheckPassed,
@@ -450,6 +460,9 @@ private fun LessonBody(
     onClose: () -> Unit,
     beta: Boolean,
     camera: Boolean,
+    recognition: RecognitionDiagram? = null,
+    offerAlgorithms: List<AlgorithmId> = emptyList(),
+    onAddToLearning: suspend () -> Boolean = { true },
     isPractice: Boolean = false,
     isSkipCheck: Boolean = false,
     onSkipCheckPassed: (() -> Unit)? = null,
@@ -555,6 +568,10 @@ private fun LessonBody(
     val panel: @Composable (Modifier) -> Unit = { panelModifier ->
         LessonPanel(
             objective = strings.resolve(lesson.objective),
+            recognition = recognition,
+            offerAlgorithms = offerAlgorithms,
+            offerKey = lesson.id.value,
+            onAddToLearning = onAddToLearning,
             strings = strings,
             step = step,
             modes = if (isPractice || isSkipCheck || session.kind == SessionKind.PRACTICE) emptyList() else modes,

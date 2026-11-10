@@ -16,6 +16,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasNoClickAction
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -439,17 +440,15 @@ class AppShellTest {
     }
 
     @Test
-    fun `Faster last layer placeholder row is hidden by default and rendered when enabled`() {
+    fun `Faster last layer heading opens two numbered Stage rows when enabled`() {
         val shipped = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
         val ready = CatalogState.Ready(shipped)
-        var clicked = 0
         rule.setContent {
             CubentiaTheme {
                 LearnScreen(
                     catalog = ready,
                     onOpen = {},
                     showFasterLastLayer = true,
-                    onOpenFasterLastLayer = { clicked++ },
                 )
             }
         }
@@ -457,8 +456,60 @@ class AppShellTest {
             .onNodeWithTag("learn:fasterLastLayer")
             .performScrollTo()
             .assertTextContains("Faster last layer")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Heading, Unit))
+            .assert(hasNoClickAction())
+        rule.onNodeWithTag("learn:stage:stage-08-two-look-oll").performScrollTo().assertTextContains("In progress")
+        rule.onNodeWithTag("learn:stage:stage-09-two-look-pll").performScrollTo().assertTextContains("In progress")
+    }
+
+    @Test fun `two look detail opens every Lesson without Course controls`() {
+        val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        var selected by mutableStateOf<StageId?>(null)
+        var opened: LessonId? = null
+        rule.setContent {
+            CubentiaTheme {
+                LearnScreen(
+                    CatalogState.Ready(bundle),
+                    onOpen = { opened = it },
+                    showFasterLastLayer = true,
+                    selectedStage = selected,
+                    onSelectStage = { selected = it },
+                )
+            }
+        }
+        rule.onNodeWithTag("learn:stage:stage-08-two-look-oll").performScrollTo().performClick()
+        rule.onNodeWithTag("stageDetail:title").assertTextContains("2-look OLL")
+        listOf("mastery", "trend", "practice", "skipCheck").forEach {
+            rule.onNodeWithTag("stageDetail:$it").assertDoesNotExist()
+        }
+        bundle.twoLookStages.first().lessons.forEach { lesson ->
+            rule.onNodeWithTag("learn:lesson:${lesson.id}").performScrollTo().assertIsEnabled()
+        }
+    }
+
+    @Test fun `a two look Stage with every Lesson completed reads Completed in its row and detail`() {
+        val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val oll = bundle.twoLookStages.first()
+        var selected by mutableStateOf<StageId?>(null)
+        rule.setContent {
+            CubentiaTheme {
+                LearnScreen(
+                    CatalogState.Ready(bundle),
+                    onOpen = {},
+                    showFasterLastLayer = true,
+                    progressEvents = oll.lessons.map { ProgressEvent.LessonCompleted(it.id) },
+                    selectedStage = selected,
+                    onSelectStage = { selected = it },
+                )
+            }
+        }
+        rule.onNodeWithTag("learn:stage:stage-09-two-look-pll").performScrollTo().assertTextContains("In progress")
+        rule
+            .onNodeWithTag("learn:stage:${oll.id}")
+            .performScrollTo()
+            .assertTextContains("Completed")
             .performClick()
-        assertEquals(1, clicked)
+        rule.onNodeWithTag("stageDetail:status").assertTextContains("Completed")
     }
 
     @Test

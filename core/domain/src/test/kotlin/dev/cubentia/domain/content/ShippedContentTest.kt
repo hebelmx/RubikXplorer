@@ -245,7 +245,7 @@ class ShippedContentTest {
 
     @Test
     fun `every shipped text key has its slot and step number`() {
-        bundle.stages.flatMap { it.lessons }.forEach { lesson ->
+        (bundle.stages + bundle.twoLookStages).flatMap { it.lessons }.forEach { lesson ->
             val prefix = "lesson.${lesson.id}"
             assertEquals(TextKey("$prefix.objective"), lesson.objective)
             assertEquals(TextKey("$prefix.learner-action"), lesson.learnerAction)
@@ -262,10 +262,10 @@ class ShippedContentTest {
 
     @Test
     fun `every shipped content string is used and follows the voice guide`() {
-        val titles = (bundle.stages.map { it.title } + bundle.cases.map { it.name }).map { it.value }.toSet()
+        val titles = ((bundle.stages + bundle.twoLookStages).map { it.title } + bundle.cases.map { it.name }).map { it.value }.toSet()
         val used =
             titles +
-                bundle.stages
+                (bundle.stages + bundle.twoLookStages)
                     .flatMap { it.lessons }
                     .flatMap { lesson ->
                         listOf(lesson.objective, lesson.learnerAction) +

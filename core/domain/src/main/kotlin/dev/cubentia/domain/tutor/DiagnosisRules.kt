@@ -12,6 +12,7 @@ import dev.cubentia.domain.predicate.CubeSolved
 import dev.cubentia.domain.predicate.LastLayerCornersPlaced
 import dev.cubentia.domain.predicate.LastLayerCrossSolved
 import dev.cubentia.domain.predicate.LastLayerOriented
+import dev.cubentia.domain.predicate.LastLayerStepReached
 import dev.cubentia.domain.predicate.MiddleLayerSolved
 import dev.cubentia.domain.predicate.Piece
 import dev.cubentia.domain.predicate.Predicate
@@ -139,7 +140,7 @@ internal object DiagnosisRules {
 
             is AnyOf -> predicate.predicates.flatMap(::leaves)
 
-            is AlwaysTrue, is StateReached, is WhiteCornersSolved, is WhiteCrossSolved, is WhitePieceSolved,
+            is LastLayerStepReached, is AlwaysTrue, is StateReached, is WhiteCornersSolved, is WhiteCrossSolved, is WhitePieceSolved,
             MiddleLayerSolved, LastLayerCrossSolved, LastLayerOriented, LastLayerCornersPlaced, CubeSolved,
             -> listOf(predicate)
         }
@@ -155,7 +156,7 @@ internal object DiagnosisRules {
 
                     is WhitePieceSolved -> listOf(leaf.piece)
 
-                    is AllOf, is AnyOf, is AlwaysTrue, is StateReached,
+                    is AllOf, is AnyOf, is LastLayerStepReached, is AlwaysTrue, is StateReached,
                     MiddleLayerSolved, LastLayerCrossSolved, LastLayerOriented, LastLayerCornersPlaced, CubeSolved,
                     -> emptyList()
                 }

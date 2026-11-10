@@ -67,6 +67,7 @@ import dev.cubentia.application.usecase.PlanRecovery
 import dev.cubentia.application.usecase.StagePractice
 import dev.cubentia.domain.appearance.StickerAppearance
 import dev.cubentia.domain.content.AdaptiveThresholds
+import dev.cubentia.domain.content.AlgorithmStatus
 import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
@@ -80,10 +81,13 @@ import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Notation
+import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.domain.cube.Turn
 import dev.cubentia.domain.input.Vector3
 import dev.cubentia.domain.input.ViewOrbit
 import dev.cubentia.domain.input.ViewPose
+import dev.cubentia.domain.lastlayer.RecognitionDiagram
+import dev.cubentia.domain.lastlayer.RecognitionDiagramResult
 import dev.cubentia.domain.playback.Demonstration
 import dev.cubentia.domain.playback.DemonstrationResult
 import dev.cubentia.domain.playback.PlaybackSpeed
@@ -98,6 +102,7 @@ import dev.cubentia.domain.tutor.RecoveryPlanner
 import dev.cubentia.domain.tutor.TeachingMode
 import dev.cubentia.domain.tutor.Tutor
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -119,6 +124,104 @@ import kotlin.time.Instant
 class LessonScreenTest {
     @get:Rule
     val rule = createComposeRule()
+
+    @Test fun twoLookOfferAcceptsOnlyOnExplicitAction() = twoLookOfferScenario(accept = true)
+
+    @Test fun twoLookOfferDeclinesWithoutWriting() = twoLookOfferScenario(accept = false)
+
+    @Test fun twoLookNextDoesNotAcceptOffer() = twoLookOfferScenario(accept = null)
+
+    @Test fun twoLookAlreadyLearnedHasNoOffer() = twoLookOfferScenario(accept = null, alreadyLearned = true)
+
+    @Test fun twoLookOfferStaysWithErrorWhenWriteFails() = twoLookOfferScenario(accept = true, writeFails = true)
+
+    private fun twoLookOfferScenario(
+        accept: Boolean?,
+        alreadyLearned: Boolean = false,
+        writeFails: Boolean = false,
+    ) {
+        val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val ready = CatalogState.Ready(bundle)
+        val entry =
+            ready.find(
+                bundle.twoLookStages
+                    .first()
+                    .lessons
+                    .first()
+                    .id,
+            )!!
+        val host = SessionHost(TickingClock())
+        val ids = bundle.lessonAlgorithms.getValue(entry.lesson.id)
+        val algorithm = bundle.algorithms.single { it.id == ids.first() }
+        val diagram =
+            (
+                RecognitionDiagram.derive(
+                    algorithm,
+                ) as RecognitionDiagramResult.Derived
+            ).diagram
+        var writes = 0
+        runBlocking {
+            host.restore(bundle)
+            if (alreadyLearned) ids.forEach { host.setAlgorithmStatus(it, AlgorithmStatus.LEARNED) }
+        }
+        rule.setContent {
+            CubentiaTheme {
+                LessonScreen(
+                    host,
+                    entry,
+                    ready.strings,
+                    TeachingMode.entries,
+                    {},
+                    isTwoLook = true,
+                    recognition = diagram,
+                    offerAlgorithms = if (alreadyLearned) emptyList() else ids,
+                    onAddToLearning = {
+                        writes++
+                        !writeFails && ids.map { host.setAlgorithmStatus(it, AlgorithmStatus.LEARNING) }.all { it }
+                    },
+                )
+            }
+        }
+        rule.waitUntil(5_000) {
+            host.state.value.kind == SessionKind.TWO_LOOK &&
+                rule.onAllNodesWithTag("lesson:panel").fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.waitForIdle()
+        assertEquals(SessionKind.TWO_LOOK, host.state.value.kind)
+        rule.onNodeWithTag("lesson:recognition").assertExists()
+        rule.onNodeWithTag("lesson:twoLookOffer").assertDoesNotExist()
+        rule.onNodeWithTag("lesson:modeSwitcher").assertExists()
+        rule.onNodeWithTag("lesson:hint").assertExists()
+        runBlocking {
+            (Notation.parse(entry.lesson.demonstration) as NotationResult.Parsed).moves.forEach { move ->
+                host.dispatch { SessionEvent.MoveCommitted(move, it) }
+            }
+        }
+        rule.waitForIdle()
+        assertEquals(0, writes)
+        if (accept == null) {
+            if (alreadyLearned) rule.onNodeWithTag("lesson:twoLookOffer").assertDoesNotExist()
+            rule.onNodeWithTag("lesson:next").performScrollTo().performClick()
+            assertEquals(0, writes)
+            val statuses = runBlocking { host.algorithmStatuses.first() }
+            assertEquals(if (alreadyLearned) AlgorithmStatus.LEARNED else null, statuses[ids.first()])
+            return
+        }
+        rule.onNodeWithTag(if (accept) "lesson:twoLookOffer:add" else "lesson:twoLookOffer:decline").performScrollTo().performClick()
+        rule.waitForIdle()
+        if (writeFails) {
+            rule.onNodeWithTag("lesson:twoLookOffer").assertExists()
+            rule.onNodeWithTag("lesson:twoLookOffer:failed").assertExists()
+            rule.onNodeWithTag("lesson:twoLookOffer:add").assertExists()
+            assertEquals(1, writes)
+            assertEquals(null, runBlocking { host.algorithmStatuses.first() }[ids.first()])
+            return
+        }
+        rule.onNodeWithTag("lesson:twoLookOffer").assertDoesNotExist()
+        assertEquals(if (accept) 1 else 0, writes)
+        val statuses = runBlocking { host.algorithmStatuses.first() }
+        assertEquals(if (accept) AlgorithmStatus.LEARNING else null, statuses[ids.first()])
+    }
 
     @Test
     fun restoredLessonIsKeptBeforeStartCheck() {
@@ -203,7 +306,7 @@ class LessonScreenTest {
         val writer = SerialWriter()
         val repository =
             object : dev.cubentia.application.port.CheckpointRepository {
-                override suspend fun find(kind: dev.cubentia.application.session.SessionKind) =
+                override suspend fun find(kind: SessionKind) =
                     dev.cubentia.application.port.CheckpointLoad
                         .Found(checkpoint)
 
