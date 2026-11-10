@@ -52,13 +52,14 @@ object ContentValidator {
 
     fun validate(bundle: ContentBundle): List<ContentProblem> {
         val problems = mutableListOf<ContentProblem>()
-        val lessons = bundle.stages.flatMap { it.lessons }
+        val stages = bundle.stages + bundle.twoLookStages
+        val lessons = stages.flatMap { it.lessons }
         val known = lessons.map { it.id }.toSet()
 
-        duplicates(bundle.stages.map { it.id }).mapTo(problems) { ContentProblem.DuplicateStageId(it) }
+        duplicates(stages.map { it.id }).mapTo(problems) { ContentProblem.DuplicateStageId(it) }
         duplicates(lessons.map { it.id }).mapTo(problems) { ContentProblem.DuplicateLessonId(it) }
 
-        bundle.stages.forEach { stage ->
+        stages.forEach { stage ->
             if (!stage.id.isWellFormed) problems += ContentProblem.MalformedStageId(stage.id)
             problems += textProblems(stage.id.value, listOf(stage.title), bundle.strings)
             stage.lessons.forEach { problems += lessonProblems(stage, it, known, bundle.strings) }

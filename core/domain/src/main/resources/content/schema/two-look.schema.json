@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "two-look.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "title",
+    "lessons"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^stage-[0-9]{2}-[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "title": {
+      "$ref": "lesson.schema.json#/$defs/textKey"
+    },
+    "lessons": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/lesson"
+      }
+    }
+  },
+  "$defs": {
+    "lesson": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "stageId",
+        "prerequisites",
+        "objective",
+        "learnerAction",
+        "completion",
+        "preserve",
+        "recovery",
+        "steps"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "lesson.schema.json#/$defs/lessonId"
+        },
+        "stageId": {
+          "type": "string",
+          "pattern": "^stage-[0-9]{2}-[a-z0-9]+(-[a-z0-9]+)*$"
+        },
+        "prerequisites": {
+          "type": "array",
+          "items": {
+            "$ref": "lesson.schema.json#/$defs/lessonId"
+          }
+        },
+        "objective": {
+          "$ref": "lesson.schema.json#/$defs/textKey"
+        },
+        "learnerAction": {
+          "$ref": "lesson.schema.json#/$defs/textKey"
+        },
+        "completion": {
+          "$ref": "predicate.schema.json"
+        },
+        "preserve": {
+          "$ref": "predicate.schema.json"
+        },
+        "recovery": {
+          "type": "string",
+          "pattern": "^recovery-[a-z0-9]+(-[a-z0-9]+)*$"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "goal",
+              "preserve",
+              "watch",
+              "notice",
+              "done",
+              "algorithm"
+            ],
+            "properties": {
+              "goal": {
+                "$ref": "lesson.schema.json#/$defs/textKey"
+              },
+              "preserve": {
+                "$ref": "lesson.schema.json#/$defs/textKey"
+              },
+              "watch": {
+                "$ref": "lesson.schema.json#/$defs/textKey"
+              },
+              "notice": {
+                "$ref": "lesson.schema.json#/$defs/textKey"
+              },
+              "done": {
+                "$ref": "predicate.schema.json"
+              },
+              "algorithm": {
+                "$ref": "algorithms.schema.json#/$defs/algorithmId"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

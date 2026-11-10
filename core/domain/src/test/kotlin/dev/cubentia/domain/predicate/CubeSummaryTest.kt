@@ -1,6 +1,13 @@
 package dev.cubentia.domain.predicate
 
+import dev.cubentia.domain.content.ContentLoadResult
+import dev.cubentia.domain.content.ContentLoader
+import dev.cubentia.domain.content.ContentSource
+import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.lastlayer.CaseStateResult
+import dev.cubentia.domain.lastlayer.LastLayerMatcher
+import dev.cubentia.domain.lastlayer.LastLayerStep
 import dev.cubentia.domain.predicate.Fixtures.state
 import dev.cubentia.domain.text.Text
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -103,5 +110,15 @@ class CubeSummaryTest {
     @Test fun `nothing produces no parts`() {
         assertEquals(emptyList<Text>(), CubeSummary.of(solved, AlwaysTrue))
         assertEquals(emptyList<Text>(), CubeSummary.of(solved, AllOf(listOf(AlwaysTrue))))
+    }
+
+    @Test fun `a partial last-layer step names its own progress key`() {
+        val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val ua = bundle.algorithms.single { it.id.value == "alg-pll-ua-a" }
+        val state = (LastLayerMatcher.caseState(ua, Color.YELLOW) as CaseStateResult.Derived).state
+        assertEquals(
+            listOf(Text("msg.cube-summary.two-look-solved-up-to-auf-progress", mapOf("done" to 5, "total" to 8))),
+            CubeSummary.of(state, LastLayerStepReached(LastLayerStep.SOLVED_UP_TO_AUF)),
+        )
     }
 }

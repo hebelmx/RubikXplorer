@@ -6,6 +6,7 @@ import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.StateRestorationTester
@@ -23,9 +24,17 @@ import dev.cubentia.app.session.TickingClock
 import dev.cubentia.app.session.testFlags
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
 import dev.cubentia.app.ui.theme.CubentiaTheme
+import dev.cubentia.application.session.SessionEvent
+import dev.cubentia.application.session.SessionKind
+import dev.cubentia.domain.content.AlgorithmId
+import dev.cubentia.domain.content.AlgorithmStatus
 import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
+import dev.cubentia.domain.content.Lesson
+import dev.cubentia.domain.cube.Notation
+import dev.cubentia.domain.cube.NotationResult
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -39,6 +48,7 @@ import org.robolectric.annotation.Config
 @Config(application = Application::class, qualifiers = "w411dp-h891dp")
 class AppShellLibraryTest {
     @get:Rule val rule = createComposeRule()
+    private lateinit var sessionHost: SessionHost
     private lateinit var back: OnBackPressedDispatcher
     private val loaded = ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded
 
@@ -54,6 +64,7 @@ class AppShellLibraryTest {
                     .limitedParallelism(1),
                 preferences = preferences,
             )
+        sessionHost = host
         if (unlocked) runBlocking { host.passSkipCheck(loaded.bundle.stages.map { it.id }, loaded.bundle.stages) }
         val catalog = LessonCatalog.of(loaded)
         val freeCube = FreeCubeViewModel()
@@ -218,6 +229,93 @@ class AppShellLibraryTest {
         rule.onNodeWithTag("library:two-look").performClick()
         rule.onNodeWithTag("learn:fasterLastLayer").assertIsDisplayed()
         rule.onNodeWithTag("learn:twoLookLocked").assertDoesNotExist()
+    }
+
+    private fun solve(lesson: Lesson) {
+        val moves = (Notation.parse(lesson.demonstration) as NotationResult.Parsed).moves
+        runBlocking { moves.forEach { move -> sessionHost.dispatch { SessionEvent.MoveCommitted(move, it) } } }
+        rule.waitForIdle()
+    }
+
+    private fun openFirstTwoLookLesson(): Lesson {
+        rule.onNodeWithTag("nav:learn").performClick()
+        rule.onNodeWithTag("learn:stage:stage-08-two-look-oll").performScrollTo().performClick()
+        rule.onNodeWithTag("learn:lesson:lesson-08-01").performScrollTo().performClick()
+        rule.waitUntil(5_000) { sessionHost.state.value.kind == SessionKind.TWO_LOOK }
+        rule.waitForIdle()
+        return loaded.bundle.twoLookStages
+            .first()
+            .lessons
+            .first()
+    }
+
+    @Test fun `unfinished Course shows no 2-look rows`() {
+        launch()
+        rule.onNodeWithTag("nav:learn").performClick()
+        rule.onNodeWithTag("learn:fasterLastLayer").assertDoesNotExist()
+        rule.onNodeWithTag("learn:stage:stage-08-two-look-oll").assertDoesNotExist()
+        rule.onNodeWithTag("learn:stage:stage-09-two-look-pll").assertDoesNotExist()
+    }
+
+    @Test fun `skipped Course shows both 2-look rows In progress`() {
+        launch(unlocked = true)
+        rule.onNodeWithTag("nav:learn").performClick()
+        listOf("stage-08-two-look-oll", "stage-09-two-look-pll").forEach {
+            rule.onNodeWithTag("learn:stage:$it").performScrollTo().assertTextContains("In progress")
+        }
+    }
+
+    @Test fun `Course Lesson stays a LESSON session with no diagram or offer`() {
+        launch()
+        rule.onNodeWithTag("nav:learn").performClick()
+        rule.onNodeWithTag("learn:stage:stage-02-first-cross").performScrollTo().performClick()
+        val stage = loaded.bundle.stages.single { it.id.value == "stage-02-first-cross" }
+        val lesson = stage.lessons.first()
+        runBlocking {
+            sessionHost.passSkipCheck(
+                listOf(
+                    loaded.bundle.stages
+                        .first()
+                        .id,
+                ),
+                loaded.bundle.stages,
+            )
+        }
+        rule.waitForIdle()
+        rule.onNodeWithTag("learn:lesson:${lesson.id}").performScrollTo().performClick()
+        rule.waitUntil(5_000) { sessionHost.state.value.kind == SessionKind.LESSON }
+        rule.waitForIdle()
+        rule.onNodeWithTag("lesson:recognition").assertDoesNotExist()
+        solve(lesson)
+        assertTrue(sessionHost.state.value.objectiveMet)
+        rule.onNodeWithTag("lesson:twoLookOffer").assertDoesNotExist()
+    }
+
+    @Test fun `already Learned Algorithm gets no offer and is not demoted`() {
+        launch(unlocked = true)
+        val id = AlgorithmId("alg-oll-02-a")
+        runBlocking { sessionHost.setAlgorithmStatus(id, AlgorithmStatus.LEARNED) }
+        rule.waitForIdle()
+        solve(openFirstTwoLookLesson())
+        assertTrue(sessionHost.state.value.objectiveMet)
+        rule.onNodeWithTag("lesson:twoLookOffer").assertDoesNotExist()
+        assertEquals(AlgorithmStatus.LEARNED, runBlocking { sessionHost.algorithmStatuses.first() }[id])
+    }
+
+    @Test fun `unlocked two look Lesson accepts Learning offer and updates its Library tile`() {
+        launch(unlocked = true)
+        val lesson = openFirstTwoLookLesson()
+        assertEquals(SessionKind.TWO_LOOK, sessionHost.state.value.kind)
+        rule.onNodeWithTag("lesson:recognition").assertExists()
+        solve(lesson)
+        rule.onNodeWithTag("lesson:twoLookOffer:add").performScrollTo().performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("lesson:twoLookOffer").assertDoesNotExist()
+        rule.onNodeWithTag("lesson:close").performClick()
+        rule.onNodeWithTag("nav:library").performClick()
+        rule.onNodeWithTag("library:status:LEARNING").performClick()
+        rule.onNodeWithTag("library:case:case-oll-02").assertExists()
+        rule.onNodeWithTag("library:status-label", useUnmergedTree = true).assertTextEquals("Learning")
     }
 
     @Test fun `setting detail status updates tile filter and clearing removes label`() {

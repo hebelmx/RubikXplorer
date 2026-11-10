@@ -49,6 +49,7 @@ sealed interface SessionEvent {
         override val at: Instant,
         val adaptiveAssistance: Boolean = false,
         val mode: TeachingMode? = null,
+        val kind: SessionKind = SessionKind.LESSON,
     ) : SessionEvent
 
     /**

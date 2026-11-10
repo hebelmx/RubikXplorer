@@ -127,6 +127,9 @@ object ContentLoader {
         val stages = manifest.stages.map { path -> read(path).let { parse(path) { json.decodeFromString<Stage>(it) } } }
         val algorithmFiles =
             manifest.algorithms.map { path -> read(path).let { parse(path) { json.decodeFromString<AlgorithmFile>(it) } } }
+        val authored = manifest.twoLook.map { path -> read(path).let { parse(path) { json.decodeFromString<TwoLookStage>(it) } } }
+        val twoLook = TwoLookResolver.resolve(authored, algorithmFiles.flatMap { it.algorithms })
+        if (twoLook.problems.isNotEmpty()) fail(ContentLoadError.Invalid(twoLook.problems))
         val strings = read(STRINGS).let { parse(STRINGS) { json.decodeFromString<Map<String, String>>(it) } }
         val tutorConfig = read(TUTOR_CONFIG).let { parse(TUTOR_CONFIG) { json.decodeFromString<TutorConfig>(it) } }
 
@@ -140,6 +143,8 @@ object ContentLoader {
                 tutorConfig,
                 algorithmFiles.flatMap { it.cases },
                 algorithmFiles.flatMap { it.algorithms },
+                twoLook.stages,
+                twoLook.lessonAlgorithms,
             )
         val problems = parse(MANIFEST) { ContentValidator.validate(bundle) }
         if (problems.isNotEmpty()) fail(ContentLoadError.Invalid(problems))

@@ -5,6 +5,11 @@ import dev.cubentia.domain.cube.ValidationResult
 
 /** One reason a decoded [ContentBundle] is not valid content; see [ContentValidator]. */
 sealed interface ContentProblem {
+    data class UnknownAlgorithm(
+        val lesson: LessonId,
+        val algorithm: AlgorithmId,
+    ) : ContentProblem
+
     /** Two Stages share [id]. */
     data class DuplicateStageId(
         val id: StageId,

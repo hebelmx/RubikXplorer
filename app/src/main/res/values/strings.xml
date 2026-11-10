@@ -201,4 +201,8 @@
     <string name="playback_scrub_description">Move boundary</string>
     <string name="library_open_detail">Open Algorithm detail</string>
     <string name="library_detail_back">Back to Library</string>
+    <string name="lesson_two_look_offer">Add these algorithms to Learning?</string>
+    <string name="lesson_two_look_add">Add to Learning</string>
+    <string name="lesson_two_look_decline">Not now</string>
+    <string name="lesson_recognition_description">Recognition diagram for: %1$s</string>
 </resources>

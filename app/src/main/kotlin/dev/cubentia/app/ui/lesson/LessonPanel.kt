@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,11 +47,15 @@ import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.R
 import dev.cubentia.app.content.ContentStrings
+import dev.cubentia.app.preferences.LocalRenderStyle
+import dev.cubentia.app.ui.library.RecognitionDiagramView
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.application.session.SyncState
+import dev.cubentia.domain.content.AlgorithmId
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Notation
+import dev.cubentia.domain.lastlayer.RecognitionDiagram
 import dev.cubentia.domain.tutor.HintRung
 import dev.cubentia.domain.tutor.RecoveryOffer
 import dev.cubentia.domain.tutor.TeachingMode
@@ -139,6 +144,10 @@ internal fun LessonPanel(
     onMismatchRungChange: (Int) -> Unit = {},
     isEndOfStage6: Boolean = step.isEndOfStage6,
     onYesItsSolved: () -> Unit = {},
+    recognition: RecognitionDiagram? = null,
+    offerAlgorithms: List<AlgorithmId> = emptyList(),
+    offerKey: String = "",
+    onAddToLearning: () -> Unit = {},
 ) {
     val tokens = RubikTheme.tokens
     Column(
@@ -157,6 +166,22 @@ internal fun LessonPanel(
             color = tokens.inkPrimary,
             modifier = Modifier.testTag("lesson:objective").semantics { heading() },
         )
+        recognition?.let { diagram ->
+            Box(Modifier.testTag("lesson:recognition")) {
+                RecognitionDiagramView(
+                    diagram,
+                    stringResource(R.string.lesson_recognition_description, objective),
+                    LocalRenderStyle.current,
+                )
+            }
+        }
+        var offerDismissed by rememberSaveable(offerKey) { mutableStateOf(false) }
+        if (step.objectiveMet && offerAlgorithms.isNotEmpty() && !offerDismissed) {
+            TwoLookOffer(onAdd = {
+                onAddToLearning()
+                offerDismissed = true
+            }, onDecline = { offerDismissed = true })
+        }
         StepCard(step, onShowMove, onShowMeHow, onRecovery, Modifier.fillMaxWidth())
         step.assistance?.let { AssistanceLine(it, onUsualHelp, Modifier.fillMaxWidth()) }
         if (!step.isPractice) {

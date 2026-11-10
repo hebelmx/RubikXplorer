@@ -59,9 +59,12 @@ import dev.cubentia.application.port.FeatureFlags
 import dev.cubentia.application.port.FlagLevel
 import dev.cubentia.application.session.SessionKind
 import dev.cubentia.application.usecase.StagePractice
+import dev.cubentia.domain.content.AlgorithmStatus
 import dev.cubentia.domain.content.LessonId
 import dev.cubentia.domain.content.LibraryFilter
 import dev.cubentia.domain.content.StageId
+import dev.cubentia.domain.lastlayer.RecognitionDiagram
+import dev.cubentia.domain.lastlayer.RecognitionDiagramResult
 import dev.cubentia.domain.tutor.StageProgress
 import dev.cubentia.domain.tutor.StageStatus
 import dev.cubentia.domain.tutor.TeachingMode
@@ -193,6 +196,16 @@ private fun ShellContent(
     }
     val entry = openLesson?.let { ready?.find(LessonId(it)) }
     if (ready != null && entry != null) {
+        val lessonAlgorithms = ready.bundle.lessonAlgorithms[entry.lesson.id].orEmpty()
+        val notStarted = lessonAlgorithms.filter { (algorithmStatuses[it] ?: AlgorithmStatus.NOT_STARTED) == AlgorithmStatus.NOT_STARTED }
+        val recognition =
+            remember(entry.lesson.id) {
+                lessonAlgorithms.firstOrNull()?.let { id ->
+                    ready.bundle.algorithms.firstOrNull { it.id == id }?.let { algorithm ->
+                        (RecognitionDiagram.derive(algorithm) as? RecognitionDiagramResult.Derived)?.diagram
+                    }
+                }
+            }
         LessonScreen(
             host = host,
             entry = entry,
@@ -202,6 +215,12 @@ private fun ShellContent(
             modifier = modifier,
             adaptiveAssistance = flags.level(FeatureFlag.ADAPTIVE_ASSISTANCE),
             cameraScan = flags.level(FeatureFlag.CAMERA_SCAN),
+            isTwoLook = entry.stage in ready.bundle.twoLookStages,
+            recognition = recognition,
+            offerAlgorithms = notStarted,
+            onAddToLearning = {
+                scope.launch { notStarted.forEach { host.setAlgorithmStatus(it, AlgorithmStatus.LEARNING) } }
+            },
             onPracticeNewScramble = {
                 openLesson = null
                 openPractice =
@@ -378,7 +397,7 @@ private fun ShellContent(
                         destinationModifier.background(RubikTheme.tokens.surfaceBase).safeDrawingPadding(),
                         status =
                             requestedStatus.shown(
-                                algorithmStatuses[algorithm.id] ?: dev.cubentia.domain.content.AlgorithmStatus.NOT_STARTED,
+                                algorithmStatuses[algorithm.id] ?: AlgorithmStatus.NOT_STARTED,
                             ),
                         onSetStatus = { status ->
                             requestedStatus.request(status)
@@ -423,7 +442,7 @@ private fun ShellContent(
                 LearnScreen(
                     catalog = content,
                     continueEntry =
-                        if (session.kind == SessionKind.LESSON) {
+                        if (session.kind?.isTaught == true) {
                             session.lesson?.let { ready?.find(it.id) }
                         } else {
                             null

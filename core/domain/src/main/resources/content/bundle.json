@@ -12,5 +12,9 @@
   "algorithms": [
     "algorithms/oll.json",
     "algorithms/pll.json"
+  ],
+  "twoLook": [
+    "two-look/stage-08-two-look-oll.json",
+    "two-look/stage-09-two-look-pll.json"
   ]
 }

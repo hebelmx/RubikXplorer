@@ -206,7 +206,7 @@ class SessionHost internal constructor(
         if (loaded is SnapshotLoad.Failed) dispatch { SessionEvent.SnapshotLoadFailed(it) }
         val snapshot = (loaded as? SnapshotLoad.Found)?.snapshot
         if (snapshot != null && snapshot.kind.resumesOnColdStart && snapshot.contentRevision == bundle.contentRevision) {
-            val lesson = bundle.stages.flatMap { it.lessons }.firstOrNull { it.id.value == snapshot.lessonId }
+            val lesson = (bundle.stages + bundle.twoLookStages).flatMap { it.lessons }.firstOrNull { it.id.value == snapshot.lessonId }
             if (lesson != null) dispatch { SessionEvent.SessionRestored(snapshot, lesson, bundle.tutorConfig, it) }
         }
         if (state.value.isActive) return
@@ -529,7 +529,7 @@ class SessionHost internal constructor(
                     transition.state.objectiveMet && (!before.objectiveMet || before.lesson?.id != lesson?.id)
                 }
             if (completeLesson != null &&
-                transition.state.kind == SessionKind.LESSON &&
+                transition.state.kind?.isTaught == true &&
                 lesson != null &&
                 !lesson.id.value.startsWith("skip-check-") &&
                 stamped !is SessionEvent.SessionRestored &&

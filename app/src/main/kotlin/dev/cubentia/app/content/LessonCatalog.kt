@@ -37,7 +37,7 @@ sealed interface CatalogState {
         val bundle: ContentBundle,
     ) : CatalogState {
         val lessons: List<CatalogEntry> =
-            bundle.stages.flatMap { stage ->
+            (bundle.stages + bundle.twoLookStages).flatMap { stage ->
                 stage.lessons.map { CatalogEntry(it, stage, bundle.tutorConfig) }
             }
         val strings: ContentStrings = ContentStrings(bundle.strings)

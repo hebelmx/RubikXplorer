@@ -53,7 +53,7 @@ data class SessionSnapshot(
                 sessionId = sessionId,
                 revision = state.revision,
                 lessonId = state.lesson?.id?.value,
-                contentRevision = contentRevision.takeIf { kind == SessionKind.LESSON },
+                contentRevision = contentRevision.takeIf { kind.isTaught },
                 start = FaceletString.encode(state.entry.toFacelets()),
                 done = Notation.format(state.history.done),
                 undone = Notation.format(state.history.undone),
