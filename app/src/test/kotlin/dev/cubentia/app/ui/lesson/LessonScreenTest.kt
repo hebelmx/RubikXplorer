@@ -207,7 +207,7 @@ class LessonScreenTest {
                 }
             }
         }
-        if (physical) runBlocking { localHost.dispatch { SessionEvent.PhysicalSolveConfirmed(it) } }
+        if (physical) rule.onNodeWithTag("lesson:yesItsSolved").performScrollTo().performClick()
         rule.waitForIdle()
         rule.onNodeWithTag("lesson:twoLookResult").assertTextContains(
             if (hint ||

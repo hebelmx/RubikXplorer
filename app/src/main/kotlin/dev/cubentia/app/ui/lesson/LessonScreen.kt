@@ -682,7 +682,13 @@ private fun LessonBody(
             },
             mismatchRung = mismatchRung,
             onMismatchRungChange = { mismatchRung = it },
-            isEndOfStage6 = lesson.isCourseFinale,
+            isEndOfStage6 =
+                lesson.isCourseFinale ||
+                    (
+                        session.kind == SessionKind.PRACTICE && session.twoLookAlgorithms.isNotEmpty() &&
+                            (session.syncState == SyncState.PHYSICAL_PREDICTED || session.syncState == SyncState.PHYSICAL_VERIFIED) &&
+                            session.objectiveMet && !session.physicalSolveConfirmed
+                    ),
             onYesItsSolved = onYesItsSolved,
         )
     }
