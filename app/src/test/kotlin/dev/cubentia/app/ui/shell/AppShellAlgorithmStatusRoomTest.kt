@@ -33,6 +33,7 @@ import dev.cubentia.domain.content.ContentSource
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -114,6 +115,47 @@ class AppShellAlgorithmStatusRoomTest {
         }
     }
 
+    @Test fun `Library retains the last loaded status during failure and updates after recovery`() {
+        val id =
+            loaded.bundle.algorithms
+                .first { it.caseId.value == "case-oll-01" }
+                .id
+        val loads =
+            MutableStateFlow<dev.cubentia.application.port.AlgorithmStatusLoad>(
+                dev.cubentia.application.port.AlgorithmStatusLoad
+                    .Loaded(mapOf(id to AlgorithmStatus.LEARNED)),
+            )
+        val repository =
+            object : AlgorithmStatusRepository {
+                override fun statuses() = loads
+
+                override suspend fun append(record: AlgorithmStatusRecord) = AlgorithmStatusSave.Saved
+            }
+        val preferences = PreferenceStore()
+        val host =
+            SessionHost(
+                TickingClock(),
+                Dispatchers.Default.limitedParallelism(1),
+                algorithmStatusRepository = repository,
+                preferences = preferences,
+            )
+        openDetail(host, preferences)
+        rule.onNodeWithTag("algorithmDetail:status:LEARNED").assertIsSelected()
+        rule.onNodeWithTag("algorithmDetail:back").performClick()
+        rule.waitUntil(5000) { labels() == 1 }
+        rule.onNodeWithTag("library:status-label", useUnmergedTree = true).assertTextEquals("Learned")
+        rule.runOnIdle { loads.value = dev.cubentia.application.port.AlgorithmStatusLoad.Failed }
+        rule.waitForIdle()
+        rule.onNodeWithTag("library:status-label", useUnmergedTree = true).assertTextEquals("Learned")
+        rule.runOnIdle {
+            loads.value =
+                dev.cubentia.application.port.AlgorithmStatusLoad
+                    .Loaded(mapOf(id to AlgorithmStatus.LEARNING))
+        }
+        rule.waitForIdle()
+        rule.onNodeWithTag("library:status-label", useUnmergedTree = true).assertTextEquals("Learning")
+    }
+
     private fun openDetail(
         host: SessionHost,
         preferences: PreferenceStore,
@@ -186,7 +228,11 @@ class AppShellAlgorithmStatusRoomTest {
         val persisted = MutableStateFlow<Map<AlgorithmId, AlgorithmStatus>>(emptyMap())
         val repository =
             object : AlgorithmStatusRepository {
-                override fun statuses() = persisted
+                override fun statuses() =
+                    persisted.map {
+                        dev.cubentia.application.port.AlgorithmStatusLoad
+                            .Loaded(it)
+                    }
 
                 override suspend fun append(record: AlgorithmStatusRecord) = AlgorithmStatusSave.Failed
             }

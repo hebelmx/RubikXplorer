@@ -18,7 +18,7 @@ Columns:
 - **Clears redo** — `yes` when nothing is left to redo whenever the event advances `revision`.
 
 Every event other than `LessonStarted`, `PracticeStarted`, `SolvePlaybackStarted`, `SessionRestored` and `CheckpointRestored` leaves an idle state (no session)
-unchanged. A result
+unchanged. `SessionEnded` also leaves IDLE unchanged; otherwise it clears the session, advances revision once and closes an open attempt as ABANDONED. A result
 (`ResetConfirmed`, `ResetDeclined`) whose `effectId` and `revision` do not match the pending
 confirmation at the current revision changes nothing but `lastDiscarded`
 (`EffectResultDiscarded`) and the last Move's feedback and Diagnosis, which it clears; a `ResetConfirmed` overtaken by a newer revision re-offers a fresh confirmation while unsaved
@@ -33,6 +33,7 @@ steps remain.
 | LessonStarted | session, virtual, pending, tutor, checkpoint | no | yes |
 | PracticeStarted | session, virtual, pending, tutor, checkpoint | no | yes |
 | SolvePlaybackStarted | session, virtual, pending, tutor, checkpoint | no | yes |
+| SessionEnded | session, virtual, pending, tutor, checkpoint | no | yes |
 | SolvePlaybackEnded | session, virtual, tutor | no | yes |
 | MoveCommitted | virtual, pending, tutor, checkpoint | yes | yes |
 | Undo | virtual, pending, tutor, checkpoint | no | no |

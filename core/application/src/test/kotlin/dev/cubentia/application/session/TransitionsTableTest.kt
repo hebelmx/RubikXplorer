@@ -126,6 +126,10 @@ class TransitionsTableTest {
                 }
             }
 
+            is SessionEvent.SessionEnded -> {
+                listOf(SessionState.IDLE, fresh, b, askedB, playback).map { it to sample }
+            }
+
             is SessionEvent.SolvePlaybackEnded -> {
                 listOf(SessionState.IDLE, b, playback, playback.copy(history = b.history, teachingMode = TeachingMode.SHOW_ME)).map {
                     it to
@@ -356,6 +360,7 @@ class TransitionsTableTest {
             lessonStarted(other),
             SessionEvent.PracticeStarted(other, TUTOR_CONFIG, lessonStarted(other).at),
             playbackStarted(),
+            SessionEvent.SessionEnded(lessonStarted(other).at),
             SessionEvent.SolvePlaybackEnded(lessonStarted(other).at),
             commit(F),
             undo,
@@ -424,7 +429,7 @@ class TransitionsTableTest {
         assertEquals(names.size, names.toSet().size, "duplicate rows: $names")
         assertEquals(eventTypes, names.toSet())
         assertEquals(eventTypes, samples.keys)
-        assertEquals(30, eventTypes.size)
+        assertEquals(31, eventTypes.size)
     }
 
     @Test

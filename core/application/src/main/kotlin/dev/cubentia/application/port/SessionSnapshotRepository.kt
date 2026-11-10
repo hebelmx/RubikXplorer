@@ -9,6 +9,8 @@ interface SessionSnapshotRepository {
         attempts: List<AttemptRecord> = emptyList(),
     ): SnapshotSave
 
+    suspend fun clear(attempts: List<AttemptRecord> = emptyList()): SnapshotSave
+
     suspend fun latest(): SnapshotLoad
 }
 

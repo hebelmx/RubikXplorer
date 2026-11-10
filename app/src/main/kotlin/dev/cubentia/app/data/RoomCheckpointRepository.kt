@@ -20,6 +20,16 @@ class RoomCheckpointRepository(
             CheckpointSave.Failed
         }
 
+    override suspend fun clear(): CheckpointSave =
+        try {
+            database.checkpoints().clear()
+            CheckpointSave.Saved
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            CheckpointSave.Failed
+        }
+
     override suspend fun find(kind: SessionKind): CheckpointLoad =
         try {
             val row = database.checkpoints().find(kind.name)

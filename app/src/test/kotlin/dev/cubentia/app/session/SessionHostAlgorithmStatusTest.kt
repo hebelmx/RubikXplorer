@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -28,7 +29,11 @@ class SessionHostAlgorithmStatusTest {
             var writes = 0
             val repo =
                 object : AlgorithmStatusRepository {
-                    override fun statuses() = statuses
+                    override fun statuses() =
+                        statuses.map {
+                            dev.cubentia.application.port.AlgorithmStatusLoad
+                                .Loaded(it)
+                        }
 
                     override suspend fun append(record: AlgorithmStatusRecord): AlgorithmStatusSave {
                         writes++
@@ -67,7 +72,11 @@ class SessionHostAlgorithmStatusTest {
             val records = mutableListOf<AlgorithmStatusRecord>()
             val repo =
                 object : AlgorithmStatusRepository {
-                    override fun statuses() = MutableStateFlow(emptyMap<AlgorithmId, AlgorithmStatus>())
+                    override fun statuses() =
+                        MutableStateFlow(
+                            dev.cubentia.application.port.AlgorithmStatusLoad
+                                .Loaded(emptyMap<AlgorithmId, AlgorithmStatus>()),
+                        )
 
                     override suspend fun append(record: AlgorithmStatusRecord): AlgorithmStatusSave {
                         records.add(record)

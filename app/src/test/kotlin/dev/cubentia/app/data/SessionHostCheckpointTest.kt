@@ -134,6 +134,8 @@ class SessionHostCheckpointTest {
                     val events = java.util.concurrent.CopyOnWriteArrayList<SessionEvent>()
                     val counting =
                         object : CheckpointRepository {
+                            override suspend fun clear() = dev.cubentia.application.port.CheckpointSave.Saved
+
                             override suspend fun save(checkpoint: Checkpoint) = repo.save(checkpoint)
 
                             override suspend fun find(kind: SessionKind): CheckpointLoad {
@@ -448,6 +450,8 @@ class SessionHostCheckpointTest {
                 val events = java.util.concurrent.CopyOnWriteArrayList<SessionEvent>()
                 val repo =
                     object : CheckpointRepository {
+                        override suspend fun clear() = dev.cubentia.application.port.CheckpointSave.Saved
+
                         override suspend fun save(checkpoint: Checkpoint): CheckpointSave {
                             if (throws) error("save")
                             return CheckpointSave.Failed

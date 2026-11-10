@@ -20,7 +20,11 @@ class SetAlgorithmStatusTest {
             var save: AlgorithmStatusSave = AlgorithmStatusSave.Saved
             val repository =
                 object : AlgorithmStatusRepository {
-                    override fun statuses() = flowOf(emptyMap<AlgorithmId, AlgorithmStatus>())
+                    override fun statuses() =
+                        flowOf(
+                            dev.cubentia.application.port.AlgorithmStatusLoad
+                                .Loaded(emptyMap<AlgorithmId, AlgorithmStatus>()),
+                        )
 
                     override suspend fun append(record: AlgorithmStatusRecord): AlgorithmStatusSave {
                         records.add(record)

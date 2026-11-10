@@ -329,6 +329,20 @@ class LessonScreenTest {
         assertEquals(if (accept) AlgorithmStatus.LEARNING else null, statuses[ids.first()])
     }
 
+    @Test fun `Course Lesson replaces practice even when its Lesson id is identical`() {
+        val ready = CatalogState.Ready((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle)
+        val entry = ready.lessons.first()
+        runBlocking {
+            host.restore(ready.bundle)
+            host.dispatch { SessionEvent.PracticeStarted(entry.lesson, entry.tutorConfig, it) }
+        }
+        rule.setContent {
+            CubentiaTheme { LessonScreen(host, entry, ready.strings, TeachingMode.entries, {}) }
+        }
+        rule.waitUntil(5000) { host.state.value.kind == dev.cubentia.application.session.SessionKind.LESSON }
+        rule.onNodeWithTag("lesson:modeSwitcher").assertExists()
+    }
+
     @Test
     fun restoredLessonIsKeptBeforeStartCheck() {
         val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
@@ -348,6 +362,9 @@ class LessonScreenTest {
             )
         val repository =
             object : SessionSnapshotRepository {
+                override suspend fun clear(attempts: List<dev.cubentia.application.session.AttemptRecord>) =
+                    dev.cubentia.application.port.SnapshotSave.Saved
+
                 override suspend fun latest() = SnapshotLoad.Found(snapshot)
 
                 override suspend fun save(
@@ -412,6 +429,8 @@ class LessonScreenTest {
         val writer = SerialWriter()
         val repository =
             object : dev.cubentia.application.port.CheckpointRepository {
+                override suspend fun clear() = dev.cubentia.application.port.CheckpointSave.Saved
+
                 override suspend fun find(kind: SessionKind) =
                     dev.cubentia.application.port.CheckpointLoad
                         .Found(checkpoint)

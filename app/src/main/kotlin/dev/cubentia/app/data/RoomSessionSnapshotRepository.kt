@@ -41,6 +41,19 @@ class RoomSessionSnapshotRepository(
             SnapshotSave.Failed
         }
 
+    override suspend fun clear(attempts: List<AttemptRecord>): SnapshotSave =
+        try {
+            database.withWriteTransaction {
+                database.attempts().insert(attempts.map(AttemptEntity::of))
+                database.snapshots().clear()
+                SnapshotSave.Saved
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            SnapshotSave.Failed
+        }
+
     override suspend fun latest(): SnapshotLoad =
         try {
             val row = database.snapshots().latest()

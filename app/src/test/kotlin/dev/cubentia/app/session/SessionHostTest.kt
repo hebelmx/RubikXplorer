@@ -21,6 +21,86 @@ import kotlin.time.Instant
 class SessionHostTest {
     private val r = FaceTurn(Face.R, Turn.CLOCKWISE)
 
+    @Test fun `ending deletes once closes the attempt and reports deletion failure while staying idle`() =
+        runBlocking {
+            for (throws in listOf(false, true)) {
+                var deletes = 0
+                val rows = mutableListOf<dev.cubentia.application.session.AttemptRecord>()
+                val events = java.util.concurrent.CopyOnWriteArrayList<SessionEvent>()
+                val repo =
+                    object : dev.cubentia.application.port.SessionSnapshotRepository {
+                        override suspend fun latest() = dev.cubentia.application.port.SnapshotLoad.None
+
+                        override suspend fun save(
+                            snapshot: dev.cubentia.application.session.SessionSnapshot,
+                            attempts: List<dev.cubentia.application.session.AttemptRecord>,
+                        ) = dev.cubentia.application.port.SnapshotSave.Saved
+
+                        override suspend fun clear(
+                            attempts: List<dev.cubentia.application.session.AttemptRecord>,
+                        ): dev.cubentia.application.port.SnapshotSave {
+                            deletes++
+                            rows.addAll(attempts)
+                            if (throws) error("delete failed")
+                            return dev.cubentia.application.port.SnapshotSave.Failed
+                        }
+                    }
+                val writer =
+                    dev.cubentia.app.data
+                        .SerialWriter()
+                try {
+                    val host =
+                        SessionHost(
+                            TickingClock(),
+                            Dispatchers.Default.limitedParallelism(1),
+                            repo,
+                            writer,
+                            reduced = { events.add(it) },
+                        )
+                    host.endSession()
+                    writer.flush()
+                    assertEquals(0, deletes)
+                    host.dispatch { SessionEvent.PracticeStarted(whiteCrossLesson(), shippedTutorConfig, it) }
+                    writer.flush()
+                    host.endSession()
+                    writer.flush()
+                    assertEquals(1, deletes)
+                    assertEquals(dev.cubentia.application.session.AttemptOutcome.ABANDONED, rows.single().outcome)
+                    assertTrue(!host.state.value.isActive)
+                    assertTrue(events.any { it is SessionEvent.SnapshotSaveFailed })
+                    host.endSession()
+                    writer.flush()
+                    assertEquals(1, deletes)
+                } finally {
+                    writer.close()
+                }
+            }
+        }
+
+    @Test fun `failed reset still ends the live session`() =
+        runBlocking {
+            val repo =
+                object : dev.cubentia.application.port.ProgressRepository {
+                    override suspend fun all() =
+                        dev.cubentia.application.port.ProgressLoad
+                            .Found(emptyList())
+
+                    override suspend fun append(records: List<dev.cubentia.application.port.ProgressRecord>) =
+                        dev.cubentia.application.port.ProgressSave.Failed
+                }
+            val host =
+                SessionHost(
+                    TickingClock(),
+                    Dispatchers.Default.limitedParallelism(1),
+                    resetProgress =
+                        dev.cubentia.application.usecase
+                            .ResetProgress(repo),
+                )
+            host.dispatch { SessionEvent.LessonStarted(whiteCrossLesson(), shippedTutorConfig, it) }
+            assertTrue(!host.resetProgress())
+            assertTrue(!host.state.value.isActive)
+        }
+
     @Test
     fun `starts idle and stamps each event with the clock at dispatch`() =
         runBlocking {

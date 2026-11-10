@@ -1,12 +1,14 @@
 package dev.cubentia.app.data
 
+import dev.cubentia.application.port.AlgorithmStatusLoad
 import dev.cubentia.application.port.AlgorithmStatusRecord
 import dev.cubentia.application.port.AlgorithmStatusRepository
 import dev.cubentia.application.port.AlgorithmStatusSave
 import dev.cubentia.domain.content.AlgorithmStatuses
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.retryWhen
 
 class RoomAlgorithmStatusRepository(
     private val database: RubikDatabase,
@@ -15,10 +17,12 @@ class RoomAlgorithmStatusRepository(
         database
             .algorithmStatuses()
             .currentEpoch()
-            .map { rows -> AlgorithmStatuses.current(rows.mapNotNull { it.event() }) }
-            .catch { failure ->
+            .map<_, AlgorithmStatusLoad> { rows -> AlgorithmStatusLoad.Loaded(AlgorithmStatuses.current(rows.mapNotNull { it.event() })) }
+            .retryWhen { failure, attempt ->
                 if (failure is CancellationException) throw failure
-                emit(emptyMap())
+                emit(AlgorithmStatusLoad.Failed)
+                delay(100L * (1L shl attempt.coerceAtMost(5).toInt()))
+                true
             }
 
     override suspend fun append(record: AlgorithmStatusRecord): AlgorithmStatusSave =

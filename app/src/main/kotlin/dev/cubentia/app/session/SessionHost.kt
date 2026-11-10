@@ -3,6 +3,7 @@ package dev.cubentia.app.session
 import dev.cubentia.app.content.twoLookMoves
 import dev.cubentia.app.data.SerialWriter
 import dev.cubentia.app.preferences.PreferenceStore
+import dev.cubentia.application.port.AlgorithmStatusLoad
 import dev.cubentia.application.port.AlgorithmStatusRepository
 import dev.cubentia.application.port.AlgorithmStatusWrite
 import dev.cubentia.application.port.AttemptLoad
@@ -48,6 +49,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -114,7 +117,15 @@ class SessionHost internal constructor(
     constructor(clock: Clock) : this(clock, Dispatchers.Default.limitedParallelism(1))
 
     private val memoryStatuses = MutableStateFlow<Map<AlgorithmId, AlgorithmStatus>>(emptyMap())
-    val algorithmStatuses: Flow<Map<AlgorithmId, AlgorithmStatus>> = algorithmStatusRepository?.statuses() ?: memoryStatuses.asStateFlow()
+    val algorithmStatusLoad: Flow<AlgorithmStatusLoad> =
+        algorithmStatusRepository?.statuses() ?: memoryStatuses.map {
+            AlgorithmStatusLoad
+                .Loaded(it)
+        }
+    val algorithmStatuses: Flow<Map<AlgorithmId, AlgorithmStatus>> =
+        algorithmStatusLoad.mapNotNull {
+            (it as? AlgorithmStatusLoad.Loaded)?.statuses
+        }
     private val statusUseCase = setAlgorithmStatus ?: algorithmStatusRepository?.let { SetAlgorithmStatus(it) }
 
     /** Status taps belong to no solve session; together these name each Learner command for this app run (AD-10). */
@@ -291,6 +302,51 @@ class SessionHost internal constructor(
         }
     }
 
+    suspend fun endSession() {
+        dispatch { SessionEvent.SessionEnded(it) }
+    }
+
+    /** Deletes every snapshot row with [rows] and any pending attempt rows, via [writer] when present. */
+    private suspend fun clearSnapshots(rows: List<AttemptRecord>) {
+        val clear: suspend () -> Unit = {
+            val batch = pendingAttempts + rows
+            val saved =
+                try {
+                    repository?.clear(batch) ?: SnapshotSave.Saved
+                } catch (
+                    cancelled: kotlinx.coroutines.CancellationException,
+                ) {
+                    pendingAttempts = batch
+                    throw cancelled
+                } catch (_: Exception) {
+                    SnapshotSave.Failed
+                }
+            pendingAttempts = if (saved is SnapshotSave.Failed) batch else emptyList()
+            if (saved is SnapshotSave.Failed) {
+                dispatch { SessionEvent.SnapshotSaveFailed(it) }
+            } else if (batch.isNotEmpty()) {
+                refreshAttemptsAfterWrite(batch)
+            }
+        }
+        if (writer != null) writer.enqueue { clear() } else clear()
+    }
+
+    private suspend fun clearCheckpoint() {
+        val repo = checkpoints ?: return
+        val clear: suspend () -> Unit = {
+            val result =
+                try {
+                    repo.clear()
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    CheckpointSave.Failed
+                }
+            if (result is CheckpointSave.Failed) dispatch { SessionEvent.CheckpointSaveFailed(it) }
+        }
+        if (writer != null) writer.enqueue { clear() } else clear()
+    }
+
     /**
      * Appends a [ProgressEvent.ProgressReset] via [resetProgress] single-writer use case
      * and refreshes [progressEvents].
@@ -298,12 +354,16 @@ class SessionHost internal constructor(
      * Returns true if the reset succeeded, or false if the repository write failed.
      */
     suspend fun resetProgress(): Boolean {
+        endSession()
+        // Also clear when already idle, so rows left by a failed restore or delete cannot reopen locked content.
+        withContext(confined) { clearSnapshots(emptyList()) }
         val useCase = resetProgressUseCase
         if (useCase == null) {
             val nextEpoch = StageProgress.currentEpoch(currentProgress.value) + 1L
             val event = ProgressEvent.ProgressReset(nextEpoch, clock.now())
             currentProgress.value = currentProgress.value + event
             if (algorithmStatusRepository == null) memoryStatuses.value = emptyMap()
+            clearCheckpoint()
             return true
         }
         val result =
@@ -318,6 +378,7 @@ class SessionHost internal constructor(
             } catch (_: Exception) {
                 ProgressWrite.Failed
             }
+        clearCheckpoint()
         return when (result) {
             is ProgressWrite.Written -> {
                 refreshProgressAfterWrite(result.events)
@@ -465,6 +526,15 @@ class SessionHost internal constructor(
             val transition = reduce(before, stamped)
             current.value = transition.state
             reduced(stamped)
+            if (stamped is SessionEvent.SessionEnded && transition.state !== before) {
+                val rows =
+                    transition.effects
+                        .filterIsInstance<Effect.AttemptEnded>()
+                        .filterNot { it.objectiveId.startsWith("skip-check-") }
+                        .map { AttemptRecord.of(it, previousSessionId, attemptId ?: UUID.randomUUID().toString()) }
+                attemptId = null
+                clearSnapshots(rows)
+            }
             if (transition.state !== before && transition.state.isActive) {
                 if (stamped is SessionEvent.LessonStarted || stamped is SessionEvent.PracticeStarted ||
                     stamped is SessionEvent.SolvePlaybackStarted ||

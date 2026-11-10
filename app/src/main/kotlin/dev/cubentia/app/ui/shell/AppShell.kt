@@ -55,6 +55,7 @@ import dev.cubentia.app.ui.library.RequestedAlgorithmStatus
 import dev.cubentia.app.ui.settings.SettingsScreen
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.welcome.WelcomeScreen
+import dev.cubentia.application.port.AlgorithmStatusLoad
 import dev.cubentia.application.port.FeatureFlag
 import dev.cubentia.application.port.FeatureFlags
 import dev.cubentia.application.port.FlagLevel
@@ -62,6 +63,7 @@ import dev.cubentia.application.session.SessionKind
 import dev.cubentia.application.session.SessionState
 import dev.cubentia.application.usecase.StagePractice
 import dev.cubentia.application.usecase.TwoLookPractice
+import dev.cubentia.domain.content.AlgorithmId
 import dev.cubentia.domain.content.AlgorithmStatus
 import dev.cubentia.domain.content.LessonId
 import dev.cubentia.domain.content.LibraryFilter
@@ -128,7 +130,11 @@ private fun ShellContent(
     LaunchedEffect(catalog) { catalog.load() }
     val content by catalog.state.collectAsState()
     val session by host.state.collectAsState()
-    val algorithmStatuses by host.algorithmStatuses.collectAsState(emptyMap())
+    val algorithmStatusLoad by host.algorithmStatusLoad.collectAsState(null)
+    var algorithmStatuses by remember { mutableStateOf<Map<AlgorithmId, AlgorithmStatus>>(emptyMap()) }
+    LaunchedEffect(algorithmStatusLoad) {
+        (algorithmStatusLoad as? AlgorithmStatusLoad.Loaded)?.let { algorithmStatuses = it.statuses }
+    }
     val progressEvents by host.progressEvents.collectAsState()
     val attemptRecords by host.attemptRecords.collectAsState()
     val scope = rememberCoroutineScope()
@@ -204,7 +210,7 @@ private fun ShellContent(
     val entry = openLesson?.let { ready?.find(LessonId(it)) }
     if (ready != null && entry != null) {
         val lessonAlgorithms = ready.bundle.lessonAlgorithms[entry.lesson.id].orEmpty()
-        val notStarted = lessonAlgorithms.filter { (algorithmStatuses[it] ?: AlgorithmStatus.NOT_STARTED) == AlgorithmStatus.NOT_STARTED }
+        val notStarted = algorithmsToOffer(lessonAlgorithms, algorithmStatusLoad)
         val recognition =
             remember(entry.lesson.id) {
                 lessonAlgorithms.firstOrNull()?.let { id ->
@@ -226,7 +232,7 @@ private fun ShellContent(
             recognition = recognition,
             offerAlgorithms = notStarted,
             onAddToLearning = {
-                notStarted.map { host.setAlgorithmStatus(it, AlgorithmStatus.LEARNING) }.all { it }
+                algorithmsToOffer(notStarted, algorithmStatusLoad).map { host.setAlgorithmStatus(it, AlgorithmStatus.LEARNING) }.all { it }
             },
             onPracticeNewScramble = {
                 openLesson = null
@@ -277,7 +283,10 @@ private fun ShellContent(
             entry = practiceEntry,
             strings = ready.strings,
             modes = emptyList(),
-            onClose = { openPractice = null },
+            onClose = {
+                openPractice = null
+                scope.launch { host.endSession() }
+            },
             modifier = modifier,
             adaptiveAssistance = FlagLevel.OFF,
             cameraScan = flags.level(FeatureFlag.CAMERA_SCAN),
@@ -288,6 +297,7 @@ private fun ShellContent(
             },
             stages = ready.bundle.stages,
             onNextStage = { nextStageId ->
+                scope.launch { host.endSession() }
                 openLesson = null
                 openPractice = null
                 selectedStage = nextStageId.value
@@ -333,6 +343,7 @@ private fun ShellContent(
                     host.state.value.decision
                         ?.satisfied == true
                 openSkipCheck = null
+                scope.launch { host.endSession() }
                 if (!wasSatisfied) {
                     if (isCourse) {
                         welcomeAbandoned = true
@@ -357,6 +368,7 @@ private fun ShellContent(
                     tab = Tab.LEARN
                     selectedStage = null
                     scope.launch {
+                        host.endSession()
                         host.passSkipCheck(ready.bundle.stages.map { it.id }, ready.bundle.stages)
                     }
                 } else if (currentStageId != null) {
@@ -367,6 +379,7 @@ private fun ShellContent(
                         selectedStage = nextStage?.id?.value
                     }
                     scope.launch {
+                        host.endSession()
                         host.passSkipCheck(listOf(currentStageId), ready.bundle.stages)
                     }
                 }
@@ -380,6 +393,7 @@ private fun ShellContent(
             val isCourse = openSkipCheck == "course"
             val stageId = openSkipCheck
             openSkipCheck = null
+            scope.launch { host.endSession() }
             if (isCourse) {
                 welcomeAbandoned = true
             } else if (stageId != null) {
@@ -387,6 +401,7 @@ private fun ShellContent(
             }
         } else if (openPractice != null) {
             openPractice = null
+            scope.launch { host.endSession() }
         } else if (tab == Tab.LIBRARY && openAlgorithm != null) {
             openAlgorithm = null
         } else if (tab != Tab.LEARN) {
@@ -602,4 +617,12 @@ private fun twoLookPracticeContinue(
         ),
         ready.bundle.tutorConfig,
     )
+}
+
+internal fun algorithmsToOffer(
+    ids: List<AlgorithmId>,
+    load: AlgorithmStatusLoad?,
+): List<AlgorithmId> {
+    val statuses = (load as? AlgorithmStatusLoad.Loaded)?.statuses ?: return emptyList()
+    return ids.filter { (statuses[it] ?: AlgorithmStatus.NOT_STARTED) == AlgorithmStatus.NOT_STARTED }
 }

@@ -98,6 +98,9 @@ class SessionHostAttemptTest {
             var failures = 1
             val flaky =
                 object : SessionSnapshotRepository {
+                    override suspend fun clear(attempts: List<dev.cubentia.application.session.AttemptRecord>) =
+                        dev.cubentia.application.port.SnapshotSave.Saved
+
                     override suspend fun save(
                         snapshot: SessionSnapshot,
                         attempts: List<AttemptRecord>,
@@ -168,6 +171,9 @@ class SessionHostAttemptTest {
                 // The process dies with the attempt open; the next start cannot use the snapshot.
                 val unusable =
                     object : SessionSnapshotRepository {
+                        override suspend fun clear(attempts: List<dev.cubentia.application.session.AttemptRecord>) =
+                            dev.cubentia.application.port.SnapshotSave.Saved
+
                         override suspend fun save(
                             snapshot: SessionSnapshot,
                             attempts: List<AttemptRecord>,

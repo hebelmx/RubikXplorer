@@ -250,7 +250,7 @@ fun LessonScreen(
             val epochAttempts = Mastery.currentEpochAttempts(host.attemptRecords.value, host.progressEvents.value)
             initialMastered = Mastery.evaluate(entry.stage, epochAttempts, entry.tutorConfig.mastery).isMastered
         }
-        val practicing = !isTwoLook && (isPractice || isSkipCheck || host.state.value.kind == SessionKind.PRACTICE)
+        val practicing = !isTwoLook && (isPractice || isSkipCheck)
         val shouldStart =
             if (practicing) {
                 host.state.value.lesson
@@ -258,7 +258,8 @@ fun LessonScreen(
                     ?.entryState != lesson.entryState
             } else {
                 host.state.value.lesson
-                    ?.id != lesson.id
+                    ?.id != lesson.id ||
+                    host.state.value.kind != if (isTwoLook) SessionKind.TWO_LOOK else SessionKind.LESSON
             }
         if (shouldStart) {
             if (practicing) {

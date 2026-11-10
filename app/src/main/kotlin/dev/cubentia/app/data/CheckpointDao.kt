@@ -10,6 +10,9 @@ interface CheckpointDao {
     @Query("SELECT * FROM checkpoint WHERE kind = :kind")
     suspend fun find(kind: String): CheckpointEntity?
 
+    @Query("DELETE FROM checkpoint")
+    suspend fun clear()
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun replace(entity: CheckpointEntity)
 }

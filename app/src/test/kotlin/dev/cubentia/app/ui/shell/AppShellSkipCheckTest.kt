@@ -49,6 +49,7 @@ import dev.cubentia.domain.predicate.CubeSolved
 import dev.cubentia.domain.predicate.WhiteCrossSolved
 import kotlinx.coroutines.Dispatchers
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -250,6 +251,8 @@ class AppShellSkipCheckTest {
         // Close/abandon skip check
         rule.onNodeWithTag("lesson:close").performClick()
         rule.waitForIdle()
+        rule.waitUntil(5000) { !host.state.value.isActive }
+        assertFalse(host.state.value.isActive)
 
         // Returns to Welcome with abandoned banner
         rule.onNodeWithTag("welcome").assertIsDisplayed()
@@ -290,6 +293,8 @@ class AppShellSkipCheckTest {
         rule.onNodeWithTag("lesson:objectiveMet").assertIsDisplayed()
         rule.onNodeWithTag("lesson:next").assertIsEnabled().performClick()
         rule.waitForIdle()
+        rule.waitUntil(5000) { !host.state.value.isActive }
+        assertFalse(host.state.value.isActive)
 
         // Returns to Learn tab
         rule.onNodeWithTag("learn").assertIsDisplayed()
@@ -344,6 +349,8 @@ class AppShellSkipCheckTest {
         // Abandon check
         rule.onNodeWithTag("lesson:close").performClick()
         rule.waitForIdle()
+        rule.waitUntil(5000) { !host.state.value.isActive }
+        assertFalse(host.state.value.isActive)
 
         // Stage detail shows abandoned banner
         rule.onNodeWithTag("stageDetail").assertIsDisplayed()
@@ -390,6 +397,8 @@ class AppShellSkipCheckTest {
         rule.onNodeWithTag("lesson:objectiveMet").assertIsDisplayed()
         rule.onNodeWithTag("lesson:next").assertIsEnabled().performClick()
         rule.waitForIdle()
+        rule.waitUntil(5000) { !host.state.value.isActive }
+        assertFalse(host.state.value.isActive)
 
         // Navigates to Stage 3 detail, which is now unlocked (In progress)
         rule.onNodeWithTag("stageDetail").assertIsDisplayed()
@@ -436,6 +445,8 @@ class AppShellSkipCheckTest {
         // Press system back
         rule.runOnIdle { dispatcher.onBackPressed() }
         rule.waitForIdle()
+        rule.waitUntil(5000) { !host.state.value.isActive }
+        assertFalse(host.state.value.isActive)
 
         // Stage detail shows abandoned banner
         rule.onNodeWithTag("stageDetail").assertIsDisplayed()

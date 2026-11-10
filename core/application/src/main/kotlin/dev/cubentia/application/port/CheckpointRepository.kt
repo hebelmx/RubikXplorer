@@ -6,6 +6,8 @@ import dev.cubentia.application.session.SessionKind
 interface CheckpointRepository {
     suspend fun save(checkpoint: Checkpoint): CheckpointSave
 
+    suspend fun clear(): CheckpointSave
+
     suspend fun find(kind: SessionKind): CheckpointLoad
 }
 
