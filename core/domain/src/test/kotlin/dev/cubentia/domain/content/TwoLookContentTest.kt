@@ -42,11 +42,22 @@ class TwoLookContentTest {
                 assertEquals((LastLayerMatcher.caseState(notation, Color.YELLOW) as CaseStateResult.Derived).state, state)
                 assertTrue(lesson.preserve.isSatisfied(state), lesson.id.value)
                 assertFalse(lesson.completion.isSatisfied(state), lesson.id.value)
-                lesson.steps.forEach { step ->
-                    state = state.apply((Notation.parse(step.moves) as NotationResult.Parsed).moves)
-                    assertTrue(step.done.isSatisfied(state), lesson.id.value)
-                    assertTrue(lesson.preserve.isSatisfied(state), lesson.id.value)
+                // AD-6: along the path, step k's done is false before its last Move and holds at its end
+                // and at every later step boundary; the last step's done is the Completion Predicate.
+                val stepMoves = lesson.steps.map { (Notation.parse(it.moves) as NotationResult.Parsed).moves }
+                val ends = stepMoves.runningFold(0) { total, m -> total + m.size }.drop(1)
+                val states = stepMoves.flatten().runningFold(state) { s, move -> s.apply(move) }
+                lesson.steps.forEachIndexed { k, step ->
+                    (0 until ends[k]).forEach { i ->
+                        assertFalse(step.done.isSatisfied(states[i]), "${lesson.id.value} step ${k + 1} done after $i Moves")
+                    }
+                    ends.drop(k).forEach { end ->
+                        assertTrue(step.done.isSatisfied(states[end]), "${lesson.id.value} step ${k + 1} not done after $end Moves")
+                        assertTrue(lesson.preserve.isSatisfied(states[end]), lesson.id.value)
+                    }
                 }
+                assertEquals(lesson.completion, lesson.steps.last().done, lesson.id.value)
+                state = states.last()
                 assertTrue(lesson.completion.isSatisfied(state))
             }
         }

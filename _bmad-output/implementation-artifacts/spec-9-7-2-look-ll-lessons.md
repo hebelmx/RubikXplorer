@@ -161,7 +161,7 @@ Every rejected row and its reason is in the Review Triage Log.
 **Verification.** `./gradlew spotlessCheck build` was BUILD SUCCESSFUL after the patches: 1602 tests, 0 failed, 0 skipped, by the JUnit XML reports. Every matrix row has a covering test that ran. There were no instrumented or device runs, so the drawn diagram, TalkBack and real process death are unverified.
 
 **Residual risks.**
-- A failed status write after *Add to Learning* hides the offer without a message.
+- A failed status write after *Add to Learning* keeps the offer on screen with an error, so the Learner can retry; there is no automatic retry.
 - The edge Lessons start from full OLL Cases, so the cube ends fully oriented. The copy explains that only the edges count.
 - A 2-look Stage with every Lesson done reads *Completed* through the generic Stage rule. The mini-Course *Completed*/*Mastered* rule is 9.8.
 - The implementation ran on Codex first, which ended without a report. A Claude subagent then finished and corrected the work.
