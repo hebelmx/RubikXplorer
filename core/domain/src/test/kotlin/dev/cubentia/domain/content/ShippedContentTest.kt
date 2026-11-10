@@ -113,6 +113,7 @@ class ShippedContentTest {
             emptyList<String>(),
             names.filter { it.startsWith("physical_") || it.startsWith("confirm_") || it in MIGRATED_RESOURCES },
         )
+        assertEquals(TWO_LOOK_LABELS, bundle.strings.filterKeys { it in TWO_LOOK_LABELS })
         assertEquals(PHYSICAL_LABELS, bundle.strings.filterKeys { it in PHYSICAL_LABELS })
     }
 
@@ -459,9 +460,30 @@ class ShippedContentTest {
                 "pll-diagonal-swap" to 4,
             )
 
-        val MIGRATED_RESOURCES = setOf("playback_follow_on_my_cube", "playback_cube_should_be_solved", "frame_expected")
+        val MIGRATED_RESOURCES =
+            setOf(
+                "learn_faster_last_layer",
+                "learn_two_look_locked_prerequisite",
+                "learn_two_look_mastery",
+                "learn_two_look_practice",
+                "lesson_two_look_qualified",
+                "lesson_two_look_not_qualified",
+                "playback_follow_on_my_cube",
+                "playback_cube_should_be_solved",
+                "frame_expected",
+            )
 
         /** Physical-mode copy that used to live in `strings.xml` too (Story 12.9): key to exact wording. */
+        val TWO_LOOK_LABELS =
+            mapOf(
+                "msg.learn.faster-last-layer" to "Faster last layer",
+                "msg.learn.two-look-locked-prerequisite" to "Complete or skip every Stage of the Course to unlock 2-look.",
+                "msg.learn.two-look-mastery" to "Mastery: {done} of {total}",
+                "btn.learn.two-look-practice" to "Practice the last layer",
+                "msg.lesson.two-look.qualified" to "Last layer solved with 2-look, no hints.",
+                "msg.lesson.two-look.not-qualified" to "Solved. Only 2-look algorithms with no hints count toward mastery.",
+            )
+
         val PHYSICAL_LABELS =
             mapOf(
                 "msg.physical.mode" to "Physical mode",

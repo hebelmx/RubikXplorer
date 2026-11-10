@@ -589,5 +589,11 @@
   "msg.lesson.recognition.description": "Recognition diagram for: {objective}",
   "stage.two-look-practice.title": "Faster last layer",
   "msg.practice.two-look.objective": "Solve the last layer using only 2-look algorithms.",
-  "msg.milestone.two-look-mastered": "2-look last layer mastered!"
+  "msg.milestone.two-look-mastered": "2-look last layer mastered!",
+  "msg.learn.faster-last-layer": "Faster last layer",
+  "msg.learn.two-look-locked-prerequisite": "Complete or skip every Stage of the Course to unlock 2-look.",
+  "msg.learn.two-look-mastery": "Mastery: {done} of {total}",
+  "btn.learn.two-look-practice": "Practice the last layer",
+  "msg.lesson.two-look.qualified": "Last layer solved with 2-look, no hints.",
+  "msg.lesson.two-look.not-qualified": "Solved. Only 2-look algorithms with no hints count toward mastery."
 }

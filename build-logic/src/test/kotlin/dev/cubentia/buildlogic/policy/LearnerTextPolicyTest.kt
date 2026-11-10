@@ -7,6 +7,46 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 
 class LearnerTextPolicyTest {
+    @Test fun `resource names must be in the baseline`() {
+        val xml =
+            """<resources><string name="allowed">Text</string><plurals name="new_name" />""" +
+                """<string-array name="new_array" /></resources>"""
+        val found = LearnerTextPolicy.checkStringResources("strings.xml", xml, setOf("allowed"))
+        assertEquals(listOf("new_name", "new_array"), found.map { it.literal })
+        assertEquals(listOf(Rule.STRING_RESOURCE, Rule.STRING_RESOURCE), found.map { it.rule })
+        assertEquals(
+            emptyList<LearnerTextPolicy.Violation>(),
+            LearnerTextPolicy.checkStringResources("strings.xml", xml, setOf("allowed", "new_name", "new_array")),
+        )
+    }
+
+    @Test fun `an item resource of type string must be in the baseline, in either attribute order`() {
+        val xml =
+            """<resources>
+              |<item type="string" name="new_learner_text">New Learner text</item>
+              |<item name="other_learner_text" type="string">Other Learner text</item>
+              |<item type="dimen" name="not_text">4dp</item>
+              |<string-array name="allowed"><item>Not a resource</item></string-array>
+              |</resources>
+            """.trimMargin()
+        val found = LearnerTextPolicy.checkStringResources("strings.xml", xml, setOf("allowed"))
+        assertEquals(
+            listOf(
+                LearnerTextPolicy.Violation("strings.xml", 2, "new_learner_text", Rule.STRING_RESOURCE),
+                LearnerTextPolicy.Violation("strings.xml", 3, "other_learner_text", Rule.STRING_RESOURCE),
+            ),
+            found,
+        )
+        assertEquals(
+            emptyList<LearnerTextPolicy.Violation>(),
+            LearnerTextPolicy.checkStringResources(
+                "strings.xml",
+                xml,
+                setOf("allowed", "new_learner_text", "other_learner_text"),
+            ),
+        )
+    }
+
     private fun violations(source: String) = LearnerTextPolicy.check("F.kt", source.trimIndent())
 
     private fun rules(source: String) = violations(source).map { it.line to it.rule }

@@ -41,9 +41,43 @@ object LearnerTextPolicy {
     enum class Rule(
         val description: String,
     ) {
+        STRING_RESOURCE("string resource outside baseline; use content/strings/en.json"),
         UI_TEXT("Learner-facing literal passed to a text parameter; use a string resource or Text(key)"),
         PROSE("multi-word string literal outside a programmer-error context; move it to content strings or resources"),
     }
+
+    fun checkStringResources(
+        file: String,
+        xml: String,
+        allowed: Set<String>,
+    ): List<Violation> {
+        val source =
+            Regex("<!--.*?-->", RegexOption.DOT_MATCHES_ALL).replace(xml) { match ->
+                match.value
+                    .map {
+                        if (it ==
+                            '\n'
+                        ) {
+                            '\n'
+                        } else {
+                            ' '
+                        }
+                    }.joinToString("")
+            }
+        return RESOURCE_TAG
+            .findAll(source)
+            .mapNotNull { match ->
+                val attributes = match.groupValues[2]
+                if (match.groupValues[1] == "item" && ITEM_STRING_TYPE.find(attributes) == null) return@mapNotNull null
+                val name = RESOURCE_NAME.find(attributes)?.groupValues?.get(1) ?: return@mapNotNull null
+                if (name in allowed) null else Violation(file, KotlinLexer.lineOf(source, match.range.first), name, Rule.STRING_RESOURCE)
+            }.toList()
+    }
+
+    /** A string resource tag (`<item>` counts only with `type="string"`); group 2 holds its attributes. */
+    private val RESOURCE_TAG = Regex("""<(string|plurals|string-array|item)\b([^>]*)>""")
+    private val RESOURCE_NAME = Regex("""\bname\s*=\s*["']([^"']+)["']""")
+    private val ITEM_STRING_TYPE = Regex("""\btype\s*=\s*["']string["']""")
 
     /** Every violation in the Kotlin [source] of [file]; empty when the file passes. */
     fun check(

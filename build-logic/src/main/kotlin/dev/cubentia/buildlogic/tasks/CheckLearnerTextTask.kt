@@ -8,8 +8,10 @@ import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.CacheableTask
+import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
@@ -29,6 +31,16 @@ abstract class CheckLearnerTextTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val sources: ConfigurableFileCollection
 
+    @get:InputFiles
+    @get:SkipWhenEmpty
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val stringResources: ConfigurableFileCollection
+
+    @get:InputFile
+    @get:Optional
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val stringResourceBaseline: RegularFileProperty
+
     /** Violations are reported relative to this directory. */
     @get:Internal
     abstract val projectDirectory: DirectoryProperty
@@ -40,10 +52,24 @@ abstract class CheckLearnerTextTask : DefaultTask() {
     fun check() {
         val root = projectDirectory.get().asFile
         val violations =
-            sources.files
-                .sortedBy { it.path }
-                .flatMap { LearnerTextPolicy.check(it.relativeTo(root).invariantSeparatorsPath, it.readText()) }
-                .map { it.toString() }
+            (
+                sources.files
+                    .sortedBy { it.path }
+                    .flatMap { LearnerTextPolicy.check(it.relativeTo(root).invariantSeparatorsPath, it.readText()) } +
+                    stringResources.files.sortedBy { it.path }.flatMap {
+                        val allowed =
+                            stringResourceBaseline.orNull
+                                ?.asFile
+                                ?.readLines()
+                                .orEmpty()
+                                .map { it.trim() }
+                                .filter {
+                                    it.isNotEmpty() &&
+                                        !it.startsWith("#")
+                                }.toSet()
+                        LearnerTextPolicy.checkStringResources(it.relativeTo(root).invariantSeparatorsPath, it.readText(), allowed)
+                    }
+            ).map { it.toString() }
         report.get().asFile.writeText(violations.joinToString("\n"))
         if (violations.isNotEmpty()) {
             throw GradleException(
@@ -59,6 +85,9 @@ abstract class CheckLearnerTextTask : DefaultTask() {
         /** The shipped source sets scanned; spike and test source sets are not. */
         val SOURCE_DIRS = listOf("src/main/kotlin", "src/debug/kotlin", "src/release/kotlin")
 
+        /** The shipped resource sets whose `values*` string resources must be in the baseline. */
+        val RESOURCE_DIRS = listOf("src/main/res", "src/debug/res", "src/release/res")
+
         /** Registers the literal gate over [SOURCE_DIRS] of [project] and wires it into `check`. */
         fun register(project: Project): TaskProvider<CheckLearnerTextTask> {
             val task =
@@ -66,6 +95,11 @@ abstract class CheckLearnerTextTask : DefaultTask() {
                     group = LifecycleBasePlugin.VERIFICATION_GROUP
                     description = "Fails on a Learner-facing string literal in main, debug or release Kotlin sources."
                     SOURCE_DIRS.forEach { dir -> sources.from(project.fileTree(dir) { include("**/*.kt") }) }
+                    val baseline = project.file("learner-text-baseline.txt")
+                    if (baseline.exists()) {
+                        stringResourceBaseline.set(baseline)
+                        RESOURCE_DIRS.forEach { dir -> stringResources.from(project.fileTree(dir) { include("values*/*.xml") }) }
+                    }
                     projectDirectory.set(project.layout.projectDirectory)
                     report.set(project.layout.buildDirectory.file("reports/cubentia/learner-text.txt"))
                 }

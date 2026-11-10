@@ -2,6 +2,9 @@ package dev.cubentia.app.ui.lesson
 
 import android.app.Application
 import android.provider.Settings
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -141,11 +144,14 @@ class LessonScreenTest {
 
     @Test fun twoLookPracticeAlreadyMasteredHasNoMilestone() = twoLookPracticeResult(false, 2)
 
+    @Test fun twoLookPracticeUnfinishedLessonsHasNoMilestone() = twoLookPracticeResult(false, 1, completed = false)
+
     private fun twoLookPracticeResult(
         hint: Boolean,
         prior: Int = 0,
         physical: Boolean = false,
         offPath: Boolean = false,
+        completed: Boolean = true,
     ) {
         val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
         val ready = CatalogState.Ready(bundle)
@@ -176,7 +182,24 @@ class LessonScreenTest {
             object : AttemptRepository {
                 override suspend fun all(): AttemptLoad = AttemptLoad.Found(priorAttempts)
             }
-        val localHost = SessionHost(TickingClock(), Dispatchers.Default.limitedParallelism(1), attempts = repository)
+        val progressRepo =
+            object : ProgressRepository {
+                override suspend fun all(): ProgressLoad =
+                    ProgressLoad.Found(
+                        if (completed) {
+                            bundle.twoLookStages
+                                .flatMap {
+                                    it.lessons
+                                }.map { ProgressEvent.LessonCompleted(it.id) }
+                        } else {
+                            emptyList()
+                        },
+                    )
+
+                override suspend fun append(records: List<ProgressRecord>): ProgressSave = ProgressSave.Saved
+            }
+        val localHost =
+            SessionHost(TickingClock(), Dispatchers.Default.limitedParallelism(1), attempts = repository, progress = progressRepo)
         runBlocking { localHost.restore(bundle) }
         var practiceAgain = 0
         rule.setContent {
@@ -191,6 +214,7 @@ class LessonScreenTest {
                     isPractice = true,
                     twoLookPractice = true,
                     twoLookAlgorithms = algorithms,
+                    twoLookStages = bundle.twoLookStages,
                 )
             }
         }
@@ -218,7 +242,7 @@ class LessonScreenTest {
                 "Last layer solved with 2-look, no hints."
             },
         )
-        if (prior == 1 && !hint && !offPath) {
+        if (completed && prior == 1 && !hint && !offPath) {
             // Physical confirmation dispatches on the host's background dispatcher; Compose idleness
             // alone does not wait for the attempt log update and its milestone recomposition.
             rule.waitUntil(5_000) {
@@ -231,6 +255,90 @@ class LessonScreenTest {
         } else {
             rule.onNodeWithTag("milestone:overlay").assertDoesNotExist()
         }
+    }
+
+    @Test fun lastTwoLookLessonTriggersMasteryOnce() {
+        val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val ready = CatalogState.Ready(bundle)
+        val lessons = bundle.twoLookStages.flatMap { it.lessons }
+        val entry = ready.find(lessons.last().id)!!
+        val events = lessons.dropLast(1).map { ProgressEvent.LessonCompleted(it.id) }.toMutableList<ProgressEvent>()
+        val progressRepo =
+            object : ProgressRepository {
+                override suspend fun all(): ProgressLoad = ProgressLoad.Found(events.toList())
+
+                override suspend fun append(records: List<ProgressRecord>): ProgressSave {
+                    events.addAll(records.map { it.event })
+                    return ProgressSave.Saved
+                }
+            }
+        val prior =
+            (0..1).map { index ->
+                AttemptRecord(
+                    "prior-$index",
+                    "prior",
+                    index.toLong(),
+                    dev.cubentia.application.session.AttemptEvent.ENDED,
+                    "practice-two-look",
+                    AttemptOutcome.COMPLETED,
+                    0,
+                    0,
+                    AssistanceLevel.REDUCED,
+                    Instant.fromEpochMilliseconds(0),
+                )
+            }
+        val repo =
+            object : AttemptRepository {
+                override suspend fun all(): AttemptLoad = AttemptLoad.Found(prior)
+            }
+        val localHost =
+            SessionHost(
+                TickingClock(),
+                Dispatchers.Default.limitedParallelism(1),
+                attempts = repo,
+                progress = progressRepo,
+                completeLesson =
+                    dev.cubentia.application.usecase
+                        .CompleteLesson(progressRepo),
+            )
+        runBlocking { localHost.restore(bundle) }
+        var epoch by mutableStateOf(0)
+        rule.setContent {
+            CubentiaTheme {
+                androidx.compose.runtime.key(epoch) {
+                    LessonScreen(
+                        localHost,
+                        entry,
+                        ready.strings,
+                        TeachingMode.entries,
+                        {},
+                        isTwoLook = true,
+                        twoLookStages = bundle.twoLookStages,
+                    )
+                }
+            }
+        }
+        rule.waitUntil(5_000) { localHost.state.value.kind == SessionKind.TWO_LOOK }
+        runBlocking {
+            (Notation.parse(entry.lesson.demonstration) as NotationResult.Parsed).moves.forEach { move ->
+                localHost.dispatch { SessionEvent.MoveCommitted(move, it) }
+            }
+        }
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("milestone:headline").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("milestone:headline").assertTextContains("2-look last layer mastered!")
+        assertTrue(localHost.progressEvents.value.any { it is ProgressEvent.LessonCompleted && it.lessonId == entry.lesson.id })
+        assertTrue(
+            dev.cubentia.domain.tutor.TwoLookMastery
+                .evaluate(
+                    bundle.twoLookStages,
+                    localHost.attemptRecords.value,
+                    localHost.progressEvents.value,
+                    2,
+                ).mastered,
+        )
+        rule.runOnIdle { epoch++ }
+        rule.waitForIdle()
+        rule.onNodeWithTag("milestone:overlay").assertDoesNotExist()
     }
 
     @Test fun twoLookOfferDeclinesWithoutWriting() = twoLookOfferScenario(accept = false)

@@ -24,8 +24,21 @@ class TwoLookMasteryTest {
         assertEquals(StageStatus.COMPLETED, progress(events = done).status)
         assertEquals(1, progress(listOf(attempt), done).qualifyingSolves)
         assertEquals(StageStatus.COMPLETED, progress(listOf(attempt), done).status)
-        assertEquals(StageStatus.MASTERED, progress(listOf(attempt, attempt)).status)
+        assertEquals(StageStatus.IN_PROGRESS, progress(listOf(attempt, attempt)).status)
+        assertFalse(progress(listOf(attempt, attempt)).mastered)
         assertTrue(progress(listOf(attempt, attempt), done).mastered)
+    }
+
+    @Test fun `solves before completion count when the final lesson completes`() {
+        val attempts = listOf(attempt, attempt)
+        val done = bundle.twoLookStages.flatMap { it.lessons }.map { ProgressEvent.LessonCompleted(it.id) }
+        val before = progress(attempts, done.dropLast(1))
+        assertFalse(before.mastered)
+        assertEquals(2, before.qualifyingSolves)
+        val after = progress(attempts, done)
+        assertTrue(after.completed)
+        assertTrue(after.mastered)
+        assertEquals(StageStatus.MASTERED, after.status)
     }
 
     @Test fun `only completed two look attempts with zero hints and errors qualify`() {
@@ -45,7 +58,18 @@ class TwoLookMasteryTest {
         val two = TwoLookMastery.evaluate(bundle.twoLookStages, listOf(attempt, attempt), emptyList(), 3)
         assertFalse(two.mastered)
         assertEquals(StageStatus.IN_PROGRESS, two.status)
-        assertTrue(TwoLookMastery.evaluate(bundle.twoLookStages, listOf(attempt, attempt, attempt), emptyList(), 3).mastered)
+        assertTrue(
+            TwoLookMastery
+                .evaluate(
+                    bundle.twoLookStages,
+                    listOf(attempt, attempt, attempt),
+                    bundle.twoLookStages
+                        .flatMap {
+                            it.lessons
+                        }.map { ProgressEvent.LessonCompleted(it.id) },
+                    3,
+                ).mastered,
+        )
     }
 
     @Test fun `reset clears lessons and attempts including attempts at reset time`() {
