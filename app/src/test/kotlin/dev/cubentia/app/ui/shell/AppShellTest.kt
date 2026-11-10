@@ -19,6 +19,7 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasNoClickAction
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -735,6 +736,58 @@ class AppShellTest {
         rule.onNodeWithTag("learn").assertExists()
         rule.onNodeWithTag("learn:continue").assertDoesNotExist()
         assertTrue(!host.state.value.isActive)
+    }
+
+    @Test fun `a failed Reset progress keeps the dialog with a retryable message and navigates only once a retry succeeds`() {
+        var failuresLeft = 2
+        val saved = mutableListOf<ProgressEvent>()
+        val progress =
+            object : ProgressRepository {
+                override suspend fun all() = ProgressLoad.Found(saved.toList())
+
+                override suspend fun append(records: List<ProgressRecord>) =
+                    if (failuresLeft-- > 0) {
+                        ProgressSave.Failed
+                    } else {
+                        saved += records.map { it.event }
+                        ProgressSave.Saved
+                    }
+            }
+        host =
+            SessionHost(
+                TickingClock(),
+                kotlinx.coroutines.Dispatchers.Default
+                    .limitedParallelism(1),
+                preferences = preferences,
+                progress = progress,
+                resetProgress =
+                    dev.cubentia.application.usecase
+                        .ResetProgress(progress),
+            )
+        launch(ContentLoadResult.Loaded(testBundle()))
+        rule.onNodeWithTag("nav:you").performClick()
+        rule.onNodeWithTag("you:settings").performClick()
+        rule.onNodeWithTag("settings:resetProgress").performScrollTo().performClick()
+        rule.onNodeWithTag("settings:resetProgress:confirm").performClick()
+        rule.waitUntil(5000) { rule.onAllNodesWithTag("settings:resetProgress:error").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("settings:resetProgress:confirm").assertExists()
+        rule.onNodeWithTag("settings:resetProgress:cancel").performClick()
+        rule.onNodeWithTag("settings:close").performClick()
+        rule.onNodeWithTag("welcome:imNew").assertDoesNotExist()
+        rule.onNodeWithTag("you:settings").assertExists()
+        assertTrue(host.progressEvents.value.none { it is ProgressEvent.ProgressReset })
+
+        rule.onNodeWithTag("you:settings").performClick()
+        rule.onNodeWithTag("settings:resetProgress").performScrollTo().performClick()
+        rule.onNodeWithTag("settings:resetProgress:error").assertDoesNotExist()
+        rule.onNodeWithTag("settings:resetProgress:confirm").performClick()
+        rule.waitUntil(5000) { rule.onAllNodesWithTag("settings:resetProgress:error").fetchSemanticsNodes().isNotEmpty() }
+        // Retry from the same dialog re-invokes the reset; this attempt succeeds.
+        rule.onNodeWithTag("settings:resetProgress:confirm").performClick()
+        rule.waitUntil(5000) { rule.onAllNodesWithTag("settings:resetProgress:confirm").fetchSemanticsNodes().isEmpty() }
+        assertTrue(host.progressEvents.value.any { it is ProgressEvent.ProgressReset })
+        rule.onNodeWithTag("settings:close").performClick()
+        rule.onNodeWithTag("welcome:imNew").assertExists()
     }
 
     @Test fun `unloaded and failed statuses hide completion offer until a successful load`() {

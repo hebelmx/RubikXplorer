@@ -23,6 +23,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -38,16 +40,20 @@ import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.application.preference.AnimationSpeed
 import dev.cubentia.application.preference.Preference
 import dev.cubentia.application.preference.ThemeChoice
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
     onClose: () -> Unit,
-    onResetProgress: () -> Unit = {},
+    onResetProgress: suspend () -> Boolean = { true },
     store: PreferenceStore = LocalPreferenceStore.current,
 ) {
     val prefs by store.preferences.collectAsState()
     var confirm by rememberSaveable { mutableStateOf(false) }
     var confirmProgress by rememberSaveable { mutableStateOf(false) }
+    var resetFailed by rememberSaveable { mutableStateOf(false) }
+    var resetting by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     BackHandler(onBack = onClose)
     val tokens = RubikTheme.tokens
     CompositionLocalProvider(LocalContentColor provides tokens.inkPrimary) {
@@ -134,15 +140,35 @@ fun SettingsScreen(
     }
     if (confirmProgress) {
         AlertDialog(
-            onDismissRequest = { confirmProgress = false },
+            onDismissRequest = {
+                confirmProgress = false
+                resetFailed = false
+            },
             title = { Text(stringResource(R.string.settings_reset_progress)) },
-            text = { Text(stringResource(R.string.settings_reset_progress_description)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.settings_reset_progress_description))
+                    if (resetFailed) {
+                        Text(
+                            stringResource(R.string.settings_reset_progress_failed),
+                            Modifier.testTag("settings:resetProgress:error"),
+                        )
+                    }
+                }
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        onResetProgress()
-                        confirmProgress = false
+                        resetting = true
+                        scope.launch {
+                            // Keep the dialog open on failure so the Learner can retry; progress was not erased.
+                            val reset = onResetProgress()
+                            resetting = false
+                            resetFailed = !reset
+                            if (reset) confirmProgress = false
+                        }
                     },
+                    enabled = !resetting,
                     modifier =
                         Modifier
                             .heightIn(min = 48.dp)
@@ -153,7 +179,10 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(
-                    onClick = { confirmProgress = false },
+                    onClick = {
+                        confirmProgress = false
+                        resetFailed = false
+                    },
                     modifier =
                         Modifier
                             .heightIn(min = 48.dp)

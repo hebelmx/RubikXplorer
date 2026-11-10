@@ -74,6 +74,7 @@ import dev.cubentia.domain.tutor.StageProgress
 import dev.cubentia.domain.tutor.StageStatus
 import dev.cubentia.domain.tutor.TeachingMode
 import dev.cubentia.domain.tutor.TwoLookMastery
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 
 /** The top-level destinations of the navigation shell. */
@@ -171,12 +172,19 @@ private fun ShellContent(
         SettingsScreen(
             onClose = { settings = false },
             onResetProgress = {
-                selectedStage = null
-                twoLookLocked = false
-                stageAbandoned = null
-                welcomeAbandoned = false
-                welcome = true
-                scope.launch { host.resetProgress() }
+                // Runs in the shell's scope so closing Settings does not cancel the reset; navigates only on success.
+                scope
+                    .async {
+                        host.resetProgress().also { reset ->
+                            if (reset) {
+                                selectedStage = null
+                                twoLookLocked = false
+                                stageAbandoned = null
+                                welcomeAbandoned = false
+                                welcome = true
+                            }
+                        }
+                    }.await()
             },
         )
         return
