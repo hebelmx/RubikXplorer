@@ -12,8 +12,11 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onChildren
@@ -48,8 +51,12 @@ import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.cube.Turn
+import dev.cubentia.domain.text.Text
 import dev.cubentia.domain.tutor.TeachingMode
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 
@@ -65,14 +72,30 @@ internal fun auditScreens(
     // leave the Lesson waiting on awaitRestored() forever.
     runBlocking { host.restore(loaded.bundle) }
     val cube = FreeCubeViewModel()
-    // The Solve tab's Enter colors flow: the first solve times out (the editor's retry state), later ones play back.
+    // The Solve tab's Enter colors flow: the first solve is held in "Preparing the solver" and then in
+    // solving until the audit releases each gate, and times out (the editor's retry state); the next
+    // fails (the check-your-colors state), later ones play back.
     var solveResult: SolveResult = SolveResult.TimedOut
+    val loadGate = CompletableDeferred<Unit>()
+    val solveGate = CompletableDeferred<Unit>()
+    var solverReady = false
     val solveFlow =
         SolveFlowViewModel(
             object : SolverSource {
-                override val isReady = true
+                override val isReady get() = solverReady
 
-                override suspend fun load(): SolverLoad = SolverLoad.Ready(CubeSolver { solveResult })
+                override suspend fun load(): SolverLoad {
+                    loadGate.await()
+                    solverReady = true
+                    return SolverLoad.Ready(
+                        CubeSolver {
+                            // Non-cancellable so SolveCube's 3s wall-clock deadline cannot end the held
+                            // solving state mid-audit; once released past it, the solve reports TimedOut.
+                            withContext(NonCancellable) { solveGate.await() }
+                            solveResult
+                        },
+                    )
+                }
             },
         )
     val catalog = LessonCatalog.of(loaded)
@@ -168,8 +191,23 @@ internal fun auditScreens(
     rule.onNodeWithTag("solve:enterColors").performClick()
     check("Solve Enter colors")
     rule.onNodeWithTag("editor:accept").performScrollTo().performClick()
+    rule.waitUntil(10_000) { rule.onAllNodesWithTag("solve:preparing").fetchSemanticsNodes().isNotEmpty() }
+    check("Solve preparing")
+    rule.assertSolvingCancel("Solve preparing")
+    loadGate.complete(Unit)
+    rule.waitUntil(10_000) { rule.onAllNodesWithTag("solve:preparing").fetchSemanticsNodes().isEmpty() }
+    rule.onNodeWithTag("solve:progress").assertExists()
+    check("Solve solving")
+    rule.assertSolvingCancel("Solve solving")
+    solveGate.complete(Unit)
     rule.waitUntil(10_000) { rule.onAllNodesWithTag("solve:error").fetchSemanticsNodes().isNotEmpty() }
+    rule.onNodeWithTag("solve:error").assertTextEquals(ready.strings.resolve(Text("msg.solve.timed-out")))
     check("Solve Enter colors retry")
+    solveResult = SolveResult.Failed
+    rule.onNodeWithTag("editor:accept").performScrollTo().performClick()
+    val failed = ready.strings.resolve(Text("msg.solve.failed"))
+    rule.waitUntil(10_000) { rule.onAllNodes(hasTestTag("solve:error") and hasText(failed)).fetchSemanticsNodes().isNotEmpty() }
+    check("Solve Enter colors failed")
     val move = FaceTurn(Face.R, Turn.CLOCKWISE)
     solveResult = SolveResult.Solved(listOf(move.inverse()))
     rule.runOnIdle {
@@ -243,6 +281,19 @@ internal fun ComposeContentTestRule.assertLessonLayout(
         .onChildren()
         .onLast()
         .assertIsDisplayed()
+}
+
+/** The solving states' Cancel: shown, clickable, and labelled (its 48dp target is the screen check's). */
+private fun ComposeContentTestRule.assertSolvingCancel(screen: String) {
+    val label =
+        onNodeWithTag("solve:cancel")
+            .assertIsDisplayed()
+            .assertHasClickAction()
+            .fetchSemanticsNode()
+            .config
+            .getOrNull(SemanticsProperties.Text)
+            ?.joinToString { it.text }
+    assertTrue("$screen: Cancel is labelled", !label.isNullOrBlank())
 }
 
 /** Opens the extra Move keys and the View Rotation menu, audits each while shown, then closes them. */
