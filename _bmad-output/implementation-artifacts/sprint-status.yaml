@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: 11-09-2026 22:57
+last_updated: 11-09-2026 23:33
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -128,7 +128,7 @@ development_status:
   9-6-set-my-algorithm-status: done
   9-7-2-look-ll-lessons: done
   9-8-2-look-completion-and-mastery: done
-  epic-9-retrospective: optional
+  epic-9-retrospective: done
 
   epic-12: in-progress
   12-1-accessibility-audit-and-fixes: backlog
@@ -433,3 +433,71 @@ action_items:
     owner: "PM (John) / SM"
     status: done
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-08.md"
+  - id: "epic-9-retro-item-40-start-a-course-lesson-as-a-lesson-after"
+    epic: 9
+    action: "Start a Course Lesson as a Lesson after any practice: drop the host-kind
+      PRACTICE term in LessonScreen.kt:253 or end practice on close; AppShell test
+      LL practice then Course Lesson writes LessonCompleted"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
+  - id: "epic-9-retro-item-41-never-let-the-2-look-offer-downgrade-a-s"
+    epic: 9
+    action: "Never let the 2-look offer downgrade a status: hide offer until statuses
+      load (AppShell.kt:207), stop RoomAlgorithmStatusRepository terminating on emptyMap,
+      skip non-NOT_STARTED writes"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
+  - id: "epic-9-retro-item-42-gate-2-look-continue-on-allstagesfinishe"
+    epic: 9
+    action: "Gate 2-look Continue on allStagesFinished or end 2-look sessions on Reset
+      progress (AppShell.kt:467-473); add reset then Continue test"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
+  - id: "epic-9-retro-item-43-fix-stale-transitions-md-lines-223-and-2"
+    epic: 9
+    action: "Fix stale TRANSITIONS.md lines 223 and 272 to describe SessionSnapshot.practiceEntry
+      (9e71566)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
+  - id: "epic-9-retro-item-44-test-the-shell-per-lesson-recognition-di"
+    epic: 9
+    action: "Test the shell per-Lesson recognition diagram (AppShell.kt:208-216) against
+      RecognitionDiagram.derive for one OLL and one PLL Lesson"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
+  - id: "epic-9-retro-item-45-move-2-look-learner-copy-from-strings-xm"
+    epic: 9
+    action: "Move 2-look Learner copy from strings.xml:177,204-207 to en.json and
+      extend the Learner-text gate (advances epic-2-retro-item-3)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
+  - id: "epic-9-retro-item-46-spec-reconciliation-via-bmad-correct-cou"
+    epic: 9
+    action: "Spec reconciliation via bmad-correct-course: does 2-look Mastered require
+      Completed (TwoLookMastery.kt:36), and is the TwoLookSolve cubie-effect judge
+      an accepted second definition beside AD-19 LastLayerMatcher; add demo-scores-zero
+      cross-check test"
+    owner: "PM (John) / Architect (Winston)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
+  - id: "epic-9-retro-item-47-route-stranded-epic-9-spec-deferrals-9-1"
+    epic: 9
+    action: "Route stranded Epic 9 spec deferrals (9.1 family membership, 9.2 Case-identity
+      oracle, 9.3 RTL net mirroring, 9.8 practice rotation and physical Stage milestone)
+      into action_items; orchestrator copies spec deferred entries at story close"
+    owner: "orchestrator / SM"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
+  - id: "epic-9-retro-item-48-run-the-epic-boundary-cross-story-review"
+    epic: 9
+    action: "Run the epic-boundary cross-story review before the last story of an
+      epic merges (continues epic-8-retro-item-38)"
+    owner: "orchestrator / SM"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
