@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports & adapters) + functional core / imperative shell'
 scope: 'RubikXplorer Android app MVP — whole system (FR-1..FR-28, NFR-1..NFR-13); FR-21..FR-28 ship in v1.1; FR-29 (P1) deferred'
 status: final
 created: '2026-10-29'
-updated: '2026-11-08'
+updated: '2026-11-10'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, NFR-12, NFR-13]
 sources:
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/prd.md
@@ -281,6 +281,7 @@ stateDiagram-v2
     - `algorithm_status_event` is keyed by `algorithmId` and written only by `SetAlgorithmStatus`.
   - **Preferences:** written only by `UpdatePreference`.
   - **Changes and deletes:** rows are never updated. The only deletes are the Learner's scoped resets (progress, calibration, preferences). *Reset progress* also ends the live session and deletes its snapshot (SCP 2026-11-10).
+  - **Ending a session (SCP 2026-11-10, session-end deferrals):** an ordinary end (closing practice, finishing a Lesson) deletes nothing. It writes an *ended* snapshot for that session through the revision-conditional snapshot write; restore treats it as no snapshot. A failed end write stays pending and is retried until it is saved or a later snapshot write supersedes it.
   - **Room:** each Room schema change ships with a migration and a migration test.
 
 ### AD-11 — DI, concurrency, time and randomness
