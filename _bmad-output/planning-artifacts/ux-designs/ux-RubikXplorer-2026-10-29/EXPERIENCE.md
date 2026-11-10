@@ -26,7 +26,7 @@ sources:
 | Surface | Reached from | Purpose | FR |
 | --- | --- | --- | --- |
 | Welcome (first launch only) | Cold start, no profile | Choose a starting point: *I'm new* (Stage 1), *Start from my cube* (Placement, hidden if `PLACEMENT` is OFF), or *I can already solve it* (a skip-ahead check of the whole Course, then *Faster last layer*). | FR-4, FR-17, FR-27 |
-| **Learn** (tab) | Bottom nav | Continue card (the latest Checkpoint), the Course Stage list, and *Faster last layer* (2-look, as Stage rows with completed and mastered states). | FR-4, FR-17, FR-19 |
+| **Learn** (tab) | Bottom nav | Continue card (the latest Checkpoint), the Course Stage list, and *Faster last layer* (2-look, as Stage rows with completed and mastered states; ◆ *Mastered* only once also *completed*, with "Mastery: 1 of 2" after a qualifying solve; SCP 2026-11-10). | FR-4, FR-17, FR-19 |
 | Stage detail | Learn → Stage row | The Stage's Lessons, the Mastery progress line, the trend row, *Practice this Stage*, and *I already know this* (skip-ahead check). | FR-4, FR-20 |
 | **Lesson** | Continue, Stage detail | Split cube + lesson panel: Teaching Modes, Demonstration, hints, recovery. | FR-1–FR-13 |
 | Physical-cube Mode | Lesson toggle | The same Lesson with the Expected State, *Done*, *Report a mismatch* and Quick Check. | FR-7–FR-9, FR-26 |
@@ -287,7 +287,7 @@ The flows mirror the PRD's user journeys UJ-1 to UJ-6.
 1. On Lucía's stickerless cube the scan flags many uncertain stickers, and the scan offers "Colors look off — calibrate?"
 2. Calibration shows each of the six centers in turn: "Show the white center." She confirms each swatch, then taps *Save*.
 3. **Climax:** her rescan reads every sticker confidently.
-4. Later, in Settings → *Reset progress*, the sheet lists exactly what is erased: Stages, attempts and Algorithm Statuses. Calibration and preferences have their own resets.
+4. Later, in Settings → *Reset progress*, the sheet lists exactly what is erased: Stages, attempts and Algorithm Statuses. Any Lesson or practice in progress also ends, so the Continue card is cleared. Calibration and preferences have their own resets.
 
 ## Surface Coverage
 
