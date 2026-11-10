@@ -974,7 +974,7 @@ private fun restore(
 ): Transition {
     val snapshot = event.snapshot
     if (state.isActive || !snapshot.kind.resumesOnColdStart ||
-        !snapshot.kind.isTaught ||
+        !(snapshot.kind.isTaught || snapshot.kind == SessionKind.PRACTICE) ||
         snapshot.lessonId != event.lesson.id.value
     ) {
         return Transition(state)
@@ -998,6 +998,7 @@ private fun restore(
             kind = snapshot.kind,
             lesson = event.lesson,
             tutorConfig = event.tutorConfig,
+            twoLookAlgorithms = event.twoLookAlgorithms,
             solution = solution,
             checkpoint = checkpoint,
             teachingMode = snapshot.teachingMode,

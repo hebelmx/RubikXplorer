@@ -516,6 +516,132 @@ class AppShellTest {
         assertTrue(!host.state.value.objectiveMet)
     }
 
+    private fun finishedCourseHost(
+        bundle: dev.cubentia.domain.content.ContentBundle,
+        snapshot: dev.cubentia.application.session.SessionSnapshot? = null,
+    ): List<ProgressEvent> {
+        val events =
+            bundle.stages.flatMap { it.lessons }.map { ProgressEvent.LessonCompleted(it.id) } +
+                ProgressEvent.StageSkippedByCheck(bundle.stages.last().id)
+        val repository =
+            object : ProgressRepository {
+                override suspend fun all(): ProgressLoad = ProgressLoad.Found(events)
+
+                override suspend fun append(records: List<ProgressRecord>): ProgressSave = ProgressSave.Saved
+            }
+        val snapshots =
+            object : dev.cubentia.application.port.SessionSnapshotRepository {
+                override suspend fun latest() =
+                    snapshot?.let {
+                        dev.cubentia.application.port.SnapshotLoad
+                            .Found(it)
+                    }
+                        ?: dev.cubentia.application.port.SnapshotLoad.None
+
+                override suspend fun save(
+                    snapshot: dev.cubentia.application.session.SessionSnapshot,
+                    attempts: List<AttemptRecord>,
+                ) = dev.cubentia.application.port.SnapshotSave.Saved
+            }
+        host =
+            SessionHost(
+                TickingClock(),
+                Dispatchers.Default.limitedParallelism(1),
+                snapshots,
+                dev.cubentia.app.data
+                    .SerialWriter(),
+                progress = repository,
+                preferences = preferences,
+            )
+        return events
+    }
+
+    @Test fun `last layer practice keeps its scramble and attempt across recreation`() {
+        val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val events = finishedCourseHost(bundle)
+        val restoration = StateRestorationTester(rule)
+        launch(ContentLoadResult.Loaded(bundle), restoration = restoration)
+        rule.waitUntil(5_000) { host.progressEvents.value == events }
+        rule.onNodeWithTag("learn:twoLookPractice").performScrollTo().performClick()
+        rule.waitUntil(5_000) {
+            host.state.value.lesson
+                ?.id == dev.cubentia.domain.tutor.TwoLookMastery.PRACTICE_ID
+        }
+        runBlocking { host.dispatch { SessionEvent.MoveCommitted(FaceTurn(Face.R, Turn.CLOCKWISE), it) } }
+        rule.waitForIdle()
+        val before = host.state.value
+        restoration.emulateSavedInstanceStateRestore()
+        rule.waitForIdle()
+        rule.onNodeWithTag("lesson").assertExists()
+        assertEquals(
+            before.lesson?.entryState,
+            host.state.value.lesson
+                ?.entryState,
+        )
+        assertEquals(before.entry, host.state.value.entry)
+        assertEquals(before.history, host.state.value.history)
+    }
+
+    @Test fun `last layer practice resumes from a cold-start snapshot`() {
+        val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val lesson =
+            dev.cubentia.application.usecase
+                .TwoLookPractice(
+                    dev.cubentia.app.random
+                        .KotlinRandomSource(),
+                ).lesson(
+                    bundle.algorithms.map {
+                        (Notation.parse(it.notation) as dev.cubentia.domain.cube.NotationResult.Parsed)
+                            .moves
+                    },
+                )
+        val played =
+            listOf(
+                SessionEvent.PracticeStarted(lesson, bundle.tutorConfig, Instant.fromEpochMilliseconds(0)),
+                SessionEvent.MoveCommitted(FaceTurn(Face.R, Turn.CLOCKWISE), Instant.fromEpochMilliseconds(1)),
+            ).fold(dev.cubentia.application.session.SessionState.IDLE) { state, event ->
+                dev.cubentia.application.session
+                    .reduce(state, event)
+                    .state
+            }
+        val snapshot =
+            dev.cubentia.application.session.SessionSnapshot
+                .of(played, "killed", bundle.contentRevision)!!
+        val events = finishedCourseHost(bundle, snapshot)
+        launch(ContentLoadResult.Loaded(bundle))
+        rule.waitUntil(5_000) { host.progressEvents.value == events && host.state.value.kind == SessionKind.PRACTICE }
+        assertEquals(
+            lesson.entryState,
+            host.state.value.lesson
+                ?.entryState,
+        )
+        assertEquals(played.history, host.state.value.history)
+        assertEquals(
+            bundle.twoLookMovesForTest(),
+            host.state.value.twoLookAlgorithms
+                .toSet(),
+        )
+        rule.onNodeWithTag("learn:continue").performClick()
+        rule.onNodeWithTag("lesson").assertExists()
+        rule.waitForIdle()
+        assertEquals(SessionKind.PRACTICE, host.state.value.kind)
+        assertEquals(
+            lesson.entryState,
+            host.state.value.lesson
+                ?.entryState,
+        )
+        assertEquals(played.history, host.state.value.history)
+    }
+
+    private fun dev.cubentia.domain.content.ContentBundle.twoLookMovesForTest() =
+        twoLookStages
+            .flatMap { it.lessons }
+            .flatMap { lessonAlgorithms.getValue(it.id) }
+            .toSet()
+            .map { id ->
+                (Notation.parse(algorithms.single { it.id == id }.notation) as dev.cubentia.domain.cube.NotationResult.Parsed).moves
+            }.toSet()
+
     @Test fun `two look heading derives completion mastery and reset and offers practice`() {
         val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
         var events by mutableStateOf<List<ProgressEvent>>(emptyList())

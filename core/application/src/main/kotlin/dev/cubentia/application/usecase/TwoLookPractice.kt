@@ -43,21 +43,29 @@ class TwoLookPractice(
             if (!LastLayerStepReached(LastLayerStep.SOLVED_UP_TO_AUF).isSatisfied(state)) break
             check(++redraws < 100) { "Could not generate an unsolved last layer" }
         }
-        val preserve = AllOf(listOf(WhiteCrossSolved, WhiteCornersSolved, MiddleLayerSolved))
-        check(preserve.isSatisfied(state))
-        val objective = TextKey("msg.practice.two-look.objective")
-        return Lesson(
-            id = TwoLookMastery.PRACTICE_ID,
-            stageId = StageId("two-look-practice"),
-            prerequisites = emptyList(),
-            objective = objective,
-            entryState = FaceletString.encode(state.toFacelets()),
-            demonstration = "",
-            learnerAction = objective,
-            completion = CubeSolved,
-            preserve = preserve,
-            recovery = RecoveryRef("recovery-undo-last-move"),
-            steps = listOf(Step(objective, TextKey(""), TextKey(""), TextKey(""), "", CubeSolved)),
-        )
+        check(PRESERVE.isSatisfied(state))
+        return lessonAt(FaceletString.encode(state.toFacelets()))
+    }
+
+    companion object {
+        private val PRESERVE = AllOf(listOf(WhiteCrossSolved, WhiteCornersSolved, MiddleLayerSolved))
+
+        /** The LL practice Lesson at a known [entryState]: rebuilds a generated scramble after recreation or a cold-start restore. */
+        fun lessonAt(entryState: String): Lesson {
+            val objective = TextKey("msg.practice.two-look.objective")
+            return Lesson(
+                id = TwoLookMastery.PRACTICE_ID,
+                stageId = StageId("two-look-practice"),
+                prerequisites = emptyList(),
+                objective = objective,
+                entryState = entryState,
+                demonstration = "",
+                learnerAction = objective,
+                completion = CubeSolved,
+                preserve = PRESERVE,
+                recovery = RecoveryRef("recovery-undo-last-move"),
+                steps = listOf(Step(objective, TextKey(""), TextKey(""), TextKey(""), "", CubeSolved)),
+            )
+        }
     }
 }

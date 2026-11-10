@@ -219,7 +219,9 @@ removed, another Lesson of the Checkpoint's Stage, which the host picks as the S
 validated Facelets, matching orientation IDs and a parsed history that reaches the stored cube.
 Matching content, stage and Lesson resume the boundary history without redo. Otherwise the stored cube becomes the entry with
 empty history and `restoreNote = Text("msg.lesson.updated")`. Tutor counters are fresh in both cases. A matching restore sets `restoreNote = Text("msg.lesson.resumed")`,
-as does every applied `SessionRestored`.
+as does every applied `SessionRestored`. `SessionRestored` applies to `LESSON`, `TWO_LOOK` and `PRACTICE` snapshots
+whose Lesson the host resolves (for `PRACTICE`, only the generated LL practice, rebuilt from the snapshot's start cube),
+and takes `twoLookAlgorithms` from the event.
 `restoreNote` is transient, null in IDLE and never snapshotted. Every later event taken by a Lesson
 clears it except `SnapshotSaveFailed`, `SnapshotLoadFailed`, `CheckpointSaveFailed` and
 `CheckpointLoadFailed`, which change nothing.

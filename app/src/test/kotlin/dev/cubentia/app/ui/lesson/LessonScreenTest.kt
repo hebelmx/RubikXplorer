@@ -137,7 +137,7 @@ class LessonScreenTest {
 
     @Test fun twoLookPracticeOffPathResult() = twoLookPracticeResult(false, offPath = true)
 
-    @Test fun twoLookPracticePhysicalHasNoMilestone() = twoLookPracticeResult(false, 1, physical = true)
+    @Test fun twoLookPracticePhysicalConfirmedMilestone() = twoLookPracticeResult(false, 1, physical = true)
 
     @Test fun twoLookPracticeAlreadyMasteredHasNoMilestone() = twoLookPracticeResult(false, 2)
 
@@ -218,7 +218,7 @@ class LessonScreenTest {
                 "Last layer solved with 2-look, no hints."
             },
         )
-        if (prior == 1 && !hint && !physical && !offPath) {
+        if (prior == 1 && !hint && !offPath) {
             rule.onNodeWithTag("milestone:headline").assertTextContains("2-look last layer mastered!")
             rule.onNodeWithTag("milestone:nextStage").assertDoesNotExist()
             rule.onNodeWithTag("milestone:practice").performClick()

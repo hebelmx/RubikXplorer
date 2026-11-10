@@ -10,16 +10,16 @@ context: []
 warnings: ['oversized']
 deferred:
   - summary: >-
-      A physical-mode LL practice solve can reach 2-look Mastered without the milestone playing.
+      A confirmed physical-mode solve that masters a Course Stage plays no Stage mastery milestone.
     evidence: |-
-      LessonScreen gates isTwoLookMilestone on !isPhysical, the same rule the pre-existing Stage mastery milestone uses (isMasteryMilestone also requires !isPhysical). UX-DR20 allows the milestone in Physical-cube Mode after an explicit "Yes, it's solved", so both milestones should accept a confirmed physical solve. Changing it for 2-look alone would split the rule; it belongs with the Stage mastery milestone.
+      LessonScreen still gates isMasteryMilestone on !isPhysical. UX-DR20 allows the milestone in Physical-cube Mode after an explicit "Yes, it's solved"; the 2-look milestone now follows it (physicalSolveConfirmed), the Stage mastery milestone is out of this story's scope.
     location: >-
-      app/src/main/kotlin/dev/cubentia/app/ui/lesson/LessonScreen.kt (isMasteryMilestone, isTwoLookMilestone)
+      app/src/main/kotlin/dev/cubentia/app/ui/lesson/LessonScreen.kt (isMasteryMilestone)
     severity: low
   - summary: >-
-      Rotating the device during a practice (Course or LL) regenerates the scramble and restarts the attempt.
+      Rotating the device during a Course Stage practice regenerates the scramble and restarts the attempt, and Course practice does not resume on cold start.
     evidence: |-
-      AppShell builds practiceEntry in remember(openPractice, practiceEpoch, ready) with a fresh KotlinRandomSource, and the manifest declares no configChanges, so activity recreation draws a new scramble and LessonScreen starts a new PracticeStarted. The LL practice copies the existing Course practice pattern (stagePractice), so the fix belongs to both.
+      AppShell builds the Course practiceEntry in remember(openPractice, practiceEpoch, ready) with a fresh scramble, and SessionHost resolves only bundled Lessons and the LL practice on restore. The LL practice now keeps its scramble in rememberSaveable and is rebuilt from the snapshot's start cube on cold start.
     location: >-
       app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt (practiceEntry)
     severity: medium
@@ -224,7 +224,8 @@ After each solve, a result line says whether it counted. The second qualifying s
 
 **Residual risks.**
 - A Learner who corrects a slip by hand instead of with Undo gets a non-qualifying solve. This is the strict reading, and the result line explains it.
-- Physical-mode LL practice can qualify from entered Moves, but its milestone stays suppressed (deferred).
+- Physical-mode LL practice can qualify from entered Moves; its milestone plays only after an explicit *Yes, it's solved*.
+- A cold-start restore of a physical LL practice resets the history start to the stored cube, so a second restore rebuilds the practice at that cube.
 - The intent reading was chosen here, not taken from planning, and the Design Notes record it:
   - "only 2-look Algorithms" is checked from the Learner's Moves;
   - the result is stored in the attempt's `errors`.
@@ -238,7 +239,7 @@ After each solve, a result line says whether it counted. The second qualifying s
   - `LessonPanel.kt` -- the 2-look result line is a polite live region.
   - `TRANSITIONS.md` -- documents the replaced-history error in `AttemptEnded.errors`.
   - `AppShellTest.kt` -- re-entering LL practice starts a fresh attempt with the same 2-look set.
-- Deferred: device rotation regenerates a practice scramble (shared with Course practice); practice Hints have no demonstration (shared practice design).
+- Deferred: device rotation regenerates a Course practice scramble (the LL practice keeps its scramble and resumes on cold start); practice Hints have no demonstration (shared practice design).
 
 **Follow-up review: not recommended.** Patched by verdict: high 0, medium 0, low 4. This follow-up pass patched no high finding, so the work has converged.
 

@@ -215,10 +215,10 @@ fun LessonScreen(
             }
 
     val isTwoLookMilestone =
-        twoLookPractice && !isPhysical && initialTwoLookMastered == false && twoLookProgress.mastered && !milestoneDismissed &&
+        twoLookPractice && initialTwoLookMastered == false && twoLookProgress.mastered && !milestoneDismissed &&
             session.lesson?.id == lesson.id &&
             session.objectiveMet &&
-            !session.physicalSolveUnconfirmed
+            if (isPhysical) session.physicalSolveConfirmed else !session.physicalSolveUnconfirmed
     val showMilestone = isFirstSolveMilestone || isMasteryMilestone || isTwoLookMilestone
 
     BackHandler(onBack = {
