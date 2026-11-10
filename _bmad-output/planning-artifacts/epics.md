@@ -232,7 +232,8 @@ A Learner can browse and watch all 78 verified OLL/PLL Algorithms, track their o
 The app meets every release gate. It is accessible, fast and stable on the reference devices, the pilot's findings are fixed, and the store listing and public repo are ready for a hiring manager's five-minute look.
 **Absorbs:** E09, PRD §7.
 **FRs covered:** none new (verifies all). **Also:** NFR-1, NFR-2, NFR-7, NFR-8, NFR-9, NFR-11, NFR-13, AR-3, AR-5, AR-16, UX-DR28, UX-DR29, Flow 6.
-**Also carries** the pre-pilot stories 12.6–12.10 (Cubentia rebrand; Epic 8 retrospective fixes), which run before Story 7.8 (`sprint-change-proposal-2026-11-08-cubentia-and-pre-pilot.md`), and 12.11–12.12 (Epic 9 seams; 2-look rules), also before 7.8 (`sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md`).
+**Also carries** the pre-pilot stories 12.6–12.10 (Cubentia rebrand; Epic 8 retrospective fixes), which run before Story 7.8 (`sprint-change-proposal-2026-11-08-cubentia-and-pre-pilot.md`), and 12.11–12.12 (Epic 9 seams; 2-look rules), also before 7.8 (`sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md`), and 12.13 (durable session end; Story 12.11 deferrals), also before 7.8 (`sprint-change-proposal-2026-11-10-session-end-deferrals.md`).
+**Device batch** (reference devices connected after the device-free stories; `sprint-change-proposal-2026-11-10-session-end-deferrals.md`): Stories 3.8, 1.11 and 12.2, plus the Story 12.1 physical pass in `docs/accessibility-manual-check.md`. Story 3.7 stays in `review` until 3.8 passes (its last AC), and Story 12.1 stays in `review` until that physical pass is recorded.
 
 ## Epic 1: Turn and verify a cube
 
@@ -1448,7 +1449,7 @@ So that their results come back in time for fixes.
 
 **Refs:** NFR-8, NFR-9, NFR-11 · AD-13, AD-15 · AR-5 · OQ-5 · PRD §7 gate 4
 
-**Depends on** Stories 12.11 and 12.12 (Epic 9 seams and 2-look rules, `sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md`).
+**Depends on** Stories 12.11 and 12.12 (Epic 9 seams and 2-look rules, `sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md`), and 12.13 (durable session end, `sprint-change-proposal-2026-11-10-session-end-deferrals.md`).
 
 **Acceptance Criteria:**
 
@@ -1794,6 +1795,8 @@ So that the app works for me too.
 **When** it completes
 **Then** every essential action has a non-gesture route and a content label (Android lint a11y checks green), and no banned pattern (UX-DR28) is present
 
+*Device follow-up (`sprint-change-proposal-2026-11-10-session-end-deferrals.md`): the physical pass also checks, on the reference phone at 200% type, that a vertical drag on the Lesson cube turns or rotates the cube and does not scroll the Lesson stage (the stage became scrollable in this story). A conflict is fixed as a Story 12.1 follow-up before it leaves `review`.*
+
 ### Story 12.2: Performance and compatibility on the reference devices
 
 As a Learner on an older phone or a tablet,
@@ -2063,3 +2066,41 @@ So that the mini-Course status is honest.
 **Given** `TRANSITIONS.md`
 **When** it is read
 **Then** it describes the LL-practice `practiceEntry` snapshot field and restore
+
+### Story 12.13: Closing a session is durable when a write fails
+
+As a Learner,
+I want a practice I closed to stay closed,
+So that the app never brings back something I already ended.
+
+**Refs:** FR-4, FR-12 · AD-10, AD-16 · Story 12.11 deferrals D1 and D2 · `sprint-change-proposal-2026-11-10-session-end-deferrals.md`
+
+**Acceptance Criteria:**
+
+**Given** a live Lesson, practice or 2-look session
+**When** it ends normally (`SessionEnded`: close or Back)
+**Then** the host writes an *ended* snapshot for that session through the revision-conditional snapshot write, together with any pending attempt rows, and deletes no snapshot row (AD-10)
+
+**Given** an *ended* snapshot is the latest row
+**When** the app cold starts
+**Then** no session is restored from snapshots, and the existing Checkpoint resume behaves as before
+
+**Given** the *ended* snapshot write fails
+**When** the host's writer runs its next operation, and when the app goes to the background
+**Then** the pending end write is retried until it is saved, and a cold start after a successful retry restores nothing
+
+**Given** a pending end write and a newer session that saves its own snapshot first
+**When** the retry would run
+**Then** the pending end write is dropped, so it never hides or replaces the newer session's snapshot
+
+**Given** snapshot payloads written before this story
+**When** they are decoded
+**Then** they still restore as before; the *ended* marker ships with a decoder for the previous payload format and a round-trip test
+
+**Given** *Reset progress*
+**When** it runs
+**Then** its behavior from Story 12.11 is unchanged: it deletes the snapshot and Checkpoint in the same writer step as the reset write and fails safely, with the dialog offering a retry
+
+**Given** `AppShellLibraryTest > last two look Lesson milestone practices a fresh LL scramble` (failed once in CI on PR #101, passed on rerun)
+**When** the story closes
+**Then** the cause of the flake is found and fixed (or the test is made deterministic), and the test passes in at least 20 consecutive local runs
