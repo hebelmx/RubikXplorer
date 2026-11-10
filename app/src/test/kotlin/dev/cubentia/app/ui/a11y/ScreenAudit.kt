@@ -206,19 +206,7 @@ internal fun auditScreens(
         rule.waitForIdle()
     }
     check("Lesson")
-    rule.onNodeWithTag("lesson:stage").assertHeightIsAtLeast(280.dp)
-    if (expanded) {
-        val bounds = rule.onNodeWithTag("lesson:panel").getUnclippedBoundsInRoot()
-        assertTrue("Expanded panel width ${bounds.right - bounds.left}", bounds.right - bounds.left <= 560.dp)
-    }
-    val panel = rule.onNodeWithTag("lesson:panel").assert(hasScrollAction())
-    panel.performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 100_000f) }
-    rule.waitForIdle()
-    rule
-        .onNodeWithTag("lesson:panel")
-        .onChildren()
-        .onLast()
-        .assertIsDisplayed()
+    rule.assertLessonLayout("Lesson", expanded)
     check("Lesson scrolled to end")
     if (largeType) rule.auditStageExtras("Lesson", ::check) else rule.assertButtonRoutes()
     if (rule.onAllNodesWithTag("lesson:physicalModeSwitch").fetchSemanticsNodes().isNotEmpty()) {
@@ -232,6 +220,29 @@ internal fun auditScreens(
     rule.runOnIdle { surface = "masteryMilestone" }
     rule.onNodeWithTag("milestone:nextStage").assertExists()
     check("Stage mastery milestone")
+}
+
+/**
+ * The Lesson's AC2 layout at 200%: the stage keeps its 280dp minimum, the expanded panel stays within
+ * 560dp, and the panel scrolls far enough to show its last node (left scrolled to the end).
+ */
+internal fun ComposeContentTestRule.assertLessonLayout(
+    screen: String,
+    expanded: Boolean,
+) {
+    onNodeWithTag("lesson:stage").assertHeightIsAtLeast(280.dp)
+    if (expanded) {
+        val bounds = onNodeWithTag("lesson:panel").getUnclippedBoundsInRoot()
+        assertTrue("$screen: expanded panel width ${bounds.right - bounds.left}", bounds.right - bounds.left <= 560.dp)
+    }
+    onNodeWithTag("lesson:panel")
+        .assert(hasScrollAction())
+        .performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 100_000f) }
+    waitForIdle()
+    onNodeWithTag("lesson:panel")
+        .onChildren()
+        .onLast()
+        .assertIsDisplayed()
 }
 
 /** Opens the extra Move keys and the View Rotation menu, audits each while shown, then closes them. */

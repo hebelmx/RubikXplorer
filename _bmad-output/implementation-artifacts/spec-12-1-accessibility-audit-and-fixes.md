@@ -9,21 +9,7 @@ followup_review_recommended: true
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-12-context.md'
 warnings: ['oversized']
-deferred:
-  - summary: >-
-      The 200% Lesson audit covers only the first lesson in its first virtual and physical states, not mismatch, diagnosis, recovery, skip-check or two-look content.
-    evidence: |-
-      ScreenAudit.kt drives ready.lessons.first() and checks physical mode right after the switch. Unverified: driving the mismatch ladder, diagnosis and recovery states and the other lessons at 200% compact and expanded would show whether any panel text overflows or any control drops below 48dp.
-    location: >-
-      app/src/test/kotlin/dev/cubentia/app/ui/a11y/ScreenAudit.kt
-    severity: medium (unverified)
-  - summary: >-
-      The 200% Manual editor audit checks it only right after opening, not with a sticker selected, a colour painted, invalid-state feedback shown or before accept.
-    evidence: |-
-      ScreenAudit.kt mounts ManualCubeEditor and checks it once. Unverified: driving the editor into its selected and invalid-feedback states at 200% compact and expanded would show whether that feedback text overflows or any control drops below 48dp.
-    location: >-
-      app/src/test/kotlin/dev/cubentia/app/ui/a11y/ScreenAudit.kt
-    severity: medium (unverified)
+deferred: []
 ---
 
 <intent-contract>

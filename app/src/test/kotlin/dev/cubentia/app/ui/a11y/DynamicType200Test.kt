@@ -22,4 +22,20 @@ class DynamicType200Test {
     @Test
     @Config(qualifiers = "w900dp-h891dp")
     fun expanded() = auditScreens(rule, largeType = true, expanded = true)
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp")
+    fun compactInteractionStates() = auditInteractionStates(rule, expanded = false)
+
+    @Test
+    @Config(qualifiers = "w900dp-h891dp")
+    fun expandedInteractionStates() = auditInteractionStates(rule, expanded = true)
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp")
+    fun compactEditorStates() = auditEditorStates(rule)
+
+    @Test
+    @Config(qualifiers = "w900dp-h891dp")
+    fun expandedEditorStates() = auditEditorStates(rule)
 }
