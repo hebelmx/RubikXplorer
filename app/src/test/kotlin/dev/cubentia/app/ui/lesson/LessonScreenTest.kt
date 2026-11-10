@@ -14,6 +14,8 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
@@ -29,6 +31,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
 import dev.cubentia.app.content.CatalogEntry
 import dev.cubentia.app.content.CatalogState
 import dev.cubentia.app.content.LessonCatalog
@@ -48,6 +51,7 @@ import dev.cubentia.app.session.testFlags
 import dev.cubentia.app.session.twoStepLesson
 import dev.cubentia.app.session.whiteCrossLesson
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
+import dev.cubentia.app.ui.freecube.MoveKeys
 import dev.cubentia.app.ui.shell.AppShell
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.application.port.AttemptLoad
@@ -692,6 +696,16 @@ class LessonScreenTest {
                 rule.onAllNodesWithTag("lesson:panel").fetchSemanticsNodes().isNotEmpty()
         }
         rule.waitForIdle()
+    }
+
+    @Test
+    @Config(qualifiers = "w640dp-h240dp")
+    fun `a short window keeps the first row of Move keys on screen`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.LET_ME_TRY)
+        node("moveKey:${Notation.format(MoveKeys.face.first())}")
+            .assertIsDisplayed()
+            .assertHeightIsAtLeast(48.dp)
     }
 
     @Test

@@ -1224,7 +1224,8 @@ private fun LearnerStage(
 /**
  * The cube above the Move key bar. The keys take their natural height as long as the cube keeps
  * [CUBE_MIN]; past that (all key rows open at 200% type) they scroll instead of crushing the cube
- * and clipping the last rows.
+ * and clipping the last rows. In a window too short for both, the keys keep [KEYS_MIN] and the cube
+ * takes the rest.
  */
 @Composable
 private fun CubeAndKeys(
@@ -1236,11 +1237,11 @@ private fun CubeAndKeys(
         val width = constraints.maxWidth
         val height = constraints.maxHeight
         val gap = Spacing.s1.roundToPx()
+        // In a short window (landscape, split screen) the keys still keep KEYS_MIN so they stay reachable.
+        val keysMax = maxOf(height - CUBE_MIN.roundToPx() - gap, minOf((height - gap) / 2, KEYS_MIN.roundToPx())).coerceAtLeast(0)
         val keyPlaceables =
             measurables.getOrNull(1).orEmpty().map {
-                it.measure(
-                    Constraints(minWidth = width, maxWidth = width, maxHeight = (height - CUBE_MIN.roundToPx() - gap).coerceAtLeast(0)),
-                )
+                it.measure(Constraints(minWidth = width, maxWidth = width, maxHeight = keysMax))
             }
         val keysHeight = keyPlaceables.maxOfOrNull { it.height }?.let { it + gap } ?: 0
         val cubeHeight = (height - keysHeight).coerceAtLeast(0)
@@ -1347,6 +1348,9 @@ private const val COMPACT_STAGE_FRACTION = 0.45f
 private const val WIDE_STAGE_FRACTION = 0.55f
 private val COMPACT_STAGE_MIN: Dp = 280.dp
 private val CUBE_MIN: Dp = 96.dp
+
+/** The Move keys' floor in a short window: one scrollable key row, or half the room when even that is too much. */
+private val KEYS_MIN: Dp = Spacing.touchMin
 private val EXPANDED_PANEL_MAX: Dp = 560.dp
 private val TOP_BAR_HEIGHT: Dp = 56.dp
 

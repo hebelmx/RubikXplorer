@@ -215,8 +215,9 @@ private fun ComposeContentTestRule.auditStageExtras(
 private fun ComposeContentTestRule.assertButtonRoutes() {
     assertEquals("face turns on the Move key bar", 18, MoveKeys.face.size)
     MoveKeys.face.forEach { onNodeWithTag("moveKey:${Notation.format(it)}").assertHasClickAction() }
+    MoveKeys.rotation.forEach { onNodeWithTag("moveKey:${Notation.format(it)}").assertHasClickAction() }
     onNodeWithTag("moveKey:more").assertHasClickAction().performScrollTo().performClick()
-    MoveKeys.wide.forEach { onNodeWithTag("moveKey:${Notation.format(it)}").assertHasClickAction() }
+    (MoveKeys.wide + MoveKeys.slice).forEach { onNodeWithTag("moveKey:${Notation.format(it)}").assertHasClickAction() }
     onNodeWithTag("moveKey:more").performClick()
     onNodeWithTag("stage:resetView").assertHasClickAction()
     onNodeWithTag("stage:viewMenu").performClick()

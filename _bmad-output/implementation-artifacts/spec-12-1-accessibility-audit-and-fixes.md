@@ -17,6 +17,13 @@ deferred:
     location: >-
       app/src/test/kotlin/dev/cubentia/app/ui/a11y/ScreenAudit.kt
     severity: medium (unverified)
+  - summary: >-
+      The 200% Manual editor audit checks it only right after opening, not with a sticker selected, a colour painted, invalid-state feedback shown or before accept.
+    evidence: |-
+      ScreenAudit.kt mounts ManualCubeEditor and checks it once. Unverified: driving the editor into its selected and invalid-feedback states at 200% compact and expanded would show whether that feedback text overflows or any control drops below 48dp.
+    location: >-
+      app/src/test/kotlin/dev/cubentia/app/ui/a11y/ScreenAudit.kt
+    severity: medium (unverified)
 ---
 
 <intent-contract>
@@ -142,6 +149,28 @@ deferred:
   - `[false]` `[reject]` (intent) 100% behaviour changed: title/caption wrap, top bar is a `FlowRow`, physical caption moved onto the switch — wrapping is what the spec asks for; a `FlowRow` lays out as one row when its items fit; the switch was unlabelled before and the caption now labels it, which is the earlier pass's fix.
   - `[low]` `[patch]` (intent) Banned-API scan reads only Kotlin sources, so `POST_NOTIFICATIONS` in the manifest would pass — `BannedPatternsTest` now also scans `src/main/AndroidManifest.xml` and fails clearly if it is missing.
 
+### 2026-11-10 — Review pass
+- verdicts: 18 findings — high 2, medium 1, low 8, false 4, maybe-false 3
+- findings:
+  - `[low]` `[reject]` (blind) Overflow check misses text clipped by an ancestor — carried: a fixed-height parent already shrinks the layout and is caught; an ancestor-clip walk is new machinery for no observed case.
+  - `[maybe-false]` `[defer]` (blind) Lesson audited only in its first lesson and first virtual/physical state — carried: already in `deferred` (Lesson-fixture coverage at 200%, medium unverified); not deferred again.
+  - `[maybe-false]` `[defer]` (blind) Manual editor audited only right after opening; selection, painting, invalid-state feedback and accept states not audited at 200% — would need the editor driven into its invalid-feedback and selected states at 200% compact/expanded to see whether that text overflows; if true, medium.
+  - `[maybe-false]` `[patch]` (blind) Stage caption never populated before the overflow and cube-height checks — the caption wraps (no `maxLines`), so it cannot ellipsize; the space it takes is what shrinks `CubeAndKeys`, so it shares the root cause and fix of the `CubeAndKeys` row below.
+  - `[false]` `[reject]` (blind) Audit never runs both themes — carried: overflow, size and label checks do not depend on colour; status-text pairs are covered in both themes by `ThemeTokensTest`.
+  - `[low]` `[reject]` (blind) Library audit sees only composed grid items — carried: every tile is the same composable with the same label pattern.
+  - `[false]` `[reject]` (blind) FreeCube short-window test only at 100% — the `CONTROLS_MIN` floor in `FreeCubeScreen.kt:112` does not depend on font scale and the controls column scrolls (`FreeCubeScreen.kt:129`), so at 200% larger key rows still scroll inside the same floor.
+  - `[high]` `[patch]` (blind) `CubeAndKeys` reserves `CUBE_MIN` before the keys, so when its height is ≤ 96dp + gap (landscape or split screen, wrapped header) the Move key bar gets a 0dp viewport and the virtual Lesson loses its non-gesture route — keys now keep a floor of `min(half, KEYS_MIN = touchMin)` (`LessonScreen.kt` `CubeAndKeys`); new `LessonScreenTest` case at `w640dp-h240dp` asserts the first Move key is displayed and ≥ 48dp, and fails with the floor removed. A two-row floor was tried first and broke the 96dp cube minimum at compact 200%, so the floor is one row.
+  - `[low]` `[reject]` (blind) Lint functional test proves configuration, not a failing lint run on a seeded issue — carried: testing AGP's `abortOnError` needs an Android lint run in TestKit; a mutation already fails the config test.
+  - `[high]` `[patch]` (edge) `LessonScreen.kt` `CubeAndKeys` gives the Move keys a zero-height viewport in short stages — same root cause and fix as the blind `CubeAndKeys` row.
+  - `[low]` `[patch]` (edge) Button-route audit never asserts Cube Rotation or slice Move keys, though cube gestures commit Cube Rotations (`LessonScreenTest` twist → `z`) — `assertButtonRoutes` in `ScreenAudit.kt` now asserts every `MoveKeys.rotation` key and, behind *more*, every `MoveKeys.slice` key has a click action.
+  - `[medium]` `[patch]` (verification-gap) Single-face `StickerReviewNet` (compact editor, `face != null`) RTL positions untested — `StickerReviewNetRtlTest` adds a case comparing LTR and RTL sticker x positions for each of the six faces.
+  - `[false]` `[reject]` (intent) Stage minimum checked on the `lesson:stage` container while the cube may shrink to 96dp — carried: the matrix defines the surface as `lesson:stage` ≥ 280dp; the cube's own 96dp floor is asserted with every key row open.
+  - `[low]` `[reject]` (intent) `StickerReviewNet` gets a role but no `onClickLabel` — carried: a click label needs a new Learner string, which the boundaries forbid; the sticker keeps its `editor_sticker` description.
+  - `[low]` `[reject]` (intent) The five lint ids have little to fire on in a Compose-only app — carried: AC3 asks for lint a11y at error and green, which it is; labels are carried by the Compose semantics test.
+  - `[low]` `[reject]` (intent) No test proves 100% visual parity for the layout changes — the existing Lesson, FreeCube and You tests pass unchanged at 100%; a `FlowRow` lays out as one row when items fit; screenshot testing would be new machinery for no observed regression.
+  - `[low]` `[reject]` (intent) "Every screen" detection limits: ancestor clipping, editor and milestones mounted outside `AppShell`, single-face RTL — ancestor clipping is carried (reject); the editor and milestones are the same composables `AppShell` mounts; the single-face RTL part is patched under the verification-gap row.
+  - `[false]` `[reject]` (intent) Button routes asserted only at 100% and *Read faces* matched by its English label — routes exist independently of font scale and the 200% audit opens the extra keys and View menu and checks them; the test runs on the English content, which is the only shipped locale.
+
 ## Design Notes
 
 Overflow check: `TextLayoutResult.hasVisualOverflow` is true both for ellipsized lines and for text cut by a fixed-height parent (the constraint shrinks the layout), so one check covers `maxLines` and fixed `height`. Example:
@@ -207,3 +236,31 @@ Physical-mode Lessons hide the Move key bar by design (the Learner turns a real 
 **Verification:** `./gradlew :app:testDebugUnitTest --tests 'dev.cubentia.app.ui.a11y.*' --tests '*FreeCubeScreenTest'` passed (A11yAssertionsTest 3, BannedPatternsTest 2, DynamicType200Test 2, EssentialActionsTest 2, FreeCubeScreenTest 29); mutation check: removing the `CONTROLS_MIN` floor makes the new short-window test fail. `./gradlew spotlessCheck build` failed once on `Cube3DEmphasisTest` (frame-clock timing; this test also failed in earlier unrelated runs and is untouched by this change), which passed when run alone, and the rerun was BUILD SUCCESSFUL (incl. `:app:lintDebug`); `./gradlew -p build-logic test` BUILD SUCCESSFUL.
 
 **Residual risks:** `Cube3DEmphasisTest` is flaky under full-suite load; the deferred Lesson-state coverage; AC3's device pass with `docs/accessibility-manual-check.md` is still the product owner's.
+
+### Second follow-up review pass (2026-11-10)
+
+**Summary:** Second follow-up review of story 12.1. Three Codex layers and the Claude intent-alignment layer reported 18 findings. Four distinct patches were applied, one new item was deferred, and the rest were rejected or carried, each with its reason in the triage log.
+
+**Files changed in this pass:**
+- `app/src/main/kotlin/dev/cubentia/app/ui/lesson/LessonScreen.kt` -- `CubeAndKeys` keeps a Move-key floor of `min(half, KEYS_MIN = touchMin)` in short stages, so the keys no longer collapse to 0dp.
+- `app/src/test/kotlin/dev/cubentia/app/ui/lesson/LessonScreenTest.kt` -- new short-window (`w640dp-h240dp`) test: the first Move key is displayed and at least 48dp tall.
+- `app/src/test/kotlin/dev/cubentia/app/ui/a11y/ScreenAudit.kt` -- the button-route audit now also covers the Cube Rotation and slice Move keys.
+- `app/src/test/kotlin/dev/cubentia/app/ui/editor/StickerReviewNetRtlTest.kt` -- new test: single-face sticker positions match under LTR and RTL for all six faces.
+
+**Review findings:**
+- Patches applied: 1 high (Lesson short-stage keys; 3 rows: two high and one maybe-false), 1 medium (single-face RTL test), 1 low (rotation and slice route assertions).
+- Deferred: 1 new item, the Manual editor states at 200% (medium, unverified). The existing Lesson-state deferral is carried.
+- Rejected: 7 low and 4 false findings, each with its reason in the triage log.
+
+**Follow-up review recommended:** true. This follow-up pass patched a high (high 1, medium 1, low 1 by entry). Unverified risk: the new `KEYS_MIN` floor lets the Lesson cube drop below its 96dp minimum when `CubeAndKeys` is shorter than about 148dp. That trade-off is tested only at 100% font scale in one window (`w640dp-h240dp`). It is not tested at 200% type or in other landscape and split-screen sizes. A two-row floor was tried first, and it broke the 96dp cube assertion at compact 200%.
+
+**Verification:**
+- `./gradlew :app:testDebugUnitTest --tests '*LessonScreenTest.a short window*' --tests '*StickerReviewNetRtlTest' --tests 'dev.cubentia.app.ui.a11y.*'` passed: A11yAssertionsTest 3, BannedPatternsTest 2, DynamicType200Test 2, EssentialActionsTest 2, StickerReviewNetRtlTest 2, and the new LessonScreenTest case 1.
+- Mutation check: with the floor removed, the new short-window test fails.
+- `./gradlew spotlessCheck build` first failed only on the known flaky `Cube3DEmphasisTest`. That test passed alone, and the rerun ended BUILD SUCCESSFUL, including `:app:lintDebug`.
+- `./gradlew -p build-logic test` ended BUILD SUCCESSFUL.
+
+**Residual risks:**
+- `Cube3DEmphasisTest` is still flaky under full-suite load.
+- Two items stay deferred: Lesson-state coverage and Manual editor state coverage at 200%.
+- AC3's device pass with `docs/accessibility-manual-check.md` is still the product owner's to do.

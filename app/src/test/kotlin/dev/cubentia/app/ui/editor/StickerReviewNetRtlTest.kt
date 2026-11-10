@@ -56,4 +56,40 @@ class StickerReviewNetRtlTest {
         rule.runOnIdle { direction = LayoutDirection.Rtl }
         assertEquals(ltr, positions())
     }
+
+    @Test fun `single-face sticker positions stay fixed under RTL`() {
+        var direction by mutableStateOf(LayoutDirection.Ltr)
+        var face by mutableStateOf(0)
+        rule.setContent {
+            CubentiaTheme {
+                CompositionLocalProvider(LocalLayoutDirection provides direction) {
+                    StickerReviewNet(
+                        facelets = CubeState.SOLVED.toFacelets(),
+                        selected = null,
+                        invalid = emptySet(),
+                        onStickerClick = {},
+                        modifier = Modifier.size(300.dp),
+                        face = face,
+                    )
+                }
+            }
+        }
+
+        fun positions(f: Int) =
+            (f * 9 until (f + 1) * 9).map {
+                rule
+                    .onNodeWithTag("sticker:$it")
+                    .fetchSemanticsNode()
+                    .positionInRoot.x
+            }
+        for (f in 0 until 6) {
+            rule.runOnIdle {
+                face = f
+                direction = LayoutDirection.Ltr
+            }
+            val ltr = positions(f)
+            rule.runOnIdle { direction = LayoutDirection.Rtl }
+            assertEquals("face $f", ltr, positions(f))
+        }
+    }
 }
