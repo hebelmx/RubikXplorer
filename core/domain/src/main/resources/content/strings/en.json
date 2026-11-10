@@ -1,7 +1,14 @@
 {
+  "msg.solve.pauses-lesson": "Starting a solve pauses your lesson.",
+  "msg.solve.preparing": "Preparing the solver (one time, a few seconds).",
+  "msg.solve.learn-offer": "Want to learn how to do this yourself?",
+  "btn.solve.enter-colors": "Enter colors",
+  "btn.solve.cancel": "Cancel",
+  "btn.solve.close": "Close",
+
   "msg.lesson.resumed": "Picked up where you left off.",
   "msg.lesson.updated": "This lesson was updated. We've restarted it with your cube as it was.",
-  "msg.solve.timed-out": "Solving took too long. Your colors are saved here; try again.",
+  "msg.solve.timed-out": "Couldn't find a solution in time. Your colors are still here — try again.",
   "msg.solve.failed": "A verified solution could not be found. Check your colors or try again.",
   "msg.validation.wrong-color-counts": "Each color should appear on exactly nine stickers. Check the colors you entered.",
   "msg.validation.impossible-piece": "Some {piece}s show colors that no real {piece} has. Check the outlined stickers.",

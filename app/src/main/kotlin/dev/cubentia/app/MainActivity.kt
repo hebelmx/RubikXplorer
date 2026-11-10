@@ -32,6 +32,8 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var preferenceStore: PreferenceStore
 
+    private val solveFlow: dev.cubentia.app.ui.solve.SolveFlowViewModel by viewModels()
+
     private val freeCube: FreeCubeViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,6 +45,7 @@ class MainActivity : ComponentActivity() {
                 AppShell(
                     preferenceStore = preferenceStore,
                     host = sessionHost,
+                    solveFlow = solveFlow,
                     catalog = lessonCatalog,
                     freeCube = freeCube,
                     showDebugToggles = DebugOptions.SHOW_DEBUG_TOGGLES,
