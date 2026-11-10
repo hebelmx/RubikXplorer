@@ -266,3 +266,5 @@ Physical-mode transitions (Epic 8, AD-3, AD-5):
 - `SessionHost` writes a physical session's completion only on an accepted `PhysicalSolveConfirmed`; a virtual session writes when `objectiveMet` flips.
 
 2-look Lessons start through `LessonStarted(kind = TWO_LOOK)` and use the taught-session Move, Teaching Mode, Hint, attempt and recovery transitions. They resume through snapshots. Checkpoints remain restricted to `LESSON`.
+
+LL practice passes the content-derived 2-look Algorithm Move lists in `PracticeStarted.twoLookAlgorithms`. The reducer keeps them only for that practice; other session starts clear them. `AttemptEnded.errors` is `TwoLookSolve.offPathMoves(history.done, twoLookAlgorithms)` when the set is non-empty, and remains the step mistake count for Course practice. No snapshot or checkpoint format changes.

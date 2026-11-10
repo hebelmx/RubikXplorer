@@ -73,7 +73,7 @@ data class LastLayerView private constructor(
         }
 
         /** The frame a cube is held in to read the [lastLayer] color: that color on U and a fixed front. */
-        internal fun canonicalFrame(lastLayer: Color): Orientation {
+        fun canonicalFrame(lastLayer: Color): Orientation {
             val up = homeFaceOf(lastLayer)
             return Orientation.of(up, fixedFront(up))
         }

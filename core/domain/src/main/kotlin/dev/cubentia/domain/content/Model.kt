@@ -82,6 +82,7 @@ data class TutorConfig(
     val recoveryMaxDepth: Int,
     val adaptive: AdaptiveThresholds,
     val mastery: MasteryThresholds,
+    val twoLookSolvesRequired: Int = 2,
 ) {
     /** [moveSet] parsed; empty when it is not valid Notation (which `ContentValidator` rejects). */
     val moves: List<Move>

@@ -5,6 +5,7 @@ import dev.cubentia.domain.content.TutorConfig
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.MoveHistory
+import dev.cubentia.domain.lastlayer.TwoLookSolve
 import dev.cubentia.domain.predicate.ObjectiveProgress
 import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.tutor.AdaptivePolicy
@@ -153,6 +154,7 @@ data class SessionState internal constructor(
      * it stays met; a physical session's completion is recorded only then. Never advances [revision].
      */
     val physicalSolveConfirmed: Boolean = false,
+    val twoLookAlgorithms: List<List<Move>> = emptyList(),
     /**
      * True while the Objective was met in physical mode and the Learner has not confirmed it, kept
      * across a switch to virtual mode, so the first-solve milestone cannot skip the confirmation. Never advances [revision].
@@ -254,6 +256,13 @@ data class SessionState internal constructor(
 
     /** The current Cube State. */
     val virtual: CubeState get() = history.state
+
+    /**
+     * In LL practice, the Moves outside 2-look Algorithms and adjustments ([TwoLookSolve]), counting a
+     * replaced history as one; null in any other session. Derived, never stored.
+     */
+    val twoLookErrors: Int? get() =
+        if (twoLookAlgorithms.isEmpty()) null else TwoLookSolve.offPathMoves(history, pathEntry, twoLookAlgorithms)
 
     /** True while any session is active. */
     val isActive: Boolean get() = kind != null

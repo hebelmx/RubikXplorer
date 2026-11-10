@@ -170,6 +170,9 @@ object ContentValidator {
         }
         problems += adaptiveProblems(config.adaptive)
         problems += masteryProblems(config.mastery)
+        if (config.twoLookSolvesRequired !in 1..10) {
+            problems += ContentProblem.InvalidTutorConfig("twoLookSolvesRequired", ContentProblem.InvalidTutorConfig.Detail.OUT_OF_RANGE)
+        }
         return problems
     }
 

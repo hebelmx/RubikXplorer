@@ -80,6 +80,7 @@ fun LearnScreen(
     showFasterLastLayer: Boolean = false,
     showTwoLookLocked: Boolean = false,
     onCloseTwoLookLocked: () -> Unit = {},
+    onTwoLookPractice: () -> Unit = {},
     practiceEnabled: Boolean = false,
     onPracticeStage: (StageId) -> Unit = {},
     skipCheckEnabled: Boolean = true,
@@ -89,6 +90,7 @@ fun LearnScreen(
     reducedHelpSolves: Int = 0,
     reducedHelpRequired: Int = DEFAULT_MASTERY_REDUCED_REQUIRED,
     attemptRecords: List<MasteryAttempt> = emptyList(),
+    twoLookProgress: dev.cubentia.domain.tutor.TwoLookProgress? = null,
     abandonedSkipCheckStage: StageId? = null,
 ) {
     Box(
@@ -191,6 +193,14 @@ fun LearnScreen(
                         masteredStages = effectiveMasteredStages,
                         scrollState = scrollState,
                         showFasterLastLayer = showFasterLastLayer,
+                        twoLookProgress =
+                            twoLookProgress ?: dev.cubentia.domain.tutor.TwoLookMastery.evaluate(
+                                catalog.bundle.twoLookStages,
+                                attemptRecords,
+                                progressEvents,
+                                catalog.bundle.tutorConfig.twoLookSolvesRequired,
+                            ),
+                        onTwoLookPractice = onTwoLookPractice,
                         onOpen = onOpen,
                         onSelectStage = { onSelectStage(it) },
                     )
@@ -208,6 +218,8 @@ private fun StageListContent(
     masteredStages: Set<StageId>,
     scrollState: ScrollState,
     showFasterLastLayer: Boolean,
+    twoLookProgress: dev.cubentia.domain.tutor.TwoLookProgress,
+    onTwoLookPractice: () -> Unit,
     onOpen: (LessonId) -> Unit,
     onSelectStage: (StageId) -> Unit,
 ) {
@@ -252,7 +264,7 @@ private fun StageListContent(
                 HorizontalDivider(color = RubikTheme.tokens.hairline)
             }
             if (showFasterLastLayer) {
-                FasterLastLayerRow()
+                FasterLastLayerRow(twoLookProgress, onTwoLookPractice)
                 catalog.bundle.twoLookStages.forEachIndexed { index, stage ->
                     StageRow(
                         stage,
@@ -318,24 +330,41 @@ private fun StageRow(
 }
 
 @Composable
-private fun FasterLastLayerRow() {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Spacing.s3),
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = Spacing.touchMin)
-                .semantics(mergeDescendants = true) { heading() }
-                .testTag("learn:fasterLastLayer")
-                .padding(horizontal = Spacing.s4, vertical = Spacing.s3),
-    ) {
-        Text(
-            text = stringResource(R.string.learn_faster_last_layer),
-            style = MaterialTheme.typography.titleLarge,
-            color = RubikTheme.tokens.inkPrimary,
-            modifier = Modifier.weight(1f),
-        )
+private fun FasterLastLayerRow(
+    twoLookProgress: dev.cubentia.domain.tutor.TwoLookProgress,
+    onTwoLookPractice: () -> Unit,
+) {
+    Column {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.s3),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = Spacing.touchMin)
+                    .semantics(mergeDescendants = true) { heading() }
+                    .testTag("learn:fasterLastLayer")
+                    .padding(horizontal = Spacing.s4, vertical = Spacing.s3),
+        ) {
+            Text(
+                text = stringResource(R.string.learn_faster_last_layer),
+                style = MaterialTheme.typography.titleLarge,
+                color = RubikTheme.tokens.inkPrimary,
+                modifier = Modifier.weight(1f),
+            )
+            StageStatusBadge(twoLookProgress.status, "learn:fasterLastLayer:status")
+        }
+        if (twoLookProgress.qualifyingSolves in 1 until twoLookProgress.solvesRequired) {
+            Text(
+                stringResource(R.string.learn_two_look_mastery, twoLookProgress.qualifyingSolves, twoLookProgress.solvesRequired),
+                style = MaterialTheme.typography.bodySmall,
+                color = RubikTheme.tokens.inkSecondary,
+                modifier = Modifier.testTag("learn:fasterLastLayer:mastery").padding(horizontal = Spacing.s4),
+            )
+        }
+        TextButton(onClick = onTwoLookPractice, modifier = Modifier.testTag("learn:twoLookPractice")) {
+            Text(stringResource(R.string.learn_two_look_practice))
+        }
     }
 }
 

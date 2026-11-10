@@ -33,6 +33,21 @@ class SchemaModelTest {
         }
 
     @Test
+    fun `two look mastery threshold is optional with bounded integer schema`() {
+        val schema = schemas.getValue("tutor-config.schema.json")
+        val field =
+            schema
+                .getValue("properties")
+                .jsonObject
+                .getValue("twoLookSolvesRequired")
+                .jsonObject
+        assertEquals(JsonPrimitive("integer"), field["type"])
+        assertEquals(JsonPrimitive(1), field["minimum"])
+        assertEquals(JsonPrimitive(10), field["maximum"])
+        assertTrue(JsonPrimitive("twoLookSolvesRequired") !in schema.getValue("required").jsonArray)
+    }
+
+    @Test
     fun `every schema file is draft 2020-12 and matches its Kotlin class`() {
         val roots =
             mapOf(

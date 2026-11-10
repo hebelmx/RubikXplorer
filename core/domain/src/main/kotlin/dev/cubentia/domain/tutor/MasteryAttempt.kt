@@ -19,6 +19,7 @@ interface MasteryAttempt {
     val assistanceLevel: AssistanceLevel?
     val at: Instant
     val hints: Int? get() = null
+    val errors: Int? get() = null
 }
 
 /**
@@ -30,4 +31,5 @@ data class StageAttempt(
     override val assistanceLevel: AssistanceLevel? = AssistanceLevel.REDUCED,
     override val at: Instant = Instant.fromEpochMilliseconds(0),
     override val hints: Int? = null,
+    override val errors: Int? = null,
 ) : MasteryAttempt

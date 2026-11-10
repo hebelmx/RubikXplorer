@@ -11,5 +11,6 @@
   "mastery": {
     "solvesRequired": 2,
     "reducedHelpRequired": 1
-  }
+  },
+  "twoLookSolvesRequired": 2
 }

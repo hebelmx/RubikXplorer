@@ -254,6 +254,7 @@ private fun start(
     val next =
         withHistory(state, MoveHistory(entry), lesson).copy(
             kind = event.kind,
+            twoLookAlgorithms = emptyList(),
             lesson = lesson,
             tutorConfig = event.tutorConfig,
             adaptiveAssistance = event.adaptiveAssistance,
@@ -293,6 +294,7 @@ private fun startPractice(
     val next =
         withHistory(state, MoveHistory(entry), lesson).copy(
             kind = SessionKind.PRACTICE,
+            twoLookAlgorithms = event.twoLookAlgorithms,
             lesson = lesson,
             tutorConfig = event.tutorConfig,
             adaptiveAssistance = false,
@@ -337,6 +339,7 @@ private fun startPlayback(
     val next =
         withHistory(state, MoveHistory(start), lesson = null).copy(
             kind = SessionKind.SOLVE_PLAYBACK,
+            twoLookAlgorithms = emptyList(),
             lesson = null,
             tutorConfig = null,
             adaptiveAssistance = false,
@@ -1121,7 +1124,7 @@ private fun attempts(
                 next.revision,
                 checkNotNull(state.lesson).id.value,
                 outcome,
-                state.stepMistakes.values.sum(),
+                state.twoLookErrors ?: state.stepMistakes.values.sum(),
                 state.hintsUsed,
                 state.attemptAssistance,
                 event.at,

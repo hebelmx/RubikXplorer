@@ -52,6 +52,9 @@ data class CubeState internal constructor(
         return Color.home(Face.entries[index / 9])
     }
 
+    /** The same pieces held in [orientation], without turning a layer. */
+    fun reoriented(orientation: Orientation): CubeState = copy(orientation = orientation)
+
     /** A new state with [moves] applied in order. */
     fun apply(moves: List<Move>): CubeState = moves.fold(this) { state, move -> state.apply(move) }
 

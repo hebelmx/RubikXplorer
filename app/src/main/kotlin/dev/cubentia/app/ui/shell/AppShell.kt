@@ -238,11 +238,53 @@ private fun ShellContent(
         return
     }
 
+    val twoLookMoves =
+        remember(ready) {
+            ready
+                ?.let { content ->
+                    val ids =
+                        content.bundle.twoLookStages
+                            .flatMap { it.lessons }
+                            .flatMap { content.bundle.lessonAlgorithms[it.id].orEmpty() }
+                            .toSet()
+                    content.bundle.algorithms
+                        .filter {
+                            it.id in ids
+                        }.map {
+                            (
+                                dev.cubentia.domain.cube.Notation
+                                    .parse(it.notation) as dev.cubentia.domain.cube.NotationResult.Parsed
+                            ).moves
+                        }
+                }.orEmpty()
+        }
     val practiceEntry =
         remember(openPractice, practiceEpoch, ready) {
             val stageId = openPractice?.let(::StageId)
             val stage = stageId?.takeIf { it != StagePractice.STAGE_1_ID }?.let { id -> ready?.bundle?.stages?.firstOrNull { it.id == id } }
-            if (stageId != null && stage != null && ready != null) {
+            if (openPractice == "two-look-practice" && ready != null) {
+                val algorithms =
+                    ready.bundle.algorithms.map {
+                        (
+                            dev.cubentia.domain.cube.Notation
+                                .parse(it.notation) as dev.cubentia.domain.cube.NotationResult.Parsed
+                        ).moves
+                    }
+                val lesson =
+                    dev.cubentia.application.usecase
+                        .TwoLookPractice(KotlinRandomSource())
+                        .lesson(algorithms)
+                CatalogEntry(
+                    lesson,
+                    dev.cubentia.domain.content.Stage(
+                        lesson.stageId,
+                        dev.cubentia.domain.content
+                            .TextKey("stage.two-look-practice.title"),
+                        listOf(lesson),
+                    ),
+                    ready.bundle.tutorConfig,
+                )
+            } else if (stageId != null && stage != null && ready != null) {
                 val lesson = stagePractice(stageId)
                 CatalogEntry(lesson, stage, ready.bundle.tutorConfig)
             } else {
@@ -271,6 +313,8 @@ private fun ShellContent(
                 tab = Tab.LEARN
             },
             isPractice = true,
+            twoLookPractice = openPractice == "two-look-practice",
+            twoLookAlgorithms = twoLookMoves,
         )
         return
     }
@@ -466,7 +510,20 @@ private fun ShellContent(
                         stageAbandoned = null
                     },
                     abandonedSkipCheckStage = stageAbandoned?.let(::StageId),
+                    twoLookProgress =
+                        ready?.let {
+                            dev.cubentia.domain.tutor.TwoLookMastery.evaluate(
+                                it.bundle.twoLookStages,
+                                attemptRecords,
+                                progressEvents,
+                                it.bundle.tutorConfig.twoLookSolvesRequired,
+                            )
+                        },
                     showFasterLastLayer = allStagesFinished,
+                    onTwoLookPractice = {
+                        openPractice = "two-look-practice"
+                        practiceEpoch++
+                    },
                     showTwoLookLocked = twoLookLocked && !allStagesFinished,
                     onCloseTwoLookLocked = { twoLookLocked = false },
                     scrollState = learnScroll,

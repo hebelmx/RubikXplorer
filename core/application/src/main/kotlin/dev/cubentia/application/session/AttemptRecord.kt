@@ -20,7 +20,7 @@ data class AttemptRecord(
     val event: AttemptEvent,
     override val objectiveId: String,
     override val outcome: AttemptOutcome?,
-    val errors: Int?,
+    override val errors: Int?,
     override val hints: Int?,
     override val assistanceLevel: AssistanceLevel?,
     override val at: Instant,
