@@ -45,7 +45,8 @@ import dev.cubentia.app.preferences.PreferenceProvider
 import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.app.random.KotlinRandomSource
 import dev.cubentia.app.session.SessionHost
-import dev.cubentia.app.ui.freecube.FreeCubeScreen
+import dev.cubentia.app.solver.SolverLoad
+import dev.cubentia.app.solver.SolverSource
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
 import dev.cubentia.app.ui.lesson.LessonScreen
 import dev.cubentia.app.ui.library.AlgorithmDetailScreen
@@ -53,12 +54,16 @@ import dev.cubentia.app.ui.library.LibraryFilterSaver
 import dev.cubentia.app.ui.library.LibraryScreen
 import dev.cubentia.app.ui.library.RequestedAlgorithmStatus
 import dev.cubentia.app.ui.settings.SettingsScreen
+import dev.cubentia.app.ui.solve.SolveFlowViewModel
+import dev.cubentia.app.ui.solve.SolvePlaybackScreen
+import dev.cubentia.app.ui.solve.SolveScreen
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.welcome.WelcomeScreen
 import dev.cubentia.application.port.AlgorithmStatusLoad
 import dev.cubentia.application.port.FeatureFlag
 import dev.cubentia.application.port.FeatureFlags
 import dev.cubentia.application.port.FlagLevel
+import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionKind
 import dev.cubentia.application.session.SessionState
 import dev.cubentia.application.usecase.StagePractice
@@ -89,8 +94,8 @@ enum class Tab(
 }
 
 /**
- * The navigation shell (UX-DR7): Learn, Solve (the free cube), Library and You behind a `NavigationBar` when
- * compact and a `NavigationRail` from medium width. An open Lesson replaces the shell as a
+ * The navigation shell (UX-DR7): Learn, Solve (color entry and the free cube), Library and You behind a `NavigationBar` when
+ * compact and a `NavigationRail` from medium width. An open Lesson or Solve Playback replaces the shell as a
  * full-screen task flow, with no bar. The tab and the open Lesson survive configuration changes; the
  * Lesson's progress lives in [host]'s session. [flags] decides which Teaching Modes the Lesson offers:
  * *Test me* only while `TEST_ME` is enabled; `ADAPTIVE_ASSISTANCE` decides whether help adapts in the Lesson,
@@ -110,9 +115,19 @@ fun AppShell(
         },
     stagePractice: StagePractice = remember { StagePractice(KotlinRandomSource()) },
     showWelcome: Boolean = false,
+    solveFlow: SolveFlowViewModel =
+        remember {
+            SolveFlowViewModel(
+                object : SolverSource {
+                    override val isReady = false
+
+                    override suspend fun load(): SolverLoad = SolverLoad.Failed
+                },
+            )
+        },
 ) {
     PreferenceProvider(preferenceStore) {
-        ShellContent(host, catalog, freeCube, showDebugToggles, flags, modifier, stagePractice, preferenceStore, showWelcome)
+        ShellContent(host, catalog, freeCube, showDebugToggles, flags, modifier, stagePractice, preferenceStore, showWelcome, solveFlow)
     }
 }
 
@@ -127,6 +142,7 @@ private fun ShellContent(
     stagePractice: StagePractice,
     preferenceStore: PreferenceStore,
     showWelcome: Boolean,
+    solveFlow: SolveFlowViewModel,
 ) {
     LaunchedEffect(catalog) { catalog.load() }
     val content by catalog.state.collectAsState()
@@ -192,6 +208,27 @@ private fun ShellContent(
 
     LaunchedEffect(content, host) { (content as? CatalogState.Ready)?.let { host.restore(it.bundle) } }
     val ready = content as? CatalogState.Ready
+    if (ready != null && session.kind == SessionKind.SOLVE_PLAYBACK) {
+        SolvePlaybackScreen(
+            session,
+            ready.strings,
+            onEvent = { event -> scope.launch { host.dispatch { event } } },
+            onClose = {
+                scope.launch {
+                    host.endSolve(ready.bundle)
+                    tab = Tab.SOLVE
+                }
+            },
+            onLearn = {
+                scope.launch {
+                    host.endSolve(ready.bundle)
+                    tab = Tab.LEARN
+                }
+            },
+            modifier = modifier,
+        )
+        return
+    }
     if (welcome && openSkipCheck == null) {
         val readyBundle = ready?.bundle
         WelcomeScreen(
@@ -432,6 +469,9 @@ private fun ShellContent(
                     s == StageStatus.MASTERED
             }
 
+    // A solve still running when the Learner leaves the Solve tab is cancelled, so its result never suspends a session started elsewhere.
+    LaunchedEffect(tab) { if (tab != Tab.SOLVE) solveFlow.cancelSolving() }
+
     val destination: @Composable (Modifier, WindowWidthClass) -> Unit = { destinationModifier, widthClass ->
         when (tab) {
             Tab.LIBRARY -> {
@@ -551,7 +591,17 @@ private fun ShellContent(
             }
 
             Tab.SOLVE -> {
-                FreeCubeScreen(viewModel = freeCube, showDebugToggles = showDebugToggles, modifier = destinationModifier)
+                if (ready != null) {
+                    SolveScreen(
+                        solveFlow,
+                        ready.strings,
+                        freeCube,
+                        showDebugToggles,
+                        session.kind?.takesMoves == true,
+                        onSolved = { state, moves -> host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it) } },
+                        modifier = destinationModifier,
+                    )
+                }
             }
         }
     }
