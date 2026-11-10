@@ -64,13 +64,20 @@ object LearnerTextPolicy {
                         }
                     }.joinToString("")
             }
-        return Regex("""<(?:string|plurals|string-array)\b[^>]*\bname\s*=\s*["']([^"']+)["']""")
+        return RESOURCE_TAG
             .findAll(source)
             .mapNotNull { match ->
-                val name = match.groupValues[1]
+                val attributes = match.groupValues[2]
+                if (match.groupValues[1] == "item" && ITEM_STRING_TYPE.find(attributes) == null) return@mapNotNull null
+                val name = RESOURCE_NAME.find(attributes)?.groupValues?.get(1) ?: return@mapNotNull null
                 if (name in allowed) null else Violation(file, KotlinLexer.lineOf(source, match.range.first), name, Rule.STRING_RESOURCE)
             }.toList()
     }
+
+    /** A string resource tag (`<item>` counts only with `type="string"`); group 2 holds its attributes. */
+    private val RESOURCE_TAG = Regex("""<(string|plurals|string-array|item)\b([^>]*)>""")
+    private val RESOURCE_NAME = Regex("""\bname\s*=\s*["']([^"']+)["']""")
+    private val ITEM_STRING_TYPE = Regex("""\btype\s*=\s*["']string["']""")
 
     /** Every violation in the Kotlin [source] of [file]; empty when the file passes. */
     fun check(

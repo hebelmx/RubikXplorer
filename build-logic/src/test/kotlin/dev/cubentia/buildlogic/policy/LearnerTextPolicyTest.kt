@@ -20,6 +20,33 @@ class LearnerTextPolicyTest {
         )
     }
 
+    @Test fun `an item resource of type string must be in the baseline, in either attribute order`() {
+        val xml =
+            """<resources>
+              |<item type="string" name="new_learner_text">New Learner text</item>
+              |<item name="other_learner_text" type="string">Other Learner text</item>
+              |<item type="dimen" name="not_text">4dp</item>
+              |<string-array name="allowed"><item>Not a resource</item></string-array>
+              |</resources>
+            """.trimMargin()
+        val found = LearnerTextPolicy.checkStringResources("strings.xml", xml, setOf("allowed"))
+        assertEquals(
+            listOf(
+                LearnerTextPolicy.Violation("strings.xml", 2, "new_learner_text", Rule.STRING_RESOURCE),
+                LearnerTextPolicy.Violation("strings.xml", 3, "other_learner_text", Rule.STRING_RESOURCE),
+            ),
+            found,
+        )
+        assertEquals(
+            emptyList<LearnerTextPolicy.Violation>(),
+            LearnerTextPolicy.checkStringResources(
+                "strings.xml",
+                xml,
+                setOf("allowed", "new_learner_text", "other_learner_text"),
+            ),
+        )
+    }
+
     private fun violations(source: String) = LearnerTextPolicy.check("F.kt", source.trimIndent())
 
     private fun rules(source: String) = violations(source).map { it.line to it.rule }
