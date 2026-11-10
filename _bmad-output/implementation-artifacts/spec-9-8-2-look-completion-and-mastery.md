@@ -224,8 +224,8 @@ After each solve, a result line says whether it counted. The second qualifying s
 
 **Residual risks.**
 - A Learner who corrects a slip by hand instead of with Undo gets a non-qualifying solve. This is the strict reading, and the result line explains it.
-- Physical-mode LL practice can qualify from entered Moves; its milestone plays only after an explicit *Yes, it's solved*.
-- A cold-start restore of a physical LL practice resets the history start to the stored cube, so a second restore rebuilds the practice at that cube.
+- Physical-mode LL practice can qualify from entered Moves; its attempt completes, and its milestone plays, only after an explicit *Yes, it's solved*.
+- A cold-start restore of a physical LL practice keeps its committed Moves as 2-look evidence, so Undo after the restore can reach Moves entered before it.
 - The intent reading was chosen here, not taken from planning, and the Design Notes record it:
   - "only 2-look Algorithms" is checked from the Learner's Moves;
   - the result is stored in the attempt's `errors`.

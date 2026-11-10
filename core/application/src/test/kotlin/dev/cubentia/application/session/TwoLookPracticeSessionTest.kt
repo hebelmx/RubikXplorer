@@ -5,7 +5,11 @@ import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.domain.lastlayer.TwoLookSolve
+import dev.cubentia.domain.tutor.AttemptOutcome
+import dev.cubentia.domain.tutor.StageAttempt
+import dev.cubentia.domain.tutor.TwoLookMastery
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -68,5 +72,85 @@ class TwoLookPracticeSessionTest {
                 .single()
                 .errors,
         )
+    }
+
+    /** A physical LL practice: switched to physical at the entry (no replaced evidence) and the cube confirmed. */
+    private fun physicalPractice(): SessionState =
+        SessionState.IDLE.after(
+            SessionEvent.PracticeStarted(lesson, TUTOR_CONFIG, T0, algorithms),
+            SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0),
+            SessionEvent.PhysicalConfirmed(null, T0),
+        )
+
+    private fun restored(state: SessionState): SessionState {
+        val snapshot = checkNotNull(SessionSnapshot.of(state, "session", "rev"))
+        return reduce(SessionState.IDLE, SessionEvent.SessionRestored(snapshot, lesson, TUTOR_CONFIG, T0, algorithms)).state
+    }
+
+    private fun Transition.ending(): Effect.AttemptEnded? = effects.filterIsInstance<Effect.AttemptEnded>().singleOrNull()
+
+    @Test fun `a physical LL practice completes only on the solve confirmation, also after leaving and resuming`() {
+        var state = physicalPractice()
+        moves(lesson.demonstration).forEach {
+            val transition = reduce(state, SessionEvent.PhysicalConfirmed(it, T0))
+            assertEquals(null, transition.ending())
+            state = transition.state
+        }
+        assertTrue(state.objectiveMet)
+        assertTrue(state.attemptOpen)
+        assertTrue(state.physicalSolveUnconfirmed)
+
+        // Leaving before "Yes, it's solved" records no COMPLETED attempt, so nothing can count toward mastery.
+        val left = reduce(state, SessionEvent.PracticeStarted(lesson, TUTOR_CONFIG, T0, algorithms))
+        assertEquals(AttemptOutcome.ABANDONED, left.ending()!!.outcome)
+
+        // Resumed after process death, the attempt is still open and still unconfirmed.
+        val resumed = restored(state)
+        assertTrue(resumed.attemptOpen)
+        assertTrue(resumed.physicalSolveUnconfirmed)
+        assertFalse(resumed.physicalSolveConfirmed)
+        val cubeConfirmed = reduce(resumed, SessionEvent.PhysicalConfirmed(null, T0))
+        assertEquals(null, cubeConfirmed.ending())
+        assertTrue(cubeConfirmed.state.attemptOpen)
+
+        val confirmed = reduce(cubeConfirmed.state, SessionEvent.PhysicalSolveConfirmed(T0))
+        val ending = confirmed.ending()!!
+        assertEquals(AttemptOutcome.COMPLETED, ending.outcome)
+        assertTrue(
+            TwoLookMastery.qualifies(
+                StageAttempt(
+                    objectiveId = ending.objectiveId,
+                    outcome = ending.outcome,
+                    hints = ending.hints,
+                    errors = ending.errors,
+                ),
+            ),
+        )
+        // The 2-look milestone plays on a confirmed physical solve (LessonScreen: physicalSolveConfirmed).
+        assertTrue(confirmed.state.physicalSolveConfirmed)
+        assertFalse(confirmed.state.physicalSolveUnconfirmed)
+        assertFalse(confirmed.state.attemptOpen)
+    }
+
+    @Test fun `a restored physical LL practice keeps its Move evidence so a clean solve still qualifies`() {
+        val (first, second) = moves(lesson.demonstration)
+        val partway = reduce(physicalPractice(), SessionEvent.PhysicalConfirmed(first, T0)).state
+        assertFalse(partway.objectiveMet)
+
+        val resumed = restored(partway)
+        assertEquals(SyncState.PHYSICAL_AWAITING_CONFIRM, resumed.syncState)
+        assertEquals(partway.history.done, resumed.history.done)
+        assertEquals(0, resumed.twoLookErrors)
+
+        val solved =
+            resumed.after(
+                SessionEvent.PhysicalConfirmed(null, T0),
+                SessionEvent.PhysicalConfirmed(second, T0),
+            )
+        assertTrue(solved.objectiveMet)
+        val ending = reduce(solved, SessionEvent.PhysicalSolveConfirmed(T0)).ending()!!
+        assertEquals(AttemptOutcome.COMPLETED, ending.outcome)
+        assertEquals(0, ending.errors)
+        assertEquals(0, ending.hints)
     }
 }
