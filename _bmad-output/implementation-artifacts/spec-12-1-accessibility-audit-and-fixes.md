@@ -171,6 +171,28 @@ deferred:
   - `[low]` `[reject]` (intent) "Every screen" detection limits: ancestor clipping, editor and milestones mounted outside `AppShell`, single-face RTL — ancestor clipping is carried (reject); the editor and milestones are the same composables `AppShell` mounts; the single-face RTL part is patched under the verification-gap row.
   - `[false]` `[reject]` (intent) Button routes asserted only at 100% and *Read faces* matched by its English label — routes exist independently of font scale and the 200% audit opens the extra keys and View menu and checks them; the test runs on the English content, which is the only shipped locale.
 
+### 2026-11-10 — Review pass
+- verdicts: 18 findings — high 2, medium 2, low 10, false 2, maybe-false 2
+- findings:
+  - `[low]` `[reject]` (blind) Overflow check misses text clipped by an ancestor — carried: a fixed-height parent already shrinks the layout and is caught; an ancestor-clip walk is new machinery for no observed case.
+  - `[low]` `[reject]` (blind) The 48dp check measures layout size, not the visible touch area, so a control clipped by a short scroll viewport passes — same ancestor-clipping mechanism as the row above; the Lesson Move keys, the one place a short viewport clips controls, now get a whole-and-inside-the-stage check in `LessonScreenTest` (high row below).
+  - `[low]` `[reject]` (blind) Button routes asserted by click-action presence, not effect — carried: effects of Move keys and view controls are asserted by the existing `ui/freecube` and Lesson tests; *Read faces* output by `Cube3DRendererTest`.
+  - `[low]` `[reject]` (blind) Traversal order not asserted — carried: UX-DR29 focus order is outside the three ACs; partly covered by Story 5.5 tests and listed in the device checklist.
+  - `[maybe-false]` `[defer]` (blind) Lesson audited only in its first lesson and first virtual/physical state — carried: already in `deferred`; not deferred again.
+  - `[maybe-false]` `[defer]` (blind) Manual editor audited only right after opening — carried: already in `deferred`; not deferred again.
+  - `[low]` `[reject]` (blind) Learn and Library lazy content not scrolled through — carried: every tile and stage row is the same composable with the same label pattern.
+  - `[high]` `[patch]` (blind) Short-window tests run only at 100% and check only the first Move key — same root cause as the product-owner row below; the new tests run at 100% and 200% and reach every key.
+  - `[low]` `[reject]` (blind) Behavioural UX-DR28 bans (shake, red flash, auto-advance) not automated — carried: not statically detectable without new machinery; covered by the device checklist.
+  - `[false]` `[reject]` (intent) "Cube stage keeps its minimum size" tested on the `lesson:stage` container at 280dp — carried: the matrix defines the surface as `lesson:stage` ≥ 280dp; the cube's own 96dp floor is asserted with every key row open, and now in short windows too (high row below).
+  - `[low]` `[reject]` (intent) Truncation check misses parent clipping, non-text controls and uncomposed lazy items — carried: ancestor clipping and lazy tiles rejected above; non-text clickables are caught by the 48×48dp check.
+  - `[low]` `[reject]` (intent) Lint tests prove configuration, not a failing lint run, and the five ids have little to fire on in Compose — carried: AC3 asks for lint a11y at error and green, which it is.
+  - `[medium]` `[patch]` (intent) After the merge with main, the Solve tab's Enter colors editor, timeout/retry state and Solve Playback (Story 3.7) are not audited — `auditScreens` now gives `AppShell` a `SolveFlowViewModel` and drives Solve → Enter colors → Accept (timeout, retry message) → playback → end (learn offer) → Close, checking each surface at 200% (overflow, 48dp) and at 100% (labels), compact and expanded.
+  - `[medium]` `[patch]` (intent) `docs/accessibility-manual-check.md` tells the product owner the Enter colors route is unavailable, which is no longer true — the limitation note is replaced, and Flows 3 and 6 now list the editor, progress/Cancel, timeout recovery and Solve Playback checks.
+  - `[low]` `[reject]` (intent) `StickerReviewNet` gets a role but no click label — carried: a click label needs a new Learner string, which the boundaries forbid.
+  - `[low]` `[reject]` (intent) Banned copy in `strings.xml` is not scanned — the matrix scopes banned copy to `en.json`; new `strings.xml` Learner text is already blocked by the `checkLearnerText` baseline gate.
+  - `[false]` `[reject]` (intent) Button routes asserted only at 100%, *Read faces* matched by its English label — carried: routes do not depend on font scale; English is the only shipped locale.
+  - `[high]` `[patch]` (product owner) The `KEYS_MIN` floor lets the Lesson cube fall below its 96dp minimum in short windows (`CubeAndKeys` shorter than ~148dp; the pre-fix code gives 44dp at `w640dp-h240dp`) — the stage no longer trades one guarantee for the other: a new `StageColumn` gives the cube-and-keys body a floor of `CUBE_MIN` + one key row and makes the whole stage scroll (only when it overflows) instead of shrinking the cube. `LessonScreenTest` now runs `w640dp-h240dp` at 100% and 200%, asserts `cube3d` ≥ 96dp with the extra rows closed and open, and scrolls each of the 36 Move keys and *more* into view, asserting each is whole and inside `lesson:stage`. Mutations: the pre-fix `LessonScreen.kt` fails (cube 44dp); removing the stage scroll fails (keys spill out of the stage); removing the body floor fails.
+
 ## Design Notes
 
 Overflow check: `TextLayoutResult.hasVisualOverflow` is true both for ellipsized lines and for text cut by a fixed-height parent (the constraint shrinks the layout), so one check covers `maxLines` and fixed `height`. Example:
@@ -261,6 +283,36 @@ Physical-mode Lessons hide the Move key bar by design (the Learner turns a real 
 - `./gradlew -p build-logic test` ended BUILD SUCCESSFUL.
 
 **Residual risks:**
+- `Cube3DEmphasisTest` is still flaky under full-suite load.
+- Two items stay deferred: Lesson-state coverage and Manual editor state coverage at 200%.
+- AC3's device pass with `docs/accessibility-manual-check.md` is still the product owner's to do.
+
+### Third follow-up review pass (2026-11-10)
+
+**Summary:** Third follow-up review of story 12.1, after the branch merged main (Story 3.7, Solve tab Enter colors). Three Codex layers (the edge-case and verification-gap layers reported nothing) and the Claude intent-alignment layer reported 17 findings, plus the product owner's focus point. Three distinct patches were applied; the rest were carried or rejected with reasons in the triage log.
+
+**Files changed in this pass:**
+- `app/src/main/kotlin/dev/cubentia/app/ui/lesson/LessonScreen.kt` -- new `StageColumn`: the cube-and-keys body never drops below `STAGE_BODY_MIN` (`CUBE_MIN` + one `KEYS_MIN` key row); a stage too short for that scrolls (scroll enabled only when it overflows) instead of shrinking the cube. `CubeAndKeys` loses its half-height key floor, since the body floor now guarantees both minimums. Layout at normal sizes is unchanged (same header, gaps and body height).
+- `app/src/test/kotlin/dev/cubentia/app/ui/lesson/LessonScreenTest.kt` -- the short-window (`w640dp-h240dp`) test now runs at 100% and 200% type: the cube stays ≥ 96dp with the extra key rows closed and open, and every Move key (face, rotation, *more*, wide, slice) is scrolled into view and must be whole and inside `lesson:stage`.
+- `app/src/test/kotlin/dev/cubentia/app/ui/a11y/ScreenAudit.kt` -- the audit drives the Solve tab's Enter colors flow: editor, timeout/retry message, Solve Playback, its end with the learn offer, and Close, at 200% and 100%, compact and expanded.
+- `docs/accessibility-manual-check.md` -- the "Enter colors unavailable" note is gone; Flows 3 and 6 now cover the editor, progress and Cancel, timeout recovery and Solve Playback.
+
+**Review findings:**
+- Patches applied: 1 high (the Lesson stage trade-off: product owner and blind rows), 2 medium (Solve Enter colors audit; stale checklist).
+- Deferred: nothing new. The Lesson-state and Manual editor-state deferrals are carried.
+- Rejected: 10 low and 2 false, each with its reason in the triage log.
+
+**Follow-up review recommended:** true. This follow-up pass patched a high (high 1, medium 2, low 0 by entry). Unverified risk: in short windows the Lesson stage now scrolls vertically around the cube, which handles its own drag gestures, and the Move key bar scrolls inside it. The Robolectric tests prove the cube keeps 96dp and every key can be scrolled into view. They do not prove that on a device a vertical drag on the cube still turns it instead of scrolling the stage, or that TalkBack and Switch Access scroll the nested containers.
+
+**Verification:**
+- Mutation checks on the new short-window tests, at 100% and 200%: the pre-fix `LessonScreen.kt` fails (cube 44dp); removing the stage scroll fails (keys spill out of the stage); removing the body floor fails.
+- `./gradlew :app:testDebugUnitTest --tests 'dev.cubentia.app.ui.a11y.*' --tests '*LessonScreenTest.a short window*'` passed.
+- `./gradlew spotlessCheck` passed. The first `./gradlew build` failed only on the known flaky `Cube3DEmphasisTest`. The rerun ended BUILD SUCCESSFUL, including `:app:lintDebug`, DynamicType200Test 2, EssentialActionsTest 2, LessonScreenTest 83 and PhysicalLessonScreenTest 42, with 0 failed and 0 skipped. (One earlier attempt that ran `spotlessCheck build` together failed in `spotlessKotlin`, which could not read a class file while it was being compiled; running them separately avoided that.)
+- `./gradlew -p build-logic test` ended BUILD SUCCESSFUL.
+- The review diff was taken against `origin/main` (`e7ea8ac`), not the recorded baseline, so Story 3.7's merged code did not count as this story's change.
+
+**Residual risks:**
+- On a device, a vertical drag on the cube in a short window could compete with the stage scroll. This needs checking in the device pass.
 - `Cube3DEmphasisTest` is still flaky under full-suite load.
 - Two items stay deferred: Lesson-state coverage and Manual editor state coverage at 200%.
 - AC3's device pass with `docs/accessibility-manual-check.md` is still the product owner's to do.

@@ -1121,111 +1121,147 @@ private fun LearnerStage(
 ) {
     val tokens = RubikTheme.tokens
     var caption by remember { mutableStateOf<String?>(null) }
-    Column(
-        Modifier.fillMaxSize().padding(Spacing.s2).semantics {
-            isTraversalGroup = true
-        },
-        verticalArrangement = Arrangement.spacedBy(Spacing.s1),
-    ) {
-        // The frame label (and chip) and the toolbar share one line; with large type the toolbar wraps
-        // below instead of squeezing its 48dp buttons.
-        FlowRow(itemVerticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            val isPhysical = session.syncState != SyncState.VIRTUAL
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                FrameLabel(strings, certainty, session.syncState)
-                if (session.syncState == SyncState.PHYSICAL_MISMATCH || session.syncState == SyncState.PHYSICAL_VERIFIED ||
-                    (isPhysical && session.lastDiagnosis != null)
+    StageColumn(
+        header = {
+            // The frame label (and chip) and the toolbar share one line; with large type the toolbar wraps
+            // below instead of squeezing its 48dp buttons.
+            FlowRow(itemVerticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                val isPhysical = session.syncState != SyncState.VIRTUAL
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    FrameLabel(strings, certainty, session.syncState)
+                    if (session.syncState == SyncState.PHYSICAL_MISMATCH || session.syncState == SyncState.PHYSICAL_VERIFIED ||
+                        (isPhysical && session.lastDiagnosis != null)
+                    ) {
+                        CertaintyChip(certainty, Modifier.padding(start = Spacing.s2))
+                    }
+                }
+                Row(
+                    Modifier.weight(1f).semantics {
+                        isTraversalGroup = true
+                        traversalIndex = 3f
+                    },
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    CertaintyChip(certainty, Modifier.padding(start = Spacing.s2))
-                }
-            }
-            Row(
-                Modifier.weight(1f).semantics {
-                    isTraversalGroup = true
-                    traversalIndex = 3f
-                },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = caption.orEmpty(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = tokens.inkPrimary,
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .padding(start = Spacing.s2)
-                            .testTag("stage:caption")
-                            .semantics {
-                                liveRegion = LiveRegionMode.Polite
-                            },
-                )
-                ToolbarButton(R.drawable.ic_undo, R.string.toolbar_undo, "toolbar:undo", session.history.canUndo) {
-                    caption = null
-                    send(SessionEvent::Undo)
-                }
-                ToolbarButton(R.drawable.ic_redo, R.string.toolbar_redo, "toolbar:redo", session.history.canRedo && !isPhysical) {
-                    caption = null
-                    send(SessionEvent::Redo)
-                }
-                ToolbarButton(R.drawable.ic_reset, R.string.toolbar_reset, "toolbar:reset", canReset(session)) {
-                    caption = null
-                    send(SessionEvent::Reset)
-                }
-                ViewControls(renderer)
-            }
-        }
-        CubeAndKeys(
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            cube = {
-                renderer.Content(
-                    LocalRenderStyle.current,
-                    Modifier.fillMaxSize().semantics { traversalIndex = 1f },
-                    onMoveIntent = { intent ->
+                    Text(
+                        text = caption.orEmpty(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = tokens.inkPrimary,
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .padding(start = Spacing.s2)
+                                .testTag("stage:caption")
+                                .semantics {
+                                    liveRegion = LiveRegionMode.Polite
+                                },
+                    )
+                    ToolbarButton(R.drawable.ic_undo, R.string.toolbar_undo, "toolbar:undo", session.history.canUndo) {
                         caption = null
-                        if (session.syncState != SyncState.VIRTUAL) {
-                            if (showMoveKeyBar) {
+                        send(SessionEvent::Undo)
+                    }
+                    ToolbarButton(R.drawable.ic_redo, R.string.toolbar_redo, "toolbar:redo", session.history.canRedo && !isPhysical) {
+                        caption = null
+                        send(SessionEvent::Redo)
+                    }
+                    ToolbarButton(R.drawable.ic_reset, R.string.toolbar_reset, "toolbar:reset", canReset(session)) {
+                        caption = null
+                        send(SessionEvent::Reset)
+                    }
+                    ViewControls(renderer)
+                }
+            }
+        },
+        body = {
+            CubeAndKeys(
+                modifier = Modifier.fillMaxSize(),
+                cube = {
+                    renderer.Content(
+                        LocalRenderStyle.current,
+                        Modifier.fillMaxSize().semantics { traversalIndex = 1f },
+                        onMoveIntent = { intent ->
+                            caption = null
+                            if (session.syncState != SyncState.VIRTUAL) {
+                                if (showMoveKeyBar) {
+                                    onMove(intent.move)
+                                }
+                            } else {
                                 onMove(intent.move)
                             }
-                        } else {
-                            onMove(intent.move)
-                        }
-                    },
-                    emphasis = emphasis,
-                    arrow = arrow,
-                    reduceMotion = reduceMotion,
-                    summary = summary,
-                )
-            },
-            keys =
-                if (showMoveKeyBar) {
-                    {
-                        MoveKeyBar(
-                            onMove = { move ->
-                                caption = null
-                                onMove(move)
-                            },
-                            onShowName = { caption = it },
-                            modifier =
-                                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).semantics {
-                                    isTraversalGroup = true
-                                    traversalIndex = 2f
-                                },
-                        )
-                    }
-                } else {
-                    null
+                        },
+                        emphasis = emphasis,
+                        arrow = arrow,
+                        reduceMotion = reduceMotion,
+                        summary = summary,
+                    )
                 },
-        )
-        Spacer(Modifier.height(Spacing.s1))
-    }
+                keys =
+                    if (showMoveKeyBar) {
+                        {
+                            MoveKeyBar(
+                                onMove = { move ->
+                                    caption = null
+                                    onMove(move)
+                                },
+                                onShowName = { caption = it },
+                                modifier =
+                                    Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).semantics {
+                                        isTraversalGroup = true
+                                        traversalIndex = 2f
+                                    },
+                            )
+                        }
+                    } else {
+                        null
+                    },
+            )
+        },
+    )
     ResetConfirmation(host = host, resolve = strings::resolve, onTransition = { renderer.submit(it.presentation.toItems()) })
+}
+
+/**
+ * The stage's [header] (frame label and toolbar) over its [body] (the cube and the Move key bar). The
+ * body fills the rest of the stage, but never drops below [STAGE_BODY_MIN]: the cube's [CUBE_MIN] plus
+ * one [KEYS_MIN] key row. In a stage too short for that (landscape, split screen, 200% type) the whole
+ * stage scrolls instead, so the cube keeps its minimum and every Move key stays reachable (story 12.1).
+ */
+@Composable
+private fun StageColumn(
+    header: @Composable () -> Unit,
+    body: @Composable () -> Unit,
+) {
+    BoxWithConstraints(Modifier.fillMaxSize().padding(Spacing.s2)) {
+        val viewport = if (constraints.hasBoundedHeight) constraints.maxHeight else 0
+        val scroll = rememberScrollState()
+        Layout(
+            contents = listOf(header, body),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(scroll, enabled = scroll.maxValue > 0)
+                    .semantics { isTraversalGroup = true }
+                    .testTag("lesson:stageScroll"),
+        ) { (headerMeasurables, bodyMeasurables), constraints ->
+            val width = constraints.maxWidth
+            val gap = Spacing.s1.roundToPx()
+            val headers = headerMeasurables.map { it.measure(Constraints(maxWidth = width)) }
+            val headerHeight = headers.maxOfOrNull { it.height } ?: 0
+            // Header, gap, body, gap, and a bottom gap: the body takes what is left of the stage.
+            val bodyHeight = maxOf(viewport - headerHeight - gap * 3, STAGE_BODY_MIN.roundToPx() + gap)
+            val bodies = bodyMeasurables.map { it.measure(Constraints.fixed(width, bodyHeight)) }
+            layout(width, headerHeight + bodyHeight + gap * 3) {
+                headers.forEach { it.place(0, 0) }
+                bodies.forEach { it.place(0, headerHeight + gap) }
+            }
+        }
+    }
 }
 
 /**
  * The cube above the Move key bar. The keys take their natural height as long as the cube keeps
  * [CUBE_MIN]; past that (all key rows open at 200% type) they scroll instead of crushing the cube
- * and clipping the last rows. In a window too short for both, the keys keep [KEYS_MIN] and the cube
- * takes the rest.
+ * and clipping the last rows. [StageColumn] never makes this shorter than [STAGE_BODY_MIN] plus the
+ * gap, so the keys always get at least [KEYS_MIN].
  */
 @Composable
 private fun CubeAndKeys(
@@ -1237,8 +1273,7 @@ private fun CubeAndKeys(
         val width = constraints.maxWidth
         val height = constraints.maxHeight
         val gap = Spacing.s1.roundToPx()
-        // In a short window (landscape, split screen) the keys still keep KEYS_MIN so they stay reachable.
-        val keysMax = maxOf(height - CUBE_MIN.roundToPx() - gap, minOf((height - gap) / 2, KEYS_MIN.roundToPx())).coerceAtLeast(0)
+        val keysMax = (height - CUBE_MIN.roundToPx() - gap).coerceAtLeast(0)
         val keyPlaceables =
             measurables.getOrNull(1).orEmpty().map {
                 it.measure(Constraints(minWidth = width, maxWidth = width, maxHeight = keysMax))
@@ -1349,8 +1384,11 @@ private const val WIDE_STAGE_FRACTION = 0.55f
 private val COMPACT_STAGE_MIN: Dp = 280.dp
 private val CUBE_MIN: Dp = 96.dp
 
-/** The Move keys' floor in a short window: one scrollable key row, or half the room when even that is too much. */
+/** The Move keys' floor: one scrollable key row. */
 private val KEYS_MIN: Dp = Spacing.touchMin
+
+/** The stage body's floor (gap aside): the cube's minimum plus one key row; a shorter stage scrolls. */
+private val STAGE_BODY_MIN: Dp = CUBE_MIN + KEYS_MIN
 private val EXPANDED_PANEL_MAX: Dp = 560.dp
 private val TOP_BAR_HEIGHT: Dp = 56.dp
 
