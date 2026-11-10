@@ -1,6 +1,8 @@
 package dev.cubentia.app.ui.shell
 
 import android.app.Application
+import androidx.activity.OnBackPressedDispatcher
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -119,10 +121,13 @@ class AppShellSolveTest {
         Dispatchers.resetMain()
     }
 
+    private var back: OnBackPressedDispatcher? = null
+
     private fun show() {
         val catalog = LessonCatalog.of(ContentLoadResult.Loaded(bundle))
         val freeCube = FreeCubeViewModel()
         rule.setContent {
+            back = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
             CubentiaTheme {
                 AppShell(host, catalog, freeCube, false, testFlags(), solveFlow = flow)
             }
@@ -170,6 +175,27 @@ class AppShellSolveTest {
         rule.onNodeWithTag("solve:learnOffer").assertExists()
         click("solvePlayback:close")
         rule.waitUntil(10000) { host.state.value.kind != SessionKind.SOLVE_PLAYBACK }
+        rule.onNodeWithTag("solve:enterColors").assertExists()
+    }
+
+    @Test fun editorRetryAfterTimeoutStartsPlaybackOfTheEnteredCubeAndBackCloses() {
+        val move = FaceTurn(Face.R, Turn.CLOCKWISE)
+        val cube = CubeState.SOLVED.apply(move)
+        solver = CubeSolver { SolveResult.TimedOut }
+        show()
+        click("nav:solve")
+        rule.runOnIdle { flow.accept(cube) { _, _ -> error("unexpected playback") } }
+        rule.waitUntil(10000) { flow.phase.value is SolvePhase.Editing }
+        solver = CubeSolver { SolveResult.Solved(listOf(move.inverse())) }
+        click("editor:accept")
+        rule.waitUntil(10000) { host.state.value.kind == SessionKind.SOLVE_PLAYBACK }
+        rule.waitForIdle()
+        assertEquals(cube, host.state.value.entry)
+        assertEquals(listOf(move.inverse()), host.state.value.solution)
+        rule.onNodeWithTag("solvePlayback:screen").assertExists()
+        rule.runOnIdle { back!!.onBackPressed() }
+        rule.waitUntil(10000) { host.state.value.kind != SessionKind.SOLVE_PLAYBACK }
+        rule.waitForIdle()
         rule.onNodeWithTag("solve:enterColors").assertExists()
     }
 

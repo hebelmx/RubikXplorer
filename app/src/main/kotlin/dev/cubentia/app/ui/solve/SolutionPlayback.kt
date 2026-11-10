@@ -79,14 +79,14 @@ class SolutionPlaybackState private constructor(
         },
     ) : this(
         session,
-        NetPlayback(session.entry, session.solution, reduceMotion, Net2DRenderer(session.entry.toFacelets())),
+        origin(session).let { NetPlayback(it, session.solution, reduceMotion, Net2DRenderer(it.toFacelets())) },
         onEvent,
         clock,
     ) {
         require(session.kind == SessionKind.SOLVE_PLAYBACK) { "not a Solve Playback session: ${session.kind}" }
     }
 
-    private var start: CubeState = session.entry
+    private var start: CubeState = origin(session)
 
     var session: SessionState by mutableStateOf(session)
         internal set
@@ -187,6 +187,26 @@ class SolutionPlaybackState private constructor(
                 start = newSession.entry
             }
         }
+    }
+
+    private companion object {
+        /**
+         * The cube the Solution starts from. A mode switch restarts session history, so after
+         * physical → virtual the session's entry is the cube part-way through the Solution; a state
+         * rebuilt then (e.g. on Activity recreation) recovers the start by undoing the confirmed prefix
+         * of the verified Solution.
+         */
+        fun origin(session: SessionState): CubeState =
+            (0..session.solution.size)
+                .asSequence()
+                .map { done ->
+                    session.entry.apply(
+                        session.solution
+                            .take(done)
+                            .asReversed()
+                            .map(Move::inverse),
+                    )
+                }.firstOrNull { it.apply(session.solution).isSolved } ?: session.entry
     }
 }
 

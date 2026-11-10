@@ -47,6 +47,7 @@ import dev.cubentia.app.random.KotlinRandomSource
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.solver.SolverLoad
 import dev.cubentia.app.solver.SolverSource
+import dev.cubentia.app.ui.freecube.FreeCubeScreen
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
 import dev.cubentia.app.ui.lesson.LessonScreen
 import dev.cubentia.app.ui.library.AlgorithmDetailScreen
@@ -601,6 +602,9 @@ private fun ShellContent(
                         onSolved = { state, moves -> host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it) } },
                         modifier = destinationModifier,
                     )
+                } else {
+                    // The solve flow needs content copy; until it loads (or if it fails) the free cube stays usable.
+                    FreeCubeScreen(viewModel = freeCube, showDebugToggles = showDebugToggles, modifier = destinationModifier)
                 }
             }
         }

@@ -38,6 +38,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -472,6 +473,22 @@ class SolutionPlaybackTest {
             assertTrue(rebuilt.isPhysical)
             assertEquals(2, rebuilt.position)
             assertEquals(solution[2], rebuilt.currentMove)
+        }
+    }
+
+    @Test
+    fun aStateRebuiltAfterReturningToVirtualStillPlaysFromTheSolutionStart() {
+        show()
+        click("followOnMyCube")
+        click("done")
+        click("done")
+        click("switchToVirtual")
+        rule.runOnIdle {
+            assertNotEquals(scrambled, state.session.entry)
+            val rebuilt = SolutionPlaybackState(state.session, reduceMotion = true)
+            assertFalse(rebuilt.isPhysical)
+            assertEquals(0, rebuilt.position)
+            assertEquals(scrambled.toFacelets(), rebuilt.renderer.renderedFacelets())
         }
     }
 }

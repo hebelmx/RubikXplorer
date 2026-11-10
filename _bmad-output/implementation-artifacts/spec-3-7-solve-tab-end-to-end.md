@@ -5,7 +5,7 @@ created: '2026-11-10'
 status: 'done'
 baseline_revision: d6d2ccac3514c59144eeb4396af4ca543269e1d8
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-3-context.md'
@@ -108,6 +108,37 @@ deferred: []
   - `[false]` `[reject]` Intent: `SolutionPlayback` fixes go beyond the ACs — Epic 8 retro item 5 assigns them to 3.7 as a precondition for wiring physical playback.
   - `[false]` `[reject]` Intent: tables live in evictable `cacheDir`, generated on first use — the intent defers delivery policy to 3.8 explicitly.
 
+### 2026-11-10 — Review pass (follow-up)
+- verdicts: 27 findings — high 0, medium 2, low 15, false 10, maybe-false 0
+- findings:
+  - `[medium]` `[patch]` Blind: a playback state rebuilt after physical → virtual plays the full Solution from a cube already part-way through it (mode switches replace `history.start`, which is `session.entry`) — `SolutionPlaybackState` now derives its start (`origin`) by undoing the confirmed prefix of the verified Solution until the start solves; test `aStateRebuiltAfterReturningToVirtualStillPlaysFromTheSolutionStart`.
+  - `[low]` `[reject]` Blind: two quick Back taps before the host acknowledges can cross the barrier — carried: same sub-frame race as the earlier rapid Done/Back row; rejected for the same reason.
+  - `[low]` `[reject]` Blind: unaccepted sticker edits are lost when switching tabs — carried: same as the earlier tab-switch draft row; rejected for the same reason.
+  - `[low]` `[reject]` Blind: `LaunchedEffect(tab)` cancels after the tab change commits, so a completion in that window can still open playback — the window is one frame, and what opens is the solve the Learner asked for; a Lesson cannot be started inside that window.
+  - `[low]` `[reject]` Blind: "Preparing the solver (one time, a few seconds)" promises behaviour not established (cold-process cache reads, eviction) — carried: same as the earlier warm-cache preparing row; 3.8 owns delivery and wording evidence.
+  - `[low]` `[reject]` Blind: `AppShell`'s default `solveFlow` always fails if a caller omits it — `MainActivity` (the only production caller) passes the Hilt ViewModel; the default is the test-convenience pattern the shell's other parameters use; no production caller can diverge today.
+  - `[low]` `[reject]` Blind: pause note and error sit outside the editor's scroll container — `ManualCubeEditor` scrolls internally (`verticalScroll`), so Accept stays reachable; restructuring the weighted column for extreme font/landscape combinations is more than a direct correction.
+  - `[low]` `[reject]` Blind: scrambled-cube shell tests bypass the editor via `flow.accept` — carried: same as the earlier row; the production-callback gap is now covered by the verification-gap patch below.
+  - `[low]` `[reject]` Blind: Lesson restoration test does not cover a physical Lesson with progress, Checkpoint and attempt bookkeeping — that path is 6.5's `endSolve`/Checkpoint code with its own tests (`SessionHostCheckpointTest`); this diff does not change it.
+  - `[false]` `[reject]` Blind: the spec's "every row covered" claim overstates evidence — the fix is an edit to this build's spec.
+  - `[medium]` `[patch]` Edge: rebuild after physical → virtual → physical restarts earlier Moves against an advanced cube — same root cause and fix as the Blind rebuild row.
+  - `[low]` `[reject]` Edge: two Back taps before host update cross the barrier — carried: same as the earlier Edge rapid-Back row.
+  - `[low]` `[patch]` Verification: the production `onSolved` callback in `AppShell` is never exercised with a non-empty Solution (dropping `moves` keeps tests green) — added `editorRetryAfterTimeoutStartsPlaybackOfTheEnteredCubeAndBackCloses`: a timed-out scrambled entry is retried through `editor:accept` and the host's entry and Solution are asserted.
+  - `[low]` `[reject]` Intent: Hilt wiring (`SolverModule`, `MainActivity`) is untested at UI level — Hilt validates the graph at compile time in `build`; an instrumented harness is new plumbing for no demonstrated defect.
+  - `[false]` `[reject]` Intent: cancelling the real provider is untested — `PruningTableProvider` cancellation is covered by `:core:solver` tests (`PruningTablesTest`), unchanged here.
+  - `[false]` `[reject]` Intent: no test asserts the Lesson attempt ends ABANDONED — the reducer behaviour is unchanged 6.5 code with its own tests; no bad outcome in this diff.
+  - `[low]` `[patch]` Intent: system Back on playback is untested — the new retry test closes playback with the `OnBackPressedDispatcher` and asserts Solve home.
+  - `[false]` `[reject]` Intent: physical-end learn → `endSolve` path only tested from the virtual case — `onLearn` is one lambda regardless of mode; the physical test asserts the same offer node.
+  - `[low]` `[reject]` Intent: timeout test compares ViewModel facelets rather than on-screen stickers — the editor renders `initial` (3.5's tests); a sticker-by-sticker screen assertion adds no protection here.
+  - `[low]` `[reject]` Intent: pause note tested only for a Lesson — the condition is one `takesMoves` expression shared by all kinds.
+  - `[false]` `[reject]` Intent: echo-or-discard uses a flow-local attempt counter, not the session revision — the editor flow has no session revision (Design Notes); superseded and cancelled attempts publish nothing, and leaving Solve cancels.
+  - `[low]` `[patch]` Intent: the Solve tab rendered nothing until the content catalog was ready (previously the free cube always rendered) — `AppShell` now renders `FreeCubeScreen` on Solve while content is not ready.
+  - `[false]` `[reject]` Intent: `epic-3-context.md` rewrite edits a planning artifact — it is a generated implementation artifact, not under `planning-artifacts/`.
+  - `[false]` `[reject]` Intent: no-scan check only on Solve home — no scan action exists anywhere in the code.
+  - `[false]` `[reject]` Intent: `checkLearnerText`/`ShippedContentTest` run not shown — `./gradlew spotlessCheck build` runs both and passed.
+  - `[false]` `[reject]` Intent: close is an icon button, not a top app bar — the close control sits in the screen's top row and system Back also closes; no bad outcome.
+  - `[false]` `[reject]` Intent: free cube only on Solve home, not during editing/solving — the intent places it "below the *Enter colors* action", which shows only on home; the macrobenchmark and shell tests use home.
+
 ## Design Notes
 
 - **Free cube stays.** UX says *Enter colors* is the only Solve *action* in v1.0; the free cube is not a solve action and has no other IA home. Removing it would orphan Stories 1.6/5.x and break the NFR-2 macrobenchmark, which this story does not ask for. It sits below the action.
@@ -141,3 +172,20 @@ Review: four layers, 18 findings (medium 5, low 7, false 6). Patched 5 entries (
 Verification: `./gradlew :app:testDebugUnitTest --tests '*Solve*' --tests '*AppShell*' --tests '*SolutionPlayback*' --tests '*PruningTableSolverSource*'` and `./gradlew spotlessCheck build` — BUILD SUCCESSFUL before review and after patches; 0 skipped/failed. Matrix audit: every row covered by an executed test (physical last-step learn offer added during verification).
 
 Residual risks: production acceptance waits on Story 3.8 (table delivery, device timing, StrictMode, installed size); "Preparing the solver" also shows during a cold-process cache read; unaccepted editor edits are lost when leaving the Solve tab; not run on a device or emulator.
+
+### Follow-up review pass (2026-11-10)
+
+Four layers (Blind, Edge, Verification on Codex; Intent on Claude), 27 findings: medium 2, low 15, false 10. Patched 4 entries (medium 1: rebuilt playback start; low 3: production `onSolved` with a non-empty Solution, system Back closes playback, free cube on Solve before content is ready); deferred 0; the rest rejected with reasons in the Review Triage Log.
+
+Files changed in this pass:
+- `app/.../ui/solve/SolutionPlayback.kt` — playback start (`origin`) recovered from the verified Solution, so a state rebuilt after physical → virtual no longer plays from a part-way cube.
+- `app/.../ui/shell/AppShell.kt` — Solve tab shows the free cube until content is ready.
+- `app/src/test/.../ui/solve/SolutionPlaybackTest.kt` — `aStateRebuiltAfterReturningToVirtualStillPlaysFromTheSolutionStart`.
+- `app/src/test/.../ui/shell/AppShellSolveTest.kt` — `editorRetryAfterTimeoutStartsPlaybackOfTheEnteredCubeAndBackCloses`.
+
+Follow-up review recommended: false — follow-up pass with no `high` patched. Patched by verdict: high 0, medium 1, low 3.
+
+Verification: `./gradlew :app:testDebugUnitTest --tests '*Solve*' --tests '*AppShell*' --tests '*SolutionPlayback*' --tests '*PruningTableSolverSource*'` — BUILD SUCCESSFUL (AppShellSolveTest 8, SolutionPlaybackTest 22, SolveFlowViewModelTest 7, PruningTableSolverSourceTest 1; 0 failed/skipped). `./gradlew spotlessCheck build` — first run failed on formatting in `SolutionPlayback.kt`, fixed with `spotlessApply`; rerun BUILD SUCCESSFUL.
+
+Residual risks: unchanged from the first pass (3.8 owns table delivery and device timing; editor drafts lost on tab switch; no device run). Rebuild recovery is tested by direct construction, not a real Activity restart.
+
