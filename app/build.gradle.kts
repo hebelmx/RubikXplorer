@@ -78,6 +78,9 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
+    // Compose UI test brings espresso-core 3.5.0, whose idling reflects on InputManager.getInstance, which
+    // Android 17 (API 37) removed; 3.7.0 matches the runner/core train above (Story 12.2 on the S24 FE).
+    androidTestImplementation(libs.androidx.test.espresso.core)
 
     // Compose UI tests on the JVM: Robolectric runs JUnit4 tests under JUnit Platform via vintage.
     testImplementation(platform(libs.androidx.compose.bom))

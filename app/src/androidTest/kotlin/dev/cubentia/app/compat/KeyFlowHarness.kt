@@ -364,9 +364,12 @@ class KeyFlowHarness(
         stageId: String,
         lessonId: String,
     ) {
-        if (exists("stageDetail") && !exists("learn:lesson:$lessonId")) click("stageDetail:back")
-        if (!exists("learn:lesson:$lessonId")) click("learn:stage:$stageId")
-        click("learn:lesson:$lessonId")
+        val lesson = "learn:lesson:$lessonId"
+        val stage = "learn:stage:$stageId"
+        await("the Stage list or a Stage detail") { exists(lesson) || exists(stage) || exists("stageDetail") }
+        if (!exists(lesson) && exists("stageDetail")) click("stageDetail:back")
+        if (!exists(lesson)) click(stage)
+        click(lesson)
         await("Lesson $lessonId to start") {
             host.state.value.lesson
                 ?.id
