@@ -139,18 +139,43 @@ per-turn p99. The fast-forwarded turn took 66.3 ms (4 frames) on the Tab S7 FE 5
 (20.48 ms and 23.64 ms), so criterion 4 holds on physical hardware and the OQ-3 decision stands. No
 frame exceeded 33.3 ms. The SceneView prototype code was then deleted. As in Story 1.8, these are
 frame-callback intervals at 60 Hz vsync, so they show pacing, not each frame's GPU cost; the
-production `Cube3DRenderer` is a separate renderer and was not measured here.
+production `Cube3DRenderer` is a separate renderer and was not measured here. View Rotation was
+measured afterwards with the same method (next subsection).
+
+### View Rotation (Story 1.11 follow-up)
+
+NFR-2 and the spine's performance deferral cover View Rotation as well as face turns, so the spike
+renderer gained a View Rotation autorun: each View Rotation yaws the camera 90° around the vertical
+axis over 250 ms (the quarter-turn duration), alternating direction, with the same per-frame
+`onDrawFrame` interval log, percentiles and 33.3 ms count as a face turn. `readbackOk` checks that the
+facelets are unchanged (a View Rotation never changes the Cube State).
+
+Run on 2026-11-11 at commit `cfc0e1f` plus this View Rotation autorun: release spike build signed with
+the debug key, `Spike3dActivity` autorun `--es engine gles --ei turns 0 --ei views 40` (40 View
+Rotations 500 ms apart). Both devices ran at 60 Hz (`renderFrameRate 60.0`).
+
+| Device | OS | View Rotations | Frames | p50 (median) | p90 (median) | p90 (worst) | p99 (worst) | Max | Frames > 33.3 ms | Elapsed (median) | `readbackOk` |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Galaxy Tab S7 FE 5G (SM-T738U, minimum) | Android 12, SDK 31 | 40 | 611 | 16.69 ms | 18.15 ms | **20.14 ms** | 29.41 ms | 29.41 ms | 0 | 251.6 ms | true (40/40) |
+| Galaxy S24 FE (SM-S721U1, mid) | Android 17, SDK 37 | 40 | 625 | 16.56 ms | 18.06 ms | **20.57 ms** | 23.03 ms | 23.03 ms | 0 | 264.6 ms | true (40/40) |
+
+**Verdict: within the threshold.** The worst View Rotation p90 is at or below 33.3 ms on both reference
+devices (20.14 ms and 20.57 ms), and no frame exceeded 33.3 ms, so View Rotation does not reopen AD-4.
+The same limits apply as for the face turns: these are 60 Hz frame-callback intervals of the spike
+renderer, not each frame's GPU cost, and not the production `Cube3DRenderer`, which redraws on demand
+(`RENDERMODE_WHEN_DIRTY`) as a drag changes the orbit.
 
 Not covered by this measurement:
-- **View Rotation.** The spike renderer has face turns only, so View Rotation frame timing (also part
-  of NFR-2) was not measured on either device.
 - **The 60 FPS mid-range target.** These runs only test the 30 FPS (33.3 ms) rendering-choice
-  threshold. On the S24 FE the median-turn p90 is 19.73 ms, above the 16.7 ms frame at 60 Hz, so
-  this measurement does not show the 60 FPS target being met on the mid device.
+  threshold. On the S24 FE the median-turn p90 is 19.73 ms (median View Rotation p90 18.06 ms), above
+  the 16.7 ms frame at 60 Hz, so this measurement does not show the 60 FPS target being met on the mid
+  device.
 
 Raw evidence (timing-only `Spike3d` logcat for each device, and the script that produced the table)
 is in [`story-1-11-device-evidence/`](story-1-11-device-evidence/): run
-`python3 spike3d_stats.py spike3d-gles-tab-s7-fe.log` to reproduce a row.
+`python3 spike3d_stats.py spike3d-gles-tab-s7-fe.log` to reproduce a face-turn row, and
+`python3 spike3d_stats.py --view spike3d-gles-view-rotation-tab-s7-fe.log` (or `-s24-fe.log`) to
+reproduce a View Rotation row.
 
 ## How to reproduce
 
@@ -170,15 +195,16 @@ adb install -r spike.apk          # on a signature mismatch: adb uninstall com.e
 adb shell am force-stop com.exxerpro.cubentia
 adb logcat -c
 adb shell am start -W -n com.exxerpro.cubentia/dev.cubentia.app.spike3d.Spike3dActivity --es engine gles --ei turns 40 --ez burst true
+# View Rotation instead (force-stop and logcat -c first): --es engine gles --ei turns 0 --ei views 40
 # wait for "autorun done", then:
-adb logcat -d -s Spike3d:I   # one line per turn, then "autorun done"
+adb logcat -d -s Spike3d:I   # one line per turn ("turn n=") or View Rotation ("view n="), then "autorun done"
 ```
 
 The activity also has manual buttons: an engine selector (now only `gles`), R, R' and "×4 queued". Log lines carry a turn number `n=` because logd's chatty filter collapses identical lines. The Story 1.8 emulator runs used `emulator -avd spike3d_api29 -no-window -no-audio -no-snapshot -gpu host` (or `-gpu swiftshader_indirect`) on a `system-images;android-29;default;x86_64` AVD with the pixel_4 profile.
 
 ## Follow-ups
 
-- **Story 1.10 / 1.11:** the Story 1.8 frame times came from an emulator. Story 1.11 re-measured the OpenGL ES prototype on both reference devices (above) and confirmed the decision; the SceneView prototype was not re-measured and its code is gone.
+- **Story 1.10 / 1.11:** the Story 1.8 frame times came from an emulator. Story 1.11 re-measured the OpenGL ES prototype on both reference devices (above), face turns and View Rotation, and confirmed the decision; the SceneView prototype was not re-measured and its code is gone.
 - **Architecture:** `bmad-architecture` update to replace the spine's 3D row ("SceneView 4.62.0 (Filament 1.72.x) [ASSUMPTION: OQ-3 spike]") with custom OpenGL ES 3.0 (no dependency), and to close the OQ-3 deferral. The `sceneview` version catalog entry and the SceneView source sets were deleted in Story 1.11.
 - **Epic 5:** build the production 3D adapter on OpenGL ES 3.0 behind `CubeRenderer`:
   - Reuse the spike's cubie model, readback approach and driver semantics; the readback becomes the `renderedFacelets()` source of truth.

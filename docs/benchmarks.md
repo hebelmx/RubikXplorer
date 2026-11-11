@@ -94,7 +94,9 @@ ANDROID_SERIAL=<serial> ./gradlew :macrobenchmark:connectedBenchmarkAndroidTest 
 Run on 2026-11-10 at commit `4befc1f` plus the Welcome-screen fix above, `benchmark` build type,
 `CompilationMode.Full`, 5 WARM iterations, CPU clocks not locked (`cpuLocked: false`).
 
-**No 2D net baseline could be measured on either device: AC1 of Story 1.11 stays open.** The Solve
+**No 2D net baseline could be measured on either device.** The product owner waived this baseline
+(Story 1.11 AC1) for v1.0 in [issue #106](https://github.com/hebelmx/RubikXplorer/issues/106), so AC1
+is met by that v1.0 waiver; retargeting the benchmark is tracked there. The Solve
 tab's free cube is no longer drawn by `Net2DRenderer`: since Epic 5, `FreeCubeViewModel` uses
 `Cube3DRenderer` on a `GLSurfaceView`. The face-key taps now animate GL frames, which
 `FrameTimingMetric` cannot see, and the Compose UI around the cube draws almost nothing. The perfetto
@@ -122,13 +124,16 @@ Five frames in total (one per iteration), so the percentiles describe five frame
 Raw results are kept in [`spikes/story-1-11-device-evidence/`](spikes/story-1-11-device-evidence/):
 the S24 FE benchmark JSON and the Tab S7 FE 5G JUnit result with the failure message.
 
-GL frame timing for the reference devices, measured with the in-app `onDrawFrame` log, is in
+GL frame timing for the reference devices (face turns and View Rotation), measured with the in-app
+`onDrawFrame` log, is in
 [the OQ-3 spike report](spikes/oq-3-3d-rendering.md#reference-device-re-measurement-story-111).
 
 ## Out of scope
 
 - 3D renderer frame timing: `FrameTimingMetric` cannot see `GLSurfaceView` frames; GL uses the
   in-app `onDrawFrame` interval log. Story 1.11 re-measured the OpenGL ES spike renderer on both
-  reference devices with it (worst-turn p90 20.48 ms on the Tab S7 FE 5G, 23.64 ms on the S24 FE).
-- 2D net reference-device baselines: attempted in Story 1.11 and not measured (see above).
+  reference devices with it (worst-turn p90 20.48 ms on the Tab S7 FE 5G, 23.64 ms on the S24 FE),
+  and View Rotation with the same method (worst p90 20.14 ms and 20.57 ms; no frame over 33.3 ms).
+- 2D net reference-device baselines: attempted in Story 1.11 and not measured (see above); waived
+  for v1.0 by the product owner in [issue #106](https://github.com/hebelmx/RubikXplorer/issues/106).
 - Full on-device solve performance check: Story 12.2; table production integration: Story 3.8.

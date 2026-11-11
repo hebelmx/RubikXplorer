@@ -41,7 +41,8 @@ import kotlinx.coroutines.delay
  *
  * For unattended measurement: `adb shell am start -n com.exxerpro.cubentia/dev.cubentia.app.spike3d.Spike3dActivity
  * --es engine gles --ei turns 40 --ez burst true` runs 40 alternating R / R' turns, then
- * one burst of four, and logs `autorun done`.
+ * one burst of four, and logs `autorun done`. Add `--ei views 40` for 40 View Rotations (90° camera
+ * yaw, alternating direction, 500 ms apart) after the turns; `--ei turns 0 --ei views 40` runs only those.
  */
 class Spike3dActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,7 +50,8 @@ class Spike3dActivity : ComponentActivity() {
         val initialEngine = intent.getStringExtra(EXTRA_ENGINE)?.takeIf { it in SpikeEngines.names } ?: SpikeEngines.names.first()
         val autorunTurns = intent.getIntExtra(EXTRA_TURNS, 0)
         val burst = intent.getBooleanExtra(EXTRA_BURST, false)
-        setContent { MaterialTheme { Surface { SpikeScreen(initialEngine, autorunTurns, burst) } } }
+        val autorunViews = intent.getIntExtra(EXTRA_VIEWS, 0)
+        setContent { MaterialTheme { Surface { SpikeScreen(initialEngine, autorunTurns, burst, autorunViews) } } }
     }
 
     private class Session {
@@ -67,6 +69,7 @@ class Spike3dActivity : ComponentActivity() {
         initialEngine: String,
         autorunTurns: Int,
         burst: Boolean,
+        autorunViews: Int,
     ) {
         var engine by remember { mutableStateOf(initialEngine) }
         val session = remember(engine) { Session() }
@@ -74,7 +77,7 @@ class Spike3dActivity : ComponentActivity() {
         val r = FaceTurn(Face.R, Turn.CLOCKWISE)
         val rPrime = FaceTurn(Face.R, Turn.COUNTERCLOCKWISE)
 
-        var autorunDone by rememberSaveable { mutableStateOf(autorunTurns <= 0) }
+        var autorunDone by rememberSaveable { mutableStateOf(autorunTurns <= 0 && autorunViews <= 0) }
 
         // Once per activity: switching engines afterwards does not restart it.
         LaunchedEffect(renderer) {
@@ -87,6 +90,11 @@ class Spike3dActivity : ComponentActivity() {
             }
             if (burst) {
                 renderer.submit(listOf(r, rPrime, r, rPrime).map(session::animate))
+            }
+            while (renderer.isBusy()) delay(PAUSE_MILLIS)
+            repeat(autorunViews) {
+                renderer.submitViewRotations(1)
+                delay(PAUSE_MILLIS)
             }
             while (renderer.isBusy()) delay(PAUSE_MILLIS)
             Log.i(
@@ -116,6 +124,7 @@ class Spike3dActivity : ComponentActivity() {
         const val EXTRA_ENGINE = "engine"
         const val EXTRA_TURNS = "turns"
         const val EXTRA_BURST = "burst"
+        const val EXTRA_VIEWS = "views"
         const val WARM_UP_MILLIS = 2_000L
         const val PAUSE_MILLIS = 500L
     }

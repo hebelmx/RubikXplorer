@@ -96,6 +96,26 @@ class SpikeCubeModelTest {
     }
 
     @Test
+    fun `view rotations run after turns, alternate the yaw and never change the facelets`() {
+        val stats = mutableListOf<TurnStats>()
+        val driver = SpikeTurnDriver(onTurnFinished = { stats += it })
+        val move = FaceTurn(Face.R, Turn.CLOCKWISE)
+        val target = CubeState.SOLVED.apply(move).toFacelets()
+        driver.submitViewRotations(2)
+        driver.submit(listOf(PresentationItem.Animate(move, 1, target)))
+        var now = 0L
+        while (driver.isBusy()) {
+            driver.onFrame(now)
+            now += FRAME_NANOS
+        }
+        assertEquals(listOf(false, true, true), stats.map { it.viewRotation })
+        assertTrue(stats.all { it.readbackMatchesTarget })
+        assertEquals(target, driver.facelets())
+        assertEquals(0f, driver.viewYawDegrees())
+        assertEquals(SpikeTurnDriver.VIEW_ROTATION_MILLIS.toDouble(), stats[1].elapsedMillis, FRAME_NANOS / 1e6)
+    }
+
+    @Test
     fun `a snap resets the model to its target`() {
         val target = CubeState.SOLVED.apply(FaceTurn(Face.F, Turn.HALF), FaceTurn(Face.L, Turn.CLOCKWISE)).toFacelets()
         val driver = SpikeTurnDriver()

@@ -122,11 +122,15 @@ deferred:
 
 ## Auto Run Result
 
-Status: done (AC1 open — see below)
+Status: done (AC1 met by the v1.0 product-owner waiver in [#106](https://github.com/hebelmx/RubikXplorer/issues/106) — see below)
 
 **Summary:** Ran the Story 1.10 Macrobenchmark and the Story 1.8 OpenGL ES spike (`Spike3d` onDrawFrame log) on both physical reference devices on 2026-11-10 at `4befc1fd0b74a6a85791eba98a091bd599076307`. GL worst-turn p90: Tab S7 FE 5G 20.48 ms, S24 FE 23.64 ms (median-turn 18.34 / 19.73 ms, 654 / 670 frames, 0 frames > 33.3 ms, readbackOk 44/44 each) — OpenGL ES confirmed, decision appended to the architecture memlog with `memlog.py`, and the SceneView spike deleted. AC1 is **open**: no 2D net baseline could be measured, because since Epic 5 the Solve tab draws the free cube on GL; Tab S7 FE run failed ("Observed no expect/actual slices in trace"), S24 FE run recorded frameCount = 1 per iteration (reported raw, labelled not a baseline). No acceptance criterion of this story depends on Story 3.8; nothing was measured or claimed for it.
 
-**AC status:** AC1 open (not measured, reason recorded); AC2 met; AC3 met; default build passes.
+**AC status:** AC1 met by product-owner waiver for v1.0 — no 2D net baseline could be measured (reason recorded), and the product owner waived it for v1.0 in GitHub issue [#106](https://github.com/hebelmx/RubikXplorer/issues/106) because the Story 1.10 Macrobenchmark target no longer renders a 2D net since Epic 5; AC2 met (face turns and, after the acceptance-gate follow-up, View Rotation); AC3 met; default build passes.
+
+**Acceptance-gate follow-up (2026-11-11):**
+- AC1: `docs/benchmarks.md` links the #106 waiver; AC1 is met by the v1.0 product-owner waiver.
+- View Rotation (spine performance deferral, NFR-2): the spike gained a View Rotation autorun (`--ei views N`: 90° camera yaw over 250 ms, alternating, same `onDrawFrame` interval log as face turns, `view n=` lines; `readbackOk` = facelets unchanged) and a driver test. Measured on 2026-11-11 at `cfc0e1f` plus this change, release spike build signed with the debug key, `--es engine gles --ei turns 0 --ei views 40`, 60 Hz: Tab S7 FE 5G worst p90 20.14 ms, median p90 18.15 ms, 611 frames, max 29.41 ms; S24 FE worst p90 20.57 ms, median p90 18.06 ms, 625 frames, max 23.03 ms; 0 frames > 33.3 ms and readbackOk 40/40 on both. p90 <= 33.3 ms on both, so AD-4 is not reopened. Raw logs in `docs/spikes/story-1-11-device-evidence/spike3d-gles-view-rotation-*.log` (`python3 spike3d_stats.py --view <log>`); results in `docs/spikes/oq-3-3d-rendering.md` and `docs/benchmarks.md`; follow-up `decision` appended to the architecture memlog with `memlog.py`. A `com.exxerpro.cubentia` build was installed on the Tab S7 FE 5G before this run; the spike build replaced it there (`install -r`) and was left installed; it was uninstalled from the S24 FE afterwards. No device settings changed.
 
 **Files changed:**
 - `app/build.gradle.kts` — spike block GLES-only; `cubentia.spike3d.sceneview` switch and SceneView dependency removed.
@@ -146,5 +150,5 @@ Status: done (AC1 open — see below)
 
 **Verification:** `./gradlew spotlessCheck build` pass; `-Pcubentia.spike3d=true spotlessCheck :app:testDebugUnitTest --tests 'dev.cubentia.app.spike3d.*' :app:assembleRelease` + debug/release MergedManifest and SdkDenylist checks pass (SpikeCubeModelTest 21/21); `git ls-files app/src/spike3dSceneView app/src/spike3dNoSceneView` empty; no `sceneview` in build script or catalog; planning-artifacts diff = memlog only. Matrix audit: three percentile rows covered by passing tests; "benchmark fails" and "p90 over budget" rows are run-procedure rows, exercised by the device runs (Tab failure reported open; p90 under budget, so no reopen).
 
-**Residual risks:** GL numbers are 60 Hz frame-callback intervals of the spike renderer, not per-frame GPU cost and not the production `Cube3DRenderer`; View Rotation unmeasured; CPU clocks not locked. `com.exxerpro.cubentia` was uninstalled from both devices after the runs; the old `dev.rubikxplorer` package on the S24 FE was not touched; no device settings changed.
+**Residual risks:** GL numbers are 60 Hz frame-callback intervals of the spike renderer, not per-frame GPU cost and not the production `Cube3DRenderer`; View Rotation measured on the spike renderer only (follow-up above); CPU clocks not locked. `com.exxerpro.cubentia` was uninstalled from both devices after the runs; the old `dev.rubikxplorer` package on the S24 FE was not touched; no device settings changed.
 
