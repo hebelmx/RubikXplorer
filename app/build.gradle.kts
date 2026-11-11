@@ -35,8 +35,13 @@ android {
     // time by :core:solver:writePruningTableAsset, ships as assets/solver/pruning-v1.bin in every variant.
     sourceSets.getByName("main").assets.directories += pruningTableAssets.get().asFile.path
 
-    // Story 3.8 device corpus runner (debug only): the same Story 3.3 corpus code as the JVM harness.
-    sourceSets.getByName("debug").kotlin.directories += "../core/solver/src/benchmarkShared/kotlin"
+    // Story 3.8 device corpus runner: the same Story 3.3 corpus code as the JVM harness. Story 12.2 also
+    // compiles it into the release-equivalent `benchmark` build type for the production corpus run;
+    // `release` never gets it (its activity is declared only in the debug and benchmark manifests).
+    listOf("debug", "benchmark").forEach { buildType ->
+        sourceSets.getByName(buildType).kotlin.directories += "../core/solver/src/benchmarkShared/kotlin"
+        sourceSets.getByName(buildType).kotlin.directories += "src/corpusRunner/kotlin"
+    }
 
     // Robolectric reads debug assets; Android unit-test source-set assets are not merged by AGP.
     sourceSets.getByName("debug").assets.directories += "schemas"

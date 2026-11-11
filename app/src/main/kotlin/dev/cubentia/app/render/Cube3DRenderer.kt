@@ -1,6 +1,7 @@
 package dev.cubentia.app.render
 
 import android.opengl.GLSurfaceView
+import android.os.Trace
 import android.view.View
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animate
@@ -155,6 +156,42 @@ class Cube3DRenderer(
     /** The camera eye last handed to the GL renderer; null before [Content] first composes. */
     internal val glEye: Vector3? get() = gl?.eye
 
+    /** The presented turn traced as an async `Cube3D.turn` section (Story 12.2); null when none is open. */
+    private var tracedTurn: PresentationItem.Animate? = null
+    private var tracedCookie = 0
+    private var tracedVisible = false
+    private var nextCookie = 0
+
+    /**
+     * Opens or closes the `Cube3D.turn` async section as the queue's active item changes, and marks
+     * the first publish that draws the turn partway (`Cube3D.turnVisible`). Called after each
+     * snapshot is handed to GL, so any GL frame starting after a marker draws at least that snapshot.
+     */
+    private fun traceTurn() {
+        val active = queue.active
+        if (active !== tracedTurn) {
+            endTracedTurn()
+            if (active != null) {
+                tracedTurn = active
+                tracedCookie = ++nextCookie
+                tracedVisible = false
+                Trace.beginAsyncSection(TURN_SECTION, tracedCookie)
+            }
+        }
+        if (tracedTurn != null && !tracedVisible && model.showsTurnProgress) {
+            tracedVisible = true
+            Trace.beginSection(TURN_VISIBLE_SECTION)
+            Trace.endSection()
+        }
+    }
+
+    /** Closes the open `Cube3D.turn` section, if any; every opened section is closed exactly once. */
+    private fun endTracedTurn() {
+        if (tracedTurn == null) return
+        Trace.endAsyncSection(TURN_SECTION, tracedCookie)
+        tracedTurn = null
+    }
+
     override fun submit(items: List<PresentationItem>) {
         queue.submit(items)
         wake.trySend(Unit)
@@ -166,6 +203,7 @@ class Cube3DRenderer(
     fun snapNow(target: Facelets) {
         queue.snapNow(target)
         publishNow?.invoke()
+        endTracedTurn()
     }
 
     @Composable
@@ -249,11 +287,15 @@ class Cube3DRenderer(
             geometryRevision++
             drawn = model.facelets()
             presented = queue.active ?: presented?.takeIf { queue.isBusy }
+            traceTurn()
             view.requestRender()
         }
         DisposableEffect(this, view) {
             publishNow = { publish() }
-            onDispose { publishNow = null }
+            onDispose {
+                publishNow = null
+                endTracedTurn()
+            }
         }
         renderer.eye = orbit.eye()
         LaunchedEffect(orbit) { view.requestRender() }
@@ -509,6 +551,12 @@ class Cube3DRenderer(
         internal fun isSolved(facelets: Facelets): Boolean = facelets.colors.chunked(PER_FACE).all { face -> face.all { it == face[0] } }
 
         const val ARROW_IN_MILLIS = 200
+
+        /** Async trace section from a turn becoming active until it finishes (Story 12.2, `GlFrameMetric`). */
+        const val TURN_SECTION = "Cube3D.turn"
+
+        /** Instant-like section at the first publish that draws the active turn partway. */
+        const val TURN_VISIBLE_SECTION = "Cube3D.turnVisible"
 
         /**
          * Where the arrow's notation label of [label] size goes in a [stage]: beside the [tip], [gap]

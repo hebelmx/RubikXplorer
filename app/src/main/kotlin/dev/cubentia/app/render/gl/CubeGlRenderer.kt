@@ -2,6 +2,7 @@ package dev.cubentia.app.render.gl
 
 import android.opengl.GLES30
 import android.opengl.GLSurfaceView
+import android.os.Trace
 import dev.cubentia.domain.input.ViewPose
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -86,6 +87,16 @@ class CubeGlRenderer(
     }
 
     override fun onDrawFrame(unused: GL10?) {
+        // Story 12.2: one section per GL frame so Macrobenchmark (GlFrameMetric) can time the production renderer.
+        Trace.beginSection(DRAW_FRAME_SECTION)
+        try {
+            draw()
+        } finally {
+            Trace.endSection()
+        }
+    }
+
+    private fun draw() {
         val viewProj = camera.matrixFor(eye)
         val frame = snapshot ?: return
         frame.models.copyInto(models)
@@ -134,12 +145,14 @@ class CubeGlRenderer(
         GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, vertices.capacity() * Float.SIZE_BYTES, vertices, GLES30.GL_STATIC_DRAW)
     }
 
-    private companion object {
-        const val MAT4 = 16
-        const val FLOATS_PER_VERTEX = CubeMesh.FLOATS_PER_VERTEX
-        const val DEFAULT_BACKGROUND = 0xFFE8EBEF
+    companion object {
+        /** Trace section around every [onDrawFrame]; read by `:macrobenchmark` `GlFrameMetric`. */
+        const val DRAW_FRAME_SECTION = "Cube3D.drawFrame"
+        private const val MAT4 = 16
+        private const val FLOATS_PER_VERTEX = CubeMesh.FLOATS_PER_VERTEX
+        private const val DEFAULT_BACKGROUND = 0xFFE8EBEF
 
-        fun link(
+        private fun link(
             vertex: String,
             fragment: String,
         ): Int {
@@ -157,7 +170,7 @@ class CubeGlRenderer(
             return program
         }
 
-        fun compile(
+        private fun compile(
             type: Int,
             source: String,
         ): Int {
