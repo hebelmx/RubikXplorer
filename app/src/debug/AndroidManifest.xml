@@ -4,5 +4,8 @@
         <activity
             android:name=".solver.PruningTablesBenchmarkActivity"
             android:exported="true" />
+        <activity
+            android:name=".solver.SolveCorpusBenchmarkActivity"
+            android:exported="true" />
     </application>
 </manifest>

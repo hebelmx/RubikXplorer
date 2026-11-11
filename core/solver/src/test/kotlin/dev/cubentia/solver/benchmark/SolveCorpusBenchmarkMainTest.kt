@@ -21,6 +21,19 @@ class SolveCorpusBenchmarkMainTest {
         )
     }
 
+    @Test
+    fun `time scale is read as the calibrated profile factor`() {
+        assertEquals(1.0, BenchmarkOptions().timeScale)
+        assertEquals(ParsedArgs.Ok(BenchmarkOptions(timeScale = 7.25)), parseArgs(listOf("--time-scale", "7.25")))
+    }
+
+    @Test
+    fun `calibrated run names its profile and factor`() {
+        val report = runBenchmark(BenchmarkOptions(cases = 20, seed = 7, warmup = 0, timeScale = 3.5))
+        assertTrue("calibrated reference-device-equivalent profile: host time x 3.5" in report, report)
+        assertTrue("failures       0 (0.0%)" in report, report)
+    }
+
     @ParameterizedTest
     @CsvSource(
         "--cases, x, --cases",
@@ -30,6 +43,11 @@ class SolveCorpusBenchmarkMainTest {
         "--warmup, -1, --warmup",
         "--warmup, y, --warmup",
         "--iterations, 5, --iterations",
+        "--time-scale, 0, --time-scale",
+        "--time-scale, -2, --time-scale",
+        "--time-scale, NaN, --time-scale",
+        "--time-scale, Infinity, --time-scale",
+        "--time-scale, z, --time-scale",
     )
     fun `invalid or unknown flag is rejected naming the flag`(
         flag: String,
@@ -52,5 +70,6 @@ class SolveCorpusBenchmarkMainTest {
         val report = runBenchmark(BenchmarkOptions(cases = 50, seed = 7, warmup = 0))
         assertTrue("cases          151" in report, report)
         assertTrue("failures       0 (0.0%)" in report, report)
+        assertTrue("uncalibrated JVM host" in report, report)
     }
 }
