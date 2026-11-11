@@ -385,14 +385,31 @@ them the tablet covers all three window classes. Raw results per target: `instru
 surface) and `device.txt` in [`evidence/12-2/keyflow/`](evidence/12-2/keyflow/). The rotation settings
 were unchanged on every target (physical Tab `accelerometer_rotation=1 user_rotation=3`).
 
-**Result: met, with one harness gap.** Rotation no longer changes the session on any surface, and
-layout followed the window class on every surface of every target. 41 of the 42 target × flow runs
-pass. Flow 2 on the Tab AVD passed its first three surfaces (including the skip-ahead check that
-failed before) and then stopped on the same harness timeout as the first run: a tap on the wide Move
-key `f` (behind the key bar's *more* toggle, in a horizontally scrolled row) did not commit at 555 dp
-portrait. That is a test-driver problem, not a rotation result. The later Flow 2 surfaces (*Add to
-Learning* offer, Library *Learning*, LL practice, 2-look milestone) passed on the other five targets,
-including the physical tablet.
+**Result: rotation met; one app finding.** Rotation no longer changes the session on any surface,
+and layout followed the window class on every surface of every target. 41 of the 42 target × flow
+runs pass. Flow 2 on the Tab AVD passed its first three surfaces (including the skip-ahead check that
+failed before) and then stopped where the first run did: a tap on the wide Move key `f` did not
+commit. The later Flow 2 surfaces (*Add to Learning* offer, Library *Learning*, LL practice, 2-look
+milestone) passed on the other five targets, including the physical tablet.
+
+**Finding: wide and slice Move keys are unreachable in a short COMPACT window.** Diagnosed on the Tab
+AVD and reproduced in Robolectric; it is an app bug, not a harness bug, and is not fixed in this
+story. The AVD's forced-portrait window is letterboxed on its landscape display at **555 × 716 dp**.
+In COMPACT the Lesson stage has a fixed height (`max(0.45 × body height, 280 dp + gutters)`), and the
+Move key bar sits inside it under the cube, with no vertical scroll. Tapping *more* adds the wide and
+slice rows, which then overflow the stage's bottom edge and sit under the panel. At 555 × 716 dp:
+
+- the stage ends at 345 dp;
+- `moveKey:f` spans 336–384 dp, a 48 dp target with 39 dp of it below the stage;
+- the panel starts at 353 dp.
+
+A tap at the key's centre lands on the panel, and the session revision stays at 1. The uiautomator
+dump does not expose the wide or slice keys at all. So a Learner in that window cannot press any wide
+or slice key. The screenshot also shows the system's letterbox education dialog, but that is not the
+cause: the *more* tap under it took effect. Evidence:
+[`flow2-stall-finding.txt`](evidence/12-2/keyflow/avd-GalaxyTabS7FE_API34/flow2-stall-finding.txt),
+[screenshot](evidence/12-2/keyflow/avd-GalaxyTabS7FE_API34/flow2-stall-screenshot.png),
+[uiautomator dump](evidence/12-2/keyflow/avd-GalaxyTabS7FE_API34/flow2-stall-uiautomator.xml).
 
 **First run, superseded** (revision `655833ef816e8f619a911b697cec7800eeb3e111`, raw files in
 [`evidence/12-2/superseded/keyflow-655833e/`](evidence/12-2/superseded/keyflow-655833e/), with the

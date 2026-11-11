@@ -77,7 +77,7 @@ deferred: []
 ## Spec Change Log
 
 - 2026-11-11, PO decision: AC3 failed on the first run (`655833e`): rotation re-dealt the skip-ahead check and Stage practice Scramble (Flows 2, 7, 8 on every target). The PO decided to fix it inside this story; the fix in `AppShell.kt` saves the dealt Scramble with `rememberSaveable` (commit `0ec0d6b`, Robolectric regressions in `AppShellTest`). The PO also accepted the S24 FE's 60 FPS on the median as AC1 met, and the API 30 gap. The physical S24 FE `R5CX83A5J1J` was returned before the rerun, so the AC3 API 37 rerun used the `GalaxyS24FE_API37` AVD; the first-run physical results stay as superseded evidence.
-- AC3 status (rerun at `0ec0d6b`): **met**: rotation changes no session state and layouts follow the window class on all six targets; 41 of 42 target × flow runs pass. Open: Flow 2 on `GalaxyTabS7FE_API34` stops after 3/3 passing surfaces on a harness timeout (wide Move `f` tap not committing at 555 dp portrait), as in the first run; its later surfaces pass on the other five targets.
+- AC3 status (rerun at `0ec0d6b`): **met**: rotation changes no session state and layouts follow the window class on all six targets; 41 of 42 target × flow runs pass. Open: Flow 2 on `GalaxyTabS7FE_API34` stops after 3/3 passing surfaces, as in the first run. Diagnosed as an app bug, not a harness bug: in a 555 × 716 dp COMPACT window (letterboxed portrait), expanding *more* pushes the wide and slice Move-key rows past the fixed-height stage, under the panel, so `f` cannot be pressed. Recorded as a finding in `docs/benchmarks.md`, not fixed here. Its later surfaces pass on the other five targets.
 
 ## Review Triage Log
 
