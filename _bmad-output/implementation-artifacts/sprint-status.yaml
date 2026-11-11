@@ -31,13 +31,13 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-11-2026 06:16'
+last_updated: '11-11-2026 06:36'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
 story_location: _bmad-output/implementation-artifacts
 development_status:
-  epic-1: in-progress
+  epic-1: done
   1-1-scaffold-the-gated-multi-module-project: done
   1-2-model-the-cube-state-and-face-moves: done
   1-3-parse-and-format-every-move-type-in-notation: done
@@ -49,7 +49,7 @@ development_status:
   1-9-spike-guided-6-face-scan-prototype-and-recognition-test-matr: done
   1-10-week-2-decision-gate-schedule-and-benchmark-harnesses: done
   1-11-reference-device-baselines-and-sceneview-spike-removal: done
-  epic-1-retrospective: optional
+  epic-1-retrospective: done
 
   epic-2: done
   2-1-load-validated-lesson-content-and-strings: done
@@ -539,3 +539,46 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md"
+  - id: "epic-1-retro-item-54-make-ci-a-required-status-check-on-main"
+    epic: 1
+    action: "Make CI a required status check on main: enable the Kotlin ruleset (26292541)
+      or branch protection requiring the CI workflow (Story 1.1 AC3 deferral)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-11.md"
+  - id: "epic-1-retro-item-55-net2dframetimingbenchmark-add-a-minimum"
+    epic: 1
+    action: "Net2DFrameTimingBenchmark: add a minimum-frame-count assertion and retarget
+      it to the Solution playback net (SolutionPlayback.kt:82) or delete it, before
+      Story 12.2 relies on it"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-11.md"
+  - id: "epic-1-retro-item-56-bmad-architecture-update-architecture-sp"
+    epic: 1
+    action: "bmad-architecture update: ARCHITECTURE-SPINE.md:525 Story 1.10 measures
+      it -> Stories 1.11/12.2, and record the v1.0 NFR-2 2D-net baseline waiver (#106)"
+    owner: "Architect (Winston)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-11.md"
+  - id: "epic-1-retro-item-57-set-spec-1-9-status-built-done-and-have"
+    epic: 1
+    action: "Set spec-1-9 status built -> done and have story close set spec and sprint
+      status together"
+    owner: "SM / orchestrator"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-11.md"
+  - id: "epic-1-retro-item-58-mark-epic-1-done-in-sprint-status-via-bm"
+    epic: 1
+    action: "Mark epic-1 done in sprint-status via bmad-sprint-planning (11/11 stories
+      done, retro complete)"
+    owner: "SM"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-11.md"
+  - id: "epic-1-retro-item-59-before-story-7-8-decide-spike-code-ci-jo"
+    epic: 1
+    action: "Before Story 7.8 decide spike code: CI job compiling/testing -Pcubentia.spike3d=true
+      (and spikeScan if kept), or delete spikeScan and v1.0 CameraX catalog entries"
+    owner: "Architect / Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-11.md"
