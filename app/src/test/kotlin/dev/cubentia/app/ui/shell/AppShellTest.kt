@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
@@ -23,9 +24,12 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
+import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.unit.width
 import dev.cubentia.app.content.CatalogState
 import dev.cubentia.app.content.LessonCatalog
@@ -270,6 +274,83 @@ class AppShellTest {
         rule.onNodeWithTag("nav:solve").performClick()
         rule.onNodeWithTag("toolbar:undo").assertExists()
         rule.onNodeWithTag("learn").assertDoesNotExist()
+    }
+
+    @Test
+    @Config(qualifiers = "w555dp-h716dp")
+    fun `in a letterboxed 555x716dp window every wide and slice Move key can be reached and pressed`() = wideAndSliceKeysReachable(true)
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp")
+    fun `on a small compact phone every wide and slice Move key can be reached and pressed`() = wideAndSliceKeysReachable(false)
+
+    /**
+     * Story 12.2: *more* opens the wide and slice rows in the stage's scrolling key area. They scroll into view
+     * when opened ([revealedOnOpen]: the wide row without any scroll), and any key can be reached by dragging
+     * the key area, then commits its Move.
+     */
+    private fun wideAndSliceKeysReachable(revealedOnOpen: Boolean) {
+        launch()
+        openWhiteCross()
+        rule.onNodeWithTag("moveKey:more").performClick()
+        rule.waitForIdle()
+        if (revealedOnOpen) assertTrue("f shown on opening more", keyFullyShown("moveKey:f"))
+        listOf("moveKey:f", "moveKey:M", "moveKey:S2", "moveKey:U").forEach { tag ->
+            // Each key row scrolls sideways on its own; the key area scrolls vertically.
+            rule.onNodeWithTag(tag).performScrollTo()
+            dragKeyAreaTo(tag)
+            assertTrue("$tag fully shown", keyFullyShown(tag))
+            rule.onNodeWithTag(tag).assertIsDisplayed()
+            assertTrue("$tag at least 48dp", bounds(tag).height >= 48.dp)
+            val before = host.state.value.revision
+            rule.onNodeWithTag(tag).performClick()
+            rule.waitUntil(5_000) { host.state.value.revision != before }
+        }
+    }
+
+    /** The scrolling key area around [tag]: its nearest vertical-scroll ancestor that can scroll. */
+    private fun keyArea(tag: String): androidx.compose.ui.semantics.SemanticsNode? =
+        generateSequence(rule.onNodeWithTag(tag).fetchSemanticsNode().parent) { it.parent }.firstOrNull {
+            (
+                it.config
+                    .getOrNull(SemanticsProperties.VerticalScrollAxisRange)
+                    ?.maxValue
+                    ?.invoke() ?: 0f
+            ) > 0f
+        }
+
+    /** [tag]'s unclipped bounds in the root (a clipped node's semantics bounds shrink to what shows). */
+    private fun keyBounds(tag: String): androidx.compose.ui.geometry.Rect =
+        rule.onNodeWithTag(tag).fetchSemanticsNode().let {
+            androidx.compose.ui.geometry
+                .Rect(it.positionInRoot, it.size.toSize())
+        }
+
+    private fun keyFullyShown(tag: String): Boolean {
+        val key = keyBounds(tag)
+        val area = keyArea(tag)?.boundsInRoot ?: return true
+        return key.top >= area.top - 0.5f && key.bottom <= area.bottom + 0.5f
+    }
+
+    /** Drags the key area, as a Learner would, until [tag] is fully inside it. */
+    private fun dragKeyAreaTo(tag: String) {
+        repeat(6) {
+            if (keyFullyShown(tag)) return
+            val area = checkNotNull(keyArea(tag))
+            val key = keyBounds(tag)
+            val dy = if (key.top < area.boundsInRoot.top) area.boundsInRoot.top - key.top else area.boundsInRoot.bottom - key.bottom
+            rule.onNode(SemanticsMatcher("key area") { it.id == area.id }).performTouchInput {
+                val slop = viewConfiguration.touchSlop * kotlin.math.sign(dy)
+                swipe(
+                    center,
+                    center +
+                        androidx.compose.ui.geometry
+                            .Offset(0f, dy + slop),
+                    durationMillis = 600,
+                )
+            }
+            rule.waitForIdle()
+        }
     }
 
     @Test
@@ -585,6 +666,48 @@ class AppShellTest {
                 ?.entryState,
         )
         assertEquals(before.entry, host.state.value.entry)
+        assertEquals(before.history, host.state.value.history)
+    }
+
+    @Test fun `Stage practice keeps its scramble and attempt across recreation`() =
+        keepsGeneratedScramble("practice-stage-02-first-cross") {
+            finishedCourseHost(it)
+            "stageDetail:practice"
+        }
+
+    @Test fun `a Stage skip-ahead check keeps its scramble and attempt across recreation`() =
+        keepsGeneratedScramble("skip-check-stage-02-first-cross") { "stageDetail:skipCheck" }
+
+    /** Story 12.2 AC3: recreating the activity must not deal the generated Lesson a new scramble or restart it. */
+    private fun keepsGeneratedScramble(
+        lessonId: String,
+        arrange: (dev.cubentia.domain.content.ContentBundle) -> String,
+    ) {
+        val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val open = arrange(bundle)
+        val restoration = StateRestorationTester(rule)
+        launch(ContentLoadResult.Loaded(bundle), restoration = restoration)
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("learn:stage:stage-02-first-cross").fetchSemanticsNodes().isNotEmpty() }
+        rule.waitForIdle()
+        rule.onNodeWithTag("learn:stage:stage-02-first-cross").performScrollTo().performClick()
+        rule.onNodeWithTag(open).performScrollTo().performClick()
+        rule.waitUntil(5_000) {
+            host.state.value.lesson
+                ?.id
+                ?.value == lessonId
+        }
+        runBlocking { host.dispatch { SessionEvent.MoveCommitted(FaceTurn(Face.R, Turn.CLOCKWISE), it) } }
+        rule.waitForIdle()
+        val before = host.state.value
+        restoration.emulateSavedInstanceStateRestore()
+        rule.waitForIdle()
+        rule.onNodeWithTag("lesson").assertExists()
+        assertEquals(
+            before.lesson?.entryState,
+            host.state.value.lesson
+                ?.entryState,
+        )
+        assertEquals(before.revision, host.state.value.revision)
         assertEquals(before.history, host.state.value.history)
     }
 

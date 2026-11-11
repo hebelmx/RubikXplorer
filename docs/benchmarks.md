@@ -29,7 +29,7 @@ with its factor).
 Code: `core/solver/src/benchmarkShared/kotlin/` (workload, harness, statistics; no
 `java.lang.management`) plus `core/solver/src/benchmark/kotlin/` (JVM entry point and heap-pool
 sampler). Both are in the `benchmark` source set, so they never ship and are outside the Kover gate.
-The shared directory is also compiled into the app's `debug` source set for the device runner. The workload calls the real `TwoPhaseCubeSolver` through `CubeSolver`. Every returned
+The shared directory is also compiled into the app's `debug` and (since Story 12.2) `benchmark` source sets for the device runner, never into `release`. The workload calls the real `TwoPhaseCubeSolver` through `CubeSolver`. Every returned
 Solution is checked by applying its Moves to the exact input through public `CubeState.apply`.
 Failures never count as within budget. Uniform cases independently shuffle corner/edge permutations,
 repair parity with a fixed edge transposition, and sample independent orientations with the final
@@ -77,7 +77,7 @@ Paired runs of the same corpus code (`benchmarkShared`), seed 20261031, 10,000 u
 is the same: tables are generated before any warmup or timed attempt and are outside all timings.
 Every Solution is verified by applying it to the exact input.
 
-**Device side.** `SolveCorpusBenchmarkActivity` (debug build only, never in release/benchmark) runs
+**Device side.** `SolveCorpusBenchmarkActivity` (debug build only in Story 3.8; Story 12.2 also compiles it into the release-equivalent `benchmark` build, never `release`) runs
 on a dedicated thread:
 `adb -s R52T50ELHWK shell am start -n com.exxerpro.cubentia/dev.cubentia.app.solver.SolveCorpusBenchmarkActivity --ei cases 10000 --el seed 20261031 --ei warmup 200`,
 output under logcat tag `SolveCorpusBenchmark`. Peak memory there is the largest `Runtime` used heap
@@ -181,17 +181,293 @@ Five frames in total (one per iteration), so the percentiles describe five frame
 Raw results are kept in [`spikes/story-1-11-device-evidence/`](spikes/story-1-11-device-evidence/):
 the S24 FE benchmark JSON and the Tab S7 FE 5G JUnit result with the failure message.
 
-GL frame timing for the reference devices (face turns and View Rotation), measured with the in-app
-`onDrawFrame` log, is in
-[the OQ-3 spike report](spikes/oq-3-3d-rendering.md#reference-device-re-measurement-story-111).
+GL frame timing for the reference devices (face turns and View Rotation) of the spike renderer,
+measured with the in-app `onDrawFrame` log, is in
+[the OQ-3 spike report](spikes/oq-3-3d-rendering.md#reference-device-re-measurement-story-111); the
+production renderer is measured by `Cube3DFrameBenchmark` (Story 12.2, below).
+
+## Story 12.2: production 3D renderer frame rate and input latency (NFR-1, NFR-2), Macrobenchmark
+
+```sh
+ANDROID_SERIAL=<serial> ./gradlew :macrobenchmark:connectedBenchmarkAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=dev.cubentia.macrobenchmark.Cube3DFrameBenchmark
+```
+
+**Method.** The production `Cube3DRenderer` emits three trace sections (`android.os.Trace`, no new
+dependency, near-zero cost when not tracing): `Cube3D.drawFrame` around every GL-thread
+`onDrawFrame`; the async `Cube3D.turn` from a turn becoming active until it finishes (one cookie per
+turn, always closed, also on `finishCurrent`, `snapNow` and dispose); and `Cube3D.turnVisible` at the
+first publish that draws the turn partway. `GlFrameMetric` (a `TraceMetric`) reads them with the
+target process's main-thread `deliverInputEvent` slices:
+
+- **Face turns** (`faceTurns`): Solve tab, tap R U R' U' on the Move key bar 450 ms apart (a turn is
+  200 ms). Window = each `Cube3D.turn`; its frames are the `drawFrame` slices that start inside it.
+  Latency = the tap's input UP (the last input slice before the turn) → end of the first `drawFrame`
+  that starts after `Cube3D.turnVisible`. The activation frame draws progress 0 (no visible change), so
+  this is conservative by one vsync.
+- **View Rotation** (`viewRotation`): 4 drags of 600 ms across the stage's top row (off the cube),
+  alternating direction, injected at 125 Hz (a MOVE every 8 ms) through `UiAutomation`. Window = first
+  to last MOVE of each drag. Latency = first MOVE → end of the first `drawFrame` that starts after it.
+- Input times are the slice's `eventTimeNano` mapped from CLOCK_MONOTONIC to the trace clock through
+  the trace's clock snapshot (`inputTimeFromSliceStart` counts fallbacks to the slice start: 0 in
+  every run below).
+- `glFps` = (frames − 1) ÷ (last − first frame start) over the windows of one iteration (pooled);
+  `glFpsWorstWindow` is the lowest single window. Interval percentiles are nearest-rank, as in
+  `spike3d_stats.py`. The metric throws, naming the slice, when a required slice is missing.
+- `benchmark` build type (release code, R8, profileable), `CompilationMode.Full()`, WARM, 10
+  iterations, CPU clocks not locked (`cpuLocked: false`). Numbers are physical-device only.
+
+The first S24 FE run used `UiDevice.swipe` for the drags; it delivered a MOVE only every ~33 ms, so
+View Rotation read 30.0 FPS because of the input rate, not the renderer. It is kept, superseded, in
+[`evidence/12-2/superseded/`](evidence/12-2/superseded/) with the input-slice excerpt; the drag was
+then replaced by the 125 Hz injection (`eee28c4`) and both devices were measured with it.
+
+**Cross-check.** S24 FE `faceTurns` iteration 0 was recomputed independently from its raw trace with
+[`glframe_crosscheck.py`](evidence/12-2/glframe_crosscheck.py); every value matches the JSON
+([record](evidence/12-2/glframe-crosscheck-s24-fe-faceTurns-iter0.txt)).
+
+**Runs (2026-11-11).** Revision `eee28c47b760fa0f8815b66360db4bd5daff9054` (app code identical to
+`a4b3ae1`). Both panels at 60 Hz (`refreshRate=60.000004` on the Tab, `renderFrameRate 60.0`,
+`peakRefreshRate=60.0` on the S24 FE, whose panel also supports 120 Hz). Thermal status 0 at start and
+end on both.
+
+| Device | Conditions |
+| --- | --- |
+| Galaxy Tab S7 FE 5G `R52T50ELHWK` (SM-T738U, minimum), Android 12 / API 31, `…T738USQU3BVG7:user/release-keys` | USB powered, battery 100 %, 30.6 → 31.7 °C, stay-awake on, 07:05–07:10 |
+| Galaxy S24 FE `R5CX83A5J1J` (SM-S721U1, mid), Android 17 / API 37, `…S721U1UEUEEZIF:user/release-keys` | AC powered, battery 89 %, 29.4 → 30.9 °C, stay-awake on, 06:58–07:01 |
+
+Values are the median across the 10 iterations with (min–max); interval and latency percentiles
+pool every sample of the 10 iterations; maxima are the highest of any iteration.
+
+| Device | Test | glFps median (min–max) | Worst window | Frames / iteration | Interval p50 / p90 / p99 (ms) | Max interval (ms) | Intervals > 33.3 ms | Input → frame p50 / p90 (ms) | Input → frame max (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Tab S7 FE 5G (min) | face turns | 60.61 (59.67–63.89) | 58.69 | 48–50 | 16.72 / 17.49 / 19.75 | 24.91 | 0 | 39.31 / 43.95 | 47.30 |
+| Tab S7 FE 5G (min) | View Rotation | 59.86 (59.78–60.15) | 59.59 | 182–190 | 16.69 / 17.67 / 18.67 | 23.91 | 0 | 10.72 / 12.54 | 22.31 |
+| S24 FE (mid) | face turns | 60.32 (60.05–61.16) | 59.51 | 48–52 | 16.66 / 17.11 / 18.09 | 20.58 | 0 | 27.53 / 35.73 | 45.62 |
+| S24 FE (mid) | View Rotation | 60.09 (59.96–60.16) | 59.86 | 168–187 | 16.63 / 17.62 / 18.96 | 23.11 | 0 | 12.28 / 15.02 | 20.47 |
+
+Raw: [Tab JSON](evidence/12-2/cube3d-macrobenchmark-tab-s7-fe.json),
+[Tab summary](evidence/12-2/cube3d-macrobenchmark-tab-s7-fe.txt),
+[S24 JSON](evidence/12-2/cube3d-macrobenchmark-s24-fe.json),
+[S24 summary](evidence/12-2/cube3d-macrobenchmark-s24-fe.txt), JUnit results, display logs and
+condition dumps in [`evidence/12-2/`](evidence/12-2/). Perfetto traces (5–12 MB each) are not committed.
+
+**Verdicts.** The FPS verdict uses the median `glFps` of the 10 iterations as measured (no rounding).
+
+| Criterion | Tab S7 FE 5G (minimum) | S24 FE (mid) |
+| --- | --- | --- |
+| Face turns ≥ 30 FPS (minimum) / 60 FPS (mid) | **met**: 60.61 FPS | **met**: 60.32 FPS |
+| View Rotation ≥ 30 FPS (minimum) / 60 FPS (mid) | **met**: 59.86 FPS | **met**: 60.09 FPS |
+| Face-turn input acknowledged ≤ 100 ms | **met**: max 47.30 ms | **met**: max 45.62 ms |
+| View Rotation input → frame ≤ 100 ms | **met**: max 22.31 ms | **met**: max 20.47 ms |
+
+On the mid device some single readings fall just under 60: the lowest View Rotation iteration is
+59.96 FPS, and the lowest single face-turn window is 59.51 FPS (View Rotation 59.86). A 60 Hz panel
+caps the rate at about 60, and one 200 ms window of 12 frames moves by about ±1 FPS with one frame's
+start jitter (the Tab's best face-turn iteration reads 63.89 for the same reason). No interval exceeded
+33.3 ms on either device. This was raised as a product-owner question, not retuned; see the decision below.
+
+**Against Story 1.11.** The spike renderer's worst-turn p90 was 20.48 ms (Tab) and 23.64 ms (S24),
+View Rotation 20.14 / 20.57 ms, from the in-app `onDrawFrame` log
+([OQ-3 report](spikes/oq-3-3d-rendering.md#reference-device-re-measurement-story-111)). The production
+renderer's pooled p90 is 17.49 / 17.11 ms for face turns and 17.67 / 17.62 ms for View Rotation, with
+no interval over 33.3 ms, so it paces at least as well as the spike. The methods differ (trace slices
+over 10 Macrobenchmark iterations instead of 40 logged turns), so this is a comparison of pacing, not
+of identical statistics.
+
+**PO decision 2026-11-11.** The question was whether the mid-device 60 FPS criterion is met by the
+median of the iterations on a 60 Hz panel (60.32 / 60.09), given single windows and one iteration read
+59.51–59.96, and whether the S24 FE's 120 Hz mode (off in these runs, `peakRefreshRate=60.0`) should
+be part of the criterion. Decision: the S24 FE's 60 FPS on the median counts as **AC1 met**.
+
+## Story 12.2: production solve corpus on the minimum device (NFR-3)
+
+The Story 3.8 corpus runner, compiled into the release-equivalent `benchmark` build (R8, not
+debuggable: the run logs `build,debuggable=false`), same corpus code, seed and boundary as the JVM
+harness and the Story 3.8 device run:
+
+```sh
+./gradlew :app:assembleBenchmark
+adb -s R52T50ELHWK install -r app/build/outputs/apk/benchmark/app-benchmark.apk
+adb -s R52T50ELHWK shell am start -n com.exxerpro.cubentia/dev.cubentia.app.solver.SolveCorpusBenchmarkActivity \
+  --ei cases 10000 --el seed 20261031 --ei warmup 200
+adb -s R52T50ELHWK logcat -s SolveCorpusBenchmark   # until "done"
+```
+
+Run on 2026-11-11 06:48–06:53 at revision `a4b3ae170b355b732d5e423be1b29b5bf0fb7ade`: Galaxy Tab
+S7 FE 5G `R52T50ELHWK`, Android 12 / API 31, fingerprint `…T738USQU3BVG7:user/release-keys`, 8 CPUs;
+USB powered, battery 100 % at start and end, thermal status 0 at start and end, power save off,
+stay-awake on, 60 Hz; Free RAM 1,186,547 kB of 3,518,216 kB at start.
+Raw: [log](evidence/12-2/solve-corpus-benchmark-build-tab-s7-fe.log),
+[conditions](evidence/12-2/corpus-conditions-tab-s7-fe.txt).
+
+| Run | Build | Cases | Median | p95 | Max | Within 3 s | Failures (rate) | Peak memory (max sampled used heap) | Timed run wall | Table preparation |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **Story 12.2, device** | `benchmark` (release-equivalent) | 10,101 | **17.012 ms** | **101.730 ms** | 1,074.199 ms | **10,101 / 10,101 (100%)** | **0 (0%)** | **28.9 MiB** (30,352,624 B; limit 512 MiB) | 326.8 s | 3.13 s |
+| Story 3.8, device ([log](evidence/3-8/solve-corpus-tab-s7-fe.log)) | `debug` (debuggable) | 10,101 | 53.795 ms | 338.075 ms | 3,000.916 ms | 10,100 / 10,101 (99.99%) | 1 (0.0099%, timed out) | 27.1 MiB | 1,055.9 s | — |
+| Story 3.8, calibrated host k = 16.94 ([log](evidence/3-8/solve-corpus-calibrated-rerun.log)) | host JVM × 16.94 | 10,101 | 46.750 ms | 291.891 ms | 3,303.584 ms | 10,100 / 10,101 (99.99%) | 1 (0.0099%) | 604.4 MiB heap pools | — | — |
+
+"Table preparation" is the runner's `SolverWorkload.preparedTables` before the timed run (tables
+generated in-process, as in Story 3.8, not the app's bundled-asset path); it is outside every timing.
+The app's own ~8 s per-process preparation (#104) is a separate path and was not re-measured here.
+
+**Verdict: met.** 100% of the 10,101 cases (≥ 95%) solved within 3 s on the minimum device, with
+0 failures. Median 17.012 ms, p95 101.730 ms, peak 28.9 MiB. On this build the release-equivalent
+device run is about 3.2× faster than the debuggable Story 3.8 run (median 53.795 → 17.012 ms, p95
+338.075 → 101.730 ms), so the debug-derived k = 16.94 is conservative, as Story 3.8 expected. The
+recalibration of k against this build stays with #105, and the accepted waivers (#104 preparation,
+#105 zero-failure and recalibration) are unchanged; this run had no failure to waive.
+
+## Story 12.2: compatibility and rotation (NFR-13, AD-17), Key Flow suite
+
+```sh
+./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
+tools/run-keyflow-rotation.sh <serial> [label] [method ...]   # results in docs/evidence/12-2/keyflow/<label>/
+```
+
+`KeyFlowRotationTest` (`app/src/androidTest/.../compat/`) runs in-process on the real `MainActivity`
+(debug build; this is a layout and state check, not a performance measurement). One method per v1.0
+Key Flow of EXPERIENCE.md; the camera steps (Flows 4, 5, 9 steps 1–3) are v1.1. Each method starts
+from a cleared install (`pm clear` by the script) and drives the flow through the UI; preconditions
+are reached through the UI too (Flow 2 passes the skip-ahead check first, Flow 7 completes Stage 1).
+Skip checks and practice Scrambles are solved by tapping the Move keys of a Solution computed
+in-process by the app's production solver. At each surface the test rotates portrait → landscape →
+portrait with `Activity.requestedOrientation` (never device settings; restored to
+`SCREEN_ORIENTATION_UNSPECIFIED`) and checks, after each rotation:
+
+- `SessionHost.state.value` is equal before and after (read from the activity's injected
+  `@Singleton`; a test-source Hilt `@EntryPoint` is not aggregated into the app's component without
+  `HiltTestApplication`, so the injected field is used instead — the same instance);
+- the cube's spoken summary/state and the step counter are unchanged;
+- the layout follows the window class from the window width in dp (`WindowWidthClass.of`): `nav:bar`
+  iff COMPACT, else `nav:rail`; Lesson panel below the stage (COMPACT) or right of it, ≤ 560 dp at
+  EXPANDED; Library 2/3/4 columns; Manual Cube Editor one face at a time when COMPACT and the full net
+  where the width allows it.
+
+A failed check is collected and the flow continues, so one broken surface does not hide the rest; the
+method then fails listing every problem. The rotation settings are read before and after each run as
+a check (unchanged on every target: Tab S7 FE `accelerometer_rotation=1 user_rotation=3`, S24 FE
+`1 / 0`).
+
+The flows: **1** Welcome → Stage 1 Lessons on the virtual cube → Stage 2 in Physical-cube Mode
+(Confirm your cube, Done, *My cube doesn't match* ladder) → the rest of the Course → the finale in
+Physical-cube Mode, *Yes, it's solved*, first-solve milestone. **2** skip-ahead check → *Faster last
+layer* → 2-look OLL Lesson → *Add to Learning* → Library filtered by *Learning* → LL practice.
+**3** Solve → *Enter colors* (an R U scramble) → Accept → playback followed on my cube → learn offer.
+**6** gestures and View Rotation on the free cube → Library → OLL detail, scrubbed → Enter colors and
+solve. **7** Stage 2 practice (hint once, practice until the milestone) → You trend. **8** *I can
+already solve it* → skip-ahead check solved → Stages Skipped, *Faster last layer* unlocked.
+**9 step 4** Settings → *Reset progress* ends the live Lesson and clears *Continue*.
+
+Two revisions, 2026-11-11. The physical Tab S7 FE, the physical S24 FE and the Tab AVD ran the full
+suite at `dd56e34b2e0573707b0e6566a94df3f51c06e78a`, after the Move-key fix below changed the stage.
+The other AVDs ran at `0ec0d6baa77328a108e7cd92cca7778abf3b9656`, the rotation fix below. AVDs ran one
+at a time, headless (`-no-window -no-audio -no-snapshot-save -gpu swiftshader_indirect`). In the first
+run the API 35 emulator's QEMU crashed twice with the default host GPU, so every AVD runs with
+SwiftShader. Each AVD was shut down afterwards. Cells give surfaces passed / surfaces checked; window
+classes are those seen in each orientation.
+
+| Target | Revision | API | Form factor | Portrait | Landscape | Flow 1 | Flow 2 | Flow 3 | Flow 6 | Flow 7 | Flow 8 | Flow 9 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| tab-s7-fe-api31 (SM-T738U, physical) | `dd56e34` | 31 | tablet | MEDIUM (753 dp) | EXPANDED (1205 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
+| s24-fe-api37 (SM-S721U1, physical) | `dd56e34` | 37 | phone | COMPACT (384 dp) | MEDIUM (832 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
+| avd-GalaxyTabS7FE_API34 (sdk_gphone64_x86_64, emulator) | `dd56e34` | 34 | tablet | COMPACT (555 dp) | EXPANDED (1280 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
+| avd-spike3d_api29 (Android SDK built for x86_64, emulator) | `0ec0d6b` | 29 | phone | COMPACT (393 dp) | MEDIUM (781 dp) | pass (11/11) | pass (8/8) | pass (6/6) | pass (9/9) | pass (6/6) | pass (3/3) | pass (6/6) |
+| avd-GalaxyS24FE_API35 (sdk_gphone64_x86_64, emulator) | `0ec0d6b` | 35 | phone | COMPACT (384 dp) | MEDIUM (832 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
+| avd-GalaxyS24FE_API36 (sdk_gphone64_x86_64, emulator) | `0ec0d6b` | 36 | phone | COMPACT (384 dp) | MEDIUM (832 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
+| avd-GalaxyS24FE_API37 (sdk_gphone64_x86_64, emulator) | `0ec0d6b` | 37 | phone | COMPACT (384 dp) | MEDIUM (832 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
+
+Targets: physical Galaxy Tab S7 FE 5G `R52T50ELHWK` (Android 12) and Galaxy S24 FE `R5CX83A5J1J`
+(Android 17); AVDs `spike3d_api29` (Pixel 4 profile, Android 10), `GalaxyTabS7FE_API34` (2560×1600
+@ 320 dpi, Android 14), `GalaxyS24FE_API35`, `GalaxyS24FE_API36`, `GalaxyS24FE_API37` (1080×2340 @
+450 dpi). The S24 FE was away for the `0ec0d6b` rerun, so API 37 was first rerun on the
+`GalaxyS24FE_API37` AVD; the S24 FE then ran the full suite at `dd56e34`. The Tab AVD's portrait window
+(555 dp) is COMPACT where the physical Tab (753 dp) is MEDIUM, so between them the tablet covers all
+three window classes. Raw results per target are in [`evidence/12-2/keyflow/`](evidence/12-2/keyflow/):
+`instrument`, `logcat` and `device.txt`. Each `logcat` has one `layout,` line per surface and
+orientation (with the width and checks) and one `surface,` line per surface. The rotation settings
+were unchanged on every target (physical Tab `accelerometer_rotation=1 user_rotation=3`, S24 FE
+`1 / 0`). The `0ec0d6b` runs of the physical Tab and the Tab AVD are kept in
+[`evidence/12-2/superseded/keyflow-0ec0d6b/`](evidence/12-2/superseded/keyflow-0ec0d6b/).
+
+**Result: met.** All 49 target × flow runs pass. Rotation changes no session state on any surface, and
+layout follows the window class on every surface of every target.
+
+**Finding, fixed: wide and slice Move keys hidden in a short COMPACT window.** At `0ec0d6b`, Flow 2 on
+the Tab AVD stopped after three passing surfaces, as it did in the first run: a tap on the wide Move key
+`f` did not commit. The AVD's forced-portrait window is letterboxed on its landscape display at
+**555 × 716 dp**. There the COMPACT stage leaves the Move key area about 105 dp, about two key rows.
+The area already scrolls (Story 12.1: `CubeAndKeys` keeps the cube at 96 dp and scrolls the keys).
+Tapping *more* added the wide and slice rows below that fold, with only a 9 dp sliver of the wide row
+showing:
+
+- the stage ended at 345 dp, and `moveKey:f` spanned 336–384 dp;
+- the uiautomator dump showed neither row;
+- nothing told the Learner that the rows had appeared.
+
+Two problems combined:
+
+1. **App:** the new rows opened out of sight.
+2. **Harness:** `performScrollTo` scrolls only the nearest scroll parent, which is the key row's
+   horizontal scroll. It never moved the vertical key area, so the harness tapped a clipped key, and the
+   tap landed on the panel.
+
+An earlier note in this section called the keys unreachable. That was wrong: a probe without a scroll
+missed them, and a drag on the key area does reach them and commit.
+
+The fix (`dd56e34`) has two parts:
+
+- **App:** `MoveKeyBar` scrolls the wide and slice rows into view (`BringIntoViewRequester`) when the
+  Learner opens *more*. Every key keeps its 48 dp target, and the layout is unchanged where the rows
+  already fit.
+- **Harness:** before a tap, the harness drags the key area with real touch input until the key is
+  fully inside it.
+
+Regression tests: in `AppShellTest`, at 555 × 716 dp and at 360 × 640 dp, *more*, then `f`, `M`, `S2`
+and `U`. Each key is reached by a drag, fully shown, at least 48 dp, and commits its Move. At 555 dp,
+`f` must show with no drag; that check fails without the fix. Diagnosis evidence:
+[`flow2-stall-finding.txt`](evidence/12-2/superseded/keyflow-0ec0d6b/avd-GalaxyTabS7FE_API34/flow2-stall-finding.txt),
+[screenshot](evidence/12-2/superseded/keyflow-0ec0d6b/avd-GalaxyTabS7FE_API34/flow2-stall-screenshot.png),
+[uiautomator dump](evidence/12-2/superseded/keyflow-0ec0d6b/avd-GalaxyTabS7FE_API34/flow2-stall-uiautomator.xml). The screenshot also shows the system's letterbox
+education dialog, which was not involved.
+
+**First run, superseded** (revision `655833ef816e8f619a911b697cec7800eeb3e111`, raw files in
+[`evidence/12-2/superseded/keyflow-655833e/`](evidence/12-2/superseded/keyflow-655833e/), with the
+physical S24 FE `s24-fe-api37`). Flows 1, 3, 6 and 9 passed everywhere, but on every target rotation
+**changed the session** on three surfaces, so Flows 2, 7 and 8 failed:
+
+- **Skip-ahead check** (Flows 2 and 8): each rotation dealt a new Scramble (`lesson.entryState`,
+  `history`, `revision` changed; the cube shown changed).
+- **Stage practice** (Flow 7): each rotation dealt a new practice Scramble, also after the hint, and
+  rotating on the *First cross mastered* milestone replaced it with a fresh practice (the milestone was
+  lost; the mastery itself was already recorded).
+
+**Cause and fix.** In `AppShell.kt`, `skipCheckEntry` and `practiceEntry` were built with
+`remember { stagePractice.courseSkipCheckLesson() / skipCheckLesson(id) / stagePractice(stageId) }`.
+A recreated activity dealt a random Scramble again, so `LessonScreen` saw a different `entryState` and
+dispatched a new `PracticeStarted`. That new session also cleared `objectiveMet`, which hid the
+milestone. The fix (`0ec0d6b`) saves the dealt Scramble in `rememberSaveable`, keyed by the open
+practice or check and its epoch, as the LL practice already does with `twoLookScramble`. Recreation
+rebuilds the same Lesson, so the session, and with it the milestone, survives. A new practice or check
+bumps the epoch and still deals a new Scramble. Regression tests: `AppShellTest` *Stage practice keeps
+its scramble and attempt across recreation* and *a Stage skip-ahead check keeps its scramble and
+attempt across recreation* (`StateRestorationTester`). Both fail without the fix.
+
+Also found and fixed in the test setup in the first run: Compose UI test pulls espresso-core 3.5.0,
+whose idling reflects on `InputManager.getInstance`, removed in Android 17, so every test failed on the
+S24 FE until `androidTestImplementation` pinned espresso-core 3.7.0 (test-only).
+
+**PO decision 2026-11-11.**
+2. Rotation re-dealing the skip-ahead check and Stage practice: **fix now, inside Story 12.2** (done
+   above).
+3. API 30 is not in the target set (AVDs cover 29, 34, 35, 36, 37; physical 31 and 37): the API 30 gap is
+   **accepted** for "API 29 through targetSdk 36".
 
 ## Out of scope
 
-- 3D renderer frame timing: `FrameTimingMetric` cannot see `GLSurfaceView` frames; GL uses the
-  in-app `onDrawFrame` interval log. Story 1.11 re-measured the OpenGL ES spike renderer on both
-  reference devices with it (worst-turn p90 20.48 ms on the Tab S7 FE 5G, 23.64 ms on the S24 FE),
-  and View Rotation with the same method (worst p90 20.14 ms and 20.57 ms; no frame over 33.3 ms).
 - 2D net reference-device baselines: attempted in Story 1.11 and not measured (see above); waived
   for v1.0 by the product owner in [issue #106](https://github.com/hebelmx/RubikXplorer/issues/106).
-- Full on-device solve performance check on a release build: Story 12.2. Table delivery and the
-  calibrated profile: Story 3.8 (above and [pruning-tables.md](pruning-tables.md)).
+  `Net2DFrameTimingBenchmark` is kept unchanged for that retargeting.
+- Solver performance work and a release-equivalent recalibration of k: v1.1, #105. The ~8 s
+  per-process preparation: v1.1, #104. Story 12.2 measured both as they are and did not tune them.
+- Camera, scan and Quick Check flows (Key Flows 4, 5 and 9 steps 1–3): v1.1.

@@ -1,0 +1,7 @@
+# Key Flow rotation run 2026-11-11T07:48:29-06:00
+serial=R5CX83A5J1J label=s24-fe-api37 git=655833ef816e8f619a911b697cec7800eeb3e111
+model=SM-S721U1 release=17 sdk=37 emulator=0
+fingerprint=samsung/r12suew/r12s:17/CP2A.260605.016/S721U1UEUEEZIF:user/release-keys
+density=Physical density: 450  size=Physical size: 1080x2340 
+rotation before: accelerometer_rotation=1 user_rotation=0
+rotation after: accelerometer_rotation=1 user_rotation=0

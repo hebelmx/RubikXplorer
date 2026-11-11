@@ -1,0 +1,7 @@
+# Key Flow rotation run 2026-11-11T08:33:37-06:00
+serial=emulator-5564 label=avd-GalaxyTabS7FE_API34 git=655833ef816e8f619a911b697cec7800eeb3e111
+model=sdk_gphone64_x86_64 release=14 sdk=34 emulator=1
+fingerprint=google/sdk_gphone64_x86_64/emu64xa:14/UE1A.230829.050/12077443:userdebug/dev-keys
+density=Physical density: 320  size=Physical size: 2560x1600 
+rotation before: accelerometer_rotation=1 user_rotation=0
+rotation after: accelerometer_rotation=1 user_rotation=0

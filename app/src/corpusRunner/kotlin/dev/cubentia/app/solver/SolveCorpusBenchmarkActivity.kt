@@ -15,9 +15,11 @@ import dev.cubentia.solver.benchmark.SolverWorkload
 import kotlin.concurrent.thread
 
 /**
- * Story 3.8 debug-only device runner for the Story 3.3 corpus (calibration pair of
+ * Story 3.8 device runner for the Story 3.3 corpus (calibration pair of
  * `:core:solver:solveCorpusBenchmark`): the same [SolverWorkload], seed, case count, warmup and
  * table-readiness boundary (tables generated before any timed attempt). Never starts with the app.
+ * Compiled into `debug` (Story 3.8) and the release-equivalent `benchmark` build type (Story 12.2,
+ * production corpus run); never into `release`.
  *
  * `adb shell am start -n com.exxerpro.cubentia/dev.cubentia.app.solver.SolveCorpusBenchmarkActivity
  *   --ei cases 10000 --el seed 20261031 --ei warmup 200`
@@ -32,6 +34,7 @@ class SolveCorpusBenchmarkActivity : Activity() {
         Log.i(TAG, "device=${Build.MANUFACTURER}/${Build.MODEL},api=${Build.VERSION.SDK_INT},release=${Build.VERSION.RELEASE}")
         Log.i(TAG, "identity,fingerprint=${Build.FINGERPRINT},cpus=${Runtime.getRuntime().availableProcessors()}")
         Log.i(TAG, "args,cases=$cases,seed=$seed,warmup=$warmup")
+        Log.i(TAG, "build,debuggable=${applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0}")
         Log.i(TAG, conditions("start"))
         thread(name = "solve-corpus") {
             try {

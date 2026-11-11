@@ -1,0 +1,52 @@
+--------- beginning of main
+11-11 07:52:36.076 24265 24281 I TestRunner: run started: 1 tests
+11-11 07:52:36.076 24265 24281 I TestRunner: started: flow2TwoLookLastLayer(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 07:52:38.467 24265 24335 I KeyFlowRotation: layout,flow=flow2,surface=skipCheck,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 07:52:39.517 24265 24335 I KeyFlowRotation: layout,flow=flow2,surface=skipCheck,orientation=landscape,widthDp=832,class=MEDIUM,checks=lesson:sideBySide
+11-11 07:52:40.516 24265 24335 I KeyFlowRotation: layout,flow=flow2,surface=skipCheck,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 07:52:40.516 24265 24335 I KeyFlowRotation: surface,flow=flow2,surface=skipCheck,result=fail
+11-11 07:52:40.516 24265 24335 W KeyFlowRotation: problem,flow2 / skipCheck (landscape): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, progress, revision]; revision 1 -> 2; lesson skip-check-course -> skip-check-course; kind PRACTICE -> PRACTICE
+11-11 07:52:40.516 24265 24335 W KeyFlowRotation: problem,flow2 / skipCheck (landscape): visible cube/step expected:<[1 of 20 pieces placed|Not solved]> but was:<[0 of 20 pieces placed|Not solved]>
+11-11 07:52:40.516 24265 24335 W KeyFlowRotation: problem,flow2 / skipCheck (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 2 -> 3; lesson skip-check-course -> skip-check-course; kind PRACTICE -> PRACTICE
+11-11 07:53:05.412 24265 24335 I KeyFlowRotation: layout,flow=flow2,surface=fasterLastLayer,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 07:53:06.311 24265 24335 I KeyFlowRotation: layout,flow=flow2,surface=fasterLastLayer,orientation=landscape,widthDp=832,class=MEDIUM,checks=nav:rail
+11-11 07:53:07.193 24265 24335 I KeyFlowRotation: layout,flow=flow2,surface=fasterLastLayer,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 07:53:07.193 24265 24335 I KeyFlowRotation: surface,flow=flow2,surface=fasterLastLayer,result=pass
+11-11 07:53:08.794 24265 24335 I KeyFlowRotation: layout,flow=flow2,surface=twoLookLesson,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 07:53:09.793 24265 24335 I KeyFlowRotation: layout,flow=flow2,surface=twoLookLesson,orientation=landscape,widthDp=832,class=MEDIUM,checks=lesson:sideBySide
+11-11 07:53:10.776 24265 24335 I KeyFlowRotation: layout,flow=flow2,surface=twoLookLesson,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 07:53:10.776 24265 24335 I KeyFlowRotation: surface,flow=flow2,surface=twoLookLesson,result=pass
+11-11 07:53:21.994 24265 24335 I KeyFlowRotation: layout,flow=flow2,surface=twoLookOffer,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 07:53:23.006 24265 24335 I KeyFlowRotation: layout,flow=flow2,surface=twoLookOffer,orientation=landscape,widthDp=832,class=MEDIUM,checks=lesson:sideBySide
+11-11 07:53:24.006 24265 24335 I KeyFlowRotation: layout,flow=flow2,surface=twoLookOffer,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 07:53:24.006 24265 24335 I KeyFlowRotation: surface,flow=flow2,surface=twoLookOffer,result=pass
+11-11 07:53:26.558 24265 24335 I KeyFlowRotation: layout,flow=flow2,surface=libraryLearning,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar+library:2columns
+11-11 07:53:27.506 24265 24335 I KeyFlowRotation: layout,flow=flow2,surface=libraryLearning,orientation=landscape,widthDp=832,class=MEDIUM,checks=nav:rail+library:3columns
+11-11 07:53:28.439 24265 24335 I KeyFlowRotation: layout,flow=flow2,surface=libraryLearning,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar+library:2columns
+11-11 07:53:28.439 24265 24335 I KeyFlowRotation: surface,flow=flow2,surface=libraryLearning,result=pass
+11-11 07:53:29.572 24265 24335 I KeyFlowRotation: layout,flow=flow2,surface=twoLookPractice,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 07:53:30.522 24265 24335 I KeyFlowRotation: layout,flow=flow2,surface=twoLookPractice,orientation=landscape,widthDp=832,class=MEDIUM,checks=lesson:sideBySide
+11-11 07:53:31.472 24265 24335 I KeyFlowRotation: layout,flow=flow2,surface=twoLookPractice,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 07:53:31.472 24265 24335 I KeyFlowRotation: surface,flow=flow2,surface=twoLookPractice,result=pass
+11-11 07:53:50.002 24265 24335 I KeyFlowRotation: flow,flow=flow2,surfaces=6,failedSurfaceChecks=3,result=fail
+11-11 07:53:50.234 24265 24281 E TestRunner: failed: flow2TwoLookLastLayer(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 07:53:50.236 24265 24281 E TestRunner: ----- begin exception -----
+11-11 07:53:50.236 24265 24281 E TestRunner: java.lang.AssertionError: flow2: 3 rotation check(s) failed:
+11-11 07:53:50.236 24265 24281 E TestRunner: flow2 / skipCheck (landscape): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, progress, revision]; revision 1 -> 2; lesson skip-check-course -> skip-check-course; kind PRACTICE -> PRACTICE
+11-11 07:53:50.236 24265 24281 E TestRunner: flow2 / skipCheck (landscape): visible cube/step expected:<[1 of 20 pieces placed|Not solved]> but was:<[0 of 20 pieces placed|Not solved]>
+11-11 07:53:50.236 24265 24281 E TestRunner: flow2 / skipCheck (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 2 -> 3; lesson skip-check-course -> skip-check-course; kind PRACTICE -> PRACTICE
+11-11 07:53:50.236 24265 24281 E TestRunner: 	at org.junit.Assert.fail(Assert.java:89)
+11-11 07:53:50.236 24265 24281 E TestRunner: 	at dev.cubentia.app.compat.KeyFlowHarness.finish(KeyFlowHarness.kt:234)
+11-11 07:53:50.236 24265 24281 E TestRunner: 	at dev.cubentia.app.compat.KeyFlowRotationTest.flow2TwoLookLastLayer(KeyFlowRotationTest.kt:148)
+11-11 07:53:50.236 24265 24281 E TestRunner: 	at java.lang.reflect.Method.invoke(Native Method)
+11-11 07:53:50.236 24265 24281 E TestRunner: 	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
+11-11 07:53:50.236 24265 24281 E TestRunner: 	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+11-11 07:53:50.236 24265 24281 E TestRunner: 	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
+11-11 07:53:50.236 24265 24281 E TestRunner: 	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+11-11 07:53:50.236 24265 24281 E TestRunner: 	at org.junit.internal.runners.statements.FailOnTimeout$CallableStatement.call(FailOnTimeout.java:299)
+11-11 07:53:50.236 24265 24281 E TestRunner: 	at org.junit.internal.runners.statements.FailOnTimeout$CallableStatement.call(FailOnTimeout.java:293)
+11-11 07:53:50.236 24265 24281 E TestRunner: 	at java.util.concurrent.FutureTask.run(FutureTask.java:328)
+11-11 07:53:50.236 24265 24281 E TestRunner: 	at java.lang.Thread.run(Thread.java:1571)
+11-11 07:53:50.236 24265 24281 E TestRunner: ----- end exception -----
+11-11 07:53:50.237 24265 24281 I TestRunner: finished: flow2TwoLookLastLayer(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 07:53:50.239 24265 24281 I TestRunner: run finished: 1 tests, 1 failed, 0 ignored

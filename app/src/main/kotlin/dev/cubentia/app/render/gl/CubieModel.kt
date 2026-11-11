@@ -72,6 +72,9 @@ class CubieModel(
 
     val isTurning: Boolean get() = turn != null
 
+    /** True while a turn is in flight and drawn partway (progress above 0), so it differs on screen from the committed geometry. */
+    val showsTurnProgress: Boolean get() = turn != null && angle != 0f
+
     init {
         reset(initial)
     }

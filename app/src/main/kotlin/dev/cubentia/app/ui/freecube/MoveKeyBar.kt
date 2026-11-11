@@ -13,15 +13,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,6 +77,17 @@ fun MoveKeyBar(
     tickOnCommit: Boolean = LocalHaptics.current,
 ) {
     var more by rememberSaveable { mutableStateOf(false) }
+    // Opening "more" scrolls the wide and slice rows into view: in a short stage they open below the fold of
+    // the scrolling key area, and nothing else would show they appeared (Story 12.2).
+    var reveal by remember { mutableStateOf(false) }
+    val moreRows = remember { BringIntoViewRequester() }
+    LaunchedEffect(reveal) {
+        if (reveal) {
+            withFrameNanos { }
+            moreRows.bringIntoView()
+            reveal = false
+        }
+    }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Spacing.s2)) {
         KeyRow(MoveKeys.face, onMove, onShowName, tickOnCommit)
         KeyRow(MoveKeys.rotation, onMove, onShowName, tickOnCommit) {
@@ -88,14 +103,22 @@ fun MoveKeyBar(
                 label = stringResource(if (more) R.string.move_less else R.string.move_more),
                 description = toggleDescription,
                 tag = "moveKey:more",
-                onClick = { more = !more },
+                onClick = {
+                    more = !more
+                    reveal = more
+                },
                 onLongClick = { onShowName(toggleDescription) },
                 labelStyleIsNotation = false,
             )
         }
         if (more) {
-            KeyRow(MoveKeys.wide, onMove, onShowName, tickOnCommit)
-            KeyRow(MoveKeys.slice, onMove, onShowName, tickOnCommit)
+            Column(
+                modifier = Modifier.bringIntoViewRequester(moreRows),
+                verticalArrangement = Arrangement.spacedBy(Spacing.s2),
+            ) {
+                KeyRow(MoveKeys.wide, onMove, onShowName, tickOnCommit)
+                KeyRow(MoveKeys.slice, onMove, onShowName, tickOnCommit)
+            }
         }
     }
 }

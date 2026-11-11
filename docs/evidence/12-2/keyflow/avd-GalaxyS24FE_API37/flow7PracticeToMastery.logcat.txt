@@ -1,0 +1,26 @@
+--------- beginning of main
+11-11 15:13:12.439  5564  5577 I TestRunner: run started: 1 tests
+11-11 15:13:12.439  5564  5577 I TestRunner: started: flow7PracticeToMastery(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 15:13:34.417  5564  5597 I KeyFlowRotation: layout,flow=flow7,surface=stage2Detail,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 15:13:35.500  5564  5597 I KeyFlowRotation: layout,flow=flow7,surface=stage2Detail,orientation=landscape,widthDp=832,class=MEDIUM,checks=nav:rail
+11-11 15:13:36.568  5564  5597 I KeyFlowRotation: layout,flow=flow7,surface=stage2Detail,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 15:13:36.569  5564  5597 I KeyFlowRotation: surface,flow=flow7,surface=stage2Detail,result=pass
+11-11 15:13:37.534  5564  5597 I KeyFlowRotation: layout,flow=flow7,surface=practiceDealt,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 15:13:38.767  5564  5597 I KeyFlowRotation: layout,flow=flow7,surface=practiceDealt,orientation=landscape,widthDp=832,class=MEDIUM,checks=lesson:sideBySide
+11-11 15:13:39.934  5564  5597 I KeyFlowRotation: layout,flow=flow7,surface=practiceDealt,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 15:13:39.934  5564  5597 I KeyFlowRotation: surface,flow=flow7,surface=practiceDealt,result=pass
+11-11 15:13:40.820  5564  5597 I KeyFlowRotation: layout,flow=flow7,surface=practiceHint,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 15:13:42.300  5564  5597 I KeyFlowRotation: layout,flow=flow7,surface=practiceHint,orientation=landscape,widthDp=832,class=MEDIUM,checks=lesson:sideBySide
+11-11 15:13:43.500  5564  5597 I KeyFlowRotation: layout,flow=flow7,surface=practiceHint,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 15:13:43.500  5564  5597 I KeyFlowRotation: surface,flow=flow7,surface=practiceHint,result=pass
+11-11 15:14:28.617  5564  5597 I KeyFlowRotation: layout,flow=flow7,surface=stageMasteredMilestone,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 15:14:29.884  5564  5597 I KeyFlowRotation: layout,flow=flow7,surface=stageMasteredMilestone,orientation=landscape,widthDp=832,class=MEDIUM,checks=lesson:sideBySide
+11-11 15:14:31.060  5564  5597 I KeyFlowRotation: layout,flow=flow7,surface=stageMasteredMilestone,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 15:14:31.060  5564  5597 I KeyFlowRotation: surface,flow=flow7,surface=stageMasteredMilestone,result=pass
+11-11 15:14:32.530  5564  5597 I KeyFlowRotation: layout,flow=flow7,surface=youTrend,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 15:14:33.902  5564  5597 I KeyFlowRotation: layout,flow=flow7,surface=youTrend,orientation=landscape,widthDp=832,class=MEDIUM,checks=nav:rail
+11-11 15:14:34.900  5564  5597 I KeyFlowRotation: layout,flow=flow7,surface=youTrend,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 15:14:34.900  5564  5597 I KeyFlowRotation: surface,flow=flow7,surface=youTrend,result=pass
+11-11 15:14:34.900  5564  5597 I KeyFlowRotation: flow,flow=flow7,surfaces=5,failedSurfaceChecks=0,result=pass
+11-11 15:14:35.489  5564  5577 I TestRunner: finished: flow7PracticeToMastery(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 15:14:35.520  5564  5577 I TestRunner: run finished: 1 tests, 0 failed, 0 ignored

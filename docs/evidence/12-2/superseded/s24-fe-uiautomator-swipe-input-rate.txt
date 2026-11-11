@@ -1,0 +1,13 @@
+# S24 FE viewRotation iteration 0 with UiDevice.swipe (superseded): main-thread input slices of the first drag, from Cube3DFrameBenchmark_viewRotation_iter000_2026-11-11-12-51-47.perfetto-trace
+{'ts': 695182816500166, 'name': 'deliverInputEvent src=0x1002 eventTimeNano=405898355000000 id=0xc8037705'}
+{'ts': 695182843141103, 'name': 'deliverInputEvent src=0x1002 eventTimeNano=405898383000000 id=0xe3eaff59'}
+{'ts': 695182876449111, 'name': 'deliverInputEvent src=0x1002 eventTimeNano=405898408000000 id=0xee4c0d25'}
+{'ts': 695182909713330, 'name': 'deliverInputEvent src=0x1002 eventTimeNano=405898442000000 id=0xeb7ce0d7'}
+{'ts': 695182942985439, 'name': 'deliverInputEvent src=0x1002 eventTimeNano=405898475000000 id=0xfdb4db11'}
+{'ts': 695182976319189, 'name': 'deliverInputEvent src=0x1002 eventTimeNano=405898508000000 id=0xffccbd8e'}
+{'ts': 695183009622939, 'name': 'deliverInputEvent src=0x1002 eventTimeNano=405898542000000 id=0xfc82fdb1'}
+{'ts': 695183042948291, 'name': 'deliverInputEvent src=0x1002 eventTimeNano=405898575000000 id=0xea37b3e9'}
+{'ts': 695183076463213, 'name': 'deliverInputEvent src=0x1002 eventTimeNano=405898608000000 id=0xdb87e9dd'}
+{'ts': 695183109844463, 'name': 'deliverInputEvent src=0x1002 eventTimeNano=405898642000000 id=0xc0486f23'}
+{'ts': 695183143072197, 'name': 'deliverInputEvent src=0x1002 eventTimeNano=405898675000000 id=0xd892a757'}
+{'ts': 695183176296338, 'name': 'deliverInputEvent src=0x1002 eventTimeNano=405898709000000 id=0xd26f205a'}

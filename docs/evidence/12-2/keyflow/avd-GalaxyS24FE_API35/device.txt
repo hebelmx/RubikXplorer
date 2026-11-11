@@ -1,0 +1,7 @@
+# Key Flow rotation run 2026-11-11T14:42:38-06:00
+serial=emulator-5560 label=avd-GalaxyS24FE_API35 git=0ec0d6baa77328a108e7cd92cca7778abf3b9656
+model=sdk_gphone64_x86_64 release=15 sdk=35 emulator=1
+fingerprint=google/sdk_gphone64_x86_64/emu64xa:15/AE3A.240806.043/12960925:userdebug/dev-keys
+density=Physical density: 450  size=Physical size: 1080x2340 
+rotation before: accelerometer_rotation=1 user_rotation=0
+rotation after: accelerometer_rotation=1 user_rotation=0

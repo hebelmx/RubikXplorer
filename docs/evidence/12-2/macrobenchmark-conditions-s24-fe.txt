@@ -1,0 +1,28 @@
+# conditions (macrobenchmark start) 2026-11-11T06:58:07-06:00 serial=R5CX83A5J1J git=eee28c47b760fa0f8815b66360db4bd5daff9054
+model=SM-S721U1 release=17 sdk=37
+fingerprint=samsung/r12suew/r12s:17/CP2A.260605.016/S721U1UEUEEZIF:user/release-keys
+  AC powered: true
+  USB powered: false
+  status: 4
+  level: 89
+  temperature: 294
+Thermal Status: 0
+stay_on=15 accelerometer_rotation=1 user_rotation=0
+renderFrameRate 60.0
+renderFrameRate 60.0
+renderFrameRate 60.0
+Failed to write while dumping service display: Broken pipe
+# conditions (macrobenchmark end) 2026-11-11T07:01:27-06:00 serial=R5CX83A5J1J git=eee28c47b760fa0f8815b66360db4bd5daff9054
+model=SM-S721U1 release=17 sdk=37
+fingerprint=samsung/r12suew/r12s:17/CP2A.260605.016/S721U1UEUEEZIF:user/release-keys
+  AC powered: true
+  USB powered: false
+  status: 4
+  level: 89
+  temperature: 309
+Thermal Status: 0
+stay_on=15 accelerometer_rotation=1 user_rotation=0
+renderFrameRate 60.0
+renderFrameRate 60.0
+renderFrameRate 60.0
+Failed to write while dumping service display: Broken pipe

@@ -1,0 +1,28 @@
+# conditions (macrobenchmark start) 2026-11-11T07:05:43-06:00 serial=R52T50ELHWK git=eee28c47b760fa0f8815b66360db4bd5daff9054
+model=SM-T738U release=12 sdk=31
+fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys
+  AC powered: false
+  USB powered: true
+  status: 5
+  level: 100
+  temperature: 306
+Thermal Status: 0
+stay_on=15 accelerometer_rotation=1 user_rotation=3
+refreshRate=60.000004
+mActiveSfDisplayMode=DisplayMode{id=0, width=1600, height=2560, xDpi=244.819, yDpi=244.451, refreshRate=60.000004
+    versionName=0.1.0
+    flags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]
+    lastUpdateTime=2026-11-11 06:48:06
+Failed to write while dumping service package: Broken pipe
+# conditions (macrobenchmark end) 2026-11-11T07:10:35-06:00 serial=R52T50ELHWK git=eee28c47b760fa0f8815b66360db4bd5daff9054
+model=SM-T738U release=12 sdk=31
+fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys
+  AC powered: false
+  USB powered: true
+  status: 5
+  level: 100
+  temperature: 317
+Thermal Status: 0
+stay_on=15 accelerometer_rotation=1 user_rotation=3
+refreshRate=60.000004
+mActiveSfDisplayMode=DisplayMode{id=0, width=1600, height=2560, xDpi=244.819, yDpi=244.451, refreshRate=60.000004

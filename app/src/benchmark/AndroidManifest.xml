@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- benchmark build type only (Story 1.10): lets Macrobenchmark profile the release-equivalent app
-     from shell. Never in debug or release; AD-13 checks run on this variant like any other. -->
+     from shell. Never in debug or release; AD-13 checks run on this variant like any other.
+     Story 12.2: also declares the Story 3.8 corpus runner (src/corpusRunner) for the production
+     corpus run on the release-equivalent build; release never has it. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
@@ -8,6 +10,9 @@
         <profileable
             android:shell="true"
             tools:targetApi="29" />
+        <activity
+            android:name=".solver.SolveCorpusBenchmarkActivity"
+            android:exported="true" />
     </application>
 
 </manifest>

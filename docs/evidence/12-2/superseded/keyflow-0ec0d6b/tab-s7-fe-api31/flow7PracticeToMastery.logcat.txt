@@ -1,0 +1,26 @@
+--------- beginning of main
+11-11 14:26:54.173 22411 22427 I TestRunner: run started: 1 tests
+11-11 14:26:54.174 22411 22427 I TestRunner: started: flow7PracticeToMastery(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 14:27:12.864 22411 22459 I KeyFlowRotation: layout,flow=flow7,surface=stage2Detail,orientation=portrait,widthDp=753,class=MEDIUM,checks=nav:rail
+11-11 14:27:14.031 22411 22459 I KeyFlowRotation: layout,flow=flow7,surface=stage2Detail,orientation=landscape,widthDp=1205,class=EXPANDED,checks=nav:rail
+11-11 14:27:15.201 22411 22459 I KeyFlowRotation: layout,flow=flow7,surface=stage2Detail,orientation=portrait,widthDp=753,class=MEDIUM,checks=nav:rail
+11-11 14:27:15.201 22411 22459 I KeyFlowRotation: surface,flow=flow7,surface=stage2Detail,result=pass
+11-11 14:27:16.336 22411 22459 I KeyFlowRotation: layout,flow=flow7,surface=practiceDealt,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:27:17.605 22411 22459 I KeyFlowRotation: layout,flow=flow7,surface=practiceDealt,orientation=landscape,widthDp=1205,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
+11-11 14:27:18.874 22411 22459 I KeyFlowRotation: layout,flow=flow7,surface=practiceDealt,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:27:18.874 22411 22459 I KeyFlowRotation: surface,flow=flow7,surface=practiceDealt,result=pass
+11-11 14:27:19.692 22411 22459 I KeyFlowRotation: layout,flow=flow7,surface=practiceHint,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:27:20.960 22411 22459 I KeyFlowRotation: layout,flow=flow7,surface=practiceHint,orientation=landscape,widthDp=1205,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
+11-11 14:27:22.213 22411 22459 I KeyFlowRotation: layout,flow=flow7,surface=practiceHint,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:27:22.213 22411 22459 I KeyFlowRotation: surface,flow=flow7,surface=practiceHint,result=pass
+11-11 14:28:13.871 22411 22459 I KeyFlowRotation: layout,flow=flow7,surface=stageMasteredMilestone,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:28:15.223 22411 22459 I KeyFlowRotation: layout,flow=flow7,surface=stageMasteredMilestone,orientation=landscape,widthDp=1205,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
+11-11 14:28:16.492 22411 22459 I KeyFlowRotation: layout,flow=flow7,surface=stageMasteredMilestone,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:28:16.492 22411 22459 I KeyFlowRotation: surface,flow=flow7,surface=stageMasteredMilestone,result=pass
+11-11 14:28:17.695 22411 22459 I KeyFlowRotation: layout,flow=flow7,surface=youTrend,orientation=portrait,widthDp=753,class=MEDIUM,checks=nav:rail
+11-11 14:28:18.746 22411 22459 I KeyFlowRotation: layout,flow=flow7,surface=youTrend,orientation=landscape,widthDp=1205,class=EXPANDED,checks=nav:rail
+11-11 14:28:19.848 22411 22459 I KeyFlowRotation: layout,flow=flow7,surface=youTrend,orientation=portrait,widthDp=753,class=MEDIUM,checks=nav:rail
+11-11 14:28:19.848 22411 22459 I KeyFlowRotation: surface,flow=flow7,surface=youTrend,result=pass
+11-11 14:28:19.848 22411 22459 I KeyFlowRotation: flow,flow=flow7,surfaces=5,failedSurfaceChecks=0,result=pass
+11-11 14:28:20.238 22411 22427 I TestRunner: finished: flow7PracticeToMastery(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 14:28:20.243 22411 22427 I TestRunner: run finished: 1 tests, 0 failed, 0 ignored

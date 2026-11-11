@@ -17,6 +17,17 @@ import kotlin.math.abs
 import kotlin.random.Random
 
 class CubieModelTest {
+    @Test fun showsTurnProgressOnlyWhileATurnIsDrawnPartway() {
+        val model = CubieModel()
+        assertEquals(false, model.showsTurnProgress)
+        model.begin(allMoves.first())
+        assertEquals("activation frame draws progress 0", false, model.showsTurnProgress)
+        model.setProgress(0.1f)
+        assertEquals(true, model.showsTurnProgress)
+        model.commit()
+        assertEquals(false, model.showsTurnProgress)
+    }
+
     @Test fun solvedAndEveryMoveFromScrambledState() {
         assertEquals(CubeState.SOLVED.toFacelets(), CubieModel().facelets())
         val state = CubeState.SOLVED.apply(allMoves.take(17))

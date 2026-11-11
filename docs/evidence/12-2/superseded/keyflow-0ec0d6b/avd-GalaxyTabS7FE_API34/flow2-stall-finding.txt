@@ -1,0 +1,36 @@
+# Flow 2 stall on GalaxyTabS7FE_API34: diagnosis (2026-11-11, revision 0ec0d6baa77328a108e7cd92cca7778abf3b9656)
+
+Rerun of flow2TwoLookLastLayer alone on the AVD (SwiftShader, headless), with a screenshot and a
+uiautomator dump every 3 s after the twoLookLesson surface. Result again:
+  flow2: timed out waiting for Move f to commit
+
+App window (uiautomator): [725,0][1835,1600] on a 2560x1600 @ 320 dpi landscape display. The forced
+portrait window is letterboxed: 1110 x 1432 px content = 555 x 716 dp (COMPACT).
+
+flow2-stall-uiautomator.xml (after "moveKey:more" was tapped; toggle reads "Hide wide and slice turns"):
+  face row     y 498..594 px  (U .. D' keys)
+  rotation row y 610..706 px  (Hide toggle, x .. z2)
+  wide row     absent (f, f', ... not exposed)
+  slice row    absent
+flow2-stall-screenshot.png also shows the system letterbox education dialog ("See and do more") over
+the app. It is not the cause: the "more" tap under it took effect, and Compose test clicks are
+dispatched to the app's view, not through the system window stack.
+
+Robolectric probe at the same window size (qualifiers w555dp-h716dp, AppShellTest launch, White
+cross Lesson, tap moveKey:more, then tap moveKey:f; temporary, not committed):
+  lesson:stage = top 64 dp, bottom 345 dp
+  moveKey:f    = top 336 dp, bottom 384 dp   (48 dp target, but 39 of its 48 dp lie below the stage)
+  lesson:panel = top 353 dp, bottom 716 dp
+  session revision 1 -> 1 after the tap: the Move did not commit.
+
+Cause: in COMPACT the stage has a fixed height (max(0.45 x the Lesson body height, 280 dp + gutters)) and the
+Move key bar sits inside it, under the cube, in no vertical scroll. Expanding "more" adds the wide and
+slice rows, which overflow the stage's bottom edge under the panel; the tap at the key's centre lands
+on the panel. [Superseded: see CORRECTION below.]
+
+CORRECTION (same day, after a second probe): the conclusion above is wrong. The Move key area is a
+vertical scroll (Story 12.1, CubeAndKeys): at 555 x 716 dp its viewport was 105 dp with a scroll range
+of 111 dp, and a drag on it brings f, M and every other key fully into view, where a tap commits
+(revision 1 -> 2). The probe above tapped without scrolling. Actual causes: (1) app: opening "more" put
+the new rows below the fold with no cue; (2) harness: performScrollTo scrolls only the nearest
+(horizontal) scroll parent, so it tapped a clipped key. Both fixed in dd56e34; see docs/benchmarks.md.

@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuites tests="2" failures="0" errors="0" skipped="0" time="0.000" timestamp="2026-11-11T13:10:30" hostname="localhost">
+  <testsuite name="dev.cubentia.macrobenchmark.Cube3DFrameBenchmark" tests="2" failures="0" errors="0" skipped="0" time="268.768" timestamp="2026-11-11T13:10:30" hostname="localhost">
+    <properties>
+      <property name="device" value="R52T50ELHWK" />
+    </properties>
+    <testcase name="faceTurns" classname="dev.cubentia.macrobenchmark.Cube3DFrameBenchmark" time="121.488" />
+    <testcase name="viewRotation" classname="dev.cubentia.macrobenchmark.Cube3DFrameBenchmark" time="147.280" />
+  </testsuite>
+</testsuites>

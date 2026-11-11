@@ -1,0 +1,18 @@
+--------- beginning of main
+11-11 06:48:16.403  6156  6156 I SolveCorpusBenchmark: device=samsung/SM-T738U,api=31,release=12
+11-11 06:48:16.404  6156  6156 I SolveCorpusBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,cpus=8
+11-11 06:48:16.404  6156  6156 I SolveCorpusBenchmark: args,cases=10000,seed=20261031,warmup=200
+11-11 06:48:16.404  6156  6156 I SolveCorpusBenchmark: build,debuggable=false
+11-11 06:48:16.408  6156  6156 I SolveCorpusBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+11-11 06:48:19.540  6156  6184 I SolveCorpusBenchmark: tablesReady,bytes=4031685,prepareNanos=3130523228
+11-11 06:53:46.334  6156  6184 I SolveCorpusBenchmark: report,Solve corpus benchmark: two-phase; 10000 uniform legal states + solved + 100 deep Scrambles; seed 20261031
+11-11 06:53:46.335  6156  6184 I SolveCorpusBenchmark: report,  cases          10101
+11-11 06:53:46.335  6156  6184 I SolveCorpusBenchmark: report,  median         17.012 ms
+11-11 06:53:46.335  6156  6184 I SolveCorpusBenchmark: report,  p95            101.730 ms
+11-11 06:53:46.335  6156  6184 I SolveCorpusBenchmark: report,  max            1074.199 ms
+11-11 06:53:46.335  6156  6184 I SolveCorpusBenchmark: report,  within budget  100.0% (10101/10101 at or under 3000.000 ms)
+11-11 06:53:46.335  6156  6184 I SolveCorpusBenchmark: report,  failures       0 (0.0%)
+11-11 06:53:46.335  6156  6184 I SolveCorpusBenchmark: report,  peak heap      28.9 MiB
+11-11 06:53:46.335  6156  6184 I SolveCorpusBenchmark: raw,cases=10101,medianNanos=1.7012188E7,p95Nanos=101730000,maxNanos=1074198802,withinBudget=10101,failures=0,peakHeapBytes=30352624,javaHeapMaxBytes=536870912,wallNanos=326791348052
+11-11 06:53:46.337  6156  6184 I SolveCorpusBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+11-11 06:53:46.337  6156  6184 I SolveCorpusBenchmark: done

@@ -1,0 +1,38 @@
+--------- beginning of main
+11-11 14:49:19.679  4168  4182 I TestRunner: run started: 1 tests
+11-11 14:49:19.685  4168  4182 I TestRunner: started: flow6FiveMinuteEvaluation(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 14:49:27.036  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=freeCubeAfterGesture,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 14:49:28.446  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=freeCubeAfterGesture,orientation=landscape,widthDp=832,class=MEDIUM,checks=nav:rail
+11-11 14:49:29.580  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=freeCubeAfterGesture,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 14:49:29.580  4168  4200 I KeyFlowRotation: surface,flow=flow6,surface=freeCubeAfterGesture,result=pass
+11-11 14:49:30.214  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=freeCubeAfterViewRotation,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 14:49:31.347  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=freeCubeAfterViewRotation,orientation=landscape,widthDp=832,class=MEDIUM,checks=nav:rail
+11-11 14:49:32.480  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=freeCubeAfterViewRotation,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 14:49:32.480  4168  4200 I KeyFlowRotation: surface,flow=flow6,surface=freeCubeAfterViewRotation,result=pass
+11-11 14:49:33.947  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=library,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar+library:2columns
+11-11 14:49:34.997  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=library,orientation=landscape,widthDp=832,class=MEDIUM,checks=nav:rail+library:3columns
+11-11 14:49:36.030  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=library,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar+library:2columns
+11-11 14:49:36.030  4168  4200 I KeyFlowRotation: surface,flow=flow6,surface=library,result=pass
+11-11 14:49:37.380  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=algorithmDetail,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 14:49:38.513  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=algorithmDetail,orientation=landscape,widthDp=832,class=MEDIUM,checks=nav:rail
+11-11 14:49:39.630  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=algorithmDetail,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 14:49:39.630  4168  4200 I KeyFlowRotation: surface,flow=flow6,surface=algorithmDetail,result=pass
+11-11 14:49:40.663  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=algorithmDetailScrubbed,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 14:49:41.763  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=algorithmDetailScrubbed,orientation=landscape,widthDp=832,class=MEDIUM,checks=nav:rail
+11-11 14:49:42.963  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=algorithmDetailScrubbed,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 14:49:42.963  4168  4200 I KeyFlowRotation: surface,flow=flow6,surface=algorithmDetailScrubbed,result=pass
+11-11 14:49:45.114  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=editor,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar+editor:oneFace
+11-11 14:49:46.363  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=editor,orientation=landscape,widthDp=832,class=MEDIUM,checks=nav:rail+editor:net
+11-11 14:49:47.513  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=editor,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar+editor:oneFace
+11-11 14:49:47.513  4168  4200 I KeyFlowRotation: surface,flow=flow6,surface=editor,result=pass
+11-11 14:50:06.180  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=editorEntered,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar+editor:oneFace
+11-11 14:50:07.163  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=editorEntered,orientation=landscape,widthDp=832,class=MEDIUM,checks=nav:rail+editor:net
+11-11 14:50:08.130  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=editorEntered,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar+editor:oneFace
+11-11 14:50:08.130  4168  4200 I KeyFlowRotation: surface,flow=flow6,surface=editorEntered,result=pass
+11-11 14:50:16.346  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=playbackVirtual,orientation=portrait,widthDp=384,class=COMPACT,checks=
+11-11 14:50:17.147  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=playbackVirtual,orientation=landscape,widthDp=832,class=MEDIUM,checks=
+11-11 14:50:18.063  4168  4200 I KeyFlowRotation: layout,flow=flow6,surface=playbackVirtual,orientation=portrait,widthDp=384,class=COMPACT,checks=
+11-11 14:50:18.063  4168  4200 I KeyFlowRotation: surface,flow=flow6,surface=playbackVirtual,result=pass
+11-11 14:50:18.370  4168  4200 I KeyFlowRotation: flow,flow=flow6,surfaces=8,failedSurfaceChecks=0,result=pass
+11-11 14:50:19.211  4168  4182 I TestRunner: finished: flow6FiveMinuteEvaluation(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 14:50:19.221  4168  4182 I TestRunner: run finished: 1 tests, 0 failed, 0 ignored
