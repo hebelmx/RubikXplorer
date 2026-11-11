@@ -1,0 +1,26 @@
+--------- beginning of main
+11-11 08:54:53.002  5909  5924 I TestRunner: run started: 1 tests
+11-11 08:54:53.004  5909  5924 I TestRunner: started: flow9ResetProgress(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 08:55:01.995  5909  5953 I KeyFlowRotation: layout,flow=flow9,surface=learnContinue,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 08:55:03.029  5909  5953 I KeyFlowRotation: layout,flow=flow9,surface=learnContinue,orientation=landscape,widthDp=832,class=MEDIUM,checks=nav:rail
+11-11 08:55:04.046  5909  5953 I KeyFlowRotation: layout,flow=flow9,surface=learnContinue,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 08:55:04.046  5909  5953 I KeyFlowRotation: surface,flow=flow9,surface=learnContinue,result=pass
+11-11 08:55:05.212  5909  5953 I KeyFlowRotation: layout,flow=flow9,surface=settings,orientation=portrait,widthDp=384,class=COMPACT,checks=
+11-11 08:55:06.062  5909  5953 I KeyFlowRotation: layout,flow=flow9,surface=settings,orientation=landscape,widthDp=832,class=MEDIUM,checks=
+11-11 08:55:06.912  5909  5953 I KeyFlowRotation: layout,flow=flow9,surface=settings,orientation=portrait,widthDp=384,class=COMPACT,checks=
+11-11 08:55:06.912  5909  5953 I KeyFlowRotation: surface,flow=flow9,surface=settings,result=pass
+11-11 08:55:07.666  5909  5953 I KeyFlowRotation: layout,flow=flow9,surface=resetProgressSheet,orientation=portrait,widthDp=384,class=COMPACT,checks=
+11-11 08:55:08.712  5909  5953 I KeyFlowRotation: layout,flow=flow9,surface=resetProgressSheet,orientation=landscape,widthDp=832,class=MEDIUM,checks=
+11-11 08:55:09.645  5909  5953 I KeyFlowRotation: layout,flow=flow9,surface=resetProgressSheet,orientation=portrait,widthDp=384,class=COMPACT,checks=
+11-11 08:55:09.645  5909  5953 I KeyFlowRotation: surface,flow=flow9,surface=resetProgressSheet,result=pass
+11-11 08:55:10.345  5909  5953 I KeyFlowRotation: layout,flow=flow9,surface=settingsAfterReset,orientation=portrait,widthDp=384,class=COMPACT,checks=
+11-11 08:55:11.212  5909  5953 I KeyFlowRotation: layout,flow=flow9,surface=settingsAfterReset,orientation=landscape,widthDp=832,class=MEDIUM,checks=
+11-11 08:55:12.112  5909  5953 I KeyFlowRotation: layout,flow=flow9,surface=settingsAfterReset,orientation=portrait,widthDp=384,class=COMPACT,checks=
+11-11 08:55:12.112  5909  5953 I KeyFlowRotation: surface,flow=flow9,surface=settingsAfterReset,result=pass
+11-11 08:55:12.812  5909  5953 I KeyFlowRotation: layout,flow=flow9,surface=welcomeAfterReset,orientation=portrait,widthDp=384,class=COMPACT,checks=
+11-11 08:55:13.612  5909  5953 I KeyFlowRotation: layout,flow=flow9,surface=welcomeAfterReset,orientation=landscape,widthDp=832,class=MEDIUM,checks=
+11-11 08:55:14.445  5909  5953 I KeyFlowRotation: layout,flow=flow9,surface=welcomeAfterReset,orientation=portrait,widthDp=384,class=COMPACT,checks=
+11-11 08:55:14.445  5909  5953 I KeyFlowRotation: surface,flow=flow9,surface=welcomeAfterReset,result=pass
+11-11 08:55:14.862  5909  5953 I KeyFlowRotation: flow,flow=flow9,surfaces=5,failedSurfaceChecks=0,result=pass
+11-11 08:55:15.306  5909  5924 I TestRunner: finished: flow9ResetProgress(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 08:55:15.320  5909  5924 I TestRunner: run finished: 1 tests, 0 failed, 0 ignored

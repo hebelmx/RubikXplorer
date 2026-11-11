@@ -1,0 +1,54 @@
+--------- beginning of main
+11-11 08:32:31.371  4178  4208 I KeyFlowRotation: layout,flow=flow8,surface=learnSkipped,orientation=portrait,widthDp=393,class=COMPACT,checks=nav:bar
+--------- beginning of system
+11-11 08:32:32.254  4178  4208 I KeyFlowRotation: layout,flow=flow8,surface=learnSkipped,orientation=landscape,widthDp=781,class=MEDIUM,checks=nav:rail
+11-11 08:32:33.104  4178  4208 I KeyFlowRotation: layout,flow=flow8,surface=learnSkipped,orientation=portrait,widthDp=393,class=COMPACT,checks=nav:bar
+11-11 08:32:33.104  4178  4208 I KeyFlowRotation: surface,flow=flow8,surface=learnSkipped,result=pass
+11-11 08:32:33.121  4178  4208 I KeyFlowRotation: flow,flow=flow8,surfaces=2,failedSurfaceChecks=4,result=fail
+11-11 08:32:33.196  4178  4199 E TestRunner: failed: flow8SkipAhead(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 08:32:33.196  4178  4199 E TestRunner: ----- begin exception -----
+11-11 08:32:33.196  4178  4199 E TestRunner: java.lang.AssertionError: flow8: 4 rotation check(s) failed:
+11-11 08:32:33.196  4178  4199 E TestRunner: flow8 / skipCheck (landscape): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, progress, revision]; revision 1 -> 2; lesson skip-check-course -> skip-check-course; kind PRACTICE -> PRACTICE
+11-11 08:32:33.196  4178  4199 E TestRunner: flow8 / skipCheck (landscape): visible cube/step expected:<[1 of 20 pieces placed|Not solved]> but was:<[2 of 20 pieces placed|Not solved]>
+11-11 08:32:33.196  4178  4199 E TestRunner: flow8 / skipCheck (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, progress, revision]; revision 2 -> 3; lesson skip-check-course -> skip-check-course; kind PRACTICE -> PRACTICE
+11-11 08:32:33.196  4178  4199 E TestRunner: flow8 / skipCheck (portrait): visible cube/step expected:<[2 of 20 pieces placed|Not solved]> but was:<[0 of 20 pieces placed|Not solved]>
+11-11 08:32:33.196  4178  4199 E TestRunner: 	at org.junit.Assert.fail(Assert.java:89)
+11-11 08:32:33.196  4178  4199 E TestRunner: 	at dev.cubentia.app.compat.KeyFlowHarness.finish(KeyFlowHarness.kt:234)
+11-11 08:32:33.196  4178  4199 E TestRunner: 	at dev.cubentia.app.compat.KeyFlowRotationTest.flow8SkipAhead(KeyFlowRotationTest.kt:266)
+11-11 08:32:33.196  4178  4199 E TestRunner: 	at java.lang.reflect.Method.invoke(Native Method)
+11-11 08:32:33.196  4178  4199 E TestRunner: 	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
+11-11 08:32:33.196  4178  4199 E TestRunner: 	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+11-11 08:32:33.196  4178  4199 E TestRunner: 	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
+11-11 08:32:33.196  4178  4199 E TestRunner: 	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+11-11 08:32:33.196  4178  4199 E TestRunner: 	at org.junit.internal.runners.statements.FailOnTimeout$CallableStatement.call(FailOnTimeout.java:299)
+11-11 08:32:33.196  4178  4199 E TestRunner: 	at org.junit.internal.runners.statements.FailOnTimeout$CallableStatement.call(FailOnTimeout.java:293)
+11-11 08:32:33.196  4178  4199 E TestRunner: 	at java.util.concurrent.FutureTask.run(FutureTask.java:266)
+11-11 08:32:33.196  4178  4199 E TestRunner: 	at java.lang.Thread.run(Thread.java:919)
+11-11 08:32:33.196  4178  4199 E TestRunner: ----- end exception -----
+11-11 08:32:33.196  4178  4199 I TestRunner: finished: flow8SkipAhead(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 08:32:33.198  4178  4199 I TestRunner: run finished: 1 tests, 1 failed, 0 ignored
+11-11 08:32:35.272  4259  4280 I TestRunner: run started: 1 tests
+11-11 08:32:35.272  4259  4280 I TestRunner: started: flow9ResetProgress(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 08:32:42.204  4259  4290 I KeyFlowRotation: layout,flow=flow9,surface=learnContinue,orientation=portrait,widthDp=393,class=COMPACT,checks=nav:bar
+11-11 08:32:43.054  4259  4290 I KeyFlowRotation: layout,flow=flow9,surface=learnContinue,orientation=landscape,widthDp=781,class=MEDIUM,checks=nav:rail
+11-11 08:32:43.938  4259  4290 I KeyFlowRotation: layout,flow=flow9,surface=learnContinue,orientation=portrait,widthDp=393,class=COMPACT,checks=nav:bar
+11-11 08:32:43.938  4259  4290 I KeyFlowRotation: surface,flow=flow9,surface=learnContinue,result=pass
+11-11 08:32:44.821  4259  4290 I KeyFlowRotation: layout,flow=flow9,surface=settings,orientation=portrait,widthDp=393,class=COMPACT,checks=
+11-11 08:32:45.571  4259  4290 I KeyFlowRotation: layout,flow=flow9,surface=settings,orientation=landscape,widthDp=781,class=MEDIUM,checks=
+11-11 08:32:46.354  4259  4290 I KeyFlowRotation: layout,flow=flow9,surface=settings,orientation=portrait,widthDp=393,class=COMPACT,checks=
+11-11 08:32:46.354  4259  4290 I KeyFlowRotation: surface,flow=flow9,surface=settings,result=pass
+11-11 08:32:47.071  4259  4290 I KeyFlowRotation: layout,flow=flow9,surface=resetProgressSheet,orientation=portrait,widthDp=393,class=COMPACT,checks=
+11-11 08:32:47.921  4259  4290 I KeyFlowRotation: layout,flow=flow9,surface=resetProgressSheet,orientation=landscape,widthDp=781,class=MEDIUM,checks=
+11-11 08:32:48.804  4259  4290 I KeyFlowRotation: layout,flow=flow9,surface=resetProgressSheet,orientation=portrait,widthDp=393,class=COMPACT,checks=
+11-11 08:32:48.804  4259  4290 I KeyFlowRotation: surface,flow=flow9,surface=resetProgressSheet,result=pass
+11-11 08:32:49.504  4259  4290 I KeyFlowRotation: layout,flow=flow9,surface=settingsAfterReset,orientation=portrait,widthDp=393,class=COMPACT,checks=
+11-11 08:32:50.287  4259  4290 I KeyFlowRotation: layout,flow=flow9,surface=settingsAfterReset,orientation=landscape,widthDp=781,class=MEDIUM,checks=
+11-11 08:32:51.071  4259  4290 I KeyFlowRotation: layout,flow=flow9,surface=settingsAfterReset,orientation=portrait,widthDp=393,class=COMPACT,checks=
+11-11 08:32:51.071  4259  4290 I KeyFlowRotation: surface,flow=flow9,surface=settingsAfterReset,result=pass
+11-11 08:32:51.754  4259  4290 I KeyFlowRotation: layout,flow=flow9,surface=welcomeAfterReset,orientation=portrait,widthDp=393,class=COMPACT,checks=
+11-11 08:32:52.537  4259  4290 I KeyFlowRotation: layout,flow=flow9,surface=welcomeAfterReset,orientation=landscape,widthDp=781,class=MEDIUM,checks=
+11-11 08:32:53.304  4259  4290 I KeyFlowRotation: layout,flow=flow9,surface=welcomeAfterReset,orientation=portrait,widthDp=393,class=COMPACT,checks=
+11-11 08:32:53.304  4259  4290 I KeyFlowRotation: surface,flow=flow9,surface=welcomeAfterReset,result=pass
+11-11 08:32:53.588  4259  4290 I KeyFlowRotation: flow,flow=flow9,surfaces=5,failedSurfaceChecks=0,result=pass
+11-11 08:32:53.650  4259  4280 I TestRunner: finished: flow9ResetProgress(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 08:32:53.651  4259  4280 I TestRunner: run finished: 1 tests, 0 failed, 0 ignored

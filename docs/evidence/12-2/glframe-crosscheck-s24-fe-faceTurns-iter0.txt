@@ -1,0 +1,23 @@
+# Hand cross-check of GlFrameMetric (Story 12.2): S24 FE faceTurns iteration 0, recomputed independently from the raw trace
+# trace: Cube3DFrameBenchmark_faceTurns_iter000_2026-11-11-12-58-29.perfetto-trace (not committed: 1499605 bytes); command: uv run --with perfetto python -I glframe_crosscheck.py <trace> turns
+## recomputed from the trace
+turns 4 turnVisible 4 frames 56 inputs 8
+ turn0: start=695599937058056 end=695600137298525 dur=200.24ms upInput=695599919253687 (slice 695599921240556) turnVisible=695599953682431 ackFrame=[695599953740322,695599953921298] latency=34.668ms frames=12 fps=59.94
+ turn1: start=695600453414697 end=695600654298252 dur=200.88ms upInput=695600448253687 (slice 695600450152275) turnVisible=695600470140478 ackFrame=[695600470212744,695600471777119] latency=23.523ms frames=12 fps=59.90
+ turn2: start=695600972102275 end=695601170371142 dur=198.27ms upInput=695600966253687 (slice 695600968366455) turnVisible=695600986942314 ackFrame=[695600987096220,695600987544736] latency=21.291ms frames=12 fps=61.50
+ turn3: start=695601537154072 end=695601738523173 dur=201.37ms upInput=695601521253687 (slice 695601525263525) turnVisible=695601554488095 ackFrame=[695601554846728,695601555924345] latency=34.671ms frames=12 fps=59.70
+glFrameCount 48 glFps 60.2515 worst 59.6984
+intervals p50 16.695117 p90 17.193555 p99 17.952031 max 17.952031 over33 0
+inputToFrame p50 23.523432 max 34.670658
+## GlFrameMetric values for iteration 0 in cube3d-macrobenchmark-s24-fe.json (runs[0])
+glFrameCount 48.0
+glFps 60.251497473601304
+glFpsWorstWindow 59.69841673232
+glFrameIntervalP50Ms 16.695117
+glFrameIntervalP90Ms 17.193555
+glFrameIntervalP99Ms 17.952031
+glFrameIntervalMaxMs 17.952031
+glFramesOver33ms 0.0
+inputToFrameP50Ms 23.523432
+inputToFrameMaxMs 34.670658
+## verdict: every value matches
