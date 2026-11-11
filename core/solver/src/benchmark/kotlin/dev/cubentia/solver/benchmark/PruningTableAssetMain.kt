@@ -6,7 +6,7 @@ import kotlinx.coroutines.runBlocking
 import java.io.File
 import kotlin.system.exitProcess
 
-/** Story 3.8 temporary bundled candidate: writes the provider-format table file to `args[0]`. */
+/** Story 3.8 bundled delivery, build time only: writes the provider-format table file to `args[0]`. */
 fun main(args: Array<String>) {
     val target = File(args.single())
     target.delete()

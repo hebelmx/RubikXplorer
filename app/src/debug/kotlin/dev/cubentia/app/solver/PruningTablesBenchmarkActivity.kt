@@ -13,6 +13,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.os.StrictMode
 import android.util.Log
+import dev.cubentia.app.di.SolverModule
 import dev.cubentia.solver.PruningTableLoadResult
 import dev.cubentia.solver.PruningTableProvider
 import kotlinx.coroutines.CoroutineScope
@@ -62,6 +63,15 @@ class PruningTablesBenchmarkActivity : Activity() {
                 memory("afterFirst")
                 report("warm", PruningTableProvider(cache).load())
                 memory("afterWarm")
+                // Story 3.8 production path: the bundled asset through a fresh provider (no memory reuse).
+                val unused = File(cache.parentFile, "bundled-unused.bin")
+                report(
+                    "bundled",
+                    PruningTableProvider(unused, generate = { error("bundled asset missing") }, bundled = {
+                        assets.open(SolverModule.TABLE_ASSET)
+                    }).load(),
+                )
+                memory("afterBundled")
                 val cacheBytes = withContext(Dispatchers.IO) { cache.length() }
                 mainHandler.post {
                     Log.i(TAG, "cacheBytes=$cacheBytes,mainThreadDiskViolations=${violations.get()}")

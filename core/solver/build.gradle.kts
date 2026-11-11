@@ -30,11 +30,12 @@ tasks.register<JavaExec>("solveCorpusBenchmark") {
     mainClass.set("dev.cubentia.solver.benchmark.SolveCorpusBenchmarkMainKt")
 }
 
-// Story 3.8 temporary bundled candidate, measurement only: the provider-format table file as an asset dir.
+// Story 3.8 bundled delivery: the provider-format table file as the asset dir :app ships. Build-time tool in
+// the non-shipping benchmark source set; deterministic, so the output is reproducible from the revision.
 val pruningTableAssetDir = layout.buildDirectory.dir("generated/pruningTableAsset")
 tasks.register<JavaExec>("writePruningTableAsset") {
     group = "benchmark"
-    description = "Writes solver/pruning-v1.bin (provider format) for the temporary bundled-table candidate."
+    description = "Writes solver/pruning-v1.bin (provider format) shipped as the bundled :app asset."
     classpath = benchmark.runtimeClasspath
     mainClass.set("dev.cubentia.solver.benchmark.PruningTableAssetMainKt")
     outputs.dir(pruningTableAssetDir)
