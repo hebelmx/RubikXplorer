@@ -103,7 +103,9 @@ class KeyFlowHarness(
     }
 
     private fun tagPrefix(prefix: String) =
-        SemanticsMatcher("test tag starting with $prefix") { node -> node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith(prefix) == true }
+        SemanticsMatcher("test tag starting with $prefix") { node ->
+            node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith(prefix) == true
+        }
 
     fun click(tag: String) {
         awaitTag(tag)
@@ -185,8 +187,11 @@ class KeyFlowHarness(
     ): String {
         val changed =
             SessionState::class.java.declaredFields
-                .filter { !it.name.endsWith("\$delegate") && !java.lang.reflect.Modifier.isStatic(it.modifiers) }
-                .filter { field ->
+                .filter {
+                    !it.name.endsWith("\$delegate") &&
+                        !java.lang.reflect.Modifier
+                            .isStatic(it.modifiers)
+                }.filter { field ->
                     field.isAccessible = true
                     field.get(before) != field.get(after)
                 }.map { it.name }
@@ -231,7 +236,11 @@ class KeyFlowHarness(
 
     private fun rotate(orientation: Int) {
         val want =
-            if (orientation == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) Configuration.ORIENTATION_LANDSCAPE else Configuration.ORIENTATION_PORTRAIT
+            if (orientation == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) {
+                Configuration.ORIENTATION_LANDSCAPE
+            } else {
+                Configuration.ORIENTATION_PORTRAIT
+            }
         val old = activity()
         val recreate = old.resources.configuration.orientation != want
         rule.runOnUiThread { old.requestedOrientation = orientation }
@@ -341,7 +350,11 @@ class KeyFlowHarness(
             }
             checks += if (onePerFace) "editor:oneFace" else "editor:net"
         }
-        Log.i(TAG, "layout,flow=$flow,surface=$surface,orientation=$orientation,widthDp=${widthDp.roundToInt()},class=$widthClass,checks=${checks.joinToString("+")}")
+        Log.i(
+            TAG,
+            "layout,flow=$flow,surface=$surface,orientation=$orientation,widthDp=${widthDp.roundToInt()},class=$widthClass," +
+                "checks=${checks.joinToString("+")}",
+        )
     }
 
     // ---- Flow helpers ----
@@ -354,13 +367,18 @@ class KeyFlowHarness(
         if (exists("stageDetail") && !exists("learn:lesson:$lessonId")) click("stageDetail:back")
         if (!exists("learn:lesson:$lessonId")) click("learn:stage:$stageId")
         click("learn:lesson:$lessonId")
-        await("Lesson $lessonId to start") { host.state.value.lesson?.id?.value == lessonId }
+        await("Lesson $lessonId to start") {
+            host.state.value.lesson
+                ?.id
+                ?.value == lessonId
+        }
         awaitTag("lesson:panel")
         settle()
     }
 
     /** The next authored Move of the open Lesson, from the Tutor's path. */
-    fun nextAuthoredMove(state: SessionState = host.state.value): Move? = state.lesson?.let { Tutor.nextMove(it, state.pathEntry, state.virtual) }
+    fun nextAuthoredMove(state: SessionState = host.state.value): Move? =
+        state.lesson?.let { Tutor.nextMove(it, state.pathEntry, state.virtual) }
 
     /**
      * Plays the open Lesson on the virtual cube with the Move keys (the authored path, or a computed

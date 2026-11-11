@@ -111,7 +111,10 @@ class KeyFlowRotationTest {
             finish()
         }
 
-    /** Flow 2: *Faster last layer* unlocked by the skip-ahead check, a 2-look OLL Lesson, the Learning offer, Library *Learning*, LL practice. */
+    /**
+     * Flow 2: *Faster last layer* unlocked by the skip-ahead check, a 2-look OLL Lesson, the Learning
+     * offer, Library *Learning*, then LL practice.
+     */
     @Test(timeout = FLOW_TIMEOUT_MS)
     fun flow2TwoLookLastLayer() =
         with(flow("flow2")) {
