@@ -22,6 +22,20 @@ admissible phase heuristics. Transitions reuse the clean-room Story 3.1 move tab
 Every number below was measured in this run on the **minimum reference device**. Raw logs are in
 [`evidence/3-8/`](evidence/3-8/). No host, emulator or Galaxy S24 FE number is used for a criterion.
 
+Revision mapping: all measurements were taken at the attempt-1 revisions cited below, which exist
+only on the local branch `wip/3-8-attempt-1`. The same commits were cherry-picked without conflicts
+onto the story branch:
+
+| Attempt-1 revision (measured) | Cherry-picked on the story branch |
+| --- | --- |
+| `79e66110b5962eb68773bcad0abbdeb7d37b4f49` | `85985c4c607e5f43a88120ffce52141f3e48db1c` |
+| `ed490da5736b84a95ae3ee225be93f69e247f52b` | `cdd911b75cd35e426b7a5bab4ae9fd43c284ab28` |
+| `ef9c6df62712182af85ebba8bc64b9e513a44ddb` | `50bc3d7c9fe60061fcce0257e50159b0282f1b35` |
+| `dd1d4ac26d74af8661356a93c5d0e0eb2ccfb6a4` | `3d3b75726940a206a269eabc70d18683091ac2e3` |
+| `eeac7db6ff95c0fa198a05c52e39d2a7aa28f7cc` | `c2aed43000614f0a44dcc1aebf81a307db6b2d8c` |
+| `03a69f9712ba44a9831db0a8e892ae9a42b23046` | `eb870e2b96fe80dc5e0f7a33c786733c2088e75f` |
+| `dcf3b653254fabb04084f0c9e9744f9c9b2820ef` | `eba4cc13b9581e47f19dd91236c252305fcea273` |
+
 | Identity | Value |
 | --- | --- |
 | Device | Samsung Galaxy Tab S7 FE 5G, SM-T738U, serial `R52T50ELHWK`, SoC SM7225, 8 CPUs, MemTotal 3,518,216 kB |
@@ -106,6 +120,9 @@ Background dexopt may recompile later; the largest observed state is used for th
 - Budget (NFR-11, 30 MB = 30,000,000 B): bundled 7,802,989 B + 153,600 B data = 7,956,589 B, which
   leaves **22,043,411 B (~22.0 MB) of headroom** for the v1.1 recognition model. First-run would
   leave 18,934,461 B.
+- Fallback state (asset invalid, so tables are generated into the private file as well): 7,802,989 B
+  bundled install + 4,031,725 B private file + 153,600 B data = 11,988,314 B, leaving 18,011,686 B
+  (~18.0 MB) of headroom under 30,000,000 B.
 
 ### Decision
 
@@ -144,7 +161,7 @@ Both items were accepted by the PO for v1.0 on 2026-11-10 and are deferred to v1
 in Story 3.8.
 
 - **Per-process preparation vs Learner copy (#104).** Preparation repeats in every new app process
-  (asset read + move-table build). It took about 8.3 s on the debug build and at most ~7.6 s on the
+  (asset read + move-table build). It took about 8.3 s on the debug build and 7.6–7.8 s (coarse UI polling, upper bounds) on the
   release-equivalent build (coarse timing) on the minimum device. The copy "Preparing the solver (one
   time, a few seconds)." (`msg.solve.preparing`) therefore overstates how often and how quickly it
   happens. The PO accepted this for v1.0. The copy is unchanged, and no move-table delivery work was
@@ -180,6 +197,8 @@ ANDROID_SERIAL=$SERIAL ./gradlew :app:installDebug
 # cold generation + warm read in the same process; omit --ez cold for a warm (cache) process;
 # --ez bundledOnly true times only the production bundled path
 "$ADB" -s "$SERIAL" shell am start -W -n com.exxerpro.cubentia/dev.cubentia.app.solver.PruningTablesBenchmarkActivity --ez cold true
+# the harness runs asynchronously after am start returns: wait for its final report line
+until "$ADB" -s "$SERIAL" logcat -d -s PruningTablesBenchmark:I | grep -qE 'cacheBytes=|bundledOnly,|failed|measurement-incomplete'; do sleep 2; done
 "$ADB" -s "$SERIAL" logcat -d -s PruningTablesBenchmark:I StrictMode:D AndroidRuntime:E
 ```
 

@@ -50,6 +50,7 @@ is deferred by the approved 2026-11-02 course correction to mandatory Story 3.8 
 Story 3.8 must establish a measured reference-device-equivalent JVM profile and rerun the full
 corpus with zero failures and at least 95% successful solves within 3 s, reporting median, p95,
 memory and failure rate. This blocks production Story 3.7 acceptance and Epic 3/P0.S closure.
+Outcome (2026-11-10): the Story 3.8 result (1 device timeout, 1 calibrated failure) is a PO-accepted waiver deferred to #105.
 Story 12.2 still confirms the production corpus on physical reference devices. Story 3.8 also
 owns production table delivery, cold/warm physical loading and installed size.
 See [the approved calibration deferral](../_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-02-search-calibration-deferral.md).
@@ -68,6 +69,9 @@ These figures measure the actual host profile above and do not establish referen
 
 ### Story 3.8 calibrated reference-device-equivalent profile (2026-11-10)
 
+Revisions cited here are attempt-1 revisions where the measurements were taken; see the
+[revision mapping](pruning-tables.md#story-38-evidence-2026-11-10) to the cherry-picked commits.
+
 Paired runs of the same corpus code (`benchmarkShared`), seed 20261031, 10,000 uniform cases + solved +
 100 deep Scrambles (10,101), warmup 200 untimed attempts. On both sides the table-readiness boundary
 is the same: tables are generated before any warmup or timed attempt and are outside all timings.
@@ -81,9 +85,9 @@ sampled after each attempt (`RuntimeHeapSampler`), because `java.lang.management
 Android. The host keeps the Story 3.3 heap-pool method. The debug build is debuggable, which slows
 ART, so the device times (and k) are conservative relative to a release build.
 
-| Run | Identity | Median | p95 | Max | ≤ 3 s | Failures | Peak memory | Raw |
+| Run | Identity | Median | p95 | Max | ≤ 3 s | Failures | Peak memory (device: maximum sampled used heap, sampled after each attempt; host: heap-pool peaks) | Raw |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Device | Galaxy Tab S7 FE 5G `R52T50ELHWK`, Android 12 / API 31, fingerprint `…T738USQU3BVG7:user/release-keys`, 8 CPUs; revision `79e6611`, debug build; USB charging 82 → 80 %, thermal status 1, stay-awake on, MemAvailable 564,872 kB at start; wall 1,055.9 s | 53.795 ms | 338.075 ms | 3,000.916 ms | 10,100 / 10,101 (99.99%) | **1** (0.0099%, timed out) | 27.1 MiB Runtime heap (limit 512 MiB) | [log](evidence/3-8/solve-corpus-tab-s7-fe.log) |
+| Device | Galaxy Tab S7 FE 5G `R52T50ELHWK`, Android 12 / API 31, fingerprint `…T738USQU3BVG7:user/release-keys`, 8 CPUs; revision `79e6611`, debug build; USB charging 82 → 80 %, thermal status 1, stay-awake on, MemAvailable 564,872 kB at start; wall 1,055.9 s | 53.795 ms | 338.075 ms | 3,000.916 ms | 10,100 / 10,101 (99.99%) | **1** (0.0099%, timed out) | 27.1 MiB maximum sampled used heap, sampled after each attempt (limit 512 MiB) | [log](evidence/3-8/solve-corpus-tab-s7-fe.log) |
 | Host | i7-12800H, 20 logical CPUs, Linux 7.1.5 x86_64, OpenJDK 17.0.21 (JavaExec toolchain; Gradle on 25.0.5); revision `ed490da` | 3.262 ms | 19.962 ms | 223.370 ms | 10,101 (100%) | 0 | 604.6 MiB heap pools | [log](evidence/3-8/solve-corpus-host.log) |
 
 Calibration: k = max(device/host median, device/host p95) = max(53.795 / 3.262 = 16.49,

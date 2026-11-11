@@ -248,6 +248,39 @@ class PruningTablesTest {
         }
 
     @Test
+    fun `cancelling during move-table preparation of a bundled load publishes nothing and a retry is ready`() =
+        runBlocking {
+            val asset = validFileBytes()
+            val file = File(directory, "files/tables")
+            val provider =
+                PruningTableProvider(file, generate = { error("no generation") }, bundled = { ByteArrayInputStream(asset) })
+            val building = CompletableDeferred<Unit>()
+            val release = java.util.concurrent.CountDownLatch(1)
+            MoveTables.resetForTest()
+            MoveTables.buildObserver = {
+                if (building.complete(Unit)) release.await()
+            }
+            try {
+                var published: PruningTableLoadResult? = null
+                val loading = launch(Dispatchers.Default) { published = provider.load() }
+                withTimeout(10_000) { building.await() }
+                loading.cancel()
+                release.countDown()
+                loading.join()
+                assertTrue(loading.isCancelled)
+                assertEquals(null, published)
+                assertTrue(MoveTables.builtCoordinates().size < Coordinate.entries.size)
+            } finally {
+                MoveTables.buildObserver = null
+                release.countDown()
+            }
+            val retried = provider.load() as PruningTableLoadResult.Ready
+            assertEquals(PruningTableSource.BUNDLED, retried.source)
+            assertEquals(Coordinate.entries.toSet(), MoveTables.builtCoordinates())
+            assertFalse(file.exists())
+        }
+
+    @Test
     fun `invalid or unreadable bundled asset falls back to the private file then generation`() =
         runBlocking {
             val valid = validFileBytes()
