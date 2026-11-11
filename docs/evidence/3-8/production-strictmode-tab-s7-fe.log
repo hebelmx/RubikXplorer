@@ -1,0 +1,281 @@
+# production check, debug build (DebugStrictMode: detectDiskReads+detectDiskWrites+penaltyLog), revision=03a69f9712ba44a9831db0a8e892ae9a42b23046, apk sha256=1f197d2d1cc43a9713bbb35723ea32a8250ca5a9c104b0634438ee3600618b28, fresh install
+samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys
+  USB powered: true
+  level: 77
+  temperature: 345
+Thermal Status: 1
+  mStayOn=true
+MemAvailable:     473340 kB
+### A1 cold process start 02:00:21.319
+LaunchState: COLD
+TotalTime: 2340
+### A2 Lesson before any solve (tables never requested) 02:00:31.329
+    12 of 20 pieces match the pattern
+    Step 1 of 1
+    Pattern reached
+    Objective met
+### A3 Close lesson -> Solve -> Enter colors -> cube after U 02:00:46.237
+### A4 Accept (cold: bundled read + move tables) 02:02:15.992
+    Starting a solve pauses your lesson.
+    Preparing the solver (one time, a few seconds).
+    Cancel
+### A5 during preparation: Learn -> Lesson -> Move U 02:02:21.167
+    12 of 20 pieces match the pattern
+### A6 Close lesson -> Solve tab (leaving Solve cancelled the solve; nothing published) 02:02:34.123
+    Accept
+### A7 retry Accept 02:02:44.503
+    Preparing the solver (one time, a few seconds).
+    Cancel
+### A7 playback visible 02:02:55.393
+    U'
+    Turn the Up face counter-clockwise: the top row moves right.
+### A8 Close -> Enter colors -> Accept again (same process) 02:02:58.079
+    Turn the Up face counter-clockwise: the top row moves right.
+### A8 playback visible 02:03:15.163
+    Turn the Up face counter-clockwise: the top row moves right.
+### B1 new process 02:03:19.443
+LaunchState: COLD
+TotalTime: 988
+### B2 Solve -> Enter colors -> cube after U -> Accept (new process: bundled re-read + move tables) 02:03:26.621
+    Preparing the solver (one time, a few seconds).
+    Cancel
+### B2 playback visible 02:05:07.038
+    U'
+    Turn the Up face counter-clockwise: the top row moves right.
+### B3 app-private storage (no fallback table file expected) 02:05:10.594
+cache:
+total 0
+
+files:
+total 4
+-rw------- 1 u0_a600 u0_a600 24 2026-11-10 20:03 profileInstalled
+4	./cache
+4	./code_cache
+8	./files
+132	./databases
+150	.
+
+# StrictMode summary (frames from dev.cubentia.solver, PruningTable*, SolverSource, SolverModule, SolveFlow, AssetManager count as table loading/solving)
+== process A
+violations: 6
+  2 x android.os.strictmode.DiskReadViolation at android.graphics.Typeface.getFullFlipFont(Typeface.java:1782) <- at dev.cubentia.app.Hilt_CubentiaApp.onCreate(Hilt_CubentiaApp.java:43)
+  1 x android.os.strictmode.DiskReadViolation at android.graphics.Typeface.setFlipFonts(Typeface.java:1910) <- at dev.cubentia.app.Hilt_CubentiaApp.onCreate(Hilt_CubentiaApp.java:43)
+  1 x android.os.strictmode.DiskReadViolation at android.graphics.Typeface.setFlipFonts(Typeface.java:1916) <- at dev.cubentia.app.Hilt_CubentiaApp.onCreate(Hilt_CubentiaApp.java:43)
+  1 x android.os.strictmode.DiskReadViolation at android.app.ActivityThread.getProfileSizeOfApp(ActivityThread.java:8958) <- (no app frame)
+  1 x android.os.strictmode.DiskReadViolation at android.app.ActivityThread.getProfileSizeOfApp(ActivityThread.java:8959) <- (no app frame)
+table-loading/solving attributable: 0
+== process B
+violations: 4
+  2 x android.os.strictmode.DiskReadViolation at android.graphics.Typeface.getFullFlipFont(Typeface.java:1782) <- at dev.cubentia.app.Hilt_CubentiaApp.onCreate(Hilt_CubentiaApp.java:43)
+  1 x android.os.strictmode.DiskReadViolation at android.graphics.Typeface.setFlipFonts(Typeface.java:1910) <- at dev.cubentia.app.Hilt_CubentiaApp.onCreate(Hilt_CubentiaApp.java:43)
+  1 x android.os.strictmode.DiskReadViolation at android.graphics.Typeface.setFlipFonts(Typeface.java:1916) <- at dev.cubentia.app.Hilt_CubentiaApp.onCreate(Hilt_CubentiaApp.java:43)
+table-loading/solving attributable: 0
+
+# StrictMode logcat, process A (full)
+11-10 20:00:23.964 29392 29392 D StrictMode: StrictMode policy violation; ~duration=2 ms: android.os.strictmode.DiskReadViolation
+11-10 20:00:23.964 29392 29392 D StrictMode: 	at android.os.StrictMode$AndroidBlockGuardPolicy.onReadFromDisk(StrictMode.java:1659)
+11-10 20:00:23.964 29392 29392 D StrictMode: 	at java.io.UnixFileSystem.getBooleanAttributes(UnixFileSystem.java:306)
+11-10 20:00:23.964 29392 29392 D StrictMode: 	at java.io.File.isDirectory(File.java:859)
+11-10 20:00:23.964 29392 29392 D StrictMode: 	at android.graphics.Typeface.getFullFlipFont(Typeface.java:1782)
+11-10 20:00:23.964 29392 29392 D StrictMode: 	at android.graphics.Typeface.getFontPathFlipFont(Typeface.java:1767)
+11-10 20:00:23.964 29392 29392 D StrictMode: 	at android.graphics.Typeface.setFlipFonts(Typeface.java:1897)
+11-10 20:00:23.964 29392 29392 D StrictMode: 	at android.app.Application.onCreate(Application.java:260)
+11-10 20:00:23.964 29392 29392 D StrictMode: 	at dev.cubentia.app.Hilt_CubentiaApp.onCreate(Hilt_CubentiaApp.java:43)
+11-10 20:00:23.964 29392 29392 D StrictMode: 	at dev.cubentia.app.CubentiaApp.onCreate(CubentiaApp.kt:10)
+11-10 20:00:23.964 29392 29392 D StrictMode: 	at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1211)
+11-10 20:00:23.964 29392 29392 D StrictMode: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7506)
+11-10 20:00:23.964 29392 29392 D StrictMode: 	at android.app.ActivityThread.access$1700(ActivityThread.java:310)
+11-10 20:00:23.964 29392 29392 D StrictMode: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2281)
+11-10 20:00:23.964 29392 29392 D StrictMode: 	at android.os.Handler.dispatchMessage(Handler.java:106)
+11-10 20:00:23.964 29392 29392 D StrictMode: 	at android.os.Looper.loopOnce(Looper.java:226)
+11-10 20:00:23.964 29392 29392 D StrictMode: 	at android.os.Looper.loop(Looper.java:313)
+11-10 20:00:23.964 29392 29392 D StrictMode: 	at android.app.ActivityThread.main(ActivityThread.java:8663)
+11-10 20:00:23.964 29392 29392 D StrictMode: 	at java.lang.reflect.Method.invoke(Native Method)
+11-10 20:00:23.964 29392 29392 D StrictMode: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:567)
+11-10 20:00:23.964 29392 29392 D StrictMode: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1135)
+11-10 20:00:23.965 29392 29392 D StrictMode: StrictMode policy violation; ~duration=2 ms: android.os.strictmode.DiskReadViolation
+11-10 20:00:23.965 29392 29392 D StrictMode: 	at android.os.StrictMode$AndroidBlockGuardPolicy.onReadFromDisk(StrictMode.java:1659)
+11-10 20:00:23.965 29392 29392 D StrictMode: 	at java.io.UnixFileSystem.list(UnixFileSystem.java:400)
+11-10 20:00:23.965 29392 29392 D StrictMode: 	at java.io.File.list(File.java:1145)
+11-10 20:00:23.965 29392 29392 D StrictMode: 	at android.graphics.Typeface.getFullFlipFont(Typeface.java:1782)
+11-10 20:00:23.965 29392 29392 D StrictMode: 	at android.graphics.Typeface.getFontPathFlipFont(Typeface.java:1767)
+11-10 20:00:23.965 29392 29392 D StrictMode: 	at android.graphics.Typeface.setFlipFonts(Typeface.java:1897)
+11-10 20:00:23.965 29392 29392 D StrictMode: 	at android.app.Application.onCreate(Application.java:260)
+11-10 20:00:23.965 29392 29392 D StrictMode: 	at dev.cubentia.app.Hilt_CubentiaApp.onCreate(Hilt_CubentiaApp.java:43)
+11-10 20:00:23.965 29392 29392 D StrictMode: 	at dev.cubentia.app.CubentiaApp.onCreate(CubentiaApp.kt:10)
+11-10 20:00:23.965 29392 29392 D StrictMode: 	at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1211)
+11-10 20:00:23.965 29392 29392 D StrictMode: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7506)
+11-10 20:00:23.965 29392 29392 D StrictMode: 	at android.app.ActivityThread.access$1700(ActivityThread.java:310)
+11-10 20:00:23.965 29392 29392 D StrictMode: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2281)
+11-10 20:00:23.965 29392 29392 D StrictMode: 	at android.os.Handler.dispatchMessage(Handler.java:106)
+11-10 20:00:23.965 29392 29392 D StrictMode: 	at android.os.Looper.loopOnce(Looper.java:226)
+11-10 20:00:23.965 29392 29392 D StrictMode: 	at android.os.Looper.loop(Looper.java:313)
+11-10 20:00:23.965 29392 29392 D StrictMode: 	at android.app.ActivityThread.main(ActivityThread.java:8663)
+11-10 20:00:23.965 29392 29392 D StrictMode: 	at java.lang.reflect.Method.invoke(Native Method)
+11-10 20:00:23.965 29392 29392 D StrictMode: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:567)
+11-10 20:00:23.965 29392 29392 D StrictMode: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1135)
+11-10 20:00:23.967 29392 29392 D StrictMode: StrictMode policy violation; ~duration=2 ms: android.os.strictmode.DiskReadViolation
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at android.os.StrictMode$AndroidBlockGuardPolicy.onReadFromDisk(StrictMode.java:1659)
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at libcore.io.BlockGuardOs.access(BlockGuardOs.java:74)
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at libcore.io.ForwardingOs.access(ForwardingOs.java:129)
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at android.app.ActivityThread$AndroidOs.access(ActivityThread.java:8514)
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at java.io.UnixFileSystem.checkAccess(UnixFileSystem.java:337)
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at java.io.File.exists(File.java:829)
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at android.graphics.Typeface.setFlipFonts(Typeface.java:1910)
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at android.app.Application.onCreate(Application.java:260)
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at dev.cubentia.app.Hilt_CubentiaApp.onCreate(Hilt_CubentiaApp.java:43)
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at dev.cubentia.app.CubentiaApp.onCreate(CubentiaApp.kt:10)
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1211)
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7506)
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at android.app.ActivityThread.access$1700(ActivityThread.java:310)
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2281)
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at android.os.Handler.dispatchMessage(Handler.java:106)
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at android.os.Looper.loopOnce(Looper.java:226)
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at android.os.Looper.loop(Looper.java:313)
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at android.app.ActivityThread.main(ActivityThread.java:8663)
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at java.lang.reflect.Method.invoke(Native Method)
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:567)
+11-10 20:00:23.967 29392 29392 D StrictMode: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1135)
+11-10 20:00:23.969 29392 29392 D StrictMode: StrictMode policy violation; ~duration=1 ms: android.os.strictmode.DiskReadViolation
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at android.os.StrictMode$AndroidBlockGuardPolicy.onReadFromDisk(StrictMode.java:1659)
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at libcore.io.BlockGuardOs.access(BlockGuardOs.java:74)
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at libcore.io.ForwardingOs.access(ForwardingOs.java:129)
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at android.app.ActivityThread$AndroidOs.access(ActivityThread.java:8514)
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at java.io.UnixFileSystem.checkAccess(UnixFileSystem.java:337)
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at java.io.File.exists(File.java:829)
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at android.graphics.Typeface.setFlipFonts(Typeface.java:1916)
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at android.app.Application.onCreate(Application.java:260)
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at dev.cubentia.app.Hilt_CubentiaApp.onCreate(Hilt_CubentiaApp.java:43)
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at dev.cubentia.app.CubentiaApp.onCreate(CubentiaApp.kt:10)
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1211)
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7506)
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at android.app.ActivityThread.access$1700(ActivityThread.java:310)
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2281)
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at android.os.Handler.dispatchMessage(Handler.java:106)
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at android.os.Looper.loopOnce(Looper.java:226)
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at android.os.Looper.loop(Looper.java:313)
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at android.app.ActivityThread.main(ActivityThread.java:8663)
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at java.lang.reflect.Method.invoke(Native Method)
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:567)
+11-10 20:00:23.969 29392 29392 D StrictMode: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1135)
+11-10 20:00:33.073 29392 29392 D StrictMode: StrictMode policy violation; ~duration=3 ms: android.os.strictmode.DiskReadViolation
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at android.os.StrictMode$AndroidBlockGuardPolicy.onReadFromDisk(StrictMode.java:1659)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at libcore.io.BlockGuardOs.access(BlockGuardOs.java:74)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at libcore.io.ForwardingOs.access(ForwardingOs.java:129)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at android.app.ActivityThread$AndroidOs.access(ActivityThread.java:8514)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at java.io.UnixFileSystem.checkAccess(UnixFileSystem.java:337)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at java.io.File.exists(File.java:829)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at android.app.ActivityThread.getProfileSizeOfApp(ActivityThread.java:8958)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at android.app.ActivityThread.access$4200(ActivityThread.java:310)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2467)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at android.os.Handler.dispatchMessage(Handler.java:106)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at android.os.Looper.loopOnce(Looper.java:226)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at android.os.Looper.loop(Looper.java:313)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at android.app.ActivityThread.main(ActivityThread.java:8663)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at java.lang.reflect.Method.invoke(Native Method)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:567)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1135)
+11-10 20:00:33.073 29392 29392 D StrictMode: StrictMode policy violation; ~duration=2 ms: android.os.strictmode.DiskReadViolation
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at android.os.StrictMode$AndroidBlockGuardPolicy.onReadFromDisk(StrictMode.java:1659)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at libcore.io.BlockGuardOs.stat(BlockGuardOs.java:434)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at libcore.io.ForwardingOs.stat(ForwardingOs.java:873)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at android.app.ActivityThread$AndroidOs.stat(ActivityThread.java:8537)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at java.io.UnixFileSystem.getLength(UnixFileSystem.java:354)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at java.io.File.length(File.java:984)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at android.app.ActivityThread.getProfileSizeOfApp(ActivityThread.java:8959)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at android.app.ActivityThread.access$4200(ActivityThread.java:310)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2467)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at android.os.Handler.dispatchMessage(Handler.java:106)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at android.os.Looper.loopOnce(Looper.java:226)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at android.os.Looper.loop(Looper.java:313)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at android.app.ActivityThread.main(ActivityThread.java:8663)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at java.lang.reflect.Method.invoke(Native Method)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:567)
+11-10 20:00:33.073 29392 29392 D StrictMode: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1135)
+# StrictMode logcat, process B (full)
+11-10 20:03:21.322 31270 31270 D StrictMode: StrictMode policy violation; ~duration=2 ms: android.os.strictmode.DiskReadViolation
+11-10 20:03:21.322 31270 31270 D StrictMode: 	at android.os.StrictMode$AndroidBlockGuardPolicy.onReadFromDisk(StrictMode.java:1659)
+11-10 20:03:21.322 31270 31270 D StrictMode: 	at java.io.UnixFileSystem.getBooleanAttributes(UnixFileSystem.java:306)
+11-10 20:03:21.322 31270 31270 D StrictMode: 	at java.io.File.isDirectory(File.java:859)
+11-10 20:03:21.322 31270 31270 D StrictMode: 	at android.graphics.Typeface.getFullFlipFont(Typeface.java:1782)
+11-10 20:03:21.322 31270 31270 D StrictMode: 	at android.graphics.Typeface.getFontPathFlipFont(Typeface.java:1767)
+11-10 20:03:21.322 31270 31270 D StrictMode: 	at android.graphics.Typeface.setFlipFonts(Typeface.java:1897)
+11-10 20:03:21.322 31270 31270 D StrictMode: 	at android.app.Application.onCreate(Application.java:260)
+11-10 20:03:21.322 31270 31270 D StrictMode: 	at dev.cubentia.app.Hilt_CubentiaApp.onCreate(Hilt_CubentiaApp.java:43)
+11-10 20:03:21.322 31270 31270 D StrictMode: 	at dev.cubentia.app.CubentiaApp.onCreate(CubentiaApp.kt:10)
+11-10 20:03:21.322 31270 31270 D StrictMode: 	at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1211)
+11-10 20:03:21.322 31270 31270 D StrictMode: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7506)
+11-10 20:03:21.322 31270 31270 D StrictMode: 	at android.app.ActivityThread.access$1700(ActivityThread.java:310)
+11-10 20:03:21.322 31270 31270 D StrictMode: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2281)
+11-10 20:03:21.322 31270 31270 D StrictMode: 	at android.os.Handler.dispatchMessage(Handler.java:106)
+11-10 20:03:21.322 31270 31270 D StrictMode: 	at android.os.Looper.loopOnce(Looper.java:226)
+11-10 20:03:21.322 31270 31270 D StrictMode: 	at android.os.Looper.loop(Looper.java:313)
+11-10 20:03:21.322 31270 31270 D StrictMode: 	at android.app.ActivityThread.main(ActivityThread.java:8663)
+11-10 20:03:21.322 31270 31270 D StrictMode: 	at java.lang.reflect.Method.invoke(Native Method)
+11-10 20:03:21.322 31270 31270 D StrictMode: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:567)
+11-10 20:03:21.322 31270 31270 D StrictMode: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1135)
+11-10 20:03:21.323 31270 31270 D StrictMode: StrictMode policy violation; ~duration=2 ms: android.os.strictmode.DiskReadViolation
+11-10 20:03:21.323 31270 31270 D StrictMode: 	at android.os.StrictMode$AndroidBlockGuardPolicy.onReadFromDisk(StrictMode.java:1659)
+11-10 20:03:21.323 31270 31270 D StrictMode: 	at java.io.UnixFileSystem.list(UnixFileSystem.java:400)
+11-10 20:03:21.323 31270 31270 D StrictMode: 	at java.io.File.list(File.java:1145)
+11-10 20:03:21.323 31270 31270 D StrictMode: 	at android.graphics.Typeface.getFullFlipFont(Typeface.java:1782)
+11-10 20:03:21.323 31270 31270 D StrictMode: 	at android.graphics.Typeface.getFontPathFlipFont(Typeface.java:1767)
+11-10 20:03:21.323 31270 31270 D StrictMode: 	at android.graphics.Typeface.setFlipFonts(Typeface.java:1897)
+11-10 20:03:21.323 31270 31270 D StrictMode: 	at android.app.Application.onCreate(Application.java:260)
+11-10 20:03:21.323 31270 31270 D StrictMode: 	at dev.cubentia.app.Hilt_CubentiaApp.onCreate(Hilt_CubentiaApp.java:43)
+11-10 20:03:21.323 31270 31270 D StrictMode: 	at dev.cubentia.app.CubentiaApp.onCreate(CubentiaApp.kt:10)
+11-10 20:03:21.323 31270 31270 D StrictMode: 	at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1211)
+11-10 20:03:21.323 31270 31270 D StrictMode: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7506)
+11-10 20:03:21.323 31270 31270 D StrictMode: 	at android.app.ActivityThread.access$1700(ActivityThread.java:310)
+11-10 20:03:21.323 31270 31270 D StrictMode: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2281)
+11-10 20:03:21.323 31270 31270 D StrictMode: 	at android.os.Handler.dispatchMessage(Handler.java:106)
+11-10 20:03:21.323 31270 31270 D StrictMode: 	at android.os.Looper.loopOnce(Looper.java:226)
+11-10 20:03:21.323 31270 31270 D StrictMode: 	at android.os.Looper.loop(Looper.java:313)
+11-10 20:03:21.323 31270 31270 D StrictMode: 	at android.app.ActivityThread.main(ActivityThread.java:8663)
+11-10 20:03:21.323 31270 31270 D StrictMode: 	at java.lang.reflect.Method.invoke(Native Method)
+11-10 20:03:21.323 31270 31270 D StrictMode: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:567)
+11-10 20:03:21.323 31270 31270 D StrictMode: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1135)
+11-10 20:03:21.325 31270 31270 D StrictMode: StrictMode policy violation; ~duration=2 ms: android.os.strictmode.DiskReadViolation
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at android.os.StrictMode$AndroidBlockGuardPolicy.onReadFromDisk(StrictMode.java:1659)
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at libcore.io.BlockGuardOs.access(BlockGuardOs.java:74)
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at libcore.io.ForwardingOs.access(ForwardingOs.java:129)
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at android.app.ActivityThread$AndroidOs.access(ActivityThread.java:8514)
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at java.io.UnixFileSystem.checkAccess(UnixFileSystem.java:337)
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at java.io.File.exists(File.java:829)
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at android.graphics.Typeface.setFlipFonts(Typeface.java:1910)
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at android.app.Application.onCreate(Application.java:260)
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at dev.cubentia.app.Hilt_CubentiaApp.onCreate(Hilt_CubentiaApp.java:43)
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at dev.cubentia.app.CubentiaApp.onCreate(CubentiaApp.kt:10)
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1211)
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7506)
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at android.app.ActivityThread.access$1700(ActivityThread.java:310)
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2281)
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at android.os.Handler.dispatchMessage(Handler.java:106)
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at android.os.Looper.loopOnce(Looper.java:226)
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at android.os.Looper.loop(Looper.java:313)
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at android.app.ActivityThread.main(ActivityThread.java:8663)
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at java.lang.reflect.Method.invoke(Native Method)
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:567)
+11-10 20:03:21.325 31270 31270 D StrictMode: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1135)
+11-10 20:03:21.326 31270 31270 D StrictMode: StrictMode policy violation; ~duration=2 ms: android.os.strictmode.DiskReadViolation
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at android.os.StrictMode$AndroidBlockGuardPolicy.onReadFromDisk(StrictMode.java:1659)
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at libcore.io.BlockGuardOs.access(BlockGuardOs.java:74)
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at libcore.io.ForwardingOs.access(ForwardingOs.java:129)
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at android.app.ActivityThread$AndroidOs.access(ActivityThread.java:8514)
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at java.io.UnixFileSystem.checkAccess(UnixFileSystem.java:337)
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at java.io.File.exists(File.java:829)
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at android.graphics.Typeface.setFlipFonts(Typeface.java:1916)
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at android.app.Application.onCreate(Application.java:260)
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at dev.cubentia.app.Hilt_CubentiaApp.onCreate(Hilt_CubentiaApp.java:43)
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at dev.cubentia.app.CubentiaApp.onCreate(CubentiaApp.kt:10)
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1211)
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7506)
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at android.app.ActivityThread.access$1700(ActivityThread.java:310)
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2281)
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at android.os.Handler.dispatchMessage(Handler.java:106)
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at android.os.Looper.loopOnce(Looper.java:226)
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at android.os.Looper.loop(Looper.java:313)
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at android.app.ActivityThread.main(ActivityThread.java:8663)
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at java.lang.reflect.Method.invoke(Native Method)
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:567)
+11-10 20:03:21.326 31270 31270 D StrictMode: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1135)

@@ -16,15 +16,20 @@ builds their APKs, but never runs them: CI fails if the `build` plan contains a 
 | `--cases N` | 10000 | Uniform random legal cubie states (N > 0), plus solved and 100 deep 100-turn Scrambles: N + 101 cases. |
 | `--seed N` | 20261031 | Corpus seed; the same seed always gives the same corpus. |
 | `--warmup N` | 200 | Untimed attempts before the timed run (N ≥ 0). |
+| `--time-scale K` | 1 | Calibrated reference-device-equivalent profile (Story 3.8): every measured host time is multiplied by K before median, p95, max and the 3 s budget are computed. 1 = uncalibrated host. |
 
-An unknown flag or invalid value prints a message naming the flag and exits non-zero.
+An unknown flag or invalid value (including a non-positive or non-finite `--time-scale`) prints a
+message naming the flag and exits non-zero.
 
 The report gives case count, median, p95 (nearest-rank), max, the share of cases within the 3 s
 NFR-3 budget, failure count and rate (a `false` result or an exception), and peak heap (sum of the
-JVM heap pools' peaks during the timed run).
+JVM heap pools' peaks during the timed run), and names the profile (uncalibrated host, or calibrated
+with its factor).
 
-Code: `core/solver/src/benchmark/kotlin/` (its own source set, so it never ships and is outside the
-Kover gate). The workload calls the real `TwoPhaseCubeSolver` through `CubeSolver`. Every returned
+Code: `core/solver/src/benchmarkShared/kotlin/` (workload, harness, statistics; no
+`java.lang.management`) plus `core/solver/src/benchmark/kotlin/` (JVM entry point and heap-pool
+sampler). Both are in the `benchmark` source set, so they never ship and are outside the Kover gate.
+The shared directory is also compiled into the app's `debug` source set for the device runner. The workload calls the real `TwoPhaseCubeSolver` through `CubeSolver`. Every returned
 Solution is checked by applying its Moves to the exact input through public `CubeState.apply`.
 Failures never count as within budget. Uniform cases independently shuffle corner/edge permutations,
 repair parity with a fixed edge transposition, and sample independent orientations with the final
@@ -48,6 +53,7 @@ memory and failure rate. This blocks production Story 3.7 acceptance and Epic 3/
 Story 12.2 still confirms the production corpus on physical reference devices. Story 3.8 also
 owns production table delivery, cold/warm physical loading and installed size.
 See [the approved calibration deferral](../_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-02-search-calibration-deferral.md).
+Story 3.8 has since measured the calibrated profile; see the section that follows this table.
 
 Mandatory CI corpus (`./gradlew :core:solver:test`, JDK 17 worker with Kover), seed 20261031:
 
@@ -60,6 +66,45 @@ The corpus test took 69.745 s including generation and warmup. Its result is pri
 These figures measure the actual host profile above and do not establish reference-device equivalence.
 
 
+### Story 3.8 calibrated reference-device-equivalent profile (2026-11-10)
+
+Paired runs of the same corpus code (`benchmarkShared`), seed 20261031, 10,000 uniform cases + solved +
+100 deep Scrambles (10,101), warmup 200 untimed attempts. On both sides the table-readiness boundary
+is the same: tables are generated before any warmup or timed attempt and are outside all timings.
+Every Solution is verified by applying it to the exact input.
+
+**Device side.** `SolveCorpusBenchmarkActivity` (debug build only, never in release/benchmark) runs
+on a dedicated thread:
+`adb -s R52T50ELHWK shell am start -n com.exxerpro.cubentia/dev.cubentia.app.solver.SolveCorpusBenchmarkActivity --ei cases 10000 --el seed 20261031 --ei warmup 200`,
+output under logcat tag `SolveCorpusBenchmark`. Peak memory there is the largest `Runtime` used heap
+sampled after each attempt (`RuntimeHeapSampler`), because `java.lang.management` does not exist on
+Android. The host keeps the Story 3.3 heap-pool method. The debug build is debuggable, which slows
+ART, so the device times (and k) are conservative relative to a release build.
+
+| Run | Identity | Median | p95 | Max | ≤ 3 s | Failures | Peak memory | Raw |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Device | Galaxy Tab S7 FE 5G `R52T50ELHWK`, Android 12 / API 31, fingerprint `…T738USQU3BVG7:user/release-keys`, 8 CPUs; revision `79e6611`, debug build; USB charging 82 → 80 %, thermal status 1, stay-awake on, MemAvailable 564,872 kB at start; wall 1,055.9 s | 53.795 ms | 338.075 ms | 3,000.916 ms | 10,100 / 10,101 (99.99%) | **1** (0.0099%, timed out) | 27.1 MiB Runtime heap (limit 512 MiB) | [log](evidence/3-8/solve-corpus-tab-s7-fe.log) |
+| Host | i7-12800H, 20 logical CPUs, Linux 7.1.5 x86_64, OpenJDK 17.0.21 (JavaExec toolchain; Gradle on 25.0.5); revision `ed490da` | 3.262 ms | 19.962 ms | 223.370 ms | 10,101 (100%) | 0 | 604.6 MiB heap pools | [log](evidence/3-8/solve-corpus-host.log) |
+
+Calibration: k = max(device/host median, device/host p95) = max(53.795 / 3.262 = 16.49,
+338.075 / 19.962 = 16.94) = **16.94**. The calibrated profile is this host JVM with `--time-scale 16.94`:
+
+```sh
+./gradlew :core:solver:solveCorpusBenchmark --args="--cases 10000 --seed 20261031 --warmup 200 --time-scale 16.94"
+```
+
+Calibrated rerun (revision `ef9c6df`, same host; [log](evidence/3-8/solve-corpus-calibrated.log)):
+
+| Cases | Median | p95 | Max | Successful within 3 s | Failures | Peak heap |
+| --- | --- | --- | --- | --- | --- | --- |
+| 10,101 | 45.355 ms | 277.384 ms | 3,068.382 ms | 10,100 (99.99%) | 0 (0%) | 605.4 MiB |
+
+So the calibrated profile meets NFR-3: zero failures, every Solution verified, and 99.99% (≥ 95%)
+within 3 s. Its median and p95 are lower than the device's because of host run-to-run variance
+between the pairing run and the rerun. The one case over 3 s after scaling would be a timeout on the
+device. The direct device run likewise had 1 timeout in 10,101 cases, which is a real failure in that
+run. Story 12.2 still owns final physical corpus confirmation on a release build. The rerun briefly
+overlapped `adb` installed-size measurements on the same host.
 
 ## 2D net frame timing (NFR-2), Macrobenchmark
 
@@ -82,4 +127,5 @@ and SDK-denylist checks run on it like any variant.
 - 3D renderer frame timing: `FrameTimingMetric` cannot see `GLSurfaceView` frames; GL uses the
   in-app `onDrawFrame` interval log (Story 1.11).
 - Reference-device baselines (Galaxy Tab S7 FE 5G minimum, Galaxy S24 FE mid): Story 1.11.
-- Full on-device solve performance check: Story 12.2; table production integration: Story 3.8.
+- Full on-device solve performance check on a release build: Story 12.2. Table delivery and the
+  calibrated profile: Story 3.8 (above and [pruning-tables.md](pruning-tables.md)).

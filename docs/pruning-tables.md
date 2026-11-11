@@ -1,9 +1,13 @@
-# Pruning table infrastructure (Story 3.2) and delivery acceptance (Story 3.8)
+# Pruning tables: infrastructure (Story 3.2) and production delivery (Story 3.8)
 
-The production bundled-versus-first-run choice is **pending** minimum-reference-device measurements.
-The generator and optional private-file cache are infrastructure, called only by the debug measurement
-activity until that choice is recorded. App startup and Lessons do not call or await this infrastructure.
-No third-party solver implementation is used.
+**Production delivery is bundled** (Story 3.8, decided 2026-11-10 from Galaxy Tab S7 FE 5G
+measurements; decision record in the architecture memlog). The versioned, checksummed table file is
+generated at build time by `:core:solver:writePruningTableAsset` and ships as the APK asset
+`assets/solver/pruning-v1.bin`. On the first solve of a process, `PruningTableProvider` reads and
+validates it on the I/O dispatcher and then builds the coordinate move tables on
+`Dispatchers.Default` before the solver is ready. Only if the asset is unreadable or invalid does it
+fall back to first-run generation into app-private, non-evictable `filesDir/solver/pruning-v1.bin`.
+App startup and Lessons never call or await any of this. No third-party solver implementation is used.
 
 The generator stores four breadth-first distance projections: twist/slice position, flip/slice position,
 corner permutation/slice permutation, and edge permutation/slice permutation. Their maxima provide
@@ -11,63 +15,155 @@ admissible phase heuristics. Transitions reuse the clean-room Story 3.1 move tab
 
 ## Approved acceptance boundary — 2026-11-02
 
-[Story 3.2](../_bmad-output/planning-artifacts/epics.md#story-32-pruning-tables-cached-off-the-main-thread) owns tested generation/cache APIs and this reproducible harness. It can close only after revised independent acceptance and normal PR/CI gates. [Mandatory Story 3.8](../_bmad-output/planning-artifacts/epics.md#story-38-reference-device-pruning-table-delivery-decision-and-production-integration) owns all device measurements, installed-size evaluation, delivery-choice memlog append and selected production integration below. It must pass before production end-to-end acceptance of 3.7 and Epic 3/P0.S delivery readiness. Search and injected SolveCube contracts can proceed against accepted APIs without choosing packaging. See the [approved proposal](../_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-02-device-validation-splits.md) for requirement transfer; NFR-3 physical solve-corpus confirmation remains Story 12.2.
+[Story 3.2](../_bmad-output/planning-artifacts/epics.md#story-32-pruning-tables-cached-off-the-main-thread) owns tested generation/cache APIs and this reproducible harness. [Mandatory Story 3.8](../_bmad-output/planning-artifacts/epics.md#story-38-reference-device-pruning-table-delivery-decision-and-production-integration) owns the device measurements, installed-size evaluation, delivery-choice memlog append and production integration below. See the [approved proposal](../_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-02-device-validation-splits.md); NFR-3 physical solve-corpus confirmation remains Story 12.2.
 
-## Run on the minimum reference device
+## Story 3.8 evidence (2026-11-10)
 
-Use the **Samsung Galaxy Tab S7 FE 5G**, not a host JVM timing or an emulator, for acceptance.
-The Android StrictMode APIs used by the harness were checked against the
-[official ThreadPolicy.Builder reference](https://developer.android.com/reference/android/os/StrictMode.ThreadPolicy.Builder).
+Every number below was measured in this run on the **minimum reference device**. Raw logs are in
+[`evidence/3-8/`](evidence/3-8/). No host, emulator or Galaxy S24 FE number is used for a criterion.
+
+| Identity | Value |
+| --- | --- |
+| Device | Samsung Galaxy Tab S7 FE 5G, SM-T738U, serial `R52T50ELHWK`, SoC SM7225, 8 CPUs, MemTotal 3,518,216 kB |
+| Android | 12 (API 31), fingerprint `samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys` |
+| Conditions | USB-powered and charging, battery 82 → 76 %, battery temperature 32.9–34.4 °C, thermal status 0–1 (none/light), stay-awake on (`mStayOn=true`), screen interactive, power save off |
+| Revisions | measurement tooling `79e66110b5962eb68773bcad0abbdeb7d37b4f49`; bundled candidate `ed490da5736b84a95ae3ee225be93f69e247f52b`; production checks `03a69f9712ba44a9831db0a8e892ae9a42b23046` (bundled timing `eeac7db6ff95c0fa198a05c52e39d2a7aa28f7cc`) |
+
+### Cold generation and warm cache load (3.2 harness, debug build)
+
+Five cold-process runs (`am force-stop`, then `am start -W … --ez cold true`) and five independent
+warm runs (force-stop, start without `cold`, so each warm run is a new process reading the file).
+Raw: [`pruning-tables-tab-s7-fe.log`](evidence/3-8/pruning-tables-tab-s7-fe.log), revision `79e6611`.
+
+| Measurement (n = 5 each) | min | median | max |
+| --- | --- | --- | --- |
+| Generation (move tables + 4 BFS projections), `generationNanos` | 9,724.7 ms | 9,845.8 ms | 10,258.7 ms |
+| Cache write (atomic, fsync), `cacheWriteNanos` | 159.1 ms | 174.3 ms | 242.3 ms |
+| **G** = generation + write (first-run preparation) | 9,883.8 ms | **10,014.0 ms** | 10,432.9 ms |
+| Warm private-file read + SHA-256 validation, new process, `cacheReadNanos` | 8.0 ms | 8.9 ms | 10.9 ms |
+
+- Payload 4,031,685 bytes; cache file 4,031,725 bytes (40-byte header and checksum) on every run.
+- Every cold run reported `first,source=GENERATED`; every warm run `first,source=CACHE`. No `failed` or
+  `measurement-incomplete` line.
+- Memory: `/proc/meminfo` MemAvailable before the run 448,656–572,172 kB (median 534,058 kB);
+  `ActivityManager` availMem 814.7–915.1 MB, `lowMemory=false`. Process PSS was 31.7–71.2 MB before
+  generation and 72.4–109.1 MB after it. Java heap in use after generation was 13.7–17.1 MiB, with a
+  512 MiB heap limit.
+- Harness StrictMode counter: 0 on 9 runs and 2 on cold run 1. Those 2 were
+  `ActivityThread.getProfileSizeOfApp` (the platform's ART profile check on the main looper after a
+  fresh install), not table code. Every process also logged Samsung `Typeface.setFlipFonts` /
+  `getFullFlipFont` reads from `Application.onCreate` under the app-wide debug policy. Both come from
+  platform code.
+
+### Production (bundled) preparation in a fresh process
+
+`--ez bundledOnly true` runs only the production path (asset read + validation, then move-table
+build) in a new process, five runs. Raw: [`pruning-tables-bundled-tab-s7-fe.log`](evidence/3-8/pruning-tables-bundled-tab-s7-fe.log), revision `eeac7db`.
+
+| Measurement (n = 5, debug build) | min | median | max |
+| --- | --- | --- | --- |
+| Asset read + inflate + SHA-256 validation | 23.7 ms | 24.4 ms | 26.1 ms |
+| Move-table build (`moveTableNanos`) | 8,214.4 ms | 8,259.2 ms | 8,542.5 ms |
+| Total preparation | 8,238.9 ms | 8,283.0 ms | 8,566.8 ms |
+
+PSS after preparation 66.7–89.3 MB; Java heap in use 10.3–17.4 MiB.
+
+**Finding: move tables dominate preparation.** About 8.3 s of the ~10 s "generation" is the
+Story 3.1 move-table build, which any delivery mode must do once per process. Before this story a
+loaded (cached) table set skipped it, and the first solve then built it inside `SolveCube`'s 3 s
+timeout. On the device a one-move cube returned "Couldn't find a solution in time…" (see
+[`production-check-attempt1-ef9c6df.log`](evidence/3-8/production-check-attempt1-ef9c6df.log)).
+The provider now builds the move tables off-main as part of preparation (`dd1d4ac`).
+
+Release-equivalent check, coarse: the `benchmark` build (R8, not debuggable, dexopt `verify`) showed
+7.61, 7.78 and 7.63 s from tapping Accept to the Solution note in three fresh processes, polled by
+`uiautomator` with about 1–2 s resolution, so these are upper bounds. Raw:
+[`production-release-timing-tab-s7-fe.log`](evidence/3-8/production-release-timing-tab-s7-fe.log).
+
+### Installed size (release-equivalent `benchmark` build type)
+
+Method: `adb install` of each APK, `pm path`, `ls -l` of the code directory, and `ls -l` by name of
+`oat/arm64/base.{odex,vdex,art}` (the `oat/` directory is not listable by shell, but its files can be
+stat-ed). The install-time dexopt filter varied between installs of the same APK (`verify` or
+`speed-profile` with `base.dm`), so both states are recorded. Limits: app data of a non-debuggable
+build is not readable by shell, so app data was measured on the debug build with `run-as du`.
+Background dexopt may recompile later; the largest observed state is used for the budget. Raw:
+[`installed-size-tab-s7-fe.log`](evidence/3-8/installed-size-tab-s7-fe.log).
+
+| Build | APK | dexopt `verify` total | dexopt `speed-profile` total |
+| --- | --- | --- | --- |
+| Unbundled baseline (`79e6611`) | 3,477,192 B | 3,590,108 B | 6,880,214 B |
+| Bundled candidate (`ed490da`, `-Pcubentia.bundleTables=true`) | 4,399,962 B | 4,512,878 B | not observed |
+| Production bundled (`ef9c6df`) | 4,399,962 B | 4,512,882 B | 7,802,989 B |
+
+- **B**, the bundled installed delta over the baseline, is 922,770 B in the same `verify` state (922,775 B in
+  `speed-profile`): the asset stays deflated in the APK (4,031,725 → 922,637 bytes) and adds no
+  compiled code.
+- First-run alternative: baseline 6,880,214 B plus the 4,031,725 B private table file =
+  10,911,939 B, plus app data.
+- App data after solves (debug build, `run-as du -k`): 150 KiB, of which 132 KiB is databases. The
+  bundled mode writes no table file. `files/` holds only `profileInstalled`.
+- Budget (NFR-11, 30 MB = 30,000,000 B): bundled 7,802,989 B + 153,600 B data = 7,956,589 B, which
+  leaves **22,043,411 B (~22.0 MB) of headroom** for the v1.1 recognition model. First-run would
+  leave 18,934,461 B.
+
+### Decision
+
+Selection rule (Story 3.8 Design Notes): first-run requires G ≤ 5 s. G = 10,014 ms fails, so the rule
+selects bundled because its installed total, 7,956,589 B, is under 30 MB. Bundled also costs fewer
+bytes than first-run (0.92 MB vs 4.03 MB) and removes ~1.7 s (generation BFS + write) from the
+first solve. It does not remove the per-process move-table build. Recorded in the architecture memlog.
+
+### Production StrictMode and Lesson independence (debug build, `03a69f9`)
+
+Scripted `adb` UI run with the app-wide debug StrictMode policy (`detectDiskReads().detectDiskWrites().penaltyLog()`, `DebugStrictMode` in `app/src/debug`; no-op in release/benchmark). Raw: [`production-strictmode-tab-s7-fe.log`](evidence/3-8/production-strictmode-tab-s7-fe.log).
+
+1. Fresh install, cold process: opened a Lesson and turned U before any solve. The Lesson responded
+   ("Pattern reached", "Objective met") with tables never requested.
+2. Entered the cube after U in the Manual Cube Editor and accepted it. "Preparing the solver (one
+   time, a few seconds)." appeared with Cancel.
+3. During preparation: switched to Learn, reopened the Lesson and turned U. The Lesson responded.
+   Leaving Solve cancelled the pending solve (3.7 behaviour), nothing was published, and the
+   editor kept the colors.
+4. Retried Accept: preparing line, then playback of `U'` with its note. A second solve in the same
+   process went straight to playback with no preparing line.
+5. New process (force-stop): accepted the U cube again. The preparing line appeared (the asset is
+   re-read and move tables rebuilt per process), then playback of `U'`. No table file was written.
+
+StrictMode result: 6 violations in process 1 and 4 in process 2, **0 attributable to table loading
+or solving**. The remaining violations, reported verbatim in the log: Samsung
+`Typeface.setFlipFonts`/`getFullFlipFont` disk reads from `Application.onCreate` (each process) and
+`ActivityThread.getProfileSizeOfApp` (first process after install). Both are platform code. An earlier
+pass (`eeac7db`, [`production-check-attempt2-eeac7db.log`](evidence/3-8/production-check-attempt2-eeac7db.log))
+found 2 real violations: `Context.getFilesDir()` called from `SolverModule.provider` on the main
+thread. These were fixed in `03a69f9` by building the path from `applicationInfo.dataDir`.
+
+### Open items
+
+- **Learner copy.** "Preparing the solver (one time, a few seconds)." is now inaccurate. Preparation
+  repeats in every new app process (asset read + move tables) and took about 8.3 s (debug) or at most
+  ~7.6 s (release-equivalent, coarse) on the minimum device. The copy (`msg.solve.preparing`) and the
+  UX spec need a PO/UX decision. This story did not change them.
+- Optional follow-ups for the move-table cost (not in this story's scope): ship the move tables too,
+  speed up their construction, or prepare when the Solve tab opens (never at startup or for Lessons).
+
+## Reproduce
 
 ```sh
-export JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64
-export ANDROID_HOME=$HOME/Android/Sdk
+export JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64 ANDROID_HOME=$HOME/Android/Sdk
+ADB="$ANDROID_HOME/platform-tools/adb -s R52T50ELHWK"
 ./gradlew :app:installDebug
-adb devices -l
-adb logcat -c
-adb shell am force-stop com.exxerpro.cubentia
-adb shell am start -W -n com.exxerpro.cubentia/dev.cubentia.app.solver.PruningTablesBenchmarkActivity --ez cold true
-adb logcat -s PruningTablesBenchmark:I StrictMode:D AndroidRuntime:E
+$ADB logcat -c
+$ADB shell am force-stop com.exxerpro.cubentia
+# cold generation + warm read in the same process; omit --ez cold for a warm (cache) process;
+# --ez bundledOnly true times only the production bundled path
+$ADB shell am start -W -n com.exxerpro.cubentia/dev.cubentia.app.solver.PruningTablesBenchmarkActivity --ez cold true
+$ADB logcat -d -s PruningTablesBenchmark:I StrictMode:D AndroidRuntime:E
 ```
 
-Wait for `cacheBytes=...,mainThreadDiskViolations=...`. Save the whole report with device model,
-Android version, build revision, thermal/battery state available memory evidence and repeated-run timings. `first` must report
-`GENERATED`; `warm` must report `CACHE`; any `failed` or `measurement-incomplete` means the run is
-not valid. The `cold` extra deletes only the benchmark cache on an I/O dispatcher. Restarting the
-process discards lazy move tables, so cold timing includes their initialization. The second provider
-instance measures a real disk-cache read, not reuse of the first provider's in-memory result.
-
-The policy detects main-thread disk reads and writes while the measurement Activity is active and
-logs each violation; require zero and inspect StrictMode logcat too. This does not prove a future
-production integration is safe: repeat the check when the selected delivery mode is wired. Review
-that Lessons still run independently of table readiness; benchmark generation is opt-in and no
-Lesson or app-startup code calls it.
-
-## Make the delivery decision
-
-Measure installed size using a release-equivalent build and record the method and breakdown. APK
-file size alone is insufficient: NFR-11 targets install size below 30 MB, including tables and the
-recognition model. Capture the unbundled baseline, cache bytes, and a temporary bundled candidate's
-installed delta (including native/compiled code where applicable). The current debug harness is not
-an installed release-size measurement.
-
-- Bundling adds distribution/install bytes but can remove cold generation delay. Measure its actual
-  compressed APK and installed delta before selecting it; tables still need off-main access.
-- First-run generation avoids a table asset in the APK but adds measured CPU time, working memory
-  and private cache bytes. The optional provider supports it; enabling it remains pending evidence.
-
-Record generation duration, payload/cache bytes, installed-size totals and the chosen mode in the
-architecture memlog with `uv run _bmad/scripts/memlog.py append` (see its `--help` for arguments).
-Do not hand-edit the memlog. Do not select a delivery mode solely from host numbers.
-
-## Evidence available in this run
-
-`adb devices -l` on 2026-11-02 listed no devices. No minimum-device build time, installed size,
-physical StrictMode result, or production delivery decision is claimed. These are mandatory Story 3.8
-acceptance obligations after the approved split, not the revised Story 3.2 before-merge gate. JVM tests validate distance tables and cache behavior; CI-equivalent
-Gradle gates validate the reversible implementation separately.
-
-The deterministic table payload is **4,031,685 bytes**; the versioned cache adds 40 bytes for its
-header and checksum. This is a generated format-size fact, not an installed-size measurement.
-Host test timing (~309 ms in an initial run) may reuse initialized move tables and is neither cold
-startup timing nor the reference-device result. Measure cold process runs as described above.
+Wait for `cacheBytes=…,mainThreadDiskViolations=…` (or `bundledOnly,…`). The harness logs
+device/Android identity, fingerprint, charging/battery/thermal conditions, `ActivityManager` and
+`/proc/meminfo` available memory, process PSS and heaps. `first` must be `GENERATED` after `cold`,
+`warm` must be `CACHE`, and `bundled` must be `BUNDLED`. Any `failed` or `measurement-incomplete`
+line makes the run invalid. Installed size: `./gradlew :app:assembleBenchmark` (production, bundled).
+The unbundled baseline is the revision before `ef9c6df`.
