@@ -1,0 +1,73 @@
+# ./gradlew spotlessCheck build — 2026-11-11T03:05:42Z, revision 29de857847bc265dcc5e99b969eae2bf52c92bdb (code identical at 76085ad; that commit only appends the memlog)
+# JDK: JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64; host i7-12800H Linux x86_64
+> Task :build-logic:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:domain:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:application:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:solver:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:domain:checkModuleBoundaries UP-TO-DATE
+> Task :core:application:checkModuleBoundaries UP-TO-DATE
+> Task :core:solver:checkModuleBoundaries UP-TO-DATE
+> Task :core:application:checkLearnerText FROM-CACHE
+> Task :macrobenchmark:checkTestedAppObfuscationBenchmark
+> Task :app:checkBenchmarkSdkDenylist FROM-CACHE
+> Task :app:checkDebugSdkDenylist FROM-CACHE
+> Task :core:solver:checkLearnerText
+> Task :core:domain:checkLearnerText FROM-CACHE
+> Task :app:checkLearnerText
+> Task :app:checkModuleBoundaries FROM-CACHE
+> Task :app:checkReleaseSdkDenylist FROM-CACHE
+> Task :core:application:testClasses UP-TO-DATE
+> Task :core:domain:testClasses UP-TO-DATE
+> Task :core:application:test FROM-CACHE
+> Task :core:application:koverVerify
+> Task :core:application:check
+> Task :app:checkBenchmarkDuplicateClasses
+> Task :core:solver:testClasses UP-TO-DATE
+> Task :macrobenchmark:checkBenchmarkDuplicateClasses
+> Task :macrobenchmark:checkBenchmarkAarMetadata
+> Task :app:checkBenchmarkAarMetadata
+> Task :macrobenchmark:mergeBenchmarkManifest
+> Task :macrobenchmark:processBenchmarkManifest
+> Task :macrobenchmark:checkModuleBoundaries FROM-CACHE
+> Task :macrobenchmark:test UP-TO-DATE
+> Task :macrobenchmark:check UP-TO-DATE
+> Task :app:createBenchmarkCompatibleScreenManifests
+> Task :app:processBenchmarkMainManifest FROM-CACHE
+> Task :app:processBenchmarkManifest FROM-CACHE
+> Task :app:processBenchmarkManifestForPackage FROM-CACHE
+> Task :app:checkDebugAarMetadata
+> Task :macrobenchmark:assembleBenchmark
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest FROM-CACHE
+> Task :app:processDebugManifestForPackage FROM-CACHE
+> Task :app:checkDebugDuplicateClasses
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:checkReleaseAarMetadata
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:processReleaseMainManifest FROM-CACHE
+> Task :app:processReleaseManifest FROM-CACHE
+> Task :app:processReleaseManifestForPackage FROM-CACHE
+> Task :app:checkBenchmarkMergedManifest FROM-CACHE
+> Task :app:checkDebugMergedManifest FROM-CACHE
+> Task :app:checkReleaseMergedManifest FROM-CACHE
+> Task :app:mergeDebugUnitTestManifest
+> Task :app:processDebugUnitTestManifest
+> Task :core:domain:test
+> Task :core:solver:test
+> Task :core:domain:koverVerify
+> Task :core:domain:koverVerifyCube
+> Task :core:domain:check
+> Task :app:assembleDebug
+> Task :app:testDebugUnitTest
+> Task :spotlessCheck UP-TO-DATE
+> Task :check UP-TO-DATE
+> Task :core:solver:koverVerify
+> Task :core:solver:check
+> Task :app:test
+> Task :app:assembleBenchmark
+> Task :app:check
+> Task :app:assembleRelease
+BUILD SUCCESSFUL in 6m 11s
+261 actionable tasks: 141 executed, 99 from cache, 21 up-to-date
+exit=0
