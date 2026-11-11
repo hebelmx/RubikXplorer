@@ -138,27 +138,49 @@ pass (`eeac7db`, [`production-check-attempt2-eeac7db.log`](evidence/3-8/producti
 found 2 real violations: `Context.getFilesDir()` called from `SolverModule.provider` on the main
 thread. These were fixed in `03a69f9` by building the path from `applicationInfo.dataDir`.
 
-### Open items
+### Known issues (v1.1)
 
-- **Learner copy.** "Preparing the solver (one time, a few seconds)." is now inaccurate. Preparation
-  repeats in every new app process (asset read + move tables) and took about 8.3 s (debug) or at most
-  ~7.6 s (release-equivalent, coarse) on the minimum device. The copy (`msg.solve.preparing`) and the
-  UX spec need a PO/UX decision. This story did not change them.
-- Optional follow-ups for the move-table cost (not in this story's scope): ship the move tables too,
-  speed up their construction, or prepare when the Solve tab opens (never at startup or for Lessons).
+Both items were accepted by the PO for v1.0 on 2026-11-10 and are deferred to v1.1. Neither is fixed
+in Story 3.8.
+
+- **Per-process preparation vs Learner copy (#104).** Preparation repeats in every new app process
+  (asset read + move-table build). It took about 8.3 s on the debug build and at most ~7.6 s on the
+  release-equivalent build (coarse timing) on the minimum device. The copy "Preparing the solver (one
+  time, a few seconds)." (`msg.solve.preparing`) therefore overstates how often and how quickly it
+  happens. The PO accepted this for v1.0. The copy is unchanged, and no move-table delivery work was
+  added. #104 tracks the options: ship the move tables, build them faster, or prepare when the Solve
+  tab opens (never at startup or for Lessons).
+- **Corpus failures and calibration (#105).** The direct device corpus had 1 timeout (3,000.9 ms of
+  10,101), and the calibrated profile (k = 16.94) has 1 failure (3,303.6 ms scaled). See
+  [benchmarks.md](benchmarks.md#story-38-calibrated-reference-device-equivalent-profile-2026-11-10).
+  The zero-failure deviation and the recalibration of k against a release-equivalent device build are
+  waived by the PO for v1.0 and deferred to #105.
+
+### Open measurements
+
+None of the Story 3.8 acceptance measurements is missing. The limits are recorded where they apply:
+installed size of a non-debuggable build's app data is taken from the debug build, release-equivalent
+preparation timing is coarse (UI polling), and the `filesDir` fallback was not exercised on the device.
+
+### Verification
+
+`./gradlew spotlessCheck build` on the final Story 3.8 revision: BUILD SUCCESSFUL, see
+[`build-verification.log`](evidence/3-8/build-verification.log).
 
 ## Reproduce
 
 ```sh
 export JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64 ANDROID_HOME=$HOME/Android/Sdk
-ADB="$ANDROID_HOME/platform-tools/adb -s R52T50ELHWK"
-./gradlew :app:installDebug
-$ADB logcat -c
-$ADB shell am force-stop com.exxerpro.cubentia
+# adb path and serial as separate words: works in bash and zsh (zsh does not word-split "$ADB")
+ADB=$ANDROID_HOME/platform-tools/adb
+SERIAL=R52T50ELHWK
+ANDROID_SERIAL=$SERIAL ./gradlew :app:installDebug
+"$ADB" -s "$SERIAL" logcat -c
+"$ADB" -s "$SERIAL" shell am force-stop com.exxerpro.cubentia
 # cold generation + warm read in the same process; omit --ez cold for a warm (cache) process;
 # --ez bundledOnly true times only the production bundled path
-$ADB shell am start -W -n com.exxerpro.cubentia/dev.cubentia.app.solver.PruningTablesBenchmarkActivity --ez cold true
-$ADB logcat -d -s PruningTablesBenchmark:I StrictMode:D AndroidRuntime:E
+"$ADB" -s "$SERIAL" shell am start -W -n com.exxerpro.cubentia/dev.cubentia.app.solver.PruningTablesBenchmarkActivity --ez cold true
+"$ADB" -s "$SERIAL" logcat -d -s PruningTablesBenchmark:I StrictMode:D AndroidRuntime:E
 ```
 
 Wait for `cacheBytes=…,mainThreadDiskViolations=…` (or `bundledOnly,…`). The harness logs

@@ -93,18 +93,26 @@ Calibration: k = max(device/host median, device/host p95) = max(53.795 / 3.262 =
 ./gradlew :core:solver:solveCorpusBenchmark --args="--cases 10000 --seed 20261031 --warmup 200 --time-scale 16.94"
 ```
 
-Calibrated rerun (revision `ef9c6df`, same host; [log](evidence/3-8/solve-corpus-calibrated.log)):
+Calibrated runs on the same host, both with k = 16.94. Since `77251c1` the harness counts a case whose
+scaled time exceeds 3 s as a failure, because the solver would have timed out on the device. The
+earlier run kept the host's success flag.
 
-| Cases | Median | p95 | Max | Successful within 3 s | Failures | Peak heap |
-| --- | --- | --- | --- | --- | --- | --- |
-| 10,101 | 45.355 ms | 277.384 ms | 3,068.382 ms | 10,100 (99.99%) | 0 (0%) | 605.4 MiB |
+| Run | Revision | Cases | Median | p95 | Max | Successful within 3 s | Failures | Peak heap | Raw |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Pairing-era run (old harness, superseded) | `ef9c6df` | 10,101 | 45.355 ms | 277.384 ms | 3,068.382 ms | 10,100 (99.99%) | 0 reported (the 3,068 ms case is really a timeout) | 605.4 MiB | [log](evidence/3-8/solve-corpus-calibrated.log) |
+| **Calibrated rerun (fixed harness)** | `77251c1` | 10,101 | **46.750 ms** | **291.891 ms** | 3,303.584 ms | **10,100 (99.99%)** | **1 (0.0099%)** | 604.4 MiB | [log](evidence/3-8/solve-corpus-calibrated-rerun.log) |
 
-So the calibrated profile meets NFR-3: zero failures, every Solution verified, and 99.99% (≥ 95%)
-within 3 s. Its median and p95 are lower than the device's because of host run-to-run variance
-between the pairing run and the rerun. The one case over 3 s after scaling would be a timeout on the
-device. The direct device run likewise had 1 timeout in 10,101 cases, which is a real failure in that
-run. Story 12.2 still owns final physical corpus confirmation on a release build. The rerun briefly
-overlapped `adb` installed-size measurements on the same host.
+Result on the calibrated profile: every returned Solution was verified, 99.99% (≥ 95%) of cases
+solved within 3 s, and there was **1 failure**: one case scaled to 3,303.6 ms. The rerun's harness
+prints the share as "100.0%" because it rounds to one decimal; the count is 10,100/10,101. Its median
+and p95 are below the device's (53.795 / 338.075 ms) because host speed varied between the pairing
+run and the rerun. The direct device run also had **1 timeout** (3,000.9 ms) in 10,101 cases.
+
+**Zero-failure criterion: PO-accepted waiver (2026-11-10), deferred to v1.1 as #105.** The device
+timeout and the calibrated failure are accepted for v1.0. #105 also covers recalibrating k against a
+release-equivalent (non-debuggable) device build. k stays at 16.94 here; it was not recalibrated, and
+no solver performance work was done in Story 3.8. Story 12.2 still owns final physical corpus
+confirmation on a release build.
 
 ## 2D net frame timing (NFR-2), Macrobenchmark
 
