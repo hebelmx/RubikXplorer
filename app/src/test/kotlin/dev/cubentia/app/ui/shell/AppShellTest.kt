@@ -588,6 +588,48 @@ class AppShellTest {
         assertEquals(before.history, host.state.value.history)
     }
 
+    @Test fun `Stage practice keeps its scramble and attempt across recreation`() =
+        keepsGeneratedScramble("practice-stage-02-first-cross") {
+            finishedCourseHost(it)
+            "stageDetail:practice"
+        }
+
+    @Test fun `a Stage skip-ahead check keeps its scramble and attempt across recreation`() =
+        keepsGeneratedScramble("skip-check-stage-02-first-cross") { "stageDetail:skipCheck" }
+
+    /** Story 12.2 AC3: recreating the activity must not deal the generated Lesson a new scramble or restart it. */
+    private fun keepsGeneratedScramble(
+        lessonId: String,
+        arrange: (dev.cubentia.domain.content.ContentBundle) -> String,
+    ) {
+        val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val open = arrange(bundle)
+        val restoration = StateRestorationTester(rule)
+        launch(ContentLoadResult.Loaded(bundle), restoration = restoration)
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("learn:stage:stage-02-first-cross").fetchSemanticsNodes().isNotEmpty() }
+        rule.waitForIdle()
+        rule.onNodeWithTag("learn:stage:stage-02-first-cross").performScrollTo().performClick()
+        rule.onNodeWithTag(open).performScrollTo().performClick()
+        rule.waitUntil(5_000) {
+            host.state.value.lesson
+                ?.id
+                ?.value == lessonId
+        }
+        runBlocking { host.dispatch { SessionEvent.MoveCommitted(FaceTurn(Face.R, Turn.CLOCKWISE), it) } }
+        rule.waitForIdle()
+        val before = host.state.value
+        restoration.emulateSavedInstanceStateRestore()
+        rule.waitForIdle()
+        rule.onNodeWithTag("lesson").assertExists()
+        assertEquals(
+            before.lesson?.entryState,
+            host.state.value.lesson
+                ?.entryState,
+        )
+        assertEquals(before.revision, host.state.value.revision)
+        assertEquals(before.history, host.state.value.history)
+    }
+
     @Test fun `last layer practice resumes from a cold-start snapshot`() {
         val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
         val lesson =

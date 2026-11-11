@@ -171,6 +171,11 @@ private fun ShellContent(
     var twoLookScramble by rememberSaveable { mutableStateOf<String?>(null) }
     var openSkipCheck by rememberSaveable { mutableStateOf<String?>(null) }
     var skipCheckEpoch by rememberSaveable { mutableIntStateOf(0) }
+
+    // The Stage practice's and skip-ahead check's generated scrambles, saved so recreation keeps the attempt (and a
+    // reached milestone); a new practice or check bumps its epoch, which resets the saved scramble and deals a new one.
+    var practiceScramble by rememberSaveable(openPractice, practiceEpoch) { mutableStateOf<String?>(null) }
+    var skipCheckScramble by rememberSaveable(openSkipCheck, skipCheckEpoch) { mutableStateOf<String?>(null) }
     // Held above the Lesson and Settings task flows so closing either returns to the same place in the list.
     val learnScroll = rememberScrollState()
     var libraryFilter by rememberSaveable(stateSaver = LibraryFilterSaver) { mutableStateOf(LibraryFilter()) }
@@ -319,7 +324,7 @@ private fun ShellContent(
                     ready.bundle.tutorConfig,
                 )
             } else if (stageId != null && stage != null && ready != null) {
-                val lesson = stagePractice(stageId)
+                val lesson = stagePractice(stageId).keepingScramble(practiceScramble) { practiceScramble = it }
                 CatalogEntry(lesson, stage, ready.bundle.tutorConfig)
             } else {
                 null
@@ -365,14 +370,14 @@ private fun ShellContent(
             if (key == null || ready == null) {
                 null
             } else if (key == "course") {
-                val lesson = stagePractice.courseSkipCheckLesson()
+                val lesson = stagePractice.courseSkipCheckLesson().keepingScramble(skipCheckScramble) { skipCheckScramble = it }
                 val stage = ready.bundle.stages.lastOrNull() ?: return@remember null
                 CatalogEntry(lesson, stage, ready.bundle.tutorConfig)
             } else {
                 val stageId = StageId(key)
                 val stage = ready.bundle.stages.firstOrNull { it.id == stageId }
                 if (stage != null) {
-                    val lesson = stagePractice.skipCheckLesson(stageId)
+                    val lesson = stagePractice.skipCheckLesson(stageId).keepingScramble(skipCheckScramble) { skipCheckScramble = it }
                     CatalogEntry(lesson, stage, ready.bundle.tutorConfig)
                 } else {
                     null
@@ -654,6 +659,15 @@ private fun ShellContent(
 /** The Teaching Modes a Lesson offers under [flags]: every mode, less *Test me* while `TEST_ME` is off (AD-18). */
 internal fun availableModes(flags: FeatureFlags): List<TeachingMode> =
     TeachingMode.entries.filter { it != TeachingMode.TEST_ME || flags.isEnabled(FeatureFlag.TEST_ME) }
+
+/**
+ * This generated practice or skip-check Lesson at the [saved] scramble when there is one, so recreation rebuilds the
+ * same attempt; otherwise this Lesson as dealt, its scramble handed to [save] (Story 12.2 AC3).
+ */
+private fun dev.cubentia.domain.content.Lesson.keepingScramble(
+    saved: String?,
+    save: (String) -> Unit,
+): dev.cubentia.domain.content.Lesson = if (saved != null) copy(entryState = saved) else also { save(it.entryState) }
 
 /** A fresh LL practice scramble over every bundled Algorithm (Story 9.8). */
 private fun newTwoLookPractice(ready: CatalogState.Ready): dev.cubentia.domain.content.Lesson =
