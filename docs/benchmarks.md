@@ -265,7 +265,7 @@ On the mid device some single readings fall just under 60: the lowest View Rotat
 59.96 FPS, and the lowest single face-turn window is 59.51 FPS (View Rotation 59.86). A 60 Hz panel
 caps the rate at about 60, and one 200 ms window of 12 frames moves by about ±1 FPS with one frame's
 start jitter (the Tab's best face-turn iteration reads 63.89 for the same reason). No interval exceeded
-33.3 ms on either device. This is raised as a product-owner question (below), not retuned.
+33.3 ms on either device. This was raised as a product-owner question, not retuned; see the decision below.
 
 **Against Story 1.11.** The spike renderer's worst-turn p90 was 20.48 ms (Tab) and 23.64 ms (S24),
 View Rotation 20.14 / 20.57 ms, from the in-app `onDrawFrame` log
@@ -275,10 +275,10 @@ no interval over 33.3 ms, so it paces at least as well as the spike. The methods
 over 10 Macrobenchmark iterations instead of 40 logged turns), so this is a comparison of pacing, not
 of identical statistics.
 
-**Product-owner questions.**
-1. Is the mid-device 60 FPS criterion met by the median of the iterations on a 60 Hz panel (60.32 /
-   60.09), given single windows and one iteration read 59.51–59.96? Should the S24 FE's 120 Hz mode
-   (off in these runs, `peakRefreshRate=60.0`) be part of the criterion?
+**PO decision 2026-11-11.** The question was whether the mid-device 60 FPS criterion is met by the
+median of the iterations on a 60 Hz panel (60.32 / 60.09), given single windows and one iteration read
+59.51–59.96, and whether the S24 FE's 120 Hz mode (off in these runs, `peakRefreshRate=60.0`) should
+be part of the criterion. Decision: the S24 FE's 60 FPS on the median counts as **AC1 met**.
 
 ## Story 12.2: production solve corpus on the minimum device (NFR-3)
 
@@ -359,56 +359,72 @@ solve. **7** Stage 2 practice (hint once, practice until the milestone) → You 
 already solve it* → skip-ahead check solved → Stages Skipped, *Faster last layer* unlocked.
 **9 step 4** Settings → *Reset progress* ends the live Lesson and clears *Continue*.
 
-Revision `655833ef816e8f619a911b697cec7800eeb3e111`, 2026-11-11. AVDs ran one at a time, headless
-(`-no-window -no-audio -no-snapshot-save -gpu swiftshader_indirect`; with the default host GPU the
-API 35 emulator's QEMU crashed twice mid-run, so every AVD was run with SwiftShader), and were shut
-down afterwards. Cells give surfaces passed / surfaces
-checked; window classes are those seen in each orientation.
+Revision `0ec0d6baa77328a108e7cd92cca7778abf3b9656` (the rotation fix below), 2026-11-11. AVDs ran one
+at a time, headless (`-no-window -no-audio -no-snapshot-save -gpu swiftshader_indirect`; with the
+default host GPU the API 35 emulator's QEMU crashed twice mid-run in the first run, so every AVD runs
+with SwiftShader), and were shut down afterwards. Cells give surfaces passed / surfaces checked;
+window classes are those seen in each orientation.
 
 | Target | API | Form factor | Portrait | Landscape | Flow 1 | Flow 2 | Flow 3 | Flow 6 | Flow 7 | Flow 8 | Flow 9 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| tab-s7-fe-api31 (SM-T738U) | 31 | tablet | MEDIUM (753 dp) | EXPANDED (1205 dp) | pass (11/11) | **fail** (5/6; skipCheck) | pass (6/6) | pass (8/8) | **fail** (2/5; practiceDealt, practiceHint, stageMasteredMilestone) | **fail** (1/2; skipCheck) | pass (5/5) |
-| s24-fe-api37 (SM-S721U1) | 37 | phone | COMPACT (384 dp) | MEDIUM (832 dp) | pass (11/11) | **fail** (5/6; skipCheck) | pass (6/6) | pass (8/8) | **fail** (2/5; practiceDealt, practiceHint, stageMasteredMilestone) | **fail** (1/2; skipCheck) | pass (5/5) |
-| avd-spike3d_api29 (Android SDK built for x86_64, emulator) | 29 | phone | COMPACT (393 dp) | MEDIUM (781 dp) | pass (11/11) | **fail** (6/7; skipCheck) | pass (6/6) | pass (9/9) | **fail** (3/6; practiceDealt, practiceHint, stageMasteredMilestone) | **fail** (2/3; skipCheck) | pass (6/6) |
-| avd-GalaxyTabS7FE_API34 (sdk_gphone64_x86_64, emulator) | 34 | tablet | COMPACT (555 dp) | EXPANDED (1280 dp) | pass (11/11) | **fail** (2/3; skipCheck), then **incomplete**: the harness timed out waiting for the wide Move `f` to commit in the 2-look Lesson (not a rotation result) | pass (6/6) | pass (8/8) | **fail** (2/5; practiceDealt, practiceHint, stageMasteredMilestone) | **fail** (1/2; skipCheck) | pass (5/5) |
-| avd-GalaxyS24FE_API35 (sdk_gphone64_x86_64, emulator) | 35 | phone | COMPACT (384 dp) | MEDIUM (832 dp) | pass (11/11) | **fail** (5/6; skipCheck) | pass (6/6) | pass (8/8) | **fail** (2/5; practiceDealt, practiceHint, stageMasteredMilestone) | **fail** (1/2; skipCheck) | pass (5/5) |
-| avd-GalaxyS24FE_API36 (sdk_gphone64_x86_64, emulator) | 36 | phone | COMPACT (384 dp) | MEDIUM (832 dp) | pass (11/11) | **fail** (5/6; skipCheck) | pass (6/6) | pass (8/8) | **fail** (2/5; practiceDealt, practiceHint, stageMasteredMilestone) | **fail** (1/2; skipCheck) | pass (5/5) |
+| tab-s7-fe-api31 (SM-T738U, physical) | 31 | tablet | MEDIUM (753 dp) | EXPANDED (1205 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
+| avd-spike3d_api29 (Android SDK built for x86_64, emulator) | 29 | phone | COMPACT (393 dp) | MEDIUM (781 dp) | pass (11/11) | pass (8/8) | pass (6/6) | pass (9/9) | pass (6/6) | pass (3/3) | pass (6/6) |
+| avd-GalaxyTabS7FE_API34 (sdk_gphone64_x86_64, emulator) | 34 | tablet | COMPACT (555 dp) | EXPANDED (1280 dp) | pass (11/11) | **incomplete** (3/3 passed, then the harness timed out waiting for the wide Move `f` to commit in the 2-look Lesson; not a rotation result) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
+| avd-GalaxyS24FE_API35 (sdk_gphone64_x86_64, emulator) | 35 | phone | COMPACT (384 dp) | MEDIUM (832 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
+| avd-GalaxyS24FE_API36 (sdk_gphone64_x86_64, emulator) | 36 | phone | COMPACT (384 dp) | MEDIUM (832 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
+| avd-GalaxyS24FE_API37 (sdk_gphone64_x86_64, emulator) | 37 | phone | COMPACT (384 dp) | MEDIUM (832 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
 
-Targets: physical Galaxy Tab S7 FE 5G `R52T50ELHWK` (Android 12) and Galaxy S24 FE `R5CX83A5J1J`
-(Android 17); AVDs `spike3d_api29` (Pixel 4 profile, Android 10), `GalaxyTabS7FE_API34` (2560×1600
-@ 320 dpi, Android 14), `GalaxyS24FE_API35`, `GalaxyS24FE_API36` (1080×2340 @ 450 dpi). The Tab AVD's
-portrait width (555 dp) is COMPACT where the physical Tab (753 dp) is MEDIUM, so between them the
-tablet covers all three window classes. Raw results per target: `instrument`, `logcat` (one
+Targets: physical Galaxy Tab S7 FE 5G `R52T50ELHWK` (Android 12); AVDs `spike3d_api29` (Pixel 4
+profile, Android 10), `GalaxyTabS7FE_API34` (2560×1600 @ 320 dpi, Android 14), `GalaxyS24FE_API35`,
+`GalaxyS24FE_API36`, `GalaxyS24FE_API37` (1080×2340 @ 450 dpi). The physical Galaxy S24 FE
+`R5CX83A5J1J` had been returned to its owner before the rerun, so API 37 was rerun on the
+`GalaxyS24FE_API37` AVD instead; its first-run physical result is kept with the superseded evidence.
+The Tab AVD's portrait width (555 dp) is COMPACT where the physical Tab (753 dp) is MEDIUM, so between
+them the tablet covers all three window classes. Raw results per target: `instrument`, `logcat` (one
 `layout,` line per surface and orientation with the width and checks, one `surface,` line per
-surface) and `device.txt` in [`evidence/12-2/keyflow/`](evidence/12-2/keyflow/).
+surface) and `device.txt` in [`evidence/12-2/keyflow/`](evidence/12-2/keyflow/). The rotation settings
+were unchanged on every target (physical Tab `accelerometer_rotation=1 user_rotation=3`).
 
-**Result: not met.** Layout followed the window class on every surface of every target, and Flows 1,
-3, 6 and 9 pass everywhere. Flow 2 on the Tab AVD stopped after its third surface on a harness
-timeout (a wide Move key tap that did not commit), so its later surfaces were not checked there; they
-passed on the five other targets. On every target, rotation **changes the session** on three surfaces:
+**Result: met, with one harness gap.** Rotation no longer changes the session on any surface, and
+layout followed the window class on every surface of every target. 41 of the 42 target × flow runs
+pass. Flow 2 on the Tab AVD passed its first three surfaces (including the skip-ahead check that
+failed before) and then stopped on the same harness timeout as the first run: a tap on the wide Move
+key `f` (behind the key bar's *more* toggle, in a horizontally scrolled row) did not commit at 555 dp
+portrait. That is a test-driver problem, not a rotation result. The later Flow 2 surfaces (*Add to
+Learning* offer, Library *Learning*, LL practice, 2-look milestone) passed on the other five targets,
+including the physical tablet.
 
-- **Skip-ahead check** (Flows 2 and 8): each rotation deals a new Scramble (`lesson.entryState`,
-  `history`, `revision` change; the cube shown changes).
-- **Stage practice** (Flow 7): each rotation deals a new practice Scramble, also after the hint, and
-  rotating on the *First cross mastered* milestone replaces it with a fresh practice (the milestone is
+**First run, superseded** (revision `655833ef816e8f619a911b697cec7800eeb3e111`, raw files in
+[`evidence/12-2/superseded/keyflow-655833e/`](evidence/12-2/superseded/keyflow-655833e/), with the
+physical S24 FE `s24-fe-api37`). Flows 1, 3, 6 and 9 passed everywhere, but on every target rotation
+**changed the session** on three surfaces, so Flows 2, 7 and 8 failed:
+
+- **Skip-ahead check** (Flows 2 and 8): each rotation dealt a new Scramble (`lesson.entryState`,
+  `history`, `revision` changed; the cube shown changed).
+- **Stage practice** (Flow 7): each rotation dealt a new practice Scramble, also after the hint, and
+  rotating on the *First cross mastered* milestone replaced it with a fresh practice (the milestone was
   lost; the mastery itself was already recorded).
 
-Cause (read from the code, not changed here): in `AppShell.kt` `skipCheckEntry` and `practiceEntry`
-are built with `remember { stagePractice.courseSkipCheckLesson() / skipCheckLesson(id) /
-stagePractice(stageId) }`, which deals a random Scramble again when the activity is recreated;
-`LessonScreen` then sees a different `entryState` and dispatches a new `PracticeStarted`. The LL
-practice avoids this by keeping its Scramble in `rememberSaveable` (`twoLookScramble`). Fixing it is
-product work outside this story's scope; it is listed as a product-owner question.
+**Cause and fix.** In `AppShell.kt`, `skipCheckEntry` and `practiceEntry` were built with
+`remember { stagePractice.courseSkipCheckLesson() / skipCheckLesson(id) / stagePractice(stageId) }`.
+A recreated activity dealt a random Scramble again, so `LessonScreen` saw a different `entryState` and
+dispatched a new `PracticeStarted`. That new session also cleared `objectiveMet`, which hid the
+milestone. The fix (`0ec0d6b`) saves the dealt Scramble in `rememberSaveable`, keyed by the open
+practice or check and its epoch, as the LL practice already does with `twoLookScramble`. Recreation
+rebuilds the same Lesson, so the session, and with it the milestone, survives. A new practice or check
+bumps the epoch and still deals a new Scramble. Regression tests: `AppShellTest` *Stage practice keeps
+its scramble and attempt across recreation* and *a Stage skip-ahead check keeps its scramble and
+attempt across recreation* (`StateRestorationTester`). Both fail without the fix.
 
-Also found and fixed in the test setup: Compose UI test pulls espresso-core 3.5.0, whose idling
-reflects on `InputManager.getInstance`, removed in Android 17, so every test failed on the S24 FE until
-`androidTestImplementation` pinned espresso-core 3.7.0 (test-only).
+Also found and fixed in the test setup in the first run: Compose UI test pulls espresso-core 3.5.0,
+whose idling reflects on `InputManager.getInstance`, removed in Android 17, so every test failed on the
+S24 FE until `androidTestImplementation` pinned espresso-core 3.7.0 (test-only).
 
-**Product-owner questions.**
-2. Rotation re-deals the skip-ahead check and Stage practice (above). Fix before release (a story
-   that saves the dealt Scramble like the LL practice does), or accept for v1.0?
-3. API 30 is not in the target set (AVDs cover 29, 34, 35, 36; physical 31 and 37), as the story
-   lists. Is that acceptable for "API 29 through targetSdk 36"?
+**PO decision 2026-11-11.**
+2. Rotation re-dealing the skip-ahead check and Stage practice: **fix now, inside Story 12.2** (done
+   above).
+3. API 30 is not in the target set (AVDs cover 29, 34, 35, 36, 37; physical 31): the API 30 gap is
+   **accepted** for "API 29 through targetSdk 36".
 
 ## Out of scope
 

@@ -1,41 +1,37 @@
 --------- beginning of main
-11-11 08:38:34.400  5918  5939 I TestRunner: run started: 1 tests
-11-11 08:38:34.401  5918  5939 I TestRunner: started: flow2TwoLookLastLayer(dev.cubentia.app.compat.KeyFlowRotationTest)
-11-11 08:38:40.131  5918  5974 I KeyFlowRotation: layout,flow=flow2,surface=skipCheck,orientation=portrait,widthDp=555,class=COMPACT,checks=lesson:stacked
-11-11 08:38:41.514  5918  5974 I KeyFlowRotation: layout,flow=flow2,surface=skipCheck,orientation=landscape,widthDp=1280,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
-11-11 08:38:43.393  5918  5974 I KeyFlowRotation: layout,flow=flow2,surface=skipCheck,orientation=portrait,widthDp=555,class=COMPACT,checks=lesson:stacked
-11-11 08:38:43.394  5918  5974 I KeyFlowRotation: surface,flow=flow2,surface=skipCheck,result=fail
-11-11 08:38:43.394  5918  5974 W KeyFlowRotation: problem,flow2 / skipCheck (landscape): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, progress, revision]; revision 1 -> 2; lesson skip-check-course -> skip-check-course; kind PRACTICE -> PRACTICE
-11-11 08:38:43.394  5918  5974 W KeyFlowRotation: problem,flow2 / skipCheck (landscape): visible cube/step expected:<[1 of 20 pieces placed|Not solved]> but was:<[2 of 20 pieces placed|Not solved]>
-11-11 08:38:43.394  5918  5974 W KeyFlowRotation: problem,flow2 / skipCheck (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, progress, revision]; revision 2 -> 3; lesson skip-check-course -> skip-check-course; kind PRACTICE -> PRACTICE
-11-11 08:38:43.394  5918  5974 W KeyFlowRotation: problem,flow2 / skipCheck (portrait): visible cube/step expected:<[2 of 20 pieces placed|Not solved]> but was:<[0 of 20 pieces placed|Not solved]>
-11-11 08:39:13.163  5918  5974 I KeyFlowRotation: layout,flow=flow2,surface=fasterLastLayer,orientation=portrait,widthDp=555,class=COMPACT,checks=nav:bar
-11-11 08:39:14.096  5918  5974 I KeyFlowRotation: layout,flow=flow2,surface=fasterLastLayer,orientation=landscape,widthDp=1280,class=EXPANDED,checks=nav:rail
-11-11 08:39:15.246  5918  5974 I KeyFlowRotation: layout,flow=flow2,surface=fasterLastLayer,orientation=portrait,widthDp=555,class=COMPACT,checks=nav:bar
-11-11 08:39:15.246  5918  5974 I KeyFlowRotation: surface,flow=flow2,surface=fasterLastLayer,result=pass
-11-11 08:39:17.430  5918  5974 I KeyFlowRotation: layout,flow=flow2,surface=twoLookLesson,orientation=portrait,widthDp=555,class=COMPACT,checks=lesson:stacked
-11-11 08:39:18.563  5918  5974 I KeyFlowRotation: layout,flow=flow2,surface=twoLookLesson,orientation=landscape,widthDp=1280,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
-11-11 08:39:20.196  5918  5974 I KeyFlowRotation: layout,flow=flow2,surface=twoLookLesson,orientation=portrait,widthDp=555,class=COMPACT,checks=lesson:stacked
-11-11 08:39:20.196  5918  5974 I KeyFlowRotation: surface,flow=flow2,surface=twoLookLesson,result=pass
-11-11 08:39:47.017  5918  5939 E TestRunner: failed: flow2TwoLookLastLayer(dev.cubentia.app.compat.KeyFlowRotationTest)
-11-11 08:39:47.019  5918  5939 E TestRunner: ----- begin exception -----
-11-11 08:39:47.019  5918  5939 E TestRunner: java.lang.AssertionError: flow2: timed out waiting for Move f to commit
-11-11 08:39:47.019  5918  5939 E TestRunner: 	at org.junit.Assert.fail(Assert.java:89)
-11-11 08:39:47.019  5918  5939 E TestRunner: 	at dev.cubentia.app.compat.KeyFlowHarness.await(KeyFlowHarness.kt:91)
-11-11 08:39:47.019  5918  5939 E TestRunner: 	at dev.cubentia.app.compat.KeyFlowHarness.await$default(KeyFlowHarness.kt:83)
-11-11 08:39:47.019  5918  5939 E TestRunner: 	at dev.cubentia.app.compat.KeyFlowHarness.tapMove(KeyFlowHarness.kt:129)
-11-11 08:39:47.019  5918  5939 E TestRunner: 	at dev.cubentia.app.compat.KeyFlowHarness.playLesson(KeyFlowHarness.kt:411)
-11-11 08:39:47.019  5918  5939 E TestRunner: 	at dev.cubentia.app.compat.KeyFlowHarness.playLesson$default(KeyFlowHarness.kt:391)
-11-11 08:39:47.019  5918  5939 E TestRunner: 	at dev.cubentia.app.compat.KeyFlowRotationTest.flow2TwoLookLastLayer(KeyFlowRotationTest.kt:127)
-11-11 08:39:47.019  5918  5939 E TestRunner: 	at java.lang.reflect.Method.invoke(Native Method)
-11-11 08:39:47.019  5918  5939 E TestRunner: 	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
-11-11 08:39:47.019  5918  5939 E TestRunner: 	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
-11-11 08:39:47.019  5918  5939 E TestRunner: 	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
-11-11 08:39:47.019  5918  5939 E TestRunner: 	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
-11-11 08:39:47.019  5918  5939 E TestRunner: 	at org.junit.internal.runners.statements.FailOnTimeout$CallableStatement.call(FailOnTimeout.java:299)
-11-11 08:39:47.019  5918  5939 E TestRunner: 	at org.junit.internal.runners.statements.FailOnTimeout$CallableStatement.call(FailOnTimeout.java:293)
-11-11 08:39:47.019  5918  5939 E TestRunner: 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
-11-11 08:39:47.019  5918  5939 E TestRunner: 	at java.lang.Thread.run(Thread.java:1012)
-11-11 08:39:47.023  5918  5939 E TestRunner: ----- end exception -----
-11-11 08:39:47.030  5918  5939 I TestRunner: finished: flow2TwoLookLastLayer(dev.cubentia.app.compat.KeyFlowRotationTest)
-11-11 08:39:47.054  5918  5939 I TestRunner: run finished: 1 tests, 1 failed, 0 ignored
+11-11 14:34:34.456  5075  5096 I TestRunner: run started: 1 tests
+11-11 14:34:34.456  5075  5096 I TestRunner: started: flow2TwoLookLastLayer(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 14:34:40.912  5075  5125 I KeyFlowRotation: layout,flow=flow2,surface=skipCheck,orientation=portrait,widthDp=555,class=COMPACT,checks=lesson:stacked
+11-11 14:34:42.312  5075  5125 I KeyFlowRotation: layout,flow=flow2,surface=skipCheck,orientation=landscape,widthDp=1280,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
+11-11 14:34:44.469  5075  5125 I KeyFlowRotation: layout,flow=flow2,surface=skipCheck,orientation=portrait,widthDp=555,class=COMPACT,checks=lesson:stacked
+11-11 14:34:44.469  5075  5125 I KeyFlowRotation: surface,flow=flow2,surface=skipCheck,result=pass
+11-11 14:35:17.945  5075  5125 I KeyFlowRotation: layout,flow=flow2,surface=fasterLastLayer,orientation=portrait,widthDp=555,class=COMPACT,checks=nav:bar
+11-11 14:35:18.961  5075  5125 I KeyFlowRotation: layout,flow=flow2,surface=fasterLastLayer,orientation=landscape,widthDp=1280,class=EXPANDED,checks=nav:rail
+11-11 14:35:20.428  5075  5125 I KeyFlowRotation: layout,flow=flow2,surface=fasterLastLayer,orientation=portrait,widthDp=555,class=COMPACT,checks=nav:bar
+11-11 14:35:20.428  5075  5125 I KeyFlowRotation: surface,flow=flow2,surface=fasterLastLayer,result=pass
+11-11 14:35:23.195  5075  5125 I KeyFlowRotation: layout,flow=flow2,surface=twoLookLesson,orientation=portrait,widthDp=555,class=COMPACT,checks=lesson:stacked
+11-11 14:35:24.511  5075  5125 I KeyFlowRotation: layout,flow=flow2,surface=twoLookLesson,orientation=landscape,widthDp=1280,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
+11-11 14:35:26.515  5075  5125 I KeyFlowRotation: layout,flow=flow2,surface=twoLookLesson,orientation=portrait,widthDp=555,class=COMPACT,checks=lesson:stacked
+11-11 14:35:26.515  5075  5125 I KeyFlowRotation: surface,flow=flow2,surface=twoLookLesson,result=pass
+11-11 14:35:54.092  5075  5096 E TestRunner: failed: flow2TwoLookLastLayer(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 14:35:54.095  5075  5096 E TestRunner: ----- begin exception -----
+11-11 14:35:54.095  5075  5096 E TestRunner: java.lang.AssertionError: flow2: timed out waiting for Move f to commit
+11-11 14:35:54.095  5075  5096 E TestRunner: 	at org.junit.Assert.fail(Assert.java:89)
+11-11 14:35:54.095  5075  5096 E TestRunner: 	at dev.cubentia.app.compat.KeyFlowHarness.await(KeyFlowHarness.kt:91)
+11-11 14:35:54.095  5075  5096 E TestRunner: 	at dev.cubentia.app.compat.KeyFlowHarness.await$default(KeyFlowHarness.kt:83)
+11-11 14:35:54.095  5075  5096 E TestRunner: 	at dev.cubentia.app.compat.KeyFlowHarness.tapMove(KeyFlowHarness.kt:129)
+11-11 14:35:54.095  5075  5096 E TestRunner: 	at dev.cubentia.app.compat.KeyFlowHarness.playLesson(KeyFlowHarness.kt:411)
+11-11 14:35:54.095  5075  5096 E TestRunner: 	at dev.cubentia.app.compat.KeyFlowHarness.playLesson$default(KeyFlowHarness.kt:391)
+11-11 14:35:54.095  5075  5096 E TestRunner: 	at dev.cubentia.app.compat.KeyFlowRotationTest.flow2TwoLookLastLayer(KeyFlowRotationTest.kt:127)
+11-11 14:35:54.095  5075  5096 E TestRunner: 	at java.lang.reflect.Method.invoke(Native Method)
+11-11 14:35:54.095  5075  5096 E TestRunner: 	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
+11-11 14:35:54.095  5075  5096 E TestRunner: 	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+11-11 14:35:54.095  5075  5096 E TestRunner: 	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
+11-11 14:35:54.095  5075  5096 E TestRunner: 	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+11-11 14:35:54.095  5075  5096 E TestRunner: 	at org.junit.internal.runners.statements.FailOnTimeout$CallableStatement.call(FailOnTimeout.java:299)
+11-11 14:35:54.095  5075  5096 E TestRunner: 	at org.junit.internal.runners.statements.FailOnTimeout$CallableStatement.call(FailOnTimeout.java:293)
+11-11 14:35:54.095  5075  5096 E TestRunner: 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+11-11 14:35:54.095  5075  5096 E TestRunner: 	at java.lang.Thread.run(Thread.java:1012)
+11-11 14:35:54.103  5075  5096 E TestRunner: ----- end exception -----
+11-11 14:35:54.114  5075  5096 I TestRunner: finished: flow2TwoLookLastLayer(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 14:35:54.118  5075  5096 I TestRunner: run finished: 1 tests, 1 failed, 0 ignored

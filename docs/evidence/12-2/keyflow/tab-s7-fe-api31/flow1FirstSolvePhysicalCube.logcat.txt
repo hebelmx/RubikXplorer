@@ -1,50 +1,50 @@
 --------- beginning of main
-11-11 07:48:46.764 25962 26016 I TestRunner: run started: 1 tests
-11-11 07:48:46.766 25962 26016 I TestRunner: started: flow1FirstSolvePhysicalCube(dev.cubentia.app.compat.KeyFlowRotationTest)
-11-11 07:48:49.547 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=welcome,orientation=portrait,widthDp=753,class=MEDIUM,checks=
-11-11 07:48:50.632 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=welcome,orientation=landscape,widthDp=1205,class=EXPANDED,checks=
-11-11 07:48:51.615 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=welcome,orientation=portrait,widthDp=753,class=MEDIUM,checks=
-11-11 07:48:51.615 25962 26201 I KeyFlowRotation: surface,flow=flow1,surface=welcome,result=pass
-11-11 07:48:52.652 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=stage1Detail,orientation=portrait,widthDp=753,class=MEDIUM,checks=nav:rail
-11-11 07:48:53.870 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=stage1Detail,orientation=landscape,widthDp=1205,class=EXPANDED,checks=nav:rail
-11-11 07:48:55.090 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=stage1Detail,orientation=portrait,widthDp=753,class=MEDIUM,checks=nav:rail
-11-11 07:48:55.090 25962 26201 I KeyFlowRotation: surface,flow=flow1,surface=stage1Detail,result=pass
-11-11 07:48:57.044 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=lesson-01-01,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
-11-11 07:48:58.495 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=lesson-01-01,orientation=landscape,widthDp=1205,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
-11-11 07:48:59.931 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=lesson-01-01,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
-11-11 07:48:59.931 25962 26201 I KeyFlowRotation: surface,flow=flow1,surface=lesson-01-01,result=pass
-11-11 07:49:05.558 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=lesson-01-02 midStep,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
-11-11 07:49:06.911 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=lesson-01-02 midStep,orientation=landscape,widthDp=1205,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
-11-11 07:49:08.262 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=lesson-01-02 midStep,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
-11-11 07:49:08.262 25962 26201 I KeyFlowRotation: surface,flow=flow1,surface=lesson-01-02 midStep,result=pass
-11-11 07:49:19.483 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=confirmCube,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
-11-11 07:49:20.667 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=confirmCube,orientation=landscape,widthDp=1205,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
-11-11 07:49:21.870 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=confirmCube,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
-11-11 07:49:21.870 25962 26201 I KeyFlowRotation: surface,flow=flow1,surface=confirmCube,result=pass
-11-11 07:49:22.655 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=physicalStep,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
-11-11 07:49:23.823 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=physicalStep,orientation=landscape,widthDp=1205,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
-11-11 07:49:25.042 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=physicalStep,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
-11-11 07:49:25.042 25962 26201 I KeyFlowRotation: surface,flow=flow1,surface=physicalStep,result=pass
-11-11 07:49:26.261 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=mismatchLadder,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
-11-11 07:49:27.514 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=mismatchLadder,orientation=landscape,widthDp=1205,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
-11-11 07:49:28.816 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=mismatchLadder,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
-11-11 07:49:28.816 25962 26201 I KeyFlowRotation: surface,flow=flow1,surface=mismatchLadder,result=pass
-11-11 07:49:30.952 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=physicalStepDone,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
-11-11 07:49:32.120 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=physicalStepDone,orientation=landscape,widthDp=1205,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
-11-11 07:49:33.306 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=physicalStepDone,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
-11-11 07:49:33.306 25962 26201 I KeyFlowRotation: surface,flow=flow1,surface=physicalStepDone,result=pass
-11-11 07:53:02.660 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=finaleYesItsSolved,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
-11-11 07:53:04.111 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=finaleYesItsSolved,orientation=landscape,widthDp=1205,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
-11-11 07:53:05.315 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=finaleYesItsSolved,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
-11-11 07:53:05.315 25962 26201 I KeyFlowRotation: surface,flow=flow1,surface=finaleYesItsSolved,result=pass
-11-11 07:53:06.250 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=firstSolveMilestone,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
-11-11 07:53:07.401 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=firstSolveMilestone,orientation=landscape,widthDp=1205,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
-11-11 07:53:08.586 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=firstSolveMilestone,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
-11-11 07:53:08.586 25962 26201 I KeyFlowRotation: surface,flow=flow1,surface=firstSolveMilestone,result=pass
-11-11 07:53:09.405 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=learnAfterFirstSolve,orientation=portrait,widthDp=753,class=MEDIUM,checks=nav:rail
-11-11 07:53:10.456 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=learnAfterFirstSolve,orientation=landscape,widthDp=1205,class=EXPANDED,checks=nav:rail
-11-11 07:53:11.542 25962 26201 I KeyFlowRotation: layout,flow=flow1,surface=learnAfterFirstSolve,orientation=portrait,widthDp=753,class=MEDIUM,checks=nav:rail
-11-11 07:53:11.542 25962 26201 I KeyFlowRotation: surface,flow=flow1,surface=learnAfterFirstSolve,result=pass
-11-11 07:53:11.542 25962 26201 I KeyFlowRotation: flow,flow=flow1,surfaces=11,failedSurfaceChecks=0,result=pass
-11-11 07:53:12.212 25962 26016 I TestRunner: finished: flow1FirstSolvePhysicalCube(dev.cubentia.app.compat.KeyFlowRotationTest)
-11-11 07:53:12.222 25962 26016 I TestRunner: run finished: 1 tests, 0 failed, 0 ignored
+11-11 14:19:19.713 18894 18931 I TestRunner: run started: 1 tests
+11-11 14:19:19.717 18894 18931 I TestRunner: started: flow1FirstSolvePhysicalCube(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 14:19:22.766 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=welcome,orientation=portrait,widthDp=753,class=MEDIUM,checks=
+11-11 14:19:23.854 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=welcome,orientation=landscape,widthDp=1205,class=EXPANDED,checks=
+11-11 14:19:24.852 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=welcome,orientation=portrait,widthDp=753,class=MEDIUM,checks=
+11-11 14:19:24.852 18894 19157 I KeyFlowRotation: surface,flow=flow1,surface=welcome,result=pass
+11-11 14:19:25.921 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=stage1Detail,orientation=portrait,widthDp=753,class=MEDIUM,checks=nav:rail
+11-11 14:19:27.223 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=stage1Detail,orientation=landscape,widthDp=1205,class=EXPANDED,checks=nav:rail
+11-11 14:19:28.442 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=stage1Detail,orientation=portrait,widthDp=753,class=MEDIUM,checks=nav:rail
+11-11 14:19:28.442 18894 19157 I KeyFlowRotation: surface,flow=flow1,surface=stage1Detail,result=pass
+11-11 14:19:30.630 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=lesson-01-01,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:19:32.182 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=lesson-01-01,orientation=landscape,widthDp=1205,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
+11-11 14:19:33.868 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=lesson-01-01,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:19:33.868 18894 19157 I KeyFlowRotation: surface,flow=flow1,surface=lesson-01-01,result=pass
+11-11 14:19:39.529 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=lesson-01-02 midStep,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:19:40.897 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=lesson-01-02 midStep,orientation=landscape,widthDp=1205,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
+11-11 14:19:42.350 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=lesson-01-02 midStep,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:19:42.350 18894 19157 I KeyFlowRotation: surface,flow=flow1,surface=lesson-01-02 midStep,result=pass
+11-11 14:19:53.721 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=confirmCube,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:19:54.888 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=confirmCube,orientation=landscape,widthDp=1205,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
+11-11 14:19:56.124 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=confirmCube,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:19:56.124 18894 19157 I KeyFlowRotation: surface,flow=flow1,surface=confirmCube,result=pass
+11-11 14:19:56.909 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=physicalStep,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:19:58.178 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=physicalStep,orientation=landscape,widthDp=1205,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
+11-11 14:19:59.346 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=physicalStep,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:19:59.346 18894 19157 I KeyFlowRotation: surface,flow=flow1,surface=physicalStep,result=pass
+11-11 14:20:00.550 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=mismatchLadder,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:20:01.801 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=mismatchLadder,orientation=landscape,widthDp=1205,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
+11-11 14:20:03.103 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=mismatchLadder,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:20:03.103 18894 19157 I KeyFlowRotation: surface,flow=flow1,surface=mismatchLadder,result=pass
+11-11 14:20:05.242 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=physicalStepDone,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:20:06.392 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=physicalStepDone,orientation=landscape,widthDp=1205,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
+11-11 14:20:07.611 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=physicalStepDone,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:20:07.611 18894 19157 I KeyFlowRotation: surface,flow=flow1,surface=physicalStepDone,result=pass
+11-11 14:23:37.249 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=finaleYesItsSolved,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:23:38.467 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=finaleYesItsSolved,orientation=landscape,widthDp=1205,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
+11-11 14:23:39.670 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=finaleYesItsSolved,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:23:39.670 18894 19157 I KeyFlowRotation: surface,flow=flow1,surface=finaleYesItsSolved,result=pass
+11-11 14:23:40.622 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=firstSolveMilestone,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:23:41.789 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=firstSolveMilestone,orientation=landscape,widthDp=1205,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
+11-11 14:23:43.008 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=firstSolveMilestone,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:23:43.009 18894 19157 I KeyFlowRotation: surface,flow=flow1,surface=firstSolveMilestone,result=pass
+11-11 14:23:43.844 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=learnAfterFirstSolve,orientation=portrait,widthDp=753,class=MEDIUM,checks=nav:rail
+11-11 14:23:44.861 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=learnAfterFirstSolve,orientation=landscape,widthDp=1205,class=EXPANDED,checks=nav:rail
+11-11 14:23:45.913 18894 19157 I KeyFlowRotation: layout,flow=flow1,surface=learnAfterFirstSolve,orientation=portrait,widthDp=753,class=MEDIUM,checks=nav:rail
+11-11 14:23:45.913 18894 19157 I KeyFlowRotation: surface,flow=flow1,surface=learnAfterFirstSolve,result=pass
+11-11 14:23:45.913 18894 19157 I KeyFlowRotation: flow,flow=flow1,surfaces=11,failedSurfaceChecks=0,result=pass
+11-11 14:23:46.593 18894 18931 I TestRunner: finished: flow1FirstSolvePhysicalCube(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 14:23:46.614 18894 18931 I TestRunner: run finished: 1 tests, 0 failed, 0 ignored

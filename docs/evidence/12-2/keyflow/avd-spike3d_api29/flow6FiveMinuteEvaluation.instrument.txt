@@ -15,7 +15,7 @@ INSTRUMENTATION_STATUS: test=flow6FiveMinuteEvaluation
 INSTRUMENTATION_STATUS_CODE: 0
 INSTRUMENTATION_RESULT: stream=
 
-Time: 34.86
+Time: 40.591
 
 OK (1 test)
 

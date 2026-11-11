@@ -1,36 +1,14 @@
 --------- beginning of main
-11-11 08:23:24.637  4393  4407 I TestRunner: run started: 1 tests
-11-11 08:23:24.638  4393  4407 I TestRunner: started: flow8SkipAhead(dev.cubentia.app.compat.KeyFlowRotationTest)
-11-11 08:23:27.656  4393  4423 I KeyFlowRotation: layout,flow=flow8,surface=skipCheck,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
-11-11 08:23:28.972  4393  4423 I KeyFlowRotation: layout,flow=flow8,surface=skipCheck,orientation=landscape,widthDp=832,class=MEDIUM,checks=lesson:sideBySide
-11-11 08:23:30.188  4393  4423 I KeyFlowRotation: layout,flow=flow8,surface=skipCheck,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
-11-11 08:23:30.188  4393  4423 I KeyFlowRotation: surface,flow=flow8,surface=skipCheck,result=fail
-11-11 08:23:30.188  4393  4423 W KeyFlowRotation: problem,flow8 / skipCheck (landscape): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 1 -> 2; lesson skip-check-course -> skip-check-course; kind PRACTICE -> PRACTICE
-11-11 08:23:30.188  4393  4423 W KeyFlowRotation: problem,flow8 / skipCheck (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, progress, revision]; revision 2 -> 3; lesson skip-check-course -> skip-check-course; kind PRACTICE -> PRACTICE
-11-11 08:23:30.188  4393  4423 W KeyFlowRotation: problem,flow8 / skipCheck (portrait): visible cube/step expected:<[1 of 20 pieces placed|Not solved]> but was:<[0 of 20 pieces placed|Not solved]>
-11-11 08:23:58.672  4393  4423 I KeyFlowRotation: layout,flow=flow8,surface=learnSkipped,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
-11-11 08:23:59.589  4393  4423 I KeyFlowRotation: layout,flow=flow8,surface=learnSkipped,orientation=landscape,widthDp=832,class=MEDIUM,checks=nav:rail
-11-11 08:24:00.505  4393  4423 I KeyFlowRotation: layout,flow=flow8,surface=learnSkipped,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
-11-11 08:24:00.505  4393  4423 I KeyFlowRotation: surface,flow=flow8,surface=learnSkipped,result=pass
-11-11 08:24:00.522  4393  4423 I KeyFlowRotation: flow,flow=flow8,surfaces=2,failedSurfaceChecks=3,result=fail
-11-11 08:24:00.827  4393  4407 E TestRunner: failed: flow8SkipAhead(dev.cubentia.app.compat.KeyFlowRotationTest)
-11-11 08:24:00.828  4393  4407 E TestRunner: ----- begin exception -----
-11-11 08:24:00.828  4393  4407 E TestRunner: java.lang.AssertionError: flow8: 3 rotation check(s) failed:
-11-11 08:24:00.828  4393  4407 E TestRunner: flow8 / skipCheck (landscape): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 1 -> 2; lesson skip-check-course -> skip-check-course; kind PRACTICE -> PRACTICE
-11-11 08:24:00.828  4393  4407 E TestRunner: flow8 / skipCheck (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, progress, revision]; revision 2 -> 3; lesson skip-check-course -> skip-check-course; kind PRACTICE -> PRACTICE
-11-11 08:24:00.828  4393  4407 E TestRunner: flow8 / skipCheck (portrait): visible cube/step expected:<[1 of 20 pieces placed|Not solved]> but was:<[0 of 20 pieces placed|Not solved]>
-11-11 08:24:00.828  4393  4407 E TestRunner: 	at org.junit.Assert.fail(Assert.java:89)
-11-11 08:24:00.828  4393  4407 E TestRunner: 	at dev.cubentia.app.compat.KeyFlowHarness.finish(KeyFlowHarness.kt:234)
-11-11 08:24:00.828  4393  4407 E TestRunner: 	at dev.cubentia.app.compat.KeyFlowRotationTest.flow8SkipAhead(KeyFlowRotationTest.kt:266)
-11-11 08:24:00.828  4393  4407 E TestRunner: 	at java.lang.reflect.Method.invoke(Native Method)
-11-11 08:24:00.828  4393  4407 E TestRunner: 	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
-11-11 08:24:00.828  4393  4407 E TestRunner: 	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
-11-11 08:24:00.828  4393  4407 E TestRunner: 	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
-11-11 08:24:00.828  4393  4407 E TestRunner: 	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
-11-11 08:24:00.828  4393  4407 E TestRunner: 	at org.junit.internal.runners.statements.FailOnTimeout$CallableStatement.call(FailOnTimeout.java:299)
-11-11 08:24:00.828  4393  4407 E TestRunner: 	at org.junit.internal.runners.statements.FailOnTimeout$CallableStatement.call(FailOnTimeout.java:293)
-11-11 08:24:00.828  4393  4407 E TestRunner: 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
-11-11 08:24:00.828  4393  4407 E TestRunner: 	at java.lang.Thread.run(Thread.java:1012)
-11-11 08:24:00.832  4393  4407 E TestRunner: ----- end exception -----
-11-11 08:24:00.834  4393  4407 I TestRunner: finished: flow8SkipAhead(dev.cubentia.app.compat.KeyFlowRotationTest)
-11-11 08:24:00.838  4393  4407 I TestRunner: run finished: 1 tests, 1 failed, 0 ignored
+11-11 14:51:37.834  4528  4542 I TestRunner: run started: 1 tests
+11-11 14:51:37.835  4528  4542 I TestRunner: started: flow8SkipAhead(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 14:51:41.464  4528  4557 I KeyFlowRotation: layout,flow=flow8,surface=skipCheck,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 14:51:42.780  4528  4557 I KeyFlowRotation: layout,flow=flow8,surface=skipCheck,orientation=landscape,widthDp=832,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:51:44.180  4528  4557 I KeyFlowRotation: layout,flow=flow8,surface=skipCheck,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 14:51:44.180  4528  4557 I KeyFlowRotation: surface,flow=flow8,surface=skipCheck,result=pass
+11-11 14:52:11.196  4528  4557 I KeyFlowRotation: layout,flow=flow8,surface=learnSkipped,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 14:52:12.163  4528  4557 I KeyFlowRotation: layout,flow=flow8,surface=learnSkipped,orientation=landscape,widthDp=832,class=MEDIUM,checks=nav:rail
+11-11 14:52:13.130  4528  4557 I KeyFlowRotation: layout,flow=flow8,surface=learnSkipped,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 14:52:13.130  4528  4557 I KeyFlowRotation: surface,flow=flow8,surface=learnSkipped,result=pass
+11-11 14:52:13.146  4528  4557 I KeyFlowRotation: flow,flow=flow8,surfaces=2,failedSurfaceChecks=0,result=pass
+11-11 14:52:13.743  4528  4542 I TestRunner: finished: flow8SkipAhead(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 14:52:13.753  4528  4542 I TestRunner: run finished: 1 tests, 0 failed, 0 ignored

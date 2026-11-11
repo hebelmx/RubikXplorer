@@ -34,7 +34,7 @@ INSTRUMENTATION_STATUS: test=flow2TwoLookLastLayer
 INSTRUMENTATION_STATUS_CODE: -2
 INSTRUMENTATION_RESULT: stream=
 
-Time: 72.654
+Time: 79.661
 There was 1 failure:
 1) flow2TwoLookLastLayer(dev.cubentia.app.compat.KeyFlowRotationTest)
 java.lang.AssertionError: flow2: timed out waiting for Move f to commit

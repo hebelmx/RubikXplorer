@@ -10,53 +10,14 @@ INSTRUMENTATION_STATUS: class=dev.cubentia.app.compat.KeyFlowRotationTest
 INSTRUMENTATION_STATUS: current=1
 INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
 INSTRUMENTATION_STATUS: numtests=1
-INSTRUMENTATION_STATUS: stack=java.lang.AssertionError: flow7: 7 rotation check(s) failed:
-flow7 / practiceDealt (landscape): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 9 -> 10; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-flow7 / practiceDealt (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 10 -> 11; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-flow7 / practiceHint (landscape): session state changed: fields [checkpoint, expected, hintRung, hintsUsed, history, lesson, nextEffectId, revision, stepHelped]; revision 11 -> 12; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-flow7 / practiceHint (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 12 -> 13; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-flow7 / stageMasteredMilestone (landscape): session state changed: fields [attemptOpen, checkpoint, cleanCredited, cleanSteps, expected, history, lesson, nextEffectId, objectiveMet, progress, revision]; revision 62 -> 63; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-flow7 / stageMasteredMilestone (landscape): visible cube/step expected:<[White cross solved|Not solved]> but was:<[0 of 4 white cross edges placed|Not solved]>
-flow7 / stageMasteredMilestone (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 63 -> 64; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-	at org.junit.Assert.fail(Assert.java:89)
-	at dev.cubentia.app.compat.KeyFlowHarness.finish(KeyFlowHarness.kt:234)
-	at dev.cubentia.app.compat.KeyFlowRotationTest.flow7PracticeToMastery(KeyFlowRotationTest.kt:256)
-
-INSTRUMENTATION_STATUS: stream=
-Error in flow7PracticeToMastery(dev.cubentia.app.compat.KeyFlowRotationTest):
-java.lang.AssertionError: flow7: 7 rotation check(s) failed:
-flow7 / practiceDealt (landscape): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 9 -> 10; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-flow7 / practiceDealt (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 10 -> 11; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-flow7 / practiceHint (landscape): session state changed: fields [checkpoint, expected, hintRung, hintsUsed, history, lesson, nextEffectId, revision, stepHelped]; revision 11 -> 12; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-flow7 / practiceHint (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 12 -> 13; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-flow7 / stageMasteredMilestone (landscape): session state changed: fields [attemptOpen, checkpoint, cleanCredited, cleanSteps, expected, history, lesson, nextEffectId, objectiveMet, progress, revision]; revision 62 -> 63; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-flow7 / stageMasteredMilestone (landscape): visible cube/step expected:<[White cross solved|Not solved]> but was:<[0 of 4 white cross edges placed|Not solved]>
-flow7 / stageMasteredMilestone (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 63 -> 64; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-	at org.junit.Assert.fail(Assert.java:89)
-	at dev.cubentia.app.compat.KeyFlowHarness.finish(KeyFlowHarness.kt:234)
-	at dev.cubentia.app.compat.KeyFlowRotationTest.flow7PracticeToMastery(KeyFlowRotationTest.kt:256)
-
+INSTRUMENTATION_STATUS: stream=.
 INSTRUMENTATION_STATUS: test=flow7PracticeToMastery
-INSTRUMENTATION_STATUS_CODE: -2
+INSTRUMENTATION_STATUS_CODE: 0
 INSTRUMENTATION_RESULT: stream=
 
-Time: 85.531
-There was 1 failure:
-1) flow7PracticeToMastery(dev.cubentia.app.compat.KeyFlowRotationTest)
-java.lang.AssertionError: flow7: 7 rotation check(s) failed:
-flow7 / practiceDealt (landscape): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 9 -> 10; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-flow7 / practiceDealt (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 10 -> 11; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-flow7 / practiceHint (landscape): session state changed: fields [checkpoint, expected, hintRung, hintsUsed, history, lesson, nextEffectId, revision, stepHelped]; revision 11 -> 12; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-flow7 / practiceHint (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 12 -> 13; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-flow7 / stageMasteredMilestone (landscape): session state changed: fields [attemptOpen, checkpoint, cleanCredited, cleanSteps, expected, history, lesson, nextEffectId, objectiveMet, progress, revision]; revision 62 -> 63; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-flow7 / stageMasteredMilestone (landscape): visible cube/step expected:<[White cross solved|Not solved]> but was:<[0 of 4 white cross edges placed|Not solved]>
-flow7 / stageMasteredMilestone (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 63 -> 64; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-	at org.junit.Assert.fail(Assert.java:89)
-	at dev.cubentia.app.compat.KeyFlowHarness.finish(KeyFlowHarness.kt:234)
-	at dev.cubentia.app.compat.KeyFlowRotationTest.flow7PracticeToMastery(KeyFlowRotationTest.kt:256)
+Time: 86.07
 
-FAILURES!!!
-Tests run: 1,  Failures: 1
+OK (1 test)
 
 
 INSTRUMENTATION_CODE: -1

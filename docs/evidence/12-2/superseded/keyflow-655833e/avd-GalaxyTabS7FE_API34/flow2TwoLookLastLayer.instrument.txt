@@ -1,0 +1,53 @@
+INSTRUMENTATION_STATUS: class=dev.cubentia.app.compat.KeyFlowRotationTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=1
+INSTRUMENTATION_STATUS: stream=
+dev.cubentia.app.compat.KeyFlowRotationTest:
+INSTRUMENTATION_STATUS: test=flow2TwoLookLastLayer
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=dev.cubentia.app.compat.KeyFlowRotationTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=1
+INSTRUMENTATION_STATUS: stack=java.lang.AssertionError: flow2: timed out waiting for Move f to commit
+	at org.junit.Assert.fail(Assert.java:89)
+	at dev.cubentia.app.compat.KeyFlowHarness.await(KeyFlowHarness.kt:91)
+	at dev.cubentia.app.compat.KeyFlowHarness.await$default(KeyFlowHarness.kt:83)
+	at dev.cubentia.app.compat.KeyFlowHarness.tapMove(KeyFlowHarness.kt:129)
+	at dev.cubentia.app.compat.KeyFlowHarness.playLesson(KeyFlowHarness.kt:411)
+	at dev.cubentia.app.compat.KeyFlowHarness.playLesson$default(KeyFlowHarness.kt:391)
+	at dev.cubentia.app.compat.KeyFlowRotationTest.flow2TwoLookLastLayer(KeyFlowRotationTest.kt:127)
+
+INSTRUMENTATION_STATUS: stream=
+Error in flow2TwoLookLastLayer(dev.cubentia.app.compat.KeyFlowRotationTest):
+java.lang.AssertionError: flow2: timed out waiting for Move f to commit
+	at org.junit.Assert.fail(Assert.java:89)
+	at dev.cubentia.app.compat.KeyFlowHarness.await(KeyFlowHarness.kt:91)
+	at dev.cubentia.app.compat.KeyFlowHarness.await$default(KeyFlowHarness.kt:83)
+	at dev.cubentia.app.compat.KeyFlowHarness.tapMove(KeyFlowHarness.kt:129)
+	at dev.cubentia.app.compat.KeyFlowHarness.playLesson(KeyFlowHarness.kt:411)
+	at dev.cubentia.app.compat.KeyFlowHarness.playLesson$default(KeyFlowHarness.kt:391)
+	at dev.cubentia.app.compat.KeyFlowRotationTest.flow2TwoLookLastLayer(KeyFlowRotationTest.kt:127)
+
+INSTRUMENTATION_STATUS: test=flow2TwoLookLastLayer
+INSTRUMENTATION_STATUS_CODE: -2
+INSTRUMENTATION_RESULT: stream=
+
+Time: 72.654
+There was 1 failure:
+1) flow2TwoLookLastLayer(dev.cubentia.app.compat.KeyFlowRotationTest)
+java.lang.AssertionError: flow2: timed out waiting for Move f to commit
+	at org.junit.Assert.fail(Assert.java:89)
+	at dev.cubentia.app.compat.KeyFlowHarness.await(KeyFlowHarness.kt:91)
+	at dev.cubentia.app.compat.KeyFlowHarness.await$default(KeyFlowHarness.kt:83)
+	at dev.cubentia.app.compat.KeyFlowHarness.tapMove(KeyFlowHarness.kt:129)
+	at dev.cubentia.app.compat.KeyFlowHarness.playLesson(KeyFlowHarness.kt:411)
+	at dev.cubentia.app.compat.KeyFlowHarness.playLesson$default(KeyFlowHarness.kt:391)
+	at dev.cubentia.app.compat.KeyFlowRotationTest.flow2TwoLookLastLayer(KeyFlowRotationTest.kt:127)
+
+FAILURES!!!
+Tests run: 1,  Failures: 1
+
+
+INSTRUMENTATION_CODE: -1

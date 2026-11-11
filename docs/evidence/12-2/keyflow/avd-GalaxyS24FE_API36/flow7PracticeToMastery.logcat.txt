@@ -1,60 +1,26 @@
 --------- beginning of main
-11-11 08:52:57.740  5541  5581 I TestRunner: run started: 1 tests
-11-11 08:52:57.742  5541  5581 I TestRunner: started: flow7PracticeToMastery(dev.cubentia.app.compat.KeyFlowRotationTest)
-11-11 08:53:17.930  5541  5603 I KeyFlowRotation: layout,flow=flow7,surface=stage2Detail,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
-11-11 08:53:18.979  5541  5603 I KeyFlowRotation: layout,flow=flow7,surface=stage2Detail,orientation=landscape,widthDp=832,class=MEDIUM,checks=nav:rail
-11-11 08:53:19.999  5541  5603 I KeyFlowRotation: layout,flow=flow7,surface=stage2Detail,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
-11-11 08:53:19.999  5541  5603 I KeyFlowRotation: surface,flow=flow7,surface=stage2Detail,result=pass
-11-11 08:53:20.945  5541  5603 I KeyFlowRotation: layout,flow=flow7,surface=practiceDealt,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
-11-11 08:53:22.096  5541  5603 I KeyFlowRotation: layout,flow=flow7,surface=practiceDealt,orientation=landscape,widthDp=832,class=MEDIUM,checks=lesson:sideBySide
-11-11 08:53:23.245  5541  5603 I KeyFlowRotation: layout,flow=flow7,surface=practiceDealt,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
-11-11 08:53:23.245  5541  5603 I KeyFlowRotation: surface,flow=flow7,surface=practiceDealt,result=fail
-11-11 08:53:23.245  5541  5603 W KeyFlowRotation: problem,flow7 / practiceDealt (landscape): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 9 -> 10; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-11-11 08:53:23.245  5541  5603 W KeyFlowRotation: problem,flow7 / practiceDealt (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 10 -> 11; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-11-11 08:53:24.080  5541  5603 I KeyFlowRotation: layout,flow=flow7,surface=practiceHint,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
-11-11 08:53:25.395  5541  5603 I KeyFlowRotation: layout,flow=flow7,surface=practiceHint,orientation=landscape,widthDp=832,class=MEDIUM,checks=lesson:sideBySide
-11-11 08:53:26.595  5541  5603 I KeyFlowRotation: layout,flow=flow7,surface=practiceHint,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
-11-11 08:53:26.595  5541  5603 I KeyFlowRotation: surface,flow=flow7,surface=practiceHint,result=fail
-11-11 08:53:26.595  5541  5603 W KeyFlowRotation: problem,flow7 / practiceHint (landscape): session state changed: fields [checkpoint, expected, hintRung, hintsUsed, history, lesson, nextEffectId, revision, stepHelped]; revision 11 -> 12; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-11-11 08:53:26.595  5541  5603 W KeyFlowRotation: problem,flow7 / practiceHint (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, progress, revision]; revision 12 -> 13; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-11-11 08:53:26.595  5541  5603 W KeyFlowRotation: problem,flow7 / practiceHint (portrait): visible cube/step expected:<[0 of 4 white cross edges placed|Not solved]> but was:<[1 of 4 white cross edges placed|Not solved]>
-11-11 08:54:09.828  5541  5603 I KeyFlowRotation: layout,flow=flow7,surface=stageMasteredMilestone,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
-11-11 08:54:11.012  5541  5603 I KeyFlowRotation: layout,flow=flow7,surface=stageMasteredMilestone,orientation=landscape,widthDp=832,class=MEDIUM,checks=lesson:sideBySide
-11-11 08:54:12.262  5541  5603 I KeyFlowRotation: layout,flow=flow7,surface=stageMasteredMilestone,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
-11-11 08:54:12.262  5541  5603 I KeyFlowRotation: surface,flow=flow7,surface=stageMasteredMilestone,result=fail
-11-11 08:54:12.262  5541  5603 W KeyFlowRotation: problem,flow7 / stageMasteredMilestone (landscape): session state changed: fields [attemptOpen, checkpoint, cleanCredited, cleanSteps, expected, history, lesson, nextEffectId, objectiveMet, progress, revision]; revision 62 -> 63; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-11-11 08:54:12.262  5541  5603 W KeyFlowRotation: problem,flow7 / stageMasteredMilestone (landscape): visible cube/step expected:<[White cross solved|Solved]> but was:<[0 of 4 white cross edges placed|Solved]>
-11-11 08:54:12.262  5541  5603 W KeyFlowRotation: problem,flow7 / stageMasteredMilestone (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 63 -> 64; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-11-11 08:54:12.262  5541  5603 W KeyFlowRotation: problem,flow7 / stageMasteredMilestone (portrait): visible cube/step expected:<[0 of 4 white cross edges placed|Solved]> but was:<[0 of 4 white cross edges placed|Not solved]>
-11-11 08:54:13.504  5541  5603 I KeyFlowRotation: layout,flow=flow7,surface=youTrend,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
-11-11 08:54:14.562  5541  5603 I KeyFlowRotation: layout,flow=flow7,surface=youTrend,orientation=landscape,widthDp=832,class=MEDIUM,checks=nav:rail
-11-11 08:54:15.512  5541  5603 I KeyFlowRotation: layout,flow=flow7,surface=youTrend,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
-11-11 08:54:15.512  5541  5603 I KeyFlowRotation: surface,flow=flow7,surface=youTrend,result=pass
-11-11 08:54:15.512  5541  5603 I KeyFlowRotation: flow,flow=flow7,surfaces=5,failedSurfaceChecks=9,result=fail
-11-11 08:54:16.009  5541  5581 E TestRunner: failed: flow7PracticeToMastery(dev.cubentia.app.compat.KeyFlowRotationTest)
-11-11 08:54:16.011  5541  5581 E TestRunner: ----- begin exception -----
-11-11 08:54:16.011  5541  5581 E TestRunner: java.lang.AssertionError: flow7: 9 rotation check(s) failed:
-11-11 08:54:16.011  5541  5581 E TestRunner: flow7 / practiceDealt (landscape): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 9 -> 10; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-11-11 08:54:16.011  5541  5581 E TestRunner: flow7 / practiceDealt (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 10 -> 11; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-11-11 08:54:16.011  5541  5581 E TestRunner: flow7 / practiceHint (landscape): session state changed: fields [checkpoint, expected, hintRung, hintsUsed, history, lesson, nextEffectId, revision, stepHelped]; revision 11 -> 12; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-11-11 08:54:16.011  5541  5581 E TestRunner: flow7 / practiceHint (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, progress, revision]; revision 12 -> 13; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-11-11 08:54:16.011  5541  5581 E TestRunner: flow7 / practiceHint (portrait): visible cube/step expected:<[0 of 4 white cross edges placed|Not solved]> but was:<[1 of 4 white cross edges placed|Not solved]>
-11-11 08:54:16.011  5541  5581 E TestRunner: flow7 / stageMasteredMilestone (landscape): session state changed: fields [attemptOpen, checkpoint, cleanCredited, cleanSteps, expected, history, lesson, nextEffectId, objectiveMet, progress, revision]; revision 62 -> 63; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-11-11 08:54:16.011  5541  5581 E TestRunner: flow7 / stageMasteredMilestone (landscape): visible cube/step expected:<[White cross solved|Solved]> but was:<[0 of 4 white cross edges placed|Solved]>
-11-11 08:54:16.011  5541  5581 E TestRunner: flow7 / stageMasteredMilestone (portrait): session state changed: fields [checkpoint, expected, history, lesson, nextEffectId, revision]; revision 63 -> 64; lesson practice-stage-02-first-cross -> practice-stage-02-first-cross; kind PRACTICE -> PRACTICE
-11-11 08:54:16.011  5541  5581 E TestRunner: flow7 / stageMasteredMilestone (portrait): visible cube/step expected:<[0 of 4 white cross edges placed|Solved]> but was:<[0 of 4 white cross edges placed|Not solved]>
-11-11 08:54:16.011  5541  5581 E TestRunner: 	at org.junit.Assert.fail(Assert.java:89)
-11-11 08:54:16.011  5541  5581 E TestRunner: 	at dev.cubentia.app.compat.KeyFlowHarness.finish(KeyFlowHarness.kt:234)
-11-11 08:54:16.011  5541  5581 E TestRunner: 	at dev.cubentia.app.compat.KeyFlowRotationTest.flow7PracticeToMastery(KeyFlowRotationTest.kt:256)
-11-11 08:54:16.011  5541  5581 E TestRunner: 	at java.lang.reflect.Method.invoke(Native Method)
-11-11 08:54:16.011  5541  5581 E TestRunner: 	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
-11-11 08:54:16.011  5541  5581 E TestRunner: 	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
-11-11 08:54:16.011  5541  5581 E TestRunner: 	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
-11-11 08:54:16.011  5541  5581 E TestRunner: 	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
-11-11 08:54:16.011  5541  5581 E TestRunner: 	at org.junit.internal.runners.statements.FailOnTimeout$CallableStatement.call(FailOnTimeout.java:299)
-11-11 08:54:16.011  5541  5581 E TestRunner: 	at org.junit.internal.runners.statements.FailOnTimeout$CallableStatement.call(FailOnTimeout.java:293)
-11-11 08:54:16.011  5541  5581 E TestRunner: 	at java.util.concurrent.FutureTask.run(FutureTask.java:317)
-11-11 08:54:16.011  5541  5581 E TestRunner: 	at java.lang.Thread.run(Thread.java:1119)
-11-11 08:54:16.017  5541  5581 E TestRunner: ----- end exception -----
-11-11 08:54:16.019  5541  5581 I TestRunner: finished: flow7PracticeToMastery(dev.cubentia.app.compat.KeyFlowRotationTest)
-11-11 08:54:16.030  5541  5581 I TestRunner: run finished: 1 tests, 1 failed, 0 ignored
+11-11 15:01:22.433  4877  4891 I TestRunner: run started: 1 tests
+11-11 15:01:22.433  4877  4891 I TestRunner: started: flow7PracticeToMastery(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 15:01:44.592  4877  4934 I KeyFlowRotation: layout,flow=flow7,surface=stage2Detail,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 15:01:45.775  4877  4934 I KeyFlowRotation: layout,flow=flow7,surface=stage2Detail,orientation=landscape,widthDp=832,class=MEDIUM,checks=nav:rail
+11-11 15:01:46.825  4877  4934 I KeyFlowRotation: layout,flow=flow7,surface=stage2Detail,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 15:01:46.825  4877  4934 I KeyFlowRotation: surface,flow=flow7,surface=stage2Detail,result=pass
+11-11 15:01:47.775  4877  4934 I KeyFlowRotation: layout,flow=flow7,surface=practiceDealt,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 15:01:49.108  4877  4934 I KeyFlowRotation: layout,flow=flow7,surface=practiceDealt,orientation=landscape,widthDp=832,class=MEDIUM,checks=lesson:sideBySide
+11-11 15:01:50.375  4877  4934 I KeyFlowRotation: layout,flow=flow7,surface=practiceDealt,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 15:01:50.375  4877  4934 I KeyFlowRotation: surface,flow=flow7,surface=practiceDealt,result=pass
+11-11 15:01:51.278  4877  4934 I KeyFlowRotation: layout,flow=flow7,surface=practiceHint,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 15:01:52.841  4877  4934 I KeyFlowRotation: layout,flow=flow7,surface=practiceHint,orientation=landscape,widthDp=832,class=MEDIUM,checks=lesson:sideBySide
+11-11 15:01:54.075  4877  4934 I KeyFlowRotation: layout,flow=flow7,surface=practiceHint,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 15:01:54.075  4877  4934 I KeyFlowRotation: surface,flow=flow7,surface=practiceHint,result=pass
+11-11 15:02:35.825  4877  4934 I KeyFlowRotation: layout,flow=flow7,surface=stageMasteredMilestone,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 15:02:37.058  4877  4934 I KeyFlowRotation: layout,flow=flow7,surface=stageMasteredMilestone,orientation=landscape,widthDp=832,class=MEDIUM,checks=lesson:sideBySide
+11-11 15:02:38.233  4877  4934 I KeyFlowRotation: layout,flow=flow7,surface=stageMasteredMilestone,orientation=portrait,widthDp=384,class=COMPACT,checks=lesson:stacked
+11-11 15:02:38.233  4877  4934 I KeyFlowRotation: surface,flow=flow7,surface=stageMasteredMilestone,result=pass
+11-11 15:02:39.793  4877  4934 I KeyFlowRotation: layout,flow=flow7,surface=youTrend,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 15:02:41.108  4877  4934 I KeyFlowRotation: layout,flow=flow7,surface=youTrend,orientation=landscape,widthDp=832,class=MEDIUM,checks=nav:rail
+11-11 15:02:42.142  4877  4934 I KeyFlowRotation: layout,flow=flow7,surface=youTrend,orientation=portrait,widthDp=384,class=COMPACT,checks=nav:bar
+11-11 15:02:42.142  4877  4934 I KeyFlowRotation: surface,flow=flow7,surface=youTrend,result=pass
+11-11 15:02:42.142  4877  4934 I KeyFlowRotation: flow,flow=flow7,surfaces=5,failedSurfaceChecks=0,result=pass
+11-11 15:02:42.520  4877  4891 I TestRunner: finished: flow7PracticeToMastery(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 15:02:42.544  4877  4891 I TestRunner: run finished: 1 tests, 0 failed, 0 ignored

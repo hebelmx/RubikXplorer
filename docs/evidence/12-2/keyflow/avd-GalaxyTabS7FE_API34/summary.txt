@@ -2,6 +2,6 @@ flow1FirstSolvePhysicalCube pass
 flow2TwoLookLastLayer fail
 flow3JustSolveIt pass
 flow6FiveMinuteEvaluation pass
-flow7PracticeToMastery fail
-flow8SkipAhead fail
+flow7PracticeToMastery pass
+flow8SkipAhead pass
 flow9ResetProgress pass
