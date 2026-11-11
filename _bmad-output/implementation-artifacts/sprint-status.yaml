@@ -347,7 +347,7 @@ action_items:
     action: "Wire SessionHost.endSolve to the Solve tab in Story 3.7: connect the
       suspension/resume lifecycle once the solve player is introduced"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-6-retro-2026-11-06.md"
   - id: "epic-8-retro-item-28-record-physical-stage-6-completion-only"
     epic: 8
@@ -386,7 +386,7 @@ action_items:
       and remove the local double-reduce in SolutionPlayback.kt:145-180; test against
       a real SessionHost"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-08.md"
   - id: "epic-8-retro-item-33-one-source-for-physical-mode-copy-move-m"
     epic: 8
@@ -602,7 +602,7 @@ action_items:
       d084079, SolutionPlaybackTest.kt:76,456-500); mark epic-6-retro-item-4 done
       (ecfb9e6)"
     owner: "SM (confirm), Dev (verify)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-11-11.md"
   - id: "epic-3-retro-item-63-narrow-105-to-release-build-recalibratio"
     epic: 3
