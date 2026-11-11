@@ -152,17 +152,23 @@ StrictMode result (re-run 2026-11-10 with network detection added): 6 violations
 solving**, and no app frame performs disk access (the only app frames are `CubentiaApp.onCreate` →
 `super.onCreate()`). The remaining violations, reported verbatim in the log: Samsung
 `Typeface.setFlipFonts`/`getFullFlipFont` disk reads from `Application.onCreate` (each process) and
-`ActivityThread.getProfileSizeOfApp` (first process after install). Both are platform code; whether
-they may be waived against the epic AC ("no main-thread disk access is reported") is an open PO
-question. An earlier
+`ActivityThread.getProfileSizeOfApp` (first process after install). Both are platform code with no
+movable app frame. **StrictMode criterion: met by waiver.** On 2026-11-11 the PO waived, for v1.0,
+exactly these platform-only `DiskReadViolation`s against the Story 3.8 StrictMode criterion ("no
+main-thread disk access is reported"): Samsung FlipFont `Typeface.setFlipFonts` /
+`getFullFlipFont` / `getFontPathFlipFont` inside `android.app.Application.onCreate` (4 per process
+start) and `android.app.ActivityThread.getProfileSizeOfApp` (2 on the first process after install).
+Tracked as [#107](https://github.com/hebelmx/RubikXplorer/issues/107). The waiver does not cover
+network violations (none were seen) or any violation from table loading, solving or app-owned code
+(none were seen). An earlier
 pass (`eeac7db`, [`production-check-attempt2-eeac7db.log`](evidence/3-8/production-check-attempt2-eeac7db.log))
 found 2 real violations: `Context.getFilesDir()` called from `SolverModule.provider` on the main
 thread. These were fixed in `03a69f9` by building the path from `applicationInfo.dataDir`.
 
 ### Known issues (v1.1)
 
-Both items were accepted by the PO for v1.0 on 2026-11-10 and are deferred to v1.1. Neither is fixed
-in Story 3.8.
+These items were accepted or waived by the PO for v1.0 (#104 and #105 on 2026-11-10, #107 on
+2026-11-11) and are deferred to v1.1. None is fixed in Story 3.8.
 
 - **Per-process preparation vs Learner copy (#104).** Preparation repeats in every new app process
   (asset read + move-table build). It took about 8.3 s on the debug build and 7.6–7.8 s (coarse UI polling, upper bounds) on the
@@ -176,6 +182,11 @@ in Story 3.8.
   [benchmarks.md](benchmarks.md#story-38-calibrated-reference-device-equivalent-profile-2026-11-10).
   The zero-failure deviation and the recalibration of k against a release-equivalent device build are
   waived by the PO for v1.0 and deferred to #105.
+- **Platform-only StrictMode disk reads (#107).** Samsung FlipFont reads in
+  `Application.onCreate` (4 per process start) and `ActivityThread.getProfileSizeOfApp` (2 on the
+  first process after install) have no movable app frame. The PO waived them for v1.0 against the
+  Story 3.8 StrictMode criterion on 2026-11-11. The waiver covers only these platform frames, not
+  network violations or violations from table loading, solving or app-owned code.
 
 ### Open measurements
 
