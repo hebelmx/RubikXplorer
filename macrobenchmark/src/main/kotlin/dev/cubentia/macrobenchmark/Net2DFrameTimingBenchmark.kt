@@ -11,15 +11,16 @@ import androidx.test.uiautomator.Until
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.regex.Pattern
 
 /**
  * NFR-2 frame timing of the 2D net only: the Solve tab's free cube (`Net2DRenderer`, Compose) while
  * face-turn keys are tapped, on the `:app` `benchmark` build type (release code, R8, profileable).
  *
  * Out of scope: the 3D renderer draws on a `GLSurfaceView`, whose frames `FrameTimingMetric` cannot
- * see; GL timing uses the in-app `onDrawFrame` interval log. Per-device baselines on the reference
- * devices are Story 1.11. Run on demand with a device or emulator:
- * `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest` (see `docs/benchmarks.md`).
+ * see; GL timing uses the in-app `onDrawFrame` interval log. The recorded per-device baselines on
+ * the reference devices (Story 1.11) are in `docs/benchmarks.md`, with how to reproduce them. Run on
+ * demand with a device or emulator: `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest`.
  */
 @RunWith(AndroidJUnit4::class)
 class Net2DFrameTimingBenchmark {
@@ -42,7 +43,10 @@ class Net2DFrameTimingBenchmark {
             FACE_KEYS.forEach { description -> tapKey(description) }
         }
 
+    /** A fresh install opens on the Welcome screen, which has no tabs; *I'm new* leads to them. */
     private fun MacrobenchmarkScope.openSolveTab() {
+        val first = checkNotNull(device.wait(Until.findObject(By.text(SOLVE_OR_WELCOME)), TIMEOUT_MS)) { "No \"$SOLVE_TAB\" tab" }
+        if (first.text == IM_NEW) first.click()
         val solve = checkNotNull(device.wait(Until.findObject(By.text(SOLVE_TAB)), TIMEOUT_MS)) { "No \"$SOLVE_TAB\" tab" }
         solve.click()
         checkNotNull(device.wait(Until.findObject(By.desc(FACE_KEYS.first())), TIMEOUT_MS)) { "Solve tab shows no Move keys" }
@@ -58,6 +62,8 @@ class Net2DFrameTimingBenchmark {
     private companion object {
         const val TARGET_PACKAGE = "com.exxerpro.cubentia"
         const val SOLVE_TAB = "Solve"
+        const val IM_NEW = "I'm new"
+        val SOLVE_OR_WELCOME: Pattern = Pattern.compile("${Pattern.quote(SOLVE_TAB)}|${Pattern.quote(IM_NEW)}")
         const val ITERATIONS = 5
         const val TIMEOUT_MS = 5_000L
 

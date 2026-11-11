@@ -17,8 +17,6 @@ kotest = "6.2.6"
 kotlinx-serialization = "1.12.0"
 kotlinx-coroutines = "1.11.0"
 robolectric = "4.17"
-# OQ-3 spike only (Story 1.8): latest stable on Maven Central 2026-10-30; Filament 1.72.1. Used only with -Pcubentia.spike3d=true.
-sceneview = "4.63.0"
 detekt = "2.0.0-alpha.6"
 # Story 1.10 benchmarks, latest stables on Google Maven 2026-10-31. Run on demand only, never in `build`.
 benchmark-macro = "1.5.0"
@@ -50,7 +48,6 @@ androidx-window-core = { module = "androidx.window:window-core", version.ref = "
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hilt" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
-sceneview = { module = "io.github.sceneview:sceneview", version.ref = "sceneview" }
 
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 

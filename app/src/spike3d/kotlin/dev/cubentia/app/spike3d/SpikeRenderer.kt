@@ -18,18 +18,42 @@ abstract class SpikeRenderer(
 ) : CubeRenderer {
     protected val driver = SpikeTurnDriver(onTurnFinished = ::log)
     private var turns = 0
+    private var views = 0
 
     override fun submit(items: List<PresentationItem>) = driver.submit(items)
 
+    /** Queues [count] View Rotations (camera yaw only) after any queued turns. */
+    fun submitViewRotations(count: Int) = driver.submitViewRotations(count)
+
     override fun renderedFacelets(): Facelets = driver.facelets()
 
-    /** True while a turn is animating or items are queued. */
+    /** True while a turn or View Rotation is animating or queued. */
     fun isBusy(): Boolean = driver.isBusy()
 
     @Composable
     abstract fun Content(modifier: Modifier)
 
     private fun log(stats: TurnStats) {
+        if (stats.viewRotation) {
+            Log.i(
+                TAG,
+                String.format(
+                    Locale.ROOT,
+                    "view n=%d engine=%s elapsedMs=%.1f frames=%d p50=%.2f p90=%.2f p99=%.2f max=%.2f over33=%d readbackOk=%b",
+                    ++views,
+                    engineName,
+                    stats.elapsedMillis,
+                    stats.frames,
+                    stats.p50,
+                    stats.p90,
+                    stats.p99,
+                    stats.max,
+                    stats.over33,
+                    stats.readbackMatchesTarget,
+                ),
+            )
+            return
+        }
         Log.i(
             TAG,
             String.format(

@@ -1,6 +1,7 @@
 package dev.cubentia.app.spike3d
 
 import dev.cubentia.app.render.PresentationItem
+import dev.cubentia.app.spike3d.SpikeTurnDriver.Companion.percentile
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
@@ -95,12 +96,50 @@ class SpikeCubeModelTest {
     }
 
     @Test
+    fun `view rotations run after turns, alternate the yaw and never change the facelets`() {
+        val stats = mutableListOf<TurnStats>()
+        val driver = SpikeTurnDriver(onTurnFinished = { stats += it })
+        val move = FaceTurn(Face.R, Turn.CLOCKWISE)
+        val target = CubeState.SOLVED.apply(move).toFacelets()
+        driver.submitViewRotations(2)
+        driver.submit(listOf(PresentationItem.Animate(move, 1, target)))
+        var now = 0L
+        while (driver.isBusy()) {
+            driver.onFrame(now)
+            now += FRAME_NANOS
+        }
+        assertEquals(listOf(false, true, true), stats.map { it.viewRotation })
+        assertTrue(stats.all { it.readbackMatchesTarget })
+        assertEquals(target, driver.facelets())
+        assertEquals(0f, driver.viewYawDegrees())
+        assertEquals(SpikeTurnDriver.VIEW_ROTATION_MILLIS.toDouble(), stats[1].elapsedMillis, FRAME_NANOS / 1e6)
+    }
+
+    @Test
     fun `a snap resets the model to its target`() {
         val target = CubeState.SOLVED.apply(FaceTurn(Face.F, Turn.HALF), FaceTurn(Face.L, Turn.CLOCKWISE)).toFacelets()
         val driver = SpikeTurnDriver()
         driver.submit(listOf(PresentationItem.Snap(1, target)))
         driver.onFrame(0)
         assertEquals(target, driver.facelets())
+    }
+
+    @Test
+    fun `percentile of a single interval is that interval`() {
+        assertEquals(5.0, listOf(5.0).percentile(0.9))
+    }
+
+    @Test
+    fun `percentile uses the nearest rank`() {
+        val intervals = (1..10).map { it.toDouble() }
+        assertEquals(9.0, intervals.percentile(0.9))
+        assertEquals(5.0, intervals.percentile(0.5))
+        assertEquals(10.0, intervals.percentile(0.99))
+    }
+
+    @Test
+    fun `percentile of no intervals is zero`() {
+        assertEquals(0.0, emptyList<Double>().percentile(0.9))
     }
 
     companion object {

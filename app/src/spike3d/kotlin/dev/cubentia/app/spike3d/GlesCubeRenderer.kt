@@ -17,7 +17,8 @@ import javax.microedition.khronos.opengles.GL10
  * OQ-3 spike, throwaway: the cube on a [GLSurfaceView] with OpenGL ES 3.0 and nothing else. One VBO
  * holds all 27 cubies in local space (body box plus sticker quads with vertex colors); each cubie
  * is drawn with its own model matrix from [SpikeCubeModel.modelMatrix]. The VBO is rebuilt only when
- * sticker colors change (a Snap). Renders continuously and advances the queue once per frame.
+ * sticker colors change (a Snap). Renders continuously and advances the queue once per frame; a View
+ * Rotation yaws the view matrix each frame.
  */
 class GlesCubeRenderer : SpikeRenderer("gles") {
     @Composable
@@ -45,6 +46,8 @@ class GlesCubeRenderer : SpikeRenderer("gles") {
         private val count = IntArray(SpikeCubeModel.CUBIE_COUNT)
         private val models = FloatArray(SpikeCubeModel.CUBIE_COUNT * MAT4)
         private val view = FloatArray(MAT4)
+        private val yawRotation = FloatArray(MAT4)
+        private val rotatedView = FloatArray(MAT4)
         private val projection = FloatArray(MAT4)
         private val viewProj = FloatArray(MAT4)
 
@@ -76,7 +79,6 @@ class GlesCubeRenderer : SpikeRenderer("gles") {
             val halfTan = Math.tan(Math.toRadians(FOV_DEGREES / 2.0)) / minOf(aspect, 1f)
             val fovY = Math.toDegrees(2 * Math.atan(halfTan)).toFloat()
             Matrix.perspectiveM(projection, 0, fovY, aspect, NEAR, FAR)
-            Matrix.multiplyMM(viewProj, 0, projection, 0, view, 0)
         }
 
         override fun onDrawFrame(unused: GL10?) {
@@ -92,6 +94,10 @@ class GlesCubeRenderer : SpikeRenderer("gles") {
                     }
                 }
             if (vertices != null) upload(vertices)
+            // View Rotation: yaw the cube in front of the fixed camera.
+            Matrix.setRotateM(yawRotation, 0, driver.viewYawDegrees(), 0f, 1f, 0f)
+            Matrix.multiplyMM(rotatedView, 0, view, 0, yawRotation, 0)
+            Matrix.multiplyMM(viewProj, 0, projection, 0, rotatedView, 0)
 
             GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
             GLES30.glUseProgram(program)
