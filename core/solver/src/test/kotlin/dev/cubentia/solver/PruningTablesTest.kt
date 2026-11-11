@@ -214,31 +214,36 @@ class PruningTablesTest {
     fun `loaded tables build the move tables on the CPU dispatcher before ready`() =
         runBlocking {
             val asset = validFileBytes()
+            val file = File(directory, "files/tables")
             Executors.newSingleThreadExecutor { work -> Thread(work, "pruning-test-moves") }.asCoroutineDispatcher().use { cpu ->
-                val threads = mutableListOf<String>()
-                val counting =
-                    object : kotlinx.coroutines.CoroutineDispatcher() {
-                        override fun dispatch(
-                            context: kotlin.coroutines.CoroutineContext,
-                            block: Runnable,
-                        ) = cpu.dispatch(context) {
-                            threads += Thread.currentThread().name
-                            block.run()
-                        }
+                val loaders =
+                    listOf<() -> PruningTableProvider>(
+                        {
+                            PruningTableProvider(file, cpuDispatcher = cpu, generate = { error("no generation") }, bundled = {
+                                ByteArrayInputStream(asset)
+                            })
+                        },
+                        {
+                            file.parentFile.mkdirs()
+                            file.writeBytes(asset)
+                            PruningTableProvider(file, cpuDispatcher = cpu, generate = { error("no generation") })
+                        },
+                    )
+                for ((loader, expected) in loaders.zip(listOf(PruningTableSource.BUNDLED, PruningTableSource.CACHE))) {
+                    val builtOn = java.util.concurrent.ConcurrentHashMap<Coordinate, String>()
+                    MoveTables.resetForTest()
+                    MoveTables.buildObserver = { coordinate -> builtOn[coordinate] = Thread.currentThread().name.substringBefore(" @") }
+                    try {
+                        assertTrue(MoveTables.builtCoordinates().isEmpty())
+                        val ready = loader().load() as PruningTableLoadResult.Ready
+                        assertEquals(expected, ready.source)
+                        assertEquals(Coordinate.entries.toSet(), MoveTables.builtCoordinates())
+                        assertEquals(Coordinate.entries.associateWith { "pruning-test-moves" }, builtOn.toMap())
+                        assertTrue(ready.moveTableNanos > 0)
+                    } finally {
+                        MoveTables.buildObserver = null
                     }
-                val file = File(directory, "files/tables")
-                val bundled =
-                    PruningTableProvider(file, cpuDispatcher = counting, generate = { error("no generation") }, bundled = {
-                        ByteArrayInputStream(asset)
-                    }).load() as PruningTableLoadResult.Ready
-                assertTrue(bundled.moveTableNanos >= 0)
-                assertTrue(threads.isNotEmpty() && threads.all { it == "pruning-test-moves" })
-                file.parentFile.mkdirs()
-                file.writeBytes(asset)
-                threads.clear()
-                val cached = PruningTableProvider(file, cpuDispatcher = counting, generate = { error("no generation") }).load()
-                assertEquals(PruningTableSource.CACHE, (cached as PruningTableLoadResult.Ready).source)
-                assertTrue(threads.isNotEmpty())
+                }
             }
         }
 

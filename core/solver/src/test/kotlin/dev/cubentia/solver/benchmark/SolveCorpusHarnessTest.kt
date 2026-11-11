@@ -70,6 +70,36 @@ class SolveCorpusHarnessTest {
     }
 
     @Test
+    fun `a scaled time over budget counts as a failure on the calibrated profile`() {
+        var now = 0L
+        val clock = {
+            now += 10
+            now
+        }
+        // Even cases succeed on the host; k = 2.5 turns 10 ns into 25 ns, over a 20 ns budget.
+        val stats = SolveCorpusHarness(warmup = 0, budgetNanos = 20, clock = clock, timeScale = 2.5).run(MixedWorkload(2))
+        assertEquals(2, stats.failures)
+        // At exactly the budget the scaled case still succeeds.
+        now = 0L
+        val atBudget = SolveCorpusHarness(warmup = 0, budgetNanos = 20, clock = clock, timeScale = 2.0).run(MixedWorkload(2))
+        assertEquals(1, atBudget.failures)
+        assertEquals(1, atBudget.withinBudget)
+    }
+
+    @Test
+    fun `without a time scale the measured time alone never turns a success into a failure`() {
+        var now = 0L
+        val clock = {
+            now += 10
+            now
+        }
+        // Host run (k = 1): a successful case over the budget stays a success, as before 3.8.
+        val stats = SolveCorpusHarness(warmup = 0, budgetNanos = 5, clock = clock).run(MixedWorkload(2))
+        assertEquals(1, stats.failures)
+        assertEquals(0, stats.withinBudget)
+    }
+
+    @Test
     fun `runtime sampler keeps the largest used heap after reset`() {
         val readings = ArrayDeque(listOf(5L, 9L, 3L))
         val sampler = RuntimeHeapSampler { readings.removeFirst() }

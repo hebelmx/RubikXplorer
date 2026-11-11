@@ -48,7 +48,9 @@ class RuntimeHeapSampler(
  * exception counts as a failure and never aborts the run; its time is still recorded.
  *
  * [timeScale] is the Story 3.8 calibrated-profile factor k: each measured time is multiplied by k
- * before the statistics (and the budget comparison) are computed. 1.0 is the uncalibrated host.
+ * before the statistics (and the budget comparison) are computed, and a case whose scaled time
+ * exceeds the budget counts as a failure (the solver would have timed out on the reference device).
+ * 1.0 is the uncalibrated host; there the solver's own deadline decides success.
  */
 class SolveCorpusHarness(
     private val warmup: Int = DEFAULT_WARMUP,
@@ -74,7 +76,9 @@ class SolveCorpusHarness(
                 val succeeded = attemptSafely(workload, case)
                 val nanos = clock() - start
                 heapSampler.sample()
-                Sample(scale(nanos), succeeded)
+                val scaled = scale(nanos)
+                // On the calibrated profile a scaled time over budget is the device's timeout: a failure.
+                Sample(scaled, succeeded && (timeScale == 1.0 || scaled <= budgetNanos))
             }
         return CorpusStats.of(samples, budgetNanos, heapSampler.peakBytes())
     }
