@@ -59,6 +59,15 @@ class PruningTablesBenchmarkActivity : Activity() {
                 Log.i(TAG, "identity,release=${Build.VERSION.RELEASE},fingerprint=${Build.FINGERPRINT}")
                 Log.i(TAG, conditions())
                 memory("before")
+                if (intent.getBooleanExtra("bundledOnly", false)) {
+                    // Story 3.8 production path alone in a fresh process: asset read + move-table build.
+                    bundled(cache)
+                    mainHandler.post {
+                        Log.i(TAG, "bundledOnly,mainThreadDiskViolations=${violations.get()}")
+                        finish()
+                    }
+                    return@launch
+                }
                 report("first", PruningTableProvider(cache).load())
                 memory("afterFirst")
                 report("warm", PruningTableProvider(cache).load())
@@ -82,6 +91,17 @@ class PruningTablesBenchmarkActivity : Activity() {
                 mainHandler.post { finish() }
             }
         }
+    }
+
+    /** The production bundled asset through a fresh provider (no in-memory reuse); never generates. */
+    private suspend fun bundled(cache: File) {
+        val unused = File(cache.parentFile, "bundled-unused.bin")
+        val provider =
+            PruningTableProvider(unused, generate = { error("bundled asset missing") }, bundled = {
+                assets.open(SolverModule.TABLE_ASSET)
+            })
+        report("bundled", provider.load())
+        memory("afterBundled")
     }
 
     /** Charging, battery level, thermal status and stay-awake evidence for the run record. */
