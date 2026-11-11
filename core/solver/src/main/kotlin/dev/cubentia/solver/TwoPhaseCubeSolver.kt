@@ -13,7 +13,8 @@ import kotlinx.coroutines.withContext
  * Original IDA* implementation from the mathematical two-phase description at
  * https://kociemba.org/math/twophase.htm; no third-party solver source used.
  * Phase one is bounded by 12 face turns, phase two by 18 (30 total). Prepared tables are injected;
- * production table delivery belongs to Story 3.8. Each solve owns its mutable search workspace.
+ * in production [PruningTableProvider] delivers them (bundled, Story 3.8) and builds the move tables
+ * off-main before they are ready. Each solve owns its mutable search workspace.
  */
 class TwoPhaseCubeSolver internal constructor(
     private val tables: PruningTables,

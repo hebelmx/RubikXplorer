@@ -1,0 +1,83 @@
+# installed size on R52T50ELHWK (benchmark build type = release copy: R8, resource shrinking, debug-signed). Method: adb install, pm path, ls -l of the code dir and stat of oat/arm64/base.{odex,vdex,art}. App data is not readable by shell on this non-debuggable build.
+## unbundled-baseline 2026-11-11T01:37:27Z revision=79e66110b5962eb68773bcad0abbdeb7d37b4f49 (no -Pcubentia.bundleTables)
+host apk bytes: 3477192 sha256=2d5bc6b553caa9e6268f6dc3a95a6498df334acbf286849615a6a2ee76f04673
+Performing Streamed Install
+Success
+codePath: /data/app/~~8i7wcGq-Tkjyqu1oAcYzLQ==/com.exxerpro.cubentia-vdYafh4gffNxWdIFkRIfwQ==
+-- code dir (ls -l; oat/ is not listable by shell, its files are stat-ed by name)
+total 3402
+-rw-r--r-- 1 system system  3477192 2026-11-10 19:37 base.apk
+drwxr-xr-x 3 system system     3452 2026-11-10 19:37 lib
+drwxrwx--x 3 system install    3452 2026-11-10 19:37 oat
+ls: /data/app/~~8i7wcGq-Tkjyqu1oAcYzLQ==/com.exxerpro.cubentia-vdYafh4gffNxWdIFkRIfwQ==/oat/arm64/base.art: No such file or directory
+-rw-r--r-- 1 system all_a592 49920 2026-11-10 19:37 /data/app/~~8i7wcGq-Tkjyqu1oAcYzLQ==/com.exxerpro.cubentia-vdYafh4gffNxWdIFkRIfwQ==/oat/arm64/base.odex
+-rw-r--r-- 1 system all_a592 62996 2026-11-10 19:37 /data/app/~~8i7wcGq-Tkjyqu1oAcYzLQ==/com.exxerpro.cubentia-vdYafh4gffNxWdIFkRIfwQ==/oat/arm64/base.vdex
+-- dexopt
+  [com.exxerpro.cubentia]
+installedCodeBytes(apk+dm+odex+vdex+art)=3590108
+## bundled-candidate 2026-11-11T01:37:43Z revision=ed490da5736b84a95ae3ee225be93f69e247f52b -Pcubentia.bundleTables=true
+host apk bytes: 4399962 sha256=819074036e74e60cb8520d337e2c9b471c4c91bb3af642e2a940d4087d86f828
+Performing Streamed Install
+Success
+codePath: /data/app/~~NoCkKS-DvrVzQpwyXSjkRQ==/com.exxerpro.cubentia-Eotg7proV7dutIFkFV9jLQ==
+-- code dir (ls -l; oat/ is not listable by shell, its files are stat-ed by name)
+total 4310
+-rw-r--r-- 1 system system  4399962 2026-11-10 19:37 base.apk
+drwxr-xr-x 3 system system     3452 2026-11-10 19:37 lib
+drwxrwx--x 3 system install    3452 2026-11-10 19:37 oat
+ls: /data/app/~~NoCkKS-DvrVzQpwyXSjkRQ==/com.exxerpro.cubentia-Eotg7proV7dutIFkFV9jLQ==/oat/arm64/base.art: No such file or directory
+-rw-r--r-- 1 system all_a593 49920 2026-11-10 19:37 /data/app/~~NoCkKS-DvrVzQpwyXSjkRQ==/com.exxerpro.cubentia-Eotg7proV7dutIFkFV9jLQ==/oat/arm64/base.odex
+-rw-r--r-- 1 system all_a593 62996 2026-11-10 19:37 /data/app/~~NoCkKS-DvrVzQpwyXSjkRQ==/com.exxerpro.cubentia-Eotg7proV7dutIFkFV9jLQ==/oat/arm64/base.vdex
+-- dexopt
+  [com.exxerpro.cubentia]
+installedCodeBytes(apk+dm+odex+vdex+art)=4512878
+## production-bundled 2026-11-11T01:37:56Z revision=ef9c6df62712182af85ebba8bc64b9e513a44ddb
+host apk bytes: 4399962 sha256=bf35c23db5482d843b3995c2f14b6f2f7a57be98ab04750fea31fea3ba02738e
+Performing Streamed Install
+Success
+codePath: /data/app/~~GS1Wf0dQembH6DRV7yFldQ==/com.exxerpro.cubentia-LqsFnw-aApIwvraFFaggng==
+-- code dir (ls -l; oat/ is not listable by shell, its files are stat-ed by name)
+total 4310
+-rw-r--r-- 1 system system  4399962 2026-11-10 19:37 base.apk
+drwxr-xr-x 3 system system     3452 2026-11-10 19:37 lib
+drwxrwx--x 3 system install    3452 2026-11-10 19:38 oat
+-rw-r--r-- 1 system all_a594 49920 2026-11-10 19:38 /data/app/~~GS1Wf0dQembH6DRV7yFldQ==/com.exxerpro.cubentia-LqsFnw-aApIwvraFFaggng==/oat/arm64/base.odex
+-rw-r--r-- 1 system all_a594 63000 2026-11-10 19:38 /data/app/~~GS1Wf0dQembH6DRV7yFldQ==/com.exxerpro.cubentia-LqsFnw-aApIwvraFFaggng==/oat/arm64/base.vdex
+ls: /data/app/~~GS1Wf0dQembH6DRV7yFldQ==/com.exxerpro.cubentia-LqsFnw-aApIwvraFFaggng==/oat/arm64/base.art: No such file or directory
+-- dexopt
+  [com.exxerpro.cubentia]
+installedCodeBytes(apk+dm+odex+vdex+art)=4512882
+## unbundled-baseline (attempt 1) 2026-11-11T01:38:22Z revision=79e66110b5962eb68773bcad0abbdeb7d37b4f49 (no -Pcubentia.bundleTables)
+host apk bytes: 3477192 sha256=2d5bc6b553caa9e6268f6dc3a95a6498df334acbf286849615a6a2ee76f04673
+Performing Streamed Install
+Success
+codePath: /data/app/~~XEZvSEnWaBw5wyLqLvMbXw==/com.exxerpro.cubentia--dMEnJYqEmjo7D5V7FhMhQ==
+-- code dir (ls -l; oat/ is not listable by shell, its files are stat-ed by name)
+total 3410
+-rw-r--r-- 1 system system  3477192 2026-11-10 19:38 base.apk
+-rw-r--r-- 1 system system     7666 2026-11-10 19:38 base.dm
+drwxr-xr-x 3 system system     3452 2026-11-10 19:38 lib
+drwxrwx--x 3 system install    3452 2026-11-10 19:38 oat
+-rw-r--r-- 1 system all_a595  451488 2026-11-10 19:38 /data/app/~~XEZvSEnWaBw5wyLqLvMbXw==/com.exxerpro.cubentia--dMEnJYqEmjo7D5V7FhMhQ==/oat/arm64/base.art
+-rw-r--r-- 1 system all_a595 2880872 2026-11-10 19:38 /data/app/~~XEZvSEnWaBw5wyLqLvMbXw==/com.exxerpro.cubentia--dMEnJYqEmjo7D5V7FhMhQ==/oat/arm64/base.odex
+-rw-r--r-- 1 system all_a595   62996 2026-11-10 19:38 /data/app/~~XEZvSEnWaBw5wyLqLvMbXw==/com.exxerpro.cubentia--dMEnJYqEmjo7D5V7FhMhQ==/oat/arm64/base.vdex
+-- dexopt
+      arm64: [status=speed-profile] [reason=install-speg-dm]
+installedCodeBytes(apk+dm+odex+vdex+art)=6880214
+## production-bundled (attempt 2) 2026-11-11T01:38:51Z revision=ef9c6df62712182af85ebba8bc64b9e513a44ddb
+host apk bytes: 4399962 sha256=bf35c23db5482d843b3995c2f14b6f2f7a57be98ab04750fea31fea3ba02738e
+Performing Streamed Install
+Success
+codePath: /data/app/~~vFHBDNKZja9tu8h1g2jhxw==/com.exxerpro.cubentia-CO5hdz-1CvqfQhWuLP6zpg==
+-- code dir (ls -l; oat/ is not listable by shell, its files are stat-ed by name)
+total 4318
+-rw-r--r-- 1 system system  4399962 2026-11-10 19:38 base.apk
+-rw-r--r-- 1 system system     7675 2026-11-10 19:38 base.dm
+drwxr-xr-x 3 system system     3452 2026-11-10 19:38 lib
+drwxrwx--x 3 system install    3452 2026-11-10 19:38 oat
+-rw-r--r-- 1 system all_a597  451488 2026-11-10 19:39 /data/app/~~vFHBDNKZja9tu8h1g2jhxw==/com.exxerpro.cubentia-CO5hdz-1CvqfQhWuLP6zpg==/oat/arm64/base.art
+-rw-r--r-- 1 system all_a597 2880864 2026-11-10 19:38 /data/app/~~vFHBDNKZja9tu8h1g2jhxw==/com.exxerpro.cubentia-CO5hdz-1CvqfQhWuLP6zpg==/oat/arm64/base.odex
+-rw-r--r-- 1 system all_a597   63000 2026-11-10 19:38 /data/app/~~vFHBDNKZja9tu8h1g2jhxw==/com.exxerpro.cubentia-CO5hdz-1CvqfQhWuLP6zpg==/oat/arm64/base.vdex
+-- dexopt
+      arm64: [status=speed-profile] [reason=install-speg-dm]
+installedCodeBytes(apk+dm+odex+vdex+art)=7802989

@@ -3,6 +3,7 @@ package dev.cubentia.solver
 import dev.cubentia.application.port.SolveResult
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Cubies
+import dev.cubentia.solver.benchmark.JvmHeapPoolSampler
 import dev.cubentia.solver.benchmark.SolveCorpusHarness
 import dev.cubentia.solver.benchmark.SolverWorkload
 import dev.cubentia.solver.benchmark.randomLegalState
@@ -24,7 +25,7 @@ class TwoPhaseCubeSolverTest {
     @Test
     fun `mandatory ten thousand uniform legal states plus solved and deep Scrambles`() {
         val workload = SolverWorkload(10_000, 20_261_031L)
-        val stats = SolveCorpusHarness().run(workload)
+        val stats = SolveCorpusHarness(heapSampler = JvmHeapPoolSampler()).run(workload)
         println(stats.report(workload.name))
         assertEquals(10_101, stats.cases)
         assertEquals(0, stats.failures, stats.report(workload.name))

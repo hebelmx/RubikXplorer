@@ -3,6 +3,7 @@ package dev.cubentia.solver
 import dev.cubentia.domain.cube.CubeState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -13,11 +14,13 @@ import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -180,6 +183,162 @@ class PruningTablesTest {
     @Test
     fun `generation invokes cooperative cancellation`() {
         assertThrows(CancellationException::class.java) { PruningTables.generate { throw CancellationException("cancel") } }
+    }
+
+    @Test
+    fun `bundled asset serves validated tables without generation or private file`() =
+        runBlocking {
+            val asset = validFileBytes()
+            val file = File(directory, "files/tables")
+            val calls = AtomicInteger()
+            val opens = AtomicInteger()
+            val provider =
+                PruningTableProvider(file, generate = {
+                    calls.incrementAndGet()
+                    tables
+                }, bundled = {
+                    opens.incrementAndGet()
+                    ByteArrayInputStream(asset)
+                })
+            val loaded = provider.load() as PruningTableLoadResult.Ready
+            assertEquals(PruningTableSource.BUNDLED, loaded.source)
+            assertEquals(0L, loaded.generationNanos)
+            tables.distances.zip(loaded.tables.distances).forEach { (a, b) -> assertArrayEquals(a, b) }
+            assertSame(loaded, provider.load())
+            assertEquals(1, opens.get())
+            assertEquals(0, calls.get())
+            assertFalse(file.exists())
+        }
+
+    @Test
+    fun `loaded tables build the move tables on the CPU dispatcher before ready`() =
+        runBlocking {
+            val asset = validFileBytes()
+            val file = File(directory, "files/tables")
+            Executors.newSingleThreadExecutor { work -> Thread(work, "pruning-test-moves") }.asCoroutineDispatcher().use { cpu ->
+                val loaders =
+                    listOf<() -> PruningTableProvider>(
+                        {
+                            PruningTableProvider(file, cpuDispatcher = cpu, generate = { error("no generation") }, bundled = {
+                                ByteArrayInputStream(asset)
+                            })
+                        },
+                        {
+                            file.parentFile.mkdirs()
+                            file.writeBytes(asset)
+                            PruningTableProvider(file, cpuDispatcher = cpu, generate = { error("no generation") })
+                        },
+                    )
+                for ((loader, expected) in loaders.zip(listOf(PruningTableSource.BUNDLED, PruningTableSource.CACHE))) {
+                    val builtOn = java.util.concurrent.ConcurrentHashMap<Coordinate, String>()
+                    MoveTables.resetForTest()
+                    MoveTables.buildObserver = { coordinate -> builtOn[coordinate] = Thread.currentThread().name.substringBefore(" @") }
+                    try {
+                        assertTrue(MoveTables.builtCoordinates().isEmpty())
+                        val ready = loader().load() as PruningTableLoadResult.Ready
+                        assertEquals(expected, ready.source)
+                        assertEquals(Coordinate.entries.toSet(), MoveTables.builtCoordinates())
+                        assertEquals(Coordinate.entries.associateWith { "pruning-test-moves" }, builtOn.toMap())
+                        assertTrue(ready.moveTableNanos > 0)
+                    } finally {
+                        MoveTables.buildObserver = null
+                    }
+                }
+            }
+        }
+
+    @Test
+    fun `cancelling during move-table preparation of a bundled load publishes nothing and a retry is ready`() =
+        runBlocking {
+            val asset = validFileBytes()
+            val file = File(directory, "files/tables")
+            val provider =
+                PruningTableProvider(file, generate = { error("no generation") }, bundled = { ByteArrayInputStream(asset) })
+            val building = CompletableDeferred<Unit>()
+            val release = java.util.concurrent.CountDownLatch(1)
+            MoveTables.resetForTest()
+            MoveTables.buildObserver = {
+                if (building.complete(Unit)) release.await()
+            }
+            try {
+                var published: PruningTableLoadResult? = null
+                val loading = launch(Dispatchers.Default) { published = provider.load() }
+                withTimeout(10_000) { building.await() }
+                loading.cancel()
+                release.countDown()
+                loading.join()
+                assertTrue(loading.isCancelled)
+                assertEquals(null, published)
+                assertTrue(MoveTables.builtCoordinates().size < Coordinate.entries.size)
+            } finally {
+                MoveTables.buildObserver = null
+                release.countDown()
+            }
+            val retried = provider.load() as PruningTableLoadResult.Ready
+            assertEquals(PruningTableSource.BUNDLED, retried.source)
+            assertEquals(Coordinate.entries.toSet(), MoveTables.builtCoordinates())
+            assertFalse(file.exists())
+        }
+
+    @Test
+    fun `invalid or unreadable bundled asset falls back to the private file then generation`() =
+        runBlocking {
+            val valid = validFileBytes()
+            val file = File(directory, "files/tables")
+            val calls = AtomicInteger()
+            val broken =
+                listOf<() -> java.io.InputStream>(
+                    { ByteArrayInputStream(valid.copyOf(12)) },
+                    { ByteArrayInputStream(valid + byteArrayOf(0)) },
+                    { ByteArrayInputStream(valid.clone().also { it[7] = 99 }) },
+                    { ByteArrayInputStream(valid.clone().also { it[60] = (it[60].toInt() xor 1).toByte() }) },
+                    { throw java.io.FileNotFoundException("solver/pruning-v1.bin") },
+                    { throw IllegalStateException("asset manager closed") },
+                )
+            for (open in broken) {
+                file.delete()
+                val generated =
+                    PruningTableProvider(file, generate = {
+                        calls.incrementAndGet()
+                        tables
+                    }, bundled = open).load() as PruningTableLoadResult.Ready
+                assertEquals(PruningTableSource.GENERATED, generated.source)
+                val cached = PruningTableProvider(file, generate = { error("no regeneration") }, bundled = open).load()
+                assertEquals(PruningTableSource.CACHE, (cached as PruningTableLoadResult.Ready).source)
+            }
+            assertEquals(broken.size, calls.get())
+        }
+
+    @Test
+    fun `cancelled bundled read publishes nothing and retries`() =
+        runBlocking {
+            val asset = validFileBytes()
+            val entered = CompletableDeferred<Unit>()
+            val release = java.util.concurrent.CountDownLatch(1)
+            val opens = AtomicInteger()
+            val provider =
+                PruningTableProvider(File(directory, "files/tables"), generate = { error("no generation") }, bundled = {
+                    if (opens.incrementAndGet() == 1) {
+                        entered.complete(Unit)
+                        release.await()
+                    }
+                    ByteArrayInputStream(asset)
+                })
+            val worker = launch(Dispatchers.Default) { provider.load() }
+            entered.await()
+            worker.cancel()
+            release.countDown()
+            worker.join()
+            assertTrue(worker.isCancelled)
+            val retried = provider.load() as PruningTableLoadResult.Ready
+            assertEquals(PruningTableSource.BUNDLED, retried.source)
+            assertEquals(2, opens.get())
+        }
+
+    private suspend fun validFileBytes(): ByteArray {
+        val source = File(directory, "source/tables")
+        PruningTableProvider(source, generate = { tables }).load()
+        return source.readBytes()
     }
 
     companion object {

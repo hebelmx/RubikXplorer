@@ -1,0 +1,17 @@
+# host corpus 2026-11-11T01:19:08Z revision=ed490da5736b84a95ae3ee225be93f69e247f52b
+Linux ExxerKali 7.1.5+kali-amd64 #1 SMP PREEMPT_DYNAMIC Kali 7.1.5-1kali1 (2026-07-29) x86_64 GNU/Linux
+CPU(s):                                  20
+Model name:                              12th Gen Intel(R) Core(TM) i7-12800H
+CPU(s) scaling MHz:                      65%
+openjdk version "25.0.5" 2026-10-20
+OpenJDK Runtime Environment (build 25.0.5+8-1-Debian)
+OpenJDK 64-Bit Server VM (build 25.0.5+8-1-Debian, mixed mode, sharing)
+Solve corpus benchmark: two-phase; 10000 uniform legal states + solved + 100 deep Scrambles; seed 20261031
+  cases          10101
+  median         3.262 ms
+  p95            19.962 ms
+  max            223.370 ms
+  within budget  100.0% (10101/10101 at or under 3000.000 ms)
+  failures       0 (0.0%)
+  peak heap      604.6 MiB
+  profile        OpenJDK 64-Bit Server VM 17.0.21; Linux amd64; CPUs=20; maxHeap=16777216000; uncalibrated JVM host

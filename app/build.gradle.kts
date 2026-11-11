@@ -11,6 +11,9 @@ plugins {
 
 room3 { schemaDirectory("$projectDir/schemas") }
 
+val pruningTableAssets = project(":core:solver").layout.buildDirectory.dir("generated/pruningTableAsset")
+tasks.named("preBuild") { dependsOn(":core:solver:writePruningTableAsset") }
+
 android {
     namespace = "dev.cubentia.app"
 
@@ -27,6 +30,13 @@ android {
 
     sourceSets.getByName("test").kotlin.directories += "src/sharedTest/kotlin"
     sourceSets.getByName("androidTest").kotlin.directories += "src/sharedTest/kotlin"
+
+    // Story 3.8 bundled delivery (AD-8, NFR-11): the provider-format pruning table file, generated at build
+    // time by :core:solver:writePruningTableAsset, ships as assets/solver/pruning-v1.bin in every variant.
+    sourceSets.getByName("main").assets.directories += pruningTableAssets.get().asFile.path
+
+    // Story 3.8 device corpus runner (debug only): the same Story 3.3 corpus code as the JVM harness.
+    sourceSets.getByName("debug").kotlin.directories += "../core/solver/src/benchmarkShared/kotlin"
 
     // Robolectric reads debug assets; Android unit-test source-set assets are not merged by AGP.
     sourceSets.getByName("debug").assets.directories += "schemas"
