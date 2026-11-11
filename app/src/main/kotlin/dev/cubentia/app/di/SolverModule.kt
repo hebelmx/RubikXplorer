@@ -18,21 +18,24 @@ import javax.inject.Singleton
  * ships as the APK asset [TABLE_ASSET] and is read and validated on the I/O dispatcher on the first
  * solve of a process. Only if that asset is unreadable or invalid does the provider fall back to
  * first-run generation into app-private, non-evictable `filesDir` ([fallbackFile]). Nothing here
- * runs at app startup or for a Lesson.
+ * runs at app startup or for a Lesson, and constructing the provider touches no disk: the path comes
+ * from `applicationInfo.dataDir` (a field), because `Context.getFilesDir()` stats and creates the
+ * directory on the calling (main) thread — a StrictMode violation found on the Tab S7 FE.
  */
 @Module
 @InstallIn(SingletonComponent::class)
 object SolverModule {
     const val TABLE_ASSET = "solver/pruning-v1.bin"
 
-    fun fallbackFile(filesDir: File): File = File(filesDir, "solver/pruning-v1.bin")
+    /** `<dataDir>/files/solver/pruning-v1.bin`, i.e. under `filesDir`, built without disk access. */
+    fun fallbackFile(dataDir: File): File = File(dataDir, "files/solver/pruning-v1.bin")
 
     @Provides @Singleton
     fun provider(
         @ApplicationContext context: Context,
     ): PruningTableProvider =
         PruningTableProvider(
-            fallbackFile(context.filesDir),
+            fallbackFile(File(context.applicationInfo.dataDir)),
             bundled = { context.assets.open(TABLE_ASSET) },
         )
 

@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * `filesDir`) through the production [PruningTableSolverSource] seam.
  */
 class ProductionTableDeliveryTest {
-    @TempDir lateinit var filesDir: File
+    @TempDir lateinit var dataDir: File
 
     private val generations = AtomicInteger()
 
@@ -35,13 +35,13 @@ class ProductionTableDeliveryTest {
             generations.incrementAndGet()
             tables
         },
-    ) = PruningTableSolverSource(PruningTableProvider(SolverModule.fallbackFile(filesDir), generate = generate, bundled = bundled))
+    ) = PruningTableSolverSource(PruningTableProvider(SolverModule.fallbackFile(dataDir), generate = generate, bundled = bundled))
 
     private val missingAsset: () -> InputStream = { throw FileNotFoundException(SolverModule.TABLE_ASSET) }
 
     @Test
     fun `fallback file is app-private non-evictable storage, never the cache dir`() {
-        assertEquals(File(filesDir, "solver/pruning-v1.bin"), SolverModule.fallbackFile(filesDir))
+        assertEquals(File(dataDir, "files/solver/pruning-v1.bin"), SolverModule.fallbackFile(dataDir))
         assertEquals("solver/pruning-v1.bin", SolverModule.TABLE_ASSET)
     }
 
@@ -53,7 +53,7 @@ class ProductionTableDeliveryTest {
             assertTrue(source.load() is SolverLoad.Ready)
             assertTrue(source.isReady)
             assertEquals(0, generations.get())
-            assertFalse(SolverModule.fallbackFile(filesDir).exists())
+            assertFalse(SolverModule.fallbackFile(dataDir).exists())
         }
 
     @Test
@@ -61,7 +61,7 @@ class ProductionTableDeliveryTest {
         runBlocking {
             assertTrue(source(missingAsset).load() is SolverLoad.Ready)
             assertEquals(1, generations.get())
-            assertArrayEquals(assetBytes, SolverModule.fallbackFile(filesDir).readBytes())
+            assertArrayEquals(assetBytes, SolverModule.fallbackFile(dataDir).readBytes())
             val later = source(missingAsset, generate = { error("must not regenerate") })
             assertTrue(later.load() is SolverLoad.Ready)
         }
@@ -70,7 +70,7 @@ class ProductionTableDeliveryTest {
     fun `corrupt asset and corrupt or short fallback file recover by regeneration, never a crash`() =
         runBlocking {
             val corruptAsset = assetBytes.clone().also { it[100] = (it[100].toInt() xor 1).toByte() }
-            val file = SolverModule.fallbackFile(filesDir).apply { parentFile.mkdirs() }
+            val file = SolverModule.fallbackFile(dataDir).apply { parentFile.mkdirs() }
             file.writeBytes(assetBytes.copyOf(64))
             assertTrue(source({ ByteArrayInputStream(corruptAsset) }).load() is SolverLoad.Ready)
             assertEquals(1, generations.get())
@@ -107,13 +107,14 @@ class ProductionTableDeliveryTest {
     @Test
     fun `fallback write failure is a sealed failure that leaves the occupant intact and can retry`() =
         runBlocking {
-            File(filesDir, "solver").writeText("occupied")
+            val occupant = File(dataDir, "files/solver").apply { parentFile.mkdirs() }
+            occupant.writeText("occupied")
             val source = source(missingAsset)
             assertEquals(SolverLoad.Failed, source.load())
             assertFalse(source.isReady)
-            assertEquals("occupied", File(filesDir, "solver").readText())
-            assertEquals(listOf("solver"), filesDir.list()!!.toList())
-            File(filesDir, "solver").delete()
+            assertEquals("occupied", occupant.readText())
+            assertEquals(listOf("solver"), occupant.parentFile.list()!!.toList())
+            occupant.delete()
             assertTrue(source.load() is SolverLoad.Ready)
         }
 
