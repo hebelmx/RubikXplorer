@@ -12,6 +12,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.io.File
 
 /** Story 3.8: the merged APK assets carry a valid table file that the production provider serves as BUNDLED. */
 @RunWith(RobolectricTestRunner::class)
@@ -24,6 +25,8 @@ class ShippedTableAssetTest {
             val loaded = SolverModule.provider(context).load()
             assertEquals(PruningTableSource.BUNDLED, (loaded as PruningTableLoadResult.Ready).source)
             assertEquals(0L, loaded.generationNanos)
-            assertFalse(SolverModule.fallbackFile(context.filesDir).exists())
+            val fallback = SolverModule.fallbackFile(File(context.applicationInfo.dataDir))
+            assertEquals(File(context.filesDir, "solver/pruning-v1.bin"), fallback)
+            assertFalse(fallback.exists())
         }
 }
