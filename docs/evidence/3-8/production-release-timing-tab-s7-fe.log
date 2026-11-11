@@ -1,0 +1,9 @@
+# coarse UI timing of the production preparation in the release-equivalent benchmark build (R8, not debuggable), revision=03a69f9712ba44a9831db0a8e892ae9a42b23046, apk sha256=6441640969320d156570de194fbce8112757850c43747a31d006449458dfa7c4
+# method: tap Accept, then poll uiautomator dumps (each dump takes ~1 s) until the Solution note appears; elapsed = first dump showing the note minus the Accept tap. Resolution is about 1-2 s; an upper bound, not a harness measurement.
+      arm64: [status=verify] [reason=install]
+  level: 76
+  temperature: 344
+Thermal Status: 1
+run 1: preparingLineSeenInFirstDump=1 elapsedAcceptToNoteSec=7.63
+run 2: preparingLineSeenInFirstDump=1 elapsedAcceptToNoteSec=7.78
+run 3: preparingLineSeenInFirstDump=1 elapsedAcceptToNoteSec=7.61

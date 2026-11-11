@@ -1,0 +1,38 @@
+# device corpus 2026-11-11T01:17:28Z revision=79e66110b5962eb68773bcad0abbdeb7d37b4f49 build=debug
+  AC powered: false
+  USB powered: true
+  level: 82
+  temperature: 330
+Thermal Status: 1
+  mWakefulness=Awake
+  mStayOn=true
+MemTotal:        3518216 kB
+MemAvailable:     564872 kB
+Starting: Intent { cmp=com.exxerpro.cubentia/dev.cubentia.app.solver.SolveCorpusBenchmarkActivity (has extras) }
+Status: ok
+LaunchState: COLD
+Activity: com.exxerpro.cubentia/dev.cubentia.app.solver.SolveCorpusBenchmarkActivity
+TotalTime: 394
+WaitTime: 401
+Complete
+--------- beginning of main
+11-10 19:17:30.737  5348  5348 I SolveCorpusBenchmark: device=samsung/SM-T738U,api=31,release=12
+11-10 19:17:30.737  5348  5348 I SolveCorpusBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,cpus=8
+11-10 19:17:30.737  5348  5348 I SolveCorpusBenchmark: args,cases=10000,seed=20261031,warmup=200
+11-10 19:17:30.741  5348  5348 I SolveCorpusBenchmark: conditions,start,plugged=2,batteryPercent=82,thermalStatus=1,powerSave=false
+11-10 19:17:40.348  5348  5368 I SolveCorpusBenchmark: tablesReady,bytes=4031685,prepareNanos=9606574372
+11-10 19:35:16.284  5348  5368 I SolveCorpusBenchmark: report,Solve corpus benchmark: two-phase; 10000 uniform legal states + solved + 100 deep Scrambles; seed 20261031
+11-10 19:35:16.284  5348  5368 I SolveCorpusBenchmark: report,  cases          10101
+11-10 19:35:16.284  5348  5368 I SolveCorpusBenchmark: report,  median         53.795 ms
+11-10 19:35:16.284  5348  5368 I SolveCorpusBenchmark: report,  p95            338.075 ms
+11-10 19:35:16.284  5348  5368 I SolveCorpusBenchmark: report,  max            3000.916 ms
+11-10 19:35:16.284  5348  5368 I SolveCorpusBenchmark: report,  within budget  100.0% (10100/10101 at or under 3000.000 ms)
+11-10 19:35:16.284  5348  5368 I SolveCorpusBenchmark: report,  failures       1 (0.0%)
+11-10 19:35:16.284  5348  5368 I SolveCorpusBenchmark: report,  peak heap      27.1 MiB
+11-10 19:35:16.284  5348  5368 I SolveCorpusBenchmark: raw,cases=10101,medianNanos=5.3794843E7,p95Nanos=338074895,maxNanos=3000916405,withinBudget=10100,failures=1,peakHeapBytes=28425440,javaHeapMaxBytes=536870912,wallNanos=1055934667358
+11-10 19:35:16.287  5348  5368 I SolveCorpusBenchmark: conditions,end,plugged=2,batteryPercent=80,thermalStatus=1,powerSave=false
+11-10 19:35:16.287  5348  5368 I SolveCorpusBenchmark: done
+# after run
+  level: 80
+  temperature: 340
+Thermal Status: 1
