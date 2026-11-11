@@ -41,10 +41,12 @@ internal data class SnapshotPayload(
     val physicalSolveConfirmed: Boolean = false,
     val physicalSolveUnconfirmed: Boolean = false,
     val practiceEntry: String? = null,
+    val ended: Boolean = false,
 ) {
     fun snapshot(): SessionSnapshot {
-        require(format == 1)
+        require(format == 1 || format == 2)
         return SessionSnapshot(
+            ended = ended,
             attemptOpen = attemptOpen,
             attemptAssistance = AssistanceLevel.valueOf(attemptAssistance),
             attemptId = attemptId,
@@ -90,7 +92,8 @@ internal data class SnapshotPayload(
                     attemptOpen = snapshot.attemptOpen,
                     attemptAssistance = snapshot.attemptAssistance.name,
                     attemptId = snapshot.attemptId,
-                    format = 1,
+                    ended = snapshot.ended,
+                    format = 2,
                     kind = snapshot.kind.name,
                     sessionId = snapshot.sessionId,
                     revision = snapshot.revision,

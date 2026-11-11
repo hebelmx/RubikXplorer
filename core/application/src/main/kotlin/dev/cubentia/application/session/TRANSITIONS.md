@@ -64,6 +64,8 @@ serial writer reports `SnapshotSave.Failed`, and `SnapshotLoadFailed` when the c
 feedback): a failed save leaves the session running in memory and the next committed transition writes
 again; a failed load leaves the state idle, so the Learner starts a fresh Lesson.
 
+Ordinary `SessionEnded` writes an ended snapshot with the post-end revision and pending attempt rows; it deletes nothing. Failed end writes retry before every shared writer operation and on backgrounding until saved or superseded by a later successful snapshot save. Restore treats an ended latest row as no snapshot and still checks the Lesson Checkpoint. Only Reset progress deletes snapshots.
+
 Solve Playback sessions (`SOLVE_PLAYBACK`, Story 3.6): `SolvePlaybackStarted(state, solution)`
 starts a session whose entry and `virtual` are `state` and which holds `solution`, with no Lesson.
 An active Lesson is suspended, closing its open attempt with ABANDONED and retaining its stored Checkpoint.

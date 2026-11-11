@@ -9,8 +9,10 @@ interface SessionSnapshotRepository {
         attempts: List<AttemptRecord> = emptyList(),
     ): SnapshotSave
 
+    /** Reset progress only; ordinary session end saves an ended snapshot. */
     suspend fun clear(attempts: List<AttemptRecord> = emptyList()): SnapshotSave
 
+    /** Reports an ended latest row as [SnapshotLoad.None]. */
     suspend fun latest(): SnapshotLoad
 }
 

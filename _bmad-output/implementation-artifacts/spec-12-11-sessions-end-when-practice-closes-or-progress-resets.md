@@ -179,3 +179,5 @@ deferred:
 **Verification:** `./gradlew spotlessApply spotlessCheck build` -- BUILD SUCCESSFUL in 3m 50s; AppShellTest 42 tests, 0 failures (new system-Back test included).
 
 **Residual risks:** unchanged -- Room write failures during cleanup are reported but not retried (deferred).
+
+Story 12.13 resolves deferrals D1/D2: ordinary close saves an ended snapshot without deleting rows, with writer and background retries until saved or superseded.

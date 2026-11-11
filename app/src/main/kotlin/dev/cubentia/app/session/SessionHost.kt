@@ -196,6 +196,49 @@ class SessionHost internal constructor(
     /** Attempt rows whose snapshot save failed; touched only inside [writer] operations, which run one at a time. */
     private var pendingAttempts = emptyList<AttemptRecord>()
 
+    private var pendingEnd: SessionSnapshot? = null
+
+    init {
+        writer?.beforeEach { retryPendingEndNow() }
+    }
+
+    /** Enqueues a barrier whose before-each hook retries the pending end on backgrounding. */
+    fun retryPendingEnd() {
+        writer?.enqueue { }
+    }
+
+    private suspend fun retryPendingEndNow() {
+        val snapshot = pendingEnd ?: return
+        saveSnapshotNow(snapshot, emptyList(), notifyFailure = false)
+    }
+
+    private suspend fun saveSnapshotNow(
+        snapshot: SessionSnapshot,
+        rows: List<AttemptRecord>,
+        notifyFailure: Boolean = true,
+    ) {
+        val batch = pendingAttempts + rows
+        val saved =
+            try {
+                repository?.save(snapshot, batch) ?: SnapshotSave.Saved
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                pendingAttempts = batch
+                if (snapshot.ended && writer != null) pendingEnd = snapshot
+                throw cancelled
+            } catch (_: Exception) {
+                SnapshotSave.Failed
+            }
+        if (saved is SnapshotSave.Failed) {
+            pendingAttempts = batch
+            if (snapshot.ended && writer != null) pendingEnd = snapshot
+            if (notifyFailure) dispatch { SessionEvent.SnapshotSaveFailed(it) }
+        } else {
+            pendingEnd = null
+            pendingAttempts = emptyList()
+            if (batch.isNotEmpty()) refreshAttemptsAfterWrite(batch)
+        }
+    }
+
     suspend fun awaitRestored() {
         restored.await()
     }
@@ -240,7 +283,7 @@ class SessionHost internal constructor(
         // AD-16: a failed read is an event, not an absent snapshot; the state stays idle, so the Lesson starts fresh.
         if (loaded is SnapshotLoad.Failed) dispatch { SessionEvent.SnapshotLoadFailed(it) }
         val snapshot = (loaded as? SnapshotLoad.Found)?.snapshot
-        if (snapshot != null && snapshot.kind.resumesOnColdStart && snapshot.contentRevision == bundle.contentRevision) {
+        if (snapshot != null && !snapshot.ended && snapshot.kind.resumesOnColdStart && snapshot.contentRevision == bundle.contentRevision) {
             val lesson = (bundle.stages + bundle.twoLookStages).flatMap { it.lessons }.firstOrNull { it.id.value == snapshot.lessonId }
             if (lesson != null) {
                 dispatch { SessionEvent.SessionRestored(snapshot, lesson, bundle.tutorConfig, it) }
@@ -327,11 +370,6 @@ class SessionHost internal constructor(
         dispatch { SessionEvent.SessionEnded(it) }
     }
 
-    /** Deletes every snapshot row with [rows] and any pending attempt rows, via [writer] when present. */
-    private suspend fun clearSnapshots(rows: List<AttemptRecord>) {
-        if (writer != null) writer.enqueue { clearSnapshotsNow(rows) } else clearSnapshotsNow(rows)
-    }
-
     /** Runs inside a [writer] operation (or directly without one); returns false when the delete failed. */
     private suspend fun clearSnapshotsNow(rows: List<AttemptRecord>): Boolean {
         val batch = pendingAttempts + rows
@@ -370,6 +408,8 @@ class SessionHost internal constructor(
         return result !is CheckpointSave.Failed
     }
 
+    private var resettingProgress = false
+
     /**
      * Appends a [ProgressEvent.ProgressReset] via [resetProgress] single-writer use case
      * and refreshes [progressEvents].
@@ -379,24 +419,45 @@ class SessionHost internal constructor(
      * Returns true if the reset succeeded, or false if a delete or the repository write failed.
      */
     suspend fun resetProgress(): Boolean {
-        endSession()
         val useCase = resetProgressUseCase
         // Also clear when already idle, so rows left by a failed restore or delete cannot reopen locked content.
         val operation: suspend () -> ProgressWrite? = {
             val cleared = clearSnapshotsNow(emptyList()) and clearCheckpointNow()
             when {
-                !cleared -> ProgressWrite.Failed
-                useCase == null -> null
-                else -> useCase(at = clock.now())
+                !cleared -> {
+                    ProgressWrite.Failed
+                }
+
+                useCase == null -> {
+                    pendingEnd = null
+                    null
+                }
+
+                else -> {
+                    useCase(at = clock.now()).also {
+                        if (it is ProgressWrite.Written) pendingEnd = null
+                    }
+                }
             }
         }
+        // NonCancellable: once the session ends here, the reset operation must be enqueued and awaited in the same
+        // block. Returning from a separate block can throw on the caller's cancellation before the enqueue, which
+        // would leave the live snapshot with neither an ended row nor a pending end write.
         val result =
-            try {
-                if (writer != null) writer.read(operation) else withContext(confined) { operation() }
-            } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
-                ProgressWrite.Failed
+            withContext(confined + kotlinx.coroutines.NonCancellable) {
+                resettingProgress = true
+                try {
+                    endSession()
+                } finally {
+                    resettingProgress = false
+                }
+                try {
+                    if (writer != null) writer.read(operation) else operation()
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    ProgressWrite.Failed
+                }
             }
         if (useCase == null && result == null) {
             val nextEpoch = StageProgress.currentEpoch(currentProgress.value) + 1L
@@ -559,7 +620,21 @@ class SessionHost internal constructor(
                         .filterNot { it.objectiveId.startsWith("skip-check-") }
                         .map { AttemptRecord.of(it, previousSessionId, attemptId ?: UUID.randomUUID().toString()) }
                 attemptId = null
-                clearSnapshots(rows)
+                val ended =
+                    SessionSnapshot
+                        .of(before, previousSessionId, contentRevision)
+                        ?.copy(revision = transition.state.revision, attemptOpen = false, attemptId = null, ended = true)
+                if (resettingProgress) {
+                    if (writer !=
+                        null
+                    ) {
+                        writer.enqueue { pendingAttempts = pendingAttempts + rows }
+                    } else {
+                        pendingAttempts = pendingAttempts + rows
+                    }
+                } else if (ended != null) {
+                    if (writer != null) writer.enqueue { saveSnapshotNow(ended, rows) } else saveSnapshotNow(ended, rows)
+                }
             }
             if (transition.state !== before && transition.state.isActive) {
                 if (stamped is SessionEvent.LessonStarted || stamped is SessionEvent.PracticeStarted ||
@@ -603,24 +678,7 @@ class SessionHost internal constructor(
                 val snapshot = SessionSnapshot.of(transition.state, sessionId, contentRevision, attemptId)
                 if (snapshot != null && repository != null && writer != null) {
                     writer.enqueue {
-                        // AD-16: a failed write is an event; the session keeps running and the next commit writes again.
-                        // Attempt rows of a failed write stay pending and retry with that next commit; their
-                        // (sessionId, revision) keys make a replay a no-op.
-                        val batch = pendingAttempts + attempts
-                        val saved =
-                            try {
-                                repository.save(snapshot, batch)
-                            } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                                pendingAttempts = batch
-                                throw cancelled
-                            } catch (_: Exception) {
-                                SnapshotSave.Failed
-                            }
-                        pendingAttempts = if (saved is SnapshotSave.Failed) batch else emptyList()
-                        if (saved !is SnapshotSave.Failed && batch.isNotEmpty()) {
-                            refreshAttemptsAfterWrite(batch)
-                        }
-                        if (saved is SnapshotSave.Failed) dispatch { SessionEvent.SnapshotSaveFailed(it) }
+                        saveSnapshotNow(snapshot, attempts)
                     }
                 } else if (attempts.isNotEmpty()) {
                     refreshAttemptsAfterWrite(attempts)
