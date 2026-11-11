@@ -28,6 +28,9 @@ android {
     sourceSets.getByName("test").kotlin.directories += "src/sharedTest/kotlin"
     sourceSets.getByName("androidTest").kotlin.directories += "src/sharedTest/kotlin"
 
+    // Story 3.8 device corpus runner (debug only): the same Story 3.3 corpus code as the JVM harness.
+    sourceSets.getByName("debug").kotlin.directories += "../core/solver/src/benchmarkShared/kotlin"
+
     // Robolectric reads debug assets; Android unit-test source-set assets are not merged by AGP.
     sourceSets.getByName("debug").assets.directories += "schemas"
     sourceSets.getByName("androidTest").assets.directories += "schemas"
@@ -101,5 +104,17 @@ if (providers.gradleProperty("cubentia.spikeScan").orNull == "true") {
         debugImplementation(libs.androidx.camera.lifecycle)
         debugImplementation(libs.androidx.camera.view)
         debugImplementation(libs.kotlinx.serialization.json)
+    }
+}
+
+// Story 3.8 temporary bundled-table candidate, measurement only: -Pcubentia.bundleTables=true adds the
+// provider-format pruning table file as an APK asset. Without the property nothing here changes the build.
+if (providers.gradleProperty("cubentia.bundleTables").orNull == "true") {
+    val tableAssets = project(":core:solver").layout.buildDirectory.dir("generated/pruningTableAsset")
+    android {
+        sourceSets.getByName("main").assets.directories += tableAssets.get().asFile.path
+    }
+    tasks.configureEach {
+        if (name.startsWith("merge") && name.endsWith("Assets")) dependsOn(":core:solver:writePruningTableAsset")
     }
 }
