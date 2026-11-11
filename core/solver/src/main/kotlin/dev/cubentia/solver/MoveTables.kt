@@ -29,6 +29,7 @@ internal object MoveTables {
     ): IntArray {
         checkCancellation()
         return tables.getOrPut(coordinate) {
+            buildObserver?.invoke(coordinate)
             val moves = moves(coordinate)
             val transforms = moves.map { CubeState.SOLVED.apply(it).cubies }
             val result = IntArray(coordinate.size * moves.size)
@@ -42,6 +43,17 @@ internal object MoveTables {
             result
         }
     }
+
+    /** Test-only: called with each coordinate when its table starts building (not on a cache hit). */
+    @Volatile internal var buildObserver: ((Coordinate) -> Unit)? = null
+
+    /** Test-only: the coordinates whose tables are currently built. */
+    @Synchronized
+    internal fun builtCoordinates(): Set<Coordinate> = tables.keys.toSet()
+
+    /** Test-only: forgets every built table so a test can prove who builds them; they rebuild on demand. */
+    @Synchronized
+    internal fun resetForTest() = tables.clear()
 
     fun moves(coordinate: Coordinate): List<FaceTurn> =
         when (coordinate) {

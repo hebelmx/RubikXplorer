@@ -1,0 +1,13 @@
+# calibrated host corpus 2026-11-11T01:36:04Z revision=ef9c6df62712182af85ebba8bc64b9e513a44ddb k=16.94 = max(device/host median 53.795/3.262=16.49, device/host p95 338.075/19.962=16.94)
+CPU(s):                                  20
+Model name:                              12th Gen Intel(R) Core(TM) i7-12800H
+CPU(s) scaling MHz:                      56%
+Solve corpus benchmark: two-phase; 10000 uniform legal states + solved + 100 deep Scrambles; seed 20261031
+  cases          10101
+  median         45.355 ms
+  p95            277.384 ms
+  max            3068.382 ms
+  within budget  100.0% (10100/10101 at or under 3000.000 ms)
+  failures       0 (0.0%)
+  peak heap      605.4 MiB
+  profile        OpenJDK 64-Bit Server VM 17.0.21; Linux amd64; CPUs=20; maxHeap=16777216000; calibrated reference-device-equivalent profile: host time x 16.94

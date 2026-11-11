@@ -1,0 +1,385 @@
+# production check (debug build, DebugStrictMode: detectDiskReads/detectDiskWrites/penaltyLog) revision=ef9c6df62712182af85ebba8bc64b9e513a44ddb apk sha256=f728afa3eb8acc1958cef60f857d5bf8d4fad1d611cdb5043386a3d7d1a31ffb
+samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys
+  USB powered: true
+  level: 79
+  temperature: 341
+Thermal Status: 2
+  mStayOn=true
+MemAvailable:     683584 kB
+### A1 cold process start 01:40:44
+LaunchState: COLD
+TotalTime: 648
+### A2 open Lesson (tables never loaded in this process) 01:40:51
+12 of 20 pieces match the pattern [34,416][846,2176]
+Step 1 of 1 [948,596][1264,663]
+### A3 Lesson Move U 01:40:59
+Step 1 of 1 [948,529][1264,596]
+Goal [948,655][1033,706]
+### A4 Lesson Move R 01:41:06
+12 of 20 pieces match the pattern [34,315][846,2176]
+### A5 close lesson, Solve tab, Enter colors 01:41:13
+Learn [33,137][137,188]
+Solve [35,282][135,333]
+Library [19,427][150,478]
+You [51,572][119,623]
+Back to stages [213,94][264,145]
+1 [306,86][336,153]
+Cube fundamentals [353,82][872,157]
+In progress [1372,94][1583,145]
+Mastery: 0 of 2 solves · 0 with reduced help [204,204][1002,255]
+Trend [204,303][327,370]
+Trend: 1 attempts, latest 0 hints [353,311][1510,362]
+1 [1536,303][1566,370]
+Practice this Stage [679,410][1091,477]
+I already know this [674,529][1096,596]
+Tell centers, edges and corners apart, then turn the top face. [268,658][1566,806]
+Cube fundamentals [268,815][625,866]
+Read a face letter and turn that face: R, then U. [268,920][1349,994]
+Cube fundamentals [268,1003][625,1054]
+Read prime and double Moves: R' turns back, and U2 turns twice. [268,1108][1566,1256]
+Cube fundamentals [268,1265][625,1316]
+### A6 Manual Cube Editor: enter the cube after U (12 stickers) 01:42:32
+Blue sticker, right face, position 1
+Blue sticker, right face, position 2
+Blue sticker, right face, position 3
+Red sticker, front face, position 1
+Red sticker, front face, position 2
+Red sticker, front face, position 3
+Green sticker, left face, position 1
+Green sticker, left face, position 2
+Green sticker, left face, position 3
+Orange sticker, back face, position 1
+Orange sticker, back face, position 2
+Orange sticker, back face, position 3
+### A7 Accept (first solve in this process: bundled tables load) 01:43:50
+Starting a solve pauses your lesson. [170,51][992,125]
+Cancel [221,152][371,219]
+### A8 after solve 01:43:58
+Learn [33,137][137,188]
+Solve [35,282][135,333]
+Library [19,427][150,478]
+You [51,572][119,623]
+Close [196,69][319,136]
+Starting a solve pauses your lesson. [170,153][992,227]
+Couldn't find a solution in time. Your colors are still here — try again. [170,227][1600,375]
+White [537,1465][639,1567]
+Yellow [656,1465][758,1567]
+Red [775,1465][877,1567]
+Orange [894,1465][996,1567]
+Green [1013,1465][1115,1567]
+Blue [1132,1465][1234,1567]
+Accept [809,1653][961,1720]
+
+# finding: a one-move cube returned the timeout/failure copy (move tables built inside SolveCube's 3 s timeout); fixed in dd1d4ac
+# StrictMode logcat
+11-10 19:40:45.660 18783 18783 D StrictMode: StrictMode policy violation; ~duration=2 ms: android.os.strictmode.DiskReadViolation
+11-10 19:40:45.660 18783 18783 D StrictMode: 	at android.os.StrictMode$AndroidBlockGuardPolicy.onReadFromDisk(StrictMode.java:1659)
+11-10 19:40:45.660 18783 18783 D StrictMode: 	at java.io.UnixFileSystem.getBooleanAttributes(UnixFileSystem.java:306)
+11-10 19:40:45.660 18783 18783 D StrictMode: 	at java.io.File.isDirectory(File.java:859)
+11-10 19:40:45.660 18783 18783 D StrictMode: 	at android.graphics.Typeface.getFullFlipFont(Typeface.java:1782)
+11-10 19:40:45.660 18783 18783 D StrictMode: 	at android.graphics.Typeface.getFontPathFlipFont(Typeface.java:1767)
+11-10 19:40:45.660 18783 18783 D StrictMode: 	at android.graphics.Typeface.setFlipFonts(Typeface.java:1897)
+11-10 19:40:45.660 18783 18783 D StrictMode: 	at android.app.Application.onCreate(Application.java:260)
+11-10 19:40:45.660 18783 18783 D StrictMode: 	at dev.cubentia.app.Hilt_CubentiaApp.onCreate(Hilt_CubentiaApp.java:43)
+11-10 19:40:45.660 18783 18783 D StrictMode: 	at dev.cubentia.app.CubentiaApp.onCreate(CubentiaApp.kt:10)
+11-10 19:40:45.660 18783 18783 D StrictMode: 	at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1211)
+11-10 19:40:45.660 18783 18783 D StrictMode: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7506)
+11-10 19:40:45.660 18783 18783 D StrictMode: 	at android.app.ActivityThread.access$1700(ActivityThread.java:310)
+11-10 19:40:45.660 18783 18783 D StrictMode: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2281)
+11-10 19:40:45.660 18783 18783 D StrictMode: 	at android.os.Handler.dispatchMessage(Handler.java:106)
+11-10 19:40:45.660 18783 18783 D StrictMode: 	at android.os.Looper.loopOnce(Looper.java:226)
+11-10 19:40:45.660 18783 18783 D StrictMode: 	at android.os.Looper.loop(Looper.java:313)
+11-10 19:40:45.660 18783 18783 D StrictMode: 	at android.app.ActivityThread.main(ActivityThread.java:8663)
+11-10 19:40:45.660 18783 18783 D StrictMode: 	at java.lang.reflect.Method.invoke(Native Method)
+11-10 19:40:45.660 18783 18783 D StrictMode: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:567)
+11-10 19:40:45.660 18783 18783 D StrictMode: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1135)
+11-10 19:40:45.661 18783 18783 D StrictMode: StrictMode policy violation; ~duration=2 ms: android.os.strictmode.DiskReadViolation
+11-10 19:40:45.661 18783 18783 D StrictMode: 	at android.os.StrictMode$AndroidBlockGuardPolicy.onReadFromDisk(StrictMode.java:1659)
+11-10 19:40:45.661 18783 18783 D StrictMode: 	at java.io.UnixFileSystem.list(UnixFileSystem.java:400)
+11-10 19:40:45.661 18783 18783 D StrictMode: 	at java.io.File.list(File.java:1145)
+11-10 19:40:45.661 18783 18783 D StrictMode: 	at android.graphics.Typeface.getFullFlipFont(Typeface.java:1782)
+11-10 19:40:45.661 18783 18783 D StrictMode: 	at android.graphics.Typeface.getFontPathFlipFont(Typeface.java:1767)
+11-10 19:40:45.661 18783 18783 D StrictMode: 	at android.graphics.Typeface.setFlipFonts(Typeface.java:1897)
+11-10 19:40:45.661 18783 18783 D StrictMode: 	at android.app.Application.onCreate(Application.java:260)
+11-10 19:40:45.661 18783 18783 D StrictMode: 	at dev.cubentia.app.Hilt_CubentiaApp.onCreate(Hilt_CubentiaApp.java:43)
+11-10 19:40:45.661 18783 18783 D StrictMode: 	at dev.cubentia.app.CubentiaApp.onCreate(CubentiaApp.kt:10)
+11-10 19:40:45.661 18783 18783 D StrictMode: 	at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1211)
+11-10 19:40:45.661 18783 18783 D StrictMode: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7506)
+11-10 19:40:45.661 18783 18783 D StrictMode: 	at android.app.ActivityThread.access$1700(ActivityThread.java:310)
+11-10 19:40:45.661 18783 18783 D StrictMode: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2281)
+11-10 19:40:45.661 18783 18783 D StrictMode: 	at android.os.Handler.dispatchMessage(Handler.java:106)
+11-10 19:40:45.661 18783 18783 D StrictMode: 	at android.os.Looper.loopOnce(Looper.java:226)
+11-10 19:40:45.661 18783 18783 D StrictMode: 	at android.os.Looper.loop(Looper.java:313)
+11-10 19:40:45.661 18783 18783 D StrictMode: 	at android.app.ActivityThread.main(ActivityThread.java:8663)
+11-10 19:40:45.661 18783 18783 D StrictMode: 	at java.lang.reflect.Method.invoke(Native Method)
+11-10 19:40:45.661 18783 18783 D StrictMode: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:567)
+11-10 19:40:45.661 18783 18783 D StrictMode: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1135)
+11-10 19:40:45.662 18783 18783 D StrictMode: StrictMode policy violation; ~duration=1 ms: android.os.strictmode.DiskReadViolation
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at android.os.StrictMode$AndroidBlockGuardPolicy.onReadFromDisk(StrictMode.java:1659)
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at libcore.io.BlockGuardOs.access(BlockGuardOs.java:74)
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at libcore.io.ForwardingOs.access(ForwardingOs.java:129)
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at android.app.ActivityThread$AndroidOs.access(ActivityThread.java:8514)
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at java.io.UnixFileSystem.checkAccess(UnixFileSystem.java:337)
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at java.io.File.exists(File.java:829)
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at android.graphics.Typeface.setFlipFonts(Typeface.java:1910)
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at android.app.Application.onCreate(Application.java:260)
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at dev.cubentia.app.Hilt_CubentiaApp.onCreate(Hilt_CubentiaApp.java:43)
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at dev.cubentia.app.CubentiaApp.onCreate(CubentiaApp.kt:10)
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1211)
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7506)
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at android.app.ActivityThread.access$1700(ActivityThread.java:310)
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2281)
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at android.os.Handler.dispatchMessage(Handler.java:106)
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at android.os.Looper.loopOnce(Looper.java:226)
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at android.os.Looper.loop(Looper.java:313)
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at android.app.ActivityThread.main(ActivityThread.java:8663)
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at java.lang.reflect.Method.invoke(Native Method)
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:567)
+11-10 19:40:45.662 18783 18783 D StrictMode: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1135)
+11-10 19:40:45.664 18783 18783 D StrictMode: StrictMode policy violation; ~duration=1 ms: android.os.strictmode.DiskReadViolation
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at android.os.StrictMode$AndroidBlockGuardPolicy.onReadFromDisk(StrictMode.java:1659)
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at libcore.io.BlockGuardOs.access(BlockGuardOs.java:74)
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at libcore.io.ForwardingOs.access(ForwardingOs.java:129)
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at android.app.ActivityThread$AndroidOs.access(ActivityThread.java:8514)
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at java.io.UnixFileSystem.checkAccess(UnixFileSystem.java:337)
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at java.io.File.exists(File.java:829)
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at android.graphics.Typeface.setFlipFonts(Typeface.java:1916)
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at android.app.Application.onCreate(Application.java:260)
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at dev.cubentia.app.Hilt_CubentiaApp.onCreate(Hilt_CubentiaApp.java:43)
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at dev.cubentia.app.CubentiaApp.onCreate(CubentiaApp.kt:10)
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1211)
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7506)
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at android.app.ActivityThread.access$1700(ActivityThread.java:310)
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2281)
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at android.os.Handler.dispatchMessage(Handler.java:106)
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at android.os.Looper.loopOnce(Looper.java:226)
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at android.os.Looper.loop(Looper.java:313)
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at android.app.ActivityThread.main(ActivityThread.java:8663)
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at java.lang.reflect.Method.invoke(Native Method)
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:567)
+11-10 19:40:45.664 18783 18783 D StrictMode: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1135)
+11-10 19:40:46.023 18783 18783 D StrictMode: StrictMode policy violation; ~duration=186 ms: android.os.strictmode.DiskReadViolation
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.os.StrictMode$AndroidBlockGuardPolicy.onReadFromDisk(StrictMode.java:1659)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at libcore.io.BlockGuardOs.access(BlockGuardOs.java:74)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at libcore.io.ForwardingOs.access(ForwardingOs.java:129)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.app.ActivityThread$AndroidOs.access(ActivityThread.java:8514)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at java.io.UnixFileSystem.checkAccess(UnixFileSystem.java:337)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at java.io.File.exists(File.java:829)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.app.ContextImpl.getDataDir(ContextImpl.java:3034)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.app.ContextImpl.getFilesDir(ContextImpl.java:813)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.content.ContextWrapper.getFilesDir(ContextWrapper.java:270)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dev.cubentia.app.di.SolverModule.provider(SolverModule.kt:35)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dev.cubentia.app.di.SolverModule_ProviderFactory.provider(SolverModule_ProviderFactory.java:46)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dev.cubentia.app.DaggerCubentiaApp_HiltComponents_SingletonC$SingletonCImpl$SwitchingProvider.get(DaggerCubentiaApp_HiltComponents_SingletonC.java:742)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dagger.internal.DoubleCheck.getSynchronized(DoubleCheck.java:54)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dagger.internal.DoubleCheck.get(DoubleCheck.java:45)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dev.cubentia.app.DaggerCubentiaApp_HiltComponents_SingletonC$SingletonCImpl$SwitchingProvider.get(DaggerCubentiaApp_HiltComponents_SingletonC.java:739)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dagger.internal.DoubleCheck.getSynchronized(DoubleCheck.java:54)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dagger.internal.DoubleCheck.get(DoubleCheck.java:45)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dev.cubentia.app.DaggerCubentiaApp_HiltComponents_SingletonC$ViewModelCImpl$SwitchingProvider.get(DaggerCubentiaApp_HiltComponents_SingletonC.java:493)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dagger.hilt.android.internal.lifecycle.HiltViewModelFactory$2.createViewModel(HiltViewModelFactory.java:133)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dagger.hilt.android.internal.lifecycle.HiltViewModelFactory$2.create(HiltViewModelFactory.java:103)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dagger.hilt.android.internal.lifecycle.HiltViewModelFactory.create(HiltViewModelFactory.java:171)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.lifecycle.ViewModelProvider$Factory.create(ViewModelProvider.android.kt:153)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.lifecycle.viewmodel.ViewModelProviderImpl_androidKt.createViewModel(ViewModelProviderImpl.android.kt:34)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.lifecycle.viewmodel.ViewModelProviderImpl.getViewModel$lifecycle_viewmodel_release(ViewModelProviderImpl.kt:60)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.lifecycle.viewmodel.ViewModelProviderImpl.getViewModel$lifecycle_viewmodel_release$default(ViewModelProviderImpl.kt:43)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.lifecycle.ViewModelProvider.get(ViewModelProvider.android.kt:92)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.lifecycle.ViewModelLazy.getValue(ViewModelLazy.kt:52)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.lifecycle.ViewModelLazy.getValue(ViewModelLazy.kt:35)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dev.cubentia.app.MainActivity.getSolveFlow(MainActivity.kt:35)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dev.cubentia.app.MainActivity.onCreate$lambda$0$2(MainActivity.kt:53)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dev.cubentia.app.MainActivity.$r8$lambda$--kvZRWmiNaWGd6a2HlIzorJsz8(MainActivity.kt:0)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dev.cubentia.app.MainActivity$$ExternalSyntheticLambda1.invoke(D8$$SyntheticClass:0)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:122)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:52)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.CompositionLocalKt.CompositionLocalProvider(CompositionLocal.kt:428)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.material3.TextKt.ProvideTextStyle(Text.kt:462)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.material3.MaterialThemeKt$MaterialTheme$2.invoke(MaterialTheme.kt:107)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.material3.MaterialThemeKt$MaterialTheme$2.invoke(MaterialTheme.kt:106)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:122)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:52)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.CompositionLocalKt.CompositionLocalProvider(CompositionLocal.kt:408)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.material3.MaterialThemeKt.MaterialTheme(MaterialTheme.kt:99)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.material3.MaterialThemeKt.MaterialTheme(MaterialTheme.kt:60)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dev.cubentia.app.ui.theme.ThemeKt.CubentiaTheme$lambda$0(Theme.kt:45)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dev.cubentia.app.ui.theme.ThemeKt$$ExternalSyntheticLambda0.invoke(D8$$SyntheticClass:0)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:122)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:52)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.CompositionLocalKt.CompositionLocalProvider(CompositionLocal.kt:408)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dev.cubentia.app.ui.theme.ThemeKt.CubentiaTheme(Theme.kt:41)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dev.cubentia.app.preferences.LocalPreferencesKt.PreferredTheme(LocalPreferences.kt:24)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dev.cubentia.app.MainActivity.onCreate$lambda$0(MainActivity.kt:49)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at dev.cubentia.app.MainActivity$$ExternalSyntheticLambda0.invoke(D8$$SyntheticClass:0)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:122)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:52)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.ComposeView.Content(ComposeView.android.kt:615)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.AbstractComposeView.ensureCompositionCreated$lambda$0$0(ComposeView.android.kt:335)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.AbstractComposeView.$r8$lambda$haJlVCuyZDQPMe6uz0Clg0Uri0w(ComposeView.android.kt:0)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.AbstractComposeView$$ExternalSyntheticLambda0.invoke(D8$$SyntheticClass:0)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:122)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:52)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.CompositionLocalKt.CompositionLocalProvider(CompositionLocal.kt:408)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.CompositionLocalsKt.ProvideCommonCompositionLocals(CompositionLocals.kt:255)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.ComposeViewContext.ProvideCompositionLocals$lambda$4(ComposeViewContext.android.kt:518)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.ComposeViewContext$$ExternalSyntheticLambda4.invoke(D8$$SyntheticClass:0)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:122)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:52)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.CompositionLocalKt.CompositionLocalProvider(CompositionLocal.kt:408)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.ComposeViewContext.ProvideCompositionLocals$ui(ComposeViewContext.android.kt:490)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.WrappedComposition.setContent$lambda$0$1(Wrapper.android.kt:126)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.WrappedComposition.$r8$lambda$6M750dKfgrqZayQXx8RTdC0WEQA(Wrapper.android.kt:0)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.WrappedComposition$$ExternalSyntheticLambda1.invoke(D8$$SyntheticClass:0)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:122)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:52)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.Expect_jvmKt.invokeComposable(Expect.jvmAndAndroid.kt:26)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.GapComposer.doCompose-aFTiNEg(GapComposer.kt:2643)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.GapComposer.composeContent--ZbOJvo$runtime(GapComposer.kt:2545)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.CompositionImpl.composeContent(Composition.kt:905)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.Recomposer.composeInitial$runtime(Recomposer.kt:1178)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.CompositionImpl.composeInitial(Composition.kt:735)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.runtime.CompositionImpl.setContent(Composition.kt:702)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.WrappedComposition.setContent$lambda$0(Wrapper.android.kt:123)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.WrappedComposition$$ExternalSyntheticLambda2.invoke(D8$$SyntheticClass:0)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.AndroidComposeView.setOnReadyForComposition(AndroidComposeView.android.kt:2324)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.WrappedComposition.setContent(Wrapper.android.kt:105)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.WrappedComposition.onStateChanged(Wrapper.android.kt:155)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.lifecycle.LifecycleRegistry$ObserverWithState.dispatchEvent(LifecycleRegistry.jvm.kt:313)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.lifecycle.LifecycleRegistry.addObserver(LifecycleRegistry.jvm.kt:191)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.WrappedComposition.setContent$lambda$0(Wrapper.android.kt:120)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.WrappedComposition$$ExternalSyntheticLambda2.invoke(D8$$SyntheticClass:0)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.AndroidComposeView.onAttachedToWindow(AndroidComposeView.android.kt:2395)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.view.View.dispatchAttachedToWindow(View.java:21971)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:4293)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:4302)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:4302)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:4302)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:4302)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.view.ViewRootImpl.performTraversals(ViewRootImpl.java:3443)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.view.ViewRootImpl.doTraversal(ViewRootImpl.java:2893)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.view.ViewRootImpl$TraversalRunnable.run(ViewRootImpl.java:10445)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.view.Choreographer$CallbackRecord.run(Choreographer.java:1108)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.view.Choreographer.doCallbacks(Choreographer.java:866)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.view.Choreographer.doFrame(Choreographer.java:797)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.view.Choreographer$FrameDisplayEventReceiver.run(Choreographer.java:1092)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.os.Handler.handleCallback(Handler.java:938)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.os.Handler.dispatchMessage(Handler.java:99)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.os.Looper.loopOnce(Looper.java:226)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.os.Looper.loop(Looper.java:313)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at android.app.ActivityThread.main(ActivityThread.java:8663)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at java.lang.reflect.Method.invoke(Native Method)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:567)
+11-10 19:40:46.023 18783 18783 D StrictMode: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1135)
+11-10 19:40:46.029 18783 18783 D StrictMode: StrictMode policy violation; ~duration=186 ms: android.os.strictmode.DiskReadViolation
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.os.StrictMode$AndroidBlockGuardPolicy.onReadFromDisk(StrictMode.java:1659)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at libcore.io.BlockGuardOs.access(BlockGuardOs.java:74)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at libcore.io.ForwardingOs.access(ForwardingOs.java:129)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.app.ActivityThread$AndroidOs.access(ActivityThread.java:8514)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at java.io.UnixFileSystem.checkAccess(UnixFileSystem.java:337)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at java.io.File.exists(File.java:829)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.app.ContextImpl.ensurePrivateDirExists(ContextImpl.java:779)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.app.ContextImpl.ensurePrivateDirExists(ContextImpl.java:770)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.app.ContextImpl.getFilesDir(ContextImpl.java:815)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.content.ContextWrapper.getFilesDir(ContextWrapper.java:270)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dev.cubentia.app.di.SolverModule.provider(SolverModule.kt:35)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dev.cubentia.app.di.SolverModule_ProviderFactory.provider(SolverModule_ProviderFactory.java:46)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dev.cubentia.app.DaggerCubentiaApp_HiltComponents_SingletonC$SingletonCImpl$SwitchingProvider.get(DaggerCubentiaApp_HiltComponents_SingletonC.java:742)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dagger.internal.DoubleCheck.getSynchronized(DoubleCheck.java:54)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dagger.internal.DoubleCheck.get(DoubleCheck.java:45)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dev.cubentia.app.DaggerCubentiaApp_HiltComponents_SingletonC$SingletonCImpl$SwitchingProvider.get(DaggerCubentiaApp_HiltComponents_SingletonC.java:739)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dagger.internal.DoubleCheck.getSynchronized(DoubleCheck.java:54)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dagger.internal.DoubleCheck.get(DoubleCheck.java:45)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dev.cubentia.app.DaggerCubentiaApp_HiltComponents_SingletonC$ViewModelCImpl$SwitchingProvider.get(DaggerCubentiaApp_HiltComponents_SingletonC.java:493)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dagger.hilt.android.internal.lifecycle.HiltViewModelFactory$2.createViewModel(HiltViewModelFactory.java:133)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dagger.hilt.android.internal.lifecycle.HiltViewModelFactory$2.create(HiltViewModelFactory.java:103)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dagger.hilt.android.internal.lifecycle.HiltViewModelFactory.create(HiltViewModelFactory.java:171)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.lifecycle.ViewModelProvider$Factory.create(ViewModelProvider.android.kt:153)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.lifecycle.viewmodel.ViewModelProviderImpl_androidKt.createViewModel(ViewModelProviderImpl.android.kt:34)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.lifecycle.viewmodel.ViewModelProviderImpl.getViewModel$lifecycle_viewmodel_release(ViewModelProviderImpl.kt:60)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.lifecycle.viewmodel.ViewModelProviderImpl.getViewModel$lifecycle_viewmodel_release$default(ViewModelProviderImpl.kt:43)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.lifecycle.ViewModelProvider.get(ViewModelProvider.android.kt:92)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.lifecycle.ViewModelLazy.getValue(ViewModelLazy.kt:52)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.lifecycle.ViewModelLazy.getValue(ViewModelLazy.kt:35)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dev.cubentia.app.MainActivity.getSolveFlow(MainActivity.kt:35)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dev.cubentia.app.MainActivity.onCreate$lambda$0$2(MainActivity.kt:53)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dev.cubentia.app.MainActivity.$r8$lambda$--kvZRWmiNaWGd6a2HlIzorJsz8(MainActivity.kt:0)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dev.cubentia.app.MainActivity$$ExternalSyntheticLambda1.invoke(D8$$SyntheticClass:0)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:122)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:52)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.CompositionLocalKt.CompositionLocalProvider(CompositionLocal.kt:428)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.material3.TextKt.ProvideTextStyle(Text.kt:462)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.material3.MaterialThemeKt$MaterialTheme$2.invoke(MaterialTheme.kt:107)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.material3.MaterialThemeKt$MaterialTheme$2.invoke(MaterialTheme.kt:106)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:122)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:52)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.CompositionLocalKt.CompositionLocalProvider(CompositionLocal.kt:408)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.material3.MaterialThemeKt.MaterialTheme(MaterialTheme.kt:99)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.material3.MaterialThemeKt.MaterialTheme(MaterialTheme.kt:60)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dev.cubentia.app.ui.theme.ThemeKt.CubentiaTheme$lambda$0(Theme.kt:45)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dev.cubentia.app.ui.theme.ThemeKt$$ExternalSyntheticLambda0.invoke(D8$$SyntheticClass:0)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:122)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:52)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.CompositionLocalKt.CompositionLocalProvider(CompositionLocal.kt:408)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dev.cubentia.app.ui.theme.ThemeKt.CubentiaTheme(Theme.kt:41)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dev.cubentia.app.preferences.LocalPreferencesKt.PreferredTheme(LocalPreferences.kt:24)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dev.cubentia.app.MainActivity.onCreate$lambda$0(MainActivity.kt:49)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at dev.cubentia.app.MainActivity$$ExternalSyntheticLambda0.invoke(D8$$SyntheticClass:0)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:122)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:52)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.ComposeView.Content(ComposeView.android.kt:615)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.AbstractComposeView.ensureCompositionCreated$lambda$0$0(ComposeView.android.kt:335)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.AbstractComposeView.$r8$lambda$haJlVCuyZDQPMe6uz0Clg0Uri0w(ComposeView.android.kt:0)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.AbstractComposeView$$ExternalSyntheticLambda0.invoke(D8$$SyntheticClass:0)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:122)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:52)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.CompositionLocalKt.CompositionLocalProvider(CompositionLocal.kt:408)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.CompositionLocalsKt.ProvideCommonCompositionLocals(CompositionLocals.kt:255)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.ComposeViewContext.ProvideCompositionLocals$lambda$4(ComposeViewContext.android.kt:518)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.ComposeViewContext$$ExternalSyntheticLambda4.invoke(D8$$SyntheticClass:0)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:122)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:52)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.CompositionLocalKt.CompositionLocalProvider(CompositionLocal.kt:408)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.ComposeViewContext.ProvideCompositionLocals$ui(ComposeViewContext.android.kt:490)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.WrappedComposition.setContent$lambda$0$1(Wrapper.android.kt:126)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.WrappedComposition.$r8$lambda$6M750dKfgrqZayQXx8RTdC0WEQA(Wrapper.android.kt:0)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.WrappedComposition$$ExternalSyntheticLambda1.invoke(D8$$SyntheticClass:0)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:122)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.kt:52)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.internal.Expect_jvmKt.invokeComposable(Expect.jvmAndAndroid.kt:26)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.GapComposer.doCompose-aFTiNEg(GapComposer.kt:2643)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.GapComposer.composeContent--ZbOJvo$runtime(GapComposer.kt:2545)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.CompositionImpl.composeContent(Composition.kt:905)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.Recomposer.composeInitial$runtime(Recomposer.kt:1178)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.CompositionImpl.composeInitial(Composition.kt:735)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.runtime.CompositionImpl.setContent(Composition.kt:702)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.WrappedComposition.setContent$lambda$0(Wrapper.android.kt:123)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.WrappedComposition$$ExternalSyntheticLambda2.invoke(D8$$SyntheticClass:0)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.AndroidComposeView.setOnReadyForComposition(AndroidComposeView.android.kt:2324)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.WrappedComposition.setContent(Wrapper.android.kt:105)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.WrappedComposition.onStateChanged(Wrapper.android.kt:155)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.lifecycle.LifecycleRegistry$ObserverWithState.dispatchEvent(LifecycleRegistry.jvm.kt:313)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.lifecycle.LifecycleRegistry.addObserver(LifecycleRegistry.jvm.kt:191)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.WrappedComposition.setContent$lambda$0(Wrapper.android.kt:120)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.WrappedComposition$$ExternalSyntheticLambda2.invoke(D8$$SyntheticClass:0)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at androidx.compose.ui.platform.AndroidComposeView.onAttachedToWindow(AndroidComposeView.android.kt:2395)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.view.View.dispatchAttachedToWindow(View.java:21971)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:4293)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:4302)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:4302)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:4302)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:4302)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.view.ViewRootImpl.performTraversals(ViewRootImpl.java:3443)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.view.ViewRootImpl.doTraversal(ViewRootImpl.java:2893)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.view.ViewRootImpl$TraversalRunnable.run(ViewRootImpl.java:10445)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.view.Choreographer$CallbackRecord.run(Choreographer.java:1108)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.view.Choreographer.doCallbacks(Choreographer.java:866)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.view.Choreographer.doFrame(Choreographer.java:797)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.view.Choreographer$FrameDisplayEventReceiver.run(Choreographer.java:1092)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.os.Handler.handleCallback(Handler.java:938)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.os.Handler.dispatchMessage(Handler.java:99)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.os.Looper.loopOnce(Looper.java:226)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.os.Looper.loop(Looper.java:313)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at android.app.ActivityThread.main(ActivityThread.java:8663)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at java.lang.reflect.Method.invoke(Native Method)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:567)
+11-10 19:40:46.029 18783 18783 D StrictMode: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1135)
