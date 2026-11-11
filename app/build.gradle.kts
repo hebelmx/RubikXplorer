@@ -114,7 +114,5 @@ if (providers.gradleProperty("cubentia.bundleTables").orNull == "true") {
     android {
         sourceSets.getByName("main").assets.directories += tableAssets.get().asFile.path
     }
-    tasks.configureEach {
-        if (name.startsWith("merge") && name.endsWith("Assets")) dependsOn(":core:solver:writePruningTableAsset")
-    }
+    tasks.named("preBuild") { dependsOn(":core:solver:writePruningTableAsset") }
 }
