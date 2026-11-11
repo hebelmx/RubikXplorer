@@ -1,6 +1,9 @@
 package dev.cubentia.macrobenchmark
 
+import android.os.SystemClock
 import android.util.Log
+import android.view.InputDevice
+import android.view.MotionEvent
 import androidx.benchmark.macro.CompilationMode
 import androidx.benchmark.macro.ExperimentalMetricApi
 import androidx.benchmark.macro.MacrobenchmarkScope
@@ -78,10 +81,42 @@ class Cube3DFrameBenchmark {
             val right = bounds.right - bounds.width() * EDGE
             repeat(SWIPES) { index ->
                 val (from, to) = if (index % 2 == 0) left to right else right to left
-                device.swipe(from.toInt(), y.toInt(), to.toInt(), y.toInt(), SWIPE_MS / STEP_MS)
+                drag(from, to, y)
                 Thread.sleep(SWIPE_GAP_MS)
             }
         }
+    }
+
+    /**
+     * One horizontal drag of [SWIPE_MS] at y, with a MOVE every [STEP_MS] (a 125 Hz touch stream),
+     * injected without waiting for each event. `UiDevice.swipe` injects synchronously and on the
+     * S24 FE delivered a MOVE only every ~33 ms, which capped the View Rotation at 30 FPS by input
+     * rate rather than by the renderer.
+     */
+    private fun drag(
+        fromX: Float,
+        toX: Float,
+        y: Float,
+    ) {
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        val down = SystemClock.uptimeMillis()
+
+        fun inject(
+            action: Int,
+            x: Float,
+        ) {
+            val event = MotionEvent.obtain(down, SystemClock.uptimeMillis(), action, x, y, 0)
+            event.source = InputDevice.SOURCE_TOUCHSCREEN
+            check(automation.injectInputEvent(event, false)) { "Could not inject drag event $action" }
+            event.recycle()
+        }
+        inject(MotionEvent.ACTION_DOWN, fromX)
+        val steps = SWIPE_MS / STEP_MS
+        for (step in 1..steps) {
+            Thread.sleep(STEP_MS.toLong())
+            inject(MotionEvent.ACTION_MOVE, fromX + (toX - fromX) * step / steps)
+        }
+        inject(MotionEvent.ACTION_UP, toX)
     }
 
     /** A fresh install opens on the Welcome screen, which has no tabs; *I'm new* leads to them. */
@@ -135,7 +170,7 @@ class Cube3DFrameBenchmark {
         const val TAP_GAP_MS = 450L
         const val SWIPES = 4
         const val SWIPE_MS = 600
-        const val STEP_MS = 5
+        const val STEP_MS = 8
         const val SWIPE_GAP_MS = 400L
         const val OFF_CUBE_ROW = 0.06f
         const val EDGE = 0.1f
