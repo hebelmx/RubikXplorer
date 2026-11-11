@@ -211,6 +211,38 @@ class PruningTablesTest {
         }
 
     @Test
+    fun `loaded tables build the move tables on the CPU dispatcher before ready`() =
+        runBlocking {
+            val asset = validFileBytes()
+            Executors.newSingleThreadExecutor { work -> Thread(work, "pruning-test-moves") }.asCoroutineDispatcher().use { cpu ->
+                val threads = mutableListOf<String>()
+                val counting =
+                    object : kotlinx.coroutines.CoroutineDispatcher() {
+                        override fun dispatch(
+                            context: kotlin.coroutines.CoroutineContext,
+                            block: Runnable,
+                        ) = cpu.dispatch(context) {
+                            threads += Thread.currentThread().name
+                            block.run()
+                        }
+                    }
+                val file = File(directory, "files/tables")
+                val bundled =
+                    PruningTableProvider(file, cpuDispatcher = counting, generate = { error("no generation") }, bundled = {
+                        ByteArrayInputStream(asset)
+                    }).load() as PruningTableLoadResult.Ready
+                assertTrue(bundled.moveTableNanos >= 0)
+                assertTrue(threads.isNotEmpty() && threads.all { it == "pruning-test-moves" })
+                file.parentFile.mkdirs()
+                file.writeBytes(asset)
+                threads.clear()
+                val cached = PruningTableProvider(file, cpuDispatcher = counting, generate = { error("no generation") }).load()
+                assertEquals(PruningTableSource.CACHE, (cached as PruningTableLoadResult.Ready).source)
+                assertTrue(threads.isNotEmpty())
+            }
+        }
+
+    @Test
     fun `invalid or unreadable bundled asset falls back to the private file then generation`() =
         runBlocking {
             val valid = validFileBytes()

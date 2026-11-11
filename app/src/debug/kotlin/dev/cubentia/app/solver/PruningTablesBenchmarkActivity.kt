@@ -123,7 +123,7 @@ class PruningTablesBenchmarkActivity : Activity() {
                     TAG,
                     "$run,source=${result.source},tableBytes=${result.tables.byteSize}," +
                         "generationNanos=${result.generationNanos},cacheReadNanos=${result.cacheReadNanos}," +
-                        "cacheWriteNanos=${result.cacheWriteNanos}",
+                        "cacheWriteNanos=${result.cacheWriteNanos},moveTableNanos=${result.moveTableNanos}",
                 )
             }
 

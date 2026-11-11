@@ -22,13 +22,18 @@ import java.security.MessageDigest
 enum class PruningTableSource { BUNDLED, GENERATED, CACHE }
 
 sealed interface PruningTableLoadResult {
-    /** [cacheReadNanos] is the validated read of the bundled asset or the private file, whichever served or missed. */
+    /**
+     * [cacheReadNanos] is the validated read of the bundled asset or the private file, whichever
+     * served or missed. [moveTableNanos] is the off-main move-table build a loaded (not generated)
+     * table set needs before the solver is ready; generation already builds them.
+     */
     data class Ready(
         val tables: PruningTables,
         val source: PruningTableSource,
         val generationNanos: Long,
         val cacheReadNanos: Long,
         val cacheWriteNanos: Long,
+        val moveTableNanos: Long = 0,
     ) : PruningTableLoadResult
 
     data class Failed(
@@ -67,7 +72,7 @@ class PruningTableProvider(
                     if (shipped != null) {
                         val nanos = System.nanoTime() - bundledStart
                         return@withLock PruningTableLoadResult
-                            .Ready(shipped, PruningTableSource.BUNDLED, 0, nanos, 0)
+                            .Ready(shipped, PruningTableSource.BUNDLED, 0, nanos, 0, prepareMoveTables())
                             .also { ready = it }
                     }
                 }
@@ -75,7 +80,7 @@ class PruningTableProvider(
                 val cached = withContext(ioDispatcher) { read() }
                 val readNanos = System.nanoTime() - readStart
                 if (cached != null) {
-                    PruningTableLoadResult.Ready(cached, PruningTableSource.CACHE, 0, readNanos, 0)
+                    PruningTableLoadResult.Ready(cached, PruningTableSource.CACHE, 0, readNanos, 0, prepareMoveTables())
                 } else {
                     val tables =
                         withContext(cpuDispatcher) {
@@ -99,6 +104,18 @@ class PruningTableProvider(
             } catch (failure: Exception) {
                 PruningTableLoadResult.Failed(failure.message ?: "pruning-table-preparation-failed")
             }
+        }
+
+    /**
+     * Builds every coordinate's move table on [cpuDispatcher], cooperatively cancellable, so the
+     * solver's first timed solve never pays for it (SolveCube's 3 s effect timeout covers the solve).
+     */
+    private suspend fun prepareMoveTables(): Long =
+        withContext(cpuDispatcher) {
+            val context = currentCoroutineContext()
+            val start = System.nanoTime()
+            Coordinate.entries.forEach { MoveTables.transitions(it) { context.ensureActive() } }
+            System.nanoTime() - start
         }
 
     private fun read(): PruningTables? =
