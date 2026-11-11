@@ -3,6 +3,9 @@ package dev.cubentia.app.compat
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.util.Log
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
@@ -12,7 +15,10 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toSize
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import dev.cubentia.app.MainActivity
 import dev.cubentia.app.di.SolverModule
@@ -31,6 +37,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import kotlin.math.roundToInt
+import kotlin.math.sign
 
 typealias KeyFlowRule = AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>
 
@@ -119,12 +126,48 @@ class KeyFlowHarness(
         rule.waitForIdle()
     }
 
+    /** The scrolling key area around [tag]: its nearest vertical-scroll ancestor that can scroll. */
+    private fun keyArea(tag: String): SemanticsNode? =
+        generateSequence(rule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().parent) { it.parent }.firstOrNull {
+            (
+                it.config
+                    .getOrNull(SemanticsProperties.VerticalScrollAxisRange)
+                    ?.maxValue
+                    ?.invoke() ?: 0f
+            ) > 0f
+        }
+
+    /** Drags the key area (a real touch drag, not a semantics scroll) until [tag] is fully inside it. */
+    private fun dragKeyAreaTo(tag: String) {
+        repeat(MAX_DRAGS) {
+            val area = keyArea(tag) ?: return
+            val node = rule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode()
+            val key = Rect(node.positionInRoot, node.size.toSize())
+            val view = area.boundsInRoot
+            val dy =
+                when {
+                    key.top < view.top -> view.top - key.top
+                    key.bottom > view.bottom -> view.bottom - key.bottom
+                    else -> return
+                }
+            rule.onNode(SemanticsMatcher("key area") { it.id == area.id }, useUnmergedTree = true).performTouchInput {
+                swipe(center, center + Offset(0f, dy + viewConfiguration.touchSlop * sign(dy)), DRAG_MS)
+            }
+            rule.waitForIdle()
+        }
+    }
+
     /** Taps the Move key for [move] and waits for the session to take it. */
     fun tapMove(move: Move) {
         val before = host.state.value.revision
         val tag = "moveKey:${Notation.format(move)}"
         // Wide and slice keys sit behind the key bar's *more* toggle.
         if (!exists(tag) && exists("moveKey:more")) click("moveKey:more")
+        awaitTag(tag)
+        // The key's row scrolls sideways; a short stage's key area scrolls vertically, which
+        // performScrollTo (nearest scroll parent only) does not reach, so drag it as a Learner would.
+        rule.onNodeWithTag(tag, useUnmergedTree = true).performScrollTo()
+        dragKeyAreaTo(tag)
         click(tag)
         await("Move ${Notation.format(move)} to commit") { host.state.value.revision != before }
         rule.waitForIdle()
@@ -464,6 +507,8 @@ class KeyFlowHarness(
         private const val TIMEOUT_MS = 20_000L
         private const val ROTATE_TIMEOUT_MS = 15_000L
         private const val POLL_MS = 100L
+        private const val MAX_DRAGS = 6
+        private const val DRAG_MS = 600L
         private const val STABLE_MS = 400L
         private const val MAX_ACTIONS = 400
         private const val EXPANDED_PANEL_MAX_DP = 560f
