@@ -847,7 +847,7 @@ So that I don't have to take a course first.
 
 **Given** a valid entry
 **When** the Solver runs
-**Then** a cancelable indeterminate progress bar shows, "Preparing the solver (one time, a few seconds)." shows while tables build, and a timeout shows "Couldn't find a solution in time. Your colors are still here — try again." with no partial result
+**Then** a cancelable indeterminate progress bar shows; while the solver prepares (the first solve in each app process) "Preparing the solver. This can take a few seconds the first time after the app starts." shows, or, when no valid shipped or saved tables exist and they must be generated, "Setting up the solver for first use. This can take a little while." (SCP 2026-11-11); and a timeout shows "Couldn't find a solution in time. Your colors are still here — try again." with no partial result
 
 **Given** the last Playback step
 **When** the cube is solved

@@ -594,7 +594,7 @@ action_items:
     action: "bmad-correct-course: reconcile the 3.7 AC (epics.md:850) and EXPERIENCE.md:130
       that pin the old preparing copy, together with #112"
     owner: "PM (John) + UX (Sally)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-11-11.md"
   - id: "epic-3-retro-item-62-close-113-and-epic-8-retro-item-32-with"
     epic: 3
