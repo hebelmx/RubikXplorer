@@ -2,7 +2,7 @@ package dev.cubentia.app
 
 import android.os.StrictMode
 
-/** debug build (AD-16): main-thread disk reads and writes are logged under the `StrictMode` tag. */
+/** debug build (AD-16): main-thread disk reads, disk writes and network access are logged under the `StrictMode` tag. */
 object DebugStrictMode {
     fun install() {
         StrictMode.setThreadPolicy(
@@ -10,6 +10,7 @@ object DebugStrictMode {
                 .Builder()
                 .detectDiskReads()
                 .detectDiskWrites()
+                .detectNetwork()
                 .penaltyLog()
                 .build(),
         )

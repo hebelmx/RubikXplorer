@@ -131,9 +131,9 @@ selects bundled because its installed total, 7,956,589 B, is under 30 MB. Bundle
 bytes than first-run (0.92 MB vs 4.03 MB) and removes ~1.7 s (generation BFS + write) from the
 first solve. It does not remove the per-process move-table build. Recorded in the architecture memlog.
 
-### Production StrictMode and Lesson independence (debug build, `03a69f9`)
+### Production StrictMode and Lesson independence (debug build, `5921e65` + `detectNetwork()`)
 
-Scripted `adb` UI run with the app-wide debug StrictMode policy (`detectDiskReads().detectDiskWrites().penaltyLog()`, `DebugStrictMode` in `app/src/debug`; no-op in release/benchmark). Raw: [`production-strictmode-tab-s7-fe.log`](evidence/3-8/production-strictmode-tab-s7-fe.log).
+Scripted `adb` UI run with the app-wide debug StrictMode policy (`detectDiskReads().detectDiskWrites().detectNetwork().penaltyLog()`, `DebugStrictMode` in `app/src/debug`; no-op in release/benchmark). Raw: [`production-strictmode-tab-s7-fe.log`](evidence/3-8/production-strictmode-tab-s7-fe.log).
 
 1. Fresh install, cold process: opened a Lesson and turned U before any solve. The Lesson responded
    ("Pattern reached", "Objective met") with tables never requested.
@@ -147,10 +147,14 @@ Scripted `adb` UI run with the app-wide debug StrictMode policy (`detectDiskRead
 5. New process (force-stop): accepted the U cube again. The preparing line appeared (the asset is
    re-read and move tables rebuilt per process), then playback of `U'`. No table file was written.
 
-StrictMode result: 6 violations in process 1 and 4 in process 2, **0 attributable to table loading
-or solving**. The remaining violations, reported verbatim in the log: Samsung
+StrictMode result (re-run 2026-11-10 with network detection added): 6 violations in process 1 and
+4 in process 2, all `DiskReadViolation`, none network, **0 attributable to table loading or
+solving**, and no app frame performs disk access (the only app frames are `CubentiaApp.onCreate` →
+`super.onCreate()`). The remaining violations, reported verbatim in the log: Samsung
 `Typeface.setFlipFonts`/`getFullFlipFont` disk reads from `Application.onCreate` (each process) and
-`ActivityThread.getProfileSizeOfApp` (first process after install). Both are platform code. An earlier
+`ActivityThread.getProfileSizeOfApp` (first process after install). Both are platform code; whether
+they may be waived against the epic AC ("no main-thread disk access is reported") is an open PO
+question. An earlier
 pass (`eeac7db`, [`production-check-attempt2-eeac7db.log`](evidence/3-8/production-check-attempt2-eeac7db.log))
 found 2 real violations: `Context.getFilesDir()` called from `SolverModule.provider` on the main
 thread. These were fixed in `03a69f9` by building the path from `applicationInfo.dataDir`.
