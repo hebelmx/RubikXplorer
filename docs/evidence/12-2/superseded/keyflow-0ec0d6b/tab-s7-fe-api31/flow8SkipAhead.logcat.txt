@@ -1,0 +1,14 @@
+--------- beginning of main
+11-11 14:28:23.517 23308 23341 I TestRunner: run started: 1 tests
+11-11 14:28:23.518 23308 23341 I TestRunner: started: flow8SkipAhead(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 14:28:26.845 23308 23372 I KeyFlowRotation: layout,flow=flow8,surface=skipCheck,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:28:28.280 23308 23372 I KeyFlowRotation: layout,flow=flow8,surface=skipCheck,orientation=landscape,widthDp=1205,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
+11-11 14:28:29.783 23308 23372 I KeyFlowRotation: layout,flow=flow8,surface=skipCheck,orientation=portrait,widthDp=753,class=MEDIUM,checks=lesson:sideBySide
+11-11 14:28:29.783 23308 23372 I KeyFlowRotation: surface,flow=flow8,surface=skipCheck,result=pass
+11-11 14:29:00.956 23308 23372 I KeyFlowRotation: layout,flow=flow8,surface=learnSkipped,orientation=portrait,widthDp=753,class=MEDIUM,checks=nav:rail
+11-11 14:29:02.106 23308 23372 I KeyFlowRotation: layout,flow=flow8,surface=learnSkipped,orientation=landscape,widthDp=1205,class=EXPANDED,checks=nav:rail
+11-11 14:29:03.258 23308 23372 I KeyFlowRotation: layout,flow=flow8,surface=learnSkipped,orientation=portrait,widthDp=753,class=MEDIUM,checks=nav:rail
+11-11 14:29:03.258 23308 23372 I KeyFlowRotation: surface,flow=flow8,surface=learnSkipped,result=pass
+11-11 14:29:03.275 23308 23372 I KeyFlowRotation: flow,flow=flow8,surfaces=2,failedSurfaceChecks=0,result=pass
+11-11 14:29:03.709 23308 23341 I TestRunner: finished: flow8SkipAhead(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 14:29:03.716 23308 23341 I TestRunner: run finished: 1 tests, 0 failed, 0 ignored

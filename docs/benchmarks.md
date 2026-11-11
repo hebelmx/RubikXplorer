@@ -359,57 +359,77 @@ solve. **7** Stage 2 practice (hint once, practice until the milestone) → You 
 already solve it* → skip-ahead check solved → Stages Skipped, *Faster last layer* unlocked.
 **9 step 4** Settings → *Reset progress* ends the live Lesson and clears *Continue*.
 
-Revision `0ec0d6baa77328a108e7cd92cca7778abf3b9656` (the rotation fix below), 2026-11-11. AVDs ran one
-at a time, headless (`-no-window -no-audio -no-snapshot-save -gpu swiftshader_indirect`; with the
-default host GPU the API 35 emulator's QEMU crashed twice mid-run in the first run, so every AVD runs
-with SwiftShader), and were shut down afterwards. Cells give surfaces passed / surfaces checked;
-window classes are those seen in each orientation.
+Two revisions, 2026-11-11. The physical Tab S7 FE, the physical S24 FE and the Tab AVD ran the full
+suite at `dd56e34b2e0573707b0e6566a94df3f51c06e78a`, after the Move-key fix below changed the stage.
+The other AVDs ran at `0ec0d6baa77328a108e7cd92cca7778abf3b9656`, the rotation fix below. AVDs ran one
+at a time, headless (`-no-window -no-audio -no-snapshot-save -gpu swiftshader_indirect`). In the first
+run the API 35 emulator's QEMU crashed twice with the default host GPU, so every AVD runs with
+SwiftShader. Each AVD was shut down afterwards. Cells give surfaces passed / surfaces checked; window
+classes are those seen in each orientation.
 
-| Target | API | Form factor | Portrait | Landscape | Flow 1 | Flow 2 | Flow 3 | Flow 6 | Flow 7 | Flow 8 | Flow 9 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| tab-s7-fe-api31 (SM-T738U, physical) | 31 | tablet | MEDIUM (753 dp) | EXPANDED (1205 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
-| avd-spike3d_api29 (Android SDK built for x86_64, emulator) | 29 | phone | COMPACT (393 dp) | MEDIUM (781 dp) | pass (11/11) | pass (8/8) | pass (6/6) | pass (9/9) | pass (6/6) | pass (3/3) | pass (6/6) |
-| avd-GalaxyTabS7FE_API34 (sdk_gphone64_x86_64, emulator) | 34 | tablet | COMPACT (555 dp) | EXPANDED (1280 dp) | pass (11/11) | **incomplete** (3/3 passed, then the harness timed out waiting for the wide Move `f` to commit in the 2-look Lesson; not a rotation result) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
-| avd-GalaxyS24FE_API35 (sdk_gphone64_x86_64, emulator) | 35 | phone | COMPACT (384 dp) | MEDIUM (832 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
-| avd-GalaxyS24FE_API36 (sdk_gphone64_x86_64, emulator) | 36 | phone | COMPACT (384 dp) | MEDIUM (832 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
-| avd-GalaxyS24FE_API37 (sdk_gphone64_x86_64, emulator) | 37 | phone | COMPACT (384 dp) | MEDIUM (832 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
+| Target | Revision | API | Form factor | Portrait | Landscape | Flow 1 | Flow 2 | Flow 3 | Flow 6 | Flow 7 | Flow 8 | Flow 9 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| tab-s7-fe-api31 (SM-T738U, physical) | `dd56e34` | 31 | tablet | MEDIUM (753 dp) | EXPANDED (1205 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
+| s24-fe-api37 (SM-S721U1, physical) | `dd56e34` | 37 | phone | COMPACT (384 dp) | MEDIUM (832 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
+| avd-GalaxyTabS7FE_API34 (sdk_gphone64_x86_64, emulator) | `dd56e34` | 34 | tablet | COMPACT (555 dp) | EXPANDED (1280 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
+| avd-spike3d_api29 (Android SDK built for x86_64, emulator) | `0ec0d6b` | 29 | phone | COMPACT (393 dp) | MEDIUM (781 dp) | pass (11/11) | pass (8/8) | pass (6/6) | pass (9/9) | pass (6/6) | pass (3/3) | pass (6/6) |
+| avd-GalaxyS24FE_API35 (sdk_gphone64_x86_64, emulator) | `0ec0d6b` | 35 | phone | COMPACT (384 dp) | MEDIUM (832 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
+| avd-GalaxyS24FE_API36 (sdk_gphone64_x86_64, emulator) | `0ec0d6b` | 36 | phone | COMPACT (384 dp) | MEDIUM (832 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
+| avd-GalaxyS24FE_API37 (sdk_gphone64_x86_64, emulator) | `0ec0d6b` | 37 | phone | COMPACT (384 dp) | MEDIUM (832 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
 
-Targets: physical Galaxy Tab S7 FE 5G `R52T50ELHWK` (Android 12); AVDs `spike3d_api29` (Pixel 4
-profile, Android 10), `GalaxyTabS7FE_API34` (2560×1600 @ 320 dpi, Android 14), `GalaxyS24FE_API35`,
-`GalaxyS24FE_API36`, `GalaxyS24FE_API37` (1080×2340 @ 450 dpi). The physical Galaxy S24 FE
-`R5CX83A5J1J` had been returned to its owner before the rerun, so API 37 was rerun on the
-`GalaxyS24FE_API37` AVD instead; its first-run physical result is kept with the superseded evidence.
-The Tab AVD's portrait width (555 dp) is COMPACT where the physical Tab (753 dp) is MEDIUM, so between
-them the tablet covers all three window classes. Raw results per target: `instrument`, `logcat` (one
-`layout,` line per surface and orientation with the width and checks, one `surface,` line per
-surface) and `device.txt` in [`evidence/12-2/keyflow/`](evidence/12-2/keyflow/). The rotation settings
-were unchanged on every target (physical Tab `accelerometer_rotation=1 user_rotation=3`).
+Targets: physical Galaxy Tab S7 FE 5G `R52T50ELHWK` (Android 12) and Galaxy S24 FE `R5CX83A5J1J`
+(Android 17); AVDs `spike3d_api29` (Pixel 4 profile, Android 10), `GalaxyTabS7FE_API34` (2560×1600
+@ 320 dpi, Android 14), `GalaxyS24FE_API35`, `GalaxyS24FE_API36`, `GalaxyS24FE_API37` (1080×2340 @
+450 dpi). The S24 FE was away for the `0ec0d6b` rerun, so API 37 was first rerun on the
+`GalaxyS24FE_API37` AVD; the S24 FE then ran the full suite at `dd56e34`. The Tab AVD's portrait window
+(555 dp) is COMPACT where the physical Tab (753 dp) is MEDIUM, so between them the tablet covers all
+three window classes. Raw results per target are in [`evidence/12-2/keyflow/`](evidence/12-2/keyflow/):
+`instrument`, `logcat` and `device.txt`. Each `logcat` has one `layout,` line per surface and
+orientation (with the width and checks) and one `surface,` line per surface. The rotation settings
+were unchanged on every target (physical Tab `accelerometer_rotation=1 user_rotation=3`, S24 FE
+`1 / 0`). The `0ec0d6b` runs of the physical Tab and the Tab AVD are kept in
+[`evidence/12-2/superseded/keyflow-0ec0d6b/`](evidence/12-2/superseded/keyflow-0ec0d6b/).
 
-**Result: rotation met; one app finding.** Rotation no longer changes the session on any surface,
-and layout followed the window class on every surface of every target. 41 of the 42 target × flow
-runs pass. Flow 2 on the Tab AVD passed its first three surfaces (including the skip-ahead check that
-failed before) and then stopped where the first run did: a tap on the wide Move key `f` did not
-commit. The later Flow 2 surfaces (*Add to Learning* offer, Library *Learning*, LL practice, 2-look
-milestone) passed on the other five targets, including the physical tablet.
+**Result: met.** All 49 target × flow runs pass. Rotation changes no session state on any surface, and
+layout follows the window class on every surface of every target.
 
-**Finding: wide and slice Move keys are unreachable in a short COMPACT window.** Diagnosed on the Tab
-AVD and reproduced in Robolectric; it is an app bug, not a harness bug, and is not fixed in this
-story. The AVD's forced-portrait window is letterboxed on its landscape display at **555 × 716 dp**.
-In COMPACT the Lesson stage has a fixed height (`max(0.45 × body height, 280 dp + gutters)`), and the
-Move key bar sits inside it under the cube, with no vertical scroll. Tapping *more* adds the wide and
-slice rows, which then overflow the stage's bottom edge and sit under the panel. At 555 × 716 dp:
+**Finding, fixed: wide and slice Move keys hidden in a short COMPACT window.** At `0ec0d6b`, Flow 2 on
+the Tab AVD stopped after three passing surfaces, as it did in the first run: a tap on the wide Move key
+`f` did not commit. The AVD's forced-portrait window is letterboxed on its landscape display at
+**555 × 716 dp**. There the COMPACT stage leaves the Move key area about 105 dp, about two key rows.
+The area already scrolls (Story 12.1: `CubeAndKeys` keeps the cube at 96 dp and scrolls the keys).
+Tapping *more* added the wide and slice rows below that fold, with only a 9 dp sliver of the wide row
+showing:
 
-- the stage ends at 345 dp;
-- `moveKey:f` spans 336–384 dp, a 48 dp target with 39 dp of it below the stage;
-- the panel starts at 353 dp.
+- the stage ended at 345 dp, and `moveKey:f` spanned 336–384 dp;
+- the uiautomator dump showed neither row;
+- nothing told the Learner that the rows had appeared.
 
-A tap at the key's centre lands on the panel, and the session revision stays at 1. The uiautomator
-dump does not expose the wide or slice keys at all. So a Learner in that window cannot press any wide
-or slice key. The screenshot also shows the system's letterbox education dialog, but that is not the
-cause: the *more* tap under it took effect. Evidence:
-[`flow2-stall-finding.txt`](evidence/12-2/keyflow/avd-GalaxyTabS7FE_API34/flow2-stall-finding.txt),
-[screenshot](evidence/12-2/keyflow/avd-GalaxyTabS7FE_API34/flow2-stall-screenshot.png),
-[uiautomator dump](evidence/12-2/keyflow/avd-GalaxyTabS7FE_API34/flow2-stall-uiautomator.xml).
+Two problems combined:
+
+1. **App:** the new rows opened out of sight.
+2. **Harness:** `performScrollTo` scrolls only the nearest scroll parent, which is the key row's
+   horizontal scroll. It never moved the vertical key area, so the harness tapped a clipped key, and the
+   tap landed on the panel.
+
+An earlier note in this section called the keys unreachable. That was wrong: a probe without a scroll
+missed them, and a drag on the key area does reach them and commit.
+
+The fix (`dd56e34`) has two parts:
+
+- **App:** `MoveKeyBar` scrolls the wide and slice rows into view (`BringIntoViewRequester`) when the
+  Learner opens *more*. Every key keeps its 48 dp target, and the layout is unchanged where the rows
+  already fit.
+- **Harness:** before a tap, the harness drags the key area with real touch input until the key is
+  fully inside it.
+
+Regression tests: in `AppShellTest`, at 555 × 716 dp and at 360 × 640 dp, *more*, then `f`, `M`, `S2`
+and `U`. Each key is reached by a drag, fully shown, at least 48 dp, and commits its Move. At 555 dp,
+`f` must show with no drag; that check fails without the fix. Diagnosis evidence:
+[`flow2-stall-finding.txt`](evidence/12-2/superseded/keyflow-0ec0d6b/avd-GalaxyTabS7FE_API34/flow2-stall-finding.txt),
+[screenshot](evidence/12-2/superseded/keyflow-0ec0d6b/avd-GalaxyTabS7FE_API34/flow2-stall-screenshot.png),
+[uiautomator dump](evidence/12-2/superseded/keyflow-0ec0d6b/avd-GalaxyTabS7FE_API34/flow2-stall-uiautomator.xml). The screenshot also shows the system's letterbox
+education dialog, which was not involved.
 
 **First run, superseded** (revision `655833ef816e8f619a911b697cec7800eeb3e111`, raw files in
 [`evidence/12-2/superseded/keyflow-655833e/`](evidence/12-2/superseded/keyflow-655833e/), with the
@@ -440,7 +460,7 @@ S24 FE until `androidTestImplementation` pinned espresso-core 3.7.0 (test-only).
 **PO decision 2026-11-11.**
 2. Rotation re-dealing the skip-ahead check and Stage practice: **fix now, inside Story 12.2** (done
    above).
-3. API 30 is not in the target set (AVDs cover 29, 34, 35, 36, 37; physical 31): the API 30 gap is
+3. API 30 is not in the target set (AVDs cover 29, 34, 35, 36, 37; physical 31 and 37): the API 30 gap is
    **accepted** for "API 29 through targetSdk 36".
 
 ## Out of scope

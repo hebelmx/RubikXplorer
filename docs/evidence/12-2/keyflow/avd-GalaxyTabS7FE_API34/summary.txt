@@ -1,5 +1,5 @@
 flow1FirstSolvePhysicalCube pass
-flow2TwoLookLastLayer fail
+flow2TwoLookLastLayer pass
 flow3JustSolveIt pass
 flow6FiveMinuteEvaluation pass
 flow7PracticeToMastery pass

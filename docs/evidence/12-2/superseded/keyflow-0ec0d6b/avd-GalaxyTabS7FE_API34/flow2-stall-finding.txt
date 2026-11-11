@@ -26,5 +26,11 @@ cross Lesson, tap moveKey:more, then tap moveKey:f; temporary, not committed):
 Cause: in COMPACT the stage has a fixed height (max(0.45 x the Lesson body height, 280 dp + gutters)) and the
 Move key bar sits inside it, under the cube, in no vertical scroll. Expanding "more" adds the wide and
 slice rows, which overflow the stage's bottom edge under the panel; the tap at the key's centre lands
-on the panel. A Learner in a 555 x 716 dp window cannot press any wide or slice key. App bug, not a
-harness bug; not fixed in Story 12.2.
+on the panel. [Superseded: see CORRECTION below.]
+
+CORRECTION (same day, after a second probe): the conclusion above is wrong. The Move key area is a
+vertical scroll (Story 12.1, CubeAndKeys): at 555 x 716 dp its viewport was 105 dp with a scroll range
+of 111 dp, and a drag on it brings f, M and every other key fully into view, where a tap commits
+(revision 1 -> 2). The probe above tapped without scrolling. Actual causes: (1) app: opening "more" put
+the new rows below the fold with no cue; (2) harness: performScrollTo scrolls only the nearest
+(horizontal) scroll parent, so it tapped a clipped key. Both fixed in dd56e34; see docs/benchmarks.md.
