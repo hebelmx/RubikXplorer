@@ -419,16 +419,6 @@ class SessionHost internal constructor(
      * Returns true if the reset succeeded, or false if a delete or the repository write failed.
      */
     suspend fun resetProgress(): Boolean {
-        // NonCancellable: once the session ends here, the reset operation below must be enqueued, or the live
-        // snapshot would survive with neither an ended row nor a pending end write.
-        withContext(confined + kotlinx.coroutines.NonCancellable) {
-            resettingProgress = true
-            try {
-                endSession()
-            } finally {
-                resettingProgress = false
-            }
-        }
         val useCase = resetProgressUseCase
         // Also clear when already idle, so rows left by a failed restore or delete cannot reopen locked content.
         val operation: suspend () -> ProgressWrite? = {
@@ -450,13 +440,24 @@ class SessionHost internal constructor(
                 }
             }
         }
+        // NonCancellable: once the session ends here, the reset operation must be enqueued and awaited in the same
+        // block. Returning from a separate block can throw on the caller's cancellation before the enqueue, which
+        // would leave the live snapshot with neither an ended row nor a pending end write.
         val result =
-            try {
-                if (writer != null) writer.read(operation) else withContext(confined) { operation() }
-            } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
-                ProgressWrite.Failed
+            withContext(confined + kotlinx.coroutines.NonCancellable) {
+                resettingProgress = true
+                try {
+                    endSession()
+                } finally {
+                    resettingProgress = false
+                }
+                try {
+                    if (writer != null) writer.read(operation) else operation()
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    ProgressWrite.Failed
+                }
             }
         if (useCase == null && result == null) {
             val nextEpoch = StageProgress.currentEpoch(currentProgress.value) + 1L

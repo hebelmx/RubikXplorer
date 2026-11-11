@@ -5,7 +5,7 @@ created: '2026-11-10'
 baseline_revision: 'd952d39fcda007e48ef98a0a7a56394efef456c4'
 status: 'done'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-12-context.md'
   - '{project-root}/_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-10-session-end-deferrals.md'
@@ -118,6 +118,28 @@ deferred:
   - `[false]` `[reject]` (intent) Failed reset leaves the session ended with no ended row — identical to Story 12.11's failure mode (its own end-time delete failed the same way), which AC6 requires unchanged; the dialog keeps its retry and a successful retry deletes the row.
   - `[false]` `[reject]` (intent) Flake cause unconfirmed and 20 runs unrecorded — CI run 42914725894 attempt 1 failed with `AssertionError` at the `learn:stage:` node lookup (AppShellLibraryTest.kt:406 at 7dc8a30), before the host's async restore had loaded progress; the fix waits for that load. 20/20 recorded below.
 
+### 2026-11-10 — Review pass (follow-up)
+- verdicts: 18 findings — high 0, medium 5, low 7, false 6, maybe-false 0
+- findings:
+  - `[medium]` `[patch]` (blind) `resetProgress` enqueues the reset after leaving the `NonCancellable` block; `withContext` returns to the caller with a prompt-cancellation check, so a cancelled caller can throw before the enqueue, leaving the live snapshot with no ended row and no pending end — fixed: the end step and the reset `writer.read` (or direct run) now share one `withContext(confined + NonCancellable)` block; targeted reset/session tests pass.
+  - `[false]` `[reject]` (blind) `failEnd` in `DurableSessionEndTest` is read on the writer thread without synchronization — every flip happens before the next `enqueue`/`trySend`, and the channel hand-off establishes happens-before for the consumer's read.
+  - `[medium]` `[defer]` (blind) `MainActivity.onStop` lifecycle wiring is untested — carried: same row as the earlier pass; already in the `deferred` list (needs Hilt/ActivityScenario infrastructure).
+  - `[low]` `[reject]` (blind) No test for "retry succeeds immediately before the newer save" — carried: the ordering is benign (the newer save writes after it with a higher sequence).
+  - `[low]` `[reject]` (blind) `Stale` clearing `pendingEnd` is untested — carried: pre-existing semantics; an ended write is Stale only if its own session wrote a higher revision.
+  - `[low]` `[reject]` (blind) No test of an end failing while attempt rows are already pending from an earlier failed live save — code checked: the failed end stores `pendingAttempts + rows` and the retry re-sends `pendingAttempts`, so each row is saved once; adding the fixture is more than a direct correction for an unlikely path.
+  - `[low]` `[reject]` (blind) No test of an adapter-thrown `CancellationException` during an end write — the handler keeps `pendingEnd`/`pendingAttempts` and rethrows, and `SerialWriter.enqueue` swallows an operation's cancellation unless the consumer itself is cancelled; an unlikely path, not worth a new fixture.
+  - `[low]` `[reject]` (blind) Pending-end reset test covers only the `useCase == null` branch, not a failed-then-successful real reset — carried in substance: existing `SessionEndingTest` reset tests use the real `ResetProgress` incl. fail-then-retry; a successful reset deletes all rows in the same writer step.
+  - `[low]` `[reject]` (blind) No cold-start cases without a Checkpoint — `latest()` maps an ended row to `None` independent of Checkpoint presence and `restoreLatest` also checks `ended`; the Checkpoint is orthogonal.
+  - `[medium]` `[patch]` (edge-case) Caller cancellation during `resetProgress` end step skips the reset enqueue — same root cause as the first row; fixed by the same change.
+  - `[medium]` `[defer]` (verification-gap) Background retry has no Activity-lifecycle verification — carried: same deferral as above.
+  - `[false]` `[reject]` (intent) Failed reset leaves the session ended with no ended row — carried: identical to Story 12.11's failure mode, which the intent requires unchanged; the dialog retry deletes the row.
+  - `[false]` `[reject]` (intent) Deletes succeed but the reset use case fails, keeping `pendingEnd`, so a later ended row lands in a cleared table — an ended row restores nothing (`latest()` → `None`) and the next successful reset deletes it; no bad outcome.
+  - `[medium]` `[defer]` (intent) Backgrounding retry tested only at the host barrier — carried: same deferral.
+  - `[low]` `[reject]` (intent) `PreferenceStore` trigger is covered structurally, not by a test — `PreferenceStore` uses the same singleton `SerialWriter`, whose hook runs before every queued operation, which `SerialWriterTest` covers.
+  - `[false]` `[reject]` (intent) "Superseded, retry not yet run" cannot occur — not a defect: the hook always retries before the newer save, so that matrix state reduces to the tested "retry failed" case.
+  - `[false]` `[reject]` (intent) Flake root cause not evidenced in the diff — carried: CI run 42914725894 attempt 1 failed at the `learn:stage:` lookup before the async restore loaded progress.
+  - `[false]` `[reject]` (intent) Appending a note to the 12.11 spec may violate "do not edit planning artifacts" — the 12.11 spec lives under `implementation-artifacts`, and this spec's tasks require that note.
+
 ## Design Notes
 
 End write, in `dispatch` on `SessionEnded` (sketch):
@@ -180,3 +202,25 @@ The post-end revision is `before.revision + 1`, so the end write is never `Stale
 **Residual risks:**
 - As the SCP records, if an end write fails and the process dies before any retry, a closed practice can restore once.
 - The `onStop` wiring is untested at the Activity level (deferred).
+
+### Follow-up review pass (2026-11-10)
+
+**Summary:** A fresh four-layer review (blind, edge-case and verification-gap on Codex, intent alignment on Claude) of the full diff since `d952d39fcda007e48ef98a0a7a56394efef456c4`. One real defect was found and patched: `resetProgress` ended the session in one `NonCancellable` block and enqueued the reset after returning from it, so a caller cancelled at that return could skip the reset and leave the live snapshot with neither an ended row nor a pending end.
+
+**Files changed:**
+- `app/src/main/kotlin/dev/cubentia/app/session/SessionHost.kt` -- `resetProgress` now ends the session and enqueues and awaits the reset operation in one `withContext(confined + NonCancellable)` block.
+
+**Review findings:** 18 findings (high 0, medium 5, low 7, false 6); see the triage log.
+- **Patched:** 1 medium entry (2 rows: blind and edge-case), the reset cancellation window.
+- **Deferred:** none new; the 3 `MainActivity.onStop` lifecycle-test rows were carried onto the existing deferral.
+- **Rejected:** 14 findings, each with its reason in the triage log: unsynchronized `failEnd` (false: channel hand-off orders it); retry-succeeds ordering, Stale clearing, pre-pending attempts, adapter cancellation, reset-branch coverage, no-Checkpoint cold start, `PreferenceStore` trigger (low, unlikely, more than a direct correction or carried); failed reset, ended row after partial reset, superseded-not-yet-run, flake cause, 12.11 spec note (false).
+
+**Follow-up review recommendation:** false. This follow-up pass patched no `high` entry (patched: high 0, medium 1, low 0), so the work has converged.
+
+**Verification:**
+- Targeted tests `SessionEndingTest`, `DurableSessionEndTest`, `SessionHostTest`, `SessionHostProgressTest`, `SessionHostAlgorithmStatusTest`, `SettingsScreenTest` -- pass.
+- `./gradlew spotlessCheck build` -- BUILD SUCCESSFUL in 3m 46s.
+- The 20-run loop on `AppShellLibraryTest` -- 20/20 consecutive passes.
+
+**Residual risks:** unchanged from the first pass (process death before any retry after a failed end write; `onStop` wiring untested at the Activity level). No regression test drives a cancellation at the reset boundary; the fix is structural.
+
