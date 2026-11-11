@@ -1,6 +1,6 @@
 # Spike OQ-3: choose the 3D rendering approach
 
-Story 1.8. Throwaway prototypes of the `CubeRenderer` port in SceneView and in custom OpenGL ES 3.0, measured against the decision rule in the story spec. Spike code compiles only with `-Pcubentia.spike3d=true`.
+Story 1.8. Throwaway prototypes of the `CubeRenderer` port in SceneView and in custom OpenGL ES 3.0, measured against the decision rule in the story spec. Spike code compiles only with `-Pcubentia.spike3d=true`. Story 1.11 removed the SceneView prototype code (its source sets, the `cubentia.spike3d.sceneview` switch and the `sceneview` catalog entry) after reference-device timing confirmed OpenGL ES; the SceneView numbers below are kept as the historical record, and the flags they name no longer exist.
 
 **Decision: use custom OpenGL ES 3.0 for the Epic 5 3D renderer.** SceneView fails hard criterion 3 (release APK delta ≤ 10 MB): it adds 30,390,600 bytes to the universal release APK and about 10.7 MB even to an arm64-only APK. The OpenGL ES prototype passes all four hard criteria and adds 65,672 bytes. A `bmad-architecture` update is requested to replace the spine's `SceneView 4.62.0 (Filament 1.72.x) [ASSUMPTION: OQ-3 spike]` row.
 
@@ -47,7 +47,7 @@ Measured as (spike release APK) − (default release APK) on the same commit. Bo
 | Build | APK bytes | Delta bytes | Download size (apkanalyzer) |
 |---|---|---|---|
 | Default release (baseline) | 2,126,832 | 0 | 1,233,235 |
-| Spike, OpenGL ES only (`-Pcubentia.spike3d.sceneview=false`) | 2,192,504 | **+65,672** | 1,265,408 |
+| Spike, OpenGL ES only (`-Pcubentia.spike3d.sceneview=false`, a switch removed in Story 1.11) | 2,192,504 | **+65,672** | 1,265,408 |
 | Spike, SceneView + OpenGL ES | 32,517,432 | **+30,390,600** | 17,673,335 |
 
 Where SceneView's bytes go (stored sizes inside the APK):
@@ -118,40 +118,68 @@ Tie-breaks, for the record:
 - **Highlight and Demonstration arrows.** In OpenGL ES, a highlight is a color or emissive uniform per sticker, and an arrow is a small extruded mesh drawn with the cube shader. SceneView has `LineNode`, `PathNode` and material parameters. Both are straightforward.
 - **Other SceneView costs found.** Its manifest adds `INTERNET` and `VIBRATE`; the AD-13 manifest gate fails the build until they are removed with `tools:node="remove"`, which the spike overlay does. It brings `fuel` (an HTTP client) onto the runtime classpath. Its 4.x API is Compose-first and moves fast (4.62 to 4.63 within the planning window).
 
+## Reference-device re-measurement (Story 1.11)
+
+Run on 2026-11-10 at commit `4befc1f`: release spike build (`-Pcubentia.spike3d=true
+-Pcubentia.spike3d.sceneview=false`, R8 as in `release`) signed with the debug key; `Spike3dActivity`
+autorun `--es engine gles --ei turns 40 --ez burst true` (40 alternating R / R' turns 500 ms apart,
+then one burst of 4 queued turns, the last of them fast-forwarded). Both devices ran at 60 Hz. Same
+method and readings as the emulator table above; "worst turn" is the strictest reading of criterion 4.
+
+| Device | OS | Turns | Frames | p50 (median turn) | p90 (median turn) | p90 (worst turn) | p99 (worst turn) | Max | Frames > 33.3 ms | Turn elapsed (median) | `readbackOk` |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Galaxy Tab S7 FE 5G (SM-T738U, minimum) | Android 12, SDK 31 | 44 | 654 | 16.73 ms | 18.34 ms | **20.48 ms** | 27.47 ms | 27.47 ms | 0 | 251.9 ms | true (44/44) |
+| Galaxy S24 FE (SM-S721U1, mid) | Android 17, SDK 37 | 44 | 670 | 16.48 ms | 19.73 ms | **23.64 ms** | 29.51 ms | 29.51 ms | 0 | 258.4 ms | true (44/44) |
+
+"Median turn" is the lower median of the 44 per-turn values; "p99 (worst turn)" is the highest
+per-turn p99. The fast-forwarded turn took 66.3 ms (4 frames) on the Tab S7 FE 5G and 65.7 ms
+(4 frames) on the S24 FE.
+
+**Verdict: OpenGL ES confirmed.** The worst-turn p90 is at or below 33.3 ms on both reference devices
+(20.48 ms and 23.64 ms), so criterion 4 holds on physical hardware and the OQ-3 decision stands. No
+frame exceeded 33.3 ms. The SceneView prototype code was then deleted. As in Story 1.8, these are
+frame-callback intervals at 60 Hz vsync, so they show pacing, not each frame's GPU cost; the
+production `Cube3DRenderer` is a separate renderer and was not measured here.
+
+Not covered by this measurement:
+- **View Rotation.** The spike renderer has face turns only, so View Rotation frame timing (also part
+  of NFR-2) was not measured on either device.
+- **The 60 FPS mid-range target.** These runs only test the 30 FPS (33.3 ms) rendering-choice
+  threshold. On the S24 FE the median-turn p90 is 19.73 ms, above the 16.7 ms frame at 60 Hz, so
+  this measurement does not show the 60 FPS target being met on the mid device.
+
+Raw evidence (timing-only `Spike3d` logcat for each device, and the script that produced the table)
+is in [`story-1-11-device-evidence/`](story-1-11-device-evidence/): run
+`python3 spike3d_stats.py spike3d-gles-tab-s7-fe.log` to reproduce a row.
+
 ## How to reproduce
 
 ```sh
 export JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64 ANDROID_HOME=$HOME/Android/Sdk
-# Readback and driver tests
+# Readback, driver and percentile tests
 ./gradlew -Pcubentia.spike3d=true :app:testDebugUnitTest --tests 'dev.cubentia.app.spike3d.*'
 # APKs (manifest and SDK-denylist checks are part of `check`; run them too)
 ./gradlew :app:assembleRelease                                                                       # baseline
-cp app/build/outputs/apk/release/app-release-unsigned.apk baseline-release.apk                       # keep it; the next builds overwrite it
+cp app/build/outputs/apk/release/app-release-unsigned.apk baseline-release.apk                       # keep it; the next build overwrites it
 ./gradlew -Pcubentia.spike3d=true :app:assembleRelease :app:assembleDebug \
-  :app:checkReleaseMergedManifest :app:checkReleaseSdkDenylist                                        # both engines
-./gradlew -Pcubentia.spike3d=true -Pcubentia.spike3d.sceneview=false :app:assembleRelease    # OpenGL ES only
-# Emulator (none was attached)
-sdkmanager --install emulator "system-images;android-29;default;x86_64"
-avdmanager create avd -n spike3d_api29 -k "system-images;android-29;default;x86_64" -d pixel_4
-emulator -avd spike3d_api29 -no-window -no-audio -no-snapshot -gpu host   # or -gpu swiftshader_indirect
+  :app:checkReleaseMergedManifest :app:checkReleaseSdkDenylist                                        # OpenGL ES spike
 apksigner sign --ks ~/.android/debug.keystore --ks-pass pass:android --ks-key-alias androiddebugkey \
   --out spike.apk app/build/outputs/apk/release/app-release-unsigned.apk
-adb install -r spike.apk
-for engine in gles sceneview; do
-  adb shell am force-stop com.exxerpro.cubentia
-  adb shell am start -W -n com.exxerpro.cubentia/dev.cubentia.app.spike3d.Spike3dActivity --es engine $engine --ei turns 40 --ez burst true
-  # wait for "autorun done", then:
-  adb logcat -d --pid=$(adb shell pidof com.exxerpro.cubentia) -s Spike3d:I   # one line per turn, then "autorun done"
-done
-# Swiftshader stress run: adb emu kill, restart with -gpu swiftshader_indirect, reinstall, repeat the loop.
+# On each device (adb -s <serial> when several are connected; on an emulator see docs/emulators.md):
+adb install -r spike.apk          # on a signature mismatch: adb uninstall com.exxerpro.cubentia, then install
+adb shell am force-stop com.exxerpro.cubentia
+adb logcat -c
+adb shell am start -W -n com.exxerpro.cubentia/dev.cubentia.app.spike3d.Spike3dActivity --es engine gles --ei turns 40 --ez burst true
+# wait for "autorun done", then:
+adb logcat -d -s Spike3d:I   # one line per turn, then "autorun done"
 ```
 
-The activity also has manual buttons: an engine toggle, R, R', and "×4 queued". Log lines carry a turn number `n=` because logd's chatty filter collapses identical lines.
+The activity also has manual buttons: an engine selector (now only `gles`), R, R' and "×4 queued". Log lines carry a turn number `n=` because logd's chatty filter collapses identical lines. The Story 1.8 emulator runs used `emulator -avd spike3d_api29 -no-window -no-audio -no-snapshot -gpu host` (or `-gpu swiftshader_indirect`) on a `system-images;android-29;default;x86_64` AVD with the pixel_4 profile.
 
 ## Follow-ups
 
-- **Story 1.10:** all frame times here come from an emulator. Re-measure both prototypes, or at least the OpenGL ES one, on the minimum and mid-tier reference devices once ARCH-OQ-1 names them, using the commands above. A physical-device p90 above 33.3 ms for OpenGL ES would reopen this decision. Macrobenchmark frame timing does not see GL surface frames, so keep the in-app `Spike3d` frame log, or use `FrameMetrics` on the TextureView path.
-- **Architecture:** `bmad-architecture` update to replace the spine's 3D row ("SceneView 4.62.0 (Filament 1.72.x) [ASSUMPTION: OQ-3 spike]") with custom OpenGL ES 3.0 (no dependency), and to close the OQ-3 deferral. The `sceneview` version catalog entry and the spike source sets go away when the spike code is deleted.
+- **Story 1.10 / 1.11:** the Story 1.8 frame times came from an emulator. Story 1.11 re-measured the OpenGL ES prototype on both reference devices (above) and confirmed the decision; the SceneView prototype was not re-measured and its code is gone.
+- **Architecture:** `bmad-architecture` update to replace the spine's 3D row ("SceneView 4.62.0 (Filament 1.72.x) [ASSUMPTION: OQ-3 spike]") with custom OpenGL ES 3.0 (no dependency), and to close the OQ-3 deferral. The `sceneview` version catalog entry and the SceneView source sets were deleted in Story 1.11.
 - **Epic 5:** build the production 3D adapter on OpenGL ES 3.0 behind `CubeRenderer`:
   - Reuse the spike's cubie model, readback approach and driver semantics; the readback becomes the `renderedFacelets()` source of truth.
   - Add a glyph atlas for color-blind glyphs.

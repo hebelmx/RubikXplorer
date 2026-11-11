@@ -40,7 +40,7 @@ import kotlinx.coroutines.delay
  * turns at once to see fast-forward. Frame timing per turn is logged under [SpikeRenderer.TAG].
  *
  * For unattended measurement: `adb shell am start -n com.exxerpro.cubentia/dev.cubentia.app.spike3d.Spike3dActivity
- * --es engine sceneview --ei turns 40 --ez burst true` runs 40 alternating R / R' turns, then
+ * --es engine gles --ei turns 40 --ez burst true` runs 40 alternating R / R' turns, then
  * one burst of four, and logs `autorun done`.
  */
 class Spike3dActivity : ComponentActivity() {

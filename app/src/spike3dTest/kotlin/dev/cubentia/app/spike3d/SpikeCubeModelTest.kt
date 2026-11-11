@@ -1,6 +1,7 @@
 package dev.cubentia.app.spike3d
 
 import dev.cubentia.app.render.PresentationItem
+import dev.cubentia.app.spike3d.SpikeTurnDriver.Companion.percentile
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
@@ -101,6 +102,24 @@ class SpikeCubeModelTest {
         driver.submit(listOf(PresentationItem.Snap(1, target)))
         driver.onFrame(0)
         assertEquals(target, driver.facelets())
+    }
+
+    @Test
+    fun `percentile of a single interval is that interval`() {
+        assertEquals(5.0, listOf(5.0).percentile(0.9))
+    }
+
+    @Test
+    fun `percentile uses the nearest rank`() {
+        val intervals = (1..10).map { it.toDouble() }
+        assertEquals(9.0, intervals.percentile(0.9))
+        assertEquals(5.0, intervals.percentile(0.5))
+        assertEquals(10.0, intervals.percentile(0.99))
+    }
+
+    @Test
+    fun `percentile of no intervals is zero`() {
+        assertEquals(0.0, emptyList<Double>().percentile(0.9))
     }
 
     companion object {

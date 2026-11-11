@@ -1,0 +1,126 @@
+{
+    "context": {
+        "build": {
+            "brand": "samsung",
+            "device": "r12s",
+            "fingerprint": "samsung/r12suew/r12s:17/CP2A.260605.016/S721U1UEUEEZIF:user/release-keys",
+            "id": "CP2A.260605.016",
+            "model": "SM-S721U1",
+            "type": "user",
+            "version": {
+                "codename": "REL",
+                "sdk": 37
+            }
+        },
+        "cpuCoreCount": 10,
+        "cpuLocked": false,
+        "cpuMaxFreqHz": 3110000000,
+        "memTotalBytes": 7575265280,
+        "sustainedPerformanceModeEnabled": false,
+        "artMainlineVersion": 372042720,
+        "osCodenameAbbreviated": "REL",
+        "compilationMode": "run-from-apk",
+        "payload": {}
+    },
+    "benchmarks": [
+        {
+            "name": "faceTurnsOnNet2D",
+            "params": {},
+            "className": "dev.cubentia.macrobenchmark.Net2DFrameTimingBenchmark",
+            "totalRunTimeNs": 32170253047,
+            "metrics": {
+                "frameCount": {
+                    "minimum": 1.0,
+                    "maximum": 1.0,
+                    "median": 1.0,
+                    "coefficientOfVariation": 0.0,
+                    "runs": [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                }
+            },
+            "sampledMetrics": {
+                "frameDurationCpuMs": {
+                    "P50": 8.091797,
+                    "P90": 8.8179456,
+                    "P95": 8.9673128,
+                    "P99": 9.086806560000001,
+                    "runs": [
+                        [
+                            9.11668
+                        ],
+                        [
+                            3.871172
+                        ],
+                        [
+                            4.213633
+                        ],
+                        [
+                            8.369844
+                        ],
+                        [
+                            8.091797
+                        ]
+                    ]
+                },
+                "frameOverrunMs": {
+                    "P50": -6.958031,
+                    "P90": -5.677759399999999,
+                    "P95": -5.5832521999999996,
+                    "P99": -5.507646439999999,
+                    "runs": [
+                        [
+                            -5.961281
+                        ],
+                        [
+                            -11.694281
+                        ],
+                        [
+                            -10.874169
+                        ],
+                        [
+                            -5.488745
+                        ],
+                        [
+                            -6.958031
+                        ]
+                    ]
+                }
+            },
+            "warmupIterations": 0,
+            "repeatIterations": 5,
+            "thermalThrottleSleepSeconds": 0,
+            "profilerOutputs": [
+                {
+                    "type": "PerfettoTrace",
+                    "label": "Trace Iteration 0",
+                    "filename": "Net2DFrameTimingBenchmark_faceTurnsOnNet2D_iter000_2026-11-11-02-30-39.perfetto-trace"
+                },
+                {
+                    "type": "PerfettoTrace",
+                    "label": "Trace Iteration 1",
+                    "filename": "Net2DFrameTimingBenchmark_faceTurnsOnNet2D_iter001_2026-11-11-02-30-44.perfetto-trace"
+                },
+                {
+                    "type": "PerfettoTrace",
+                    "label": "Trace Iteration 2",
+                    "filename": "Net2DFrameTimingBenchmark_faceTurnsOnNet2D_iter002_2026-11-11-02-30-49.perfetto-trace"
+                },
+                {
+                    "type": "PerfettoTrace",
+                    "label": "Trace Iteration 3",
+                    "filename": "Net2DFrameTimingBenchmark_faceTurnsOnNet2D_iter003_2026-11-11-02-30-54.perfetto-trace"
+                },
+                {
+                    "type": "PerfettoTrace",
+                    "label": "Trace Iteration 4",
+                    "filename": "Net2DFrameTimingBenchmark_faceTurnsOnNet2D_iter004_2026-11-11-02-30-59.perfetto-trace"
+                }
+            ]
+        }
+    ]
+}

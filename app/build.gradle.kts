@@ -73,20 +73,15 @@ dependencies {
 }
 
 // OQ-3 spike (Story 1.8), throwaway: compiled only with -Pcubentia.spike3d=true. Without the
-// property nothing below adds a source, dependency, manifest entry or task to the default build.
-// -Pcubentia.spike3d.sceneview=false leaves SceneView out, to measure the OpenGL ES APK delta alone.
+// property nothing below adds a source, manifest entry or task to the default build. OpenGL ES only:
+// the SceneView prototype was removed in Story 1.11 once reference-device timing confirmed OpenGL ES.
 if (providers.gradleProperty("cubentia.spike3d").orNull == "true") {
-    val withSceneView = providers.gradleProperty("cubentia.spike3d.sceneview").orNull != "false"
     android {
-        sourceSets.getByName("main").kotlin.directories +=
-            listOf("src/spike3d/kotlin", if (withSceneView) "src/spike3dSceneView/kotlin" else "src/spike3dNoSceneView/kotlin")
+        sourceSets.getByName("main").kotlin.directories += "src/spike3d/kotlin"
         sourceSets.getByName("test").kotlin.directories += "src/spike3dTest/kotlin"
         // The debug/release source sets have no manifest of their own, so the overlay merges into both.
         sourceSets.getByName("debug").manifest.srcFile("src/spike3d/AndroidManifest.xml")
         sourceSets.getByName("release").manifest.srcFile("src/spike3d/AndroidManifest.xml")
-    }
-    dependencies {
-        if (withSceneView) implementation(libs.sceneview)
     }
 }
 

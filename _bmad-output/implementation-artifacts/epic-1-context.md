@@ -4,7 +4,7 @@
 
 ## Goal
 
-Build a correct, pure-Kotlin cube engine (state, Moves, Notation, validation, Scrambles) on a gated multi-module scaffold, so a Learner can turn a validated cube on a 2D net with buttons, undo and redo, and one Completion Predicate can tell a helping Move from a harmful one. Exit criterion (P0.1, weeks 1–2): a random Scramble applies, renders and validates with no mismatch. The epic also closes the week-2 spikes and decisions (3D engine, scan recognition, schedule, reference devices) and puts benchmark harnesses in place, so the rest of P0 is planned against evidence. Device-dependent work (Stories 1.9, 1.11) is deferred until the hardware is on hand and must land before Story 5.1 merges.
+Build a correct, pure-Kotlin cube engine (state, Moves, Notation, validation, Scrambles) on a gated multi-module scaffold, so a Learner can turn a validated cube on a 2D net with buttons, undo and redo, and one Completion Predicate can tell a helping Move from a harmful one. Exit criterion: a random Scramble applies, renders and validates with no mismatch. The epic also closes the early spikes and decisions (3D engine, scan recognition, schedule, reference devices) and provides on-demand benchmark harnesses. Stories 1.1–1.10 are done; only Story 1.11 remains: confirm the OpenGL ES rendering choice with frame-timing baselines on the two reference devices, then delete the SceneView spike code.
 
 ## Stories
 
@@ -22,36 +22,31 @@ Build a correct, pure-Kotlin cube engine (state, Moves, Notation, validation, Sc
 
 ## Requirements & Constraints
 
-- **Rendering performance:** ≥ 30 FPS during face turns and View Rotation on the minimum reference device; 60 FPS target on mid-range. A quarter turn animates in ≤ 250 ms; face-turn input acknowledged within 100 ms.
-- **Solver performance:** 95% of a representative random-legal-state corpus (not only easy Scrambles) solved within 3 s on the reference device; report median, p95, memory and failure rate. Until the solver exists (Epic 3), the harness carries a placeholder corpus; Epic 3 runs the real corpus as a JVM proxy in CI, confirmed on device in the release-readiness epic.
-- **Correctness:** zero mismatches between engine and rendered state; property tests with pinned seeds (M⁴ = identity, M·M⁻¹ = identity, sequence + inverse = identity). Cube package has the strongest coverage (≥ 90% assumed); all `:core:*` ≥ 80%.
-- **Offline and privacy:** no `INTERNET`, `CAMERA` the only runtime permission, `allowBackup="false"`, no analytics/ads/crash SDK. Any new module (including benchmark modules) must not break these manifest/dependency checks.
-- **Validation:** wrong color counts, impossible piece, twisted corner, flipped edge and parity each fail with a plain-language reason; 54 colors entered is never valid by itself.
+- **Rendering performance:** ≥ 30 FPS during face turns and View Rotation on the minimum reference device, 60 FPS target on mid-range. A quarter turn animates in ≤ 250 ms; face-turn input is acknowledged within 100 ms. For the rendering-choice confirmation, a GL frame-interval p90 ≤ 33.3 ms on physical devices confirms OpenGL ES; above that reopens the choice.
+- **Correctness:** zero mismatches between engine and rendered state; pinned-seed property tests (M⁴ = identity, M·M⁻¹ = identity, sequence + inverse = identity). `:core:*` coverage ≥ 80%, cube package ≥ 90%.
+- **Offline and privacy:** no `INTERNET`; v1.0 is camera-free and declares no runtime permissions (`CAMERA` returns only in v1.1); `allowBackup="false"`; no analytics/ads/crash SDK. Benchmark modules and spike removal must not break these manifest and dependency checks.
 - **Compatibility:** minSdk 29; phones and tablets, portrait and landscape.
-- **Schedule (OQ-9):** decided — keep P0 at ~16 weeks with scan uses in P0. A Story 1.9 result below ≥ 99% per-sticker accuracy is a trigger to reopen it (camera then ships as BETA, Manual Cube Editor becomes the primary Solve action). The decision is already in the PRD memlog; record only what is missing.
+- **Decisions already closed (do not re-record):** reference devices (minimum Samsung Galaxy Tab S7 FE 5G, mid Samsung Galaxy S24 FE; neither truly low-end; API 29–30 coverage is emulator-only). The recognition spike scored 62.5% per sticker against a ≥ 99% target, which reopened the schedule decision; it was closed again by moving all camera recognition to v1.1 so v1.0 ships within ~16 weeks.
 
 ## Technical Decisions
 
-- **Module boundaries (AD-1):** `:core:domain`, `:core:solver`, `:core:application` are `kotlin("jvm")` with no Android, Compose, Room, CameraX or Hilt; `:app` depends on all three, `:core:solver` on application + domain, application on domain, nothing else. `:core:application` declares every port; only `:app` wires adapters. A `build-logic` convention check fails the build on violations. A benchmark harness must respect this: the JVM harness stays pure JVM, Android Macrobenchmark lives in its own Android test module targeting `:app`.
-- **Build conventions:** versions only in `gradle/libs.versions.toml`; `build-logic` convention plugins (jvm-core, android-app, quality, release); Kotlin 2.4.21 pinned on the root classpath; AGP 9.5.0 built-in Kotlin (no `kotlin-android`, no kapt); compileSdk 37 / targetSdk 36 / minSdk 29; JDK 17; Gradle ≥ 9.6.0.
-- **CI gates (AD-14):** every PR to `main` runs build, Spotless/ktlint, Android lint (incl. accessibility), JVM tests, Kover ≥ 80% on `:core:*`, AD-13 privacy checks and an AAB size check; detekt non-blocking. Instrumentation, UI and renderer-sync tests run only on release tags. Benchmarks must *build* in CI but run on demand, never as a blocking PR step requiring a device.
-- **Reference devices (ARCH-OQ-1, closed):** minimum Samsung Galaxy Tab S7 FE 5G, mid Samsung Galaxy S24 FE; neither is truly low-end. API 29–30 coverage is emulator-only. Already recorded in the architecture memlog and spine — confirm, do not re-record.
-- **Frame-timing method:** the 2D net (`Net2DRenderer`, Compose) can be measured with Macrobenchmark frame timing. The 3D renderer is custom OpenGL ES 3.0 on `GLSurfaceView` (OQ-3 decided by Story 1.8); `FrameTimingMetric`/`FrameMetrics` cannot see GL surface frames, so GL timing uses an in-app `onDrawFrame` interval log, optionally traced for `TraceSectionMetric`. Cover View Rotation as well as face turns. A physical-device p90 above 33.3 ms reopens the rendering choice, which stays behind the `CubeRenderer` port (AD-4).
-- **Solve corpus:** measured by a JVM benchmark, not on-device Macrobenchmark.
-- **Spike leftovers:** Story 1.8 left a SceneView variant (`app/src/spike3dSceneView/`, `app/src/spike3dNoSceneView/`, the `rubikxplorer.spike3d.sceneview` switch in `app/build.gradle.kts`, `sceneview` in the version catalog). It stays until Story 1.11 confirms the GL choice on device, then is deleted.
-- **Cube model:** `CubeState = (cubies, orientation)`, immutable; home frame WHITE U, GREEN F, RED R; `Facelets` 54 × URFDLB row-major per Kociemba net. `CubeValidator` is the only `Facelets → CubeState` route; `Notation.parse`/`format` the only string↔Move conversion; Move equality by effect; WCA slices.
-- **Rendering pipeline:** commit before animate; every input → `MoveIntent` → `MoveCommitted`; presentation queue fast-forwards above 3 queued; `CubeRenderer` never mutates state and exposes `renderedFacelets()`.
-- **Conventions:** sealed results, errors as values; `RandomSource`/`Clock` injected; `Logger` port implemented only in `:app`; `FeatureFlags` port only, no `BuildConfig` checks; decisions recorded with `uv run _bmad/scripts/memlog.py append` (architecture memlog for rendering/devices, PRD memlog for schedule/recognition).
+- **Module boundaries:** `:core:domain`, `:core:solver`, `:core:application` are `kotlin("jvm")` with no Android, Compose, Room, CameraX or Hilt; only `:app` wires adapters to ports declared in `:core:application`. A `build-logic` convention check fails the build on violations. The JVM benchmark harness stays pure JVM; Android Macrobenchmark lives in its own Android test module targeting `:app`.
+- **Build conventions:** versions only in `gradle/libs.versions.toml`; `build-logic` convention plugins; Kotlin 2.4.21 on the root classpath; AGP 9.5.0 built-in Kotlin (no `kotlin-android`, no kapt); compileSdk 37 / targetSdk 36 / minSdk 29; JDK 17.
+- **App identity:** the app is now Cubentia — `applicationId` `com.exxerpro.cubentia`, Kotlin packages `dev.cubentia.*`. Benchmark target packages and instrumentation commands must use these.
+- **CI gates:** every PR to `main` runs build, Spotless/ktlint, Android lint, JVM tests, Kover, privacy manifest checks and an AAB size check; detekt is non-blocking. Benchmarks must build in CI but run only on demand, never as a blocking device step.
+- **Frame-timing method:** the 2D net (`Net2DRenderer`, Compose) is measured with Macrobenchmark frame timing. The 3D renderer is custom OpenGL ES 3.0 on `GLSurfaceView`, behind the `CubeRenderer` port; `FrameTimingMetric`/`FrameMetrics` cannot see GL surface frames, so GL timing uses an in-app `onDrawFrame` interval log, optionally traced for `TraceSectionMetric`. Cover View Rotation as well as face turns.
+- **Spike leftovers to delete once the choice is confirmed:** `app/src/spike3dSceneView/`, `app/src/spike3dNoSceneView/`, the `rubikxplorer.spike3d.sceneview` switch in `app/build.gradle.kts`, and the `sceneview` entry in the version catalog.
+- **Rendering pipeline:** commit before animate; every input → `MoveIntent` → `MoveCommitted`; `CubeRenderer` never mutates state and exposes `renderedFacelets()`.
+- **Conventions:** sealed results, errors as values; `RandomSource`/`Clock` injected; `FeatureFlags` port only, no `BuildConfig` checks. Rendering and device decisions go to the architecture memlog via `uv run _bmad/scripts/memlog.py append`.
 
 ## UX & Interaction Patterns
 
-- Material3 theme from DESIGN.md tokens, light and dark following the system; bundled IBM Plex Sans/Mono; sticker colors identical in both themes.
-- Cube stage with Undo · Redo · Reset toolbar and VIRTUAL frame label; Move key bar labeled in `notation` with x/y/z group and "more" for wide/slice; ≥ 48dp targets; plain-name TalkBack announcements; color-blind glyphs W Y R O G B from one `StickerAppearance` table.
+- Material3 theme from DESIGN.md tokens, light and dark following the system; bundled IBM Plex fonts; sticker colors identical in both themes.
+- Cube stage with Undo · Redo · Reset toolbar; Move key bar in Notation; ≥ 48dp targets; plain-name TalkBack announcements; color-blind glyphs from one `StickerAppearance` table.
 
 ## Cross-Story Dependencies
 
-- 1.1–1.8 are done. 1.10 is not device-gated; 1.9 (needs a stickerless cube) and 1.11 (needs both reference devices) are gated and deferred, and must happen before Story 5.1 merges.
-- 1.10 builds on 1.6's `Net2DRenderer` free-cube screen as the Macrobenchmark target, and on 1.8's spike result for the schedule decision.
-- 1.11 depends on 1.10's Macrobenchmark module (per-device 2D net baselines) and 1.8's OpenGL ES renderer (re-measure with the `onDrawFrame` log), then removes the SceneView spike; it closes the sprint action item for the spike deletion.
-- Downstream: Story 3.3 runs the 10,000-state solve corpus through 1.10's JVM benchmark harness; Story 12.2 does the full on-device performance check reusing the same harnesses; Epic 5 uses the OQ-3 decision and `CubeRenderer` port; Epic 10 uses 1.9's test matrix and `FaceSample` fixture format.
-- Pending doc fix (not this epic's code): the architecture spine's performance note still says "Story 1.10 measures it"; it should read Story 1.11, via a `bmad-architecture` update.
+- Story 1.11 builds on Story 1.10's Macrobenchmark module (per-device 2D net baselines) and the OpenGL ES renderer chosen in Story 1.8 (now the production 3D renderer delivered by Epic 5), re-measured with the `onDrawFrame` log.
+- Story 1.11 belongs to the device batch run when both reference devices are connected, together with Story 3.8 (pruning-table delivery; closes Story 3.7), Story 12.2 (full on-device performance and compatibility, reusing the same harnesses) and the Story 12.1 physical accessibility pass. The device-free stories (including the pilot-path stories before 7.8) run first.
+- Story 3.3's solve corpus runs through Story 1.10's JVM benchmark harness; physical solve-corpus confirmation belongs to Stories 3.8 and 12.2, not 1.11.
+- Pending doc fix (not code): the architecture spine's performance note still says "Story 1.10 measures it"; it should name Story 1.11, via a `bmad-architecture` update.
