@@ -1,0 +1,18 @@
+--------- beginning of main
+11-11 20:27:46.413 32118 32118 I SolveCorpusBenchmark: device=LENOVO/Lenovo TB128XU,api=33,release=13
+11-11 20:27:46.413 32118 32118 I SolveCorpusBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,cpus=8
+11-11 20:27:46.413 32118 32118 I SolveCorpusBenchmark: args,cases=10000,seed=20261031,warmup=200
+11-11 20:27:46.413 32118 32118 I SolveCorpusBenchmark: build,debuggable=false
+11-11 20:27:46.416 32118 32118 I SolveCorpusBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+11-11 20:27:51.598 32118 32153 I SolveCorpusBenchmark: tablesReady,bytes=4031685,prepareNanos=5181483487
+11-11 20:35:48.065 32118 32153 I SolveCorpusBenchmark: report,Solve corpus benchmark: two-phase; 10000 uniform legal states + solved + 100 deep Scrambles; seed 20261031
+11-11 20:35:48.065 32118 32153 I SolveCorpusBenchmark: report,  cases          10101
+11-11 20:35:48.065 32118 32153 I SolveCorpusBenchmark: report,  median         26.999 ms
+11-11 20:35:48.065 32118 32153 I SolveCorpusBenchmark: report,  p95            138.710 ms
+11-11 20:35:48.065 32118 32153 I SolveCorpusBenchmark: report,  max            1561.215 ms
+11-11 20:35:48.065 32118 32153 I SolveCorpusBenchmark: report,  within budget  100.0% (10101/10101 at or under 3000.000 ms)
+11-11 20:35:48.065 32118 32153 I SolveCorpusBenchmark: report,  failures       0 (0.0%)
+11-11 20:35:48.065 32118 32153 I SolveCorpusBenchmark: report,  peak heap      32.7 MiB
+11-11 20:35:48.066 32118 32153 I SolveCorpusBenchmark: raw,cases=10101,medianNanos=2.6998698E7,p95Nanos=138710312,maxNanos=1561215416,withinBudget=10101,failures=0,peakHeapBytes=34287936,javaHeapMaxBytes=268435456,wallNanos=476466637162
+11-11 20:35:48.072 32118 32153 I SolveCorpusBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+11-11 20:35:48.072 32118 32153 I SolveCorpusBenchmark: done

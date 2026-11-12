@@ -1,0 +1,30 @@
+--------- beginning of main
+11-11 20:21:41.126 30375 30388 I TestRunner: run started: 1 tests
+11-11 20:21:41.128 30375 30388 I TestRunner: started: flow3JustSolveIt(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 20:21:46.376 30375 30423 I KeyFlowRotation: layout,flow=flow3,surface=solveHome,orientation=portrait,widthDp=800,class=MEDIUM,checks=nav:rail
+11-11 20:21:48.295 30375 30423 I KeyFlowRotation: layout,flow=flow3,surface=solveHome,orientation=landscape,widthDp=1333,class=EXPANDED,checks=nav:rail
+11-11 20:21:50.112 30375 30423 I KeyFlowRotation: layout,flow=flow3,surface=solveHome,orientation=portrait,widthDp=800,class=MEDIUM,checks=nav:rail
+11-11 20:21:50.112 30375 30423 I KeyFlowRotation: surface,flow=flow3,surface=solveHome,result=pass
+11-11 20:21:51.482 30375 30423 I KeyFlowRotation: layout,flow=flow3,surface=editor,orientation=portrait,widthDp=800,class=MEDIUM,checks=nav:rail+editor:net
+11-11 20:21:53.033 30375 30423 I KeyFlowRotation: layout,flow=flow3,surface=editor,orientation=landscape,widthDp=1333,class=EXPANDED,checks=nav:rail+editor:net
+11-11 20:21:54.555 30375 30423 I KeyFlowRotation: layout,flow=flow3,surface=editor,orientation=portrait,widthDp=800,class=MEDIUM,checks=nav:rail+editor:net
+11-11 20:21:54.556 30375 30423 I KeyFlowRotation: surface,flow=flow3,surface=editor,result=pass
+11-11 20:22:09.260 30375 30423 I KeyFlowRotation: layout,flow=flow3,surface=editorEntered,orientation=portrait,widthDp=800,class=MEDIUM,checks=nav:rail+editor:net
+11-11 20:22:10.775 30375 30423 I KeyFlowRotation: layout,flow=flow3,surface=editorEntered,orientation=landscape,widthDp=1333,class=EXPANDED,checks=nav:rail+editor:net
+11-11 20:22:12.275 30375 30423 I KeyFlowRotation: layout,flow=flow3,surface=editorEntered,orientation=portrait,widthDp=800,class=MEDIUM,checks=nav:rail+editor:net
+11-11 20:22:12.276 30375 30423 I KeyFlowRotation: surface,flow=flow3,surface=editorEntered,result=pass
+11-11 20:22:25.995 30375 30423 I KeyFlowRotation: layout,flow=flow3,surface=playbackFollowing,orientation=portrait,widthDp=800,class=MEDIUM,checks=
+11-11 20:22:27.341 30375 30423 I KeyFlowRotation: layout,flow=flow3,surface=playbackFollowing,orientation=landscape,widthDp=1333,class=EXPANDED,checks=
+11-11 20:22:28.642 30375 30423 I KeyFlowRotation: layout,flow=flow3,surface=playbackFollowing,orientation=portrait,widthDp=800,class=MEDIUM,checks=
+11-11 20:22:28.642 30375 30423 I KeyFlowRotation: surface,flow=flow3,surface=playbackFollowing,result=pass
+11-11 20:22:29.707 30375 30423 I KeyFlowRotation: layout,flow=flow3,surface=playbackStep,orientation=portrait,widthDp=800,class=MEDIUM,checks=
+11-11 20:22:30.950 30375 30423 I KeyFlowRotation: layout,flow=flow3,surface=playbackStep,orientation=landscape,widthDp=1333,class=EXPANDED,checks=
+11-11 20:22:32.125 30375 30423 I KeyFlowRotation: layout,flow=flow3,surface=playbackStep,orientation=portrait,widthDp=800,class=MEDIUM,checks=
+11-11 20:22:32.126 30375 30423 I KeyFlowRotation: surface,flow=flow3,surface=playbackStep,result=pass
+11-11 20:22:33.612 30375 30423 I KeyFlowRotation: layout,flow=flow3,surface=learnOffer,orientation=portrait,widthDp=800,class=MEDIUM,checks=
+11-11 20:22:34.994 30375 30423 I KeyFlowRotation: layout,flow=flow3,surface=learnOffer,orientation=landscape,widthDp=1333,class=EXPANDED,checks=
+11-11 20:22:36.305 30375 30423 I KeyFlowRotation: layout,flow=flow3,surface=learnOffer,orientation=portrait,widthDp=800,class=MEDIUM,checks=
+11-11 20:22:36.306 30375 30423 I KeyFlowRotation: surface,flow=flow3,surface=learnOffer,result=pass
+11-11 20:22:36.897 30375 30423 I KeyFlowRotation: flow,flow=flow3,surfaces=6,failedSurfaceChecks=0,result=pass
+11-11 20:22:37.963 30375 30388 I TestRunner: finished: flow3JustSolveIt(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 20:22:37.966 30375 30388 I TestRunner: run finished: 1 tests, 0 failed, 0 ignored

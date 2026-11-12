@@ -1,0 +1,30 @@
+--------- beginning of main
+11-11 20:19:28.219 30099 30114 I TestRunner: run started: 1 tests
+11-11 20:19:28.220 30099 30114 I TestRunner: started: flow2TwoLookLastLayer(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 20:19:33.080 30099 30146 I KeyFlowRotation: layout,flow=flow2,surface=skipCheck,orientation=portrait,widthDp=800,class=MEDIUM,checks=lesson:sideBySide
+11-11 20:19:35.130 30099 30146 I KeyFlowRotation: layout,flow=flow2,surface=skipCheck,orientation=landscape,widthDp=1333,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
+11-11 20:19:37.043 30099 30146 I KeyFlowRotation: layout,flow=flow2,surface=skipCheck,orientation=portrait,widthDp=800,class=MEDIUM,checks=lesson:sideBySide
+11-11 20:19:37.044 30099 30146 I KeyFlowRotation: surface,flow=flow2,surface=skipCheck,result=pass
+11-11 20:20:27.228 30099 30146 I KeyFlowRotation: layout,flow=flow2,surface=fasterLastLayer,orientation=portrait,widthDp=800,class=MEDIUM,checks=nav:rail
+11-11 20:20:28.706 30099 30146 I KeyFlowRotation: layout,flow=flow2,surface=fasterLastLayer,orientation=landscape,widthDp=1333,class=EXPANDED,checks=nav:rail
+11-11 20:20:30.081 30099 30146 I KeyFlowRotation: layout,flow=flow2,surface=fasterLastLayer,orientation=portrait,widthDp=800,class=MEDIUM,checks=nav:rail
+11-11 20:20:30.082 30099 30146 I KeyFlowRotation: surface,flow=flow2,surface=fasterLastLayer,result=pass
+11-11 20:20:32.595 30099 30146 I KeyFlowRotation: layout,flow=flow2,surface=twoLookLesson,orientation=portrait,widthDp=800,class=MEDIUM,checks=lesson:sideBySide
+11-11 20:20:34.379 30099 30146 I KeyFlowRotation: layout,flow=flow2,surface=twoLookLesson,orientation=landscape,widthDp=1333,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
+11-11 20:20:36.027 30099 30146 I KeyFlowRotation: layout,flow=flow2,surface=twoLookLesson,orientation=portrait,widthDp=800,class=MEDIUM,checks=lesson:sideBySide
+11-11 20:20:36.027 30099 30146 I KeyFlowRotation: surface,flow=flow2,surface=twoLookLesson,result=pass
+11-11 20:20:52.980 30099 30146 I KeyFlowRotation: layout,flow=flow2,surface=twoLookOffer,orientation=portrait,widthDp=800,class=MEDIUM,checks=lesson:sideBySide
+11-11 20:20:55.033 30099 30146 I KeyFlowRotation: layout,flow=flow2,surface=twoLookOffer,orientation=landscape,widthDp=1333,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
+11-11 20:20:56.859 30099 30146 I KeyFlowRotation: layout,flow=flow2,surface=twoLookOffer,orientation=portrait,widthDp=800,class=MEDIUM,checks=lesson:sideBySide
+11-11 20:20:56.860 30099 30146 I KeyFlowRotation: surface,flow=flow2,surface=twoLookOffer,result=pass
+11-11 20:21:00.945 30099 30146 I KeyFlowRotation: layout,flow=flow2,surface=libraryLearning,orientation=portrait,widthDp=800,class=MEDIUM,checks=nav:rail+library:3columns
+11-11 20:21:02.542 30099 30146 I KeyFlowRotation: layout,flow=flow2,surface=libraryLearning,orientation=landscape,widthDp=1333,class=EXPANDED,checks=nav:rail+library:4columns
+11-11 20:21:04.111 30099 30146 I KeyFlowRotation: layout,flow=flow2,surface=libraryLearning,orientation=portrait,widthDp=800,class=MEDIUM,checks=nav:rail+library:3columns
+11-11 20:21:04.112 30099 30146 I KeyFlowRotation: surface,flow=flow2,surface=libraryLearning,result=pass
+11-11 20:21:06.043 30099 30146 I KeyFlowRotation: layout,flow=flow2,surface=twoLookPractice,orientation=portrait,widthDp=800,class=MEDIUM,checks=lesson:sideBySide
+11-11 20:21:07.458 30099 30146 I KeyFlowRotation: layout,flow=flow2,surface=twoLookPractice,orientation=landscape,widthDp=1333,class=EXPANDED,checks=lesson:sideBySide+lesson:panel<=560dp
+11-11 20:21:08.893 30099 30146 I KeyFlowRotation: layout,flow=flow2,surface=twoLookPractice,orientation=portrait,widthDp=800,class=MEDIUM,checks=lesson:sideBySide
+11-11 20:21:08.894 30099 30146 I KeyFlowRotation: surface,flow=flow2,surface=twoLookPractice,result=pass
+11-11 20:21:38.810 30099 30146 I KeyFlowRotation: flow,flow=flow2,surfaces=6,failedSurfaceChecks=0,result=pass
+11-11 20:21:39.615 30099 30114 I TestRunner: finished: flow2TwoLookLastLayer(dev.cubentia.app.compat.KeyFlowRotationTest)
+11-11 20:21:39.636 30099 30114 I TestRunner: run finished: 1 tests, 0 failed, 0 ignored

@@ -1,0 +1,7 @@
+# Key Flow rotation run 2026-11-11T20:10:54-06:00
+serial=HA1S28MM label=lenovo-tb128xu-api33 git=95d708f67e4395beae0b98a4152a6af5ee472d22
+model=Lenovo TB128XU release=13 sdk=33 emulator=
+fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys
+density=Physical density: 240  size=Physical size: 1200x2000 
+rotation before: accelerometer_rotation=0 user_rotation=1
+rotation after: accelerometer_rotation=0 user_rotation=1
