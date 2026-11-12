@@ -5,7 +5,7 @@ created: '2026-11-12'
 baseline_revision: '08c96666c4c7d0eea1be846375d48148fdb6c913'
 status: 'done'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-7-context.md'
   - '{project-root}/docs/pruning-tables.md'
@@ -115,6 +115,28 @@ deferred:
   - `[false]` `[reject]` Intent: secret names are not confirmed against GitHub — they match keys/README.md and the PO's list exactly.
   - `[false]` `[reject]` Intent: a separate UPLOAD_KEY_PASSWORD secret is read although key pass = store pass — the PO listed four secrets including the key password; reading it is correct.
 
+### 2026-11-12 — Review pass
+- verdicts: 18 findings — high 0, medium 2, low 7, false 6, maybe-false 0 (edge-case layer reported none; follow-up pass)
+- findings:
+  - `[medium]` `[defer]` Blind: device tests exercise only debug builds, not the release artifact — carried: same claim as the logged deferral; still `run-instrumentation.sh` runs `connectedDebugAndroidTest`; existing `deferred` item covers it.
+  - `[low]` `[reject]` Blind: the 3 × dex multiplier is backed by one device measurement — real, but it is already conservative against that measurement (3 × 2,737,352 B vs ~3.4 MB observed ART output) and the estimate sits at 11.4 MB against 30 MB; validating more compiler configurations means new device work, not a direct fix.
+  - `[low]` `[reject]` Blind: the data allowance omits the 4,031,725 B fallback table file (docs/pruning-tables.md:123) — real, but that state needs an invalid bundled asset, and with 18.5 MB headroom no build in sight comes near; the fix changes the spec's estimate formula rather than correcting a slip.
+  - `[medium]` `[patch]` Blind: pilot task 4 never asks for an independent fresh-Scramble solve after the Course, so SM-2 has no data — task 4 now asks for one solve without step-by-step guidance, recorded as independent / with hints / with facilitator help.
+  - `[medium]` `[patch]` Blind: task 1 checks the first instruction but not a Lesson's Objective, so SM-4 (and gate 4) lacks its Objective check — task 1 now asks for the Objective in the participant's words, recorded separately.
+  - `[low]` `[patch]` Blind: observation rows have no Lesson identifier, so SM-7 per-Lesson error rates cannot be computed — column is now "Task, Stage and Lesson, attempt #" and the notes require the Lesson on every Course row.
+  - `[low]` `[patch]` Blind: task 4 asks for one practice attempt, but SM-5 needs successive attempts at the same Stage — task 4 now asks for at least three numbered attempts with assistance setting and hints recorded.
+  - `[low]` `[reject]` Blind: Design Notes and the release.yml task line still describe dotted `ORG_GRADLE_PROJECT_cubentia.*` env vars — real (stale spec text; code and docs/release.md use `-P`), but the fix edits this build's spec.
+  - `[low]` `[reject]` Blind: ReleaseSigningFunctionalTest is named "sign release" but never signs — carried: same claim as the logged reject; signing is AGP behaviour, verified manually with `jarsigner -verify`.
+  - `[false]` `[reject]` Verification gap: BuildConfigFeatureFlagsTest still expects every release flag OFF and blocks `build` — `:app:testReleaseUnitTest` does not exist (Gradle: "task 'testReleaseUnitTest' not found in project ':app'"); only debug unit tests run, and `./gradlew spotlessCheck build` passes. The `"release"` branch is dead.
+  - `[low]` `[reject]` Intent: the tag run, Play upload, closed-testing promotion and pilot are not exercised by the diff — carried: same claim as the logged reject of the untested workflow; the first tag run and the pilot install are PO before-merge checks.
+  - `[medium]` `[defer]` Intent: instrumentation surface is debug, not the shipped R8 artifact — carried: shares the existing deferral.
+  - `[low]` `[reject]` Intent: the size estimate is calibrated against one Story 3.8 data point — same reasoning as the Blind multiplier row above.
+  - `[false]` `[reject]` Intent: the spec's Design Notes describe the `ORG_GRADLE_PROJECT_` route — stale spec text only; code and docs agree on `-P`, so no build behaves wrongly; a fix would edit this spec.
+  - `[false]` `[reject]` Intent: version overrides reach debug and benchmark too — they apply only when `cubentia.versionCode/versionName` are passed, which only the release job does; the debug APK built in that run is not shipped, so no wrong artifact results.
+  - `[false]` `[reject]` Intent: validation is stricter than the matrix (`X.Y.Z` versionName, blank signing values treated as missing) — the tag guard already requires `vX.Y.Z`, and failing on an unset secret is the matrix's partial-signing row; no bad outcome.
+  - `[false]` `[reject]` Intent: bad tag/status fails in a validate job before the emulator job — that is "fails before upload", only earlier; no bad outcome.
+  - `[false]` `[reject]` Intent: the diff rewrites epic-7-context.md and sprint-status.yaml — both live under implementation-artifacts, not planning-artifacts; the intent forbids only planning artifacts, `_bmad/` and `.claude/skills/`.
+
 ## Design Notes
 
 Size estimate: the APK is stored as-is on install (assets stay deflated, 3.8 evidence), so installed ≈ APK + ART artifacts + data. ART writes a vdex (≈ uncompressed dex) and odex/art whose size under `speed-profile` was ~3.4 MB on the 3.8 build; 3 × dex bounds both conservatively. Current: 3,059,060 + 3 × 2,737,352 + 153,600 ≈ 11.4 MB, well under budget. The report names it an estimate and points to the 3.8 device method for measured evidence.
@@ -169,3 +191,14 @@ Status: done
 - Hosted-emulator Key Flow runs may be slower than local (~2.5 min per flow locally); the job timeout is 120 min.
 - AC2 pilot install and sessions remain the PO's human before-merge check.
 
+### Follow-up review pass (2026-11-12)
+
+**Change:** `docs/pilot-session-protocol.md` now collects data for SM-2 (an independent fresh-Scramble solve after the Course), SM-4 (the Lesson Objective in the participant's own words), SM-5 (at least three numbered practice attempts at one Stage) and SM-7 (Lesson named on every Course row). No code changed.
+
+**Review:** 18 findings. Patched 2 medium and 2 low (all in the pilot protocol). The 2 debug-instrumentation findings are carried under the existing deferral. Rejected 6 low and 6 false; the triage log gives each reason.
+
+**Follow-up review recommended: false.** This follow-up pass patched no high finding.
+
+**Verification:** `./gradlew spotlessCheck build :app:checkReleaseSize` passed (estimate 11,424,692 B, headroom 18,575,308 B). `./gradlew -p build-logic test` passed. `:app:testReleaseUnitTest` does not exist, which disproves the release unit-test finding. The signing, spike and emulator checks were not re-run: this pass changed only one doc.
+
+**Residual risks:** Unchanged from the first pass. The release workflow has still never run on GitHub, release-variant instrumentation is still deferred, and the pilot install is the PO's check.
