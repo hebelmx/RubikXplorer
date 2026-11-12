@@ -22,3 +22,11 @@ _bmad/config.user.toml
 # Python helper test caches
 __pycache__/
 .pytest_cache/
+# Signing material and service-account keys (see keys/README.md)
+/keys/*
+!/keys/.gitignore
+!/keys/README.md
+*.p12
+*.pem
+keystore.properties
+play-service-account*.json

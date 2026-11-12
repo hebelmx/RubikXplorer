@@ -1,0 +1,5 @@
+# Signing material lives here locally and is never committed.
+# Only this file and README.md are tracked.
+*
+!.gitignore
+!README.md
