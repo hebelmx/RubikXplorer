@@ -16,8 +16,14 @@ class AppSizePolicyTest {
     }
 
     @Test
-    fun `budget boundary is inclusive and overage has negative headroom`() {
-        assertTrue(AppSizePolicy.evaluate(29_846_400, 0, 1).withinBudget)
+    fun `budget boundary is strict and overage has negative headroom`() {
+        val justUnder = AppSizePolicy.evaluate(29_846_399, 0, 1)
+        assertEquals(29_999_999, justUnder.estimatedBytes)
+        assertTrue(justUnder.withinBudget)
+        val atBudget = AppSizePolicy.evaluate(29_846_400, 0, 1)
+        assertEquals(30_000_000, atBudget.estimatedBytes)
+        assertFalse(atBudget.withinBudget)
+        assertTrue(atBudget.report.contains("Headroom: 0"))
         val over = AppSizePolicy.evaluate(29_846_401, 0, 1)
         assertFalse(over.withinBudget)
         assertTrue(over.report.contains("Headroom: -1"))

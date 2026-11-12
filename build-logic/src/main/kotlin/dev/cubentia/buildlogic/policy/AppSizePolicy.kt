@@ -20,7 +20,7 @@ object AppSizePolicy {
         val estimate = Math.addExact(Math.addExact(apkBytes, Math.multiplyExact(3L, dexBytes)), DATA_ALLOWANCE)
         return Verdict(
             estimate,
-            estimate <= BUDGET,
+            estimate < BUDGET,
             """
             Cubentia release installed-size estimate (bytes)
             AAB: $aabBytes

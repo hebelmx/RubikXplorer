@@ -35,7 +35,7 @@ deferred:
 - Local `./gradlew build` and `assembleRelease` keep working with no signing inputs (release stays unsigned); a partial signing set fails the build with a clear message.
 - Release levels: `TEST_ME=GA`, `ADAPTIVE_ASSISTANCE=GA`; every camera flag (`CAMERA_SCAN`, `QUICK_SCAN`, `PLACEMENT`, `CASE_RECOGNITION`) stays OFF. `benchmark` keeps carrying the release levels.
 - Play upload: track `internal`; status from `workflow_dispatch` input or repo variable `PLAY_RELEASE_STATUS`, default `draft`; only `draft` or `completed` accepted.
-- Size check reports an installed-size estimate (not just file size) against 30,000,000 B and fails above it; runs on every PR (AD-14) and in the release workflow.
+- Size check reports an installed-size estimate (not just file size) against 30,000,000 B and fails at or above it (strict < budget, NFR-11); runs on every PR (AD-14) and in the release workflow.
 - Instrumentation runs on a GitHub-hosted emulator, never a physical device; `./gradlew build` still never runs `connected*` (existing CI guard).
 - Keep spike3d and spikeScan; CI compiles both and runs the spike3d unit tests with their `-P` flags.
 
@@ -49,8 +49,8 @@ deferred:
 | CI release | all 4 signing props + `cubentia.versionCode=<run>` + `cubentia.versionName=1.2.3` | signed AAB, versionCode = run number, versionName 1.2.3 | No error |
 | Partial signing | some but not all 4 props | configuration fails naming the missing props | Build error |
 | Bad version | `cubentia.versionCode` not a positive int | configuration fails | Build error |
-| Size under budget | estimate ≤ 30,000,000 B | report line + file with bytes, budget, headroom; task passes | No error |
-| Size over budget | estimate > 30,000,000 B | report printed, task fails | Build error |
+| Size under budget | estimate < 30,000,000 B | report line + file with bytes, budget, headroom; task passes | No error |
+| Size over budget | estimate ≥ 30,000,000 B | report printed, task fails | Build error |
 | Bad tag / status | tag not `vX.Y.Z`, or status not draft/completed | release job fails before upload | Workflow error |
 
 </intent-contract>
@@ -86,7 +86,7 @@ deferred:
 
 **Acceptance Criteria:**
 - Given a `vX.Y.Z` tag, when `release.yml` runs, then it runs `connectedDebugAndroidTest` on an emulator, builds a signed R8 + resource-shrunk AAB with `versionCode` = `github.run_number`, uploads the mapping, and uploads to the internal track with status `draft` unless configured `completed`.
-- Given the release AAB, when `:app:checkReleaseSize` runs (every PR and every release), then it reports the installed-size estimate, AAB size and headroom against 30,000,000 B and fails above it.
+- Given the release AAB, when `:app:checkReleaseSize` runs (every PR and every release), then it reports the installed-size estimate, AAB size and headroom against 30,000,000 B and fails at or above it.
 - Given the internal build, when the PO follows `docs/release.md`, then it can be promoted to closed testing for the pilot group, and `docs/pilot-session-protocol.md` records task completion, hint use and points of confusion outside the app. (Pilot install itself is a human before-merge check.)
 - Given a PR, when CI runs, then a `spikes` job compiles `-Pcubentia.spike3d=true` (with its unit tests) and `-Pcubentia.spikeScan=true`.
 
@@ -169,7 +169,7 @@ Status: done
 - `.github/scripts/run-instrumentation.sh` -- emulator suite: Gradle pass without KeyFlowRotationTest, then the per-method cleared-install Key Flow tool, with a method-count check.
 - `build-logic/.../ReleaseConventionPlugin.kt` -- PKCS12 upload signing from `cubentia.signing.*`, variant version overrides, `checkReleaseSize` task.
 - `build-logic/.../policy/ReleaseInputs.kt`, `AppSizePolicy.kt`, `FeatureFlagLevels.kt` -- input validation, installed-size estimate, release flag levels.
-- `build-logic/.../tasks/CheckReleaseSizeTask.kt` -- reads the bundle-derived universal APK, writes the report, fails above 30,000,000 B.
+- `build-logic/.../tasks/CheckReleaseSizeTask.kt` -- reads the bundle-derived universal APK, writes the report, fails at or above 30,000,000 B.
 - Tests: `ReleaseInputsTest`, `AppSizePolicyTest`, `FeatureFlagLevelsTest`, `CheckReleaseSizeTaskTest`, `ReleaseSigningFunctionalTest` (TestKit), `ValidateReleaseInputsScriptTest`.
 - `docs/release.md`, `docs/pilot-session-protocol.md`, `keys/README.md` -- runbook, pilot protocol, pointer.
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` -- action item 59 done (keep both spikes, CI compiles them).

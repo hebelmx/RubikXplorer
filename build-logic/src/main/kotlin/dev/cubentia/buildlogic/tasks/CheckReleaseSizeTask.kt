@@ -43,6 +43,6 @@ abstract class CheckReleaseSizeTask : DefaultTask() {
             writeText(verdict.report)
         }
         logger.lifecycle(verdict.report)
-        if (!verdict.withinBudget) throw GradleException("Release installed-size estimate exceeds ${AppSizePolicy.BUDGET} bytes")
+        if (!verdict.withinBudget) throw GradleException("Release installed-size estimate is not below ${AppSizePolicy.BUDGET} bytes")
     }
 }
