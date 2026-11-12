@@ -68,7 +68,7 @@ FR-29 (P1, out of MVP scope): recognition and execution drills with spaced repet
 
 NFR-1: Responsiveness — face-turn input acknowledged within 100 ms.
 NFR-2: Rendering — ≥ 30 FPS during face turns and View Rotation on the minimum reference device; 60 FPS target on mid-range.
-NFR-3: Solver performance — 95% of a representative random-state corpus solved within 3 s on the reference device; median, p95, memory and failure rate reported.
+NFR-3: Solver performance — 95% of a representative random-state corpus solved within 3 s on the minimum reference device; median, p95, memory and failure rate reported. *(SCP 2026-11-12)*
 NFR-4: Correctness — zero state mismatches between engine, rendering and Expected State across the randomized Move/undo/interruption suite; property tests: inverse restores, M⁴ = identity, sequence + inverse = identity, illegal states rejected; cube engine has the strongest coverage.
 NFR-5: Offline — a fresh install with no network can complete the Course, use the Library, scan and solve; no network permission declared; camera is the only runtime permission.
 NFR-6: Persistence — the latest Checkpoint survives forced process death.
@@ -106,7 +106,7 @@ From the architecture spine (no starter template is specified; Epic 1 Story 1 is
 - AR-19 (AD-19): one `LastLayerMatcher` (canonical LL frame, OLL by orientation mask under pre-AUF, PLL by permutation under pre/post-AUF and `y^k`, partial views → candidate set) used by Library verification, diagram derivation, FR-28 and 2-look predicates.
 - AR-20 (AD-20): one pure `PlaybackController` (play, pause, step, back, replay, speed) for Demonstrations, Solution Playback and the Library; never checkpointed; Solution Playback text only from `MoveNote.of(move)`.
 - AR-21 (Ownership Matrix): single writers — reducer (session states, Checkpoint, Attempts), `CompleteLesson`/`PassSkipCheck`/`PlaceFromScan`/`ResetProgress` (Stage progress), `SetAlgorithmStatus`, `UpdateCalibration`/`ResetCalibration`, `UpdatePreference`.
-- AR-22 (Deferred / open, carried into stories): reference devices ARCH-OQ-1 and OQ-9 by end of week 2; OQ-3 renderer spike; OQ-7 Quick Scan method; OQ-8 test matrix; OQ-2 2-look set + primary Algorithms; OQ-6 Algorithm data licensing; OQ-1 store name; `RecoveryPlanner` search (bounded IDA*) decided in Epic 4; tutor config values set during curriculum authoring.
+- AR-22 (Deferred / open, carried into stories): reference devices ARCH-OQ-1 (closed 2026-10-30; minimum replaced by the Lenovo Tab M10 Plus 3rd Gen, SCP 2026-11-12) and OQ-9 by end of week 2; OQ-3 renderer spike; OQ-7 Quick Scan method; OQ-8 test matrix; OQ-2 2-look set + primary Algorithms; OQ-6 Algorithm data licensing; OQ-1 store name; `RecoveryPlanner` search (bounded IDA*) decided in Epic 4; tutor config values set during curriculum authoring.
 - AR-23 (leftover from UX reconcile L14): cut-order item 4 (Library recognition diagrams) has no flag in AD-18's closed enum. [ASSUMPTION: if that cut fires, raise it through `bmad-correct-course` to add a flag; the tile fallback is designed (UX-DR17).]
 
 ### UX Design Requirements
@@ -234,6 +234,7 @@ The app meets every release gate. It is accessible, fast and stable on the refer
 **FRs covered:** none new (verifies all). **Also:** NFR-1, NFR-2, NFR-7, NFR-8, NFR-9, NFR-11, NFR-13, AR-3, AR-5, AR-16, UX-DR28, UX-DR29, Flow 6.
 **Also carries** the pre-pilot stories 12.6–12.10 (Cubentia rebrand; Epic 8 retrospective fixes), which run before Story 7.8 (`sprint-change-proposal-2026-11-08-cubentia-and-pre-pilot.md`), and 12.11–12.12 (Epic 9 seams; 2-look rules), also before 7.8 (`sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md`), and 12.13 (durable session end; Story 12.11 deferrals), also before 7.8 (`sprint-change-proposal-2026-11-10-session-end-deferrals.md`).
 **Device batch** (reference devices connected after the device-free stories; `sprint-change-proposal-2026-11-10-session-end-deferrals.md`): Stories 3.8, 1.11 and 12.2, plus the Story 12.1 physical pass in `docs/accessibility-manual-check.md`. Story 3.7 stays in `review` until 3.8 passes (its last AC), and Story 12.1 stays in `review` until that physical pass is recorded.
+**Reference devices (SCP 2026-11-12, `sprint-change-proposal-2026-11-12-lenovo-minimum-reference.md`):** minimum Lenovo Tab M10 Plus 3rd Gen (TB128XU, Android 13 / API 33), mid Samsung Galaxy S24 FE. The Galaxy Tab S7 FE 5G, the minimum until 2026-11-12, is kept as an additional compatibility device, and its 3.8, 1.11 and 12.2 results stay as dated evidence. The Lenovo was measured with the 3.8 and 12.2 methods and meets every threshold (`docs/benchmarks.md` § Additional device: Lenovo Tab M10 Plus 3rd Gen); its limitations are tracked in #119.
 
 ## Epic 1: Turn and verify a cube
 
@@ -506,6 +507,8 @@ So that the rendering choice is confirmed on real hardware and the spike code ca
 **Given** the choice is confirmed
 **When** the story closes
 **Then** the Story 1.8 SceneView spike is deleted: `app/src/spike3dSceneView/`, `app/src/spike3dNoSceneView/`, the `rubikxplorer.spike3d.sceneview` switch in `app/build.gradle.kts`, and the `sceneview` entry in `gradle/libs.versions.toml`
+
+*Annotated by SCP 2026-11-12: the minimum reference device is now the Lenovo Tab M10 Plus 3rd Gen. This story's results on the Galaxy Tab S7 FE 5G (then the minimum) and the S24 FE stay as dated evidence. On the Lenovo, the Story 12.2 Macrobenchmark measured frame-interval p90 18.35 ms (face turns) and 19.66 ms (View Rotation), within 33.3 ms, so the AD-4 renderer choice holds on the new minimum. The 2D net baseline is still waived (#106, v1.1).*
 
 ## Epic 2: Learn with a guided Lesson
 
@@ -847,7 +850,7 @@ So that I don't have to take a course first.
 
 **Given** a valid entry
 **When** the Solver runs
-**Then** a cancelable indeterminate progress bar shows; while the solver prepares (the first solve in each app process) "Preparing the solver. This can take a few seconds the first time after the app starts." shows, or, when no valid shipped or saved tables exist and they must be generated, "Setting up the solver for first use. This can take a little while." (SCP 2026-11-11); and a timeout shows "Couldn't find a solution in time. Your colors are still here — try again." with no partial result
+**Then** a cancelable indeterminate progress bar shows; while the solver prepares (the first solve in each app process) "Preparing the solver. The first solve after the app starts takes longer. Later solves are faster." shows (SCP 2026-11-12, PO-approved 2026-11-12; it replaces the SCP 2026-11-11 text "Preparing the solver. This can take a few seconds the first time after the app starts."), or, when no valid shipped or saved tables exist and they must be generated, "Setting up the solver for first use. This can take a little while." (SCP 2026-11-11); and a timeout shows "Couldn't find a solution in time. Your colors are still here — try again." with no partial result
 
 **Given** the last Playback step
 **When** the cube is solved
@@ -892,6 +895,8 @@ So that solving is ready without freezing Lessons or exceeding the app's size bu
 **Given** completed integration and the calibration evidence transferred from Story 3.3
 **When** the story is reviewed
 **Then** affected correctness, CI and release-size checks pass and link their evidence; Story 3.8 remains open if any required hardware result, calibration or calibrated corpus result, delivery decision, memlog append or production verification is unavailable; production acceptance of Story 3.7 and closure of Epic 3/P0.S remain blocked until all pass
+
+*Annotated by SCP 2026-11-12: the minimum reference device is now the Lenovo Tab M10 Plus 3rd Gen; this story's measurements on the Galaxy Tab S7 FE 5G stay as dated evidence, and the delivery decision (bundled) stands. With the same methods the Lenovo measured: generation plus write 14.35 s (first-run rule G ≤ 5 s fails, so bundled is also selected there), per-process preparation 12.6 s debug and ≤ 10.5 s release-equivalent (#104, v1.1), and 0 StrictMode violations (no waiver needed; #107 is Samsung-only). The calibrated JVM profile (k = 16.94) was paired with the Tab S7 FE debug build; recalibration against the new minimum belongs to #105 (v1.1).*
 
 ## Epic 4: Get help when I go wrong
 
@@ -1818,6 +1823,8 @@ So that it works on the device I have.
 **Given** phone and tablet in portrait and landscape on API 29 through targetSdk 36
 **When** every Key Flow runs
 **Then** layouts follow their window class and rotation never changes session state
+
+*Annotated by SCP 2026-11-12: the minimum reference device is now the Lenovo Tab M10 Plus 3rd Gen. This story's results on the Galaxy Tab S7 FE 5G stay as dated evidence. The Lenovo meets AC1 (61.96 FPS face turns, 59.69 FPS View Rotation, input → frame p90 53/21 ms) and AC2 (10,101/10,101 within 3 s, 0 failures, p95 139 ms, max 1.56 s). For AC3 on this device the PO accepted (2026-11-12) running the Key Flow suite with `wm set-ignore-orientation-request false`, restored afterwards: 7/7 flows and 43/43 surfaces pass. Rotation under the tablet's default settings is a harness follow-up in #119, not a v1.0 gate.*
 
 ### Story 12.3: Stability, size and privacy hardening
 
