@@ -463,6 +463,192 @@ S24 FE until `androidTestImplementation` pinned espresso-core 3.7.0 (test-only).
 3. API 30 is not in the target set (AVDs cover 29, 34, 35, 36, 37; physical 31 and 37): the API 30 gap is
    **accepted** for "API 29 through targetSdk 36".
 
+## Additional device: Lenovo Tab M10 Plus 3rd Gen (TB128XU), 2026-11-11
+
+**Not a reference device.** The reference devices stay the Galaxy Tab S7 FE 5G (minimum) and the
+Galaxy S24 FE (mid). These runs repeat their methods on a third, lower-end tablet so the product owner
+can decide, through `bmad-correct-course`, whether to add it. No criterion, waiver or verdict above
+changes because of these numbers. The pass column applies the thresholds used for the reference
+devices. Where the minimum and the mid thresholds differ, it applies the minimum one and states the
+mid one as well.
+
+| Identity | Value |
+| --- | --- |
+| Device | Lenovo Tab M10 Plus 3rd Gen, model TB128XU, serial `HA1S28MM`, Snapdragon 680 (SM6225, `bengal`), 8 CPUs, MemTotal 3,756,260 kB, arm64-v8a |
+| Android | 13 (API 33), fingerprint `Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys` |
+| Display | 1200 × 2000 px at 240 dpi (800 dp portrait, 1333 dp landscape), 60 Hz only (`refreshRate=60.000004`, one display mode) |
+| Conditions | USB powered, battery 95–100 %, battery 27.1–31.0 °C, thermal status 0 throughout, power save off, stay-awake on (`stay_on_while_plugged_in` 0 → 15 for the run, restored to 0) |
+| Revision | `95d708f67e4395beae0b98a4152a6af5ee472d22` for every run (app code identical to `2fda65a`, after #112) |
+| Java heap limit | 256 MiB (`javaHeapMaxBytes=268435456`); the Tab S7 FE has 512 MiB |
+
+Raw evidence: [`evidence/lenovo-tb128xu/`](evidence/lenovo-tb128xu/), device settings before and
+after in [`device-settings-lenovo-tb128xu.txt`](evidence/lenovo-tb128xu/device-settings-lenovo-tb128xu.txt).
+
+### Story 3.8 methods: table delivery, preparation and StrictMode
+
+Same commands as [pruning-tables.md](pruning-tables.md#reproduce): five cold runs and five warm runs
+of the 3.2 harness, five `--ez bundledOnly true` runs, debug build. Release-equivalent preparation was
+timed coarsely as in Story 3.8: tap Accept, then poll `uiautomator` until the Solution note appears,
+three fresh processes. A dump takes 2–3 s on this tablet, so these are upper bounds.
+
+| Measurement | Lenovo TB128XU min / median / max | Tab S7 FE 5G min / median / max |
+| --- | --- | --- |
+| Generation (move tables + 4 BFS projections), debug, n = 5 | 14,120.8 / 14,297.1 / 14,373.9 ms | 9,724.7 / 9,845.8 / 10,258.7 ms |
+| Cache write (atomic, fsync), n = 5 | 30.1 / 53.1 / 57.4 ms | 159.1 / 174.3 / 242.3 ms |
+| **G** = generation + write, n = 5 | 14,167.8 / **14,350.2** / 14,407.8 ms | 9,883.8 / **10,014.0** / 10,432.9 ms |
+| Warm private-file read + SHA-256, new process, n = 5 | 9.2 / 10.7 / 14.7 ms | 8.0 / 8.9 / 10.9 ms |
+| Bundled asset read + inflate + SHA-256, n = 5 | 32.1 / 33.9 / 34.7 ms | 23.7 / 24.4 / 26.1 ms |
+| **Move-table build per process** (`moveTableNanos`), bundled, n = 5 | 12,517.6 / **12,555.3** / 12,654.6 ms | 8,214.4 / **8,259.2** / 8,542.5 ms |
+| Total bundled preparation per process, debug, n = 5 | 12,551.5 / 12,587.4 / 12,689.2 ms | 8,238.9 / 8,283.0 / 8,566.8 ms |
+| Accept → Solution note, `benchmark` build, fresh process (coarse) | 10.46, 10.46, 10.49 s | 7.61, 7.78, 7.63 s |
+| Corpus runner `prepareNanos`, `benchmark` build (12.2 run below) | 5.18 s | 3.13 s |
+
+- Every cold run reported `first,source=GENERATED`, every warm run `first,source=CACHE` and every
+  bundled run `source=BUNDLED`; payload 4,031,685 B, cache file 4,031,725 B. No `failed` or
+  `measurement-incomplete` line. The warm runs also rebuilt the move tables (12,540.5–12,626.3 ms).
+- Memory: MemAvailable before the runs 982,912–1,161,460 kB; PSS after bundled preparation
+  92.8–107.0 MB; Java heap in use after preparation 10.1–23.7 MiB of 256 MiB.
+- **#104 data.** The per-process move-table build is about 12.6 s on the debug build here, against
+  8.3 s on the Tab S7 FE (×1.52). The release-equivalent Accept → Solution upper bound is about 10.5 s
+  (Tab 7.6–7.8 s). The #112 copy ("This can take a few seconds the first time after the app starts.")
+  was shown on every fresh-process Accept. A second solve in the same process went straight to
+  playback.
+- Delivery rule (first-run needs G ≤ 5 s): G = 14.35 s also fails here, so bundled would be selected
+  on this device too.
+
+Raw: [`pruning-tables-lenovo-tb128xu.log`](evidence/lenovo-tb128xu/pruning-tables-lenovo-tb128xu.log),
+[`pruning-tables-bundled-lenovo-tb128xu.log`](evidence/lenovo-tb128xu/pruning-tables-bundled-lenovo-tb128xu.log),
+[`production-release-timing-lenovo-tb128xu.log`](evidence/lenovo-tb128xu/production-release-timing-lenovo-tb128xu.log).
+
+**Production StrictMode and Lesson independence (debug build, #107 re-check on a non-Samsung OEM).**
+Same scripted steps as [`production-strictmode-tab-s7-fe.log`](evidence/3-8/production-strictmode-tab-s7-fe.log),
+from a fresh install (uninstall + install): a Lesson before any solve (U, "Pattern reached", "Objective
+met"); Enter colors, the cube after U, Accept, preparing line with Cancel; during preparation, Learn,
+reopen the Lesson and turn U (the Lesson responds; leaving Solve cancels the solve and the editor keeps
+the colors); retry Accept, `U'` playback; a second Accept in the same process goes straight to
+playback; a new process (force-stop) shows the preparing line again, then `U'`; `files/` holds only
+`profileInstalled` (no fallback table file).
+Raw: [`production-strictmode-lenovo-tb128xu.log`](evidence/lenovo-tb128xu/production-strictmode-lenovo-tb128xu.log).
+
+| StrictMode | Lenovo TB128XU (Android 13) | Tab S7 FE 5G (Android 12) |
+| --- | --- | --- |
+| Violations, first process after install | **0** | 6 (4 Samsung FlipFont + 2 `getProfileSizeOfApp`) |
+| Violations, second process | **0** | 4 (Samsung FlipFont) |
+| App-originated / table loading or solving | 0 / 0 | 0 / 0 |
+| Harness `mainThreadDiskViolations` (15 runs) | 0 on all 15 | 0 on 9, 2 on cold run 1 |
+
+The StrictMode criterion ("no main-thread disk access is reported") is **met with no waiver** on this
+device. That fits #107: the waived violations come from Samsung's platform (FlipFont in
+`Application.onCreate`, `ActivityThread.getProfileSizeOfApp`), not from app code.
+
+### Story 12.2 AC1: frame rate and input latency (Macrobenchmark)
+
+Same command, `Cube3DFrameBenchmark`, `benchmark` build, `CompilationMode.Full()`, WARM, 10
+iterations, run 20:05–20:10 in landscape (`user_rotation=1`, as the Tab S7 FE ran in landscape), 60 Hz,
+battery 29.8 → 30.4 °C, thermal status 0 at start and end. Values as in the tables above: median of
+the 10 iterations (min–max), pooled linear-interpolated percentiles, maxima over all iterations.
+
+| Device | Test | glFps median (min–max) | Worst window | Frames / iteration | Interval p50 / p90 / p99 (ms) | Max interval (ms) | Intervals > 33.3 ms | Input → frame p50 / p90 (ms) | Input → frame max (ms) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **Lenovo TB128XU** | face turns | **61.96** (60.15–63.16) | 58.87 | 48–51 | 16.64 / 18.35 / 23.74 | 28.95 | 0 | 41.30 / 53.39 | **57.52** |
+| **Lenovo TB128XU** | View Rotation | **59.69** (59.00–59.95) | 57.87 | 195–213 | 16.70 / 19.66 / 27.68 | 40.20 | **5** (of 1,990) | 14.08 / 20.76 | **30.94** |
+| Tab S7 FE 5G (min) | face turns | 60.61 (59.67–63.89) | 58.69 | 48–50 | 16.72 / 17.49 / 19.75 | 24.91 | 0 | 39.31 / 43.95 | 47.30 |
+| Tab S7 FE 5G (min) | View Rotation | 59.86 (59.78–60.15) | 59.59 | 182–190 | 16.69 / 17.67 / 18.67 | 23.91 | 0 | 10.72 / 12.54 | 22.31 |
+| S24 FE (mid) | face turns | 60.32 (60.05–61.16) | 59.51 | 48–52 | 16.66 / 17.11 / 18.09 | 20.58 | 0 | 27.53 / 35.73 | 45.62 |
+| S24 FE (mid) | View Rotation | 60.09 (59.96–60.16) | 59.86 | 168–187 | 16.63 / 17.62 / 18.96 | 23.11 | 0 | 12.28 / 15.02 | 20.47 |
+
+`inputTimeFromSliceStart` was 0 in every iteration. Macrobenchmark reported `cpuLocked: true` here
+(false on both reference devices). Nothing locked the clocks: after the run `scaling_min_freq` was
+below `scaling_max_freq` on every cluster (691.2 MHz / 1.9 GHz and 1.056 / 2.4 GHz). Treat the flag as
+the library's reading of this kernel, not as a different condition. Raw:
+[JSON](evidence/lenovo-tb128xu/cube3d-macrobenchmark-lenovo-tb128xu.json),
+[summary](evidence/lenovo-tb128xu/cube3d-macrobenchmark-lenovo-tb128xu.txt),
+[JUnit](evidence/lenovo-tb128xu/cube3d-macrobenchmark-lenovo-tb128xu-junit.xml),
+[display log](evidence/lenovo-tb128xu/cube3d-macrobenchmark-lenovo-tb128xu-display.log),
+[conditions](evidence/lenovo-tb128xu/macrobenchmark-conditions-lenovo-tb128xu.txt). Perfetto traces are
+not committed.
+
+The renderer holds the panel rate, but with less headroom than on the reference devices. View Rotation
+p90 is 19.7 ms against 17.6–17.7 ms, and 5 of 1,990 intervals exceed 33.3 ms (max 40.2 ms), where both
+reference devices had none. View Rotation's median is 59.69 FPS: at or above the minimum threshold, but
+below 60 (the PO's 60-on-the-median reading for the mid device). This matters only if the tablet were
+classed as mid-tier.
+
+### Story 12.2 AC3: rotation and compatibility (Key Flow suite)
+
+`tools/run-keyflow-rotation.sh HA1S28MM lenovo-tb128xu-api33`, debug build, the same seven methods.
+Two findings came before the valid run:
+
+1. **Script line endings (local checkout).** The working copy of `tools/run-keyflow-rotation.sh` has
+   CRLF endings (`core.autocrlf=true` here, and `.gitattributes` forces LF only for `gradlew`). The
+   index copy is LF. `env: 'bash\r'` failed, so the script ran unchanged through
+   `bash -c "$(tr -d '\r' < tools/run-keyflow-rotation.sh)" tools/run-keyflow-rotation.sh …`.
+2. **This tablet ignores app orientation requests.** Android 13 on this large-screen device ships
+   `wm get-ignore-orientation-request` = `true`. The harness rotates only through
+   `Activity.requestedOrientation`, and that never changed the configuration. All 7 methods failed in
+   setup ("timed out waiting for rotation to portrait") before any check ran. This is a harness
+   limitation on this device, not an app result. Raw:
+   [`keyflow/as-is-ignore-orientation-request-true/`](evidence/lenovo-tb128xu/keyflow/as-is-ignore-orientation-request-true/).
+   A Learner on this tablet rotates with the system (auto-rotate or the rotation button), which the
+   harness does not model.
+
+The suite was then rerun unchanged with `wm set-ignore-orientation-request false` (a window-manager
+override, not a persisted setting, restored to `true` afterwards). Rotation settings were unchanged
+before and after (`accelerometer_rotation=0`, `user_rotation=1`). Raw:
+[`keyflow/ignore-orientation-request-false/`](evidence/lenovo-tb128xu/keyflow/ignore-orientation-request-false/).
+
+| Target | Revision | API | Form factor | Portrait | Landscape | Flow 1 | Flow 2 | Flow 3 | Flow 6 | Flow 7 | Flow 8 | Flow 9 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| lenovo-tb128xu-api33 (TB128XU, physical, orientation requests honored) | `95d708f` | 33 | tablet | MEDIUM (800 dp) | EXPANDED (1333 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
+| tab-s7-fe-api31 (reference) | `dd56e34` | 31 | tablet | MEDIUM (753 dp) | EXPANDED (1205 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
+| s24-fe-api37 (reference) | `dd56e34` | 37 | phone | COMPACT (384 dp) | MEDIUM (832 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
+
+All 7 flows pass and all 43 surfaces pass. Rotation changes no session state, and the layout follows
+the window class. The device adds API 33, which no earlier target covered. With orientation requests
+ignored, no letterbox was observed, because the configuration never changed. The letterbox case
+stays the one recorded for the Tab AVD above.
+
+### Story 12.2 AC2: solve corpus (NFR-3)
+
+Same runner, `benchmark` build (`build,debuggable=false`), `--ei cases 10000 --el seed 20261031 --ei
+warmup 200`, 3 s budget, run 20:27–20:36, USB powered, battery 100 %, 30.6 → 31.0 °C, thermal status
+0 at start and end, power save off, stay-awake on, 60 Hz, Free RAM 1,484,879 kB of 3,756,260 kB at
+start. Raw: [log](evidence/lenovo-tb128xu/solve-corpus-benchmark-build-lenovo-tb128xu.log),
+[conditions](evidence/lenovo-tb128xu/corpus-conditions-lenovo-tb128xu.txt).
+
+| Device | Build | Cases | Median | p95 | Max | Within 3 s | Failures | Peak memory (max sampled used heap) | Timed run wall | Table preparation |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **Lenovo TB128XU** | `benchmark` | 10,101 | **26.999 ms** | **138.710 ms** | 1,561.215 ms | **10,101 / 10,101 (100%)** | **0** | **32.7 MiB** (34,287,936 B; limit 256 MiB) | 476.5 s | 5.18 s |
+| Tab S7 FE 5G (12.2) | `benchmark` | 10,101 | 17.012 ms | 101.730 ms | 1,074.199 ms | 10,101 / 10,101 (100%) | 0 | 28.9 MiB (limit 512 MiB) | 326.8 s | 3.13 s |
+
+The S24 FE was not run on the corpus in Story 12.2, so it has no column. Compared with the minimum
+device: median ×1.59, p95 ×1.36, max ×1.45, wall ×1.46. The slowest case (1.56 s) still has 1.44 s of
+margin to the 3 s timeout.
+
+### Summary against the reference thresholds
+
+| Criterion (threshold as for the reference devices) | Lenovo TB128XU | Tab S7 FE 5G (min) | S24 FE (mid) | Lenovo pass |
+| --- | --- | --- | --- | --- |
+| NFR-1/AC1 face turns ≥ 30 FPS (min) / 60 FPS (mid), median | 61.96 | 60.61 | 60.32 | **yes** (both) |
+| NFR-1/AC1 View Rotation ≥ 30 FPS (min) / 60 FPS (mid), median | 59.69 | 59.86 | 60.09 | **yes** at ≥ 30; below 60 |
+| NFR-2/AC1 face-turn input acknowledged ≤ 100 ms, max | 57.52 ms | 47.30 ms | 45.62 ms | **yes** |
+| NFR-2/AC1 View Rotation input → frame ≤ 100 ms, max | 30.94 ms | 22.31 ms | 20.47 ms | **yes** |
+| NFR-3/AC2 ≥ 95 % of corpus within 3 s | 100 % (0 failures) | 100 % (0 failures) | not run | **yes** |
+| NFR-13/AC3 rotation keeps state and layout follows window class | 7/7 flows with orientation requests honored; 0/7 as shipped (harness cannot rotate) | 7/7 | 7/7 | **yes** with the override; harness finding as shipped |
+| 3.8 StrictMode: no main-thread disk access | 0 violations | 10 platform-only (waived, #107) | — | **yes**, no waiver needed |
+| 3.8 first-run delivery rule G ≤ 5 s (decides delivery, not a pass criterion) | 14.35 s | 10.01 s | — | fails, so bundled (as on the Tab) |
+| #104 per-process preparation (accepted for v1.0, no threshold) | 12.6 s debug; ≤ 10.5 s release (coarse) | 8.3 s; ≤ 7.6–7.8 s | — | n/a, about 1.5× the Tab |
+
+Questions for the product owner before adding the device through `bmad-correct-course`:
+
+- Tier: as a minimum-tier device it meets every threshold. Its View Rotation median of 59.69 FPS would
+  miss the mid device's 60 FPS reading.
+- AC3 method: should the Key Flow suite on this tablet run with `ignore-orientation-request` off (as
+  here)? The alternative is to add a rotation path that works when the system ignores orientation
+  requests.
+- #104: about 10.5 s release-equivalent preparation per process. This is the longest wait measured so
+  far behind the #112 copy.
+
 ## Out of scope
 
 - 2D net reference-device baselines: attempted in Story 1.11 and not measured (see above); waived

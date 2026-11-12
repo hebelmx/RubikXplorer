@@ -1,0 +1,19 @@
+# original settings 2026-11-11T19:30:45-06:00
+global stay_on_while_plugged_in=0
+global window_animation_scale=1.0
+global transition_animation_scale=1.0
+global animator_duration_scale=1.0
+system accelerometer_rotation=0
+system user_rotation=1
+system screen_off_timeout=600000
+wm ignore-orientation-request before: ignoreOrientationRequest true for displayId=0
+# settings after restore 2026-11-11T20:36:08-06:00
+global stay_on_while_plugged_in=0
+global window_animation_scale=1.0
+global transition_animation_scale=1.0
+global animator_duration_scale=1.0
+system accelerometer_rotation=0
+system user_rotation=1
+system screen_off_timeout=600000
+wm ignoreOrientationRequest true for displayId=0
+# changed during the run: global stay_on_while_plugged_in 0 -> 15 (19:30, as on the reference runs) -> 0 (20:36); wm ignore-orientation-request true -> false only for the Key Flow rerun (20:13-20:27) -> true. Nothing else was changed.

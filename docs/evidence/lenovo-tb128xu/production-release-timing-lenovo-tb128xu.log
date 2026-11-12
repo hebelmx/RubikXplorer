@@ -1,0 +1,14 @@
+# coarse UI timing of the production preparation in the release-equivalent benchmark build (R8, not debuggable), revision=95d708f67e4395beae0b98a4152a6af5ee472d22, apk sha256=7b3672685393017f96ec2988215810cd6b15b01fb267a80b75ab4b424e73555d
+# method (as docs/evidence/3-8/production-release-timing-tab-s7-fe.log): fresh process, I'm new, Solve, Enter colors, enter the cube after U, tap Accept, then poll uiautomator dumps until the Solution note appears; elapsed = first dump showing the note minus the Accept tap. Each dump takes ~2-3 s on this device, so resolution is ~2-3 s; an upper bound, not a harness measurement.
+      arm64: [status=verify] [reason=install]
+  USB powered: true
+  level: 100
+  temperature: 296
+Thermal Status: 0
+run 1: preparingLineSeenInFirstDump=1 elapsedAcceptToNoteSec=10.49
+run 2: preparingLineSeenInFirstDump=1 elapsedAcceptToNoteSec=10.46
+run 3: preparingLineSeenInFirstDump=1 elapsedAcceptToNoteSec=10.46
+  level: 100
+  temperature: 298
+Thermal Status: 0
+DONE

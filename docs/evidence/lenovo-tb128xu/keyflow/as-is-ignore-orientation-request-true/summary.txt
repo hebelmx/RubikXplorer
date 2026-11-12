@@ -1,0 +1,7 @@
+flow1FirstSolvePhysicalCube fail
+flow2TwoLookLastLayer fail
+flow3JustSolveIt fail
+flow6FiveMinuteEvaluation fail
+flow7PracticeToMastery fail
+flow8SkipAhead fail
+flow9ResetProgress fail

@@ -1,0 +1,79 @@
+# production check, debug build (DebugStrictMode: detectDiskReads+detectDiskWrites+detectNetwork+penaltyLog), revision=95d708f67e4395beae0b98a4152a6af5ee472d22, apk sha256=0fd700d0d01844d8fa4f2818768abb0c8d495d6862765a1341f139e2b7b8c71a, fresh install (uninstall + install), scripted adb UI run (uiautomator dump + input tap), same steps as docs/evidence/3-8/production-strictmode-tab-s7-fe.log
+Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys
+  USB powered: true
+  level: 100
+  temperature: 293
+Thermal Status: 0
+  mStayOn=true
+MemAvailable:    1270816 kB
+### A1 cold process start 19:4x (am start -W)
+LaunchState: COLD
+TotalTime: 2273
+pid=7668
+### A2 Lesson before any solve (tables never requested) 19:38:20.375
+'' | 'Pattern reached' [24,222][1076,962] 
+'Step 1 of 1' | '' [1148,277][1296,307] 
+'Objective met' | '' [1748,277][1892,307] 
+### A3 Close lesson -> Solve -> Enter colors -> cube after U 19:38:36.212
+### A4 Accept (cold: bundled read + move tables) 19:46:29.555
+    Starting a solve pauses your lesson.
+    Preparing the solver. This can take a few seconds the first time after the app starts.
+    Cancel
+### A5 during preparation: Learn -> Lesson -> Move U 19:46:34.907
+'' | '12 of 20 pieces match the pattern' [24,222][1076,962] 
+### A6 Close lesson -> Solve tab (leaving Solve cancelled the solve; nothing published) 19:47:10.553
+'Close' | '' [138,57][195,87] 
+'Starting a solve pauses your lesson.' | '' [120,108][537,144] 
+    'Accept' 
+### A7 retry Accept 19:47:47.401
+    Starting a solve pauses your lesson.
+    Preparing the solver. This can take a few seconds the first time after the app starts.
+    Cancel
+### A7 playback visible 19:48:04.208
+    U'
+    'Turn the Up face counter-clockwise: the top row moves right.' 
+### A8 Close -> Enter colors -> Accept again (same process) 19:48:09.486
+    (editor reopened with the cube after U still entered)
+### A8 playback visible 19:49:10.847
+    "U'" 
+    'Turn the Up face counter-clockwise: the top row moves right.' 
+    (first dump after Accept showed no preparing line)
+### B1 new process 19:49:16.985
+LaunchState: COLD
+TotalTime: 1907
+pid=13054
+(process B started on the onboarding screen: "I'm new" tapped before B2)
+### B2 Solve -> Enter colors -> cube after U -> Accept (new process: bundled re-read + move tables) 19:53:00.043
+    Starting a solve pauses your lesson.
+    Preparing the solver. This can take a few seconds the first time after the app starts.
+    Cancel
+### B2 playback visible 19:53:23.006
+    "U'" 
+    'Turn the Up face counter-clockwise: the top row moves right.' 
+### B3 app-private storage (no fallback table file expected) 19:53:35.664
+cache:
+total 0
+
+files:
+total 4
+-rw------- 1 u0_a162 u0_a162 24 2026-11-11 19:49 profileInstalled
+4	./cache
+4	./code_cache
+132	./databases
+8	./files
+150	.
+
+# StrictMode summary (frames from dev.cubentia.solver, PruningTable*, SolverSource, SolverModule, SolveFlow, AssetManager count as table loading/solving; a violation is app-originated when its first non-I/O frame is app code)
+== process pid 7668
+violations: 0
+app-originated (first non-I/O frame is app code): 0
+table-loading/solving attributable: 0
+== process pid 13054
+violations: 0
+app-originated (first non-I/O frame is app code): 0
+table-loading/solving attributable: 0
+
+# StrictMode logcat, all processes (logcat -d of the main buffer, covering process A from 19:37:28 and process B; 'grep " D StrictMode"')
+(no StrictMode lines from any process)
+
+# note: unlike the Tab S7 FE (Samsung FlipFont Typeface.setFlipFonts/getFullFlipFont in Application.onCreate, ActivityThread.getProfileSizeOfApp after install), this Lenovo (AOSP-like Android 13) build logs no platform violation either. The PruningTablesBenchmark harness, whose penaltyListener counts main-thread disk violations in-process, also reported 0 on all 15 runs (pruning-tables*-lenovo-tb128xu.log).

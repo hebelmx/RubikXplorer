@@ -1,0 +1,36 @@
+# conditions (corpus start) 2026-11-11T20:27:43-06:00 serial=HA1S28MM git=95d708f67e4395beae0b98a4152a6af5ee472d22
+model=Lenovo TB128XU release=13 sdk=33 soc=SM6225 cpus=8
+fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys
+  AC powered: false
+  USB powered: true
+  status: 5
+  level: 100
+  temperature: 306
+Thermal Status: 0
+stay_on=15 accelerometer_rotation=0 user_rotation=1 power_save=0
+refreshRate=60.000004
+mActiveSfDisplayMode=DisplayMode{id=0, width=1200, height=2000, xDpi=219.28, yDpi=219.913, refreshRate=60.000004, appVsyncOffsetNanos=1000000, presentationDeadlineNanos=16666666, group=0
+MemTotal:        3756260 kB
+MemAvailable:    1294924 kB
+    versionName=0.1.0
+    lastUpdateTime=2026-11-11 20:27:42
+      arm64: [status=verify] [reason=install]
+Total RAM: 3,756,260K (status normal)
+ Free RAM: 1,484,879K (  486,351K cached pss +   911,764K cached kernel +    86,764K free)
+# conditions (corpus end) 2026-11-11T20:36:07-06:00 serial=HA1S28MM git=95d708f67e4395beae0b98a4152a6af5ee472d22
+model=Lenovo TB128XU release=13 sdk=33 soc=SM6225 cpus=8
+fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys
+  AC powered: false
+  USB powered: true
+  status: 5
+  level: 100
+  temperature: 310
+Thermal Status: 0
+stay_on=15 accelerometer_rotation=0 user_rotation=1 power_save=0
+refreshRate=60.000004
+mActiveSfDisplayMode=DisplayMode{id=0, width=1200, height=2000, xDpi=219.28, yDpi=219.913, refreshRate=60.000004, appVsyncOffsetNanos=1000000, presentationDeadlineNanos=16666666, group=0
+MemTotal:        3756260 kB
+MemAvailable:    1266848 kB
+    versionName=0.1.0
+    lastUpdateTime=2026-11-11 20:27:42
+      arm64: [status=verify] [reason=install]

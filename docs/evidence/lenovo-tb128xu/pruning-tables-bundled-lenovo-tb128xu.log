@@ -1,0 +1,130 @@
+# run bundled 1 2026-11-12T01:32:02Z revision=95d708f67e4395beae0b98a4152a6af5ee472d22
+  AC powered: false
+  USB powered: true
+  status: 2
+  level: 95
+  temperature: 271
+Thermal Status: 0
+  mWakefulness=Awake
+  mStayOn=true
+MemTotal:        3756260 kB
+MemAvailable:    1044668 kB
+Starting: Intent { cmp=com.exxerpro.cubentia/dev.cubentia.app.solver.PruningTablesBenchmarkActivity (has extras) }
+Status: ok
+LaunchState: COLD
+Activity: com.exxerpro.cubentia/dev.cubentia.app.solver.PruningTablesBenchmarkActivity
+TotalTime: 1209
+WaitTime: 1229
+Complete
+--------- beginning of main
+11-11 19:32:04.352  3960  4107 I PruningTablesBenchmark: device=LENOVO/Lenovo TB128XU,api=33
+11-11 19:32:04.352  3960  4107 I PruningTablesBenchmark: identity,release=13,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys
+11-11 19:32:04.361  3960  4107 I PruningTablesBenchmark: conditions,plugged=2,batteryPercent=95,thermalStatus=0,interactive=true,powerSave=false
+11-11 19:32:04.385  3960  4102 I PruningTablesBenchmark: memory,before,availMemBytes=1254498304,totalMemBytes=3846410240,lowMemory=false,thresholdBytes=226492416,procMemAvailableKb=982912,pssKb=61980,javaHeapUsedBytes=2876864,javaHeapMaxBytes=268435456,nativeHeapAllocatedBytes=6166864
+11-11 19:32:17.089  3960  4102 I PruningTablesBenchmark: bundled,source=BUNDLED,tableBytes=4031685,generationNanos=0,cacheReadNanos=34651250,cacheWriteNanos=0,moveTableNanos=12654553068
+11-11 19:32:17.108  3960  4102 I PruningTablesBenchmark: memory,afterBundled,availMemBytes=1299886080,totalMemBytes=3846410240,lowMemory=false,thresholdBytes=226492416,procMemAvailableKb=1058104,pssKb=107029,javaHeapUsedBytes=15261024,javaHeapMaxBytes=268435456,nativeHeapAllocatedBytes=8966528
+11-11 19:32:17.109  3960  3960 I PruningTablesBenchmark: bundledOnly,mainThreadDiskViolations=0
+# run bundled 2 2026-11-12T01:32:20Z revision=95d708f67e4395beae0b98a4152a6af5ee472d22
+  AC powered: false
+  USB powered: true
+  status: 2
+  level: 95
+  temperature: 272
+Thermal Status: 0
+  mWakefulness=Awake
+  mStayOn=true
+MemTotal:        3756260 kB
+MemAvailable:    1099924 kB
+Starting: Intent { cmp=com.exxerpro.cubentia/dev.cubentia.app.solver.PruningTablesBenchmarkActivity (has extras) }
+Status: ok
+LaunchState: COLD
+Activity: com.exxerpro.cubentia/dev.cubentia.app.solver.PruningTablesBenchmarkActivity
+TotalTime: 804
+WaitTime: 815
+Complete
+--------- beginning of main
+11-11 19:32:21.633  4399  4428 I PruningTablesBenchmark: device=LENOVO/Lenovo TB128XU,api=33
+11-11 19:32:21.633  4399  4428 I PruningTablesBenchmark: identity,release=13,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys
+11-11 19:32:21.640  4399  4428 I PruningTablesBenchmark: conditions,plugged=2,batteryPercent=95,thermalStatus=0,interactive=true,powerSave=false
+11-11 19:32:21.663  4399  4425 I PruningTablesBenchmark: memory,before,availMemBytes=1303199744,totalMemBytes=3846410240,lowMemory=false,thresholdBytes=226492416,procMemAvailableKb=1029080,pssKb=60692,javaHeapUsedBytes=2811296,javaHeapMaxBytes=268435456,nativeHeapAllocatedBytes=6109136
+11-11 19:32:34.337  4399  4425 I PruningTablesBenchmark: bundled,source=BUNDLED,tableBytes=4031685,generationNanos=0,cacheReadNanos=34301823,cacheWriteNanos=0,moveTableNanos=12612937964
+11-11 19:32:34.346  4399  4425 I PruningTablesBenchmark: memory,afterBundled,availMemBytes=1289904128,totalMemBytes=3846410240,lowMemory=false,thresholdBytes=226492416,procMemAvailableKb=1066068,pssKb=96405,javaHeapUsedBytes=17886272,javaHeapMaxBytes=268435456,nativeHeapAllocatedBytes=8872752
+11-11 19:32:34.347  4399  4399 I PruningTablesBenchmark: bundledOnly,mainThreadDiskViolations=0
+# run bundled 3 2026-11-12T01:32:39Z revision=95d708f67e4395beae0b98a4152a6af5ee472d22
+  AC powered: false
+  USB powered: true
+  status: 2
+  level: 95
+  temperature: 276
+Thermal Status: 0
+  mWakefulness=Awake
+  mStayOn=true
+MemTotal:        3756260 kB
+MemAvailable:    1134736 kB
+Starting: Intent { cmp=com.exxerpro.cubentia/dev.cubentia.app.solver.PruningTablesBenchmarkActivity (has extras) }
+Status: ok
+LaunchState: COLD
+Activity: com.exxerpro.cubentia/dev.cubentia.app.solver.PruningTablesBenchmarkActivity
+TotalTime: 871
+WaitTime: 880
+Complete
+--------- beginning of main
+11-11 19:32:40.928  4548  4574 I PruningTablesBenchmark: device=LENOVO/Lenovo TB128XU,api=33
+11-11 19:32:40.928  4548  4574 I PruningTablesBenchmark: identity,release=13,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys
+11-11 19:32:40.931  4548  4574 I PruningTablesBenchmark: conditions,plugged=2,batteryPercent=95,thermalStatus=0,interactive=true,powerSave=false
+11-11 19:32:40.948  4548  4572 I PruningTablesBenchmark: memory,before,availMemBytes=1341382656,totalMemBytes=3846410240,lowMemory=false,thresholdBytes=226492416,procMemAvailableKb=1092964,pssKb=59992,javaHeapUsedBytes=2811296,javaHeapMaxBytes=268435456,nativeHeapAllocatedBytes=6189248
+11-11 19:32:53.514  4548  4573 I PruningTablesBenchmark: bundled,source=BUNDLED,tableBytes=4031685,generationNanos=0,cacheReadNanos=33888073,cacheWriteNanos=0,moveTableNanos=12517629787
+11-11 19:32:53.524  4548  4572 I PruningTablesBenchmark: memory,afterBundled,availMemBytes=1326342144,totalMemBytes=3846410240,lowMemory=false,thresholdBytes=226492416,procMemAvailableKb=1118756,pssKb=94051,javaHeapUsedBytes=13297080,javaHeapMaxBytes=268435456,nativeHeapAllocatedBytes=8880304
+11-11 19:32:53.524  4548  4548 I PruningTablesBenchmark: bundledOnly,mainThreadDiskViolations=0
+# run bundled 4 2026-11-12T01:32:59Z revision=95d708f67e4395beae0b98a4152a6af5ee472d22
+  AC powered: false
+  USB powered: true
+  status: 2
+  level: 95
+  temperature: 278
+Thermal Status: 0
+  mWakefulness=Awake
+  mStayOn=true
+MemTotal:        3756260 kB
+MemAvailable:    1137236 kB
+Starting: Intent { cmp=com.exxerpro.cubentia/dev.cubentia.app.solver.PruningTablesBenchmarkActivity (has extras) }
+Status: ok
+LaunchState: COLD
+Activity: com.exxerpro.cubentia/dev.cubentia.app.solver.PruningTablesBenchmarkActivity
+TotalTime: 870
+WaitTime: 885
+Complete
+--------- beginning of main
+11-11 19:33:00.258  4657  4681 I PruningTablesBenchmark: device=LENOVO/Lenovo TB128XU,api=33
+11-11 19:33:00.258  4657  4681 I PruningTablesBenchmark: identity,release=13,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys
+11-11 19:33:00.263  4657  4681 I PruningTablesBenchmark: conditions,plugged=2,batteryPercent=95,thermalStatus=0,interactive=true,powerSave=false
+11-11 19:33:00.281  4657  4679 I PruningTablesBenchmark: memory,before,availMemBytes=1353342976,totalMemBytes=3846410240,lowMemory=false,thresholdBytes=226492416,procMemAvailableKb=1123136,pssKb=60240,javaHeapUsedBytes=2860480,javaHeapMaxBytes=268435456,nativeHeapAllocatedBytes=6132256
+11-11 19:33:12.883  4657  4679 I PruningTablesBenchmark: bundled,source=BUNDLED,tableBytes=4031685,generationNanos=0,cacheReadNanos=32104843,cacheWriteNanos=0,moveTableNanos=12555284422
+11-11 19:33:12.919  4657  4681 I PruningTablesBenchmark: memory,afterBundled,availMemBytes=1341902848,totalMemBytes=3846410240,lowMemory=false,thresholdBytes=226492416,procMemAvailableKb=1128144,pssKb=98627,javaHeapUsedBytes=18870464,javaHeapMaxBytes=268435456,nativeHeapAllocatedBytes=8886576
+11-11 19:33:12.921  4657  4657 I PruningTablesBenchmark: bundledOnly,mainThreadDiskViolations=0
+# run bundled 5 2026-11-12T01:33:18Z revision=95d708f67e4395beae0b98a4152a6af5ee472d22
+  AC powered: false
+  USB powered: true
+  status: 2
+  level: 95
+  temperature: 280
+Thermal Status: 0
+  mWakefulness=Awake
+  mStayOn=true
+MemTotal:        3756260 kB
+MemAvailable:    1172020 kB
+Starting: Intent { cmp=com.exxerpro.cubentia/dev.cubentia.app.solver.PruningTablesBenchmarkActivity (has extras) }
+Status: ok
+LaunchState: COLD
+Activity: com.exxerpro.cubentia/dev.cubentia.app.solver.PruningTablesBenchmarkActivity
+TotalTime: 831
+WaitTime: 846
+Complete
+--------- beginning of main
+11-11 19:33:19.552  4771  4794 I PruningTablesBenchmark: device=LENOVO/Lenovo TB128XU,api=33
+11-11 19:33:19.552  4771  4794 I PruningTablesBenchmark: identity,release=13,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys
+11-11 19:33:19.556  4771  4794 I PruningTablesBenchmark: conditions,plugged=2,batteryPercent=95,thermalStatus=0,interactive=true,powerSave=false
+11-11 19:33:19.575  4771  4794 I PruningTablesBenchmark: memory,before,availMemBytes=1343938560,totalMemBytes=3846410240,lowMemory=false,thresholdBytes=226492416,procMemAvailableKb=1095872,pssKb=59817,javaHeapUsedBytes=2860528,javaHeapMaxBytes=268435456,nativeHeapAllocatedBytes=6139328
+11-11 19:33:32.166  4771  4794 I PruningTablesBenchmark: bundled,source=BUNDLED,tableBytes=4031685,generationNanos=0,cacheReadNanos=33113906,cacheWriteNanos=0,moveTableNanos=12542044370
+11-11 19:33:32.184  4771  4794 I PruningTablesBenchmark: memory,afterBundled,availMemBytes=1354031104,totalMemBytes=3846410240,lowMemory=false,thresholdBytes=226492416,procMemAvailableKb=1156412,pssKb=92754,javaHeapUsedBytes=12297040,javaHeapMaxBytes=268435456,nativeHeapAllocatedBytes=8885984
+11-11 19:33:32.186  4771  4771 I PruningTablesBenchmark: bundledOnly,mainThreadDiskViolations=0
