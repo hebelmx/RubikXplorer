@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-12-2026 10:41'
+last_updated: '11-12-2026 16:33'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -106,7 +106,7 @@ development_status:
   7-5-mastery-condition-and-milestone: done
   7-6-progress-on-the-you-tab-with-reset: done
   7-7-welcome-and-the-skip-ahead-check: done
-  7-8-ship-a-pilot-build-to-closed-testing: in-progress
+  7-8-ship-a-pilot-build-to-closed-testing: review
   epic-7-retrospective: optional
 
   epic-8: done
@@ -579,7 +579,8 @@ action_items:
     epic: 1
     action: "Before Story 7.8 decide spike code: CI job compiling/testing -Pcubentia.spike3d=true
       (and spikeScan if kept), or delete spikeScan and v1.0 CameraX catalog entries"
-    decision: "Keep both spikes; CI compiles both and runs spike3d unit tests (Story 7.8)."
+    decision: "Keep both spikes; CI compiles both and runs spike3d unit tests (Story
+      7.8)."
     owner: "Architect / Dev"
     status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-11.md"
