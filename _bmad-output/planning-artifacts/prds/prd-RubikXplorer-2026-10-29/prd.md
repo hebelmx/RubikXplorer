@@ -559,13 +559,13 @@ The Learner can drill OLL and PLL Case recognition (name the Case shown) and exe
 
 ## 5. Cross-Cutting Non-Functional Requirements
 
-Targets are validated on a defined set of **reference devices**. [ASSUMPTION: the minimum reference device is a mid/low-range phone from about 2020, running Android 10. The final set is fixed during architecture.]
+Targets are validated on a defined set of **reference devices**. [ASSUMPTION: the minimum reference device is a mid/low-range phone from about 2020, running Android 10. The final set is fixed during architecture.] *Resolved: the architecture named the set (ARCH-OQ-1, PO 2026-10-30). Since 2026-11-12 the minimum reference device is the Lenovo Tab M10 Plus 3rd Gen (TB128XU: Snapdragon 680, 4 GB RAM, Android 13), and the mid-range device stays the Samsung Galaxy S24 FE. The Samsung Galaxy Tab S7 FE 5G, the minimum device until then, is kept as an additional compatibility device. API 29–30 coverage is emulator-only. (SCP 2026-11-12)*
 
 | ID | Category | Requirement / acceptance |
 |---|---|---|
 | NFR-1 | Responsiveness | Face-turn input is acknowledged within 100 ms. |
 | NFR-2 | Rendering | ≥ 30 FPS during face turns and View Rotation on the minimum reference device; 60 FPS target on mid-range. |
-| NFR-3 | Solver performance | 95% of a representative corpus of random legal states (not only easy Scrambles) solved within 3 s on the reference device. Median, p95, memory use and failure rate are reported. |
+| NFR-3 | Solver performance | 95% of a representative corpus of random legal states (not only easy Scrambles) solved within 3 s on the minimum reference device. Median, p95, memory use and failure rate are reported. *(SCP 2026-11-12: "minimum" made explicit)* |
 | NFR-4 | Correctness | **Zero state mismatches** between engine, rendering and Expected State across the randomized Move, undo and interruption suite. Cube-engine invariants pass as property-based tests: inverse restores the state, M⁴ = identity, a random sequence followed by its inverse = identity, illegal states are rejected. The cube engine has the strongest test coverage of any component. |
 | NFR-5 | Offline | A fresh install with no network can complete the Course, use the Algorithm Library, and enter a cube and solve it (and scan it, from v1.1). v1.0 declares no runtime permissions; from v1.1 the camera is the only one. [ASSUMPTION: no network permission is declared.] |
 | NFR-6 | Persistence | The latest Checkpoint survives forced process death. |
@@ -725,6 +725,7 @@ Recorded in `.memlog.md`:
 - The Solver is written in-house in Kotlin, because min2phase is GPLv3-only (architecture review).
 - Product name Cubentia and application ID `com.exxerpro.cubentia` (PO, 2026-11-08).
 - Camera Cube Recognition deferred to v1.1 (PO, 2026-11-08, after the spike scored 62.5%). This supersedes "camera recognition in P0" and "spike failure → camera ships as beta".
+- Reference devices: minimum Lenovo Tab M10 Plus 3rd Gen, mid Samsung Galaxy S24 FE (PO, 2026-11-12, SCP 2026-11-12). The Galaxy Tab S7 FE 5G, the minimum from 2026-10-30 (ARCH-OQ-1), is kept as an additional compatibility device.
 
 ## 11. Assumptions Index
 
@@ -740,7 +741,7 @@ Recorded in `.memlog.md`:
 - FR-26 — a Quick Check takes at most two captures.
 - FR-27 — Placement assumes a white cross first.
 - §4.8 NFRs — all recognition accuracy and speed targets are provisional until the spike.
-- §5 — minimum reference device is a mid/low-range phone from about 2020 running Android 10.
+- §5 — minimum reference device is a mid/low-range phone from about 2020 running Android 10. *(Resolved: ARCH-OQ-1, 2026-10-30; minimum replaced by the Lenovo Tab M10 Plus 3rd Gen, SCP 2026-11-12. See §5.)*
 - NFR-5 — no network permission declared.
 - NFR-7 — color-blind display is P0.
 - NFR-11 — install size < 30 MB.
