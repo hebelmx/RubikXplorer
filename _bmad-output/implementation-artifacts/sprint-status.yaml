@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-12-2026 16:33'
+last_updated: '11-12-2026 16:43'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -106,7 +106,7 @@ development_status:
   7-5-mastery-condition-and-milestone: done
   7-6-progress-on-the-you-tab-with-reset: done
   7-7-welcome-and-the-skip-ahead-check: done
-  7-8-ship-a-pilot-build-to-closed-testing: review
+  7-8-ship-a-pilot-build-to-closed-testing: done
   epic-7-retrospective: optional
 
   epic-8: done
