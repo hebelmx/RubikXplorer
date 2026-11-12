@@ -75,7 +75,24 @@ jobs:
       - name: build-logic policy tests
         run: ./gradlew -p build-logic test
 
+      - name: Release installed-size estimate
+        run: ./gradlew :app:checkReleaseSize
+
       # AD-14: advisory until detekt has a stable release for Kotlin 2.4.
       - name: detekt (non-blocking)
         continue-on-error: true
         run: ./gradlew detekt
+
+  spikes:
+    name: Compile retained spikes
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ./gradlew -Pcubentia.spike3d=true :app:testDebugUnitTest --tests 'dev.cubentia.app.spike3d.*'
+      - run: ./gradlew -Pcubentia.spikeScan=true :app:compileDebugKotlin

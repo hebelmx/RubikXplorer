@@ -14,9 +14,9 @@ class FeatureFlagLevelsTest {
     }
 
     @Test
-    fun `release turns every flag OFF`() {
+    fun `release enables pilot features and keeps camera flags OFF`() {
         assertEquals(
-            "QUICK_SCAN=OFF,PLACEMENT=OFF,CASE_RECOGNITION=OFF,TEST_ME=OFF,CAMERA_SCAN=OFF,ADAPTIVE_ASSISTANCE=OFF",
+            "QUICK_SCAN=OFF,PLACEMENT=OFF,CASE_RECOGNITION=OFF,TEST_ME=GA,CAMERA_SCAN=OFF,ADAPTIVE_ASSISTANCE=GA",
             FeatureFlagLevels.forBuildType("release"),
         )
     }

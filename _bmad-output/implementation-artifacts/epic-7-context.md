@@ -4,7 +4,7 @@
 
 ## Goal
 
-A Learner can progress through all seven Stages of the beginner Course from zero knowledge to a first solve, practice on fresh Scrambles with reduced assistance to earn Stage mastery, view their hint-use trend over time, reset their progress cleanly, and skip ahead by passing a check when they already know a Stage. By the end of this epic, a signed pilot build ships to closed testing so beginner feedback returns in time for release fixes.
+A Learner can progress through all seven Stages of the beginner Course to a first solve, practice on fresh Scrambles with reduced help until a Stage is Mastered, see their hint trend fall, reset progress, and skip ahead by passing a check. The epic closes by putting a signed Cubentia build in about 8 pilot beginners' hands through Play closed testing around week 9. The pilot results have to come back in time for the pre-production fixes, and the observed pilot is the evidence for the usability release gate.
 
 ## Stories
 
@@ -19,65 +19,56 @@ A Learner can progress through all seven Stages of the beginner Course from zero
 
 ## Requirements & Constraints
 
-- **Stage-gated 7-Stage Course:**
-  - Stages: (1) Cube fundamentals, (2) First cross, (3) First-layer corners, (4) Middle layer, (5) Last-layer orientation, (6) Last-layer completion, (7) Independent practice.
-  - A Stage unlocks when its prerequisites are met, when a skip-ahead check passes, or via Placement.
-  - Completion is always determined by evaluating the Completion Predicate on the Cube State, never by counting Moves.
-  - Every Lesson must declare prerequisites, Objective, Demonstration, learner action, Completion Predicate, and Recovery Path; build-time schema and path tests verify at least one legal path from entry state to predicate and a harmful-Move scenario.
-- **Skip-ahead check:** solving a Stage's Objective (or the full Course from Welcome) from a fresh Scramble with hints off and no time limit marks the Stage(s) *Skipped*, never *Mastered*, and unlocks the next Stage. Giving up records nothing against the Learner.
-- **Independent practice & Mastery:**
-  - Independent practice runs on a fresh Scramble with reduced assistance (`assistanceLevel = REDUCED`), showing only the Objective and offering hints on request.
-  - A Stage is marked *Mastered* only when its configurable Mastery Condition is met (initially 2 successful completions of the Stage Objective, at least 1 with reduced assistance). Neither Lesson completion nor *Skipped* marks *Mastered*.
-- **Persistence & scoped reset:**
-  - Stage progress (completed, skipped, mastered) persists across restarts and process death.
-  - *Reset progress* requires confirmation naming exactly what is erased (Stages and attempts, plus Algorithm Statuses once Epic 9 lands) and leaves Color Calibration and preferences untouched.
-- **Privacy, offline & size budgets:**
-  - No network permission, no analytics/crash SDKs, backup disabled; pilot observation records task completion, hint use, and confusion points outside the app.
-  - Release AAB must stay under the 30 MB installed size budget, with ≥ 99.5% crash-free stability and `>= 80%` Kover line coverage on `:core:*`.
+**Course and progression (7.1–7.7, built):**
+- Stage completion comes from the Completion Predicate on the Cube State only, never from Move count.
+- Skip-ahead marks a Stage *Skipped*, never *Mastered*. Giving up records nothing against the Learner.
+- Mastery Condition (configurable): 2 successful completions, at least 1 with reduced assistance.
+- Reset progress erases Stages and attempts (plus Algorithm Statuses) and leaves calibration and preferences alone.
+
+**Pilot release (7.8):**
+- **Privacy:** no account, no PII, no analytics, ads or crash SDK, and no network. All data stays in app-private storage and backup is disabled. The Play data-safety form declares "no data collected". Pilot observation (task completion, hint use, points of confusion, recovery from deliberate mistakes) is recorded **outside the app** in a written pilot session protocol. The app gets no telemetry for this.
+- **Stability:** at least 99.5% crash-free sessions and ANR below the Play bad-behavior threshold. Android vitals from the closed-testing build is the only field signal. The vitals review itself belongs to release-readiness (Epic 12), not 7.8.
+- **Size:** the release AAB's size check must report against an installed size under 30 MB. That budget includes the bundled Solver pruning tables (bundled delivery was chosen). APK or AAB file size alone is not accepted as installed-size evidence. Size depends on the build, not the device, so it is measured on the release AAB.
+- **Usability release gate:** a pilot group of beginners completes the Course. The pilot confirms that Move instructions make sense without knowing Notation and that Learners recover from deliberate mistakes. Every severity-1 and severity-2 issue must be fixed before production (that work is in Epic 12). The 7.8 pilot record feeds the success-metric baselines SM-1–SM-9. With about 8 people these are directional only.
+- **Pilot logistics (open question):** who the ~8 beginner testers are and when closed testing starts (proposed: once the Course is usable), plus whether to run the A/B comparison of plain instructions against contextual explanation. The A/B run is possible only with consenting participants.
+- **Story split:** release-workflow and protocol preparation may close separately from actual signed distribution, because secrets, the Play account, manual promotion and participants are external prerequisites. Real pilot access must still happen early, and must not be pushed to the end of production.
 
 ## Technical Decisions
 
-- **Append-only `progress_event` log:**
-  - Stored in Room with event types `LessonCompleted`, `StageSkippedByCheck`, `StageSkippedByPlacement`, `StageUnlocked`, and `ProgressReset(epoch)`.
-  - Single writers only: `CompleteLesson`, `PassSkipCheck`, `PlaceFromScan`, and `ResetProgress`.
-  - Stage status (`Locked`, `In progress`, `Completed`, `Skipped`, `Skipped by placement`, `Mastered`) and Mastery are pure functions over the current epoch's events and attempt records. Rows are never updated in place; `ResetProgress` appends `ProgressReset(epoch)`.
-  - Room schema changes require a migration and migration test; writes run on the serial writer off the main thread.
-- **Content & curriculum data (`:core:domain` resources):**
-  - Stages 4–6 Lessons, predicates, and `tutor-config.json` mastery thresholds are UTF-8 JSON validated against `content/schema/*.schema.json`.
-  - All Learner-facing copy uses `Text(key, args)` in `content/strings/en.json` following the `Goal → Keep (preserve) → Watch → Notice` structure.
-  - Predicates are color-anchored, orientation-invariant, and implement `preservedPieces(state)` and `ObjectiveProgress`.
-- **Sessions & Scrambles:**
-  - Independent practice uses `SessionKind.PRACTICE` in the single active `SessionHost`, resuming on cold start like `LESSON`.
-  - Scrambles are generated via `NewScramble` using injected `RandomSource` outside the reducer and enter sessions as an explicit `List<Move>`. For Stage practice, entry states are generated by applying random Moves that preserve earlier Stages' predicates so no Solver call is required.
-- **Feature flags:**
-  - Welcome and Stage detail must respect `FeatureFlags`: *Start from my cube* stays hidden while `PLACEMENT` is `OFF` (until Epic 11), and the *Faster last layer* row stays hidden until Epic 9.
-- **Release pipeline:**
-  - Tagging `vX.Y.Z` triggers GitHub Actions to build a signed release AAB (R8 + resource shrinking, keep rules in `build-logic`, `versionCode` = CI run number), run instrumentation/UI/renderer-sync tests, check the < 30 MB budget, upload the R8 mapping file, and publish to the Play Console internal track for manual promotion to closed testing.
-
-## UX & Interaction Patterns
-
-- **Welcome (first launch, no profile):** offers *I'm new* (starts Stage 1) and *I can already solve it* (full-Course skip-ahead check), plus an inline toggle for color-blind glyphs (`W Y R O G B`). *Start from my cube* is hidden while `PLACEMENT` is `OFF`.
-- **Learn tab & Stage detail:**
-  - Learn tab shows the Continue card (if a Checkpoint exists) and the 7 Stage rows.
-  - **Stage row:** Stage number in `data` (monospace tabular), name in `title`, and state text + icon (*Locked*, *In progress*, *Completed*, ◇ *Skipped*, ◇ *Skipped by placement*, or ◆ *Mastered* in `accent`).
-  - **Stage detail:** lists the Stage's Lessons, the **Mastery progress line** in `meta` (`"Mastery: 1 of 2 solves · 1 with reduced help"`) with a two-segment indicator, the Trend row, *Practice this Stage*, and *I already know this*.
-- **You tab & Trend row:**
-  - Lists each Stage's state and a **Trend row**: Stage name, a dot sparkline of hints per attempt in date order (`ink-secondary`, latest point emphasized), and attempt count in `data`.
-  - Never show total hints as a score, never use red for mistakes or hint use, and include no streaks, points, or badges.
-- **Milestone moment:**
-  - Plays only on the first solve (end of Stage 6) and when a Stage's Mastery Condition is met.
-  - Consists of a ≤ 1.2 s burst of the six sticker colors around the solved cube followed by a `display` headline (e.g., `"First cross mastered."`), with no loops or sound. Under reduce motion, renders as a static frame.
-- **State copy treatments:**
-  - Skip-ahead check start: `"Solve this scramble your way. Hints are off."`
-  - Skip-ahead check abandoned: `"Let's do this Stage together — it'll be quick."` (or `"Let's find where to start"` from Welcome).
-  - First solve end of Stage 6: offers *Practice on a new scramble*.
+- **Signing and build types:**
+  - AAB only, with Play App Signing. The upload keystore lives in GitHub Actions secrets.
+  - `release` uses R8 with resource shrinking, and its keep rules are owned by `build-logic`. `debug` keeps StrictMode, the fixture recorder and all feature flags.
+- **Release flow:**
+  - Development is trunk-based on `main`. A `vX.Y.Z` tag triggers the release workflow.
+  - The workflow builds the signed AAB, sets `versionCode` to the CI run number, uploads the R8 mapping file, runs instrumentation, UI and renderer-sync tests (tags only, on top of PR CI), runs the size check, and uploads to the Play **internal** track.
+  - Promotion internal → closed testing → production is **manual** in Play Console.
+- **Identity:**
+  - `applicationId = "com.exxerpro.cubentia"` and the app name is "Cubentia". The 7.8 upload is the first Play upload, and an application ID can never change after it.
+  - Learner-facing text contains no "Rubik" (a test enforces this).
+  - Publishing uses the verified ExxerPro organization Play account, so the new-personal-account rule of 12 testers for 14 days does not apply.
+- **Offline and privacy enforced by the build:**
+  - The merged release manifest has no `INTERNET` permission, and v1.0 declares **no** runtime permission (`CAMERA` arrives only in v1.1).
+  - `allowBackup="false"`, with `dataExtractionRules` that exclude everything.
+  - Release logs never contain Cube States.
+  - CI fails on any violation or on a denylisted analytics, ads or crash SDK. `checkReleaseMergedManifest` keys on `variant.debuggable`.
+  - Every camera feature flag is OFF in release.
+- **PR CI already runs:** build, Spotless/ktlint, Android lint (including accessibility), JVM tests, Kover ≥ 80% on `:core:*`, the privacy checks and an AAB size check. detekt is non-blocking.
+- **Reference devices:**
+  - Minimum: Lenovo Tab M10 Plus 3rd Gen (TB128XU, Android 13 / API 33). Mid: Samsung Galaxy S24 FE.
+  - The Galaxy Tab S7 FE 5G is now an extra compatibility device only.
+  - The Lenovo meets every performance NFR, and its known limits are tracked in #119, which is not v1.0-blocking.
+  - 7.8 names no device.
 
 ## Cross-Story Dependencies
 
-- **Depends on earlier epics:** Lesson engine and Stages 1–3 content (Epic 2), tutor `Assess`/hints/recovery (Epic 4), 3D renderer (Epic 5), and Room persistence with `attempt` logging, Checkpoints, Continue card, and Settings (Epic 6).
-- **Internal sequence:**
-  - Story 7.1 (`progress_event` table and pure Stage-status derivation) underpins Story 7.2 (Learn tab/Stage detail), Story 7.5 (Mastery transitions), Story 7.6 (You tab and `ResetProgress`), and Story 7.7 (`PassSkipCheck`).
-  - Story 7.3 (Stages 4–6 content and predicates) is required before full-Course completion, Stage 4–6 practice (7.4), and the pilot build (7.8).
-  - Story 7.4 (`PRACTICE` session and reduced-assistance attempts) enables Story 7.5 (Mastery Condition evaluation).
-  - Story 7.8 packages the completed Course and progression flows into the signed closed-testing release.
-- **Consumed by later epics:** Epic 8 adds Physical-cube Mode confirmation for the first-solve milestone; Epic 9 reuses the Stage row and progress patterns for the *Faster last layer* 2-look mini-Course and extends progress reset to include Algorithm Statuses; Epic 11 enables `PlaceFromScan` (`StageSkippedByPlacement`) on Welcome and Learn.
+- **7.8 runs after the pre-pilot stories:**
+  - 12.6, the Cubentia rebrand and application ID. It must land before the first upload.
+  - 12.7–12.10, the Epic 8 retro fixes, including the release-permission gate proof.
+  - 12.11 and 12.12, the Epic 9 seams and the 2-look rules.
+  - 12.13, the durable session end.
+- **Pre-release copy:** Learner-visible copy fixes must ship before 7.8. For example, `msg.solve.preparing` must read "Preparing the solver. The first solve after the app starts takes longer. Later solves are faster."
+- **The pilot build packages** the full Course from 7.1–7.7, plus Epics 2–6, 8 and 9.
+- **Epic 12 consumes 7.8:**
+  - 12.3 reviews closed-testing vitals and the data-safety form.
+  - 12.4 triages the 7.8 pilot record against the release gates.
+  - 12.5 does the store listing, the privacy-policy page and the closed → production promotion.

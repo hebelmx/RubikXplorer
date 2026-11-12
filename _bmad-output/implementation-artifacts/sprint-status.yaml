@@ -579,8 +579,9 @@ action_items:
     epic: 1
     action: "Before Story 7.8 decide spike code: CI job compiling/testing -Pcubentia.spike3d=true
       (and spikeScan if kept), or delete spikeScan and v1.0 CameraX catalog entries"
+    decision: "Keep both spikes; CI compiles both and runs spike3d unit tests (Story 7.8)."
     owner: "Architect / Dev"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-11.md"
   - id: "epic-3-retro-item-60-reword-msg-solve-preparing-before-releas"
     epic: 3
