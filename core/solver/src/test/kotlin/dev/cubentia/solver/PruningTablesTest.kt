@@ -335,6 +335,29 @@ class PruningTablesTest {
             assertEquals(2, opens.get())
         }
 
+    @Test
+    fun `generation signal follows both misses and precedes generation only once`() =
+        runBlocking {
+            val asset = validFileBytes()
+            for (path in PruningTableSource.entries) {
+                val file = File(directory, path.name)
+                if (path == PruningTableSource.CACHE) file.writeBytes(asset)
+                val events = mutableListOf<String>()
+                val provider =
+                    PruningTableProvider(file, generate = {
+                        assertEquals(listOf("signal"), events)
+                        events.add("generate")
+                        tables
+                    }, bundled = {
+                        ByteArrayInputStream(if (path == PruningTableSource.BUNDLED) asset else byteArrayOf())
+                    })
+                val loaded = provider.load { events.add("signal") } as PruningTableLoadResult.Ready
+                assertEquals(path, loaded.source)
+                assertEquals(if (path == PruningTableSource.GENERATED) listOf("signal", "generate") else emptyList<String>(), events)
+                assertSame(loaded, provider.load { error("ready must not signal") })
+            }
+        }
+
     private suspend fun validFileBytes(): ByteArray {
         val source = File(directory, "source/tables")
         PruningTableProvider(source, generate = { tables }).load()

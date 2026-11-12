@@ -61,7 +61,13 @@ fun SolveScreen(
             is SolvePhase.Solving -> {
                 if (pausesLesson) Text(strings.resolve(ContentText("msg.solve.pauses-lesson")), Modifier.testTag("solve:pauseNote"))
                 LinearProgressIndicator(Modifier.testTag("solve:progress"))
-                if (current.preparing) Text(strings.resolve(ContentText("msg.solve.preparing")), Modifier.testTag("solve:preparing"))
+                val preparingKey =
+                    when (current.preparation) {
+                        Preparation.NONE -> null
+                        Preparation.WARMING_UP -> "msg.solve.preparing"
+                        Preparation.FIRST_USE -> "msg.solve.preparing-first-use"
+                    }
+                preparingKey?.let { Text(strings.resolve(ContentText(it)), Modifier.testTag("solve:preparing")) }
                 Button(onClick = flow::cancel, modifier = Modifier.testTag("solve:cancel")) {
                     Text(strings.resolve(ContentText("btn.solve.cancel")))
                 }

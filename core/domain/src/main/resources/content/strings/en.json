@@ -1,6 +1,7 @@
 {
   "msg.solve.pauses-lesson": "Starting a solve pauses your lesson.",
-  "msg.solve.preparing": "Preparing the solver (one time, a few seconds).",
+  "msg.solve.preparing": "Preparing the solver. This can take a few seconds the first time after the app starts.",
+  "msg.solve.preparing-first-use": "Setting up the solver for first use. This can take a little while.",
   "msg.solve.learn-offer": "Want to learn how to do this yourself?",
   "btn.solve.enter-colors": "Enter colors",
   "btn.solve.cancel": "Cancel",

@@ -10,7 +10,7 @@ import kotlinx.coroutines.sync.withLock
 interface SolverSource {
     val isReady: Boolean
 
-    suspend fun load(): SolverLoad
+    suspend fun load(onGenerating: () -> Unit = {}): SolverLoad
 }
 
 sealed interface SolverLoad {
@@ -29,10 +29,10 @@ class PruningTableSolverSource(
     @Volatile private var solver: CubeSolver? = null
     override val isReady: Boolean get() = solver != null
 
-    override suspend fun load(): SolverLoad =
+    override suspend fun load(onGenerating: () -> Unit): SolverLoad =
         mutex.withLock {
             solver?.let { return@withLock SolverLoad.Ready(it) }
-            when (val loaded = provider.load()) {
+            when (val loaded = provider.load(onGenerating)) {
                 is PruningTableLoadResult.Ready -> SolverLoad.Ready(TwoPhaseCubeSolver(loaded.tables).also { solver = it })
                 is PruningTableLoadResult.Failed -> SolverLoad.Failed
             }
