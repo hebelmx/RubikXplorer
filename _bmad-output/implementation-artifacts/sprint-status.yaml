@@ -559,7 +559,7 @@ action_items:
     action: "bmad-architecture update: ARCHITECTURE-SPINE.md:525 Story 1.10 measures
       it -> Stories 1.11/12.2, and record the v1.0 NFR-2 2D-net baseline waiver (#106)"
     owner: "Architect (Winston)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-11.md"
   - id: "epic-1-retro-item-57-set-spec-1-9-status-built-done-and-have"
     epic: 1

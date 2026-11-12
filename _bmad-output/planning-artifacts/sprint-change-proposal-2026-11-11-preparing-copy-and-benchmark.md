@@ -1,8 +1,8 @@
 ---
 title: 'Sprint Change Proposal: truthful solver-preparing copy, and Epic 1/3 retro routing'
 date: 2026-11-11
-status: pending-approval
-approved_by: pending (PO approval via the PR; the per-start copy was decided by the PO on 2026-11-11, the first-use copy in §4.3 needs approval)
+status: approved
+approved_by: hebelmx (PO), 2026-11-11 (per-start copy and the first-use copy in §4.3; merged in PR #116)
 trigger: 'GitHub issue #112 (pre-release), with retro items epic-3-retro-item-61, epic-3-retro-item-64 (copy part), epic-1-retro-item-55 and epic-1-retro-item-56'
 scope: Minor
 mode: batch (non-interactive; PO decisions taken from the request)
@@ -55,7 +55,7 @@ The provider does know which path it takes before the slow part starts. It decid
 - [x] 3 Artifact conflicts: epics.md and EXPERIENCE.md (edited here). Spine (routed, §4.5). PRD [N/A]. docs/pruning-tables.md (in the build).
 - [x] 4 Path: Direct Adjustment. Rollback [N/A]. MVP review [N/A].
 - [x] 5 Proposal components: below.
-- [!] 6 Approval: the PO must approve the first-use copy (§4.3). sprint-status.yaml is updated by SM after merge (§5), not by this SCP.
+- [x] 6 Approval: the PO approved the proposal, including the first-use copy (§4.3), on 2026-11-11. sprint-status.yaml is updated by SM after merge (§5), not by this SCP.
 
 ## 3. Recommended Approach
 
@@ -100,12 +100,12 @@ NEW:
 
 Rationale: the old row named a "first use" state that the shipped design (bundled tables plus a per-process move-table build) does not have. The two rows match the two code paths.
 
-### 4.3 New content string (for the build; PO approval needed)
+### 4.3 New content string (for the build; PO-approved 2026-11-11)
 
 | Key | Text | When |
 |---|---|---|
 | `msg.solve.preparing` (reworded, PO-decided) | "Preparing the solver. This can take a few seconds the first time after the app starts." | Bundled or saved tables are read and the move tables are built: the first solve in each process. |
-| `msg.solve.preparing-first-use` (new, **proposed**) | "Setting up the solver for first use. This can take a little while." | Tables are generated and saved, because the shipped asset is missing or invalid and no saved file is valid. |
+| `msg.solve.preparing-first-use` (new, **PO-approved**) | "Setting up the solver for first use. This can take a little while." | Tables are generated and saved, because the shipped asset is missing or invalid and no saved file is valid. |
 
 Why this text is true on the reference devices: generation took a 10 s cold median on the Tab S7 FE, longer than the per-start warm-up, so the copy promises no duration. "First use" is literally true: generation runs only while no valid tables exist, and it saves them, so it happens once per install unless app data is cleared. The copy does not say "one time", because that would also need the save to succeed.
 
