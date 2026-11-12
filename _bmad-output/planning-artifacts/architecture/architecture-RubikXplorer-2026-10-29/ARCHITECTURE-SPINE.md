@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports & adapters) + functional core / imperative shell'
 scope: 'RubikXplorer Android app MVP — whole system (FR-1..FR-28, NFR-1..NFR-13); FR-21..FR-28 ship in v1.1; FR-29 (P1) deferred'
 status: final
 created: '2026-10-29'
-updated: '2026-11-11'
+updated: '2026-11-12'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, NFR-12, NFR-13]
 sources:
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/prd.md
@@ -439,7 +439,7 @@ stateDiagram-v2
 | CameraX | 1.6.2 |
 | kotlinx.serialization / coroutines | 1.12.0 / 1.11.0 |
 | 3D rendering | custom OpenGL ES 3.0 on `GLSurfaceView`, no dependency; the manifest declares `glEsVersion 0x00030000` as required (OQ-3, Story 1.8 spike) |
-| Reference devices | minimum Samsung Galaxy Tab S7 FE 5G, mid Samsung Galaxy S24 FE (ARCH-OQ-1, PO 2026-10-30; supersedes the PRD §5 device assumption). API 29–30 coverage is emulator-only. |
+| Reference devices | minimum Lenovo Tab M10 Plus 3rd Gen (TB128XU, Snapdragon 680, 4 GB, Android 13 / API 33), mid Samsung Galaxy S24 FE (ARCH-OQ-1, PO 2026-10-30; minimum replaced 2026-11-12, sprint-change-proposal-2026-11-12-lenovo-minimum-reference; supersedes the PRD §5 device assumption). The Galaxy Tab S7 FE 5G (minimum until 2026-11-12) is an additional compatibility device. API 29–30 coverage is emulator-only. |
 | Solver | own clean-room Kotlin Kociemba (no dependency) |
 | Testing | JUnit Jupiter 6.1.x, Kotest 6.2.6, Compose UI test (AndroidX JUnit4), Kover 0.9.11 |
 | Lint / format | Spotless 8.10.x + ktlint 1.8.0, Android lint, detekt 2.0.0-alpha (non-blocking) |
@@ -522,7 +522,7 @@ graph LR
 
 ## Deferred
 
-- **Performance on the reference devices:** Story 1.11 measured GL frame timing on both reference devices, and Story 12.2 ran the full performance and compatibility pass (`docs/benchmarks.md`). The solve corpus uses a JVM benchmark. GL frame timing uses the in-app per-frame log from the GL thread (`onDrawFrame` intervals), optionally traced for Macrobenchmark's `TraceSectionMetric`, because `FrameTimingMetric` and `FrameMetrics` do not see `GLSurfaceView` frames. It covers View Rotation as well as face turns (NFR-2). A physical-device p90 above 33.3 ms reopens the rendering choice, which stays behind `CubeRenderer` (AD-4). Neither reference device is truly low-end. The 2D net (`Net2DRenderer`) NFR-2 baseline was not measured, because the Macrobenchmark target no longer draws a 2D net. The PO waived it for v1.0 on 2026-11-10, and it is deferred to v1.1 (#106).
+- **Performance on the reference devices:** Story 1.11 measured GL frame timing on both reference devices, and Story 12.2 ran the full performance and compatibility pass (`docs/benchmarks.md`). The solve corpus uses a JVM benchmark. GL frame timing uses the in-app per-frame log from the GL thread (`onDrawFrame` intervals), optionally traced for Macrobenchmark's `TraceSectionMetric`, because `FrameTimingMetric` and `FrameMetrics` do not see `GLSurfaceView` frames. It covers View Rotation as well as face turns (NFR-2). A physical-device p90 above 33.3 ms reopens the rendering choice, which stays behind `CubeRenderer` (AD-4). The minimum reference device is a budget tablet (Lenovo Tab M10 Plus 3rd Gen). Its Story 1.11 and 12.2 methods were re-run on 2026-11-12: frame-interval p90 18.35 / 19.66 ms, so the AD-4 choice holds, and the full NFR-1/2/3/13 pass is in `docs/benchmarks.md` § Additional device. Story 1.11's and 12.2's Galaxy Tab S7 FE results are dated evidence from when it was the minimum device. The 2D net (`Net2DRenderer`) NFR-2 baseline was not measured, because the Macrobenchmark target no longer draws a 2D net. The PO waived it for v1.0 on 2026-11-10, and it is deferred to v1.1 (#106).
 - **Camera Cube Recognition** (AD-9, FR-21 – FR-28) ships in v1.1 (`sprint-change-proposal-2026-11-08-vision-deferral`). v1.0 keeps the AD-18 camera flags OFF in release.
 - **Quick Scan detection method** (Kotlin, OpenCV or LiteRT): the OQ-7 spike decides. It is contained in `:app/camera` (AD-9), and its size is checked against NFR-11.
 - **Solver internals** (coordinate encoding, the search depth limit): decided in the solver epic, within AD-8's 3 s timeout and NFR-11. Pruning-table delivery is decided by Story 3.8: bundled, with first-run generation as a fallback only if the asset is invalid (`.memlog.md:72`, `docs/pruning-tables.md`).
