@@ -23,6 +23,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
+enum class Preparation { NONE, WARMING_UP, FIRST_USE }
+
 sealed interface SolvePhase {
     data object Home : SolvePhase
 
@@ -32,7 +34,7 @@ sealed interface SolvePhase {
     ) : SolvePhase
 
     data class Solving(
-        val preparing: Boolean,
+        val preparation: Preparation,
     ) : SolvePhase
 }
 
@@ -76,12 +78,26 @@ class SolveFlowViewModel
             val attempt = ++revision
             job?.cancel()
             accepted = state.toFacelets()
-            mutablePhase.value = SolvePhase.Solving(!source.isReady)
+            mutablePhase.value = SolvePhase.Solving(if (source.isReady) Preparation.NONE else Preparation.WARMING_UP)
             job =
                 viewModelScope.launch {
                     val outcome =
                         try {
-                            when (val loaded = withContext(Dispatchers.Default) { source.load() }) {
+                            when (
+                                val loaded =
+                                    withContext(Dispatchers.Default) {
+                                        source.load {
+                                            viewModelScope.launch {
+                                                if (
+                                                    attempt == revision &&
+                                                    mutablePhase.value == SolvePhase.Solving(Preparation.WARMING_UP)
+                                                ) {
+                                                    mutablePhase.value = SolvePhase.Solving(Preparation.FIRST_USE)
+                                                }
+                                            }
+                                        }
+                                    }
+                            ) {
                                 SolverLoad.Failed -> {
                                     SolveCubeOutcome.Failed()
                                 }
@@ -89,7 +105,7 @@ class SolveFlowViewModel
                                 is SolverLoad.Ready -> {
                                     currentCoroutineContext().ensureActive()
                                     if (attempt != revision) return@launch
-                                    mutablePhase.value = SolvePhase.Solving(false)
+                                    mutablePhase.value = SolvePhase.Solving(Preparation.NONE)
                                     SolveCube(loaded.solver)(Effect.SolveCube(attempt, attempt, state)).outcome
                                 }
                             }

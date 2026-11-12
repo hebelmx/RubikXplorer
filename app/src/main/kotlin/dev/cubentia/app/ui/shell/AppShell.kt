@@ -122,7 +122,7 @@ fun AppShell(
                 object : SolverSource {
                     override val isReady = false
 
-                    override suspend fun load(): SolverLoad = SolverLoad.Failed
+                    override suspend fun load(onGenerating: () -> Unit): SolverLoad = SolverLoad.Failed
                 },
             )
         },

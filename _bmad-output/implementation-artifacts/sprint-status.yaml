@@ -587,7 +587,7 @@ action_items:
     action: "Reword msg.solve.preparing before release (en.json:3) so it promises
       neither one time nor a few seconds; tracked as #112, speed-up stays #104"
     owner: "Dev"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-11-11.md"
   - id: "epic-3-retro-item-61-bmad-correct-course-reconcile-the-3-7-ac"
     epic: 3

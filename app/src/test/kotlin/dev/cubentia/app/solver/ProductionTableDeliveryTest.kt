@@ -57,6 +57,20 @@ class ProductionTableDeliveryTest {
         }
 
     @Test
+    fun `source forwards generation signal and retained solver never signals`() =
+        runBlocking {
+            var signals = 0
+            val source =
+                source(missingAsset, generate = {
+                    assertEquals(1, signals)
+                    tables
+                })
+            assertTrue(source.load { signals++ } is SolverLoad.Ready)
+            assertEquals(1, signals)
+            assertTrue(source.load { error("ready must not signal") } is SolverLoad.Ready)
+        }
+
+    @Test
     fun `new process reuses the persisted fallback file without regenerating`() =
         runBlocking {
             assertTrue(source(missingAsset).load() is SolverLoad.Ready)

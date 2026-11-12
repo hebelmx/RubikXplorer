@@ -102,13 +102,15 @@ class AppShellSolveTest {
         )
     private var solver: CubeSolver = CubeSolver { SolveResult.Solved(emptyList()) }
     private var ready = true
+    private var generating = false
     private val loadGate = CompletableDeferred<Unit>()
     private val flow =
         SolveFlowViewModel(
             object : SolverSource {
                 override val isReady get() = ready
 
-                override suspend fun load(): SolverLoad {
+                override suspend fun load(onGenerating: () -> Unit): SolverLoad {
+                    if (generating) onGenerating()
                     if (!ready) loadGate.await()
                     return SolverLoad.Ready(solver)
                 }
@@ -199,6 +201,23 @@ class AppShellSolveTest {
         rule.onNodeWithTag("solve:enterColors").assertExists()
     }
 
+    @Test fun firstUsePreparationShowsCopyAndCancelKeepsColors() {
+        ready = false
+        generating = true
+        val cube = CubeState.SOLVED.apply(FaceTurn(Face.R, Turn.CLOCKWISE))
+        show()
+        click("nav:solve")
+        rule.runOnIdle { flow.accept(cube) { _, _ -> error("unexpected playback") } }
+        rule.waitUntil(10000) { flow.phase.value == SolvePhase.Solving(dev.cubentia.app.ui.solve.Preparation.FIRST_USE) }
+        rule.onNodeWithTag("solve:preparing").assertTextEquals("Setting up the solver for first use. This can take a little while.")
+        rule.onNodeWithTag("solve:progress").assertExists()
+        rule.onNodeWithTag("solve:cancel").assertTextEquals("Cancel")
+        click("solve:cancel")
+        assertEquals(SolvePhase.Editing(cube.toFacelets()), flow.phase.value)
+        rule.onNodeWithTag("editor:accept").assertExists()
+        rule.onNodeWithTag("solve:preparing").assertDoesNotExist()
+    }
+
     @Test fun leavingSolveCancelsARunningSolve() {
         ready = false
         var published = false
@@ -206,7 +225,9 @@ class AppShellSolveTest {
         click("nav:solve")
         rule.runOnIdle { flow.accept(CubeState.SOLVED) { _, _ -> published = true } }
         rule.waitForIdle()
-        rule.onNodeWithTag("solve:preparing").assertExists()
+        rule.onNodeWithTag("solve:preparing").assertTextEquals(
+            "Preparing the solver. This can take a few seconds the first time after the app starts.",
+        )
         click("nav:learn")
         assertEquals(SolvePhase.Editing(CubeState.SOLVED.toFacelets()), flow.phase.value)
         loadGate.complete(Unit)
@@ -253,7 +274,9 @@ class AppShellSolveTest {
         click("solve:enterColors")
         rule.onNodeWithTag("solve:pauseNote").assertTextEquals("Starting a solve pauses your lesson.")
         click("editor:accept")
-        rule.onNodeWithTag("solve:preparing").assertExists()
+        rule.onNodeWithTag("solve:preparing").assertTextEquals(
+            "Preparing the solver. This can take a few seconds the first time after the app starts.",
+        )
         rule.onNodeWithTag("solve:progress").assertExists()
         assertEquals(lesson, host.state.value.lesson)
         click("solve:cancel")

@@ -62,7 +62,10 @@ class PruningTableProvider(
     private val mutex = Mutex()
     private var ready: PruningTableLoadResult.Ready? = null
 
-    suspend fun load(): PruningTableLoadResult =
+    /** Calls [onGenerating] once after bundled and cache misses, immediately before generation.
+     * Retained ready tables and successful reads never invoke it. Runs on the caller context.
+     */
+    suspend fun load(onGenerating: () -> Unit = {}): PruningTableLoadResult =
         mutex.withLock {
             ready?.let { return@withLock it }
             try {
@@ -82,6 +85,7 @@ class PruningTableProvider(
                 if (cached != null) {
                     PruningTableLoadResult.Ready(cached, PruningTableSource.CACHE, 0, readNanos, 0, prepareMoveTables())
                 } else {
+                    onGenerating()
                     val tables =
                         withContext(cpuDispatcher) {
                             val context = currentCoroutineContext()

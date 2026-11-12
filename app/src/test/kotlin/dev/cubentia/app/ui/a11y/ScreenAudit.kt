@@ -84,7 +84,7 @@ internal fun auditScreens(
             object : SolverSource {
                 override val isReady get() = solverReady
 
-                override suspend fun load(): SolverLoad {
+                override suspend fun load(onGenerating: () -> Unit): SolverLoad {
                     loadGate.await()
                     solverReady = true
                     return SolverLoad.Ready(

@@ -48,7 +48,7 @@ class SolveFlowViewModelTest {
     ) = object : SolverSource {
         override val isReady = ready
 
-        override suspend fun load(): SolverLoad {
+        override suspend fun load(onGenerating: () -> Unit): SolverLoad {
             gate?.await()
             return SolverLoad.Ready(solver)
         }
@@ -79,10 +79,10 @@ class SolveFlowViewModelTest {
                 assertEquals(cube, state)
                 result.complete(moves)
             }
-            assertEquals(SolvePhase.Solving(true), vm.phase.value)
+            assertEquals(SolvePhase.Solving(Preparation.WARMING_UP), vm.phase.value)
             load.complete(Unit)
             withTimeout(5000) { enteredSolver.await() }
-            assertEquals(SolvePhase.Solving(false), vm.phase.value)
+            assertEquals(SolvePhase.Solving(Preparation.NONE), vm.phase.value)
             solve.complete(Unit)
             assertEquals(listOf(move.inverse()), withTimeout(5000) { result.await() })
             withTimeout(5000) { vm.phase.first { it == SolvePhase.Home } }
@@ -104,6 +104,64 @@ class SolveFlowViewModelTest {
             }
         }
 
+    @Test fun generationSignalShowsFirstUseAndStopsAfterReady() =
+        runBlocking {
+            val loadGate = CompletableDeferred<Unit>()
+            val solving = CompletableDeferred<Unit>()
+            val vm =
+                SolveFlowViewModel(
+                    object : SolverSource {
+                        override val isReady = false
+
+                        override suspend fun load(onGenerating: () -> Unit): SolverLoad {
+                            onGenerating()
+                            loadGate.await()
+                            return SolverLoad.Ready(
+                                CubeSolver {
+                                    solving.complete(Unit)
+                                    awaitCancellation()
+                                },
+                            )
+                        }
+                    },
+                )
+            vm.accept(cube) { _, _ -> error("unexpected playback") }
+            withTimeout(5000) { vm.phase.first { it == SolvePhase.Solving(Preparation.FIRST_USE) } }
+            loadGate.complete(Unit)
+            withTimeout(5000) { solving.await() }
+            assertEquals(SolvePhase.Solving(Preparation.NONE), vm.phase.value)
+            vm.cancel()
+            assertEquals(SolvePhase.Editing(cube.toFacelets()), vm.phase.value)
+        }
+
+    @Test fun staleGenerationSignalsCannotChangeCancelledOrSupersedingAttempt() =
+        runBlocking {
+            val signals = kotlinx.coroutines.channels.Channel<() -> Unit>(2)
+            val vm =
+                SolveFlowViewModel(
+                    object : SolverSource {
+                        override val isReady = false
+
+                        override suspend fun load(onGenerating: () -> Unit): SolverLoad {
+                            signals.send(onGenerating)
+                            awaitCancellation()
+                        }
+                    },
+                )
+            vm.accept(cube) { _, _ -> error("unexpected playback") }
+            val stale = withTimeout(5000) { signals.receive() }
+            vm.cancel()
+            stale()
+            assertEquals(SolvePhase.Editing(cube.toFacelets()), vm.phase.value)
+            vm.accept(CubeState.SOLVED) { _, _ -> error("unexpected playback") }
+            val current = withTimeout(5000) { signals.receive() }
+            stale()
+            assertEquals(SolvePhase.Solving(Preparation.WARMING_UP), vm.phase.value)
+            current()
+            assertEquals(SolvePhase.Solving(Preparation.FIRST_USE), vm.phase.value)
+            vm.cancel()
+        }
+
     @Test fun loadFailurePreservesColors() =
         runBlocking {
             val vm =
@@ -111,7 +169,7 @@ class SolveFlowViewModelTest {
                     object : SolverSource {
                         override val isReady = false
 
-                        override suspend fun load() = SolverLoad.Failed
+                        override suspend fun load(onGenerating: () -> Unit) = SolverLoad.Failed
                     },
                 )
             vm.accept(cube) { _, _ -> error("unexpected playback") }
@@ -199,7 +257,7 @@ class SolveFlowViewModelTest {
             withTimeout(5000) { started.await() }
             dispatcher.scheduler.advanceTimeBy(2999)
             dispatcher.scheduler.runCurrent()
-            assertEquals(SolvePhase.Solving(false), vm.phase.value)
+            assertEquals(SolvePhase.Solving(Preparation.NONE), vm.phase.value)
             dispatcher.scheduler.advanceTimeBy(2)
             dispatcher.scheduler.runCurrent()
             val editing = vm.editing()
