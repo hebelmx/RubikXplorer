@@ -226,7 +226,7 @@ class AppShellSolveTest {
         rule.runOnIdle { flow.accept(CubeState.SOLVED) { _, _ -> published = true } }
         rule.waitForIdle()
         rule.onNodeWithTag("solve:preparing").assertTextEquals(
-            "Preparing the solver. This can take a few seconds the first time after the app starts.",
+            "Preparing the solver. The first solve after the app starts takes longer. Later solves are faster.",
         )
         click("nav:learn")
         assertEquals(SolvePhase.Editing(CubeState.SOLVED.toFacelets()), flow.phase.value)
@@ -275,7 +275,7 @@ class AppShellSolveTest {
         rule.onNodeWithTag("solve:pauseNote").assertTextEquals("Starting a solve pauses your lesson.")
         click("editor:accept")
         rule.onNodeWithTag("solve:preparing").assertTextEquals(
-            "Preparing the solver. This can take a few seconds the first time after the app starts.",
+            "Preparing the solver. The first solve after the app starts takes longer. Later solves are faster.",
         )
         rule.onNodeWithTag("solve:progress").assertExists()
         assertEquals(lesson, host.state.value.lesson)

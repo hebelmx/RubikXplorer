@@ -177,7 +177,7 @@ These items were accepted or waived by the PO for v1.0 (#104 and #105 on 2026-11
   happens. The PO accepted this for v1.0. The copy was unchanged in 3.8, and no move-table delivery work was
   added. #104 tracks the options: ship the move tables, build them faster, or prepare when the Solve
   tab opens (never at startup or for Lessons).
-  Copy reworded for v1.0 by #112 (SCP 2026-11-11): `msg.solve.preparing` now reads "Preparing the solver. This can take a few seconds the first time after the app starts."; first-use generation has its own string (`msg.solve.preparing-first-use`). The speed-up itself stays #104 (v1.1).
+  Copy reworded for v1.0 by #112 (SCP 2026-11-11): `msg.solve.preparing` then read "Preparing the solver. This can take a few seconds the first time after the app starts."; first-use generation has its own string (`msg.solve.preparing-first-use`). The speed-up itself stays #104 (v1.1). Reworded again by #123 (SCP 2026-11-12, Lenovo Tab M10 Plus 3rd Gen as minimum reference): `msg.solve.preparing` now reads "Preparing the solver. The first solve after the app starts takes longer. Later solves are faster."; `msg.solve.preparing-first-use` is unchanged.
 - **Corpus failures and calibration (#105).** The direct device corpus had 1 timeout (3,000.9 ms of
   10,101), and the calibrated profile (k = 16.94) has 1 failure (3,303.6 ms scaled). See
   [benchmarks.md](benchmarks.md#story-38-calibrated-reference-device-equivalent-profile-2026-11-10).
