@@ -126,4 +126,3 @@ Status: done
 **Verification:** `./gradlew spotlessCheck build :core:solver:test :app:testDebugUnitTest` — BUILD SUCCESSFUL; the 5 new tests ran and passed, 0 failures/skips in test results. Implementation by Codex.
 
 **Residual risks:** First-use copy is rarely reachable in production (bundled tables); no on-device check of it. The SCP front matter still reads pending-approval for the first-use text (PO approval is via the SCP PR).
-
