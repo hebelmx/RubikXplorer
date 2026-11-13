@@ -3,7 +3,7 @@ status: final
 stepsCompleted: [step-01-validate-prerequisites, step-02-design-epics, step-03-create-stories, step-04-final-validation]
 mode: fast-path
 created: 2026-10-29
-updated: 2026-10-29
+updated: 2026-11-13
 inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/prd.md
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/addendum.md
@@ -175,7 +175,7 @@ FR-27: Epic 11 — Placement (v1.1)
 FR-28: Epic 11 — Case recognition (v1.1)
 FR-29: not covered — P1, out of MVP scope (deferred in PRD §6.2 and spine Deferred)
 
-NFRs: NFR-1/2 Epics 5, 12 · NFR-3 Epic 3 · NFR-4 Epics 1, 2, 5, 8 · NFR-5/8 Epic 1 (build checks), Epic 12 · NFR-6 Epic 6 · NFR-7 Epics 1, 5, 12 (+ every UI story) · NFR-9/11 Epics 7, 12 · NFR-10 Epic 2 · NFR-12 Epic 1 (gates), all `:core:*` stories · NFR-13 Epic 12 (+ every UI story).
+NFRs: NFR-1/2 Epics 5, 12 · NFR-3 Epic 3 · NFR-4 Epics 1, 2, 5, 8 · NFR-5/8 Epic 1 (build checks), Epic 12, Epic 13 (privacy facts and public policy) · NFR-6 Epic 6 · NFR-7 Epics 1, 5, 12 (+ every UI story) · NFR-9/11 Epics 7, 12 · NFR-10 Epic 2 · NFR-12 Epic 1 (gates), all `:core:*` stories · NFR-13 Epic 12 (+ every UI story).
 
 ## Epic List
 
@@ -233,8 +233,15 @@ The app meets every release gate. It is accessible, fast and stable on the refer
 **Absorbs:** E09, PRD §7.
 **FRs covered:** none new (verifies all). **Also:** NFR-1, NFR-2, NFR-7, NFR-8, NFR-9, NFR-11, NFR-13, AR-3, AR-5, AR-16, UX-DR28, UX-DR29, Flow 6.
 **Also carries** the pre-pilot stories 12.6–12.10 (Cubentia rebrand; Epic 8 retrospective fixes), which run before Story 7.8 (`sprint-change-proposal-2026-11-08-cubentia-and-pre-pilot.md`), and 12.11–12.12 (Epic 9 seams; 2-look rules), also before 7.8 (`sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md`), and 12.13 (durable session end; Story 12.11 deferrals), also before 7.8 (`sprint-change-proposal-2026-11-10-session-end-deferrals.md`).
+**Epic 13** (public website and privacy policy, `sprint-change-proposal-2026-11-13-cubentia-site.md`) runs before Stories 12.3, 12.4 and 12.5. Story 12.3 depends on 13.6, and Story 12.5 on 13.4 and 13.5.
 **Device batch** (reference devices connected after the device-free stories; `sprint-change-proposal-2026-11-10-session-end-deferrals.md`): Stories 3.8, 1.11 and 12.2, plus the Story 12.1 physical pass in `docs/accessibility-manual-check.md`. Story 3.7 stays in `review` until 3.8 passes (its last AC), and Story 12.1 stays in `review` until that physical pass is recorded.
 **Reference devices (SCP 2026-11-12, `sprint-change-proposal-2026-11-12-lenovo-minimum-reference.md`):** minimum Lenovo Tab M10 Plus 3rd Gen (TB128XU, Android 13 / API 33), mid Samsung Galaxy S24 FE. The Galaxy Tab S7 FE 5G, the minimum until 2026-11-12, is kept as an additional compatibility device, and its 3.8, 1.11 and 12.2 results stay as dated evidence. The Lenovo was measured with the 3.8 and 12.2 methods and meets every threshold (`docs/benchmarks.md` § Additional device: Lenovo Tab M10 Plus 3rd Gen); its limitations are tracked in #119.
+
+### Epic 13: Cubentia on the web, with a privacy policy (pre-pilot, 2026-11-13)
+Anyone can open Cubentia's public website, read a privacy policy that states exactly what the app does with data, and find support. Play Console has a privacy-policy URL that never changes. The site lives in its own repository, `hebelmx/cubentia-site`, published by GitHub Pages. Its privacy page is checked in CI against `docs/privacy-facts.json`, which this repository's build derives from the release manifest.
+**Absorbs:** the privacy-policy page of Story 12.5 AC2 (PRD §7 store readiness).
+**FRs covered:** none. **Also:** NFR-5, NFR-7, NFR-8, NFR-10, AD-13, AD-14, AR-4.
+**Runs before** Stories 12.3, 12.4 and 12.5 and the #127 closed-testing review (`sprint-change-proposal-2026-11-13-cubentia-site.md`).
 
 ## Epic 1: Turn and verify a cube
 
@@ -1470,6 +1477,8 @@ So that their results come back in time for fixes.
 **When** the size check runs
 **Then** it reports against NFR-11's < 30 MB budget
 
+*(SCP 2026-11-13) AC2's closed-testing review needs a privacy-policy URL in Play Console. That is Story 13.6; #127 § 2 waits for it.*
+
 ## Epic 8: Use my real cube
 
 A Learner can follow Lessons and Solution Playback on a physical cube, with the app honestly tracking the Expected State and handling mismatches without a camera. The camera rungs arrive with v1.1 camera recognition (`post-launch/v1.1-camera-recognition.md`).
@@ -1834,6 +1843,8 @@ So that I can trust it.
 
 **Refs:** NFR-5, NFR-8, NFR-9, NFR-11 · AD-13, AD-15, AD-16 · AR-4, AR-5
 
+**Depends on** Story 13.6 (privacy-policy URL registered; the data-safety form needs it).
+
 **Acceptance Criteria:**
 
 **Given** the release AAB
@@ -1872,7 +1883,9 @@ As a hiring manager,
 I want a polished listing and a public repo I can judge in five minutes,
 So that I can shortlist the developer with confidence.
 
-**Refs:** PRD §7, UJ-6, SM-13 · AD-15 · OQ-1 · UX Flow 6
+**Refs:** PRD §7, UJ-6, SM-13 · AD-15 · OQ-1 · UX Flow 6 · Epic 13
+
+**Depends on** Stories 13.4 and 13.5 (the privacy-policy and support pages, `sprint-change-proposal-2026-11-13-cubentia-site.md`).
 
 **Acceptance Criteria:**
 
@@ -1882,11 +1895,11 @@ So that I can shortlist the developer with confidence.
 
 **Given** the Play listing
 **When** it is submitted
-**Then** it has screenshots, a short promo video recorded from the app, a privacy-policy page, and a completed content-rating questionnaire
+**Then** it has screenshots, a short promo video recorded from the app, the privacy-policy URL registered in Story 13.6, the website from Epic 13 as the listing's website, and a completed content-rating questionnaire; the store screenshots are also added to the website's landing page
 
 **Given** the repo goes public after the app works end to end
 **When** a reviewer opens it
-**Then** the README shows screenshots, an architecture overview linking `docs/ARCHITECTURE.md`, green CI and coverage badges, and a Conventional Commits history, and the GitHub repository and local working folder are renamed to Cubentia (deferred here from Story 12.6)
+**Then** the README shows screenshots, an architecture overview linking `docs/ARCHITECTURE.md`, green CI and coverage badges, and a Conventional Commits history, and the GitHub repository and local working folder are renamed to Cubentia (deferred here from Story 12.6); the site repository's `APP_REPO` variable and its source-repository links are updated to the new name, and the site's `check` job passes afterwards. The site repository itself is never renamed, so the registered privacy URL does not change.
 
 **Given** all gates pass
 **When** the build is promoted
@@ -2111,3 +2124,151 @@ So that the app never brings back something I already ended.
 **Given** `AppShellLibraryTest > last two look Lesson milestone practices a fresh LL scramble` (failed once in CI on PR #101, passed on rerun)
 **When** the story closes
 **Then** the cause of the flake is found and fixed (or the test is made deterministic), and the test passes in at least 20 consecutive local runs
+
+## Epic 13: Cubentia on the web, with a privacy policy
+
+Anyone can open Cubentia's public website, read what the app is, read a privacy policy that states exactly what the app does with data, and find how to get support. Play Console has a privacy-policy URL that never changes. The site lives in its own public repository (`hebelmx/cubentia-site`), so the app repository's rename in Story 12.5 does not affect it (`sprint-change-proposal-2026-11-13-cubentia-site.md`).
+
+**Runs before** Stories 12.3, 12.4 and 12.5, and before the closed-testing review in #127 (Story 7.8 AC2). Critical path: 13.1 → 13.3 → 13.4 → 13.6. Story 13.3 lands in this repository; Stories 13.1, 13.2, 13.4 and 13.5 land in the site repository.
+
+### Story 13.1: Create the site repository and publish it with GitHub Pages
+
+As the developer,
+I want a separate public repository that GitHub Pages publishes on every merge,
+So that Cubentia's web pages have a home and a URL that never changes.
+
+**Refs:** PRD §7 store readiness · NFR-8 · AD-13 · `docs/play-first-publish.md` § 2
+
+**Human gate (before start):** the PO creates the public repository `hebelmx/cubentia-site`, sets **Settings → Pages → Source: GitHub Actions**, protects `main` (PRs only), and sets the repository variable `APP_REPO=hebelmx/RubikXplorer`.
+
+**Acceptance Criteria:**
+
+**Given** the new repository
+**When** the story is done
+**Then** it has a README (purpose, the never-rename rule, the no-personal-data rule for a public repo, how to preview locally), a licence chosen by the PO, `site/index.html` with a minimal Cubentia page, `site/404.html`, and `.github/workflows/pages.yml`
+
+**Given** a push to `main`
+**When** `pages.yml` runs
+**Then** a `check` job (HTML validation, internal link check, no-third-party-resource check, no "Rubik" in page text) passes before a `deploy` job publishes `site/` through the GitHub Pages actions, and a pull request runs `check` only
+
+**Given** the deployed site
+**When** `https://hebelmx.github.io/cubentia-site/` is opened in a private browser window with no Google or GitHub sign-in
+**Then** it loads over HTTPS, and the repository README records the final URL and whether the account's user site sets a custom domain
+
+**Given** the workflow
+**When** it is reviewed
+**Then** it uses least-privilege permissions (`contents: read` for check; `pages: write`, `id-token: write` only for deploy), the `github-pages` environment, and action versions verified against GitHub's current documentation
+
+### Story 13.2: Introduce Cubentia on a landing page
+
+As a Learner or a hiring manager,
+I want a short page that says what Cubentia is,
+So that I know what I am installing or reviewing before I open the app.
+
+**Refs:** PRD §1, §7, UJ-6 · NFR-7, NFR-8, NFR-10 · DESIGN.md color tokens · EXPERIENCE.md Voice and Tone
+
+**Depends on** Story 13.1.
+
+**Acceptance Criteria:**
+
+**Given** the landing page
+**When** it is read
+**Then** it says in plain, calm sentences that Cubentia is an offline Android tutor that teaches a beginner to solve a 3×3 cube on a virtual or real cube, works without an account or internet connection, and links to the privacy policy and support pages; it never uses "Rubik" or "Rubik's", and it has no screenshot placeholders (screenshots are added from the Story 12.5 store assets)
+
+**Given** any page on the site
+**When** it is loaded
+**Then** it sets no cookies, runs no script, and requests no resource from another origin (fonts self-hosted or a system stack), and the `check` job enforces this
+
+**Given** the page in light and dark system themes, at 200% zoom and at 320 CSS px wide
+**When** it is checked with the keyboard only and with an automated accessibility checker
+**Then** text meets WCAG 2.2 AA contrast with the DESIGN.md tokens, nothing is cut off or scrolls sideways, focus is visible and in reading order, there is a skip link, `lang="en"`, landmarks and one `h1`, and the result is recorded in the PR
+
+### Story 13.3: Export the app's privacy facts from the build
+
+As the developer,
+I want the build to state the app's privacy facts in one checked file,
+So that the public privacy policy can be held to what the app really does.
+
+**Refs:** NFR-5, NFR-8 · AD-13, AD-14 · AR-4 · `sprint-change-proposal-2026-11-13-cubentia-site.md` §3.3
+
+**Acceptance Criteria:**
+
+**Given** the release merged manifest and the release SDK-denylist result
+**When** `:app:writePrivacyFacts` runs
+**Then** it writes `docs/privacy-facts.json` with `schemaVersion`, `applicationId`, `internetPermission`, `backupAllowed`, `runtimePermissions` and `denylistedSdks` derived from the build, and the fixed NFR-8 facts `account`, `ads`, `analytics`, `crashReporting`, `dataLeavesDevice` and `storage`; for v1.0 the derived values are `false`, `false`, `[]` and `[]`
+
+**Given** the committed `docs/privacy-facts.json`
+**When** `./gradlew build` runs
+**Then** `:app:checkPrivacyFacts` passes when the file matches the build, fails with a message naming `:app:writePrivacyFacts` and the site repository's privacy page when it does not, and CI's "Verify build wires the gates" step lists `:app:checkPrivacyFacts`
+
+**Given** Gradle TestKit fixtures
+**When** `./gradlew -p build-logic test` runs
+**Then** a manifest that adds `INTERNET`, `allowBackup="true"` or a runtime permission produces facts that differ from the v1.0 file, and the check fails on them
+
+### Story 13.4: Publish a privacy policy that matches the app
+
+As a Learner,
+I want a plain privacy policy I can read before I install,
+So that I know Cubentia collects nothing and keeps my progress on my device.
+
+**Refs:** NFR-5, NFR-8 · AD-13 · PRD §7 · `docs/play-first-publish.md` § 2
+
+**Depends on** Stories 13.1 and 13.3.
+
+**Human gate (before merge):** the PO confirms the publisher name ("ExxerPro") exactly as on the Play developer account, and the effective date.
+
+**Acceptance Criteria:**
+
+**Given** `/privacy/`
+**When** it is read
+**Then** it states, in plain language: Cubentia collects no personal data and shares none; it has no account, ads, analytics or crash reporting; it has no internet permission and does not back up data; it asks for no runtime permission; progress is stored only on the device and is removed when the app is uninstalled; it names the publisher ("ExxerPro") exactly as on the Play developer account, the contact email `abel.briones@exxerpro.com` and an effective date; it applies to Learners of any age; and it says the website sets no cookies and is hosted on GitHub Pages, which may log visitor IP addresses for security, with a link to GitHub's privacy statement
+
+**Given** `docs/privacy-facts.json` on the app repository's `main` (`vars.APP_REPO`)
+**When** the site's `check` job runs on a pull request, on push, daily and on manual dispatch
+**Then** it fails if any fact lacks a `data-fact` statement with an equal `data-value` on the page, if the page states a fact the file lacks, if the publisher, contact email or effective date is missing, or if the policy text changed without a new effective date; and `deploy` runs only after `check` passes
+
+**Given** the deployed page
+**When** it is opened in a private window from a network outside exxerpro.com, with no sign-in
+**Then** it loads as HTML (not a PDF) over HTTPS, and it meets the Story 13.2 accessibility and no-tracking criteria
+
+### Story 13.5: Give Learners a support and contact page
+
+As a Learner,
+I want to know how to ask for help or report a problem,
+So that I am not stuck when something goes wrong.
+
+**Refs:** PRD §7 store readiness · NFR-8 · `docs/play-first-publish.md` § 3 (Store settings contact)
+
+**Depends on** Story 13.1; lands before Story 12.5.
+
+**Acceptance Criteria:**
+
+**Given** `/support/`
+**When** it is read
+**Then** it gives the same contact email as the privacy policy (`abel.briones@exxerpro.com`), says what to include in a report (device, Android version, app version from Settings → Apps → Cubentia, what happened), says that no personal data is needed, links to the privacy policy, and points developers to the public source repository's issues without asking Learners to post personal details there
+
+**Given** the landing page and the privacy page
+**When** they are opened
+**Then** each links to `/support/`, and the site's link check passes
+
+### Story 13.6: Register the privacy policy in Play Console
+
+As the developer,
+I want the privacy-policy URL registered in Play Console and the runbook updated,
+So that the closed-testing review can go ahead and nobody has to work out the URL again.
+
+**Refs:** PRD §7 · NFR-8 · AD-15 · #127 · `docs/play-first-publish.md` § 2
+
+**Depends on** Story 13.4.
+
+**Human gate (before start):** the PO enters the URL in Play Console.
+
+**Acceptance Criteria:**
+
+**Given** the deployed privacy page
+**When** the PO pastes `https://hebelmx.github.io/cubentia-site/privacy/` under **Policy and programs → App content → Privacy policy**
+**Then** Play Console saves it, and the Data safety form can then be saved with "no data collected" (the answers in `docs/play-first-publish.md` § 2)
+
+**Given** this repository
+**When** the story's PR merges
+**Then** `docs/play-first-publish.md` § 2 step 1 names the site repository and the registered URL instead of `docs/privacy.md`, the README links the website and the privacy policy, and #127 records the date the URL was registered (no tester data)

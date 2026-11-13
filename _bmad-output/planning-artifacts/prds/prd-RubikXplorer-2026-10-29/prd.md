@@ -2,7 +2,7 @@
 title: RubikXplorer — MVP Product Requirements Document
 status: final
 created: 2026-10-29
-updated: 2026-11-08
+updated: 2026-11-13
 ---
 
 # PRD: RubikXplorer
@@ -648,7 +648,7 @@ Targets are validated on a defined set of **reference devices**. [ASSUMPTION: th
 - **Store readiness:** the final app name and icon are chosen after a trademark search (OQ-1). The listing needs:
   - screenshots;
   - a short promo video recorded from the app;
-  - a privacy-policy page (required even when no data is collected);
+  - a privacy-policy page (required even when no data is collected). It is published on the public Cubentia website, which lives in its own repository and sets no cookies and no tracking. Its statements are checked against the app's build (Epic 13, SCP 2026-11-13);
   - a completed content-rating questionnaire.
 - **Release track:** internal testing → closed testing with pilot beginners, starting once the Course is usable (addendum §F) → production.
 - **Repository:** private until the app works end to end, then public. When it goes public it contains:
@@ -726,6 +726,7 @@ Recorded in `.memlog.md`:
 - Product name Cubentia and application ID `com.exxerpro.cubentia` (PO, 2026-11-08).
 - Camera Cube Recognition deferred to v1.1 (PO, 2026-11-08, after the spike scored 62.5%). This supersedes "camera recognition in P0" and "spike failure → camera ships as beta".
 - Reference devices: minimum Lenovo Tab M10 Plus 3rd Gen, mid Samsung Galaxy S24 FE (PO, 2026-11-12, SCP 2026-11-12). The Galaxy Tab S7 FE 5G, the minimum from 2026-10-30 (ARCH-OQ-1), is kept as an additional compatibility device.
+- Public website and privacy policy in a separate repository, `hebelmx/cubentia-site`, on GitHub Pages; the app repository keeps the source (PO, 2026-11-13, SCP 2026-11-13).
 
 ## 11. Assumptions Index
 

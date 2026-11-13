@@ -1,11 +1,11 @@
 ---
 title: 'Sprint Change Proposal: Epic 13, a public Cubentia website with a privacy policy, in its own repository'
 date: 2026-11-13
-status: proposed
-approved_by: pending (hebelmx, PO)
+status: approved
+approved_by: hebelmx (PO), 2026-11-13 (D1 option A; D2 publisher "ExxerPro", contact abel.briones@exxerpro.com; D3 hebelmx; D4 site-repo stories by hand; D5 daily check)
 trigger: 'PO request 2026-11-13: a public GitHub Pages website for Cubentia with a privacy policy, as one new BMAD epic. Google Play closed testing (issue #127, docs/play-first-publish.md § 2) needs a public privacy-policy URL. PO input 2026-11-13: two repositories, one for the app source and one for the website.'
 scope: Moderate
-mode: batch (non-interactive; PO not available live, so the PO decisions in §5 are open and nothing outside this file is edited yet)
+mode: batch (non-interactive; drafted 2026-11-13, approved by the PO the same day, and applied to epics.md, the PRD, the spine and sprint-status in this SCP's branch)
 ---
 
 # Sprint Change Proposal: Epic 13, a public Cubentia website with a privacy policy
@@ -72,7 +72,7 @@ The critical path to the pilot review is **13.1 → 13.3 → 13.4 → 13.6**. Th
 - [x] 3 Artifact conflicts: epics.md (§4.1–4.3), PRD (§4.4, routed), spine (§4.5, routed), UX [N/A], docs (in 13.6), gates (§4.6, via `bmad-customize`).
 - [x] 4 Path: Direct Adjustment, adding an epic. Rollback [N/A]. MVP review [N/A]: the privacy page was always in scope (PRD §7). It only moves earlier and gets its own home.
 - [x] 5 Proposal components: §§3–4.
-- [!] 6 Approval: pending. The PO decisions D1–D5 are in §5.
+- [x] 6 Approval: the PO approved the proposal on 2026-11-13 and took D1–D5 as recommended (§5).
 
 ## 3. Recommended Approach
 
@@ -245,13 +245,13 @@ So that I know Cubentia collects nothing and keeps my progress on my device.
 
 **Depends on** Stories 13.1 and 13.3.
 
-**Human gate (before merge):** the PO confirms the publisher name exactly as on the Play developer account, the contact email, and the effective date.
+**Human gate (before merge):** the PO confirms the publisher name ("ExxerPro") exactly as on the Play developer account, and the effective date.
 
 **Acceptance Criteria:**
 
 **Given** `/privacy/`
 **When** it is read
-**Then** it states, in plain language: Cubentia collects no personal data and shares none; it has no account, ads, analytics or crash reporting; it has no internet permission and does not back up data; it asks for no runtime permission; progress is stored only on the device and is removed when the app is uninstalled; it names the publisher exactly as on the Play developer account, a contact email and an effective date; it applies to Learners of any age; and it says the website sets no cookies and is hosted on GitHub Pages, which may log visitor IP addresses for security, with a link to GitHub's privacy statement
+**Then** it states, in plain language: Cubentia collects no personal data and shares none; it has no account, ads, analytics or crash reporting; it has no internet permission and does not back up data; it asks for no runtime permission; progress is stored only on the device and is removed when the app is uninstalled; it names the publisher ("ExxerPro") exactly as on the Play developer account, the contact email `abel.briones@exxerpro.com` and an effective date; it applies to Learners of any age; and it says the website sets no cookies and is hosted on GitHub Pages, which may log visitor IP addresses for security, with a link to GitHub's privacy statement
 
 **Given** `docs/privacy-facts.json` on the app repository's `main` (`vars.APP_REPO`)
 **When** the site's `check` job runs on a pull request, on push, daily and on manual dispatch
@@ -275,7 +275,7 @@ So that I am not stuck when something goes wrong.
 
 **Given** `/support/`
 **When** it is read
-**Then** it gives the same role contact email as the privacy policy, says what to include in a report (device, Android version, app version from Settings → Apps → Cubentia, what happened), says that no personal data is needed, links to the privacy policy, and points developers to the public source repository's issues without asking Learners to post personal details there
+**Then** it gives the same contact email as the privacy policy (`abel.briones@exxerpro.com`), says what to include in a report (device, Android version, app version from Settings → Apps → Cubentia, what happened), says that no personal data is needed, links to the privacy policy, and points developers to the public source repository's issues without asking Learners to post personal details there
 
 **Given** the landing page and the privacy page
 **When** they are opened
@@ -396,7 +396,7 @@ reason = "work lands in the site repo (hebelmx/cubentia-site), not this repo"
 [[gates]]
 key = "13-4-publish-a-privacy-policy-that-matches-the-app"
 when = "before-merge"
-reason = "PO confirms publisher name as on the Play developer account, contact email and effective date; work lands in the site repo"
+reason = "PO confirms publisher name as on the Play developer account and effective date; work lands in the site repo"
 
 [[gates]]
 key = "13-5-give-learners-a-support-and-contact-page"
@@ -428,7 +428,17 @@ reason = "PO enters the privacy URL in Play Console App content and saves the Da
 
 **Scope: Moderate.** A new epic, a backlog reorder ahead of Epic 12's tail, a second repository, and gate changes. Routed to the PO for approval, then to SM and Dev.
 
-### PO decisions needed at approval
+### PO decisions (approved 2026-11-13)
+
+**Decided:**
+- **D1:** option A. A separate project repo, `hebelmx/cubentia-site`, on GitHub Pages. The permanent privacy URL is `https://hebelmx.github.io/cubentia-site/privacy/`. A custom domain may be added later (option B).
+- **D2:** the publisher is "ExxerPro", exactly as on the Play developer account. The contact email for the privacy policy, the support page and the Play listing is `abel.briones@exxerpro.com`, given by the PO on 2026-11-13. It replaces the recommended role address. At the Story 13.4 before-merge gate, the PO still confirms the publisher name and the effective date.
+- **D3:** the owner is `hebelmx`.
+- **D4:** Stories 13.1, 13.2, 13.4 and 13.5 are built by hand with `bmad-build` in a checkout of the site repo. This repo tracks their status and gates them. Stories 13.3 and 13.6 go through the normal orchestrator.
+- **D5:** a daily scheduled check plus a check before every deploy. There is no cross-repo token.
+
+The options as presented:
+
 
 | # | Question | Options (recommended first) | Recommendation |
 |---|---|---|---|
@@ -442,11 +452,11 @@ reason = "PO enters the privacy URL in Play Console App content and saves the Da
 
 | Item | Route | What |
 |---|---|---|
-| epics.md | PM/SM, this SCP's PR | Apply §§4.1–4.3. Set this SCP to `status: approved`. |
-| PRD | `bmad-prd` update | §4.4 plus the memlog entry. |
-| Spine | `bmad-architecture` update | §4.5 plus the memlog entry. |
-| Gates | `bmad-customize` | §4.6. |
-| sprint-status | SM, `sprint_plan.py` | §4.7. |
+| epics.md | PM/SM, this SCP's PR | §§4.1–4.3 applied 2026-11-13. |
+| PRD | `bmad-prd` update | §4.4 plus the memlog entry, applied 2026-11-13. |
+| Spine | `bmad-architecture` update | §4.5 plus the memlog entry, applied 2026-11-13. |
+| Gates | Orchestrator, through `bmad-customize` | §4.6. Not applied here: the orchestrator adds the gates itself. |
+| sprint-status | SM, `sprint_plan.py` | §4.7. The Epic 13 keys were generated on 2026-11-13. |
 | Stories | Dev / orchestrator | 13.1 (PO first) → 13.3 (parallel) → 13.4 (PO confirms) → 13.6 (PO) on the critical path; 13.2 and 13.5 after 13.1. |
 | AGENTS.md | `bmad-project-context` refresh, after 13.3 merges | Add the website and privacy-facts pointer. |
 | #127 | PO | Continue `docs/play-first-publish.md` § 2 after 13.6. |

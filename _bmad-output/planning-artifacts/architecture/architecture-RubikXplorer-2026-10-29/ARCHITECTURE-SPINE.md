@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports & adapters) + functional core / imperative shell'
 scope: 'RubikXplorer Android app MVP — whole system (FR-1..FR-28, NFR-1..NFR-13); FR-21..FR-28 ship in v1.1; FR-29 (P1) deferred'
 status: final
 created: '2026-10-29'
-updated: '2026-11-12'
+updated: 2026-11-13
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, NFR-12, NFR-13]
 sources:
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/prd.md
@@ -313,6 +313,7 @@ stateDiagram-v2
   - It sets `android:allowBackup="false"`, with `dataExtractionRules` that exclude everything.
   - Release logs never contain Cube States or samples from scans.
   - A CI check fails on any violation, or on any dependency from the analytics/ads/crash-SDK denylist.
+  - The public privacy policy (website repository, Epic 13) states the same facts. `docs/privacy-facts.json` is derived from the release merged manifest and the SDK denylist, `:app:checkPrivacyFacts` fails the build when it is stale, and the website's CI fails, and does not deploy, when the page disagrees with it.
 
 ### AD-14 — Quality gates in CI
 
@@ -499,6 +500,8 @@ graph LR
   closed -->|manual| prod[Production]
   prod --> device[Learner device: offline, no backup]
   device -. Android vitals only .-> play
+  dev -->|PR to site repo| site[GitHub Pages: website + privacy policy]
+  site -. privacy URL .-> play
 ```
 
 ## Capability → Architecture Map
@@ -516,7 +519,7 @@ graph LR
 | FR-25–FR-28 Scan uses (v1.1) | `SolveCube`, `ConfirmPhysical`, `PlaceFromScan`, `RecognizeCase` | AD-9, AD-5, AD-19, AD-18 |
 | NFR-1–NFR-3, NFR-9 Performance and stability | reducer bounds, effects, vitals | AD-3, AD-8, AD-16 |
 | NFR-4, NFR-11, NFR-12 Correctness, size, quality | CI | AD-14, AD-15 |
-| NFR-5, NFR-8 Offline and privacy | manifest, CI | AD-13 |
+| NFR-5, NFR-8 Offline and privacy | manifest, CI, `docs/privacy-facts.json`, website repo | AD-13 |
 | NFR-7, NFR-13 Accessibility and layout | `appearance/`, UI | AD-17 |
 | NFR-10 Localization | content strings | AD-6 |
 
