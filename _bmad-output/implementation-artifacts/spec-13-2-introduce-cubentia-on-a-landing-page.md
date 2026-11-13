@@ -274,3 +274,9 @@ This build automates the structure and contrast part.
 - `epic-13-context.md` still lists "ExxerPro" and `abel.briones@exxerpro.com`, and Story 13.5's AC in `epics.md` names the old email. The PO's clarifications override both, so 13.5 should use `exxerpro@exxerpro.com`.
 - The privacy page still has no link to `/support/`. Story 13.5 owns that link, and adding it needs a new effective date under the README rules.
 
+
+### Post-merge verification (2026-11-13)
+
+- Before merging, the PO reworded the landing heading to "No account, no internet is needed" (`db3d96b`, check.sh rc=0, PR check green). The PO approved the manual accessibility pass, recorded on the PR, and asked for the merge.
+- hebelmx/cubentia-site#4 merged as `c54fd2a` (closes hebelmx/cubentia-site#2). Pages run 43525413420 (push to main) ran `check` then `deploy`, both successful.
+- `https://hebelmx.github.io/cubentia-site/` and `/support/` return HTTP 200 over HTTPS with no cookies. `http://` redirects with a 301. `/privacy/` is still 200. The live landing page shows the new heading.
