@@ -5,7 +5,7 @@ created: '2026-11-13'
 status: 'done'
 baseline_revision: '425dd05cf5a797a1d1a8a364732411d77bb4c003'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-13-context.md'
@@ -99,6 +99,25 @@ deferred: []
   - `[false]` `[reject]` (intent-alignment e) the fixtures replace the manifest rather than add to it — equivalent on a fixture whose baseline manifest is the same minimal manifest; the auditor says so itself.
   - `[false]` `[reject]` (intent-alignment f) extra surfaces (report file, `defaultConfig` fixture hook) and a `git status` entry for `validate-release-inputs.sh` — the report mirrors the other gates; the script has no content diff (stale stat only) and is not part of the change.
 
+### 2026-11-13 — Review pass (follow-up)
+- verdicts: 15 findings — high 0, medium 0, low 6, false 9, maybe-false 0
+- findings:
+  - `[low]` `[reject]` (blind-hunter) CI's wiring step does not reject `writePrivacyFacts` in the build plan — carried: same claim as the first pass; the TestKit test still asserts the writer is absent from the `build` plan.
+  - `[false]` `[reject]` (blind-hunter) no pass → edit/delete → fail sequence, so up-to-date/cache could hide drift — carried: the committed file is an `@InputFiles` input, so any edit or deletion re-runs the check, and failed runs are never cached.
+  - `[false]` `[reject]` (blind-hunter) fixtures apply the plugin at the root, so the `:app` layout (root `docs/`, `:app:writePrivacyFacts`) is untested — the real `./gradlew :app:checkPrivacyFacts` ran this pass against the root `docs/privacy-facts.json` and reported "Privacy facts match."; the subproject path is `"$path:writePrivacyFacts"`, and CI's gate list names `:app:checkPrivacyFacts`.
+  - `[low]` `[reject]` (blind-hunter) `assertGuidance` checks only the `Expected:`/`Committed:` headings, not their contents — the message is three visible lines that interpolate `expected` and `committed` directly; a swap is unlikely, and stronger asserts only harden tests for an improbable regression.
+  - `[false]` `[reject]` (blind-hunter) no transitive denylisted dependency fixture, so full-graph coverage is unprotected — `CheckSdkDenylistTask.coordinates` (pre-existing, shared with the denylist gate) walks every `ResolvedDependencyResult` breadth-first, so transitive SDKs are included.
+  - `[low]` `[reject]` (blind-hunter) manifest fixtures assert only that the regenerated file differs, not the exact field — each fixture changes one manifest fact, and `PrivacyFactsPolicyTest` asserts the exact value of each field; extra asserts add little.
+  - `[false]` `[reject]` (blind-hunter) the dependency fixture changes applicationId and deps together, so a checker ignoring deps would be masked — writer and checker share the same `coordinates` provider and the same `toJson()`, and the writer output asserts the exact coordinate, so the checker cannot ignore dependencies separately.
+  - `[false]` `[reject]` (edge-case-hunter) unresolved release runtime dependencies are silently dropped from the facts — release manifest merging resolves the release runtime classpath's artifacts, so an unresolved dependency fails `processReleaseMainManifest` (the merged-manifest input) before either privacy task runs, and `build` fails at `assemble` too; the helper is pre-existing and shared with the denylist gate.
+  - `[false]` `[reject]` (intent-alignment) tests never run the real `:app` — carried: the real `:app:checkPrivacyFacts` runs under `build` and passed again this pass.
+  - `[low]` `[reject]` (intent-alignment) the `:app:`-prefixed writer path in the message is never exercised by a test — it is a one-line string template; covering it would need a new multi-project fixture, which is more than a direct correction for an unlikely defect.
+  - `[low]` `[reject]` (intent-alignment) no test asserts `repo hebelmx/cubentia-site` in the message — it is a literal in the message string next to the asserted `SITE_URL`; an unlikely regression.
+  - `[false]` `[reject]` (intent-alignment) the diff does not show the site can consume the file — the intent excludes site-repo work (Story 13.4).
+  - `[false]` `[reject]` (intent-alignment) fixed facts are not checked against derived facts (e.g. `dataLeavesDevice: false` with `internetPermission: true`) — the intent defines them as constants changeable only by a reviewed build-logic PR; this is the specified behavior.
+  - `[false]` `[reject]` (intent-alignment) `<uses-permission-sdk-23>` is also counted — that element declares a permission too, so counting it is what "manifest declares" means; not a defect.
+  - `[low]` `[reject]` (intent-alignment) INTERNET/backup/CAMERA functional cases assert only a difference — same claim as the blind-hunter row above, same reason.
+
 ## Verification
 
 **Commands:**
@@ -139,3 +158,15 @@ Status: done
 - `./gradlew build --dry-run`: the plan lists `:app:checkPrivacyFacts` and not `:app:writePrivacyFacts`.
 
 **Residual risks.** The site-side check (Story 13.4) has not consumed this file yet. The AGENTS.md pointer to the facts file is a post-merge `bmad-project-context` refresh.
+
+### Follow-up review pass (2026-11-13)
+
+Four review layers ran again on the full diff since `425dd05cf5a797a1d1a8a364732411d77bb4c003`. They reported 15 findings: 6 low and 9 false. Nothing was patched or deferred, and no code changed. Rejected:
+- Low: CI does not assert the writer is absent (carried), guidance asserts only headings, manifest fixtures assert only a difference (reported twice), the `:app:` path untested, the repo name unasserted. All are unlikely regressions; fixing them only hardens tests or needs a new fixture.
+- False: cache hiding drift (carried), root-only fixtures, transitive SDKs, the shared dependency/applicationId fixture, unresolved dependencies dropped, real app untested (carried), site consumption (out of scope), fixed vs derived facts (specified), `uses-permission-sdk-23` counted.
+
+**Follow-up review recommended: false.** Patched counts: high 0, medium 0, low 0. The work has converged.
+
+**Verification (this pass).** `./gradlew :app:writePrivacyFacts :app:checkPrivacyFacts`: success, `git diff --exit-code docs/privacy-facts.json` clean, report "Privacy facts match."
+
+**Residual risks.** Unchanged: the Windows `core.autocrlf=true` checkout is still not exercised, and Story 13.4 has not consumed the file yet.
