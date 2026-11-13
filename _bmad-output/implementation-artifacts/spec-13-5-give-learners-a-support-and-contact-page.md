@@ -160,3 +160,7 @@ Status: done
 **Residual risks:**
 - The PO must confirm the 14 November 2026 effective date before merge. If it merges on 13 November, the live policy shows a date that has not arrived yet for one day.
 - Post-merge manual checks on `/support/` are still to do and record in the PR: keyboard flow, 200% zoom, 320 CSS px, and light and dark themes.
+
+## Post-merge
+
+2026-11-13: the product owner kept the effective date of 14 November 2026. Site PR hebelmx/cubentia-site#5 merged as d639aed. The Pages deploy succeeded. Live https://hebelmx.github.io/cubentia-site/support/ and /privacy/ return 200 over HTTPS, and HTTP redirects with a 301. The support page shows exxerpro@exxerpro.com and the RubikXplorer issues link. The privacy page shows 14 November 2026 and links to support.
