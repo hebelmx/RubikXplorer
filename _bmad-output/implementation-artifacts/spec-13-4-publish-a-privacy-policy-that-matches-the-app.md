@@ -7,7 +7,7 @@ implementation_repo: '/mnt/e/Dynamic/IndFun/cubentia-site'
 implementation_branch: 'feat/13-4-privacy-policy'
 baseline_revision: 'b1d44043427897ee492acb8ff9de0cf7b6b8e234'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-13-context.md'
@@ -157,6 +157,51 @@ deferred:
     - `[medium]` `[patch]` a scheduled run in the same concurrency group can replace a pending push run, so that push never deploys. Fixed: the group key adds `schedule` or `run` by event, so check-only scheduled runs never share a group with deploy runs.
     - `[medium]` `[patch]` the 60-day schedule shutdown. Grouped with the Blind Hunter 60-day row.
 
+### 2026-11-13 — Review pass (follow-up)
+- verdicts: 37 findings — high 0, medium 1, low 27, false 8, maybe-false 1
+- findings:
+  - Blind Hunter
+    - `[false]` `[reject]` carried: the facts come from app `main`, not the released build. AC2 names `main` explicitly.
+    - `[low]` `[reject]` only `data-value` is compared, not the sentence. "There are ads." on an `ads=false` element would pass. By design, the contract requires only non-empty text. Matching the wording would need a phrase list per fact, and the reviewer reads the text in the PR.
+    - `[low]` `[reject]` carried: untagged claims (Reset progress, uninstall, camera and others) have no fact behind them. They are true today, and new app facts are out of scope.
+    - `[low]` `[reject]` the page does not say what happens to an email sent to the contact, or what Google Play collects. A sentence promising how email is handled is a new legal commitment for the PO, the intent fixes the page content, and Play's own collection is covered by Google's policy.
+    - `[false]` `[reject]` a Mexican S.A. de C.V. needs an address, ARCO rights and Spanish. The PO decided there is no postal address on the site, and the site is English only by epic rule. Both are scope decisions.
+    - `[low]` `[patch]` there is no documented way to change the publisher, Play developer or contact, because `--update` rewrites only the date and hash. Fixed: the README says to edit the marker and the matching record field by hand, then follow the change steps.
+    - `[low]` `[patch]` the module docstring describes the old hash scope. Fixed: it now lists the title, meta description and link targets.
+    - `[low]` `[reject]` the hash covers every href but only the text inside `<main>`, so footer wording is unhashed. The footer and header hold only "Cubentia home" and the wordmark, with no policy wording. Changing the scope means regenerating the record for no user benefit.
+    - `[low]` `[reject]` carried: nothing keeps the local fixture in sync. CI uses the live file.
+    - `[low]` `[reject]` no test covers the local fixture fallback in `check.sh`. When it breaks, every local run fails loudly. Testing it needs a dry-run mode in `check.sh`.
+    - `[low]` `[reject]` a failed daily run is easy to miss. The README documents this (carried 60-day row). Opening an issue would need `issues: write`, and the intent keeps permissions unchanged.
+    - `[low]` `[reject]` carried: no landing-page link to /privacy/. That is 13.2's AC.
+    - `[false]` `[reject]` carried: "Learners" is the Glossary term. The Play target-audience declaration is a Play Console form, not site content.
+    - `[false]` `[reject]` the global `ul` and `li + li` rules change other pages. `site/index.html` and `site/404.html` have no lists, so nothing changes.
+    - `[low]` `[reject]` the email regex would flag a future `logo@2x.png`, and `--update` does not validate the contact (carried). No such asset exists, the failure is loud, and the fix adds URL-context guards.
+  - Verification Gap
+    - `[low]` `[reject]` `PolicyParser` ignores implied end tags, so an omitted `</li>` on a statement swallows the following text and hides the "no text" check. Every element on the shipped page closes explicitly, and implementing HTML's implied-end-tag rules adds parser branches.
+  - Intent Alignment
+    - `[low]` `[patch]` the `.effective-date` CSS rule breaks "CSS additions are only for headings and lists". Fixed: the rule and its class are removed. The hash does not cover classes, so the record is unchanged.
+    - `[false]` `[reject]` the concurrency group change is not in the intent. Nothing forbids it, permissions are unchanged, and it prevents a scheduled run from replacing a pending deploy run (earlier patch).
+    - `[low]` `[reject]` carried: the Reset progress sentence has no fact behind it. It is true today (`SettingsScreen`).
+    - `[false]` `[reject]` the hash covers more than `<main>` plus the facts. Strictly more changes need a new date, and every matrix row still behaves as stated, so the result is no worse.
+    - `[false]` `[reject]` the date-text match, the raw-source email scan and the missing `data-value` failure are stricter than the contract. Every matrix row still holds, and nothing that should pass fails.
+    - `[medium]` `[defer]` carried: the `pages.yml` conditions and the cross-repo checkout are untested. Already in `deferred`; settle it on the first runs.
+    - `[false]` `[reject]` carried: the deployed URL is not covered. AC4 is a post-merge check.
+    - `[low]` `[reject]` nothing checks the "existing tokens only" rule. The stylesheet diff uses only `var(--ink-muted)`-style existing tokens (now none), and a token linter is new tooling.
+  - Edge Case Hunter
+    - `[low]` `[patch]` the self-tests hard-code `2026-11-13` and some page sentences, so following the README's change steps breaks `check.sh`. Fixed together with the two rows below: the README change steps now say to update `DATE_MARKER` and the pinned literals, and to commit the tests with the page and record.
+    - `[low]` `[patch]` when the app's facts change, the self-tests still run against the old fixture, and `test_fixture_is_the_app_v1_file` pins it. Fixed: the README's drift paragraph says to refresh the fixture and that test in the same change.
+    - `[low]` `[patch]` following the README procedure as written cannot reach a green `check.sh`. Same root cause and fix as the two rows above.
+    - `[low]` `[patch]` the "add data-fact … data-value" hint is not HTML-escaped, so a list value with quotes gives broken HTML. Fixed: `html.escape(expected)`, checked by hand (`["x"]` → `[&quot;x&quot;]`).
+    - `[low]` `[reject]` carried: objects or floats spelled differently. The build-logic writes the file deterministically.
+    - `[low]` `[reject]` a statement hidden with `hidden`, `aria-hidden` or `<template>` still counts. Contrived, the reviewer sees it in the PR, and the fix adds ancestor checks.
+    - `[low]` `[reject]` the email regex flags `icon@2x.png`. Same as the Blind Hunter row: no such asset, and the failure is loud.
+    - `[low]` `[reject]` carried: a future effective date is accepted.
+    - `[low]` `[reject]` carried: `--update` trusts the contact marker when it creates the record.
+    - `[low]` `[reject]` carried: a record with stray whitespace never matches.
+    - `[low]` `[reject]` carried: `--facts` with `--update` is silently ignored.
+    - `[low]` `[reject]` an interrupted `--update` write truncates the record. The record is tracked in git, the next check fails loudly as invalid JSON, and the fix adds temp-file handling.
+    - `[maybe-false]` `[reject]` `vars.APP_REPO` may be unavailable on fork PRs, which would then fail the guard. To settle it, check GitHub's rule for configuration variables on fork-triggered `pull_request` runs. Even if true it is low: this is a single-maintainer repo, and the guard fails loudly rather than passing wrongly.
+
 ## Design Notes
 
 - **Why a record file and not git history:** "text changed without a new effective date" needs a baseline. Diffing against `origin/main` behaves differently on PR, push and schedule, and needs full history. A committed hash paired with its date is deterministic everywhere. A reviewer sees any change to the record in the PR.
@@ -229,3 +274,39 @@ The PO's later clarification replaced the first publisher and email values (`Exx
 - Still to do after merge: the live HTTPS/private-window check, plus the keyboard, 200%/320 px and light/dark checks, recorded in the PR.
 - PO human gate before merge: confirm the publisher wording and the effective date.
 - "ExxerPro" remains on the other pages (deferred).
+
+### Follow-up review pass (2026-11-13)
+
+**Summary:** A follow-up review of `b1d44043427897ee492acb8ff9de0cf7b6b8e234..HEAD` on `feat/13-4-privacy-policy`. The diff file is `/tmp/claude-1000/-mnt-e-Dynamic-IndFun-RubikXplorer/ceb048e1-ff63-4cfc-9477-fa35ef7d187a/scratchpad/review-13-4-f.diff`. All four layers ran as Claude subagents, because the Codex marker was absent. Five low entries were patched in one site-repo commit.
+
+**Files changed (cubentia-site, this pass):**
+- `scripts/check_privacy.py`: the docstring now gives the full hash scope, and the missing-fact hint HTML-escapes the value.
+- `site/styles.css`: the `.effective-date` rule is removed (the intent allows CSS for headings and lists only).
+- `site/privacy/index.html`: the now-unused `class="effective-date"` is removed. The hash does not cover classes, so `privacy-policy.json` is unchanged.
+- `README.md`: the change steps cover the date-pinned self-tests, the fixture refresh when the facts change, and how to change the publisher, Play developer or contact by hand.
+
+**Review findings:** 37 in total: high 0, medium 1, low 27, false 8, maybe-false 1.
+- Patched (5 entries, all low):
+  - README steps for the date-pinned tests and the fixture (3 findings, one root cause);
+  - README steps for changing the publisher, Play developer or contact;
+  - the docstring hash scope;
+  - escaping in the missing-fact hint;
+  - the `.effective-date` CSS removed.
+- Deferred: none new. The untested workflow conditions are carried and already in `deferred`.
+- Rejected: every row and its reason is in the Review Triage Log under "Review pass (follow-up)". In short:
+  - false: `main` is mandated, the address and Spanish are PO and epic scope, Learners, the global list CSS affects no other page, concurrency is allowed, the wider hash and stricter checks are a superset, AC4 is post-merge;
+  - low and unlikely, or the fix adds complexity: wording not matched, email handling wording (a PO legal decision), footer hash scope, no test for the fallback, issue alerts (need new permissions), the implied-end-tag parser, the token linter, hidden statements, `@2x` assets, truncated writes, plus the carried rows;
+  - maybe-false: fork PRs and `vars` (low even if true).
+
+**Follow-up review recommended: false.** This was a follow-up pass and patched no high (patched by verdict: high 0, medium 0, low 5), so the work has converged.
+
+**Verification (after the patches):**
+- `bash scripts/check.sh` passes: 204 tests OK, `check_site.py` OK, `check_privacy.py` OK against the fixture, vnu reports no errors.
+- `GITHUB_ACTIONS=true bash scripts/check.sh` exits 1.
+- `check_privacy.py --facts` against the app's real `docs/privacy-facts.json` prints OK.
+- `pages.yml` parses as YAML.
+- `git ls-files --eol` shows every file as LF.
+
+**Residual risks:**
+- Unchanged from the first pass: the workflow has not run on GitHub yet (watch the first PR, scheduled and main-push runs), the post-merge HTTPS and accessibility checks are still to do, and the PO gate remains on the wording and date.
+- The fork-PR `vars` behaviour is unverified.
