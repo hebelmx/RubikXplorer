@@ -46,7 +46,7 @@ jobs:
                       :core:application:checkModuleBoundaries :core:application:koverVerify \
                       :core:application:checkLearnerText \
                       :app:checkDebugMergedManifest :app:checkReleaseMergedManifest \
-                      :app:checkDebugSdkDenylist :app:checkReleaseSdkDenylist :app:lintDebug \
+                      :app:checkDebugSdkDenylist :app:checkReleaseSdkDenylist :app:checkPrivacyFacts :app:lintDebug \
                       :macrobenchmark:checkModuleBoundaries :macrobenchmark:assembleBenchmark \
                       :app:checkBenchmarkMergedManifest :app:checkBenchmarkSdkDenylist \
                       :core:solver:compileBenchmarkKotlin; do
