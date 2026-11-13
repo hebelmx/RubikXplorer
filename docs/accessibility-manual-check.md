@@ -20,6 +20,8 @@ Gesture check (Story 12.1 follow-up, SCP 2026-11-10 session-end deferrals): on t
 
 Flows 4–5 and Flow 9 steps 1–3 require v1.1 camera functionality and are outside this v1.0 pass.
 
+**Result (2026-11-13):** the product owner reported the AC3 TalkBack and Switch Access device pass as complete, and Story 12.1 is closed on that report. The per-flow table below has not been filled in yet; the product owner may add the details.
+
 | Flow | Device / Android | TalkBack pass/fail | Two-switch pass/fail | Theme / font / reduce motion | Notes |
 | --- | --- | --- | --- | --- | --- |
 | 1 | | | | | |
