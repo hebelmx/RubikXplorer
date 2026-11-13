@@ -302,3 +302,7 @@ Physical-mode Lessons hide the Move key bar by design (the Learner turns a real 
 - `Cube3DEmphasisTest` is still flaky under full-suite load.
 - Two items stay deferred: Lesson-state coverage and Manual editor state coverage at 200%.
 - AC3's device pass with `docs/accessibility-manual-check.md` is still the product owner's to do.
+
+## Closure
+
+2026-11-13: the product owner reported the AC3 device pass (TalkBack and Switch Access, `docs/accessibility-manual-check.md`) as complete. The story is set to done. The per-flow results table is still to be filled in by the product owner.
