@@ -2,3 +2,5 @@
 gradlew text eol=lf
 *.bat text eol=crlf
 *.jar binary
+# :app:checkPrivacyFacts compares exact text; keep the generated facts LF on every checkout.
+docs/privacy-facts.json text eol=lf

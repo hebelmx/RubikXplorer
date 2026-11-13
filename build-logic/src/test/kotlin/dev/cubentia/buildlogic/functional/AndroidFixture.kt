@@ -17,6 +17,7 @@ internal class AndroidFixture(
     permissions: List<String> = emptyList(),
     buildTypes: String = "",
     plugins: List<String> = listOf("cubentia.quality"),
+    defaultConfig: String = "",
 ) {
     val projectDir: File = File("build/functional-fixtures/$name").absoluteFile
 
@@ -25,7 +26,7 @@ internal class AndroidFixture(
         projectDir.mkdirs()
         write("settings.gradle.kts", settingsScript(name))
         write("gradle.properties", GRADLE_PROPERTIES)
-        write("build.gradle.kts", buildScript(plugins, buildTypes))
+        write("build.gradle.kts", buildScript(plugins, buildTypes, defaultConfig))
         write("src/main/AndroidManifest.xml", manifest(permissions))
         projectDir.resolve("local.properties").outputStream().use { output ->
             Properties().apply { setProperty("sdk.dir", androidSdkDir().path) }.store(output, null)
@@ -93,6 +94,7 @@ internal class AndroidFixture(
         fun buildScript(
             plugins: List<String>,
             buildTypes: String,
+            defaultConfig: String,
         ): String =
             buildString {
                 appendLine("plugins {")
@@ -104,6 +106,7 @@ internal class AndroidFixture(
                 appendLine("""    namespace = "dev.cubentia.fixture"""")
                 appendLine("    compileSdk = ${requiredSystemProperty("cubentia.compileSdk")}")
                 appendLine("    defaultConfig {")
+                defaultConfig.lines().filter { it.isNotBlank() }.forEach { appendLine("        ${it.trim()}") }
                 appendLine("        minSdk = ${requiredSystemProperty("cubentia.minSdk")}")
                 appendLine("        targetSdk = ${requiredSystemProperty("cubentia.targetSdk")}")
                 appendLine("    }")
