@@ -7,7 +7,7 @@ implementation_repo: '/mnt/e/Dynamic/IndFun/cubentia-site'
 implementation_branch: 'feat/13-1-site-repo-and-pages'
 baseline_revision: 'e4287b9ff6b3e9f9f458ceea25dda22a7477fdea'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-13-context.md'
@@ -134,6 +134,45 @@ deferred: []
     - `[false]` `[reject]` RubikXplorer compliance cannot be judged from the diff. The spec and epic context are committed separately in RubikXplorer at finalize.
     - `[low]` `[reject]` scope goes beyond the AC (script/cookie checks, preview script, stylesheet). These are in line with the PO's no-JS/no-tracking clarification, and nothing harmful was named.
 
+### 2026-11-13 — Review pass (follow-up)
+- verdicts: 31 findings — high 0, medium 0, low 24, false 4, maybe-false 3
+- findings:
+  - Verification Gap
+    - `[low]` `[reject]` `srcset` splits a `data:` candidate at its comma — carried: same claim as the first-pass Edge Case row ("`data:` srcset candidates with commas are mis-split"); the loop is unchanged. Unlikely, and the fix needs a candidate-aware parser.
+  - Blind Hunter
+    - `[low]` `[reject]` `srcset` `data:` comma split — carried (same row as above).
+    - `[false]` `[reject]` vnu may skip CSS under `--skip-non-html` — carried: the first pass, the verification-gap layer and the intent auditor all planted a CSS error, and vnu reported it and exited 1.
+    - `[low]` `[reject]` no CSP or referrer `<meta>` as a runtime guard. This is defence in depth on top of the static checker, not a defect the change caused; it would add new markup on every page for a case nobody has shown.
+    - `[low]` `[reject]` no favicon, so the browser requests `/favicon.ico` at the origin root — carried (first-pass favicon/canonical row); branding is 13.2's.
+    - `[maybe-false]` `[reject]` the LICENSE preamble may break GitHub's MIT detection — carried; settle by checking the licence badge after merge. The PO asked for the notice in LICENSE.
+    - `[low]` `[reject]` "Rubik" in CSS `content:` and SVG `<title>` is not checked — carried for CSS `content:`. The SVG part is false: `.svg` files go through `PageParser`, so `<title>` text reaches `handle_data`.
+    - `[low]` `[reject]` a case mismatch passes on the NTFS mount — carried; CI on ext4 is the gate.
+    - `[low]` `[patch]` the `pages.yml` comment "Runs on the same ref queue in order" overstates the guarantee, since a newer pending run replaces an older pending one. Fixed: the comment is reworded (`46030d1`).
+    - `[low]` `[reject]` missing tests for same-origin and quoted meta refresh, `<base>`, SVG2 `use`/`image href`, a missing same-origin `@import`, `<area>` and `name=` anchors. A probe confirmed the behaviour is correct: quoted `URL='404.html'` passes, external refresh fails, `use`/`image href` to another origin fails, and a missing `@import` is reported. No defect was found, and adding more tests for working behaviour is optional.
+    - `[low]` `[reject]` 404 has no `noindex`, index has no `canonical` — carried (first-pass favicon/canonical/robots row).
+    - `[low]` `[reject]` `vnu-jar` has no lockfile or integrity pin — carried (first-pass hygiene row: npx is not cached).
+  - Intent Alignment
+    - `[maybe-false]` `[reject]` workflow gating (`if:`, `needs:`, permissions) is only checked as YAML text — carried; actionlint 1.7.7 passes again. Settle it with the first PR run and the first main run.
+    - `[maybe-false]` `[reject]` the invalid-HTML row has no self-test — carried; vnu fails a broken fixture (confirmed again by the intent auditor).
+    - `[low]` `[reject]` the Rubik check's reach is narrower than "anything rendered" (URL-shaped text, CSS `content:`) — carried (first-pass `URL_IN_TEXT` and CSS `content:` rows).
+    - `[false]` `[reject]` an unreferenced `.js` file in `site/` passes. No page can run it: `<script>`, `on*` and `javascript:` are all rejected, so a stray file is served as text and never executed.
+    - `[false]` `[reject]` the "never" rules are not enforced automatically. The intent constrains what the repo holds, and the repo holds none of it; the intent never asks for automation.
+  - Edge Case Hunter
+    - `[low]` `[reject]` an empty `site/`, or one missing `index.html`/`404.html`, passes. It is real but unlikely (deleting the page would show in review), and the fix adds a new required-files guard.
+    - `[low]` `[patch]` files with uppercase extensions (`X.HTML`, `.CSS`, `.SVG`) skip every check (confirmed: a `<script>` in `X.HTML` printed OK). Fixed: extensions are compared lowercased in `run()` and `_check_fragment`, and `test_uppercase_extensions_are_checked` was added (`96d2bb7`).
+    - `[low]` `[patch]` `image-set(... type("image/avif"))` reports a false broken resource `image/avif` (confirmed). Fixed: `type(...)` is stripped before the string scan, and `test_css_image_set_type_passes` was added (`96d2bb7`).
+    - `[low]` `[reject]` `srcset` `data:` comma split — carried (same row as above).
+    - `[low]` `[reject]` a `data:text/css` stylesheet containing `@import url(https://…)` passes. It is real but contrived, and the fix needs data-URI decoding and re-parsing.
+    - `[false]` `[reject]` an unclosed `<style>` hides an `@import`. In HTML, vnu reports the unclosed element and fails `check.sh`. In SVG, the file is malformed XML, so the browser renders nothing and fetches nothing.
+    - `[low]` `[reject]` "Rubik" split across inline tags — carried.
+    - `[low]` `[reject]` "Rubik" in CSS `content:` — carried.
+    - `[low]` `[reject]` the `URL_IN_TEXT` exemption is too wide — carried.
+    - `[low]` `[reject]` `<base href>` misresolves links — carried.
+    - `[low]` `[reject]` case-insensitive local filesystem — carried.
+    - `[low]` `[patch]` two `preview.sh` runs share `.preview/`, so one deletes the other's directory. Fixed: `mktemp -d "${ROOT}/.preview.XXXXXX"`, with `.gitignore` and the README updated (`46030d1`).
+    - `[low]` `[reject]` no `timeout-minutes` — carried (first-pass hygiene row).
+    - `[low]` `[reject]` the concurrency group is `pages-${{ github.ref }}`, not the spec's `pages`. This was changed on purpose in the first pass: one global group would let a PR's pending run replace a pending main deploy. The only fix would be to edit this spec.
+
 ## Verification
 
 **Commands (in `/mnt/e/Dynamic/IndFun/cubentia-site`):**
@@ -194,3 +233,46 @@ Status: done
 - The post-merge check is still to do: open the URL over HTTPS in a private window with no sign-in.
 - CI fetches vnu from npm on every run.
 - GitHub's licence detection may show "Other" because of the content notice.
+
+### Follow-up review pass (2026-11-13)
+
+**Summary:** An independent follow-up review of the first pass's checker fixes (script URLs, more resource kinds, SVG, unreadable CSS). It found no high or medium problems. Four low problems were patched in two new commits in `/mnt/e/Dynamic/IndFun/cubentia-site`, `96d2bb7` and `46030d1`, which makes 10 commits on top of the baseline. Nothing is pushed.
+
+**Files changed (this pass):**
+- `scripts/check_site.py`: page and CSS file extensions are matched case-insensitively, and `type("…")` inside `image-set()` is no longer read as a URL.
+- `scripts/test_check_site.py`: two new tests, `test_uppercase_extensions_are_checked` and `test_css_image_set_type_passes` (60 in total).
+- `scripts/preview.sh`, `.gitignore`, `README.md`: each preview run gets its own `mktemp` directory `.preview.XXXXXX`.
+- `.github/workflows/pages.yml`: the concurrency comment now describes how GitHub replaces pending runs.
+
+**Review findings:** 31 in total: high 0, medium 0, low 24, false 4, maybe-false 3.
+- Patched: 4 low entries:
+  - uppercase extensions skipped every check;
+  - an `image-set` `type()` false positive;
+  - the shared preview directory;
+  - the concurrency comment.
+- Deferred: none.
+- Rejected:
+  - 19 rows carried from the first pass with the same reasons, including `srcset` `data:` commas, CSS `content:`, `<base>`, case-insensitive filesystems, favicon/canonical, licence detection, workflow gating seen only as text, and hygiene items;
+  - newly rejected:
+    - no CSP meta (defence in depth, not a defect);
+    - extra tests for working behaviour (probed correct);
+    - an empty site passes (unlikely, and needs a new guard);
+    - a `data:` stylesheet with `@import` (contrived, needs decoding);
+    - the per-ref concurrency group (deliberate; the only fix would edit the spec);
+  - false: a stray `.js` file cannot run, the "never" rules need no automation, and an unclosed `<style>` is caught by vnu or breaks the SVG.
+
+**Follow-up review recommended: false.** This was a follow-up pass and it patched no high entry (patched entries by verdict: high 0, medium 0, low 4), so the work has converged.
+
+**Verification:**
+- `bash scripts/check.sh`: 60 tests OK, the checker printed OK, vnu reported no errors.
+- `pages.yml` parses as YAML, and actionlint 1.7.7 reports nothing.
+- `git ls-files --eol`: every file is LF.
+- `scripts/preview.sh 8765` returned HTTP 200 at `/cubentia-site/`, and the temporary directory was removed on exit.
+- Hand probes of meta refresh, SVG `use`/`image href` and a missing `@import` behaved as expected.
+
+**Residual risks:** unchanged from the first pass.
+- The workflow has not run on GitHub yet.
+- The post-merge HTTPS check in a private window is still to do.
+- vnu is fetched from npm on every run.
+- GitHub's licence detection may show "Other".
+- Known low gaps remain in the checker: `srcset` `data:` commas, CSS `content:` wording, and `data:` stylesheets.
