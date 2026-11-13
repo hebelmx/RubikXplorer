@@ -81,3 +81,29 @@ branch = "chore/refresh-agent-context"
 key = "3-8-reference-device-pruning-table-delivery-decision-and-product"
 when = "before-start"
 reason = "needs the reference device for pruning-table measurements, installed-size/delivery decision, production StrictMode and measured JVM/device calibration plus the full calibrated solve-corpus pass; required before production 3.7 acceptance and Epic 3/P0.S closure"
+
+# Epic 13 (SCP 2026-11-13, cubentia-site): site-repo work and Play Console steps need a person.
+[[gates]]
+key = "13-1-create-the-site-repository-and-publish-it-with-github-pages"
+when = "before-start"
+reason = "PO creates public repo hebelmx/cubentia-site, sets Pages source to GitHub Actions, protects main, sets APP_REPO; work lands in the site repo"
+
+[[gates]]
+key = "13-2-introduce-cubentia-on-a-landing-page"
+when = "before-start"
+reason = "work lands in the site repo (hebelmx/cubentia-site), not this repo"
+
+[[gates]]
+key = "13-4-publish-a-privacy-policy-that-matches-the-app"
+when = "before-merge"
+reason = "PO confirms publisher name as on the Play developer account and effective date; work lands in the site repo"
+
+[[gates]]
+key = "13-5-give-learners-a-support-and-contact-page"
+when = "before-start"
+reason = "work lands in the site repo (hebelmx/cubentia-site), not this repo"
+
+[[gates]]
+key = "13-6-register-the-privacy-policy-in-play-console"
+when = "before-start"
+reason = "PO enters the privacy URL in Play Console App content and saves the Data safety form"
