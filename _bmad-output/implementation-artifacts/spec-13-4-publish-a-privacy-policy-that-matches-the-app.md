@@ -310,3 +310,10 @@ The PO's later clarification replaced the first publisher and email values (`Exx
 **Residual risks:**
 - Unchanged from the first pass: the workflow has not run on GitHub yet (watch the first PR, scheduled and main-push runs), the post-merge HTTPS and accessibility checks are still to do, and the PO gate remains on the wording and date.
 - The fork-PR `vars` behaviour is unverified.
+
+### Post-merge verification (2026-11-13)
+
+- The PO merged hebelmx/cubentia-site#3 as `569e450`. Pages run 43475927455 (push to main) ran `check` then `deploy`, both successful.
+- `https://hebelmx.github.io/cubentia-site/privacy/` returns HTTP/2 200 over HTTPS with no cookies and no sign-in. `http://` redirects with a 301 to HTTPS.
+- The live page shows the publisher "Exxerpro Solutions, S.A. de C.V.", the contact `exxerpro@exxerpro.com` and the effective date 2026-11-13.
+- Still open: the PO's manual pass for keyboard, 200%/320 px and light/dark, and the first scheduled run (check only). The text-contrast follow-up is hebelmx/cubentia-site#2.
