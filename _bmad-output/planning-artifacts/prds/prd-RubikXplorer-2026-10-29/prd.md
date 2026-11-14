@@ -2,7 +2,7 @@
 title: RubikXplorer — MVP Product Requirements Document
 status: final
 created: 2026-10-29
-updated: 2026-11-13
+updated: 2026-11-14
 ---
 
 # PRD: RubikXplorer
@@ -455,7 +455,7 @@ The Learner can do Independent practice on a fresh Scramble with reduced help. A
 
 ### 4.8 Camera Cube Recognition
 
-> **Release: v1.1 (post-launch).** Deferred from P0 on 2026-11-08 (`sprint-change-proposal-2026-11-08-vision-deferral`). The requirements below are unchanged. v1.0 hides every entry point behind the AD-18 flags and declares no camera permission.
+> **Release: v1.1, flag-gated.** Deferred from P0 on 2026-11-08 (`sprint-change-proposal-2026-11-08-vision-deferral`); restored to the plan on 2026-11-14 (`sprint-change-proposal-2026-11-14-v1-1-camera`). Built on `main` with every camera flag OFF in release; at each release the PO sets each feature OFF, BETA or GA from the test-matrix evidence. Requirements unchanged. v1.0 hides every entry point behind the AD-18 flags and declares no camera permission.
 
 **Description:** the Learner points the phone camera at a physical cube and the app reads its Cube State. This is how the app comes to *know* the Physical State instead of predicting it. Recognition serves four uses:
 - **Core:** solving without typing colors (FR-25), and verifying physical Moves (FR-26), which turns the tutor's guesses into evidence.
@@ -544,7 +544,7 @@ The Learner can scan the top layer, and the app names its OLL or PLL Case, opens
 | Case recognition | ≤ 1% wrong Case named, counted only when a single Case is named. Ambiguous scans list candidates. | result < 1 s after capture |
 | Confidence calibration (all modes) | At most 0.1% of all stickers are both misread and marked *confident*. | — |
 
-- **Privacy:** camera frames are processed in memory on-device, and are never stored or sent anywhere. The camera permission is requested only when the Learner first opens a scan, with an explanation. Every scan feature has a manual fallback.
+- **Privacy:** camera frames are processed in memory on-device, and are never stored or sent anywhere. The camera permission is requested only when the Learner first opens a scan, with an explanation. Every scan feature has a manual fallback. Camera frames are never saved as photos. The rationale shown before the permission request says this in plain words.
 
 **Out of Scope:**
 - Importing photos from the gallery.
@@ -567,13 +567,13 @@ Targets are validated on a defined set of **reference devices**. [ASSUMPTION: th
 | NFR-2 | Rendering | ≥ 30 FPS during face turns and View Rotation on the minimum reference device; 60 FPS target on mid-range. |
 | NFR-3 | Solver performance | 95% of a representative corpus of random legal states (not only easy Scrambles) solved within 3 s on the minimum reference device. Median, p95, memory use and failure rate are reported. *(SCP 2026-11-12: "minimum" made explicit)* |
 | NFR-4 | Correctness | **Zero state mismatches** between engine, rendering and Expected State across the randomized Move, undo and interruption suite. Cube-engine invariants pass as property-based tests: inverse restores the state, M⁴ = identity, a random sequence followed by its inverse = identity, illegal states are rejected. The cube engine has the strongest test coverage of any component. |
-| NFR-5 | Offline | A fresh install with no network can complete the Course, use the Algorithm Library, and enter a cube and solve it (and scan it, from v1.1). v1.0 declares no runtime permissions; from v1.1 the camera is the only one. [ASSUMPTION: no network permission is declared.] |
+| NFR-5 | Offline | A fresh install with no network can complete the Course, use the Algorithm Library, and enter a cube and solve it (and scan it, from v1.1). v1.0 declares no runtime permissions. From v1.1, the camera is the only one, and a release declares it only when a camera feature's flag is above OFF. [ASSUMPTION: no network permission is declared.] |
 | NFR-6 | Persistence | The latest Checkpoint survives forced process death. |
 | NFR-7 | Accessibility | Content labels on every control, WCAG AA contrast, scalable text, and a non-gesture alternative for every essential action. **Color-blind display** (optional letters or patterns on stickers) means the cube can be used without telling colors apart. [ASSUMPTION: color-blind display is P0.] |
 | NFR-8 | Privacy | No account and no personal information collected. No analytics SDK and no ads. All data stays in app-private storage and never leaves the device. The Play Store data-safety form declares "no data collected." |
 | NFR-9 | Stability | ≥ 99.5% crash-free sessions; ANR rate below the Play Store's bad-behavior threshold (Android vitals). |
 | NFR-10 | Localizability | All Learner-facing text lives outside code, in resources and Lesson data, so adding a language needs no code change. English only at launch. |
-| NFR-11 | App size | [ASSUMPTION: install size < 30 MB, including Solver tables (and, from v1.1, any recognition model); checked when OQ-4 and OQ-7 are decided.] |
+| NFR-11 | App size | [ASSUMPTION: install size < 30 MB, including Solver tables (and, from v1.1, any recognition model); checked when OQ-4 and OQ-7 are decided.] *Note: measured at each release that raises a camera flag (Story 10.11).* |
 | NFR-12 | Code quality (portfolio) | The cube domain, Solver adapter, tutor rules and recognition classification are pure Kotlin with no Android dependencies, and have ≥ 80% line coverage. Static analysis and formatting are enforced in CI, and every merge to main builds, tests and lints green. |
 | NFR-13 | Compatibility | [ASSUMPTION: minSdk Android 10 (API 29).] Phones and tablets, portrait and landscape. targetSdk meets current Play Store policy. |
 
@@ -600,12 +600,12 @@ Targets are validated on a defined set of **reference devices**. [ASSUMPTION: th
 - English, every NFR in §5, and a Play Store release.
 
 **Out of scope for MVP:**
-- **v1.1 (post-launch): Camera Cube Recognition** (FR-21 – FR-28):
+- **v1.1 (in progress, flag-gated): Camera Cube Recognition** (FR-21 – FR-28):
   - capture: Guided 6-face Scan and Quick Scan;
   - validation and correction, plus Color Calibration;
   - uses: scan to solve, Quick Check, Placement and Case recognition.
 
-  Deferred by PO decision on 2026-11-08 (`sprint-change-proposal-2026-11-08-vision-deferral`). The AD-18 flags stay OFF in v1.0.
+  Deferred by PO decision on 2026-11-08 (`sprint-change-proposal-2026-11-08-vision-deferral`); restored to the plan on 2026-11-14 as v1.1, flag-gated (Epics 10–11; `sprint-change-proposal-2026-11-14-v1-1-camera`). The AD-18 flags stay OFF in v1.0.
 - **P1:**
   - recognition and execution drills (FR-29);
   - alternative Algorithms per Case;
@@ -671,7 +671,7 @@ Targets are validated on a defined set of **reference devices**. [ASSUMPTION: th
   3. The end-to-end suite shows no silent desync between virtual and physical state. Undo, pause, restart and resume all preserve a valid state.
   4. A pilot group of beginners completes the Course. It confirms that Move instructions make sense without prior knowledge of Notation and that Learners recover from deliberate mistakes. Task completion, hint use and points of confusion are recorded, and every severity-1 and severity-2 usability issue is fixed.
   5. Offline behavior, state recovery and accessibility are verified.
-  6. *(v1.1)* Every scan flow has a working manual fallback, and no unvalidated Scan Result is ever used. Camera features ship as GA if they meet their §4.8 targets on the test matrix, otherwise as "beta" (the spike-failure decision, §6.2). **For v1.0 this gate is N/A:** every camera flag is OFF in release, and the manifest declares no CAMERA permission.
+  6. *(v1.1)* Every scan flow has a working manual fallback, and no unvalidated Scan Result is ever used. Camera features ship as GA if they meet their §4.8 targets on the test matrix, otherwise as "beta" (the spike-failure decision, §6.2). **For any release in which every camera flag is OFF, this gate is N/A** (v1.0 included: the manifest declares no CAMERA permission). For each raised feature, it is checked by Story 10.11 with Story 10.8's evidence.
 
 ## 8. Success Metrics
 
@@ -707,8 +707,8 @@ The app has no analytics (NFR-8). Learning metrics therefore come from **observe
 4. **OQ-4 (resolved 2026-10-29):** the Solver is a clean-room Kotlin implementation of Kociemba's two-phase algorithm, written from the published description. The best-known JVM implementation (min2phase) turned out to be GPLv3-only, so no third-party solver code is used. Still open, within the solver epic: whether pruning tables are bundled or built at first run, and how big they are against NFR-11 (architecture AD-8).
 5. **OQ-5:** pilot logistics: who the ~8 beginner testers are and when closed testing starts (proposed: after the Course is usable). Also whether the pilot runs the A/B comparison of plain Move-by-Move instruction versus contextual explanation with error feedback (addendum §H).
 6. **OQ-6:** source and licensing of Algorithm data and Case names. The standard Algorithms are common knowledge; copied diagrams or text are not.
-7. **OQ-7:** recognition approach: classical CV, an on-device ML model, or a hybrid. Decided by the week 1–2 spike. Perspective correction for Quick Scan is the hardest part.
-8. **OQ-8:** recognition test matrix: which physical cubes, lighting setups and reference devices, and how ground-truth states are recorded.
+7. **OQ-7:** recognition approach: classical CV, an on-device ML model, or a hybrid. Decided by the week 1–2 spike. Perspective correction for Quick Scan is the hardest part. Initial: Kotlin-first classical CV (Story 1.9); confirmed by Story 10.10.
+8. **OQ-8:** recognition test matrix: which physical cubes, lighting setups and reference devices, and how ground-truth states are recorded. Matrix: 2 cubes × 4 lights × Lenovo Tab M10 Plus 3rd Gen, Galaxy S24 FE (gating) and Galaxy Tab S7 FE (reported); live fixtures by Story 10.10.
 9. **OQ-9 (closed 2026-10-30; reopened by the Story 1.9 spike at 62.5%; closed again 2026-11-08):** the schedule stays within about 16 weeks. All camera features move to v1.1, and v1.0 ships camera-free.
 
 ## 10. Decisions Taken During PRD Creation
@@ -727,6 +727,7 @@ Recorded in `.memlog.md`:
 - Camera Cube Recognition deferred to v1.1 (PO, 2026-11-08, after the spike scored 62.5%). This supersedes "camera recognition in P0" and "spike failure → camera ships as beta".
 - Reference devices: minimum Lenovo Tab M10 Plus 3rd Gen, mid Samsung Galaxy S24 FE (PO, 2026-11-12, SCP 2026-11-12). The Galaxy Tab S7 FE 5G, the minimum from 2026-10-30 (ARCH-OQ-1), is kept as an additional compatibility device.
 - Public website and privacy policy in a separate repository, `hebelmx/cubentia-site`, on GitHub Pages; the app repository keeps the source (PO, 2026-11-13, SCP 2026-11-13).
+- 2026-11-14: camera recognition restored to the plan as v1.1, flag-gated; per-feature release levels set by the PO at each release (SCP 2026-11-14).
 
 ## 11. Assumptions Index
 

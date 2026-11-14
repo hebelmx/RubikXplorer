@@ -730,6 +730,8 @@ Header comment at `:31-32`: add *"# 2026-11-14: Epics 10 and 11 restored (v1.1, 
 | Q11 | Should #139 (phone cube size, tablet learning path) land before 10.7 and 11.2? | Yes. #139 has priority, and camera stories rebase onto it. | It is labeled `pre-release`; camera must not block tester-facing work. |
 | Q12 | Does the Galaxy Tab S7 FE gate recognition, or only report results? | Report only. Lenovo (minimum) and S24 FE (mid) gate. | This matches SCP 2026-11-12's device roles. |
 
+> **Note (2026-11-14, PO hebelmx, OQ-UX-1):** after UX review of Q10, the camera-rationale copy is changed to "Cubentia uses the camera to read your cube's colors. It reads them on this device. Nothing is saved or sent." (device-neutral: reference devices include tablets; frames are processed in memory, never taken as photos). This supersedes the Q10 text and the copy quoted in §4 (EXPERIENCE.md State Patterns); Story 10.11's store-listing wording "photos never leave the phone" is likewise read as "the camera reads colors on the device and nothing is saved or sent" (updated in `epics.md`). See EXPERIENCE.md OQ-UX-1.
+
 ## Checklist record
 
 | Item | Status | Note |

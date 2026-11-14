@@ -2083,7 +2083,7 @@ So that the app, the public privacy policy, Play Console and the store listing a
 
 **Given** the release build
 **When** Learners see a raised feature
-**Then** the camera-rationale copy and the camera BETA tooltip come from content strings, the store listing's description names the feature with "(beta)" and says photos never leave the phone, and PRD §7 gate 6 is checked for each raised feature (manual fallback works; no unvalidated Scan Result is used), linking 10.8's evidence
+**Then** the camera-rationale copy and the camera BETA tooltip come from content strings, the store listing's description names the feature with "(beta)" and says the camera reads colors on the device and nothing is saved or sent, and PRD §7 gate 6 is checked for each raised feature (manual fallback works; no unvalidated Scan Result is used), linking 10.8's evidence
 
 **Given** a feature that stays OFF
 **When** the release ships
