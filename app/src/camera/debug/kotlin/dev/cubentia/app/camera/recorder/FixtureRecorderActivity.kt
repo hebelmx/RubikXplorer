@@ -246,7 +246,11 @@ private fun FixtureRecorderScreen(
         Box(Modifier.fillMaxWidth().height(280.dp), contentAlignment = Alignment.Center) {
             if (hasPermission) {
                 AndroidView(
-                    factory = { view -> PreviewView(view).also(startCamera) },
+                    factory = { view ->
+                        PreviewView(view)
+                            .apply { implementationMode = PreviewView.ImplementationMode.COMPATIBLE }
+                            .also(startCamera)
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
                 FixedGrid(Modifier.fillMaxSize())
@@ -254,6 +258,19 @@ private fun FixtureRecorderScreen(
                 Button(onClick = { permission.launch(Manifest.permission.CAMERA) }) { Text("Allow camera") }
             }
         }
+        Text(resultText, style = MaterialTheme.typography.bodyMedium)
+        val missing =
+            buildList {
+                if (!cube.any { it.isLetterOrDigit() && it.code < 128 }) add("cube name")
+                if (!light.any { it.isLetterOrDigit() && it.code < 128 }) add("light")
+                if (centers.size < 6) add("centers ${centers.size}/6 (missing ${Color.entries.filter { it !in centers }.joinToString { it.name.take(1) }})")
+                val labeled = truthLabels.count { it != null }
+                if (labeled < 9) add("truth $labeled/9")
+            }
+        Text(
+            if (missing.isEmpty()) "Ready to capture face $selectedFace." else "Face $selectedFace. To capture, still need: ${missing.joinToString()}",
+            style = MaterialTheme.typography.bodyMedium,
+        )
         Text("Calibrate center: $selectedColor")
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Color.entries.forEach { color ->
@@ -377,7 +394,6 @@ private fun FixtureRecorderScreen(
                 OutlinedButton(onClick = { qualityOverride = quality }) { Text(label) }
             }
         }
-        Text(resultText, style = MaterialTheme.typography.bodySmall)
     }
 }
 
