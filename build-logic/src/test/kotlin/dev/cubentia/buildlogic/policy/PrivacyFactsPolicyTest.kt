@@ -45,6 +45,35 @@ class PrivacyFactsPolicyTest {
             facts.toJson(),
         )
         assertEquals(File("../docs/privacy-facts.json").readText(), facts.toJson())
+        assertFalse("cameraFramesLeaveDevice" in facts.toJson())
+    }
+
+    @Test
+    fun `camera release exports schema 2 with the on-device camera fact`() {
+        val facts = derive(manifest(permissions = """<uses-permission android:name="${ManifestPolicy.CAMERA}"/>"""))
+        assertEquals(listOf(ManifestPolicy.CAMERA), facts.runtimePermissions)
+        assertEquals(
+            """
+            {
+              "schemaVersion": 2,
+              "applicationId": "com.exxerpro.cubentia",
+              "internetPermission": false,
+              "backupAllowed": false,
+              "runtimePermissions": [
+                "android.permission.CAMERA"
+              ],
+              "denylistedSdks": [],
+              "account": false,
+              "ads": false,
+              "analytics": false,
+              "crashReporting": false,
+              "dataLeavesDevice": false,
+              "cameraFramesLeaveDevice": false,
+              "storage": "app-private"
+            }
+            """.trimIndent() + "\n",
+            facts.toJson(),
+        )
     }
 
     @Test
@@ -68,6 +97,8 @@ class PrivacyFactsPolicyTest {
         assertEquals(listOf("android.permission.CAMERA", "android.permission.RECORD_AUDIO"), facts.runtimePermissions)
         assertEquals(listOf("com.google.firebase:analytics:1", "io.sentry:sentry:2"), facts.denylistedSdks)
         assertTrue(facts.toJson().contains("[\n    \"android.permission.CAMERA\",\n    \"android.permission.RECORD_AUDIO\"\n  ]"))
+        assertTrue(facts.toJson().contains("\"schemaVersion\": 2,"))
+        assertTrue(facts.toJson().contains("\"dataLeavesDevice\": false,\n  \"cameraFramesLeaveDevice\": false,\n"))
     }
 
     @Test
