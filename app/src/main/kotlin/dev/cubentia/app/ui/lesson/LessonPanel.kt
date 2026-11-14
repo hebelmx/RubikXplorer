@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -51,7 +50,6 @@ import dev.cubentia.app.R
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.LocalRenderStyle
 import dev.cubentia.app.ui.library.RecognitionDiagramView
-import dev.cubentia.app.ui.theme.Radii
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.application.session.SyncState
@@ -215,6 +213,8 @@ internal fun LessonPanel(
         }
         step.assistance?.let { AssistanceLine(it, onUsualHelp, Modifier.fillMaxWidth()) }
         if (!step.isPractice) {
+            val testMeBadge =
+                if (testMeBeta && TeachingMode.TEST_ME in modes) ModeBetaBadge(TeachingMode.TEST_ME, strings.resolve(BETA_LABEL)) else null
             TeachingModeSwitcher(
                 modes,
                 mode,
@@ -223,9 +223,10 @@ internal fun LessonPanel(
                     isTraversalGroup = true
                     traversalIndex = 1f
                 },
+                beta = testMeBadge,
             )
-            if (testMeBeta && mode == TeachingMode.TEST_ME && TeachingMode.TEST_ME in modes) {
-                TestMeBetaNote(strings.resolve(BETA_LABEL), strings.resolve(TEST_ME_BETA_NOTE), Modifier.fillMaxWidth())
+            if (testMeBadge != null && mode == TeachingMode.TEST_ME) {
+                TestMeBetaNote(strings.resolve(TEST_ME_BETA_NOTE), Modifier.fillMaxWidth())
             }
         }
         if (syncState == SyncState.PHYSICAL_AWAITING_CONFIRM) {
@@ -559,36 +560,21 @@ internal fun NotationChip(
     }
 }
 
-/** The beta label and note under the switcher while *Test me* is chosen and its flag is BETA (AD-18, EXPERIENCE). */
+/**
+ * The *Test me* beta explanation (EXPERIENCE *Feature flag BETA*), shown under the switcher once the
+ * Learner taps the segment (or its beta label); a polite live region so TalkBack announces it.
+ */
 @Composable
 private fun TestMeBetaNote(
-    label: String,
     note: String,
     modifier: Modifier = Modifier,
 ) {
-    val tokens = RubikTheme.tokens
-    Row(
-        modifier = modifier.testTag("lesson:testMe:beta"),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Spacing.s1),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = tokens.inkSecondary,
-            modifier =
-                Modifier
-                    .border(1.dp, tokens.inkSecondary, RoundedCornerShape(Radii.xs))
-                    .padding(horizontal = Spacing.s1)
-                    .testTag("lesson:testMe:betaLabel"),
-        )
-        Text(
-            text = note,
-            style = MaterialTheme.typography.bodySmall,
-            color = tokens.inkSecondary,
-            modifier = Modifier.testTag("lesson:testMe:betaNote"),
-        )
-    }
+    Text(
+        text = note,
+        style = MaterialTheme.typography.bodyMedium,
+        color = RubikTheme.tokens.inkSecondary,
+        modifier = modifier.testTag("lesson:testMe:betaNote").semantics { liveRegion = LiveRegionMode.Polite },
+    )
 }
 
 /** The *Test me* beta note (content text, AD-6; EXPERIENCE beta tooltip copy). */

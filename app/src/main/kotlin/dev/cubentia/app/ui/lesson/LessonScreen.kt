@@ -145,7 +145,7 @@ import dev.cubentia.domain.text.Text as ContentText
  * is fixed and no Assistance line shows; BETA adds the beta label to the Assistance line (AD-18).
  * [cameraScan] is the `CAMERA_SCAN` flag level: off (v1.0), Stage 6's end-of-course physical prompt
  * asks the learner to compare the cube with the picture; BETA or GA, it offers the camera check.
- * [testMe] is the `TEST_ME` flag level: at BETA, choosing *Test me* shows the beta label and its note (AD-18).
+ * [testMe] is the `TEST_ME` flag level: at BETA, the *Test me* segment carries the beta label and choosing it shows its note (AD-18).
  */
 @Composable
 fun LessonScreen(
