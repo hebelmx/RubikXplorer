@@ -18,6 +18,14 @@ A first job rejects a branch ref, a tag that is not `vX.Y.Z` and a status other 
 
 For the first upload, keep status `draft`. The PO accepts Play App Signing and completes/rolls out the draft by hand in Play Console. The first tag, `v0.9.0` (run 43358827489, versionCode 1), showed that the API accepts a draft upload for this never-published app. *Historical, skip it:* a package that has never received an upload may need bootstrapping, where you upload the signed AAB artifact by hand in Console. Cubentia doesn't need this any more. Do not retry an already consumed version code. Set `PLAY_RELEASE_STATUS=completed` only after the closed-testing review is approved and the app no longer shows as a draft. Follow [the first-publish checklist](play-first-publish.md), section 5, which also covers a "changes cannot be sent for review automatically" failure. `completed` affects only the internal track; promotion remains manual.
 
+## Point the website at the release
+
+The site repo `hebelmx/cubentia-site` checks the public privacy policy against `docs/privacy-facts.json` at the release tag named by its `APP_REF` repository variable. Keep `APP_REF` at `main` until the first tag that contains `docs/privacy-facts.json`; `v0.9.0` predates it.
+
+A release that declares `CAMERA` exports privacy facts schema 2 (`"schemaVersion": 2` and `"cameraFramesLeaveDevice": false`). If the tag declares `CAMERA`, first make the site policy state the on-device camera sentence; only then move `APP_REF` to that tag, or the site check fails. While `APP_REF` is still `main`, the same applies before merging a change that raises `CAMERA_SCAN` for release.
+
+After pushing the tag and once its release workflow run has passed, run `gh variable set APP_REF --body vX.Y.Z -R hebelmx/cubentia-site`, then re-run the site's Pages workflow so the check and the published page use that tag.
+
 ## Closed-testing pilot
 
 Create a Google Group for the approximately eight consenting beginner testers and add it to the closed-testing track's tester list. Promote the verified internal release to closed testing in Play Console, review and roll it out, then share that track's opt-in link with the group. Testers must join the group and opt in with the same Google account used in Play. Allow Play processing time. Confirm that a pilot tester can install the expected version, and record the version and date in issue #127: real pilot access is a human check, not proved by a successful CI upload.
