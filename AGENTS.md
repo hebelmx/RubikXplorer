@@ -1,9 +1,9 @@
 <!-- bmad:context -->
-<!-- Verified 2026-11-08 against 1c9a171. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
+<!-- Verified 2026-11-14 against 355b7bd. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
 
 ## Cubentia
 
-Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual or physical cube. v1.0 ships camera-free; on-device camera recognition is planned for v1.1. Kotlin, Jetpack Compose, hexagonal ports and adapters with a functional core: `:app` plus pure-JVM `:core:domain`, `:core:solver`, `:core:application` (and `:macrobenchmark`), built through convention plugins in `build-logic/`. Planning lives in `_bmad-output/planning-artifacts/` (PRD, architecture spine); the reader-facing overview is `docs/ARCHITECTURE.md`.
+Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual or physical cube. v1.0 ships camera-free; v1.1 on-device camera recognition (Epics 10–11) is built on `main` behind feature flags that stay OFF in release. Kotlin, Jetpack Compose, hexagonal ports and adapters with a functional core: `:app` plus pure-JVM `:core:domain`, `:core:solver`, `:core:application` (and `:macrobenchmark`), built through convention plugins in `build-logic/`. Planning lives in `_bmad-output/planning-artifacts/` (PRD, architecture spine); the reader-facing overview is `docs/ARCHITECTURE.md`.
 
 ## Policy
 
@@ -21,7 +21,7 @@ Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual o
 - Binding decisions AD-1…AD-20: `_bmad-output/planning-artifacts/architecture/architecture-RubikXplorer-2026-10-29/ARCHITECTURE-SPINE.md` — read it before adding a module, port, persisted entity, `SessionEvent`, or content field.
 - Requirements and IDs (FR-n, NFR-n, Glossary): `_bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/prd.md`; use Glossary terms verbatim in type names.
 - Build gates (AD-1 module boundaries, AD-13 manifest and SDK denylist, Kover, R8 keep rules): `build-logic/src/main/kotlin/dev/cubentia/buildlogic/`; change gates there, never in per-module build scripts.
-- Camera, scan, Quick Check, Placement or Case-recognition work is v1.1: plan it from `_bmad-output/planning-artifacts/post-launch/v1.1-camera-recognition.md`, and keep `CAMERA_SCAN`, `QUICK_SCAN`, `PLACEMENT`, `CASE_RECOGNITION` OFF for release in `FeatureFlagLevels.kt`.
+- Camera, scan, Quick Check, Placement or Case-recognition work is v1.1: plan it from Epics 10–11 in `_bmad-output/planning-artifacts/epics.md` (`post-launch/v1.1-camera-recognition.md` is only a historical pointer) and spine AD-9/AD-13/AD-18. Camera code lives only in the `app/src/camera/` source set behind the scan port, never in `app/src/main`; ML Kit and `play-services-mlkit` are denylisted. Keep `CAMERA_SCAN`, `QUICK_SCAN`, `PLACEMENT`, `CASE_RECOGNITION` OFF for release in `build-logic/.../policy/FeatureFlagLevels.kt` until Story 10.11 raises one (the last three need `CAMERA_SCAN` above OFF); with all OFF the release has no `CAMERA` permission and no CameraX/ML on its classpath.
 - Next planning step or unsure which workflow fits: run the `bmad-help` skill.
 
 ## Running and verifying
@@ -41,7 +41,7 @@ Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual o
 - The applicationId is `com.exxerpro.cubentia`, but Kotlin packages and namespaces are `dev.cubentia.*`; use the applicationId for `adb`, Macrobenchmark targets and Play, never `dev.cubentia`.
 - Cube home frame is WHITE on U, GREEN on F; `Facelets` are URFDLB, row-major per the Kociemba net; reach a `CubeState` only through `CubeValidator`.
 - Certainty is `VERIFIED | LIKELY | UNKNOWN`, produced only by `tutor/Assess`; never a numeric confidence, never fill a partial scan from the expected state.
-- Lessons, Algorithms and tutor thresholds are JSON content with predicates from the closed Kotlin registry; never hard-code lesson logic or Learner-facing text in screens — use `Text(key, args)`.
+- Lessons, Algorithms and tutor thresholds are JSON content with predicates from the closed Kotlin registry; never hard-code lesson logic or Learner-facing text in screens — use `Text(key, args)`. Learner text goes in `core/domain/src/main/resources/content/strings/en.json`; `checkLearnerText` rejects new Learner text in `strings.xml`.
 - Domain failures are sealed results, not exceptions or nulls.
 
 ## Known pitfalls
