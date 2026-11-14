@@ -2,13 +2,14 @@ package dev.cubentia.app.ui.solve
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -281,12 +282,13 @@ fun SolutionPlayback(
             )
         }
 
-        Box(
-            modifier = Modifier.fillMaxWidth().weight(1f, fill = false).aspectRatio(NET_ASPECT),
-        ) {
-            state.renderer.Content(style, Modifier.fillMaxSize())
-            if (state.isPhysical) {
-                FrameLabel(strings, syncState = state.session.syncState)
+        BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+            val width = minOf(maxWidth, maxHeight * NET_ASPECT)
+            Box(Modifier.size(width, width / NET_ASPECT)) {
+                state.renderer.Content(style, Modifier.fillMaxSize())
+                if (state.isPhysical) {
+                    FrameLabel(strings, syncState = state.session.syncState)
+                }
             }
         }
 
@@ -352,7 +354,12 @@ private fun PhysicalPlaybackControls(
                 strings.resolve(noteText),
                 style = MaterialTheme.typography.bodySmall,
                 color = tokens.inkSecondary,
-                modifier = Modifier.testTag("playback:note").semantics { liveRegion = LiveRegionMode.Polite },
+                modifier =
+                    Modifier
+                        .padding(
+                            horizontal = Spacing.s4,
+                        ).testTag("playback:note")
+                        .semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
 

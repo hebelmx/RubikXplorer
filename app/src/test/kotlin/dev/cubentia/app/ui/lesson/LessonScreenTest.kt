@@ -58,6 +58,7 @@ import dev.cubentia.app.session.testBundle
 import dev.cubentia.app.session.testFlags
 import dev.cubentia.app.session.twoStepLesson
 import dev.cubentia.app.session.whiteCrossLesson
+import dev.cubentia.app.ui.a11y.assertNoMidWordBreaks
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
 import dev.cubentia.app.ui.freecube.MoveKeys
 import dev.cubentia.app.ui.shell.AppShell
@@ -2763,5 +2764,16 @@ class LessonScreenTest {
         node("milestone:headline").assertExists().assertTextContains("First cross mastered.")
         node("milestone:nextStage").assertExists().performClick()
         assertEquals(StageId("stage-03-first-layer-corners"), nextStageOffered)
+    }
+
+    @Test
+    @Config(qualifiers = "w600dp-h960dp")
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun tabletLessonKeepsWholeWordsAtNormalType() {
+        open(whiteCrossLesson().id.value)
+        rule.assertNoMidWordBreaks()
+        val first = rule.onNodeWithTag("mode:SHOW_ME").fetchSemanticsNode().boundsInRoot
+        val last = rule.onNodeWithTag("mode:LET_ME_TRY").fetchSemanticsNode().boundsInRoot
+        assertTrue(last.top > first.top)
     }
 }

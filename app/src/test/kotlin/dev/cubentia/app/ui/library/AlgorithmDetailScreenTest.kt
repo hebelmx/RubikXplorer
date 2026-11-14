@@ -374,4 +374,12 @@ class AlgorithmDetailScreenTest {
             )
         }
     }
+
+    @Test fun closeIsAtLeadingEdge() {
+        show()
+        val close = rule.onNodeWithTag("algorithmDetail:back").fetchSemanticsNode()
+        val title = rule.onNodeWithTag("algorithmDetail:title").fetchSemanticsNode()
+        org.junit.Assert.assertTrue(close.boundsInRoot.left <= 24 * close.layoutInfo.density.density)
+        org.junit.Assert.assertTrue(close.boundsInRoot.right <= title.boundsInRoot.left)
+    }
 }

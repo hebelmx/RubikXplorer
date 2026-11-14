@@ -78,3 +78,23 @@ private fun SemanticsNode.describe(): String {
     val tags = generateSequence(this) { it.parent }.mapNotNull { it.config.getOrNull(SemanticsProperties.TestTag) }.toList()
     return "node ${config.getOrNull(SemanticsProperties.TestTag) ?: "(untagged)"} under $tags: $config"
 }
+
+/** A wrapped line must stop at a word boundary, including whitespace trimmed by the paragraph. */
+internal fun ComposeTestRule.assertNoMidWordBreaks() {
+    onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult), useUnmergedTree = true)
+        .fetchSemanticsNodes()
+        .forEach { node ->
+            val results = mutableListOf<TextLayoutResult>()
+            assertTrue(node.config[SemanticsActions.GetTextLayoutResult].action?.invoke(results) == true)
+            results.forEach { result ->
+                val text = result.layoutInput.text.text
+                for (line in 0 until result.lineCount) {
+                    val end = result.getLineEnd(line, visibleEnd = true)
+                    assertTrue(
+                        "Mid-word break in '$text' at $end",
+                        end == 0 || end == text.length || text[end - 1].isWhitespace() || text[end].isWhitespace(),
+                    )
+                }
+            }
+        }
+}

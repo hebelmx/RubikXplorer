@@ -3,11 +3,13 @@ package dev.cubentia.app.ui.shell
 import android.app.Application
 import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -125,12 +127,12 @@ class AppShellSolveTest {
 
     private var back: OnBackPressedDispatcher? = null
 
-    private fun show() {
+    private fun show(dark: Boolean = false) {
         val catalog = LessonCatalog.of(ContentLoadResult.Loaded(bundle))
         val freeCube = FreeCubeViewModel()
         rule.setContent {
             back = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
-            CubentiaTheme {
+            CubentiaTheme(darkTheme = dark) {
                 AppShell(host, catalog, freeCube, false, testFlags(), solveFlow = flow)
             }
         }
@@ -273,11 +275,13 @@ class AppShellSolveTest {
         click("nav:solve")
         click("solve:enterColors")
         rule.onNodeWithTag("solve:pauseNote").assertTextEquals("Starting a solve pauses your lesson.")
+        assertPauseNoteMargin()
         click("editor:accept")
         rule.onNodeWithTag("solve:preparing").assertTextEquals(
             "Preparing the solver. The first solve after the app starts takes longer. Later solves are faster.",
         )
         rule.onNodeWithTag("solve:progress").assertExists()
+        assertPauseNoteMargin()
         assertEquals(lesson, host.state.value.lesson)
         click("solve:cancel")
         rule.onNodeWithTag("solve:error").assertDoesNotExist()
@@ -332,5 +336,21 @@ class AppShellSolveTest {
         rule.onNodeWithTag("solvePlayback:screen").assertDoesNotExist()
         rule.onNodeWithTag("nav:bar").assertExists()
         assertNotEquals(SessionKind.SOLVE_PLAYBACK, host.state.value.kind)
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h1000dp")
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun darkRailEditorPaintsThemeSurface() {
+        show(dark = true)
+        click("nav:solve")
+        click("solve:enterColors")
+        val pixels = rule.onNodeWithTag("shell").captureToImage().toPixelMap()
+        assertEquals(dev.cubentia.app.ui.theme.DarkTokens.surfaceBase, pixels[pixels.width - 1, pixels.height - 1])
+    }
+
+    private fun assertPauseNoteMargin() {
+        val note = rule.onNodeWithTag("solve:pauseNote").fetchSemanticsNode()
+        org.junit.Assert.assertTrue(note.boundsInRoot.left >= 16 * note.layoutInfo.density.density)
     }
 }

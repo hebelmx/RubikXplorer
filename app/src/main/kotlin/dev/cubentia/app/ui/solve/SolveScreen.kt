@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
@@ -20,6 +21,7 @@ import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.ui.editor.ManualCubeEditor
 import dev.cubentia.app.ui.freecube.FreeCubeScreen
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
+import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.text.Text as ContentText
@@ -51,7 +53,12 @@ fun SolveScreen(
                 TextButton(onClick = flow::closeEditor, modifier = Modifier.testTag("solve:close")) {
                     Text(strings.resolve(ContentText("btn.solve.close")))
                 }
-                if (pausesLesson) Text(strings.resolve(ContentText("msg.solve.pauses-lesson")), Modifier.testTag("solve:pauseNote"))
+                if (pausesLesson) {
+                    Text(
+                        strings.resolve(ContentText("msg.solve.pauses-lesson")),
+                        Modifier.padding(horizontal = Spacing.s4).testTag("solve:pauseNote"),
+                    )
+                }
                 current.error?.let {
                     Text(strings.resolve(it), Modifier.testTag("solve:error").semantics { liveRegion = LiveRegionMode.Polite })
                 }
@@ -59,7 +66,12 @@ fun SolveScreen(
             }
 
             is SolvePhase.Solving -> {
-                if (pausesLesson) Text(strings.resolve(ContentText("msg.solve.pauses-lesson")), Modifier.testTag("solve:pauseNote"))
+                if (pausesLesson) {
+                    Text(
+                        strings.resolve(ContentText("msg.solve.pauses-lesson")),
+                        Modifier.padding(horizontal = Spacing.s4).testTag("solve:pauseNote"),
+                    )
+                }
                 LinearProgressIndicator(Modifier.testTag("solve:progress"))
                 val preparingKey =
                     when (current.preparation) {

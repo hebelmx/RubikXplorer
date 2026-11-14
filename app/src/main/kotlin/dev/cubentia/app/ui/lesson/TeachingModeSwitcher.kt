@@ -4,6 +4,8 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -16,11 +18,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.R
 import dev.cubentia.app.ui.theme.RubikTheme
@@ -51,7 +55,11 @@ fun TeachingModeSwitcher(
     val tokens = RubikTheme.tokens
     val shape = MaterialTheme.shapes.medium
     val description = stringResource(R.string.lesson_mode_description)
-    Row(
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val style = MaterialTheme.typography.labelLarge
+    val labels = modes.map { stringResource(labelOf(it)) }
+    BoxWithConstraints(
         modifier =
             modifier
                 .testTag("lesson:modeSwitcher")
@@ -60,8 +68,20 @@ fun TeachingModeSwitcher(
                 .selectableGroup()
                 .semantics { contentDescription = description },
     ) {
-        modes.forEach { mode ->
-            Segment(mode, labelOf(mode), mode == selected, onSelect, Modifier.weight(1f))
+        val width = with(density) { (maxWidth / modes.size.coerceAtLeast(1) - Spacing.s3 * 2).toPx() }
+        // Wrapping at spaces is fine; reflow only if a single word cannot fit.
+        val grid =
+            labels.any { label ->
+                label.split(Regex("\\s+")).any { measurer.measure(it, style).size.width > width }
+            }
+        Column {
+            (if (grid) modes.chunked(2) else listOf(modes)).forEach { row ->
+                Row(Modifier.fillMaxWidth()) {
+                    row.forEach { mode ->
+                        Segment(mode, labelOf(mode), mode == selected, onSelect, Modifier.weight(1f))
+                    }
+                }
+            }
         }
     }
 }

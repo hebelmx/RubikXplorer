@@ -100,7 +100,7 @@ fun AlgorithmDetailScreen(
     val style = LocalRenderStyle.current
     val name = strings.resolve(case.name)
     val title: @Composable () -> Unit = {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack, modifier = Modifier.testTag("algorithmDetail:back")) {
                 Icon(painterResource(R.drawable.ic_close), stringResource(R.string.library_detail_back), tint = tokens.inkPrimary)
             }

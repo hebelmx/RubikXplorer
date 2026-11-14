@@ -1,9 +1,14 @@
 package dev.cubentia.app
 
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import dagger.hilt.android.AndroidEntryPoint
@@ -13,6 +18,7 @@ import dev.cubentia.app.preferences.PreferredTheme
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
 import dev.cubentia.app.ui.shell.AppShell
+import dev.cubentia.app.ui.theme.isDarkTheme
 import dev.cubentia.application.port.FeatureFlags
 import javax.inject.Inject
 
@@ -44,8 +50,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            val progressEvents by sessionHost.progressEvents.collectAsState()
-            val attemptRecords by sessionHost.attemptRecords.collectAsState()
+            val prefs by preferenceStore.preferences.collectAsState()
+            val dark = isDarkTheme(prefs.theme, isSystemInDarkTheme())
+            LaunchedEffect(dark) {
+                val style = if (dark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+            }
             PreferredTheme(preferenceStore) {
                 AppShell(
                     preferenceStore = preferenceStore,
@@ -55,7 +65,7 @@ class MainActivity : ComponentActivity() {
                     freeCube = freeCube,
                     showDebugToggles = DebugOptions.SHOW_DEBUG_TOGGLES,
                     flags = featureFlags,
-                    showWelcome = progressEvents.isEmpty() && attemptRecords.isEmpty(),
+                    showWelcome = true,
                 )
             }
         }
