@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -50,10 +51,12 @@ import dev.cubentia.app.R
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.LocalRenderStyle
 import dev.cubentia.app.ui.library.RecognitionDiagramView
+import dev.cubentia.app.ui.theme.Radii
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.application.session.SyncState
 import dev.cubentia.domain.content.AlgorithmId
+import dev.cubentia.domain.content.TextKey
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.lastlayer.RecognitionDiagram
@@ -151,6 +154,7 @@ internal fun LessonPanel(
     offerAlgorithms: List<AlgorithmId> = emptyList(),
     offerKey: String = "",
     onAddToLearning: suspend () -> Boolean = { true },
+    testMeBeta: Boolean = false,
 ) {
     val tokens = RubikTheme.tokens
     Column(
@@ -220,6 +224,9 @@ internal fun LessonPanel(
                     traversalIndex = 1f
                 },
             )
+            if (testMeBeta && mode == TeachingMode.TEST_ME && TeachingMode.TEST_ME in modes) {
+                TestMeBetaNote(strings.resolve(BETA_LABEL), strings.resolve(TEST_ME_BETA_NOTE), Modifier.fillMaxWidth())
+            }
         }
         if (syncState == SyncState.PHYSICAL_AWAITING_CONFIRM) {
             ConfirmCubeCard(
@@ -551,3 +558,38 @@ internal fun NotationChip(
         Text(token, style = RubikTheme.textStyles.notation, color = tokens.inkPrimary)
     }
 }
+
+/** The beta label and note under the switcher while *Test me* is chosen and its flag is BETA (AD-18, EXPERIENCE). */
+@Composable
+private fun TestMeBetaNote(
+    label: String,
+    note: String,
+    modifier: Modifier = Modifier,
+) {
+    val tokens = RubikTheme.tokens
+    Row(
+        modifier = modifier.testTag("lesson:testMe:beta"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.s1),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = tokens.inkSecondary,
+            modifier =
+                Modifier
+                    .border(1.dp, tokens.inkSecondary, RoundedCornerShape(Radii.xs))
+                    .padding(horizontal = Spacing.s1)
+                    .testTag("lesson:testMe:betaLabel"),
+        )
+        Text(
+            text = note,
+            style = MaterialTheme.typography.bodySmall,
+            color = tokens.inkSecondary,
+            modifier = Modifier.testTag("lesson:testMe:betaNote"),
+        )
+    }
+}
+
+/** The *Test me* beta note (content text, AD-6; EXPERIENCE beta tooltip copy). */
+internal val TEST_ME_BETA_NOTE = TextKey("msg.feature.test-me.beta-note")

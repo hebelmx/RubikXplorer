@@ -680,6 +680,7 @@ class LessonScreenTest {
         adaptiveLevel: FlagLevel = if (adaptiveAssistance) FlagLevel.GA else FlagLevel.OFF,
         thresholds: AdaptiveThresholds? = null,
         fontScale: Float = 1f,
+        testMe: FlagLevel = FlagLevel.GA,
     ) {
         runBlocking { catalog.load() }
         val ready = catalog.state.value as CatalogState.Ready
@@ -702,6 +703,7 @@ class LessonScreenTest {
                         onClose = { closed++ },
                         planRecovery = planRecovery,
                         adaptiveAssistance = adaptiveLevel,
+                        testMe = testMe,
                         onPracticeNewScramble = { practiceNewScrambleClicked++ },
                     )
                 }
@@ -1943,6 +1945,24 @@ class LessonScreenTest {
         node("lesson:assistance").assertDoesNotExist()
         node("lesson:hint").performScrollTo().assertTextContains("Hint (0/3)")
         assertEquals(emptyList<String>(), tagsStartingWith("moveChip:"))
+    }
+
+    @Test
+    fun `with TEST_ME at BETA, choosing Test me shows the beta label and its note`() {
+        open(cornerLesson.id.value, testMe = FlagLevel.BETA)
+        node("lesson:testMe:beta").assertDoesNotExist()
+        switchTo(TeachingMode.TEST_ME)
+        node("lesson:testMe:betaLabel").performScrollTo().assertTextEquals("BETA")
+        node("lesson:testMe:betaNote").assertTextEquals("New — tell us if it feels off.")
+        switchTo(TeachingMode.SHOW_ME)
+        node("lesson:testMe:beta").assertDoesNotExist()
+    }
+
+    @Test
+    fun `with TEST_ME at GA, Test me carries no beta note`() {
+        open(cornerLesson.id.value, testMe = FlagLevel.GA)
+        switchTo(TeachingMode.TEST_ME)
+        node("lesson:testMe:beta").assertDoesNotExist()
     }
 
     @Test

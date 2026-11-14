@@ -295,6 +295,7 @@ private fun ShellContent(
             modifier = modifier,
             adaptiveAssistance = flags.level(FeatureFlag.ADAPTIVE_ASSISTANCE),
             cameraScan = flags.level(FeatureFlag.CAMERA_SCAN),
+            testMe = flags.level(FeatureFlag.TEST_ME),
             isTwoLook = entry.stage in ready.bundle.twoLookStages,
             recognition = recognition,
             offerAlgorithms = notStarted,

@@ -37,6 +37,7 @@
   "msg.assistance.reduced": "Fewer hints now — you've got this step.",
   "msg.assistance.usual-help": "Back to my usual help",
   "msg.feature.beta": "BETA",
+  "msg.feature.test-me.beta-note": "New — tell us if it feels off.",
   "msg.assistance.guide-off-path": "You're off the path now — Undo back to it, and I'll show one turn at a time again.",
   "msg.recovery.undo": "Undo, or try another turn.",
   "msg.physical.undo": "Turn {move} on your cube to undo.",
