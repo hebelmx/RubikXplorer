@@ -1,4 +1,5 @@
 package dev.cubentia.app.data
+import androidx.room3.ColumnInfo
 import androidx.room3.Entity
 import androidx.room3.PrimaryKey
 import dev.cubentia.application.preference.AnimationSpeed
@@ -15,6 +16,7 @@ data class PreferencesEntity(
     val haptics: Boolean,
     val reduce_motion: Boolean,
     val last_teaching_mode: String,
+    @ColumnInfo(defaultValue = "0") val onboarded: Boolean = false,
 ) {
     fun preferences(): Preferences =
         Preferences(
@@ -24,6 +26,7 @@ data class PreferencesEntity(
             haptics,
             reduce_motion,
             TeachingMode.entries.firstOrNull { it.name == last_teaching_mode } ?: TeachingMode.DEFAULT,
+            onboarded,
         )
 
     companion object {
@@ -36,6 +39,7 @@ data class PreferencesEntity(
                 p.haptics,
                 p.reduceMotion,
                 p.lastTeachingMode.name,
+                p.onboarded,
             )
     }
 }

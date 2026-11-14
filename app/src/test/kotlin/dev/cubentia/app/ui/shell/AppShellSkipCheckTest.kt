@@ -3,6 +3,8 @@ package dev.cubentia.app.ui.shell
 import android.app.Application
 import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -516,5 +518,65 @@ class AppShellSkipCheckTest {
         rule.setContent { CubentiaTheme { AppShell(host, catalog, FreeCubeViewModel(), false, testFlags(), showWelcome = true) } }
         rule.onNodeWithTag("welcome").assertDoesNotExist()
         rule.onNodeWithTag("learn").assertIsDisplayed()
+    }
+
+    @Test fun imNewSurvivesAFreshProcessWithoutAnyLesson() {
+        val db =
+            androidx.room3.Room
+                .inMemoryDatabaseBuilder<dev.cubentia.app.data.RubikDatabase>(
+                    org.robolectric.RuntimeEnvironment.getApplication(),
+                ).setDriver(androidx.sqlite.driver.AndroidSQLiteDriver())
+                .build()
+        val firstWriter =
+            dev.cubentia.app.data
+                .SerialWriter()
+        val secondWriter =
+            dev.cubentia.app.data
+                .SerialWriter()
+        try {
+            val firstStore =
+                PreferenceStore(
+                    dev.cubentia.app.data
+                        .RoomPreferencesRepository(db),
+                    firstWriter,
+                )
+            val catalog = LessonCatalog.of(ContentLoader.load(ContentSource.SHIPPED))
+            var process by androidx.compose.runtime.mutableStateOf(1)
+            var store = firstStore
+            var host = createHost()
+            rule.setContent {
+                androidx.compose.runtime.key(process) {
+                    CubentiaTheme {
+                        AppShell(host, catalog, FreeCubeViewModel(), false, testFlags(), preferenceStore = store, showWelcome = true)
+                    }
+                }
+            }
+            rule.onNodeWithTag("welcome:imNew").assertIsDisplayed().performClick()
+            rule.onNodeWithTag("welcome").assertDoesNotExist()
+            kotlinx.coroutines.runBlocking { firstWriter.flush() }
+            assertTrue(savedProgress.isEmpty() && savedAttempts.isEmpty())
+
+            // A fresh process: new store and host over the same database, and no saved UI state.
+            val restarted =
+                PreferenceStore(
+                    dev.cubentia.app.data
+                        .RoomPreferencesRepository(db),
+                    secondWriter,
+                )
+            rule.runOnIdle {
+                store = restarted
+                host = createHost()
+                process++
+            }
+            rule.waitForIdle()
+            rule.onNodeWithTag("welcome").assertDoesNotExist()
+            rule.onNodeWithTag("learn").assertIsDisplayed()
+        } finally {
+            kotlinx.coroutines.runBlocking {
+                firstWriter.close()
+                secondWriter.close()
+            }
+            db.close()
+        }
     }
 }

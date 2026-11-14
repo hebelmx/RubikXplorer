@@ -65,6 +65,7 @@ import dev.cubentia.application.port.AlgorithmStatusLoad
 import dev.cubentia.application.port.FeatureFlag
 import dev.cubentia.application.port.FeatureFlags
 import dev.cubentia.application.port.FlagLevel
+import dev.cubentia.application.preference.Preference
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionKind
 import dev.cubentia.application.session.SessionState
@@ -205,6 +206,7 @@ private fun ShellContent(
                                 twoLookLocked = false
                                 stageAbandoned = null
                                 welcomeAbandoned = false
+                                preferenceStore.update(Preference.Onboarded(false))
                                 welcome = true
                             }
                         }
@@ -218,7 +220,11 @@ private fun ShellContent(
     LaunchedEffect(content, host, welcome) {
         if (welcome == null && content !is CatalogState.Loading) {
             if (content is CatalogState.Ready) host.awaitRestored()
-            welcome = host.progressEvents.value.isEmpty() && host.attemptRecords.value.isEmpty()
+            preferenceStore.awaitLoaded()
+            welcome =
+                !preferenceStore.preferences.value.onboarded &&
+                host.progressEvents.value.isEmpty() &&
+                host.attemptRecords.value.isEmpty()
         }
     }
     if (welcome == null) {
@@ -251,6 +257,8 @@ private fun ShellContent(
         val readyBundle = ready?.bundle
         WelcomeScreen(
             onImNew = {
+                // Persisted so a cold start before any Lesson progress still opens Learn, not Welcome.
+                preferenceStore.update(Preference.Onboarded(true))
                 welcome = false
                 selectedStage = readyBundle
                     ?.stages
@@ -617,7 +625,8 @@ private fun ShellContent(
                         showDebugToggles,
                         session.kind?.takesMoves == true,
                         onSolved = { state, moves -> host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it) } },
-                        modifier = destinationModifier,
+                        // Edge-to-edge: the themed surface fills the bar area while controls sit inside the safe area.
+                        modifier = destinationModifier.background(RubikTheme.tokens.surfaceBase).safeDrawingPadding(),
                     )
                 } else {
                     // The solve flow needs content copy; until it loads (or if it fails) the free cube stays usable.

@@ -22,6 +22,8 @@ data class Preferences(
     val haptics: Boolean = true,
     val reduceMotion: Boolean = false,
     val lastTeachingMode: TeachingMode = TeachingMode.DEFAULT,
+    /** Set once the Learner has chosen a path on Welcome, so a cold start without progress still opens Learn. */
+    val onboarded: Boolean = false,
 ) {
     fun with(preference: Preference): Preferences =
         when (preference) {
@@ -31,6 +33,7 @@ data class Preferences(
             is Preference.Haptics -> copy(haptics = preference.value)
             is Preference.ReduceMotion -> copy(reduceMotion = preference.value)
             is Preference.LastTeachingMode -> copy(lastTeachingMode = preference.value)
+            is Preference.Onboarded -> copy(onboarded = preference.value)
         }
 
     companion object {
@@ -61,5 +64,9 @@ sealed interface Preference {
 
     data class LastTeachingMode(
         val value: TeachingMode,
+    ) : Preference
+
+    data class Onboarded(
+        val value: Boolean,
     ) : Preference
 }

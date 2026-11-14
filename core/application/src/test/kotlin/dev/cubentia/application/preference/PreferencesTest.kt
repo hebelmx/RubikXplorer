@@ -13,7 +13,8 @@ class PreferencesTest {
                 .with(Preference.Haptics(false))
                 .with(Preference.ReduceMotion(true))
                 .with(Preference.LastTeachingMode(TeachingMode.LET_ME_TRY))
-        assertEquals(Preferences(ThemeChoice.DARK, true, AnimationSpeed.FAST, false, true, TeachingMode.LET_ME_TRY), p)
+                .with(Preference.Onboarded(true))
+        assertEquals(Preferences(ThemeChoice.DARK, true, AnimationSpeed.FAST, false, true, TeachingMode.LET_ME_TRY, true), p)
         assertEquals(Preferences(), Preferences.DEFAULT)
         assertEquals(listOf(400L, 200L, 100L), AnimationSpeed.entries.map { it.scale(200) })
     }

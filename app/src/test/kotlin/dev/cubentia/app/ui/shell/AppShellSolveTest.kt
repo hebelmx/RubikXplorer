@@ -127,10 +127,13 @@ class AppShellSolveTest {
 
     private var back: OnBackPressedDispatcher? = null
 
+    private var view: android.view.View? = null
+
     private fun show(dark: Boolean = false) {
         val catalog = LessonCatalog.of(ContentLoadResult.Loaded(bundle))
         val freeCube = FreeCubeViewModel()
         rule.setContent {
+            view = androidx.compose.ui.platform.LocalView.current
             back = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
             CubentiaTheme(darkTheme = dark) {
                 AppShell(host, catalog, freeCube, false, testFlags(), solveFlow = flow)
@@ -347,6 +350,40 @@ class AppShellSolveTest {
         click("solve:enterColors")
         val pixels = rule.onNodeWithTag("shell").captureToImage().toPixelMap()
         assertEquals(dev.cubentia.app.ui.theme.DarkTokens.surfaceBase, pixels[pixels.width - 1, pixels.height - 1])
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h1000dp")
+    fun railSolveControlsSitBelowTheStatusBar() {
+        show()
+        val top = 96
+        rule.runOnIdle {
+            val insets =
+                androidx.core.view.WindowInsetsCompat
+                    .Builder()
+                    .setInsets(
+                        androidx.core.view.WindowInsetsCompat.Type
+                            .statusBars(),
+                        androidx.core.graphics.Insets
+                            .of(0, top, 0, 0),
+                    ).build()
+            androidx.core.view.ViewCompat
+                .dispatchApplyWindowInsets(view!!, insets)
+        }
+        rule.waitForIdle()
+        rule.onNodeWithTag("nav:rail").assertExists()
+        click("nav:solve")
+        assertBelow("solve:enterColors", top)
+        click("solve:enterColors")
+        assertBelow("solve:close", top)
+    }
+
+    private fun assertBelow(
+        tag: String,
+        top: Int,
+    ) {
+        val bounds = rule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+        org.junit.Assert.assertTrue("$tag top ${bounds.top} under the $top px status bar", bounds.top >= top)
     }
 
     private fun assertPauseNoteMargin() {
