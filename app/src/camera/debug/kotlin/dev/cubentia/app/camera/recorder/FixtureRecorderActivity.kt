@@ -1,7 +1,8 @@
-package dev.cubentia.app.spikeScan
+package dev.cubentia.app.camera.recorder
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.ViewTreeObserver
 import androidx.activity.ComponentActivity
@@ -29,13 +30,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,11 +53,14 @@ import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.CaptureQuality
 import dev.cubentia.domain.recognition.ClassificationResult
+import dev.cubentia.domain.recognition.DeviceInfo
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.Lab
 import dev.cubentia.domain.recognition.NearestCenterClassifier
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.time.Instant
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.pow
@@ -66,14 +73,14 @@ private data class FrameMeasurements(
     val detail: String?,
 )
 
-/** Disposable, debug-only CameraX screen. Frames stay in memory and are never written or exported. */
-class GuidedScanActivity : ComponentActivity() {
+/** Disposable, debug-only CameraX screen. Only CIELAB measurements and operator metadata are exported; frames stay in memory. */
+class FixtureRecorderActivity : ComponentActivity() {
     private val analyzerExecutor = Executors.newSingleThreadExecutor()
     private val latestFrame = AtomicReference<FrameMeasurements?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { Surface { GuidedScanScreen(::startCamera, latestFrame) } } }
+        setContent { MaterialTheme { Surface { FixtureRecorderScreen(::startCamera, latestFrame) } } }
     }
 
     override fun onDestroy() {
@@ -112,7 +119,7 @@ class GuidedScanActivity : ComponentActivity() {
                                 .addUseCase(analysis)
                                 .build()
                         provider.unbindAll()
-                        provider.bindToLifecycle(this@GuidedScanActivity, CameraSelector.DEFAULT_BACK_CAMERA, useCases)
+                        provider.bindToLifecycle(this@FixtureRecorderActivity, CameraSelector.DEFAULT_BACK_CAMERA, useCases)
                     }
                 },
             )
@@ -201,7 +208,7 @@ class GuidedScanActivity : ComponentActivity() {
 }
 
 @Composable
-private fun GuidedScanScreen(
+private fun FixtureRecorderScreen(
     startCamera: (PreviewView) -> Unit,
     latestFrame: AtomicReference<FrameMeasurements?>,
 ) {
@@ -210,7 +217,11 @@ private fun GuidedScanScreen(
     var hasPermission by remember { mutableStateOf(initialPermission) }
     var selectedColor by remember { mutableStateOf(Color.WHITE) }
     var selectedFace by remember { mutableStateOf(Face.U) }
-    val centers = remember { mutableMapOf<Color, Lab>() }
+    val centers = remember { mutableStateMapOf<Color, Lab>() }
+    var cube by remember { mutableStateOf("") }
+    var light by remember { mutableStateOf("") }
+    var saving by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val truthLabels = remember { mutableStateListOf<Color?>(null, null, null, null, null, null, null, null, null) }
     var qualityOverride by remember { mutableStateOf<CaptureQuality?>(null) }
     var resultText by remember { mutableStateOf("Allow camera, calibrate all six centers, then capture each face.") }
@@ -220,7 +231,18 @@ private fun GuidedScanScreen(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text("Guided 6-face scan prototype", style = MaterialTheme.typography.titleLarge)
+        Text("Cubentia fixture recorder", style = MaterialTheme.typography.titleLarge)
+        // A new cube or light is a new capture context: earlier centers and truth labels never carry over.
+        OutlinedTextField(value = cube, onValueChange = {
+            cube = it
+            centers.clear()
+            truthLabels.indices.forEach { index -> truthLabels[index] = null }
+        }, label = { Text("Cube") })
+        OutlinedTextField(value = light, onValueChange = {
+            light = it
+            centers.clear()
+            truthLabels.indices.forEach { index -> truthLabels[index] = null }
+        }, label = { Text("Light description") })
         Box(Modifier.fillMaxWidth().height(280.dp), contentAlignment = Alignment.Center) {
             if (hasPermission) {
                 AndroidView(
@@ -257,54 +279,73 @@ private fun GuidedScanScreen(
                 }) { Text(face.name) }
             }
         }
-        Button(onClick = {
-            val frame = latestFrame.get()
-            if (frame == null) {
-                resultText = "Waiting for a camera frame."
-            } else {
-                val quality = qualityOverride ?: frame.quality
-                val qualityDetail = qualityOverride?.let { "$it marked; recapture this face." } ?: frame.detail
-                val sample =
-                    FaceSample(
-                        face = selectedFace,
-                        orientationDegrees = frame.orientation,
-                        stickers = frame.lab,
-                        quality = quality,
-                        qualityDetail = qualityDetail,
-                    )
-                val calibration = CalibrationCenters(centers.toMap())
-                when (val classified = NearestCenterClassifier.predict(sample, calibration)) {
-                    is ClassificationResult.Unavailable -> {
-                        resultText = classified.reason
-                    }
-
-                    is ClassificationResult.Classified -> {
-                        val measured =
-                            if (truthLabels.all { it != null }) {
-                                NearestCenterClassifier.classify(sample, calibration, truthLabels.filterNotNull())
-                            } else {
-                                null
-                            }
-                        val accuracy =
-                            when (measured) {
-                                is ClassificationResult.Classified -> {
-                                    val percent = "%.1f".format(measured.value.accuracy * 100)
-                                    "Accuracy: ${measured.value.correct}/${measured.value.total} stickers ($percent%)."
+        Button(
+            onClick = {
+                val frame = latestFrame.get()
+                if (frame == null) {
+                    resultText = "Waiting for a camera frame."
+                } else {
+                    val quality = qualityOverride ?: frame.quality
+                    val qualityDetail = qualityOverride?.let { "$it marked; recapture this face." } ?: frame.detail
+                    val sample =
+                        FaceSample(
+                            face = selectedFace,
+                            orientationDegrees = frame.orientation,
+                            stickers = frame.lab,
+                            quality = quality,
+                            qualityDetail = qualityDetail,
+                        )
+                    val calibration = CalibrationCenters(centers.toMap())
+                    val record =
+                        fixtureRecord(
+                            device =
+                                DeviceInfo(
+                                    model = Build.MODEL,
+                                    manufacturer = Build.MANUFACTURER,
+                                    osRelease = Build.VERSION.RELEASE,
+                                    osBuild = Build.DISPLAY,
+                                    sdkInt = Build.VERSION.SDK_INT,
+                                ),
+                            cube = cube,
+                            light = light,
+                            capturedAt = Instant.now(),
+                            calibration = calibration,
+                            sample = sample,
+                            truth = truthLabels.filterNotNull(),
+                        )
+                    saving = true
+                    scope.launch {
+                        try {
+                            val path =
+                                withContext(Dispatchers.IO) {
+                                    val root = checkNotNull(context.getExternalFilesDir(null)) { "External files directory unavailable" }
+                                    writeFixture(root, record).absolutePath
                                 }
+                            val classified = NearestCenterClassifier.classify(sample, calibration, record.labeledSample.truth)
+                            val prediction =
+                                when (classified) {
+                                    is ClassificationResult.Unavailable -> {
+                                        "Unavailable: ${classified.reason}"
+                                    }
 
-                                is ClassificationResult.Unavailable -> {
-                                    "Accuracy unavailable: ${measured.reason}."
+                                    is ClassificationResult.Classified -> {
+                                        "Predicted: ${classified.value.colors}\n" +
+                                            "Accuracy: ${classified.value.correct}/${classified.value.total} stickers."
+                                    }
                                 }
-
-                                null -> {
-                                    "Accuracy unavailable; label all nine truth cells first."
-                                }
-                            }
-                        resultText = Json.encodeToString(sample) + "\nPredicted: ${classified.value.colors}\n$accuracy"
+                            resultText = "Saved: $path\n$prediction"
+                        } catch (failure: Exception) {
+                            resultText = "Save failed: ${failure.message}"
+                        } finally {
+                            saving = false
+                        }
                     }
                 }
-            }
-        }) { Text("Capture face") }
+            },
+            enabled =
+                !saving && truthLabels.all { it != null } && centers.size == 6 &&
+                    cube.any { it.isLetterOrDigit() && it.code < 128 } && light.any { it.isLetterOrDigit() && it.code < 128 },
+        ) { Text("Capture face") }
         Text("Ground truth: tap each sticker label to cycle through colors.", style = MaterialTheme.typography.bodySmall)
         repeat(3) { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {

@@ -102,17 +102,3 @@ if (providers.gradleProperty("cubentia.spike3d").orNull == "true") {
         sourceSets.getByName("release").manifest.srcFile("src/spike3d/AndroidManifest.xml")
     }
 }
-
-// Story 1.9 guided camera scan prototype. Opt-in debug source and manifest only; release stays clean.
-if (providers.gradleProperty("cubentia.spikeScan").orNull == "true") {
-    android {
-        sourceSets.getByName("debug").kotlin.directories += "src/spikeScan/kotlin"
-        sourceSets.getByName("debug").manifest.srcFile("src/spikeScan/AndroidManifest.xml")
-    }
-    dependencies {
-        debugImplementation(libs.androidx.camera.camera2)
-        debugImplementation(libs.androidx.camera.lifecycle)
-        debugImplementation(libs.androidx.camera.view)
-        debugImplementation(libs.kotlinx.serialization.json)
-    }
-}

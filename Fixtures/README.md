@@ -64,3 +64,17 @@ These are source photos organized into multi-view capture groups for cube framin
 `labeled/photo-evaluation.json` is a separate, visually transcribed dataset: six monochrome S3 calibration faces and six single-face S4 scoring photos for each cube/device pair. It records exact source filenames, S4 sticker-grid rectangles and nine row-major color labels; multi-face views and duplicate S3 colors are explicitly listed as excluded. Labels are grounded in the visible image, never in folder names or state assignment. The S3 and S4 folders are treated as distinct captured lighting groups; no named light level or shared cube state is inferred. Face identity and orientation are unknown.
 
 Run `python3 -m pip install -r tools/requirements-photo-eval.txt` once, then `python3 tools/evaluate_fixture_photos.py` to regenerate `labeled/photo-evaluation-results.json`, the S4 QA overlay `labeled/photo-evaluation-overlay.jpg`, and the S3 calibration overlay `labeled/photo-calibration-overlay.jpg`. Cyan dots show the four patch locations; green/red centers show color match/mismatch. `python3 tools/evaluate_fixture_photos.py --check` checks deterministic output. The current result is **135/216 (62.5000%)** across 24 S4 photos, with 54 stickers per cube/device group. Sampling uses four small patches around each sticker-center region to avoid center logos and matches the prototype D65 CIELAB nearest-center rule. This is offline RGB JPEG evidence only: it does not test CameraX/YUV capture, cube-face identity/orientation, or solve validity. The controlled live-device ≥99% gate remains unrun.
+
+
+### Live recorder fixtures
+
+`live/<device>_<cube>_<light>/<FACE>.json` contains one self-contained record per face (U, R, F, D, L, B). Each directory part is lowercase ASCII letters/digits with other runs collapsed to hyphens and trimmed; empty parts are rejected. Records include schema version, model/manufacturer, OS release/build, SDK, ISO-8601 capture time, cube/light descriptions, six calibration centers and a labeled CIELAB FaceSample. Recapture overwrites the face; no image bytes are exported.
+
+After recording with the debug **Cubentia fixture recorder**, pull into the repository root:
+
+```sh
+adb pull /sdcard/Android/data/com.exxerpro.cubentia/files/Fixtures/live Fixtures/
+./gradlew :core:domain:evaluateLiveBaseline
+```
+
+Review the exported metadata and independently entered truth before checking in device-session records. The evaluator updates only the marked Live baseline section in `docs/spikes/oq-4-guided-scan.md`. No live fixtures or measured results exist until device session A.

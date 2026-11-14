@@ -87,6 +87,11 @@ class ReleaseConventionPlugin : Plugin<Project> {
                             android.sourceSets
                                 .getByName(buildType.name)
                                 .kotlin.directories += "src/camera/kotlin"
+                            if (buildType.isDebuggable) {
+                                android.sourceSets
+                                    .getByName(buildType.name)
+                                    .kotlin.directories += "src/camera/debug/kotlin"
+                            }
                             listOf("camera2", "lifecycle", "view").forEach { component ->
                                 dependencies.add("${buildType.name}Implementation", libs.library("androidx-camera-$component"))
                             }
@@ -96,6 +101,9 @@ class ReleaseConventionPlugin : Plugin<Project> {
                 androidComponents.onVariants { variant ->
                     if (flagLevels.isCameraEnabled(variant.buildType)) {
                         variant.sources.manifests.addStaticManifestFile("src/camera/AndroidManifest.xml")
+                        if (variant.debuggable) {
+                            variant.sources.manifests.addStaticManifestFile("src/camera/debug/AndroidManifest.xml")
+                        }
                     }
                 }
                 listOf(RELEASE, BENCHMARK).forEach { buildType ->

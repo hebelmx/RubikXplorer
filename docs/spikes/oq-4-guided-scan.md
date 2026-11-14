@@ -35,7 +35,7 @@ Run all 16 cells with nine stickers per face, six faces per cube, and explicit l
 | Rubik stickered | Galaxy S24 FE | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
 | Rubik stickered | Galaxy Tab S7 FE 5G | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
 
-No physical measurements are claimed. Before merge, run both devices with both cubes under normal indoor light and independently verify each face's truth. GA requires at least 99% correct stickers across the measured normal-indoor set; otherwise remain BETA with Manual Cube Editor primary. Do not infer labels from folder or filename conventions.
+No physical measurements are claimed. Device session A will run the Lenovo Tab M10 Plus 3rd Gen and Galaxy S24 FE with both cubes under normal indoor light and independently verify each face's truth; it is deferred from this code-only implementation. GA requires at least 99% correct stickers across the measured normal-indoor set; otherwise remain BETA with Manual Cube Editor primary. Do not infer labels from folder or filename conventions.
 
 ## OQ-7 initial Quick Scan method recommendation
 
@@ -55,6 +55,25 @@ Accuracy is `correct predicted stickers / explicitly labeled stickers`. Report u
 
 ## Prototype and size cost
 
-The disposable screen is compiled only with `-Pcubentia.spikeScan=true`; CameraX dependencies and CAMERA permission are attached only to the debug variant. Frames are analyzed in memory and are not persisted or exported. The screen supports explicit per-sticker truth entry and reports sticker accuracy only after all nine labels are provided. It automatically flags very low light and multiple near-white samples; the operator must mark blur, misalignment, or an incomplete grid with the quality controls, which reject the face and request recapture. These are prototype aids, not validated automated blur or alignment detection. The default release variant does not include the spike source or camera permission.
+The fixture recorder is composed automatically into camera-enabled debuggable build types from `app/src/camera/debug`. Release and benchmark never include the recorder, even when a camera flag is raised. CameraX dependencies and CAMERA permission follow the camera feature flags. Frames stay in memory; only CIELAB samples, operator truth, calibration and device/cube/light metadata are saved. Low-light and glare checks and manual quality controls remain prototype aids, not validated blur or alignment detection.
+
+The size figures below are historical Story 1.9 measurements from the former opt-in prototype, not measurements of the current recorder.
 
 CameraX stable version selected from Android's release notes is 1.6.2. On this checkout, the default debug APK is 41,616,989 bytes; the opt-in spike debug APK is 57,656,639 bytes, a **16,039,650-byte increase**. Both builds used the same local JDK/SDK configuration. The unsigned release APK is 2,516,083 bytes in both builds; the spike has no release APK size cost. These are local build artifacts, not Play-delivered download sizes.
+
+
+## Live baseline
+
+<!-- live-baseline:start -->
+Pending device session A
+<!-- live-baseline:end -->
+
+Install the debug APK and launch **Cubentia fixture recorder**. In device session A use the Lenovo Tab M10 Plus 3rd Gen and Galaxy S24 FE, both cubes, normal indoor light, six faces each. Enter the cube and light description, calibrate all six centers, select a face, then independently label all nine truth cells before capture. Truth is never filled from predictions. Capture is disabled until these inputs exist. Each capture saves a self-contained JSON record, then displays its path and prediction/accuracy (or unavailable reason). Recapturing the same face overwrites its file. No image or frame bytes are saved.
+
+Pull the records as described in `Fixtures/README.md`, then run:
+
+```sh
+./gradlew :core:domain:evaluateLiveBaseline
+```
+
+The non-shipping evaluator uses the unchanged prototype nearest-center classifier. It reports per-group, per-device and total sticker/face accuracy, unavailable captures, missing classified faces and confidently wrong stickers. Every misread classified sticker counts as confidently wrong because the prototype has no uncertainty output. The ≥99% gate is MET or MISSED only when every group has six classified faces; otherwise INCOMPLETE has no verdict. With no fixtures the command fails naming `Fixtures/live` and leaves this document untouched. Physical numbers and the PO's subsequent decision remain deferred.

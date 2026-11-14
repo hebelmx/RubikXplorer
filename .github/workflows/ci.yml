@@ -96,4 +96,3 @@ jobs:
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v6
       - run: ./gradlew -Pcubentia.spike3d=true :app:testDebugUnitTest --tests 'dev.cubentia.app.spike3d.*'
-      - run: ./gradlew -Pcubentia.spikeScan=true :app:compileDebugKotlin
