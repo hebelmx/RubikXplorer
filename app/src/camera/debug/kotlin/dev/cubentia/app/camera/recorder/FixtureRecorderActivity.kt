@@ -43,6 +43,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -243,15 +244,17 @@ private fun FixtureRecorderScreen(
             centers.clear()
             truthLabels.indices.forEach { index -> truthLabels[index] = null }
         }, label = { Text("Light description") })
-        Box(Modifier.fillMaxWidth().height(280.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxWidth().height(280.dp).clipToBounds(), contentAlignment = Alignment.Center) {
             if (hasPermission) {
                 AndroidView(
                     factory = { view ->
                         PreviewView(view)
-                            .apply { implementationMode = PreviewView.ImplementationMode.COMPATIBLE }
+                            .apply {
+                                implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                            }
                             .also(startCamera)
                     },
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().clipToBounds(),
                 )
                 FixedGrid(Modifier.fillMaxSize())
             } else {
