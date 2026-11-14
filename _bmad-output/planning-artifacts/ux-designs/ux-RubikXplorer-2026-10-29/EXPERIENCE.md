@@ -2,7 +2,7 @@
 name: RubikXplorer
 status: final
 created: 2026-10-29
-updated: 2026-11-08
+updated: 2026-11-14
 sources:
   - ../../prds/prd-RubikXplorer-2026-10-29/prd.md
   - ../../prds/prd-RubikXplorer-2026-10-29/addendum.md
@@ -31,16 +31,16 @@ sources:
 | **Lesson** | Continue, Stage detail | Split cube + lesson panel: Teaching Modes, Demonstration, hints, recovery. | FR-1–FR-13 |
 | Physical-cube Mode | Lesson toggle | The same Lesson with the Expected State, *Done*, *Report a mismatch* and Quick Check. | FR-7–FR-9, FR-26 |
 | Independent practice | Stage detail, end of Course | A fresh Scramble, assistance reduced. | FR-20 |
-| **Solve** (tab) | Bottom nav | *Scan my cube* and *Enter colors*. If `CAMERA_SCAN` is BETA (the spike-failure fallback), *Enter colors* becomes the primary action. **v1.0:** *Enter colors* is the only action, and *Scan my cube* arrives in v1.1. Solves are not resumed after the app closes (AD-10). | FR-14, FR-25 |
+| **Solve** (tab) | Bottom nav | *Scan my cube* and *Enter colors*. If `CAMERA_SCAN` is BETA (the spike-failure fallback), *Enter colors* becomes the primary action. **Any release with `CAMERA_SCAN` OFF:** *Enter colors* is the only action, and *Scan my cube* arrives in v1.1, flag-gated. Solves are not resumed after the app closes (AD-10). | FR-14, FR-25 |
 | Manual Cube Editor | Solve, scan fallback, mode switch | Paint the 54 stickers; validation feedback. | FR-14 |
-| Scan (sub-flow) *(v1.1: hidden while the flag is OFF, UX-DR19)* | Solve, Physical mode, Welcome, Recognize | Guided 6-face Scan, or Quick Scan, then sticker review and correction. Returns a result to its caller. | FR-21–FR-23 |
+| Scan (sub-flow) *(v1.1, flag-gated: hidden while the flag is OFF, UX-DR19)* | Solve, Physical mode, Welcome, Recognize | Guided 6-face Scan, or Quick Scan, then sticker review and correction. Returns a result to its caller. | FR-21–FR-23 |
 | Solution Playback | After a valid scan or entry | Step through the Solution, with optional physical confirmation. | FR-15, FR-16 |
 | **Library** (tab) | Bottom nav | 78 Algorithms grouped by OLL and PLL family, with filters by family and Algorithm Status. | FR-18 |
 | Algorithm detail | Library tile, 2-look Lesson, Recognize | Demonstration, recognition diagram, Notation, Algorithm Status. | FR-18 |
-| Recognize case *(v1.1: hidden while the flag is OFF, UX-DR19)* | Library top bar | Scan the top layer and get the Case, or candidates. | FR-28 |
+| Recognize case *(v1.1, flag-gated: hidden while the flag is OFF, UX-DR19)* | Library top bar | Scan the top layer and get the Case, or candidates. | FR-28 |
 | **You** (tab) | Bottom nav | Progress: Stage states, a trend row per Stage (hints and errors per attempt), and Algorithm Status counts shown as plain counts, not achievements. Also holds Settings. | FR-19, FR-20 |
 | Settings | You | Theme, color-blind glyphs, animation speed, haptics, reduce motion, the separate resets, about/licences. | FR-19, NFR-7 |
-| Color Calibration *(v1.1: hidden while the flag is OFF, UX-DR19)* | Settings, scan prompt ("Colors look off — calibrate?"), first scan of a stickerless cube | Show each of the six centers in turn and confirm the swatch, then save. A separate reset is available. | FR-24 |
+| Color Calibration *(v1.1, flag-gated: hidden while the flag is OFF, UX-DR19)* | Settings, scan prompt ("Colors look off — calibrate?"), first scan of a stickerless cube | Show each of the six centers in turn and confirm the swatch, then save. A separate reset is available. | FR-24 |
 
 - **Navigation:** a bottom navigation bar with four tabs: Learn, Solve, Library, You. Medium and expanded widths switch to a navigation rail.
 - **Full-screen task flows:** Lesson, Scan and Playback hide the bottom bar and use a top app bar with back.
@@ -130,9 +130,10 @@ These are behavioral rules. Visual specs are in DESIGN.md Components.
 | Solver preparing (first solve after the app starts) | Solve | "Preparing the solver. The first solve after the app starts takes longer. Later solves are faster." (SCP 2026-11-12, PO-approved 2026-11-12; replaces "Preparing the solver. This can take a few seconds the first time after the app starts.") Shown on the first solve in each app process, while the solver loads its tables. Later solves in the same process skip it. Lessons are unaffected. |
 | Solver tables generated (first use) | Solve | "Setting up the solver for first use. This can take a little while." Shown instead of the line above, only when no valid shipped or saved tables exist and they must be generated and saved. Lessons are unaffected. |
 | Invalid entered state | Editor, Scan review | The offending pieces are outlined in red (status-invalid), with a plain explanation. Accept stays disabled. Errors that don't belong to one piece get their own lines: "One corner is twisted — check the corners you changed last.", "One edge is flipped.", "Two pieces are swapped — this can't happen on a real cube." |
+| Camera permission: before the first request | Scan entry points, the first time the Learner opens a scan | A rationale card before the system dialog: "Cubentia uses the camera to read your cube's colors. Pictures stay on this phone. They are never saved or sent." (PO-approved 2026-11-14, SCP 2026-11-14 Q10; UX review below, OQ-UX-1). Two actions: *Continue* shows the system permission dialog; *Enter colors instead* opens the Manual Cube Editor without asking. The copy is a content string; Story 10.2 chooses its key. Shown only when `CAMERA_SCAN` ≠ OFF. TalkBack reads the rationale, then *Continue*, then *Enter colors instead*. |
 | Camera permission denied | Scan entry points | From *Solve*, the Manual Cube Editor opens directly (FR-25), with a one-line note. Elsewhere: an explanation card and *Enter colors instead*, plus a Settings deep-link if the permission is permanently denied. |
 | Feature flag OFF | Any | The entry point is hidden entirely, with no dead buttons. |
-| Feature flag BETA | Quick Scan, Recognize, Placement, and every camera feature when `CAMERA_SCAN` is BETA | A BETA label. The manual route is always one tap away. Tooltip copy depends on the feature: for camera features "May misread colors in poor light. Manual entry always works."; for *Test me* "New — tell us if it feels off." |
+| Feature flag BETA | Quick Scan, Recognize, Placement, and every camera feature when `CAMERA_SCAN` is BETA | A BETA label. The manual route is always one tap away. Tooltip copy depends on the feature: for camera features "May misread colors in poor light. Manual entry always works."; for *Test me* "New — tell us if it feels off." Every feature uses one shared label component, as shipped for *Test me* (#141): the label sits inside the feature's own control, so tapping it selects the feature and shows the feature's note in a polite live region, and TalkBack reads "<feature>, BETA". |
 | Cross-links to OFF features | Any | Links to a flagged-OFF feature are removed. For example, *Start from my cube* disappears from Recognize and Welcome when `PLACEMENT` is OFF. |
 | Back to virtual | Physical mode → virtual | "The on-screen cube now matches what we expected on yours." Redo clears, and Undo stops here. |
 | Recognize: not at LL | Recognize | "The first two layers aren't solved yet." Offers *Start from my cube*. |
@@ -218,7 +219,7 @@ The flows mirror the PRD's user journeys UJ-1 to UJ-6.
 7. Sessions later, Stage 6 ends. "Your cube should be solved now. Check it with the camera, or tell me if it is." She runs a Quick Check, and it comes back ✓ *Verified*.
 8. **Climax:** the milestone moment. "Solved. That's your first solve — on your own cube." Then *Practice on a new scramble* is offered.
 
-**v1.0 (camera-free):** steps 4–7 offer no Quick Check. At step 5 the tutor starts at rung 2 of the mismatch ladder, and at step 7 she taps *Yes, it's solved*. This is the failure path below, and it is the main path until v1.1.
+**While `CAMERA_SCAN` is OFF:** steps 4–7 offer no Quick Check. At step 5 the tutor starts at rung 2 of the mismatch ladder, and at step 7 she taps *Yes, it's solved*. This is the failure path below, and it is the main path while the flag is OFF.
 
 **Failure path:** she has no camera permission at step 5. The tutor works down the mismatch ladder instead: "Which turn did you make?" with the Move keys, then a one-face question. Certainty stays *Unknown* until she answers. At step 7, she taps *Yes, it's solved* instead of scanning.
 
@@ -232,7 +233,7 @@ The flows mirror the PRD's user journeys UJ-1 to UJ-6.
 
 ### Flow 3 — Lucía just wants it solved (UJ-3)
 
-*v1.0: Solve → *Enter colors* replaces steps 1–2 (Manual Cube Editor); Quick Scan and the Quick Check in playback arrive in v1.1.*
+*While `CAMERA_SCAN` is OFF: Solve → *Enter colors* replaces steps 1–2 (Manual Cube Editor); Quick Scan and the Quick Check in playback arrive in v1.1, flag-gated.*
 
 1. Solve tab → **Scan my cube** → Quick Scan (BETA) → two corner photos.
 2. The review net opens with 2 uncertain stickers pre-selected. She fixes them, and Accept enables.
@@ -241,14 +242,14 @@ The flows mirror the PRD's user journeys UJ-1 to UJ-6.
 
 **Failure path:** glare spoils the bottom face. The app asks for a Guided Scan of that face only, with *Enter colors instead* always visible.
 
-### Flow 4 — Marco starts from his own cube (UJ-4) *(v1.1)*
+### Flow 4 — Marco starts from his own cube (UJ-4) *(v1.1, flag-gated)*
 
 1. Welcome → **Start from my cube** → Guided 6-face Scan → review → Accept.
 2. Placement: "Your cross is done and 2 of 4 corners are in. Start at *First-layer corners*?" He can also tap *Choose another Stage*, but he accepts. Stages 1–2 show ◇ *Skipped by placement*.
 3. In Physical mode he makes a mistake. A Quick Check gives ✓ *Verified*: "You turned R instead of R'." The fix is shown.
 4. **Climax:** the layer is complete, Stage 3 is marked *Completed*, and Stages 1–2 remain open to visit.
 
-### Flow 5 — Diego asks which OLL this is (UJ-5) *(v1.1)*
+### Flow 5 — Diego asks which OLL this is (UJ-5) *(v1.1, flag-gated)*
 
 1. Library → **Recognize case** (BETA) → one top-corner photo.
 2. **Climax:** "OLL 45 · T-shape". The Algorithm detail opens with its Demonstration playing.
@@ -263,7 +264,7 @@ The flows mirror the PRD's user journeys UJ-1 to UJ-6.
 1. She installs the app and opens it, offline and with no sign-up. Welcome → *I'm new*.
 2. She turns the cube with gestures, then rotates the view.
 3. Library → an OLL tile → she scrubs the Demonstration back and forth.
-4. Solve → *Scan my cube*, and she accepts the camera permission. *(v1.1; in v1.0 she opens* Enter colors *and solves.)*
+4. Solve → *Scan my cube*, and she accepts the camera permission. *(v1.1, flag-gated; while `CAMERA_SCAN` is OFF she opens* Enter colors *and solves.)*
 5. **Climax:** smooth 60 FPS turns, an honest scan review, and a clean, consistent visual system in both themes. Nothing crashes and nothing asks for an account.
 
 ### Flow 7 — Ana practices to mastery (FR-20)
@@ -283,7 +284,7 @@ The flows mirror the PRD's user journeys UJ-1 to UJ-6.
 
 ### Flow 9 — Calibration and resets (FR-19, FR-24)
 
-*Steps 1–3 (calibration) are v1.1. Step 4 (resets) ships in v1.0, without a calibration reset.*
+*Steps 1–3 (calibration) are v1.1, flag-gated. Step 4 (resets) ships while `CAMERA_SCAN` is OFF, without a calibration reset.*
 
 1. On Lucía's stickerless cube the scan flags many uncertain stickers, and the scan offers "Colors look off — calibrate?"
 2. Calibration shows each of the six centers in turn: "Show the white center." She confirms each swatch, then taps *Save*.
@@ -327,3 +328,7 @@ These mockups show composition only. Where a mockup and this spine disagree, the
 | `mockups/key-library.html` | Library (dark) and Algorithm detail with the playback transport |
 
 The mockups predate the finalize edits, so they don't show a few of them: the cube-stage toolbar (Undo / Redo / Reset), the Assistance line and the SEEN strip. The tablet mockup also shows the virtual Objective-met state; the physical variant uses the "If your cube matches…" wording. [NOTE FOR UX: re-render them if a visual reference is needed for these.]
+
+## Open Questions
+
+- **OQ-UX-1 (owner: PO hebelmx; revisit before Story 10.2 sets the content key).** UX review of the approved camera-rationale copy (SCP 2026-11-14 Q10). The approved text stays in State Patterns until the PO decides. Suggested alternative: "Cubentia uses the camera to read your cube's colors. It reads them on this device. Nothing is saved or sent." Reasons: (1) the minimum and compatibility reference devices are tablets, so "this phone" is inaccurate for part of the audience; (2) "Pictures stay on this phone" followed by "never saved" reads as a contradiction and suggests photos are taken, while frames are only processed in memory (PRD §4.8 Privacy); (3) the alternative keeps the Voice and Tone rules (short declarative sentences, calm, no exclamation) and the same three claims. Accessibility is fine either way: plain language, under 25 words, read in one TalkBack pass.
