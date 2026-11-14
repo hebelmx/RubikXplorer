@@ -57,3 +57,7 @@ internal fun Project.applyAdvisoryDetekt() {
         )
     }
 }
+
+internal fun Project.featureFlagLevels(): FeatureFlagLevelsExtension =
+    extensions.findByType(FeatureFlagLevelsExtension::class.java)
+        ?: extensions.create("cubentiaFeatureFlags", FeatureFlagLevelsExtension::class.java)

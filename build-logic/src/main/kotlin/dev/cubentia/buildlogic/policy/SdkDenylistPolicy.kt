@@ -8,6 +8,8 @@ object SdkDenylistPolicy {
     val patterns: List<String> =
         listOf(
             "com.google.firebase:*",
+            "com.google.mlkit:*",
+            "com.google.android.gms:play-services-mlkit*",
             "com.google.android.gms:play-services-ads*",
             "com.google.android.gms:play-services-analytics*",
             "com.google.android.gms:play-services-measurement*",

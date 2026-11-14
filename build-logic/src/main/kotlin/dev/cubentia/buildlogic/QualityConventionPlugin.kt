@@ -2,6 +2,7 @@ package dev.cubentia.buildlogic
 
 import com.android.build.api.artifact.SingleArtifact
 import com.android.build.api.variant.ApplicationAndroidComponentsExtension
+import dev.cubentia.buildlogic.tasks.CheckCameraClasspathTask
 import dev.cubentia.buildlogic.tasks.CheckMergedManifestTask
 import dev.cubentia.buildlogic.tasks.CheckPrivacyFactsTask
 import dev.cubentia.buildlogic.tasks.CheckSdkDenylistTask
@@ -20,6 +21,7 @@ class QualityConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) =
         with(target) {
             pluginManager.withPlugin("com.android.application") {
+                val flagLevels = featureFlagLevels()
                 val androidComponents = extensions.getByType<ApplicationAndroidComponentsExtension>()
                 androidComponents.onVariants { variant ->
                     val suffix = variant.name.replaceFirstChar { it.uppercase() }
@@ -29,8 +31,20 @@ class QualityConventionPlugin : Plugin<Project> {
                             description = "Fails when the ${variant.name} merged manifest breaks AD-13."
                             variantName.set(variant.name)
                             debuggable.set(variant.debuggable)
+                            cameraEnabled.set(flagLevels.isCameraEnabled(variant.buildType))
                             mergedManifest.set(variant.artifacts.get(SingleArtifact.MERGED_MANIFEST))
                             report.set(layout.buildDirectory.file("reports/cubentia/${variant.name}/manifest.txt"))
+                        }
+                    val cameraCheck =
+                        tasks.register<CheckCameraClasspathTask>("check${suffix}CameraClasspath") {
+                            group = LifecycleBasePlugin.VERIFICATION_GROUP
+                            variantName.set(variant.name)
+                            cameraEnabled.set(flagLevels.isCameraEnabled(variant.buildType))
+                            runtimeCoordinates.set(
+                                variant.runtimeConfiguration.incoming.resolutionResult.rootComponent
+                                    .map(CheckSdkDenylistTask::coordinates),
+                            )
+                            report.set(layout.buildDirectory.file("reports/cubentia/${variant.name}/camera-classpath.txt"))
                         }
                     val denylistCheck =
                         tasks.register<CheckSdkDenylistTask>("check${suffix}SdkDenylist") {
@@ -73,7 +87,7 @@ class QualityConventionPlugin : Plugin<Project> {
                         tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) { dependsOn(checker) }
                     }
                     tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) {
-                        dependsOn(manifestCheck, denylistCheck)
+                        dependsOn(manifestCheck, denylistCheck, cameraCheck)
                     }
                 }
             }

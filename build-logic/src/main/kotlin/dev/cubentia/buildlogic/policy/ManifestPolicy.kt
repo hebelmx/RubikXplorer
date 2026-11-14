@@ -8,10 +8,11 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 /**
  * AD-13 rules for a merged `AndroidManifest.xml`: offline (no `INTERNET`), no backup, and only the
- * runtime (dangerous) permissions the variant allows — none for a non-debuggable variant such as
- * `release` or `benchmark` (v1.0 is camera-free); a debuggable variant may declare `CAMERA` (the
- * debug-only `spikeScan` source set). The rule keys on `variant.debuggable`, never on a build-type
- * name, so no build type can opt out by what it is called.
+ * runtime (dangerous) permissions the variant allows. A debuggable variant may declare `CAMERA`; a
+ * non-debuggable one (`release`, `benchmark`) may declare `CAMERA` and nothing else only when its
+ * build type has a camera flag above OFF (Story 10.9), and none otherwise. A camera `uses-feature`
+ * is a violation wherever `CAMERA` is not allowed. The rule keys on `variant.debuggable`, never on
+ * a build-type name, so no build type can opt out by what it is called.
  */
 object ManifestPolicy {
     private const val ANDROID_NS = "http://schemas.android.com/apk/res/android"
@@ -20,8 +21,11 @@ object ManifestPolicy {
 
     const val CAMERA = "android.permission.CAMERA"
 
-    /** Runtime permissions a variant may declare: `CAMERA` when [debuggable], none otherwise. */
-    fun allowedRuntimePermissions(debuggable: Boolean): Set<String> = if (debuggable) setOf(CAMERA) else emptySet()
+    /** Runtime permissions a variant may declare: `CAMERA` when [debuggable] or [cameraEnabled], none otherwise. */
+    fun allowedRuntimePermissions(
+        debuggable: Boolean,
+        cameraEnabled: Boolean = false,
+    ): Set<String> = if (debuggable || cameraEnabled) setOf(CAMERA) else emptySet()
 
     /**
      * Android permissions with `protectionLevel="dangerous"` (runtime permissions).
@@ -123,6 +127,14 @@ object ManifestPolicy {
             }
         }
 
+        if (CAMERA !in allowedRuntimePermissions) {
+            root.childElements("uses-feature").forEach { feature ->
+                val name = feature.getAttributeNS(ANDROID_NS, "name")
+                if (name.startsWith("android.hardware.camera")) {
+                    violations += "Manifest declares camera uses-feature $name while CAMERA is not allowed (AD-13)."
+                }
+            }
+        }
         val application = root.childElements("application").firstOrNull()
         val allowBackup = application?.getAttributeNS(ANDROID_NS, "allowBackup").orEmpty()
         when {

@@ -45,6 +45,7 @@ jobs:
                       :core:solver:checkModuleBoundaries :core:solver:koverVerify :core:solver:checkLearnerText \
                       :core:application:checkModuleBoundaries :core:application:koverVerify \
                       :core:application:checkLearnerText \
+                      :app:checkDebugCameraClasspath :app:checkReleaseCameraClasspath :app:checkBenchmarkCameraClasspath \
                       :app:checkDebugMergedManifest :app:checkReleaseMergedManifest \
                       :app:checkDebugSdkDenylist :app:checkReleaseSdkDenylist :app:checkPrivacyFacts :app:lintDebug \
                       :macrobenchmark:checkModuleBoundaries :macrobenchmark:assembleBenchmark \

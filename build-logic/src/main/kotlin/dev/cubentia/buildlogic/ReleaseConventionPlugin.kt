@@ -16,7 +16,9 @@ import org.gradle.kotlin.dsl.register
 
 /**
  * Build-type policy: AD-18 flag levels as one `FEATURE_FLAG_LEVELS` BuildConfig field per build
- * type (from [FeatureFlagLevels.byBuildType]), and R8 + resource shrinking for release with keep
+ * type (from [FeatureFlagLevels.byBuildType], via the [FeatureFlagLevelsExtension] TestKit seam),
+ * camera composition (Story 10.9: a build type with a camera flag above OFF, and only such a build
+ * type, gets the `src/camera` Kotlin + manifest and the CameraX dependencies), and R8 + resource shrinking for release with keep
  * rules owned by build-logic.
  *
  * Also creates the `benchmark` build type that `:macrobenchmark` measures (NFR-2): a copy of
@@ -27,6 +29,8 @@ class ReleaseConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) =
         with(target) {
             pluginManager.withPlugin("com.android.application") {
+                val flagLevels = featureFlagLevels()
+                flagLevels.composesCamera = true
                 val signing =
                     ReleaseInputs.signing(
                         ReleaseInputs.signingKeys
@@ -47,9 +51,6 @@ class ReleaseConventionPlugin : Plugin<Project> {
                                 keyPassword = inputs.getValue("cubentia.signing.keyPassword")
                             }
                         }
-                    buildTypes.configureEach {
-                        buildConfigField("String", FLAG_FIELD, "\"${FeatureFlagLevels.forBuildType(name)}\"")
-                    }
                     val release =
                         buildTypes.getByName(RELEASE).apply {
                             signingConfig = uploadSigning
@@ -72,6 +73,31 @@ class ReleaseConventionPlugin : Plugin<Project> {
                         outputFile.set(layout.buildDirectory.file("generated/cubentia/keep-rules.pro"))
                     }
                 val androidComponents = extensions.getByType<ApplicationAndroidComponentsExtension>()
+                androidComponents.finalizeDsl { android ->
+                    android.buildTypes.forEach { buildType ->
+                        val levels =
+                            requireNotNull(flagLevels.byBuildType[buildType.name]) {
+                                "Build type '${buildType.name}' has no feature-flag levels; " +
+                                    "add it to FeatureFlagLevels.byBuildType."
+                            }
+                        val violations = FeatureFlagLevels.cameraViolations(buildType.name, levels)
+                        require(violations.isEmpty()) { violations.joinToString("\n") }
+                        buildType.buildConfigField("String", FLAG_FIELD, "\"${FeatureFlagLevels.encode(levels)}\"")
+                        if (FeatureFlagLevels.isCameraEnabled(levels)) {
+                            android.sourceSets
+                                .getByName(buildType.name)
+                                .kotlin.directories += "src/camera/kotlin"
+                            listOf("camera2", "lifecycle", "view").forEach { component ->
+                                dependencies.add("${buildType.name}Implementation", libs.library("androidx-camera-$component"))
+                            }
+                        }
+                    }
+                }
+                androidComponents.onVariants { variant ->
+                    if (flagLevels.isCameraEnabled(variant.buildType)) {
+                        variant.sources.manifests.addStaticManifestFile("src/camera/AndroidManifest.xml")
+                    }
+                }
                 listOf(RELEASE, BENCHMARK).forEach { buildType ->
                     androidComponents.onVariants(androidComponents.selector().withBuildType(buildType)) { variant ->
                         variant.proguardFiles.add(keepRules.flatMap { it.outputFile })
