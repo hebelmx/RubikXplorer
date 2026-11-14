@@ -26,6 +26,9 @@ abstract class CheckMergedManifestTask : DefaultTask() {
     @get:Input
     abstract val debuggable: Property<Boolean>
 
+    @get:Input
+    abstract val cameraEnabled: Property<Boolean>
+
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val mergedManifest: RegularFileProperty
@@ -38,7 +41,7 @@ abstract class CheckMergedManifestTask : DefaultTask() {
         val violations =
             ManifestPolicy.check(
                 mergedManifest.get().asFile.readText(),
-                ManifestPolicy.allowedRuntimePermissions(debuggable.get()),
+                ManifestPolicy.allowedRuntimePermissions(debuggable.get(), cameraEnabled.get()),
             )
         report.get().asFile.writeText(violations.joinToString("\n"))
         if (violations.isNotEmpty()) {

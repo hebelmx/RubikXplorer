@@ -11,6 +11,19 @@ object FeatureFlagLevels {
     val flags: List<String> =
         listOf("QUICK_SCAN", "PLACEMENT", "CASE_RECOGNITION", "TEST_ME", "CAMERA_SCAN", "ADAPTIVE_ASSISTANCE")
 
+    val cameraFlags = setOf("CAMERA_SCAN", "QUICK_SCAN", "PLACEMENT", "CASE_RECOGNITION")
+    val cameraDependentFlags = cameraFlags - "CAMERA_SCAN"
+
+    fun isCameraEnabled(levels: Map<String, String>): Boolean = cameraFlags.any { levels[it] in setOf("BETA", "GA") }
+
+    fun cameraViolations(
+        buildType: String,
+        levels: Map<String, String>,
+    ): List<String> =
+        cameraDependentFlags
+            .filter { levels[it] in setOf("BETA", "GA") && levels["CAMERA_SCAN"] !in setOf("BETA", "GA") }
+            .map { "$buildType: $it requires CAMERA_SCAN above OFF" }
+
     val levels: Set<String> = setOf("OFF", "BETA", "GA")
 
     /** Story 7.8 pilot: the shipped teaching features ship in release; every camera flag stays OFF (v1.1). */
