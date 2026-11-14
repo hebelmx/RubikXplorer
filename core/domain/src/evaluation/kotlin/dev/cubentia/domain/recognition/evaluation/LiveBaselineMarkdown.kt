@@ -12,8 +12,13 @@ object LiveBaselineMarkdown {
             appendLine()
             appendLine(
                 "Coverage: ${baseline.groups.size} groups, ${baseline.devices.size} devices, ${baseline.cubes} cubes. " +
-                    "The Story 1.9 live gate needs both gating devices × both cubes under normal indoor light; check the rows below before relying on the verdict.",
+                    "The Story 10.10 live gate needs at least 2 devices × 2 cubes with six classified faces each; an incomplete matrix yields INCOMPLETE.",
             )
+            if (baseline.missingMatrix.isNotEmpty()) {
+                appendLine()
+                appendLine("Missing from the required device × cube matrix:")
+                baseline.missingMatrix.forEach { appendLine("- $it") }
+            }
             appendLine()
             appendLine(
                 "The prototype has no uncertainty output; every misread sticker of a classified face counts as confidently wrong. Unavailable captures are excluded from accuracy. INCOMPLETE has no gate verdict.",

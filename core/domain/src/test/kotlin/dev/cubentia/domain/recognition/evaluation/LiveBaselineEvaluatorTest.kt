@@ -25,52 +25,95 @@ class LiveBaselineEvaluatorTest {
     @TempDir lateinit var temporary: File
     private val centers = CalibrationCenters(Color.entries.associateWith { Lab(50.0, it.ordinal * 20.0, 0.0) })
 
-    private fun record(face: Face) =
-        LiveFixtureRecord(
-            device = DeviceInfo("model", "maker", "17", "build", 37),
-            cube = "cube",
-            light = "indoor",
-            capturedAt = "2026-11-14T00:00:00Z",
-            calibration = centers,
-            labeledSample =
-                LabeledFaceSample(
-                    FaceSample(
-                        face = face,
-                        orientationDegrees = 0,
-                        stickers =
-                            List(9) {
-                                centers.centers.getValue(Color.WHITE)
-                            },
-                        quality = CaptureQuality.ACCEPTABLE,
-                    ),
-                    List(9) { Color.WHITE },
+    private fun record(
+        face: Face,
+        model: String = "model",
+        cube: String = "cube",
+    ) = LiveFixtureRecord(
+        device = DeviceInfo(model, "maker", "17", "build", 37),
+        cube = cube,
+        light = "indoor",
+        capturedAt = "2026-11-14T00:00:00Z",
+        calibration = centers,
+        labeledSample =
+            LabeledFaceSample(
+                FaceSample(
+                    face = face,
+                    orientationDegrees = 0,
+                    stickers =
+                        List(9) {
+                            centers.centers.getValue(Color.WHITE)
+                        },
+                    quality = CaptureQuality.ACCEPTABLE,
                 ),
-        )
+                List(9) { Color.WHITE },
+            ),
+    )
 
-    private fun complete() = Face.entries.map(::record)
+    private fun complete(
+        model: String = "model",
+        cube: String = "cube",
+    ) = Face.entries.map { record(it, model, cube) }
 
     private fun evaluate(records: List<LiveFixtureRecord>) = LiveBaselineEvaluator.evaluate(listOf(FixtureGroup("group", records)))
 
-    @Test fun `complete accurate group meets gate`() {
-        val result = evaluate(complete())
+    /** Story 10.10 AC2 gating matrix: two devices × two cubes, six faces each. */
+    private fun matrix(
+        models: List<String> = listOf("model", "other"),
+        cubes: List<String> = listOf("cube", "stickerless"),
+    ) = models.flatMap { model -> cubes.map { cube -> FixtureGroup("${model}_$cube", complete(model, cube)) } }
+
+    private fun misread(record: LiveFixtureRecord) =
+        record.copy(labeledSample = record.labeledSample.copy(truth = List(2) { Color.RED } + List(7) { Color.WHITE }))
+
+    private fun misreadMatrix() = matrix().map { group -> group.copy(records = listOf(misread(group.records[0])) + group.records.drop(1)) }
+
+    @Test fun `complete accurate matrix meets gate`() {
+        val result = LiveBaselineEvaluator.evaluate(matrix())
         assertEquals(BaselineGate.MET, result.gate)
-        assertEquals(54, result.total.correct)
-        assertEquals(54, result.total.stickers)
-        assertEquals(6, result.total.correctFaces)
+        assertEquals(216, result.total.correct)
+        assertEquals(216, result.total.stickers)
+        assertEquals(24, result.total.correctFaces)
         assertEquals(0, result.total.confidentlyWrong)
-        assertEquals(result.total.correct, result.devices.single().correct)
+        assertEquals(result.total.correct, result.devices.sumOf { it.correct })
+        assertEquals(2, result.devices.size)
+        assertEquals(2, result.cubes)
+        assertTrue(result.missingMatrix.isEmpty())
     }
 
-    @Test fun `two misreads miss gate and count confidently wrong`() {
-        val records = complete().toMutableList()
-        val first = records[0]
-        records[0] = first.copy(labeledSample = first.labeledSample.copy(truth = List(2) { Color.RED } + List(7) { Color.WHITE }))
-        val result = evaluate(records)
+    @Test fun `misreads miss gate and count confidently wrong`() {
+        val result = LiveBaselineEvaluator.evaluate(misreadMatrix())
         assertEquals(BaselineGate.MISSED, result.gate)
-        assertEquals(52, result.total.correct)
-        assertEquals(54, result.total.stickers)
-        assertEquals(5, result.total.correctFaces)
-        assertEquals(2, result.total.confidentlyWrong)
+        assertEquals(208, result.total.correct)
+        assertEquals(216, result.total.stickers)
+        assertEquals(20, result.total.correctFaces)
+        assertEquals(8, result.total.confidentlyWrong)
+    }
+
+    @Test fun `one device only is incomplete`() {
+        val result = LiveBaselineEvaluator.evaluate(matrix(models = listOf("model")))
+        assertEquals(BaselineGate.INCOMPLETE, result.gate)
+        val section = LiveBaselineMarkdown.render(result)
+        assertTrue("Gate: **INCOMPLETE**" in section, section)
+        assertTrue("devices covering every cube: 1 of 2" in section, section)
+    }
+
+    @Test fun `one cube only is incomplete`() {
+        val result = LiveBaselineEvaluator.evaluate(matrix(cubes = listOf("cube")))
+        assertEquals(BaselineGate.INCOMPLETE, result.gate)
+        assertTrue("cubes: 1 of 2 recorded (cube)" in LiveBaselineMarkdown.render(result))
+    }
+
+    @Test fun `missing device cube cell is named`() {
+        val result = LiveBaselineEvaluator.evaluate(matrix().filterNot { it.name == "other_stickerless" })
+        assertEquals(BaselineGate.INCOMPLETE, result.gate)
+        assertTrue("- maker other × stickerless (missing U, R, F, D, L, B)" in LiveBaselineMarkdown.render(result))
+    }
+
+    @Test fun `extra report-only device does not block verdict`() {
+        val extra = FixtureGroup("tab_cube", complete("tab", "cube"))
+        assertEquals(BaselineGate.MET, LiveBaselineEvaluator.evaluate(matrix() + extra).gate)
+        assertEquals(BaselineGate.MISSED, LiveBaselineEvaluator.evaluate(misreadMatrix() + extra).gate)
     }
 
     @Test fun `unavailable faces and missing faces cannot yield verdict`() {
@@ -96,10 +139,11 @@ class LiveBaselineEvaluatorTest {
             writeText("before\r\n${LiveBaselineMarkdown.START}\npending\n${LiveBaselineMarkdown.END}\r\nafter")
         }
 
-    private fun fixtures(): File =
+    private fun fixtures(records: List<LiveFixtureRecord> = complete()): File =
         File(temporary, "live").apply {
-            complete().forEach { record ->
-                File(this, "$GROUP/${LiveFixturePaths.fileName(record.labeledSample.sample.face)}").apply {
+            records.forEach { record ->
+                val directory = LiveFixturePaths.directoryName(record.device.model, record.cube, record.light)
+                File(this, "$directory/${LiveFixturePaths.fileName(record.labeledSample.sample.face)}").apply {
                     parentFile.mkdirs()
                     writeText(LiveFixtureJson.encode(record))
                 }
@@ -108,19 +152,20 @@ class LiveBaselineEvaluatorTest {
 
     @Test fun `main writes group device and total scores preserving surrounding bytes`() {
         val doc = document()
-        main(arrayOf(fixtures().path, doc.path))
+        main(arrayOf(fixtures(matrix().flatMap { it.records }).path, doc.path))
         val output = doc.readText()
         assertTrue(output.startsWith("before\r\n${LiveBaselineMarkdown.START}"))
         assertTrue(output.endsWith("${LiveBaselineMarkdown.END}\r\nafter"))
         listOf(
             "Group: $GROUP",
             "Device: maker model",
+            "Device: maker other",
             "Total",
-            "54/54",
-            "6/6",
-            "MET",
+            "216/216",
+            "24/24",
+            "Gate: **MET**",
             "confidently wrong",
-            "Coverage: 1 groups, 1 devices, 1 cubes",
+            "Coverage: 4 groups, 2 devices, 2 cubes",
         ).forEach {
             assertTrue(it in output, output)
         }
@@ -153,12 +198,9 @@ class LiveBaselineEvaluatorTest {
     }
 
     @Test fun `rendered rows carry sticker and face percentages`() {
-        val records = complete().toMutableList()
-        val first = records[0]
-        records[0] = first.copy(labeledSample = first.labeledSample.copy(truth = List(2) { Color.RED } + List(7) { Color.WHITE }))
-        val section = LiveBaselineMarkdown.render(evaluate(records))
-        assertTrue("| Total | 52/54 | 96.2963% | 5/6 | 83.3333% | 2 | 0 | see groups |" in section, section)
-        assertTrue("| Group: group | 52/54 | 96.2963% | 5/6 | 83.3333% | 2 | 0 | — |" in section, section)
+        val section = LiveBaselineMarkdown.render(LiveBaselineEvaluator.evaluate(misreadMatrix()))
+        assertTrue("| Total | 208/216 | 96.2963% | 20/24 | 83.3333% | 8 | 0 | see groups |" in section, section)
+        assertTrue("| Group: model_cube | 52/54 | 96.2963% | 5/6 | 83.3333% | 2 | 0 | — |" in section, section)
         assertTrue("Gate: **MISSED**" in section, section)
     }
 

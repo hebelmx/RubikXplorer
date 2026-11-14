@@ -31,6 +31,7 @@ data class LiveBaseline(
     val total: BaselineScore,
     val gate: BaselineGate,
     val cubes: Int,
+    val missingMatrix: List<String> = emptyList(),
 )
 
 object LiveBaselineEvaluator {
@@ -43,9 +44,10 @@ object LiveBaselineEvaluator {
                 .toSortedMap()
                 .map { (name, records) -> score(name, records) }
         val total = score("Total", groups.flatMap { it.records })
+        val missingMatrix = missingMatrix(groups.flatMap { it.records })
         val gate =
             when {
-                groups.isEmpty() || scores.any { it.missing.isNotEmpty() } -> BaselineGate.INCOMPLETE
+                groups.isEmpty() || scores.any { it.missing.isNotEmpty() } || missingMatrix.isNotEmpty() -> BaselineGate.INCOMPLETE
                 total.accuracy >= 0.99 -> BaselineGate.MET
                 else -> BaselineGate.MISSED
             }
@@ -55,8 +57,49 @@ object LiveBaselineEvaluator {
                 .map { it.cube.lowercase() }
                 .distinct()
                 .size
-        return LiveBaseline(scores, devices, total, gate, cubes)
+        return LiveBaseline(scores, devices, total, gate, cubes, missingMatrix)
     }
+
+    private fun deviceName(record: LiveFixtureRecord) = "${record.device.manufacturer} ${record.device.model}"
+
+    /**
+     * Story 10.10 AC2 gate matrix: at least [REQUIRED_DEVICES] devices must each have all six faces classified for every
+     * recorded cube, and at least [REQUIRED_CUBES] cubes must be recorded. Extra devices that do not cover every cube
+     * (e.g. a report-only tablet) do not block the verdict. Returns a description of each missing device × cube cell,
+     * or an empty list when the matrix is complete.
+     */
+    private fun missingMatrix(records: List<LiveFixtureRecord>): List<String> {
+        val devices = records.map(::deviceName).distinct().sorted()
+        val cubes = records.map { it.cube.lowercase() }.distinct().sorted()
+        val incomplete =
+            devices.flatMap { device ->
+                cubes.mapNotNull { cube ->
+                    val cell = records.filter { deviceName(it) == device && it.cube.lowercase() == cube }
+                    val missing = score("$device × $cube", cell).missing
+                    if (missing.isEmpty()) null else "$device × $cube (missing ${missing.joinToString { it.name }})"
+                }
+            }
+        val completeDevices = devices.count { device -> incomplete.none { it.startsWith("$device × ") } }
+        if (cubes.size >= REQUIRED_CUBES && completeDevices >= REQUIRED_DEVICES) return emptyList()
+        return buildList {
+            if (cubes.size <
+                REQUIRED_CUBES
+            ) {
+                add("cubes: ${cubes.size} of $REQUIRED_CUBES recorded (${cubes.joinToString().ifEmpty { "none" }})")
+            }
+            if (completeDevices < REQUIRED_DEVICES) {
+                add(
+                    "devices covering every cube: $completeDevices of $REQUIRED_DEVICES (${devices.joinToString().ifEmpty {
+                        "none"
+                    }} recorded)",
+                )
+            }
+            addAll(incomplete)
+        }
+    }
+
+    private const val REQUIRED_DEVICES = 2
+    private const val REQUIRED_CUBES = 2
 
     private fun score(
         name: String,
