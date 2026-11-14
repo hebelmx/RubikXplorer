@@ -145,6 +145,7 @@ import dev.cubentia.domain.text.Text as ContentText
  * is fixed and no Assistance line shows; BETA adds the beta label to the Assistance line (AD-18).
  * [cameraScan] is the `CAMERA_SCAN` flag level: off (v1.0), Stage 6's end-of-course physical prompt
  * asks the learner to compare the cube with the picture; BETA or GA, it offers the camera check.
+ * [testMe] is the `TEST_ME` flag level: at BETA, the *Test me* segment carries the beta label and choosing it shows its note (AD-18).
  */
 @Composable
 fun LessonScreen(
@@ -157,6 +158,7 @@ fun LessonScreen(
     planRecovery: PlanRecovery = remember { PlanRecovery() },
     adaptiveAssistance: FlagLevel = FlagLevel.OFF,
     cameraScan: FlagLevel = FlagLevel.OFF,
+    testMe: FlagLevel = FlagLevel.OFF,
     onPracticeNewScramble: () -> Unit = onClose,
     twoLookPractice: Boolean = false,
     twoLookStages: List<Stage> = emptyList(),
@@ -353,6 +355,7 @@ fun LessonScreen(
                     onClose,
                     adaptiveAssistance == FlagLevel.BETA,
                     camera = cameraScan != FlagLevel.OFF,
+                    testMeBeta = testMe == FlagLevel.BETA,
                     recognition = recognition,
                     offerAlgorithms = offerAlgorithms,
                     onAddToLearning = onAddToLearning,
@@ -509,6 +512,7 @@ private fun LessonBody(
     onClose: () -> Unit,
     beta: Boolean,
     camera: Boolean,
+    testMeBeta: Boolean = false,
     recognition: RecognitionDiagram? = null,
     offerAlgorithms: List<AlgorithmId> = emptyList(),
     onAddToLearning: suspend () -> Boolean = { true },
@@ -627,6 +631,7 @@ private fun LessonBody(
             twoLookResult = twoLookResult,
             modes = if (isPractice || isSkipCheck || session.kind == SessionKind.PRACTICE) emptyList() else modes,
             mode = mode,
+            testMeBeta = testMeBeta,
             onModeChange = { chosen -> if (chosen != mode) send { SessionEvent.TeachingModeChanged(chosen, it) } },
             onShowMove = { send(SessionEvent::RevealRequested) },
             hintRung = session.shownRung.ordinal,

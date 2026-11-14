@@ -54,6 +54,7 @@ import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.application.session.SyncState
 import dev.cubentia.domain.content.AlgorithmId
+import dev.cubentia.domain.content.TextKey
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.lastlayer.RecognitionDiagram
@@ -151,6 +152,7 @@ internal fun LessonPanel(
     offerAlgorithms: List<AlgorithmId> = emptyList(),
     offerKey: String = "",
     onAddToLearning: suspend () -> Boolean = { true },
+    testMeBeta: Boolean = false,
 ) {
     val tokens = RubikTheme.tokens
     Column(
@@ -211,6 +213,8 @@ internal fun LessonPanel(
         }
         step.assistance?.let { AssistanceLine(it, onUsualHelp, Modifier.fillMaxWidth()) }
         if (!step.isPractice) {
+            val testMeBadge =
+                if (testMeBeta && TeachingMode.TEST_ME in modes) ModeBetaBadge(TeachingMode.TEST_ME, strings.resolve(BETA_LABEL)) else null
             TeachingModeSwitcher(
                 modes,
                 mode,
@@ -219,7 +223,11 @@ internal fun LessonPanel(
                     isTraversalGroup = true
                     traversalIndex = 1f
                 },
+                beta = testMeBadge,
             )
+            if (testMeBadge != null && mode == TeachingMode.TEST_ME) {
+                TestMeBetaNote(strings.resolve(TEST_ME_BETA_NOTE), Modifier.fillMaxWidth())
+            }
         }
         if (syncState == SyncState.PHYSICAL_AWAITING_CONFIRM) {
             ConfirmCubeCard(
@@ -551,3 +559,23 @@ internal fun NotationChip(
         Text(token, style = RubikTheme.textStyles.notation, color = tokens.inkPrimary)
     }
 }
+
+/**
+ * The *Test me* beta explanation (EXPERIENCE *Feature flag BETA*), shown under the switcher once the
+ * Learner taps the segment (or its beta label); a polite live region so TalkBack announces it.
+ */
+@Composable
+private fun TestMeBetaNote(
+    note: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = note,
+        style = MaterialTheme.typography.bodyMedium,
+        color = RubikTheme.tokens.inkSecondary,
+        modifier = modifier.testTag("lesson:testMe:betaNote").semantics { liveRegion = LiveRegionMode.Polite },
+    )
+}
+
+/** The *Test me* beta note (content text, AD-6; EXPERIENCE beta tooltip copy). */
+internal val TEST_ME_BETA_NOTE = TextKey("msg.feature.test-me.beta-note")

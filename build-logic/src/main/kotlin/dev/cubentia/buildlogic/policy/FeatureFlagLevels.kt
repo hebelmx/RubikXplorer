@@ -13,10 +13,20 @@ object FeatureFlagLevels {
 
     val levels: Set<String> = setOf("OFF", "BETA", "GA")
 
-    /** Story 7.8 pilot: the shipped teaching features are GA in release; every camera flag stays OFF (v1.1). */
-    private val releaseGa: Set<String> = setOf("TEST_ME", "ADAPTIVE_ASSISTANCE")
+    /** Story 7.8 pilot: the shipped teaching features ship in release; every camera flag stays OFF (v1.1). */
+    private val releaseGa: Set<String> = setOf("ADAPTIVE_ASSISTANCE")
 
-    private val releaseLevels: Map<String, String> = flags.associateWith { if (it in releaseGa) "GA" else "OFF" }
+    /** Issue #137 (PO decision): *Test me* ships in release as BETA, shown with its beta note. */
+    private val releaseBeta: Set<String> = setOf("TEST_ME")
+
+    private val releaseLevels: Map<String, String> =
+        flags.associateWith {
+            when (it) {
+                in releaseGa -> "GA"
+                in releaseBeta -> "BETA"
+                else -> "OFF"
+            }
+        }
 
     /**
      * debug includes every feature (AD-15); release raises each flag in its own feature story.

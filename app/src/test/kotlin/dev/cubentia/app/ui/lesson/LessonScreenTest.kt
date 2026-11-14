@@ -680,6 +680,7 @@ class LessonScreenTest {
         adaptiveLevel: FlagLevel = if (adaptiveAssistance) FlagLevel.GA else FlagLevel.OFF,
         thresholds: AdaptiveThresholds? = null,
         fontScale: Float = 1f,
+        testMe: FlagLevel = FlagLevel.GA,
     ) {
         runBlocking { catalog.load() }
         val ready = catalog.state.value as CatalogState.Ready
@@ -702,6 +703,7 @@ class LessonScreenTest {
                         onClose = { closed++ },
                         planRecovery = planRecovery,
                         adaptiveAssistance = adaptiveLevel,
+                        testMe = testMe,
                         onPracticeNewScramble = { practiceNewScrambleClicked++ },
                     )
                 }
@@ -1943,6 +1945,54 @@ class LessonScreenTest {
         node("lesson:assistance").assertDoesNotExist()
         node("lesson:hint").performScrollTo().assertTextContains("Hint (0/3)")
         assertEquals(emptyList<String>(), tagsStartingWith("moveChip:"))
+    }
+
+    @Test
+    fun `with TEST_ME at BETA, the Test me segment carries a beta label that explains it when tapped`() {
+        open(cornerLesson.id.value, testMe = FlagLevel.BETA)
+        // Shown next to the feature name whether or not Test me is chosen (DESIGN Beta label).
+        rule.onNodeWithTag("mode:TEST_ME:beta", useUnmergedTree = true).assertTextEquals("BETA")
+        rule.onAllNodesWithTag("mode:SHOW_ME:beta", useUnmergedTree = true).assertCountEquals(0)
+        node("mode:TEST_ME").assert(
+            SemanticsMatcher("content description names the beta status") { n ->
+                n.config
+                    .getOrNull(SemanticsProperties.ContentDescription)
+                    .orEmpty()
+                    .any { it == "Test me, BETA" }
+            },
+        )
+        node("lesson:testMe:betaNote").assertDoesNotExist()
+        // Tapping the label reveals the approved copy in a polite live region at Body Medium or larger.
+        rule.onNodeWithTag("mode:TEST_ME:beta", useUnmergedTree = true).performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.teachingMode == TeachingMode.TEST_ME }
+        rule.waitForIdle()
+        rule.onNodeWithTag("mode:TEST_ME:beta", useUnmergedTree = true).assertTextEquals("BETA")
+        val note = node("lesson:testMe:betaNote")
+        note.assertTextEquals("New — tell us if it feels off.")
+        note.assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+        val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        note.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        assertTrue(
+            layouts
+                .single()
+                .layoutInput.style.fontSize.value >=
+                androidx.compose.material3
+                    .Typography()
+                    .bodyMedium.fontSize.value,
+        )
+        switchTo(TeachingMode.SHOW_ME)
+        node("lesson:testMe:betaNote").assertDoesNotExist()
+        rule.onNodeWithTag("mode:TEST_ME:beta", useUnmergedTree = true).assertTextEquals("BETA")
+    }
+
+    @Test
+    fun `with TEST_ME at GA, Test me carries no beta label`() {
+        open(cornerLesson.id.value, testMe = FlagLevel.GA)
+        rule.onAllNodesWithTag("mode:TEST_ME:beta", useUnmergedTree = true).assertCountEquals(0)
+        switchTo(TeachingMode.TEST_ME)
+        rule.onAllNodesWithTag("mode:TEST_ME:beta", useUnmergedTree = true).assertCountEquals(0)
+        node("lesson:testMe:betaNote").assertDoesNotExist()
+        node("mode:TEST_ME").assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
     }
 
     @Test

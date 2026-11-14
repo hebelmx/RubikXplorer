@@ -11,6 +11,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -43,6 +44,7 @@ class TeachingModeSwitcherTest {
         scale: Float,
         grid: Boolean? = null,
         modes: List<TeachingMode> = TeachingMode.entries,
+        beta: Boolean = false,
     ) {
         var selected: TeachingMode? = null
         var wordRequiresGrid = false
@@ -67,10 +69,29 @@ class TeachingModeSwitcherTest {
                             )
                         }
                     val available = with(LocalDensity.current) { (width.dp / modes.size - dev.cubentia.app.ui.theme.Spacing.s3 * 2).toPx() }
-                    wordRequiresGrid =
+                    val badgeLabel = strings.resolve(BETA_LABEL)
+                    val badgeWidth =
+                        if (beta) {
+                            with(LocalDensity.current) {
+                                measurer
+                                    .measure(
+                                        badgeLabel,
+                                        androidx.compose.material3.MaterialTheme.typography.labelMedium,
+                                    ).size.width +
+                                    (dev.cubentia.app.ui.theme.Spacing.s1 * 2).toPx()
+                            }
+                        } else {
+                            0f
+                        }
+                    wordRequiresGrid = badgeWidth > available ||
                         labels.any { label -> label.split(Regex("\\s+")).any { measurer.measure(it, style).size.width > available } }
                     Column(Modifier.width(width.dp)) {
-                        TeachingModeSwitcher(modes, TeachingMode.SHOW_ME, { selected = it })
+                        TeachingModeSwitcher(
+                            modes,
+                            TeachingMode.SHOW_ME,
+                            { selected = it },
+                            beta = if (beta) ModeBetaBadge(TeachingMode.TEST_ME, badgeLabel) else null,
+                        )
                         ConfirmCubeCard(strings, {}, {}, Modifier.width(width.dp))
                     }
                 }
@@ -89,6 +110,23 @@ class TeachingModeSwitcherTest {
         val last = rule.onNodeWithTag("mode:${modes.last().name}")
         grid?.let { assertEquals("Measured word width must justify the expected layout", it, wordRequiresGrid) }
         assertEquals(wordRequiresGrid, last.fetchSemanticsNode().boundsInRoot.top > first.fetchSemanticsNode().boundsInRoot.top)
+        if (beta) {
+            rule.onNodeWithTag("mode:TEST_ME:beta", useUnmergedTree = true).assertTextEquals("BETA").performClick()
+            assertEquals(TeachingMode.TEST_ME, selected)
+            rule
+                .onNodeWithTag("mode:TEST_ME")
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("Test me, BETA")))
+            assertEquals(
+                rule
+                    .onNodeWithTag("mode:SHOW_ME")
+                    .fetchSemanticsNode()
+                    .boundsInRoot.height,
+                rule
+                    .onNodeWithTag("mode:TEST_ME")
+                    .fetchSemanticsNode()
+                    .boundsInRoot.height,
+            )
+        }
         last.performClick()
         assertEquals(modes.last(), selected)
         if (wordRequiresGrid &&
@@ -113,6 +151,14 @@ class TeachingModeSwitcherTest {
     fun narrowLargestPhone() = check(360, 2f)
 
     @Test fun tabletPane() = check(268, 1f)
+
+    @Test fun normalPhoneBeta() = check(411, 1f, beta = true)
+
+    @Test fun largePhoneBeta() = check(411, 1.5f, beta = true)
+
+    @Test fun largestPhoneBeta() = check(411, 2f, beta = true)
+
+    @Test fun tabletPaneBeta() = check(268, 1f, beta = true)
 
     @Test fun threeModes() = check(220, 2f, true, TeachingMode.entries.filter { it != TeachingMode.TEST_ME })
 
