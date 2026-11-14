@@ -25,6 +25,7 @@ class CameraCompositionFunctionalTest {
             "checkBenchmarkMergedManifest",
             "checkReleaseCameraClasspath",
             "checkBenchmarkCameraClasspath",
+            "writePrivacyFacts",
         )
         listOf("debug", "release", "benchmark").forEach { variant ->
             val manifest =
@@ -41,6 +42,8 @@ class CameraCompositionFunctionalTest {
         assertTrue("androidx.camera:camera-camera2:1.0" in debug, debug)
         val release = f.build("dependencies", "--configuration", "releaseRuntimeClasspath").output
         assertTrue("androidx.camera:" !in release, release)
+        val facts = f.projectDir.resolve("docs/privacy-facts.json").readText()
+        assertTrue("\"schemaVersion\": 1," in facts && "cameraFramesLeaveDevice" !in facts, facts)
     }
 
     @Test
@@ -97,6 +100,7 @@ class CameraCompositionFunctionalTest {
         assertTrue("FixtureRecorderActivity" !in manifest, manifest)
         val facts = f.projectDir.resolve("docs/privacy-facts.json").readText()
         assertTrue(Regex("\"runtimePermissions\":\\s*\\[\\s*\"android.permission.CAMERA\"\\s*]").containsMatchIn(facts), facts)
+        assertTrue("\"schemaVersion\": 2," in facts && "\"cameraFramesLeaveDevice\": false," in facts, facts)
     }
 
     @Test
