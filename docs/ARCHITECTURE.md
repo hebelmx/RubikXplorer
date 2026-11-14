@@ -162,18 +162,19 @@ graph LR
 - **Pixel code stays in one adapter.** Only the CameraX adapter touches pixels; everything after it is pure, JVM-testable Kotlin. Recorded `FaceSample` fixtures let recognition accuracy be tested in CI (AD-9).
 - **The 6-face scan needs no computer-vision library.** It uses a fixed on-screen grid, so the adapter only reads colors from known positions.
 - **Images stay in memory and on the device.** A debug-only tool records samples, never images, for the device × lighting × cube test matrix.
+- **OFF means absent, not hidden.** Camera recognition is in progress for v1.1 behind flags. The CameraX adapter lives in a separate `app/src/camera/` source set that the build adds only when a camera flag is above OFF; the rest of the app reaches it through a scan port. A release with every camera flag OFF has no camera code, no ML library and no camera permission (AD-9, AD-13, AD-18).
 
 ## 9. Privacy, offline and quality are enforced by the build
 
 | Guarantee | Mechanism |
 | --- | --- |
-| Works offline, collects nothing | No `INTERNET` permission; `allowBackup=false`. CI fails if an analytics, ads or crash SDK appears (AD-13). |
+| Works offline, collects nothing | No `INTERNET` permission; no runtime permission while all camera flags are OFF, and only `CAMERA` when one is above OFF; `allowBackup=false`. CI fails if an analytics, ads, crash or ML Kit / Play-services ML SDK appears (AD-13). |
 | Correct cube math | Kotest property tests: inverse restores the state, M⁴ = identity, random sequence × inverse = identity, illegal states rejected. |
 | Content can't drift | Schema, key and predicate tests, plus verification of all 78 Algorithms. |
 | No state drift | A transition-table test suite, checkpoint round-trip tests and renderer-sync tests. |
 | Portfolio-grade code | ≥ 80% coverage on pure modules (Kover), Spotless/ktlint and Android lint (including accessibility) on every PR (AD-14). |
 | Accessible | One sticker-appearance table, with letters or patterns for color-blind users, used on every surface. Every gesture has a button. The cube has a screen-reader description (AD-17). |
-| Safe to cut scope | A `FeatureFlags` port, `OFF / BETA / GA` per build type, implements the PRD's cut order (AD-18). |
+| Safe to cut scope | A `FeatureFlags` port, `OFF / BETA / GA` per build type, implements the PRD's cut order and decides which camera code a build contains (AD-18). |
 
 ## 10. Delivery
 
@@ -196,7 +197,7 @@ Kotlin 2.4.21 · AGP 9.5 (built-in Kotlin) · Compose BOM 2026.09.00 · Material
 
 | Question | Resolved by |
 | --- | --- |
-| Quick Scan corner detection (Kotlin / OpenCV / LiteRT) | recognition spike; contained in the camera adapter |
+| Quick Scan corner detection (Kotlin / OpenCV / LiteRT) | Kotlin-first; confirmed by Story 10.10, decided by Story 11.1; contained in the camera adapter |
 | Performance on the reference devices (Galaxy Tab S7 FE 5G, Galaxy S24 FE) | Story 1.10 benchmark; above 33.3 ms p90 per frame reopens the renderer choice |
 | Solver internals (bundled or generated pruning tables) | solver epic, within the 3 s timeout and 30 MB app size |
 
