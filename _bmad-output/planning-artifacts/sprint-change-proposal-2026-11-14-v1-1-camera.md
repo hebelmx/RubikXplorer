@@ -1,18 +1,20 @@
 ---
 title: 'Sprint Change Proposal: bring v1.1 camera recognition (Epics 10–11) back into the plan'
 date: 2026-11-14
-status: draft
-approved_by: null  # pending PO (hebelmx) review
+status: approved
+approved_by: hebelmx
+approved_on: 2026-11-14
+approval: all 12 recommended answers in §6
 trigger: PO decision 2026-11-14
 scope: Moderate (backlog reorganization plus PRD, spine and UX updates; no rollback)
-mode: batch (PROPOSED; the PO was not present, so every decision point is recorded in §6 with a recommended answer)
+mode: batch (the PO approved every §6 recommendation as a batch)
 branch: plan/v1.1-camera
 supersedes_in_part: sprint-change-proposal-2026-11-08-vision-deferral.md (§4.4 "move Epics 10–11 out"; the deferral of camera features from v1.0 still stands)
 ---
 
-# Sprint Change Proposal (DRAFT): v1.1 camera recognition back into the plan
+# Sprint Change Proposal: v1.1 camera recognition back into the plan
 
-> **DRAFT. Nothing in this file has been applied.** Every item marked **PROPOSED — pending PO approval** is a recommendation the facilitator made in the PO's absence. The open questions are collected in §6. No file other than this one was changed: `epics.md`, the PRD, the spine, the UX docs, `sprint-status.yaml` and `AGENTS.md` are untouched.
+> **Approved by hebelmx on 2026-11-14 (all recommended answers).** Every decision in §6 takes its recommended answer. **Applied on `plan/v1.1-camera`:** the §4.3 `epics.md` edits (Epics 10–11 restored, Stories 10.9–10.11 added, 13.4/13.5 publisher and contact aligned), the §4.3(f) banner on `post-launch/v1.1-camera-recognition.md`, and the §4.8 sprint keys (regenerated with `sprint_plan.py`). **Not applied here, by design:** the PRD (§4.5), the architecture spine (§4.6), EXPERIENCE.md/DESIGN.md (§4.7) and `AGENTS.md` (§4.9); they are follow-ups listed in §5.5.
 
 ## 1. Issue Summary
 
@@ -101,7 +103,7 @@ No epic is made obsolete. Epic numbering is unchanged (10 and 11 come back under
 
 ## 3. Recommended Approach
 
-**Selected: Option 1, Direct Adjustment.** Restore the epics, add 3 stories, and leave the v1.0 release gates unchanged. **PROPOSED — pending PO approval.**
+**Selected: Option 1, Direct Adjustment.** Restore the epics, add 3 stories, and leave the v1.0 release gates unchanged. **APPROVED by the PO on 2026-11-14.**
 
 | Option | Verdict |
 |---|---|
@@ -155,7 +157,7 @@ Legend: **[DEVICE]** needs a physical reference device. **[CUBE]** needs the sti
 3. `:app:checkPrivacyFacts` fails until `:app:writePrivacyFacts` regenerates `docs/privacy-facts.json` with `"runtimePermissions": ["android.permission.CAMERA"]`. That in turn makes the site's `check` fail until the policy page states it. The privacy chain is therefore build-enforced, not remembered.
 4. 10.11's checklist runs: site policy, Data safety re-confirmation, rationale copy, store-listing text, size check, gate-6 evidence from 10.8.
 
-### 4.3 Epics (`epics.md`): exact text, PROPOSED
+### 4.3 Epics (`epics.md`): exact text, APPROVED and applied 2026-11-14
 
 **(a) Replace `epics.md:227-229`** (the two "Deferred to v1.1" paragraphs) with:
 
@@ -567,7 +569,7 @@ So that I can look up the right Algorithm.
 
 ### 4.4 Interplay with open issues and release-gate stories (requirement 5)
 
-| Item | Interplay | Rule (PROPOSED) |
+| Item | Interplay | Rule (approved) |
 |---|---|---|
 | **#104** Solver preparation ~8 s per process start on the old minimum device | 10.5's "scrambled to solving in under a minute" pays this cost after the scan. | Independent. 10.5 starts solver preparation when the scan sub-flow opens (it is already off the main thread, AD-8), so scan time hides it. #104's fix stays a v1.1 tester-track item, not a camera dependency. |
 | **#105** Solve corpus 1 timeout in 10,101 | Scanned states are random legal states, the same as the corpus. | Independent; no camera AC depends on it. |
@@ -580,7 +582,7 @@ So that I can look up the right Algorithm.
 | **13.6** Register privacy policy in Play | Data safety "no data collected". | Unchanged. 10.11 re-confirms it at a camera release. |
 | **Tester-feedback fixes** | Shared files (`AppShell.kt`, `LessonScreen.kt`, `strings/en.json`, `RubikDatabase.kt`). | Camera stories use short branches off `main`, each merged within its story. Tester fixes always merge first when both are ready. A Room version bump goes to whichever merges first, and the other rebases and renumbers. |
 
-### 4.5 PRD (`prd.md`, through `bmad-prd` update), PROPOSED
+### 4.5 PRD (`prd.md`, through `bmad-prd` update), APPROVED; not yet applied
 
 - **§4.8 header, `:458`.** Replace it with: *"**Release: v1.1, flag-gated.** Restored to the plan on 2026-11-14 (`sprint-change-proposal-2026-11-14-v1-1-camera`). Built on `main` with every camera flag OFF in release; at each release the PO sets each feature OFF, BETA or GA from the test-matrix evidence. Requirements unchanged."*
 - **§4.8 Privacy bullet, `:548`.** Append: *"Camera frames are never saved as photos. The rationale shown before the permission request says this in plain words."*
@@ -615,15 +617,15 @@ So that I can look up the right Algorithm.
 7. **Reference devices (`:443`).** Add: recognition acceptance gates on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE. The Galaxy Tab S7 FE is reported only. Emulator cameras are never acceptance evidence.
 8. **Deferred (`:529-530`).** Replace "ships in v1.1" with "in progress for v1.1 behind flags (SCP 2026-11-14)". Quick Scan's method is confirmed by 10.10 and decided by 11.1.
 
-### 4.7 UX (`EXPERIENCE.md`, through `bmad-ux` update), PROPOSED
+### 4.7 UX (`EXPERIENCE.md`, through `bmad-ux` update), APPROVED; not yet applied
 
 - **IA rows `:36,40,43`:** replace "*(v1.1: hidden while the flag is OFF, UX-DR19)*" with "*(v1.1, flag-gated: hidden while the flag is OFF, UX-DR19)*". **`:34` Solve row:** "v1.0" becomes "any release with `CAMERA_SCAN` OFF".
-- **State pattern `:133` (Camera permission):** add a **"Before the first request"** row with rationale copy. Proposed copy: *"Cubentia uses the camera to read your cube's colors. Pictures stay on this phone. They are never saved or sent."* It has two actions: *Continue* (shows the system dialog) and *Enter colors instead*. This copy is **PROPOSED — pending PO and UX approval**, and its content key is chosen by 10.2.
+- **State pattern `:133` (Camera permission):** add a **"Before the first request"** row with rationale copy. Approved copy: *"Cubentia uses the camera to read your cube's colors. Pictures stay on this phone. They are never saved or sent."* It has two actions: *Continue* (shows the system dialog) and *Enter colors instead*. This copy is **approved by the PO on 2026-11-14, pending UX review** (Q10), and its content key is chosen by 10.2.
 - **`:135` BETA pattern:** no change. Add one sentence: "one shared label component across features".
 - **Flow annotations `:221,235,244,251,266,286`:** "v1.0 (camera-free)" becomes "while `CAMERA_SCAN` is OFF". No flow logic changes.
 - **DESIGN.md:** no change (`:171,250-251,267` already specify the scan grid, viewfinder and beta label).
 
-### 4.8 Sprint status (`sprint-status.yaml`): keys to add, not applied
+### 4.8 Sprint status (`sprint-status.yaml`): keys added 2026-11-14
 
 Insert between `epic-9-retrospective: done` (`:131`) and `epic-12: in-progress` (`:133`). The keys follow `sprint_plan.py` `_slug(maxlen=60)`. Re-generate them with the sprint planner after `epics.md` is edited; do not hand-type them.
 
@@ -668,8 +670,8 @@ Header comment at `:31-32`: add *"# 2026-11-14: Epics 10 and 11 restored (v1.1, 
 
 | Who | Does | Done when |
 |---|---|---|
-| PO (hebelmx) | Answers §6; approves or edits this draft. | `status: approved` in frontmatter. |
-| Developer (this workflow) | Applies §4.3 to `epics.md` (and the §4.5 13.4/13.5 cleanup if Q9 = yes), the banner in §4.3(f), and the sprint keys in §4.8 via `bmad-sprint-planning`; appends the PRD memlog. Same branch `plan/v1.1-camera`, PR to `main`. | Merged with green CI; the sprint planner validates. |
+| PO (hebelmx) | Answers §6; approves or edits this draft. **Done 2026-11-14 (all recommended answers).** | `status: approved` in frontmatter. |
+| Developer (this workflow) | Applies §4.3 to `epics.md` (and the §4.5 13.4/13.5 cleanup, Q9 = yes), the banner in §4.3(f), and the sprint keys in §4.8 via `bmad-sprint-planning`. Same branch `plan/v1.1-camera`, PR to `main`. **Applied 2026-11-14**; the PRD memlog append moves to the `bmad-prd` follow-up (§5.5). | Merged with green CI; the sprint planner validates. |
 | PM (`bmad-prd` update) | §4.5. | PRD §4.8, NFR-5, §7 gate 6, OQ-7/8 and §10 updated. |
 | Architect (`bmad-architecture` update) | §4.6 items 1–8. **Must merge before Story 10.9 starts**, because 10.9 implements AD-13/AD-18 changes. | Spine updated. |
 | UX (`bmad-ux` update) | §4.7, especially the rationale copy. | Before 10.2. |
@@ -699,11 +701,23 @@ Header comment at `:31-32`: add *"# 2026-11-14: Epics 10 and 11 restored (v1.1, 
 - ML Kit or any Play-services ML would violate NFR-8 "no data collected". It must stay denylisted.
 - Story 13.4 and 13.5's epics text is stale against the deployed policy (publisher and contact).
 
-## 6. Open questions for the PO (each answer below is PROPOSED — pending PO approval)
+### 5.5 Follow-ups (not applied by this SCP; each through its own skill)
 
-| # | Question | Recommended | Why |
+| Skill | Change | When |
+|---|---|---|
+| `bmad-prd` (update) | §4.5: §4.8 header ("v1.1, flag-gated"), §4.8 Privacy bullet, NFR-5 (camera the only runtime permission, only when a camera flag is above OFF in release), NFR-11 note, §6.2 out-of-scope bullet, §7 gate 6 (N/A while every camera flag is OFF), OQ-7/OQ-8, §10 decision line, and the memlog entry for this approval (all 12 answers, including Q3's go/no-go: re-plan below 90% live per-sticker accuracy on the Lenovo, BETA only at 90–99%). | Before 10.10 closes (its go/no-go is recorded in the memlog). |
+| `bmad-architecture` (update) | §4.6 items 1–8: AD-9 camera source set and scan port; AD-13 `CAMERA` iff a camera flag is above OFF, no camera/ML runtime on the release classpath, **ML Kit and Play-services ML added to the SDK denylist** (Q7); AD-18 flags compose the build, `PLACEMENT`/`QUICK_SCAN`/`CASE_RECOGNITION` require `CAMERA_SCAN` above OFF (Q6), one shared BETA label; AD-15 recorder; AD-10 schema 8; module map; reference devices (Tab S7 FE reports only, Q12); Deferred. | **Before Story 10.9 starts.** |
+| `bmad-ux` (update) | §4.7: EXPERIENCE.md IA rows and flow annotations ("flag-gated; hidden while OFF"), the **pre-permission rationale row** with the PO-approved copy (UX review still pending, Q10), one shared BETA label sentence; DESIGN.md unchanged. | Before Story 10.2. |
+| `bmad-project-context` (refresh) | §4.9: `AGENTS.md:6,24` pointer from `post-launch/…` to Epics 10–11 in `epics.md`; camera flags stay OFF in release until Story 10.11 raises one. | After this branch merges. |
+| `bmad-sprint-planning` | The §4.8 header comment (`# 2026-11-14: Epics 10 and 11 restored …`) was not added, because the YAML is never hand-edited; add it if the planner supports header notes. Recommender ordering: 10.9, then 10.10 first; never 10.11 while 12.3, 12.4, 12.5 or 13.6 are open (Q5). | Next planner run. |
+| Release process (Story 10.11) | Flag-raise PR merged last before the tag, site PR right after (Q8); `docs/release.md`, `docs/play-first-publish.md`, `docs/privacy-facts.json` and the site policy change only then. | At the first release that raises a camera flag. |
+| Issue ordering | #139 lands before 10.7 and 11.2 (Q11). | Ongoing. |
+
+## 6. PO decisions (approved by hebelmx on 2026-11-14: every recommended answer)
+
+| # | Question | Decision (approved) | Why |
 |---|---|---|---|
-| Q1 | Mode: review all edits at once (batch) or one by one (incremental)? | Batch (this draft). | The PO is away, and the edits are mostly a verbatim restore. |
+| Q1 | Mode: review all edits at once (batch) or one by one (incremental)? | Batch. | The PO is away, and the edits are mostly a verbatim restore. |
 | Q2 | Approve Direct Adjustment: restore 10.1–10.8 and 11.1–11.3 with the marked amendments, and add 10.9, 10.10 and 10.11? | Yes. | It matches the chosen delivery model. 10.9 is what makes "flags OFF" safe on `main`. |
 | Q3 | Should a live baseline (10.10) run before any viewfinder UI, with a go/no-go? Threshold for a re-plan? | Yes. If live per-sticker accuracy is below 90% on the Lenovo, re-plan before 10.2; at 90–99%, continue as BETA-only. | The 62.5% was offline JPEG; the live gate has never been run. |
 | Q4 | Gate camera code at **build time** (absent from release while OFF) rather than only hiding it at runtime? | Yes, build time (Story 10.9). | Runtime hiding would still ship `CAMERA` and CameraX, break the 12.10 gate, change privacy facts, and need a policy update for an unused feature. |
@@ -732,12 +746,12 @@ Header comment at `:31-32`: add *"# 2026-11-14: Epics 10 and 11 restored (v1.1, 
 | 3.2 Architecture | [!] | §4.6 via bmad-architecture (before 10.9) |
 | 3.3 UX | [!] | §4.7 via bmad-ux (rationale copy before 10.2) |
 | 3.4 Other | [!] | AGENTS.md refresh; release/play docs and site at 10.11; CI gains the 10.9 check |
-| 4.1 Direct Adjustment | Viable | Selected (PROPOSED) |
+| 4.1 Direct Adjustment | Viable | Selected (approved 2026-11-14) |
 | 4.2 Rollback | Not viable | Nothing to roll back |
 | 4.3 MVP Review | Fallback only | Cut order via AD-18 if 10.10/10.8 miss |
 | 4.4 Path | [x] | Option 1 |
 | 5.1–5.5 | [x] | Sections 1–5 |
 | 6.1–6.2 | [x] | Reviewed by facilitator |
-| 6.3 Approval | [ ] | **Pending PO** (draft) |
-| 6.4 sprint-status | [ ] | Keys prepared in §4.8; not applied |
+| 6.3 Approval | [x] | Approved by hebelmx on 2026-11-14 (all recommended answers) |
+| 6.4 sprint-status | [x] | §4.8 keys added by `sprint_plan.py generate` (18 new keys, all backlog/optional; nothing else changed); `validate` ok |
 | 6.5 Handoff | [x] | §5 |

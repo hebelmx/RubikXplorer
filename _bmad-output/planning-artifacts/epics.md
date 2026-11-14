@@ -3,7 +3,7 @@ status: final
 stepsCompleted: [step-01-validate-prerequisites, step-02-design-epics, step-03-create-stories, step-04-final-validation]
 mode: fast-path
 created: 2026-10-29
-updated: 2026-11-13
+updated: 2026-11-14
 inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/prd.md
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/addendum.md
@@ -153,26 +153,26 @@ FR-5: Epic 2 — four Teaching Modes
 FR-6: Epic 2 (explained Demonstrations on the net) · Epic 5 (3D arrows and highlights)
 FR-7: Epic 8 — confirm physical Moves, Expected label
 FR-8: Epic 8 — switch modes mid-Lesson
-FR-9: Epic 8 (honest mismatch, no-camera ladder) · Epic 10 (Quick Check rung, v1.1)
+FR-9: Epic 8 (honest mismatch, no-camera ladder) · Epic 10 (Quick Check rung, v1.1, flag-gated)
 FR-10: Epic 4 — Diagnosis of Error Categories
 FR-11: Epic 4 — Hint Ladder
 FR-12: Epic 4 — retry, undo, Guided recovery
 FR-13: Epic 4 — rule-based adaptive assistance
 FR-14: Epic 1 (`CubeValidator` rules) · Epic 3 (Manual Cube Editor)
 FR-15: Epic 3 — offline Solver
-FR-16: Epic 3 (Solution Playback) · Epic 8 (physical follow-along) · Epic 10 (Quick Check in playback, v1.1)
+FR-16: Epic 3 (Solution Playback) · Epic 8 (physical follow-along) · Epic 10 (Quick Check in playback, v1.1, flag-gated)
 FR-17: Epic 9 — 2-look LL mini-Course
 FR-18: Epic 9 — Algorithm Library
-FR-19: Epic 6 (snapshots, Checkpoints, attempts, preferences) · Epic 7 (progress reset) · Epic 9 (Algorithm Status) · Epic 10 (calibration reset, v1.1)
+FR-19: Epic 6 (snapshots, Checkpoints, attempts, preferences) · Epic 7 (progress reset) · Epic 9 (Algorithm Status) · Epic 10 (calibration reset, v1.1, flag-gated)
 FR-20: Epic 7 — Independent practice, mastery, trend
-FR-21: Epic 10 — Guided 6-face Scan (v1.1)
-FR-22: Epic 11 — Quick Scan (v1.1)
-FR-23: Epic 10 — validate and correct a Scan Result (v1.1)
-FR-24: Epic 10 — Color Calibration (v1.1)
-FR-25: Epic 10 — scan to solve (v1.1)
-FR-26: Epic 10 — Quick Check (v1.1)
-FR-27: Epic 11 — Placement (v1.1)
-FR-28: Epic 11 — Case recognition (v1.1)
+FR-21: Epic 10 — Guided 6-face Scan (v1.1, flag-gated)
+FR-22: Epic 11 — Quick Scan (v1.1, flag-gated)
+FR-23: Epic 10 — validate and correct a Scan Result (v1.1, flag-gated)
+FR-24: Epic 10 — Color Calibration (v1.1, flag-gated)
+FR-25: Epic 10 — scan to solve (v1.1, flag-gated)
+FR-26: Epic 10 — Quick Check (v1.1, flag-gated)
+FR-27: Epic 11 — Placement (v1.1, flag-gated)
+FR-28: Epic 11 — Case recognition (v1.1, flag-gated)
 FR-29: not covered — P1, out of MVP scope (deferred in PRD §6.2 and spine Deferred)
 
 NFRs: NFR-1/2 Epics 5, 12 · NFR-3 Epic 3 · NFR-4 Epics 1, 2, 5, 8 · NFR-5/8 Epic 1 (build checks), Epic 12, Epic 13 (privacy facts and public policy) · NFR-6 Epic 6 · NFR-7 Epics 1, 5, 12 (+ every UI story) · NFR-9/11 Epics 7, 12 · NFR-10 Epic 2 · NFR-12 Epic 1 (gates), all `:core:*` stories · NFR-13 Epic 12 (+ every UI story).
@@ -224,16 +224,22 @@ A Learner can browse and watch all 78 verified OLL/PLL Algorithms, track their o
 **Absorbs:** E11.
 **FRs covered:** FR-17, FR-18, FR-19 (Algorithm Status). **Also:** AR-19, AR-23, UX-DR17.
 
-**Deferred to v1.1 — Epic 10 (Scan my cube):** moved to `post-launch/v1.1-camera-recognition.md` (PO decision 2026-11-08, `sprint-change-proposal-2026-11-08-vision-deferral.md`). Covered FR-21, FR-23 – FR-26, plus the Quick Check rung of FR-9 and FR-16, and the calibration reset of FR-19.
+### Epic 10: Scan my cube (v1.1, flag-gated)
+A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. Built on `main` with every camera flag OFF in release; each feature reaches users only when the PO raises its flag at a release (Story 10.11). Restored from `post-launch/v1.1-camera-recognition.md` by `sprint-change-proposal-2026-11-14-v1-1-camera.md`.
+**FRs covered:** FR-21, FR-23 – FR-26, plus the Quick Check rung of FR-9 and FR-16, and the calibration reset of FR-19. **Also:** recognition NFRs, NFR-5, NFR-8, NFR-11, NFR-12, AD-9, AD-13, AD-18, AR-13, UX-DR15, UX-DR16, UX-DR19 – UX-DR22, UX-DR25.
+**Order:** 10.9 → 10.10 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.4 → 10.5 → 10.7) → Epic 11 → 10.8 → 10.11. Device sessions: A = 10.10; B = 10.2 and 10.4 acceptance; C = 11.1, 11.3 capture and 10.8.
+**Never blocks** tester-feedback fixes or Stories 12.3, 12.4, 12.5 and 13.6: camera stories merge only with release camera flags OFF, and Story 10.9's gate keeps the release free of camera code and permissions.
 
-**Deferred to v1.1 — Epic 11 (Scan shortcuts: Quick Scan, Placement and Case recognition):** moved to `post-launch/v1.1-camera-recognition.md` (same decision). Covered FR-22, FR-27, FR-28.
+### Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition (v1.1, flag-gated)
+First on the PRD cut order (Quick Scan → beta, then Case recognition, then Placement). Each ships behind its AD-18 flag and can be turned OFF without dead UI.
+**FRs covered:** FR-22, FR-27, FR-28. **Also:** recognition NFRs, NFR-11, AD-6, AD-9, AD-10, AD-18, AD-19, UX-DR19, UX-DR25.
 
 ### Epic 12: Release-ready for learners and reviewers (P0.6, weeks 15–16)
 The app meets every release gate. It is accessible, fast and stable on the reference devices, the pilot's findings are fixed, and the store listing and public repo are ready for a hiring manager's five-minute look.
 **Absorbs:** E09, PRD §7.
 **FRs covered:** none new (verifies all). **Also:** NFR-1, NFR-2, NFR-7, NFR-8, NFR-9, NFR-11, NFR-13, AR-3, AR-5, AR-16, UX-DR28, UX-DR29, Flow 6.
 **Also carries** the pre-pilot stories 12.6–12.10 (Cubentia rebrand; Epic 8 retrospective fixes), which run before Story 7.8 (`sprint-change-proposal-2026-11-08-cubentia-and-pre-pilot.md`), and 12.11–12.12 (Epic 9 seams; 2-look rules), also before 7.8 (`sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md`), and 12.13 (durable session end; Story 12.11 deferrals), also before 7.8 (`sprint-change-proposal-2026-11-10-session-end-deferrals.md`).
-**Epic 13** (public website and privacy policy, `sprint-change-proposal-2026-11-13-cubentia-site.md`) runs before Stories 12.3, 12.4 and 12.5. Story 12.3 depends on 13.6, and Story 12.5 on 13.4 and 13.5.
+**Epic 13** (public website and privacy policy, `sprint-change-proposal-2026-11-13-cubentia-site.md`) runs before Stories 12.3, 12.4 and 12.5. Story 12.3 depends on 13.6, and Story 12.5 on 13.4 and 13.5. Epics 10 and 11 (v1.1 camera, flag-gated) run in parallel with Epics 12 and 13 and never gate them (`sprint-change-proposal-2026-11-14-v1-1-camera.md`).
 **Device batch** (reference devices connected after the device-free stories; `sprint-change-proposal-2026-11-10-session-end-deferrals.md`): Stories 3.8, 1.11 and 12.2, plus the Story 12.1 physical pass in `docs/accessibility-manual-check.md`. Story 3.7 stays in `review` until 3.8 passes (its last AC), and Story 12.1 stays in `review` until that physical pass is recorded.
 **Reference devices (SCP 2026-11-12, `sprint-change-proposal-2026-11-12-lenovo-minimum-reference.md`):** minimum Lenovo Tab M10 Plus 3rd Gen (TB128XU, Android 13 / API 33), mid Samsung Galaxy S24 FE. The Galaxy Tab S7 FE 5G, the minimum until 2026-11-12, is kept as an additional compatibility device, and its 3.8, 1.11 and 12.2 results stay as dated evidence. The Lenovo was measured with the 3.8 and 12.2 methods and meets every threshold (`docs/benchmarks.md` § Additional device: Lenovo Tab M10 Plus 3rd Gen); its limitations are tracked in #119.
 
@@ -1481,7 +1487,7 @@ So that their results come back in time for fixes.
 
 ## Epic 8: Use my real cube
 
-A Learner can follow Lessons and Solution Playback on a physical cube, with the app honestly tracking the Expected State and handling mismatches without a camera. The camera rungs arrive with v1.1 camera recognition (`post-launch/v1.1-camera-recognition.md`).
+A Learner can follow Lessons and Solution Playback on a physical cube, with the app honestly tracking the Expected State and handling mismatches without a camera. The camera rungs arrive with v1.1 camera recognition (Epics 10–11, flag-gated; SCP 2026-11-14).
 
 ### Story 8.1: Physical-mode transitions in the reducer
 
@@ -1782,6 +1788,388 @@ So that I know when to move to the full set.
 **Then** the mini-Course becomes *Mastered*, the milestone plays; after the first such solve the row reads "Mastery: 1 of 2"
 
 *Amended by SCP 2026-11-10: Mastered also requires Completed. Implemented in Story 12.12.*
+
+## Epic 10: Scan my cube
+
+A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. P0.4 exit: the Guided Scan meets its accuracy targets on the test matrix, or `CAMERA_SCAN` ships as BETA. *(SCP 2026-11-14: restored from `post-launch/v1.1-camera-recognition.md`. Every story merges to `main` with every camera flag OFF in release; Story 10.9 lands first and Story 10.10 second. Stories 10.9–10.11 are appended IDs that run earlier than their number, as the How-to-read note allows.)*
+
+### Story 10.1: Classify stickers and assemble a Scan Result
+
+As a Learner,
+I want stickers read against my own cube's colors with honest uncertainty,
+So that the app flags what it isn't sure of instead of guessing.
+
+**Refs:** FR-21, FR-23, FR-24 · recognition NFRs, NFR-12 · AD-2, AD-5, AD-9 · AR-13
+
+**Depends on** Story 10.10 (live fixtures). *(SCP 2026-11-14: the Story 1.9 matrix holds one synthetic sample and offline JPEG labels only, `Fixtures/README.md`.)*
+
+**Acceptance Criteria:**
+
+**Given** the live `FaceSample` fixtures recorded by Story 10.10 (and the existing synthetic `Fixtures/labeled/face-samples.json`)
+**When** `StickerClassifier` (calibration as a parameter) and `ScanAssembler` run on the JVM
+**Then** they produce `ScanResult.Full(Facelets + StickerConfidence)` or `Partial`, rotating samples into URFDLB order using center and up-neighbor colors, and extend the existing `dev.cubentia.domain.recognition` types (`FaceSample`, `CalibrationCenters`, `PhysicalObservation`) instead of duplicating them
+
+**Given** the fixture suite
+**When** accuracy is reported
+**Then** per-sticker and per-scan accuracy and the confidently-wrong rate (target ≤ 0.1%) are printed per device (Lenovo Tab M10 Plus 3rd Gen, Galaxy S24 FE, Galaxy Tab S7 FE), and only categorical confidence leaves the module
+
+### Story 10.2: Guided 6-face Scan viewfinder
+
+As a Learner,
+I want the camera to guide me face by face and capture on its own,
+So that scanning is quick even for a beginner.
+
+**Refs:** FR-21, FR-23 · NFR-5, NFR-8 · AD-9, AD-13, AD-18 · AR-13 · UX-DR15, UX-DR19, UX-DR21, UX-DR25 · UX Flows 4, 6
+
+**Depends on** Stories 10.9 and 10.1. **Human gate:** acceptance on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE (device session B).
+
+**Acceptance Criteria:**
+
+**Given** the first scan
+**When** the camera permission is requested
+**Then** an explanation shows first, using the EXPERIENCE.md camera-rationale copy *(SCP 2026-11-14: copy to be added by the UX update)* from content strings (NFR-10); if denied, an explanation card with *Enter colors instead* (and a Settings deep-link when permanently denied) is shown
+
+**Given** the CameraX adapter in the camera source set (`app/src/camera/kotlin/dev/cubentia/app/camera/`, Story 10.9) *(SCP 2026-11-14: was `:app/camera`)*
+**When** the grid is aligned and steady for ~600 ms
+**Then** the face is captured automatically (manual shutter also available), the prompt names the center and up colors with a glyph swatch, and the mini net advances
+
+**Given** a wrong orientation, glare, blur or low light
+**When** detected
+**Then** the Learner is re-prompted with specific coaching ("Too much glare — tilt the cube"), not an error
+
+**Given** frames
+**When** processed
+**Then** they stay in memory, are never persisted or sent, and release logs contain no samples; a debug-only recorder exports `FaceSample` JSON with ground truth
+
+**Given** a device with no camera, or camera hardware that cannot be bound *(SCP 2026-11-14)*
+**When** any scan entry point would render
+**Then** it is hidden as if its flag were OFF (UX-DR19), and the Play listing still installs on that device (`uses-feature android.hardware.camera.any` with `required="false"`)
+
+**Given** the story closes *(SCP 2026-11-14)*
+**When** the PR merges
+**Then** the Story 1.9 prototype is deleted (`app/src/spikeScan/`, the `cubentia.spikeScan` switch in `app/build.gradle.kts`), CameraX is bound off the main thread, and a debug StrictMode run on the Lenovo adds no app-frame main-thread disk violation (#107 lists the platform ones already known)
+
+### Story 10.3: Review and correct a Scan Result
+
+As a Learner,
+I want to fix any sticker the camera misread before it's used,
+So that a bad read never reaches the Solver or the tutor.
+
+**Refs:** FR-23, FR-14 · AD-3, AD-9 · AR-13 · UX-DR16, UX-DR22, UX-DR25
+
+**Acceptance Criteria:**
+
+**Given** a scan sub-flow returning `ScanOutcome {Accepted, Cancelled, FellBackToEditor}` through a typed navigation result
+**When** review opens
+**Then** uncertain stickers are pre-selected, corrections use tap-sticker-then-color, and invalid states name the likely bad stickers ("This corner shows two whites.")
+
+**Given** any uncertain sticker unresolved or an invalid state
+**When** the Learner looks at Accept
+**Then** it is disabled
+
+**Given** the scan flow
+**When** it completes
+**Then** only the caller dispatches the result, and the flow never touches a session
+
+**Given** the review screen at 200% font on the Lenovo's 600 dp two-pane width *(SCP 2026-11-14: #137 found word breaks at this width)*
+**When** it renders
+**Then** no word breaks mid-word and nothing is cut off (`docs/accessibility-manual-check.md`)
+
+### Story 10.4: Calibrate colors for my cube
+
+As a Learner with a stickerless or unusual cube,
+I want to teach the app my cube's colors,
+So that scans read it correctly.
+
+**Refs:** FR-24, FR-19 · AD-9, AD-10 · AR-13, AR-21 · UX-DR25 · UX Flow 9
+
+**Human gate:** the first-stickerless-scan prompt is accepted on a device with the stickerless test cube (device session B).
+
+**Acceptance Criteria:**
+
+**Given** many uncertain stickers in a scan, a first stickerless scan, or Settings
+**When** "Colors look off — calibrate?" or Settings → Color Calibration is chosen
+**Then** each of the six centers is shown in turn, the Learner confirms each swatch, and *Save* calls `UpdateCalibration`
+
+**Given** `CalibrationRepository` as the only owner
+**When** a rescan runs
+**Then** the classifier uses the saved calibration, which is never in `SessionState` or a Checkpoint
+
+**Given** *Reset calibration* in Settings
+**When** confirmed
+**Then** `ResetCalibration` clears only calibration
+
+**Given** the Room database at version 7 *(SCP 2026-11-14)*
+**When** the calibration entity is added
+**Then** the database moves to version 8 with an exported `8.json` schema, a `7→8` migration and a migration test that preserves every existing table's rows (AD-10), and the Settings calibration rows are hidden while `CAMERA_SCAN` is OFF
+
+### Story 10.5: Scan to solve
+
+As a Learner who just wants it solved,
+I want to scan instead of typing colors,
+So that I go from scrambled to solving in under a minute.
+
+**Refs:** FR-25, FR-15, FR-16 · AD-8, AD-9, AD-18 · UX-DR19, UX-DR25 · UX Flow 3
+
+**Acceptance Criteria:**
+
+**Given** the Solve tab
+**When** *Scan my cube* is chosen
+**Then** scan → review → validate → solve → playback runs without leaving the flow, and *Enter colors instead* is always visible
+
+**Given** `CAMERA_SCAN` is BETA
+**When** the Solve tab renders
+**Then** *Enter colors* is the primary action and scan carries the shared BETA label (the *Test me* component from #137, not a copy) and the camera tooltip "May misread colors in poor light. Manual entry always works." *(SCP 2026-11-14: names the shared component and the approved copy, EXPERIENCE.md:135)*
+
+**Given** `CAMERA_SCAN` is OFF *(SCP 2026-11-14)*
+**When** the Solve tab renders
+**Then** *Enter colors* is the only action, exactly as today (Story 3.7)
+
+**Given** camera permission denied from Solve
+**When** the Learner taps *Scan my cube*
+**Then** the Manual Cube Editor opens directly with a one-line note
+
+### Story 10.6: Quick Check evidence and Certainty
+
+As a Learner with a real cube,
+I want a quick photo to confirm what I actually did,
+So that the tutor's verdict is based on evidence.
+
+**Refs:** FR-26, FR-9, FR-10 · recognition NFRs · AD-3, AD-5, AD-9 · AR-9, AR-13
+
+**Acceptance Criteria:**
+
+**Given** a Quick Check of the faces the recent Moves touched (≤ 2 captures [ASSUMPTION])
+**When** it returns a `Partial` observation
+**Then** it is checked for internal consistency only and never completed from `expected`
+
+**Given** `Assess`
+**When** the observed faces cover every face any Move since the last Full verified observation could touch and exactly one candidate fits
+**Then** Certainty is VERIFIED; otherwise LIKELY or UNKNOWN, and a scenario suite yields 0 false *verified*
+
+**Given** a stale result (the Learner confirmed a Move during the scan)
+**When** it arrives
+**Then** it is discarded, and if the Learner started it, "Your cube changed while scanning — scan again?" is offered
+
+### Story 10.7: Quick Check in Physical-cube Mode and playback
+
+As a Learner,
+I want to check my cube at key moments and recover from what the scan shows,
+So that I fix the real problem.
+
+**Refs:** FR-26, FR-9, FR-12, FR-16, FR-8 · AD-3, AD-5 · UX-DR4, UX-DR12, UX-DR13, UX-DR20, UX-DR25 · UX Flows 1, 3, 4
+
+**Acceptance Criteria:**
+
+**Given** physical mode
+**When** an Objective boundary, a Stage milestone or a mismatch report occurs
+**Then** *Quick Check* is offered (never required; *Done* still works), and it is the first rung of the mismatch ladder, inserted above the Story 12.8 rungs without changing their tests *(SCP 2026-11-14)*
+
+**Given** a matching result
+**When** shown
+**Then** a ✓ *Verified* chip and a VERIFIED frame appear until the next *Done*; a mismatch shows the SEEN strip with differing stickers outlined, never a whole cube from a Partial
+
+**Given** a Full observation in mismatch
+**When** *Use my cube as it is now* is chosen
+**Then** `AdoptObserved` replaces the Expected State and starts a Guided recovery; a Partial must first be completed by a Guided Scan or the Editor
+
+**Given** physical Solution Playback or the Stage 6 end
+**When** the Learner runs a Quick Check
+**Then** it is available at any step, and a verified solved cube triggers the first-solve milestone (recorded only when true, Story 12.7); *Scan it* now appears on the Confirm-your-cube card next to the Story 8.7 camera wording
+
+**Given** `CAMERA_SCAN` is OFF *(SCP 2026-11-14)*
+**When** any physical-mode screen renders
+**Then** no Quick Check entry, chip or rung appears, and the Story 8.7 / 12.10 tests pass unchanged
+
+### Story 10.8: Recognition test matrix and GA/BETA decision
+
+As the developer,
+I want the scan features measured against their targets before release,
+So that each ships with an honest GA or BETA label.
+
+**Refs:** FR-21, FR-26 · recognition NFRs · AD-14, AD-18 · OQ-8 · PRD §7 gate 6
+
+**Human gate:** physical devices, both test cubes and the four lighting conditions (device session C).
+
+**Acceptance Criteria:**
+
+**Given** the OQ-8 matrix (stickered and stickerless cubes × daylight, warm indoor, cool LED, low light × Lenovo Tab M10 Plus 3rd Gen (minimum, gating), Galaxy S24 FE (mid, gating), Galaxy Tab S7 FE (compatibility, reported)) *(SCP 2026-11-14: devices named)*
+**When** Guided 6-face Scan, Quick Check, and each Epic 11 feature that is built are run with recorded ground truth
+**Then** accuracy, corrections, time and confidently-wrong rates are reported against the §4.8 targets in `docs/benchmarks.md` (or `docs/spikes/oq-8-recognition-matrix.md`)
+
+**Given** the results
+**When** a target is missed
+**Then** the story records a per-feature recommendation (OFF, BETA or GA) for the PO in the PRD memlog, and every scan flow is verified to have a working manual fallback; the release level itself is set only by Story 10.11 *(SCP 2026-11-14: was "`CAMERA_SCAN` is set to BETA for release")*
+
+### Story 10.9: Keep camera code out of a release whose camera flags are OFF
+
+As the developer,
+I want a release with every camera flag OFF to contain no camera code, dependency or permission,
+So that camera work can merge to `main` while tester-fix releases stay exactly as camera-free as v1.0.
+
+**Refs:** NFR-5, NFR-8, NFR-11 · AD-9, AD-13, AD-14, AD-15, AD-18 · Stories 12.10, 13.3 · `sprint-change-proposal-2026-11-14-v1-1-camera.md` §4.2
+
+**Runs first** in Epic 10; no CameraX code merges to `main` before it.
+
+**Acceptance Criteria:**
+
+**Given** `FeatureFlagLevels.byBuildType` as the only source of flag levels
+**When** a build type has at least one of `CAMERA_SCAN`, `QUICK_SCAN`, `PLACEMENT`, `CASE_RECOGNITION` above OFF
+**Then** `build-logic` adds the camera source set (`app/src/camera/kotlin`, `app/src/camera/AndroidManifest.xml` with `CAMERA` and `uses-feature android.hardware.camera.any required="false"`) and the CameraX dependencies to that build type only; otherwise neither is added
+
+**Given** today's levels (debug GA; release and benchmark OFF)
+**When** `./gradlew spotlessCheck build` runs
+**Then** the release and benchmark merged manifests declare no `CAMERA` and no camera `uses-feature`, `releaseRuntimeClasspath` contains no `androidx.camera:*` and no ML or CV runtime (`com.google.mlkit:*`, `com.google.ai.edge.litert*`, `org.tensorflow*`, `org.opencv*`), `docs/privacy-facts.json` is unchanged, and CI's "Verify build wires the gates" step lists the new check
+
+**Given** `ManifestPolicy`
+**When** a non-debuggable variant's build type has a camera flag above OFF
+**Then** it allows `CAMERA` and nothing else; with every camera flag OFF it still allows nothing (Story 12.10 behavior unchanged), and the rule still keys on `variant.debuggable`
+
+**Given** Gradle TestKit fixtures
+**When** `./gradlew -p build-logic test` runs
+**Then** (a) all camera flags OFF plus a `CAMERA` in the release manifest fails, (b) all OFF plus `androidx.camera` on the release classpath fails, (c) `CAMERA_SCAN=BETA` in release passes with `CAMERA` and produces privacy facts with `runtimePermissions: ["android.permission.CAMERA"]`, (d) `PLACEMENT` or `CASE_RECOGNITION` above OFF while `CAMERA_SCAN` is OFF fails with a message naming the flag (§6 Q6)
+
+**Given** `:app` main code
+**When** it needs a scan
+**Then** it reaches the camera only through a port with an optional Hilt binding (`ScanLauncher` or equivalent, named in the AD-9 update) that the camera source set provides; with no binding, every scan entry point is hidden, and a unit test proves a flag above OFF without a binding fails at startup in debug
+
+### Story 10.10: Live recognition baseline and fixture recorder
+
+As the developer,
+I want the live CameraX pipeline measured on the reference devices with recorded ground truth,
+So that Epic 10 builds on real numbers, not the offline JPEG estimate.
+
+**Refs:** FR-21, FR-24 · recognition NFRs, NFR-11 · AD-9, AD-14, AD-15 · OQ-7, OQ-8 · Story 1.9 · `docs/spikes/oq-4-guided-scan.md`
+
+**Depends on** Story 10.9. **Human gate:** the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE (Galaxy Tab S7 FE optional), the stickered and the stickerless test cube, normal indoor light, and the PO's go/no-go on the result (device session A).
+
+**Acceptance Criteria:**
+
+**Given** the Story 1.9 `GuidedScanActivity` moved into the debug-only camera source set as the fixture recorder (AD-9 "Frames", AD-15)
+**When** a face is captured
+**Then** it exports `FaceSample` JSON plus independently entered nine-sticker ground truth, device model, OS build, cube and light description into `Fixtures/live/<device>_<cube>_<light>/`, and no release variant contains the recorder
+
+**Given** both cubes × normal indoor light × the two gating devices, six faces each
+**When** the prototype nearest-calibrated-center CIELAB classifier runs on the recorded samples
+**Then** per-sticker accuracy, per-face accuracy and confidently-wrong counts are written to `docs/spikes/oq-4-guided-scan.md` § Live baseline, and the Story 1.9 ≥ 99% live gate is recorded as met or missed
+
+**Given** the result
+**When** the story closes
+**Then** the PO records go (continue with 10.1), go-as-BETA-only, or re-plan in the PRD memlog, and OQ-7's Kotlin-first Quick Scan recommendation is confirmed or revised with its size cost
+
+### Story 10.11: Raise a camera feature above OFF for a release
+
+As the product owner,
+I want one checklist that takes a camera feature from OFF to BETA (or GA) for a release,
+So that the app, the public privacy policy, Play Console and the store listing all say the same thing on the day it ships.
+
+**Refs:** NFR-5, NFR-8, NFR-11 · AD-13, AD-15, AD-18 · PRD §7 gate 6 · Stories 10.8, 12.3, 12.4, 13.3, 13.4, 13.6 · `docs/release.md`, `docs/play-first-publish.md`
+
+**Runs** once per release in which at least one camera flag leaves OFF; it is reopened (or copied as 10.11-n) for each such release. **Depends on** Story 10.8's recommendation for every raised feature, and on Stories 12.3, 12.4, 12.5 and 13.6 being done (§6 Q5). **Human gates:** the PO's per-feature level decision; the site-repository PR; Play Console.
+
+**Acceptance Criteria:**
+
+**Given** the PO's decision recorded in the PRD memlog
+**When** the release-prep PR moves the features into `FeatureFlagLevels.releaseBeta` (or `releaseGa`)
+**Then** the build composes the camera source set into release, `:app:writePrivacyFacts` regenerates `docs/privacy-facts.json` with `runtimePermissions: ["android.permission.CAMERA"]`, `FeatureFlagLevelsTest`'s release expectation is updated, `:app:checkReleaseSize` stays below 30,000,000 bytes, and the PR is the last one merged before the `vX.Y.Z` tag
+
+**Given** the site repository `hebelmx/cubentia-site` (never renamed; publisher "Exxerpro Solutions, S.A. de C.V."; contact `exxerpro@exxerpro.com`)
+**When** its privacy page is updated right after the app PR merges
+**Then** `/privacy/` states, in plain language and with a new effective date: the app asks for one runtime permission, the camera, only when the Learner first opens a scan; camera frames are processed in memory on the device and are never stored, saved as photos or sent anywhere; the app still has no internet permission; every scan feature has a manual alternative; and the site's `check` job passes against the new `privacy-facts.json` before `deploy`
+
+**Given** Play Console
+**When** the release is prepared
+**Then** the PO re-confirms Data safety as "No data collected" (camera frames are processed only on the device and never leave it), re-saves it if Console asks after the new permission, and records the date in the release issue; `docs/play-first-publish.md:29,49` and `docs/release.md` say "no runtime permission except the camera when a camera feature ships"
+
+**Given** the release build
+**When** Learners see a raised feature
+**Then** the camera-rationale copy and the camera BETA tooltip come from content strings, the store listing's description names the feature with "(beta)" and says photos never leave the phone, and PRD §7 gate 6 is checked for each raised feature (manual fallback works; no unvalidated Scan Result is used), linking 10.8's evidence
+
+**Given** a feature that stays OFF
+**When** the release ships
+**Then** it has no entry point, string or permission rationale visible to Learners (UX-DR19)
+
+## Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition
+
+These are first on the PRD cut order (Quick Scan → beta, then Case recognition, then Placement). Each ships behind its AD-18 flag and can be turned OFF without dead UI. *(SCP 2026-11-14: restored; each merges with its flag OFF in release, and Story 10.11 raises it.)*
+
+### Story 11.1: Quick Scan from two corners
+
+As a Learner,
+I want to scan my cube in two photos,
+So that scanning takes seconds.
+
+**Refs:** FR-22, FR-23 · recognition NFRs, NFR-11 · AD-9, AD-18 · OQ-7 · UX-DR15, UX-DR19 · UX Flow 3
+
+**Depends on** Stories 10.2 and 10.3. **Human gate:** devices and both test cubes (device session C).
+
+**Acceptance Criteria:**
+
+**Given** `QUICK_SCAN` is BETA or GA
+**When** the Learner holds the cube by a corner and captures twice ("1 / 2")
+**Then** the adapter's corner detection and perspective unwarp (method from OQ-7, as confirmed by Story 10.10) emit `FaceSample`s, and two opposite-corner captures yield 54 stickers
+
+**Given** faces that are uncertain or an invalid state
+**When** assembly finishes
+**Then** the Guided Scan grid asks for only those faces, never a guessed state
+
+**Given** the test matrix
+**When** Quick Scan is measured
+**Then** it is recommended GA only at ≥ 95% valid after ≤ 3 corrections and < 15 s, otherwise BETA; its size cost fits NFR-11, and any OpenCV or LiteRT runtime is added only in the camera source set *(SCP 2026-11-14)*
+
+### Story 11.2: Start the Course from my cube (Placement)
+
+As a Learner who already knows some steps,
+I want the app to look at my cube and suggest where to start,
+So that I continue from where I really am.
+
+**Refs:** FR-27, FR-4 · AD-6, AD-10, AD-18 · AR-21 · UX-DR19, UX-DR25 · UX Flow 4
+
+**Acceptance Criteria:**
+
+**Given** `PLACEMENT` is BETA or GA
+**When** Welcome → *Start from my cube* (or Recognize's link) scans an accepted Full state
+**Then** `PlaceFromScan` evaluates each Stage Predicate and suggests the first unmet Stage, with *Choose another Stage*; the existing `PlaceFromScan` writer (`core/application/.../usecase/PlaceFromScan.kt`) is reused *(SCP 2026-11-14)*
+
+**Given** acceptance
+**When** recorded
+**Then** that Stage unlocks and earlier Stages get `StageSkippedByPlacement` (◇ *Skipped by placement*, never mastered, always revisitable)
+
+**Given** edge outcomes
+**When** the cube is unsolved, has a non-white cross, is at the LL, or is solved
+**Then** the EXPERIENCE.md Placement-outcome copy and options show
+
+**Given** `PLACEMENT` is OFF
+**When** Welcome and Recognize render
+**Then** *Start from my cube* is absent everywhere, and the persisted onboarding-complete behavior (#137) is unchanged *(SCP 2026-11-14)*
+
+### Story 11.3: Recognize an OLL/PLL Case
+
+As a Learner practicing the last layer,
+I want to photograph my top layer and be told which Case it is,
+So that I can look up the right Algorithm.
+
+**Refs:** FR-28, FR-18, FR-27 · recognition NFRs · AD-9, AD-18, AD-19 · UX-DR19, UX-DR25 · UX Flow 5
+
+**Human gate:** capture acceptance on a device with the stickered cube (device session C); matching is JVM-tested.
+
+**Acceptance Criteria:**
+
+**Given** `CASE_RECOGNITION` is BETA or GA
+**When** Library → *Recognize case* captures one top-corner view (U + two sides)
+**Then** `RecognizeCase` matches the visible stickers through `LastLayerMatcher` under AUF and returns the Case within 1 s
+
+**Given** a unique match
+**When** shown
+**Then** "OLL 45 · T-shape" opens the Algorithm detail with its Demonstration playing, and *Mark as Learning* is offered, never automatic
+
+**Given** several candidate Cases
+**When** shown
+**Then** "This could be one of 3 cases" lists candidate tiles with *Scan another angle*, never a silent pick
+
+**Given** the first two layers are unsolved
+**When** recognized
+**Then** "The first two layers aren't solved yet." shows with *Start from my cube* when `PLACEMENT` is on
 
 ## Epic 12: Release-ready for learners and reviewers
 
@@ -2215,13 +2603,13 @@ So that I know Cubentia collects nothing and keeps my progress on my device.
 
 **Depends on** Stories 13.1 and 13.3.
 
-**Human gate (before merge):** the PO confirms the publisher name ("ExxerPro") exactly as on the Play developer account, and the effective date.
+**Human gate (before merge):** the PO confirms the publisher name ("Exxerpro Solutions, S.A. de C.V.") exactly as on the Play developer account, and the effective date.
 
 **Acceptance Criteria:**
 
 **Given** `/privacy/`
 **When** it is read
-**Then** it states, in plain language: Cubentia collects no personal data and shares none; it has no account, ads, analytics or crash reporting; it has no internet permission and does not back up data; it asks for no runtime permission; progress is stored only on the device and is removed when the app is uninstalled; it names the publisher ("ExxerPro") exactly as on the Play developer account, the contact email `abel.briones@exxerpro.com` and an effective date; it applies to Learners of any age; and it says the website sets no cookies and is hosted on GitHub Pages, which may log visitor IP addresses for security, with a link to GitHub's privacy statement
+**Then** it states, in plain language: Cubentia collects no personal data and shares none; it has no account, ads, analytics or crash reporting; it has no internet permission and does not back up data; it asks for no runtime permission; progress is stored only on the device and is removed when the app is uninstalled; it names the publisher ("Exxerpro Solutions, S.A. de C.V.") exactly as on the Play developer account, the contact email `exxerpro@exxerpro.com` and an effective date; it applies to Learners of any age; and it says the website sets no cookies and is hosted on GitHub Pages, which may log visitor IP addresses for security, with a link to GitHub's privacy statement
 
 **Given** `docs/privacy-facts.json` on the app repository's `main` (`vars.APP_REPO`)
 **When** the site's `check` job runs on a pull request, on push, daily and on manual dispatch
@@ -2245,7 +2633,7 @@ So that I am not stuck when something goes wrong.
 
 **Given** `/support/`
 **When** it is read
-**Then** it gives the same contact email as the privacy policy (`abel.briones@exxerpro.com`), says what to include in a report (device, Android version, app version from Settings → Apps → Cubentia, what happened), says that no personal data is needed, links to the privacy policy, and points developers to the public source repository's issues without asking Learners to post personal details there
+**Then** it gives the same contact email as the privacy policy (`exxerpro@exxerpro.com`), says what to include in a report (device, Android version, app version from Settings → Apps → Cubentia, what happened), says that no personal data is needed, links to the privacy policy, and points developers to the public source repository's issues without asking Learners to post personal details there
 
 **Given** the landing page and the privacy page
 **When** they are opened
