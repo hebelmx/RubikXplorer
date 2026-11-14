@@ -3,11 +3,13 @@ package dev.cubentia.app.ui.shell
 import android.app.Application
 import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -125,12 +127,15 @@ class AppShellSolveTest {
 
     private var back: OnBackPressedDispatcher? = null
 
-    private fun show() {
+    private var view: android.view.View? = null
+
+    private fun show(dark: Boolean = false) {
         val catalog = LessonCatalog.of(ContentLoadResult.Loaded(bundle))
         val freeCube = FreeCubeViewModel()
         rule.setContent {
+            view = androidx.compose.ui.platform.LocalView.current
             back = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
-            CubentiaTheme {
+            CubentiaTheme(darkTheme = dark) {
                 AppShell(host, catalog, freeCube, false, testFlags(), solveFlow = flow)
             }
         }
@@ -273,11 +278,13 @@ class AppShellSolveTest {
         click("nav:solve")
         click("solve:enterColors")
         rule.onNodeWithTag("solve:pauseNote").assertTextEquals("Starting a solve pauses your lesson.")
+        assertPauseNoteMargin()
         click("editor:accept")
         rule.onNodeWithTag("solve:preparing").assertTextEquals(
             "Preparing the solver. The first solve after the app starts takes longer. Later solves are faster.",
         )
         rule.onNodeWithTag("solve:progress").assertExists()
+        assertPauseNoteMargin()
         assertEquals(lesson, host.state.value.lesson)
         click("solve:cancel")
         rule.onNodeWithTag("solve:error").assertDoesNotExist()
@@ -332,5 +339,55 @@ class AppShellSolveTest {
         rule.onNodeWithTag("solvePlayback:screen").assertDoesNotExist()
         rule.onNodeWithTag("nav:bar").assertExists()
         assertNotEquals(SessionKind.SOLVE_PLAYBACK, host.state.value.kind)
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h1000dp")
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun darkRailEditorPaintsThemeSurface() {
+        show(dark = true)
+        click("nav:solve")
+        click("solve:enterColors")
+        val pixels = rule.onNodeWithTag("shell").captureToImage().toPixelMap()
+        assertEquals(dev.cubentia.app.ui.theme.DarkTokens.surfaceBase, pixels[pixels.width - 1, pixels.height - 1])
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h1000dp")
+    fun railSolveControlsSitBelowTheStatusBar() {
+        show()
+        val top = 96
+        rule.runOnIdle {
+            val insets =
+                androidx.core.view.WindowInsetsCompat
+                    .Builder()
+                    .setInsets(
+                        androidx.core.view.WindowInsetsCompat.Type
+                            .statusBars(),
+                        androidx.core.graphics.Insets
+                            .of(0, top, 0, 0),
+                    ).build()
+            androidx.core.view.ViewCompat
+                .dispatchApplyWindowInsets(view!!, insets)
+        }
+        rule.waitForIdle()
+        rule.onNodeWithTag("nav:rail").assertExists()
+        click("nav:solve")
+        assertBelow("solve:enterColors", top)
+        click("solve:enterColors")
+        assertBelow("solve:close", top)
+    }
+
+    private fun assertBelow(
+        tag: String,
+        top: Int,
+    ) {
+        val bounds = rule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+        org.junit.Assert.assertTrue("$tag top ${bounds.top} under the $top px status bar", bounds.top >= top)
+    }
+
+    private fun assertPauseNoteMargin() {
+        val note = rule.onNodeWithTag("solve:pauseNote").fetchSemanticsNode()
+        org.junit.Assert.assertTrue(note.boundsInRoot.left >= 16 * note.layoutInfo.density.density)
     }
 }

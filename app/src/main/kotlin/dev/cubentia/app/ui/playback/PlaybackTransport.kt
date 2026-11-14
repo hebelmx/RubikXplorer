@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -323,7 +324,12 @@ fun PlaybackTransport(
                 style = MaterialTheme.typography.bodySmall,
                 color = tokens.inkSecondary,
                 // Announced when it changes, so TalkBack users hear the new Move's note.
-                modifier = Modifier.testTag("playback:note").semantics { liveRegion = LiveRegionMode.Polite },
+                modifier =
+                    Modifier
+                        .padding(
+                            horizontal = Spacing.s4,
+                        ).testTag("playback:note")
+                        .semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
     }

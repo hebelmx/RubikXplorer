@@ -205,4 +205,35 @@ class SessionDatabaseMigrationTest {
                 Files.deleteIfExists(path)
             }
         }
+
+    @Test fun versionSixToSevenKeepsPreferencesAndDefaultsOnboardedToFalse() =
+        runBlocking {
+            val path = Files.createTempFile("onboarded-migration", ".db")
+            Files.delete(path)
+            val helper =
+                MigrationTestHelper(
+                    InstrumentationRegistry.getInstrumentation(),
+                    path.toFile(),
+                    AndroidSQLiteDriver(),
+                    RubikDatabase::class,
+                )
+            try {
+                helper.createDatabase(6).use { connection ->
+                    connection
+                        .prepare(
+                            "INSERT INTO preferences (id, theme, color_blind_glyphs, animation_speed, haptics, reduce_motion, " +
+                                "last_teaching_mode) VALUES (1, 'DARK', 1, 'FAST', 0, 1, 'SHOW_ME')",
+                        ).use { it.step() }
+                }
+                helper.runMigrationsAndValidate(7).use { connection ->
+                    connection.prepare("SELECT theme, onboarded FROM preferences WHERE id = 1").use {
+                        assertEquals(true, it.step())
+                        assertEquals("DARK", it.getText(0))
+                        assertEquals(0L, it.getLong(1))
+                    }
+                }
+            } finally {
+                Files.deleteIfExists(path)
+            }
+        }
 }

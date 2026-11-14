@@ -1,0 +1,928 @@
+diff --git a/app/src/main/kotlin/dev/cubentia/app/MainActivity.kt b/app/src/main/kotlin/dev/cubentia/app/MainActivity.kt
+index b31785a..6d818c8 100644
+--- a/app/src/main/kotlin/dev/cubentia/app/MainActivity.kt
++++ b/app/src/main/kotlin/dev/cubentia/app/MainActivity.kt
+@@ -1,9 +1,14 @@
+ package dev.cubentia.app
+ 
++import android.graphics.Color
+ import android.os.Bundle
+ import androidx.activity.ComponentActivity
++import androidx.activity.SystemBarStyle
+ import androidx.activity.compose.setContent
++import androidx.activity.enableEdgeToEdge
+ import androidx.activity.viewModels
++import androidx.compose.foundation.isSystemInDarkTheme
++import androidx.compose.runtime.LaunchedEffect
+ import androidx.compose.runtime.collectAsState
+ import androidx.compose.runtime.getValue
+ import dagger.hilt.android.AndroidEntryPoint
+@@ -13,6 +18,7 @@ import dev.cubentia.app.preferences.PreferredTheme
+ import dev.cubentia.app.session.SessionHost
+ import dev.cubentia.app.ui.freecube.FreeCubeViewModel
+ import dev.cubentia.app.ui.shell.AppShell
++import dev.cubentia.app.ui.theme.isDarkTheme
+ import dev.cubentia.application.port.FeatureFlags
+ import javax.inject.Inject
+ 
+@@ -44,8 +50,12 @@ class MainActivity : ComponentActivity() {
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
+         setContent {
+-            val progressEvents by sessionHost.progressEvents.collectAsState()
+-            val attemptRecords by sessionHost.attemptRecords.collectAsState()
++            val prefs by preferenceStore.preferences.collectAsState()
++            val dark = isDarkTheme(prefs.theme, isSystemInDarkTheme())
++            LaunchedEffect(dark) {
++                val style = if (dark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
++                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
++            }
+             PreferredTheme(preferenceStore) {
+                 AppShell(
+                     preferenceStore = preferenceStore,
+@@ -55,7 +65,7 @@ class MainActivity : ComponentActivity() {
+                     freeCube = freeCube,
+                     showDebugToggles = DebugOptions.SHOW_DEBUG_TOGGLES,
+                     flags = featureFlags,
+-                    showWelcome = progressEvents.isEmpty() && attemptRecords.isEmpty(),
++                    showWelcome = true,
+                 )
+             }
+         }
+diff --git a/app/src/main/kotlin/dev/cubentia/app/ui/lesson/ConfirmCubeCard.kt b/app/src/main/kotlin/dev/cubentia/app/ui/lesson/ConfirmCubeCard.kt
+index c8de1bb..f1289ac 100644
+--- a/app/src/main/kotlin/dev/cubentia/app/ui/lesson/ConfirmCubeCard.kt
++++ b/app/src/main/kotlin/dev/cubentia/app/ui/lesson/ConfirmCubeCard.kt
+@@ -3,7 +3,9 @@ package dev.cubentia.app.ui.lesson
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.border
+ import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.BoxWithConstraints
+ import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.PaddingValues
+ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.heightIn
+@@ -16,7 +18,9 @@ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
++import androidx.compose.ui.platform.LocalDensity
+ import androidx.compose.ui.platform.testTag
++import androidx.compose.ui.text.rememberTextMeasurer
+ import androidx.compose.ui.unit.dp
+ import dev.cubentia.app.content.ContentStrings
+ import dev.cubentia.app.ui.theme.RubikTheme
+@@ -53,39 +57,51 @@ fun ConfirmCubeCard(
+             color = tokens.inkPrimary,
+             modifier = Modifier.testTag("confirmCube:title"),
+         )
+-        Row(
+-            horizontalArrangement = Arrangement.spacedBy(Spacing.s3),
+-            modifier = Modifier.fillMaxWidth(),
+-        ) {
+-            OutlinedButton(
+-                onClick = onEnter,
+-                shape = MaterialTheme.shapes.medium,
+-                modifier =
+-                    Modifier
+-                        .weight(1f)
+-                        .heightIn(min = Spacing.touchMin)
+-                        .testTag("confirmCube:enter"),
+-            ) {
+-                Text(
+-                    text = strings.resolve(ContentText("btn.physical.confirm-enter")),
+-                    color = tokens.inkPrimary,
+-                )
++        BoxWithConstraints(Modifier.fillMaxWidth()) {
++            val measurer = rememberTextMeasurer()
++            val density = LocalDensity.current
++            val style = MaterialTheme.typography.labelLarge
++            val labels = listOf("btn.physical.confirm-enter", "btn.physical.confirm-matches").map { strings.resolve(ContentText(it)) }
++            val width = with(density) { ((maxWidth - Spacing.s3) / 2 - Spacing.s3 * 2).toPx() }
++            val stack = labels.any { label -> label.split(Regex("\\s+")).any { measurer.measure(it, style).size.width > width } }
++            val buttons: @Composable (Modifier) -> Unit = { buttonModifier ->
++                OutlinedButton(
++                    onClick = onEnter,
++                    shape = MaterialTheme.shapes.medium,
++                    contentPadding = PaddingValues(horizontal = Spacing.s3, vertical = Spacing.s2),
++                    modifier =
++                        Modifier
++                            .then(buttonModifier)
++                            .heightIn(min = Spacing.touchMin)
++                            .testTag("confirmCube:enter"),
++                ) {
++                    Text(
++                        text = strings.resolve(ContentText("btn.physical.confirm-enter")),
++                        color = tokens.inkPrimary,
++                    )
++                }
++                Button(
++                    onClick = onMatches,
++                    shape = MaterialTheme.shapes.medium,
++                    contentPadding = PaddingValues(horizontal = Spacing.s3, vertical = Spacing.s2),
++                    colors =
++                        ButtonDefaults.buttonColors(
++                            containerColor = tokens.accent,
++                            contentColor = tokens.onAccent,
++                        ),
++                    modifier =
++                        Modifier
++                            .then(buttonModifier)
++                            .heightIn(min = Spacing.touchMin)
++                            .testTag("confirmCube:matches"),
++                ) {
++                    Text(text = strings.resolve(ContentText("btn.physical.confirm-matches")))
++                }
+             }
+-            Button(
+-                onClick = onMatches,
+-                shape = MaterialTheme.shapes.medium,
+-                colors =
+-                    ButtonDefaults.buttonColors(
+-                        containerColor = tokens.accent,
+-                        contentColor = tokens.onAccent,
+-                    ),
+-                modifier =
+-                    Modifier
+-                        .weight(1f)
+-                        .heightIn(min = Spacing.touchMin)
+-                        .testTag("confirmCube:matches"),
+-            ) {
+-                Text(text = strings.resolve(ContentText("btn.physical.confirm-matches")))
++            if (stack) {
++                Column(verticalArrangement = Arrangement.spacedBy(Spacing.s3)) { buttons(Modifier.fillMaxWidth()) }
++            } else {
++                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s3)) { buttons(Modifier.weight(1f)) }
+             }
+         }
+     }
+diff --git a/app/src/main/kotlin/dev/cubentia/app/ui/lesson/TeachingModeSwitcher.kt b/app/src/main/kotlin/dev/cubentia/app/ui/lesson/TeachingModeSwitcher.kt
+index 8dd54ec..b752d27 100644
+--- a/app/src/main/kotlin/dev/cubentia/app/ui/lesson/TeachingModeSwitcher.kt
++++ b/app/src/main/kotlin/dev/cubentia/app/ui/lesson/TeachingModeSwitcher.kt
+@@ -4,6 +4,8 @@ import androidx.annotation.StringRes
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.border
+ import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.BoxWithConstraints
++import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.heightIn
+@@ -16,11 +18,13 @@ import androidx.compose.runtime.Composable
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
++import androidx.compose.ui.platform.LocalDensity
+ import androidx.compose.ui.platform.testTag
+ import androidx.compose.ui.res.stringResource
+ import androidx.compose.ui.semantics.Role
+ import androidx.compose.ui.semantics.contentDescription
+ import androidx.compose.ui.semantics.semantics
++import androidx.compose.ui.text.rememberTextMeasurer
+ import androidx.compose.ui.unit.dp
+ import dev.cubentia.app.R
+ import dev.cubentia.app.ui.theme.RubikTheme
+@@ -51,7 +55,11 @@ fun TeachingModeSwitcher(
+     val tokens = RubikTheme.tokens
+     val shape = MaterialTheme.shapes.medium
+     val description = stringResource(R.string.lesson_mode_description)
+-    Row(
++    val measurer = rememberTextMeasurer()
++    val density = LocalDensity.current
++    val style = MaterialTheme.typography.labelLarge
++    val labels = modes.map { stringResource(labelOf(it)) }
++    BoxWithConstraints(
+         modifier =
+             modifier
+                 .testTag("lesson:modeSwitcher")
+@@ -60,8 +68,21 @@ fun TeachingModeSwitcher(
+                 .selectableGroup()
+                 .semantics { contentDescription = description },
+     ) {
+-        modes.forEach { mode ->
+-            Segment(mode, labelOf(mode), mode == selected, onSelect, Modifier.weight(1f))
++        val width = with(density) { (maxWidth / modes.size.coerceAtLeast(1) - Spacing.s3 * 2).toPx() }
++        // Keep the compact row when its captions fit; otherwise give each caption a grid cell.
++        val grid =
++            labels.any { label ->
++                measurer.measure(label, style).size.width > width ||
++                    label.split(Regex("\\s+")).any { measurer.measure(it, style).size.width > width }
++            }
++        Column {
++            (if (grid) modes.chunked(2) else listOf(modes)).forEach { row ->
++                Row(Modifier.fillMaxWidth()) {
++                    row.forEach { mode ->
++                        Segment(mode, labelOf(mode), mode == selected, onSelect, Modifier.weight(1f))
++                    }
++                }
++            }
+         }
+     }
+ }
+diff --git a/app/src/main/kotlin/dev/cubentia/app/ui/library/AlgorithmDetailScreen.kt b/app/src/main/kotlin/dev/cubentia/app/ui/library/AlgorithmDetailScreen.kt
+index 4b44168..8e7eeb6 100644
+--- a/app/src/main/kotlin/dev/cubentia/app/ui/library/AlgorithmDetailScreen.kt
++++ b/app/src/main/kotlin/dev/cubentia/app/ui/library/AlgorithmDetailScreen.kt
+@@ -100,7 +100,7 @@ fun AlgorithmDetailScreen(
+     val style = LocalRenderStyle.current
+     val name = strings.resolve(case.name)
+     val title: @Composable () -> Unit = {
+-        Row(verticalAlignment = Alignment.CenterVertically) {
++        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+             IconButton(onClick = onBack, modifier = Modifier.testTag("algorithmDetail:back")) {
+                 Icon(painterResource(R.drawable.ic_close), stringResource(R.string.library_detail_back), tint = tokens.inkPrimary)
+             }
+diff --git a/app/src/main/kotlin/dev/cubentia/app/ui/playback/PlaybackTransport.kt b/app/src/main/kotlin/dev/cubentia/app/ui/playback/PlaybackTransport.kt
+index c9e5b3f..24edcd9 100644
+--- a/app/src/main/kotlin/dev/cubentia/app/ui/playback/PlaybackTransport.kt
++++ b/app/src/main/kotlin/dev/cubentia/app/ui/playback/PlaybackTransport.kt
+@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.heightIn
++import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.selection.selectableGroup
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Slider
+@@ -323,7 +324,12 @@ fun PlaybackTransport(
+                 style = MaterialTheme.typography.bodySmall,
+                 color = tokens.inkSecondary,
+                 // Announced when it changes, so TalkBack users hear the new Move's note.
+-                modifier = Modifier.testTag("playback:note").semantics { liveRegion = LiveRegionMode.Polite },
++                modifier =
++                    Modifier
++                        .padding(
++                            horizontal = Spacing.s4,
++                        ).testTag("playback:note")
++                        .semantics { liveRegion = LiveRegionMode.Polite },
+             )
+         }
+     }
+diff --git a/app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt b/app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt
+index 4311b0b..507ab04 100644
+--- a/app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt
++++ b/app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt
+@@ -20,6 +20,7 @@ import androidx.compose.material3.NavigationBarItem
+ import androidx.compose.material3.NavigationRail
+ import androidx.compose.material3.NavigationRailItem
+ import androidx.compose.material3.Scaffold
++import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.LaunchedEffect
+@@ -101,6 +102,7 @@ enum class Tab(
+  * Lesson's progress lives in [host]'s session. [flags] decides which Teaching Modes the Lesson offers:
+  * *Test me* only while `TEST_ME` is enabled; `ADAPTIVE_ASSISTANCE` decides whether help adapts in the Lesson,
+  * and at BETA the Assistance line carries the beta label (AD-18).
++ * [showWelcome] offers Welcome on a cold start with no profile, after restore completes.
+  */
+ @Composable
+ fun AppShell(
+@@ -158,7 +160,7 @@ private fun ShellContent(
+     val scope = rememberCoroutineScope()
+     var tab by rememberSaveable { mutableStateOf(Tab.LEARN) }
+     var settings by rememberSaveable { mutableStateOf(false) }
+-    var welcome by rememberSaveable { mutableStateOf(showWelcome) }
++    var welcome by rememberSaveable { mutableStateOf<Boolean?>(if (showWelcome) null else false) }
+     var welcomeAbandoned by rememberSaveable { mutableStateOf(false) }
+     var stageAbandoned by rememberSaveable { mutableStateOf<String?>(null) }
+     var selectedStage by rememberSaveable { mutableStateOf<String?>(null) }
+@@ -213,6 +215,16 @@ private fun ShellContent(
+     }
+ 
+     LaunchedEffect(content, host) { (content as? CatalogState.Ready)?.let { host.restore(it.bundle) } }
++    LaunchedEffect(content, host, welcome) {
++        if (welcome == null && content !is CatalogState.Loading) {
++            if (content is CatalogState.Ready) host.awaitRestored()
++            welcome = host.progressEvents.value.isEmpty() && host.attemptRecords.value.isEmpty()
++        }
++    }
++    if (welcome == null) {
++        Box(modifier.fillMaxSize().background(RubikTheme.tokens.surfaceBase))
++        return
++    }
+     val ready = content as? CatalogState.Ready
+     if (ready != null && session.kind == SessionKind.SOLVE_PLAYBACK) {
+         SolvePlaybackScreen(
+@@ -235,7 +247,7 @@ private fun ShellContent(
+         )
+         return
+     }
+-    if (welcome && openSkipCheck == null) {
++    if (welcome == true && openSkipCheck == null) {
+         val readyBundle = ready?.bundle
+         WelcomeScreen(
+             onImNew = {
+@@ -650,7 +662,13 @@ private fun ShellContent(
+                         )
+                     }
+                 }
+-                Box(Modifier.weight(1f).fillMaxHeight()) { destination(Modifier.fillMaxSize(), widthClass) }
++                Surface(
++                    Modifier.weight(1f).fillMaxHeight(),
++                    color = RubikTheme.tokens.surfaceBase,
++                    contentColor = RubikTheme.tokens.inkPrimary,
++                ) {
++                    destination(Modifier.fillMaxSize(), widthClass)
++                }
+             }
+         }
+     }
+diff --git a/app/src/main/kotlin/dev/cubentia/app/ui/solve/SolutionPlayback.kt b/app/src/main/kotlin/dev/cubentia/app/ui/solve/SolutionPlayback.kt
+index e5bf325..010a897 100644
+--- a/app/src/main/kotlin/dev/cubentia/app/ui/solve/SolutionPlayback.kt
++++ b/app/src/main/kotlin/dev/cubentia/app/ui/solve/SolutionPlayback.kt
+@@ -2,13 +2,14 @@ package dev.cubentia.app.ui.solve
+ 
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.BoxWithConstraints
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.Row
+-import androidx.compose.foundation.layout.aspectRatio
+ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.heightIn
+ import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.size
+ import androidx.compose.material3.Button
+ import androidx.compose.material3.ButtonDefaults
+ import androidx.compose.material3.MaterialTheme
+@@ -281,12 +282,13 @@ fun SolutionPlayback(
+             )
+         }
+ 
+-        Box(
+-            modifier = Modifier.fillMaxWidth().weight(1f, fill = false).aspectRatio(NET_ASPECT),
+-        ) {
+-            state.renderer.Content(style, Modifier.fillMaxSize())
+-            if (state.isPhysical) {
+-                FrameLabel(strings, syncState = state.session.syncState)
++        BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
++            val width = minOf(maxWidth, maxHeight * NET_ASPECT)
++            Box(Modifier.size(width, width / NET_ASPECT)) {
++                state.renderer.Content(style, Modifier.fillMaxSize())
++                if (state.isPhysical) {
++                    FrameLabel(strings, syncState = state.session.syncState)
++                }
+             }
+         }
+ 
+diff --git a/app/src/main/kotlin/dev/cubentia/app/ui/solve/SolvePlaybackScreen.kt b/app/src/main/kotlin/dev/cubentia/app/ui/solve/SolvePlaybackScreen.kt
+index c84ba78..ef9abab 100644
+--- a/app/src/main/kotlin/dev/cubentia/app/ui/solve/SolvePlaybackScreen.kt
++++ b/app/src/main/kotlin/dev/cubentia/app/ui/solve/SolvePlaybackScreen.kt
+@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.heightIn
+ import androidx.compose.foundation.layout.safeDrawingPadding
+ import androidx.compose.material3.Icon
+ import androidx.compose.material3.IconButton
++import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+ import androidx.compose.material3.TextButton
+ import androidx.compose.runtime.Composable
+@@ -18,6 +19,7 @@ import androidx.compose.ui.res.painterResource
+ import androidx.compose.ui.unit.dp
+ import dev.cubentia.app.R
+ import dev.cubentia.app.content.ContentStrings
++import dev.cubentia.app.ui.theme.RubikTheme
+ import dev.cubentia.application.session.SessionEvent
+ import dev.cubentia.application.session.SessionState
+ import dev.cubentia.domain.text.Text as ContentText
+@@ -33,16 +35,18 @@ fun SolvePlaybackScreen(
+ ) {
+     BackHandler(onBack = onClose)
+     val playback = rememberSolutionPlaybackState(session, onEvent = onEvent)
+-    Column(modifier.fillMaxSize().safeDrawingPadding().testTag("solvePlayback:screen")) {
+-        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+-            IconButton(onClick = onClose, modifier = Modifier.testTag("solvePlayback:close")) {
+-                Icon(painterResource(R.drawable.ic_close), contentDescription = strings.resolve(ContentText("btn.solve.close")))
++    Surface(modifier = modifier.fillMaxSize(), color = RubikTheme.tokens.surfaceBase, contentColor = RubikTheme.tokens.inkPrimary) {
++        Column(Modifier.fillMaxSize().safeDrawingPadding().testTag("solvePlayback:screen")) {
++            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
++                IconButton(onClick = onClose, modifier = Modifier.testTag("solvePlayback:close")) {
++                    Icon(painterResource(R.drawable.ic_close), contentDescription = strings.resolve(ContentText("btn.solve.close")))
++                }
+             }
+-        }
+-        SolutionPlayback(playback, strings, Modifier.weight(1f))
+-        if (playback.atEnd) {
+-            TextButton(onClick = onLearn, modifier = Modifier.testTag("solve:learnOffer")) {
+-                Text(strings.resolve(ContentText("msg.solve.learn-offer")))
++            SolutionPlayback(playback, strings, Modifier.weight(1f))
++            if (playback.atEnd) {
++                TextButton(onClick = onLearn, modifier = Modifier.testTag("solve:learnOffer")) {
++                    Text(strings.resolve(ContentText("msg.solve.learn-offer")))
++                }
+             }
+         }
+     }
+diff --git a/app/src/main/kotlin/dev/cubentia/app/ui/solve/SolveScreen.kt b/app/src/main/kotlin/dev/cubentia/app/ui/solve/SolveScreen.kt
+index fdc26af..c742a80 100644
+--- a/app/src/main/kotlin/dev/cubentia/app/ui/solve/SolveScreen.kt
++++ b/app/src/main/kotlin/dev/cubentia/app/ui/solve/SolveScreen.kt
+@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.padding
+ import androidx.compose.material3.Button
+ import androidx.compose.material3.LinearProgressIndicator
+ import androidx.compose.material3.Text
+@@ -20,6 +21,7 @@ import dev.cubentia.app.content.ContentStrings
+ import dev.cubentia.app.ui.editor.ManualCubeEditor
+ import dev.cubentia.app.ui.freecube.FreeCubeScreen
+ import dev.cubentia.app.ui.freecube.FreeCubeViewModel
++import dev.cubentia.app.ui.theme.Spacing
+ import dev.cubentia.domain.cube.CubeState
+ import dev.cubentia.domain.cube.FaceTurn
+ import dev.cubentia.domain.text.Text as ContentText
+@@ -51,7 +53,12 @@ fun SolveScreen(
+                 TextButton(onClick = flow::closeEditor, modifier = Modifier.testTag("solve:close")) {
+                     Text(strings.resolve(ContentText("btn.solve.close")))
+                 }
+-                if (pausesLesson) Text(strings.resolve(ContentText("msg.solve.pauses-lesson")), Modifier.testTag("solve:pauseNote"))
++                if (pausesLesson) {
++                    Text(
++                        strings.resolve(ContentText("msg.solve.pauses-lesson")),
++                        Modifier.padding(horizontal = Spacing.s4).testTag("solve:pauseNote"),
++                    )
++                }
+                 current.error?.let {
+                     Text(strings.resolve(it), Modifier.testTag("solve:error").semantics { liveRegion = LiveRegionMode.Polite })
+                 }
+@@ -59,7 +66,12 @@ fun SolveScreen(
+             }
+ 
+             is SolvePhase.Solving -> {
+-                if (pausesLesson) Text(strings.resolve(ContentText("msg.solve.pauses-lesson")), Modifier.testTag("solve:pauseNote"))
++                if (pausesLesson) {
++                    Text(
++                        strings.resolve(ContentText("msg.solve.pauses-lesson")),
++                        Modifier.padding(horizontal = Spacing.s4).testTag("solve:pauseNote"),
++                    )
++                }
+                 LinearProgressIndicator(Modifier.testTag("solve:progress"))
+                 val preparingKey =
+                     when (current.preparation) {
+diff --git a/app/src/test/kotlin/dev/cubentia/app/ui/a11y/A11yAssertions.kt b/app/src/test/kotlin/dev/cubentia/app/ui/a11y/A11yAssertions.kt
+index 7f38c6a..3b159a9 100644
+--- a/app/src/test/kotlin/dev/cubentia/app/ui/a11y/A11yAssertions.kt
++++ b/app/src/test/kotlin/dev/cubentia/app/ui/a11y/A11yAssertions.kt
+@@ -78,3 +78,23 @@ private fun SemanticsNode.describe(): String {
+     val tags = generateSequence(this) { it.parent }.mapNotNull { it.config.getOrNull(SemanticsProperties.TestTag) }.toList()
+     return "node ${config.getOrNull(SemanticsProperties.TestTag) ?: "(untagged)"} under $tags: $config"
+ }
++
++/** A wrapped line must stop at a word boundary, including whitespace trimmed by the paragraph. */
++internal fun ComposeTestRule.assertNoMidWordBreaks() {
++    onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult), useUnmergedTree = true)
++        .fetchSemanticsNodes()
++        .forEach { node ->
++            val results = mutableListOf<TextLayoutResult>()
++            assertTrue(node.config[SemanticsActions.GetTextLayoutResult].action?.invoke(results) == true)
++            results.forEach { result ->
++                val text = result.layoutInput.text.text
++                for (line in 0 until result.lineCount) {
++                    val end = result.getLineEnd(line, visibleEnd = true)
++                    assertTrue(
++                        "Mid-word break in '$text' at $end",
++                        end == 0 || end == text.length || text[end - 1].isWhitespace() || text[end].isWhitespace(),
++                    )
++                }
++            }
++        }
++}
+diff --git a/app/src/test/kotlin/dev/cubentia/app/ui/lesson/LessonScreenTest.kt b/app/src/test/kotlin/dev/cubentia/app/ui/lesson/LessonScreenTest.kt
+index f51f72a..bf5f41f 100644
+--- a/app/src/test/kotlin/dev/cubentia/app/ui/lesson/LessonScreenTest.kt
++++ b/app/src/test/kotlin/dev/cubentia/app/ui/lesson/LessonScreenTest.kt
+@@ -58,6 +58,7 @@ import dev.cubentia.app.session.testBundle
+ import dev.cubentia.app.session.testFlags
+ import dev.cubentia.app.session.twoStepLesson
+ import dev.cubentia.app.session.whiteCrossLesson
++import dev.cubentia.app.ui.a11y.assertNoMidWordBreaks
+ import dev.cubentia.app.ui.freecube.FreeCubeViewModel
+ import dev.cubentia.app.ui.freecube.MoveKeys
+ import dev.cubentia.app.ui.shell.AppShell
+@@ -2764,4 +2765,15 @@ class LessonScreenTest {
+         node("milestone:nextStage").assertExists().performClick()
+         assertEquals(StageId("stage-03-first-layer-corners"), nextStageOffered)
+     }
++
++    @Test
++    @Config(qualifiers = "w600dp-h960dp")
++    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
++    fun tabletLessonReflowsSwitcherAtNormalType() {
++        open(whiteCrossLesson().id.value)
++        rule.assertNoMidWordBreaks()
++        val first = rule.onNodeWithTag("mode:SHOW_ME").fetchSemanticsNode().boundsInRoot
++        val last = rule.onNodeWithTag("mode:LET_ME_TRY").fetchSemanticsNode().boundsInRoot
++        assertTrue(last.top > first.top)
++    }
+ }
+diff --git a/app/src/test/kotlin/dev/cubentia/app/ui/lesson/PhysicalLessonScreenTest.kt b/app/src/test/kotlin/dev/cubentia/app/ui/lesson/PhysicalLessonScreenTest.kt
+index fec9871..fa24ba1 100644
+--- a/app/src/test/kotlin/dev/cubentia/app/ui/lesson/PhysicalLessonScreenTest.kt
++++ b/app/src/test/kotlin/dev/cubentia/app/ui/lesson/PhysicalLessonScreenTest.kt
+@@ -25,6 +25,7 @@ import dev.cubentia.app.content.CatalogEntry
+ import dev.cubentia.app.content.CatalogState
+ import dev.cubentia.app.session.SessionHost
+ import dev.cubentia.app.session.TickingClock
++import dev.cubentia.app.ui.a11y.assertNoMidWordBreaks
+ import dev.cubentia.app.ui.theme.CubentiaTheme
+ import dev.cubentia.application.port.FlagLevel
+ import dev.cubentia.application.port.ProgressLoad
+@@ -1445,4 +1446,18 @@ class PhysicalLessonScreenTest {
+         rule.waitForIdle()
+         node("lesson:physicalInstruction").assertTextEquals("")
+     }
++
++    @Test
++    @Config(qualifiers = "w600dp-h960dp")
++    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
++    fun tabletPhysicalLessonKeepsWholeWords() {
++        val host = SessionHost(TickingClock(), Dispatchers.Main.immediate)
++        setLessonContent(host)
++        node("lesson:physicalModeSwitch").performClick()
++        node("confirmCube:matches").performScrollTo()
++        rule.assertNoMidWordBreaks()
++        val first = node("mode:SHOW_ME").fetchSemanticsNode().boundsInRoot
++        val last = node("mode:LET_ME_TRY").fetchSemanticsNode().boundsInRoot
++        assertTrue(last.top > first.top)
++    }
+ }
+diff --git a/app/src/test/kotlin/dev/cubentia/app/ui/lesson/TeachingModeSwitcherTest.kt b/app/src/test/kotlin/dev/cubentia/app/ui/lesson/TeachingModeSwitcherTest.kt
+new file mode 100644
+index 0000000..6e3570e
+--- /dev/null
++++ b/app/src/test/kotlin/dev/cubentia/app/ui/lesson/TeachingModeSwitcherTest.kt
+@@ -0,0 +1,102 @@
++package dev.cubentia.app.ui.lesson
++
++import android.app.Application
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.width
++import androidx.compose.runtime.CompositionLocalProvider
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.platform.LocalDensity
++import androidx.compose.ui.semantics.Role
++import androidx.compose.ui.semantics.SemanticsProperties
++import androidx.compose.ui.test.SemanticsMatcher
++import androidx.compose.ui.test.assert
++import androidx.compose.ui.test.assertIsSelected
++import androidx.compose.ui.test.junit4.v2.createComposeRule
++import androidx.compose.ui.test.onNodeWithTag
++import androidx.compose.ui.test.performClick
++import androidx.compose.ui.unit.Density
++import androidx.compose.ui.unit.dp
++import dev.cubentia.app.content.ContentStrings
++import dev.cubentia.app.ui.a11y.assertNoMidWordBreaks
++import dev.cubentia.app.ui.theme.CubentiaTheme
++import dev.cubentia.domain.content.ContentLoadResult
++import dev.cubentia.domain.content.ContentLoader
++import dev.cubentia.domain.content.ContentSource
++import dev.cubentia.domain.tutor.TeachingMode
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertTrue
++import org.junit.Rule
++import org.junit.Test
++import org.junit.runner.RunWith
++import org.robolectric.RobolectricTestRunner
++import org.robolectric.annotation.Config
++import org.robolectric.annotation.GraphicsMode
++
++@RunWith(RobolectricTestRunner::class)
++@Config(application = Application::class, qualifiers = "w411dp-h891dp")
++@GraphicsMode(GraphicsMode.Mode.NATIVE)
++class TeachingModeSwitcherTest {
++    @get:Rule val rule = createComposeRule()
++
++    private fun check(
++        width: Int,
++        scale: Float,
++        grid: Boolean,
++        modes: List<TeachingMode> = TeachingMode.entries,
++    ) {
++        var selected: TeachingMode? = null
++        val strings = ContentStrings((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings)
++        rule.setContent {
++            val density = LocalDensity.current
++            CompositionLocalProvider(LocalDensity provides Density(density.density, scale)) {
++                CubentiaTheme {
++                    Column(Modifier.width(width.dp)) {
++                        TeachingModeSwitcher(modes, TeachingMode.SHOW_ME, { selected = it })
++                        ConfirmCubeCard(strings, {}, {}, Modifier.width(width.dp))
++                    }
++                }
++            }
++        }
++        rule.assertNoMidWordBreaks()
++        rule.onNodeWithTag("lesson:modeSwitcher").assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.SelectableGroup))
++        val first = rule.onNodeWithTag("mode:${modes.first().name}")
++        first.assertIsSelected()
++        modes.forEach {
++            rule
++                .onNodeWithTag(
++                    "mode:${it.name}",
++                ).assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
++        }
++        val last = rule.onNodeWithTag("mode:${modes.last().name}")
++        assertEquals(grid, last.fetchSemanticsNode().boundsInRoot.top > first.fetchSemanticsNode().boundsInRoot.top)
++        last.performClick()
++        assertEquals(modes.last(), selected)
++        if (grid &&
++            modes.size == 3
++        ) {
++            assertTrue(last.fetchSemanticsNode().boundsInRoot.width > first.fetchSemanticsNode().boundsInRoot.width)
++        }
++    }
++
++    @Test fun normalPhone() = check(411, 1f, false)
++
++    @Test fun largePhone() = check(411, 1.5f, true)
++
++    @Test fun largestPhone() = check(411, 2f, true)
++
++    @Test fun narrowLargePhone() = check(360, 1.5f, true)
++
++    @Test fun narrowLargestPhone() = check(360, 2f, true)
++
++    @Test fun tabletPane() = check(268, 1f, true)
++
++    @Test fun threeModes() = check(268, 2f, true, TeachingMode.entries.filter { it != TeachingMode.TEST_ME })
++
++    @Test fun confirmButtonsStackWhenWordsCannotFit() {
++        check(220, 2f, true)
++        val enter = rule.onNodeWithTag("confirmCube:enter").fetchSemanticsNode().boundsInRoot
++        val matches = rule.onNodeWithTag("confirmCube:matches").fetchSemanticsNode().boundsInRoot
++        assertTrue(matches.top >= enter.bottom)
++        assertEquals(enter.width, matches.width)
++    }
++}
+diff --git a/app/src/test/kotlin/dev/cubentia/app/ui/library/AlgorithmDetailScreenTest.kt b/app/src/test/kotlin/dev/cubentia/app/ui/library/AlgorithmDetailScreenTest.kt
+index 562dcab..f3e029d 100644
+--- a/app/src/test/kotlin/dev/cubentia/app/ui/library/AlgorithmDetailScreenTest.kt
++++ b/app/src/test/kotlin/dev/cubentia/app/ui/library/AlgorithmDetailScreenTest.kt
+@@ -374,4 +374,12 @@ class AlgorithmDetailScreenTest {
+             )
+         }
+     }
++
++    @Test fun closeIsAtLeadingEdge() {
++        show()
++        val close = rule.onNodeWithTag("algorithmDetail:back").fetchSemanticsNode()
++        val title = rule.onNodeWithTag("algorithmDetail:title").fetchSemanticsNode()
++        org.junit.Assert.assertTrue(close.boundsInRoot.left <= 24 * close.layoutInfo.density.density)
++        org.junit.Assert.assertTrue(close.boundsInRoot.right <= title.boundsInRoot.left)
++    }
+ }
+diff --git a/app/src/test/kotlin/dev/cubentia/app/ui/shell/AppShellSkipCheckTest.kt b/app/src/test/kotlin/dev/cubentia/app/ui/shell/AppShellSkipCheckTest.kt
+index b197b25..357bada 100644
+--- a/app/src/test/kotlin/dev/cubentia/app/ui/shell/AppShellSkipCheckTest.kt
++++ b/app/src/test/kotlin/dev/cubentia/app/ui/shell/AppShellSkipCheckTest.kt
+@@ -65,10 +65,15 @@ class AppShellSkipCheckTest {
+ 
+     private val preferences = PreferenceStore()
+     private val savedProgress = mutableListOf<ProgressRecord>()
++    private val savedAttempts = mutableListOf<AttemptRecord>()
++    private var restoreGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+ 
+     private val progressRepo =
+         object : ProgressRepository {
+-            override suspend fun all(): ProgressLoad = ProgressLoad.Found(savedProgress.map { it.event }, savedProgress.toList())
++            override suspend fun all(): ProgressLoad {
++                restoreGate?.await()
++                return ProgressLoad.Found(savedProgress.map { it.event }, savedProgress.toList())
++            }
+ 
+             override suspend fun append(records: List<ProgressRecord>): ProgressSave {
+                 savedProgress.addAll(records)
+@@ -78,7 +83,7 @@ class AppShellSkipCheckTest {
+ 
+     private val attemptRepo =
+         object : AttemptRepository {
+-            override suspend fun all(): AttemptLoad = AttemptLoad.Found(emptyList())
++            override suspend fun all(): AttemptLoad = AttemptLoad.Found(savedAttempts.toList())
+         }
+ 
+     private fun createHost(): SessionHost =
+@@ -453,4 +458,63 @@ class AppShellSkipCheckTest {
+         rule.onNodeWithTag("stageDetail:skipCheckAbandoned").assertIsDisplayed()
+         assertEquals(0, host.attemptRecords.value.size)
+     }
++
++    @Test fun returningLearnerSkipsWelcomeAfterProgressRestore() {
++        savedProgress +=
++            ProgressRecord(
++                "saved",
++                1L,
++                dev.cubentia.domain.tutor.ProgressEvent
++                    .LessonCompleted(LessonId("lesson-01-01")),
++            )
++        restoreGate = kotlinx.coroutines.CompletableDeferred()
++        val host = createHost()
++        val catalog = LessonCatalog.of(ContentLoader.load(ContentSource.SHIPPED))
++        rule.setContent {
++            CubentiaTheme {
++                AppShell(host, catalog, FreeCubeViewModel(), false, testFlags(), preferenceStore = preferences, showWelcome = true)
++            }
++        }
++        rule.onNodeWithTag("welcome").assertDoesNotExist()
++        rule.onNodeWithTag("learn").assertDoesNotExist()
++        rule.runOnIdle { restoreGate!!.complete(Unit) }
++        rule.onNodeWithTag("welcome").assertDoesNotExist()
++        rule.onNodeWithTag("learn").assertIsDisplayed()
++        assertTrue(host.progressEvents.value.isNotEmpty())
++    }
++
++    @Test fun failedCatalogStillOffersWelcome() {
++        val catalog =
++            LessonCatalog.of(
++                dev.cubentia.domain.content.ContentLoadResult.Failed(
++                    dev.cubentia.domain.content.ContentLoadError
++                        .MissingResource("missing.json"),
++                ),
++            )
++        rule.setContent {
++            CubentiaTheme { AppShell(createHost(), catalog, FreeCubeViewModel(), false, testFlags(), showWelcome = true) }
++        }
++        rule.onNodeWithTag("welcome").assertIsDisplayed()
++    }
++
++    @Test fun attemptOnlyProfileSkipsWelcome() {
++        savedAttempts +=
++            AttemptRecord(
++                "a",
++                "s",
++                1L,
++                dev.cubentia.application.session.AttemptEvent.STARTED,
++                "lesson-01-01",
++                null,
++                null,
++                null,
++                null,
++                kotlin.time.Instant.fromEpochMilliseconds(0),
++            )
++        val host = createHost()
++        val catalog = LessonCatalog.of(ContentLoader.load(ContentSource.SHIPPED))
++        rule.setContent { CubentiaTheme { AppShell(host, catalog, FreeCubeViewModel(), false, testFlags(), showWelcome = true) } }
++        rule.onNodeWithTag("welcome").assertDoesNotExist()
++        rule.onNodeWithTag("learn").assertIsDisplayed()
++    }
+ }
+diff --git a/app/src/test/kotlin/dev/cubentia/app/ui/shell/AppShellSolveTest.kt b/app/src/test/kotlin/dev/cubentia/app/ui/shell/AppShellSolveTest.kt
+index f50e88a..85016b5 100644
+--- a/app/src/test/kotlin/dev/cubentia/app/ui/shell/AppShellSolveTest.kt
++++ b/app/src/test/kotlin/dev/cubentia/app/ui/shell/AppShellSolveTest.kt
+@@ -3,11 +3,13 @@ package dev.cubentia.app.ui.shell
+ import android.app.Application
+ import androidx.activity.OnBackPressedDispatcher
+ import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
++import androidx.compose.ui.graphics.toPixelMap
+ import androidx.compose.ui.semantics.LiveRegionMode
+ import androidx.compose.ui.semantics.SemanticsProperties
+ import androidx.compose.ui.test.SemanticsMatcher
+ import androidx.compose.ui.test.assert
+ import androidx.compose.ui.test.assertTextEquals
++import androidx.compose.ui.test.captureToImage
+ import androidx.compose.ui.test.junit4.v2.createComposeRule
+ import androidx.compose.ui.test.onAllNodesWithTag
+ import androidx.compose.ui.test.onNodeWithTag
+@@ -125,12 +127,12 @@ class AppShellSolveTest {
+ 
+     private var back: OnBackPressedDispatcher? = null
+ 
+-    private fun show() {
++    private fun show(dark: Boolean = false) {
+         val catalog = LessonCatalog.of(ContentLoadResult.Loaded(bundle))
+         val freeCube = FreeCubeViewModel()
+         rule.setContent {
+             back = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
+-            CubentiaTheme {
++            CubentiaTheme(darkTheme = dark) {
+                 AppShell(host, catalog, freeCube, false, testFlags(), solveFlow = flow)
+             }
+         }
+@@ -273,11 +275,13 @@ class AppShellSolveTest {
+         click("nav:solve")
+         click("solve:enterColors")
+         rule.onNodeWithTag("solve:pauseNote").assertTextEquals("Starting a solve pauses your lesson.")
++        assertPauseNoteMargin()
+         click("editor:accept")
+         rule.onNodeWithTag("solve:preparing").assertTextEquals(
+             "Preparing the solver. The first solve after the app starts takes longer. Later solves are faster.",
+         )
+         rule.onNodeWithTag("solve:progress").assertExists()
++        assertPauseNoteMargin()
+         assertEquals(lesson, host.state.value.lesson)
+         click("solve:cancel")
+         rule.onNodeWithTag("solve:error").assertDoesNotExist()
+@@ -333,4 +337,20 @@ class AppShellSolveTest {
+         rule.onNodeWithTag("nav:bar").assertExists()
+         assertNotEquals(SessionKind.SOLVE_PLAYBACK, host.state.value.kind)
+     }
++
++    @Test
++    @Config(qualifiers = "w800dp-h1000dp")
++    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
++    fun darkRailEditorPaintsThemeSurface() {
++        show(dark = true)
++        click("nav:solve")
++        click("solve:enterColors")
++        val pixels = rule.onNodeWithTag("shell").captureToImage().toPixelMap()
++        assertEquals(dev.cubentia.app.ui.theme.DarkTokens.surfaceBase, pixels[pixels.width - 1, pixels.height - 1])
++    }
++
++    private fun assertPauseNoteMargin() {
++        val note = rule.onNodeWithTag("solve:pauseNote").fetchSemanticsNode()
++        org.junit.Assert.assertTrue(note.boundsInRoot.left >= 16 * note.layoutInfo.density.density)
++    }
+ }
+diff --git a/app/src/test/kotlin/dev/cubentia/app/ui/solve/SolutionPlaybackTest.kt b/app/src/test/kotlin/dev/cubentia/app/ui/solve/SolutionPlaybackTest.kt
+index 0c5e44f..5a67148 100644
+--- a/app/src/test/kotlin/dev/cubentia/app/ui/solve/SolutionPlaybackTest.kt
++++ b/app/src/test/kotlin/dev/cubentia/app/ui/solve/SolutionPlaybackTest.kt
+@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.runtime.setValue
+ import androidx.compose.ui.Modifier
++import androidx.compose.ui.graphics.toPixelMap
+ import androidx.compose.ui.semantics.LiveRegionMode
+ import androidx.compose.ui.semantics.SemanticsProperties
+ import androidx.compose.ui.test.SemanticsMatcher
+@@ -14,6 +15,7 @@ import androidx.compose.ui.test.assert
+ import androidx.compose.ui.test.assertIsEnabled
+ import androidx.compose.ui.test.assertIsNotEnabled
+ import androidx.compose.ui.test.assertTextEquals
++import androidx.compose.ui.test.captureToImage
+ import androidx.compose.ui.test.junit4.v2.createComposeRule
+ import androidx.compose.ui.test.onNodeWithTag
+ import androidx.compose.ui.test.performClick
+@@ -530,4 +532,65 @@ class SolutionPlaybackTest {
+             assertEquals(scrambled.toFacelets(), rebuilt.renderer.renderedFacelets())
+         }
+     }
++
++    @Test fun netFitsPhone() = assertNetFits()
++
++    @Test
++    @Config(qualifiers = "w411dp-h480dp")
++    fun netFitsShortPhone() = assertNetFits()
++
++    private fun assertNetFits() {
++        show()
++        val net = rule.onNodeWithTag("net").fetchSemanticsNode().boundsInRoot
++        val parent = rule.onNodeWithTag("solutionPlayback").fetchSemanticsNode().boundsInRoot
++        assertTrue(net.width > 0 && net.height > 0)
++        assertTrue(net.left >= parent.left && net.right <= parent.right && net.top >= parent.top && net.bottom <= parent.bottom)
++        tag("back").assertIsNotEnabled()
++        tag("playPause").assertIsEnabled()
++        tag("forward").assertIsEnabled()
++        val note = tag("note").fetchSemanticsNode()
++        assertTrue(note.boundsInRoot.left >= 16 * note.layoutInfo.density.density)
++    }
++
++    @Test
++    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
++    fun darkPlaybackPaintsThemeSurface() {
++        rule.setContent {
++            CubentiaTheme(darkTheme = true) { SolvePlaybackScreen(session(), strings, {}, {}, {}) }
++        }
++        val pixels = rule.onNodeWithTag("solvePlayback:screen").captureToImage().toPixelMap()
++        assertEquals(dev.cubentia.app.ui.theme.DarkTokens.surfaceBase, pixels[0, 0])
++    }
++
++    @Test fun transportColorsReflectEnabledStateAtStart() {
++        show()
++        listOf(
++            "back" to dev.cubentia.app.ui.theme.LightTokens.inkDisabled,
++            "playPause" to dev.cubentia.app.ui.theme.LightTokens.inkPrimary,
++            "forward" to dev.cubentia.app.ui.theme.LightTokens.inkPrimary,
++        ).forEach { (name, color) ->
++            val texts =
++                rule
++                    .onAllNodes(
++                        androidx.compose.ui.test
++                            .hasAnyAncestor(
++                                androidx.compose.ui.test
++                                    .hasTestTag("playback:$name"),
++                            ) and
++                            SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult),
++                        useUnmergedTree = true,
++                    ).fetchSemanticsNodes()
++            assertTrue(texts.isNotEmpty())
++            texts.forEach { node ->
++                val results = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
++                node.config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action!!.invoke(results)
++                assertEquals(
++                    color,
++                    results
++                        .single()
++                        .layoutInput.style.color,
++                )
++            }
++        }
++    }
+ }

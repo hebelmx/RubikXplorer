@@ -20,6 +20,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -64,6 +65,7 @@ import dev.cubentia.application.port.AlgorithmStatusLoad
 import dev.cubentia.application.port.FeatureFlag
 import dev.cubentia.application.port.FeatureFlags
 import dev.cubentia.application.port.FlagLevel
+import dev.cubentia.application.preference.Preference
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionKind
 import dev.cubentia.application.session.SessionState
@@ -101,6 +103,7 @@ enum class Tab(
  * Lesson's progress lives in [host]'s session. [flags] decides which Teaching Modes the Lesson offers:
  * *Test me* only while `TEST_ME` is enabled; `ADAPTIVE_ASSISTANCE` decides whether help adapts in the Lesson,
  * and at BETA the Assistance line carries the beta label (AD-18).
+ * [showWelcome] offers Welcome on a cold start with no profile, after restore completes.
  */
 @Composable
 fun AppShell(
@@ -158,7 +161,7 @@ private fun ShellContent(
     val scope = rememberCoroutineScope()
     var tab by rememberSaveable { mutableStateOf(Tab.LEARN) }
     var settings by rememberSaveable { mutableStateOf(false) }
-    var welcome by rememberSaveable { mutableStateOf(showWelcome) }
+    var welcome by rememberSaveable { mutableStateOf<Boolean?>(if (showWelcome) null else false) }
     var welcomeAbandoned by rememberSaveable { mutableStateOf(false) }
     var stageAbandoned by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedStage by rememberSaveable { mutableStateOf<String?>(null) }
@@ -203,6 +206,7 @@ private fun ShellContent(
                                 twoLookLocked = false
                                 stageAbandoned = null
                                 welcomeAbandoned = false
+                                preferenceStore.update(Preference.Onboarded(false))
                                 welcome = true
                             }
                         }
@@ -213,6 +217,20 @@ private fun ShellContent(
     }
 
     LaunchedEffect(content, host) { (content as? CatalogState.Ready)?.let { host.restore(it.bundle) } }
+    LaunchedEffect(content, host, welcome) {
+        if (welcome == null && content !is CatalogState.Loading) {
+            if (content is CatalogState.Ready) host.awaitRestored()
+            preferenceStore.awaitLoaded()
+            welcome =
+                !preferenceStore.preferences.value.onboarded &&
+                host.progressEvents.value.isEmpty() &&
+                host.attemptRecords.value.isEmpty()
+        }
+    }
+    if (welcome == null) {
+        Box(modifier.fillMaxSize().background(RubikTheme.tokens.surfaceBase))
+        return
+    }
     val ready = content as? CatalogState.Ready
     if (ready != null && session.kind == SessionKind.SOLVE_PLAYBACK) {
         SolvePlaybackScreen(
@@ -235,10 +253,12 @@ private fun ShellContent(
         )
         return
     }
-    if (welcome && openSkipCheck == null) {
+    if (welcome == true && openSkipCheck == null) {
         val readyBundle = ready?.bundle
         WelcomeScreen(
             onImNew = {
+                // Persisted so a cold start before any Lesson progress still opens Learn, not Welcome.
+                preferenceStore.update(Preference.Onboarded(true))
                 welcome = false
                 selectedStage = readyBundle
                     ?.stages
@@ -605,7 +625,8 @@ private fun ShellContent(
                         showDebugToggles,
                         session.kind?.takesMoves == true,
                         onSolved = { state, moves -> host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it) } },
-                        modifier = destinationModifier,
+                        // Edge-to-edge: the themed surface fills the bar area while controls sit inside the safe area.
+                        modifier = destinationModifier.background(RubikTheme.tokens.surfaceBase).safeDrawingPadding(),
                     )
                 } else {
                     // The solve flow needs content copy; until it loads (or if it fails) the free cube stays usable.
@@ -650,7 +671,13 @@ private fun ShellContent(
                         )
                     }
                 }
-                Box(Modifier.weight(1f).fillMaxHeight()) { destination(Modifier.fillMaxSize(), widthClass) }
+                Surface(
+                    Modifier.weight(1f).fillMaxHeight(),
+                    color = RubikTheme.tokens.surfaceBase,
+                    contentColor = RubikTheme.tokens.inkPrimary,
+                ) {
+                    destination(Modifier.fillMaxSize(), widthClass)
+                }
             }
         }
     }

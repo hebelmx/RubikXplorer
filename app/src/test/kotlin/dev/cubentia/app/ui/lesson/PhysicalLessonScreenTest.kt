@@ -25,6 +25,7 @@ import dev.cubentia.app.content.CatalogEntry
 import dev.cubentia.app.content.CatalogState
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.TickingClock
+import dev.cubentia.app.ui.a11y.assertNoMidWordBreaks
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.application.port.FlagLevel
 import dev.cubentia.application.port.ProgressLoad
@@ -1444,5 +1445,19 @@ class PhysicalLessonScreenTest {
         rule.waitUntil(5_000) { host.state.value.objectiveMet }
         rule.waitForIdle()
         node("lesson:physicalInstruction").assertTextEquals("")
+    }
+
+    @Test
+    @Config(qualifiers = "w600dp-h960dp")
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun tabletPhysicalLessonKeepsWholeWords() {
+        val host = SessionHost(TickingClock(), Dispatchers.Main.immediate)
+        setLessonContent(host)
+        node("lesson:physicalModeSwitch").performClick()
+        node("confirmCube:matches").performScrollTo()
+        rule.assertNoMidWordBreaks()
+        val first = node("mode:SHOW_ME").fetchSemanticsNode().boundsInRoot
+        val last = node("mode:LET_ME_TRY").fetchSemanticsNode().boundsInRoot
+        assertTrue(last.top > first.top)
     }
 }

@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -14,6 +15,7 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -528,6 +530,83 @@ class SolutionPlaybackTest {
             assertFalse(rebuilt.isPhysical)
             assertEquals(0, rebuilt.position)
             assertEquals(scrambled.toFacelets(), rebuilt.renderer.renderedFacelets())
+        }
+    }
+
+    @Test fun netFitsPhone() = assertNetFits()
+
+    @Test
+    @Config(qualifiers = "w411dp-h480dp")
+    fun netFitsShortPhone() = assertNetFits()
+
+    private fun assertNetFits() {
+        rule.setContent {
+            CubentiaTheme { SolvePlaybackScreen(session(), strings, {}, {}, {}) }
+        }
+        val netNode = rule.onNodeWithTag("net").fetchSemanticsNode()
+        val origin = netNode.positionInRoot
+        val net =
+            androidx.compose.ui.geometry.Rect(
+                origin,
+                androidx.compose.ui.geometry
+                    .Size(netNode.size.width.toFloat(), netNode.size.height.toFloat()),
+            )
+        val parent = rule.onNodeWithTag("solutionPlayback").fetchSemanticsNode().boundsInRoot
+        assertTrue(net.width > 0 && net.height > 0)
+        assertTrue(net.left >= parent.left && net.right <= parent.right && net.top >= parent.top && net.bottom <= parent.bottom)
+        tag("back").assertIsNotEnabled()
+        tag("playPause").assertIsEnabled()
+        tag("forward").assertIsEnabled()
+        val note = tag("note").fetchSemanticsNode()
+        assertTrue(note.boundsInRoot.left >= 16 * note.layoutInfo.density.density)
+    }
+
+    @Test
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun darkPlaybackPaintsThemeSurface() {
+        rule.setContent {
+            CubentiaTheme(darkTheme = true) { SolvePlaybackScreen(session(), strings, {}, {}, {}) }
+        }
+        val pixels = rule.onNodeWithTag("solvePlayback:screen").captureToImage().toPixelMap()
+        assertEquals(dev.cubentia.app.ui.theme.DarkTokens.surfaceBase, pixels[0, 0])
+    }
+
+    @Test fun physicalPlaybackNoteHasStandardMargin() {
+        show()
+        click("followOnMyCube")
+        val note = tag("note").fetchSemanticsNode()
+        assertTrue(note.boundsInRoot.left >= 16 * note.layoutInfo.density.density)
+    }
+
+    @Test fun transportColorsReflectEnabledStateAtStart() {
+        show()
+        listOf(
+            "back" to dev.cubentia.app.ui.theme.LightTokens.inkDisabled,
+            "playPause" to dev.cubentia.app.ui.theme.LightTokens.inkPrimary,
+            "forward" to dev.cubentia.app.ui.theme.LightTokens.inkPrimary,
+        ).forEach { (name, color) ->
+            val texts =
+                rule
+                    .onAllNodes(
+                        androidx.compose.ui.test
+                            .hasAnyAncestor(
+                                androidx.compose.ui.test
+                                    .hasTestTag("playback:$name"),
+                            ) and
+                            SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult),
+                        useUnmergedTree = true,
+                    ).fetchSemanticsNodes()
+            assertTrue(texts.isNotEmpty())
+            texts.forEach { node ->
+                val results = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+                node.config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action!!.invoke(results)
+                assertEquals(
+                    color,
+                    results
+                        .single()
+                        .layoutInput.style.color,
+                )
+            }
         }
     }
 }
