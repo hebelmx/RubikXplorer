@@ -4,10 +4,10 @@ type: architecture-spine
 purpose: build-substrate
 altitude: feature
 paradigm: 'hexagonal (ports & adapters) + functional core / imperative shell'
-scope: 'RubikXplorer Android app MVP — whole system (FR-1..FR-28, NFR-1..NFR-13); FR-21..FR-28 ship in v1.1; FR-29 (P1) deferred'
+scope: 'RubikXplorer Android app MVP — whole system (FR-1..FR-28, NFR-1..NFR-13); FR-21..FR-28 in progress for v1.1 behind flags (SCP 2026-11-14); FR-29 (P1) deferred'
 status: final
 created: '2026-10-29'
-updated: 2026-11-13
+updated: 2026-11-14
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, NFR-12, NFR-13]
 sources:
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/prd.md
@@ -30,7 +30,7 @@ companions: []
 | Domain (functional core) | `:core:domain` | cube model, Notation, `CubeValidator`, content model, predicates, tutor rules (`Assess`, `CandidateEnumerator`), `LastLayerMatcher`, recognition classification and assembly, `PlaybackController`, `MoveNote`, `StickerAppearance` | none |
 | Solver adapter | `:core:solver` | clean-room Kotlin Kociemba two-phase implementation of `CubeSolver` | none |
 | Application | `:core:application` | use cases, ports, `LearningSession` reducer, transition table | none |
-| Shell | `:app` | Compose UI, ViewModels, `SessionHost`, Hilt, adapters (renderer, gesture interpreter host, CameraX, Room, feature flags) | yes |
+| Shell | `:app` | Compose UI, ViewModels, `SessionHost`, Hilt, adapters (renderer, gesture interpreter host, Room, feature flags); CameraX only in the build-time camera source set `app/src/camera/` (AD-9) | yes |
 
 ```mermaid
 graph TD
@@ -238,11 +238,12 @@ stateDiagram-v2
 ### AD-9 — Recognition: neutral samples in, validated observations out
 
 - **Binds:** FR-21–FR-28, NFR-5, NFR-8, NFR-11, NFR-12
-- **Status:** v1.1. No v1.0 code implements this AD; it binds the first camera story.
+- **Status:** v1.1, active from Story 10.9; every camera story binds it (SCP 2026-11-14).
 - **Prevents:** pixel code spreading across features; camera types reaching the domain; unvalidated or partial scans reaching the Solver; two owners of Color Calibration.
 - **Rule:**
   - **Camera adapter:**
-    - Only the CameraX adapter in `:app` touches pixels.
+    - Only the CameraX adapter touches pixels. It lives in the build-time camera source set `app/src/camera/` (AD-18), never in `app/src/main`.
+    - `:app` main code reaches the camera only through a scan port (working name `ScanLauncher`) with an optional Hilt binding that the camera source set provides. With no binding, every scan entry point is hidden.
     - It emits `FaceSample`s: `centerColor`, `upNeighborColor` and 9 CIELAB samples **in viewfinder order**, plus quality flags and the capture pose.
     - Quick Scan's detection and perspective correction live inside the adapter and emit the same type.
   - **Assembly and classification:**
@@ -255,7 +256,7 @@ stateDiagram-v2
     - `basedOnRevision` is current.
   - **Scan flow:** a sub-flow that returns `ScanOutcome {Accepted, Cancelled, FellBackToEditor}` to its caller through a typed navigation result. Only the caller dispatches it. The scan flow never touches a session.
   - **Color Calibration:** owned by `CalibrationRepository`, and written only by the `UpdateCalibration` and `ResetCalibration` use cases. It is never stored in `SessionState` or a Checkpoint.
-  - **Frames:** never persisted or sent anywhere. A **debug-only** fixture recorder exports `FaceSample` JSON with ground truth. Release builds don't contain it.
+  - **Frames:** never persisted or sent anywhere. The **debug-only** fixture recorder (the former `spikeScan` activity, moved into the debug camera source set by Story 10.10) exports `FaceSample` JSON with ground truth to `Fixtures/live/`. No release or benchmark build contains it.
 
 ### AD-10 — Persistence: snapshots, checkpoints and append-only logs
 
@@ -282,7 +283,7 @@ stateDiagram-v2
   - **Preferences:** written only by `UpdatePreference`.
   - **Changes and deletes:** rows are never updated. The only deletes are the Learner's scoped resets (progress, calibration, preferences). *Reset progress* also ends the live session and deletes its snapshot (SCP 2026-11-10).
   - **Ending a session (SCP 2026-11-10, session-end deferrals):** an ordinary end (closing practice, finishing a Lesson) deletes nothing. It writes an *ended* snapshot for that session through the revision-conditional snapshot write; restore treats it as no snapshot. A failed end write stays pending and is retried until it is saved or a later snapshot write supersedes it.
-  - **Room:** each Room schema change ships with a migration and a migration test.
+  - **Room:** each Room schema change ships with a migration and a migration test. Color Calibration arrives as a Room table in schema 8 (migration 7→8, Story 10.4); its reset is the Learner-scoped delete above.
 
 ### AD-11 — DI, concurrency, time and randomness
 
@@ -307,13 +308,14 @@ stateDiagram-v2
 ### AD-13 — Offline and privacy are build-enforced
 
 - **Binds:** NFR-5, NFR-8, PRD §7
-- **Prevents:** a dependency quietly adding network access, analytics or cloud backup.
+- **Prevents:** a dependency quietly adding network access, analytics or cloud backup; a release asking for the camera, or carrying camera or ML code, for a feature that is OFF.
 - **Rule:**
-  - The merged manifest declares no `INTERNET` permission. v1.0 declares no runtime permission. From v1.1, `CAMERA` is the only one, added by the first camera story.
+  - The merged manifest declares no `INTERNET` permission, and no runtime permission while all camera flags are OFF.
+  - **Camera (SCP 2026-11-14):** a release declares `CAMERA`, plus `uses-feature android.hardware.camera.any required="false"`, only when its build type has a camera flag above OFF (AD-18). `CAMERA` is then the only runtime permission. With all camera flags OFF, `releaseRuntimeClasspath` has no `androidx.camera:*` and no ML or CV runtime.
   - It sets `android:allowBackup="false"`, with `dataExtractionRules` that exclude everything.
   - Release logs never contain Cube States or samples from scans.
-  - A CI check fails on any violation, or on any dependency from the analytics/ads/crash-SDK denylist.
-  - The public privacy policy (website repository, Epic 13) states the same facts. `docs/privacy-facts.json` is derived from the release merged manifest and the SDK denylist, `:app:checkPrivacyFacts` fails the build when it is stale, and the website's CI fails, and does not deploy, when the page disagrees with it.
+  - A CI check fails on any violation, or on any dependency from the analytics/ads/crash-SDK denylist. ML Kit (`com.google.mlkit:*`) and Play-services ML (`com.google.android.gms:play-services-mlkit*`) are on that denylist.
+  - The public privacy policy (website repository, Epic 13) states the same facts. `docs/privacy-facts.json` is derived from the release merged manifest and the SDK denylist, `:app:checkPrivacyFacts` fails the build when it is stale, and the website's CI fails, and does not deploy, when the page disagrees with it. With `CAMERA` present, the facts list `"runtimePermissions": ["android.permission.CAMERA"]`. Optionally (SCP 2026-11-14 Q8), privacy facts `schemaVersion: 2` adds the fixed fact `cameraFramesLeaveDevice: false`, emitted only when `CAMERA` is present, so the site check forces the "camera frames never leave the device" sentence.
 
 ### AD-14 — Quality gates in CI
 
@@ -338,7 +340,8 @@ stateDiagram-v2
 - **Rule:**
   - **Signing:** AAB only, with Play App Signing. The upload keystore lives in GitHub Actions secrets.
   - **Build types:**
-    - `debug` includes StrictMode, the fixture recorder and every feature flag.
+    - `debug` includes StrictMode, every feature flag, and the debug camera source set, which holds the fixture recorder (AD-9).
+    - `release` and `benchmark` use the release flag levels, so they carry the camera source set only when a release camera flag is above OFF (AD-18).
     - `release` uses R8 with resource shrinking, and its keep rules are owned by `build-logic`.
   - **Release flow:**
     - The R8 mapping file is uploaded with every release.
@@ -368,12 +371,14 @@ stateDiagram-v2
 
 ### AD-18 — Feature flags for beta and cut order
 
-- **Binds:** FR-5, FR-22, FR-27, FR-28, PRD §6.2 cut order and spike fallback
-- **Prevents:** each epic implementing its own flag mechanism.
+- **Binds:** FR-5, FR-22, FR-27, FR-28, NFR-5, NFR-11, PRD §6.2 cut order and spike fallback
+- **Prevents:** each epic implementing its own flag mechanism; an OFF feature still shipping its code or permission; scan shortcuts enabled without the scan pipeline; per-feature beta labels.
 - **Rule:**
   - A `FeatureFlags` port maps a closed enum `{QUICK_SCAN, PLACEMENT, CASE_RECOGNITION, TEST_ME, CAMERA_SCAN, ADAPTIVE_ASSISTANCE}` to `{OFF, BETA, GA}`.
   - The levels are set per build type in `build-logic`.
-  - The UI shows the beta label from the flag. No feature checks `BuildConfig` directly.
+  - The UI shows the beta label from the flag, through one shared BETA label component (introduced for *Test me*, #137/#141). No feature checks `BuildConfig` directly.
+  - **Flags compose the build (SCP 2026-11-14):** when a build type has `CAMERA_SCAN`, `QUICK_SCAN`, `PLACEMENT` or `CASE_RECOGNITION` above OFF, `build-logic` adds the camera source set and its dependencies to that build type; otherwise neither is added.
+  - `PLACEMENT`, `QUICK_SCAN` and `CASE_RECOGNITION` may be above OFF only when `CAMERA_SCAN` is above OFF in the same build type. `build-logic` fails the build otherwise, naming the flag.
 
 ### AD-19 — One last-layer matcher
 
@@ -403,7 +408,7 @@ stateDiagram-v2
 | Attempt | reducer effects `AttemptStarted` / `AttemptEnded` | Room (append-only) |
 | Stage progress | `CompleteLesson`, `PassSkipCheck`, `PlaceFromScan`, `ResetProgress` | Room `progress_event` |
 | Algorithm Status | `SetAlgorithmStatus` | Room `algorithm_status_event` |
-| Color Calibration | `UpdateCalibration`, `ResetCalibration` | Room |
+| Color Calibration | `UpdateCalibration`, `ResetCalibration` | Room (schema 8, Story 10.4) |
 | Preferences | `UpdatePreference` | Room / DataStore |
 | Certainty | `tutor/Assess` | in `TutorDecision` |
 | Content | build (JSON resources) | read-only |
@@ -440,7 +445,7 @@ stateDiagram-v2
 | CameraX | 1.6.2 |
 | kotlinx.serialization / coroutines | 1.12.0 / 1.11.0 |
 | 3D rendering | custom OpenGL ES 3.0 on `GLSurfaceView`, no dependency; the manifest declares `glEsVersion 0x00030000` as required (OQ-3, Story 1.8 spike) |
-| Reference devices | minimum Lenovo Tab M10 Plus 3rd Gen (TB128XU, Snapdragon 680, 4 GB, Android 13 / API 33), mid Samsung Galaxy S24 FE (ARCH-OQ-1, PO 2026-10-30; minimum replaced 2026-11-12, sprint-change-proposal-2026-11-12-lenovo-minimum-reference; supersedes the PRD §5 device assumption). The Galaxy Tab S7 FE 5G (minimum until 2026-11-12) is an additional compatibility device. API 29–30 coverage is emulator-only. |
+| Reference devices | minimum Lenovo Tab M10 Plus 3rd Gen (TB128XU, Snapdragon 680, 4 GB, Android 13 / API 33), mid Samsung Galaxy S24 FE (ARCH-OQ-1, PO 2026-10-30; minimum replaced 2026-11-12, sprint-change-proposal-2026-11-12-lenovo-minimum-reference; supersedes the PRD §5 device assumption). The Galaxy Tab S7 FE 5G (minimum until 2026-11-12) is an additional compatibility device. API 29–30 coverage is emulator-only. Recognition pass/fail is decided on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE; the Galaxy Tab S7 FE reports only; emulator cameras are never acceptance evidence (SCP 2026-11-14 Q12). |
 | Solver | own clean-room Kotlin Kociemba (no dependency) |
 | Testing | JUnit Jupiter 6.1.x, Kotest 6.2.6, Compose UI test (AndroidX JUnit4), Kover 0.9.11 |
 | Lint / format | Spotless 8.10.x + ktlint 1.8.0, Android lint, detekt 2.0.0-alpha (non-blocking) |
@@ -473,9 +478,11 @@ RubikXplorer/
     session/                           # SessionHost (@Singleton)
     ui/{home,course,lesson,physical,solve,scan,library,progress,settings}/
     render/                            # Net2DRenderer (P0.1), OpenGL ES renderer, GestureInterpreter host
-    camera/                            # CameraX adapter → FaceSample; debug fixture recorder
     data/                              # Room db, DAOs, serial writer, repositories
     di/
+  app/src/camera/                      # build-time camera source set, only for build types with a camera flag above OFF (AD-18)
+    AndroidManifest.xml                # CAMERA + uses-feature android.hardware.camera.any required="false"
+    kotlin/…/camera/                   # CameraX adapter → FaceSample; scan port binding; debug fixture recorder
 ```
 
 ```mermaid
@@ -515,7 +522,7 @@ graph LR
 | FR-14–FR-16 Editor, Solver, playback | `CubeValidator`, `:core:solver`, `SolveCube` | AD-2, AD-8, AD-20 |
 | FR-17–FR-18 2-look LL, Library | content, `lastlayer/`, `ui/library` | AD-6, AD-19, AD-20 |
 | FR-19–FR-20 Progress, mastery | Room logs, `tutor/Mastery` | AD-10 |
-| FR-21–FR-24 Scan capture, validation, calibration (v1.1) | `camera/`, `recognition/` | AD-9, AD-2, AD-17 |
+| FR-21–FR-24 Scan capture, validation, calibration (v1.1) | `app/src/camera/`, `recognition/` | AD-9, AD-2, AD-17, AD-18 |
 | FR-25–FR-28 Scan uses (v1.1) | `SolveCube`, `ConfirmPhysical`, `PlaceFromScan`, `RecognizeCase` | AD-9, AD-5, AD-19, AD-18 |
 | NFR-1–NFR-3, NFR-9 Performance and stability | reducer bounds, effects, vitals | AD-3, AD-8, AD-16 |
 | NFR-4, NFR-11, NFR-12 Correctness, size, quality | CI | AD-14, AD-15 |
@@ -526,8 +533,9 @@ graph LR
 ## Deferred
 
 - **Performance on the reference devices:** Story 1.11 measured GL frame timing on both reference devices, and Story 12.2 ran the full performance and compatibility pass (`docs/benchmarks.md`). The solve corpus uses a JVM benchmark. GL frame timing uses the in-app per-frame log from the GL thread (`onDrawFrame` intervals), optionally traced for Macrobenchmark's `TraceSectionMetric`, because `FrameTimingMetric` and `FrameMetrics` do not see `GLSurfaceView` frames. It covers View Rotation as well as face turns (NFR-2). A physical-device p90 above 33.3 ms reopens the rendering choice, which stays behind `CubeRenderer` (AD-4). The minimum reference device is a budget tablet (Lenovo Tab M10 Plus 3rd Gen). Its Story 1.11 and 12.2 methods were re-run on 2026-11-12: frame-interval p90 18.35 / 19.66 ms, so the AD-4 choice holds, and the full NFR-1/2/3/13 pass is in `docs/benchmarks.md` § Additional device. Story 1.11's and 12.2's Galaxy Tab S7 FE results are dated evidence from when it was the minimum device. The 2D net (`Net2DRenderer`) NFR-2 baseline was not measured, because the Macrobenchmark target no longer draws a 2D net. The PO waived it for v1.0 on 2026-11-10, and it is deferred to v1.1 (#106).
-- **Camera Cube Recognition** (AD-9, FR-21 – FR-28) ships in v1.1 (`sprint-change-proposal-2026-11-08-vision-deferral`). v1.0 keeps the AD-18 camera flags OFF in release.
-- **Quick Scan detection method** (Kotlin, OpenCV or LiteRT): the OQ-7 spike decides. It is contained in `:app/camera` (AD-9), and its size is checked against NFR-11.
+- **Camera Cube Recognition** (AD-9, FR-21 – FR-28) is in progress for v1.1 behind flags (`sprint-change-proposal-2026-11-14-v1-1-camera`; deferred from v1.0 by `sprint-change-proposal-2026-11-08-vision-deferral`). Release keeps every camera flag OFF until Story 10.11 raises one.
+- **Quick Scan detection method** (Kotlin, OpenCV or LiteRT): Kotlin-first per OQ-7, confirmed by Story 10.10 and decided by Story 11.1. It is contained in the camera source set `app/src/camera/` (AD-9), and its size is checked against NFR-11.
+- **Open (SCP 2026-11-14):** the scan port's final name (`ScanLauncher` is a working name; Story 10.9 fixes it), and whether privacy facts adopt `schemaVersion: 2` with `cameraFramesLeaveDevice: false` or the site reads facts at the release tag (`APP_REF`), both offered as optional by Q8; decided no later than the first Story 10.11 release.
 - **Solver internals** (coordinate encoding, the search depth limit): decided in the solver epic, within AD-8's 3 s timeout and NFR-11. Pruning-table delivery is decided by Story 3.8: bundled, with first-run generation as a fallback only if the asset is invalid (`.memlog.md:72`, `docs/pruning-tables.md`).
 - **`RecoveryPlanner` search** (bounded IDA* over `preservedPieces`): decided in the FR-12 epic, within AD-3, AD-5 and AD-8.
 - **Splitting `:app` into feature modules:** after P0.3.
