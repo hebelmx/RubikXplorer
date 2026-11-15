@@ -35,6 +35,7 @@ class CameraCompositionFunctionalTest {
                             "process${variant.replaceFirstChar { it.uppercase() }}MainManifest/AndroidManifest.xml",
                     ).readText()
             assertTrue(("android.permission.CAMERA" in manifest) == (variant == "debug"), manifest)
+            assertTrue(("FixtureRecorderActivity" in manifest) == (variant == "debug"), manifest)
             assertTrue(("android.hardware.camera" in manifest) == (variant == "debug"), manifest)
         }
         val debug = f.build("dependencies", "--configuration", "debugRuntimeClasspath").output
@@ -43,6 +44,26 @@ class CameraCompositionFunctionalTest {
         assertTrue("androidx.camera:" !in release, release)
         val facts = f.projectDir.resolve("docs/privacy-facts.json").readText()
         assertTrue("\"schemaVersion\": 1," in facts && "cameraFramesLeaveDevice" !in facts, facts)
+    }
+
+    @Test
+    fun `debuggable camera OFF has no recorder`() {
+        val f = fixture("debug-off")
+        append(
+            f,
+            """
+            cubentiaFeatureFlags {
+                byBuildType = byBuildType + ("debug" to byBuildType.getValue("release"))
+            }
+            """.trimIndent(),
+        )
+        f.build("checkDebugMergedManifest", "checkDebugCameraClasspath")
+        val manifest =
+            f.projectDir
+                .resolve(
+                    "build/intermediates/merged_manifest/debug/processDebugMainManifest/AndroidManifest.xml",
+                ).readText()
+        assertTrue("FixtureRecorderActivity" !in manifest && "android.permission.CAMERA" !in manifest, manifest)
     }
 
     @Test
@@ -76,6 +97,7 @@ class CameraCompositionFunctionalTest {
                 .resolve("build/intermediates/merged_manifest/release/processReleaseMainManifest/AndroidManifest.xml")
                 .readText()
         assertTrue("android.permission.CAMERA" in manifest && "android.hardware.camera.any" in manifest, manifest)
+        assertTrue("FixtureRecorderActivity" !in manifest, manifest)
         val facts = f.projectDir.resolve("docs/privacy-facts.json").readText()
         assertTrue(Regex("\"runtimePermissions\":\\s*\\[\\s*\"android.permission.CAMERA\"\\s*]").containsMatchIn(facts), facts)
         assertTrue("\"schemaVersion\": 2," in facts && "\"cameraFramesLeaveDevice\": false," in facts, facts)
