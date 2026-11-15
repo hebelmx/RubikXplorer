@@ -20,9 +20,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -53,6 +55,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -79,17 +82,6 @@ import androidx.compose.ui.graphics.Color as UiColor
 
 /** Editor palette order (2×3: white yellow / red orange / green blue), each with its glyph letter. */
 private val PALETTE = listOf(Color.WHITE, Color.YELLOW, Color.RED, Color.ORANGE, Color.GREEN, Color.BLUE)
-
-/** Recording convention: each face is named by its center color, so the operator never tracks orientation. */
-private val FACE_CENTER =
-    mapOf(
-        Face.U to Color.WHITE,
-        Face.R to Color.ORANGE,
-        Face.F to Color.BLUE,
-        Face.D to Color.YELLOW,
-        Face.L to Color.RED,
-        Face.B to Color.GREEN,
-    )
 
 private const val PREFILL_REFRESH_MS = 300L
 private const val REMETER_NOTE_MS = 2000L
@@ -126,6 +118,11 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
     var entry by remember { mutableStateOf(TruthEntry(selected = null)) }
     var qualityOverride by remember { mutableStateOf<CaptureQuality?>(null) }
     var saving by remember { mutableStateOf(false) }
+
+    // The face whose saved truth the net is showing after a capture; Capture and prefill wait until the hold ends.
+    var holdFace by remember { mutableStateOf<Face?>(null) }
+    var calibrationHold by remember { mutableStateOf(false) }
+    var latestUsable by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Set the cube and light, then calibrate the six colors.") }
     var coaching by remember { mutableStateOf<String?>(null) }
     var confirm by remember { mutableStateOf<Confirm?>(null) }
@@ -137,9 +134,20 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
         entry = TruthEntry(selected = null)
     }
 
+    /** Prefills from the latest acceptable frame now (no-op while saving, holding, uncalibrated or after an entry). */
+    fun refreshPrefill() {
+        val frame = camera.latest()
+        latestUsable = frame != null && frame.quality == CaptureQuality.ACCEPTABLE && frame.lab.size == 9
+        if (frame != null && latestUsable && centers.size == Color.entries.size && !saving && holdFace == null) {
+            entry = entry.withPrefill(prefill(frame.lab, CalibrationCenters(centers.toMap())))
+        }
+    }
+
     fun selectFace(face: Face) {
         selectedFace = face
+        holdFace = null
         resetEntry()
+        refreshPrefill()
     }
 
     // Faces already saved for this device, cube and light survive a restart: read them back from the export directory.
@@ -169,29 +177,36 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
         }
     }
     // Prefill from the latest acceptable frame until the operator enters the first sticker of this face.
+    // Face changes and the end of a capture hold also refresh at once (selectFace), not only on this tick.
     LaunchedEffect(selectedFace, calibrated) {
         while (true) {
-            val frame = camera.latest()
-            coaching = frame?.detail
-            if (calibrated && !saving && frame != null && frame.quality == CaptureQuality.ACCEPTABLE && frame.lab.size == 9) {
-                entry = entry.withPrefill(prefill(frame.lab, CalibrationCenters(centers.toMap())))
-            }
+            coaching = camera.latest()?.detail
+            refreshPrefill()
             delay(PREFILL_REFRESH_MS)
         }
     }
 
     val expectedCenter = FACE_CENTER.getValue(selectedFace)
-    val blockers =
+    val holding = holdFace != null
+    // Why Capture is disabled, worded for the operator; empty when it is enabled.
+    val captureLocks = captureLocks(saving, holding, metaReady, centers.size, entry, selectedFace)
+    val sampleLocks =
         buildList {
             if (!metaReady) add("cube and light")
-            if (!calibrated) add("calibration ${centers.size}/6")
-            if (!entry.complete) add("${entry.colors.count { it != null }}/9 stickers")
-            val center = entry.colors[FaceSample.CENTER_INDEX]
-            if (center != null &&
-                center != expectedCenter
-            ) {
-                add("center is ${label(center)}, face $selectedFace is ${label(expectedCenter)}")
-            }
+            if (!hasPermission) add("camera permission")
+            if (calibrationHold) add("hold (swatch just saved)")
+        }
+    val stepLine =
+        when {
+            !metaReady -> "Step 1/3 · Enter cube and light"
+            !calibrated -> "Step 2/3 · Calibrate ${colorLabel(calibrationColor)} (${centers.size}/6)"
+            else -> "Step 3/3 · Face $selectedFace · ${colorLabel(expectedCenter)} center (${capturedFaces.size}/6 saved)"
+        }
+    val lockLine =
+        when {
+            !calibrated && preview == null && sampleLocks.isNotEmpty() -> "Sample locked: ${sampleLocks.joinToString("; ")}"
+            calibrated && captureLocks.isNotEmpty() -> "Capture locked: ${captureLocks.joinToString("; ")}"
+            else -> null
         }
 
     fun sample() {
@@ -213,7 +228,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                     if (warnings.isEmpty()) {
                         "Check the swatch, then Save."
                     } else {
-                        "Use a plain ${label(
+                        "Use a plain ${colorLabel(
                             calibrationColor,
                         )} sticker in the center cell."
                     }
@@ -225,8 +240,13 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
         centers[value.color] = value.swatch
         preview = null
         val next = PALETTE.firstOrNull { it !in centers }
-        status = "Saved ${label(value.color)} (${centers.size}/6)." + if (next == null) " Calibrated: capture the six faces." else ""
+        status = "Saved ${colorLabel(value.color)} (${centers.size}/6)." + if (next == null) " Calibrated: capture the six faces." else ""
         next?.let { calibrationColor = it }
+        calibrationHold = true
+        scope.launch {
+            delay(CALIBRATION_HOLD_MS)
+            calibrationHold = false
+        }
     }
 
     fun capture() {
@@ -242,50 +262,74 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                 val captured = camera.capture()
                 if (captured == null) {
                     status = "No camera frame arrived; try again."
-                    return@launch
-                }
-                val frame = captured.measurements
-                val sample =
-                    FaceSample(
-                        face = face,
-                        orientationDegrees = frame.orientation,
-                        stickers = frame.lab,
-                        quality = override ?: frame.quality,
-                        qualityDetail = override?.let { "$it marked; recapture this face." } ?: frame.detail,
-                    )
-                val record =
-                    fixtureRecord(
-                        device = DeviceInfo(Build.MODEL, Build.MANUFACTURER, Build.VERSION.RELEASE, Build.DISPLAY, Build.VERSION.SDK_INT),
-                        cube = cubeAtTap,
-                        light = lightAtTap,
-                        capturedAt = Instant.now(),
-                        calibration = calibration,
-                        sample = sample,
-                        truth = truth,
-                        sources = sources,
-                        hasFrame = captured.jpeg != null,
-                    )
-                withContext(Dispatchers.IO) {
-                    val root = checkNotNull(context.getExternalFilesDir(null)) { "External files directory unavailable" }
-                    writeFixture(root, record, captured.jpeg)
-                }
-                val prediction =
-                    when (val result = NearestCenterClassifier.classify(sample, calibration, truth)) {
-                        is ClassificationResult.Unavailable -> "unavailable: ${result.reason}"
-                        is ClassificationResult.Classified -> "nearest-center ${result.value.correct}/${result.value.total}"
+                } else {
+                    val frame = captured.measurements
+                    val sample =
+                        FaceSample(
+                            face = face,
+                            orientationDegrees = frame.orientation,
+                            stickers = frame.lab,
+                            quality = override ?: frame.quality,
+                            qualityDetail = override?.let { "$it marked; recapture this face." } ?: frame.detail,
+                        )
+                    val record =
+                        fixtureRecord(
+                            device =
+                                DeviceInfo(
+                                    Build.MODEL,
+                                    Build.MANUFACTURER,
+                                    Build.VERSION.RELEASE,
+                                    Build.DISPLAY,
+                                    Build.VERSION.SDK_INT,
+                                ),
+                            cube = cubeAtTap,
+                            light = lightAtTap,
+                            capturedAt = Instant.now(),
+                            calibration = calibration,
+                            sample = sample,
+                            truth = truth,
+                            sources = sources,
+                            hasFrame = captured.jpeg != null,
+                        )
+                    withContext(Dispatchers.IO) {
+                        val root = checkNotNull(context.getExternalFilesDir(null)) { "External files directory unavailable" }
+                        writeFixture(root, record, captured.jpeg)
                     }
-                val frameNote = if (captured.jpeg != null) "+ frame" else "no frame (${captured.frameError})"
-                status = "Saved $face $frameNote · $prediction."
-                if (face !in capturedFaces) capturedFaces.add(face)
-                qualityOverride = null
-                // A face the operator picked while the capture was saving wins over the automatic advance.
-                if (selectedFace == face) selectFace(Face.entries.firstOrNull { it !in capturedFaces } ?: face)
+                    val prediction =
+                        when (val result = NearestCenterClassifier.classify(sample, calibration, truth)) {
+                            is ClassificationResult.Unavailable -> "unavailable: ${result.reason}"
+                            is ClassificationResult.Classified -> "nearest-center ${result.value.correct}/${result.value.total}"
+                        }
+                    val frameNote = if (captured.jpeg != null) "+ frame" else "no frame (${captured.frameError})"
+                    status = savedSummary(face, sources, override) + " · $frameNote · $prediction"
+                    if (face !in capturedFaces) capturedFaces.add(face)
+                    qualityOverride = null
+                    // Keep showing the saved truth unless the operator already picked another face while it was saving.
+                    if (selectedFace == face) holdFace = face
+                }
             } catch (failure: Exception) {
                 status = "Save failed: ${failure.message}"
             } finally {
                 saving = false
             }
+            if (holdFace == face) {
+                delay(CAPTURE_HOLD_MS)
+                // A face the operator picked during the hold wins over the automatic advance (selectFace clears holdFace).
+                if (holdFace == face) selectFace(nextFace(capturedFaces, face))
+            } else {
+                refreshPrefill()
+            }
         }
+    }
+
+    fun suggestAgain() {
+        val frame = camera.latest()
+        if (frame == null || frame.quality != CaptureQuality.ACCEPTABLE || frame.lab.size != 9 || !calibrated) {
+            status = "No usable frame for Suggest again; hold the cube in the grid."
+            return
+        }
+        entry = entry.suggestAgain(prefill(frame.lab, CalibrationCenters(centers.toMap())))
+        status = "Suggested again from the live frame; your entries kept."
     }
 
     val viewfinder: @Composable (Modifier) -> Unit = { modifier ->
@@ -299,9 +343,9 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
             capturedFaces = capturedFaces,
             prompt =
                 if (calibrated) {
-                    "Face $selectedFace · ${label(expectedCenter)} center"
+                    "Face $selectedFace · ${colorLabel(expectedCenter)} center"
                 } else {
-                    "Calibrate ${label(calibrationColor)}: plain sticker in the center cell"
+                    "Calibrate ${colorLabel(calibrationColor)}: plain sticker in the center cell"
                 },
             onFace = ::selectFace,
         )
@@ -317,14 +361,21 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                 onResetLabels = { confirm = Confirm.RESET_LABELS },
                 onRecalibrate = { confirm = Confirm.RECALIBRATE },
             )
-            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            // The texts and action row are measured first (unweighted); the net/palette row takes what is left, without
+            // filling it, so the status and action sit right under it and leftover space falls below them.
+            BoxWithConstraints(Modifier.weight(1f, fill = false).fillMaxWidth()) {
                 val side = minOf(maxHeight, maxWidth * 0.55f)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     if (!calibrated) {
                         CalibrationPanel(Modifier.size(side), centers, calibrationColor, preview)
                     } else {
-                        Net(Modifier.size(side), entry, onSelect = { entry = entry.select(it) })
+                        Net(Modifier.size(side), entry, onSelect = { if (!saving && !holding) entry = entry.select(it) })
                     }
+                    Box(Modifier.width(1.5.dp).height(side).background(MaterialTheme.colorScheme.outlineVariant))
                     Palette(
                         Modifier.height(side).weight(1f),
                         highlighted = if (calibrated) null else calibrationColor,
@@ -333,7 +384,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                         if (!calibrated) {
                             calibrationColor = color
                             preview = null
-                        } else {
+                        } else if (!saving && !holding) {
                             val ready = entry.selected?.let { entry } ?: entry.select(entry.colors.indexOfFirst { it == null })
                             if (ready.selected == null) status = "All nine are filled: tap a sticker to change it."
                             entry = ready.set(color)
@@ -341,17 +392,22 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                     }
                 }
             }
+            Text(stepLine, style = MaterialTheme.typography.labelLarge)
             Text(
-                listOfNotNull(
-                    coaching,
-                    status,
-                    remeterNote,
-                    blockers.takeIf { calibrated && it.isNotEmpty() }?.let { "Need: ${it.joinToString()}" },
-                ).joinToString(" · "),
+                listOfNotNull(coaching, status, remeterNote).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
+            lockLine?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             val currentPreview = preview
             when {
                 !calibrated && currentPreview != null -> {
@@ -364,14 +420,20 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                 }
 
                 !calibrated -> {
-                    Button(onClick = ::sample, enabled = metaReady && hasPermission, modifier = Modifier.fillMaxWidth()) {
-                        Text("Sample ${label(calibrationColor)}")
+                    Button(onClick = ::sample, enabled = sampleLocks.isEmpty(), modifier = Modifier.fillMaxWidth()) {
+                        Text("Sample ${colorLabel(calibrationColor)}")
                     }
                 }
 
                 else -> {
-                    Button(onClick = ::capture, enabled = !saving && blockers.isEmpty(), modifier = Modifier.fillMaxWidth()) {
-                        Text("Capture $selectedFace" + (qualityOverride?.let { " · $it" } ?: ""))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = ::suggestAgain,
+                            enabled = !saving && !holding && latestUsable,
+                        ) { Text("Suggest again") }
+                        Button(onClick = ::capture, enabled = captureLocks.isEmpty(), modifier = Modifier.weight(1f)) {
+                            Text("Capture $selectedFace" + (qualityOverride?.let { " · $it" } ?: ""))
+                        }
                     }
                 }
             }
@@ -422,6 +484,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
             },
             confirmButton = {
                 TextButton(onClick = {
+                    holdFace = null
                     if (kind == Confirm.RESET_LABELS) {
                         resetEntry()
                         status = "Labels cleared."
@@ -474,34 +537,29 @@ private fun Viewfinder(
         }
         Column(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             if (calibrated) {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Face.entries.forEach { face ->
                         val center = FACE_CENTER.getValue(face)
                         val done = face in capturedFaces
+                        val selected = face == selectedFace
                         Box(
                             Modifier
-                                .size(36.dp)
+                                .weight(1f)
+                                .heightIn(min = 40.dp)
                                 .clip(RoundedCornerShape(6.dp))
                                 .background(swatch(center).copy(alpha = if (done) 1f else 0.45f))
                                 .border(
-                                    BorderStroke(
-                                        if (face ==
-                                            selectedFace
-                                        ) {
-                                            3.dp
-                                        } else {
-                                            1.dp
-                                        },
-                                        if (face == selectedFace) UiColor.Magenta else UiColor.Gray,
-                                    ),
+                                    BorderStroke(if (selected) 3.dp else 1.dp, if (selected) UiColor.Magenta else UiColor.Gray),
                                     RoundedCornerShape(6.dp),
                                 ).clickable { onFace(face) },
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                face.name + if (done) "✓" else "",
+                                faceChipLabel(face) + if (done) " ✓" else "",
                                 color = contentOn(swatch(center)),
-                                style = MaterialTheme.typography.labelMedium,
+                                style = MaterialTheme.typography.labelSmall,
+                                textAlign = TextAlign.Center,
+                                maxLines = 2,
                             )
                         }
                     }
@@ -536,11 +594,11 @@ private fun HeaderRow(
     var menu by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         TextButton(onClick = onEdit, modifier = Modifier.weight(1f)) {
-            Text(
-                "${cube.ifBlank { "cube?" }} · ${light.ifBlank { "light?" }} · ${Build.MODEL}",
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Column {
+                // Cube and light wrap rather than truncate; only the device model may be cut short.
+                Text("${cube.ifBlank { "cube?" }} · ${light.ifBlank { "light?" }}")
+                Text(Build.MODEL, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
         TextButton(onClick = { onExposure(-1) }) { Text("EV−") }
         TextButton(onClick = { onExposure(1) }) { Text("EV+") }
@@ -665,7 +723,7 @@ private fun CalibrationPanel(
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (preview == null) {
             Text(
-                "Put a plain ${label(
+                "Put a plain ${colorLabel(
                     calibrationColor,
                 )} sticker (no logo) in the center cell, then Sample. Tap the palette to pick another color.",
                 style = MaterialTheme.typography.bodySmall,
@@ -693,7 +751,7 @@ private fun CalibrationPanel(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Box(Modifier.size(44.dp).background(labToUi(preview.swatch)).border(1.dp, UiColor.DarkGray))
                 Column {
-                    Text(label(preview.color), style = MaterialTheme.typography.labelLarge)
+                    Text(colorLabel(preview.color), style = MaterialTheme.typography.labelLarge)
                     Text(
                         "L %.0f a %.0f b %.0f · C %.0f".format(
                             preview.swatch.l,
@@ -828,8 +886,6 @@ private fun swatch(color: Color): UiColor =
     }
 
 private fun glyph(color: Color) = color.name.take(1)
-
-private fun label(color: Color) = color.name.lowercase().replaceFirstChar { it.uppercase() }
 
 private fun contentOn(fill: UiColor) = if (fill.luminance() > 0.4f) UiColor.Black else UiColor.White
 
