@@ -4,6 +4,7 @@ import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.Face
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class LiveFixtureTest {
@@ -22,37 +23,79 @@ class LiveFixtureTest {
         Face.entries.forEach { assertEquals("${it.name}.json", LiveFixturePaths.fileName(it)) }
     }
 
+    private val record =
+        LiveFixtureRecord(
+            device = DeviceInfo("model", "maker", "17", "build", 37),
+            cube = "cube",
+            light = "indoor",
+            capturedAt = "2026-11-14T12:00:00Z",
+            calibration =
+                CalibrationCenters(
+                    Color.entries.associateWith {
+                        Lab(50.0, it.ordinal.toDouble(), 0.0)
+                    },
+                ),
+            labeledSample =
+                LabeledFaceSample(
+                    FaceSample(
+                        face = Face.U,
+                        orientationDegrees = 0,
+                        stickers =
+                            List(9) {
+                                Lab(50.0, 0.0, 0.0)
+                            },
+                        quality = CaptureQuality.ACCEPTABLE,
+                    ),
+                    List(9) { Color.WHITE },
+                ),
+            truthSources = List(9) { if (it < 3) TruthSource.PREFILLED else TruthSource.ENTERED },
+            frame = "U.jpg",
+        )
+
     @Test
-    fun `record round trips with complete metadata`() {
-        val record =
-            LiveFixtureRecord(
-                device = DeviceInfo("model", "maker", "17", "build", 37),
-                cube = "cube",
-                light = "indoor",
-                capturedAt = "2026-11-14T12:00:00Z",
-                calibration =
-                    CalibrationCenters(
-                        Color.entries.associateWith {
-                            Lab(50.0, it.ordinal.toDouble(), 0.0)
-                        },
-                    ),
-                labeledSample =
-                    LabeledFaceSample(
-                        FaceSample(
-                            face = Face.U,
-                            orientationDegrees = 0,
-                            stickers =
-                                List(9) {
-                                    Lab(50.0, 0.0, 0.0)
-                                },
-                            quality = CaptureQuality.ACCEPTABLE,
-                        ),
-                        List(9) { Color.WHITE },
-                    ),
-            )
-        assertEquals(record, LiveFixtureJson.decode(LiveFixtureJson.encode(record)))
-        assertThrows(
-            IllegalArgumentException::class.java,
-        ) { LiveFixtureJson.decode(LiveFixtureJson.encode(record.copy(schemaVersion = 2))) }
+    fun `schema 2 record round trips with sources and frame`() {
+        val encoded = LiveFixtureJson.encode(record)
+        assertTrue("\"schemaVersion\": 2" in encoded, encoded)
+        assertTrue("\"prefilled\"" in encoded && "\"entered\"" in encoded, encoded)
+        assertTrue("\"frame\": \"U.jpg\"" in encoded, encoded)
+        val decoded = LiveFixtureJson.decode(encoded)
+        assertEquals(record, decoded)
+        assertEquals(listOf(false, false, false) + List(6) { true }, (0..8).map(decoded::entered))
+        assertEquals("U.jpg", LiveFixturePaths.frameName(Face.U))
+    }
+
+    @Test
+    fun `schema 1 record decodes with every sticker entered`() {
+        val legacy =
+            LiveFixtureJson
+                .encode(record.copy(schemaVersion = 1, truthSources = emptyList(), frame = null))
+                .replace(Regex(",\\s*\"truthSources\": \\[\\s*]"), "")
+                .replace(Regex(",\\s*\"frame\": null"), "")
+        assertTrue("truthSources" !in legacy && "frame" !in legacy, legacy)
+        val decoded = LiveFixtureJson.decode(legacy)
+        assertEquals(1, decoded.schemaVersion)
+        assertEquals(emptyList<TruthSource>(), decoded.truthSources)
+        assertTrue((0..8).all(decoded::entered))
+    }
+
+    @Test
+    fun `schema 2 needs nine sources and unknown versions are rejected`() {
+        listOf(
+            record.copy(truthSources = List(8) { TruthSource.ENTERED }),
+            record.copy(truthSources = emptyList()),
+            record.copy(schemaVersion = 1),
+            record.copy(schemaVersion = 1, frame = null),
+            record.copy(schemaVersion = 1, truthSources = emptyList()),
+            record.copy(frame = "../x.jpg"),
+            record.copy(schemaVersion = 3),
+            record.copy(schemaVersion = 0),
+        ).forEach { bad ->
+            assertThrows(IllegalArgumentException::class.java) { LiveFixtureJson.decode(LiveFixtureJson.encode(bad)) }
+        }
+        val eight =
+            assertThrows(IllegalArgumentException::class.java) {
+                LiveFixtureJson.decode(LiveFixtureJson.encode(record.copy(truthSources = List(8) { TruthSource.ENTERED })))
+            }
+        assertTrue("found 8" in eight.message.orEmpty(), eight.message)
     }
 }

@@ -55,7 +55,7 @@ Accuracy is `correct predicted stickers / explicitly labeled stickers`. Report u
 
 ## Prototype and size cost
 
-The fixture recorder is composed automatically into camera-enabled debuggable build types from `app/src/camera/debug`. Release and benchmark never include the recorder, even when a camera flag is raised. CameraX dependencies and CAMERA permission follow the camera feature flags. Frames stay in memory; only CIELAB samples, operator truth, calibration and device/cube/light metadata are saved. Low-light and glare checks and manual quality controls remain prototype aids, not validated blur or alignment detection.
+The fixture recorder is composed automatically into camera-enabled debuggable build types from `app/src/camera/debug`. Release and benchmark never include the recorder, even when a camera flag is raised. CameraX dependencies and CAMERA permission follow the camera feature flags. Since Story 10.12 each Capture also saves one downscaled JPEG of the measured frame (long edge ≤ 1024 px, quality 85) next to the face's JSON, for the Story 10.13 OpenCV/ML comparison; only the debug recorder writes frames, and nothing else leaves the analyzer. Low-light and glare checks and manual quality controls remain prototype aids, not validated blur or alignment detection.
 
 The size figures below are historical Story 1.9 measurements from the former opt-in prototype, not measurements of the current recorder.
 
@@ -71,18 +71,26 @@ Coverage: 4 groups, 2 devices, 2 cubes. The Story 10.10 live gate needs at least
 
 The prototype has no uncertainty output; every misread sticker of a classified face counts as confidently wrong. Unavailable captures are excluded from accuracy. INCOMPLETE has no gate verdict.
 
-| Scope | Correct stickers | Sticker accuracy | Correct faces | Face accuracy | Confidently wrong | Unavailable | Missing classified faces |
-|---|---:|---:|---:|---:|---:|---:|---|
-| Group: lenovo-tb128xu_stka_studio | 54/54 | 100.0000% | 6/6 | 100.0000% | 0 | 0 | — |
-| Group: lenovo-tb128xu_stla_studio | 54/54 | 100.0000% | 6/6 | 100.0000% | 0 | 0 | — |
-| Group: sm-s721u1_stka_studio | 54/54 | 100.0000% | 6/6 | 100.0000% | 0 | 0 | — |
-| Group: sm-s721u1_stla_studio | 54/54 | 100.0000% | 6/6 | 100.0000% | 0 | 0 | — |
-| Device: LENOVO Lenovo TB128XU | 108/108 | 100.0000% | 12/12 | 100.0000% | 0 | 0 | see groups |
-| Device: samsung SM-S721U1 | 108/108 | 100.0000% | 12/12 | 100.0000% | 0 | 0 | see groups |
-| Total | 216/216 | 100.0000% | 24/24 | 100.0000% | 0 | 0 | see groups |
+Entered-only accuracy counts only stickers whose truth the operator entered; prefilled truth (schema 2) is excluded, and schema 1 records count every sticker as entered. The gate uses all classified stickers.
+
+| Scope | Correct stickers | Sticker accuracy | Entered correct | Entered accuracy | Correct faces | Face accuracy | Confidently wrong | Unavailable | Missing classified faces |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| Group: lenovo-tb128xu_stka_studio | 54/54 | 100.0000% | 54/54 | 100.0000% | 6/6 | 100.0000% | 0 | 0 | — |
+| Group: lenovo-tb128xu_stla_studio | 54/54 | 100.0000% | 54/54 | 100.0000% | 6/6 | 100.0000% | 0 | 0 | — |
+| Group: sm-s721u1_stka_studio | 54/54 | 100.0000% | 54/54 | 100.0000% | 6/6 | 100.0000% | 0 | 0 | — |
+| Group: sm-s721u1_stla_studio | 54/54 | 100.0000% | 54/54 | 100.0000% | 6/6 | 100.0000% | 0 | 0 | — |
+| Device: LENOVO Lenovo TB128XU | 108/108 | 100.0000% | 108/108 | 100.0000% | 12/12 | 100.0000% | 0 | 0 | see groups |
+| Device: samsung SM-S721U1 | 108/108 | 100.0000% | 108/108 | 100.0000% | 12/12 | 100.0000% | 0 | 0 | see groups |
+| Total | 216/216 | 100.0000% | 216/216 | 100.0000% | 24/24 | 100.0000% | 0 | 0 | see groups |
 <!-- live-baseline:end -->
 
-Install the debug APK and launch **Cubentia fixture recorder**. In device session A use the Lenovo Tab M10 Plus 3rd Gen and Galaxy S24 FE, both cubes, normal indoor light, six faces each. Enter the cube and light description, calibrate all six centers, select a face, then independently label all nine truth cells before capture. Truth is never filled from predictions. Capture is disabled until these inputs exist. Each capture saves a self-contained JSON record, then displays its path and prediction/accuracy (or unavailable reason). Recapturing the same face overwrites its file. No image or frame bytes are saved.
+Install the debug APK and launch **Cubentia fixture recorder**. The screen does not scroll: on a phone the viewfinder (grid, calibration ring, 6-face progress strip) sits on top, then the face net beside a 2×3 palette (W Y R O G B), a status line and one primary action; on a 600 dp or landscape screen the viewfinder is on the left. For each device × cube (session A2: both gating devices, cubes `stla`, `stka`, `stlb`, `stkb`, studio light):
+
+1. Enter the cube and light in the header dialog (changing either clears the calibration).
+2. Calibrate the six colors: put a plain sticker of the prompted color (no logo) in the center cell and tap *Sample*. The swatch is the mean of a 12-point ring at 30% of the cell side around the cell's middle. The swatch and its Lab values show before *Save*; the recorder warns (*Save anyway* / *Retake*) when the ring is not one even color (a point > 12 ΔE from the mean), when WHITE has L < 60 or chroma > 25, when another color has chroma < 20, or when the swatch is within 10 ΔE of another saved center.
+3. Capture the six faces (each face is named by its center color). A sticker is prefilled only when its nearest calibrated center beats the second nearest by ≥ 10 ΔE; close calls stay blank and the first blank is selected. Prefill follows the live frame until the first sticker is entered, then freezes. Tap a sticker, then a color: it is recorded as *entered* and selection jumps to the next blank. Capture needs all nine.
+
+Grid metering (AF/AE/AWB) re-runs on each face selection, on each calibration-color change and after realignment (mean grid change > 15 ΔE, then 600 ms steady); *Re-meter* and *EV−/EV+* stay in the header. The quality override, *Reset labels* and *Recalibrate* sit in the header's ⋮ menu behind a confirm; an active override shows on the Capture button (`Capture U · MISALIGNED`) and clears after a capture. Capture uses the next analysis frame for both the samples and `<FACE>.jpg`, then saves a schema-2 `<FACE>.json` (per-sticker `entered`/`prefilled` truth sources and the frame name) and shows the nearest-center score. Recapturing a face overwrites both files.
 
 Pull the records as described in `Fixtures/README.md`, then run:
 
@@ -90,7 +98,7 @@ Pull the records as described in `Fixtures/README.md`, then run:
 ./gradlew :core:domain:evaluateLiveBaseline
 ```
 
-The non-shipping evaluator uses the unchanged prototype nearest-center classifier. It reports per-group, per-device and total sticker/face accuracy, unavailable captures, missing classified faces and confidently wrong stickers. Every misread classified sticker counts as confidently wrong because the prototype has no uncertainty output. The ≥99% gate is MET or MISSED only when at least two cubes are recorded, at least two devices each have all six faces classified for every recorded cube, and every recorded group has six classified faces; otherwise INCOMPLETE has no verdict and lists the missing device × cube cells. An extra device that does not cover every cube (such as the report-only Galaxy Tab S7 FE) does not block the verdict. Cubes are matched by their entered description (case-insensitive), so type each cube's name identically on every device. With no fixtures the command fails naming `Fixtures/live` and leaves this document untouched. Physical numbers and the PO's subsequent decision remain deferred.
+The non-shipping evaluator uses the unchanged prototype nearest-center classifier. It reports per-group, per-device and total sticker/face accuracy, entered-only sticker accuracy (prefilled truth excluded; schema-1 records count as entered), unavailable captures, missing classified faces and confidently wrong stickers. Every misread classified sticker counts as confidently wrong because the prototype has no uncertainty output. The ≥99% gate is MET or MISSED only when at least two cubes are recorded, at least two devices each have all six faces classified for every recorded cube, and every recorded group has six classified faces; otherwise INCOMPLETE has no verdict and lists the missing device × cube cells. An extra device that does not cover every cube (such as the report-only Galaxy Tab S7 FE) does not block the verdict. Cubes are matched by their entered description (case-insensitive), so type each cube's name identically on every device. With no fixtures the command fails naming `Fixtures/live` and leaves this document untouched. Physical numbers and the PO's subsequent decision remain deferred.
 
 ### Device session A notes (2026-11-14/15)
 

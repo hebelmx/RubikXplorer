@@ -1,0 +1,242 @@
+package dev.cubentia.app.camera.recorder
+
+import dev.cubentia.domain.cube.Color
+import dev.cubentia.domain.recognition.CalibrationCenters
+import dev.cubentia.domain.recognition.Lab
+import dev.cubentia.domain.recognition.TruthSource
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.hypot
+import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlin.math.sqrt
+
+/*
+ * Pure recorder rules (Story 10.12). Numeric bounds come from session A evidence and are named so Story 10.13 can retune
+ * them; none of them changes the shipped NearestCenterClassifier.
+ */
+
+/** A sticker is prefilled only when its nearest center beats the second nearest by at least this CIE76 ΔE. */
+internal const val CLOSE_CALL_DELTA_E = 10.0
+
+/** Calibration ring: 12 points at 30% of the cell side around the center cell's middle, each a 3×3-pixel mean. */
+internal const val RING_POINTS = 12
+internal const val RING_RADIUS_FRACTION = 0.30
+
+/** A ring point farther than this from the ring mean means the center cell is not one even color (logo, edge). */
+internal const val RING_UNIFORMITY_DELTA_E = 12.0
+internal const val WHITE_MIN_L = 60.0
+internal const val WHITE_MAX_CHROMA = 25.0
+internal const val COLOR_MIN_CHROMA = 20.0
+
+/** A new center this close to another saved center would make the two colors indistinguishable. */
+internal const val DISTINCT_CENTER_DELTA_E = 10.0
+
+/** Auto re-meter: grid change versus the last settled frame, frame-to-frame steadiness, and how long it must hold. */
+internal const val REMETER_CHANGE_DELTA_E = 15.0
+internal const val REMETER_STEADY_DELTA_E = 5.0
+internal const val REMETER_STEADY_MS = 600L
+
+/** After a re-meter the image shifts as AE/AWB converge; that window is absorbed into the settled frame, not re-triggered. */
+internal const val REMETER_SETTLE_MS = 1000L
+
+internal const val FRAME_MAX_EDGE = 1024
+internal const val FRAME_JPEG_QUALITY = 85
+
+internal fun deltaE(
+    left: Lab,
+    right: Lab,
+): Double = sqrt((left.l - right.l).squared() + (left.a - right.a).squared() + (left.b - right.b).squared())
+
+private fun Double.squared() = this * this
+
+internal fun chroma(lab: Lab): Double = hypot(lab.a, lab.b)
+
+internal fun mean(samples: List<Lab>): Lab {
+    require(samples.isNotEmpty()) { "Cannot average no samples" }
+    return Lab(samples.sumOf { it.l } / samples.size, samples.sumOf { it.a } / samples.size, samples.sumOf { it.b } / samples.size)
+}
+
+/** Mean per-cell ΔE between two 9-cell grids. */
+internal fun meanDeltaE(
+    left: List<Lab>,
+    right: List<Lab>,
+): Double {
+    require(left.size == right.size && left.isNotEmpty()) { "Grids must have the same non-zero size" }
+    return left.zip(right).sumOf { (a, b) -> deltaE(a, b) } / left.size
+}
+
+/** Close-call-gated prefill: nearest center when it beats the runner-up by [CLOSE_CALL_DELTA_E], otherwise blank. */
+internal fun prefill(
+    stickers: List<Lab>,
+    calibration: CalibrationCenters,
+): List<Color?> =
+    stickers.map { sticker ->
+        val ranked = calibration.centers.entries.sortedBy { (_, center) -> deltaE(sticker, center) }
+        when {
+            ranked.isEmpty() -> null
+            ranked.size == 1 -> ranked.first().key
+            deltaE(sticker, ranked[1].value) - deltaE(sticker, ranked[0].value) >= CLOSE_CALL_DELTA_E -> ranked.first().key
+            else -> null
+        }
+    }
+
+/**
+ * Truth entry for the current face: tap a sticker to select it, tap a palette color to set it; the set sticker becomes
+ * [TruthSource.ENTERED] and selection auto-advances to the next blank sticker (row-major, wrapping), or none.
+ */
+internal data class TruthEntry(
+    val colors: List<Color?> = List(STICKERS) { null },
+    val sources: List<TruthSource?> = List(STICKERS) { null },
+    val selected: Int? = 0,
+) {
+    val complete: Boolean get() = colors.all { it != null }
+    val anyEntered: Boolean get() = sources.any { it == TruthSource.ENTERED }
+
+    fun select(index: Int): TruthEntry = copy(selected = index.takeIf { it in 0 until STICKERS })
+
+    fun set(color: Color): TruthEntry {
+        val index = selected ?: return this
+        val nextColors = colors.toMutableList().also { it[index] = color }
+        val nextSources = sources.toMutableList().also { it[index] = TruthSource.ENTERED }
+        return TruthEntry(nextColors, nextSources, nextBlank(nextColors, index))
+    }
+
+    /**
+     * Refreshes prefilled cells from the latest acceptable frame while nothing has been entered on this face; after the
+     * first entry the face is frozen. A pending selection is kept; with none, the first blank is selected.
+     */
+    fun withPrefill(prefilled: List<Color?>): TruthEntry {
+        if (anyEntered) return this
+        require(prefilled.size == STICKERS) { "Prefill needs nine stickers" }
+        val nextSources = prefilled.map { color -> color?.let { TruthSource.PREFILLED } }
+        return TruthEntry(prefilled, nextSources, selected ?: prefilled.indexOfFirst { it == null }.takeIf { it >= 0 })
+    }
+
+    /** The nine truth colors and their sources for a capture; null until every sticker is filled. */
+    fun confirmed(): Pair<List<Color>, List<TruthSource>>? =
+        if (complete && sources.all { it != null }) colors.filterNotNull() to sources.filterNotNull() else null
+
+    companion object {
+        const val STICKERS = 9
+
+        private fun nextBlank(
+            colors: List<Color?>,
+            from: Int,
+        ): Int? = (1..STICKERS).map { (from + it) % STICKERS }.firstOrNull { colors[it] == null }
+    }
+}
+
+internal sealed interface SwatchWarning {
+    data object NotUniform : SwatchWarning
+
+    data class Implausible(
+        val reason: String,
+    ) : SwatchWarning
+
+    data class TooClose(
+        val other: Color,
+        val deltaE: Double,
+    ) : SwatchWarning
+}
+
+/** Offsets, in cell sides from the cell middle, of the [RING_POINTS] calibration ring points. */
+internal fun ringOffsets(): List<Pair<Double, Double>> =
+    List(RING_POINTS) { index ->
+        val angle = 2 * PI * index / RING_POINTS
+        RING_RADIUS_FRACTION * cos(angle) to RING_RADIUS_FRACTION * sin(angle)
+    }
+
+/** Warnings for a calibration [swatch] of [color] sampled from [ringPoints], given centers already [saved]. */
+internal fun swatchWarnings(
+    color: Color,
+    swatch: Lab,
+    ringPoints: List<Lab>,
+    saved: Map<Color, Lab>,
+): List<SwatchWarning> =
+    buildList {
+        if (ringPoints.any { deltaE(it, swatch) > RING_UNIFORMITY_DELTA_E }) add(SwatchWarning.NotUniform)
+        val c = chroma(swatch)
+        if (color == Color.WHITE) {
+            if (swatch.l < WHITE_MIN_L) add(SwatchWarning.Implausible("white is too dark (L %.0f < %.0f)".format(swatch.l, WHITE_MIN_L)))
+            if (c > WHITE_MAX_CHROMA) add(SwatchWarning.Implausible("white is too colorful (C %.0f > %.0f)".format(c, WHITE_MAX_CHROMA)))
+        } else if (c < COLOR_MIN_CHROMA) {
+            add(SwatchWarning.Implausible("${color.name.lowercase()} is too gray (C %.0f < %.0f)".format(c, COLOR_MIN_CHROMA)))
+        }
+        saved
+            .filterKeys { it != color }
+            .forEach { (other, center) ->
+                val distance = deltaE(swatch, center)
+                if (distance < DISTINCT_CENTER_DELTA_E) add(SwatchWarning.TooClose(other, distance))
+            }
+    }
+
+internal fun SwatchWarning.describe(): String =
+    when (this) {
+        SwatchWarning.NotUniform -> "The center cell is not one even color (logo or edge?)."
+        is SwatchWarning.Implausible -> "Implausible swatch: $reason."
+        is SwatchWarning.TooClose -> "Within %.1f ΔE of the saved ${other.name.lowercase()} center.".format(deltaE)
+    }
+
+/**
+ * Decides when to re-meter AF/AE/AWB on the grid after realignment: the 9-cell mean ΔE versus the last settled frame
+ * exceeds [REMETER_CHANGE_DELTA_E], then the grid holds steady (< [REMETER_STEADY_DELTA_E] frame to frame) for
+ * [REMETER_STEADY_MS]. Not thread-safe; feed it from one thread.
+ */
+internal class RemeterTrigger {
+    private var settled: List<Lab>? = null
+    private var previous: List<Lab>? = null
+    private var armed = false
+    private var steadySince: Long? = null
+    private var settlingUntil: Long? = null
+
+    /** Records [grid] as the settled reference, e.g. after a manual or face-selection re-meter at [nowMs]. */
+    fun settle(
+        grid: List<Lab>?,
+        nowMs: Long,
+    ) {
+        settled = grid
+        armed = false
+        steadySince = null
+        settlingUntil = nowMs + REMETER_SETTLE_MS
+    }
+
+    /** Feeds one frame's nine cell samples; returns true exactly when a re-meter should run now. */
+    fun onFrame(
+        grid: List<Lab>,
+        nowMs: Long,
+    ): Boolean {
+        val last = previous
+        previous = grid
+        val until = settlingUntil
+        if (settled == null || (until != null && nowMs < until)) {
+            settled = grid
+            return false
+        }
+        settlingUntil = null
+        if (!armed && meanDeltaE(grid, settled!!) > REMETER_CHANGE_DELTA_E) armed = true
+        if (!armed) return false
+        val steady = last != null && meanDeltaE(grid, last) < REMETER_STEADY_DELTA_E
+        if (!steady) {
+            steadySince = nowMs
+            return false
+        }
+        val since = steadySince ?: nowMs.also { steadySince = it }
+        if (nowMs - since < REMETER_STEADY_MS) return false
+        settle(grid, nowMs)
+        return true
+    }
+}
+
+/** Frame size scaled so the long edge is at most [maxEdge]; smaller frames are kept as they are. */
+internal fun scaledSize(
+    width: Int,
+    height: Int,
+    maxEdge: Int = FRAME_MAX_EDGE,
+): Pair<Int, Int> {
+    require(width > 0 && height > 0 && maxEdge > 0) { "Sizes must be positive" }
+    val longEdge = maxOf(width, height)
+    if (longEdge <= maxEdge) return width to height
+    val scale = maxEdge.toDouble() / longEdge
+    return (width * scale).roundToInt().coerceAtLeast(1) to (height * scale).roundToInt().coerceAtLeast(1)
+}

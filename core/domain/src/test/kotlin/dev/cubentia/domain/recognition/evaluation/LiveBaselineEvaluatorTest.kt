@@ -11,6 +11,7 @@ import dev.cubentia.domain.recognition.LabeledFaceSample
 import dev.cubentia.domain.recognition.LiveFixtureJson
 import dev.cubentia.domain.recognition.LiveFixturePaths
 import dev.cubentia.domain.recognition.LiveFixtureRecord
+import dev.cubentia.domain.recognition.TruthSource
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -48,6 +49,7 @@ class LiveBaselineEvaluatorTest {
                 ),
                 List(9) { Color.WHITE },
             ),
+        truthSources = List(9) { TruthSource.ENTERED },
     )
 
     private fun complete(
@@ -199,8 +201,9 @@ class LiveBaselineEvaluatorTest {
 
     @Test fun `rendered rows carry sticker and face percentages`() {
         val section = LiveBaselineMarkdown.render(LiveBaselineEvaluator.evaluate(misreadMatrix()))
-        assertTrue("| Total | 208/216 | 96.2963% | 20/24 | 83.3333% | 8 | 0 | see groups |" in section, section)
-        assertTrue("| Group: model_cube | 52/54 | 96.2963% | 5/6 | 83.3333% | 2 | 0 | — |" in section, section)
+        assertTrue("| Total | 208/216 | 96.2963% | 208/216 | 96.2963% | 20/24 | 83.3333% | 8 | 0 | see groups |" in section, section)
+        assertTrue("| Group: model_cube | 52/54 | 96.2963% | 52/54 | 96.2963% | 5/6 | 83.3333% | 2 | 0 | — |" in section, section)
+        assertTrue("Entered-only accuracy" in section, section)
         assertTrue("Gate: **MISSED**" in section, section)
     }
 
@@ -228,5 +231,42 @@ class LiveBaselineEvaluatorTest {
             assertTrue(LiveBaselineMarkdown.END in failure.message.orEmpty())
             assertEquals(text, doc.readText())
         }
+    }
+
+    @Test fun `entered-only accuracy excludes prefilled stickers`() {
+        // 54 stickers, 20 prefilled (first four faces: five each), one entered sticker misread.
+        val records =
+            complete().mapIndexed { faceIndex, record ->
+                val sources = List(9) { if (faceIndex < 4 && it < 5) TruthSource.PREFILLED else TruthSource.ENTERED }
+                val truth = if (faceIndex == 5) listOf(Color.RED) + List(8) { Color.WHITE } else record.labeledSample.truth
+                record.copy(truthSources = sources, labeledSample = record.labeledSample.copy(truth = truth))
+            }
+        val total = evaluate(records).total
+        assertEquals(53, total.correct)
+        assertEquals(54, total.stickers)
+        assertEquals(33, total.enteredCorrect)
+        assertEquals(34, total.enteredStickers)
+        val section = LiveBaselineMarkdown.render(evaluate(records))
+        assertTrue("| Total | 53/54 | 98.1481% | 33/34 | 97.0588% |" in section, section)
+    }
+
+    @Test fun `no entered stickers render a dash, not zero percent`() {
+        val records = complete().map { it.copy(truthSources = List(9) { TruthSource.PREFILLED }) }
+        val section = LiveBaselineMarkdown.render(evaluate(records))
+        assertTrue("| Total | 54/54 | 100.0000% | 0/0 | — |" in section, section)
+    }
+
+    @Test fun `schema 1 records count every sticker as entered`() {
+        val legacy = complete().map { it.copy(schemaVersion = 1, truthSources = emptyList()) }
+        val root = fixtures(legacy)
+        val total = LiveBaselineEvaluator.evaluate(LiveFixtureLoader.load(root)).total
+        assertEquals(54, total.enteredStickers)
+        assertEquals(54, total.enteredCorrect)
+    }
+
+    @Test fun `schema 2 record with eight sources fails naming the file`() {
+        val root = fixtures(complete().map { it.copy(truthSources = List(8) { TruthSource.ENTERED }) })
+        val failure = assertThrows(IllegalArgumentException::class.java) { LiveFixtureLoader.load(root) }
+        assertTrue(File(root, "$GROUP/B.json").path in failure.message.orEmpty(), failure.message)
     }
 }

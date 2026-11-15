@@ -18,9 +18,13 @@ data class BaselineScore(
     val classifiedFaces: Int,
     val unavailable: Int,
     val missing: List<Face>,
+    /** Stickers of classified faces whose truth the operator entered (schema 1: all of them); prefilled truth is excluded. */
+    val enteredCorrect: Int,
+    val enteredStickers: Int,
 ) {
     val confidentlyWrong: Int get() = stickers - correct
     val accuracy: Double get() = if (stickers == 0) 0.0 else correct.toDouble() / stickers
+    val enteredAccuracy: Double get() = if (enteredStickers == 0) 0.0 else enteredCorrect.toDouble() / enteredStickers
 }
 
 enum class BaselineGate { MET, MISSED, INCOMPLETE }
@@ -110,6 +114,8 @@ object LiveBaselineEvaluator {
         var correctFaces = 0
         var classifiedFaces = 0
         var unavailable = 0
+        var enteredCorrect = 0
+        var enteredStickers = 0
         val faces = mutableSetOf<Face>()
         records.forEach { record ->
             val labeled = record.labeledSample
@@ -124,9 +130,25 @@ object LiveBaselineEvaluator {
                     classifiedFaces++
                     if (result.value.correct == result.value.total) correctFaces++
                     faces += labeled.sample.face
+                    result.value.colors.zip(labeled.truth).forEachIndexed { index, (actual, expected) ->
+                        if (record.entered(index)) {
+                            enteredStickers++
+                            if (actual == expected) enteredCorrect++
+                        }
+                    }
                 }
             }
         }
-        return BaselineScore(name, correct, stickers, correctFaces, classifiedFaces, unavailable, Face.entries.filter { it !in faces })
+        return BaselineScore(
+            name,
+            correct,
+            stickers,
+            correctFaces,
+            classifiedFaces,
+            unavailable,
+            Face.entries.filter { it !in faces },
+            enteredCorrect,
+            enteredStickers,
+        )
     }
 }

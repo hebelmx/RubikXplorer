@@ -25,9 +25,13 @@ object LiveBaselineMarkdown {
             )
             appendLine()
             appendLine(
-                "| Scope | Correct stickers | Sticker accuracy | Correct faces | Face accuracy | Confidently wrong | Unavailable | Missing classified faces |",
+                "Entered-only accuracy counts only stickers whose truth the operator entered; prefilled truth (schema 2) is excluded, and schema 1 records count every sticker as entered. The gate uses all classified stickers.",
             )
-            appendLine("|---|---:|---:|---:|---:|---:|---:|---|")
+            appendLine()
+            appendLine(
+                "| Scope | Correct stickers | Sticker accuracy | Entered correct | Entered accuracy | Correct faces | Face accuracy | Confidently wrong | Unavailable | Missing classified faces |",
+            )
+            appendLine("|---|---:|---:|---:|---:|---:|---:|---:|---:|---|")
 
             fun row(
                 scope: String,
@@ -48,7 +52,13 @@ object LiveBaselineMarkdown {
                         " ",
                     )} | ${score.correct}/${score.stickers} | ${percent(
                         score.accuracy,
-                    )} | ${score.correctFaces}/${score.classifiedFaces} | ${percent(
+                    )} | ${score.enteredCorrect}/${score.enteredStickers} | ${if (score.enteredStickers == 0) {
+                        "—"
+                    } else {
+                        percent(
+                            score.enteredAccuracy,
+                        )
+                    }} | ${score.correctFaces}/${score.classifiedFaces} | ${percent(
                         faceAccuracy,
                     )} | ${score.confidentlyWrong} | ${score.unavailable} | $missing |",
                 )
