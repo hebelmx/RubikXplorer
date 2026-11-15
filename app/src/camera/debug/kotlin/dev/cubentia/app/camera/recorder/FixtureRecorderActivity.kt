@@ -267,14 +267,21 @@ private fun FixtureRecorderScreen(
         Text("Cubentia fixture recorder", style = MaterialTheme.typography.titleLarge)
         // A new cube or light is a new capture context: earlier centers and truth labels never carry over.
         OutlinedTextField(value = cube, onValueChange = {
-            cube = it
-            centers.clear()
-            truthLabels.indices.forEach { index -> truthLabels[index] = null }
+            // The keyboard re-sends unchanged text when it commits or closes; only a real change starts a new context.
+            if (it != cube) {
+                cube = it
+                if (centers.isNotEmpty()) resultText = "Cube changed: centers cleared, calibrate all six again."
+                centers.clear()
+                truthLabels.indices.forEach { index -> truthLabels[index] = null }
+            }
         }, label = { Text("Cube") })
         OutlinedTextField(value = light, onValueChange = {
-            light = it
-            centers.clear()
-            truthLabels.indices.forEach { index -> truthLabels[index] = null }
+            if (it != light) {
+                light = it
+                if (centers.isNotEmpty()) resultText = "Light changed: centers cleared, calibrate all six again."
+                centers.clear()
+                truthLabels.indices.forEach { index -> truthLabels[index] = null }
+            }
         }, label = { Text("Light description") })
         Box(Modifier.fillMaxWidth().height(280.dp).clipToBounds(), contentAlignment = Alignment.Center) {
             if (hasPermission) {
