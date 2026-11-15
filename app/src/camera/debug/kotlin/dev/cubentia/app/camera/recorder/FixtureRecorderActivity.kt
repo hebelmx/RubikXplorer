@@ -9,10 +9,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
+import androidx.camera.core.SurfaceOrientedMeteringPointFactory
 import androidx.camera.core.UseCaseGroup
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -78,10 +81,37 @@ private data class FrameMeasurements(
 class FixtureRecorderActivity : ComponentActivity() {
     private val analyzerExecutor = Executors.newSingleThreadExecutor()
     private val latestFrame = AtomicReference<FrameMeasurements?>(null)
+    private var camera: Camera? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { Surface { FixtureRecorderScreen(::startCamera, latestFrame) } } }
+        setContent { MaterialTheme { Surface { FixtureRecorderScreen(::startCamera, latestFrame, ::changeExposure) } } }
+    }
+
+    /** Meter exposure, focus and white balance on the grid, not the whole frame, so a dark background cannot wash out the stickers. */
+    private fun meterOnGrid() {
+        val point = SurfaceOrientedMeteringPointFactory(1f, 1f).createPoint(0.5f, 0.5f, 0.5f)
+        val action =
+            FocusMeteringAction
+                .Builder(point, FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE or FocusMeteringAction.FLAG_AWB)
+                .disableAutoCancel()
+                .build()
+        camera?.cameraControl?.startFocusAndMetering(action)
+    }
+
+    /** Steps exposure compensation by [delta] (0 re-meters on the grid); returns a status line. */
+    private fun changeExposure(delta: Int): String {
+        val current = camera ?: return "Camera not ready."
+        if (delta == 0) {
+            meterOnGrid()
+            return "Re-metered on the grid."
+        }
+        val state = current.cameraInfo.exposureState
+        if (!state.isExposureCompensationSupported) return "Exposure compensation is not supported on this camera."
+        val range = state.exposureCompensationRange
+        val next = (state.exposureCompensationIndex + delta).coerceIn(range.lower, range.upper)
+        current.cameraControl.setExposureCompensationIndex(next)
+        return "Exposure %+.1f EV".format(next * state.exposureCompensationStep.toFloat())
     }
 
     override fun onDestroy() {
@@ -120,7 +150,8 @@ class FixtureRecorderActivity : ComponentActivity() {
                                 .addUseCase(analysis)
                                 .build()
                         provider.unbindAll()
-                        provider.bindToLifecycle(this@FixtureRecorderActivity, CameraSelector.DEFAULT_BACK_CAMERA, useCases)
+                        camera = provider.bindToLifecycle(this@FixtureRecorderActivity, CameraSelector.DEFAULT_BACK_CAMERA, useCases)
+                        meterOnGrid()
                     }
                 },
             )
@@ -212,6 +243,7 @@ class FixtureRecorderActivity : ComponentActivity() {
 private fun FixtureRecorderScreen(
     startCamera: (PreviewView) -> Unit,
     latestFrame: AtomicReference<FrameMeasurements?>,
+    onExposure: (Int) -> String,
 ) {
     val context = LocalContext.current
     val initialPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
@@ -260,6 +292,11 @@ private fun FixtureRecorderScreen(
             } else {
                 Button(onClick = { permission.launch(Manifest.permission.CAMERA) }) { Text("Allow camera") }
             }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            OutlinedButton(onClick = { resultText = onExposure(-1) }) { Text("Exposure −") }
+            OutlinedButton(onClick = { resultText = onExposure(1) }) { Text("Exposure +") }
+            OutlinedButton(onClick = { resultText = onExposure(0) }) { Text("Re-meter") }
         }
         Text(resultText, style = MaterialTheme.typography.bodyMedium)
         val missing =
