@@ -39,6 +39,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -50,6 +51,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -62,10 +65,12 @@ import dev.cubentia.domain.recognition.ClassificationResult
 import dev.cubentia.domain.recognition.DeviceInfo
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.Lab
+import dev.cubentia.domain.recognition.LiveFixturePaths
 import dev.cubentia.domain.recognition.NearestCenterClassifier
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.time.Instant
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
@@ -259,7 +264,25 @@ private fun FixtureRecorderScreen(
     val scope = rememberCoroutineScope()
     val truthLabels = remember { mutableStateListOf<Color?>(null, null, null, null, null, null, null, null, null) }
     var qualityOverride by remember { mutableStateOf<CaptureQuality?>(null) }
-    var resultText by remember { mutableStateOf("Allow camera, calibrate all six centers, then capture each face.") }
+    val capturedFaces = remember { mutableStateListOf<Face>() }
+    val calibrated = centers.size == Color.entries.size
+    // Faces already saved for this device, cube and light survive a restart: read them back from the export directory.
+    LaunchedEffect(cube.trim(), light.trim()) {
+        val saved =
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val root = context.getExternalFilesDir(null) ?: return@runCatching emptyList()
+                    val directory = File(root, "Fixtures/live/${LiveFixturePaths.directoryName(Build.MODEL, cube.trim(), light.trim())}")
+                    Face.entries.filter { File(directory, LiveFixturePaths.fileName(it)).isFile }
+                }.getOrDefault(emptyList())
+            }
+        capturedFaces.clear()
+        capturedFaces.addAll(saved)
+        selectedFace = Face.entries.firstOrNull { it !in saved } ?: Face.U
+    }
+    var resultText by remember {
+        mutableStateOf("Step 1: enter cube and light. Step 2: calibrate the six centers. Step 3: capture the six faces.")
+    }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> hasPermission = granted }
 
     Column(
@@ -311,17 +334,7 @@ private fun FixtureRecorderScreen(
             buildList {
                 if (!cube.any { it.isLetterOrDigit() && it.code < 128 }) add("cube name")
                 if (!light.any { it.isLetterOrDigit() && it.code < 128 }) add("light")
-                if (centers.size <
-                    6
-                ) {
-                    add(
-                        "centers ${centers.size}/6 (missing ${Color.entries.filter { it !in centers }.joinToString {
-                            it.name.take(
-                                1,
-                            )
-                        }})",
-                    )
-                }
+                if (!calibrated) add("centers ${centers.size}/6")
                 val labeled = truthLabels.count { it != null }
                 if (labeled < 9) add("truth $labeled/9")
                 val expected = FACE_CENTER.getValue(selectedFace)
@@ -342,13 +355,42 @@ private fun FixtureRecorderScreen(
             },
             style = MaterialTheme.typography.bodyMedium,
         )
-        Text("Calibrate center: $selectedColor")
+        Text(
+            if (calibrated) {
+                "Step 2 · Centers calibrated (6/6)"
+            } else {
+                "Step 2 · Calibrate center ${label(
+                    selectedColor,
+                )} (${centers.size}/6)"
+            },
+            style = MaterialTheme.typography.titleSmall,
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Color.entries.forEach { color ->
-                ColorButton(color, color.name.take(1), selected = color == selectedColor) { selectedColor = color }
+                ColorButton(
+                    color,
+                    color.name.take(1),
+                    shade =
+                        if (color in centers) {
+                            Shade.DONE
+                        } else if (color == selectedColor) {
+                            Shade.NEXT
+                        } else {
+                            Shade.TODO
+                        },
+                    selected = !calibrated && color == selectedColor,
+                    enabled = !calibrated,
+                ) { selectedColor = color }
             }
         }
-        Button(onClick = {
+        if (calibrated) {
+            OutlinedButton(onClick = {
+                centers.clear()
+                selectedColor = Color.WHITE
+                resultText = "Centers cleared: calibrate all six again."
+            }) { Text("Recalibrate centers") }
+        }
+        Button(enabled = !calibrated, onClick = {
             val frame = latestFrame.get()
             if (frame == null) {
                 resultText = "Waiting for a camera frame."
@@ -356,10 +398,20 @@ private fun FixtureRecorderScreen(
                 resultText = qualityOverride?.let { "$it marked; recapture this face." } ?: frame.detail ?: "Recapture required."
             } else {
                 centers[selectedColor] = frame.lab[FaceSample.CENTER_INDEX]
-                resultText = "Calibrated $selectedColor (${centers.size}/6 centers)."
+                resultText = "Calibrated ${label(selectedColor)} (${centers.size}/6 centers)."
+                Color.entries.firstOrNull { it !in centers }?.let { selectedColor = it }
             }
         }) { Text("Set center") }
-        Text("Face (by center color):")
+        Text(
+            if (capturedFaces.size == Face.entries.size) {
+                "Step 3 · All six faces captured (tap a face to recapture it)"
+            } else {
+                "Step 3 · Capture face ${selectedFace.name} · ${label(
+                    FACE_CENTER.getValue(selectedFace),
+                )} (${capturedFaces.size}/6 captured)"
+            },
+            style = MaterialTheme.typography.titleSmall,
+        )
         Face.entries.chunked(3).forEach { faces ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 faces.forEach { face ->
@@ -367,12 +419,18 @@ private fun FixtureRecorderScreen(
                     ColorButton(
                         center,
                         "${face.name} · ${label(center)}",
+                        shade =
+                            if (face in capturedFaces) {
+                                Shade.DONE
+                            } else if (face == selectedFace) {
+                                Shade.NEXT
+                            } else {
+                                Shade.TODO
+                            },
                         selected = face == selectedFace,
+                        enabled = calibrated,
                         modifier = Modifier.weight(1f),
-                    ) {
-                        selectedFace = face
-                        truthLabels.indices.forEach { truthLabels[it] = null }
-                    }
+                    ) { selectedFace = face }
                 }
             }
         }
@@ -431,6 +489,10 @@ private fun FixtureRecorderScreen(
                                     }
                                 }
                             resultText = "Saved: $path\n$prediction"
+                            if (sample.face !in capturedFaces) capturedFaces.add(sample.face)
+                            truthLabels.indices.forEach { truthLabels[it] = null }
+                            qualityOverride = null
+                            Face.entries.firstOrNull { it !in capturedFaces }?.let { selectedFace = it }
                         } catch (failure: Exception) {
                             resultText = "Save failed: ${failure.message}"
                         } finally {
@@ -441,7 +503,14 @@ private fun FixtureRecorderScreen(
             },
             enabled = !saving && missing.isEmpty(),
         ) { Text("Capture face") }
-        Text("Ground truth: tap each sticker label to cycle through colors.", style = MaterialTheme.typography.bodySmall)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                "Ground truth: tap each sticker to cycle its color.",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.weight(1f),
+            )
+            OutlinedButton(onClick = { truthLabels.indices.forEach { truthLabels[it] = null } }) { Text("Reset labels") }
+        }
         repeat(3) { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 repeat(3) { column ->
@@ -449,6 +518,7 @@ private fun FixtureRecorderScreen(
                     ColorButton(
                         truthLabels[index],
                         "${index + 1}: ${truthLabels[index]?.let(::label) ?: "?"}",
+                        shade = Shade.DONE,
                         selected = false,
                         modifier = Modifier.weight(1f),
                         onClick = {
@@ -472,7 +542,9 @@ private fun FixtureRecorderScreen(
                 CaptureQuality.MISALIGNED to "Misaligned",
                 CaptureQuality.INCOMPLETE to "Incomplete",
             ).forEach { (quality, label) ->
-                OutlinedButton(onClick = { qualityOverride = quality }, modifier = Modifier.weight(1f)) { Text(label, maxLines = 1) }
+                OutlinedButton(onClick = {
+                    qualityOverride = quality
+                }, modifier = Modifier.weight(1f)) { Text(label, maxLines = 1, style = MaterialTheme.typography.labelSmall) }
             }
         }
     }
@@ -499,33 +571,47 @@ private fun swatch(color: Color): UiColor =
         Color.ORANGE -> UiColor(0xFFFF5800)
     }
 
-private fun onSwatch(color: Color): UiColor =
-    when (color) {
-        Color.WHITE, Color.YELLOW, Color.ORANGE -> UiColor.Black
-        else -> UiColor.White
-    }
-
 private fun label(color: Color) = color.name.lowercase().replaceFirstChar { it.uppercase() }
+
+/** Progress shading: light = still to do, medium = next, full color = done. */
+private enum class Shade(
+    val strength: Float,
+) {
+    TODO(0.22f),
+    NEXT(0.6f),
+    DONE(1f),
+}
 
 @Composable
 private fun ColorButton(
     color: Color?,
     text: String,
+    shade: Shade,
     selected: Boolean,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
+    val container = color?.let { lerp(UiColor.White, swatch(it), shade.strength) }
+    val content = container?.let { if (it.luminance() > 0.4f) UiColor.Black else UiColor.White }
     OutlinedButton(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier,
         colors =
-            if (color == null) {
+            if (container == null || content == null) {
                 ButtonDefaults.outlinedButtonColors()
             } else {
-                ButtonDefaults.outlinedButtonColors(containerColor = swatch(color), contentColor = onSwatch(color))
+                // Keep the progress colors visible when the step is locked; only dim the label.
+                ButtonDefaults.outlinedButtonColors(
+                    containerColor = container,
+                    contentColor = content,
+                    disabledContainerColor = container,
+                    disabledContentColor = content.copy(alpha = 0.6f),
+                )
             },
         border = BorderStroke(if (selected) 4.dp else 1.dp, if (selected) UiColor.Black else UiColor.Gray),
-    ) { Text(text) }
+    ) { Text(text, maxLines = 1) }
 }
 
 @Composable
