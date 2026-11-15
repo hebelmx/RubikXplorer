@@ -1,7 +1,9 @@
 package dev.cubentia.app.camera.recorder
 
 import dev.cubentia.domain.cube.Color
+import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.recognition.CalibrationCenters
+import dev.cubentia.domain.recognition.CaptureQuality
 import dev.cubentia.domain.recognition.Lab
 import dev.cubentia.domain.recognition.TruthSource
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -161,5 +163,96 @@ class RecorderRulesTest {
             if (trigger.onFrame(List(9) { Lab(if (index % 2 == 0) 80.0 else 95.0, 0.0, 0.0) }, time)) fired++
         }
         assertEquals(0, fired)
+    }
+
+    @Test fun `suggest again refreshes prefilled cells and keeps entered ones`() {
+        val entry =
+            TruthEntry(
+                colors =
+                    List(9) {
+                        if (it == 0) {
+                            Color.RED
+                        } else if (it == 4) {
+                            Color.GREEN
+                        } else {
+                            Color.WHITE
+                        }
+                    },
+                sources = List(9) { if (it == 0 || it == 4) TruthSource.ENTERED else TruthSource.PREFILLED },
+                selected = null,
+            )
+        val next = entry.suggestAgain(List(9) { Color.BLUE })
+        assertEquals(
+            List(9) {
+                if (it == 0) {
+                    Color.RED
+                } else if (it == 4) {
+                    Color.GREEN
+                } else {
+                    Color.BLUE
+                }
+            },
+            next.colors,
+        )
+        assertEquals(List(9) { if (it == 0 || it == 4) TruthSource.ENTERED else TruthSource.PREFILLED }, next.sources)
+        assertNull(next.selected)
+    }
+
+    @Test fun `suggest again blanks a cell whose prefill is blank and moves selection to the first blank`() {
+        val entry = TruthEntry(selected = null).withPrefill(List(9) { Color.WHITE }).select(1)
+        val next = entry.suggestAgain(List(9) { if (it == 6) null else Color.WHITE })
+        assertNull(next.colors[6])
+        assertNull(next.sources[6])
+        assertEquals(6, next.selected)
+
+        val kept = next.select(6).suggestAgain(List(9) { if (it == 2 || it == 6) null else Color.WHITE })
+        assertEquals(6, kept.selected, "a selection on a still-blank cell is kept")
+    }
+
+    @Test fun `a face frozen by entries on the wrong face recovers with suggest again, withPrefill stays frozen`() {
+        val stale = TruthEntry(selected = null).withPrefill(List(9) { Color.WHITE })
+        val frozen =
+            stale
+                .select(0)
+                .set(Color.RED)
+                .select(1)
+                .set(Color.RED)
+        val current = List(9) { Color.YELLOW }
+        assertEquals(frozen, frozen.withPrefill(current))
+
+        val recovered = frozen.suggestAgain(current)
+        assertEquals(listOf(Color.RED, Color.RED) + List(7) { Color.YELLOW }, recovered.colors)
+        assertEquals(List(2) { TruthSource.ENTERED } + List(7) { TruthSource.PREFILLED }, recovered.sources)
+    }
+
+    @Test fun `chips name the center color and the mismatch reads face first`() {
+        assertEquals("B · Green", faceChipLabel(Face.B))
+        assertEquals("F · Blue", faceChipLabel(Face.F))
+        assertEquals("Face B needs the Green center — this one is Blue", centerMismatch(Face.B, Color.BLUE))
+    }
+
+    @Test fun `saved summary counts entered stickers and names an override`() {
+        val sources = List(9) { if (it == 3) TruthSource.ENTERED else TruthSource.PREFILLED }
+        assertEquals("Saved L · 1 entered by you", savedSummary(Face.L, sources, null))
+        assertEquals("Saved L · 1 entered by you · override MISALIGNED", savedSummary(Face.L, sources, CaptureQuality.MISALIGNED))
+        assertEquals("Saved U · 0 entered by you", savedSummary(Face.U, List(9) { TruthSource.PREFILLED }, null))
+    }
+
+    @Test fun `capture locks name hold and the center mismatch and are empty when ready`() {
+        val green = List<Color?>(9) { Color.GREEN }
+        val ready = TruthEntry(colors = green, sources = List(9) { TruthSource.ENTERED }, selected = null)
+        assertEquals(emptyList<String>(), captureLocks(false, false, true, 6, ready, Face.B))
+        assertEquals(listOf("hold"), captureLocks(false, true, true, 6, ready, Face.B))
+        assertEquals(
+            listOf("Face F needs the Blue center — this one is Green"),
+            captureLocks(false, false, true, 6, ready, Face.F),
+        )
+        val partial = TruthEntry(colors = List(9) { if (it < 4) Color.GREEN else null }, selected = null)
+        assertEquals(listOf("saving…", "4/9 stickers set"), captureLocks(true, false, true, 6, partial, Face.B))
+    }
+
+    @Test fun `next face is the first uncaptured face, or the current one when all six are captured`() {
+        assertEquals(Face.R, nextFace(listOf(Face.U, Face.F), Face.U))
+        assertEquals(Face.L, nextFace(Face.entries, Face.L))
     }
 }

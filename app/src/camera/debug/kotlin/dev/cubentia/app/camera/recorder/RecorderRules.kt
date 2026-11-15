@@ -1,7 +1,10 @@
 package dev.cubentia.app.camera.recorder
 
 import dev.cubentia.domain.cube.Color
+import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.recognition.CalibrationCenters
+import dev.cubentia.domain.recognition.CaptureQuality
+import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.Lab
 import dev.cubentia.domain.recognition.TruthSource
 import kotlin.math.PI
@@ -42,6 +45,74 @@ internal const val REMETER_SETTLE_MS = 1000L
 
 internal const val FRAME_MAX_EDGE = 1024
 internal const val FRAME_JPEG_QUALITY = 85
+
+/** After a successful Capture the net keeps showing the saved truth this long before the next face is prefilled. */
+internal const val CAPTURE_HOLD_MS = 1500L
+
+/** After a calibration swatch is saved, Sample stays disabled this long (a plain timed hold, no detection). */
+internal const val CALIBRATION_HOLD_MS = 1500L
+
+/**
+ * Recording convention: each face is named by its center color (blue-front), so the operator never tracks orientation.
+ * Session A/A2 fixtures are named under this table. The evaluator (`LiveBaselineEvaluator` / `NearestCenterClassifier`)
+ * classifies by calibration color, not by this table. The AGENTS.md home frame (GREEN on F) is deliberately not used
+ * here: changing it would rename the meaning of every recorded fixture.
+ */
+internal val FACE_CENTER: Map<Face, Color> =
+    mapOf(
+        Face.U to Color.WHITE,
+        Face.R to Color.ORANGE,
+        Face.F to Color.BLUE,
+        Face.D to Color.YELLOW,
+        Face.L to Color.RED,
+        Face.B to Color.GREEN,
+    )
+
+/** Operator-facing color name, e.g. `Green`. */
+internal fun colorLabel(color: Color): String = color.name.lowercase().replaceFirstChar { it.uppercase() }
+
+/** Face chip text: the face letter and its center color, e.g. `B · Green`, so B never reads as Blue. */
+internal fun faceChipLabel(face: Face): String = "${face.name} · ${colorLabel(FACE_CENTER.getValue(face))}"
+
+/** Lock reason when the entered center does not match the face, e.g. `Face B needs the Green center — this one is Blue`. */
+internal fun centerMismatch(
+    face: Face,
+    center: Color,
+): String = "Face ${face.name} needs the ${colorLabel(FACE_CENTER.getValue(face))} center — this one is ${colorLabel(center)}"
+
+/** Why Capture is disabled, worded for the operator (e.g. `4/9 stickers set`, the center mismatch); empty when ready. */
+internal fun captureLocks(
+    saving: Boolean,
+    holding: Boolean,
+    metaReady: Boolean,
+    calibratedCount: Int,
+    entry: TruthEntry,
+    face: Face,
+): List<String> =
+    buildList {
+        if (saving) add("saving…")
+        if (holding) add("hold")
+        if (!metaReady) add("cube and light")
+        if (calibratedCount < Color.entries.size) add("calibration $calibratedCount/${Color.entries.size}")
+        if (!entry.complete) add("${entry.colors.count { it != null }}/${TruthEntry.STICKERS} stickers set")
+        val center = entry.colors[FaceSample.CENTER_INDEX]
+        if (center != null && center != FACE_CENTER.getValue(face)) add(centerMismatch(face, center))
+    }
+
+/** The face selected after a capture hold: the first face not yet captured, or [current] when all six are captured. */
+internal fun nextFace(
+    captured: Collection<Face>,
+    current: Face,
+): Face = Face.entries.firstOrNull { it !in captured } ?: current
+
+/** Post-capture status: `Saved L · 1 entered by you`, plus ` · override MISALIGNED` when an override was used. */
+internal fun savedSummary(
+    face: Face,
+    sources: List<TruthSource>,
+    override: CaptureQuality?,
+): String =
+    "Saved ${face.name} · ${sources.count { it == TruthSource.ENTERED }} entered by you" +
+        (override?.let { " · override ${it.name}" } ?: "")
 
 internal fun deltaE(
     left: Lab,
@@ -111,6 +182,22 @@ internal data class TruthEntry(
         require(prefilled.size == STICKERS) { "Prefill needs nine stickers" }
         val nextSources = prefilled.map { color -> color?.let { TruthSource.PREFILLED } }
         return TruthEntry(prefilled, nextSources, selected ?: prefilled.indexOfFirst { it == null }.takeIf { it >= 0 })
+    }
+
+    /**
+     * Re-prefills every cell the operator has not entered from [prefilled] (blank when the prefill is blank); entered
+     * cells never change. Works after entries too, which is how a face frozen on a stale frame recovers. The selection is
+     * kept while it points at a still-blank cell, otherwise the first blank (or none) is selected.
+     */
+    fun suggestAgain(prefilled: List<Color?>): TruthEntry {
+        require(prefilled.size == STICKERS) { "Prefill needs nine stickers" }
+        val nextColors = colors.indices.map { if (sources[it] == TruthSource.ENTERED) colors[it] else prefilled[it] }
+        val nextSources =
+            sources.indices.map { index ->
+                if (sources[index] == TruthSource.ENTERED) TruthSource.ENTERED else prefilled[index]?.let { TruthSource.PREFILLED }
+            }
+        val keep = selected?.takeIf { nextColors[it] == null }
+        return TruthEntry(nextColors, nextSources, keep ?: nextColors.indexOfFirst { it == null }.takeIf { it >= 0 })
     }
 
     /** The nine truth colors and their sources for a capture; null until every sticker is filled. */
