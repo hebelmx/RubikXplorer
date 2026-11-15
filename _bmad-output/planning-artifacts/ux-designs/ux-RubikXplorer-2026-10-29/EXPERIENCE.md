@@ -2,7 +2,7 @@
 name: RubikXplorer
 status: final
 created: 2026-10-29
-updated: 2026-11-14
+updated: 2026-11-15
 sources:
   - ../../prds/prd-RubikXplorer-2026-10-29/prd.md
   - ../../prds/prd-RubikXplorer-2026-10-29/addendum.md
@@ -40,7 +40,7 @@ sources:
 | Recognize case *(v1.1, flag-gated: hidden while the flag is OFF, UX-DR19)* | Library top bar | Scan the top layer and get the Case, or candidates. | FR-28 |
 | **You** (tab) | Bottom nav | Progress: Stage states, a trend row per Stage (hints and errors per attempt), and Algorithm Status counts shown as plain counts, not achievements. Also holds Settings. | FR-19, FR-20 |
 | Settings | You | Theme, color-blind glyphs, animation speed, haptics, reduce motion, the separate resets, about/licences. | FR-19, NFR-7 |
-| Color Calibration *(v1.1, flag-gated: hidden while the flag is OFF, UX-DR19)* | Settings, scan prompt ("Colors look off — calibrate?"), first scan of a stickerless cube | Show each of the six centers in turn and confirm the swatch, then save. A separate reset is available. | FR-24 |
+| Color Calibration *(v1.1, flag-gated: hidden while the flag is OFF, UX-DR19)* | Settings, scan prompt ("Colors look off — calibrate?"), first scan of a stickerless cube | Show each of the six centers in turn and confirm the swatch, then save. Each swatch is sampled from the ring around the center sticker's middle, so a logo is left out; if that ring isn't one even color, or the swatch is implausible for its color, the Learner is asked to put a plain sticker of that color in the middle square instead (SCP 2026-11-15). A separate reset is available. | FR-24 |
 
 - **Navigation:** a bottom navigation bar with four tabs: Learn, Solve, Library, You. Medium and expanded widths switch to a navigation rail.
 - **Full-screen task flows:** Lesson, Scan and Playback hide the bottom bar and use a top app bar with back.
@@ -93,8 +93,8 @@ These are behavioral rules. Visual specs are in DESIGN.md Components.
 | Physical controls | Physical-cube Mode | A primary **Done** button stays primary, even under a recovery prompt. A secondary *I did something else* opens the Move key bar to enter the Move. A tertiary menu holds *My cube doesn't match* and *I'm not sure what I did*. *Quick Check* (a camera icon) is offered at Objective boundaries, Stage milestones and after any mismatch report. It is never required, and *Done* always works (FR-26). |
 | Certainty chip | Diagnosis, Quick Check results, Playback | Always shows one of the three states, never a percentage. Tapping it explains what evidence the state rests on. |
 | Playback transport | Demonstrations, Solution Playback, Algorithm detail | One shared controller (AD-20): play/pause, step back/forward, restart, and speed 0.5×/1×/2×. Scrubbing snaps to Move boundaries. |
-| Scan viewfinder | Scan sub-flow | Captures automatically when the grid is aligned and steady (about 600 ms), with a manual shutter as backup. The face prompt names the center color and the up color. A wrong orientation produces a re-prompt, not an error. Quality coaching appears inline ("Too much glare — tilt the cube"). |
-| Sticker review net | Scan review, Editor | Uncertain stickers are pre-selected. Tap a sticker, then a color, to set it. **Accept** stays disabled until every uncertain sticker has been confirmed or changed and the state is valid. Validation messages point at the specific stickers. |
+| Scan viewfinder | Scan sub-flow | Captures automatically when the grid is aligned and steady (about 600 ms), with a manual shutter as backup. Focus, exposure and white balance re-meter on the grid by themselves when alignment is first found and whenever the face changes; the Learner never has to refocus (SCP 2026-11-15). The face prompt names the center color and the up color. A wrong orientation produces a re-prompt, not an error. Quality coaching appears inline ("Too much glare — tilt the cube"). On a phone in portrait, the viewfinder, the face prompt, the face's sticker net, the palette and the primary action all fit on one screen without scrolling (see Responsive & Platform). |
+| Sticker review net | Scan review, Editor | Only confident stickers are prefilled: a sticker is filled when its nearest calibrated color beats the second nearest by at least 10 ΔE (the close-call rule; Story 10.13 may retune it). Close calls, such as a yellow that sits near white, stay blank. Uncertain stickers are pre-selected. Tap a sticker, then a color, to set it. After a color is set, the selection moves to the next blank or uncertain sticker (auto-advance), so a face needs about one touch per sticker; tapping any sticker selects it for a fix. **Accept** stays disabled until every uncertain sticker has been confirmed or changed and the state is valid. Validation messages point at the specific stickers. (SCP 2026-11-15) |
 | Algorithm tile | Library | Tap to open detail. Status changes happen only in detail, through an explicit control. Algorithm detail keeps the bottom nav. |
 | Trend row | You, Stage detail | Shows the trend across attempts in order, never a total or a score. Hint use is never framed as failure (SM-C1). |
 | Quick Scan capture | Scan sub-flow | Hold the cube by a corner and capture twice (the counter shows "1 / 2"). Any face that can't be read hands off to the Guided Scan grid for that face only. |
@@ -192,6 +192,10 @@ Behavioral rules here; visual contrast is in DESIGN.md.
 
 - **State preservation:** changing orientation never changes session state. All state lives in the session (AD-3), so the layout just recomposes.
 - **Camera:** the camera runs in portrait. In landscape the scan UI rotates its overlays and keeps the grid upright.
+- **Scan layout (SCP 2026-11-15):** never scrolls.
+  - **Compact (phone portrait):** the viewfinder takes the top ~45% of the height, with the grid, the face prompt and a 6-face progress strip on it. Below it sit the 3×3 net of the current face beside a 2×3 palette, then one primary action (*Capture* or *Next*).
+  - **Medium and expanded (tablet, the Lenovo's 600 dp):** the viewfinder on the left, and the face net, palette and action on the right.
+  - Rare or destructive controls (a quality override, *Reset labels*, *Recalibrate*) sit apart from the net and palette, behind an overflow or a separate row, and each asks for a confirm. An active override shows on the primary action.
 - **Back:** system back follows Android conventions. In a Lesson, back leaves immediately with no confirmation, because every Move is committed and checkpointed before it animates (AD-4, AD-10).
 
 ## Inspiration & Anti-patterns
@@ -287,7 +291,7 @@ The flows mirror the PRD's user journeys UJ-1 to UJ-6.
 *Steps 1–3 (calibration) are v1.1, flag-gated. Step 4 (resets) ships while `CAMERA_SCAN` is OFF, without a calibration reset.*
 
 1. On Lucía's stickerless cube the scan flags many uncertain stickers, and the scan offers "Colors look off — calibrate?"
-2. Calibration shows each of the six centers in turn: "Show the white center." She confirms each swatch, then taps *Save*.
+2. Calibration shows each of the six centers in turn: "Show the white center." The app reads the ring around the logo, not the logo. When her white center's print fills too much of it, the prompt changes to "Put a plain white sticker in the middle square." She sees each swatch, confirms it, then taps *Save*.
 3. **Climax:** her rescan reads every sticker confidently.
 4. Later, in Settings → *Reset progress*, the sheet lists exactly what is erased: Stages, attempts and Algorithm Statuses. Any Lesson or practice in progress also ends, so the Continue card is cleared. Calibration and preferences have their own resets.
 
