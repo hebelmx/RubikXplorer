@@ -68,7 +68,7 @@ Run `python3 -m pip install -r tools/requirements-photo-eval.txt` once, then `py
 
 ### Live recorder fixtures
 
-`live/<device>_<cube>_<light>/<FACE>.json` contains one self-contained record per face (U, R, F, D, L, B). Each directory part is lowercase ASCII letters/digits with other runs collapsed to hyphens and trimmed; empty parts are rejected. Records include schema version, model/manufacturer, OS release/build, SDK, ISO-8601 capture time, cube/light descriptions, six calibration centers and a labeled CIELAB FaceSample. Recapture overwrites the face; no image bytes are exported.
+`live/<device>_<cube>_<light>/<FACE>.json` contains one self-contained record per face (U, R, F, D, L, B). Each directory part is lowercase ASCII letters/digits with other runs collapsed to hyphens and trimmed; empty parts are rejected. Records include schema version, model/manufacturer, OS release/build, SDK, ISO-8601 capture time, cube/light descriptions, six calibration centers and a labeled CIELAB FaceSample. Schema 2 (Story 10.12) adds `truthSources`, nine `"entered"`/`"prefilled"` values saying whether the operator set each sticker or kept a close-call-gated prefill, and `frame`, the sibling `<FACE>.jpg` (the measured frame, long edge ≤ 1024 px). Schema-1 records (session A) have neither and count every sticker as entered. Recapture overwrites both files.
 
 After recording with the debug **Cubentia fixture recorder**, pull into the repository root:
 
@@ -77,4 +77,8 @@ adb pull /sdcard/Android/data/com.exxerpro.cubentia/files/Fixtures/live Fixtures
 ./gradlew :core:domain:evaluateLiveBaseline
 ```
 
-Review the exported metadata and independently entered truth before checking in device-session records. The evaluator updates only the marked Live baseline section in `docs/spikes/oq-4-guided-scan.md`. No live fixtures or measured results exist until device session A.
+Each JPEG is the analysis frame's measured crop in the sample's pixel orientation (apply the record's `orientationDegrees` to view it upright); the recorder's grid is the centered square of 80% of its short edge, split 3×3, and the calibration ring sits at 30% of a cell side around the middle cell's center.
+
+**Session A2 reuses session A names.** The same device, cube (`stla`, `stka`) and light (`studio`) give the same `<device>_<cube>_<light>` directory, so on the device the recorder would mark session A faces as already captured, and the pull would overwrite the checked-in session A records. Before A2, clear the app's on-device `Fixtures/live` (`adb shell rm -r /sdcard/Android/data/com.exxerpro.cubentia/files/Fixtures/live`) and enter a distinct light description such as `studio-a2`.
+
+The pull brings the JPEG frames with the JSON. Review the exported metadata, truth and frames before checking in device-session records; the evaluator reads only the JSON and reports all-sticker and entered-only accuracy. The evaluator updates only the marked Live baseline section in `docs/spikes/oq-4-guided-scan.md`.
