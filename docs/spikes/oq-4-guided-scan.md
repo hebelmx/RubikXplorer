@@ -67,7 +67,7 @@ CameraX stable version selected from Android's release notes is 1.6.2. On this c
 <!-- live-baseline:start -->
 Gate: **MET** (per-sticker target ≥ 99%).
 
-Coverage: 4 groups, 2 devices, 2 cubes. The Story 10.10 live gate needs at least 2 devices × 2 cubes with six classified faces each; an incomplete matrix yields INCOMPLETE.
+Coverage: 12 groups, 2 devices, 4 cubes. The Story 10.10 live gate needs at least 2 devices × 2 cubes with six classified faces each; an incomplete matrix yields INCOMPLETE.
 
 The prototype has no uncertainty output; every misread sticker of a classified face counts as confidently wrong. Unavailable captures are excluded from accuracy. INCOMPLETE has no gate verdict.
 
@@ -76,12 +76,20 @@ Entered-only accuracy counts only stickers whose truth the operator entered; pre
 | Scope | Correct stickers | Sticker accuracy | Entered correct | Entered accuracy | Correct faces | Face accuracy | Confidently wrong | Unavailable | Missing classified faces |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---|
 | Group: lenovo-tb128xu_stka_studio | 54/54 | 100.0000% | 54/54 | 100.0000% | 6/6 | 100.0000% | 0 | 0 | — |
+| Group: lenovo-tb128xu_stka_studio-a | 54/54 | 100.0000% | 1/1 | 100.0000% | 6/6 | 100.0000% | 0 | 0 | — |
+| Group: lenovo-tb128xu_stkb_studio-a | 54/54 | 100.0000% | 0/0 | — | 6/6 | 100.0000% | 0 | 0 | — |
 | Group: lenovo-tb128xu_stla_studio | 54/54 | 100.0000% | 54/54 | 100.0000% | 6/6 | 100.0000% | 0 | 0 | — |
+| Group: lenovo-tb128xu_stla_studio-a | 53/54 | 98.1481% | 0/1 | 0.0000% | 5/6 | 83.3333% | 1 | 0 | — |
+| Group: lenovo-tb128xu_stlb_studio-a | 54/54 | 100.0000% | 8/8 | 100.0000% | 6/6 | 100.0000% | 0 | 0 | — |
 | Group: sm-s721u1_stka_studio | 54/54 | 100.0000% | 54/54 | 100.0000% | 6/6 | 100.0000% | 0 | 0 | — |
+| Group: sm-s721u1_stka_studio-a | 53/54 | 98.1481% | 0/1 | 0.0000% | 5/6 | 83.3333% | 1 | 0 | — |
+| Group: sm-s721u1_stkb_studio-a | 53/54 | 98.1481% | 1/2 | 50.0000% | 5/6 | 83.3333% | 1 | 0 | — |
 | Group: sm-s721u1_stla_studio | 54/54 | 100.0000% | 54/54 | 100.0000% | 6/6 | 100.0000% | 0 | 0 | — |
-| Device: LENOVO Lenovo TB128XU | 108/108 | 100.0000% | 108/108 | 100.0000% | 12/12 | 100.0000% | 0 | 0 | see groups |
-| Device: samsung SM-S721U1 | 108/108 | 100.0000% | 108/108 | 100.0000% | 12/12 | 100.0000% | 0 | 0 | see groups |
-| Total | 216/216 | 100.0000% | 216/216 | 100.0000% | 24/24 | 100.0000% | 0 | 0 | see groups |
+| Group: sm-s721u1_stla_studio-a | 54/54 | 100.0000% | 10/10 | 100.0000% | 6/6 | 100.0000% | 0 | 0 | — |
+| Group: sm-s721u1_stlb_studio-a | 54/54 | 100.0000% | 1/1 | 100.0000% | 6/6 | 100.0000% | 0 | 0 | — |
+| Device: LENOVO Lenovo TB128XU | 323/324 | 99.6914% | 117/118 | 99.1525% | 35/36 | 97.2222% | 1 | 0 | see groups |
+| Device: samsung SM-S721U1 | 322/324 | 99.3827% | 120/122 | 98.3607% | 34/36 | 94.4444% | 2 | 0 | see groups |
+| Total | 645/648 | 99.5370% | 237/240 | 98.7500% | 69/72 | 95.8333% | 3 | 0 | see groups |
 <!-- live-baseline:end -->
 
 Install the debug APK and launch **Cubentia fixture recorder**. The screen does not scroll: on a phone the viewfinder (grid, calibration ring, 6-face progress strip) sits on top, then the face net beside a 2×3 palette (W Y R O G B), a status line and one primary action; on a 600 dp or landscape screen the viewfinder is on the left. For each device × cube (session A2: both gating devices, cubes `stla`, `stka`, `stlb`, `stkb`, studio light):
@@ -109,3 +117,17 @@ The non-shipping evaluator uses the unchanged prototype nearest-center classifie
 - **Focus at grid distance.** On the S24 FE the cube must be close to fill the drawn grid, and the first autofocus can miss there; **Re-meter** (grid AF/AE/AWB) restored focus. The production viewfinder should re-trigger grid focus on alignment instead of relying on one AF pass.
 - **Fixture correction.** Lenovo `stka` D was saved with the capture quality override at MISALIGNED by a mis-tap (PO confirmed); its readings and truth labels were valid. The flag alone was edited to ACCEPTABLE rather than re-rigging the tripod for one face.
 - **Truth labels** agree across devices face by face, up to how each face was held (rotations only).
+
+### Device session A2 notes (2026-11-15, Story 10.12 recorder)
+
+- **Matrix recorded:** Lenovo TB128XU and Galaxy S24 FE, light `studio-a`, cubes `stla` (GAN, stickerless), `stlb` (second stickerless brand), `stka` (Rubik's, stickered, logo on the white center) and `stkb` (generic stickered). 8 groups × 6 faces, 432 stickers, each face with its `<FACE>.jpg`. The light was entered as `studio-a`, not `studio-a2`: the header truncates the label, so the operator could not see the difference. It does not collide with session A's `studio`.
+- **Result:** A2 alone has 429/432 stickers correct; with session A, 645/648 (99.54%) and the gate is MET on both devices. The three misreads are one sticker each in Lenovo `stla`, S24 FE `stka` and S24 FE `stkb`; the operator entered the correct color for each (entered-only 237/240).
+- **Input load:** the operator entered 24 of 432 stickers and kept 408 prefilled. Close-call gating rarely blanked a sticker, so entered-only accuracy rests on few stickers per group; read it as a check on the misreads, not a sample.
+- **Logo centers again:** the `stka` white center (large logo) needed manual entry on the Lenovo but read white on the S24 FE (L82); the `stla` center logo made the white reading marginal and dependent on millimetre positioning. Center handling stays an OQ-7 input; the PO suggests a center-cell histogram test may be enough, to be benchmarked.
+- **Recorder findings (PO, for the next recorder pass):**
+  - The face strip shows letters only; the operator read B (Back) as Blue three times. Label each chip with its center color (`B · Green`).
+  - The lock message "Need: center is Blue, face B is Green" reads as asking for Blue. Say "Face B needs the Green center — this one is Blue".
+  - The face-to-center table (R orange, F blue, L red, B green) is a blue-front hold; AGENTS.md's home frame is white U / green F (R red). The operator expected R = red. Check it against the home frame and the evaluator before any change.
+  - Prefill froze after an entry on the wrong face and lagged after a capture until several taps. A "suggest again" action would help, but it may refill only prefilled or blank stickers, never entered ones.
+  - After Capture the view returns to the live image, so the operator could not tell whether an override was saved. Show the saved truth briefly (entered marks included). The post-capture pause is required: it allows inspection and prevents a second capture without moving the cube. Add the same short pause after sampling a calibration center.
+  - Layout: separate the truth net from the palette (a simple vertical bar), move the status line and Capture up under the controls, and stop the header truncating the cube and light names. The PO approves the one-screen layout itself.
