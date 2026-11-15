@@ -707,7 +707,7 @@ The app has no analytics (NFR-8). Learning metrics therefore come from **observe
 4. **OQ-4 (resolved 2026-10-29):** the Solver is a clean-room Kotlin implementation of Kociemba's two-phase algorithm, written from the published description. The best-known JVM implementation (min2phase) turned out to be GPLv3-only, so no third-party solver code is used. Still open, within the solver epic: whether pruning tables are bundled or built at first run, and how big they are against NFR-11 (architecture AD-8).
 5. **OQ-5:** pilot logistics: who the ~8 beginner testers are and when closed testing starts (proposed: after the Course is usable). Also whether the pilot runs the A/B comparison of plain Move-by-Move instruction versus contextual explanation with error feedback (addendum §H).
 6. **OQ-6:** source and licensing of Algorithm data and Case names. The standard Algorithms are common knowledge; copied diagrams or text are not.
-7. **OQ-7:** recognition approach: classical CV, an on-device ML model, or a hybrid. Decided by the week 1–2 spike. Perspective correction for Quick Scan is the hardest part. Initial: Kotlin-first classical CV (Story 1.9); confirmed by Story 10.10.
+7. **OQ-7:** recognition approach: classical CV, an on-device ML model, or a hybrid. Decided by the week 1–2 spike. Perspective correction for Quick Scan is the hardest part. Initial: Kotlin-first classical CV (Story 1.9). Story 10.10 met the live gate (216/216) only with careful operator calibration; the PO re-opened OQ-7 on 2026-11-15. Kotlin, OpenCV and an on-device ML model are compared by Story 10.13.
 8. **OQ-8:** recognition test matrix: which physical cubes, lighting setups and reference devices, and how ground-truth states are recorded. Matrix: 2 cubes × 4 lights × Lenovo Tab M10 Plus 3rd Gen, Galaxy S24 FE (gating) and Galaxy Tab S7 FE (reported); live fixtures by Story 10.10.
 9. **OQ-9 (closed 2026-10-30; reopened by the Story 1.9 spike at 62.5%; closed again 2026-11-08):** the schedule stays within about 16 weeks. All camera features move to v1.1, and v1.0 ships camera-free.
 
@@ -728,6 +728,7 @@ Recorded in `.memlog.md`:
 - Reference devices: minimum Lenovo Tab M10 Plus 3rd Gen, mid Samsung Galaxy S24 FE (PO, 2026-11-12, SCP 2026-11-12). The Galaxy Tab S7 FE 5G, the minimum from 2026-10-30 (ARCH-OQ-1), is kept as an additional compatibility device.
 - Public website and privacy policy in a separate repository, `hebelmx/cubentia-site`, on GitHub Pages; the app repository keeps the source (PO, 2026-11-13, SCP 2026-11-13).
 - 2026-11-14: camera recognition restored to the plan as v1.1, flag-gated; per-feature release levels set by the PO at each release (SCP 2026-11-14).
+- 2026-11-15: `CAMERA_SCAN` is BETA-only on the Story 10.10 session A result (216/216, operator-dependent calibration); re-plan with a UX pass on scan layout, calibration and color input; Stories 10.12 (recorder rework, session A2) and 10.13 (OQ-7 recognition approach) added; OQ-7 re-opened (SCP 2026-11-15).
 
 ## 11. Assumptions Index
 

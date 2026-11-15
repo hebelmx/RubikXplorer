@@ -227,7 +227,7 @@ A Learner can browse and watch all 78 verified OLL/PLL Algorithms, track their o
 ### Epic 10: Scan my cube (v1.1, flag-gated)
 A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. Built on `main` with every camera flag OFF in release; each feature reaches users only when the PO raises its flag at a release (Story 10.11). Restored from `post-launch/v1.1-camera-recognition.md` by `sprint-change-proposal-2026-11-14-v1-1-camera.md`.
 **FRs covered:** FR-21, FR-23 – FR-26, plus the Quick Check rung of FR-9 and FR-16, and the calibration reset of FR-19. **Also:** recognition NFRs, NFR-5, NFR-8, NFR-11, NFR-12, AD-9, AD-13, AD-18, AR-13, UX-DR15, UX-DR16, UX-DR19 – UX-DR22, UX-DR25.
-**Order:** 10.9 → 10.10 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.4 → 10.5 → 10.7) → Epic 11 → 10.8 → 10.11. Device sessions: A = 10.10; B = 10.2 and 10.4 acceptance; C = 11.1, 11.3 capture and 10.8.
+**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.4 → 10.5 → 10.7) → Epic 11 → 10.8 → 10.11 *(SCP 2026-11-15)*. Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance; C = 11.1, 11.3 capture and 10.8.
 **Never blocks** tester-feedback fixes or Stories 12.3, 12.4, 12.5 and 13.6: camera stories merge only with release camera flags OFF, and Story 10.9's gate keeps the release free of camera code and permissions.
 
 ### Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition (v1.1, flag-gated)
@@ -1791,7 +1791,7 @@ So that I know when to move to the full set.
 
 ## Epic 10: Scan my cube
 
-A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. P0.4 exit: the Guided Scan meets its accuracy targets on the test matrix, or `CAMERA_SCAN` ships as BETA. *(SCP 2026-11-14: restored from `post-launch/v1.1-camera-recognition.md`. Every story merges to `main` with every camera flag OFF in release; Story 10.9 lands first and Story 10.10 second. Stories 10.9–10.11 are appended IDs that run earlier than their number, as the How-to-read note allows.)*
+A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. P0.4 exit: the Guided Scan meets its accuracy targets on the test matrix, or `CAMERA_SCAN` ships as BETA. *(SCP 2026-11-14: restored from `post-launch/v1.1-camera-recognition.md`. Every story merges to `main` with every camera flag OFF in release; Story 10.9 lands first and Story 10.10 second. Stories 10.9–10.11 are appended IDs that run earlier than their number, as the How-to-read note allows.)* *(SCP 2026-11-15: Stories 10.12 (recorder rework, session A2) and 10.13 (OQ-7 spike) run after 10.10 and before 10.1.)*
 
 ### Story 10.1: Classify stickers and assemble a Scan Result
 
@@ -1801,7 +1801,7 @@ So that the app flags what it isn't sure of instead of guessing.
 
 **Refs:** FR-21, FR-23, FR-24 · recognition NFRs, NFR-12 · AD-2, AD-5, AD-9 · AR-13
 
-**Depends on** Story 10.10 (live fixtures). *(SCP 2026-11-14: the Story 1.9 matrix holds one synthetic sample and offline JPEG labels only, `Fixtures/README.md`.)*
+**Depends on** Story 10.10 (live fixtures) and Story 10.13 (OQ-7 approach). *(SCP 2026-11-14: the Story 1.9 matrix holds one synthetic sample and offline JPEG labels only, `Fixtures/README.md`.)* *(SCP 2026-11-15: the classifier follows the OQ-7 decision; its confidence threshold is also the prefill rule for Story 10.3 review.)*
 
 **Acceptance Criteria:**
 
@@ -1833,6 +1833,10 @@ So that scanning is quick even for a beginner.
 **When** the grid is aligned and steady for ~600 ms
 **Then** the face is captured automatically (manual shutter also available), the prompt names the center and up colors with a glyph swatch, and the mini net advances
 
+**Given** the cube aligned in the grid at the distance that fills it *(SCP 2026-11-15: session A focus miss on the S24 FE)*
+**When** alignment is first detected, or the face changes
+**Then** focus and exposure are re-triggered on the grid region before auto-capture, and on a phone in portrait the viewfinder and the face prompt fit without scrolling (UX pass 2026-11-15)
+
 **Given** a wrong orientation, glare, blur or low light
 **When** detected
 **Then** the Learner is re-prompted with specific coaching ("Too much glare — tilt the cube"), not an error
@@ -1861,7 +1865,7 @@ So that a bad read never reaches the Solver or the tutor.
 
 **Given** a scan sub-flow returning `ScanOutcome {Accepted, Cancelled, FellBackToEditor}` through a typed navigation result
 **When** review opens
-**Then** uncertain stickers are pre-selected, corrections use tap-sticker-then-color, and invalid states name the likely bad stickers ("This corner shows two whites.")
+**Then** only high-confidence stickers are prefilled, uncertain ones (including close calibrated pairs such as yellow vs white) are pre-selected and blank, corrections use the color-entry model from the UX pass (tap-sticker-then-color at most two touches per sticker), and invalid states name the likely bad stickers ("This corner shows two whites.") *(SCP 2026-11-15)*
 
 **Given** any uncertain sticker unresolved or an invalid state
 **When** the Learner looks at Accept
@@ -1889,7 +1893,7 @@ So that scans read it correctly.
 
 **Given** many uncertain stickers in a scan, a first stickerless scan, or Settings
 **When** "Colors look off — calibrate?" or Settings → Color Calibration is chosen
-**Then** each of the six centers is shown in turn, the Learner confirms each swatch, and *Save* calls `UpdateCalibration`
+**Then** each of the six colors is shown in turn, sampled from a plain sticker of that color (a logo or printed center is rejected or excluded from the sample, per the UX pass), an implausible swatch is refused with a plain re-prompt, the Learner confirms each swatch, and *Save* calls `UpdateCalibration` *(SCP 2026-11-15: a logo white center gave a bad WHITE and a 53/54 read in session A)*
 
 **Given** `CalibrationRepository` as the only owner
 **When** a rescan runs
@@ -2088,6 +2092,66 @@ So that the app, the public privacy policy, Play Console and the store listing a
 **Given** a feature that stays OFF
 **When** the release ships
 **Then** it has no entry point, string or permission rationale visible to Learners (UX-DR19)
+
+### Story 10.12: Fixture recorder a phone operator can finish quickly
+
+As the developer recording fixtures,
+I want the recorder to fit one phone screen and take few, safe touches,
+So that a device session covers more cubes and lights with fewer input errors.
+
+**Refs:** FR-21, FR-24 · AD-9, AD-15 · OQ-7, OQ-8 · Story 10.10 · SCP 2026-11-15 · UX pass 2026-11-15 (EXPERIENCE.md Scan rows)
+
+**Depends on** Story 10.10 and the 2026-11-15 UX pass. **Human gate:** device session A2 (Lenovo Tab M10 Plus 3rd Gen and Galaxy S24 FE; cubes stla, stka, stlb, stkb; studio light), recorded with this recorder.
+
+**Acceptance Criteria:**
+
+**Given** a phone in portrait (Galaxy S24 FE)
+**When** the recorder is on a face
+**Then** the viewfinder, the 3×3 truth grid, the color picker and Capture are visible together without scrolling, following the UX pass layout
+
+**Given** truth entry
+**When** the operator labels a face
+**Then** a color is chosen once and applied by tapping stickers (no tap-to-cycle). A high-confidence prediction may prefill a sticker; close-call stickers stay blank (two calibrated centers within the UX-pass threshold, e.g. yellow vs white). Each sticker's truth is stored as `entered` or `prefilled`
+
+**Given** the evaluator
+**When** it scores fixtures
+**Then** it reports accuracy over all stickers and over `entered` stickers only
+
+**Given** the capture-quality override
+**When** the operator sets it
+**Then** it sits apart from the truth grid and needs a confirm, and Capture shows the active flag
+
+**Given** calibration of a center
+**When** the metered swatch is implausible for its color (for WHITE, chroma or lightness outside the UX-pass bounds), or the center cell is not uniform (a logo)
+**Then** the recorder warns and asks for a plain sticker of that color in the center cell, and the swatch is shown before it is saved
+
+**Given** a face is selected or the cube is realigned
+**When** the preview is shown
+**Then** grid AF/AE/AWB re-meters automatically (Re-meter stays available)
+
+**Given** a capture
+**When** it is saved
+**Then** a downscaled frame (JPEG, long edge ≤ 1024 px) is written next to the face JSON in `Fixtures/live/<device>_<cube>_<light>/`, and no release or benchmark build contains the recorder or writes frames
+
+### Story 10.13: Choose the recognition approach (OQ-7)
+
+As the developer,
+I want Kotlin, OpenCV and an on-device ML model compared on the same live fixtures,
+So that Epic 10 builds on the approach with the best accuracy, effort and size trade-off.
+
+**Refs:** FR-21, FR-24, FR-27 · recognition NFRs, NFR-8, NFR-11 · AD-9, AD-14, AD-18 · OQ-7 · Stories 10.10, 10.12, 11.1
+
+**Depends on** Story 10.12 (session A2 frames).
+
+**Acceptance Criteria:**
+
+**Given** the session A and A2 fixtures (samples and frames)
+**When** the current Kotlin nearest-center classifier, an OpenCV pipeline and an on-device ML model (bundled LiteRT or equivalent; no ML Kit or Play-services ML, NFR-8) are run in a non-shipping evaluation source set
+**Then** per-sticker accuracy, confidently-wrong rate, sensitivity to calibration error (the 2026-11-15 bad-white case), logo-center handling and added release size (checked against NFR-11's 30 MB) are reported in `docs/spikes/oq-7-recognition-approach.md`
+
+**Given** the report
+**When** the story closes
+**Then** the PO records the OQ-7 decision in the PRD memlog, and the PRD OQ-7 line and the spine's Quick Scan detection-method line are updated to match. The release classpath gate (Story 10.9) is unchanged unless the decision adds a runtime, and then it is changed in this story.
 
 ## Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition
 

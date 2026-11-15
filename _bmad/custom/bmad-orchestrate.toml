@@ -107,3 +107,14 @@ reason = "work lands in the site repo (hebelmx/cubentia-site), not this repo"
 key = "13-6-register-the-privacy-policy-in-play-console"
 when = "before-start"
 reason = "PO enters the privacy URL in Play Console App content and saves the Data safety form"
+
+# SCP 2026-11-15 scan-input re-plan: device session A2 and the OQ-7 decision need the PO.
+[[gates]]
+key = "10-12-fixture-recorder-a-phone-operator-can-finish-quickly"
+when = "before-merge"
+reason = "device session A2: Lenovo + S24 FE, cubes stla/stka/stlb/stkb, studio light, recorded with the reworked recorder; PO checks no-scroll layout and input speed"
+
+[[gates]]
+key = "10-13-choose-the-recognition-approach-oq-7"
+when = "before-merge"
+reason = "PO records the OQ-7 decision (Kotlin, OpenCV or on-device ML, with size cost) in the PRD memlog"
