@@ -35,7 +35,7 @@ Run all 16 cells with nine stickers per face, six faces per cube, and explicit l
 | Rubik stickered | Galaxy S24 FE | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
 | Rubik stickered | Galaxy Tab S7 FE 5G | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
 
-No physical measurements are claimed. Before merge, run both devices with both cubes under normal indoor light and independently verify each face's truth. GA requires at least 99% correct stickers across the measured normal-indoor set; otherwise remain BETA with Manual Cube Editor primary. Do not infer labels from folder or filename conventions.
+No physical measurements are claimed. Device session A will run the Lenovo Tab M10 Plus 3rd Gen and Galaxy S24 FE with both cubes under normal indoor light and independently verify each face's truth; it is deferred from this code-only implementation. GA requires at least 99% correct stickers across the measured normal-indoor set; otherwise remain BETA with Manual Cube Editor primary. Do not infer labels from folder or filename conventions.
 
 ## OQ-7 initial Quick Scan method recommendation
 
@@ -55,6 +55,49 @@ Accuracy is `correct predicted stickers / explicitly labeled stickers`. Report u
 
 ## Prototype and size cost
 
-The disposable screen is compiled only with `-Pcubentia.spikeScan=true`; CameraX dependencies and CAMERA permission are attached only to the debug variant. Frames are analyzed in memory and are not persisted or exported. The screen supports explicit per-sticker truth entry and reports sticker accuracy only after all nine labels are provided. It automatically flags very low light and multiple near-white samples; the operator must mark blur, misalignment, or an incomplete grid with the quality controls, which reject the face and request recapture. These are prototype aids, not validated automated blur or alignment detection. The default release variant does not include the spike source or camera permission.
+The fixture recorder is composed automatically into camera-enabled debuggable build types from `app/src/camera/debug`. Release and benchmark never include the recorder, even when a camera flag is raised. CameraX dependencies and CAMERA permission follow the camera feature flags. Frames stay in memory; only CIELAB samples, operator truth, calibration and device/cube/light metadata are saved. Low-light and glare checks and manual quality controls remain prototype aids, not validated blur or alignment detection.
+
+The size figures below are historical Story 1.9 measurements from the former opt-in prototype, not measurements of the current recorder.
 
 CameraX stable version selected from Android's release notes is 1.6.2. On this checkout, the default debug APK is 41,616,989 bytes; the opt-in spike debug APK is 57,656,639 bytes, a **16,039,650-byte increase**. Both builds used the same local JDK/SDK configuration. The unsigned release APK is 2,516,083 bytes in both builds; the spike has no release APK size cost. These are local build artifacts, not Play-delivered download sizes.
+
+
+## Live baseline
+
+<!-- live-baseline:start -->
+Gate: **MET** (per-sticker target ≥ 99%).
+
+Coverage: 4 groups, 2 devices, 2 cubes. The Story 10.10 live gate needs at least 2 devices × 2 cubes with six classified faces each; an incomplete matrix yields INCOMPLETE.
+
+The prototype has no uncertainty output; every misread sticker of a classified face counts as confidently wrong. Unavailable captures are excluded from accuracy. INCOMPLETE has no gate verdict.
+
+| Scope | Correct stickers | Sticker accuracy | Correct faces | Face accuracy | Confidently wrong | Unavailable | Missing classified faces |
+|---|---:|---:|---:|---:|---:|---:|---|
+| Group: lenovo-tb128xu_stka_studio | 54/54 | 100.0000% | 6/6 | 100.0000% | 0 | 0 | — |
+| Group: lenovo-tb128xu_stla_studio | 54/54 | 100.0000% | 6/6 | 100.0000% | 0 | 0 | — |
+| Group: sm-s721u1_stka_studio | 54/54 | 100.0000% | 6/6 | 100.0000% | 0 | 0 | — |
+| Group: sm-s721u1_stla_studio | 54/54 | 100.0000% | 6/6 | 100.0000% | 0 | 0 | — |
+| Device: LENOVO Lenovo TB128XU | 108/108 | 100.0000% | 12/12 | 100.0000% | 0 | 0 | see groups |
+| Device: samsung SM-S721U1 | 108/108 | 100.0000% | 12/12 | 100.0000% | 0 | 0 | see groups |
+| Total | 216/216 | 100.0000% | 24/24 | 100.0000% | 0 | 0 | see groups |
+<!-- live-baseline:end -->
+
+Install the debug APK and launch **Cubentia fixture recorder**. In device session A use the Lenovo Tab M10 Plus 3rd Gen and Galaxy S24 FE, both cubes, normal indoor light, six faces each. Enter the cube and light description, calibrate all six centers, select a face, then independently label all nine truth cells before capture. Truth is never filled from predictions. Capture is disabled until these inputs exist. Each capture saves a self-contained JSON record, then displays its path and prediction/accuracy (or unavailable reason). Recapturing the same face overwrites its file. No image or frame bytes are saved.
+
+Pull the records as described in `Fixtures/README.md`, then run:
+
+```sh
+./gradlew :core:domain:evaluateLiveBaseline
+```
+
+The non-shipping evaluator uses the unchanged prototype nearest-center classifier. It reports per-group, per-device and total sticker/face accuracy, unavailable captures, missing classified faces and confidently wrong stickers. Every misread classified sticker counts as confidently wrong because the prototype has no uncertainty output. The ≥99% gate is MET or MISSED only when at least two cubes are recorded, at least two devices each have all six faces classified for every recorded cube, and every recorded group has six classified faces; otherwise INCOMPLETE has no verdict and lists the missing device × cube cells. An extra device that does not cover every cube (such as the report-only Galaxy Tab S7 FE) does not block the verdict. Cubes are matched by their entered description (case-insensitive), so type each cube's name identically on every device. With no fixtures the command fails naming `Fixtures/live` and leaves this document untouched. Physical numbers and the PO's subsequent decision remain deferred.
+
+### Device session A notes (2026-11-14/15)
+
+- **Matrix recorded:** Lenovo TB128XU and Galaxy S24 FE (SM-S721U1), studio light, cubes `stla` (stickerless) and `stka` (stickered, logo on the white center). Two more cubes with other shades were skipped by PO decision (calibration effort); the gate needs two.
+- **Calibration matters more than the classifier.** A first Lenovo `stka` run calibrated WHITE on a non-white patch (L76 a20 b71). It scored 53/54: one light orange sticker sat nearer that "white" than the real orange center, and per-face margins fell to 4–5 ΔE. After WHITE was recalibrated on a plain sticker (L88 a-6 b-16), the same cube scored 54/54 with margins of 26–34. The kept runs use one calibration per device × cube.
+- **Logo centers.** The `stka` white center carries a logo that reads far from white (about L44–77, b-26 to b31 between runs), so WHITE must be metered on a plain white sticker moved into the center cell. The production scanner cannot ask users to do this; it needs patch averaging that rejects the logo, or a known center scheme.
+- **Margins by cube:** `stka` (saturated stickers) holds minimum per-face margins of 25–35 on both devices; `stla` (stickerless plastic) holds 13.5 on the S24 FE and 8.3 on the Lenovo (its center logo). Stickerless cubes are the tighter case.
+- **Focus at grid distance.** On the S24 FE the cube must be close to fill the drawn grid, and the first autofocus can miss there; **Re-meter** (grid AF/AE/AWB) restored focus. The production viewfinder should re-trigger grid focus on alignment instead of relying on one AF pass.
+- **Fixture correction.** Lenovo `stka` D was saved with the capture quality override at MISALIGNED by a mis-tap (PO confirmed); its readings and truth labels were valid. The flag alone was edited to ACCEPTABLE rather than re-rigging the tripod for one face.
+- **Truth labels** agree across devices face by face, up to how each face was held (rotations only).

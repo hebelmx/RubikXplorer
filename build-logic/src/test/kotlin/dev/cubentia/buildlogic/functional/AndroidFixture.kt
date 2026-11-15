@@ -43,6 +43,12 @@ internal class AndroidFixture(
 <uses-feature android:name="android.hardware.camera.any" android:required="false"/>
 </manifest>""",
         )
+        write(
+            "src/camera/debug/AndroidManifest.xml",
+            """<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<application><activity android:name="dev.cubentia.fixture.FixtureRecorderActivity" android:exported="false"/></application>
+</manifest>""",
+        )
         projectDir.resolve("local.properties").outputStream().use { output ->
             Properties().apply { setProperty("sdk.dir", androidSdkDir().path) }.store(output, null)
         }

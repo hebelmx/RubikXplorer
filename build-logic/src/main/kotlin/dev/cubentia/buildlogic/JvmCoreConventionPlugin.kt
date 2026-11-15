@@ -30,9 +30,9 @@ class JvmCoreConventionPlugin : Plugin<Project> {
             tasks.withType<Test>().configureEach { useJUnitPlatform() }
 
             extensions.configure<KoverProjectExtension> {
-                // On-demand benchmark harnesses (Story 1.10) never ship, so they stay out of the gate.
+                // On-demand benchmark and fixture evaluation tools never ship, so they stay out of the gate.
                 currentProject {
-                    sources { excludedSourceSets.add(BENCHMARK_SOURCE_SET) }
+                    sources { excludedSourceSets.addAll(BENCHMARK_SOURCE_SET, "evaluation") }
                 }
                 reports {
                     verify {

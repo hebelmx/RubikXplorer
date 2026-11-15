@@ -22,3 +22,17 @@ tasks.test {
         ).withPathSensitivity(PathSensitivity.RELATIVE)
         .withPropertyName("textScanSources")
 }
+
+// Offline evaluation tooling never enters the shipped main jar or Kover denominator.
+val evaluation: SourceSet by sourceSets.creating
+evaluation.compileClasspath += sourceSets.main.get().output + sourceSets.main.get().compileClasspath
+evaluation.runtimeClasspath += sourceSets.main.get().output + sourceSets.main.get().runtimeClasspath
+dependencies { testImplementation(evaluation.output) }
+tasks.named("assemble") { dependsOn(evaluation.classesTaskName) }
+tasks.register<JavaExec>("evaluateLiveBaseline") {
+    group = "verification"
+    description = "Scores recorded live fixtures and updates the live baseline section."
+    classpath = evaluation.runtimeClasspath
+    mainClass.set("dev.cubentia.domain.recognition.evaluation.LiveBaselineMainKt")
+    args(rootProject.file("Fixtures/live").path, rootProject.file("docs/spikes/oq-4-guided-scan.md").path)
+}
