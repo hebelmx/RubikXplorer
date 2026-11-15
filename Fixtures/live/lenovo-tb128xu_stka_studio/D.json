@@ -96,8 +96,8 @@
                     "b": 90.18865235936605
                 }
             ],
-            "quality": "MISALIGNED",
-            "qualityDetail": "MISALIGNED marked; recapture this face."
+            "quality": "ACCEPTABLE",
+            "qualityDetail": null
         },
         "truth": [
             "YELLOW",
