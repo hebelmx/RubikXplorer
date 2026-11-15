@@ -3,7 +3,7 @@ name: RubikXplorer
 description: A precise, instrument-like cube tutor. Neutral graphite chrome so the six sticker colors carry the color, one signal-violet accent, honest state indicators, light and dark designed equally.
 status: final
 created: 2026-10-29
-updated: 2026-10-29
+updated: 2026-11-15
 sources:
   - ../../prds/prd-RubikXplorer-2026-10-29/prd.md
   - ../../architecture/architecture-RubikXplorer-2026-10-29/ARCHITECTURE-SPINE.md
@@ -247,9 +247,10 @@ No pill-shaped buttons. Sticker squares in 2D nets and diagrams use `rounded.xs`
   - The step counter (`12 / 20`) is set in `data`.
   - The current Move is shown in large `notation`, with its generated MoveNote line in `meta` beneath it.
   - In the notation strip, the current Move is marked with an `ink-primary` outline, not violet.
-- **Scan viewfinder**: a full-bleed camera preview with a 3×3 hairline grid in `scan-grid` at 70% opacity.
+- **Scan viewfinder**: a camera preview with a 3×3 hairline grid in `scan-grid` at 70% opacity. On a phone in portrait it fills the top ~45% of the screen, so the face net and palette fit below it (SCP 2026-11-15).
   - The **Quick Scan variant** replaces the grid with a corner outline (a Y-shaped three-face guide) and a capture counter in `data` ("1 / 2"). When a face can't be read, it hands off to the per-face grid for that face only. Above it, the face prompt names the center color ("**White** center facing you · **Green** on top") and shows a swatch of that sticker with its glyph. A mini net shows progress through the faces.
-- **Sticker review net**: a 2D cube net. An *uncertain* sticker gets a dashed `accent` ring and a small "?" badge. An invalid piece is outlined in `status-invalid`, with a label.
+- **Sticker review net**: a 2D cube net. An *uncertain* sticker gets a dashed `accent` ring and a small "?" badge. A *blank* sticker (a close call left for the Learner) shows `surface-stage` with a dashed `hairline` edge and no fill color, so it can never be read as white. The selected sticker gets the solid `accent` ring the Manual Cube Editor uses. An invalid piece is outlined in `status-invalid`, with a label.
+- **Color palette**: the Manual Cube Editor's six sticker swatches, in a 2×3 block next to the face net, each at least `touch-min` with its glyph, in the same order as the editor palette: white, yellow, red, orange, green, blue.
 - **Algorithm tile**: the Case recognition diagram (U face plus side bands, derived from state), the Case name in `label`, the Algorithm in `notation`, and the Algorithm Status as a small text label.
   - The status reads `Learning` or `Learned`. *Not started* shows no label on the tile, and the detail screen says "Not in your set yet."
   - No stars, scores or badges. The Learned count is never framed as an achievement (SM-C3).
