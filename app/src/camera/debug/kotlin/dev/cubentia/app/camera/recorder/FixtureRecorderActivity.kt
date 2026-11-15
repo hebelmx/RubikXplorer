@@ -19,6 +19,7 @@ import androidx.camera.core.SurfaceOrientedMeteringPointFactory
 import androidx.camera.core.UseCaseGroup
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -290,8 +292,7 @@ private fun FixtureRecorderScreen(
                         PreviewView(view)
                             .apply {
                                 implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                            }
-                            .also(startCamera)
+                            }.also(startCamera)
                     },
                     modifier = Modifier.fillMaxSize().clipToBounds(),
                 )
@@ -310,18 +311,41 @@ private fun FixtureRecorderScreen(
             buildList {
                 if (!cube.any { it.isLetterOrDigit() && it.code < 128 }) add("cube name")
                 if (!light.any { it.isLetterOrDigit() && it.code < 128 }) add("light")
-                if (centers.size < 6) add("centers ${centers.size}/6 (missing ${Color.entries.filter { it !in centers }.joinToString { it.name.take(1) }})")
+                if (centers.size <
+                    6
+                ) {
+                    add(
+                        "centers ${centers.size}/6 (missing ${Color.entries.filter { it !in centers }.joinToString {
+                            it.name.take(
+                                1,
+                            )
+                        }})",
+                    )
+                }
                 val labeled = truthLabels.count { it != null }
                 if (labeled < 9) add("truth $labeled/9")
+                val expected = FACE_CENTER.getValue(selectedFace)
+                val centerLabel = truthLabels[FaceSample.CENTER_INDEX]
+                if (centerLabel != null &&
+                    centerLabel != expected
+                ) {
+                    add("sticker 5 is ${label(centerLabel)} but face $selectedFace is ${label(expected)}: pick the matching face")
+                }
             }
         Text(
-            if (missing.isEmpty()) "Ready to capture face $selectedFace." else "Face $selectedFace. To capture, still need: ${missing.joinToString()}",
+            if (missing.isEmpty()) {
+                "Ready to capture face $selectedFace (${label(
+                    FACE_CENTER.getValue(selectedFace),
+                )} center)."
+            } else {
+                "Face $selectedFace. To capture, still need: ${missing.joinToString()}"
+            },
             style = MaterialTheme.typography.bodyMedium,
         )
         Text("Calibrate center: $selectedColor")
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Color.entries.forEach { color ->
-                OutlinedButton(onClick = { selectedColor = color }) { Text(color.name.take(1)) }
+                ColorButton(color, color.name.take(1), selected = color == selectedColor) { selectedColor = color }
             }
         }
         Button(onClick = {
@@ -335,12 +359,21 @@ private fun FixtureRecorderScreen(
                 resultText = "Calibrated $selectedColor (${centers.size}/6 centers)."
             }
         }) { Text("Set center") }
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Face.entries.forEach { face ->
-                OutlinedButton(onClick = {
-                    selectedFace = face
-                    truthLabels.indices.forEach { truthLabels[it] = null }
-                }) { Text(face.name) }
+        Text("Face (by center color):")
+        Face.entries.chunked(3).forEach { faces ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                faces.forEach { face ->
+                    val center = FACE_CENTER.getValue(face)
+                    ColorButton(
+                        center,
+                        "${face.name} · ${label(center)}",
+                        selected = face == selectedFace,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        selectedFace = face
+                        truthLabels.indices.forEach { truthLabels[it] = null }
+                    }
+                }
             }
         }
         Button(
@@ -406,16 +439,17 @@ private fun FixtureRecorderScreen(
                     }
                 }
             },
-            enabled =
-                !saving && truthLabels.all { it != null } && centers.size == 6 &&
-                    cube.any { it.isLetterOrDigit() && it.code < 128 } && light.any { it.isLetterOrDigit() && it.code < 128 },
+            enabled = !saving && missing.isEmpty(),
         ) { Text("Capture face") }
         Text("Ground truth: tap each sticker label to cycle through colors.", style = MaterialTheme.typography.bodySmall)
         repeat(3) { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 repeat(3) { column ->
                     val index = row * 3 + column
-                    OutlinedButton(
+                    ColorButton(
+                        truthLabels[index],
+                        "${index + 1}: ${truthLabels[index]?.let(::label) ?: "?"}",
+                        selected = false,
                         modifier = Modifier.weight(1f),
                         onClick = {
                             val current = truthLabels[index]
@@ -426,22 +460,72 @@ private fun FixtureRecorderScreen(
                                     Color.entries[(Color.entries.indexOf(current) + 1) % Color.entries.size]
                                 }
                         },
-                    ) { Text("${index + 1}: ${truthLabels[index]?.name?.take(1) ?: "?"}") }
+                    )
                 }
             }
         }
         Text("Capture quality override (inspect blur/alignment/completeness)", style = MaterialTheme.typography.bodySmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             listOf(
                 null to "Clear",
                 CaptureQuality.BLURRED to "Blurred",
                 CaptureQuality.MISALIGNED to "Misaligned",
                 CaptureQuality.INCOMPLETE to "Incomplete",
             ).forEach { (quality, label) ->
-                OutlinedButton(onClick = { qualityOverride = quality }) { Text(label) }
+                OutlinedButton(onClick = { qualityOverride = quality }, modifier = Modifier.weight(1f)) { Text(label, maxLines = 1) }
             }
         }
     }
+}
+
+/** Recording convention: each face button is named by its center color, so the operator never tracks orientation. */
+private val FACE_CENTER =
+    mapOf(
+        Face.U to Color.WHITE,
+        Face.R to Color.ORANGE,
+        Face.F to Color.BLUE,
+        Face.D to Color.YELLOW,
+        Face.L to Color.RED,
+        Face.B to Color.GREEN,
+    )
+
+private fun swatch(color: Color): UiColor =
+    when (color) {
+        Color.WHITE -> UiColor(0xFFFFFFFF)
+        Color.YELLOW -> UiColor(0xFFFFD500)
+        Color.GREEN -> UiColor(0xFF009E60)
+        Color.BLUE -> UiColor(0xFF0051BA)
+        Color.RED -> UiColor(0xFFC41E3A)
+        Color.ORANGE -> UiColor(0xFFFF5800)
+    }
+
+private fun onSwatch(color: Color): UiColor =
+    when (color) {
+        Color.WHITE, Color.YELLOW, Color.ORANGE -> UiColor.Black
+        else -> UiColor.White
+    }
+
+private fun label(color: Color) = color.name.lowercase().replaceFirstChar { it.uppercase() }
+
+@Composable
+private fun ColorButton(
+    color: Color?,
+    text: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier,
+        colors =
+            if (color == null) {
+                ButtonDefaults.outlinedButtonColors()
+            } else {
+                ButtonDefaults.outlinedButtonColors(containerColor = swatch(color), contentColor = onSwatch(color))
+            },
+        border = BorderStroke(if (selected) 4.dp else 1.dp, if (selected) UiColor.Black else UiColor.Gray),
+    ) { Text(text) }
 }
 
 @Composable
