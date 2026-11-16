@@ -7,6 +7,8 @@ import androidx.test.core.app.ApplicationProvider
 import dev.cubentia.app.scan.ScanFlowContract
 import dev.cubentia.app.scan.ScanOutcome
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Notation
+import dev.cubentia.domain.cube.NotationResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
@@ -27,7 +29,13 @@ class GuidedScanContractTest {
     }
 
     @Test fun `each typed outcome round trips`() {
-        listOf(ScanOutcome.Accepted(CubeState.SOLVED), ScanOutcome.Cancelled, ScanOutcome.FellBackToEditor).forEach {
+        val scrambled = CubeState.SOLVED.apply((Notation.parse("R U F' L2 D B' R2 U'") as NotationResult.Parsed).moves)
+        listOf(
+            ScanOutcome.Accepted(CubeState.SOLVED),
+            ScanOutcome.Accepted(scrambled),
+            ScanOutcome.Cancelled,
+            ScanOutcome.FellBackToEditor,
+        ).forEach {
             val (code, intent) = ScanFlowContract.encode(it)
             assertEquals(it, contract.parseResult(code, intent))
         }

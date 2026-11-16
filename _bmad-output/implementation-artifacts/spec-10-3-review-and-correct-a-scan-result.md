@@ -5,7 +5,7 @@ created: '2026-11-16'
 status: 'done'
 baseline_revision: 'def7473c8502e89f60d527b8a4e2c13693a58424'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-10-context.md'
   - '{project-root}/AGENTS.md'
@@ -128,6 +128,34 @@ deferred:
   - `[medium]` `[defer]` (verification-gap) Accept → `finishWith(Accepted)` through the Activity untested — Activity glue needs Hilt + CameraX under Robolectric, deferred since 10.2; added to `deferred`.
   - `[medium]` `[defer]` (verification-gap) Camera unbind on entering review untested — same root; deferred.
 
+### 2026-11-16 — Review pass
+- verdicts: 24 findings — high 0, medium 4, low 16, false 4, maybe-false 0
+- findings:
+  - `[low]` `[patch]` (blind) One-face mode: tapping a face with no blank leaves the selection on the hidden previous face, so the "Selected" line names a hidden sticker and the palette silently does nothing — the face tab now selects that face's first blank, else its first sticker (`shown * 9`, never a center); `switching faces never lets the palette paint a hidden sticker` updated to assert sticker 27 is selected and painted while the hidden blank stays blank.
+  - `[false]` `[reject]` (blind) Blank faces announced as invalid by `FaceSelector` — the tab state reads "Has pieces to check", which fits a face needing input, and the intent requires faces with blank stickers to be badged.
+  - `[low]` `[reject]` (blind) NeedsCalibration discards diagnostic information — carried: Story 10.4 AC1 owns the calibrate prompt.
+  - `[low]` `[reject]` (blind) A corner with two whites and one blank shows no warning — carried: line appears once the piece is filled and Accept is disabled meanwhile.
+  - `[low]` `[reject]` (blind) Several faulty pieces give identical lines with no position label — offenders are outlined on the net; linking lines to pieces adds UI surface for a rare multi-fault read.
+  - `[low]` `[reject]` (blind) "shows two whites" when all three corner stickers are white — the copy is the intent's approved line; a triple repeat is rare and the line plus outline still identify the piece.
+  - `[medium]` `[defer]` (blind) Activity integration (Accept/Close, unbind, recreation) untested — carried: already in `deferred` (Activity glue needs Hilt + CameraX under Robolectric).
+  - `[low]` `[patch]` (blind) Accepted round trip covered only the solved cube — added a scrambled `Accepted` state to `each typed outcome round trips` in `GuidedScanContractTest`.
+  - `[low]` `[reject]` (blind) `ScanReview` constructor indexes 54 without validating length — carried: every caller passes 54; loud failure on misuse.
+  - `[low]` `[reject]` (edge) `ScanReview` short list throws — carried, same as the constructor row.
+  - `[false]` `[reject]` (edge) `PieceCheck.problems` short list throws — carried: only `ScanReview` calls it, always with 54.
+  - `[low]` `[reject]` (edge) `StickerReviewNet` with both sticker sources omitted throws — carried: two callers, both correct; loud failure.
+  - `[medium]` `[defer]` (verification-gap) Accept → `finishWith(Accepted)` through the Activity untested — carried: same Activity-glue deferral already in `deferred`.
+  - `[low]` `[reject]` (intent) Face-switch selection and palette gating live in the screen, not `ScanReview` — the shown face is view state; the rules are covered by Robolectric tests; moving them into the domain adds public API.
+  - `[medium]` `[defer]` (intent) No Activity test of six captures → review → `RESULT_OK` decodable `Accepted` — carried: same Activity-glue deferral.
+  - `[medium]` `[defer]` (intent) Close/back from review not tested at the Activity result — same root as the Activity-glue deferral.
+  - `[low]` `[reject]` (intent) *Enter colors instead* → `FellBackToEditor` checked only through the contract — the Activity wiring is a rename of the 10.2 path; same Activity-glue root, no wrong outcome shown.
+  - `[low]` `[reject]` (intent) NeedsCalibration tested with an empty sample list, not six failing samples — the test drives the same `SelfCalibration.NeedsCalibration` branch in `fromSamples`; the sample content is irrelevant to the mapping.
+  - `[low]` `[reject]` (intent) Opposite colors not tested at `ScanReview`/UI level — `ScanReview.problems` concatenates `PieceCheck.problems` directly, and `PieceCheckTest` covers the opposite-color line and positions.
+  - `[low]` `[reject]` (intent) Twist/flip/parity outlines not asserted — `outlined` is derived generically from every problem's positions, asserted in the two-whites case; validator positions are covered by `CubeValidator` tests.
+  - `[false]` `[reject]` (intent) Editor touched without a regression test — `ManualCubeEditorTest` runs in `build` and passes; editor callers still pass non-null facelets.
+  - `[low]` `[reject]` (intent) Debug summary lost calibration/gap diagnostics — carried: operator-only launcher.
+  - `[false]` `[reject]` (intent) Reused existing `strings.xml` resources for face/color names — the intent forbids new `strings.xml` entries only; none were added.
+  - `[low]` `[reject]` (intent) One problem line per violation, so a triple repeat still says "two" — same as the blind "two whites" row.
+
 ## Design Notes
 
 Review is hosted in the camera Activity but rendered by a main-source-set composable, so main never imports camera code and the screen is Robolectric-testable without a camera. The camera is unbound on entering review. Back from review cancels (retake is a future story). Process death during review restarts the scan (same accepted trade-off as 10.2).
@@ -164,3 +192,20 @@ Review is hosted in the camera Activity but rendered by a main-source-set compos
 **Verification:** `./gradlew spotlessCheck build` -- BUILD SUCCESSFUL (after patches; all suites green, Kover gate passed). Targeted: `ScanReviewScreenTest` 5/5, `GuidedScanContractTest` 3/3, `ScanReviewTest` 9/9, `PieceCheckTest` 3/3. Session-isolation grep -- no output.
 
 **Residual risks:** Device session B not run (Lenovo/S24 FE review, 200% on the physical Lenovo). Process death during review restarts the scan. A NeedsCalibration scan opens an all-blank review until Story 10.4 adds the calibrate prompt.
+
+### Follow-up pass (2026-11-16)
+
+**Summary:** Fresh four-layer review (Blind/Edge/Verification-gap on Codex, intent alignment on Claude) of the full 10.3 diff. Two low patches applied; no high or medium defects found beyond the carried Activity-glue deferral.
+
+**Files changed:**
+- `app/src/main/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreen.kt` -- a face tab with no blank now selects that face's first sticker, so the selection and the palette always target the shown face.
+- `app/src/test/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreenTest.kt` -- face-switch test asserts the new selection and that painting lands on the shown face.
+- `app/src/testDebug/kotlin/dev/cubentia/app/camera/GuidedScanContractTest.kt` -- Accepted round trip now also covers a scrambled valid cube.
+
+**Review findings:** 24 findings. Patched: 2 low (hidden-face selection on a blank-less face; scrambled round trip). Deferred: Activity-level wiring (carried, already in `deferred`; 4 rows). Rejected: 18 rows, each with its reason in the triage log.
+
+**Follow-up review recommendation:** false -- follow-up pass patched no high (patched counts: high 0, medium 0, low 2); the work has converged.
+
+**Verification:** `./gradlew spotlessCheck build` -- BUILD SUCCESSFUL. Targeted `ScanReviewScreenTest` and `GuidedScanContractTest` green. Session-isolation grep -- no output.
+
+**Residual risks:** Unchanged from the first pass: Activity review wiring untested (deferred), device session B not run, process death during review restarts the scan.

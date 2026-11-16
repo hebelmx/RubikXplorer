@@ -72,8 +72,8 @@ fun ScanReviewScreen(
             if (oneFace) {
                 FaceSelector(face, (review.outlined + review.blanks).map { it / 9 }.toSet()) { shown ->
                     face = shown
-                    // Never leave the palette painting a sticker on a face that is not shown.
-                    review.blanks.firstOrNull { it / 9 == shown }?.let { onReview(review.select(it)) }
+                    // Keep the selection on the shown face: its first blank, else its first sticker.
+                    onReview(review.select(review.blanks.firstOrNull { it / 9 == shown } ?: (shown * 9)))
                 }
             }
             SelectedStickerLine(review, strings)

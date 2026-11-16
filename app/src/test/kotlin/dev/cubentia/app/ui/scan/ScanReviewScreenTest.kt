@@ -152,10 +152,12 @@ class ScanReviewScreenTest {
         rule.onNodeWithTag("editor:face:2").performClick()
         rule.onNodeWithTag("sticker:20").assertIsSelected()
         rule.onNodeWithTag("review:selected").assertTextEquals("Selected: Blank sticker, front face, position 3")
-        // A face with no blank keeps the selection on its hidden face; the palette then does nothing.
+        // A face with no blank selects its first sticker, so the palette paints only what is shown.
         rule.onNodeWithTag("editor:face:3").performClick()
-        val before = review
+        rule.onNodeWithTag("sticker:27").assertIsSelected()
+        assertEquals(27, review.selected)
         rule.onNodeWithTag("swatch:RED").performScrollTo().performClick()
-        assertEquals(before, review)
+        assertEquals(Color.RED, review.stickers[27])
+        assertNull(review.stickers[20])
     }
 }
