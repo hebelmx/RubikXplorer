@@ -531,6 +531,104 @@ class FrameReaderTest {
         }
     }
 
+    /** Sticker (R, G, B) per cell of the Lenovo stickered face, sampled from the screenshot (one pale orange added). */
+    private val lenovoFace =
+        listOf(
+            Triple(245, 235, 100), // yellow
+            Triple(230, 232, 228), // white
+            Triple(0, 170, 235), // blue
+            Triple(0, 175, 240), // blue
+            Triple(10, 215, 20), // green (center)
+            Triple(245, 235, 100), // yellow
+            Triple(210, 40, 35), // red
+            Triple(230, 232, 228), // white
+            Triple(245, 190, 90), // orange, read pale
+        )
+
+    /**
+     * The Lenovo device-check face (`.git/bmad-orchestrate/device-10-2/r4-lenovo-face1-aligned-not-detected.png`, TB128XU
+     * portrait two-pane, 2026-11-16) as the analyzer sees it: the tall narrow pane's viewport crop of a 640×480 frame
+     * (640×204, cell ≈ 54 px), a stickered black-body cube whose stickers are [sticker] of a cell with rounded corners
+     * (radius [corner] cells), the face shifted [dx], [dy] cells off the grid and tilted [degrees], on the stand's light
+     * mesh, lens-blurred over ±1 px with light sensor noise.
+     */
+    private fun stickeredFace(
+        colors: List<Triple<Int, Int, Int>> = lenovoFace,
+        sticker: Double = 0.8,
+        corner: Double = 0.12,
+        dx: Double = -0.1,
+        dy: Double = -0.05,
+        degrees: Double = 1.0,
+    ): YuvFrame {
+        val width = 640
+        val height = 204
+        val cell = minOf(width, height) * FrameReader.GRID_FRACTION / 3
+        val centerX = width / 2.0 + dx * cell
+        val centerY = height / 2.0 + dy * cell
+        val cos = kotlin.math.cos(Math.toRadians(degrees))
+        val sin = kotlin.math.sin(Math.toRadians(degrees))
+        val border = (1 - sticker) / 2
+
+        /** The pixel's sticker color, BODY for the black body, null off the cube. */
+        fun color(
+            x: Int,
+            y: Int,
+        ): Triple<Int, Int, Int>? {
+            val px = x + 0.5 - centerX
+            val py = y + 0.5 - centerY
+            val fx = (cos * px + sin * py) / cell + 1.5
+            val fy = (-sin * px + cos * py) / cell + 1.5
+            if (fx < -border || fy < -border || fx >= 3 + border || fy >= 3 + border) return null
+            if (fx < 0 || fy < 0 || fx >= 3 || fy >= 3) return BODY
+            val inX = fx % 1
+            val inY = fy % 1
+            if (inX < border || inX > 1 - border || inY < border || inY > 1 - border) return BODY
+            val cx = inX.coerceIn(border + corner, 1 - border - corner)
+            val cy = inY.coerceIn(border + corner, 1 - border - corner)
+            if ((inX - cx) * (inX - cx) + (inY - cy) * (inY - cy) > corner * corner) return BODY
+            return colors[fy.toInt() * 3 + fx.toInt()]
+        }
+        val sharp = Array(height) { y -> IntArray(width) { x -> yuv(color(x, y) ?: MESH).first } }
+        val noise = Random(13)
+        return image(
+            luma = { x, y ->
+                var sum = 0
+                for (j in -1..1) for (i in -1..1) sum += sharp[(y + j).coerceIn(0, height - 1)][(x + i).coerceIn(0, width - 1)]
+                sum / 9 + noise.nextInt(5) - 2
+            },
+            chroma = { x, y -> yuv(color(x, y) ?: MESH).let { it.second to it.third } },
+            imageWidth = width,
+            imageHeight = height,
+        )
+    }
+
+    /** Full-range BT.601 (Y, U, V) of an (R, G, B). */
+    private fun yuv(rgb: Triple<Int, Int, Int>): Triple<Int, Int, Int> {
+        val (r, g, b) = rgb
+        return Triple(
+            (0.299 * r + 0.587 * g + 0.114 * b).toInt(),
+            (128 - 0.168736 * r - 0.331264 * g + 0.5 * b).toInt().coerceIn(0, 255),
+            (128 + 0.5 * r - 0.418688 * g - 0.081312 * b).toInt().coerceIn(0, 255),
+        )
+    }
+
+    @Test
+    fun `the Lenovo stickered black-body face, a little off the grid, captures and reads nine sticker colors`() {
+        listOf(-0.1 to -0.05, 0.1 to 0.05, -0.1 to 0.1, 0.2 to 0.2, -0.2 to 0.15).forEach { (dx, dy) ->
+            val name = "offset ($dx, $dy)"
+            val stats = FrameReader.read(stickeredFace(dx = dx, dy = dy))
+            assertTrue(stats.seams >= FrameQuality.MIN_SEAMS, "$name seams ${stats.seams}")
+            assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(stats), name)
+            assertTrue(effectsOf(stats).any { it is GuidedScanEffect.Capture }, name)
+            val expected = lenovoFace.map { (r, g, b) -> FrameReader.rgbToLab(r, g, b) }
+            stats.cells.forEachIndexed { index, cell ->
+                assertTrue(cell != null && cell.plain, "$name cell $index $cell")
+                assertTrue(cell!!.value.l > NEAR_BLACK_L, "$name cell $index near-black ${cell.value}")
+                assertTrue(deltaE(cell.value, expected[index]) < STICKER_DELTA_E, "$name cell $index ${cell.value} vs ${expected[index]}")
+            }
+        }
+    }
+
     @Test
     fun `sRGB white and black convert to CIELAB extremes`() {
         assertEquals(100.0, FrameReader.rgbToLab(255, 255, 255).l, 0.01)
@@ -557,5 +655,15 @@ class FrameReaderTest {
 
         /** The dark core showing in a stickerless cube's gaps and rounded corners (Y). */
         const val CORE = 35
+
+        /** A stickered cube's black body, and the stand's light mesh behind it (R, G, B). */
+        val BODY = Triple(22, 22, 24)
+        val MESH = Triple(175, 170, 168)
+
+        /** A reading at or below this CIELAB L* is near-black: no sticker reads that dark. */
+        const val NEAR_BLACK_L = 35.0
+
+        /** A cell reads its sticker when within this CIE76 ΔE of the sticker's color (YUV rounding and blur). */
+        const val STICKER_DELTA_E = 10.0
     }
 }

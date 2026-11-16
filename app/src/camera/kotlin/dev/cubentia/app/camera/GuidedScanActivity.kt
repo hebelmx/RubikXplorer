@@ -92,6 +92,14 @@ class GuidedScanActivity : ComponentActivity() {
     private var previewView: PreviewView? = null
     private var cameraStarted = false
 
+    /** The preview view's size in pixels, read on the analyzer thread to place the grid; 0 until laid out. */
+    @Volatile private var viewSize = 0 to 0
+
+    /** The last analysed grid, as an AF/AE/AWB point on the analysis frame; null before the first frame. */
+    @Volatile private var meteringGrid: MeteringGrid? = null
+
+    private var analysisUseCase: ImageAnalysis? = null
+
     private val permission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
@@ -155,6 +163,9 @@ class GuidedScanActivity : ComponentActivity() {
                                     // The scaled preview never draws outside its own pane.
                                     it.outlineProvider = ViewOutlineProvider.BOUNDS
                                     it.clipToOutline = true
+                                    it.addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
+                                        viewSize = view.width to view.height
+                                    }
                                     previewView = it
                                     startCamera()
                                 }
@@ -237,6 +248,7 @@ class GuidedScanActivity : ComponentActivity() {
     ) {
         val preview = Preview.Builder().build().also { it.surfaceProvider = view.surfaceProvider }
         val analysis = ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build()
+        analysisUseCase = analysis
         analysis.setAnalyzer(analyzerExecutor) { image ->
             try {
                 analyze(image)
@@ -288,8 +300,14 @@ class GuidedScanActivity : ComponentActivity() {
     private fun analyze(image: ImageProxy) {
         val now = SystemClock.elapsedRealtime()
         if (scan.freeze.isFrozen(now)) return
-        val stats = FrameReader.read(image)
-        handle(scan.freeze.decide(now) { controller.onFrame(stats, image.imageInfo.rotationDegrees, now) })
+        val rotation = image.imageInfo.rotationDegrees
+        val crop = image.cropRect
+        val (width, height) = viewSize
+        // The analysed grid is exactly the region under the drawn grid, whatever the pane's shape (PO 2026-11-16).
+        val grid = ViewfinderGrid.inFrame(width.toDouble(), height.toDouble(), crop.left, crop.top, crop.right, crop.bottom, rotation)
+        meteringGrid = MeteringGrid(image.width, image.height, grid)
+        val stats = FrameReader.read(image, grid)
+        handle(scan.freeze.decide(now) { controller.onFrame(stats, rotation, now) })
     }
 
     /** A shutter or override decision on the analyzer thread; none runs while a capture is frozen. */
@@ -322,12 +340,26 @@ class GuidedScanActivity : ComponentActivity() {
     }
 
     /**
-     * AF/AE/AWB on the grid, not the whole frame, so a dark background cannot wash out the stickers. The lock cancels
-     * after [METERING_LOCK_SECONDS] so continuous AF resumes when the cube moves nearer or farther (PO 2026-11-16).
+     * AF/AE/AWB on the analysed grid (the drawn grid's region of the analysis frame), not the whole frame, so a dark
+     * background cannot wash out the stickers. The point's size is a share of the frame's longer side, so the metered
+     * region stays inside the grid. The lock cancels after [METERING_LOCK_SECONDS] so continuous AF resumes when the
+     * cube moves nearer or farther (PO 2026-11-16).
      */
     private fun meterOnGrid() {
+        val grid = meteringGrid ?: return
+        val analysis = analysisUseCase ?: return
+        val square = grid.square
         val point =
-            SurfaceOrientedMeteringPointFactory(1f, 1f).createPoint(CENTER, CENTER, FrameReader.GRID_FRACTION.toFloat())
+            try {
+                SurfaceOrientedMeteringPointFactory(grid.width.toFloat(), grid.height.toFloat(), analysis).createPoint(
+                    (square.left + square.side / 2).toFloat(),
+                    (square.top + square.side / 2).toFloat(),
+                    (square.side / maxOf(grid.width, grid.height)).toFloat().coerceIn(0f, 1f),
+                )
+            } catch (ignored: IllegalStateException) {
+                // The analysis use case is no longer bound: nothing to meter.
+                return
+            }
         val action =
             FocusMeteringAction
                 .Builder(point, FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE or FocusMeteringAction.FLAG_AWB)
@@ -337,10 +369,16 @@ class GuidedScanActivity : ComponentActivity() {
     }
 
     private companion object {
-        const val CENTER = 0.5f
         const val METERING_LOCK_SECONDS = 3L
     }
 }
+
+/** The analysed grid [square] on a [width]×[height] analysis frame, kept for metering on the main thread. */
+private class MeteringGrid(
+    val width: Int,
+    val height: Int,
+    val square: GridSquare,
+)
 
 /**
  * What survives a configuration change: the controller (touched only on [analyzerExecutor]), its analyzer thread, the

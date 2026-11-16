@@ -42,9 +42,11 @@ internal class YuvFrame(
 }
 
 /**
- * Reads one analysis frame into [FrameStats] (Story 10.2). The grid is the centered square 80 % of the crop's shorter
- * side (as in the fixture recorder); each cell's central 60 % is sampled on a regular 12×12 lattice, converted
- * YUV → sRGB → CIELAB and read by [CellReader]. Mean luma comes from the Y plane inside the grid on a
+ * Reads one analysis frame into [FrameStats] (Story 10.2). The grid is the region under the drawn grid
+ * ([ViewfinderGrid.inFrame]; by default the centered square 80 % of the crop's shorter side, as in the fixture
+ * recorder); each cell's central 60 % is sampled on a regular 12×12 lattice, converted YUV → sRGB → CIELAB and read by
+ * [CellReader] — on a stickered black-body cube only its sticker samples, near-black body left out (see
+ * [stickerSamples]). Mean luma comes from the Y plane inside the grid on a
  * [STATS_STEP]-pixel lattice. Sharpness (variance of the 4-neighbor Laplacian of Y) is taken on the same lattice but only
  * within ±[SEAM_BAND] cells of the four inner grid lines, where a face's edges are: a stickerless face's flat cells add
  * no edges and would read as blurred (device check 2026-11-16). Glare is a highlight, not a white sticker (device check
@@ -96,19 +98,37 @@ internal object FrameReader {
     /** At least this share of a cell's samples outside the spot must be saturated for the spot to be glare. */
     const val GLARE_SURROUND_SHARE = 0.6
 
-    fun read(image: ImageProxy): FrameStats {
+    /** Black cube body: at most this light (CIELAB L*) and this chromatic (C*ab). Provisional (session B). */
+    const val BODY_MAX_L = 30.0
+    const val BODY_MAX_CHROMA = 15.0
+
+    /** A cell's body samples are left out only when at least this share of its samples are sticker. */
+    const val MIN_STICKER_SHARE = 0.25
+
+    /** Reads [image] inside [grid] (frame pixels; see [ViewfinderGrid.inFrame]). */
+    fun read(
+        image: ImageProxy,
+        grid: GridSquare,
+    ): FrameStats {
         val crop = image.cropRect
         val planes = image.planes
 
         fun plane(index: Int) = YuvPlane(planes[index].buffer, planes[index].rowStride, planes[index].pixelStride)
-        return read(YuvFrame(plane(0), plane(1), plane(2), crop.left, crop.top, crop.right, crop.bottom))
+        return read(YuvFrame(plane(0), plane(1), plane(2), crop.left, crop.top, crop.right, crop.bottom), grid)
     }
 
-    fun read(frame: YuvFrame): FrameStats {
+    /** Reads [frame] inside [grid]; by default the centered square of [GRID_FRACTION] of the crop's shorter side. */
+    fun read(
+        frame: YuvFrame,
+        grid: GridSquare? = null,
+    ): FrameStats {
         if (frame.width <= 0 || frame.height <= 0) return FrameStats(List(FrameQuality.CELLS) { null }, 0.0, 0.0, 0.0, 0)
-        val side = minOf(frame.width, frame.height) * GRID_FRACTION
-        val gridLeft = frame.left + (frame.width - side) / 2.0
-        val gridTop = frame.top + (frame.height - side) / 2.0
+        val square =
+            grid ?: ViewfinderGrid.inFrame(0.0, 0.0, frame.left, frame.top, frame.right, frame.bottom, 0)
+        val side = square.side
+        if (side <= 0) return FrameStats(List(FrameQuality.CELLS) { null }, 0.0, 0.0, 0.0, 0)
+        val gridLeft = square.left
+        val gridTop = square.top
         val cell = side / 3
         var glare = 0.0
         val cells =
@@ -124,10 +144,12 @@ internal object FrameReader {
                         clipped += frame.y.at(x, y) >= FrameQuality.GLARE_LUMA
                         lab(frame, x, y)
                     }
-                val clippedShare = clipped.count { it } / pixels.size.toDouble()
-                val white = isWhite(pixels.filterIndexed { point, _ -> !clipped[point] })
                 glare = maxOf(glare, specularShare(pixels, clipped))
-                (CellReader.read(pixels) as? CellReadResult.Read)?.reading?.let { reading ->
+                // A stickered black-body cube: the sticker alone is read when black body shows around it.
+                val sticker = stickerSamples(pixels)
+                val clippedShare = sticker.count { clipped[it] } / sticker.size.toDouble()
+                val white = isWhite(sticker.filter { !clipped[it] }.map { pixels[it] })
+                (CellReader.read(sticker.map { pixels[it] }) as? CellReadResult.Read)?.reading?.let { reading ->
                     // A clipped white sticker is all masked by the reader, yet it is one plain color.
                     if (white && clippedShare >= CellReader.PLAIN_SHARE) reading.copy(plain = true) else reading
                 }
@@ -146,12 +168,29 @@ internal object FrameReader {
     ): Double {
         val spot = pixels.indices.filter { clipped[it] && chroma(pixels[it]) <= WHITE_MAX_CHROMA }
         if (spot.isEmpty()) return 0.0
-        val edge = LATTICE - 1
-        if (spot.any { it % LATTICE == 0 || it % LATTICE == edge || it / LATTICE == 0 || it / LATTICE == edge }) return 0.0
+        if (spot.any(::onOuterRing)) return 0.0
         val surround = pixels.indices.filter { !clipped[it] || chroma(pixels[it]) > WHITE_MAX_CHROMA }
         if (surround.isEmpty()) return 0.0
         val saturated = surround.count { chroma(pixels[it]) >= GLARE_MIN_CHROMA }
         return if (saturated >= GLARE_SURROUND_SHARE * surround.size) spot.size / pixels.size.toDouble() else 0.0
+    }
+
+    /**
+     * The lattice indices of a cell's sticker: every sample, unless the cell clearly holds a black border — some
+     * near-black body samples (L* ≤ [BODY_MAX_L], C*ab ≤ [BODY_MAX_CHROMA]) on the lattice's outer ring and at least
+     * [MIN_STICKER_SHARE] of the samples not body — when the body samples are left out.
+     */
+    private fun stickerSamples(pixels: List<Lab>): List<Int> {
+        val all = pixels.indices.toList()
+        val body = all.filter { pixels[it].l <= BODY_MAX_L && chroma(pixels[it]) <= BODY_MAX_CHROMA }
+        if (body.isEmpty() || body.none(::onOuterRing)) return all
+        val sticker = all - body.toSet()
+        return if (sticker.size >= MIN_STICKER_SHARE * pixels.size) sticker else all
+    }
+
+    private fun onOuterRing(point: Int): Boolean {
+        val edge = LATTICE - 1
+        return point % LATTICE == 0 || point % LATTICE == edge || point / LATTICE == 0 || point / LATTICE == edge
     }
 
     private fun chroma(pixel: Lab): Double = sqrt(pixel.a * pixel.a + pixel.b * pixel.b)
