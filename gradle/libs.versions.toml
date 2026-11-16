@@ -31,6 +31,11 @@ min-sdk = "29"
 camera = "1.6.2"
 # AD-17 WindowSizeClass; same version the Compose BOM already resolves transitively.
 window = "1.5.0"
+# Story 10.13 OQ-7 spike only: JVM OpenCV for the on-demand recognitionSpike source set, and the Android AARs it costs.
+# Never on a shipping classpath; CameraClasspathPolicy forbids org.opencv and LiteRT whenever every camera flag is OFF.
+opencv-openpnp = "4.9.0-0"
+opencv-android = "4.12.0"
+litert = "2.3.2"
 
 [libraries]
 androidx-room-runtime = { module = "androidx.room3:room3-runtime", version.ref = "room" }
@@ -49,6 +54,11 @@ androidx-window-core = { module = "androidx.window:window-core", version.ref = "
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hilt" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+
+# OQ-7 spike (Story 10.13), :core:domain recognitionSpike / recognitionRuntimeAars only
+opencv-openpnp = { module = "org.openpnp:opencv", version.ref = "opencv-openpnp" }
+opencv-android = { module = "org.opencv:opencv", version.ref = "opencv-android" }
+litert = { module = "com.google.ai.edge.litert:litert", version.ref = "litert" }
 
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 

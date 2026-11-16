@@ -36,3 +36,41 @@ tasks.register<JavaExec>("evaluateLiveBaseline") {
     mainClass.set("dev.cubentia.domain.recognition.evaluation.LiveBaselineMainKt")
     args(rootProject.file("Fixtures/live").path, rootProject.file("docs/spikes/oq-4-guided-scan.md").path)
 }
+
+// Story 10.13 (OQ-7): OpenCV runs only in this on-demand spike source set. Nothing wires it into assemble, build,
+// check or test, so the ~110 MB JVM OpenCV jar is never downloaded or compiled by CI.
+val recognitionSpike: SourceSet by sourceSets.creating
+recognitionSpike.compileClasspath += evaluation.output + evaluation.compileClasspath
+recognitionSpike.runtimeClasspath += evaluation.output + evaluation.runtimeClasspath
+dependencies { "recognitionSpikeImplementation"(libs.opencv.openpnp) }
+kover { currentProject { sources { excludedSourceSets.add(recognitionSpike.name) } } }
+
+// The Android runtimes OQ-7 would ship, resolved only to measure their size (never put on a classpath).
+val recognitionRuntimeAars: Configuration by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+    isTransitive = false
+}
+dependencies {
+    recognitionRuntimeAars(variantOf(libs.opencv.android) { artifactType("aar") })
+    recognitionRuntimeAars(variantOf(libs.litert) { artifactType("aar") })
+}
+tasks.register<JavaExec>("evaluateRecognitionApproaches") {
+    group = "verification"
+    description = "Compares the OQ-7 recognition approaches on the live fixtures and updates the OQ-7 spike results."
+    classpath = recognitionSpike.runtimeClasspath
+    mainClass.set("dev.cubentia.domain.recognition.evaluation.oq7.RecognitionApproachMainKt")
+    val aars = recognitionRuntimeAars
+    inputs.files(aars)
+    argumentProviders.add {
+        val files = aars.files.sortedBy { it.name }
+
+        fun aar(prefix: String) = files.singleOrNull { it.name.startsWith(prefix) }?.path ?: error("Missing $prefix AAR in $files")
+        listOf(
+            rootProject.file("Fixtures/live").path,
+            rootProject.file("docs/spikes/oq-7-recognition-approach.md").path,
+            aar("opencv-"),
+            aar("litert-"),
+        )
+    }
+}
