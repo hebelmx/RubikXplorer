@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
@@ -35,6 +37,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.R
+import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.LocalRenderStyle
 import dev.cubentia.app.render.Net2DRenderer
 import dev.cubentia.app.render.RenderStyle
@@ -50,6 +53,7 @@ import dev.cubentia.domain.cube.Facelets
 import kotlin.math.max
 import kotlin.math.min
 import dev.cubentia.domain.cube.Color as CubeColor
+import dev.cubentia.domain.text.Text as ContentText
 
 /** Whether a sticker carries the `status-invalid` outline (it belongs to an offending piece). */
 val StickerInvalidKey = SemanticsPropertyKey<Boolean>("StickerInvalid")
@@ -82,7 +86,7 @@ internal val FACE_NAMES =
  */
 @Composable
 fun StickerReviewNet(
-    facelets: Facelets,
+    facelets: Facelets? = null,
     style: RenderStyle = LocalRenderStyle.current,
     selected: Int?,
     invalid: Set<Int>,
@@ -90,6 +94,8 @@ fun StickerReviewNet(
     modifier: Modifier = Modifier,
     editable: (Int) -> Boolean = { true },
     face: Int? = null,
+    unresolved: List<CubeColor?>? = null,
+    strings: ContentStrings? = null,
 ) {
     val columns = if (face == null) Net2DRenderer.NET_COLUMNS else FACE_SIDE
     val rows = if (face == null) Net2DRenderer.NET_ROWS else FACE_SIDE
@@ -106,7 +112,8 @@ fun StickerReviewNet(
                             (index % CELLS_PER_FACE % FACE_SIDE) to (index % CELLS_PER_FACE / FACE_SIDE)
                         }
                     ReviewSticker(
-                        color = facelets.colors[index],
+                        color = if (unresolved != null) unresolved[index] else requireNotNull(facelets).colors[index],
+                        strings = strings,
                         index = index,
                         style = style,
                         isSelected = index == selected,
@@ -123,7 +130,8 @@ fun StickerReviewNet(
 
 @Composable
 private fun ReviewSticker(
-    color: CubeColor,
+    color: CubeColor?,
+    strings: ContentStrings?,
     index: Int,
     style: RenderStyle,
     isSelected: Boolean,
@@ -132,17 +140,29 @@ private fun ReviewSticker(
     cell: Dp,
     modifier: Modifier,
 ) {
-    val appearance = StickerAppearance.of(color)
-    val fill = Color(appearance.fill)
-    val ink = Color(appearance.glyphInk)
+    val appearance = color?.let(StickerAppearance::of)
+    val fill = appearance?.let { Color(it.fill) } ?: MaterialTheme.colorScheme.surfaceVariant
+    val ink = appearance?.let { Color(it.glyphInk) } ?: MaterialTheme.colorScheme.onSurfaceVariant
     val tokens = RubikTheme.tokens
     val description =
-        stringResource(
-            R.string.editor_sticker,
-            stringResource(colorName(color)),
-            stringResource(FACE_NAMES[index / CELLS_PER_FACE]),
-            index % CELLS_PER_FACE + 1,
-        )
+        if (color == null) {
+            requireNotNull(strings).resolve(
+                ContentText(
+                    "msg.scan.blank-sticker",
+                    mapOf(
+                        "face" to stringResource(FACE_NAMES[index / CELLS_PER_FACE]),
+                        "position" to (index % CELLS_PER_FACE + 1).toString(),
+                    ),
+                ),
+            )
+        } else {
+            stringResource(
+                R.string.editor_sticker,
+                stringResource(colorName(color)),
+                stringResource(FACE_NAMES[index / CELLS_PER_FACE]),
+                index % CELLS_PER_FACE + 1,
+            )
+        }
     val invalidState = stringResource(R.string.editor_sticker_invalid)
     Box(
         modifier =
@@ -156,19 +176,41 @@ private fun ReviewSticker(
                     var inset = 0f
                     if (isInvalid) inset = drawRing(tokens.statusInvalid, inset, dashed = false)
                     // Dashed, so selection differs from the invalid outline in shape, not only color.
+                    if (color == null) {
+                        drawRoundRect(
+                            color = tokens.hairline,
+                            cornerRadius = CornerRadius(Radii.xs.toPx()),
+                            style = Stroke(1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx()))),
+                        )
+                    }
                     if (isSelected) drawRing(tokens.accent, inset, dashed = true)
                 }.testTag("sticker:$index")
                 .semantics {
                     contentDescription = description
                     stickerColor = fill
-                    if (style.colorBlindGlyphs) stickerGlyphInk = ink
+                    if (style.colorBlindGlyphs && color != null) stickerGlyphInk = ink
                     selected = isSelected
                     stickerInvalid = isInvalid
                     if (isInvalid) stateDescription = invalidState
+                    if (color == null) {
+                        stateDescription =
+                            requireNotNull(strings).resolve(
+                                ContentText("msg.scan.blank-state"),
+                            )
+                    }
                 },
         contentAlignment = Alignment.Center,
     ) {
-        if (style.colorBlindGlyphs) StickerGlyph(appearance, cell)
+        if (appearance == null) {
+            Text(
+                requireNotNull(strings).resolve(
+                    ContentText("msg.scan.blank-label"),
+                ),
+                color = ink,
+            )
+        } else if (style.colorBlindGlyphs) {
+            StickerGlyph(appearance, cell)
+        }
     }
 }
 

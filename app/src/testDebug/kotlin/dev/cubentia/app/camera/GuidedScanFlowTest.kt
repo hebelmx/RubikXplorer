@@ -1,6 +1,5 @@
 package dev.cubentia.app.camera
 
-import dev.cubentia.app.scan.GuidedScanCapture
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.recognition.CaptureQuality
@@ -11,6 +10,7 @@ import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.GuidedScanController
 import dev.cubentia.domain.recognition.GuidedScanEffect
 import dev.cubentia.domain.recognition.Lab
+import dev.cubentia.domain.recognition.ScanReview
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -79,7 +79,7 @@ class GuidedScanFlowTest {
         assertFalse(GuidedScanFlow.remeters(listOf(GuidedScanEffect.Capture(samples[0]), GuidedScanEffect.Done(samples))))
         assertNull(GuidedScanFlow.resultOf(listOf(GuidedScanEffect.Capture(samples[0]), GuidedScanEffect.Remeter)))
         assertEquals(
-            GuidedScanCapture.Captured(samples),
+            ScanReview.fromSamples(samples),
             GuidedScanFlow.resultOf(listOf(GuidedScanEffect.Capture(samples[5]), GuidedScanEffect.Done(samples))),
         )
     }
@@ -146,24 +146,25 @@ class GuidedScanFlowTest {
     @Test
     fun `the finished scan waits for the last face's freeze to end`() {
         val vm = GuidedScanViewModel()
-        val done = GuidedScanCapture.Captured(List(6) { sample() })
+        val done = ScanReview.fromSamples(List(6) { sample() })
+        vm.phase = GuidedScanPhase.Viewfinder()
         vm.frozen = FrozenCapture(6, Face.B, null)
         vm.publish(done)
-        assertNull(vm.result.value)
+        assertEquals(GuidedScanPhase.Viewfinder(), vm.phase)
         // A stale freeze end (an earlier capture) neither ends this freeze nor publishes.
         vm.endFreeze(5)
-        assertNull(vm.result.value)
+        assertEquals(GuidedScanPhase.Viewfinder(), vm.phase)
         vm.endFreeze(6)
         assertNull(vm.frozen)
-        assertEquals(done, vm.result.value)
+        assertEquals(GuidedScanPhase.Review(done), vm.phase)
     }
 
     @Test
     fun `the finished scan is published at once when no capture is frozen`() {
         val vm = GuidedScanViewModel()
-        val done = GuidedScanCapture.Captured(List(6) { sample() })
+        val done = ScanReview.fromSamples(List(6) { sample() })
         vm.publish(done)
-        assertEquals(done, vm.result.value)
+        assertEquals(GuidedScanPhase.Review(done), vm.phase)
     }
 
     @Test

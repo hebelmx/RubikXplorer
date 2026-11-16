@@ -31,6 +31,7 @@ import androidx.camera.lifecycle.ExperimentalCameraProviderConfiguration
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,16 +48,15 @@ import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.content.LessonCatalog
 import dev.cubentia.app.preferences.PreferenceProvider
 import dev.cubentia.app.preferences.PreferenceStore
-import dev.cubentia.app.scan.GuidedScanCapture
-import dev.cubentia.app.scan.GuidedScanContract
+import dev.cubentia.app.scan.ScanFlowContract
+import dev.cubentia.app.scan.ScanOutcome
+import dev.cubentia.app.ui.scan.ScanReviewScreen
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.domain.recognition.GuidedScanController
 import dev.cubentia.domain.recognition.GuidedScanEffect
+import dev.cubentia.domain.recognition.ScanReview
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ExecutorService
@@ -66,7 +66,7 @@ import javax.inject.Inject
 
 /**
  * The Guided 6-face Scan (Story 10.2): camera rationale and permission, then a CameraX viewfinder whose analyzer feeds
- * [GuidedScanController]; finishes with a [GuidedScanCapture] encoded by [GuidedScanContract]. Frames are read on the
+ * [GuidedScanController]; finishes with a [ScanOutcome] encoded by [ScanFlowContract]. Frames are read on the
  * analyzer thread and dropped; nothing is written, kept or sent.
  */
 @AndroidEntryPoint
@@ -88,6 +88,7 @@ class GuidedScanActivity : ComponentActivity() {
         set(value) {
             scan.phase = value
         }
+    private var cameraProvider: ProcessCameraProvider? = null
     private var camera: Camera? = null
     private var previewView: PreviewView? = null
     private var cameraStarted = false
@@ -124,16 +125,14 @@ class GuidedScanActivity : ComponentActivity() {
         setResult(RESULT_CANCELED)
         if (phase == GuidedScanPhase.Rationale) phase = GuidedScanFlow.initialPhase(hasPermission())
         lifecycleScope.launch { lessonCatalog.load() }
-        // A result reached while a previous instance was being recreated (rotation) still finishes this one.
-        lifecycleScope.launch { finishWith(scan.result.filterNotNull().first()) }
         val actions =
             GuidedScanActions(
-                onClose = { finishWith(GuidedScanCapture.Cancelled) },
+                onClose = { finishWith(ScanOutcome.Cancelled) },
                 onContinue = {
                     scan.rationaleBefore = shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)
                     permission.launch(Manifest.permission.CAMERA)
                 },
-                onEnterColors = { finishWith(GuidedScanCapture.FellBackToEditor) },
+                onEnterColors = { finishWith(ScanOutcome.FellBackToEditor) },
                 onOpenSettings = {
                     runCatching {
                         startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
@@ -155,23 +154,42 @@ class GuidedScanActivity : ComponentActivity() {
             PreferenceProvider(preferenceStore) {
                 CubentiaTheme {
                     if (strings == null) return@CubentiaTheme
-                    GuidedScanScreen(phase, strings, actions, scan.frozen) {
-                        AndroidView(
-                            factory = { context ->
-                                PreviewView(context).also {
-                                    it.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                                    // The scaled preview never draws outside its own pane.
-                                    it.outlineProvider = ViewOutlineProvider.BOUNDS
-                                    it.clipToOutline = true
-                                    it.addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
-                                        viewSize = view.width to view.height
-                                    }
-                                    previewView = it
-                                    startCamera()
-                                }
-                            },
+                    val reviewPhase = phase as? GuidedScanPhase.Review
+                    LaunchedEffect(reviewPhase != null) {
+                        if (reviewPhase != null) {
+                            analysisUseCase?.clearAnalyzer()
+                            cameraProvider?.unbindAll()
+                            camera = null
+                        }
+                    }
+                    if (reviewPhase != null) {
+                        ScanReviewScreen(
+                            reviewPhase.review,
+                            strings,
+                            onReview = { phase = GuidedScanPhase.Review(it) },
+                            onAccept = { finishWith(ScanOutcome.Accepted(it)) },
+                            onClose = { finishWith(ScanOutcome.Cancelled) },
                             modifier = Modifier.fillMaxSize(),
                         )
+                    } else {
+                        GuidedScanScreen(phase, strings, actions, scan.frozen) {
+                            AndroidView(
+                                factory = { context ->
+                                    PreviewView(context).also {
+                                        it.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                                        // The scaled preview never draws outside its own pane.
+                                        it.outlineProvider = ViewOutlineProvider.BOUNDS
+                                        it.clipToOutline = true
+                                        it.addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
+                                            viewSize = view.width to view.height
+                                        }
+                                        previewView = it
+                                        startCamera()
+                                    }
+                                },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
                     }
                 }
             }
@@ -199,8 +217,8 @@ class GuidedScanActivity : ComponentActivity() {
 
     private fun hasPermission() = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
-    private fun finishWith(capture: GuidedScanCapture) {
-        val (code, data) = GuidedScanContract.encode(capture)
+    private fun finishWith(capture: ScanOutcome) {
+        val (code, data) = ScanFlowContract.encode(capture)
         setResult(code, data)
         finish()
     }
@@ -208,7 +226,7 @@ class GuidedScanActivity : ComponentActivity() {
     /** Obtains the provider off the main thread, then binds on main once the preview has a viewport. */
     private fun startCamera() {
         val view = previewView ?: return
-        if (cameraStarted || !hasPermission()) return
+        if (cameraStarted || !hasPermission() || phase !is GuidedScanPhase.Viewfinder) return
         cameraStarted = true
         lifecycleScope.launch {
             val provider =
@@ -220,10 +238,11 @@ class GuidedScanActivity : ComponentActivity() {
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (ignored: Exception) {
-                    phase = GuidedScanPhase.Unavailable
+                    if (phase is GuidedScanPhase.Viewfinder) phase = GuidedScanPhase.Unavailable
                     return@launch
                 }
-            bindWhenLaidOut(provider, view)
+            cameraProvider = provider
+            if (phase is GuidedScanPhase.Viewfinder) bindWhenLaidOut(provider, view)
         }
     }
 
@@ -258,6 +277,7 @@ class GuidedScanActivity : ComponentActivity() {
         }
 
         fun bind(): Boolean {
+            if (phase !is GuidedScanPhase.Viewfinder) return true
             val viewPort = view.viewPort ?: return false
             val useCases =
                 UseCaseGroup
@@ -274,7 +294,7 @@ class GuidedScanActivity : ComponentActivity() {
                         // never remembered.
                         bound.cameraInfo.cameraState.observe(this) { state ->
                             val closed = state.type == CameraState.Type.CLOSED || state.type == CameraState.Type.PENDING_OPEN
-                            if (state.error != null && closed) phase = GuidedScanPhase.Unavailable
+                            if (state.error != null && closed && phase is GuidedScanPhase.Viewfinder) phase = GuidedScanPhase.Unavailable
                         }
                     }
             } catch (ignored: IllegalArgumentException) {
@@ -402,15 +422,12 @@ internal class GuidedScanViewModel : ViewModel() {
     /** Captures so far, numbering each [FrozenCapture]; main thread only. */
     var captures = 0L
 
-    /** The finished scan, set once on main; whichever Activity instance is current finishes with it. */
-    val result = MutableStateFlow<GuidedScanCapture?>(null)
-
     /** A finished scan held until the last face's freeze ends, so its freeze, shrink and shutter sound play out. */
-    private var held: GuidedScanCapture? = null
+    private var held: ScanReview? = null
 
     /** Main thread: publishes the finished scan now, or when the current freeze ends. */
-    fun publish(capture: GuidedScanCapture) {
-        if (frozen != null) held = capture else result.value = capture
+    fun publish(capture: ScanReview) {
+        if (frozen != null) held = capture else phase = GuidedScanPhase.Review(capture)
     }
 
     /** Main thread: the freeze of capture [id] ended; live view resumes, or a held result is published. */
@@ -419,7 +436,7 @@ internal class GuidedScanViewModel : ViewModel() {
         frozen = null
         held?.let {
             held = null
-            result.value = it
+            phase = GuidedScanPhase.Review(it)
         }
     }
 
