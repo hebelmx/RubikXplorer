@@ -239,12 +239,50 @@ class GuidedScanTest {
             )
         cases.forEach { (frame, coaching) ->
             val controller = GuidedScanController()
-            assertEquals(emptyList<GuidedScanEffect>(), controller.feed(frame, 0, 3000))
+            // A face stuck blurred or dark re-meters (see below) but never captures.
+            assertTrue(controller.feed(frame, 0, 3000).none { it !is GuidedScanEffect.Remeter })
             assertEquals(coaching, controller.coaching)
             assertEquals(emptyList<GuidedScanEffect>(), controller.onShutter(3000))
             assertEquals(coaching, controller.coaching)
             assertEquals(0, controller.stepIndex)
         }
+    }
+
+    @Test
+    fun `a face that stays blurred or dark for 1 s remeters, at most once a second (PO 2026-11-16)`() {
+        listOf(stats(sharpness = 5.0), stats(luma = 5.0)).forEach { stuck ->
+            val controller = GuidedScanController()
+            assertEquals(listOf(GuidedScanEffect.Remeter), controller.onFrame(good, 0, 0))
+            controller.feed(good, 100, 200)
+            // The cube moves nearer: blurred from 300 ms; nothing before 1 s of it.
+            assertEquals(emptyList<GuidedScanEffect>(), controller.feed(stuck, 300, 1200))
+            assertEquals(listOf(GuidedScanEffect.Remeter), controller.onFrame(stuck, 0, 1300))
+            // Rate limited: the next one a second later, not on every frame.
+            assertEquals(emptyList<GuidedScanEffect>(), controller.feed(stuck, 1400, 2200))
+            assertEquals(listOf(GuidedScanEffect.Remeter), controller.onFrame(stuck, 0, 2300))
+            assertEquals(0, controller.stepIndex)
+        }
+    }
+
+    @Test
+    fun `no face in the grid or a short blur does not remeter`() {
+        val controller = GuidedScanController()
+        val blurredBackground = stats(cells = List(9) { null }, sharpness = 5.0)
+        assertEquals(emptyList<GuidedScanEffect>(), controller.feed(blurredBackground, 0, 3000))
+        // A blur shorter than 1 s, broken by a misaligned frame, restarts the count.
+        assertEquals(emptyList<GuidedScanEffect>(), controller.feed(stats(sharpness = 5.0), 3100, 3900))
+        assertEquals(emptyList<GuidedScanEffect>(), controller.onFrame(stats(cells = cells(Color.GREEN, plain = 3)), 0, 4000))
+        assertEquals(emptyList<GuidedScanEffect>(), controller.feed(stats(sharpness = 5.0), 4100, 5000))
+    }
+
+    @Test
+    fun `after a blur remeter the face sharpens and auto-captures as before`() {
+        val controller = GuidedScanController()
+        controller.feed(stats(sharpness = 5.0), 0, 1000)
+        // Sharp again at 1100: alignment found remeters; settle to 1400, steady to 2000.
+        assertEquals(listOf(GuidedScanEffect.Remeter), controller.onFrame(good, 0, 1100))
+        assertEquals(emptyList<GuidedScanEffect>(), controller.feed(good, 1200, 1900))
+        assertTrue(controller.onFrame(good, 0, 2000).first() is GuidedScanEffect.Capture)
     }
 
     @Test

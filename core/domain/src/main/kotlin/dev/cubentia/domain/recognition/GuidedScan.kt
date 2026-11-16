@@ -141,6 +141,10 @@ sealed interface GuidedScanEffect {
  * the reference and the timer. [onShutter] captures the latest frame at once when [FrameQuality.assessShutter]
  * accepts it.
  *
+ * A face in the grid (nine readable cells) that stays BLURRED or LOW_LIGHT for [STUCK_REMETER_MS] emits
+ * [GuidedScanEffect.Remeter] again, at most once per [STUCK_REMETER_MS] while it stays so (PO 2026-11-16: after the
+ * cube moved nearer or farther, focus stayed wrong until the Learner pressed Capture).
+ *
  * Wrong face (PO 2026-11-15): only a repeated face is caught live. A capture whose center is within
  * [SAME_CENTER_DELTA_E] of an already captured center is rejected with [Coaching.WRONG_FACE] and not stored; any other
  * wrong face or wrong side on top is stored under the step's labels and left to Story 10.3 validation. The second such
@@ -171,6 +175,7 @@ class GuidedScanController(
     private var justCaptured: List<Lab>? = null
     private var rejections = 0
     private var lastRejected: Frame? = null
+    private var stuckSince: Long? = null
 
     /** Index into the plan of the face to show next; equals the plan size when done. */
     val stepIndex: Int get() = stored.size
@@ -204,8 +209,9 @@ class GuidedScanController(
             aligned = false
             reference = null
             coaching = coachingFor(quality)
-            return emptyList()
+            return remeterIfStuck(stats, quality, nowMs)
         }
+        stuckSince = null
         val values = stats.cells.map { it!!.value }
         lastRejected?.let { rejected ->
             if (movedFrom(values, rejected.stats.cells.map { it!!.value })) clearRejection()
@@ -309,6 +315,26 @@ class GuidedScanController(
         previous: List<Lab>,
     ): Boolean = values.zip(previous).any { (now, then) -> StickerClassifier.deltaE(now, then) >= FACE_CHANGE_DELTA_E }
 
+    /**
+     * A face in the grid that stays blurred or too dark re-meters every [STUCK_REMETER_MS]: focus or exposure set for an
+     * earlier distance is wrong now, and only an ACCEPTABLE frame would otherwise re-meter.
+     */
+    private fun remeterIfStuck(
+        stats: FrameStats,
+        quality: CaptureQuality,
+        nowMs: Long,
+    ): List<GuidedScanEffect> {
+        val faceInGrid = stats.cells.size == FrameQuality.CELLS && stats.cells.none { it == null }
+        if (!faceInGrid || (quality != CaptureQuality.BLURRED && quality != CaptureQuality.LOW_LIGHT)) {
+            stuckSince = null
+            return emptyList()
+        }
+        val since = stuckSince ?: nowMs.also { stuckSince = it }
+        if (nowMs - since < STUCK_REMETER_MS) return emptyList()
+        stuckSince = nowMs
+        return listOf(remeter(nowMs))
+    }
+
     private fun remeter(nowMs: Long): GuidedScanEffect {
         remeteredAt = nowMs
         reference = null
@@ -321,6 +347,12 @@ class GuidedScanController(
 
         /** After a re-meter, AF/AE/AWB converge this long before steadiness is measured. Provisional (session B). */
         const val SETTLE_MS = 300L
+
+        /**
+         * A face in the grid that stays BLURRED or LOW_LIGHT this long re-meters, and again every this long while it
+         * stays so (PO 2026-11-16). Provisional, tuned in device session B.
+         */
+        const val STUCK_REMETER_MS = 1000L
 
         /** Every cell must move less than this (CIE76) from the reference to count as steady. */
         const val STEADY_DELTA_E = 5.0

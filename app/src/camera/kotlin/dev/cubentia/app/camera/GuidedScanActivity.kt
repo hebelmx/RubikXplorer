@@ -61,6 +61,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 /**
@@ -320,20 +321,24 @@ class GuidedScanActivity : ComponentActivity() {
         }
     }
 
-    /** AF/AE/AWB on the grid, not the whole frame, so a dark background cannot wash out the stickers. */
+    /**
+     * AF/AE/AWB on the grid, not the whole frame, so a dark background cannot wash out the stickers. The lock cancels
+     * after [METERING_LOCK_SECONDS] so continuous AF resumes when the cube moves nearer or farther (PO 2026-11-16).
+     */
     private fun meterOnGrid() {
         val point =
             SurfaceOrientedMeteringPointFactory(1f, 1f).createPoint(CENTER, CENTER, FrameReader.GRID_FRACTION.toFloat())
         val action =
             FocusMeteringAction
                 .Builder(point, FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE or FocusMeteringAction.FLAG_AWB)
-                .disableAutoCancel()
+                .setAutoCancelDuration(METERING_LOCK_SECONDS, TimeUnit.SECONDS)
                 .build()
         camera?.cameraControl?.startFocusAndMetering(action)
     }
 
     private companion object {
         const val CENTER = 0.5f
+        const val METERING_LOCK_SECONDS = 3L
     }
 }
 
