@@ -2,11 +2,16 @@ package dev.cubentia.app.camera
 
 import dev.cubentia.domain.recognition.CaptureQuality
 import dev.cubentia.domain.recognition.FrameQuality
+import dev.cubentia.domain.recognition.FrameStats
+import dev.cubentia.domain.recognition.GuidedScanController
+import dev.cubentia.domain.recognition.GuidedScanEffect
 import dev.cubentia.domain.recognition.Lab
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.ByteBuffer
+import java.util.Random
+import kotlin.math.abs
 import kotlin.math.sqrt
 
 /** Story 10.2: frame stats from synthetic YUV planes. */
@@ -199,6 +204,149 @@ class FrameReaderTest {
         assertReadsRedCenter(centerOnly(160, 120, 160, 1, 80, 30, 20, 120, 90))
     }
 
+    /** A [imageWidth]×[imageHeight] frame with planar chroma; [chroma] gives (U, V) at a full-resolution pixel. */
+    private fun image(
+        luma: (Int, Int) -> Int,
+        chroma: (Int, Int) -> Pair<Int, Int> = { _, _ -> 128 to 128 },
+    ): YuvFrame {
+        val y = ByteBuffer.allocate(imageWidth * imageHeight)
+        for (row in 0 until imageHeight) {
+            for (column in 0 until imageWidth) y.put(row * imageWidth + column, luma(column, row).coerceIn(0, 255).toByte())
+        }
+        val u = ByteBuffer.allocate(imageWidth * imageHeight / 4)
+        val v = ByteBuffer.allocate(imageWidth * imageHeight / 4)
+        for (row in 0 until imageHeight / 2) {
+            for (column in 0 until imageWidth / 2) {
+                val (cu, cv) = chroma(column * 2, row * 2)
+                u.put(row * imageWidth / 2 + column, cu.toByte())
+                v.put(row * imageWidth / 2 + column, cv.toByte())
+            }
+        }
+        return YuvFrame(
+            YuvPlane(y, imageWidth, 1),
+            YuvPlane(u, imageWidth / 2, 1),
+            YuvPlane(v, imageWidth / 2, 1),
+            0,
+            0,
+            imageWidth,
+            imageHeight,
+        )
+    }
+
+    private val imageWidth = 320
+    private val imageHeight = 240
+    private val gridSide = minOf(imageWidth, imageHeight) * FrameReader.GRID_FRACTION
+    private val gridLeft = (imageWidth - gridSide) / 2
+    private val gridTop = (imageHeight - gridSide) / 2
+    private val cellSide = gridSide / 3
+
+    /** Sticker (Y, U, V) per cell: a scrambled face, green center. */
+    private val stickers =
+        listOf(
+            Triple(200, 128, 128), // white
+            Triple(80, 90, 200), // red
+            Triple(110, 70, 100), // green
+            Triple(180, 30, 150), // yellow
+            Triple(110, 70, 100), // green (center)
+            Triple(60, 200, 110), // blue
+            Triple(130, 70, 190), // orange
+            Triple(200, 128, 128), // white
+            Triple(80, 90, 200), // red
+        )
+
+    /**
+     * A cube face [dx], [dy] pixels off the grid: nine stickers with a [gap]-pixel black plastic gap around each, on a
+     * dark background, plus a little sensor noise.
+     */
+    private fun cubeFace(
+        dx: Double = 0.0,
+        dy: Double = 0.0,
+        gap: Int = 6,
+        colors: List<Triple<Int, Int, Int>> = stickers,
+    ): YuvFrame {
+        val noise = Random(7)
+
+        fun sticker(
+            x: Int,
+            y: Int,
+        ): Triple<Int, Int, Int>? {
+            val fx = x - gridLeft - dx
+            val fy = y - gridTop - dy
+            if (fx < 0 || fy < 0 || fx >= gridSide || fy >= gridSide) return null
+            val inX = fx % cellSide
+            val inY = fy % cellSide
+            if (inX < gap / 2.0 || inX >= cellSide - gap / 2.0 || inY < gap / 2.0 || inY >= cellSide - gap / 2.0) return null
+            return colors[(fy / cellSide).toInt() * 3 + (fx / cellSide).toInt()]
+        }
+        return image(
+            luma = { x, y -> (sticker(x, y)?.first ?: PLASTIC) + noise.nextInt(7) - 3 },
+            chroma = { x, y -> sticker(x, y)?.let { it.second to it.third } ?: (128 to 128) },
+        )
+    }
+
+    /** Uniform gray floor or wall with sensor noise strong enough to read sharp. */
+    private fun noisyGray(): YuvFrame {
+        val noise = Random(11)
+        return image(luma = { _, _ -> 128 + noise.nextInt(61) - 30 })
+    }
+
+    /** Terrazzo: light gray with scattered chips of other grays, and a dark grout line along the first column line. */
+    private fun terrazzo(): YuvFrame {
+        val random = Random(3)
+        val chips = List(400) { Triple(random.nextInt(imageWidth), random.nextInt(imageHeight), 110 + random.nextInt(130)) }
+        val grout = (gridLeft + cellSide).toInt()
+        return image(luma = { x, y ->
+            val chip = chips.firstOrNull { (cx, cy) -> abs(cx - x) + abs(cy - y) <= 4 }
+            when {
+                abs(x - grout) <= 1 -> 70
+                chip != null -> chip.third
+                else -> 175
+            }
+        })
+    }
+
+    /** Every effect of feeding [stats] for 5 s at 10 fps, then pressing the shutter. */
+    private fun effectsOf(stats: FrameStats): List<GuidedScanEffect> {
+        val controller = GuidedScanController()
+        return (0L..5000L step 100).flatMap { controller.onFrame(stats, 0, it) } + controller.onShutter(5000)
+    }
+
+    @Test
+    fun `a cube face in the grid shows all twelve seams and captures`() {
+        val stats = FrameReader.read(cubeFace())
+        assertEquals(12, stats.seams)
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(stats))
+        assertTrue(effectsOf(stats).any { it is GuidedScanEffect.Capture })
+    }
+
+    @Test
+    fun `a solved face and a face a little off the grid still show their seams`() {
+        assertEquals(12, FrameReader.read(cubeFace(colors = List(9) { stickers[4] })).seams)
+        val off = FrameReader.read(cubeFace(dx = cellSide * 0.15, dy = -cellSide * 0.15))
+        assertTrue(off.seams >= FrameQuality.MIN_SEAMS, "seams ${off.seams}")
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(off))
+    }
+
+    @Test
+    fun `a cube half a cell off the grid is misaligned`() {
+        val stats = FrameReader.read(cubeFace(dx = cellSide * 0.5, dy = cellSide * 0.5))
+        assertTrue(stats.seams < FrameQuality.MIN_SEAMS, "seams ${stats.seams}")
+        assertTrue(effectsOf(stats).none { it is GuidedScanEffect.Capture })
+    }
+
+    @Test
+    fun `background with no cube in the grid never captures`() {
+        mapOf("noisy uniform gray" to noisyGray(), "terrazzo floor" to terrazzo()).forEach { (name, frame) ->
+            val stats = FrameReader.read(frame)
+            // Bright, sharp and nine plain cells: what used to pass as aligned.
+            assertTrue(stats.sharpness >= FrameQuality.MIN_SHARPNESS, "$name sharpness ${stats.sharpness}")
+            assertTrue(stats.cells.all { it?.plain == true }, "$name cells ${stats.cells}")
+            assertTrue(stats.seams < FrameQuality.MIN_SEAMS, "$name seams ${stats.seams}")
+            assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(stats), name)
+            assertTrue(effectsOf(stats).none { it is GuidedScanEffect.Capture }, name)
+        }
+    }
+
     @Test
     fun `sRGB white and black convert to CIELAB extremes`() {
         assertEquals(100.0, FrameReader.rgbToLab(255, 255, 255).l, 0.01)
@@ -219,5 +367,8 @@ class FrameReaderTest {
     private companion object {
         /** Bytes outside the image (row padding, outside the crop) hold this, so reading them shows. */
         const val GARBAGE = 255
+
+        /** The black plastic between stickers. */
+        const val PLASTIC = 20
     }
 }

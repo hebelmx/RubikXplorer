@@ -88,9 +88,9 @@ class GuidedScanFlowTest {
     fun `the viewfinder phase mirrors the controller`() {
         val controller = GuidedScanController()
         val cells = List(9) { CellReading(Lab(55.0, -60.0, 40.0), true) }
-        controller.onFrame(FrameStats(cells, 120.0, 0.0, 100.0), 0, 0)
+        controller.onFrame(FrameStats(cells, 120.0, 0.0, 100.0, 12), 0, 0)
         controller.onShutter(10)
-        controller.onFrame(FrameStats(cells, 10.0, 0.0, 100.0), 0, 20)
+        controller.onFrame(FrameStats(cells, 10.0, 0.0, 100.0, 12), 0, 20)
         val phase = GuidedScanFlow.phaseOf(controller)
         assertEquals(1, phase.stepIndex)
         assertEquals(controller.captured, phase.captured)
@@ -108,5 +108,45 @@ class GuidedScanFlowTest {
         assertEquals((8 downTo 0).toList(), upright(180))
         assertEquals(listOf(2, 5, 8, 1, 4, 7, 0, 3, 6), upright(270))
         assertEquals(upright(270), upright(-90))
+    }
+
+    @Test
+    fun `a capture freezes every capture decision for 400 ms, with the face already captured`() {
+        val controller = GuidedScanController()
+        val freeze = CaptureFreeze()
+
+        fun face(lab: Lab) = FrameStats(List(9) { CellReading(lab, true) }, 120.0, 0.0, 100.0, 12)
+        val green = face(Lab(55.0, -60.0, 40.0))
+        val red = face(Lab(50.0, 70.0, 50.0))
+        assertFalse(freeze.isFrozen(0))
+        freeze.decide(0) { controller.onFrame(green, 0, 0) }
+        assertTrue(freeze.decide(10) { controller.onShutter(10) }.first() is GuidedScanEffect.Capture)
+        // The face is marked captured at once, while its frame stays frozen.
+        assertEquals(1, controller.stepIndex)
+        assertEquals(listOf(Face.F), GuidedScanFlow.phaseOf(controller).captured.map { it.face })
+        assertTrue(freeze.isFrozen(10))
+        assertTrue(freeze.isFrozen(10 + CaptureFreeze.FREEZE_MS - 1))
+        // A new face held steady, the shutter and the override during the freeze: no decision runs.
+        var decisions = 0
+        (100L..400L step 50).forEach { now ->
+            assertEquals(emptyList<GuidedScanEffect>(), freeze.decide(now) { decisions++.let { controller.onFrame(red, 0, now) } })
+            assertEquals(emptyList<GuidedScanEffect>(), freeze.decide(now + 5) { decisions++.let { controller.onShutter(now + 5) } })
+            assertEquals(emptyList<GuidedScanEffect>(), freeze.decide(now + 5) { decisions++.let { controller.onUseAnyway(now + 5) } })
+        }
+        assertEquals(0, decisions)
+        assertEquals(1, controller.stepIndex)
+        // Live view resumes after the freeze.
+        assertFalse(freeze.isFrozen(10 + CaptureFreeze.FREEZE_MS))
+        assertEquals(listOf(GuidedScanEffect.Remeter), freeze.decide(500) { controller.onFrame(red, 0, 500) })
+        val next = freeze.decide(510) { controller.onShutter(510) }.first() as GuidedScanEffect.Capture
+        assertEquals(Face.R, next.sample.face)
+        assertTrue(freeze.isFrozen(510))
+    }
+
+    @Test
+    fun `a decision without a capture does not freeze`() {
+        val freeze = CaptureFreeze()
+        freeze.decide(0) { listOf(GuidedScanEffect.Remeter) }
+        assertFalse(freeze.isFrozen(1))
     }
 }

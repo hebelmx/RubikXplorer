@@ -34,18 +34,22 @@ object GuidedScanPlan {
 /**
  * What the camera adapter measured on one analysis frame, inside the grid only: the nine cell readings in pixel
  * row-major order (null when a cell had no reading), the mean luma (Y, 0–255), the fraction of grid pixels with Y ≥ 250
- * ([glareFraction]) and the grid's [sharpness] (the variance of the Laplacian of Y, as the camera adapter computes it).
- * No pixels cross into the domain.
+ * ([glareFraction]), the grid's [sharpness] (the variance of the Laplacian of Y, as the camera adapter computes it) and
+ * [seams]: how many of the grid's 12 inner cell edges (0–12) show a dark seam between their two cells, the gap between
+ * stickers or pieces that a cube face has and a floor, a wall or clothing does not. No pixels cross into the domain.
  */
 data class FrameStats(
     val cells: List<CellReading?>,
     val meanLuma: Double,
     val glareFraction: Double,
     val sharpness: Double,
+    val seams: Int,
 )
 
 /**
  * Frame quality for the Guided Scan, in precedence order LOW_LIGHT → GLARE → BLURRED → MISALIGNED → ACCEPTABLE.
+ * Aligned means a plausible cube face fills the grid: nine readable cells, at least [MIN_PLAIN_CELLS] of them plain, a
+ * plain center, and at least [MIN_SEAMS] seams on the inner cell edges — a steady, sharp, bright background is not.
  * Thresholds are provisional: they are tuned on the reference devices in device session B.
  */
 object FrameQuality {
@@ -64,15 +68,34 @@ object FrameQuality {
     /** At least this many of the nine cells must be plain for the grid to sit on one face. Provisional (session B). */
     const val MIN_PLAIN_CELLS = 7
 
+    /**
+     * At least this many of the 12 inner cell edges must show a seam for the grid to hold a cube face, not background
+     * (device check 2026-11-16: floor and clothing were captured). Provisional, tuned in device session B.
+     */
+    const val MIN_SEAMS = 10
+
+    /** Inner cell edges of the 3×3 grid: 6 between columns, 6 between rows. */
+    const val INNER_EDGES = 12
+
     const val CELLS = 9
 
     fun assess(stats: FrameStats): CaptureQuality =
         when {
             stats.meanLuma < MIN_MEAN_LUMA -> CaptureQuality.LOW_LIGHT
+
             stats.glareFraction >= MAX_GLARE_FRACTION -> CaptureQuality.GLARE
+
             stats.sharpness < MIN_SHARPNESS -> CaptureQuality.BLURRED
+
             stats.cells.size != CELLS || stats.cells.any { it == null } -> CaptureQuality.MISALIGNED
+
             stats.cells.count { it?.plain == true } < MIN_PLAIN_CELLS -> CaptureQuality.MISALIGNED
+
+            // A cube face: the center is one plain sticker and the nine cells are parted by seams.
+            stats.cells[FaceSample.CENTER_INDEX]?.plain != true -> CaptureQuality.MISALIGNED
+
+            stats.seams < MIN_SEAMS -> CaptureQuality.MISALIGNED
+
             else -> CaptureQuality.ACCEPTABLE
         }
 }

@@ -1,7 +1,10 @@
 package dev.cubentia.app.camera
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -28,11 +31,29 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -40,17 +61,22 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.content.ContentStrings
+import dev.cubentia.app.preferences.LocalHaptics
 import dev.cubentia.app.render.StickerGlyph
 import dev.cubentia.app.ui.editor.colorName
+import dev.cubentia.app.ui.lesson.rememberReduceMotion
 import dev.cubentia.domain.appearance.StickerAppearance
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.recognition.Coaching
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.GuidedScanPlan
 import dev.cubentia.domain.recognition.Lab
+import kotlinx.coroutines.delay
 import kotlin.math.pow
+import kotlin.math.roundToInt
 import androidx.compose.ui.graphics.Color as UiColor
 import dev.cubentia.domain.cube.Color as CubeColor
 import dev.cubentia.domain.text.Text as ContentText
@@ -87,6 +113,19 @@ internal class GuidedScanActions(
     val onOpenSettings: () -> Unit = {},
     val onCapture: () -> Unit = {},
     val onUseAnyway: () -> Unit = {},
+    /** The freeze of capture [FrozenCapture.id] ended: live view resumes. */
+    val onFreezeEnd: (Long) -> Unit = {},
+)
+
+/**
+ * A face just captured (PO 2026-11-16): the preview [image] at the capture (null when the preview gave none) stays frozen
+ * on the viewfinder for [CaptureFreeze.FREEZE_MS], then shrinks into [face] on the mini net. [id] tells consecutive
+ * captures apart. Held in memory only until the freeze ends.
+ */
+internal class FrozenCapture(
+    val id: Long,
+    val face: Face,
+    val image: ImageBitmap?,
 )
 
 private const val VIEWFINDER_HEIGHT_FRACTION = 0.45f
@@ -96,12 +135,19 @@ private const val NET_ROWS = 3
 private const val SIDE = 3
 private const val QUARTER = 90
 
-/** Guided 6-face Scan (Story 10.2); [viewfinder] draws the camera preview (a PreviewView in the app). */
+/** How long the frozen frame takes to shrink into its face on the mini net. */
+internal const val SHRINK_MS = 300
+
+/**
+ * Guided 6-face Scan (Story 10.2); [viewfinder] draws the camera preview (a PreviewView in the app), and [frozen] is the
+ * face just captured, shown frozen over it.
+ */
 @Composable
 internal fun GuidedScanScreen(
     phase: GuidedScanPhase,
     strings: ContentStrings,
     actions: GuidedScanActions,
+    frozen: FrozenCapture? = null,
     viewfinder: @Composable () -> Unit = {},
 ) {
     Surface(Modifier.fillMaxSize()) {
@@ -164,7 +210,7 @@ internal fun GuidedScanScreen(
                 }
 
                 is GuidedScanPhase.Viewfinder -> {
-                    Viewfinder(phase, strings, actions, viewfinder)
+                    Viewfinder(phase, strings, actions, frozen, viewfinder)
                 }
             }
         }
@@ -189,82 +235,166 @@ private fun Card(
     }
 }
 
+/** Where the viewfinder's parts sit, in root coordinates, for the frozen frame's shrink into the mini net. */
+private class ViewfinderGeometry {
+    var origin by mutableStateOf(Offset.Zero)
+    var pane by mutableStateOf<Rect?>(null)
+    var grid by mutableStateOf<Rect?>(null)
+    val faces = mutableStateMapOf<Face, Rect>()
+}
+
+/**
+ * Compact portrait: the prompt above the viewfinder, the coaching line below it, then the mini net and *Capture*, so
+ * neither overlay covers the grid. Medium/expanded or landscape: the viewfinder left, an opaque panel right.
+ */
 @Composable
 private fun Viewfinder(
     phase: GuidedScanPhase.Viewfinder,
     strings: ContentStrings,
     actions: GuidedScanActions,
+    frozen: FrozenCapture?,
     preview: @Composable () -> Unit,
 ) {
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    val geometry = remember { ViewfinderGeometry() }
+    BoxWithConstraints(Modifier.fillMaxSize().onGloballyPositioned { geometry.origin = it.boundsInRoot().topLeft }) {
         val wide = maxWidth >= EXPANDED_WIDTH || maxWidth > maxHeight
         if (wide) {
             Row(Modifier.fillMaxSize()) {
-                Box(Modifier.weight(1f).fillMaxHeight()) { CameraArea(phase, strings, preview) }
+                Box(Modifier.weight(1f).fillMaxHeight()) { CameraArea(geometry, preview) }
                 Column(
-                    Modifier.weight(1f).fillMaxHeight().padding(16.dp),
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Prompt(phase, strings)
-                    MiniNet(phase, Modifier.weight(1f).fillMaxWidth())
+                    CoachingLine(phase, strings)
+                    MiniNet(phase, geometry, Modifier.weight(1f).fillMaxWidth())
                     CaptureButtons(phase, strings, actions)
                 }
             }
         } else {
             val cameraHeight = maxHeight * VIEWFINDER_HEIGHT_FRACTION
             Column(Modifier.fillMaxSize()) {
-                Box(Modifier.fillMaxWidth().height(cameraHeight)) {
-                    CameraArea(phase, strings, preview)
-                    Prompt(phase, strings, Modifier.align(Alignment.TopCenter).padding(8.dp))
-                }
+                Prompt(phase, strings, Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp))
+                Box(Modifier.fillMaxWidth().height(cameraHeight)) { CameraArea(geometry, preview) }
+                CoachingLine(phase, strings)
                 Column(
                     Modifier.weight(1f).fillMaxWidth().padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    MiniNet(phase, Modifier.weight(1f).fillMaxWidth())
+                    MiniNet(phase, geometry, Modifier.weight(1f).fillMaxWidth())
                     CaptureButtons(phase, strings, actions)
                 }
+            }
+        }
+        if (frozen != null) FrozenOverlay(frozen, geometry, actions.onFreezeEnd)
+    }
+}
+
+/** The preview, clipped to its own pane, with the grid overlay centered on it. */
+@Composable
+private fun CameraArea(
+    geometry: ViewfinderGeometry,
+    preview: @Composable () -> Unit,
+) {
+    BoxWithConstraints(
+        Modifier
+            .fillMaxSize()
+            .clipToBounds()
+            .background(UiColor.Black)
+            .onGloballyPositioned { geometry.pane = it.boundsInRoot() }
+            .testTag("scanViewfinder"),
+    ) {
+        preview()
+        val side = minOf(maxWidth, maxHeight) * FrameReader.GRID_FRACTION.toFloat()
+        Canvas(
+            Modifier
+                .align(Alignment.Center)
+                .size(side)
+                .onGloballyPositioned { geometry.grid = it.boundsInRoot() }
+                .testTag("scanGrid"),
+        ) {
+            val stroke = 2.dp.toPx()
+            drawRect(UiColor.White, Offset.Zero, Size(size.width, size.height), style = Stroke(stroke))
+            for (line in 1..2) {
+                val at = size.width * line / SIDE
+                drawLine(UiColor.White, Offset(at, 0f), Offset(at, size.height), stroke)
+                drawLine(UiColor.White, Offset(0f, at), Offset(size.width, at), stroke)
             }
         }
     }
 }
 
-/** The preview with the grid overlay and the coaching line (a polite live region). */
+/** The coaching line (a polite live region), outside the viewfinder so it never covers the grid. */
 @Composable
-private fun CameraArea(
+private fun CoachingLine(
     phase: GuidedScanPhase.Viewfinder,
     strings: ContentStrings,
-    preview: @Composable () -> Unit,
 ) {
-    Box(Modifier.fillMaxSize().background(UiColor.Black).testTag("scanViewfinder")) {
-        preview()
-        Canvas(Modifier.fillMaxSize()) {
-            val side = minOf(size.width, size.height) * FrameReader.GRID_FRACTION.toFloat()
-            val left = (size.width - side) / 2
-            val top = (size.height - side) / 2
-            val stroke = 2.dp.toPx()
-            drawRect(UiColor.White, Offset(left, top), Size(side, side), style = Stroke(stroke))
-            for (line in 1..2) {
-                val at = side * line / SIDE
-                drawLine(UiColor.White, Offset(left + at, top), Offset(left + at, top + side), stroke)
-                drawLine(UiColor.White, Offset(left, top + at), Offset(left + side, top + at), stroke)
-            }
-        }
-        val coaching = phase.coaching?.let { strings.resolve(ContentText(coachingKey(it))) }.orEmpty()
-        Text(
-            coaching,
-            modifier =
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .background(UiColor.Black.copy(alpha = 0.6f))
-                    .padding(8.dp)
-                    .semantics { liveRegion = LiveRegionMode.Polite }
-                    .testTag("scanCoaching"),
-            color = UiColor.White,
-            textAlign = TextAlign.Center,
-        )
+    val coaching = phase.coaching?.let { strings.resolve(ContentText(coachingKey(it))) }.orEmpty()
+    Text(
+        coaching,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 6.dp)
+                .semantics { liveRegion = LiveRegionMode.Polite }
+                .testTag("scanCoaching"),
+        textAlign = TextAlign.Center,
+        style = MaterialTheme.typography.bodyMedium,
+    )
+}
+
+/**
+ * The frame just captured, frozen over the viewfinder for [CaptureFreeze.FREEZE_MS] with a haptic tick, then shrinking
+ * its grid square into the face on the mini net (skipped under reduced motion; the freeze stays).
+ */
+@Composable
+private fun FrozenOverlay(
+    frozen: FrozenCapture,
+    geometry: ViewfinderGeometry,
+    onEnd: (Long) -> Unit,
+) {
+    val reduceMotion = rememberReduceMotion()
+    val haptics = LocalHapticFeedback.current
+    val hapticsOn = LocalHaptics.current
+    val end by rememberUpdatedState(onEnd)
+    val progress = remember(frozen.id) { Animatable(0f) }
+    LaunchedEffect(frozen.id) {
+        if (hapticsOn) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+        delay(CaptureFreeze.FREEZE_MS)
+        if (!reduceMotion) progress.animateTo(1f, tween(SHRINK_MS))
+        end(frozen.id)
     }
+    val image = frozen.image ?: return
+    val pane = geometry.pane ?: return
+    val grid = geometry.grid ?: pane
+    val target = geometry.faces[frozen.face] ?: grid
+    // Scaled about the pane's top-left, the grid square lands on the net face at progress 1.
+    val scale = target.width / grid.width
+    val shiftX = target.left - pane.left - scale * (grid.left - pane.left)
+    val shiftY = target.top - pane.top - scale * (grid.top - pane.top)
+    val density = LocalDensity.current
+    Image(
+        image,
+        contentDescription = null,
+        contentScale = ContentScale.FillBounds,
+        modifier =
+            Modifier
+                .offset { IntOffset((pane.left - geometry.origin.x).roundToInt(), (pane.top - geometry.origin.y).roundToInt()) }
+                .size(with(density) { pane.width.toDp() }, with(density) { pane.height.toDp() })
+                .graphicsLayer {
+                    val p = progress.value
+                    transformOrigin = TransformOrigin(0f, 0f)
+                    scaleX = 1f + (scale - 1f) * p
+                    scaleY = scaleX
+                    translationX = shiftX * p
+                    translationY = shiftY * p
+                }.testTag("scanFrozen"),
+    )
 }
 
 internal fun coachingKey(coaching: Coaching): String =
@@ -319,6 +449,7 @@ private fun Swatch(
 @Composable
 private fun MiniNet(
     phase: GuidedScanPhase.Viewfinder,
+    geometry: ViewfinderGeometry,
     modifier: Modifier,
 ) {
     val current = GuidedScanPlan.steps.getOrNull(phase.stepIndex)?.face
@@ -336,6 +467,7 @@ private fun MiniNet(
                         .offset(cell * SIDE * column, cell * SIDE * row)
                         .requiredSize(cell * SIDE)
                         .then(if (face == current) Modifier.border(BorderStroke(2.dp, outline)) else Modifier)
+                        .onGloballyPositioned { geometry.faces[face] = it.boundsInRoot() }
                         .testTag("scanNetFace:${face.name}"),
                 ) {
                     for (index in 0 until SIDE * SIDE) {

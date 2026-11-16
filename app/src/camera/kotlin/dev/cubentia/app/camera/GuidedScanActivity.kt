@@ -4,10 +4,12 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.MediaActionSound
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
 import android.provider.Settings
+import android.view.ViewOutlineProvider
 import android.view.ViewTreeObserver
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -34,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
@@ -42,6 +45,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import dev.cubentia.app.content.CatalogState
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.content.LessonCatalog
+import dev.cubentia.app.preferences.PreferenceProvider
+import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.app.scan.GuidedScanCapture
 import dev.cubentia.app.scan.GuidedScanContract
 import dev.cubentia.app.ui.theme.CubentiaTheme
@@ -67,6 +72,12 @@ import javax.inject.Inject
 class GuidedScanActivity : ComponentActivity() {
     @Inject
     lateinit var lessonCatalog: LessonCatalog
+
+    @Inject
+    lateinit var preferenceStore: PreferenceStore
+
+    /** The system camera shutter sound played on each capture; released with the Activity. */
+    private val shutterSound = MediaActionSound()
 
     private val scan: GuidedScanViewModel by viewModels()
     private val analyzerExecutor get() = scan.analyzerExecutor
@@ -99,6 +110,7 @@ class GuidedScanActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        shutterSound.load(MediaActionSound.SHUTTER_CLICK)
         // Back and a destroyed task read as Cancelled.
         setResult(RESULT_CANCELED)
         if (phase == GuidedScanPhase.Rationale) phase = GuidedScanFlow.initialPhase(hasPermission())
@@ -118,8 +130,9 @@ class GuidedScanActivity : ComponentActivity() {
                         startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
                     }
                 },
-                onCapture = { analyzerExecutor.execute { handle(controller.onShutter(SystemClock.elapsedRealtime())) } },
-                onUseAnyway = { analyzerExecutor.execute { handle(controller.onUseAnyway(SystemClock.elapsedRealtime())) } },
+                onCapture = { decide { now -> controller.onShutter(now) } },
+                onUseAnyway = { decide { now -> controller.onUseAnyway(now) } },
+                onFreezeEnd = { id -> if (scan.frozen?.id == id) scan.frozen = null },
             )
         setContent {
             val catalog by lessonCatalog.state.collectAsState()
@@ -130,22 +143,32 @@ class GuidedScanActivity : ComponentActivity() {
                     is CatalogState.Failed -> ContentStrings(emptyMap())
                     CatalogState.Loading -> null
                 }
-            CubentiaTheme {
-                if (strings == null) return@CubentiaTheme
-                GuidedScanScreen(phase, strings, actions) {
-                    AndroidView(
-                        factory = { context ->
-                            PreviewView(context).also {
-                                it.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                                previewView = it
-                                startCamera()
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize(),
-                    )
+            PreferenceProvider(preferenceStore) {
+                CubentiaTheme {
+                    if (strings == null) return@CubentiaTheme
+                    GuidedScanScreen(phase, strings, actions, scan.frozen) {
+                        AndroidView(
+                            factory = { context ->
+                                PreviewView(context).also {
+                                    it.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                                    // The scaled preview never draws outside its own pane.
+                                    it.outlineProvider = ViewOutlineProvider.BOUNDS
+                                    it.clipToOutline = true
+                                    previewView = it
+                                    startCamera()
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        shutterSound.release()
+        super.onDestroy()
     }
 
     override fun onResume() {
@@ -260,10 +283,20 @@ class GuidedScanActivity : ComponentActivity() {
         )
     }
 
-    /** Analyzer thread: read the frame into stats, drop it, and run the controller. */
+    /** Analyzer thread: read the frame into stats, drop it, and run the controller — unless a capture is frozen. */
     private fun analyze(image: ImageProxy) {
+        val now = SystemClock.elapsedRealtime()
+        if (scan.freeze.isFrozen(now)) return
         val stats = FrameReader.read(image)
-        handle(controller.onFrame(stats, image.imageInfo.rotationDegrees, SystemClock.elapsedRealtime()))
+        handle(scan.freeze.decide(now) { controller.onFrame(stats, image.imageInfo.rotationDegrees, now) })
+    }
+
+    /** A shutter or override decision on the analyzer thread; none runs while a capture is frozen. */
+    private fun decide(decision: (Long) -> List<GuidedScanEffect>) {
+        analyzerExecutor.execute {
+            val now = SystemClock.elapsedRealtime()
+            handle(scan.freeze.decide(now) { decision(now) })
+        }
     }
 
     /**
@@ -274,7 +307,13 @@ class GuidedScanActivity : ComponentActivity() {
         val vm = scan
         val state = GuidedScanFlow.phaseOf(controller)
         val result = GuidedScanFlow.resultOf(effects)
+        val captured = effects.filterIsInstance<GuidedScanEffect.Capture>().firstOrNull()
         ContextCompat.getMainExecutor(this).execute {
+            if (captured != null) {
+                // Capture feedback (PO 2026-11-16): shutter sound, then the frame frozen and shrunk into the net.
+                shutterSound.play(MediaActionSound.SHUTTER_CLICK)
+                vm.frozen = FrozenCapture(++vm.captures, captured.sample.face, previewView?.bitmap?.asImageBitmap())
+            }
             if (vm.phase is GuidedScanPhase.Viewfinder && vm.phase != state) vm.phase = state
             if (GuidedScanFlow.remeters(effects)) meterOnGrid()
             if (result != null) vm.result.value = result
@@ -300,7 +339,8 @@ class GuidedScanActivity : ComponentActivity() {
 
 /**
  * What survives a configuration change: the controller (touched only on [analyzerExecutor]), its analyzer thread, the
- * shown phase, the rationale state before the last permission request and a finished result. Holds no frame.
+ * shown phase, the rationale state before the last permission request and a finished result. Holds no frame, except the
+ * preview image of a face just captured for the few hundred milliseconds of its freeze.
  */
 internal class GuidedScanViewModel : ViewModel() {
     val analyzerExecutor: ExecutorService = Executors.newSingleThreadExecutor()
@@ -309,6 +349,15 @@ internal class GuidedScanViewModel : ViewModel() {
 
     /** Whether the system would have shown a rationale just before the last permission request. */
     var rationaleBefore = false
+
+    /** No capture decision runs while a capture is frozen (touched on [analyzerExecutor] only). */
+    val freeze = CaptureFreeze()
+
+    /** The face just captured, frozen on screen until the screen ends its freeze; set and cleared on main. */
+    var frozen by mutableStateOf<FrozenCapture?>(null)
+
+    /** Captures so far, numbering each [FrozenCapture]; main thread only. */
+    var captures = 0L
 
     /** The finished scan, set once on main; whichever Activity instance is current finishes with it. */
     val result = MutableStateFlow<GuidedScanCapture?>(null)

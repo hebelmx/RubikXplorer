@@ -1,6 +1,13 @@
 package dev.cubentia.app.camera
 
 import android.app.Application
+import android.graphics.Bitmap
+import android.provider.Settings
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
@@ -11,6 +18,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.DpRect
+import androidx.test.core.app.ApplicationProvider
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.domain.content.ContentLoadResult
@@ -23,6 +32,7 @@ import dev.cubentia.domain.recognition.Coaching
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.Lab
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -60,11 +70,21 @@ class GuidedScanScreenTest {
             )
         show(GuidedScanPhase.Viewfinder(stepIndex = 1, captured = captured, coaching = Coaching.GLARE))
         val root = rule.onRoot().getUnclippedBoundsInRoot()
-        listOf("scanViewfinder", "scanPrompt", "scanNet", "scanCapture").forEach { tag ->
+        listOf("scanViewfinder", "scanPrompt", "scanCoaching", "scanNet", "scanCapture").forEach { tag ->
             rule.onNodeWithTag(tag).assertIsDisplayed()
             val bounds = rule.onNodeWithTag(tag).getUnclippedBoundsInRoot()
             assertTrue("$tag $bounds inside $root", bounds.top >= root.top && bounds.bottom <= root.bottom && bounds.right <= root.right)
         }
+        // Device check 2026-11-16: the prompt and the coaching line sit above and below the grid, never on it.
+        val grid = rule.onNodeWithTag("scanGrid").getUnclippedBoundsInRoot()
+        val viewfinder = rule.onNodeWithTag("scanViewfinder").getUnclippedBoundsInRoot()
+        assertTrue("grid $grid inside $viewfinder", grid.inside(viewfinder))
+        listOf("scanPrompt", "scanCoaching", "scanNet", "scanCapture").forEach { tag ->
+            val bounds = rule.onNodeWithTag(tag).getUnclippedBoundsInRoot()
+            assertFalse("$tag $bounds overlaps the grid $grid", bounds.overlaps(grid))
+        }
+        assertTrue(rule.onNodeWithTag("scanPrompt").getUnclippedBoundsInRoot().bottom <= grid.top)
+        assertTrue(rule.onNodeWithTag("scanCoaching").getUnclippedBoundsInRoot().top >= grid.bottom)
         rule.onNodeWithText("Show the red center, with white on top.").assertIsDisplayed()
         rule.onNodeWithText("Too much glare — tilt the cube").assertIsDisplayed()
         rule.onNodeWithText("Face 2 of 6").assertIsDisplayed()
@@ -98,6 +118,61 @@ class GuidedScanScreenTest {
         rule.onNodeWithTag("scanCapture").performClick()
         assertEquals(1, used)
         assertEquals(1, captured)
+    }
+
+    private val ticks = mutableListOf<HapticFeedbackType>()
+    private val ended = mutableListOf<Long>()
+
+    private fun showFrozen(animatorScale: Float) {
+        Settings.Global.putFloat(
+            ApplicationProvider.getApplicationContext<Application>().contentResolver,
+            Settings.Global.ANIMATOR_DURATION_SCALE,
+            animatorScale,
+        )
+        rule.mainClock.autoAdvance = false
+        val haptics =
+            object : HapticFeedback {
+                override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) {
+                    ticks += hapticFeedbackType
+                }
+            }
+        rule.setContent {
+            CompositionLocalProvider(LocalHapticFeedback provides haptics) {
+                CubentiaTheme {
+                    GuidedScanScreen(
+                        GuidedScanPhase.Viewfinder(stepIndex = 1),
+                        strings,
+                        GuidedScanActions(onFreezeEnd = { ended += it }),
+                        FrozenCapture(7, Face.F, Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888).asImageBitmap()),
+                    )
+                }
+            }
+        }
+        rule.mainClock.advanceTimeByFrame()
+    }
+
+    @Test
+    fun `a capture freezes its frame with a haptic tick, then shrinks it into the net before live view resumes`() {
+        showFrozen(animatorScale = 1f)
+        rule.onNodeWithTag("scanFrozen").assertIsDisplayed()
+        assertEquals(listOf(HapticFeedbackType.KeyboardTap), ticks)
+        rule.mainClock.advanceTimeBy(CaptureFreeze.FREEZE_MS - 50)
+        assertEquals(emptyList<Long>(), ended)
+        // Frozen, then shrinking: still not ended right after the freeze.
+        rule.mainClock.advanceTimeBy(100)
+        assertEquals(emptyList<Long>(), ended)
+        rule.mainClock.advanceTimeBy(SHRINK_MS.toLong() + 100)
+        assertEquals(listOf(7L), ended)
+    }
+
+    @Test
+    fun `reduced motion keeps the freeze and skips the shrink`() {
+        showFrozen(animatorScale = 0f)
+        rule.onNodeWithTag("scanFrozen").assertIsDisplayed()
+        rule.mainClock.advanceTimeBy(CaptureFreeze.FREEZE_MS - 50)
+        assertEquals(emptyList<Long>(), ended)
+        rule.mainClock.advanceTimeBy(100)
+        assertEquals(listOf(7L), ended)
     }
 
     @Test
@@ -149,3 +224,10 @@ class GuidedScanScreenTest {
         assertEquals(1, closed)
     }
 }
+
+/** True when this rectangle and [other] share any area. */
+internal fun DpRect.overlaps(other: DpRect): Boolean = left < other.right && other.left < right && top < other.bottom && other.top < bottom
+
+/** True when this rectangle lies inside [other]. */
+internal fun DpRect.inside(other: DpRect): Boolean =
+    left >= other.left && top >= other.top && right <= other.right && bottom <= other.bottom

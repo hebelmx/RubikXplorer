@@ -24,7 +24,8 @@ class GuidedScanTest {
         luma: Double = 120.0,
         glare: Double = 0.0,
         sharpness: Double = 100.0,
-    ) = FrameStats(cells, luma, glare, sharpness)
+        seams: Int = 12,
+    ) = FrameStats(cells, luma, glare, sharpness, seams)
 
     private val good = stats()
 
@@ -64,6 +65,50 @@ class GuidedScanTest {
         assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(stats(cells = cells(Color.GREEN, plain = 6))))
         assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(stats(cells = cells(Color.GREEN, plain = 7))))
         assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(stats(cells = cells(Color.GREEN).take(8))))
+    }
+
+    @Test
+    fun `fewer than ten seams or a center that is not plain is misaligned`() {
+        assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(stats(seams = 9)))
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(stats(seams = 10)))
+        val unplainCenter = cells(Color.GREEN).toMutableList().also { it[4] = CellReading(LABS.getValue(Color.GREEN), false) }
+        assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(stats(cells = unplainCenter)))
+    }
+
+    /** Background the device check captured: steady, sharp and bright, nine plain cells, but no cube in the grid. */
+    private val backgrounds =
+        listOf(
+            // Uniform gray floor or wall.
+            stats(cells = List(9) { CellReading(Lab(55.0, 0.0, 1.0), true) }, seams = 0),
+            // Textured floor (terrazzo): mixed light grays, a grout line crossing two edges.
+            stats(
+                cells = List(9) { CellReading(Lab(if (it % 2 == 0) 72.0 else 64.0, 0.5, 3.0), true) },
+                sharpness = 400.0,
+                seams = 2,
+            ),
+            // Dark clothing with folds.
+            stats(cells = List(9) { CellReading(Lab(30.0, 4.0, 6.0), true) }, luma = 60.0, seams = 4),
+        )
+
+    @Test
+    fun `background with no cube in the grid never captures, automatically or by the shutter`() {
+        backgrounds.forEach { frame ->
+            val controller = GuidedScanController()
+            assertEquals(emptyList<GuidedScanEffect>(), controller.feed(frame, 0, 5000))
+            assertEquals(emptyList<GuidedScanEffect>(), controller.onShutter(5000))
+            assertEquals(Coaching.MISALIGNED, controller.coaching)
+            assertEquals(0, controller.stepIndex)
+        }
+    }
+
+    @Test
+    fun `a cube only partly in the grid does not capture until it is centered`() {
+        val controller = GuidedScanController()
+        // Shifted half a cell: most seams fall between the grid lines.
+        assertEquals(emptyList<GuidedScanEffect>(), controller.feed(stats(seams = 6), 0, 3000))
+        assertEquals(0, controller.stepIndex)
+        assertEquals(listOf(GuidedScanEffect.Remeter), controller.onFrame(good, 0, 3100))
+        assertTrue(controller.feed(good, 3200, 4000).any { it is GuidedScanEffect.Capture })
     }
 
     // Plan

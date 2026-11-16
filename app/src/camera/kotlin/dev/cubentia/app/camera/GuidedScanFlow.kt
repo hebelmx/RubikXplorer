@@ -40,3 +40,29 @@ internal object GuidedScanFlow {
     fun resultOf(effects: List<GuidedScanEffect>): GuidedScanCapture? =
         effects.filterIsInstance<GuidedScanEffect.Done>().firstOrNull()?.let { GuidedScanCapture.Captured(it.samples) }
 }
+
+/**
+ * The capture freeze (PO 2026-11-16): after a face is captured the captured frame stays on screen for [durationMs], and
+ * no capture decision (frame, shutter or *Use this face anyway*) runs until it ends. Touched on the analyzer thread only.
+ */
+internal class CaptureFreeze(
+    private val durationMs: Long = FREEZE_MS,
+) {
+    private var until: Long? = null
+
+    fun isFrozen(nowMs: Long): Boolean = until?.let { nowMs < it } == true
+
+    /** Runs [decision] unless frozen at [nowMs]; a capture among its effects starts a new freeze. */
+    fun decide(
+        nowMs: Long,
+        decision: () -> List<GuidedScanEffect>,
+    ): List<GuidedScanEffect> {
+        if (isFrozen(nowMs)) return emptyList()
+        return decision().also { effects -> if (effects.any { it is GuidedScanEffect.Capture }) until = nowMs + durationMs }
+    }
+
+    companion object {
+        /** How long the captured frame stays frozen before it shrinks into the mini net. */
+        const val FREEZE_MS = 400L
+    }
+}
