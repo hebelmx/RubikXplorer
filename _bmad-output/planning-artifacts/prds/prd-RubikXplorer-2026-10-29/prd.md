@@ -468,11 +468,11 @@ There are two capture modes:
 - **Quick Scan** (fewer captures). The Learner holds the cube by a corner, so each capture shows three faces, and two or three captures cover all six. If the result is not confident and valid, the app falls back to the Guided 6-face Scan for the missing or uncertain faces only.
 
 #### FR-21: Guided 6-face Scan
-The Learner can capture all six faces in a live viewfinder, with orientation prompts and automatic capture.
+The Learner can capture all six faces in a live viewfinder, with face prompts and automatic capture.
 
 **Consequences (testable):**
 - Each face is captured automatically once the grid is aligned and the image is stable. A manual shutter is also available.
-- A capture in the wrong orientation is detected from center and adjacency checks, and the Learner is prompted again.
+- Each face may be shown in any rotation. The app works out each face's rotation from adjacency checks across the six faces; when it can't, it asks again for only the faces involved, naming the side to put on top. It never guesses. (SCP 2026-11-16)
 - Every sticker gets a Sticker Confidence. Uncertain stickers are highlighted for one-tap correction before the result can be accepted.
 
 #### FR-22: Quick Scan (corner views)

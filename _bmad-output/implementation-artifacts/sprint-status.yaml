@@ -144,6 +144,7 @@ development_status:
   10-11-raise-a-camera-feature-above-off-for-a-release: backlog
   10-12-fixture-recorder-a-phone-operator-can-finish-quickly: done
   10-13-choose-the-recognition-approach-oq-7: done
+  10-14-scan-each-face-in-any-rotation: backlog
   epic-10-retrospective: optional
 
   epic-11: backlog

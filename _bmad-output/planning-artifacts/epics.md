@@ -54,7 +54,7 @@ FR-17: 2-look LL mini-Course (2-look OLL + 2-look PLL) unlocked after the Course
 FR-18: Algorithm Library of all 78 (57 OLL + 21 PLL) Algorithms grouped by family; watch Demonstration (play, pause, step, speed, View Rotation), see recognition diagram and Notation, set Algorithm Status; build-failing verification test per Algorithm (inverse from solved matches Case; Algorithm solves LL up to AUF); filter by status and family; diagrams derived from Case state; one primary Algorithm per Case [ASSUMPTION].
 FR-19: Persist across restarts and forced process death: Stage completed/skipped/mastered, current Checkpoint, attempt outcomes (errors, hints), Algorithm Statuses, Color Calibration, preferences (animation speed, color-blind display, last Teaching Mode). Latest committed Checkpoint restored; physical Checkpoint asks to confirm/scan/re-enter; repeats append, never corrupt; reset progress + Algorithm Statuses with confirmation, separate resets for calibration and preferences.
 FR-20: Independent practice on a fresh Scramble with reduced help; a Stage is *mastered* only by its Mastery Condition (initially 2 successful completions, ≥ 1 with reduced assistance, configurable [ASSUMPTION]); transitions follow configuration with tests; neither Lesson completion nor *skipped* marks *mastered*; the Learner can see their hint and error trend.
-FR-21: Guided 6-face Scan: live viewfinder, orientation prompts, automatic capture when aligned and stable plus a manual shutter; wrong orientation detected from center/adjacency checks and re-prompted; every sticker has a Sticker Confidence, uncertain ones highlighted for correction before acceptance.
+FR-21: Guided 6-face Scan: live viewfinder, face prompts, automatic capture when aligned and stable plus a manual shutter; each face's rotation worked out from adjacency checks, and the faces involved re-prompted with a named top when it can't be (SCP 2026-11-16); every sticker has a Sticker Confidence, uncertain ones highlighted for correction before acceptance.
 FR-22: Quick Scan: 2–3 corner-angle captures, each showing three faces; two opposite-corner captures yield 54 stickers; uncertain/invalid → ask only for missing faces via Guided 6-face Scan, never a guessed state; "beta" unless it meets its targets.
 FR-23: Review a Scan Result on a net (or 3D cube), correct any sticker, accept only once valid; invalid states name likely bad stickers; 54 recognized colors never valid by themselves; low light/glare/blur/incomplete capture → specific guidance and recapture.
 FR-24: Color Calibration from the six centers; stickers classified against the cube's own centers (stickerless/pastel work after calibration); persists per device, resettable; standard color scheme only [ASSUMPTION].
@@ -125,7 +125,7 @@ UX-DR11: Recovery prompt: inline in the lesson panel, never a dialog; *Undo*, *G
 UX-DR12: Physical controls: **Done** stays primary (even under a recovery prompt); secondary *I did something else*; overflow with *My cube doesn't match* and *I'm not sure what I did*; *Quick Check* camera icon at Objective boundaries, Stage milestones and after mismatch reports, never required.
 UX-DR13: Certainty chip (`rounded.full`, icon + label + status color: ✓ *Verified*, ≈ *Likely*, ? *Unknown*), tappable to explain its evidence, never a percentage; Expected badge (dashed outline, `EXPECTED`) on every rendering of a predicted physical state; no chip while Expected-only.
 UX-DR14: Playback transport shared by Demonstrations, Solution Playback and Algorithm detail: |◀ ◀ ▶/❚❚ ▶ ▶|, speed 0.5×/1×/2×, step counter in `data`, current Move in large `notation` with its MoveNote line in `meta`, current Move in the strip marked by an `ink-primary` outline, scrubbing snaps to Move boundaries.
-UX-DR15: Scan viewfinder: full-bleed preview, 3×3 grid in `scan-grid` at 70% with 1dp dark halo, auto-capture after ~600 ms aligned and steady, manual shutter, face prompt naming center and up colors with a glyph swatch, mini net progress, inline quality coaching, wrong orientation → re-prompt not error; Quick Scan variant with a Y-shaped corner guide and "1 / 2" counter, unreadable faces hand off to the per-face grid; portrait camera with rotating overlays in landscape.
+UX-DR15: Scan viewfinder: full-bleed preview, 3×3 grid in `scan-grid` at 70% with 1dp dark halo, auto-capture after ~600 ms aligned and steady, manual shutter, face prompt naming the center color with a glyph swatch (the up color only on a re-prompt, SCP 2026-11-16 / Story 10.14), mini net progress, inline quality coaching, wrong orientation → re-prompt not error; Quick Scan variant with a Y-shaped corner guide and "1 / 2" counter, unreadable faces hand off to the per-face grid; portrait camera with rotating overlays in landscape.
 UX-DR16: Sticker review net (Scan review and Editor): uncertain stickers pre-selected with a dashed `accent` ring and "?" badge; tap a sticker, then a color; invalid pieces outlined in `status-invalid` with labels; non-local errors on their own lines (twisted corner, flipped edge, swapped pieces); **Accept** disabled until every uncertain sticker is resolved and the state is valid.
 UX-DR17: Algorithm tile (diagram of U face + side bands derived from state, Case name in `label`, Algorithm in `notation`, status label *Learning*/*Learned*, nothing for *Not started*); fallback tile without a diagram; neutral M3 filter chips (selected = `surface-raised` + ✓, never violet); no stars, scores or badges.
 UX-DR18: Stage row (number in `data`, name in `title`, state text + icon: Locked, In progress, Completed, ◇ Skipped, ◇ Skipped by placement, ◆ Mastered in `accent`), reused for the 2-look mini-Course; Mastery progress line ("Mastery: 1 of 2 solves · 1 with reduced help") with a two-segment indicator; Trend row (dot sparkline of hints per attempt in date order, latest emphasized, attempt count in `data`, no totals, no red).
@@ -227,7 +227,7 @@ A Learner can browse and watch all 78 verified OLL/PLL Algorithms, track their o
 ### Epic 10: Scan my cube (v1.1, flag-gated)
 A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. Built on `main` with every camera flag OFF in release; each feature reaches users only when the PO raises its flag at a release (Story 10.11). Restored from `post-launch/v1.1-camera-recognition.md` by `sprint-change-proposal-2026-11-14-v1-1-camera.md`.
 **FRs covered:** FR-21, FR-23 – FR-26, plus the Quick Check rung of FR-9 and FR-16, and the calibration reset of FR-19. **Also:** recognition NFRs, NFR-5, NFR-8, NFR-11, NFR-12, AD-9, AD-13, AD-18, AR-13, UX-DR15, UX-DR16, UX-DR19 – UX-DR22, UX-DR25.
-**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.4 → 10.5 → 10.7) → Epic 11 → 10.8 → 10.11 *(SCP 2026-11-15)*. Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance; C = 11.1, 11.3 capture and 10.8.
+**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.7) → Epic 11 → 10.8 → 10.11 *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16)*. Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance; B2 = 10.14; C = 11.1, 11.3 capture and 10.8.
 **Never blocks** tester-feedback fixes or Stories 12.3, 12.4, 12.5 and 13.6: camera stories merge only with release camera flags OFF, and Story 10.9's gate keeps the release free of camera code and permissions.
 
 ### Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition (v1.1, flag-gated)
@@ -1791,7 +1791,7 @@ So that I know when to move to the full set.
 
 ## Epic 10: Scan my cube
 
-A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. P0.4 exit: the Guided Scan meets its accuracy targets on the test matrix, or `CAMERA_SCAN` ships as BETA. *(SCP 2026-11-14: restored from `post-launch/v1.1-camera-recognition.md`. Every story merges to `main` with every camera flag OFF in release; Story 10.9 lands first and Story 10.10 second. Stories 10.9–10.11 are appended IDs that run earlier than their number, as the How-to-read note allows.)* *(SCP 2026-11-15: Stories 10.12 (recorder rework, session A2) and 10.13 (OQ-7 spike) run after 10.10 and before 10.1.)*
+A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. P0.4 exit: the Guided Scan meets its accuracy targets on the test matrix, or `CAMERA_SCAN` ships as BETA. *(SCP 2026-11-14: restored from `post-launch/v1.1-camera-recognition.md`. Every story merges to `main` with every camera flag OFF in release; Story 10.9 lands first and Story 10.10 second. Stories 10.9–10.11 are appended IDs that run earlier than their number, as the How-to-read note allows.)* *(SCP 2026-11-15: Stories 10.12 (recorder rework, session A2) and 10.13 (OQ-7 spike) run after 10.10 and before 10.1.)* *(SCP 2026-11-16: Story 10.14 (scan each face in any rotation) runs after 10.3.)*
 
 ### Story 10.1: Classify stickers and assemble a Scan Result
 
@@ -1831,7 +1831,7 @@ So that scanning is quick even for a beginner.
 
 **Given** the CameraX adapter in the camera source set (`app/src/camera/kotlin/dev/cubentia/app/camera/`, Story 10.9) *(SCP 2026-11-14: was `:app/camera`)*
 **When** the grid is aligned and steady for ~600 ms
-**Then** the face is captured automatically (manual shutter also available), the prompt names the center and up colors with a glyph swatch, and the mini net advances
+**Then** the face is captured automatically (manual shutter also available), the prompt names the center and up colors with a glyph swatch, and the mini net advances *(SCP 2026-11-16: Story 10.14 drops the up color from the prompt; this prompt stays as its re-prompt.)*
 
 **Given** the cube aligned in the grid at the distance that fills it *(SCP 2026-11-15: session A focus miss on the S24 FE)*
 **When** alignment is first detected, or the face changes
@@ -2152,6 +2152,42 @@ So that Epic 10 builds on the approach with the best accuracy, effort and size t
 **Given** the report
 **When** the story closes
 **Then** the PO records the OQ-7 decision in the PRD memlog, and the PRD OQ-7 line and the spine's Quick Scan detection-method line are updated to match. The release classpath gate (Story 10.9) is unchanged unless the decision adds a runtime, and then it is changed in this story.
+
+### Story 10.14: Scan each face in any rotation
+
+As a Learner,
+I want to show each face however it happens to be turned,
+So that I don't have to work out which side goes on top.
+
+**Refs:** FR-21, FR-23 · recognition NFRs, NFR-10 · AD-2, AD-9 · UX-DR15 · Stories 10.2, 10.3 · #158
+
+**Depends on** Stories 10.2 and 10.3. **Human gate:** device session B2 on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE, with a stickered and a stickerless cube. *(SCP 2026-11-16: PO idea from device session B. Per-face retake from review is a separate story.)*
+
+**Acceptance Criteria:**
+
+**Given** the Guided 6-face Scan
+**When** a face is prompted
+**Then** the prompt names only the center color with its glyph swatch ("Show the **green** center"), the fixed face order and the live repeated-face rule of Story 10.2 (AC4) are unchanged, and the captured `FaceSample` carries no `upNeighborColor`
+
+**Given** six captured faces with no up neighbor
+**When** `ScanAssembler` assembles them
+**Then** it tries the four quarter turns of every face (4⁶ assignments, centers fixed) on the classified colors and keeps the `Facelets` that `CubeValidator` accepts; assignments that give the same `Facelets` count as one; `ScanAssembler` stays the only place samples are rotated (AD-9)
+
+**Given** the session A and A2 live fixtures, each face turned by a random quarter turn (fixed seed)
+**When** the JVM suite assembles them
+**Then** every scan whose prompted-pose assembly was valid yields the same `Facelets`, the share of scans needing a re-prompt is reported per device in `docs/scan-accuracy.md`, and one assembly takes under 50 ms on the JVM
+
+**Given** no valid assignment, or two or more distinct valid states
+**When** assembly ends
+**Then** the scan never guesses: it re-prompts only the faces involved with the Story 10.2 prompt ("Show the **green** center, with **white** on top"), first any face whose center read disagrees with its prompt, then the faces whose turn differs across the valid states or that hold the illegal pieces of the assignment with the most legal pieces; assembly then uses the prompted turn for those faces, and if the state is still invalid the result goes to Story 10.3 review as today, with no further loop
+
+**Given** the prompt and re-prompt copy
+**When** they render
+**Then** they come from content strings (NFR-10), and on a phone in portrait the viewfinder and prompt still fit without scrolling
+
+**Given** the debug fixture recorder
+**When** it records
+**Then** it keeps the prompted top, so fixture ground truth keeps a known pose
 
 ## Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition
 
