@@ -244,11 +244,11 @@ stateDiagram-v2
   - **Camera adapter:**
     - Only the CameraX adapter touches pixels. It lives in the build-time camera source set `app/src/camera/` (AD-18), never in `app/src/main`.
     - `:app` main code reaches the camera only through the `ScanLauncher` port, with an optional Hilt binding (`@BindsOptionalOf`) that only the camera source set provides. With no binding, every scan entry point is hidden; a debuggable app with a camera flag above OFF and no binding fails at startup.
-    - It emits `FaceSample`s: `centerColor`, `upNeighborColor` and 9 CIELAB samples **in viewfinder order**, plus quality flags and the capture pose.
+    - It emits `FaceSample`s: `centerColor`, `upNeighborColor` (only when the prompt named a top, SCP 2026-11-16) and 9 CIELAB samples **in viewfinder order**, plus quality flags and the capture pose.
     - Quick Scan's detection and perspective correction live inside the adapter and emit the same type.
     - **Detection method** (OQ-7 decision K, PO 2026-11-15, Story 10.13, `docs/spikes/oq-7-recognition-approach.md`): Kotlin nearest-center classification fed by a per-cell histogram-mode reader, self-calibrated from the six face centers; no new runtime, so the Story 10.9 classpath gate is unchanged. LiteRT is the fallback if field use shows this is not enough; OpenCV is rejected on size (NFR-11). Story 11.1 builds Quick Scan's detection within this decision.
   - **Assembly and classification:**
-    - Only `ScanAssembler` in `:core:domain` rotates samples into `Facelets` order.
+    - Only `ScanAssembler` in `:core:domain` rotates samples into `Facelets` order. A sample with no `upNeighborColor` gets the quarter turn that makes the six faces a state `CubeValidator` accepts; when no turn or more than one distinct state fits, it reports the faces involved for a re-prompt with a named top and never guesses (Story 10.14, SCP 2026-11-16).
     - `StickerClassifier` receives the calibration as a parameter.
     - The result is `ScanResult` = `Full(Facelets + confidence)` or `Partial(...)`.
   - **Acceptance:** the reducer rejects `ScanAccepted` unless:
