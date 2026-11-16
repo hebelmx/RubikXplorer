@@ -82,3 +82,7 @@ Each JPEG is the analysis frame's measured crop in the sample's pixel orientatio
 **Session A2 reuses session A names.** The same device, cube (`stla`, `stka`) and light (`studio`) give the same `<device>_<cube>_<light>` directory, so on the device the recorder would mark session A faces as already captured, and the pull would overwrite the checked-in session A records. Before A2, clear the app's on-device `Fixtures/live` (`adb shell rm -r /sdcard/Android/data/com.exxerpro.cubentia/files/Fixtures/live`) and enter a distinct light description such as `studio-a2`.
 
 The pull brings the JPEG frames with the JSON. Review the exported metadata, truth and frames before checking in device-session records; the evaluator reads only the JSON and reports all-sticker and entered-only accuracy. The evaluator updates only the marked Live baseline section in `docs/spikes/oq-4-guided-scan.md`.
+
+### Scan accuracy (Story 10.1)
+
+`./gradlew :core:domain:evaluateScanAccuracy` runs the same `live/` records through the product scan pipeline of OQ-7 decision K: the all-Kotlin cell reader on the A2 frames (ImageIO decode, sRGB → CIELAB, histogram mode, no OpenCV) and on the recorded center-pixel samples, then self-calibration from the six centers and assembly into URFDLB. It rewrites only the generated span of `docs/scan-accuracy.md` (per-device sticker and scan accuracy, confidently wrong, the logo-center guard). It is on demand and not part of `build`.
