@@ -4,6 +4,7 @@ import androidx.camera.core.ImageProxy
 import dev.cubentia.domain.recognition.CellReadResult
 import dev.cubentia.domain.recognition.CellReader
 import dev.cubentia.domain.recognition.CellReading
+import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.FrameQuality
 import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.Lab
@@ -102,6 +103,9 @@ internal object FrameReader {
     const val BODY_MAX_L = 30.0
     const val BODY_MAX_CHROMA = 15.0
 
+    /** Samples within this CIE76 ΔE of one another are one color for a center's dominant color. Provisional (session B). */
+    const val DOMINANT_DELTA_E = 10.0
+
     /** A cell's body samples are left out only when at least this share of its samples are sticker. */
     const val MIN_STICKER_SHARE = 0.25
 
@@ -149,9 +153,28 @@ internal object FrameReader {
                 val sticker = stickerSamples(pixels)
                 val clippedShare = sticker.count { clipped[it] } / sticker.size.toDouble()
                 val white = isWhite(sticker.filter { !clipped[it] }.map { pixels[it] })
+                val clippedWhite = clippedWhiteSticker(pixels, clipped, sticker)
                 (CellReader.read(sticker.map { pixels[it] }) as? CellReadResult.Read)?.reading?.let { reading ->
-                    // A clipped white sticker is all masked by the reader, yet it is one plain color.
-                    if (white && clippedShare >= CellReader.PLAIN_SHARE) reading.copy(plain = true) else reading
+                    when {
+                        // A clipped white sticker is all masked by the reader, yet it is one plain color.
+                        white && clippedShare >= CellReader.PLAIN_SHARE -> {
+                            reading.copy(plain = true)
+                        }
+
+                        // A clipped white sticker around a logo: the reader would see only the logo.
+                        clippedWhite != null -> {
+                            clippedWhite
+                        }
+
+                        // A center that is not plain may carry a logo: read the sticker's dominant color.
+                        index == FaceSample.CENTER_INDEX && !reading.plain -> {
+                            dominant(sticker.map { pixels[it] })?.let { reading.copy(value = it) } ?: reading
+                        }
+
+                        else -> {
+                            reading
+                        }
+                    }
                 }
             }
         val seams = seams(frame, gridLeft, gridTop, cell)
@@ -173,6 +196,51 @@ internal object FrameReader {
         if (surround.isEmpty()) return 0.0
         val saturated = surround.count { chroma(pixels[it]) >= GLARE_MIN_CHROMA }
         return if (saturated >= GLARE_SURROUND_SHARE * surround.size) spot.size / pixels.size.toDouble() else 0.0
+    }
+
+    /**
+     * The dominant color of a cell's [samples]: the mean of the largest group of samples within [DOMINANT_DELTA_E]
+     * (CIE76) of one sample, when that group is a majority; null otherwise. A logo on a center is a minority, and unlike
+     * the reader's histogram peak this is not split by bin edges (a white near a* = b* = 0 spreads over several bins).
+     */
+    private fun dominant(samples: List<Lab>): Lab? {
+        fun near(
+            first: Lab,
+            second: Lab,
+        ): Boolean {
+            val dl = first.l - second.l
+            val da = first.a - second.a
+            val db = first.b - second.b
+            return dl * dl + da * da + db * db <= DOMINANT_DELTA_E * DOMINANT_DELTA_E
+        }
+        val group = samples.map { seed -> samples.filter { near(seed, it) } }.maxByOrNull { it.size } ?: return null
+        if (group.size * 2 <= samples.size) return null
+        return Lab(group.sumOf { it.l } / group.size, group.sumOf { it.a } / group.size, group.sumOf { it.b } / group.size)
+    }
+
+    /**
+     * The reading of a cell that is mostly a clipped white sticker around a logo (PO 2026-11-16): more than half of its
+     * [sticker] samples, and most of those on the lattice's outer ring, are clipped near-neutral. The reader masks those
+     * as glare and would read the logo; the cell's dominant color is the white, plain when it holds
+     * [CellReader.PLAIN_SHARE] of the samples. Null when the cell is not such a sticker.
+     */
+    private fun clippedWhiteSticker(
+        pixels: List<Lab>,
+        clipped: List<Boolean>,
+        sticker: List<Int>,
+    ): CellReading? {
+        fun clippedWhite(point: Int) = clipped[point] && chroma(pixels[point]) <= WHITE_MAX_CHROMA
+        val whites = sticker.filter(::clippedWhite)
+        if (whites.size * 2 <= sticker.size) return null
+        val ring = sticker.filter(::onOuterRing)
+        if (ring.count(::clippedWhite) * 2 <= ring.size) return null
+        val value =
+            Lab(
+                whites.sumOf { pixels[it].l } / whites.size,
+                whites.sumOf { pixels[it].a } / whites.size,
+                whites.sumOf { pixels[it].b } / whites.size,
+            )
+        return CellReading(value, whites.size >= CellReader.PLAIN_SHARE * sticker.size)
     }
 
     /**

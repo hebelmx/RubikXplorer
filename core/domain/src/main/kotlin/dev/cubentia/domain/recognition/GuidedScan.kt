@@ -2,6 +2,7 @@ package dev.cubentia.domain.recognition
 
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.Face
+import kotlin.math.sqrt
 
 /**
  * One Guided Scan prompt: show the [centerColor] center to the camera with the [upNeighborColor] center on top. [face]
@@ -50,9 +51,11 @@ data class FrameStats(
 
 /**
  * Frame quality for the Guided Scan, in precedence order LOW_LIGHT → GLARE → BLURRED → MISALIGNED → ACCEPTABLE.
- * Aligned means a plausible cube face fills the grid: nine readable cells, at least [MIN_PLAIN_CELLS] of them plain, a
- * plain center, and a seam on a majority ([MIN_SEAMS]) of the inner cell edges — a steady, sharp, bright background is
- * not. [assess] gates auto-capture; [assessShutter] gates the manual shutter, which skips the cube-face check (PO
+ * Aligned means a plausible cube face fills the grid: nine readable cells, at least [MIN_PLAIN_OUTER_CELLS] of the eight
+ * outer cells plain (the center may carry a logo, PO 2026-11-16), a seam on a majority ([MIN_SEAMS]) of the inner cell
+ * edges, and sticker evidence: at least [MIN_STICKER_CELLS] cells a saturated sticker color (C*ab ≥
+ * [STICKER_MIN_CHROMA]) or a bright white one (L* ≥ [WHITE_STICKER_MIN_L]) — a steady, sharp, bright background or a
+ * dull gray scene with faint seams is not. [assess] gates auto-capture; [assessShutter] gates the manual shutter, which skips the cube-face check (PO
  * 2026-11-16) so a face that is not recognized can still be captured. Thresholds are provisional: they are tuned on the
  * reference devices in device session B.
  */
@@ -72,8 +75,23 @@ object FrameQuality {
      */
     const val MIN_SHARPNESS = 60.0
 
-    /** At least this many of the nine cells must be plain for the grid to sit on one face. Provisional (session B). */
-    const val MIN_PLAIN_CELLS = 7
+    /**
+     * At least this many of the eight outer cells must be plain for the grid to sit on one face; the center is not
+     * judged, since most branded cubes print a logo on it (PO 2026-11-16). Provisional (session B).
+     */
+    const val MIN_PLAIN_OUTER_CELLS = 6
+
+    /**
+     * At least this many of the nine cells must show sticker evidence for auto-capture: a dull, low-chroma gray scene
+     * must never auto-capture (device check 2026-11-16, PO). Provisional (session B).
+     */
+    const val MIN_STICKER_CELLS = 3
+
+    /** A cell at least this chromatic (CIELAB C*ab) is a saturated sticker color. Provisional (session B). */
+    const val STICKER_MIN_CHROMA = 25.0
+
+    /** A cell at least this light (CIELAB L*) is a white sticker's evidence. Provisional (session B). */
+    const val WHITE_STICKER_MIN_L = 75.0
 
     /**
      * At least this many of the 12 inner cell edges (a majority) must show a seam for the grid to hold a cube face, not
@@ -102,15 +120,20 @@ object FrameQuality {
         when {
             assessShutter(stats) != CaptureQuality.ACCEPTABLE -> assessShutter(stats)
 
-            stats.cells.count { it?.plain == true } < MIN_PLAIN_CELLS -> CaptureQuality.MISALIGNED
-
-            // A cube face: the center is one plain sticker and the nine cells are parted by seams.
-            stats.cells[FaceSample.CENTER_INDEX]?.plain != true -> CaptureQuality.MISALIGNED
+            // A cube face: its outer cells are plain stickers (the center may carry a logo) parted by seams.
+            stats.cells.filterIndexed { index, cell -> index != FaceSample.CENTER_INDEX && cell?.plain == true }.size <
+                MIN_PLAIN_OUTER_CELLS -> CaptureQuality.MISALIGNED
 
             stats.seams < MIN_SEAMS -> CaptureQuality.MISALIGNED
 
+            stats.cells.count { it != null && isStickerEvidence(it.value) } < MIN_STICKER_CELLS -> CaptureQuality.MISALIGNED
+
             else -> CaptureQuality.ACCEPTABLE
         }
+
+    /** A saturated sticker color, or a bright white sticker; never a dull gray. */
+    private fun isStickerEvidence(value: Lab): Boolean =
+        sqrt(value.a * value.a + value.b * value.b) >= STICKER_MIN_CHROMA || value.l >= WHITE_STICKER_MIN_L
 }
 
 /** Categorical coaching for the Learner; never an error. */

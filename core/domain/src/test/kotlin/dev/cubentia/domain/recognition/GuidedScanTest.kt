@@ -68,11 +68,44 @@ class GuidedScanTest {
     }
 
     @Test
-    fun `seams on fewer than a majority of edges or a center that is not plain is misaligned`() {
+    fun `seams on fewer than a majority of edges is misaligned`() {
         assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(stats(seams = 6)))
         assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(stats(seams = 7)))
-        val unplainCenter = cells(Color.GREEN).toMutableList().also { it[4] = CellReading(LABS.getValue(Color.GREEN), false) }
-        assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(stats(cells = unplainCenter)))
+    }
+
+    @Test
+    fun `a logo center that is not plain still auto-captures when the outer cells are plain (PO 2026-11-16)`() {
+        val logoCenter = cells(Color.WHITE).toMutableList().also { it[4] = CellReading(LABS.getValue(Color.WHITE), false) }
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(stats(cells = logoCenter)))
+        val controller = GuidedScanController()
+        val effects = controller.feed(stats(cells = logoCenter), 0, 2000)
+        val sample = (effects.first { it is GuidedScanEffect.Capture } as GuidedScanEffect.Capture).sample
+        assertEquals(LABS.getValue(Color.WHITE), sample.center)
+        assertEquals(false, sample.centerPlain)
+        // The outer cells are still judged: three of them not plain is misaligned.
+        val outerUnplain = logoCenter.mapIndexed { index, cell -> if (index < 3) cell!!.copy(plain = false) else cell }
+        assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(stats(cells = outerUnplain)))
+    }
+
+    @Test
+    fun `a dull gray scene with faint seams never auto-captures, solved white and yellow faces do`() {
+        val gray =
+            stats(
+                cells = List(9) { CellReading(Lab(if (it % 2 == 0) 58.0 else 52.0, 1.0, 4.0), true) },
+                sharpness = 200.0,
+                seams = 12,
+            )
+        assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(gray))
+        val controller = GuidedScanController()
+        assertEquals(emptyList<GuidedScanEffect>(), controller.feed(gray, 0, 5000))
+        assertEquals(Coaching.MISALIGNED, controller.coaching)
+        // The manual shutter still captures it (PO 2026-11-16).
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assessShutter(gray))
+        listOf(Color.WHITE, Color.YELLOW).forEach { color ->
+            val solved = stats(cells = cells(color))
+            assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(solved), "$color")
+            assertTrue(GuidedScanController().feed(solved, 0, 2000).any { it is GuidedScanEffect.Capture }, "$color")
+        }
     }
 
     /** Background the device check captured: steady, sharp and bright, nine plain cells, but no cube in the grid. */

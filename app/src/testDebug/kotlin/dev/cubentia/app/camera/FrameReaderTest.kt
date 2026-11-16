@@ -268,6 +268,8 @@ class FrameReaderTest {
         dy: Double = 0.0,
         gap: Int = 6,
         colors: List<Triple<Int, Int, Int>> = stickers,
+        gapLuma: Int = PLASTIC,
+        paint: (Int, Int) -> Triple<Int, Int, Int>? = { _, _ -> null },
         highlight: (Int, Int) -> Boolean = { _, _ -> false },
     ): YuvFrame {
         val noise = Random(7)
@@ -282,10 +284,10 @@ class FrameReaderTest {
             val inX = fx % cellSide
             val inY = fy % cellSide
             if (inX < gap / 2.0 || inX >= cellSide - gap / 2.0 || inY < gap / 2.0 || inY >= cellSide - gap / 2.0) return null
-            return colors[(fy / cellSide).toInt() * 3 + (fx / cellSide).toInt()]
+            return paint(x, y) ?: colors[(fy / cellSide).toInt() * 3 + (fx / cellSide).toInt()]
         }
         return image(
-            luma = { x, y -> if (highlight(x, y)) 255 else (sticker(x, y)?.first ?: PLASTIC) + noise.nextInt(7) - 3 },
+            luma = { x, y -> if (highlight(x, y)) 255 else (sticker(x, y)?.first ?: gapLuma) + noise.nextInt(7) - 3 },
             chroma = { x, y -> sticker(x, y)?.takeUnless { highlight(x, y) }?.let { it.second to it.third } ?: (128 to 128) },
         )
     }
@@ -429,6 +431,7 @@ class FrameReaderTest {
     }
 
     private val clippedWhite = Triple(255, 128, 128)
+    private val white = Triple(200, 128, 128)
 
     @Test
     fun `a stickered face with three or more clipped white stickers is not glare and captures`() {
@@ -528,6 +531,49 @@ class FrameReaderTest {
             assertTrue(stats.seams < FrameQuality.MIN_SEAMS, "$name seams ${stats.seams}")
             assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(stats), name)
             assertTrue(effectsOf(stats).none { it is GuidedScanEffect.Capture }, name)
+        }
+    }
+
+    /** A cyan logo (Y, U, V) on the center sticker, a square covering [share] of the center cell's sampled ROI. */
+    private fun centerLogo(share: Double): (Int, Int) -> Triple<Int, Int, Int>? {
+        val half = cellSide * FrameReader.CELL_ROI_FRACTION * sqrt(share) / 2
+        val centerX = gridLeft + 1.5 * cellSide
+        val centerY = gridTop + 1.5 * cellSide
+        return { x, y -> if (abs(x + 0.5 - centerX) <= half && abs(y + 0.5 - centerY) <= half) CYAN_LOGO else null }
+    }
+
+    @Test
+    fun `a white center carrying a logo auto-captures and reads as white (PO 2026-11-16)`() {
+        listOf(white to "white", clippedWhite to "clipped white").forEach { (base, name) ->
+            val colors = stickers.mapIndexed { index, color -> if (index == 4) base else color }
+            val plainCenter = FrameReader.read(cubeFace(colors = colors)).cells[4]!!.value
+            listOf(0.25, 0.45).forEach { share ->
+                val label = "$name center, logo $share"
+                val stats = FrameReader.read(cubeFace(colors = colors, paint = centerLogo(share)))
+                assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(stats), "$label ${stats.cells[4]} glare ${stats.glareFraction}")
+                assertTrue(effectsOf(stats).any { it is GuidedScanEffect.Capture }, label)
+                val center = stats.cells[4]!!.value
+                assertTrue(deltaE(center, plainCenter) < 3.0, "$label reads $center, plain $plainCenter")
+            }
+        }
+    }
+
+    @Test
+    fun `a dull gray low-contrast pattern with faint seams never auto-captures`() {
+        val grays = List(9) { Triple(if (it % 2 == 0) 140 else 128, 128 + it % 3 - 1, 128 - it % 3 + 1) }
+        val stats = FrameReader.read(cubeFace(colors = grays, gapLuma = 105))
+        assertTrue(stats.seams >= FrameQuality.MIN_SEAMS, "seams ${stats.seams}")
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assessShutter(stats))
+        assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(stats))
+        assertTrue(effectsOf(stats).none { it is GuidedScanEffect.Capture })
+    }
+
+    @Test
+    fun `a solved white face and a solved yellow face still auto-capture`() {
+        mapOf("white" to white, "clipped white" to clippedWhite, "yellow" to stickers[3]).forEach { (name, color) ->
+            val stats = FrameReader.read(cubeFace(colors = List(9) { color }))
+            assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(stats), name)
+            assertTrue(effectsOf(stats).any { it is GuidedScanEffect.Capture }, name)
         }
     }
 
@@ -655,6 +701,9 @@ class FrameReaderTest {
 
         /** The dark core showing in a stickerless cube's gaps and rounded corners (Y). */
         const val CORE = 35
+
+        /** A cyan center logo (Y, U, V), as on the GAN cube's white center. */
+        val CYAN_LOGO = Triple(140, 175, 60)
 
         /** A stickered cube's black body, and the stand's light mesh behind it (R, G, B). */
         val BODY = Triple(22, 22, 24)
