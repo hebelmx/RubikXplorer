@@ -729,6 +729,7 @@ Recorded in `.memlog.md`:
 - Public website and privacy policy in a separate repository, `hebelmx/cubentia-site`, on GitHub Pages; the app repository keeps the source (PO, 2026-11-13, SCP 2026-11-13).
 - 2026-11-14: camera recognition restored to the plan as v1.1, flag-gated; per-feature release levels set by the PO at each release (SCP 2026-11-14).
 - 2026-11-15: `CAMERA_SCAN` is BETA-only on the Story 10.10 session A result (216/216, operator-dependent calibration); re-plan with a UX pass on scan layout, calibration and color input; Stories 10.12 (recorder rework, session A2) and 10.13 (OQ-7 recognition approach) added; OQ-7 re-opened (SCP 2026-11-15).
+- 2026-11-15: OQ-7 closed with decision K: Kotlin nearest-center classification fed by a per-cell histogram-mode reader and self-calibrated from the six face centers, with a logo-center guard; LiteRT is the fallback if field use shows K is not enough; OpenCV rejected on size (PO, Story 10.13, PR #155).
 
 ## 11. Assumptions Index
 
