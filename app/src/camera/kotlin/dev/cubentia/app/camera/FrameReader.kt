@@ -8,7 +8,9 @@ import dev.cubentia.domain.recognition.FrameQuality
 import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.Lab
 import java.nio.ByteBuffer
+import kotlin.math.abs
 import kotlin.math.pow
+import kotlin.math.sqrt
 
 /** One YUV plane: [buffer] read at `y * rowStride + x * pixelStride` (in that plane's own resolution). */
 internal class YuvPlane(
@@ -42,12 +44,19 @@ internal class YuvFrame(
 /**
  * Reads one analysis frame into [FrameStats] (Story 10.2). The grid is the centered square 80 % of the crop's shorter
  * side (as in the fixture recorder); each cell's central 60 % is sampled on a regular 12×12 lattice, converted
- * YUV → sRGB → CIELAB and read by [CellReader]. Mean luma, glare fraction and sharpness (variance of the 4-neighbor
- * Laplacian of Y) come from the Y plane inside the grid, on a [STATS_STEP]-pixel lattice. Seams: for each of the 12
- * inner cell edges, the mean Y along the edge's central [CELL_ROI_FRACTION] is profiled across a band of ±[SEAM_BAND]
- * cells around the grid line; the edge has a seam when the profile's darkest point is at most [SEAM_RATIO] of, and at
- * least [MIN_SEAM_DEPTH] below, the darker of its two cells' mean Y (the dark gap between stickers or pieces). Frames are
- * read and dropped: nothing here keeps pixels.
+ * YUV → sRGB → CIELAB and read by [CellReader]. Mean luma comes from the Y plane inside the grid on a
+ * [STATS_STEP]-pixel lattice. Sharpness (variance of the 4-neighbor Laplacian of Y) is taken on the same lattice but only
+ * within ±[SEAM_BAND] cells of the four inner grid lines, where a face's edges are: a stickerless face's flat cells add
+ * no edges and would read as blurred (device check 2026-11-16). Glare is a highlight, not a white sticker (device check
+ * 2026-11-16): a cell is a white sticker when its unclipped samples (Y below [FrameQuality.GLARE_LUMA]) are bright and
+ * near-neutral, or there are none — it is not glare, and when at least [CellReader.PLAIN_SHARE] of it is clipped it reads
+ * plain; the glare fraction is the largest share of clipped samples in any other cell. Seams: each of the 12 inner
+ * cell edges' central [CELL_ROI_FRACTION] is split into [SEAM_SEGMENTS] short segments (so a slightly tilted cube still
+ * lines up within each); a segment's mean Y is profiled across a band of ±[SEAM_BAND] cells around the grid line (the
+ * real seam is rarely exactly on it), and the segment dips when the profile's darkest point is at most [SEAM_RATIO] of,
+ * and at least [MIN_SEAM_DEPTH] below, the darker of its two cells' mean Y (the dark gap between stickers or pieces).
+ * The edge has a seam when at least [MIN_SEAM_SEGMENTS] of its segments dip. Frames are read and dropped: nothing here
+ * keeps pixels.
  */
 internal object FrameReader {
     const val GRID_FRACTION = 0.8
@@ -56,13 +65,26 @@ internal object FrameReader {
     const val STATS_STEP = 2
 
     /** Half-width of the band profiled across each inner grid line, in cells. Provisional (device session B). */
-    const val SEAM_BAND = 0.3
+    const val SEAM_BAND = 0.2
 
-    /** A seam's darkest profile point is at most this fraction of the darker cell's mean Y. Provisional (session B). */
-    const val SEAM_RATIO = 0.75
+    /**
+     * A seam's darkest profile point is at most this fraction of the darker cell's mean Y: a stickerless cube's thin
+     * gaps blur to a shallow dip (device check 2026-11-16). Provisional (session B).
+     */
+    const val SEAM_RATIO = 0.85
+
+    /** Segments each inner edge is split into, and how many of them must dip for a seam. Provisional (session B). */
+    const val SEAM_SEGMENTS = 3
+    const val MIN_SEAM_SEGMENTS = 2
 
     /** A seam is at least this much darker (Y, 0–255) than the darker cell. Provisional (session B). */
     const val MIN_SEAM_DEPTH = 8.0
+
+    /** A white sticker's unclipped samples are at least this light (CIELAB L*). Provisional (session B). */
+    const val WHITE_MIN_L = 80.0
+
+    /** A white sticker's unclipped samples are at most this chromatic (CIELAB C*ab). Provisional (session B). */
+    const val WHITE_MAX_CHROMA = 20.0
 
     fun read(image: ImageProxy): FrameStats {
         val crop = image.cropRect
@@ -78,21 +100,39 @@ internal object FrameReader {
         val gridLeft = frame.left + (frame.width - side) / 2.0
         val gridTop = frame.top + (frame.height - side) / 2.0
         val cell = side / 3
+        var glare = 0.0
         val cells =
             (0 until FrameQuality.CELLS).map { index ->
                 val roiLeft = gridLeft + (index % 3) * cell + cell * (1 - CELL_ROI_FRACTION) / 2
                 val roiTop = gridTop + (index / 3) * cell + cell * (1 - CELL_ROI_FRACTION) / 2
                 val step = cell * CELL_ROI_FRACTION / LATTICE
+                val clipped = mutableListOf<Boolean>()
                 val pixels =
                     (0 until LATTICE * LATTICE).map { point ->
                         val x = (roiLeft + (point % LATTICE + 0.5) * step).toInt().coerceIn(frame.left, frame.right - 1)
                         val y = (roiTop + (point / LATTICE + 0.5) * step).toInt().coerceIn(frame.top, frame.bottom - 1)
+                        clipped += frame.y.at(x, y) >= FrameQuality.GLARE_LUMA
                         lab(frame, x, y)
                     }
-                (CellReader.read(pixels) as? CellReadResult.Read)?.reading
+                val clippedShare = clipped.count { it } / pixels.size.toDouble()
+                val white = isWhite(pixels.filterIndexed { point, _ -> !clipped[point] })
+                if (!white) glare = maxOf(glare, clippedShare)
+                (CellReader.read(pixels) as? CellReadResult.Read)?.reading?.let { reading ->
+                    // A clipped white sticker is all masked by the reader, yet it is one plain color.
+                    if (white && clippedShare >= CellReader.PLAIN_SHARE) reading.copy(plain = true) else reading
+                }
             }
         val seams = seams(frame, gridLeft, gridTop, cell)
-        return stats(frame, cells, gridLeft.toInt(), gridTop.toInt(), side.toInt()).copy(seams = seams)
+        return stats(frame, cells, gridLeft, gridTop, side).copy(glareFraction = glare, seams = seams)
+    }
+
+    /** Whether a cell's [unclipped] samples are those of a white sticker: none at all, or bright and near-neutral. */
+    private fun isWhite(unclipped: List<Lab>): Boolean {
+        if (unclipped.isEmpty()) return true
+        val l = unclipped.sumOf { it.l } / unclipped.size
+        val a = unclipped.sumOf { it.a } / unclipped.size
+        val b = unclipped.sumOf { it.b } / unclipped.size
+        return l >= WHITE_MIN_L && sqrt(a * a + b * b) <= WHITE_MAX_CHROMA
     }
 
     /** How many of the 12 inner cell edges show a dark seam (see the class KDoc). */
@@ -118,9 +158,10 @@ internal object FrameReader {
                 } / (LATTICE * LATTICE).toDouble()
             }
         val across = (2 * SEAM_BAND * cell).toInt().coerceAtLeast(1)
-        val along = (CELL_ROI_FRACTION * cell / STATS_STEP).toInt().coerceAtLeast(1)
+        val segment = CELL_ROI_FRACTION * cell / SEAM_SEGMENTS
+        val along = segment.toInt().coerceAtLeast(1)
 
-        /** The darkest mean Y across the band, [lineAt] the grid line and [alongFrom] the edge's central part start. */
+        /** The darkest mean Y across the band, [lineAt] the grid line and [alongFrom] the segment's start. */
         fun valley(
             vertical: Boolean,
             lineAt: Double,
@@ -129,48 +170,63 @@ internal object FrameReader {
             (0..across).minOf { offset ->
                 val crossAt = lineAt - SEAM_BAND * cell + offset
                 (0 until along).sumOf { point ->
-                    val at = alongFrom + point * STATS_STEP
+                    val at = alongFrom + point
                     if (vertical) luma(crossAt, at) else luma(at, crossAt)
                 } / along.toDouble()
             }
 
+        /** Whether the edge on [lineAt], whose central part starts at [alongFrom], parts cells [first] and [second]. */
         fun seam(
-            valley: Double,
+            vertical: Boolean,
+            lineAt: Double,
+            alongFrom: Double,
             first: Int,
             second: Int,
         ): Boolean {
             val darker = minOf(cellLuma[first], cellLuma[second])
-            return valley <= darker * SEAM_RATIO && darker - valley >= MIN_SEAM_DEPTH
+            val dips =
+                (0 until SEAM_SEGMENTS).count { index ->
+                    val valley = valley(vertical, lineAt, alongFrom + index * segment)
+                    valley <= darker * SEAM_RATIO && darker - valley >= MIN_SEAM_DEPTH
+                }
+            return dips >= MIN_SEAM_SEGMENTS
         }
         val margin = cell * (1 - CELL_ROI_FRACTION) / 2
         var count = 0
         for (k in 0..2) {
             for (line in 1..2) {
                 // Row k between columns line - 1 and line, then column k between rows line - 1 and line.
-                val vertical = valley(true, gridLeft + line * cell, gridTop + k * cell + margin)
-                if (seam(vertical, k * 3 + line - 1, k * 3 + line)) count++
-                val horizontal = valley(false, gridTop + line * cell, gridLeft + k * cell + margin)
-                if (seam(horizontal, (line - 1) * 3 + k, line * 3 + k)) count++
+                if (seam(true, gridLeft + line * cell, gridTop + k * cell + margin, k * 3 + line - 1, k * 3 + line)) count++
+                if (seam(false, gridTop + line * cell, gridLeft + k * cell + margin, (line - 1) * 3 + k, line * 3 + k)) count++
             }
         }
         return count
     }
 
+    /** Mean luma over the grid and sharpness near its inner lines (see the class KDoc); glare and seams are set apart. */
     private fun stats(
         frame: YuvFrame,
         cells: List<CellReading?>,
-        gridLeft: Int,
-        gridTop: Int,
-        side: Int,
+        gridLeft: Double,
+        gridTop: Double,
+        side: Double,
     ): FrameStats {
+        val cell = side / 3
+        val band = SEAM_BAND * cell
+
+        fun nearLine(
+            at: Int,
+            start: Double,
+        ) = abs(at - (start + cell)) <= band || abs(at - (start + 2 * cell)) <= band
+
         // Laplacian neighbors stay inside the crop.
-        val x0 = maxOf(gridLeft, frame.left + 1)
-        val y0 = maxOf(gridTop, frame.top + 1)
-        val x1 = minOf(gridLeft + side, frame.right - 1)
-        val y1 = minOf(gridTop + side, frame.bottom - 1)
+        val x0 = maxOf(gridLeft.toInt(), frame.left + 1)
+        val y0 = maxOf(gridTop.toInt(), frame.top + 1)
+        val x1 = minOf(gridLeft.toInt() + side.toInt(), frame.right - 1)
+        val y1 = minOf(gridTop.toInt() + side.toInt(), frame.bottom - 1)
         var count = 0
         var lumaSum = 0.0
-        var glare = 0
+        var edges = 0
         var lapSum = 0.0
         var lapSquares = 0.0
         var y = y0
@@ -179,19 +235,21 @@ internal object FrameReader {
             while (x < x1) {
                 val luma = frame.y.at(x, y)
                 lumaSum += luma
-                if (luma >= FrameQuality.GLARE_LUMA) glare++
-                val laplacian =
-                    (4 * luma - frame.y.at(x - 1, y) - frame.y.at(x + 1, y) - frame.y.at(x, y - 1) - frame.y.at(x, y + 1)).toDouble()
-                lapSum += laplacian
-                lapSquares += laplacian * laplacian
                 count++
+                if (nearLine(x, gridLeft) || nearLine(y, gridTop)) {
+                    val laplacian =
+                        (4 * luma - frame.y.at(x - 1, y) - frame.y.at(x + 1, y) - frame.y.at(x, y - 1) - frame.y.at(x, y + 1)).toDouble()
+                    lapSum += laplacian
+                    lapSquares += laplacian * laplacian
+                    edges++
+                }
                 x += STATS_STEP
             }
             y += STATS_STEP
         }
         if (count == 0) return FrameStats(cells, 0.0, 0.0, 0.0, 0)
-        val lapMean = lapSum / count
-        return FrameStats(cells, lumaSum / count, glare.toDouble() / count, lapSquares / count - lapMean * lapMean, 0)
+        val sharpness = if (edges == 0) 0.0 else (lapSum / edges).let { lapSquares / edges - it * it }
+        return FrameStats(cells, lumaSum / count, 0.0, sharpness, 0)
     }
 
     private fun lab(

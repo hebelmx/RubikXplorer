@@ -132,7 +132,7 @@ class GuidedScanActivity : ComponentActivity() {
                 },
                 onCapture = { decide { now -> controller.onShutter(now) } },
                 onUseAnyway = { decide { now -> controller.onUseAnyway(now) } },
-                onFreezeEnd = { id -> if (scan.frozen?.id == id) scan.frozen = null },
+                onFreezeEnd = { id -> scan.endFreeze(id) },
             )
         setContent {
             val catalog by lessonCatalog.state.collectAsState()
@@ -316,7 +316,7 @@ class GuidedScanActivity : ComponentActivity() {
             }
             if (vm.phase is GuidedScanPhase.Viewfinder && vm.phase != state) vm.phase = state
             if (GuidedScanFlow.remeters(effects)) meterOnGrid()
-            if (result != null) vm.result.value = result
+            if (result != null) vm.publish(result)
         }
     }
 
@@ -361,6 +361,24 @@ internal class GuidedScanViewModel : ViewModel() {
 
     /** The finished scan, set once on main; whichever Activity instance is current finishes with it. */
     val result = MutableStateFlow<GuidedScanCapture?>(null)
+
+    /** A finished scan held until the last face's freeze ends, so its freeze, shrink and shutter sound play out. */
+    private var held: GuidedScanCapture? = null
+
+    /** Main thread: publishes the finished scan now, or when the current freeze ends. */
+    fun publish(capture: GuidedScanCapture) {
+        if (frozen != null) held = capture else result.value = capture
+    }
+
+    /** Main thread: the freeze of capture [id] ended; live view resumes, or a held result is published. */
+    fun endFreeze(id: Long) {
+        if (frozen?.id != id) return
+        frozen = null
+        held?.let {
+            held = null
+            result.value = it
+        }
+    }
 
     override fun onCleared() {
         analyzerExecutor.shutdown()

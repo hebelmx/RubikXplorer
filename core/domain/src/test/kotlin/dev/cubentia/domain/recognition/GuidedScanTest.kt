@@ -68,9 +68,9 @@ class GuidedScanTest {
     }
 
     @Test
-    fun `fewer than ten seams or a center that is not plain is misaligned`() {
-        assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(stats(seams = 9)))
-        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(stats(seams = 10)))
+    fun `seams on fewer than a majority of edges or a center that is not plain is misaligned`() {
+        assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(stats(seams = 6)))
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(stats(seams = 7)))
         val unplainCenter = cells(Color.GREEN).toMutableList().also { it[4] = CellReading(LABS.getValue(Color.GREEN), false) }
         assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(stats(cells = unplainCenter)))
     }
@@ -91,14 +91,37 @@ class GuidedScanTest {
         )
 
     @Test
-    fun `background with no cube in the grid never captures, automatically or by the shutter`() {
+    fun `background with no cube in the grid never auto-captures`() {
         backgrounds.forEach { frame ->
             val controller = GuidedScanController()
             assertEquals(emptyList<GuidedScanEffect>(), controller.feed(frame, 0, 5000))
-            assertEquals(emptyList<GuidedScanEffect>(), controller.onShutter(5000))
             assertEquals(Coaching.MISALIGNED, controller.coaching)
             assertEquals(0, controller.stepIndex)
         }
+    }
+
+    @Test
+    fun `the manual shutter skips the cube-face check but not light, glare or sharpness (PO 2026-11-16)`() {
+        backgrounds.forEach { frame ->
+            val controller = GuidedScanController()
+            controller.feed(frame, 0, 1000)
+            assertTrue(controller.onShutter(1000).first() is GuidedScanEffect.Capture)
+            assertEquals(1, controller.stepIndex)
+        }
+        // A cube face the check does not recognize (too few seams, cells not plain) is still captured by hand.
+        val unrecognized = stats(cells = cells(Color.GREEN, plain = 0), seams = 0)
+        assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(unrecognized))
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assessShutter(unrecognized))
+        val controller = GuidedScanController()
+        assertEquals(emptyList<GuidedScanEffect>(), controller.feed(unrecognized, 0, 3000))
+        assertEquals(Coaching.MISALIGNED, controller.coaching)
+        val sample = (controller.onShutter(3000).first() as GuidedScanEffect.Capture).sample
+        assertEquals(false, sample.centerPlain)
+        // Unreadable cells still only coach.
+        val unreadable = GuidedScanController()
+        unreadable.onFrame(stats(cells = List(9) { null }), 0, 0)
+        assertEquals(emptyList<GuidedScanEffect>(), unreadable.onShutter(10))
+        assertEquals(Coaching.MISALIGNED, unreadable.coaching)
     }
 
     @Test
@@ -207,13 +230,12 @@ class GuidedScanTest {
     }
 
     @Test
-    fun `glare, blur, low light and misalignment coach and never capture`() {
+    fun `glare, blur and low light coach and never capture`() {
         val cases =
             mapOf(
                 stats(glare = 0.3) to Coaching.GLARE,
                 stats(sharpness = 5.0) to Coaching.BLURRED,
                 stats(luma = 5.0) to Coaching.LOW_LIGHT,
-                stats(cells = cells(Color.GREEN, plain = 0)) to Coaching.MISALIGNED,
             )
         cases.forEach { (frame, coaching) ->
             val controller = GuidedScanController()

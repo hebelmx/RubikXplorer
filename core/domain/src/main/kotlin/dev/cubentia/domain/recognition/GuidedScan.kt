@@ -33,8 +33,9 @@ object GuidedScanPlan {
 
 /**
  * What the camera adapter measured on one analysis frame, inside the grid only: the nine cell readings in pixel
- * row-major order (null when a cell had no reading), the mean luma (Y, 0–255), the fraction of grid pixels with Y ≥ 250
- * ([glareFraction]), the grid's [sharpness] (the variance of the Laplacian of Y, as the camera adapter computes it) and
+ * row-major order (null when a cell had no reading), the mean luma (Y, 0–255), [glareFraction]: the largest share of
+ * one cell's pixels with Y ≥ 250 among cells that are not a white sticker (a highlight, not a bright white sticker), the
+ * grid's [sharpness] (the variance of the Laplacian of Y near the inner grid lines, as the camera adapter computes it) and
  * [seams]: how many of the grid's 12 inner cell edges (0–12) show a dark seam between their two cells, the gap between
  * stickers or pieces that a cube face has and a floor, a wall or clothing does not. No pixels cross into the domain.
  */
@@ -49,8 +50,10 @@ data class FrameStats(
 /**
  * Frame quality for the Guided Scan, in precedence order LOW_LIGHT → GLARE → BLURRED → MISALIGNED → ACCEPTABLE.
  * Aligned means a plausible cube face fills the grid: nine readable cells, at least [MIN_PLAIN_CELLS] of them plain, a
- * plain center, and at least [MIN_SEAMS] seams on the inner cell edges — a steady, sharp, bright background is not.
- * Thresholds are provisional: they are tuned on the reference devices in device session B.
+ * plain center, and a seam on a majority ([MIN_SEAMS]) of the inner cell edges — a steady, sharp, bright background is
+ * not. [assess] gates auto-capture; [assessShutter] gates the manual shutter, which skips the cube-face check (PO
+ * 2026-11-16) so a face that is not recognized can still be captured. Thresholds are provisional: they are tuned on the
+ * reference devices in device session B.
  */
 object FrameQuality {
     /** Mean grid luma (0–255) below this is too dark. Provisional, tuned in device session B. */
@@ -59,35 +62,44 @@ object FrameQuality {
     /** Luma at or above this is a glare pixel. Provisional, tuned in device session B. */
     const val GLARE_LUMA = 250
 
-    /** At least this fraction of grid pixels at [GLARE_LUMA] is glare. Provisional, tuned in device session B. */
+    /** At least this fraction of one non-white cell at [GLARE_LUMA] is glare. Provisional, tuned in device session B. */
     const val MAX_GLARE_FRACTION = 0.15
 
-    /** Grid sharpness (variance of the Laplacian of Y) below this is blurred. Provisional, tuned in device session B. */
+    /**
+     * Sharpness (variance of the Laplacian of Y near the inner grid lines) below this is blurred. Provisional, tuned in
+     * device session B.
+     */
     const val MIN_SHARPNESS = 60.0
 
     /** At least this many of the nine cells must be plain for the grid to sit on one face. Provisional (session B). */
     const val MIN_PLAIN_CELLS = 7
 
     /**
-     * At least this many of the 12 inner cell edges must show a seam for the grid to hold a cube face, not background
-     * (device check 2026-11-16: floor and clothing were captured). Provisional, tuned in device session B.
+     * At least this many of the 12 inner cell edges (a majority) must show a seam for the grid to hold a cube face, not
+     * background (device check 2026-11-16: floor and clothing were captured; a stickerless face showing only some of its
+     * thin seams was not). Provisional, tuned in device session B.
      */
-    const val MIN_SEAMS = 10
+    const val MIN_SEAMS = 7
 
     /** Inner cell edges of the 3×3 grid: 6 between columns, 6 between rows. */
     const val INNER_EDGES = 12
 
     const val CELLS = 9
 
-    fun assess(stats: FrameStats): CaptureQuality =
+    /** The manual shutter's quality: light, glare, sharpness and nine readable cells, without the cube-face check. */
+    fun assessShutter(stats: FrameStats): CaptureQuality =
         when {
             stats.meanLuma < MIN_MEAN_LUMA -> CaptureQuality.LOW_LIGHT
-
             stats.glareFraction >= MAX_GLARE_FRACTION -> CaptureQuality.GLARE
-
             stats.sharpness < MIN_SHARPNESS -> CaptureQuality.BLURRED
-
             stats.cells.size != CELLS || stats.cells.any { it == null } -> CaptureQuality.MISALIGNED
+            else -> CaptureQuality.ACCEPTABLE
+        }
+
+    /** The auto-capture quality: [assessShutter], then the cube-face check. */
+    fun assess(stats: FrameStats): CaptureQuality =
+        when {
+            assessShutter(stats) != CaptureQuality.ACCEPTABLE -> assessShutter(stats)
 
             stats.cells.count { it?.plain == true } < MIN_PLAIN_CELLS -> CaptureQuality.MISALIGNED
 
@@ -125,7 +137,8 @@ sealed interface GuidedScanEffect {
  * Alignment is an ACCEPTABLE frame. The first ACCEPTABLE frame after a non-ACCEPTABLE one (or at a new step) emits
  * [GuidedScanEffect.Remeter]; after [SETTLE_MS] the first frame becomes the steadiness reference, and once every cell
  * has stayed within [STEADY_DELTA_E] of it for [STEADY_MS] the face is captured automatically. A cell that moves resets
- * the reference and the timer. [onShutter] captures the latest ACCEPTABLE frame at once.
+ * the reference and the timer. [onShutter] captures the latest frame at once when [FrameQuality.assessShutter]
+ * accepts it.
  *
  * Wrong face (PO 2026-11-15): only a repeated face is caught live. A capture whose center is within
  * [SAME_CENTER_DELTA_E] of an already captured center is rejected with [Coaching.WRONG_FACE] and not stored; any other
@@ -145,6 +158,7 @@ class GuidedScanController(
         val stats: FrameStats,
         val orientationDegrees: Int,
         val quality: CaptureQuality,
+        val shutterQuality: CaptureQuality,
     )
 
     private val stored = mutableListOf<FaceSample>()
@@ -182,7 +196,7 @@ class GuidedScanController(
     ): List<GuidedScanEffect> {
         if (done) return emptyList()
         val quality = FrameQuality.assess(stats)
-        val frame = Frame(stats, orientationDegrees, quality)
+        val frame = Frame(stats, orientationDegrees, quality, FrameQuality.assessShutter(stats))
         latest = frame
         if (quality != CaptureQuality.ACCEPTABLE) {
             justCaptured = null
@@ -219,14 +233,15 @@ class GuidedScanController(
     }
 
     /**
-     * The manual shutter: captures the latest ACCEPTABLE frame now; otherwise only coaches. While the face just captured
+     * The manual shutter: captures the latest frame now when it is bright, glare-free, sharp and has nine readable cells,
+     * even if it is not recognized as a cube face (PO 2026-11-16); otherwise only coaches. While the face just captured
      * is still held it does nothing (no capture, no coaching, no rejection count).
      */
     fun onShutter(nowMs: Long): List<GuidedScanEffect> {
         if (done || justCaptured != null) return emptyList()
         val frame = latest
-        if (frame == null || frame.quality != CaptureQuality.ACCEPTABLE) {
-            coaching = frame?.let { coachingFor(it.quality) } ?: Coaching.MISALIGNED
+        if (frame == null || frame.shutterQuality != CaptureQuality.ACCEPTABLE) {
+            coaching = frame?.let { coachingFor(it.shutterQuality) } ?: Coaching.MISALIGNED
             return emptyList()
         }
         return capture(frame, nowMs)

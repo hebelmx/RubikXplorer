@@ -144,6 +144,29 @@ class GuidedScanFlowTest {
     }
 
     @Test
+    fun `the finished scan waits for the last face's freeze to end`() {
+        val vm = GuidedScanViewModel()
+        val done = GuidedScanCapture.Captured(List(6) { sample() })
+        vm.frozen = FrozenCapture(6, Face.B, null)
+        vm.publish(done)
+        assertNull(vm.result.value)
+        // A stale freeze end (an earlier capture) neither ends this freeze nor publishes.
+        vm.endFreeze(5)
+        assertNull(vm.result.value)
+        vm.endFreeze(6)
+        assertNull(vm.frozen)
+        assertEquals(done, vm.result.value)
+    }
+
+    @Test
+    fun `the finished scan is published at once when no capture is frozen`() {
+        val vm = GuidedScanViewModel()
+        val done = GuidedScanCapture.Captured(List(6) { sample() })
+        vm.publish(done)
+        assertEquals(done, vm.result.value)
+    }
+
+    @Test
     fun `a decision without a capture does not freeze`() {
         val freeze = CaptureFreeze()
         freeze.decide(0) { listOf(GuidedScanEffect.Remeter) }

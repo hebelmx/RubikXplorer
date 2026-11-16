@@ -51,10 +51,13 @@ class FrameReaderTest {
     }
 
     @Test
-    fun `a sharp checkerboard is sharp, a saturated frame is glare and a dark one low light`() {
+    fun `a sharp checkerboard is sharp, a saturated neutral frame is white not glare and a dark one low light`() {
         val sharp = FrameReader.read(frame { x, _ -> if (x / 3 % 2 == 0) 60 else 200 })
         assertTrue(sharp.sharpness > FrameQuality.MIN_SHARPNESS, "sharpness ${sharp.sharpness}")
-        assertEquals(1.0, FrameReader.read(frame { _, _ -> 255 }).glareFraction, 1e-9)
+        // Clipped and neutral everywhere reads as nine plain white cells (a clipped white face), not a highlight.
+        val saturated = FrameReader.read(frame { _, _ -> 255 })
+        assertEquals(0.0, saturated.glareFraction, 1e-9)
+        assertTrue(saturated.cells.all { it != null && it.plain })
         assertEquals(CaptureQuality.LOW_LIGHT, FrameQuality.assess(FrameReader.read(frame { _, _ -> 10 })))
     }
 
@@ -208,6 +211,8 @@ class FrameReaderTest {
     private fun image(
         luma: (Int, Int) -> Int,
         chroma: (Int, Int) -> Pair<Int, Int> = { _, _ -> 128 to 128 },
+        imageWidth: Int = this.imageWidth,
+        imageHeight: Int = this.imageHeight,
     ): YuvFrame {
         val y = ByteBuffer.allocate(imageWidth * imageHeight)
         for (row in 0 until imageHeight) {
@@ -263,6 +268,7 @@ class FrameReaderTest {
         dy: Double = 0.0,
         gap: Int = 6,
         colors: List<Triple<Int, Int, Int>> = stickers,
+        highlight: (Int, Int) -> Boolean = { _, _ -> false },
     ): YuvFrame {
         val noise = Random(7)
 
@@ -279,8 +285,8 @@ class FrameReaderTest {
             return colors[(fy / cellSide).toInt() * 3 + (fx / cellSide).toInt()]
         }
         return image(
-            luma = { x, y -> (sticker(x, y)?.first ?: PLASTIC) + noise.nextInt(7) - 3 },
-            chroma = { x, y -> sticker(x, y)?.let { it.second to it.third } ?: (128 to 128) },
+            luma = { x, y -> if (highlight(x, y)) 255 else (sticker(x, y)?.first ?: PLASTIC) + noise.nextInt(7) - 3 },
+            chroma = { x, y -> sticker(x, y)?.takeUnless { highlight(x, y) }?.let { it.second to it.third } ?: (128 to 128) },
         )
     }
 
@@ -305,10 +311,157 @@ class FrameReaderTest {
         })
     }
 
-    /** Every effect of feeding [stats] for 5 s at 10 fps, then pressing the shutter. */
+    /**
+     * Every effect of feeding [stats] for 5 s at 10 fps: auto-capture only, since the manual shutter skips the cube-face
+     * check (PO 2026-11-16).
+     */
     private fun effectsOf(stats: FrameStats): List<GuidedScanEffect> {
         val controller = GuidedScanController()
-        return (0L..5000L step 100).flatMap { controller.onFrame(stats, 0, it) } + controller.onShutter(5000)
+        return (0L..5000L step 100).flatMap { controller.onFrame(stats, 0, it) }
+    }
+
+    /** Piece (R, G, B) per cell of the device-check face, sampled from the screenshot: green center, white on top. */
+    private val deviceFace =
+        listOf(
+            Triple(31, 194, 41),
+            Triple(207, 208, 199),
+            Triple(3, 98, 190),
+            Triple(202, 203, 193),
+            Triple(11, 196, 32),
+            Triple(218, 7, 23),
+            Triple(245, 80, 5),
+            Triple(1, 85, 185),
+            Triple(6, 88, 187),
+        )
+
+    /**
+     * The device-check frame (`.git/bmad-orchestrate/device-10-2/galaxy-stickerless-aligned-no-capture.png`, S24 FE,
+     * 2026-11-16) as the analyzer sees it, synthesized because the screenshot's grid overlay hides the seams: a
+     * stickerless face in a 480×400 crop (cell ≈ 107 px), its nine piece colors sampled from the screenshot, [scale]
+     * times the grid about its center (the cube is a little larger than the drawn grid), shifted by [dy] cells (the
+     * lower seam sits ~8 % of a cell below its grid line in the screenshot) and tilted [degrees]. Pieces are parted by
+     * thin dark gaps [seam] cells (≈ 1.6 px) wide and have rounded corners (radius [corner] cells) showing the dark core; the luma
+     * is box-blurred over ±[blur] px (1: the lens; more: motion), plus light, denoised sensor noise.
+     */
+    private fun stickerlessFace(
+        colors: List<Triple<Int, Int, Int>> = deviceFace,
+        scale: Double = 1.06,
+        dy: Double = 0.08,
+        degrees: Double = 2.0,
+        seam: Double = 0.015,
+        corner: Double = 0.18,
+        blur: Int = 1,
+    ): YuvFrame {
+        val width = 480
+        val height = 400
+        val side = minOf(width, height) * FrameReader.GRID_FRACTION
+        val cell = side / 3
+        val centerX = width / 2.0
+        val centerY = height / 2.0 + dy * cell
+        val cos = kotlin.math.cos(Math.toRadians(degrees))
+        val sin = kotlin.math.sin(Math.toRadians(degrees))
+
+        /** The piece color at a pixel, or null for a seam, a rounded corner or outside the face. */
+        fun piece(
+            x: Int,
+            y: Int,
+        ): Triple<Int, Int, Int>? {
+            val px = x + 0.5 - centerX
+            val py = y + 0.5 - centerY
+            val fx = (cos * px + sin * py) / (scale * cell) + 1.5
+            val fy = (-sin * px + cos * py) / (scale * cell) + 1.5
+            if (fx < 0 || fy < 0 || fx >= 3 || fy >= 3) return null
+            val inX = fx % 1
+            val inY = fy % 1
+            if (inX < seam / 2 || inX > 1 - seam / 2 || inY < seam / 2 || inY > 1 - seam / 2) return null
+            val cx = inX.coerceIn(corner, 1 - corner)
+            val cy = inY.coerceIn(corner, 1 - corner)
+            if ((inX - cx) * (inX - cx) + (inY - cy) * (inY - cy) > corner * corner) return null
+            return colors[fy.toInt() * 3 + fx.toInt()]
+        }
+
+        fun yuv(rgb: Triple<Int, Int, Int>): Triple<Int, Int, Int> {
+            val (r, g, b) = rgb
+            return Triple(
+                (0.299 * r + 0.587 * g + 0.114 * b).toInt(),
+                (128 - 0.168736 * r - 0.331264 * g + 0.5 * b).toInt().coerceIn(0, 255),
+                (128 + 0.5 * r - 0.418688 * g - 0.081312 * b).toInt().coerceIn(0, 255),
+            )
+        }
+        val sharp = Array(height) { y -> IntArray(width) { x -> piece(x, y)?.let { yuv(it).first } ?: CORE } }
+        val noise = Random(5)
+        return image(
+            luma = { x, y ->
+                var sum = 0
+                for (j in -blur..blur) for (i in -blur..blur) sum += sharp[(y + j).coerceIn(0, height - 1)][(x + i).coerceIn(0, width - 1)]
+                sum / ((2 * blur + 1) * (2 * blur + 1)) + noise.nextInt(3) - 1
+            },
+            chroma = { x, y -> piece(x, y)?.let { yuv(it).second to yuv(it).third } ?: (128 to 128) },
+            imageWidth = width,
+            imageHeight = height,
+        )
+    }
+
+    @Test
+    fun `the stickerless device-check face, larger than the grid and a little off it, auto-captures`() {
+        val stats = FrameReader.read(stickerlessFace())
+        assertTrue(stats.seams >= FrameQuality.MIN_SEAMS, "seams ${stats.seams}")
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(stats))
+        assertTrue(effectsOf(stats).any { it is GuidedScanEffect.Capture })
+    }
+
+    @Test
+    fun `a solved stickerless face auto-captures`() {
+        val stats = FrameReader.read(stickerlessFace(colors = List(9) { deviceFace[4] }))
+        assertTrue(stats.seams >= FrameQuality.MIN_SEAMS, "seams ${stats.seams}")
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(stats))
+        assertTrue(effectsOf(stats).any { it is GuidedScanEffect.Capture })
+    }
+
+    @Test
+    fun `a sharp stickerless face of flat cells is not blurred, a motion-blurred one is`() {
+        val sharp = FrameReader.read(stickerlessFace())
+        assertTrue(sharp.sharpness >= FrameQuality.MIN_SHARPNESS, "sharpness ${sharp.sharpness}")
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(sharp))
+        val moving = FrameReader.read(stickerlessFace(blur = 6))
+        assertEquals(CaptureQuality.BLURRED, FrameQuality.assess(moving), "sharpness ${moving.sharpness}")
+        assertTrue(effectsOf(moving).none { it is GuidedScanEffect.Capture })
+    }
+
+    private val clippedWhite = Triple(255, 128, 128)
+
+    @Test
+    fun `a stickered face with three or more clipped white stickers is not glare and captures`() {
+        listOf(3, 5).forEach { whites ->
+            val colors = stickers.mapIndexed { index, color -> if (index != 4 && index < whites + 1) clippedWhite else color }
+            val stats = FrameReader.read(cubeFace(colors = colors))
+            assertTrue(stats.glareFraction < FrameQuality.MAX_GLARE_FRACTION, "$whites whites glare ${stats.glareFraction}")
+            assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(stats), "$whites whites")
+            assertTrue(effectsOf(stats).any { it is GuidedScanEffect.Capture }, "$whites whites")
+        }
+    }
+
+    @Test
+    fun `a specular highlight on a colored sticker is still glare`() {
+        val centerX = gridLeft + 1.5 * cellSide
+        val centerY = gridTop + 1.5 * cellSide
+        val radius = 0.2 * cellSide
+        val colors = stickers.mapIndexed { index, color -> if (index == 0) clippedWhite else color }
+        val stats =
+            FrameReader.read(
+                cubeFace(colors = colors) { x, y -> (x - centerX) * (x - centerX) + (y - centerY) * (y - centerY) <= radius * radius },
+            )
+        assertEquals(CaptureQuality.GLARE, FrameQuality.assess(stats), "glare ${stats.glareFraction}")
+        assertTrue(effectsOf(stats).none { it is GuidedScanEffect.Capture })
+    }
+
+    @Test
+    fun `seams offset from the grid lines by up to 15 percent of a cell still capture`() {
+        listOf(-0.15, 0.15).forEach { offset ->
+            val stats = FrameReader.read(stickerlessFace(scale = 1.0, dy = offset))
+            assertTrue(stats.seams >= FrameQuality.MIN_SEAMS, "offset $offset seams ${stats.seams}")
+            assertTrue(effectsOf(stats).any { it is GuidedScanEffect.Capture }, "offset $offset")
+        }
     }
 
     @Test
@@ -370,5 +523,8 @@ class FrameReaderTest {
 
         /** The black plastic between stickers. */
         const val PLASTIC = 20
+
+        /** The dark core showing in a stickerless cube's gaps and rounded corners (Y). */
+        const val CORE = 35
     }
 }
