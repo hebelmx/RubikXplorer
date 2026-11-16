@@ -2,6 +2,7 @@ package dev.cubentia.app.di
 
 import android.app.Application
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ApplicationInfo
 import dev.cubentia.app.flags.BuildConfigFeatureFlags
 import dev.cubentia.app.scan.ScanLauncher
@@ -42,6 +43,8 @@ class FlagsModuleTest {
         Optional.of(
             object : ScanLauncher {
                 override fun hasCamera(context: Context) = hasCamera
+
+                override fun guidedScanIntent(context: Context) = Intent()
             },
         )
 
