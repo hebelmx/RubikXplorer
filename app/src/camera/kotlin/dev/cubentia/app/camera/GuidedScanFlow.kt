@@ -1,8 +1,8 @@
 package dev.cubentia.app.camera
 
-import dev.cubentia.app.scan.GuidedScanCapture
 import dev.cubentia.domain.recognition.GuidedScanController
 import dev.cubentia.domain.recognition.GuidedScanEffect
+import dev.cubentia.domain.recognition.ScanReview
 
 /** The Guided Scan Activity's decisions, kept pure so they are unit-tested without a camera or a permission dialog. */
 internal object GuidedScanFlow {
@@ -37,8 +37,8 @@ internal object GuidedScanFlow {
     fun remeters(effects: List<GuidedScanEffect>): Boolean = GuidedScanEffect.Remeter in effects
 
     /** The scan's result when [effects] finish it, else null. */
-    fun resultOf(effects: List<GuidedScanEffect>): GuidedScanCapture? =
-        effects.filterIsInstance<GuidedScanEffect.Done>().firstOrNull()?.let { GuidedScanCapture.Captured(it.samples) }
+    fun resultOf(effects: List<GuidedScanEffect>): ScanReview? =
+        effects.filterIsInstance<GuidedScanEffect.Done>().firstOrNull()?.let { ScanReview.fromSamples(it.samples) }
 }
 
 /**

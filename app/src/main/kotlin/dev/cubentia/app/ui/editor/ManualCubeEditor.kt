@@ -161,7 +161,7 @@ fun ManualCubeEditor(
 
 /** The [WindowSizeClass] of the current window, from its container size. */
 @Composable
-private fun currentWindowSizeClass(): WindowSizeClass {
+internal fun currentWindowSizeClass(): WindowSizeClass {
     val size = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
     return with(density) {
@@ -171,7 +171,7 @@ private fun currentWindowSizeClass(): WindowSizeClass {
 
 /** One palette color: a touch-sized sticker with its glyph while [style] asks for glyphs. */
 @Composable
-private fun Swatch(
+internal fun Swatch(
     color: CubeColor,
     style: RenderStyle,
     onClick: () -> Unit,
@@ -205,7 +205,7 @@ private fun Swatch(
  * every face in [withProblems] badged in `status-invalid` so errors on hidden faces stay findable.
  */
 @Composable
-private fun FaceSelector(
+internal fun FaceSelector(
     current: Int,
     withProblems: Set<Int>,
     onSelect: (Int) -> Unit,

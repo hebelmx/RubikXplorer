@@ -83,6 +83,10 @@ import dev.cubentia.domain.text.Text as ContentText
 
 /** What the Guided Scan screen shows. */
 internal sealed interface GuidedScanPhase {
+    data class Review(
+        val review: dev.cubentia.domain.recognition.ScanReview,
+    ) : GuidedScanPhase
+
     /** The camera rationale, before any system dialog. */
     data object Rationale : GuidedScanPhase
 
@@ -175,6 +179,10 @@ internal fun GuidedScanScreen(
                 }
             }
             when (phase) {
+                is GuidedScanPhase.Review -> {
+                    Unit
+                }
+
                 GuidedScanPhase.Rationale -> {
                     Card(strings.resolve(ContentText("msg.scan.camera-rationale")), "scanRationale") {
                         Button(

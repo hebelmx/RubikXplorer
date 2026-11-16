@@ -3,91 +3,72 @@ package dev.cubentia.app.camera
 import android.app.Activity
 import android.app.Application
 import android.content.Intent
-import dev.cubentia.app.scan.GuidedScanCapture
-import dev.cubentia.app.scan.GuidedScanContract
-import dev.cubentia.domain.cube.Color
-import dev.cubentia.domain.recognition.CaptureQuality
-import dev.cubentia.domain.recognition.FaceSample
-import dev.cubentia.domain.recognition.GuidedScanPlan
-import dev.cubentia.domain.recognition.Lab
+import androidx.test.core.app.ApplicationProvider
+import dev.cubentia.app.scan.ScanFlowContract
+import dev.cubentia.app.scan.ScanOutcome
+import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Notation
+import dev.cubentia.domain.cube.NotationResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
-/** Story 10.2: the typed scan result round-trips through an activity result. */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class GuidedScanContractTest {
-    private val contract = GuidedScanContract(CameraScanLauncher())
+    private val contract = ScanFlowContract(CameraScanLauncher())
 
-    private fun roundTrip(capture: GuidedScanCapture): GuidedScanCapture {
-        val (code, data) = GuidedScanContract.encode(capture)
-        return contract.parseResult(code, data)
-    }
-
-    private val samples =
-        GuidedScanPlan.steps.mapIndexed { index, step ->
-            FaceSample(
-                face = step.face,
-                orientationDegrees = 90,
-                stickers = List(9) { Lab(50.0 + index, it.toDouble(), -it.toDouble()) },
-                quality = CaptureQuality.ACCEPTABLE,
-                centerColor = step.centerColor,
-                upNeighborColor = step.upNeighborColor,
-                centerPlain = index != 2,
-            )
-        }
-
-    @Test
-    fun `six samples round-trip as Captured`() {
-        assertEquals(GuidedScanCapture.Captured(samples), roundTrip(GuidedScanCapture.Captured(samples)))
-    }
-
-    @Test
-    fun `not six samples, or centers out of plan order, read as Cancelled`() {
-        assertEquals(GuidedScanCapture.Cancelled, roundTrip(GuidedScanCapture.Captured(samples.take(5))))
-        assertEquals(GuidedScanCapture.Cancelled, roundTrip(GuidedScanCapture.Captured(samples + samples.last())))
-        assertEquals(GuidedScanCapture.Cancelled, roundTrip(GuidedScanCapture.Captured(samples.reversed())))
-        assertEquals(
-            GuidedScanCapture.Cancelled,
-            roundTrip(GuidedScanCapture.Captured(samples.mapIndexed { i, s -> if (i == 1) s.copy(centerColor = Color.BLUE) else s })),
-        )
-    }
-
-    @Test
-    fun `a sample without nine stickers reads as Cancelled`() {
-        val eight = samples.mapIndexed { i, s -> if (i == 3) s.copy(stickers = s.stickers.take(8)) else s }
-        assertEquals(GuidedScanCapture.Cancelled, roundTrip(GuidedScanCapture.Captured(eight)))
-        val ten = samples.mapIndexed { i, s -> if (i == 0) s.copy(stickers = s.stickers + s.stickers.first()) else s }
-        assertEquals(GuidedScanCapture.Cancelled, roundTrip(GuidedScanCapture.Captured(ten)))
-    }
-
-    @Test
-    fun `Cancelled and FellBackToEditor round-trip`() {
-        assertEquals(GuidedScanCapture.Cancelled, roundTrip(GuidedScanCapture.Cancelled))
-        assertEquals(GuidedScanCapture.FellBackToEditor, roundTrip(GuidedScanCapture.FellBackToEditor))
-    }
-
-    @Test
-    fun `a missing or malformed payload reads as Cancelled`() {
-        assertEquals(GuidedScanCapture.Cancelled, contract.parseResult(Activity.RESULT_OK, null))
-        assertEquals(
-            GuidedScanCapture.Cancelled,
-            contract.parseResult(Activity.RESULT_OK, Intent().putExtra(GuidedScanContract.EXTRA_SAMPLES, "{")),
-        )
-    }
-
-    @Test
-    fun `the contract starts the Guided Scan activity explicitly`() {
-        val intent = contract.createIntent(RuntimeEnvironment.getApplication(), Unit)
+    @Test fun `launcher opens the camera Activity`() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val intent = contract.createIntent(app, Unit)
         assertEquals(GuidedScanActivity::class.java.name, intent.component?.className)
-        assertNotNull(
-            "GuidedScanActivity is declared in the merged manifest",
-            RuntimeEnvironment.getApplication().packageManager.resolveActivity(intent, 0),
+        assertNotNull("GuidedScanActivity is declared in the merged manifest", app.packageManager.resolveActivity(intent, 0))
+    }
+
+    @Test fun `each typed outcome round trips`() {
+        val scrambled = CubeState.SOLVED.apply((Notation.parse("R U F' L2 D B' R2 U'") as NotationResult.Parsed).moves)
+        listOf(
+            ScanOutcome.Accepted(CubeState.SOLVED),
+            ScanOutcome.Accepted(scrambled),
+            ScanOutcome.Cancelled,
+            ScanOutcome.FellBackToEditor,
+        ).forEach {
+            val (code, intent) = ScanFlowContract.encode(it)
+            assertEquals(it, contract.parseResult(code, intent))
+        }
+    }
+
+    @Test fun `missing malformed incomplete oversized and invalid colors cancel`() {
+        val solved =
+            CubeState.SOLVED
+                .toFacelets()
+                .colors
+                .map { it.name }
+        val invalid = solved.toMutableList().also { it[0] = "RED" }
+        listOf(
+            null,
+            emptyArray(),
+            arrayOf(
+                "{",
+            ),
+            solved.dropLast(1).toTypedArray(),
+            (solved + "WHITE").toTypedArray(),
+            invalid.toTypedArray(),
+            solved
+                .map {
+                    "PURPLE"
+                }.toTypedArray(),
+        ).forEach { colors ->
+            val intent = colors?.let { Intent().putExtra(ScanFlowContract.EXTRA_FACELETS, it) }
+            assertEquals(ScanOutcome.Cancelled, contract.parseResult(Activity.RESULT_OK, intent))
+        }
+        assertEquals(
+            ScanOutcome.Cancelled,
+            contract.parseResult(Activity.RESULT_OK, Intent().putExtra(ScanFlowContract.EXTRA_FACELETS, 42)),
         )
+        assertEquals(ScanOutcome.Cancelled, contract.parseResult(77, null))
     }
 }

@@ -31,3 +31,5 @@ Flows 4–5 and Flow 9 steps 1–3 require v1.1 camera functionality and are out
 | 7 | | | | | |
 | 8 | | | | | |
 | 9 step 4 | | | | | |
+
+- Scan review: at 200% type on the Lenovo at 600 dp, verify no mid-word breaks and nothing cut off.
