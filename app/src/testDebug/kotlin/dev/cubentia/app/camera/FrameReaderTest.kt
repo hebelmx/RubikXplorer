@@ -455,6 +455,37 @@ class FrameReaderTest {
         assertTrue(effectsOf(stats).none { it is GuidedScanEffect.Capture })
     }
 
+    /**
+     * The Lenovo device-check face (`.git/bmad-orchestrate/device-10-2/r2-lenovo-face2-false-glare.png`, 2026-11-16): a
+     * stickered black-body cube sitting off-center left of the grid, so the left column's cells hold part of a clipped
+     * white sticker next to wide black body — near-white is never glare (PO 2026-11-16).
+     */
+    @Test
+    fun `an off-center stickered face with clipped white stickers beside black body is not glare and captures`() {
+        val colors = stickers.mapIndexed { index, color -> if (index == 0 || index == 6) clippedWhite else color }
+        listOf(-0.15, 0.15).forEach { offset ->
+            val stats = FrameReader.read(cubeFace(dx = offset * cellSide, gap = 12, colors = colors))
+            assertTrue(stats.glareFraction < FrameQuality.MAX_GLARE_FRACTION, "offset $offset glare ${stats.glareFraction}")
+            assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(stats), "offset $offset")
+            assertTrue(effectsOf(stats).any { it is GuidedScanEffect.Capture }, "offset $offset")
+        }
+    }
+
+    @Test
+    fun `a small specular spot on a red or a blue sticker is glare`() {
+        listOf(1, 5).forEach { index ->
+            val centerX = gridLeft + (index % 3 + 0.5) * cellSide
+            val centerY = gridTop + (index / 3 + 0.5) * cellSide
+            val radius = 0.15 * cellSide
+            val stats =
+                FrameReader.read(
+                    cubeFace { x, y -> (x - centerX) * (x - centerX) + (y - centerY) * (y - centerY) <= radius * radius },
+                )
+            assertEquals(CaptureQuality.GLARE, FrameQuality.assess(stats), "cell $index glare ${stats.glareFraction}")
+            assertTrue(effectsOf(stats).none { it is GuidedScanEffect.Capture }, "cell $index")
+        }
+    }
+
     @Test
     fun `seams offset from the grid lines by up to 15 percent of a cell still capture`() {
         listOf(-0.15, 0.15).forEach { offset ->

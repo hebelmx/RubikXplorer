@@ -49,8 +49,12 @@ internal class YuvFrame(
  * within ±[SEAM_BAND] cells of the four inner grid lines, where a face's edges are: a stickerless face's flat cells add
  * no edges and would read as blurred (device check 2026-11-16). Glare is a highlight, not a white sticker (device check
  * 2026-11-16): a cell is a white sticker when its unclipped samples (Y below [FrameQuality.GLARE_LUMA]) are bright and
- * near-neutral, or there are none — it is not glare, and when at least [CellReader.PLAIN_SHARE] of it is clipped it reads
- * plain; the glare fraction is the largest share of clipped samples in any other cell. Seams: each of the 12 inner
+ * near-neutral, or there are none, and when at least [CellReader.PLAIN_SHARE] of it is clipped it reads plain. Bright
+ * near-neutral samples never count as glare by themselves, also when a cell mixes a white sticker with black seam or body
+ * (PO 2026-11-16): glare is only a specular spot, a cell's clipped near-neutral samples (C*ab ≤ [WHITE_MAX_CHROMA]) when
+ * none of them lies on the sampled lattice's outer ring (a compact spot inside the cell, not a white sticker reaching in
+ * from the side) and at least [GLARE_SURROUND_SHARE] of the cell's other samples are a saturated sticker color (C*ab ≥
+ * [GLARE_MIN_CHROMA]). The glare fraction is the largest such spot's share of its cell. Seams: each of the 12 inner
  * cell edges' central [CELL_ROI_FRACTION] is split into [SEAM_SEGMENTS] short segments (so a slightly tilted cube still
  * lines up within each); a segment's mean Y is profiled across a band of ±[SEAM_BAND] cells around the grid line (the
  * real seam is rarely exactly on it), and the segment dips when the profile's darkest point is at most [SEAM_RATIO] of,
@@ -86,6 +90,12 @@ internal object FrameReader {
     /** A white sticker's unclipped samples are at most this chromatic (CIELAB C*ab). Provisional (session B). */
     const val WHITE_MAX_CHROMA = 20.0
 
+    /** A glare spot's surround is a saturated sticker at least this chromatic (CIELAB C*ab). Provisional (session B). */
+    const val GLARE_MIN_CHROMA = 25.0
+
+    /** At least this share of a cell's samples outside the spot must be saturated for the spot to be glare. */
+    const val GLARE_SURROUND_SHARE = 0.6
+
     fun read(image: ImageProxy): FrameStats {
         val crop = image.cropRect
         val planes = image.planes
@@ -116,7 +126,7 @@ internal object FrameReader {
                     }
                 val clippedShare = clipped.count { it } / pixels.size.toDouble()
                 val white = isWhite(pixels.filterIndexed { point, _ -> !clipped[point] })
-                if (!white) glare = maxOf(glare, clippedShare)
+                glare = maxOf(glare, specularShare(pixels, clipped))
                 (CellReader.read(pixels) as? CellReadResult.Read)?.reading?.let { reading ->
                     // A clipped white sticker is all masked by the reader, yet it is one plain color.
                     if (white && clippedShare >= CellReader.PLAIN_SHARE) reading.copy(plain = true) else reading
@@ -125,6 +135,26 @@ internal object FrameReader {
         val seams = seams(frame, gridLeft, gridTop, cell)
         return stats(frame, cells, gridLeft, gridTop, side).copy(glareFraction = glare, seams = seams)
     }
+
+    /**
+     * The share of a cell's lattice [pixels] in a specular spot (see the class KDoc): its [clipped] near-neutral samples,
+     * none on the lattice's outer ring, inside a saturated sticker; 0 when there is no such spot.
+     */
+    private fun specularShare(
+        pixels: List<Lab>,
+        clipped: List<Boolean>,
+    ): Double {
+        val spot = pixels.indices.filter { clipped[it] && chroma(pixels[it]) <= WHITE_MAX_CHROMA }
+        if (spot.isEmpty()) return 0.0
+        val edge = LATTICE - 1
+        if (spot.any { it % LATTICE == 0 || it % LATTICE == edge || it / LATTICE == 0 || it / LATTICE == edge }) return 0.0
+        val surround = pixels.indices.filter { !clipped[it] || chroma(pixels[it]) > WHITE_MAX_CHROMA }
+        if (surround.isEmpty()) return 0.0
+        val saturated = surround.count { chroma(pixels[it]) >= GLARE_MIN_CHROMA }
+        return if (saturated >= GLARE_SURROUND_SHARE * surround.size) spot.size / pixels.size.toDouble() else 0.0
+    }
+
+    private fun chroma(pixel: Lab): Double = sqrt(pixel.a * pixel.a + pixel.b * pixel.b)
 
     /** Whether a cell's [unclipped] samples are those of a white sticker: none at all, or bright and near-neutral. */
     private fun isWhite(unclipped: List<Lab>): Boolean {

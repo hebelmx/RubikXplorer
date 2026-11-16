@@ -34,7 +34,8 @@ object GuidedScanPlan {
 /**
  * What the camera adapter measured on one analysis frame, inside the grid only: the nine cell readings in pixel
  * row-major order (null when a cell had no reading), the mean luma (Y, 0–255), [glareFraction]: the largest share of
- * one cell's pixels with Y ≥ 250 among cells that are not a white sticker (a highlight, not a bright white sticker), the
+ * one cell's pixels in a specular spot (clipped, Y ≥ 250, near-neutral pixels inside a saturated sticker color; a white
+ * sticker, also one mixed with black seam or body, is never glare), the
  * grid's [sharpness] (the variance of the Laplacian of Y near the inner grid lines, as the camera adapter computes it) and
  * [seams]: how many of the grid's 12 inner cell edges (0–12) show a dark seam between their two cells, the gap between
  * stickers or pieces that a cube face has and a floor, a wall or clothing does not. No pixels cross into the domain.
@@ -62,7 +63,7 @@ object FrameQuality {
     /** Luma at or above this is a glare pixel. Provisional, tuned in device session B. */
     const val GLARE_LUMA = 250
 
-    /** At least this fraction of one non-white cell at [GLARE_LUMA] is glare. Provisional, tuned in device session B. */
+    /** A specular spot (at [GLARE_LUMA]) covering at least this fraction of one colored cell is glare. Provisional, tuned in device session B. */
     const val MAX_GLARE_FRACTION = 0.15
 
     /**
