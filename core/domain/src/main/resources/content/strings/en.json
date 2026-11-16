@@ -604,5 +604,23 @@
   "msg.learn.two-look-mastery": "Mastery: {done} of {total}",
   "btn.learn.two-look-practice": "Practice the last layer",
   "msg.lesson.two-look.qualified": "Last layer solved with 2-look, no hints.",
-  "msg.lesson.two-look.not-qualified": "Solved. Only 2-look algorithms with no hints count toward mastery."
+  "msg.lesson.two-look.not-qualified": "Solved. Only 2-look algorithms with no hints count toward mastery.",
+
+  "msg.scan.camera-rationale": "Cubentia uses the camera to read your cube's colors. It reads them on this device. Nothing is saved or sent.",
+  "btn.scan.continue": "Continue",
+  "btn.scan.enter-colors-instead": "Enter colors instead",
+  "msg.scan.camera-denied": "Without the camera, you can still enter your cube's colors by hand.",
+  "msg.scan.camera-denied-permanently": "Camera access is off for Cubentia. Turn it on in Settings to scan, or enter your cube's colors by hand.",
+  "btn.scan.open-settings": "Open settings",
+  "msg.scan.camera-unavailable": "The camera isn't available right now. You can enter your cube's colors by hand.",
+  "msg.scan.prompt": "Show the {center} center, with {up} on top.",
+  "msg.scan.coach.glare": "Too much glare — tilt the cube",
+  "msg.scan.coach.blur": "Hold the cube still",
+  "msg.scan.coach.low-light": "Too dark — move to more light",
+  "msg.scan.coach.misaligned": "Fit one face inside the grid",
+  "msg.scan.coach.wrong-face": "Already scanned — turn to the face shown",
+  "btn.scan.capture": "Capture",
+  "btn.scan.use-anyway": "Use this face anyway",
+  "btn.scan.close": "Close",
+  "msg.scan.progress": "Face {n} of 6"
 }

@@ -6,5 +6,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- Device session B only: starts the Guided Scan and shows the assembled summary. Not Learner-facing. -->
+        <activity android:name="dev.cubentia.app.camera.scan.GuidedScanDebugActivity" android:exported="true" android:label="Cubentia guided scan (debug)">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>

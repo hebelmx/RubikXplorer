@@ -1,0 +1,2061 @@
+diff --git a/app/src/camera/AndroidManifest.xml b/app/src/camera/AndroidManifest.xml
+index f7b5d96..f9f5ad8 100644
+--- a/app/src/camera/AndroidManifest.xml
++++ b/app/src/camera/AndroidManifest.xml
+@@ -1,4 +1,8 @@
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+     <uses-permission android:name="android.permission.CAMERA" />
+     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
++    <application>
++        <!-- Story 10.2 Guided 6-face Scan; started only through GuidedScanContract. -->
++        <activity android:name="dev.cubentia.app.camera.GuidedScanActivity" android:exported="false" />
++    </application>
+ </manifest>
+diff --git a/app/src/camera/debug/AndroidManifest.xml b/app/src/camera/debug/AndroidManifest.xml
+index 716200b..e36766e 100644
+--- a/app/src/camera/debug/AndroidManifest.xml
++++ b/app/src/camera/debug/AndroidManifest.xml
+@@ -6,5 +6,12 @@
+                 <category android:name="android.intent.category.LAUNCHER" />
+             </intent-filter>
+         </activity>
++        <!-- Device session B only: starts the Guided Scan and shows the assembled summary. Not Learner-facing. -->
++        <activity android:name="dev.cubentia.app.camera.scan.GuidedScanDebugActivity" android:exported="true" android:label="Cubentia guided scan (debug)">
++            <intent-filter>
++                <action android:name="android.intent.action.MAIN" />
++                <category android:name="android.intent.category.LAUNCHER" />
++            </intent-filter>
++        </activity>
+     </application>
+ </manifest>
+diff --git a/app/src/camera/debug/kotlin/dev/cubentia/app/camera/scan/GuidedScanDebugActivity.kt b/app/src/camera/debug/kotlin/dev/cubentia/app/camera/scan/GuidedScanDebugActivity.kt
+new file mode 100644
+index 0000000..0211b8c
+--- /dev/null
++++ b/app/src/camera/debug/kotlin/dev/cubentia/app/camera/scan/GuidedScanDebugActivity.kt
+@@ -0,0 +1,87 @@
++package dev.cubentia.app.camera.scan
++
++import android.os.Bundle
++import androidx.activity.ComponentActivity
++import androidx.activity.compose.rememberLauncherForActivityResult
++import androidx.activity.compose.setContent
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.safeDrawingPadding
++import androidx.compose.material3.Button
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Surface
++import androidx.compose.material3.Text
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.unit.dp
++import dagger.hilt.android.AndroidEntryPoint
++import dev.cubentia.app.scan.GuidedScanCapture
++import dev.cubentia.app.scan.GuidedScanContract
++import dev.cubentia.app.scan.ScanLauncher
++import dev.cubentia.domain.recognition.FaceSample
++import dev.cubentia.domain.recognition.ScanAssembler
++import dev.cubentia.domain.recognition.ScanResult
++import dev.cubentia.domain.recognition.SelfCalibration
++import dev.cubentia.domain.recognition.StickerConfidence
++import javax.inject.Inject
++
++/**
++ * Debug-only launcher for device session B (Story 10.2): starts the Guided Scan through [GuidedScanContract] and shows a
++ * plain, operator-facing summary of the result. Not Learner-facing; no release build contains it.
++ */
++@AndroidEntryPoint
++class GuidedScanDebugActivity : ComponentActivity() {
++    @Inject
++    lateinit var scanLauncher: ScanLauncher
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        setContent {
++            MaterialTheme {
++                Surface(Modifier.fillMaxSize()) {
++                    var summary by remember { mutableStateOf("No scan yet.") }
++                    val scan =
++                        rememberLauncherForActivityResult(GuidedScanContract(scanLauncher)) { summary = summarize(it) }
++                    Column(Modifier.safeDrawingPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
++                        Button(onClick = { scan.launch(Unit) }) { Text("Start guided scan") }
++                        Text(summary)
++                    }
++                }
++            }
++        }
++    }
++}
++
++/** Operator summary: self-calibration, then Full/Partial with the uncertain count and the gaps. */
++internal fun summarize(capture: GuidedScanCapture): String =
++    when (capture) {
++        GuidedScanCapture.Cancelled -> "Cancelled."
++        GuidedScanCapture.FellBackToEditor -> "Fell back to the editor."
++        is GuidedScanCapture.Captured -> summarize(capture.samples)
++    }
++
++internal fun summarize(samples: List<FaceSample>): String =
++    when (val calibration = SelfCalibration.from(samples)) {
++        is SelfCalibration.NeedsCalibration -> {
++            "${samples.size} samples; needs calibration for ${calibration.colors.joinToString { it.name }}."
++        }
++
++        is SelfCalibration.Calibrated -> {
++            val guarded = if (calibration.guarded.isEmpty()) "" else " (guarded: ${calibration.guarded.joinToString { it.name }})"
++            when (val result = ScanAssembler.assemble(samples, calibration.calibration)) {
++                is ScanResult.Full -> {
++                    "Full$guarded: ${result.confidence.count { it == StickerConfidence.UNCERTAIN }} uncertain of 54."
++                }
++
++                is ScanResult.Partial -> {
++                    val uncertain = result.confidence.values.sumOf { list -> list.count { it == StickerConfidence.UNCERTAIN } }
++                    "Partial$guarded: $uncertain uncertain; gaps ${result.gaps.entries.joinToString { "${it.key}=${it.value}" }}."
++                }
++            }
++        }
++    }
+diff --git a/app/src/camera/kotlin/dev/cubentia/app/camera/CameraScanLauncher.kt b/app/src/camera/kotlin/dev/cubentia/app/camera/CameraScanLauncher.kt
+index a6278b7..c7b791d 100644
+--- a/app/src/camera/kotlin/dev/cubentia/app/camera/CameraScanLauncher.kt
++++ b/app/src/camera/kotlin/dev/cubentia/app/camera/CameraScanLauncher.kt
+@@ -1,11 +1,29 @@
+ package dev.cubentia.app.camera
+ 
+ import android.content.Context
++import android.content.Intent
++import android.content.pm.PackageManager
++import android.hardware.camera2.CameraCharacteristics
++import android.hardware.camera2.CameraManager
+ import dev.cubentia.app.scan.ScanLauncher
+ import javax.inject.Inject
+ 
+ class CameraScanLauncher
+     @Inject
+     constructor() : ScanLauncher {
+-        override fun hasCamera(context: Context): Boolean = context.packageManager.hasSystemFeature("android.hardware.camera.any")
++        /**
++         * True only when the package reports a camera and `CameraManager` lists a back-facing one, so
++         * [dev.cubentia.app.scan.ScanPortGate] hides every scan entry point on a device without a usable camera.
++         */
++        override fun hasCamera(context: Context): Boolean =
++            context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY) &&
++                runCatching {
++                    val manager = context.getSystemService(CameraManager::class.java) ?: return false
++                    manager.cameraIdList.any { id ->
++                        manager.getCameraCharacteristics(id).get(CameraCharacteristics.LENS_FACING) ==
++                            CameraCharacteristics.LENS_FACING_BACK
++                    }
++                }.getOrDefault(false)
++
++        override fun guidedScanIntent(context: Context): Intent = Intent(context, GuidedScanActivity::class.java)
+     }
+diff --git a/app/src/camera/kotlin/dev/cubentia/app/camera/FrameReader.kt b/app/src/camera/kotlin/dev/cubentia/app/camera/FrameReader.kt
+new file mode 100644
+index 0000000..2e805e5
+--- /dev/null
++++ b/app/src/camera/kotlin/dev/cubentia/app/camera/FrameReader.kt
+@@ -0,0 +1,164 @@
++package dev.cubentia.app.camera
++
++import androidx.camera.core.ImageProxy
++import dev.cubentia.domain.recognition.CellReadResult
++import dev.cubentia.domain.recognition.CellReader
++import dev.cubentia.domain.recognition.CellReading
++import dev.cubentia.domain.recognition.FrameQuality
++import dev.cubentia.domain.recognition.FrameStats
++import dev.cubentia.domain.recognition.Lab
++import java.nio.ByteBuffer
++import kotlin.math.pow
++
++/** One YUV plane: [buffer] read at `y * rowStride + x * pixelStride` (in that plane's own resolution). */
++internal class YuvPlane(
++    val buffer: ByteBuffer,
++    val rowStride: Int,
++    val pixelStride: Int,
++) {
++    fun at(
++        x: Int,
++        y: Int,
++    ): Int = buffer.get(y * rowStride + x * pixelStride).toInt() and BYTE_MASK
++}
++
++/**
++ * A YUV_420_888 frame as the analyzer sees it: full-resolution [y], half-resolution [u] and [v], and the visible crop
++ * rectangle (`left`, `top` inclusive; `right`, `bottom` exclusive) in pixel coordinates.
++ */
++internal class YuvFrame(
++    val y: YuvPlane,
++    val u: YuvPlane,
++    val v: YuvPlane,
++    val left: Int,
++    val top: Int,
++    val right: Int,
++    val bottom: Int,
++) {
++    val width: Int get() = right - left
++    val height: Int get() = bottom - top
++}
++
++/**
++ * Reads one analysis frame into [FrameStats] (Story 10.2). The grid is the centered square 80 % of the crop's shorter
++ * side (as in the fixture recorder); each cell's central 60 % is sampled on a regular 12×12 lattice, converted
++ * YUV → sRGB → CIELAB and read by [CellReader]. Mean luma, glare fraction and sharpness (variance of the 4-neighbor
++ * Laplacian of Y) come from the Y plane inside the grid, on a [STATS_STEP]-pixel lattice. Frames are read and dropped:
++ * nothing here keeps pixels.
++ */
++internal object FrameReader {
++    const val GRID_FRACTION = 0.8
++    const val CELL_ROI_FRACTION = 0.6
++    const val LATTICE = 12
++    const val STATS_STEP = 2
++
++    fun read(image: ImageProxy): FrameStats {
++        val crop = image.cropRect
++        val planes = image.planes
++
++        fun plane(index: Int) = YuvPlane(planes[index].buffer, planes[index].rowStride, planes[index].pixelStride)
++        return read(YuvFrame(plane(0), plane(1), plane(2), crop.left, crop.top, crop.right, crop.bottom))
++    }
++
++    fun read(frame: YuvFrame): FrameStats {
++        if (frame.width <= 0 || frame.height <= 0) return FrameStats(List(FrameQuality.CELLS) { null }, 0.0, 0.0, 0.0)
++        val side = minOf(frame.width, frame.height) * GRID_FRACTION
++        val gridLeft = frame.left + (frame.width - side) / 2.0
++        val gridTop = frame.top + (frame.height - side) / 2.0
++        val cell = side / 3
++        val cells =
++            (0 until FrameQuality.CELLS).map { index ->
++                val roiLeft = gridLeft + (index % 3) * cell + cell * (1 - CELL_ROI_FRACTION) / 2
++                val roiTop = gridTop + (index / 3) * cell + cell * (1 - CELL_ROI_FRACTION) / 2
++                val step = cell * CELL_ROI_FRACTION / LATTICE
++                val pixels =
++                    (0 until LATTICE * LATTICE).map { point ->
++                        val x = (roiLeft + (point % LATTICE + 0.5) * step).toInt().coerceIn(frame.left, frame.right - 1)
++                        val y = (roiTop + (point / LATTICE + 0.5) * step).toInt().coerceIn(frame.top, frame.bottom - 1)
++                        lab(frame, x, y)
++                    }
++                (CellReader.read(pixels) as? CellReadResult.Read)?.reading
++            }
++        return stats(frame, cells, gridLeft.toInt(), gridTop.toInt(), side.toInt())
++    }
++
++    private fun stats(
++        frame: YuvFrame,
++        cells: List<CellReading?>,
++        gridLeft: Int,
++        gridTop: Int,
++        side: Int,
++    ): FrameStats {
++        // Laplacian neighbors stay inside the crop.
++        val x0 = maxOf(gridLeft, frame.left + 1)
++        val y0 = maxOf(gridTop, frame.top + 1)
++        val x1 = minOf(gridLeft + side, frame.right - 1)
++        val y1 = minOf(gridTop + side, frame.bottom - 1)
++        var count = 0
++        var lumaSum = 0.0
++        var glare = 0
++        var lapSum = 0.0
++        var lapSquares = 0.0
++        var y = y0
++        while (y < y1) {
++            var x = x0
++            while (x < x1) {
++                val luma = frame.y.at(x, y)
++                lumaSum += luma
++                if (luma >= FrameQuality.GLARE_LUMA) glare++
++                val laplacian =
++                    (4 * luma - frame.y.at(x - 1, y) - frame.y.at(x + 1, y) - frame.y.at(x, y - 1) - frame.y.at(x, y + 1)).toDouble()
++                lapSum += laplacian
++                lapSquares += laplacian * laplacian
++                count++
++                x += STATS_STEP
++            }
++            y += STATS_STEP
++        }
++        if (count == 0) return FrameStats(cells, 0.0, 0.0, 0.0)
++        val lapMean = lapSum / count
++        return FrameStats(cells, lumaSum / count, glare.toDouble() / count, lapSquares / count - lapMean * lapMean)
++    }
++
++    private fun lab(
++        frame: YuvFrame,
++        x: Int,
++        y: Int,
++    ): Lab {
++        val yy = frame.y.at(x, y).toDouble()
++        val uu = frame.u.at(x / 2, y / 2) - CHROMA_OFFSET
++        val vv = frame.v.at(x / 2, y / 2) - CHROMA_OFFSET
++        val red = (yy + 1.402 * vv).toInt().coerceIn(0, BYTE_MASK)
++        val green = (yy - 0.344136 * uu - 0.714136 * vv).toInt().coerceIn(0, BYTE_MASK)
++        val blue = (yy + 1.772 * uu).toInt().coerceIn(0, BYTE_MASK)
++        return rgbToLab(red, green, blue)
++    }
++
++    /** sRGB (0–255) to CIELAB (D65), the fixture recorder's formula. */
++    fun rgbToLab(
++        red: Int,
++        green: Int,
++        blue: Int,
++    ): Lab {
++        fun linear(channel: Int): Double {
++            val value = channel / 255.0
++            return if (value <= 0.04045) value / 12.92 else ((value + 0.055) / 1.055).pow(2.4)
++        }
++        val r = linear(red)
++        val g = linear(green)
++        val b = linear(blue)
++        val x = (0.4124564 * r + 0.3575761 * g + 0.1804375 * b) / 0.95047
++        val yy = 0.2126729 * r + 0.7151522 * g + 0.0721750 * b
++        val z = (0.0193339 * r + 0.1191920 * g + 0.9503041 * b) / 1.08883
++
++        fun f(value: Double) = if (value > 0.0088564517) value.pow(1.0 / 3.0) else 7.787037 * value + 16.0 / 116.0
++        val fx = f(x)
++        val fy = f(yy)
++        val fz = f(z)
++        return Lab((116.0 * fy - 16.0).coerceIn(0.0, 100.0), 500.0 * (fx - fy), 200.0 * (fy - fz))
++    }
++
++    private const val CHROMA_OFFSET = 128.0
++}
++
++private const val BYTE_MASK = 0xff
+diff --git a/app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt b/app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt
+new file mode 100644
+index 0000000..378d4e9
+--- /dev/null
++++ b/app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt
+@@ -0,0 +1,279 @@
++package dev.cubentia.app.camera
++
++import android.Manifest
++import android.content.Intent
++import android.content.pm.PackageManager
++import android.net.Uri
++import android.os.Bundle
++import android.os.SystemClock
++import android.provider.Settings
++import android.view.ViewTreeObserver
++import androidx.activity.ComponentActivity
++import androidx.activity.compose.setContent
++import androidx.activity.result.contract.ActivityResultContracts
++import androidx.activity.viewModels
++import androidx.annotation.OptIn
++import androidx.camera.camera2.Camera2Config
++import androidx.camera.core.Camera
++import androidx.camera.core.CameraSelector
++import androidx.camera.core.CameraXConfig
++import androidx.camera.core.FocusMeteringAction
++import androidx.camera.core.ImageAnalysis
++import androidx.camera.core.ImageProxy
++import androidx.camera.core.Preview
++import androidx.camera.core.SurfaceOrientedMeteringPointFactory
++import androidx.camera.core.UseCaseGroup
++import androidx.camera.lifecycle.ExperimentalCameraProviderConfiguration
++import androidx.camera.lifecycle.ProcessCameraProvider
++import androidx.camera.view.PreviewView
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.runtime.collectAsState
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.viewinterop.AndroidView
++import androidx.core.content.ContextCompat
++import androidx.lifecycle.ViewModel
++import androidx.lifecycle.lifecycleScope
++import dagger.hilt.android.AndroidEntryPoint
++import dev.cubentia.app.content.CatalogState
++import dev.cubentia.app.content.ContentStrings
++import dev.cubentia.app.content.LessonCatalog
++import dev.cubentia.app.scan.GuidedScanCapture
++import dev.cubentia.app.scan.GuidedScanContract
++import dev.cubentia.app.ui.theme.CubentiaTheme
++import dev.cubentia.domain.recognition.GuidedScanController
++import dev.cubentia.domain.recognition.GuidedScanEffect
++import kotlinx.coroutines.CancellationException
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.launch
++import kotlinx.coroutines.withContext
++import java.util.concurrent.ExecutorService
++import java.util.concurrent.Executors
++import javax.inject.Inject
++
++/**
++ * The Guided 6-face Scan (Story 10.2): camera rationale and permission, then a CameraX viewfinder whose analyzer feeds
++ * [GuidedScanController]; finishes with a [GuidedScanCapture] encoded by [GuidedScanContract]. Frames are read on the
++ * analyzer thread and dropped; nothing is written, kept or sent.
++ */
++@AndroidEntryPoint
++class GuidedScanActivity : ComponentActivity() {
++    @Inject
++    lateinit var lessonCatalog: LessonCatalog
++
++    private val scan: GuidedScanViewModel by viewModels()
++    private val analyzerExecutor get() = scan.analyzerExecutor
++    private val controller get() = scan.controller
++    private var phase: GuidedScanPhase
++        get() = scan.phase
++        set(value) {
++            scan.phase = value
++        }
++    private var camera: Camera? = null
++    private var previewView: PreviewView? = null
++    private var cameraStarted = false
++
++    private val permission =
++        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
++            phase =
++                if (granted) {
++                    GuidedScanPhase.Viewfinder()
++                } else {
++                    GuidedScanPhase.Denied(permanent = !shouldShowRequestPermissionRationale(Manifest.permission.CAMERA))
++                }
++            if (granted) startCamera()
++        }
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        // Back and a destroyed task read as Cancelled.
++        setResult(RESULT_CANCELED)
++        if (phase == GuidedScanPhase.Rationale && hasPermission()) phase = GuidedScanPhase.Viewfinder()
++        lifecycleScope.launch { lessonCatalog.load() }
++        val actions =
++            GuidedScanActions(
++                onClose = { finishWith(GuidedScanCapture.Cancelled) },
++                onContinue = { permission.launch(Manifest.permission.CAMERA) },
++                onEnterColors = { finishWith(GuidedScanCapture.FellBackToEditor) },
++                onOpenSettings = {
++                    startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
++                },
++                onCapture = { analyzerExecutor.execute { handle(controller.onShutter(SystemClock.elapsedRealtime())) } },
++            )
++        setContent {
++            val catalog by lessonCatalog.state.collectAsState()
++            // Content loads in a moment; until then show nothing rather than raw keys.
++            val strings =
++                when (val state = catalog) {
++                    is CatalogState.Ready -> state.strings
++                    is CatalogState.Failed -> ContentStrings(emptyMap())
++                    CatalogState.Loading -> null
++                }
++            CubentiaTheme {
++                if (strings == null) return@CubentiaTheme
++                GuidedScanScreen(phase, strings, actions) {
++                    AndroidView(
++                        factory = { context ->
++                            PreviewView(context).also {
++                                it.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
++                                previewView = it
++                                startCamera()
++                            }
++                        },
++                        modifier = Modifier.fillMaxSize(),
++                    )
++                }
++            }
++        }
++    }
++
++    override fun onResume() {
++        super.onResume()
++        // Back from Settings with the permission now granted.
++        if (phase is GuidedScanPhase.Denied && hasPermission()) phase = GuidedScanPhase.Viewfinder()
++    }
++
++    private fun hasPermission() = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
++
++    private fun finishWith(capture: GuidedScanCapture) {
++        val (code, data) = GuidedScanContract.encode(capture)
++        setResult(code, data)
++        finish()
++    }
++
++    /** Obtains the provider off the main thread, then binds on main once the preview has a viewport. */
++    private fun startCamera() {
++        val view = previewView ?: return
++        if (cameraStarted || !hasPermission()) return
++        cameraStarted = true
++        lifecycleScope.launch {
++            val provider =
++                try {
++                    withContext(Dispatchers.Default) {
++                        configureBackCameraOnly()
++                        ProcessCameraProvider.getInstance(applicationContext).get()
++                    }
++                } catch (cancelled: CancellationException) {
++                    throw cancelled
++                } catch (ignored: Exception) {
++                    phase = GuidedScanPhase.Unavailable
++                    return@launch
++                }
++            bindWhenLaidOut(provider, view)
++        }
++    }
++
++    /** Limits CameraX to the back camera; a process that already configured CameraX keeps its configuration. */
++    @OptIn(ExperimentalCameraProviderConfiguration::class)
++    private fun configureBackCameraOnly() {
++        try {
++            ProcessCameraProvider.configureInstance(
++                CameraXConfig.Builder
++                    .fromConfig(Camera2Config.defaultConfig())
++                    .setAvailableCamerasLimiter(CameraSelector.DEFAULT_BACK_CAMERA)
++                    .build(),
++            )
++        } catch (ignored: IllegalStateException) {
++            // Already configured in this process.
++        }
++    }
++
++    private fun bindWhenLaidOut(
++        provider: ProcessCameraProvider,
++        view: PreviewView,
++    ) {
++        val preview = Preview.Builder().build().also { it.surfaceProvider = view.surfaceProvider }
++        val analysis = ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build()
++        analysis.setAnalyzer(analyzerExecutor) { image ->
++            try {
++                analyze(image)
++            } finally {
++                image.close()
++            }
++        }
++
++        fun bind(): Boolean {
++            val viewPort = view.viewPort ?: return false
++            val useCases =
++                UseCaseGroup
++                    .Builder()
++                    .setViewPort(viewPort)
++                    .addUseCase(preview)
++                    .addUseCase(analysis)
++                    .build()
++            try {
++                provider.unbindAll()
++                camera = provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, useCases)
++            } catch (ignored: IllegalArgumentException) {
++                phase = GuidedScanPhase.Unavailable
++            } catch (ignored: IllegalStateException) {
++                phase = GuidedScanPhase.Unavailable
++            } catch (ignored: UnsupportedOperationException) {
++                phase = GuidedScanPhase.Unavailable
++            }
++            return true
++        }
++        if (bind()) return
++        view.viewTreeObserver.addOnGlobalLayoutListener(
++            object : ViewTreeObserver.OnGlobalLayoutListener {
++                override fun onGlobalLayout() {
++                    if (bind()) view.viewTreeObserver.removeOnGlobalLayoutListener(this)
++                }
++            },
++        )
++    }
++
++    /** Analyzer thread: read the frame into stats, drop it, and run the controller. */
++    private fun analyze(image: ImageProxy) {
++        val stats = FrameReader.read(image)
++        handle(controller.onFrame(stats, image.imageInfo.rotationDegrees, SystemClock.elapsedRealtime()))
++    }
++
++    /** Analyzer thread: publish the controller state and run its effects on main. */
++    private fun handle(effects: List<GuidedScanEffect>) {
++        val state = GuidedScanPhase.Viewfinder(controller.stepIndex, controller.captured, controller.coaching)
++        val main = ContextCompat.getMainExecutor(this)
++        main.execute {
++            if (phase is GuidedScanPhase.Viewfinder && phase != state) phase = state
++            effects.forEach { effect ->
++                when (effect) {
++                    GuidedScanEffect.Remeter -> meterOnGrid()
++                    is GuidedScanEffect.Capture -> Unit
++                    is GuidedScanEffect.Done -> finishWith(GuidedScanCapture.Captured(effect.samples))
++                }
++            }
++        }
++    }
++
++    /** AF/AE/AWB on the grid, not the whole frame, so a dark background cannot wash out the stickers. */
++    private fun meterOnGrid() {
++        val point =
++            SurfaceOrientedMeteringPointFactory(1f, 1f).createPoint(CENTER, CENTER, FrameReader.GRID_FRACTION.toFloat())
++        val action =
++            FocusMeteringAction
++                .Builder(point, FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE or FocusMeteringAction.FLAG_AWB)
++                .disableAutoCancel()
++                .build()
++        camera?.cameraControl?.startFocusAndMetering(action)
++    }
++
++    private companion object {
++        const val CENTER = 0.5f
++    }
++}
++
++/**
++ * What survives a configuration change: the controller (touched only on [analyzerExecutor]), its analyzer thread and
++ * the shown phase. Holds no frame.
++ */
++internal class GuidedScanViewModel : ViewModel() {
++    val analyzerExecutor: ExecutorService = Executors.newSingleThreadExecutor()
++    val controller = GuidedScanController()
++    var phase by mutableStateOf<GuidedScanPhase>(GuidedScanPhase.Rationale)
++
++    override fun onCleared() {
++        analyzerExecutor.shutdown()
++    }
++}
+diff --git a/app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanScreen.kt b/app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanScreen.kt
+new file mode 100644
+index 0000000..d36d559
+--- /dev/null
++++ b/app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanScreen.kt
+@@ -0,0 +1,385 @@
++package dev.cubentia.app.camera
++
++import androidx.compose.foundation.BorderStroke
++import androidx.compose.foundation.Canvas
++import androidx.compose.foundation.background
++import androidx.compose.foundation.border
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.BoxWithConstraints
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxHeight
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.height
++import androidx.compose.foundation.layout.heightIn
++import androidx.compose.foundation.layout.offset
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.requiredSize
++import androidx.compose.foundation.layout.safeDrawingPadding
++import androidx.compose.foundation.layout.size
++import androidx.compose.foundation.layout.widthIn
++import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.material3.Button
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.OutlinedButton
++import androidx.compose.material3.Surface
++import androidx.compose.material3.Text
++import androidx.compose.material3.TextButton
++import androidx.compose.runtime.Composable
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.geometry.Offset
++import androidx.compose.ui.geometry.Size
++import androidx.compose.ui.graphics.drawscope.Stroke
++import androidx.compose.ui.platform.testTag
++import androidx.compose.ui.res.stringResource
++import androidx.compose.ui.semantics.LiveRegionMode
++import androidx.compose.ui.semantics.liveRegion
++import androidx.compose.ui.semantics.semantics
++import androidx.compose.ui.text.style.TextAlign
++import androidx.compose.ui.unit.Dp
++import androidx.compose.ui.unit.dp
++import dev.cubentia.app.content.ContentStrings
++import dev.cubentia.app.render.StickerGlyph
++import dev.cubentia.app.ui.editor.colorName
++import dev.cubentia.domain.appearance.StickerAppearance
++import dev.cubentia.domain.cube.Face
++import dev.cubentia.domain.recognition.Coaching
++import dev.cubentia.domain.recognition.FaceSample
++import dev.cubentia.domain.recognition.GuidedScanPlan
++import dev.cubentia.domain.recognition.Lab
++import kotlin.math.pow
++import androidx.compose.ui.graphics.Color as UiColor
++import dev.cubentia.domain.cube.Color as CubeColor
++import dev.cubentia.domain.text.Text as ContentText
++
++/** What the Guided Scan screen shows. */
++internal sealed interface GuidedScanPhase {
++    /** The camera rationale, before any system dialog. */
++    data object Rationale : GuidedScanPhase
++
++    /** The permission was denied; [permanent] when the system will not ask again. */
++    data class Denied(
++        val permanent: Boolean,
++    ) : GuidedScanPhase
++
++    /** CameraX could not bind a back camera. */
++    data object Unavailable : GuidedScanPhase
++
++    /** The viewfinder at plan step [stepIndex], with the faces [captured] so far and the current [coaching]. */
++    data class Viewfinder(
++        val stepIndex: Int = 0,
++        val captured: List<FaceSample> = emptyList(),
++        val coaching: Coaching? = null,
++    ) : GuidedScanPhase
++}
++
++internal class GuidedScanActions(
++    val onClose: () -> Unit = {},
++    val onContinue: () -> Unit = {},
++    val onEnterColors: () -> Unit = {},
++    val onOpenSettings: () -> Unit = {},
++    val onCapture: () -> Unit = {},
++)
++
++private const val VIEWFINDER_HEIGHT_FRACTION = 0.45f
++private val EXPANDED_WIDTH = 600.dp
++private const val NET_COLUMNS = 4
++private const val NET_ROWS = 3
++private const val SIDE = 3
++private const val QUARTER = 90
++
++/** Guided 6-face Scan (Story 10.2); [viewfinder] draws the camera preview (a PreviewView in the app). */
++@Composable
++internal fun GuidedScanScreen(
++    phase: GuidedScanPhase,
++    strings: ContentStrings,
++    actions: GuidedScanActions,
++    viewfinder: @Composable () -> Unit = {},
++) {
++    Surface(Modifier.fillMaxSize()) {
++        Column(Modifier.fillMaxSize().safeDrawingPadding()) {
++            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
++                TextButton(
++                    onClick = actions.onClose,
++                    modifier = Modifier.testTag("scanClose"),
++                ) { Text(strings.resolve(ContentText("btn.scan.close"))) }
++                if (phase is GuidedScanPhase.Viewfinder) {
++                    Text(
++                        strings.resolve(
++                            ContentText("msg.scan.progress", mapOf("n" to minOf(phase.stepIndex + 1, GuidedScanPlan.steps.size))),
++                        ),
++                        modifier = Modifier.weight(1f).padding(end = 8.dp),
++                        textAlign = TextAlign.End,
++                        style = MaterialTheme.typography.labelLarge,
++                    )
++                }
++            }
++            when (phase) {
++                GuidedScanPhase.Rationale -> {
++                    Card(strings.resolve(ContentText("msg.scan.camera-rationale")), "scanRationale") {
++                        Button(
++                            onClick = actions.onContinue,
++                            Modifier.fillMaxWidth(),
++                        ) { Text(strings.resolve(ContentText("btn.scan.continue"))) }
++                        OutlinedButton(onClick = actions.onEnterColors, Modifier.fillMaxWidth()) {
++                            Text(strings.resolve(ContentText("btn.scan.enter-colors-instead")))
++                        }
++                    }
++                }
++
++                is GuidedScanPhase.Denied -> {
++                    val key = if (phase.permanent) "msg.scan.camera-denied-permanently" else "msg.scan.camera-denied"
++                    Card(strings.resolve(ContentText(key)), "scanDenied") {
++                        Button(onClick = actions.onEnterColors, Modifier.fillMaxWidth()) {
++                            Text(strings.resolve(ContentText("btn.scan.enter-colors-instead")))
++                        }
++                        if (phase.permanent) {
++                            OutlinedButton(onClick = actions.onOpenSettings, Modifier.fillMaxWidth()) {
++                                Text(strings.resolve(ContentText("btn.scan.open-settings")))
++                            }
++                        }
++                    }
++                }
++
++                GuidedScanPhase.Unavailable -> {
++                    Card(strings.resolve(ContentText("msg.scan.camera-unavailable")), "scanUnavailable") {
++                        Button(onClick = actions.onEnterColors, Modifier.fillMaxWidth()) {
++                            Text(strings.resolve(ContentText("btn.scan.enter-colors-instead")))
++                        }
++                    }
++                }
++
++                is GuidedScanPhase.Viewfinder -> {
++                    Viewfinder(phase, strings, actions, viewfinder)
++                }
++            }
++        }
++    }
++}
++
++@Composable
++private fun Card(
++    message: String,
++    tag: String,
++    buttons: @Composable () -> Unit,
++) {
++    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
++        Column(
++            Modifier.widthIn(max = 480.dp).fillMaxWidth().testTag(tag),
++            verticalArrangement = Arrangement.spacedBy(12.dp),
++            horizontalAlignment = Alignment.CenterHorizontally,
++        ) {
++            Text(message, style = MaterialTheme.typography.bodyLarge)
++            buttons()
++        }
++    }
++}
++
++@Composable
++private fun Viewfinder(
++    phase: GuidedScanPhase.Viewfinder,
++    strings: ContentStrings,
++    actions: GuidedScanActions,
++    preview: @Composable () -> Unit,
++) {
++    BoxWithConstraints(Modifier.fillMaxSize()) {
++        val wide = maxWidth >= EXPANDED_WIDTH || maxWidth > maxHeight
++        if (wide) {
++            Row(Modifier.fillMaxSize()) {
++                Box(Modifier.weight(1f).fillMaxHeight()) { CameraArea(phase, strings, preview) }
++                Column(
++                    Modifier.weight(1f).fillMaxHeight().padding(16.dp),
++                    verticalArrangement = Arrangement.spacedBy(12.dp),
++                ) {
++                    Prompt(phase, strings)
++                    MiniNet(phase, Modifier.weight(1f).fillMaxWidth())
++                    CaptureButton(strings, actions)
++                }
++            }
++        } else {
++            val cameraHeight = maxHeight * VIEWFINDER_HEIGHT_FRACTION
++            Column(Modifier.fillMaxSize()) {
++                Box(Modifier.fillMaxWidth().height(cameraHeight)) {
++                    CameraArea(phase, strings, preview)
++                    Prompt(phase, strings, Modifier.align(Alignment.TopCenter).padding(8.dp))
++                }
++                Column(
++                    Modifier.weight(1f).fillMaxWidth().padding(16.dp),
++                    verticalArrangement = Arrangement.spacedBy(12.dp),
++                ) {
++                    MiniNet(phase, Modifier.weight(1f).fillMaxWidth())
++                    CaptureButton(strings, actions)
++                }
++            }
++        }
++    }
++}
++
++/** The preview with the grid overlay and the coaching line (a polite live region). */
++@Composable
++private fun CameraArea(
++    phase: GuidedScanPhase.Viewfinder,
++    strings: ContentStrings,
++    preview: @Composable () -> Unit,
++) {
++    Box(Modifier.fillMaxSize().background(UiColor.Black).testTag("scanViewfinder")) {
++        preview()
++        Canvas(Modifier.fillMaxSize()) {
++            val side = minOf(size.width, size.height) * FrameReader.GRID_FRACTION.toFloat()
++            val left = (size.width - side) / 2
++            val top = (size.height - side) / 2
++            val stroke = 2.dp.toPx()
++            drawRect(UiColor.White, Offset(left, top), Size(side, side), style = Stroke(stroke))
++            for (line in 1..2) {
++                val at = side * line / SIDE
++                drawLine(UiColor.White, Offset(left + at, top), Offset(left + at, top + side), stroke)
++                drawLine(UiColor.White, Offset(left, top + at), Offset(left + side, top + at), stroke)
++            }
++        }
++        val coaching = phase.coaching?.let { strings.resolve(ContentText(coachingKey(it))) }.orEmpty()
++        Text(
++            coaching,
++            modifier =
++                Modifier
++                    .align(Alignment.BottomCenter)
++                    .fillMaxWidth()
++                    .background(UiColor.Black.copy(alpha = 0.6f))
++                    .padding(8.dp)
++                    .semantics { liveRegion = LiveRegionMode.Polite }
++                    .testTag("scanCoaching"),
++            color = UiColor.White,
++            textAlign = TextAlign.Center,
++        )
++    }
++}
++
++internal fun coachingKey(coaching: Coaching): String =
++    when (coaching) {
++        Coaching.GLARE -> "msg.scan.coach.glare"
++        Coaching.BLURRED -> "msg.scan.coach.blur"
++        Coaching.LOW_LIGHT -> "msg.scan.coach.low-light"
++        Coaching.MISALIGNED -> "msg.scan.coach.misaligned"
++        Coaching.WRONG_FACE -> "msg.scan.coach.wrong-face"
++    }
++
++/** "Show the green center, with white on top." with a glyph swatch for each color. */
++@Composable
++private fun Prompt(
++    phase: GuidedScanPhase.Viewfinder,
++    strings: ContentStrings,
++    modifier: Modifier = Modifier,
++) {
++    val step = GuidedScanPlan.steps.getOrNull(phase.stepIndex) ?: return
++    val center = stringResource(colorName(step.centerColor)).lowercase()
++    val up = stringResource(colorName(step.upNeighborColor)).lowercase()
++    Row(
++        modifier
++            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), RoundedCornerShape(8.dp))
++            .padding(8.dp)
++            .testTag("scanPrompt"),
++        verticalAlignment = Alignment.CenterVertically,
++        horizontalArrangement = Arrangement.spacedBy(8.dp),
++    ) {
++        Swatch(step.centerColor, 32.dp)
++        Swatch(step.upNeighborColor, 24.dp)
++        Text(
++            strings.resolve(ContentText("msg.scan.prompt", mapOf("center" to center, "up" to up))),
++            style = MaterialTheme.typography.bodyMedium,
++        )
++    }
++}
++
++@Composable
++private fun Swatch(
++    color: CubeColor,
++    size: Dp,
++) {
++    val appearance = StickerAppearance.of(color)
++    Box(
++        Modifier.size(size).background(UiColor(appearance.fill), RoundedCornerShape(4.dp)),
++        contentAlignment = Alignment.Center,
++    ) { StickerGlyph(appearance, size) }
++}
++
++/** The six faces as a cross net: captured faces filled with their read colors, the current face outlined. */
++@Composable
++private fun MiniNet(
++    phase: GuidedScanPhase.Viewfinder,
++    modifier: Modifier,
++) {
++    val current = GuidedScanPlan.steps.getOrNull(phase.stepIndex)?.face
++    val byFace = phase.captured.associateBy { it.face }
++    BoxWithConstraints(modifier.testTag("scanNet"), contentAlignment = Alignment.Center) {
++        val cell = minOf(maxWidth / (NET_COLUMNS * SIDE), maxHeight / (NET_ROWS * SIDE))
++        val outline = MaterialTheme.colorScheme.primary
++        val empty = MaterialTheme.colorScheme.surfaceVariant
++        Box(Modifier.requiredSize(cell * NET_COLUMNS * SIDE, cell * NET_ROWS * SIDE)) {
++            Face.entries.forEach { face ->
++                val (column, row) = NET_POSITION.getValue(face)
++                val colors = byFace[face]?.let { uprightNet(it).map(::labColor) }
++                Box(
++                    Modifier
++                        .offset(cell * SIDE * column, cell * SIDE * row)
++                        .requiredSize(cell * SIDE)
++                        .then(if (face == current) Modifier.border(BorderStroke(2.dp, outline)) else Modifier)
++                        .testTag("scanNetFace:${face.name}"),
++                ) {
++                    for (index in 0 until SIDE * SIDE) {
++                        Box(
++                            Modifier
++                                .offset(cell * (index % SIDE), cell * (index / SIDE))
++                                .requiredSize(cell)
++                                .padding(1.dp)
++                                .background(colors?.get(index) ?: empty, RoundedCornerShape(2.dp)),
++                        )
++                    }
++                }
++            }
++        }
++    }
++}
++
++@Composable
++private fun CaptureButton(
++    strings: ContentStrings,
++    actions: GuidedScanActions,
++) {
++    Button(onClick = actions.onCapture, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("scanCapture")) {
++        Text(strings.resolve(ContentText("btn.scan.capture")))
++    }
++}
++
++/** Net cell (column, row) of each face's 3×3 in the cross net. */
++private val NET_POSITION: Map<Face, Pair<Int, Int>> =
++    mapOf(Face.U to (1 to 0), Face.L to (0 to 1), Face.F to (1 to 1), Face.R to (2 to 1), Face.B to (3 to 1), Face.D to (1 to 2))
++
++/** The sample's stickers as the viewfinder shows them (pixel order turned by its orientation), i.e. plan net order. */
++internal fun uprightNet(sample: FaceSample): List<Lab> {
++    val clockwise = listOf(6, 3, 0, 7, 4, 1, 8, 5, 2)
++    return (0 until Math.floorMod(sample.orientationDegrees / QUARTER, 4)).fold(sample.stickers) { grid, _ -> clockwise.map { grid[it] } }
++}
++
++/** A measured CIELAB value as a display color (D65 sRGB), for the mini net. */
++internal fun labColor(lab: Lab): UiColor {
++    val fy = (lab.l + 16) / 116
++    val fx = fy + lab.a / 500
++    val fz = fy - lab.b / 200
++
++    fun inverse(f: Double) = if (f.pow(3) > 0.0088564517) f.pow(3) else (f - 16.0 / 116.0) / 7.787037
++    val x = inverse(fx) * 0.95047
++    val y = inverse(fy)
++    val z = inverse(fz) * 1.08883
++
++    fun gamma(linear: Double): Float {
++        val c = linear.coerceIn(0.0, 1.0)
++        return (if (c <= 0.0031308) 12.92 * c else 1.055 * c.pow(1 / 2.4) - 0.055).toFloat()
++    }
++    return UiColor(
++        gamma(3.2404542 * x - 1.5371385 * y - 0.4985314 * z),
++        gamma(-0.9692660 * x + 1.8760108 * y + 0.0415560 * z),
++        gamma(0.0556434 * x - 0.2040259 * y + 1.0572252 * z),
++    )
++}
+diff --git a/app/src/main/kotlin/dev/cubentia/app/scan/GuidedScanContract.kt b/app/src/main/kotlin/dev/cubentia/app/scan/GuidedScanContract.kt
+new file mode 100644
+index 0000000..7528e47
+--- /dev/null
++++ b/app/src/main/kotlin/dev/cubentia/app/scan/GuidedScanContract.kt
+@@ -0,0 +1,84 @@
++package dev.cubentia.app.scan
++
++import android.app.Activity
++import android.content.Context
++import android.content.Intent
++import androidx.activity.result.contract.ActivityResultContract
++import dev.cubentia.domain.recognition.FaceSample
++import kotlinx.serialization.json.Json
++
++/** What the Guided 6-face Scan returned; Story 10.3 maps it into a `ScanOutcome`. */
++sealed interface GuidedScanCapture {
++    /** Six samples, in `GuidedScanPlan` order. */
++    data class Captured(
++        val samples: List<FaceSample>,
++    ) : GuidedScanCapture
++
++    data object Cancelled : GuidedScanCapture
++
++    data object FellBackToEditor : GuidedScanCapture
++}
++
++/**
++ * The typed result of the Guided 6-face Scan (Story 10.2), and the only way main code starts it. The
++ * result carries CIELAB samples as JSON, never pixels.
++ */
++class GuidedScanContract(
++    private val launcher: ScanLauncher,
++) : ActivityResultContract<Unit, GuidedScanCapture>() {
++    override fun createIntent(
++        context: Context,
++        input: Unit,
++    ): Intent = launcher.guidedScanIntent(context)
++
++    override fun parseResult(
++        resultCode: Int,
++        intent: Intent?,
++    ): GuidedScanCapture = decode(resultCode, intent)
++
++    companion object {
++        const val RESULT_FELL_BACK_TO_EDITOR = Activity.RESULT_FIRST_USER
++        const val EXTRA_SAMPLES = "dev.cubentia.app.scan.SAMPLES"
++
++        private val json = Json { encodeDefaults = true }
++
++        /** The result code and data a scan activity finishes with for [capture]. */
++        fun encode(capture: GuidedScanCapture): Pair<Int, Intent?> =
++            when (capture) {
++                is GuidedScanCapture.Captured -> {
++                    Activity.RESULT_OK to Intent().putExtra(EXTRA_SAMPLES, json.encodeToString(capture.samples))
++                }
++
++                GuidedScanCapture.Cancelled -> {
++                    Activity.RESULT_CANCELED to null
++                }
++
++                GuidedScanCapture.FellBackToEditor -> {
++                    RESULT_FELL_BACK_TO_EDITOR to null
++                }
++            }
++
++        /** Decodes a scan result; anything malformed reads as [GuidedScanCapture.Cancelled]. */
++        fun decode(
++            resultCode: Int,
++            intent: Intent?,
++        ): GuidedScanCapture =
++            when (resultCode) {
++                Activity.RESULT_OK -> {
++                    intent
++                        ?.getStringExtra(EXTRA_SAMPLES)
++                        ?.let { runCatching { json.decodeFromString<List<FaceSample>>(it) }.getOrNull() }
++                        ?.let { GuidedScanCapture.Captured(it) }
++                        ?: GuidedScanCapture.Cancelled
++                }
++
++                RESULT_FELL_BACK_TO_EDITOR -> {
++                    GuidedScanCapture.FellBackToEditor
++                }
++
++                else -> {
++                    GuidedScanCapture.Cancelled
++                }
++            }
++    }
++}
+diff --git a/app/src/main/kotlin/dev/cubentia/app/scan/ScanLauncher.kt b/app/src/main/kotlin/dev/cubentia/app/scan/ScanLauncher.kt
+index 0941438..a54f12d 100644
+--- a/app/src/main/kotlin/dev/cubentia/app/scan/ScanLauncher.kt
++++ b/app/src/main/kotlin/dev/cubentia/app/scan/ScanLauncher.kt
+@@ -1,6 +1,7 @@
+ package dev.cubentia.app.scan
+ 
+ import android.content.Context
++import android.content.Intent
+ 
+ /**
+  * Scan port (AD-9): the only way `:app` main reaches the camera. Bound optionally by the
+@@ -8,5 +9,9 @@ import android.content.Context
+  * flag above OFF; with no binding, [ScanPortGate] hides every scan entry point.
+  */
+ interface ScanLauncher {
++    /** True only when the device has a usable back camera. */
+     fun hasCamera(context: Context): Boolean
++
++    /** The explicit intent of the Guided 6-face Scan; start it only through [GuidedScanContract]. */
++    fun guidedScanIntent(context: Context): Intent
+ }
+diff --git a/app/src/test/kotlin/dev/cubentia/app/di/FlagsModuleTest.kt b/app/src/test/kotlin/dev/cubentia/app/di/FlagsModuleTest.kt
+index 8e35716..513319b 100644
+--- a/app/src/test/kotlin/dev/cubentia/app/di/FlagsModuleTest.kt
++++ b/app/src/test/kotlin/dev/cubentia/app/di/FlagsModuleTest.kt
+@@ -2,6 +2,7 @@ package dev.cubentia.app.di
+ 
+ import android.app.Application
+ import android.content.Context
++import android.content.Intent
+ import android.content.pm.ApplicationInfo
+ import dev.cubentia.app.flags.BuildConfigFeatureFlags
+ import dev.cubentia.app.scan.ScanLauncher
+@@ -42,6 +43,8 @@ class FlagsModuleTest {
+         Optional.of(
+             object : ScanLauncher {
+                 override fun hasCamera(context: Context) = hasCamera
++
++                override fun guidedScanIntent(context: Context) = Intent()
+             },
+         )
+ 
+diff --git a/app/src/testDebug/kotlin/dev/cubentia/app/camera/CameraScanLauncherTest.kt b/app/src/testDebug/kotlin/dev/cubentia/app/camera/CameraScanLauncherTest.kt
+new file mode 100644
+index 0000000..162436e
+--- /dev/null
++++ b/app/src/testDebug/kotlin/dev/cubentia/app/camera/CameraScanLauncherTest.kt
+@@ -0,0 +1,64 @@
++package dev.cubentia.app.camera
++
++import android.app.Application
++import android.content.Context
++import android.content.pm.PackageManager
++import android.hardware.camera2.CameraCharacteristics
++import android.hardware.camera2.CameraManager
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import org.junit.runner.RunWith
++import org.robolectric.RobolectricTestRunner
++import org.robolectric.RuntimeEnvironment
++import org.robolectric.Shadows.shadowOf
++import org.robolectric.annotation.Config
++import org.robolectric.shadows.ShadowCameraCharacteristics
++
++/** Story 10.2: scan entry points need a usable back camera. */
++@RunWith(RobolectricTestRunner::class)
++@Config(application = Application::class)
++class CameraScanLauncherTest {
++    private val context: Context = RuntimeEnvironment.getApplication()
++    private val launcher = CameraScanLauncher()
++
++    private fun addCamera(
++        id: String,
++        facing: Int,
++    ) {
++        val characteristics = ShadowCameraCharacteristics.newCameraCharacteristics()
++        shadowOf(characteristics).set(CameraCharacteristics.LENS_FACING, facing)
++        shadowOf(context.getSystemService(CameraManager::class.java)).addCamera(id, characteristics)
++    }
++
++    private fun cameraFeature(present: Boolean) =
++        shadowOf(context.packageManager).setSystemFeature(PackageManager.FEATURE_CAMERA_ANY, present)
++
++    @Test
++    fun `no camera feature means no camera`() {
++        cameraFeature(false)
++        addCamera("0", CameraCharacteristics.LENS_FACING_BACK)
++        assertFalse(launcher.hasCamera(context))
++    }
++
++    @Test
++    fun `a front camera alone is not a usable camera`() {
++        cameraFeature(true)
++        addCamera("1", CameraCharacteristics.LENS_FACING_FRONT)
++        assertFalse(launcher.hasCamera(context))
++    }
++
++    @Test
++    fun `no listed camera is not a usable camera`() {
++        cameraFeature(true)
++        assertFalse(launcher.hasCamera(context))
++    }
++
++    @Test
++    fun `a back camera is a usable camera`() {
++        cameraFeature(true)
++        addCamera("1", CameraCharacteristics.LENS_FACING_FRONT)
++        addCamera("0", CameraCharacteristics.LENS_FACING_BACK)
++        assertTrue(launcher.hasCamera(context))
++    }
++}
+diff --git a/app/src/testDebug/kotlin/dev/cubentia/app/camera/FrameReaderTest.kt b/app/src/testDebug/kotlin/dev/cubentia/app/camera/FrameReaderTest.kt
+new file mode 100644
+index 0000000..b4fe254
+--- /dev/null
++++ b/app/src/testDebug/kotlin/dev/cubentia/app/camera/FrameReaderTest.kt
+@@ -0,0 +1,72 @@
++package dev.cubentia.app.camera
++
++import dev.cubentia.domain.recognition.CaptureQuality
++import dev.cubentia.domain.recognition.FrameQuality
++import org.junit.jupiter.api.Assertions.assertEquals
++import org.junit.jupiter.api.Assertions.assertTrue
++import org.junit.jupiter.api.Test
++import java.nio.ByteBuffer
++
++/** Story 10.2: frame stats from synthetic YUV planes. */
++class FrameReaderTest {
++    private val width = 120
++    private val height = 90
++
++    private fun frame(
++        u: Int = 128,
++        v: Int = 128,
++        luma: (Int, Int) -> Int,
++    ): YuvFrame {
++        val y = ByteBuffer.allocate(width * height)
++        for (row in 0 until height) for (column in 0 until width) y.put(row * width + column, luma(column, row).toByte())
++
++        fun chroma(value: Int) =
++            YuvPlane(
++                ByteBuffer.allocate(width * height / 4).also { b -> repeat(b.capacity()) { b.put(it, value.toByte()) } },
++                width / 2,
++                1,
++            )
++        return YuvFrame(YuvPlane(y, width, 1), chroma(u), chroma(v), 0, 0, width, height)
++    }
++
++    @Test
++    fun `a flat gray frame reads nine plain gray cells, no glare and no sharpness`() {
++        val stats = FrameReader.read(frame { _, _ -> 128 })
++        assertEquals(9, stats.cells.size)
++        assertTrue(stats.cells.all { it != null && it.plain })
++        val gray = stats.cells.first()!!.value
++        assertEquals(53.6, gray.l, 0.5)
++        assertEquals(0.0, gray.a, 0.5)
++        assertEquals(128.0, stats.meanLuma, 1e-9)
++        assertEquals(0.0, stats.glareFraction, 1e-9)
++        assertEquals(0.0, stats.sharpness, 1e-9)
++        assertEquals(CaptureQuality.BLURRED, FrameQuality.assess(stats))
++    }
++
++    @Test
++    fun `a sharp checkerboard is sharp, a saturated frame is glare and a dark one low light`() {
++        val sharp = FrameReader.read(frame { x, _ -> if (x / 3 % 2 == 0) 60 else 200 })
++        assertTrue(sharp.sharpness > FrameQuality.MIN_SHARPNESS, "sharpness ${sharp.sharpness}")
++        assertEquals(1.0, FrameReader.read(frame { _, _ -> 255 }).glareFraction, 1e-9)
++        assertEquals(CaptureQuality.LOW_LIGHT, FrameQuality.assess(FrameReader.read(frame { _, _ -> 10 })))
++    }
++
++    @Test
++    fun `a red chroma frame reads red cells`() {
++        val red = FrameReader.read(frame(u = 90, v = 200) { _, _ -> 100 }).cells[4]!!.value
++        assertTrue(red.a > 40, "a* ${red.a}")
++    }
++
++    @Test
++    fun `an empty crop reads no cells`() {
++        val empty = frame { _, _ -> 128 }.let { YuvFrame(it.y, it.u, it.v, 10, 10, 10, 10) }
++        assertEquals(CaptureQuality.LOW_LIGHT, FrameQuality.assess(FrameReader.read(empty)))
++        assertTrue(FrameReader.read(empty).cells.all { it == null })
++    }
++
++    @Test
++    fun `sRGB white and black convert to CIELAB extremes`() {
++        assertEquals(100.0, FrameReader.rgbToLab(255, 255, 255).l, 0.01)
++        assertEquals(0.0, FrameReader.rgbToLab(0, 0, 0).l, 0.01)
++    }
++}
+diff --git a/app/src/testDebug/kotlin/dev/cubentia/app/camera/GuidedScanContractTest.kt b/app/src/testDebug/kotlin/dev/cubentia/app/camera/GuidedScanContractTest.kt
+new file mode 100644
+index 0000000..cd83ae0
+--- /dev/null
++++ b/app/src/testDebug/kotlin/dev/cubentia/app/camera/GuidedScanContractTest.kt
+@@ -0,0 +1,72 @@
++package dev.cubentia.app.camera
++
++import android.app.Activity
++import android.app.Application
++import android.content.Intent
++import dev.cubentia.app.scan.GuidedScanCapture
++import dev.cubentia.app.scan.GuidedScanContract
++import dev.cubentia.domain.cube.Color
++import dev.cubentia.domain.recognition.CaptureQuality
++import dev.cubentia.domain.recognition.FaceSample
++import dev.cubentia.domain.recognition.GuidedScanPlan
++import dev.cubentia.domain.recognition.Lab
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.junit.runner.RunWith
++import org.robolectric.RobolectricTestRunner
++import org.robolectric.RuntimeEnvironment
++import org.robolectric.annotation.Config
++
++/** Story 10.2: the typed scan result round-trips through an activity result. */
++@RunWith(RobolectricTestRunner::class)
++@Config(application = Application::class)
++class GuidedScanContractTest {
++    private val contract = GuidedScanContract(CameraScanLauncher())
++
++    private fun roundTrip(capture: GuidedScanCapture): GuidedScanCapture {
++        val (code, data) = GuidedScanContract.encode(capture)
++        return contract.parseResult(code, data)
++    }
++
++    @Test
++    fun `six samples round-trip as Captured`() {
++        val samples =
++            GuidedScanPlan.steps.mapIndexed { index, step ->
++                FaceSample(
++                    face = step.face,
++                    orientationDegrees = 90,
++                    stickers = List(9) { Lab(50.0 + index, it.toDouble(), -it.toDouble()) },
++                    quality = CaptureQuality.ACCEPTABLE,
++                    centerColor = step.centerColor,
++                    upNeighborColor = step.upNeighborColor,
++                    centerPlain = index != 2,
++                )
++            }
++        assertEquals(GuidedScanCapture.Captured(samples), roundTrip(GuidedScanCapture.Captured(samples)))
++        assertEquals(
++            Color.YELLOW,
++            (roundTrip(GuidedScanCapture.Captured(samples)) as GuidedScanCapture.Captured).samples.last().centerColor,
++        )
++    }
++
++    @Test
++    fun `Cancelled and FellBackToEditor round-trip`() {
++        assertEquals(GuidedScanCapture.Cancelled, roundTrip(GuidedScanCapture.Cancelled))
++        assertEquals(GuidedScanCapture.FellBackToEditor, roundTrip(GuidedScanCapture.FellBackToEditor))
++    }
++
++    @Test
++    fun `a missing or malformed payload reads as Cancelled`() {
++        assertEquals(GuidedScanCapture.Cancelled, contract.parseResult(Activity.RESULT_OK, null))
++        assertEquals(
++            GuidedScanCapture.Cancelled,
++            contract.parseResult(Activity.RESULT_OK, Intent().putExtra(GuidedScanContract.EXTRA_SAMPLES, "{")),
++        )
++    }
++
++    @Test
++    fun `the contract starts the Guided Scan activity explicitly`() {
++        val intent = contract.createIntent(RuntimeEnvironment.getApplication(), Unit)
++        assertEquals(GuidedScanActivity::class.java.name, intent.component?.className)
++    }
++}
+diff --git a/app/src/testDebug/kotlin/dev/cubentia/app/camera/GuidedScanScreenTest.kt b/app/src/testDebug/kotlin/dev/cubentia/app/camera/GuidedScanScreenTest.kt
+new file mode 100644
+index 0000000..4010589
+--- /dev/null
++++ b/app/src/testDebug/kotlin/dev/cubentia/app/camera/GuidedScanScreenTest.kt
+@@ -0,0 +1,120 @@
++package dev.cubentia.app.camera
++
++import android.app.Application
++import androidx.compose.ui.test.assertIsDisplayed
++import androidx.compose.ui.test.getUnclippedBoundsInRoot
++import androidx.compose.ui.test.hasScrollAction
++import androidx.compose.ui.test.junit4.v2.createComposeRule
++import androidx.compose.ui.test.onNodeWithTag
++import androidx.compose.ui.test.onNodeWithText
++import androidx.compose.ui.test.onRoot
++import androidx.compose.ui.test.performClick
++import dev.cubentia.app.content.ContentStrings
++import dev.cubentia.app.ui.theme.CubentiaTheme
++import dev.cubentia.domain.content.ContentLoadResult
++import dev.cubentia.domain.content.ContentLoader
++import dev.cubentia.domain.content.ContentSource
++import dev.cubentia.domain.cube.Color
++import dev.cubentia.domain.cube.Face
++import dev.cubentia.domain.recognition.CaptureQuality
++import dev.cubentia.domain.recognition.Coaching
++import dev.cubentia.domain.recognition.FaceSample
++import dev.cubentia.domain.recognition.Lab
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertTrue
++import org.junit.Rule
++import org.junit.Test
++import org.junit.runner.RunWith
++import org.robolectric.RobolectricTestRunner
++import org.robolectric.annotation.Config
++
++/** Story 10.2: the Guided Scan screen on a compact portrait phone, and its permission cards. */
++@RunWith(RobolectricTestRunner::class)
++@Config(application = Application::class, qualifiers = "w360dp-h640dp-port")
++class GuidedScanScreenTest {
++    @get:Rule
++    val rule = createComposeRule()
++
++    private val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings
++    private val strings = ContentStrings(bundle)
++
++    private fun show(
++        phase: GuidedScanPhase,
++        actions: GuidedScanActions = GuidedScanActions(),
++    ) = rule.setContent { CubentiaTheme { GuidedScanScreen(phase, strings, actions) } }
++
++    @Test
++    fun `the viewfinder, prompt, net and Capture fit on one compact portrait screen without scrolling`() {
++        val captured =
++            listOf(
++                FaceSample(
++                    face = Face.F,
++                    orientationDegrees = 90,
++                    stickers = List(9) { Lab(55.0, -60.0, 40.0) },
++                    quality = CaptureQuality.ACCEPTABLE,
++                    centerColor = Color.GREEN,
++                    upNeighborColor = Color.WHITE,
++                ),
++            )
++        show(GuidedScanPhase.Viewfinder(stepIndex = 1, captured = captured, coaching = Coaching.GLARE))
++        val root = rule.onRoot().getUnclippedBoundsInRoot()
++        listOf("scanViewfinder", "scanPrompt", "scanNet", "scanCapture").forEach { tag ->
++            rule.onNodeWithTag(tag).assertIsDisplayed()
++            val bounds = rule.onNodeWithTag(tag).getUnclippedBoundsInRoot()
++            assertTrue("$tag $bounds inside $root", bounds.top >= root.top && bounds.bottom <= root.bottom && bounds.right <= root.right)
++        }
++        rule.onNodeWithText("Show the red center, with white on top.").assertIsDisplayed()
++        rule.onNodeWithText("Too much glare — tilt the cube").assertIsDisplayed()
++        rule.onNodeWithText("Face 2 of 6").assertIsDisplayed()
++        assertEquals(0, rule.onAllNodes(hasScrollAction()).fetchSemanticsNodes().size)
++    }
++
++    @Test
++    fun `every coaching has its own content string`() {
++        Coaching.entries.forEach { assertTrue(coachingKey(it), coachingKey(it) in bundle) }
++        assertEquals("Hold the cube still", bundle[coachingKey(Coaching.BLURRED)])
++    }
++
++    @Test
++    fun `the rationale card shows the approved copy and both actions`() {
++        var continued = 0
++        var fellBack = 0
++        show(GuidedScanPhase.Rationale, GuidedScanActions(onContinue = { continued++ }, onEnterColors = { fellBack++ }))
++        rule
++            .onNodeWithText(
++                "Cubentia uses the camera to read your cube's colors. It reads them on this device. Nothing is saved or sent.",
++            ).assertIsDisplayed()
++        rule.onNodeWithText("Continue").performClick()
++        rule.onNodeWithText("Enter colors instead").performClick()
++        assertEquals(1, continued)
++        assertEquals(1, fellBack)
++    }
++
++    @Test
++    fun `a denial shows Enter colors instead without Open settings`() {
++        show(GuidedScanPhase.Denied(permanent = false))
++        rule.onNodeWithText(bundle.getValue("msg.scan.camera-denied")).assertIsDisplayed()
++        rule.onNodeWithText("Enter colors instead").assertIsDisplayed()
++        rule.onNodeWithText("Open settings").assertDoesNotExist()
++    }
++
++    @Test
++    fun `a permanent denial also offers Open settings`() {
++        var opened = 0
++        show(GuidedScanPhase.Denied(permanent = true), GuidedScanActions(onOpenSettings = { opened++ }))
++        rule.onNodeWithText(bundle.getValue("msg.scan.camera-denied-permanently")).assertIsDisplayed()
++        rule.onNodeWithText("Enter colors instead").assertIsDisplayed()
++        rule.onNodeWithText("Open settings").performClick()
++        assertEquals(1, opened)
++    }
++
++    @Test
++    fun `an unavailable camera offers Enter colors instead and the close button cancels`() {
++        var closed = 0
++        show(GuidedScanPhase.Unavailable, GuidedScanActions(onClose = { closed++ }))
++        rule.onNodeWithText(bundle.getValue("msg.scan.camera-unavailable")).assertIsDisplayed()
++        rule.onNodeWithText("Enter colors instead").assertIsDisplayed()
++        rule.onNodeWithTag("scanClose").performClick()
++        assertEquals(1, closed)
++    }
++}
+diff --git a/app/src/testDebug/kotlin/dev/cubentia/app/camera/scan/GuidedScanDebugSummaryTest.kt b/app/src/testDebug/kotlin/dev/cubentia/app/camera/scan/GuidedScanDebugSummaryTest.kt
+new file mode 100644
+index 0000000..a34c956
+--- /dev/null
++++ b/app/src/testDebug/kotlin/dev/cubentia/app/camera/scan/GuidedScanDebugSummaryTest.kt
+@@ -0,0 +1,45 @@
++package dev.cubentia.app.camera.scan
++
++import dev.cubentia.app.scan.GuidedScanCapture
++import dev.cubentia.domain.cube.Color
++import dev.cubentia.domain.recognition.CaptureQuality
++import dev.cubentia.domain.recognition.FaceSample
++import dev.cubentia.domain.recognition.GuidedScanPlan
++import dev.cubentia.domain.recognition.Lab
++import org.junit.jupiter.api.Assertions.assertEquals
++import org.junit.jupiter.api.Test
++
++class GuidedScanDebugSummaryTest {
++    private val labs =
++        mapOf(
++            Color.WHITE to Lab(90.0, 0.0, 0.0),
++            Color.YELLOW to Lab(85.0, -5.0, 80.0),
++            Color.GREEN to Lab(55.0, -60.0, 40.0),
++            Color.BLUE to Lab(40.0, 10.0, -50.0),
++            Color.RED to Lab(45.0, 65.0, 45.0),
++            Color.ORANGE to Lab(65.0, 45.0, 65.0),
++        )
++
++    private val solved =
++        GuidedScanPlan.steps.map { step ->
++            FaceSample(
++                face = step.face,
++                orientationDegrees = 0,
++                stickers = List(9) { labs.getValue(step.centerColor) },
++                quality = CaptureQuality.ACCEPTABLE,
++                centerColor = step.centerColor,
++                upNeighborColor = step.upNeighborColor,
++                centerPlain = true,
++            )
++        }
++
++    @Test
++    fun `summaries name the outcome`() {
++        assertEquals("Cancelled.", summarize(GuidedScanCapture.Cancelled))
++        assertEquals("Fell back to the editor.", summarize(GuidedScanCapture.FellBackToEditor))
++        assertEquals("Full: 0 uncertain of 54.", summarize(GuidedScanCapture.Captured(solved)))
++        assertEquals("5 samples; needs calibration for YELLOW.", summarize(solved.dropLast(1)))
++        val noPose = listOf(solved.first().copy(upNeighborColor = Color.BLUE)) + solved.drop(1)
++        assertEquals("Partial: 0 uncertain; gaps F=NO_POSE.", summarize(noPose))
++    }
++}
+diff --git a/core/domain/src/main/kotlin/dev/cubentia/domain/recognition/GuidedScan.kt b/core/domain/src/main/kotlin/dev/cubentia/domain/recognition/GuidedScan.kt
+new file mode 100644
+index 0000000..5aca6aa
+--- /dev/null
++++ b/core/domain/src/main/kotlin/dev/cubentia/domain/recognition/GuidedScan.kt
+@@ -0,0 +1,245 @@
++package dev.cubentia.domain.recognition
++
++import dev.cubentia.domain.cube.Color
++import dev.cubentia.domain.cube.Face
++
++/**
++ * One Guided Scan prompt: show the [centerColor] center to the camera with the [upNeighborColor] center on top. [face]
++ * is the face whose home color is [centerColor].
++ */
++data class ScanStep(
++    val centerColor: Color,
++    val upNeighborColor: Color,
++) {
++    val face: Face get() = Face.entries.first { Color.home(it) == centerColor }
++}
++
++/**
++ * The fixed Guided 6-face Scan order (Story 10.2). Every step shows its face exactly as the Kociemba net draws it, so
++ * `ScanAssembler` turns none of them: white on top while the four side faces go round, then white (blue on top), then
++ * yellow (green on top).
++ */
++object GuidedScanPlan {
++    val steps: List<ScanStep> =
++        listOf(
++            ScanStep(Color.GREEN, Color.WHITE),
++            ScanStep(Color.RED, Color.WHITE),
++            ScanStep(Color.BLUE, Color.WHITE),
++            ScanStep(Color.ORANGE, Color.WHITE),
++            ScanStep(Color.WHITE, Color.BLUE),
++            ScanStep(Color.YELLOW, Color.GREEN),
++        )
++}
++
++/**
++ * What the camera adapter measured on one analysis frame, inside the grid only: the nine cell readings in pixel
++ * row-major order (null when a cell had no reading), the mean luma (Y, 0–255), the fraction of grid pixels with Y ≥ 250
++ * ([glareFraction]) and the grid's [sharpness] (the variance of the Laplacian of Y, as the camera adapter computes it).
++ * No pixels cross into the domain.
++ */
++data class FrameStats(
++    val cells: List<CellReading?>,
++    val meanLuma: Double,
++    val glareFraction: Double,
++    val sharpness: Double,
++)
++
++/**
++ * Frame quality for the Guided Scan, in precedence order LOW_LIGHT → GLARE → BLURRED → MISALIGNED → ACCEPTABLE.
++ * Thresholds are provisional: they are tuned on the reference devices in device session B.
++ */
++object FrameQuality {
++    /** Mean grid luma (0–255) below this is too dark. Provisional, tuned in device session B. */
++    const val MIN_MEAN_LUMA = 40.0
++
++    /** Luma at or above this is a glare pixel. Provisional, tuned in device session B. */
++    const val GLARE_LUMA = 250
++
++    /** At least this fraction of grid pixels at [GLARE_LUMA] is glare. Provisional, tuned in device session B. */
++    const val MAX_GLARE_FRACTION = 0.15
++
++    /** Grid sharpness (variance of the Laplacian of Y) below this is blurred. Provisional, tuned in device session B. */
++    const val MIN_SHARPNESS = 60.0
++
++    /** At least this many of the nine cells must be plain for the grid to sit on one face. Provisional (session B). */
++    const val MIN_PLAIN_CELLS = 7
++
++    const val CELLS = 9
++
++    fun assess(stats: FrameStats): CaptureQuality =
++        when {
++            stats.meanLuma < MIN_MEAN_LUMA -> CaptureQuality.LOW_LIGHT
++            stats.glareFraction >= MAX_GLARE_FRACTION -> CaptureQuality.GLARE
++            stats.sharpness < MIN_SHARPNESS -> CaptureQuality.BLURRED
++            stats.cells.size != CELLS || stats.cells.any { it == null } -> CaptureQuality.MISALIGNED
++            stats.cells.count { it?.plain == true } < MIN_PLAIN_CELLS -> CaptureQuality.MISALIGNED
++            else -> CaptureQuality.ACCEPTABLE
++        }
++}
++
++/** Categorical coaching for the Learner; never an error. */
++enum class Coaching { GLARE, BLURRED, LOW_LIGHT, MISALIGNED, WRONG_FACE }
++
++/** What the viewfinder must do after a controller call. */
++sealed interface GuidedScanEffect {
++    /** Re-meter AF/AE/AWB on the grid. */
++    data object Remeter : GuidedScanEffect
++
++    /** A face was captured and stored. */
++    data class Capture(
++        val sample: FaceSample,
++    ) : GuidedScanEffect
++
++    /** All six faces are captured, in plan order. */
++    data class Done(
++        val samples: List<FaceSample>,
++    ) : GuidedScanEffect
++}
++
++/**
++ * The Guided Scan decisions (Story 10.2), pure and single-threaded, with time injected as `nowMs`.
++ *
++ * Alignment is an ACCEPTABLE frame. The first ACCEPTABLE frame after a non-ACCEPTABLE one (or at a new step) emits
++ * [GuidedScanEffect.Remeter]; after [SETTLE_MS] the first frame becomes the steadiness reference, and once every cell
++ * has stayed within [STEADY_DELTA_E] of it for [STEADY_MS] the face is captured automatically. A cell that moves resets
++ * the reference and the timer. [onShutter] captures the latest ACCEPTABLE frame at once. A capture whose center is within
++ * [SAME_CENTER_DELTA_E] of an already captured center is the same face again: it is rejected with
++ * [Coaching.WRONG_FACE] and not stored.
++ */
++class GuidedScanController(
++    private val plan: List<ScanStep> = GuidedScanPlan.steps,
++) {
++    private data class Frame(
++        val stats: FrameStats,
++        val orientationDegrees: Int,
++        val quality: CaptureQuality,
++    )
++
++    private val stored = mutableListOf<FaceSample>()
++    private var latest: Frame? = null
++    private var aligned = false
++    private var remeteredAt = 0L
++    private var reference: List<Lab>? = null
++    private var steadySince = 0L
++
++    /** Index into the plan of the face to show next; equals the plan size when done. */
++    val stepIndex: Int get() = stored.size
++
++    /** The step to show next, or null when every face is captured. */
++    val step: ScanStep? get() = plan.getOrNull(stepIndex)
++
++    val captured: List<FaceSample> get() = stored.toList()
++
++    val done: Boolean get() = stored.size == plan.size
++
++    /** The current coaching, or null for none. */
++    var coaching: Coaching? = null
++        private set
++
++    /** Feeds one analysis frame, whose image needs [orientationDegrees] clockwise to be upright. */
++    fun onFrame(
++        stats: FrameStats,
++        orientationDegrees: Int,
++        nowMs: Long,
++    ): List<GuidedScanEffect> {
++        if (done) return emptyList()
++        val quality = FrameQuality.assess(stats)
++        val frame = Frame(stats, orientationDegrees, quality)
++        latest = frame
++        if (quality != CaptureQuality.ACCEPTABLE) {
++            aligned = false
++            reference = null
++            coaching = coachingFor(quality)
++            return emptyList()
++        }
++        if (!aligned) {
++            aligned = true
++            coaching = null
++            return listOf(remeter(nowMs))
++        }
++        if (nowMs < remeteredAt + SETTLE_MS) return emptyList()
++        val values = stats.cells.map { it!!.value }
++        val ref = reference
++        if (ref == null || values.zip(ref).any { (now, then) -> StickerClassifier.deltaE(now, then) >= STEADY_DELTA_E }) {
++            reference = values
++            steadySince = nowMs
++            return emptyList()
++        }
++        if (nowMs - steadySince < STEADY_MS) return emptyList()
++        return capture(frame, nowMs)
++    }
++
++    /** The manual shutter: captures the latest ACCEPTABLE frame now; otherwise only coaches. */
++    fun onShutter(nowMs: Long): List<GuidedScanEffect> {
++        if (done) return emptyList()
++        val frame = latest
++        if (frame == null || frame.quality != CaptureQuality.ACCEPTABLE) {
++            coaching = frame?.let { coachingFor(it.quality) } ?: Coaching.MISALIGNED
++            return emptyList()
++        }
++        return capture(frame, nowMs)
++    }
++
++    private fun capture(
++        frame: Frame,
++        nowMs: Long,
++    ): List<GuidedScanEffect> {
++        val step = plan[stepIndex]
++        val cells = frame.stats.cells.map { it!! }
++        val center = cells[FaceSample.CENTER_INDEX]
++        val repeated =
++            stored.any { previous ->
++                previous.center?.let { StickerClassifier.deltaE(it, center.value) < SAME_CENTER_DELTA_E } == true
++            }
++        if (repeated) {
++            coaching = Coaching.WRONG_FACE
++            // Restart the steady timer so the same face is not re-tried on every frame.
++            reference = cells.map { it.value }
++            steadySince = nowMs
++            return emptyList()
++        }
++        val sample =
++            FaceSample(
++                face = step.face,
++                orientationDegrees = frame.orientationDegrees,
++                stickers = cells.map { it.value },
++                quality = CaptureQuality.ACCEPTABLE,
++                centerColor = step.centerColor,
++                upNeighborColor = step.upNeighborColor,
++                centerPlain = center.plain,
++            )
++        stored += sample
++        coaching = null
++        val next = if (done) GuidedScanEffect.Done(captured) else remeter(nowMs)
++        return listOf(GuidedScanEffect.Capture(sample), next)
++    }
++
++    private fun remeter(nowMs: Long): GuidedScanEffect {
++        remeteredAt = nowMs
++        reference = null
++        return GuidedScanEffect.Remeter
++    }
++
++    companion object {
++        /** Aligned and steady this long before an automatic capture. */
++        const val STEADY_MS = 600L
++
++        /** After a re-meter, AF/AE/AWB converge this long before steadiness is measured. Provisional (session B). */
++        const val SETTLE_MS = 300L
++
++        /** Every cell must move less than this (CIE76) from the reference to count as steady. */
++        const val STEADY_DELTA_E = 5.0
++
++        /** A center this close (CIE76) to an already captured center is the same face again. */
++        const val SAME_CENTER_DELTA_E = 10.0
++
++        fun coachingFor(quality: CaptureQuality): Coaching? =
++            when (quality) {
++                CaptureQuality.ACCEPTABLE -> null
++                CaptureQuality.GLARE -> Coaching.GLARE
++                CaptureQuality.BLURRED -> Coaching.BLURRED
++                CaptureQuality.LOW_LIGHT -> Coaching.LOW_LIGHT
++                CaptureQuality.MISALIGNED, CaptureQuality.INCOMPLETE -> Coaching.MISALIGNED
++            }
++    }
++}
+diff --git a/core/domain/src/main/resources/content/strings/en.json b/core/domain/src/main/resources/content/strings/en.json
+index 033b07c..4b1c09c 100644
+--- a/core/domain/src/main/resources/content/strings/en.json
++++ b/core/domain/src/main/resources/content/strings/en.json
+@@ -604,5 +604,22 @@
+   "msg.learn.two-look-mastery": "Mastery: {done} of {total}",
+   "btn.learn.two-look-practice": "Practice the last layer",
+   "msg.lesson.two-look.qualified": "Last layer solved with 2-look, no hints.",
+-  "msg.lesson.two-look.not-qualified": "Solved. Only 2-look algorithms with no hints count toward mastery."
++  "msg.lesson.two-look.not-qualified": "Solved. Only 2-look algorithms with no hints count toward mastery.",
++
++  "msg.scan.camera-rationale": "Cubentia uses the camera to read your cube's colors. It reads them on this device. Nothing is saved or sent.",
++  "btn.scan.continue": "Continue",
++  "btn.scan.enter-colors-instead": "Enter colors instead",
++  "msg.scan.camera-denied": "Without the camera, you can still enter your cube's colors by hand.",
++  "msg.scan.camera-denied-permanently": "Camera access is off for Cubentia. Turn it on in Settings to scan, or enter your cube's colors by hand.",
++  "btn.scan.open-settings": "Open settings",
++  "msg.scan.camera-unavailable": "The camera isn't available right now. You can enter your cube's colors by hand.",
++  "msg.scan.prompt": "Show the {center} center, with {up} on top.",
++  "msg.scan.coach.glare": "Too much glare — tilt the cube",
++  "msg.scan.coach.blur": "Hold the cube still",
++  "msg.scan.coach.low-light": "Too dark — move to more light",
++  "msg.scan.coach.misaligned": "Fit one face inside the grid",
++  "msg.scan.coach.wrong-face": "Already scanned — turn to the face shown",
++  "btn.scan.capture": "Capture",
++  "btn.scan.close": "Close",
++  "msg.scan.progress": "Face {n} of 6"
+ }
+diff --git a/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/GuidedScanTest.kt b/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/GuidedScanTest.kt
+new file mode 100644
+index 0000000..a7b5eb3
+--- /dev/null
++++ b/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/GuidedScanTest.kt
+@@ -0,0 +1,236 @@
++package dev.cubentia.domain.recognition
++
++import dev.cubentia.domain.cube.Color
++import dev.cubentia.domain.cube.CubeState
++import dev.cubentia.domain.cube.Face
++import dev.cubentia.domain.cube.FaceTurn
++import dev.cubentia.domain.cube.Turn
++import dev.cubentia.domain.recognition.RecognitionFixtures.CALIBRATION
++import dev.cubentia.domain.recognition.RecognitionFixtures.LABS
++import org.junit.jupiter.api.Assertions.assertEquals
++import org.junit.jupiter.api.Assertions.assertFalse
++import org.junit.jupiter.api.Assertions.assertNull
++import org.junit.jupiter.api.Assertions.assertTrue
++import org.junit.jupiter.api.Test
++
++class GuidedScanTest {
++    private fun cells(
++        center: Color,
++        plain: Int = 9,
++    ): List<CellReading?> = List(9) { CellReading(LABS.getValue(center), it < plain) }
++
++    private fun stats(
++        cells: List<CellReading?> = cells(Color.GREEN),
++        luma: Double = 120.0,
++        glare: Double = 0.0,
++        sharpness: Double = 100.0,
++    ) = FrameStats(cells, luma, glare, sharpness)
++
++    private val good = stats()
++
++    /** Feeds [frame] every 100 ms from [from] through [to] inclusive and returns every effect. */
++    private fun GuidedScanController.feed(
++        frame: FrameStats,
++        from: Long,
++        to: Long,
++        orientation: Int = 0,
++    ): List<GuidedScanEffect> = (from..to step 100).flatMap { onFrame(frame, orientation, it) }
++
++    // FrameQuality
++
++    @Test
++    fun `quality precedence is low light, glare, blur, misaligned, acceptable`() {
++        val bad = stats(cells = List(9) { null }, luma = 10.0, glare = 0.5, sharpness = 1.0)
++        assertEquals(CaptureQuality.LOW_LIGHT, FrameQuality.assess(bad))
++        assertEquals(CaptureQuality.GLARE, FrameQuality.assess(bad.copy(meanLuma = 40.0)))
++        assertEquals(CaptureQuality.BLURRED, FrameQuality.assess(bad.copy(meanLuma = 40.0, glareFraction = 0.149)))
++        assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(bad.copy(meanLuma = 40.0, glareFraction = 0.0, sharpness = 60.0)))
++        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(good))
++    }
++
++    @Test
++    fun `thresholds sit at their named boundaries`() {
++        assertEquals(CaptureQuality.LOW_LIGHT, FrameQuality.assess(stats(luma = 39.9)))
++        assertEquals(CaptureQuality.GLARE, FrameQuality.assess(stats(glare = 0.15)))
++        assertEquals(CaptureQuality.BLURRED, FrameQuality.assess(stats(sharpness = 59.9)))
++    }
++
++    @Test
++    fun `a missing cell, fewer than seven plain cells or not nine cells is misaligned`() {
++        assertEquals(
++            CaptureQuality.MISALIGNED,
++            FrameQuality.assess(stats(cells = cells(Color.GREEN).toMutableList().also { it[3] = null })),
++        )
++        assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(stats(cells = cells(Color.GREEN, plain = 6))))
++        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(stats(cells = cells(Color.GREEN, plain = 7))))
++        assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(stats(cells = cells(Color.GREEN).take(8))))
++    }
++
++    // Plan
++
++    @Test
++    fun `the plan is six steps in the documented order, each on its home face`() {
++        assertEquals(
++            listOf(
++                Color.GREEN to Color.WHITE,
++                Color.RED to Color.WHITE,
++                Color.BLUE to Color.WHITE,
++                Color.ORANGE to Color.WHITE,
++                Color.WHITE to Color.BLUE,
++                Color.YELLOW to Color.GREEN,
++            ),
++            GuidedScanPlan.steps.map { it.centerColor to it.upNeighborColor },
++        )
++        assertEquals(listOf(Face.F, Face.R, Face.B, Face.L, Face.U, Face.D), GuidedScanPlan.steps.map { it.face })
++    }
++
++    @Test
++    fun `six faces of a scrambled cube shown per the plan assemble to that cube`() {
++        val moves =
++            listOf(
++                FaceTurn(Face.R, Turn.CLOCKWISE),
++                FaceTurn(Face.U, Turn.COUNTERCLOCKWISE),
++                FaceTurn(Face.F, Turn.HALF),
++                FaceTurn(Face.L, Turn.CLOCKWISE),
++            )
++        val cube = CubeState.SOLVED.apply(moves).toFacelets()
++        val controller = GuidedScanController()
++        var now = 0L
++        var done: List<FaceSample>? = null
++        GuidedScanPlan.steps.forEach { step ->
++            val net = cube.colors.subList(step.face.ordinal * 9, step.face.ordinal * 9 + 9)
++            // A sensor needing 90° clockwise delivers the upright view turned a quarter counter-clockwise.
++            val pixels = ScanAssembler.rotateClockwise(net, 3)
++            val frame = stats(cells = pixels.map { CellReading(LABS.getValue(it), true) })
++            controller.onFrame(stats(cells = List(9) { null }), 90, now)
++            val effects = controller.feed(frame, now + 100, now + 1100, orientation = 90)
++            done = effects.filterIsInstance<GuidedScanEffect.Done>().singleOrNull()?.samples ?: done
++            now += 2000
++        }
++        val samples = requireNotNull(done)
++        assertEquals(GuidedScanPlan.steps.map { it.centerColor }, samples.map { it.centerColor })
++        assertTrue(samples.all { it.orientationDegrees == 90 && it.quality == CaptureQuality.ACCEPTABLE && it.centerPlain == true })
++        assertEquals(ScanResult.Full(cube, List(54) { StickerConfidence.CONFIDENT }), ScanAssembler.assemble(samples, CALIBRATION))
++        val selfCalibrated = SelfCalibration.from(samples) as SelfCalibration.Calibrated
++        assertEquals(
++            ScanResult.Full(cube, List(54) { StickerConfidence.CONFIDENT }),
++            ScanAssembler.assemble(samples, selfCalibrated.calibration),
++        )
++    }
++
++    // Controller
++
++    @Test
++    fun `alignment found remeters once and auto-captures after settle plus 600 ms steady`() {
++        val controller = GuidedScanController()
++        assertEquals(listOf(GuidedScanEffect.Remeter), controller.onFrame(good, 0, 0))
++        // Settle until 300 ms; the reference is taken at 300 ms, so the capture lands at 900 ms.
++        assertEquals(emptyList<GuidedScanEffect>(), controller.feed(good, 100, 800))
++        val effects = controller.onFrame(good, 0, 900)
++        assertEquals(2, effects.size)
++        val capture = effects[0] as GuidedScanEffect.Capture
++        assertEquals(GuidedScanEffect.Remeter, effects[1])
++        assertEquals(Face.F, capture.sample.face)
++        assertEquals(Color.GREEN, capture.sample.centerColor)
++        assertEquals(Color.WHITE, capture.sample.upNeighborColor)
++        assertEquals(1, controller.stepIndex)
++        assertEquals(GuidedScanPlan.steps[1], controller.step)
++    }
++
++    @Test
++    fun `a cell moving 5 dE at 500 ms restarts the steady timer`() {
++        val controller = GuidedScanController()
++        controller.onFrame(good, 0, 0)
++        controller.feed(good, 100, 400)
++        val moved = cells(Color.GREEN).toMutableList().also { it[8] = CellReading(Lab(55.0, -60.0, 45.0), true) }
++        assertEquals(emptyList<GuidedScanEffect>(), controller.onFrame(stats(cells = moved), 0, 500))
++        // Steady from 500 ms against the moved reference: nothing until 1100 ms.
++        assertEquals(emptyList<GuidedScanEffect>(), controller.feed(stats(cells = moved), 600, 1000))
++        assertEquals(0, controller.stepIndex)
++        assertTrue(controller.onFrame(stats(cells = moved), 0, 1100).first() is GuidedScanEffect.Capture)
++    }
++
++    @Test
++    fun `losing alignment remeters again when it is found`() {
++        val controller = GuidedScanController()
++        assertEquals(listOf(GuidedScanEffect.Remeter), controller.onFrame(good, 0, 0))
++        assertEquals(emptyList<GuidedScanEffect>(), controller.onFrame(good, 0, 100))
++        assertEquals(emptyList<GuidedScanEffect>(), controller.onFrame(stats(cells = cells(Color.GREEN, plain = 3)), 0, 200))
++        assertEquals(Coaching.MISALIGNED, controller.coaching)
++        assertEquals(listOf(GuidedScanEffect.Remeter), controller.onFrame(good, 0, 300))
++        assertNull(controller.coaching)
++    }
++
++    @Test
++    fun `glare, blur, low light and misalignment coach and never capture`() {
++        val cases =
++            mapOf(
++                stats(glare = 0.3) to Coaching.GLARE,
++                stats(sharpness = 5.0) to Coaching.BLURRED,
++                stats(luma = 5.0) to Coaching.LOW_LIGHT,
++                stats(cells = cells(Color.GREEN, plain = 0)) to Coaching.MISALIGNED,
++            )
++        cases.forEach { (frame, coaching) ->
++            val controller = GuidedScanController()
++            assertEquals(emptyList<GuidedScanEffect>(), controller.feed(frame, 0, 3000))
++            assertEquals(coaching, controller.coaching)
++            assertEquals(emptyList<GuidedScanEffect>(), controller.onShutter(3000))
++            assertEquals(coaching, controller.coaching)
++            assertEquals(0, controller.stepIndex)
++        }
++    }
++
++    @Test
++    fun `the shutter captures the latest acceptable frame at once`() {
++        val controller = GuidedScanController()
++        assertEquals(Coaching.MISALIGNED, controller.onShutter(0).let { controller.coaching })
++        controller.onFrame(good, 180, 10)
++        val effects = controller.onShutter(20)
++        assertEquals(180, (effects[0] as GuidedScanEffect.Capture).sample.orientationDegrees)
++        assertEquals(GuidedScanEffect.Remeter, effects[1])
++    }
++
++    @Test
++    fun `the same face again is rejected with WRONG_FACE and not stored`() {
++        val controller = GuidedScanController()
++        controller.onFrame(good, 0, 0)
++        controller.onShutter(10)
++        assertEquals(1, controller.stepIndex)
++        // Still green: within 10 dE of the captured green center.
++        val nearGreen = cells(Color.GREEN).map { it!!.copy(value = Lab(57.0, -58.0, 42.0)) }
++        controller.onFrame(stats(cells = nearGreen), 0, 20)
++        assertEquals(emptyList<GuidedScanEffect>(), controller.onShutter(30))
++        assertEquals(Coaching.WRONG_FACE, controller.coaching)
++        assertEquals(1, controller.stepIndex)
++        assertEquals(1, controller.captured.size)
++        // Auto-capture rejects it too, then keeps waiting on the same step.
++        controller.feed(stats(cells = nearGreen), 100, 2000)
++        assertEquals(Coaching.WRONG_FACE, controller.coaching)
++        assertEquals(1, controller.stepIndex)
++    }
++
++    @Test
++    fun `the sixth capture emits Done with six samples in plan order, then ignores input`() {
++        val controller = GuidedScanController()
++        val colors = GuidedScanPlan.steps.map { it.centerColor }
++        val effects =
++            colors.flatMapIndexed { index, color ->
++                controller.onFrame(stats(cells = cells(color)), 0, index * 10L)
++                controller.onShutter(index * 10L + 1)
++            }
++        val done = effects.last() as GuidedScanEffect.Done
++        assertEquals(colors, done.samples.map { it.centerColor })
++        assertEquals(6, effects.count { it is GuidedScanEffect.Capture })
++        assertTrue(controller.done)
++        assertNull(controller.step)
++        assertEquals(emptyList<GuidedScanEffect>(), controller.onFrame(good, 0, 1000))
++        assertEquals(emptyList<GuidedScanEffect>(), controller.onShutter(1000))
++    }
++
++    @Test
++    fun `coaching maps every capture quality`() {
++        assertNull(GuidedScanController.coachingFor(CaptureQuality.ACCEPTABLE))
++        assertEquals(Coaching.MISALIGNED, GuidedScanController.coachingFor(CaptureQuality.INCOMPLETE))
++        assertFalse(Coaching.entries.isEmpty())
++    }
++}
