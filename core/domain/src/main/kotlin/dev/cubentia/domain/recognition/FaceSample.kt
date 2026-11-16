@@ -17,7 +17,15 @@ data class Lab(
 @Serializable
 enum class CaptureQuality { ACCEPTABLE, BLURRED, GLARE, LOW_LIGHT, MISALIGNED, INCOMPLETE }
 
-/** One oriented face capture. Sticker samples use row-major order, top-left through bottom-right. */
+/**
+ * One oriented face capture. Sticker samples use row-major order, top-left through bottom-right, in the frame's pixel
+ * order; [orientationDegrees] is the clockwise turn that shows them upright in the viewfinder.
+ *
+ * The pose fields are what the Guided Scan prompt asked for (null when not prompted, e.g. recorder fixtures):
+ * [centerColor] is the center color the prompt asked to face the camera, [upNeighborColor] the center color it asked to
+ * be on top, and [centerPlain] whether the center cell's histogram mode holds at least 60% of its pixels
+ * ([CellReading.plain]; null = not measured).
+ */
 @Serializable
 data class FaceSample(
     val schemaVersion: Int = 1,
@@ -26,6 +34,9 @@ data class FaceSample(
     val stickers: List<Lab>,
     val quality: CaptureQuality,
     val qualityDetail: String? = null,
+    val centerColor: Color? = null,
+    val upNeighborColor: Color? = null,
+    val centerPlain: Boolean? = null,
 ) {
     val center: Lab? get() = stickers.getOrNull(CENTER_INDEX)
     val upNeighbor: Lab? get() = stickers.getOrNull(UP_NEIGHBOR_INDEX)

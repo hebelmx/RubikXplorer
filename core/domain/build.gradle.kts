@@ -37,6 +37,15 @@ tasks.register<JavaExec>("evaluateLiveBaseline") {
     args(rootProject.file("Fixtures/live").path, rootProject.file("docs/spikes/oq-4-guided-scan.md").path)
 }
 
+// Story 10.1: the decision K pipeline (all-Kotlin reader, self-calibration, assembly) on the live fixtures. On demand only.
+tasks.register<JavaExec>("evaluateScanAccuracy") {
+    group = "verification"
+    description = "Scores the Kotlin scan pipeline on the live fixtures and updates docs/scan-accuracy.md."
+    classpath = evaluation.runtimeClasspath
+    mainClass.set("dev.cubentia.domain.recognition.evaluation.scan.ScanAccuracyMainKt")
+    args(rootProject.file("Fixtures/live").path, rootProject.file("docs/scan-accuracy.md").path)
+}
+
 // Story 10.13 (OQ-7): OpenCV runs only in this on-demand spike source set. Nothing wires it into assemble, build,
 // check or test, so the ~110 MB JVM OpenCV jar is never downloaded or compiled by CI.
 val recognitionSpike: SourceSet by sourceSets.creating
