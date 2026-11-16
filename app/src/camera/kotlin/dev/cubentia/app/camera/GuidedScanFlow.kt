@@ -31,7 +31,19 @@ internal object GuidedScanFlow {
 
     /** What the viewfinder shows for the controller's current state. */
     fun phaseOf(controller: GuidedScanController): GuidedScanPhase.Viewfinder =
-        GuidedScanPhase.Viewfinder(controller.stepIndex, controller.captured, controller.coaching, controller.canUseAnyway)
+        GuidedScanPhase.Viewfinder(
+            stepIndex = controller.stepIndex,
+            captured = controller.captured,
+            coaching = controller.coaching,
+            canUseAnyway = controller.canUseAnyway,
+            step = controller.step,
+            again =
+                if (controller.repeating) {
+                    RepromptProgress(controller.repromptIndex + 1, controller.repromptCount)
+                } else {
+                    null
+                },
+        )
 
     /** True when [effects] ask for AF/AE/AWB on the grid. */
     fun remeters(effects: List<GuidedScanEffect>): Boolean = GuidedScanEffect.Remeter in effects

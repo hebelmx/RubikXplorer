@@ -30,6 +30,7 @@ import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.recognition.CaptureQuality
 import dev.cubentia.domain.recognition.Coaching
 import dev.cubentia.domain.recognition.FaceSample
+import dev.cubentia.domain.recognition.GuidedScanPlan
 import dev.cubentia.domain.recognition.Lab
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -55,20 +56,19 @@ class GuidedScanScreenTest {
         actions: GuidedScanActions = GuidedScanActions(),
     ) = rule.setContent { CubentiaTheme { GuidedScanScreen(phase, strings, actions) } }
 
-    @Test
-    fun `the viewfinder, prompt, net and Capture fit on one compact portrait screen without scrolling`() {
-        val captured =
-            listOf(
-                FaceSample(
-                    face = Face.F,
-                    orientationDegrees = 90,
-                    stickers = List(9) { Lab(55.0, -60.0, 40.0) },
-                    quality = CaptureQuality.ACCEPTABLE,
-                    centerColor = Color.GREEN,
-                    upNeighborColor = Color.WHITE,
-                ),
-            )
-        show(GuidedScanPhase.Viewfinder(stepIndex = 1, captured = captured, coaching = Coaching.GLARE))
+    private val greenCaptured =
+        listOf(
+            FaceSample(
+                face = Face.F,
+                orientationDegrees = 90,
+                stickers = List(9) { Lab(55.0, -60.0, 40.0) },
+                quality = CaptureQuality.ACCEPTABLE,
+                centerColor = Color.GREEN,
+            ),
+        )
+
+    /** The viewfinder, prompt, coaching, net and Capture all sit on one screen, the prompt and coaching off the grid. */
+    private fun assertFitsOnOneScreen() {
         val root = rule.onRoot().getUnclippedBoundsInRoot()
         listOf("scanViewfinder", "scanPrompt", "scanCoaching", "scanNet", "scanCapture").forEach { tag ->
             rule.onNodeWithTag(tag).assertIsDisplayed()
@@ -85,10 +85,20 @@ class GuidedScanScreenTest {
         }
         assertTrue(rule.onNodeWithTag("scanPrompt").getUnclippedBoundsInRoot().bottom <= grid.top)
         assertTrue(rule.onNodeWithTag("scanCoaching").getUnclippedBoundsInRoot().top >= grid.bottom)
-        rule.onNodeWithText("Show the red center, with white on top.").assertIsDisplayed()
+        assertEquals(0, rule.onAllNodes(hasScrollAction()).fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun `the viewfinder, prompt, net and Capture fit on one compact portrait screen without scrolling`() {
+        show(GuidedScanPhase.Viewfinder(stepIndex = 1, captured = greenCaptured, coaching = Coaching.GLARE))
+        assertFitsOnOneScreen()
+        // Story 10.14: the first-round prompt names only the center, with its one swatch.
+        assertEquals("Show the {center} center.", bundle.getValue("msg.scan.prompt"))
+        rule.onNodeWithText("Show the red center.").assertIsDisplayed()
+        rule.onNodeWithTag("scanSwatch:RED").assertIsDisplayed()
+        rule.onNodeWithTag("scanSwatch:WHITE").assertDoesNotExist()
         rule.onNodeWithText("Too much glare — tilt the cube").assertIsDisplayed()
         rule.onNodeWithText("Face 2 of 6").assertIsDisplayed()
-        assertEquals(0, rule.onAllNodes(hasScrollAction()).fetchSemanticsNodes().size)
         rule.onNodeWithTag("scanUseAnyway").assertDoesNotExist()
         assertEquals(
             LiveRegionMode.Polite,
@@ -98,6 +108,31 @@ class GuidedScanScreenTest {
             LiveRegionMode.Polite,
             rule.onNodeWithTag("scanCoaching").fetchSemanticsNode().config[SemanticsProperties.LiveRegion],
         )
+    }
+
+    @Test
+    fun `a re-prompt names the top with both swatches and still fits on one screen`() {
+        show(
+            GuidedScanPhase.Viewfinder(
+                stepIndex = 6,
+                captured = greenCaptured,
+                coaching = Coaching.GLARE,
+                step = GuidedScanPlan.reprompt(Face.F),
+                again = RepromptProgress(1, 2),
+            ),
+        )
+        assertFitsOnOneScreen()
+        val text =
+            bundle
+                .getValue("msg.scan.prompt-with-top")
+                .replace("{center}", "green")
+                .replace("{up}", "white")
+        assertEquals("Show the green center, with white on top.", text)
+        rule.onNodeWithText(text).assertIsDisplayed()
+        rule.onNodeWithTag("scanSwatch:GREEN").assertIsDisplayed()
+        rule.onNodeWithTag("scanSwatch:WHITE").assertIsDisplayed()
+        rule.onNodeWithText(bundle.getValue("msg.scan.progress-again").replace("{n}", "1").replace("{total}", "2")).assertIsDisplayed()
+        rule.onNodeWithText("Again: face 1 of 2").assertIsDisplayed()
     }
 
     @Test

@@ -5,30 +5,35 @@ import dev.cubentia.domain.cube.Face
 import kotlin.math.sqrt
 
 /**
- * One Guided Scan prompt: show the [centerColor] center to the camera with the [upNeighborColor] center on top. [face]
- * is the face whose home color is [centerColor].
+ * One Guided Scan prompt: show the [centerColor] center to the camera, with the [upNeighborColor] center on top when the
+ * prompt names a top (a re-prompt, Story 10.14); null names none. [face] is the face whose home color is [centerColor].
  */
 data class ScanStep(
     val centerColor: Color,
-    val upNeighborColor: Color,
+    val upNeighborColor: Color? = null,
 ) {
     val face: Face get() = Face.entries.first { Color.home(it) == centerColor }
 }
 
 /**
- * The fixed Guided 6-face Scan order (Story 10.2). Every step shows its face exactly as the Kociemba net draws it, so
- * `ScanAssembler` turns none of them: white on top while the four side faces go round, then white (blue on top), then
- * yellow (green on top).
+ * The fixed Guided 6-face Scan order (Stories 10.2, 10.14): green, red, blue, orange, white, yellow, each prompt naming
+ * only the center; `ScanAssembler` works out each face's turn. A face it cannot place is re-prompted with [reprompt]:
+ * the 10.2 step that shows the face exactly as the Kociemba net draws it (side faces with white on top, white with blue
+ * on top, yellow with green on top).
  */
 object GuidedScanPlan {
     val steps: List<ScanStep> =
-        listOf(
-            ScanStep(Color.GREEN, Color.WHITE),
-            ScanStep(Color.RED, Color.WHITE),
-            ScanStep(Color.BLUE, Color.WHITE),
-            ScanStep(Color.ORANGE, Color.WHITE),
-            ScanStep(Color.WHITE, Color.BLUE),
-            ScanStep(Color.YELLOW, Color.GREEN),
+        listOf(Color.GREEN, Color.RED, Color.BLUE, Color.ORANGE, Color.WHITE, Color.YELLOW).map { ScanStep(it) }
+
+    /** The re-prompt step for [face]: its center with the top that needs no turn. */
+    fun reprompt(face: Face): ScanStep =
+        ScanStep(
+            Color.home(face),
+            when (face) {
+                Face.U -> Color.BLUE
+                Face.D -> Color.GREEN
+                else -> Color.WHITE
+            },
         )
 }
 
@@ -149,7 +154,7 @@ sealed interface GuidedScanEffect {
         val sample: FaceSample,
     ) : GuidedScanEffect
 
-    /** All six faces are captured, in plan order. */
+    /** All six faces are captured (after the re-prompt round, if any), in plan order. */
     data class Done(
         val samples: List<FaceSample>,
     ) : GuidedScanEffect
@@ -178,9 +183,16 @@ sealed interface GuidedScanEffect {
  * Right after a capture the face just captured is still in view: frames are ignored (no capture, no coaching) until the
  * frame changes — a non-ACCEPTABLE frame, or any cell at least [FACE_CHANGE_DELTA_E] from the captured values — and the
  * change counts as newly found alignment.
+ *
+ * Re-prompt round (Story 10.14): after the last first-round capture, [reprompt] names the faces the assembler cannot
+ * place (by default self-calibration, then `ScanAssembler.repromptFaces`; none when calibration is not possible). When it
+ * names any, the controller asks for each in turn with [GuidedScanPlan.reprompt] (a named top) and each capture replaces
+ * that face's earlier sample; [GuidedScanEffect.Done] follows the last of them. There is at most one such round. In it a
+ * capture is a repeated face only against stored centers other than the prompted face's own.
  */
 class GuidedScanController(
     private val plan: List<ScanStep> = GuidedScanPlan.steps,
+    private val reprompt: (List<FaceSample>) -> List<Face> = { defaultReprompt(it) },
 ) {
     private data class Frame(
         val stats: FrameStats,
@@ -190,6 +202,9 @@ class GuidedScanController(
     )
 
     private val stored = mutableListOf<FaceSample>()
+    private var repromptSteps: List<ScanStep>? = null
+    private var repromptsDone = 0
+    private var finished = false
     private var latest: Frame? = null
     private var aligned = false
     private var remeteredAt = 0L
@@ -200,15 +215,30 @@ class GuidedScanController(
     private var lastRejected: Frame? = null
     private var stuckSince: Long? = null
 
-    /** Index into the plan of the face to show next; equals the plan size when done. */
+    /** Index into the plan of the first-round face to show next; equals the plan size once the first round is over. */
     val stepIndex: Int get() = stored.size
 
-    /** The step to show next, or null when every face is captured. */
-    val step: ScanStep? get() = plan.getOrNull(stepIndex)
+    /** True during the re-prompt round. */
+    val repeating: Boolean get() = repromptSteps != null && !finished
 
+    /** The 0-based position of the current re-prompt in the round, while [repeating]. */
+    val repromptIndex: Int get() = repromptsDone
+
+    /** How many faces the re-prompt round asks for (0 when there is none). */
+    val repromptCount: Int get() = repromptSteps?.size ?: 0
+
+    /** The step to show next, or null when the scan is done. */
+    val step: ScanStep?
+        get() =
+            when {
+                finished -> null
+                else -> repromptSteps?.getOrNull(repromptsDone) ?: plan.getOrNull(stepIndex)
+            }
+
+    /** The faces captured so far, in plan order (a re-prompt capture replaces its face's sample). */
     val captured: List<FaceSample> get() = stored.toList()
 
-    val done: Boolean get() = stored.size == plan.size
+    val done: Boolean get() = finished
 
     /** The current coaching, or null for none. */
     var coaching: Coaching? = null
@@ -288,9 +318,10 @@ class GuidedScanController(
         nowMs: Long,
     ): List<GuidedScanEffect> {
         val center = frame.stats.cells[FaceSample.CENTER_INDEX]!!.value
+        val own = step?.face?.takeIf { repromptSteps != null }
         val repeated =
             stored.any { previous ->
-                previous.center?.let { StickerClassifier.deltaE(it, center) < SAME_CENTER_DELTA_E } == true
+                previous.face != own && previous.center?.let { StickerClassifier.deltaE(it, center) < SAME_CENTER_DELTA_E } == true
             }
         if (!repeated) return store(frame, nowMs)
         coaching = Coaching.WRONG_FACE
@@ -306,23 +337,34 @@ class GuidedScanController(
         frame: Frame,
         nowMs: Long,
     ): List<GuidedScanEffect> {
-        val step = plan[stepIndex]
+        val current = requireNotNull(step)
         val cells = frame.stats.cells.map { it!! }
         val sample =
             FaceSample(
-                face = step.face,
+                face = current.face,
                 orientationDegrees = frame.orientationDegrees,
                 stickers = cells.map { it.value },
                 quality = CaptureQuality.ACCEPTABLE,
-                centerColor = step.centerColor,
-                upNeighborColor = step.upNeighborColor,
+                centerColor = current.centerColor,
+                upNeighborColor = current.upNeighborColor,
                 centerPlain = cells[FaceSample.CENTER_INDEX].plain,
             )
-        stored += sample
+        val steps = repromptSteps
+        if (steps == null) {
+            stored += sample
+            if (stored.size == plan.size) {
+                val faces = reprompt(captured).filter { face -> stored.any { it.face == face } }.distinct()
+                if (faces.isEmpty()) finished = true else repromptSteps = faces.map(GuidedScanPlan::reprompt)
+            }
+        } else {
+            stored[stored.indexOfFirst { it.face == current.face }] = sample
+            repromptsDone++
+            if (repromptsDone == steps.size) finished = true
+        }
         coaching = null
         clearRejection()
         justCaptured = sample.stickers
-        val next = if (done) GuidedScanEffect.Done(captured) else remeter(nowMs)
+        val next = if (finished) GuidedScanEffect.Done(captured) else remeter(nowMs)
         return listOf(GuidedScanEffect.Capture(sample), next)
     }
 
@@ -365,6 +407,13 @@ class GuidedScanController(
     }
 
     companion object {
+        /** Self-calibration, then the faces `ScanAssembler` cannot place; none when the scan needs calibration first. */
+        fun defaultReprompt(samples: List<FaceSample>): List<Face> =
+            when (val calibration = SelfCalibration.from(samples)) {
+                is SelfCalibration.Calibrated -> ScanAssembler.repromptFaces(samples, calibration.calibration)
+                is SelfCalibration.NeedsCalibration -> emptyList()
+            }
+
         /** Aligned and steady this long before an automatic capture. */
         const val STEADY_MS = 600L
 

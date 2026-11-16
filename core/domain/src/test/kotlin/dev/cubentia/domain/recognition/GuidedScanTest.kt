@@ -170,7 +170,17 @@ class GuidedScanTest {
     // Plan
 
     @Test
-    fun `the plan is six steps in the documented order, each on its home face`() {
+    fun `the plan is six steps in the documented order, each on its home face, naming no top`() {
+        assertEquals(
+            listOf(Color.GREEN, Color.RED, Color.BLUE, Color.ORANGE, Color.WHITE, Color.YELLOW),
+            GuidedScanPlan.steps.map { it.centerColor },
+        )
+        assertTrue(GuidedScanPlan.steps.all { it.upNeighborColor == null })
+        assertEquals(listOf(Face.F, Face.R, Face.B, Face.L, Face.U, Face.D), GuidedScanPlan.steps.map { it.face })
+    }
+
+    @Test
+    fun `a re-prompt names the 10_2 top`() {
         assertEquals(
             listOf(
                 Color.GREEN to Color.WHITE,
@@ -180,9 +190,8 @@ class GuidedScanTest {
                 Color.WHITE to Color.BLUE,
                 Color.YELLOW to Color.GREEN,
             ),
-            GuidedScanPlan.steps.map { it.centerColor to it.upNeighborColor },
+            GuidedScanPlan.steps.map { GuidedScanPlan.reprompt(it.face).let { step -> step.centerColor to step.upNeighborColor } },
         )
-        assertEquals(listOf(Face.F, Face.R, Face.B, Face.L, Face.U, Face.D), GuidedScanPlan.steps.map { it.face })
     }
 
     @Test
@@ -233,7 +242,7 @@ class GuidedScanTest {
         assertEquals(GuidedScanEffect.Remeter, effects[1])
         assertEquals(Face.F, capture.sample.face)
         assertEquals(Color.GREEN, capture.sample.centerColor)
-        assertEquals(Color.WHITE, capture.sample.upNeighborColor)
+        assertNull(capture.sample.upNeighborColor)
         assertEquals(1, controller.stepIndex)
         assertEquals(GuidedScanPlan.steps[1], controller.step)
     }
@@ -503,5 +512,117 @@ class GuidedScanTest {
             ),
             CaptureQuality.entries.associateWith { GuidedScanController.coachingFor(it) },
         )
+    }
+
+    // Story 10.14: re-prompt round
+
+    /** R2 alone: L2 is also valid with U, F, D and B half-turned, so those four faces are re-prompted. */
+    private val r2 = CubeState.SOLVED.apply(listOf(FaceTurn(Face.R, Turn.HALF))).toFacelets()
+
+    private fun faceOf(face: Face): FrameStats =
+        stats(cells = r2.colors.subList(face.ordinal * 9, face.ordinal * 9 + 9).map { CellReading(LABS.getValue(it), true) })
+
+    /** Shows [frame] and presses the shutter at [now]. */
+    private fun GuidedScanController.shoot(
+        frame: FrameStats,
+        now: Long,
+    ): List<GuidedScanEffect> {
+        onFrame(frame, 0, now)
+        return onShutter(now + 1)
+    }
+
+    /** A controller after the six first-round captures of [r2], each face as the net draws it. */
+    private fun afterFirstRound(
+        controller: GuidedScanController = GuidedScanController(),
+    ): Pair<GuidedScanController, List<GuidedScanEffect>> {
+        val effects = GuidedScanPlan.steps.flatMapIndexed { index, step -> controller.shoot(faceOf(step.face), index * 10L) }
+        return controller to effects
+    }
+
+    @Test
+    fun `first-round samples carry no named top`() {
+        val (controller, _) = afterFirstRound()
+        assertTrue(controller.captured.take(6).all { it.upNeighborColor == null }, "${controller.captured}")
+    }
+
+    @Test
+    fun `zero or several valid states re-prompt only the faces involved, in order, with a named top`() {
+        val (controller, first) = afterFirstRound()
+        // The sixth capture asks for re-prompts instead of finishing.
+        assertEquals(6, first.count { it is GuidedScanEffect.Capture })
+        assertTrue(first.none { it is GuidedScanEffect.Done })
+        assertEquals(GuidedScanEffect.Remeter, first.last())
+        assertFalse(controller.done)
+        assertTrue(controller.repeating)
+        assertEquals(4, controller.repromptCount)
+        assertEquals(6, controller.stepIndex)
+        val asked = mutableListOf<ScanStep>()
+        var done: List<FaceSample>? = null
+        var now = 1000L
+        while (!controller.done) {
+            val step = requireNotNull(controller.step)
+            assertEquals(asked.size, controller.repromptIndex)
+            asked += step
+            val effects = controller.shoot(faceOf(step.face), now)
+            val sample = (effects.first() as GuidedScanEffect.Capture).sample
+            assertEquals(step.upNeighborColor, sample.upNeighborColor)
+            assertEquals(step.face, sample.face)
+            done = effects.filterIsInstance<GuidedScanEffect.Done>().singleOrNull()?.samples
+            now += 1000
+        }
+        assertEquals(listOf(Face.F, Face.B, Face.U, Face.D).map(GuidedScanPlan::reprompt), asked)
+        val samples = requireNotNull(done)
+        assertEquals(GuidedScanPlan.steps.map { it.centerColor }, samples.map { it.centerColor })
+        // Each re-prompt capture replaced its face's earlier sample.
+        assertEquals(listOf(Color.WHITE, null, Color.WHITE, null, Color.BLUE, Color.GREEN), samples.map { it.upNeighborColor })
+        assertFalse(controller.repeating)
+        assertNull(controller.step)
+        val calibration = (SelfCalibration.from(samples) as SelfCalibration.Calibrated).calibration
+        assertEquals(ScanResult.Full(r2, List(54) { StickerConfidence.CONFIDENT }), ScanAssembler.assemble(samples, calibration))
+        assertEquals(emptyList<GuidedScanEffect>(), controller.shoot(faceOf(Face.F), now))
+    }
+
+    @Test
+    fun `there is no second re-prompt round`() {
+        var calls = 0
+        val controller = GuidedScanController(reprompt = { calls++.let { listOf(Face.R) } })
+        val (_, first) = afterFirstRound(controller)
+        assertTrue(first.none { it is GuidedScanEffect.Done })
+        assertEquals(GuidedScanPlan.reprompt(Face.R), controller.step)
+        val effects = controller.shoot(faceOf(Face.R), 1000)
+        val done = effects.last() as GuidedScanEffect.Done
+        assertEquals(1, calls)
+        assertTrue(controller.done)
+        assertEquals(Color.WHITE, done.samples[1].upNeighborColor)
+        assertEquals(6, done.samples.size)
+    }
+
+    @Test
+    fun `no faces involved finishes at the sixth capture`() {
+        val controller = GuidedScanController(reprompt = { emptyList() })
+        val (_, effects) = afterFirstRound(controller)
+        assertTrue(effects.last() is GuidedScanEffect.Done)
+        assertFalse(controller.repeating)
+        assertEquals(0, controller.repromptCount)
+    }
+
+    @Test
+    fun `in the re-prompt round a repeated face is judged against the other faces only`() {
+        val controller = GuidedScanController(reprompt = { listOf(Face.F, Face.B) })
+        afterFirstRound(controller)
+        // Green again at the green re-prompt: its own earlier sample does not count.
+        assertTrue(controller.shoot(faceOf(Face.F), 1000).first() is GuidedScanEffect.Capture)
+        assertEquals(GuidedScanPlan.reprompt(Face.B), controller.step)
+        // Green again at the blue re-prompt is a repeated face.
+        controller.onFrame(stats(luma = 5.0), 0, 1500)
+        assertEquals(emptyList<GuidedScanEffect>(), controller.shoot(faceOf(Face.F), 2000))
+        assertEquals(Coaching.WRONG_FACE, controller.coaching)
+        assertEquals(GuidedScanPlan.reprompt(Face.B), controller.step)
+        assertTrue(controller.shoot(faceOf(Face.B), 3000).last() is GuidedScanEffect.Done)
+    }
+
+    @Test
+    fun `the default re-prompt asks nothing when the scan needs calibration`() {
+        assertEquals(emptyList<Face>(), GuidedScanController.defaultReprompt(emptyList()))
     }
 }

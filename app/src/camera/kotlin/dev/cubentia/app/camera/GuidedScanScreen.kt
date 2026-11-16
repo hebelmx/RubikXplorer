@@ -74,6 +74,7 @@ import dev.cubentia.domain.recognition.Coaching
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.GuidedScanPlan
 import dev.cubentia.domain.recognition.Lab
+import dev.cubentia.domain.recognition.ScanStep
 import kotlinx.coroutines.delay
 import kotlin.math.pow
 import kotlin.math.roundToInt
@@ -99,16 +100,25 @@ internal sealed interface GuidedScanPhase {
     data object Unavailable : GuidedScanPhase
 
     /**
-     * The viewfinder at plan step [stepIndex], with the faces [captured] so far, the current [coaching], and
-     * [canUseAnyway] after a repeated face was rejected twice at this step.
+     * The viewfinder at first-round plan step [stepIndex], with the faces [captured] so far, the current [coaching], and
+     * [canUseAnyway] after a repeated face was rejected twice at this step. [step] is the prompt to show (by default the
+     * plan step at [stepIndex]; null when done); [again] is the re-prompt round's progress, null in the first round.
      */
     data class Viewfinder(
         val stepIndex: Int = 0,
         val captured: List<FaceSample> = emptyList(),
         val coaching: Coaching? = null,
         val canUseAnyway: Boolean = false,
+        val step: ScanStep? = GuidedScanPlan.steps.getOrNull(stepIndex),
+        val again: RepromptProgress? = null,
     ) : GuidedScanPhase
 }
+
+/** Re-prompt round progress (Story 10.14): face [n] (1-based) of [total] faces asked again. */
+internal data class RepromptProgress(
+    val n: Int,
+    val total: Int,
+)
 
 internal class GuidedScanActions(
     val onClose: () -> Unit = {},
@@ -163,9 +173,7 @@ internal fun GuidedScanScreen(
                 ) { Text(strings.resolve(ContentText("btn.scan.close"))) }
                 if (phase is GuidedScanPhase.Viewfinder) {
                     Text(
-                        strings.resolve(
-                            ContentText("msg.scan.progress", mapOf("n" to minOf(phase.stepIndex + 1, GuidedScanPlan.steps.size))),
-                        ),
+                        strings.resolve(progressText(phase)),
                         // Announces each capture to TalkBack as the count moves on.
                         modifier =
                             Modifier
@@ -414,16 +422,25 @@ internal fun coachingKey(coaching: Coaching): String =
         Coaching.WRONG_FACE -> "msg.scan.coach.wrong-face"
     }
 
-/** "Show the green center, with white on top." with a glyph swatch for each color. */
+/** "Face 2 of 6" in the first round; "Again: face 1 of 2" in the re-prompt round. */
+private fun progressText(phase: GuidedScanPhase.Viewfinder): ContentText =
+    phase.again?.let { ContentText("msg.scan.progress-again", mapOf("n" to it.n, "total" to it.total)) }
+        ?: ContentText("msg.scan.progress", mapOf("n" to minOf(phase.stepIndex + 1, GuidedScanPlan.steps.size)))
+
+/**
+ * "Show the green center." with the center's glyph swatch; a re-prompt that names a top reads "Show the green center,
+ * with white on top." with a swatch for each color.
+ */
 @Composable
 private fun Prompt(
     phase: GuidedScanPhase.Viewfinder,
     strings: ContentStrings,
     modifier: Modifier = Modifier,
 ) {
-    val step = GuidedScanPlan.steps.getOrNull(phase.stepIndex) ?: return
+    val step = phase.step ?: return
     val center = stringResource(colorName(step.centerColor)).lowercase()
-    val up = stringResource(colorName(step.upNeighborColor)).lowercase()
+    val top = step.upNeighborColor
+    val up = top?.let { stringResource(colorName(it)).lowercase() }
     Row(
         modifier
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), RoundedCornerShape(8.dp))
@@ -433,9 +450,15 @@ private fun Prompt(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Swatch(step.centerColor, 32.dp)
-        Swatch(step.upNeighborColor, 24.dp)
+        if (top != null) Swatch(top, 24.dp)
         Text(
-            strings.resolve(ContentText("msg.scan.prompt", mapOf("center" to center, "up" to up))),
+            strings.resolve(
+                if (up == null) {
+                    ContentText("msg.scan.prompt", mapOf("center" to center))
+                } else {
+                    ContentText("msg.scan.prompt-with-top", mapOf("center" to center, "up" to up))
+                },
+            ),
             style = MaterialTheme.typography.bodyMedium,
         )
     }
@@ -448,7 +471,10 @@ private fun Swatch(
 ) {
     val appearance = StickerAppearance.of(color)
     Box(
-        Modifier.size(size).background(UiColor(appearance.fill), RoundedCornerShape(4.dp)),
+        Modifier
+            .size(size)
+            .background(UiColor(appearance.fill), RoundedCornerShape(4.dp))
+            .testTag("scanSwatch:${color.name}"),
         contentAlignment = Alignment.Center,
     ) { StickerGlyph(appearance, size) }
 }
@@ -460,7 +486,7 @@ private fun MiniNet(
     geometry: ViewfinderGeometry,
     modifier: Modifier,
 ) {
-    val current = GuidedScanPlan.steps.getOrNull(phase.stepIndex)?.face
+    val current = phase.step?.face
     val byFace = phase.captured.associateBy { it.face }
     BoxWithConstraints(modifier.testTag("scanNet"), contentAlignment = Alignment.Center) {
         val cell = minOf(maxWidth / (NET_COLUMNS * SIDE), maxHeight / (NET_ROWS * SIDE))

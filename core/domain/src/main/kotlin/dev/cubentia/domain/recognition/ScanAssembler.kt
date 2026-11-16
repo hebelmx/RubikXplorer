@@ -1,8 +1,11 @@
 package dev.cubentia.domain.recognition
 
 import dev.cubentia.domain.cube.Color
+import dev.cubentia.domain.cube.CubeValidator
 import dev.cubentia.domain.cube.Face
+import dev.cubentia.domain.cube.FaceletTables
 import dev.cubentia.domain.cube.Facelets
+import dev.cubentia.domain.cube.ValidationResult
 
 /** Why a face is absent from a [ScanResult.Partial]. */
 enum class ScanGap {
@@ -44,16 +47,33 @@ sealed interface ScanResult {
 }
 
 /**
- * The only place samples are rotated into URFDLB order. Each sample goes to the face whose home color is its
+ * The only place samples are rotated into URFDLB order (AD-9). Each sample goes to the face whose home color is its
  * [FaceSample.centerColor]; a sample without one is reported as NO_POSE on the [FaceSample.face] it was prompted for
- * when no other sample claims that face. Its stickers
- * turn from pixel order to the viewfinder by `orientationDegrees / 90` clockwise quarter turns, then to the Kociemba net
- * by the net direction of the up neighbor's face around that slot.
+ * when no other sample claims that face. Its stickers turn from pixel order to the viewfinder by
+ * `orientationDegrees / 90` clockwise quarter turns.
+ *
+ * A sample with an [FaceSample.upNeighborColor] (a prompt that named a top) then turns to the Kociemba net by the net
+ * direction of the up neighbor's face around that slot. A sample without one (Story 10.14: the prompt named only the
+ * center) is oriented from validity: when all six faces are otherwise placeable, every such face tries its 4 quarter
+ * turns (centers fixed at home, posed faces at their prompted turn) over the classified colors, assignments giving the
+ * same colors count as one, and the single distinct state `CubeValidator` accepts is the result. Assignments are pruned
+ * by legal pieces first (a corner or edge showing a real cubie that no other piece of the assignment duplicates); only
+ * all-legal ones are validated. With any other gap, unposed faces are NO_POSE: fewer than six faces cannot be oriented
+ * from validity.
+ *
+ * When zero or several distinct states fit, the scan never guesses: [assemble] still returns `Full` of the first
+ * candidate in enumeration order (the valid states if any, else the assignments with the most legal pieces), with every
+ * non-center sticker of a face whose colors differ across the candidates UNCERTAIN, and [repromptFaces] names the faces
+ * to re-prompt with a named top.
  */
 object ScanAssembler {
     const val STICKERS = 9
     private const val QUARTER = 90
     private const val TURNS = 4
+    private const val CORNER_FACETS = 3
+    private const val EDGE_FACETS = 2
+    private const val FACES = 6
+    private const val ILLEGAL = -1
 
     /** Source cell of each cell after one clockwise quarter turn of a row-major 3×3. */
     private val CLOCKWISE = listOf(6, 3, 0, 7, 4, 1, 8, 5, 2)
@@ -71,15 +91,61 @@ object ScanAssembler {
 
     private val HOME_FACE: Map<Color, Face> = Face.entries.associateBy { Color.home(it) }
 
+    /** The cubie a corner shows, by its facets' home-face ordinals `f0 * 36 + f1 * 6 + f2` (slot facet order); -1 for none. */
+    private val CORNER_CUBIE: IntArray =
+        IntArray(FACES * FACES * FACES) { code ->
+            val faces = listOf(code / (FACES * FACES), code / FACES % FACES, code % FACES).map { Face.entries[it] }
+            val twist = faces.indexOfFirst { it == Face.U || it == Face.D }
+            if (twist < 0) {
+                ILLEGAL
+            } else {
+                FaceletTables.CORNER_FACES.indexOf(List(CORNER_FACETS) { faces[(twist + it) % CORNER_FACETS] })
+            }
+        }
+
+    /** The cubie an edge shows, by its facets' home-face ordinals `f0 * 6 + f1`, straight or flipped; -1 for none. */
+    private val EDGE_CUBIE: IntArray =
+        IntArray(FACES * FACES) { code ->
+            val faces = listOf(code / FACES, code % FACES).map { Face.entries[it] }
+            val straight = FaceletTables.EDGE_FACES.indexOf(faces)
+            if (straight >= 0) straight else FaceletTables.EDGE_FACES.indexOf(faces.reversed())
+        }
+
+    private val CORNERS = FaceletTables.CORNER_FACELETS.size
+    private val PIECES = CORNERS + FaceletTables.EDGE_FACELETS.size
+
     fun assemble(
         samples: List<FaceSample>,
         calibration: CalibrationCenters,
-    ): ScanResult {
+    ): ScanResult = analyze(samples, calibration).result
+
+    /**
+     * The faces to re-prompt with a named top, in order: faces whose center read disagrees with their prompt (a logo
+     * center, `centerPlain == false`, never counts), then in Guided Scan plan order the unposed faces that zero or several
+     * valid states leave undecided. Empty when the scan resolves to one state, or when there is nothing to ask (a gap, or
+     * an uncalibrated scan).
+     */
+    fun repromptFaces(
+        samples: List<FaceSample>,
+        calibration: CalibrationCenters,
+    ): List<Face> = analyze(samples, calibration).involved
+
+    private class Outcome(
+        val result: ScanResult,
+        val involved: List<Face> = emptyList(),
+    )
+
+    private fun analyze(
+        samples: List<FaceSample>,
+        calibration: CalibrationCenters,
+    ): Outcome {
         if (!StickerClassifier.isValid(calibration)) {
-            return ScanResult.Partial(
-                PhysicalObservation.Partial(emptyMap()),
-                emptyMap(),
-                Face.entries.associateWith { ScanGap.UNCALIBRATED },
+            return Outcome(
+                ScanResult.Partial(
+                    PhysicalObservation.Partial(emptyMap()),
+                    emptyMap(),
+                    Face.entries.associateWith { ScanGap.UNCALIBRATED },
+                ),
             )
         }
         // Only a sample with a center color claims a slot. One without is reported (NO_POSE) on the face its prompt
@@ -89,19 +155,19 @@ object ScanAssembler {
                 .mapNotNull { sample ->
                     sample.centerColor?.let { HOME_FACE.getValue(it) to sample }
                 }.groupBy({ it.first }, { it.second })
-        val unposed = samples.filter { it.centerColor == null }.map { it.face }.toSet()
-        val placed = mutableMapOf<Face, List<StickerReading>>()
+        val unclaimed = samples.filter { it.centerColor == null }.map { it.face }.toSet()
+        val placed = mutableMapOf<Face, Placement.Placed>()
         val gaps = mutableMapOf<Face, ScanGap>()
         Face.entries.forEach { slot ->
             val claims = bySlot[slot].orEmpty()
             when (claims.size) {
                 0 -> {
-                    gaps[slot] = if (slot in unposed) ScanGap.NO_POSE else ScanGap.MISSING
+                    gaps[slot] = if (slot in unclaimed) ScanGap.NO_POSE else ScanGap.MISSING
                 }
 
                 1 -> {
                     when (val placement = place(slot, claims.single(), calibration.centers)) {
-                        is Placement.Placed -> placed[slot] = placement.readings
+                        is Placement.Placed -> placed[slot] = placement
                         is Placement.Gap -> gaps[slot] = placement.gap
                     }
                 }
@@ -111,21 +177,28 @@ object ScanAssembler {
                 }
             }
         }
-        if (placed.size == Face.entries.size) {
-            val readings = Face.entries.flatMap { placed.getValue(it) }
-            return ScanResult.Full(Facelets(readings.map { it.color }), readings.map { it.confidence })
-        }
-        val faces = Face.entries.filter { it in placed }
-        return ScanResult.Partial(
-            PhysicalObservation.Partial(faces.associateWith { face -> placed.getValue(face).map { it.color } }),
-            faces.associateWith { face -> placed.getValue(face).map { it.confidence } },
-            Face.entries.filter { it in gaps }.associateWith { gaps.getValue(it) },
+        if (gaps.isEmpty()) return search(Face.entries.map { placed.getValue(it) })
+        // Fewer than six faces cannot be oriented from validity.
+        placed.filterValues { !it.posed }.keys.forEach { gaps[it] = ScanGap.NO_POSE }
+        val faces = Face.entries.filter { it in placed && it !in gaps }
+        return Outcome(
+            ScanResult.Partial(
+                PhysicalObservation.Partial(faces.associateWith { face -> placed.getValue(face).readings.map { it.color } }),
+                faces.associateWith { face -> placed.getValue(face).readings.map { it.confidence } },
+                Face.entries.filter { it in gaps }.associateWith { gaps.getValue(it) },
+            ),
         )
     }
 
     private sealed interface Placement {
+        /**
+         * Readings in net order when [posed], else in viewfinder order (the turn is searched). [centerDisagrees]: the
+         * center reads another color than the prompt named, and is not a logo.
+         */
         data class Placed(
             val readings: List<StickerReading>,
+            val posed: Boolean,
+            val centerDisagrees: Boolean,
         ) : Placement
 
         data class Gap(
@@ -140,24 +213,137 @@ object ScanAssembler {
     ): Placement {
         if (sample.quality != CaptureQuality.ACCEPTABLE) return Placement.Gap(ScanGap.POOR_QUALITY)
         if (sample.stickers.size != STICKERS || sample.stickers.any { !it.isValid() }) return Placement.Gap(ScanGap.MALFORMED)
+        if (sample.orientationDegrees % QUARTER != 0) return Placement.Gap(ScanGap.NO_POSE)
         // Only samples whose center color is this slot's home color claim it.
         val center = Color.home(slot)
         val upFace = sample.upNeighborColor?.let(HOME_FACE::getValue)
-        val direction = upFace?.let { NET_NEIGHBORS.getValue(slot).indexOf(it) } ?: -1
-        if (direction < 0 || sample.orientationDegrees % QUARTER != 0) return Placement.Gap(ScanGap.NO_POSE)
+        val direction = upFace?.let { NET_NEIGHBORS.getValue(slot).indexOf(it) }
+        if (direction != null && direction < 0) return Placement.Gap(ScanGap.NO_POSE)
+        val centerRead = StickerClassifier.read(sample.stickers[FaceSample.CENTER_INDEX], centers)
         val readings =
             sample.stickers.mapIndexed { index, sticker ->
-                val reading = StickerClassifier.read(sticker, centers)
                 if (index != FaceSample.CENTER_INDEX) {
-                    reading
+                    StickerClassifier.read(sticker, centers)
                 } else {
                     // The prompt fixes the center's color; it is CONFIDENT only if the read agrees confidently.
-                    val agrees = reading.color == center && reading.confidence == StickerConfidence.CONFIDENT
+                    val agrees = centerRead.color == center && centerRead.confidence == StickerConfidence.CONFIDENT
                     StickerReading(center, if (agrees) StickerConfidence.CONFIDENT else StickerConfidence.UNCERTAIN)
                 }
             }
-        val turns = Math.floorMod(sample.orientationDegrees / QUARTER + direction, TURNS)
-        return Placement.Placed(rotateClockwise(readings, turns))
+        val turns = sample.orientationDegrees / QUARTER + (direction ?: 0)
+        return Placement.Placed(
+            rotateClockwise(readings, turns),
+            posed = direction != null,
+            centerDisagrees = centerRead.color != center && sample.centerPlain != false,
+        )
+    }
+
+    /** One assignment of turns: the chosen option per face and the 54 home-face ordinals of its colors. */
+    private class Assignment(
+        val choice: IntArray,
+        val grid: IntArray,
+    )
+
+    /** Six placed faces in URFDLB order; searches the turns of the unposed ones. */
+    private fun search(faces: List<Placement.Placed>): Outcome {
+        val options: List<List<List<StickerReading>>> =
+            faces.map { face -> if (face.posed) listOf(face.readings) else List(TURNS) { rotateClockwise(face.readings, it) } }
+        val optionGrids: List<List<IntArray>> =
+            options.map { face -> face.map { readings -> IntArray(STICKERS) { HOME_FACE.getValue(readings[it].color).ordinal } } }
+        val sizes = options.map { it.size }
+        val total = sizes.fold(1) { product, size -> product * size }
+        val valid = LinkedHashMap<List<Int>, Assignment>()
+        val validated = HashMap<List<Int>, Boolean>()
+        var best = LinkedHashMap<List<Int>, Assignment>()
+        var mostLegal = -1
+        val grid = IntArray(Facelets.SIZE)
+        val choice = IntArray(FACES)
+        for (code in 0 until total) {
+            // U is the most significant digit, B the least; turn 0 first.
+            var rest = code
+            for (face in FACES - 1 downTo 0) {
+                choice[face] = rest % sizes[face]
+                rest /= sizes[face]
+                System.arraycopy(optionGrids[face][choice[face]], 0, grid, face * STICKERS, STICKERS)
+            }
+            val legal = legal(grid).count { it }
+            if (legal == PIECES) {
+                val key = grid.toList()
+                val accepted =
+                    validated.getOrPut(key) {
+                        CubeValidator.validate(Facelets(grid.map { Color.home(Face.entries[it]) })) is ValidationResult.Valid
+                    }
+                if (accepted && key !in valid) valid[key] = Assignment(choice.copyOf(), grid.copyOf())
+            }
+            if (legal > mostLegal) {
+                mostLegal = legal
+                best = LinkedHashMap()
+            }
+            if (legal == mostLegal) best.getOrPut(grid.toList()) { Assignment(choice.copyOf(), grid.copyOf()) }
+        }
+        val candidates = (if (valid.isNotEmpty()) valid.values else best.values).toList()
+        val first = candidates.first()
+        val differing = Face.entries.filter { face -> candidates.any { !sameFace(it.grid, first.grid, face) } }.toSet()
+        val resolved = valid.size == 1
+        val readings =
+            Face.entries.flatMap { face ->
+                options[face.ordinal][first.choice[face.ordinal]].mapIndexed { index, reading ->
+                    val ambiguous = !resolved && face in differing && index != FaceSample.CENTER_INDEX
+                    if (ambiguous) reading.copy(confidence = StickerConfidence.UNCERTAIN) else reading
+                }
+            }
+        val result = ScanResult.Full(Facelets(readings.map { it.color }), readings.map { it.confidence })
+        if (resolved) return Outcome(result)
+        val unposed = Face.entries.filter { !faces[it.ordinal].posed }.toSet()
+        val undecided =
+            if (valid.size >= 2) {
+                differing
+            } else {
+                best.values
+                    .flatMap { illegalFaces(it.grid) }
+                    .toSet()
+                    .ifEmpty { differing }
+            }
+        val order = GuidedScanPlan.steps.map { it.face }
+        val disagreeing = order.filter { faces[it.ordinal].centerDisagrees }
+        return Outcome(result, disagreeing + order.filter { it in undecided && it in unposed && it !in disagreeing })
+    }
+
+    private fun sameFace(
+        left: IntArray,
+        right: IntArray,
+        face: Face,
+    ): Boolean = (face.ordinal * STICKERS until (face.ordinal + 1) * STICKERS).all { left[it] == right[it] }
+
+    /** The cubie each piece (8 corners, then 12 edges, in slot order) shows, or -1 when none. */
+    private fun cubies(grid: IntArray): IntArray {
+        val pieces = IntArray(PIECES)
+        FaceletTables.CORNER_FACELETS.forEachIndexed { slot, facets ->
+            pieces[slot] = CORNER_CUBIE[grid[facets[0]] * FACES * FACES + grid[facets[1]] * FACES + grid[facets[2]]]
+        }
+        FaceletTables.EDGE_FACELETS.forEachIndexed { slot, facets ->
+            val cubie = EDGE_CUBIE[grid[facets[0]] * FACES + grid[facets[1]]]
+            pieces[CORNERS + slot] = if (cubie < 0) ILLEGAL else CORNERS + cubie
+        }
+        return pieces
+    }
+
+    /** Per piece: it shows a real cubie that no other piece of [grid] duplicates. */
+    private fun legal(grid: IntArray): BooleanArray {
+        val pieces = cubies(grid)
+        val seen = IntArray(PIECES)
+        pieces.forEach { if (it >= 0) seen[it]++ }
+        return BooleanArray(PIECES) { pieces[it] >= 0 && seen[pieces[it]] == 1 }
+    }
+
+    /** Faces holding a sticker of an illegal piece of [grid]. */
+    private fun illegalFaces(grid: IntArray): Set<Face> {
+        val legal = legal(grid)
+        val facelets = FaceletTables.CORNER_FACELETS + FaceletTables.EDGE_FACELETS
+        return facelets.indices
+            .filter { !legal[it] }
+            .flatMap { piece -> facelets[piece].map { Face.entries[it / STICKERS] } }
+            .toSet()
     }
 
     /** [cells] (a row-major 3×3) turned [turns] clockwise quarter turns. */
