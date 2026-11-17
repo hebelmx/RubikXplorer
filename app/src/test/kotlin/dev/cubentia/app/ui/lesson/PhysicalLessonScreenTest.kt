@@ -1502,7 +1502,7 @@ class PhysicalLessonScreenTest {
         runBlocking { host.dispatch { SessionEvent.QuickCheckObserved(effect.effectId, effect.revision, partial, it) } }
         rule.waitForIdle()
         node("certainty:label").assertTextEquals("Likely")
-        rule.onNodeWithText("That turn probably moved the cross.").assertExists()
+        rule.onNodeWithText("That turn probably moved something else.").assertExists()
         node("stage:seen").assertExists()
         node("seen:face:R").assertExists()
         node("seen:face:F").assertDoesNotExist()

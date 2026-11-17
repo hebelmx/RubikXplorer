@@ -148,7 +148,7 @@ class QuickCheckRouteTest {
             rule.waitUntil(10_000) { host.state.value.pendingQuickCheck == null }
             rule.waitForIdle()
             rule.onNodeWithTag("certainty:label").assertTextEquals("Likely")
-            rule.onNodeWithText("That turn probably moved the cross.").assertExists()
+            rule.onNodeWithText("That turn probably moved something else.").assertExists()
             rule.onNodeWithTag("mismatch:scanAll").assertTextEquals("Scan all 6 faces")
         } finally {
             main.pause().stop().destroy()

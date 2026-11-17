@@ -688,7 +688,7 @@
   "btn.physical.confirm-scan": "Scan it",
   "btn.physical.scan-all-faces": "Scan all 6 faces",
   "btn.physical.use-my-cube": "Use my cube as it is now",
-  "msg.quick-check.likely-mismatch": "That turn probably moved the cross.",
+  "msg.quick-check.likely-mismatch": "That turn probably moved something else.",
   "msg.physical.mismatch.quick-check": "Check the faces you turned with the camera.",
   "msg.physical.frame-verified": "VERIFIED",
   "msg.quick-check.seen": "SEEN",
