@@ -641,6 +641,7 @@
   "msg.scan.review-hint-blanks": "{count, plural, one {# sticker needs a color. Tap the flashing one, then its color.} other {# stickers need a color. Tap the flashing one, then its color.}}",
   "msg.scan.review-hint-invalid": "{problem} Check the outlined piece.",
   "msg.scan.review-hint-ready": "Everything was read. Compare with your cube, then Accept.",
+  "msg.scan.review-hint-fixed": "All set. Compare with your cube, then Accept.",
   "msg.scan.sticker-needs-color": "{face} face, position {position}, needs a color",
   "msg.scan.sticker-set": "{face} face, position {position}: {color}",
   "msg.scan.coach-mark": "Tap it, then the color you see on your cube",

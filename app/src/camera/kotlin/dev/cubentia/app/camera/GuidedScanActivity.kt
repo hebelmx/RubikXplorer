@@ -177,9 +177,9 @@ class GuidedScanActivity : ComponentActivity() {
                             onClose = { finishWith(ScanOutcome.Cancelled) },
                             modifier = Modifier.fillMaxSize(),
                             coachMarkPending = scan.coachMarkPending,
-                            onCoachMarkShown = {
+                            onCoachMarkDismissed = {
                                 scan.coachMarkPending = false
-                                lifecycleScope.launch(Dispatchers.IO) { ScanCoachMarkRecord.markShown(applicationContext) }
+                                lifecycleScope.launch(Dispatchers.IO) { ScanCoachMarkRecord.markSeen(applicationContext) }
                             },
                         )
                     } else {

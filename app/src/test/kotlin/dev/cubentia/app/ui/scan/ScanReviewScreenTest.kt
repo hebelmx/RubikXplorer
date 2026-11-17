@@ -25,6 +25,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.dp
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.LocalHaptics
 import dev.cubentia.app.preferences.LocalReduceMotionOverride
@@ -33,11 +34,13 @@ import dev.cubentia.app.ui.a11y.assertClickablesAtLeast48dp
 import dev.cubentia.app.ui.a11y.assertNoMidWordBreaks
 import dev.cubentia.app.ui.a11y.assertNoTextOverflow
 import dev.cubentia.app.ui.a11y.fontScale200
+import dev.cubentia.app.ui.editor.SelectedRing
 import dev.cubentia.app.ui.editor.StickerBlankEdgeKey
 import dev.cubentia.app.ui.editor.StickerCueScalesKey
 import dev.cubentia.app.ui.editor.StickerInvalidKey
 import dev.cubentia.app.ui.editor.StickerOutlineColorKey
 import dev.cubentia.app.ui.editor.StickerPulsingKey
+import dev.cubentia.app.ui.editor.StickerSelectedRingKey
 import dev.cubentia.app.ui.theme.CubeTokens
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.app.ui.theme.DarkTokens
@@ -51,8 +54,10 @@ import dev.cubentia.domain.recognition.ScanResult
 import dev.cubentia.domain.recognition.ScanReview
 import dev.cubentia.domain.recognition.StickerConfidence
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -77,7 +82,7 @@ class ScanReviewScreenTest {
     private var accepted: CubeState? = null
     private var closed = false
     private var coachPending by mutableStateOf(false)
-    private var coachShown = 0
+    private var coachDismissed = 0
     private var ticks = 0
     private val haptics =
         object : HapticFeedback {
@@ -112,9 +117,9 @@ class ScanReviewScreenTest {
             { accepted = it },
             { closed = true },
             coachMarkPending = coachPending,
-            onCoachMarkShown = {
+            onCoachMarkDismissed = {
                 coachPending = false
-                coachShown++
+                coachDismissed++
             },
         )
     }
@@ -221,6 +226,40 @@ class ScanReviewScreenTest {
         launch(reduceMotion = true)
         rule.onNodeWithTag("sticker:7").assertIsSelected()
         assertEquals(false, rule.onNodeWithTag("sticker:7").fetchSemanticsNode().config[StickerPulsingKey])
+        // Still the dashed ring, never a solid outline (PO 2026-11-16).
+        assertEquals(
+            DASHED_ACCENT_RING.copy(color = LightTokens.accent),
+            rule.onNodeWithTag("sticker:7").fetchSemanticsNode().config[StickerSelectedRingKey],
+        )
+    }
+
+    @Test fun `the selected ring is a thick dashed accent ring, distinct from an invalid piece's solid outline (PO 2026-11-16)`() {
+        review = ScanReview(CubeState.SOLVED.toFacelets().colors, null)
+        launch()
+        rule.onNodeWithTag("sticker:9").performClick()
+        rule.onNodeWithTag("swatch:WHITE").performScrollTo().performClick()
+        // Sticker 9 is both invalid and selected: a solid sticker-highlight outline plus the dashed accent ring.
+        val both = rule.onNodeWithTag("sticker:9").fetchSemanticsNode().config
+        assertEquals(true, both[StickerInvalidKey])
+        assertEquals(CubeTokens.stickerHighlight, both[StickerOutlineColorKey])
+        assertEquals(DASHED_ACCENT_RING.copy(color = LightTokens.accent), both[StickerSelectedRingKey])
+        // Another sticker of the invalid piece carries only the solid outline, no dashed ring.
+        val outlinedOnly =
+            review.outlined.first { it != 9 }.let { rule.onNodeWithTag("sticker:$it").fetchSemanticsNode().config }
+        assertEquals(CubeTokens.stickerHighlight, outlinedOnly[StickerOutlineColorKey])
+        assertFalse(outlinedOnly.contains(StickerSelectedRingKey))
+    }
+
+    @Test fun `in the dark theme, where accent equals sticker-highlight, the selected ring stays dashed`() {
+        rule.setContent {
+            CompositionLocalProvider(LocalReduceMotionOverride provides true) {
+                CubentiaTheme(darkTheme = true) { screen() }
+            }
+        }
+        val ring = rule.onNodeWithTag("sticker:7").fetchSemanticsNode().config[StickerSelectedRingKey]
+        assertEquals(DarkTokens.accent, ring.color)
+        assertEquals(DASHED_ACCENT_RING.width, ring.width)
+        assertEquals(DASHED_ACCENT_RING.dash, ring.dash)
     }
 
     @Test fun `setting a color plays the update cue, ticks and announces the sticker`() {
@@ -262,18 +301,40 @@ class ScanReviewScreenTest {
             .assertTextEquals("This corner shows two whites. Check the outlined piece.")
         rule.onNodeWithTag("sticker:20").performClick()
         rule.onNodeWithTag("swatch:GREEN").performScrollTo().performClick()
+        rule.onNodeWithTag("review:instruction").assertTextEquals("All set. Compare with your cube, then Accept.")
+    }
+
+    @Test fun `a valid scan that needed no fixes says everything was read (PO 2026-11-16)`() {
+        review = ScanReview(CubeState.SOLVED.toFacelets().colors, null)
+        launch()
         rule.onNodeWithTag("review:instruction").assertTextEquals("Everything was read. Compare with your cube, then Accept.")
     }
 
-    @Test fun `the coach mark shows on the first review only and one tap dismisses it`() {
+    @Test fun `the coach mark shows until one tap dismisses it, which records it as seen (PO 2026-11-16)`() {
         coachPending = true
         launch()
         rule.onNodeWithTag("review:coach").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("review:coach").assertTextEquals("Tap it, then the color you see on your cube")
-        assertEquals(1, coachShown)
+        assertEquals(0, coachDismissed)
         rule.onNodeWithTag("review:coach").performClick()
         rule.onNodeWithTag("review:coach").assertDoesNotExist()
-        assertEquals(1, coachShown)
+        assertEquals(1, coachDismissed)
+    }
+
+    @Test fun `a review closed without dismissing the coach mark shows it again next time`() {
+        coachPending = true
+        var open by mutableStateOf(true)
+        rule.setContent { CubentiaTheme { if (open) screen() } }
+        rule.onNodeWithTag("review:coach").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("review:close").performScrollTo().performClick()
+        assertTrue(closed)
+        assertEquals(0, coachDismissed)
+        assertTrue(coachPending)
+        // The next review: a fresh screen with the record still pending.
+        open = false
+        rule.waitForIdle()
+        open = true
+        rule.onNodeWithTag("review:coach").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun `the coach mark is not shown when nothing needs a color`() {
@@ -281,7 +342,7 @@ class ScanReviewScreenTest {
         review = ScanReview(CubeState.SOLVED.toFacelets().colors, null)
         launch()
         rule.onNodeWithTag("review:coach").assertDoesNotExist()
-        assertEquals(0, coachShown)
+        assertEquals(0, coachDismissed)
     }
 
     @Test fun `an invalid piece is outlined in sticker-highlight, never status-invalid red`() {
@@ -331,3 +392,6 @@ class ScanReviewScreenTest {
         assertEquals(true, closed)
     }
 }
+
+/** The selected ring: 5dp in all (3dp accent dashes edged by 1dp cubie-body), 8dp dashes. */
+private val DASHED_ACCENT_RING = SelectedRing(LightTokens.accent, 5.dp, 8.dp)

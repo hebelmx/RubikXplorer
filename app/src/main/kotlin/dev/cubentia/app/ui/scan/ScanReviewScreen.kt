@@ -68,7 +68,8 @@ import dev.cubentia.domain.text.Text as ContentText
 /**
  * Renders immutable review decisions; all sticker edits are delegated to the domain value. While
  * [coachMarkPending] (the Learner's first review) and a sticker needs a color, a one-time coach mark
- * shows; [onCoachMarkShown] is called once when it appears, so the caller records it as seen.
+ * shows; [onCoachMarkDismissed] is called when the Learner taps to dismiss it, so the caller records it
+ * as seen (PO 2026-11-16). A review closed without that tap shows it again next time.
  */
 @Composable
 fun ScanReviewScreen(
@@ -80,7 +81,7 @@ fun ScanReviewScreen(
     modifier: Modifier = Modifier,
     windowSizeClass: WindowSizeClass = currentWindowSizeClass(),
     coachMarkPending: Boolean = false,
-    onCoachMarkShown: () -> Unit = {},
+    onCoachMarkDismissed: () -> Unit = {},
 ) {
     var face by rememberSaveable { mutableIntStateOf((review.selected ?: 0) / 9) }
     LaunchedEffect(review.selected) { review.selected?.let { face = it / 9 } }
@@ -89,10 +90,7 @@ fun ScanReviewScreen(
     var coachVisible by rememberSaveable { mutableStateOf(false) }
     val needsFix = review.blanks.isNotEmpty()
     LaunchedEffect(coachMarkPending && needsFix) {
-        if (coachMarkPending && needsFix) {
-            coachVisible = true
-            onCoachMarkShown()
-        }
+        if (coachMarkPending && needsFix) coachVisible = true
     }
     var cue by remember { mutableStateOf<StickerCue?>(null) }
     var lastSet by remember { mutableStateOf<Pair<Int, Color>?>(null) }
@@ -109,7 +107,7 @@ fun ScanReviewScreen(
         ) {
             Text(strings.resolve(ContentText("msg.scan.review-title")), style = MaterialTheme.typography.headlineSmall)
             Text(
-                strings.resolve(instruction(review, strings)),
+                strings.resolve(instruction(review, strings, changed)),
                 modifier = Modifier.fillMaxWidth().testTag("review:instruction"),
             )
             if (oneFace) {
@@ -137,7 +135,12 @@ fun ScanReviewScreen(
                         Modifier.fillMaxWidth().aspectRatio(Net2DRenderer.NET_COLUMNS.toFloat() / Net2DRenderer.NET_ROWS)
                     },
             )
-            if (coachVisible) CoachMark(strings) { coachVisible = false }
+            if (coachVisible) {
+                CoachMark(strings) {
+                    coachVisible = false
+                    onCoachMarkDismissed()
+                }
+            }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s2), verticalArrangement = Arrangement.spacedBy(Spacing.s2)) {
                 listOf(Color.WHITE, Color.YELLOW, Color.RED, Color.ORANGE, Color.GREEN, Color.BLUE).forEach { color ->
                     Swatch(color, LocalRenderStyle.current) {
@@ -206,17 +209,20 @@ fun ScanReviewScreen(
 
 /**
  * The instruction line follows the state: blanks left, else the first problem pointing at the
- * outlined piece, else everything read and valid.
+ * outlined piece, else valid: "All set" after the Learner [fixed] stickers, "Everything was read" when
+ * the scan needed no fixes (PO 2026-11-16).
  */
 private fun instruction(
     review: ScanReview,
     strings: ContentStrings,
+    fixed: Boolean,
 ): ContentText {
     val blanks = review.blanks.size
     val problem = review.problems.firstOrNull()
     return when {
         blanks > 0 -> ContentText("msg.scan.review-hint-blanks", mapOf("count" to blanks))
         problem != null -> ContentText("msg.scan.review-hint-invalid", mapOf("problem" to strings.resolve(problem.reason)))
+        fixed -> ContentText("msg.scan.review-hint-fixed")
         else -> ContentText("msg.scan.review-hint-ready")
     }
 }
