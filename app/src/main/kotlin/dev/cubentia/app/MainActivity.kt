@@ -16,11 +16,22 @@ import dagger.hilt.android.AndroidEntryPoint
 import dev.cubentia.app.content.LessonCatalog
 import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.app.preferences.PreferredTheme
+import dev.cubentia.app.scan.QuickCheckCapture
+import dev.cubentia.app.scan.QuickCheckOutcome
+import dev.cubentia.app.scan.ScanLauncher
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
 import dev.cubentia.app.ui.shell.AppShell
 import dev.cubentia.app.ui.theme.isDarkTheme
+import dev.cubentia.application.port.CalibrationLoad
+import dev.cubentia.application.port.CalibrationRepository
+import dev.cubentia.application.port.CalibrationWrite
+import dev.cubentia.application.port.FeatureFlag
 import dev.cubentia.application.port.FeatureFlags
+import dev.cubentia.application.session.Effect
+import dev.cubentia.application.session.SessionEvent
+import dev.cubentia.application.session.SyncState
+import dev.cubentia.domain.recognition.PhysicalObservation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -42,7 +53,7 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var preferenceStore: PreferenceStore
 
-    @Inject lateinit var scanLauncher: java.util.Optional<dev.cubentia.app.scan.ScanLauncher>
+    @Inject lateinit var scanLauncher: java.util.Optional<ScanLauncher>
 
     @Inject lateinit var resetCalibration: dev.cubentia.application.usecase.ResetCalibration
 
@@ -52,6 +63,18 @@ class MainActivity : ComponentActivity() {
 
     /** True from a *Scan my cube* tap until its denial check opens the Editor or the scan's result returns. */
     private var scanInFlight = false
+    private var quickInFlight: Effect.QuickCheck? = null
+
+    @Inject lateinit var calibrationRepository: CalibrationRepository
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        quickInFlight?.let { effect ->
+            outState.putLong("quickCheck:id", effect.effectId)
+            outState.putLong("quickCheck:revision", effect.revision)
+            outState.putStringArray("quickCheck:faces", effect.faces.map { it.name }.toTypedArray())
+        }
+        super.onSaveInstanceState(outState)
+    }
 
     override fun onStop() {
         super.onStop()
@@ -60,8 +83,21 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState?.containsKey("quickCheck:id") == true) {
+            quickInFlight =
+                Effect.QuickCheck(
+                    savedInstanceState.getLong("quickCheck:id"),
+                    savedInstanceState.getLong("quickCheck:revision"),
+                    savedInstanceState
+                        .getStringArray("quickCheck:faces")
+                        .orEmpty()
+                        .map(dev.cubentia.domain.cube.Face::valueOf)
+                        .toSet(),
+                    true,
+                )
+        }
         val onScan: (() -> Unit)? =
-            if (featureFlags.isEnabled(dev.cubentia.application.port.FeatureFlag.CAMERA_SCAN) && scanLauncher.isPresent) {
+            if (featureFlags.isEnabled(FeatureFlag.CAMERA_SCAN) && scanLauncher.isPresent) {
                 val launcher = scanLauncher.get()
                 val result =
                     registerForActivityResult(
@@ -93,6 +129,77 @@ class MainActivity : ComponentActivity() {
             } else {
                 null
             }
+        val quickCheck: QuickCheckCapture? =
+            if (featureFlags.isEnabled(FeatureFlag.CAMERA_SCAN) && scanLauncher.isPresent) {
+                val result =
+                    registerForActivityResult(
+                        dev.cubentia.app.scan
+                            .QuickCheckContract(scanLauncher.get()),
+                    ) { outcome ->
+                        val issued = quickInFlight
+                        quickInFlight = null
+                        lifecycleScope.launch {
+                            val current = sessionHost.state.value
+                            if (issued?.effectId == -1L) {
+                                val observation = (outcome as? QuickCheckOutcome.Observed)?.observation
+                                val full = observation as? PhysicalObservation.Full
+                                if (full != null && issued.revision == current.revision &&
+                                    current.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM
+                                ) {
+                                    sessionHost.dispatch {
+                                        SessionEvent
+                                            .EditorEntered(full.state, it)
+                                    }
+                                }
+                            } else {
+                                val pending = current.pendingQuickCheck
+                                if (issued != null) {
+                                    // Never attribute a returning capture to a replacement request.
+                                    val effect = pending?.takeIf { it.effectId == issued.effectId } ?: issued
+                                    sessionHost.dispatch { at ->
+                                        when (outcome) {
+                                            is QuickCheckOutcome.Observed -> {
+                                                SessionEvent.QuickCheckObserved(
+                                                    effect.effectId,
+                                                    effect.revision,
+                                                    outcome.observation,
+                                                    at,
+                                                )
+                                            }
+
+                                            QuickCheckOutcome.Cancelled -> {
+                                                SessionEvent
+                                                    .QuickCheckCancelled(effect.effectId, at)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                QuickCheckCapture { effect ->
+                    if (quickInFlight == null) {
+                        quickInFlight = effect
+                        lifecycleScope.launch {
+                            val saved =
+                                withContext(
+                                    Dispatchers.IO,
+                                ) { (calibrationRepository.load() as? CalibrationLoad.Loaded)?.calibration }
+                            try {
+                                result.launch(
+                                    dev.cubentia.app.scan
+                                        .QuickCheckInput(effect.faces, effect.faces.size == 6, saved != null),
+                                )
+                            } catch (failed: RuntimeException) {
+                                quickInFlight = null
+                                throw failed
+                            }
+                        }
+                    }
+                }
+            } else {
+                null
+            }
         setContent {
             val prefs by preferenceStore.preferences.collectAsState()
             val dark = isDarkTheme(prefs.theme, isSystemInDarkTheme())
@@ -110,14 +217,15 @@ class MainActivity : ComponentActivity() {
                     showDebugToggles = DebugOptions.SHOW_DEBUG_TOGGLES,
                     flags = featureFlags,
                     onScan = onScan,
+                    quickCheck = quickCheck,
                     showWelcome = true,
                     calibration =
-                        if (featureFlags.isEnabled(dev.cubentia.application.port.FeatureFlag.CAMERA_SCAN) &&
+                        if (featureFlags.isEnabled(FeatureFlag.CAMERA_SCAN) &&
                             scanLauncher.isPresent
                         ) {
                             dev.cubentia.app.ui.settings.CalibrationSettings(
                                 onCalibrate = { startActivity(scanLauncher.get().calibrationIntent(this)) },
-                                onReset = { resetCalibration() == dev.cubentia.application.port.CalibrationWrite.Saved },
+                                onReset = { resetCalibration() == CalibrationWrite.Saved },
                             )
                         } else {
                             null

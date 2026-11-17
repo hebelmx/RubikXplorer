@@ -682,5 +682,14 @@
   "msg.scan.blank-state": "Color needed",
   "btn.scan.accept": "Accept",
   "msg.scan.blank-label": "?",
-  "msg.scan.selected": "Selected: {sticker}"
+  "msg.scan.selected": "Selected: {sticker}",
+  "btn.physical.quick-check": "Quick Check",
+  "btn.physical.confirm-scan": "Scan it",
+  "btn.physical.scan-all-faces": "Scan all 6 faces",
+  "btn.physical.use-my-cube": "Use my cube as it is now",
+  "msg.quick-check.likely-mismatch": "That turn probably moved the cross.",
+  "msg.physical.mismatch.quick-check": "Check the faces you turned with the camera.",
+  "msg.physical.frame-verified": "VERIFIED",
+  "msg.quick-check.seen": "SEEN",
+  "msg.quick-check.seen-differs": "Differs from the expected cube"
 }

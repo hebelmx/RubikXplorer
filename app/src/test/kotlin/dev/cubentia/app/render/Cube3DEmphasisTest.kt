@@ -96,16 +96,22 @@ class Cube3DEmphasisTest {
         assertEquals(RenderedArrow("R", 1f), config()[RenderedArrowKey])
         rule.runOnIdle { arrow = FaceTurn(Face.U, Turn.HALF) }
         shadowOf(Looper.getMainLooper()).idle()
+        // Settle recomposition before advancing the manually controlled animation clock.
+        rule.waitForIdle()
         rule.mainClock.advanceTimeByFrame()
         rule.mainClock.advanceTimeByFrame()
         assertEquals(RenderedArrow("U2", 0f), config()[RenderedArrowKey])
         rule.runOnIdle { reduced = true }
         shadowOf(Looper.getMainLooper()).idle()
+        // Settle recomposition before advancing the manually controlled animation clock.
+        rule.waitForIdle()
         rule.mainClock.advanceTimeByFrame()
         rule.mainClock.advanceTimeByFrame()
         assertEquals(RenderedArrow("U2", 1f), config()[RenderedArrowKey])
         rule.runOnIdle { arrow = null }
         shadowOf(Looper.getMainLooper()).idle()
+        // Settle recomposition before advancing the manually controlled animation clock.
+        rule.waitForIdle()
         rule.mainClock.advanceTimeByFrame()
         rule.mainClock.advanceTimeByFrame()
         assertNull(config().getOrNull(RenderedArrowKey))

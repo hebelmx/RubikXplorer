@@ -226,4 +226,36 @@ class GuidedRecoverySessionTest {
         assertEquals(harmed.entry, retried.virtual)
         assertTrue(checkNotNull(retried.lesson).preserve.isSatisfied(retried.virtual))
     }
+
+    @Test fun `adopting a full mismatch automatically plans against the retained checkpoint`() {
+        val initial = testMe().after(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0), SessionEvent.PhysicalConfirmed(null, T0))
+        val actual = initial.expected.apply(move("R"))
+        val requested = initial.after(SessionEvent.QuickCheckRequested(at = T0, fullScan = true))
+        val pending = requested.pendingQuickCheck!!
+        val mismatch =
+            requested.after(
+                SessionEvent.QuickCheckObserved(
+                    pending.effectId,
+                    pending.revision,
+                    dev.cubentia.domain.recognition.PhysicalObservation
+                        .Full(actual),
+                    T0,
+                ),
+            )
+        val adopted = reduce(mismatch, SessionEvent.AdoptObserved(T0))
+        val effect = adopted.effects.filterIsInstance<Effect.PlanRecovery>().single()
+        assertEquals(initial.checkpoint, adopted.state.checkpoint)
+        assertEquals(actual, effect.state)
+        assertEquals(adopted.state.revision, effect.revision)
+        assertEquals(GuidedRecovery.Planning(effect), adopted.state.guidedRecovery)
+        assertEquals(ErrorCategory.COMPLETED_LAYER_DISTURBED, adopted.state.lastDiagnosis?.category)
+        assertEquals(crossEdges, effect.goal.pieces)
+        assertEquals(
+            Recovery.Ready(moves("R'")),
+            adopted.state
+                .after(runPlan(effect))
+                .decision
+                ?.recovery,
+        )
+    }
 }

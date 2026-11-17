@@ -20,6 +20,7 @@ sealed interface SessionEvent {
     data class QuickCheckRequested(
         val byLearner: Boolean = true,
         override val at: Instant,
+        val fullScan: Boolean = false,
     ) : SessionEvent
 
     data class QuickCheckObserved(
@@ -96,6 +97,7 @@ sealed interface SessionEvent {
         val state: CubeState,
         val solution: List<Move>,
         override val at: Instant,
+        val tutorConfig: TutorConfig? = null,
     ) : SessionEvent
 
     /** Ends playback; a held Lesson is resumed separately from its stored Checkpoint. */
@@ -247,6 +249,11 @@ sealed interface SessionEvent {
 
     /** The Learner reported a discrepancy between the app's predicted state and their physical cube (AD-3). */
     data class MismatchReported(
+        override val at: Instant,
+    ) : SessionEvent
+
+    /** Adopt a Full observation at a Lesson mismatch, retaining its recovery Checkpoint. */
+    data class AdoptObserved(
         override val at: Instant,
     ) : SessionEvent
 

@@ -38,6 +38,7 @@ fun ConfirmCubeCard(
     onMatches: () -> Unit,
     onEnter: () -> Unit,
     modifier: Modifier = Modifier,
+    onScan: (() -> Unit)? = null,
 ) {
     val tokens = RubikTheme.tokens
     val shape = MaterialTheme.shapes.large
@@ -57,6 +58,11 @@ fun ConfirmCubeCard(
             color = tokens.inkPrimary,
             modifier = Modifier.testTag("confirmCube:title"),
         )
+        onScan?.let { scan ->
+            OutlinedButton(onClick = scan, modifier = Modifier.testTag("confirmCube:scan")) {
+                Text(strings.resolve(ContentText("btn.physical.confirm-scan")))
+            }
+        }
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val measurer = rememberTextMeasurer()
             val density = LocalDensity.current

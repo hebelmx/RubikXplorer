@@ -4,8 +4,10 @@ import dev.cubentia.application.preference.Preference
 import dev.cubentia.domain.content.FaceletString
 import dev.cubentia.domain.content.FaceletStringResult
 import dev.cubentia.domain.content.Lesson
+import dev.cubentia.domain.content.TutorConfig
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.CubeValidator
+import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.MoveHistory
 import dev.cubentia.domain.cube.Notation
@@ -42,7 +44,7 @@ fun reduce(
     val next = result.state
     val preservesCoverage =
         (event is SessionEvent.PhysicalConfirmed && event.move != null) || (event is SessionEvent.Undo && state.isPhysical) ||
-            event is SessionEvent.EditorEntered
+            event is SessionEvent.EditorEntered || event is SessionEvent.AdoptObserved
     val leftPhysical = next.syncState == SyncState.VIRTUAL || next.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM
     val cleared =
         next.copy(
@@ -126,7 +128,7 @@ private fun applied(
             Transition(state)
         }
     }
-    if (state.kind?.takesMoves == true && event is SessionEvent.QuickCheckObserved &&
+    if (state.kind != null && event is SessionEvent.QuickCheckObserved &&
         (
             state.pendingQuickCheck?.effectId != event.effectId || event.revision != state.revision ||
                 state.pendingQuickCheck.revision != event.revision
@@ -143,10 +145,13 @@ private fun applied(
         state.kind == SessionKind.SOLVE_PLAYBACK &&
             (
                 event is SessionEvent.ModeSwitched || event is SessionEvent.PhysicalConfirmed ||
+                    event is SessionEvent.QuickCheckRequested || event is SessionEvent.QuickCheckObserved ||
+                    event is SessionEvent.QuickCheckCancelled ||
                     (event is SessionEvent.Undo && state.isPhysical)
             )
     if (!starts && state.kind?.takesMoves != true && !playbackAllowed) return Transition(state)
     // Ignored outright, so not even the generic clearing below applies.
+    if (event is SessionEvent.AdoptObserved && !state.canAdoptObserved) return Transition(state)
     if (event is SessionEvent.Redo && state.isPhysical) return Transition(state)
     if (event is SessionEvent.PhysicalSolveConfirmed && !canConfirmPhysicalSolve(state)) return Transition(state)
     val transition =
@@ -167,7 +172,8 @@ private fun applied(
         event is SessionEvent.GuidedRecoveryRequested || event is SessionEvent.RecoveryPlanned || event is SessionEvent.RecoveryPlanFailed
     val keeps =
         event is SessionEvent.MoveCommitted || event is SessionEvent.PhysicalConfirmed ||
-            event is SessionEvent.EditorEntered || event is SessionEvent.SolvePlaybackStarted || recovery
+            event is SessionEvent.EditorEntered || event is SessionEvent.AdoptObserved || event is SessionEvent.SolvePlaybackStarted ||
+            recovery
     if (keeps || transition.state.kind?.takesMoves != true) return transition
     return transition.copy(
         state = transition.state.copy(lastMoveFeedback = null, lastDiagnosis = null, guidedRecovery = GuidedRecovery.None),
@@ -214,7 +220,7 @@ private fun transition(
         }
 
         is SessionEvent.SolvePlaybackStarted -> {
-            startPlayback(state, event.state, event.solution)
+            startPlayback(state, event.state, event.solution, event.tutorConfig)
         }
 
         is SessionEvent.SessionEnded, is SessionEvent.SolvePlaybackEnded -> {
@@ -300,6 +306,10 @@ private fun transition(
 
         is SessionEvent.MismatchReported -> {
             reportMismatch(state, event)
+        }
+
+        is SessionEvent.AdoptObserved -> {
+            adoptObserved(state, event)
         }
 
         is SessionEvent.EditorEntered -> {
@@ -402,6 +412,7 @@ private fun startPlayback(
     state: SessionState,
     start: CubeState,
     solution: List<Move>,
+    tutorConfig: TutorConfig?,
 ): Transition {
     if (!start.apply(solution).isSolved) return Transition(state)
     val next =
@@ -409,7 +420,7 @@ private fun startPlayback(
             kind = SessionKind.SOLVE_PLAYBACK,
             twoLookAlgorithms = emptyList(),
             lesson = null,
-            tutorConfig = null,
+            tutorConfig = tutorConfig,
             adaptiveAssistance = false,
             stepMistakes = emptyMap(),
             cleanSteps = 0,
@@ -688,7 +699,7 @@ private fun commitPhysical(
     move: Move,
 ): Transition {
     val reported = state.syncState == SyncState.PHYSICAL_MISMATCH
-    val replacing = reported && state.history.canUndo
+    val replacing = reported && state.kind?.takesMoves == true && state.history.canUndo
     val base = if (replacing) beforeLastConfirm(state) else state
     val history = base.history.commit(move)
     val lesson = state.lesson
@@ -795,6 +806,7 @@ private fun enterEditor(
             observed = PhysicalObservation.Full(event.state),
             touchedSinceVerified = emptySet(),
             quickCheckRetry = null,
+            pendingQuickCheck = null,
             quickCheck = null,
             syncState = SyncState.PHYSICAL_VERIFIED,
             lastMoveFeedback = null,
@@ -803,6 +815,18 @@ private fun enterEditor(
         )
     val next = lesson?.let { l -> withNotice(state, moved, l) } ?: moved
     return Transition(next, presentation = listOf(Presentation.Snap(next.revision, next.virtual)))
+}
+
+private fun adoptObserved(
+    state: SessionState,
+    event: SessionEvent.AdoptObserved,
+): Transition {
+    if (!state.canAdoptObserved) return Transition(state)
+    val full = state.observed as PhysicalObservation.Full
+    val entered = enterEditor(state, SessionEvent.EditorEntered(full.state, event.at))
+    val adopted = entered.state.copy(checkpoint = state.checkpoint, syncState = SyncState.PHYSICAL_PREDICTED)
+    val recovery = guideBack(adopted)
+    return entered.copy(state = recovery.state, effects = recovery.effects)
 }
 
 private fun withNotice(
@@ -1247,7 +1271,7 @@ private fun attempts(
 }
 
 private fun quickAllowed(state: SessionState): Boolean =
-    state.kind?.takesMoves == true &&
+    (state.kind?.takesMoves == true || state.kind == SessionKind.SOLVE_PLAYBACK) &&
         state.syncState in setOf(SyncState.PHYSICAL_PREDICTED, SyncState.PHYSICAL_VERIFIED, SyncState.PHYSICAL_MISMATCH)
 
 private fun quickRequested(
@@ -1255,7 +1279,18 @@ private fun quickRequested(
     event: SessionEvent.QuickCheckRequested,
 ): Transition {
     if (!quickAllowed(state) || state.tutorConfig == null) return Transition(state)
-    val effect = Effect.QuickCheck(state.nextEffectId, state.revision, QuickCheck.faces(state.mustCover), event.byLearner)
+    val effect =
+        Effect.QuickCheck(
+            state.nextEffectId,
+            state.revision,
+            if (event.fullScan) {
+                Face.entries
+                    .toSet()
+            } else {
+                QuickCheck.faces(state.mustCover)
+            },
+            event.byLearner,
+        )
     return Transition(
         state.copy(nextEffectId = state.nextEffectId + 1, pendingQuickCheck = effect, quickCheckRetry = null),
         effects = listOf(effect),
@@ -1278,8 +1313,9 @@ private fun quickObserved(
         )
     }
     if (!quickAllowed(state)) return Transition(state.copy(pendingQuickCheck = null))
-    val check = Assess.check(CandidateEnumerator.of(state.expected, checkNotNull(state.tutorConfig)), event.observation, state.mustCover)
     val observation = event.observation
+    if (observation is PhysicalObservation.Partial && observation.faces.isEmpty()) return Transition(state.copy(pendingQuickCheck = null))
+    val check = Assess.check(CandidateEnumerator.of(state.expected, checkNotNull(state.tutorConfig)), observation, state.mustCover)
     val consistent =
         observation is PhysicalObservation.Full ||
             (observation is PhysicalObservation.Partial && PartialConsistency.check(observation) is PartialCheck.Consistent)
@@ -1289,6 +1325,9 @@ private fun quickObserved(
         state.copy(
             pendingQuickCheck = null,
             quickCheck = check,
+            physicalSolveConfirmed =
+                state.physicalSolveConfirmed || (verified && canConfirmPhysicalSolve(state.copy(syncState = SyncState.PHYSICAL_VERIFIED))),
+            physicalSolveUnconfirmed = if (verified && state.objectiveMet) false else state.physicalSolveUnconfirmed,
             syncState =
                 if (verified) {
                     SyncState.PHYSICAL_VERIFIED

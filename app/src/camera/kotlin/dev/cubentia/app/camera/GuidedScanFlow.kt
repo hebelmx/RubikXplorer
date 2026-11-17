@@ -1,11 +1,49 @@
 package dev.cubentia.app.camera
 
+import dev.cubentia.domain.recognition.CalibrationCenters
+import dev.cubentia.domain.recognition.CalibrationOffer
+import dev.cubentia.domain.recognition.CalibrationSession
+import dev.cubentia.domain.recognition.CaptureQuality
+import dev.cubentia.domain.recognition.CellReading
+import dev.cubentia.domain.recognition.FaceSample
+import dev.cubentia.domain.recognition.FrameQuality
+import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.GuidedScanController
 import dev.cubentia.domain.recognition.GuidedScanEffect
+import dev.cubentia.domain.recognition.PhysicalObservation
+import dev.cubentia.domain.recognition.ScanAssembler
+import dev.cubentia.domain.recognition.ScanResult
 import dev.cubentia.domain.recognition.ScanReview
+import dev.cubentia.domain.recognition.StickerConfidence
 
 /** The Guided Scan Activity's decisions, kept pure so they are unit-tested without a camera or a permission dialog. */
 internal object GuidedScanFlow {
+    /** Only whole, confident posed faces are evidence. No Expected state participates. */
+    fun quickCheckOf(
+        samples: List<FaceSample>,
+        saved: CalibrationCenters,
+    ): PhysicalObservation.Partial {
+        val result =
+            ScanAssembler
+                .assemble(samples, saved)
+        if (result !is ScanResult.Partial) {
+            return PhysicalObservation
+                .Partial(
+                    emptyMap(),
+                )
+        }
+        return result.observation.copy(
+            faces =
+                result.observation.faces.filterKeys { face ->
+                    result.confidence[face]?.let {
+                        it.size == 9 &&
+                            it.all { confidence -> confidence == StickerConfidence.CONFIDENT }
+                    } ==
+                        true
+                },
+        )
+    }
+
     fun withCorrections(
         review: ScanReview,
         corrections: Map<Int, dev.cubentia.domain.cube.Color>,
@@ -55,26 +93,26 @@ internal object GuidedScanFlow {
 
     fun reviewOf(
         effects: List<GuidedScanEffect>,
-        saved: dev.cubentia.domain.recognition.CalibrationCenters?,
+        saved: CalibrationCenters?,
     ): GuidedScanPhase.Review? =
         effects.filterIsInstance<GuidedScanEffect.Done>().firstOrNull()?.let {
             val review = ScanReview.fromSamples(it.samples, saved)
             GuidedScanPhase.Review(
                 review,
-                dev.cubentia.domain.recognition.CalibrationOffer
+                CalibrationOffer
                     .offered(it.samples, saved, review),
             )
         }
 
     fun calibrationCapture(
         phase: GuidedScanPhase.Calibration,
-        stats: dev.cubentia.domain.recognition.FrameStats,
-        ring: dev.cubentia.domain.recognition.CellReading?,
+        stats: FrameStats,
+        ring: CellReading?,
     ): GuidedScanPhase.Calibration {
         val quality =
-            dev.cubentia.domain.recognition.FrameQuality
+            FrameQuality
                 .assessShutter(stats)
-        return if (quality == dev.cubentia.domain.recognition.CaptureQuality.ACCEPTABLE) {
+        return if (quality == CaptureQuality.ACCEPTABLE) {
             phase.copy(session = phase.session.offer(ring), coaching = null)
         } else {
             phase.copy(coaching = GuidedScanController.coachingFor(quality, stats.framing))
@@ -87,7 +125,7 @@ internal object GuidedScanFlow {
     /** The scan's result when [effects] finish it, else null. */
     fun resultOf(
         effects: List<GuidedScanEffect>,
-        saved: dev.cubentia.domain.recognition.CalibrationCenters? = null,
+        saved: CalibrationCenters? = null,
     ): ScanReview? = effects.filterIsInstance<GuidedScanEffect.Done>().firstOrNull()?.let { ScanReview.fromSamples(it.samples, saved) }
 }
 
@@ -119,14 +157,14 @@ internal class CaptureFreeze(
 
 /** Analyzer-thread hold, restarted for each immutable swatch session, including retries. */
 internal class CalibrationHold {
-    private var session: dev.cubentia.domain.recognition.CalibrationSession? = null
+    private var session: CalibrationSession? = null
     private var controller: GuidedScanController? = null
 
     val coaching get() = controller?.coaching
 
     fun onFrame(
-        current: dev.cubentia.domain.recognition.CalibrationSession,
-        stats: dev.cubentia.domain.recognition.FrameStats,
+        current: CalibrationSession,
+        stats: FrameStats,
         rotation: Int,
         now: Long,
     ): List<GuidedScanEffect> {

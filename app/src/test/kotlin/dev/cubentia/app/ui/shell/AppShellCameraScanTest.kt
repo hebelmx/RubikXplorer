@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import dev.cubentia.app.content.LessonCatalog
+import dev.cubentia.app.scan.QuickCheckCapture
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.TickingClock
 import dev.cubentia.app.session.testFlags
@@ -82,7 +83,20 @@ class AppShellCameraScanTest {
         rule.onNodeWithText(CAMERA_PROMPT).assertDoesNotExist()
     }
 
-    private fun meetFinaleObjectiveInPhysicalMode(cameraScan: FlagLevel) {
+    @Test fun wiredCaptureShowsStage6CameraCopyWithQuickCheck() {
+        meetFinaleObjectiveInPhysicalMode(
+            FlagLevel.GA,
+            dev.cubentia.app.scan
+                .QuickCheckCapture {},
+        )
+        rule.onNodeWithText(CAMERA_PROMPT).assertExists()
+        rule.onNodeWithTag("lesson:quickCheck").assertExists()
+    }
+
+    private fun meetFinaleObjectiveInPhysicalMode(
+        cameraScan: FlagLevel,
+        quickCheck: QuickCheckCapture? = null,
+    ) {
         rule.setContent {
             CubentiaTheme {
                 AppShell(
@@ -91,6 +105,7 @@ class AppShellCameraScanTest {
                     freeCube = FreeCubeViewModel(),
                     showDebugToggles = false,
                     flags = testFlags(cameraScan = cameraScan),
+                    quickCheck = quickCheck,
                 )
             }
         }

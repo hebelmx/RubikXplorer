@@ -30,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -81,6 +82,7 @@ import dev.cubentia.app.render.CubeRenderer
 import dev.cubentia.app.render.NetEmphasis
 import dev.cubentia.app.render.PresentationItem
 import dev.cubentia.app.render.RenderStyle
+import dev.cubentia.app.scan.QuickCheckCapture
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.toItems
 import dev.cubentia.app.ui.editor.ManualCubeEditor
@@ -93,6 +95,7 @@ import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.application.port.FlagLevel
 import dev.cubentia.application.session.CubeMode
+import dev.cubentia.application.session.Effect
 import dev.cubentia.application.session.GuidedRecovery
 import dev.cubentia.application.session.Presentation
 import dev.cubentia.application.session.SessionEvent
@@ -106,6 +109,7 @@ import dev.cubentia.domain.content.Stage
 import dev.cubentia.domain.content.StageId
 import dev.cubentia.domain.content.TextKey
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Notation
@@ -127,6 +131,7 @@ import dev.cubentia.domain.tutor.StageProgress
 import dev.cubentia.domain.tutor.TeachingMode
 import dev.cubentia.domain.tutor.Tutor
 import dev.cubentia.domain.tutor.TutorDecision
+import dev.cubentia.domain.tutor.TwoLookMastery
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.time.Instant
@@ -143,7 +148,8 @@ import dev.cubentia.domain.text.Text as ContentText
  * feature flag is off). [planRecovery] runs a requested Guided recovery's search (tests inject one).
  * [adaptiveAssistance] is the `ADAPTIVE_ASSISTANCE` flag level the Lesson starts with: off, the Hint Ladder
  * is fixed and no Assistance line shows; BETA adds the beta label to the Assistance line (AD-18).
- * [cameraCheck] enables camera copy only alongside a wired camera check action.
+ * [cameraCheck] no longer selects copy: the camera first-solve copy and every Quick Check entry follow [quickCheck], the wired
+ * camera check action (Story 10.7); it stays for source compatibility.
  * [testMe] is the `TEST_ME` flag level: at BETA, the *Test me* segment carries the beta label and choosing it shows its note (AD-18).
  */
 @Composable
@@ -157,11 +163,12 @@ fun LessonScreen(
     planRecovery: PlanRecovery = remember { PlanRecovery() },
     adaptiveAssistance: FlagLevel = FlagLevel.OFF,
     cameraCheck: Boolean = false,
+    quickCheck: QuickCheckCapture? = null,
     testMe: FlagLevel = FlagLevel.OFF,
     onPracticeNewScramble: () -> Unit = onClose,
     twoLookPractice: Boolean = false,
     twoLookStages: List<Stage> = emptyList(),
-    twoLookAlgorithms: List<List<dev.cubentia.domain.cube.Move>> = emptyList(),
+    twoLookAlgorithms: List<List<Move>> = emptyList(),
     isPractice: Boolean = false,
     stages: List<Stage> = emptyList(),
     onNextStage: ((StageId) -> Unit)? = null,
@@ -182,7 +189,7 @@ fun LessonScreen(
     var initialMastered by rememberSaveable(lesson.id.value) { mutableStateOf<Boolean?>(null) }
     var initialTwoLookMastered by rememberSaveable(lesson.id.value, lesson.entryState) { mutableStateOf<Boolean?>(null) }
     val twoLookProgress =
-        dev.cubentia.domain.tutor.TwoLookMastery.evaluate(
+        TwoLookMastery.evaluate(
             twoLookStages,
             attemptRecords,
             progressEvents,
@@ -240,7 +247,7 @@ fun LessonScreen(
         preferenceStore.awaitLoaded()
         if (initialTwoLookMastered == null) {
             initialTwoLookMastered =
-                dev.cubentia.domain.tutor.TwoLookMastery
+                TwoLookMastery
                     .evaluate(
                         twoLookStages,
                         host.attemptRecords.value,
@@ -353,7 +360,8 @@ fun LessonScreen(
                     modes,
                     onClose,
                     adaptiveAssistance == FlagLevel.BETA,
-                    camera = cameraCheck,
+                    camera = quickCheck != null,
+                    quickCheck = quickCheck,
                     testMeBeta = testMe == FlagLevel.BETA,
                     recognition = recognition,
                     offerAlgorithms = offerAlgorithms,
@@ -511,6 +519,7 @@ private fun LessonBody(
     onClose: () -> Unit,
     beta: Boolean,
     camera: Boolean,
+    quickCheck: QuickCheckCapture? = null,
     testMeBeta: Boolean = false,
     recognition: RecognitionDiagram? = null,
     offerAlgorithms: List<AlgorithmId> = emptyList(),
@@ -525,7 +534,7 @@ private fun LessonBody(
     val isPhysical = session.syncState != SyncState.VIRTUAL
     var showManualEditor by rememberSaveable { mutableStateOf(false) }
     var showMoveKeyBar by rememberSaveable(isPhysical) { mutableStateOf(!isPhysical) }
-    var mismatchRung by rememberSaveable { mutableIntStateOf(1) }
+    var mismatchRung by rememberSaveable { mutableIntStateOf(if (quickCheck != null) 0 else 1) }
 
     // The last physical Undo's instruction; presentation only, so it is cleared by the next send.
     var physicalInstruction by rememberSaveable(lesson.id) { mutableStateOf<String?>(null) }
@@ -536,7 +545,7 @@ private fun LessonBody(
 
     LaunchedEffect(session.syncState) {
         if (session.syncState != SyncState.PHYSICAL_MISMATCH) {
-            mismatchRung = 1
+            mismatchRung = if (quickCheck != null) 0 else 1
             if (isPhysical) showMoveKeyBar = false
         }
         if (session.syncState == SyncState.VIRTUAL || session.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM) {
@@ -699,6 +708,77 @@ private fun LessonBody(
             },
             mismatchRung = mismatchRung,
             onMismatchRungChange = { mismatchRung = it },
+            onConfirmScan =
+                quickCheck?.let { capture ->
+                    {
+                        capture.start(
+                            Effect.QuickCheck(
+                                -1,
+                                session.revision,
+                                Face.entries
+                                    .toSet(),
+                                true,
+                            ),
+                        )
+                    }
+                },
+            quickCheck =
+                if (quickCheck != null &&
+                    (
+                        session.syncState == SyncState.PHYSICAL_MISMATCH || decision.advance || session.objectiveMet ||
+                            session.quickCheckRetry != null
+                    )
+                ) {
+                    {
+                        fun request(full: Boolean) {
+                            scope.launch {
+                                if (host.state.value.pendingQuickCheck != null) return@launch
+                                host
+                                    .dispatch { SessionEvent.QuickCheckRequested(at = it, fullScan = full) }
+                                    .effects
+                                    .filterIsInstance<Effect.QuickCheck>()
+                                    .forEach(quickCheck::start)
+                            }
+                        }
+                        session.quickCheckRetry?.let { Text(strings.resolve(it), modifier = Modifier.testTag("quickCheck:retry")) }
+                        IconButton(onClick = { request(false) }, modifier = Modifier.testTag("lesson:quickCheck")) {
+                            Icon(
+                                painterResource(R.drawable.ic_camera),
+                                contentDescription = strings.resolve(ContentText("btn.physical.quick-check")),
+                            )
+                        }
+                        if (session.offersFullScan) {
+                            Text(strings.resolve(ContentText("msg.quick-check.likely-mismatch")))
+                            session.quickCheck?.consistent?.firstOrNull()?.let { candidate ->
+                                Text(
+                                    strings.resolve(
+                                        ContentText(
+                                            "msg.physical.mismatch.candidate",
+                                            mapOf(
+                                                "candidate" to
+                                                    Notation
+                                                        .format(candidate.moves),
+                                            ),
+                                        ),
+                                    ),
+                                )
+                            }
+                            OutlinedButton(onClick = { request(true) }, modifier = Modifier.testTag("mismatch:scanAll")) {
+                                Text(strings.resolve(ContentText("btn.physical.scan-all-faces")))
+                            }
+                        }
+                        if (session.canAdoptObserved) {
+                            OutlinedButton(
+                                onClick = { send { SessionEvent.AdoptObserved(it) } },
+                                modifier = Modifier.testTag("mismatch:adopt"),
+                            ) {
+                                Text(strings.resolve(ContentText("btn.physical.use-my-cube")))
+                            }
+                        }
+                    }
+                } else {
+                    null
+                },
             isEndOfStage6 =
                 lesson.isCourseFinale ||
                     (
@@ -794,6 +874,7 @@ private fun LessonBody(
                         host = host,
                         session = session,
                         renderer = renderer,
+                        camera = quickCheck != null,
                         certainty = decision.certainty,
                         // A running demonstration's shown cube, so the summary agrees with Read faces and Solved.
                         summary = cubeSummary(playingState ?: session.virtual, lesson, strings),
@@ -1114,6 +1195,7 @@ private fun LearnerStage(
     session: SessionState,
     renderer: Cube3DRenderer,
     certainty: Certainty,
+    camera: Boolean = false,
     summary: String?,
     emphasis: NetEmphasis?,
     arrow: Move?,
@@ -1132,9 +1214,16 @@ private fun LearnerStage(
             FlowRow(itemVerticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 val isPhysical = session.syncState != SyncState.VIRTUAL
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    FrameLabel(strings, certainty, session.syncState)
+                    FrameLabel(
+                        strings,
+                        certainty,
+                        session.syncState,
+                        verified =
+                            camera && session.syncState == SyncState.PHYSICAL_VERIFIED &&
+                                session.quickCheck?.certainty == Certainty.VERIFIED,
+                    )
                     if (session.syncState == SyncState.PHYSICAL_MISMATCH || session.syncState == SyncState.PHYSICAL_VERIFIED ||
-                        (isPhysical && session.lastDiagnosis != null)
+                        (camera && session.quickCheck != null) || (isPhysical && session.lastDiagnosis != null)
                     ) {
                         CertaintyChip(certainty, Modifier.padding(start = Spacing.s2))
                     }
@@ -1176,48 +1265,51 @@ private fun LearnerStage(
             }
         },
         body = {
-            CubeAndKeys(
-                modifier = Modifier.fillMaxSize(),
-                cube = {
-                    renderer.Content(
-                        LocalRenderStyle.current,
-                        Modifier.fillMaxSize().semantics { traversalIndex = 1f },
-                        onMoveIntent = { intent ->
-                            caption = null
-                            if (session.syncState != SyncState.VIRTUAL) {
-                                if (showMoveKeyBar) {
+            Column {
+                CubeAndKeys(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    cube = {
+                        renderer.Content(
+                            LocalRenderStyle.current,
+                            Modifier.fillMaxSize().semantics { traversalIndex = 1f },
+                            onMoveIntent = { intent ->
+                                caption = null
+                                if (session.syncState != SyncState.VIRTUAL) {
+                                    if (showMoveKeyBar) {
+                                        onMove(intent.move)
+                                    }
+                                } else {
                                     onMove(intent.move)
                                 }
-                            } else {
-                                onMove(intent.move)
-                            }
-                        },
-                        emphasis = emphasis,
-                        arrow = arrow,
-                        reduceMotion = reduceMotion,
-                        summary = summary,
-                    )
-                },
-                keys =
-                    if (showMoveKeyBar) {
-                        {
-                            MoveKeyBar(
-                                onMove = { move ->
-                                    caption = null
-                                    onMove(move)
-                                },
-                                onShowName = { caption = it },
-                                modifier =
-                                    Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).semantics {
-                                        isTraversalGroup = true
-                                        traversalIndex = 2f
-                                    },
-                            )
-                        }
-                    } else {
-                        null
+                            },
+                            emphasis = emphasis,
+                            arrow = arrow,
+                            reduceMotion = reduceMotion,
+                            summary = summary,
+                        )
                     },
-            )
+                    keys =
+                        if (showMoveKeyBar) {
+                            {
+                                MoveKeyBar(
+                                    onMove = { move ->
+                                        caption = null
+                                        onMove(move)
+                                    },
+                                    onShowName = { caption = it },
+                                    modifier =
+                                        Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).semantics {
+                                            isTraversalGroup = true
+                                            traversalIndex = 2f
+                                        },
+                                )
+                            }
+                        } else {
+                            null
+                        },
+                )
+                if (camera && session.syncState == SyncState.PHYSICAL_MISMATCH && session.observed != null) SeenStrip(session, strings)
+            }
         },
     )
     ResetConfirmation(host = host, resolve = strings::resolve, onTransition = { renderer.submit(it.presentation.toItems()) })
@@ -1416,10 +1508,18 @@ internal fun FrameLabel(
     strings: ContentStrings,
     certainty: Certainty? = null,
     syncState: SyncState = SyncState.VIRTUAL,
+    verified: Boolean = false,
 ) {
     val isPhysical = syncState != SyncState.VIRTUAL
     val tokens = RubikTheme.tokens
-    val text = if (isPhysical) strings.resolve(ContentText("msg.physical.frame-expected")) else stringResource(R.string.frame_virtual)
+    val text =
+        if (verified) {
+            strings.resolve(ContentText("msg.physical.frame-verified"))
+        } else if (isPhysical) {
+            strings.resolve(ContentText("msg.physical.frame-expected"))
+        } else {
+            stringResource(R.string.frame_virtual)
+        }
     val description =
         if (isPhysical || certainty == null) {
             null
@@ -1440,7 +1540,7 @@ internal fun FrameLabel(
 
     val baseModifier = Modifier.padding(start = Spacing.s2).testTag("stage:frame")
     val styledModifier =
-        if (isPhysical) {
+        if (isPhysical && !verified) {
             baseModifier
                 .drawBehind {
                     drawRoundRect(
@@ -1459,20 +1559,23 @@ internal fun FrameLabel(
             baseModifier
         }
 
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelMedium,
-        color = tokens.inkSecondary,
-        modifier =
-            styledModifier.semantics {
-                traversalIndex = 0f
-                if (isPhysical) {
-                    set(DashedBorderKey, true)
-                }
-                if (description != null) {
-                    stateDescription = description
-                    liveRegion = LiveRegionMode.Polite
-                }
-            },
-    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (verified) Icon(painterResource(R.drawable.ic_check), contentDescription = null, tint = tokens.statusVerified)
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (verified) tokens.statusVerified else tokens.inkSecondary,
+            modifier =
+                styledModifier.semantics {
+                    traversalIndex = 0f
+                    if (isPhysical && !verified) {
+                        set(DashedBorderKey, true)
+                    }
+                    if (description != null) {
+                        stateDescription = description
+                        liveRegion = LiveRegionMode.Polite
+                    }
+                },
+        )
+    }
 }

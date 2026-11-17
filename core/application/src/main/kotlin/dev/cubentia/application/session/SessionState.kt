@@ -58,7 +58,7 @@ data class SessionState internal constructor(
     val kind: SessionKind?,
     /** The Lesson of a Lesson-backed session; `null` otherwise. */
     val lesson: Lesson?,
-    /** The tutor configuration the Lesson started with; `null` exactly when [lesson] is. */
+    /** The tutor configuration supplied at session start; optional in Solve Playback. */
     val tutorConfig: TutorConfig?,
     /** Session history from the Reset target [entry]; Tutor guidance starts from [pathEntry]. */
     val history: MoveHistory,
@@ -177,6 +177,16 @@ data class SessionState internal constructor(
         touchedSinceVerified ?: Face.entries
             .toSet()
 
+    /** A Partial mismatch needs all six faces before it can be adopted. */
+    val offersFullScan: Boolean get() =
+        syncState == SyncState.PHYSICAL_MISMATCH && observed is PhysicalObservation.Partial &&
+            quickCheck?.matchesExpected == false
+
+    /** Only a moves-taking session may adopt a Full mismatch observation. */
+    val canAdoptObserved: Boolean get() =
+        syncState == SyncState.PHYSICAL_MISMATCH && observed is PhysicalObservation.Full &&
+            kind?.takesMoves == true
+
     /** Whether the session is currently in virtual or physical mode. */
     val mode: CubeMode get() = if (syncState == SyncState.VIRTUAL) CubeMode.VIRTUAL else CubeMode.PHYSICAL
 
@@ -205,6 +215,7 @@ data class SessionState internal constructor(
                 isPhysical = syncState != SyncState.VIRTUAL,
                 isMismatch = syncState == SyncState.PHYSICAL_MISMATCH,
                 isVerified = syncState == SyncState.PHYSICAL_VERIFIED,
+                quickCheck = quickCheck,
             )
         }
     }

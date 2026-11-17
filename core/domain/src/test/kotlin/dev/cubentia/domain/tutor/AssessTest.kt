@@ -386,4 +386,35 @@ class AssessTest {
         assertNull(mismatchDecision.diagnosis)
         assertEquals(Certainty.UNKNOWN, mismatchDecision.certainty)
     }
+
+    @Test fun `physical mismatch decision prefers quick check evidence`() {
+        val lesson = oneStep
+        val expected = s.apply(moves("R"))
+        val actual = s.apply(moves("R'"))
+        val colors = actual.reoriented(Orientation.HOME).toFacelets().colors
+        val partial =
+            PhysicalObservation.Partial(
+                setOf(Face.R, Face.U).associateWith { colors.subList(it.ordinal * 9, it.ordinal * 9 + 9) },
+            )
+        listOf(partial, PhysicalObservation.Full(actual)).forEach { observation ->
+            val check = Assess.check(enumerator(expected), observation, setOf(Face.R, Face.U))
+            val decision =
+                Assess.decide(
+                    lesson,
+                    MoveHistory(expected),
+                    CONFIG,
+                    TeachingMode.GUIDE_ME,
+                    false,
+                    HintRung.NONE,
+                    null,
+                    null,
+                    null,
+                    Recovery.Unavailable,
+                    isPhysical = true,
+                    isMismatch = true,
+                    quickCheck = check,
+                )
+            assertEquals(check.certainty, decision.certainty)
+        }
+    }
 }

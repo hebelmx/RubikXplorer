@@ -2,6 +2,7 @@ package dev.cubentia.app.camera
 
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.Face
+import dev.cubentia.domain.recognition.CalibrationSession
 import dev.cubentia.domain.recognition.CaptureQuality
 import dev.cubentia.domain.recognition.CellReading
 import dev.cubentia.domain.recognition.Coaching
@@ -37,7 +38,7 @@ class GuidedScanFlowTest {
                 .CalibrationSession()
 
         fun feed(
-            s: dev.cubentia.domain.recognition.CalibrationSession,
+            s: CalibrationSession,
             start: Long,
             end: Long,
         ) = (start..end step 100).flatMap { hold.onFrame(s, frame, 0, it) }
@@ -275,5 +276,39 @@ class GuidedScanFlowTest {
         val unreadable = GuidedScanFlow.calibrationCapture(phase, good, null)
         assertTrue(unreadable.session.plainSticker)
         assertNull(unreadable.session.pending)
+    }
+
+    @Test fun quickCheckKeepsOnlyConfidentPosedFacesAndCanReturnNoEvidence() {
+        val labs =
+            mapOf(
+                Color.GREEN to Lab(55.0, -60.0, 40.0),
+                Color.RED to Lab(45.0, 65.0, 45.0),
+                Color.BLUE to Lab(40.0, 10.0, -50.0),
+                Color.ORANGE to Lab(65.0, 45.0, 65.0),
+                Color.WHITE to Lab(90.0, 0.0, 0.0),
+                Color.YELLOW to Lab(85.0, -5.0, 80.0),
+            )
+        val saved =
+            dev.cubentia.domain.recognition
+                .CalibrationCenters(labs)
+
+        fun face(face: Face) =
+            GuidedScanPlan.reprompt(face).let { step ->
+                FaceSample(
+                    face = face,
+                    orientationDegrees = 0,
+                    stickers = List(9) { labs.getValue(step.centerColor) },
+                    quality = CaptureQuality.ACCEPTABLE,
+                    centerColor = step.centerColor,
+                    upNeighborColor = step.upNeighborColor,
+                )
+            }
+        val good = face(Face.R)
+        val uncertain = face(Face.U).copy(stickers = face(Face.U).stickers.toMutableList().also { it[0] = Lab(87.5, -2.5, 40.0) })
+        val result = GuidedScanFlow.quickCheckOf(listOf(good, uncertain), saved)
+        assertEquals(setOf(Face.R), result.faces.keys)
+        assertEquals(List(9) { Color.RED }, result.faces.getValue(Face.R))
+        assertTrue(GuidedScanFlow.quickCheckOf(listOf(uncertain), saved).faces.isEmpty())
+        assertTrue(GuidedScanFlow.quickCheckOf(listOf(good.copy(upNeighborColor = null)), saved).faces.isEmpty())
     }
 }

@@ -253,6 +253,7 @@ object Assess {
         isPhysical: Boolean = false,
         isMismatch: Boolean = false,
         isVerified: Boolean = false,
+        quickCheck: ObservationCheck? = null,
     ): TutorDecision {
         val state = history.state
         val satisfied = lesson.completion.isSatisfied(state)
@@ -270,6 +271,7 @@ object Assess {
         val diagnosis = lastDiagnosis.takeIf { testing || (isPhysical && !advance) }
         val certainty =
             when {
+                isPhysical && isMismatch && quickCheck != null && !quickCheck.matchesExpected -> quickCheck.certainty
                 isPhysical && !isVerified && lastDiagnosis != null -> lastDiagnosis.certainty
                 isPhysical && isMismatch -> Certainty.UNKNOWN
                 isPhysical && !isVerified -> Certainty.LIKELY

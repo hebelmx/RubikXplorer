@@ -1,6 +1,7 @@
 package dev.cubentia.application.session
 
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.tutor.AssistanceLevel
 import dev.cubentia.domain.tutor.MoveFeedback
 import dev.cubentia.domain.tutor.TeachingMode
@@ -351,6 +352,30 @@ class TransitionsTableTest {
                 )
             }
 
+            is SessionEvent.AdoptObserved -> {
+                val predicted =
+                    b.after(
+                        SessionEvent.ModeSwitched(CubeMode.PHYSICAL, sample.at),
+                        SessionEvent.PhysicalConfirmed(null, sample.at),
+                    )
+                val mismatch =
+                    predicted
+                        .after(SessionEvent.MismatchReported(sample.at))
+                        .copy(
+                            observed =
+                                PhysicalObservation
+                                    .Full(CubeState.SOLVED.apply(F)),
+                        )
+                listOf(
+                    SessionState.IDLE to sample,
+                    b to sample,
+                    predicted to sample,
+                    mismatch to sample,
+                    mismatch.copy(history = b.history, expected = b.virtual) to sample,
+                    mismatch.copy(pendingReset = askedPending, lastMoveFeedback = MoveFeedback.NEUTRAL) to sample,
+                )
+            }
+
             is SessionEvent.EditorEntered -> {
                 val physicalAwaiting = fresh.after(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, sample.at))
                 val physicalPredicted = physicalAwaiting.after(SessionEvent.PhysicalConfirmed(null, sample.at))
@@ -391,11 +416,12 @@ class TransitionsTableTest {
             ),
             SessionEvent.CheckpointSaveFailed(lessonStarted(other).at),
             SessionEvent.CheckpointLoadFailed(lessonStarted(other).at),
+            SessionEvent.AdoptObserved(lessonStarted(other).at),
             SessionEvent.QuickCheckRequested(at = lessonStarted(other).at),
             SessionEvent.QuickCheckObserved(
                 -1,
                 -1,
-                dev.cubentia.domain.recognition.PhysicalObservation
+                PhysicalObservation
                     .Full(CubeState.SOLVED),
                 lessonStarted(other).at,
             ),
@@ -472,7 +498,7 @@ class TransitionsTableTest {
         assertEquals(names.size, names.toSet().size, "duplicate rows: $names")
         assertEquals(eventTypes, names.toSet())
         assertEquals(eventTypes, samples.keys)
-        assertEquals(34, eventTypes.size)
+        assertEquals(35, eventTypes.size)
     }
 
     @Test

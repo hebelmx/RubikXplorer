@@ -45,6 +45,7 @@ import dev.cubentia.app.content.twoLookMoves
 import dev.cubentia.app.preferences.PreferenceProvider
 import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.app.random.KotlinRandomSource
+import dev.cubentia.app.scan.QuickCheckCapture
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.solver.SolverLoad
 import dev.cubentia.app.solver.SolverSource
@@ -66,6 +67,7 @@ import dev.cubentia.application.port.FeatureFlag
 import dev.cubentia.application.port.FeatureFlags
 import dev.cubentia.application.port.FlagLevel
 import dev.cubentia.application.preference.Preference
+import dev.cubentia.application.session.Effect
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionKind
 import dev.cubentia.application.session.SessionState
@@ -73,9 +75,14 @@ import dev.cubentia.application.usecase.StagePractice
 import dev.cubentia.application.usecase.TwoLookPractice
 import dev.cubentia.domain.content.AlgorithmId
 import dev.cubentia.domain.content.AlgorithmStatus
+import dev.cubentia.domain.content.ContentBundle
+import dev.cubentia.domain.content.Lesson
 import dev.cubentia.domain.content.LessonId
 import dev.cubentia.domain.content.LibraryFilter
+import dev.cubentia.domain.content.Stage
 import dev.cubentia.domain.content.StageId
+import dev.cubentia.domain.cube.Notation
+import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.domain.lastlayer.RecognitionDiagram
 import dev.cubentia.domain.lastlayer.RecognitionDiagramResult
 import dev.cubentia.domain.tutor.StageProgress
@@ -121,6 +128,7 @@ fun AppShell(
     showWelcome: Boolean = false,
     calibration: dev.cubentia.app.ui.settings.CalibrationSettings? = null,
     onScan: (() -> Unit)? = null,
+    quickCheck: QuickCheckCapture? = null,
     solveFlow: SolveFlowViewModel =
         remember {
             SolveFlowViewModel(
@@ -146,6 +154,7 @@ fun AppShell(
             solveFlow,
             calibration,
             onScan,
+            quickCheck,
         )
     }
 }
@@ -164,6 +173,7 @@ private fun ShellContent(
     solveFlow: SolveFlowViewModel,
     calibration: dev.cubentia.app.ui.settings.CalibrationSettings?,
     onScan: (() -> Unit)?,
+    quickCheck: QuickCheckCapture?,
 ) {
     LaunchedEffect(catalog) { catalog.load() }
     val content by catalog.state.collectAsState()
@@ -215,7 +225,7 @@ private fun ShellContent(
             // Calibration copy is content text: the rows wait for the content, and stay hidden while CAMERA_SCAN is OFF.
             calibration =
                 calibration.takeIf {
-                    content is CatalogState.Ready && flags.isEnabled(dev.cubentia.application.port.FeatureFlag.CAMERA_SCAN)
+                    content is CatalogState.Ready && flags.isEnabled(FeatureFlag.CAMERA_SCAN)
                 },
             strings =
                 (content as? CatalogState.Ready)?.strings ?: dev.cubentia.app.content
@@ -259,8 +269,19 @@ private fun ShellContent(
     val ready = content as? CatalogState.Ready
     if (ready != null && session.kind == SessionKind.SOLVE_PLAYBACK) {
         SolvePlaybackScreen(
-            session,
-            ready.strings,
+            quickCheck = quickCheck,
+            requestQuickCheck = { full ->
+                if (host.state.value.pendingQuickCheck == null) {
+                    host
+                        .dispatch {
+                            SessionEvent.QuickCheckRequested(at = it, fullScan = full)
+                        }.effects
+                        .filterIsInstance<Effect.QuickCheck>()
+                        .forEach { quickCheck?.start(it) }
+                }
+            },
+            session = session,
+            strings = ready.strings,
             onEvent = { event -> scope.launch { host.dispatch { event } } },
             onClose = {
                 scope.launch {
@@ -312,6 +333,7 @@ private fun ShellContent(
                 recognitionDiagramFor(ready.bundle, entry.lesson.id)
             }
         LessonScreen(
+            quickCheck = quickCheck,
             host = host,
             entry = entry,
             strings = ready.strings,
@@ -360,7 +382,7 @@ private fun ShellContent(
                         ?: newTwoLookPractice(ready).also { twoLookScramble = it.entryState }
                 CatalogEntry(
                     lesson,
-                    dev.cubentia.domain.content.Stage(
+                    Stage(
                         lesson.stageId,
                         dev.cubentia.domain.content
                             .TextKey("stage.two-look-practice.title"),
@@ -377,6 +399,7 @@ private fun ShellContent(
         }
     if (ready != null && practiceEntry != null) {
         LessonScreen(
+            quickCheck = quickCheck,
             host = host,
             entry = practiceEntry,
             strings = ready.strings,
@@ -430,6 +453,7 @@ private fun ShellContent(
         }
     if (ready != null && skipCheckEntry != null) {
         LessonScreen(
+            quickCheck = quickCheck,
             host = host,
             entry = skipCheckEntry,
             strings = ready.strings,
@@ -618,7 +642,7 @@ private fun ShellContent(
                     abandonedSkipCheckStage = stageAbandoned?.let(::StageId),
                     twoLookProgress =
                         ready?.let {
-                            dev.cubentia.domain.tutor.TwoLookMastery.evaluate(
+                            TwoLookMastery.evaluate(
                                 it.bundle.twoLookStages,
                                 attemptRecords,
                                 progressEvents,
@@ -648,7 +672,12 @@ private fun ShellContent(
                         showDebugToggles,
                         session.kind?.takesMoves == true,
                         onScan = onScan.takeIf { flags.isEnabled(FeatureFlag.CAMERA_SCAN) },
-                        onSolved = { state, moves -> host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it) } },
+                        onSolved = {
+                            state,
+                            moves,
+                            ->
+                            host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it, ready.bundle.tutorConfig) }
+                        },
                         // Edge-to-edge: the themed surface fills the bar area while controls sit inside the safe area.
                         modifier = destinationModifier.background(RubikTheme.tokens.surfaceBase).safeDrawingPadding(),
                     )
@@ -715,18 +744,18 @@ internal fun availableModes(flags: FeatureFlags): List<TeachingMode> =
  * This generated practice or skip-check Lesson at the [saved] scramble when there is one, so recreation rebuilds the
  * same attempt; otherwise this Lesson as dealt, its scramble handed to [save] (Story 12.2 AC3).
  */
-private fun dev.cubentia.domain.content.Lesson.keepingScramble(
+private fun Lesson.keepingScramble(
     saved: String?,
     save: (String) -> Unit,
-): dev.cubentia.domain.content.Lesson = if (saved != null) copy(entryState = saved) else also { save(it.entryState) }
+): Lesson = if (saved != null) copy(entryState = saved) else also { save(it.entryState) }
 
 /** A fresh LL practice scramble over every bundled Algorithm (Story 9.8). */
-private fun newTwoLookPractice(ready: CatalogState.Ready): dev.cubentia.domain.content.Lesson =
+private fun newTwoLookPractice(ready: CatalogState.Ready): Lesson =
     TwoLookPractice(KotlinRandomSource()).lesson(
         ready.bundle.algorithms.map {
             (
-                dev.cubentia.domain.cube.Notation
-                    .parse(it.notation) as dev.cubentia.domain.cube.NotationResult.Parsed
+                Notation
+                    .parse(it.notation) as NotationResult.Parsed
             ).moves
         },
     )
@@ -740,7 +769,7 @@ private fun twoLookPracticeContinue(
     if (session.kind != SessionKind.PRACTICE || session.objectiveMet || ready == null) return null
     return CatalogEntry(
         lesson,
-        dev.cubentia.domain.content.Stage(
+        Stage(
             lesson.stageId,
             dev.cubentia.domain.content
                 .TextKey("stage.two-look-practice.title"),
@@ -759,7 +788,7 @@ internal fun algorithmsToOffer(
 }
 
 internal fun recognitionDiagramFor(
-    bundle: dev.cubentia.domain.content.ContentBundle,
+    bundle: ContentBundle,
     lessonId: LessonId,
 ): RecognitionDiagram? =
     bundle.lessonAlgorithms[lessonId]?.firstOrNull()?.let { id ->
