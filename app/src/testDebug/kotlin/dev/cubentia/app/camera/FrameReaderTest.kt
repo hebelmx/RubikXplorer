@@ -731,6 +731,28 @@ class FrameReaderTest {
         const val STICKER_DELTA_E = 10.0
     }
 
+    @Test
+    fun `calibration samples the grid when locate only returns a diagnostic candidate`() {
+        val grid = GridSquare(gridLeft, gridTop, gridSide)
+        val grays = List(9) { Triple(if (it % 2 == 0) 140 else 128, 128 + it % 3 - 1, 128 - it % 3 + 1) }
+        val frame = cubeFace(dx = cellSide * 0.5, dy = cellSide * 0.5, colors = grays, gapLuma = 105)
+        val reading = FrameReader.locate(frame, grid)
+        assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(reading.stats))
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assessShutter(reading.stats))
+        assertTrue(reading.lattice.square(grid) != grid)
+        assertEquals(grid, reading.samplingSquare(grid))
+        assertEquals(FrameReader.centerRing(frame, grid), FrameReader.centerRing(frame, reading.samplingSquare(grid)))
+    }
+
+    @Test
+    fun `calibration samples an accepted located face square`() {
+        val grid = GridSquare(gridLeft, gridTop, gridSide)
+        val reading = FrameReader.locate(cubeFace(dx = cellSide * 0.5, dy = cellSide * 0.5), grid)
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(reading.stats))
+        assertTrue(reading.lattice.square(grid) != grid)
+        assertEquals(reading.lattice.square(grid), reading.samplingSquare(grid))
+    }
+
     @Test fun `center ring excludes the logo middle and reads the located square`() {
         val square = GridSquare(15.0, 0.0, 90.0)
         val plain = frame { _, _ -> 210 }

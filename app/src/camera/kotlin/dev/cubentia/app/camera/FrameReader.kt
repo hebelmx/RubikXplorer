@@ -51,7 +51,11 @@ internal data class FrameReading(
     val stats: FrameStats,
     val lattice: Lattice,
     val outside: Lattice? = null,
-)
+) {
+    /** Rejected candidates are diagnostic only; manual calibration must keep sampling the drawn grid. */
+    fun samplingSquare(grid: GridSquare): GridSquare =
+        if (FrameQuality.assess(stats) == CaptureQuality.ACCEPTABLE) lattice.square(grid) else grid
+}
 
 /**
  * Reads one analysis frame into [FrameStats] (Stories 10.2, 10.14). When the drawn grid does not hold a cube face, the

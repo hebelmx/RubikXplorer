@@ -239,6 +239,7 @@ class GuidedScanActivity : ComponentActivity() {
                                         {
                                             // A Capture tap left over from an earlier calibration never samples this one.
                                             scan.captureCalibration = false
+                                            scan.calibrationMeterColor = null
                                             phase =
                                                 GuidedScanPhase.Calibration(
                                                     fromReview = reviewPhase,
@@ -445,7 +446,7 @@ class GuidedScanActivity : ComponentActivity() {
                     if (quality ==
                         dev.cubentia.domain.recognition.CaptureQuality.ACCEPTABLE
                     ) {
-                        FrameReader.centerRing(image, lattice.square(grid))
+                        FrameReader.centerRing(image, reading.samplingSquare(grid))
                     } else {
                         null
                     }
