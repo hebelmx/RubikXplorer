@@ -426,13 +426,13 @@ action_items:
     action: "One source for physical-mode copy: move mismatch-ladder strings to en.json
       keys and delete the four unreferenced strings.xml duplicates"
     owner: "Dev (Amelia)"
-    status: in-progress
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-08.md"
   - id: "epic-8-retro-item-34-close-the-skip-ahead-check-self-report-p"
     epic: 8
     action: "Close the skip-ahead check self-report path in physical mode (LessonScreen.kt:557-563)"
     owner: "PM (John) + Dev (Amelia)"
-    status: in-progress
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-08.md"
   - id: "epic-8-retro-item-35-run-instrumented-endtoendsyncverificatio"
     epic: 8
@@ -453,7 +453,7 @@ action_items:
     action: "Prove the release-permission gate end to end: TestKit test for checkReleaseMergedManifest
       on CAMERA, AppShell CAMERA_SCAN wiring test, key policy on variant debuggable"
     owner: "Dev (Amelia)"
-    status: in-progress
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-08.md"
   - id: "epic-8-retro-item-38-add-an-epic-boundary-cross-story-review"
     epic: 8
@@ -475,7 +475,7 @@ action_items:
       PRACTICE term in LessonScreen.kt:253 or end practice on close; AppShell test
       LL practice then Course Lesson writes LessonCompleted"
     owner: "Dev (Amelia)"
-    status: in-progress
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
   - id: "epic-9-retro-item-41-never-let-the-2-look-offer-downgrade-a-s"
     epic: 9
@@ -483,14 +483,14 @@ action_items:
       load (AppShell.kt:207), stop RoomAlgorithmStatusRepository terminating on emptyMap,
       skip non-NOT_STARTED writes"
     owner: "Dev (Amelia)"
-    status: in-progress
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
   - id: "epic-9-retro-item-42-gate-2-look-continue-on-allstagesfinishe"
     epic: 9
     action: "Gate 2-look Continue on allStagesFinished or end 2-look sessions on Reset
       progress (AppShell.kt:467-473); add reset then Continue test"
     owner: "Dev (Amelia)"
-    status: in-progress
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
   - id: "epic-9-retro-item-43-fix-stale-transitions-md-lines-223-and-2"
     epic: 9
@@ -504,14 +504,14 @@ action_items:
     action: "Test the shell per-Lesson recognition diagram (AppShell.kt:208-216) against
       RecognitionDiagram.derive for one OLL and one PLL Lesson"
     owner: "Dev (Amelia)"
-    status: in-progress
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
   - id: "epic-9-retro-item-45-move-2-look-learner-copy-from-strings-xm"
     epic: 9
     action: "Move 2-look Learner copy from strings.xml:177,204-207 to en.json and
       extend the Learner-text gate (advances epic-2-retro-item-3)"
     owner: "Dev (Amelia)"
-    status: in-progress
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
   - id: "epic-9-retro-item-46-spec-reconciliation-via-bmad-correct-cou"
     epic: 9
@@ -550,7 +550,7 @@ action_items:
     action: "Net2DRenderer.kt:165 and StickerReviewNet mirror under RTL (medium; deferred
       from 9.3; fold into Story 12.1 accessibility)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md"
   - id: "epic-9-deferred-9-8-rotation-regenerates-course-practice"
     epic: 9
@@ -606,7 +606,7 @@ action_items:
     action: "Mark epic-1 done in sprint-status via bmad-sprint-planning (11/11 stories
       done, retro complete)"
     owner: "SM"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-11.md"
   - id: "epic-1-retro-item-59-before-story-7-8-decide-spike-code-ci-jo"
     epic: 1
@@ -644,7 +644,7 @@ action_items:
     action: "Narrow #105 to release-build recalibration of k and slow-case investigation,
       citing the 12.2 release-equivalent run (10,101/10,101 within 3 s, 0 failures)"
     owner: "PO"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-11-11.md"
   - id: "epic-3-retro-item-64-route-epic-3-stranded-deferrals-into-act"
     epic: 3
@@ -659,7 +659,7 @@ action_items:
     action: "Tidy Epic 3 artifacts: set plan-3-1/plan-3-2 spec status done, delete
       spec-3-8-attempt-1.patch, mark epic-3 done via bmad-sprint-planning"
     owner: "SM"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-11-11.md"
   - id: "epic-7-retro-item-66-close-issue-127-first-vx-y-z-tag-on-main"
     epic: 7
