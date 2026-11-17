@@ -57,6 +57,9 @@ steps remain.
 | EditorEntered | session, virtual, tutor, checkpoint | no | yes |
 | SnapshotSaveFailed | — | no | no |
 | SnapshotLoadFailed | — | no | no |
+| QuickCheckRequested | tutor | no | no |
+| QuickCheckObserved | tutor | no | no |
+| QuickCheckCancelled | tutor | no | no |
 
 Persistence failures (Story 6.1, AD-12, AD-16): `SessionHost` dispatches `SnapshotSaveFailed` when the
 serial writer reports `SnapshotSave.Failed`, and `SnapshotLoadFailed` when the cold-start read reports
@@ -273,3 +276,16 @@ Physical-mode transitions (Epic 8, AD-3, AD-5):
 2-look Lessons start through `LessonStarted(kind = TWO_LOOK)` and use the taught-session Move, Teaching Mode, Hint, attempt and recovery transitions. They resume through snapshots. Checkpoints remain restricted to `LESSON`.
 
 LL practice passes the content-derived 2-look Algorithm Move lists in `PracticeStarted.twoLookAlgorithms`. The reducer keeps them only for that practice; other session starts clear them. `AttemptEnded.errors` is `SessionState.twoLookErrors` when the set is non-empty: `TwoLookSolve.offPathMoves(history, pathEntry, twoLookAlgorithms)`, the off-path count over `history.done` plus one when the history no longer starts at the practice entry (a mode switch or the Manual Cube Editor replaced it, so earlier Moves are no longer evidence). It remains the step mistake count for Course practice. A physical LL practice keeps its attempt open while the Objective is met and unconfirmed: `AttemptEnded(COMPLETED)` is emitted only by the accepted `PhysicalSolveConfirmed`. A physical `SessionRestored` of an LL practice keeps the committed Moves (redo cleared) as 2-look evidence instead of acting as an undo barrier, and still lands in `PHYSICAL_AWAITING_CONFIRM`. `SessionSnapshot.practiceEntry` stores the generated scramble (`pathEntry`) only for `PRACTICE` with non-empty `twoLookAlgorithms`; restore rebuilds the LL practice from it, falling back to `start` for older snapshots.
+
+## Quick Check (Story 10.6, AD-3/AD-5)
+
+QuickCheckRequested issues a revisioned capture only in a configured physical Lesson or Practice
+(predicted, verified or mismatch). Results compare observed home-frame colors against one configured
+candidate enumerator. Unique, covered evidence verifies; a consistent observation excluding Expected
+sets mismatch. Inconsistent Partials preserve Sync State and observation. No result changes Expected,
+history or revision, and no Partial is completed or adopted. Full verified matches reset touched layers;
+Partial verification keeps them. Physical commits and Undo accumulate touched layers; Editor resets them,
+and other Expected changes or virtual/awaiting-confirm states invalidate the Full-evidence baseline.
+Stale results record lastDiscarded and clear their pending request, offering msg.quick-check.stale only
+for Learner-started checks. Unknown ids preserve the pending request. Cancellation clears its matching
+request and retry text. These events do not keep Move feedback, Diagnosis or Guided recovery.

@@ -9,6 +9,11 @@ import dev.cubentia.domain.cube.Face
  * or a [Partial] observation of individual faces which is never completed from expected state.
  */
 sealed interface PhysicalObservation {
+    companion object {
+        /** Capture protocol bound for Quick Check; larger observations use a Full Guided Scan. */
+        const val QUICK_CHECK_MAX_CAPTURES = 2
+    }
+
     data class Full(
         val state: CubeState,
     ) : PhysicalObservation

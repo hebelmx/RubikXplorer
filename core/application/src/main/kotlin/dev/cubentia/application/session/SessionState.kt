@@ -3,17 +3,20 @@ package dev.cubentia.application.session
 import dev.cubentia.domain.content.Lesson
 import dev.cubentia.domain.content.TutorConfig
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.MoveHistory
 import dev.cubentia.domain.lastlayer.TwoLookSolve
 import dev.cubentia.domain.predicate.ObjectiveProgress
 import dev.cubentia.domain.recognition.PhysicalObservation
+import dev.cubentia.domain.text.Text
 import dev.cubentia.domain.tutor.AdaptivePolicy
 import dev.cubentia.domain.tutor.Assess
 import dev.cubentia.domain.tutor.AssistanceLevel
 import dev.cubentia.domain.tutor.Diagnosis
 import dev.cubentia.domain.tutor.HintRung
 import dev.cubentia.domain.tutor.MoveFeedback
+import dev.cubentia.domain.tutor.ObservationCheck
 import dev.cubentia.domain.tutor.Recovery
 import dev.cubentia.domain.tutor.RecoveryGoal
 import dev.cubentia.domain.tutor.RecoveryOffer
@@ -50,7 +53,7 @@ data class SessionState internal constructor(
     /** Highest assistance shown during the run. */
     val attemptAssistance: AssistanceLevel = AssistanceLevel.USUAL,
     /** Transient content-update note; never snapshotted. */
-    val restoreNote: dev.cubentia.domain.text.Text? = null,
+    val restoreNote: Text? = null,
     /** `null` only in [IDLE]. */
     val kind: SessionKind?,
     /** The Lesson of a Lesson-backed session; `null` otherwise. */
@@ -160,7 +163,20 @@ data class SessionState internal constructor(
      * across a switch to virtual mode, so the first-solve milestone cannot skip the confirmation. Never advances [revision].
      */
     val physicalSolveUnconfirmed: Boolean = false,
+    /** Home layers turned since Full verification; null means none in this physical run. */
+    val touchedSinceVerified: Set<Face>? = null,
+    /** Revisioned capture currently awaited. */
+    val pendingQuickCheck: Effect.QuickCheck? = null,
+    /** Latest applied Quick Check evidence. */
+    val quickCheck: ObservationCheck? = null,
+    /** Re-offer after a Learner-started scan was overtaken. */
+    val quickCheckRetry: Text? = null,
 ) {
+    /** Required coverage; without Full evidence every home face must be seen. */
+    val mustCover: Set<Face> get() =
+        touchedSinceVerified ?: Face.entries
+            .toSet()
+
     /** Whether the session is currently in virtual or physical mode. */
     val mode: CubeMode get() = if (syncState == SyncState.VIRTUAL) CubeMode.VIRTUAL else CubeMode.PHYSICAL
 

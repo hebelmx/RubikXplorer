@@ -11,15 +11,21 @@ import dev.cubentia.domain.cube.MoveHistory
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.domain.cube.ValidationResult
+import dev.cubentia.domain.recognition.PartialCheck
+import dev.cubentia.domain.recognition.PartialConsistency
 import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.text.Text
 import dev.cubentia.domain.tutor.Assess
 import dev.cubentia.domain.tutor.AssistanceLevel
+import dev.cubentia.domain.tutor.CandidateEnumerator
+import dev.cubentia.domain.tutor.Certainty
+import dev.cubentia.domain.tutor.Coverage
 import dev.cubentia.domain.tutor.Diagnosis
 import dev.cubentia.domain.tutor.HintLadder
 import dev.cubentia.domain.tutor.HintRung
 import dev.cubentia.domain.tutor.MoveAssessment
 import dev.cubentia.domain.tutor.MoveFeedback
+import dev.cubentia.domain.tutor.QuickCheck
 import dev.cubentia.domain.tutor.RecoveryPlanner
 import dev.cubentia.domain.tutor.TeachingMode
 import dev.cubentia.domain.tutor.Tutor
@@ -31,7 +37,23 @@ import dev.cubentia.domain.tutor.Tutor
 fun reduce(
     state: SessionState,
     event: SessionEvent,
-): Transition = withPhysicalSolveFlags(state, applied(state, event), event)
+): Transition {
+    val result = withPhysicalSolveFlags(state, applied(state, event), event)
+    val next = result.state
+    val preservesCoverage =
+        (event is SessionEvent.PhysicalConfirmed && event.move != null) || (event is SessionEvent.Undo && state.isPhysical) ||
+            event is SessionEvent.EditorEntered
+    return if (next.touchedSinceVerified != null &&
+        (
+            next.syncState == SyncState.VIRTUAL || next.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM ||
+                (next.expected != state.expected && !preservesCoverage)
+        )
+    ) {
+        result.copy(state = next.copy(touchedSinceVerified = null))
+    } else {
+        result
+    }
+}
 
 /**
  * The flag rule after a Lesson or Practice transition: an unmet Objective clears both flags; a physical
@@ -103,6 +125,15 @@ private fun applied(
             Transition(state)
         }
     }
+    if (event is SessionEvent.QuickCheckObserved &&
+        (
+            state.pendingQuickCheck?.effectId != event.effectId || event.revision != state.revision ||
+                state.pendingQuickCheck.revision != event.revision
+        )
+    ) {
+        return quickObserved(state, event)
+    }
+    if (event is SessionEvent.QuickCheckRequested && (state.tutorConfig == null || !quickAllowed(state))) return Transition(state)
     val starts = event is SessionEvent.LessonStarted || event is SessionEvent.PracticeStarted || event is SessionEvent.SolvePlaybackStarted
     // Only a Lesson or Practice session takes Moves and tutor events; idle and playback sessions ignore them,
     // except SOLVE_PLAYBACK which permits ModeSwitched, PhysicalConfirmed, and Undo in physical mode (Story 8.5).
@@ -146,6 +177,24 @@ private fun transition(
     event: SessionEvent,
 ): Transition =
     when (event) {
+        is SessionEvent.QuickCheckRequested -> {
+            quickRequested(state, event)
+        }
+
+        is SessionEvent.QuickCheckObserved -> {
+            quickObserved(state, event)
+        }
+
+        is SessionEvent.QuickCheckCancelled -> {
+            if (state.pendingQuickCheck?.effectId ==
+                event.effectId
+            ) {
+                Transition(state.copy(pendingQuickCheck = null, quickCheckRetry = null))
+            } else {
+                Transition(state)
+            }
+        }
+
         is SessionEvent.CheckpointRestored -> {
             restoreCheckpoint(state, event)
         }
@@ -532,6 +581,7 @@ private fun undo(state: SessionState): Transition {
         val moved =
             withHistory(state, nextHistory).copy(
                 expected = nextExpected,
+                touchedSinceVerified = state.touchedSinceVerified?.plus(Coverage.touched(state.expected, inverse)),
                 observed = null,
                 syncState = SyncState.PHYSICAL_PREDICTED,
                 lastMoveFeedback = null,
@@ -647,6 +697,7 @@ private fun commitPhysical(
     val moved =
         withHistory(base, history).copy(
             expected = base.expected.apply(move),
+            touchedSinceVerified = state.touchedSinceVerified?.plus(Coverage.touched(base.expected, move)),
             observed = null,
             syncState = SyncState.PHYSICAL_PREDICTED,
             lastMoveFeedback = shown?.feedback,
@@ -727,6 +778,7 @@ private fun enterEditor(
         withHistory(state, nextHistory).copy(
             expected = event.state,
             observed = PhysicalObservation.Full(event.state),
+            touchedSinceVerified = emptySet(),
             syncState = SyncState.PHYSICAL_VERIFIED,
             lastMoveFeedback = null,
             lastDiagnosis = diagnosis,
@@ -1175,4 +1227,61 @@ private fun attempts(
     }
     val result = transition.copy(state = next.copy(nextEffectId = id), effects = effects)
     return if (result == transition) transition else result
+}
+
+private fun quickAllowed(state: SessionState): Boolean =
+    state.kind?.takesMoves == true &&
+        state.syncState in setOf(SyncState.PHYSICAL_PREDICTED, SyncState.PHYSICAL_VERIFIED, SyncState.PHYSICAL_MISMATCH)
+
+private fun quickRequested(
+    state: SessionState,
+    event: SessionEvent.QuickCheckRequested,
+): Transition {
+    if (!quickAllowed(state) || state.tutorConfig == null) return Transition(state)
+    val effect = Effect.QuickCheck(state.nextEffectId, state.revision, QuickCheck.faces(state.mustCover), event.byLearner)
+    return Transition(
+        state.copy(nextEffectId = state.nextEffectId + 1, pendingQuickCheck = effect, quickCheckRetry = null),
+        effects = listOf(effect),
+    )
+}
+
+private fun quickObserved(
+    state: SessionState,
+    event: SessionEvent.QuickCheckObserved,
+): Transition {
+    val pending = state.pendingQuickCheck
+    if (pending?.effectId != event.effectId || event.revision != state.revision || pending.revision != event.revision) {
+        val owns = pending?.effectId == event.effectId
+        return Transition(
+            state.copy(
+                lastDiscarded = EffectResultDiscarded(event.effectId, event.revision, state.revision),
+                pendingQuickCheck = if (owns) null else pending,
+                quickCheckRetry = if (owns && pending.byLearner) Text("msg.quick-check.stale") else state.quickCheckRetry,
+            ),
+        )
+    }
+    if (!quickAllowed(state)) return Transition(state.copy(pendingQuickCheck = null))
+    val check = Assess.check(CandidateEnumerator.of(state.expected, checkNotNull(state.tutorConfig)), event.observation, state.mustCover)
+    val observation = event.observation
+    val consistent =
+        observation is PhysicalObservation.Full ||
+            (observation is PhysicalObservation.Partial && PartialConsistency.check(observation) is PartialCheck.Consistent)
+    val verified = check.certainty == Certainty.VERIFIED && check.matchesExpected
+    val mismatch = !check.matchesExpected && consistent
+    return Transition(
+        state.copy(
+            pendingQuickCheck = null,
+            quickCheck = check,
+            syncState =
+                if (verified) {
+                    SyncState.PHYSICAL_VERIFIED
+                } else if (mismatch) {
+                    SyncState.PHYSICAL_MISMATCH
+                } else {
+                    state.syncState
+                },
+            observed = if (verified || mismatch) observation else state.observed,
+            touchedSinceVerified = if (verified && observation is PhysicalObservation.Full) emptySet() else state.touchedSinceVerified,
+        ),
+    )
 }

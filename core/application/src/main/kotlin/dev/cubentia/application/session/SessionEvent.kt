@@ -4,6 +4,7 @@ import dev.cubentia.domain.content.Lesson
 import dev.cubentia.domain.content.TutorConfig
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Move
+import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.tutor.TeachingMode
 import kotlin.time.Instant
 
@@ -13,6 +14,23 @@ import kotlin.time.Instant
  */
 sealed interface SessionEvent {
     data class SessionEnded(
+        override val at: Instant,
+    ) : SessionEvent
+
+    data class QuickCheckRequested(
+        val byLearner: Boolean = true,
+        override val at: Instant,
+    ) : SessionEvent
+
+    data class QuickCheckObserved(
+        val effectId: Long,
+        val revision: Long,
+        val observation: PhysicalObservation,
+        override val at: Instant,
+    ) : SessionEvent
+
+    data class QuickCheckCancelled(
+        val effectId: Long,
         override val at: Instant,
     ) : SessionEvent
 

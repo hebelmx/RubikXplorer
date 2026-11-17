@@ -98,6 +98,40 @@ class TransitionsTableTest {
     /** Scenarios per event type; the exhaustive `when` fails to compile when an event type is added. */
     private fun scenarios(sample: SessionEvent): List<Pair<SessionState, SessionEvent>> =
         when (sample) {
+            is SessionEvent.QuickCheckRequested, is SessionEvent.QuickCheckObserved, is SessionEvent.QuickCheckCancelled -> {
+                val predicted =
+                    b.after(
+                        SessionEvent.ModeSwitched(CubeMode.PHYSICAL, sample.at),
+                        SessionEvent.PhysicalConfirmed(null, sample.at),
+                    )
+                val verified = predicted.after(SessionEvent.EditorEntered(predicted.expected, sample.at))
+                val mismatch = predicted.after(SessionEvent.MismatchReported(sample.at))
+                val states =
+                    listOf(
+                        SessionState.IDLE,
+                        b,
+                        predicted,
+                        verified,
+                        mismatch,
+                        verified.copy(lastMoveFeedback = MoveFeedback.NEUTRAL, lastDiagnosis = TURNED_DIAGNOSIS),
+                    )
+                states.flatMap { state ->
+                    val pending =
+                        state.after(SessionEvent.QuickCheckRequested(at = sample.at)).let {
+                            it.copy(lastMoveFeedback = state.lastMoveFeedback, lastDiagnosis = state.lastDiagnosis)
+                        }
+                    val id = pending.pendingQuickCheck?.effectId ?: -1
+                    val event =
+                        when (sample) {
+                            is SessionEvent.QuickCheckRequested -> sample
+                            is SessionEvent.QuickCheckObserved -> sample.copy(effectId = id, revision = pending.revision)
+                            is SessionEvent.QuickCheckCancelled -> sample.copy(effectId = id)
+                            else -> error("unreachable")
+                        }
+                    listOf(pending to event, pending.after(SessionEvent.PhysicalConfirmed(F, sample.at)) to event, state to sample)
+                }
+            }
+
             is SessionEvent.CheckpointRestored -> {
                 val idleWithRedo = SessionState.IDLE.copy(history = b.history)
                 listOf(SessionState.IDLE to sample, idleWithRedo to sample, b to sample)
@@ -357,6 +391,15 @@ class TransitionsTableTest {
             ),
             SessionEvent.CheckpointSaveFailed(lessonStarted(other).at),
             SessionEvent.CheckpointLoadFailed(lessonStarted(other).at),
+            SessionEvent.QuickCheckRequested(at = lessonStarted(other).at),
+            SessionEvent.QuickCheckObserved(
+                -1,
+                -1,
+                dev.cubentia.domain.recognition.PhysicalObservation
+                    .Full(CubeState.SOLVED),
+                lessonStarted(other).at,
+            ),
+            SessionEvent.QuickCheckCancelled(-1, lessonStarted(other).at),
             lessonStarted(other),
             SessionEvent.PracticeStarted(other, TUTOR_CONFIG, lessonStarted(other).at),
             playbackStarted(),
@@ -429,7 +472,7 @@ class TransitionsTableTest {
         assertEquals(names.size, names.toSet().size, "duplicate rows: $names")
         assertEquals(eventTypes, names.toSet())
         assertEquals(eventTypes, samples.keys)
-        assertEquals(31, eventTypes.size)
+        assertEquals(34, eventTypes.size)
     }
 
     @Test

@@ -1,4 +1,5 @@
 {
+  "msg.quick-check.stale": "Your cube changed while scanning — scan again?",
   "btn.solve.scan": "Scan my cube",
   "msg.solve.scan-fell-back": "No scan this time. Enter your cube's colors here.",
   "msg.solve.scan-camera-denied": "Camera access is off, so enter your cube's colors here.",
