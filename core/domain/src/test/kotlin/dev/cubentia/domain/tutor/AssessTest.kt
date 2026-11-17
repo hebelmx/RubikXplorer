@@ -2,8 +2,12 @@ package dev.cubentia.domain.tutor
 
 import dev.cubentia.domain.content.Lesson
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.MoveHistory
+import dev.cubentia.domain.cube.Orientation
+import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.text.Text
+import dev.cubentia.domain.tutor.TutorFixtures
 import dev.cubentia.domain.tutor.TutorFixtures.CONFIG
 import dev.cubentia.domain.tutor.TutorFixtures.moves
 import dev.cubentia.domain.tutor.TutorFixtures.oneStep
@@ -24,6 +28,40 @@ class AssessTest {
     private val why = Text("msg.diagnosis.wrong-move-or-direction")
 
     private fun enumerator(expected: CubeState = s) = CandidateEnumerator(expected, 2, CONFIG.moves)
+
+    @Test
+    fun `observation check coverage consistency and full matrix`() {
+        val expected = s.apply(moves("R"))
+        val enumerator = enumerator(expected)
+
+        fun partial(
+            state: CubeState,
+            faces: Set<Face>,
+        ): PhysicalObservation.Partial {
+            val colors = state.reoriented(Orientation.HOME).toFacelets().colors
+            return PhysicalObservation.Partial(faces.associateWith { colors.subList(it.ordinal * 9, it.ordinal * 9 + 9) })
+        }
+        val faces = setOf(Face.R, Face.U)
+        val match = Assess.check(enumerator, partial(expected, faces), faces)
+        assertEquals(Certainty.VERIFIED, match.certainty)
+        assertTrue(match.matchesExpected)
+        val mismatch = Assess.check(enumerator, partial(s.apply(moves("R'")), faces), faces)
+        assertEquals(Certainty.LIKELY, mismatch.certainty)
+        assertEquals(Certainty.VERIFIED, Assess.check(enumerator, PhysicalObservation.Full(s.apply(moves("R'"))), faces).certainty)
+        assertEquals(listOf(moves("R2")), mismatch.consistent.map { it.moves })
+        assertFalse(mismatch.matchesExpected)
+        assertEquals(Certainty.LIKELY, Assess.check(enumerator, partial(expected, faces), Face.entries.toSet()).certainty)
+        assertEquals(Certainty.LIKELY, Assess.check(enumerator, partial(expected, setOf(Face.U)), emptySet()).certainty)
+        assertEquals(Certainty.UNKNOWN, Assess.check(enumerator, PhysicalObservation.Full(expected.apply(moves("R U F"))), faces).certainty)
+        assertEquals(
+            Certainty.UNKNOWN,
+            Assess.check(enumerator, PhysicalObservation.Partial(mapOf(Face.U to emptyList())), faces).certainty,
+        )
+        val allFaces = Face.entries.toSet()
+        assertEquals(Certainty.UNKNOWN, Assess.check(enumerator, partial(expected.apply(moves("R U F")), allFaces), faces).certainty)
+        val rotated = expected.apply(moves("x y"))
+        assertEquals(Certainty.VERIFIED, Assess.check(enumerator, PhysicalObservation.Full(rotated), Face.entries.toSet()).certainty)
+    }
 
     @Test
     fun `virtual confirm is verified, as only the empty sequence fits`() {

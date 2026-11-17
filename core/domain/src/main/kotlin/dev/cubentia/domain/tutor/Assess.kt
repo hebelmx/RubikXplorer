@@ -4,22 +4,80 @@ import dev.cubentia.domain.content.Lesson
 import dev.cubentia.domain.content.TutorConfig
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.CubeValidator
+import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.MoveHistory
+import dev.cubentia.domain.cube.Orientation
 import dev.cubentia.domain.cube.ValidationResult
 import dev.cubentia.domain.predicate.AllOf
 import dev.cubentia.domain.predicate.Piece
+import dev.cubentia.domain.recognition.PartialCheck
+import dev.cubentia.domain.recognition.PartialConsistency
+import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.text.Text
 
 /**
  * The tutor's evidence engine (AD-5, AD-12): the only producer of [Certainty], for confirmations and
  * Diagnoses alike, always from the candidates of one [CandidateEnumerator]. Exactly one consistent
- * candidate is [Certainty.VERIFIED], more than one [Certainty.LIKELY], none [Certainty.UNKNOWN]. A
- * Full observation (virtual mode: the virtual Cube State) covers every face, so coverage never lowers
- * it here. Pure and bounded.
+ * candidate with required face coverage is [Certainty.VERIFIED] only for a Full observation or a
+ * Partial matching the expected cube; other nonempty evidence is
+ * [Certainty.LIKELY], none [Certainty.UNKNOWN]. A Full observation (virtual mode: the virtual Cube
+ * State) covers every face, so coverage never lowers Full evidence. Pure and bounded.
  */
 object Assess {
+    /** Judges observed home-frame colors with coverage; a Partial verifies only a match. */
+    fun check(
+        enumerator: CandidateEnumerator,
+        observation: PhysicalObservation,
+        mustCover: Set<Face>,
+    ): ObservationCheck {
+        val faces =
+            when (observation) {
+                is PhysicalObservation.Full -> {
+                    Face.entries.toSet()
+                }
+
+                is PhysicalObservation.Partial -> {
+                    if (observation.faces.isEmpty() ||
+                        PartialConsistency.check(
+                            observation,
+                        ) !is PartialCheck.Consistent
+                    ) {
+                        return ObservationCheck(Certainty.UNKNOWN, emptyList())
+                    }
+                    observation.faces.keys
+                }
+            }
+        val consistent =
+            enumerator.candidates().filter { candidate ->
+                when (observation) {
+                    is PhysicalObservation.Full -> {
+                        candidate.state.cubies == observation.state.cubies
+                    }
+
+                    is PhysicalObservation.Partial -> {
+                        val colors =
+                            candidate.state
+                                .reoriented(Orientation.HOME)
+                                .toFacelets()
+                                .colors
+                        observation.faces.all { (face, seen) -> seen == colors.subList(face.ordinal * 9, face.ordinal * 9 + 9) }
+                    }
+                }
+            }
+        val certainty =
+            when {
+                consistent.isEmpty() -> Certainty.UNKNOWN
+
+                consistent.size == 1 && faces.containsAll(mustCover) &&
+                    (observation is PhysicalObservation.Full || consistent.single().moves.isEmpty()) -> Certainty.VERIFIED
+
+                else -> Certainty.LIKELY
+            }
+        return ObservationCheck(certainty, consistent)
+    }
+
     /** How sure the tutor is that [observed] is what [enumerator] expects, judged by its consistent candidates. */
     fun confirm(
         enumerator: CandidateEnumerator,
@@ -317,4 +375,12 @@ sealed interface DiagnosisResult {
     data class NotUnique(
         val consistent: Int,
     ) : DiagnosisResult
+}
+
+/** Evidence and its consistent candidates, constructed only by Assess. */
+data class ObservationCheck(
+    val certainty: Certainty,
+    val consistent: List<Candidate>,
+) {
+    val matchesExpected: Boolean get() = consistent.any { it.moves.isEmpty() }
 }

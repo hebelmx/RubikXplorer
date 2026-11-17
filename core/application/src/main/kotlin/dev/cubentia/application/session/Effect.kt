@@ -2,15 +2,27 @@ package dev.cubentia.application.session
 
 import dev.cubentia.application.preference.Preference
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.Move
+import dev.cubentia.domain.cube.MoveHistory
 import dev.cubentia.domain.text.Text
+import dev.cubentia.domain.tutor.AssistanceLevel
 import dev.cubentia.domain.tutor.RecoveryGoal
+import dev.cubentia.domain.tutor.TeachingMode
 
 /**
  * An asynchronous request a [Transition] hands to the host (AD-3). Each carries its [effectId] and the
  * [revision] of the state it was issued in; its result event echoes both, or it is discarded.
  */
 sealed interface Effect {
+    /** Capture these home faces; answered by QuickCheckObserved or QuickCheckCancelled. */
+    data class QuickCheck(
+        override val effectId: Long,
+        override val revision: Long,
+        val faces: Set<Face>,
+        val byLearner: Boolean,
+    ) : Effect
+
     val effectId: Long
     val revision: Long
 
@@ -34,7 +46,7 @@ sealed interface Effect {
         val outcome: AttemptOutcome,
         val errors: Int,
         val hints: Int,
-        val assistanceLevel: dev.cubentia.domain.tutor.AssistanceLevel,
+        val assistanceLevel: AssistanceLevel,
         val at: kotlin.time.Instant,
     ) : Effect
 
@@ -43,8 +55,8 @@ sealed interface Effect {
         override val revision: Long,
         val lessonId: String,
         val stageId: String,
-        val history: dev.cubentia.domain.cube.MoveHistory,
-        val teachingMode: dev.cubentia.domain.tutor.TeachingMode,
+        val history: MoveHistory,
+        val teachingMode: TeachingMode,
         val adaptiveAssistance: Boolean,
         val at: kotlin.time.Instant,
         val mode: CubeMode = CubeMode.VIRTUAL,
