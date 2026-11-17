@@ -79,7 +79,11 @@ class QuickCheckSessionTest {
         val state = physical().after(SessionEvent.PhysicalConfirmed(R, T0))
         val actual = state.expected.apply(FaceTurn(Face.R, Turn.HALF))
         val mismatch = observed(requested(state), partial(actual, setOf(Face.R, Face.U)))
-        assertEquals(Certainty.VERIFIED, mismatch.quickCheck!!.certainty)
+        assertEquals(Certainty.LIKELY, mismatch.quickCheck!!.certainty)
+        assertEquals(listOf(listOf(FaceTurn(Face.R, Turn.HALF))), mismatch.quickCheck.consistent.map { it.moves })
+        val fullMismatch = observed(requested(state), PhysicalObservation.Full(actual))
+        assertEquals(Certainty.VERIFIED, fullMismatch.quickCheck!!.certainty)
+        assertEquals(SyncState.PHYSICAL_MISMATCH, fullMismatch.syncState)
         assertFalse(mismatch.quickCheck.matchesExpected)
         assertEquals(SyncState.PHYSICAL_MISMATCH, mismatch.syncState)
         val unknown = observed(requested(state), PhysicalObservation.Full(state.expected.apply(R, U, F)))
@@ -148,6 +152,43 @@ class QuickCheckSessionTest {
                     SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0),
                 ).touchedSinceVerified,
         )
+    }
+
+    @Test fun `undo after a full verification records the undone layer`() {
+        val moved = physical().after(SessionEvent.PhysicalConfirmed(R, T0))
+        val verified = observed(requested(moved), PhysicalObservation.Full(moved.expected))
+        assertEquals(emptySet<Face>(), verified.touchedSinceVerified)
+        val undone = verified.after(undo)
+        assertEquals(setOf(Face.R), undone.touchedSinceVerified)
+        assertEquals(true, Face.R in requested(undone).pendingQuickCheck!!.faces)
+    }
+
+    @Test fun `quick check state ends with physical mode and evidence ends with its expected`() {
+        val pending = requested(physical(), byLearner = true)
+        val virtual = pending.after(SessionEvent.ModeSwitched(CubeMode.VIRTUAL, T0))
+        assertNull(virtual.pendingQuickCheck)
+        val stale = requested(physical()).let { it.after(SessionEvent.PhysicalConfirmed(R, T0)) }
+        val retried =
+            stale.after(
+                SessionEvent.QuickCheckObserved(
+                    requested(physical()).pendingQuickCheck!!.effectId,
+                    physical().revision,
+                    PhysicalObservation.Full(physical().expected),
+                    T0,
+                ),
+            )
+        assertEquals(Text("msg.quick-check.stale"), retried.quickCheckRetry)
+        val restarted = retried.after(lessonStarted(whiteCrossLesson()))
+        assertNull(restarted.quickCheckRetry)
+        assertNull(restarted.pendingQuickCheck)
+        val checked = observed(requested(physical()), PhysicalObservation.Full(physical().expected))
+        assertNotNull(checked.quickCheck)
+        assertNull(checked.after(SessionEvent.PhysicalConfirmed(R, T0)).quickCheck)
+    }
+
+    @Test fun `a cancellation of another capture changes nothing`() {
+        val pending = requested(physical()).copy(lastMoveFeedback = dev.cubentia.domain.tutor.MoveFeedback.NEUTRAL)
+        assertEquals(pending, pending.after(SessionEvent.QuickCheckCancelled(-1, T0)))
     }
 
     @Test fun `idle virtual and playback never issue capture`() {

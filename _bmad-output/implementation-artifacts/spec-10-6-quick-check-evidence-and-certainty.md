@@ -2,15 +2,22 @@
 title: 'Story 10.6: Quick Check evidence and Certainty'
 type: 'feature'
 created: '2026-11-17'
-status: 'blocked'
+status: 'done'
 baseline_revision: '2c409816aee189c13a44588a5c871affb28529e7'
 review_loop_iteration: 0
-followup_review_recommended: false
+followup_review_recommended: true
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-10-context.md'
 warnings: [oversized]
-deferred: []
+deferred:
+  - summary: >-
+      Candidates are counted as Move sequences, not distinct cube states, so commuting pairs (U D and D U) make a Full mismatch LIKELY instead of VERIFIED.
+    evidence: |-
+      CandidateEnumerator only prunes same-face repeats; two opposite-face orders reach the same cubies and both match. Pre-existing AD-5 counting shared with Assess.confirm and diagnose; conservative (never a false VERIFIED).
+    location: >-
+      core/domain/src/main/kotlin/dev/cubentia/domain/tutor/CandidateEnumerator.kt:40
+    severity: low
 ---
 
 <intent-contract>
@@ -27,7 +34,7 @@ deferred: []
 - Only `tutor/Assess.kt` names a `Certainty` value (`CertaintyProducerTest`). Candidates come only from one `CandidateEnumerator` over the session's `expected`, configured by `tutorConfig`.
 - A `Partial` is checked for internal consistency only. It is never completed from `expected`, never becomes a `CubeState` or `Facelets`, and is never adopted. Comparison against a candidate reads the candidate's home-frame colors on the observed faces only.
 - Observations compare by home-frame colors (`cubies`, centers fixed), never by `CubeState` equality: scans carry no hold orientation. `Partial.faces` is keyed by home face (the face whose center color is `Color.home(face)`), with colors in Kociemba net order, as `ScanAssembler` emits them.
-- VERIFIED requires both: (1) the observed faces ⊇ the faces touched since the last Full VERIFIED observation (all six when there was none in this physical run); (2) exactly one consistent candidate. Otherwise 0 candidates → UNKNOWN; else LIKELY.
+- VERIFIED requires: (1) the observed faces ⊇ the faces touched since the last Full VERIFIED observation (all six when there was none in this physical run); (2) exactly one consistent candidate; (3) for a `Partial`, that candidate is `[]`. Only a `Full` observation can VERIFY a mismatch (PO decision, option (a); see Spec Change Log). Otherwise 0 candidates → UNKNOWN; else LIKELY.
 - A result applies only when its `effectId` is the pending Quick Check's and its `revision` is current (AD-3). Otherwise the reducer records `lastDiscarded`, and if the Learner started that check it sets the re-offer text `msg.quick-check.stale`.
 - New Learner text only in `core/domain/src/main/resources/content/strings/en.json`: `"msg.quick-check.stale": "Your cube changed while scanning — scan again?"`.
 
@@ -41,7 +48,8 @@ deferred: []
 | Scenario | Input / State | Expected Output / Behavior | Error Handling |
 |----------|--------------|---------------------------|----------------|
 | Verified match | after a Full VERIFIED obs, confirmed `R`, `U`. Partial of R+U = expected's colors | `Assess.check` → VERIFIED, single candidate `[]`. Session → `PHYSICAL_VERIFIED`, `observed` = that Partial | — |
-| Verified mismatch | confirmed `R`, Learner did `R'`. Partial of the planned faces | VERIFIED, single candidate `[R2]` (≠ expected). Session → `PHYSICAL_MISMATCH` | — |
+| Verified mismatch | confirmed `R`, Learner did `R'`. Partial of the planned faces | LIKELY for a Partial (VERIFIED only for a Full), single candidate `[R2]` (≠ expected), kept as the leading hypothesis. Session → `PHYSICAL_MISMATCH` | — |
+| Full mismatch | same cube, `Full` observation | VERIFIED, single candidate `[R2]`. Session → `PHYSICAL_MISMATCH` | — |
 | Not covered | single consistent candidate, but a touched face not observed | LIKELY | — |
 | No Full verified yet | physical run entered via *It matches* (no Editor/Full obs). Any Partial | at most LIKELY (all six faces required) | — |
 | Several fit | e.g. one face observed | LIKELY. Sync State unchanged unless `[]` is not among the candidates | — |
@@ -74,7 +82,7 @@ deferred: []
 - `core/domain/.../recognition/PartialConsistency.kt` (new) -- `sealed interface PartialCheck { data object Consistent; data class Inconsistent(val faces: Set<Face>) }` and `object PartialConsistency { fun check(partial: PhysicalObservation.Partial): PartialCheck }`. Rules: every listed face has 9 colors, and its center is `Color.home(face)`. No color appears more than 9 times across the observed stickers. Every edge with both stickers observed shows two colors that are neither equal nor opposite. Every corner with ≥ 2 stickers observed shows pairwise such colors, and with all 3 observed it is a real corner color set. `Inconsistent` names the faces involved. It uses only the partial.
 - `core/domain/.../tutor/Coverage.kt` (new) -- `object Coverage { fun touched(before: CubeState, move: Move): Set<Face> }`, in home faces. `FaceTurn` → `before.orientation.homeFaceAt(face)`. Wide/slice → the home faces of their face-turn parts, each part resolved through the orientation in effect at that part. `CubeRotation` → empty. Plus `fun touched(before, moves: List<Move>)` folding through `before.apply`.
 - `core/domain/.../tutor/QuickCheck.kt` (new) -- `object QuickCheck { const val MAX_CAPTURES = 2; fun faces(mustCover: Set<Face>): Set<Face> }`. Size 2 → itself. Size 1 → plus the first face in URFDLB order that is neither it nor its opposite. Size 0 → {U, F}. More than 2 → all six (a Guided 6-face Scan). It never produces Certainty.
-- `core/domain/.../tutor/Assess.kt` -- add `data class ObservationCheck(val certainty: Certainty, val consistent: List<Candidate>) { val matchesExpected get() = consistent.any { it.moves.isEmpty() } }` (constructed only in Assess.kt) and `fun check(enumerator: CandidateEnumerator, observation: PhysicalObservation, mustCover: Set<Face>): ObservationCheck`, following the rules in Always and the matrix. Update the class KDoc (the "coverage never lowers it" sentence applies to Full only).
+- `core/domain/.../tutor/Assess.kt` -- (WIP exists) make `check` return LIKELY, not VERIFIED, for a `Partial` whose single consistent candidate is non-empty; the KDoc says a Partial verifies only a match. Original task: add `data class ObservationCheck(val certainty: Certainty, val consistent: List<Candidate>) { val matchesExpected get() = consistent.any { it.moves.isEmpty() } }` (constructed only in Assess.kt) and `fun check(enumerator: CandidateEnumerator, observation: PhysicalObservation, mustCover: Set<Face>): ObservationCheck`, following the rules in Always and the matrix. Update the class KDoc (the "coverage never lowers it" sentence applies to Full only).
 - `core/domain/src/main/resources/content/strings/en.json` -- add `msg.quick-check.stale` (exact copy above).
 - `core/application/.../session/Effect.kt` -- `Effect.QuickCheck(effectId, revision, faces: Set<Face>, byLearner: Boolean)`: capture these home faces, answered by `QuickCheckObserved` or `QuickCheckCancelled`.
 - `core/application/.../session/SessionEvent.kt` -- `QuickCheckRequested(byLearner: Boolean = true, at)`, `QuickCheckObserved(effectId, revision, observation: PhysicalObservation, at)`, `QuickCheckCancelled(effectId, at)`.
@@ -101,13 +109,17 @@ deferred: []
   - S0 is a random reachable state (random scramble plus a random Cube Rotation). The Learner confirms 1–3 random face turns, so expected = S0 + confirmed.
   - The actual cube = S0 + the confirmed Moves with one perturbation: none, the wrong direction on one Move, the wrong face on one Move, an extra Move, a missing Move, or an extra 3-Move sequence.
   - Observations are drawn from the actual cube: the `QuickCheck.faces` plan, random 1–2 face subsets, and Full. `mustCover` is either the touched set or all six faces.
+  - Keep all six perturbations, including the out-of-model ones (wrong earlier face or direction, 3+ extra Moves).
   - Assert 0 false verified (VERIFIED whose single candidate's cubies ≠ the actual cubies).
-  - Assert the suite is not vacuous: it contains VERIFIED matches, VERIFIED mismatches, LIKELY and UNKNOWN results. Print the confirmation rate for matching cubes with the plan.
+  - Assert the match-confirmation rate (plan observation of a cube whose cubies equal expected → VERIFIED) is ≥ 98%.
+  - Assert no Partial is VERIFIED with a non-empty candidate.
+  - Assert the suite is not vacuous: it contains VERIFIED matches, VERIFIED mismatches (from Full), LIKELY and UNKNOWN results. Print the confirmation rate.
+  - A second, deliberate test of Move sequences that leave the observed faces unchanged: (i) U observed only, actual = expected + a `D` turn → never VERIFIED; (ii) a state whose U and D faces are solid, observed {U, D}, actual = expected + `U D'` → LIKELY with `[]` among the candidates; (iii) seeded: for ≥ 10 random states and their `QuickCheck.faces` plans (sizes 1 and 2 of `mustCover`), enumerate every face-turn sequence of length ≤ 3 applied to expected; each one that leaves the observed faces' colors equal to expected's while changing the cubies must not give VERIFIED when its length is ≤ `maxDepth` (in-model), and any length-3 alias that does verify must alias a match (`[]`), never name a wrong mismatch. The test prints the alias count.
   It never fills unseen faces from expected.
-- `core/domain/src/test/.../tutor/AssessTest.kt` -- the `check` matrix rows (verified match/mismatch, not covered, several, none, inconsistent, Full).
+- `core/domain/src/test/.../tutor/AssessTest.kt` -- the `check` matrix rows (verified match, Partial mismatch LIKELY with `[R2]`, Full mismatch VERIFIED, not covered, several, none, inconsistent, Full).
 - `core/application/src/test/.../session/QuickCheckSessionTest.kt` (new) -- the matrix rows through `reduce`:
   - the effect carries the planned faces and the current revision;
-  - each current-result transition;
+  - each current-result transition, including a Partial `R'`-for-`R` mismatch: LIKELY, `[R2]` kept in `quickCheck.consistent`, Sync State `PHYSICAL_MISMATCH`; and a Full mismatch: VERIFIED, `PHYSICAL_MISMATCH`;
   - a Partial VERIFIED keeps `touchedSinceVerified`, and a Full VERIFIED match empties it;
   - with no Editor/Full observation, the result is at most LIKELY;
   - the stale cases, with and without the Learner having started the check;
@@ -115,13 +127,35 @@ deferred: []
 
 **Acceptance Criteria:**
 - Given a Quick Check of the faces the recent Moves touched (`QuickCheck.faces`, ≤ 2 captures when ≤ 2 faces were touched), when it returns a `Partial`, then it is checked only by `PartialConsistency` and against candidates' colors on its own faces, and no code path builds `Facelets`/`CubeState` from it or reads `expected` to fill it.
-- Given `Assess.check`, when the observed faces cover `mustCover` and exactly one candidate fits, then Certainty is VERIFIED; otherwise LIKELY or UNKNOWN; and `QuickCheckScenarioTest` reports 0 false verified.
+- Given `Assess.check`, when the observed faces cover `mustCover` and exactly one candidate fits (for a Partial: the candidate `[]`), then Certainty is VERIFIED; otherwise LIKELY or UNKNOWN; and `QuickCheckScenarioTest`, with the out-of-model perturbations, reports 0 false verified and a match-confirmation rate ≥ 98%.
 - Given a stale result (a Move confirmed during the scan), when `QuickCheckObserved` arrives, then it is discarded (`lastDiscarded`), and `quickCheckRetry` is `msg.quick-check.stale` exactly when the Learner started it.
 - Given the full build, when `./gradlew spotlessCheck build` runs, then it passes, including `CertaintyProducerTest`, `TransitionsTableTest`, the content tests and Kover ≥ 80% on `:core:*`.
 
 ## Spec Change Log
 
+- **2026-11-17 — PO decision, option (a) (delegated to the party panel).** The first build attempt (WIP `06748d17cc97ec63064a02da99ca1e51b545af48`) blocked: seed 106 scenario 620 (confirmed `B2 F2`, Learner turned `L2` for `B2`, observed {R, L}) gave a false VERIFIED with the single candidate `R2 B2`. A 40-seed experiment over 168,000 Partial checks measured 100 false VERIFIED out of about 70,400 (88 wrong earlier face, 11 extra 3-Move sequence, 1 wrong earlier direction), all with a non-empty candidate, and a 98.5% match-confirmation rate. Out-of-model Learner errors (an earlier Move done wrong then followed by more Moves, or 3+ unconfirmed Moves) let 16 non-center stickers alias a wrong depth-≤2 candidate. Decision: a `Partial` is VERIFIED only when coverage holds and its single consistent candidate is `[]`; a Partial whose single candidate is non-empty is LIKELY, still moves Sync State to `PHYSICAL_MISMATCH`, and keeps that candidate as the leading hypothesis. Only a `Full` observation can VERIFY a mismatch. This **deviates** from FR-26's consequence-3 example (a Quick Check verifying "`R` instead of `R'`") and from AD-5's VERIFIED rule (coverage + one candidate), which this story narrows for Partials. The I/O matrix row *Verified mismatch* now reads LIKELY for a Partial. **Residual risk (theoretical):** a sequence of 3+ Moves that leaves the observed faces' colors unchanged but changes unseen stickers, and is equivalent to no depth-≤2 candidate, would make `[]` the single consistent candidate and alias a match as VERIFIED. The deliberate test in `QuickCheckScenarioTest` measures it: over 123,500 face-turn sequences of length ≤ 3 from 10 seeded states, 44 leave the plan faces unchanged while changing the cubies, and 1 of them (`R U2 R'`, plan {B, D}, a color coincidence on that state) aliases a match as VERIFIED. None of length ≤ 2 verifies, and no alias names a wrong mismatch. The random scenario suite (2,100 scenarios, all six perturbations) shows 0 false VERIFIED and 99.8% match confirmation. The risk is accepted as residual and is not closed by construction.
+- **2026-11-17 — Planning correction.** The first version of the deliberate test required that no length-3 face-preserving sequence verify; implementation found the `R U2 R'` alias above. The test now asserts the in-model guarantee and records out-of-model aliases, as the PO's residual-risk clause anticipated.
+
 ## Review Triage Log
+
+### 2026-11-17 — Review pass
+- verdicts: 15 findings — high 0, medium 2, low 9, false 4, maybe-false 0
+- findings:
+  - `[low]` `[reject]` Blind: `R U2 R'` aliases a Partial match as VERIFIED — real (the deliberate test finds it), but the PO's option (a) explicitly accepts face-preserving aliasing of a match as residual risk; recorded in the Spec Change Log.
+  - `[low]` `[defer]` Blind: candidates counted per sequence, so commuting `U D`/`D U` lower a Full mismatch to LIKELY — pre-existing AD-5 enumerator semantics, conservative; deferred.
+  - `[medium]` `[patch]` Blind: `quickCheck` survives commits/Undo/Editor and describes an old Expected — `reduce` now clears `quickCheck` whenever Expected changes; tested.
+  - `[medium]` `[patch]` Blind: session starts keep `pendingQuickCheck`/`quickCheckRetry`, so a stale re-offer could leak into a new Lesson — `reduce` clears pending, retry and result whenever the state leaves active physical mode (covers every start and a switch to virtual); tested.
+  - `[false]` `[reject]` Blind: a second request replaces the pending one without cancelling — the replacement is the policy: the older result then has an unknown id and is discarded (`lastDiscarded`), which the matrix specifies.
+  - `[low]` `[patch]` Blind: a cancellation with a foreign id still runs the generic feedback/Diagnosis clearing — `applied` now returns unchanged for it; tested with feedback present.
+  - `[false]` `[reject]` Blind: an empty Partial is Consistent — every candidate fits it, so it is LIKELY with `[]` among the candidates and changes neither Sync State nor `observed`; it cannot confirm.
+  - `[low]` `[reject]` Blind: PartialConsistency misses cross-piece duplicates and corner chirality — such a Partial matches no real candidate and ends UNKNOWN/mismatch rather than unchanged; rare misread, and the fix adds rules beyond the spec's list.
+  - `[low]` `[patch]` Blind: CoverageTest checks wide/slice coverage against the same `parts` decomposition — added explicit expected faces (Rw→L, Uw→D, M→R+L, E→U+D, S→F+B, and through a y hold).
+  - `[low]` `[reject]` Blind: some perturbations degenerate (inverse of a half turn, cancelling extras) — the suite still asserts every Certainty occurs and the PO's thresholds; making them non-degenerate adds generator branches for no change in the guarantee.
+  - `[low]` `[patch]` Verification gap: Undo's coverage update was untested (the confirm already added R) — added confirm R → Full match → Undo, asserting `{R}` and that the next plan includes R.
+  - `[low]` `[reject]` Intent: the deliberate test tolerates a demonstrated alias although the PO called the risk "theoretical" — the PO scoped 0 false VERIFIED to the perturbation suite and accepted face-preserving aliasing; the Change Log now records the measured case.
+  - `[false]` `[reject]` Intent: the residual alias is not exercised through `reduce` — the reducer adopts any VERIFIED match the same way, covered by the session tests; nothing new to observe at that surface.
+  - `[false]` `[reject]` Intent: `epics.md`, PRD and architecture still state the un-narrowed rule — editing planning artifacts is forbidden for this build; the deviation is recorded in the spec Change Log as instructed.
+  - `[low]` `[reject]` Intent: the 98% and 0-false thresholds rest on one seed — the suite is deterministic by design (seed 106, 2,100 scenarios); the 40-seed experiment is recorded in the Change Log.
 
 ## Design Notes
 
@@ -129,7 +163,7 @@ deferred: []
 
 **No earlier Full observation → all six faces.** Entering physical mode with *It matches* gives a predicted cube, not an observed one (AD-5). So until a Full VERIFIED observation (Editor or Full scan), only a 6-face check can verify. This is the literal AD-5 rule and errs toward "0 false verified".
 
-**Candidates compare by cubies.** A scan has no hold orientation, so `Full`/`Partial` match on center-relative colors. Example: expected `S0·R`, Learner did `R'`. With `[R2]` the only candidate whose R and U faces match, the result is VERIFIED mismatch, "you turned `R'` instead of `R`".
+**Candidates compare by cubies.** A scan has no hold orientation, so `Full`/`Partial` match on center-relative colors. Example: expected `S0·R`, Learner did `R'`. With `[R2]` the only candidate whose R and U faces match, a Partial gives LIKELY mismatch with `[R2]` as the leading hypothesis (Sync State `PHYSICAL_MISMATCH`); a Full scan of that cube gives VERIFIED.
 
 ## Verification
 
@@ -140,30 +174,21 @@ deferred: []
 
 ## Auto Run Result
 
-Status: blocked
-Blocking condition: implementation verification failed: `QuickCheckScenarioTest` finds a false VERIFIED. The AC's two clauses conflict for Learner errors outside the AD-5 candidate model, and choosing between them is a product decision.
+Status: done
 
-**State of the work:** Codex implemented the whole spec. That covers `PartialConsistency`, `Coverage`, `QuickCheck.faces`, `Assess.check`/`ObservationCheck`, `Effect.QuickCheck`, `QuickCheckRequested`/`Observed`/`Cancelled`, the reducer and Sync State rules, `touchedSinceVerified`, `msg.quick-check.stale`, the TRANSITIONS rows, and the tests. Application tests 467/467 pass. Domain tests 715/716 pass, and the one failure is the scenario suite. The work is committed as WIP on the branch.
+**Summary:** Story 10.6 implements Quick Check evidence: `PartialConsistency`, `Coverage`, the `QuickCheck.faces` planner, `Assess.check`/`ObservationCheck` and the revisioned `QuickCheckRequested`/`Observed`/`Cancelled` session events, with PO option (a): a Partial VERIFIES only a match (`[]`); a Partial with a single non-empty candidate is LIKELY, moves Sync State to `PHYSICAL_MISMATCH` and keeps that candidate; only a Full VERIFIES a mismatch.
 
-**Failure:** seed 106, scenario 620. Confirmed `B2 F2`; the Learner turned `L2` instead of `B2`. The plan observes home faces {R, L}, which covers `mustCover`, and exactly one depth-2 candidate (`R2 B2`) fits them. That is VERIFIED by the AC's rule, but it is false: unseen stickers differ.
+**Files changed:**
+- `core/domain/.../recognition/PartialConsistency.kt`, `PhysicalObservation.kt` -- internal consistency of a Partial; capture bound constant.
+- `core/domain/.../tutor/Assess.kt`, `Coverage.kt`, `QuickCheck.kt` -- `check` with option (a), touched layers, face planner.
+- `core/domain/src/main/resources/content/strings/en.json` -- `msg.quick-check.stale`.
+- `core/application/.../session/{Effect,SessionEvent,SessionState,Reduce}.kt`, `TRANSITIONS.md` -- Quick Check effect, events, state, reducer rules and table rows.
+- Tests: `PartialConsistencyTest`, `CoverageTest`, `QuickCheckTest`, `QuickCheckScenarioTest`, `AssessTest`, `QuickCheckSessionTest`, `TransitionsTableTest`.
 
-**Measured** with a throwaway 40-seed experiment, since removed: 168,000 Partial checks, `mustCover` = the touched faces. Results per perturbation:
+**Review:** 15 findings. Patched 5 (medium 2, low 3): stale `quickCheck` cleared on Expected change; Quick Check state cleared outside active physical mode; foreign cancellation is a no-op; explicit Coverage expectations; Undo coverage test. Deferred 1 (commuting candidates). Rejected 9, reasons in the Review Triage Log.
 
-| Perturbation | False VERIFIED |
-|---|---|
-| None | 0 |
-| Extra Move | 0 |
-| Missing Move | 0 |
-| Wrong direction on an earlier Move | 1 |
-| Wrong face on an earlier Move | 88 |
-| Extra 3-Move sequence | 11 |
+**Follow-up review recommended:** true -- two medium patches (session-boundary and Expected-change clearing in `reduce`) were applied by the orchestrator, not re-reviewed; the risk is an unintended clear of Quick Check state on a physical transition that keeps Expected.
 
-That is 100 false out of about 70,400 VERIFIED (≈ 0.14%). Requiring the 2 faces to be adjacent still leaves 17 false out of 62,589. Every false VERIFIED had a non-empty candidate. A matching cube was confirmed in 18,449 of 18,723 plan checks (98.5%).
+**Verification:** `./gradlew spotlessApply`; `./gradlew spotlessCheck build` BUILD SUCCESSFUL (Kover, content tests, `CertaintyProducerTest`, `TransitionsTableTest`). `QuickCheckScenarioTest`: 0 false verified, match confirmation 467/468 (99.8%); deliberate test: 44 face-preserving sequences of 123,500, 1 residual alias of a match (`R U2 R'`, plan {B, D}). `QuickCheckSessionTest` 11/11.
 
-**Why:** within the candidate model (actual = expected + at most `maxDepth` Moves), a false VERIFIED is impossible by construction. Errors outside the model are a different matter: an earlier confirmed Move done wrong and then followed by more Moves, or 3 or more unconfirmed Moves. Two captures (16 non-center stickers) can then alias a wrong candidate. The coverage rule narrows this but cannot close it.
-
-**Options for the PO:**
-- (a) A Partial verifies only a match (unique candidate `[]`), and a Partial mismatch is at most LIKELY, with VERIFIED mismatches only from a Full scan. This gave 0 false VERIFIED in the experiment and kept the match rate, but it contradicts the PRD UJ-2 example ("Quick Check shows `R` instead of `R'` … verified").
-- (b) Define the scenario suite within the AD-5 candidate model, and record out-of-model aliasing as a known residual risk.
-- (c) Require adjacent faces and accept a non-zero rate (fails the gate).
-- (d) Raise `maxDepth`, which costs bounded reducer work and still does not close the gap.
+**Residual risks:** a 3+ Move sequence that preserves the observed faces can alias a match as VERIFIED (demonstrated once, accepted by the PO); planning artifacts (`epics.md`, FR-26, AD-5) still state the un-narrowed VERIFIED rule and need a planning update outside this build.

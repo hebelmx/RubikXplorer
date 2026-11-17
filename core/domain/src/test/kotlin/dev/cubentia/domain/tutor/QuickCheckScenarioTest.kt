@@ -69,6 +69,14 @@ class QuickCheckScenarioTest {
                 )
             observations.forEachIndexed { observationIndex, observation ->
                 val check = Assess.check(enumerator, observation, mustCover)
+                if (observation is PhysicalObservation.Partial && check.certainty == Certainty.VERIFIED) {
+                    assertTrue(
+                        check.consistent
+                            .single()
+                            .moves
+                            .isEmpty(),
+                    )
+                }
                 counts[check.certainty] = counts.getOrDefault(check.certainty, 0) + 1
                 if (check.certainty == Certainty.VERIFIED) {
                     if (check.consistent
@@ -96,8 +104,77 @@ class QuickCheckScenarioTest {
             "Quick Check: $falseVerified false verified; matching plan confirmation $confirmedPlans/$matchingPlans (${100.0 * confirmedPlans / matchingPlans}%)",
         )
         assertEquals(0, falseVerified)
+        assertTrue(matchingPlans > 0)
+        assertTrue(confirmedPlans.toDouble() / matchingPlans >= 0.98)
         assertTrue(verifiedMatches > 0)
         assertTrue(verifiedMismatches > 0)
         Certainty.entries.forEach { assertTrue(counts.getOrDefault(it, 0) > 0, "$it missing") }
+    }
+
+    @Test fun `unchanged observed faces never verify within the candidate model`() {
+        val expected = CubeState.SOLVED
+        val down = expected.apply(FaceTurn(Face.D, Turn.CLOCKWISE))
+        assertEquals(
+            Certainty.LIKELY,
+            Assess.check(CandidateEnumerator.of(expected, TutorFixtures.CONFIG), partial(down, setOf(Face.U)), setOf(Face.U)).certainty,
+        )
+        val hidden = expected.apply(FaceTurn(Face.U, Turn.CLOCKWISE), FaceTurn(Face.D, Turn.COUNTERCLOCKWISE))
+        val opposite =
+            Assess.check(
+                CandidateEnumerator.of(expected, TutorFixtures.CONFIG),
+                partial(hidden, setOf(Face.U, Face.D)),
+                setOf(Face.U, Face.D),
+            )
+        assertEquals(Certainty.LIKELY, opposite.certainty)
+        assertTrue(opposite.matchesExpected)
+    }
+
+    /**
+     * Every face-turn sequence of length <= 3 from seeded states whose plan faces it leaves unchanged.
+     * Within the candidate model (length <= maxDepth) such a sequence is itself a consistent candidate
+     * beside `[]`, so it never verifies. A longer one can alias a match: the residual risk the spec's
+     * Change Log records. Every alias found must alias a match (`[]`), never name a wrong mismatch.
+     */
+    @Test fun `sequences that leave the observed faces unchanged`() {
+        val turns = TutorFixtures.CONFIG.moves.filterIsInstance<FaceTurn>()
+        val random = Random(10603)
+        var sequences = 0
+        var preserving = 0
+        var aliases = 0
+        repeat(10) {
+            val state = CubeState.SOLVED.apply(List(20) { turns.random(random) })
+            val enumerator = CandidateEnumerator.of(state, TutorFixtures.CONFIG)
+            for (size in 1..2) {
+                val mustCover =
+                    Face.entries
+                        .shuffled(random)
+                        .take(size)
+                        .toSet()
+                val plan = QuickCheck.faces(mustCover)
+                val reference = partial(state, plan)
+
+                fun inspect(
+                    actual: CubeState,
+                    path: List<Move>,
+                ) {
+                    sequences++
+                    if (actual.cubies != state.cubies && partial(actual, plan).faces == reference.faces) {
+                        preserving++
+                        val check = Assess.check(enumerator, partial(actual, plan), mustCover)
+                        if (check.certainty == Certainty.VERIFIED) {
+                            aliases++
+                            println("Residual alias: mustCover=$mustCover plan=$plan path=$path")
+                            assertEquals(3, path.size, "an in-model sequence verified: $path")
+                            assertTrue(check.matchesExpected, "an alias named a wrong mismatch: $path")
+                        }
+                    }
+                    if (path.size < 3) turns.forEach { inspect(actual.apply(it), path + it) }
+                }
+                inspect(state, emptyList())
+            }
+        }
+        println("Observed-face-preserving sequences: $preserving of $sequences; residual aliases of a match: $aliases")
+        assertEquals(20 * (1 + turns.size + turns.size * turns.size + turns.size * turns.size * turns.size), sequences)
+        assertTrue(preserving > 0)
     }
 }

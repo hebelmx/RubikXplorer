@@ -43,16 +43,17 @@ fun reduce(
     val preservesCoverage =
         (event is SessionEvent.PhysicalConfirmed && event.move != null) || (event is SessionEvent.Undo && state.isPhysical) ||
             event is SessionEvent.EditorEntered
-    return if (next.touchedSinceVerified != null &&
-        (
-            next.syncState == SyncState.VIRTUAL || next.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM ||
-                (next.expected != state.expected && !preservesCoverage)
+    val leftPhysical = next.syncState == SyncState.VIRTUAL || next.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM
+    val cleared =
+        next.copy(
+            touchedSinceVerified =
+                next.touchedSinceVerified.takeUnless { leftPhysical || (next.expected != state.expected && !preservesCoverage) },
+            // Quick Check evidence describes one Expected state; a pending capture or re-offer ends with physical mode.
+            quickCheck = next.quickCheck.takeUnless { leftPhysical || next.expected != state.expected },
+            pendingQuickCheck = next.pendingQuickCheck.takeUnless { leftPhysical },
+            quickCheckRetry = next.quickCheckRetry.takeUnless { leftPhysical },
         )
-    ) {
-        result.copy(state = next.copy(touchedSinceVerified = null))
-    } else {
-        result
-    }
+    return if (cleared == next) result else result.copy(state = cleared)
 }
 
 /**
@@ -134,6 +135,7 @@ private fun applied(
         return quickObserved(state, event)
     }
     if (event is SessionEvent.QuickCheckRequested && (state.tutorConfig == null || !quickAllowed(state))) return Transition(state)
+    if (event is SessionEvent.QuickCheckCancelled && state.pendingQuickCheck?.effectId != event.effectId) return Transition(state)
     val starts = event is SessionEvent.LessonStarted || event is SessionEvent.PracticeStarted || event is SessionEvent.SolvePlaybackStarted
     // Only a Lesson or Practice session takes Moves and tutor events; idle and playback sessions ignore them,
     // except SOLVE_PLAYBACK which permits ModeSwitched, PhysicalConfirmed, and Undo in physical mode (Story 8.5).

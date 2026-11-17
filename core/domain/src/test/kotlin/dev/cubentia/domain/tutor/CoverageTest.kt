@@ -32,6 +32,21 @@ class CoverageTest {
         }
     }
 
+    @Test fun `wide and slice turns touch the center-relative layers`() {
+        val home = CubeState.SOLVED
+        assertEquals(setOf(Face.L), Coverage.touched(home, WideTurn(Face.R, Turn.CLOCKWISE)))
+        assertEquals(setOf(Face.D), Coverage.touched(home, WideTurn(Face.U, Turn.HALF)))
+        assertEquals(setOf(Face.R, Face.L), Coverage.touched(home, SliceTurn(Slice.M, Turn.CLOCKWISE)))
+        assertEquals(setOf(Face.U, Face.D), Coverage.touched(home, SliceTurn(Slice.E, Turn.CLOCKWISE)))
+        assertEquals(setOf(Face.F, Face.B), Coverage.touched(home, SliceTurn(Slice.S, Turn.CLOCKWISE)))
+        val held = CubeState.SOLVED.apply(CubeRotation(Axis.Y, Turn.CLOCKWISE))
+        assertEquals(setOf(held.orientation.homeFaceAt(Face.L)), Coverage.touched(held, WideTurn(Face.R, Turn.CLOCKWISE)))
+        assertEquals(
+            setOf(Face.R, Face.L).map { held.orientation.homeFaceAt(it) }.toSet(),
+            Coverage.touched(held, SliceTurn(Slice.M, Turn.HALF)),
+        )
+    }
+
     @Test fun `rotations touch nothing and update following frame`() {
         val rotation = CubeRotation(Axis.X, Turn.CLOCKWISE)
         val move = FaceTurn(Face.U, Turn.CLOCKWISE)

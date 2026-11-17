@@ -281,11 +281,16 @@ LL practice passes the content-derived 2-look Algorithm Move lists in `PracticeS
 
 QuickCheckRequested issues a revisioned capture only in a configured physical Lesson or Practice
 (predicted, verified or mismatch). Results compare observed home-frame colors against one configured
-candidate enumerator. Unique, covered evidence verifies; a consistent observation excluding Expected
+candidate enumerator. Unique, covered evidence verifies a Full observation or a Partial match with
+the empty candidate. A Partial mismatch remains LIKELY and keeps its candidates; only a Full
+observation can verify a mismatch. A consistent observation excluding Expected
 sets mismatch. Inconsistent Partials preserve Sync State and observation. No result changes Expected,
 history or revision, and no Partial is completed or adopted. Full verified matches reset touched layers;
 Partial verification keeps them. Physical commits and Undo accumulate touched layers; Editor resets them,
 and other Expected changes or virtual/awaiting-confirm states invalidate the Full-evidence baseline.
 Stale results record lastDiscarded and clear their pending request, offering msg.quick-check.stale only
 for Learner-started checks. Unknown ids preserve the pending request. Cancellation clears its matching
-request and retry text. These events do not keep Move feedback, Diagnosis or Guided recovery.
+request and retry text; a cancellation of any other capture changes nothing. Leaving physical mode (virtual or
+awaiting confirmation, including every session start) clears the pending capture, the retry text and the
+latest result, and any change of Expected clears the latest result. These events do not keep Move feedback,
+Diagnosis or Guided recovery.

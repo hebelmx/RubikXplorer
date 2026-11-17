@@ -20,12 +20,13 @@ import dev.cubentia.domain.text.Text
 /**
  * The tutor's evidence engine (AD-5, AD-12): the only producer of [Certainty], for confirmations and
  * Diagnoses alike, always from the candidates of one [CandidateEnumerator]. Exactly one consistent
- * candidate with required face coverage is [Certainty.VERIFIED]; other nonempty evidence is
+ * candidate with required face coverage is [Certainty.VERIFIED] only for a Full observation or a
+ * Partial matching the expected cube; other nonempty evidence is
  * [Certainty.LIKELY], none [Certainty.UNKNOWN]. A Full observation (virtual mode: the virtual Cube
  * State) covers every face, so coverage never lowers Full evidence. Pure and bounded.
  */
 object Assess {
-    /** Judges only observed home-frame colors, with coverage required for unique evidence. */
+    /** Judges observed home-frame colors with coverage; a Partial verifies only a match. */
     fun check(
         enumerator: CandidateEnumerator,
         observation: PhysicalObservation,
@@ -67,7 +68,10 @@ object Assess {
         val certainty =
             when {
                 consistent.isEmpty() -> Certainty.UNKNOWN
-                consistent.size == 1 && faces.containsAll(mustCover) -> Certainty.VERIFIED
+
+                consistent.size == 1 && faces.containsAll(mustCover) &&
+                    (observation is PhysicalObservation.Full || consistent.single().moves.isEmpty()) -> Certainty.VERIFIED
+
                 else -> Certainty.LIKELY
             }
         return ObservationCheck(certainty, consistent)
