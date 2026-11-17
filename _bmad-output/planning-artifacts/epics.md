@@ -3,7 +3,7 @@ status: final
 stepsCompleted: [step-01-validate-prerequisites, step-02-design-epics, step-03-create-stories, step-04-final-validation]
 mode: fast-path
 created: 2026-10-29
-updated: 2026-11-14
+updated: 2026-11-16
 inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/prd.md
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/addendum.md
@@ -227,7 +227,8 @@ A Learner can browse and watch all 78 verified OLL/PLL Algorithms, track their o
 ### Epic 10: Scan my cube (v1.1, flag-gated)
 A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. Built on `main` with every camera flag OFF in release; each feature reaches users only when the PO raises its flag at a release (Story 10.11). Restored from `post-launch/v1.1-camera-recognition.md` by `sprint-change-proposal-2026-11-14-v1-1-camera.md`.
 **FRs covered:** FR-21, FR-23 – FR-26, plus the Quick Check rung of FR-9 and FR-16, and the calibration reset of FR-19. **Also:** recognition NFRs, NFR-5, NFR-8, NFR-11, NFR-12, AD-9, AD-13, AD-18, AR-13, UX-DR15, UX-DR16, UX-DR19 – UX-DR22, UX-DR25.
-**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.7) → Epic 11 → 10.8 → 10.11 *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16)*. Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance; B2 = 10.14; C = 11.1, 11.3 capture and 10.8.
+**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) → Epic 11 → 10.8 → 10.11 *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16; 10.5 split into 10.5 and 10.15 by SCP 2026-11-16 main-app entry points)*. Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance (10.4 partial); B2 = 10.14; B3 = 10.5 (main app; re-runs the 10.4 checks not done on a device, #166); C = 11.1, 11.3 capture and 10.8.
+**Main-app rule (SCP 2026-11-16 main-app entry points):** a camera story is accepted on the main app build, reached from its real entry point. A debug-only launcher is never a story's device-session gate, and debug raises a flag above OFF only once that flag's entry point is wired in the main app (AD-15, AD-18).
 **Never blocks** tester-feedback fixes or Stories 12.3, 12.4, 12.5 and 13.6: camera stories merge only with release camera flags OFF, and Story 10.9's gate keeps the release free of camera code and permissions.
 
 ### Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition (v1.1, flag-gated)
@@ -1791,7 +1792,7 @@ So that I know when to move to the full set.
 
 ## Epic 10: Scan my cube
 
-A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. P0.4 exit: the Guided Scan meets its accuracy targets on the test matrix, or `CAMERA_SCAN` ships as BETA. *(SCP 2026-11-14: restored from `post-launch/v1.1-camera-recognition.md`. Every story merges to `main` with every camera flag OFF in release; Story 10.9 lands first and Story 10.10 second. Stories 10.9–10.11 are appended IDs that run earlier than their number, as the How-to-read note allows.)* *(SCP 2026-11-15: Stories 10.12 (recorder rework, session A2) and 10.13 (OQ-7 spike) run after 10.10 and before 10.1.)* *(SCP 2026-11-16: Story 10.14 (scan each face in any rotation) runs after 10.3.)*
+A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. P0.4 exit: the Guided Scan meets its accuracy targets on the test matrix, or `CAMERA_SCAN` ships as BETA. *(SCP 2026-11-14: restored from `post-launch/v1.1-camera-recognition.md`. Every story merges to `main` with every camera flag OFF in release; Story 10.9 lands first and Story 10.10 second. Stories 10.9–10.11 are appended IDs that run earlier than their number, as the How-to-read note allows.)* *(SCP 2026-11-15: Stories 10.12 (recorder rework, session A2) and 10.13 (OQ-7 spike) run after 10.10 and before 10.1.)* *(SCP 2026-11-16: Story 10.14 (scan each face in any rotation) runs after 10.3.)* *(SCP 2026-11-16 main-app entry points: Story 10.5 is split. 10.5 keeps the scan entry from the Solve tab, and the appended Story 10.15 takes solve, playback and the BETA label; 10.15 runs right after 10.5.)*
 
 ### Story 10.1: Classify stickers and assemble a Scan Result
 
@@ -1887,7 +1888,7 @@ So that scans read it correctly.
 
 **Refs:** FR-24, FR-19 · AD-9, AD-10 · AR-13, AR-21 · UX-DR25 · UX Flow 9
 
-**Human gate:** the first-stickerless-scan prompt is accepted on a device with the stickerless test cube (device session B).
+**Human gate:** the first-stickerless-scan prompt is accepted on a device with the stickerless test cube (device session B). *(SCP 2026-11-16 main-app entry points: the PO accepted a partial session B on 2026-11-16 (#166). The checks not done on a device (the review offer, logo-center and implausible re-prompt, rescan after Save, Lenovo) and the offer rule move to Story 10.5's device session B3, run on the main app.)*
 
 **Acceptance Criteria:**
 
@@ -1907,31 +1908,53 @@ So that scans read it correctly.
 **When** the calibration entity is added
 **Then** the database moves to version 8 with an exported `8.json` schema, a `7→8` migration and a migration test that preserves every existing table's rows (AD-10), and the Settings calibration rows are hidden while `CAMERA_SCAN` is OFF
 
-### Story 10.5: Scan to solve
+### Story 10.5: Scan my cube from the Solve tab
 
-As a Learner who just wants it solved,
-I want to scan instead of typing colors,
-So that I go from scrambled to solving in under a minute.
+As a Learner,
+I want to start a scan from the Solve tab and check the result before it is used,
+So that I can put my real cube into the app without typing every color.
 
-**Refs:** FR-25, FR-15, FR-16 · AD-8, AD-9, AD-18 · UX-DR19, UX-DR25 · UX Flow 3
+**Refs:** FR-21, FR-23, FR-24, FR-25 · AD-9, AD-15, AD-18 · UX-DR16, UX-DR19, UX-DR25 · UX Flows 3, 9 · Stories 10.2, 10.3, 10.4, 10.14, 11.2 · #158, #161, #164, #166
+
+**Depends on** Stories 10.3, 10.4 and 10.14. **Human gate:** device session B3 on the main app build (debug), Lenovo Tab M10 Plus 3rd Gen and Galaxy S24 FE, stickered (stka, logo center) and stickerless (stla) cubes. *(SCP 2026-11-16 main-app entry points: split from the original Story 10.5 "Scan to solve"; solve, playback and the BETA label moved to Story 10.15.)*
 
 **Acceptance Criteria:**
 
-**Given** the Solve tab
-**When** *Scan my cube* is chosen
-**Then** scan → review → validate → solve → playback runs without leaving the flow, and *Enter colors instead* is always visible
+**Given** `MainActivity`
+**When** the app starts with `CAMERA_SCAN` above OFF and a `ScanLauncher` bound
+**Then** it registers `ScanFlowContract` for an Activity result, and the Solve tab shows *Scan my cube* next to *Enter colors*; with `CAMERA_SCAN` OFF, no binding or no camera, *Enter colors* is the only action, exactly as today (Story 3.7), and no dead or disabled scan button shows (UX-DR19)
 
-**Given** `CAMERA_SCAN` is BETA
-**When** the Solve tab renders
-**Then** *Enter colors* is the primary action and scan carries the shared BETA label (the *Test me* component from #137, not a copy) and the camera tooltip "May misread colors in poor light. Manual entry always works." *(SCP 2026-11-14: names the shared component and the approved copy, EXPERIENCE.md:135)*
+**Given** *Scan my cube* on the Solve tab
+**When** the scan returns `Accepted`
+**Then** the validated `Facelets` open in the Manual Cube Editor for the Learner to check and confirm before anything uses them; `FellBackToEditor` opens the Editor empty with a one-line note, and `Cancelled` returns to the Solve tab unchanged; only the Solve flow dispatches the result (Story 10.3)
 
-**Given** `CAMERA_SCAN` is OFF *(SCP 2026-11-14)*
-**When** the Solve tab renders
-**Then** *Enter colors* is the only action, exactly as today (Story 3.7)
-
-**Given** camera permission denied from Solve
+**Given** camera permission denied from the Solve tab
 **When** the Learner taps *Scan my cube*
 **Then** the Manual Cube Editor opens directly with a one-line note
+
+**Given** one Activity-level test (Robolectric or instrumented) driving the real route *(closes the deferral in #158, #161, #164 and #166)*
+**When** it runs
+**Then** it covers Solve tab *Scan my cube* → `GuidedScanActivity` → review → "Colors look off — calibrate?" → calibration → *Save* → rescan with the saved calibration loaded and the preview rebound → review → *Accept* → Manual Cube Editor, using a fake frame source, and the review edits made before calibration are kept
+
+**Given** Color Calibration (from review or Settings)
+**When** a swatch's cell is aligned and steady
+**Then** the swatch is captured automatically with the same steady hold as the face capture (`GuidedScanController.onFrame`, Story 10.14), *Keep* still confirms it, and *Capture* stays available; logo and implausible swatches are still refused with the plain re-prompt (Story 10.4)
+
+**Given** debug flag levels *(SCP 2026-11-16 main-app entry points, AD-18)*
+**When** `FeatureFlagLevels.byBuildType["debug"]` is built
+**Then** a flag is above OFF in debug only once its entry point is wired in the main app: `CAMERA_SCAN` stays GA; `QUICK_SCAN`, `PLACEMENT` and `CASE_RECOGNITION` go to OFF until Stories 11.1, 11.2 and 11.3 wire them, so Welcome's *Start from my cube* no longer shows as a dead button; `FeatureFlagLevelsTest` pins the debug map
+
+**Given** Stage 6's first-solve prompt in physical mode with `CAMERA_SCAN` above OFF
+**When** it renders before Story 10.7 adds the camera check
+**Then** it shows the camera-free copy ("compare it with the picture"); the camera copy ("Check it with the camera") appears only when a camera check action is shown (Story 10.7)
+
+**Given** the story closes
+**When** the PR merges
+**Then** the debug-only `GuidedScanDebugActivity`, its launcher entry in `app/src/camera/debug/AndroidManifest.xml` and `GuidedScanDebugSummaryTest` are deleted, and the fixture recorder (a developer tool) stays debug-only (AD-15)
+
+**Given** device session B3 on the main app build
+**When** the PO runs it
+**Then** a full scan from the Solve tab reaches the Editor on both devices, and the Story 10.4 checks not done on a device are run there (#166): the "Colors look off — calibrate?" offer on review, the logo-center (stka) and implausible-swatch re-prompts, a rescan after *Save* that reads better, swatch auto-capture, and the Lenovo; the PO records the calibration offer rule in the PRD memlog (today a stickerless cube that reads well gets no offer; Story 10.4's AC expects one on a first stickerless scan), and a change to the rule is made in this story
 
 ### Story 10.6: Quick Check evidence and Certainty
 
@@ -1979,7 +2002,7 @@ So that I fix the real problem.
 
 **Given** physical Solution Playback or the Stage 6 end
 **When** the Learner runs a Quick Check
-**Then** it is available at any step, and a verified solved cube triggers the first-solve milestone (recorded only when true, Story 12.7); *Scan it* now appears on the Confirm-your-cube card next to the Story 8.7 camera wording
+**Then** it is available at any step, and a verified solved cube triggers the first-solve milestone (recorded only when true, Story 12.7); *Scan it* now appears on the Confirm-your-cube card next to the Story 8.7 camera wording, and Stage 6's first-solve prompt switches to its camera copy only together with the camera check action *(SCP 2026-11-16 main-app entry points; Story 10.5 keeps the camera-free copy until then)*
 
 **Given** `CAMERA_SCAN` is OFF *(SCP 2026-11-14)*
 **When** any physical-mode screen renders
@@ -2093,6 +2116,10 @@ So that the app, the public privacy policy, Play Console and the store listing a
 **When** the release ships
 **Then** it has no entry point, string or permission rationale visible to Learners (UX-DR19)
 
+**Given** a feature being raised *(SCP 2026-11-16 main-app entry points)*
+**When** the checklist runs
+**Then** its entry point is wired in the main app and was accepted on the main app build, and no debug-only launcher or debug-only source set still holds part of the feature (developer tools such as the fixture recorder excepted, AD-15)
+
 ### Story 10.12: Fixture recorder a phone operator can finish quickly
 
 As the developer recording fixtures,
@@ -2189,9 +2216,33 @@ So that I don't have to work out which side goes on top.
 **When** it records
 **Then** it keeps the prompted top, so fixture ground truth keeps a known pose
 
+### Story 10.15: Solve from a scan
+
+As a Learner who just wants it solved,
+I want to scan instead of typing colors and go straight to the solution,
+So that I go from scrambled to solving in under a minute.
+
+**Refs:** FR-25, FR-15, FR-16 · AD-8, AD-9, AD-18 · UX-DR19, UX-DR25 · UX Flow 3 · Story 10.5
+
+**Depends on** Story 10.5. *(SCP 2026-11-16 main-app entry points: the remainder of the original Story 10.5 "Scan to solve".)*
+
+**Acceptance Criteria:**
+
+**Given** the Solve tab
+**When** *Scan my cube* is chosen and the scan is accepted
+**Then** scan → review → validate → solve → playback runs without leaving the flow, and *Enter colors instead* is always visible
+
+**Given** `CAMERA_SCAN` is BETA
+**When** the Solve tab renders
+**Then** *Enter colors* is the primary action and scan carries the shared BETA label (the *Test me* component from #137, not a copy) and the camera tooltip "May misread colors in poor light. Manual entry always works." *(SCP 2026-11-14: names the shared component and the approved copy, EXPERIENCE.md:135)*
+
+**Given** the Solve flow from a scan
+**When** it is accepted on a device
+**Then** it is run on the main app build from the Solve tab, never from a debug-only launcher
+
 ## Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition
 
-These are first on the PRD cut order (Quick Scan → beta, then Case recognition, then Placement). Each ships behind its AD-18 flag and can be turned OFF without dead UI. *(SCP 2026-11-14: restored; each merges with its flag OFF in release, and Story 10.11 raises it.)*
+These are first on the PRD cut order (Quick Scan → beta, then Case recognition, then Placement). Each ships behind its AD-18 flag and can be turned OFF without dead UI. *(SCP 2026-11-14: restored; each merges with its flag OFF in release, and Story 10.11 raises it.)* *(SCP 2026-11-16 main-app entry points: each story also raises its own flag in debug (`FeatureFlagLevels.byBuildType["debug"]`) in the PR that wires its entry point in the main app, and is accepted on the main app build; Story 10.5 sets these flags OFF in debug until then.)*
 
 ### Story 11.1: Quick Scan from two corners
 
@@ -2242,6 +2293,10 @@ So that I continue from where I really am.
 **Given** `PLACEMENT` is OFF
 **When** Welcome and Recognize render
 **Then** *Start from my cube* is absent everywhere, and the persisted onboarding-complete behavior (#137) is unchanged *(SCP 2026-11-14)*
+
+**Given** this story wires Welcome's *Start from my cube* (`AppShell` passes `onStartFromCube`) *(SCP 2026-11-16 main-app entry points)*
+**When** the PR merges
+**Then** `PLACEMENT` goes back to GA in debug in the same PR, and an AppShell test taps the button and reaches the scan
 
 ### Story 11.3: Recognize an OLL/PLL Case
 
