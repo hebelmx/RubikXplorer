@@ -39,7 +39,7 @@ class ManualCubeEditorState(
     /** Every reported failure of [facelets], in validator order; empty exactly when they are valid. */
     val problems: List<ValidationResult.Invalid> by derivedStateOf { CubeValidator.problems(facelets) }
 
-    /** Sticker indices of the offending pieces, to outline in `status-invalid`. */
+    /** Sticker indices of the offending pieces, to outline with the cube-highlight rule. */
     val outlined: Set<Int> by derivedStateOf { problems.flatMapTo(mutableSetOf()) { it.positions } }
 
     /** Faces (URFDLB indices) holding at least one [outlined] sticker. */

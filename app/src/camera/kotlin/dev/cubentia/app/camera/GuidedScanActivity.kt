@@ -51,6 +51,7 @@ import dev.cubentia.app.preferences.PreferenceProvider
 import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.app.scan.ScanFlowContract
 import dev.cubentia.app.scan.ScanOutcome
+import dev.cubentia.app.ui.scan.ScanCoachMarkRecord
 import dev.cubentia.app.ui.scan.ScanReviewScreen
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.domain.recognition.GuidedScanController
@@ -126,6 +127,10 @@ class GuidedScanActivity : ComponentActivity() {
         setResult(RESULT_CANCELED)
         if (phase == GuidedScanPhase.Rationale) phase = GuidedScanFlow.initialPhase(hasPermission())
         lifecycleScope.launch { lessonCatalog.load() }
+        lifecycleScope.launch {
+            // SharedPreferences reads the disk: off the main thread.
+            scan.coachMarkPending = withContext(Dispatchers.IO) { ScanCoachMarkRecord.pending(applicationContext) }
+        }
         val actions =
             GuidedScanActions(
                 onClose = { finishWith(ScanOutcome.Cancelled) },
@@ -171,6 +176,11 @@ class GuidedScanActivity : ComponentActivity() {
                             onAccept = { finishWith(ScanOutcome.Accepted(it)) },
                             onClose = { finishWith(ScanOutcome.Cancelled) },
                             modifier = Modifier.fillMaxSize(),
+                            coachMarkPending = scan.coachMarkPending,
+                            onCoachMarkShown = {
+                                scan.coachMarkPending = false
+                                lifecycleScope.launch(Dispatchers.IO) { ScanCoachMarkRecord.markShown(applicationContext) }
+                            },
                         )
                     } else {
                         GuidedScanScreen(phase, strings, actions, scan.frozen) {
@@ -418,6 +428,9 @@ internal class GuidedScanViewModel : ViewModel() {
 
     /** Whether the system would have shown a rationale just before the last permission request. */
     var rationaleBefore = false
+
+    /** Whether the review's one-time coach mark is still to be shown; false until the record is read. */
+    var coachMarkPending by mutableStateOf(false)
 
     /** No capture decision runs while a capture is frozen (touched on [analyzerExecutor] only). */
     val freeze = CaptureFreeze()
