@@ -92,12 +92,15 @@ sealed interface SessionEvent {
      * Starts a [SessionKind.SOLVE_PLAYBACK] session that plays [solution] from [state], replacing any
      * current session. Applies only when [solution] leaves [state] solved, so an unverified list never
      * becomes a session. Playback position and speed are not part of the session (AD-20).
+     * [fromAcceptedScan]: [state] is a scan the Learner accepted (or a Full Quick Check observation), so it is the Full
+     * verified baseline of a later physical run; a start from manual color entry passes false.
      */
     data class SolvePlaybackStarted(
         val state: CubeState,
         val solution: List<Move>,
         override val at: Instant,
         val tutorConfig: TutorConfig? = null,
+        val fromAcceptedScan: Boolean = false,
     ) : SessionEvent
 
     /** Ends playback; a held Lesson is resumed separately from its stored Checkpoint. */

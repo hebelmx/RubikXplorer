@@ -335,6 +335,64 @@ class AppShellSolveTest {
         assertEquals(started[1], host.state.value.pendingQuickCheck)
     }
 
+    @Test fun playbackFromAnAcceptedScanPlansAtMostTwoFacesAndUseMyCubeReSolvesAFullMismatch() {
+        val move = FaceTurn(Face.R, Turn.CLOCKWISE)
+        val cube = CubeState.SOLVED.apply(move)
+        solver = CubeSolver { SolveResult.Solved(listOf(move.inverse())) }
+        val started = mutableListOf<dev.cubentia.application.session.Effect.QuickCheck>()
+        show(
+            cameraScan = dev.cubentia.application.port.FlagLevel.GA,
+            scan = {
+                flow.onScanOutcome(
+                    dev.cubentia.app.scan.ScanOutcome
+                        .Accepted(cube),
+                )
+            },
+            quickCheck =
+                dev.cubentia.app.scan
+                    .QuickCheckCapture { started += it },
+        )
+        click("nav:solve")
+        click("solve:scan")
+        click("editor:accept")
+        rule.waitUntil(10000) { host.state.value.kind == SessionKind.SOLVE_PLAYBACK }
+        rule.waitForIdle()
+        click("playback:followOnMyCube")
+        rule.waitUntil(10000) { host.state.value.isPhysical }
+        rule.waitForIdle()
+        assertEquals(emptySet<Face>(), host.state.value.touchedSinceVerified)
+        click("playback:quickCheck")
+        rule.waitUntil(10000) { started.isNotEmpty() }
+        val first = started.single()
+        assertEquals(2, first.faces.size)
+        // The cube is not where playback expects: a Full observation shows it one turn off.
+        val actual = cube.apply(FaceTurn(Face.U, Turn.CLOCKWISE))
+        solver = CubeSolver { SolveResult.Solved(listOf(FaceTurn(Face.U, Turn.COUNTERCLOCKWISE), move.inverse())) }
+        runBlocking {
+            host.dispatch {
+                SessionEvent.QuickCheckObserved(
+                    first.effectId,
+                    first.revision,
+                    dev.cubentia.domain.recognition.PhysicalObservation
+                        .Full(actual),
+                    it,
+                )
+            }
+        }
+        rule.waitUntil(10000) { host.state.value.canResolveObserved }
+        rule.waitForIdle()
+        rule.onNodeWithTag("playback:useMyCube").assertTextEquals("Use my cube as it is now")
+        click("playback:useMyCube")
+        rule.waitUntil(10000) { host.state.value.entry == actual && host.state.value.isPhysical }
+        rule.waitForIdle()
+        val restarted = host.state.value
+        assertEquals(SessionKind.SOLVE_PLAYBACK, restarted.kind)
+        assertEquals(actual, restarted.expected)
+        assertEquals(2, restarted.solution.size)
+        assertEquals(emptySet<Face>(), restarted.touchedSinceVerified)
+        rule.onNodeWithTag("playback:useMyCube").assertDoesNotExist()
+    }
+
     @Test fun lessonIsUntouchedDuringPreparationAndReturnsOnClose() {
         runBlocking {
             host.restore(bundle)

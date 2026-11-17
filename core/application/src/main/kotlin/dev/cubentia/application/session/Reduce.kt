@@ -46,10 +46,14 @@ fun reduce(
         (event is SessionEvent.PhysicalConfirmed && event.move != null) || (event is SessionEvent.Undo && state.isPhysical) ||
             event is SessionEvent.EditorEntered || event is SessionEvent.AdoptObserved
     val leftPhysical = next.syncState == SyncState.VIRTUAL || next.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM
+    // An accepted scan's baseline is Full evidence of the playback start; it survives until the first switch to physical.
+    val baseline = holdsScanBaseline(next)
     val cleared =
         next.copy(
             touchedSinceVerified =
-                next.touchedSinceVerified.takeUnless { leftPhysical || (next.expected != state.expected && !preservesCoverage) },
+                next.touchedSinceVerified.takeUnless {
+                    !baseline && (leftPhysical || (next.expected != state.expected && !preservesCoverage))
+                },
             // Quick Check evidence describes one Expected state; a pending capture or re-offer ends with physical mode.
             quickCheck = next.quickCheck.takeUnless { leftPhysical || next.expected != state.expected },
             pendingQuickCheck = next.pendingQuickCheck.takeUnless { leftPhysical },
@@ -57,6 +61,15 @@ fun reduce(
         )
     return if (cleared == next) result else result.copy(state = cleared)
 }
+
+/**
+ * A virtual Solve Playback holding the Full observation of its start, from a playback started from an accepted scan
+ * ([SessionEvent.SolvePlaybackStarted.fromAcceptedScan]). Only that start sets `observed` in virtual mode, and a
+ * switch back to virtual clears it, so the baseline counts only until the first switch to physical mode.
+ */
+private fun holdsScanBaseline(state: SessionState): Boolean =
+    state.kind == SessionKind.SOLVE_PLAYBACK && state.syncState == SyncState.VIRTUAL &&
+        (state.observed as? PhysicalObservation.Full)?.state == state.expected
 
 /**
  * The flag rule after a Lesson or Practice transition: an unmet Objective clears both flags; a physical
@@ -220,7 +233,7 @@ private fun transition(
         }
 
         is SessionEvent.SolvePlaybackStarted -> {
-            startPlayback(state, event.state, event.solution, event.tutorConfig)
+            startPlayback(state, event.state, event.solution, event.tutorConfig, event.fromAcceptedScan)
         }
 
         is SessionEvent.SessionEnded, is SessionEvent.SolvePlaybackEnded -> {
@@ -407,12 +420,15 @@ private fun startPractice(
  * Starts a Solve Playback session at [start] holding [solution], when [solution] verifiably solves
  * [start] (bounded: one pass over the list); otherwise nothing changes. The Teaching Mode is kept.
  * An active Lesson is suspended; it resumes separately from its stored Checkpoint (AD-3).
+ * [fromAcceptedScan]: [start] is a scan the Learner accepted, so it is the Full verified baseline
+ * (`observed` Full [start], nothing touched) that a later switch to physical mode keeps (PO 2026-11-17).
  */
 private fun startPlayback(
     state: SessionState,
     start: CubeState,
     solution: List<Move>,
     tutorConfig: TutorConfig?,
+    fromAcceptedScan: Boolean,
 ): Transition {
     if (!start.apply(solution).isSolved) return Transition(state)
     val next =
@@ -440,7 +456,8 @@ private fun startPlayback(
             checkpoint = null,
             guidedRecovery = GuidedRecovery.None,
             expected = start,
-            observed = null,
+            observed = if (fromAcceptedScan) PhysicalObservation.Full(start) else null,
+            touchedSinceVerified = if (fromAcceptedScan) emptySet() else null,
             syncState = SyncState.VIRTUAL,
             physicalSolveConfirmed = false,
             physicalSolveUnconfirmed = false,

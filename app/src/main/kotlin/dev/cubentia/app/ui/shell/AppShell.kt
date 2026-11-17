@@ -57,7 +57,9 @@ import dev.cubentia.app.ui.library.LibraryFilterSaver
 import dev.cubentia.app.ui.library.LibraryScreen
 import dev.cubentia.app.ui.library.RequestedAlgorithmStatus
 import dev.cubentia.app.ui.settings.SettingsScreen
+import dev.cubentia.app.ui.solve.ResolveState
 import dev.cubentia.app.ui.solve.SolveFlowViewModel
+import dev.cubentia.app.ui.solve.SolvePhase
 import dev.cubentia.app.ui.solve.SolvePlaybackScreen
 import dev.cubentia.app.ui.solve.SolveScreen
 import dev.cubentia.app.ui.theme.RubikTheme
@@ -67,6 +69,7 @@ import dev.cubentia.application.port.FeatureFlag
 import dev.cubentia.application.port.FeatureFlags
 import dev.cubentia.application.port.FlagLevel
 import dev.cubentia.application.preference.Preference
+import dev.cubentia.application.session.CubeMode
 import dev.cubentia.application.session.Effect
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionKind
@@ -85,6 +88,7 @@ import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.domain.lastlayer.RecognitionDiagram
 import dev.cubentia.domain.lastlayer.RecognitionDiagramResult
+import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.tutor.StageProgress
 import dev.cubentia.domain.tutor.StageStatus
 import dev.cubentia.domain.tutor.TeachingMode
@@ -181,6 +185,7 @@ private fun ShellContent(
     LaunchedEffect(catalog) { catalog.load() }
     val content by catalog.state.collectAsState()
     val session by host.state.collectAsState()
+    val solvePhase by solveFlow.phase.collectAsState()
     val algorithmStatusLoad by host.algorithmStatusLoad.collectAsState(null)
     var algorithmStatuses by remember { mutableStateOf<Map<AlgorithmId, AlgorithmStatus>>(emptyMap()) }
     LaunchedEffect(algorithmStatusLoad) {
@@ -286,6 +291,22 @@ private fun ShellContent(
             session = session,
             strings = ready.strings,
             onEvent = { event -> scope.launch { host.dispatch { event } } },
+            resolve = ResolveState(solvePhase is SolvePhase.Solving, (solvePhase as? SolvePhase.Editing)?.error),
+            onUseMyCube = {
+                // Re-solves the observed cube off the main thread (the Solve tab's path) and restarts playback from it, still
+                // following on the real cube; a result is dropped when the session moved on meanwhile (AD-3 revision echo).
+                val from = host.state.value
+                val observed = (from.observed as? PhysicalObservation.Full)?.state
+                if (from.canResolveObserved && observed != null) {
+                    solveFlow.accept(observed) { state, moves ->
+                        val now = host.state.value
+                        if (now.revision == from.revision && now.canResolveObserved) {
+                            host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it, ready.bundle.tutorConfig, true) }
+                            host.dispatch { SessionEvent.ModeSwitched(CubeMode.PHYSICAL, it) }
+                        }
+                    }
+                }
+            },
             onClose = {
                 scope.launch {
                     host.endSolve(ready.bundle)
@@ -679,7 +700,8 @@ private fun ShellContent(
                             state,
                             moves,
                             ->
-                            host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it, ready.bundle.tutorConfig) }
+                            val scanned = solveFlow.isAcceptedScan(state)
+                            host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it, ready.bundle.tutorConfig, scanned) }
                         },
                         // Edge-to-edge: the themed surface fills the bar area while controls sit inside the safe area.
                         modifier = destinationModifier.background(RubikTheme.tokens.surfaceBase).safeDrawingPadding(),

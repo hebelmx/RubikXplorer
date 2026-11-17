@@ -182,6 +182,14 @@ data class SessionState internal constructor(
         syncState == SyncState.PHYSICAL_MISMATCH && observed is PhysicalObservation.Partial &&
             quickCheck?.matchesExpected == false
 
+    /**
+     * Solution Playback re-solves from a Full mismatch observation instead of adopting it (PO 2026-11-17): the app
+     * solves the observed cube and restarts playback from it (*Use my cube as it is now*).
+     */
+    val canResolveObserved: Boolean get() =
+        syncState == SyncState.PHYSICAL_MISMATCH && observed is PhysicalObservation.Full &&
+            kind == SessionKind.SOLVE_PLAYBACK
+
     /** Only a moves-taking session may adopt a Full mismatch observation. */
     val canAdoptObserved: Boolean get() =
         syncState == SyncState.PHYSICAL_MISMATCH && observed is PhysicalObservation.Full &&

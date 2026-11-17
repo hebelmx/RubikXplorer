@@ -91,6 +91,37 @@ class SolveFlowViewModelTest {
         )
     }
 
+    @Test fun onlyAnUnchangedAcceptedScanCountsAsTheScanBaseline() =
+        runBlocking {
+            val vm = SolveFlowViewModel(source(CubeSolver { SolveResult.Solved(listOf(move.inverse())) }))
+            assertFalse(vm.isAcceptedScan(cube))
+            vm.onScanOutcome(
+                dev.cubentia.app.scan.ScanOutcome
+                    .Accepted(cube),
+            )
+            assertTrue(vm.isAcceptedScan(cube))
+            // A color the Learner changed in the editor is manual entry, not the scan.
+            assertFalse(vm.isAcceptedScan(CubeState.SOLVED))
+            var fromScan: Boolean? = null
+            vm.accept(cube) { state, _ -> fromScan = vm.isAcceptedScan(state) }
+            withTimeout(5000) { vm.phase.first { it == SolvePhase.Home } }
+            assertEquals(true, fromScan)
+            // Once solved, or after the editor closes or opens for manual entry, the scan no longer counts.
+            assertFalse(vm.isAcceptedScan(cube))
+            vm.onScanOutcome(
+                dev.cubentia.app.scan.ScanOutcome
+                    .Accepted(cube),
+            )
+            vm.closeEditor()
+            assertFalse(vm.isAcceptedScan(cube))
+            vm.onScanOutcome(
+                dev.cubentia.app.scan.ScanOutcome
+                    .Accepted(cube),
+            )
+            vm.enterColors()
+            assertFalse(vm.isAcceptedScan(cube))
+        }
+
     @Test fun fallbackAndDenialAfterASolveUseTheFreshEditorState() =
         runBlocking {
             val vm = SolveFlowViewModel(source(CubeSolver { SolveResult.Solved(listOf(move.inverse())) }))

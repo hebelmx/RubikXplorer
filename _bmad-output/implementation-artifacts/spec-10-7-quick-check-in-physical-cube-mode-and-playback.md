@@ -55,7 +55,7 @@ deferred:
 **Never:**
 - No feature-flag level change (`QUICK_SCAN` stays OFF; it is Story 11.1). No new dependency, no numeric confidence, no debug-only launcher as the acceptance path.
 - No change to the Story 12.8 rung tests (rungs 1–3 keep their tags and behavior), Story 8.7 / 12.10 tests, `CertaintyProducerTest`, or the 10.6 `Assess.check` rule. Never weaken or delete a test.
-- No Solve-from-scan flow (Story 10.15), no adopt or Guided recovery in Solution Playback.
+- No Solve-from-scan flow (Story 10.15), no adopt (`AdoptObserved`) or Guided recovery in Solution Playback; a Full mismatch there re-solves instead (device-fix round 1, see Spec Change Log).
 
 ## I/O & Edge-Case Matrix
 
@@ -69,6 +69,9 @@ deferred:
 | Verified solved at Objective | Lesson, `objectiveMet`, unconfirmed, VERIFIED match | also `physicalSolveConfirmed = true` (SessionHost records completion; Stage 6 shows the first-solve milestone) | LIKELY/UNKNOWN → not confirmed |
 | Playback Quick Check | `SOLVE_PLAYBACK` physical, started with a `tutorConfig` | Requested/Observed/Cancelled apply as in a Lesson (VERIFIED match → `PHYSICAL_VERIFIED`, mismatch → `PHYSICAL_MISMATCH`) | no `tutorConfig` → Requested ignored |
 | Playback Done in mismatch | `SOLVE_PLAYBACK`, `PHYSICAL_MISMATCH`, Done | Move committed on top (never replaces the last step), `PHYSICAL_PREDICTED` | — |
+| Playback from an accepted scan (round 1) | `SolvePlaybackStarted(S, …, fromAcceptedScan = true)` (Solve-tab scan confirmed unchanged in the Editor), then *Follow on my cube*, k Moves confirmed | `observed` Full S and `touchedSinceVerified` = {} at start, kept through the switch to physical; the Quick Check plans only the faces the k Moves touched (≤ 2 captures, {U, F} with none) | manual entry or edited colors: no baseline, all six faces as before; a switch back to virtual drops the baseline |
+| Playback Full mismatch (round 1) | `SOLVE_PLAYBACK` physical, `PHYSICAL_MISMATCH`, `observed` Full O | `canResolveObserved`; *Use my cube as it is now* (`btn.physical.use-my-cube`) solves O off the main thread through `SolveFlowViewModel` (the Solve-tab path) and restarts playback from O (`fromAcceptedScan = true`) in physical mode | the session moved on meanwhile → result dropped; a failed solve shows its recovery copy and keeps the action |
+| Playback Partial mismatch (round 1) | `SOLVE_PLAYBACK` physical, `PHYSICAL_MISMATCH`, `observed` Partial | *Scan all 6 faces* (`offersFullScan`) as in a Lesson; no *Use my cube* | — |
 | Partial capture | faces {R, U}, saved calibration | `GuidedScanActivity` prompts each face with its named top (`GuidedScanPlan.reprompt`), assembles, keeps only faces whose stickers are all CONFIDENT, returns that Partial (no review) | none kept → empty Partial (no evidence) |
 | No saved calibration / six faces | any Quick Check | the Guided 6-face Scan with review; Accepted → `Full(state)` | Cancelled / FellBackToEditor → `QuickCheckCancelled` |
 
@@ -120,6 +123,12 @@ deferred:
 - Human gate (not automatable): a device session on the main debug build where the PO confirms the Likely copy and *Scan all 6 faces* label.
 
 ## Spec Change Log
+
+### 2026-11-17 — Device-fix round 1 (PO device session, Galaxy S24 FE, physical Solution Playback)
+
+- **Clarification (baseline):** the first Quick Check in physical playback asked for all six faces because `touchedSinceVerified` was null at the physical run's start. PO decision: a playback started from an accepted scan (the Solve-tab scan whose Facelets the Learner confirmed unchanged in the Editor) counts as the Full verified baseline. `SolvePlaybackStarted.fromAcceptedScan` sets `observed` Full(start) and `touchedSinceVerified` = {}; the `reduce` clearing keeps them while a virtual playback holds that baseline, so they survive the switch to physical. A start from manual color entry (or with any color edited after the scan) keeps the previous behavior.
+- **Scope add (playback recovery):** deviation from the Boundary "no adopt in Solution Playback". In physical playback a Full mismatch now offers *Use my cube as it is now* (same `btn.physical.use-my-cube` key); it re-solves the observed cube through the Solve tab's off-main-thread solver path and restarts playback from it, still following on the real cube, with the observed scan as the new baseline. `AdoptObserved` itself stays Lesson/Practice-only. A Partial mismatch offers *Scan all 6 faces* as in Lessons (already so; now pinned by a test).
+- **Diagnostics only (no assembly rule change):** debug builds log under `CubentiaScanDiag` one `assembly round=first|final|quick` line per scan (`ScanTrace.describe()`: branch, valid-state count, involved faces, chosen turns per face, each sample's 9 read colors with its center) and one `quickCheck` line per applied result (54-letter observed vs expected and the Certainty). Release and benchmark get a no-op.
 
 ## Review Triage Log
 

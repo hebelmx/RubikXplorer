@@ -379,4 +379,66 @@ class QuickCheckSessionTest {
         assertEquals(effect, again.state.pendingQuickCheck)
         assertEquals(emptyList<Effect>(), again.effects)
     }
+
+    @Test fun `playback from an accepted scan keeps the scan as the full baseline into physical mode`() {
+        val start = CubeState.SOLVED.apply(R, U)
+        val playback =
+            SessionState.IDLE.after(
+                SessionEvent.SolvePlaybackStarted(start, listOf(U.inverse(), R.inverse()), T0, TUTOR_CONFIG, fromAcceptedScan = true),
+            )
+        assertEquals(PhysicalObservation.Full(start), playback.observed)
+        assertEquals(emptySet<Face>(), playback.touchedSinceVerified)
+        val physical = playback.after(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0))
+        assertEquals(emptySet<Face>(), physical.touchedSinceVerified)
+        assertEquals(PhysicalObservation.Full(start), physical.observed)
+        val turned = physical.after(SessionEvent.PhysicalConfirmed(U.inverse(), T0))
+        assertEquals(setOf(Face.U), turned.touchedSinceVerified)
+        val effect = requested(turned).pendingQuickCheck!!
+        assertEquals(2, effect.faces.size)
+        assertEquals(true, Face.U in effect.faces)
+        // A switch back to virtual and on again drops the baseline: the cube may have changed meanwhile.
+        val again = physical.after(SessionEvent.ModeSwitched(CubeMode.VIRTUAL, T0), SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0))
+        assertNull(again.touchedSinceVerified)
+        assertEquals(Face.entries.toSet(), requested(again).pendingQuickCheck!!.faces)
+    }
+
+    @Test fun `playback from manual entry still asks for every face`() {
+        val start = CubeState.SOLVED.apply(R, U)
+        val physical =
+            SessionState.IDLE.after(
+                SessionEvent.SolvePlaybackStarted(start, listOf(U.inverse(), R.inverse()), T0, TUTOR_CONFIG),
+                SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0),
+                SessionEvent.PhysicalConfirmed(U.inverse(), T0),
+            )
+        assertNull(physical.observed)
+        assertNull(physical.touchedSinceVerified)
+        assertEquals(Face.entries.toSet(), requested(physical).pendingQuickCheck!!.faces)
+    }
+
+    @Test fun `playback full mismatch offers a re-solve and a partial mismatch offers a full scan`() {
+        val start = CubeState.SOLVED.apply(R, U)
+        val physical =
+            SessionState.IDLE.after(
+                SessionEvent.SolvePlaybackStarted(start, listOf(U.inverse(), R.inverse()), T0, TUTOR_CONFIG, fromAcceptedScan = true),
+                SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0),
+                SessionEvent.PhysicalConfirmed(U.inverse(), T0),
+            )
+        val full = observed(requested(physical), PhysicalObservation.Full(physical.expected.apply(R)))
+        assertEquals(SyncState.PHYSICAL_MISMATCH, full.syncState)
+        assertEquals(true, full.canResolveObserved)
+        assertFalse(full.canAdoptObserved)
+        assertFalse(full.offersFullScan)
+        val pending = requested(physical)
+        val part = observed(pending, partial(physical.expected.apply(R), pending.pendingQuickCheck!!.faces))
+        assertEquals(SyncState.PHYSICAL_MISMATCH, part.syncState)
+        assertFalse(part.canResolveObserved)
+        assertEquals(true, part.offersFullScan)
+        assertFalse(
+            physical()
+                .after(SessionEvent.PhysicalConfirmed(R, T0))
+                .let {
+                    observed(requested(it), PhysicalObservation.Full(it.expected.apply(R)))
+                }.canResolveObserved,
+        )
+    }
 }

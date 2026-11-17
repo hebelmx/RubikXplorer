@@ -265,6 +265,8 @@ fun SolutionPlayback(
     style: RenderStyle = LocalRenderStyle.current,
     quickCheck: QuickCheckCapture? = null,
     requestQuickCheck: (Boolean) -> Unit = {},
+    resolve: ResolveState = ResolveState(),
+    onUseMyCube: () -> Unit = {},
 ) {
     PlaybackFrameLoop(state)
     val tokens = RubikTheme.tokens
@@ -329,6 +331,22 @@ fun SolutionPlayback(
                 if (state.session.offersFullScan) {
                     TextButton(onClick = { requestQuickCheck(true) }, modifier = Modifier.testTag("playback:scanAll")) {
                         Text(strings.resolve(ContentText("btn.physical.scan-all-faces")))
+                    }
+                }
+                // A Full mismatch re-solves from the observed cube and restarts playback from it (PO 2026-11-17).
+                if (state.session.canResolveObserved) {
+                    if (resolve.running) {
+                        androidx.compose.material3.LinearProgressIndicator(Modifier.testTag("playback:resolving"))
+                    } else {
+                        resolve.error?.let {
+                            Text(
+                                strings.resolve(it),
+                                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag("playback:resolveError"),
+                            )
+                        }
+                        TextButton(onClick = onUseMyCube, modifier = Modifier.testTag("playback:useMyCube")) {
+                            Text(strings.resolve(ContentText("btn.physical.use-my-cube")))
+                        }
                     }
                 }
             }

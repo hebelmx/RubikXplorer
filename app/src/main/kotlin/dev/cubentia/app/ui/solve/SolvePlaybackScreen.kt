@@ -27,6 +27,12 @@ import dev.cubentia.application.session.SessionState
 import kotlinx.coroutines.launch
 import dev.cubentia.domain.text.Text as ContentText
 
+/** A re-solve of the observed cube started from playback (*Use my cube as it is now*): running, or failed with [error]. */
+data class ResolveState(
+    val running: Boolean = false,
+    val error: ContentText? = null,
+)
+
 @Composable
 fun SolvePlaybackScreen(
     session: SessionState,
@@ -37,6 +43,8 @@ fun SolvePlaybackScreen(
     modifier: Modifier = Modifier,
     quickCheck: QuickCheckCapture? = null,
     requestQuickCheck: suspend (Boolean) -> Unit = {},
+    resolve: ResolveState = ResolveState(),
+    onUseMyCube: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     BackHandler(onBack = onClose)
@@ -48,9 +56,17 @@ fun SolvePlaybackScreen(
                     Icon(painterResource(R.drawable.ic_close), contentDescription = strings.resolve(ContentText("btn.solve.close")))
                 }
             }
-            SolutionPlayback(playback, strings, Modifier.weight(1f), quickCheck = quickCheck, requestQuickCheck = { full ->
-                scope.launch { requestQuickCheck(full) }
-            })
+            SolutionPlayback(
+                playback,
+                strings,
+                Modifier.weight(1f),
+                quickCheck = quickCheck,
+                requestQuickCheck = { full ->
+                    scope.launch { requestQuickCheck(full) }
+                },
+                resolve = resolve,
+                onUseMyCube = onUseMyCube,
+            )
             if (playback.atEnd) {
                 TextButton(onClick = onLearn, modifier = Modifier.testTag("solve:learnOffer")) {
                     Text(strings.resolve(ContentText("msg.solve.learn-offer")))
