@@ -79,13 +79,17 @@ data class ScanTrace(
     val branch: ScanBranch,
     val turns: Map<Face, Int>,
 ) {
-    /** One sample: the prompted [face], its pose colors, and its nine stickers classified in pixel order (null if malformed). */
+    /**
+     * One sample: the prompted [face], its pose colors, its nine stickers classified in pixel order (null if malformed)
+     * and the pixel indexes read UNCERTAIN ([uncertain]).
+     */
     data class Sample(
         val face: Face,
         val centerColor: Color?,
         val upNeighborColor: Color?,
         val orientationDegrees: Int,
         val read: List<Color>?,
+        val uncertain: List<Int> = emptyList(),
     )
 
     /** One line, `key=value` fields separated by spaces; colors as their initial letter (W Y G B R O), `-` for none. */
@@ -98,7 +102,8 @@ data class ScanTrace(
         ).plus(
             samples.map { sample ->
                 "${sample.face}:c=${letter(sample.centerColor)}/up=${letter(sample.upNeighborColor)}/o=${sample.orientationDegrees}" +
-                    "/read=${sample.read?.joinToString("") { letter(it) } ?: "-"}"
+                    "/read=${sample.read?.joinToString("") { letter(it) } ?: "-"}" +
+                    "/unc=${sample.uncertain.joinToString(",").ifEmpty { "-" }}"
             },
         ).joinToString(" ")
 
@@ -212,12 +217,14 @@ object ScanAssembler {
         return ScanTrace(
             samples.map { sample ->
                 val wellFormed = classifiable && sample.stickers.size == STICKERS && sample.stickers.all { it.isValid() }
+                val reads = if (wellFormed) sample.stickers.map { StickerClassifier.read(it, calibration.centers) } else null
                 ScanTrace.Sample(
                     sample.face,
                     sample.centerColor,
                     sample.upNeighborColor,
                     sample.orientationDegrees,
-                    if (wellFormed) sample.stickers.map { StickerClassifier.read(it, calibration.centers).color } else null,
+                    reads?.map { it.color },
+                    reads?.indices?.filter { reads[it].confidence == StickerConfidence.UNCERTAIN }.orEmpty(),
                 )
             },
             outcome.valid,

@@ -1,5 +1,6 @@
 package dev.cubentia.app.camera
 
+import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.CalibrationOffer
 import dev.cubentia.domain.recognition.CalibrationSession
@@ -14,11 +15,13 @@ import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.recognition.ScanAssembler
 import dev.cubentia.domain.recognition.ScanResult
 import dev.cubentia.domain.recognition.ScanReview
+import dev.cubentia.domain.recognition.StickerClassification
+import dev.cubentia.domain.recognition.StickerClassifier
 import dev.cubentia.domain.recognition.StickerConfidence
 
 /** The Guided Scan Activity's decisions, kept pure so they are unit-tested without a camera or a permission dialog. */
 internal object GuidedScanFlow {
-    /** Only whole, confident posed faces are evidence. No Expected state participates. */
+    /** Only whole posed faces with every non-center sticker CONFIDENT are evidence. No Expected state participates. */
     fun quickCheckOf(
         samples: List<FaceSample>,
         saved: CalibrationCenters,
@@ -32,13 +35,31 @@ internal object GuidedScanFlow {
                     emptyMap(),
                 )
         }
+        // The center's color is fixed by the slot the sample claims, so only its nearest color matters (it must not
+        // read another color, which would mean the wrong face was held; a logo center is exempt, as in assembly): a
+        // close call on the center (device 10.7: a red center near orange under other light) must not drop the face.
+        val centerAgrees =
+            samples
+                .mapNotNull { sample -> sample.centerColor?.let { it to sample } }
+                .groupBy({ it.first }, { it.second })
+                .filterValues { it.size == 1 }
+                .mapValues { (color, claims) ->
+                    val sample = claims.single()
+                    sample.centerPlain == false ||
+                        sample.center?.let { center ->
+                            (StickerClassifier.classify(center, saved) as? StickerClassification.Classified)?.reading?.color == color
+                        } == true
+                }
         return result.observation.copy(
             faces =
                 result.observation.faces.filterKeys { face ->
-                    result.confidence[face]?.let {
-                        it.size == 9 &&
-                            it.all { confidence -> confidence == StickerConfidence.CONFIDENT }
-                    } ==
+                    centerAgrees[Color.home(face)] == true &&
+                        result.confidence[face]?.let {
+                            it.size == 9 &&
+                                it.withIndex().all { (index, confidence) ->
+                                    index == FaceSample.CENTER_INDEX || confidence == StickerConfidence.CONFIDENT
+                                }
+                        } ==
                         true
                 },
         )

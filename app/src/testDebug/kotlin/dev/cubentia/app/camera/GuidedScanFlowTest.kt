@@ -2,6 +2,7 @@ package dev.cubentia.app.camera
 
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.Face
+import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.CalibrationSession
 import dev.cubentia.domain.recognition.CaptureQuality
 import dev.cubentia.domain.recognition.CellReading
@@ -322,5 +323,141 @@ class GuidedScanFlowTest {
         assertEquals(List(9) { Color.RED }, result.faces.getValue(Face.R))
         assertTrue(GuidedScanFlow.quickCheckOf(listOf(uncertain), saved).faces.isEmpty())
         assertTrue(GuidedScanFlow.quickCheckOf(listOf(good.copy(upNeighborColor = null)), saved).faces.isEmpty())
+    }
+
+    /** Device 10.7 (Galaxy S24 FE, CubentiaScanDiag): the two Quick Check sample sets, read letters in pixel order. */
+    private val deviceLabs =
+        mapOf(
+            Color.GREEN to Lab(55.0, -60.0, 40.0),
+            Color.RED to Lab(45.0, 65.0, 45.0),
+            Color.BLUE to Lab(40.0, 10.0, -50.0),
+            Color.ORANGE to Lab(65.0, 45.0, 65.0),
+            Color.WHITE to Lab(90.0, 0.0, 0.0),
+            Color.YELLOW to Lab(85.0, -5.0, 80.0),
+        )
+    private val deviceExpected = "YYRWWBYWWGOBYRWORRBGOBGBOYWGGBRYBGRGRROOOWRYYWOBOBGYGW"
+
+    private fun colorsOf(letters: String) = letters.map { letter -> Color.entries.first { it.name.first() == letter } }
+
+    /** A sample as logged `<face>:c=<center>/up=<up>/o=<deg>/read=<letters>`, each sticker at its color's center. */
+    private fun deviceSample(
+        face: Face,
+        up: Color,
+        read: String,
+        center: Lab? = null,
+    ) = FaceSample(
+        face = face,
+        orientationDegrees = 90,
+        stickers =
+            colorsOf(read).mapIndexed { i, color ->
+                if (i == FaceSample.CENTER_INDEX && center != null) center else deviceLabs.getValue(color)
+            },
+        quality = CaptureQuality.ACCEPTABLE,
+        centerColor = Color.home(face),
+        upNeighborColor = up,
+    )
+
+    private fun deviceCheck(partial: dev.cubentia.domain.recognition.PhysicalObservation.Partial) =
+        dev.cubentia.domain.tutor.Assess.check(
+            dev.cubentia.domain.tutor.CandidateEnumerator(
+                (
+                    dev.cubentia.domain.cube.CubeValidator
+                        .validate(
+                            dev.cubentia.domain.cube
+                                .Facelets(colorsOf(deviceExpected)),
+                        )
+                        as dev.cubentia.domain.cube.ValidationResult.Valid
+                ).state,
+                1,
+                (
+                    dev.cubentia.domain.cube.Notation
+                        .parse("U U' U2 R R' R2 F F' F2 D D' D2 L L' L2 B B' B2")
+                        as dev.cubentia.domain.cube.NotationResult.Parsed
+                ).moves,
+            ),
+            partial,
+            setOf(Face.U, Face.R),
+        )
+
+    @Test fun `device quick check of U and R on the expected cube keeps both faces and verifies`() {
+        // Data point 1: R's red center read close to orange (UNCERTAIN, nearest still red); round 1 dropped R for it.
+        val closeCall = Lab(53.0, 57.0, 53.0)
+        val samples =
+            listOf(
+                deviceSample(Face.U, Color.BLUE, "RBWYWWYWY"),
+                deviceSample(Face.R, Color.WHITE, "BWRORRGYO", center = closeCall),
+            )
+        val partial = GuidedScanFlow.quickCheckOf(samples, CalibrationCenters(deviceLabs))
+        assertEquals(setOf(Face.U, Face.R), partial.faces.keys)
+        assertEquals(colorsOf("YYRWWBYWW"), partial.faces.getValue(Face.U))
+        assertEquals(colorsOf("GOBYRWORR"), partial.faces.getValue(Face.R))
+        val check = deviceCheck(partial)
+        assertEquals(dev.cubentia.domain.tutor.Certainty.VERIFIED, check.certainty)
+        assertEquals(listOf(emptyList<dev.cubentia.domain.cube.Move>()), check.consistent.map { it.moves })
+    }
+
+    @Test fun `device quick check after a wrong R turn orients R by its prompted top and is likely, not verified`() {
+        // Data point 2: the raw R read equals the expected R face only because R itself was turned a quarter.
+        val samples =
+            listOf(
+                deviceSample(Face.U, Color.BLUE, "OBWYWWYWY"),
+                deviceSample(Face.R, Color.WHITE, "GOBYRWORR"),
+            )
+        val partial = GuidedScanFlow.quickCheckOf(samples, CalibrationCenters(deviceLabs))
+        assertEquals(colorsOf("YYOWWBYWW"), partial.faces.getValue(Face.U))
+        assertEquals(colorsOf("OYGRRORWB"), partial.faces.getValue(Face.R))
+        val check = deviceCheck(partial)
+        assertEquals(dev.cubentia.domain.tutor.Certainty.LIKELY, check.certainty)
+        assertFalse(check.matchesExpected)
+        assertEquals(
+            listOf(
+                (
+                    dev.cubentia.domain.cube.Notation
+                        .parse("R") as dev.cubentia.domain.cube.NotationResult.Parsed
+                ).moves,
+            ),
+            check.consistent.map { it.moves },
+        )
+    }
+
+    @Test fun `a quick check face whose center reads another color is dropped`() {
+        val wrongFace = deviceSample(Face.R, Color.WHITE, "BWRORRGYO", center = deviceLabs.getValue(Color.GREEN))
+        val partial =
+            GuidedScanFlow.quickCheckOf(
+                listOf(deviceSample(Face.U, Color.BLUE, "RBWYWWYWY"), wrongFace),
+                CalibrationCenters(deviceLabs),
+            )
+        assertEquals(setOf(Face.U), partial.faces.keys)
+    }
+
+    @Test fun `device quick check 3 orients U and R as the validity-searched full scans of the same cube do`() {
+        // Data point 3: the Partial's R (raw OYGRRORGG, one quarter by its prompted white top) is what the two
+        // 6-face scans of the same cube resolved from validity (13:43 raw OYGRRORGG at R1, 13:46 raw RROGRYGOG at R0).
+        val partial =
+            GuidedScanFlow.quickCheckOf(
+                listOf(deviceSample(Face.U, Color.BLUE, "BBBYWWYWR"), deviceSample(Face.R, Color.WHITE, "OYGRRORGG")),
+                CalibrationCenters(deviceLabs),
+            )
+        val full =
+            dev.cubentia.domain.recognition.ScanAssembler.assemble(
+                listOf(
+                    Face.F to "YOWGGYBBO",
+                    Face.R to "RROGRYGOG",
+                    Face.B to "WOBBBGOGW",
+                    Face.L to "RRGOOWRYY",
+                    Face.U to "BBBYWWYWR",
+                    Face.D to "YBWWYRORG",
+                ).map { (face, read) -> deviceSample(face, Color.WHITE, read).copy(upNeighborColor = null) },
+                CalibrationCenters(deviceLabs),
+            ) as dev.cubentia.domain.recognition.ScanResult.Full
+        val colors = full.facelets.colors
+        assertEquals(colors.subList(0, 9), partial.faces.getValue(Face.U))
+        assertEquals(colors.subList(9, 18), partial.faces.getValue(Face.R))
+        assertEquals(colorsOf("RROGRYGOG"), partial.faces.getValue(Face.R))
+        assertEquals(
+            dev.cubentia.domain.recognition.PartialCheck.Consistent,
+            dev.cubentia.domain.recognition.PartialConsistency
+                .check(partial),
+        )
     }
 }
