@@ -219,7 +219,7 @@ class ScanAccuracyTest {
         val kotlin = report.anyRotation(Input.KOTLIN_READER)
         val pixel = report.anyRotation(Input.CENTER_PIXEL)
         assertEquals(
-            listOf(8, 7, 7, 1),
+            listOf(8, 7, 7, 0),
             listOf(
                 kotlin.size,
                 kotlin.count {
@@ -230,7 +230,7 @@ class ScanAccuracyTest {
             ),
         )
         assertEquals(
-            listOf(12, 10, 11, 2),
+            listOf(12, 10, 11, 0),
             listOf(
                 pixel.size,
                 pixel.count {
@@ -242,8 +242,8 @@ class ScanAccuracyTest {
         )
         val rendered = ScanAccuracyMarkdown.render(report)
         assertTrue("### Any rotation (Story 10.14)" in rendered, rendered)
-        assertTrue("| **Total** | Kotlin reader | 8 | 7 | 7 | 1 | 12.50% |" in rendered, rendered)
-        assertTrue("| Galaxy S24 FE (`SM-S721U1`) | Center pixel | 6 | 4 | 5 | 2 | 33.33% |" in rendered, rendered)
+        assertTrue("| **Total** | Kotlin reader | 8 | 7 | 7 | 0 | 0.00% |" in rendered, rendered)
+        assertTrue("| Galaxy S24 FE (`SM-S721U1`) | Center pixel | 6 | 4 | 5 | 0 | 0.00% |" in rendered, rendered)
     }
 
     @Test

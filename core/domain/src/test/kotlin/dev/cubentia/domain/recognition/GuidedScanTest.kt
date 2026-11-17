@@ -2,9 +2,12 @@ package dev.cubentia.domain.recognition
 
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.CubeValidator
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
+import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Turn
+import dev.cubentia.domain.cube.ValidationResult
 import dev.cubentia.domain.recognition.RecognitionFixtures.CALIBRATION
 import dev.cubentia.domain.recognition.RecognitionFixtures.LABS
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -580,6 +583,69 @@ class GuidedScanTest {
         val calibration = (SelfCalibration.from(samples) as SelfCalibration.Calibrated).calibration
         assertEquals(ScanResult.Full(r2, List(54) { StickerConfidence.CONFIDENT }), ScanAssembler.assemble(samples, calibration))
         assertEquals(emptyList<GuidedScanEffect>(), controller.shoot(faceOf(Face.F), now))
+    }
+
+    /** A deep scramble: one valid state whatever the faces' turns. */
+    private val scrambled =
+        CubeState.SOLVED
+            .apply(
+                listOf(
+                    FaceTurn(Face.R, Turn.CLOCKWISE),
+                    FaceTurn(Face.U, Turn.COUNTERCLOCKWISE),
+                    FaceTurn(Face.F, Turn.HALF),
+                    FaceTurn(Face.L, Turn.CLOCKWISE),
+                    FaceTurn(Face.D, Turn.CLOCKWISE),
+                    FaceTurn(Face.B, Turn.COUNTERCLOCKWISE),
+                    FaceTurn(Face.R, Turn.HALF),
+                    FaceTurn(Face.F, Turn.CLOCKWISE),
+                ),
+            ).toFacelets()
+
+    /** The six first-round captures of [cube], each face as the net draws it, through the default re-prompt. */
+    private fun firstRoundOf(cube: Facelets): Pair<GuidedScanController, List<GuidedScanEffect>> {
+        val controller = GuidedScanController()
+        val effects =
+            GuidedScanPlan.steps.flatMapIndexed { index, step ->
+                val cells =
+                    cube.colors
+                        .subList(
+                            step.face.ordinal * 9,
+                            step.face.ordinal * 9 + 9,
+                        ).map { CellReading(LABS.getValue(it), true) }
+                controller.shoot(stats(cells = cells), index * 10L)
+            }
+        return controller to effects
+    }
+
+    @Test
+    fun `no valid state with two faces involved re-prompts them`() {
+        // Edge UF misread: U7 shows F1's color. Only U and F hold the illegal piece.
+        val misread = Facelets(scrambled.colors.toMutableList().also { it[7] = it[19] })
+        val (controller, effects) = firstRoundOf(misread)
+        assertTrue(effects.none { it is GuidedScanEffect.Done })
+        assertTrue(controller.repeating)
+        assertEquals(2, controller.repromptCount)
+        assertEquals(GuidedScanPlan.reprompt(Face.F), controller.step)
+        val green = misread.colors.subList(Face.F.ordinal * 9, Face.F.ordinal * 9 + 9).map { CellReading(LABS.getValue(it), true) }
+        controller.shoot(stats(cells = green), 1000)
+        assertEquals(GuidedScanPlan.reprompt(Face.U), controller.step)
+    }
+
+    @Test
+    fun `no valid state with more than two faces involved goes straight to review with the best fit (PO 2026-11-16, session B2)`() {
+        // Corner URF misread: U8 shows R0's color. U, R and F hold the illegal piece: a color problem, not a turn.
+        val misread = Facelets(scrambled.colors.toMutableList().also { it[8] = it[9] })
+        val (controller, effects) = firstRoundOf(misread)
+        val done = effects.last() as GuidedScanEffect.Done
+        assertTrue(controller.done)
+        assertFalse(controller.repeating)
+        assertEquals(0, controller.repromptCount)
+        assertTrue(done.samples.all { it.upNeighborColor == null })
+        val calibration = (SelfCalibration.from(done.samples) as SelfCalibration.Calibrated).calibration
+        val full = ScanAssembler.assemble(done.samples, calibration) as ScanResult.Full
+        assertEquals(misread, full.facelets)
+        // Review names the illegal corner through its own validation.
+        assertTrue(CubeValidator.validate(full.facelets) !is ValidationResult.Valid)
     }
 
     @Test

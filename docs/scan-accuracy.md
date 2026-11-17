@@ -64,11 +64,11 @@ Each scan again with every face's stickers turned by a seeded random quarter tur
 |---|---|---:|---:|---:|---:|---:|
 | Lenovo Tab M10 Plus 3rd Gen (`Lenovo TB128XU`) | Kotlin reader | 4 | 4 | 4 | 0 | 0.00% |
 | Lenovo Tab M10 Plus 3rd Gen (`Lenovo TB128XU`) | Center pixel | 6 | 6 | 6 | 0 | 0.00% |
-| Galaxy S24 FE (`SM-S721U1`) | Kotlin reader | 4 | 3 | 3 | 1 | 25.00% |
-| Galaxy S24 FE (`SM-S721U1`) | Center pixel | 6 | 4 | 5 | 2 | 33.33% |
+| Galaxy S24 FE (`SM-S721U1`) | Kotlin reader | 4 | 3 | 3 | 0 | 0.00% |
+| Galaxy S24 FE (`SM-S721U1`) | Center pixel | 6 | 4 | 5 | 0 | 0.00% |
 | Galaxy Tab S7 FE (`SM-T738U`) | — | no fixtures | — | — | — | — |
-| **Total** | Kotlin reader | 8 | 7 | 7 | 1 | 12.50% |
-| **Total** | Center pixel | 12 | 10 | 11 | 2 | 16.67% |
+| **Total** | Kotlin reader | 8 | 7 | 7 | 0 | 0.00% |
+| **Total** | Center pixel | 12 | 10 | 11 | 0 | 0.00% |
 
 ### Per group
 

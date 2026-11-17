@@ -64,10 +64,20 @@ sealed interface ScanResult {
  * When zero or several distinct states fit, the scan never guesses: [assemble] still returns `Full` of the first
  * candidate in enumeration order (the valid states if any, else the assignments with the most legal pieces), with every
  * non-center sticker of a face whose colors differ across the candidates UNCERTAIN, and [repromptFaces] names the faces
- * to re-prompt with a named top.
+ * to re-prompt with a named top. With no valid state, it names them only when they are at most [MAX_REPROMPT_FACES]
+ * (a real turn problem); more faces mean misread colors, which a named top cannot fix, so the scan goes straight to
+ * review with that best fit.
  */
 object ScanAssembler {
     const val STICKERS = 9
+
+    /**
+     * With no valid state, the most faces (center disagreements included) worth re-prompting with a named top: more
+     * involved faces point to misread colors, not turns, so the scan goes to review with the best fit instead (PO
+     * 2026-11-16, device session B2: a pale cube re-prompted 5 of 6 faces with white on top, uselessly). Several valid
+     * states (true ambiguity) always re-prompt the faces that differ.
+     */
+    const val MAX_REPROMPT_FACES = 2
     private const val QUARTER = 90
     private const val TURNS = 4
     private const val CORNER_FACETS = 3
@@ -122,8 +132,8 @@ object ScanAssembler {
     /**
      * The faces to re-prompt with a named top, in order: faces whose center read disagrees with their prompt (a logo
      * center, `centerPlain == false`, never counts), then in Guided Scan plan order the unposed faces that zero or several
-     * valid states leave undecided. Empty when the scan resolves to one state, or when there is nothing to ask (a gap, or
-     * an uncalibrated scan).
+     * valid states leave undecided. Empty when the scan resolves to one state, when there is nothing to ask (a gap, or
+     * an uncalibrated scan), or when no state is valid and more than [MAX_REPROMPT_FACES] faces are involved.
      */
     fun repromptFaces(
         samples: List<FaceSample>,
@@ -306,7 +316,10 @@ object ScanAssembler {
             }
         val order = GuidedScanPlan.steps.map { it.face }
         val disagreeing = order.filter { faces[it.ordinal].centerDisagrees }
-        return Outcome(result, disagreeing + order.filter { it in undecided && it in unposed && it !in disagreeing })
+        val involved = disagreeing + order.filter { it in undecided && it in unposed && it !in disagreeing }
+        // No valid state and many faces involved: misread colors, not turns; review the best fit instead.
+        if (valid.isEmpty() && involved.size > MAX_REPROMPT_FACES) return Outcome(result)
+        return Outcome(result, involved)
     }
 
     private fun sameFace(

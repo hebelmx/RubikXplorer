@@ -349,32 +349,70 @@ class ScanAssemblerTest {
         assertEquals(emptyList<Face>(), ScanAssembler.repromptFaces(reprompted, CALIBRATION))
     }
 
+    /** [scrambled] with edge UF (U7, F1) misread: U7 shows F1's color, a piece no real cubie shows. */
+    private val misreadEdge = Facelets(scrambled.colors.toMutableList().also { it[7] = it[range(Face.F).first + 1] })
+
     @Test
-    fun `a misread sticker re-prompts the faces holding the illegal piece`() {
+    fun `no valid state with one face involved re-prompts it`() {
+        // F is posed (re-prompted earlier), so only U is left to turn.
+        val samples =
+            Face.entries.map { face ->
+                if (face ==
+                    Face.F
+                ) {
+                    capture(misreadEdge, face, 0, 0)
+                } else {
+                    unposed(misreadEdge, face, face.ordinal % 4)
+                }
+            }
+        assertEquals(listOf(Face.U), ScanAssembler.repromptFaces(samples, CALIBRATION))
+    }
+
+    @Test
+    fun `no valid state with two faces involved re-prompts both, in plan order`() {
+        val samples = unposedSamples(misreadEdge, listOf(1, 2, 3, 0, 1, 2))
+        assertEquals(listOf(Face.F, Face.U), ScanAssembler.repromptFaces(samples, CALIBRATION))
+        val full = ScanAssembler.assemble(samples, CALIBRATION) as ScanResult.Full
+        assertEquals(misreadEdge, full.facelets)
+    }
+
+    @Test
+    fun `no valid state with more than two faces involved goes to review with the best fit (PO 2026-11-16, session B2)`() {
         // U8 (corner URF: U8, R0, F2) misread as the corner's own R sticker color: no real corner shows that.
         val colors = scrambled.colors.toMutableList()
         colors[8] = colors[9]
         val misread = Facelets(colors)
         val samples = unposedSamples(misread, listOf(1, 2, 3, 0, 1, 2))
-        assertEquals(listOf(Face.F, Face.R, Face.U), ScanAssembler.repromptFaces(samples, CALIBRATION))
+        assertTrue(ScanAssembler.MAX_REPROMPT_FACES < 3)
+        assertEquals(emptyList<Face>(), ScanAssembler.repromptFaces(samples, CALIBRATION))
         // Review gets the best candidate as read: the true turns, with only the misread wrong.
         val full = ScanAssembler.assemble(samples, CALIBRATION) as ScanResult.Full
         assertEquals(misread, full.facelets)
+        assertEquals(allConfident, full.confidence)
     }
 
     @Test
-    fun `a center that reads another color is re-prompted first, unless it is a logo`() {
-        // The red face shown again at the orange step: its center reads RED under the saved calibration.
+    fun `a center that reads another color is re-prompted first, unless it is a logo, and counts toward the limit`() {
+        // The orange center reads RED; with the misread UF edge (F posed) only U is left to turn: two faces involved.
+        val samples =
+            Face.entries.map { face ->
+                val sample = if (face == Face.F) capture(misreadEdge, face, 0, 0) else unposed(misreadEdge, face, 0)
+                if (face ==
+                    Face.L
+                ) {
+                    sample.copy(stickers = sample.stickers.toMutableList().also { it[4] = LABS.getValue(Color.RED) })
+                } else {
+                    sample
+                }
+            }
+        assertEquals(listOf(Face.L, Face.U), ScanAssembler.repromptFaces(samples, CALIBRATION))
+        val logo = samples.map { if (it.centerColor == Color.ORANGE) it.copy(centerPlain = false) else it }
+        assertEquals(listOf(Face.U), ScanAssembler.repromptFaces(logo, CALIBRATION))
+        // The red face shown again at the orange step, with every other face unposed: more than two faces involved.
         val wrong = scrambled.colors.toMutableList()
         range(Face.L).forEachIndexed { i, index -> wrong[index] = scrambled.colors[range(Face.R).first + i] }
-        val samples = Face.entries.map { face -> unposed(Facelets(wrong), face, 0).copy(face = face) }
-        val involved = ScanAssembler.repromptFaces(samples, CALIBRATION)
-        assertEquals(Face.L, involved.first())
-        val plan = GuidedScanPlan.steps.map { it.face }
-        assertEquals(involved.drop(1), involved.drop(1).sortedBy { plan.indexOf(it) })
-        val logo = samples.map { if (it.centerColor == Color.ORANGE) it.copy(centerPlain = false) else it }
-        val withLogo = ScanAssembler.repromptFaces(logo, CALIBRATION)
-        assertEquals(withLogo.sortedBy { plan.indexOf(it) }, withLogo)
+        val shownTwice = Face.entries.map { face -> unposed(Facelets(wrong), face, 0).copy(face = face) }
+        assertEquals(emptyList<Face>(), ScanAssembler.repromptFaces(shownTwice, CALIBRATION))
         // A disagreeing center alone does not re-prompt a scan that resolves.
         val oneOff =
             unposedSamples(scrambled).map {
