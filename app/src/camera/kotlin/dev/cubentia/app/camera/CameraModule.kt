@@ -10,5 +10,8 @@ import dev.cubentia.app.scan.ScanLauncher
 @InstallIn(SingletonComponent::class)
 abstract class CameraModule {
     @Binds
+    internal abstract fun frameSource(impl: CameraXFrameSource): ScanFrameSource
+
+    @Binds
     abstract fun scanLauncher(impl: CameraScanLauncher): ScanLauncher
 }

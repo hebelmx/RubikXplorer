@@ -35,6 +35,7 @@ fun SolveScreen(
     pausesLesson: Boolean,
     onSolved: suspend (CubeState, List<FaceTurn>) -> Unit,
     modifier: Modifier = Modifier,
+    onScan: (() -> Unit)? = null,
 ) {
     val phase by flow.phase.collectAsState()
     BackHandler(phase != SolvePhase.Home) {
@@ -43,8 +44,15 @@ fun SolveScreen(
     Column(modifier) {
         when (val current = phase) {
             SolvePhase.Home -> {
-                Button(onClick = flow::enterColors, modifier = Modifier.testTag("solve:enterColors")) {
-                    Text(strings.resolve(ContentText("btn.solve.enter-colors")))
+                androidx.compose.foundation.layout.Row {
+                    onScan?.let { scan ->
+                        Button(onClick = scan, modifier = Modifier.testTag("solve:scan")) {
+                            Text(strings.resolve(ContentText("btn.solve.scan")))
+                        }
+                    }
+                    Button(onClick = flow::enterColors, modifier = Modifier.testTag("solve:enterColors")) {
+                        Text(strings.resolve(ContentText("btn.solve.enter-colors")))
+                    }
                 }
                 Box(Modifier.weight(1f)) { FreeCubeScreen(freeCube, showDebugToggles, Modifier.fillMaxSize()) }
             }
@@ -59,6 +67,7 @@ fun SolveScreen(
                         Modifier.padding(horizontal = Spacing.s4).testTag("solve:pauseNote"),
                     )
                 }
+                current.note?.let { Text(strings.resolve(it), Modifier.padding(horizontal = Spacing.s4).testTag("solve:scanNote")) }
                 current.error?.let {
                     Text(strings.resolve(it), Modifier.testTag("solve:error").semantics { liveRegion = LiveRegionMode.Polite })
                 }

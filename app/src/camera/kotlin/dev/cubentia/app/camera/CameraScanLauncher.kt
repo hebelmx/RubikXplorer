@@ -25,6 +25,12 @@ class CameraScanLauncher
                     }
                 }.getOrDefault(false)
 
+        override fun cameraDenied(context: Context): Boolean =
+            androidx.core.content.ContextCompat
+                .checkSelfPermission(context, android.Manifest.permission.CAMERA) !=
+                PackageManager.PERMISSION_GRANTED &&
+                CameraDenialRecord.denied(context)
+
         override fun calibrationIntent(context: Context): Intent =
             guidedScanIntent(context).putExtra(GuidedScanActivity.CALIBRATION_MODE, true)
 

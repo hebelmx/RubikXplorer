@@ -9,27 +9,10 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
 import android.provider.Settings
-import android.view.ViewOutlineProvider
-import android.view.ViewTreeObserver
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.annotation.OptIn
-import androidx.camera.camera2.Camera2Config
-import androidx.camera.core.Camera
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.CameraState
-import androidx.camera.core.CameraXConfig
-import androidx.camera.core.FocusMeteringAction
-import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.ImageProxy
-import androidx.camera.core.Preview
-import androidx.camera.core.SurfaceOrientedMeteringPointFactory
-import androidx.camera.core.UseCaseGroup
-import androidx.camera.lifecycle.ExperimentalCameraProviderConfiguration
-import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -37,14 +20,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.AndroidEntryPoint
-import dev.cubentia.app.ScanDiagnostics
 import dev.cubentia.app.content.CatalogState
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.content.LessonCatalog
@@ -57,14 +38,12 @@ import dev.cubentia.app.ui.scan.ScanReviewScreen
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.domain.recognition.GuidedScanController
 import dev.cubentia.domain.recognition.GuidedScanEffect
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 /**
@@ -95,25 +74,16 @@ class GuidedScanActivity : ComponentActivity() {
         set(value) {
             scan.phase = value
         }
-    private var cameraProvider: ProcessCameraProvider? = null
-    private var camera: Camera? = null
-    private var previewView: PreviewView? = null
+
+    @Inject internal lateinit var frameSource: ScanFrameSource
     private var cameraStarted = false
-
-    /** The preview view's size in pixels, read on the analyzer thread to place the grid; 0 until laid out. */
-    @Volatile private var viewSize = 0 to 0
-
-    /** The last analysed grid, as an AF/AE/AWB point on the analysis frame; null before the first frame. */
-    @Volatile private var meteringGrid: MeteringGrid? = null
-
-    private var analysisUseCase: ImageAnalysis? = null
+    private var previewReady by mutableStateOf(false)
 
     private val permission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
                 phase = scan.capturePhase()
                 clearDenialRecord()
-                startCamera()
                 return@registerForActivityResult
             }
             val rationaleAfter = shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)
@@ -138,7 +108,6 @@ class GuidedScanActivity : ComponentActivity() {
                 scan.saved = (calibrationRepository.load() as? dev.cubentia.application.port.CalibrationLoad.Loaded)?.calibration
                 scan.calibrationLoaded = true
             }
-            startCamera()
         }
         lifecycleScope.launch { lessonCatalog.load() }
         lifecycleScope.launch {
@@ -210,18 +179,17 @@ class GuidedScanActivity : ComponentActivity() {
                     LaunchedEffect(scan.calibrationFinished) {
                         if (scan.calibrationFinished) finishWith(ScanOutcome.Cancelled)
                     }
-                    LaunchedEffect(phase is GuidedScanPhase.Viewfinder || phase is GuidedScanPhase.Calibration) {
-                        if (cameraPhase()) startCamera()
-                    }
-                    val reviewPhase = phase as? GuidedScanPhase.Review
-                    LaunchedEffect(reviewPhase != null) {
-                        if (reviewPhase != null) {
-                            analysisUseCase?.clearAnalyzer()
-                            cameraProvider?.unbindAll()
-                            camera = null
-                            cameraStarted = false
+                    val ready = previewReady && scan.calibrationLoaded
+                    LaunchedEffect(phase::class, ready) {
+                        frameSource.stop()
+                        cameraStarted = false
+                        if (cameraPhase()) {
+                            if (ready) startCamera()
+                        } else {
+                            previewReady = false
                         }
                     }
+                    val reviewPhase = phase as? GuidedScanPhase.Review
                     if (reviewPhase != null) {
                         ScanReviewScreen(
                             reviewPhase.review,
@@ -230,6 +198,17 @@ class GuidedScanActivity : ComponentActivity() {
                                 phase =
                                     reviewPhase.copy(
                                         review = it,
+                                        corrections =
+                                            reviewPhase.corrections +
+                                                it.stickers.indices
+                                                    .filter { i ->
+                                                        it.stickers[i] != reviewPhase.review.stickers[i]
+                                                    }.mapNotNull { i ->
+                                                        it.stickers[i]?.let { c ->
+                                                            i to
+                                                                c
+                                                        }
+                                                    },
                                         edited = reviewPhase.edited || it.stickers != reviewPhase.review.stickers,
                                     )
                             },
@@ -263,23 +242,8 @@ class GuidedScanActivity : ComponentActivity() {
                         GuidedScanScreen(phase, strings, actions, scan.frozen) {
                             AndroidView(
                                 factory = { context ->
-                                    PreviewView(context).also {
-                                        it.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                                        // The scaled preview never draws outside its own pane.
-                                        it.outlineProvider = ViewOutlineProvider.BOUNDS
-                                        it.clipToOutline = true
-                                        it.addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
-                                            viewSize = view.width to view.height
-                                        }
-                                        previewView = it
-                                        // A new preview (calibration ↔ viewfinder swap their panes) needs a fresh bind.
-                                        if (cameraStarted) {
-                                            analysisUseCase?.clearAnalyzer()
-                                            cameraProvider?.unbindAll()
-                                            camera = null
-                                            cameraStarted = false
-                                        }
-                                        startCamera()
+                                    frameSource.preview(context).also {
+                                        previewReady = true
                                     }
                                 },
                                 modifier = Modifier.fillMaxSize(),
@@ -292,6 +256,7 @@ class GuidedScanActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        frameSource.stop()
         shutterSound.release()
         super.onDestroy()
     }
@@ -320,115 +285,18 @@ class GuidedScanActivity : ComponentActivity() {
 
     private fun cameraPhase() = phase is GuidedScanPhase.Viewfinder || phase is GuidedScanPhase.Calibration
 
-    /** Obtains the provider off the main thread, then binds on main once the preview has a viewport. */
     private fun startCamera() {
-        val view = previewView ?: return
-        if (cameraStarted || !hasPermission() || !scan.calibrationLoaded || !cameraPhase()) return
+        if (!previewReady || cameraStarted || !hasPermission() || !scan.calibrationLoaded || !cameraPhase()) return
         cameraStarted = true
-        lifecycleScope.launch {
-            val provider =
-                try {
-                    withContext(Dispatchers.Default) {
-                        configureBackCameraOnly()
-                        ProcessCameraProvider.getInstance(applicationContext).get()
-                    }
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (ignored: Exception) {
-                    if (cameraPhase()) phase = GuidedScanPhase.Unavailable
-                    return@launch
-                }
-            cameraProvider = provider
-            if (cameraPhase()) bindWhenLaidOut(provider, view)
-        }
-    }
-
-    /** Limits CameraX to the back camera; a process that already configured CameraX keeps its configuration. */
-    @OptIn(ExperimentalCameraProviderConfiguration::class)
-    private fun configureBackCameraOnly() {
-        try {
-            ProcessCameraProvider.configureInstance(
-                CameraXConfig.Builder
-                    .fromConfig(Camera2Config.defaultConfig())
-                    .setAvailableCamerasLimiter(CameraSelector.DEFAULT_BACK_CAMERA)
-                    .build(),
-            )
-        } catch (ignored: IllegalStateException) {
-            // Already configured in this process.
-        }
-    }
-
-    private fun bindWhenLaidOut(
-        provider: ProcessCameraProvider,
-        view: PreviewView,
-    ) {
-        val preview = Preview.Builder().build().also { it.surfaceProvider = view.surfaceProvider }
-        val analysis = ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build()
-        analysisUseCase = analysis
-        analysis.setAnalyzer(analyzerExecutor) { image ->
-            try {
-                analyze(image)
-            } finally {
-                image.close()
-            }
-        }
-
-        fun bind(): Boolean {
-            if (!cameraPhase()) return true
-            val viewPort = view.viewPort ?: return false
-            val useCases =
-                UseCaseGroup
-                    .Builder()
-                    .setViewPort(viewPort)
-                    .addUseCase(preview)
-                    .addUseCase(analysis)
-                    .build()
-            try {
-                provider.unbindAll()
-                camera =
-                    provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, useCases).also { bound ->
-                        // Bound but failed to open (in use, disabled, fatal error): the camera-unavailable card,
-                        // never remembered.
-                        bound.cameraInfo.cameraState.observe(this) { state ->
-                            val closed = state.type == CameraState.Type.CLOSED || state.type == CameraState.Type.PENDING_OPEN
-                            if (state.error != null && closed && cameraPhase()) phase = GuidedScanPhase.Unavailable
-                        }
-                    }
-            } catch (ignored: IllegalArgumentException) {
-                phase = GuidedScanPhase.Unavailable
-            } catch (ignored: IllegalStateException) {
-                phase = GuidedScanPhase.Unavailable
-            } catch (ignored: UnsupportedOperationException) {
-                phase = GuidedScanPhase.Unavailable
-            }
-            return true
-        }
-        if (bind()) return
-        view.viewTreeObserver.addOnGlobalLayoutListener(
-            object : ViewTreeObserver.OnGlobalLayoutListener {
-                override fun onGlobalLayout() {
-                    if (bind()) view.viewTreeObserver.removeOnGlobalLayoutListener(this)
-                }
-            },
-        )
+        frameSource.start(this, analyzerExecutor, ::analyze) { if (cameraPhase()) phase = GuidedScanPhase.Unavailable }
     }
 
     /** Analyzer thread: read the frame into stats, drop it, and run the controller — unless a capture is frozen. */
-    private fun analyze(image: ImageProxy) {
+    private fun analyze(frame: ScanFrame) {
         val now = SystemClock.elapsedRealtime()
         if (scan.freeze.isFrozen(now)) return
-        val rotation = image.imageInfo.rotationDegrees
-        val crop = image.cropRect
-        val (width, height) = viewSize
-        // The analysed grid is exactly the region under the drawn grid, whatever the pane's shape (PO 2026-11-16).
-        val grid = ViewfinderGrid.inFrame(width.toDouble(), height.toDouble(), crop.left, crop.top, crop.right, crop.bottom, rotation)
-        meteringGrid = MeteringGrid(image.width, image.height, grid)
-        val reading = FrameReader.locate(image, grid, rotation)
-        val stats = reading.stats
-        // Debug builds log why a face in the grid is not auto-captured, and where its lattice was found (device session
-        // B2); a no-op otherwise.
-        val lattice = reading.lattice
-        ScanDiagnostics.onFrame(stats, now, lattice.scale, lattice.dx, lattice.dy, lattice.score)
+        val rotation = frame.rotationDegrees
+        val stats = frame.stats
         // One snapshot: main may leave calibration while this frame is read.
         val calibrating = phase as? GuidedScanPhase.Calibration
         if (calibrating != null) {
@@ -437,7 +305,15 @@ class GuidedScanActivity : ComponentActivity() {
                 scan.calibrationMeterColor = color
                 ContextCompat.getMainExecutor(this).execute { meterOnGrid() }
             }
-            if (scan.captureCalibration) {
+            val effects = scan.calibrationHold.onFrame(calibrating.session, stats, rotation, now)
+            val coaching = scan.calibrationHold.coaching
+            ContextCompat.getMainExecutor(this).execute {
+                (phase as? GuidedScanPhase.Calibration)
+                    ?.takeIf { it.session === calibrating.session && it.session.pending == null }
+                    ?.let { phase = it.copy(coaching = coaching) }
+            }
+            if (GuidedScanFlow.remeters(effects)) ContextCompat.getMainExecutor(this).execute { meterOnGrid() }
+            if (scan.captureCalibration || effects.any { it is GuidedScanEffect.Capture }) {
                 scan.captureCalibration = false
                 val quality =
                     dev.cubentia.domain.recognition.FrameQuality
@@ -446,7 +322,7 @@ class GuidedScanActivity : ComponentActivity() {
                     if (quality ==
                         dev.cubentia.domain.recognition.CaptureQuality.ACCEPTABLE
                     ) {
-                        FrameReader.centerRing(image, reading.samplingSquare(grid))
+                        frame.ring()
                     } else {
                         null
                     }
@@ -484,7 +360,7 @@ class GuidedScanActivity : ComponentActivity() {
             if (captured != null) {
                 // Capture feedback (PO 2026-11-16): shutter sound, then the frame frozen and shrunk into the net.
                 shutterSound.play(MediaActionSound.SHUTTER_CLICK)
-                vm.frozen = FrozenCapture(++vm.captures, captured.sample.face, previewView?.bitmap?.asImageBitmap())
+                vm.frozen = FrozenCapture(++vm.captures, captured.sample.face, frameSource.snapshot())
             }
             if (vm.phase is GuidedScanPhase.Viewfinder && vm.phase != state) vm.phase = state
             if (GuidedScanFlow.remeters(effects)) meterOnGrid()
@@ -492,47 +368,13 @@ class GuidedScanActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * AF/AE/AWB on the analysed grid (the drawn grid's region of the analysis frame), not the whole frame, so a dark
-     * background cannot wash out the stickers. The point's size is a share of the frame's longer side, so the metered
-     * region stays inside the grid. The lock cancels after [METERING_LOCK_SECONDS] so continuous AF resumes when the
-     * cube moves nearer or farther (PO 2026-11-16).
-     */
-    private fun meterOnGrid() {
-        val grid = meteringGrid ?: return
-        val analysis = analysisUseCase ?: return
-        val square = grid.square
-        val point =
-            try {
-                SurfaceOrientedMeteringPointFactory(grid.width.toFloat(), grid.height.toFloat(), analysis).createPoint(
-                    (square.left + square.side / 2).toFloat(),
-                    (square.top + square.side / 2).toFloat(),
-                    (square.side / maxOf(grid.width, grid.height)).toFloat().coerceIn(0f, 1f),
-                )
-            } catch (ignored: IllegalStateException) {
-                // The analysis use case is no longer bound: nothing to meter.
-                return
-            }
-        val action =
-            FocusMeteringAction
-                .Builder(point, FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE or FocusMeteringAction.FLAG_AWB)
-                .setAutoCancelDuration(METERING_LOCK_SECONDS, TimeUnit.SECONDS)
-                .build()
-        camera?.cameraControl?.startFocusAndMetering(action)
-    }
+    private fun meterOnGrid() = frameSource.meter()
 
     companion object {
         const val CALIBRATION_MODE = "dev.cubentia.calibration"
         const val METERING_LOCK_SECONDS = 3L
     }
 }
-
-/** The analysed grid [square] on a [width]×[height] analysis frame, kept for metering on the main thread. */
-private class MeteringGrid(
-    val width: Int,
-    val height: Int,
-    val square: GridSquare,
-)
 
 /**
  * What survives a configuration change: the controller (touched only on [analyzerExecutor]), its analyzer thread, the
@@ -543,10 +385,13 @@ internal class GuidedScanViewModel : ViewModel() {
     val analyzerExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
     @Volatile var saved: dev.cubentia.domain.recognition.CalibrationCenters? = null
-    var calibrationLoaded = false
+    var calibrationLoaded by mutableStateOf(false)
     var calibrationMode = false
     var saving by mutableStateOf(false)
     var calibrationFinished by mutableStateOf(false)
+
+    val calibrationHold = CalibrationHold()
+    private var corrections: Map<Int, dev.cubentia.domain.cube.Color> = emptyMap()
 
     var calibrationMeterColor: dev.cubentia.domain.cube.Color? = null
 
@@ -568,6 +413,7 @@ internal class GuidedScanViewModel : ViewModel() {
                     if (calibration.fromReview == null) {
                         calibrationFinished = true
                     } else {
+                        corrections = calibration.fromReview.corrections
                         withContext(analyzerExecutor.asCoroutineDispatcher()) { controller = newController() }
                         phase = GuidedScanPhase.Viewfinder()
                     }
@@ -605,7 +451,13 @@ internal class GuidedScanViewModel : ViewModel() {
     fun publish(capture: dev.cubentia.domain.recognition.ScanReview) = publish(GuidedScanPhase.Review(capture))
 
     fun publish(capture: GuidedScanPhase.Review) {
-        if (frozen != null) held = capture else phase = capture
+        val corrected =
+            capture.copy(
+                review = GuidedScanFlow.withCorrections(capture.review, corrections),
+                corrections = corrections,
+                edited = corrections.isNotEmpty(),
+            )
+        if (frozen != null) held = corrected else phase = corrected
     }
 
     /** Main thread: the freeze of capture [id] ended; live view resumes, or a held result is published. */
@@ -631,6 +483,8 @@ internal class GuidedScanViewModel : ViewModel() {
 internal object CameraDenialRecord {
     private const val FILE = "camera_permission"
     private const val KEY_DENIED = "denied_before"
+
+    fun denied(context: Context): Boolean = context.getSharedPreferences(FILE, Context.MODE_PRIVATE).getBoolean(KEY_DENIED, false)
 
     /** Returns whether a denial was recorded before this one, and records this one. */
     fun readAndMark(context: Context): Boolean {

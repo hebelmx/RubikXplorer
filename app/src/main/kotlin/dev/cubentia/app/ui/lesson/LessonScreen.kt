@@ -143,8 +143,7 @@ import dev.cubentia.domain.text.Text as ContentText
  * feature flag is off). [planRecovery] runs a requested Guided recovery's search (tests inject one).
  * [adaptiveAssistance] is the `ADAPTIVE_ASSISTANCE` flag level the Lesson starts with: off, the Hint Ladder
  * is fixed and no Assistance line shows; BETA adds the beta label to the Assistance line (AD-18).
- * [cameraScan] is the `CAMERA_SCAN` flag level: off (v1.0), Stage 6's end-of-course physical prompt
- * asks the learner to compare the cube with the picture; BETA or GA, it offers the camera check.
+ * [cameraCheck] enables camera copy only alongside a wired camera check action.
  * [testMe] is the `TEST_ME` flag level: at BETA, the *Test me* segment carries the beta label and choosing it shows its note (AD-18).
  */
 @Composable
@@ -157,7 +156,7 @@ fun LessonScreen(
     modifier: Modifier = Modifier,
     planRecovery: PlanRecovery = remember { PlanRecovery() },
     adaptiveAssistance: FlagLevel = FlagLevel.OFF,
-    cameraScan: FlagLevel = FlagLevel.OFF,
+    cameraCheck: Boolean = false,
     testMe: FlagLevel = FlagLevel.OFF,
     onPracticeNewScramble: () -> Unit = onClose,
     twoLookPractice: Boolean = false,
@@ -354,7 +353,7 @@ fun LessonScreen(
                     modes,
                     onClose,
                     adaptiveAssistance == FlagLevel.BETA,
-                    camera = cameraScan != FlagLevel.OFF,
+                    camera = cameraCheck,
                     testMeBeta = testMe == FlagLevel.BETA,
                     recognition = recognition,
                     offerAlgorithms = offerAlgorithms,
@@ -907,7 +906,7 @@ private fun cubeSummary(
 
 /**
  * Physical-cube Mode's Objective-met copy, or null in Virtual Mode. Stage 6's last Lesson asks for
- * the first-solve confirmation: the camera variant only when [camera] (`CAMERA_SCAN` BETA/GA), else
+ * the first-solve confirmation: the camera variant only when [camera] is enabled with a camera check action, else
  * the camera-free "compare it with the picture" copy.
  */
 private fun physicalObjectiveMetCopy(

@@ -6,6 +6,14 @@ import dev.cubentia.domain.recognition.ScanReview
 
 /** The Guided Scan Activity's decisions, kept pure so they are unit-tested without a camera or a permission dialog. */
 internal object GuidedScanFlow {
+    fun withCorrections(
+        review: ScanReview,
+        corrections: Map<Int, dev.cubentia.domain.cube.Color>,
+    ): ScanReview {
+        val stickers = review.stickers.mapIndexed { i, color -> corrections[i] ?: color }
+        return ScanReview(stickers, stickers.indexOfFirst { it == null }.takeIf { it >= 0 })
+    }
+
     /** Granted → the viewfinder; otherwise the rationale card comes before any system dialog. */
     fun initialPhase(hasPermission: Boolean): GuidedScanPhase =
         if (hasPermission) GuidedScanPhase.Viewfinder() else GuidedScanPhase.Rationale
@@ -106,5 +114,37 @@ internal class CaptureFreeze(
     companion object {
         /** How long the captured frame stays frozen before it shrinks into the mini net. */
         const val FREEZE_MS = 400L
+    }
+}
+
+/** Analyzer-thread hold, restarted for each immutable swatch session, including retries. */
+internal class CalibrationHold {
+    private var session: dev.cubentia.domain.recognition.CalibrationSession? = null
+    private var controller: GuidedScanController? = null
+
+    val coaching get() = controller?.coaching
+
+    fun onFrame(
+        current: dev.cubentia.domain.recognition.CalibrationSession,
+        stats: dev.cubentia.domain.recognition.FrameStats,
+        rotation: Int,
+        now: Long,
+    ): List<GuidedScanEffect> {
+        if (session !== current) {
+            session = current
+            controller =
+                current.current?.let {
+                    GuidedScanController(
+                        plan =
+                            listOf(
+                                dev.cubentia.domain.recognition
+                                    .ScanStep(it),
+                            ),
+                        reprompt = { emptyList() },
+                    )
+                }
+        }
+        if (current.pending != null) return emptyList()
+        return controller?.onFrame(stats, rotation, now).orEmpty()
     }
 }

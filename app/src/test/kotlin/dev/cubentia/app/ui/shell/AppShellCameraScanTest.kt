@@ -67,11 +67,11 @@ class AppShellCameraScanTest {
         )
 
     @Test
-    fun `CAMERA_SCAN BETA shows the camera prompt at the Stage 6 finale`() {
+    fun `CAMERA_SCAN BETA shows the camera-free prompt at the Stage 6 finale`() {
         meetFinaleObjectiveInPhysicalMode(FlagLevel.BETA)
 
-        rule.onNodeWithText(CAMERA_PROMPT).assertExists()
-        rule.onNodeWithText(CAMERA_FREE_PROMPT).assertDoesNotExist()
+        rule.onNodeWithText(CAMERA_PROMPT).assertDoesNotExist()
+        rule.onNodeWithText(CAMERA_FREE_PROMPT).assertExists()
     }
 
     @Test

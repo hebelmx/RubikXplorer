@@ -129,14 +129,18 @@ class AppShellSolveTest {
 
     private var view: android.view.View? = null
 
-    private fun show(dark: Boolean = false) {
+    private fun show(
+        dark: Boolean = false,
+        scan: (() -> Unit)? = null,
+        cameraScan: dev.cubentia.application.port.FlagLevel = dev.cubentia.application.port.FlagLevel.OFF,
+    ) {
         val catalog = LessonCatalog.of(ContentLoadResult.Loaded(bundle))
         val freeCube = FreeCubeViewModel()
         rule.setContent {
             view = androidx.compose.ui.platform.LocalView.current
             back = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
             CubentiaTheme(darkTheme = dark) {
-                AppShell(host, catalog, freeCube, false, testFlags(), solveFlow = flow)
+                AppShell(host, catalog, freeCube, false, testFlags(cameraScan = cameraScan), solveFlow = flow, onScan = scan)
             }
         }
         rule.waitForIdle()
@@ -151,6 +155,22 @@ class AppShellSolveTest {
         rule.runOnIdle { flow.accept(cube) { state, moves -> host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it) } } }
         rule.waitUntil(10000) { host.state.value.kind == SessionKind.SOLVE_PLAYBACK }
         rule.waitForIdle()
+    }
+
+    @Test fun scanButtonOpensEditorWithTheDenialNote() {
+        show(scan = flow::scanDenied, cameraScan = dev.cubentia.application.port.FlagLevel.GA)
+        click("nav:solve")
+        rule.onNodeWithTag("solve:scan").assertExists()
+        click("solve:scan")
+        rule.onNodeWithTag("solve:scanNote").assertTextEquals("Camera access is off, so enter your cube's colors here.")
+        rule.onNodeWithTag("editor:accept").assertExists()
+    }
+
+    @Test fun offFlagHidesEvenABoundScanAction() {
+        show(scan = { error("Hidden action must not launch") })
+        click("nav:solve")
+        rule.onNodeWithTag("solve:scan").assertDoesNotExist()
+        rule.onNodeWithTag("solve:enterColors").assertExists()
     }
 
     @Test fun solvedEditorEntryOffersLearnAndEndsPlayback() {

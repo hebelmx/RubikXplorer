@@ -12,6 +12,9 @@ interface ScanLauncher {
     /** True only when the device has a usable back camera. */
     fun hasCamera(context: Context): Boolean
 
+    /** Blocking denial-record read; call off the main thread. */
+    fun cameraDenied(context: Context): Boolean = false
+
     /** The explicit intent of the Guided 6-face Scan; start it only through [ScanFlowContract]. */
     fun guidedScanIntent(context: Context): Intent
 
