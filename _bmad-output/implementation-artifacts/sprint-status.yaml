@@ -707,7 +707,6 @@ action_items:
     owner: "Dev (Amelia) + SM"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-16-main-app-entry-points.md"
-<<<<<<< HEAD
   - id: "epic-1-retro-item-55-deferred-min-frame-floor-fails"
     epic: 1
     action: "Prove MinFrameCountMetric fails a capture below MIN_FRAMES on a device (run once with a too-high floor, confirm the failure message) (medium; deferred from epic-1-retro-item-55, MinFrameCountMetric.kt:31; device-only session, #106)"
@@ -720,8 +719,6 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-epic-1-retro-item-55-retarget-net2d-benchmark.md"
-||||||| 1223e62
-=======
   - id: "epic-3-deferred-3-5-outline-ring-pixel-check"
     epic: 3
     action: "Verify the drawn invalid-piece outline ring at pixel level (screenshot test), not only via semantics flags (low; deferred from 3.5, spec-3-5:105)"
@@ -746,4 +743,3 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-3-7-solve-tab-end-to-end.md"
->>>>>>> origin/main
