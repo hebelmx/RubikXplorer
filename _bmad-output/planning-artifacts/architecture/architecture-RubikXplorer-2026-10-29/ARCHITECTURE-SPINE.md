@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports & adapters) + functional core / imperative shell'
 scope: 'RubikXplorer Android app MVP — whole system (FR-1..FR-28, NFR-1..NFR-13); FR-21..FR-28 in progress for v1.1 behind flags (SCP 2026-11-14); FR-29 (P1) deferred'
 status: final
 created: '2026-10-29'
-updated: 2026-11-14
+updated: 2026-11-16
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, NFR-12, NFR-13]
 sources:
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/prd.md
@@ -341,7 +341,7 @@ stateDiagram-v2
 - **Rule:**
   - **Signing:** AAB only, with Play App Signing. The upload keystore lives in GitHub Actions secrets.
   - **Build types:**
-    - `debug` includes StrictMode, every feature flag, and the debug camera source set, which holds the fixture recorder (AD-9).
+    - `debug` includes StrictMode, every feature flag whose entry point is wired in the main app (AD-18), and the debug camera source set, which holds the fixture recorder (AD-9). Debug-only source sets hold developer tools only (recorder, diagnostics, benchmark harnesses); a Learner feature never lives only there, and a debug-only launcher is never a story's acceptance path (SCP 2026-11-16 main-app entry points).
     - `release` and `benchmark` use the release flag levels, so they carry the camera source set only when a release camera flag is above OFF (AD-18).
     - `release` uses R8 with resource shrinking, and its keep rules are owned by `build-logic`.
   - **Release flow:**
@@ -380,6 +380,7 @@ stateDiagram-v2
   - The UI shows the beta label from the flag, through one shared BETA label component (introduced for *Test me*, #137/#141). No feature checks `BuildConfig` directly.
   - **Flags compose the build (SCP 2026-11-14):** when a build type has `CAMERA_SCAN`, `QUICK_SCAN`, `PLACEMENT` or `CASE_RECOGNITION` above OFF, `build-logic` adds the camera source set and its dependencies to that build type; otherwise neither is added.
   - `PLACEMENT`, `QUICK_SCAN` and `CASE_RECOGNITION` may be above OFF only when `CAMERA_SCAN` is above OFF in the same build type. `build-logic` fails the build otherwise, naming the flag.
+  - **Debug levels follow wiring (SCP 2026-11-16 main-app entry points):** `debug` raises a flag above OFF (normally to GA) only once that flag's entry point is wired in the main app, in the same PR. A raised flag never shows a dead or unconnected entry point, and a feature is accepted on the main app build, not through a debug-only launcher.
 
 ### AD-19 — One last-layer matcher
 

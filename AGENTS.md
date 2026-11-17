@@ -14,6 +14,7 @@ Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual o
 - Planning documents and historical records keep the codename RubikXplorer (e.g. `prd-RubikXplorer-…` folders, SCPs, retros, memlogs); never rename them — new code and Learner text say Cubentia.
 - Never edit a `.memlog.md` by hand; append with `uv run _bmad/scripts/memlog.py append`.
 - Never add the `INTERNET` permission, backup, or any analytics/ads/crash SDK — NFR-8 promises "no data collected" (AD-13).
+- Test features on the main app build, from their real entry point: debug raises a feature flag above OFF only once that flag's entry point is wired in the main app (in the same PR), and a debug-only launcher or debug-only source set is never a story's device-session or acceptance path; debug-only source sets hold developer tools only (AD-15, AD-18).
 - Never copy third-party solver code; `:core:solver` is a clean-room Kociemba implementation (min2phase is GPLv3-only).
 
 ## Where things are
