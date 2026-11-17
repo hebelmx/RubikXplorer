@@ -112,6 +112,10 @@ class GuidedScanActivity : ComponentActivity() {
         setResult(RESULT_CANCELED)
         if (phase == GuidedScanPhase.Rationale) phase = GuidedScanFlow.initialPhase(hasPermission())
         scan.calibrationMode = intent.getBooleanExtra(CALIBRATION_MODE, false)
+        val solveScan =
+            !scan.calibrationMode &&
+                !intent.hasExtra(QuickCheckContract.EXTRA_FACES) &&
+                !intent.getBooleanExtra(QuickCheckContract.EXTRA_FULL_QUICK_CHECK, false)
         if (phase is GuidedScanPhase.Viewfinder && scan.calibrationMode) phase = scan.capturePhase()
         lifecycleScope.launch {
             if (!scan.calibrationLoaded) {
@@ -143,7 +147,8 @@ class GuidedScanActivity : ComponentActivity() {
                     scan.rationaleBefore = shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)
                     permission.launch(Manifest.permission.CAMERA)
                 },
-                onEnterColors = { finishWith(ScanOutcome.FellBackToEditor) },
+                // Like Close, never leave while a calibration write is in flight.
+                onEnterColors = { if (!scan.saving) finishWith(ScanOutcome.FellBackToEditor) },
                 onOpenSettings = {
                     runCatching {
                         startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
@@ -236,6 +241,7 @@ class GuidedScanActivity : ComponentActivity() {
                                         edited = reviewPhase.edited || it.stickers != reviewPhase.review.stickers,
                                     )
                             },
+                            onEnterColors = actions.onEnterColors.takeIf { solveScan },
                             onCalibrate =
                                 if (reviewPhase.offerCalibration) {
                                     (
@@ -263,7 +269,7 @@ class GuidedScanActivity : ComponentActivity() {
                             },
                         )
                     } else {
-                        GuidedScanScreen(phase, strings, actions, scan.frozen) {
+                        GuidedScanScreen(phase, strings, actions, scan.frozen, offerEnterColors = solveScan) {
                             AndroidView(
                                 factory = { context ->
                                     frameSource.preview(context).also {

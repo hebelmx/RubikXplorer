@@ -185,6 +185,7 @@ internal fun GuidedScanScreen(
     strings: ContentStrings,
     actions: GuidedScanActions,
     frozen: FrozenCapture? = null,
+    offerEnterColors: Boolean = false,
     viewfinder: @Composable () -> Unit = {},
 ) {
     Surface(Modifier.fillMaxSize()) {
@@ -211,7 +212,7 @@ internal fun GuidedScanScreen(
             }
             when (phase) {
                 is GuidedScanPhase.Calibration -> {
-                    CalibrationViewfinder(phase, strings, actions, viewfinder)
+                    CalibrationViewfinder(phase, strings, actions, offerEnterColors, viewfinder)
                 }
 
                 is GuidedScanPhase.Review -> {
@@ -253,7 +254,7 @@ internal fun GuidedScanScreen(
                 }
 
                 is GuidedScanPhase.Viewfinder -> {
-                    Viewfinder(phase, strings, actions, frozen, viewfinder)
+                    Viewfinder(phase, strings, actions, frozen, offerEnterColors, viewfinder)
                 }
             }
         }
@@ -296,6 +297,7 @@ private fun Viewfinder(
     strings: ContentStrings,
     actions: GuidedScanActions,
     frozen: FrozenCapture?,
+    offerEnterColors: Boolean,
     preview: @Composable () -> Unit,
 ) {
     val geometry = remember { ViewfinderGeometry() }
@@ -316,6 +318,7 @@ private fun Viewfinder(
                     CoachingLine(phase, strings)
                     MiniNet(phase, geometry, Modifier.weight(1f).fillMaxWidth())
                     CaptureButtons(phase, strings, actions)
+                    if (offerEnterColors) EnterColorsButton(strings, actions.onEnterColors)
                 }
             }
         } else {
@@ -330,6 +333,7 @@ private fun Viewfinder(
                 ) {
                     MiniNet(phase, geometry, Modifier.weight(1f).fillMaxWidth())
                     CaptureButtons(phase, strings, actions)
+                    if (offerEnterColors) EnterColorsButton(strings, actions.onEnterColors)
                 }
             }
         }
@@ -604,75 +608,95 @@ internal fun labColor(lab: Lab): UiColor {
 }
 
 @Composable
+private fun EnterColorsButton(
+    strings: ContentStrings,
+    onClick: () -> Unit,
+) {
+    OutlinedButton(
+        onClick,
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("scanEnterColors"),
+    ) {
+        Text(strings.resolve(ContentText("btn.scan.enter-colors-instead")))
+    }
+}
+
+@Composable
 private fun CalibrationViewfinder(
     phase: GuidedScanPhase.Calibration,
     strings: ContentStrings,
     actions: GuidedScanActions,
+    offerEnterColors: Boolean,
     preview: @Composable () -> Unit,
 ) {
     val session = phase.session
     val color = session.current
     val geometry = remember { ViewfinderGeometry() }
     val panel: @Composable () -> Unit = {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                // Large type or a short screen must never push Keep or Save out of reach.
-                .verticalScroll(rememberScrollState())
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            val prompt =
-                if (color == null) {
-                    "msg.calibration.done"
-                } else {
-                    "msg.calibration.${if (session.plainSticker) "plain" else "prompt"}.${color.name.lowercase()}"
-                }
-            Text(
-                strings.resolve(ContentText(prompt)),
-                // A polite live region, so TalkBack hears the next color and the plain-sticker re-prompt.
-                Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag("calibration:prompt"),
-            )
-            if (color !=
-                null
+        Column {
+            Column(
+                Modifier
+                    .weight(1f, fill = false)
+                    .fillMaxWidth()
+                    // Large type or a short screen must never push Keep or Save out of reach.
+                    .verticalScroll(rememberScrollState())
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(strings.resolve(ContentText("msg.calibration.progress", mapOf("n" to (session.kept.size + 1).toString()))))
-            }
-            CoachingLine(GuidedScanPhase.Viewfinder(coaching = phase.coaching), strings)
-            session.pending?.let {
-                val swatchName = color?.let { current -> stringResource(colorName(current)) }.orEmpty()
-                Box(
-                    Modifier
-                        .size(48.dp)
-                        .background(labColor(it))
-                        .semantics { contentDescription = swatchName }
-                        .testTag("calibration:swatch"),
-                )
-                Text(strings.resolve(ContentText("msg.calibration.swatch")))
-                Row {
-                    Button(
-                        actions.onKeep,
-                        Modifier.testTag("calibration:keep"),
-                    ) { Text(strings.resolve(ContentText("btn.calibration.keep"))) }
-                    OutlinedButton(
-                        actions.onRetake,
-                        Modifier.testTag("calibration:retake"),
-                    ) { Text(strings.resolve(ContentText("btn.calibration.try-again"))) }
-                }
-            }
-            if (color != null && session.pending == null) {
-                Button(actions.onCapture, Modifier.testTag("calibration:capture")) {
-                    Text(strings.resolve(ContentText("btn.scan.capture")))
-                }
-            }
-            Button(actions.onSave, enabled = session.calibration != null, modifier = Modifier.testTag("calibration:save")) {
-                Text(strings.resolve(ContentText("btn.calibration.save")))
-            }
-            if (phase.saveFailed) {
+                val prompt =
+                    if (color == null) {
+                        "msg.calibration.done"
+                    } else {
+                        "msg.calibration.${if (session.plainSticker) "plain" else "prompt"}.${color.name.lowercase()}"
+                    }
                 Text(
-                    strings.resolve(ContentText("msg.calibration.save-failed")),
-                    Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag("calibration:save-failed"),
+                    strings.resolve(ContentText(prompt)),
+                    // A polite live region, so TalkBack hears the next color and the plain-sticker re-prompt.
+                    Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag("calibration:prompt"),
                 )
+                if (color !=
+                    null
+                ) {
+                    Text(strings.resolve(ContentText("msg.calibration.progress", mapOf("n" to (session.kept.size + 1).toString()))))
+                }
+                CoachingLine(GuidedScanPhase.Viewfinder(coaching = phase.coaching), strings)
+                session.pending?.let {
+                    val swatchName = color?.let { current -> stringResource(colorName(current)) }.orEmpty()
+                    Box(
+                        Modifier
+                            .size(48.dp)
+                            .background(labColor(it))
+                            .semantics { contentDescription = swatchName }
+                            .testTag("calibration:swatch"),
+                    )
+                    Text(strings.resolve(ContentText("msg.calibration.swatch")))
+                    Row {
+                        Button(
+                            actions.onKeep,
+                            Modifier.testTag("calibration:keep"),
+                        ) { Text(strings.resolve(ContentText("btn.calibration.keep"))) }
+                        OutlinedButton(
+                            actions.onRetake,
+                            Modifier.testTag("calibration:retake"),
+                        ) { Text(strings.resolve(ContentText("btn.calibration.try-again"))) }
+                    }
+                }
+                if (color != null && session.pending == null) {
+                    Button(actions.onCapture, Modifier.testTag("calibration:capture")) {
+                        Text(strings.resolve(ContentText("btn.scan.capture")))
+                    }
+                }
+                Button(actions.onSave, enabled = session.calibration != null, modifier = Modifier.testTag("calibration:save")) {
+                    Text(strings.resolve(ContentText("btn.calibration.save")))
+                }
+                if (phase.saveFailed) {
+                    Text(
+                        strings.resolve(ContentText("msg.calibration.save-failed")),
+                        Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag("calibration:save-failed"),
+                    )
+                }
+            }
+            if (offerEnterColors) {
+                Box(Modifier.padding(horizontal = 12.dp)) { EnterColorsButton(strings, actions.onEnterColors) }
             }
         }
     }

@@ -8,6 +8,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -176,10 +177,41 @@ class AppShellSolveTest {
         rule.onNodeWithTag("editor:accept").assertExists()
     }
 
+    @Test fun betaMakesManualEntryPrimaryAndExplainsTheScan() {
+        show(scan = {}, cameraScan = dev.cubentia.application.port.FlagLevel.BETA)
+        click("nav:solve")
+        assertActionOrder("solve:enterColors", "solve:scan")
+        rule.onNodeWithTag("solve:scan").assertContentDescriptionEquals("Scan my cube, BETA")
+        rule.onNodeWithTag("solve:scan:beta", useUnmergedTree = true).assertTextEquals("BETA")
+        rule.onNodeWithTag("solve:scan:betaNote").assertTextEquals("May misread colors in poor light. Manual entry always works.")
+    }
+
+    @Test fun gaKeepsScanPrimaryWithNoBetaCopy() {
+        show(scan = {}, cameraScan = dev.cubentia.application.port.FlagLevel.GA)
+        click("nav:solve")
+        assertActionOrder("solve:scan", "solve:enterColors")
+        assertNoScanBeta()
+    }
+
+    private fun assertActionOrder(
+        first: String,
+        second: String,
+    ) {
+        val firstBounds = rule.onNodeWithTag(first).fetchSemanticsNode().boundsInRoot
+        val secondBounds = rule.onNodeWithTag(second).fetchSemanticsNode().boundsInRoot
+        org.junit.Assert.assertTrue(firstBounds.right <= secondBounds.left)
+    }
+
+    private fun assertNoScanBeta() {
+        rule.onNodeWithTag("solve:scan:beta", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithTag("solve:scan:betaNote").assertDoesNotExist()
+    }
+
     @Test fun offFlagHidesEvenABoundScanAction() {
         show(scan = { error("Hidden action must not launch") })
         click("nav:solve")
         rule.onNodeWithTag("solve:scan").assertDoesNotExist()
+        assertNoScanBeta()
         rule.onNodeWithTag("solve:enterColors").assertExists()
     }
 

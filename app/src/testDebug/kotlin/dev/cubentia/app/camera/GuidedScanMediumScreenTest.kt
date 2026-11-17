@@ -7,6 +7,7 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.ui.theme.CubentiaTheme
@@ -64,5 +65,29 @@ class GuidedScanMediumScreenTest {
         }
         assertTrue(viewfinder.inside(root))
         assertEquals(0, rule.onAllNodes(hasScrollAction()).fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun `the wide Solve viewfinder shows Enter colors instead beside the preview`() {
+        var entered = false
+        rule.setContent {
+            CubentiaTheme {
+                GuidedScanScreen(
+                    GuidedScanPhase.Viewfinder(stepIndex = 0, coaching = Coaching.MISALIGNED, canUseAnyway = true),
+                    strings,
+                    GuidedScanActions(onEnterColors = { entered = true }),
+                    offerEnterColors = true,
+                )
+            }
+        }
+        val root = rule.onRoot().getUnclippedBoundsInRoot()
+        val viewfinder = rule.onNodeWithTag("scanViewfinder").assertIsDisplayed().getUnclippedBoundsInRoot()
+        val button = rule.onNodeWithTag("scanEnterColors").assertIsDisplayed()
+        val bounds = button.getUnclippedBoundsInRoot()
+        assertFalse("scanEnterColors $bounds overlaps the preview $viewfinder", bounds.overlaps(viewfinder))
+        assertTrue("scanEnterColors $bounds inside $root", bounds.inside(root))
+        assertTrue(bounds.bottom - bounds.top >= 48.dp)
+        button.performClick()
+        assertTrue(entered)
     }
 }

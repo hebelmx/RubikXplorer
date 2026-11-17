@@ -65,6 +65,8 @@ import dev.cubentia.domain.recognition.ScanReview
 import java.util.Locale
 import dev.cubentia.domain.text.Text as ContentText
 
+private enum class DiscardAction { CLOSE, ENTER_COLORS }
+
 /**
  * Renders immutable review decisions; all sticker edits are delegated to the domain value. While
  * [coachMarkPending] (the Learner's first review) and a sticker needs a color, a one-time coach mark
@@ -86,12 +88,13 @@ fun ScanReviewScreen(
     onCoachMarkDismissed: () -> Unit = {},
     onCalibrate: (() -> Unit)? = null,
     edited: Boolean = false,
+    onEnterColors: (() -> Unit)? = null,
 ) {
     var face by rememberSaveable { mutableIntStateOf((review.selected ?: 0) / 9) }
     LaunchedEffect(review.selected) { review.selected?.let { face = it / 9 } }
     var changed by rememberSaveable { mutableStateOf(edited) }
     var confirmCalibration by rememberSaveable { mutableStateOf(false) }
-    var confirmDiscard by rememberSaveable { mutableStateOf(false) }
+    var discardAction by rememberSaveable { mutableStateOf<DiscardAction?>(null) }
     var coachVisible by rememberSaveable { mutableStateOf(false) }
     val needsFix = review.blanks.isNotEmpty()
     LaunchedEffect(coachMarkPending && needsFix) {
@@ -188,12 +191,20 @@ fun ScanReviewScreen(
             }
             // Always enabled, in `ink-primary`: never greyed.
             OutlinedButton(
-                onClick = { if (changed) confirmDiscard = true else onClose() },
+                onClick = { if (changed) discardAction = DiscardAction.CLOSE else onClose() },
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = tokens.inkPrimary),
                 border = BorderStroke(1.dp, tokens.hairline),
                 modifier = Modifier.fillMaxWidth().testTag("review:close"),
             ) {
                 Text(strings.resolve(ContentText("btn.scan.close")))
+            }
+            if (onEnterColors != null) {
+                OutlinedButton(
+                    onClick = { if (changed) discardAction = DiscardAction.ENTER_COLORS else onEnterColors() },
+                    modifier = Modifier.fillMaxWidth().testTag("review:enterColors"),
+                ) {
+                    Text(strings.resolve(ContentText("btn.scan.enter-colors-instead")))
+                }
             }
         }
     }
@@ -216,21 +227,25 @@ fun ScanReviewScreen(
             },
         )
     }
-    if (confirmDiscard) {
+    val pendingDiscard = discardAction
+    if (pendingDiscard != null) {
         AlertDialog(
-            onDismissRequest = { confirmDiscard = false },
+            onDismissRequest = { discardAction = null },
             title = { Text(strings.resolve(ContentText("msg.scan.discard-title"))) },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        confirmDiscard = false
-                        onClose()
+                        discardAction = null
+                        when (pendingDiscard) {
+                            DiscardAction.CLOSE -> onClose()
+                            DiscardAction.ENTER_COLORS -> onEnterColors?.invoke()
+                        }
                     },
                     modifier = Modifier.testTag("review:discard:confirm"),
                 ) { Text(strings.resolve(ContentText("btn.scan.discard"))) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDiscard = false }, modifier = Modifier.testTag("review:discard:cancel")) {
+                TextButton(onClick = { discardAction = null }, modifier = Modifier.testTag("review:discard:cancel")) {
                     Text(strings.resolve(ContentText("btn.scan.cancel")))
                 }
             },

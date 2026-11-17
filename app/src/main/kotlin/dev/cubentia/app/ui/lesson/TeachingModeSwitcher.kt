@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,7 +30,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.R
-import dev.cubentia.app.ui.theme.Radii
+import dev.cubentia.app.ui.beta.BetaLabel
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.domain.tutor.TeachingMode
@@ -144,15 +143,11 @@ private fun Segment(
         } else {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(text = text, style = MaterialTheme.typography.labelLarge, color = ink)
-                Text(
+                BetaLabel(
                     text = badge.label,
                     style = MaterialTheme.typography.labelMedium,
                     color = ink,
-                    modifier =
-                        Modifier
-                            .border(1.dp, ink, RoundedCornerShape(Radii.xs))
-                            .padding(horizontal = Spacing.s1)
-                            .testTag("mode:${mode.name}:beta"),
+                    modifier = Modifier.testTag("mode:${mode.name}:beta"),
                 )
             }
         }

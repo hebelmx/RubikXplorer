@@ -1,12 +1,9 @@
 package dev.cubentia.app.ui.lesson
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -17,9 +14,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import dev.cubentia.app.content.ContentStrings
-import dev.cubentia.app.ui.theme.Radii
+import dev.cubentia.app.ui.beta.BetaLabel
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.application.session.SessionState
@@ -69,15 +65,11 @@ internal fun AssistanceLine(
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Spacing.s1)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.s1)) {
             content.beta?.let { beta ->
-                Text(
+                BetaLabel(
                     text = beta,
                     style = MaterialTheme.typography.bodySmall,
                     color = tokens.inkSecondary,
-                    modifier =
-                        Modifier
-                            .border(1.dp, tokens.inkSecondary, RoundedCornerShape(Radii.xs))
-                            .padding(horizontal = Spacing.s1)
-                            .testTag("lesson:assistance:beta"),
+                    modifier = Modifier.testTag("lesson:assistance:beta"),
                 )
             }
             Text(

@@ -81,6 +81,7 @@ class ScanReviewScreenTest {
     )
     private var accepted: CubeState? = null
     private var closed = false
+    private var enterColors: (() -> Unit)? = null
     private var coachPending by mutableStateOf(false)
     private var coachDismissed = 0
     private var ticks = 0
@@ -116,12 +117,43 @@ class ScanReviewScreenTest {
             { review = it },
             { accepted = it },
             { closed = true },
+            onEnterColors = enterColors,
             coachMarkPending = coachPending,
             onCoachMarkDismissed = {
                 coachPending = false
                 coachDismissed++
             },
         )
+    }
+
+    @Test fun manualEntryLeavesAnUnchangedReviewDirectly() {
+        var entered = false
+        enterColors = { entered = true }
+        launch()
+        rule.onNodeWithTag("review:enterColors").performScrollTo().performClick()
+        rule.onNodeWithTag("review:discard").assertDoesNotExist()
+        assertTrue(entered)
+        assertFalse(closed)
+    }
+
+    @Test fun manualEntryAsksBeforeDiscardingStickerEdits() {
+        var entered = false
+        enterColors = { entered = true }
+        launch()
+        rule.onNodeWithTag("swatch:WHITE").performScrollTo().performClick()
+        rule.onNodeWithTag("review:enterColors").performScrollTo().performClick()
+        rule.onNodeWithTag("review:discard:cancel").performClick()
+        assertFalse(entered)
+        assertEquals(Color.WHITE, review.stickers[7])
+        rule.onNodeWithTag("review:enterColors").performScrollTo().performClick()
+        rule.onNodeWithTag("review:discard:confirm").performClick()
+        assertTrue(entered)
+        assertFalse(closed)
+    }
+
+    @Test fun reviewWithoutSolveOfferDoesNotAddManualEntry() {
+        launch()
+        rule.onNodeWithTag("review:enterColors").assertDoesNotExist()
     }
 
     @Test fun `blank selected stickers paint with auto advance and accept only after validation`() {

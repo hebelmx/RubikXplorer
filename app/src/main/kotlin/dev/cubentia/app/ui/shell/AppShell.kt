@@ -696,6 +696,7 @@ private fun ShellContent(
                         showDebugToggles,
                         session.kind?.takesMoves == true,
                         onScan = onScan.takeIf { flags.isEnabled(FeatureFlag.CAMERA_SCAN) },
+                        scanBeta = flags.level(FeatureFlag.CAMERA_SCAN) == FlagLevel.BETA,
                         onSolved = {
                             state,
                             moves,
