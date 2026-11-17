@@ -161,7 +161,8 @@ stateDiagram-v2
     - It uses one `CandidateEnumerator(expected, maxDepth, moveSet)`, with `maxDepth` and `moveSet` taken from tutor configuration data.
     - `VERIFIED` requires both of:
       - the observed faces cover every face that any Move since the last `Full` VERIFIED observation could have touched;
-      - exactly one candidate is consistent.
+      - exactly one candidate is consistent;
+      - for a `Partial`, that candidate is the empty sequence `[]` (a match). A `Partial` verifies only `[]`; only a `Full` observation verifies a mismatch. A `Partial` mismatch with one consistent candidate is at most `LIKELY`. It still moves Sync State to `PHYSICAL_MISMATCH`, keeps that candidate as the leading hypothesis and offers a Guided 6-face Scan *(SCP 2026-11-17)*.
     - Otherwise the result is `LIKELY` or `UNKNOWN`.
     - `Diagnosis.verified(...)` is a smart constructor that requires a unique match.
   - **Categorical only:** `Certainty` is `{VERIFIED, LIKELY, UNKNOWN}` and `StickerConfidence` is `{CONFIDENT, UNCERTAIN}`. No numeric confidence crosses a module boundary.

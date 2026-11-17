@@ -59,7 +59,7 @@ FR-22: Quick Scan: 2–3 corner-angle captures, each showing three faces; two op
 FR-23: Review a Scan Result on a net (or 3D cube), correct any sticker, accept only once valid; invalid states name likely bad stickers; 54 recognized colors never valid by themselves; low light/glare/blur/incomplete capture → specific guidance and recapture.
 FR-24: Color Calibration from the six centers; stickers classified against the cube's own centers (stickerless/pastel work after calibration); persists per device, resettable; standard color scheme only [ASSUMPTION].
 FR-25: Scan to solve in *Solve my cube*: scan → correct → validate → solve → playback without leaving the flow; Solver never called on an unvalidated Scan Result; camera permission denied → Manual Cube Editor.
-FR-26: Quick Check in Physical-cube Mode (Guided 6-face Scan or only affected faces, ≤ 2 captures [ASSUMPTION]): match → recorded *verified*; mismatch → observed faces become Diagnosis evidence; *verified* only when exactly one candidate Move sequence fits, otherwise *likely* + offer a Guided 6-face Scan; Learner can adopt the observed state for Guided recovery; offered at milestones and after mismatches, never required.
+FR-26: Quick Check in Physical-cube Mode (Guided 6-face Scan or only affected faces, ≤ 2 captures [ASSUMPTION]): match → recorded *verified*; mismatch → observed faces become Diagnosis evidence; *verified* only when exactly one candidate Move sequence fits, and a Quick Check of only some faces verifies only a match (a mismatch is verified only by a Guided 6-face Scan), otherwise *likely* + offer a Guided 6-face Scan *(SCP 2026-11-17)*; Learner can adopt the observed state for Guided recovery; offered at milestones and after mismatches, never required.
 FR-27: Placement: scan a cube, evaluate every Stage Predicate, suggest the first unmet Stage (white cross only [ASSUMPTION]); Learner accepts or picks another; earlier Stages marked *skipped by placement*, never *mastered*, always revisitable.
 FR-28: Recognize an OLL/PLL Case from one corner capture (U + two sides): compare against every Case's derived pattern under AUF; ambiguous → list candidates or ask for another angle; F2L not solved → say so and offer Placement; offer (never force) an Algorithm Status change.
 FR-29 (P1, out of MVP scope): recognition and execution drills with spaced repetition and a per-Algorithm mastery rule separate from Algorithm Status.
@@ -1892,7 +1892,7 @@ So that scans read it correctly.
 
 **Acceptance Criteria:**
 
-**Given** many uncertain stickers in a scan, a first stickerless scan, or Settings
+**Given** many uncertain stickers in a scan, a first stickerless scan, or Settings *(SCP 2026-11-17 annotation, PO decision of 2026-11-17 at device session B3: "a first stickerless scan" means a first scan that reads uncertain. The review offers calibration only on uncertain reads (NeedsCalibration, a guarded center with no saved calibration, or 6 or more blank stickers). A clean scan gets no offer, and Settings → Color calibration is always available. No scope change.)*
 **When** "Colors look off — calibrate?" or Settings → Color Calibration is chosen
 **Then** each of the six colors is shown in turn, sampled from a plain sticker of that color (a logo or printed center is rejected or excluded from the sample, per the UX pass), an implausible swatch is refused with a plain re-prompt, the Learner confirms each swatch, and *Save* calls `UpdateCalibration` *(SCP 2026-11-15: a logo white center gave a bad WHITE and a 53/54 read in session A)*
 
@@ -1971,8 +1971,8 @@ So that the tutor's verdict is based on evidence.
 **Then** it is checked for internal consistency only and never completed from `expected`
 
 **Given** `Assess`
-**When** the observed faces cover every face any Move since the last Full verified observation could touch and exactly one candidate fits
-**Then** Certainty is VERIFIED; otherwise LIKELY or UNKNOWN, and a scenario suite yields 0 false *verified*
+**When** the observed faces cover every face any Move since the last Full verified observation could touch and exactly one candidate fits, and for a `Partial` that candidate is the empty sequence (a match)
+**Then** Certainty is VERIFIED; otherwise LIKELY or UNKNOWN, and a scenario suite yields 0 false *verified*. A `Partial` mismatch with one consistent candidate is LIKELY: Sync State still moves to PHYSICAL_MISMATCH, that candidate stays the leading hypothesis, and a Guided 6-face Scan is offered. Only a Full observation verifies a mismatch *(SCP 2026-11-17: out-of-model errors made about 0.14% of Partial VERIFIED mismatches false)*
 
 **Given** a stale result (the Learner confirmed a Move during the scan)
 **When** it arrives
@@ -2022,7 +2022,7 @@ So that each ships with an honest GA or BETA label.
 
 **Given** the OQ-8 matrix (stickered and stickerless cubes × daylight, warm indoor, cool LED, low light × Lenovo Tab M10 Plus 3rd Gen (minimum, gating), Galaxy S24 FE (mid, gating), Galaxy Tab S7 FE (compatibility, reported)) *(SCP 2026-11-14: devices named)*
 **When** Guided 6-face Scan, Quick Check, and each Epic 11 feature that is built are run with recorded ground truth
-**Then** accuracy, corrections, time and confidently-wrong rates are reported against the §4.8 targets in `docs/benchmarks.md` (or `docs/spikes/oq-8-recognition-matrix.md`)
+**Then** accuracy, corrections, time and confidently-wrong rates are reported against the §4.8 targets in `docs/benchmarks.md` (or `docs/spikes/oq-8-recognition-matrix.md`), and the report states the Story 10.6 known residual risk *(SCP 2026-11-17)*: a constructed face-preserving sequence (e.g. `R U2 R'` with plan faces {B, D}) can make a Partial match falsely VERIFIED (1 of 44 such sequences in 123,500 tried). The report gives its measured rate in the Quick Check scenario suite and a recommendation
 
 **Given** the results
 **When** a target is missed

@@ -221,7 +221,7 @@ The flows mirror the PRD's user journeys UJ-1 to UJ-6.
 3. In Stage 2 *First cross* she switches to Physical-cube Mode. A Confirm-your-cube card appears, and she taps *It matches*. The frame changes to EXPECTED.
 4. She watches the Demonstration, turns her cube, and taps **Done**. "If your cube matches the picture, this step is done." The Notice line appears, the frame stays EXPECTED, and *Quick Check* is offered.
 5. In Stage 3 she turns the wrong way and taps *My cube doesn't match*. The chip shows ? *Unknown*: "I can't tell what happened yet. Scan the front and right faces?"
-6. The Quick Check returns, and the chip changes to ✓ *Verified*: "That turn moved the cross." A recovery prompt offers *Undo* or *Guide me back*. She picks *Guide me back*.
+6. The Quick Check returns, and the chip changes to ≈ *Likely*: "That turn probably moved the cross." A recovery prompt offers *Undo* or *Guide me back*, plus *Scan all 6 faces* to be sure. A Quick Check verifies only a match (SCP 2026-11-17). She picks *Guide me back*.
 7. Sessions later, Stage 6 ends. "Your cube should be solved now. Check it with the camera, or tell me if it is." She runs a Quick Check, and it comes back ✓ *Verified*.
 8. **Climax:** the milestone moment. "Solved. That's your first solve — on your own cube." Then *Practice on a new scramble* is offered.
 
@@ -252,7 +252,7 @@ The flows mirror the PRD's user journeys UJ-1 to UJ-6.
 
 1. Welcome → **Start from my cube** → Guided 6-face Scan → review → Accept.
 2. Placement: "Your cross is done and 2 of 4 corners are in. Start at *First-layer corners*?" He can also tap *Choose another Stage*, but he accepts. Stages 1–2 show ◇ *Skipped by placement*.
-3. In Physical mode he makes a mistake. A Quick Check gives ✓ *Verified*: "You turned R instead of R'." The fix is shown.
+3. In Physical mode he makes a mistake. A Quick Check gives ≈ *Likely*: "You probably turned R instead of R'." He takes the *Scan all 6 faces* offer, the Guided 6-face Scan gives ✓ *Verified*, and the fix is shown. Only a full scan verifies a mismatch (SCP 2026-11-17).
 4. **Climax:** the layer is complete, Stage 3 is marked *Completed*, and Stages 1–2 remain open to visit.
 
 ### Flow 5 — Diego asks which OLL this is (UJ-5) *(v1.1, flag-gated)*
@@ -330,7 +330,7 @@ These mockups show composition only. Where a mockup and this spine disagree, the
 | --- | --- |
 | `mockups/key-lesson-phone.html` | Compact Lesson, *Guide me* before the Move, light and dark |
 | `mockups/key-lesson-tablet.html` | Expanded Lesson, Objective met |
-| `mockups/key-physical-and-scan.html` | **v1.1 reference.** Physical-cube Mode after a Quick Check (Verified, recovery prompt) with an inset of the Unknown state; Quick Scan sticker review with glyphs on |
+| `mockups/key-physical-and-scan.html` | **v1.1 reference.** Physical-cube Mode after a Guided 6-face Scan (Verified mismatch, recovery prompt; a Quick Check verifies only a match, SCP 2026-11-17) with an inset of the Unknown state; Quick Scan sticker review with glyphs on |
 | `mockups/key-library.html` | Library (dark) and Algorithm detail with the playback transport |
 
 The mockups predate the finalize edits, so they don't show a few of them: the cube-stage toolbar (Undo / Redo / Reset), the Assistance line and the SEEN strip. The tablet mockup also shows the virtual Objective-met state; the physical variant uses the "If your cube matches…" wording. [NOTE FOR UX: re-render them if a visual reference is needed for these.]

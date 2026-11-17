@@ -513,7 +513,7 @@ In Physical-cube Mode, the Learner can scan to confirm their real cube matches t
 **Consequences (testable):**
 - If the scan matches, the confirmation is recorded with Certainty *verified*.
 - If it doesn't match, the tutor gets the observed faces as evidence for Diagnosis (FR-10).
-- The tutor reports *verified* only when the observed faces fit exactly one candidate Move sequence from the Expected State (e.g. "you turned `R` instead of `R'`"). If several fit, it reports *likely* and offers a Guided 6-face Scan.
+- The tutor reports *verified* only when the observed faces fit exactly one candidate Move sequence from the Expected State. A Quick Check of only some faces can verify only a match. A mismatch is *verified* only by a Guided 6-face Scan (e.g. "you turned `R` instead of `R'`"). When a Quick Check shows a mismatch, or several candidates fit, the tutor reports *likely* and offers a Guided 6-face Scan. *(SCP 2026-11-17: never a false* verified *(FR-10) outranks verifying a mismatch from a few faces.)*
 - The Learner can adopt the observed state as the new starting point for a Guided recovery.
 - The tutor offers a Quick Check at Stage milestones and after reported mismatches, but never requires one. *Done* still works (FR-7).
 - [ASSUMPTION: a Quick Check takes at most two captures.]
@@ -728,6 +728,7 @@ Recorded in `.memlog.md`:
 - Reference devices: minimum Lenovo Tab M10 Plus 3rd Gen, mid Samsung Galaxy S24 FE (PO, 2026-11-12, SCP 2026-11-12). The Galaxy Tab S7 FE 5G, the minimum from 2026-10-30 (ARCH-OQ-1), is kept as an additional compatibility device.
 - Public website and privacy policy in a separate repository, `hebelmx/cubentia-site`, on GitHub Pages; the app repository keeps the source (PO, 2026-11-13, SCP 2026-11-13).
 - 2026-11-14: camera recognition restored to the plan as v1.1, flag-gated; per-feature release levels set by the PO at each release (SCP 2026-11-14).
+- 2026-11-17: a Quick Check (Partial observation) verifies only a match; only a Guided 6-face Scan (Full observation) verifies a mismatch (SCP 2026-11-17 quick-check-verified-rule).
 - 2026-11-15: `CAMERA_SCAN` is BETA-only on the Story 10.10 session A result (216/216, operator-dependent calibration); re-plan with a UX pass on scan layout, calibration and color input; Stories 10.12 (recorder rework, session A2) and 10.13 (OQ-7 recognition approach) added; OQ-7 re-opened (SCP 2026-11-15).
 - 2026-11-15: OQ-7 closed with decision K: Kotlin nearest-center classification fed by a per-cell histogram-mode reader and self-calibrated from the six face centers, with a logo-center guard; LiteRT is the fallback if field use shows K is not enough; OpenCV rejected on size (PO, Story 10.13, PR #155).
 
