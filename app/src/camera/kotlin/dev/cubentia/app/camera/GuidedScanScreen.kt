@@ -23,7 +23,9 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -57,6 +59,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -86,6 +89,16 @@ import dev.cubentia.domain.text.Text as ContentText
 internal sealed interface GuidedScanPhase {
     data class Review(
         val review: dev.cubentia.domain.recognition.ScanReview,
+        val offerCalibration: Boolean = false,
+    ) : GuidedScanPhase
+
+    data class Calibration(
+        val session: dev.cubentia.domain.recognition.CalibrationSession =
+            dev.cubentia.domain.recognition
+                .CalibrationSession(),
+        val coaching: Coaching? = null,
+        val saveFailed: Boolean = false,
+        val fromReview: Review? = null,
     ) : GuidedScanPhase
 
     /** The camera rationale, before any system dialog. */
@@ -127,6 +140,9 @@ internal class GuidedScanActions(
     val onOpenSettings: () -> Unit = {},
     val onCapture: () -> Unit = {},
     val onUseAnyway: () -> Unit = {},
+    val onKeep: () -> Unit = {},
+    val onRetake: () -> Unit = {},
+    val onSave: () -> Unit = {},
     /** The freeze of capture [FrozenCapture.id] ended: live view resumes. */
     val onFreezeEnd: (Long) -> Unit = {},
 )
@@ -187,6 +203,10 @@ internal fun GuidedScanScreen(
                 }
             }
             when (phase) {
+                is GuidedScanPhase.Calibration -> {
+                    CalibrationViewfinder(phase, strings, actions, viewfinder)
+                }
+
                 is GuidedScanPhase.Review -> {
                     Unit
                 }
@@ -572,4 +592,89 @@ internal fun labColor(lab: Lab): UiColor {
         gamma(-0.9692660 * x + 1.8760108 * y + 0.0415560 * z),
         gamma(0.0556434 * x - 0.2040259 * y + 1.0572252 * z),
     )
+}
+
+@Composable
+private fun CalibrationViewfinder(
+    phase: GuidedScanPhase.Calibration,
+    strings: ContentStrings,
+    actions: GuidedScanActions,
+    preview: @Composable () -> Unit,
+) {
+    val session = phase.session
+    val color = session.current
+    val geometry = remember { ViewfinderGeometry() }
+    val panel: @Composable () -> Unit = {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                // Large type or a short screen must never push Keep or Save out of reach.
+                .verticalScroll(rememberScrollState())
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            val prompt =
+                if (color == null) {
+                    "msg.calibration.done"
+                } else {
+                    "msg.calibration.${if (session.plainSticker) "plain" else "prompt"}.${color.name.lowercase()}"
+                }
+            Text(strings.resolve(ContentText(prompt)), Modifier.testTag("calibration:prompt"))
+            if (color !=
+                null
+            ) {
+                Text(strings.resolve(ContentText("msg.calibration.progress", mapOf("n" to (session.kept.size + 1).toString()))))
+            }
+            CoachingLine(GuidedScanPhase.Viewfinder(coaching = phase.coaching), strings)
+            session.pending?.let {
+                val swatchName = color?.let { current -> stringResource(colorName(current)) }.orEmpty()
+                Box(
+                    Modifier
+                        .size(48.dp)
+                        .background(labColor(it))
+                        .semantics { contentDescription = swatchName }
+                        .testTag("calibration:swatch"),
+                )
+                Text(strings.resolve(ContentText("msg.calibration.swatch")))
+                Row {
+                    Button(
+                        actions.onKeep,
+                        Modifier.testTag("calibration:keep"),
+                    ) { Text(strings.resolve(ContentText("btn.calibration.keep"))) }
+                    OutlinedButton(
+                        actions.onRetake,
+                        Modifier.testTag("calibration:retake"),
+                    ) { Text(strings.resolve(ContentText("btn.calibration.try-again"))) }
+                }
+            }
+            if (color != null && session.pending == null) {
+                Button(actions.onCapture, Modifier.testTag("calibration:capture")) {
+                    Text(strings.resolve(ContentText("btn.scan.capture")))
+                }
+            }
+            Button(actions.onSave, enabled = session.calibration != null, modifier = Modifier.testTag("calibration:save")) {
+                Text(strings.resolve(ContentText("btn.calibration.save")))
+            }
+            if (phase.saveFailed) {
+                Text(
+                    strings.resolve(ContentText("msg.calibration.save-failed")),
+                    Modifier.testTag("calibration:save-failed"),
+                )
+            }
+        }
+    }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val cameraHeight = maxHeight * VIEWFINDER_HEIGHT_FRACTION
+        if (maxWidth >= EXPANDED_WIDTH || maxWidth > maxHeight) {
+            Row(Modifier.fillMaxSize()) {
+                Box(Modifier.weight(1f).fillMaxHeight()) { CameraArea(geometry, preview) }
+                Box(Modifier.weight(1f)) { panel() }
+            }
+        } else {
+            Column(Modifier.fillMaxSize()) {
+                Box(Modifier.fillMaxWidth().height(cameraHeight)) { CameraArea(geometry, preview) }
+                panel()
+            }
+        }
+    }
 }

@@ -119,6 +119,7 @@ fun AppShell(
         },
     stagePractice: StagePractice = remember { StagePractice(KotlinRandomSource()) },
     showWelcome: Boolean = false,
+    calibration: dev.cubentia.app.ui.settings.CalibrationSettings? = null,
     solveFlow: SolveFlowViewModel =
         remember {
             SolveFlowViewModel(
@@ -131,7 +132,19 @@ fun AppShell(
         },
 ) {
     PreferenceProvider(preferenceStore) {
-        ShellContent(host, catalog, freeCube, showDebugToggles, flags, modifier, stagePractice, preferenceStore, showWelcome, solveFlow)
+        ShellContent(
+            host,
+            catalog,
+            freeCube,
+            showDebugToggles,
+            flags,
+            modifier,
+            stagePractice,
+            preferenceStore,
+            showWelcome,
+            solveFlow,
+            calibration,
+        )
     }
 }
 
@@ -147,6 +160,7 @@ private fun ShellContent(
     preferenceStore: PreferenceStore,
     showWelcome: Boolean,
     solveFlow: SolveFlowViewModel,
+    calibration: dev.cubentia.app.ui.settings.CalibrationSettings?,
 ) {
     LaunchedEffect(catalog) { catalog.load() }
     val content by catalog.state.collectAsState()
@@ -195,6 +209,14 @@ private fun ShellContent(
     }
     if (settings) {
         SettingsScreen(
+            // Calibration copy is content text: the rows wait for the content, and stay hidden while CAMERA_SCAN is OFF.
+            calibration =
+                calibration.takeIf {
+                    content is CatalogState.Ready && flags.isEnabled(dev.cubentia.application.port.FeatureFlag.CAMERA_SCAN)
+                },
+            strings =
+                (content as? CatalogState.Ready)?.strings ?: dev.cubentia.app.content
+                    .ContentStrings(emptyMap()),
             onClose = { settings = false },
             onResetProgress = {
                 // Runs in the shell's scope so closing Settings does not cancel the reset; navigates only on success.

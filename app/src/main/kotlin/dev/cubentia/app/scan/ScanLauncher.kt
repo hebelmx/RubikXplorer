@@ -14,4 +14,7 @@ interface ScanLauncher {
 
     /** The explicit intent of the Guided 6-face Scan; start it only through [ScanFlowContract]. */
     fun guidedScanIntent(context: Context): Intent
+
+    /** The explicit intent of Color Calibration on its own (Settings); it finishes after *Save* or *Close*. */
+    fun calibrationIntent(context: Context): Intent = guidedScanIntent(context)
 }

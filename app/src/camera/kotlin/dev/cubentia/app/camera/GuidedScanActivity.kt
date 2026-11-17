@@ -42,6 +42,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.AndroidEntryPoint
 import dev.cubentia.app.ScanDiagnostics
 import dev.cubentia.app.content.CatalogState
@@ -56,9 +57,9 @@ import dev.cubentia.app.ui.scan.ScanReviewScreen
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.domain.recognition.GuidedScanController
 import dev.cubentia.domain.recognition.GuidedScanEffect
-import dev.cubentia.domain.recognition.ScanReview
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ExecutorService
@@ -78,6 +79,10 @@ class GuidedScanActivity : ComponentActivity() {
 
     @Inject
     lateinit var preferenceStore: PreferenceStore
+
+    @Inject lateinit var calibrationRepository: dev.cubentia.application.port.CalibrationRepository
+
+    @Inject lateinit var updateCalibration: dev.cubentia.application.usecase.UpdateCalibration
 
     /** The system camera shutter sound played on each capture; released with the Activity. */
     private val shutterSound = MediaActionSound()
@@ -106,7 +111,7 @@ class GuidedScanActivity : ComponentActivity() {
     private val permission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
-                phase = GuidedScanPhase.Viewfinder()
+                phase = scan.capturePhase()
                 clearDenialRecord()
                 startCamera()
                 return@registerForActivityResult
@@ -126,6 +131,15 @@ class GuidedScanActivity : ComponentActivity() {
         // Back and a destroyed task read as Cancelled.
         setResult(RESULT_CANCELED)
         if (phase == GuidedScanPhase.Rationale) phase = GuidedScanFlow.initialPhase(hasPermission())
+        scan.calibrationMode = intent.getBooleanExtra(CALIBRATION_MODE, false)
+        if (phase is GuidedScanPhase.Viewfinder && scan.calibrationMode) phase = scan.capturePhase()
+        lifecycleScope.launch {
+            if (!scan.calibrationLoaded) {
+                scan.saved = (calibrationRepository.load() as? dev.cubentia.application.port.CalibrationLoad.Loaded)?.calibration
+                scan.calibrationLoaded = true
+            }
+            startCamera()
+        }
         lifecycleScope.launch { lessonCatalog.load() }
         lifecycleScope.launch {
             // SharedPreferences reads the disk: off the main thread.
@@ -133,7 +147,12 @@ class GuidedScanActivity : ComponentActivity() {
         }
         val actions =
             GuidedScanActions(
-                onClose = { finishWith(ScanOutcome.Cancelled) },
+                onClose = {
+                    val calibration = phase as? GuidedScanPhase.Calibration
+                    if (!scan.saving) {
+                        if (calibration?.fromReview != null) phase = calibration.fromReview else finishWith(ScanOutcome.Cancelled)
+                    }
+                },
                 onContinue = {
                     scan.rationaleBefore = shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)
                     permission.launch(Manifest.permission.CAMERA)
@@ -144,7 +163,29 @@ class GuidedScanActivity : ComponentActivity() {
                         startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
                     }
                 },
-                onCapture = { decide { now -> controller.onShutter(now) } },
+                onCapture = {
+                    if (phase is GuidedScanPhase.Calibration) {
+                        scan.captureCalibration = true
+                    } else {
+                        decide { now -> controller.onShutter(now) }
+                    }
+                },
+                onKeep = {
+                    (phase as? GuidedScanPhase.Calibration)?.let {
+                        phase =
+                            it.copy(
+                                session = it.session.keep(),
+                                saveFailed = false,
+                            )
+                    }
+                },
+                onRetake = {
+                    (phase as? GuidedScanPhase.Calibration)?.let {
+                        phase =
+                            it.copy(session = it.session.retake(), saveFailed = false)
+                    }
+                },
+                onSave = { scan.saveCalibration(updateCalibration) },
                 onUseAnyway = { decide { now -> controller.onUseAnyway(now) } },
                 onFreezeEnd = { id -> scan.endFreeze(id) },
             )
@@ -160,19 +201,45 @@ class GuidedScanActivity : ComponentActivity() {
             PreferenceProvider(preferenceStore) {
                 CubentiaTheme {
                     if (strings == null) return@CubentiaTheme
+                    androidx.activity.compose.BackHandler(enabled = phase is GuidedScanPhase.Calibration) {
+                        val calibration = phase as? GuidedScanPhase.Calibration
+                        if (!scan.saving) {
+                            if (calibration?.fromReview != null) phase = calibration.fromReview else finishWith(ScanOutcome.Cancelled)
+                        }
+                    }
+                    LaunchedEffect(scan.calibrationFinished) {
+                        if (scan.calibrationFinished) finishWith(ScanOutcome.Cancelled)
+                    }
+                    LaunchedEffect(phase is GuidedScanPhase.Viewfinder || phase is GuidedScanPhase.Calibration) {
+                        if (cameraPhase()) startCamera()
+                    }
                     val reviewPhase = phase as? GuidedScanPhase.Review
                     LaunchedEffect(reviewPhase != null) {
                         if (reviewPhase != null) {
                             analysisUseCase?.clearAnalyzer()
                             cameraProvider?.unbindAll()
                             camera = null
+                            cameraStarted = false
                         }
                     }
                     if (reviewPhase != null) {
                         ScanReviewScreen(
                             reviewPhase.review,
                             strings,
-                            onReview = { phase = GuidedScanPhase.Review(it) },
+                            onReview = { phase = reviewPhase.copy(review = it) },
+                            onCalibrate =
+                                if (reviewPhase.offerCalibration) {
+                                    (
+                                        {
+                                            phase =
+                                                GuidedScanPhase.Calibration(
+                                                    fromReview = reviewPhase,
+                                                )
+                                        }
+                                    )
+                                } else {
+                                    null
+                                },
                             onAccept = { finishWith(ScanOutcome.Accepted(it)) },
                             onClose = { finishWith(ScanOutcome.Cancelled) },
                             modifier = Modifier.fillMaxSize(),
@@ -195,6 +262,13 @@ class GuidedScanActivity : ComponentActivity() {
                                             viewSize = view.width to view.height
                                         }
                                         previewView = it
+                                        // A new preview (calibration ↔ viewfinder swap their panes) needs a fresh bind.
+                                        if (cameraStarted) {
+                                            analysisUseCase?.clearAnalyzer()
+                                            cameraProvider?.unbindAll()
+                                            camera = null
+                                            cameraStarted = false
+                                        }
                                         startCamera()
                                     }
                                 },
@@ -216,7 +290,7 @@ class GuidedScanActivity : ComponentActivity() {
         super.onResume()
         // Back from Settings with the permission now granted.
         if (phase is GuidedScanPhase.Denied && hasPermission()) {
-            phase = GuidedScanPhase.Viewfinder()
+            phase = scan.capturePhase()
             clearDenialRecord()
         }
     }
@@ -234,10 +308,12 @@ class GuidedScanActivity : ComponentActivity() {
         finish()
     }
 
+    private fun cameraPhase() = phase is GuidedScanPhase.Viewfinder || phase is GuidedScanPhase.Calibration
+
     /** Obtains the provider off the main thread, then binds on main once the preview has a viewport. */
     private fun startCamera() {
         val view = previewView ?: return
-        if (cameraStarted || !hasPermission() || phase !is GuidedScanPhase.Viewfinder) return
+        if (cameraStarted || !hasPermission() || !scan.calibrationLoaded || !cameraPhase()) return
         cameraStarted = true
         lifecycleScope.launch {
             val provider =
@@ -249,11 +325,11 @@ class GuidedScanActivity : ComponentActivity() {
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (ignored: Exception) {
-                    if (phase is GuidedScanPhase.Viewfinder) phase = GuidedScanPhase.Unavailable
+                    if (cameraPhase()) phase = GuidedScanPhase.Unavailable
                     return@launch
                 }
             cameraProvider = provider
-            if (phase is GuidedScanPhase.Viewfinder) bindWhenLaidOut(provider, view)
+            if (cameraPhase()) bindWhenLaidOut(provider, view)
         }
     }
 
@@ -288,7 +364,7 @@ class GuidedScanActivity : ComponentActivity() {
         }
 
         fun bind(): Boolean {
-            if (phase !is GuidedScanPhase.Viewfinder) return true
+            if (!cameraPhase()) return true
             val viewPort = view.viewPort ?: return false
             val useCases =
                 UseCaseGroup
@@ -305,7 +381,7 @@ class GuidedScanActivity : ComponentActivity() {
                         // never remembered.
                         bound.cameraInfo.cameraState.observe(this) { state ->
                             val closed = state.type == CameraState.Type.CLOSED || state.type == CameraState.Type.PENDING_OPEN
-                            if (state.error != null && closed && phase is GuidedScanPhase.Viewfinder) phase = GuidedScanPhase.Unavailable
+                            if (state.error != null && closed && cameraPhase()) phase = GuidedScanPhase.Unavailable
                         }
                     }
             } catch (ignored: IllegalArgumentException) {
@@ -343,6 +419,37 @@ class GuidedScanActivity : ComponentActivity() {
         // B2); a no-op otherwise.
         val lattice = reading.lattice
         ScanDiagnostics.onFrame(stats, now, lattice.scale, lattice.dx, lattice.dy, lattice.score)
+        // One snapshot: main may leave calibration while this frame is read.
+        val calibrating = phase as? GuidedScanPhase.Calibration
+        if (calibrating != null) {
+            val color = calibrating.session.current
+            if (scan.calibrationMeterColor != color) {
+                scan.calibrationMeterColor = color
+                ContextCompat.getMainExecutor(this).execute { meterOnGrid() }
+            }
+            if (scan.captureCalibration) {
+                scan.captureCalibration = false
+                val quality =
+                    dev.cubentia.domain.recognition.FrameQuality
+                        .assessShutter(stats)
+                val ring =
+                    if (quality ==
+                        dev.cubentia.domain.recognition.CaptureQuality.ACCEPTABLE
+                    ) {
+                        FrameReader.centerRing(image, lattice.square(grid))
+                    } else {
+                        null
+                    }
+                val requested = calibrating.session
+                ContextCompat.getMainExecutor(this).execute {
+                    // A reading applies only to the session that asked for it, never to a later step or a reopened flow.
+                    (phase as? GuidedScanPhase.Calibration)?.takeIf { it.session === requested }?.let {
+                        phase = GuidedScanFlow.calibrationCapture(it, stats, ring)
+                    }
+                }
+            }
+            return
+        }
         handle(scan.freeze.decide(now) { controller.onFrame(stats, rotation, now) })
     }
 
@@ -361,7 +468,7 @@ class GuidedScanActivity : ComponentActivity() {
     private fun handle(effects: List<GuidedScanEffect>) {
         val vm = scan
         val state = GuidedScanFlow.phaseOf(controller)
-        val result = GuidedScanFlow.resultOf(effects)
+        val result = GuidedScanFlow.reviewOf(effects, scan.saved)
         val captured = effects.filterIsInstance<GuidedScanEffect.Capture>().firstOrNull()
         ContextCompat.getMainExecutor(this).execute {
             if (captured != null) {
@@ -404,7 +511,8 @@ class GuidedScanActivity : ComponentActivity() {
         camera?.cameraControl?.startFocusAndMetering(action)
     }
 
-    private companion object {
+    companion object {
+        const val CALIBRATION_MODE = "dev.cubentia.calibration"
         const val METERING_LOCK_SECONDS = 3L
     }
 }
@@ -423,7 +531,46 @@ private class MeteringGrid(
  */
 internal class GuidedScanViewModel : ViewModel() {
     val analyzerExecutor: ExecutorService = Executors.newSingleThreadExecutor()
-    val controller = GuidedScanController()
+
+    @Volatile var saved: dev.cubentia.domain.recognition.CalibrationCenters? = null
+    var calibrationLoaded = false
+    var calibrationMode = false
+    var saving by mutableStateOf(false)
+    var calibrationFinished by mutableStateOf(false)
+
+    var calibrationMeterColor: dev.cubentia.domain.cube.Color? = null
+
+    @Volatile var captureCalibration = false
+
+    fun capturePhase(): GuidedScanPhase = if (calibrationMode) GuidedScanPhase.Calibration() else GuidedScanPhase.Viewfinder()
+
+    fun newController() = GuidedScanController(reprompt = { GuidedScanController.defaultReprompt(it, saved) })
+
+    fun saveCalibration(update: dev.cubentia.application.usecase.UpdateCalibration) {
+        val calibration = phase as? GuidedScanPhase.Calibration ?: return
+        val centers = calibration.session.calibration ?: return
+        if (saving) return
+        saving = true
+        viewModelScope.launch {
+            try {
+                if (update(centers) == dev.cubentia.application.port.CalibrationWrite.Saved) {
+                    saved = centers
+                    if (calibration.fromReview == null) {
+                        calibrationFinished = true
+                    } else {
+                        withContext(analyzerExecutor.asCoroutineDispatcher()) { controller = newController() }
+                        phase = GuidedScanPhase.Viewfinder()
+                    }
+                } else {
+                    phase = calibration.copy(saveFailed = true)
+                }
+            } finally {
+                saving = false
+            }
+        }
+    }
+
+    var controller = newController()
     var phase by mutableStateOf<GuidedScanPhase>(GuidedScanPhase.Rationale)
 
     /** Whether the system would have shown a rationale just before the last permission request. */
@@ -442,11 +589,13 @@ internal class GuidedScanViewModel : ViewModel() {
     var captures = 0L
 
     /** A finished scan held until the last face's freeze ends, so its freeze, shrink and shutter sound play out. */
-    private var held: ScanReview? = null
+    private var held: GuidedScanPhase.Review? = null
 
     /** Main thread: publishes the finished scan now, or when the current freeze ends. */
-    fun publish(capture: ScanReview) {
-        if (frozen != null) held = capture else phase = GuidedScanPhase.Review(capture)
+    fun publish(capture: dev.cubentia.domain.recognition.ScanReview) = publish(GuidedScanPhase.Review(capture))
+
+    fun publish(capture: GuidedScanPhase.Review) {
+        if (frozen != null) held = capture else phase = capture
     }
 
     /** Main thread: the freeze of capture [id] ended; live view resumes, or a held result is published. */
@@ -455,7 +604,7 @@ internal class GuidedScanViewModel : ViewModel() {
         frozen = null
         held?.let {
             held = null
-            phase = GuidedScanPhase.Review(it)
+            phase = it
         }
     }
 

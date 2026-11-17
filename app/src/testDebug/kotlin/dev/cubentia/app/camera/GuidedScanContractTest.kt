@@ -28,6 +28,14 @@ class GuidedScanContractTest {
         assertNotNull("GuidedScanActivity is declared in the merged manifest", app.packageManager.resolveActivity(intent, 0))
     }
 
+    @Test fun `only the Settings calibration intent opens calibration mode`() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val calibration = CameraScanLauncher().calibrationIntent(app)
+        assertEquals(GuidedScanActivity::class.java.name, calibration.component?.className)
+        assertEquals(true, calibration.getBooleanExtra(GuidedScanActivity.CALIBRATION_MODE, false))
+        assertEquals(false, contract.createIntent(app, Unit).getBooleanExtra(GuidedScanActivity.CALIBRATION_MODE, false))
+    }
+
     @Test fun `each typed outcome round trips`() {
         val scrambled = CubeState.SOLVED.apply((Notation.parse("R U F' L2 D B' R2 U'") as NotationResult.Parsed).moves)
         listOf(

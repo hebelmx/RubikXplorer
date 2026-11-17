@@ -69,8 +69,11 @@ class ScanReview(
             return ScanReview(review.stickers, review.blanks.firstOrNull())
         }
 
-        fun fromSamples(samples: List<FaceSample>): ScanReview =
-            when (val calibration = SelfCalibration.from(samples)) {
+        fun fromSamples(
+            samples: List<FaceSample>,
+            saved: CalibrationCenters? = null,
+        ): ScanReview =
+            when (val calibration = SelfCalibration.from(samples, saved)) {
                 is SelfCalibration.Calibrated -> {
                     from(ScanAssembler.assemble(samples, calibration.calibration))
                 }

@@ -42,11 +42,20 @@ import dev.cubentia.application.preference.Preference
 import dev.cubentia.application.preference.ThemeChoice
 import kotlinx.coroutines.launch
 
+class CalibrationSettings(
+    val onCalibrate: () -> Unit,
+    val onReset: suspend () -> Boolean,
+)
+
 @Composable
 fun SettingsScreen(
     onClose: () -> Unit,
     onResetProgress: suspend () -> Boolean = { true },
     store: PreferenceStore = LocalPreferenceStore.current,
+    calibration: CalibrationSettings? = null,
+    strings: dev.cubentia.app.content.ContentStrings =
+        dev.cubentia.app.content
+            .ContentStrings(emptyMap()),
 ) {
     val prefs by store.preferences.collectAsState()
     var confirm by rememberSaveable { mutableStateOf(false) }
@@ -110,6 +119,7 @@ fun SettingsScreen(
             }, modifier = Modifier.heightIn(min = 48.dp).testTag("settings:resetProgress")) {
                 Text(stringResource(R.string.settings_reset_progress))
             }
+            if (calibration != null) CalibrationRows(calibration, strings)
         }
     }
     if (confirm) {
@@ -234,5 +244,63 @@ private fun SettingSwitch(
     ) {
         Text(stringResource(labelId), Modifier.weight(1f))
         Switch(checked = value, onCheckedChange = null)
+    }
+}
+
+@Composable
+private fun CalibrationRows(
+    settings: CalibrationSettings,
+    strings: dev.cubentia.app.content.ContentStrings,
+) {
+    var confirm by rememberSaveable { mutableStateOf(false) }
+    var failed by rememberSaveable { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    fun text(key: String) =
+        strings.resolve(
+            dev.cubentia.domain.text
+                .Text(key),
+        )
+    TextButton(settings.onCalibrate, Modifier.heightIn(min = 48.dp).testTag("settings:calibration")) {
+        Text(text("btn.settings.calibration"))
+    }
+    TextButton({
+        confirm = true
+        failed = false
+    }, Modifier.heightIn(min = 48.dp).testTag("settings:calibration:reset")) {
+        Text(text("btn.settings.calibration-reset"))
+    }
+    if (confirm) {
+        AlertDialog(
+            onDismissRequest = { if (!busy) confirm = false },
+            title = { Text(text("btn.settings.calibration-reset")) },
+            text = {
+                Column {
+                    Text(text("msg.settings.calibration-reset"))
+                    if (failed) Text(text("msg.settings.calibration-reset-failed"), Modifier.testTag("settings:calibration:error"))
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        busy = true
+                        scope.launch {
+                            val result = settings.onReset()
+                            busy = false
+                            failed = !result
+                            if (result) confirm = false
+                        }
+                    },
+                    enabled = !busy,
+                    modifier = Modifier.testTag("settings:calibration:confirm"),
+                ) { Text(text("btn.settings.calibration-reset")) }
+            },
+            dismissButton = {
+                TextButton({ confirm = false }, enabled = !busy, modifier = Modifier.testTag("settings:calibration:cancel")) {
+                    Text(text("btn.scan.cancel"))
+                }
+            },
+        )
     }
 }

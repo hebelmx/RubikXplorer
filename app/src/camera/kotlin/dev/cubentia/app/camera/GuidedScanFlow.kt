@@ -45,12 +45,42 @@ internal object GuidedScanFlow {
                 },
         )
 
+    fun reviewOf(
+        effects: List<GuidedScanEffect>,
+        saved: dev.cubentia.domain.recognition.CalibrationCenters?,
+    ): GuidedScanPhase.Review? =
+        effects.filterIsInstance<GuidedScanEffect.Done>().firstOrNull()?.let {
+            val review = ScanReview.fromSamples(it.samples, saved)
+            GuidedScanPhase.Review(
+                review,
+                dev.cubentia.domain.recognition.CalibrationOffer
+                    .offered(it.samples, saved, review),
+            )
+        }
+
+    fun calibrationCapture(
+        phase: GuidedScanPhase.Calibration,
+        stats: dev.cubentia.domain.recognition.FrameStats,
+        ring: dev.cubentia.domain.recognition.CellReading?,
+    ): GuidedScanPhase.Calibration {
+        val quality =
+            dev.cubentia.domain.recognition.FrameQuality
+                .assessShutter(stats)
+        return if (quality == dev.cubentia.domain.recognition.CaptureQuality.ACCEPTABLE) {
+            phase.copy(session = phase.session.offer(ring), coaching = null)
+        } else {
+            phase.copy(coaching = GuidedScanController.coachingFor(quality, stats.framing))
+        }
+    }
+
     /** True when [effects] ask for AF/AE/AWB on the grid. */
     fun remeters(effects: List<GuidedScanEffect>): Boolean = GuidedScanEffect.Remeter in effects
 
     /** The scan's result when [effects] finish it, else null. */
-    fun resultOf(effects: List<GuidedScanEffect>): ScanReview? =
-        effects.filterIsInstance<GuidedScanEffect.Done>().firstOrNull()?.let { ScanReview.fromSamples(it.samples) }
+    fun resultOf(
+        effects: List<GuidedScanEffect>,
+        saved: dev.cubentia.domain.recognition.CalibrationCenters? = null,
+    ): ScanReview? = effects.filterIsInstance<GuidedScanEffect.Done>().firstOrNull()?.let { ScanReview.fromSamples(it.samples, saved) }
 }
 
 /**

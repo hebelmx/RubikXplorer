@@ -198,4 +198,53 @@ class GuidedScanFlowTest {
         freeze.decide(0) { listOf(GuidedScanEffect.Remeter) }
         assertFalse(freeze.isFrozen(1))
     }
+
+    @Test fun `review flow passes saved centers into assembly and offer`() {
+        val labs =
+            mapOf(
+                Color.GREEN to Lab(55.0, -60.0, 40.0),
+                Color.RED to Lab(45.0, 65.0, 45.0),
+                Color.BLUE to Lab(40.0, 10.0, -50.0),
+                Color.ORANGE to Lab(65.0, 45.0, 65.0),
+                Color.WHITE to Lab(90.0, 0.0, 0.0),
+                Color.YELLOW to Lab(85.0, -5.0, 80.0),
+            )
+        val saved =
+            dev.cubentia.domain.recognition
+                .CalibrationCenters(labs)
+        val samples =
+            Face.entries.map { face ->
+                val color = Color.home(face)
+                FaceSample(
+                    face = face,
+                    orientationDegrees = 0,
+                    stickers = List(9) { labs.getValue(color) },
+                    quality = CaptureQuality.ACCEPTABLE,
+                    centerColor = color,
+                    centerPlain = color !in setOf(Color.WHITE, Color.RED),
+                )
+            }
+        val effects = listOf(GuidedScanEffect.Done(samples))
+        assertTrue(GuidedScanFlow.reviewOf(effects, null)!!.offerCalibration)
+        val review = GuidedScanFlow.reviewOf(effects, saved)!!
+        assertFalse(review.offerCalibration)
+        assertTrue(review.review.blanks.isEmpty())
+        assertEquals(review.review, GuidedScanFlow.resultOf(effects, saved))
+    }
+
+    @Test fun `calibration shutter coaches poor frames without offering a swatch`() {
+        val phase = GuidedScanPhase.Calibration()
+        val ring = CellReading(Lab(55.0, -60.0, 40.0), true)
+        val good = FrameStats(List(9) { ring }, 120.0, 0.0, 100.0, 12)
+        val dark = GuidedScanFlow.calibrationCapture(phase, good.copy(meanLuma = 1.0), ring)
+        assertEquals(Coaching.LOW_LIGHT, dark.coaching)
+        assertNull(dark.session.pending)
+        assertFalse(dark.session.plainSticker)
+        val accepted = GuidedScanFlow.calibrationCapture(dark, good, ring)
+        assertEquals(ring.value, accepted.session.pending)
+        assertNull(accepted.coaching)
+        val unreadable = GuidedScanFlow.calibrationCapture(phase, good, null)
+        assertTrue(unreadable.session.plainSticker)
+        assertNull(unreadable.session.pending)
+    }
 }

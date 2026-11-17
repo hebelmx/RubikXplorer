@@ -82,10 +82,12 @@ fun ScanReviewScreen(
     windowSizeClass: WindowSizeClass = currentWindowSizeClass(),
     coachMarkPending: Boolean = false,
     onCoachMarkDismissed: () -> Unit = {},
+    onCalibrate: (() -> Unit)? = null,
 ) {
     var face by rememberSaveable { mutableIntStateOf((review.selected ?: 0) / 9) }
     LaunchedEffect(review.selected) { review.selected?.let { face = it / 9 } }
     var changed by rememberSaveable { mutableStateOf(false) }
+    var confirmCalibration by rememberSaveable { mutableStateOf(false) }
     var confirmDiscard by rememberSaveable { mutableStateOf(false) }
     var coachVisible by rememberSaveable { mutableStateOf(false) }
     val needsFix = review.blanks.isNotEmpty()
@@ -165,6 +167,14 @@ fun ScanReviewScreen(
                     )
                 }
             }
+            if (onCalibrate != null) {
+                Column(Modifier.fillMaxWidth().padding(vertical = 12.dp).testTag("review:calibrate")) {
+                    Text(strings.resolve(ContentText("msg.calibration.offer")))
+                    OutlinedButton({ confirmCalibration = true }, Modifier.testTag("review:calibrate:offer")) {
+                        Text(strings.resolve(ContentText("btn.calibration.offer")))
+                    }
+                }
+            }
             val accepted = review.accepted
             Button(
                 onClick = { accepted?.let(onAccept) },
@@ -183,6 +193,25 @@ fun ScanReviewScreen(
                 Text(strings.resolve(ContentText("btn.scan.close")))
             }
         }
+    }
+    if (confirmCalibration) {
+        AlertDialog(
+            onDismissRequest = { confirmCalibration = false },
+            text = { Text(strings.resolve(ContentText("msg.calibration.confirm"))) },
+            confirmButton = {
+                TextButton({
+                    confirmCalibration = false
+                    onCalibrate?.invoke()
+                }, Modifier.testTag("review:calibrate:confirm")) {
+                    Text(strings.resolve(ContentText("btn.calibration.offer")))
+                }
+            },
+            dismissButton = {
+                TextButton({ confirmCalibration = false }, Modifier.testTag("review:calibrate:cancel")) {
+                    Text(strings.resolve(ContentText("btn.scan.cancel")))
+                }
+            },
+        )
     }
     if (confirmDiscard) {
         AlertDialog(

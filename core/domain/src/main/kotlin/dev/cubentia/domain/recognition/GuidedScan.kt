@@ -550,8 +550,11 @@ class GuidedScanController(
 
     companion object {
         /** Self-calibration, then the faces `ScanAssembler` cannot place; none when the scan needs calibration first. */
-        fun defaultReprompt(samples: List<FaceSample>): List<Face> =
-            when (val calibration = SelfCalibration.from(samples)) {
+        fun defaultReprompt(
+            samples: List<FaceSample>,
+            saved: CalibrationCenters? = null,
+        ): List<Face> =
+            when (val calibration = SelfCalibration.from(samples, saved)) {
                 is SelfCalibration.Calibrated -> ScanAssembler.repromptFaces(samples, calibration.calibration)
                 is SelfCalibration.NeedsCalibration -> emptyList()
             }

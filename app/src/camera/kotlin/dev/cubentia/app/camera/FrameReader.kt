@@ -195,6 +195,46 @@ internal object FrameReader {
         return FrameReading(stats.copy(framing = outside?.framing(rotationDegrees)), ranked.first(), outside)
     }
 
+    fun centerRing(
+        image: ImageProxy,
+        square: GridSquare,
+    ): CellReading? {
+        val crop = image.cropRect
+        val planes = image.planes
+
+        fun plane(index: Int) = YuvPlane(planes[index].buffer, planes[index].rowStride, planes[index].pixelStride)
+        return centerRing(YuvFrame(plane(0), plane(1), plane(2), crop.left, crop.top, crop.right, crop.bottom), square)
+    }
+
+    fun centerRing(
+        frame: YuvFrame,
+        square: GridSquare,
+    ): CellReading? {
+        if (frame.width <= 0 || frame.height <= 0 || square.side <= 0) return null
+        val cell = square.side / 3
+        val positions = mutableListOf<Int>()
+        val clipped = mutableListOf<Boolean>()
+        val pixels =
+            (0 until LATTICE * LATTICE).mapNotNull { point ->
+                val dx = 0.1 + (point % LATTICE + 0.5) * 0.8 / LATTICE
+                val dy = 0.1 + (point / LATTICE + 0.5) * 0.8 / LATTICE
+                if (dx in 0.25..0.75 && dy in 0.25..0.75) return@mapNotNull null
+                val x = (square.left + cell * (1 + dx)).toInt()
+                val y = (square.top + cell * (1 + dy)).toInt()
+                if (x < frame.left || x >= frame.right || y < frame.top || y >= frame.bottom) return@mapNotNull null
+                positions += point
+                clipped += frame.y.at(x, y) >= FrameQuality.GLARE_LUMA
+                lab(frame, x, y)
+            }
+        // Body removal judges each sample by its place on the 12×12 lattice, not by its index among the ring samples.
+        val sticker = stickerSamples(pixels, positions)
+        val reading = (CellReader.read(sticker.map { pixels[it] }) as? CellReadResult.Read)?.reading ?: return null
+        // A clipped white sticker is all masked by the reader, yet it is one plain color (as in [readAt]).
+        val clippedShare = sticker.count { clipped[it] } / sticker.size.toDouble()
+        val white = isWhite(sticker.filter { !clipped[it] }.map { pixels[it] })
+        return if (white && clippedShare >= CellReader.PLAIN_SHARE) reading.copy(plain = true) else reading
+    }
+
     private fun empty() = FrameStats(List(FrameQuality.CELLS) { null }, 0.0, 0.0, 0.0, 0)
 
     /** Reads [frame] at the lattice [square] (frame pixels): see the class KDoc. */
@@ -323,10 +363,13 @@ internal object FrameReader {
      * near-black body samples (L* ≤ [BODY_MAX_L], C*ab ≤ [BODY_MAX_CHROMA]) on the lattice's outer ring and at least
      * [MIN_STICKER_SHARE] of the samples not body — when the body samples are left out.
      */
-    private fun stickerSamples(pixels: List<Lab>): List<Int> {
+    private fun stickerSamples(
+        pixels: List<Lab>,
+        positions: List<Int> = pixels.indices.toList(),
+    ): List<Int> {
         val all = pixels.indices.toList()
         val body = all.filter { pixels[it].l <= BODY_MAX_L && chroma(pixels[it]) <= BODY_MAX_CHROMA }
-        if (body.isEmpty() || body.none(::onOuterRing)) return all
+        if (body.isEmpty() || body.none { onOuterRing(positions[it]) }) return all
         val sticker = all - body.toSet()
         return if (sticker.size >= MIN_STICKER_SHARE * pixels.size) sticker else all
     }

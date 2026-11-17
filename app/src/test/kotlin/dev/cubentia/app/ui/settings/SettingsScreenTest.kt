@@ -184,4 +184,43 @@ class SettingsScreenTest {
             assertTrue(host.progressEvents.value.any { it is dev.cubentia.domain.tutor.ProgressEvent.ProgressReset })
         }
     }
+
+    @Test fun calibrationResetIsConfirmedAndFailureStaysVisible() {
+        var calls = 0
+        val strings =
+            dev.cubentia.app.content.ContentStrings(
+                (
+                    dev.cubentia.domain.content.ContentLoader.load(
+                        dev.cubentia.domain.content.ContentSource.SHIPPED,
+                    ) as ContentLoadResult.Loaded
+                ).bundle.strings,
+            )
+        rule.setContent {
+            CubentiaTheme {
+                SettingsScreen(
+                    {},
+                    calibration =
+                        CalibrationSettings({}, {
+                            calls++
+                            false
+                        }),
+                    strings = strings,
+                )
+            }
+        }
+        rule.onNodeWithTag("settings:calibration:reset").performScrollTo().performClick()
+        assertEquals(0, calls)
+        rule.onNodeWithTag("settings:calibration:confirm").performClick()
+        rule.waitForIdle()
+        assertEquals(1, calls)
+        rule.onNodeWithTag("settings:calibration:error").assertExists()
+        rule.onNodeWithTag("settings:calibration:cancel").performClick()
+        assertEquals(1, calls)
+    }
+
+    @Test fun calibrationRowsAreHiddenWithoutBinding() {
+        rule.setContent { CubentiaTheme { SettingsScreen({}) } }
+        rule.onNodeWithTag("settings:calibration").assertDoesNotExist()
+        rule.onNodeWithTag("settings:calibration:reset").assertDoesNotExist()
+    }
 }

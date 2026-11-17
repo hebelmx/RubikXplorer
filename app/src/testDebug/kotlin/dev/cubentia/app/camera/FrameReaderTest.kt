@@ -730,4 +730,28 @@ class FrameReaderTest {
         /** A cell reads its sticker when within this CIE76 ΔE of the sticker's color (YUV rounding and blur). */
         const val STICKER_DELTA_E = 10.0
     }
+
+    @Test fun `center ring excludes the logo middle and reads the located square`() {
+        val square = GridSquare(15.0, 0.0, 90.0)
+        val plain = frame { _, _ -> 210 }
+        val logo = frame { x, y -> if (x in 52..67 && y in 37..52) 0 else 210 }
+        val reading = FrameReader.centerRing(logo, square)!!
+        assertTrue(reading.plain)
+        assertEquals(FrameReader.centerRing(plain, square)!!.value, reading.value)
+        val empty = YuvFrame(plain.y, plain.u, plain.v, 0, 0, 0, 0)
+        assertEquals(null, FrameReader.centerRing(empty, square))
+        assertEquals(null, FrameReader.centerRing(plain, GridSquare(0.0, 0.0, 0.0)))
+    }
+
+    @Test fun `center ring drops a black border by lattice place and keeps a clipped white plain`() {
+        val square = GridSquare(15.0, 0.0, 90.0)
+        val plain = FrameReader.centerRing(frame { _, _ -> 210 }, square)!!
+        // Black body on the sampled lattice's outer ring only (cell 45..75 × 30..60).
+        val bordered = frame { x, y -> if (x < 50 || x > 70 || y < 35 || y > 55) 0 else 210 }
+        val reading = FrameReader.centerRing(bordered, square)!!
+        assertTrue(reading.plain)
+        assertEquals(plain.value.l, reading.value.l, 1e-9)
+        val clipped = FrameReader.centerRing(frame { _, _ -> 255 }, square)!!
+        assertTrue(clipped.plain)
+    }
 }

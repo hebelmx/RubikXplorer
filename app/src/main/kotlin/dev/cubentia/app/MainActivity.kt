@@ -38,6 +38,10 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var preferenceStore: PreferenceStore
 
+    @Inject lateinit var scanLauncher: java.util.Optional<dev.cubentia.app.scan.ScanLauncher>
+
+    @Inject lateinit var resetCalibration: dev.cubentia.application.usecase.ResetCalibration
+
     private val solveFlow: dev.cubentia.app.ui.solve.SolveFlowViewModel by viewModels()
 
     private val freeCube: FreeCubeViewModel by viewModels()
@@ -66,6 +70,17 @@ class MainActivity : ComponentActivity() {
                     showDebugToggles = DebugOptions.SHOW_DEBUG_TOGGLES,
                     flags = featureFlags,
                     showWelcome = true,
+                    calibration =
+                        if (featureFlags.isEnabled(dev.cubentia.application.port.FeatureFlag.CAMERA_SCAN) &&
+                            scanLauncher.isPresent
+                        ) {
+                            dev.cubentia.app.ui.settings.CalibrationSettings(
+                                onCalibrate = { startActivity(scanLauncher.get().calibrationIntent(this)) },
+                                onReset = { resetCalibration() == dev.cubentia.application.port.CalibrationWrite.Saved },
+                            )
+                        } else {
+                            null
+                        },
                 )
             }
         }
