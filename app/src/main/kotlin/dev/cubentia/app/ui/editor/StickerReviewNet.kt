@@ -88,6 +88,19 @@ var SemanticsPropertyReceiver.stickerBlankEdge by StickerBlankEdgeKey
 val StickerPulsingKey = SemanticsPropertyKey<Boolean>("StickerPulsing")
 var SemanticsPropertyReceiver.stickerPulsing by StickerPulsingKey
 
+/**
+ * The selected sticker's ring: a dashed `accent` ring, unlike an invalid piece's solid outline (PO 2026-11-16).
+ */
+data class SelectedRing(
+    val color: Color,
+    val width: Dp,
+    val dash: Dp,
+)
+
+/** The ring drawn on the selected sticker. */
+val StickerSelectedRingKey = SemanticsPropertyKey<SelectedRing>("StickerSelectedRing")
+var SemanticsPropertyReceiver.stickerSelectedRing by StickerSelectedRingKey
+
 /** Whether a sticker's update cue scales it (false while reduce motion is on: only the ✓ shows). */
 val StickerCueScalesKey = SemanticsPropertyKey<Boolean>("StickerCueScales")
 var SemanticsPropertyReceiver.stickerCueScales by StickerCueScalesKey
@@ -113,6 +126,16 @@ private const val INNER_STROKE_DP = 1
 private const val DASH_DP = 4
 private const val BLANK_EDGE_DP = 2
 private const val PULSE_MIN_ALPHA = 0.35f
+
+/**
+ * The selected ring (PO 2026-11-16): 3dp `accent` dashes, 8dp long with 4dp gaps, each edged by 1dp of `cubie-body`
+ * (5dp in all), so it is thicker and longer-dashed than a blank's 2dp × 4dp dashed edge and never reads as an invalid
+ * piece's solid outline, also where `accent` equals `sticker-highlight` (dark theme) and under reduce motion.
+ */
+private const val SELECTED_DASH_STROKE_DP = 3
+private const val SELECTED_EDGE_DP = 1
+private const val SELECTED_DASH_DP = 8
+private const val SELECTED_GAP_DP = 4
 
 /** Half a pulse cycle (100% → 35%); the full cycle back to 100% takes about 1.5 s. */
 private const val PULSE_HALF_MS = 750
@@ -142,9 +165,9 @@ internal val FACE_NAMES =
 
 /**
  * A tappable Kociemba cross net of [facelets] (Sticker review net, UX-DR16): fills and glyphs come
- * from [StickerAppearance] (glyphs while [style] asks for them), the [selected] sticker gets a solid
- * `accent` ring that pulses slowly (static under reduce motion), every [invalid] sticker the
- * cube-highlight outline (`sticker-highlight`), and a blank sticker is a dark well with a dashed
+ * from [StickerAppearance] (glyphs while [style] asks for them), the [selected] sticker gets a thick dashed
+ * `accent` ring that pulses slowly (static and dashed under reduce motion), every [invalid] sticker the
+ * solid cube-highlight outline (`sticker-highlight`), and a blank sticker is a dark well with a dashed
  * `sticker-highlight` edge and a "?". A [cue] plays the update cue on its sticker. Tapping an [editable] sticker
  * calls [onStickerClick]; other stickers are not clickable. With a [face] (URFDLB index) only that
  * face's 3×3 stickers are drawn, for windows too narrow to give every net sticker a touch-sized cell.
@@ -297,6 +320,7 @@ private fun ReviewSticker(
                     drawContent()
                     var inset = 0f
                     if (color == null) {
+                        inset = BLANK_EDGE_DP.dp.toPx()
                         val edge = BLANK_EDGE_DP.dp.toPx()
                         val dash = DASH_DP.dp.toPx()
                         drawRoundRect(
@@ -309,7 +333,7 @@ private fun ReviewSticker(
                     }
                     // The cube-highlight rule: never `status-invalid` red on the cube body.
                     if (isInvalid) inset = drawRing(tokens.stickerHighlight, inset)
-                    if (isSelected) drawRing(tokens.accent, inset, ringAlpha.value)
+                    if (isSelected) drawSelectedRing(tokens.accent, inset, ringAlpha.value)
                 }.testTag("sticker:$index")
                 .semantics {
                     contentDescription = description
@@ -320,6 +344,10 @@ private fun ReviewSticker(
                     if (isInvalid) stickerOutlineColor = tokens.stickerHighlight
                     if (color == null) stickerBlankEdge = tokens.stickerHighlight
                     if (isSelected) stickerPulsing = pulsing
+                    if (isSelected) {
+                        stickerSelectedRing =
+                            SelectedRing(tokens.accent, (SELECTED_DASH_STROKE_DP + 2 * SELECTED_EDGE_DP).dp, SELECTED_DASH_DP.dp)
+                    }
                     if (cueSerial != null) stickerCueScales = !reduceMotion
                     if (isInvalid) stateDescription = invalidState
                     if (color == null) {
@@ -421,6 +449,24 @@ private fun DrawScope.drawRing(
         alpha = alpha,
     )
     return inset + outer + inner
+}
+
+/**
+ * The selected sticker's dashed [color] ring, [inset] px inside the sticker edge, drawn at [alpha]: each dash is
+ * edged by `cubie-body` so it reads on every sticker fill (the same dash pattern on the same path, so they align).
+ */
+private fun DrawScope.drawSelectedRing(
+    color: Color,
+    inset: Float,
+    alpha: Float,
+) {
+    val width = (SELECTED_DASH_STROKE_DP + 2 * SELECTED_EDGE_DP).dp.toPx()
+    val dashes = PathEffect.dashPathEffect(floatArrayOf(SELECTED_DASH_DP.dp.toPx(), SELECTED_GAP_DP.dp.toPx()))
+    val topLeft = Offset(inset + width / 2, inset + width / 2)
+    val ringSize = Size(size.width - 2 * inset - width, size.height - 2 * inset - width)
+    val corner = CornerRadius(max(0f, Radii.xs.toPx() - inset))
+    drawRoundRect(CubeTokens.cubieBody, topLeft, ringSize, corner, Stroke(width, pathEffect = dashes), alpha)
+    drawRoundRect(color, topLeft, ringSize, corner, Stroke(SELECTED_DASH_STROKE_DP.dp.toPx(), pathEffect = dashes), alpha)
 }
 
 /** The plain name of a sticker [color], for content descriptions and palette labels. */
