@@ -11,7 +11,9 @@ import java.util.concurrent.atomic.AtomicLong
  * debug build (device session B2): when a frame with nine readable cells is not ACCEPTABLE for auto-capture, logs which
  * [FrameQuality] check failed and every measured value against its threshold under the [TAG] tag, at most one line per
  * [INTERVAL_MS], with the located face lattice (Story 10.14): its scale of the grid's side, center offset in grid cells
- * (frame axes) and search score, the face edges found and any framing coached. Numbers only, never pixels. Release and benchmark builds get a no-op.
+ * (frame axes) and search score, the face edges found and any framing coached. It also logs an ACCEPTABLE frame accepted
+ * only as an outlined face, which waits the longer [dev.cubentia.domain.recognition.GuidedScanController.OUTLINED_STEADY_MS]
+ * hold (PO 2026-11-16); `path=` names the path that accepts the seam check: `seams`, `outlined` or `-`. Numbers only, never pixels. Release and benchmark builds get a no-op.
  */
 object ScanDiagnostics {
     const val TAG = "CubentiaScanDiag"
@@ -27,7 +29,7 @@ object ScanDiagnostics {
         latticeScore: Double,
     ) {
         val inspection = FrameQuality.inspect(stats)
-        if (inspection.failed == null || inspection.readableCells != FrameQuality.CELLS) return
+        if ((inspection.failed == null && !inspection.outlinedOnly) || inspection.readableCells != FrameQuality.CELLS) return
         val last = lastLogMs.get()
         if (nowMs - last < INTERVAL_MS || !lastLogMs.compareAndSet(last, nowMs)) return
         val lattice =
@@ -48,6 +50,13 @@ object ScanDiagnostics {
                 "readable=$readableCells/${FrameQuality.CELLS}",
                 "plainOuter=$plainOuterCells/min${FrameQuality.MIN_PLAIN_OUTER_CELLS}",
                 "seams=$seams/min${FrameQuality.MIN_SEAMS}",
+                "path=${if (seams >= FrameQuality.MIN_SEAMS) {
+                    "seams"
+                } else if (outlinedOnly) {
+                    "outlined"
+                } else {
+                    "-"
+                }}",
                 "stickerCells=$stickerCells/min${FrameQuality.MIN_STICKER_CELLS}",
                 "stickerIf=C>=${FrameQuality.STICKER_MIN_CHROMA}|L>=${FrameQuality.WHITE_STICKER_MIN_L}",
                 "glare=${format(glareFraction, 3)}/max${FrameQuality.MAX_GLARE_FRACTION}",

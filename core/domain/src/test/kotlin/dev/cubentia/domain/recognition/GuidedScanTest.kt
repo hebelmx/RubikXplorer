@@ -385,6 +385,46 @@ class GuidedScanTest {
         assertTrue(controller.onFrame(stats(cells = moved), 0, 1100).first() is GuidedScanEffect.Capture)
     }
 
+    /** A seamless solid yellow face, accepted only as an outlined face (no seams, every inner edge joins one color). */
+    private val seamless = stats(cells = cells(Color.YELLOW), seams = 0).copy(faceEdges = 4)
+
+    @Test
+    fun `a seamless solid face auto-captures only after a 1200 ms steady hold (PO 2026-11-16)`() {
+        assertTrue(FrameQuality.inspect(seamless).outlinedOnly)
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(seamless))
+        val controller = GuidedScanController()
+        assertEquals(listOf(GuidedScanEffect.Remeter), controller.onFrame(seamless, 0, 0))
+        // The reference is taken at 300 ms: the normal hold would capture at 900 ms, the longer one waits until 1500 ms.
+        assertEquals(emptyList<GuidedScanEffect>(), controller.feed(seamless, 100, 1400))
+        assertEquals(0, controller.stepIndex)
+        assertTrue(controller.onFrame(seamless, 0, 1500).first() is GuidedScanEffect.Capture)
+    }
+
+    @Test
+    fun `a seamed face keeps the normal 600 ms hold`() {
+        val seamed = seamless.copy(seams = FrameQuality.MIN_SEAMS)
+        assertFalse(FrameQuality.inspect(seamed).outlinedOnly)
+        assertFalse(FrameQuality.inspect(good).outlinedOnly)
+        val controller = GuidedScanController()
+        controller.onFrame(seamed, 0, 0)
+        assertEquals(emptyList<GuidedScanEffect>(), controller.feed(seamed, 100, 800))
+        assertTrue(controller.onFrame(seamed, 0, 900).first() is GuidedScanEffect.Capture)
+    }
+
+    @Test
+    fun `a movement restarts the longer hold of a seamless face`() {
+        val controller = GuidedScanController()
+        controller.onFrame(seamless, 0, 0)
+        controller.feed(seamless, 100, 1000)
+        val moved = seamless.copy(cells = seamless.cells.map { it!!.copy(value = it.value.copy(l = it.value.l - 6.0)) })
+        assertTrue(FrameQuality.inspect(moved).outlinedOnly)
+        assertEquals(emptyList<GuidedScanEffect>(), controller.onFrame(moved, 0, 1100))
+        // Steady from 1100 ms against the moved reference: nothing until 2300 ms.
+        assertEquals(emptyList<GuidedScanEffect>(), controller.feed(moved, 1200, 2200))
+        assertEquals(0, controller.stepIndex)
+        assertTrue(controller.onFrame(moved, 0, 2300).first() is GuidedScanEffect.Capture)
+    }
+
     @Test
     fun `losing alignment remeters again when it is found`() {
         val controller = GuidedScanController()

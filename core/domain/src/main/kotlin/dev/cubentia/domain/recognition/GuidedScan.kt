@@ -163,6 +163,7 @@ object FrameQuality {
         val chroma = stats.cells.map { cell -> cell?.value?.let { sqrt(it.a * it.a + it.b * it.b) } }
         val plainOuter = stats.cells.filterIndexed { index, cell -> index != FaceSample.CENTER_INDEX && cell?.plain == true }.size
         val stickerCells = stats.cells.indices.count { chroma[it] != null && isStickerEvidence(chroma[it]!!, stats.cells[it]!!.value.l) }
+        val outlinedOnly = stats.seams < MIN_SEAMS && outlined(stats, chroma)
         val failed =
             when {
                 stats.meanLuma < MIN_MEAN_LUMA -> FrameCheck.LIGHT
@@ -180,7 +181,7 @@ object FrameQuality {
                 // A cube face: its outer cells are plain stickers (the center may carry a logo) parted by seams.
                 plainOuter < MIN_PLAIN_OUTER_CELLS -> FrameCheck.PLAIN_OUTER_CELLS
 
-                stats.seams < MIN_SEAMS && !outlined(stats, chroma) -> FrameCheck.SEAMS
+                stats.seams < MIN_SEAMS && !outlinedOnly -> FrameCheck.SEAMS
 
                 stickerCells < MIN_STICKER_CELLS -> FrameCheck.STICKER_CELLS
 
@@ -198,6 +199,7 @@ object FrameQuality {
             glareFraction = stats.glareFraction,
             sharpness = stats.sharpness,
             meanLuma = stats.meanLuma,
+            outlinedOnly = outlinedOnly,
         )
     }
 
@@ -206,7 +208,7 @@ object FrameQuality {
         stats: FrameStats,
         chroma: List<Double?>,
     ): Boolean {
-        if (stats.faceEdges < FACE_EDGES || stats.cells.any { it == null || !it.plain }) return false
+        if (stats.cells.size != CELLS || stats.faceEdges < FACE_EDGES || stats.cells.any { it == null || !it.plain }) return false
         if (stats.cells.indices.any { !isStickerEvidence(chroma[it]!!, stats.cells[it]!!.value.l) }) return false
         val values = stats.cells.map { it!!.value }
         val pairs =
@@ -253,7 +255,9 @@ enum class FrameCheck(
 /**
  * One frame's [FrameQuality.assess] broken down: the first [failed] check (null when ACCEPTABLE) and the measured values
  * each check compares with its threshold. [chroma] (C*ab) and [lightness] (L*) are per cell in pixel row-major order,
- * null for an unreadable cell. Numbers only, never pixels; for debug diagnostics (device session B2).
+ * null for an unreadable cell. [outlinedOnly] is true when the face has too few seams and passes the seam check only
+ * as an outlined face (a seamless solid face): auto-capture then waits [GuidedScanController.OUTLINED_STEADY_MS].
+ * Numbers only, never pixels; for debug diagnostics (device session B2) and the auto-capture hold.
  */
 data class FrameInspection(
     val failed: FrameCheck?,
@@ -267,6 +271,7 @@ data class FrameInspection(
     val glareFraction: Double,
     val sharpness: Double,
     val meanLuma: Double,
+    val outlinedOnly: Boolean = false,
 ) {
     val quality: CaptureQuality get() = failed?.quality ?: CaptureQuality.ACCEPTABLE
 }
@@ -299,7 +304,8 @@ sealed interface GuidedScanEffect {
  * Alignment is an ACCEPTABLE frame. The first ACCEPTABLE frame after a non-ACCEPTABLE one (or at a new step) emits
  * [GuidedScanEffect.Remeter]; after [SETTLE_MS] the first frame becomes the steadiness reference, and once every cell
  * has stayed within [STEADY_DELTA_E] of it for [STEADY_MS] the face is captured automatically. A cell that moves resets
- * the reference and the timer. A MISALIGNED frame whose [FrameStats.framing] is set coaches that move instead of
+ * the reference and the timer. A face accepted only as an outlined face ([FrameInspection.outlinedOnly]: no seams,
+ * one solid color) must stay steady for [OUTLINED_STEADY_MS] instead. A MISALIGNED frame whose [FrameStats.framing] is set coaches that move instead of
  * [Coaching.MISALIGNED]. [onShutter] captures the latest frame at once when [FrameQuality.assessShutter]
  * accepts it.
  *
@@ -388,7 +394,8 @@ class GuidedScanController(
         nowMs: Long,
     ): List<GuidedScanEffect> {
         if (done) return emptyList()
-        val quality = FrameQuality.assess(stats)
+        val inspection = FrameQuality.inspect(stats)
+        val quality = inspection.quality
         val frame = Frame(stats, orientationDegrees, quality, FrameQuality.assessShutter(stats))
         latest = frame
         if (quality != CaptureQuality.ACCEPTABLE) {
@@ -422,7 +429,8 @@ class GuidedScanController(
             steadySince = nowMs
             return emptyList()
         }
-        if (nowMs - steadySince < STEADY_MS) return emptyList()
+        val hold = if (inspection.outlinedOnly) OUTLINED_STEADY_MS else STEADY_MS
+        if (nowMs - steadySince < hold) return emptyList()
         return capture(frame, nowMs)
     }
 
@@ -550,6 +558,13 @@ class GuidedScanController(
 
         /** Aligned and steady this long before an automatic capture. */
         const val STEADY_MS = 600L
+
+        /**
+         * A face accepted only as an outlined face (no seams, one solid color: a solved face of a gapless stickerless
+         * cube, but also a book cover or colored paper) must be aligned and steady this long before an automatic
+         * capture, so a solid-color object rarely captures by accident (PO 2026-11-16). The manual shutter is unchanged.
+         */
+        const val OUTLINED_STEADY_MS = 1200L
 
         /** After a re-meter, AF/AE/AWB converge this long before steadiness is measured. Provisional (session B). */
         const val SETTLE_MS = 300L
