@@ -391,6 +391,27 @@ class ScanReviewScreenTest {
         rule.onNodeWithTag("review:discard:confirm").performClick()
         assertEquals(true, closed)
     }
+
+    @Test fun `a review already edited before it is shown still asks before discarding`() {
+        rule.setContent { CubentiaTheme { ScanReviewScreen(review, strings, {}, {}, { closed = true }, edited = true) } }
+        rule.onNodeWithTag("review:close").performScrollTo().performClick()
+        rule.onNodeWithTag("review:discard").assertExists()
+        assertEquals(false, closed)
+    }
+
+    @Test fun calibrationOfferRequiresConfirmation() {
+        var calls = 0
+        val strings = ContentStrings((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings)
+        val review = ScanReview(List(54) { null }, 0)
+        rule.setContent { CubentiaTheme { ScanReviewScreen(review, strings, {}, {}, {}, onCalibrate = { calls++ }) } }
+        rule.onNodeWithTag("review:calibrate:offer").performScrollTo().performClick()
+        assertEquals(0, calls)
+        rule.onNodeWithTag("review:calibrate:cancel").performClick()
+        assertEquals(0, calls)
+        rule.onNodeWithTag("review:calibrate:offer").performScrollTo().performClick()
+        rule.onNodeWithTag("review:calibrate:confirm").performClick()
+        assertEquals(1, calls)
+    }
 }
 
 /** The selected ring: 5dp in all (3dp accent dashes edged by 1dp cubie-body), 8dp dashes. */

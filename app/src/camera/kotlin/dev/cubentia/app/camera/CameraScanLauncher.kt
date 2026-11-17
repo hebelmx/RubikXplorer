@@ -25,5 +25,8 @@ class CameraScanLauncher
                     }
                 }.getOrDefault(false)
 
+        override fun calibrationIntent(context: Context): Intent =
+            guidedScanIntent(context).putExtra(GuidedScanActivity.CALIBRATION_MODE, true)
+
         override fun guidedScanIntent(context: Context): Intent = Intent(context, GuidedScanActivity::class.java)
     }

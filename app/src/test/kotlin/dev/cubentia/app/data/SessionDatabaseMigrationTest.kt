@@ -94,7 +94,8 @@ class SessionDatabaseMigrationTest {
                     connection.prepare("INSERT INTO checkpoint VALUES ('LESSON', 'checkpoint')").use { it.step() }
                     connection
                         .prepare(
-                            "INSERT INTO attempt (attempt_id, session_id, revision, event, objective_id, at_ms) VALUES ('attempt', 'session', 1, 'STARTED', 'objective', 0)",
+                            "INSERT INTO attempt (attempt_id, session_id, revision, event, objective_id, at_ms) " +
+                                "VALUES ('attempt', 'session', 1, 'STARTED', 'objective', 0)",
                         ).use {
                             it.step()
                         }
@@ -137,7 +138,8 @@ class SessionDatabaseMigrationTest {
                     connection.prepare("INSERT INTO checkpoint VALUES ('LESSON', 'checkpoint')").use { it.step() }
                     connection
                         .prepare(
-                            "INSERT INTO attempt (attempt_id, session_id, revision, event, objective_id, at_ms) VALUES ('attempt', 'session', 1, 'STARTED', 'objective', 0)",
+                            "INSERT INTO attempt (attempt_id, session_id, revision, event, objective_id, at_ms) " +
+                                "VALUES ('attempt', 'session', 1, 'STARTED', 'objective', 0)",
                         ).use {
                             it.step()
                         }
@@ -230,6 +232,57 @@ class SessionDatabaseMigrationTest {
                         assertEquals(true, it.step())
                         assertEquals("DARK", it.getText(0))
                         assertEquals(0L, it.getLong(1))
+                    }
+                }
+            } finally {
+                Files.deleteIfExists(path)
+            }
+        }
+
+    @Test fun versionSevenToEightKeepsEveryTableAndCreatesEmptyCalibration() =
+        runBlocking {
+            val path = Files.createTempFile("calibration-migration", ".db")
+            Files.delete(path)
+            val helper =
+                MigrationTestHelper(
+                    InstrumentationRegistry.getInstrumentation(),
+                    path.toFile(),
+                    AndroidSQLiteDriver(),
+                    RubikDatabase::class,
+                )
+            try {
+                val inserts =
+                    listOf(
+                        "INSERT INTO session_snapshot VALUES ('LESSON', 'kept', 7, 1, 'snapshot')",
+                        "INSERT INTO checkpoint VALUES ('LESSON', 'checkpoint')",
+                        "INSERT INTO attempt (attempt_id, session_id, revision, event, objective_id, at_ms) " +
+                            "VALUES ('attempt', 'session', 1, 'STARTED', 'objective', 0)",
+                        "INSERT INTO preferences VALUES (1, 'DARK', 1, 'FAST', 0, 1, 'SHOW_ME', 1)",
+                        "INSERT INTO progress_event (session_id, revision, type, stage_id, lesson_id, at_ms) " +
+                            "VALUES ('kept', 1, 'LESSON_COMPLETED', '', 'lesson', 0)",
+                        "INSERT INTO algorithm_status_event (session_id, revision, algorithm_id, status, epoch, at_ms) " +
+                            "VALUES ('kept', 1, 'alg', 'LEARNING', 0, 0)",
+                    )
+                val tables = listOf("session_snapshot", "checkpoint", "attempt", "preferences", "progress_event", "algorithm_status_event")
+                val before = mutableMapOf<String, List<String?>>()
+
+                fun row(
+                    connection: androidx.sqlite.SQLiteConnection,
+                    table: String,
+                ): List<String?> =
+                    connection.prepare("SELECT * FROM $table").use { statement ->
+                        assertEquals(true, statement.step())
+                        (0 until statement.getColumnCount()).map { if (statement.isNull(it)) null else statement.getText(it) }
+                    }
+                helper.createDatabase(7).use { connection ->
+                    inserts.forEach { sql -> connection.prepare(sql).use { it.step() } }
+                    tables.forEach { before[it] = row(connection, it) }
+                }
+                helper.runMigrationsAndValidate(8).use { connection ->
+                    tables.forEach { assertEquals(before[it], row(connection, it)) }
+                    connection.prepare("SELECT COUNT(*) FROM color_calibration").use {
+                        assertEquals(true, it.step())
+                        assertEquals(0L, it.getLong(0))
                     }
                 }
             } finally {

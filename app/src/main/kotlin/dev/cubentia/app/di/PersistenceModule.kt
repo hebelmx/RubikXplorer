@@ -32,6 +32,25 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object PersistenceModule {
     @Provides @Singleton
+    fun calibration(database: RubikDatabase): dev.cubentia.application.port.CalibrationRepository =
+        dev.cubentia.app.data
+            .RoomCalibrationRepository(database)
+
+    @Provides @Singleton
+    fun updateCalibration(
+        repository: dev.cubentia.application.port.CalibrationRepository,
+    ): dev.cubentia.application.usecase.UpdateCalibration =
+        dev.cubentia.application.usecase
+            .UpdateCalibration(repository)
+
+    @Provides @Singleton
+    fun resetCalibration(
+        repository: dev.cubentia.application.port.CalibrationRepository,
+    ): dev.cubentia.application.usecase.ResetCalibration =
+        dev.cubentia.application.usecase
+            .ResetCalibration(repository)
+
+    @Provides @Singleton
     fun database(
         @ApplicationContext context: Context,
     ): RubikDatabase = Room.databaseBuilder<RubikDatabase>(context, "cubentia.db").setDriver(AndroidSQLiteDriver()).build()
