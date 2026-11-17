@@ -156,22 +156,27 @@ class MainActivity : ComponentActivity() {
                                 if (issued != null) {
                                     // Never attribute a returning capture to a replacement request.
                                     val effect = pending?.takeIf { it.effectId == issued.effectId } ?: issued
-                                    sessionHost.dispatch { at ->
-                                        when (outcome) {
-                                            is QuickCheckOutcome.Observed -> {
-                                                SessionEvent.QuickCheckObserved(
-                                                    effect.effectId,
-                                                    effect.revision,
-                                                    outcome.observation,
-                                                    at,
-                                                )
-                                            }
+                                    val applied =
+                                        sessionHost.dispatch { at ->
+                                            when (outcome) {
+                                                is QuickCheckOutcome.Observed -> {
+                                                    SessionEvent.QuickCheckObserved(
+                                                        effect.effectId,
+                                                        effect.revision,
+                                                        outcome.observation,
+                                                        at,
+                                                    )
+                                                }
 
-                                            QuickCheckOutcome.Cancelled -> {
-                                                SessionEvent
-                                                    .QuickCheckCancelled(effect.effectId, at)
+                                                QuickCheckOutcome.Cancelled -> {
+                                                    SessionEvent
+                                                        .QuickCheckCancelled(effect.effectId, at)
+                                                }
                                             }
                                         }
+                                    // debug only (no-op in release): observed vs expected and the Certainty (PO 2026-11-17).
+                                    (outcome as? QuickCheckOutcome.Observed)?.let {
+                                        ScanDiagnostics.onQuickCheck(current.expected, it.observation, applied.state.quickCheck?.certainty)
                                     }
                                 }
                             }

@@ -1,6 +1,11 @@
 package dev.cubentia.app
 
+import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.recognition.CalibrationCenters
+import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.FrameStats
+import dev.cubentia.domain.recognition.PhysicalObservation
+import dev.cubentia.domain.tutor.Certainty
 
 /** release and benchmark builds: no scan diagnostics are computed or logged. */
 object ScanDiagnostics {
@@ -12,5 +17,19 @@ object ScanDiagnostics {
         latticeDx: Double,
         latticeDy: Double,
         latticeScore: Double,
+    ) = Unit
+
+    @Suppress("UNUSED_PARAMETER")
+    fun onAssembly(
+        round: String,
+        samples: List<FaceSample>,
+        saved: CalibrationCenters?,
+    ) = Unit
+
+    @Suppress("UNUSED_PARAMETER")
+    fun onQuickCheck(
+        expected: CubeState,
+        observation: PhysicalObservation,
+        certainty: Certainty?,
     ) = Unit
 }

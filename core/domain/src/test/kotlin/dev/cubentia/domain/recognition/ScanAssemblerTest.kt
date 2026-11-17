@@ -503,4 +503,56 @@ class ScanAssemblerTest {
     fun `an uncalibrated scan has nothing to re-prompt`() {
         assertEquals(emptyList<Face>(), ScanAssembler.repromptFaces(unposedSamples(r2), CalibrationCenters(emptyMap())))
     }
+
+    // Device diagnostics (Story 10.7 device-fix round 1): the trace shows what the assembler decided and why.
+
+    @Test
+    fun `a trace reports the read, the valid count, the branch and the chosen turns`() {
+        val turns = listOf(1, 2, 3, 0, 1, 2)
+        val resolved = ScanAssembler.trace(unposedSamples(scrambled, turns), CALIBRATION)
+        assertEquals(ScanBranch.RESOLVED, resolved.branch)
+        assertEquals(1, resolved.valid)
+        assertEquals(emptyList<Face>(), resolved.involved)
+        assertEquals(Face.entries.associateWith { turns[it.ordinal] }, resolved.turns)
+        val u = resolved.samples.first()
+        assertEquals(Face.U, u.face)
+        assertEquals(clockwise(scrambled.colors.subList(0, 9), 4 - turns[0]), u.read)
+
+        val ambiguous = ScanAssembler.trace(unposedSamples(r2), CALIBRATION)
+        assertEquals(ScanBranch.AMBIGUOUS, ambiguous.branch)
+        assertTrue(ambiguous.valid!! >= 2)
+        assertEquals(ScanAssembler.repromptFaces(unposedSamples(r2), CALIBRATION), ambiguous.involved)
+
+        val oneTurnProblem = ScanAssembler.trace(unposedSamples(misreadEdge, turns), CALIBRATION)
+        assertEquals(ScanBranch.NO_VALID_REPROMPT, oneTurnProblem.branch)
+        assertEquals(0, oneTurnProblem.valid)
+        assertEquals(listOf(Face.F, Face.U), oneTurnProblem.involved)
+
+        val colors = scrambled.colors.toMutableList()
+        colors[8] = colors[9]
+        val misread = ScanAssembler.trace(unposedSamples(Facelets(colors), turns), CALIBRATION)
+        assertEquals(ScanBranch.NO_VALID_REVIEW, misread.branch)
+        assertEquals(0, misread.valid)
+        assertEquals(emptyList<Face>(), misread.involved)
+    }
+
+    @Test
+    fun `a trace of a partial or uncalibrated scan runs no search`() {
+        val partial = ScanAssembler.trace(solvedSamples().filterNot { it.centerColor == Color.YELLOW }, CALIBRATION)
+        assertEquals(ScanBranch.PARTIAL, partial.branch)
+        assertNull(partial.valid)
+        assertEquals((Face.entries - Face.D).associateWith { 0 }, partial.turns)
+        val uncalibrated = ScanAssembler.trace(solvedSamples(), CalibrationCenters(emptyMap()))
+        assertEquals(ScanBranch.UNCALIBRATED, uncalibrated.branch)
+        assertTrue(uncalibrated.samples.all { it.read == null })
+    }
+
+    @Test
+    fun `a trace describes itself as one line of colors and counts`() {
+        val line = ScanAssembler.trace(unposedSamples(solved), CALIBRATION).describe()
+        assertTrue(line.startsWith("branch=RESOLVED valid=1 involved=- turns=U0,R0,F0,D0,L0,B0 "), line)
+        assertTrue("U:c=W/up=-/o=0/read=WWWWWWWWW" in line, line)
+        assertTrue("F:c=G/up=-/o=0/read=GGGGGGGGG" in line, line)
+        assertEquals("-", ScanTrace.letter(null))
+    }
 }

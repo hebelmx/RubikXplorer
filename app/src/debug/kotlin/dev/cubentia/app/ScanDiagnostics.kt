@@ -1,9 +1,19 @@
 package dev.cubentia.app
 
 import android.util.Log
+import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Facelets
+import dev.cubentia.domain.cube.Orientation
+import dev.cubentia.domain.recognition.CalibrationCenters
+import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.FrameInspection
 import dev.cubentia.domain.recognition.FrameQuality
 import dev.cubentia.domain.recognition.FrameStats
+import dev.cubentia.domain.recognition.PhysicalObservation
+import dev.cubentia.domain.recognition.ScanAssembler
+import dev.cubentia.domain.recognition.ScanTrace
+import dev.cubentia.domain.recognition.SelfCalibration
+import dev.cubentia.domain.tutor.Certainty
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicLong
 
@@ -14,6 +24,10 @@ import java.util.concurrent.atomic.AtomicLong
  * (frame axes) and search score, the face edges found and any framing coached. It also logs an ACCEPTABLE frame accepted
  * only as an outlined face, which waits the longer [dev.cubentia.domain.recognition.GuidedScanController.OUTLINED_STEADY_MS]
  * hold (PO 2026-11-16); `path=` names the path that accepts the seam check: `seams`, `outlined` or `-`. Numbers only, never pixels. Release and benchmark builds get a no-op.
+ *
+ * Story 10.7 device-fix round 1 (PO 2026-11-17): [onAssembly] logs one `assembly round=…` line per 6-face scan
+ * assembly ([ScanTrace.describe]: branch, valid-state count, involved faces, chosen turns, each sample's read), and
+ * [onQuickCheck] one `quickCheck …` line per applied result (54-letter observed vs expected, and the Certainty).
  */
 object ScanDiagnostics {
     const val TAG = "CubentiaScanDiag"
@@ -40,6 +54,57 @@ object ScanDiagnostics {
             )
         Log.d(TAG, (listOf(describe(inspection)) + lattice).joinToString(","))
     }
+
+    /**
+     * Logs how [samples] assemble at [round] (`first`: the first round, which decides the re-prompt; `final`: what review
+     * gets), calibrated as the scan is (self-calibration over [saved]).
+     */
+    fun onAssembly(
+        round: String,
+        samples: List<FaceSample>,
+        saved: CalibrationCenters?,
+    ) {
+        val line =
+            when (val calibration = SelfCalibration.from(samples, saved)) {
+                is SelfCalibration.Calibrated -> ScanAssembler.trace(samples, calibration.calibration).describe()
+                is SelfCalibration.NeedsCalibration -> "branch=NEEDS_CALIBRATION"
+            }
+        Log.d(TAG, listOf("assembly", "round=$round", "samples=${samples.size}", line).joinToString(","))
+    }
+
+    /** Logs a Quick Check result against [expected]: the observation's colors (54 for Full, per face for Partial) and the [certainty]. */
+    fun onQuickCheck(
+        expected: CubeState,
+        observation: PhysicalObservation,
+        certainty: Certainty?,
+    ) {
+        val seen =
+            when (observation) {
+                is PhysicalObservation.Full -> {
+                    "observed=${letters(observation.state.toFacelets())}"
+                }
+
+                is PhysicalObservation.Partial -> {
+                    "observedFaces=" +
+                        observation.faces.entries.joinToString(",") { (face, colors) ->
+                            "$face:${colors.joinToString("") { ScanTrace.letter(it) }}"
+                        }
+                }
+            }
+        val home = expected.reoriented(Orientation.HOME).toFacelets()
+        val fields =
+            listOf(
+                "quickCheck",
+                "kind=${observation::class.simpleName}",
+                seen,
+                "expected=${letters(expected.toFacelets())}",
+                "expectedHome=${letters(home)}",
+                "certainty=${certainty ?: "-"}",
+            )
+        Log.d(TAG, fields.joinToString(","))
+    }
+
+    private fun letters(facelets: Facelets): String = facelets.colors.joinToString("") { ScanTrace.letter(it) }
 
     /** One line of `key=value` fields, comma-separated; `value/minN` or `value/maxN` shows the threshold. */
     private fun describe(inspection: FrameInspection): String =

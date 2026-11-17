@@ -379,6 +379,10 @@ class GuidedScanActivity : ComponentActivity() {
         val vm = scan
         val state = GuidedScanFlow.phaseOf(controller)
         val done = effects.filterIsInstance<GuidedScanEffect.Done>().firstOrNull()
+        done?.let {
+            dev.cubentia.app.ScanDiagnostics
+                .onAssembly(if (scan.quickFaces == null) "final" else "quick", it.samples, scan.saved)
+        }
         val partial =
             if (scan.quickFaces != null &&
                 done != null
@@ -440,7 +444,14 @@ internal class GuidedScanViewModel : ViewModel() {
     fun newController(): GuidedScanController {
         val faces = quickFaces
         return if (faces == null) {
-            GuidedScanController(reprompt = { GuidedScanController.defaultReprompt(it, saved) })
+            GuidedScanController(
+                reprompt = { samples ->
+                    // debug only (no-op in release): what the first round read and why it re-prompts (PO 2026-11-17).
+                    dev.cubentia.app.ScanDiagnostics
+                        .onAssembly("first", samples, saved)
+                    GuidedScanController.defaultReprompt(samples, saved)
+                },
+            )
         } else {
             GuidedScanController(
                 plan =
