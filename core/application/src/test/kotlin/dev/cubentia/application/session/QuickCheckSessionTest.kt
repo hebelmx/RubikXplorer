@@ -48,6 +48,22 @@ class QuickCheckSessionTest {
         return next
     }
 
+    @Test fun `idle and playback ignore late quick check observations`() {
+        val event = SessionEvent.QuickCheckObserved(-1, 0, PhysicalObservation.Full(CubeState.SOLVED), T0)
+        listOf(SessionState.IDLE, SessionState.IDLE.after(playbackStarted())).forEach { state ->
+            assertSame(state, reduce(state, event).state)
+        }
+    }
+
+    @Test fun `editor confirming expected clears mismatch evidence`() {
+        val state = physical().after(SessionEvent.PhysicalConfirmed(R, T0))
+        val mismatch = observed(requested(state), PhysicalObservation.Full(state.expected.apply(R)))
+        assertNotNull(mismatch.quickCheck)
+        val entered = mismatch.after(SessionEvent.EditorEntered(mismatch.expected, T0))
+        assertEquals(SyncState.PHYSICAL_VERIFIED, entered.syncState)
+        assertNull(entered.quickCheck)
+    }
+
     @Test fun `effect carries plan and revision partial verification retains coverage full resets`() {
         val state = physical().after(SessionEvent.PhysicalConfirmed(R, T0), SessionEvent.PhysicalConfirmed(U, T0))
         assertEquals(setOf(Face.R, Face.U), state.touchedSinceVerified)

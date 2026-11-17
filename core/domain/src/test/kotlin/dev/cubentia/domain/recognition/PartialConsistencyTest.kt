@@ -22,6 +22,26 @@ class PartialConsistencyTest {
         assertTrue((result as PartialCheck.Inconsistent).faces.containsAll(involved))
     }
 
+    @Test fun `mirrored corner is inconsistent`() {
+        piece(FaceletTables.CORNER_FACELETS[0], listOf(Color.WHITE, Color.GREEN, Color.RED))
+    }
+
+    @Test fun `duplicate decoded edges and corners are inconsistent`() {
+        for ((indices, faces) in listOf(
+            FaceletTables.EDGE_FACELETS to FaceletTables.EDGE_FACES,
+            FaceletTables.CORNER_FACELETS to FaceletTables.CORNER_FACES,
+        )) {
+            val observedFaces = (indices[0] + indices[1]).map { Face.entries[it / 9] }.toSet()
+            val map = partial(*observedFaces.toTypedArray()).faces.mapValues { it.value.toMutableList() }
+            indices[1].zip(faces[0].map(Color::home)).forEach { (index, color) ->
+                map.getValue(Face.entries[index / 9])[index % 9] = color
+            }
+            // Balance the replaced color on an edge whose D sticker is unobserved.
+            map.getValue(Face.R)[7] = Color.home(faces[1].first { it !in faces[0] })
+            invalid(PhysicalObservation.Partial(map), observedFaces)
+        }
+    }
+
     @Test fun `consistent two face observation`() {
         assertEquals(PartialCheck.Consistent, PartialConsistency.check(partial(Face.U, Face.F)))
     }

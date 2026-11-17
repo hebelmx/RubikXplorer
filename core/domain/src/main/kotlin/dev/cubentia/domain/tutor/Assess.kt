@@ -39,7 +39,8 @@ object Assess {
                 }
 
                 is PhysicalObservation.Partial -> {
-                    if (PartialConsistency.check(
+                    if (observation.faces.isEmpty() ||
+                        PartialConsistency.check(
                             observation,
                         ) !is PartialCheck.Consistent
                     ) {

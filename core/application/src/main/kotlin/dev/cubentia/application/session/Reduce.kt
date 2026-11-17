@@ -126,7 +126,7 @@ private fun applied(
             Transition(state)
         }
     }
-    if (event is SessionEvent.QuickCheckObserved &&
+    if (state.kind?.takesMoves == true && event is SessionEvent.QuickCheckObserved &&
         (
             state.pendingQuickCheck?.effectId != event.effectId || event.revision != state.revision ||
                 state.pendingQuickCheck.revision != event.revision
@@ -795,6 +795,7 @@ private fun enterEditor(
             observed = PhysicalObservation.Full(event.state),
             touchedSinceVerified = emptySet(),
             quickCheckRetry = null,
+            quickCheck = null,
             syncState = SyncState.PHYSICAL_VERIFIED,
             lastMoveFeedback = null,
             lastDiagnosis = diagnosis,

@@ -26,6 +26,9 @@ object PartialConsistency {
             }
         }
 
+        val edges = mutableMapOf<Int, Set<Face>>()
+        val corners = mutableMapOf<Int, Set<Face>>()
+
         fun inspect(
             indices: List<Int>,
             corner: Boolean,
@@ -42,9 +45,30 @@ object PartialConsistency {
                         colors[i] == colors[j] || Face.entries.any { Color.home(it) == colors[i] && Color.home(it.opposite) == colors[j] }
                     }
                 }
-            val invalidCorner =
-                corner && colors.size == 3 && FaceletTables.CORNER_FACES.none { faces -> faces.map(Color::home).toSet() == colors.toSet() }
-            if (invalidPair || invalidCorner) bad += seen.map { it.first }
+            val tables = if (corner) FaceletTables.CORNER_FACES else FaceletTables.EDGE_FACES
+            val complete = colors.size == if (corner) 3 else 2
+            val decoded =
+                if (complete) {
+                    tables.indexOfFirst { faces ->
+                        val home = faces.map(Color::home)
+                        if (corner) {
+                            home.indices.any { offset -> colors.indices.all { colors[it] == home[(it + offset) % home.size] } }
+                        } else {
+                            home.toSet() == colors.toSet()
+                        }
+                    }
+                } else {
+                    -1
+                }
+            val involved = seen.map { it.first }.toSet()
+            if (invalidPair || (complete && decoded < 0)) bad += involved
+            if (decoded >= 0) {
+                val previous = (if (corner) corners else edges).put(decoded, involved)
+                if (previous != null) {
+                    bad += previous
+                    bad += involved
+                }
+            }
         }
         FaceletTables.EDGE_FACELETS.forEach { inspect(it, false) }
         FaceletTables.CORNER_FACELETS.forEach { inspect(it, true) }

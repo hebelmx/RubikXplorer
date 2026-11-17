@@ -23,6 +23,18 @@ class QuickCheckScenarioTest {
         return PhysicalObservation.Partial(faces.associateWith { colors.subList(it.ordinal * 9, it.ordinal * 9 + 9) })
     }
 
+    @Test fun `empty partial gives unknown without an expected match`() {
+        val result =
+            Assess.check(
+                CandidateEnumerator.of(dev.cubentia.domain.cube.CubeState.SOLVED, TutorFixtures.CONFIG),
+                PhysicalObservation.Partial(emptyMap()),
+                emptySet(),
+            )
+        assertEquals(Certainty.UNKNOWN, result.certainty)
+        assertEquals(false, result.matchesExpected)
+        assertEquals(emptyList<Any>(), result.consistent)
+    }
+
     @Test fun `seeded physical observations never falsely verify`() {
         val random = Random(106)
         val turns = TutorFixtures.CONFIG.moves.filterIsInstance<FaceTurn>()
