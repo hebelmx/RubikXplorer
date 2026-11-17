@@ -53,7 +53,7 @@ class QuickCheckSessionTest {
         val event = SessionEvent.QuickCheckObserved(-1, 0, PhysicalObservation.Full(CubeState.SOLVED), T0)
         assertSame(SessionState.IDLE, reduce(SessionState.IDLE, event).state)
         val playback = SessionState.IDLE.after(playbackStarted())
-        assertEquals(EffectResultDiscarded(-1, 0, playback.revision), reduce(playback, event).state.lastDiscarded)
+        assertEquals(playback.copy(lastDiscarded = EffectResultDiscarded(-1, 0, playback.revision)), reduce(playback, event).state)
     }
 
     @Test fun `editor confirming expected clears mismatch evidence`() {

@@ -30,14 +30,11 @@ import dev.cubentia.app.camera.ScanFrame
 import dev.cubentia.app.camera.ScanFrameSource
 import dev.cubentia.app.scan.QuickCheckContract
 import dev.cubentia.app.scan.ScanLauncher
-import dev.cubentia.app.ui.solve.SolveFlowViewModel
-import dev.cubentia.app.ui.solve.SolvePhase
 import dev.cubentia.application.port.CalibrationLoad
 import dev.cubentia.application.port.CalibrationRepository
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SyncState
 import dev.cubentia.domain.cube.Color
-import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.cube.Turn
@@ -49,8 +46,6 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -94,19 +89,7 @@ class QuickCheckRouteTest {
         }
         val main = Robolectric.buildActivity(MainActivity::class.java).setup()
         try {
-            rule.waitUntil(10_000) { rule.onAllNodesWithTag("welcome:imNew").fetchSemanticsNodes().isNotEmpty() }
-            rule.onNodeWithTag("welcome:imNew").performClick()
-            rule.waitForIdle()
-            rule.onNodeWithTag("learn:lesson:lesson-01-01").performScrollTo().performClick()
-            rule.waitUntil(10_000) {
-                host.state.value.lesson
-                    ?.id
-                    ?.value == "lesson-01-01"
-            }
-            rule.waitForIdle()
-            rule.onNodeWithTag("lesson:physicalModeSwitch").performClick()
-            rule.waitUntil(10_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
-            rule.waitForIdle()
+            physicalLesson(main)
             rule.onNodeWithTag("confirmCube:matches").performScrollTo().performClick()
             rule.waitUntil(10_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
             val original = host.state.value.expected
@@ -264,6 +247,69 @@ class QuickCheckRouteTest {
         }
     }
 
+    @Test fun cancelledQuickCheckClearsPendingAndCanStartAgain() {
+        runBlocking {
+            repository.save(
+                dev.cubentia.domain.recognition
+                    .CalibrationCenters(labs),
+            )
+        }
+        val main = Robolectric.buildActivity(MainActivity::class.java).setup()
+        try {
+            physicalLesson(main)
+            rule.onNodeWithTag("confirmCube:matches").performScrollTo().performClick()
+            rule.waitUntil(10_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+            rule.waitForIdle()
+            rule.onNodeWithTag("lesson:overflowMenu").performScrollTo().performClick()
+            rule.onNodeWithTag("lesson:menuMismatch").performClick()
+            rule.waitForIdle()
+            rule.onNodeWithTag("lesson:quickCheck").performScrollTo().performClick()
+            awaitStarted(main)
+            assertNotNull(host.state.value.pendingQuickCheck)
+            val started = shadowOf(main.get()).nextStartedActivityForResult
+            shadowOf(main.get()).receiveResult(started.intent, android.app.Activity.RESULT_CANCELED, null)
+            rule.waitUntil(10_000) { host.state.value.pendingQuickCheck == null }
+            rule.waitForIdle()
+            rule.onNodeWithTag("lesson:quickCheck").performScrollTo().performClick()
+            awaitStarted(main)
+            assertNotNull(host.state.value.pendingQuickCheck)
+            assertEquals(
+                GuidedScanActivity::class.java.name,
+                shadowOf(main.get())
+                    .nextStartedActivityForResult.intent.component!!
+                    .className,
+            )
+        } finally {
+            main.pause().stop().destroy()
+        }
+    }
+
+    @Test fun confirmCardScanReturningAfterMatchesLeavesExpectedUnchanged() {
+        val main = Robolectric.buildActivity(MainActivity::class.java).setup()
+        try {
+            physicalLesson(main)
+            val original = host.state.value.expected
+            rule.onNodeWithTag("confirmCube:scan").performScrollTo().performClick()
+            awaitStarted(main)
+            val started = shadowOf(main.get()).nextStartedActivityForResult
+            rule.onNodeWithTag("confirmCube:matches").performScrollTo().performClick()
+            rule.waitUntil(10_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+            val (code, data) =
+                dev.cubentia.app.scan.ScanFlowContract
+                    .encode(
+                        dev.cubentia.app.scan.ScanOutcome
+                            .Accepted(original.apply(FaceTurn(Face.R, Turn.CLOCKWISE))),
+                    )
+            shadowOf(main.get()).receiveResult(started.intent, code, data)
+            rule.waitForIdle()
+            shadowOf(android.os.Looper.getMainLooper()).idle()
+            assertEquals(SyncState.PHYSICAL_PREDICTED, host.state.value.syncState)
+            assertEquals(original, host.state.value.expected)
+        } finally {
+            main.pause().stop().destroy()
+        }
+    }
+
     internal class FakeFrames : ScanFrameSource {
         var starts = 0
         private lateinit var executor: ExecutorService
@@ -332,17 +378,6 @@ class QuickCheckRouteTest {
         private lateinit var source: FakeFrames
 
         @Volatile private var denied = false
-
-        private fun closeCall(color: Color): Lab {
-            val a = labs.getValue(color)
-            val b =
-                labs
-                    .filterKeys {
-                        it != color
-                    }.values
-                    .minBy { (it.l - a.l) * (it.l - a.l) + (it.a - a.a) * (it.a - a.a) + (it.b - a.b) * (it.b - a.b) }
-            return Lab(a.l * 0.51 + b.l * 0.49, a.a * 0.51 + b.a * 0.49, a.b * 0.51 + b.b * 0.49)
-        }
 
         private val labs =
             mapOf(

@@ -5,7 +5,7 @@ created: '2026-11-17'
 status: 'done'
 baseline_revision: '90dbabbd58686039904032a6d28cded59ddbee54'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-10-context.md'
@@ -19,6 +19,20 @@ deferred:
     location: >-
       core/application/src/main/kotlin/dev/cubentia/application/session/SessionState.kt:181
     severity: medium
+  - summary: >-
+      Quick Check entry points carry no shared BETA label when `CAMERA_SCAN` is BETA.
+    evidence: |-
+      Epic 10 context: "BETA shows through the one shared BETA label component". Quick Check (lesson icon, Confirm-card Scan it, playback buttons) shows whenever `CAMERA_SCAN` is above OFF, with no BETA label. No camera entry has the BETA label yet (the Solve-tab scan's BETA label/tooltip is Story 10.15), and no build ships CAMERA_SCAN at BETA today.
+    location: >-
+      app/src/main/kotlin/dev/cubentia/app/ui/lesson/LessonScreen.kt (lesson:quickCheck), app/src/main/kotlin/dev/cubentia/app/ui/solve/SolutionPlayback.kt (playback:quickCheck)
+    severity: low
+  - summary: >-
+      The regenerated epic-10-context.md dropped constraints that earlier Epic 10 stories relied on.
+    evidence: |-
+      Story 10.7's refreshed epic-10-context.md no longer carries the logo-center guard (60% mode share), the pulsing-ring and reduce-motion review-net rules, the plain-sticker calibration re-prompt, or the Done list. Those stories are done, but a later story that loads this cache will not see them. The fix is to edit or regenerate an agent-context file.
+    location: >-
+      _bmad-output/implementation-artifacts/epic-10-context.md
+    severity: low
 ---
 
 <intent-contract>
@@ -132,6 +146,57 @@ deferred:
   - `[false]` `[reject]` Intent: playback verified-solved milestone untested — same refutation as the Blind playback-milestone row.
   - `[low]` `[reject]` Intent: the `MainActivity` flag-OFF branch has no test — it mirrors the tested Solve `onScan` condition and `ScanPortGate` (tested) already reads every camera flag OFF without a binding; composable tests cover "no capture → no nodes".
 
+### 2026-11-17 — Review pass
+- verdicts: 47 findings — high 0, medium 4, low 28, false 15, maybe-false 0
+- findings:
+  - `[low]` `[reject]` Blind: `QuickCheckCapture.start` drops an effect while `quickInFlight` is set, so `pendingQuickCheck` stays set. While a capture is open its activity covers `MainActivity`, and the result callback clears `quickInFlight` at once. The only way to reach this is the carried case of a recreation before launch, which is rare. The fix adds a cancel branch.
+  - `[low]` `[reject]` Blind: the Confirm-card *Scan it* uses effect id `-1` as a sentinel. Design Notes choose `EditorEntered` for *Scan it*, and the reducer never issues negative ids, so no user-facing defect follows. A typed request would add public surface on the port.
+  - `[low]` `[reject]` Blind: Quick Check has no camera-denial or Editor fallback, and `FellBackToEditor` → Cancelled. carried: same claim as the prior row. `GuidedScanActivity` still shows its own denied card, and the matrix maps FellBackToEditor to Cancelled.
+  - `[low]` `[reject]` Blind: a capture with no usable faces ends silently. carried: the prior row rejected the all-discarded empty Partial with no message.
+  - `[low]` `[reject]` Blind: "That turn probably moved the cross." is lesson-agnostic. carried: the intent mandates this copy, pending PO confirmation.
+  - `[low]` `[reject]` Blind: a saved rung 0 with no capture renders an empty ladder. The capture binding is fixed per process, so this needs the flag to flip between process death and restore. That is unlikely, and the fix adds a guard.
+  - `[low]` `[defer]` Blind: Quick Check entries show no BETA label at `CAMERA_SCAN` BETA. Real, but no camera entry has the shared BETA label yet (Story 10.15), and no build ships BETA. Recorded in `deferred`.
+  - `[low]` `[patch]` Blind: playback Quick Check is a `TextButton`, while the Lesson uses the camera icon. Fixed: `playback:quickCheck` is now an `IconButton` with `ic_camera` and the `btn.physical.quick-check` content description.
+  - `[medium]` `[patch]` Blind: `SolutionPlaybackTest` injects `requestQuickCheck`, so AppShell's real playback wiring is never run. Grouped with the verification-gap playback row and fixed by `AppShellSolveTest.physicalPlaybackQuickCheckAndScanAllReachTheCapture`.
+  - `[false]` `[reject]` Blind: adopt's `PHYSICAL_PREDICTED` with empty coverage makes the next request empty. The matrix mandates PREDICTED with `touchedSinceVerified = {}`, and `QuickCheck.faces(emptySet())` returns {U, F}, not an empty set.
+  - `[false]` `[reject]` Blind: the subset decision is made in two places. If calibration is reset between the loads, the activity runs the full review scan and `decode` reads it correctly. The reviewer concedes the outcome is right.
+  - `[low]` `[reject]` Blind: after process death the session's pending check is gone, so the returning result is discarded. The reducer's stale guard discards it as AD-3 requires, process death mid-scan is rare, and a re-offer needs a persisted launch phase.
+  - `[false]` `[reject]` Blind: `checkNotNull(scan.saved)` can crash, and the controller rebuild loses progress. `quickFaces` is non-null only when `scan.saved != null`, and the camera starts only once `calibrationLoaded` is true (GuidedScanActivity L206/L313), so no frame reaches the first controller.
+  - `[low]` `[reject]` Blind: `cameraCheck` is a dead parameter. Removing it would edit the call sites in the protected 8.7/12.8 test harness, which the intent forbids.
+  - `[low]` `[patch]` Blind: `QuickCheckRouteTest` has dead code. Fixed: removed `closeCall` and the unused imports, and the first test now calls `physicalLesson()`.
+  - `[low]` `[reject]` Blind: `SeenStrip` uses Android string resources for sticker descriptions, a fixed glyph box, and a border-only "differs" cue. It reuses the existing `StickerReviewNet`/`ScanReviewScreen` accessibility pattern, and differences are announced by `stateDescription`. Redesigning for font scale adds layout.
+  - `[low]` `[defer]` Blind: the regenerated `epic-10-context.md` dropped constraints. The fix edits an agent-context cache, so it is recorded in `deferred`.
+  - `[low]` `[reject]` Blind: the `Cube3DEmphasisTest` idle waits are unrelated. The prior Auto Run Result already lists them as a timing-race fix with the assertions unchanged.
+  - `[low]` `[reject]` Edge: a recreation between request and launch leaves `quickInFlight` restored with nothing launched. carried: same claim as the prior Edge row.
+  - `[low]` `[reject]` Edge: start while in flight never cancels the pending check. Same root cause and reachability as the first Blind row.
+  - `[false]` `[reject]` Edge: rethrowing a failed `result.launch` crashes. carried: the prior row marked this false, since the crash is intended and matches the Solve scan.
+  - `[false]` `[reject]` Edge: a result could return with `issued == null` while a check is pending. `quickInFlight` is set before launch and restored from saved state, so the callback always has it.
+  - `[low]` `[reject]` Edge: the empty-Partial early return gives no retry text. carried: same claim as the prior empty-Partial row.
+  - `[false]` `[reject]` Edge: `quickCheckOf` throws away a non-Partial assembly. For fewer than six faces `ScanAssembler` returns a Partial, or the uncalibrated empty Partial. A rejected assembly is no evidence by design.
+  - `[false]` `[reject]` Edge: the controller rebuild loses captured faces. The camera is gated on `calibrationLoaded` (same refutation as the Blind row).
+  - `[false]` `[reject]` Edge: playback Quick Check shows in AWAITING_CONFIRM or with no `tutorConfig`. Physical playback enters `PHYSICAL_PREDICTED` directly (`switchMode`), and `ready.bundle.tutorConfig` is non-null (`LessonCatalog`).
+  - `[low]` `[reject]` Edge: rung 0 with a null slot. Same as the Blind rung-0 row.
+  - `[false]` `[reject]` Edge: `adoptObserved` forces PREDICTED when `enterEditor` returns unchanged. `enterEditor` returns early only in VIRTUAL, and `canAdoptObserved` requires `PHYSICAL_MISMATCH`.
+  - `[false]` `[reject]` Edge: the result falls back to the issued effect when the pending check was replaced. The reducer's stale-id guard discards it (AD-3), which is the intended behavior.
+  - `[low]` `[reject]` Edge: an empty Partial gives no feedback (claim). carried: same as the empty-Partial row.
+  - `[medium]` `[patch]` Verification gap: AppShell's playback Quick Check wiring (`tutorConfig`, `quickCheck.start`, `fullScan`) is untested. Added `AppShellSolveTest.physicalPlaybackQuickCheckAndScanAllReachTheCapture`: a real AppShell solve → follow on my cube → Quick Check reaches the capture and the pending check → Partial mismatch → *Scan all 6 faces* captures all six faces.
+  - `[medium]` `[patch]` Verification gap: a cancelled Quick Check returning to `MainActivity` is untested. Added `QuickCheckRouteTest.cancelledQuickCheckClearsPendingAndCanStartAgain`: RESULT_CANCELED clears the pending check, and a second tap starts a new capture.
+  - `[medium]` `[patch]` Verification gap: the stale guard on *Scan it* is untested. Added `QuickCheckRouteTest.confirmCardScanReturningAfterMatchesLeavesExpectedUnchanged`: *Matches* before the result arrives leaves Expected and PREDICTED unchanged.
+  - `[low]` `[reject]` Verification gap: the `cameraCheck` helper default hides the no-capture copy (filed defer). The production caller never passes `cameraCheck`, so the harm is test-only, and changing the protected helper is forbidden.
+  - `[low]` `[reject]` Verification gap (other): the `AppShellCameraScanTest` name and doc describe the old flag-driven copy. The behavior it asserts (no capture → camera-free copy) still holds, and renaming a protected 12.10 test is cosmetic.
+  - `[low]` `[reject]` Verification gap (other): start while in flight drops the effect. Same as the first Blind row.
+  - `[false]` `[reject]` Intent: screen tests use a stand-in capture, and the route is tested only in `testDebug`. carried: the prior row covered this; `QuickCheckRouteTest` now drives five real-`MainActivity` routes.
+  - `[low]` `[reject]` Intent: no test checks that `MainActivity` passes no capture with the flag OFF. carried: same as the prior flag-OFF row.
+  - `[low]` `[reject]` Intent: *Scan it* runs outside the reducer's AD-3 flow. Same as the `-1` sentinel row, and the Design Notes choose this route.
+  - `[low]` `[reject]` Intent: *Scan it* FellBackToEditor is dropped. The Confirm card stays on screen with *Enter it*, and routing it would add a new outcome path (same reasoning as the carried FellBackToEditor row).
+  - `[false]` `[reject]` Intent: "offered at Objective boundaries" might mean an auto-issued check. The Approach says "offered", and the AC says "*Quick Check* is offered … *Done*/*Next* still work". A button meets both.
+  - `[false]` `[reject]` Intent: adopt is allowed in any Moves-taking session, not only Lessons. The intent excludes adopt only in Solution Playback, and `canAdoptObserved` matches the spec's `kind.takesMoves` task.
+  - `[low]` `[reject]` Intent: adopt and *Scan all 6 faces* show only on rung 0. carried: same claim as the prior rung-0 actions row.
+  - `[false]` `[reject]` Intent: the playback button shows in any sync state. It sits under `state.isPhysical`, and physical playback is always PREDICTED, VERIFIED or MISMATCH.
+  - `[false]` `[reject]` Intent: the extra key `msg.quick-check.seen-differs`. carried: added by the prior pass's accessibility patch, and the listed keys are a minimum.
+  - `[low]` `[patch]` Intent: a 10.6 assertion changed in `idle and playback ignore late quick check observations`; the playback case now checks only `lastDiscarded`. Fixed: it asserts the whole state equals the playback state plus `lastDiscarded`.
+  - `[low]` `[reject]` Intent: with `cameraCheck = true` and no capture, the camera copy no longer shows (G2). Same as the verification-gap `cameraCheck` row; no production caller passes `cameraCheck`.
+
 ## Design Notes
 
 **Why *Scan it* dispatches `EditorEntered`:** the spine routes `PhysicalAwaitingConfirm → PhysicalPredicted` on a Full scan or the Editor; no `ScanAccepted` event exists, and `EditorEntered(state)` already is the Full-observation entry (Expected := state, VERIFIED, coverage reset). A Quick Check there would judge candidates from a predicted cube the Learner has not confirmed.
@@ -171,3 +236,30 @@ Status: done
 **Verification:** `./gradlew spotlessApply`; `./gradlew :core:application:test --tests QuickCheckSessionTest` passed (incl. the added playback-without-config test); `./gradlew :app:testDebugUnitTest --tests QuickCheckRouteTest` 3/3 and `PhysicalLessonScreenTest` 47/47 passed; `./gradlew spotlessCheck build` BUILD SUCCESSFUL (Kover, lint, content tests, `CertaintyProducerTest`, `TransitionsTableTest`, policy gates, APKs). Matrix audit: every I/O row has a passing test.
 
 **Residual risks:** the Likely copy is lesson-agnostic ("…moved the cross.") until the PO confirms copy at the device session; without a saved calibration every Quick Check runs the full 6-face scan; a recreation in the milliseconds before the capture launches can leave a pending check until the next session change; the 10.6 `R U2 R'` Partial-match alias remains. Human gate: device session on the main debug build.
+
+### Follow-up review pass (2026-11-17)
+
+**Summary:** This was a fresh four-layer review of the full Story 10.7 diff. The Codex layers hit their usage limit, so all four ran as Claude subagents. Six patch entries tighten verification and one UI detail. The behavior described above is unchanged.
+
+**Files changed:**
+- `app/src/main/kotlin/dev/cubentia/app/ui/solve/SolutionPlayback.kt` -- the playback Quick Check is now the camera `IconButton`, matching the Lesson.
+- `app/src/test/kotlin/dev/cubentia/app/ui/shell/AppShellSolveTest.kt` -- `show(quickCheck)`, plus `physicalPlaybackQuickCheckAndScanAllReachTheCapture`. This test runs the real AppShell solve → playback wiring: `tutorConfig`, the capture start, and *Scan all 6 faces* asking for all six faces.
+- `app/src/testDebug/kotlin/dev/cubentia/app/QuickCheckRouteTest.kt` -- adds `cancelledQuickCheckClearsPendingAndCanStartAgain` and `confirmCardScanReturningAfterMatchesLeavesExpectedUnchanged`; removes dead code and unused imports.
+- `core/application/src/test/kotlin/dev/cubentia/application/session/QuickCheckSessionTest.kt` -- the late observation in playback now asserts the whole state (only `lastDiscarded` changes).
+
+**Review findings:**
+- 47 findings in total: high 0, medium 4, low 28, false 15.
+- Patched: 6 entries at entry verdict, medium 3 and low 3. The medium ones are the playback wiring test, the cancel route test and the stale *Scan it* test. The low ones are the playback icon, the route-test cleanup and the 10.6 assertion.
+- Deferred: 2 low items, the Quick Check BETA label (Story 10.15 owns BETA labels) and the regenerated epic-10 context's dropped constraints.
+- Rejected: every remaining finding, each with its reason in the Review Triage Log. The rejections include the carried rows from the first pass.
+
+**Follow-up review recommended:** false. This was a follow-up pass and it patched no high entry.
+
+**Verification:**
+- `./gradlew spotlessApply` passed.
+- The targeted run passed: `QuickCheckSessionTest` 24/24, `QuickCheckRouteTest` 5/5, `AppShellSolveTest` 14/14 and `SolutionPlaybackTest` 29/29.
+- `./gradlew :core:domain:test :core:application:test :app:testDebugUnitTest spotlessCheck build` ended in BUILD SUCCESSFUL.
+
+**Residual risks:**
+- Still open from the first pass: the lesson-agnostic Likely copy, which waits on the PO device session, and the rare recreation-before-launch window that can leave a pending check.
+- A capture start that arrives while another capture is in flight is still dropped without a cancel. It is reachable only through that window.

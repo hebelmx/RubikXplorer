@@ -316,8 +316,15 @@ fun SolutionPlayback(
                     dev.cubentia.app.ui.lesson
                         .SeenStrip(state.session, strings)
                 }
-                TextButton(onClick = { requestQuickCheck(false) }, modifier = Modifier.testTag("playback:quickCheck")) {
-                    Text(strings.resolve(ContentText("btn.physical.quick-check")))
+                androidx.compose.material3.IconButton(
+                    onClick = { requestQuickCheck(false) },
+                    modifier = Modifier.testTag("playback:quickCheck"),
+                ) {
+                    androidx.compose.material3.Icon(
+                        androidx.compose.ui.res
+                            .painterResource(R.drawable.ic_camera),
+                        contentDescription = strings.resolve(ContentText("btn.physical.quick-check")),
+                    )
                 }
                 if (state.session.offersFullScan) {
                     TextButton(onClick = { requestQuickCheck(true) }, modifier = Modifier.testTag("playback:scanAll")) {
