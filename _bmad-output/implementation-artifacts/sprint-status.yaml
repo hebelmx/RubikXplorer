@@ -585,7 +585,7 @@ action_items:
       it to the Solution playback net (SolutionPlayback.kt:82) or delete it, before
       Story 12.2 relies on it"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-11.md"
   - id: "epic-1-retro-item-56-bmad-architecture-update-architecture-sp"
     epic: 1
@@ -707,6 +707,18 @@ action_items:
     owner: "Dev (Amelia) + SM"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-16-main-app-entry-points.md"
+  - id: "epic-1-retro-item-55-deferred-min-frame-floor-fails"
+    epic: 1
+    action: "Prove MinFrameCountMetric fails a capture below MIN_FRAMES on a device (run once with a too-high floor, confirm the failure message) (medium; deferred from epic-1-retro-item-55, MinFrameCountMetric.kt:31; device-only session, #106)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-epic-1-retro-item-55-retarget-net2d-benchmark.md"
+  - id: "epic-1-retro-item-55-deferred-uiautomator-finds-net"
+    epic: 1
+    action: "Prove UiAutomator resolves By.res(net) on Solution Playback (testTagsAsResourceId): requireNet must pass in the connected benchmark (medium; deferred from epic-1-retro-item-55, SolvePlaybackScreen.kt:61; device-only session, #106)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-epic-1-retro-item-55-retarget-net2d-benchmark.md"
   - id: "epic-3-deferred-3-5-outline-ring-pixel-check"
     epic: 3
     action: "Verify the drawn invalid-piece outline ring at pixel level (screenshot test), not only via semantics flags (low; deferred from 3.5, spec-3-5:105)"

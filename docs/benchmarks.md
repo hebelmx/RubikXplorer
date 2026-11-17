@@ -125,9 +125,18 @@ confirmation on a release build.
 ```
 
 Needs a connected device or emulator (API 29+; an emulator gives only indicative numbers).
-`Net2DFrameTimingBenchmark` opens the Solve tab and taps R U R' U' on the Move key bar while
-`FrameTimingMetric` records frame durations, 5 warm iterations with full AOT compilation. Results
-land in `macrobenchmark/build/outputs/connected_android_test_additional_output/`.
+`Net2DFrameTimingBenchmark` opens Solve, chooses *Enter colors*, flips the UF and UB edges in the
+editor, and accepts the cube to reach Solution Playback. A warm relaunch can restore playback
+directly. Setup checks for the 2D net, pauses playback, selects normal speed, and rewinds if fewer
+than eight Moves remain. Each of five warm iterations with full AOT compilation records
+`FrameTimingMetric` during a 4.8 s playback window and requires the counter to advance by at least
+seven Moves. The companion metric reports `uiFrameCount` and requires at least 100 main-thread UI
+frames per iteration. At 30 Hz, 4.8 s provides 144 vsyncs. Setup fails when `animator_duration_scale` is 0, because
+Reduce Motion snaps the net instead of animating it. Results land in
+`macrobenchmark/build/outputs/connected_android_test_additional_output/`.
+
+Reference-device measurement of the retargeted benchmark is pending under
+[issue #106](https://github.com/hebelmx/RubikXplorer/issues/106).
 
 It measures the `:app` `benchmark` build type: a copy of release (R8, resource shrinking, keep
 rules, release feature-flag levels, release `DebugOptions`), debug-signed so it installs, and
@@ -153,14 +162,13 @@ Run on 2026-11-10 at commit `4befc1f` plus the Welcome-screen fix above, `benchm
 
 **No 2D net baseline could be measured on either device.** The product owner waived this baseline
 (Story 1.11 AC1) for v1.0 in [issue #106](https://github.com/hebelmx/RubikXplorer/issues/106), so AC1
-is met by that v1.0 waiver; retargeting the benchmark is tracked there. The Solve
+was met by that v1.0 waiver. The Solve
 tab's free cube is no longer drawn by `Net2DRenderer`: since Epic 5, `FreeCubeViewModel` uses
 `Cube3DRenderer` on a `GLSurfaceView`. The face-key taps now animate GL frames, which
 `FrameTimingMetric` cannot see, and the Compose UI around the cube draws almost nothing. The perfetto
 trace of an S24 FE iteration shows one app `DrawFrames` and one actual/expected frame-timeline slice
 for the app, against 22 GL `QueuePresentKHR` on `GLThread`. `Net2DRenderer` is still used by the
-Solution playback net (`SolutionPlayback.kt`), which this benchmark does not open. Retargeting the
-benchmark at a screen that draws the 2D net is follow-up work.
+Solution Playback net (`SolutionPlayback.kt`), which the benchmark now opens.
 
 | Device | OS | Display | Result |
 |---|---|---|---|
@@ -651,9 +659,9 @@ Questions for the product owner before adding the device through `bmad-correct-c
 
 ## Out of scope
 
-- 2D net reference-device baselines: attempted in Story 1.11 and not measured (see above); waived
-  for v1.0 by the product owner in [issue #106](https://github.com/hebelmx/RubikXplorer/issues/106).
-  `Net2DFrameTimingBenchmark` is kept unchanged for that retargeting.
+- The product owner waived the Story 1.11 2D net reference-device baselines for v1.0. Device
+  measurement of the benchmark retargeted to Solution Playback is pending under
+  [issue #106](https://github.com/hebelmx/RubikXplorer/issues/106).
 - Solver performance work and a release-equivalent recalibration of k: v1.1, #105. The ~8 s
   per-process preparation: v1.1, #104. Story 12.2 measured both as they are and did not tune them.
 - Camera, scan and Quick Check flows (Key Flows 4, 5 and 9 steps 1–3): v1.1.

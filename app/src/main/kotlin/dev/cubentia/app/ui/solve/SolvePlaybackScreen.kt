@@ -17,6 +17,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.R
 import dev.cubentia.app.content.ContentStrings
@@ -50,7 +52,14 @@ fun SolvePlaybackScreen(
     BackHandler(onBack = onClose)
     val playback = rememberSolutionPlaybackState(session, onEvent = onEvent)
     Surface(modifier = modifier.fillMaxSize(), color = RubikTheme.tokens.surfaceBase, contentColor = RubikTheme.tokens.inkPrimary) {
-        Column(Modifier.fillMaxSize().safeDrawingPadding().testTag("solvePlayback:screen")) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .safeDrawingPadding()
+                .testTag("solvePlayback:screen")
+                // Expose existing tags to UiAutomator for the macrobenchmark.
+                .semantics { testTagsAsResourceId = true },
+        ) {
             Row(Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
                 IconButton(onClick = onClose, modifier = Modifier.testTag("solvePlayback:close")) {
                     Icon(painterResource(R.drawable.ic_close), contentDescription = strings.resolve(ContentText("btn.solve.close")))
