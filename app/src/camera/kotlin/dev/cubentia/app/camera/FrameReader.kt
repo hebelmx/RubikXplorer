@@ -1,6 +1,7 @@
 package dev.cubentia.app.camera
 
 import androidx.camera.core.ImageProxy
+import dev.cubentia.domain.recognition.CaptureQuality
 import dev.cubentia.domain.recognition.CellReadResult
 import dev.cubentia.domain.recognition.CellReader
 import dev.cubentia.domain.recognition.CellReading
@@ -43,7 +44,20 @@ internal class YuvFrame(
 }
 
 /**
- * Reads one analysis frame into [FrameStats] (Story 10.2). The grid is the region under the drawn grid
+ * One frame read at its located [lattice] (Story 10.14), with the lattice found [outside] the tolerance when that one
+ * gave the stats' framing. For the debug diagnostics; numbers only.
+ */
+internal data class FrameReading(
+    val stats: FrameStats,
+    val lattice: Lattice,
+    val outside: Lattice? = null,
+)
+
+/**
+ * Reads one analysis frame into [FrameStats] (Stories 10.2, 10.14). When the drawn grid does not hold a cube face, the
+ * face's 3×3 lattice is located inside it by [FaceLocator] (a face about 70–100 % of the grid's size, offset up to about
+ * half a cell; see [locate]), and everything below — cells, glare, light, sharpness and seams — is read on that lattice
+ * ("the grid" below). The grid is the region under the drawn grid
  * ([ViewfinderGrid.inFrame]; by default the centered square 80 % of the crop's shorter side, as in the fixture
  * recorder); each cell's central 60 % is sampled on a regular 12×12 lattice, converted YUV → sRGB → CIELAB and read by
  * [CellReader] — on a stickered black-body cube only its sticker samples, near-black body left out (see
@@ -62,7 +76,11 @@ internal class YuvFrame(
  * lines up within each); a segment's mean Y is profiled across a band of ±[SEAM_BAND] cells around the grid line (the
  * real seam is rarely exactly on it), and the segment dips when the profile's darkest point is at most [SEAM_RATIO] of,
  * and at least [MIN_SEAM_DEPTH] below, the darker of its two cells' mean Y (the dark gap between stickers or pieces).
- * The edge has a seam when at least [MIN_SEAM_SEGMENTS] of its segments dip. Frames are read and dropped: nothing here
+ * The edge has a seam when at least [MIN_SEAM_SEGMENTS] of its segments dip, or when its two cells' readings differ by
+ * at least [FrameQuality.COLOR_STEP_DELTA_E] and both are sticker evidence ([FrameQuality.isStickerEvidence]: a color
+ * step between gapless stickerless pieces, PO 2026-11-16, never one onto dark background or body).
+ * Sharpness is the larger of that near the inner lines and that near the outer edge (a solved gapless face's only
+ * edge). Face edges: see [faceEdges]. Frames are read and dropped: nothing here
  * keeps pixels.
  */
 internal object FrameReader {
@@ -106,31 +124,87 @@ internal object FrameReader {
     /** Samples within this CIE76 ΔE of one another are one color for a center's dominant color. Provisional (session B). */
     const val DOMINANT_DELTA_E = 10.0
 
+    /** A face edge: the band outside a side, in cells from the side, and its samples across. Provisional (session B). */
+    const val FACE_EDGE_FROM = 0.1
+    const val FACE_EDGE_TO = 0.35
+    const val FACE_EDGE_SAMPLES = 4
+
+    /** A side's cell contrasts with the band outside it by at least this CIE76 ΔE. Provisional (session B). */
+    const val FACE_EDGE_DELTA_E = 20.0
+
+    /** At least this many of a side's three cells must contrast for the side to be a face edge. */
+    const val MIN_FACE_EDGE_SEGMENTS = 2
+
     /** A cell's body samples are left out only when at least this share of its samples are sticker. */
     const val MIN_STICKER_SHARE = 0.25
 
-    /** Reads [image] inside [grid] (frame pixels; see [ViewfinderGrid.inFrame]). */
-    fun read(
+    /**
+     * Reads [image] at the face located inside [grid] (frame pixels; see [ViewfinderGrid.inFrame]), whose
+     * [rotationDegrees] turn it upright for the Learner.
+     */
+    fun locate(
         image: ImageProxy,
         grid: GridSquare,
-    ): FrameStats {
+        rotationDegrees: Int,
+    ): FrameReading {
         val crop = image.cropRect
         val planes = image.planes
 
         fun plane(index: Int) = YuvPlane(planes[index].buffer, planes[index].rowStride, planes[index].pixelStride)
-        return read(YuvFrame(plane(0), plane(1), plane(2), crop.left, crop.top, crop.right, crop.bottom), grid)
+        return locate(YuvFrame(plane(0), plane(1), plane(2), crop.left, crop.top, crop.right, crop.bottom), grid, rotationDegrees)
     }
 
-    /** Reads [frame] inside [grid]; by default the centered square of [GRID_FRACTION] of the crop's shorter side. */
+    /** Reads [frame] at the face located inside [grid]; see [locate]. */
     fun read(
         frame: YuvFrame,
         grid: GridSquare? = null,
+        rotationDegrees: Int = 0,
+    ): FrameStats = locate(frame, grid, rotationDegrees).stats
+
+    /**
+     * Reads [frame] inside [grid] — by default the centered square of [GRID_FRACTION] of the crop's shorter side — and,
+     * when that does not read as a cube face (MISALIGNED), locates the face's lattice with [FaceLocator] (Story 10.14):
+     * the best-ranked tolerated lattices are read ([readAt]) in order and the first ACCEPTABLE one is the frame's
+     * reading. When none is, the fixed grid's reading stands, and the wider search looks for a face outside the
+     * tolerance; when one reads ACCEPTABLE, the stats carry its [FrameStats.framing] for the Learner, whose preview is the
+     * frame turned [rotationDegrees] clockwise. [FrameReading.lattice] is the lattice read, or the best-scoring candidate
+     * when none was accepted (for the diagnostics).
+     */
+    fun locate(
+        frame: YuvFrame,
+        grid: GridSquare? = null,
+        rotationDegrees: Int = 0,
+    ): FrameReading {
+        val exact = Lattice(1.0, 0.0, 0.0, 0.0)
+        if (frame.width <= 0 || frame.height <= 0) return FrameReading(empty(), exact)
+        val square = grid ?: ViewfinderGrid.inFrame(0.0, 0.0, frame.left, frame.top, frame.right, frame.bottom, 0)
+        if (square.side <= 0) return FrameReading(empty(), exact)
+        val stats = readAt(frame, square)
+        if (FrameQuality.assess(stats) != CaptureQuality.MISALIGNED) return FrameReading(stats, exact)
+        val map = FaceLocator.LumaMap(frame, square)
+
+        /** The first of [ranked] that reads as a cube face, with its stats. */
+        fun firstFace(ranked: List<Lattice>): Pair<Lattice, FrameStats>? =
+            ranked.firstNotNullOfOrNull { lattice ->
+                val located = readAt(frame, lattice.square(square))
+                (lattice to located).takeIf { FrameQuality.assess(located) == CaptureQuality.ACCEPTABLE }
+            }
+        val ranked = FaceLocator.rank(map, FaceLocator.tolerated)
+        firstFace(ranked)?.let { (lattice, located) -> return FrameReading(located, lattice) }
+        val outside = firstFace(FaceLocator.rank(map, FaceLocator.wide))?.first
+        return FrameReading(stats.copy(framing = outside?.framing(rotationDegrees)), ranked.first(), outside)
+    }
+
+    private fun empty() = FrameStats(List(FrameQuality.CELLS) { null }, 0.0, 0.0, 0.0, 0)
+
+    /** Reads [frame] at the lattice [square] (frame pixels): see the class KDoc. */
+    fun readAt(
+        frame: YuvFrame,
+        square: GridSquare,
     ): FrameStats {
-        if (frame.width <= 0 || frame.height <= 0) return FrameStats(List(FrameQuality.CELLS) { null }, 0.0, 0.0, 0.0, 0)
-        val square =
-            grid ?: ViewfinderGrid.inFrame(0.0, 0.0, frame.left, frame.top, frame.right, frame.bottom, 0)
+        if (frame.width <= 0 || frame.height <= 0) return empty()
         val side = square.side
-        if (side <= 0) return FrameStats(List(FrameQuality.CELLS) { null }, 0.0, 0.0, 0.0, 0)
+        if (side <= 0) return empty()
         val gridLeft = square.left
         val gridTop = square.top
         val cell = side / 3
@@ -177,8 +251,9 @@ internal object FrameReader {
                     }
                 }
             }
-        val seams = seams(frame, gridLeft, gridTop, cell)
-        return stats(frame, cells, gridLeft, gridTop, side).copy(glareFraction = glare, seams = seams)
+        val seams = seams(frame, gridLeft, gridTop, cell, cells)
+        val faceEdges = faceEdges(frame, gridLeft, gridTop, cell, cells)
+        return stats(frame, cells, gridLeft, gridTop, side).copy(glareFraction = glare, seams = seams, faceEdges = faceEdges)
     }
 
     /**
@@ -272,12 +347,13 @@ internal object FrameReader {
         return l >= WHITE_MIN_L && sqrt(a * a + b * b) <= WHITE_MAX_CHROMA
     }
 
-    /** How many of the 12 inner cell edges show a dark seam (see the class KDoc). */
+    /** How many of the 12 inner cell edges show a dark seam or a color step between [cells] (see the class KDoc). */
     private fun seams(
         frame: YuvFrame,
         gridLeft: Double,
         gridTop: Double,
         cell: Double,
+        cells: List<CellReading?>,
     ): Int {
         fun luma(
             x: Double,
@@ -320,6 +396,9 @@ internal object FrameReader {
             first: Int,
             second: Int,
         ): Boolean {
+            val a = cells[first]?.takeIf(FrameQuality::isStickerEvidence)?.value
+            val b = cells[second]?.takeIf(FrameQuality::isStickerEvidence)?.value
+            if (a != null && b != null && deltaE(a, b) >= FrameQuality.COLOR_STEP_DELTA_E) return true
             val darker = minOf(cellLuma[first], cellLuma[second])
             val dips =
                 (0 until SEAM_SEGMENTS).count { index ->
@@ -386,7 +465,126 @@ internal object FrameReader {
         }
         if (count == 0) return FrameStats(cells, 0.0, 0.0, 0.0, 0)
         val sharpness = if (edges == 0) 0.0 else (lapSum / edges).let { lapSquares / edges - it * it }
-        return FrameStats(cells, lumaSum / count, 0.0, sharpness, 0)
+        return FrameStats(cells, lumaSum / count, 0.0, maxOf(sharpness, outerSharpness(frame, gridLeft, gridTop, side)), 0)
+    }
+
+    /**
+     * The variance of the Laplacian of Y within ±[SEAM_BAND] cells of the lattice's outer edge, on the [STATS_STEP]
+     * lattice: a solved gapless face has no edges near its inner lines, only its outline (PO 2026-11-16).
+     */
+    private fun outerSharpness(
+        frame: YuvFrame,
+        left: Double,
+        top: Double,
+        side: Double,
+    ): Double {
+        val band = SEAM_BAND * side / 3
+        val right = left + side
+        val bottom = top + side
+        val x0 = maxOf((left - band).toInt(), frame.left + 1)
+        val y0 = maxOf((top - band).toInt(), frame.top + 1)
+        val x1 = minOf((right + band).toInt() + 1, frame.right - 1)
+        val y1 = minOf((bottom + band).toInt() + 1, frame.bottom - 1)
+        var edges = 0
+        var lapSum = 0.0
+        var lapSquares = 0.0
+        var y = y0
+        while (y < y1) {
+            val nearRow = abs(y - top) <= band || abs(y - bottom) <= band
+            var x = x0
+            while (x < x1) {
+                if (nearRow || abs(x - left) <= band || abs(x - right) <= band) {
+                    val laplacian =
+                        (
+                            4 *
+                                frame.y.at(
+                                    x,
+                                    y,
+                                ) - frame.y.at(x - 1, y) - frame.y.at(x + 1, y) - frame.y.at(x, y - 1) - frame.y.at(x, y + 1)
+                        ).toDouble()
+                    lapSum += laplacian
+                    lapSquares += laplacian * laplacian
+                    edges++
+                }
+                x += STATS_STEP
+            }
+            y += STATS_STEP
+        }
+        return if (edges == 0) 0.0 else (lapSum / edges).let { lapSquares / edges - it * it }
+    }
+
+    /**
+     * How many of the lattice's four sides contrast with what lies just outside them: on at least
+     * [MIN_FACE_EDGE_SEGMENTS] of a side's three cells, the mean color of a band [FACE_EDGE_FROM]–[FACE_EDGE_TO] cells
+     * outside, over the cell's central [CELL_ROI_FRACTION], is at least [FACE_EDGE_DELTA_E] (CIE76) from the cell's
+     * reading. Band samples outside the crop are left out; a band with none has no contrast.
+     */
+    private fun faceEdges(
+        frame: YuvFrame,
+        left: Double,
+        top: Double,
+        cell: Double,
+        cells: List<CellReading?>,
+    ): Int {
+        val margin = cell * (1 - CELL_ROI_FRACTION) / 2
+
+        /** The band's mean color at across-offsets [from]..[to] beyond the side, or null when it is outside the crop. */
+        fun band(
+            vertical: Boolean,
+            lineAt: Double,
+            outward: Double,
+            alongFrom: Double,
+        ): Lab? {
+            var sumY = 0.0
+            var sumU = 0.0
+            var sumV = 0.0
+            var count = 0
+            for (across in 0 until FACE_EDGE_SAMPLES) {
+                val offset =
+                    lineAt + outward * cell * (FACE_EDGE_FROM + (FACE_EDGE_TO - FACE_EDGE_FROM) * (across + 0.5) / FACE_EDGE_SAMPLES)
+                for (along in 0 until LATTICE) {
+                    val at = alongFrom + cell * CELL_ROI_FRACTION * (along + 0.5) / LATTICE
+                    val x = (if (vertical) offset else at).toInt()
+                    val y = (if (vertical) at else offset).toInt()
+                    if (x < frame.left || x >= frame.right || y < frame.top || y >= frame.bottom) continue
+                    sumY += frame.y.at(x, y)
+                    sumU += frame.u.at(x / 2, y / 2)
+                    sumV += frame.v.at(x / 2, y / 2)
+                    count++
+                }
+            }
+            if (count == 0) return null
+            return labOf(sumY / count, sumU / count - CHROMA_OFFSET, sumV / count - CHROMA_OFFSET)
+        }
+
+        fun side(
+            vertical: Boolean,
+            lineAt: Double,
+            outward: Double,
+            indices: List<Int>,
+        ): Boolean =
+            indices.withIndex().count { (segment, index) ->
+                val reading = cells[index]?.value ?: return@count false
+                val start = (if (vertical) top else left) + segment * cell + margin
+                val outside = band(vertical, lineAt, outward, start) ?: return@count false
+                deltaE(reading, outside) >= FACE_EDGE_DELTA_E
+            } >= MIN_FACE_EDGE_SEGMENTS
+        return listOf(
+            side(true, left, -1.0, listOf(0, 3, 6)),
+            side(true, left + 3 * cell, 1.0, listOf(2, 5, 8)),
+            side(false, top, -1.0, listOf(0, 1, 2)),
+            side(false, top + 3 * cell, 1.0, listOf(6, 7, 8)),
+        ).count { it }
+    }
+
+    private fun deltaE(
+        first: Lab,
+        second: Lab,
+    ): Double {
+        val dl = first.l - second.l
+        val da = first.a - second.a
+        val db = first.b - second.b
+        return sqrt(dl * dl + da * da + db * db)
     }
 
     private fun lab(
@@ -397,6 +595,15 @@ internal object FrameReader {
         val yy = frame.y.at(x, y).toDouble()
         val uu = frame.u.at(x / 2, y / 2) - CHROMA_OFFSET
         val vv = frame.v.at(x / 2, y / 2) - CHROMA_OFFSET
+        return labOf(yy, uu, vv)
+    }
+
+    /** Full-range BT.601 Y and centered U, V (Cb, Cr) to CIELAB. */
+    private fun labOf(
+        yy: Double,
+        uu: Double,
+        vv: Double,
+    ): Lab {
         val red = (yy + 1.402 * vv).toInt().coerceIn(0, BYTE_MASK)
         val green = (yy - 0.344136 * uu - 0.714136 * vv).toInt().coerceIn(0, BYTE_MASK)
         val blue = (yy + 1.772 * uu).toInt().coerceIn(0, BYTE_MASK)

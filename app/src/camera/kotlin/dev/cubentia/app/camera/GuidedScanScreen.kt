@@ -420,6 +420,11 @@ internal fun coachingKey(coaching: Coaching): String =
         Coaching.LOW_LIGHT -> "msg.scan.coach.low-light"
         Coaching.MISALIGNED -> "msg.scan.coach.misaligned"
         Coaching.WRONG_FACE -> "msg.scan.coach.wrong-face"
+        Coaching.MOVE_CLOSER -> "msg.scan.coach.move-closer"
+        Coaching.MOVE_LEFT -> "msg.scan.coach.move-left"
+        Coaching.MOVE_RIGHT -> "msg.scan.coach.move-right"
+        Coaching.MOVE_UP -> "msg.scan.coach.move-up"
+        Coaching.MOVE_DOWN -> "msg.scan.coach.move-down"
     }
 
 /** "Face 2 of 6" in the first round; "Again: face 1 of 2" in the re-prompt round. */

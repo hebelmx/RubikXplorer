@@ -10,7 +10,8 @@ import java.util.concurrent.atomic.AtomicLong
 /**
  * debug build (device session B2): when a frame with nine readable cells is not ACCEPTABLE for auto-capture, logs which
  * [FrameQuality] check failed and every measured value against its threshold under the [TAG] tag, at most one line per
- * [INTERVAL_MS]. Numbers only, never pixels. Release and benchmark builds get a no-op.
+ * [INTERVAL_MS], with the located face lattice (Story 10.14): its scale of the grid's side, center offset in grid cells
+ * (frame axes) and search score, the face edges found and any framing coached. Numbers only, never pixels. Release and benchmark builds get a no-op.
  */
 object ScanDiagnostics {
     const val TAG = "CubentiaScanDiag"
@@ -20,12 +21,22 @@ object ScanDiagnostics {
     fun onFrame(
         stats: FrameStats,
         nowMs: Long,
+        latticeScale: Double,
+        latticeDx: Double,
+        latticeDy: Double,
+        latticeScore: Double,
     ) {
         val inspection = FrameQuality.inspect(stats)
         if (inspection.failed == null || inspection.readableCells != FrameQuality.CELLS) return
         val last = lastLogMs.get()
         if (nowMs - last < INTERVAL_MS || !lastLogMs.compareAndSet(last, nowMs)) return
-        Log.d(TAG, describe(inspection))
+        val lattice =
+            listOf(
+                "lattice=scale${format(latticeScale, 2)}/dx${format(latticeDx, 2)}/dy${format(latticeDy, 2)}/score${format(latticeScore)}",
+                "faceEdges=${stats.faceEdges}/${FrameQuality.FACE_EDGES}",
+                "framing=${stats.framing ?: "-"}",
+            )
+        Log.d(TAG, (listOf(describe(inspection)) + lattice).joinToString(","))
     }
 
     /** One line of `key=value` fields, comma-separated; `value/minN` or `value/maxN` shows the threshold. */

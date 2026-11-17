@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlin.math.sqrt
 
 class GuidedScanTest {
     private fun cells(
@@ -111,6 +112,93 @@ class GuidedScanTest {
         }
     }
 
+    /**
+     * Device session B2, round 2b (Lenovo, `diag-lenovo-r2b.log`): the pale gapless stickerless cube's solved yellow face
+     * passed every check but seams (4–6 of 7): nine plain cells C*ab ≈ 84–89, L* ≈ 75–82, sharpness 265–730, luma ≈ 158.
+     * Outlined by its surroundings on all four sides it is aligned (PO 2026-11-16); without that outline (a plain wall)
+     * or without sticker evidence (a gray scene) it is not.
+     */
+    @Test
+    fun `the pinned solved gapless yellow face is aligned when outlined, a plain wall or gray scene is not`() {
+        val yellow =
+            listOf(
+                78.0 to 86.0,
+                75.0 to 84.0,
+                82.0 to 89.0,
+                79.0 to 85.0,
+                80.0 to 87.0,
+                77.0 to 88.0,
+                76.0 to 84.5,
+                81.0 to 86.5,
+                78.5 to 85.5,
+            ).map { (l, c) -> CellReading(Lab(l, -6.0, sqrt(c * c - 36.0)), true) }
+        val face = FrameStats(yellow, 158.0, 0.0, 400.0, 5, faceEdges = 4)
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(face))
+        assertTrue(GuidedScanController().feed(face, 0, 2000).any { it is GuidedScanEffect.Capture })
+        listOf(4, 6).forEach { seams -> assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(face.copy(seams = seams))) }
+        // A plain yellow wall: the same cells, no outline.
+        listOf(0, 3).forEach { edges ->
+            val wall = face.copy(faceEdges = edges)
+            assertEquals(FrameCheck.SEAMS, FrameQuality.inspect(wall).failed, "$edges edges")
+            assertTrue(GuidedScanController().feed(wall, 0, 5000).none { it is GuidedScanEffect.Capture })
+        }
+        // A gray scene, even outlined: no sticker evidence.
+        val gray = face.copy(cells = List(9) { CellReading(Lab(60.0, 1.0, 3.0), true) })
+        assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(gray))
+        // An outlined face with a cell that is not plain, or two neighbors that differ without a seam, is not.
+        assertEquals(
+            CaptureQuality.MISALIGNED,
+            FrameQuality.assess(
+                face.copy(
+                    cells =
+                        yellow.mapIndexed { i, c ->
+                            if (i ==
+                                1
+                            ) {
+                                c.copy(plain = false)
+                            } else {
+                                c
+                            }
+                        },
+                ),
+            ),
+        )
+        val oneOrange = yellow.mapIndexed { i, c -> if (i == 0) CellReading(LABS.getValue(Color.ORANGE), true) else c }
+        assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(face.copy(cells = oneOrange, seams = 0)))
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(face.copy(cells = oneOrange, seams = 2)))
+    }
+
+    @Test
+    fun `a dark background or black body cell is misaligned (device session B2)`() {
+        val dark = cells(Color.GREEN).toMutableList().also { it[6] = CellReading(Lab(12.0, 1.0, -2.0), true) }
+        assertEquals(FrameCheck.DARK_CELLS, FrameQuality.inspect(stats(cells = dark)).failed)
+        // A dark but saturated sticker (blue in dim light) is not.
+        val blue = cells(Color.GREEN).toMutableList().also { it[6] = CellReading(Lab(22.0, 20.0, -45.0), true) }
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(stats(cells = blue)))
+    }
+
+    @Test
+    fun `a misaligned face outside the tolerance coaches its move, other qualities keep their coaching`() {
+        val misaligned = stats(seams = 3)
+        mapOf(
+            Framing.CLOSER to Coaching.MOVE_CLOSER,
+            Framing.LEFT to Coaching.MOVE_LEFT,
+            Framing.RIGHT to Coaching.MOVE_RIGHT,
+            Framing.UP to Coaching.MOVE_UP,
+            Framing.DOWN to Coaching.MOVE_DOWN,
+        ).forEach { (framing, coaching) ->
+            val controller = GuidedScanController()
+            assertTrue(controller.feed(misaligned.copy(framing = framing), 0, 3000).none { it is GuidedScanEffect.Capture })
+            assertEquals(coaching, controller.coaching, "$framing")
+        }
+        val generic = GuidedScanController()
+        generic.onFrame(misaligned, 0, 0)
+        assertEquals(Coaching.MISALIGNED, generic.coaching)
+        val blurred = GuidedScanController()
+        blurred.onFrame(misaligned.copy(sharpness = 1.0, framing = Framing.LEFT), 0, 0)
+        assertEquals(Coaching.BLURRED, blurred.coaching)
+    }
+
     @Test
     fun `inspect names the first failing check and its measured values (device session B2 diagnostics)`() {
         val ok = FrameQuality.inspect(good)
@@ -131,6 +219,8 @@ class GuidedScanTest {
                 stats(cells = cells(Color.GREEN, plain = 6)) to FrameCheck.PLAIN_OUTER_CELLS,
                 stats(seams = 6) to FrameCheck.SEAMS,
                 stats(cells = pale) to FrameCheck.STICKER_CELLS,
+                stats(cells = cells(Color.GREEN).toMutableList().also { it[0] = CellReading(Lab(8.0, 0.0, 1.0), true) }) to
+                    FrameCheck.DARK_CELLS,
             )
         expected.forEach { (frame, check) ->
             val inspection = FrameQuality.inspect(frame)

@@ -260,13 +260,14 @@ class FrameReaderTest {
         )
 
     /**
-     * A cube face [dx], [dy] pixels off the grid: nine stickers with a [gap]-pixel black plastic gap around each, on a
-     * dark background, plus a little sensor noise.
+     * A cube face [scale] times the grid's size about its center and [dx], [dy] pixels off it: nine stickers with a
+     * [gap]-pixel black plastic gap around each, on a dark background, plus a little sensor noise.
      */
     private fun cubeFace(
         dx: Double = 0.0,
         dy: Double = 0.0,
         gap: Int = 6,
+        scale: Double = 1.0,
         colors: List<Triple<Int, Int, Int>> = stickers,
         gapLuma: Int = PLASTIC,
         paint: (Int, Int) -> Triple<Int, Int, Int>? = { _, _ -> null },
@@ -278,13 +279,15 @@ class FrameReaderTest {
             x: Int,
             y: Int,
         ): Triple<Int, Int, Int>? {
-            val fx = x - gridLeft - dx
-            val fy = y - gridTop - dy
-            if (fx < 0 || fy < 0 || fx >= gridSide || fy >= gridSide) return null
-            val inX = fx % cellSide
-            val inY = fy % cellSide
-            if (inX < gap / 2.0 || inX >= cellSide - gap / 2.0 || inY < gap / 2.0 || inY >= cellSide - gap / 2.0) return null
-            return paint(x, y) ?: colors[(fy / cellSide).toInt() * 3 + (fx / cellSide).toInt()]
+            val faceSide = gridSide * scale
+            val faceCell = cellSide * scale
+            val fx = x - gridLeft - (gridSide - faceSide) / 2 - dx
+            val fy = y - gridTop - (gridSide - faceSide) / 2 - dy
+            if (fx < 0 || fy < 0 || fx >= faceSide || fy >= faceSide) return null
+            val inX = fx % faceCell
+            val inY = fy % faceCell
+            if (inX < gap / 2.0 || inX >= faceCell - gap / 2.0 || inY < gap / 2.0 || inY >= faceCell - gap / 2.0) return null
+            return paint(x, y) ?: colors[(fy / faceCell).toInt() * 3 + (fx / faceCell).toInt()]
         }
         return image(
             luma = { x, y -> if (highlight(x, y)) 255 else (sticker(x, y)?.first ?: gapLuma) + noise.nextInt(7) - 3 },
@@ -348,6 +351,7 @@ class FrameReaderTest {
     private fun stickerlessFace(
         colors: List<Triple<Int, Int, Int>> = deviceFace,
         scale: Double = 1.06,
+        dx: Double = 0.0,
         dy: Double = 0.08,
         degrees: Double = 2.0,
         seam: Double = 0.015,
@@ -358,7 +362,7 @@ class FrameReaderTest {
         val height = 400
         val side = minOf(width, height) * FrameReader.GRID_FRACTION
         val cell = side / 3
-        val centerX = width / 2.0
+        val centerX = width / 2.0 + dx * cell
         val centerY = height / 2.0 + dy * cell
         val cos = kotlin.math.cos(Math.toRadians(degrees))
         val sin = kotlin.math.sin(Math.toRadians(degrees))
@@ -514,11 +518,22 @@ class FrameReaderTest {
         assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(off))
     }
 
+    /**
+     * Story 10.14 (PO 2026-11-16, device session B2): a face up to about half a cell off the grid is located and
+     * captures, where the fixed grid alone read it as misaligned; one a whole cell off is beyond the tolerance and never
+     * captures.
+     */
     @Test
-    fun `a cube half a cell off the grid is misaligned`() {
-        val stats = FrameReader.read(cubeFace(dx = cellSide * 0.5, dy = cellSide * 0.5))
-        assertTrue(stats.seams < FrameQuality.MIN_SEAMS, "seams ${stats.seams}")
-        assertTrue(effectsOf(stats).none { it is GuidedScanEffect.Capture })
+    fun `a cube half a cell off the grid is located and captures, one a cell off is misaligned`() {
+        val off = cubeFace(dx = cellSide * 0.5, dy = cellSide * 0.5)
+        val fixed = FrameReader.readAt(off, GridSquare(gridLeft, gridTop, gridSide))
+        assertTrue(fixed.seams < FrameQuality.MIN_SEAMS, "fixed-grid seams ${fixed.seams}")
+        val stats = FrameReader.read(off)
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(stats), "seams ${stats.seams}")
+        assertTrue(effectsOf(stats).any { it is GuidedScanEffect.Capture })
+        val far = FrameReader.read(cubeFace(dx = cellSide * 1.0, dy = cellSide * 1.0))
+        assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(far))
+        assertTrue(effectsOf(far).none { it is GuidedScanEffect.Capture })
     }
 
     @Test

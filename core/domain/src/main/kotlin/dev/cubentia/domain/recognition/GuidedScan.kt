@@ -38,13 +38,19 @@ object GuidedScanPlan {
 }
 
 /**
- * What the camera adapter measured on one analysis frame, inside the grid only: the nine cell readings in pixel
- * row-major order (null when a cell had no reading), the mean luma (Y, 0–255), [glareFraction]: the largest share of
- * one cell's pixels in a specular spot (clipped, Y ≥ 250, near-neutral pixels inside a saturated sticker color; a white
- * sticker, also one mixed with black seam or body, is never glare), the
- * grid's [sharpness] (the variance of the Laplacian of Y near the inner grid lines, as the camera adapter computes it) and
- * [seams]: how many of the grid's 12 inner cell edges (0–12) show a dark seam between their two cells, the gap between
- * stickers or pieces that a cube face has and a floor, a wall or clothing does not. No pixels cross into the domain.
+ * What the camera adapter measured on one analysis frame, on the face it located inside the drawn grid (Story 10.14,
+ * PO 2026-11-16: a 3×3 lattice from about 70 % to 100 % of the grid's size, offset up to about half a cell): the nine
+ * cell readings in pixel row-major order (null when a cell had no reading), the mean luma (Y, 0–255), [glareFraction]:
+ * the largest share of one cell's pixels in a specular spot (clipped, Y ≥ 250, near-neutral pixels inside a saturated
+ * sticker color; a white sticker, also one mixed with black seam or body, is never glare), the face's [sharpness] (the
+ * variance of the Laplacian of Y near its inner lines, or near its outer edge when that is sharper, as the camera adapter
+ * computes it) and [seams]: how many of its 12 inner cell edges (0–12) part their two cells, by a dark seam (the gap
+ * between stickers or pieces that a cube face has and a floor, a wall or clothing does not) or by a color step of at
+ * least [FrameQuality.COLOR_STEP_DELTA_E] between the two cells' readings when both are sticker evidence
+ * ([FrameQuality.isStickerEvidence]; a gapless stickerless cube, PO 2026-11-16).
+ * [faceEdges] is how many of the face's four sides (0–4) contrast with what lies just outside them. [framing] is set
+ * when no face is within the tolerance but one is clearly present outside it: what the Learner should do, as they see
+ * the preview. No pixels cross into the domain.
  */
 data class FrameStats(
     val cells: List<CellReading?>,
@@ -52,15 +58,24 @@ data class FrameStats(
     val glareFraction: Double,
     val sharpness: Double,
     val seams: Int,
+    val faceEdges: Int = 0,
+    val framing: Framing? = null,
 )
+
+/** How the Learner should move a cube face that is clearly present but outside the tolerance, as they see the preview. */
+enum class Framing { CLOSER, LEFT, RIGHT, UP, DOWN }
 
 /**
  * Frame quality for the Guided Scan, in precedence order LOW_LIGHT → GLARE → BLURRED → MISALIGNED → ACCEPTABLE.
- * Aligned means a plausible cube face fills the grid: nine readable cells, at least [MIN_PLAIN_OUTER_CELLS] of the eight
+ * Aligned means a plausible cube face fills the grid: nine readable cells, none of them near-black (dark background or
+ * black body, [DARK_CELL_MAX_L]), at least [MIN_PLAIN_OUTER_CELLS] of the eight
  * outer cells plain (the center may carry a logo, PO 2026-11-16), a seam on a majority ([MIN_SEAMS]) of the inner cell
  * edges, and sticker evidence: at least [MIN_STICKER_CELLS] cells a saturated sticker color (C*ab ≥
  * [STICKER_MIN_CHROMA]) or a bright white one (L* ≥ [WHITE_STICKER_MIN_L]) — a steady, sharp, bright background or a
- * dull gray scene with faint seams is not. [assess] gates auto-capture; [assessShutter] gates the manual shutter, which skips the cube-face check (PO
+ * dull gray scene with faint seams is not. A face with too few seams is still aligned when it is outlined (PO
+ * 2026-11-16, a solved face of a gapless stickerless cube): all [FACE_EDGES] sides contrast with their surroundings, all
+ * nine cells are plain sticker evidence, and every inner edge without a seam joins two cells of one color (within
+ * [COLOR_STEP_DELTA_E]); a plain wall or floor has no outer edge, a gray scene no sticker evidence. [assess] gates auto-capture; [assessShutter] gates the manual shutter, which skips the cube-face check (PO
  * 2026-11-16) so a face that is not recognized can still be captured. Thresholds are provisional: they are tuned on the
  * reference devices in device session B.
  */
@@ -105,6 +120,23 @@ object FrameQuality {
      */
     const val MIN_SEAMS = 7
 
+    /**
+     * Two neighboring cells whose readings differ by at least this CIE76 ΔE are parted by a color step, which counts as
+     * a seam; closer ones are one color. Provisional (session B).
+     */
+    const val COLOR_STEP_DELTA_E = 15.0
+
+    /**
+     * A cell at most this light (CIELAB L*) and [DARK_CELL_MAX_CHROMA] chromatic is dark background or black cube body:
+     * no cube face has a black sticker, so the grid is off the face (device session B2: a third of the cells read L* < 25
+     * when the cube sat off the grid). Provisional (session B).
+     */
+    const val DARK_CELL_MAX_L = 25.0
+    const val DARK_CELL_MAX_CHROMA = 15.0
+
+    /** An outlined face contrasts with its surroundings on all four sides. */
+    const val FACE_EDGES = 4
+
     /** Inner cell edges of the 3×3 grid: 6 between columns, 6 between rows. */
     const val INNER_EDGES = 12
 
@@ -141,10 +173,14 @@ object FrameQuality {
 
                 stats.cells.size != CELLS || stats.cells.any { it == null } -> FrameCheck.READABLE_CELLS
 
+                stats.cells.indices.any {
+                    stats.cells[it]!!.value.l <= DARK_CELL_MAX_L && chroma[it]!! <= DARK_CELL_MAX_CHROMA
+                } -> FrameCheck.DARK_CELLS
+
                 // A cube face: its outer cells are plain stickers (the center may carry a logo) parted by seams.
                 plainOuter < MIN_PLAIN_OUTER_CELLS -> FrameCheck.PLAIN_OUTER_CELLS
 
-                stats.seams < MIN_SEAMS -> FrameCheck.SEAMS
+                stats.seams < MIN_SEAMS && !outlined(stats, chroma) -> FrameCheck.SEAMS
 
                 stickerCells < MIN_STICKER_CELLS -> FrameCheck.STICKER_CELLS
 
@@ -155,6 +191,7 @@ object FrameQuality {
             readableCells = stats.cells.count { it != null },
             plainOuterCells = plainOuter,
             seams = stats.seams,
+            faceEdges = stats.faceEdges,
             stickerCells = stickerCells,
             chroma = chroma,
             lightness = stats.cells.map { it?.value?.l },
@@ -163,6 +200,34 @@ object FrameQuality {
             meanLuma = stats.meanLuma,
         )
     }
+
+    /** An outlined face (see the class KDoc), given its cells' [chroma]. */
+    private fun outlined(
+        stats: FrameStats,
+        chroma: List<Double?>,
+    ): Boolean {
+        if (stats.faceEdges < FACE_EDGES || stats.cells.any { it == null || !it.plain }) return false
+        if (stats.cells.indices.any { !isStickerEvidence(chroma[it]!!, stats.cells[it]!!.value.l) }) return false
+        val values = stats.cells.map { it!!.value }
+        val pairs =
+            (0..2).flatMap { k ->
+                (1..2).flatMap { line ->
+                    listOf(
+                        k * 3 + line - 1 to k * 3 + line,
+                        (line - 1) * 3 + k to line * 3 + k,
+                    )
+                }
+            }
+        val joins = pairs.count { (first, second) -> StickerClassifier.deltaE(values[first], values[second]) < COLOR_STEP_DELTA_E }
+        return stats.seams + joins >= INNER_EDGES
+    }
+
+    /**
+     * Whether [reading] is sticker evidence: a saturated sticker color or a bright white sticker, never a dull gray, a
+     * black body or a dark background. The camera adapter counts a color step as a seam only between two such cells.
+     */
+    fun isStickerEvidence(reading: CellReading): Boolean =
+        isStickerEvidence(sqrt(reading.value.a * reading.value.a + reading.value.b * reading.value.b), reading.value.l)
 
     /** A saturated sticker color, or a bright white sticker; never a dull gray. */
     private fun isStickerEvidence(
@@ -179,6 +244,7 @@ enum class FrameCheck(
     GLARE(CaptureQuality.GLARE),
     SHARPNESS(CaptureQuality.BLURRED),
     READABLE_CELLS(CaptureQuality.MISALIGNED),
+    DARK_CELLS(CaptureQuality.MISALIGNED),
     PLAIN_OUTER_CELLS(CaptureQuality.MISALIGNED),
     SEAMS(CaptureQuality.MISALIGNED),
     STICKER_CELLS(CaptureQuality.MISALIGNED),
@@ -194,6 +260,7 @@ data class FrameInspection(
     val readableCells: Int,
     val plainOuterCells: Int,
     val seams: Int,
+    val faceEdges: Int,
     val stickerCells: Int,
     val chroma: List<Double?>,
     val lightness: List<Double?>,
@@ -204,8 +271,11 @@ data class FrameInspection(
     val quality: CaptureQuality get() = failed?.quality ?: CaptureQuality.ACCEPTABLE
 }
 
-/** Categorical coaching for the Learner; never an error. */
-enum class Coaching { GLARE, BLURRED, LOW_LIGHT, MISALIGNED, WRONG_FACE }
+/**
+ * Categorical coaching for the Learner; never an error. The MOVE_ values coach a face that is clearly present but outside
+ * the framing tolerance (PO 2026-11-16), as the Learner sees the preview.
+ */
+enum class Coaching { GLARE, BLURRED, LOW_LIGHT, MISALIGNED, WRONG_FACE, MOVE_CLOSER, MOVE_LEFT, MOVE_RIGHT, MOVE_UP, MOVE_DOWN }
 
 /** What the viewfinder must do after a controller call. */
 sealed interface GuidedScanEffect {
@@ -229,7 +299,8 @@ sealed interface GuidedScanEffect {
  * Alignment is an ACCEPTABLE frame. The first ACCEPTABLE frame after a non-ACCEPTABLE one (or at a new step) emits
  * [GuidedScanEffect.Remeter]; after [SETTLE_MS] the first frame becomes the steadiness reference, and once every cell
  * has stayed within [STEADY_DELTA_E] of it for [STEADY_MS] the face is captured automatically. A cell that moves resets
- * the reference and the timer. [onShutter] captures the latest frame at once when [FrameQuality.assessShutter]
+ * the reference and the timer. A MISALIGNED frame whose [FrameStats.framing] is set coaches that move instead of
+ * [Coaching.MISALIGNED]. [onShutter] captures the latest frame at once when [FrameQuality.assessShutter]
  * accepts it.
  *
  * A face in the grid (nine readable cells) that stays BLURRED or LOW_LIGHT for [STUCK_REMETER_MS] emits
@@ -324,7 +395,7 @@ class GuidedScanController(
             justCaptured = null
             aligned = false
             reference = null
-            coaching = coachingFor(quality)
+            coaching = coachingFor(quality, stats.framing)
             return remeterIfStuck(stats, quality, nowMs)
         }
         stuckSince = null
@@ -507,7 +578,28 @@ class GuidedScanController(
         /** Repeated-face rejections at one step before *Use this face anyway* is offered. */
         const val REJECTIONS_BEFORE_OVERRIDE = 2
 
-        fun coachingFor(quality: CaptureQuality): Coaching? =
+        /** The coaching for [quality]; a MISALIGNED frame with a face outside the tolerance coaches its [framing]. */
+        fun coachingFor(
+            quality: CaptureQuality,
+            framing: Framing? = null,
+        ): Coaching? =
+            when {
+                quality == CaptureQuality.MISALIGNED && framing != null -> {
+                    when (framing) {
+                        Framing.CLOSER -> Coaching.MOVE_CLOSER
+                        Framing.LEFT -> Coaching.MOVE_LEFT
+                        Framing.RIGHT -> Coaching.MOVE_RIGHT
+                        Framing.UP -> Coaching.MOVE_UP
+                        Framing.DOWN -> Coaching.MOVE_DOWN
+                    }
+                }
+
+                else -> {
+                    qualityCoaching(quality)
+                }
+            }
+
+        private fun qualityCoaching(quality: CaptureQuality): Coaching? =
             when (quality) {
                 CaptureQuality.ACCEPTABLE -> null
                 CaptureQuality.GLARE -> Coaching.GLARE

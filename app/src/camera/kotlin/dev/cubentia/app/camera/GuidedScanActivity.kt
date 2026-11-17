@@ -327,9 +327,12 @@ class GuidedScanActivity : ComponentActivity() {
         // The analysed grid is exactly the region under the drawn grid, whatever the pane's shape (PO 2026-11-16).
         val grid = ViewfinderGrid.inFrame(width.toDouble(), height.toDouble(), crop.left, crop.top, crop.right, crop.bottom, rotation)
         meteringGrid = MeteringGrid(image.width, image.height, grid)
-        val stats = FrameReader.read(image, grid)
-        // Debug builds log why a face in the grid is not auto-captured (device session B2); a no-op otherwise.
-        ScanDiagnostics.onFrame(stats, now)
+        val reading = FrameReader.locate(image, grid, rotation)
+        val stats = reading.stats
+        // Debug builds log why a face in the grid is not auto-captured, and where its lattice was found (device session
+        // B2); a no-op otherwise.
+        val lattice = reading.lattice
+        ScanDiagnostics.onFrame(stats, now, lattice.scale, lattice.dx, lattice.dy, lattice.score)
         handle(scan.freeze.decide(now) { controller.onFrame(stats, rotation, now) })
     }
 

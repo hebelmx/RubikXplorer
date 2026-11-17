@@ -8,5 +8,9 @@ object ScanDiagnostics {
     fun onFrame(
         stats: FrameStats,
         nowMs: Long,
+        latticeScale: Double,
+        latticeDx: Double,
+        latticeDy: Double,
+        latticeScore: Double,
     ) = Unit
 }
