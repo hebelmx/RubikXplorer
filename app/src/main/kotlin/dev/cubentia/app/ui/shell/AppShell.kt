@@ -700,7 +700,7 @@ private fun ShellContent(
                             state,
                             moves,
                             ->
-                            val scanned = solveFlow.isAcceptedScan(state)
+                            val scanned = solveFlow.isAcceptedScan()
                             host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it, ready.bundle.tutorConfig, scanned) }
                         },
                         // Edge-to-edge: the themed surface fills the bar area while controls sit inside the safe area.

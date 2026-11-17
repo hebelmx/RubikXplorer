@@ -304,7 +304,7 @@ resets history and coverage, retains the previous Checkpoint and diagnoses again
 Guided recovery when available. Playback never adopts, and Done in mismatch commits on top.
 A VERIFIED match at an unconfirmed physical Objective also confirms the solve.
 Device-fix round 1 (PO 2026-11-17): `SolvePlaybackStarted(fromAcceptedScan = true)` (a start from a scan the Learner
-accepted, or from a Full Quick Check observation) sets `observed` Full(start) and `touchedSinceVerified` = {}; that
+accepted, unchanged or corrected in the Editor (round 2), or from a Full Quick Check observation) sets `observed` Full(start) and `touchedSinceVerified` = {}; that
 baseline survives the virtual playback start and the first switch to physical, so the first Quick Check plans only
 the faces the confirmed Moves touched. A switch back to virtual drops it, and any other start keeps no baseline.
 In physical playback a Full mismatch sets `canResolveObserved` (the app re-solves the observed cube and restarts

@@ -420,8 +420,9 @@ private fun startPractice(
  * Starts a Solve Playback session at [start] holding [solution], when [solution] verifiably solves
  * [start] (bounded: one pass over the list); otherwise nothing changes. The Teaching Mode is kept.
  * An active Lesson is suspended; it resumes separately from its stored Checkpoint (AD-3).
- * [fromAcceptedScan]: [start] is a scan the Learner accepted, so it is the Full verified baseline
- * (`observed` Full [start], nothing touched) that a later switch to physical mode keeps (PO 2026-11-17).
+ * [fromAcceptedScan]: [start] is a scan the Learner accepted, unchanged or corrected in the Editor, so it is the
+ * Full verified baseline (`observed` Full [start], nothing touched) that a later switch to physical mode keeps
+ * (PO 2026-11-17).
  */
 private fun startPlayback(
     state: SessionState,

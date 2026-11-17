@@ -75,10 +75,11 @@ class SolveFlowViewModel
         }
 
         /**
-         * Whether [state] is the accepted scan the editor opened with, confirmed without changes (PO 2026-11-17): its
-         * playback starts with that scan as the Full verified baseline. Manual entry, or any edited color, is not.
+         * Whether the editor being confirmed opened with an accepted scan (PO 2026-11-17): its playback starts with the
+         * confirmed state as the Full verified baseline, whether the Learner confirmed the scan unchanged or corrected
+         * some stickers first (device-fix round 2). Manual color entry is not a scan.
          */
-        fun isAcceptedScan(state: CubeState): Boolean = scanned != null && scanned == state.toFacelets()
+        fun isAcceptedScan(): Boolean = scanned != null
 
         fun scanDenied() {
             scanned = null
