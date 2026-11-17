@@ -93,6 +93,17 @@ class AppShellCameraScanTest {
         rule.onNodeWithTag("lesson:quickCheck").assertExists()
     }
 
+    @Test fun `CAMERA_SCAN OFF hides a wired Quick Check capture`() {
+        meetFinaleObjectiveInPhysicalMode(
+            FlagLevel.OFF,
+            dev.cubentia.app.scan
+                .QuickCheckCapture {},
+        )
+        rule.onNodeWithText(CAMERA_FREE_PROMPT).assertExists()
+        rule.onNodeWithText(CAMERA_PROMPT).assertDoesNotExist()
+        rule.onNodeWithTag("lesson:quickCheck").assertDoesNotExist()
+    }
+
     private fun meetFinaleObjectiveInPhysicalMode(
         cameraScan: FlagLevel,
         quickCheck: QuickCheckCapture? = null,

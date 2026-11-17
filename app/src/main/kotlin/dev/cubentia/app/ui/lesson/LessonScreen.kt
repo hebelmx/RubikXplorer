@@ -588,6 +588,18 @@ private fun LessonBody(
             }
         }
     }
+    // A transition dispatched outside this screen (the Confirm card's Scan it result, AD-4) carries no
+    // presentation here: once this screen's own presentations have drained, snap the net to the
+    // session's Cube State if it still shows another one.
+    LaunchedEffect(session.revision) {
+        withFrameNanos {}
+        withFrameNanos {}
+        val now = host.state.value
+        val target = now.virtual.toFacelets()
+        if (renderer.oldestLiveRevision == null && reorientation.value?.isActive != true && renderer.renderedFacelets() != target) {
+            renderer.submit(listOf(PresentationItem.Snap(now.revision, target)))
+        }
+    }
     // Adaptive assistance's demonstrate level shows the turn (FR-13): when a step escalates to it, the
     // step's Moves play once on the net like the Hint Ladder's top rung, as the running demonstration,
     // so any session interaction stops it. It dispatches nothing; a new Lesson (no mistakes) re-arms it.

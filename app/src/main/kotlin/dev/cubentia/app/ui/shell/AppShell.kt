@@ -175,6 +175,9 @@ private fun ShellContent(
     onScan: (() -> Unit)?,
     quickCheck: QuickCheckCapture?,
 ) {
+    // Quick Check is a camera capture: like Scan it and calibration, it stays hidden while CAMERA_SCAN is OFF.
+    @Suppress("NAME_SHADOWING")
+    val quickCheck = quickCheck.takeIf { flags.isEnabled(FeatureFlag.CAMERA_SCAN) }
     LaunchedEffect(catalog) { catalog.load() }
     val content by catalog.state.collectAsState()
     val session by host.state.collectAsState()

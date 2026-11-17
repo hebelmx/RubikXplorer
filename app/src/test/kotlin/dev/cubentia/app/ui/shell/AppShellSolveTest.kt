@@ -293,6 +293,7 @@ class AppShellSolveTest {
         solver = CubeSolver { SolveResult.Solved(listOf(move.inverse(), move)) }
         val started = mutableListOf<dev.cubentia.application.session.Effect.QuickCheck>()
         show(
+            cameraScan = dev.cubentia.application.port.FlagLevel.GA,
             quickCheck =
                 dev.cubentia.app.scan
                     .QuickCheckCapture { started += it },

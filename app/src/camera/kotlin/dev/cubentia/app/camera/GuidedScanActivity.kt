@@ -432,7 +432,8 @@ internal class GuidedScanViewModel : ViewModel() {
 
     @Volatile var captureCalibration = false
 
-    fun capturePhase(): GuidedScanPhase = if (calibrationMode) GuidedScanPhase.Calibration() else GuidedScanPhase.Viewfinder()
+    /** The capture phase a camera grant opens: calibration, or the controller's current step (a Quick Check's first face). */
+    fun capturePhase(): GuidedScanPhase = if (calibrationMode) GuidedScanPhase.Calibration() else GuidedScanFlow.phaseOf(controller)
 
     @Volatile var quickFaces: Set<Face>? = null
 

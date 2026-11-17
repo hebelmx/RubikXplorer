@@ -658,7 +658,7 @@
   "btn.scan.capture": "Capture",
   "btn.scan.use-anyway": "Use this face anyway",
   "btn.scan.close": "Close",
-  "msg.scan.progress": "Face {n} of 6",
+  "msg.scan.progress": "Face {n} of {total}",
   "msg.scan.progress-again": "Again: face {n} of {total}",
   "msg.validation.piece-repeats.white": "This {piece} shows two whites.",
   "msg.validation.piece-repeats.yellow": "This {piece} shows two yellows.",

@@ -215,6 +215,18 @@ class GuidedScanFlowTest {
     }
 
     @Test
+    fun `a camera grant opens the Quick Check controller's current step`() {
+        val vm = GuidedScanViewModel()
+        vm.quickFaces = setOf(Face.R, Face.U)
+        vm.controller = vm.newController()
+        val phase = vm.capturePhase() as GuidedScanPhase.Viewfinder
+        assertEquals(GuidedScanFlow.phaseOf(vm.controller), phase)
+        assertEquals(Face.U, phase.step?.face)
+        vm.calibrationMode = true
+        assertTrue(vm.capturePhase() is GuidedScanPhase.Calibration)
+    }
+
+    @Test
     fun `the finished scan is published at once when no capture is frozen`() {
         val vm = GuidedScanViewModel()
         val done = ScanReview.fromSamples(List(6) { sample() })

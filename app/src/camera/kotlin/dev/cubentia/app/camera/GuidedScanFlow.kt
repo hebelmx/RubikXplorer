@@ -89,6 +89,7 @@ internal object GuidedScanFlow {
                 } else {
                     null
                 },
+            total = controller.planSize,
         )
 
     fun reviewOf(

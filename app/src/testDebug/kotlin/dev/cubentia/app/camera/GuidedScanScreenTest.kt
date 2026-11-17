@@ -111,6 +111,18 @@ class GuidedScanScreenTest {
     }
 
     @Test
+    fun `a two-face Quick Check counts its progress against its own plan`() {
+        val controller =
+            dev.cubentia.domain.recognition.GuidedScanController(
+                plan = listOf(GuidedScanPlan.reprompt(Face.U), GuidedScanPlan.reprompt(Face.R)),
+                reprompt = { emptyList() },
+            )
+        show(GuidedScanFlow.phaseOf(controller))
+        rule.onNodeWithText("Face 1 of 2").assertIsDisplayed()
+        rule.onNodeWithText("Face 1 of 6").assertDoesNotExist()
+    }
+
+    @Test
     fun `a re-prompt names the top with both swatches and still fits on one screen`() {
         show(
             GuidedScanPhase.Viewfinder(

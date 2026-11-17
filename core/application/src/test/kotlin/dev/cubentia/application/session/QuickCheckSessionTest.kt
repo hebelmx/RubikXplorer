@@ -357,4 +357,26 @@ class QuickCheckSessionTest {
         assertSame(state, transition.state)
         assertEquals(emptyList<Effect>(), transition.effects)
     }
+
+    @Test fun `reported mismatch after a verified match clears stale evidence`() {
+        val state = physical()
+        val verified = observed(requested(state), PhysicalObservation.Full(state.expected))
+        assertEquals(SyncState.PHYSICAL_VERIFIED, verified.syncState)
+        assertNotNull(verified.observed)
+        assertNotNull(verified.quickCheck)
+        val mismatch = verified.after(SessionEvent.MismatchReported(T0))
+        assertEquals(SyncState.PHYSICAL_MISMATCH, mismatch.syncState)
+        assertNull(mismatch.observed)
+        assertNull(mismatch.quickCheck)
+        assertFalse(mismatch.canAdoptObserved)
+    }
+
+    @Test fun `a second request while one is pending is ignored`() {
+        val pending = requested(physical())
+        val effect = checkNotNull(pending.pendingQuickCheck)
+        val again = reduce(pending, SessionEvent.QuickCheckRequested(at = T0))
+        assertEquals(pending, again.state)
+        assertEquals(effect, again.state.pendingQuickCheck)
+        assertEquals(emptyList<Effect>(), again.effects)
+    }
 }

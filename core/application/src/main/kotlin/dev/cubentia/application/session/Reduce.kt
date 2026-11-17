@@ -778,6 +778,8 @@ private fun reportMismatch(
                 syncState = SyncState.PHYSICAL_MISMATCH,
                 lastMoveFeedback = null,
                 lastDiagnosis = null,
+                observed = null,
+                quickCheck = null,
             ),
         )
     } else {
@@ -1278,7 +1280,7 @@ private fun quickRequested(
     state: SessionState,
     event: SessionEvent.QuickCheckRequested,
 ): Transition {
-    if (!quickAllowed(state) || state.tutorConfig == null) return Transition(state)
+    if (!quickAllowed(state) || state.tutorConfig == null || state.pendingQuickCheck != null) return Transition(state)
     val effect =
         Effect.QuickCheck(
             state.nextEffectId,

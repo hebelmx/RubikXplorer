@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -23,6 +24,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import dev.cubentia.app.content.CatalogEntry
 import dev.cubentia.app.content.CatalogState
+import dev.cubentia.app.render.RenderedStickersKey
 import dev.cubentia.app.scan.QuickCheckCapture
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.TickingClock
@@ -42,6 +44,7 @@ import dev.cubentia.application.session.SessionSnapshot
 import dev.cubentia.application.session.SyncState
 import dev.cubentia.application.usecase.CompleteLesson
 import dev.cubentia.application.usecase.PlanRecovery
+import dev.cubentia.domain.appearance.StickerAppearance
 import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
@@ -1606,5 +1609,36 @@ class PhysicalLessonScreenTest {
         val completion = written.filterIsInstance<ProgressEvent.LessonCompleted>().single()
         assertEquals(LessonId("lesson-06-03"), completion.lessonId)
         assertTrue(completion.at > kotlin.time.Instant.fromEpochMilliseconds(0))
+    }
+
+    @Test
+    fun story10_7_scanItDispatchedOutsideTheScreen_snapsTheNetToTheScannedCube() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host)
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.waitForIdle()
+
+        // The Confirm card's Scan it result is dispatched by MainActivity, not through this screen.
+        val scanned =
+            host.state.value.expected
+                .apply(FaceTurn(Face.R, Turn.CLOCKWISE))
+        runBlocking { host.dispatch { SessionEvent.EditorEntered(scanned, it) } }
+        rule.waitUntil(5_000) { host.state.value.syncState != SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.mainClock.advanceTimeBy(1_000)
+        rule.waitForIdle()
+
+        assertEquals(scanned, host.state.value.virtual)
+        val expected =
+            scanned
+                .toFacelets()
+                .colors
+                .map { Color(StickerAppearance.of(it).fill) }
+        val drawn =
+            node("cube3d")
+                .fetchSemanticsNode()
+                .config[RenderedStickersKey]
+                .map { Color(it.fill) }
+        assertEquals(expected, drawn)
     }
 }
