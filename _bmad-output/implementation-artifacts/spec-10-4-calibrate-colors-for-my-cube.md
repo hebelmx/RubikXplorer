@@ -5,7 +5,7 @@ created: '2026-11-16'
 status: 'done'
 baseline_revision: '5e293985565323ce56fad9fc04a84d5115f91082'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-10-context.md'
   - '{project-root}/AGENTS.md'
@@ -25,6 +25,13 @@ deferred:
     location: >-
       app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt (onCreate load, Calibration phase, preview factory); app/src/main/kotlin/dev/cubentia/app/MainActivity.kt
     severity: medium
+  - summary: >-
+      Device session B checks (stickerless-cube first-scan offer, real logo exclusion by the center ring, plain-sticker re-prompt, calibrated rescan) have not been run; the ring reader is checked only on synthetic YUV frames.
+    evidence: |-
+      Follow-up blind-hunter finding, unverified: the spec's Manual checks and Residual risks both record that session B was not run. Settle it by running those checks on device and recording a fixture of a logo center through the calibration flow.
+    location: >-
+      app/src/camera/kotlin/dev/cubentia/app/camera/FrameReader.kt (centerRing); GuidedScanActivity calibration phase
+    severity: medium (unverified)
 ---
 
 <intent-contract>
@@ -140,6 +147,29 @@ deferred:
   - `[medium]` `[defer]` (intent) GuidedScanActivity and MainActivity calibration wiring untested at screen level — same Activity-glue deferral.
   - `[low]` `[reject]` (intent) The AppShell flag check that hides the rows is untested — a one-line `takeIf`; the screen test covers hidden rows when nothing is passed, and MainActivity checks the flag too.
 
+### 2026-11-16 — Review pass
+- verdicts: 19 findings — high 0, medium 7, low 6, false 3, maybe-false 3
+- findings:
+  - `[low]` `[reject]` (blind) Settings-started calibration discards *Enter colors instead* (`FellBackToEditor`), so a denied-permission Learner lands back in Settings — real but reached only after denying the camera from Settings → Color calibration and choosing the editor; the Learner loses nothing, and the fix needs a mode branch in the permission screens.
+  - `[medium]` `[patch]` (blind) The review's `changed` flag lives in `ScanReviewScreen` and resets after a trip to calibration, so *Close* discards edited stickers without asking — `GuidedScanPhase.Review` now carries `edited` (set by `onReview` when stickers change) and `ScanReviewScreen(edited = …)` seeds `changed` from it; test `a review already edited before it is shown still asks before discarding`.
+  - `[low]` `[patch]` (blind) The shared `captureCalibration` flag survives Capture → Close, so a reopened calibration samples a swatch without a tap — opening calibration from the review now clears the flag (Settings-mode Close finishes the Activity, so that path cannot reopen).
+  - `[maybe-false]` `[defer]` (blind) carried — Pastel colors cannot pass the chroma floors; already in `deferred`.
+  - `[maybe-false]` `[reject]` (blind) A partly printed ring outside the middle can still read `plain` (60 % mode share) — the spec defines "uneven" as `CellReading.plain`, plausibility and the Learner's *Keep* still filter it; no fixture shows such a ring; if true only low (a wrong swatch the Learner sees before keeping it). Settle with a partly printed-ring fixture.
+  - `[low]` `[reject]` (blind) Kept swatches cannot be revisited before Save — the intent asks for keep/retake per swatch only; *Close* and a new run correct a mistake; revisit adds new session state and UI.
+  - `[low]` `[reject]` (blind) No visible busy state while saving — a one-row local Room write; taps are ignored meanwhile, not lost work; showing it adds a parameter and UI state.
+  - `[low]` `[patch]` (blind) Calibration prompt and save-failed line were not live regions, so TalkBack did not hear the next color or a re-prompt — both now polite live regions; `ColorCalibrationScreenTest` asserts the prompt's live region.
+  - `[medium]` `[defer]` (blind) carried — Activity-level integration (saved load, review → calibration → Save → camera restart, Close to review) untested; already in `deferred`.
+  - `[maybe-false]` `[defer]` (blind) Device session B evidence missing; ring reader checked on synthetic frames only — added to `deferred` as medium (unverified).
+  - `[low]` `[patch]` (edge) Capture requested, calibration closed, then reopened → swatch sampled without a tap — same root as the blind capture-flag row; same fix.
+  - `[medium]` `[patch]` (edge) Edit review, open calibration, close it, close review → edits discarded without confirmation — same root as the blind `changed` row; same fix.
+  - `[medium]` `[defer]` (verification-gap) carried — startup load of the saved calibration untested (`scan.saved = null` keeps tests green); already in `deferred`.
+  - `[medium]` `[defer]` (verification-gap) Camera rebind after calibration Save untested (removing the preview-factory reset keeps tests green) — same Activity-glue root; the existing `deferred` entry names the preview rebind.
+  - `[medium]` `[defer]` (intent) carried — GuidedScanActivity, MainActivity and AppShell calibration wiring (offer link, Close/Back, flag gates, saved load, preview bind) untested; already in `deferred`.
+  - `[medium]` `[defer]` (intent) Decision logic (Close/Back routing, stale-reading guard, load-before-camera, save-then-restart) sits in the Activity/ViewModel rather than pure code — same Activity-glue root: what makes it untested; covered by the existing `deferred` entry.
+  - `[false]` `[reject]` (intent) The AppShell gate also hides the rows until content loads — the rows' labels come from content strings; nothing to show before they load, and Settings itself renders from the same loaded content.
+  - `[false]` `[reject]` (intent) Duplicate boundary ambiguity (`<` vs `≤` 10 ΔE) — the diff rejects ΔE < 10, consistent with `UpdateCalibration`'s pairwise ≥ 10; no outcome differs between the two rules.
+  - `[false]` `[reject]` (intent) `centerRing` keeps a clipped white `plain`, beyond "read by `CellReader`" — this is `readAt`'s existing clipped-white rule, applied in the first pass's patch so an overexposed plain white is not refused forever; no defect.
+
 ## Design Notes
 
 **Hosting:** calibration is a phase of `GuidedScanActivity`, not a new Activity, so permission, CameraX binding and metering are reused; Settings starts the same Activity in calibration mode, which finishes after *Save* or *Close*.
@@ -182,3 +212,20 @@ deferred:
 
 **Residual risks:** Device session B not run (stickerless-cube first-scan offer, logo-white re-prompt, rescan confidence). `MANY_UNCERTAIN = 6` and the plausibility regions are provisional. A rescan with all-plain centers ignores the saved calibration by design (decision K).
 
+### Follow-up review pass (2026-11-16)
+
+**Summary:** Follow-up review of the full 10.4 diff (Codex blind, edge-case and verification-gap layers plus a Claude intent-alignment layer). Three small patches: a review edited before a trip to calibration keeps its edited state, so *Close* still confirms before discarding; opening calibration from the review clears a leftover Capture request; the calibration prompt and save-failed line are polite live regions for TalkBack.
+
+**Files changed:**
+- `app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanScreen.kt` -- `GuidedScanPhase.Review.edited`; live regions on the calibration prompt and save-failed line.
+- `app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt` -- `onReview` records `edited`; passes it to the review; clears `captureCalibration` when calibration opens from the review.
+- `app/src/main/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreen.kt` -- `edited: Boolean = false` seeds the `changed` flag.
+- `app/src/test/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreenTest.kt`, `app/src/testDebug/kotlin/dev/cubentia/app/camera/ColorCalibrationScreenTest.kt` -- edited-review discard confirm; prompt live region.
+
+**Review findings:** 19 findings (high 0, medium 7, low 6, false 3, maybe-false 3). Patched: review edit state lost across calibration (medium; blind + edge), leftover Capture request (low; blind + edge), calibration live regions (low). Deferred: device session B evidence (new, medium unverified); carried: pastel plausibility, Activity-glue wiring (saved load, camera rebind, Close/Back, flag gates, decision logic in the Activity). Rejected: Settings-mode *Enter colors instead* returns to Settings (low, rare, needs a mode branch), partly printed ring reading plain (maybe-false, low if true), revisiting kept swatches (low, new feature), no busy state while saving (low, fast local write), AppShell content gate (false), duplicate boundary (false), clipped-white plain rule (false).
+
+**Follow-up review recommendation:** false -- follow-up pass patched no high (patched counts: high 0, medium 1, low 2).
+
+**Verification:** `./gradlew spotlessCheck build` -- BUILD SUCCESSFUL (2m 17s, Kover gates passed). `8.json` exists. Session-isolation grep and `Calibration` grep in `application/session` -- no output. Targeted `ScanReviewScreenTest` (22), `ColorCalibrationScreenTest`, `GuidedScanFlowTest`, `CalibrationViewModelTest` green.
+
+**Residual risks:** Activity-level calibration wiring still has no automated test; device session B not run; plausibility regions and `MANY_UNCERTAIN` remain provisional.

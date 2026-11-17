@@ -69,7 +69,9 @@ import dev.cubentia.domain.text.Text as ContentText
  * Renders immutable review decisions; all sticker edits are delegated to the domain value. While
  * [coachMarkPending] (the Learner's first review) and a sticker needs a color, a one-time coach mark
  * shows; [onCoachMarkDismissed] is called when the Learner taps to dismiss it, so the caller records it
- * as seen (PO 2026-11-16). A review closed without that tap shows it again next time.
+ * as seen (PO 2026-11-16). A review closed without that tap shows it again next time. [edited] says
+ * the review was already changed before this screen was shown (back from calibration), so *Close*
+ * still asks before discarding.
  */
 @Composable
 fun ScanReviewScreen(
@@ -83,10 +85,11 @@ fun ScanReviewScreen(
     coachMarkPending: Boolean = false,
     onCoachMarkDismissed: () -> Unit = {},
     onCalibrate: (() -> Unit)? = null,
+    edited: Boolean = false,
 ) {
     var face by rememberSaveable { mutableIntStateOf((review.selected ?: 0) / 9) }
     LaunchedEffect(review.selected) { review.selected?.let { face = it / 9 } }
-    var changed by rememberSaveable { mutableStateOf(false) }
+    var changed by rememberSaveable { mutableStateOf(edited) }
     var confirmCalibration by rememberSaveable { mutableStateOf(false) }
     var confirmDiscard by rememberSaveable { mutableStateOf(false) }
     var coachVisible by rememberSaveable { mutableStateOf(false) }

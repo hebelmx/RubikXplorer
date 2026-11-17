@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -20,6 +22,7 @@ import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.recognition.CalibrationSession
 import dev.cubentia.domain.recognition.CellReading
 import dev.cubentia.domain.recognition.Lab
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -47,6 +50,10 @@ class ColorCalibrationScreenTest {
             }
         }
         rule.onNodeWithText("Show the green center.").assertIsDisplayed()
+        assertEquals(
+            LiveRegionMode.Polite,
+            rule.onNodeWithTag("calibration:prompt").fetchSemanticsNode().config[SemanticsProperties.LiveRegion],
+        )
         rule.onNodeWithTag("calibration:save").assertIsNotEnabled()
         rule.runOnIdle { phase = phase.copy(session = phase.session.offer(null)) }
         rule.onNodeWithText("Put a plain green sticker in the middle square.").assertIsDisplayed()

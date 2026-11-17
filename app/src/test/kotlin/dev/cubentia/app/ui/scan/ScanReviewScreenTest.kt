@@ -392,6 +392,13 @@ class ScanReviewScreenTest {
         assertEquals(true, closed)
     }
 
+    @Test fun `a review already edited before it is shown still asks before discarding`() {
+        rule.setContent { CubentiaTheme { ScanReviewScreen(review, strings, {}, {}, { closed = true }, edited = true) } }
+        rule.onNodeWithTag("review:close").performScrollTo().performClick()
+        rule.onNodeWithTag("review:discard").assertExists()
+        assertEquals(false, closed)
+    }
+
     @Test fun calibrationOfferRequiresConfirmation() {
         var calls = 0
         val strings = ContentStrings((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings)

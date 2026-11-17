@@ -90,6 +90,8 @@ internal sealed interface GuidedScanPhase {
     data class Review(
         val review: dev.cubentia.domain.recognition.ScanReview,
         val offerCalibration: Boolean = false,
+        /** The Learner changed a sticker, kept across a trip to calibration so *Close* still confirms. */
+        val edited: Boolean = false,
     ) : GuidedScanPhase
 
     data class Calibration(
@@ -619,7 +621,11 @@ private fun CalibrationViewfinder(
                 } else {
                     "msg.calibration.${if (session.plainSticker) "plain" else "prompt"}.${color.name.lowercase()}"
                 }
-            Text(strings.resolve(ContentText(prompt)), Modifier.testTag("calibration:prompt"))
+            Text(
+                strings.resolve(ContentText(prompt)),
+                // A polite live region, so TalkBack hears the next color and the plain-sticker re-prompt.
+                Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag("calibration:prompt"),
+            )
             if (color !=
                 null
             ) {
@@ -658,7 +664,7 @@ private fun CalibrationViewfinder(
             if (phase.saveFailed) {
                 Text(
                     strings.resolve(ContentText("msg.calibration.save-failed")),
-                    Modifier.testTag("calibration:save-failed"),
+                    Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag("calibration:save-failed"),
                 )
             }
         }

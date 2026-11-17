@@ -226,11 +226,19 @@ class GuidedScanActivity : ComponentActivity() {
                         ScanReviewScreen(
                             reviewPhase.review,
                             strings,
-                            onReview = { phase = reviewPhase.copy(review = it) },
+                            onReview = {
+                                phase =
+                                    reviewPhase.copy(
+                                        review = it,
+                                        edited = reviewPhase.edited || it.stickers != reviewPhase.review.stickers,
+                                    )
+                            },
                             onCalibrate =
                                 if (reviewPhase.offerCalibration) {
                                     (
                                         {
+                                            // A Capture tap left over from an earlier calibration never samples this one.
+                                            scan.captureCalibration = false
                                             phase =
                                                 GuidedScanPhase.Calibration(
                                                     fromReview = reviewPhase,
@@ -244,6 +252,7 @@ class GuidedScanActivity : ComponentActivity() {
                             onClose = { finishWith(ScanOutcome.Cancelled) },
                             modifier = Modifier.fillMaxSize(),
                             coachMarkPending = scan.coachMarkPending,
+                            edited = reviewPhase.edited,
                             onCoachMarkDismissed = {
                                 scan.coachMarkPending = false
                                 lifecycleScope.launch(Dispatchers.IO) { ScanCoachMarkRecord.markSeen(applicationContext) }
