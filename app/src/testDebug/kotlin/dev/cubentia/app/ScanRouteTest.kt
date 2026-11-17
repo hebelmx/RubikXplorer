@@ -93,6 +93,8 @@ class ScanRouteTest {
         rule.waitForIdle()
         val vm = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
         rule.waitUntil(10_000) { source.starts > 0 }
+        rule.waitForIdle()
+        assertEquals(1, source.starts)
         val cube =
             CubeState.SOLVED.apply(
                 listOf(
@@ -151,7 +153,13 @@ class ScanRouteTest {
         rule.onNodeWithTag("review:calibrate:offer").performClick()
         rule.onNodeWithTag("review:calibrate:confirm").performClick()
         rule.waitForIdle()
+        assertEquals(2, source.starts)
         val before = source.starts
+        source.feed(FrameStats(List(9) { CellReading(labs.getValue(Color.GREEN), true) }, 10.0, 0.0, 100.0, 12), null)
+        rule.waitForIdle()
+        val coaching = vm.phase as GuidedScanPhase.Calibration
+        assertEquals(dev.cubentia.domain.recognition.Coaching.LOW_LIGHT, coaching.coaching)
+        assertNull(coaching.session.pending)
         GuidedScanPlan.steps.forEach { step ->
             val lab = labs.getValue(step.centerColor)
             source.feed(FrameStats(List(9) { CellReading(lab, true) }, 120.0, 0.0, 100.0, 12), CellReading(lab, true))
@@ -172,7 +180,7 @@ class ScanRouteTest {
         rule.waitForIdle()
         assertTrue("After save: ${vm.phase}", vm.phase is GuidedScanPhase.Viewfinder)
         assertEquals(labs, (runBlocking { repository.load() } as CalibrationLoad.Loaded).calibration?.centers)
-        assertTrue(source.starts > before)
+        assertEquals(before + 1, source.starts)
         frames(false, misread = index)
         val review = vm.phase as GuidedScanPhase.Review
         assertEquals(color, review.review.stickers[index])

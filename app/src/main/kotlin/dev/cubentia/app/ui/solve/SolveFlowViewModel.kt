@@ -54,14 +54,23 @@ class SolveFlowViewModel
 
         fun onScanOutcome(outcome: ScanOutcome) {
             when (outcome) {
-                is ScanOutcome.Accepted -> mutablePhase.value = SolvePhase.Editing(outcome.state.toFacelets())
-                ScanOutcome.FellBackToEditor -> mutablePhase.value = SolvePhase.Editing(accepted, note = Text("msg.solve.scan-fell-back"))
-                ScanOutcome.Cancelled -> Unit
+                is ScanOutcome.Accepted -> {
+                    mutablePhase.value = SolvePhase.Editing(outcome.state.toFacelets())
+                }
+
+                ScanOutcome.FellBackToEditor -> {
+                    mutablePhase.value =
+                        SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = Text("msg.solve.scan-fell-back"))
+                }
+
+                ScanOutcome.Cancelled -> {
+                    Unit
+                }
             }
         }
 
         fun scanDenied() {
-            mutablePhase.value = SolvePhase.Editing(accepted, note = Text("msg.solve.scan-camera-denied"))
+            mutablePhase.value = SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = Text("msg.solve.scan-camera-denied"))
         }
 
         fun enterColors() {

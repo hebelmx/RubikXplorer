@@ -122,6 +122,8 @@ internal class CalibrationHold {
     private var session: dev.cubentia.domain.recognition.CalibrationSession? = null
     private var controller: GuidedScanController? = null
 
+    val coaching get() = controller?.coaching
+
     fun onFrame(
         current: dev.cubentia.domain.recognition.CalibrationSession,
         stats: dev.cubentia.domain.recognition.FrameStats,

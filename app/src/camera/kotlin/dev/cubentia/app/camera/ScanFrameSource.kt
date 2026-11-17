@@ -21,6 +21,7 @@ import androidx.camera.lifecycle.ExperimentalCameraProviderConfiguration
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
 import dev.cubentia.app.ScanDiagnostics
 import kotlinx.coroutines.CancellationException
@@ -69,6 +70,11 @@ internal class CameraXFrameSource
         private fun cameraPhase() = active
 
         private var cameraProvider: ProcessCameraProvider? = null
+        private val cameraStateObserver =
+            Observer<CameraState> { state ->
+                val closed = state.type == CameraState.Type.CLOSED || state.type == CameraState.Type.PENDING_OPEN
+                if (state.error != null && closed && cameraPhase()) unavailable()
+            }
         private var camera: Camera? = null
         private var previewView: PreviewView? = null
         private var cameraStarted = false
@@ -110,6 +116,7 @@ internal class CameraXFrameSource
             active = false
             startJob?.cancel()
             analysisUseCase?.clearAnalyzer()
+            camera?.cameraInfo?.cameraState?.removeObserver(cameraStateObserver)
             cameraProvider?.unbindAll()
             camera = null
             cameraStarted = false
@@ -184,15 +191,13 @@ internal class CameraXFrameSource
                         .addUseCase(analysis)
                         .build()
                 try {
+                    camera?.cameraInfo?.cameraState?.removeObserver(cameraStateObserver)
                     provider.unbindAll()
                     camera =
                         provider.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, useCases).also { bound ->
                             // Bound but failed to open (in use, disabled, fatal error): the camera-unavailable card,
                             // never remembered.
-                            bound.cameraInfo.cameraState.observe(owner) { state ->
-                                val closed = state.type == CameraState.Type.CLOSED || state.type == CameraState.Type.PENDING_OPEN
-                                if (state.error != null && closed && cameraPhase()) unavailable()
-                            }
+                            bound.cameraInfo.cameraState.observe(owner, cameraStateObserver)
                         }
                 } catch (ignored: IllegalArgumentException) {
                     unavailable()

@@ -91,6 +91,18 @@ class SolveFlowViewModelTest {
         )
     }
 
+    @Test fun fallbackAndDenialAfterASolveUseTheFreshEditorState() =
+        runBlocking {
+            val vm = SolveFlowViewModel(source(CubeSolver { SolveResult.Solved(listOf(move.inverse())) }))
+            vm.accept(cube) { _, _ -> }
+            withTimeout(5000) { vm.phase.first { it == SolvePhase.Home } }
+            vm.onScanOutcome(dev.cubentia.app.scan.ScanOutcome.FellBackToEditor)
+            assertEquals(CubeState.SOLVED.toFacelets(), (vm.phase.value as SolvePhase.Editing).initial)
+            vm.closeEditor()
+            vm.scanDenied()
+            assertEquals(CubeState.SOLVED.toFacelets(), (vm.phase.value as SolvePhase.Editing).initial)
+        }
+
     @Test fun preparationEndsBeforeVerifiedSolutionIsPublished() =
         runBlocking {
             val load = CompletableDeferred<Unit>()

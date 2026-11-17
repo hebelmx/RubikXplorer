@@ -77,14 +77,13 @@ class GuidedScanActivity : ComponentActivity() {
 
     @Inject internal lateinit var frameSource: ScanFrameSource
     private var cameraStarted = false
-    private var previewReady = false
+    private var previewReady by mutableStateOf(false)
 
     private val permission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
                 phase = scan.capturePhase()
                 clearDenialRecord()
-                startCamera()
                 return@registerForActivityResult
             }
             val rationaleAfter = shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)
@@ -109,7 +108,6 @@ class GuidedScanActivity : ComponentActivity() {
                 scan.saved = (calibrationRepository.load() as? dev.cubentia.application.port.CalibrationLoad.Loaded)?.calibration
                 scan.calibrationLoaded = true
             }
-            startCamera()
         }
         lifecycleScope.launch { lessonCatalog.load() }
         lifecycleScope.launch {
@@ -181,21 +179,17 @@ class GuidedScanActivity : ComponentActivity() {
                     LaunchedEffect(scan.calibrationFinished) {
                         if (scan.calibrationFinished) finishWith(ScanOutcome.Cancelled)
                     }
-                    LaunchedEffect(phase::class) {
+                    val ready = previewReady && scan.calibrationLoaded
+                    LaunchedEffect(phase::class, ready) {
+                        frameSource.stop()
+                        cameraStarted = false
                         if (cameraPhase()) {
-                            frameSource.stop()
-                            cameraStarted = false
-                            startCamera()
-                        }
-                    }
-                    val reviewPhase = phase as? GuidedScanPhase.Review
-                    LaunchedEffect(reviewPhase != null) {
-                        if (reviewPhase != null) {
-                            frameSource.stop()
-                            cameraStarted = false
+                            if (ready) startCamera()
+                        } else {
                             previewReady = false
                         }
                     }
+                    val reviewPhase = phase as? GuidedScanPhase.Review
                     if (reviewPhase != null) {
                         ScanReviewScreen(
                             reviewPhase.review,
@@ -248,11 +242,8 @@ class GuidedScanActivity : ComponentActivity() {
                         GuidedScanScreen(phase, strings, actions, scan.frozen) {
                             AndroidView(
                                 factory = { context ->
-                                    frameSource.stop()
-                                    cameraStarted = false
                                     frameSource.preview(context).also {
                                         previewReady = true
-                                        startCamera()
                                     }
                                 },
                                 modifier = Modifier.fillMaxSize(),
@@ -315,6 +306,12 @@ class GuidedScanActivity : ComponentActivity() {
                 ContextCompat.getMainExecutor(this).execute { meterOnGrid() }
             }
             val effects = scan.calibrationHold.onFrame(calibrating.session, stats, rotation, now)
+            val coaching = scan.calibrationHold.coaching
+            ContextCompat.getMainExecutor(this).execute {
+                (phase as? GuidedScanPhase.Calibration)
+                    ?.takeIf { it.session === calibrating.session && it.session.pending == null }
+                    ?.let { phase = it.copy(coaching = coaching) }
+            }
             if (GuidedScanFlow.remeters(effects)) ContextCompat.getMainExecutor(this).execute { meterOnGrid() }
             if (scan.captureCalibration || effects.any { it is GuidedScanEffect.Capture }) {
                 scan.captureCalibration = false
@@ -388,7 +385,7 @@ internal class GuidedScanViewModel : ViewModel() {
     val analyzerExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
     @Volatile var saved: dev.cubentia.domain.recognition.CalibrationCenters? = null
-    var calibrationLoaded = false
+    var calibrationLoaded by mutableStateOf(false)
     var calibrationMode = false
     var saving by mutableStateOf(false)
     var calibrationFinished by mutableStateOf(false)
