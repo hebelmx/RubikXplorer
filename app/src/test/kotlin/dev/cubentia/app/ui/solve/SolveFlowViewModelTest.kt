@@ -57,6 +57,40 @@ class SolveFlowViewModelTest {
     private suspend fun SolveFlowViewModel.editing(): SolvePhase.Editing =
         withTimeout(5000) { phase.first { it is SolvePhase.Editing } as SolvePhase.Editing }
 
+    @Test fun scanOutcomesOnlyPrepareTheEditor() {
+        val vm = SolveFlowViewModel(source(CubeSolver { error("Scan must not solve") }))
+        vm.onScanOutcome(dev.cubentia.app.scan.ScanOutcome.Cancelled)
+        assertEquals(SolvePhase.Home, vm.phase.value)
+        vm.onScanOutcome(
+            dev.cubentia.app.scan.ScanOutcome
+                .Accepted(cube),
+        )
+        assertEquals(SolvePhase.Editing(cube.toFacelets()), vm.phase.value)
+        vm.closeEditor()
+        vm.enterColors()
+        assertEquals(SolvePhase.Editing(CubeState.SOLVED.toFacelets()), vm.phase.value)
+        vm.onScanOutcome(dev.cubentia.app.scan.ScanOutcome.FellBackToEditor)
+        assertEquals(
+            SolvePhase.Editing(
+                CubeState.SOLVED.toFacelets(),
+                note =
+                    dev.cubentia.domain.text
+                        .Text("msg.solve.scan-fell-back"),
+            ),
+            vm.phase.value,
+        )
+        vm.scanDenied()
+        assertEquals(
+            SolvePhase.Editing(
+                CubeState.SOLVED.toFacelets(),
+                note =
+                    dev.cubentia.domain.text
+                        .Text("msg.solve.scan-camera-denied"),
+            ),
+            vm.phase.value,
+        )
+    }
+
     @Test fun preparationEndsBeforeVerifiedSolutionIsPublished() =
         runBlocking {
             val load = CompletableDeferred<Unit>()

@@ -11,6 +11,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import dev.cubentia.app.content.LessonCatalog
 import dev.cubentia.app.preferences.PreferenceStore
@@ -20,6 +21,9 @@ import dev.cubentia.app.ui.freecube.FreeCubeViewModel
 import dev.cubentia.app.ui.shell.AppShell
 import dev.cubentia.app.ui.theme.isDarkTheme
 import dev.cubentia.application.port.FeatureFlags
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -46,6 +50,9 @@ class MainActivity : ComponentActivity() {
 
     private val freeCube: FreeCubeViewModel by viewModels()
 
+    /** True from a *Scan my cube* tap until its denial check opens the Editor or the scan's result returns. */
+    private var scanInFlight = false
+
     override fun onStop() {
         super.onStop()
         sessionHost.retryPendingEnd()
@@ -53,6 +60,39 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val onScan: (() -> Unit)? =
+            if (featureFlags.isEnabled(dev.cubentia.application.port.FeatureFlag.CAMERA_SCAN) && scanLauncher.isPresent) {
+                val launcher = scanLauncher.get()
+                val result =
+                    registerForActivityResult(
+                        dev.cubentia.app.scan
+                            .ScanFlowContract(launcher),
+                    ) {
+                        scanInFlight = false
+                        solveFlow.onScanOutcome(it)
+                    }
+                val action: () -> Unit = action@{
+                    // A second tap while the denial check runs or the scan is open starts nothing.
+                    if (scanInFlight) return@action
+                    scanInFlight = true
+                    lifecycleScope.launch {
+                        if (withContext(Dispatchers.IO) { launcher.cameraDenied(this@MainActivity) }) {
+                            scanInFlight = false
+                            solveFlow.scanDenied()
+                        } else {
+                            try {
+                                result.launch(Unit)
+                            } catch (failed: RuntimeException) {
+                                scanInFlight = false
+                                throw failed
+                            }
+                        }
+                    }
+                }
+                action
+            } else {
+                null
+            }
         setContent {
             val prefs by preferenceStore.preferences.collectAsState()
             val dark = isDarkTheme(prefs.theme, isSystemInDarkTheme())
@@ -69,6 +109,7 @@ class MainActivity : ComponentActivity() {
                     freeCube = freeCube,
                     showDebugToggles = DebugOptions.SHOW_DEBUG_TOGGLES,
                     flags = featureFlags,
+                    onScan = onScan,
                     showWelcome = true,
                     calibration =
                         if (featureFlags.isEnabled(dev.cubentia.application.port.FeatureFlag.CAMERA_SCAN) &&

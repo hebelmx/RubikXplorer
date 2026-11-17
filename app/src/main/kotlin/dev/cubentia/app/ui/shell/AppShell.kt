@@ -120,6 +120,7 @@ fun AppShell(
     stagePractice: StagePractice = remember { StagePractice(KotlinRandomSource()) },
     showWelcome: Boolean = false,
     calibration: dev.cubentia.app.ui.settings.CalibrationSettings? = null,
+    onScan: (() -> Unit)? = null,
     solveFlow: SolveFlowViewModel =
         remember {
             SolveFlowViewModel(
@@ -144,6 +145,7 @@ fun AppShell(
             showWelcome,
             solveFlow,
             calibration,
+            onScan,
         )
     }
 }
@@ -161,6 +163,7 @@ private fun ShellContent(
     showWelcome: Boolean,
     solveFlow: SolveFlowViewModel,
     calibration: dev.cubentia.app.ui.settings.CalibrationSettings?,
+    onScan: (() -> Unit)?,
 ) {
     LaunchedEffect(catalog) { catalog.load() }
     val content by catalog.state.collectAsState()
@@ -316,7 +319,6 @@ private fun ShellContent(
             onClose = { openLesson = null },
             modifier = modifier,
             adaptiveAssistance = flags.level(FeatureFlag.ADAPTIVE_ASSISTANCE),
-            cameraScan = flags.level(FeatureFlag.CAMERA_SCAN),
             testMe = flags.level(FeatureFlag.TEST_ME),
             isTwoLook = entry.stage in ready.bundle.twoLookStages,
             recognition = recognition,
@@ -385,7 +387,6 @@ private fun ShellContent(
             },
             modifier = modifier,
             adaptiveAssistance = FlagLevel.OFF,
-            cameraScan = flags.level(FeatureFlag.CAMERA_SCAN),
             onPracticeNewScramble = {
                 if (openPractice == "two-look-practice") twoLookScramble = newTwoLookPractice(ready).entryState
                 openPractice = practiceEntry.stage.id.value
@@ -451,7 +452,6 @@ private fun ShellContent(
             },
             modifier = modifier,
             adaptiveAssistance = FlagLevel.OFF,
-            cameraScan = flags.level(FeatureFlag.CAMERA_SCAN),
             twoLookStages = ready.bundle.twoLookStages,
             stages = ready.bundle.stages,
             isSkipCheck = true,
@@ -647,6 +647,7 @@ private fun ShellContent(
                         freeCube,
                         showDebugToggles,
                         session.kind?.takesMoves == true,
+                        onScan = onScan.takeIf { flags.isEnabled(FeatureFlag.CAMERA_SCAN) },
                         onSolved = { state, moves -> host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it) } },
                         // Edge-to-edge: the themed surface fills the bar area while controls sit inside the safe area.
                         modifier = destinationModifier.background(RubikTheme.tokens.surfaceBase).safeDrawingPadding(),

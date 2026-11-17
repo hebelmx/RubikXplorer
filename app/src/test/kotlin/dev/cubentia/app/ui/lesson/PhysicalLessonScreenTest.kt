@@ -27,7 +27,6 @@ import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.TickingClock
 import dev.cubentia.app.ui.a11y.assertNoMidWordBreaks
 import dev.cubentia.app.ui.theme.CubentiaTheme
-import dev.cubentia.application.port.FlagLevel
 import dev.cubentia.application.port.ProgressLoad
 import dev.cubentia.application.port.ProgressRecord
 import dev.cubentia.application.port.ProgressRepository
@@ -95,7 +94,7 @@ class PhysicalLessonScreenTest {
     private fun setLessonContent(
         host: SessionHost,
         entry: CatalogEntry = lessonEntry,
-        cameraScan: FlagLevel = FlagLevel.OFF,
+        cameraCheck: Boolean = false,
         onClose: () -> Unit = {},
         shown: () -> Boolean = { true },
         planRecovery: PlanRecovery = PlanRecovery(),
@@ -109,7 +108,7 @@ class PhysicalLessonScreenTest {
                         strings = ready.strings,
                         modes = TeachingMode.entries,
                         onClose = onClose,
-                        cameraScan = cameraScan,
+                        cameraCheck = cameraCheck,
                         planRecovery = planRecovery,
                     )
                 }
@@ -141,15 +140,15 @@ class PhysicalLessonScreenTest {
         rule.waitForIdle()
     }
 
-    /** Opens `lesson-06-03` in Physical-cube Mode at [cameraScan] and confirms its moves until the Objective is met. */
+    /** Opens `lesson-06-03` in Physical-cube Mode ([cameraCheck]: a camera check action is shown) and confirms its moves until the Objective is met. */
     private fun meetStage6ObjectiveInPhysicalMode(
-        cameraScan: FlagLevel = FlagLevel.OFF,
+        cameraCheck: Boolean = false,
         host: SessionHost = SessionHost(TickingClock()),
         shown: () -> Boolean = { true },
         onClose: () -> Unit = {},
     ): SessionHost {
         val milestoneEntry = ready.lessons.single { it.lesson.id.value == "lesson-06-03" }
-        setLessonContent(host, milestoneEntry, cameraScan, onClose = onClose, shown = shown)
+        setLessonContent(host, milestoneEntry, cameraCheck, onClose = onClose, shown = shown)
 
         node("lesson:physicalModeSwitch").performClick()
         rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
@@ -438,7 +437,7 @@ class PhysicalLessonScreenTest {
 
     @Test
     fun story8_6_ac1_story8_7_ac1_cameraOff_stage6PhysicalObjectiveMet_showsCameraFreePrompt_milestoneOnlyAfterYesItsSolved() {
-        meetStage6ObjectiveInPhysicalMode(FlagLevel.OFF)
+        meetStage6ObjectiveInPhysicalMode(cameraCheck = false)
 
         // Story 8.7: v1.0 is camera-free, so the prompt compares with the picture and never mentions a camera
         rule.onNodeWithText("Your cube should be solved now. Compare it with the picture, then tell me if it is.").assertExists()
@@ -783,7 +782,7 @@ class PhysicalLessonScreenTest {
                     strings = ready.strings,
                     modes = TeachingMode.entries,
                     onClose = {},
-                    cameraScan = FlagLevel.OFF,
+                    cameraCheck = false,
                 )
             }
         }
@@ -1121,20 +1120,22 @@ class PhysicalLessonScreenTest {
     }
 
     @Test
-    fun story8_7_ac2_cameraScanBeta_stage6ObjectiveMetInPhysicalMode_showsCameraPrompt() {
-        assertCameraPrompt(FlagLevel.BETA)
+    fun story10_5_stage6ObjectiveMetInPhysicalMode_withoutCameraCheck_showsCameraFreePrompt() {
+        assertFirstSolvePrompt(cameraCheck = false)
     }
 
     @Test
-    fun story8_7_ac2_cameraScanGa_stage6ObjectiveMetInPhysicalMode_showsCameraPrompt() {
-        assertCameraPrompt(FlagLevel.GA)
+    fun story10_5_stage6ObjectiveMetInPhysicalMode_withCameraCheck_showsCameraPrompt() {
+        assertFirstSolvePrompt(cameraCheck = true)
     }
 
-    private fun assertCameraPrompt(cameraScan: FlagLevel) {
-        meetStage6ObjectiveInPhysicalMode(cameraScan)
+    private fun assertFirstSolvePrompt(cameraCheck: Boolean) {
+        meetStage6ObjectiveInPhysicalMode(cameraCheck)
 
-        rule.onNodeWithText("Your cube should be solved now. Check it with the camera, or tell me if it is.").assertExists()
-        rule.onNodeWithText("Your cube should be solved now. Compare it with the picture, then tell me if it is.").assertDoesNotExist()
+        val camera = "Your cube should be solved now. Check it with the camera, or tell me if it is."
+        val cameraFree = "Your cube should be solved now. Compare it with the picture, then tell me if it is."
+        rule.onNodeWithText(if (cameraCheck) camera else cameraFree).assertExists()
+        rule.onNodeWithText(if (cameraCheck) cameraFree else camera).assertDoesNotExist()
         node("lesson:yesItsSolved").assertExists()
         node("lesson:didSomethingElse").assertExists()
         node("milestone:overlay").assertDoesNotExist()
@@ -1284,7 +1285,7 @@ class PhysicalLessonScreenTest {
                     strings = ready.strings,
                     modes = TeachingMode.entries,
                     onClose = {},
-                    cameraScan = FlagLevel.OFF,
+                    cameraCheck = false,
                 )
             }
         }

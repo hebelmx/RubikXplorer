@@ -42,12 +42,12 @@ object FeatureFlagLevels {
         }
 
     /**
-     * debug includes every feature (AD-15); release raises each flag in its own feature story.
+     * debug levels follow wiring (AD-18); release raises each flag in its own feature story.
      * benchmark measures what ships, so it always carries the release levels.
      */
     val byBuildType: Map<String, Map<String, String>> =
         mapOf(
-            "debug" to flags.associateWith { "GA" },
+            "debug" to flags.associateWith { if (it in cameraDependentFlags) "OFF" else "GA" },
             "release" to releaseLevels,
             "benchmark" to releaseLevels,
         )

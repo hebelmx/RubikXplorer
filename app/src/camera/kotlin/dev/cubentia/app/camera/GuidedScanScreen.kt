@@ -92,6 +92,7 @@ internal sealed interface GuidedScanPhase {
         val offerCalibration: Boolean = false,
         /** The Learner changed a sticker, kept across a trip to calibration so *Close* still confirms. */
         val edited: Boolean = false,
+        val corrections: Map<Int, dev.cubentia.domain.cube.Color> = emptyMap(),
     ) : GuidedScanPhase
 
     data class Calibration(

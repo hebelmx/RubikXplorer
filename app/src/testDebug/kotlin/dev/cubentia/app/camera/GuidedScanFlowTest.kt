@@ -20,6 +20,35 @@ import org.junit.Test
 
 /** Story 10.2: the Activity's pure permission and effect mappings, and the mini net's upright order. */
 class GuidedScanFlowTest {
+    @Test fun `corrections overwrite only painted indices and select the first blank`() {
+        val review = ScanReview(List(54) { null }, null)
+        val corrected = GuidedScanFlow.withCorrections(review, mapOf(0 to Color.RED, 8 to Color.BLUE))
+        assertEquals(Color.RED, corrected.stickers[0])
+        assertEquals(Color.BLUE, corrected.stickers[8])
+        assertEquals(1, corrected.selected)
+        assertEquals(46, corrected.blanks.size)
+    }
+
+    @Test fun `swatch hold captures steadily resets for retry and ignores pending`() {
+        val hold = CalibrationHold()
+        val frame = FrameStats(List(9) { CellReading(Lab(55.0, -60.0, 40.0), true) }, 120.0, 0.0, 100.0, 12)
+        val session =
+            dev.cubentia.domain.recognition
+                .CalibrationSession()
+
+        fun feed(
+            s: dev.cubentia.domain.recognition.CalibrationSession,
+            start: Long,
+            end: Long,
+        ) = (start..end step 100).flatMap { hold.onFrame(s, frame, 0, it) }
+        assertTrue(feed(session, 0, 2000).any { it is GuidedScanEffect.Capture })
+        val pending = session.offer(CellReading(Lab(55.0, -60.0, 40.0), true))
+        assertTrue(feed(pending, 2100, 4100).isEmpty())
+        val retry = pending.retake()
+        assertFalse(feed(retry, 4200, 4400).any { it is GuidedScanEffect.Capture })
+        assertTrue(feed(retry, 4500, 6500).any { it is GuidedScanEffect.Capture })
+    }
+
     private fun sample(
         stickers: List<Lab> = List(9) { Lab(it.toDouble(), 0.0, 0.0) },
         orientation: Int = 0,

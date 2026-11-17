@@ -34,6 +34,17 @@ class CameraScanLauncherTest {
     private fun cameraFeature(present: Boolean) =
         shadowOf(context.packageManager).setSystemFeature(PackageManager.FEATURE_CAMERA_ANY, present)
 
+    @Test fun `denied means recorded and still not granted`() {
+        CameraDenialRecord.clear(context)
+        val app = context as Application
+        shadowOf(app).denyPermissions(android.Manifest.permission.CAMERA)
+        assertFalse(launcher.cameraDenied(context))
+        CameraDenialRecord.readAndMark(context)
+        assertTrue(launcher.cameraDenied(context))
+        shadowOf(app).grantPermissions(android.Manifest.permission.CAMERA)
+        assertFalse(launcher.cameraDenied(context))
+    }
+
     @Test
     fun `no camera feature means no camera`() {
         cameraFeature(false)

@@ -3,6 +3,7 @@ package dev.cubentia.app.ui.solve
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.cubentia.app.scan.ScanOutcome
 import dev.cubentia.app.solver.SolverLoad
 import dev.cubentia.app.solver.SolverSource
 import dev.cubentia.application.session.Effect
@@ -31,6 +32,7 @@ sealed interface SolvePhase {
     data class Editing(
         val initial: Facelets,
         val error: Text? = null,
+        val note: Text? = null,
     ) : SolvePhase
 
     data class Solving(
@@ -49,6 +51,18 @@ class SolveFlowViewModel
         private var accepted = CubeState.SOLVED.toFacelets()
         private var revision = 0L
         private var job: Job? = null
+
+        fun onScanOutcome(outcome: ScanOutcome) {
+            when (outcome) {
+                is ScanOutcome.Accepted -> mutablePhase.value = SolvePhase.Editing(outcome.state.toFacelets())
+                ScanOutcome.FellBackToEditor -> mutablePhase.value = SolvePhase.Editing(accepted, note = Text("msg.solve.scan-fell-back"))
+                ScanOutcome.Cancelled -> Unit
+            }
+        }
+
+        fun scanDenied() {
+            mutablePhase.value = SolvePhase.Editing(accepted, note = Text("msg.solve.scan-camera-denied"))
+        }
 
         fun enterColors() {
             mutablePhase.value = SolvePhase.Editing(accepted)

@@ -6,9 +6,9 @@ import org.junit.jupiter.api.assertThrows
 
 class FeatureFlagLevelsTest {
     @Test
-    fun `debug enables every flag at GA`() {
+    fun `debug levels follow wired entry points`() {
         assertEquals(
-            "QUICK_SCAN=GA,PLACEMENT=GA,CASE_RECOGNITION=GA,TEST_ME=GA,CAMERA_SCAN=GA,ADAPTIVE_ASSISTANCE=GA",
+            "QUICK_SCAN=OFF,PLACEMENT=OFF,CASE_RECOGNITION=OFF,TEST_ME=GA,CAMERA_SCAN=GA,ADAPTIVE_ASSISTANCE=GA",
             FeatureFlagLevels.forBuildType("debug"),
         )
     }

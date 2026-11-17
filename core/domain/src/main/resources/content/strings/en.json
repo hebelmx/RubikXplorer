@@ -1,4 +1,7 @@
 {
+  "btn.solve.scan": "Scan my cube",
+  "msg.solve.scan-fell-back": "No scan this time. Enter your cube's colors here.",
+  "msg.solve.scan-camera-denied": "Camera access is off, so enter your cube's colors here.",
   "msg.calibration.progress": "Color {n} of 6",
   "msg.calibration.done": "All six colors are ready. Save your calibration.",
   "msg.calibration.swatch": "Does this match the sticker on your cube?",
