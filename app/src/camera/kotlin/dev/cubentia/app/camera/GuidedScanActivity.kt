@@ -43,6 +43,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
+import dev.cubentia.app.ScanDiagnostics
 import dev.cubentia.app.content.CatalogState
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.content.LessonCatalog
@@ -327,6 +328,8 @@ class GuidedScanActivity : ComponentActivity() {
         val grid = ViewfinderGrid.inFrame(width.toDouble(), height.toDouble(), crop.left, crop.top, crop.right, crop.bottom, rotation)
         meteringGrid = MeteringGrid(image.width, image.height, grid)
         val stats = FrameReader.read(image, grid)
+        // Debug builds log why a face in the grid is not auto-captured (device session B2); a no-op otherwise.
+        ScanDiagnostics.onFrame(stats, now)
         handle(scan.freeze.decide(now) { controller.onFrame(stats, rotation, now) })
     }
 

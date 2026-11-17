@@ -121,24 +121,87 @@ object FrameQuality {
         }
 
     /** The auto-capture quality: [assessShutter], then the cube-face check. */
-    fun assess(stats: FrameStats): CaptureQuality =
-        when {
-            assessShutter(stats) != CaptureQuality.ACCEPTABLE -> assessShutter(stats)
+    fun assess(stats: FrameStats): CaptureQuality = inspect(stats).quality
 
-            // A cube face: its outer cells are plain stickers (the center may carry a logo) parted by seams.
-            stats.cells.filterIndexed { index, cell -> index != FaceSample.CENTER_INDEX && cell?.plain == true }.size <
-                MIN_PLAIN_OUTER_CELLS -> CaptureQuality.MISALIGNED
+    /**
+     * [assess] broken down per check: the first check that fails, in precedence order, and every measured value (no
+     * pixels), so a debug build can tell which check holds back auto-capture.
+     */
+    fun inspect(stats: FrameStats): FrameInspection {
+        val chroma = stats.cells.map { cell -> cell?.value?.let { sqrt(it.a * it.a + it.b * it.b) } }
+        val plainOuter = stats.cells.filterIndexed { index, cell -> index != FaceSample.CENTER_INDEX && cell?.plain == true }.size
+        val stickerCells = stats.cells.indices.count { chroma[it] != null && isStickerEvidence(chroma[it]!!, stats.cells[it]!!.value.l) }
+        val failed =
+            when {
+                stats.meanLuma < MIN_MEAN_LUMA -> FrameCheck.LIGHT
 
-            stats.seams < MIN_SEAMS -> CaptureQuality.MISALIGNED
+                stats.glareFraction >= MAX_GLARE_FRACTION -> FrameCheck.GLARE
 
-            stats.cells.count { it != null && isStickerEvidence(it.value) } < MIN_STICKER_CELLS -> CaptureQuality.MISALIGNED
+                stats.sharpness < MIN_SHARPNESS -> FrameCheck.SHARPNESS
 
-            else -> CaptureQuality.ACCEPTABLE
-        }
+                stats.cells.size != CELLS || stats.cells.any { it == null } -> FrameCheck.READABLE_CELLS
+
+                // A cube face: its outer cells are plain stickers (the center may carry a logo) parted by seams.
+                plainOuter < MIN_PLAIN_OUTER_CELLS -> FrameCheck.PLAIN_OUTER_CELLS
+
+                stats.seams < MIN_SEAMS -> FrameCheck.SEAMS
+
+                stickerCells < MIN_STICKER_CELLS -> FrameCheck.STICKER_CELLS
+
+                else -> null
+            }
+        return FrameInspection(
+            failed = failed,
+            readableCells = stats.cells.count { it != null },
+            plainOuterCells = plainOuter,
+            seams = stats.seams,
+            stickerCells = stickerCells,
+            chroma = chroma,
+            lightness = stats.cells.map { it?.value?.l },
+            glareFraction = stats.glareFraction,
+            sharpness = stats.sharpness,
+            meanLuma = stats.meanLuma,
+        )
+    }
 
     /** A saturated sticker color, or a bright white sticker; never a dull gray. */
-    private fun isStickerEvidence(value: Lab): Boolean =
-        sqrt(value.a * value.a + value.b * value.b) >= STICKER_MIN_CHROMA || value.l >= WHITE_STICKER_MIN_L
+    private fun isStickerEvidence(
+        chroma: Double,
+        lightness: Double,
+    ): Boolean = chroma >= STICKER_MIN_CHROMA || lightness >= WHITE_STICKER_MIN_L
+}
+
+/** The [FrameQuality] checks, in precedence order. */
+enum class FrameCheck(
+    val quality: CaptureQuality,
+) {
+    LIGHT(CaptureQuality.LOW_LIGHT),
+    GLARE(CaptureQuality.GLARE),
+    SHARPNESS(CaptureQuality.BLURRED),
+    READABLE_CELLS(CaptureQuality.MISALIGNED),
+    PLAIN_OUTER_CELLS(CaptureQuality.MISALIGNED),
+    SEAMS(CaptureQuality.MISALIGNED),
+    STICKER_CELLS(CaptureQuality.MISALIGNED),
+}
+
+/**
+ * One frame's [FrameQuality.assess] broken down: the first [failed] check (null when ACCEPTABLE) and the measured values
+ * each check compares with its threshold. [chroma] (C*ab) and [lightness] (L*) are per cell in pixel row-major order,
+ * null for an unreadable cell. Numbers only, never pixels; for debug diagnostics (device session B2).
+ */
+data class FrameInspection(
+    val failed: FrameCheck?,
+    val readableCells: Int,
+    val plainOuterCells: Int,
+    val seams: Int,
+    val stickerCells: Int,
+    val chroma: List<Double?>,
+    val lightness: List<Double?>,
+    val glareFraction: Double,
+    val sharpness: Double,
+    val meanLuma: Double,
+) {
+    val quality: CaptureQuality get() = failed?.quality ?: CaptureQuality.ACCEPTABLE
 }
 
 /** Categorical coaching for the Learner; never an error. */

@@ -111,6 +111,38 @@ class GuidedScanTest {
         }
     }
 
+    @Test
+    fun `inspect names the first failing check and its measured values (device session B2 diagnostics)`() {
+        val ok = FrameQuality.inspect(good)
+        assertNull(ok.failed)
+        assertEquals(CaptureQuality.ACCEPTABLE, ok.quality)
+        assertEquals(listOf(9, 8, 12, 9), listOf(ok.readableCells, ok.plainOuterCells, ok.seams, ok.stickerCells))
+        val green = LABS.getValue(Color.GREEN)
+        assertEquals(Math.hypot(green.a, green.b), ok.chroma[0]!!, 1e-9)
+        assertEquals(green.l, ok.lightness[8]!!, 1e-9)
+        assertEquals(listOf(120.0, 0.0, 100.0), listOf(ok.meanLuma, ok.glareFraction, ok.sharpness))
+        val pale = List(9) { CellReading(Lab(70.0, 5.0, 10.0), true) }
+        val expected =
+            mapOf(
+                stats(luma = 10.0) to FrameCheck.LIGHT,
+                stats(glare = 0.5) to FrameCheck.GLARE,
+                stats(sharpness = 1.0) to FrameCheck.SHARPNESS,
+                stats(cells = cells(Color.GREEN).toMutableList().also { it[3] = null }) to FrameCheck.READABLE_CELLS,
+                stats(cells = cells(Color.GREEN, plain = 6)) to FrameCheck.PLAIN_OUTER_CELLS,
+                stats(seams = 6) to FrameCheck.SEAMS,
+                stats(cells = pale) to FrameCheck.STICKER_CELLS,
+            )
+        expected.forEach { (frame, check) ->
+            val inspection = FrameQuality.inspect(frame)
+            assertEquals(check, inspection.failed)
+            assertEquals(FrameQuality.assess(frame), inspection.quality)
+        }
+        val missing = FrameQuality.inspect(stats(cells = cells(Color.GREEN).toMutableList().also { it[3] = null }))
+        assertEquals(8, missing.readableCells)
+        assertNull(missing.chroma[3])
+        assertEquals(0, FrameQuality.inspect(stats(cells = pale)).stickerCells)
+    }
+
     /** Background the device check captured: steady, sharp and bright, nine plain cells, but no cube in the grid. */
     private val backgrounds =
         listOf(
