@@ -357,27 +357,30 @@ class GuidedScanFlowTest {
         upNeighborColor = up,
     )
 
-    private fun deviceCheck(partial: dev.cubentia.domain.recognition.PhysicalObservation.Partial) =
-        dev.cubentia.domain.tutor.Assess.check(
-            dev.cubentia.domain.tutor.CandidateEnumerator(
-                (
-                    dev.cubentia.domain.cube.CubeValidator
-                        .validate(
-                            dev.cubentia.domain.cube
-                                .Facelets(colorsOf(deviceExpected)),
-                        )
-                        as dev.cubentia.domain.cube.ValidationResult.Valid
-                ).state,
-                1,
-                (
-                    dev.cubentia.domain.cube.Notation
-                        .parse("U U' U2 R R' R2 F F' F2 D D' D2 L L' L2 B B' B2")
-                        as dev.cubentia.domain.cube.NotationResult.Parsed
-                ).moves,
-            ),
-            partial,
-            setOf(Face.U, Face.R),
-        )
+    private fun deviceCheck(
+        partial: dev.cubentia.domain.recognition.PhysicalObservation.Partial,
+        expected: String = deviceExpected,
+        faces: Set<Face> = setOf(Face.U, Face.R),
+    ) = dev.cubentia.domain.tutor.Assess.check(
+        dev.cubentia.domain.tutor.CandidateEnumerator(
+            (
+                dev.cubentia.domain.cube.CubeValidator
+                    .validate(
+                        dev.cubentia.domain.cube
+                            .Facelets(colorsOf(expected)),
+                    )
+                    as dev.cubentia.domain.cube.ValidationResult.Valid
+            ).state,
+            1,
+            (
+                dev.cubentia.domain.cube.Notation
+                    .parse("U U' U2 R R' R2 F F' F2 D D' D2 L L' L2 B B' B2")
+                    as dev.cubentia.domain.cube.NotationResult.Parsed
+            ).moves,
+        ),
+        partial,
+        faces,
+    )
 
     @Test fun `device quick check of U and R on the expected cube keeps both faces and verifies`() {
         // Data point 1: R's red center read close to orange (UNCERTAIN, nearest still red); round 1 dropped R for it.
@@ -458,6 +461,139 @@ class GuidedScanFlowTest {
             dev.cubentia.domain.recognition.PartialCheck.Consistent,
             dev.cubentia.domain.recognition.PartialConsistency
                 .check(partial),
+        )
+    }
+
+    /** A Quick Check of U then R, its re-prompts asked by [GuidedScanFlow.quickCheckRetakes] as the Activity does. */
+    private fun quickCheckController() =
+        GuidedScanController(
+            plan = listOf(GuidedScanPlan.reprompt(Face.U), GuidedScanPlan.reprompt(Face.R)),
+            reprompt = { GuidedScanFlow.quickCheckRetakes(it, CalibrationCenters(deviceLabs)) },
+        )
+
+    private var clock = 0L
+
+    /** Shows [sample]'s stickers after a dark frame (the cube moved on) and presses Capture. */
+    private fun GuidedScanController.shoot(sample: FaceSample): List<GuidedScanEffect> {
+        clock += 100
+        onFrame(FrameStats(List(9) { CellReading(Lab(1.0, 0.0, 0.0), true) }, 1.0, 0.0, 100.0, 12), 90, clock)
+        clock += 100
+        onFrame(FrameStats(sample.stickers.map { CellReading(it, true) }, 120.0, 0.0, 100.0, 12), 90, clock)
+        return onShutter(clock)
+    }
+
+    private val quickU = deviceSample(Face.U, Color.BLUE, "RBWYWWYWY")
+    private val quickR = deviceSample(Face.R, Color.WHITE, "BWRORRGYO")
+
+    /** [quickR] with one non-center sticker between white and yellow (UNCERTAIN). */
+    private val doubtfulR = quickR.copy(stickers = quickR.stickers.toMutableList().also { it[1] = Lab(87.5, -2.5, 40.0) })
+
+    @Test fun `a quick check face with one uncertain sticker is asked once more, naming the face and its top`() {
+        assertEquals(listOf(Face.R), GuidedScanFlow.quickCheckRetakes(listOf(quickU, doubtfulR), CalibrationCenters(deviceLabs)))
+        val controller = quickCheckController()
+        assertFalse(controller.shoot(quickU).any { it is GuidedScanEffect.Done })
+        assertFalse(controller.shoot(doubtfulR).any { it is GuidedScanEffect.Done })
+        assertEquals(1, controller.repromptCount)
+        val phase = GuidedScanFlow.phaseOf(controller, quickCheck = true)
+        assertTrue(phase.retake)
+        assertEquals(
+            dev.cubentia.domain.recognition
+                .ScanStep(Color.RED, Color.WHITE),
+            phase.step,
+        )
+        assertEquals(RepromptProgress(1, 1), phase.again)
+        // A 6-face scan's re-prompt keeps its own prompt.
+        assertFalse(GuidedScanFlow.phaseOf(controller).retake)
+    }
+
+    @Test fun `a confident re-capture is kept and the quick check verifies`() {
+        val controller = quickCheckController()
+        controller.shoot(quickU)
+        controller.shoot(doubtfulR)
+        val done = controller.shoot(quickR).filterIsInstance<GuidedScanEffect.Done>().single()
+        assertEquals(2, done.samples.size)
+        val partial = GuidedScanFlow.quickCheckOf(done.samples, CalibrationCenters(deviceLabs))
+        assertEquals(setOf(Face.U, Face.R), partial.faces.keys)
+        assertEquals(dev.cubentia.domain.tutor.Certainty.VERIFIED, deviceCheck(partial).certainty)
+    }
+
+    @Test fun `a second doubtful capture ends the quick check with no evidence for that face`() {
+        val controller = quickCheckController()
+        controller.shoot(quickU)
+        controller.shoot(doubtfulR)
+        val done = controller.shoot(doubtfulR).filterIsInstance<GuidedScanEffect.Done>().single()
+        assertTrue(controller.done)
+        assertNull(controller.step)
+        assertEquals(setOf(Face.U), GuidedScanFlow.quickCheckOf(done.samples, CalibrationCenters(deviceLabs)).faces.keys)
+    }
+
+    @Test fun `a quick check face whose center reads another color is asked once more`() {
+        val wrongFace = quickR.copy(stickers = quickR.stickers.toMutableList().also { it[4] = deviceLabs.getValue(Color.GREEN) })
+        val controller = quickCheckController()
+        controller.shoot(quickU)
+        controller.shoot(wrongFace)
+        val phase = GuidedScanFlow.phaseOf(controller, quickCheck = true)
+        assertTrue(phase.retake)
+        assertEquals(
+            dev.cubentia.domain.recognition
+                .ScanStep(Color.RED, Color.WHITE),
+            phase.step,
+        )
+    }
+
+    @Test fun `a quick check asks each doubtful face at most once, two at most in all`() {
+        val doubtfulU = quickU.copy(stickers = quickU.stickers.toMutableList().also { it[0] = Lab(87.5, -2.5, 40.0) })
+        val controller = quickCheckController()
+        controller.shoot(doubtfulU)
+        controller.shoot(doubtfulR)
+        assertEquals(2, controller.repromptCount)
+        controller.shoot(doubtfulU)
+        val done = controller.shoot(doubtfulR).filterIsInstance<GuidedScanEffect.Done>().single()
+        assertTrue(GuidedScanFlow.quickCheckOf(done.samples, CalibrationCenters(deviceLabs)).faces.isEmpty())
+        assertTrue(controller.shoot(quickR).isEmpty())
+    }
+
+    @Test fun `confident quick check faces are not asked again`() {
+        assertTrue(GuidedScanFlow.quickCheckRetakes(listOf(quickU, quickR), CalibrationCenters(deviceLabs)).isEmpty())
+    }
+
+    @Test fun `device quick check 4 re-captures L whose stickers 5 and 7 read uncertain in the scan's own light`() {
+        // diag-s24-107-r2: F:c=G/up=W/o=90/read=BGYBGOGBO/unc=- L:c=O/up=W/o=90/read=YYGOORRRB/unc=5,7 (0-based pixel
+        // order, 4 = the center) was kept and VERIFIED, as assembly read L against the saved colors only. L's orange
+        // center reads nearer red in this light, so its red stickers 5 and 7 are close calls against it.
+        val center = Lab(57.0, 53.0, 57.0)
+        val redNearOrange = Lab(49.0, 61.0, 49.0)
+        val f = deviceSample(Face.F, Color.WHITE, "BGYBGOGBO")
+        val l = deviceSample(Face.L, Color.WHITE, "YYGOORRRB", center = center)
+        val doubtfulL =
+            l.copy(
+                stickers =
+                    l.stickers.toMutableList().also {
+                        it[5] = redNearOrange
+                        it[7] = redNearOrange
+                    },
+            )
+        val saved = CalibrationCenters(deviceLabs)
+        val trace =
+            dev.cubentia.domain.recognition.ScanAssembler.trace(
+                listOf(f, doubtfulL),
+                (
+                    dev.cubentia.domain.recognition.SelfCalibration
+                        .from(listOf(f, doubtfulL), saved)
+                        as dev.cubentia.domain.recognition.SelfCalibration.Calibrated
+                ).calibration,
+            )
+        assertEquals(listOf(5, 7), trace.samples[1].uncertain)
+        assertEquals(listOf(Face.L), GuidedScanFlow.quickCheckRetakes(listOf(f, doubtfulL), saved))
+        assertEquals(setOf(Face.F), GuidedScanFlow.quickCheckOf(listOf(f, doubtfulL), saved).faces.keys)
+        // The re-capture of L, its stickers clear of the center, is kept and the check verifies as on the device.
+        val partial = GuidedScanFlow.quickCheckOf(listOf(f, l), saved)
+        assertEquals(colorsOf("GBBBGGOOY"), partial.faces.getValue(Face.F))
+        assertEquals(colorsOf("ROYROYBRG"), partial.faces.getValue(Face.L))
+        val expected = "BRBYWGOWOYORWROGBGGBBBGGOOYWWRWYRWYRROYROYBRGYGWBBYWGO"
+        assertEquals(
+            dev.cubentia.domain.tutor.Certainty.VERIFIED,
+            deviceCheck(partial, expected, setOf(Face.F, Face.L)).certainty,
         )
     }
 }

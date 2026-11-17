@@ -148,6 +148,28 @@ class GuidedScanScreenTest {
     }
 
     @Test
+    fun `a Quick Check retake names the face again with its top`() {
+        show(
+            GuidedScanPhase.Viewfinder(
+                stepIndex = 2,
+                step = GuidedScanPlan.reprompt(Face.R),
+                again = RepromptProgress(1, 1),
+                total = 2,
+                retake = true,
+            ),
+        )
+        assertFitsOnOneScreen()
+        val text =
+            bundle
+                .getValue("msg.scan.prompt-again-with-top")
+                .replace("{center}", "red")
+                .replace("{up}", "white")
+        assertEquals("Show the red face again, with white on top.", text)
+        rule.onNodeWithText(text).assertIsDisplayed()
+        rule.onNodeWithText("Again: face 1 of 1").assertIsDisplayed()
+    }
+
+    @Test
     fun `a repeated face shows its coaching and, once offered, Use this face anyway on one screen`() {
         var used = 0
         var captured = 0

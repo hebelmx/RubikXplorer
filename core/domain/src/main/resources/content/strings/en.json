@@ -645,6 +645,7 @@
   "msg.scan.camera-unavailable": "The camera isn't available right now. You can enter your cube's colors by hand.",
   "msg.scan.prompt": "Show the {center} center.",
   "msg.scan.prompt-with-top": "Show the {center} center, with {up} on top.",
+  "msg.scan.prompt-again-with-top": "Show the {center} face again, with {up} on top.",
   "msg.scan.coach.glare": "Too much glare — tilt the cube",
   "msg.scan.coach.blur": "Hold the cube still",
   "msg.scan.coach.low-light": "Too dark — move to more light",

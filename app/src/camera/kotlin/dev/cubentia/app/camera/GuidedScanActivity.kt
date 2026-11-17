@@ -122,7 +122,7 @@ class GuidedScanActivity : ComponentActivity() {
                         .getOrNull()
                         ?.takeIf { it.isNotEmpty() && it.size < 6 && scan.saved != null }
                 withContext(scan.analyzerExecutor.asCoroutineDispatcher()) { scan.controller = scan.newController() }
-                if (phase is GuidedScanPhase.Viewfinder) phase = GuidedScanFlow.phaseOf(controller)
+                if (phase is GuidedScanPhase.Viewfinder) phase = GuidedScanFlow.phaseOf(controller, scan.quickFaces != null)
                 scan.calibrationLoaded = true
             }
         }
@@ -377,7 +377,7 @@ class GuidedScanActivity : ComponentActivity() {
      */
     private fun handle(effects: List<GuidedScanEffect>) {
         val vm = scan
-        val state = GuidedScanFlow.phaseOf(controller)
+        val state = GuidedScanFlow.phaseOf(controller, scan.quickFaces != null)
         val done = effects.filterIsInstance<GuidedScanEffect.Done>().firstOrNull()
         done?.let {
             dev.cubentia.app.ScanDiagnostics
@@ -437,7 +437,15 @@ internal class GuidedScanViewModel : ViewModel() {
     @Volatile var captureCalibration = false
 
     /** The capture phase a camera grant opens: calibration, or the controller's current step (a Quick Check's first face). */
-    fun capturePhase(): GuidedScanPhase = if (calibrationMode) GuidedScanPhase.Calibration() else GuidedScanFlow.phaseOf(controller)
+    fun capturePhase(): GuidedScanPhase =
+        if (calibrationMode) {
+            GuidedScanPhase.Calibration()
+        } else {
+            GuidedScanFlow.phaseOf(
+                controller,
+                quickFaces != null,
+            )
+        }
 
     @Volatile var quickFaces: Set<Face>? = null
 
@@ -459,7 +467,8 @@ internal class GuidedScanViewModel : ViewModel() {
                         .filter {
                             it in faces
                         }.map(GuidedScanPlan::reprompt),
-                reprompt = { emptyList() },
+                // A doubtful face (an UNCERTAIN sticker, or the wrong face held) is asked once more (PO 2026-11-17).
+                reprompt = { samples -> saved?.let { GuidedScanFlow.quickCheckRetakes(samples, it) }.orEmpty() },
             )
         }
     }

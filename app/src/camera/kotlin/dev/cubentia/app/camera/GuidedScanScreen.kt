@@ -129,6 +129,8 @@ internal sealed interface GuidedScanPhase {
         val again: RepromptProgress? = null,
         /** How many faces the first round asks for: 6, or a Quick Check's 1 or 2. */
         val total: Int = GuidedScanPlan.steps.size,
+        /** A Quick Check face captured once more because it was doubtful: "Show the red face again, …" (PO 2026-11-17). */
+        val retake: Boolean = false,
     ) : GuidedScanPhase
 }
 
@@ -485,6 +487,8 @@ private fun Prompt(
             strings.resolve(
                 if (up == null) {
                     ContentText("msg.scan.prompt", mapOf("center" to center))
+                } else if (phase.retake) {
+                    ContentText("msg.scan.prompt-again-with-top", mapOf("center" to center, "up" to up))
                 } else {
                     ContentText("msg.scan.prompt-with-top", mapOf("center" to center, "up" to up))
                 },
