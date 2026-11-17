@@ -185,7 +185,7 @@ action_items:
       sprint-status action items at story close) so deferrals survive past the story
       spec"
     owner: "SM / orchestrator"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-30.md"
   - id: "epic-2-retro-item-2-before-creating-epic-4-stories-add-acs-t"
     epic: 2
@@ -217,7 +217,7 @@ action_items:
     action: "Story-spec authoring copies binding-AD identifiers verbatim; reviews
       treat a known AD deviation as a blocker or escalation, never a residual risk"
     owner: "SM"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-30.md"
   - id: "epic-2-retro-item-6-device-emulator-smoke-of-the-release-bui"
     epic: 2
@@ -278,14 +278,14 @@ action_items:
     action: "Orchestrator writes gate-surviving medium findings and spec residual
       risks into sprint-status action_items at REPORT"
     owner: "SM / orchestrator"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-11-04.md"
   - id: "epic-4-retro-item-14-story-specs-settle-ui-behavior-choices-a"
     epic: 4
     action: "Story specs settle UI behavior choices (animation, auto-play, clearing,
       hold-dependent copy) before build so gates stop hosting product decisions"
     owner: "SM"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-11-04.md"
   - id: "epic-4-retro-item-15-extract-demonstration-and-escalation-orc"
     epic: 4
@@ -329,7 +329,7 @@ action_items:
     action: "Every story commit subject carries its story id, including gate-fix and
       device-fix commits (orchestrator fix-worker and build prompts)"
     owner: "SM / orchestrator"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-11-05.md"
   - id: "epic-5-retro-item-21-run-cube3drendersynctest-at-every-render"
     epic: 5
@@ -343,7 +343,7 @@ action_items:
     action: "Orchestrator story-start pre-build scope check: surfaces a spec excludes
       or fixes by design need a recorded PO decision the gate treats as scope"
     owner: "SM / orchestrator"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-11-05.md"
   - id: "epic-5-retro-item-23-provide-robolectric-android-all-artifact"
     epic: 5
@@ -460,7 +460,7 @@ action_items:
     action: "Add an epic-boundary cross-story review over the epic diff before the
       last story merges or before the retro"
     owner: "Orchestrator / SM"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-11-08.md"
   - id: "epic-8-retro-item-39-reconcile-planning-text-with-scp-2026-11"
     epic: 8
@@ -528,14 +528,14 @@ action_items:
       oracle, 9.3 RTL net mirroring, 9.8 practice rotation and physical Stage milestone)
       into action_items; orchestrator copies spec deferred entries at story close"
     owner: "orchestrator / SM"
-    status: in-progress
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
   - id: "epic-9-retro-item-48-run-the-epic-boundary-cross-story-review"
     epic: 9
     action: "Run the epic-boundary cross-story review before the last story of an
       epic merges (continues epic-8-retro-item-38)"
     owner: "orchestrator / SM"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-9-retro-2026-11-09.md"
   - id: "epic-9-deferred-9-1-9-2-case-family-and-identity-oracle"
     epic: 9
@@ -599,7 +599,7 @@ action_items:
     action: "Set spec-1-9 status built -> done and have story close set spec and sprint
       status together"
     owner: "SM / orchestrator"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-11-11.md"
   - id: "epic-1-retro-item-58-mark-epic-1-done-in-sprint-status-via-bm"
     epic: 1
@@ -652,7 +652,7 @@ action_items:
       check, 3.6 UX-DR14 Move strip, 3.7 editor drafts lost on tab switch, 3.7 preparing
       copy on cold cache read"
     owner: "SM / orchestrator"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-3-retro-2026-11-11.md"
   - id: "epic-3-retro-item-65-tidy-epic-3-artifacts-set-plan-3-1-plan"
     epic: 3
@@ -696,7 +696,7 @@ action_items:
     action: "When an epic last story is gated on another epic, run an interim retro
       over the finished stories (Epic 7 seams were found by Epic 8/9 retros)"
     owner: "SM / orchestrator"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-7-retro-2026-11-12.md"
   - id: "scp-2026-11-16-delete-debug-only-launchers"
     epic: 10
@@ -707,3 +707,27 @@ action_items:
     owner: "Dev (Amelia) + SM"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-16-main-app-entry-points.md"
+  - id: "epic-3-deferred-3-5-outline-ring-pixel-check"
+    epic: 3
+    action: "Verify the drawn invalid-piece outline ring at pixel level (screenshot test), not only via semantics flags (low; deferred from 3.5, spec-3-5:105)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-3-5-enter-a-cube-in-the-manual-cube-editor.md"
+  - id: "epic-3-deferred-3-6-ux-dr14-move-strip"
+    epic: 3
+    action: "Solution playback transport lacks the UX-DR14 Move strip and visible scrubber (low; deferred from 3.6, spec-3-6:115)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-3-6-step-through-a-solution-with-generated-notes.md"
+  - id: "epic-3-deferred-3-7-editor-drafts-lost-on-tab-switch"
+    epic: 3
+    action: "Unaccepted manual-editor edits are lost when leaving the Solve tab; keep the draft across tab switches (medium, Learner-visible; residual risk from 3.7, spec-3-7:174,190)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-3-7-solve-tab-end-to-end.md"
+  - id: "epic-3-deferred-3-7-preparing-copy-on-cold-cache-read"
+    epic: 3
+    action: "'Preparing the solver' also shows during a cold-process cache read; show it only while tables are actually built (low; residual risk from 3.7, spec-3-7:174; #112 (closed) reworded the copy, so check first whether this still holds)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-3-7-solve-tab-end-to-end.md"
