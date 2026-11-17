@@ -191,6 +191,43 @@ class QuickCheckSessionTest {
         assertEquals(pending, pending.after(SessionEvent.QuickCheckCancelled(-1, T0)))
     }
 
+    @Test fun `a consistent partial fitting no candidate is an unknown mismatch`() {
+        val state = physical().after(SessionEvent.PhysicalConfirmed(R, T0))
+        val evidence = partial(state.expected.apply(R, U, F, R), setOf(Face.R, Face.U))
+        val next = observed(requested(state), evidence)
+        assertEquals(Certainty.UNKNOWN, next.quickCheck!!.certainty)
+        assertEquals(emptyList<Any>(), next.quickCheck.consistent)
+        assertEquals(SyncState.PHYSICAL_MISMATCH, next.syncState)
+        assertSame(evidence, next.observed)
+    }
+
+    @Test fun `a move replacing the last confirm on the ladder keeps the replaced layer touched`() {
+        val moved = physical().after(SessionEvent.PhysicalConfirmed(R, T0))
+        val verified = observed(requested(moved), PhysicalObservation.Full(moved.expected))
+        assertEquals(emptySet<Face>(), verified.touchedSinceVerified)
+        val replaced = verified.after(SessionEvent.MismatchReported(T0), SessionEvent.PhysicalConfirmed(U, T0))
+        assertEquals(moved.expected.apply(R.inverse(), U), replaced.expected)
+        assertEquals(setOf(Face.R, Face.U), replaced.touchedSinceVerified)
+    }
+
+    @Test fun `dismissing a mismatch drops its evidence and the editor drops a re-offer`() {
+        val state = physical().after(SessionEvent.PhysicalConfirmed(R, T0))
+        val mismatch = observed(requested(state), partial(state.expected.apply(FaceTurn(Face.R, Turn.HALF)), setOf(Face.R, Face.U)))
+        assertEquals(SyncState.PHYSICAL_MISMATCH, mismatch.syncState)
+        val dismissed = mismatch.after(SessionEvent.PhysicalConfirmed(null, T0))
+        assertEquals(SyncState.PHYSICAL_PREDICTED, dismissed.syncState)
+        assertNull(dismissed.quickCheck)
+        val pending = requested(physical())
+        val effect = pending.pendingQuickCheck!!
+        val stale =
+            pending.after(
+                SessionEvent.PhysicalConfirmed(R, T0),
+                SessionEvent.QuickCheckObserved(effect.effectId, effect.revision, PhysicalObservation.Full(pending.expected), T0),
+            )
+        assertEquals(Text("msg.quick-check.stale"), stale.quickCheckRetry)
+        assertNull(stale.after(SessionEvent.EditorEntered(stale.expected, T0)).quickCheckRetry)
+    }
+
     @Test fun `idle virtual and playback never issue capture`() {
         listOf(
             SessionState.IDLE,

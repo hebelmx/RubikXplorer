@@ -5,7 +5,7 @@ created: '2026-11-17'
 status: 'done'
 baseline_revision: '2c409816aee189c13a44588a5c871affb28529e7'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-10-context.md'
@@ -157,6 +157,28 @@ deferred:
   - `[false]` `[reject]` Intent: `epics.md`, PRD and architecture still state the un-narrowed rule — editing planning artifacts is forbidden for this build; the deviation is recorded in the spec Change Log as instructed.
   - `[low]` `[reject]` Intent: the 98% and 0-false thresholds rest on one seed — the suite is deterministic by design (seed 106, 2,100 scenarios); the 40-seed experiment is recorded in the Change Log.
 
+### 2026-11-17 — Review pass
+- verdicts: 18 findings — high 0, medium 1, low 9, false 8, maybe-false 0
+- findings:
+  - `[low]` `[reject]` Blind: `R U2 R'` aliases a Partial match as VERIFIED — carried: the PO's option (a) accepts face-preserving aliasing of a match as residual risk; recorded in the Spec Change Log.
+  - `[low]` `[reject]` Blind: PartialConsistency does not reject two observed pieces showing the same color set — carried: such a Partial fits no real candidate and ends UNKNOWN/mismatch; rare misread, fix adds rules beyond the spec's list.
+  - `[low]` `[reject]` Blind: corner checks compare unordered color sets, so mirrored corners pass — carried (same row as above): ends UNKNOWN/mismatch, not a false VERIFIED.
+  - `[low]` `[reject]` Blind: a six-face Partial with impossible flip/twist/permutation parity passes — real, but it matches no candidate and ends UNKNOWN/mismatch; today's `ScanAssembler` emits a Partial only with a face missing, and parity rules are new logic beyond the spec's list.
+  - `[false]` `[reject]` Blind: a repeated request overwrites the pending capture without cancelling — carried: replacement is the policy; the older result then has an unknown id and is discarded.
+  - `[low]` `[patch]` Blind: `PhysicalConfirmed(null)` dismisses `PHYSICAL_MISMATCH` but keeps the mismatch `quickCheck` — the dismissal branch in `confirmPhysical` now also sets `quickCheck = null`; tested.
+  - `[low]` `[patch]` Blind: a stale-scan re-offer survives Manual Cube Editor entry, which verifies the cube — `enterEditor` now clears `quickCheckRetry`; tested.
+  - `[false]` `[reject]` Blind: `ObservationCheck`'s public constructor/`copy` let callers manufacture Certainty — no code outside `Assess.kt` constructs one (repository search), and any construction naming a Certainty value fails `CertaintyProducerTest`.
+  - `[low]` `[reject]` Blind: some perturbations degenerate (inverse of a half turn, cancelling extras) — carried: every Certainty still occurs and the PO thresholds hold.
+  - `[low]` `[reject]` Blind: the aggregate confirmation rate can hide a weak planner case — the PO set one aggregate threshold (≥ 98%) on a deterministic suite; per-case rates add test branches without changing the guarantee.
+  - `[medium]` `[patch]` Edge: a Move entered on the mismatch ladder replaces the last confirm but coverage adds only the new Move's layer, so after a Full VERIFIED match the replaced layer (e.g. R) drops out of `mustCover` — `commitPhysical` now also adds the replaced Move's inverse layer (`replacedLayer`), as Undo does; tested (Full verify after R, report, enter U → {R, U}).
+  - `[low]` `[patch]` Verification gap: no reducer test for a consistent Partial that fits no candidate — added: UNKNOWN, no candidates, `PHYSICAL_MISMATCH`, `observed` is that Partial.
+  - `[false]` `[reject]` Intent: the planner asks for six faces after *It matches* or > 2 touched layers, against "at most 2 captures" — the AC scopes ≤ 2 captures to ≤ 2 touched faces, and the Tasks specify the six-face fallback.
+  - `[false]` `[reject]` Intent: a six-face Partial matching Expected with no Full baseline would VERIFY — the matrix row's own reason is "all six faces required", which such a Partial meets; it is not a false VERIFIED, and no current producer emits it.
+  - `[false]` `[reject]` Intent: the residual alias is not exercised through `reduce` — carried: the reducer adopts any VERIFIED match the same way, covered by the session tests.
+  - `[false]` `[reject]` Intent: a Full VERIFIED mismatch does not reset the touched set — the intent resets it only on a VERIFIED match; after a mismatch the cube is not Expected, so keeping coverage is correct.
+  - `[false]` `[reject]` Intent: planning docs (FR-26, AD-5, `epics.md`) still state the un-narrowed rule — carried: editing planning artifacts is forbidden for this build; recorded in the Spec Change Log.
+  - `[false]` `[reject]` Intent: "touched" could mean every face whose stickers move — Design Notes settle the layer reading (the ≤ 2-capture AC is impossible otherwise).
+
 ## Design Notes
 
 **What "touched" means.** It is the layer a Move turns, in home faces: `R` touches R. It is not every face whose stickers move (for `R` that is R, U, F, D and B). Two things pick this reading. The AC and FR-26 promise a Quick Check of "the faces the latest Moves affected" in ≤ 2 captures, which the sticker reading makes impossible even after one Move. And "could have touched" covers the direction errors (`R'`, `R2`) the coverage rule exists for (adversarial review H9). Uniqueness does the rest. A single face never verifies, because every turn of the opposite face leaves it unchanged, which is why the planner always asks for 2 faces.
@@ -192,3 +214,19 @@ Status: done
 **Verification:** `./gradlew spotlessApply`; `./gradlew spotlessCheck build` BUILD SUCCESSFUL (Kover, content tests, `CertaintyProducerTest`, `TransitionsTableTest`). `QuickCheckScenarioTest`: 0 false verified, match confirmation 467/468 (99.8%); deliberate test: 44 face-preserving sequences of 123,500, 1 residual alias of a match (`R U2 R'`, plan {B, D}). `QuickCheckSessionTest` 11/11.
 
 **Residual risks:** a 3+ Move sequence that preserves the observed faces can alias a match as VERIFIED (demonstrated once, accepted by the PO); planning artifacts (`epics.md`, FR-26, AD-5) still state the un-narrowed VERIFIED rule and need a planning update outside this build.
+
+### Follow-up review pass (2026-11-17)
+
+**Summary:** A second review of the Story 10.6 diff (four layers: Blind, Edge Case and Verification Gap on Codex, Intent Alignment on Claude). 18 findings.
+
+**Files changed:**
+- `core/application/src/main/kotlin/dev/cubentia/application/session/Reduce.kt` -- a ladder replacement keeps the replaced Move's layer in `touchedSinceVerified`; dismissing a mismatch clears `quickCheck`; Editor entry clears `quickCheckRetry`.
+- `core/application/src/test/kotlin/dev/cubentia/application/session/QuickCheckSessionTest.kt` -- three tests: consistent no-candidate Partial, ladder replacement coverage, dismissal and Editor clearing.
+
+**Review:** Patched 4 (medium 1, low 3): replacement coverage, dismissal clears evidence, Editor clears the re-offer, consistent UNKNOWN Partial reducer test. Deferred 0. Rejected 14 (6 carried from the first pass), reasons in the Review Triage Log.
+
+**Follow-up review recommended:** false -- follow-up pass with no `high` patched (patched: high 0, medium 1, low 3); the work has converged.
+
+**Verification:** `./gradlew spotlessApply` ok; `./gradlew :core:application:test` for `QuickCheckSessionTest` (14/14), `TransitionsTableTest`, `PhysicalModeSessionTest` passed; `./gradlew spotlessCheck build` BUILD SUCCESSFUL.
+
+**Residual risks:** unchanged from the first pass: the accepted `R U2 R'` match alias, and planning artifacts still state the un-narrowed VERIFIED rule.

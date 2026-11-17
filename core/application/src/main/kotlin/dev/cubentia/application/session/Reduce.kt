@@ -665,7 +665,7 @@ private fun confirmPhysical(
 
         SyncState.PHYSICAL_MISMATCH -> {
             move?.let { commitPhysical(state, it) }
-                ?: Transition(state.copy(syncState = SyncState.PHYSICAL_PREDICTED, observed = null))
+                ?: Transition(state.copy(syncState = SyncState.PHYSICAL_PREDICTED, observed = null, quickCheck = null))
         }
 
         SyncState.VIRTUAL -> {
@@ -699,7 +699,11 @@ private fun commitPhysical(
     val moved =
         withHistory(base, history).copy(
             expected = base.expected.apply(move),
-            touchedSinceVerified = state.touchedSinceVerified?.plus(Coverage.touched(base.expected, move)),
+            // A replaced Move is taken back, so its layer counts as touched too, as an Undo's does.
+            touchedSinceVerified =
+                state.touchedSinceVerified
+                    ?.plus(replacedLayer(state, replacing))
+                    ?.plus(Coverage.touched(base.expected, move)),
             observed = null,
             syncState = SyncState.PHYSICAL_PREDICTED,
             lastMoveFeedback = shown?.feedback,
@@ -722,6 +726,15 @@ private fun commitPhysical(
         }
     return followingPlan(state, Transition(counted, presentation = listOf(shownMove)), move)
 }
+
+/** The home faces the Move a mismatch-ladder entry replaces turns back; empty when nothing is replaced. */
+private fun replacedLayer(
+    state: SessionState,
+    replacing: Boolean,
+) = state.history.undoable
+    ?.takeIf { replacing }
+    ?.let { Coverage.touched(state.expected, it.inverse()) }
+    .orEmpty()
 
 /** [state] as it stood before its last confirmed Move, which a Move entered on the mismatch ladder replaces. The revision stays. */
 private fun beforeLastConfirm(state: SessionState): SessionState {
@@ -781,6 +794,7 @@ private fun enterEditor(
             expected = event.state,
             observed = PhysicalObservation.Full(event.state),
             touchedSinceVerified = emptySet(),
+            quickCheckRetry = null,
             syncState = SyncState.PHYSICAL_VERIFIED,
             lastMoveFeedback = null,
             lastDiagnosis = diagnosis,
