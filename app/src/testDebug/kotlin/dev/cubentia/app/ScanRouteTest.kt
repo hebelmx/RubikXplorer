@@ -103,7 +103,11 @@ class ScanRouteTest {
                 ),
             )
 
-        fun frames(logo: Boolean) {
+        // [misread] reads that facelet as another clear color, so only the Learner's carried correction can fix it.
+        fun frames(
+            logo: Boolean,
+            misread: Int = -1,
+        ) {
             GuidedScanPlan.steps.forEach { step ->
                 val cells =
                     cube
@@ -112,7 +116,11 @@ class ScanRouteTest {
                         .subList(step.face.ordinal * 9, step.face.ordinal * 9 + 9)
                         .mapIndexed { i, color ->
                             CellReading(
-                                if (step.face == Face.F && i == 0) closeCall(color) else labs.getValue(color),
+                                when {
+                                    step.face.ordinal * 9 + i == misread -> labs.getValue(labs.keys.first { it != color })
+                                    step.face == Face.F && i == 0 -> closeCall(color)
+                                    else -> labs.getValue(color)
+                                },
                                 !(logo && step.centerColor == Color.WHITE && i == 4),
                             )
                         }
@@ -132,7 +140,7 @@ class ScanRouteTest {
         val first = vm.phase as GuidedScanPhase.Review
         assertTrue(first.offerCalibration)
         assertTrue(first.review.blanks.isNotEmpty())
-        val index = first.review.blanks.first()
+        val index = first.review.blanks.first { it % 9 != 4 }
         val color = cube.toFacelets().colors[index]
         // Paint via the real review controls, then enter calibration through its confirmation.
         if (rule.onAllNodesWithTag("review:coach").fetchSemanticsNodes().isNotEmpty()) {
@@ -165,10 +173,11 @@ class ScanRouteTest {
         assertTrue("After save: ${vm.phase}", vm.phase is GuidedScanPhase.Viewfinder)
         assertEquals(labs, (runBlocking { repository.load() } as CalibrationLoad.Loaded).calibration?.centers)
         assertTrue(source.starts > before)
-        frames(false)
+        frames(false, misread = index)
         val review = vm.phase as GuidedScanPhase.Review
         assertEquals(color, review.review.stickers[index])
         assertTrue(review.edited)
+        assertEquals(mapOf(index to color), review.corrections)
         assertFalse(review.offerCalibration)
         rule.onNodeWithTag("review:accept").performClick()
         val result = shadowOf(scan.get())
@@ -200,6 +209,43 @@ class ScanRouteTest {
         rule.onNodeWithTag("solve:scanNote").assertTextEquals("Camera access is off, so enter your cube's colors here.")
         rule.onNodeWithTag("editor:accept").assertExists()
         main.pause().stop().destroy()
+    }
+
+    @Test fun repeatedTapsStartOneScanAndACancelledScanCanBeStartedAgain() {
+        val main = Robolectric.buildActivity(MainActivity::class.java).setup()
+        rule.waitForIdle()
+        rule.waitUntil(10_000) { rule.onAllNodesWithTag("welcome:imNew").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("welcome:imNew").performClick()
+        rule.onNodeWithTag("nav:solve").performClick()
+        val activity = shadowOf(main.get())
+
+        fun tapTwiceAndTakeTheScan(): Intent {
+            rule.onNodeWithTag("solve:scan").performClick()
+            rule.onNodeWithTag("solve:scan").performClick()
+            rule.waitUntil(10_000) {
+                shadowOf(android.os.Looper.getMainLooper()).idle()
+                activity.peekNextStartedActivityForResult() != null
+            }
+            val started = activity.nextStartedActivityForResult
+            assertEquals(GuidedScanActivity::class.java.name, started.intent.component!!.className)
+            // A tap while the scan is open starts nothing either.
+            rule.onNodeWithTag("solve:scan").performClick()
+            shadowOf(android.os.Looper.getMainLooper()).idle()
+            rule.waitForIdle()
+            assertNull(activity.peekNextStartedActivityForResult())
+            return started.intent
+        }
+
+        val first = tapTwiceAndTakeTheScan()
+        activity.receiveResult(first, android.app.Activity.RESULT_CANCELED, null)
+        rule.waitForIdle()
+        val flow = ViewModelProvider(main.get())[SolveFlowViewModel::class.java]
+        assertEquals(SolvePhase.Home, flow.phase.value)
+        val second = tapTwiceAndTakeTheScan()
+        activity.receiveResult(second, android.app.Activity.RESULT_CANCELED, null)
+        rule.waitForIdle()
+        main.pause().stop().destroy()
+        rule.waitForIdle()
     }
 
     internal class FakeFrames : ScanFrameSource {

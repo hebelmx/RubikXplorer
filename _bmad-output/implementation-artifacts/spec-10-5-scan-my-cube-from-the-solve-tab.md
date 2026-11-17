@@ -5,7 +5,7 @@ created: '2026-11-16'
 status: 'done'
 baseline_revision: '99c967e8270df805b83bd2812588cb7053c77490'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-10-context.md'
@@ -135,6 +135,27 @@ deferred:
   - `[low]` `[patch]` (intent) `PhysicalLessonScreenTest` kept "showsCameraPrompt" names and a dead `cameraScan` arg while asserting camera-free copy — tests now take `cameraCheck`: without it the camera-free prompt, with it the camera prompt.
   - `[false]` `[reject]` (intent) Learner edits override a better rescan reading — intended: the AC keeps review edits, and the Design Notes treat Learner corrections as evidence.
 
+### 2026-11-17 — Review pass (follow-up)
+- verdicts: 17 findings — high 0, medium 2, low 7, false 7, maybe-false 1
+- findings:
+  - `[false]` `[reject]` (blind) A first-ever permission denial leaves the scan on its denied card instead of returning to the Editor — the intent's Denied row requires "a denial recorded earlier"; Design Notes keep Story 10.2's denied card for the first denial, whose *Enter colors instead* returns `FellBackToEditor`.
+  - `[false]` `[reject]` (blind) A recorded denial blocks permission retries from Solve — the Denied row prescribes opening the Editor directly; recovery exists: granting in system Settings makes `cameraDenied` false (it requires CAMERA not granted) and the scan clears the record on grant.
+  - `[false]` `[reject]` (blind) FellBackToEditor reuses the previously accepted cube — carried: same claim as the 2026-11-17 first-pass row; `SolveFlowViewModel.onScanOutcome` unchanged; the Editor has no blank state and the matrix names the *Enter colors* start colors.
+  - `[low]` `[reject]` (blind) A pending denial check can launch the scan after the Learner taps *Enter colors* — the window is one SharedPreferences read on `Dispatchers.IO`; cancelling it on navigation adds state and branches for a race not met in everyday use.
+  - `[false]` `[reject]` (edge) A stale layout callback in `CameraXFrameSource.bindWhenLaidOut` can bind a cleared analyzer after stop/start — a pending listener only exists while the viewport is null; the layout that makes it non-null fires it first (inactive → removed; active → replaced by the newer bind, whose listener is registered later or whose immediate bind runs after), so the final binding is the newest analysis; same shape as the pre-refactor code.
+  - `[false]` `[reject]` (edge) `MainActivity` never checks `hasCamera` — carried: same claim as the first-pass row; the injected `FeatureFlags` is `ScanPortGate`, which reads `CAMERA_SCAN` OFF without a camera.
+  - `[medium]` `[patch]` (verification-gap) The `scanInFlight` guard and its reset after a result are untested — added `ScanRouteTest.repeatedTapsStartOneScanAndACancelledScanCanBeStartedAgain` (two taps start one scan, a tap while open starts nothing, a cancelled result leaves Solve on Home and a new scan starts); mutant with the guard disabled fails it.
+  - `[false]` `[reject]` (intent) Auto-capture uses the controller's face-level gate (R1b) — carried: same claim as the first-pass "full face gate" row; the intent names driving a `GuidedScanController`.
+  - `[medium]` `[patch]` (intent) The route test's kept edit does not discriminate: the calibrated rescan could read the painted sticker right without the correction — the rescan now misreads that facelet as another clear color (non-center blank chosen), so only the carried correction yields the accepted cube; asserts `review.corrections`; mutant without `withCorrections` at publish fails it.
+  - `[low]` `[reject]` (intent) Entry shown/hidden checked through `AppShell`, not `MainActivity` — carried: same claim as the first-pass hidden-entry row.
+  - `[low]` `[reject]` (intent) Accepted result bridged with `receiveResult`; no check that no `SessionEvent` is dispatched — Robolectric does not run a real cross-Activity result; `SolveFlowViewModel` has no session dependency to dispatch through.
+  - `[low]` `[reject]` (intent) FellBack/Cancelled only VM-tested — carried: first-pass route-coverage row (Cancelled now also passes through the new route test).
+  - `[low]` `[reject]` (intent) Denied route uses the fake launcher's flag, not the real record — the real `CameraScanLauncher.cameraDenied` is unit-tested; the route test covers the Activity branch.
+  - `[low]` `[reject]` (intent) Route test reaches into `GuidedScanViewModel` (`endFreeze`, `saving`, `phase`) — the capture freeze is timed; Learner actions still go through UI tags; no behaviour left unexercised.
+  - `[maybe-false]` `[defer]` (intent) `CameraXFrameSource` and the phase-driven stop/start are exercised only by a fake — carried: already in `deferred` (device session B3).
+  - `[false]` `[reject]` (intent) Rewriting the GA Stage 6 expectation exceeds the "BETA copy" exception — AC7 requires camera-free copy for BETA and GA, and the Never rule forbids camera copy at Stage 6 at any level.
+  - `[low]` `[reject]` (intent) `BuildConfigFeatureFlagsTest` hard-codes the wired set instead of reading the build-logic map — the app test cannot load build-logic sources; `FeatureFlagLevelsTest` pins the map and a mismatch fails the BuildConfig test.
+
 ## Design Notes
 
 **"Editor empty":** the Manual Cube Editor has no blank stickers; "empty" means not prefilled from a scan — the same start colors *Enter colors* uses.
@@ -177,3 +198,17 @@ deferred:
 **Verification:** Codex ran `./gradlew spotlessApply`, `./gradlew -p build-logic test` and `./gradlew spotlessCheck build` (pass). After review patches: targeted `ScanRouteTest` (2), `PhysicalLessonScreenTest` (43), `AppShellSolveTest` (13) passed; `./gradlew -p build-logic test` and `./gradlew spotlessCheck build` BUILD SUCCESSFUL.
 
 **Residual risks:** Human gate open: device session B3 on the main debug build (Lenovo TB128XU, Galaxy S24 FE; stka, stla) must confirm the full scan from the Solve tab, the #166 checks and swatch auto-capture, and the PO records the calibration offer rule in the PRD memlog. The CameraX refactor is unverified on a device.
+
+### Follow-up pass (2026-11-17)
+
+**Summary:** Follow-up review of the merged-ready story. No production code changed; `ScanRouteTest` was strengthened.
+
+**Files changed:** `app/src/testDebug/kotlin/dev/cubentia/app/ScanRouteTest.kt` -- new repeated-tap/cancel-then-rescan test; the rescan misreads the painted facelet so the kept edit is proved at the route level.
+
+**Review findings:** 17 (high 0, medium 2, low 7, false 7, maybe-false 1). Patched: `scanInFlight` guard test (medium), discriminating kept-edit assertion (medium). Deferred: none new (CameraX frame-source lifecycle already deferred to device session B3). Rejected: first-ever denial card (false, intended by Design Notes), recorded denial blocks retries (false, matrix row; Settings grant recovers), FellBack reuses accepted (false, carried), pending denial-check race (low, ms window, fix adds state), stale layout callback (false, listener order), `hasCamera` (false, carried), face-level gate (false, carried), hidden entry via AppShell (low, carried), `receiveResult` bridge / no SessionEvent check (low), FellBack/Cancelled VM-only (low, carried), fake denial flag (low), VM internals in route test (low), GA Stage 6 expectation (false, AC7), hard-coded wired set (low).
+
+**Follow-up review recommendation:** false -- follow-up pass patched no high (patched: 0 high, 2 medium, 0 low); both patches are test-only and each was shown to fail on a mutant (guard disabled; `withCorrections` removed).
+
+**Verification:** `ScanRouteTest` (3 tests) passed; mutants killed. The new test first left state that broke the next class in the fork (`Cube3DEmphasisTest`, passing alone 3/3); it now returns the second scan's result and idles before teardown, and the full suite passes. `./gradlew spotlessApply`, `./gradlew -p build-logic test`, `./gradlew spotlessCheck build --rerun-tasks`: BUILD SUCCESSFUL.
+
+**Residual risks:** unchanged -- device session B3 (Lenovo TB128XU, Galaxy S24 FE) must confirm the CameraX frame source, the scan from the Solve tab and swatch auto-capture; PO records the calibration offer rule.
