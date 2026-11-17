@@ -49,16 +49,21 @@ class SolveFlowViewModel
         private val mutablePhase = MutableStateFlow<SolvePhase>(SolvePhase.Home)
         val phase = mutablePhase.asStateFlow()
         private var accepted = CubeState.SOLVED.toFacelets()
+
+        /** The Facelets of the scan the editor opened with, until the editor closes; null without a scan. */
+        private var scanned: Facelets? = null
         private var revision = 0L
         private var job: Job? = null
 
         fun onScanOutcome(outcome: ScanOutcome) {
             when (outcome) {
                 is ScanOutcome.Accepted -> {
+                    scanned = outcome.state.toFacelets()
                     mutablePhase.value = SolvePhase.Editing(outcome.state.toFacelets())
                 }
 
                 ScanOutcome.FellBackToEditor -> {
+                    scanned = null
                     mutablePhase.value =
                         SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = Text("msg.solve.scan-fell-back"))
                 }
@@ -69,15 +74,25 @@ class SolveFlowViewModel
             }
         }
 
+        /**
+         * Whether the editor being confirmed opened with an accepted scan (PO 2026-11-17): its playback starts with the
+         * confirmed state as the Full verified baseline, whether the Learner confirmed the scan unchanged or corrected
+         * some stickers first (device-fix round 2). Manual color entry is not a scan.
+         */
+        fun isAcceptedScan(): Boolean = scanned != null
+
         fun scanDenied() {
+            scanned = null
             mutablePhase.value = SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = Text("msg.solve.scan-camera-denied"))
         }
 
         fun enterColors() {
+            scanned = null
             mutablePhase.value = SolvePhase.Editing(accepted)
         }
 
         fun closeEditor() {
+            scanned = null
             revision++
             job?.cancel()
             mutablePhase.value = SolvePhase.Home
@@ -142,7 +157,10 @@ class SolveFlowViewModel
                     when (outcome) {
                         is SolveCubeOutcome.Solved -> {
                             onSolved(state, outcome.moves)
-                            if (attempt == revision) mutablePhase.value = SolvePhase.Home
+                            if (attempt == revision) {
+                                scanned = null
+                                mutablePhase.value = SolvePhase.Home
+                            }
                         }
 
                         is SolveCubeOutcome.TimedOut -> {

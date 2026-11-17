@@ -35,6 +35,7 @@ import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.LocalRenderStyle
 import dev.cubentia.app.render.Net2DRenderer
 import dev.cubentia.app.render.RenderStyle
+import dev.cubentia.app.scan.QuickCheckCapture
 import dev.cubentia.app.ui.lesson.FrameLabel
 import dev.cubentia.app.ui.lesson.rememberReduceMotion
 import dev.cubentia.app.ui.playback.NET_ASPECT
@@ -48,10 +49,12 @@ import dev.cubentia.application.session.CubeMode
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionKind
 import dev.cubentia.application.session.SessionState
+import dev.cubentia.application.session.SyncState
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.playback.MoveNote
+import dev.cubentia.domain.tutor.Certainty
 import kotlin.time.Instant
 import dev.cubentia.domain.text.Text as ContentText
 
@@ -260,6 +263,10 @@ fun SolutionPlayback(
     strings: ContentStrings,
     modifier: Modifier = Modifier,
     style: RenderStyle = LocalRenderStyle.current,
+    quickCheck: QuickCheckCapture? = null,
+    requestQuickCheck: (Boolean) -> Unit = {},
+    resolve: ResolveState = ResolveState(),
+    onUseMyCube: () -> Unit = {},
 ) {
     PlaybackFrameLoop(state)
     val tokens = RubikTheme.tokens
@@ -287,12 +294,62 @@ fun SolutionPlayback(
             Box(Modifier.size(width, width / NET_ASPECT)) {
                 state.renderer.Content(style, Modifier.fillMaxSize())
                 if (state.isPhysical) {
-                    FrameLabel(strings, syncState = state.session.syncState)
+                    FrameLabel(
+                        strings,
+                        syncState = state.session.syncState,
+                        verified =
+                            quickCheck != null && state.session.syncState == SyncState.PHYSICAL_VERIFIED &&
+                                state.session.quickCheck?.certainty == Certainty.VERIFIED,
+                    )
                 }
             }
         }
 
         if (state.isPhysical) {
+            if (quickCheck != null) {
+                state.session.quickCheck?.let {
+                    dev.cubentia.app.ui.lesson
+                        .CertaintyChip(it.certainty)
+                }
+                state.session.quickCheckRetry?.let { Text(strings.resolve(it), modifier = Modifier.testTag("quickCheck:retry")) }
+                if (state.session.syncState == SyncState.PHYSICAL_MISMATCH &&
+                    state.session.observed != null
+                ) {
+                    dev.cubentia.app.ui.lesson
+                        .SeenStrip(state.session, strings)
+                }
+                androidx.compose.material3.IconButton(
+                    onClick = { requestQuickCheck(false) },
+                    modifier = Modifier.testTag("playback:quickCheck"),
+                ) {
+                    androidx.compose.material3.Icon(
+                        androidx.compose.ui.res
+                            .painterResource(R.drawable.ic_camera),
+                        contentDescription = strings.resolve(ContentText("btn.physical.quick-check")),
+                    )
+                }
+                if (state.session.offersFullScan) {
+                    TextButton(onClick = { requestQuickCheck(true) }, modifier = Modifier.testTag("playback:scanAll")) {
+                        Text(strings.resolve(ContentText("btn.physical.scan-all-faces")))
+                    }
+                }
+                // A Full mismatch re-solves from the observed cube and restarts playback from it (PO 2026-11-17).
+                if (state.session.canResolveObserved) {
+                    if (resolve.running) {
+                        androidx.compose.material3.LinearProgressIndicator(Modifier.testTag("playback:resolving"))
+                    } else {
+                        resolve.error?.let {
+                            Text(
+                                strings.resolve(it),
+                                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag("playback:resolveError"),
+                            )
+                        }
+                        TextButton(onClick = onUseMyCube, modifier = Modifier.testTag("playback:useMyCube")) {
+                            Text(strings.resolve(ContentText("btn.physical.use-my-cube")))
+                        }
+                    }
+                }
+            }
             PhysicalPlaybackControls(state, strings)
         } else {
             PlaybackTransport(state, note = state.note?.let(strings::resolve))

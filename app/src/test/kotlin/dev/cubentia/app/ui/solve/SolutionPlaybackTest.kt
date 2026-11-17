@@ -24,6 +24,7 @@ import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.TickingClock
 import dev.cubentia.app.ui.lesson.DashedBorderKey
 import dev.cubentia.app.ui.theme.CubentiaTheme
+import dev.cubentia.application.session.CubeMode
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionState
 import dev.cubentia.application.session.SyncState
@@ -36,6 +37,7 @@ import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Turn
+import dev.cubentia.domain.recognition.PhysicalObservation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -608,5 +610,55 @@ class SolutionPlaybackTest {
                 )
             }
         }
+    }
+
+    @Test fun physicalPlaybackOffersQuickCheckAtEveryStepAndShowsEvidence() {
+        val host = SessionHost(TickingClock(), Dispatchers.Unconfined)
+        val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        runBlocking {
+            host.dispatch { SessionEvent.SolvePlaybackStarted(scrambled, solution, it, bundle.tutorConfig) }
+            host.dispatch { SessionEvent.ModeSwitched(CubeMode.PHYSICAL, it) }
+            host.dispatch { SessionEvent.PhysicalConfirmed(null, it) }
+        }
+        var requests = 0
+        rule.setContent {
+            val current by host.state.collectAsState()
+            CubentiaTheme {
+                SolvePlaybackScreen(
+                    current,
+                    strings,
+                    onEvent = { event ->
+                        runBlocking { host.dispatch { event } }
+                    },
+                    onClose = {},
+                    onLearn = {},
+                    quickCheck =
+                        dev.cubentia.app.scan
+                            .QuickCheckCapture {},
+                    requestQuickCheck = { requests++ },
+                )
+            }
+        }
+        tag("quickCheck").performClick()
+        assertEquals(1, requests)
+        runBlocking {
+            val pending = host.dispatch { SessionEvent.QuickCheckRequested(at = it, fullScan = true) }.state.pendingQuickCheck!!
+            host.dispatch {
+                SessionEvent.QuickCheckObserved(
+                    pending.effectId,
+                    pending.revision,
+                    PhysicalObservation
+                        .Full(scrambled),
+                    it,
+                )
+            }
+        }
+        rule.waitForIdle()
+        rule.onNodeWithTag("stage:frame").assertTextEquals("VERIFIED")
+        rule.onNodeWithTag("certainty:label").assertTextEquals("Verified")
+        tag("done").performClick()
+        rule.waitForIdle()
+        tag("quickCheck").assertExists()
+        rule.onNodeWithTag("stage:frame").assertTextEquals("EXPECTED")
     }
 }

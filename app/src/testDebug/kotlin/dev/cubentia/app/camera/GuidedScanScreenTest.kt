@@ -111,6 +111,18 @@ class GuidedScanScreenTest {
     }
 
     @Test
+    fun `a two-face Quick Check counts its progress against its own plan`() {
+        val controller =
+            dev.cubentia.domain.recognition.GuidedScanController(
+                plan = listOf(GuidedScanPlan.reprompt(Face.U), GuidedScanPlan.reprompt(Face.R)),
+                reprompt = { emptyList() },
+            )
+        show(GuidedScanFlow.phaseOf(controller))
+        rule.onNodeWithText("Face 1 of 2").assertIsDisplayed()
+        rule.onNodeWithText("Face 1 of 6").assertDoesNotExist()
+    }
+
+    @Test
     fun `a re-prompt names the top with both swatches and still fits on one screen`() {
         show(
             GuidedScanPhase.Viewfinder(
@@ -133,6 +145,28 @@ class GuidedScanScreenTest {
         rule.onNodeWithTag("scanSwatch:WHITE").assertIsDisplayed()
         rule.onNodeWithText(bundle.getValue("msg.scan.progress-again").replace("{n}", "1").replace("{total}", "2")).assertIsDisplayed()
         rule.onNodeWithText("Again: face 1 of 2").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a Quick Check retake names the face again with its top`() {
+        show(
+            GuidedScanPhase.Viewfinder(
+                stepIndex = 2,
+                step = GuidedScanPlan.reprompt(Face.R),
+                again = RepromptProgress(1, 1),
+                total = 2,
+                retake = true,
+            ),
+        )
+        assertFitsOnOneScreen()
+        val text =
+            bundle
+                .getValue("msg.scan.prompt-again-with-top")
+                .replace("{center}", "red")
+                .replace("{up}", "white")
+        assertEquals("Show the red face again, with white on top.", text)
+        rule.onNodeWithText(text).assertIsDisplayed()
+        rule.onNodeWithText("Again: face 1 of 1").assertIsDisplayed()
     }
 
     @Test

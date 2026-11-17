@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -23,6 +24,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import dev.cubentia.app.content.CatalogEntry
 import dev.cubentia.app.content.CatalogState
+import dev.cubentia.app.render.RenderedStickersKey
+import dev.cubentia.app.scan.QuickCheckCapture
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.TickingClock
 import dev.cubentia.app.ui.a11y.assertNoMidWordBreaks
@@ -33,6 +36,7 @@ import dev.cubentia.application.port.ProgressRepository
 import dev.cubentia.application.port.ProgressSave
 import dev.cubentia.application.session.Checkpoint
 import dev.cubentia.application.session.CubeMode
+import dev.cubentia.application.session.Effect
 import dev.cubentia.application.session.GuidedRecovery
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionKind
@@ -40,6 +44,7 @@ import dev.cubentia.application.session.SessionSnapshot
 import dev.cubentia.application.session.SyncState
 import dev.cubentia.application.usecase.CompleteLesson
 import dev.cubentia.application.usecase.PlanRecovery
+import dev.cubentia.domain.appearance.StickerAppearance
 import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
@@ -51,6 +56,7 @@ import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.domain.cube.Turn
 import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.tutor.Certainty
+import dev.cubentia.domain.tutor.HintRung
 import dev.cubentia.domain.tutor.ProgressEvent
 import dev.cubentia.domain.tutor.RecoveryPlan
 import dev.cubentia.domain.tutor.TeachingMode
@@ -98,6 +104,13 @@ class PhysicalLessonScreenTest {
         onClose: () -> Unit = {},
         shown: () -> Boolean = { true },
         planRecovery: PlanRecovery = PlanRecovery(),
+        quickCheck: QuickCheckCapture? =
+            if (cameraCheck) {
+                dev.cubentia.app.scan
+                    .QuickCheckCapture {}
+            } else {
+                null
+            },
     ) {
         rule.setContent {
             CubentiaTheme {
@@ -109,6 +122,7 @@ class PhysicalLessonScreenTest {
                         modes = TeachingMode.entries,
                         onClose = onClose,
                         cameraCheck = cameraCheck,
+                        quickCheck = quickCheck,
                         planRecovery = planRecovery,
                     )
                 }
@@ -1157,7 +1171,7 @@ class PhysicalLessonScreenTest {
             teachingMode = TeachingMode.GUIDE_ME,
             adaptiveAssistance = false,
             hintsUsed = 0,
-            hintRung = dev.cubentia.domain.tutor.HintRung.NONE,
+            hintRung = HintRung.NONE,
             revealRequested = false,
             noticeStep = null,
             stepMistakes = emptyMap(),
@@ -1460,5 +1474,171 @@ class PhysicalLessonScreenTest {
         val first = node("mode:SHOW_ME").fetchSemanticsNode().boundsInRoot
         val last = node("mode:LET_ME_TRY").fetchSemanticsNode().boundsInRoot
         assertTrue(last.top > first.top)
+    }
+
+    @Test fun quickCheckRungShowsLikelyPartialSeenFacesAndFullScanThenAdopt() {
+        val host = SessionHost(TickingClock())
+        var captured: Effect.QuickCheck? = null
+        setLessonContent(
+            host,
+            quickCheck =
+                dev.cubentia.app.scan
+                    .QuickCheckCapture { captured = it },
+        )
+        enterPhysicalMode(host)
+        val before = host.state.value.expected
+        runBlocking { host.dispatch { SessionEvent.EditorEntered(before, it) } }
+        reportMismatch(host)
+        node("mismatch:quickCheck").assertExists()
+        node("lesson:quickCheck").performScrollTo().performClick()
+        rule.waitUntil(5_000) { captured != null }
+        val effect = captured!!
+        val actual = before.apply(FaceTurn(Face.R, Turn.CLOCKWISE))
+        val colors = actual.toFacelets().colors
+        val partial =
+            PhysicalObservation.Partial(
+                setOf(Face.R, Face.U).associateWith { colors.subList(it.ordinal * 9, it.ordinal * 9 + 9) },
+            )
+        runBlocking { host.dispatch { SessionEvent.QuickCheckObserved(effect.effectId, effect.revision, partial, it) } }
+        rule.waitForIdle()
+        node("certainty:label").assertTextEquals("Likely")
+        rule.onNodeWithText("That turn probably moved something else.").assertExists()
+        node("stage:seen").assertExists()
+        node("seen:face:R").assertExists()
+        node("seen:face:F").assertDoesNotExist()
+        // The stickers R moved are outlined and spoken as differing; the rest are not.
+        val differing =
+            rule
+                .onAllNodes(
+                    androidx.compose.ui.test.SemanticsMatcher
+                        .expectValue(SeenDifferenceKey, true),
+                ).fetchSemanticsNodes()
+        assertTrue(differing.isNotEmpty())
+        assertTrue(
+            differing.all {
+                it.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.StateDescription) ==
+                    "Differs from the expected cube"
+            },
+        )
+        assertTrue(
+            rule
+                .onAllNodes(
+                    androidx.compose.ui.test.SemanticsMatcher
+                        .expectValue(SeenDifferenceKey, false),
+                ).fetchSemanticsNodes()
+                .isNotEmpty(),
+        )
+        node("mismatch:adopt").assertDoesNotExist()
+        node("mismatch:scanAll").performScrollTo().performClick()
+        rule.waitUntil(5_000) { captured?.effectId != effect.effectId }
+        val fullEffect = captured!!
+        assertEquals(Face.entries.toSet(), fullEffect.faces)
+        runBlocking {
+            host.dispatch {
+                SessionEvent.QuickCheckObserved(
+                    fullEffect.effectId,
+                    fullEffect.revision,
+                    PhysicalObservation.Full(actual),
+                    it,
+                )
+            }
+        }
+        rule.waitForIdle()
+        node("mismatch:scanAll").assertDoesNotExist()
+        node("mismatch:adopt").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.expected == actual }
+        assertEquals(SyncState.PHYSICAL_PREDICTED, host.state.value.syncState)
+    }
+
+    @Test fun quickCheckVerifiedFrameReturnsToExpectedAfterDoneAndConfirmCardCanScan() {
+        val host = SessionHost(TickingClock())
+        var captured: Effect.QuickCheck? = null
+        setLessonContent(
+            host,
+            quickCheck =
+                dev.cubentia.app.scan
+                    .QuickCheckCapture { captured = it },
+        )
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.waitForIdle()
+        node("confirmCube:scan").performScrollTo().performClick()
+        assertEquals(Face.entries.toSet(), captured!!.faces)
+        node("confirmCube:matches").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        runBlocking {
+            val pending = host.dispatch { SessionEvent.QuickCheckRequested(at = it, fullScan = true) }.state.pendingQuickCheck!!
+            host.dispatch {
+                SessionEvent.QuickCheckObserved(pending.effectId, pending.revision, PhysicalObservation.Full(host.state.value.expected), it)
+            }
+        }
+        rule.waitForIdle()
+        node("stage:frame").assertTextEquals("VERIFIED")
+        node("lesson:done").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+        node("stage:frame").assertTextEquals("EXPECTED")
+    }
+
+    @Test fun quickCheckUnavailableKeepsExistingLadderAndHidesCameraNodes() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host)
+        enterPhysicalMode(host)
+        node("lesson:quickCheck").assertDoesNotExist()
+        reportMismatch(host)
+        node("mismatch:quickCheck").assertDoesNotExist()
+        node("mismatch:question").assertExists()
+        node("stage:seen").assertDoesNotExist()
+    }
+
+    @Test fun verifiedQuickCheckAtStage6RecordsCompletionAndShowsFirstSolve() {
+        val written = mutableListOf<ProgressEvent>()
+        val host = recordingHost(written)
+        meetStage6ObjectiveInPhysicalMode(cameraCheck = true, host = host)
+        assertTrue(written.none { it is ProgressEvent.LessonCompleted && it.lessonId == LessonId("lesson-06-03") })
+        runBlocking {
+            val pending = host.dispatch { SessionEvent.QuickCheckRequested(at = it, fullScan = true) }.state.pendingQuickCheck!!
+            host.dispatch {
+                SessionEvent.QuickCheckObserved(pending.effectId, pending.revision, PhysicalObservation.Full(host.state.value.expected), it)
+            }
+        }
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("milestone:overlay").fetchSemanticsNodes().isNotEmpty() }
+        rule.waitForIdle()
+        node("milestone:overlay").assertExists()
+        rule.waitUntil(5_000) { written.any { it is ProgressEvent.LessonCompleted && it.lessonId == LessonId("lesson-06-03") } }
+        val completion = written.filterIsInstance<ProgressEvent.LessonCompleted>().single()
+        assertEquals(LessonId("lesson-06-03"), completion.lessonId)
+        assertTrue(completion.at > kotlin.time.Instant.fromEpochMilliseconds(0))
+    }
+
+    @Test
+    fun story10_7_scanItDispatchedOutsideTheScreen_snapsTheNetToTheScannedCube() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host)
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.waitForIdle()
+
+        // The Confirm card's Scan it result is dispatched by MainActivity, not through this screen.
+        val scanned =
+            host.state.value.expected
+                .apply(FaceTurn(Face.R, Turn.CLOCKWISE))
+        runBlocking { host.dispatch { SessionEvent.EditorEntered(scanned, it) } }
+        rule.waitUntil(5_000) { host.state.value.syncState != SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.mainClock.advanceTimeBy(1_000)
+        rule.waitForIdle()
+
+        assertEquals(scanned, host.state.value.virtual)
+        val expected =
+            scanned
+                .toFacelets()
+                .colors
+                .map { Color(StickerAppearance.of(it).fill) }
+        val drawn =
+            node("cube3d")
+                .fetchSemanticsNode()
+                .config[RenderedStickersKey]
+                .map { Color(it.fill) }
+        assertEquals(expected, drawn)
     }
 }

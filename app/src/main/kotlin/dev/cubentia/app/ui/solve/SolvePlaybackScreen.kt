@@ -13,16 +13,25 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.R
 import dev.cubentia.app.content.ContentStrings
+import dev.cubentia.app.scan.QuickCheckCapture
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionState
+import kotlinx.coroutines.launch
 import dev.cubentia.domain.text.Text as ContentText
+
+/** A re-solve of the observed cube started from playback (*Use my cube as it is now*): running, or failed with [error]. */
+data class ResolveState(
+    val running: Boolean = false,
+    val error: ContentText? = null,
+)
 
 @Composable
 fun SolvePlaybackScreen(
@@ -32,7 +41,12 @@ fun SolvePlaybackScreen(
     onClose: () -> Unit,
     onLearn: () -> Unit,
     modifier: Modifier = Modifier,
+    quickCheck: QuickCheckCapture? = null,
+    requestQuickCheck: suspend (Boolean) -> Unit = {},
+    resolve: ResolveState = ResolveState(),
+    onUseMyCube: () -> Unit = {},
 ) {
+    val scope = rememberCoroutineScope()
     BackHandler(onBack = onClose)
     val playback = rememberSolutionPlaybackState(session, onEvent = onEvent)
     Surface(modifier = modifier.fillMaxSize(), color = RubikTheme.tokens.surfaceBase, contentColor = RubikTheme.tokens.inkPrimary) {
@@ -42,7 +56,17 @@ fun SolvePlaybackScreen(
                     Icon(painterResource(R.drawable.ic_close), contentDescription = strings.resolve(ContentText("btn.solve.close")))
                 }
             }
-            SolutionPlayback(playback, strings, Modifier.weight(1f))
+            SolutionPlayback(
+                playback,
+                strings,
+                Modifier.weight(1f),
+                quickCheck = quickCheck,
+                requestQuickCheck = { full ->
+                    scope.launch { requestQuickCheck(full) }
+                },
+                resolve = resolve,
+                onUseMyCube = onUseMyCube,
+            )
             if (playback.atEnd) {
                 TextButton(onClick = onLearn, modifier = Modifier.testTag("solve:learnOffer")) {
                     Text(strings.resolve(ContentText("msg.solve.learn-offer")))

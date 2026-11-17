@@ -54,6 +54,7 @@ steps remain.
 | PhysicalConfirmed | virtual, tutor, checkpoint | yes | yes |
 | PhysicalSolveConfirmed | tutor | no | no |
 | MismatchReported | tutor | no | no |
+| AdoptObserved | session, virtual, pending, tutor | no | yes |
 | EditorEntered | session, virtual, tutor, checkpoint | no | yes |
 | SnapshotSaveFailed | — | no | no |
 | SnapshotLoadFailed | — | no | no |
@@ -294,3 +295,17 @@ request and retry text; a cancellation of any other capture changes nothing. Lea
 awaiting confirmation, including every session start) clears the pending capture, the retry text and the
 latest result, and any change of Expected clears the latest result. These events do not keep Move feedback,
 Diagnosis or Guided recovery.
+
+Story 10.7: Quick Check also applies in physical Solution Playback when started with tutor configuration.
+Full requests capture all six faces. Empty Partials clear pending only; Editor entry cancels pending,
+so a late result is discarded without a retry. Mismatch decisions use Quick Check certainty.
+AdoptObserved requires a Full mismatch in a moves-taking session; it replaces Expected and virtual,
+resets history and coverage, retains the previous Checkpoint and diagnoses against it, then plans
+Guided recovery when available. Playback never adopts, and Done in mismatch commits on top.
+A VERIFIED match at an unconfirmed physical Objective also confirms the solve.
+Device-fix round 1 (PO 2026-11-17): `SolvePlaybackStarted(fromAcceptedScan = true)` (a start from a scan the Learner
+accepted, unchanged or corrected in the Editor (round 2), or from a Full Quick Check observation) sets `observed` Full(start) and `touchedSinceVerified` = {}; that
+baseline survives the virtual playback start and the first switch to physical, so the first Quick Check plans only
+the faces the confirmed Moves touched. A switch back to virtual drops it, and any other start keeps no baseline.
+In physical playback a Full mismatch sets `canResolveObserved` (the app re-solves the observed cube and restarts
+playback from it); a Partial mismatch offers the full scan as in a Lesson.

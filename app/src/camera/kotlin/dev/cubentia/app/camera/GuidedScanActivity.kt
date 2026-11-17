@@ -31,13 +31,23 @@ import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.content.LessonCatalog
 import dev.cubentia.app.preferences.PreferenceProvider
 import dev.cubentia.app.preferences.PreferenceStore
+import dev.cubentia.app.scan.QuickCheckContract
 import dev.cubentia.app.scan.ScanFlowContract
 import dev.cubentia.app.scan.ScanOutcome
 import dev.cubentia.app.ui.scan.ScanCoachMarkRecord
 import dev.cubentia.app.ui.scan.ScanReviewScreen
 import dev.cubentia.app.ui.theme.CubentiaTheme
+import dev.cubentia.application.port.CalibrationLoad
+import dev.cubentia.application.port.CalibrationRepository
+import dev.cubentia.application.port.CalibrationWrite
+import dev.cubentia.domain.cube.Face
+import dev.cubentia.domain.recognition.CalibrationCenters
+import dev.cubentia.domain.recognition.CaptureQuality
+import dev.cubentia.domain.recognition.FrameQuality
 import dev.cubentia.domain.recognition.GuidedScanController
 import dev.cubentia.domain.recognition.GuidedScanEffect
+import dev.cubentia.domain.recognition.GuidedScanPlan
+import dev.cubentia.domain.recognition.ScanReview
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
@@ -59,7 +69,7 @@ class GuidedScanActivity : ComponentActivity() {
     @Inject
     lateinit var preferenceStore: PreferenceStore
 
-    @Inject lateinit var calibrationRepository: dev.cubentia.application.port.CalibrationRepository
+    @Inject lateinit var calibrationRepository: CalibrationRepository
 
     @Inject lateinit var updateCalibration: dev.cubentia.application.usecase.UpdateCalibration
 
@@ -105,7 +115,14 @@ class GuidedScanActivity : ComponentActivity() {
         if (phase is GuidedScanPhase.Viewfinder && scan.calibrationMode) phase = scan.capturePhase()
         lifecycleScope.launch {
             if (!scan.calibrationLoaded) {
-                scan.saved = (calibrationRepository.load() as? dev.cubentia.application.port.CalibrationLoad.Loaded)?.calibration
+                scan.saved = (calibrationRepository.load() as? CalibrationLoad.Loaded)?.calibration
+                val faces = intent.getStringArrayExtra(QuickCheckContract.EXTRA_FACES)
+                scan.quickFaces =
+                    runCatching { faces?.map(Face::valueOf)?.toSet() }
+                        .getOrNull()
+                        ?.takeIf { it.isNotEmpty() && it.size < 6 && scan.saved != null }
+                withContext(scan.analyzerExecutor.asCoroutineDispatcher()) { scan.controller = scan.newController() }
+                if (phase is GuidedScanPhase.Viewfinder) phase = GuidedScanFlow.phaseOf(controller, scan.quickFaces != null)
                 scan.calibrationLoaded = true
             }
         }
@@ -174,6 +191,13 @@ class GuidedScanActivity : ComponentActivity() {
                         val calibration = phase as? GuidedScanPhase.Calibration
                         if (!scan.saving) {
                             if (calibration?.fromReview != null) phase = calibration.fromReview else finishWith(ScanOutcome.Cancelled)
+                        }
+                    }
+                    LaunchedEffect(scan.quickResult) {
+                        scan.quickResult?.let { partial ->
+                            val (code, data) = QuickCheckContract.encode(partial)
+                            setResult(code, data)
+                            finish()
                         }
                     }
                     LaunchedEffect(scan.calibrationFinished) {
@@ -316,11 +340,11 @@ class GuidedScanActivity : ComponentActivity() {
             if (scan.captureCalibration || effects.any { it is GuidedScanEffect.Capture }) {
                 scan.captureCalibration = false
                 val quality =
-                    dev.cubentia.domain.recognition.FrameQuality
+                    FrameQuality
                         .assessShutter(stats)
                 val ring =
                     if (quality ==
-                        dev.cubentia.domain.recognition.CaptureQuality.ACCEPTABLE
+                        CaptureQuality.ACCEPTABLE
                     ) {
                         frame.ring()
                     } else {
@@ -353,8 +377,21 @@ class GuidedScanActivity : ComponentActivity() {
      */
     private fun handle(effects: List<GuidedScanEffect>) {
         val vm = scan
-        val state = GuidedScanFlow.phaseOf(controller)
-        val result = GuidedScanFlow.reviewOf(effects, scan.saved)
+        val state = GuidedScanFlow.phaseOf(controller, scan.quickFaces != null)
+        val done = effects.filterIsInstance<GuidedScanEffect.Done>().firstOrNull()
+        done?.let {
+            dev.cubentia.app.ScanDiagnostics
+                .onAssembly(if (scan.quickFaces == null) "final" else "quick", it.samples, scan.saved)
+        }
+        val partial =
+            if (scan.quickFaces != null &&
+                done != null
+            ) {
+                GuidedScanFlow.quickCheckOf(done.samples, checkNotNull(scan.saved))
+            } else {
+                null
+            }
+        val result = if (scan.quickFaces == null) GuidedScanFlow.reviewOf(effects, scan.saved) else null
         val captured = effects.filterIsInstance<GuidedScanEffect.Capture>().firstOrNull()
         ContextCompat.getMainExecutor(this).execute {
             if (captured != null) {
@@ -364,6 +401,7 @@ class GuidedScanActivity : ComponentActivity() {
             }
             if (vm.phase is GuidedScanPhase.Viewfinder && vm.phase != state) vm.phase = state
             if (GuidedScanFlow.remeters(effects)) meterOnGrid()
+            if (partial != null) vm.quickResult = partial
             if (result != null) vm.publish(result)
         }
     }
@@ -384,8 +422,9 @@ class GuidedScanActivity : ComponentActivity() {
 internal class GuidedScanViewModel : ViewModel() {
     val analyzerExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
-    @Volatile var saved: dev.cubentia.domain.recognition.CalibrationCenters? = null
+    @Volatile var saved: CalibrationCenters? = null
     var calibrationLoaded by mutableStateOf(false)
+    var quickResult by mutableStateOf<dev.cubentia.domain.recognition.PhysicalObservation.Partial?>(null)
     var calibrationMode = false
     var saving by mutableStateOf(false)
     var calibrationFinished by mutableStateOf(false)
@@ -397,9 +436,42 @@ internal class GuidedScanViewModel : ViewModel() {
 
     @Volatile var captureCalibration = false
 
-    fun capturePhase(): GuidedScanPhase = if (calibrationMode) GuidedScanPhase.Calibration() else GuidedScanPhase.Viewfinder()
+    /** The capture phase a camera grant opens: calibration, or the controller's current step (a Quick Check's first face). */
+    fun capturePhase(): GuidedScanPhase =
+        if (calibrationMode) {
+            GuidedScanPhase.Calibration()
+        } else {
+            GuidedScanFlow.phaseOf(
+                controller,
+                quickFaces != null,
+            )
+        }
 
-    fun newController() = GuidedScanController(reprompt = { GuidedScanController.defaultReprompt(it, saved) })
+    @Volatile var quickFaces: Set<Face>? = null
+
+    fun newController(): GuidedScanController {
+        val faces = quickFaces
+        return if (faces == null) {
+            GuidedScanController(
+                reprompt = { samples ->
+                    // debug only (no-op in release): what the first round read and why it re-prompts (PO 2026-11-17).
+                    dev.cubentia.app.ScanDiagnostics
+                        .onAssembly("first", samples, saved)
+                    GuidedScanController.defaultReprompt(samples, saved)
+                },
+            )
+        } else {
+            GuidedScanController(
+                plan =
+                    Face.entries
+                        .filter {
+                            it in faces
+                        }.map(GuidedScanPlan::reprompt),
+                // A doubtful face (an UNCERTAIN sticker, or the wrong face held) is asked once more (PO 2026-11-17).
+                reprompt = { samples -> saved?.let { GuidedScanFlow.quickCheckRetakes(samples, it) }.orEmpty() },
+            )
+        }
+    }
 
     fun saveCalibration(update: dev.cubentia.application.usecase.UpdateCalibration) {
         val calibration = phase as? GuidedScanPhase.Calibration ?: return
@@ -408,7 +480,7 @@ internal class GuidedScanViewModel : ViewModel() {
         saving = true
         viewModelScope.launch {
             try {
-                if (update(centers) == dev.cubentia.application.port.CalibrationWrite.Saved) {
+                if (update(centers) == CalibrationWrite.Saved) {
                     saved = centers
                     if (calibration.fromReview == null) {
                         calibrationFinished = true
@@ -448,7 +520,7 @@ internal class GuidedScanViewModel : ViewModel() {
     private var held: GuidedScanPhase.Review? = null
 
     /** Main thread: publishes the finished scan now, or when the current freeze ends. */
-    fun publish(capture: dev.cubentia.domain.recognition.ScanReview) = publish(GuidedScanPhase.Review(capture))
+    fun publish(capture: ScanReview) = publish(GuidedScanPhase.Review(capture))
 
     fun publish(capture: GuidedScanPhase.Review) {
         val corrected =

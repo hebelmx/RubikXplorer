@@ -127,6 +127,10 @@ internal sealed interface GuidedScanPhase {
         val canUseAnyway: Boolean = false,
         val step: ScanStep? = GuidedScanPlan.steps.getOrNull(stepIndex),
         val again: RepromptProgress? = null,
+        /** How many faces the first round asks for: 6, or a Quick Check's 1 or 2. */
+        val total: Int = GuidedScanPlan.steps.size,
+        /** A Quick Check face captured once more because it was doubtful: "Show the red face again, …" (PO 2026-11-17). */
+        val retake: Boolean = false,
     ) : GuidedScanPhase
 }
 
@@ -450,10 +454,10 @@ internal fun coachingKey(coaching: Coaching): String =
         Coaching.MOVE_DOWN -> "msg.scan.coach.move-down"
     }
 
-/** "Face 2 of 6" in the first round; "Again: face 1 of 2" in the re-prompt round. */
+/** "Face 2 of 6" (a Quick Check: "Face 1 of 2") in the first round; "Again: face 1 of 2" in the re-prompt round. */
 private fun progressText(phase: GuidedScanPhase.Viewfinder): ContentText =
     phase.again?.let { ContentText("msg.scan.progress-again", mapOf("n" to it.n, "total" to it.total)) }
-        ?: ContentText("msg.scan.progress", mapOf("n" to minOf(phase.stepIndex + 1, GuidedScanPlan.steps.size)))
+        ?: ContentText("msg.scan.progress", mapOf("n" to minOf(phase.stepIndex + 1, phase.total), "total" to phase.total))
 
 /**
  * "Show the green center." with the center's glyph swatch; a re-prompt that names a top reads "Show the green center,
@@ -483,6 +487,8 @@ private fun Prompt(
             strings.resolve(
                 if (up == null) {
                     ContentText("msg.scan.prompt", mapOf("center" to center))
+                } else if (phase.retake) {
+                    ContentText("msg.scan.prompt-again-with-top", mapOf("center" to center, "up" to up))
                 } else {
                     ContentText("msg.scan.prompt-with-top", mapOf("center" to center, "up" to up))
                 },

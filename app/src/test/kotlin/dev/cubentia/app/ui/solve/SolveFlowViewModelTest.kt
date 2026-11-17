@@ -91,6 +91,45 @@ class SolveFlowViewModelTest {
         )
     }
 
+    @Test fun anAcceptedScanConfirmedUnchangedOrCorrectedCountsAsTheScanBaseline() =
+        runBlocking {
+            val vm = SolveFlowViewModel(source(CubeSolver { SolveResult.Solved(listOf(move.inverse())) }))
+            assertFalse(vm.isAcceptedScan())
+            vm.onScanOutcome(
+                dev.cubentia.app.scan.ScanOutcome
+                    .Accepted(cube),
+            )
+            assertTrue(vm.isAcceptedScan())
+            var fromScan: Boolean? = null
+            vm.accept(cube) { _, _ -> fromScan = vm.isAcceptedScan() }
+            withTimeout(5000) { vm.phase.first { it == SolvePhase.Home } }
+            assertEquals(true, fromScan)
+            // Once solved, or after the editor closes or opens for manual entry, the scan no longer counts.
+            assertFalse(vm.isAcceptedScan())
+            // PO 2026-11-17 round 2: a scan the Learner corrected in the editor, then confirmed, still counts.
+            vm.onScanOutcome(
+                dev.cubentia.app.scan.ScanOutcome
+                    .Accepted(CubeState.SOLVED),
+            )
+            var corrected: Boolean? = null
+            vm.accept(cube) { _, _ -> corrected = vm.isAcceptedScan() }
+            withTimeout(5000) { vm.phase.first { it == SolvePhase.Home } }
+            assertEquals(true, corrected)
+            assertFalse(vm.isAcceptedScan())
+            vm.onScanOutcome(
+                dev.cubentia.app.scan.ScanOutcome
+                    .Accepted(cube),
+            )
+            vm.closeEditor()
+            assertFalse(vm.isAcceptedScan())
+            vm.onScanOutcome(
+                dev.cubentia.app.scan.ScanOutcome
+                    .Accepted(cube),
+            )
+            vm.enterColors()
+            assertFalse(vm.isAcceptedScan())
+        }
+
     @Test fun fallbackAndDenialAfterASolveUseTheFreshEditorState() =
         runBlocking {
             val vm = SolveFlowViewModel(source(CubeSolver { SolveResult.Solved(listOf(move.inverse())) }))

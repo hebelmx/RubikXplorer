@@ -46,6 +46,73 @@ sealed interface ScanResult {
     ) : ScanResult
 }
 
+/** Which way [ScanAssembler] went for one scan ([ScanTrace.branch]). */
+enum class ScanBranch {
+    /** The calibration cannot classify: nothing assembled. */
+    UNCALIBRATED,
+
+    /** A gap left fewer than six faces: a Partial. */
+    PARTIAL,
+
+    /** Exactly one valid state. */
+    RESOLVED,
+
+    /** Several valid states: re-prompt the faces that differ. */
+    AMBIGUOUS,
+
+    /** No valid state and at most [ScanAssembler.MAX_REPROMPT_FACES] faces involved: re-prompt them. */
+    NO_VALID_REPROMPT,
+
+    /** No valid state and more faces involved: review the best fit, no re-prompt. */
+    NO_VALID_REVIEW,
+}
+
+/**
+ * Debug evidence of one assembly (device diagnostics, colors and counts only): each sample as read, how many distinct
+ * valid states fit ([valid], null when no search ran), the faces to re-prompt ([involved]), the [branch] taken and the
+ * clockwise quarter turns from pixel order each placed slot got ([turns]; the first candidate's for a searched face).
+ */
+data class ScanTrace(
+    val samples: List<Sample>,
+    val valid: Int?,
+    val involved: List<Face>,
+    val branch: ScanBranch,
+    val turns: Map<Face, Int>,
+) {
+    /**
+     * One sample: the prompted [face], its pose colors, its nine stickers classified in pixel order (null if malformed)
+     * and the pixel indexes read UNCERTAIN ([uncertain]).
+     */
+    data class Sample(
+        val face: Face,
+        val centerColor: Color?,
+        val upNeighborColor: Color?,
+        val orientationDegrees: Int,
+        val read: List<Color>?,
+        val uncertain: List<Int> = emptyList(),
+    )
+
+    /** One line, `key=value` fields separated by spaces; colors as their initial letter (W Y G B R O), `-` for none. */
+    fun describe(): String =
+        listOf(
+            "branch=$branch",
+            "valid=${valid ?: "-"}",
+            "involved=${involved.joinToString(",").ifEmpty { "-" }}",
+            "turns=${Face.entries.filter { it in turns }.joinToString(",") { "$it${turns.getValue(it)}" }.ifEmpty { "-" }}",
+        ).plus(
+            samples.map { sample ->
+                "${sample.face}:c=${letter(sample.centerColor)}/up=${letter(sample.upNeighborColor)}/o=${sample.orientationDegrees}" +
+                    "/read=${sample.read?.joinToString("") { letter(it) } ?: "-"}" +
+                    "/unc=${sample.uncertain.joinToString(",").ifEmpty { "-" }}"
+            },
+        ).joinToString(" ")
+
+    companion object {
+        /** A color's initial letter, `-` for none. */
+        fun letter(color: Color?): String = color?.name?.take(1) ?: "-"
+    }
+}
+
 /**
  * The only place samples are rotated into URFDLB order (AD-9). Each sample goes to the face whose home color is its
  * [FaceSample.centerColor]; a sample without one is reported as NO_POSE on the [FaceSample.face] it was prompted for
@@ -140,9 +207,39 @@ object ScanAssembler {
         calibration: CalibrationCenters,
     ): List<Face> = analyze(samples, calibration).involved
 
+    /** The [ScanTrace] of assembling [samples]: what [assemble] and [repromptFaces] decide, with the evidence (debug diagnostics). */
+    fun trace(
+        samples: List<FaceSample>,
+        calibration: CalibrationCenters,
+    ): ScanTrace {
+        val outcome = analyze(samples, calibration)
+        val classifiable = StickerClassifier.isValid(calibration)
+        return ScanTrace(
+            samples.map { sample ->
+                val wellFormed = classifiable && sample.stickers.size == STICKERS && sample.stickers.all { it.isValid() }
+                val reads = if (wellFormed) sample.stickers.map { StickerClassifier.read(it, calibration.centers) } else null
+                ScanTrace.Sample(
+                    sample.face,
+                    sample.centerColor,
+                    sample.upNeighborColor,
+                    sample.orientationDegrees,
+                    reads?.map { it.color },
+                    reads?.indices?.filter { reads[it].confidence == StickerConfidence.UNCERTAIN }.orEmpty(),
+                )
+            },
+            outcome.valid,
+            outcome.involved,
+            outcome.branch,
+            outcome.turns,
+        )
+    }
+
     private class Outcome(
         val result: ScanResult,
         val involved: List<Face> = emptyList(),
+        val branch: ScanBranch,
+        val valid: Int? = null,
+        val turns: Map<Face, Int> = emptyMap(),
     )
 
     private fun analyze(
@@ -156,6 +253,7 @@ object ScanAssembler {
                     emptyMap(),
                     Face.entries.associateWith { ScanGap.UNCALIBRATED },
                 ),
+                branch = ScanBranch.UNCALIBRATED,
             )
         }
         // Only a sample with a center color claims a slot. One without is reported (NO_POSE) on the face its prompt
@@ -197,6 +295,8 @@ object ScanAssembler {
                 faces.associateWith { face -> placed.getValue(face).readings.map { it.confidence } },
                 Face.entries.filter { it in gaps }.associateWith { gaps.getValue(it) },
             ),
+            branch = ScanBranch.PARTIAL,
+            turns = faces.associateWith { placed.getValue(it).turns },
         )
     }
 
@@ -209,6 +309,7 @@ object ScanAssembler {
             val readings: List<StickerReading>,
             val posed: Boolean,
             val centerDisagrees: Boolean,
+            val turns: Int = 0,
         ) : Placement
 
         data class Gap(
@@ -245,6 +346,7 @@ object ScanAssembler {
             rotateClockwise(readings, turns),
             posed = direction != null,
             centerDisagrees = centerRead.color != center && sample.centerPlain != false,
+            turns = Math.floorMod(turns, TURNS),
         )
     }
 
@@ -303,7 +405,12 @@ object ScanAssembler {
                 }
             }
         val result = ScanResult.Full(Facelets(readings.map { it.color }), readings.map { it.confidence })
-        if (resolved) return Outcome(result)
+        val turns =
+            Face.entries.associateWith { face ->
+                val placed = faces[face.ordinal]
+                Math.floorMod(placed.turns + if (placed.posed) 0 else first.choice[face.ordinal], TURNS)
+            }
+        if (resolved) return Outcome(result, branch = ScanBranch.RESOLVED, valid = 1, turns = turns)
         val unposed = Face.entries.filter { !faces[it.ordinal].posed }.toSet()
         val undecided =
             if (valid.size >= 2) {
@@ -318,8 +425,11 @@ object ScanAssembler {
         val disagreeing = order.filter { faces[it.ordinal].centerDisagrees }
         val involved = disagreeing + order.filter { it in undecided && it in unposed && it !in disagreeing }
         // No valid state and many faces involved: misread colors, not turns; review the best fit instead.
-        if (valid.isEmpty() && involved.size > MAX_REPROMPT_FACES) return Outcome(result)
-        return Outcome(result, involved)
+        if (valid.isEmpty() && involved.size > MAX_REPROMPT_FACES) {
+            return Outcome(result, branch = ScanBranch.NO_VALID_REVIEW, valid = 0, turns = turns)
+        }
+        val branch = if (valid.isEmpty()) ScanBranch.NO_VALID_REPROMPT else ScanBranch.AMBIGUOUS
+        return Outcome(result, involved, branch, valid.size, turns)
     }
 
     private fun sameFace(

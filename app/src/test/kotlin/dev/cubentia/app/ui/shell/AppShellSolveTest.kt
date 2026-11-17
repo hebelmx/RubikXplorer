@@ -133,6 +133,7 @@ class AppShellSolveTest {
         dark: Boolean = false,
         scan: (() -> Unit)? = null,
         cameraScan: dev.cubentia.application.port.FlagLevel = dev.cubentia.application.port.FlagLevel.OFF,
+        quickCheck: dev.cubentia.app.scan.QuickCheckCapture? = null,
     ) {
         val catalog = LessonCatalog.of(ContentLoadResult.Loaded(bundle))
         val freeCube = FreeCubeViewModel()
@@ -140,7 +141,16 @@ class AppShellSolveTest {
             view = androidx.compose.ui.platform.LocalView.current
             back = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
             CubentiaTheme(darkTheme = dark) {
-                AppShell(host, catalog, freeCube, false, testFlags(cameraScan = cameraScan), solveFlow = flow, onScan = scan)
+                AppShell(
+                    host,
+                    catalog,
+                    freeCube,
+                    false,
+                    testFlags(cameraScan = cameraScan),
+                    solveFlow = flow,
+                    onScan = scan,
+                    quickCheck = quickCheck,
+                )
             }
         }
         rule.waitForIdle()
@@ -276,6 +286,111 @@ class AppShellSolveTest {
         click("playback:done")
         rule.waitUntil(10000) { rule.onAllNodesWithTag("solve:learnOffer").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithTag("solve:learnOffer").assertTextEquals("Want to learn how to do this yourself?")
+    }
+
+    @Test fun physicalPlaybackQuickCheckAndScanAllReachTheCapture() {
+        val move = FaceTurn(Face.R, Turn.CLOCKWISE)
+        solver = CubeSolver { SolveResult.Solved(listOf(move.inverse(), move)) }
+        val started = mutableListOf<dev.cubentia.application.session.Effect.QuickCheck>()
+        show(
+            cameraScan = dev.cubentia.application.port.FlagLevel.GA,
+            quickCheck =
+                dev.cubentia.app.scan
+                    .QuickCheckCapture { started += it },
+        )
+        click("nav:solve")
+        click("solve:enterColors")
+        click("editor:accept")
+        rule.waitUntil(10000) { host.state.value.kind == SessionKind.SOLVE_PLAYBACK }
+        rule.waitForIdle()
+        click("playback:followOnMyCube")
+        rule.waitUntil(10000) { host.state.value.isPhysical }
+        rule.waitForIdle()
+        click("playback:quickCheck")
+        rule.waitUntil(10000) { started.isNotEmpty() }
+        val first = started.single()
+        assertEquals(first, host.state.value.pendingQuickCheck)
+        val wrong =
+            host.state.value.expected
+                .apply(FaceTurn(Face.U, Turn.CLOCKWISE))
+                .reoriented(dev.cubentia.domain.cube.Orientation.HOME)
+                .toFacelets()
+                .colors
+        runBlocking {
+            host.dispatch {
+                SessionEvent.QuickCheckObserved(
+                    first.effectId,
+                    first.revision,
+                    dev.cubentia.domain.recognition.PhysicalObservation
+                        .Partial(first.faces.associateWith { wrong.subList(it.ordinal * 9, it.ordinal * 9 + 9) }),
+                    it,
+                )
+            }
+        }
+        rule.waitUntil(10000) { host.state.value.offersFullScan }
+        rule.waitForIdle()
+        click("playback:scanAll")
+        rule.waitUntil(10000) { started.size == 2 }
+        assertEquals(Face.entries.toSet(), started[1].faces)
+        assertEquals(started[1], host.state.value.pendingQuickCheck)
+    }
+
+    @Test fun playbackFromAnAcceptedScanPlansAtMostTwoFacesAndUseMyCubeReSolvesAFullMismatch() {
+        val move = FaceTurn(Face.R, Turn.CLOCKWISE)
+        val cube = CubeState.SOLVED.apply(move)
+        solver = CubeSolver { SolveResult.Solved(listOf(move.inverse())) }
+        val started = mutableListOf<dev.cubentia.application.session.Effect.QuickCheck>()
+        show(
+            cameraScan = dev.cubentia.application.port.FlagLevel.GA,
+            scan = {
+                flow.onScanOutcome(
+                    dev.cubentia.app.scan.ScanOutcome
+                        .Accepted(cube),
+                )
+            },
+            quickCheck =
+                dev.cubentia.app.scan
+                    .QuickCheckCapture { started += it },
+        )
+        click("nav:solve")
+        click("solve:scan")
+        click("editor:accept")
+        rule.waitUntil(10000) { host.state.value.kind == SessionKind.SOLVE_PLAYBACK }
+        rule.waitForIdle()
+        click("playback:followOnMyCube")
+        rule.waitUntil(10000) { host.state.value.isPhysical }
+        rule.waitForIdle()
+        assertEquals(emptySet<Face>(), host.state.value.touchedSinceVerified)
+        click("playback:quickCheck")
+        rule.waitUntil(10000) { started.isNotEmpty() }
+        val first = started.single()
+        assertEquals(2, first.faces.size)
+        // The cube is not where playback expects: a Full observation shows it one turn off.
+        val actual = cube.apply(FaceTurn(Face.U, Turn.CLOCKWISE))
+        solver = CubeSolver { SolveResult.Solved(listOf(FaceTurn(Face.U, Turn.COUNTERCLOCKWISE), move.inverse())) }
+        runBlocking {
+            host.dispatch {
+                SessionEvent.QuickCheckObserved(
+                    first.effectId,
+                    first.revision,
+                    dev.cubentia.domain.recognition.PhysicalObservation
+                        .Full(actual),
+                    it,
+                )
+            }
+        }
+        rule.waitUntil(10000) { host.state.value.canResolveObserved }
+        rule.waitForIdle()
+        rule.onNodeWithTag("playback:useMyCube").assertTextEquals("Use my cube as it is now")
+        click("playback:useMyCube")
+        rule.waitUntil(10000) { host.state.value.entry == actual && host.state.value.isPhysical }
+        rule.waitForIdle()
+        val restarted = host.state.value
+        assertEquals(SessionKind.SOLVE_PLAYBACK, restarted.kind)
+        assertEquals(actual, restarted.expected)
+        assertEquals(2, restarted.solution.size)
+        assertEquals(emptySet<Face>(), restarted.touchedSinceVerified)
+        rule.onNodeWithTag("playback:useMyCube").assertDoesNotExist()
     }
 
     @Test fun lessonIsUntouchedDuringPreparationAndReturnsOnClose() {

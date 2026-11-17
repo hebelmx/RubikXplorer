@@ -645,6 +645,7 @@
   "msg.scan.camera-unavailable": "The camera isn't available right now. You can enter your cube's colors by hand.",
   "msg.scan.prompt": "Show the {center} center.",
   "msg.scan.prompt-with-top": "Show the {center} center, with {up} on top.",
+  "msg.scan.prompt-again-with-top": "Show the {center} face again, with {up} on top.",
   "msg.scan.coach.glare": "Too much glare — tilt the cube",
   "msg.scan.coach.blur": "Hold the cube still",
   "msg.scan.coach.low-light": "Too dark — move to more light",
@@ -658,7 +659,7 @@
   "btn.scan.capture": "Capture",
   "btn.scan.use-anyway": "Use this face anyway",
   "btn.scan.close": "Close",
-  "msg.scan.progress": "Face {n} of 6",
+  "msg.scan.progress": "Face {n} of {total}",
   "msg.scan.progress-again": "Again: face {n} of {total}",
   "msg.validation.piece-repeats.white": "This {piece} shows two whites.",
   "msg.validation.piece-repeats.yellow": "This {piece} shows two yellows.",
@@ -682,5 +683,14 @@
   "msg.scan.blank-state": "Color needed",
   "btn.scan.accept": "Accept",
   "msg.scan.blank-label": "?",
-  "msg.scan.selected": "Selected: {sticker}"
+  "msg.scan.selected": "Selected: {sticker}",
+  "btn.physical.quick-check": "Quick Check",
+  "btn.physical.confirm-scan": "Scan it",
+  "btn.physical.scan-all-faces": "Scan all 6 faces",
+  "btn.physical.use-my-cube": "Use my cube as it is now",
+  "msg.quick-check.likely-mismatch": "That turn probably moved something else.",
+  "msg.physical.mismatch.quick-check": "Check the faces you turned with the camera.",
+  "msg.physical.frame-verified": "VERIFIED",
+  "msg.quick-check.seen": "SEEN",
+  "msg.quick-check.seen-differs": "Differs from the expected cube"
 }

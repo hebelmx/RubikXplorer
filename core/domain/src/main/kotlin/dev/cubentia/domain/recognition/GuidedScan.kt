@@ -355,6 +355,9 @@ class GuidedScanController(
     private var lastRejected: Frame? = null
     private var stuckSince: Long? = null
 
+    /** How many faces the first round asks for: 6 for a Guided Scan, 1 or 2 for a Quick Check. */
+    val planSize: Int get() = plan.size
+
     /** Index into the plan of the first-round face to show next; equals the plan size once the first round is over. */
     val stepIndex: Int get() = stored.size
 

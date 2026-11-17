@@ -153,6 +153,8 @@ internal fun LessonPanel(
     offerKey: String = "",
     onAddToLearning: suspend () -> Boolean = { true },
     testMeBeta: Boolean = false,
+    quickCheck: (@Composable () -> Unit)? = null,
+    onConfirmScan: (() -> Unit)? = null,
 ) {
     val tokens = RubikTheme.tokens
     Column(
@@ -234,6 +236,7 @@ internal fun LessonPanel(
                 strings = strings,
                 onMatches = onConfirmMatches,
                 onEnter = onConfirmEnter,
+                onScan = onConfirmScan,
                 modifier = Modifier.fillMaxWidth(),
             )
         } else if (syncState == SyncState.PHYSICAL_MISMATCH) {
@@ -242,10 +245,12 @@ internal fun LessonPanel(
                 strings = strings,
                 onMatchesAfterAll = onMatchesAfterAll,
                 rung = mismatchRung,
+                quickCheck = quickCheck,
                 onRungChange = onMismatchRungChange,
                 modifier = Modifier.fillMaxWidth(),
             )
         } else if (isPhysical) {
+            quickCheck?.invoke()
             step.candidate?.let { candidate ->
                 Text(
                     text = strings.resolve(ContentText("msg.physical.mismatch.candidate", mapOf("candidate" to candidate))),

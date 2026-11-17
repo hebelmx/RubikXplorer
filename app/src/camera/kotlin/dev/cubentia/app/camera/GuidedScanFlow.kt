@@ -1,11 +1,116 @@
 package dev.cubentia.app.camera
 
+import dev.cubentia.domain.cube.Color
+import dev.cubentia.domain.cube.Face
+import dev.cubentia.domain.recognition.CalibrationCenters
+import dev.cubentia.domain.recognition.CalibrationOffer
+import dev.cubentia.domain.recognition.CalibrationSession
+import dev.cubentia.domain.recognition.CaptureQuality
+import dev.cubentia.domain.recognition.CellReading
+import dev.cubentia.domain.recognition.FaceSample
+import dev.cubentia.domain.recognition.FrameQuality
+import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.GuidedScanController
 import dev.cubentia.domain.recognition.GuidedScanEffect
+import dev.cubentia.domain.recognition.PhysicalObservation
+import dev.cubentia.domain.recognition.ScanAssembler
+import dev.cubentia.domain.recognition.ScanResult
 import dev.cubentia.domain.recognition.ScanReview
+import dev.cubentia.domain.recognition.SelfCalibration
+import dev.cubentia.domain.recognition.StickerClassification
+import dev.cubentia.domain.recognition.StickerClassifier
+import dev.cubentia.domain.recognition.StickerConfidence
 
 /** The Guided Scan Activity's decisions, kept pure so they are unit-tested without a camera or a permission dialog. */
 internal object GuidedScanFlow {
+    /**
+     * Only whole posed faces with every non-center sticker CONFIDENT are evidence. No Expected state participates. The
+     * stickers are read as every scan and its diagnostics read them ([calibrationFor]); the center is judged against
+     * [saved] ([centerAgrees]).
+     */
+    fun quickCheckOf(
+        samples: List<FaceSample>,
+        saved: CalibrationCenters,
+    ): PhysicalObservation.Partial {
+        val result =
+            ScanAssembler
+                .assemble(samples, calibrationFor(samples, saved))
+        if (result !is ScanResult.Partial) {
+            return PhysicalObservation
+                .Partial(
+                    emptyMap(),
+                )
+        }
+        val centerAgrees = centerAgrees(samples, saved)
+        return result.observation.copy(
+            faces =
+                result.observation.faces.filterKeys { face ->
+                    centerAgrees[Color.home(face)] == true && confident(result, face)
+                },
+        )
+    }
+
+    /**
+     * The Quick Check faces to capture once more (PO 2026-11-17), in sample order: a face with an UNCERTAIN non-center
+     * sticker, or whose center reads a color other than the face asked for (the wrong face was held). The controller
+     * asks for each once, with its named top; a re-capture still doubtful is then no evidence ([quickCheckOf]).
+     */
+    fun quickCheckRetakes(
+        samples: List<FaceSample>,
+        saved: CalibrationCenters,
+    ): List<Face> {
+        val result = ScanAssembler.assemble(samples, calibrationFor(samples, saved)) as? ScanResult.Partial ?: return emptyList()
+        val centerAgrees = centerAgrees(samples, saved)
+        return samples
+            .map { it.face }
+            .distinct()
+            .filter { face ->
+                centerAgrees[Color.home(face)] == false ||
+                    (face in result.observation.faces && !confident(result, face))
+            }
+    }
+
+    /**
+     * Self-calibration over [saved], as the 6-face scan and the debug `assembly` line use (device 10.7 round 2: the line
+     * showed L's stickers 5 and 7 UNCERTAIN against the captured orange center, while assembly against [saved] alone read
+     * them CONFIDENT and kept L). A captured center replaces its saved color, so the stickers are read in this light.
+     */
+    private fun calibrationFor(
+        samples: List<FaceSample>,
+        saved: CalibrationCenters,
+    ): CalibrationCenters = (SelfCalibration.from(samples, saved) as? SelfCalibration.Calibrated)?.calibration ?: saved
+
+    /** Every non-center sticker of [face] is CONFIDENT; the center is judged by [centerAgrees] instead. */
+    private fun confident(
+        result: ScanResult.Partial,
+        face: Face,
+    ): Boolean =
+        result.confidence[face]?.let {
+            it.size == 9 &&
+                it.withIndex().all { (index, confidence) ->
+                    index == FaceSample.CENTER_INDEX || confidence == StickerConfidence.CONFIDENT
+                }
+        } == true
+
+    // The center's color is fixed by the slot the sample claims, so only its nearest color matters (it must not read
+    // another color, which would mean the wrong face was held; a logo center is exempt, as in assembly): a close call
+    // on the center (device 10.7: a red center near orange under other light) must not drop the face.
+    private fun centerAgrees(
+        samples: List<FaceSample>,
+        saved: CalibrationCenters,
+    ): Map<Color, Boolean> =
+        samples
+            .mapNotNull { sample -> sample.centerColor?.let { it to sample } }
+            .groupBy({ it.first }, { it.second })
+            .filterValues { it.size == 1 }
+            .mapValues { (color, claims) ->
+                val sample = claims.single()
+                sample.centerPlain == false ||
+                    sample.center?.let { center ->
+                        (StickerClassifier.classify(center, saved) as? StickerClassification.Classified)?.reading?.color == color
+                    } == true
+            }
+
     fun withCorrections(
         review: ScanReview,
         corrections: Map<Int, dev.cubentia.domain.cube.Color>,
@@ -37,8 +142,11 @@ internal object GuidedScanFlow {
             GuidedScanPhase.Denied(permanent = !rationaleAfter && (rationaleBefore || deniedBefore))
         }
 
-    /** What the viewfinder shows for the controller's current state. */
-    fun phaseOf(controller: GuidedScanController): GuidedScanPhase.Viewfinder =
+    /** What the viewfinder shows for the controller's current state; a [quickCheck]'s re-prompt round is a retake. */
+    fun phaseOf(
+        controller: GuidedScanController,
+        quickCheck: Boolean = false,
+    ): GuidedScanPhase.Viewfinder =
         GuidedScanPhase.Viewfinder(
             stepIndex = controller.stepIndex,
             captured = controller.captured,
@@ -51,30 +159,32 @@ internal object GuidedScanFlow {
                 } else {
                     null
                 },
+            total = controller.planSize,
+            retake = quickCheck && controller.repeating,
         )
 
     fun reviewOf(
         effects: List<GuidedScanEffect>,
-        saved: dev.cubentia.domain.recognition.CalibrationCenters?,
+        saved: CalibrationCenters?,
     ): GuidedScanPhase.Review? =
         effects.filterIsInstance<GuidedScanEffect.Done>().firstOrNull()?.let {
             val review = ScanReview.fromSamples(it.samples, saved)
             GuidedScanPhase.Review(
                 review,
-                dev.cubentia.domain.recognition.CalibrationOffer
+                CalibrationOffer
                     .offered(it.samples, saved, review),
             )
         }
 
     fun calibrationCapture(
         phase: GuidedScanPhase.Calibration,
-        stats: dev.cubentia.domain.recognition.FrameStats,
-        ring: dev.cubentia.domain.recognition.CellReading?,
+        stats: FrameStats,
+        ring: CellReading?,
     ): GuidedScanPhase.Calibration {
         val quality =
-            dev.cubentia.domain.recognition.FrameQuality
+            FrameQuality
                 .assessShutter(stats)
-        return if (quality == dev.cubentia.domain.recognition.CaptureQuality.ACCEPTABLE) {
+        return if (quality == CaptureQuality.ACCEPTABLE) {
             phase.copy(session = phase.session.offer(ring), coaching = null)
         } else {
             phase.copy(coaching = GuidedScanController.coachingFor(quality, stats.framing))
@@ -87,7 +197,7 @@ internal object GuidedScanFlow {
     /** The scan's result when [effects] finish it, else null. */
     fun resultOf(
         effects: List<GuidedScanEffect>,
-        saved: dev.cubentia.domain.recognition.CalibrationCenters? = null,
+        saved: CalibrationCenters? = null,
     ): ScanReview? = effects.filterIsInstance<GuidedScanEffect.Done>().firstOrNull()?.let { ScanReview.fromSamples(it.samples, saved) }
 }
 
@@ -119,14 +229,14 @@ internal class CaptureFreeze(
 
 /** Analyzer-thread hold, restarted for each immutable swatch session, including retries. */
 internal class CalibrationHold {
-    private var session: dev.cubentia.domain.recognition.CalibrationSession? = null
+    private var session: CalibrationSession? = null
     private var controller: GuidedScanController? = null
 
     val coaching get() = controller?.coaching
 
     fun onFrame(
-        current: dev.cubentia.domain.recognition.CalibrationSession,
-        stats: dev.cubentia.domain.recognition.FrameStats,
+        current: CalibrationSession,
+        stats: FrameStats,
         rotation: Int,
         now: Long,
     ): List<GuidedScanEffect> {

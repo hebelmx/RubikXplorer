@@ -45,6 +45,7 @@ fun MismatchLadder(
     rung: Int,
     onRungChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    quickCheck: (@Composable () -> Unit)? = null,
 ) {
     val tokens = RubikTheme.tokens
     val shape = MaterialTheme.shapes.large
@@ -60,6 +61,18 @@ fun MismatchLadder(
         verticalArrangement = Arrangement.spacedBy(Spacing.s3),
     ) {
         when (rung) {
+            0 -> {
+                if (quickCheck != null) {
+                    Column(Modifier.testTag("mismatch:quickCheck")) {
+                        Text(strings.resolve(ContentText("msg.physical.mismatch.quick-check")))
+                        quickCheck()
+                        OutlinedButton(onClick = { onRungChange(1) }, modifier = Modifier.testTag("mismatch:nextQuestion")) {
+                            Text(strings.resolve(ContentText("msg.physical.mismatch.next-question")))
+                        }
+                    }
+                }
+            }
+
             1 -> {
                 Text(
                     text = strings.resolve(ContentText("msg.physical.mismatch.which-turn")),

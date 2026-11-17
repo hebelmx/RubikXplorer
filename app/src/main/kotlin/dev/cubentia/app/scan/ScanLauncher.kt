@@ -2,6 +2,7 @@ package dev.cubentia.app.scan
 
 import android.content.Context
 import android.content.Intent
+import dev.cubentia.domain.cube.Face
 
 /**
  * Scan port (AD-9): the only way `:app` main reaches the camera. Bound optionally by the
@@ -17,6 +18,11 @@ interface ScanLauncher {
 
     /** The explicit intent of the Guided 6-face Scan; start it only through [ScanFlowContract]. */
     fun guidedScanIntent(context: Context): Intent
+
+    fun quickCheckIntent(
+        context: Context,
+        faces: Set<Face>,
+    ): Intent = guidedScanIntent(context)
 
     /** The explicit intent of Color Calibration on its own (Settings); it finishes after *Save* or *Close*. */
     fun calibrationIntent(context: Context): Intent = guidedScanIntent(context)
