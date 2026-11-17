@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
@@ -44,6 +46,7 @@ fun SolveScreen(
     showDebugToggles: Boolean,
     pausesLesson: Boolean,
     onSolved: suspend (CubeState, List<FaceTurn>) -> Unit,
+    onLearn: () -> Unit,
     modifier: Modifier = Modifier,
     onScan: (() -> Unit)? = null,
     scanBeta: Boolean = false,
@@ -112,7 +115,27 @@ fun SolveScreen(
                 current.error?.let {
                     Text(strings.resolve(it), Modifier.testTag("solve:error").semantics { liveRegion = LiveRegionMode.Polite })
                 }
-                ManualCubeEditor(strings, { flow.accept(it, onSolved) }, Modifier.weight(1f), initial = current.initial)
+                ManualCubeEditor(strings, { flow.confirm(it, onSolved) }, Modifier.weight(1f), initial = current.initial)
+            }
+
+            SolvePhase.AlreadySolved -> {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()).padding(Spacing.s4),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.s2),
+                ) {
+                    Text(
+                        strings.resolve(ContentText("msg.solve.already-solved")),
+                        Modifier.testTag("solve:alreadySolved").semantics { liveRegion = LiveRegionMode.Polite },
+                    )
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s2)) {
+                        Button(onClick = flow::closeEditor, modifier = Modifier.testTag("solve:alreadySolved:again")) {
+                            Text(strings.resolve(ContentText("btn.solve.again")))
+                        }
+                        OutlinedButton(onClick = onLearn, modifier = Modifier.testTag("solve:alreadySolved:learn")) {
+                            Text(strings.resolve(ContentText("btn.solve.go-learn")))
+                        }
+                    }
+                }
             }
 
             is SolvePhase.Solving -> {

@@ -188,8 +188,22 @@ internal fun auditScreens(
     } else {
         rule.assertButtonRoutes()
     }
+    val move = FaceTurn(Face.R, Turn.CLOCKWISE)
+    val scrambled = CubeState.SOLVED.apply(move)
     rule.onNodeWithTag("solve:enterColors").performClick()
     check("Solve Enter colors")
+    rule.onNodeWithTag("editor:accept").performScrollTo().performClick()
+    rule.waitUntil(10_000) { rule.onAllNodesWithTag("solve:alreadySolved").fetchSemanticsNodes().isNotEmpty() }
+    check("Solve already solved")
+    rule.onNodeWithTag("solve:alreadySolved:again").performScrollTo().performClick()
+    rule.onNodeWithTag("solve:enterColors").performClick()
+    rule.runOnIdle {
+        solveFlow.onScanOutcome(
+            dev.cubentia.app.scan.ScanOutcome
+                .Accepted(scrambled),
+        )
+    }
+    check("Solve Enter colors scanned")
     rule.onNodeWithTag("editor:accept").performScrollTo().performClick()
     rule.waitUntil(10_000) { rule.onAllNodesWithTag("solve:preparing").fetchSemanticsNodes().isNotEmpty() }
     check("Solve preparing")
@@ -208,7 +222,6 @@ internal fun auditScreens(
     val failed = ready.strings.resolve(Text("msg.solve.failed"))
     rule.waitUntil(10_000) { rule.onAllNodes(hasTestTag("solve:error") and hasText(failed)).fetchSemanticsNodes().isNotEmpty() }
     check("Solve Enter colors failed")
-    val move = FaceTurn(Face.R, Turn.CLOCKWISE)
     solveResult = SolveResult.Solved(listOf(move.inverse()))
     rule.runOnIdle {
         solveFlow.accept(CubeState.SOLVED.apply(move)) { state, moves ->

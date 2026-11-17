@@ -9,6 +9,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -18,6 +19,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import dev.cubentia.app.content.LessonCatalog
 import dev.cubentia.app.data.SerialWriter
+import dev.cubentia.app.scan.ScanOutcome
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.TickingClock
 import dev.cubentia.app.session.testFlags
@@ -48,6 +50,7 @@ import dev.cubentia.domain.content.ContentSource
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
+import dev.cubentia.domain.cube.Orientation
 import dev.cubentia.domain.cube.Turn
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -104,6 +107,7 @@ class AppShellSolveTest {
             checkpoints = checkpoints,
         )
     private var solver: CubeSolver = CubeSolver { SolveResult.Solved(emptyList()) }
+    private var allowSolverLoad = true
     private var ready = true
     private var generating = false
     private val loadGate = CompletableDeferred<Unit>()
@@ -113,6 +117,7 @@ class AppShellSolveTest {
                 override val isReady get() = ready
 
                 override suspend fun load(onGenerating: () -> Unit): SolverLoad {
+                    if (!allowSolverLoad) throw AssertionError("Already-solved confirmation must not load the solver")
                     if (generating) onGenerating()
                     if (!ready) loadGate.await()
                     return SolverLoad.Ready(solver)
@@ -216,6 +221,7 @@ class AppShellSolveTest {
     }
 
     @Test fun solvedEditorEntryOffersLearnAndEndsPlayback() {
+        allowSolverLoad = false
         show()
         click("nav:solve")
         rule.onNodeWithTag("solve:enterColors").assertExists()
@@ -223,14 +229,58 @@ class AppShellSolveTest {
         click("solve:enterColors")
         rule.onNodeWithTag("solve:pauseNote").assertDoesNotExist()
         click("editor:accept")
-        rule.waitUntil(10000) { host.state.value.kind == SessionKind.SOLVE_PLAYBACK }
-        rule.onNodeWithTag("solvePlayback:screen").assertExists()
-        rule.onNodeWithTag("nav:bar").assertDoesNotExist()
-        rule.onNodeWithTag("solve:learnOffer").assertTextEquals("Want to learn how to do this yourself?")
-        click("solve:learnOffer")
-        rule.waitUntil(10000) { host.state.value.kind != SessionKind.SOLVE_PLAYBACK }
-        rule.onNodeWithTag("nav:learn").assertExists()
+        assertAlreadySolved()
+        click("solve:alreadySolved:learn")
+        rule.onNodeWithTag("nav:learn").assertIsSelected()
+        assertEquals(SolvePhase.Home, flow.phase.value)
         rule.onNodeWithTag("solve:enterColors").assertDoesNotExist()
+    }
+
+    @Test fun solvedScanReturnsToSolveHome() {
+        allowSolverLoad = false
+        val cube = CubeState.SOLVED.reoriented(Orientation.of(Face.U, Face.R))
+        show(
+            scan = { flow.onScanOutcome(ScanOutcome.Accepted(cube)) },
+            cameraScan = dev.cubentia.application.port.FlagLevel.GA,
+        )
+        click("nav:solve")
+        click("solve:scan")
+        click("editor:accept")
+        assertAlreadySolved()
+        click("solve:alreadySolved:again")
+        rule.onNodeWithTag("solve:enterColors").assertExists()
+        rule.onNodeWithTag("solve:scan").assertExists()
+        click("solve:scan")
+        click("editor:accept")
+        assertAlreadySolved()
+        rule.runOnIdle { back!!.onBackPressed() }
+        rule.onNodeWithTag("solve:enterColors").assertExists()
+    }
+
+    private fun assertAlreadySolved() {
+        rule.onNodeWithTag("solve:alreadySolved").assertTextEquals(
+            "Your cube is already solved. Scramble it and try again, or learn to solve it yourself.",
+        )
+        rule
+            .onNodeWithTag("solve:alreadySolved")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+        rule.onNodeWithTag("nav:bar").assertExists()
+        rule.onNodeWithTag("solvePlayback:screen").assertDoesNotExist()
+        rule.onNodeWithTag("editor:accept").assertDoesNotExist()
+        assertNotEquals(SessionKind.SOLVE_PLAYBACK, host.state.value.kind)
+    }
+
+    private fun seedScrambledEditor(cube: CubeState) {
+        solver = CubeSolver { SolveResult.TimedOut }
+        rule.runOnIdle { flow.accept(cube) { _, _ -> error("unexpected playback") } }
+        rule.waitUntil(10000) {
+            flow.phase.value ==
+                SolvePhase.Editing(
+                    cube.toFacelets(),
+                    dev.cubentia.domain.text
+                        .Text("msg.solve.timed-out"),
+                )
+        }
     }
 
     @Test fun scrambledSolutionFinishesAndCloseReturnsToSolve() {
@@ -322,7 +372,7 @@ class AppShellSolveTest {
 
     @Test fun physicalPlaybackQuickCheckAndScanAllReachTheCapture() {
         val move = FaceTurn(Face.R, Turn.CLOCKWISE)
-        solver = CubeSolver { SolveResult.Solved(listOf(move.inverse(), move)) }
+        val cube = CubeState.SOLVED.apply(move)
         val started = mutableListOf<dev.cubentia.application.session.Effect.QuickCheck>()
         show(
             cameraScan = dev.cubentia.application.port.FlagLevel.GA,
@@ -332,6 +382,8 @@ class AppShellSolveTest {
         )
         click("nav:solve")
         click("solve:enterColors")
+        seedScrambledEditor(cube)
+        solver = CubeSolver { SolveResult.Solved(listOf(move, FaceTurn(Face.R, Turn.HALF))) }
         click("editor:accept")
         rule.waitUntil(10000) { host.state.value.kind == SessionKind.SOLVE_PLAYBACK }
         rule.waitForIdle()
@@ -440,10 +492,14 @@ class AppShellSolveTest {
             }
         }
         val lesson = host.state.value.lesson
-        ready = false
         show()
         click("nav:solve")
         click("solve:enterColors")
+        val move = FaceTurn(Face.R, Turn.CLOCKWISE)
+        val cube = CubeState.SOLVED.apply(move)
+        seedScrambledEditor(cube)
+        solver = CubeSolver { SolveResult.Solved(listOf(move.inverse())) }
+        ready = false
         rule.onNodeWithTag("solve:pauseNote").assertTextEquals("Starting a solve pauses your lesson.")
         assertPauseNoteMargin()
         click("editor:accept")
@@ -457,7 +513,8 @@ class AppShellSolveTest {
         rule.onNodeWithTag("solve:error").assertDoesNotExist()
         assertEquals(lesson, host.state.value.lesson)
         ready = true
-        solve(CubeState.SOLVED)
+        click("editor:accept")
+        rule.waitUntil(10000) { host.state.value.kind == SessionKind.SOLVE_PLAYBACK }
         click("solvePlayback:close")
         rule.waitUntil(10000) { host.state.value.kind == SessionKind.LESSON }
         click("nav:learn")

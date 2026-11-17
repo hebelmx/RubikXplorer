@@ -697,6 +697,10 @@ private fun ShellContent(
                         session.kind?.takesMoves == true,
                         onScan = onScan.takeIf { flags.isEnabled(FeatureFlag.CAMERA_SCAN) },
                         scanBeta = flags.level(FeatureFlag.CAMERA_SCAN) == FlagLevel.BETA,
+                        onLearn = {
+                            solveFlow.closeEditor()
+                            tab = Tab.LEARN
+                        },
                         onSolved = {
                             state,
                             moves,
