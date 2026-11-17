@@ -13,6 +13,7 @@ import dev.cubentia.domain.recognition.ScanResult
 import dev.cubentia.domain.recognition.SelfCalibration
 import dev.cubentia.domain.recognition.StickerConfidence
 import dev.cubentia.domain.recognition.evaluation.FixtureGroup
+import java.util.Random
 
 /** Where a scan's nine values per face come from. */
 enum class Input(
@@ -117,11 +118,34 @@ data class ScanMetrics(
     }
 }
 
+/**
+ * One [prompted] run scanned again in any rotation (Story 10.14): every face's stickers turned by a seeded random quarter
+ * turn ([turns]) and no up-neighbor color ([samples]), so `ScanAssembler` must work out each turn. [result] is the
+ * assembled read and [reprompt] the faces it would re-prompt.
+ */
+data class AnyRotationRun(
+    val prompted: ScanRun,
+    val turns: Map<Face, Int>,
+    val samples: List<FaceSample>,
+    val result: ScanResult?,
+    val reprompt: List<Face>,
+) {
+    val sameFacelets: Boolean
+        get() {
+            val read = (result as? ScanResult.Full)?.facelets ?: return false
+            return read == (prompted.result as? ScanResult.Full)?.facelets
+        }
+    val needsReprompt: Boolean get() = reprompt.isNotEmpty()
+}
+
 data class ScanAccuracyReport(
     val groups: List<GroupSummary>,
     val runs: List<ScanRun>,
+    val anyRotation: List<AnyRotationRun> = emptyList(),
 ) {
     fun runs(input: Input): List<ScanRun> = runs.filter { it.input == input }
+
+    fun anyRotation(input: Input): List<AnyRotationRun> = anyRotation.filter { it.prompted.input == input }
 }
 
 /**
@@ -130,6 +154,11 @@ data class ScanAccuracyReport(
  * `centerColor = truth[4]` (the prompt) and the up-neighbor color recovered from truth by [TruthPose].
  */
 object ScanAccuracy {
+    /** Seed of the any-rotation quarter turns, fixed so the report is byte-stable. */
+    const val ANY_ROTATION_SEED = 1014L
+
+    private const val TURNS = 4
+
     val DEVICES =
         listOf(
             Device("Lenovo Tab M10 Plus 3rd Gen", "Lenovo TB128XU"),
@@ -145,7 +174,7 @@ object ScanAccuracy {
         frames: (FixtureGroup, LiveFixtureRecord) -> List<CellReading>?,
     ): ScanAccuracyReport {
         val summaries = mutableListOf<GroupSummary>()
-        val runs = mutableListOf<ScanRun>()
+        val runs = mutableListOf<Pair<ScanRun, List<FaceSample>>>()
         groups.filter { it.records.isNotEmpty() }.sortedBy { it.name }.forEach { group ->
             val session = if (group.records.all { it.schemaVersion == 1 }) Session.A else Session.A2
             val model =
@@ -181,7 +210,31 @@ object ScanAccuracy {
                 }
             if (framed.isNotEmpty()) runs += run(group.name, session, model, Input.KOTLIN_READER, pose, framed)
         }
-        return ScanAccuracyReport(summaries, runs)
+        val random = Random(ANY_ROTATION_SEED)
+        val anyRotation = runs.map { (run, samples) -> anyRotation(run, samples, random) }
+        return ScanAccuracyReport(summaries, runs.map { it.first }, anyRotation)
+    }
+
+    /** [samples] with every face's stickers turned by a random quarter turn and no up-neighbor color, assembled again. */
+    private fun anyRotation(
+        run: ScanRun,
+        samples: List<FaceSample>,
+        random: Random,
+    ): AnyRotationRun {
+        val turns = samples.associate { HOME_FACE.getValue(requireNotNull(it.centerColor)) to random.nextInt(TURNS) }
+        val turned =
+            samples.map { sample ->
+                val slot = HOME_FACE.getValue(requireNotNull(sample.centerColor))
+                sample.copy(stickers = TruthPose.rotateClockwise(sample.stickers, turns.getValue(slot)), upNeighborColor = null)
+            }
+        val calibration = (SelfCalibration.from(turned) as? SelfCalibration.Calibrated)?.calibration
+        return AnyRotationRun(
+            run,
+            Face.entries.filter { it in turns }.associateWith { turns.getValue(it) },
+            turned,
+            calibration?.let { ScanAssembler.assemble(turned, it) },
+            calibration?.let { ScanAssembler.repromptFaces(turned, it) }.orEmpty(),
+        )
     }
 
     private fun framedSample(
@@ -200,7 +253,7 @@ object ScanAccuracy {
         input: Input,
         pose: Pose,
         records: List<Pair<LiveFixtureRecord, FaceSample>>,
-    ): ScanRun {
+    ): Pair<ScanRun, List<FaceSample>> {
         val samples =
             records.map { (record, sample) ->
                 val center = record.labeledSample.truth[FaceSample.CENTER_INDEX]
@@ -237,6 +290,6 @@ object ScanAccuracy {
                 val truth = truthNet.getValue(face)
                 colors.indices.map { ScoredSticker(face, it, truth[it], colors[it], confidence[it]) }
             }
-        return ScanRun(group, session, model, input, pose, calibration, result, stickers, saved)
+        return ScanRun(group, session, model, input, pose, calibration, result, stickers, saved) to samples
     }
 }

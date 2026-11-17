@@ -10,6 +10,7 @@ This report runs the committed live fixtures through the product scan pipeline o
 - **Kotlin reader input:** each A2 frame (`<FACE>.jpg`) is decoded with `javax.imageio`, converted from sRGB to CIELAB per pixel (D65, the recorder's formula), and cut by the recorder's grid (centered square of 80% of the short edge, 3×3, each cell's central 60%). Each cell goes through `CellReader`.
 - **Center-pixel input:** the record's JSON samples, the recorder's YUV → RGB → Lab reading at each cell. These carry no mode share, so `centerPlain` is null and the logo guard never fires.
 - **Pose:** each face gets `centerColor = truth[4]`, as a Guided Scan prompt would give it. The recorder never asked which side was up, so the up-neighbor color is recovered from truth. Per group, it is the per-face quarter turns under which the six truth faces assemble into a `CubeValidator`-valid cube. When no turns do, the turns are 0 and the group is flagged. The same pose is applied to the samples and to the truth, so it never favors the classifier.
+- **Any rotation (Story 10.14):** each scan is run again with every face's stickers turned by a seeded random quarter turn (fixed seed) and no up-neighbor color, as the center-only prompt captures them. `ScanAssembler` then works out each face's turn from validity; the table counts the scans that assemble to the same `Facelets` as the prompted pose and those for which it would re-prompt a face with a named top.
 - **Scoring:** every sticker of a placed face is compared with the truth assembled the same way. A scan is correct when it is `Full` and all 54 stickers are right. *Full and valid* means `CubeValidator` accepts the read. Regenerate with `./gradlew :core:domain:evaluateScanAccuracy`. On one machine and JDK, repeated runs give byte-identical output.
 
 ## Limitations
@@ -54,6 +55,20 @@ A scan is a group's six faces. Per-scan accuracy = `Full` with all 54 stickers c
 | **Total** | Center pixel | 12 | 12 | 10/12 (83.33%) | 10 | 648 | 646 | 99.69% | 2 | 0.31% | no | 8 |
 
 Zero confidently wrong observed does not show the ≤ 0.1% target is met: by the rule of three, 0 of N is consistent with a true rate up to about 3/N at 95% (Kotlin reader: 0.69% for 432 stickers, Center pixel: 0.46% for 648 stickers).
+
+### Any rotation (Story 10.14)
+
+Each scan again with every face's stickers turned by a seeded random quarter turn (seed 1014) and no named top, so `ScanAssembler` works out each turn from validity. Prompted-pose valid = the prompted scan is `Full` and valid; same `Facelets` = the turned scan assembles to the prompted read; needs re-prompt = `ScanAssembler.repromptFaces` names a face.
+
+| Device | Input | Scans | Prompted-pose valid | Same `Facelets` | Needs re-prompt | Re-prompt share |
+|---|---|---:|---:|---:|---:|---:|
+| Lenovo Tab M10 Plus 3rd Gen (`Lenovo TB128XU`) | Kotlin reader | 4 | 4 | 4 | 0 | 0.00% |
+| Lenovo Tab M10 Plus 3rd Gen (`Lenovo TB128XU`) | Center pixel | 6 | 6 | 6 | 0 | 0.00% |
+| Galaxy S24 FE (`SM-S721U1`) | Kotlin reader | 4 | 3 | 3 | 0 | 0.00% |
+| Galaxy S24 FE (`SM-S721U1`) | Center pixel | 6 | 4 | 5 | 0 | 0.00% |
+| Galaxy Tab S7 FE (`SM-T738U`) | — | no fixtures | — | — | — | — |
+| **Total** | Kotlin reader | 8 | 7 | 7 | 0 | 0.00% |
+| **Total** | Center pixel | 12 | 10 | 11 | 0 | 0.00% |
 
 ### Per group
 

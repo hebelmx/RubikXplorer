@@ -31,6 +31,7 @@ object ScanAccuracyMarkdown {
             appendLine()
             dataSet(report)
             perDevice(report)
+            anyRotation(report)
             perGroup(report)
             misreads(report)
             logoGuard(report)
@@ -109,6 +110,55 @@ object ScanAccuracyMarkdown {
                 } + ").",
         )
         appendLine()
+    }
+
+    private fun StringBuilder.anyRotation(report: ScanAccuracyReport) {
+        appendLine("### Any rotation (Story 10.14)")
+        appendLine()
+        appendLine(
+            "Each scan again with every face's stickers turned by a seeded random quarter turn (seed " +
+                "${ScanAccuracy.ANY_ROTATION_SEED}) and no named top, so `ScanAssembler` works out each turn from validity. " +
+                "Prompted-pose valid = the prompted scan is `Full` and valid; same `Facelets` = the turned scan assembles to the " +
+                "prompted read; needs re-prompt = `ScanAssembler.repromptFaces` names a face.",
+        )
+        appendLine()
+        row("Device", "Input", "Scans", "Prompted-pose valid", "Same `Facelets`", "Needs re-prompt", "Re-prompt share")
+        appendLine("|---|---|---:|---:|---:|---:|---:|")
+        val models = report.anyRotation.map { it.prompted.model }.toSet()
+        val known = ScanAccuracy.DEVICES.map { it.model }.toSet()
+        val devices = ScanAccuracy.DEVICES + models.sorted().filter { it !in known }.map { Device(it, it) }
+        devices.forEach { device ->
+            val label = "${device.name} (`${device.model}`)"
+            val runs = report.anyRotation.filter { it.prompted.model == device.model }
+            if (runs.isEmpty()) {
+                row(label, "—", "no fixtures", "—", "—", "—", "—")
+            } else {
+                Input.entries.forEach { input -> anyRotationRow(label, input, runs.filter { it.prompted.input == input }) }
+            }
+        }
+        Input.entries.forEach { input -> anyRotationRow("**Total**", input, report.anyRotation(input)) }
+        appendLine()
+    }
+
+    private fun StringBuilder.anyRotationRow(
+        label: String,
+        input: Input,
+        runs: List<AnyRotationRun>,
+    ) {
+        if (runs.isEmpty()) {
+            row(label, input.label, 0, "—", "—", "—", "—")
+            return
+        }
+        val reprompts = runs.count { it.needsReprompt }
+        row(
+            label,
+            input.label,
+            runs.size,
+            runs.count { it.prompted.valid },
+            runs.count { it.sameFacelets },
+            reprompts,
+            percent(reprompts.toDouble() / runs.size),
+        )
     }
 
     private fun StringBuilder.metricsRow(

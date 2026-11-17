@@ -2,9 +2,12 @@ package dev.cubentia.domain.recognition
 
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.CubeValidator
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
+import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Turn
+import dev.cubentia.domain.cube.ValidationResult
 import dev.cubentia.domain.recognition.RecognitionFixtures.CALIBRATION
 import dev.cubentia.domain.recognition.RecognitionFixtures.LABS
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -12,6 +15,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlin.math.sqrt
 
 class GuidedScanTest {
     private fun cells(
@@ -108,6 +112,127 @@ class GuidedScanTest {
         }
     }
 
+    /**
+     * Device session B2, round 2b (Lenovo, `diag-lenovo-r2b.log`): the pale gapless stickerless cube's solved yellow face
+     * passed every check but seams (4–6 of 7): nine plain cells C*ab ≈ 84–89, L* ≈ 75–82, sharpness 265–730, luma ≈ 158.
+     * Outlined by its surroundings on all four sides it is aligned (PO 2026-11-16); without that outline (a plain wall)
+     * or without sticker evidence (a gray scene) it is not.
+     */
+    @Test
+    fun `the pinned solved gapless yellow face is aligned when outlined, a plain wall or gray scene is not`() {
+        val yellow =
+            listOf(
+                78.0 to 86.0,
+                75.0 to 84.0,
+                82.0 to 89.0,
+                79.0 to 85.0,
+                80.0 to 87.0,
+                77.0 to 88.0,
+                76.0 to 84.5,
+                81.0 to 86.5,
+                78.5 to 85.5,
+            ).map { (l, c) -> CellReading(Lab(l, -6.0, sqrt(c * c - 36.0)), true) }
+        val face = FrameStats(yellow, 158.0, 0.0, 400.0, 5, faceEdges = 4)
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(face))
+        assertTrue(GuidedScanController().feed(face, 0, 2000).any { it is GuidedScanEffect.Capture })
+        listOf(4, 6).forEach { seams -> assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(face.copy(seams = seams))) }
+        // A plain yellow wall: the same cells, no outline.
+        listOf(0, 3).forEach { edges ->
+            val wall = face.copy(faceEdges = edges)
+            assertEquals(FrameCheck.SEAMS, FrameQuality.inspect(wall).failed, "$edges edges")
+            assertTrue(GuidedScanController().feed(wall, 0, 5000).none { it is GuidedScanEffect.Capture })
+        }
+        // A gray scene, even outlined: no sticker evidence.
+        val gray = face.copy(cells = List(9) { CellReading(Lab(60.0, 1.0, 3.0), true) })
+        assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(gray))
+        // An outlined face with a cell that is not plain, or two neighbors that differ without a seam, is not.
+        assertEquals(
+            CaptureQuality.MISALIGNED,
+            FrameQuality.assess(
+                face.copy(
+                    cells =
+                        yellow.mapIndexed { i, c ->
+                            if (i ==
+                                1
+                            ) {
+                                c.copy(plain = false)
+                            } else {
+                                c
+                            }
+                        },
+                ),
+            ),
+        )
+        val oneOrange = yellow.mapIndexed { i, c -> if (i == 0) CellReading(LABS.getValue(Color.ORANGE), true) else c }
+        assertEquals(CaptureQuality.MISALIGNED, FrameQuality.assess(face.copy(cells = oneOrange, seams = 0)))
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(face.copy(cells = oneOrange, seams = 2)))
+    }
+
+    @Test
+    fun `a dark background or black body cell is misaligned (device session B2)`() {
+        val dark = cells(Color.GREEN).toMutableList().also { it[6] = CellReading(Lab(12.0, 1.0, -2.0), true) }
+        assertEquals(FrameCheck.DARK_CELLS, FrameQuality.inspect(stats(cells = dark)).failed)
+        // A dark but saturated sticker (blue in dim light) is not.
+        val blue = cells(Color.GREEN).toMutableList().also { it[6] = CellReading(Lab(22.0, 20.0, -45.0), true) }
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(stats(cells = blue)))
+    }
+
+    @Test
+    fun `a misaligned face outside the tolerance coaches its move, other qualities keep their coaching`() {
+        val misaligned = stats(seams = 3)
+        mapOf(
+            Framing.CLOSER to Coaching.MOVE_CLOSER,
+            Framing.LEFT to Coaching.MOVE_LEFT,
+            Framing.RIGHT to Coaching.MOVE_RIGHT,
+            Framing.UP to Coaching.MOVE_UP,
+            Framing.DOWN to Coaching.MOVE_DOWN,
+        ).forEach { (framing, coaching) ->
+            val controller = GuidedScanController()
+            assertTrue(controller.feed(misaligned.copy(framing = framing), 0, 3000).none { it is GuidedScanEffect.Capture })
+            assertEquals(coaching, controller.coaching, "$framing")
+        }
+        val generic = GuidedScanController()
+        generic.onFrame(misaligned, 0, 0)
+        assertEquals(Coaching.MISALIGNED, generic.coaching)
+        val blurred = GuidedScanController()
+        blurred.onFrame(misaligned.copy(sharpness = 1.0, framing = Framing.LEFT), 0, 0)
+        assertEquals(Coaching.BLURRED, blurred.coaching)
+    }
+
+    @Test
+    fun `inspect names the first failing check and its measured values (device session B2 diagnostics)`() {
+        val ok = FrameQuality.inspect(good)
+        assertNull(ok.failed)
+        assertEquals(CaptureQuality.ACCEPTABLE, ok.quality)
+        assertEquals(listOf(9, 8, 12, 9), listOf(ok.readableCells, ok.plainOuterCells, ok.seams, ok.stickerCells))
+        val green = LABS.getValue(Color.GREEN)
+        assertEquals(Math.hypot(green.a, green.b), ok.chroma[0]!!, 1e-9)
+        assertEquals(green.l, ok.lightness[8]!!, 1e-9)
+        assertEquals(listOf(120.0, 0.0, 100.0), listOf(ok.meanLuma, ok.glareFraction, ok.sharpness))
+        val pale = List(9) { CellReading(Lab(70.0, 5.0, 10.0), true) }
+        val expected =
+            mapOf(
+                stats(luma = 10.0) to FrameCheck.LIGHT,
+                stats(glare = 0.5) to FrameCheck.GLARE,
+                stats(sharpness = 1.0) to FrameCheck.SHARPNESS,
+                stats(cells = cells(Color.GREEN).toMutableList().also { it[3] = null }) to FrameCheck.READABLE_CELLS,
+                stats(cells = cells(Color.GREEN, plain = 6)) to FrameCheck.PLAIN_OUTER_CELLS,
+                stats(seams = 6) to FrameCheck.SEAMS,
+                stats(cells = pale) to FrameCheck.STICKER_CELLS,
+                stats(cells = cells(Color.GREEN).toMutableList().also { it[0] = CellReading(Lab(8.0, 0.0, 1.0), true) }) to
+                    FrameCheck.DARK_CELLS,
+            )
+        expected.forEach { (frame, check) ->
+            val inspection = FrameQuality.inspect(frame)
+            assertEquals(check, inspection.failed)
+            assertEquals(FrameQuality.assess(frame), inspection.quality)
+        }
+        val missing = FrameQuality.inspect(stats(cells = cells(Color.GREEN).toMutableList().also { it[3] = null }))
+        assertEquals(8, missing.readableCells)
+        assertNull(missing.chroma[3])
+        assertEquals(0, FrameQuality.inspect(stats(cells = pale)).stickerCells)
+    }
+
     /** Background the device check captured: steady, sharp and bright, nine plain cells, but no cube in the grid. */
     private val backgrounds =
         listOf(
@@ -170,7 +295,17 @@ class GuidedScanTest {
     // Plan
 
     @Test
-    fun `the plan is six steps in the documented order, each on its home face`() {
+    fun `the plan is six steps in the documented order, each on its home face, naming no top`() {
+        assertEquals(
+            listOf(Color.GREEN, Color.RED, Color.BLUE, Color.ORANGE, Color.WHITE, Color.YELLOW),
+            GuidedScanPlan.steps.map { it.centerColor },
+        )
+        assertTrue(GuidedScanPlan.steps.all { it.upNeighborColor == null })
+        assertEquals(listOf(Face.F, Face.R, Face.B, Face.L, Face.U, Face.D), GuidedScanPlan.steps.map { it.face })
+    }
+
+    @Test
+    fun `a re-prompt names the 10_2 top`() {
         assertEquals(
             listOf(
                 Color.GREEN to Color.WHITE,
@@ -180,9 +315,8 @@ class GuidedScanTest {
                 Color.WHITE to Color.BLUE,
                 Color.YELLOW to Color.GREEN,
             ),
-            GuidedScanPlan.steps.map { it.centerColor to it.upNeighborColor },
+            GuidedScanPlan.steps.map { GuidedScanPlan.reprompt(it.face).let { step -> step.centerColor to step.upNeighborColor } },
         )
-        assertEquals(listOf(Face.F, Face.R, Face.B, Face.L, Face.U, Face.D), GuidedScanPlan.steps.map { it.face })
     }
 
     @Test
@@ -233,7 +367,7 @@ class GuidedScanTest {
         assertEquals(GuidedScanEffect.Remeter, effects[1])
         assertEquals(Face.F, capture.sample.face)
         assertEquals(Color.GREEN, capture.sample.centerColor)
-        assertEquals(Color.WHITE, capture.sample.upNeighborColor)
+        assertNull(capture.sample.upNeighborColor)
         assertEquals(1, controller.stepIndex)
         assertEquals(GuidedScanPlan.steps[1], controller.step)
     }
@@ -249,6 +383,46 @@ class GuidedScanTest {
         assertEquals(emptyList<GuidedScanEffect>(), controller.feed(stats(cells = moved), 600, 1000))
         assertEquals(0, controller.stepIndex)
         assertTrue(controller.onFrame(stats(cells = moved), 0, 1100).first() is GuidedScanEffect.Capture)
+    }
+
+    /** A seamless solid yellow face, accepted only as an outlined face (no seams, every inner edge joins one color). */
+    private val seamless = stats(cells = cells(Color.YELLOW), seams = 0).copy(faceEdges = 4)
+
+    @Test
+    fun `a seamless solid face auto-captures only after a 1200 ms steady hold (PO 2026-11-16)`() {
+        assertTrue(FrameQuality.inspect(seamless).outlinedOnly)
+        assertEquals(CaptureQuality.ACCEPTABLE, FrameQuality.assess(seamless))
+        val controller = GuidedScanController()
+        assertEquals(listOf(GuidedScanEffect.Remeter), controller.onFrame(seamless, 0, 0))
+        // The reference is taken at 300 ms: the normal hold would capture at 900 ms, the longer one waits until 1500 ms.
+        assertEquals(emptyList<GuidedScanEffect>(), controller.feed(seamless, 100, 1400))
+        assertEquals(0, controller.stepIndex)
+        assertTrue(controller.onFrame(seamless, 0, 1500).first() is GuidedScanEffect.Capture)
+    }
+
+    @Test
+    fun `a seamed face keeps the normal 600 ms hold`() {
+        val seamed = seamless.copy(seams = FrameQuality.MIN_SEAMS)
+        assertFalse(FrameQuality.inspect(seamed).outlinedOnly)
+        assertFalse(FrameQuality.inspect(good).outlinedOnly)
+        val controller = GuidedScanController()
+        controller.onFrame(seamed, 0, 0)
+        assertEquals(emptyList<GuidedScanEffect>(), controller.feed(seamed, 100, 800))
+        assertTrue(controller.onFrame(seamed, 0, 900).first() is GuidedScanEffect.Capture)
+    }
+
+    @Test
+    fun `a movement restarts the longer hold of a seamless face`() {
+        val controller = GuidedScanController()
+        controller.onFrame(seamless, 0, 0)
+        controller.feed(seamless, 100, 1000)
+        val moved = seamless.copy(cells = seamless.cells.map { it!!.copy(value = it.value.copy(l = it.value.l - 6.0)) })
+        assertTrue(FrameQuality.inspect(moved).outlinedOnly)
+        assertEquals(emptyList<GuidedScanEffect>(), controller.onFrame(moved, 0, 1100))
+        // Steady from 1100 ms against the moved reference: nothing until 2300 ms.
+        assertEquals(emptyList<GuidedScanEffect>(), controller.feed(moved, 1200, 2200))
+        assertEquals(0, controller.stepIndex)
+        assertTrue(controller.onFrame(moved, 0, 2300).first() is GuidedScanEffect.Capture)
     }
 
     @Test
@@ -503,5 +677,180 @@ class GuidedScanTest {
             ),
             CaptureQuality.entries.associateWith { GuidedScanController.coachingFor(it) },
         )
+    }
+
+    // Story 10.14: re-prompt round
+
+    /** R2 alone: L2 is also valid with U, F, D and B half-turned, so those four faces are re-prompted. */
+    private val r2 = CubeState.SOLVED.apply(listOf(FaceTurn(Face.R, Turn.HALF))).toFacelets()
+
+    private fun faceOf(face: Face): FrameStats =
+        stats(cells = r2.colors.subList(face.ordinal * 9, face.ordinal * 9 + 9).map { CellReading(LABS.getValue(it), true) })
+
+    /** Shows [frame] and presses the shutter at [now]. */
+    private fun GuidedScanController.shoot(
+        frame: FrameStats,
+        now: Long,
+    ): List<GuidedScanEffect> {
+        onFrame(frame, 0, now)
+        return onShutter(now + 1)
+    }
+
+    /** A controller after the six first-round captures of [r2], each face as the net draws it. */
+    private fun afterFirstRound(
+        controller: GuidedScanController = GuidedScanController(),
+    ): Pair<GuidedScanController, List<GuidedScanEffect>> {
+        val effects = GuidedScanPlan.steps.flatMapIndexed { index, step -> controller.shoot(faceOf(step.face), index * 10L) }
+        return controller to effects
+    }
+
+    @Test
+    fun `first-round samples carry no named top`() {
+        val (controller, _) = afterFirstRound()
+        assertTrue(controller.captured.take(6).all { it.upNeighborColor == null }, "${controller.captured}")
+    }
+
+    @Test
+    fun `zero or several valid states re-prompt only the faces involved, in order, with a named top`() {
+        val (controller, first) = afterFirstRound()
+        // The sixth capture asks for re-prompts instead of finishing.
+        assertEquals(6, first.count { it is GuidedScanEffect.Capture })
+        assertTrue(first.none { it is GuidedScanEffect.Done })
+        assertEquals(GuidedScanEffect.Remeter, first.last())
+        assertFalse(controller.done)
+        assertTrue(controller.repeating)
+        assertEquals(4, controller.repromptCount)
+        assertEquals(6, controller.stepIndex)
+        val asked = mutableListOf<ScanStep>()
+        var done: List<FaceSample>? = null
+        var now = 1000L
+        while (!controller.done) {
+            val step = requireNotNull(controller.step)
+            assertEquals(asked.size, controller.repromptIndex)
+            asked += step
+            val effects = controller.shoot(faceOf(step.face), now)
+            val sample = (effects.first() as GuidedScanEffect.Capture).sample
+            assertEquals(step.upNeighborColor, sample.upNeighborColor)
+            assertEquals(step.face, sample.face)
+            done = effects.filterIsInstance<GuidedScanEffect.Done>().singleOrNull()?.samples
+            now += 1000
+        }
+        assertEquals(listOf(Face.F, Face.B, Face.U, Face.D).map(GuidedScanPlan::reprompt), asked)
+        val samples = requireNotNull(done)
+        assertEquals(GuidedScanPlan.steps.map { it.centerColor }, samples.map { it.centerColor })
+        // Each re-prompt capture replaced its face's earlier sample.
+        assertEquals(listOf(Color.WHITE, null, Color.WHITE, null, Color.BLUE, Color.GREEN), samples.map { it.upNeighborColor })
+        assertFalse(controller.repeating)
+        assertNull(controller.step)
+        val calibration = (SelfCalibration.from(samples) as SelfCalibration.Calibrated).calibration
+        assertEquals(ScanResult.Full(r2, List(54) { StickerConfidence.CONFIDENT }), ScanAssembler.assemble(samples, calibration))
+        assertEquals(emptyList<GuidedScanEffect>(), controller.shoot(faceOf(Face.F), now))
+    }
+
+    /** A deep scramble: one valid state whatever the faces' turns. */
+    private val scrambled =
+        CubeState.SOLVED
+            .apply(
+                listOf(
+                    FaceTurn(Face.R, Turn.CLOCKWISE),
+                    FaceTurn(Face.U, Turn.COUNTERCLOCKWISE),
+                    FaceTurn(Face.F, Turn.HALF),
+                    FaceTurn(Face.L, Turn.CLOCKWISE),
+                    FaceTurn(Face.D, Turn.CLOCKWISE),
+                    FaceTurn(Face.B, Turn.COUNTERCLOCKWISE),
+                    FaceTurn(Face.R, Turn.HALF),
+                    FaceTurn(Face.F, Turn.CLOCKWISE),
+                ),
+            ).toFacelets()
+
+    /** The six first-round captures of [cube], each face as the net draws it, through the default re-prompt. */
+    private fun firstRoundOf(cube: Facelets): Pair<GuidedScanController, List<GuidedScanEffect>> {
+        val controller = GuidedScanController()
+        val effects =
+            GuidedScanPlan.steps.flatMapIndexed { index, step ->
+                val cells =
+                    cube.colors
+                        .subList(
+                            step.face.ordinal * 9,
+                            step.face.ordinal * 9 + 9,
+                        ).map { CellReading(LABS.getValue(it), true) }
+                controller.shoot(stats(cells = cells), index * 10L)
+            }
+        return controller to effects
+    }
+
+    @Test
+    fun `no valid state with two faces involved re-prompts them`() {
+        // Edge UF misread: U7 shows F1's color. Only U and F hold the illegal piece.
+        val misread = Facelets(scrambled.colors.toMutableList().also { it[7] = it[19] })
+        val (controller, effects) = firstRoundOf(misread)
+        assertTrue(effects.none { it is GuidedScanEffect.Done })
+        assertTrue(controller.repeating)
+        assertEquals(2, controller.repromptCount)
+        assertEquals(GuidedScanPlan.reprompt(Face.F), controller.step)
+        val green = misread.colors.subList(Face.F.ordinal * 9, Face.F.ordinal * 9 + 9).map { CellReading(LABS.getValue(it), true) }
+        controller.shoot(stats(cells = green), 1000)
+        assertEquals(GuidedScanPlan.reprompt(Face.U), controller.step)
+    }
+
+    @Test
+    fun `no valid state with more than two faces involved goes straight to review with the best fit (PO 2026-11-16, session B2)`() {
+        // Corner URF misread: U8 shows R0's color. U, R and F hold the illegal piece: a color problem, not a turn.
+        val misread = Facelets(scrambled.colors.toMutableList().also { it[8] = it[9] })
+        val (controller, effects) = firstRoundOf(misread)
+        val done = effects.last() as GuidedScanEffect.Done
+        assertTrue(controller.done)
+        assertFalse(controller.repeating)
+        assertEquals(0, controller.repromptCount)
+        assertTrue(done.samples.all { it.upNeighborColor == null })
+        val calibration = (SelfCalibration.from(done.samples) as SelfCalibration.Calibrated).calibration
+        val full = ScanAssembler.assemble(done.samples, calibration) as ScanResult.Full
+        assertEquals(misread, full.facelets)
+        // Review names the illegal corner through its own validation.
+        assertTrue(CubeValidator.validate(full.facelets) !is ValidationResult.Valid)
+    }
+
+    @Test
+    fun `there is no second re-prompt round`() {
+        var calls = 0
+        val controller = GuidedScanController(reprompt = { calls++.let { listOf(Face.R) } })
+        val (_, first) = afterFirstRound(controller)
+        assertTrue(first.none { it is GuidedScanEffect.Done })
+        assertEquals(GuidedScanPlan.reprompt(Face.R), controller.step)
+        val effects = controller.shoot(faceOf(Face.R), 1000)
+        val done = effects.last() as GuidedScanEffect.Done
+        assertEquals(1, calls)
+        assertTrue(controller.done)
+        assertEquals(Color.WHITE, done.samples[1].upNeighborColor)
+        assertEquals(6, done.samples.size)
+    }
+
+    @Test
+    fun `no faces involved finishes at the sixth capture`() {
+        val controller = GuidedScanController(reprompt = { emptyList() })
+        val (_, effects) = afterFirstRound(controller)
+        assertTrue(effects.last() is GuidedScanEffect.Done)
+        assertFalse(controller.repeating)
+        assertEquals(0, controller.repromptCount)
+    }
+
+    @Test
+    fun `in the re-prompt round a repeated face is judged against the other faces only`() {
+        val controller = GuidedScanController(reprompt = { listOf(Face.F, Face.B) })
+        afterFirstRound(controller)
+        // Green again at the green re-prompt: its own earlier sample does not count.
+        assertTrue(controller.shoot(faceOf(Face.F), 1000).first() is GuidedScanEffect.Capture)
+        assertEquals(GuidedScanPlan.reprompt(Face.B), controller.step)
+        // Green again at the blue re-prompt is a repeated face.
+        controller.onFrame(stats(luma = 5.0), 0, 1500)
+        assertEquals(emptyList<GuidedScanEffect>(), controller.shoot(faceOf(Face.F), 2000))
+        assertEquals(Coaching.WRONG_FACE, controller.coaching)
+        assertEquals(GuidedScanPlan.reprompt(Face.B), controller.step)
+        assertTrue(controller.shoot(faceOf(Face.B), 3000).last() is GuidedScanEffect.Done)
+    }
+
+    @Test
+    fun `the default re-prompt asks nothing when the scan needs calibration`() {
+        assertEquals(emptyList<Face>(), GuidedScanController.defaultReprompt(emptyList()))
     }
 }

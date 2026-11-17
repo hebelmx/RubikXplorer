@@ -21,6 +21,8 @@ import io.kotest.property.arbitrary.list
 import io.kotest.property.checkAll
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -63,6 +65,46 @@ class ScanAssemblerTest {
     }
 
     private val solved = CubeState.SOLVED.toFacelets()
+
+    /** [capture] with no named top (Story 10.14): the face held at net direction [turn], then the top dropped. */
+    private fun unposed(
+        facelets: Facelets,
+        slot: Face,
+        turn: Int,
+        orientation: Int = 0,
+    ): FaceSample = capture(facelets, slot, turn, orientation).copy(face = slot, upNeighborColor = null)
+
+    private fun unposedSamples(
+        facelets: Facelets,
+        turns: List<Int> = List(6) { 0 },
+    ): List<FaceSample> = Face.entries.map { unposed(facelets, it, turns[it.ordinal]) }
+
+    private val moves = Face.entries.flatMap { face -> Turn.entries.map { FaceTurn(face, it) as Move } }
+
+    /** A deep scramble: one valid state whatever the faces' turns. */
+    private val scrambled =
+        CubeState.SOLVED
+            .apply(
+                listOf(
+                    FaceTurn(Face.R, Turn.CLOCKWISE),
+                    FaceTurn(Face.U, Turn.COUNTERCLOCKWISE),
+                    FaceTurn(Face.F, Turn.HALF),
+                    FaceTurn(Face.L, Turn.CLOCKWISE),
+                    FaceTurn(Face.D, Turn.CLOCKWISE),
+                    FaceTurn(Face.B, Turn.COUNTERCLOCKWISE),
+                    FaceTurn(Face.R, Turn.HALF),
+                    FaceTurn(Face.F, Turn.CLOCKWISE),
+                    FaceTurn(Face.U, Turn.HALF),
+                    FaceTurn(Face.L, Turn.COUNTERCLOCKWISE),
+                ),
+            ).toFacelets()
+
+    /** R2 alone: turning U, F, D and B by a half turn gives L2, also valid. */
+    private val r2 = CubeState.SOLVED.apply(listOf(FaceTurn(Face.R, Turn.HALF))).toFacelets()
+
+    private val allConfident = List(54) { StickerConfidence.CONFIDENT }
+
+    private fun range(face: Face) = face.ordinal * 9 until face.ordinal * 9 + 9
 
     private fun solvedSamples(): List<FaceSample> = Face.entries.map { capture(solved, it, 0, 0) }
 
@@ -184,7 +226,6 @@ class ScanAssemblerTest {
 
     @Test
     fun `bad pose is NO_POSE`() {
-        assertEquals(mapOf(Face.F to ScanGap.NO_POSE), gapFor { it.copy(upNeighborColor = null) })
         assertEquals(mapOf(Face.F to ScanGap.NO_POSE), gapFor { it.copy(upNeighborColor = Color.GREEN) })
         assertEquals(mapOf(Face.F to ScanGap.NO_POSE), gapFor { it.copy(upNeighborColor = Color.BLUE) })
         assertEquals(mapOf(Face.F to ScanGap.NO_POSE), gapFor { it.copy(orientationDegrees = 45) })
@@ -227,5 +268,239 @@ class ScanAssemblerTest {
             expected,
             ScanAssembler.assemble(solvedSamples(), CalibrationCenters(CALIBRATION.centers + (Color.RED to Lab(50.0, Double.NaN, 0.0)))),
         )
+    }
+
+    // Story 10.14: any rotation
+
+    @OptIn(ExperimentalKotest::class)
+    @Test
+    fun `a deep scramble with every face in a random turn and no named top assembles to its facelets`() =
+        runBlocking<Unit> {
+            var resolved = 0
+            var iterations = 0
+            checkAll(
+                PropTestConfig(seed = 1014, iterations = 200),
+                Arb.list(Arb.element(moves), 25..30),
+                Arb.list(Arb.int(0..3), 6..6),
+                Arb.list(Arb.element(0, 90, 180, 270), 6..6),
+            ) { scramble, turns, orientations ->
+                iterations++
+                val facelets = CubeState.SOLVED.apply(scramble).toFacelets()
+                val samples = Face.entries.map { unposed(facelets, it, turns[it.ordinal], orientations[it.ordinal]) }
+                assertTrue(samples.all { it.upNeighborColor == null })
+                val full = ScanAssembler.assemble(samples, CALIBRATION) as ScanResult.Full
+                val involved = ScanAssembler.repromptFaces(samples, CALIBRATION)
+                if (involved.isEmpty()) {
+                    resolved++
+                    assertEquals(ScanResult.Full(facelets, allConfident), full)
+                } else {
+                    // A rare state where another turn of a face is also a valid cube: never a confidently wrong turn,
+                    // and the faces involved, once posed, give the cube.
+                    assertTrue(
+                        full.facelets.colors.indices.none {
+                            full.facelets.colors[it] != facelets.colors[it] &&
+                                full.confidence[it] == StickerConfidence.CONFIDENT
+                        },
+                    )
+                    val posed = samples.map { if (it.face in involved) capture(facelets, it.face, 0, 0) else it }
+                    assertEquals(ScanResult.Full(facelets, allConfident), ScanAssembler.assemble(posed, CALIBRATION))
+                }
+            }
+            // Ambiguity is the exception: almost every deep scramble resolves with no re-prompt.
+            assertTrue(resolved >= iterations * 95 / 100, "$resolved of $iterations resolved")
+        }
+
+    @Test
+    fun `a solved cube in any turns is one distinct state`() {
+        listOf(List(6) { 0 }, listOf(1, 2, 3, 0, 1, 2), List(6) { 3 }).forEach { turns ->
+            val samples = unposedSamples(solved, turns)
+            assertEquals(ScanResult.Full(solved, allConfident), ScanAssembler.assemble(samples, CALIBRATION))
+            assertEquals(emptyList<Face>(), ScanAssembler.repromptFaces(samples, CALIBRATION))
+        }
+    }
+
+    @Test
+    fun `posed and unposed faces mix, each posed face at its prompted turn`() {
+        val samples =
+            Face.entries.map { face ->
+                if (face.ordinal % 2 == 0) capture(scrambled, face, (face.ordinal + 1) % 4, 90) else unposed(scrambled, face, 3, 180)
+            }
+        assertEquals(ScanResult.Full(scrambled, allConfident), ScanAssembler.assemble(samples, CALIBRATION))
+        assertEquals(emptyList<Face>(), ScanAssembler.repromptFaces(samples, CALIBRATION))
+    }
+
+    @Test
+    fun `several valid states re-prompt the faces that differ, in plan order, and blank them`() {
+        val samples = unposedSamples(r2)
+        // R2 and L2 differ on U, F, D and B; R and L are all one color either way.
+        assertEquals(listOf(Face.F, Face.B, Face.U, Face.D), ScanAssembler.repromptFaces(samples, CALIBRATION))
+        val full = ScanAssembler.assemble(samples, CALIBRATION) as ScanResult.Full
+        assertTrue(CubeValidator.validate(full.facelets) is ValidationResult.Valid)
+        listOf(Face.U, Face.F, Face.D, Face.B).forEach { face ->
+            range(face).forEach { i ->
+                val expected = if (i % 9 == 4) StickerConfidence.CONFIDENT else StickerConfidence.UNCERTAIN
+                assertEquals(expected, full.confidence[i], "$face $i")
+            }
+        }
+        listOf(Face.R, Face.L).forEach { face -> range(face).forEach { assertEquals(StickerConfidence.CONFIDENT, full.confidence[it]) } }
+        // Posing the involved faces (their prompted turn) resolves it.
+        val reprompted = samples.map { if (it.face in listOf(Face.F, Face.B, Face.U, Face.D)) capture(r2, it.face, 0, 0) else it }
+        assertEquals(ScanResult.Full(r2, allConfident), ScanAssembler.assemble(reprompted, CALIBRATION))
+        assertEquals(emptyList<Face>(), ScanAssembler.repromptFaces(reprompted, CALIBRATION))
+    }
+
+    /** [scrambled] with edge UF (U7, F1) misread: U7 shows F1's color, a piece no real cubie shows. */
+    private val misreadEdge = Facelets(scrambled.colors.toMutableList().also { it[7] = it[range(Face.F).first + 1] })
+
+    @Test
+    fun `no valid state with one face involved re-prompts it`() {
+        // F is posed (re-prompted earlier), so only U is left to turn.
+        val samples =
+            Face.entries.map { face ->
+                if (face ==
+                    Face.F
+                ) {
+                    capture(misreadEdge, face, 0, 0)
+                } else {
+                    unposed(misreadEdge, face, face.ordinal % 4)
+                }
+            }
+        assertEquals(listOf(Face.U), ScanAssembler.repromptFaces(samples, CALIBRATION))
+    }
+
+    @Test
+    fun `no valid state with two faces involved re-prompts both, in plan order`() {
+        val samples = unposedSamples(misreadEdge, listOf(1, 2, 3, 0, 1, 2))
+        assertEquals(listOf(Face.F, Face.U), ScanAssembler.repromptFaces(samples, CALIBRATION))
+        val full = ScanAssembler.assemble(samples, CALIBRATION) as ScanResult.Full
+        assertEquals(misreadEdge, full.facelets)
+    }
+
+    @Test
+    fun `no valid state with more than two faces involved goes to review with the best fit (PO 2026-11-16, session B2)`() {
+        // U8 (corner URF: U8, R0, F2) misread as the corner's own R sticker color: no real corner shows that.
+        val colors = scrambled.colors.toMutableList()
+        colors[8] = colors[9]
+        val misread = Facelets(colors)
+        val samples = unposedSamples(misread, listOf(1, 2, 3, 0, 1, 2))
+        assertTrue(ScanAssembler.MAX_REPROMPT_FACES < 3)
+        assertEquals(emptyList<Face>(), ScanAssembler.repromptFaces(samples, CALIBRATION))
+        // Review gets the best candidate as read: the true turns, with only the misread wrong.
+        val full = ScanAssembler.assemble(samples, CALIBRATION) as ScanResult.Full
+        assertEquals(misread, full.facelets)
+        assertEquals(allConfident, full.confidence)
+    }
+
+    @Test
+    fun `a center that reads another color is re-prompted first, unless it is a logo, and counts toward the limit`() {
+        // The orange center reads RED; with the misread UF edge (F posed) only U is left to turn: two faces involved.
+        val samples =
+            Face.entries.map { face ->
+                val sample = if (face == Face.F) capture(misreadEdge, face, 0, 0) else unposed(misreadEdge, face, 0)
+                if (face ==
+                    Face.L
+                ) {
+                    sample.copy(stickers = sample.stickers.toMutableList().also { it[4] = LABS.getValue(Color.RED) })
+                } else {
+                    sample
+                }
+            }
+        assertEquals(listOf(Face.L, Face.U), ScanAssembler.repromptFaces(samples, CALIBRATION))
+        val logo = samples.map { if (it.centerColor == Color.ORANGE) it.copy(centerPlain = false) else it }
+        assertEquals(listOf(Face.U), ScanAssembler.repromptFaces(logo, CALIBRATION))
+        // The red face shown again at the orange step, with every other face unposed: more than two faces involved.
+        val wrong = scrambled.colors.toMutableList()
+        range(Face.L).forEachIndexed { i, index -> wrong[index] = scrambled.colors[range(Face.R).first + i] }
+        val shownTwice = Face.entries.map { face -> unposed(Facelets(wrong), face, 0).copy(face = face) }
+        assertEquals(emptyList<Face>(), ScanAssembler.repromptFaces(shownTwice, CALIBRATION))
+        // A disagreeing center alone does not re-prompt a scan that resolves.
+        val oneOff =
+            unposedSamples(scrambled).map {
+                if (it.centerColor ==
+                    Color.ORANGE
+                ) {
+                    it.copy(stickers = it.stickers.toMutableList().also { s -> s[4] = LABS.getValue(Color.RED) })
+                } else {
+                    it
+                }
+            }
+        assertEquals(emptyList<Face>(), ScanAssembler.repromptFaces(oneOff, CALIBRATION))
+    }
+
+    @Test
+    fun `re-prompted faces still invalid keep their prompted read and are not asked again`() {
+        val colors = r2.colors.toMutableList()
+        colors[range(Face.F).first] = Color.YELLOW
+        val misread = Facelets(colors)
+        // F and B were re-prompted (posed); U and D are still searched.
+        val samples =
+            Face.entries.map { face -> if (face == Face.F || face == Face.B) capture(misread, face, 0, 0) else unposed(misread, face, 0) }
+        val full = ScanAssembler.assemble(samples, CALIBRATION) as ScanResult.Full
+        assertTrue(CubeValidator.validate(full.facelets) !is ValidationResult.Valid)
+        // Posed faces keep their read.
+        range(Face.B).forEach { assertEquals(misread.colors[it], full.facelets.colors[it]) }
+        val involved = ScanAssembler.repromptFaces(samples, CALIBRATION)
+        assertTrue(involved.none { it == Face.F || it == Face.B }, "$involved")
+    }
+
+    @Test
+    fun `no valid state with tied best candidates blanks the faces that differ in review`() {
+        // R2 read with one R sticker misread: no assignment is valid, and the R2/L2 tie on U, F, D and B remains.
+        val colors = r2.colors.toMutableList()
+        colors[10] = Color.ORANGE
+        val misread = Facelets(colors)
+        val full = ScanAssembler.assemble(unposedSamples(misread), CALIBRATION) as ScanResult.Full
+        assertTrue(CubeValidator.validate(full.facelets) !is ValidationResult.Valid)
+        val review = ScanReview.from(full)
+        listOf(Face.U, Face.F, Face.D, Face.B).forEach { face ->
+            range(face).filter { it % 9 != 4 }.forEach { i ->
+                assertEquals(StickerConfidence.UNCERTAIN, full.confidence[i], "$face $i")
+                assertNull(review.stickers[i], "$face $i")
+            }
+        }
+        range(Face.L).forEach { assertNotNull(review.stickers[it], "L $it") }
+    }
+
+    @Test
+    fun `a twisted corner with every piece legal resolves to its one best state with nothing to re-prompt`() {
+        val colors = scrambled.colors.toMutableList()
+        val (a, b, c) = listOf(8, 9, 20)
+        val twistedCorner = listOf(colors[c], colors[a], colors[b])
+        colors[a] = twistedCorner[0]
+        colors[b] = twistedCorner[1]
+        colors[c] = twistedCorner[2]
+        val twisted = Facelets(colors)
+        assertTrue(CubeValidator.validate(twisted) !is ValidationResult.Valid)
+        val samples = unposedSamples(twisted, listOf(1, 2, 3, 0, 1, 2))
+        assertEquals(ScanResult.Full(twisted, allConfident), ScanAssembler.assemble(samples, CALIBRATION))
+        assertEquals(emptyList<Face>(), ScanAssembler.repromptFaces(samples, CALIBRATION))
+    }
+
+    @Test
+    fun `a gap leaves unposed faces NO_POSE`() {
+        val samples = unposedSamples(scrambled).map { if (it.centerColor == Color.GREEN) it.copy(quality = CaptureQuality.GLARE) else it }
+        val partial = ScanAssembler.assemble(samples, CALIBRATION) as ScanResult.Partial
+        assertEquals(Face.entries.associateWith { if (it == Face.F) ScanGap.POOR_QUALITY else ScanGap.NO_POSE }, partial.gaps)
+        assertEquals(emptyList<Face>(), ScanAssembler.repromptFaces(samples, CALIBRATION))
+        // A posed face is still placed next to the gap.
+        val mixed = samples.map { if (it.centerColor == Color.RED) capture(scrambled, Face.R, 0, 0) else it }
+        val withPosed = ScanAssembler.assemble(mixed, CALIBRATION) as ScanResult.Partial
+        assertEquals(
+            listOf(Face.R),
+            withPosed.observation.faces.keys
+                .toList(),
+        )
+        assertEquals(scrambled.colors.slice(range(Face.R)), withPosed.observation.faces.getValue(Face.R))
+    }
+
+    @Test
+    fun `one unposed face among prompted ones is searched`() {
+        val samples = Face.entries.map { if (it == Face.F) unposed(scrambled, it, 2) else capture(scrambled, it, 0, 0) }
+        assertEquals(ScanResult.Full(scrambled, allConfident), ScanAssembler.assemble(samples, CALIBRATION))
+    }
+
+    @Test
+    fun `an uncalibrated scan has nothing to re-prompt`() {
+        assertEquals(emptyList<Face>(), ScanAssembler.repromptFaces(unposedSamples(r2), CalibrationCenters(emptyMap())))
     }
 }

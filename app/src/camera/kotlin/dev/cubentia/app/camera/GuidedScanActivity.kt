@@ -43,6 +43,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
+import dev.cubentia.app.ScanDiagnostics
 import dev.cubentia.app.content.CatalogState
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.content.LessonCatalog
@@ -50,6 +51,7 @@ import dev.cubentia.app.preferences.PreferenceProvider
 import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.app.scan.ScanFlowContract
 import dev.cubentia.app.scan.ScanOutcome
+import dev.cubentia.app.ui.scan.ScanCoachMarkRecord
 import dev.cubentia.app.ui.scan.ScanReviewScreen
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.domain.recognition.GuidedScanController
@@ -125,6 +127,10 @@ class GuidedScanActivity : ComponentActivity() {
         setResult(RESULT_CANCELED)
         if (phase == GuidedScanPhase.Rationale) phase = GuidedScanFlow.initialPhase(hasPermission())
         lifecycleScope.launch { lessonCatalog.load() }
+        lifecycleScope.launch {
+            // SharedPreferences reads the disk: off the main thread.
+            scan.coachMarkPending = withContext(Dispatchers.IO) { ScanCoachMarkRecord.pending(applicationContext) }
+        }
         val actions =
             GuidedScanActions(
                 onClose = { finishWith(ScanOutcome.Cancelled) },
@@ -170,6 +176,11 @@ class GuidedScanActivity : ComponentActivity() {
                             onAccept = { finishWith(ScanOutcome.Accepted(it)) },
                             onClose = { finishWith(ScanOutcome.Cancelled) },
                             modifier = Modifier.fillMaxSize(),
+                            coachMarkPending = scan.coachMarkPending,
+                            onCoachMarkDismissed = {
+                                scan.coachMarkPending = false
+                                lifecycleScope.launch(Dispatchers.IO) { ScanCoachMarkRecord.markSeen(applicationContext) }
+                            },
                         )
                     } else {
                         GuidedScanScreen(phase, strings, actions, scan.frozen) {
@@ -326,7 +337,12 @@ class GuidedScanActivity : ComponentActivity() {
         // The analysed grid is exactly the region under the drawn grid, whatever the pane's shape (PO 2026-11-16).
         val grid = ViewfinderGrid.inFrame(width.toDouble(), height.toDouble(), crop.left, crop.top, crop.right, crop.bottom, rotation)
         meteringGrid = MeteringGrid(image.width, image.height, grid)
-        val stats = FrameReader.read(image, grid)
+        val reading = FrameReader.locate(image, grid, rotation)
+        val stats = reading.stats
+        // Debug builds log why a face in the grid is not auto-captured, and where its lattice was found (device session
+        // B2); a no-op otherwise.
+        val lattice = reading.lattice
+        ScanDiagnostics.onFrame(stats, now, lattice.scale, lattice.dx, lattice.dy, lattice.score)
         handle(scan.freeze.decide(now) { controller.onFrame(stats, rotation, now) })
     }
 
@@ -412,6 +428,9 @@ internal class GuidedScanViewModel : ViewModel() {
 
     /** Whether the system would have shown a rationale just before the last permission request. */
     var rationaleBefore = false
+
+    /** Whether the review's one-time coach mark is still to be shown; false until the record is read. */
+    var coachMarkPending by mutableStateOf(false)
 
     /** No capture decision runs while a capture is frozen (touched on [analyzerExecutor] only). */
     val freeze = CaptureFreeze()

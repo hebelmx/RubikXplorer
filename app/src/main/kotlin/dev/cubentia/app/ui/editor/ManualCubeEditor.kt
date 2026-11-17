@@ -23,11 +23,17 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -43,6 +49,7 @@ import androidx.window.core.layout.WindowSizeClass
 import androidx.window.core.layout.computeWindowSizeClass
 import dev.cubentia.app.R
 import dev.cubentia.app.content.ContentStrings
+import dev.cubentia.app.preferences.LocalHaptics
 import dev.cubentia.app.preferences.LocalRenderStyle
 import dev.cubentia.app.render.Net2DRenderer
 import dev.cubentia.app.render.RenderStyle
@@ -79,8 +86,8 @@ private val FACE_MAX = Spacing.touchMin * 6
 
 /**
  * The Manual Cube Editor (FR-14, UX-DR16/21/25): tap a sticker on the net, then a palette color, to
- * paint it. Centers stay at the home-frame colors. Offending pieces are outlined in `status-invalid`
- * and every problem gets its own plain-language line, resolved through [strings]. **Accept** is
+ * paint it, with the update cue and a light haptic tick. Centers stay at the home-frame colors.
+ * Offending pieces are outlined by the cube-highlight rule and every problem gets its own plain-language line, resolved through [strings]. **Accept** is
  * enabled only while the entry is valid and hands [onAccept] the [CubeState] [CubeValidator]
  * produced for exactly the entered stickers. Starts from [initial] (centers overwritten), drawn in
  * [style]. Not a session: it returns its result to the caller.
@@ -102,6 +109,9 @@ fun ManualCubeEditor(
     val compact = !windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
     val state = rememberSaveable(initial, saver = ManualCubeEditorState.Saver) { ManualCubeEditorState(initial) }
     val tokens = RubikTheme.tokens
+    val hapticsEnabled = LocalHaptics.current
+    val haptics = LocalHapticFeedback.current
+    var cue by remember { mutableStateOf<StickerCue?>(null) }
     BoxWithConstraints(modifier = modifier) {
         val onePerFace = compact || (maxWidth - Spacing.s4 * 2) / Net2DRenderer.NET_COLUMNS < Spacing.touchMin
         Column(
@@ -118,6 +128,7 @@ fun ManualCubeEditor(
                 onStickerClick = state::select,
                 editable = ManualCubeEditorState::isEditable,
                 face = if (onePerFace) state.face else null,
+                cue = cue,
                 modifier =
                     if (onePerFace) {
                         Modifier.widthIn(max = FACE_MAX).fillMaxWidth().aspectRatio(1f)
@@ -132,7 +143,15 @@ fun ManualCubeEditor(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.s2, Alignment.CenterHorizontally),
                 verticalArrangement = Arrangement.spacedBy(Spacing.s2),
             ) {
-                PALETTE.forEach { color -> Swatch(color, style) { state.paint(color) } }
+                PALETTE.forEach { color ->
+                    Swatch(color, style) {
+                        state.selected?.let { index ->
+                            state.paint(color)
+                            cue = StickerCue(index, (cue?.serial ?: 0) + 1)
+                            if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+                        }
+                    }
+                }
             }
             Column(
                 modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },

@@ -9,6 +9,7 @@ import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.GuidedScanController
 import dev.cubentia.domain.recognition.GuidedScanEffect
+import dev.cubentia.domain.recognition.GuidedScanPlan
 import dev.cubentia.domain.recognition.Lab
 import dev.cubentia.domain.recognition.ScanReview
 import org.junit.Assert.assertEquals
@@ -28,7 +29,6 @@ class GuidedScanFlowTest {
         stickers = stickers,
         quality = CaptureQuality.ACCEPTABLE,
         centerColor = Color.GREEN,
-        upNeighborColor = Color.WHITE,
     )
 
     @Test
@@ -96,6 +96,31 @@ class GuidedScanFlowTest {
         assertEquals(controller.captured, phase.captured)
         assertEquals(Coaching.LOW_LIGHT, phase.coaching)
         assertFalse(phase.canUseAnyway)
+        assertEquals(GuidedScanPlan.steps[1], phase.step)
+        assertNull(phase.again)
+    }
+
+    @Test
+    fun `the viewfinder phase mirrors the re-prompt step and its progress`() {
+        val controller = GuidedScanController(reprompt = { listOf(Face.B, Face.U) })
+        val colors =
+            listOf(
+                Lab(55.0, -60.0, 40.0),
+                Lab(45.0, 65.0, 45.0),
+                Lab(40.0, 10.0, -50.0),
+                Lab(65.0, 45.0, 65.0),
+                Lab(90.0, 0.0, 0.0),
+                Lab(85.0, -5.0, 80.0),
+            )
+        colors.forEachIndexed { index, lab ->
+            controller.onFrame(FrameStats(List(9) { CellReading(lab, true) }, 120.0, 0.0, 100.0, 12), 0, index * 10L)
+            controller.onShutter(index * 10L + 1)
+        }
+        val phase = GuidedScanFlow.phaseOf(controller)
+        assertEquals(GuidedScanPlan.reprompt(Face.B), phase.step)
+        assertEquals(Color.WHITE, phase.step?.upNeighborColor)
+        assertEquals(RepromptProgress(1, 2), phase.again)
+        assertEquals(6, phase.captured.size)
     }
 
     @Test

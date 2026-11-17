@@ -6,6 +6,7 @@ import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.cube.Turn
 import dev.cubentia.domain.recognition.LiveFixtureJson
+import dev.cubentia.domain.recognition.ScanAssembler
 import dev.cubentia.domain.recognition.ScanResult
 import dev.cubentia.domain.recognition.SelfCalibration
 import dev.cubentia.domain.recognition.StickerConfidence
@@ -200,6 +201,71 @@ class ScanAccuracyTest {
     }
 
     @Test
+    fun `every prompted-pose-valid scan yields the same Facelets in any rotation`() {
+        assertEquals(report.runs.size, report.anyRotation.size)
+        report.anyRotation.forEach { run ->
+            assertTrue(run.samples.all { it.upNeighborColor == null }, run.prompted.group)
+            if (run.prompted.valid) {
+                assertTrue(run.sameFacelets, "${run.prompted.group} ${run.prompted.input}")
+                assertEquals(emptyList<Face>(), run.reprompt, "${run.prompted.group} ${run.prompted.input}")
+            }
+        }
+        // The seeded turns really turn the faces.
+        assertTrue(report.anyRotation.any { run -> run.turns.values.any { it != 0 } })
+    }
+
+    @Test
+    fun `any-rotation re-prompt counts are pinned and rendered per device`() {
+        val kotlin = report.anyRotation(Input.KOTLIN_READER)
+        val pixel = report.anyRotation(Input.CENTER_PIXEL)
+        assertEquals(
+            listOf(8, 7, 7, 0),
+            listOf(
+                kotlin.size,
+                kotlin.count {
+                    it.prompted.valid
+                },
+                kotlin.count { it.sameFacelets },
+                kotlin.count { it.needsReprompt },
+            ),
+        )
+        assertEquals(
+            listOf(12, 10, 11, 0),
+            listOf(
+                pixel.size,
+                pixel.count {
+                    it.prompted.valid
+                },
+                pixel.count { it.sameFacelets },
+                pixel.count { it.needsReprompt },
+            ),
+        )
+        val rendered = ScanAccuracyMarkdown.render(report)
+        assertTrue("### Any rotation (Story 10.14)" in rendered, rendered)
+        assertTrue("| **Total** | Kotlin reader | 8 | 7 | 7 | 0 | 0.00% |" in rendered, rendered)
+        assertTrue("| Galaxy S24 FE (`SM-S721U1`) | Center pixel | 6 | 4 | 5 | 0 | 0.00% |" in rendered, rendered)
+    }
+
+    @Test
+    fun `one six-face assembly in any rotation takes under 50 ms`() {
+        // A resolving scan, and the slow path: a scan with no valid state (all 4,096 kept as best-candidate bookkeeping).
+        val resolving = report.anyRotation.first { it.prompted.valid }
+        val unresolved = report.anyRotation.first { !it.prompted.valid }
+        listOf(resolving, unresolved).forEach { run ->
+            val calibration = (SelfCalibration.from(run.samples) as SelfCalibration.Calibrated).calibration
+            repeat(WARM_UP) { ScanAssembler.assemble(run.samples, calibration) }
+            val times =
+                List(TIMED) {
+                    val start = System.nanoTime()
+                    ScanAssembler.assemble(run.samples, calibration)
+                    (System.nanoTime() - start) / NANOS_PER_MS
+                }.sorted()
+            val median = times[TIMED / 2]
+            assertTrue(median < 50.0, "${run.prompted.group}: median $median ms")
+        }
+    }
+
+    @Test
     fun `metrics count confidently wrong and need stickers to meet the target`() {
         fun sticker(
             read: Color,
@@ -224,6 +290,9 @@ class ScanAccuracyTest {
     }
 
     private companion object {
+        const val WARM_UP = 20
+        const val TIMED = 11
+        const val NANOS_PER_MS = 1_000_000.0
         val FIXTURES = File("../../Fixtures/live")
 
         /** Built once for the class: decoding 48 frames and searching 12 poses is the slow part. */
