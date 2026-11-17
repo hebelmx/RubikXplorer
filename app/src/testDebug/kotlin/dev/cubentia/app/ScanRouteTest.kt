@@ -329,7 +329,7 @@ class ScanRouteTest {
             return Lab(a.l * 0.51 + b.l * 0.49, a.a * 0.51 + b.a * 0.49, a.b * 0.51 + b.b * 0.49)
         }
 
-        private val labs =
+        internal val labs =
             mapOf(
                 Color.GREEN to Lab(55.0, -60.0, 40.0),
                 Color.RED to Lab(45.0, 65.0, 45.0),

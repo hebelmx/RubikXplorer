@@ -1,23 +1,33 @@
 package dev.cubentia.app.ui.solve
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import dev.cubentia.app.content.ContentStrings
+import dev.cubentia.app.ui.beta.BetaLabel
+import dev.cubentia.app.ui.beta.BetaNote
 import dev.cubentia.app.ui.editor.ManualCubeEditor
 import dev.cubentia.app.ui.freecube.FreeCubeScreen
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
@@ -36,6 +46,7 @@ fun SolveScreen(
     onSolved: suspend (CubeState, List<FaceTurn>) -> Unit,
     modifier: Modifier = Modifier,
     onScan: (() -> Unit)? = null,
+    scanBeta: Boolean = false,
 ) {
     val phase by flow.phase.collectAsState()
     BackHandler(phase != SolvePhase.Home) {
@@ -44,14 +55,44 @@ fun SolveScreen(
     Column(modifier) {
         when (val current = phase) {
             SolvePhase.Home -> {
-                androidx.compose.foundation.layout.Row {
-                    onScan?.let { scan ->
-                        Button(onClick = scan, modifier = Modifier.testTag("solve:scan")) {
-                            Text(strings.resolve(ContentText("btn.solve.scan")))
+                if (scanBeta && onScan != null) {
+                    val scanLabel = strings.resolve(ContentText("btn.solve.scan"))
+                    val betaLabel = strings.resolve(ContentText("msg.feature.beta"))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s1)) {
+                        EnterColors(strings, flow::enterColors)
+                        OutlinedButton(
+                            onClick = onScan,
+                            modifier =
+                                Modifier.testTag("solve:scan").semantics {
+                                    contentDescription = "$scanLabel, $betaLabel"
+                                },
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.s1),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(scanLabel)
+                                BetaLabel(
+                                    betaLabel,
+                                    LocalContentColor.current,
+                                    MaterialTheme.typography.labelMedium,
+                                    Modifier.testTag("solve:scan:beta"),
+                                )
+                            }
                         }
                     }
-                    Button(onClick = flow::enterColors, modifier = Modifier.testTag("solve:enterColors")) {
-                        Text(strings.resolve(ContentText("btn.solve.enter-colors")))
+                    BetaNote(
+                        strings.resolve(ContentText("msg.feature.camera.beta-note")),
+                        Modifier.padding(horizontal = Spacing.s4).testTag("solve:scan:betaNote"),
+                    )
+                } else {
+                    Row {
+                        onScan?.let { scan ->
+                            Button(onClick = scan, modifier = Modifier.testTag("solve:scan")) {
+                                Text(strings.resolve(ContentText("btn.solve.scan")))
+                            }
+                        }
+                        EnterColors(strings, flow::enterColors)
                     }
                 }
                 Box(Modifier.weight(1f)) { FreeCubeScreen(freeCube, showDebugToggles, Modifier.fillMaxSize()) }
@@ -94,5 +135,15 @@ fun SolveScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun EnterColors(
+    strings: ContentStrings,
+    onClick: () -> Unit,
+) {
+    Button(onClick = onClick, modifier = Modifier.testTag("solve:enterColors")) {
+        Text(strings.resolve(ContentText("btn.solve.enter-colors")))
     }
 }

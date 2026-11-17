@@ -19,6 +19,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.DpRect
+import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.ui.theme.CubentiaTheme
@@ -27,7 +28,9 @@ import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.Face
+import dev.cubentia.domain.recognition.CalibrationSession
 import dev.cubentia.domain.recognition.CaptureQuality
+import dev.cubentia.domain.recognition.CellReading
 import dev.cubentia.domain.recognition.Coaching
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.GuidedScanPlan
@@ -54,7 +57,48 @@ class GuidedScanScreenTest {
     private fun show(
         phase: GuidedScanPhase,
         actions: GuidedScanActions = GuidedScanActions(),
-    ) = rule.setContent { CubentiaTheme { GuidedScanScreen(phase, strings, actions) } }
+        offerEnterColors: Boolean = false,
+    ) = rule.setContent { CubentiaTheme { GuidedScanScreen(phase, strings, actions, offerEnterColors = offerEnterColors) } }
+
+    @Test fun solveViewfinderFitsManualEntryOnCompactPortrait() {
+        var entered = false
+        show(
+            GuidedScanPhase.Viewfinder(stepIndex = 1, captured = greenCaptured, coaching = Coaching.GLARE),
+            GuidedScanActions(onEnterColors = { entered = true }),
+            offerEnterColors = true,
+        )
+        assertFitsOnOneScreen()
+        val button = rule.onNodeWithTag("scanEnterColors").assertIsDisplayed()
+        val bounds = button.getUnclippedBoundsInRoot()
+        assertTrue(bounds.bottom <= rule.onRoot().getUnclippedBoundsInRoot().bottom)
+        assertTrue(bounds.bottom - bounds.top >= 48.dp)
+        button.performClick()
+        assertTrue(entered)
+    }
+
+    @Test fun viewfinderWithoutSolveOfferDoesNotAddManualEntry() {
+        show(GuidedScanPhase.Viewfinder())
+        rule.onNodeWithTag("scanEnterColors").assertDoesNotExist()
+    }
+
+    @Test fun solveCalibrationOffersManualEntryAtTheSwatch() {
+        var entered = false
+        val session =
+            dev.cubentia.domain.recognition
+                .CalibrationSession()
+                .offer(
+                    dev.cubentia.domain.recognition
+                        .CellReading(Lab(55.0, -60.0, 40.0), true),
+                )
+        show(
+            GuidedScanPhase.Calibration(session),
+            GuidedScanActions(onEnterColors = { entered = true }),
+            offerEnterColors = true,
+        )
+        rule.onNodeWithTag("calibration:swatch").assertIsDisplayed()
+        rule.onNodeWithTag("scanEnterColors").assertIsDisplayed().performClick()
+        assertTrue(entered)
+    }
 
     private val greenCaptured =
         listOf(

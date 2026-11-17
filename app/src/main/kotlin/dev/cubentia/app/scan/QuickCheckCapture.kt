@@ -37,7 +37,7 @@ class QuickCheckContract(
         input: QuickCheckInput,
     ): Intent =
         if (input.fullScan || input.faces.size == Face.entries.size || !input.hasCalibration) {
-            launcher.guidedScanIntent(context)
+            launcher.guidedScanIntent(context).putExtra(EXTRA_FULL_QUICK_CHECK, true)
         } else {
             launcher.quickCheckIntent(context, input.faces)
         }
@@ -48,6 +48,7 @@ class QuickCheckContract(
     ): QuickCheckOutcome = decode(resultCode, intent)
 
     companion object {
+        const val EXTRA_FULL_QUICK_CHECK = "dev.cubentia.app.scan.FULL_QUICK_CHECK"
         const val EXTRA_FACES = "dev.cubentia.app.scan.QUICK_CHECK_FACES"
         private const val EXTRA_COLORS = "dev.cubentia.app.scan.QUICK_CHECK_COLORS"
 

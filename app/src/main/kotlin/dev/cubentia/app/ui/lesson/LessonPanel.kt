@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import dev.cubentia.app.R
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.LocalRenderStyle
+import dev.cubentia.app.ui.beta.BetaNote
 import dev.cubentia.app.ui.library.RecognitionDiagramView
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.theme.Spacing
@@ -228,7 +229,7 @@ internal fun LessonPanel(
                 beta = testMeBadge,
             )
             if (testMeBadge != null && mode == TeachingMode.TEST_ME) {
-                TestMeBetaNote(strings.resolve(TEST_ME_BETA_NOTE), Modifier.fillMaxWidth())
+                BetaNote(strings.resolve(TEST_ME_BETA_NOTE), Modifier.fillMaxWidth().testTag("lesson:testMe:betaNote"))
             }
         }
         if (syncState == SyncState.PHYSICAL_AWAITING_CONFIRM) {
@@ -563,23 +564,6 @@ internal fun NotationChip(
     ) {
         Text(token, style = RubikTheme.textStyles.notation, color = tokens.inkPrimary)
     }
-}
-
-/**
- * The *Test me* beta explanation (EXPERIENCE *Feature flag BETA*), shown under the switcher once the
- * Learner taps the segment (or its beta label); a polite live region so TalkBack announces it.
- */
-@Composable
-private fun TestMeBetaNote(
-    note: String,
-    modifier: Modifier = Modifier,
-) {
-    Text(
-        text = note,
-        style = MaterialTheme.typography.bodyMedium,
-        color = RubikTheme.tokens.inkSecondary,
-        modifier = modifier.testTag("lesson:testMe:betaNote").semantics { liveRegion = LiveRegionMode.Polite },
-    )
 }
 
 /** The *Test me* beta note (content text, AD-6; EXPERIENCE beta tooltip copy). */
