@@ -3,7 +3,7 @@ name: RubikXplorer
 description: A precise, instrument-like cube tutor. Neutral graphite chrome so the six sticker colors carry the color, one signal-violet accent, honest state indicators, light and dark designed equally.
 status: final
 created: 2026-10-29
-updated: 2026-11-15
+updated: 2026-11-16
 sources:
   - ../../prds/prd-RubikXplorer-2026-10-29/prd.md
   - ../../architecture/architecture-RubikXplorer-2026-10-29/ARCHITECTURE-SPINE.md
@@ -249,7 +249,13 @@ No pill-shaped buttons. Sticker squares in 2D nets and diagrams use `rounded.xs`
   - In the notation strip, the current Move is marked with an `ink-primary` outline, not violet.
 - **Scan viewfinder**: a camera preview with a 3×3 hairline grid in `scan-grid` at 70% opacity. On a phone in portrait it fills the top ~45% of the screen, so the face net and palette fit below it (SCP 2026-11-15).
   - The **Quick Scan variant** replaces the grid with a corner outline (a Y-shaped three-face guide) and a capture counter in `data` ("1 / 2"). When a face can't be read, it hands off to the per-face grid for that face only. Above it, the face prompt names the center color ("**Green** center facing you"); "· **White** on top" is added only when the app asks for a face again (SCP 2026-11-16) and shows a swatch of that sticker with its glyph. A mini net shows progress through the faces.
-- **Sticker review net**: a 2D cube net. An *uncertain* sticker gets a dashed `accent` ring and a small "?" badge. A *blank* sticker (a close call left for the Learner) shows `surface-stage` with a dashed `hairline` edge and no fill color, so it can never be read as white. The selected sticker gets the solid `accent` ring the Manual Cube Editor uses. An invalid piece is outlined in `status-invalid`, with a label.
+- **Sticker review net**: a 2D cube net drawn on the cube body, like a real cube: each 3×3 face sits on `cubie-body`, which also shows as the gaps between stickers, with a 1dp `hairline` outline so the body separates from a dark page. A white sticker therefore always sits on black (UX update 2026-11-16).
+  - An *uncertain* sticker gets a dashed `accent` ring and a small "?" badge.
+  - A *blank* sticker (a close call left for the Learner) is a `surface-stage-dark` well with a dashed `sticker-highlight` edge and a "?", with no sticker color, so it can never be read as white.
+  - The *next sticker to mark* (the selected one) has the solid `accent` ring, which pulses slowly: opacity 100% → 35% → 100%, about 1.5 s per cycle. With reduce motion the ring is static at 3dp.
+  - *Update cue:* when a color is set, the sticker scales to about 110% and settles in about 200 ms, and a small ✓ in `on-accent` on an `accent` dot fades out over it. With reduce motion, only the ✓ shows.
+  - An *invalid piece* follows the cube-highlight rule: a 3dp `sticker-highlight` outline with a 1dp `cubie-body` inner stroke, plus its label. `status-invalid` red is not used on the cube body, where it has about 2.6:1 contrast.
+  - *Close* is a normal, enabled outlined button with `ink-primary` text, never greyed.
 - **Color palette**: the Manual Cube Editor's six sticker swatches, in a 2×3 block next to the face net, each at least `touch-min` with its glyph, in the same order as the editor palette: white, yellow, red, orange, green, blue.
 - **Algorithm tile**: the Case recognition diagram (U face plus side bands, derived from state), the Case name in `label`, the Algorithm in `notation`, and the Algorithm Status as a small text label.
   - The status reads `Learning` or `Learned`. *Not started* shows no label on the tile, and the detail screen says "Not in your set yet."

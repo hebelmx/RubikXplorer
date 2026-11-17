@@ -2,7 +2,7 @@
 name: RubikXplorer
 status: final
 created: 2026-10-29
-updated: 2026-11-15
+updated: 2026-11-16
 sources:
   - ../../prds/prd-RubikXplorer-2026-10-29/prd.md
   - ../../prds/prd-RubikXplorer-2026-10-29/addendum.md
@@ -94,7 +94,7 @@ These are behavioral rules. Visual specs are in DESIGN.md Components.
 | Certainty chip | Diagnosis, Quick Check results, Playback | Always shows one of the three states, never a percentage. Tapping it explains what evidence the state rests on. |
 | Playback transport | Demonstrations, Solution Playback, Algorithm detail | One shared controller (AD-20): play/pause, step back/forward, restart, and speed 0.5×/1×/2×. Scrubbing snaps to Move boundaries. |
 | Scan viewfinder | Scan sub-flow | Captures automatically when the grid is aligned and steady (about 600 ms), with a manual shutter as backup. Focus, exposure and white balance re-meter on the grid by themselves when alignment is first found and whenever the face changes; the Learner never has to refocus (SCP 2026-11-15). The face prompt names the center color; the face may be turned any way (SCP 2026-11-16, Story 10.14). When the app can't work out how a face was turned, it asks for that face again and names the side to put on top: a re-prompt, not an error. Quality coaching appears inline ("Too much glare — tilt the cube"). On a phone in portrait, the viewfinder, the face prompt, the face's sticker net, the palette and the primary action all fit on one screen without scrolling (see Responsive & Platform). |
-| Sticker review net | Scan review, Editor | Only confident stickers are prefilled: a sticker is filled when its nearest calibrated color beats the second nearest by at least 10 ΔE (the close-call rule; Story 10.13 may retune it). Close calls, such as a yellow that sits near white, stay blank. Uncertain stickers are pre-selected. Tap a sticker, then a color, to set it. After a color is set, the selection moves to the next blank or uncertain sticker (auto-advance), so a face needs about one touch per sticker; tapping any sticker selects it for a fix. **Accept** stays disabled until every uncertain sticker has been confirmed or changed and the state is valid. Validation messages point at the specific stickers. (SCP 2026-11-15) |
+| Sticker review net | Scan review, Editor | Only confident stickers are prefilled: a sticker is filled when its nearest calibrated color beats the second nearest by at least 10 ΔE (the close-call rule; Story 10.13 may retune it). Close calls, such as a yellow that sits near white, stay blank. Uncertain stickers are pre-selected. Tap a sticker, then a color, to set it. After a color is set, the selection moves to the next blank or uncertain sticker (auto-advance), so a face needs about one touch per sticker; tapping any sticker selects it for a fix. **Accept** stays disabled until every uncertain sticker has been confirmed or changed and the state is valid. Validation messages point at the specific stickers. (SCP 2026-11-15) **Guidance (UX update 2026-11-16):** the next sticker to mark pulses slowly, and every set color gets the update cue plus a light haptic tick (DESIGN.md Sticker review net). The instruction line under the title follows the state: blanks left: "{n} stickers need a color. Tap the flashing one, then its color."; invalid: names the problem, for example "This corner shows two whites. Check the outlined piece."; all confident and valid: "Everything was read. Compare with your cube, then Accept." On the Learner's first review only, a one-time coach mark points at the flashing sticker and the palette ("Tap it, then the color you see on your cube"); one tap dismisses it, and it never shows again. *Close* asks "Discard this scan?" only if the Learner changed a sticker. |
 | Algorithm tile | Library | Tap to open detail. Status changes happen only in detail, through an explicit control. Algorithm detail keeps the bottom nav. |
 | Trend row | You, Stage detail | Shows the trend across attempts in order, never a total or a score. Hint use is never framed as failure (SM-C1). |
 | Quick Scan capture | Scan sub-flow | Hold the cube by a corner and capture twice (the counter shows "1 / 2"). Any face that can't be read hands off to the Guided Scan grid for that face only. |
@@ -171,12 +171,14 @@ Behavioral rules here; visual contrast is in DESIGN.md.
 - **TalkBack:**
   - The cube stage exposes a description derived from `CubeState` (AD-17). It summarizes by default: "White cross solved; 2 of 4 first-layer corners placed". A *Read faces* action reads face by face: "Up face: yellow, yellow, red…".
   - Every certainty change is announced.
+  - Scan review announces the selected sticker ("Up face, position 4, needs a color") and every set color ("Up face, position 4: orange").
   - Move keys announce plain names, for example "R prime: right face counter-clockwise".
 - **Color-blind glyphs:** a Settings toggle shows letters on every sticker surface. It is offered on first launch and on the first scan.
 - **Reduce motion:** when the system setting is on, or the app's override is:
   - Demonstrations step instead of animating;
   - the milestone burst is replaced by a static frame;
-  - camera transitions snap.
+  - camera transitions snap;
+  - the scan review's pulsing next-sticker ring is static, and the update cue shows only its ✓.
 - **Dynamic type** up to 200%. The lesson panel reflows and scrolls, the cube stage keeps its minimum size, and no control truncates.
 - **Touch targets:** at least 48dp, including move keys.
 - **Labels:** every interactive control has a content description, enforced by Android lint in CI (AD-14).
