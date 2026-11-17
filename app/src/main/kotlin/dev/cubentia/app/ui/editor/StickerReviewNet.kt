@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -59,11 +60,24 @@ import dev.cubentia.domain.text.Text as ContentText
 val StickerInvalidKey = SemanticsPropertyKey<Boolean>("StickerInvalid")
 var SemanticsPropertyReceiver.stickerInvalid by StickerInvalidKey
 
+/** The `cubie-body` color drawn behind every face of the net, so a white sticker always sits on black. */
+val CubeBodyColorKey = SemanticsPropertyKey<Color>("CubeBodyColor")
+var SemanticsPropertyReceiver.cubeBodyColor by CubeBodyColorKey
+
+/** The hairline drawn around the cube body, so it stays distinct from a dark page background. */
+val CubeBodyOutlineKey = SemanticsPropertyKey<Color>("CubeBodyOutline")
+var SemanticsPropertyReceiver.cubeBodyOutline by CubeBodyOutlineKey
+
 private const val OUTLINE_DP = 3
 private const val INNER_STROKE_DP = 1
 private const val DASH_DP = 4
 private const val CELLS_PER_FACE = 9
 private const val FACE_SIDE = 3
+private const val FACE_COUNT = 6
+
+/** How far the cube body extends past the outer stickers, on top of the sticker gap. */
+private const val BODY_RIM_DP = 2
+private const val BODY_OUTLINE_DP = 1
 
 /** Plain face names in URFDLB order, for sticker descriptions. */
 internal val FACE_NAMES =
@@ -100,10 +114,23 @@ fun StickerReviewNet(
     val columns = if (face == null) Net2DRenderer.NET_COLUMNS else FACE_SIDE
     val rows = if (face == null) Net2DRenderer.NET_ROWS else FACE_SIDE
     val indices = if (face == null) 0 until Facelets.SIZE else face * CELLS_PER_FACE until (face + 1) * CELLS_PER_FACE
+    val faceOrigins =
+        if (face == null) (0 until FACE_COUNT).map { Net2DRenderer.netCell(it * CELLS_PER_FACE) } else listOf(0 to 0)
+    val body = RubikTheme.tokens.cubieBody
+    val outline = RubikTheme.tokens.hairline
     BoxWithConstraints(modifier = modifier, contentAlignment = Alignment.Center) {
         val cell = min(maxWidth.value / columns, maxHeight.value / rows).dp
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-            Box(Modifier.requiredSize(cell * columns, cell * rows).testTag("reviewNet")) {
+            Box(
+                Modifier
+                    .requiredSize(cell * columns, cell * rows)
+                    .drawBehind { drawCubeBody(faceOrigins, cell.toPx(), body, outline) }
+                    .testTag("reviewNet")
+                    .semantics {
+                        cubeBodyColor = body
+                        cubeBodyOutline = outline
+                    },
+            ) {
                 for (index in indices) {
                     val (column, row) =
                         if (face == null) {
@@ -211,6 +238,42 @@ private fun ReviewSticker(
         } else if (style.colorBlindGlyphs) {
             StickerGlyph(appearance, cell)
         }
+    }
+}
+
+/**
+ * Draws the near-black cube body behind each 3×3 face at [faceOrigins] (cell column, row), extended
+ * by a rim past the outer stickers, so the sticker gaps and the face edge read as cube plastic. All
+ * hairline [outline]s are drawn first and every body fill after, so in the net only the outer edge of
+ * the joined faces keeps its outline, which separates the body from a dark page background.
+ */
+private fun DrawScope.drawCubeBody(
+    faceOrigins: List<Pair<Int, Int>>,
+    cell: Float,
+    body: Color,
+    outline: Color,
+) {
+    val rim = BODY_RIM_DP.dp.toPx()
+    val stroke = BODY_OUTLINE_DP.dp.toPx()
+    val side = cell * FACE_SIDE
+    val radius = CornerRadius(Radii.xs.toPx() + rim)
+    for ((column, row) in faceOrigins) {
+        val reach = rim + stroke / 2
+        drawRoundRect(
+            color = outline,
+            topLeft = Offset(column * cell - reach, row * cell - reach),
+            size = Size(side + 2 * reach, side + 2 * reach),
+            cornerRadius = radius,
+            style = Stroke(stroke),
+        )
+    }
+    for ((column, row) in faceOrigins) {
+        drawRoundRect(
+            color = body,
+            topLeft = Offset(column * cell - rim, row * cell - rim),
+            size = Size(side + 2 * rim, side + 2 * rim),
+            cornerRadius = radius,
+        )
     }
 }
 
