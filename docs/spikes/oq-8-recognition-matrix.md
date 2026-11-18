@@ -74,10 +74,10 @@ Verdicts use the gating devices and the applicable lighting. Sticker rates exclu
 | sm-s721u1_stla_warm_guided | guided | 3 | 2 | Initial-read accuracy | 48/48 (100.000%) | — |
 | sm-s721u1_stla_warm_guided | guided | 3 | 2 | Confidently wrong | 0/48 (0.000%); 95% upper bound ≈ 6.250% | MET |
 | sm-s721u1_stla_warm_guided | guided | 3 | 2 | Accepted but wrong | 0/1 (0.000%); 95% upper bound ≈ 100.000% | — |
-| sm-s721u1_stla_warm_quickcheck | quickcheck | 2 | 0 | False VERIFIED | 0/2 (0.000%); 95% upper bound ≈ 100.000% | MET |
-| sm-s721u1_stla_warm_quickcheck | quickcheck | 2 | 0 | Match confirmed | 2/2 (100.000%) | MET |
-| sm-s721u1_stla_warm_quickcheck | quickcheck | 2 | 0 | Captures | max 6 (n=2/2) | MISSED |
-| sm-s721u1_stla_warm_quickcheck | quickcheck | 2 | 0 | Confidently wrong (Partial matches) | no truth or no eligible observations (n=0) | NO DATA |
+| sm-s721u1_stla_warm_quickcheck | quickcheck | 4 | 0 | False VERIFIED | 0/4 (0.000%); 95% upper bound ≈ 75.000% | MET |
+| sm-s721u1_stla_warm_quickcheck | quickcheck | 4 | 0 | Match confirmed | 2/2 (100.000%) | MET |
+| sm-s721u1_stla_warm_quickcheck | quickcheck | 4 | 0 | Captures | max 10 (n=4/4) | MISSED |
+| sm-s721u1_stla_warm_quickcheck | quickcheck | 4 | 0 | Confidently wrong (Partial matches) | no truth or no eligible observations (n=0) | NO DATA |
 
 ### Per device
 
@@ -101,10 +101,10 @@ Verdicts use the gating devices and the applicable lighting. Sticker rates exclu
 | sm-s721u1 | guided | 4 | 2 | Initial-read accuracy | 96/96 (100.000%) | — |
 | sm-s721u1 | guided | 4 | 2 | Confidently wrong | 0/96 (0.000%); 95% upper bound ≈ 3.125% | MET |
 | sm-s721u1 | guided | 4 | 2 | Accepted but wrong | 0/2 (0.000%); 95% upper bound ≈ 100.000% | — |
-| sm-s721u1 | quickcheck | 3 | 0 | False VERIFIED | 0/3 (0.000%); 95% upper bound ≈ 100.000% | MET |
-| sm-s721u1 | quickcheck | 3 | 0 | Match confirmed | 3/3 (100.000%) | MET |
-| sm-s721u1 | quickcheck | 3 | 0 | Captures | max 6 (n=3/3) | MISSED |
-| sm-s721u1 | quickcheck | 3 | 0 | Confidently wrong (Partial matches) | no truth or no eligible observations (n=0) | NO DATA |
+| sm-s721u1 | quickcheck | 5 | 0 | False VERIFIED | 0/5 (0.000%); 95% upper bound ≈ 60.000% | MET |
+| sm-s721u1 | quickcheck | 5 | 0 | Match confirmed | 3/3 (100.000%) | MET |
+| sm-s721u1 | quickcheck | 5 | 0 | Captures | max 10 (n=5/5) | MISSED |
+| sm-s721u1 | quickcheck | 5 | 0 | Confidently wrong (Partial matches) | no truth or no eligible observations (n=0) | NO DATA |
 
 ### Matrix coverage
 
@@ -130,10 +130,10 @@ Verdicts use the gating devices and the applicable lighting. Sticker rates exclu
 | All devices | quickscan | 1 | 0 | Initial-read accuracy | 41/48 (85.417%) | — |
 | All devices | quickscan | 1 | 0 | Confidently wrong | 2/48 (4.167%) | MISSED |
 | All devices | quickscan | 1 | 0 | Accepted but wrong | no truth or no eligible observations (n=0) | — |
-| All devices | quickcheck | 3 | 0 | False VERIFIED | 0/3 (0.000%); 95% upper bound ≈ 100.000% | MET |
-| All devices | quickcheck | 3 | 0 | Match confirmed | 3/3 (100.000%) | MET |
-| All devices | quickcheck | 3 | 0 | Captures | max 6 (n=3/3) | MISSED |
-| All devices | quickcheck | 3 | 0 | Confidently wrong (Partial matches) | no truth or no eligible observations (n=0) | NO DATA |
+| All devices | quickcheck | 5 | 0 | False VERIFIED | 0/5 (0.000%); 95% upper bound ≈ 60.000% | MET |
+| All devices | quickcheck | 5 | 0 | Match confirmed | 3/3 (100.000%) | MET |
+| All devices | quickcheck | 5 | 0 | Captures | max 10 (n=5/5) | MISSED |
+| All devices | quickcheck | 5 | 0 | Confidently wrong (Partial matches) | no truth or no eligible observations (n=0) | NO DATA |
 | All devices | recognize | 0 | 0 | Wrong single Case | no truth or no eligible observations (n=0) | NO DATA |
 | All devices | recognize | 0 | 0 | SEVERAL missing truth candidate | no truth or no eligible observations (n=0) | NO DATA |
 | All devices | recognize | 0 | 0 | Result time | n=0/0 | NO DATA |
@@ -155,7 +155,7 @@ None.
 
 `QuickCheckScenarioTest.sequences that leave the observed faces unchanged` reported “Observed-face-preserving sequences: 44 of 123500; residual aliases of a match: 1”. The seeded JVM scenario found one alias among all 123,500 sequences (0.00081%), or 1 of 44 among sequences that changed the cube while preserving the observed faces. The alias was `R U2 R'` with plan faces {B, D}: a match outside the candidate model (length > 2) that the Partial check reports as VERIFIED. Regenerated on 2026-11-18 with `./gradlew :core:domain:test --tests '*MatrixEvaluationTest' --tests '*QuickScanMeasurementTest' --tests '*QuickCheckScenarioTest'`. This is a scenario result with a fixed seed and sequence depth. [QuickCheckScenarioTest](../../core/domain/src/test/kotlin/dev/cubentia/domain/tutor/QuickCheckScenarioTest.kt)
 
-Recommendation on the residual risk — PO decision, device session C.
+Recommendation (PO, 2026-11-18): accepted for release. The alias needs a constructed face-preserving sequence and only affects partial checks; the scenario test stays as the guard and is re-run whenever the Quick Check rules change.
 
 ## Fixture accuracy
 
@@ -163,18 +163,26 @@ The product Kotlin pipeline scored 432/432 sticker reads on the A2 fixtures, wit
 
 ## Release recommendations
 
+PO decisions from device session C (2026-11-18), limited to warm indoor light, Lenovo Tab M10 Plus 3rd Gen and Galaxy S24 FE, and cubes stka and stla.
+
 | Flow | OFF / BETA / GA |
 | --- | --- |
-| Guided 6-face Scan | PO decision — device session C |
-| Quick Scan | PO decision — device session C |
-| Quick Check | PO decision — device session C |
-| Placement | PO decision — device session C |
-| Case recognition | PO decision — device session C |
+| Guided 6-face Scan | **GA** — 240/240 accepted stickers correct, 0 confidently wrong, 7/7 accepted scans valid. |
+| Quick Scan | **OFF** — 0/1 valid. |
+| Quick Check | Follows `CAMERA_SCAN` (**GA**) — 3/3 matching cubes VERIFIED (full checks), 0 false VERIFIED. |
+| Placement | **BETA** — runs on the Guided Scan. Manual fallback verified end to end on the S24 FE. No scanned end-to-end Placement run yet. |
+| Case recognition | **OFF** — not measured. Shares the Quick Scan corner reader and guide and is blocked by the same issues. |
+
+- Guided 6-face Scan took 20–31 s on the S24 FE. The Lenovo took 23.5 s on stla and 72–83 s on stka. First runs include calibration.
+- The Quick Scan isometric corner guide cannot fit a real perspective view (#195), a re-asked face merged rotated 180° (#194), detection fails on dark glossy backgrounds (#196), and there is no capture feedback (#197). Try a Kotlin-only perspective-correct guide and unwarp, then have the PO test it hands-on to decide between staying in Kotlin, OpenCV, or a future small model. Measure systematically after that fix round.
+- A partial Quick Check mismatch reported LIKELY and offered **Scan all 6 faces** as designed. A full scan after a single wrong move on the highly symmetric checkerboard stayed LIKELY, consistent with several candidate moves. Re-check on an ordinary scramble next session.
 
 ## Manual fallback
 
-- [ ] Guided 6-face Scan — choose Enter colors, enter the stickers manually and verify that the accepted cube reaches Solve.
-- [ ] Quick Scan — trigger an uncertain corner read, finish on the guided grid, then verify that the review can hand off to Enter colors.
-- [ ] Quick Check — produce a result that requests more evidence, then verify that Scan all 6 faces opens the full scan and the Learner can still use the manual path.
-- [ ] Placement — use Enter colors to reach a suggestion, then verify that the Learner can choose another stage or start Stage 1.
-- [ ] Case recognition — use Enter colors from the capture flow, submit a valid cube and verify that the library shows the applicable result.
+- [x] Guided 6-face Scan — verified on Galaxy S24 FE 2026-11-18. **Enter colors instead** → editor → **Accept** reached Solve with a correct plan (checkerboard, `U2 D2 R2 L2 F2 B2`). Entry takes ~2 taps per sticker (#204).
+- [x] Quick Scan — verified on Lenovo 2026-11-18. An invalid result after rescans handed off to **Enter colors** (logged `FELL_BACK_TO_EDITOR`). Feature ships OFF.
+- [x] Quick Check — verified on Galaxy S24 FE. A partial mismatch returned LIKELY with **Scan all 6 faces**, which opened the full scan. **Use my cube as it is now** was offered.
+- [x] Placement — verified on Galaxy S24 FE. Welcome → **Start from my cube** → **Enter colors instead** → solved cube → “Your cube is solved — scramble it and scan again, or start Stage 1.” with **Scan again** and **Start Stage 1**. Outcome screen theme tracked in #205.
+- [ ] Case recognition — not verified on device. Feature ships OFF.
+
+Session issues: #194–#205.

@@ -12,3 +12,6 @@ sm-s721u1_stka_warm_quickcheck,*,match
 sm-s721u1_stla_warm_quickcheck,*,match
 lenovo-tb128xu_stla_warm_guided,*,R U2 F L2 D B2
 sm-s721u1_stla_warm_guided,3,R U2 F L2 D B2
+# S24 stla quickcheck run 3 = deliberate wrong move during checkerboard playback (fallback check b): Partial, expected mismatch
+sm-s721u1_stla_warm_quickcheck,3,mismatch
+sm-s721u1_stla_warm_quickcheck,4,mismatch
