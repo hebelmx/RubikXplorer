@@ -743,3 +743,9 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-3-7-solve-tab-end-to-end.md"
+  - id: "issue-178-deferred-scrambled-non-home-scan-centers"
+    epic: 10
+    action: "A scrambled scan accepted in a non-HOME orientation opens the editor with rotated stickers but home-forced centers (ManualCubeEditorState.kt:27-28); check on device whether the guided scan can emit a non-HOME orientation, then fix (medium, unverified; pre-existing, deferred from #178, SolveFlowViewModel.onScanOutcome)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-178-solved-cube-already-solved.md"
