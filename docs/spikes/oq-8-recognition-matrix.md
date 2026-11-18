@@ -18,7 +18,7 @@ sm-s721u1_stickered_warm_recognize,1,case-oll-27
 sm-s721u1_stickered_warm_placement,1,stage-02-first-cross
 ```
 
-Timing: Guided and Quick Scan `elapsedMs` runs from the scan's first analyzed camera frame (after permission and camera start-up) to Accept, Close or *Enter colors*; Quick Check from its first frame to its result; Recognize from the final corner capture to the result; Placement from the accepted scan to the Learner's choice. For the Guided "repeat user" target, the operator does one untimed warm-up scan per device before the cell's logged runs. Runs on a non-gating device show their values with the verdict *reported only*.
+Timing: Guided and Quick Scan `elapsedMs` runs from the scan's first analyzed camera frame (after permission and camera start-up) to Accept, Close or *Enter colors*; Quick Check from its first frame to the capture that produced its result; Recognize from the final corner capture to the result; Placement from the accepted scan to the suggestion (the Learner's choice is logged but not timed). For the Guided "repeat user" target, the operator does one untimed warm-up scan per device before the cell's logged runs. Runs on a non-gating device show their values with the verdict *reported only*.
 
 Run `./gradlew :core:domain:evaluateMatrix` from the repository root. For different inputs, use `./gradlew :core:domain:evaluateMatrix --args="<logs dir> <truth file> [report]"`. The report path is optional. A third argument selects an existing report with the same markers.
 

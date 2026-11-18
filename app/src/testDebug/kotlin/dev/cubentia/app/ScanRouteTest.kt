@@ -43,6 +43,7 @@ import dev.cubentia.domain.recognition.Lab
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -216,6 +217,9 @@ class ScanRouteTest {
                 .colors
                 .joinToString("", transform = dev.cubentia.domain.recognition.ScanTrace::letter)
         assertEquals(expected, records.single().substringAfter(" state=").substringBefore(' '))
+        // `initial` keeps the camera's original read, so the corrected sticker still differs there.
+        val initial = records.single().substringAfter(" initial=").substringBefore(' ')
+        assertNotEquals(expected[index], initial[index])
         main.pause().stop().destroy()
     }
 

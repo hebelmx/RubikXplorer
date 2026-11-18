@@ -4,8 +4,8 @@ type: 'feature'
 created: '2026-11-18'
 status: 'done'
 baseline_revision: 'f78b365206571c178a31dfed3bfaa4e4183dc79a'
-review_loop_iteration: 1
-followup_review_recommended: true
+review_loop_iteration: 0
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
 warnings: ['oversized']
@@ -224,6 +224,40 @@ No known deviation: no flag level changes, and the diagnostics are a developer t
   - `[false]` `[reject]` (intent) Guided logs only repromptFaces, not fallback faces — the Guided 6-face Scan has no fallback; intent says "if applicable".
   - `[false]` `[reject]` (intent) Report placeholders / memlog untouched — exactly what the intent requires.
 
+### 2026-11-18 — Review pass (follow-up, after device session C)
+- verdicts: 30 findings — high 0, medium 2, low 18, false 10, maybe-false 0
+- findings:
+  - `[false]` `[reject]` (blind) The report covers 7 of 120 cells, with no Tab S7 FE, Recognize or Placement data — session scope is the PO's; the coverage line shows exactly this, and the release table limits its scope to the measured subset.
+  - `[false]` `[reject]` (blind) Guided GA recommendation sits beside MISSED targets — the recommendation is the PO's decision; the generated block shows both MISSED verdicts unaltered.
+  - `[false]` `[reject]` (blind) A first-use Lenovo run is pooled into repeat-user timing — truth.csv and run selection are the PO's session data, annotated in its comments; the evaluator scores what the PO logged.
+  - `[low]` `[reject]` (blind) Quick Scan cancellations misattributed — the Lenovo quickscan log holds one run line only (FELL_BACK_TO_EDITOR), so that part is false; the S24 Quick Scan cancel sits in a guided cell by the PO's capture, and the report documents that the evaluator reads the file's feature.
+  - `[false]` `[reject]` (blind) carried: score the 99.5% gate on initial reads — the intent defines sticker accuracy on accepted facelets; initial-read accuracy is reported beside it.
+  - `[false]` `[reject]` (blind) carried: confidence calibration missing for Full Quick Check, Case recognition, Placement — "where available"; those paths have no independent sticker truth.
+  - `[false]` `[reject]` (blind) carried: a Quick Check line without `certainty` counts as a non-event — `onQuickCheckRun` always writes the certainty or CANCELLED.
+  - `[low]` `[reject]` (blind) carried: coverage counts any recognized file name — same claim as earlier passes.
+  - `[low]` `[reject]` (blind) A missing logs dir or truth file silently rewrites the report — the spec I/O row defines a missing dir as all NO DATA; the report is in git and the run prints its inputs' effect; a fail-fast guard is new behavior, not a direct correction.
+  - `[low]` `[patch]` (blind) Quick Check timing stops at the capture, while the report says "to its result" — fixed the report text: "to the capture that produced its result" (assessment is a synchronous dispatch, so the gap is negligible).
+  - `[low]` `[patch]` (blind) Placement timing stops at the suggestion, while the report says "to the Learner's choice" — fixed the report text: "to the suggestion (the Learner's choice is logged but not timed)"; Placement has no timing target.
+  - `[low]` `[reject]` (blind) 0/240 confidently wrong shows MET though its 3/n bound exceeds 0.1% — spec-defined verdict rule; the bound is printed in the same cell for the PO to weigh.
+  - `[low]` `[reject]` (edge) carried: a replacement capture during a suspended dispatch takes the wrong mark — same claim as pass 1.
+  - `[low]` `[reject]` (edge) A superseded Quick Check cancellation is still logged — quickInFlight is one slot and the camera activity is in front while it runs, so no replacement request exists; fixing it adds reducer plumbing.
+  - `[low]` `[patch]` (edge) Placement elapsed time excludes the decision time — grouped with the blind Placement timing row (report text).
+  - `[low]` `[reject]` (edge) A line truncated exactly after `<tag> run` drops out — logcat truncates long lines at their end, far past the marker; unlikely in use.
+  - `[low]` `[reject]` (edge) carried: logged `device=` not validated against the filename token — same claim as earlier passes.
+  - `[low]` `[reject]` (edge) carried: an accepted scan with missing/malformed state drops out of sticker accuracy — an accepted scan always logs 54 letters; unreachable from the app.
+  - `[low]` `[reject]` (edge) carried: Accepted but wrong counts a missing state — same root cause as the previous row; unreachable.
+  - `[low]` `[reject]` (edge) carried: duplicate faces or bad letters in a Partial `observed` — the line comes from a Face-keyed map; unreachable.
+  - `[low]` `[reject]` (edge) A one-corner capture after process death logs no recognize run — no result is shown to the Learner, so no run finished; rare.
+  - `[false]` `[reject]` (edge) The report contains release decisions and checked fallback items — these are the PO's session C decisions, committed after the build by design.
+  - `[medium]` `[patch]` (verification-gap) The Guided route test does not prove `initial` keeps the original read — fixed: `ScanRouteTest.scanCalibrationRescanReturnsCorrectedStickersToSolveEditor` asserts `initial[index]` differs from the corrected `state[index]`.
+  - `[medium]` `[patch]` (verification-gap) No test pins the Quick Scan 15 s median limit — fixed: `MatrixEvaluationTest` "Quick Scan median time is met below 15 s and missed at 15 s" (14 999 ms MET, 15 000 ms MISSED).
+  - `[low]` `[patch]` (verification-gap other) Placement time ends at the suggestion, not the choice — grouped with the blind Placement timing row (report text).
+  - `[low]` `[reject]` (intent) carried: system Back now routes through `finishWith(Cancelled)` — resolved in loop 1; same RESULT_CANCELED, covered by Back route tests.
+  - `[low]` `[patch]` (intent) Report timing definitions for Placement and Quick Check differ from the code — grouped with the blind timing rows (report text).
+  - `[false]` `[reject]` (intent) ≤ 2 captures applied to Full checks makes Quick Check MISSED while the table says GA — the spec applies the target to every run; the release call is the PO's.
+  - `[false]` `[reject]` (intent) Nothing checks the committed block against the evaluator output — `./gradlew :core:domain:evaluateMatrix` was run on the committed logs in this pass and left the generated block byte-identical.
+  - `[false]` `[reject]` (intent) Filled recommendations, the PRD memlog line and the launcher removal break the build-only rules — they are the PO's later commits, made at the PO's request.
+
 ## Design Notes
 
 **Scoring (per cell, per device, per feature; verdicts only on the gating devices `lenovo-tb128xu` and `sm-s721u1`, the device tokens of the existing fixtures; other devices are reported only):**
@@ -292,3 +326,25 @@ Status: done
 - Quick Scan validity is inferred from Accept, which is enabled only for a valid state; there is no `valid` field.
 - System Back in Guided Scan now goes through `finishWith(Cancelled)`, which gives the same RESULT_CANCELED.
 
+### Follow-up review pass (2026-11-18, after device session C)
+
+**Summary:** Follow-up review of the code and of the post-build session C commits (real `Fixtures/matrix` logs and `truth.csv`, the regenerated report, the PO's recorded decisions, the PRD memlog line, the recorder launcher removal). The PO's decisions were not treated as findings.
+
+**Files changed in this pass:**
+- `app/src/testDebug/kotlin/dev/cubentia/app/ScanRouteTest.kt`: asserts the Guided `initial=` keeps the original read at the corrected sticker.
+- `core/domain/src/test/kotlin/dev/cubentia/domain/recognition/MatrixEvaluationTest.kt`: Quick Scan median boundary test (14 999 ms MET, 15 000 ms MISSED).
+- `docs/spikes/oq-8-recognition-matrix.md`: the timing paragraph now matches the code for Quick Check (to the capture that produced the result) and Placement (to the suggestion).
+
+**Review findings:** 30 findings (high 0, medium 2, low 18, false 10). Patched: 2 medium and 1 low root cause (5 low rows). Deferred: none. Rejected: 22, each with its reason in the triage log.
+
+**Follow-up review recommended: false.** This is a follow-up pass and no high finding was patched. Patched counts: high 0, medium 2, low 1 entry.
+
+**Verification:**
+- `./gradlew spotlessApply`: OK.
+- `:core:domain:test` (MatrixEvaluationTest, QuickScanMeasurementTest, QuickCheckScenarioTest) and `:core:domain:evaluateMatrix`: pass. The regenerated block is byte-identical to the committed one.
+- `:app:testDebugUnitTest --tests '*RouteTest' --tests '*ScanDiagnosticsRunLineTest'`: pass.
+- `./gradlew spotlessCheck build`: BUILD SUCCESSFUL.
+
+**Residual risks:**
+- The committed evidence covers 7 of 120 feature cells, all in warm light. That is the PO's scope and is visible in the coverage lines.
+- Verdicts with zero events (for example confidently wrong 0/240) show MET with a 3/n bound above the target. The PO should read the bound together with the verdict.

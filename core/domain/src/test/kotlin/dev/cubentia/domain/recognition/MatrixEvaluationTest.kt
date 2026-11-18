@@ -242,6 +242,24 @@ class MatrixEvaluationTest {
         assertTrue(metrics.getValue("Outcome matches truth").value.startsWith("2/3"))
     }
 
+    @Test fun `Quick Scan median time is met below 15 s and missed at 15 s`() {
+        val cell = cell(MatrixFeature.QUICK_SCAN)
+
+        fun verdict(ms: Int) =
+            MatrixScoring
+                .score(
+                    cell.feature,
+                    MatrixRuns.parse(
+                        cell,
+                        sequenceOf("quickScan run elapsedMs=$ms fallbackFaces=0 repromptFaces=0 corrections=0 outcome=ACCEPTED"),
+                    ),
+                    truth(),
+                ).first { it.name == "Accepted median time" }
+                .verdict
+        assertEquals("MET", verdict(14_999))
+        assertEquals("MISSED", verdict(15_000))
+    }
+
     @Test fun `a non-gating device's rows are reported only`() {
         val other = cell(MatrixFeature.GUIDED, device = "sm-t733")
         File(directory, "${other.name}.log").writeText(
