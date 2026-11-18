@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-17-2026 21:46'
+last_updated: '11-17-2026 22:19'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -148,9 +148,9 @@ development_status:
   10-15-solve-from-a-scan: done
   epic-10-retrospective: optional
 
-  epic-11: backlog
+  epic-11: in-progress
   11-1-quick-scan-from-two-corners: backlog
-  11-2-start-the-course-from-my-cube-placement: backlog
+  11-2-start-the-course-from-my-cube-placement: in-progress
   11-3-recognize-an-oll-pll-case: backlog
   epic-11-retrospective: optional
 
@@ -790,22 +790,24 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-12-15-move-pictures-and-the-move-strip.md"
   - id: "epic-12-deferred-12.15-move-strip-state-keyed-on-moves"
     epic: 12
-    action: "Key the Move strip LazyListState on the Move list so a new list does not
-      keep the old scroll offset (low; deferred from 12.15, MoveStrip.kt:52)"
+    action: "Key the Move strip LazyListState on the Move list so a new list does
+      not keep the old scroll offset (low; deferred from 12.15, MoveStrip.kt:52)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-12-15-move-pictures-and-the-move-strip.md"
   - id: "epic-12-deferred-12.15-settings-switch-missing-string"
     epic: 12
-    action: "The Move pictures switch is hidden when ContentStrings lacks its key, not
-      only while content loads; guarantee loaded strings (low; deferred from 12.15, SettingsScreen.kt:105)"
+    action: "The Move pictures switch is hidden when ContentStrings lacks its key,
+      not only while content loads; guarantee loaded strings (low; deferred from 12.15,
+      SettingsScreen.kt:105)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-12-15-move-pictures-and-the-move-strip.md"
   - id: "epic-12-deferred-12.15-po-device-review-pictures"
     epic: 12
     action: "PO reviews the Move picture designs (S, wide, x/y/z, B behind the grid)
-      and the Move strip TalkBack wording on device, in the 12.14 device session (low; residual risk from 12.15)"
+      and the Move strip TalkBack wording on device, in the 12.14 device session (low;
+      residual risk from 12.15)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-12-15-move-pictures-and-the-move-strip.md"
