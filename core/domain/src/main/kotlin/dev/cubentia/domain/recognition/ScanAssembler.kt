@@ -6,6 +6,7 @@ import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceletTables
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.ValidationResult
+import dev.cubentia.domain.lastlayer.LastLayerView
 
 /** Why a face is absent from a [ScanResult.Partial]. */
 enum class ScanGap {
@@ -113,6 +114,15 @@ data class ScanTrace(
     }
 }
 
+sealed interface CornerLastLayer {
+    data class View(
+        val view: LastLayerView,
+        val lowerRows: List<Pair<Color?, Color>>,
+    ) : CornerLastLayer
+
+    data object NotOnRing : CornerLastLayer
+}
+
 /**
  * The only place samples are rotated into URFDLB order (AD-9). Each sample goes to the face whose home color is its
  * [FaceSample.centerColor]; a sample without one is reported as NO_POSE on the [FaceSample.face] it was prompted for
@@ -136,6 +146,66 @@ data class ScanTrace(
  * review with that best fit.
  */
 object ScanAssembler {
+    fun cornerView(
+        samples: List<FrameStats?>,
+        calibration: CalibrationCenters,
+    ): CornerView? {
+        if (samples.size != 3 || !StickerClassifier.isValid(calibration)) return null
+        val faces =
+            samples.map { sample ->
+                if (sample == null || FrameQuality.assessShutter(sample) != CaptureQuality.ACCEPTABLE) return null
+                sample.cells.mapIndexed { index, cell ->
+                    val value = cell?.value ?: return null
+                    if (!value.isValid()) return null
+                    val reading = StickerClassifier.read(value, calibration.centers)
+                    reading.color.takeIf { index == FaceSample.CENTER_INDEX || reading.confidence == StickerConfidence.CONFIDENT }
+                }
+            }
+        return CornerView(faces[0], faces[1], faces[2])
+    }
+
+    fun lastLayerView(corner: CornerView): CornerLastLayer {
+        val (top, left, right) = corner
+        val up = checkNotNull(top[4])
+        val front = checkNotNull(left[4])
+        val upFace = Face.entries.first { Color.home(it) == up }
+        if (front == up || front == Color.home(upFace.opposite)) return CornerLastLayer.NotOnRing
+        val stickers =
+            listOf(top[7], top[6]) + left.take(3) +
+                listOf(top[5], top[8]) + right.take(3) +
+                listOf(top[1], top[2], null, null, null, top[3], top[0], null, null, null)
+        val view = LastLayerView.partial(up, front, stickers)
+        if (right[4] != view.ring[1]) return CornerLastLayer.NotOnRing
+        val lowerRows =
+            listOf(left, right).flatMap { side ->
+                val center = checkNotNull(side[4])
+                side.drop(3).filterIndexed { index, _ -> index != 1 }.map { it to center }
+            }
+        return CornerLastLayer.View(view, lowerRows)
+    }
+
+    fun lastLayerView(
+        first: CornerView,
+        opposite: CornerView,
+    ): CornerLastLayer {
+        val a = lastLayerView(first) as? CornerLastLayer.View ?: return CornerLastLayer.NotOnRing
+        val b = lastLayerView(opposite) as? CornerLastLayer.View ?: return CornerLastLayer.NotOnRing
+        if (a.view.lastLayer != b.view.lastLayer || a.view.ring.drop(2) != b.view.ring.take(2)) {
+            return CornerLastLayer.NotOnRing
+        }
+        // A half turn exchanges F/R with B/L, including the U edge and corner in each block.
+        val half = LastLayerView.STICKERS / 2
+        val rotated = b.view.stickers.drop(half) + b.view.stickers.take(half)
+        val merged =
+            a.view.stickers.zip(rotated).map { (one, two) ->
+                if (one != null && two != null && one != two) null else one ?: two
+            }
+        return CornerLastLayer.View(
+            LastLayerView.partial(a.view.lastLayer, a.view.ring.first(), merged),
+            a.lowerRows + b.lowerRows,
+        )
+    }
+
     const val STICKERS = 9
 
     /**

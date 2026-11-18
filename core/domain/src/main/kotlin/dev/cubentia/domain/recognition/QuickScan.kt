@@ -34,16 +34,11 @@ class QuickScanController(
     private val saved: CalibrationCenters? = null,
 ) {
     private val samples = linkedMapOf<Face, FaceSample>()
-    private var latest = List<FrameStats?>(3) { null }
+    private val corner = CornerHold()
     private var previous: List<Lab?>? = null
-    private var unlocated = false
-    private var meteredAt: Long? = null
-    private var reference: List<Lab?>? = null
-    private var steadySince = 0L
     var hold = 1
         private set
-    var coaching: Coaching? = null
-        private set
+    val coaching: Coaching? get() = corner.coaching
     var fallback: GuidedScanController? = null
         private set
     var fallbackFaces: List<Face> = emptyList()
@@ -60,52 +55,27 @@ class QuickScanController(
         nowMs: Long,
     ): List<QuickScanEffect> {
         if (!inCorner) return emptyList()
-        require(faces.size == 3)
-        latest = faces
-        unlocated = !detected
-        val values = values()
-        if (detected) {
-            previous?.let {
-                if (!turnedOver(values, it)) return emptyList()
-                previous = null
+        val decision =
+            corner.onFrame(detected, faces, nowMs, clearWhenUnlocated = hold == 2) { values ->
+                val prior = previous
+                if (prior != null && !turnedOver(values, prior)) {
+                    false
+                } else {
+                    previous = null
+                    true
+                }
             }
+        return when (decision) {
+            CornerHold.Decision.Wait -> emptyList()
+            CornerHold.Decision.Remeter -> listOf(QuickScanEffect.Remeter)
+            CornerHold.Decision.Capture -> onShutter()
         }
-        val qualities = latest.map { it?.let(FrameQuality::assessShutter) }
-        coaching =
-            when {
-                CaptureQuality.LOW_LIGHT in qualities -> Coaching.LOW_LIGHT
-                CaptureQuality.GLARE in qualities -> Coaching.GLARE
-                CaptureQuality.BLURRED in qualities -> Coaching.BLURRED
-                else -> null
-            }
-        if (!detected) {
-            if (hold == 2) latest = List(3) { null }
-            meteredAt = null
-            reference = null
-            return emptyList()
-        }
-        val metered = meteredAt
-        if (metered == null) {
-            meteredAt = nowMs
-            return listOf(QuickScanEffect.Remeter)
-        }
-        if (qualities.any { it != CaptureQuality.ACCEPTABLE } || nowMs - metered < GuidedScanController.SETTLE_MS) {
-            reference = null
-            return emptyList()
-        }
-        val baseline = reference
-        if (baseline == null || changed(values, baseline, GuidedScanController.STEADY_DELTA_E)) {
-            reference = values
-            steadySince = nowMs
-            return emptyList()
-        }
-        return if (nowMs - steadySince >= GuidedScanController.STEADY_MS) onShutter() else emptyList()
     }
 
     fun onShutter(): List<QuickScanEffect> {
-        if (!inCorner || (previous != null && !unlocated)) return emptyList()
+        if (!inCorner || (previous != null && !corner.unlocated)) return emptyList()
         val taken = hold++
-        QuickScanPlan.holds[taken - 1].zip(latest).forEach { (step, stats) ->
+        QuickScanPlan.holds[taken - 1].zip(corner.latest).forEach { (step, stats) ->
             val cells = stats?.cells?.filterNotNull() ?: return@forEach
             if (cells.size == 9) {
                 samples[step.face] =
@@ -122,13 +92,9 @@ class QuickScanController(
         }
         if (inCorner) {
             previous =
-                values().takeIf { it.any { value -> value != null } }
+                corner.values().takeIf { it.any { value -> value != null } }
         }
-        latest = List(3) { null }
-        unlocated = false
-        meteredAt = null
-        reference = null
-        coaching = null
+        corner.reset()
         val capture = QuickScanEffect.CornerCaptured(taken)
         if (inCorner) return listOf(capture)
         fallbackFaces = needGrid(captured, Face.entries)
@@ -220,16 +186,8 @@ class QuickScanController(
         val priorTop = prior[FaceSample.CENTER_INDEX]
         if (top != null && priorTop != null) return StickerClassifier.deltaE(top, priorTop) >= threshold
         val comparable = now.zip(prior).any { (a, b) -> a != null && b != null }
-        return !comparable || changed(now, prior, threshold)
+        return !comparable || corner.changed(now, prior, threshold)
     }
 
     private fun finish(): QuickScanEffect = QuickScanEffect.Done(captured)
-
-    private fun values(): List<Lab?> = latest.flatMap { face -> List(FrameQuality.CELLS) { face?.cells?.getOrNull(it)?.value } }
-
-    private fun changed(
-        now: List<Lab?>,
-        prior: List<Lab?>,
-        threshold: Double,
-    ): Boolean = now.zip(prior).any { (a, b) -> a != null && b != null && StickerClassifier.deltaE(a, b) >= threshold }
 }

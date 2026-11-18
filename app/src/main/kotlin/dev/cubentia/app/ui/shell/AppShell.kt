@@ -59,6 +59,9 @@ import dev.cubentia.app.ui.library.RequestedAlgorithmStatus
 import dev.cubentia.app.ui.placement.PlacementFlowViewModel
 import dev.cubentia.app.ui.placement.PlacementPhase
 import dev.cubentia.app.ui.placement.PlacementScreen
+import dev.cubentia.app.ui.recognize.RecognizeFlowViewModel
+import dev.cubentia.app.ui.recognize.RecognizePhase
+import dev.cubentia.app.ui.recognize.RecognizeScreen
 import dev.cubentia.app.ui.settings.SettingsScreen
 import dev.cubentia.app.ui.solve.ResolveState
 import dev.cubentia.app.ui.solve.SolveFlowViewModel
@@ -77,6 +80,7 @@ import dev.cubentia.application.session.Effect
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionKind
 import dev.cubentia.application.session.SessionState
+import dev.cubentia.application.usecase.RecognizeCase
 import dev.cubentia.application.usecase.StagePractice
 import dev.cubentia.application.usecase.TwoLookPractice
 import dev.cubentia.domain.content.AlgorithmId
@@ -149,6 +153,8 @@ fun AppShell(
         },
     onPlacementScan: (() -> Unit)? = null,
     placementFlow: PlacementFlowViewModel = remember { PlacementFlowViewModel() },
+    onRecognize: ((Int) -> Unit)? = null,
+    recognizeFlow: RecognizeFlowViewModel = remember { RecognizeFlowViewModel() },
 ) {
     PreferenceProvider(preferenceStore) {
         ShellContent(
@@ -168,6 +174,8 @@ fun AppShell(
             quickCheck,
             onPlacementScan,
             placementFlow,
+            onRecognize,
+            recognizeFlow,
         )
     }
 }
@@ -190,6 +198,8 @@ private fun ShellContent(
     quickCheck: QuickCheckCapture?,
     onPlacementScan: (() -> Unit)?,
     placementFlow: PlacementFlowViewModel,
+    onRecognize: ((Int) -> Unit)?,
+    recognizeFlow: RecognizeFlowViewModel,
 ) {
     // Quick Check is a camera capture: like Scan it and calibration, it stays hidden while CAMERA_SCAN is OFF.
     @Suppress("NAME_SHADOWING")
@@ -198,6 +208,9 @@ private fun ShellContent(
     val content by catalog.state.collectAsState()
     val session by host.state.collectAsState()
     val solvePhase by solveFlow.phase.collectAsState()
+    val recognizePhase by recognizeFlow.phase.collectAsState()
+    val recognitionPending by recognizeFlow.pending.collectAsState()
+    val recognizeAction = onRecognize.takeIf { flags.isEnabled(FeatureFlag.CASE_RECOGNITION) }
     val placementPhase by placementFlow.phase.collectAsState()
     val placementScanState by placementFlow.acceptedScan.collectAsState()
     var acceptingPlacement by remember { mutableStateOf(false) }
@@ -216,6 +229,7 @@ private fun ShellContent(
     var stageAbandoned by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedStage by rememberSaveable { mutableStateOf<String?>(null) }
     var openAlgorithm by rememberSaveable { mutableStateOf<String?>(null) }
+    var autoPlayAlgorithm by rememberSaveable { mutableStateOf(false) }
     var openLesson by rememberSaveable { mutableStateOf<String?>(null) }
     var openPractice by rememberSaveable { mutableStateOf<String?>(null) }
     var practiceEpoch by rememberSaveable { mutableIntStateOf(0) }
@@ -290,8 +304,15 @@ private fun ShellContent(
         return
     }
     val ready = content as? CatalogState.Ready
-    LaunchedEffect(welcome, ready, placementScanState, placementFlow) {
-        if (welcome == true && ready != null && placementScanState != null) {
+    // One matcher per loaded catalog, not one per capture.
+    val recognizeCase = remember(ready) { ready?.let { RecognizeCase.of(it.bundle.cases, it.bundle.algorithms) } }
+    LaunchedEffect(ready, recognitionPending, recognizeFlow) {
+        if (ready != null && recognitionPending) {
+            recognizeFlow.evaluate(recognizeCase)
+        }
+    }
+    LaunchedEffect(ready, placementScanState, placementFlow) {
+        if (ready != null && placementScanState != null) {
             placementFlow.evaluateScan(ready.bundle.stages)
         }
     }
@@ -349,59 +370,60 @@ private fun ShellContent(
         )
         return
     }
-    if (welcome == true && openSkipCheck == null) {
-        val readyBundle = ready?.bundle
 
-        fun startCourse(stage: String?) {
-            preferenceStore.update(Preference.Onboarded(true))
-            welcome = false
-            tab = Tab.LEARN
-            selectedStage = stage
-            placementFlow.reset()
-        }
+    fun startCourse(stage: String?) {
+        preferenceStore.update(Preference.Onboarded(true))
+        welcome = false
+        tab = Tab.LEARN
+        selectedStage = stage
+        placementFlow.reset()
+        recognizeFlow.reset()
+    }
 
-        fun startStageOne() {
-            startCourse(
-                readyBundle
-                    ?.stages
-                    ?.firstOrNull()
-                    ?.id
-                    ?.value ?: "stage-01-fundamentals",
-            )
-        }
-        val placementScan = onPlacementScan.takeIf { ready != null && flags.isEnabled(FeatureFlag.PLACEMENT) }
-        if (ready != null && placementScan != null && placementPhase != PlacementPhase.Idle) {
-            PlacementScreen(
-                phase = placementPhase,
-                flow = placementFlow,
-                strings = ready.strings,
-                stages = ready.bundle.stages,
-                twoLookStages = ready.bundle.twoLookStages,
-                onAccept = { target, faster ->
-                    if (!acceptingPlacement) {
-                        if (target == ready.bundle.stages.first()) {
-                            startStageOne()
-                        } else {
-                            acceptingPlacement = true
-                            scope.launch {
-                                try {
-                                    val course = ready.bundle.stages
-                                    host.placeFromScan(target.id, if (target in course) course else course + target)
-                                    startCourse(target.id.value.takeUnless { faster })
-                                    scrollToTwoLook = faster
-                                } finally {
-                                    acceptingPlacement = false
-                                }
+    fun startStageOne() {
+        startCourse(
+            ready
+                ?.bundle
+                ?.stages
+                ?.firstOrNull()
+                ?.id
+                ?.value ?: "stage-01-fundamentals",
+        )
+    }
+    val placementScan = onPlacementScan.takeIf { ready != null && flags.isEnabled(FeatureFlag.PLACEMENT) }
+    if (ready != null && placementScan != null && placementPhase != PlacementPhase.Idle) {
+        PlacementScreen(
+            phase = placementPhase,
+            flow = placementFlow,
+            strings = ready.strings,
+            stages = ready.bundle.stages,
+            twoLookStages = ready.bundle.twoLookStages,
+            onAccept = { target, faster ->
+                if (!acceptingPlacement) {
+                    if (target == ready.bundle.stages.first()) {
+                        startStageOne()
+                    } else {
+                        acceptingPlacement = true
+                        scope.launch {
+                            try {
+                                val course = ready.bundle.stages
+                                host.placeFromScan(target.id, if (target in course) course else course + target)
+                                startCourse(target.id.value.takeUnless { faster })
+                                scrollToTwoLook = faster
+                            } finally {
+                                acceptingPlacement = false
                             }
                         }
                     }
-                },
-                onScanAgain = placementScan,
-                modifier = modifier,
-                accepting = acceptingPlacement,
-            )
-            return
-        }
+                }
+            },
+            onScanAgain = placementScan,
+            modifier = modifier,
+            accepting = acceptingPlacement,
+        )
+        return
+    }
+    if (welcome == true && openSkipCheck == null) {
         WelcomeScreen(
             onImNew = ::startStageOne,
             onStartFromCube = placementScan,
@@ -619,6 +641,8 @@ private fun ShellContent(
             scope.launch { host.endSession() }
         } else if (tab == Tab.LIBRARY && openAlgorithm != null) {
             openAlgorithm = null
+        } else if (tab == Tab.LIBRARY && recognizePhase != RecognizePhase.Idle) {
+            recognizeFlow.reset()
         } else if (tab != Tab.LEARN) {
             tab = Tab.LEARN
         } else {
@@ -657,10 +681,24 @@ private fun ShellContent(
                             requestedStatus.shown(
                                 algorithmStatuses[algorithm.id] ?: AlgorithmStatus.NOT_STARTED,
                             ),
+                        autoPlay = autoPlayAlgorithm,
                         onSetStatus = { status ->
                             requestedStatus.request(status)
                             scope.launch { requestedStatus.settled(host.setAlgorithmStatus(algorithm.id, status)) }
                         },
+                    )
+                } else if (ready != null && recognizeAction != null && recognizePhase != RecognizePhase.Idle) {
+                    RecognizeScreen(
+                        recognizePhase,
+                        ready,
+                        recognizeFlow,
+                        recognizeAction,
+                        placementScan,
+                        onOpen = { id, autoPlay ->
+                            autoPlayAlgorithm = autoPlay
+                            openAlgorithm = id.value
+                        },
+                        modifier = destinationModifier.background(RubikTheme.tokens.surfaceBase).safeDrawingPadding(),
                     )
                 } else {
                     LibraryScreen(
@@ -681,7 +719,12 @@ private fun ShellContent(
                             ).safeDrawingPadding(),
                         statuses = algorithmStatuses,
                         familyChipsScroll = libraryFamilyChips,
-                        onOpenAlgorithm = { openAlgorithm = it.value },
+                        onOpenAlgorithm = {
+                            autoPlayAlgorithm = false
+                            openAlgorithm = it.value
+                        },
+                        onRecognize = recognizeAction?.let { start -> { start(2) } },
+                        recognizeBeta = flags.level(FeatureFlag.CASE_RECOGNITION) == FlagLevel.BETA,
                     )
                 }
             }

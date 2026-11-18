@@ -163,6 +163,14 @@ internal object GuidedScanFlow {
             retake = quickCheck && controller.repeating,
         )
 
+    fun phaseOf(case: dev.cubentia.domain.recognition.CaseCaptureController): GuidedScanPhase.CornerViewfinder =
+        GuidedScanPhase.CornerViewfinder(
+            hold = case.hold.coerceAtMost(case.corners),
+            coaching = case.coaching,
+            prompt = case.prompt,
+            totalHolds = case.corners,
+        )
+
     fun phaseOf(quick: dev.cubentia.domain.recognition.QuickScanController): GuidedScanPhase? {
         if (quick.inCorner) return GuidedScanPhase.CornerViewfinder(quick.hold, quick.captured, quick.coaching)
         val grid = quick.fallback ?: return null

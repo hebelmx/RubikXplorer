@@ -34,6 +34,11 @@ class CameraScanLauncher
                 PackageManager.PERMISSION_GRANTED &&
                 CameraDenialRecord.denied(context)
 
+        override fun caseCaptureIntent(
+            context: Context,
+            corners: Int,
+        ): Intent = guidedScanIntent(context).putExtra(GuidedScanActivity.EXTRA_CASE_CAPTURE, corners)
+
         override fun quickScanIntent(context: Context): Intent =
             guidedScanIntent(context).putExtra(GuidedScanActivity.EXTRA_QUICK_SCAN, true)
 

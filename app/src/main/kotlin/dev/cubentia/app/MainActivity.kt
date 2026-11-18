@@ -16,11 +16,14 @@ import dagger.hilt.android.AndroidEntryPoint
 import dev.cubentia.app.content.LessonCatalog
 import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.app.preferences.PreferredTheme
+import dev.cubentia.app.scan.CaseCaptureContract
+import dev.cubentia.app.scan.CaseCaptureInput
 import dev.cubentia.app.scan.QuickCheckCapture
 import dev.cubentia.app.scan.QuickCheckOutcome
 import dev.cubentia.app.scan.ScanLauncher
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
+import dev.cubentia.app.ui.recognize.RecognizeFlowViewModel
 import dev.cubentia.app.ui.shell.AppShell
 import dev.cubentia.app.ui.theme.isDarkTheme
 import dev.cubentia.application.port.CalibrationLoad
@@ -61,6 +64,8 @@ class MainActivity : ComponentActivity() {
 
     private val placementFlow: dev.cubentia.app.ui.placement.PlacementFlowViewModel by viewModels()
 
+    private val recognizeFlow: RecognizeFlowViewModel by viewModels()
+
     private val freeCube: FreeCubeViewModel by viewModels()
 
     /** True from a *Scan my cube* tap until its denial check opens the Editor or the scan's result returns. */
@@ -99,6 +104,29 @@ class MainActivity : ComponentActivity() {
                 )
         }
 
+        fun launchScan(
+            launcher: ScanLauncher,
+            onDenied: () -> Unit,
+            start: () -> Unit,
+        ) {
+            // A second tap while the denial check runs or the scan is open starts nothing.
+            if (scanInFlight) return
+            scanInFlight = true
+            lifecycleScope.launch {
+                if (withContext(Dispatchers.IO) { launcher.cameraDenied(this@MainActivity) }) {
+                    scanInFlight = false
+                    onDenied()
+                } else {
+                    try {
+                        start()
+                    } catch (failed: RuntimeException) {
+                        scanInFlight = false
+                        throw failed
+                    }
+                }
+            }
+        }
+
         fun guidedScanAction(
             onDenied: () -> Unit,
             quick: Boolean = false,
@@ -114,24 +142,7 @@ class MainActivity : ComponentActivity() {
                         scanInFlight = false
                         onOutcome(it)
                     }
-                val action: () -> Unit = action@{
-                    // A second tap while the denial check runs or the scan is open starts nothing.
-                    if (scanInFlight) return@action
-                    scanInFlight = true
-                    lifecycleScope.launch {
-                        if (withContext(Dispatchers.IO) { launcher.cameraDenied(this@MainActivity) }) {
-                            scanInFlight = false
-                            onDenied()
-                        } else {
-                            try {
-                                result.launch(Unit)
-                            } catch (failed: RuntimeException) {
-                                scanInFlight = false
-                                throw failed
-                            }
-                        }
-                    }
-                }
+                val action: () -> Unit = { launchScan(launcher, onDenied) { result.launch(Unit) } }
                 action
             } else {
                 null
@@ -141,6 +152,21 @@ class MainActivity : ComponentActivity() {
         val onPlacementScan =
             if (featureFlags.isEnabled(FeatureFlag.PLACEMENT)) {
                 guidedScanAction({ placementFlow.scanDenied() }) { placementFlow.onScanOutcome(it) }
+            } else {
+                null
+            }
+        val onRecognize: ((Int) -> Unit)? =
+            if (featureFlags.isEnabled(FeatureFlag.CASE_RECOGNITION) && scanLauncher.isPresent) {
+                val launcher = scanLauncher.get()
+                val result =
+                    registerForActivityResult(CaseCaptureContract(launcher)) {
+                        scanInFlight = false
+                        recognizeFlow.onCapture(it)
+                    }
+                val action: (Int) -> Unit = { corners ->
+                    launchScan(launcher, recognizeFlow::scanDenied) { result.launch(CaseCaptureInput(corners)) }
+                }
+                action
             } else {
                 null
             }
@@ -233,6 +259,8 @@ class MainActivity : ComponentActivity() {
                     host = sessionHost,
                     solveFlow = solveFlow,
                     placementFlow = placementFlow,
+                    recognizeFlow = recognizeFlow,
+                    onRecognize = onRecognize,
                     onPlacementScan = onPlacementScan,
                     catalog = lessonCatalog,
                     freeCube = freeCube,

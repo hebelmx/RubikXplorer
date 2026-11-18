@@ -111,6 +111,8 @@ internal sealed interface GuidedScanPhase {
         val hold: Int,
         val captured: List<FaceSample> = emptyList(),
         val coaching: Coaching? = null,
+        val prompt: ContentText? = null,
+        val totalHolds: Int = QuickScanPlan.holds.size,
     ) : GuidedScanPhase
 
     /** The camera rationale, before any system dialog. */
@@ -205,10 +207,10 @@ internal fun GuidedScanScreen(
                     onClick = actions.onClose,
                     modifier = Modifier.testTag("scanClose"),
                 ) { Text(strings.resolve(ContentText("btn.scan.close"))) }
-                if (phase is GuidedScanPhase.CornerViewfinder) {
+                if (phase is GuidedScanPhase.CornerViewfinder && phase.totalHolds == 2) {
                     Text(
                         strings.resolve(
-                            ContentText("msg.quick-scan.counter", mapOf("n" to phase.hold, "total" to QuickScanPlan.holds.size)),
+                            ContentText("msg.quick-scan.counter", mapOf("n" to phase.hold, "total" to phase.totalHolds)),
                         ),
                         Modifier
                             .weight(
@@ -287,6 +289,7 @@ internal fun GuidedScanScreen(
                         offerEnterColors,
                         viewfinder,
                         cornerHold = phase.hold,
+                        cornerPrompt = phase.prompt,
                     )
                 }
 
@@ -337,9 +340,10 @@ private fun Viewfinder(
     offerEnterColors: Boolean,
     preview: @Composable () -> Unit,
     cornerHold: Int? = null,
+    cornerPrompt: ContentText? = null,
 ) {
     val geometry = remember { ViewfinderGeometry() }
-    val steps = cornerHold?.let { QuickScanPlan.holds[it - 1] }.orEmpty()
+    val steps = cornerHold?.takeIf { cornerPrompt == null }?.let { QuickScanPlan.holds[it - 1] }.orEmpty()
     val highlighted = steps.map { it.face }.toSet() + listOfNotNull(phase.step?.face)
     val showCorner = cornerHold != null || frozen?.shrink == false
     BoxWithConstraints(Modifier.fillMaxSize().onGloballyPositioned { geometry.origin = it.boundsInRoot().topLeft }) {
@@ -355,9 +359,9 @@ private fun Viewfinder(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    if (cornerHold == null) Prompt(phase, strings) else CornerPrompt(cornerHold, strings)
+                    if (cornerHold == null) Prompt(phase, strings) else CornerPrompt(cornerHold, strings, cornerPrompt)
                     CoachingLine(phase, strings)
-                    MiniNet(phase, geometry, Modifier.weight(1f).fillMaxWidth(), highlighted)
+                    if (cornerPrompt == null) MiniNet(phase, geometry, Modifier.weight(1f).fillMaxWidth(), highlighted)
                     CaptureButtons(phase, strings, actions)
                     if (offerEnterColors) EnterColorsButton(strings, actions.onEnterColors)
                 }
@@ -368,7 +372,7 @@ private fun Viewfinder(
                 if (cornerHold == null) {
                     Prompt(phase, strings, Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp))
                 } else {
-                    CornerPrompt(cornerHold, strings)
+                    CornerPrompt(cornerHold, strings, cornerPrompt)
                 }
                 Box(Modifier.fillMaxWidth().height(cameraHeight)) { CameraArea(geometry, preview, showCorner) }
                 CoachingLine(phase, strings)
@@ -376,7 +380,7 @@ private fun Viewfinder(
                     Modifier.weight(1f).fillMaxWidth().padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    MiniNet(phase, geometry, Modifier.weight(1f).fillMaxWidth(), highlighted)
+                    if (cornerPrompt == null) MiniNet(phase, geometry, Modifier.weight(1f).fillMaxWidth(), highlighted)
                     CaptureButtons(phase, strings, actions)
                     if (offerEnterColors) EnterColorsButton(strings, actions.onEnterColors)
                 }
@@ -556,15 +560,16 @@ private fun Prompt(
 internal fun CornerPrompt(
     hold: Int,
     strings: ContentStrings,
+    casePrompt: ContentText? = null,
 ) {
     Row(
         Modifier.fillMaxWidth().padding(8.dp).testTag("scanPrompt"),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        QuickScanPlan.holds[hold - 1].forEach { Swatch(it.centerColor, 24.dp) }
+        if (casePrompt == null) QuickScanPlan.holds[hold - 1].forEach { Swatch(it.centerColor, 24.dp) }
         val prompt = if (hold == 1) ContentText("msg.quick-scan.hold-first") else ContentText("msg.quick-scan.hold-second")
-        Text(strings.resolve(prompt), style = MaterialTheme.typography.bodyMedium)
+        Text(strings.resolve(casePrompt ?: prompt), style = MaterialTheme.typography.bodyMedium)
     }
 }
 
