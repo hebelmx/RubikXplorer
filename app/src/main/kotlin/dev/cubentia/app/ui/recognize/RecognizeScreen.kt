@@ -3,23 +3,31 @@ package dev.cubentia.app.ui.recognize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.content.CatalogState
+import dev.cubentia.app.ui.beta.BetaLabel
+import dev.cubentia.app.ui.beta.BetaNote
 import dev.cubentia.app.ui.editor.ManualCubeEditor
 import dev.cubentia.app.ui.library.AlgorithmTile
+import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.application.usecase.Recognition
 import dev.cubentia.domain.content.AlgorithmId
 import dev.cubentia.domain.text.Text as ContentText
@@ -31,6 +39,7 @@ fun RecognizeScreen(
     flow: RecognizeFlowViewModel,
     onScan: (Int) -> Unit,
     onPlacement: (() -> Unit)?,
+    placementBeta: Boolean,
     onOpen: (AlgorithmId, Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -115,7 +124,30 @@ fun RecognizeScreen(
 
                     Recognition.NotAtLastLayer -> {
                         Text(text("msg.recognize.not-at-ll"))
-                        if (onPlacement != null) Button(onClick = onPlacement) { Text(text("btn.recognize.start-from-cube")) }
+                        if (onPlacement != null) {
+                            val label = text("btn.recognize.start-from-cube")
+                            val betaLabel = text("msg.feature.beta").takeIf { placementBeta }
+                            Button(
+                                onClick = onPlacement,
+                                modifier =
+                                    Modifier.testTag("recognize:startFromCube").semantics {
+                                        if (betaLabel != null) contentDescription = "$label, $betaLabel"
+                                    },
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(Spacing.s1),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(label)
+                                    if (betaLabel != null) {
+                                        BetaLabel(betaLabel, LocalContentColor.current, MaterialTheme.typography.labelMedium)
+                                    }
+                                }
+                            }
+                            if (placementBeta) {
+                                BetaNote(text("msg.feature.camera.beta-note"))
+                            }
+                        }
                     }
                 }
             }

@@ -3,6 +3,9 @@ package dev.cubentia.app.ui.shell
 import android.app.Application
 import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
@@ -132,15 +135,27 @@ class AppShellRecognizeTest {
 
     @Test
     fun unsolvedFirstTwoLayersCanStartPlacementFromLibrary() {
-        launch(placement = true)
+        launch(placement = FlagLevel.GA)
         showUnsolved()
+        rule.onNodeWithText("BETA", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithText(content.bundle.strings.getValue("msg.feature.camera.beta-note")).assertDoesNotExist()
+        rule.onNodeWithTag("recognize:startFromCube").assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
         rule.onNodeWithText("Start from my cube").performClick()
         assertEquals(1, placementRequests)
     }
 
     @Test
+    fun placementBetaShowsSharedNoteAndAccessibleLabel() {
+        launch(placement = FlagLevel.BETA)
+        showUnsolved()
+        rule.onNodeWithText("BETA", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText(content.bundle.strings.getValue("msg.feature.camera.beta-note")).assertIsDisplayed()
+        rule.onNodeWithTag("recognize:startFromCube").assertContentDescriptionEquals("Start from my cube, BETA")
+    }
+
+    @Test
     fun placementStartedFromRecognitionShowsItsSuggestionAfterOnboarding() {
-        launch(placement = true)
+        launch(placement = FlagLevel.GA)
         showUnsolved()
         rule.onNodeWithText("Start from my cube").performClick()
         val moves = (Notation.parse("F") as NotationResult.Parsed).moves
@@ -161,7 +176,7 @@ class AppShellRecognizeTest {
 
     private fun launch(
         level: FlagLevel = FlagLevel.GA,
-        placement: Boolean = false,
+        placement: FlagLevel = FlagLevel.OFF,
     ) {
         val preferences = PreferenceStore()
         val host = SessionHost(TickingClock(), Dispatchers.Default.limitedParallelism(1), preferences = preferences)
@@ -172,7 +187,7 @@ class AppShellRecognizeTest {
                 override fun level(flag: FeatureFlag) =
                     when (flag) {
                         FeatureFlag.CASE_RECOGNITION -> level
-                        FeatureFlag.PLACEMENT -> if (placement) FlagLevel.GA else FlagLevel.OFF
+                        FeatureFlag.PLACEMENT -> placement
                         else -> FlagLevel.GA
                     }
             }

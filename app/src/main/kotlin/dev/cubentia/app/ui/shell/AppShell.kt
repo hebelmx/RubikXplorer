@@ -214,6 +214,7 @@ private fun ShellContent(
     val placementPhase by placementFlow.phase.collectAsState()
     val placementScanState by placementFlow.acceptedScan.collectAsState()
     var acceptingPlacement by remember { mutableStateOf(false) }
+    var placementSaveFailed by remember(placementPhase) { mutableStateOf(false) }
     val algorithmStatusLoad by host.algorithmStatusLoad.collectAsState(null)
     var algorithmStatuses by remember { mutableStateOf<Map<AlgorithmId, AlgorithmStatus>>(emptyMap()) }
     LaunchedEffect(algorithmStatusLoad) {
@@ -403,13 +404,18 @@ private fun ShellContent(
                     if (target == ready.bundle.stages.first()) {
                         startStageOne()
                     } else {
+                        placementSaveFailed = false
                         acceptingPlacement = true
                         scope.launch {
                             try {
                                 val course = ready.bundle.stages
-                                host.placeFromScan(target.id, if (target in course) course else course + target)
-                                startCourse(target.id.value.takeUnless { faster })
-                                scrollToTwoLook = faster
+                                val saved = host.placeFromScan(target.id, if (target in course) course else course + target)
+                                if (saved) {
+                                    startCourse(target.id.value.takeUnless { faster })
+                                    scrollToTwoLook = faster
+                                } else {
+                                    placementSaveFailed = true
+                                }
                             } finally {
                                 acceptingPlacement = false
                             }
@@ -417,9 +423,13 @@ private fun ShellContent(
                     }
                 }
             },
-            onScanAgain = placementScan,
+            onScanAgain = {
+                placementSaveFailed = false
+                placementScan()
+            },
             modifier = modifier,
             accepting = acceptingPlacement,
+            saveFailed = placementSaveFailed,
         )
         return
     }
@@ -694,6 +704,7 @@ private fun ShellContent(
                         recognizeFlow,
                         recognizeAction,
                         placementScan,
+                        placementBeta = flags.level(FeatureFlag.PLACEMENT) == FlagLevel.BETA,
                         onOpen = { id, autoPlay ->
                             autoPlayAlgorithm = autoPlay
                             openAlgorithm = id.value
