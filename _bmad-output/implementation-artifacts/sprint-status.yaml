@@ -968,7 +968,7 @@ action_items:
       EXPERIENCE.md Flow 4 suggestion copy -> Start at <Stage>? and non-white cross
       suggests Stage 1"
     owner: "PM (John) + PO (hebelmx)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-11-retro-2026-11-18.md"
   - id: "epic-11-retro-item-104-make-epic-11-deferred-11-1-device-sessio"
     epic: 11

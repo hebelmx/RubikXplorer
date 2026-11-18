@@ -35,9 +35,9 @@ sources:
 | Manual Cube Editor | Solve, scan fallback, mode switch | Paint the 54 stickers; validation feedback. | FR-14 |
 | Scan (sub-flow) *(v1.1, flag-gated: hidden while the flag is OFF, UX-DR19)* | Solve, Physical mode, Welcome, Recognize | Guided 6-face Scan, or Quick Scan, then sticker review and correction. Returns a result to its caller. | FR-21–FR-23 |
 | Solution Playback | After a valid scan or entry | Step through the Solution on the 3D cube or the 2D net, with optional physical confirmation. | FR-15, FR-16 |
-| **Library** (tab) | Bottom nav | 78 Algorithms grouped by OLL and PLL family, with filters by family and Algorithm Status. | FR-18 |
+| **Library** (tab) | Bottom nav | 78 Algorithms grouped by OLL and PLL family, with filters by family and Algorithm Status. The letter families use shape names (*P-shape*, *T-shape*, *C-shape*, *W-shape*, *L-shape*), the same names the Recognize result uses. | FR-18 |
 | Algorithm detail | Library tile, 2-look Lesson, Recognize | Demonstration, recognition diagram, Notation, Algorithm Status. | FR-18 |
-| Recognize case *(v1.1, flag-gated: hidden while the flag is OFF, UX-DR19)* | Library top bar | Scan the top layer and get the Case, or candidates. | FR-28 |
+| Recognize case *(v1.1, flag-gated: hidden while the flag is OFF, UX-DR19)* | Library top bar | Capture two opposite top corners, with yellow on top, and get the Case or candidates. | FR-28 |
 | **You** (tab) | Bottom nav | Progress: Stage states, a trend row per Stage (hints and errors per attempt), and Algorithm Status counts shown as plain counts, not achievements. Also holds Settings. | FR-19, FR-20 |
 | Settings | You | Theme, color-blind glyphs, *Move pictures* (default on; next to color-blind glyphs, SCP 2026-11-17), animation speed, haptics, reduce motion, the separate resets, about/licences. | FR-19, NFR-7 |
 | Color Calibration *(v1.1, flag-gated: hidden while the flag is OFF, UX-DR19)* | Settings, scan prompt ("Colors look off — calibrate?"), first scan of a stickerless cube | Show each of the six centers in turn and confirm the swatch, then save. Each swatch is sampled from the ring around the center sticker's middle, so a logo is left out; if that ring isn't one even color, or the swatch is implausible for its color, the Learner is asked to put a plain sticker of that color in the middle square instead (SCP 2026-11-15). A swatch is captured automatically once the cube is held steady, as a face is in the scan; the Learner still confirms it with *Keep*, and *Capture* stays available (SCP 2026-11-16 main-app entry points, Story 10.5). A separate reset is available. | FR-24 |
@@ -98,6 +98,7 @@ These are behavioral rules. Visual specs are in DESIGN.md Components.
 | Algorithm tile | Library | Tap to open detail. Status changes happen only in detail, through an explicit control. Algorithm detail keeps the bottom nav. |
 | Trend row | You, Stage detail | Shows the trend across attempts in order, never a total or a score. Hint use is never framed as failure (SM-C1). |
 | Quick Scan capture | Scan sub-flow | Hold the cube by a corner and capture twice (the counter shows "1 / 2"). Any face that can't be read hands off to the Guided Scan grid for that face only. |
+| Recognize capture | Recognize | Hold yellow on top with one corner facing you, then turn the cube halfway for the opposite corner (the counter shows "1 / 2"). A non-yellow top or a wrong second corner re-prompts that hold ("Turn the cube so yellow is on top.", "Keep yellow on top.", "That looks like the same corner…"). Colors come from the saved Color Calibration; without one, calibration runs once first. A sticker read as uncertain counts as unseen, which can only widen the candidates. Results show only after both corners. |
 | Beta label | Flagged features | Tapping it explains: "Works, but may misread colors in poor light. Your manual entry always works." |
 
 ## State Patterns
@@ -124,7 +125,7 @@ These are behavioral rules. Visual specs are in DESIGN.md Components.
 | First solve | End of Stage 6 | The milestone moment. In Physical-cube Mode it shows only after a Quick Check or *Yes, it's solved*. In v1.0 it shows only after *Yes, it's solved*. |
 | Stage mastered | When the Mastery Condition is met (usually in Practice) | The milestone moment, then the next Stage offered. |
 | Skip-ahead check | Stage detail, Welcome | Passed: ◇ *Skipped*, and the next Stage unlocks (not mastered). Not passed: "Let's do this Stage together — it'll be quick." No penalty and no record against the Learner. |
-| Placement outcomes | Placement | A partly solved cube: suggest the first unmet Stage, with *Choose another Stage*. Nothing solved: suggest Stage 1. Cross or more done but a non-white cross: "Start with a white cross for this course." Already at the last layer: offer *Faster last layer* or Stage 5. Solved: "Your cube is solved — scramble it and scan again, or start Stage 1." |
+| Placement outcomes | Placement | A partly solved cube: suggest the first unmet Stage, with *Choose another Stage*. Nothing solved: suggest Stage 1. Cross or more done but a non-white cross: "Start with a white cross for this course.", suggesting Stage 1, with *Choose another Stage*. Already at the last layer: offer *Faster last layer* or Stage 5. Solved: "Your cube is solved — scramble it and scan again, or start Stage 1." A suggestion reads "Start at *Stage*?". Accepting *Faster last layer*, or choosing a 2-look Stage, marks Stages 1–7 *skipped by placement*. *Choose another Stage* lists Stages 1–7 and the 2-look Stages. *Enter colors instead* or a camera denial opens the Manual Cube Editor, and its accepted cube is placed like a scanned one (SCP 2026-11-18). |
 | Solver working | Solve → Playback | An indeterminate progress bar, cancelable. This state is rarely visible. |
 | Solver timeout / failure | Solve | "Couldn't find a solution in time. Your colors are still here — try again." No partial result is shown. |
 | Solver preparing (first solve after the app starts) | Solve | "Preparing the solver. The first solve after the app starts takes longer. Later solves are faster." (SCP 2026-11-12, PO-approved 2026-11-12; replaces "Preparing the solver. This can take a few seconds the first time after the app starts.") Shown on the first solve in each app process, while the solver loads its tables. Later solves in the same process skip it. Lessons are unaffected. |
@@ -137,7 +138,9 @@ These are behavioral rules. Visual specs are in DESIGN.md Components.
 | Cross-links to OFF features | Any | Links to a flagged-OFF feature are removed. For example, *Start from my cube* disappears from Recognize and Welcome when `PLACEMENT` is OFF. |
 | Back to virtual | Physical mode → virtual | "The on-screen cube now matches what we expected on yours." Redo clears, and Undo stops here. |
 | Recognize: not at LL | Recognize | "The first two layers aren't solved yet." Offers *Start from my cube*. |
-| Recognize: ambiguous | Recognize | "This could be one of 3 cases" with tiles, plus *Scan another angle*. |
+| Recognize: ambiguous | Recognize | "This could be one of 3 cases" with tiles, plus *Scan another angle* (one more corner; the candidates are intersected again). |
+| Recognize: no fit | Recognize | "I couldn't match this to a case. Try another angle or better light." Offers *Scan another angle* (both corners again, fresh) and *Browse the Library*. |
+| Recognize: last layer solved | Recognize | "Your last layer is already solved." Offers *Back to Library*. |
 | Library filter empty | Library | "No algorithms marked Learning yet." Links to 2-look. |
 | Progress reset | Settings | A confirmation sheet names exactly what is erased. Calibration and preferences are untouched. |
 
@@ -251,18 +254,19 @@ The flows mirror the PRD's user journeys UJ-1 to UJ-6.
 ### Flow 4 — Marco starts from his own cube (UJ-4) *(v1.1, flag-gated)*
 
 1. Welcome → **Start from my cube** → Guided 6-face Scan → review → Accept.
-2. Placement: "Your cross is done and 2 of 4 corners are in. Start at *First-layer corners*?" He can also tap *Choose another Stage*, but he accepts. Stages 1–2 show ◇ *Skipped by placement*.
+2. Placement: "Start at *First-layer corners*?" He can also tap *Choose another Stage*, but he accepts. Stages 1–2 show ◇ *Skipped by placement*.
 3. In Physical mode he makes a mistake. A Quick Check gives ≈ *Likely*: "You probably turned R instead of R'." He takes the *Scan all 6 faces* offer, the Guided 6-face Scan gives ✓ *Verified*, and the fix is shown. Only a full scan verifies a mismatch (SCP 2026-11-17).
 4. **Climax:** the layer is complete, Stage 3 is marked *Completed*, and Stages 1–2 remain open to visit.
 
 ### Flow 5 — Diego asks which OLL this is (UJ-5) *(v1.1, flag-gated)*
 
-1. Library → **Recognize case** (BETA) → one top-corner photo.
-2. **Climax:** "OLL 45 · T-shape". The Algorithm detail opens with its Demonstration playing.
+1. Library → **Recognize case** (BETA) → a photo of one top corner, then of the opposite corner, with yellow on top ("1 / 2").
+2. **Climax:** "OLL 45 · T-shape". He taps it, and the Algorithm detail opens with its Demonstration playing.
 3. He taps *Mark as Learning*, an explicit choice that is never automatic.
 
 **Failure paths:**
 - If the visible stickers fit several Cases, he sees the candidate tiles and *Scan another angle*.
+- If no Case fits, he sees "I couldn't match this to a case. Try another angle or better light." with *Scan another angle* and *Browse the Library*.
 - If the first two layers aren't solved, he's offered Placement (*Start from my cube*).
 
 ### Flow 6 — Laura's five-minute evaluation (UJ-6)

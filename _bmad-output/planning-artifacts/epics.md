@@ -61,7 +61,7 @@ FR-24: Color Calibration from the six centers; stickers classified against the c
 FR-25: Scan to solve in *Solve my cube*: scan → correct → validate → solve → playback without leaving the flow; Solver never called on an unvalidated Scan Result; camera permission denied → Manual Cube Editor.
 FR-26: Quick Check in Physical-cube Mode (Guided 6-face Scan or only affected faces, ≤ 2 captures [ASSUMPTION]): match → recorded *verified*; mismatch → observed faces become Diagnosis evidence; *verified* only when exactly one candidate Move sequence fits, and a Quick Check of only some faces verifies only a match (a mismatch is verified only by a Guided 6-face Scan), otherwise *likely* + offer a Guided 6-face Scan *(SCP 2026-11-17)*; Learner can adopt the observed state for Guided recovery; offered at milestones and after mismatches, never required.
 FR-27: Placement: scan a cube, evaluate every Stage Predicate, suggest the first unmet Stage (white cross only [ASSUMPTION]); Learner accepts or picks another; earlier Stages marked *skipped by placement*, never *mastered*, always revisitable.
-FR-28: Recognize an OLL/PLL Case from one corner capture (U + two sides): compare against every Case's derived pattern under AUF; ambiguous → list candidates or ask for another angle; F2L not solved → say so and offer Placement; offer (never force) an Algorithm Status change.
+FR-28: Recognize an OLL/PLL Case from two opposite top-corner captures (yellow on top; U + two sides each): compare against every Case's derived pattern under AUF and intersect the captures' candidates; ambiguous → list candidates and offer another angle; no fit → say so; F2L not solved → say so and offer Placement; offer (never force) an Algorithm Status change.
 FR-29 (P1, out of MVP scope): recognition and execution drills with spaced repetition and a per-Algorithm mastery rule separate from Algorithm Status.
 
 ### NonFunctional Requirements
@@ -135,7 +135,7 @@ UX-DR21: Color-blind glyphs W Y R O G B on every sticker surface from `StickerAp
 UX-DR22: Information architecture: Welcome (first launch only) and a 4-tab bottom bar (Learn, Solve, Library, You) that becomes a navigation rail at medium/expanded widths; Lesson, Scan and Playback are full-screen task flows with a top app bar; never more than one modal level; the Scan sub-flow returns to its caller. [ASSUMPTION: 4-tab IA pending confirmation.]
 UX-DR23: Responsive Lesson layout per window class: compact stacked (stage ≈ 45% height, min 280dp, key bar on stage bottom edge); medium side by side (stage ≈ 55% left, vertical key grid); expanded side by side with the panel capped at 560dp; Library 4 columns at expanded; orientation change never changes session state.
 UX-DR24: Voice and copy: all strings as content keys; Goal/Keep/Watch/Notice; fixed Certainty wording each with its next action; the Do/Don't table and UI-label↔Glossary map from EXPERIENCE.md; no exclamation marks except milestones; mistakes in neutral ink, never red.
-UX-DR25: State-pattern copy and treatments from EXPERIENCE.md State Patterns, each implemented where its feature lands (resume notes, session paused, content changed, Objective met variants, mismatch ladder, Test me outcomes, error-category copy, stale scan, solver working/timeout/tables building, invalid entry, permission denied, Placement outcomes, Recognize not-at-LL/ambiguous, filter empty, progress reset).
+UX-DR25: State-pattern copy and treatments from EXPERIENCE.md State Patterns, each implemented where its feature lands (resume notes, session paused, content changed, Objective met variants, mismatch ladder, Test me outcomes, error-category copy, stale scan, solver working/timeout/tables building, invalid entry, permission denied, Placement outcomes, Recognize not-at-LL/ambiguous/no-fit/last-layer-solved, filter empty, progress reset).
 UX-DR26: Gestures: one-finger drag starting on a sticker along a row/column turns that layer; drag starting off the cube or two-finger drag = View Rotation; below threshold nothing happens; two-finger twist = z; x/y via ⟳ keys [ASSUMPTION]; Cube Rotation animates 200 ms and briefly labels the new front color; View Rotation has no label. [ASSUMPTION: gesture mapping pending confirmation.]
 UX-DR27: Haptics: light tick on each committed Move, soft confirm on Objective met, nothing on a mistake; all switchable off in Settings.
 UX-DR28: Banned patterns enforced in review: shake on error, red flash for a Learner mistake, countdown timers (outside P1 drills), streaks/points/push notifications/badges, auto-advance past a Notice, carousels.
@@ -2314,8 +2314,8 @@ So that I can look up the right Algorithm.
 **Acceptance Criteria:**
 
 **Given** `CASE_RECOGNITION` is BETA or GA
-**When** Library → *Recognize case* captures one top-corner view (U + two sides)
-**Then** `RecognizeCase` matches the visible stickers through `LastLayerMatcher` under AUF and returns the Case within 1 s
+**When** Library → *Recognize case* captures two opposite top-corner views, with yellow on top (U + two sides each; "1 / 2") *(SCP 2026-11-18)*
+**Then** `RecognizeCase` matches the visible stickers through `LastLayerMatcher` under AUF, intersects the two captures' candidates, and returns the Case within 1 s
 
 **Given** a unique match
 **When** shown
@@ -2328,6 +2328,14 @@ So that I can look up the right Algorithm.
 **Given** the first two layers are unsolved
 **When** recognized
 **Then** "The first two layers aren't solved yet." shows with *Start from my cube* when `PLACEMENT` is on
+
+**Given** no Case fits, or the last layer is already solved *(SCP 2026-11-18)*
+**When** recognized
+**Then** "I couldn't match this to a case. Try another angle or better light." shows with *Scan another angle* and *Browse the Library*, or "Your last layer is already solved." shows with *Back to Library*
+
+**Given** no saved Color Calibration, a camera denial, or *Enter colors instead* *(SCP 2026-11-18)*
+**When** Recognize opens
+**Then** Color Calibration runs once and returns to the capture (closing it unsaved returns to the Library), or the Manual Cube Editor opens and its accepted cube goes through the same matching
 
 ## Epic 12: Release-ready for learners and reviewers
 
