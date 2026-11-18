@@ -995,3 +995,21 @@ action_items:
     owner: "SM (orchestrator)"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-11-retro-2026-11-18.md"
+  - id: "epic-10-deferred-10.8-full-oq8-matrix"
+    epic: 10
+    action: "Complete the OQ-8 matrix beyond the minimal session C (7 of 120 cells): daylight, cool LED and low light; cubes stlb and stkb; Tab S7 FE after a clean reinstall (debug signature mismatch); Placement scanned end to end; required before Story 10.11 raises any camera flag (medium; deferred from 10.8 by PO decision, docs/spikes/oq-8-recognition-matrix.md, #106)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-8-recognition-test-matrix-and-ga-beta-decision.md"
+  - id: "epic-10-deferred-10.8-lenovo-stka-guided-time"
+    epic: 10
+    action: "Guided Scan on the Lenovo took 72-83 s with stka (Rubik's, logo center) but 23.5 s with stla; find why (first-read blanks, logo center, calibration) before GA on the minimum device (medium; deferred from 10.8, Fixtures/matrix/lenovo-tb128xu_stka_warm_guided.log)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-8-recognition-test-matrix-and-ga-beta-decision.md"
+  - id: "epic-10-deferred-10.8-full-check-single-wrong-move"
+    epic: 10
+    action: "Confirm on device that a Full Quick Check VERIFIES a single wrong move on an ordinary scramble; session C saw LIKELY after one wrong move on the symmetric checkerboard (expected with several candidates) (low; deferred from 10.8, Fixtures/matrix/sm-s721u1_stla_warm_quickcheck.log)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-8-recognition-test-matrix-and-ga-beta-decision.md"
