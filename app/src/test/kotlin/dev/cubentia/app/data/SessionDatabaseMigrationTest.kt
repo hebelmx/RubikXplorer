@@ -289,4 +289,35 @@ class SessionDatabaseMigrationTest {
                 Files.deleteIfExists(path)
             }
         }
+
+    @Test fun versionEightToNineKeepsPreferencesAndLeavesPlaybackViewUnset() =
+        runBlocking {
+            val path = Files.createTempFile("playback-view-migration", ".db")
+            Files.delete(path)
+            val helper =
+                MigrationTestHelper(
+                    InstrumentationRegistry.getInstrumentation(),
+                    path.toFile(),
+                    AndroidSQLiteDriver(),
+                    RubikDatabase::class,
+                )
+            try {
+                helper.createDatabase(8).use { connection ->
+                    connection.prepare("INSERT INTO preferences VALUES (1, 'DARK', 1, 'FAST', 0, 1, 'SHOW_ME', 1)").use { it.step() }
+                }
+                helper.runMigrationsAndValidate(9).use { connection ->
+                    connection.prepare("SELECT * FROM preferences").use { row ->
+                        assertEquals(true, row.step())
+                        assertEquals(
+                            listOf("1", "DARK", "1", "FAST", "0", "1", "SHOW_ME", "1"),
+                            (0 until 8).map(row::getText),
+                        )
+                        assertEquals(true, row.isNull(8))
+                        assertEquals(false, row.step())
+                    }
+                }
+            } finally {
+                Files.deleteIfExists(path)
+            }
+        }
 }

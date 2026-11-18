@@ -225,6 +225,15 @@ internal fun ToolbarButton(
     tag: String,
     enabled: Boolean,
     onClick: () -> Unit,
+) = ToolbarButton(icon, stringResource(label), tag, enabled, onClick)
+
+@Composable
+internal fun ToolbarButton(
+    @DrawableRes icon: Int,
+    label: String,
+    tag: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
 ) {
     val tokens = RubikTheme.tokens
     IconButton(
@@ -237,7 +246,7 @@ internal fun ToolbarButton(
             ),
         modifier = Modifier.testTag(tag).size(Spacing.touchMin),
     ) {
-        Icon(painter = painterResource(icon), contentDescription = stringResource(label))
+        Icon(painter = painterResource(icon), contentDescription = label)
     }
 }
 

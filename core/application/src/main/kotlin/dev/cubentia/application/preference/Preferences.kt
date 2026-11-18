@@ -2,6 +2,8 @@ package dev.cubentia.application.preference
 
 import dev.cubentia.domain.tutor.TeachingMode
 
+enum class PlaybackView { CUBE_3D, NET_2D }
+
 enum class ThemeChoice { SYSTEM, LIGHT, DARK }
 
 enum class AnimationSpeed(
@@ -24,6 +26,7 @@ data class Preferences(
     val lastTeachingMode: TeachingMode = TeachingMode.DEFAULT,
     /** Set once the Learner has chosen a path on Welcome, so a cold start without progress still opens Learn. */
     val onboarded: Boolean = false,
+    val playbackView: PlaybackView? = null,
 ) {
     fun with(preference: Preference): Preferences =
         when (preference) {
@@ -34,6 +37,7 @@ data class Preferences(
             is Preference.ReduceMotion -> copy(reduceMotion = preference.value)
             is Preference.LastTeachingMode -> copy(lastTeachingMode = preference.value)
             is Preference.Onboarded -> copy(onboarded = preference.value)
+            is Preference.PlaybackViewChoice -> copy(playbackView = preference.value)
         }
 
     companion object {
@@ -42,6 +46,10 @@ data class Preferences(
 }
 
 sealed interface Preference {
+    data class PlaybackViewChoice(
+        val value: PlaybackView?,
+    ) : Preference
+
     data class Theme(
         val value: ThemeChoice,
     ) : Preference

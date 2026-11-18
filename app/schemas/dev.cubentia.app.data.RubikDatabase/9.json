@@ -1,0 +1,507 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 9,
+    "identityHash": "facac90fd02c3f5d1437be133194fa46",
+    "entities": [
+      {
+        "tableName": "algorithm_status_event",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`seq` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `session_id` TEXT NOT NULL, `revision` INTEGER NOT NULL, `algorithm_id` TEXT NOT NULL, `status` TEXT NOT NULL, `epoch` INTEGER NOT NULL, `at_ms` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "seq",
+            "columnName": "seq",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "session_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "algorithmId",
+            "columnName": "algorithm_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "epoch",
+            "columnName": "epoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "atMs",
+            "columnName": "at_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "seq"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_algorithm_status_event_algorithm_id",
+            "unique": false,
+            "columnNames": [
+              "algorithm_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_algorithm_status_event_algorithm_id` ON `${TABLE_NAME}` (`algorithm_id`)"
+          },
+          {
+            "name": "index_algorithm_status_event_session_id_revision",
+            "unique": true,
+            "columnNames": [
+              "session_id",
+              "revision"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_algorithm_status_event_session_id_revision` ON `${TABLE_NAME}` (`session_id`, `revision`)"
+          }
+        ]
+      },
+      {
+        "tableName": "session_snapshot",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`kind` TEXT NOT NULL, `session_id` TEXT NOT NULL, `revision` INTEGER NOT NULL, `written_seq` INTEGER NOT NULL, `payload` TEXT NOT NULL, PRIMARY KEY(`kind`))",
+        "fields": [
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "session_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "writtenSeq",
+            "columnName": "written_seq",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "kind"
+          ]
+        }
+      },
+      {
+        "tableName": "checkpoint",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`kind` TEXT NOT NULL, `payload` TEXT NOT NULL, PRIMARY KEY(`kind`))",
+        "fields": [
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "kind"
+          ]
+        }
+      },
+      {
+        "tableName": "attempt",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`seq` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `attempt_id` TEXT NOT NULL, `session_id` TEXT NOT NULL, `revision` INTEGER NOT NULL, `event` TEXT NOT NULL, `objective_id` TEXT NOT NULL, `outcome` TEXT, `errors` INTEGER, `hints` INTEGER, `assistance_level` TEXT, `at_ms` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "seq",
+            "columnName": "seq",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attemptId",
+            "columnName": "attempt_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "session_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "event",
+            "columnName": "event",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "objectiveId",
+            "columnName": "objective_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "outcome",
+            "columnName": "outcome",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "errors",
+            "columnName": "errors",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "hints",
+            "columnName": "hints",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "assistanceLevel",
+            "columnName": "assistance_level",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "atMs",
+            "columnName": "at_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "seq"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_attempt_session_id_revision",
+            "unique": true,
+            "columnNames": [
+              "session_id",
+              "revision"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_attempt_session_id_revision` ON `${TABLE_NAME}` (`session_id`, `revision`)"
+          }
+        ]
+      },
+      {
+        "tableName": "preferences",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `theme` TEXT NOT NULL, `color_blind_glyphs` INTEGER NOT NULL, `animation_speed` TEXT NOT NULL, `haptics` INTEGER NOT NULL, `reduce_motion` INTEGER NOT NULL, `last_teaching_mode` TEXT NOT NULL, `onboarded` INTEGER NOT NULL DEFAULT 0, `playback_view` TEXT DEFAULT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "theme",
+            "columnName": "theme",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "color_blind_glyphs",
+            "columnName": "color_blind_glyphs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "animation_speed",
+            "columnName": "animation_speed",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "haptics",
+            "columnName": "haptics",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reduce_motion",
+            "columnName": "reduce_motion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "last_teaching_mode",
+            "columnName": "last_teaching_mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "onboarded",
+            "columnName": "onboarded",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "playback_view",
+            "columnName": "playback_view",
+            "affinity": "TEXT",
+            "defaultValue": "NULL"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "progress_event",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`seq` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `session_id` TEXT NOT NULL, `revision` INTEGER NOT NULL, `type` TEXT NOT NULL, `stage_id` TEXT NOT NULL, `lesson_id` TEXT NOT NULL, `epoch` INTEGER, `at_ms` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "seq",
+            "columnName": "seq",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "session_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stageId",
+            "columnName": "stage_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lessonId",
+            "columnName": "lesson_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "epoch",
+            "columnName": "epoch",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "atMs",
+            "columnName": "at_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "seq"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_progress_event_session_id_revision_type_stage_id_lesson_id",
+            "unique": true,
+            "columnNames": [
+              "session_id",
+              "revision",
+              "type",
+              "stage_id",
+              "lesson_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_progress_event_session_id_revision_type_stage_id_lesson_id` ON `${TABLE_NAME}` (`session_id`, `revision`, `type`, `stage_id`, `lesson_id`)"
+          }
+        ]
+      },
+      {
+        "tableName": "color_calibration",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `white_l` REAL NOT NULL, `white_a` REAL NOT NULL, `white_b` REAL NOT NULL, `red_l` REAL NOT NULL, `red_a` REAL NOT NULL, `red_b` REAL NOT NULL, `green_l` REAL NOT NULL, `green_a` REAL NOT NULL, `green_b` REAL NOT NULL, `yellow_l` REAL NOT NULL, `yellow_a` REAL NOT NULL, `yellow_b` REAL NOT NULL, `orange_l` REAL NOT NULL, `orange_a` REAL NOT NULL, `orange_b` REAL NOT NULL, `blue_l` REAL NOT NULL, `blue_a` REAL NOT NULL, `blue_b` REAL NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "white_l",
+            "columnName": "white_l",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "white_a",
+            "columnName": "white_a",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "white_b",
+            "columnName": "white_b",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "red_l",
+            "columnName": "red_l",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "red_a",
+            "columnName": "red_a",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "red_b",
+            "columnName": "red_b",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "green_l",
+            "columnName": "green_l",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "green_a",
+            "columnName": "green_a",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "green_b",
+            "columnName": "green_b",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "yellow_l",
+            "columnName": "yellow_l",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "yellow_a",
+            "columnName": "yellow_a",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "yellow_b",
+            "columnName": "yellow_b",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "orange_l",
+            "columnName": "orange_l",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "orange_a",
+            "columnName": "orange_a",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "orange_b",
+            "columnName": "orange_b",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "blue_l",
+            "columnName": "blue_l",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "blue_a",
+            "columnName": "blue_a",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "blue_b",
+            "columnName": "blue_b",
+            "affinity": "REAL",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'facac90fd02c3f5d1437be133194fa46')"
+    ]
+  }
+}

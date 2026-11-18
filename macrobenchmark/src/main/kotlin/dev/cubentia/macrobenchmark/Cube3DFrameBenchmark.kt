@@ -61,6 +61,44 @@ class Cube3DFrameBenchmark {
     }
 
     @Test
+    fun solutionPlaybackSteps() {
+        logDisplay("solutionPlaybackSteps")
+        benchmarkRule.measureRepeated(
+            packageName = TARGET_PACKAGE,
+            metrics = listOf(GlFrameMetric(GlFrameMetric.Mode.FACE_TURNS, PLAYBACK_STEPS)),
+            compilationMode = CompilationMode.Full(),
+            startupMode = StartupMode.WARM,
+            iterations = ITERATIONS,
+            setupBlock = {
+                val scale = device.executeShellCommand("settings get global animator_duration_scale").trim()
+                check(scale.toFloatOrNull() != 0f) { "Reduce Motion snaps the 3D cube, so playback would not animate it" }
+                startActivityAndWait()
+                openSolutionPlayback()
+                requirePlaybackView("cube3d")
+                pausePlayback()
+                device.requireObject(By.text("1×").enabled(true), "Solution Playback 1× speed").click()
+                // Restart starts at Move 1 and plays; return to boundary 0 with the transport paused.
+                device.requireObject(By.desc("Restart").enabled(true), "Solution Playback Restart").click()
+                device.requireObject(By.desc("Pause"), "Solution Playback Pause after Restart").click()
+                while (device.findObject(By.desc("Step back").enabled(true))?.let {
+                        it.click()
+                        true
+                    } == true
+                ) {
+                    device.waitForIdle()
+                }
+                device.requireObject(By.desc("Step forward").enabled(true), "Solution Playback Step forward")
+                Thread.sleep(TAP_GAP_MS)
+            },
+        ) {
+            repeat(PLAYBACK_STEPS) {
+                device.requireObject(By.desc("Step forward").enabled(true), "Solution Playback Step forward").click()
+                Thread.sleep(TAP_GAP_MS)
+            }
+        }
+    }
+
+    @Test
     fun viewRotation() {
         logDisplay("viewRotation")
         benchmarkRule.measureRepeated(
@@ -168,6 +206,7 @@ class Cube3DFrameBenchmark {
         const val ITERATIONS = 10
         const val TIMEOUT_MS = 5_000L
         const val TAP_GAP_MS = 450L
+        const val PLAYBACK_STEPS = 4
         const val SWIPES = 4
         const val SWIPE_MS = 600
         const val STEP_MS = 8

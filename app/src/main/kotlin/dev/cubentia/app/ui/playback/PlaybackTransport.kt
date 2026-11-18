@@ -94,10 +94,18 @@ class NetPlayback(
     start: CubeState,
     moves: List<Move>,
     reduceMotion: Boolean,
-    val renderer: CubeRenderer,
+    renderer: CubeRenderer,
     private val oldestLiveRevision: (() -> Long?)? = null,
 ) : PlaybackTransportState {
     private var controller by mutableStateOf(PlaybackController.of(start, moves, reduceMotion))
+
+    var renderer by mutableStateOf(renderer)
+        private set
+
+    fun replaceRenderer(build: (Facelets) -> CubeRenderer) {
+        renderer = build(controller.state.toFacelets())
+        animatedIndex.clear()
+    }
 
     /** Increases with every submitted item, as [PresentationItem.revision] requires. */
     private var revision = 0L

@@ -9,9 +9,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
@@ -20,10 +22,17 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import dev.cubentia.app.content.ContentStrings
+import dev.cubentia.app.preferences.PreferenceProvider
+import dev.cubentia.app.preferences.PreferenceStore
+import dev.cubentia.app.render.Cube3DRenderer
+import dev.cubentia.app.render.RenderedArrow
+import dev.cubentia.app.render.RenderedArrowKey
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.TickingClock
 import dev.cubentia.app.ui.lesson.DashedBorderKey
 import dev.cubentia.app.ui.theme.CubentiaTheme
+import dev.cubentia.application.preference.PlaybackView
+import dev.cubentia.application.preference.Preference
 import dev.cubentia.application.session.CubeMode
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionState
@@ -36,7 +45,10 @@ import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.cube.Move
+import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.cube.Turn
+import dev.cubentia.domain.input.ViewOrbit
+import dev.cubentia.domain.playback.PlaybackSpeed
 import dev.cubentia.domain.recognition.PhysicalObservation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -76,27 +88,126 @@ class SolutionPlaybackTest {
         moves: List<Move> = solution,
     ): SessionState = reduce(SessionState.IDLE, SessionEvent.SolvePlaybackStarted(start, moves, Instant.fromEpochMilliseconds(0))).state
 
-    private fun show(session: SessionState = session()) {
+    private fun show(
+        session: SessionState = session(),
+        store: PreferenceStore = netPreferences(),
+        events: MutableList<SessionEvent>? = null,
+    ) {
         val host = SessionHost(TickingClock(), Dispatchers.Unconfined)
         runBlocking { host.dispatch { SessionEvent.SolvePlaybackStarted(session.entry, session.solution, it) } }
         rule.setContent {
             val current by host.state.collectAsState()
             CubentiaTheme {
-                state =
-                    rememberSolutionPlaybackState(current, reduceMotion = true, onEvent = { event ->
-                        runBlocking { host.dispatch { event } }
-                    })
-                SolutionPlayback(state, strings, Modifier.fillMaxSize())
+                PreferenceProvider(store) {
+                    state =
+                        rememberSolutionPlaybackState(current, reduceMotion = true, onEvent = { event ->
+                            events?.add(event)
+                            runBlocking { host.dispatch { event } }
+                        })
+                    SolutionPlayback(state, strings, Modifier.fillMaxSize())
+                }
             }
         }
         rule.waitForIdle()
     }
+
+    private fun netPreferences() = PreferenceStore().apply { update(Preference.PlaybackViewChoice(PlaybackView.NET_2D)) }
 
     private fun tag(name: String) = rule.onNodeWithTag("playback:$name")
 
     private fun click(name: String) {
         tag(name).performClick()
         rule.waitForIdle()
+    }
+
+    @Test
+    fun the3DArrowFollowsTheCurrentMoveAndResetViewKeepsThePosition() {
+        show(store = PreferenceStore())
+        click("forward")
+        click("forward")
+        assertEquals(2, state.position)
+        rule
+            .onNodeWithTag("cube3d")
+            .assert(SemanticsMatcher.expectValue(RenderedArrowKey, RenderedArrow(Notation.format(solution[1]), 1f)))
+
+        val cube = state.renderer as Cube3DRenderer
+        rule.runOnIdle { cube.rotateView(ViewOrbit.STEP_DEGREES, 0.0) }
+        assertNotEquals(ViewOrbit.DEFAULT, cube.orbit)
+        rule.onNodeWithTag("stage:resetView").performClick()
+        rule.waitForIdle()
+        assertEquals(ViewOrbit.DEFAULT, cube.orbit)
+        assertEquals(2, state.position)
+    }
+
+    @Test
+    fun unsetViewFollowsTheModeAndExplicitChoiceSurvivesModeChangesUntilReset() {
+        val store = PreferenceStore()
+        val events = mutableListOf<SessionEvent>()
+        show(store = store, events = events)
+        val cube = rule.onNodeWithTag("cube3d")
+        cube.assertContentDescriptionEquals("Cube, White on top, Green in front")
+        cube.assert(SemanticsMatcher.expectValue(RenderedArrowKey, RenderedArrow(Notation.format(solution.first()), 1f)))
+        assertEquals(
+            "Read faces",
+            cube
+                .fetchSemanticsNode()
+                .config[SemanticsActions.CustomActions]
+                .single()
+                .label,
+        )
+        tag("viewSwitch").assertContentDescriptionEquals("Show the 2D net")
+
+        click("followOnMyCube")
+        rule.onNodeWithTag("net").assertExists()
+        tag("viewSwitch").assertContentDescriptionEquals("Show the 3D cube")
+        assertNull(store.preferences.value.playbackView)
+        click("done")
+        val before = events.toList()
+        click("viewSwitch")
+        cube.assertExists()
+        assertEquals(PlaybackView.CUBE_3D, store.preferences.value.playbackView)
+        assertEquals(before, events)
+        assertEquals(1, state.position)
+        assertEquals(scrambled.apply(solution.take(1)).toFacelets(), state.renderer.renderedFacelets())
+        rule.onNodeWithTag("stage:frame").assertTextEquals("EXPECTED")
+        tag("done").assertExists()
+        tag("back").assertExists()
+
+        click("switchToVirtual")
+        cube.assertExists()
+        click("viewSwitch")
+        assertEquals(PlaybackView.NET_2D, store.preferences.value.playbackView)
+        click("followOnMyCube")
+        rule.onNodeWithTag("net").assertExists()
+        click("switchToVirtual")
+        rule.onNodeWithTag("net").assertExists()
+        rule.runOnIdle(store::reset)
+        cube.assertExists()
+        assertNull(store.preferences.value.playbackView)
+    }
+
+    @Test
+    fun swappingWithQueuedTurnsPreservesTheCommittedStateAndTransport() {
+        val moves = listOf(r, u, f, r, u, f, r, u)
+        val events = mutableListOf<SessionEvent>()
+        val start = CubeState.SOLVED.apply(moves.asReversed().map(Move::inverse))
+        val playback = SolutionPlaybackState(session(start, moves), reduceMotion = false, onEvent = { events += it })
+        playback.setSpeed(PlaybackSpeed.DOUBLE)
+        playback.togglePlay()
+        playback.advance(PlaybackSpeed.DOUBLE.stepMillis * 3)
+        val committed = start.apply(moves.take(4)).toFacelets()
+        val original = playback.renderer
+
+        playback.showView(PlaybackView.NET_2D)
+        assertEquals(committed, playback.renderer.renderedFacelets())
+        playback.advance(PlaybackSpeed.DOUBLE.stepMillis)
+        playback.showView(PlaybackView.CUBE_3D)
+        assertEquals(start.apply(moves.take(5)).toFacelets(), playback.renderer.renderedFacelets())
+        assertNotEquals(original, playback.renderer)
+        assertEquals(5, playback.position)
+        assertEquals(PlaybackSpeed.DOUBLE, playback.speed)
+        assertTrue(playback.isPlaying)
+        assertTrue(events.isEmpty())
     }
 
     @Test
@@ -182,10 +293,13 @@ class SolutionPlaybackTest {
     @Test
     fun `a new session starts the playback over`() {
         var current by mutableStateOf(session())
+        val store = netPreferences()
         rule.setContent {
             CubentiaTheme {
-                state = rememberSolutionPlaybackState(current, reduceMotion = true)
-                SolutionPlayback(state, strings, Modifier.fillMaxSize())
+                PreferenceProvider(store) {
+                    state = rememberSolutionPlaybackState(current, reduceMotion = true)
+                    SolutionPlayback(state, strings, Modifier.fillMaxSize())
+                }
             }
         }
         rule.waitForIdle()
@@ -516,6 +630,11 @@ class SolutionPlaybackTest {
             assertTrue(rebuilt.isPhysical)
             assertEquals(2, rebuilt.position)
             assertEquals(solution[2], rebuilt.currentMove)
+            // Drawn at the Expected State on construction, before any frame drains a queue.
+            assertEquals(state.session.expected.toFacelets(), rebuilt.renderer.renderedFacelets())
+            val rebuilt3D = SolutionPlaybackState(state.session, reduceMotion = true, initialView = PlaybackView.CUBE_3D)
+            assertEquals(PlaybackView.CUBE_3D, rebuilt3D.view)
+            assertEquals(state.session.expected.toFacelets(), rebuilt3D.renderer.renderedFacelets())
         }
     }
 
@@ -542,8 +661,9 @@ class SolutionPlaybackTest {
     fun netFitsShortPhone() = assertNetFits()
 
     private fun assertNetFits() {
+        val store = netPreferences()
         rule.setContent {
-            CubentiaTheme { SolvePlaybackScreen(session(), strings, {}, {}, {}) }
+            CubentiaTheme { PreferenceProvider(store) { SolvePlaybackScreen(session(), strings, {}, {}, {}) } }
         }
         val netNode = rule.onNodeWithTag("net").fetchSemanticsNode()
         val origin = netNode.positionInRoot
@@ -566,8 +686,12 @@ class SolutionPlaybackTest {
     @Test
     @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
     fun darkPlaybackPaintsThemeSurface() {
+        // Keep the screenshot on one Compose window; the 3D SurfaceView takes Robolectric's multi-window path.
+        val store = netPreferences()
         rule.setContent {
-            CubentiaTheme(darkTheme = true) { SolvePlaybackScreen(session(), strings, {}, {}, {}) }
+            CubentiaTheme(darkTheme = true) {
+                PreferenceProvider(store) { SolvePlaybackScreen(session(), strings, {}, {}, {}) }
+            }
         }
         val pixels = rule.onNodeWithTag("solvePlayback:screen").captureToImage().toPixelMap()
         assertEquals(dev.cubentia.app.ui.theme.DarkTokens.surfaceBase, pixels[0, 0])
@@ -620,23 +744,26 @@ class SolutionPlaybackTest {
             host.dispatch { SessionEvent.ModeSwitched(CubeMode.PHYSICAL, it) }
             host.dispatch { SessionEvent.PhysicalConfirmed(null, it) }
         }
+        val store = PreferenceStore()
         var requests = 0
         rule.setContent {
             val current by host.state.collectAsState()
             CubentiaTheme {
-                SolvePlaybackScreen(
-                    current,
-                    strings,
-                    onEvent = { event ->
-                        runBlocking { host.dispatch { event } }
-                    },
-                    onClose = {},
-                    onLearn = {},
-                    quickCheck =
-                        dev.cubentia.app.scan
-                            .QuickCheckCapture {},
-                    requestQuickCheck = { requests++ },
-                )
+                PreferenceProvider(store) {
+                    SolvePlaybackScreen(
+                        current,
+                        strings,
+                        onEvent = { event ->
+                            runBlocking { host.dispatch { event } }
+                        },
+                        onClose = {},
+                        onLearn = {},
+                        quickCheck =
+                            dev.cubentia.app.scan
+                                .QuickCheckCapture {},
+                        requestQuickCheck = { requests++ },
+                    )
+                }
             }
         }
         tag("quickCheck").performClick()
@@ -656,6 +783,11 @@ class SolutionPlaybackTest {
         rule.waitForIdle()
         rule.onNodeWithTag("stage:frame").assertTextEquals("VERIFIED")
         rule.onNodeWithTag("certainty:label").assertTextEquals("Verified")
+        tag("viewSwitch").performClick()
+        rule.onNodeWithTag("cube3d").assertExists()
+        rule.onNodeWithTag("stage:frame").assertTextEquals("VERIFIED")
+        rule.onNodeWithTag("certainty:label").assertTextEquals("Verified")
+        tag("quickCheck").assertExists()
         tag("done").performClick()
         rule.waitForIdle()
         tag("quickCheck").assertExists()

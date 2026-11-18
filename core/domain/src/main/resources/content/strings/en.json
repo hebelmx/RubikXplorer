@@ -411,6 +411,8 @@
   "msg.cube-summary.cube-progress": "{done} of {total} pieces placed",
   "msg.milestone.first-solve": "You solved the cube!",
   "msg.milestone.stage-mastered": "{stage} mastered.",
+  "btn.playback.show-net": "Show the 2D net",
+  "btn.playback.show-cube": "Show the 3D cube",
   "msg.playback.follow-on-my-cube": "I'm following on my cube",
   "msg.playback.cube-should-be-solved": "Your cube should be solved now.",
   "case.case-oll-01.name": "OLL 1",

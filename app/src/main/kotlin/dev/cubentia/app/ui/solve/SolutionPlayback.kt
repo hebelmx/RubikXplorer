@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -18,7 +19,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -32,10 +35,15 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import dev.cubentia.app.R
 import dev.cubentia.app.content.ContentStrings
+import dev.cubentia.app.preferences.LocalPreferenceStore
 import dev.cubentia.app.preferences.LocalRenderStyle
+import dev.cubentia.app.render.Cube3DRenderer
+import dev.cubentia.app.render.CubeRenderer
 import dev.cubentia.app.render.Net2DRenderer
 import dev.cubentia.app.render.RenderStyle
 import dev.cubentia.app.scan.QuickCheckCapture
+import dev.cubentia.app.ui.freecube.ToolbarButton
+import dev.cubentia.app.ui.freecube.ViewControls
 import dev.cubentia.app.ui.lesson.FrameLabel
 import dev.cubentia.app.ui.lesson.rememberReduceMotion
 import dev.cubentia.app.ui.playback.NET_ASPECT
@@ -45,12 +53,15 @@ import dev.cubentia.app.ui.playback.PlaybackTransport
 import dev.cubentia.app.ui.playback.PlaybackTransportState
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.theme.Spacing
+import dev.cubentia.application.preference.PlaybackView
+import dev.cubentia.application.preference.Preference
 import dev.cubentia.application.session.CubeMode
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionKind
 import dev.cubentia.application.session.SessionState
 import dev.cubentia.application.session.SyncState
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.playback.MoveNote
@@ -67,6 +78,7 @@ import dev.cubentia.domain.text.Text as ContentText
 class SolutionPlaybackState private constructor(
     session: SessionState,
     private val playback: NetPlayback,
+    val reduceMotion: Boolean,
     internal var onEvent: (SessionEvent) -> Unit = {},
     internal var clock: () -> Instant = {
         kotlin.time.Clock.System
@@ -81,9 +93,11 @@ class SolutionPlaybackState private constructor(
             kotlin.time.Clock.System
                 .now()
         },
+        initialView: PlaybackView = defaultPlaybackView(session),
     ) : this(
         session,
-        origin(session).let { NetPlayback(it, session.solution, reduceMotion, Net2DRenderer(it.toFacelets())) },
+        origin(session).let { NetPlayback(it, session.solution, reduceMotion, initialView.rendererAt(it.toFacelets())) },
+        reduceMotion,
         onEvent,
         clock,
     ) {
@@ -95,8 +109,14 @@ class SolutionPlaybackState private constructor(
     var session: SessionState by mutableStateOf(session)
         internal set
 
-    /** The net the Solution plays on, starting at the session's entry state. */
-    val renderer: Net2DRenderer get() = playback.renderer as Net2DRenderer
+    val renderer: CubeRenderer get() = playback.renderer
+
+    val view: PlaybackView
+        get() = if (renderer is Cube3DRenderer) PlaybackView.CUBE_3D else PlaybackView.NET_2D
+
+    fun showView(view: PlaybackView) {
+        if (view != this.view) playback.replaceRenderer(view::rendererAt)
+    }
 
     /** The Solution being played. */
     val solution: List<Move> get() = playback.moves
@@ -121,7 +141,7 @@ class SolutionPlaybackState private constructor(
 
     init {
         // A state rebuilt mid-follow (e.g. after Activity recreation) starts at the host's Expected State, not at 0.
-        if (session.isPhysical) alignToExpected()
+        if (session.isPhysical) alignToExpected(rebuild = true)
     }
 
     fun followOnMyCube() {
@@ -131,7 +151,7 @@ class SolutionPlaybackState private constructor(
         dispatch(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, clock()))
     }
 
-    private fun alignToExpected() {
+    private fun alignToExpected(rebuild: Boolean = false) {
         val expectedPosition =
             if (size > 0) {
                 (0..size).firstOrNull { index ->
@@ -141,10 +161,12 @@ class SolutionPlaybackState private constructor(
                 0
             }
         if (playback.position != expectedPosition) {
-            if (expectedPosition == 0) {
-                playback.scrubTo(0.0)
+            val fraction = expectedPosition.toDouble() / size
+            if (rebuild) {
+                val build = view::rendererAt
+                playback.scrubNow(fraction) { playback.replaceRenderer(build) }
             } else {
-                playback.scrubTo(expectedPosition.toDouble() / size)
+                playback.scrubTo(fraction)
             }
         }
     }
@@ -226,6 +248,14 @@ class SolutionPlaybackState private constructor(
     }
 }
 
+private fun defaultPlaybackView(session: SessionState): PlaybackView = if (session.isPhysical) PlaybackView.NET_2D else PlaybackView.CUBE_3D
+
+private fun PlaybackView.rendererAt(facelets: Facelets): CubeRenderer =
+    when (this) {
+        PlaybackView.CUBE_3D -> Cube3DRenderer(facelets)
+        PlaybackView.NET_2D -> Net2DRenderer(facelets)
+    }
+
 /**
  * The state of a [SolutionPlayback] for a `SOLVE_PLAYBACK` [session]. Host updates keep the
  * transport alive across mode switches (which replace session history); a restarted virtual
@@ -242,9 +272,10 @@ fun rememberSolutionPlaybackState(
     },
 ): SolutionPlaybackState {
     require(session.kind == SessionKind.SOLVE_PLAYBACK) { "not a Solve Playback session: ${session.kind}" }
+    val initialView = LocalPreferenceStore.current.preferences.value.playbackView ?: defaultPlaybackView(session)
     val state =
         remember(session.solution, reduceMotion) {
-            SolutionPlaybackState(session, reduceMotion, onEvent, clock)
+            SolutionPlaybackState(session, reduceMotion, onEvent, clock, initialView)
         }
     state.updateSession(session)
     state.onEvent = onEvent
@@ -253,7 +284,7 @@ fun rememberSolutionPlaybackState(
 }
 
 /**
- * A verified Solution (FR-16) on the 2D net with the shared playback transport (forward, back,
+ * A verified Solution (FR-16) in 3D or on the 2D net with the shared playback transport (forward, back,
  * pause, replay, speed) and, under the current Move, its note from [MoveNote], resolved through
  * [strings]. The last step draws the solved state.
  */
@@ -268,6 +299,9 @@ fun SolutionPlayback(
     resolve: ResolveState = ResolveState(),
     onUseMyCube: () -> Unit = {},
 ) {
+    val store = LocalPreferenceStore.current
+    val preferences by store.preferences.collectAsState()
+    state.showView(preferences.playbackView ?: defaultPlaybackView(state.session))
     PlaybackFrameLoop(state)
     val tokens = RubikTheme.tokens
 
@@ -289,10 +323,41 @@ fun SolutionPlayback(
             )
         }
 
+        val renderer = state.renderer
+        val cube = renderer as? Cube3DRenderer
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Spacer(Modifier.weight(1f))
+            val target = if (cube != null) PlaybackView.NET_2D else PlaybackView.CUBE_3D
+            val icon = if (cube != null) R.drawable.ic_view_net else R.drawable.ic_view_cube
+            val label = if (cube != null) "btn.playback.show-net" else "btn.playback.show-cube"
+            ToolbarButton(icon, strings.resolve(ContentText(label)), "playback:viewSwitch", true) {
+                store.update(Preference.PlaybackViewChoice(target))
+            }
+            if (cube != null) ViewControls(cube)
+        }
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-            val width = minOf(maxWidth, maxHeight * NET_ASPECT)
-            Box(Modifier.size(width, width / NET_ASPECT)) {
-                state.renderer.Content(style, Modifier.fillMaxSize())
+            val aspect = if (cube != null) 1f else NET_ASPECT
+            val width = minOf(maxWidth, maxHeight * aspect)
+            Box(Modifier.size(width, width / aspect)) {
+                when (renderer) {
+                    // A new adapter (a re-solve, or a view switch) must not reuse the old one's remembered GL surface.
+                    is Cube3DRenderer -> {
+                        key(renderer) {
+                            renderer.Content(
+                                style,
+                                Modifier.fillMaxSize(),
+                                arrow = state.currentMove,
+                                reduceMotion = state.reduceMotion,
+                                summary = null,
+                                freeViewRotation = true,
+                            )
+                        }
+                    }
+
+                    is Net2DRenderer -> {
+                        renderer.Content(style, Modifier.fillMaxSize())
+                    }
+                }
                 if (state.isPhysical) {
                     FrameLabel(
                         strings,
