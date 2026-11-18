@@ -3,6 +3,7 @@ import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.application.port.PreferenceSave
 import dev.cubentia.application.port.PreferencesLoad
 import dev.cubentia.application.port.PreferencesRepository
+import dev.cubentia.application.preference.PlaybackView
 import dev.cubentia.application.preference.Preference
 import dev.cubentia.application.preference.Preferences
 import dev.cubentia.application.preference.ThemeChoice
@@ -36,7 +37,7 @@ class PreferenceStoreTest {
 
     @Test fun aResetBeforeTheLoadFinishesDropsTheStoredValue() =
         runBlocking {
-            val stored = Preferences(theme = ThemeChoice.DARK, colorBlindGlyphs = true)
+            val stored = Preferences(theme = ThemeChoice.DARK, colorBlindGlyphs = true, playbackView = PlaybackView.NET_2D)
             for (resetFirst in listOf(true, false)) {
                 val repo = GatedRepository(stored)
                 val writer = SerialWriter()
@@ -125,6 +126,10 @@ class PreferenceStoreTest {
                 writer.flush()
                 assertEquals(listOf(Preferences(theme = ThemeChoice.DARK), Preferences(theme = ThemeChoice.DARK, haptics = false)), calls)
                 assertEquals(calls.last(), store.preferences.value)
+                store.update(Preference.PlaybackViewChoice(PlaybackView.NET_2D))
+                writer.flush()
+                assertEquals(PlaybackView.NET_2D, calls.last().playbackView)
+                assertEquals(PlaybackView.NET_2D, store.preferences.value.playbackView)
                 store.reset()
                 assertEquals(Preferences.DEFAULT, store.preferences.value)
                 writer.flush()

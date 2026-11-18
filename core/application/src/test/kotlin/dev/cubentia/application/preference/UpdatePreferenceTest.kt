@@ -31,11 +31,12 @@ class UpdatePreferenceTest {
             val first = update(Preferences.DEFAULT, Preference.Theme(ThemeChoice.DARK))
             assertEquals(PreferenceSave.Saved, first.result)
             result = PreferenceSave.Failed
-            val failed = update(first.value, Preference.Haptics(false))
-            assertFalse(failed.value.haptics)
+            val failed = update(first.value, Preference.PlaybackViewChoice(PlaybackView.CUBE_3D))
+            assertEquals(PlaybackView.CUBE_3D, failed.value.playbackView)
+            assertFalse(update(failed.value, Preference.Haptics(false)).value.haptics)
             assertEquals(ThemeChoice.DARK, failed.value.theme)
             assertEquals(PreferenceSave.Failed, failed.result)
-            assertEquals(listOf(first.value, failed.value), writes)
+            assertEquals(listOf(first.value, failed.value, failed.value.copy(haptics = false)), writes)
             assertEquals(PreferenceUpdate(Preferences.DEFAULT, PreferenceSave.Failed), update.reset())
             assertEquals(1, resets)
         }

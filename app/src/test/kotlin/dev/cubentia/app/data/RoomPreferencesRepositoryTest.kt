@@ -6,6 +6,7 @@ import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.application.port.PreferenceSave
 import dev.cubentia.application.port.PreferencesLoad
 import dev.cubentia.application.preference.AnimationSpeed
+import dev.cubentia.application.preference.PlaybackView
 import dev.cubentia.application.preference.Preference
 import dev.cubentia.application.preference.Preferences
 import dev.cubentia.application.preference.ThemeChoice
@@ -31,7 +32,15 @@ class RoomPreferencesRepositoryTest {
 
             fun open() = Room.databaseBuilder<RubikDatabase>(app, name).setDriver(AndroidSQLiteDriver()).build()
             val chosen =
-                Preferences(ThemeChoice.LIGHT, true, AnimationSpeed.SLOW, false, true, TeachingMode.SHOW_ME)
+                Preferences(
+                    ThemeChoice.LIGHT,
+                    true,
+                    AnimationSpeed.SLOW,
+                    false,
+                    true,
+                    TeachingMode.SHOW_ME,
+                    playbackView = PlaybackView.CUBE_3D,
+                )
             val first = open()
             val firstWriter = SerialWriter()
             try {
@@ -44,6 +53,7 @@ class RoomPreferencesRepositoryTest {
                     Preference.Haptics(false),
                     Preference.ReduceMotion(true),
                     Preference.LastTeachingMode(TeachingMode.SHOW_ME),
+                    Preference.PlaybackViewChoice(PlaybackView.CUBE_3D),
                 ).forEach(store::update)
             } finally {
                 firstWriter.close()
@@ -83,6 +93,7 @@ class RoomPreferencesRepositoryTest {
                         Preference.Haptics(false),
                         Preference.ReduceMotion(true),
                         Preference.LastTeachingMode(TeachingMode.LET_ME_TRY),
+                        Preference.PlaybackViewChoice(PlaybackView.NET_2D),
                     )
                 changes.forEach(store::update)
                 writer.flush()
@@ -94,6 +105,7 @@ class RoomPreferencesRepositoryTest {
                         theme = "NEON",
                         animation_speed = "WARP",
                         last_teaching_mode = "OTHER",
+                        playback_view = "OTHER",
                     )
                 db.preferences().save(unknown)
                 assertEquals(
@@ -102,6 +114,7 @@ class RoomPreferencesRepositoryTest {
                             theme = ThemeChoice.SYSTEM,
                             animationSpeed = AnimationSpeed.NORMAL,
                             lastTeachingMode = TeachingMode.DEFAULT,
+                            playbackView = null,
                         ),
                     ),
                     repo.load(),

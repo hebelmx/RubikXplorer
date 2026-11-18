@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-17-2026 18:25'
+last_updated: '11-17-2026 20:14'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -168,7 +168,7 @@ development_status:
   12-11-sessions-end-when-practice-closes-or-progress-resets: done
   12-12-2-look-rules-reconciled: done
   12-13-closing-a-session-is-durable-when-a-write-fails: done
-  12-14-solution-playback-in-3d-or-on-the-2d-net: backlog
+  12-14-solution-playback-in-3d-or-on-the-2d-net: done
   12-15-move-pictures-and-the-move-strip: backlog
   epic-12-retrospective: optional
 
@@ -764,3 +764,13 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-178-solved-cube-already-solved.md"
+  - id: "epic-12-deferred-12.14-device-render-sync-bench-talkback"
+    epic: 12
+    action: "Run the 12.14 device checks on the minimum and mid reference devices:
+      Cube3DRenderSyncTest Solution Playback cases, the 3D and 2D playback Macrobenchmarks
+      (>= 30 FPS min, 60 FPS mid, input <= 100 ms), and a TalkBack walk of the stage
+      and view switch; fix what fails (medium; deferred from 12.14 by PO decision,
+      device session with 12.15, #106)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-12-14-solution-playback-in-3d-or-on-the-2d-net.md"

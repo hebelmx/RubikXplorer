@@ -14,8 +14,14 @@ class PreferencesTest {
                 .with(Preference.ReduceMotion(true))
                 .with(Preference.LastTeachingMode(TeachingMode.LET_ME_TRY))
                 .with(Preference.Onboarded(true))
-        assertEquals(Preferences(ThemeChoice.DARK, true, AnimationSpeed.FAST, false, true, TeachingMode.LET_ME_TRY, true), p)
+                .with(Preference.PlaybackViewChoice(PlaybackView.NET_2D))
+        assertEquals(
+            Preferences(ThemeChoice.DARK, true, AnimationSpeed.FAST, false, true, TeachingMode.LET_ME_TRY, true, PlaybackView.NET_2D),
+            p,
+        )
         assertEquals(Preferences(), Preferences.DEFAULT)
+        assertEquals(null, Preferences.DEFAULT.playbackView)
+        assertEquals(p.copy(playbackView = null), p.with(Preference.PlaybackViewChoice(null)))
         assertEquals(listOf(400L, 200L, 100L), AnimationSpeed.entries.map { it.scale(200) })
     }
 }

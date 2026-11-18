@@ -3,6 +3,7 @@ import androidx.room3.ColumnInfo
 import androidx.room3.Entity
 import androidx.room3.PrimaryKey
 import dev.cubentia.application.preference.AnimationSpeed
+import dev.cubentia.application.preference.PlaybackView
 import dev.cubentia.application.preference.Preferences
 import dev.cubentia.application.preference.ThemeChoice
 import dev.cubentia.domain.tutor.TeachingMode
@@ -17,6 +18,7 @@ data class PreferencesEntity(
     val reduce_motion: Boolean,
     val last_teaching_mode: String,
     @ColumnInfo(defaultValue = "0") val onboarded: Boolean = false,
+    @ColumnInfo(defaultValue = "NULL") val playback_view: String? = null,
 ) {
     fun preferences(): Preferences =
         Preferences(
@@ -27,6 +29,7 @@ data class PreferencesEntity(
             reduce_motion,
             TeachingMode.entries.firstOrNull { it.name == last_teaching_mode } ?: TeachingMode.DEFAULT,
             onboarded,
+            PlaybackView.entries.firstOrNull { it.name == playback_view },
         )
 
     companion object {
@@ -40,6 +43,7 @@ data class PreferencesEntity(
                 p.reduceMotion,
                 p.lastTeachingMode.name,
                 p.onboarded,
+                p.playbackView?.name,
             )
     }
 }
