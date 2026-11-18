@@ -298,11 +298,17 @@ private fun ShellContent(
                 val from = host.state.value
                 val observed = (from.observed as? PhysicalObservation.Full)?.state
                 if (from.canResolveObserved && observed != null) {
-                    solveFlow.accept(observed) { state, moves ->
+                    solveFlow.confirm(observed) { state, moves ->
                         val now = host.state.value
                         if (now.revision == from.revision && now.canResolveObserved) {
                             host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it, ready.bundle.tutorConfig, true) }
                             host.dispatch { SessionEvent.ModeSwitched(CubeMode.PHYSICAL, it) }
+                        }
+                    }
+                    if (observed.isSolved) {
+                        scope.launch {
+                            host.endSolve(ready.bundle)
+                            tab = Tab.SOLVE
                         }
                     }
                 }

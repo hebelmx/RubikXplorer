@@ -146,6 +146,22 @@ class SolveFromScanRouteTest {
             assertEquals(PhysicalObservation.Full(cube), main.sessionHost.state.value.observed)
         }
 
+    @Test fun solvedScanShowsAlreadySolvedAfterValidatingInTheEditor() =
+        solveScan { main, scan, started ->
+            captureCube(scan, CubeState.SOLVED)
+            rule.onNodeWithTag("review:accept").performScrollTo().performClick()
+            returnToSolve(main, scan, started, ScanOutcome.Accepted(CubeState.SOLVED))
+
+            rule
+                .onNodeWithTag("editor:accept")
+                .performScrollTo()
+                .assertIsEnabled()
+                .performClick()
+            rule.onNodeWithTag("solve:alreadySolved").assertIsDisplayed()
+            rule.onNodeWithTag("solvePlayback:screen").assertDoesNotExist()
+            assertNotEquals(SessionKind.SOLVE_PLAYBACK, main.sessionHost.state.value.kind)
+        }
+
     @Test fun manualEntryFromTheViewfinderReturnsToTheEditorWithTheFallbackNote() =
         solveScan { main, scan, started ->
             rule.onNodeWithTag("scanEnterColors").assertIsDisplayed().performClick()
@@ -218,9 +234,12 @@ class SolveFromScanRouteTest {
         }
     }
 
-    private fun captureCube(scan: ActivityController<GuidedScanActivity>) {
+    private fun captureCube(
+        scan: ActivityController<GuidedScanActivity>,
+        state: CubeState = cube,
+    ) {
         val viewModel = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
-        val colors = cube.toFacelets().colors
+        val colors = state.toFacelets().colors
         GuidedScanPlan.steps.forEach { step ->
             val start = step.face.ordinal * 9
             val cells = colors.subList(start, start + 9).map { CellReading(ScanRouteTest.labs.getValue(it), true) }

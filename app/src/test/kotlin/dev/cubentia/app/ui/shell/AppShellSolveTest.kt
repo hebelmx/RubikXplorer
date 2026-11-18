@@ -370,7 +370,7 @@ class AppShellSolveTest {
         rule.onNodeWithTag("solve:learnOffer").assertTextEquals("Want to learn how to do this yourself?")
     }
 
-    @Test fun physicalPlaybackQuickCheckAndScanAllReachTheCapture() {
+    @Test fun physicalPlaybackQuickCheckAndScanAllCanResolveAnAlreadySolvedCube() {
         val move = FaceTurn(Face.R, Turn.CLOCKWISE)
         val cube = CubeState.SOLVED.apply(move)
         val started = mutableListOf<dev.cubentia.application.session.Effect.QuickCheck>()
@@ -417,6 +417,22 @@ class AppShellSolveTest {
         rule.waitUntil(10000) { started.size == 2 }
         assertEquals(Face.entries.toSet(), started[1].faces)
         assertEquals(started[1], host.state.value.pendingQuickCheck)
+        allowSolverLoad = false
+        runBlocking {
+            host.dispatch {
+                SessionEvent.QuickCheckObserved(
+                    started[1].effectId,
+                    started[1].revision,
+                    dev.cubentia.domain.recognition.PhysicalObservation
+                        .Full(CubeState.SOLVED),
+                    it,
+                )
+            }
+        }
+        rule.waitUntil(10000) { host.state.value.canResolveObserved }
+        click("playback:useMyCube")
+        rule.waitUntil(10000) { host.state.value.kind != SessionKind.SOLVE_PLAYBACK }
+        assertAlreadySolved()
     }
 
     @Test fun playbackFromAnAcceptedScanPlansAtMostTwoFacesAndUseMyCubeReSolvesAFullMismatch() {
