@@ -33,7 +33,10 @@
   "msg.solve.preparing": "Preparing the solver. The first solve after the app starts takes longer. Later solves are faster.",
   "msg.solve.preparing-first-use": "Setting up the solver for first use. This can take a little while.",
   "msg.solve.learn-offer": "Want to learn how to do this yourself?",
+  "msg.solve.already-solved": "Your cube is already solved. Scramble it and try again, or learn to solve it yourself.",
   "btn.solve.enter-colors": "Enter colors",
+  "btn.solve.again": "Back to Solve",
+  "btn.solve.go-learn": "Go to Learn",
   "btn.solve.cancel": "Cancel",
   "btn.solve.close": "Close",
 

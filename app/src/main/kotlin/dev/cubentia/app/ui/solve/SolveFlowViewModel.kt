@@ -12,6 +12,7 @@ import dev.cubentia.application.usecase.SolveCubeOutcome
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.cube.Facelets
+import dev.cubentia.domain.cube.Orientation
 import dev.cubentia.domain.text.Text
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +29,8 @@ enum class Preparation { NONE, WARMING_UP, FIRST_USE }
 
 sealed interface SolvePhase {
     data object Home : SolvePhase
+
+    data object AlreadySolved : SolvePhase
 
     data class Editing(
         val initial: Facelets,
@@ -58,8 +61,11 @@ class SolveFlowViewModel
         fun onScanOutcome(outcome: ScanOutcome) {
             when (outcome) {
                 is ScanOutcome.Accepted -> {
-                    scanned = outcome.state.toFacelets()
-                    mutablePhase.value = SolvePhase.Editing(outcome.state.toFacelets())
+                    val facelets = outcome.state.toFacelets()
+                    scanned = facelets
+                    // The editor fixes its centers to the home frame.
+                    val initial = if (outcome.state.isSolved) outcome.state.reoriented(Orientation.HOME).toFacelets() else facelets
+                    mutablePhase.value = SolvePhase.Editing(initial)
                 }
 
                 ScanOutcome.FellBackToEditor -> {
@@ -107,6 +113,22 @@ class SolveFlowViewModel
             revision++
             job?.cancel()
             mutablePhase.value = SolvePhase.Editing(accepted)
+        }
+
+        fun confirm(
+            state: CubeState,
+            onSolved: suspend (CubeState, List<FaceTurn>) -> Unit,
+        ) {
+            if (!state.isSolved) {
+                accept(state, onSolved)
+                return
+            }
+            revision++
+            job?.cancel()
+            // The editor fixes its centers to the home frame, so it reopens the solved cube held that way.
+            accepted = state.reoriented(Orientation.HOME).toFacelets()
+            scanned = null
+            mutablePhase.value = SolvePhase.AlreadySolved
         }
 
         fun accept(

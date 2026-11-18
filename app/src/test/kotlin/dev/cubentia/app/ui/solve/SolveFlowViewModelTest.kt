@@ -1,5 +1,6 @@
 package dev.cubentia.app.ui.solve
 
+import dev.cubentia.app.scan.ScanOutcome
 import dev.cubentia.app.solver.SolverLoad
 import dev.cubentia.app.solver.SolverSource
 import dev.cubentia.application.port.CubeSolver
@@ -7,6 +8,7 @@ import dev.cubentia.application.port.SolveResult
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
+import dev.cubentia.domain.cube.Orientation
 import dev.cubentia.domain.cube.Turn
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -56,6 +58,41 @@ class SolveFlowViewModelTest {
 
     private suspend fun SolveFlowViewModel.editing(): SolvePhase.Editing =
         withTimeout(5000) { phase.first { it is SolvePhase.Editing } as SolvePhase.Editing }
+
+    @Test fun confirmingSolvedCubeSkipsSolverAndClearsScanInEitherOrientation() {
+        val vm =
+            SolveFlowViewModel(
+                object : SolverSource {
+                    override val isReady: Boolean get() = throw AssertionError("Solver readiness must not be checked")
+
+                    override suspend fun load(onGenerating: () -> Unit): SolverLoad = throw AssertionError("Solver must not load")
+                },
+            )
+        for (orientation in listOf(Orientation.HOME, Orientation.of(Face.U, Face.R))) {
+            val solved = CubeState.SOLVED.reoriented(orientation)
+            vm.onScanOutcome(ScanOutcome.Accepted(solved))
+            assertTrue(vm.isAcceptedScan())
+            vm.confirm(solved) { _, _ -> throw AssertionError("Playback must not start") }
+            assertEquals(SolvePhase.AlreadySolved, vm.phase.value)
+            assertFalse(vm.isAcceptedScan())
+            vm.closeEditor()
+            assertEquals(SolvePhase.Home, vm.phase.value)
+            vm.enterColors()
+            assertEquals(SolvePhase.Editing(CubeState.SOLVED.toFacelets()), vm.phase.value)
+        }
+    }
+
+    @Test fun confirmingScrambledCubePublishesTheSolution() =
+        runBlocking {
+            val moves = listOf(move.inverse())
+            val vm = SolveFlowViewModel(source(CubeSolver { SolveResult.Solved(moves) }))
+            val result = CompletableDeferred<Pair<CubeState, List<FaceTurn>>>()
+            vm.onScanOutcome(ScanOutcome.Accepted(cube))
+            vm.confirm(cube) { state, solution -> result.complete(state to solution) }
+            assertEquals(cube to moves, withTimeout(5000) { result.await() })
+            withTimeout(5000) { vm.phase.first { it == SolvePhase.Home } }
+            assertFalse(vm.isAcceptedScan())
+        }
 
     @Test fun scanOutcomesOnlyPrepareTheEditor() {
         val vm = SolveFlowViewModel(source(CubeSolver { error("Scan must not solve") }))
