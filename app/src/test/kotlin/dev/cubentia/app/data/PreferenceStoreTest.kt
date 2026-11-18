@@ -37,7 +37,8 @@ class PreferenceStoreTest {
 
     @Test fun aResetBeforeTheLoadFinishesDropsTheStoredValue() =
         runBlocking {
-            val stored = Preferences(theme = ThemeChoice.DARK, colorBlindGlyphs = true, playbackView = PlaybackView.NET_2D)
+            val stored =
+                Preferences(theme = ThemeChoice.DARK, colorBlindGlyphs = true, playbackView = PlaybackView.NET_2D, movePictures = false)
             for (resetFirst in listOf(true, false)) {
                 val repo = GatedRepository(stored)
                 val writer = SerialWriter()
@@ -130,6 +131,8 @@ class PreferenceStoreTest {
                 writer.flush()
                 assertEquals(PlaybackView.NET_2D, calls.last().playbackView)
                 assertEquals(PlaybackView.NET_2D, store.preferences.value.playbackView)
+                store.update(Preference.MovePictures(false))
+                assertEquals(false, store.preferences.value.movePictures)
                 store.reset()
                 assertEquals(Preferences.DEFAULT, store.preferences.value)
                 writer.flush()

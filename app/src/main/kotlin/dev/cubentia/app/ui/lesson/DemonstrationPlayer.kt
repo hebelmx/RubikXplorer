@@ -26,6 +26,7 @@ import dev.cubentia.app.ui.playback.NetPlayback
 import dev.cubentia.app.ui.playback.PlaybackFrameLoop
 import dev.cubentia.app.ui.playback.PlaybackTransport
 import dev.cubentia.app.ui.playback.PlaybackTransportState
+import dev.cubentia.app.ui.playback.playbackControlsScroll
 import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.playback.Demonstration
@@ -63,6 +64,8 @@ class DemonstrationPlayerState private constructor(
      */
     private val presentedIndex: Int
         get() = renderer.presentedRevision?.let(playback::moveIndexOf) ?: playback.focusIndex
+
+    override val currentIndex: Int? get() = presentedIndex.takeIf { moves.isNotEmpty() }
 
     internal val shownMoveIndex: Int get() = presentedIndex
 
@@ -127,10 +130,13 @@ fun DemonstrationPlayer(
         DemonstrationStage(state, strings, style, summary, certainty)
         PlaybackTransport(
             state,
-            Modifier.semantics {
-                isTraversalGroup = true
-                traversalIndex = 2f
-            },
+            strings,
+            Modifier
+                .semantics {
+                    isTraversalGroup = true
+                    traversalIndex = 2f
+                }.playbackControlsScroll(),
+            onScrub = state::scrubTo,
         )
     }
 }

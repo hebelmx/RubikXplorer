@@ -2,6 +2,9 @@ package dev.cubentia.app.ui.settings
 import android.app.Application
 import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -9,7 +12,9 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.content.LessonCatalog
+import dev.cubentia.app.preferences.PreferenceProvider
 import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.app.preferences.PreferredTheme
 import dev.cubentia.app.session.SessionHost
@@ -26,6 +31,8 @@ import dev.cubentia.application.preference.AnimationSpeed
 import dev.cubentia.application.preference.Preferences
 import dev.cubentia.application.preference.ThemeChoice
 import dev.cubentia.domain.content.ContentLoadResult
+import dev.cubentia.domain.content.ContentLoader
+import dev.cubentia.domain.content.ContentSource
 import kotlinx.coroutines.flow.first
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -218,9 +225,29 @@ class SettingsScreenTest {
         assertEquals(1, calls)
     }
 
+    @Test fun movePicturesFollowsGlyphsAndResetRestoresIt() {
+        val store = PreferenceStore()
+        val strings = ContentStrings((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings)
+        rule.setContent {
+            CubentiaTheme {
+                PreferenceProvider(store) { SettingsScreen({}, strings = strings) }
+            }
+        }
+        val pictures = rule.onNodeWithTag("settings:movePictures").performScrollTo()
+        pictures.assertIsOn().assertTextEquals("Move pictures")
+        val glyphs = rule.onNodeWithTag("settings:glyphs").fetchSemanticsNode()
+        assertTrue(glyphs.positionInRoot.y < pictures.fetchSemanticsNode().positionInRoot.y)
+        pictures.performClick().assertIsOff()
+        assertFalse(store.preferences.value.movePictures)
+        rule.onNodeWithTag("settings:reset").performScrollTo().performClick()
+        rule.onNodeWithTag("settings:confirm").performClick()
+        pictures.performScrollTo().assertIsOn()
+    }
+
     @Test fun calibrationRowsAreHiddenWithoutBinding() {
         rule.setContent { CubentiaTheme { SettingsScreen({}) } }
         rule.onNodeWithTag("settings:calibration").assertDoesNotExist()
+        rule.onNodeWithTag("settings:movePictures").assertDoesNotExist()
         rule.onNodeWithTag("settings:calibration:reset").assertDoesNotExist()
     }
 }

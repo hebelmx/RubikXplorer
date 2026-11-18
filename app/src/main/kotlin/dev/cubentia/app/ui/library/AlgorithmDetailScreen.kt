@@ -127,7 +127,7 @@ fun AlgorithmDetailScreen(
     val state = rememberDemonstrationPlayerState(result.demonstration)
     PlaybackFrameLoop(state)
     val controls: @Composable () -> Unit = {
-        PlaybackTransport(state, note = state.currentMove?.let { strings.resolve(MoveNote.of(it)) }, onScrub = state::scrubTo)
+        PlaybackTransport(state, strings, note = state.currentMove?.let { strings.resolve(MoveNote.of(it)) }, onScrub = state::scrubTo)
         Row(
             Modifier
                 .fillMaxWidth()

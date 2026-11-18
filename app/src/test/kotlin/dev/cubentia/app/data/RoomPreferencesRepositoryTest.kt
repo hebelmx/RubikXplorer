@@ -40,6 +40,7 @@ class RoomPreferencesRepositoryTest {
                     true,
                     TeachingMode.SHOW_ME,
                     playbackView = PlaybackView.CUBE_3D,
+                    movePictures = false,
                 )
             val first = open()
             val firstWriter = SerialWriter()
@@ -54,6 +55,7 @@ class RoomPreferencesRepositoryTest {
                     Preference.ReduceMotion(true),
                     Preference.LastTeachingMode(TeachingMode.SHOW_ME),
                     Preference.PlaybackViewChoice(PlaybackView.CUBE_3D),
+                    Preference.MovePictures(false),
                 ).forEach(store::update)
             } finally {
                 firstWriter.close()

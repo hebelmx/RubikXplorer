@@ -41,6 +41,7 @@ import dev.cubentia.application.preference.AnimationSpeed
 import dev.cubentia.application.preference.Preference
 import dev.cubentia.application.preference.ThemeChoice
 import kotlinx.coroutines.launch
+import dev.cubentia.domain.text.Text as ContentText
 
 class CalibrationSettings(
     val onCalibrate: () -> Unit,
@@ -94,7 +95,16 @@ fun SettingsScreen(
                     ) { store.update(Preference.Theme(choice)) }
                 }
             }
-            SettingSwitch(R.string.settings_glyphs, "glyphs", prefs.colorBlindGlyphs) { store.update(Preference.ColorBlindGlyphs(it)) }
+            SettingSwitch(
+                stringResource(R.string.settings_glyphs),
+                "glyphs",
+                prefs.colorBlindGlyphs,
+            ) { store.update(Preference.ColorBlindGlyphs(it)) }
+            val movePicturesKey = "btn.settings.move-pictures"
+            val movePicturesLabel = strings.resolve(ContentText(movePicturesKey))
+            if (movePicturesLabel != movePicturesKey) {
+                SettingSwitch(movePicturesLabel, "movePictures", prefs.movePictures) { store.update(Preference.MovePictures(it)) }
+            }
             Text(stringResource(R.string.settings_speed))
             Column(Modifier.selectableGroup()) {
                 AnimationSpeed.entries.forEach { speed ->
@@ -109,8 +119,10 @@ fun SettingsScreen(
                     }
                 }
             }
-            SettingSwitch(R.string.free_cube_haptics, "haptics", prefs.haptics) { store.update(Preference.Haptics(it)) }
-            SettingSwitch(R.string.settings_reduce_motion, "reduceMotion", prefs.reduceMotion) { store.update(Preference.ReduceMotion(it)) }
+            SettingSwitch(stringResource(R.string.free_cube_haptics), "haptics", prefs.haptics) { store.update(Preference.Haptics(it)) }
+            SettingSwitch(stringResource(R.string.settings_reduce_motion), "reduceMotion", prefs.reduceMotion) {
+                store.update(Preference.ReduceMotion(it))
+            }
             TextButton(onClick = {
                 confirm = true
             }, modifier = Modifier.heightIn(min = 48.dp).testTag("settings:reset")) { Text(stringResource(R.string.settings_reset)) }
@@ -229,7 +241,7 @@ private fun SettingRadio(
 /** An on/off setting; the whole row, label included, toggles it. */
 @Composable
 private fun SettingSwitch(
-    labelId: Int,
+    label: String,
     tag: String,
     value: Boolean,
     change: (Boolean) -> Unit,
@@ -242,7 +254,7 @@ private fun SettingSwitch(
             .testTag("settings:$tag"),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(stringResource(labelId), Modifier.weight(1f))
+        Text(label, Modifier.weight(1f))
         Switch(checked = value, onCheckedChange = null)
     }
 }

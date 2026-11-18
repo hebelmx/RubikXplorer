@@ -320,4 +320,39 @@ class SessionDatabaseMigrationTest {
                 Files.deleteIfExists(path)
             }
         }
+
+    @Test fun versionNineToTenKeepsPreferencesAndDefaultsMovePicturesOn() =
+        runBlocking {
+            val path = Files.createTempFile("move-pictures-migration", ".db")
+            Files.delete(path)
+            val helper =
+                MigrationTestHelper(
+                    InstrumentationRegistry.getInstrumentation(),
+                    path.toFile(),
+                    AndroidSQLiteDriver(),
+                    RubikDatabase::class,
+                )
+            try {
+                helper.createDatabase(9).use { connection ->
+                    connection
+                        .prepare(
+                            "INSERT INTO preferences VALUES (1, 'DARK', 1, 'FAST', 0, 1, 'SHOW_ME', 1, 'NET_2D')",
+                        ).use { it.step() }
+                }
+                helper.runMigrationsAndValidate(10).use { connection ->
+                    connection.prepare("SELECT * FROM preferences").use { row ->
+                        assertEquals(true, row.step())
+                        assertEquals(
+                            listOf("1", "DARK", "1", "FAST", "0", "1", "SHOW_ME", "1"),
+                            (0 until 8).map(row::getText),
+                        )
+                        assertEquals("NET_2D", row.getText(8))
+                        assertEquals(1, row.getInt(9))
+                        assertEquals(false, row.step())
+                    }
+                }
+            } finally {
+                Files.deleteIfExists(path)
+            }
+        }
 }

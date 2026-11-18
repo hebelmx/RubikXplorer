@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-17-2026 20:14'
+last_updated: '11-17-2026 21:46'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -169,7 +169,7 @@ development_status:
   12-12-2-look-rules-reconciled: done
   12-13-closing-a-session-is-durable-when-a-write-fails: done
   12-14-solution-playback-in-3d-or-on-the-2d-net: done
-  12-15-move-pictures-and-the-move-strip: backlog
+  12-15-move-pictures-and-the-move-strip: done
   epic-12-retrospective: optional
 
   epic-13: in-progress
@@ -737,7 +737,7 @@ action_items:
     action: "Solution playback transport lacks the UX-DR14 Move strip and visible
       scrubber (low; deferred from 3.6, spec-3-6:115)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-3-6-step-through-a-solution-with-generated-notes.md"
   - id: "epic-3-deferred-3-7-editor-drafts-lost-on-tab-switch"
     epic: 3
@@ -774,3 +774,38 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-12-14-solution-playback-in-3d-or-on-the-2d-net.md"
+  - id: "epic-12-deferred-12.15-demonstration-movenote"
+    epic: 12
+    action: "Lesson Demonstrations pass no MoveNote to the shared transport, so TalkBack
+      hears the notation but no generated note there (low; deferred from 12.15, DemonstrationPlayer.kt:131)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-12-15-move-pictures-and-the-move-strip.md"
+  - id: "epic-12-deferred-12.15-scrubber-track-ink-secondary"
+    epic: 12
+    action: "Scrubber active track uses ink-primary instead of the DESIGN.md ink-secondary
+      track (low; deferred from 12.15, PlaybackTransport.kt:354)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-12-15-move-pictures-and-the-move-strip.md"
+  - id: "epic-12-deferred-12.15-move-strip-state-keyed-on-moves"
+    epic: 12
+    action: "Key the Move strip LazyListState on the Move list so a new list does not
+      keep the old scroll offset (low; deferred from 12.15, MoveStrip.kt:52)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-12-15-move-pictures-and-the-move-strip.md"
+  - id: "epic-12-deferred-12.15-settings-switch-missing-string"
+    epic: 12
+    action: "The Move pictures switch is hidden when ContentStrings lacks its key, not
+      only while content loads; guarantee loaded strings (low; deferred from 12.15, SettingsScreen.kt:105)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-12-15-move-pictures-and-the-move-strip.md"
+  - id: "epic-12-deferred-12.15-po-device-review-pictures"
+    epic: 12
+    action: "PO reviews the Move picture designs (S, wide, x/y/z, B behind the grid)
+      and the Move strip TalkBack wording on device, in the 12.14 device session (low; residual risk from 12.15)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-12-15-move-pictures-and-the-move-strip.md"

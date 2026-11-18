@@ -5,6 +5,7 @@ import android.provider.Settings
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.getOrNull
@@ -17,6 +18,7 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.render.NetEmphasis
 import dev.cubentia.app.render.RenderedArrow
@@ -520,5 +522,28 @@ class DemonstrationPlayerTest {
         assertEquals(PlaybackSpeed.NORMAL.stepMillis, frameDelta(now = 6_000, last = 1_000, speed = PlaybackSpeed.NORMAL))
         assertEquals(PlaybackSpeed.DOUBLE.stepMillis, frameDelta(now = 6_000, last = 1_000, speed = PlaybackSpeed.DOUBLE))
         assertEquals(16L, frameDelta(now = 1_016, last = 1_000, speed = PlaybackSpeed.NORMAL))
+    }
+
+    @Test
+    fun `a chip tap or a scrub pauses and snaps the Demonstration to that Move boundary`() {
+        val three = demo("F U R", "R'", "U'", "F'")
+        show(demo = three)
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithTag("playback:playPause").performClick()
+        rule.mainClock.advanceTimeByFrame()
+        assertTrue(state.isPlaying)
+        rule.onNodeWithTag("playback:chip:1").performClick()
+        rule.mainClock.advanceTimeByFrame()
+        assertFalse(state.isPlaying)
+        assertEquals(2, state.position)
+        assertEquals(three.start.apply(three.moves.take(2)).toFacelets(), state.renderer.renderedFacelets())
+        rule.onNodeWithTag("playback:chip:1").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Current move"))
+
+        rule.onNodeWithTag("playback:scrub").performSemanticsAction(SemanticsActions.SetProgress) { it(1f) }
+        rule.mainClock.advanceTimeByFrame()
+        assertFalse(state.isPlaying)
+        assertEquals(1, state.position)
+        assertEquals(three.start.apply(three.moves.take(1)).toFacelets(), state.renderer.renderedFacelets())
+        rule.onNodeWithTag("playback:chip:0").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Current move"))
     }
 }
