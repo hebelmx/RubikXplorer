@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-17-2026 15:26'
+last_updated: '11-17-2026 18:25'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -168,6 +168,8 @@ development_status:
   12-11-sessions-end-when-practice-closes-or-progress-resets: done
   12-12-2-look-rules-reconciled: done
   12-13-closing-a-session-is-durable-when-a-write-fails: done
+  12-14-solution-playback-in-3d-or-on-the-2d-net: backlog
+  12-15-move-pictures-and-the-move-strip: backlog
   epic-12-retrospective: optional
 
   epic-13: in-progress
@@ -709,43 +711,56 @@ action_items:
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-16-main-app-entry-points.md"
   - id: "epic-1-retro-item-55-deferred-min-frame-floor-fails"
     epic: 1
-    action: "Prove MinFrameCountMetric fails a capture below MIN_FRAMES on a device (run once with a too-high floor, confirm the failure message) (medium; deferred from epic-1-retro-item-55, MinFrameCountMetric.kt:31; device-only session, #106)"
+    action: "Prove MinFrameCountMetric fails a capture below MIN_FRAMES on a device
+      (run once with a too-high floor, confirm the failure message) (medium; deferred
+      from epic-1-retro-item-55, MinFrameCountMetric.kt:31; device-only session, #106)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-epic-1-retro-item-55-retarget-net2d-benchmark.md"
   - id: "epic-1-retro-item-55-deferred-uiautomator-finds-net"
     epic: 1
-    action: "Prove UiAutomator resolves By.res(net) on Solution Playback (testTagsAsResourceId): requireNet must pass in the connected benchmark (medium; deferred from epic-1-retro-item-55, SolvePlaybackScreen.kt:61; device-only session, #106)"
+    action: "Prove UiAutomator resolves By.res(net) on Solution Playback (testTagsAsResourceId):
+      requireNet must pass in the connected benchmark (medium; deferred from epic-1-retro-item-55,
+      SolvePlaybackScreen.kt:61; device-only session, #106)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-epic-1-retro-item-55-retarget-net2d-benchmark.md"
   - id: "epic-3-deferred-3-5-outline-ring-pixel-check"
     epic: 3
-    action: "Verify the drawn invalid-piece outline ring at pixel level (screenshot test), not only via semantics flags (low; deferred from 3.5, spec-3-5:105)"
+    action: "Verify the drawn invalid-piece outline ring at pixel level (screenshot
+      test), not only via semantics flags (low; deferred from 3.5, spec-3-5:105)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-3-5-enter-a-cube-in-the-manual-cube-editor.md"
   - id: "epic-3-deferred-3-6-ux-dr14-move-strip"
     epic: 3
-    action: "Solution playback transport lacks the UX-DR14 Move strip and visible scrubber (low; deferred from 3.6, spec-3-6:115)"
+    action: "Solution playback transport lacks the UX-DR14 Move strip and visible
+      scrubber (low; deferred from 3.6, spec-3-6:115)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-3-6-step-through-a-solution-with-generated-notes.md"
   - id: "epic-3-deferred-3-7-editor-drafts-lost-on-tab-switch"
     epic: 3
-    action: "Unaccepted manual-editor edits are lost when leaving the Solve tab; keep the draft across tab switches (medium, Learner-visible; residual risk from 3.7, spec-3-7:174,190)"
+    action: "Unaccepted manual-editor edits are lost when leaving the Solve tab; keep
+      the draft across tab switches (medium, Learner-visible; residual risk from 3.7,
+      spec-3-7:174,190)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-3-7-solve-tab-end-to-end.md"
   - id: "epic-3-deferred-3-7-preparing-copy-on-cold-cache-read"
     epic: 3
-    action: "'Preparing the solver' also shows during a cold-process cache read; show it only while tables are actually built (low; residual risk from 3.7, spec-3-7:174; #112 (closed) reworded the copy, so check first whether this still holds)"
+    action: "'Preparing the solver' also shows during a cold-process cache read; show
+      it only while tables are actually built (low; residual risk from 3.7, spec-3-7:174;
+      #112 (closed) reworded the copy, so check first whether this still holds)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-3-7-solve-tab-end-to-end.md"
   - id: "issue-178-deferred-scrambled-non-home-scan-centers"
     epic: 10
-    action: "A scrambled scan accepted in a non-HOME orientation opens the editor with rotated stickers but home-forced centers (ManualCubeEditorState.kt:27-28); check on device whether the guided scan can emit a non-HOME orientation, then fix (medium, unverified; pre-existing, deferred from #178, SolveFlowViewModel.onScanOutcome)"
+    action: "A scrambled scan accepted in a non-HOME orientation opens the editor
+      with rotated stickers but home-forced centers (ManualCubeEditorState.kt:27-28);
+      check on device whether the guided scan can emit a non-HOME orientation, then
+      fix (medium, unverified; pre-existing, deferred from #178, SolveFlowViewModel.onScanOutcome)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-178-solved-cube-already-solved.md"

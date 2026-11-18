@@ -144,7 +144,7 @@ stateDiagram-v2
   - **Test hook:** the renderer exposes `renderedFacelets()` for tests, and must end exactly at the last target state.
   - **Gestures:** gesture interpretation is a pure `GestureInterpreter` (touch path + view pose → `MoveIntent?`). Below the confidence threshold it returns no intent.
   - **View Rotation:** stays local to the renderer and never becomes a `SessionEvent`.
-  - **First adapter:** a 2D net renderer is the first `CubeRenderer` (P0.1). The 3D adapter replaces it behind the same port.
+  - **First adapter:** a 2D net renderer is the first `CubeRenderer` (P0.1). The 3D adapter replaces it behind the same port, except on Solution Playback, where both adapters stay and the Learner picks one. The playback view is a preference (written by `UpdatePreference`), never a `SessionEvent`; switching views builds the other adapter at the committed state (`Snap`) with the same playback position, and nothing in the session changes (SCP 2026-11-17 playback view and move glyphs).
 
 ### AD-5 — Observations and Certainty
 
