@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-18-2026 04:05'
+last_updated: '11-18-2026 06:37'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -149,7 +149,7 @@ development_status:
   epic-10-retrospective: optional
 
   epic-11: in-progress
-  11-1-quick-scan-from-two-corners: review
+  11-1-quick-scan-from-two-corners: done
   11-2-start-the-course-from-my-cube-placement: done
   11-3-recognize-an-oll-pll-case: backlog
   epic-11-retrospective: optional
@@ -851,3 +851,45 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-11-2-start-the-course-from-my-cube-placement.md"
+  - id: "epic-11-deferred-11.1-device-session-c"
+    epic: 11
+    action: "Device session C for Quick Scan: run real-corner captures on both reference devices with both test cubes, record labeled corner fixtures with the recorder corner mode, run evaluateQuickScan and make the GA/BETA call (GA only at >= 95% valid after <= 3 corrections in < 15 s) (medium; deferred from 11.1 by PO decision, before-merge gate, #106)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-11-1-quick-scan-from-two-corners.md"
+  - id: "epic-11-deferred-11.1-wrong-corner-self-calibration"
+    epic: 11
+    action: "A wrongly held corner is labeled from the prompt, so self-calibration can produce a valid but wrong state; add a center-color plausibility check against the prompted color (medium; deferred from 11.1, QuickScan.kt:110-120)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-11-1-quick-scan-from-two-corners.md"
+  - id: "epic-11-deferred-11.1-camerax-corner-branch-test"
+    epic: 11
+    action: "CameraXFrameSource's corner branch (ImageProxy to CornerReader) has no automated test; add a pure frame-reading seam and test it (medium; deferred from 11.1, ScanFrameSource.kt:240-244)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-11-1-quick-scan-from-two-corners.md"
+  - id: "epic-11-deferred-11.1-corner-harness-assertions"
+    epic: 11
+    action: "CornerFixtureHarnessTest only prints counts; add expected recognition and assembly assertions once device session C records labeled corner fixtures (medium; deferred from 11.1, CornerFixtureHarnessTest.kt)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-11-1-quick-scan-from-two-corners.md"
+  - id: "epic-11-deferred-11.1-cornerlocator-clutter"
+    epic: 11
+    action: "CornerLocator may discard a valid lower-scoring corner when a cluttered background candidate wins on aggregate contrast, and applies outline/seam thresholds only to the top candidate; check with real fixtures (medium, unverified; deferred from 11.1, CornerLocator.kt:87-91)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-11-1-quick-scan-from-two-corners.md"
+  - id: "epic-11-deferred-11.1-camera-size-testkit"
+    epic: 11
+    action: "CheckCameraSizeTask has no TestKit test of its runtime-byte accounting (jar + .so in a fixture AAR) (low; deferred from 11.1, CheckCameraSizeTask.kt:93-116)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-11-1-quick-scan-from-two-corners.md"
+  - id: "epic-11-deferred-11.1-solve-beta-label-camera-scan"
+    epic: 11
+    action: "Solve's Quick Scan shows the BETA label only when QUICK_SCAN is BETA, not when CAMERA_SCAN is BETA as EXPERIENCE.md requires (low, Learner-visible; deferred from 11.1, AppShell.kt:768-769)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-11-1-quick-scan-from-two-corners.md"
