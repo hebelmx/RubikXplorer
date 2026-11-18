@@ -96,15 +96,15 @@ These principles break ties wherever the FRs leave a choice to UX, curriculum au
   - **Persona + context:** Marco, 12, half-learned from a video. He can make the white cross and a few corners, then gets lost.
   - **Path:**
     1. On first launch he chooses *Start from my cube* and does a Guided 6-face Scan.
-    2. The tutor evaluates each Stage Predicate on the scanned state and suggests: "Your cross is done and 2 of 4 corners are in. Let's continue with *First-layer corners*."
+    2. The tutor evaluates each Stage Predicate on the scanned state and suggests: "Start at *First-layer corners*?"
     3. He accepts. Stages 1–2 are marked *skipped by placement*, and Stage 3 opens.
   - **Climax:** in Physical-cube Mode he turns the wrong way, and a Quick Check shows he did `R` instead of `R'`. That is the only Move consistent with what the scan saw, so the tutor reports it as *verified* and shows the fix.
   - **Resolution:** he completes the layer. Stages 1–2 stay open to revisit but are not forced on him, and his progress is saved.
 
 - **UJ-5. Diego asks "which OLL is this?"** *(v1.1)*
   - **Persona + context:** Diego (UJ-2) is practicing on a friend's Scramble and doesn't recognize the top-layer pattern.
-  - **Path:** he solves the first two layers, opens *Recognize case*, and photographs the cube from a top corner.
-  - **Climax:** the app reports "OLL 45 (T-shape family)," opens that Algorithm in the Algorithm Library, and plays its Demonstration.
+  - **Path:** he solves the first two layers, opens *Recognize case*, and photographs the cube from one top corner, then from the opposite one.
+  - **Climax:** the app reports "OLL 45 · T-shape". He taps it, and the app opens that Algorithm in the Algorithm Library and plays its Demonstration.
   - **Resolution:** he performs the Algorithm, and the app offers to set it to *Learning*. He accepts.
 
 - **UJ-6. Laura, a hiring manager, evaluates the developer in five minutes.**
@@ -528,11 +528,11 @@ The Learner can scan any scrambled or partly solved cube, and the tutor suggests
 - Accepting a suggestion unlocks that Stage. Earlier Stages are marked *skipped by placement*: they are never *mastered* and can always be revisited (same rule as FR-4's skip-ahead check).
 
 #### FR-28: Recognize an OLL/PLL Case
-The Learner can scan the top layer, and the app names its OLL or PLL Case, opens the Algorithm in the Algorithm Library and plays its Demonstration. The scan is one corner-angle capture showing the U face and two side faces. Realizes UJ-5.
+The Learner can scan the top layer, and the app names its OLL or PLL Case; tapping the result opens the Algorithm in the Algorithm Library and plays its Demonstration. The scan is two captures of opposite top corners, yellow on top, each showing the U face and two side faces; together they show every side, so the first two layers are checked before a Case is named (SCP 2026-11-18). Realizes UJ-5.
 
 **Consequences (testable):**
 - The scanned LL stickers are compared with every Case's derived pattern (FR-18), allowing for any U-layer rotation (AUF).
-- If the visible stickers fit more than one Case, the app lists the candidates or asks for another angle. It never picks one silently.
+- The candidate Cases from each capture are intersected. If more than one Case remains, the app lists the candidates and offers another angle, which intersects again. It never picks one silently. If no Case remains, the app says it couldn't match the cube to a Case.
 - If the first two layers are not solved, the app says the cube isn't at the last layer yet and offers Placement (FR-27).
 - The app offers, but never forces, a change to the Algorithm Status.
 
@@ -732,6 +732,7 @@ Recorded in `.memlog.md`:
 - 2026-11-14: camera recognition restored to the plan as v1.1, flag-gated; per-feature release levels set by the PO at each release (SCP 2026-11-14).
 - 2026-11-17: a Quick Check (Partial observation) verifies only a match; only a Guided 6-face Scan (Full observation) verifies a mismatch (SCP 2026-11-17 quick-check-verified-rule).
 - 2026-11-17: Solution Playback switches between the 3D cube and the 2D net (opens in 3D, on the net in Physical-cube Mode, then remembers the choice), and each Move gets an optional move picture (default on) with the UX-DR14 Move strip; both are v1 release scope, before Story 12.3 and the store screenshots (PO, SCP 2026-11-17 playback view and move glyphs).
+- 2026-11-18: Case recognition takes two opposite top-corner captures, with yellow on top, and intersects their candidate Cases. A Placement suggestion reads "Start at *Stage*?" with no progress sentence (SCP 2026-11-18 recognize-two-corners).
 - 2026-11-15: `CAMERA_SCAN` is BETA-only on the Story 10.10 session A result (216/216, operator-dependent calibration); re-plan with a UX pass on scan layout, calibration and color input; Stories 10.12 (recorder rework, session A2) and 10.13 (OQ-7 recognition approach) added; OQ-7 re-opened (SCP 2026-11-15).
 - 2026-11-15: OQ-7 closed with decision K: Kotlin nearest-center classification fed by a per-cell histogram-mode reader and self-calibrated from the six face centers, with a logo-center guard; LiteRT is the fallback if field use shows K is not enough; OpenCV rejected on size (PO, Story 10.13, PR #155).
 
