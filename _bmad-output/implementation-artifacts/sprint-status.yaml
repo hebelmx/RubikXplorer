@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-18-2026 09:43'
+last_updated: '11-18-2026 09:55'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -151,7 +151,7 @@ development_status:
   epic-11: in-progress
   11-1-quick-scan-from-two-corners: done
   11-2-start-the-course-from-my-cube-placement: done
-  11-3-recognize-an-oll-pll-case: review
+  11-3-recognize-an-oll-pll-case: done
   epic-11-retrospective: optional
 
   epic-12: in-progress
@@ -909,3 +909,33 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-11-1-quick-scan-from-two-corners.md"
+  - id: "epic-11-deferred-11.3-device-capture-and-sticker-order"
+    epic: 11
+    action: "Device session C for Recognize: accept capture on a device with the stickered cube and confirm the corner-to-LastLayerView sticker order against the real 11.1 unwarp (traced statically as consistent; synthetic tests only) (high, unverified; deferred from 11.3 by PO decision, ScanAssembler.kt lastLayerView, #106)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-11-3-recognize-an-oll-pll-case.md"
+  - id: "epic-11-deferred-11.3-matcher-main-thread"
+    epic: 11
+    action: "RecognizeCase.of builds the LastLayerMatcher in composition on the main thread whenever the catalog is ready, even with CASE_RECOGNITION OFF; build it only when Recognize is wired and off the main thread (medium; deferred from 11.3, AppShell.kt:308)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-11-3-recognize-an-oll-pll-case.md"
+  - id: "epic-11-deferred-11.3-solved-ll-unseen-sticker"
+    epic: 11
+    action: "A solved last layer with one UNCERTAIN sticker reports 'I couldn't match this to a case' instead of 'Your last layer is already solved.'; wildcard-match the solved orbit and add a test (medium; deferred from 11.3, RecognizeCase.kt:71)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-11-3-recognize-an-oll-pll-case.md"
+  - id: "epic-11-deferred-11.3-silent-shutter"
+    epic: 11
+    action: "Recognize's manual shutter is ignored without feedback when a corner view is incomplete, and an invalid saved calibration can never capture; coach or re-prompt, and route an invalid calibration to Color Calibration (low, Learner-visible; deferred from 11.3, CaseCapture.kt:64)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-11-3-recognize-an-oll-pll-case.md"
+  - id: "epic-11-deferred-11.3-recognize-beta-label-camera-scan"
+    epic: 11
+    action: "Library's Recognize case shows BETA only when CASE_RECOGNITION is BETA, not when CAMERA_SCAN is BETA; fix together with the 11.1 and 11.2 BETA-label items (low, Learner-visible; deferred from 11.3, AppShell.kt:727)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-11-3-recognize-an-oll-pll-case.md"
