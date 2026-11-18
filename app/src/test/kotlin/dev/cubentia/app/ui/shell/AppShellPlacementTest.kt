@@ -56,6 +56,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowLog
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, qualifiers = "w411dp-h891dp")
@@ -110,9 +111,15 @@ class AppShellPlacementTest {
         deliver(ScanOutcome.Accepted(entry("lesson-03-01")))
         rule.onNodeWithTag("placement:prompt").assertTextContains("Start at First-layer corners?")
         rule.onNodeWithTag("placement:chooseAnother").assertIsDisplayed()
+        ShadowLog.clear()
         rule.onNodeWithTag("placement:start").performClick()
 
         assertDetail("First-layer corners")
+        // Debug builds log the saved choice for evaluateMatrix (Story 10.8); release diagnostics are a no-op.
+        if (dev.cubentia.app.BuildConfig.DEBUG) {
+            val run = ShadowLog.getLogsForTag("CubentiaScanDiag").map { it.msg }.single { it.startsWith("placement run ") }
+            assertTrue(run, run.contains(" suggested=${bundle.stages[2].id.value} accepted=${bundle.stages[2].id.value} "))
+        }
         assertSkipped(2)
         assertEquals(StageStatus.IN_PROGRESS, StageProgress.status(bundle.stages[2], bundle.stages, host.progressEvents.value))
         assertTrue(records.any { it.event is ProgressEvent.StageUnlocked })

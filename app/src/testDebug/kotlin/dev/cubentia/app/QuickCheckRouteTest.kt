@@ -46,6 +46,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -55,6 +56,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowLog
 import java.util.concurrent.ExecutorService
 import javax.inject.Inject
 
@@ -141,6 +143,7 @@ class QuickCheckRouteTest {
                 }
                 val result = shadowOf(scan.get())
                 assertEquals(android.app.Activity.RESULT_OK, result.resultCode)
+                ShadowLog.clear()
                 shadowOf(main.get()).receiveResult(started.intent, result.resultCode, result.resultIntent)
             } finally {
                 scan.pause().stop().destroy()
@@ -150,6 +153,52 @@ class QuickCheckRouteTest {
             rule.onNodeWithTag("certainty:label").assertTextEquals("Likely")
             rule.onNodeWithText("That turn probably moved something else.").assertExists()
             rule.onNodeWithTag("mismatch:scanAll").assertTextEquals("Scan all 6 faces")
+            val records = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.filter { it.startsWith("quickCheck run ") }
+            assertEquals(1, records.size)
+            val record =
+                Regex(
+                    """quickCheck run kind=Partial captures=[12] elapsedMs=\d+ certainty=LIKELY matches=false observed=[URFDLB]:[WYGBRO-]{9}(?:,[URFDLB]:[WYGBRO-]{9})? expected=[WYGBRO]{54} expectedHome=[WYGBRO]{54} device=[A-Za-z0-9-]+""",
+                )
+            assertTrue(records.single(), record.matches(records.single()))
+
+            rule.onNodeWithTag("mismatch:scanAll").performScrollTo().performClick()
+            awaitStarted(main)
+            val full = shadowOf(main.get()).nextStartedActivityForResult
+            assertTrue(full.intent.getBooleanExtra(QuickCheckContract.EXTRA_FULL_QUICK_CHECK, false))
+            val priorStarts = source.starts
+            val fullScan = Robolectric.buildActivity(GuidedScanActivity::class.java, full.intent).setup()
+            try {
+                rule.waitUntil(10_000) { source.starts > priorStarts }
+                val vm = ViewModelProvider(fullScan.get())[GuidedScanViewModel::class.java]
+                val actual =
+                    host.state.value.expected
+                        .reoriented(dev.cubentia.domain.cube.Orientation.HOME)
+                // Follow any named-top re-prompts that the full scan needs to resolve the face turns.
+                repeat(2 * Face.entries.size) {
+                    val step = vm.controller.step ?: return@repeat
+                    val colors = actual.toFacelets().colors.subList(step.face.ordinal * 9, step.face.ordinal * 9 + 9)
+                    source.feed(FrameStats(colors.map { CellReading(labs.getValue(it), true) }, 120.0, 0.0, 100.0, 12), null)
+                    rule.waitForIdle()
+                    vm.frozen?.let { vm.endFreeze(it.id) }
+                }
+                assertTrue("Full scan ended in ${vm.phase}", vm.phase is dev.cubentia.app.camera.GuidedScanPhase.Review)
+                ShadowLog.clear()
+                rule.onNodeWithTag("review:accept").performClick()
+                val result = shadowOf(fullScan.get())
+                assertEquals(android.app.Activity.RESULT_OK, result.resultCode)
+                shadowOf(main.get()).receiveResult(full.intent, result.resultCode, result.resultIntent)
+            } finally {
+                fullScan.pause().stop().destroy()
+            }
+            rule.waitUntil(10_000) { host.state.value.pendingQuickCheck == null }
+            rule.waitForIdle()
+            val fullRecords = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.filter { it.startsWith("quickCheck run ") }
+            assertTrue(
+                fullRecords.single(),
+                Regex(
+                    """quickCheck run kind=Full captures=\d+ elapsedMs=\d+ certainty=VERIFIED matches=true observed=[WYGBRO]{54} .*""",
+                ).matches(fullRecords.single()),
+            )
         } finally {
             main.pause().stop().destroy()
         }
@@ -239,9 +288,16 @@ class QuickCheckRouteTest {
                     dev.cubentia.domain.recognition.PhysicalObservation
                         .Partial(mapOf(face to colors.subList(face.ordinal * 9, face.ordinal * 9 + 9))),
                 )
+            ShadowLog.clear()
             shadowOf(main.get()).receiveResult(started.intent, code, data)
             rule.waitUntil(10_000) { host.state.value.pendingQuickCheck == null }
             assertNotNull(host.state.value.quickCheck)
+            rule.waitUntil(10_000) {
+                shadowOf(android.os.Looper.getMainLooper()).idle()
+                ShadowLog.getLogsForTag(ScanDiagnostics.TAG).any { it.msg.startsWith("quickCheck run ") }
+            }
+            val run = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.single { it.startsWith("quickCheck run ") }
+            assertTrue(run, run.startsWith("quickCheck run kind=Partial captures=- elapsedMs=- "))
         } finally {
             main.pause().stop().destroy()
         }
@@ -267,9 +323,23 @@ class QuickCheckRouteTest {
             awaitStarted(main)
             assertNotNull(host.state.value.pendingQuickCheck)
             val started = shadowOf(main.get()).nextStartedActivityForResult
-            shadowOf(main.get()).receiveResult(started.intent, android.app.Activity.RESULT_CANCELED, null)
+            ShadowLog.clear()
+            val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, started.intent).setup()
+            try {
+                rule.waitForIdle()
+                scan.get().onBackPressedDispatcher.onBackPressed()
+                rule.waitForIdle()
+                val result = shadowOf(scan.get())
+                assertTrue(scan.get().isFinishing)
+                assertEquals(android.app.Activity.RESULT_CANCELED, result.resultCode)
+                shadowOf(main.get()).receiveResult(started.intent, result.resultCode, result.resultIntent)
+            } finally {
+                scan.pause().stop().destroy()
+            }
             rule.waitUntil(10_000) { host.state.value.pendingQuickCheck == null }
             rule.waitForIdle()
+            val records = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.filter { it.startsWith("quickCheck run ") }
+            assertTrue("kind=- captures=0 elapsedMs=- certainty=CANCELLED matches=- observed=- " in records.single())
             rule.onNodeWithTag("lesson:quickCheck").performScrollTo().performClick()
             awaitStarted(main)
             assertNotNull(host.state.value.pendingQuickCheck)

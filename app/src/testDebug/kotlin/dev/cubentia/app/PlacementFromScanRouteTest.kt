@@ -28,6 +28,7 @@ import dev.cubentia.app.ui.solve.SolvePhase
 import dev.cubentia.domain.cube.CubeState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -37,6 +38,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowLog
 
 /** Story 11.2: Welcome's *Start from my cube* result reaches Placement through MainActivity, never the Solve flow. */
 @HiltAndroidTest
@@ -82,6 +84,14 @@ class PlacementFromScanRouteTest {
                 .onNodeWithTag("placement:prompt")
                 .assertTextContains("Your cube is solved — scramble it and scan again, or start Stage 1.")
             assertEquals(SolvePhase.Home, main.solveFlowPhase())
+            ShadowLog.clear()
+            rule.onNodeWithTag("placement:startStage1").performClick()
+            rule.waitForIdle()
+            val records = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.filter { it.startsWith("placement run ") }
+            assertEquals(1, records.size)
+            val record =
+                Regex("""placement run elapsedMs=\d+ outcome=SOLVED suggested=SOLVED accepted=stage-01-fundamentals device=[A-Za-z0-9-]+""")
+            assertTrue(records.single(), record.matches(records.single()))
         }
 
     @Test fun cancelledScanFromWelcomeReturnsToWelcome() =

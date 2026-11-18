@@ -92,3 +92,12 @@ tasks.register<JavaExec>("evaluateQuickScan") {
     val report = layout.buildDirectory.file("reports/quick-scan-measurement.md")
     argumentProviders.add { listOf(report.get().asFile.absolutePath) }
 }
+
+tasks.register<JavaExec>("evaluateMatrix") {
+    group = "verification"
+    description = "Scores recognition matrix runs and updates the OQ-8 report."
+    classpath = evaluation.runtimeClasspath
+    mainClass.set("dev.cubentia.domain.recognition.evaluation.matrix.MatrixMainKt")
+    workingDir = rootDir
+    args("Fixtures/matrix", "Fixtures/matrix/truth.csv", "docs/spikes/oq-8-recognition-matrix.md")
+}

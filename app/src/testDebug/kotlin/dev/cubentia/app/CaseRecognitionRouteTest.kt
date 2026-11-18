@@ -45,6 +45,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -53,6 +54,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowLog
 import java.util.concurrent.ExecutorService
 import javax.inject.Inject
 
@@ -124,11 +126,16 @@ class CaseRecognitionRouteTest {
                 val scan = shadowOf(activity.get())
                 val outcome = CaseCaptureContract.decode(scan.resultCode, scan.resultIntent) as CaseCaptureOutcome.Captured
                 assertEquals(2, outcome.views.size)
+                ShadowLog.clear()
                 returnResult(scan.resultCode, scan.resultIntent)
             } finally {
                 activity.pause().stop().destroy()
             }
             rule.onNodeWithText("Your last layer is already solved.").assertExists()
+            val records = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.filter { it.startsWith("recognize run ") }
+            assertEquals(1, records.size)
+            val record = Regex("""recognize run elapsedMs=\d+ outcome=LL_SOLVED case=- candidates=- captures=2 device=[A-Za-z0-9-]+""")
+            assertTrue(records.single(), record.matches(records.single()))
         }
     }
 

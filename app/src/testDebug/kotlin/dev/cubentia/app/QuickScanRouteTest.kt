@@ -110,9 +110,19 @@ class QuickScanRouteTest {
                     camera.feed(ScanFrame(stats(Color.GREEN), 0))
                     shutter(model)
                 }
+                ShadowLog.clear()
                 rule.onNodeWithTag("review:accept").performScrollTo().performClick()
                 val result = shadowOf(scan.get())
                 assertEquals(ScanOutcome.Accepted(CubeState.SOLVED), ScanFlowContract.decode(result.resultCode, result.resultIntent))
+                // The accepted run logs the accepted stickers as `state=` (what evaluateMatrix scores) and the read as `initial=`.
+                val run = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.single { it.startsWith("quickScan run ") }
+                val solved =
+                    CubeState.SOLVED
+                        .toFacelets()
+                        .colors
+                        .joinToString("") { it.name.take(1) }
+                assertTrue(run, run.contains(" outcome=ACCEPTED state=$solved initial="))
+                assertTrue(run, Regex(" initial=[WYGBRO-]{54} ").containsMatchIn(run))
                 shadow.receiveResult(intent, result.resultCode, result.resultIntent)
                 rule.waitForIdle()
                 val flow = ViewModelProvider(main.get())[SolveFlowViewModel::class.java]
@@ -160,7 +170,10 @@ class QuickScanRouteTest {
                 val runs = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.filter { it.startsWith("quickScan run ") }
                 assertEquals(1, runs.size)
                 // The exact shape QuickScanMeasurement parses at device session C; a drifted field would void the tally.
-                val record = Regex("""quickScan run elapsedMs=\d+ fallbackFaces=0 repromptFaces=0 corrections=1 outcome=CANCELLED""")
+                val record =
+                    Regex(
+                        """quickScan run elapsedMs=\d+ fallbackFaces=0 repromptFaces=0 corrections=1 outcome=CANCELLED state=[WYGBRO-]{54} initial=[WYGBRO-]{54} device=[A-Za-z0-9-]+""",
+                    )
                 assertTrue(runs.single(), record.matches(runs.single()))
             } finally {
                 scan.pause().stop().destroy()

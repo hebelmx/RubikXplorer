@@ -1,6 +1,10 @@
 package dev.cubentia.app
 
+import android.os.Build
+import android.os.SystemClock
 import android.util.Log
+import dev.cubentia.application.usecase.Recognition
+import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Orientation
@@ -11,9 +15,11 @@ import dev.cubentia.domain.recognition.FrameQuality
 import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.recognition.ScanAssembler
+import dev.cubentia.domain.recognition.ScanReview
 import dev.cubentia.domain.recognition.ScanTrace
 import dev.cubentia.domain.recognition.SelfCalibration
 import dev.cubentia.domain.tutor.Certainty
+import dev.cubentia.domain.tutor.PlacementOutcome
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicLong
 
@@ -46,23 +52,212 @@ object ScanDiagnostics {
     }
 
     fun onQuickScanRun(
-        elapsedMs: Long,
+        started: Long?,
         fallbackFaces: Int,
         repromptFaces: Int,
-        corrections: Int,
+        initialCorrections: Map<Int, Color>?,
+        outcome: String,
+        state: List<Color?>?,
+        initial: List<Color?>?,
+    ) {
+        val corrections = initialCorrections?.count { (index, color) -> color != initial?.get(index) } ?: 0
+        run(
+            "quickScan",
+            "elapsedMs=${elapsed(started)}",
+            "fallbackFaces=$fallbackFaces",
+            "repromptFaces=$repromptFaces",
+            "corrections=$corrections",
+            "outcome=$outcome",
+            "state=${letters(state)}",
+            "initial=${letters(initial)}",
+        )
+    }
+
+    // The Android stubs used by plain JVM ViewModel tests provide no device model.
+    private val device = Build.MODEL?.replace(Regex("[^A-Za-z0-9-]"), "-")?.ifEmpty { "-" }
+
+    private fun run(
+        feature: String,
+        vararg fields: String,
+    ) {
+        val model = device ?: return
+        Log.d(TAG, (listOf(feature, "run") + fields + "device=$model").joinToString(" "))
+    }
+
+    private fun letters(colors: List<Color?>?): String = colors?.joinToString("", transform = ScanTrace::letter) ?: "-"
+
+    private fun elapsed(start: Long?): String = start?.let { (SystemClock.elapsedRealtime() - it).toString() } ?: "-"
+
+    fun startRun(): Long? = device?.let { SystemClock.elapsedRealtime() }
+
+    fun onGuidedScanRun(
+        started: Long?,
+        repromptFaces: Int,
+        review: ScanReview?,
+        initial: List<Color?>?,
+        corrections: Map<Int, Color>?,
         outcome: String,
     ) {
-        val fields =
-            listOf(
-                "quickScan",
-                "run",
-                "elapsedMs=$elapsedMs",
-                "fallbackFaces=$fallbackFaces",
-                "repromptFaces=$repromptFaces",
-                "corrections=$corrections",
-                "outcome=$outcome",
+        val changed = corrections?.count { (index, color) -> color != initial?.get(index) } ?: 0
+        run(
+            "guidedScan",
+            "elapsedMs=${elapsed(started)}",
+            "repromptFaces=$repromptFaces",
+            "corrections=$changed",
+            "valid=${review?.accepted != null}",
+            "outcome=$outcome",
+            "state=${letters(review?.stickers)}",
+            "initial=${letters(initial)}",
+        )
+    }
+
+    private data class CheckCapture(
+        val captures: Long,
+        val elapsedMs: String,
+    )
+
+    @Volatile private var quickCheckCapture: CheckCapture? = null
+
+    @Volatile private var caseCapturedAt: Long? = null
+
+    @Volatile private var placementStartedAt: Long? = null
+
+    private data class PlacementSuggestion(
+        val elapsedMs: String,
+        val outcome: String,
+        val stage: String,
+    )
+
+    private var placementSuggestion: PlacementSuggestion? = null
+
+    fun onQuickCheckCaptured(
+        started: Long?,
+        captures: Long,
+    ) {
+        quickCheckCapture = CheckCapture(captures, elapsed(started))
+    }
+
+    fun discardQuickCheckCapture() {
+        quickCheckCapture = null
+    }
+
+    fun onQuickCheckRun(
+        expected: CubeState,
+        observation: PhysicalObservation?,
+        certainty: Certainty?,
+        matchesExpected: Boolean?,
+    ) {
+        val capture = quickCheckCapture
+        discardQuickCheckCapture()
+        val observed =
+            when (observation) {
+                null -> {
+                    "-"
+                }
+
+                is PhysicalObservation.Full -> {
+                    letters(observation.state.reoriented(Orientation.HOME).toFacelets())
+                }
+
+                is PhysicalObservation.Partial -> {
+                    observation.faces.entries
+                        .joinToString(",") { (face, colors) -> "$face:${letters(colors)}" }
+                        .ifEmpty { "-" }
+                }
+            }
+        run(
+            "quickCheck",
+            "kind=${observation?.let { it::class.simpleName } ?: "-"}",
+            "captures=${capture?.captures ?: "-"}",
+            "elapsedMs=${capture?.elapsedMs ?: "-"}",
+            "certainty=${if (observation == null) "CANCELLED" else certainty ?: "-"}",
+            "matches=${matchesExpected ?: "-"}",
+            "observed=$observed",
+            "expected=${letters(expected.toFacelets())}",
+            "expectedHome=${letters(expected.reoriented(Orientation.HOME).toFacelets())}",
+        )
+    }
+
+    fun onCaseCaptured() {
+        caseCapturedAt = startRun()
+    }
+
+    fun discardCaseCapture() {
+        caseCapturedAt = null
+    }
+
+    fun onRecognizeRun(
+        result: Recognition?,
+        captures: Int?,
+        captureOutcome: String = "-",
+    ) {
+        val start = caseCapturedAt
+        discardCaseCapture()
+        val outcome =
+            when (result) {
+                is Recognition.Unique -> "UNIQUE"
+                is Recognition.Several -> "SEVERAL"
+                Recognition.NoFit -> "NO_FIT"
+                Recognition.LastLayerSolved -> "LL_SOLVED"
+                Recognition.NotAtLastLayer -> "NOT_AT_LL"
+                null -> captureOutcome
+            }
+        val case = (result as? Recognition.Unique)?.caseId?.value ?: "-"
+        val candidates =
+            (result as? Recognition.Several)
+                ?.caseIds
+                ?.map { it.value }
+                ?.sorted()
+                ?.joinToString(",") ?: "-"
+        run(
+            "recognize",
+            "elapsedMs=${elapsed(start.takeIf { result != null })}",
+            "outcome=$outcome",
+            "case=$case",
+            "candidates=$candidates",
+            "captures=${captures ?: "-"}",
+        )
+    }
+
+    fun onPlacementScanAccepted() {
+        onPlacementRun(null)
+        placementStartedAt = startRun()
+    }
+
+    fun onPlacementSuggested(outcome: PlacementOutcome) {
+        val started = placementStartedAt ?: return
+        placementStartedAt = null
+        val stage =
+            when (outcome) {
+                is PlacementOutcome.Suggested -> outcome.stage.id.value
+                is PlacementOutcome.AtLastLayer -> outcome.stage.id.value
+                is PlacementOutcome.NonWhiteCross -> outcome.stage.id.value
+                PlacementOutcome.Solved -> "SOLVED"
+            }
+        placementSuggestion =
+            PlacementSuggestion(
+                elapsed(started),
+                when (outcome) {
+                    is PlacementOutcome.Suggested -> "SUGGESTED"
+                    is PlacementOutcome.AtLastLayer -> "AT_LAST_LAYER"
+                    is PlacementOutcome.NonWhiteCross -> "NON_WHITE_CROSS"
+                    PlacementOutcome.Solved -> "SOLVED"
+                },
+                stage,
             )
-        Log.d(TAG, fields.joinToString(" "))
+    }
+
+    fun onPlacementRun(accepted: String?) {
+        placementStartedAt = null
+        val (time, outcome, stage) = placementSuggestion ?: return
+        placementSuggestion = null
+        run(
+            "placement",
+            "elapsedMs=$time",
+            "outcome=$outcome",
+            "suggested=$stage",
+            "accepted=${accepted ?: "none"}",
+        )
     }
 
     const val TAG = "CubentiaScanDiag"

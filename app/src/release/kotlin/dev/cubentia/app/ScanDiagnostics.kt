@@ -1,15 +1,19 @@
 package dev.cubentia.app
 
+import dev.cubentia.application.usecase.Recognition
+import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.PhysicalObservation
+import dev.cubentia.domain.recognition.ScanReview
 import dev.cubentia.domain.tutor.Certainty
+import dev.cubentia.domain.tutor.PlacementOutcome
 
 /** release and benchmark builds: no scan diagnostics are computed or logged. */
+@Suppress("UNUSED_PARAMETER")
 object ScanDiagnostics {
-    @Suppress("UNUSED_PARAMETER")
     fun onCornerFrame(
         nowMs: Long,
         detected: Boolean,
@@ -17,16 +21,16 @@ object ScanDiagnostics {
         score: Double,
     ) = Unit
 
-    @Suppress("UNUSED_PARAMETER")
     fun onQuickScanRun(
-        elapsedMs: Long,
+        started: Long?,
         fallbackFaces: Int,
         repromptFaces: Int,
-        corrections: Int,
+        initialCorrections: Map<Int, Color>?,
         outcome: String,
+        state: List<Color?>?,
+        initial: List<Color?>?,
     ) = Unit
 
-    @Suppress("UNUSED_PARAMETER")
     fun onFrame(
         stats: FrameStats,
         nowMs: Long,
@@ -36,17 +40,56 @@ object ScanDiagnostics {
         latticeScore: Double,
     ) = Unit
 
-    @Suppress("UNUSED_PARAMETER")
     fun onAssembly(
         round: String,
         samples: List<FaceSample>,
         saved: CalibrationCenters?,
     ) = Unit
 
-    @Suppress("UNUSED_PARAMETER")
     fun onQuickCheck(
         expected: CubeState,
         observation: PhysicalObservation,
         certainty: Certainty?,
     ) = Unit
+
+    fun startRun(): Long? = null
+
+    fun onGuidedScanRun(
+        started: Long?,
+        repromptFaces: Int,
+        review: ScanReview?,
+        initial: List<Color?>?,
+        corrections: Map<Int, Color>?,
+        outcome: String,
+    ) = Unit
+
+    fun onQuickCheckCaptured(
+        started: Long?,
+        captures: Long,
+    ) = Unit
+
+    fun discardQuickCheckCapture() = Unit
+
+    fun onQuickCheckRun(
+        expected: CubeState,
+        observation: PhysicalObservation?,
+        certainty: Certainty?,
+        matchesExpected: Boolean?,
+    ) = Unit
+
+    fun onCaseCaptured() = Unit
+
+    fun discardCaseCapture() = Unit
+
+    fun onRecognizeRun(
+        result: Recognition?,
+        captures: Int?,
+        captureOutcome: String = "-",
+    ) = Unit
+
+    fun onPlacementScanAccepted() = Unit
+
+    fun onPlacementSuggested(outcome: PlacementOutcome) = Unit
+
+    fun onPlacementRun(accepted: String?) = Unit
 }

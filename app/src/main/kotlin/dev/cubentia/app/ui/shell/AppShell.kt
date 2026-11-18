@@ -402,6 +402,7 @@ private fun ShellContent(
             onAccept = { target, faster ->
                 if (!acceptingPlacement) {
                     if (target == ready.bundle.stages.first()) {
+                        placementFlow.accepted(target.id)
                         startStageOne()
                     } else {
                         placementSaveFailed = false
@@ -411,6 +412,7 @@ private fun ShellContent(
                                 val course = ready.bundle.stages
                                 val saved = host.placeFromScan(target.id, if (target in course) course else course + target)
                                 if (saved) {
+                                    placementFlow.accepted(target.id)
                                     startCourse(target.id.value.takeUnless { faster })
                                     scrollToTwoLook = faster
                                 } else {

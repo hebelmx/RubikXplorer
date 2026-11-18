@@ -5,7 +5,7 @@ import java.io.File
 object QuickScanMeasurement {
     private val run =
         Regex(
-            """quickScan run elapsedMs=(\d+) fallbackFaces=(\d+) repromptFaces=(\d+) corrections=(\d+) outcome=(ACCEPTED|CANCELLED|FELL_BACK_TO_EDITOR)\s*$""",
+            """quickScan run elapsedMs=(\d+|-) fallbackFaces=(\d+) repromptFaces=(\d+) corrections=(\d+) outcome=(ACCEPTED|CANCELLED|FELL_BACK_TO_EDITOR)(?: [A-Za-z][A-Za-z0-9]*=[^\s=]+)*\s*$""",
         )
 
     data class Report(
@@ -38,7 +38,7 @@ object QuickScanMeasurement {
             runs++
             if (fallback.toInt() > 0) fallbackRuns++
             if (reprompt.toInt() > 0) repromptRuns++
-            if (outcome == "ACCEPTED" && elapsed.toLong() < 15_000 && corrections.toInt() <= 3) successes++
+            if (outcome == "ACCEPTED" && elapsed.toLongOrNull()?.let { it < 15_000 } == true && corrections.toInt() <= 3) successes++
         }
         return Report(runs, successes, fallbackRuns, repromptRuns)
     }
