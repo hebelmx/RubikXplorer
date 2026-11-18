@@ -5,7 +5,7 @@ created: '2026-11-18'
 status: 'done'
 baseline_revision: '7a9b3d454144021dd584d5955a337d2240640a73'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-11-context.md'
   - '{project-root}/_bmad-output/planning-artifacts/architecture/architecture-RubikXplorer-2026-10-29/ARCHITECTURE-SPINE.md'
@@ -45,6 +45,14 @@ deferred:
     location: >-
       app/src/testDebug/kotlin/dev/cubentia/app/camera/CornerFixtureHarnessTest.kt
     severity: medium
+  - summary: >-
+      CornerLocator may discard a valid lower-scoring corner when a cluttered background candidate wins on aggregate contrast.
+    evidence: |-
+      The minimum outline/seam checks run only on the top-scoring candidate, but the score already includes outline.min()
+      and seams.min(); a cluttered-background render test or labeled session C corner fixtures would settle it.
+    location: >-
+      app/src/camera/kotlin/dev/cubentia/app/camera/CornerLocator.kt:132-184
+    severity: medium (unverified)
 ---
 
 <intent-contract>
@@ -154,6 +162,43 @@ deferred:
   - `[low]` `[reject]` (intent) Copy/visual details: Guided re-prompt string vs "· White on top", hold-2 swatch order, mini-net highlight checked on a hand-built phase — the re-prompt string is the spec's reading of "Guided re-prompt form"; swatches follow left-to-right placement; `phaseOf(QuickScanController)` sets `captured` and the step face.
   - `[false]` `[reject]` (intent) Quick Scan gated without `CAMERA_SCAN` — `FeatureFlagLevels.cameraViolations` fails the build unless `CAMERA_SCAN` is above OFF whenever `QUICK_SCAN` is.
 
+### 2026-11-18 — Review pass
+- verdicts: 33 findings — high 0, medium 8, low 17, false 7, maybe-false 1
+- findings:
+  - `[medium]` `[defer]` (blind) Prompt-stamped face identity lets a misheld pair self-calibrate into a legal wrong state — carried: same as the deferred prompt-trust row; `QuickScanController.onShutter` still stamps `centerColor` from `QuickScanPlan`.
+  - `[low]` `[reject]` (blind) Hold 2 needs `detected` (two plausible faces) to unlock, so a second corner with one readable face cannot use the partial fallback — real (`CornerReader` sets `detected = plausible >= 2`, `turnedOver` needs `detected`), but repositioning resolves it and auto-capture needs a located corner anyway; the fix reopens the patched hold-2 lock guard.
+  - `[low]` `[reject]` (blind) Two shutter taps before any frame send all six faces to the grid — carried: same as the earlier pre-frame shutter row.
+  - `[low]` `[reject]` (blind) The steady timer counts time across a frame-delivery gap — real (`steadySince` survives a pause), but capture still needs a frame matching the steady reference within 5 ΔE, so the sample is a stable view; the fix adds gap tracking.
+  - `[low]` `[reject]` (blind) `evaluateQuickScan` can recommend GA from one run; no matrix/run ids — carried: same as the earlier matrix-label row.
+  - `[low]` `[reject]` (blind) Attempts that end before the first corner frame are not logged — carried: same as the earlier timing row.
+  - `[low]` `[reject]` (blind) Saving calibration from review restarts `QuickScanController`, so the run record takes fallback/re-prompt counts from the replacement controller — real (`GuidedScanViewModel.saveCalibration` replaces `quickScan`, keeps `quickStartedAt`); debug-only measurement on the rare calibrate-from-review path, elapsed still follows the spec's first-frame-to-Close definition; the fix adds accumulated counters.
+  - `[medium]` `[defer]` (blind) Corner harness counts any legal state and passes with no complete pairs — carried: same as the deferred real-corner assertion row.
+  - `[low]` `[reject]` (blind) Recorder overwrites fixed `corner-<hold>` files, JPEG before JSON — carried: same as the earlier JPEG/JSON row.
+  - `[maybe-false]` `[defer]` (blind) `CornerLocator` keeps the top-scoring candidate and checks outline/seam minimums only on it, so a cluttered background could win over a lower-scoring candidate that passes — the score includes `outline.min()` and `seams.min()`, which may already rank such a candidate first; a cluttered-background render or session C fixtures would settle it. Deferred (medium, unverified).
+  - `[medium]` `[defer]` (blind) No test drives the production `ImageProxy` crop/rotation into `CornerReader` — carried: same as the deferred frame-source corner branch row.
+  - `[false]` `[reject]` (blind) `checkCameraSize` misses camera-only deps outside CameraX and version changes — carried: the camera source set's only dependencies are the three CameraX artifacts; version-aware accounting was the rejected low row.
+  - `[low]` `[reject]` (edge) Capture before the first frame — carried: same as the pre-frame shutter row.
+  - `[low]` `[reject]` (edge) Steady hold counts unobserved time — same root cause as the blind steady-timer row.
+  - `[low]` `[reject]` (edge) An off-cube hold-1 top reading that matches yellow keeps hold 2 locked — needs a manual hold-1 shutter with a located-but-wrong top within 15 ΔE of the yellow center; unlikely, and the fix adds quality filtering of the turnover reference.
+  - `[false]` `[reject]` (edge) Activity recreation between analyzer advance and UI publication strands the hold or review — `phase` delegates to `GuidedScanViewModel.phase`, the controller lives in the ViewModel, and `GuidedScanFlow.phaseOf(quick)` is republished on every corner frame, so a recreated Activity shows the current hold.
+  - `[low]` `[reject]` (edge) Recorder crashes when storage/mkdirs fails — carried: same as the earlier recorder storage row.
+  - `[low]` `[reject]` (edge) JPEG overwrite then failed JSON pairs old labels with a new image — carried: same as the earlier JPEG/JSON row.
+  - `[low]` `[reject]` (edge) Harness can pair a replaced hold 1 with an old hold 2 — same root cause as the JPEG/JSON row (fixed recorder filenames); developer tool, and the harness asserts nothing until session C.
+  - `[low]` `[reject]` (edge) Out-of-range digits abort the measurement — carried: same as the earlier digits row.
+  - `[false]` `[reject]` (edge) Dual-BETA config lacks `solve:quickScan:betaNote` — carried: the spec settles one note with the existing tag.
+  - `[medium]` `[defer]` (verification-gap) `CameraXFrameSource` corner branch untested — carried: deferred adapter-seam row.
+  - `[medium]` `[defer]` (verification-gap) Real-corner replay can pass with zero detected corners — carried: deferred real-corner assertion row.
+  - `[medium]` `[patch]` (verification-gap) No test proves the emitted `quickScan run` record matches the shape `QuickScanMeasurement` parses — `QuickScanRouteTest.steadyCornersCaptureThemselvesAndTheRunRecordCountsReviewEdits` now matches the whole record against the parser's field order (`elapsedMs fallbackFaces repromptFaces corrections outcome`), since the evaluation source set is not on `:app`'s test classpath.
+  - `[low]` `[defer]` (verification-gap) `CheckCameraSizeTask` can drop `.so` bytes with no failing test — carried: deferred TestKit row.
+  - `[medium]` `[defer]` (intent) The real CameraX pixel path is not exercised; session C owns it — carried: deferred adapter and real-corner rows.
+  - `[low]` `[reject]` (intent) Route test feeds fake uniform `CornerFrame`s for a solved cube only — carried: same as the earlier route-test-skips-pixels row.
+  - `[low]` `[reject]` (intent) Scrambled assembly and the invalid-state re-ask are tested only at the domain surface — same root cause as the route-test row; `QuickScanControllerTest` is the controller's own surface and the route covers its wiring.
+  - `[medium]` `[defer]` (intent) Prompt trust can give a valid but wrong state at review — carried: deferred prompt-trust row.
+  - `[false]` `[reject]` (intent) Success thresholds (≤ 3 corrections, < 15 s, ≥ 95 %) come from the spec — carried: same as the earlier measurement-proxies row.
+  - `[false]` `[reject]` (intent) Size is an estimate, not a measured release — carried: same as the earlier size-projection row.
+  - `[false]` `[reject]` (intent) Solve Home now renders *Scan my cube* in a `FlowRow` with *Enter colors* last when QUICK_SCAN is on — the spec's Entry row settles exactly that layout for CAMERA_SCAN GA, and only on Solve.
+  - `[false]` `[reject]` (intent) The debug recorder's corner mode stores frames — the intent forbids storing frames on the Learner path; the recorder is the existing debug-only fixture tool under `app/src/camera/debug`, and the production corner path stores nothing.
+
 ## Design Notes
 
 **Holds and face mapping** (PO clarification 5; chirality fixed by geometry: with yellow on top the D-B-L corner puts orange front-left, blue front-right). Hexagon vertices: top T, upper-left UL, lower-left LL, bottom B, lower-right LR, upper-right UR, center C. Unwarp square (TL, TR, BR, BL): top face (T, UR, C, UL); front-left (UL, C, B, LL); front-right (C, UR, LR, B). Emitted `upNeighborColor` is the face across the unwarped top edge; `orientationDegrees = 0`.
@@ -226,3 +271,12 @@ New suites passed: `QuickScanControllerTest` 10/10, `QuickScanRouteTest` 3/3, `C
 - Real-world corner detection is unmeasured. The tests use rendered and warped views only.
 - The ≥ 95 % / < 15 s measurement, the GA/BETA recommendation and real corner fixtures all happen at device session C, which is the before-merge human gate.
 - The projected camera size counts the whole CameraX stack. NFR-11's release measurement stays with Story 10.11.
+
+### Follow-up review pass (2026-11-18)
+
+- **Change:** one review fix. `QuickScanRouteTest` now matches the whole emitted `quickScan run` record against the field order `QuickScanMeasurement` parses, so a drifted or missing field fails the route test instead of silently voiding the session C tally.
+- **Files changed:** `app/src/testDebug/kotlin/dev/cubentia/app/QuickScanRouteTest.kt` -- full-record assertion.
+- **Review findings:** 33 findings across 4 layers (high 0, medium 8, low 17, false 7, maybe-false 1); 24 carried from the first pass. Patched: 1 medium entry (producer-to-parser record shape). Deferred: 1 new entry (CornerLocator candidate selection on cluttered backgrounds, medium unverified); the carried deferrals are unchanged. Rejected: 7 false and 16 low rows, each with its reason in the second Review Triage Log entry (new lows: hold-2 single-face unlock, steady timer across frame gaps, run-record counters after calibrate-from-review, off-cube hold-1 top reading).
+- **Follow-up review recommendation:** false. This follow-up pass patched 0 high and 1 medium entries, so the review has converged.
+- **Verification:** `./gradlew :app:testDebugUnitTest --tests dev.cubentia.app.QuickScanRouteTest` passed; `./gradlew spotlessCheck build` passed (BUILD SUCCESSFUL); `./gradlew -p build-logic test` passed; `./gradlew :app:checkCameraSize` passed; `./gradlew :core:domain:evaluateQuickScan --args=<sample log>` printed the counts and `Recommendation: GA` for one accepted run.
+- **Residual risks:** the same as the first pass (real-corner accuracy, the production adapter path and prompt trust are all settled at device session C), plus the unverified CornerLocator candidate-selection risk.

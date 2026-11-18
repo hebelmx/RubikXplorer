@@ -159,8 +159,9 @@ class QuickScanRouteTest {
                 rule.waitForIdle()
                 val runs = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.filter { it.startsWith("quickScan run ") }
                 assertEquals(1, runs.size)
-                assertTrue(runs.single(), runs.single().contains("fallbackFaces=0") && runs.single().contains("corrections=1"))
-                assertTrue(runs.single(), runs.single().endsWith("outcome=CANCELLED"))
+                // The exact shape QuickScanMeasurement parses at device session C; a drifted field would void the tally.
+                val record = Regex("""quickScan run elapsedMs=\d+ fallbackFaces=0 repromptFaces=0 corrections=1 outcome=CANCELLED""")
+                assertTrue(runs.single(), record.matches(runs.single()))
             } finally {
                 scan.pause().stop().destroy()
             }
