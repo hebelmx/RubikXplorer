@@ -1,6 +1,8 @@
 package dev.cubentia.app.ui.shell
 
 import android.app.Application
+import androidx.activity.OnBackPressedDispatcher
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -26,6 +28,7 @@ import dev.cubentia.application.port.ProgressRecord
 import dev.cubentia.application.port.ProgressRepository
 import dev.cubentia.application.port.ProgressSave
 import dev.cubentia.application.preference.Preferences
+import dev.cubentia.domain.content.ContentLoadError
 import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
@@ -76,6 +79,7 @@ class AppShellPlacementTest {
             writer,
         )
     private val flow = PlacementFlowViewModel()
+    private lateinit var back: OnBackPressedDispatcher
     private var scanCount = 0
     private var failWrite = false
     private val records = mutableListOf<ProgressRecord>()
@@ -259,13 +263,54 @@ class AppShellPlacementTest {
         rule.onNodeWithTag("welcome:imNew").assertIsDisplayed()
     }
 
+    @Test
+    fun `a failed catalog hides the entry point even with Placement on and a scan action`() {
+        show(failedCatalog = true)
+        rule.onNodeWithTag("welcome:startFromCube").assertDoesNotExist()
+        rule.onNodeWithTag("welcome:imNew").assertIsDisplayed()
+        assertEquals(0, scanCount)
+    }
+
+    @Test
+    fun `system Back steps from the chooser to the suggestion, then to Welcome, without writing`() {
+        show()
+        startScan()
+        deliver(ScanOutcome.Accepted(entry("lesson-03-01")))
+        rule.onNodeWithTag("placement:chooseAnother").performClick()
+        rule.onNodeWithTag("placement:stage:stage-01-fundamentals").assertExists()
+
+        rule.runOnIdle { back.onBackPressed() }
+        rule.onNodeWithTag("placement:prompt").assertTextContains("Start at First-layer corners?")
+        rule.onNodeWithTag("placement:stage:stage-01-fundamentals").assertDoesNotExist()
+
+        rule.runOnIdle { back.onBackPressed() }
+        rule.onNodeWithTag("welcome").assertIsDisplayed()
+        rule.onNodeWithTag("placement:prompt").assertDoesNotExist()
+
+        startScan()
+        deliver(ScanOutcome.FellBackToEditor)
+        rule.onNodeWithTag("placement:editorNote").assertExists()
+        rule.runOnIdle { back.onBackPressed() }
+        rule.onNodeWithTag("welcome").assertIsDisplayed()
+
+        assertTrue(records.isEmpty())
+        assertFalse(preferences.preferences.value.onboarded)
+    }
+
     private fun show(
         enabled: Boolean = true,
         hasScan: Boolean = true,
+        failedCatalog: Boolean = false,
     ) {
-        val catalog = LessonCatalog.of(shipped)
+        val catalog =
+            if (failedCatalog) {
+                LessonCatalog.of(ContentLoadResult.Failed(ContentLoadError.MissingResource("missing.json")))
+            } else {
+                LessonCatalog.of(shipped)
+            }
         val freeCube = FreeCubeViewModel()
         rule.setContent {
+            back = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
             CubentiaTheme {
                 AppShell(
                     host = host,

@@ -27,6 +27,7 @@ import dev.cubentia.app.solver.SolverSource
 import dev.cubentia.app.ui.solve.SolvePhase
 import dev.cubentia.domain.cube.CubeState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -51,9 +52,13 @@ class PlacementFromScanRouteTest {
 
     @BindValue internal val frames: ScanFrameSource = ScanRouteTest.FakeFrames()
 
+    private var denied = false
+
     @BindValue val launcher: ScanLauncher =
         object : ScanLauncher {
             override fun hasCamera(context: Context) = true
+
+            override fun cameraDenied(context: Context) = denied
 
             override fun guidedScanIntent(context: Context) = Intent(context, GuidedScanActivity::class.java)
         }
@@ -85,6 +90,26 @@ class PlacementFromScanRouteTest {
             rule.onNodeWithTag("placement:prompt").assertDoesNotExist()
             assertEquals(SolvePhase.Home, main.solveFlowPhase())
         }
+
+    @Test fun recordedDenialFromWelcomeOpensThePlacementEditorAndStartsNoScan() {
+        denied = true
+        val main = Robolectric.buildActivity(MainActivity::class.java).setup()
+        try {
+            rule.waitUntil(10_000) { rule.onAllNodesWithTag("welcome:startFromCube").fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithTag("welcome:startFromCube").performClick()
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                rule.onAllNodesWithTag("placement:editorNote").fetchSemanticsNodes().isNotEmpty()
+            }
+            rule
+                .onNodeWithTag("placement:editorNote")
+                .assertTextContains("Camera access is off, so enter your cube's colors here.")
+            assertNull(shadowOf(main.get()).peekNextStartedActivityForResult())
+            assertEquals(SolvePhase.Home, main.get().solveFlowPhase())
+        } finally {
+            main.pause().stop().destroy()
+        }
+    }
 
     private fun MainActivity.solveFlowPhase(): SolvePhase =
         androidx.lifecycle

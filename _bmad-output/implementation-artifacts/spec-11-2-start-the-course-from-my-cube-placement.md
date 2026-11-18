@@ -5,7 +5,7 @@ created: '2026-11-17'
 status: 'done'
 baseline_revision: '6e180b068c976ed6b2ea2cb43a28352fff968868'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-11-context.md'
@@ -133,6 +133,38 @@ Evaluation order on the accepted `CubeState` (domain `Placement.evaluate`), firs
   - `[low]` `[reject]` (intent) Chooser numbers 2-look rows 8 and 9 while Learn numbers them 1 and 2 — cosmetic; the chooser is one flat list.
   - `[low]` `[defer]` (intent) Welcome's *Start from my cube* label is still `strings.xml`, not en.json — pre-existing Welcome chrome (all Welcome labels live there); moving Welcome copy is outside this change.
 
+### 2026-11-17 — Review pass (follow-up)
+- verdicts: 28 findings — high 0, medium 3, low 17, false 8, maybe-false 0
+- findings:
+  - `[false]` `[reject]` (blind) A failed write breaks the 2-look destinations — the I/O matrix's "Write fails" row settles this: navigation still happens and Learn shows the real derived status (an unresolvable 2-look `selectedStage` lands on the Learn list). The fix would edit the spec.
+  - `[low]` `[reject]` (blind) Activity recreation during an accepted write splits the outcome — carried: low, reject. `welcome` is `rememberSaveable`, so a config change keeps Placement. After process death, Welcome is suppressed because the skips persisted, so the Learner lands on Learn with placement applied.
+  - `[low]` `[reject]` (blind) A pending scan or denial check can outlive the screen that requested it — carried: low, reject (needs attempt tokens; unlikely).
+  - `[false]` `[reject]` (blind) The skip-ahead failure's "Let's find where to start" is not wired to Placement — that text is Welcome's `welcome_abandoned` banner (`WelcomeScreen.kt` L97). It sits above the same *Start from my cube* button, so Placement is reachable from it.
+  - `[low]` `[reject]` (blind) The chooser numbers 2-look Stages 8 and 9, while Learn numbers them 1 and 2 — carried: low, reject (cosmetic).
+  - `[low]` `[reject]` (blind) The fallback test accepts the editor's untouched solved default — carried: low, reject (the editor's `onAccept` wiring is covered by Solve's editor tests).
+  - `[low]` `[patch]` (blind) The catalog-ready gate has no regression test — added `a failed catalog hides the entry point even with Placement on and a scan action` to `AppShellPlacementTest`.
+  - `[low]` `[reject]` (blind) The `suggest` "never accesses progress" test checks outcomes, not calls — `suggest` delegates to the pure `Placement.evaluate(state, stages)`, which has no repository parameter. A counting fake adds test machinery for a defect nobody would meet.
+  - `[low]` `[patch]` (blind) Back transitions have no UI coverage — added `system Back steps from the chooser to the suggestion, then to Welcome, without writing`, which covers chooser → result → Welcome and editor → Welcome.
+  - `[medium]` `[patch]` (blind) A recorded camera denial is never routed through MainActivity's Placement action — added `recordedDenialFromWelcomeOpensThePlacementEditorAndStartsNoScan` to `PlacementFromScanRouteTest`, with a configurable `cameraDenied` on the fake launcher.
+  - `[low]` `[reject]` (edge) Recreation while the queued write runs — carried: low, reject (same as above).
+  - `[low]` `[reject]` (edge) The Learner leaves during the asynchronous denial check — carried: low, reject (same root as the late callback).
+  - `[false]` `[reject]` (edge) An empty Course makes `Placement.evaluate` throw — carried: false (shipped content always has 7 Stages).
+  - `[false]` `[reject]` (edge) An empty Course makes the solved result screen throw — same refutation: unreachable with shipped content.
+  - `[false]` `[reject]` (edge) The lesson-06-01 fixture does not exercise Stage 6 — carried: false (lesson-06-02 covers the Stage 6 row; 06-01's entry state is genuinely not LL-oriented).
+  - `[low]` `[patch]` (verification-gap) Welcome's Placement action is unverified when the catalog fails — same fix as the blind catalog-gate finding.
+  - `[medium]` `[patch]` (verification-gap) The Welcome route never exercises a recorded camera denial — same fix as the blind denial-route finding.
+  - `[low]` `[reject]` (verification-gap) The manual fallback test cannot tell the entered cube from the solved default — carried: low, reject (same row as the blind fallback finding).
+  - `[medium]` `[patch]` (intent) MainActivity-level fallback, denial and Hilt-backed writes are not exercised — the denial route is now covered (grouped with the denial patch). Accepted and Cancelled were already covered. Persistence is verified at the `SessionHost` surface with a real `SerialWriter`, per the device-free JVM scope.
+  - `[low]` `[reject]` (intent) The fallback test only shows the Solved outcome from the editor — carried: low, reject.
+  - `[low]` `[reject]` (intent) BETA rendering is tested only on `WelcomeScreen`, and no build ships `PLACEMENT=BETA` — AppShell passes `flags` straight through to `WelcomeScreen`, whose test covers the label, the note and TalkBack. No build can reach BETA today.
+  - `[false]` `[reject]` (intent) Release and benchmark staying OFF is not asserted anew — `FeatureFlagLevelsTest.kt` L19 pins the release string with `PLACEMENT=OFF`, and the build-logic suite passes.
+  - `[low]` `[reject]` (intent) The real *Scan again* relaunch through `scanInFlight` is untested — Placement uses the same `guidedScanAction` helper whose guard `ScanRouteTest` covers for Solve. *Scan again* only re-invokes that action.
+  - `[false]` `[reject]` (intent) *Faster last layer* skipping Stages 5–7 comes from the spec, not the intent — settled by PO clarification 2 and EXPERIENCE (Design Notes). Same refutation as the first pass's 2-look rows.
+  - `[false]` `[reject]` (intent) Stage 1 accepts bypass `PlaceFromScan` — the matrix makes Stage 1 the *I'm new* path. `PlaceFromScan` would write nothing for Stage 1, so the observable outcome is identical.
+  - `[low]` `[reject]` (intent) The `PlaceFromScan.inMemory` factory is extra surface beyond `suggest` — `invoke` is unchanged and remains the only writer of `StageSkippedByPlacement`. The factory only backs `SessionHost`'s no-repository fallback, with no named harm.
+  - `[low]` `[defer]` (intent) The Welcome label (and the TalkBack text built from it) comes from `strings.xml` — carried: defer (already in `deferred`; not added again).
+  - `[low]` `[reject]` (intent) The write-fail exception path is untested — `SessionHost.placeFromScan` maps exceptions to `Failed`, mirroring `passSkipCheck`. The `Failed` return is tested at the shell level, and the gap would only matter on a storage exception.
+
 ## Design Notes
 
 - Why Stage 1 for an unmet white cross: EXPERIENCE.md "Nothing solved → Stage 1" and Flow 4 (a solved cross skips Stages 1–2), so Stage 2 is never suggested on its own; Stage 1 opens the Course from the start.
@@ -175,3 +207,30 @@ Evaluation order on the accepted `CubeState` (domain `Placement.evaluate`), firs
 - If the Activity is recreated while an accept write is in flight, the skips can be persisted without onboarding. This is recoverable by accepting again.
 - A scan callback that arrives after the Learner has left Welcome can leave a stale Placement phase.
 - Physical camera capture was not exercised; that needs a device session.
+
+### Follow-up review pass (2026-11-17)
+
+**Summary:** A fresh four-layer review of the full Story 11.2 diff ran (three layers on Codex, plus the Claude intent-alignment layer). It found no production defect. Three test gaps were closed: the catalog-ready gate, system Back through the Placement phases, and the MainActivity camera-denial route.
+
+**Files changed:**
+- `app/src/test/kotlin/dev/cubentia/app/ui/shell/AppShellPlacementTest.kt`: adds a failed-catalog entry-point test and a system-Back test. `show()` gains `failedCatalog` and captures the back dispatcher.
+- `app/src/testDebug/kotlin/dev/cubentia/app/PlacementFromScanRouteTest.kt`: adds a recorded-denial route test, with a configurable `cameraDenied` on the fake launcher.
+
+**Review findings:** 28 findings, triaged as follows:
+- **Patched:** 7 findings in 3 entries: the catalog gate (2), the Back transitions (1) and the denial route (3, plus 1 intent row grouped with it).
+- **Deferred:** 0 new. The Welcome-label row was carried as an existing defer.
+- **Rejected:** 21, each with its reason in the triage log:
+  - Carried recreation and late-callback races (4).
+  - Carried fallback-default test (3).
+  - Carried chooser numbering, carried empty Course (2), and carried lesson-06-01.
+  - Failed-write 2-look landing (settled by the spec), and the skip-ahead link (already reachable).
+  - The `suggest` call-count test, BETA through AppShell, release flags (already pinned), the *Scan again* guard, the *Faster last layer* semantics, the Stage 1 bypass, the `inMemory` factory, and the exception path.
+
+**Follow-up review recommendation:** false. This is a follow-up pass and it patched no high. Patched entries by verdict: high 0, medium 1, low 2.
+
+**Verification:**
+- `./gradlew spotlessApply :app:testDebugUnitTest --tests AppShellPlacementTest --tests PlacementFromScanRouteTest`: passed. `AppShellPlacementTest` ran 14 tests and `PlacementFromScanRouteTest` ran 3, with 0 failures.
+- `./gradlew spotlessCheck build --max-workers=4`: BUILD SUCCESSFUL.
+- `./gradlew -p build-logic test`: BUILD SUCCESSFUL.
+
+**Residual risks:** These are unchanged from the first pass: a recreation or process death during the accept write, a stale late scan callback, and the physical camera, which is untested pending a device session.
