@@ -7,6 +7,9 @@ import dev.cubentia.application.port.ProgressSave
 import dev.cubentia.application.port.ProgressWrite
 import dev.cubentia.domain.content.Stage
 import dev.cubentia.domain.content.StageId
+import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.tutor.Placement
+import dev.cubentia.domain.tutor.PlacementOutcome
 import dev.cubentia.domain.tutor.ProgressEvent
 import dev.cubentia.domain.tutor.StageProgress
 import dev.cubentia.domain.tutor.StageStatus
@@ -20,6 +23,12 @@ import kotlin.time.Instant
 class PlaceFromScan(
     private val repository: ProgressRepository,
 ) {
+    /** Suggests a Course Stage from an accepted cube without reading or writing progress. */
+    fun suggest(
+        state: CubeState,
+        stages: List<Stage>,
+    ): PlacementOutcome = Placement.evaluate(state, stages)
+
     suspend operator fun invoke(
         targetStageId: StageId,
         stages: List<Stage>,
@@ -64,5 +73,23 @@ class PlaceFromScan(
             ProgressSave.Saved -> ProgressWrite.Written(newEvents)
             ProgressSave.Failed -> ProgressWrite.Failed
         }
+    }
+
+    companion object {
+        /** Uses a caller's in-memory progress when no persistent repository is configured. */
+        fun inMemory(
+            events: () -> List<ProgressEvent>,
+            onWritten: (List<ProgressEvent>) -> Unit,
+        ): PlaceFromScan =
+            PlaceFromScan(
+                object : ProgressRepository {
+                    override suspend fun all(): ProgressLoad = ProgressLoad.Found(events())
+
+                    override suspend fun append(records: List<ProgressRecord>): ProgressSave {
+                        onWritten(records.map { it.event })
+                        return ProgressSave.Saved
+                    }
+                },
+            )
     }
 }

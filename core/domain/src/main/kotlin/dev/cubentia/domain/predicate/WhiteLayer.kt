@@ -10,22 +10,23 @@ internal object WhiteLayer {
     private const val PER_FACE = 9
 
     /**
-     * The pieces among [pieces] (sticker indices per slot) that touch the face whose center is WHITE
-     * and sit correctly: WHITE on that face and every other sticker equal to the center color of the
+     * The pieces among [pieces] (sticker indices per slot) that touch the face whose center is [centerColor]
+     * and sit correctly: [centerColor] on that face and every other sticker equal to the center color of the
      * face it sits on. Each piece is named by its colors.
      */
     fun correctPieces(
         state: CubeState,
         pieces: List<List<Int>>,
+        centerColor: Color = Color.WHITE,
     ): Set<Piece> {
         val colors = state.toFacelets().colors
-        val white = Face.entries.single { colors[FaceletTables.center(it)] == Color.WHITE }
+        val centerFace = Face.entries.single { colors[FaceletTables.center(it)] == centerColor }
         return pieces
             .mapNotNull { stickers ->
-                val onWhite = stickers.firstOrNull { faceOf(it) == white } ?: return@mapNotNull null
-                val sides = stickers.filter { it != onWhite }
+                val onCenterFace = stickers.firstOrNull { faceOf(it) == centerFace } ?: return@mapNotNull null
+                val sides = stickers.filter { it != onCenterFace }
                 val correct =
-                    colors[onWhite] == Color.WHITE && sides.all { colors[it] == colors[FaceletTables.center(faceOf(it))] }
+                    colors[onCenterFace] == centerColor && sides.all { colors[it] == colors[FaceletTables.center(faceOf(it))] }
                 if (correct) Piece(stickers.map { colors[it] }.toSet()) else null
             }.toSet()
     }

@@ -18,7 +18,7 @@ class BuildConfigFeatureFlagsTest {
             }
         val flags = BuildConfigFeatureFlags()
         FeatureFlag.entries.forEach {
-            val wired = it in setOf(FeatureFlag.CAMERA_SCAN, FeatureFlag.TEST_ME, FeatureFlag.ADAPTIVE_ASSISTANCE)
+            val wired = it in setOf(FeatureFlag.CAMERA_SCAN, FeatureFlag.PLACEMENT, FeatureFlag.TEST_ME, FeatureFlag.ADAPTIVE_ASSISTANCE)
             assertEquals(if (BuildConfig.BUILD_TYPE == "debug" && !wired) FlagLevel.OFF else expected, flags.level(it), it.name)
         }
     }
