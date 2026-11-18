@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -94,6 +95,7 @@ fun AlgorithmDetailScreen(
     showDiagram: Boolean = RECOGNITION_DIAGRAMS_ENABLED,
     status: AlgorithmStatus = AlgorithmStatus.NOT_STARTED,
     onSetStatus: (AlgorithmStatus) -> Unit = {},
+    autoPlay: Boolean = false,
 ) {
     val result = remember(algorithm) { Demonstration.ofCase(algorithm) }
     val tokens = RubikTheme.tokens
@@ -125,6 +127,7 @@ fun AlgorithmDetailScreen(
         return
     }
     val state = rememberDemonstrationPlayerState(result.demonstration)
+    LaunchedEffect(algorithm.id) { if (autoPlay) state.play() }
     PlaybackFrameLoop(state)
     val controls: @Composable () -> Unit = {
         PlaybackTransport(state, strings, note = state.currentMove?.let { strings.resolve(MoveNote.of(it)) }, onScrub = state::scrubTo)

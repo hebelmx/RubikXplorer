@@ -39,12 +39,20 @@ internal fun PlacementScreen(
     onScanAgain: () -> Unit,
     modifier: Modifier = Modifier,
     accepting: Boolean = false,
+    saveFailed: Boolean = false,
 ) {
     BackHandler { if (!accepting) flow.back() }
     Column(
         modifier = modifier.fillMaxSize().safeDrawingPadding().padding(Spacing.s4),
         verticalArrangement = Arrangement.spacedBy(Spacing.s2),
     ) {
+        if (saveFailed) {
+            Text(
+                strings.resolve(ContentText("msg.placement.save-failed")),
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            )
+        }
         when (phase) {
             PlacementPhase.Idle -> {}
 

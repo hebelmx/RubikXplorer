@@ -51,7 +51,7 @@ object FeatureFlagLevels {
                 flags.associateWith {
                     when (it) {
                         "QUICK_SCAN" -> "BETA"
-                        "CASE_RECOGNITION" -> "OFF"
+                        "CASE_RECOGNITION" -> "GA"
                         else -> "GA"
                     }
                 },

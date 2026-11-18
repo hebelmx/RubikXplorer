@@ -18,7 +18,15 @@ class BuildConfigFeatureFlagsTest {
             }
         val flags = BuildConfigFeatureFlags()
         FeatureFlag.entries.forEach {
-            val wired = it in setOf(FeatureFlag.CAMERA_SCAN, FeatureFlag.PLACEMENT, FeatureFlag.TEST_ME, FeatureFlag.ADAPTIVE_ASSISTANCE)
+            val wired =
+                it in
+                    setOf(
+                        FeatureFlag.CAMERA_SCAN,
+                        FeatureFlag.PLACEMENT,
+                        FeatureFlag.CASE_RECOGNITION,
+                        FeatureFlag.TEST_ME,
+                        FeatureFlag.ADAPTIVE_ASSISTANCE,
+                    )
             val level =
                 when {
                     BuildConfig.BUILD_TYPE == "debug" && it == FeatureFlag.QUICK_SCAN -> FlagLevel.BETA

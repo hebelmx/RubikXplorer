@@ -19,6 +19,11 @@ interface ScanLauncher {
     /** The explicit intent of the Guided 6-face Scan; start it only through [ScanFlowContract]. */
     fun guidedScanIntent(context: Context): Intent
 
+    fun caseCaptureIntent(
+        context: Context,
+        corners: Int,
+    ): Intent = guidedScanIntent(context)
+
     fun quickScanIntent(context: Context): Intent = guidedScanIntent(context)
 
     fun quickCheckIntent(

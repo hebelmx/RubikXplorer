@@ -19,23 +19,29 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.R
 import dev.cubentia.app.content.CatalogState
 import dev.cubentia.app.content.ContentStrings
+import dev.cubentia.app.ui.beta.BetaLabel
+import dev.cubentia.app.ui.beta.BetaNote
 import dev.cubentia.app.ui.shell.WindowWidthClass
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.domain.content.AlgorithmId
@@ -77,6 +83,8 @@ fun LibraryScreen(
     statuses: Map<AlgorithmId, AlgorithmStatus> = emptyMap(),
     familyChipsScroll: ScrollState = rememberScrollState(),
     onOpenAlgorithm: (AlgorithmId) -> Unit = {},
+    onRecognize: (() -> Unit)? = null,
+    recognizeBeta: Boolean = false,
 ) {
     val ink = RubikTheme.tokens.inkPrimary
     when (catalog) {
@@ -94,12 +102,40 @@ fun LibraryScreen(
             fun text(key: String) = strings.resolve(ContentText(key))
             val sections = AlgorithmLibrary.sections(catalog.bundle.cases, catalog.bundle.algorithms, filter, statuses)
             Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    stringResource(R.string.nav_library),
-                    modifier = Modifier.semantics { heading() },
-                    color = ink,
-                    style = MaterialTheme.typography.headlineLarge,
-                )
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(R.string.nav_library),
+                        modifier = Modifier.weight(1f).semantics { heading() },
+                        color = ink,
+                        style = MaterialTheme.typography.headlineLarge,
+                    )
+                    if (onRecognize != null) {
+                        val label = text("btn.library.recognize-case")
+                        val beta = if (recognizeBeta) text("msg.feature.beta") else null
+                        OutlinedButton(
+                            onClick = onRecognize,
+                            modifier =
+                                Modifier.testTag("library:recognize").semantics {
+                                    if (beta != null) contentDescription = "$label, $beta"
+                                },
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(label)
+                                if (beta != null) {
+                                    BetaLabel(
+                                        beta,
+                                        LocalContentColor.current,
+                                        MaterialTheme.typography.labelMedium,
+                                        Modifier.testTag("library:recognize:beta"),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                if (onRecognize != null && recognizeBeta) {
+                    BetaNote(text("msg.feature.camera.beta-note"), Modifier.testTag("library:recognize:betaNote"))
+                }
                 Row(Modifier.horizontalScroll(familyChipsScroll), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     AlgorithmLibrary.families(catalog.bundle.cases).forEach { family ->
                         LibraryChip(text("msg.library.family.${family.value}"), filter.family == family, "library:family:${family.value}") {

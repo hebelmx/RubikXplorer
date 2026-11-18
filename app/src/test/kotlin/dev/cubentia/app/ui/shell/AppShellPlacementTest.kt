@@ -5,9 +5,11 @@ import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import dev.cubentia.app.content.LessonCatalog
@@ -234,17 +236,23 @@ class AppShellPlacementTest {
     }
 
     @Test
-    fun `failed write still onboards with the actual progress`() {
+    fun `failed write keeps the placement result and does not onboard`() {
         failWrite = true
         show()
         startScan()
         deliver(ScanOutcome.Accepted(entry("lesson-03-01")))
         rule.onNodeWithTag("placement:start").performClick()
 
-        assertDetail("First-layer corners")
+        val failure = bundle.strings.getValue("msg.placement.save-failed")
+        rule.waitUntil(5_000) { rule.onAllNodes(hasText(failure)).fetchSemanticsNodes().size == 1 }
+        rule.onNodeWithText(failure).assertIsDisplayed()
+        rule.onNodeWithTag("placement:prompt").assertTextContains("Start at First-layer corners?")
+        rule.onNodeWithTag("stageDetail").assertDoesNotExist()
         assertTrue(records.isEmpty())
         assertEquals(StageStatus.LOCKED, StageProgress.status(bundle.stages[2], bundle.stages, host.progressEvents.value))
-        assertOnboarded()
+        runBlocking { writer.flush() }
+        assertFalse(preferences.preferences.value.onboarded)
+        assertFalse(savedPreferences.onboarded)
     }
 
     @Test
