@@ -173,12 +173,14 @@ These principles break ties wherever the FRs leave a choice to UX, curriculum au
 **Description:** the centerpiece of the app. A 3×3 cube rendered in 3D that the Learner can turn and inspect from any angle. Gestures for View Rotation and for face turns are clearly separate, and an ambiguous gesture never changes the Cube State. On-screen buttons offer every Move type as a non-gesture alternative, for accessibility and precision. Realizes UJ-1, UJ-6.
 
 #### FR-1: Render and turn the cube
-The Learner can see a 3×3 cube (6 faces × 9 stickers) and apply Moves. Gestures cover face turns and Cube Rotations; buttons cover every Move type, including wide and slice turns. [ASSUMPTION: wide and slice turns can be entered by button only in MVP.]
+The Learner can see a 3×3 cube (6 faces × 9 stickers) and apply Moves. Gestures cover face turns, slice turns, wide turns and Cube Rotations; buttons cover every Move type. A drag shows the Move it will make while the finger moves, and commits it only when the finger lifts (SCP 2026-11-18).
 
 **Consequences (testable):**
 - After every committed Move, the rendered cube and the Virtual State are identical, checked sticker by sticker in tests.
 - Input that arrives during an animation is queued or rejected deterministically. It never leaves the logical state and the rendering out of step.
 - A quarter-turn animation completes within 250 ms on the reference device (§5).
+- While a turn gesture is in progress, the turning layer and the Move name are shown, and the Cube State is unchanged until release; a cancelled drag changes nothing.
+- The previewed Move name is in the cube frame, so it is the Move that will commit whatever the view angle.
 
 #### FR-2: Rotate the view independently
 The Learner can rotate the camera freely without changing the Cube State.
@@ -186,6 +188,7 @@ The Learner can rotate the camera freely without changing the Cube State.
 **Consequences (testable):**
 - No sequence of View Rotations changes the Virtual State.
 - [ASSUMPTION: Notation follows the cube's own orientation, not the camera. `R` names the same face whatever the view angle.]
+- While the view is off its home position, the stage says so and offers a one-tap Reset view (SCP 2026-11-18).
 
 #### FR-3: Undo, redo and reset
 The Learner can undo Moves repeatedly, redo them, and reset the cube.
@@ -733,6 +736,7 @@ Recorded in `.memlog.md`:
 - 2026-11-17: a Quick Check (Partial observation) verifies only a match; only a Guided 6-face Scan (Full observation) verifies a mismatch (SCP 2026-11-17 quick-check-verified-rule).
 - 2026-11-17: Solution Playback switches between the 3D cube and the 2D net (opens in 3D, on the net in Physical-cube Mode, then remembers the choice), and each Move gets an optional move picture (default on) with the UX-DR14 Move strip; both are v1 release scope, before Story 12.3 and the store screenshots (PO, SCP 2026-11-17 playback view and move glyphs).
 - 2026-11-18: Case recognition takes two opposite top-corner captures, with yellow on top, and intersects their candidate Cases. A Placement suggestion reads "Start at *Stage*?" with no progress sentence (SCP 2026-11-18 recognize-two-corners).
+- 2026-11-18: FR-1 — gestures preview on drag and commit on release; slices by middle-layer drag, wide Moves by two-finger drag on the cube; a View rotated badge with Reset view and face letters while the view is off home (SCP 2026-11-18 drag-preview-and-view-rotated, GitHub #206, #207).
 - 2026-11-15: `CAMERA_SCAN` is BETA-only on the Story 10.10 session A result (216/216, operator-dependent calibration); re-plan with a UX pass on scan layout, calibration and color input; Stories 10.12 (recorder rework, session A2) and 10.13 (OQ-7 recognition approach) added; OQ-7 re-opened (SCP 2026-11-15).
 - 2026-11-15: OQ-7 closed with decision K: Kotlin nearest-center classification fed by a per-cell histogram-mode reader and self-calibrated from the six face centers, with a logo-center guard; LiteRT is the fallback if field use shows K is not enough; OpenCV rejected on size (PO, Story 10.13, PR #155).
 

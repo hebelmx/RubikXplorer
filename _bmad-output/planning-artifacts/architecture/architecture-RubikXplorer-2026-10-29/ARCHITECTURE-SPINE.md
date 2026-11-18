@@ -142,8 +142,12 @@ stateDiagram-v2
     - When more than 3 items are queued, the queue fast-forwards at increased speed. It never drops a committed Move.
   - **Renderer contract:** `CubeRenderer` receives a `CubeState`, the presentation queue and a `RenderStyle` (color-blind display, speed). It never mutates state.
   - **Test hook:** the renderer exposes `renderedFacelets()` for tests, and must end exactly at the last target state.
-  - **Gestures:** gesture interpretation is a pure `GestureInterpreter` (touch path + view pose → `MoveIntent?`). Below the confidence threshold it returns no intent.
+  - **Gestures:** gesture interpretation is a pure `GestureInterpreter` (one or two touch paths + view pose → DragPreview? while dragging, MoveIntent? on release). It reads whole paths and locks the axis and layer once the drag passes the lock distance; once locked it reports Active(move, degrees ∈ [−90°, +90°]) or CancelZone, never null. Below the confidence threshold it returns nothing. Touch handling lives in a gesture host separate from the renderer.
   - **View Rotation:** stays local to the renderer and never becomes a `SessionEvent`.
+  - **Drag preview:** like View Rotation, the ghost turn of a dragged layer is renderer-local. It never becomes a `SessionEvent` and never changes `renderedFacelets()`, which always returns committed state. Its highlight is a separate per-cubie flag OR-ed with `NetEmphasis`.
+    - **Start:** a drag that starts while the queue is busy first runs `PresentationQueue.finishAll()` (every outstanding item applied in order, none dropped, trace sections closed), so the preview always starts from the committed state.
+    - **Commit handoff:** on release the renderer holds the ghost at its angle. When the matching `Animate(move)` reaches the queue, `CubieModel.begin` adopts the held turn and continues from its angle over the remaining duration (`1 − |degrees| / 90` of a turn) instead of starting from 0°. If a different item arrives first, or no commit follows (input blocked), the held ghost snaps back to 0° before that item starts.
+    - **Cancel:** the layer snaps back with no event (SCP 2026-11-18).
   - **First adapter:** a 2D net renderer is the first `CubeRenderer` (P0.1). The 3D adapter replaces it behind the same port, except on Solution Playback, where both adapters stay and the Learner picks one. The playback view is a preference (written by `UpdatePreference`), never a `SessionEvent`; switching views builds the other adapter at the committed state (`Snap`) with the same playback position, and nothing in the session changes (SCP 2026-11-17 playback view and move glyphs).
 
 ### AD-5 — Observations and Certainty
