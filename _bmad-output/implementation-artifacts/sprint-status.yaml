@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-18-2026 09:55'
+last_updated: '11-18-2026 10:11'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -152,7 +152,7 @@ development_status:
   11-1-quick-scan-from-two-corners: done
   11-2-start-the-course-from-my-cube-placement: done
   11-3-recognize-an-oll-pll-case: done
-  epic-11-retrospective: optional
+  epic-11-retrospective: done
 
   epic-12: in-progress
   12-1-accessibility-audit-and-fixes: done
@@ -911,31 +911,87 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-11-1-quick-scan-from-two-corners.md"
   - id: "epic-11-deferred-11.3-device-capture-and-sticker-order"
     epic: 11
-    action: "Device session C for Recognize: accept capture on a device with the stickered cube and confirm the corner-to-LastLayerView sticker order against the real 11.1 unwarp (traced statically as consistent; synthetic tests only) (high, unverified; deferred from 11.3 by PO decision, ScanAssembler.kt lastLayerView, #106)"
+    action: "Device session C for Recognize: accept capture on a device with the stickered
+      cube and confirm the corner-to-LastLayerView sticker order against the real
+      11.1 unwarp (traced statically as consistent; synthetic tests only) (high, unverified;
+      deferred from 11.3 by PO decision, ScanAssembler.kt lastLayerView, #106)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-11-3-recognize-an-oll-pll-case.md"
   - id: "epic-11-deferred-11.3-matcher-main-thread"
     epic: 11
-    action: "RecognizeCase.of builds the LastLayerMatcher in composition on the main thread whenever the catalog is ready, even with CASE_RECOGNITION OFF; build it only when Recognize is wired and off the main thread (medium; deferred from 11.3, AppShell.kt:308)"
+    action: "RecognizeCase.of builds the LastLayerMatcher in composition on the main
+      thread whenever the catalog is ready, even with CASE_RECOGNITION OFF; build
+      it only when Recognize is wired and off the main thread (medium; deferred from
+      11.3, AppShell.kt:308)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-11-3-recognize-an-oll-pll-case.md"
   - id: "epic-11-deferred-11.3-solved-ll-unseen-sticker"
     epic: 11
-    action: "A solved last layer with one UNCERTAIN sticker reports 'I couldn't match this to a case' instead of 'Your last layer is already solved.'; wildcard-match the solved orbit and add a test (medium; deferred from 11.3, RecognizeCase.kt:71)"
+    action: "A solved last layer with one UNCERTAIN sticker reports 'I couldn't match
+      this to a case' instead of 'Your last layer is already solved.'; wildcard-match
+      the solved orbit and add a test (medium; deferred from 11.3, RecognizeCase.kt:71)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-11-3-recognize-an-oll-pll-case.md"
   - id: "epic-11-deferred-11.3-silent-shutter"
     epic: 11
-    action: "Recognize's manual shutter is ignored without feedback when a corner view is incomplete, and an invalid saved calibration can never capture; coach or re-prompt, and route an invalid calibration to Color Calibration (low, Learner-visible; deferred from 11.3, CaseCapture.kt:64)"
+    action: "Recognize's manual shutter is ignored without feedback when a corner
+      view is incomplete, and an invalid saved calibration can never capture; coach
+      or re-prompt, and route an invalid calibration to Color Calibration (low, Learner-visible;
+      deferred from 11.3, CaseCapture.kt:64)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-11-3-recognize-an-oll-pll-case.md"
   - id: "epic-11-deferred-11.3-recognize-beta-label-camera-scan"
     epic: 11
-    action: "Library's Recognize case shows BETA only when CASE_RECOGNITION is BETA, not when CAMERA_SCAN is BETA; fix together with the 11.1 and 11.2 BETA-label items (low, Learner-visible; deferred from 11.3, AppShell.kt:727)"
+    action: "Library's Recognize case shows BETA only when CASE_RECOGNITION is BETA,
+      not when CAMERA_SCAN is BETA; fix together with the 11.1 and 11.2 BETA-label
+      items (low, Learner-visible; deferred from 11.3, AppShell.kt:727)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-11-3-recognize-an-oll-pll-case.md"
+  - id: "epic-11-retro-item-102-one-beta-label-helper-feature-flag-beta"
+    epic: 11
+    action: "One BETA-label helper (feature flag BETA or CAMERA_SCAN BETA) used at
+      Solve, Welcome, Library and Recognize Start from my cube; closes the three per-story
+      BETA deferrals plus the untracked Recognize Placement-link site (AppShell.kt:707,
+      RecognizeScreen.kt:129)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-11-retro-2026-11-18.md"
+  - id: "epic-11-retro-item-103-run-bmad-correct-course-to-reconcile-pla"
+    epic: 11
+    action: "Run bmad-correct-course to reconcile planning with PO decisions: Story
+      11.3 AC1 and EXPERIENCE.md:260 one top-corner view -> two opposite corners intersected;
+      EXPERIENCE.md Flow 4 suggestion copy -> Start at <Stage>? and non-white cross
+      suggests Stage 1"
+    owner: "PM (John) + PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-11-retro-2026-11-18.md"
+  - id: "epic-11-retro-item-104-make-epic-11-deferred-11-1-device-sessio"
+    epic: 11
+    action: "Make epic-11-deferred-11.1-device-session-c, -11.3-device-capture-and-sticker-order
+      (incl. on-device < 1 s) and -11.2-device-placement-scan explicit preconditions
+      of Story 10.11: no Epic 11 flag above OFF in release until done; run them as
+      one batched device session C"
+    owner: "SM + PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-11-retro-2026-11-18.md"
+  - id: "epic-11-retro-item-105-extract-placement-and-recognize-flow-wir"
+    epic: 11
+    action: "Extract Placement and Recognize flow wiring (state, matcher construction,
+      scan callbacks) out of AppShell.kt (834 -> 953 lines in Epic 11) before the
+      next story touching AppShell; fold into epic-7-retro-item-69 and watch GuidedScanActivity/GuidedScanScreen"
+    owner: "Architect (Winston) + Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-11-retro-2026-11-18.md"
+  - id: "epic-11-retro-item-106-prune-spec-11-3-stale-placement-save-fai"
+    epic: 11
+    action: "Prune spec-11-3 stale Placement save-failure deferral and residual-risk
+      lines (fixed in cf8306a) and add an orchestrator rule that a pre-merge fix commit
+      prunes the spec deferrals it closes"
+    owner: "SM (orchestrator)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-11-retro-2026-11-18.md"
