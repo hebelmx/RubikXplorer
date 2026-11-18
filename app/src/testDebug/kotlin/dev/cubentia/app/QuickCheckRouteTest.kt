@@ -168,7 +168,10 @@ class QuickCheckRouteTest {
             val priorStarts = source.starts
             val fullScan = Robolectric.buildActivity(GuidedScanActivity::class.java, full.intent).setup()
             try {
-                rule.waitUntil(10_000) { source.starts > priorStarts }
+                rule.waitUntil(10_000) {
+                    shadowOf(android.os.Looper.getMainLooper()).idle()
+                    source.starts > priorStarts
+                }
                 val vm = ViewModelProvider(fullScan.get())[GuidedScanViewModel::class.java]
                 val actual =
                     host.state.value.expected

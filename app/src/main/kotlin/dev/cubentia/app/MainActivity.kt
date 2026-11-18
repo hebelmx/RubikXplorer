@@ -226,7 +226,11 @@ class MainActivity : ComponentActivity() {
                                         }
                                     // debug only (no-op in release): observed vs expected and the Certainty (PO 2026-11-17).
                                     if (outcome == QuickCheckOutcome.Cancelled) {
-                                        ScanDiagnostics.onQuickCheckRun(current.expected, null, null, null)
+                                        if (pending?.effectId == effect.effectId && effect.revision == current.revision) {
+                                            ScanDiagnostics.onQuickCheckRun(current.expected, null, null, null)
+                                        } else {
+                                            ScanDiagnostics.discardQuickCheckCapture()
+                                        }
                                     }
                                     (outcome as? QuickCheckOutcome.Observed)?.let {
                                         val check = applied.state.quickCheck
