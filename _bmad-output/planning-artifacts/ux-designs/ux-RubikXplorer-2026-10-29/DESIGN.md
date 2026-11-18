@@ -221,12 +221,13 @@ No pill-shaped buttons. Sticker squares in 2D nets and diagrams use `rounded.xs`
 
 - **Cube stage**:
   - A toolbar along the stage's top edge holds **Undo · Redo · Reset**, as icon buttons with labels in TalkBack. Disabled buttons use `ink-disabled`.
-  - The 3D cube (or the 2D net in P0.1) in a `surface-stage` well.
+  - On Solution Playback, the toolbar also holds a **view switch** icon button that switches between the 3D cube and the 2D net. Its icon and its TalkBack label name the view it switches *to* ("Show the 2D net" / "Show the 3D cube") (SCP 2026-11-17 playback view and move glyphs).
+  - The 3D cube in a `surface-stage` well. The 2D net is the P0.1 stage, and stays as the second view on Solution Playback: it shows all 54 stickers at once, so Solution Playback opens on the net in Physical-cube Mode until the Learner picks a view.
   - A small **frame label** sits in the top-left corner: `VIRTUAL`, `EXPECTED` (with a dashed `expected-badge` border) or `VERIFIED` (with a `status-verified` icon).
   - A **reset-view** affordance sits in the top-right corner.
   - Pieces not involved in the current step can be dimmed with `sticker-dimmed-overlay`.
   - **Mismatch view:** when an observation differs from the Expected State, the observed faces are drawn as a flat strip of face thumbnails under the cube, labeled `SEEN`, with each differing sticker outlined in `status-likely` or `status-verified`. A Partial observation is never drawn as a whole cube.
-- **Move arrow overlay**: during a Demonstration and on hint rung 2, a curved arrow in `sticker-highlight` follows the turning layer, with the Move shown in `notation` at its tip. With reduce motion on, the arrow appears without animating.
+- **Move arrow overlay**: during a Demonstration, on hint rung 2, and on the current Move of Solution Playback in the 3D view, a curved arrow in `sticker-highlight` follows the turning layer, with the Move shown in `notation` at its tip. With reduce motion on, the arrow appears without animating.
 - **Move key bar**: a row or grid of `move-key` buttons, each labeled in `notation` (`U`, `U'`, `U2`, …), styled like keyboard keys.
   - When a key is pressed it inverts briefly to `ink-primary` on `surface-raised`.
   - A **⟳ x/y/z** key group holds the Cube Rotations.
@@ -245,8 +246,17 @@ No pill-shaped buttons. Sticker squares in 2D nets and diagrams use `rounded.xs`
 - **Expected badge**: a dashed outline with the text `EXPECTED`, shown on any rendering of a predicted physical state.
 - **Playback transport**: |◀ ◀ ▶/❚❚ ▶ ▶| plus a speed control (0.5× / 1× / 2×).
   - The step counter (`12 / 20`) is set in `data`.
-  - The current Move is shown in large `notation`, with its generated MoveNote line in `meta` beneath it.
-  - In the notation strip, the current Move is marked with an `ink-primary` outline, not violet.
+  - The current Move is shown in large `notation`, with its generated MoveNote line in `meta` beneath it. When *Move pictures* is on, the Move's **move picture** sits just before the notation, at the notation's cap height.
+  - The **Move strip** sits under the transport: one `notation-chip` per Move of the sequence, in order, scrolled to keep the current Move in view. The current Move is marked with an `ink-primary` outline, not violet. When *Move pictures* is on, each chip carries its move picture (at least 20dp) above the notation.
+  - A visible **scrubber** (a slider in `ink-secondary` with an `ink-primary` thumb) runs under the strip and snaps to Move boundaries. In Physical-cube Mode the strip is read-only and the scrubber is hidden, because each step advances only on *Done* (FR-16) (SCP 2026-11-17).
+- **Move picture** (glyph): a small ink-only drawing of one Move, generated in code from the Move, never from sticker colors, so it works with color-blind glyphs. Drawn in `ink-primary` lines on a transparent ground, with the moving layer shaded in `ink-secondary` at about 35%. It is decorative: TalkBack skips it, because the MoveNote already says the Move. (SCP 2026-11-17)
+  - The base is a flat 3×3 face as seen from the front (U on top), drawn with `hairline`-weight grid lines.
+  - **R / L / U / D**: the moving column or row is shaded, with a curved arrow along it in the direction its stickers move on the front face (R up, L down, U left, D right).
+  - **F / B**: drawn as seen from the front (the standard convention). F is the front grid with a clockwise round arrow over it. B is a round arrow drawn behind the grid (the grid's lines cross over it), so it reads counter-clockwise from the front, while the MoveNote still says "Turn the Back face clockwise".
+  - **M / E / S**: a straight arrow. M shades the middle column with a downward arrow (it follows L). E shades the middle row with a rightward arrow (it follows D). S follows F, so it is drawn on the Up face seen from above (a small "top" tick on the far edge marks it), with the middle row shaded and a rightward arrow.
+  - **Prime**: the arrow is reversed (the plain Move's picture mirrored). **Half turn**: the plain Move's picture with a superscript `2` at the arrowhead.
+  - **Wide (Rw, Lw, Uw, Dw, Fw, Bw)**: the two outer layers are shaded with the face's arrow. Fw and Bw, whose second layer is hidden from the front, show a doubled round arrow.
+  - **Cube Rotations (x / y / z)**: no layer shading. The arrow of R (x), U (y) or F (z) is drawn across the whole face, with the face outline doubled to mean "the whole cube".
 - **Scan viewfinder**: a camera preview with a 3×3 hairline grid in `scan-grid` at 70% opacity. On a phone in portrait it fills the top ~45% of the screen, so the face net and palette fit below it (SCP 2026-11-15).
   - The **Quick Scan variant** replaces the grid with a corner outline (a Y-shaped three-face guide) and a capture counter in `data` ("1 / 2"). When a face can't be read, it hands off to the per-face grid for that face only. Above it, the face prompt names the center color ("**Green** center facing you"); "· **White** on top" is added only when the app asks for a face again (SCP 2026-11-16) and shows a swatch of that sticker with its glyph. A mini net shows progress through the faces.
 - **Sticker review net**: a 2D cube net drawn on the cube body, like a real cube: each 3×3 face sits on `cubie-body`, which also shows as the gaps between stickers, with a 1dp `hairline` outline so the body separates from a dark page. A white sticker therefore always sits on black (UX update 2026-11-16).

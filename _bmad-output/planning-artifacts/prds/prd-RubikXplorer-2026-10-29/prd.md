@@ -375,6 +375,8 @@ The Learner can step forward and back through a Solution, pause and replay it, a
 - Each note follows a fixed template: face, direction, and the piece group that moves (e.g. "Turn the Right face clockwise: the right column moves up").
 - Notes never claim a strategic purpose for Solver output (Principle 3). Strategic explanation belongs to the Course.
 - In Physical-cube Mode, playback advances one step each time the Learner taps *Done*. A Quick Check (FR-26) is available at any step.
+- The Learner can switch playback between the 3D cube and the 2D net at any step without losing their place. Playback opens in 3D, except in Physical-cube Mode, where it opens on the 2D net; once the Learner has switched, their choice is remembered (FR-19). *(SCP 2026-11-17 playback view and move glyphs)*
+- Each Move can be shown with a small picture of the turn, next to its notation and in the Move strip, unless the Learner turns *Move pictures* off (FR-19). The picture is never the only way the Move is given: the notation and the note are always there. *(SCP 2026-11-17)*
 
 **Out of Scope:**
 - A "teaching solve" that re-explains arbitrary Solver output in beginner-method terms (§6.2, P2).
@@ -433,7 +435,7 @@ All of the following persist across app restarts and forced process death:
 - each attempt's outcome, error count and hints used;
 - Algorithm Statuses;
 - Color Calibration;
-- preferences: animation speed, color-blind display, the last Teaching Mode used.
+- preferences: animation speed, color-blind display, the last Teaching Mode used, the Solution Playback view (3D cube or 2D net, once chosen), and *Move pictures* (default on). *(SCP 2026-11-17)*
 
 **Consequences (testable):**
 - After a forced restart, the latest committed Checkpoint is restored.
@@ -729,6 +731,7 @@ Recorded in `.memlog.md`:
 - Public website and privacy policy in a separate repository, `hebelmx/cubentia-site`, on GitHub Pages; the app repository keeps the source (PO, 2026-11-13, SCP 2026-11-13).
 - 2026-11-14: camera recognition restored to the plan as v1.1, flag-gated; per-feature release levels set by the PO at each release (SCP 2026-11-14).
 - 2026-11-17: a Quick Check (Partial observation) verifies only a match; only a Guided 6-face Scan (Full observation) verifies a mismatch (SCP 2026-11-17 quick-check-verified-rule).
+- 2026-11-17: Solution Playback switches between the 3D cube and the 2D net (opens in 3D, on the net in Physical-cube Mode, then remembers the choice), and each Move gets an optional move picture (default on) with the UX-DR14 Move strip; both are v1 release scope, before Story 12.3 and the store screenshots (PO, SCP 2026-11-17 playback view and move glyphs).
 - 2026-11-15: `CAMERA_SCAN` is BETA-only on the Story 10.10 session A result (216/216, operator-dependent calibration); re-plan with a UX pass on scan layout, calibration and color input; Stories 10.12 (recorder rework, session A2) and 10.13 (OQ-7 recognition approach) added; OQ-7 re-opened (SCP 2026-11-15).
 - 2026-11-15: OQ-7 closed with decision K: Kotlin nearest-center classification fed by a per-cell histogram-mode reader and self-calibrated from the six face centers, with a logo-center guard; LiteRT is the fallback if field use shows K is not enough; OpenCV rejected on size (PO, Story 10.13, PR #155).
 

@@ -49,10 +49,10 @@ FR-12: Recover from mistakes: retry, undo, or Guided recovery to the shortest co
 FR-13: Rule-based adaptive assistance (first mistake → explain + highlight; repeated → demonstrate; continued difficulty → guide step by step; repeated success → less help). Thresholds are configuration data with tests; tuning from pilot data is P1.
 FR-14: Manual Cube Editor for 54 sticker colors with validation that rejects wrong color counts, impossible pieces, a twisted corner, a flipped edge and a parity violation, each with a plain-language reason; 54 colors entered never counts as valid by itself; same validation applies to every Scan Result; fallback whenever the camera is unavailable.
 FR-15: Solve any valid Cube State offline. Solution always solves its input (verified over solved + ≥ 10,000 random legal states, incl. deep Scrambles); invalid input rejected before the Solver; timeout/failure → explicit error with recovery prompt, never a made-up Solution; never blocks the UI thread.
-FR-16: Solution Playback: step forward/back, pause, replay, with a templated note per Move (face, direction, piece group); notes never claim strategic purpose; in Physical-cube Mode each *Done* advances one step and a Quick Check is available at any step.
+FR-16: Solution Playback: step forward/back, pause, replay, with a templated note per Move (face, direction, piece group); notes never claim strategic purpose; in Physical-cube Mode each *Done* advances one step and a Quick Check is available at any step; the Learner can switch between the 3D cube and the 2D net (opens in 3D, on the net in Physical-cube Mode, then remembers the choice) and see an optional picture of each Move (SCP 2026-11-17).
 FR-17: 2-look LL mini-Course (2-look OLL + 2-look PLL) unlocked after the Course or a skip-ahead check; Lesson predicates are LL-step predicates on Cube State; Case Lessons reference Library entries; *completed* when all predicates met, *mastered* after two hint-free LL solves of fresh Scrambles using only 2-look Algorithms [ASSUMPTION]; offers (never sets) Algorithm Status *Learning*.
 FR-18: Algorithm Library of all 78 (57 OLL + 21 PLL) Algorithms grouped by family; watch Demonstration (play, pause, step, speed, View Rotation), see recognition diagram and Notation, set Algorithm Status; build-failing verification test per Algorithm (inverse from solved matches Case; Algorithm solves LL up to AUF); filter by status and family; diagrams derived from Case state; one primary Algorithm per Case [ASSUMPTION].
-FR-19: Persist across restarts and forced process death: Stage completed/skipped/mastered, current Checkpoint, attempt outcomes (errors, hints), Algorithm Statuses, Color Calibration, preferences (animation speed, color-blind display, last Teaching Mode). Latest committed Checkpoint restored; physical Checkpoint asks to confirm/scan/re-enter; repeats append, never corrupt; reset progress + Algorithm Statuses with confirmation, separate resets for calibration and preferences.
+FR-19: Persist across restarts and forced process death: Stage completed/skipped/mastered, current Checkpoint, attempt outcomes (errors, hints), Algorithm Statuses, Color Calibration, preferences (animation speed, color-blind display, last Teaching Mode, Solution Playback view, Move pictures (SCP 2026-11-17)). Latest committed Checkpoint restored; physical Checkpoint asks to confirm/scan/re-enter; repeats append, never corrupt; reset progress + Algorithm Statuses with confirmation, separate resets for calibration and preferences.
 FR-20: Independent practice on a fresh Scramble with reduced help; a Stage is *mastered* only by its Mastery Condition (initially 2 successful completions, ≥ 1 with reduced assistance, configurable [ASSUMPTION]); transitions follow configuration with tests; neither Lesson completion nor *skipped* marks *mastered*; the Learner can see their hint and error trend.
 FR-21: Guided 6-face Scan: live viewfinder, face prompts, automatic capture when aligned and stable plus a manual shutter; each face's rotation worked out from adjacency checks, and the faces involved re-prompted with a named top when it can't be (SCP 2026-11-16); every sticker has a Sticker Confidence, uncertain ones highlighted for correction before acceptance.
 FR-22: Quick Scan: 2–3 corner-angle captures, each showing three faces; two opposite-corner captures yield 54 stickers; uncertain/invalid → ask only for missing faces via Guided 6-face Scan, never a guessed state; "beta" unless it meets its targets.
@@ -114,9 +114,9 @@ From the architecture spine (no starter template is specified; Epic 1 Story 1 is
 UX-DR1: Implement the DESIGN.md color tokens as a Compose Material3 theme: chrome (`surface-base/raised/stage`, `ink-primary/secondary/disabled`, `hairline`, `accent`, `on-accent`) in light and dark; status tokens (`verified`, `likely`, `unknown`, `invalid`) per theme; sticker tokens, `cubie-body`, `sticker-highlight`, `scan-grid`, `sticker-dimmed-overlay` theme-invariant. A contrast test asserts text ≥ 4.5:1 on every surface token, status ≥ 3:1 as icons and ≥ 4.5:1 as chip text, highlight ≈ 7:1 on `cubie-body`. [ASSUMPTION: hex values pending confirmation.]
 UX-DR2: Bundle IBM Plex Sans and IBM Plex Mono (no network) and map the roles `display`, `title`, `body`, `label`, `meta`, `notation`, `data` to the M3 type scale; `notation` one step above surrounding text; `data` uses tabular figures; at most one `display` per screen; no all-caps except short status chips. [ASSUMPTION: font pairing pending confirmation.]
 UX-DR3: Spacing scale 4/8/12/16/24/32/48dp, `touch-min` 48dp, gutters 16dp compact / 24dp medium+expanded; shapes `xs` 2dp (stickers), `sm` 4dp (keys, inputs), `md` 8dp (cards, buttons, tiles), `lg` 12dp (stage well, sheets), `full` only for certainty chips; no pill buttons, no card shadows.
-UX-DR4: Cube stage component: `surface-stage` well; top toolbar Undo · Redo · Reset (icon buttons, TalkBack labels, `ink-disabled` when disabled); frame label VIRTUAL / EXPECTED (dashed `expected-badge`) / VERIFIED (status icon); reset-view affordance top-right and double-tap reset; dimming of off-step pieces with Keep pieces lit; SEEN strip of observed face thumbnails with differing stickers outlined during a mismatch; a Partial observation is never drawn as a whole cube.
+UX-DR4: Cube stage component: `surface-stage` well; top toolbar Undo · Redo · Reset (icon buttons, TalkBack labels, `ink-disabled` when disabled); frame label VIRTUAL / EXPECTED (dashed `expected-badge`) / VERIFIED (status icon); reset-view affordance top-right and double-tap reset; dimming of off-step pieces with Keep pieces lit; SEEN strip of observed face thumbnails with differing stickers outlined during a mismatch; a Partial observation is never drawn as a whole cube; on Solution Playback a toolbar view switch between the 3D cube and the 2D net, labeled with the view it switches to (SCP 2026-11-17).
 UX-DR5: Move key bar: `move-key` buttons labeled in `notation` (`U`, `U'`, `U2`…), press inversion, ⟳ x/y/z group, "more" for wide and slice turns, long-press plain-language name, light haptic tick on commit, labels never change with View Rotation; horizontal scrollable on compact, vertical grid on expanded; in Physical-cube Mode shown only after *I did something else*.
-UX-DR6: Move arrow overlay and piece highlight: curved `sticker-highlight` arrow following the turning layer with the Move in `notation` at its tip (static when reduce motion is on); highlight = 3dp `sticker-highlight` outline with 1dp `cubie-body` inner stroke; stickers never recolored.
+UX-DR6: Move arrow overlay and piece highlight: curved `sticker-highlight` arrow following the turning layer (Demonstrations, hint rung 2, and the current Move of Solution Playback in 3D, SCP 2026-11-17) with the Move in `notation` at its tip (static when reduce motion is on); highlight = 3dp `sticker-highlight` outline with 1dp `cubie-body` inner stroke; stickers never recolored.
 UX-DR7: Lesson panel in this order: Objective (`title`) → step card → Teaching Mode switcher → Hint (secondary) + **Next** (`button-primary`; disabled = `hairline` fill + `ink-disabled` text). Step card shows Goal, Keep, Watch before the Move and Notice after it, with Moves as `notation-chip`s; the UI label *Keep* renders schema field `preserve`.
 UX-DR8: Teaching Mode switcher: segmented control (*Show me*, *Guide me*, *Test me*, *Let me try*), active segment `accent`; switching keeps state and progress; renders `TutorDecision.reveal` only; *Test me* hidden when `TEST_ME` is OFF; last mode remembered.
 UX-DR9: Hint button labeled **Hint (n/3)**; each tap moves one rung (clue → highlighted target or Move arrow → full Demonstration); resets on a new Objective.
@@ -124,7 +124,7 @@ UX-DR10: Assistance line: one `meta` line under the step card explaining why hel
 UX-DR11: Recovery prompt: inline in the lesson panel, never a dialog; *Undo*, *Guide me back*, *Try again* in that order; pending copy "Finding the shortest way back…", plan copy ("3 moves — your cross stays") with preserved pieces highlighted, no-plan copy "I can't find a short way back. Undo, or start this step again."
 UX-DR12: Physical controls: **Done** stays primary (even under a recovery prompt); secondary *I did something else*; overflow with *My cube doesn't match* and *I'm not sure what I did*; *Quick Check* camera icon at Objective boundaries, Stage milestones and after mismatch reports, never required.
 UX-DR13: Certainty chip (`rounded.full`, icon + label + status color: ✓ *Verified*, ≈ *Likely*, ? *Unknown*), tappable to explain its evidence, never a percentage; Expected badge (dashed outline, `EXPECTED`) on every rendering of a predicted physical state; no chip while Expected-only.
-UX-DR14: Playback transport shared by Demonstrations, Solution Playback and Algorithm detail: |◀ ◀ ▶/❚❚ ▶ ▶|, speed 0.5×/1×/2×, step counter in `data`, current Move in large `notation` with its MoveNote line in `meta`, current Move in the strip marked by an `ink-primary` outline, scrubbing snaps to Move boundaries.
+UX-DR14: Playback transport shared by Demonstrations, Solution Playback and Algorithm detail: |◀ ◀ ▶/❚❚ ▶ ▶|, speed 0.5×/1×/2×, step counter in `data`, current Move in large `notation` with its MoveNote line in `meta`, current Move in the strip marked by an `ink-primary` outline, scrubbing snaps to Move boundaries; the Move strip and a visible scrubber are shown (read-only strip, no scrubber in Physical-cube Mode), with move pictures (UX-DR32) on the current Move label and strip chips when *Move pictures* is on (SCP 2026-11-17).
 UX-DR15: Scan viewfinder: full-bleed preview, 3×3 grid in `scan-grid` at 70% with 1dp dark halo, auto-capture after ~600 ms aligned and steady, manual shutter, face prompt naming the center color with a glyph swatch (the up color only on a re-prompt, SCP 2026-11-16 / Story 10.14), mini net progress, inline quality coaching, wrong orientation → re-prompt not error; Quick Scan variant with a Y-shaped corner guide and "1 / 2" counter, unreadable faces hand off to the per-face grid; portrait camera with rotating overlays in landscape.
 UX-DR16: Sticker review net (Scan review and Editor): uncertain stickers pre-selected with a dashed `accent` ring and "?" badge; tap a sticker, then a color; invalid pieces outlined in `status-invalid` with labels; non-local errors on their own lines (twisted corner, flipped edge, swapped pieces); **Accept** disabled until every uncertain sticker is resolved and the state is valid.
 UX-DR17: Algorithm tile (diagram of U face + side bands derived from state, Case name in `label`, Algorithm in `notation`, status label *Learning*/*Learned*, nothing for *Not started*); fallback tile without a diagram; neutral M3 filter chips (selected = `surface-raised` + ✓, never violet); no stars, scores or badges.
@@ -142,6 +142,7 @@ UX-DR28: Banned patterns enforced in review: shake on error, red flash for a Lea
 UX-DR29: Accessibility floor: cube semantics summary ("White cross solved; 2 of 4 first-layer corners placed") plus a *Read faces* action; every Certainty change announced; Move keys announce plain names; View Rotation arrow buttons in the stage overflow; dynamic type to 200% with panel reflow and no truncation; focus order frame label → cube description → Move key bar → lesson panel → mode switcher; reduce motion makes Demonstrations step, milestones static, camera transitions snap.
 UX-DR30: Themes: light and dark designed equally, follow the system, with a Settings override.
 UX-DR31: Back: leaving a Lesson is immediate with no confirmation (everything is committed and checkpointed first).
+UX-DR32: Move picture: an ink-only glyph per Move generated in code (3×3 face, moving layer shaded; curved arrow R/L/U/D, round F/B seen from the front with B's arrow behind the grid, straight M/E/S; prime reverses, half turn adds a superscript 2; wide and x/y/z designs), decorative for TalkBack; *Move pictures* Settings toggle next to color-blind glyphs, default on (SCP 2026-11-17).
 
 ### FR Coverage Map
 
@@ -160,10 +161,10 @@ FR-12: Epic 4 — retry, undo, Guided recovery
 FR-13: Epic 4 — rule-based adaptive assistance
 FR-14: Epic 1 (`CubeValidator` rules) · Epic 3 (Manual Cube Editor)
 FR-15: Epic 3 — offline Solver
-FR-16: Epic 3 (Solution Playback) · Epic 8 (physical follow-along) · Epic 10 (Quick Check in playback, v1.1, flag-gated)
+FR-16: Epic 3 (Solution Playback) · Epic 8 (physical follow-along) · Epic 10 (Quick Check in playback, v1.1, flag-gated) · Epic 12 (3D/2D view switch, move pictures and Move strip; Stories 12.14–12.15)
 FR-17: Epic 9 — 2-look LL mini-Course
 FR-18: Epic 9 — Algorithm Library
-FR-19: Epic 6 (snapshots, Checkpoints, attempts, preferences) · Epic 7 (progress reset) · Epic 9 (Algorithm Status) · Epic 10 (calibration reset, v1.1, flag-gated)
+FR-19: Epic 6 (snapshots, Checkpoints, attempts, preferences) · Epic 7 (progress reset) · Epic 9 (Algorithm Status) · Epic 10 (calibration reset, v1.1, flag-gated) · Epic 12 (playback view and Move pictures preferences)
 FR-20: Epic 7 — Independent practice, mastery, trend
 FR-21: Epic 10 — Guided 6-face Scan (v1.1, flag-gated)
 FR-22: Epic 11 — Quick Scan (v1.1, flag-gated)
@@ -238,8 +239,8 @@ First on the PRD cut order (Quick Scan → beta, then Case recognition, then Pla
 ### Epic 12: Release-ready for learners and reviewers (P0.6, weeks 15–16)
 The app meets every release gate. It is accessible, fast and stable on the reference devices, the pilot's findings are fixed, and the store listing and public repo are ready for a hiring manager's five-minute look.
 **Absorbs:** E09, PRD §7.
-**FRs covered:** none new (verifies all). **Also:** NFR-1, NFR-2, NFR-7, NFR-8, NFR-9, NFR-11, NFR-13, AR-3, AR-5, AR-16, UX-DR28, UX-DR29, Flow 6.
-**Also carries** the pre-pilot stories 12.6–12.10 (Cubentia rebrand; Epic 8 retrospective fixes), which run before Story 7.8 (`sprint-change-proposal-2026-11-08-cubentia-and-pre-pilot.md`), and 12.11–12.12 (Epic 9 seams; 2-look rules), also before 7.8 (`sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md`), and 12.13 (durable session end; Story 12.11 deferrals), also before 7.8 (`sprint-change-proposal-2026-11-10-session-end-deferrals.md`).
+**FRs covered:** none new (verifies all), plus FR-16 and FR-19 additions in 12.14–12.15. **Also:** NFR-1, NFR-2, NFR-7, NFR-8, NFR-9, NFR-11, NFR-13, AR-3, AR-5, AR-16, UX-DR4, UX-DR6, UX-DR14, UX-DR28, UX-DR29, UX-DR32, Flow 6.
+**Also carries** the pre-pilot stories 12.6–12.10 (Cubentia rebrand; Epic 8 retrospective fixes), which run before Story 7.8 (`sprint-change-proposal-2026-11-08-cubentia-and-pre-pilot.md`), and 12.11–12.12 (Epic 9 seams; 2-look rules), also before 7.8 (`sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md`), and 12.13 (durable session end; Story 12.11 deferrals), also before 7.8 (`sprint-change-proposal-2026-11-10-session-end-deferrals.md`). It also carries 12.14 (Solution Playback in 3D or on the 2D net, #175) and then 12.15 (Move pictures and the Move strip, #176), v1 release scope that runs before Story 12.3 and the store screenshots of Story 12.5 (`sprint-change-proposal-2026-11-17-playback-view-and-move-glyphs.md`).
 **Epic 13** (public website and privacy policy, `sprint-change-proposal-2026-11-13-cubentia-site.md`) runs before Stories 12.3, 12.4 and 12.5. Story 12.3 depends on 13.6, and Story 12.5 on 13.4 and 13.5. Epics 10 and 11 (v1.1 camera, flag-gated) run in parallel with Epics 12 and 13 and never gate them (`sprint-change-proposal-2026-11-14-v1-1-camera.md`).
 **Device batch** (reference devices connected after the device-free stories; `sprint-change-proposal-2026-11-10-session-end-deferrals.md`): Stories 3.8, 1.11 and 12.2, plus the Story 12.1 physical pass in `docs/accessibility-manual-check.md`. Story 3.7 stays in `review` until 3.8 passes (its last AC), and Story 12.1 stays in `review` until that physical pass is recorded.
 **Reference devices (SCP 2026-11-12, `sprint-change-proposal-2026-11-12-lenovo-minimum-reference.md`):** minimum Lenovo Tab M10 Plus 3rd Gen (TB128XU, Android 13 / API 33), mid Samsung Galaxy S24 FE. The Galaxy Tab S7 FE 5G, the minimum until 2026-11-12, is kept as an additional compatibility device, and its 3.8, 1.11 and 12.2 results stay as dated evidence. The Lenovo was measured with the 3.8 and 12.2 methods and meets every threshold (`docs/benchmarks.md` § Additional device: Lenovo Tab M10 Plus 3rd Gen); its limitations are tracked in #119.
@@ -847,6 +848,8 @@ So that I can follow it on my cube at my own pace.
 **Given** a `SOLVE_PLAYBACK` session started with a validated state and its Solution
 **When** the Learner uses the shared playback transport
 **Then** they can step forward and back, pause and replay, with the MoveNote under the current Move, and the final step reaches the solved state
+
+*Deferred from this story: the UX-DR14 Move strip and visible scrubber (`epic-3-deferred-3-6-ux-dr14-move-strip`), now built by Story 12.15 (SCP 2026-11-17 playback view and move glyphs).*
 
 ### Story 3.7: Solve tab end to end
 
@@ -2667,6 +2670,86 @@ So that the app never brings back something I already ended.
 **Given** `AppShellLibraryTest > last two look Lesson milestone practices a fresh LL scramble` (failed once in CI on PR #101, passed on rerun)
 **When** the story closes
 **Then** the cause of the flake is found and fixed (or the test is made deterministic), and the test passes in at least 20 consecutive local runs
+
+### Story 12.14: Solution Playback in 3D or on the 2D net
+
+As a Learner following a Solution,
+I want to watch it on the 3D cube, and switch to the flat net when I need all 54 stickers,
+So that I can follow each turn the way that suits me.
+
+**Refs:** FR-16, FR-19 · NFR-1, NFR-2, NFR-7 · AD-4, AD-17, AD-20 · UX-DR4, UX-DR6, UX-DR29 · Stories 5.4, 5.5, 12.2 · GitHub #175 · `sprint-change-proposal-2026-11-17-playback-view-and-move-glyphs.md`
+
+**Runs before** Story 12.15, Story 12.3 and the store screenshots of Story 12.5.
+
+**Acceptance Criteria:**
+
+**Given** Solution Playback and no saved playback view
+**When** it opens
+**Then** it shows the 3D cube (`Cube3DRenderer`) in virtual playback, and the 2D net (`Net2DRenderer`) in Physical-cube Mode, where all 54 stickers can be compared with EXPECTED (PO decision 1)
+
+**Given** the view switch icon on the cube stage toolbar
+**When** the Learner taps it
+**Then** the stage swaps between the 3D cube and the 2D net, the choice is saved through `UpdatePreference`, and from then on the saved choice wins in virtual and Physical-cube Mode, across restarts; *Reset preferences* clears it so the default of the first AC applies again
+
+**Given** playback is mid-turn (an animation in flight, or several queued)
+**When** the view is switched
+**Then** the new view shows the committed state of the current step at once (`Snap`, AD-4), the playback position is unchanged, no `SessionEvent` is dispatched, and the frame label (VIRTUAL / EXPECTED / VERIFIED), the certainty chip and the SEEN strip are unchanged
+
+**Given** the 3D view during playback
+**When** a step is current
+**Then** the Story 5.4 Move arrow shows on the current Move (static under reduce motion)
+
+**Given** TalkBack
+**When** it focuses the stage and the toolbar
+**Then** the 3D view reads the Story 5.5 cube description and offers *Read faces*, and the switch is labeled with the view it switches to ("Show the 2D net" / "Show the 3D cube"); the label comes from `en.json`
+
+**Given** the 3D render sync suite (`Cube3DRenderSyncTest`, epic-5-retro-item-21)
+**When** it runs on Solution Playback
+**Then** `renderedFacelets()` of the 3D view equals the committed state after forward, back, restart and speed changes; tests also cover a mid-turn switch in both directions and the switch in Physical-cube Mode (Done, Undo, Quick Check result still shown)
+
+**Given** the Story 12.2 Macrobenchmarks on the minimum and mid reference devices
+**When** Solution Playback runs in the 3D view
+**Then** it meets the Story 12.2 baseline (≥ 30 FPS minimum, 60 FPS mid, input within 100 ms; see #106), and `Net2DFrameTimingBenchmark` selects the 2D net explicitly through the view switch's exact test tag, replacing the broad `2D|Net` text fallback in `requireNet()`
+
+### Story 12.15: Move pictures and the Move strip
+
+As a Learner who reads notation slowly,
+I want a small picture of each turn next to its notation, and a strip of all the Moves,
+So that I can see what to do at a glance and where I am in the Solution.
+
+**Refs:** FR-16, FR-19 · NFR-7 · AD-17, AD-20 · UX-DR14, UX-DR21, UX-DR29, UX-DR32 · Story 3.6 deferral (`epic-3-deferred-3-6-ux-dr14-move-strip`) · GitHub #176 · `sprint-change-proposal-2026-11-17-playback-view-and-move-glyphs.md`
+
+**Depends on** Story 12.14 (the preference schema and the playback stage settle first). **Runs before** Story 12.3 and the store screenshots of Story 12.5.
+
+**Acceptance Criteria:**
+
+**Given** a pure move-to-picture function (no Android imports; `:app` only draws its output)
+**When** it is called for every Move type (R L U D F B, M E S, wide Moves, x y z; plain, prime and half turn)
+**Then** it returns the DESIGN.md *Move picture*: an ink-only 3×3 face with the moving layer shaded; a curved arrow for R/L/U/D, a round arrow for F/B and a straight arrow for M/E/S; a superscript 2 for half turns; and the wide and x/y/z designs. A test covers every Move
+
+**Given** a prime Move
+**When** its picture is built
+**Then** it is its plain Move's picture with the arrow reversed (a mirroring test over every face, slice, wide Move and rotation)
+
+**Given** F and B
+**When** their pictures are built
+**Then** both are drawn as seen from the front: F as the front grid with a clockwise round arrow, B as a round arrow behind the grid that reads counter-clockwise from the front, while B's MoveNote still says "Turn the Back face clockwise" (PO decision 4)
+
+**Given** the shared playback transport (AD-20)
+**When** it shows
+**Then** it has the UX-DR14 Move strip (one chip per Move, current Move outlined in `ink-primary`, kept in view) and a visible scrubber that snaps to Move boundaries; a tap on a chip or a scrub jumps there with no animation (AD-4); in Physical-cube Mode the strip is read-only and the scrubber hidden, since only *Done* advances (FR-16). This closes `epic-3-deferred-3-6-ux-dr14-move-strip`
+
+**Given** *Move pictures* is on
+**When** a Move shows in the transport
+**Then** its picture sits next to the current Move label and on every Move strip chip, and TalkBack skips the picture (no content description; the MoveNote is spoken)
+
+**Given** Settings
+**When** the Learner opens it
+**Then** a *Move pictures* toggle sits next to color-blind glyphs, defaults to on (PO decision 2), persists through `UpdatePreference`, applies at once, and returns to on with *Reset preferences*; its label comes from `en.json`
+
+**Given** screenshot tests
+**When** they run
+**Then** samples cover at least R, R', R2, F, B, M, Rw and x in light and dark themes, and the transport with the Move strip and pictures on and off
 
 ## Epic 13: Cubentia on the web, with a privacy policy
 
