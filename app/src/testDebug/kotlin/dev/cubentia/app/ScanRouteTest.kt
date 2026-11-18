@@ -43,6 +43,7 @@ import dev.cubentia.domain.recognition.Lab
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -55,6 +56,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowLog
 import java.util.concurrent.ExecutorService
 import javax.inject.Inject
 
@@ -191,6 +193,7 @@ class ScanRouteTest {
         assertTrue(review.edited)
         assertEquals(mapOf(index to color), review.corrections)
         assertFalse(review.offerCalibration)
+        ShadowLog.clear()
         rule.onNodeWithTag("review:accept").performClick()
         val result = shadowOf(scan.get())
         shadowOf(main.get()).receiveResult(started.intent, result.resultCode, result.resultIntent)
@@ -200,6 +203,23 @@ class ScanRouteTest {
         assertEquals(cube.toFacelets(), editor.initial)
         assertNull(editor.note)
         rule.onNodeWithTag("editor:accept").assertExists()
+        val records = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.filter { it.startsWith("guidedScan run ") }
+        assertEquals(1, records.size)
+        val record =
+            Regex(
+                """guidedScan run elapsedMs=\d+ repromptFaces=\d+ corrections=1 valid=true outcome=ACCEPTED state=[WYGBRO]{54} initial=[WYGBRO-]{54} device=[A-Za-z0-9-]+""",
+            )
+        assertTrue(records.single(), record.matches(records.single()))
+        val expected =
+            cube
+                .reoriented(dev.cubentia.domain.cube.Orientation.HOME)
+                .toFacelets()
+                .colors
+                .joinToString("", transform = dev.cubentia.domain.recognition.ScanTrace::letter)
+        assertEquals(expected, records.single().substringAfter(" state=").substringBefore(' '))
+        // `initial` keeps the camera's original read, so the corrected sticker still differs there.
+        val initial = records.single().substringAfter(" initial=").substringBefore(' ')
+        assertNotEquals(expected[index], initial[index])
         main.pause().stop().destroy()
     }
 
@@ -249,7 +269,19 @@ class ScanRouteTest {
         }
 
         val first = tapTwiceAndTakeTheScan()
-        activity.receiveResult(first, android.app.Activity.RESULT_CANCELED, null)
+        val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, first).setup()
+        rule.waitForIdle()
+        rule.waitUntil(10_000) { source.starts > 0 }
+        ShadowLog.clear()
+        scan.get().onBackPressedDispatcher.onBackPressed()
+        rule.waitForIdle()
+        val result = shadowOf(scan.get())
+        assertTrue(scan.get().isFinishing)
+        assertEquals(android.app.Activity.RESULT_CANCELED, result.resultCode)
+        val records = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.filter { it.startsWith("guidedScan run ") }
+        assertTrue(" outcome=CANCELLED " in records.single())
+        activity.receiveResult(first, result.resultCode, result.resultIntent)
+        scan.pause().stop().destroy()
         rule.waitForIdle()
         val flow = ViewModelProvider(main.get())[SolveFlowViewModel::class.java]
         assertEquals(SolvePhase.Home, flow.phase.value)

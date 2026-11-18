@@ -20,4 +20,21 @@ class QuickScanMeasurementTest {
         assertEquals("BETA", beta.recommendation)
         assertEquals("BETA", QuickScanMeasurement.measure(emptySequence()).recommendation)
     }
+
+    @Test
+    fun `extended records retain the timing result`() {
+        val record = "quickScan run elapsedMs=14999 fallbackFaces=0 repromptFaces=0 corrections=0 outcome=ACCEPTED"
+        val state = "W".repeat(54)
+        val report = QuickScanMeasurement.measure(sequenceOf("$record state=$state initial=$state device=SM-S721U1"))
+        assertEquals(QuickScanMeasurement.Report(1, 1, 0, 0), report)
+    }
+
+    @Test
+    fun `untimed records count as unsuccessful runs`() {
+        val report =
+            QuickScanMeasurement.measure(
+                sequenceOf("quickScan run elapsedMs=- fallbackFaces=0 repromptFaces=0 corrections=0 outcome=CANCELLED"),
+            )
+        assertEquals(QuickScanMeasurement.Report(1, 0, 0, 0), report)
+    }
 }

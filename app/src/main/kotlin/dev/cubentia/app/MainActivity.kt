@@ -152,6 +152,12 @@ class MainActivity : ComponentActivity() {
         val onPlacementScan =
             if (featureFlags.isEnabled(FeatureFlag.PLACEMENT)) {
                 guidedScanAction({ placementFlow.scanDenied() }) { placementFlow.onScanOutcome(it) }
+                    ?.let { launch ->
+                        {
+                            placementFlow.scanningAgain()
+                            launch()
+                        }
+                    }
             } else {
                 null
             }
@@ -181,6 +187,9 @@ class MainActivity : ComponentActivity() {
                         quickInFlight = null
                         lifecycleScope.launch {
                             val current = sessionHost.state.value
+                            if (issued == null || issued.effectId == -1L) {
+                                ScanDiagnostics.discardQuickCheckCapture()
+                            }
                             if (issued?.effectId == -1L) {
                                 val observation = (outcome as? QuickCheckOutcome.Observed)?.observation
                                 val full = observation as? PhysicalObservation.Full
@@ -216,8 +225,28 @@ class MainActivity : ComponentActivity() {
                                             }
                                         }
                                     // debug only (no-op in release): observed vs expected and the Certainty (PO 2026-11-17).
+                                    if (outcome == QuickCheckOutcome.Cancelled) {
+                                        if (pending?.effectId == effect.effectId && effect.revision == current.revision) {
+                                            ScanDiagnostics.onQuickCheckRun(current.expected, null, null, null)
+                                        } else {
+                                            ScanDiagnostics.discardQuickCheckCapture()
+                                        }
+                                    }
                                     (outcome as? QuickCheckOutcome.Observed)?.let {
-                                        ScanDiagnostics.onQuickCheck(current.expected, it.observation, applied.state.quickCheck?.certainty)
+                                        val check = applied.state.quickCheck
+                                        ScanDiagnostics.onQuickCheck(current.expected, it.observation, check?.certainty)
+                                        if (check != null && check !== current.quickCheck &&
+                                            pending?.effectId == effect.effectId && effect.revision == current.revision
+                                        ) {
+                                            ScanDiagnostics.onQuickCheckRun(
+                                                current.expected,
+                                                it.observation,
+                                                check.certainty,
+                                                check.matchesExpected,
+                                            )
+                                        } else {
+                                            ScanDiagnostics.discardQuickCheckCapture()
+                                        }
                                     }
                                 }
                             }

@@ -26,6 +26,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.AndroidEntryPoint
+import dev.cubentia.app.ScanDiagnostics
 import dev.cubentia.app.content.CatalogState
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.content.LessonCatalog
@@ -215,19 +216,16 @@ class GuidedScanActivity : ComponentActivity() {
                 }
             PreferenceProvider(preferenceStore) {
                 CubentiaTheme {
-                    if (strings == null) return@CubentiaTheme
                     androidx.activity.compose.BackHandler(enabled = phase is GuidedScanPhase.Calibration) {
                         val calibration = phase as? GuidedScanPhase.Calibration
                         if (!scan.saving) {
                             if (calibration?.fromReview != null) phase = calibration.fromReview else finishWith(ScanOutcome.Cancelled)
                         }
                     }
-                    androidx.activity.compose.BackHandler(
-                        enabled =
-                            (scan.quickScanMode || scan.caseCorners != null) && phase !is GuidedScanPhase.Calibration,
-                    ) {
+                    androidx.activity.compose.BackHandler(enabled = phase !is GuidedScanPhase.Calibration) {
                         finishWith(ScanOutcome.Cancelled)
                     }
+                    if (strings == null) return@CubentiaTheme
                     LaunchedEffect(scan.caseResult) {
                         scan.caseResult?.let { views ->
                             val (code, data) = CaseCaptureContract.encode(views)
@@ -344,22 +342,45 @@ class GuidedScanActivity : ComponentActivity() {
 
     private fun hasPermission() = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
+    private val isQuickCheck
+        get() =
+            intent.hasExtra(QuickCheckContract.EXTRA_FACES) ||
+                intent.getBooleanExtra(QuickCheckContract.EXTRA_FULL_QUICK_CHECK, false)
+
     private fun finishWith(capture: ScanOutcome) {
+        val review = (phase as? GuidedScanPhase.Review) ?: (phase as? GuidedScanPhase.Calibration)?.fromReview
+        val outcome =
+            when (capture) {
+                is ScanOutcome.Accepted -> "ACCEPTED"
+                ScanOutcome.Cancelled -> "CANCELLED"
+                ScanOutcome.FellBackToEditor -> "FELL_BACK_TO_EDITOR"
+            }
+        if (isQuickCheck && !scan.guidedLogged) {
+            scan.guidedLogged = true
+            ScanDiagnostics.onQuickCheckCaptured(scan.quickCheckStartedAt, scan.captures)
+        } else if (scan.isGuidedRun && !scan.guidedLogged) {
+            scan.guidedLogged = true
+            ScanDiagnostics.onGuidedScanRun(
+                scan.guidedStartedAt,
+                controller.repromptCount,
+                review?.review,
+                review?.initialStickers,
+                review?.corrections,
+                outcome,
+            )
+        }
         val quick = scan.quickScan
         val started = scan.quickStartedAt
-        if (quick != null && started != null && !scan.quickLogged) {
+        if (scan.quickScanMode && !scan.quickLogged) {
             scan.quickLogged = true
-            val review = (phase as? GuidedScanPhase.Review) ?: (phase as? GuidedScanPhase.Calibration)?.fromReview
             dev.cubentia.app.ScanDiagnostics.onQuickScanRun(
-                SystemClock.elapsedRealtime() - started,
-                quick.fallbackFaces.size,
-                quick.repromptFaces.size,
-                review?.corrections?.count { (i, color) -> color != review.initialStickers[i] } ?: 0,
-                when (capture) {
-                    is ScanOutcome.Accepted -> "ACCEPTED"
-                    ScanOutcome.Cancelled -> "CANCELLED"
-                    ScanOutcome.FellBackToEditor -> "FELL_BACK_TO_EDITOR"
-                },
+                started,
+                quick?.fallbackFaces?.size ?: 0,
+                quick?.repromptFaces?.size ?: 0,
+                review?.corrections,
+                outcome,
+                review?.review?.stickers,
+                review?.initialStickers,
             )
         }
         val (code, data) =
@@ -435,7 +456,7 @@ class GuidedScanActivity : ComponentActivity() {
         val quick = scan.quickScan
         if (quick?.inCorner == true) {
             val corner = frame.corner ?: return
-            if (scan.quickStartedAt == null) scan.quickStartedAt = now
+            if (scan.quickStartedAt == null) scan.quickStartedAt = ScanDiagnostics.startRun()
             dev.cubentia.app.ScanDiagnostics
                 .onCornerFrame(now, corner.detected, corner.faces, corner.score)
             captureCorner { it.onFrame(corner.detected, corner.faces, now) }
@@ -443,6 +464,10 @@ class GuidedScanActivity : ComponentActivity() {
         }
         if (frame.corner != null) return
         val active = scan.guidedController() ?: return
+        if (!isQuickCheck && scan.isGuidedRun && scan.guidedStartedAt == null) scan.guidedStartedAt = ScanDiagnostics.startRun()
+        if (isQuickCheck && scan.quickCheckStartedAt == null) {
+            scan.quickCheckStartedAt = ScanDiagnostics.startRun()
+        }
         handle(scan.freeze.decide(now) { active.onFrame(stats, rotation, now) })
     }
 
@@ -457,7 +482,10 @@ class GuidedScanActivity : ComponentActivity() {
             if (effects.any { it is CaseCaptureEffect.CornerCaptured }) shutterSound.play(MediaActionSound.SHUTTER_CLICK)
             if (CaseCaptureEffect.Remeter in effects) meterOnGrid()
             if (next != null && phase != next) phase = next
-            if (done != null) scan.caseResult = done.views
+            if (done != null) {
+                ScanDiagnostics.onCaseCaptured()
+                scan.caseResult = done.views
+            }
         }
     }
 
@@ -532,7 +560,10 @@ class GuidedScanActivity : ComponentActivity() {
             }
             if (state != null && vm.phase is GuidedScanPhase.Viewfinder && vm.phase != state) vm.phase = state
             if (GuidedScanFlow.remeters(effects)) meterOnGrid()
-            if (partial != null) vm.quickResult = partial
+            if (partial != null) {
+                ScanDiagnostics.onQuickCheckCaptured(vm.quickCheckStartedAt, vm.captures)
+                vm.quickResult = partial
+            }
             if (result != null) vm.publish(result)
         }
     }
@@ -570,6 +601,12 @@ internal class GuidedScanViewModel : ViewModel() {
 
     @Volatile var quickStartedAt: Long? = null
     var quickLogged = false
+
+    @Volatile var guidedStartedAt: Long? = null
+
+    @Volatile var quickCheckStartedAt: Long? = null
+    var guidedLogged = false
+    val isGuidedRun get() = !quickScanMode && quickScan == null && caseCorners == null && quickFaces == null && !calibrationMode
     var saving by mutableStateOf(false)
     var calibrationFinished by mutableStateOf(false)
 

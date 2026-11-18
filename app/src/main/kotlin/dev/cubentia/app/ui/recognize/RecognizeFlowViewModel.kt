@@ -1,6 +1,7 @@
 package dev.cubentia.app.ui.recognize
 
 import androidx.lifecycle.ViewModel
+import dev.cubentia.app.ScanDiagnostics
 import dev.cubentia.app.scan.CaseCaptureOutcome
 import dev.cubentia.application.usecase.Recognition
 import dev.cubentia.application.usecase.RecognizeCase
@@ -41,9 +42,18 @@ class RecognizeFlowViewModel : ViewModel() {
 
     fun onCapture(outcome: CaseCaptureOutcome) {
         when (outcome) {
-            is CaseCaptureOutcome.Captured -> queue(Input.Camera(outcome.views))
-            CaseCaptureOutcome.Cancelled -> Unit
-            CaseCaptureOutcome.FellBackToEditor -> edit("msg.solve.scan-fell-back")
+            is CaseCaptureOutcome.Captured -> {
+                queue(Input.Camera(outcome.views))
+            }
+
+            CaseCaptureOutcome.Cancelled -> {
+                ScanDiagnostics.onRecognizeRun(null, null, "CANCELLED")
+            }
+
+            CaseCaptureOutcome.FellBackToEditor -> {
+                ScanDiagnostics.onRecognizeRun(null, null, "EDITOR")
+                edit("msg.solve.scan-fell-back")
+            }
         }
     }
 
@@ -56,6 +66,7 @@ class RecognizeFlowViewModel : ViewModel() {
         val previous = (mutablePhase.value as? RecognizePhase.Result)?.recognition as? Recognition.Several
         if (input is Input.Camera && input.views.size == 1 && previous == null) {
             // An extra angle with no earlier candidates (e.g. after process death) never names a Case from one corner.
+            ScanDiagnostics.discardCaseCapture()
             pendingInput = null
             mutablePending.value = false
             return
@@ -65,7 +76,9 @@ class RecognizeFlowViewModel : ViewModel() {
                 is Input.Camera -> recognizeCase?.fromCorners(input.views, previous?.caseIds.takeIf { input.views.size == 1 })
                 is Input.Manual -> recognizeCase?.fromCube(input.state)
             }
-        mutablePhase.value = RecognizePhase.Result(result ?: Recognition.NoFit)
+        val recognition = result ?: Recognition.NoFit
+        if (input is Input.Camera) ScanDiagnostics.onRecognizeRun(recognition, input.views.size)
+        mutablePhase.value = RecognizePhase.Result(recognition)
         pendingInput = null
         mutablePending.value = false
     }

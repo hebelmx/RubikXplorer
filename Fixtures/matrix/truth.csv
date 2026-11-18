@@ -1,0 +1,17 @@
+cell,run,truth
+# Scrambles applied from solved, white on top, green in front.
+# lenovo stka warm guided: run 1 = cancelled to calibrate (first use); run 2 = first-use accepted incl. calibration;
+# run 3 = PO scrambled with an error (scan matched the physical cube, checked on the white face) -> no truth, excluded from rates
+lenovo-tb128xu_stka_warm_guided,2,R U F' L2 D B'
+lenovo-tb128xu_stka_warm_guided,4,U R2 F' D L' B2
+lenovo-tb128xu_stka_warm_quickscan,*,U R2 F' D L' B2
+sm-s721u1_stka_warm_guided,*,U R2 F' D L' B2
+# S24 stka quickcheck run 1 = Physical-mode end-to-end verification of the solved cube (PO confirmed solved)
+sm-s721u1_stka_warm_quickcheck,*,match
+# S24 stla guided: run 1 cancelled; run 2 accepted (22 s, 0 corr) but PO scramble differed from L F2 R' U B' D2 -> no independent truth; scan proven correct by following the 13-move solution to a VERIFIED solved cube
+sm-s721u1_stla_warm_quickcheck,*,match
+lenovo-tb128xu_stla_warm_guided,*,R U2 F L2 D B2
+sm-s721u1_stla_warm_guided,3,R U2 F L2 D B2
+# S24 stla quickcheck run 3 = deliberate wrong move during checkerboard playback (fallback check b): Partial, expected mismatch
+sm-s721u1_stla_warm_quickcheck,3,mismatch
+sm-s721u1_stla_warm_quickcheck,4,mismatch
