@@ -14,6 +14,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
@@ -21,6 +22,7 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.PreferenceProvider
 import dev.cubentia.app.preferences.PreferenceStore
@@ -322,6 +324,44 @@ class SolutionPlaybackTest {
         assertEquals(other.toFacelets(), state.renderer.renderedFacelets())
     }
 
+    @Test fun physicalModeFollowsTheMovePicturesPreference() {
+        val store = netPreferences().apply { update(Preference.MovePictures(false)) }
+        show(store = store)
+        click("followOnMyCube")
+        assertTrue(state.isPhysical)
+        tag("strip").assertExists()
+        tag("move").assertTextEquals(Notation.format(solution.first()))
+        tag("picture").assertDoesNotExist()
+        rule.onNodeWithTag("playback:chipPicture:0", useUnmergedTree = true).assertDoesNotExist()
+        rule.runOnIdle { store.update(Preference.MovePictures(true)) }
+        tag("picture").assertExists()
+        rule.onNodeWithTag("playback:chipPicture:0", useUnmergedTree = true).assertExists()
+    }
+
+    @Test fun chipAndSliderSnapPlayingSolutionOnTheNet() = assertChipAndSliderSnap(netPreferences())
+
+    @Test fun chipAndSliderSnapPlayingSolutionIn3D() = assertChipAndSliderSnap(PreferenceStore())
+
+    private fun assertChipAndSliderSnap(store: PreferenceStore) {
+        show(store = store)
+        rule.mainClock.autoAdvance = false
+        click("playPause")
+        assertTrue(state.isPlaying)
+        click("chip:1")
+        assertFalse(state.isPlaying)
+        assertEquals(2, state.position)
+        assertEquals(scrambled.apply(solution.take(2)).toFacelets(), state.renderer.renderedFacelets())
+        rule.mainClock.advanceTimeByFrame()
+        rule.waitForIdle()
+        tag("chip:1").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Current move"))
+
+        tag("scrub").performSemanticsAction(SemanticsActions.SetProgress) { it(1f) }
+        rule.mainClock.advanceTimeByFrame()
+        assertEquals(1, state.position)
+        assertFalse(state.isPlaying)
+        assertEquals(scrambled.apply(solution.take(1)).toFacelets(), state.renderer.renderedFacelets())
+    }
+
     @Test
     fun `an empty Solution disables the transport and shows no note`() {
         show(session(CubeState.SOLVED, emptyList()))
@@ -329,6 +369,8 @@ class SolutionPlaybackTest {
         tag("counter").assertTextEquals("0 / 0")
         tag("move").assertTextEquals("")
         tag("note").assertDoesNotExist()
+        tag("strip").assertDoesNotExist()
+        tag("scrub").assertDoesNotExist()
         assertEquals(CubeState.SOLVED.toFacelets(), state.renderer.renderedFacelets())
     }
 
@@ -343,6 +385,11 @@ class SolutionPlaybackTest {
         tag("followOnMyCube").assertTextEquals("I'm following on my cube")
         click("followOnMyCube")
         tag("done").assertTextEquals("Done")
+        tag("strip").assertExists()
+        tag("scrub").assertDoesNotExist()
+        tag("picture").assertExists()
+        repeat(solution.size) { tag("chip:$it").assertHasNoClickAction() }
+        tag("chip:0").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Current move"))
         assertTrue(state.isPhysical)
         assertEquals(SyncState.PHYSICAL_PREDICTED, state.session.syncState)
         rule.onNodeWithTag("stage:frame").assertTextEquals("EXPECTED")
@@ -358,6 +405,7 @@ class SolutionPlaybackTest {
         // Done advances to step 1 (1 / 3) awaiting U'
         click("done")
         assertEquals(1, state.position)
+        tag("chip:1").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Current move"))
         assertEquals(scrambled.apply(solution.take(1)), state.session.expected)
         assertNull(state.session.observed)
         tag("counter").assertTextEquals("1 / 3")
@@ -396,6 +444,10 @@ class SolutionPlaybackTest {
         tag("move").assertTextEquals("")
         tag("note").assertDoesNotExist()
         tag("done").assertIsNotEnabled()
+        repeat(solution.size) {
+            assertFalse(tag("chip:$it").fetchSemanticsNode().config.contains(SemanticsProperties.StateDescription))
+        }
+        tag("picture").assertDoesNotExist()
         tag("solvedNow").assertTextEquals("Your cube should be solved now.")
         tag("solvedNow").assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
         assertEquals(CubeState.SOLVED.toFacelets(), state.renderer.renderedFacelets())

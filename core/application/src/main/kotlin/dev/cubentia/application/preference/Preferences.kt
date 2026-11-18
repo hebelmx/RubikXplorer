@@ -27,6 +27,7 @@ data class Preferences(
     /** Set once the Learner has chosen a path on Welcome, so a cold start without progress still opens Learn. */
     val onboarded: Boolean = false,
     val playbackView: PlaybackView? = null,
+    val movePictures: Boolean = true,
 ) {
     fun with(preference: Preference): Preferences =
         when (preference) {
@@ -38,6 +39,7 @@ data class Preferences(
             is Preference.LastTeachingMode -> copy(lastTeachingMode = preference.value)
             is Preference.Onboarded -> copy(onboarded = preference.value)
             is Preference.PlaybackViewChoice -> copy(playbackView = preference.value)
+            is Preference.MovePictures -> copy(movePictures = preference.value)
         }
 
     companion object {
@@ -46,6 +48,10 @@ data class Preferences(
 }
 
 sealed interface Preference {
+    data class MovePictures(
+        val value: Boolean,
+    ) : Preference
+
     data class PlaybackViewChoice(
         val value: PlaybackView?,
     ) : Preference

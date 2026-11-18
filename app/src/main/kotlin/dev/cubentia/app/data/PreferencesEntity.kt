@@ -19,6 +19,7 @@ data class PreferencesEntity(
     val last_teaching_mode: String,
     @ColumnInfo(defaultValue = "0") val onboarded: Boolean = false,
     @ColumnInfo(defaultValue = "NULL") val playback_view: String? = null,
+    @ColumnInfo(defaultValue = "1") val move_pictures: Boolean = true,
 ) {
     fun preferences(): Preferences =
         Preferences(
@@ -30,6 +31,7 @@ data class PreferencesEntity(
             TeachingMode.entries.firstOrNull { it.name == last_teaching_mode } ?: TeachingMode.DEFAULT,
             onboarded,
             PlaybackView.entries.firstOrNull { it.name == playback_view },
+            move_pictures,
         )
 
     companion object {
@@ -44,6 +46,7 @@ data class PreferencesEntity(
                 p.lastTeachingMode.name,
                 p.onboarded,
                 p.playbackView?.name,
+                p.movePictures,
             )
     }
 }

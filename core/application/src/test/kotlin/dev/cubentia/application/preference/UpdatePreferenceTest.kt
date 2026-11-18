@@ -36,7 +36,9 @@ class UpdatePreferenceTest {
             assertFalse(update(failed.value, Preference.Haptics(false)).value.haptics)
             assertEquals(ThemeChoice.DARK, failed.value.theme)
             assertEquals(PreferenceSave.Failed, failed.result)
-            assertEquals(listOf(first.value, failed.value, failed.value.copy(haptics = false)), writes)
+            val picturesOff = update(failed.value, Preference.MovePictures(false))
+            assertEquals(failed.value.copy(movePictures = false), picturesOff.value)
+            assertEquals(listOf(first.value, failed.value, failed.value.copy(haptics = false), picturesOff.value), writes)
             assertEquals(PreferenceUpdate(Preferences.DEFAULT, PreferenceSave.Failed), update.reset())
             assertEquals(1, resets)
         }

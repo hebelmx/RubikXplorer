@@ -323,13 +323,21 @@ class AppShellLibraryTest {
         launch()
         val tag = "library:case:case-oll-01"
         rule.onNodeWithTag(tag).performClick()
-        rule.onNodeWithTag("algorithmDetail:status:LEARNING").performClick()
+        rule
+            .onNodeWithTag("algorithmDetail:status:LEARNING")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .performClick()
         rule.onNodeWithTag("algorithmDetail:status:LEARNING").assertIsSelected()
         rule.onNodeWithTag("algorithmDetail:back").performClick()
         rule.onNodeWithTag("library:status-label", useUnmergedTree = true).assertTextEquals("Learning")
         rule.onNodeWithTag("library:status:LEARNING").performClick()
         rule.onNodeWithTag(tag).performClick()
-        rule.onNodeWithTag("algorithmDetail:status:NOT_STARTED").performClick()
+        rule
+            .onNodeWithTag("algorithmDetail:status:NOT_STARTED")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .performClick()
         rule.onNodeWithTag("algorithmDetail:status-line").assertExists()
         rule.onNodeWithTag("algorithmDetail:back").performClick()
         rule.onNodeWithTag(tag).assertDoesNotExist()

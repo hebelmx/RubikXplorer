@@ -25,6 +25,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
@@ -355,10 +356,19 @@ class AlgorithmDetailScreenTest {
                 })
             }
         }
-        rule.onNodeWithTag("algorithmDetail:status:NOT_STARTED").performClick()
+        rule
+            .onNodeWithTag("algorithmDetail:status:NOT_STARTED")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .performClick()
         rule.runOnIdle { assertTrue(calls.isEmpty()) }
         for (status in listOf("LEARNING", "LEARNED", "NOT_STARTED")) {
-            rule.onNodeWithTag("algorithmDetail:status:$status").performClick().assertIsSelected()
+            rule
+                .onNodeWithTag("algorithmDetail:status:$status")
+                .performScrollTo()
+                .assertIsDisplayed()
+                .performClick()
+                .assertIsSelected()
             rule.onNodeWithTag("algorithmDetail:status:$status").performClick()
             if (status == "NOT_STARTED") {
                 rule.onNodeWithTag("algorithmDetail:status-line").assertExists()

@@ -6,7 +6,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -15,12 +18,16 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -31,7 +38,10 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.dp
 import dev.cubentia.app.R
+import dev.cubentia.app.content.ContentStrings
+import dev.cubentia.app.preferences.LocalPreferenceStore
 import dev.cubentia.app.render.CubeRenderer
 import dev.cubentia.app.render.PresentationItem
 import dev.cubentia.app.ui.theme.RubikTheme
@@ -40,6 +50,7 @@ import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Notation
+import dev.cubentia.domain.playback.MovePicture
 import dev.cubentia.domain.playback.PlaybackController
 import dev.cubentia.domain.playback.PlaybackItem
 import dev.cubentia.domain.playback.PlaybackSpeed
@@ -62,6 +73,10 @@ interface PlaybackTransportState {
     val atEnd: Boolean
 
     val speed: PlaybackSpeed
+
+    val moves: List<Move>
+
+    val currentIndex: Int?
 
     /** The Move last played, or the first Move before any has played; null with no Moves. */
     val currentMove: Move?
@@ -120,7 +135,7 @@ class NetPlayback(
     internal val mappedRevisions: Int get() = animatedIndex.size
 
     /** The Moves played. */
-    val moves: List<Move> get() = controller.moves
+    override val moves: List<Move> get() = controller.moves
 
     override val position: Int get() = controller.position
 
@@ -134,6 +149,8 @@ class NetPlayback(
 
     /** The index of [currentMove]: the Move last played, or the first before any has played. */
     val focusIndex: Int get() = max(position - 1, 0)
+
+    override val currentIndex: Int? get() = focusIndex.takeIf { moves.isNotEmpty() }
 
     override val currentMove: Move? get() = controller.moves.getOrNull(focusIndex)
 
@@ -224,6 +241,7 @@ fun PlaybackFrameLoop(state: PlaybackTransportState) {
 @Composable
 fun PlaybackTransport(
     state: PlaybackTransportState,
+    strings: ContentStrings,
     modifier: Modifier = Modifier,
     note: String? = null,
     onScrub: ((Double) -> Unit)? = null,
@@ -231,6 +249,7 @@ fun PlaybackTransport(
     val tokens = RubikTheme.tokens
     val styles = RubikTheme.textStyles
     val any = state.size > 0
+    val preferences by LocalPreferenceStore.current.preferences.collectAsState()
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -265,30 +284,6 @@ fun PlaybackTransport(
                 state::seekToEnd,
             )
         }
-        if (onScrub != null && any) {
-            val description = stringResource(R.string.playback_scrub_description)
-            val counter = stringResource(R.string.playback_counter, state.position, state.size)
-            Slider(
-                value = state.position.toFloat(),
-                onValueChange = { value ->
-                    val boundary = value.roundToInt().coerceIn(0, state.size)
-                    if (boundary != state.position || state.isPlaying) onScrub(boundary.toDouble() / state.size)
-                },
-                valueRange = 0f..state.size.toFloat(),
-                steps = state.size - 1,
-                colors =
-                    SliderDefaults.colors(
-                        thumbColor = tokens.inkPrimary,
-                        activeTrackColor = tokens.inkPrimary,
-                        inactiveTrackColor = tokens.hairline,
-                    ),
-                modifier =
-                    Modifier.testTag("playback:scrub").semantics {
-                        contentDescription = description
-                        stateDescription = counter
-                    },
-            )
-        }
         val speedDescription = stringResource(R.string.playback_speed_description)
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -319,12 +314,7 @@ fun PlaybackTransport(
                 color = tokens.inkSecondary,
                 modifier = Modifier.testTag("playback:counter"),
             )
-            Text(
-                state.currentMove?.let(Notation::format).orEmpty(),
-                style = styles.notation,
-                color = tokens.inkPrimary,
-                modifier = Modifier.testTag("playback:move"),
-            )
+            PlaybackMoveLabel(state.currentMove, preferences.movePictures)
         }
         note?.let {
             Text(
@@ -340,6 +330,69 @@ fun PlaybackTransport(
                         .semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
+        MoveStrip(
+            state.moves,
+            state.currentIndex,
+            preferences.movePictures,
+            strings,
+            onSelect = onScrub?.let { seek -> { index -> seek((index + 1).toDouble() / state.size) } },
+        )
+        if (onScrub != null && any) {
+            val description = stringResource(R.string.playback_scrub_description)
+            val counter = stringResource(R.string.playback_counter, state.position, state.size)
+            Slider(
+                value = state.position.toFloat(),
+                onValueChange = { value ->
+                    val boundary = value.roundToInt().coerceIn(0, state.size)
+                    if (boundary != state.position || state.isPlaying) onScrub(boundary.toDouble() / state.size)
+                },
+                valueRange = 0f..state.size.toFloat(),
+                steps = state.size - 1,
+                colors =
+                    SliderDefaults.colors(
+                        thumbColor = tokens.inkPrimary,
+                        activeTrackColor = tokens.inkPrimary,
+                        inactiveTrackColor = tokens.hairline,
+                    ),
+                modifier =
+                    Modifier.testTag("playback:scrub").semantics {
+                        contentDescription = description
+                        stateDescription = counter
+                    },
+            )
+        }
+    }
+}
+
+/** In a Column with a weighted cube stage, let the controls scroll before they crowd out the cube. */
+@Composable
+internal fun Modifier.playbackControlsScroll(): Modifier =
+    layout { measurable, constraints ->
+        val stageHeight = minOf(96.dp.roundToPx(), constraints.maxHeight / 3)
+        val pane = measurable.measure(constraints.copy(maxHeight = constraints.maxHeight - stageHeight))
+        layout(pane.width, pane.height) { pane.placeRelative(0, 0) }
+    }.verticalScroll(rememberScrollState())
+
+@Composable
+internal fun PlaybackMoveLabel(
+    move: Move?,
+    pictures: Boolean,
+) {
+    val style = RubikTheme.textStyles.notation
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.s2),
+    ) {
+        if (pictures && move != null) {
+            val height = with(LocalDensity.current) { style.fontSize.toDp() }
+            MovePictureView(remember(move) { MovePicture.of(move) }, Modifier.size(height * 1.25f, height).testTag("playback:picture"))
+        }
+        Text(
+            move?.let(Notation::format).orEmpty(),
+            style = style,
+            color = RubikTheme.tokens.inkPrimary,
+            modifier = Modifier.testTag("playback:move"),
+        )
     }
 }
 

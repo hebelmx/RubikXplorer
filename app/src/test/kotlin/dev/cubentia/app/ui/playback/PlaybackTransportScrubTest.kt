@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performSemanticsAction
+import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.render.Cube3DRenderer
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.domain.cube.CubeState
@@ -26,13 +27,13 @@ class PlaybackTransportScrubTest {
     private val state = NetPlayback(CubeState.SOLVED, moves, true, Cube3DRenderer(CubeState.SOLVED.toFacelets()))
 
     @Test fun `scrub is absent by default`() {
-        rule.setContent { CubentiaTheme { PlaybackTransport(state) } }
+        rule.setContent { CubentiaTheme { PlaybackTransport(state, ContentStrings(emptyMap())) } }
         rule.onNodeWithTag("playback:scrub").assertDoesNotExist()
     }
 
     @Test fun `slider exposes all boundaries and sends rounded fractions`() {
         var fraction = -1.0
-        rule.setContent { CubentiaTheme { PlaybackTransport(state, onScrub = { fraction = it }) } }
+        rule.setContent { CubentiaTheme { PlaybackTransport(state, ContentStrings(emptyMap()), onScrub = { fraction = it }) } }
         val slider = rule.onNodeWithTag("playback:scrub")
         val range = slider.fetchSemanticsNode().config[SemanticsProperties.ProgressBarRangeInfo]
         assertEquals(0f..4f, range.range)

@@ -1,6 +1,7 @@
 package dev.cubentia.app.ui.shell
 
 import android.app.Application
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
@@ -90,7 +91,11 @@ class AppShellAlgorithmStatusRoomTest {
             }
             rule.onNodeWithTag("nav:library").performClick()
             rule.onNodeWithTag("library:case:case-oll-01").performClick()
-            rule.onNodeWithTag("algorithmDetail:status:LEARNING").performClick()
+            rule
+                .onNodeWithTag("algorithmDetail:status:LEARNING")
+                .performScrollTo()
+                .assertIsDisplayed()
+                .performClick()
             rule.waitUntil(5_000) { count(db, "SELECT COUNT(*) FROM algorithm_status_event") == 1L }
             rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("algorithmDetail:status-line")).fetchSemanticsNodes().isEmpty() }
             rule.onNodeWithTag("algorithmDetail:status:LEARNING").assertIsSelected()
@@ -202,8 +207,18 @@ class AppShellAlgorithmStatusRoomTest {
                 )
             openDetail(host, preferences)
             block(writer, release)
-            rule.onNodeWithTag("algorithmDetail:status:LEARNING").performClick().assertIsSelected()
-            rule.onNodeWithTag("algorithmDetail:status:NOT_STARTED").performClick().assertIsSelected()
+            rule
+                .onNodeWithTag("algorithmDetail:status:LEARNING")
+                .performScrollTo()
+                .assertIsDisplayed()
+                .performClick()
+                .assertIsSelected()
+            rule
+                .onNodeWithTag("algorithmDetail:status:NOT_STARTED")
+                .performScrollTo()
+                .assertIsDisplayed()
+                .performClick()
+                .assertIsSelected()
             release.complete(Unit)
             runBlocking { writer.flush() }
             rule.waitUntil(5_000) { count(db, "SELECT COUNT(*) FROM algorithm_status_event") == 2L }
@@ -250,7 +265,12 @@ class AppShellAlgorithmStatusRoomTest {
                 )
             openDetail(host, preferences)
             block(writer, release)
-            rule.onNodeWithTag("algorithmDetail:status:LEARNING").performClick().assertIsSelected()
+            rule
+                .onNodeWithTag("algorithmDetail:status:LEARNING")
+                .performScrollTo()
+                .assertIsDisplayed()
+                .performClick()
+                .assertIsSelected()
             release.complete(Unit)
             runBlocking { writer.flush() }
             rule.waitUntil(5_000) {
