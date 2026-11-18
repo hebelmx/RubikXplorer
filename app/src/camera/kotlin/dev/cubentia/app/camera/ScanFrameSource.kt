@@ -33,10 +33,15 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
+private val EMPTY_STATS =
+    dev.cubentia.domain.recognition
+        .FrameStats(emptyList(), 0.0, 0.0, 0.0, 0)
+
 internal data class ScanFrame(
     val stats: dev.cubentia.domain.recognition.FrameStats,
     val rotationDegrees: Int,
-    val ring: () -> dev.cubentia.domain.recognition.CellReading?,
+    val corner: CornerFrame? = null,
+    val ring: () -> dev.cubentia.domain.recognition.CellReading? = { null },
 )
 
 internal interface ScanFrameSource {
@@ -48,6 +53,8 @@ internal interface ScanFrameSource {
         onFrame: (ScanFrame) -> Unit,
         onUnavailable: () -> Unit,
     )
+
+    fun cornerMode(enabled: Boolean) = Unit
 
     fun stop()
 
@@ -218,12 +225,23 @@ internal class CameraXFrameSource
             )
         }
 
+        @Volatile private var corner = false
+
+        override fun cornerMode(enabled: Boolean) {
+            corner = enabled
+        }
+
         private fun read(image: ImageProxy) {
             val rotation = image.imageInfo.rotationDegrees
             val crop = image.cropRect
             val (width, height) = viewSize
             val grid = ViewfinderGrid.inFrame(width.toDouble(), height.toDouble(), crop.left, crop.top, crop.right, crop.bottom, rotation)
             meteringGrid = MeteringGrid(image.width, image.height, grid)
+            if (corner) {
+                val reading = CornerReader.read(with(FrameReader) { image.asYuvFrame() }, CornerGuide(grid, rotation))
+                deliver(ScanFrame(EMPTY_STATS, rotation, corner = reading))
+                return
+            }
             val reading = FrameReader.locate(image, grid, rotation)
             val lattice = reading.lattice
             ScanDiagnostics.onFrame(reading.stats, SystemClock.elapsedRealtime(), lattice.scale, lattice.dx, lattice.dy, lattice.score)

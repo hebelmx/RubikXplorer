@@ -8,7 +8,7 @@ class FeatureFlagLevelsTest {
     @Test
     fun `debug levels follow wired entry points`() {
         assertEquals(
-            "QUICK_SCAN=OFF,PLACEMENT=GA,CASE_RECOGNITION=OFF,TEST_ME=GA,CAMERA_SCAN=GA,ADAPTIVE_ASSISTANCE=GA",
+            "QUICK_SCAN=BETA,PLACEMENT=GA,CASE_RECOGNITION=OFF,TEST_ME=GA,CAMERA_SCAN=GA,ADAPTIVE_ASSISTANCE=GA",
             FeatureFlagLevels.forBuildType("debug"),
         )
     }

@@ -1,4 +1,8 @@
 {
+  "btn.solve.quick-scan": "Quick Scan",
+  "msg.quick-scan.hold-first": "Hold white on top, green and red facing you",
+  "msg.quick-scan.hold-second": "Now yellow on top, blue and orange facing you",
+  "msg.quick-scan.counter": "{n} / {total}",
   "msg.placement.suggest": "Start at {stage}?",
   "msg.placement.non-white-cross": "Start with a white cross for this course.",
   "msg.placement.solved": "Your cube is solved — scramble it and scan again, or start Stage 1.",

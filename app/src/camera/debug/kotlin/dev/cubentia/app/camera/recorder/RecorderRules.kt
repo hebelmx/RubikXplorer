@@ -327,3 +327,26 @@ internal fun scaledSize(
     val scale = maxEdge.toDouble() / longEdge
     return (width * scale).roundToInt().coerceAtLeast(1) to (height * scale).roundToInt().coerceAtLeast(1)
 }
+
+/** Converts a captured corner to ordinary samples in the recorder's prompted order. */
+internal fun cornerSamples(
+    hold: Int,
+    reading: dev.cubentia.app.camera.CornerFrame,
+): List<dev.cubentia.domain.recognition.FaceSample>? {
+    if (!reading.detected) return null
+    val plan = dev.cubentia.domain.recognition.QuickScanPlan.holds[hold - 1]
+    return plan.zip(reading.faces).map { (step, stats) ->
+        val cells = stats?.cells?.filterNotNull()?.takeIf { it.size == 9 } ?: return null
+        dev.cubentia.domain.recognition.FaceSample(
+            face = step.face,
+            orientationDegrees = 0,
+            stickers = cells.map { it.value },
+            quality =
+                dev.cubentia.domain.recognition.FrameQuality
+                    .assessShutter(stats),
+            centerColor = step.centerColor,
+            upNeighborColor = step.upNeighborColor,
+            centerPlain = cells[4].plain,
+        )
+    }
+}

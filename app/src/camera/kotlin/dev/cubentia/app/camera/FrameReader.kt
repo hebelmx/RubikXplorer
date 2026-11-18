@@ -150,12 +150,13 @@ internal object FrameReader {
         image: ImageProxy,
         grid: GridSquare,
         rotationDegrees: Int,
-    ): FrameReading {
-        val crop = image.cropRect
-        val planes = image.planes
+    ): FrameReading = locate(image.asYuvFrame(), grid, rotationDegrees)
+
+    fun ImageProxy.asYuvFrame(): YuvFrame {
+        val crop = cropRect
 
         fun plane(index: Int) = YuvPlane(planes[index].buffer, planes[index].rowStride, planes[index].pixelStride)
-        return locate(YuvFrame(plane(0), plane(1), plane(2), crop.left, crop.top, crop.right, crop.bottom), grid, rotationDegrees)
+        return YuvFrame(plane(0), plane(1), plane(2), crop.left, crop.top, crop.right, crop.bottom)
     }
 
     /** Reads [frame] at the face located inside [grid]; see [locate]. */

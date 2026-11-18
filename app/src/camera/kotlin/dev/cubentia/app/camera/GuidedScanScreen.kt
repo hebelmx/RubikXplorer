@@ -71,12 +71,14 @@ import dev.cubentia.app.preferences.LocalHaptics
 import dev.cubentia.app.render.StickerGlyph
 import dev.cubentia.app.ui.editor.colorName
 import dev.cubentia.app.ui.lesson.rememberReduceMotion
+import dev.cubentia.app.ui.theme.LocalRubikTextStyles
 import dev.cubentia.domain.appearance.StickerAppearance
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.recognition.Coaching
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.GuidedScanPlan
 import dev.cubentia.domain.recognition.Lab
+import dev.cubentia.domain.recognition.QuickScanPlan
 import dev.cubentia.domain.recognition.ScanStep
 import kotlinx.coroutines.delay
 import kotlin.math.pow
@@ -93,6 +95,7 @@ internal sealed interface GuidedScanPhase {
         /** The Learner changed a sticker, kept across a trip to calibration so *Close* still confirms. */
         val edited: Boolean = false,
         val corrections: Map<Int, dev.cubentia.domain.cube.Color> = emptyMap(),
+        val initialStickers: List<CubeColor?> = review.stickers,
     ) : GuidedScanPhase
 
     data class Calibration(
@@ -102,6 +105,12 @@ internal sealed interface GuidedScanPhase {
         val coaching: Coaching? = null,
         val saveFailed: Boolean = false,
         val fromReview: Review? = null,
+    ) : GuidedScanPhase
+
+    data class CornerViewfinder(
+        val hold: Int,
+        val captured: List<FaceSample> = emptyList(),
+        val coaching: Coaching? = null,
     ) : GuidedScanPhase
 
     /** The camera rationale, before any system dialog. */
@@ -163,6 +172,7 @@ internal class FrozenCapture(
     val id: Long,
     val face: Face,
     val image: ImageBitmap?,
+    val shrink: Boolean = true,
 )
 
 private const val VIEWFINDER_HEIGHT_FRACTION = 0.45f
@@ -195,6 +205,21 @@ internal fun GuidedScanScreen(
                     onClick = actions.onClose,
                     modifier = Modifier.testTag("scanClose"),
                 ) { Text(strings.resolve(ContentText("btn.scan.close"))) }
+                if (phase is GuidedScanPhase.CornerViewfinder) {
+                    Text(
+                        strings.resolve(
+                            ContentText("msg.quick-scan.counter", mapOf("n" to phase.hold, "total" to QuickScanPlan.holds.size)),
+                        ),
+                        Modifier
+                            .weight(
+                                1f,
+                            ).padding(end = 8.dp)
+                            .semantics { liveRegion = LiveRegionMode.Polite }
+                            .testTag("quickScan:counter"),
+                        textAlign = TextAlign.End,
+                        style = LocalRubikTextStyles.current.data,
+                    )
+                }
                 if (phase is GuidedScanPhase.Viewfinder) {
                     Text(
                         strings.resolve(progressText(phase)),
@@ -253,6 +278,18 @@ internal fun GuidedScanScreen(
                     }
                 }
 
+                is GuidedScanPhase.CornerViewfinder -> {
+                    Viewfinder(
+                        GuidedScanPhase.Viewfinder(captured = phase.captured, coaching = phase.coaching, step = null),
+                        strings,
+                        actions,
+                        frozen,
+                        offerEnterColors,
+                        viewfinder,
+                        cornerHold = phase.hold,
+                    )
+                }
+
                 is GuidedScanPhase.Viewfinder -> {
                     Viewfinder(phase, strings, actions, frozen, offerEnterColors, viewfinder)
                 }
@@ -299,13 +336,17 @@ private fun Viewfinder(
     frozen: FrozenCapture?,
     offerEnterColors: Boolean,
     preview: @Composable () -> Unit,
+    cornerHold: Int? = null,
 ) {
     val geometry = remember { ViewfinderGeometry() }
+    val steps = cornerHold?.let { QuickScanPlan.holds[it - 1] }.orEmpty()
+    val highlighted = steps.map { it.face }.toSet() + listOfNotNull(phase.step?.face)
+    val showCorner = cornerHold != null || frozen?.shrink == false
     BoxWithConstraints(Modifier.fillMaxSize().onGloballyPositioned { geometry.origin = it.boundsInRoot().topLeft }) {
         val wide = maxWidth >= EXPANDED_WIDTH || maxWidth > maxHeight
         if (wide) {
             Row(Modifier.fillMaxSize()) {
-                Box(Modifier.weight(1f).fillMaxHeight()) { CameraArea(geometry, preview) }
+                Box(Modifier.weight(1f).fillMaxHeight()) { CameraArea(geometry, preview, showCorner) }
                 Column(
                     Modifier
                         .weight(1f)
@@ -314,9 +355,9 @@ private fun Viewfinder(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Prompt(phase, strings)
+                    if (cornerHold == null) Prompt(phase, strings) else CornerPrompt(cornerHold, strings)
                     CoachingLine(phase, strings)
-                    MiniNet(phase, geometry, Modifier.weight(1f).fillMaxWidth())
+                    MiniNet(phase, geometry, Modifier.weight(1f).fillMaxWidth(), highlighted)
                     CaptureButtons(phase, strings, actions)
                     if (offerEnterColors) EnterColorsButton(strings, actions.onEnterColors)
                 }
@@ -324,14 +365,18 @@ private fun Viewfinder(
         } else {
             val cameraHeight = maxHeight * VIEWFINDER_HEIGHT_FRACTION
             Column(Modifier.fillMaxSize()) {
-                Prompt(phase, strings, Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp))
-                Box(Modifier.fillMaxWidth().height(cameraHeight)) { CameraArea(geometry, preview) }
+                if (cornerHold == null) {
+                    Prompt(phase, strings, Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp))
+                } else {
+                    CornerPrompt(cornerHold, strings)
+                }
+                Box(Modifier.fillMaxWidth().height(cameraHeight)) { CameraArea(geometry, preview, showCorner) }
                 CoachingLine(phase, strings)
                 Column(
                     Modifier.weight(1f).fillMaxWidth().padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    MiniNet(phase, geometry, Modifier.weight(1f).fillMaxWidth())
+                    MiniNet(phase, geometry, Modifier.weight(1f).fillMaxWidth(), highlighted)
                     CaptureButtons(phase, strings, actions)
                     if (offerEnterColors) EnterColorsButton(strings, actions.onEnterColors)
                 }
@@ -346,6 +391,7 @@ private fun Viewfinder(
 private fun CameraArea(
     geometry: ViewfinderGeometry,
     preview: @Composable () -> Unit,
+    corner: Boolean = false,
 ) {
     BoxWithConstraints(
         Modifier
@@ -357,6 +403,10 @@ private fun CameraArea(
     ) {
         preview()
         val side = minOf(maxWidth, maxHeight) * FrameReader.GRID_FRACTION.toFloat()
+        if (corner) {
+            CornerOutline(Modifier.align(Alignment.Center).size(side).onGloballyPositioned { geometry.grid = it.boundsInRoot() })
+            return@BoxWithConstraints
+        }
         Canvas(
             Modifier
                 .align(Alignment.Center)
@@ -413,7 +463,7 @@ private fun FrozenOverlay(
     LaunchedEffect(frozen.id) {
         if (hapticsOn) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
         delay(CaptureFreeze.FREEZE_MS)
-        if (!reduceMotion) progress.animateTo(1f, tween(SHRINK_MS))
+        if (frozen.shrink && !reduceMotion) progress.animateTo(1f, tween(SHRINK_MS))
         end(frozen.id)
     }
     val image = frozen.image ?: return
@@ -503,6 +553,35 @@ private fun Prompt(
 }
 
 @Composable
+internal fun CornerPrompt(
+    hold: Int,
+    strings: ContentStrings,
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(8.dp).testTag("scanPrompt"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        QuickScanPlan.holds[hold - 1].forEach { Swatch(it.centerColor, 24.dp) }
+        val prompt = if (hold == 1) ContentText("msg.quick-scan.hold-first") else ContentText("msg.quick-scan.hold-second")
+        Text(strings.resolve(prompt), style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+internal fun CornerOutline(modifier: Modifier) {
+    Canvas(modifier.testTag("quickScan:outline")) {
+        val points =
+            CornerGuide(GridSquare(0.0, 0.0, size.width.toDouble()))
+                .vertices()
+                .map { Offset(it.x.toFloat(), it.y.toFloat()) }
+        val edges = (0..5).map { points[it] to points[(it + 1) % 6] } + listOf(1, 3, 5).map { points[it] to points[6] }
+        edges.forEach { (a, b) -> drawLine(UiColor.Black, a, b, 4.dp.toPx()) }
+        edges.forEach { (a, b) -> drawLine(UiColor.White.copy(alpha = 0.7f), a, b, 2.dp.toPx()) }
+    }
+}
+
+@Composable
 private fun Swatch(
     color: CubeColor,
     size: Dp,
@@ -523,8 +602,8 @@ private fun MiniNet(
     phase: GuidedScanPhase.Viewfinder,
     geometry: ViewfinderGeometry,
     modifier: Modifier,
+    highlighted: Set<Face>,
 ) {
-    val current = phase.step?.face
     val byFace = phase.captured.associateBy { it.face }
     BoxWithConstraints(modifier.testTag("scanNet"), contentAlignment = Alignment.Center) {
         val cell = minOf(maxWidth / (NET_COLUMNS * SIDE), maxHeight / (NET_ROWS * SIDE))
@@ -538,7 +617,7 @@ private fun MiniNet(
                     Modifier
                         .offset(cell * SIDE * column, cell * SIDE * row)
                         .requiredSize(cell * SIDE)
-                        .then(if (face == current) Modifier.border(BorderStroke(2.dp, outline)) else Modifier)
+                        .then(if (face in highlighted) Modifier.border(BorderStroke(2.dp, outline)) else Modifier)
                         .onGloballyPositioned { geometry.faces[face] = it.boundsInRoot() }
                         .testTag("scanNetFace:${face.name}"),
                 ) {

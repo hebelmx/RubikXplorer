@@ -12,11 +12,12 @@ import dev.cubentia.domain.cube.ValidationResult
 /** Only validated colors cross the Activity boundary; samples stay inside the scan. */
 class ScanFlowContract(
     private val launcher: ScanLauncher,
+    private val quick: Boolean = false,
 ) : ActivityResultContract<Unit, ScanOutcome>() {
     override fun createIntent(
         context: Context,
         input: Unit,
-    ): Intent = launcher.guidedScanIntent(context)
+    ): Intent = if (quick) launcher.quickScanIntent(context) else launcher.guidedScanIntent(context)
 
     override fun parseResult(
         resultCode: Int,

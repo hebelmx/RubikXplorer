@@ -98,4 +98,45 @@ class LiveFixtureTest {
             }
         assertTrue("found 8" in eight.message.orEmpty(), eight.message)
     }
+
+    @Test
+    fun `schema 3 requires the three posed faces and nine truth sources each`() {
+        val corner =
+            CornerFixtureRecord(
+                device = record.device,
+                cube = record.cube,
+                light = record.light,
+                capturedAt = record.capturedAt,
+                calibration = record.calibration,
+                hold = 1,
+                labeledSamples =
+                    QuickScanPlan.holds.first().map { step ->
+                        LabeledFaceSample(
+                            FaceSample(
+                                face = step.face,
+                                orientationDegrees = 0,
+                                stickers = List(9) { record.calibration.centers.getValue(step.centerColor) },
+                                quality = CaptureQuality.ACCEPTABLE,
+                                centerColor = step.centerColor,
+                                upNeighborColor = step.upNeighborColor,
+                            ),
+                            List(9) { step.centerColor },
+                        )
+                    },
+                truthSources = List(3) { record.truthSources },
+            )
+        assertEquals(corner, CornerFixtureJson.decode(CornerFixtureJson.encode(corner)))
+        assertEquals("corner-2.json", CornerFixturePaths.fileName(2))
+        assertEquals("model_cube_indoor", CornerFixturePaths.directoryName("MODEL", "cube", "indoor"))
+        listOf(
+            corner.copy(schemaVersion = 2),
+            corner.copy(hold = 3),
+            corner.copy(frame = "../corner-1.jpg"),
+            corner.copy(labeledSamples = corner.labeledSamples.reversed()),
+            corner.copy(labeledSamples = corner.labeledSamples.dropLast(1)),
+            corner.copy(truthSources = List(3) { emptyList() }),
+        ).forEach { bad ->
+            assertThrows(IllegalArgumentException::class.java) { CornerFixtureJson.decode(CornerFixtureJson.encode(bad)) }
+        }
+    }
 }

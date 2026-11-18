@@ -163,6 +163,21 @@ internal object GuidedScanFlow {
             retake = quickCheck && controller.repeating,
         )
 
+    fun phaseOf(quick: dev.cubentia.domain.recognition.QuickScanController): GuidedScanPhase? {
+        if (quick.inCorner) return GuidedScanPhase.CornerViewfinder(quick.hold, quick.captured, quick.coaching)
+        val grid = quick.fallback ?: return null
+        return phaseOf(grid).copy(
+            captured = quick.captured,
+            again =
+                if (grid.repeating) {
+                    RepromptProgress(grid.repromptIndex + 1, grid.repromptCount)
+                } else {
+                    RepromptProgress(grid.stepIndex + 1, grid.planSize)
+                },
+            retake = true,
+        )
+    }
+
     fun reviewOf(
         effects: List<GuidedScanEffect>,
         saved: CalibrationCenters?,
@@ -211,6 +226,10 @@ internal class CaptureFreeze(
     private var until: Long? = null
 
     fun isFrozen(nowMs: Long): Boolean = until?.let { nowMs < it } == true
+
+    fun start(nowMs: Long) {
+        until = nowMs + durationMs
+    }
 
     /** Runs [decision] unless frozen at [nowMs]; a capture among its effects starts a new freeze. */
     fun decide(

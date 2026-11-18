@@ -6,6 +6,7 @@ import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 import com.android.build.api.variant.HostTestBuilder
 import dev.cubentia.buildlogic.policy.FeatureFlagLevels
 import dev.cubentia.buildlogic.policy.ReleaseInputs
+import dev.cubentia.buildlogic.tasks.CheckCameraSizeTask
 import dev.cubentia.buildlogic.tasks.CheckReleaseSizeTask
 import dev.cubentia.buildlogic.tasks.GenerateKeepRulesTask
 import org.gradle.api.Plugin
@@ -117,10 +118,43 @@ class ReleaseConventionPlugin : Plugin<Project> {
                         versionName?.let { output.versionName.set(it) }
                     }
                     if (variant.buildType == RELEASE) {
-                        tasks.register<CheckReleaseSizeTask>("checkReleaseSize") {
-                            apk.set(variant.artifacts.get(SingleArtifact.APK_FROM_BUNDLE))
-                            bundle.set(variant.artifacts.get(SingleArtifact.BUNDLE))
-                            report.set(layout.buildDirectory.file("reports/cubentia/release-size.txt"))
+                        val releaseSize =
+                            tasks.register<CheckReleaseSizeTask>("checkReleaseSize") {
+                                apk.set(variant.artifacts.get(SingleArtifact.APK_FROM_BUNDLE))
+                                bundle.set(variant.artifacts.get(SingleArtifact.BUNDLE))
+                                report.set(layout.buildDirectory.file("reports/cubentia/release-size.txt"))
+                            }
+                        tasks.register<CheckCameraSizeTask>("checkCameraSize") {
+                            group = "verification"
+                            releaseReport.set(releaseSize.flatMap { it.report })
+                            val compile = tasks.named("compileDebugKotlin")
+                            dependsOn(compile)
+                            cameraClasses.from(
+                                compile.map { task ->
+                                    task.outputs.files.asFileTree.matching {
+                                        include("dev/cubentia/app/camera/**/*.class")
+                                        exclude("dev/cubentia/app/camera/recorder/**")
+                                    }
+                                },
+                            )
+                            val debug = configurations.getByName("debugRuntimeClasspath").incoming
+                            val release = variant.runtimeConfiguration.incoming
+                            val cameraComponents =
+                                debug.resolutionResult.rootComponent.zip(release.resolutionResult.rootComponent) { withCamera, shipped ->
+                                    CheckCameraSizeTask.additionalCameraComponents(withCamera, shipped)
+                                }
+                            val artifacts = debug.artifacts.resolvedArtifacts
+                            cameraRuntime.from(
+                                artifacts.zip(cameraComponents) { all, included ->
+                                    all.filter { it.id.componentIdentifier in included }.map { it.file }
+                                },
+                            )
+                            runtimeArtifacts.set(
+                                artifacts.map { all ->
+                                    all.map { "${it.id.componentIdentifier.displayName}/${it.file.name}" }.sorted()
+                                },
+                            )
+                            report.set(layout.buildDirectory.file("reports/cubentia/camera-size.txt"))
                         }
                     }
                 }
