@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-17-2026 23:16'
+last_updated: '11-17-2026 23:27'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -150,7 +150,7 @@ development_status:
 
   epic-11: in-progress
   11-1-quick-scan-from-two-corners: backlog
-  11-2-start-the-course-from-my-cube-placement: review
+  11-2-start-the-course-from-my-cube-placement: done
   11-3-recognize-an-oll-pll-case: backlog
   epic-11-retrospective: optional
 
@@ -811,3 +811,33 @@ action_items:
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-12-15-move-pictures-and-the-move-strip.md"
+  - id: "epic-11-deferred-11.2-accept-write-recreation"
+    epic: 11
+    action: "Placement accept: if the Activity is recreated or the process dies during the accept write, skips persist without onboarding complete; make the accept write and onboarding persistence atomic or resumable (medium; residual risk from 11.2, AppShell.kt)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-11-2-start-the-course-from-my-cube-placement.md"
+  - id: "epic-11-deferred-11.2-stale-placement-phase"
+    epic: 11
+    action: "A late scan callback after leaving Welcome, or a progress reset, can leave a stale Placement phase; reset placementFlow on reset progress and ignore late outcomes (medium; residual risk from 11.2, AppShell.kt:259-266)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-11-2-start-the-course-from-my-cube-placement.md"
+  - id: "epic-11-deferred-11.2-device-placement-scan"
+    epic: 11
+    action: "Run Placement from Welcome with a physical camera scan on a reference device (scan, editor fallback, camera denial, each outcome) in the next device session (medium; residual risk from 11.2, #106)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-11-2-start-the-course-from-my-cube-placement.md"
+  - id: "epic-11-deferred-11.2-camera-scan-beta-label"
+    epic: 11
+    action: "Welcome's Start from my cube shows the BETA label only when PLACEMENT is BETA, not when CAMERA_SCAN is BETA as EXPERIENCE.md requires for every camera feature (low; deferred from 11.2, WelcomeScreen.kt:130)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-11-2-start-the-course-from-my-cube-placement.md"
+  - id: "epic-11-deferred-11.2-two-look-chooser-numbering"
+    epic: 11
+    action: "Choose another Stage numbers the 2-look Stages 8 and 9 while Learn numbers them 1 and 2; align the numbering (low; deferred from 11.2, PlacementScreen.kt:69-87)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-11-2-start-the-course-from-my-cube-placement.md"
