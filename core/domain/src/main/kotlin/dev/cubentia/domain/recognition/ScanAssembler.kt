@@ -201,11 +201,13 @@ object ScanAssembler {
      * center, `centerPlain == false`, never counts), then in Guided Scan plan order the unposed faces that zero or several
      * valid states leave undecided. Empty when the scan resolves to one state, when there is nothing to ask (a gap, or
      * an uncalibrated scan), or when no state is valid and more than [MAX_REPROMPT_FACES] faces are involved.
+     * [repromptPosed] includes already posed faces implicated by illegal pieces, for Quick Scan's corner-to-grid hand-off.
      */
     fun repromptFaces(
         samples: List<FaceSample>,
         calibration: CalibrationCenters,
-    ): List<Face> = analyze(samples, calibration).involved
+        repromptPosed: Boolean = false,
+    ): List<Face> = analyze(samples, calibration, repromptPosed).involved
 
     /** The [ScanTrace] of assembling [samples]: what [assemble] and [repromptFaces] decide, with the evidence (debug diagnostics). */
     fun trace(
@@ -245,6 +247,7 @@ object ScanAssembler {
     private fun analyze(
         samples: List<FaceSample>,
         calibration: CalibrationCenters,
+        repromptPosed: Boolean = false,
     ): Outcome {
         if (!StickerClassifier.isValid(calibration)) {
             return Outcome(
@@ -285,7 +288,7 @@ object ScanAssembler {
                 }
             }
         }
-        if (gaps.isEmpty()) return search(Face.entries.map { placed.getValue(it) })
+        if (gaps.isEmpty()) return search(Face.entries.map { placed.getValue(it) }, repromptPosed)
         // Fewer than six faces cannot be oriented from validity.
         placed.filterValues { !it.posed }.keys.forEach { gaps[it] = ScanGap.NO_POSE }
         val faces = Face.entries.filter { it in placed && it !in gaps }
@@ -357,7 +360,10 @@ object ScanAssembler {
     )
 
     /** Six placed faces in URFDLB order; searches the turns of the unposed ones. */
-    private fun search(faces: List<Placement.Placed>): Outcome {
+    private fun search(
+        faces: List<Placement.Placed>,
+        repromptPosed: Boolean,
+    ): Outcome {
         val options: List<List<List<StickerReading>>> =
             faces.map { face -> if (face.posed) listOf(face.readings) else List(TURNS) { rotateClockwise(face.readings, it) } }
         val optionGrids: List<List<IntArray>> =
@@ -423,7 +429,7 @@ object ScanAssembler {
             }
         val order = GuidedScanPlan.steps.map { it.face }
         val disagreeing = order.filter { faces[it.ordinal].centerDisagrees }
-        val involved = disagreeing + order.filter { it in undecided && it in unposed && it !in disagreeing }
+        val involved = disagreeing + order.filter { it in undecided && (repromptPosed || it in unposed) && it !in disagreeing }
         // No valid state and many faces involved: misread colors, not turns; review the best fit instead.
         if (valid.isEmpty() && involved.size > MAX_REPROMPT_FACES) {
             return Outcome(result, branch = ScanBranch.NO_VALID_REVIEW, valid = 0, turns = turns)

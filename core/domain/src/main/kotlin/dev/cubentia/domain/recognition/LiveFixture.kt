@@ -96,3 +96,59 @@ object LiveFixtureJson {
             }
         }
 }
+
+/** One corner capture with the three labeled, upright faces in hold order. */
+@Serializable
+data class CornerFixtureRecord(
+    val schemaVersion: Int = CornerFixtureJson.CURRENT_SCHEMA,
+    val device: DeviceInfo,
+    val cube: String,
+    val light: String,
+    val capturedAt: String,
+    val calibration: CalibrationCenters,
+    val hold: Int,
+    val labeledSamples: List<LabeledFaceSample>,
+    val truthSources: List<List<TruthSource>>,
+    val frame: String = CornerFixturePaths.frameName(hold),
+)
+
+object CornerFixturePaths {
+    fun directoryName(
+        device: String,
+        cube: String,
+        light: String,
+    ): String = LiveFixturePaths.directoryName(device, cube, light)
+
+    fun fileName(hold: Int): String = "corner-$hold.json"
+
+    fun frameName(hold: Int): String = "corner-$hold.jpg"
+}
+
+object CornerFixtureJson {
+    const val CURRENT_SCHEMA = 3
+    private val json =
+        Json {
+            prettyPrint = true
+            encodeDefaults = true
+        }
+
+    fun encode(record: CornerFixtureRecord): String = json.encodeToString(record)
+
+    fun decode(value: String): CornerFixtureRecord =
+        json.decodeFromString<CornerFixtureRecord>(value).also { record ->
+            require(record.schemaVersion == CURRENT_SCHEMA) { "Unsupported corner fixture schema: ${record.schemaVersion}" }
+            val plan = requireNotNull(QuickScanPlan.holds.getOrNull(record.hold - 1)) { "Unknown corner hold: ${record.hold}" }
+            require(record.frame == CornerFixturePaths.frameName(record.hold))
+            require(record.labeledSamples.size == plan.size && record.truthSources.size == plan.size)
+            require(StickerClassifier.isValid(record.calibration))
+            record.labeledSamples.zip(plan).forEach { (labeled, step) ->
+                require(labeled.truth.size == 9 && labeled.truth[FaceSample.CENTER_INDEX] == step.centerColor)
+                val sample = labeled.sample
+                require(
+                    sample.face == step.face && sample.centerColor == step.centerColor && sample.upNeighborColor == step.upNeighborColor,
+                )
+                require(sample.orientationDegrees == 0 && sample.stickers.size == 9 && sample.stickers.all { it.isValid() })
+            }
+            require(record.truthSources.all { it.size == 9 })
+        }
+}

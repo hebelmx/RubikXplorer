@@ -135,6 +135,7 @@ fun AppShell(
     showWelcome: Boolean = false,
     calibration: dev.cubentia.app.ui.settings.CalibrationSettings? = null,
     onScan: (() -> Unit)? = null,
+    onQuickScan: (() -> Unit)? = null,
     quickCheck: QuickCheckCapture? = null,
     solveFlow: SolveFlowViewModel =
         remember {
@@ -163,6 +164,7 @@ fun AppShell(
             solveFlow,
             calibration,
             onScan,
+            onQuickScan,
             quickCheck,
             onPlacementScan,
             placementFlow,
@@ -184,6 +186,7 @@ private fun ShellContent(
     solveFlow: SolveFlowViewModel,
     calibration: dev.cubentia.app.ui.settings.CalibrationSettings?,
     onScan: (() -> Unit)?,
+    onQuickScan: (() -> Unit)?,
     quickCheck: QuickCheckCapture?,
     onPlacementScan: (() -> Unit)?,
     placementFlow: PlacementFlowViewModel,
@@ -762,6 +765,8 @@ private fun ShellContent(
                         showDebugToggles,
                         session.kind?.takesMoves == true,
                         onScan = onScan.takeIf { flags.isEnabled(FeatureFlag.CAMERA_SCAN) },
+                        onQuickScan = onQuickScan.takeIf { flags.isEnabled(FeatureFlag.QUICK_SCAN) },
+                        quickScanBeta = flags.level(FeatureFlag.QUICK_SCAN) == FlagLevel.BETA,
                         scanBeta = flags.level(FeatureFlag.CAMERA_SCAN) == FlagLevel.BETA,
                         onLearn = {
                             solveFlow.closeEditor()

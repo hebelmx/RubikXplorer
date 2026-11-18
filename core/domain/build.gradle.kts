@@ -83,3 +83,12 @@ tasks.register<JavaExec>("evaluateRecognitionApproaches") {
         )
     }
 }
+
+tasks.register<JavaExec>("evaluateQuickScan") {
+    group = "verification"
+    description = "Tallies device-session Quick Scan runs from a CubentiaScanDiag log."
+    classpath = evaluation.runtimeClasspath
+    mainClass.set("dev.cubentia.domain.recognition.evaluation.quickscan.QuickScanMeasurementKt")
+    val report = layout.buildDirectory.file("reports/quick-scan-measurement.md")
+    argumentProviders.add { listOf(report.get().asFile.absolutePath) }
+}

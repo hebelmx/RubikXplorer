@@ -86,3 +86,16 @@ The pull brings the JPEG frames with the JSON. Review the exported metadata, tru
 ### Scan accuracy (Story 10.1)
 
 `./gradlew :core:domain:evaluateScanAccuracy` runs the same `live/` records through the product scan pipeline of OQ-7 decision K: the all-Kotlin cell reader on the A2 frames (ImageIO decode, sRGB → CIELAB, histogram mode, no OpenCV) and on the recorded center-pixel samples, then self-calibration from the six centers and assembly into URFDLB. It rewrites only the generated span of `docs/scan-accuracy.md` (per-device sticker and scan accuracy, confidently wrong, the logo-center guard). It is on demand and not part of `build`.
+
+### Quick Scan corner fixtures
+
+In the debug fixture recorder's Cube and light dialog, enable **Corner mode**.
+Calibrate the six colors, then align white on top, green on the left and red
+on the right. Capture corner 1 and confirm the nine labels on each of its three
+faces. For corner 2, align yellow on top, orange on the left and blue on the
+right. Capture and confirm its labels the same way. The recorder saves each
+hold as a schema-3 JSON file alongside its downscaled upright JPEG.
+
+```sh
+adb pull /sdcard/Android/data/com.exxerpro.cubentia/files/Fixtures/corner Fixtures/
+```

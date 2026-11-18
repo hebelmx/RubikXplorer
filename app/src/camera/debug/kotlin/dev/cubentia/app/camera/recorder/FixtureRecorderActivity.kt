@@ -21,6 +21,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.core.content.ContextCompat
+import dev.cubentia.app.camera.CornerFrame
+import dev.cubentia.app.camera.CornerGuide
+import dev.cubentia.app.camera.CornerReader
+import dev.cubentia.app.camera.FrameReader
+import dev.cubentia.app.camera.ViewfinderGrid
 import dev.cubentia.domain.recognition.CaptureQuality
 import dev.cubentia.domain.recognition.Lab
 import kotlinx.coroutines.CompletableDeferred
@@ -45,6 +50,8 @@ internal data class CapturedFrame(
     val measurements: FrameMeasurements,
     val jpeg: ByteArray?,
     val frameError: String?,
+    val corner: CornerFrame? = null,
+    val capturedAt: java.time.Instant = java.time.Instant.now(),
 )
 
 /** What the recorder screen needs from the camera; implemented by [FixtureRecorderActivity]. */
@@ -53,6 +60,8 @@ internal interface RecorderCamera {
     val autoRemeters: State<Int>
 
     fun bind(view: PreviewView)
+
+    fun cornerMode(enabled: Boolean) = Unit
 
     fun latest(): FrameMeasurements?
 
@@ -78,11 +87,17 @@ class FixtureRecorderActivity : ComponentActivity() {
     private val autoRemeterCount = mutableIntStateOf(0)
     private var camera: Camera? = null
 
+    @Volatile private var cornerMode = false
+
     private val recorderCamera =
         object : RecorderCamera {
             override val autoRemeters: State<Int> get() = autoRemeterCount
 
             override fun bind(view: PreviewView) = startCamera(view)
+
+            override fun cornerMode(enabled: Boolean) {
+                cornerMode = enabled
+            }
 
             override fun latest(): FrameMeasurements? = latestFrame.get()
 
@@ -185,8 +200,20 @@ class FixtureRecorderActivity : ComponentActivity() {
         val frame = measure(image)
         latestFrame.set(frame)
         captureRequest.getAndSet(null)?.let { request ->
-            val encoded = runCatching { encodeFrame(image) }
-            request.complete(CapturedFrame(frame, encoded.getOrNull(), encoded.exceptionOrNull()?.let { it.message ?: it.toString() }))
+            val isCorner = cornerMode
+            val crop = image.cropRect
+            val rotation = image.imageInfo.rotationDegrees
+            val corner =
+                if (isCorner) {
+                    val grid = ViewfinderGrid.inFrame(0.0, 0.0, crop.left, crop.top, crop.right, crop.bottom, rotation)
+                    CornerReader.read(with(FrameReader) { image.asYuvFrame() }, CornerGuide(grid, rotation))
+                } else {
+                    null
+                }
+            val encoded = runCatching { encodeFrame(image, isCorner) }
+            request.complete(
+                CapturedFrame(frame, encoded.getOrNull(), encoded.exceptionOrNull()?.let { it.message ?: it.toString() }, corner),
+            )
         }
         val now = SystemClock.elapsedRealtime()
         val grid = frame.lab.takeIf { it.size == 9 }
@@ -204,7 +231,10 @@ class FixtureRecorderActivity : ComponentActivity() {
      * The analysis image as a JPEG: cropped to the same crop rect the samples use and kept in the same pixel orientation
      * (the sample's orientationDegrees applies to both), scaled so the long edge is at most [FRAME_MAX_EDGE].
      */
-    private fun encodeFrame(image: ImageProxy): ByteArray {
+    private fun encodeFrame(
+        image: ImageProxy,
+        corner: Boolean,
+    ): ByteArray {
         val full = image.toBitmap()
         val crop = image.cropRect
         val cropped =
@@ -217,14 +247,22 @@ class FixtureRecorderActivity : ComponentActivity() {
             } else {
                 full
             }
-        val (width, height) = scaledSize(cropped.width, cropped.height)
-        val scaled =
-            if (width == cropped.width &&
-                height == cropped.height
-            ) {
-                cropped
+        val source =
+            if (corner) {
+                val side = minOf(cropped.width, cropped.height)
+                val matrix = android.graphics.Matrix().apply { postRotate(image.imageInfo.rotationDegrees.toFloat()) }
+                Bitmap.createBitmap(cropped, (cropped.width - side) / 2, (cropped.height - side) / 2, side, side, matrix, true)
             } else {
-                Bitmap.createScaledBitmap(cropped, width, height, true)
+                cropped
+            }
+        val (width, height) = scaledSize(source.width, source.height)
+        val scaled =
+            if (width == source.width &&
+                height == source.height
+            ) {
+                source
+            } else {
+                Bitmap.createScaledBitmap(source, width, height, true)
             }
         return ByteArrayOutputStream().use { output ->
             check(scaled.compress(Bitmap.CompressFormat.JPEG, FRAME_JPEG_QUALITY, output)) { "JPEG encoding failed" }

@@ -50,6 +50,8 @@ fun SolveScreen(
     modifier: Modifier = Modifier,
     onScan: (() -> Unit)? = null,
     scanBeta: Boolean = false,
+    onQuickScan: (() -> Unit)? = null,
+    quickScanBeta: Boolean = false,
 ) {
     val phase by flow.phase.collectAsState()
     BackHandler(phase != SolvePhase.Home) {
@@ -58,43 +60,35 @@ fun SolveScreen(
     Column(modifier) {
         when (val current = phase) {
             SolvePhase.Home -> {
-                if (scanBeta && onScan != null) {
-                    val scanLabel = strings.resolve(ContentText("btn.solve.scan"))
-                    val betaLabel = strings.resolve(ContentText("msg.feature.beta"))
+                val guidedBeta = scanBeta && onScan != null
+                if (guidedBeta || onQuickScan != null) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s1)) {
-                        EnterColors(strings, flow::enterColors)
-                        OutlinedButton(
-                            onClick = onScan,
-                            modifier =
-                                Modifier.testTag("solve:scan").semantics {
-                                    contentDescription = "$scanLabel, $betaLabel"
-                                },
-                        ) {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(Spacing.s1),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(scanLabel)
-                                BetaLabel(
-                                    betaLabel,
-                                    LocalContentColor.current,
-                                    MaterialTheme.typography.labelMedium,
-                                    Modifier.testTag("solve:scan:beta"),
-                                )
-                            }
+                        if (guidedBeta) EnterColors(strings, flow::enterColors)
+                        onScan?.let {
+                            ScanButton(
+                                strings,
+                                it,
+                                ContentText("btn.solve.scan"),
+                                "solve:scan",
+                                guidedBeta,
+                                outlined = guidedBeta,
+                            )
                         }
+                        onQuickScan?.let {
+                            ScanButton(strings, it, ContentText("btn.solve.quick-scan"), "solve:quickScan", quickScanBeta, outlined = true)
+                        }
+                        if (!guidedBeta) EnterColors(strings, flow::enterColors)
                     }
-                    BetaNote(
-                        strings.resolve(ContentText("msg.feature.camera.beta-note")),
-                        Modifier.padding(horizontal = Spacing.s4).testTag("solve:scan:betaNote"),
-                    )
+                    if (guidedBeta || (quickScanBeta && onQuickScan != null)) {
+                        val tag = if (guidedBeta) "solve:scan:betaNote" else "solve:quickScan:betaNote"
+                        BetaNote(
+                            strings.resolve(ContentText("msg.feature.camera.beta-note")),
+                            Modifier.padding(horizontal = Spacing.s4).testTag(tag),
+                        )
+                    }
                 } else {
                     Row {
-                        onScan?.let { scan ->
-                            Button(onClick = scan, modifier = Modifier.testTag("solve:scan")) {
-                                Text(strings.resolve(ContentText("btn.solve.scan")))
-                            }
-                        }
+                        onScan?.let { ScanButton(strings, it, ContentText("btn.solve.scan"), "solve:scan", beta = false, outlined = false) }
                         EnterColors(strings, flow::enterColors)
                     }
                 }
@@ -168,5 +162,34 @@ private fun EnterColors(
 ) {
     Button(onClick = onClick, modifier = Modifier.testTag("solve:enterColors")) {
         Text(strings.resolve(ContentText("btn.solve.enter-colors")))
+    }
+}
+
+@Composable
+private fun ScanButton(
+    strings: ContentStrings,
+    onClick: () -> Unit,
+    labelText: ContentText,
+    tag: String,
+    beta: Boolean,
+    outlined: Boolean,
+) {
+    val label = strings.resolve(labelText)
+    val modifier = Modifier.testTag(tag)
+    if (outlined) {
+        val betaLabel = strings.resolve(ContentText("msg.feature.beta"))
+        OutlinedButton(
+            onClick,
+            if (beta) modifier.semantics { contentDescription = "$label, $betaLabel" } else modifier,
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s1), verticalAlignment = Alignment.CenterVertically) {
+                Text(label)
+                if (beta) {
+                    BetaLabel(betaLabel, LocalContentColor.current, MaterialTheme.typography.labelMedium, Modifier.testTag("$tag:beta"))
+                }
+            }
+        }
+    } else {
+        Button(onClick, modifier) { Text(label) }
     }
 }

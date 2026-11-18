@@ -101,14 +101,15 @@ class MainActivity : ComponentActivity() {
 
         fun guidedScanAction(
             onDenied: () -> Unit,
+            quick: Boolean = false,
             onOutcome: (dev.cubentia.app.scan.ScanOutcome) -> Unit,
         ): (() -> Unit)? =
-            if (featureFlags.isEnabled(FeatureFlag.CAMERA_SCAN) && scanLauncher.isPresent) {
+            if (featureFlags.isEnabled(if (quick) FeatureFlag.QUICK_SCAN else FeatureFlag.CAMERA_SCAN) && scanLauncher.isPresent) {
                 val launcher = scanLauncher.get()
                 val result =
                     registerForActivityResult(
                         dev.cubentia.app.scan
-                            .ScanFlowContract(launcher),
+                            .ScanFlowContract(launcher, quick),
                     ) {
                         scanInFlight = false
                         onOutcome(it)
@@ -136,6 +137,7 @@ class MainActivity : ComponentActivity() {
                 null
             }
         val onScan = guidedScanAction({ solveFlow.scanDenied() }) { solveFlow.onScanOutcome(it) }
+        val onQuickScan = guidedScanAction({ solveFlow.scanDenied() }, quick = true) { solveFlow.onScanOutcome(it) }
         val onPlacementScan =
             if (featureFlags.isEnabled(FeatureFlag.PLACEMENT)) {
                 guidedScanAction({ placementFlow.scanDenied() }) { placementFlow.onScanOutcome(it) }
@@ -237,6 +239,7 @@ class MainActivity : ComponentActivity() {
                     showDebugToggles = DebugOptions.SHOW_DEBUG_TOGGLES,
                     flags = featureFlags,
                     onScan = onScan,
+                    onQuickScan = onQuickScan,
                     quickCheck = quickCheck,
                     showWelcome = true,
                     calibration =

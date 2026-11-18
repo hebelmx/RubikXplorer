@@ -60,16 +60,23 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import dev.cubentia.app.camera.CornerOutline
+import dev.cubentia.app.camera.FrameReader
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.CaptureQuality
 import dev.cubentia.domain.recognition.ClassificationResult
+import dev.cubentia.domain.recognition.CornerFixtureJson
+import dev.cubentia.domain.recognition.CornerFixturePaths
+import dev.cubentia.domain.recognition.CornerFixtureRecord
 import dev.cubentia.domain.recognition.DeviceInfo
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.Lab
+import dev.cubentia.domain.recognition.LabeledFaceSample
 import dev.cubentia.domain.recognition.LiveFixturePaths
 import dev.cubentia.domain.recognition.NearestCenterClassifier
+import dev.cubentia.domain.recognition.QuickScanPlan
 import dev.cubentia.domain.recognition.TruthSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -117,6 +124,11 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
     val capturedFaces = remember { mutableStateListOf<Face>() }
     var entry by remember { mutableStateOf(TruthEntry(selected = null)) }
     var qualityOverride by remember { mutableStateOf<CaptureQuality?>(null) }
+    var cornerMode by remember { mutableStateOf(false) }
+    var cornerHold by remember { mutableStateOf(1) }
+    var cornerShot by remember { mutableStateOf<CapturedFrame?>(null) }
+    var cornerSamples by remember { mutableStateOf<List<FaceSample>>(emptyList()) }
+    val cornerLabels = remember { mutableStateListOf<Pair<List<Color>, List<TruthSource>>>() }
     var saving by remember { mutableStateOf(false) }
 
     // The face whose saved truth the net is showing after a capture; Capture and prefill wait until the hold ends.
@@ -130,12 +142,91 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
     val calibrated = centers.size == Color.entries.size
     val metaReady = cube.any { it.isLetterOrDigit() && it.code < 128 } && light.any { it.isLetterOrDigit() && it.code < 128 }
 
+    LaunchedEffect(cornerMode, calibrated) { camera.cornerMode(cornerMode && calibrated) }
+
+    fun resetCorner() {
+        cornerShot = null
+        cornerSamples = emptyList()
+        cornerLabels.clear()
+        entry = TruthEntry(selected = null)
+    }
+
+    fun captureCorner() {
+        saving = true
+        scope.launch {
+            try {
+                val shot = camera.capture()
+                val samples = shot?.corner?.let { cornerSamples(cornerHold, it) }
+                if (shot?.jpeg == null || samples == null) {
+                    status = "Corner could not be read. Align all three faces and try again."
+                } else {
+                    cornerShot = shot
+                    cornerSamples = samples
+                    entry = TruthEntry().withPrefill(prefill(samples.first().stickers, CalibrationCenters(centers.toMap())))
+                    status = "Check and confirm all nine stickers on each face."
+                }
+            } finally {
+                saving = false
+            }
+        }
+    }
+
+    fun confirmCornerFace() {
+        val shot = cornerShot ?: return
+        val labels = entry.confirmed() ?: return
+        val face = cornerSamples[cornerLabels.size].face
+        if (labels.first[FaceSample.CENTER_INDEX] != Color.home(face)) {
+            status = "Label the ${colorLabel(Color.home(face))} center before continuing."
+            return
+        }
+        val calibration = CalibrationCenters(centers.toMap())
+        val nextLabels = cornerLabels + listOf(labels)
+        val next = cornerSamples.getOrNull(nextLabels.size)
+        if (next != null) {
+            cornerLabels.add(labels)
+            entry = TruthEntry().withPrefill(prefill(next.stickers, calibration))
+            return
+        }
+        val record =
+            CornerFixtureRecord(
+                device = DeviceInfo(Build.MODEL, Build.MANUFACTURER, Build.VERSION.RELEASE, Build.DISPLAY, Build.VERSION.SDK_INT),
+                cube = cube.trim(),
+                light = light.trim(),
+                capturedAt = shot.capturedAt.toString(),
+                calibration = calibration,
+                hold = cornerHold,
+                labeledSamples = cornerSamples.zip(nextLabels).map { (sample, label) -> LabeledFaceSample(sample, label.first) },
+                truthSources = nextLabels.map { it.second },
+            )
+        saving = true
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val root = checkNotNull(context.getExternalFilesDir(null))
+                    val directory =
+                        File(root, "Fixtures/corner/${CornerFixturePaths.directoryName(record.device.model, record.cube, record.light)}")
+                    check(directory.isDirectory || directory.mkdirs()) { "Cannot create $directory" }
+                    File(directory, record.frame).writeBytes(checkNotNull(shot.jpeg))
+                    File(directory, CornerFixturePaths.fileName(record.hold)).writeText(CornerFixtureJson.encode(record))
+                }
+                status = "Saved corner ${record.hold}."
+                cornerHold++
+                resetCorner()
+            } catch (failure: java.io.IOException) {
+                status = "Save failed: ${failure.message}"
+            } finally {
+                saving = false
+            }
+        }
+    }
+
     fun resetEntry() {
         entry = TruthEntry(selected = null)
     }
 
     /** Prefills from the latest acceptable frame now (no-op while saving, holding, uncalibrated or after an entry). */
     fun refreshPrefill() {
+        if (cornerMode) return
         val frame = camera.latest()
         latestUsable = frame != null && frame.quality == CaptureQuality.ACCEPTABLE && frame.lab.size == 9
         if (frame != null && latestUsable && centers.size == Color.entries.size && !saving && holdFace == null) {
@@ -165,7 +256,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
         selectFace(Face.entries.firstOrNull { it !in saved } ?: Face.U)
     }
     // Re-meter on the grid on every face selection and calibration-color change; realignment is handled by the analyzer.
-    LaunchedEffect(selectedFace, calibrationColor, calibrated) { camera.remeter() }
+    LaunchedEffect(selectedFace, calibrationColor, calibrated, cornerHold) { camera.remeter() }
     val autoRemeters by camera.autoRemeters
     var remeterNote by remember { mutableStateOf<String?>(null) }
     // Shown beside the status, so it never hides a save result.
@@ -178,7 +269,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
     }
     // Prefill from the latest acceptable frame until the operator enters the first sticker of this face.
     // Face changes and the end of a capture hold also refresh at once (selectFace), not only on this tick.
-    LaunchedEffect(selectedFace, calibrated) {
+    LaunchedEffect(selectedFace, calibrated, cornerMode) {
         while (true) {
             coaching = camera.latest()?.detail
             refreshPrefill()
@@ -198,14 +289,31 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
         }
     val stepLine =
         when {
-            !metaReady -> "Step 1/3 · Enter cube and light"
-            !calibrated -> "Step 2/3 · Calibrate ${colorLabel(calibrationColor)} (${centers.size}/6)"
-            else -> "Step 3/3 · Face $selectedFace · ${colorLabel(expectedCenter)} center (${capturedFaces.size}/6 saved)"
+            !metaReady -> {
+                "Step 1/3 · Enter cube and light"
+            }
+
+            !calibrated -> {
+                "Step 2/3 · Calibrate ${colorLabel(calibrationColor)} (${centers.size}/6)"
+            }
+
+            cornerMode && cornerHold > 2 -> {
+                "Step 3/3 · Both corners saved"
+            }
+
+            cornerMode -> {
+                "Step 3/3 · Corner $cornerHold / 2" +
+                    (cornerSamples.getOrNull(cornerLabels.size)?.let { " · Label ${colorLabel(Color.home(it.face))}" } ?: "")
+            }
+
+            else -> {
+                "Step 3/3 · Face $selectedFace · ${colorLabel(expectedCenter)} center (${capturedFaces.size}/6 saved)"
+            }
         }
     val lockLine =
         when {
             !calibrated && preview == null && sampleLocks.isNotEmpty() -> "Sample locked: ${sampleLocks.joinToString("; ")}"
-            calibrated && captureLocks.isNotEmpty() -> "Capture locked: ${captureLocks.joinToString("; ")}"
+            calibrated && !cornerMode && captureLocks.isNotEmpty() -> "Capture locked: ${captureLocks.joinToString("; ")}"
             else -> null
         }
 
@@ -338,11 +446,15 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
             hasPermission = hasPermission,
             onAllow = { permission.launch(Manifest.permission.CAMERA) },
             bind = camera::bind,
-            calibrated = calibrated,
+            calibrated = calibrated && !cornerMode,
+            corner = calibrated && cornerMode,
             selectedFace = selectedFace,
             capturedFaces = capturedFaces,
             prompt =
-                if (calibrated) {
+                if (calibrated && cornerMode) {
+                    val hold = QuickScanPlan.holds.getOrNull(cornerHold - 1)
+                    hold?.joinToString(prefix = "Top, left, right: ") { colorLabel(it.centerColor) }.orEmpty()
+                } else if (calibrated) {
                     "Face $selectedFace · ${colorLabel(expectedCenter)} center"
                 } else {
                     "Calibrate ${colorLabel(calibrationColor)}: plain sticker in the center cell"
@@ -355,7 +467,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
             HeaderRow(
                 cube = cube,
                 light = light,
-                onEdit = { editingMeta = true },
+                onEdit = { if (!saving) editingMeta = true },
                 onExposure = { status = camera.changeExposure(it) },
                 onOverride = { choosingOverride = true },
                 onResetLabels = { confirm = Confirm.RESET_LABELS },
@@ -425,6 +537,28 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                     }
                 }
 
+                cornerMode -> {
+                    if (cornerHold <= 2) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (cornerShot != null) {
+                                OutlinedButton(onClick = ::resetCorner, enabled = !saving) { Text("Retake corner") }
+                                Button(onClick = ::confirmCornerFace, enabled = !saving && entry.confirmed() != null) {
+                                    Text("Confirm face")
+                                }
+                            } else {
+                                Button(onClick = ::captureCorner, enabled = !saving && metaReady && hasPermission) {
+                                    Text("Capture corner $cornerHold")
+                                }
+                            }
+                        }
+                    } else {
+                        OutlinedButton(onClick = {
+                            cornerHold = 1
+                            resetCorner()
+                        }) { Text("Record both corners again") }
+                    }
+                }
+
                 else -> {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
@@ -455,7 +589,12 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
     }
 
     if (editingMeta) {
-        MetaDialog(cube, light, onDismiss = { editingMeta = false }) { newCube, newLight ->
+        MetaDialog(cube, light, cornerMode, onDismiss = { editingMeta = false }) { newCube, newLight, newMode ->
+            if (newMode != cornerMode || newCube.trim() != cube.trim() || newLight.trim() != light.trim()) {
+                resetCorner()
+                cornerHold = 1
+            }
+            cornerMode = newMode
             // A new cube or light is a new capture context: earlier centers and truth never carry over.
             if (newCube.trim() != cube.trim() || newLight.trim() != light.trim()) {
                 if (centers.isNotEmpty()) status = "Cube or light changed: calibrate all six again."
@@ -493,6 +632,8 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                         preview = null
                         calibrationColor = Color.WHITE
                         resetEntry()
+                        // A pending corner was read and prefilled under the old calibration.
+                        resetCorner()
                         status = "Calibration cleared: sample all six again."
                     }
                     confirm = null
@@ -516,6 +657,7 @@ private fun Viewfinder(
     onAllow: () -> Unit,
     bind: (PreviewView) -> Unit,
     calibrated: Boolean,
+    corner: Boolean,
     selectedFace: Face,
     capturedFaces: List<Face>,
     prompt: String,
@@ -531,7 +673,13 @@ private fun Viewfinder(
                 },
                 modifier = Modifier.fillMaxSize().clipToBounds(),
             )
-            FixedGrid(Modifier.fillMaxSize())
+            if (corner) {
+                BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CornerOutline(Modifier.size(minOf(maxWidth, maxHeight) * FrameReader.GRID_FRACTION.toFloat()))
+                }
+            } else {
+                FixedGrid(Modifier.fillMaxSize())
+            }
         } else {
             Button(onClick = onAllow) { Text("Allow camera") }
         }
@@ -776,11 +924,13 @@ private fun CalibrationPanel(
 private fun MetaDialog(
     cube: String,
     light: String,
+    cornerMode: Boolean,
     onDismiss: () -> Unit,
-    onSave: (String, String) -> Unit,
+    onSave: (String, String, Boolean) -> Unit,
 ) {
     var newCube by remember { mutableStateOf(cube) }
     var newLight by remember { mutableStateOf(light) }
+    var newMode by remember { mutableStateOf(cornerMode) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Cube and light") },
@@ -798,10 +948,14 @@ private fun MetaDialog(
                     label = { Text("Light (e.g. studio)") },
                     singleLine = true,
                 )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.Checkbox(checked = newMode, onCheckedChange = { newMode = it })
+                    Text("Corner mode")
+                }
                 Text("Changing either clears the calibration.", style = MaterialTheme.typography.bodySmall)
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(newCube, newLight) }) { Text("Save") } },
+        confirmButton = { TextButton(onClick = { onSave(newCube, newLight, newMode) }) { Text("Save") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

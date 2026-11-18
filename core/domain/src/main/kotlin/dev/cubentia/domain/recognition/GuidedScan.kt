@@ -330,10 +330,18 @@ sealed interface GuidedScanEffect {
  * that face's earlier sample; [GuidedScanEffect.Done] follows the last of them. There is at most one such round. In it a
  * capture is a repeated face only against stored centers other than the prompted face's own.
  */
-class GuidedScanController(
-    private val plan: List<ScanStep> = GuidedScanPlan.steps,
-    private val reprompt: (List<FaceSample>) -> List<Face> = { defaultReprompt(it) },
+class GuidedScanController internal constructor(
+    private val plan: List<ScanStep>,
+    private val allowAdditionalReprompts: Boolean,
+    private val reprompt: (List<FaceSample>) -> List<Face>,
+    /** Faces read elsewhere (Quick Scan's corners) that a capture must not repeat, besides the faces stored here. */
+    private val known: List<FaceSample> = emptyList(),
 ) {
+    constructor(
+        plan: List<ScanStep> = GuidedScanPlan.steps,
+        reprompt: (List<FaceSample>) -> List<Face> = { defaultReprompt(it) },
+    ) : this(plan, false, reprompt)
+
     private data class Frame(
         val stats: FrameStats,
         val orientationDegrees: Int,
@@ -359,7 +367,7 @@ class GuidedScanController(
     val planSize: Int get() = plan.size
 
     /** Index into the plan of the first-round face to show next; equals the plan size once the first round is over. */
-    val stepIndex: Int get() = stored.size
+    val stepIndex: Int get() = minOf(stored.size, planSize)
 
     /** True during the re-prompt round. */
     val repeating: Boolean get() = repromptSteps != null && !finished
@@ -467,7 +475,11 @@ class GuidedScanController(
         val repeated =
             stored.any { previous ->
                 previous.face != own && previous.center?.let { StickerClassifier.deltaE(it, center) < SAME_CENTER_DELTA_E } == true
-            }
+            } ||
+                known.any { other ->
+                    other.face != step?.face && stored.none { it.face == other.face } &&
+                        other.center?.let { StickerClassifier.deltaE(it, center) < SAME_CENTER_DELTA_E } == true
+                }
         if (!repeated) return store(frame, nowMs)
         coaching = Coaching.WRONG_FACE
         rejections++
@@ -498,11 +510,12 @@ class GuidedScanController(
         if (steps == null) {
             stored += sample
             if (stored.size == plan.size) {
-                val faces = reprompt(captured).filter { face -> stored.any { it.face == face } }.distinct()
+                val faces = reprompt(captured).filter { face -> allowAdditionalReprompts || stored.any { it.face == face } }.distinct()
                 if (faces.isEmpty()) finished = true else repromptSteps = faces.map(GuidedScanPlan::reprompt)
             }
         } else {
-            stored[stored.indexOfFirst { it.face == current.face }] = sample
+            val index = stored.indexOfFirst { it.face == current.face }
+            if (index >= 0) stored[index] = sample else stored += sample
             repromptsDone++
             if (repromptsDone == steps.size) finished = true
         }

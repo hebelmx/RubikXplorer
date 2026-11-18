@@ -30,6 +30,41 @@ import java.util.concurrent.atomic.AtomicLong
  * [onQuickCheck] one `quickCheck …` line per applied result (54-letter observed vs expected, and the Certainty).
  */
 object ScanDiagnostics {
+    private val lastCornerLogMs = AtomicLong(Long.MIN_VALUE / 2)
+
+    fun onCornerFrame(
+        nowMs: Long,
+        detected: Boolean,
+        faces: List<FrameStats?>,
+        score: Double,
+    ) {
+        val last = lastCornerLogMs.get()
+        if (nowMs - last < INTERVAL_MS || !lastCornerLogMs.compareAndSet(last, nowMs)) return
+        val qualities = faces.joinToString(",") { it?.let(FrameQuality::assessShutter)?.name ?: "-" }
+        val fields = listOf("quickScan", "frame", "detected=$detected", "quality=$qualities", "score=${format(score)}")
+        Log.d(TAG, fields.joinToString(" "))
+    }
+
+    fun onQuickScanRun(
+        elapsedMs: Long,
+        fallbackFaces: Int,
+        repromptFaces: Int,
+        corrections: Int,
+        outcome: String,
+    ) {
+        val fields =
+            listOf(
+                "quickScan",
+                "run",
+                "elapsedMs=$elapsedMs",
+                "fallbackFaces=$fallbackFaces",
+                "repromptFaces=$repromptFaces",
+                "corrections=$corrections",
+                "outcome=$outcome",
+            )
+        Log.d(TAG, fields.joinToString(" "))
+    }
+
     const val TAG = "CubentiaScanDiag"
     private const val INTERVAL_MS = 500L
     private val lastLogMs = AtomicLong(Long.MIN_VALUE / 2)

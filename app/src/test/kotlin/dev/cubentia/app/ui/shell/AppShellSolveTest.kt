@@ -34,6 +34,7 @@ import dev.cubentia.application.port.CheckpointLoad
 import dev.cubentia.application.port.CheckpointRepository
 import dev.cubentia.application.port.CheckpointSave
 import dev.cubentia.application.port.CubeSolver
+import dev.cubentia.application.port.FlagLevel
 import dev.cubentia.application.port.SessionSnapshotRepository
 import dev.cubentia.application.port.SnapshotLoad
 import dev.cubentia.application.port.SnapshotSave
@@ -147,6 +148,8 @@ class AppShellSolveTest {
     private fun show(
         dark: Boolean = false,
         scan: (() -> Unit)? = null,
+        quickScan: (() -> Unit)? = null,
+        quickLevel: FlagLevel = FlagLevel.OFF,
         cameraScan: dev.cubentia.application.port.FlagLevel = dev.cubentia.application.port.FlagLevel.OFF,
         quickCheck: dev.cubentia.app.scan.QuickCheckCapture? = null,
     ) {
@@ -161,9 +164,10 @@ class AppShellSolveTest {
                     catalog,
                     freeCube,
                     false,
-                    testFlags(cameraScan = cameraScan),
+                    testFlags(cameraScan = cameraScan, quickScan = quickLevel),
                     solveFlow = flow,
                     onScan = scan,
+                    onQuickScan = quickScan,
                     quickCheck = quickCheck,
                 )
             }
@@ -198,6 +202,41 @@ class AppShellSolveTest {
         rule.onNodeWithTag("solve:scan").assertContentDescriptionEquals("Scan my cube, BETA")
         rule.onNodeWithTag("solve:scan:beta", useUnmergedTree = true).assertTextEquals("BETA")
         rule.onNodeWithTag("solve:scan:betaNote").assertTextEquals("May misread colors in poor light. Manual entry always works.")
+    }
+
+    @Test fun quickScanBetaShowsItsOwnLabelAndInvokesItsAction() {
+        var launched = false
+        show(scan = {}, cameraScan = FlagLevel.GA, quickScan = { launched = true }, quickLevel = FlagLevel.BETA)
+        rule.onNodeWithTag("solve:quickScan").assertDoesNotExist()
+        click("nav:solve")
+        rule.onNodeWithTag("solve:scan").assertExists()
+        rule.onNodeWithTag("solve:quickScan").assertContentDescriptionEquals("Quick Scan, BETA")
+        rule.onNodeWithTag("solve:quickScan:beta", useUnmergedTree = true).assertTextEquals("BETA")
+        rule.onNodeWithTag("solve:quickScan:betaNote").assertExists()
+        click("solve:quickScan")
+        assertEquals(true, launched)
+    }
+
+    @Test fun quickScanGaShowsNoQuickScanBetaCopy() {
+        show(scan = {}, cameraScan = FlagLevel.BETA, quickScan = {}, quickLevel = FlagLevel.GA)
+        click("nav:solve")
+        rule.onNodeWithTag("solve:quickScan").assertExists()
+        rule.onNodeWithTag("solve:quickScan:beta", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithTag("solve:quickScan:betaNote").assertDoesNotExist()
+        rule.onNodeWithTag("solve:scan:betaNote").assertExists()
+    }
+
+    @Test fun quickScanOffHidesTheAction() {
+        show(scan = {}, cameraScan = FlagLevel.GA, quickScan = {})
+        click("nav:solve")
+        rule.onNodeWithTag("solve:quickScan").assertDoesNotExist()
+    }
+
+    @Test fun quickScanWithoutActionStaysHidden() {
+        show(scan = {}, cameraScan = FlagLevel.GA, quickLevel = FlagLevel.BETA)
+        click("nav:solve")
+        rule.onNodeWithTag("solve:quickScan").assertDoesNotExist()
+        rule.onNodeWithTag("solve:quickScan:betaNote").assertDoesNotExist()
     }
 
     @Test fun gaKeepsScanPrimaryWithNoBetaCopy() {

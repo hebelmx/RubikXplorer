@@ -156,6 +156,7 @@ internal fun testFlags(
     adaptive: Boolean = true,
     placement: Boolean = false,
     cameraScan: FlagLevel = FlagLevel.GA,
+    quickScan: FlagLevel = FlagLevel.OFF,
 ): FeatureFlags =
     object : FeatureFlags {
         override fun level(flag: FeatureFlag): FlagLevel =
@@ -163,6 +164,7 @@ internal fun testFlags(
                 flag == FeatureFlag.TEST_ME && !testMe -> FlagLevel.OFF
                 flag == FeatureFlag.ADAPTIVE_ASSISTANCE && !adaptive -> FlagLevel.OFF
                 flag == FeatureFlag.PLACEMENT && !placement -> FlagLevel.OFF
+                flag == FeatureFlag.QUICK_SCAN -> quickScan
                 flag == FeatureFlag.CAMERA_SCAN -> cameraScan
                 else -> FlagLevel.GA
             }

@@ -86,7 +86,11 @@ class ScanRouteTest {
         rule.onNodeWithTag("nav:solve").performClick()
         rule.onNodeWithTag("solve:scan").performClick()
         rule.waitForIdle()
-        rule.waitUntil(10_000) { shadowOf(main.get()).peekNextStartedActivityForResult() != null }
+        rule.waitUntil(10_000) {
+            // The denial check runs on Dispatchers.IO and posts its continuation to the Android main looper.
+            shadowOf(android.os.Looper.getMainLooper()).idle()
+            shadowOf(main.get()).peekNextStartedActivityForResult() != null
+        }
         val started = shadowOf(main.get()).nextStartedActivityForResult
         assertEquals(GuidedScanActivity::class.java.name, started.intent.component!!.className)
         val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, started.intent).setup()
