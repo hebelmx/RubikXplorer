@@ -36,6 +36,7 @@ class QuickScanController(
     private val samples = linkedMapOf<Face, FaceSample>()
     private var latest = List<FrameStats?>(3) { null }
     private var previous: List<Lab?>? = null
+    private var unlocated = false
     private var meteredAt: Long? = null
     private var reference: List<Lab?>? = null
     private var steadySince = 0L
@@ -61,12 +62,12 @@ class QuickScanController(
         if (!inCorner) return emptyList()
         require(faces.size == 3)
         latest = faces
+        unlocated = !detected
         val values = values()
-        previous?.let {
-            if (detected && turnedOver(values, it)) {
+        if (detected) {
+            previous?.let {
+                if (!turnedOver(values, it)) return emptyList()
                 previous = null
-            } else {
-                return emptyList()
             }
         }
         val qualities = latest.map { it?.let(FrameQuality::assessShutter) }
@@ -78,6 +79,7 @@ class QuickScanController(
                 else -> null
             }
         if (!detected) {
+            if (hold == 2) latest = List(3) { null }
             meteredAt = null
             reference = null
             return emptyList()
@@ -101,7 +103,7 @@ class QuickScanController(
     }
 
     fun onShutter(): List<QuickScanEffect> {
-        if (!inCorner || previous != null) return emptyList()
+        if (!inCorner || (previous != null && !unlocated)) return emptyList()
         val taken = hold++
         QuickScanPlan.holds[taken - 1].zip(latest).forEach { (step, stats) ->
             val cells = stats?.cells?.filterNotNull() ?: return@forEach
@@ -123,6 +125,7 @@ class QuickScanController(
                 values().takeIf { it.any { value -> value != null } }
         }
         latest = List(3) { null }
+        unlocated = false
         meteredAt = null
         reference = null
         coaching = null
@@ -193,10 +196,12 @@ class QuickScanController(
                     }
 
                     is SelfCalibration.Calibrated -> {
-                        sample.stickers.any {
-                            val reading = StickerClassifier.classify(it, calibration.calibration) as? StickerClassification.Classified
-                            reading?.reading?.confidence != StickerConfidence.CONFIDENT
-                        }
+                        sample.stickers
+                            .filterIndexed { index, _ -> index != FaceSample.CENTER_INDEX || sample.centerPlain != false }
+                            .any {
+                                val reading = StickerClassifier.classify(it, calibration.calibration) as? StickerClassification.Classified
+                                reading?.reading?.confidence != StickerConfidence.CONFIDENT
+                            }
                     }
                 }
         }

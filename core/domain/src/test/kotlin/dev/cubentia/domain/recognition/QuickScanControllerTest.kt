@@ -81,6 +81,33 @@ class QuickScanControllerTest {
     }
 
     @Test
+    fun `an undetected second corner coaches and the shutter sends its faces to the guided grid`() {
+        val scan = QuickScanController()
+        scan.onFrame(true, hold(1), 0)
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onShutter())
+        val second = hold(2)
+        assertTrue(scan.onFrame(false, List(3) { null }, 100).isEmpty())
+        assertTrue(scan.onFrame(false, listOf(second[0].copy(meanLuma = 10.0), second[1], second[2]), 200).isEmpty())
+        assertEquals(Coaching.LOW_LIGHT, scan.coaching)
+        assertEquals(
+            listOf(QuickScanEffect.CornerCaptured(2), QuickScanEffect.Fallback(listOf(Face.D, Face.L, Face.B), 1)),
+            scan.onShutter(),
+        )
+        assertEquals(QuickScanPlan.holds[0].map { it.face }, scan.captured.map { it.face })
+    }
+
+    @Test
+    fun `an uncertain logo center does not send confident stickers to the guided grid`() {
+        val scan = QuickScanController()
+        val first = hold(1).toMutableList()
+        val cells = first[1].cells.toMutableList()
+        cells[FaceSample.CENTER_INDEX] = CellReading(Lab(55.0, 55.0, 55.0), false)
+        first[1] = first[1].copy(cells = cells)
+        val done = capture(scan, first, hold(2)) as QuickScanEffect.Done
+        assertEquals(cube.toFacelets(), assemble(done.samples).facelets)
+    }
+
+    @Test
     fun `missing poor and uncalibrated faces enter the guided grid`() {
         val scan = QuickScanController()
         val first = hold(1)
@@ -155,9 +182,8 @@ class QuickScanControllerTest {
         val first = hold(1)
         scan.onFrame(true, first, 0)
         assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onShutter())
-        // An undetected frame never unlocks, whatever it reads.
+        // An undetected frame cannot arm automatic capture or clear the turnover check.
         assertTrue(scan.onFrame(false, hold(2), 100).isEmpty())
-        assertTrue(scan.onShutter().isEmpty())
         // The same corner shifted so a side sticker reads differently is still the first corner.
         val shifted = first.toMutableList().also { it[1] = it[1].withCell(0, labs.getValue(Color.BLUE)) }
         assertTrue(scan.onFrame(true, shifted, 200).isEmpty())
