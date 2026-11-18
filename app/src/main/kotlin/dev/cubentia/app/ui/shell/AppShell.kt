@@ -56,6 +56,9 @@ import dev.cubentia.app.ui.library.AlgorithmDetailScreen
 import dev.cubentia.app.ui.library.LibraryFilterSaver
 import dev.cubentia.app.ui.library.LibraryScreen
 import dev.cubentia.app.ui.library.RequestedAlgorithmStatus
+import dev.cubentia.app.ui.placement.PlacementFlowViewModel
+import dev.cubentia.app.ui.placement.PlacementPhase
+import dev.cubentia.app.ui.placement.PlacementScreen
 import dev.cubentia.app.ui.settings.SettingsScreen
 import dev.cubentia.app.ui.solve.ResolveState
 import dev.cubentia.app.ui.solve.SolveFlowViewModel
@@ -143,6 +146,8 @@ fun AppShell(
                 },
             )
         },
+    onPlacementScan: (() -> Unit)? = null,
+    placementFlow: PlacementFlowViewModel = remember { PlacementFlowViewModel() },
 ) {
     PreferenceProvider(preferenceStore) {
         ShellContent(
@@ -159,6 +164,8 @@ fun AppShell(
             calibration,
             onScan,
             quickCheck,
+            onPlacementScan,
+            placementFlow,
         )
     }
 }
@@ -178,6 +185,8 @@ private fun ShellContent(
     calibration: dev.cubentia.app.ui.settings.CalibrationSettings?,
     onScan: (() -> Unit)?,
     quickCheck: QuickCheckCapture?,
+    onPlacementScan: (() -> Unit)?,
+    placementFlow: PlacementFlowViewModel,
 ) {
     // Quick Check is a camera capture: like Scan it and calibration, it stays hidden while CAMERA_SCAN is OFF.
     @Suppress("NAME_SHADOWING")
@@ -186,6 +195,9 @@ private fun ShellContent(
     val content by catalog.state.collectAsState()
     val session by host.state.collectAsState()
     val solvePhase by solveFlow.phase.collectAsState()
+    val placementPhase by placementFlow.phase.collectAsState()
+    val placementScanState by placementFlow.acceptedScan.collectAsState()
+    var acceptingPlacement by remember { mutableStateOf(false) }
     val algorithmStatusLoad by host.algorithmStatusLoad.collectAsState(null)
     var algorithmStatuses by remember { mutableStateOf<Map<AlgorithmId, AlgorithmStatus>>(emptyMap()) }
     LaunchedEffect(algorithmStatusLoad) {
@@ -275,6 +287,11 @@ private fun ShellContent(
         return
     }
     val ready = content as? CatalogState.Ready
+    LaunchedEffect(welcome, ready, placementScanState, placementFlow) {
+        if (welcome == true && ready != null && placementScanState != null) {
+            placementFlow.evaluateScan(ready.bundle.stages)
+        }
+    }
     if (ready != null && session.kind == SessionKind.SOLVE_PLAYBACK) {
         SolvePlaybackScreen(
             quickCheck = quickCheck,
@@ -331,18 +348,61 @@ private fun ShellContent(
     }
     if (welcome == true && openSkipCheck == null) {
         val readyBundle = ready?.bundle
-        WelcomeScreen(
-            onImNew = {
-                // Persisted so a cold start before any Lesson progress still opens Learn, not Welcome.
-                preferenceStore.update(Preference.Onboarded(true))
-                welcome = false
-                selectedStage = readyBundle
+
+        fun startCourse(stage: String?) {
+            preferenceStore.update(Preference.Onboarded(true))
+            welcome = false
+            tab = Tab.LEARN
+            selectedStage = stage
+            placementFlow.reset()
+        }
+
+        fun startStageOne() {
+            startCourse(
+                readyBundle
                     ?.stages
                     ?.firstOrNull()
                     ?.id
-                    ?.value ?: "stage-01-fundamentals"
-                tab = Tab.LEARN
-            },
+                    ?.value ?: "stage-01-fundamentals",
+            )
+        }
+        val placementScan = onPlacementScan.takeIf { ready != null && flags.isEnabled(FeatureFlag.PLACEMENT) }
+        if (ready != null && placementScan != null && placementPhase != PlacementPhase.Idle) {
+            PlacementScreen(
+                phase = placementPhase,
+                flow = placementFlow,
+                strings = ready.strings,
+                stages = ready.bundle.stages,
+                twoLookStages = ready.bundle.twoLookStages,
+                onAccept = { target, faster ->
+                    if (!acceptingPlacement) {
+                        if (target == ready.bundle.stages.first()) {
+                            startStageOne()
+                        } else {
+                            acceptingPlacement = true
+                            scope.launch {
+                                try {
+                                    val course = ready.bundle.stages
+                                    host.placeFromScan(target.id, if (target in course) course else course + target)
+                                    startCourse(target.id.value.takeUnless { faster })
+                                    scrollToTwoLook = faster
+                                } finally {
+                                    acceptingPlacement = false
+                                }
+                            }
+                        }
+                    }
+                },
+                onScanAgain = placementScan,
+                modifier = modifier,
+                accepting = acceptingPlacement,
+            )
+            return
+        }
+        WelcomeScreen(
+            onImNew = ::startStageOne,
+            onStartFromCube = placementScan,
+            strings = ready?.strings,
             onCanAlreadySolve = {
                 openSkipCheck = "course"
                 skipCheckEpoch++

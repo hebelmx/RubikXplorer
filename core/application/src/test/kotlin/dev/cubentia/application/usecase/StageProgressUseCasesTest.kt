@@ -17,6 +17,7 @@ import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.domain.cube.Turn
+import dev.cubentia.domain.tutor.PlacementOutcome
 import dev.cubentia.domain.tutor.ProgressEvent
 import dev.cubentia.domain.tutor.StageProgress
 import dev.cubentia.domain.tutor.StageStatus
@@ -147,6 +148,30 @@ class StageProgressUseCasesTest {
                 ),
                 StageProgress.statuses(stages, repo.storedEvents),
             )
+        }
+
+    @Test
+    fun `PlaceFromScan suggests a Stage without accessing progress`() {
+        val repo =
+            InMemoryProgressRepository().apply {
+                failLoad = true
+                failAppend = true
+            }
+        val state = entryState(stage3.lessons.first())
+
+        assertEquals(PlacementOutcome.Suggested(stage3), PlaceFromScan(repo).suggest(state, stages))
+        assertTrue(repo.storedRecords.isEmpty())
+    }
+
+    @Test
+    fun `placing into 2-look OLL skips the whole Course and unlocks OLL`() =
+        runBlocking {
+            val repo = InMemoryProgressRepository()
+            val target = bundle.twoLookStages.single { it.id == StageId("stage-08-two-look-oll") }
+            val expected = stages.map { ProgressEvent.StageSkippedByPlacement(it.id, t0) } + ProgressEvent.StageUnlocked(target.id, t0)
+
+            assertEquals(ProgressWrite.Written(expected), PlaceFromScan(repo)(target.id, stages + target, t0))
+            assertEquals(expected, repo.storedEvents)
         }
 
     @Test

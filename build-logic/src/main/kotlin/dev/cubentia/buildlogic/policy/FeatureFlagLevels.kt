@@ -47,7 +47,7 @@ object FeatureFlagLevels {
      */
     val byBuildType: Map<String, Map<String, String>> =
         mapOf(
-            "debug" to flags.associateWith { if (it in cameraDependentFlags) "OFF" else "GA" },
+            "debug" to flags.associateWith { if (it in cameraDependentFlags && it != "PLACEMENT") "OFF" else "GA" },
             "release" to releaseLevels,
             "benchmark" to releaseLevels,
         )

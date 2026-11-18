@@ -59,6 +59,8 @@ class MainActivity : ComponentActivity() {
 
     private val solveFlow: dev.cubentia.app.ui.solve.SolveFlowViewModel by viewModels()
 
+    private val placementFlow: dev.cubentia.app.ui.placement.PlacementFlowViewModel by viewModels()
+
     private val freeCube: FreeCubeViewModel by viewModels()
 
     /** True from a *Scan my cube* tap until its denial check opens the Editor or the scan's result returns. */
@@ -96,7 +98,11 @@ class MainActivity : ComponentActivity() {
                     true,
                 )
         }
-        val onScan: (() -> Unit)? =
+
+        fun guidedScanAction(
+            onDenied: () -> Unit,
+            onOutcome: (dev.cubentia.app.scan.ScanOutcome) -> Unit,
+        ): (() -> Unit)? =
             if (featureFlags.isEnabled(FeatureFlag.CAMERA_SCAN) && scanLauncher.isPresent) {
                 val launcher = scanLauncher.get()
                 val result =
@@ -105,7 +111,7 @@ class MainActivity : ComponentActivity() {
                             .ScanFlowContract(launcher),
                     ) {
                         scanInFlight = false
-                        solveFlow.onScanOutcome(it)
+                        onOutcome(it)
                     }
                 val action: () -> Unit = action@{
                     // A second tap while the denial check runs or the scan is open starts nothing.
@@ -114,7 +120,7 @@ class MainActivity : ComponentActivity() {
                     lifecycleScope.launch {
                         if (withContext(Dispatchers.IO) { launcher.cameraDenied(this@MainActivity) }) {
                             scanInFlight = false
-                            solveFlow.scanDenied()
+                            onDenied()
                         } else {
                             try {
                                 result.launch(Unit)
@@ -126,6 +132,13 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 action
+            } else {
+                null
+            }
+        val onScan = guidedScanAction({ solveFlow.scanDenied() }) { solveFlow.onScanOutcome(it) }
+        val onPlacementScan =
+            if (featureFlags.isEnabled(FeatureFlag.PLACEMENT)) {
+                guidedScanAction({ placementFlow.scanDenied() }) { placementFlow.onScanOutcome(it) }
             } else {
                 null
             }
@@ -217,6 +230,8 @@ class MainActivity : ComponentActivity() {
                     preferenceStore = preferenceStore,
                     host = sessionHost,
                     solveFlow = solveFlow,
+                    placementFlow = placementFlow,
+                    onPlacementScan = onPlacementScan,
                     catalog = lessonCatalog,
                     freeCube = freeCube,
                     showDebugToggles = DebugOptions.SHOW_DEBUG_TOGGLES,

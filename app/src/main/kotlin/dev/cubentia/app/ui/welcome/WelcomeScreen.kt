@@ -14,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
@@ -26,17 +27,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.R
+import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.LocalPreferenceStore
 import dev.cubentia.app.preferences.PreferenceStore
+import dev.cubentia.app.ui.beta.BetaLabel
+import dev.cubentia.app.ui.beta.BetaNote
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.application.port.FeatureFlag
 import dev.cubentia.application.port.FeatureFlags
+import dev.cubentia.application.port.FlagLevel
 import dev.cubentia.application.preference.Preference
+import dev.cubentia.domain.text.Text as ContentText
 
 /**
  * The Welcome screen (FR-4, FR-17, AD-10, AD-18, UX-DR21, UX-DR22, UX Flow 8):
@@ -51,9 +58,10 @@ fun WelcomeScreen(
     onCanAlreadySolve: () -> Unit,
     flags: FeatureFlags,
     modifier: Modifier = Modifier,
-    onStartFromCube: () -> Unit = {},
+    onStartFromCube: (() -> Unit)? = null,
     abandoned: Boolean = false,
     preferenceStore: PreferenceStore = LocalPreferenceStore.current,
+    strings: ContentStrings? = null,
 ) {
     val tokens = RubikTheme.tokens
     val prefs by preferenceStore.preferences.collectAsState()
@@ -117,16 +125,41 @@ fun WelcomeScreen(
                 Text(stringResource(R.string.welcome_can_solve))
             }
 
-            if (flags.isEnabled(FeatureFlag.PLACEMENT)) {
+            if (flags.isEnabled(FeatureFlag.PLACEMENT) && onStartFromCube != null) {
+                val label = stringResource(R.string.welcome_start_from_cube)
+                val betaStrings = strings.takeIf { flags.level(FeatureFlag.PLACEMENT) == FlagLevel.BETA }
+                val betaLabel = betaStrings?.resolve(ContentText("msg.feature.beta"))
                 OutlinedButton(
                     onClick = onStartFromCube,
                     modifier =
                         Modifier
                             .fillMaxWidth()
                             .heightIn(min = 48.dp)
-                            .testTag("welcome:startFromCube"),
+                            .testTag("welcome:startFromCube")
+                            .semantics {
+                                if (betaLabel != null) contentDescription = "$label, $betaLabel"
+                            },
                 ) {
-                    Text(stringResource(R.string.welcome_start_from_cube))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.s1),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(label)
+                        if (betaLabel != null) {
+                            BetaLabel(
+                                betaLabel,
+                                LocalContentColor.current,
+                                MaterialTheme.typography.labelMedium,
+                                Modifier.testTag("welcome:startFromCube:beta"),
+                            )
+                        }
+                    }
+                }
+                if (betaStrings != null) {
+                    BetaNote(
+                        betaStrings.resolve(ContentText("msg.feature.camera.beta-note")),
+                        Modifier.testTag("welcome:startFromCube:betaNote"),
+                    )
                 }
             }
 

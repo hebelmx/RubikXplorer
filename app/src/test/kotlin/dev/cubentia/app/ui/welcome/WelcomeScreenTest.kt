@@ -1,18 +1,22 @@
 package dev.cubentia.app.ui.welcome
 
 import android.app.Application
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.app.session.testFlags
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.application.port.FeatureFlag
 import dev.cubentia.application.port.FeatureFlags
 import dev.cubentia.application.port.FlagLevel
-import org.junit.Assert.assertEquals
+import dev.cubentia.domain.content.ContentLoadResult
+import dev.cubentia.domain.content.ContentLoader
+import dev.cubentia.domain.content.ContentSource
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -77,6 +81,33 @@ class WelcomeScreenTest {
             .assertTextContains("Start from my cube")
             .performClick()
         assertTrue(startFromCubeClicked)
+    }
+
+    @Test
+    fun `placement BETA shows the shared label and note and announces BETA`() {
+        val flags =
+            object : FeatureFlags {
+                override fun level(flag: FeatureFlag): FlagLevel = if (flag == FeatureFlag.PLACEMENT) FlagLevel.BETA else FlagLevel.OFF
+            }
+        val shipped = ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded
+        rule.setContent {
+            CubentiaTheme {
+                WelcomeScreen(
+                    onImNew = {},
+                    onCanAlreadySolve = {},
+                    flags = flags,
+                    preferenceStore = preferences,
+                    onStartFromCube = {},
+                    strings = ContentStrings(shipped.bundle.strings),
+                )
+            }
+        }
+
+        rule.onNodeWithTag("welcome:startFromCube").assertContentDescriptionEquals("Start from my cube, BETA")
+        rule.onNodeWithTag("welcome:startFromCube:beta", useUnmergedTree = true).assertTextContains("BETA")
+        rule
+            .onNodeWithTag("welcome:startFromCube:betaNote")
+            .assertTextContains("May misread colors in poor light. Manual entry always works.")
     }
 
     @Test

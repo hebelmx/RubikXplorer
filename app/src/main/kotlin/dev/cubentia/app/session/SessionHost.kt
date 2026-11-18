@@ -30,6 +30,7 @@ import dev.cubentia.application.session.Transition
 import dev.cubentia.application.session.reduce
 import dev.cubentia.application.usecase.CompleteLesson
 import dev.cubentia.application.usecase.PassSkipCheck
+import dev.cubentia.application.usecase.PlaceFromScan
 import dev.cubentia.application.usecase.ResetProgress
 import dev.cubentia.application.usecase.SetAlgorithmStatus
 import dev.cubentia.application.usecase.TwoLookPractice
@@ -81,6 +82,7 @@ class SessionHost internal constructor(
     private val passSkipCheck: PassSkipCheck? = null,
     private val algorithmStatusRepository: AlgorithmStatusRepository? = null,
     private val setAlgorithmStatus: SetAlgorithmStatus? = null,
+    private val placeFromScan: PlaceFromScan? = null,
     /** Sees every event this host reduced, in order; tests use it to observe events that change no state. */
     private val reduced: (SessionEvent) -> Unit = {},
 ) {
@@ -96,6 +98,7 @@ class SessionHost internal constructor(
         attempts: AttemptRepository,
         resetProgress: ResetProgress,
         passSkipCheck: PassSkipCheck,
+        placeFromScan: PlaceFromScan,
         algorithmStatusRepository: AlgorithmStatusRepository,
         setAlgorithmStatus: SetAlgorithmStatus,
     ) :
@@ -111,6 +114,7 @@ class SessionHost internal constructor(
             attempts = attempts,
             resetProgress = resetProgress,
             passSkipCheck = passSkipCheck,
+            placeFromScan = placeFromScan,
             algorithmStatusRepository = algorithmStatusRepository,
             setAlgorithmStatus = setAlgorithmStatus,
         )
@@ -540,6 +544,39 @@ class SessionHost internal constructor(
         stageId: StageId,
         stages: List<Stage>,
     ): Boolean = passSkipCheck(listOf(stageId), stages)
+
+    private val placementUseCase = placeFromScan ?: progress?.let(::PlaceFromScan)
+    private val memoryPlacement =
+        PlaceFromScan.inMemory(
+            events = { currentProgress.value },
+            onWritten = { written -> currentProgress.update { it + written } },
+        )
+
+    /** Records placement progress without opening or changing a LearningSession. */
+    suspend fun placeFromScan(
+        target: StageId,
+        stages: List<Stage>,
+    ): Boolean {
+        val useCase = placementUseCase
+        if (useCase == null) {
+            return withContext(confined) { memoryPlacement(target, stages, at = clock.now()) is ProgressWrite.Written }
+        }
+        val result =
+            try {
+                if (writer != null) {
+                    writer.read { useCase(target, stages, at = clock.now()) }
+                } else {
+                    useCase(target, stages, at = clock.now())
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                ProgressWrite.Failed
+            }
+        if (result !is ProgressWrite.Written) return false
+        refreshProgressAfterWrite(result.events)
+        return true
+    }
 
     /** Reloads [attemptRecords] from [attempts], ordered with queued writes when [writer] is present. */
     suspend fun reloadAttempts() {
