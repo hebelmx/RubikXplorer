@@ -82,7 +82,7 @@ These are behavioral rules. Visual specs are in DESIGN.md Components.
 
 | Component | Use | Behavioral rules |
 | --- | --- | --- |
-| Cube stage | Lesson, Playback, Practice, Library detail, Editor | Shows committed state only (AD-4). A frame label always says which state is shown: VIRTUAL, EXPECTED or VERIFIED. Double-tap resets the view. Pieces outside the current step dim during Demonstrations and in *Guide me*; the Keep pieces stay lit. A Partial observation shows only as the SEEN strip (DESIGN.md). On Solution Playback a view switch on the toolbar swaps the 3D cube and the 2D net. Solution Playback opens in 3D, except in Physical-cube Mode, where it opens on the 2D net (all 54 stickers to compare with EXPECTED); after the Learner's first switch, the remembered choice wins in both modes, and *Reset preferences* clears it. Switching mid-turn jumps straight to the current step with no animation (AD-4); the frame label, certainty chip and SEEN strip are unchanged. The 3D view shows the Move arrow on the current Move and carries the cube description for TalkBack (SCP 2026-11-17). |
+| Cube stage | Lesson, Playback, Practice, Library detail, Editor | Shows committed state only (AD-4). A frame label always says which state is shown: VIRTUAL, EXPECTED or VERIFIED. Double-tap resets the view. While the view is off home, a View rotated badge with Reset view shows in the stage's top-left overlay (after the frame label when shown), and face letters sit beside the faces that face the camera (SCP 2026-11-18). Pieces outside the current step dim during Demonstrations and in *Guide me*; the Keep pieces stay lit. A Partial observation shows only as the SEEN strip (DESIGN.md). On Solution Playback a view switch on the toolbar swaps the 3D cube and the 2D net. Solution Playback opens in 3D, except in Physical-cube Mode, where it opens on the 2D net (all 54 stickers to compare with EXPECTED); after the Learner's first switch, the remembered choice wins in both modes, and *Reset preferences* clears it. Switching mid-turn jumps straight to the current step with no animation (AD-4); the frame label, certainty chip and SEEN strip are unchanged. The 3D view shows the Move arrow on the current Move and carries the cube description for TalkBack (SCP 2026-11-17). |
 | Undo / Redo / Reset | Cube stage toolbar | Undo steps back one committed transition. Redo is cleared by any new Move. Reset asks "Reset the cube? This lesson's unsaved steps will be lost." only when progress would be lost. Undo stops at barriers (a scan, a mode switch, a restore), with the tooltip "Can't undo past your last scan." In Physical-cube Mode, Undo reverts the Expected State and says "Turn R' on your cube to undo." |
 | Move key bar | Every interactive cube (in Physical-cube Mode, shown only after *I did something else*) | Each key commits exactly one Move, the same path as a gesture. Key labels never change with View Rotation. A long-press shows the key's plain-language name, for example "U' — Up face counter-clockwise". Wide and slice keys are under "more". A light haptic tick fires on commit. |
 | Teaching Mode switcher | Lesson | Switching mode keeps the Cube State and progress. The UI renders `TutorDecision.reveal` and never decides reveal itself (AD-3). The Objective always shows first (Principle 1). *Show me* plays after the Objective, on tap. *Guide me* shows Goal, Keep and Watch, then reveals the Move chip on tap. *Test me* waits for the Learner's Move. *Let me try* keeps Goal and Keep visible and hides only the Moves. The last mode used is remembered. The mode is hidden when its flag is OFF (`TEST_ME`). |
@@ -147,10 +147,14 @@ These are behavioral rules. Visual specs are in DESIGN.md Components.
 ## Interaction Primitives
 
 - **Cube gestures** (via a pure `GestureInterpreter`, AD-4):
-  - A one-finger drag that **starts on a sticker** and runs along a row or column turns that layer.
-  - A one-finger drag **starting off the cube**, or a two-finger drag anywhere, is a View Rotation.
-  - Below the confidence threshold, a drag does nothing. It never guesses a turn.
-- **Double-tap** on the stage resets the view.
+  - A one-finger drag that **starts on a sticker** and runs along a row or column previews that layer's Move: the layer turns with the finger (up to a quarter turn), it is highlighted, and the Move name (for example `R'`) follows the finger. A middle row or column previews a slice (M, E, S).
+  - A two-finger drag that **starts on the cube**, with both fingers moving the same way, previews the wide Move of the outer layer under the fingers (for example `r`).
+  - **Lift to commit**, also when the finger has slid off the stage; the turn finishes from where the finger left it. To cancel, drag back to within the lock distance of where the drag began and lift: the layer snaps back and nothing changes.
+  - A drag that starts while a Move is animating first finishes the animation at once, then previews.
+  - A one- or two-finger drag **starting off the cube** is a View Rotation.
+  - With TalkBack on, a two-finger drag reaches the app as a one-finger drag, so wide Moves come from "more" on the Move key bar.
+  - Below the confidence threshold, a drag shows nothing and does nothing. It never guesses a turn.
+- **Double-tap** on the stage resets the view; so does the **Reset view** action on the View rotated badge. The reset animates home, or jumps when reduce motion is on.
 - **Input during animation** commits immediately. Once more than 3 Moves are queued, the queue fast-forwards (AD-4).
 - **Cube Rotations:**
   - z: a two-finger twist on the cube.
@@ -176,6 +180,7 @@ Behavioral rules here; visual contrast is in DESIGN.md.
   - Every certainty change is announced.
   - Scan review announces the selected sticker ("Up face, position 4, needs a color") and every set color ("Up face, position 4: orange").
   - Move keys announce plain names, for example "R prime: right face counter-clockwise".
+  - The previewed Move is announced by name while dragging; "Turn cancelled" (only when a locked drag is cancelled), "View rotated" and "View reset" are announced once.
 - **Color-blind glyphs:** a Settings toggle shows letters on every sticker surface. It is offered on first launch and on the first scan.
 - **Reduce motion:** when the system setting is on, or the app's override is:
   - Demonstrations step instead of animating;

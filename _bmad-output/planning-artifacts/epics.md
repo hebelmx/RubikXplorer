@@ -34,7 +34,7 @@ This document provides the complete epic and story breakdown for RubikXplorer, d
 
 ### Functional Requirements
 
-FR-1: Render a 3×3 cube (6 × 9 stickers) and apply Moves. Gestures cover face turns and Cube Rotations; buttons cover every Move type, including wide and slice turns (wide/slice by button only in MVP [ASSUMPTION]). After every committed Move the rendered cube equals the Virtual State sticker by sticker; input during animation is handled deterministically; a quarter turn animates in ≤ 250 ms on the reference device.
+FR-1: Render a 3×3 cube (6 × 9 stickers) and apply Moves. Gestures cover face turns and Cube Rotations; buttons cover every Move type, including wide and slice turns A drag previews its Move and commits on release; a middle-layer drag makes a slice and a two-finger drag on the cube makes a wide Move (SCP 2026-11-18). After every committed Move the rendered cube equals the Virtual State sticker by sticker; input during animation is handled deterministically; a quarter turn animates in ≤ 250 ms on the reference device.
 FR-2: Rotate the view freely without changing the Cube State. No sequence of View Rotations changes the Virtual State; Notation follows the cube's orientation, not the camera [ASSUMPTION].
 FR-3: Undo repeatedly, redo, and reset. Undo restores the exact previous state; redo restores an undone state and any new Move clears redo; reset asks for confirmation if it would discard unsaved Lesson progress.
 FR-4: Stage-gated Course (7 Stages). A Stage unlocks by prerequisites, a skip-ahead check, or Placement. Every Lesson declares prerequisites, Objective, Demonstration, learner action, Completion Predicate and Recovery Path (schema test fails the build otherwise); every Lesson has an automated legal path to its predicate; completion is by predicate, never Move count; "I already know this" runs a check from a fresh Scramble and marks *skipped*, not *mastered*.
@@ -114,8 +114,8 @@ From the architecture spine (no starter template is specified; Epic 1 Story 1 is
 UX-DR1: Implement the DESIGN.md color tokens as a Compose Material3 theme: chrome (`surface-base/raised/stage`, `ink-primary/secondary/disabled`, `hairline`, `accent`, `on-accent`) in light and dark; status tokens (`verified`, `likely`, `unknown`, `invalid`) per theme; sticker tokens, `cubie-body`, `sticker-highlight`, `scan-grid`, `sticker-dimmed-overlay` theme-invariant. A contrast test asserts text ≥ 4.5:1 on every surface token, status ≥ 3:1 as icons and ≥ 4.5:1 as chip text, highlight ≈ 7:1 on `cubie-body`. [ASSUMPTION: hex values pending confirmation.]
 UX-DR2: Bundle IBM Plex Sans and IBM Plex Mono (no network) and map the roles `display`, `title`, `body`, `label`, `meta`, `notation`, `data` to the M3 type scale; `notation` one step above surrounding text; `data` uses tabular figures; at most one `display` per screen; no all-caps except short status chips. [ASSUMPTION: font pairing pending confirmation.]
 UX-DR3: Spacing scale 4/8/12/16/24/32/48dp, `touch-min` 48dp, gutters 16dp compact / 24dp medium+expanded; shapes `xs` 2dp (stickers), `sm` 4dp (keys, inputs), `md` 8dp (cards, buttons, tiles), `lg` 12dp (stage well, sheets), `full` only for certainty chips; no pill buttons, no card shadows.
-UX-DR4: Cube stage component: `surface-stage` well; top toolbar Undo · Redo · Reset (icon buttons, TalkBack labels, `ink-disabled` when disabled); frame label VIRTUAL / EXPECTED (dashed `expected-badge`) / VERIFIED (status icon); reset-view affordance top-right and double-tap reset; dimming of off-step pieces with Keep pieces lit; SEEN strip of observed face thumbnails with differing stickers outlined during a mismatch; a Partial observation is never drawn as a whole cube; on Solution Playback a toolbar view switch between the 3D cube and the 2D net, labeled with the view it switches to (SCP 2026-11-17).
-UX-DR5: Move key bar: `move-key` buttons labeled in `notation` (`U`, `U'`, `U2`…), press inversion, ⟳ x/y/z group, "more" for wide and slice turns, long-press plain-language name, light haptic tick on commit, labels never change with View Rotation; horizontal scrollable on compact, vertical grid on expanded; in Physical-cube Mode shown only after *I did something else*.
+UX-DR4: Cube stage component: `surface-stage` well; top toolbar Undo · Redo · Reset (icon buttons, TalkBack labels, `ink-disabled` when disabled); frame label VIRTUAL / EXPECTED (dashed `expected-badge`) / VERIFIED (status icon); double-tap reset; a View rotated badge with a one-tap Reset view in the top-left overlay (after the frame label when shown) while the view is off home, and face letters beside the visible faces (SCP 2026-11-18); dimming of off-step pieces with Keep pieces lit; SEEN strip of observed face thumbnails with differing stickers outlined during a mismatch; a Partial observation is never drawn as a whole cube; on Solution Playback a toolbar view switch between the 3D cube and the 2D net, labeled with the view it switches to (SCP 2026-11-17).
+UX-DR5: Move key bar: `move-key` buttons labeled in `notation` (`U`, `U'`, `U2`…), press inversion, ⟳ x/y/z group, "more" for wide and slice turns (also reachable by gesture, UX-DR26), long-press plain-language name, light haptic tick on commit, labels never change with View Rotation; horizontal scrollable on compact, vertical grid on expanded; in Physical-cube Mode shown only after *I did something else*.
 UX-DR6: Move arrow overlay and piece highlight: curved `sticker-highlight` arrow following the turning layer (Demonstrations, hint rung 2, and the current Move of Solution Playback in 3D, SCP 2026-11-17) with the Move in `notation` at its tip (static when reduce motion is on); highlight = 3dp `sticker-highlight` outline with 1dp `cubie-body` inner stroke; stickers never recolored.
 UX-DR7: Lesson panel in this order: Objective (`title`) → step card → Teaching Mode switcher → Hint (secondary) + **Next** (`button-primary`; disabled = `hairline` fill + `ink-disabled` text). Step card shows Goal, Keep, Watch before the Move and Notice after it, with Moves as `notation-chip`s; the UI label *Keep* renders schema field `preserve`.
 UX-DR8: Teaching Mode switcher: segmented control (*Show me*, *Guide me*, *Test me*, *Let me try*), active segment `accent`; switching keeps state and progress; renders `TutorDecision.reveal` only; *Test me* hidden when `TEST_ME` is OFF; last mode remembered.
@@ -136,18 +136,20 @@ UX-DR22: Information architecture: Welcome (first launch only) and a 4-tab botto
 UX-DR23: Responsive Lesson layout per window class: compact stacked (stage ≈ 45% height, min 280dp, key bar on stage bottom edge); medium side by side (stage ≈ 55% left, vertical key grid); expanded side by side with the panel capped at 560dp; Library 4 columns at expanded; orientation change never changes session state.
 UX-DR24: Voice and copy: all strings as content keys; Goal/Keep/Watch/Notice; fixed Certainty wording each with its next action; the Do/Don't table and UI-label↔Glossary map from EXPERIENCE.md; no exclamation marks except milestones; mistakes in neutral ink, never red.
 UX-DR25: State-pattern copy and treatments from EXPERIENCE.md State Patterns, each implemented where its feature lands (resume notes, session paused, content changed, Objective met variants, mismatch ladder, Test me outcomes, error-category copy, stale scan, solver working/timeout/tables building, invalid entry, permission denied, Placement outcomes, Recognize not-at-LL/ambiguous/no-fit/last-layer-solved, filter empty, progress reset).
-UX-DR26: Gestures: one-finger drag starting on a sticker along a row/column turns that layer; drag starting off the cube or two-finger drag = View Rotation; below threshold nothing happens; two-finger twist = z; x/y via ⟳ keys [ASSUMPTION]; Cube Rotation animates 200 ms and briefly labels the new front color; View Rotation has no label. [ASSUMPTION: gesture mapping pending confirmation.]
+UX-DR26: Gestures: one-finger drag starting on a sticker along a row/column previews that layer's Move (an outer face or a middle slice) and commits it on release (UX-DR33); a parallel two-finger drag starting on the cube previews and commits the wide Move; a one- or two-finger drag starting off the cube = View Rotation; below threshold nothing happens; two-finger twist = z; x/y via ⟳ keys [ASSUMPTION]; Cube Rotation animates 200 ms and briefly labels the new front color; The View rotated badge is shown while the view is off home (UX-DR34).
 UX-DR27: Haptics: light tick on each committed Move, soft confirm on Objective met, nothing on a mistake; all switchable off in Settings.
 UX-DR28: Banned patterns enforced in review: shake on error, red flash for a Learner mistake, countdown timers (outside P1 drills), streaks/points/push notifications/badges, auto-advance past a Notice, carousels.
-UX-DR29: Accessibility floor: cube semantics summary ("White cross solved; 2 of 4 first-layer corners placed") plus a *Read faces* action; every Certainty change announced; Move keys announce plain names; View Rotation arrow buttons in the stage overflow; dynamic type to 200% with panel reflow and no truncation; focus order frame label → cube description → Move key bar → lesson panel → mode switcher; reduce motion makes Demonstrations step, milestones static, camera transitions snap.
+UX-DR29: Accessibility floor: cube semantics summary ("White cross solved; 2 of 4 first-layer corners placed") plus a *Read faces* action; every Certainty change announced; Move keys announce plain names; View Rotation arrow buttons in the stage overflow; the previewed Move announced by name, and "View rotated" / "View reset" announced; dynamic type to 200% with panel reflow and no truncation; focus order frame label → cube description → Move key bar → lesson panel → mode switcher; reduce motion makes Demonstrations step, milestones static, camera transitions snap.
 UX-DR30: Themes: light and dark designed equally, follow the system, with a Settings override.
 UX-DR31: Back: leaving a Lesson is immediate with no confirmation (everything is committed and checkpointed first).
 UX-DR32: Move picture: an ink-only glyph per Move generated in code (3×3 face, moving layer shaded; curved arrow R/L/U/D, round F/B seen from the front with B's arrow behind the grid, straight M/E/S; prime reverses, half turn adds a superscript 2; wide and x/y/z designs), decorative for TalkBack; *Move pictures* Settings toggle next to color-blind glyphs, default on (SCP 2026-11-17).
+UX-DR33: Drag preview: once a drag locks, the layer turns with the finger (clamped to a quarter turn) and is highlighted without replacing Lesson emphasis, and a ghost arrow carries the Move in notation (cube frame) while any teaching arrow is hidden; reversing through the start flips the Move; lift commits through the Move key path (also when lifted off the stage) and the turn continues from the ghost angle; returning to within the lock distance of where the drag began and lifting cancels with a snap back and no tick; TalkBack announces the previewed Move (SCP 2026-11-18).
+UX-DR34: View-rotated badge and face labels: a "View rotated" badge with a Reset view action in the stage's top-left overlay (after the frame label when shown) while the view is off home; reset animates home (jumps under reduce motion); face letters U/D/F/B/R/L in notation outside the cube's silhouette beside each face that clearly faces the camera, never on stickers, while rotated (SCP 2026-11-18).
 
 ### FR Coverage Map
 
-FR-1: Epic 1 (buttons, 2D net, all Move types) · Epic 5 (3D, gestures, 250 ms animation)
-FR-2: Epic 5 — View Rotation independent of Cube State
+FR-1: Epic 1 (buttons, 2D net, all Move types) · Epic 5 (3D, gestures, 250 ms animation) · Epic 12 (drag preview, slices and wide Moves by gesture, 12.16)
+FR-2: Epic 5 — View Rotation independent of Cube State · Epic 12 (view-rotated badge, Reset view, face labels, 12.17)
 FR-3: Epic 1 (free-cube undo/redo/reset) · Epic 2 (in-session undo/redo, reset confirmation) · Epic 8 (physical undo)
 FR-4: Epic 2 (Lesson schema, path tests) · Epic 7 (Stage gating, all Stages, skip-ahead check)
 FR-5: Epic 2 — four Teaching Modes
@@ -239,8 +241,8 @@ First on the PRD cut order (Quick Scan → beta, then Case recognition, then Pla
 ### Epic 12: Release-ready for learners and reviewers (P0.6, weeks 15–16)
 The app meets every release gate. It is accessible, fast and stable on the reference devices, the pilot's findings are fixed, and the store listing and public repo are ready for a hiring manager's five-minute look.
 **Absorbs:** E09, PRD §7.
-**FRs covered:** none new (verifies all), plus FR-16 and FR-19 additions in 12.14–12.15. **Also:** NFR-1, NFR-2, NFR-7, NFR-8, NFR-9, NFR-11, NFR-13, AR-3, AR-5, AR-16, UX-DR4, UX-DR6, UX-DR14, UX-DR28, UX-DR29, UX-DR32, Flow 6.
-**Also carries** the pre-pilot stories 12.6–12.10 (Cubentia rebrand; Epic 8 retrospective fixes), which run before Story 7.8 (`sprint-change-proposal-2026-11-08-cubentia-and-pre-pilot.md`), and 12.11–12.12 (Epic 9 seams; 2-look rules), also before 7.8 (`sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md`), and 12.13 (durable session end; Story 12.11 deferrals), also before 7.8 (`sprint-change-proposal-2026-11-10-session-end-deferrals.md`). It also carries 12.14 (Solution Playback in 3D or on the 2D net, #175) and then 12.15 (Move pictures and the Move strip, #176), v1 release scope that runs before Story 12.3 and the store screenshots of Story 12.5 (`sprint-change-proposal-2026-11-17-playback-view-and-move-glyphs.md`).
+**FRs covered:** none new (verifies all), plus FR-16 and FR-19 additions in 12.14–12.15, and FR-1/FR-2 gesture and view changes in 12.16–12.17. **Also:** NFR-1, NFR-2, NFR-7, NFR-8, NFR-9, NFR-11, NFR-13, AR-3, AR-5, AR-16, UX-DR4, UX-DR6, UX-DR14, UX-DR28, UX-DR5, UX-DR26, UX-DR29, UX-DR32, UX-DR33, UX-DR34, Flow 6.
+**Also carries** the pre-pilot stories 12.6–12.10 (Cubentia rebrand; Epic 8 retrospective fixes), which run before Story 7.8 (`sprint-change-proposal-2026-11-08-cubentia-and-pre-pilot.md`), and 12.11–12.12 (Epic 9 seams; 2-look rules), also before 7.8 (`sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md`), and 12.13 (durable session end; Story 12.11 deferrals), also before 7.8 (`sprint-change-proposal-2026-11-10-session-end-deferrals.md`). It also carries 12.14 (Solution Playback in 3D or on the 2D net, #175) and then 12.15 (Move pictures and the Move strip, #176), v1 release scope that runs before Story 12.3 and the store screenshots of Story 12.5 (`sprint-change-proposal-2026-11-17-playback-view-and-move-glyphs.md`). It also carries 12.16 (drag preview, #206) and 12.17 (view-rotated badge, #207), which run before 12.3 (`sprint-change-proposal-2026-11-18-drag-preview-and-view-rotated.md`).
 **Epic 13** (public website and privacy policy, `sprint-change-proposal-2026-11-13-cubentia-site.md`) runs before Stories 12.3, 12.4 and 12.5. Story 12.3 depends on 13.6, and Story 12.5 on 13.4 and 13.5. Epics 10 and 11 (v1.1 camera, flag-gated) run in parallel with Epics 12 and 13 and never gate them (`sprint-change-proposal-2026-11-14-v1-1-camera.md`).
 **Device batch** (reference devices connected after the device-free stories; `sprint-change-proposal-2026-11-10-session-end-deferrals.md`): Stories 3.8, 1.11 and 12.2, plus the Story 12.1 physical pass in `docs/accessibility-manual-check.md`. Story 3.7 stays in `review` until 3.8 passes (its last AC), and Story 12.1 stays in `review` until that physical pass is recorded.
 **Reference devices (SCP 2026-11-12, `sprint-change-proposal-2026-11-12-lenovo-minimum-reference.md`):** minimum Lenovo Tab M10 Plus 3rd Gen (TB128XU, Android 13 / API 33), mid Samsung Galaxy S24 FE. The Galaxy Tab S7 FE 5G, the minimum until 2026-11-12, is kept as an additional compatibility device, and its 3.8, 1.11 and 12.2 results stay as dated evidence. The Lenovo was measured with the 3.8 and 12.2 methods and meets every threshold (`docs/benchmarks.md` § Additional device: Lenovo Tab M10 Plus 3rd Gen); its limitations are tracked in #119.
@@ -1135,6 +1137,8 @@ So that the screen cube feels like a real one.
 **When** the `MoveIntent` is produced
 **Then** it goes through the same `MoveCommitted` path as a Move key (a `SessionEvent` in a Lesson; on the free cube, the shared `FreeCubeViewModel.onMoveIntent` commit, replaced by the free-cube reducer in Story 6.6), the input is acknowledged within 100 ms, and a light haptic tick fires (switchable off)
 
+*Annotated by SCP 2026-11-18: device testing showed gestures misfire (GitHub #206). Story 12.16 replaces first/last-point recognition with a path-based preview: the layer turns with the finger and commits on release, slices are previewed, and a two-finger drag on the cube makes wide Moves.*
+
 ### Story 5.3: Rotate the view and the cube
 
 As a Learner,
@@ -1160,6 +1164,8 @@ So that I can inspect pieces and hold it like my real cube.
 **Given** double-tap on the stage, the reset-view affordance, or the overflow View Rotation arrow buttons
 **When** used
 **Then** the view resets or rotates accordingly without gestures
+
+*Annotated by SCP 2026-11-18: the reset-view affordance was not discoverable (GitHub #207). Story 12.17 adds a View rotated badge with a one-tap Reset view, removes the separate toolbar reset-view button (Reset view now lives on the badge; double-tap and the overflow View Rotation arrows stay), adds face labels while rotated, and adds a distance check on double-tap. Off-cube two-finger drags are still a View Rotation; on-cube parallel two-finger drags become wide Moves (Story 12.16).*
 
 ### Story 5.4: Arrows, highlights and dimming in 3D
 
@@ -2758,6 +2764,134 @@ So that I can see what to do at a glance and where I am in the Solution.
 **Given** screenshot tests
 **When** they run
 **Then** samples cover at least R, R', R2, F, B, M, Rw and x in light and dark themes, and the transport with the Move strip and pictures on and off
+
+### Story 12.16: See the turn while dragging, commit on release
+
+As a Learner turning the cube by touch,
+I want to see which layer will turn, and which way, while I drag,
+So that I only make the Move I meant, and can back out before it counts.
+
+**Refs:** FR-1, FR-2 · NFR-1, NFR-2, NFR-4, NFR-7 · AD-4, AD-11, AD-17 · AR-8 · UX-DR5, UX-DR6, UX-DR26, UX-DR27, UX-DR29, UX-DR33 · GitHub #206 · action item `epic-5-retro-item-19-split-cube3drenderer-kt-551-lines-gestur` (gesture host part) · `sprint-change-proposal-2026-11-18-drag-preview-and-view-rotated.md`
+
+**Runs before** Story 12.17 and Story 12.3. Needs a device check on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE (batched with 12.17).
+
+**Acceptance Criteria:**
+
+**Given** a pure `GestureInterpreter.preview(input: GestureInput, pose: ViewPose) → DragPreview?` in `:core:domain`, where `GestureInput` carries one touch path or two (one per finger), each read whole, not only its first and last points
+**When** a one-finger drag starts on a sticker and has moved past the lock distance
+**Then** it locks the drag axis and layer for the rest of the gesture and returns `DragPreview.Active(move, degrees)`: the Move in the cube frame (whatever the view pose) and a signed angle from the finger's travel along the locked tangent, clamped to [−90°, +90°]; a wobbly or curved drag along a row keeps its lock; before the lock it returns null; JVM fixtures cover pose × start sticker × direction, including curved paths and over-drag past 90°
+
+**Given** a locked drag
+**When** the finger comes back within the lock distance of where the drag began
+**Then** `preview` returns `DragPreview.CancelZone` (never null once locked), the ghost layer eases back to 0°, and leaving the zone on the other side flips the Move (R ↔ R'), with the angle starting again from 0°
+
+**Given** a locked one-finger drag
+**When** the finger moves
+**Then** that layer turns on screen with the finger (the ghost turn); all 9 cubies of the layer, centre included, get the `sticker-highlight` outline through a preview flag that is OR-ed with any Lesson `NetEmphasis` (never replacing it, and never taking part in the `uPulse` fill tint); a ghost arrow with the Move in `notation` (for example "R'") follows the finger; a teaching arrow (Demonstration, hint rung 2, playback) is hidden while the ghost is shown and comes back after; the preview is exposed to UI tests under its own semantics key (`PreviewedMoveKey`), separate from `RenderedArrowKey`; nothing is committed and `renderedFacelets()` still returns the committed state
+
+**Given** a drag on a middle row or column
+**When** it locks
+**Then** it previews and commits the slice (M, E or S) exactly like an outer layer, so a slice is never a surprise (PO decision 2)
+
+**Given** a two-finger drag that starts with at least one finger on the cube and both fingers moving in parallel
+**When** it locks
+**Then** it previews and commits the wide Move of the outer layer (±1 along the locked axis) that either finger touches, for example `r` when one finger is on the R layer and the other on M; if both fingers are on the middle layer, or on opposite outer layers, there is no preview and no Move; a two-finger twist still commits z on release, with no ghost turn; a two-finger drag that starts off the cube is still a View Rotation; the parallel / twist / pinch classifier is pure and has JVM fixtures (PO decision 3). With TalkBack on, a two-finger drag reaches the app as a one-finger drag, so wide Moves come from "more" on the Move key bar; that is expected, and NFR-7 is still met
+
+**Given** a gesture in progress
+**When** a second finger lands after a one-finger drag has locked, or one finger lifts during a locked two-finger drag
+**Then** the late finger is ignored and the locked preview is kept; in a two-finger drag the preview freezes when the first finger lifts and resolves (commit or cancel) when the last finger lifts
+
+**Given** a previewed Move (`Active`)
+**When** the finger lifts, on or off the stage
+**Then** the Move commits through the same `MoveIntent` → `MoveCommitted` path as a Move key (AD-4); the renderer holds the ghost layer at its angle until the matching `Animate(move)` arrives, then continues the turn from that angle over the remaining duration, with no frame back at 0° (§5.3 A2); the input is acknowledged within 100 ms, and the light haptic tick fires (switchable off)
+
+**Given** a locked drag in `CancelZone`
+**When** the finger lifts
+**Then** the layer snaps back, nothing commits, no tick fires, and the Cube State is unchanged; the same happens if the system cancels or consumes the pointer stream mid-preview
+
+**Given** a drag that never locks (below the confidence threshold)
+**When** it ends
+**Then** no preview was shown, no intent is returned, nothing is announced, and the Cube State is unchanged
+
+**Given** a stage where Moves are blocked (no Move input is wired, for example a Lesson in Physical-cube Mode before *I did something else*)
+**When** the Learner drags on the cube
+**Then** no ghost turn is shown
+
+**Given** a presentation queue that is still animating, or a Lesson reorientation or Demonstration job that is still running
+**When** a drag starts on the cube
+**Then** the job is cancelled and the queue finishes every outstanding item at once in order (`PresentationQueue.finishAll()`: commit the active `Animate`, then apply each waiting `Animate` and `Snap` without animating, closing any open `Cube3D.turn` trace section), so `renderedFacelets()` equals the last committed state before the preview is built; no committed Move is dropped
+
+**Given** TalkBack is on
+**When** a preview becomes `Active` or changes Move
+**Then** the Move's plain name (from the existing plain-name helper) is announced politely, for example "R prime: right face counter-clockwise"; "Turn cancelled" is announced only when a locked drag ends in `CancelZone`
+
+**Given** a Lesson in *Test me* or *Let me try*
+**When** the Learner drags
+**Then** the preview names the Move the Learner is making, never the expected one (the Tutor still judges only the committed Move)
+
+**Given** new learner-facing copy ("Turn cancelled")
+**When** it is added
+**Then** it is a content key in `core/domain/src/main/resources/content/strings/en.json` read through `ContentStrings`, and `app/src/main/res/values/strings.xml` gains no learner text (the `checkLearnerText` gate stays green)
+
+**Given** the gesture code
+**When** the story is done
+**Then** touch handling lives in its own gesture host component, not in `Cube3DRenderer.kt`; the renderer only draws committed state, the presentation queue and the renderer-local ghost turn
+
+**Given** the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE
+**When** the PO plays Stage 1 and Stage 2 Lessons by gesture
+**Then** they complete them without an unintended Move, cancel works, and frame time during a drag stays at the Story 12.2 baseline (≥ 30 FPS on the Lenovo, NFR-2)
+
+### Story 12.17: Know when the view is rotated, and reset it in one tap
+
+As a Learner who rotated the cube to look for a sticker,
+I want to see that my view is turned, which face is which, and a clear way back,
+So that I can still predict what R or U will do.
+
+**Refs:** FR-2 · NFR-7 · AD-4, AD-17 · UX-DR4, UX-DR5, UX-DR29, UX-DR34 · GitHub #207 · action item `epic-5-retro-item-18-double-tap-reset-also-checks-tap-distanc` · `sprint-change-proposal-2026-11-18-drag-preview-and-view-rotated.md`
+
+**Depends on** Story 12.16 (the gesture host owns double-tap). **Runs before** Story 12.3.
+
+**Acceptance Criteria:**
+
+**Given** `ViewOrbit` with an "at home" test (within a small tolerance of `ViewOrbit.DEFAULT`)
+**When** the view leaves home by a drag, the overflow arrow buttons or any other View Rotation
+**Then** a **View rotated** badge shows in the stage's top-left overlay, and it hides again once the view is back home
+
+**Given** the five 3D stages (Lesson, free cube, Demonstration, Solution Playback in 3D, Library detail)
+**When** the badge shows
+**Then** it sits right after the frame label where one is shown, and first in the top-left overlay where none is (today virtual Solution Playback and a Lesson *Show me* Demonstration have no frame label); the overlay wraps (a flow row) instead of clipping at 200% font scale; the badge's touch target is at least 48dp; TalkBack focus reaches it right after the frame label, or first on the stage when there is none; the 2D net has no badge
+
+**Given** the view is rotated
+**When** the Learner taps the badge's **Reset view** action or double-taps the stage
+**Then** the view animates home by the shortest path in about 200 ms (it jumps when reduce motion is on), the badge hides, and the Cube State, Notation and Move key labels are unchanged; a drag that starts during the reset animation cancels it and starts from the current view; the free cube stage receives the reduce-motion setting like the other stages
+
+**Given** the toolbar
+**When** any 3D stage shows
+**Then** there is no separate reset-view button at any width (Reset view lives on the badge); the ⋮ view menu with the View Rotation arrow buttons stays, so every rotation and its reset have a non-gesture route (NFR-7)
+
+**Given** the existing screen tests that use `stage:resetView` (`FreeCubeScreenTest`, `LessonScreenTest`, `SolutionPlaybackTest`, `DemonstrationPlayerTest`, `AlgorithmDetailScreenTest`, `ScreenAudit`)
+**When** the toolbar button is removed
+**Then** they rotate the view first (for example through `stage:viewMenu` → `viewRotate:left`) and then use the badge's tag; `ScreenAudit` checks the badge's route and 48dp target while rotated, and checks that no badge is shown at home
+
+**Given** double-tap on the stage
+**When** two taps are close in time **and** in distance (`doubleTapSlop`)
+**Then** the view resets; two far-apart taps don't reset it (a test covers far-apart taps; closes `epic-5-retro-item-18-…`)
+
+**Given** a pure face-label helper in `:core:domain` (pose + stage size → label anchors)
+**When** the view is rotated
+**Then** a face gets a letter (U, D, F, B, R, L) in `notation`, in the cube frame, only when it faces the camera by more than a minimum angle (no labels on near edge-on faces); each letter sits outside the cube's projected silhouette, offset from its face centre away from the cube, and clamped inside the stage, so it never overlaps a sticker or the color-blind glyphs; JVM tests over a sweep of orbits and stage sizes (down to the smallest compact stage) assert no overlap with any sticker quad; the letters hide at home (PO decision 6)
+
+**Given** TalkBack is on
+**When** the view leaves or returns home
+**Then** "View rotated" or "View reset" is announced once, and the badge and its Reset view action have content labels
+
+**Given** new learner-facing copy ("View rotated", "Reset view" on the badge, "View reset")
+**When** it is added
+**Then** it is a content key in `en.json` read through `ContentStrings`, which the shared stage component receives on every stage, free cube included; `strings.xml` gains no learner text (the `checkLearnerText` gate stays green)
+
+**Given** screenshot tests
+**When** they run
+**Then** they cover the home view (no badge, no letters) and a rotated view (badge and letters) in light and dark themes, on compact and expanded widths
 
 ## Epic 13: Cubentia on the web, with a privacy policy
 
