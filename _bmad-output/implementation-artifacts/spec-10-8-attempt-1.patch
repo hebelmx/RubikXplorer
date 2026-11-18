@@ -1,0 +1,1795 @@
+diff --git a/app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt b/app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt
+index ebeeace..c40c8b6 100644
+--- a/app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt
++++ b/app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt
+@@ -26,6 +26,7 @@ import androidx.lifecycle.ViewModel
+ import androidx.lifecycle.lifecycleScope
+ import androidx.lifecycle.viewModelScope
+ import dagger.hilt.android.AndroidEntryPoint
++import dev.cubentia.app.ScanDiagnostics
+ import dev.cubentia.app.content.CatalogState
+ import dev.cubentia.app.content.ContentStrings
+ import dev.cubentia.app.content.LessonCatalog
+@@ -215,19 +216,16 @@ class GuidedScanActivity : ComponentActivity() {
+                 }
+             PreferenceProvider(preferenceStore) {
+                 CubentiaTheme {
+-                    if (strings == null) return@CubentiaTheme
+                     androidx.activity.compose.BackHandler(enabled = phase is GuidedScanPhase.Calibration) {
+                         val calibration = phase as? GuidedScanPhase.Calibration
+                         if (!scan.saving) {
+                             if (calibration?.fromReview != null) phase = calibration.fromReview else finishWith(ScanOutcome.Cancelled)
+                         }
+                     }
+-                    androidx.activity.compose.BackHandler(
+-                        enabled =
+-                            (scan.quickScanMode || scan.caseCorners != null) && phase !is GuidedScanPhase.Calibration,
+-                    ) {
++                    androidx.activity.compose.BackHandler(enabled = phase !is GuidedScanPhase.Calibration) {
+                         finishWith(ScanOutcome.Cancelled)
+                     }
++                    if (strings == null) return@CubentiaTheme
+                     LaunchedEffect(scan.caseResult) {
+                         scan.caseResult?.let { views ->
+                             val (code, data) = CaseCaptureContract.encode(views)
+@@ -345,21 +343,40 @@ class GuidedScanActivity : ComponentActivity() {
+     private fun hasPermission() = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+ 
+     private fun finishWith(capture: ScanOutcome) {
++        val review = (phase as? GuidedScanPhase.Review) ?: (phase as? GuidedScanPhase.Calibration)?.fromReview
++        val outcome =
++            when (capture) {
++                is ScanOutcome.Accepted -> "ACCEPTED"
++                ScanOutcome.Cancelled -> "CANCELLED"
++                ScanOutcome.FellBackToEditor -> "FELL_BACK_TO_EDITOR"
++            }
++        val fullQuickCheck = intent.getBooleanExtra(QuickCheckContract.EXTRA_FULL_QUICK_CHECK, false)
++        if (fullQuickCheck && capture is ScanOutcome.Accepted && !scan.guidedLogged) {
++            scan.guidedLogged = true
++            ScanDiagnostics.onQuickCheckCaptured(scan.quickCheckStartedAt, scan.captures)
++        } else if (scan.isGuidedRun && !fullQuickCheck && !scan.guidedLogged) {
++            scan.guidedLogged = true
++            ScanDiagnostics.onGuidedScanRun(
++                scan.guidedStartedAt,
++                controller.repromptCount,
++                review?.review,
++                review?.initialStickers,
++                review?.corrections,
++                outcome,
++            )
++        }
+         val quick = scan.quickScan
+         val started = scan.quickStartedAt
+-        if (quick != null && started != null && !scan.quickLogged) {
++        if (scan.quickScanMode && !scan.quickLogged) {
+             scan.quickLogged = true
+-            val review = (phase as? GuidedScanPhase.Review) ?: (phase as? GuidedScanPhase.Calibration)?.fromReview
+             dev.cubentia.app.ScanDiagnostics.onQuickScanRun(
+-                SystemClock.elapsedRealtime() - started,
+-                quick.fallbackFaces.size,
+-                quick.repromptFaces.size,
+-                review?.corrections?.count { (i, color) -> color != review.initialStickers[i] } ?: 0,
+-                when (capture) {
+-                    is ScanOutcome.Accepted -> "ACCEPTED"
+-                    ScanOutcome.Cancelled -> "CANCELLED"
+-                    ScanOutcome.FellBackToEditor -> "FELL_BACK_TO_EDITOR"
+-                },
++                started,
++                quick?.fallbackFaces?.size ?: 0,
++                quick?.repromptFaces?.size ?: 0,
++                review?.corrections,
++                outcome,
++                review?.review?.stickers,
++                review?.initialStickers,
+             )
+         }
+         val (code, data) =
+@@ -435,7 +452,7 @@ class GuidedScanActivity : ComponentActivity() {
+         val quick = scan.quickScan
+         if (quick?.inCorner == true) {
+             val corner = frame.corner ?: return
+-            if (scan.quickStartedAt == null) scan.quickStartedAt = now
++            if (scan.quickStartedAt == null) scan.quickStartedAt = ScanDiagnostics.startRun()
+             dev.cubentia.app.ScanDiagnostics
+                 .onCornerFrame(now, corner.detected, corner.faces, corner.score)
+             captureCorner { it.onFrame(corner.detected, corner.faces, now) }
+@@ -443,6 +460,12 @@ class GuidedScanActivity : ComponentActivity() {
+         }
+         if (frame.corner != null) return
+         val active = scan.guidedController() ?: return
++        if (scan.isGuidedRun && scan.guidedStartedAt == null) scan.guidedStartedAt = ScanDiagnostics.startRun()
++        if ((scan.quickFaces != null || intent.getBooleanExtra(QuickCheckContract.EXTRA_FULL_QUICK_CHECK, false)) &&
++            scan.quickCheckStartedAt == null
++        ) {
++            scan.quickCheckStartedAt = ScanDiagnostics.startRun()
++        }
+         handle(scan.freeze.decide(now) { active.onFrame(stats, rotation, now) })
+     }
+ 
+@@ -457,7 +480,10 @@ class GuidedScanActivity : ComponentActivity() {
+             if (effects.any { it is CaseCaptureEffect.CornerCaptured }) shutterSound.play(MediaActionSound.SHUTTER_CLICK)
+             if (CaseCaptureEffect.Remeter in effects) meterOnGrid()
+             if (next != null && phase != next) phase = next
+-            if (done != null) scan.caseResult = done.views
++            if (done != null) {
++                ScanDiagnostics.onCaseCaptured()
++                scan.caseResult = done.views
++            }
+         }
+     }
+ 
+@@ -532,7 +558,10 @@ class GuidedScanActivity : ComponentActivity() {
+             }
+             if (state != null && vm.phase is GuidedScanPhase.Viewfinder && vm.phase != state) vm.phase = state
+             if (GuidedScanFlow.remeters(effects)) meterOnGrid()
+-            if (partial != null) vm.quickResult = partial
++            if (partial != null) {
++                ScanDiagnostics.onQuickCheckCaptured(vm.quickCheckStartedAt, vm.captures)
++                vm.quickResult = partial
++            }
+             if (result != null) vm.publish(result)
+         }
+     }
+@@ -570,6 +599,12 @@ internal class GuidedScanViewModel : ViewModel() {
+ 
+     @Volatile var quickStartedAt: Long? = null
+     var quickLogged = false
++
++    @Volatile var guidedStartedAt: Long? = null
++
++    @Volatile var quickCheckStartedAt: Long? = null
++    var guidedLogged = false
++    val isGuidedRun get() = !quickScanMode && quickScan == null && caseCorners == null && quickFaces == null && !calibrationMode
+     var saving by mutableStateOf(false)
+     var calibrationFinished by mutableStateOf(false)
+ 
+diff --git a/app/src/debug/kotlin/dev/cubentia/app/ScanDiagnostics.kt b/app/src/debug/kotlin/dev/cubentia/app/ScanDiagnostics.kt
+index d81aae4..14a3ab5 100644
+--- a/app/src/debug/kotlin/dev/cubentia/app/ScanDiagnostics.kt
++++ b/app/src/debug/kotlin/dev/cubentia/app/ScanDiagnostics.kt
+@@ -1,6 +1,10 @@
+ package dev.cubentia.app
+ 
++import android.os.Build
++import android.os.SystemClock
+ import android.util.Log
++import dev.cubentia.application.usecase.Recognition
++import dev.cubentia.domain.cube.Color
+ import dev.cubentia.domain.cube.CubeState
+ import dev.cubentia.domain.cube.Facelets
+ import dev.cubentia.domain.cube.Orientation
+@@ -11,9 +15,11 @@ import dev.cubentia.domain.recognition.FrameQuality
+ import dev.cubentia.domain.recognition.FrameStats
+ import dev.cubentia.domain.recognition.PhysicalObservation
+ import dev.cubentia.domain.recognition.ScanAssembler
++import dev.cubentia.domain.recognition.ScanReview
+ import dev.cubentia.domain.recognition.ScanTrace
+ import dev.cubentia.domain.recognition.SelfCalibration
+ import dev.cubentia.domain.tutor.Certainty
++import dev.cubentia.domain.tutor.PlacementOutcome
+ import java.util.Locale
+ import java.util.concurrent.atomic.AtomicLong
+ 
+@@ -46,23 +52,208 @@ object ScanDiagnostics {
+     }
+ 
+     fun onQuickScanRun(
+-        elapsedMs: Long,
++        started: Long?,
+         fallbackFaces: Int,
+         repromptFaces: Int,
+-        corrections: Int,
++        initialCorrections: Map<Int, Color>?,
+         outcome: String,
++        state: List<Color?>?,
++        initial: List<Color?>?,
+     ) {
+-        val fields =
+-            listOf(
+-                "quickScan",
+-                "run",
+-                "elapsedMs=$elapsedMs",
+-                "fallbackFaces=$fallbackFaces",
+-                "repromptFaces=$repromptFaces",
+-                "corrections=$corrections",
+-                "outcome=$outcome",
++        val corrections = initialCorrections?.count { (index, color) -> color != initial?.get(index) } ?: 0
++        run(
++            "quickScan",
++            "elapsedMs=${elapsed(started)}",
++            "fallbackFaces=$fallbackFaces",
++            "repromptFaces=$repromptFaces",
++            "corrections=$corrections",
++            "outcome=$outcome",
++            "state=${letters(state)}",
++            "initial=${letters(initial)}",
++        )
++    }
++
++    // The Android stubs used by plain JVM ViewModel tests provide no device model.
++    private val device = Build.MODEL?.replace(Regex("[^A-Za-z0-9-]"), "-")?.ifEmpty { "-" }
++
++    private fun run(
++        feature: String,
++        vararg fields: String,
++    ) {
++        val model = device ?: return
++        Log.d(TAG, (listOf(feature, "run") + fields + "device=$model").joinToString(" "))
++    }
++
++    private fun letters(colors: List<Color?>?): String = colors?.joinToString("", transform = ScanTrace::letter) ?: "-"
++
++    private fun elapsed(start: Long?): String = start?.let { (SystemClock.elapsedRealtime() - it).toString() } ?: "-"
++
++    fun startRun(): Long? = device?.let { SystemClock.elapsedRealtime() }
++
++    fun onGuidedScanRun(
++        started: Long?,
++        repromptFaces: Int,
++        review: ScanReview?,
++        initial: List<Color?>?,
++        corrections: Map<Int, Color>?,
++        outcome: String,
++    ) {
++        val changed = corrections?.count { (index, color) -> color != initial?.get(index) } ?: 0
++        run(
++            "guidedScan",
++            "elapsedMs=${elapsed(started)}",
++            "repromptFaces=$repromptFaces",
++            "corrections=$changed",
++            "valid=${review?.accepted != null}",
++            "outcome=$outcome",
++            "state=${letters(review?.stickers)}",
++            "initial=${letters(initial)}",
++        )
++    }
++
++    private data class CheckCapture(
++        val captures: Long,
++        val elapsedMs: String,
++    )
++
++    @Volatile private var quickCheckCapture: CheckCapture? = null
++
++    @Volatile private var caseCapturedAt: Long? = null
++
++    @Volatile private var placementStartedAt: Long? = null
++
++    private data class PlacementSuggestion(
++        val elapsedMs: String,
++        val outcome: String,
++        val stage: String,
++    )
++
++    private var placementSuggestion: PlacementSuggestion? = null
++
++    fun onQuickCheckCaptured(
++        started: Long?,
++        captures: Long,
++    ) {
++        quickCheckCapture = CheckCapture(captures, elapsed(started))
++    }
++
++    fun discardQuickCheckCapture() {
++        quickCheckCapture = null
++    }
++
++    fun onQuickCheckRun(
++        expected: CubeState,
++        observation: PhysicalObservation,
++        certainty: Certainty?,
++        matchesExpected: Boolean?,
++    ) {
++        val capture = quickCheckCapture
++        discardQuickCheckCapture()
++        val observed =
++            when (observation) {
++                is PhysicalObservation.Full -> {
++                    letters(observation.state.reoriented(Orientation.HOME).toFacelets())
++                }
++
++                is PhysicalObservation.Partial -> {
++                    observation.faces.entries
++                        .joinToString(",") { (face, colors) -> "$face:${letters(colors)}" }
++                        .ifEmpty { "-" }
++                }
++            }
++        run(
++            "quickCheck",
++            "kind=${observation::class.simpleName}",
++            "captures=${capture?.captures ?: "-"}",
++            "elapsedMs=${capture?.elapsedMs ?: "-"}",
++            "certainty=${certainty ?: "-"}",
++            "matches=${matchesExpected ?: "-"}",
++            "observed=$observed",
++            "expected=${letters(expected.toFacelets())}",
++            "expectedHome=${letters(expected.reoriented(Orientation.HOME).toFacelets())}",
++        )
++    }
++
++    fun onCaseCaptured() {
++        caseCapturedAt = startRun()
++    }
++
++    fun discardCaseCapture() {
++        caseCapturedAt = null
++    }
++
++    fun onRecognizeRun(
++        result: Recognition?,
++        captures: Int?,
++        captureOutcome: String = "-",
++    ) {
++        val start = caseCapturedAt
++        discardCaseCapture()
++        val outcome =
++            when (result) {
++                is Recognition.Unique -> "UNIQUE"
++                is Recognition.Several -> "SEVERAL"
++                Recognition.NoFit -> "NO_FIT"
++                Recognition.LastLayerSolved -> "LL_SOLVED"
++                Recognition.NotAtLastLayer -> "NOT_AT_LL"
++                null -> captureOutcome
++            }
++        val case = (result as? Recognition.Unique)?.caseId?.value ?: "-"
++        val candidates =
++            (result as? Recognition.Several)
++                ?.caseIds
++                ?.map { it.value }
++                ?.sorted()
++                ?.joinToString(",") ?: "-"
++        run(
++            "recognize",
++            "elapsedMs=${elapsed(start.takeIf { result != null })}",
++            "outcome=$outcome",
++            "case=$case",
++            "candidates=$candidates",
++            "captures=${captures ?: "-"}",
++        )
++    }
++
++    fun onPlacementScanAccepted() {
++        onPlacementRun(null)
++        placementStartedAt = startRun()
++    }
++
++    fun onPlacementSuggested(outcome: PlacementOutcome) {
++        val started = placementStartedAt ?: return
++        placementStartedAt = null
++        val stage =
++            when (outcome) {
++                is PlacementOutcome.Suggested -> outcome.stage.id.value
++                is PlacementOutcome.AtLastLayer -> outcome.stage.id.value
++                is PlacementOutcome.NonWhiteCross -> outcome.stage.id.value
++                PlacementOutcome.Solved -> "SOLVED"
++            }
++        placementSuggestion =
++            PlacementSuggestion(
++                elapsed(started),
++                when (outcome) {
++                    is PlacementOutcome.Suggested -> "SUGGESTED"
++                    is PlacementOutcome.AtLastLayer -> "AT_LAST_LAYER"
++                    is PlacementOutcome.NonWhiteCross -> "NON_WHITE_CROSS"
++                    PlacementOutcome.Solved -> "SOLVED"
++                },
++                stage,
+             )
+-        Log.d(TAG, fields.joinToString(" "))
++    }
++
++    fun onPlacementRun(accepted: String?) {
++        placementStartedAt = null
++        val (time, outcome, stage) = placementSuggestion ?: return
++        placementSuggestion = null
++        run(
++            "placement",
++            "elapsedMs=$time",
++            "outcome=$outcome",
++            "suggested=$stage",
++            "accepted=${accepted ?: "none"}",
++        )
+     }
+ 
+     const val TAG = "CubentiaScanDiag"
+diff --git a/app/src/main/kotlin/dev/cubentia/app/MainActivity.kt b/app/src/main/kotlin/dev/cubentia/app/MainActivity.kt
+index c561f55..0cd47d0 100644
+--- a/app/src/main/kotlin/dev/cubentia/app/MainActivity.kt
++++ b/app/src/main/kotlin/dev/cubentia/app/MainActivity.kt
+@@ -152,6 +152,12 @@ class MainActivity : ComponentActivity() {
+         val onPlacementScan =
+             if (featureFlags.isEnabled(FeatureFlag.PLACEMENT)) {
+                 guidedScanAction({ placementFlow.scanDenied() }) { placementFlow.onScanOutcome(it) }
++                    ?.let { launch ->
++                        {
++                            placementFlow.scanningAgain()
++                            launch()
++                        }
++                    }
+             } else {
+                 null
+             }
+@@ -181,6 +187,9 @@ class MainActivity : ComponentActivity() {
+                         quickInFlight = null
+                         lifecycleScope.launch {
+                             val current = sessionHost.state.value
++                            if (outcome !is QuickCheckOutcome.Observed || issued == null) {
++                                ScanDiagnostics.discardQuickCheckCapture()
++                            }
+                             if (issued?.effectId == -1L) {
+                                 val observation = (outcome as? QuickCheckOutcome.Observed)?.observation
+                                 val full = observation as? PhysicalObservation.Full
+@@ -191,6 +200,7 @@ class MainActivity : ComponentActivity() {
+                                         SessionEvent
+                                             .EditorEntered(full.state, it)
+                                     }
++                                    ScanDiagnostics.discardQuickCheckCapture()
+                                 }
+                             } else {
+                                 val pending = current.pendingQuickCheck
+@@ -217,7 +227,20 @@ class MainActivity : ComponentActivity() {
+                                         }
+                                     // debug only (no-op in release): observed vs expected and the Certainty (PO 2026-11-17).
+                                     (outcome as? QuickCheckOutcome.Observed)?.let {
+-                                        ScanDiagnostics.onQuickCheck(current.expected, it.observation, applied.state.quickCheck?.certainty)
++                                        val check = applied.state.quickCheck
++                                        ScanDiagnostics.onQuickCheck(current.expected, it.observation, check?.certainty)
++                                        if (check != null && check !== current.quickCheck &&
++                                            pending?.effectId == effect.effectId && effect.revision == current.revision
++                                        ) {
++                                            ScanDiagnostics.onQuickCheckRun(
++                                                current.expected,
++                                                it.observation,
++                                                check.certainty,
++                                                check.matchesExpected,
++                                            )
++                                        } else {
++                                            ScanDiagnostics.discardQuickCheckCapture()
++                                        }
+                                     }
+                                 }
+                             }
+diff --git a/app/src/main/kotlin/dev/cubentia/app/ui/placement/PlacementFlowViewModel.kt b/app/src/main/kotlin/dev/cubentia/app/ui/placement/PlacementFlowViewModel.kt
+index bfeca8c..4816bd3 100644
+--- a/app/src/main/kotlin/dev/cubentia/app/ui/placement/PlacementFlowViewModel.kt
++++ b/app/src/main/kotlin/dev/cubentia/app/ui/placement/PlacementFlowViewModel.kt
+@@ -2,9 +2,11 @@ package dev.cubentia.app.ui.placement
+ 
+ import androidx.lifecycle.ViewModel
+ import dagger.hilt.android.lifecycle.HiltViewModel
++import dev.cubentia.app.ScanDiagnostics
+ import dev.cubentia.app.scan.ScanOutcome
+ import dev.cubentia.application.usecase.PlaceFromScan
+ import dev.cubentia.domain.content.Stage
++import dev.cubentia.domain.content.StageId
+ import dev.cubentia.domain.cube.CubeState
+ import dev.cubentia.domain.text.Text
+ import dev.cubentia.domain.tutor.Placement
+@@ -46,16 +48,27 @@ class PlacementFlowViewModel private constructor(
+ 
+     fun onScanOutcome(outcome: ScanOutcome) {
+         when (outcome) {
+-            is ScanOutcome.Accepted -> mutableAcceptedScan.value = outcome.state
+-            ScanOutcome.FellBackToEditor -> mutablePhase.value = PlacementPhase.Editing(Text("msg.solve.scan-fell-back"))
+-            ScanOutcome.Cancelled -> reset()
++            is ScanOutcome.Accepted -> {
++                ScanDiagnostics.onPlacementScanAccepted()
++                mutableAcceptedScan.value = outcome.state
++            }
++
++            ScanOutcome.FellBackToEditor -> {
++                mutablePhase.value = PlacementPhase.Editing(Text("msg.solve.scan-fell-back"))
++            }
++
++            ScanOutcome.Cancelled -> {
++                reset()
++            }
+         }
+     }
+ 
+     fun evaluateScan(stages: List<Stage>) {
+         val state = mutableAcceptedScan.value ?: return
+         mutableAcceptedScan.value = null
+-        editorAccepted(state, stages)
++        val outcome = suggest(state, stages)
++        ScanDiagnostics.onPlacementSuggested(outcome)
++        mutablePhase.value = PlacementPhase.Result(outcome)
+     }
+ 
+     fun scanDenied() {
+@@ -74,12 +87,20 @@ class PlacementFlowViewModel private constructor(
+         mutablePhase.value = PlacementPhase.Choosing(result.outcome)
+     }
+ 
++    fun accepted(stageId: StageId) = ScanDiagnostics.onPlacementRun(stageId.value)
++
++    override fun onCleared() = ScanDiagnostics.onPlacementRun(null)
++
++    fun scanningAgain() = ScanDiagnostics.onPlacementRun(null)
++
+     fun back() {
+         val current = mutablePhase.value
++        if (current !is PlacementPhase.Choosing) ScanDiagnostics.onPlacementRun(null)
+         mutablePhase.value = if (current is PlacementPhase.Choosing) PlacementPhase.Result(current.outcome) else PlacementPhase.Idle
+     }
+ 
+     fun reset() {
++        ScanDiagnostics.onPlacementRun(null)
+         mutableAcceptedScan.value = null
+         mutablePhase.value = PlacementPhase.Idle
+     }
+diff --git a/app/src/main/kotlin/dev/cubentia/app/ui/recognize/RecognizeFlowViewModel.kt b/app/src/main/kotlin/dev/cubentia/app/ui/recognize/RecognizeFlowViewModel.kt
+index 486603c..9c32629 100644
+--- a/app/src/main/kotlin/dev/cubentia/app/ui/recognize/RecognizeFlowViewModel.kt
++++ b/app/src/main/kotlin/dev/cubentia/app/ui/recognize/RecognizeFlowViewModel.kt
+@@ -1,6 +1,7 @@
+ package dev.cubentia.app.ui.recognize
+ 
+ import androidx.lifecycle.ViewModel
++import dev.cubentia.app.ScanDiagnostics
+ import dev.cubentia.app.scan.CaseCaptureOutcome
+ import dev.cubentia.application.usecase.Recognition
+ import dev.cubentia.application.usecase.RecognizeCase
+@@ -41,9 +42,18 @@ class RecognizeFlowViewModel : ViewModel() {
+ 
+     fun onCapture(outcome: CaseCaptureOutcome) {
+         when (outcome) {
+-            is CaseCaptureOutcome.Captured -> queue(Input.Camera(outcome.views))
+-            CaseCaptureOutcome.Cancelled -> Unit
+-            CaseCaptureOutcome.FellBackToEditor -> edit("msg.solve.scan-fell-back")
++            is CaseCaptureOutcome.Captured -> {
++                queue(Input.Camera(outcome.views))
++            }
++
++            CaseCaptureOutcome.Cancelled -> {
++                ScanDiagnostics.onRecognizeRun(null, null, "CANCELLED")
++            }
++
++            CaseCaptureOutcome.FellBackToEditor -> {
++                ScanDiagnostics.onRecognizeRun(null, null, "EDITOR")
++                edit("msg.solve.scan-fell-back")
++            }
+         }
+     }
+ 
+@@ -56,6 +66,7 @@ class RecognizeFlowViewModel : ViewModel() {
+         val previous = (mutablePhase.value as? RecognizePhase.Result)?.recognition as? Recognition.Several
+         if (input is Input.Camera && input.views.size == 1 && previous == null) {
+             // An extra angle with no earlier candidates (e.g. after process death) never names a Case from one corner.
++            ScanDiagnostics.discardCaseCapture()
+             pendingInput = null
+             mutablePending.value = false
+             return
+@@ -65,7 +76,9 @@ class RecognizeFlowViewModel : ViewModel() {
+                 is Input.Camera -> recognizeCase?.fromCorners(input.views, previous?.caseIds.takeIf { input.views.size == 1 })
+                 is Input.Manual -> recognizeCase?.fromCube(input.state)
+             }
+-        mutablePhase.value = RecognizePhase.Result(result ?: Recognition.NoFit)
++        val recognition = result ?: Recognition.NoFit
++        if (input is Input.Camera) ScanDiagnostics.onRecognizeRun(recognition, input.views.size)
++        mutablePhase.value = RecognizePhase.Result(recognition)
+         pendingInput = null
+         mutablePending.value = false
+     }
+diff --git a/app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt b/app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt
+index a688755..a468256 100644
+--- a/app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt
++++ b/app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt
+@@ -402,6 +402,7 @@ private fun ShellContent(
+             onAccept = { target, faster ->
+                 if (!acceptingPlacement) {
+                     if (target == ready.bundle.stages.first()) {
++                        placementFlow.accepted(target.id)
+                         startStageOne()
+                     } else {
+                         placementSaveFailed = false
+@@ -411,6 +412,7 @@ private fun ShellContent(
+                                 val course = ready.bundle.stages
+                                 val saved = host.placeFromScan(target.id, if (target in course) course else course + target)
+                                 if (saved) {
++                                    placementFlow.accepted(target.id)
+                                     startCourse(target.id.value.takeUnless { faster })
+                                     scrollToTwoLook = faster
+                                 } else {
+diff --git a/app/src/release/kotlin/dev/cubentia/app/ScanDiagnostics.kt b/app/src/release/kotlin/dev/cubentia/app/ScanDiagnostics.kt
+index 84f21ee..e1d345f 100644
+--- a/app/src/release/kotlin/dev/cubentia/app/ScanDiagnostics.kt
++++ b/app/src/release/kotlin/dev/cubentia/app/ScanDiagnostics.kt
+@@ -1,15 +1,19 @@
+ package dev.cubentia.app
+ 
++import dev.cubentia.application.usecase.Recognition
++import dev.cubentia.domain.cube.Color
+ import dev.cubentia.domain.cube.CubeState
+ import dev.cubentia.domain.recognition.CalibrationCenters
+ import dev.cubentia.domain.recognition.FaceSample
+ import dev.cubentia.domain.recognition.FrameStats
+ import dev.cubentia.domain.recognition.PhysicalObservation
++import dev.cubentia.domain.recognition.ScanReview
+ import dev.cubentia.domain.tutor.Certainty
++import dev.cubentia.domain.tutor.PlacementOutcome
+ 
+ /** release and benchmark builds: no scan diagnostics are computed or logged. */
++@Suppress("UNUSED_PARAMETER")
+ object ScanDiagnostics {
+-    @Suppress("UNUSED_PARAMETER")
+     fun onCornerFrame(
+         nowMs: Long,
+         detected: Boolean,
+@@ -17,16 +21,16 @@ object ScanDiagnostics {
+         score: Double,
+     ) = Unit
+ 
+-    @Suppress("UNUSED_PARAMETER")
+     fun onQuickScanRun(
+-        elapsedMs: Long,
++        started: Long?,
+         fallbackFaces: Int,
+         repromptFaces: Int,
+-        corrections: Int,
++        initialCorrections: Map<Int, Color>?,
+         outcome: String,
++        state: List<Color?>?,
++        initial: List<Color?>?,
+     ) = Unit
+ 
+-    @Suppress("UNUSED_PARAMETER")
+     fun onFrame(
+         stats: FrameStats,
+         nowMs: Long,
+@@ -36,17 +40,56 @@ object ScanDiagnostics {
+         latticeScore: Double,
+     ) = Unit
+ 
+-    @Suppress("UNUSED_PARAMETER")
+     fun onAssembly(
+         round: String,
+         samples: List<FaceSample>,
+         saved: CalibrationCenters?,
+     ) = Unit
+ 
+-    @Suppress("UNUSED_PARAMETER")
+     fun onQuickCheck(
+         expected: CubeState,
+         observation: PhysicalObservation,
+         certainty: Certainty?,
+     ) = Unit
++
++    fun startRun(): Long? = null
++
++    fun onGuidedScanRun(
++        started: Long?,
++        repromptFaces: Int,
++        review: ScanReview?,
++        initial: List<Color?>?,
++        corrections: Map<Int, Color>?,
++        outcome: String,
++    ) = Unit
++
++    fun onQuickCheckCaptured(
++        started: Long?,
++        captures: Long,
++    ) = Unit
++
++    fun discardQuickCheckCapture() = Unit
++
++    fun onQuickCheckRun(
++        expected: CubeState,
++        observation: PhysicalObservation,
++        certainty: Certainty?,
++        matchesExpected: Boolean?,
++    ) = Unit
++
++    fun onCaseCaptured() = Unit
++
++    fun discardCaseCapture() = Unit
++
++    fun onRecognizeRun(
++        result: Recognition?,
++        captures: Int?,
++        captureOutcome: String = "-",
++    ) = Unit
++
++    fun onPlacementScanAccepted() = Unit
++
++    fun onPlacementSuggested(outcome: PlacementOutcome) = Unit
++
++    fun onPlacementRun(accepted: String?) = Unit
+ }
+diff --git a/app/src/testDebug/kotlin/dev/cubentia/app/CaseRecognitionRouteTest.kt b/app/src/testDebug/kotlin/dev/cubentia/app/CaseRecognitionRouteTest.kt
+index d339fc1..5f2bb48 100644
+--- a/app/src/testDebug/kotlin/dev/cubentia/app/CaseRecognitionRouteTest.kt
++++ b/app/src/testDebug/kotlin/dev/cubentia/app/CaseRecognitionRouteTest.kt
+@@ -45,6 +45,7 @@ import kotlinx.coroutines.runBlocking
+ import org.junit.Assert.assertEquals
+ import org.junit.Assert.assertNotNull
+ import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
+ import org.junit.Rule
+ import org.junit.Test
+ import org.junit.runner.RunWith
+@@ -53,6 +54,7 @@ import org.robolectric.RobolectricTestRunner
+ import org.robolectric.RuntimeEnvironment
+ import org.robolectric.Shadows.shadowOf
+ import org.robolectric.annotation.Config
++import org.robolectric.shadows.ShadowLog
+ import java.util.concurrent.ExecutorService
+ import javax.inject.Inject
+ 
+@@ -124,11 +126,16 @@ class CaseRecognitionRouteTest {
+                 val scan = shadowOf(activity.get())
+                 val outcome = CaseCaptureContract.decode(scan.resultCode, scan.resultIntent) as CaseCaptureOutcome.Captured
+                 assertEquals(2, outcome.views.size)
++                ShadowLog.clear()
+                 returnResult(scan.resultCode, scan.resultIntent)
+             } finally {
+                 activity.pause().stop().destroy()
+             }
+             rule.onNodeWithText("Your last layer is already solved.").assertExists()
++            val records = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.filter { it.startsWith("recognize run ") }
++            assertEquals(1, records.size)
++            val record = Regex("""recognize run elapsedMs=\d+ outcome=LL_SOLVED case=- candidates=- captures=2 device=[A-Za-z0-9-]+""")
++            assertTrue(records.single(), record.matches(records.single()))
+         }
+     }
+ 
+diff --git a/app/src/testDebug/kotlin/dev/cubentia/app/PlacementFromScanRouteTest.kt b/app/src/testDebug/kotlin/dev/cubentia/app/PlacementFromScanRouteTest.kt
+index e81891a..da87865 100644
+--- a/app/src/testDebug/kotlin/dev/cubentia/app/PlacementFromScanRouteTest.kt
++++ b/app/src/testDebug/kotlin/dev/cubentia/app/PlacementFromScanRouteTest.kt
+@@ -28,6 +28,7 @@ import dev.cubentia.app.ui.solve.SolvePhase
+ import dev.cubentia.domain.cube.CubeState
+ import org.junit.Assert.assertEquals
+ import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
+ import org.junit.Before
+ import org.junit.Rule
+ import org.junit.Test
+@@ -37,6 +38,7 @@ import org.robolectric.RobolectricTestRunner
+ import org.robolectric.RuntimeEnvironment
+ import org.robolectric.Shadows.shadowOf
+ import org.robolectric.annotation.Config
++import org.robolectric.shadows.ShadowLog
+ 
+ /** Story 11.2: Welcome's *Start from my cube* result reaches Placement through MainActivity, never the Solve flow. */
+ @HiltAndroidTest
+@@ -82,6 +84,14 @@ class PlacementFromScanRouteTest {
+                 .onNodeWithTag("placement:prompt")
+                 .assertTextContains("Your cube is solved — scramble it and scan again, or start Stage 1.")
+             assertEquals(SolvePhase.Home, main.solveFlowPhase())
++            ShadowLog.clear()
++            rule.onNodeWithTag("placement:startStage1").performClick()
++            rule.waitForIdle()
++            val records = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.filter { it.startsWith("placement run ") }
++            assertEquals(1, records.size)
++            val record =
++                Regex("""placement run elapsedMs=\d+ outcome=SOLVED suggested=SOLVED accepted=stage-01-fundamentals device=[A-Za-z0-9-]+""")
++            assertTrue(records.single(), record.matches(records.single()))
+         }
+ 
+     @Test fun cancelledScanFromWelcomeReturnsToWelcome() =
+diff --git a/app/src/testDebug/kotlin/dev/cubentia/app/QuickCheckRouteTest.kt b/app/src/testDebug/kotlin/dev/cubentia/app/QuickCheckRouteTest.kt
+index 75b9b65..5196dc8 100644
+--- a/app/src/testDebug/kotlin/dev/cubentia/app/QuickCheckRouteTest.kt
++++ b/app/src/testDebug/kotlin/dev/cubentia/app/QuickCheckRouteTest.kt
+@@ -46,6 +46,7 @@ import kotlinx.coroutines.runBlocking
+ import org.junit.Assert.assertEquals
+ import org.junit.Assert.assertFalse
+ import org.junit.Assert.assertNotNull
++import org.junit.Assert.assertTrue
+ import org.junit.Before
+ import org.junit.Rule
+ import org.junit.Test
+@@ -55,6 +56,7 @@ import org.robolectric.RobolectricTestRunner
+ import org.robolectric.RuntimeEnvironment
+ import org.robolectric.Shadows.shadowOf
+ import org.robolectric.annotation.Config
++import org.robolectric.shadows.ShadowLog
+ import java.util.concurrent.ExecutorService
+ import javax.inject.Inject
+ 
+@@ -141,6 +143,7 @@ class QuickCheckRouteTest {
+                 }
+                 val result = shadowOf(scan.get())
+                 assertEquals(android.app.Activity.RESULT_OK, result.resultCode)
++                ShadowLog.clear()
+                 shadowOf(main.get()).receiveResult(started.intent, result.resultCode, result.resultIntent)
+             } finally {
+                 scan.pause().stop().destroy()
+@@ -150,6 +153,13 @@ class QuickCheckRouteTest {
+             rule.onNodeWithTag("certainty:label").assertTextEquals("Likely")
+             rule.onNodeWithText("That turn probably moved something else.").assertExists()
+             rule.onNodeWithTag("mismatch:scanAll").assertTextEquals("Scan all 6 faces")
++            val records = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.filter { it.startsWith("quickCheck run ") }
++            assertEquals(1, records.size)
++            val record =
++                Regex(
++                    """quickCheck run kind=Partial captures=[12] elapsedMs=\d+ certainty=LIKELY matches=false observed=[URFDLB]:[WYGBRO-]{9}(?:,[URFDLB]:[WYGBRO-]{9})? expected=[WYGBRO]{54} expectedHome=[WYGBRO]{54} device=[A-Za-z0-9-]+""",
++                )
++            assertTrue(records.single(), record.matches(records.single()))
+         } finally {
+             main.pause().stop().destroy()
+         }
+@@ -239,9 +249,16 @@ class QuickCheckRouteTest {
+                     dev.cubentia.domain.recognition.PhysicalObservation
+                         .Partial(mapOf(face to colors.subList(face.ordinal * 9, face.ordinal * 9 + 9))),
+                 )
++            ShadowLog.clear()
+             shadowOf(main.get()).receiveResult(started.intent, code, data)
+             rule.waitUntil(10_000) { host.state.value.pendingQuickCheck == null }
+             assertNotNull(host.state.value.quickCheck)
++            rule.waitUntil(10_000) {
++                shadowOf(android.os.Looper.getMainLooper()).idle()
++                ShadowLog.getLogsForTag(ScanDiagnostics.TAG).any { it.msg.startsWith("quickCheck run ") }
++            }
++            val run = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.single { it.startsWith("quickCheck run ") }
++            assertTrue(run, run.startsWith("quickCheck run kind=Partial captures=- elapsedMs=- "))
+         } finally {
+             main.pause().stop().destroy()
+         }
+diff --git a/app/src/testDebug/kotlin/dev/cubentia/app/QuickScanRouteTest.kt b/app/src/testDebug/kotlin/dev/cubentia/app/QuickScanRouteTest.kt
+index 7203d47..8d7eb93 100644
+--- a/app/src/testDebug/kotlin/dev/cubentia/app/QuickScanRouteTest.kt
++++ b/app/src/testDebug/kotlin/dev/cubentia/app/QuickScanRouteTest.kt
+@@ -160,7 +160,10 @@ class QuickScanRouteTest {
+                 val runs = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.filter { it.startsWith("quickScan run ") }
+                 assertEquals(1, runs.size)
+                 // The exact shape QuickScanMeasurement parses at device session C; a drifted field would void the tally.
+-                val record = Regex("""quickScan run elapsedMs=\d+ fallbackFaces=0 repromptFaces=0 corrections=1 outcome=CANCELLED""")
++                val record =
++                    Regex(
++                        """quickScan run elapsedMs=\d+ fallbackFaces=0 repromptFaces=0 corrections=1 outcome=CANCELLED state=[WYGBRO-]{54} initial=[WYGBRO-]{54} device=[A-Za-z0-9-]+""",
++                    )
+                 assertTrue(runs.single(), record.matches(runs.single()))
+             } finally {
+                 scan.pause().stop().destroy()
+diff --git a/app/src/testDebug/kotlin/dev/cubentia/app/ScanDiagnosticsRunLineTest.kt b/app/src/testDebug/kotlin/dev/cubentia/app/ScanDiagnosticsRunLineTest.kt
+new file mode 100644
+index 0000000..ac8131e
+--- /dev/null
++++ b/app/src/testDebug/kotlin/dev/cubentia/app/ScanDiagnosticsRunLineTest.kt
+@@ -0,0 +1,96 @@
++package dev.cubentia.app
++
++import dev.cubentia.app.scan.CaseCaptureOutcome
++import dev.cubentia.app.scan.ScanOutcome
++import dev.cubentia.app.ui.placement.PlacementFlowViewModel
++import dev.cubentia.app.ui.recognize.RecognizeFlowViewModel
++import dev.cubentia.application.usecase.Recognition
++import dev.cubentia.domain.content.CaseId
++import dev.cubentia.domain.content.ContentLoadResult
++import dev.cubentia.domain.content.ContentLoader
++import dev.cubentia.domain.content.ContentSource
++import dev.cubentia.domain.cube.CubeState
++import dev.cubentia.domain.cube.Face
++import dev.cubentia.domain.cube.FaceTurn
++import dev.cubentia.domain.cube.Turn
++import dev.cubentia.domain.recognition.ScanReview
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertTrue
++import org.junit.Before
++import org.junit.Test
++import org.junit.runner.RunWith
++import org.robolectric.RobolectricTestRunner
++import org.robolectric.shadows.ShadowLog
++
++/** Story 10.8: the run lines `evaluateMatrix` parses, for the outcomes the route tests do not reach. */
++@RunWith(RobolectricTestRunner::class)
++class ScanDiagnosticsRunLineTest {
++    private val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
++
++    @Before fun clear() = ShadowLog.clear()
++
++    private fun runs(feature: String) =
++        ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.filter { it.startsWith("$feature run ") }
++
++    @Test fun `a guided scan closed before any review logs not valid and no state`() {
++        ScanDiagnostics.onGuidedScanRun(null, 0, null, null, null, "CANCELLED")
++        val line = runs("guidedScan").single()
++        assertTrue(
++            line,
++            Regex(
++                "guidedScan run elapsedMs=- repromptFaces=0 corrections=0 valid=false outcome=CANCELLED state=- initial=- device=[A-Za-z0-9-]+",
++            ).matches(line),
++        )
++    }
++
++    @Test fun `a guided scan that falls back to the editor logs the review it left`() {
++        val stickers = CubeState.SOLVED.toFacelets().colors
++        val initial = stickers.mapIndexed { i, color -> if (i == 0) null else color }
++        val review = ScanReview(initial, null)
++        ScanDiagnostics.onGuidedScanRun(ScanDiagnostics.startRun(), 1, review, initial, emptyMap(), "FELL_BACK_TO_EDITOR")
++        val line = runs("guidedScan").single()
++        assertTrue(line, line.contains(" repromptFaces=1 corrections=0 valid=false outcome=FELL_BACK_TO_EDITOR state=-WWWWWWWW"))
++        assertTrue(line, Regex("elapsedMs=\\d+ ").containsMatchIn(line))
++    }
++
++    @Test fun `recognize logs several candidates, a unique Case, a cancel and an editor fallback`() {
++        ScanDiagnostics.onCaseCaptured()
++        ScanDiagnostics.onRecognizeRun(Recognition.Several(setOf(CaseId("case-oll-28"), CaseId("case-oll-27"))), 2)
++        ScanDiagnostics.onCaseCaptured()
++        ScanDiagnostics.onRecognizeRun(Recognition.Unique(CaseId("case-pll-ua")), 1)
++        val flow = RecognizeFlowViewModel()
++        flow.onCapture(CaseCaptureOutcome.Cancelled)
++        flow.onCapture(CaseCaptureOutcome.FellBackToEditor)
++        val lines = runs("recognize")
++        assertEquals(4, lines.size)
++        assertTrue(
++            lines[0],
++            Regex(
++                "recognize run elapsedMs=\\d+ outcome=SEVERAL case=- candidates=case-oll-27,case-oll-28 captures=2 device=\\S+",
++            ).matches(lines[0]),
++        )
++        assertTrue(
++            lines[1],
++            Regex("recognize run elapsedMs=\\d+ outcome=UNIQUE case=case-pll-ua candidates=- captures=1 device=\\S+").matches(lines[1]),
++        )
++        assertTrue(lines[2], lines[2].startsWith("recognize run elapsedMs=- outcome=CANCELLED case=- candidates=- captures=- "))
++        assertTrue(lines[3], lines[3].startsWith("recognize run elapsedMs=- outcome=EDITOR case=- candidates=- captures=- "))
++    }
++
++    @Test fun `placement logs the suggestion kind and none when the Learner leaves`() {
++        val flow = PlacementFlowViewModel()
++        flow.onScanOutcome(ScanOutcome.Accepted(CubeState.SOLVED.apply(FaceTurn(Face.R, Turn.CLOCKWISE))))
++        flow.evaluateScan(bundle.stages)
++        flow.reset()
++        val line = runs("placement").single()
++        assertTrue(line, Regex("placement run elapsedMs=\\d+ outcome=[A-Z_]+ suggested=stage-\\S+ accepted=none device=\\S+").matches(line))
++        assertTrue(line, !line.contains("outcome=SOLVED"))
++    }
++
++    @Test fun `a placement suggestion from manual entry is never logged`() {
++        val flow = PlacementFlowViewModel()
++        flow.editorAccepted(CubeState.SOLVED, bundle.stages)
++        flow.reset()
++        assertTrue(runs("placement").isEmpty())
++    }
++}
+diff --git a/app/src/testDebug/kotlin/dev/cubentia/app/ScanRouteTest.kt b/app/src/testDebug/kotlin/dev/cubentia/app/ScanRouteTest.kt
+index 424ba1c..a77a84b 100644
+--- a/app/src/testDebug/kotlin/dev/cubentia/app/ScanRouteTest.kt
++++ b/app/src/testDebug/kotlin/dev/cubentia/app/ScanRouteTest.kt
+@@ -55,6 +55,7 @@ import org.robolectric.RobolectricTestRunner
+ import org.robolectric.RuntimeEnvironment
+ import org.robolectric.Shadows.shadowOf
+ import org.robolectric.annotation.Config
++import org.robolectric.shadows.ShadowLog
+ import java.util.concurrent.ExecutorService
+ import javax.inject.Inject
+ 
+@@ -191,6 +192,7 @@ class ScanRouteTest {
+         assertTrue(review.edited)
+         assertEquals(mapOf(index to color), review.corrections)
+         assertFalse(review.offerCalibration)
++        ShadowLog.clear()
+         rule.onNodeWithTag("review:accept").performClick()
+         val result = shadowOf(scan.get())
+         shadowOf(main.get()).receiveResult(started.intent, result.resultCode, result.resultIntent)
+@@ -200,6 +202,13 @@ class ScanRouteTest {
+         assertEquals(cube.toFacelets(), editor.initial)
+         assertNull(editor.note)
+         rule.onNodeWithTag("editor:accept").assertExists()
++        val records = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.filter { it.startsWith("guidedScan run ") }
++        assertEquals(1, records.size)
++        val record =
++            Regex(
++                """guidedScan run elapsedMs=\d+ repromptFaces=\d+ corrections=1 valid=true outcome=ACCEPTED state=[WYGBRO]{54} initial=[WYGBRO-]{54} device=[A-Za-z0-9-]+""",
++            )
++        assertTrue(records.single(), record.matches(records.single()))
+         main.pause().stop().destroy()
+     }
+ 
+diff --git a/core/domain/build.gradle.kts b/core/domain/build.gradle.kts
+index e01b745..7fa853a 100644
+--- a/core/domain/build.gradle.kts
++++ b/core/domain/build.gradle.kts
+@@ -92,3 +92,12 @@ tasks.register<JavaExec>("evaluateQuickScan") {
+     val report = layout.buildDirectory.file("reports/quick-scan-measurement.md")
+     argumentProviders.add { listOf(report.get().asFile.absolutePath) }
+ }
++
++tasks.register<JavaExec>("evaluateMatrix") {
++    group = "verification"
++    description = "Scores recognition matrix runs and updates the OQ-8 report."
++    classpath = evaluation.runtimeClasspath
++    mainClass.set("dev.cubentia.domain.recognition.evaluation.matrix.MatrixMainKt")
++    workingDir = rootDir
++    args("Fixtures/matrix", "Fixtures/matrix/truth.csv", "docs/spikes/oq-8-recognition-matrix.md")
++}
+diff --git a/core/domain/src/evaluation/kotlin/dev/cubentia/domain/recognition/evaluation/matrix/MatrixMain.kt b/core/domain/src/evaluation/kotlin/dev/cubentia/domain/recognition/evaluation/matrix/MatrixMain.kt
+new file mode 100644
+index 0000000..eb38790
+--- /dev/null
++++ b/core/domain/src/evaluation/kotlin/dev/cubentia/domain/recognition/evaluation/matrix/MatrixMain.kt
+@@ -0,0 +1,12 @@
++package dev.cubentia.domain.recognition.evaluation.matrix
++
++import java.io.File
++
++fun main(args: Array<String>) {
++    require(args.size in 2..3) { "Usage: evaluateMatrix --args='<logs dir> <truth file> [report]'" }
++    val truth = MatrixTruth.load(File(args[1]))
++    val runs = MatrixRuns.load(File(args[0]))
++    val report = File(args.getOrElse(2) { "docs/spikes/oq-8-recognition-matrix.md" })
++    report.writeText(MatrixMarkdown.replace(report.readText(), MatrixMarkdown.render(runs, truth)))
++    println("Updated ${report.path}")
++}
+diff --git a/core/domain/src/evaluation/kotlin/dev/cubentia/domain/recognition/evaluation/matrix/MatrixMarkdown.kt b/core/domain/src/evaluation/kotlin/dev/cubentia/domain/recognition/evaluation/matrix/MatrixMarkdown.kt
+new file mode 100644
+index 0000000..aba68c5
+--- /dev/null
++++ b/core/domain/src/evaluation/kotlin/dev/cubentia/domain/recognition/evaluation/matrix/MatrixMarkdown.kt
+@@ -0,0 +1,64 @@
++package dev.cubentia.domain.recognition.evaluation.matrix
++
++object MatrixMarkdown {
++    const val START = "<!-- recognition-matrix:start -->"
++    const val END = "<!-- recognition-matrix:end -->"
++
++    fun render(
++        runs: MatrixRuns,
++        truth: MatrixTruth,
++    ): String =
++        buildString {
++            fun table(
++                title: String,
++                scopes: List<Triple<String, MatrixFeature, List<MatrixRun>>>,
++            ) {
++                appendLine("### $title")
++                appendLine()
++                if (scopes.isEmpty()) {
++                    appendLine("NO DATA")
++                } else {
++                    appendLine("| Scope | Feature | Runs | Without truth | Metric | Result | Verdict |")
++                    appendLine("| --- | --- | ---: | ---: | --- | --- | --- |")
++                    for ((scope, feature, sample) in scopes) {
++                        val missing = sample.count { truth[it] == null }
++                        MatrixScoring.score(feature, sample, truth).forEach { metric ->
++                            val verdict = if (sample.isEmpty()) "NO DATA" else metric.verdict
++                            appendLine(
++                                "| $scope | ${feature.token} | ${sample.size} | $missing | ${metric.name} | ${metric.value} | $verdict |",
++                            )
++                        }
++                    }
++                }
++                appendLine()
++            }
++            table("Per cell", runs.cells.map { (cell, sample) -> Triple(cell.name, cell.feature, sample) })
++            val devices = runs.cells.entries.groupBy { it.key.device to it.key.feature }
++            table("Per device", devices.map { (key, cells) -> Triple(key.first, key.second, cells.flatMap { it.value }) })
++            val all = runs.cells.values.flatten()
++            table(
++                "Per feature",
++                MatrixFeature.entries.map { feature ->
++                    Triple("All devices", feature, all.filter { it.cell.feature == feature })
++                },
++            )
++            appendLine("### Skipped files")
++            appendLine()
++            if (runs.skipped.isEmpty()) appendLine("None.") else runs.skipped.forEach { appendLine("- `$it`") }
++        }
++
++    fun replace(
++        report: String,
++        block: String,
++    ): String {
++        val start = report.indexOf(START)
++        val end = report.indexOf(END)
++        require(start >= 0 && end > start && report.lastIndexOf(START) == start && report.lastIndexOf(END) == end) {
++            "Expected one ordered pair of recognition matrix markers"
++        }
++        val newline = if (report.startsWith("\r\n", start + START.length)) "\r\n" else "\n"
++        return report.substring(0, start + START.length) +
++            newline + newline + block.trimEnd().replace("\n", newline) + newline + newline +
++            report.substring(end)
++    }
++}
+diff --git a/core/domain/src/evaluation/kotlin/dev/cubentia/domain/recognition/evaluation/matrix/MatrixRuns.kt b/core/domain/src/evaluation/kotlin/dev/cubentia/domain/recognition/evaluation/matrix/MatrixRuns.kt
+new file mode 100644
+index 0000000..5b31356
+--- /dev/null
++++ b/core/domain/src/evaluation/kotlin/dev/cubentia/domain/recognition/evaluation/matrix/MatrixRuns.kt
+@@ -0,0 +1,83 @@
++package dev.cubentia.domain.recognition.evaluation.matrix
++
++import java.io.File
++
++enum class MatrixFeature(
++    val token: String,
++    val tag: String,
++) {
++    GUIDED("guided", "guidedScan"),
++    QUICK_SCAN("quickscan", "quickScan"),
++    QUICK_CHECK("quickcheck", "quickCheck"),
++    RECOGNIZE("recognize", "recognize"),
++    PLACEMENT("placement", "placement"),
++}
++
++data class MatrixCell(
++    val device: String,
++    val cube: String,
++    val light: String,
++    val feature: MatrixFeature,
++) {
++    val name get() = "${device}_${cube}_${light}_${feature.token}"
++
++    companion object {
++        private val namePattern = Regex("([A-Za-z0-9-]+)_([A-Za-z0-9-]+)_(daylight|warm|cool|low)_([a-z]+)")
++
++        fun parse(name: String): MatrixCell? {
++            val (device, cube, light, feature) = namePattern.matchEntire(name)?.destructured ?: return null
++            val kind = MatrixFeature.entries.firstOrNull { it.token == feature } ?: return null
++            return MatrixCell(device.lowercase(), cube, light, kind)
++        }
++    }
++}
++
++data class MatrixRun(
++    val cell: MatrixCell,
++    val index: Int,
++    val fields: Map<String, String>,
++) {
++    operator fun get(key: String): String? = fields[key]?.takeUnless { it == "-" }
++
++    fun number(key: String): Long? = get(key)?.toLongOrNull()?.takeIf { it >= 0 }
++}
++
++data class MatrixRuns(
++    val cells: Map<MatrixCell, List<MatrixRun>>,
++    val skipped: List<String>,
++) {
++    companion object {
++        private val field = Regex("[A-Za-z][A-Za-z0-9]*=[^\\s=]+")
++
++        fun parse(
++            cell: MatrixCell,
++            lines: Sequence<String>,
++        ): List<MatrixRun> {
++            val marker = "${cell.feature.tag} run "
++            return lines
++                .mapNotNull { line ->
++                    // Accept raw messages and logcat prefixes, with the tag at a word boundary.
++                    val offset = line.indexOf(marker)
++                    if (offset < 0 || (offset > 0 && !line[offset - 1].isWhitespace())) return@mapNotNull null
++                    val tokens = line.substring(offset + marker.length).trimEnd().split(' ')
++                    if (tokens.any { !field.matches(it) }) return@mapNotNull null
++                    tokens.associate { it.substringBefore('=') to it.substringAfter('=') }
++                }.mapIndexed { i, fields -> MatrixRun(cell, i + 1, fields) }
++                .toList()
++        }
++
++        fun load(directory: File): MatrixRuns {
++            val cells = linkedMapOf<MatrixCell, List<MatrixRun>>()
++            val skipped = mutableListOf<String>()
++            directory.listFiles().orEmpty().filter { it.isFile && it.extension == "log" }.sortedBy { it.name }.forEach { file ->
++                val cell = MatrixCell.parse(file.nameWithoutExtension)
++                if (cell == null || cell in cells) {
++                    skipped += file.name
++                } else {
++                    cells[cell] = file.useLines { parse(cell, it) }
++                }
++            }
++            return MatrixRuns(cells, skipped)
++        }
++    }
++}
+diff --git a/core/domain/src/evaluation/kotlin/dev/cubentia/domain/recognition/evaluation/matrix/MatrixScoring.kt b/core/domain/src/evaluation/kotlin/dev/cubentia/domain/recognition/evaluation/matrix/MatrixScoring.kt
+new file mode 100644
+index 0000000..9ff9e04
+--- /dev/null
++++ b/core/domain/src/evaluation/kotlin/dev/cubentia/domain/recognition/evaluation/matrix/MatrixScoring.kt
+@@ -0,0 +1,219 @@
++package dev.cubentia.domain.recognition.evaluation.matrix
++
++import dev.cubentia.domain.cube.Face
++import java.util.Locale
++
++private val gatingDevices = setOf("lenovo-tb128xu", "sm-s721u1")
++private val recognitionResults = setOf("UNIQUE", "SEVERAL", "NO_FIT", "LL_SOLVED", "NOT_AT_LL")
++private const val STICKERS_PER_FACE = 9
++private val stickers = Regex("[WYGBRO-]{54}")
++
++data class MatrixMetric(
++    val name: String,
++    val value: String,
++    val verdict: String,
++)
++
++object MatrixScoring {
++    fun score(
++        feature: MatrixFeature,
++        runs: List<MatrixRun>,
++        truth: MatrixTruth,
++    ): List<MatrixMetric> {
++        // Report all data, with the verdict calculated on the eligible subset only.
++        val gating = runs.filter { it.cell.device in gatingDevices }
++        return when (feature) {
++            MatrixFeature.GUIDED, MatrixFeature.QUICK_SCAN -> scan(feature, runs, gating, truth)
++            MatrixFeature.QUICK_CHECK -> quickCheck(runs, gating, truth)
++            MatrixFeature.RECOGNIZE -> recognize(runs, gating, truth)
++            MatrixFeature.PLACEMENT -> placement(runs, truth)
++        }
++    }
++
++    private fun scan(
++        feature: MatrixFeature,
++        runs: List<MatrixRun>,
++        gating: List<MatrixRun>,
++        truth: MatrixTruth,
++    ): List<MatrixMetric> {
++        val guided = feature == MatrixFeature.GUIDED
++
++        fun accepted(run: MatrixRun) = run["outcome"] == "ACCEPTED"
++
++        fun valid(run: MatrixRun) =
++            accepted(run) && (run["valid"] == "true" || (!guided && run["valid"] == null)) &&
++                run.number("corrections")?.let { it <= 3 } == true
++
++        fun times(sample: List<MatrixRun>) = sample.filter(::accepted).mapNotNull { it.number("elapsedMs") }
++
++        fun comparisons(sample: List<MatrixRun>) =
++            sample.flatMap { run ->
++                val initial = run["initial"]?.takeIf(stickers::matches)
++                val expected = truth[run]
++                if (initial == null || expected == null) emptyList() else initial.zip(expected)
++            }
++        val indoor = if (guided) gating.filter { it.cell.light in setOf("warm", "cool") } else gating
++        val allStickers = comparisons(runs)
++        val acceptedWithTruth = runs.filter { accepted(it) && truth[it] != null }
++        return listOf(
++            rate("Valid with ≤ 3 corrections", runs.map(::valid), gating.map(::valid)) { it >= if (guided) .98 else .95 },
++            medianMetric("Accepted median time", times(runs), times(gating), if (guided) 45_000 else 15_000),
++            rate(
++                "Sticker accuracy",
++                allStickers.map { (seen, expected) -> seen == expected },
++                comparisons(indoor).map { (seen, expected) -> seen == expected },
++                truthDependent = true,
++                target = if (guided) ({ it >= .995 }) else null,
++            ),
++            rate(
++                "Confidently wrong",
++                allStickers.map(::confidentlyWrong),
++                comparisons(gating).map(::confidentlyWrong),
++                truthDependent = true,
++            ) { it <= .001 },
++            rate("Accepted but wrong", acceptedWithTruth.map { it["state"] != truth[it] }, truthDependent = true),
++        )
++    }
++
++    private fun quickCheck(
++        runs: List<MatrixRun>,
++        gating: List<MatrixRun>,
++        truth: MatrixTruth,
++    ): List<MatrixMetric> {
++        fun verified(run: MatrixRun) = run["certainty"] == "VERIFIED"
++
++        fun falseVerified(sample: List<MatrixRun>) =
++            sample.filter { truth[it] != null }.map { run ->
++                verified(run) && run["matches"]?.toBooleanStrictOrNull()?.let { it != (truth[run] == "match") } == true
++            }
++
++        fun matchConfirmed(sample: List<MatrixRun>) = sample.filter { truth[it] == "match" }.map { verified(it) && it["matches"] == "true" }
++        val partial = runs.filter { it["kind"] == "Partial" && truth[it] == "match" }.flatMap(::partialStickers)
++        return listOf(
++            rate("False VERIFIED", falseVerified(runs), falseVerified(gating), truthDependent = true) { it == 0.0 },
++            rate("Match confirmed", matchConfirmed(runs), matchConfirmed(gating), truthDependent = true) { it >= .98 },
++            every("Captures", runs.map { it.number("captures") }, gating.map { it.number("captures") }, "") { it <= 2 },
++            rate("Confidently wrong (Partial matches)", partial.map(::confidentlyWrong), truthDependent = true),
++        )
++    }
++
++    private fun recognize(
++        runs: List<MatrixRun>,
++        gating: List<MatrixRun>,
++        truth: MatrixTruth,
++    ): List<MatrixMetric> {
++        fun wrongSingle(sample: List<MatrixRun>) =
++            sample.filter { it["outcome"] == "UNIQUE" && truth[it] != null }.map { it["case"] != truth[it] }
++
++        fun times(sample: List<MatrixRun>) = sample.filter { it["outcome"] in recognitionResults }.map { it.number("elapsedMs") }
++        val several = runs.filter { it["outcome"] == "SEVERAL" && truth[it] != null }
++        return listOf(
++            rate("Wrong single Case", wrongSingle(runs), wrongSingle(gating), truthDependent = true) { it <= .01 },
++            rate(
++                "SEVERAL missing truth candidate",
++                several.map { truth[it] !in it["candidates"].orEmpty().split(',') },
++                truthDependent = true,
++            ),
++            every("Result time", times(runs), times(gating), " ms") { it < 1_000 },
++        )
++    }
++
++    private fun placement(
++        runs: List<MatrixRun>,
++        truth: MatrixTruth,
++    ): List<MatrixMetric> {
++        val known = runs.filter { truth[it] != null }
++        val choices = runs.filter { it["accepted"] != null && it["suggested"] != null }
++        return listOf(
++            rate("Suggestion matches truth", known.map { it["suggested"] == truth[it] }, truthDependent = true),
++            rate("Accepted differs from suggestion", choices.map { it["accepted"] != it["suggested"] }),
++        )
++    }
++
++    private fun partialStickers(run: MatrixRun): List<Pair<Char, Char>> {
++        val expected = run["expectedHome"]?.takeIf(stickers::matches) ?: return emptyList()
++        return run["observed"].orEmpty().split(',').flatMap { observed ->
++            val face = Face.entries.firstOrNull { it.name == observed.substringBefore(':') }
++            val read = observed.substringAfter(':', "")
++            if (face == null || read.length != STICKERS_PER_FACE) {
++                emptyList()
++            } else {
++                read.zip(expected.substring(face.ordinal * STICKERS_PER_FACE, (face.ordinal + 1) * STICKERS_PER_FACE))
++            }
++        }
++    }
++
++    private fun confidentlyWrong(pair: Pair<Char, Char>) = pair.first != '-' && pair.first != pair.second
++
++    private fun rate(
++        name: String,
++        sample: List<Boolean>,
++        gating: List<Boolean> = emptyList(),
++        truthDependent: Boolean = false,
++        target: ((Double) -> Boolean)? = null,
++    ): MatrixMetric {
++        val value =
++            when {
++                sample.isNotEmpty() -> describeRate(sample)
++                truthDependent -> "no truth or no eligible observations (n=0)"
++                else -> "n=0"
++            }
++        val gated = target?.let { if (gating.isEmpty()) null else it(gating.count { event -> event }.toDouble() / gating.size) }
++        val details = if (target != null && gating.isNotEmpty() && sample != gating) "$value; gate ${describeRate(gating)}" else value
++        return MatrixMetric(name, details, verdict(gated, target != null))
++    }
++
++    private fun describeRate(sample: List<Boolean>): String {
++        val count = sample.count { it }
++        val size = sample.size
++        val bound = if (count == 0) "; 95% upper bound ≈ ${percent((3.0 / size).coerceAtMost(1.0))}" else ""
++        return "$count/$size (${percent(count.toDouble() / size)})$bound"
++    }
++
++    private fun percent(rate: Double): String = String.format(Locale.ROOT, "%.3f%%", 100 * rate)
++
++    private fun medianMetric(
++        name: String,
++        sample: List<Long>,
++        gating: List<Long>,
++        limit: Int,
++    ): MatrixMetric {
++        fun median(values: List<Long>): Double? {
++            if (values.isEmpty()) return null
++            val sorted = values.sorted()
++            return (sorted[(sorted.size - 1) / 2] / 2.0) + (sorted[sorted.size / 2] / 2.0)
++        }
++        val value = median(sample)?.let { "$it ms (n=${sample.size})" } ?: "n=0"
++        val gate = median(gating)
++        val details = if (gate != null && sample != gating) "$value; gate $gate ms (n=${gating.size})" else value
++        return MatrixMetric(name, details, verdict(gate?.let { it < limit }))
++    }
++
++    private fun every(
++        name: String,
++        sample: List<Long?>,
++        gating: List<Long?>,
++        unit: String,
++        target: (Long) -> Boolean,
++    ): MatrixMetric {
++        val known = sample.filterNotNull()
++        val value = known.maxOrNull()?.let { "max $it$unit (n=${known.size}/${sample.size})" } ?: "n=0/${sample.size}"
++        val result =
++            when {
++                gating.filterNotNull().any { !target(it) } -> false
++                gating.isEmpty() || gating.any { it == null } -> null
++                else -> true
++            }
++        return MatrixMetric(name, value, verdict(result))
++    }
++
++    private fun verdict(
++        met: Boolean?,
++        targeted: Boolean = true,
++    ) = when {
++        !targeted -> "—"
++        met == null -> "NO DATA"
++        met -> "MET"
++        else -> "MISSED"
++    }
++}
+diff --git a/core/domain/src/evaluation/kotlin/dev/cubentia/domain/recognition/evaluation/matrix/MatrixTruth.kt b/core/domain/src/evaluation/kotlin/dev/cubentia/domain/recognition/evaluation/matrix/MatrixTruth.kt
+new file mode 100644
+index 0000000..0a6ed90
+--- /dev/null
++++ b/core/domain/src/evaluation/kotlin/dev/cubentia/domain/recognition/evaluation/matrix/MatrixTruth.kt
+@@ -0,0 +1,74 @@
++package dev.cubentia.domain.recognition.evaluation.matrix
++
++import dev.cubentia.domain.content.CaseId
++import dev.cubentia.domain.content.StageId
++import dev.cubentia.domain.cube.CubeState
++import dev.cubentia.domain.cube.Notation
++import dev.cubentia.domain.cube.NotationResult
++import dev.cubentia.domain.cube.Orientation
++import dev.cubentia.domain.recognition.ScanTrace
++import java.io.File
++
++class MatrixTruth private constructor(
++    private val values: Map<Pair<MatrixCell, Int?>, String>,
++) {
++    operator fun get(run: MatrixRun): String? = values[run.cell to run.index] ?: values[run.cell to null]
++
++    companion object {
++        fun load(file: File): MatrixTruth {
++            // The default empty matrix needs no truth file. A present file is always validated.
++            if (!file.exists()) return MatrixTruth(emptyMap())
++            val values = mutableMapOf<Pair<MatrixCell, Int?>, String>()
++            file.useLines { lines ->
++                var first = true
++                lines.forEachIndexed { index, raw ->
++                    val line = raw.trim()
++                    if (line.isEmpty() || line.startsWith('#')) return@forEachIndexed
++                    val columns = line.split(',').map(String::trim)
++                    val header = first && columns == listOf("cell", "run", "truth")
++                    first = false
++                    if (header) return@forEachIndexed
++
++                    fun invalid(reason: String): Nothing = throw IllegalArgumentException("${file.path}:${index + 1}: $reason")
++
++                    if (columns.size != 3) invalid("expected cell,run,truth")
++                    val (name, number, token) = columns
++                    val cell = MatrixCell.parse(name) ?: invalid("invalid cell '$name'")
++                    val run = if (number == "*") null else number.toIntOrNull()?.takeIf { it > 0 } ?: invalid("invalid run '$number'")
++                    val truth =
++                        when (cell.feature) {
++                            MatrixFeature.GUIDED, MatrixFeature.QUICK_SCAN -> {
++                                val moves =
++                                    when (val parsed = Notation.parse(token)) {
++                                        is NotationResult.Parsed -> parsed.moves
++                                        is NotationResult.Invalid -> invalid("invalid scramble: ${parsed.error}")
++                                    }
++                                CubeState.SOLVED
++                                    .apply(moves)
++                                    .reoriented(Orientation.HOME)
++                                    .toFacelets()
++                                    .colors
++                                    .joinToString("", transform = ScanTrace::letter)
++                            }
++
++                            MatrixFeature.QUICK_CHECK -> {
++                                token.takeIf { it == "match" || it == "mismatch" }
++                            }
++
++                            MatrixFeature.RECOGNIZE -> {
++                                token.takeIf { CaseId(it).isWellFormed || it == "LL_SOLVED" || it == "NOT_AT_LL" }
++                            }
++
++                            MatrixFeature.PLACEMENT -> {
++                                token.takeIf { StageId(it).isWellFormed || it == "SOLVED" }
++                            }
++                        } ?: invalid("unknown truth '$token' for ${cell.feature.token}")
++                    val key = cell to run
++                    if (key in values) invalid("duplicate truth for '$name' run '$number'")
++                    values[key] = truth
++                }
++            }
++            return MatrixTruth(values)
++        }
++    }
++}
+diff --git a/core/domain/src/evaluation/kotlin/dev/cubentia/domain/recognition/evaluation/quickscan/QuickScanMeasurement.kt b/core/domain/src/evaluation/kotlin/dev/cubentia/domain/recognition/evaluation/quickscan/QuickScanMeasurement.kt
+index a2ea5b7..38221dc 100644
+--- a/core/domain/src/evaluation/kotlin/dev/cubentia/domain/recognition/evaluation/quickscan/QuickScanMeasurement.kt
++++ b/core/domain/src/evaluation/kotlin/dev/cubentia/domain/recognition/evaluation/quickscan/QuickScanMeasurement.kt
+@@ -5,7 +5,7 @@ import java.io.File
+ object QuickScanMeasurement {
+     private val run =
+         Regex(
+-            """quickScan run elapsedMs=(\d+) fallbackFaces=(\d+) repromptFaces=(\d+) corrections=(\d+) outcome=(ACCEPTED|CANCELLED|FELL_BACK_TO_EDITOR)\s*$""",
++            """quickScan run elapsedMs=(\d+) fallbackFaces=(\d+) repromptFaces=(\d+) corrections=(\d+) outcome=(ACCEPTED|CANCELLED|FELL_BACK_TO_EDITOR)(?: [A-Za-z][A-Za-z0-9]*=[^\s=]+)*\s*$""",
+         )
+ 
+     data class Report(
+diff --git a/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/MatrixEvaluationTest.kt b/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/MatrixEvaluationTest.kt
+new file mode 100644
+index 0000000..e40655c
+--- /dev/null
++++ b/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/MatrixEvaluationTest.kt
+@@ -0,0 +1,190 @@
++package dev.cubentia.domain.recognition
++
++import dev.cubentia.domain.recognition.evaluation.matrix.MatrixCell
++import dev.cubentia.domain.recognition.evaluation.matrix.MatrixFeature
++import dev.cubentia.domain.recognition.evaluation.matrix.MatrixMarkdown
++import dev.cubentia.domain.recognition.evaluation.matrix.MatrixRuns
++import dev.cubentia.domain.recognition.evaluation.matrix.MatrixScoring
++import dev.cubentia.domain.recognition.evaluation.matrix.MatrixTruth
++import org.junit.jupiter.api.Assertions.assertEquals
++import org.junit.jupiter.api.Assertions.assertThrows
++import org.junit.jupiter.api.Assertions.assertTrue
++import org.junit.jupiter.api.Test
++import org.junit.jupiter.api.io.TempDir
++import java.io.File
++
++class MatrixEvaluationTest {
++    @TempDir lateinit var directory: File
++    private val solved = "WWWWWWWWWRRRRRRRRRGGGGGGGGGYYYYYYYYYOOOOOOOOOBBBBBBBBB"
++
++    private fun cell(
++        feature: MatrixFeature,
++        light: String = "warm",
++        device: String = "sm-s721u1",
++    ) = checkNotNull(MatrixCell.parse("${device}_stka_${light}_${feature.token}"))
++
++    private fun truth(vararg rows: String) =
++        MatrixTruth.load(File(directory, "truth.csv").apply { writeText(rows.joinToString("\n", "cell,run,truth\n")) })
++
++    @Test fun `parses all features and counts only matching run lines`() {
++        val records =
++            listOf(
++                "guidedScan run elapsedMs=100 repromptFaces=1 corrections=0 valid=true outcome=ACCEPTED state=$solved initial=$solved",
++                "quickScan run elapsedMs=100 fallbackFaces=1 repromptFaces=1 corrections=0 outcome=ACCEPTED state=$solved initial=$solved",
++                "quickCheck run kind=Partial captures=2 elapsedMs=234 certainty=VERIFIED matches=true observed=U:WWWWWWWWW expected=$solved expectedHome=$solved",
++                "recognize run elapsedMs=21 outcome=SEVERAL case=- candidates=case-oll-27,case-oll-28 captures=2",
++                "placement run elapsedMs=7 outcome=SUGGESTED suggested=stage-02-first-cross accepted=none",
++            )
++        val lines =
++            records.map { "11-18 12:00:00.000 100 101 D CubentiaScanDiag: $it device=SM-S721U1" } +
++                listOf("quickCheck,kind=Full", "quickScan frame detected=true", "unrelatedguidedScan run foo=bar")
++        MatrixFeature.entries.zip(records).forEach { (feature, record) ->
++            val run = MatrixRuns.parse(cell(feature), lines.asSequence()).single()
++            assertEquals(1, run.index)
++            assertEquals("SM-S721U1", run["device"])
++            assertEquals(
++                record.substringAfter(" run ") + " device=SM-S721U1",
++                run.fields.entries.joinToString(" ") { "${it.key}=${it.value}" },
++            )
++        }
++    }
++
++    @Test fun `skips malformed and unknown log names and accepts absent directory`() {
++        for (name in listOf(
++            "foo.log",
++            "sm-s721u1_stka_warm_other.log",
++            "sm-s721u1_stka_studio_guided.log",
++            "SM-S721U1_stka_warm_guided.log",
++        )) {
++            File(directory, name).writeText("guidedScan run outcome=CANCELLED device=SM-S721U1")
++        }
++        val loaded = MatrixRuns.load(directory)
++        assertEquals(cell(MatrixFeature.GUIDED), loaded.cells.keys.single())
++        assertEquals(3, loaded.skipped.size)
++        assertTrue(MatrixRuns.load(File(directory, "absent")).cells.isEmpty())
++    }
++
++    @Test fun `truth normalizes scramble to home and indexed rows override defaults`() {
++        val guided = cell(MatrixFeature.GUIDED)
++        val quick = cell(MatrixFeature.QUICK_SCAN)
++        val lookup =
++            truth(
++                "# ignored",
++                "${guided.name},*,R U",
++                "${guided.name},1,R U x",
++                "${guided.name},3,",
++                "${quick.name},*,",
++                "${cell(MatrixFeature.QUICK_CHECK).name},*,mismatch",
++                "${cell(MatrixFeature.RECOGNIZE).name},*,LL_SOLVED",
++                "${cell(MatrixFeature.PLACEMENT).name},*,SOLVED",
++            )
++        val runs = MatrixRuns.parse(guided, List(3) { "guidedScan run outcome=ACCEPTED" }.asSequence())
++        assertEquals(lookup[runs[0]], lookup[runs[1]])
++        assertTrue(lookup[runs[0]] != solved)
++        assertEquals(solved, lookup[runs[2]])
++        assertEquals(solved, lookup[MatrixRuns.parse(quick, sequenceOf("quickScan run outcome=ACCEPTED")).single()])
++    }
++
++    @Test fun `bad truth identifies file line and reason`() {
++        val cases =
++            listOf(
++                "${cell(MatrixFeature.GUIDED).name},1,R Z" to "invalid scramble",
++                "${cell(MatrixFeature.QUICK_CHECK).name},*,maybe" to "unknown truth",
++                "${cell(MatrixFeature.RECOGNIZE).name},0,case-oll-27" to "invalid run",
++                "${cell(MatrixFeature.PLACEMENT).name},2,stage-bad" to "unknown truth",
++                "bad,*,R" to "invalid cell",
++            )
++        for ((row, reason) in cases) {
++            val error = assertThrows(IllegalArgumentException::class.java) { truth("# comment", row) }
++            assertTrue(error.message.orEmpty().contains("truth.csv:3: $reason"))
++        }
++    }
++
++    @Test fun `scan metrics count blanks corrections and wrong accepts with indoor verdicts`() {
++        val feature = MatrixFeature.GUIDED
++        val warm = cell(feature)
++        val low = cell(feature, "low")
++        val other = cell(feature, device = "other")
++        val altered = "R-" + solved.drop(2)
++        val lookup = truth("${warm.name},*,", "${low.name},*,", "${other.name},*,")
++        val runs =
++            MatrixRuns.parse(
++                warm,
++                sequenceOf(
++                    "guidedScan run elapsedMs=30000 corrections=3 outcome=ACCEPTED valid=true state=$solved initial=$altered",
++                    "guidedScan run elapsedMs=60000 corrections=4 outcome=ACCEPTED valid=true state=$altered initial=$solved",
++                    "guidedScan run elapsedMs=10 corrections=0 outcome=CANCELLED valid=false state=- initial=-",
++                ),
++            )
++        val metrics = MatrixScoring.score(feature, runs, lookup).associateBy { it.name }
++        assertTrue(metrics.getValue("Valid with ≤ 3 corrections").value.startsWith("1/3"))
++        assertEquals("MISSED", metrics.getValue("Accepted median time").verdict)
++        assertTrue(metrics.getValue("Sticker accuracy").value.startsWith("106/108"))
++        assertTrue(metrics.getValue("Confidently wrong").value.startsWith("1/108"))
++        assertTrue(metrics.getValue("Accepted but wrong").value.startsWith("1/2"))
++        assertEquals("NO DATA", MatrixScoring.score(feature, runs.map { it.copy(cell = low) }, lookup)[2].verdict)
++        assertEquals("NO DATA", MatrixScoring.score(feature, runs.map { it.copy(cell = other) }, lookup)[0].verdict)
++    }
++
++    @Test fun `scores Quick Check recognition and placement and identifies missing truth`() {
++        fun score(
++            feature: MatrixFeature,
++            expected: String,
++            vararg lines: String,
++        ): Map<String, String> {
++            val cell = cell(feature)
++            val runs = MatrixRuns.parse(cell, lines.asSequence().map { "${feature.tag} run $it" })
++            return MatrixScoring
++                .score(
++                    feature,
++                    runs,
++                    truth("${cell.name},*,$expected"),
++                ).associate { it.name to "${it.value} ${it.verdict}" }
++        }
++        val check =
++            score(
++                MatrixFeature.QUICK_CHECK,
++                "match",
++                "kind=Partial captures=3 certainty=VERIFIED matches=false observed=U:RWWWWWWWW expectedHome=$solved",
++            )
++        assertTrue(check.getValue("False VERIFIED").startsWith("1/1"))
++        assertTrue(check.getValue("Match confirmed").contains("95% upper bound"))
++        assertTrue(check.getValue("Captures").endsWith("MISSED"))
++        assertTrue(check.getValue("Confidently wrong (Partial matches)").startsWith("1/9"))
++        val recognition =
++            score(
++                MatrixFeature.RECOGNIZE,
++                "case-oll-27",
++                "outcome=UNIQUE case=case-oll-28 elapsedMs=10",
++                "outcome=SEVERAL candidates=case-oll-28,case-oll-29 elapsedMs=1000",
++            )
++        assertTrue(recognition.getValue("Wrong single Case").endsWith("MISSED"))
++        assertTrue(recognition.getValue("SEVERAL missing truth candidate").startsWith("1/1"))
++        assertTrue(recognition.getValue("Result time").endsWith("MISSED"))
++        val placement =
++            score(
++                MatrixFeature.PLACEMENT,
++                "stage-02-first-cross",
++                "suggested=stage-02-first-cross accepted=stage-01-fundamentals",
++                "suggested=stage-03-white-layer accepted=none",
++            )
++        assertTrue(placement.getValue("Suggestion matches truth").startsWith("1/2"))
++        assertTrue(placement.getValue("Accepted differs from suggestion").startsWith("2/2"))
++        val cell = cell(MatrixFeature.RECOGNIZE)
++        val runs = MatrixRuns.parse(cell, sequenceOf("recognize run outcome=SEVERAL candidates=case-oll-28 elapsedMs=10"))
++        val missing = MatrixScoring.score(cell.feature, runs, truth())
++        assertTrue(missing.first().value.contains("no truth"))
++        assertEquals("NO DATA", missing.first().verdict)
++    }
++
++    @Test fun `empty matrix has no data and only marker contents change`() {
++        val old = "Before\r\n${MatrixMarkdown.START}\r\nold\r\n${MatrixMarkdown.END}\r\nAfter\r\n"
++        val block = MatrixMarkdown.render(MatrixRuns(emptyMap(), emptyList()), truth())
++        assertEquals(
++            "Before\r\n${MatrixMarkdown.START}\r\n\r\nnew\r\n\r\n${MatrixMarkdown.END}\r\nAfter\r\n",
++            MatrixMarkdown.replace(old, "new"),
++        )
++        assertTrue(MatrixFeature.entries.all { "| All devices | ${it.token} | 0 | 0 |" in block })
++        assertTrue(block.lineSequence().filter { it.startsWith("| All devices") }.all { it.endsWith("| NO DATA |") })
++    }
++}
+diff --git a/docs/spikes/oq-8-recognition-matrix.md b/docs/spikes/oq-8-recognition-matrix.md
+new file mode 100644
+index 0000000..a29ebe3
+--- /dev/null
++++ b/docs/spikes/oq-8-recognition-matrix.md
+@@ -0,0 +1,101 @@
++# OQ-8 recognition test matrix
++
++Device session C measures Guided 6-face Scan, Quick Scan, Quick Check, Case recognition and Placement against the §4.8 targets. Use both cubes in each of four lighting conditions (daylight, warm indoor, cool indoor and low light) on three physical devices. The Lenovo Tab M10 Plus 3rd Gen (`lenovo-tb128xu`) and Galaxy S24 FE (`sm-s721u1`) contribute verdicts. The third device is reported for comparison.
++
++## Capture and score
++
++1. Use the main debug app and the real entry point for the feature. Name each cell `<device>_<cube>_<light>_<feature>`, using hyphens within device and cube tokens. Use `daylight`, `warm`, `cool` or `low` and `guided`, `quickscan`, `quickcheck`, `recognize` or `placement`. Use consistent cube tokens for the stickered and stickerless cubes.
++2. Create `Fixtures/matrix`. Before each cell, run `adb logcat -c`, then run `adb logcat -s CubentiaScanDiag > Fixtures/matrix/<cell>.log`. Stop the capture after the cell. Keep one log per cell and retain failed, cancelled and editor-fallback runs. A scan used to enter Placement can also emit a Guided record. The evaluator reads the feature named by the file.
++3. Record the scramble and independent ground truth for each run in `Fixtures/matrix/truth.csv` in the matching feature's run order. Use one-based indices or `*` for a cell default. A numbered row overrides the default. Lines beginning with `#` are comments. Use cube Notation for Guided and Quick Scan (an empty scramble is solved), `match` or `mismatch` for Quick Check, a Case ID, `LL_SOLVED` or `NOT_AT_LL` for Recognize, and a stage ID or `SOLVED` for Placement.
++
++Example CSV rows for format only
++
++```csv
++cell,run,truth
++sm-s721u1_stickered_warm_guided,1,R U R' U'
++sm-s721u1_stickered_warm_quickcheck,*,match
++sm-s721u1_stickered_warm_recognize,1,case-oll-27
++sm-s721u1_stickered_warm_placement,1,stage-02-first-cross
++```
++
++Run `./gradlew :core:domain:evaluateMatrix` from the repository root. For different inputs, use `./gradlew :core:domain:evaluateMatrix --args="<logs dir> <truth file> [report]"`. The report path is optional. A third argument selects an existing report with the same markers.
++
++## Targets
++
++| Flow | §4.8 targets | Additional measurements |
++| --- | --- | --- |
++| Guided 6-face Scan | ≥98% accepted and valid with ≤3 corrections, accepted median <45 s, ≥99.5% sticker accuracy in warm and cool indoor light, ≤0.1% confidently wrong | Sticker accuracy in every light, accepted but wrong |
++| Quick Scan | ≥95% accepted and valid with ≤3 corrections, accepted median <15 s, ≤0.1% confidently wrong | Sticker accuracy, accepted but wrong |
++| Quick Check | Zero false VERIFIED, ≥98% of true matches confirmed, ≤2 captures on every run | Confidently wrong stickers on Partial true matches |
++| Case recognition | ≤1% wrong single Case, every result <1,000 ms | SEVERAL results missing the true Case |
++| Placement | — | Suggestions matching truth, Acceptance differing from the suggestion (including leaving or rescanning) |
++
++Verdicts use the gating devices and the applicable lighting. Missing truth and inapplicable observations have no rate. An em dash marks a metric reported without a target. For zero observed events, the report gives the approximate 95% upper bound of 3/n, capped at 100%.
++
++<!-- recognition-matrix:start -->
++
++### Per cell
++
++NO DATA
++
++### Per device
++
++NO DATA
++
++### Per feature
++
++| Scope | Feature | Runs | Without truth | Metric | Result | Verdict |
++| --- | --- | ---: | ---: | --- | --- | --- |
++| All devices | guided | 0 | 0 | Valid with ≤ 3 corrections | n=0 | NO DATA |
++| All devices | guided | 0 | 0 | Accepted median time | n=0 | NO DATA |
++| All devices | guided | 0 | 0 | Sticker accuracy | no truth or no eligible observations (n=0) | NO DATA |
++| All devices | guided | 0 | 0 | Confidently wrong | no truth or no eligible observations (n=0) | NO DATA |
++| All devices | guided | 0 | 0 | Accepted but wrong | no truth or no eligible observations (n=0) | NO DATA |
++| All devices | quickscan | 0 | 0 | Valid with ≤ 3 corrections | n=0 | NO DATA |
++| All devices | quickscan | 0 | 0 | Accepted median time | n=0 | NO DATA |
++| All devices | quickscan | 0 | 0 | Sticker accuracy | no truth or no eligible observations (n=0) | NO DATA |
++| All devices | quickscan | 0 | 0 | Confidently wrong | no truth or no eligible observations (n=0) | NO DATA |
++| All devices | quickscan | 0 | 0 | Accepted but wrong | no truth or no eligible observations (n=0) | NO DATA |
++| All devices | quickcheck | 0 | 0 | False VERIFIED | no truth or no eligible observations (n=0) | NO DATA |
++| All devices | quickcheck | 0 | 0 | Match confirmed | no truth or no eligible observations (n=0) | NO DATA |
++| All devices | quickcheck | 0 | 0 | Captures | n=0/0 | NO DATA |
++| All devices | quickcheck | 0 | 0 | Confidently wrong (Partial matches) | no truth or no eligible observations (n=0) | NO DATA |
++| All devices | recognize | 0 | 0 | Wrong single Case | no truth or no eligible observations (n=0) | NO DATA |
++| All devices | recognize | 0 | 0 | SEVERAL missing truth candidate | no truth or no eligible observations (n=0) | NO DATA |
++| All devices | recognize | 0 | 0 | Result time | n=0/0 | NO DATA |
++| All devices | placement | 0 | 0 | Suggestion matches truth | no truth or no eligible observations (n=0) | NO DATA |
++| All devices | placement | 0 | 0 | Accepted differs from suggestion | n=0 | NO DATA |
++
++### Skipped files
++
++None.
++
++<!-- recognition-matrix:end -->
++
++## Story 10.6 residual risk
++
++`QuickCheckScenarioTest.sequences that leave the observed faces unchanged` reported “Observed-face-preserving sequences: 44 of 123500; residual aliases of a match: 1”. The seeded JVM scenario found one alias among all 123,500 sequences (0.00081%), or 1 of 44 among sequences that changed the cube while preserving the observed faces. The alias was `R U2 R'` with plan faces {B, D}: a match outside the candidate model (length > 2) that the Partial check reports as VERIFIED. Regenerated on 2026-11-18 with `./gradlew :core:domain:test --tests '*QuickCheckScenarioTest' -i`. This is a scenario result with a fixed seed and sequence depth. [QuickCheckScenarioTest](../../core/domain/src/test/kotlin/dev/cubentia/domain/tutor/QuickCheckScenarioTest.kt)
++
++Recommendation on the residual risk — PO decision, device session C.
++
++## Fixture accuracy
++
++The product Kotlin pipeline scored 432/432 sticker reads on the A2 fixtures, with zero confidently wrong and three uncertain. Seven of eight reads were both correct and valid because one fixture's truth is invalid. The center-pixel input scored 646/648 with two confidently wrong. The OQ-4 prototype live-baseline block reports 645/648 overall and 237/240 for independently entered truth. These fixture samples cover studio lighting. [Product pipeline accuracy](../scan-accuracy.md) · [OQ-4 live baseline](oq-4-guided-scan.md#live-baseline)
++
++## Release recommendations
++
++| Flow | OFF / BETA / GA |
++| --- | --- |
++| Guided 6-face Scan | PO decision — device session C |
++| Quick Scan | PO decision — device session C |
++| Quick Check | PO decision — device session C |
++| Placement | PO decision — device session C |
++| Case recognition | PO decision — device session C |
++
++## Manual fallback
++
++- [ ] Guided 6-face Scan — choose Enter colors, enter the stickers manually and verify that the accepted cube reaches Solve.
++- [ ] Quick Scan — trigger an uncertain corner read, finish on the guided grid, then verify that the review can hand off to Enter colors.
++- [ ] Quick Check — produce a result that requests more evidence, then verify that Scan all 6 faces opens the full scan and the Learner can still use the manual path.
++- [ ] Placement — use Enter colors to reach a suggestion, then verify that the Learner can choose another stage or start Stage 1.
++- [ ] Case recognition — use Enter colors from the capture flow, submit a valid cube and verify that the library shows the applicable result.
