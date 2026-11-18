@@ -5,7 +5,7 @@ created: '2026-11-18'
 status: 'done'
 baseline_revision: '7b1e10e3edd59298f9266a20b09003259e41d559'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-11-context.md'
@@ -18,6 +18,13 @@ deferred:
     location: >-
       core/domain/src/main/kotlin/dev/cubentia/domain/recognition/ScanAssembler.kt (lastLayerView)
     severity: high (unverified)
+  - summary: >-
+      Accepting a Placement suggestion ignores the Boolean that SessionHost.placeFromScan returns, so a failed progress write still starts the course.
+    evidence: |-
+      Pre-existing from Story 11.2 (the same onAccept body is at AppShell.kt L389 in baseline 7b1e10e); 11.3 only lets the Placement screen run outside Welcome. placeFromScan returns false on ProgressWrite.Failed and the caller calls startCourse anyway, with no save-failure message.
+    location: >-
+      app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt (PlacementScreen onAccept)
+    severity: medium
 ---
 
 <intent-contract>
@@ -143,6 +150,40 @@ Refs: FR-28, FR-18, FR-27 · recognition NFRs · AD-9, AD-18, AD-19 · UX-DR19, 
   - `[false]` `[reject]` Intent: QuickScan refactor has no new tests — existing QuickScanController/QuickScanScreen/QuickScanRoute tests pass unchanged.
   - `[false]` `[reject]` Intent: silent shutter on a poor frame — same as the Blind feedback row (counted there).
 
+### 2026-11-18 — Review pass (follow-up)
+- verdicts: 30 findings — high 0, medium 1, low 14, false 12, maybe-false 3
+- findings:
+  - `[low]` `[reject]` Blind: an UNCERTAIN center decides the frame — carried: same as the logged "uncertain centers taken as definite" row; recorded Design Notes choice.
+  - `[low]` `[reject]` Blind: all-unreadable lower rows pass the F2L check — carried: same as the logged "unreadable lower rows" row; PO round 2 (6).
+  - `[low]` `[reject]` Blind: an extra angle can never reach "LL solved" when the first pair left a sticker unseen — needs a solved LL with an UNCERTAIN/conflicting sticker and a recognize attempt on it; fix keeps sticker evidence across captures (new state).
+  - `[false]` `[reject]` Blind: intersecting case ids accepts captures taken under different AUF — the Case is AUF-invariant; with correct readings the true Case is in every per-capture set, so a unique intersection is the true Case.
+  - `[low]` `[reject]` Blind: *Scan another angle* can recapture a corner already shown — PO round 2 (3) settled the hold-1 copy for the extra corner; a repeat only returns the same *several* list; fix needs earlier corners passed into the capture.
+  - `[low]` `[reject]` Blind: Close during the pending denial check can reopen the editor — carried: same as the logged denial-check row.
+  - `[false]` `[reject]` Blind: contract accepts 1 or 2 corners regardless of the request — the Activity returns exactly `caseCorners` views (CaseCaptureController(saved, corners)); a mismatched payload is not reachable.
+  - `[low]` `[patch]` Blind: re-prompt text in `CornerPrompt` is not announced to TalkBack — added `liveRegion = Polite` to the prompt Text in GuidedScanScreen.kt (matches `calibration:prompt`).
+  - `[low]` `[reject]` Blind: shutter gives no feedback when the corner is lost — carried: same as the logged shutter-feedback row.
+  - `[low]` `[reject]` Blind: matcher built on the composition thread even with recognition OFF — one build per loaded catalog (remembered), negligible cost; gating adds a branch for no user-visible harm.
+  - `[maybe-false]` `[defer]` Blind: route test's uniform faces cannot catch mirrored sticker order — carried: same as the deferred sticker-order item (device session C); not deferred again.
+  - `[low]` `[reject]` Edge: after process death an extra-angle result vanishes without a message — the earlier 11.3 patch drops a one-corner capture without earlier candidates on purpose; rare (process death while the camera is open); fix needs SavedStateHandle persistence.
+  - `[low]` `[reject]` Edge: a confident white sticker in the yellow LL can still be named — needs a physically impossible cube or a confident white/yellow misread; fix adds a matching rule outside LastLayerMatcher (AD-19).
+  - `[medium]` `[defer]` Edge: Placement Accept ignores a failed `placeFromScan` write — pre-existing 11.2 code (baseline AppShell.kt L389); deferred in frontmatter.
+  - `[low]` `[reject]` Edge: case mode shows the six-face viewfinder while calibration loads — a load-time frame (local DataStore read); any fix still shows a placeholder phase until the load resolves.
+  - `[false]` `[reject]` Edge: a wrong-typed editor marker decodes mixed payloads as Captured — the only producer is GuidedScanActivity's own encode/editor; with valid colors Captured is the correct decode.
+  - `[maybe-false]` `[defer]` VerificationGap: camera-fed sticker order unverified end to end — carried: same as the deferred sticker-order item; not deferred again.
+  - `[low]` `[patch]` VerificationGap: recorded camera denial untested at the Library entry — added `recordedDenialFromLibraryOpensTheRecognizeEditorAndStartsNoScan` to CaseRecognitionRouteTest.
+  - `[low]` `[patch]` VerificationGap: ambiguous candidate tile navigation untested — AppShellRecognizeTest now taps "OLL 1", checks the detail title and paused playback ("Play"), and back returns to the result.
+  - `[maybe-false]` `[defer]` Intent: real camera geometry vs synthetic views — carried: same as the deferred sticker-order item.
+  - `[false]` `[reject]` Intent: Unique reached only through the editor above the domain — RecognizeScreen renders by `Recognition`, not by source; `fromCorners` → Unique is covered in RecognizeCaseTest.
+  - `[false]` `[reject]` Intent: wrong second corner is NoFit at the ViewModel level — carried: same as the logged "same-corner pair is NoFit below the capture surface" row.
+  - `[false]` `[reject]` Intent: extra angle intersects instead of merging; unsolved lower rows turn several into not-at-LL — PO round 2 (3) says intersect; any seen unsolved F2L sticker is the matrix's Not-at-LL state.
+  - `[low]` `[reject]` Intent: one-corner result with no earlier candidates falls back to the Library silently — same as the Edge process-death row.
+  - `[false]` `[reject]` Intent: reduce-motion stepping untested — carried: shared player owns it.
+  - `[false]` `[reject]` Intent: family rename changes the Library chips — deliberate, consistent naming recorded in the first pass; no harm named.
+  - `[false]` `[reject]` Intent: `fromCube` hardcodes YELLOW as LL color — the manual route has no capture; `LastLayerView.of(state, YELLOW)` finds the yellow face wherever it is.
+  - `[false]` `[reject]` Intent: Quick Scan refactor has no new tests — carried: existing Quick Scan suites pass unchanged.
+  - `[false]` `[reject]` Intent: diff edits a planning artifact — the spec lives in implementation-artifacts, not planning-artifacts.
+  - `[false]` `[reject]` Intent: release/benchmark OFF untested — FeatureFlagLevelsTest asserts release CASE_RECOGNITION=OFF and benchmark = release.
+
 ## Design Notes
 
 **Corner → `LastLayerView`** (ScanAssembler): with top `t`, left `f`, right `r` in net order, stickers = `[t7,t6,f0,f1,f2, t5,t8,r0,r1,r2, t1,t2,_,_,_, t3,t0,_,_,_]`, `partial(lastLayer = t4, front = f4, …)`. Lower rows = `f3,f5..f8` vs `f4`, `r3,r5..r8` vs `r4`. Opposite corner `(t', f', r')` fills blocks B = `[t'7,t'6,f'0..2]`, L = `[t'5,t'8,r'0..2]` of the first view and is checked against the first view's U stickers via its own `t'` (U rotated by y2).
@@ -176,3 +217,17 @@ Status: done
 **Verification:** `./gradlew spotlessCheck build` BUILD SUCCESSFUL; `./gradlew -p build-logic test` BUILD SUCCESSFUL (after patches).
 
 **Residual risks:** device session C (human gate) still pending — capture acceptance with the stickered cube and the deferred sticker-order check; Library family chips/headings now read "P-shape/T-shape/C-shape/W-shape/L-shape" instead of "P/T/C/W/L shape".
+
+### Follow-up review pass (2026-11-18)
+
+**Summary:** Independent follow-up review (Codex blind / edge-case / verification-gap layers, Claude intent-alignment) of the full 11.3 diff, including the first pass's intersection and family-label patches. No high or medium defect in the 11.3 change; three low patches applied.
+
+**Files changed:** `app/src/camera/.../GuidedScanScreen.kt` (corner prompt is a polite live region so re-prompts are announced); `app/src/test/.../ui/shell/AppShellRecognizeTest.kt` (ambiguous tile opens its detail, paused, back returns to the result); `app/src/testDebug/.../CaseRecognitionRouteTest.kt` (recorded camera denial from the Library opens the Recognize editor, no scan started).
+
+**Review:** 30 findings — patched 3 (all low: TalkBack prompt, 2 test gaps); deferred 1 new (medium, pre-existing 11.2: Placement Accept ignores a failed progress write); 3 carried to the existing sticker-order deferral; 23 rejected with reasons in the triage log (12 false, 11 low not worth the added complexity or carried from the first pass).
+
+**Follow-up review recommended:** false — follow-up pass patched no high (patched: high 0, medium 0, low 3); the work has converged.
+
+**Verification:** `./gradlew :app:testDebugUnitTest --tests *AppShellRecognizeTest --tests *CaseRecognitionRouteTest --tests *QuickScanScreenTest` BUILD SUCCESSFUL (AppShellRecognizeTest 8/8, CaseRecognitionRouteTest 4/4); `./gradlew spotlessApply spotlessCheck build` BUILD SUCCESSFUL; `./gradlew -p build-logic test` BUILD SUCCESSFUL.
+
+**Residual risks:** device session C (human gate) still pending: sticker order against the real unwarp (deferred, high unverified); the pre-existing Placement save-failure path (deferred).

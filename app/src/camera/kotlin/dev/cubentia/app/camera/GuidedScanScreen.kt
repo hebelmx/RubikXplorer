@@ -569,7 +569,12 @@ internal fun CornerPrompt(
     ) {
         if (casePrompt == null) QuickScanPlan.holds[hold - 1].forEach { Swatch(it.centerColor, 24.dp) }
         val prompt = if (hold == 1) ContentText("msg.quick-scan.hold-first") else ContentText("msg.quick-scan.hold-second")
-        Text(strings.resolve(casePrompt ?: prompt), style = MaterialTheme.typography.bodyMedium)
+        // Re-prompts replace this text: TalkBack announces the change.
+        Text(
+            strings.resolve(casePrompt ?: prompt),
+            Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 

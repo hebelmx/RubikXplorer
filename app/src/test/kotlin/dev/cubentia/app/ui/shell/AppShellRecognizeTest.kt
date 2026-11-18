@@ -6,6 +6,7 @@ import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -99,7 +100,11 @@ class AppShellRecognizeTest {
         rule.runOnIdle { flow.onCapture(CaseCaptureOutcome.Captured(listOf(first, second))) }
         val count = content.bundle.cases.size
         rule.onNodeWithText("This could be one of $count cases").assertIsDisplayed()
-        rule.onNodeWithText("OLL 1").assertExists()
+        rule.onNodeWithText("OLL 1").performClick()
+        rule.onNodeWithTag("algorithmDetail:title").assertTextContains("OLL 1")
+        rule.onNodeWithTag("playback:playPause").assertContentDescriptionEquals("Play")
+        rule.runOnIdle { back.onBackPressed() }
+        rule.onNodeWithText("This could be one of $count cases").assertIsDisplayed()
         rule.onNodeWithText("Scan another angle").performClick()
         assertEquals(listOf(1), requests)
         rule.runOnIdle { flow.onCapture(CaseCaptureOutcome.Cancelled) }

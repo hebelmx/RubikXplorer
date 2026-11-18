@@ -10,6 +10,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -43,6 +44,7 @@ import dev.cubentia.domain.recognition.GuidedScanPlan
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -75,7 +77,11 @@ class CaseRecognitionRouteTest {
     @BindValue val launcher: ScanLauncher =
         object : ScanLauncher by CameraScanLauncher() {
             override fun hasCamera(context: Context) = true
+
+            override fun cameraDenied(context: Context) = denied
         }
+
+    private var denied = false
 
     @Test
     fun libraryRunsCalibrationAndCapturesBothCornersBeforeReturningTheResult() {
@@ -160,6 +166,26 @@ class CaseRecognitionRouteTest {
             assertEquals(CaseCaptureOutcome.FellBackToEditor, CaseCaptureContract.decode(scan.resultCode, scan.resultIntent))
         } finally {
             activity.pause().stop().destroy()
+        }
+    }
+
+    @Test
+    fun recordedDenialFromLibraryOpensTheRecognizeEditorAndStartsNoScan() {
+        denied = true
+        hilt.inject()
+        val main = Robolectric.buildActivity(MainActivity::class.java).setup()
+        try {
+            waitFor("welcome:imNew")
+            rule.onNodeWithTag("welcome:imNew").performClick()
+            rule.onNodeWithTag("nav:library").performClick()
+            rule.onNodeWithTag("library:recognize").performClick()
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                rule.onAllNodesWithText("Camera access is off, so enter your cube's colors here.").fetchSemanticsNodes().isNotEmpty()
+            }
+            assertNull(shadowOf(main.get()).peekNextStartedActivityForResult())
+        } finally {
+            main.pause().stop().destroy()
         }
     }
 
