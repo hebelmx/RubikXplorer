@@ -17,6 +17,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.lifecycle.viewModelScope
 import dev.cubentia.app.content.LessonCatalog
 import dev.cubentia.app.data.SerialWriter
 import dev.cubentia.app.scan.ScanOutcome
@@ -56,6 +57,8 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -126,9 +129,15 @@ class AppShellSolveTest {
         )
 
     @After fun close() {
-        rule.runOnIdle { flow.closeEditor() }
-        runBlocking { writer.close() }
-        Dispatchers.resetMain()
+        try {
+            runBlocking {
+                flow.viewModelScope.coroutineContext.job
+                    .cancelAndJoin()
+                writer.close()
+            }
+        } finally {
+            Dispatchers.resetMain()
+        }
     }
 
     private var back: OnBackPressedDispatcher? = null
