@@ -38,17 +38,79 @@ Verdicts use the gating devices and the applicable lighting. Sticker rates exclu
 
 ### Per cell
 
-NO DATA
+| Scope | Feature | Runs | Without truth | Metric | Result | Verdict |
+| --- | --- | ---: | ---: | --- | --- | --- |
+| lenovo-tb128xu_stka_warm_guided | guided | 4 | 2 | Valid with ≤ 3 corrections | 3/4 (75.000%) | MISSED |
+| lenovo-tb128xu_stka_warm_guided | guided | 4 | 2 | Accepted median time | 76934.0 ms (3/3 timed) | MISSED |
+| lenovo-tb128xu_stka_warm_guided | guided | 4 | 2 | Sticker accuracy | 96/96 (100.000%) | MET |
+| lenovo-tb128xu_stka_warm_guided | guided | 4 | 2 | Initial-read accuracy | 90/96 (93.750%) | — |
+| lenovo-tb128xu_stka_warm_guided | guided | 4 | 2 | Confidently wrong | 0/96 (0.000%); 95% upper bound ≈ 3.125% | MET |
+| lenovo-tb128xu_stka_warm_guided | guided | 4 | 2 | Accepted but wrong | 0/2 (0.000%); 95% upper bound ≈ 100.000% | — |
+| lenovo-tb128xu_stka_warm_quickscan | quickscan | 1 | 0 | Valid with ≤ 3 corrections | 0/1 (0.000%); 95% upper bound ≈ 100.000% | MISSED |
+| lenovo-tb128xu_stka_warm_quickscan | quickscan | 1 | 0 | Accepted median time | — (0/0 timed) | NO DATA |
+| lenovo-tb128xu_stka_warm_quickscan | quickscan | 1 | 0 | Sticker accuracy | no truth or no eligible observations (n=0) | — |
+| lenovo-tb128xu_stka_warm_quickscan | quickscan | 1 | 0 | Initial-read accuracy | 41/48 (85.417%) | — |
+| lenovo-tb128xu_stka_warm_quickscan | quickscan | 1 | 0 | Confidently wrong | 2/48 (4.167%) | MISSED |
+| lenovo-tb128xu_stka_warm_quickscan | quickscan | 1 | 0 | Accepted but wrong | no truth or no eligible observations (n=0) | — |
+| lenovo-tb128xu_stla_warm_guided | guided | 1 | 0 | Valid with ≤ 3 corrections | 1/1 (100.000%) | MET |
+| lenovo-tb128xu_stla_warm_guided | guided | 1 | 0 | Accepted median time | 23502.0 ms (1/1 timed) | MET |
+| lenovo-tb128xu_stla_warm_guided | guided | 1 | 0 | Sticker accuracy | 48/48 (100.000%) | MET |
+| lenovo-tb128xu_stla_warm_guided | guided | 1 | 0 | Initial-read accuracy | 48/48 (100.000%) | — |
+| lenovo-tb128xu_stla_warm_guided | guided | 1 | 0 | Confidently wrong | 0/48 (0.000%); 95% upper bound ≈ 6.250% | MET |
+| lenovo-tb128xu_stla_warm_guided | guided | 1 | 0 | Accepted but wrong | 0/1 (0.000%); 95% upper bound ≈ 100.000% | — |
+| sm-s721u1_stka_warm_guided | guided | 1 | 0 | Valid with ≤ 3 corrections | 1/1 (100.000%) | MET |
+| sm-s721u1_stka_warm_guided | guided | 1 | 0 | Accepted median time | 31308.0 ms (1/1 timed) | MET |
+| sm-s721u1_stka_warm_guided | guided | 1 | 0 | Sticker accuracy | 48/48 (100.000%) | MET |
+| sm-s721u1_stka_warm_guided | guided | 1 | 0 | Initial-read accuracy | 48/48 (100.000%) | — |
+| sm-s721u1_stka_warm_guided | guided | 1 | 0 | Confidently wrong | 0/48 (0.000%); 95% upper bound ≈ 6.250% | MET |
+| sm-s721u1_stka_warm_guided | guided | 1 | 0 | Accepted but wrong | 0/1 (0.000%); 95% upper bound ≈ 100.000% | — |
+| sm-s721u1_stka_warm_quickcheck | quickcheck | 1 | 0 | False VERIFIED | 0/1 (0.000%); 95% upper bound ≈ 100.000% | MET |
+| sm-s721u1_stka_warm_quickcheck | quickcheck | 1 | 0 | Match confirmed | 1/1 (100.000%) | MET |
+| sm-s721u1_stka_warm_quickcheck | quickcheck | 1 | 0 | Captures | max 6 (n=1/1) | MISSED |
+| sm-s721u1_stka_warm_quickcheck | quickcheck | 1 | 0 | Confidently wrong (Partial matches) | no truth or no eligible observations (n=0) | NO DATA |
+| sm-s721u1_stla_warm_guided | guided | 3 | 2 | Valid with ≤ 3 corrections | 2/3 (66.667%) | MISSED |
+| sm-s721u1_stla_warm_guided | guided | 3 | 2 | Accepted median time | 21277.0 ms (2/2 timed) | MET |
+| sm-s721u1_stla_warm_guided | guided | 3 | 2 | Sticker accuracy | 48/48 (100.000%) | MET |
+| sm-s721u1_stla_warm_guided | guided | 3 | 2 | Initial-read accuracy | 48/48 (100.000%) | — |
+| sm-s721u1_stla_warm_guided | guided | 3 | 2 | Confidently wrong | 0/48 (0.000%); 95% upper bound ≈ 6.250% | MET |
+| sm-s721u1_stla_warm_guided | guided | 3 | 2 | Accepted but wrong | 0/1 (0.000%); 95% upper bound ≈ 100.000% | — |
+| sm-s721u1_stla_warm_quickcheck | quickcheck | 2 | 0 | False VERIFIED | 0/2 (0.000%); 95% upper bound ≈ 100.000% | MET |
+| sm-s721u1_stla_warm_quickcheck | quickcheck | 2 | 0 | Match confirmed | 2/2 (100.000%) | MET |
+| sm-s721u1_stla_warm_quickcheck | quickcheck | 2 | 0 | Captures | max 6 (n=2/2) | MISSED |
+| sm-s721u1_stla_warm_quickcheck | quickcheck | 2 | 0 | Confidently wrong (Partial matches) | no truth or no eligible observations (n=0) | NO DATA |
 
 ### Per device
 
-NO DATA
+| Scope | Feature | Runs | Without truth | Metric | Result | Verdict |
+| --- | --- | ---: | ---: | --- | --- | --- |
+| lenovo-tb128xu | guided | 5 | 2 | Valid with ≤ 3 corrections | 4/5 (80.000%) | MISSED |
+| lenovo-tb128xu | guided | 5 | 2 | Accepted median time | 74621.0 ms (4/4 timed) | MISSED |
+| lenovo-tb128xu | guided | 5 | 2 | Sticker accuracy | 144/144 (100.000%) | MET |
+| lenovo-tb128xu | guided | 5 | 2 | Initial-read accuracy | 138/144 (95.833%) | — |
+| lenovo-tb128xu | guided | 5 | 2 | Confidently wrong | 0/144 (0.000%); 95% upper bound ≈ 2.083% | MET |
+| lenovo-tb128xu | guided | 5 | 2 | Accepted but wrong | 0/3 (0.000%); 95% upper bound ≈ 100.000% | — |
+| lenovo-tb128xu | quickscan | 1 | 0 | Valid with ≤ 3 corrections | 0/1 (0.000%); 95% upper bound ≈ 100.000% | MISSED |
+| lenovo-tb128xu | quickscan | 1 | 0 | Accepted median time | — (0/0 timed) | NO DATA |
+| lenovo-tb128xu | quickscan | 1 | 0 | Sticker accuracy | no truth or no eligible observations (n=0) | — |
+| lenovo-tb128xu | quickscan | 1 | 0 | Initial-read accuracy | 41/48 (85.417%) | — |
+| lenovo-tb128xu | quickscan | 1 | 0 | Confidently wrong | 2/48 (4.167%) | MISSED |
+| lenovo-tb128xu | quickscan | 1 | 0 | Accepted but wrong | no truth or no eligible observations (n=0) | — |
+| sm-s721u1 | guided | 4 | 2 | Valid with ≤ 3 corrections | 3/4 (75.000%) | MISSED |
+| sm-s721u1 | guided | 4 | 2 | Accepted median time | 22199.0 ms (3/3 timed) | MET |
+| sm-s721u1 | guided | 4 | 2 | Sticker accuracy | 96/96 (100.000%) | MET |
+| sm-s721u1 | guided | 4 | 2 | Initial-read accuracy | 96/96 (100.000%) | — |
+| sm-s721u1 | guided | 4 | 2 | Confidently wrong | 0/96 (0.000%); 95% upper bound ≈ 3.125% | MET |
+| sm-s721u1 | guided | 4 | 2 | Accepted but wrong | 0/2 (0.000%); 95% upper bound ≈ 100.000% | — |
+| sm-s721u1 | quickcheck | 3 | 0 | False VERIFIED | 0/3 (0.000%); 95% upper bound ≈ 100.000% | MET |
+| sm-s721u1 | quickcheck | 3 | 0 | Match confirmed | 3/3 (100.000%) | MET |
+| sm-s721u1 | quickcheck | 3 | 0 | Captures | max 6 (n=3/3) | MISSED |
+| sm-s721u1 | quickcheck | 3 | 0 | Confidently wrong (Partial matches) | no truth or no eligible observations (n=0) | NO DATA |
 
 ### Matrix coverage
 
-- guided: 0/24 cells present. Devices —. Cubes —. Lights —.
-- quickscan: 0/24 cells present. Devices —. Cubes —. Lights —.
-- quickcheck: 0/24 cells present. Devices —. Cubes —. Lights —.
+- guided: 4/24 cells present. Devices lenovo-tb128xu, sm-s721u1. Cubes stka, stla. Lights warm.
+- quickscan: 1/24 cells present. Devices lenovo-tb128xu. Cubes stka. Lights warm.
+- quickcheck: 2/24 cells present. Devices sm-s721u1. Cubes stka, stla. Lights warm.
 - recognize: 0/24 cells present. Devices —. Cubes —. Lights —.
 - placement: 0/24 cells present. Devices —. Cubes —. Lights —.
 
@@ -56,22 +118,22 @@ NO DATA
 
 | Scope | Feature | Runs | Without truth | Metric | Result | Verdict |
 | --- | --- | ---: | ---: | --- | --- | --- |
-| All devices | guided | 0 | 0 | Valid with ≤ 3 corrections | n=0 | NO DATA |
-| All devices | guided | 0 | 0 | Accepted median time | — (0/0 timed) | NO DATA |
-| All devices | guided | 0 | 0 | Sticker accuracy | no truth or no eligible observations (n=0) | NO DATA |
-| All devices | guided | 0 | 0 | Initial-read accuracy | no truth or no eligible observations (n=0) | NO DATA |
-| All devices | guided | 0 | 0 | Confidently wrong | no truth or no eligible observations (n=0) | NO DATA |
-| All devices | guided | 0 | 0 | Accepted but wrong | no truth or no eligible observations (n=0) | NO DATA |
-| All devices | quickscan | 0 | 0 | Valid with ≤ 3 corrections | n=0 | NO DATA |
-| All devices | quickscan | 0 | 0 | Accepted median time | — (0/0 timed) | NO DATA |
-| All devices | quickscan | 0 | 0 | Sticker accuracy | no truth or no eligible observations (n=0) | NO DATA |
-| All devices | quickscan | 0 | 0 | Initial-read accuracy | no truth or no eligible observations (n=0) | NO DATA |
-| All devices | quickscan | 0 | 0 | Confidently wrong | no truth or no eligible observations (n=0) | NO DATA |
-| All devices | quickscan | 0 | 0 | Accepted but wrong | no truth or no eligible observations (n=0) | NO DATA |
-| All devices | quickcheck | 0 | 0 | False VERIFIED | no truth or no eligible observations (n=0) | NO DATA |
-| All devices | quickcheck | 0 | 0 | Match confirmed | no truth or no eligible observations (n=0) | NO DATA |
-| All devices | quickcheck | 0 | 0 | Captures | n=0/0 | NO DATA |
-| All devices | quickcheck | 0 | 0 | Confidently wrong (Partial matches) | no truth or no eligible observations (n=0) | NO DATA |
+| All devices | guided | 9 | 4 | Valid with ≤ 3 corrections | 7/9 (77.778%) | MISSED |
+| All devices | guided | 9 | 4 | Accepted median time | 31308.0 ms (7/7 timed) | MET |
+| All devices | guided | 9 | 4 | Sticker accuracy | 240/240 (100.000%) | MET |
+| All devices | guided | 9 | 4 | Initial-read accuracy | 234/240 (97.500%) | — |
+| All devices | guided | 9 | 4 | Confidently wrong | 0/240 (0.000%); 95% upper bound ≈ 1.250% | MET |
+| All devices | guided | 9 | 4 | Accepted but wrong | 0/5 (0.000%); 95% upper bound ≈ 60.000% | — |
+| All devices | quickscan | 1 | 0 | Valid with ≤ 3 corrections | 0/1 (0.000%); 95% upper bound ≈ 100.000% | MISSED |
+| All devices | quickscan | 1 | 0 | Accepted median time | — (0/0 timed) | NO DATA |
+| All devices | quickscan | 1 | 0 | Sticker accuracy | no truth or no eligible observations (n=0) | — |
+| All devices | quickscan | 1 | 0 | Initial-read accuracy | 41/48 (85.417%) | — |
+| All devices | quickscan | 1 | 0 | Confidently wrong | 2/48 (4.167%) | MISSED |
+| All devices | quickscan | 1 | 0 | Accepted but wrong | no truth or no eligible observations (n=0) | — |
+| All devices | quickcheck | 3 | 0 | False VERIFIED | 0/3 (0.000%); 95% upper bound ≈ 100.000% | MET |
+| All devices | quickcheck | 3 | 0 | Match confirmed | 3/3 (100.000%) | MET |
+| All devices | quickcheck | 3 | 0 | Captures | max 6 (n=3/3) | MISSED |
+| All devices | quickcheck | 3 | 0 | Confidently wrong (Partial matches) | no truth or no eligible observations (n=0) | NO DATA |
 | All devices | recognize | 0 | 0 | Wrong single Case | no truth or no eligible observations (n=0) | NO DATA |
 | All devices | recognize | 0 | 0 | SEVERAL missing truth candidate | no truth or no eligible observations (n=0) | NO DATA |
 | All devices | recognize | 0 | 0 | Result time | n=0/0 | NO DATA |
