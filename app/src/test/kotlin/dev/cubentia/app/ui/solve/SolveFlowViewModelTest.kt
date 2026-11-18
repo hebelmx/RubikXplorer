@@ -1,5 +1,6 @@
 package dev.cubentia.app.ui.solve
 
+import androidx.lifecycle.viewModelScope
 import dev.cubentia.app.scan.ScanOutcome
 import dev.cubentia.app.solver.SolverLoad
 import dev.cubentia.app.solver.SolverSource
@@ -13,10 +14,13 @@ import dev.cubentia.domain.cube.Turn
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.job
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -32,13 +36,25 @@ import org.junit.jupiter.api.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SolveFlowViewModelTest {
+    private val dispatcher = UnconfinedTestDispatcher()
+    private val scopes = mutableListOf<Job>()
+    private val lateResultGate = CompletableDeferred<Unit>()
+
     @BeforeEach fun main() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        Dispatchers.setMain(dispatcher)
     }
 
     @AfterEach fun reset() {
+        // A published phase or a cancellation request can precede the last use of Main.
+        runBlocking {
+            scopes.forEach { it.cancel() }
+            lateResultGate.complete(Unit)
+            scopes.joinAll()
+        }
         Dispatchers.resetMain()
     }
+
+    private fun viewModel(source: SolverSource) = SolveFlowViewModel(source).also { scopes += it.viewModelScope.coroutineContext.job }
 
     private val move = FaceTurn(Face.R, Turn.CLOCKWISE)
     private val cube = CubeState.SOLVED.apply(move)
@@ -61,7 +77,7 @@ class SolveFlowViewModelTest {
 
     @Test fun confirmingSolvedCubeSkipsSolverAndClearsScanInEitherOrientation() {
         val vm =
-            SolveFlowViewModel(
+            viewModel(
                 object : SolverSource {
                     override val isReady: Boolean get() = throw AssertionError("Solver readiness must not be checked")
 
@@ -85,7 +101,7 @@ class SolveFlowViewModelTest {
     @Test fun confirmingScrambledCubePublishesTheSolution() =
         runBlocking {
             val moves = listOf(move.inverse())
-            val vm = SolveFlowViewModel(source(CubeSolver { SolveResult.Solved(moves) }))
+            val vm = viewModel(source(CubeSolver { SolveResult.Solved(moves) }))
             val result = CompletableDeferred<Pair<CubeState, List<FaceTurn>>>()
             vm.onScanOutcome(ScanOutcome.Accepted(cube))
             vm.confirm(cube) { state, solution -> result.complete(state to solution) }
@@ -95,7 +111,7 @@ class SolveFlowViewModelTest {
         }
 
     @Test fun scanOutcomesOnlyPrepareTheEditor() {
-        val vm = SolveFlowViewModel(source(CubeSolver { error("Scan must not solve") }))
+        val vm = viewModel(source(CubeSolver { error("Scan must not solve") }))
         vm.onScanOutcome(dev.cubentia.app.scan.ScanOutcome.Cancelled)
         assertEquals(SolvePhase.Home, vm.phase.value)
         vm.onScanOutcome(
@@ -130,7 +146,7 @@ class SolveFlowViewModelTest {
 
     @Test fun anAcceptedScanConfirmedUnchangedOrCorrectedCountsAsTheScanBaseline() =
         runBlocking {
-            val vm = SolveFlowViewModel(source(CubeSolver { SolveResult.Solved(listOf(move.inverse())) }))
+            val vm = viewModel(source(CubeSolver { SolveResult.Solved(listOf(move.inverse())) }))
             assertFalse(vm.isAcceptedScan())
             vm.onScanOutcome(
                 dev.cubentia.app.scan.ScanOutcome
@@ -169,7 +185,7 @@ class SolveFlowViewModelTest {
 
     @Test fun fallbackAndDenialAfterASolveUseTheFreshEditorState() =
         runBlocking {
-            val vm = SolveFlowViewModel(source(CubeSolver { SolveResult.Solved(listOf(move.inverse())) }))
+            val vm = viewModel(source(CubeSolver { SolveResult.Solved(listOf(move.inverse())) }))
             vm.accept(cube) { _, _ -> }
             withTimeout(5000) { vm.phase.first { it == SolvePhase.Home } }
             vm.onScanOutcome(dev.cubentia.app.scan.ScanOutcome.FellBackToEditor)
@@ -186,7 +202,7 @@ class SolveFlowViewModelTest {
             val enteredSolver = CompletableDeferred<Unit>()
             val result = CompletableDeferred<List<FaceTurn>>()
             val vm =
-                SolveFlowViewModel(
+                viewModel(
                     source(
                         CubeSolver {
                             enteredSolver.complete(Unit)
@@ -218,7 +234,7 @@ class SolveFlowViewModelTest {
                 SolveResult.Failed to "msg.solve.failed",
                 SolveResult.Solved(emptyList()) to "msg.solve.failed",
             )) {
-                val vm = SolveFlowViewModel(source(CubeSolver { result }))
+                val vm = viewModel(source(CubeSolver { result }))
                 vm.accept(cube) { _, _ -> error("unexpected playback") }
                 val editing = vm.editing()
                 assertEquals(cube.toFacelets(), editing.initial)
@@ -231,7 +247,7 @@ class SolveFlowViewModelTest {
             val loadGate = CompletableDeferred<Unit>()
             val solving = CompletableDeferred<Unit>()
             val vm =
-                SolveFlowViewModel(
+                viewModel(
                     object : SolverSource {
                         override val isReady = false
 
@@ -260,7 +276,7 @@ class SolveFlowViewModelTest {
         runBlocking {
             val signals = kotlinx.coroutines.channels.Channel<() -> Unit>(2)
             val vm =
-                SolveFlowViewModel(
+                viewModel(
                     object : SolverSource {
                         override val isReady = false
 
@@ -287,7 +303,7 @@ class SolveFlowViewModelTest {
     @Test fun loadFailurePreservesColors() =
         runBlocking {
             val vm =
-                SolveFlowViewModel(
+                viewModel(
                     object : SolverSource {
                         override val isReady = false
 
@@ -301,16 +317,15 @@ class SolveFlowViewModelTest {
 
     @Test fun cancelDiscardsNoncooperativeLateResult() =
         runBlocking {
-            val gate = CompletableDeferred<Unit>()
             val started = CompletableDeferred<Unit>()
             val ended = CompletableDeferred<Unit>()
             var published = false
             val vm =
-                SolveFlowViewModel(
+                viewModel(
                     source(
                         CubeSolver {
                             started.complete(Unit)
-                            withContext(NonCancellable) { gate.await() }
+                            withContext(NonCancellable) { lateResultGate.await() }
                             ended.complete(Unit)
                             SolveResult.Solved(listOf(move.inverse()))
                         },
@@ -320,7 +335,7 @@ class SolveFlowViewModelTest {
             withTimeout(5000) { started.await() }
             vm.cancel()
             assertEquals(SolvePhase.Editing(cube.toFacelets()), vm.phase.value)
-            gate.complete(Unit)
+            lateResultGate.complete(Unit)
             withTimeout(5000) { ended.await() }
             delay(100)
             assertFalse(published)
@@ -329,7 +344,6 @@ class SolveFlowViewModelTest {
 
     @Test fun secondAcceptSupersedesFirst() =
         runBlocking {
-            val gate = CompletableDeferred<Unit>()
             val started = CompletableDeferred<Unit>()
             val ended = CompletableDeferred<Unit>()
             val result = CompletableDeferred<CubeState>()
@@ -337,12 +351,12 @@ class SolveFlowViewModelTest {
                 java.util.concurrent.atomic
                     .AtomicInteger()
             val vm =
-                SolveFlowViewModel(
+                viewModel(
                     source(
                         CubeSolver {
                             if (calls.incrementAndGet() == 1) {
                                 started.complete(Unit)
-                                withContext(NonCancellable) { gate.await() }
+                                withContext(NonCancellable) { lateResultGate.await() }
                                 ended.complete(Unit)
                                 SolveResult.Solved(listOf(move.inverse()))
                             } else {
@@ -355,7 +369,7 @@ class SolveFlowViewModelTest {
             withTimeout(5000) { started.await() }
             vm.accept(CubeState.SOLVED) { state, _ -> result.complete(state) }
             assertEquals(CubeState.SOLVED, withTimeout(5000) { result.await() })
-            gate.complete(Unit)
+            lateResultGate.complete(Unit)
             withTimeout(5000) { ended.await() }
             delay(100)
             assertEquals(SolvePhase.Home, vm.phase.value)
@@ -363,11 +377,9 @@ class SolveFlowViewModelTest {
 
     @Test fun realDeadlineReturnsToEditor() =
         runBlocking {
-            val dispatcher = UnconfinedTestDispatcher()
-            Dispatchers.setMain(dispatcher)
             val started = CompletableDeferred<Unit>()
             val vm =
-                SolveFlowViewModel(
+                viewModel(
                     source(
                         CubeSolver {
                             started.complete(Unit)
@@ -390,7 +402,7 @@ class SolveFlowViewModelTest {
     @Test fun cancellingPreparationKeepsColorsAndAllowsRetry() =
         runBlocking {
             val gate = CompletableDeferred<Unit>()
-            val vm = SolveFlowViewModel(source(CubeSolver { SolveResult.Solved(emptyList()) }, false, gate))
+            val vm = viewModel(source(CubeSolver { SolveResult.Solved(emptyList()) }, false, gate))
             vm.accept(CubeState.SOLVED) { _, _ -> error("cancelled playback") }
             vm.cancel()
             assertEquals(SolvePhase.Editing(CubeState.SOLVED.toFacelets()), vm.phase.value)
