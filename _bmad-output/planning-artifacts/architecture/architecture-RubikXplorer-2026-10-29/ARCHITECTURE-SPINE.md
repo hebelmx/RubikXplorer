@@ -253,7 +253,7 @@ stateDiagram-v2
     - Quick Scan's detection and perspective correction live inside the adapter and emit the same type.
     - **Detection method** (OQ-7 decision K, PO 2026-11-15, Story 10.13, `docs/spikes/oq-7-recognition-approach.md`): Kotlin nearest-center classification fed by a per-cell histogram-mode reader, self-calibrated from the six face centers; no new runtime, so the Story 10.9 classpath gate is unchanged. LiteRT is the fallback if field use shows this is not enough; OpenCV is rejected on size (NFR-11). Story 11.1 builds Quick Scan's detection within this decision.
   - **Assembly and classification:**
-    - Only `ScanAssembler` in `:core:domain` rotates samples into `Facelets` order. A sample with no `upNeighborColor` gets the quarter turn that makes the six faces a state `CubeValidator` accepts; when no turn or more than one distinct state fits, it reports the faces involved for a re-prompt with a named top and never guesses (Story 10.14, SCP 2026-11-16).
+    - Only `ScanAssembler` in `:core:domain` rotates samples into `Facelets` order. A sample with no `upNeighborColor` gets the quarter turn that makes the six faces a state `CubeValidator` accepts; when no turn or more than one distinct state fits, it reports the faces involved for a re-prompt with a named top and never guesses (Story 10.14, SCP 2026-11-16). With no valid state it reports them only when they are at most `MAX_REPROMPT_FACES` (2); more go to review with the best fit and no re-prompt (SCP 2026-11-19, #164).
     - `StickerClassifier` receives the calibration as a parameter.
     - The result is `ScanResult` = `Full(Facelets + confidence)` or `Partial(...)`.
   - **Acceptance:** the reducer rejects `ScanAccepted` unless:
