@@ -476,6 +476,48 @@ class FreeCubeScreenTest {
     }
 
     @Test
+    fun `a straddling pair that twists restores the camera and commits z on its last lift`() {
+        launch()
+        rule.waitForIdle()
+        val stage = rule.onNodeWithTag("cube3d")
+        val size = stage.fetchSemanticsNode().size
+        val pose = ViewPose(size.width, size.height, ViewOrbit.DEFAULT.eye())
+        val mid = Offset(size.width / 2f, size.height / 2f)
+        val reach = size.width / 2f - 4f
+        val left = mid - Offset(reach, 0f)
+        val right = mid + Offset(reach, 0f)
+        assertFalse(GestureInterpreter.startsOnCube(ScreenPoint(left.x.toDouble(), left.y.toDouble()), pose))
+        assertFalse(GestureInterpreter.startsOnCube(ScreenPoint(right.x.toDouble(), right.y.toDouble()), pose))
+        val turned = reach * 0.7071f
+        stage.performTouchInput {
+            down(0, left)
+            down(1, right)
+            moveTo(0, left + Offset(0f, 20f), delayMillis = 0)
+            moveTo(1, right + Offset(0f, 20f))
+            moveTo(0, mid - Offset(turned, turned), delayMillis = 0)
+            moveTo(1, mid + Offset(turned, turned))
+        }
+        assertOrbitAtDefault()
+        assertNull(stage.fetchSemanticsNode().config.getOrNull(PreviewedMoveKey))
+        stage.performTouchInput { up(0) }
+        assertEquals(CubeState.SOLVED, viewModel.history.state)
+        assertTrue(ticks.isEmpty())
+        stage.performTouchInput { up(1) }
+        val z =
+            dev.cubentia.domain.cube
+                .CubeRotation(dev.cubentia.domain.cube.Axis.Z, Turn.CLOCKWISE)
+        assertEquals(CubeState.SOLVED.apply(z), viewModel.history.state)
+        assertEquals(listOf(HapticFeedbackType.KeyboardTap), ticks)
+        assertOrbitAtDefault()
+    }
+
+    private fun assertOrbitAtDefault() {
+        val orbit = viewModel.renderer.orbit
+        assertEquals(ViewOrbit.DEFAULT.yawDegrees, orbit.yawDegrees, 1e-9)
+        assertEquals(ViewOrbit.DEFAULT.pitchDegrees, orbit.pitchDegrees, 1e-9)
+    }
+
+    @Test
     fun `view menu reset button and double tap keep history unchanged`() {
         launch()
         rule.onNodeWithTag("stage:resetView").assertContentDescriptionEquals("Reset view").assertTouchWidthIsAtLeast(48.dp)
@@ -880,6 +922,46 @@ class FreeCubeScreenTest {
         assertEquals(CubeState.SOLVED.toFacelets(), viewModel.renderer.renderedFacelets())
         assertTrue(ticks.isEmpty())
     }
+
+    @Test
+    fun `returning to the start eases the layer back to rest at the turn rate and keeps it outlined`() {
+        launch()
+        rule.waitForIdle()
+        val baseline = checkNotNull(viewModel.renderer.glSnapshot).models
+        val stage = rule.onNodeWithTag("cube3d")
+        val (start, end) = gesturePoints(Vector3(0.0, -0.8, 0.0), Vector3(1.0, 0.0, 1.5))
+        rule.mainClock.autoAdvance = false
+        stage.performTouchInput {
+            down(start)
+            moveTo(end)
+        }
+        rule.mainClock.advanceTimeByFrame()
+        val held = checkNotNull(viewModel.renderer.glSnapshot).models
+        assertTrue("the ghost turn is drawn", maxDifference(held, baseline) > 1e-3f)
+        stage.performTouchInput { moveTo(start) }
+        var intermediate = false
+        // A quarter turn takes TURN_MILLIS; this ghost is under a quarter, so it is at rest well within one turn.
+        repeat((Cube3DRenderer.TURN_MILLIS / 16) + 4) {
+            rule.mainClock.advanceTimeByFrame()
+            rule.waitForIdle()
+            val models = checkNotNull(viewModel.renderer.glSnapshot).models
+            if (maxDifference(models, held) > 1e-4f && maxDifference(models, baseline) > 1e-4f) intermediate = true
+        }
+        assertTrue("the layer passes through an intermediate angle", intermediate)
+        val rest = checkNotNull(viewModel.renderer.glSnapshot).models
+        assertTrue("the layer is back at rest before lift", maxDifference(rest, baseline) < 1e-4f)
+        assertTrue(stage.fetchSemanticsNode().config[RenderedStickersKey].any { it.previewed })
+        stage.performTouchInput { up() }
+        rule.mainClock.advanceTimeByFrame()
+        assertFalse(viewModel.history.canUndo)
+        assertTrue(ticks.isEmpty())
+        rule.mainClock.autoAdvance = true
+    }
+
+    private fun maxDifference(
+        a: FloatArray,
+        b: FloatArray,
+    ): Float = a.indices.maxOf { kotlin.math.abs(a[it] - b[it]) }
 
     @Test
     fun `parallel pair previews wide R and freezes until its last lift`() {

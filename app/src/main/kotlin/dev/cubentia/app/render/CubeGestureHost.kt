@@ -53,8 +53,9 @@ internal fun cubeGestureInput(
             var pose = ViewPose(size.width, size.height, baseOrbit.eye())
             val side = minOf(size.width, size.height).toDouble()
             var onCube = !freeViewRotation && startsOnCube(pathA.first(), pathB.firstOrNull(), pose)
-            // Both fingers off the cube around it: a View Rotation that can still become a z twist.
-            var midpointOnly = !freeViewRotation && !onCube && midpointOnCube(pathA.first(), pathB.firstOrNull(), pose)
+            // Both fingers off the cube around it: a View Rotation that can still become a z twist (only when Moves are wired).
+            var midpointOnly =
+                commit != null && !freeViewRotation && !onCube && midpointOnCube(pathA.first(), pathB.firstOrNull(), pose)
             var twisted = false
             var began = false
             var moved = false
@@ -77,12 +78,17 @@ internal fun cubeGestureInput(
                             baseOrbit = renderer.orbit
                             pose = ViewPose(size.width, size.height, baseOrbit.eye())
                             onCube = !freeViewRotation && startsOnCube(pathA.first(), pathB.first(), pose)
-                            midpointOnly = !freeViewRotation && !onCube && midpointOnCube(pathA.first(), pathB.first(), pose)
+                            midpointOnly =
+                                commit != null && !freeViewRotation && !onCube && midpointOnCube(pathA.first(), pathB.first(), pose)
                         }
                     }
                     val second = event.changes.firstOrNull { it.id == secondId }
                     if (primary?.isConsumed == true || second?.isConsumed == true) break
                     if (primary != null && (primary.position - first).getDistance() >= viewConfiguration.touchSlop) moved = true
+                    if (second != null && pathB.isNotEmpty()) {
+                        val secondStart = Offset(pathB.first().x.toFloat(), pathB.first().y.toFloat())
+                        if ((second.position - secondStart).getDistance() >= viewConfiguration.touchSlop) moved = true
+                    }
                     if (!frozen && primary != null) {
                         val a = primary.position.screenPoint()
                         val b = second?.position?.screenPoint()
@@ -91,8 +97,8 @@ internal fun cubeGestureInput(
                             // Paired samples stay aligned even when only one pointer moves.
                             pathA.add(a)
                             if (b != null) pathB.add(b)
-                            // A tap's jitter below touch slop is not a drag: it must not finish the queue or stop a Lesson job.
-                            if (onCube && commit != null && (moved || secondId != null)) {
+                            // Jitter below touch slop (one finger or a pair) is not a drag: it must not finish the queue or stop a Lesson job.
+                            if (onCube && commit != null && moved) {
                                 if (!began) {
                                     dragStart?.invoke()
                                     renderer.beginDrag()

@@ -255,7 +255,6 @@ internal fun ToolbarButton(
 @Composable
 private fun DebugToggles(viewModel: FreeCubeViewModel) {
     val preferenceStore = LocalPreferenceStore.current
-    val hapticsEnabled = LocalHaptics.current
     var objective by rememberSaveable { mutableStateOf(false) }
     LabelledSwitch(R.string.debug_glyphs, "debug:glyphs", LocalRenderStyle.current.colorBlindGlyphs, {
         preferenceStore.update(

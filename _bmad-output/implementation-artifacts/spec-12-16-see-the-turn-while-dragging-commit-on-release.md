@@ -5,7 +5,7 @@ created: '2026-11-18'
 status: 'done'
 baseline_revision: '407fd4f411ce177f32e91bbcfd30b195c6de333e'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-12-context.md'
   - '{project-root}/_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-18-drag-preview-and-view-rotated.md'
@@ -169,6 +169,46 @@ deferred:
   - `[low]` `[reject]` (intent) Renderer still owns announcement state and cancel easing — the AC moves touch handling out (done); announcement and easing are presentation of the renderer-local ghost.
   - `[low]` `[reject]` (intent) Let me try preview not tested — `preview` never reads Tutor state, so the named Move is the Learner's by construction (Test me drag asserts `U`).
 
+### 2026-11-18 — Review pass (follow-up)
+- verdicts: 36 findings — high 0, medium 6, low 21, false 9, maybe-false 0
+- findings:
+  - `[low]` `[reject]` (blind) A pair that locks PARALLEL and then spreads apart still commits the wide Move — Design Notes keep the lock "fixed at first PARALLEL lock"; a pinch that first travels a full lock distance in parallel is unlikely, and re-classifying after lock adds a branch.
+  - `[low]` `[reject]` (blind) carried: sideways motion outside the radial cancel zone keeps an `Active` preview at 0° and lift commits it — the cancel zone is the AC's own definition; the ghost arrow and label still name the Move.
+  - `[low]` `[patch]` (blind) A second finger bypassed touch slop, so two resting fingers with jitter on the Lesson cube stopped Show me how and finished the queue — `CubeGestureHost` now sets `moved` only when either finger travels past touch slop, and the drag-start side effects require `moved`.
+  - `[low]` `[patch]` (blind) A straddling pair latched a twist and froze the camera even when the stage wires no Move input — `midpointOnly` now requires a Move callback, so view-only stages keep rotating the view.
+  - `[low]` `[reject]` (blind) carried: final-pass consumption by a parent not observed — no stage has an intercepting parent in everyday use.
+  - `[low]` `[reject]` (blind) carried: whole-path replay is quadratic — frame time is part of the pending device check.
+  - `[low]` `[reject]` (blind) carried: an earlier identical Animate can adopt the held ghost — unlikely; fix needs per-presentation identity.
+  - `[low]` `[reject]` (blind) The Solve-tab fallback Free Cube (content failed to load) has no "Turn cancelled" announcement — only when the content catalog fails to load; a second copy source outside `ContentStrings` would break the spec's single learner-text route.
+  - `[medium]` `[patch]` (blind) The straddling-pair twist branch was untested — added `FreeCubeScreenTest` "a straddling pair that twists restores the camera and commits z on its last lift" (camera back at base orbit, no preview, nothing on first lift, one z and one tick on the last lift).
+  - `[medium]` `[defer]` (blind) carried: no pixel check of the `uPreview` outline — already deferred; observed in the PO device session.
+  - `[low]` `[patch]` (blind) `DebugToggles` read `LocalHaptics.current` into an unused local — removed.
+  - `[low]` `[reject]` (edge) carried: locked drag displaced sideways commits from a 0° preview — same as the blind sideways row.
+  - `[false]` `[reject]` (edge) carried: highlight stays after cancel easing — settled behavior keeps the highlight for the whole locked gesture.
+  - `[low]` `[reject]` (edge) An `Animate` reaching the queue between drag start (past slop) and lock animates for one frame alongside the first preview — the next frame's `finishAll` (preview != null) completes it; needs a Move dispatched just before the drag to arrive in that window; fix adds drag-ownership state.
+  - `[low]` `[reject]` (edge) carried: identical queued Move consumes the held angle — same as the blind identical row.
+  - `[low]` `[reject]` (edge) carried: stored samples grow and work is quadratic — same as the blind quadratic row.
+  - `[false]` `[reject]` (edge) Teaching arrow stays hidden while waiting in CancelZone — the settled behavior hides it "from lock until the gesture ends"; CancelZone is still the locked gesture.
+  - `[false]` `[reject]` (edge) An off-cube pair whose midpoint is on the cube can commit z — the I/O matrix defines "off cube" as "neither finger nor midpoint on cube"; a midpoint-on-cube pair is an on-cube twist.
+  - `[low]` `[reject]` (edge) Fallback route's empty `ContentStrings` silences "Turn cancelled" — same as the blind fallback row.
+  - `[medium]` `[patch]` (verification-gap) Cancel-zone easing could disappear without failing a test — added `FreeCubeScreenTest` "returning to the start eases the layer back to rest at the turn rate and keeps it outlined" (manual clock: an intermediate model frame, at rest within one turn duration before lift, highlight kept, nothing commits).
+  - `[medium]` `[patch]` (verification-gap) Straddling twist release untested — same test as the blind twist-test row.
+  - `[medium]` `[defer]` (verification-gap) carried: preview outline not checked on the GL surface — already deferred.
+  - `[low]` `[reject]` (intent) Device feel, real GL output and spoken TalkBack are not covered by JVM tests — this is the spec's pending PO device-session AC, recorded as a residual risk.
+  - `[medium]` `[patch]` (intent) Cancel-zone easing tested only as "previewed stickers remain" — same test as the verification-gap easing row.
+  - `[low]` `[reject]` (intent) Ghost arrow hidden in CancelZone and drawn complete are not asserted — the overlay is keyed on the same `Active` preview whose absence in CancelZone is asserted (`PreviewedMoveKey` null in the return-to-start test).
+  - `[low]` `[reject]` (intent) Pinch on cube giving no view rotation, and on-cube twist showing no ghost, are not asserted at the host — on-cube pairs never call `dragViewFrom`, and release commits only `Active` or a TWIST; the on-cube twist test asserts the camera stays at default.
+  - `[false]` `[reject]` (intent) A different item clears the ghost in the same frame it starts, not strictly before — `CubieModel.begin` clears the ghost before the new turn is built, so no published frame shows the ghost with the other item.
+  - `[false]` `[reject]` (intent) `Cube3DRenderer.kt` grew instead of shrinking — the intent names only the "gesture host part" of the retro item; touch handling is out of the file.
+  - `[false]` `[reject]` (intent) Off-cube twist behavior changed from "anywhere" — the matrix row defines the off-cube case as View Rotation; the change follows the intent.
+  - `[false]` `[reject]` (intent) Either finger on the cube makes the pair on-cube (one off + one on R → `r`) — the spec's own test list asks for "one finger off cube + one on R → `r`-family".
+  - `[low]` `[reject]` (intent) Fallback Free Cube stays silent on cancel — same as the blind fallback row.
+  - `[low]` `[reject]` (intent) carried: Lesson traversal groups and caller modifier moved to a wrapper Box — description unchanged; existing focus-order tests pass.
+  - `[low]` `[patch]` (intent) Unused `hapticsEnabled` in `DebugToggles` — same fix as the blind row.
+  - `[false]` `[reject]` (intent) carried: `beginDrag`/`onDragStart` run past touch slop, before lock — the AC says "when a drag starts on the cube".
+  - `[low]` `[reject]` (intent) `finishAll` runs each frame during a drag, beyond the start-of-drag rule — intended so the preview stays on committed state; no Move is dropped.
+  - `[false]` `[reject]` (intent) The 500 ms Handler never fires because the frame loop nulls `heldUntil` when idle — the frame loop runs only while `queue.isBusy`; with no matching `Animate` the loop waits on `wake` and the Handler expires the hold (`heldGhostTimesOut…` covers it).
+
 ## Design Notes
 
 **One-finger rule (pure, recomputed from the whole path on each call).** Pick the start sticker with `pick(ray)` (null → `null`). Project every path point onto the sticker's face plane (points whose ray misses the plane or is behind the eye reuse the previous valid projection). Let `d(p) = proj(p) − hit`. The lock point is the first point with `|d| ≥ LOCK_DISTANCE` (`= 0.35` cubie units, the old `MIN_DRAG`); if at that point `|d[major]| < DOMINANCE (2) × |d[minor]|`, the drag never locks (return null for this and every later call). Otherwise lock the tangent axis `major` and the layer (axis, layer index) exactly as `interpret` does today. For the current (last) point: if `|d| < LOCK_DISTANCE` → `CancelZone`; else `t = d[major]`, the Move is the old mapping for direction `sign(t)` (so crossing the start flips R ↔ R'), and `degrees = sign(t) × min(90, toDegrees(max(0, |t| − LOCK_DISTANCE) / RADIUS))` with `RADIUS = 1.5` (the face-plane distance from the turn axis), so the angle starts at 0 at the zone edge on either side.
@@ -216,3 +256,19 @@ Status: done
 - Pending a PO device session (batched with Story 12.17, after the PR is open): Stage 1 and Stage 2 Lessons by gesture on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE, with no unintended Move, working cancel, and drag frame time at the Story 12.2 baseline (≥ 30 FPS on the Lenovo, NFR-2). Lock distance, dominance and the pair thresholds may need tuning from that session.
 - The GL preview outline is checked only through flags and semantics (deferred item).
 
+### Follow-up review pass (2026-11-18)
+
+**Summary.** A follow-up review (Codex blind, edge-case and verification-gap layers, Claude intent-alignment) of the whole story diff found 36 findings: high 0, medium 6, low 21, false 9. Patches: two-finger jitter below touch slop no longer stops a Lesson job or finishes the queue; a straddling pair on a stage with no Move input keeps rotating the view; unused `LocalHaptics` read removed from `DebugToggles`; new tests for the straddling-pair z twist and for cancel-zone easing.
+
+**Files changed in this pass.**
+- `app/src/main/kotlin/dev/cubentia/app/render/CubeGestureHost.kt` -- either finger past touch slop marks the drag as moved; drag-start side effects require it; `midpointOnly` requires a Move callback.
+- `app/src/main/kotlin/dev/cubentia/app/ui/freecube/FreeCubeScreen.kt` -- unused `hapticsEnabled` removed from `DebugToggles`.
+- `app/src/test/kotlin/dev/cubentia/app/ui/freecube/FreeCubeScreenTest.kt` -- straddling-twist and cancel-easing tests.
+
+**Review findings.** Patched entries by verdict: medium 2 (straddling-twist test, cancel-easing test), low 3 (pair slop, view-only straddle, unused local). Deferred: none new (GL outline pixel check carried, already in `deferred`). Rejected: 21 low and 9 false, each with its reason in the follow-up triage log.
+
+**Follow-up review recommended: false.** This was a follow-up pass and it patched no high finding.
+
+**Verification.** `./gradlew spotlessApply` ok; `./gradlew :core:domain:test` passed; `./gradlew :app:testDebugUnitTest --tests '*FreeCubeScreenTest*'` passed twice in a row; `./gradlew spotlessCheck build` BUILD SUCCESSFUL; `grep pointerInput|awaitEachGesture Cube3DRenderer.kt` finds nothing.
+
+**Residual risks.** Unchanged: the pending PO device session (batched with 12.17) and the GL outline pixel check. The cancel-easing test samples published model matrices per frame and needed `waitForIdle` between frames; one full-build run failed before that sync was added.
