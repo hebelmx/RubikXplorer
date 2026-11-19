@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -30,20 +32,27 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import dev.cubentia.app.R
@@ -53,7 +62,9 @@ import dev.cubentia.app.preferences.LocalRenderStyle
 import dev.cubentia.app.render.Net2DRenderer
 import dev.cubentia.app.ui.editor.FACE_NAMES
 import dev.cubentia.app.ui.editor.FaceSelector
+import dev.cubentia.app.ui.editor.ProblemTag
 import dev.cubentia.app.ui.editor.StickerCue
+import dev.cubentia.app.ui.editor.StickerProblemMark
 import dev.cubentia.app.ui.editor.StickerReviewNet
 import dev.cubentia.app.ui.editor.Swatch
 import dev.cubentia.app.ui.editor.colorName
@@ -62,8 +73,9 @@ import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.ReviewProblem
 import dev.cubentia.domain.recognition.ScanReview
-import java.util.Locale
+import kotlinx.coroutines.launch
 import dev.cubentia.domain.text.Text as ContentText
 
 private enum class DiscardAction { CLOSE, ENTER_COLORS }
@@ -93,6 +105,19 @@ fun ScanReviewScreen(
 ) {
     var face by rememberSaveable { mutableIntStateOf((review.selected ?: 0) / 9) }
     LaunchedEffect(review.selected) { review.selected?.let { face = it / 9 } }
+    val problems = review.problems
+    val linkedIndices = problems.indices.filter { problems[it].piece.isNotEmpty() }
+    var focusedIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+    val focused = focusedIndex?.takeIf { it in linkedIndices } ?: linkedIndices.firstOrNull()
+    val problemNumbers = linkedIndices.withIndex().associate { (order, index) -> index to order + 1 }
+    val marks =
+        linkedIndices.flatMap { problems[it].piece }.distinct().associateWith { sticker ->
+            StickerProblemMark(
+                numbers = linkedIndices.filter { sticker in problems[it].piece }.map(problemNumbers::getValue),
+                conflicts = linkedIndices.filter { sticker in problems[it].positions }.map(problemNumbers::getValue),
+                focusedNumber = focused?.let(problemNumbers::getValue),
+            )
+        }
     var changed by rememberSaveable { mutableStateOf(edited) }
     var confirmCalibration by rememberSaveable { mutableStateOf(false) }
     var discardAction by rememberSaveable { mutableStateOf<DiscardAction?>(null) }
@@ -107,9 +132,14 @@ fun ScanReviewScreen(
     val hapticsEnabled = LocalHaptics.current
     val haptics = LocalHapticFeedback.current
     val tokens = RubikTheme.tokens
+    val netRequester = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
     val compact = !windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
     BoxWithConstraints(modifier.safeDrawingPadding().testTag("review:screen")) {
         val oneFace = compact || (maxWidth - Spacing.s4 * 2) / Net2DRenderer.NET_COLUMNS < Spacing.touchMin
+        var netSize by remember { mutableStateOf(IntSize.Zero) }
+        val viewportHeight = with(LocalDensity.current) { maxHeight.toPx() }
+        val netModifier = Modifier.bringIntoViewRequester(netRequester).onSizeChanged { netSize = it }
         Column(
             Modifier.verticalScroll(rememberScrollState()).padding(Spacing.s4),
             verticalArrangement = Arrangement.spacedBy(Spacing.s4),
@@ -138,11 +168,12 @@ fun ScanReviewScreen(
                 unresolved = review.stickers,
                 strings = strings,
                 cue = cue,
+                problemMarks = marks,
                 modifier =
                     if (oneFace) {
-                        Modifier.widthIn(max = Spacing.touchMin * 6).fillMaxWidth().aspectRatio(1f)
+                        netModifier.widthIn(max = Spacing.touchMin * 6).fillMaxWidth().aspectRatio(1f)
                     } else {
-                        Modifier.fillMaxWidth().aspectRatio(Net2DRenderer.NET_COLUMNS.toFloat() / Net2DRenderer.NET_ROWS)
+                        netModifier.fillMaxWidth().aspectRatio(Net2DRenderer.NET_COLUMNS.toFloat() / Net2DRenderer.NET_ROWS)
                     },
             )
             if (coachVisible && needsFix) {
@@ -157,7 +188,10 @@ fun ScanReviewScreen(
                         val index = review.selected
                         if (index != null && (!oneFace || index / 9 == face)) {
                             val painted = review.paint(color)
-                            if (painted.stickers != review.stickers) changed = true
+                            if (painted.stickers != review.stickers) {
+                                changed = true
+                                focusedIndex = null
+                            }
                             cue = StickerCue(index, (cue?.serial ?: 0) + 1)
                             lastSet = index to color
                             if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
@@ -167,12 +201,25 @@ fun ScanReviewScreen(
                 }
             }
             Column(Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }) {
-                review.problems.forEachIndexed { index, problem ->
-                    Text(
-                        strings.resolve(problem.reason),
-                        color = RubikTheme.tokens.statusInvalid,
-                        modifier = Modifier.testTag("review:problem:$index"),
-                    )
+                problems.forEachIndexed { index, problem ->
+                    ProblemLine(problem, problemNumbers[index], index == focused, strings, "review:problem:$index") {
+                        val sticker = problem.positions.first()
+                        focusedIndex = index
+                        face = sticker / 9
+                        onReview(review.select(sticker))
+                        scope.launch {
+                            val target =
+                                if (netSize.height > viewportHeight) {
+                                    // A short window can only reveal the selected row of the net.
+                                    val row = if (oneFace) sticker % 9 / 3 else Net2DRenderer.netCell(sticker).second
+                                    val cell = netSize.height.toFloat() / if (oneFace) 3 else Net2DRenderer.NET_ROWS
+                                    Rect(0f, row * cell, netSize.width.toFloat(), (row + 1) * cell)
+                                } else {
+                                    null
+                                }
+                            netRequester.bringIntoView(target)
+                        }
+                    }
                 }
             }
             if (onCalibrate != null) {
@@ -253,6 +300,54 @@ fun ScanReviewScreen(
             },
             modifier = Modifier.testTag("review:discard"),
         )
+    }
+}
+
+@Composable
+private fun ProblemLine(
+    problem: ReviewProblem,
+    number: Int?,
+    focused: Boolean,
+    strings: ContentStrings,
+    tag: String,
+    onSelect: () -> Unit,
+) {
+    val reason = strings.resolve(problem.reason)
+    val color = RubikTheme.tokens.statusInvalid
+    if (number == null) {
+        Text(reason, color = color, modifier = Modifier.testTag(tag))
+        return
+    }
+    val stickers = problem.positions.map { strings.resolve(ContentText("msg.scan.sticker-ref", stickerArgs(it))) }
+    val args = mapOf("number" to number, "problem" to reason, "stickers" to stickers.joinToString("; "))
+    val description =
+        strings.resolve(
+            if (problem.piece == problem.positions) {
+                ContentText("msg.scan.problem-description-stickers", args)
+            } else {
+                val piece = problem.piece.map { strings.resolve(ContentText("msg.scan.sticker-ref", stickerArgs(it))) }
+                ContentText("msg.scan.problem-description", args + ("piece" to piece.joinToString("; ")))
+            },
+        )
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = Spacing.touchMin)
+                .clickable(
+                    role = Role.Button,
+                    onClickLabel = strings.resolve(ContentText("msg.scan.problem-action")),
+                    onClick = onSelect,
+                ).testTag(tag)
+                .semantics {
+                    contentDescription = description
+                    selected = focused
+                },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.s2),
+    ) {
+        ProblemTag(number, focused, "$tag:tag")
+        Text(reason, color = color)
     }
 }
 

@@ -1161,3 +1161,21 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-164-scan-capture-review-followups.md"
+  - id: "issue-199-deferred-instruction-hint-global-problem"
+    epic: 10
+    action: "Don't append 'Check the outlined piece.' to the scan review instruction when the first problem is global (parity, twist, flip, color counts) and nothing is outlined (low; deferred from #199, ScanReviewScreen.kt instruction())"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-199-link-errors-to-net.md"
+  - id: "issue-199-deferred-problem-tap-positions-first"
+    epic: 10
+    action: "Make the validation-message tap handler use positions.firstOrNull() ?: piece.first() instead of relying on positions never being empty when piece is set (low; deferred from #199, ScanReviewScreen.kt:206)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-199-link-errors-to-net.md"
+  - id: "issue-199-deferred-problem-tag-glyph-overlap"
+    epic: 10
+    action: "On small full-net cells with color-blind glyphs on, keep the problem number tag from overlapping the sticker glyph (inset or shrink the glyph when a tag shows) (low; deferred from #199, StickerReviewNet.kt:408-415)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-199-link-errors-to-net.md"

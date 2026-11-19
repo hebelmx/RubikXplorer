@@ -5,6 +5,7 @@ import dev.cubentia.domain.text.Text
 data class ReviewProblem(
     val reason: Text,
     val positions: List<Int>,
+    val piece: List<Int>,
 )
 
 /** Local checks in home-frame corner, then edge order. Only fully observed pieces are checked. */
@@ -19,6 +20,7 @@ object PieceCheck {
             kinds.forEach { (kind, pieces) ->
                 pieces.forEach { positions ->
                     if (positions.all { stickers[it] != null }) {
+                        val piece = positions.sorted()
                         Color.entries.forEach { color ->
                             val repeated = positions.filter { stickers[it] == color }.sorted()
                             if (repeated.size > 1) {
@@ -32,14 +34,14 @@ object PieceCheck {
                                         Color.ORANGE -> "msg.validation.piece-repeats.orange"
                                     }
                                 val reason = Text(key, mapOf("piece" to kind.id, "count" to repeated.size))
-                                add(ReviewProblem(reason, repeated))
+                                add(ReviewProblem(reason, repeated, piece))
                             }
                         }
                         listOf(Color.WHITE to Color.YELLOW, Color.GREEN to Color.BLUE, Color.RED to Color.ORANGE).forEach { (a, b) ->
                             if (positions.any { stickers[it] == a } && positions.any { stickers[it] == b }) {
                                 val reason = Text("msg.validation.piece-opposite", mapOf("piece" to kind.id))
                                 val offending = positions.filter { stickers[it] == a || stickers[it] == b }.sorted()
-                                add(ReviewProblem(reason, offending))
+                                add(ReviewProblem(reason, offending, piece))
                             }
                         }
                     }

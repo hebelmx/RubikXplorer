@@ -1,0 +1,615 @@
+diff --git a/app/src/main/kotlin/dev/cubentia/app/ui/editor/StickerReviewNet.kt b/app/src/main/kotlin/dev/cubentia/app/ui/editor/StickerReviewNet.kt
+index cc9a2f78..6a9e33f5 100644
+--- a/app/src/main/kotlin/dev/cubentia/app/ui/editor/StickerReviewNet.kt
++++ b/app/src/main/kotlin/dev/cubentia/app/ui/editor/StickerReviewNet.kt
+@@ -9,6 +9,7 @@ import androidx.compose.animation.core.keyframes
+ import androidx.compose.animation.core.rememberInfiniteTransition
+ import androidx.compose.animation.core.tween
+ import androidx.compose.foundation.background
++import androidx.compose.foundation.border
+ import androidx.compose.foundation.clickable
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.BoxWithConstraints
+@@ -79,6 +80,15 @@ import dev.cubentia.domain.text.Text as ContentText
+ val StickerInvalidKey = SemanticsPropertyKey<Boolean>("StickerInvalid")
+ var SemanticsPropertyReceiver.stickerInvalid by StickerInvalidKey
+ 
++val StickerProblemsKey = SemanticsPropertyKey<List<Int>>("StickerProblems")
++val StickerProblemFocusedKey = SemanticsPropertyKey<Boolean>("StickerProblemFocused")
++
++data class StickerProblemMark(
++    val numbers: List<Int>,
++    val conflicts: List<Int>,
++    val focusedNumber: Int?,
++)
++
+ /** The color of an invalid sticker's outline: `sticker-highlight`, per the cube-highlight rule. */
+ val StickerOutlineColorKey = SemanticsPropertyKey<Color>("StickerOutlineColor")
+ var SemanticsPropertyReceiver.stickerOutlineColor by StickerOutlineColorKey
+@@ -189,6 +199,7 @@ fun StickerReviewNet(
+     unresolved: List<CubeColor?>? = null,
+     strings: ContentStrings? = null,
+     cue: StickerCue? = null,
++    problemMarks: Map<Int, StickerProblemMark>? = null,
+ ) {
+     val reduceMotion = rememberReduceMotion()
+     // Cues already played, so a sticker scrolled back into a one-face view does not replay its cue.
+@@ -232,6 +243,7 @@ fun StickerReviewNet(
+                         reduceMotion = reduceMotion,
+                         cueSerial = cue?.takeIf { it.index == index }?.serial,
+                         playedCues = playedCues,
++                        problemMark = problemMarks?.get(index),
+                         modifier = Modifier.offset(cell * column, cell * row),
+                     )
+                 }
+@@ -253,6 +265,7 @@ private fun ReviewSticker(
+     reduceMotion: Boolean,
+     cueSerial: Int?,
+     playedCues: MutableSet<Int>,
++    problemMark: StickerProblemMark?,
+     modifier: Modifier,
+ ) {
+     val appearance = color?.let(StickerAppearance::of)
+@@ -309,6 +322,7 @@ private fun ReviewSticker(
+             )
+         }
+     val invalidState = stringResource(R.string.editor_sticker_invalid)
++    val problemState = problemMark?.let { problemStateDescription(requireNotNull(strings), it) }
+     Box(
+         modifier =
+             modifier
+@@ -353,6 +367,11 @@ private fun ReviewSticker(
+                     }
+                     if (cueSerial != null) stickerCueScales = !reduceMotion
+                     if (isInvalid) stateDescription = invalidState
++                    if (problemMark != null && problemState != null) {
++                        this[StickerProblemsKey] = problemMark.numbers
++                        this[StickerProblemFocusedKey] = problemMark.focusedNumber in problemMark.numbers
++                        stateDescription = problemState
++                    }
+                     if (color == null) {
+                         stateDescription =
+                             requireNotNull(strings).resolve(
+@@ -371,6 +390,19 @@ private fun ReviewSticker(
+         } else if (style.colorBlindGlyphs) {
+             StickerGlyph(appearance, cell)
+         }
++        val tagNumber =
++            problemMark?.let { mark ->
++                mark.focusedNumber?.takeIf { it in mark.conflicts } ?: mark.conflicts.firstOrNull()
++            }
++        if (tagNumber != null) {
++            ProblemTag(
++                tagNumber,
++                focused = tagNumber == problemMark?.focusedNumber,
++                tag = "sticker:$index:tag",
++                modifier = Modifier.align(Alignment.TopStart),
++                diameter = (cell * 0.4f).coerceAtLeast(16.dp),
++            )
++        }
+         if (checkAlpha.value > 0f) {
+             Box(
+                 Modifier
+@@ -386,6 +418,43 @@ private fun ReviewSticker(
+     }
+ }
+ 
++private fun problemStateDescription(
++    strings: ContentStrings,
++    mark: StickerProblemMark,
++): String =
++    listOf(
++        "msg.scan.sticker-conflict-in-problem" to mark.conflicts,
++        "msg.scan.sticker-in-problem" to (mark.numbers - mark.conflicts.toSet()),
++    ).mapNotNull { (key, numbers) ->
++        numbers.takeIf { it.isNotEmpty() }?.let {
++            strings.resolve(ContentText(key, mapOf("count" to it.size, "numbers" to it.joinToString())))
++        }
++    }.joinToString(". ")
++
++@Composable
++internal fun ProblemTag(
++    number: Int,
++    focused: Boolean,
++    tag: String,
++    modifier: Modifier = Modifier,
++    diameter: Dp = 24.dp,
++) {
++    val tokens = RubikTheme.tokens
++    Box(
++        modifier
++            .requiredSize(diameter)
++            .background(if (focused) tokens.stickerHighlight else tokens.cubieBody, CircleShape)
++            .border(1.dp, tokens.stickerHighlight, CircleShape)
++            .clearAndSetSemantics {
++                testTag = tag
++                this[StickerProblemFocusedKey] = focused
++            },
++        contentAlignment = Alignment.Center,
++    ) {
++        StickerLabel(number.toString(), if (focused) tokens.cubieBody else tokens.stickerHighlight, diameter * 0.8f)
++    }
++}
++
+ /**
+  * Draws the near-black cube body behind each 3×3 face at [faceOrigins] (cell column, row), extended
+  * by a rim past the outer stickers, so the sticker gaps and the face edge read as cube plastic. All
+diff --git a/app/src/main/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreen.kt b/app/src/main/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreen.kt
+index f0ce1fb7..d04c02c5 100644
+--- a/app/src/main/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreen.kt
++++ b/app/src/main/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreen.kt
+@@ -42,7 +42,9 @@ import androidx.compose.ui.res.stringResource
+ import androidx.compose.ui.semantics.LiveRegionMode
+ import androidx.compose.ui.semantics.Role
+ import androidx.compose.ui.semantics.clearAndSetSemantics
++import androidx.compose.ui.semantics.contentDescription
+ import androidx.compose.ui.semantics.liveRegion
++import androidx.compose.ui.semantics.selected
+ import androidx.compose.ui.semantics.semantics
+ import androidx.compose.ui.unit.dp
+ import androidx.window.core.layout.WindowSizeClass
+@@ -53,7 +55,9 @@ import dev.cubentia.app.preferences.LocalRenderStyle
+ import dev.cubentia.app.render.Net2DRenderer
+ import dev.cubentia.app.ui.editor.FACE_NAMES
+ import dev.cubentia.app.ui.editor.FaceSelector
++import dev.cubentia.app.ui.editor.ProblemTag
+ import dev.cubentia.app.ui.editor.StickerCue
++import dev.cubentia.app.ui.editor.StickerProblemMark
+ import dev.cubentia.app.ui.editor.StickerReviewNet
+ import dev.cubentia.app.ui.editor.Swatch
+ import dev.cubentia.app.ui.editor.colorName
+@@ -62,8 +66,8 @@ import dev.cubentia.app.ui.theme.RubikTheme
+ import dev.cubentia.app.ui.theme.Spacing
+ import dev.cubentia.domain.cube.Color
+ import dev.cubentia.domain.cube.CubeState
++import dev.cubentia.domain.cube.ReviewProblem
+ import dev.cubentia.domain.recognition.ScanReview
+-import java.util.Locale
+ import dev.cubentia.domain.text.Text as ContentText
+ 
+ private enum class DiscardAction { CLOSE, ENTER_COLORS }
+@@ -93,6 +97,19 @@ fun ScanReviewScreen(
+ ) {
+     var face by rememberSaveable { mutableIntStateOf((review.selected ?: 0) / 9) }
+     LaunchedEffect(review.selected) { review.selected?.let { face = it / 9 } }
++    val problems = review.problems
++    val linkedIndices = problems.indices.filter { problems[it].piece.isNotEmpty() }
++    var focusedIndex by rememberSaveable { mutableStateOf<Int?>(null) }
++    val focused = focusedIndex?.takeIf { it in linkedIndices } ?: linkedIndices.firstOrNull()
++    val problemNumbers = linkedIndices.withIndex().associate { (order, index) -> index to order + 1 }
++    val marks =
++        linkedIndices.flatMap { problems[it].piece }.distinct().associateWith { sticker ->
++            StickerProblemMark(
++                numbers = linkedIndices.filter { sticker in problems[it].piece }.map(problemNumbers::getValue),
++                conflicts = linkedIndices.filter { sticker in problems[it].positions }.map(problemNumbers::getValue),
++                focusedNumber = focused?.let(problemNumbers::getValue),
++            )
++        }
+     var changed by rememberSaveable { mutableStateOf(edited) }
+     var confirmCalibration by rememberSaveable { mutableStateOf(false) }
+     var discardAction by rememberSaveable { mutableStateOf<DiscardAction?>(null) }
+@@ -138,6 +155,7 @@ fun ScanReviewScreen(
+                 unresolved = review.stickers,
+                 strings = strings,
+                 cue = cue,
++                problemMarks = marks,
+                 modifier =
+                     if (oneFace) {
+                         Modifier.widthIn(max = Spacing.touchMin * 6).fillMaxWidth().aspectRatio(1f)
+@@ -157,7 +175,10 @@ fun ScanReviewScreen(
+                         val index = review.selected
+                         if (index != null && (!oneFace || index / 9 == face)) {
+                             val painted = review.paint(color)
+-                            if (painted.stickers != review.stickers) changed = true
++                            if (painted.stickers != review.stickers) {
++                                changed = true
++                                focusedIndex = null
++                            }
+                             cue = StickerCue(index, (cue?.serial ?: 0) + 1)
+                             lastSet = index to color
+                             if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+@@ -167,12 +188,13 @@ fun ScanReviewScreen(
+                 }
+             }
+             Column(Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }) {
+-                review.problems.forEachIndexed { index, problem ->
+-                    Text(
+-                        strings.resolve(problem.reason),
+-                        color = RubikTheme.tokens.statusInvalid,
+-                        modifier = Modifier.testTag("review:problem:$index"),
+-                    )
++                problems.forEachIndexed { index, problem ->
++                    ProblemLine(problem, problemNumbers[index], index == focused, strings, "review:problem:$index") {
++                        val sticker = problem.positions.first()
++                        focusedIndex = index
++                        face = sticker / 9
++                        onReview(review.select(sticker))
++                    }
+                 }
+             }
+             if (onCalibrate != null) {
+@@ -256,6 +278,57 @@ fun ScanReviewScreen(
+     }
+ }
+ 
++@Composable
++private fun ProblemLine(
++    problem: ReviewProblem,
++    number: Int?,
++    focused: Boolean,
++    strings: ContentStrings,
++    tag: String,
++    onSelect: () -> Unit,
++) {
++    val reason = strings.resolve(problem.reason)
++    val color = RubikTheme.tokens.statusInvalid
++    if (number == null) {
++        Text(reason, color = color, modifier = Modifier.testTag(tag))
++        return
++    }
++    val piece = problem.piece.map { strings.resolve(ContentText("msg.scan.sticker-ref", stickerArgs(it))) }
++    val stickers = problem.positions.map { strings.resolve(ContentText("msg.scan.sticker-ref", stickerArgs(it))) }
++    val description =
++        strings.resolve(
++            ContentText(
++                "msg.scan.problem-description",
++                mapOf(
++                    "number" to number,
++                    "problem" to reason,
++                    "piece" to piece.joinToString("; "),
++                    "stickers" to stickers.joinToString("; "),
++                ),
++            ),
++        )
++    Row(
++        modifier =
++            Modifier
++                .fillMaxWidth()
++                .heightIn(min = Spacing.touchMin)
++                .clickable(
++                    role = Role.Button,
++                    onClickLabel = strings.resolve(ContentText("msg.scan.problem-action")),
++                    onClick = onSelect,
++                ).testTag(tag)
++                .semantics {
++                    contentDescription = description
++                    selected = focused
++                },
++        verticalAlignment = Alignment.CenterVertically,
++        horizontalArrangement = Arrangement.spacedBy(Spacing.s2),
++    ) {
++        ProblemTag(number, focused, "$tag:tag")
++        Text(reason, color = color)
++    }
++}
++
+ /**
+  * The instruction line follows the state: blanks left, else the first problem pointing at the
+  * outlined piece, else valid: "All set" after the Learner [fixed] stickers, "Everything was read" when
+diff --git a/app/src/test/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreenTest.kt b/app/src/test/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreenTest.kt
+index c5972efd..7a80a649 100644
+--- a/app/src/test/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreenTest.kt
++++ b/app/src/test/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreenTest.kt
+@@ -48,6 +48,8 @@ import dev.cubentia.app.ui.editor.StickerBlankEdgeKey
+ import dev.cubentia.app.ui.editor.StickerCueScalesKey
+ import dev.cubentia.app.ui.editor.StickerInvalidKey
+ import dev.cubentia.app.ui.editor.StickerOutlineColorKey
++import dev.cubentia.app.ui.editor.StickerProblemFocusedKey
++import dev.cubentia.app.ui.editor.StickerProblemsKey
+ import dev.cubentia.app.ui.editor.StickerPulsingKey
+ import dev.cubentia.app.ui.editor.StickerSelectedRingKey
+ import dev.cubentia.app.ui.theme.CubeTokens
+@@ -203,13 +205,127 @@ class ScanReviewScreenTest {
+         rule.onNodeWithTag("review:problem:0").performScrollTo().assertTextEquals("This corner shows two whites.")
+         assertEquals(true, rule.onNodeWithTag("sticker:8").fetchSemanticsNode().config[StickerInvalidKey])
+         assertEquals(true, rule.onNodeWithTag("sticker:9").fetchSemanticsNode().config[StickerInvalidKey])
+-        assertEquals(false, rule.onNodeWithTag("sticker:20").fetchSemanticsNode().config[StickerInvalidKey])
++        assertEquals(true, rule.onNodeWithTag("sticker:20").fetchSemanticsNode().config[StickerInvalidKey])
+         rule.onNodeWithTag("review:accept").performScrollTo().assertIsNotEnabled()
+         assertNull(accepted)
+         rule.onNodeWithTag("swatch:RED").performScrollTo().performClick()
+         rule.onNodeWithTag("review:accept").performScrollTo().assertIsEnabled()
+     }
+ 
++    @Test fun `numbered problem links its whole piece and names conflicting stickers for TalkBack`() {
++        review =
++            ScanReview(
++                CubeState.SOLVED
++                    .toFacelets()
++                    .colors
++                    .toMutableList()
++                    .also { it[9] = Color.WHITE },
++                null,
++            )
++        launch()
++        assertProblemTag("review:problem:0:tag", "1", focused = true)
++        assertProblemTag("sticker:8:tag", "1", focused = true)
++        assertProblemTag("sticker:9:tag", "1", focused = true)
++        rule.onAllNodesWithTag("sticker:20:tag", useUnmergedTree = true).assertCountEquals(0)
++        for (index in listOf(8, 9, 20)) {
++            val sticker = rule.onNodeWithTag("sticker:$index").fetchSemanticsNode().config
++            assertTrue(sticker[StickerInvalidKey])
++            assertEquals(listOf(1), sticker[StickerProblemsKey])
++            val state = if (index == 20) "Part of problem 1" else "Conflicting sticker in problem 1"
++            assertEquals(state, sticker[SemanticsProperties.StateDescription])
++        }
++        val line = rule.onNodeWithTag("review:problem:0").fetchSemanticsNode().config
++        assertEquals(
++            listOf(
++                "Problem 1: This corner shows two whites. Its piece: Up face, position 9; Right face, position 1; " +
++                    "Front face, position 3. Conflicting stickers: Up face, position 9; Right face, position 1.",
++            ),
++            line[SemanticsProperties.ContentDescription],
++        )
++        assertEquals("Select it on the net", line[SemanticsActions.OnClick].label)
++        val global = rule.onNodeWithTag("review:problem:1").fetchSemanticsNode().config
++        assertNull(global.getOrNull(SemanticsActions.OnClick))
++        rule.onAllNodesWithTag("review:problem:1:tag", useUnmergedTree = true).assertCountEquals(0)
++    }
++
++    @Test fun `tapping a numbered problem focuses its tags and painting restores the first focus`() {
++        val colors =
++            CubeState.SOLVED.toFacelets().colors.toMutableList().also {
++                it[9] = Color.WHITE
++                it[18] = Color.WHITE
++            }
++        review = ScanReview(colors, null)
++        launch()
++        rule
++            .onNodeWithTag("review:problem:1")
++            .performScrollTo()
++            .performClick()
++            .assertIsSelected()
++        assertEquals(6, review.selected)
++        rule.onNodeWithTag("sticker:6").assertIsSelected()
++        assertProblemTag("review:problem:1:tag", "2", focused = true)
++        assertProblemTag("sticker:6:tag", "2", focused = true)
++        assertProblemTag("review:problem:0:tag", "1", focused = false)
++        assertProblemTag("sticker:8:tag", "1", focused = false)
++        rule.onNodeWithTag("swatch:RED").performScrollTo().performClick()
++        rule.onNodeWithTag("review:problem:0").assertIsSelected()
++        assertProblemTag("sticker:8:tag", "1", focused = true)
++    }
++
++    @Test fun `a conflicting sticker announces both problems and shows the focused number`() {
++        val colors =
++            CubeState.SOLVED.toFacelets().colors.toMutableList().also {
++                it[9] = Color.WHITE
++                it[20] = Color.YELLOW
++            }
++        review = ScanReview(colors, null)
++        launch()
++        val sticker = rule.onNodeWithTag("sticker:8").fetchSemanticsNode().config
++        assertEquals(listOf(1, 2), sticker[StickerProblemsKey])
++        assertEquals("Conflicting sticker in problems 1, 2", sticker[SemanticsProperties.StateDescription])
++        assertProblemTag("sticker:8:tag", "1", focused = true)
++        rule.onNodeWithTag("review:problem:1").performScrollTo().performClick()
++        assertProblemTag("sticker:8:tag", "2", focused = true)
++    }
++
++    @Test
++    @Config(qualifiers = "w360dp-h640dp")
++    fun `a linked line switches the compact net to its first conflicting face`() {
++        review =
++            ScanReview(
++                CubeState.SOLVED
++                    .toFacelets()
++                    .colors
++                    .toMutableList()
++                    .also { it[9] = Color.WHITE },
++                27,
++            )
++        launch()
++        rule.onNodeWithTag("sticker:27").assertIsSelected()
++        rule.onNodeWithTag("review:problem:0").performScrollTo().performClick()
++        rule
++            .onNodeWithTag("sticker:8")
++            .performScrollTo()
++            .assertIsDisplayed()
++            .assertIsSelected()
++        assertEquals(8, review.selected)
++        for (face in 0..2) {
++            val tab = rule.onNodeWithTag("editor:face:$face").fetchSemanticsNode().config
++            assertEquals("Has pieces to check", tab[SemanticsProperties.StateDescription])
++        }
++        rule.onNodeWithTag("editor:face:0").assertIsSelected()
++    }
++
++    private fun assertProblemTag(
++        tag: String,
++        number: String,
++        focused: Boolean,
++    ) {
++        val node = rule.onNodeWithTag(tag, useUnmergedTree = true)
++        assertEquals(focused, node.fetchSemanticsNode().config[StickerProblemFocusedKey])
++        node.onChildren().filterToOne(hasText(number)).assertTextEquals(number)
++    }
++
+     @Test
+     @Config(qualifiers = "w600dp-h960dp")
+     fun `review at 200 percent has no broken words overflow or undersized controls`() {
+diff --git a/core/domain/src/main/kotlin/dev/cubentia/domain/cube/PieceCheck.kt b/core/domain/src/main/kotlin/dev/cubentia/domain/cube/PieceCheck.kt
+index 36bd5fdd..cb5afba8 100644
+--- a/core/domain/src/main/kotlin/dev/cubentia/domain/cube/PieceCheck.kt
++++ b/core/domain/src/main/kotlin/dev/cubentia/domain/cube/PieceCheck.kt
+@@ -5,6 +5,7 @@ import dev.cubentia.domain.text.Text
+ data class ReviewProblem(
+     val reason: Text,
+     val positions: List<Int>,
++    val piece: List<Int>,
+ )
+ 
+ /** Local checks in home-frame corner, then edge order. Only fully observed pieces are checked. */
+@@ -19,6 +20,7 @@ object PieceCheck {
+             kinds.forEach { (kind, pieces) ->
+                 pieces.forEach { positions ->
+                     if (positions.all { stickers[it] != null }) {
++                        val piece = positions.sorted()
+                         Color.entries.forEach { color ->
+                             val repeated = positions.filter { stickers[it] == color }.sorted()
+                             if (repeated.size > 1) {
+@@ -32,14 +34,14 @@ object PieceCheck {
+                                         Color.ORANGE -> "msg.validation.piece-repeats.orange"
+                                     }
+                                 val reason = Text(key, mapOf("piece" to kind.id, "count" to repeated.size))
+-                                add(ReviewProblem(reason, repeated))
++                                add(ReviewProblem(reason, repeated, piece))
+                             }
+                         }
+                         listOf(Color.WHITE to Color.YELLOW, Color.GREEN to Color.BLUE, Color.RED to Color.ORANGE).forEach { (a, b) ->
+                             if (positions.any { stickers[it] == a } && positions.any { stickers[it] == b }) {
+                                 val reason = Text("msg.validation.piece-opposite", mapOf("piece" to kind.id))
+                                 val offending = positions.filter { stickers[it] == a || stickers[it] == b }.sorted()
+-                                add(ReviewProblem(reason, offending))
++                                add(ReviewProblem(reason, offending, piece))
+                             }
+                         }
+                     }
+diff --git a/core/domain/src/main/kotlin/dev/cubentia/domain/recognition/ScanReview.kt b/core/domain/src/main/kotlin/dev/cubentia/domain/recognition/ScanReview.kt
+index 811c7fe3..b0ef1f57 100644
+--- a/core/domain/src/main/kotlin/dev/cubentia/domain/recognition/ScanReview.kt
++++ b/core/domain/src/main/kotlin/dev/cubentia/domain/recognition/ScanReview.kt
+@@ -26,8 +26,8 @@ class ScanReview(
+     private val facelets: Facelets? get() = if (blanks.isEmpty()) Facelets(stickers.filterNotNull()) else null
+     val problems: List<ReviewProblem> get() =
+         PieceCheck.problems(stickers) +
+-            facelets?.let(CubeValidator::problems).orEmpty().map { ReviewProblem(it.reason, it.positions) }
+-    val outlined: Set<Int> get() = problems.flatMap { it.positions }.toSet()
++            facelets?.let(CubeValidator::problems).orEmpty().map { ReviewProblem(it.reason, it.positions, piece = it.positions) }
++    val outlined: Set<Int> get() = problems.flatMap { it.piece }.toSet()
+     val accepted: CubeState? get() = facelets?.let { (CubeValidator.validate(it) as? ValidationResult.Valid)?.state }
+ 
+     override fun equals(other: Any?): Boolean = other is ScanReview && stickers == other.stickers && selected == other.selected
+diff --git a/core/domain/src/main/resources/content/strings/en.json b/core/domain/src/main/resources/content/strings/en.json
+index c5c90b55..a103d60c 100644
+--- a/core/domain/src/main/resources/content/strings/en.json
++++ b/core/domain/src/main/resources/content/strings/en.json
+@@ -712,6 +712,11 @@
+   "msg.validation.piece-repeats.red": "This {piece} shows {count, plural, =3 {three reds} other {two reds}}.",
+   "msg.validation.piece-repeats.orange": "This {piece} shows {count, plural, =3 {three oranges} other {two oranges}}.",
+   "msg.validation.piece-opposite": "This {piece} shows opposite colors.",
++  "msg.scan.problem-description": "Problem {number}: {problem} Its piece: {piece}. Conflicting stickers: {stickers}.",
++  "msg.scan.sticker-ref": "{face} face, position {position}",
++  "msg.scan.problem-action": "Select it on the net",
++  "msg.scan.sticker-in-problem": "{count, plural, one {Part of problem {numbers}} other {Part of problems {numbers}}}",
++  "msg.scan.sticker-conflict-in-problem": "{count, plural, one {Conflicting sticker in problem {numbers}} other {Conflicting sticker in problems {numbers}}}",
+   "msg.scan.review-title": "Review your scan",
+   "msg.scan.review-hint-blanks": "{count, plural, one {# sticker needs a color. Tap the flashing one, then its color.} other {# stickers need a color. Tap the flashing one, then its color.}}",
+   "msg.scan.review-hint-invalid": "{problem} Check the outlined piece.",
+diff --git a/core/domain/src/test/kotlin/dev/cubentia/domain/cube/PieceCheckTest.kt b/core/domain/src/test/kotlin/dev/cubentia/domain/cube/PieceCheckTest.kt
+index b33a2599..088d0ec7 100644
+--- a/core/domain/src/test/kotlin/dev/cubentia/domain/cube/PieceCheckTest.kt
++++ b/core/domain/src/test/kotlin/dev/cubentia/domain/cube/PieceCheckTest.kt
+@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
+ import org.junit.jupiter.api.Test
+ 
+ class PieceCheckTest {
+-    @Test fun `every repeated color on corners and edges outlines only repeats`() {
++    @Test fun `every repeated color on corners and edges identifies repeats and their piece`() {
+         listOf(FaceletTables.CORNER_FACELETS to "corner", FaceletTables.EDGE_FACELETS to "edge").forEach { (pieces, kind) ->
+             pieces.forEach { piece ->
+                 Color.entries.forEach { color ->
+@@ -14,12 +14,13 @@ class PieceCheckTest {
+                     assertEquals("msg.validation.piece-repeats.${color.name.lowercase()}", problem.reason.key)
+                     assertEquals(mapOf("piece" to kind, "count" to piece.size), problem.reason.args)
+                     assertEquals(piece.sorted(), problem.positions)
++                    assertEquals(piece.sorted(), problem.piece)
+                 }
+             }
+         }
+     }
+ 
+-    @Test fun `two matching corner stickers count and outline only the pair`() {
++    @Test fun `two matching corner stickers identify the conflicting pair and its corner`() {
+         val corner = FaceletTables.CORNER_FACELETS.first()
+         val stickers = MutableList<Color?>(54) { null }
+         stickers[corner[0]] = Color.WHITE
+@@ -30,9 +31,10 @@ class PieceCheckTest {
+         assertEquals("msg.validation.piece-repeats.white", problem.reason.key)
+         assertEquals(mapOf("piece" to "corner", "count" to 2), problem.reason.args)
+         assertEquals(corner.take(2).sorted(), problem.positions)
++        assertEquals(corner.sorted(), problem.piece)
+     }
+ 
+-    @Test fun `all opposite pairs on every piece outline only the pair`() {
++    @Test fun `all opposite pairs on every piece identify the conflicting pair and its piece`() {
+         (FaceletTables.CORNER_FACELETS + FaceletTables.EDGE_FACELETS).forEach { piece ->
+             listOf(Color.WHITE to Color.YELLOW, Color.GREEN to Color.BLUE, Color.RED to Color.ORANGE).forEach { (a, b) ->
+                 val stickers = MutableList<Color?>(54) { null }
+@@ -42,6 +44,7 @@ class PieceCheckTest {
+                 val problem = PieceCheck.problems(stickers).single()
+                 assertEquals("msg.validation.piece-opposite", problem.reason.key)
+                 assertEquals(piece.take(2).sorted(), problem.positions)
++                assertEquals(piece.sorted(), problem.piece)
+                 stickers[piece[0]] = null
+                 assertTrue(PieceCheck.problems(stickers).isEmpty())
+             }
+@@ -65,5 +68,7 @@ class PieceCheckTest {
+                 it.reason.key
+             },
+         )
++        assertEquals(listOf(corner.sorted(), corner.sorted(), FaceletTables.EDGE_FACELETS.first().sorted()), problems.map { it.piece })
++        assertTrue(problems.all { it.piece.containsAll(it.positions) })
+     }
+ }
+diff --git a/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/ScanReviewTest.kt b/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/ScanReviewTest.kt
+index c7157c99..5a5c437c 100644
+--- a/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/ScanReviewTest.kt
++++ b/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/ScanReviewTest.kt
+@@ -140,13 +140,46 @@ class ScanReviewTest {
+                 .last()
+                 .reason.key,
+         )
+-        assertEquals(setOf(8, 9), review.outlined)
++        assertEquals(listOf(8, 9, 20), review.problems.first().piece)
++        assertTrue(
++            review.problems
++                .last()
++                .piece
++                .isEmpty(),
++        )
++        assertTrue(
++            review.problems
++                .last()
++                .positions
++                .isEmpty(),
++        )
++        assertEquals(setOf(8, 9, 20), review.outlined)
+         assertNull(review.accepted)
+         colors[20] = Color.RED
+         val incomplete = ScanReview(colors.mapIndexed { i, c -> if (i == 8) null else c }, null)
+         assertTrue(incomplete.problems.none { 9 in it.positions })
+     }
+ 
++    @Test fun `validator problems link all stickers of impossible corners and outlines include every piece`() {
++        val colors =
++            solved.colors.toMutableList().also {
++                val red = it[9]
++                it[9] = it[36]
++                it[36] = red
++                val whiteEdge = it[5]
++                it[5] = it[37]
++                it[37] = whiteEdge
++            }
++        val review = ScanReview(colors, null)
++        val corners =
++            review.problems.single {
++                it.reason.key == "msg.validation.impossible-piece" && it.reason.args["piece"] == "corner"
++            }
++        assertEquals(listOf(0, 8, 9, 20, 36, 47), corners.positions)
++        assertEquals(corners.positions, corners.piece)
++        assertEquals(setOf(0, 3, 5, 8, 9, 10, 20, 36, 37, 47), review.outlined)
++    }
++
+     @Test fun `complete twist flip and parity failures never accept`() {
+         val variants =
+             listOf(
+@@ -170,6 +203,8 @@ class ScanReviewTest {
+         variants.forEach { colors ->
+             val review = ScanReview(colors, null)
+             assertNull(review.accepted)
++            assertTrue(review.problems.all { it.piece.isEmpty() && it.positions.isEmpty() })
++            assertTrue(review.outlined.isEmpty())
+             assertEquals(CubeValidator.problems(Facelets(colors)).map { it.reason }, review.problems.map { it.reason })
+         }
+     }

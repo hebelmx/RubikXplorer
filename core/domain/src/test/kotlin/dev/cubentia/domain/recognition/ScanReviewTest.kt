@@ -140,11 +140,44 @@ class ScanReviewTest {
                 .last()
                 .reason.key,
         )
-        assertEquals(setOf(8, 9), review.outlined)
+        assertEquals(listOf(8, 9, 20), review.problems.first().piece)
+        assertTrue(
+            review.problems
+                .last()
+                .piece
+                .isEmpty(),
+        )
+        assertTrue(
+            review.problems
+                .last()
+                .positions
+                .isEmpty(),
+        )
+        assertEquals(setOf(8, 9, 20), review.outlined)
         assertNull(review.accepted)
         colors[20] = Color.RED
         val incomplete = ScanReview(colors.mapIndexed { i, c -> if (i == 8) null else c }, null)
         assertTrue(incomplete.problems.none { 9 in it.positions })
+    }
+
+    @Test fun `validator problems link all stickers of impossible corners and outlines include every piece`() {
+        val colors =
+            solved.colors.toMutableList().also {
+                val red = it[9]
+                it[9] = it[36]
+                it[36] = red
+                val whiteEdge = it[5]
+                it[5] = it[37]
+                it[37] = whiteEdge
+            }
+        val review = ScanReview(colors, null)
+        val corners =
+            review.problems.single {
+                it.reason.key == "msg.validation.impossible-piece" && it.reason.args["piece"] == "corner"
+            }
+        assertEquals(listOf(0, 8, 9, 20, 36, 47), corners.positions)
+        assertEquals(corners.positions, corners.piece)
+        assertEquals(setOf(0, 3, 5, 8, 9, 10, 20, 36, 37, 47), review.outlined)
     }
 
     @Test fun `complete twist flip and parity failures never accept`() {
@@ -170,6 +203,8 @@ class ScanReviewTest {
         variants.forEach { colors ->
             val review = ScanReview(colors, null)
             assertNull(review.accepted)
+            assertTrue(review.problems.all { it.piece.isEmpty() && it.positions.isEmpty() })
+            assertTrue(review.outlined.isEmpty())
             assertEquals(CubeValidator.problems(Facelets(colors)).map { it.reason }, review.problems.map { it.reason })
         }
     }

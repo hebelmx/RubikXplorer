@@ -26,8 +26,8 @@ class ScanReview(
     private val facelets: Facelets? get() = if (blanks.isEmpty()) Facelets(stickers.filterNotNull()) else null
     val problems: List<ReviewProblem> get() =
         PieceCheck.problems(stickers) +
-            facelets?.let(CubeValidator::problems).orEmpty().map { ReviewProblem(it.reason, it.positions) }
-    val outlined: Set<Int> get() = problems.flatMap { it.positions }.toSet()
+            facelets?.let(CubeValidator::problems).orEmpty().map { ReviewProblem(it.reason, it.positions, piece = it.positions) }
+    val outlined: Set<Int> get() = problems.flatMap { it.piece }.toSet()
     val accepted: CubeState? get() = facelets?.let { (CubeValidator.validate(it) as? ValidationResult.Valid)?.state }
 
     override fun equals(other: Any?): Boolean = other is ScanReview && stickers == other.stickers && selected == other.selected

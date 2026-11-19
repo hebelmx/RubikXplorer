@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -21,6 +22,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.filterToOne
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -48,6 +50,10 @@ import dev.cubentia.app.ui.editor.StickerBlankEdgeKey
 import dev.cubentia.app.ui.editor.StickerCueScalesKey
 import dev.cubentia.app.ui.editor.StickerInvalidKey
 import dev.cubentia.app.ui.editor.StickerOutlineColorKey
+import dev.cubentia.app.ui.editor.StickerProblemFocusedKey
+import dev.cubentia.app.ui.editor.StickerProblemTagShape
+import dev.cubentia.app.ui.editor.StickerProblemTagShapeKey
+import dev.cubentia.app.ui.editor.StickerProblemsKey
 import dev.cubentia.app.ui.editor.StickerPulsingKey
 import dev.cubentia.app.ui.editor.StickerSelectedRingKey
 import dev.cubentia.app.ui.theme.CubeTokens
@@ -203,11 +209,190 @@ class ScanReviewScreenTest {
         rule.onNodeWithTag("review:problem:0").performScrollTo().assertTextEquals("This corner shows two whites.")
         assertEquals(true, rule.onNodeWithTag("sticker:8").fetchSemanticsNode().config[StickerInvalidKey])
         assertEquals(true, rule.onNodeWithTag("sticker:9").fetchSemanticsNode().config[StickerInvalidKey])
-        assertEquals(false, rule.onNodeWithTag("sticker:20").fetchSemanticsNode().config[StickerInvalidKey])
+        assertEquals(true, rule.onNodeWithTag("sticker:20").fetchSemanticsNode().config[StickerInvalidKey])
         rule.onNodeWithTag("review:accept").performScrollTo().assertIsNotEnabled()
         assertNull(accepted)
         rule.onNodeWithTag("swatch:RED").performScrollTo().performClick()
         rule.onNodeWithTag("review:accept").performScrollTo().assertIsEnabled()
+    }
+
+    @Test fun `numbered problem links its whole piece and names conflicting stickers for TalkBack`() {
+        review =
+            ScanReview(
+                CubeState.SOLVED
+                    .toFacelets()
+                    .colors
+                    .toMutableList()
+                    .also { it[9] = Color.WHITE },
+                null,
+            )
+        launch()
+        assertProblemTag("review:problem:0:tag", "1", focused = true)
+        assertProblemTag("sticker:8:tag", "1", focused = true)
+        assertProblemTag("sticker:9:tag", "1", focused = true)
+        assertProblemTag("sticker:20:tag", "1", focused = true, shape = StickerProblemTagShape.ROUNDED_SQUARE)
+        for (index in listOf(8, 9, 20)) {
+            val sticker = rule.onNodeWithTag("sticker:$index").fetchSemanticsNode().config
+            assertTrue(sticker[StickerInvalidKey])
+            assertEquals(listOf(1), sticker[StickerProblemsKey])
+            val state = if (index == 20) "Part of problem 1" else "Conflicting sticker in problem 1"
+            assertEquals(state, sticker[SemanticsProperties.StateDescription])
+        }
+        val line = rule.onNodeWithTag("review:problem:0").fetchSemanticsNode().config
+        assertEquals(
+            listOf(
+                "Problem 1: This corner shows two whites. Its piece: Up face, position 9; Right face, position 1; " +
+                    "Front face, position 3. Conflicting stickers: Up face, position 9; Right face, position 1.",
+            ),
+            line[SemanticsProperties.ContentDescription],
+        )
+        assertEquals("Select it on the net", line[SemanticsActions.OnClick].label)
+        val global = rule.onNodeWithTag("review:problem:1").fetchSemanticsNode().config
+        assertNull(global.getOrNull(SemanticsActions.OnClick))
+        rule.onAllNodesWithTag("review:problem:1:tag", useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    @Test fun `tapping a numbered problem focuses its tags and painting restores the first focus`() {
+        val colors =
+            CubeState.SOLVED.toFacelets().colors.toMutableList().also {
+                it[9] = Color.WHITE
+                it[18] = Color.WHITE
+            }
+        review = ScanReview(colors, null)
+        launch(reduceMotion = true)
+        val firstTag = rule.onNodeWithTag("sticker:8:tag", useUnmergedTree = true)
+        assertTagFill(CubeTokens.stickerHighlight, firstTag.captureToImage().toPixelMap())
+        rule
+            .onNodeWithTag("review:problem:1")
+            .performScrollTo()
+            .performClick()
+            .assertIsSelected()
+        assertEquals(6, review.selected)
+        rule.onNodeWithTag("sticker:6").assertIsSelected()
+        assertProblemTag("review:problem:1:tag", "2", focused = true)
+        assertProblemTag("sticker:6:tag", "2", focused = true)
+        assertProblemTag("review:problem:0:tag", "1", focused = false)
+        assertProblemTag("sticker:8:tag", "1", focused = false)
+        assertTagFill(CubeTokens.cubieBody, firstTag.captureToImage().toPixelMap())
+        rule.onNodeWithTag("swatch:RED").performScrollTo().performClick()
+        rule.onNodeWithTag("review:problem:0").assertIsSelected()
+        assertProblemTag("sticker:8:tag", "1", focused = true)
+    }
+
+    @Test fun `a conflicting sticker announces both problems and shows the focused number`() {
+        val colors =
+            CubeState.SOLVED.toFacelets().colors.toMutableList().also {
+                it[9] = Color.WHITE
+                it[20] = Color.YELLOW
+            }
+        review = ScanReview(colors, null)
+        launch()
+        val sticker = rule.onNodeWithTag("sticker:8").fetchSemanticsNode().config
+        assertEquals(listOf(1, 2), sticker[StickerProblemsKey])
+        assertEquals("Conflicting sticker in problems 1, 2", sticker[SemanticsProperties.StateDescription])
+        assertProblemTag("sticker:8:tag", "1", focused = true)
+        // Sticker 20 conflicts only in problem 2, so problem 2 keeps a visible number while problem 1 is focused.
+        val mixed = rule.onNodeWithTag("sticker:20").fetchSemanticsNode().config
+        assertEquals(listOf(1, 2), mixed[StickerProblemsKey])
+        assertEquals("Conflicting sticker in problem 2. Part of problem 1", mixed[SemanticsProperties.StateDescription])
+        assertProblemTag("sticker:20:tag", "2", focused = false)
+        rule.onNodeWithTag("review:problem:1").performScrollTo().performClick()
+        assertProblemTag("sticker:8:tag", "2", focused = true)
+        assertProblemTag("sticker:20:tag", "2", focused = true)
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h240dp")
+    fun `in a window shorter than the net a linked line scrolls the selected row into view`() {
+        review =
+            ScanReview(
+                CubeState.SOLVED
+                    .toFacelets()
+                    .colors
+                    .toMutableList()
+                    .also { it[9] = Color.WHITE },
+                27,
+            )
+        launch()
+        rule.onNodeWithTag("review:problem:0").performScrollTo().performClick()
+        rule.waitForIdle()
+        // Sticker 8 sits on the bottom row of the Up face; no further scroll call is made.
+        rule.onNodeWithTag("sticker:8").assertIsDisplayed().assertIsSelected()
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp")
+    fun `a linked line switches the compact net to its first conflicting face`() {
+        review =
+            ScanReview(
+                CubeState.SOLVED
+                    .toFacelets()
+                    .colors
+                    .toMutableList()
+                    .also { it[9] = Color.WHITE },
+                27,
+            )
+        launch()
+        rule.onNodeWithTag("sticker:27").assertIsSelected()
+        rule.onNodeWithTag("review:problem:0").performScrollTo().performClick()
+        rule
+            .onNodeWithTag("sticker:8")
+            .assertIsDisplayed()
+            .assertIsSelected()
+        assertEquals(8, review.selected)
+        for (face in 0..2) {
+            val tab = rule.onNodeWithTag("editor:face:$face").fetchSemanticsNode().config
+            assertEquals("Has pieces to check", tab[SemanticsProperties.StateDescription])
+        }
+        rule.onNodeWithTag("editor:face:0").assertIsSelected()
+    }
+
+    @Test fun `validator impossible corners link every sticker and list each position once`() {
+        val colors =
+            CubeState.SOLVED.toFacelets().colors.toMutableList().also {
+                it[9] = Color.ORANGE
+                it[36] = Color.RED
+            }
+        review = ScanReview(colors, null)
+        launch()
+        val line = rule.onNodeWithTag("review:problem:0")
+        assertProblemTag("review:problem:0:tag", "1", focused = true)
+        for (index in listOf(0, 8, 9, 20, 36, 47)) {
+            val sticker = rule.onNodeWithTag("sticker:$index").fetchSemanticsNode().config
+            assertEquals(listOf(1), sticker[StickerProblemsKey])
+            assertProblemTag("sticker:$index:tag", "1", focused = true)
+        }
+        val description = line.fetchSemanticsNode().config[SemanticsProperties.ContentDescription].single()
+        assertTrue(description.startsWith("Problem 1: "))
+        assertTrue(
+            description.endsWith(
+                "Stickers: Up face, position 1; Up face, position 9; Right face, position 1; " +
+                    "Front face, position 3; Left face, position 1; Back face, position 3.",
+            ),
+        )
+        assertEquals(1, Regex("Up face, position 1").findAll(description).count())
+        line.performScrollTo().performClick()
+        assertEquals(0, review.selected)
+        rule.onNodeWithTag("sticker:0").assertIsDisplayed().assertIsSelected()
+    }
+
+    private fun assertTagFill(
+        expected: androidx.compose.ui.graphics.Color,
+        pixels: androidx.compose.ui.graphics.PixelMap,
+    ) {
+        assertEquals(expected, pixels[pixels.width / 4, pixels.height / 2])
+    }
+
+    private fun assertProblemTag(
+        tag: String,
+        number: String,
+        focused: Boolean,
+        shape: StickerProblemTagShape = StickerProblemTagShape.CIRCLE,
+    ) {
+        val node = rule.onNodeWithTag(tag, useUnmergedTree = true)
+        assertEquals(focused, node.fetchSemanticsNode().config[StickerProblemFocusedKey])
+        assertEquals(shape, node.fetchSemanticsNode().config[StickerProblemTagShapeKey])
+        node.onChildren().filterToOne(hasText(number)).assertTextEquals(number)
     }
 
     @Test

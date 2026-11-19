@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class PieceCheckTest {
-    @Test fun `every repeated color on corners and edges outlines only repeats`() {
+    @Test fun `every repeated color on corners and edges identifies repeats and their piece`() {
         listOf(FaceletTables.CORNER_FACELETS to "corner", FaceletTables.EDGE_FACELETS to "edge").forEach { (pieces, kind) ->
             pieces.forEach { piece ->
                 Color.entries.forEach { color ->
@@ -14,12 +14,13 @@ class PieceCheckTest {
                     assertEquals("msg.validation.piece-repeats.${color.name.lowercase()}", problem.reason.key)
                     assertEquals(mapOf("piece" to kind, "count" to piece.size), problem.reason.args)
                     assertEquals(piece.sorted(), problem.positions)
+                    assertEquals(piece.sorted(), problem.piece)
                 }
             }
         }
     }
 
-    @Test fun `two matching corner stickers count and outline only the pair`() {
+    @Test fun `two matching corner stickers identify the conflicting pair and its corner`() {
         val corner = FaceletTables.CORNER_FACELETS.first()
         val stickers = MutableList<Color?>(54) { null }
         stickers[corner[0]] = Color.WHITE
@@ -30,9 +31,10 @@ class PieceCheckTest {
         assertEquals("msg.validation.piece-repeats.white", problem.reason.key)
         assertEquals(mapOf("piece" to "corner", "count" to 2), problem.reason.args)
         assertEquals(corner.take(2).sorted(), problem.positions)
+        assertEquals(corner.sorted(), problem.piece)
     }
 
-    @Test fun `all opposite pairs on every piece outline only the pair`() {
+    @Test fun `all opposite pairs on every piece identify the conflicting pair and its piece`() {
         (FaceletTables.CORNER_FACELETS + FaceletTables.EDGE_FACELETS).forEach { piece ->
             listOf(Color.WHITE to Color.YELLOW, Color.GREEN to Color.BLUE, Color.RED to Color.ORANGE).forEach { (a, b) ->
                 val stickers = MutableList<Color?>(54) { null }
@@ -42,6 +44,7 @@ class PieceCheckTest {
                 val problem = PieceCheck.problems(stickers).single()
                 assertEquals("msg.validation.piece-opposite", problem.reason.key)
                 assertEquals(piece.take(2).sorted(), problem.positions)
+                assertEquals(piece.sorted(), problem.piece)
                 stickers[piece[0]] = null
                 assertTrue(PieceCheck.problems(stickers).isEmpty())
             }
@@ -65,5 +68,7 @@ class PieceCheckTest {
                 it.reason.key
             },
         )
+        assertEquals(listOf(corner.sorted(), corner.sorted(), FaceletTables.EDGE_FACELETS.first().sorted()), problems.map { it.piece })
+        assertTrue(problems.all { it.piece.containsAll(it.positions) })
     }
 }
