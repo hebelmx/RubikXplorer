@@ -30,14 +30,8 @@ The facts behind the answers: the release manifest has no `INTERNET` permission,
 
 **Do the privacy policy first.** The Data safety form can't be saved without its URL.
 
-1. **Create the privacy policy page.** Recommended: GitHub Pages from this repo, for example a `docs/privacy.md` page. A page on exxerpro.com works too. The page must be public, load without a login, and not be a PDF. It needs these statements:
-   - Cubentia collects no personal data and shares none.
-   - It has no account.
-   - Progress is stored only on the device and is removed when the app is uninstalled.
-   - The publisher's name, exactly as on the Play developer account.
-   - A contact email address.
-   - An effective date.
-2. **Check the page.** Open the URL in a private browser window. Then paste it under **App content → Privacy policy**.
+1. **Use the Cubentia privacy policy.** It is published from the site repository [`hebelmx/cubentia-site`](https://github.com/hebelmx/cubentia-site) (Epic 13) at <https://hebelmx.github.io/cubentia-site/privacy/>, and that URL is registered in Play Console (Story 13.6). Its statements come from `docs/privacy-facts.json`, and the site's `check` job fails if they drift.
+2. **Check the page.** Open the URL in a private browser window. It is already saved under **Policy and programs → App content → Privacy policy**; paste it again only if Console asks.
 3. **Answer each declaration:**
 
 | Declaration | Answer |
