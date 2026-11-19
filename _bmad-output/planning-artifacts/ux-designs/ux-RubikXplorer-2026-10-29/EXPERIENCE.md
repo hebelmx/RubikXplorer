@@ -2,7 +2,7 @@
 name: RubikXplorer
 status: final
 created: 2026-10-29
-updated: 2026-11-16
+updated: 2026-11-19
 sources:
   - ../../prds/prd-RubikXplorer-2026-10-29/prd.md
   - ../../prds/prd-RubikXplorer-2026-10-29/addendum.md
@@ -107,7 +107,7 @@ These are behavioral rules. Visual specs are in DESIGN.md Components.
 | --- | --- | --- |
 | First launch | Welcome | Three choices. Nothing is gated behind an account or the network. |
 | Resume after kill (virtual) | Lesson | Restores silently to the Checkpoint. A one-line note reads "Picked up where you left off." |
-| Another session started | Solve, while a Lesson is open | "Starting a solve pauses your lesson." The Lesson resumes from its Checkpoint. A paused physical Lesson returns through *Confirm your cube*. |
+| Another session started | Solve, while a Lesson is open | "Starting a solve pauses your lesson." It shows on the Solve tab next to *Scan my cube* and *Enter colors*, in the Editor and while solving, so a scan whose review goes straight to Solution Playback still shows it before the Lesson is paused (SCP 2026-11-19, #203). The Lesson resumes from its Checkpoint. A paused physical Lesson returns through *Confirm your cube*. |
 | Resume after kill (physical) | Lesson | Shows the **Confirm your cube** card with three options: *It matches* / *Scan it* / *Enter it*. The cube frame shows EXPECTED (AD-10). |
 | Content changed since save | Lesson | "This lesson was updated. We've restarted it with your cube as it was." |
 | Expected only | Physical mode | Dashed EXPECTED frame. No certainty chip until there's evidence: the EXPECTED frame is itself the honest label (decision logged). Solution Playback has no frame label, so it shows no Certainty until there's evidence (SCP 2026-11-19). |
@@ -251,7 +251,7 @@ The flows mirror the PRD's user journeys UJ-1 to UJ-6.
 
 1. Solve tab → **Scan my cube** → Quick Scan (BETA) → two corner photos.
 2. The review net opens with 2 uncertain stickers pre-selected. She fixes them, and Accept enables.
-3. Playback opens. She taps *I'm following on my cube*, and each step advances on *Done*, with the MoveNote under each Move. A Quick Check is available at any step.
+3. Playback opens straight from the review: its *Accept* is her one and only confirmation, so no Editor or second net comes in between, after a Quick Scan or a Guided 6-face Scan alike. A scan of a cube that is already solved shows the Solve tab's already-solved message instead. The Manual Cube Editor is only the fallback: *Enter colors instead*, a scan that can't be made valid or complete, or a denied camera permission (SCP 2026-11-19, #203). She taps *I'm following on my cube*, and each step advances on *Done*, with the MoveNote under each Move. A Quick Check is available at any step.
 4. **Climax:** the final step solves her cube. Then a quiet offer: "Want to learn how to do this yourself?"
 
 **Failure path:** glare spoils the bottom face. The app asks for a Guided Scan of that face only, with *Enter colors instead* always visible.
