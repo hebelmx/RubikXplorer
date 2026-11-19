@@ -3,13 +3,19 @@ package dev.cubentia.app.ui.shell
 import android.app.Application
 import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import dev.cubentia.app.content.LessonCatalog
@@ -22,6 +28,8 @@ import dev.cubentia.app.session.testFlags
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
 import dev.cubentia.app.ui.placement.PlacementFlowViewModel
 import dev.cubentia.app.ui.theme.CubentiaTheme
+import dev.cubentia.app.ui.theme.DarkTokens
+import dev.cubentia.app.ui.theme.LightTokens
 import dev.cubentia.application.port.PreferenceSave
 import dev.cubentia.application.port.PreferencesLoad
 import dev.cubentia.application.port.PreferencesRepository
@@ -45,6 +53,7 @@ import dev.cubentia.domain.cube.ValidationResult
 import dev.cubentia.domain.tutor.ProgressEvent
 import dev.cubentia.domain.tutor.StageProgress
 import dev.cubentia.domain.tutor.StageStatus
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -56,6 +65,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadows.ShadowLog
 
 @RunWith(RobolectricTestRunner::class)
@@ -83,14 +93,17 @@ class AppShellPlacementTest {
         )
     private val flow = PlacementFlowViewModel()
     private lateinit var back: OnBackPressedDispatcher
+    private var view: android.view.View? = null
     private var scanCount = 0
     private var failWrite = false
+    private var pendingWrite: CompletableDeferred<ProgressSave>? = null
     private val records = mutableListOf<ProgressRecord>()
     private val repository =
         object : ProgressRepository {
             override suspend fun all(): ProgressLoad = ProgressLoad.Found(records.map { it.event }, records.toList())
 
             override suspend fun append(records: List<ProgressRecord>): ProgressSave {
+                pendingWrite?.let { return it.await() }
                 if (failWrite) return ProgressSave.Failed
                 this@AppShellPlacementTest.records.addAll(records)
                 return ProgressSave.Saved
@@ -312,10 +325,131 @@ class AppShellPlacementTest {
         assertFalse(preferences.preferences.value.onboarded)
     }
 
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun `dark placement paints the themed surface in all phases and uses primary ink for the prompt`() {
+        show(dark = true)
+        startScan()
+        deliver(ScanOutcome.Accepted(entry("lesson-03-01")))
+
+        assertPlacementSurface(DarkTokens.surfaceBase)
+        val prompt = rule.onNodeWithTag("placement:prompt").captureToImage().toPixelMap()
+        assertTrue(
+            "Expected primary ink in the rendered prompt",
+            (0 until prompt.height).any { y -> (0 until prompt.width).any { x -> prompt[x, y] == DarkTokens.inkPrimary } },
+        )
+
+        rule.onNodeWithTag("placement:chooseAnother").performClick()
+        rule.onNodeWithTag("placement:stage:stage-01-fundamentals").assertIsDisplayed()
+        assertPlacementSurface(DarkTokens.surfaceBase)
+
+        rule.onNodeWithTag("placement:close").performClick()
+        rule.onNodeWithTag("placement:close").performClick()
+        startScan()
+        deliver(ScanOutcome.FellBackToEditor)
+        rule.onNodeWithTag("placement:editorNote").assertIsDisplayed()
+        assertPlacementSurface(DarkTokens.surfaceBase)
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun `light placement result paints the themed surface`() {
+        show()
+        startScan()
+        deliver(ScanOutcome.Accepted(entry("lesson-03-01")))
+
+        assertPlacementSurface(LightTokens.surfaceBase)
+    }
+
+    @Test
+    fun `Close steps from Choosing to Result and exits Result and Editing without writing`() {
+        show()
+        startScan()
+        deliver(ScanOutcome.Accepted(entry("lesson-03-01")))
+        rule.onNodeWithContentDescription(bundle.strings.getValue("btn.solve.close")).assertIsDisplayed()
+        rule.onNodeWithTag("placement:close").assertIsDisplayed()
+
+        rule.onNodeWithTag("placement:chooseAnother").performClick()
+        rule.onNodeWithTag("placement:close").assertIsDisplayed().performClick()
+        rule.onNodeWithTag("placement:prompt").assertTextContains("Start at First-layer corners?")
+        assertTrue(records.isEmpty())
+
+        rule.onNodeWithTag("placement:close").assertIsDisplayed().performClick()
+        rule.onNodeWithTag("welcome").assertIsDisplayed()
+
+        startScan()
+        deliver(ScanOutcome.FellBackToEditor)
+        rule.onNodeWithTag("placement:editorNote").assertIsDisplayed()
+        rule.onNodeWithTag("placement:close").assertIsDisplayed().performClick()
+        rule.onNodeWithTag("welcome").assertIsDisplayed()
+
+        runBlocking { writer.flush() }
+        assertTrue(records.isEmpty())
+        assertFalse(preferences.preferences.value.onboarded)
+        assertFalse(savedPreferences.onboarded)
+    }
+
+    @Test
+    fun `Close and system Back cannot dismiss placement while a save is pending`() {
+        val save = CompletableDeferred<ProgressSave>()
+        pendingWrite = save
+        try {
+            show()
+            startScan()
+            deliver(ScanOutcome.Accepted(entry("lesson-03-01")))
+            rule.onNodeWithTag("placement:start").performClick()
+
+            rule.onNodeWithTag("placement:close").assertIsDisplayed().assertIsNotEnabled()
+            rule.runOnIdle { back.onBackPressed() }
+            rule.onNodeWithTag("placement:prompt").assertIsDisplayed()
+            rule.onNodeWithTag("welcome").assertDoesNotExist()
+        } finally {
+            save.complete(ProgressSave.Failed)
+        }
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun `dark placement paints behind the status bar and keeps the 56dp top bar below it`() {
+        show(dark = true)
+        val top = 96
+        rule.runOnIdle {
+            val insets =
+                androidx.core.view.WindowInsetsCompat
+                    .Builder()
+                    .setInsets(
+                        androidx.core.view.WindowInsetsCompat.Type
+                            .statusBars(),
+                        androidx.core.graphics.Insets
+                            .of(0, top, 0, 0),
+                    ).build()
+            androidx.core.view.ViewCompat
+                .dispatchApplyWindowInsets(view!!, insets)
+        }
+        rule.waitForIdle()
+        startScan()
+        deliver(ScanOutcome.Accepted(entry("lesson-03-01")))
+
+        val pixels = rule.onRoot().captureToImage().toPixelMap()
+        assertEquals(DarkTokens.surfaceBase, pixels[pixels.width / 2, top / 2])
+        val bar = rule.onNodeWithTag("placement:topBar").fetchSemanticsNode()
+        assertTrue("top bar top ${bar.boundsInRoot.top} under the $top px status bar", bar.boundsInRoot.top >= top)
+        assertTrue("top bar is at least 56dp", bar.boundsInRoot.height >= 56 * bar.layoutInfo.density.density - 0.5f)
+        val close = rule.onNodeWithTag("placement:close").fetchSemanticsNode().boundsInRoot
+        assertTrue(close.top >= top)
+    }
+
+    private fun assertPlacementSurface(expected: Color) {
+        rule.onNodeWithTag("placement:screen").assertIsDisplayed()
+        val pixels = rule.onRoot().captureToImage().toPixelMap()
+        assertEquals(expected, pixels[0, 0])
+    }
+
     private fun show(
         enabled: Boolean = true,
         hasScan: Boolean = true,
         failedCatalog: Boolean = false,
+        dark: Boolean = false,
     ) {
         val catalog =
             if (failedCatalog) {
@@ -325,8 +459,9 @@ class AppShellPlacementTest {
             }
         val freeCube = FreeCubeViewModel()
         rule.setContent {
+            view = androidx.compose.ui.platform.LocalView.current
             back = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
-            CubentiaTheme {
+            CubentiaTheme(darkTheme = dark) {
                 AppShell(
                     host = host,
                     catalog = catalog,
