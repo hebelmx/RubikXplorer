@@ -110,6 +110,8 @@ val PreviewedMoveKey = SemanticsPropertyKey<PreviewedMove>("PreviewedMove")
 
 val RenderedOrbitKey = SemanticsPropertyKey<ViewOrbit>("RenderedOrbit")
 
+val RenderedFovKey = SemanticsPropertyKey<Double>("RenderedFov")
+
 val RenderedFaceLabelsKey = SemanticsPropertyKey<List<Face>>("RenderedFaceLabels")
 
 /** Main-thread adapter. Compose owns presentation; GL only draws published snapshots. */
@@ -118,6 +120,14 @@ class Cube3DRenderer(
 ) : CubeRenderer {
     var orbit by mutableStateOf(ViewOrbit.DEFAULT)
         private set
+
+    var fovDegrees by mutableStateOf(38.0)
+
+    internal fun pose(
+        width: Int,
+        height: Int,
+        eye: Vector3 = orbit.eye(),
+    ) = ViewPose(width, height, eye, fovDegrees)
 
     val isViewRotated: Boolean
         get() = !orbit.isHome()
@@ -213,6 +223,9 @@ class Cube3DRenderer(
 
     /** The camera eye last handed to the GL renderer; null before [Content] first composes. */
     internal val glEye: Vector3? get() = gl?.eye
+
+    /** The FOV last handed to the GL renderer; null before [Content] first composes. */
+    internal val glFovDegrees: Double? get() = gl?.fovDegrees
 
     /** The presented turn traced as an async `Cube3D.turn` section (Story 12.2); null when none is open. */
     private var tracedTurn: PresentationItem.Animate? = null
@@ -493,7 +506,8 @@ class Cube3DRenderer(
             onDispose { handler.removeCallbacks(expire) }
         }
         renderer.eye = orbit.eye()
-        LaunchedEffect(orbit) { view.requestRender() }
+        renderer.fovDegrees = fovDegrees
+        LaunchedEffect(orbit, fovDegrees) { view.requestRender() }
         renderer.background = stage
         LaunchedEffect(style, stage, emphasis, density) { wake.trySend(Unit) }
         LaunchedEffect(this, view) {
@@ -602,7 +616,7 @@ class Cube3DRenderer(
             val faceLabels =
                 if (rotated && stageW > 0 && stageH > 0) {
                     FaceLabels.place(
-                        ViewPose(stageW, stageH, orbit.eye()),
+                        pose(stageW, stageH),
                         labelGlyphs.boxWidth.toDouble(),
                         labelGlyphs.boxHeight.toDouble(),
                         labelGapPx,
@@ -615,6 +629,7 @@ class Cube3DRenderer(
                     Modifier.fillMaxSize().testTag("cube3d").clearAndSetSemantics {
                         this[RenderedStickersKey] = stickers
                         this[RenderedOrbitKey] = orbit
+                        this[RenderedFovKey] = fovDegrees
                         if (rotated) this[RenderedFaceLabelsKey] = faceLabels.map { it.face }
                         if (teachingArrow != null) this[RenderedArrowKey] = RenderedArrow(Notation.format(teachingArrow), arrowProgress)
                         if (activePreview != null) {
@@ -642,7 +657,7 @@ class Cube3DRenderer(
                             RubikTheme.textStyles.notation.copy(color = arrowColor),
                         )
                     Canvas(Modifier.matchParentSize()) {
-                        val pose = ViewPose(size.width.toInt(), size.height.toInt(), orbit.eye())
+                        val pose = pose(size.width.toInt(), size.height.toInt())
                         val points = arrowPoints(overlayMove, pose)
                         val position = overlayProgress * points.lastIndex
                         val whole = position.toInt().coerceAtMost(points.lastIndex)
@@ -692,6 +707,7 @@ class Cube3DRenderer(
                     modifier = Modifier.matchParentSize(),
                     glyphs = labelGlyphs,
                     labels = faceLabels,
+                    pose = { width, height -> pose(width, height) },
                 )
                 if (viewGestures) Box(Modifier.matchParentSize().then(gesture))
             }
@@ -835,13 +851,14 @@ internal fun FaceLabelOverlay(
     modifier: Modifier = Modifier,
     glyphs: FaceLabelGlyphs = rememberFaceLabelGlyphs(),
     labels: List<FaceLabel>? = null,
+    pose: (Int, Int) -> ViewPose = { width, height -> ViewPose(width, height, orbit.eye()) },
 ) {
     if (orbit.isHome()) return
     Canvas(modifier) {
         val placed =
             labels
                 ?: FaceLabels.place(
-                    ViewPose(size.width.toInt(), size.height.toInt(), orbit.eye()),
+                    pose(size.width.toInt(), size.height.toInt()),
                     glyphs.boxWidth.toDouble(),
                     glyphs.boxHeight.toDouble(),
                     FACE_LABEL_GAP.toPx().toDouble(),

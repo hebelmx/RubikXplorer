@@ -19,4 +19,16 @@ class ViewProjectionCacheTest {
         cache.resize(800, 600)
         assertArrayEquals(ViewPose(800, 600, eye).viewProjection(), cache.matrixFor(eye), 0f)
     }
+
+    @Test
+    fun matrixFollowsFovChangesAtTheSameEyeAndSurfaceSize() {
+        val cache = ViewProjectionCache()
+        cache.resize(379, 184)
+        val eye = ViewOrbit.DEFAULT.eye()
+        val original = cache.matrixFor(eye)
+        val zoomed = cache.matrixFor(eye, 34.0)
+        assertArrayEquals(ViewPose(379, 184, eye, 34.0).viewProjection(), zoomed, 0f)
+        assertFalse(original.contentEquals(zoomed))
+        assertArrayEquals(original, cache.matrixFor(eye), 0f)
+    }
 }

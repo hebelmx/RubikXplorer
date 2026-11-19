@@ -35,6 +35,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -802,7 +803,7 @@ private fun LessonBody(
             onYesItsSolved = onYesItsSolved,
         )
     }
-    val stage: @Composable (Modifier) -> Unit = { stageModifier ->
+    val stage: @Composable (Modifier, Boolean) -> Unit = { stageModifier, compactVirtual ->
         Box(stageModifier.testTag("lesson:stage")) {
             val isMismatch = session.syncState == SyncState.PHYSICAL_MISMATCH
             val onMoveKey: (Move) -> Unit = { move ->
@@ -884,6 +885,7 @@ private fun LessonBody(
                             }
                         }
                     LearnerStage(
+                        compactVirtual = compactVirtual,
                         host = host,
                         session = session,
                         renderer = renderer,
@@ -937,12 +939,14 @@ private fun LessonBody(
         val width = maxWidth
         val height = maxHeight
         val widthClass = WindowWidthClass.of(width.value)
+        val compactVirtual = widthClass == WindowWidthClass.COMPACT && session.syncState == SyncState.VIRTUAL
+        SideEffect { renderer.fovDegrees = if (compactVirtual) COMPACT_VIRTUAL_FOV else 38.0 }
         when (widthClass) {
             WindowWidthClass.COMPACT -> {
                 // The stage's own height (inside its gutter) is at least COMPACT_STAGE_MIN.
                 val stageHeight = min(max(height * COMPACT_STAGE_FRACTION, COMPACT_STAGE_MIN + Spacing.s2 * 2), height)
                 Column(Modifier.fillMaxSize()) {
-                    stage(Modifier.fillMaxWidth().height(stageHeight).stageSurface())
+                    stage(Modifier.fillMaxWidth().height(stageHeight).stageSurface(), compactVirtual)
                     panel(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()))
                 }
             }
@@ -950,7 +954,7 @@ private fun LessonBody(
             WindowWidthClass.MEDIUM, WindowWidthClass.EXPANDED -> {
                 val expanded = widthClass == WindowWidthClass.EXPANDED
                 Row(Modifier.fillMaxSize()) {
-                    stage(Modifier.fillMaxHeight().width(width * WIDE_STAGE_FRACTION).stageSurface())
+                    stage(Modifier.fillMaxHeight().width(width * WIDE_STAGE_FRACTION).stageSurface(), compactVirtual)
                     panel(
                         Modifier
                             .weight(1f, fill = false)
@@ -1205,6 +1209,7 @@ private fun recoveryActions(
  */
 @Composable
 private fun LearnerStage(
+    compactVirtual: Boolean,
     host: SessionHost,
     session: SessionState,
     renderer: Cube3DRenderer,
@@ -1223,6 +1228,7 @@ private fun LearnerStage(
     val tokens = RubikTheme.tokens
     var caption by remember { mutableStateOf<String?>(null) }
     StageColumn(
+        compactVirtual = compactVirtual,
         header = {
             // The frame label (and chip) and the toolbar share one line; with large type the toolbar wraps
             // below instead of squeezing its 48dp buttons.
@@ -1352,10 +1358,12 @@ private fun LearnerStage(
  */
 @Composable
 private fun StageColumn(
+    compactVirtual: Boolean,
     header: @Composable () -> Unit,
     body: @Composable () -> Unit,
 ) {
-    BoxWithConstraints(Modifier.fillMaxSize().padding(Spacing.s2)) {
+    val verticalPadding = if (compactVirtual) COMPACT_VIRTUAL_STAGE_PADDING else Spacing.s2
+    BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = Spacing.s2, vertical = verticalPadding)) {
         val viewport = if (constraints.hasBoundedHeight) constraints.maxHeight else 0
         val scroll = rememberScrollState()
         Layout(
@@ -1504,6 +1512,13 @@ internal const val REORIENT_STEP_MILLIS = 600L
 
 /** How long the net holds a demonstration's last frame before returning to the session's state. */
 internal const val REORIENT_HOLD_MILLIS = 1_200L
+
+/** Fit the cube bounding sphere on the compact virtual canvas (UX-DR23, #139). */
+private const val COMPACT_VIRTUAL_FOV = 34.0
+
+/** Give the compact virtual cube more room within the existing stage (UX-DR23, #139). */
+private val COMPACT_VIRTUAL_STAGE_PADDING = Spacing.s1
+
 private const val COMPACT_STAGE_FRACTION = 0.45f
 private const val WIDE_STAGE_FRACTION = 0.55f
 private val COMPACT_STAGE_MIN: Dp = 280.dp

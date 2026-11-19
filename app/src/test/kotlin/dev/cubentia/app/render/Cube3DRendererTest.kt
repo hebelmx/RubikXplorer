@@ -146,6 +146,20 @@ class Cube3DRendererTest {
     }
 
     @Test
+    fun contentHandsTheRendererFovToTheGlRenderer() {
+        val cube = Cube3DRenderer()
+        rule.setContent { cube.Content(RenderStyle(), Modifier.size(300.dp), onMoveIntent = {}) }
+        rule.waitForIdle()
+        assertEquals(38.0, checkNotNull(cube.glFovDegrees), 0.0)
+        rule.runOnIdle { cube.fovDegrees = 34.0 }
+        rule.waitForIdle()
+        assertEquals(34.0, checkNotNull(cube.glFovDegrees), 0.0)
+        rule.runOnIdle { cube.fovDegrees = 38.0 }
+        rule.waitForIdle()
+        assertEquals(38.0, checkNotNull(cube.glFovDegrees), 0.0)
+    }
+
+    @Test
     fun heldGhostTimesOutWithoutChangingTheMeshOrCommittedCube() {
         val cube = Cube3DRenderer()
         rule.setContent { cube.Content(RenderStyle(), Modifier.size(300.dp), onMoveIntent = {}) }
