@@ -1,8 +1,14 @@
 package dev.cubentia.solver
 
 import dev.cubentia.application.port.SolveResult
+import dev.cubentia.application.session.Effect
+import dev.cubentia.application.usecase.SolveCube
+import dev.cubentia.application.usecase.SolveCubeOutcome
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Cubies
+import dev.cubentia.domain.cube.FaceTurn
+import dev.cubentia.domain.cube.Notation
+import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.solver.benchmark.JvmHeapPoolSampler
 import dev.cubentia.solver.benchmark.SolveCorpusHarness
 import dev.cubentia.solver.benchmark.SolverWorkload
@@ -12,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -21,6 +28,20 @@ import kotlin.random.Random
 
 class TwoPhaseCubeSolverTest {
     private val tables get() = SolverWorkload.preparedTables
+
+    @Test
+    fun `solve plan merges same-face turns across the phase boundary`() =
+        runBlocking {
+            val scramble = (Notation.parse("R U2 F L2 D B2") as NotationResult.Parsed).moves
+            val expected = (Notation.parse("B2 D' L2 F' U2 R'") as NotationResult.Parsed).moves
+            val state = CubeState.SOLVED.apply(scramble)
+            val raw = (Notation.parse("B2 D' L2 F' U2 R R2") as NotationResult.Parsed).moves.map { it as FaceTurn }
+            assertEquals(SolveResult.Solved(raw), TwoPhaseCubeSolver(tables).solve(state.cubies))
+            val completion = SolveCube(TwoPhaseCubeSolver(tables))(Effect.SolveCube(51, 73, state))
+            val outcome = assertInstanceOf(SolveCubeOutcome.Solved::class.java, completion.outcome)
+            assertEquals(expected, outcome.moves)
+            assertTrue(outcome.moves.zipWithNext().none { (first, second) -> first.face == second.face })
+        }
 
     @Test
     fun `mandatory ten thousand uniform legal states plus solved and deep Scrambles`() {

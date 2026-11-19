@@ -5,6 +5,7 @@ import dev.cubentia.application.port.SolveResult
 import dev.cubentia.application.session.Effect
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
+import dev.cubentia.domain.cube.mergeSameFaceTurns
 import dev.cubentia.domain.text.Text
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -49,7 +50,8 @@ class SolveCube(
                                 val context = currentCoroutineContext()
                                 val moves = mutableListOf<FaceTurn>()
                                 var verified = effect.state
-                                for (move in result.moves) {
+                                val merged = result.moves.mergeSameFaceTurns { context.ensureActive() }
+                                for (move in merged) {
                                     context.ensureActive()
                                     val mapped =
                                         FaceTurn(
