@@ -428,6 +428,44 @@ class ScanAssemblerTest {
     }
 
     @Test
+    fun `a posed face with a disagreeing center is eligible only when re-prompting posed faces`() {
+        val samples =
+            Face.entries.map { face ->
+                val sample = capture(misreadEdge, face, 0, 0)
+                if (face == Face.U) {
+                    sample.copy(stickers = sample.stickers.toMutableList().also { it[4] = LABS.getValue(Color.RED) })
+                } else {
+                    sample
+                }
+            }
+        assertEquals(emptyList<Face>(), ScanAssembler.repromptFaces(samples, CALIBRATION))
+        assertEquals(listOf(Face.U, Face.F), ScanAssembler.repromptFaces(samples, CALIBRATION, repromptPosed = true))
+    }
+
+    @Test
+    fun `a posed face with a disagreeing center does not count toward the re-prompt limit`() {
+        // U and F unposed hold the illegal UF edge; posed L's center misreads, which would make three faces.
+        val samples =
+            Face.entries.map { face ->
+                when (face) {
+                    Face.U, Face.F -> {
+                        unposed(misreadEdge, face, face.ordinal % 4)
+                    }
+
+                    Face.L -> {
+                        val sample = capture(misreadEdge, face, 0, 0)
+                        sample.copy(stickers = sample.stickers.toMutableList().also { it[4] = LABS.getValue(Color.RED) })
+                    }
+
+                    else -> {
+                        capture(misreadEdge, face, 0, 0)
+                    }
+                }
+            }
+        assertEquals(listOf(Face.F, Face.U), ScanAssembler.repromptFaces(samples, CALIBRATION))
+    }
+
+    @Test
     fun `re-prompted faces still invalid keep their prompted read and are not asked again`() {
         val colors = r2.colors.toMutableList()
         colors[range(Face.F).first] = Color.YELLOW

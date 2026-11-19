@@ -1,6 +1,8 @@
 package dev.cubentia.app.ui.scan
 
 import android.app.Application
+import androidx.activity.OnBackPressedDispatcher
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -12,6 +14,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
@@ -88,6 +91,7 @@ class ScanReviewScreenTest {
         ),
     )
     private var accepted: CubeState? = null
+    private lateinit var backDispatcher: OnBackPressedDispatcher
     private var closed = false
     private var enterColors: (() -> Unit)? = null
     private var coachPending by mutableStateOf(false)
@@ -104,27 +108,30 @@ class ScanReviewScreenTest {
         large: Boolean = false,
         reduceMotion: Boolean = false,
         hapticsOn: Boolean = true,
+        edited: Boolean = false,
     ) {
         rule.setContent {
+            backDispatcher = checkNotNull(LocalOnBackPressedDispatcherOwner.current).onBackPressedDispatcher
             CompositionLocalProvider(
                 LocalReduceMotionOverride provides reduceMotion,
                 LocalHaptics provides hapticsOn,
                 LocalHapticFeedback provides haptics,
             ) {
                 CubentiaTheme {
-                    if (large) fontScale200 { screen() } else screen()
+                    if (large) fontScale200 { screen(edited) } else screen(edited)
                 }
             }
         }
     }
 
-    @androidx.compose.runtime.Composable private fun screen() {
+    @androidx.compose.runtime.Composable private fun screen(edited: Boolean = false) {
         ScanReviewScreen(
             review,
             strings,
             { review = it },
             { accepted = it },
             { closed = true },
+            edited = edited,
             onEnterColors = enterColors,
             coachMarkPending = coachPending,
             onCoachMarkDismissed = {
@@ -308,7 +315,10 @@ class ScanReviewScreenTest {
         rule.onNodeWithTag("swatch:WHITE").performScrollTo().performClick()
         rule.mainClock.advanceTimeBy(50)
         rule.onNodeWithTag("sticker:7:cue", useUnmergedTree = true).assertExists()
-        assertEquals(true, rule.onNodeWithTag("sticker:7").fetchSemanticsNode().config[StickerCueScalesKey])
+        val sticker = rule.onNodeWithTag("sticker:7").fetchSemanticsNode().config
+        assertEquals(true, sticker[StickerCueScalesKey])
+        assertTrue(sticker.getOrNull(SemanticsProperties.Text).orEmpty().none { '✓' in it.text })
+        assertTrue(sticker.getOrNull(SemanticsProperties.ContentDescription).orEmpty().none { '✓' in it })
         assertEquals(1, ticks)
         rule.onNodeWithTag("review:updated").assertTextEquals("Up face, position 8: white")
         assertEquals(
@@ -375,6 +385,18 @@ class ScanReviewScreenTest {
         rule.waitForIdle()
         open = true
         rule.onNodeWithTag("review:coach").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun `filling every blank hides the coach mark without recording dismissal`() {
+        coachPending = true
+        launch()
+        rule.onNodeWithTag("review:coach").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("swatch:WHITE").performScrollTo().performClick()
+        rule.onNodeWithTag("swatch:GREEN").performScrollTo().performClick()
+        assertTrue(review.blanks.isEmpty())
+        rule.onNodeWithTag("review:coach").assertDoesNotExist()
+        assertEquals(0, coachDismissed)
+        assertTrue(coachPending)
     }
 
     @Test fun `the coach mark is not shown when nothing needs a color`() {
@@ -496,6 +518,34 @@ class ScanReviewScreenTest {
         rule.onNodeWithTag("review:close").performScrollTo().performClick()
         rule.onNodeWithTag("review:discard").assertExists()
         assertEquals(false, closed)
+    }
+
+    @Test fun `Back after painting asks before discarding and cancel keeps the review`() {
+        launch()
+        rule.onNodeWithTag("swatch:WHITE").performScrollTo().performClick()
+        rule.runOnIdle { backDispatcher.onBackPressed() }
+        rule.onNodeWithTag("review:discard").assertExists()
+        assertFalse(closed)
+        rule.onNodeWithTag("review:discard:cancel").performClick()
+        rule.onNodeWithTag("review:discard").assertDoesNotExist()
+        assertFalse(closed)
+        assertEquals(Color.WHITE, review.stickers[7])
+        rule.runOnIdle { backDispatcher.onBackPressed() }
+        rule.onNodeWithTag("review:discard:confirm").performClick()
+        assertTrue(closed)
+    }
+
+    @Test fun `Back asks when the review was already edited before it was shown`() {
+        launch(edited = true)
+        rule.runOnIdle { backDispatcher.onBackPressed() }
+        rule.onNodeWithTag("review:discard").assertExists()
+        assertFalse(closed)
+    }
+
+    @Test fun `an unedited review does not intercept Back`() {
+        launch()
+        rule.runOnIdle { assertFalse(backDispatcher.hasEnabledCallbacks()) }
+        assertFalse(closed)
     }
 
     @Test fun calibrationOfferRequiresConfirmation() {

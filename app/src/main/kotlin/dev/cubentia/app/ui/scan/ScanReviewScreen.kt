@@ -1,5 +1,6 @@
 package dev.cubentia.app.ui.scan
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -71,9 +72,9 @@ private enum class DiscardAction { CLOSE, ENTER_COLORS }
  * Renders immutable review decisions; all sticker edits are delegated to the domain value. While
  * [coachMarkPending] (the Learner's first review) and a sticker needs a color, a one-time coach mark
  * shows; [onCoachMarkDismissed] is called when the Learner taps to dismiss it, so the caller records it
- * as seen (PO 2026-11-16). A review closed without that tap shows it again next time. [edited] says
- * the review was already changed before this screen was shown (back from calibration), so *Close*
- * still asks before discarding.
+ * as seen (PO 2026-11-16). It is hidden while no sticker needs a color, without counting as seen. A later review with blanks
+ * shows it again until it is tapped. [edited] says the review was already changed before this screen
+ * was shown (back from calibration), so Close and system Back still ask before discarding.
  */
 @Composable
 fun ScanReviewScreen(
@@ -95,6 +96,7 @@ fun ScanReviewScreen(
     var changed by rememberSaveable { mutableStateOf(edited) }
     var confirmCalibration by rememberSaveable { mutableStateOf(false) }
     var discardAction by rememberSaveable { mutableStateOf<DiscardAction?>(null) }
+    BackHandler(enabled = changed && discardAction == null) { discardAction = DiscardAction.CLOSE }
     var coachVisible by rememberSaveable { mutableStateOf(false) }
     val needsFix = review.blanks.isNotEmpty()
     LaunchedEffect(coachMarkPending && needsFix) {
@@ -143,7 +145,7 @@ fun ScanReviewScreen(
                         Modifier.fillMaxWidth().aspectRatio(Net2DRenderer.NET_COLUMNS.toFloat() / Net2DRenderer.NET_ROWS)
                     },
             )
-            if (coachVisible) {
+            if (coachVisible && needsFix) {
                 CoachMark(strings) {
                     coachVisible = false
                     onCoachMarkDismissed()

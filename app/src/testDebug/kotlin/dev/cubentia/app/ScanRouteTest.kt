@@ -1,9 +1,11 @@
 package dev.cubentia.app
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.os.Looper
 import android.os.SystemClock
 import android.view.View
 import androidx.activity.ComponentActivity
@@ -12,7 +14,9 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.lifecycle.ViewModelProvider
 import dagger.Module
 import dagger.Provides
@@ -33,6 +37,7 @@ import dev.cubentia.app.di.SolverModule
 import dev.cubentia.app.scan.ScanLauncher
 import dev.cubentia.app.solver.SolverLoad
 import dev.cubentia.app.solver.SolverSource
+import dev.cubentia.app.ui.scan.ScanCoachMarkRecord
 import dev.cubentia.app.ui.solve.SolveFlowViewModel
 import dev.cubentia.app.ui.solve.SolvePhase
 import dev.cubentia.application.port.CalibrationLoad
@@ -40,6 +45,9 @@ import dev.cubentia.application.port.CalibrationRepository
 import dev.cubentia.application.port.CubeSolver
 import dev.cubentia.application.port.SolveResult
 import dev.cubentia.application.session.SessionKind
+import dev.cubentia.domain.content.ContentLoadResult
+import dev.cubentia.domain.content.ContentLoader
+import dev.cubentia.domain.content.ContentSource
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Face
@@ -49,6 +57,7 @@ import dev.cubentia.domain.recognition.CellReading
 import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.GuidedScanPlan
 import dev.cubentia.domain.recognition.Lab
+import dev.cubentia.domain.recognition.ScanStep
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -345,33 +354,146 @@ class ScanRouteTest {
         }
     }
 
+    @Test fun misreadEdgeRepromptsTwoFacesWithNamedTopsThenOpensReview() {
+        withScan { _, vm ->
+            val colors = cube.toFacelets().colors
+            // Give UF's two stickers the same color so that the assembled edge is illegal.
+            assertNotEquals(colors[7], colors[19])
+            GuidedScanPlan.steps.forEach { step ->
+                captureFace(vm, step) { index -> labs.getValue(colors[if (index == 7) 19 else index]) }
+            }
+
+            val promptTemplate =
+                (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded)
+                    .bundle.strings
+                    .getValue("msg.scan.prompt-with-top")
+            val prompts = listOf(Triple(Face.F, "green", "white"), Triple(Face.U, "white", "blue"))
+            assertEquals(prompts.size, vm.controller.repromptCount)
+            prompts.forEach { (face, center, top) ->
+                val phase = vm.phase as GuidedScanPhase.Viewfinder
+                assertTrue(vm.controller.repeating)
+                assertTrue(source.running)
+                val step = GuidedScanPlan.reprompt(face)
+                assertEquals(step, phase.step)
+                val prompt = promptTemplate.replace("{center}", center).replace("{up}", top)
+                rule.onNodeWithText(prompt).assertIsDisplayed()
+                captureFace(vm, step) { index -> labs.getValue(colors[index]) }
+            }
+            rule.onNodeWithTag("review:screen").assertIsDisplayed()
+            val review = (vm.phase as GuidedScanPhase.Review).review
+            // The retakes replace the misread samples, so the review accepts the scanned cube.
+            assertEquals(cube.toFacelets(), review.accepted?.toFacelets())
+            assertFalse(vm.controller.repeating)
+        }
+    }
+
+    @Test fun coachMarkStaysPendingUntilTappedAndIsAbsentInTheNextActivity() {
+        val context = RuntimeEnvironment.getApplication()
+        context
+            .getSharedPreferences("scan_review", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
+        withScan { _, vm ->
+            captureFaces(vm, logo = true)
+            rule.onNodeWithTag("review:coach").performScrollTo().assertIsDisplayed()
+        }
+        assertTrue(ScanCoachMarkRecord.pending(context))
+
+        withScan { _, vm ->
+            captureFaces(vm, logo = true)
+            rule.onNodeWithTag("review:coach").performScrollTo().performClick()
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                !ScanCoachMarkRecord.pending(context)
+            }
+        }
+        withScan { _, vm ->
+            captureFaces(vm, logo = true)
+            assertTrue((vm.phase as GuidedScanPhase.Review).review.blanks.isNotEmpty())
+            rule.onNodeWithTag("review:coach").assertDoesNotExist()
+        }
+    }
+
+    @Test fun backFromEditedReviewFinishesOnlyAfterConfirmingDiscard() {
+        withScan { activity, vm ->
+            captureFaces(vm, logo = true)
+            val review = (vm.phase as GuidedScanPhase.Review).review
+            val index = review.blanks.first { it % 9 != 4 }
+            rule.onNodeWithTag("sticker:$index").performClick()
+            rule.onNodeWithTag("swatch:${cube.toFacelets().colors[index].name}").performScrollTo().performClick()
+            assertTrue((vm.phase as GuidedScanPhase.Review).edited)
+            rule.runOnIdle { activity.onBackPressedDispatcher.onBackPressed() }
+            rule.onNodeWithTag("review:discard").assertIsDisplayed()
+            assertFalse(activity.isFinishing)
+            rule.onNodeWithTag("review:discard:confirm").performClick()
+            assertTrue(activity.isFinishing)
+            assertEquals(Activity.RESULT_CANCELED, shadowOf(activity).resultCode)
+        }
+    }
+
+    @Test fun backFromUneditedReviewFinishesCancelledWithoutAsking() {
+        withScan { activity, vm ->
+            captureFaces(vm, logo = true)
+            assertFalse((vm.phase as GuidedScanPhase.Review).edited)
+            rule.runOnIdle { activity.onBackPressedDispatcher.onBackPressed() }
+            rule.onNodeWithTag("review:discard").assertDoesNotExist()
+            assertTrue(activity.isFinishing)
+            assertEquals(Activity.RESULT_CANCELED, shadowOf(activity).resultCode)
+        }
+    }
+
+    private fun withScan(test: (GuidedScanActivity, GuidedScanViewModel) -> Unit) {
+        val scan = Robolectric.buildActivity(GuidedScanActivity::class.java).setup()
+        try {
+            rule.waitForIdle()
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                source.running
+            }
+            test(scan.get(), ViewModelProvider(scan.get())[GuidedScanViewModel::class.java])
+        } finally {
+            scan.pause().stop().destroy()
+            rule.waitForIdle()
+        }
+    }
+
     // [misread] reads that facelet as another clear color, so only the Learner's carried correction can fix it.
     private fun captureFaces(
         vm: GuidedScanViewModel,
         logo: Boolean,
         misread: Int = -1,
     ) {
+        val colors = cube.toFacelets().colors
         GuidedScanPlan.steps.forEach { step ->
-            val cells =
-                cube
-                    .toFacelets()
-                    .colors
-                    .subList(step.face.ordinal * 9, step.face.ordinal * 9 + 9)
-                    .mapIndexed { i, color ->
-                        CellReading(
-                            when {
-                                step.face.ordinal * 9 + i == misread -> labs.getValue(labs.keys.first { it != color })
-                                step.face == Face.F && i == 0 -> closeCall(color)
-                                else -> labs.getValue(color)
-                            },
-                            !(logo && step.centerColor == Color.WHITE && i == 4),
-                        )
-                    }
-            source.feed(FrameStats(cells, 120.0, 0.0, 100.0, 12), null)
-            rule.waitForIdle()
-            vm.frozen?.let { vm.endFreeze(it.id) }
-            rule.waitForIdle()
+            captureFace(vm, step, logo) { index ->
+                val color = colors[index]
+                when {
+                    index == misread -> labs.getValue(labs.keys.first { it != color })
+                    index == Face.F.ordinal * 9 -> closeCall(color)
+                    else -> labs.getValue(color)
+                }
+            }
         }
+    }
+
+    private fun captureFace(
+        vm: GuidedScanViewModel,
+        step: ScanStep,
+        logo: Boolean = false,
+        readColor: (Int) -> Lab,
+    ) {
+        val cells =
+            List(9) { index ->
+                CellReading(
+                    readColor(step.face.ordinal * 9 + index),
+                    !(logo && step.centerColor == Color.WHITE && index == 4),
+                )
+            }
+        source.feed(FrameStats(cells, 120.0, 0.0, 100.0, 12), null)
+        rule.waitForIdle()
+        vm.frozen?.let { vm.endFreeze(it.id) }
+        rule.waitForIdle()
     }
 
     internal class FakeFrames : ScanFrameSource {
