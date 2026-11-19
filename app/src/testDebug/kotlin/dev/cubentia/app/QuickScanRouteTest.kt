@@ -31,6 +31,9 @@ import dev.cubentia.app.ui.solve.SolveFlowViewModel
 import dev.cubentia.app.ui.solve.SolvePhase
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Face
+import dev.cubentia.domain.cube.Notation
+import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.domain.recognition.CellReading
 import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.Lab
@@ -135,6 +138,65 @@ class QuickScanRouteTest {
         }
     }
 
+    /** Issue #194: the accepted review is built from Quick Scan's oriented Done samples, not the grid face's named top. */
+    @Test fun aReaskedFaceHeldUpsideDownIsAcceptedInTheCornerFrame() {
+        val cube = CubeState.SOLVED.apply((Notation.parse("U R2 F' D L' B2") as NotationResult.Parsed).moves)
+        val net = { face: Face ->
+            cube
+                .toFacelets()
+                .colors
+                .drop(face.ordinal * 9)
+                .take(9)
+        }
+        val main = Robolectric.buildActivity(MainActivity::class.java).setup()
+        try {
+            rule.waitUntil(10_000) { rule.onAllNodesWithTag("welcome:imNew").fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithTag("welcome:imNew").performClick()
+            rule.onNodeWithTag("nav:solve").performClick()
+            rule.onNodeWithTag("solve:quickScan").performClick()
+            val shadow = shadowOf(main.get())
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                shadow.peekNextStartedActivityForResult() != null
+            }
+            val intent = shadow.nextStartedActivityForResult.intent
+            val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, intent).setup()
+            try {
+                waitForCamera(corner = true)
+                val model = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
+                QuickScanPlan.holds.forEach { steps ->
+                    // Corner reads in plan frames, as QuickScanControllerTest's hold(); U is unsure so the grid asks for it.
+                    val faces =
+                        steps.map { step ->
+                            val colors = net(step.face)
+                            val framed =
+                                when (step.face) {
+                                    Face.D -> listOf(2, 5, 8, 1, 4, 7, 0, 3, 6).map(colors::get)
+                                    Face.L, Face.B -> colors.reversed()
+                                    else -> colors
+                                }
+                            stats(framed, uncertain = step.face == Face.U)
+                        }
+                    captureFaces(faces, model)
+                }
+                rule.onNodeWithTag("scanProgress").assertTextEquals("Again: face 1 of 1")
+                waitForCamera(corner = false)
+                // Held 180 degrees off its named top at camera rotation 90: one clockwise quarter turn of the net in pixel order
+                // (ScanAssembler.rotateClockwise(net, 1), which is internal to :core:domain).
+                val pixels = listOf(6, 3, 0, 7, 4, 1, 8, 5, 2).map(net(Face.U)::get)
+                camera.feed(ScanFrame(stats(pixels), 90))
+                shutter(model)
+                rule.onNodeWithTag("review:accept").performScrollTo().performClick()
+                val result = shadowOf(scan.get())
+                assertEquals(ScanOutcome.Accepted(cube), ScanFlowContract.decode(result.resultCode, result.resultIntent))
+            } finally {
+                scan.pause().stop().destroy()
+            }
+        } finally {
+            main.pause().stop().destroy()
+        }
+    }
+
     @Test fun steadyCornersCaptureThemselvesAndTheRunRecordCountsReviewEdits() {
         val main = Robolectric.buildActivity(MainActivity::class.java).setup()
         try {
@@ -206,6 +268,13 @@ class QuickScanRouteTest {
         model: GuidedScanViewModel,
     ) {
         val faces = QuickScanPlan.holds[hold - 1].map { step -> stats(step.centerColor, uncertain && step.centerColor == Color.GREEN) }
+        captureFaces(faces, model)
+    }
+
+    private fun captureFaces(
+        faces: List<FrameStats>,
+        model: GuidedScanViewModel,
+    ) {
         camera.feed(ScanFrame(faces.first(), 0, corner = CornerFrame(true, faces)))
         shutter(model)
     }
@@ -229,9 +298,14 @@ class QuickScanRouteTest {
     private fun stats(
         color: Color,
         uncertain: Boolean = false,
+    ): FrameStats = stats(List(9) { color }, uncertain)
+
+    private fun stats(
+        colors: List<Color>,
+        uncertain: Boolean = false,
     ): FrameStats =
         FrameStats(
-            List(9) { index ->
+            colors.mapIndexed { index, color ->
                 CellReading(
                     if (uncertain &&
                         index == 0
