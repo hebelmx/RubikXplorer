@@ -5,6 +5,8 @@ import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.CubeValidator
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
+import dev.cubentia.domain.cube.Notation
+import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.domain.cube.Turn
 import dev.cubentia.domain.cube.ValidationResult
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -24,7 +26,12 @@ class QuickScanControllerTest {
         )
     private val cube = CubeState.SOLVED.apply(listOf(FaceTurn(Face.R, Turn.CLOCKWISE), FaceTurn(Face.U, Turn.COUNTERCLOCKWISE)))
 
-    private fun face(face: Face): FrameStats {
+    private val evidenceCube = CubeState.SOLVED.apply((Notation.parse("U R2 F' D L' B2") as NotationResult.Parsed).moves)
+
+    private fun face(
+        face: Face,
+        cube: CubeState = this.cube,
+    ): FrameStats {
         val colors =
             cube
                 .toFacelets()
@@ -34,9 +41,12 @@ class QuickScanControllerTest {
         return FrameStats(colors.map { CellReading(labs.getValue(it), true) }, 120.0, 0.0, 100.0, 12)
     }
 
-    private fun hold(index: Int): List<FrameStats> =
+    private fun hold(
+        index: Int,
+        cube: CubeState = this.cube,
+    ): List<FrameStats> =
         QuickScanPlan.holds[index - 1].map { step ->
-            val stats = face(step.face)
+            val stats = face(step.face, cube)
             when (step.face) {
                 Face.D -> stats.copy(cells = listOf(2, 5, 8, 1, 4, 7, 0, 3, 6).map(stats.cells::get))
                 Face.L, Face.B -> stats.copy(cells = stats.cells.reversed())
@@ -117,6 +127,62 @@ class QuickScanControllerTest {
         assertEquals(null, guidedCapture(scan, face(Face.U)))
         val done = guidedCapture(scan, face(Face.F)) as QuickScanEffect.Done
         assertEquals(cube.toFacelets(), assemble(done.samples).facelets)
+    }
+
+    @Test
+    fun `a missing corner face can be captured in the grid with any top at camera rotation 90`() {
+        for (missing in Face.entries) {
+            for (heldTurns in 0..3) {
+                val scan = QuickScanController()
+                val holds =
+                    QuickScanPlan.holds.mapIndexed { index, steps ->
+                        steps.zip(hold(index + 1, evidenceCube)).map { (step, stats) ->
+                            stats.takeUnless { step.face == missing }
+                        }
+                    }
+                val scenario = "face $missing, held turns $heldTurns"
+                assertEquals(QuickScanEffect.Fallback(listOf(missing), 1), capture(scan, holds[0], holds[1]), scenario)
+                val done = guidedCapture(scan, evidenceGridFace(missing, heldTurns), rotation = 90)
+                assertTrue(done is QuickScanEffect.Done, "$scenario: $done")
+                val samples = (done as QuickScanEffect.Done).samples
+                val merged = assemble(samples).facelets
+                assertEquals(evidenceCube.toFacelets(), merged, scenario)
+                if (missing == Face.U) assertEquals("OWORWYORB", merged.colors.take(9).joinToString("") { it.name.take(1) }, scenario)
+                val reasked = samples.single { it.face == missing }
+                assertEquals(if (heldTurns == 0) GuidedScanPlan.reprompt(missing).upNeighborColor else null, reasked.upNeighborColor)
+                assertTrue(samples.filter { it.face != missing }.all { it.upNeighborColor != null }, scenario)
+            }
+        }
+    }
+
+    @Test
+    fun `an involved corner face reasked in round two can be held upside down`() {
+        val scan = QuickScanController()
+        val first = hold(1, evidenceCube).toMutableList()
+        // A U edge read from the corner hold implicates two faces, within the re-prompt limit.
+        first[0] = first[0].withCell(1, labs.getValue(Color.BLUE))
+        val effect = capture(scan, first, hold(2, evidenceCube))
+        assertTrue(effect is QuickScanEffect.Fallback, "$effect")
+        val fallback = effect as QuickScanEffect.Fallback
+        assertEquals(2, fallback.round)
+        assertTrue(Face.U in fallback.faces && fallback.faces.size <= 2, "${fallback.faces}")
+        val done =
+            fallback.faces
+                .map { face ->
+                    guidedCapture(scan, evidenceGridFace(face, if (face == Face.U) 2 else 0), rotation = 90)
+                }.last() as QuickScanEffect.Done
+        val merged = assemble(done.samples).facelets
+        assertEquals(evidenceCube.toFacelets(), merged)
+        assertEquals("OWORWYORB", merged.colors.take(9).joinToString("") { it.name.take(1) })
+    }
+
+    private fun evidenceGridFace(
+        face: Face,
+        heldTurns: Int,
+    ): FrameStats {
+        val stats = face(face, evidenceCube)
+        // At camera rotation 90 the pixels are one turn counterclockwise from the held face.
+        return stats.copy(cells = ScanAssembler.rotateClockwise(stats.cells, heldTurns - 1))
     }
 
     @Test
@@ -236,9 +302,10 @@ class QuickScanControllerTest {
     private fun guidedCapture(
         scan: QuickScanController,
         stats: FrameStats,
+        rotation: Int = 0,
     ): QuickScanEffect? {
         val grid = checkNotNull(scan.fallback)
-        grid.onFrame(stats, 0, 0)
+        grid.onFrame(stats, rotation, 0)
         return scan.onGuidedEffects(grid.onShutter(0))
     }
 

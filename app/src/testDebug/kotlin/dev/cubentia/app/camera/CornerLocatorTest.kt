@@ -23,6 +23,7 @@ import java.util.Random
 import javax.imageio.ImageIO
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 class CornerLocatorTest {
     @Test
@@ -39,20 +40,7 @@ class CornerLocatorTest {
                 val guide = CornerGuide(grid(width, height, rotation), rotation)
                 listOf(0.7 to -10.0, 0.84 to 6.0, 1.0 to 10.0).forEach { (scale, roll) ->
                     QuickScanPlan.holds.forEachIndexed { index, hold ->
-                        val expected =
-                            hold.map { step ->
-                                val colors =
-                                    cube
-                                        .toFacelets()
-                                        .colors
-                                        .drop(step.face.ordinal * 9)
-                                        .take(9)
-                                when (step.face) {
-                                    Face.D -> listOf(2, 5, 8, 1, 4, 7, 0, 3, 6).map(colors::get)
-                                    Face.L, Face.B -> colors.reversed()
-                                    else -> colors
-                                }
-                            }
+                        val expected = hold.map { step -> expectedFace(cube, step.face) }
                         val quads = guide.quads(project(guide.vertices(scale, roll), guide.vertices().last(), guide.radius))
                         val image =
                             render(width, height, quads) { face, x, y ->
@@ -73,6 +61,93 @@ class CornerLocatorTest {
                     }
                 }
             }
+        }
+    }
+
+    @Test
+    fun `orthographic cube projection reads the Quick Scan corner frame at each camera rotation`() {
+        val cube =
+            CubeState.SOLVED.apply(
+                listOf(FaceTurn(Face.R, Turn.CLOCKWISE), FaceTurn(Face.U, Turn.HALF), FaceTurn(Face.F, Turn.COUNTERCLOCKWISE)),
+            )
+        val centers = CalibrationCenters(palette.mapValues { (_, rgb) -> readColor(rgb) })
+        val colors = cube.toFacelets().colors
+        for (rotation in listOf(0, 90, 180, 270)) {
+            val width = if (rotation % 180 == 0) 240 else 320
+            val height = if (rotation % 180 == 0) 320 else 240
+            val square = grid(width, height, rotation)
+            val center = CornerPoint(square.left + square.side / 2, square.top + square.side / 2)
+            val scale = square.side * 0.22
+            val guide = CornerGuide(square, rotation)
+            QuickScanPlan.holds.forEachIndexed { index, hold ->
+                val sign = if (index == 0) 1 else -1
+                val visible = if (sign == 1) listOf(Face.U, Face.F, Face.R) else listOf(Face.D, Face.L, Face.B)
+
+                // Eye is (sign, sign, sign) and camera up is (0, sign, 0).
+                // Project onto the resulting right and down unit vectors, then rotate into frame pixels.
+                fun project(point: Triple<Int, Int, Int>): CornerPoint {
+                    val (x, y, z) = point
+                    val right = (x - z) / sqrt(2.0)
+                    val down = sign * (x - 2 * y + z) / sqrt(6.0)
+                    val pixel =
+                        when (rotation) {
+                            90 -> CornerPoint(down, -right)
+                            180 -> CornerPoint(-right, -down)
+                            270 -> CornerPoint(-down, right)
+                            else -> CornerPoint(right, down)
+                        }
+                    return center + pixel * scale
+                }
+
+                val quads =
+                    visible.map { face ->
+                        listOf(-1 to -1, 1 to -1, 1 to 1, -1 to 1).map { (column, row) ->
+                            // Cube axes point toward R, U and F. Each face uses its own URFDLB row and column directions.
+                            project(
+                                when (face) {
+                                    Face.U -> Triple(column, 1, row)
+                                    Face.R -> Triple(1, -row, -column)
+                                    Face.F -> Triple(column, -row, 1)
+                                    Face.D -> Triple(column, -1, -row)
+                                    Face.L -> Triple(-1, -row, column)
+                                    Face.B -> Triple(-column, -row, -1)
+                                },
+                            )
+                        }
+                    }
+                val image =
+                    render(width, height, quads) { face, x, y ->
+                        val column = (x * 3).toInt()
+                        val row = (y * 3).toInt()
+                        if (listOf(x, y).any { abs(it * 3 - (it * 3).roundToInt()) < 0.06 }) {
+                            BODY
+                        } else {
+                            palette.getValue(colors[visible[face].ordinal * 9 + row * 3 + column])
+                        }
+                    }
+                val corner = CornerReader.read(image.toCornerFrame(), guide)
+                val scenario = "hold ${index + 1}, camera rotation $rotation"
+                assertTrue(corner.detected, scenario)
+                val measured = corner.faces.map { stats -> stats?.cells?.map { it?.value?.let { lab -> classify(lab, centers).color } } }
+                assertEquals(hold.map { expectedFace(cube, it.face) }, measured, scenario)
+            }
+        }
+    }
+
+    private fun expectedFace(
+        cube: CubeState,
+        face: Face,
+    ): List<Color> {
+        val colors =
+            cube
+                .toFacelets()
+                .colors
+                .drop(face.ordinal * 9)
+                .take(9)
+        return when (face) {
+            Face.D -> listOf(2, 5, 8, 1, 4, 7, 0, 3, 6).map(colors::get)
+            Face.L, Face.B -> colors.reversed()
+            else -> colors
         }
     }
 

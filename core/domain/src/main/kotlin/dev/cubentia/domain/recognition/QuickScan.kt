@@ -34,6 +34,7 @@ class QuickScanController(
     private val saved: CalibrationCenters? = null,
 ) {
     private val samples = linkedMapOf<Face, FaceSample>()
+    private val gridFaces = mutableSetOf<Face>()
     private val corner = CornerHold()
     private var previous: List<Lab?>? = null
     var hold = 1
@@ -106,11 +107,24 @@ class QuickScanController(
         val grid = fallback ?: return null
         val capture = effects.filterIsInstance<GuidedScanEffect.Capture>().firstOrNull() ?: return null
         samples[capture.sample.face] = capture.sample
+        gridFaces += capture.sample.face
         if (effects.any { it is GuidedScanEffect.Done }) {
             fallback = null
             return finish()
         }
         return if (grid.repeating && grid.repromptIndex == 0) QuickScanEffect.Fallback(repromptFaces, 2) else null
+    }
+
+    /** Re-asked faces merge in the corner frame. Keep their named tops unless freeing them resolves an invalid merge. */
+    private fun oriented(
+        merged: List<FaceSample>,
+        gridFaces: Set<Face>,
+    ): List<FaceSample> {
+        if (gridFaces.isEmpty()) return merged
+        val calibration = SelfCalibration.from(merged, saved) as? SelfCalibration.Calibrated ?: return merged
+        if (ScanAssembler.trace(merged, calibration.calibration).branch == ScanBranch.RESOLVED) return merged
+        val unposed = merged.map { if (it.face in gridFaces) it.copy(upNeighborColor = null) else it }
+        return if (ScanAssembler.trace(unposed, calibration.calibration).branch == ScanBranch.RESOLVED) unposed else merged
     }
 
     private fun involvedFaces(merged: List<FaceSample>): List<Face> {
@@ -137,7 +151,9 @@ class QuickScanController(
                         val merged = (samples + replacements.associateBy { it.face }).values.toList()
                         // Corner faces kept from the first pass are checked again once the merged scan can calibrate.
                         val retained = Face.entries.filter { it !in fallbackFaces }
-                        (needGrid(merged, retained) + involvedFaces(merged)).distinct().also { repromptFaces = it }
+                        // The callback runs before the last replacement reaches onGuidedEffects.
+                        val orientedMerge = oriented(merged, gridFaces + replacements.map { it.face })
+                        (needGrid(merged, retained) + involvedFaces(orientedMerge)).distinct().also { repromptFaces = it }
                     } else {
                         emptyList()
                     }
@@ -189,5 +205,5 @@ class QuickScanController(
         return !comparable || corner.changed(now, prior, threshold)
     }
 
-    private fun finish(): QuickScanEffect = QuickScanEffect.Done(captured)
+    private fun finish(): QuickScanEffect = QuickScanEffect.Done(oriented(captured, gridFaces))
 }
