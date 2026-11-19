@@ -181,7 +181,7 @@ development_status:
   13-4-publish-a-privacy-policy-that-matches-the-app: done
   13-5-give-learners-a-support-and-contact-page: done
   13-6-register-the-privacy-policy-in-play-console: done
-  epic-13-retrospective: optional
+  epic-13-retrospective: done
 action_items:
   - id: "epic-2-retro-item-1-create-a-deferred-findings-ledger-or-rou"
     epic: 2
@@ -1077,3 +1077,33 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-194-quick-scan-reasked-face-rotated.md"
+  - id: "epic-13-retro-item-107-manual-a11y-pass-on-site-pages"
+    epic: 13
+    action: "Do the manual accessibility pass on the site's /, /privacy/ and /support/ (keyboard with visible focus, 200% zoom, 320 CSS px, light and dark) and record it on site PR #4 or a site issue; blocks full acceptance of 13.2 AC3 and 13.4 AC3 and the epic-13 close"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-19.md"
+  - id: "epic-13-retro-item-108-reconcile-13-4-publisher-and-app-ref"
+    epic: 13
+    action: "Reconcile epics.md Story 13.4 with the as-built via bmad-correct-course: AC1 publisher line 'Exxerpro Solutions, S.A. de C.V. (published on Google Play as Abel Briones)'; AC2 facts read at vars.APP_REF, schema 2 for camera releases"
+    owner: "PM (John) + PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-19.md"
+  - id: "epic-13-retro-item-109-agents-md-site-and-privacy-facts-pointer"
+    epic: 13
+    action: "Add the AGENTS.md pointer required by epic-13-context.md:73: website and site repo, docs/privacy-facts.json with :app:writePrivacyFacts and :app:checkPrivacyFacts, and the rule that a manifest or SDK change also changes the public policy (via bmad-project-context)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-19.md"
+  - id: "epic-13-retro-item-110-supersede-epic-13-context-publisher"
+    epic: 13
+    action: "Regenerate epic-13-context.md or mark its line 20 (publisher and contact) and line 45 (weekly external link check) superseded"
+    owner: "SM (orchestrator)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-19.md"
+  - id: "epic-13-retro-item-111-prune-settled-13-4-deferrals"
+    epic: 13
+    action: "Prune the settled deferrals in spec-13-4 frontmatter and the schema-2 entry in spec-privacy-facts-schema-2-and-site-app-ref.md; add an orchestrator rule that stories built in another repo route spec deferrals and post-merge human checks to action_items at story close"
+    owner: "SM (orchestrator)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-19.md"
