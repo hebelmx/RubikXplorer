@@ -4,6 +4,9 @@ An Android app that teaches complete beginners to solve a 3×3 Rubik's Cube. It 
 
 > Learn to solve the cube, not just follow a solution.
 
+## Links
+Website: <https://hebelmx.github.io/cubentia-site/> · Privacy policy: <https://hebelmx.github.io/cubentia-site/privacy/>
+
 ## Status
 Planning. The working draft of the product spec and architecture is in [`docs/mvp-draft-product-and-architecture.md`](docs/mvp-draft-product-and-architecture.md).
 The MVP PRD, architecture and epics are developed with the [BMAD Method](https://github.com/bmad-code-org/bmad-method). Its outputs go in `_bmad-output/`.
