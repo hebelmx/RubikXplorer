@@ -1065,3 +1065,15 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-202-solver-merge-same-face-turns.md"
+  - id: "issue-194-deferred-device-reask-off-named-top"
+    epic: 11
+    action: "Device check on Lenovo + S24: a Quick Scan re-ask held off its named top merges in the corner frame (fix is proven only by domain tests that model the grid turn) (medium; deferred from #194)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-194-quick-scan-reasked-face-rotated.md"
+  - id: "issue-194-deferred-ambiguous-reask-fallback"
+    epic: 11
+    action: "When freeing the re-asked grid faces is AMBIGUOUS, or a corner face is misread, Quick Scan falls back to the named-top merge, which can implicate more than 2 faces and skip the round-2 re-ask or show a rotated face in Review; pass the unposed result to involvedFaces in that case (medium; deferred from #194, QuickScan.kt:119-128)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-194-quick-scan-reasked-face-rotated.md"
