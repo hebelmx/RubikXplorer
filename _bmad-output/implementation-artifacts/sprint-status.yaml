@@ -1059,3 +1059,9 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-12-16-see-the-turn-while-dragging-commit-on-release.md"
+  - id: "issue-202-deferred-solver-regression-pinned-to-order"
+    epic: 12
+    action: "The real-solver regression test for R U2 F L2 D B2 is pinned to the solver's current search order; update it if the solver changes (low; deferred from #202, TwoPhaseCubeSolverTest)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-202-solver-merge-same-face-turns.md"
