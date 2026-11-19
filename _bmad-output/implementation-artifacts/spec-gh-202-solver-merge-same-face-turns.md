@@ -99,7 +99,7 @@ Status: done
 
 **Follow-up review recommendation:** false — patched: high 0, medium 0, low 3.
 
-**Verification:** `./gradlew :core:domain:test :core:application:test :core:solver:test spotlessCheck build` -- BUILD SUCCESSFUL after patches. New tests confirmed in JUnit XML.
+**Verification:** `./gradlew :core:domain:test :core:application:test :core:solver:test spotlessCheck build` -- BUILD SUCCESSFUL after patches. The SolveCubeTest JUnit XML records 9 tests, all passed, including the adapter-turn merge and empty-plan test.
 
 **Residual risks:** The real-solver regression test is pinned to the solver's current search order; a future solver change would need it updated.
 

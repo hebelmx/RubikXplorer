@@ -49,7 +49,7 @@ class SolveCubeTest {
 
     @Test
     fun `merges and verifies adapter turns including a plan that cancels to empty`() =
-        runBlocking {
+        runBlocking<Unit> {
             val clockwise = FaceTurn(Face.R, Turn.CLOCKWISE)
             val half = FaceTurn(Face.R, Turn.HALF)
             val inverse = clockwise.inverse()
