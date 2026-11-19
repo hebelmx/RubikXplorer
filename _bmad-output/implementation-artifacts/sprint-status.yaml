@@ -1155,3 +1155,9 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-139-compact-virtual-lesson-cube-size.md"
+  - id: "issue-164-deferred-no-valid-review-trace-label"
+    epic: 10
+    action: "When no assignment is valid and every face is posed, record the debug-only CubentiaScanDiag branch as NO_VALID_REVIEW, not NO_VALID_REPROMPT (low; deferred from #164, ScanAssembler.kt:504-507)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-164-scan-capture-review-followups.md"

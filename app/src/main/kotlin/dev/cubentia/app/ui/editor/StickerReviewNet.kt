@@ -43,10 +43,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.SemanticsPropertyReceiver
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -375,7 +377,7 @@ private fun ReviewSticker(
                     .requiredSize(cell * CHECK_SIZE_FRACTION)
                     .graphicsLayer { alpha = checkAlpha.value }
                     .background(tokens.accent, CircleShape)
-                    .testTag("sticker:$index:cue"),
+                    .clearAndSetSemantics { testTag = "sticker:$index:cue" },
                 contentAlignment = Alignment.Center,
             ) {
                 Text("✓", color = tokens.onAccent, style = MaterialTheme.typography.labelSmall)

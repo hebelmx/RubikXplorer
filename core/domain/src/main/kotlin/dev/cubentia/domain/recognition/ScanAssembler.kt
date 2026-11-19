@@ -267,11 +267,11 @@ object ScanAssembler {
     ): ScanResult = analyze(samples, calibration).result
 
     /**
-     * The faces to re-prompt with a named top, in order: faces whose center read disagrees with their prompt (a logo
-     * center, `centerPlain == false`, never counts), then in Guided Scan plan order the unposed faces that zero or several
-     * valid states leave undecided. Empty when the scan resolves to one state, when there is nothing to ask (a gap, or
-     * an uncalibrated scan), or when no state is valid and more than [MAX_REPROMPT_FACES] faces are involved.
-     * [repromptPosed] includes already posed faces implicated by illegal pieces, for Quick Scan's corner-to-grid hand-off.
+     * The unposed faces to re-prompt with a named top: first faces whose plain center read disagrees with their
+     * prompt, then faces that zero or several valid states leave undecided, in Guided Scan plan order within each group.
+     * Empty when the scan resolves to one state, when there is nothing to ask (a gap or an uncalibrated scan), or when
+     * no state is valid and more than [MAX_REPROMPT_FACES] faces are involved. [repromptPosed] also makes already posed
+     * faces eligible in both groups for Quick Scan's corner-to-grid hand-off.
      */
     fun repromptFaces(
         samples: List<FaceSample>,
@@ -498,7 +498,7 @@ object ScanAssembler {
                     .ifEmpty { differing }
             }
         val order = GuidedScanPlan.steps.map { it.face }
-        val disagreeing = order.filter { faces[it.ordinal].centerDisagrees }
+        val disagreeing = order.filter { faces[it.ordinal].centerDisagrees && (repromptPosed || it in unposed) }
         val involved = disagreeing + order.filter { it in undecided && (repromptPosed || it in unposed) && it !in disagreeing }
         // No valid state and many faces involved: misread colors, not turns; review the best fit instead.
         if (valid.isEmpty() && involved.size > MAX_REPROMPT_FACES) {

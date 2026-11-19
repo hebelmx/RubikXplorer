@@ -6,6 +6,7 @@ import android.view.ViewOutlineProvider
 import android.view.ViewTreeObserver
 import androidx.activity.ComponentActivity
 import androidx.annotation.OptIn
+import androidx.annotation.VisibleForTesting
 import androidx.camera.camera2.Camera2Config
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
@@ -231,7 +232,8 @@ internal class CameraXFrameSource
             corner = enabled
         }
 
-        private fun read(image: ImageProxy) {
+        @VisibleForTesting
+        internal fun read(image: ImageProxy) {
             val rotation = image.imageInfo.rotationDegrees
             val crop = image.cropRect
             val (width, height) = viewSize
