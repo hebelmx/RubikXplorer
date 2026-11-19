@@ -2,6 +2,11 @@ package dev.cubentia.domain.cube
 
 import dev.cubentia.domain.text.Text
 
+/**
+ * One review message: [positions] are its conflicting stickers and [piece] every sticker of its piece(s), both sorted
+ * ascending, except the wrong-color-counts problem, whose stickers are the likely misreads in rank order (best first,
+ * #174). Both are empty for a problem that names no sticker.
+ */
 data class ReviewProblem(
     val reason: Text,
     val positions: List<Int>,

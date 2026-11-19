@@ -31,6 +31,41 @@ class GuidedScanFlowTest {
         assertEquals(46, corrected.blanks.size)
     }
 
+    @Test fun `publishing without corrections keeps the scan evidence, suspects and the top-suspect selection`() {
+        val labs =
+            mapOf(
+                Color.GREEN to Lab(55.0, -60.0, 40.0),
+                Color.RED to Lab(45.0, 65.0, 45.0),
+                Color.BLUE to Lab(40.0, 10.0, -50.0),
+                Color.ORANGE to Lab(65.0, 45.0, 65.0),
+                Color.WHITE to Lab(90.0, 0.0, 0.0),
+                Color.YELLOW to Lab(85.0, -5.0, 80.0),
+            )
+        // Solved with L's sticker 38 read yellow (10 yellow, 8 orange); it measures between yellow and orange.
+        val colors =
+            dev.cubentia.domain.cube.CubeState.SOLVED
+                .toFacelets()
+                .colors
+                .toMutableList()
+                .also { it[38] = Color.YELLOW }
+        val review =
+            ScanReview.from(
+                dev.cubentia.domain.recognition.ScanResult.Full(
+                    dev.cubentia.domain.cube
+                        .Facelets(colors),
+                    List(54) { dev.cubentia.domain.recognition.StickerConfidence.CONFIDENT },
+                    colors.mapIndexed { i, color -> if (i == 38) Lab(77.0, 15.0, 74.0) else labs.getValue(color) },
+                ),
+                CalibrationCenters(labs),
+            )
+        assertEquals(38, review.suspects.first().index)
+        assertEquals(38, review.selected)
+        val published = GuidedScanFlow.withCorrections(review, emptyMap())
+        assertEquals(review.evidence, published.evidence)
+        assertEquals(review.suspects, published.suspects)
+        assertEquals(38, published.selected)
+    }
+
     @Test fun `swatch hold captures steadily resets for retry and ignores pending`() {
         val hold = CalibrationHold()
         val frame = FrameStats(List(9) { CellReading(Lab(55.0, -60.0, 40.0), true) }, 120.0, 0.0, 100.0, 12)

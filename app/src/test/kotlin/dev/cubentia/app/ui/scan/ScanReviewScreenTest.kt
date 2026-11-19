@@ -20,6 +20,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
@@ -65,6 +66,9 @@ import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Facelets
+import dev.cubentia.domain.recognition.CalibrationCenters
+import dev.cubentia.domain.recognition.Lab
 import dev.cubentia.domain.recognition.ScanResult
 import dev.cubentia.domain.recognition.ScanReview
 import dev.cubentia.domain.recognition.StickerConfidence
@@ -374,6 +378,139 @@ class ScanReviewScreenTest {
         line.performScrollTo().performClick()
         assertEquals(0, review.selected)
         rule.onNodeWithTag("sticker:0").assertIsDisplayed().assertIsSelected()
+    }
+
+    // #174: wrong color counts point at the likely misread stickers.
+
+    private val labs =
+        mapOf(
+            Color.WHITE to Lab(90.0, 0.0, 0.0),
+            Color.YELLOW to Lab(85.0, -5.0, 80.0),
+            Color.GREEN to Lab(55.0, -60.0, 40.0),
+            Color.BLUE to Lab(40.0, 10.0, -50.0),
+            Color.RED to Lab(45.0, 65.0, 45.0),
+            Color.ORANGE to Lab(65.0, 45.0, 65.0),
+        )
+
+    /** Solved with the L-B edge read yellow (39) and red (50): 10 yellow, 8 orange, 10 red, 8 blue; no piece conflict. */
+    private val miscounted =
+        CubeState.SOLVED.toFacelets().colors.toMutableList().also {
+            it[39] = Color.YELLOW
+            it[50] = Color.RED
+        }
+
+    private fun suspectReview(): ScanReview {
+        val measured =
+            miscounted.mapIndexed { index, color ->
+                when (index) {
+                    // A yellow that measures close to orange.
+                    39 -> Lab(70.0, 30.0, 70.0)
+
+                    // A red that measures close to blue.
+                    50 -> Lab(42.0, 20.0, -30.0)
+
+                    else -> labs.getValue(color)
+                }
+            }
+        return ScanReview.from(
+            ScanResult.Full(Facelets(miscounted), List(54) { StickerConfidence.CONFIDENT }, measured),
+            CalibrationCenters(labs),
+        )
+    }
+
+    @Test fun `wrong counts with scan evidence number the line, outline the suspects and suggest the top one`() {
+        review = suspectReview()
+        assertEquals(listOf(39, 50, 9), review.suspects.map { it.index })
+        launch()
+        rule.onNodeWithTag("review:problem:0").performScrollTo().assertIsSelected()
+        assertEquals(
+            "msg.validation.wrong-color-counts",
+            review.problems
+                .single()
+                .reason.key,
+        )
+        assertProblemTag("review:problem:0:tag", "1", focused = true)
+        for (index in listOf(39, 50, 9)) {
+            val sticker = rule.onNodeWithTag("sticker:$index").fetchSemanticsNode().config
+            assertTrue(sticker[StickerInvalidKey])
+            assertEquals(listOf(1), sticker[StickerProblemsKey])
+        }
+        assertEquals(setOf(9, 39, 50), review.outlined)
+        rule.onNodeWithTag("sticker:39").assertIsSelected()
+        val suggestion = rule.onNodeWithTag("review:suggestion")
+        suggestion.assertTextEquals("This sticker may be orange — check it.")
+        assertEquals(LiveRegionMode.Polite, suggestion.fetchSemanticsNode().config[SemanticsProperties.LiveRegion])
+    }
+
+    @Test fun `a top suspect that also leads a piece problem opens on the counts line`() {
+        // Solved with R's sticker 9 read white: corner 8-9-20 shows two whites (problem 1, positions 8 and 9) and
+        // whites are over by one. Sticker 8 measures close to red, so it is the top suspect and leads both problems.
+        val colors =
+            CubeState.SOLVED
+                .toFacelets()
+                .colors
+                .toMutableList()
+                .also { it[9] = Color.WHITE }
+        review =
+            ScanReview.from(
+                ScanResult.Full(
+                    Facelets(colors),
+                    List(54) { StickerConfidence.CONFIDENT },
+                    colors.mapIndexed { index, color -> if (index == 8) Lab(55.0, 50.0, 40.0) else labs.getValue(color) },
+                ),
+                CalibrationCenters(labs),
+            )
+        assertEquals(8, review.selected)
+        assertEquals(listOf(8, 9), review.problems[0].positions)
+        val counts = review.problems.indexOfFirst { it.reason.key == "msg.validation.wrong-color-counts" }
+        assertEquals(8, review.problems[counts].positions.first())
+        launch()
+        rule.onNodeWithTag("review:problem:$counts").performScrollTo().assertIsSelected()
+        rule.onNodeWithTag("review:problem:0").performScrollTo().assertIsNotSelected()
+    }
+
+    @Test fun `the suggestion follows the selected suspect and disappears on any other sticker`() {
+        review = suspectReview()
+        launch()
+        rule.onNodeWithTag("sticker:50").performClick()
+        rule.onNodeWithTag("review:suggestion").assertTextEquals("This sticker may be blue — check it.")
+        rule.onNodeWithTag("sticker:9").performClick()
+        rule.onNodeWithTag("review:suggestion").assertTextEquals("This sticker may be orange — check it.")
+        rule.onNodeWithTag("sticker:0").performClick()
+        rule.onNodeWithTag("review:suggestion").assertDoesNotExist()
+    }
+
+    @Test fun `wrong counts without scan evidence stay a plain line with nothing outlined`() {
+        review = ScanReview(miscounted, 39)
+        launch()
+        val line = rule.onNodeWithTag("review:problem:0").performScrollTo()
+        assertNull(line.fetchSemanticsNode().config.getOrNull(SemanticsActions.OnClick))
+        rule.onAllNodesWithTag("review:problem:0:tag", useUnmergedTree = true).assertCountEquals(0)
+        assertTrue(review.outlined.isEmpty())
+        assertNull(
+            rule
+                .onNodeWithTag("sticker:39")
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(StickerProblemsKey),
+        )
+        rule.onNodeWithTag("review:suggestion").assertDoesNotExist()
+    }
+
+    @Test fun `right counts with impossible corners open on problem 1's first conflicting sticker`() {
+        val colors =
+            CubeState.SOLVED.toFacelets().colors.toMutableList().also {
+                it[9] = Color.ORANGE
+                it[36] = Color.RED
+            }
+        review = ScanReview.from(ScanResult.Full(Facelets(colors), List(54) { StickerConfidence.CONFIDENT }))
+        assertEquals(0, review.selected)
+        launch()
+        rule.onNodeWithTag("sticker:0").assertIsSelected()
+        rule.onNodeWithTag("review:problem:0").performScrollTo().assertIsSelected()
+        assertProblemTag("review:problem:0:tag", "1", focused = true)
+        assertProblemTag("sticker:0:tag", "1", focused = true)
+        rule.onNodeWithTag("review:suggestion").assertDoesNotExist()
     }
 
     private fun assertTagFill(

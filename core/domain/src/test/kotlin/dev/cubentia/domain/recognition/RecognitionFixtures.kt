@@ -2,6 +2,7 @@ package dev.cubentia.domain.recognition
 
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.Face
+import dev.cubentia.domain.cube.Facelets
 
 /** Shared synthetic colors for the 10.1 recognition tests. */
 internal object RecognitionFixtures {
@@ -18,6 +19,12 @@ internal object RecognitionFixtures {
     val CALIBRATION = CalibrationCenters(Color.entries.associateWith { LABS.getValue(it) })
 
     val LOGO = Lab(40.0, 0.0, -40.0)
+
+    /** The [ScanResult.Full] of a scan whose stickers all measured their color's [LABS] value: Labs follow the net order. */
+    fun fullRead(
+        facelets: Facelets,
+        confidence: List<StickerConfidence>,
+    ) = ScanResult.Full(facelets, confidence, facelets.colors.map(LABS::getValue))
 
     fun sample(
         center: Color?,

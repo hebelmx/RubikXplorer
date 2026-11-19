@@ -180,6 +180,33 @@ class ScanReviewTest {
         assertEquals(setOf(0, 3, 5, 8, 9, 10, 20, 36, 37, 47), review.outlined)
     }
 
+    @Test fun `with right counts but impossible pieces the review opens on the first conflicting sticker (#174)`() {
+        val colors =
+            solved.colors.toMutableList().also {
+                it[9] = Color.ORANGE
+                it[36] = Color.RED
+            }
+        val confident = List(54) { StickerConfidence.CONFIDENT }
+        val review = ScanReview.from(ScanResult.Full(Facelets(colors), confident))
+        assertEquals(listOf(0, 8, 9, 20, 36, 47), review.problems.first().positions)
+        assertEquals(0, review.selected)
+        // Blanks still come first.
+        val blank =
+            ScanReview.from(
+                ScanResult.Full(Facelets(colors), confident.toMutableList().also { it[30] = StickerConfidence.UNCERTAIN }),
+            )
+        assertEquals(30, blank.selected)
+        // A twisted corner names no sticker: nothing is pre-selected.
+        val twisted =
+            solved.colors.toMutableList().also {
+                val a = it[8]
+                it[8] = it[9]
+                it[9] = it[20]
+                it[20] = a
+            }
+        assertNull(ScanReview.from(ScanResult.Full(Facelets(twisted), confident)).selected)
+    }
+
     @Test fun `complete twist flip and parity failures never accept`() {
         val variants =
             listOf(

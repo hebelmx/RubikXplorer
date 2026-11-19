@@ -114,10 +114,7 @@ internal object GuidedScanFlow {
     fun withCorrections(
         review: ScanReview,
         corrections: Map<Int, dev.cubentia.domain.cube.Color>,
-    ): ScanReview {
-        val stickers = review.stickers.mapIndexed { i, color -> corrections[i] ?: color }
-        return ScanReview(stickers, stickers.indexOfFirst { it == null }.takeIf { it >= 0 })
-    }
+    ): ScanReview = review.corrected(corrections)
 
     /** Granted → the viewfinder; otherwise the rationale card comes before any system dialog. */
     fun initialPhase(hasPermission: Boolean): GuidedScanPhase =

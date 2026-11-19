@@ -1,0 +1,799 @@
+diff --git a/app/src/main/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreen.kt b/app/src/main/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreen.kt
+index 69ce2ac0..4415a6e2 100644
+--- a/app/src/main/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreen.kt
++++ b/app/src/main/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreen.kt
+@@ -107,7 +107,10 @@ fun ScanReviewScreen(
+     LaunchedEffect(review.selected) { review.selected?.let { face = it / 9 } }
+     val problems = review.problems
+     val linkedIndices = problems.indices.filter { problems[it].piece.isNotEmpty() }
+-    var focusedIndex by rememberSaveable { mutableStateOf<Int?>(null) }
++    // Opens on the problem that holds the pre-selected sticker (the top suspect, #174), else the first linked one.
++    var focusedIndex by rememberSaveable {
++        mutableStateOf(linkedIndices.firstOrNull { review.selected != null && review.selected in problems[it].positions })
++    }
+     val focused = focusedIndex?.takeIf { it in linkedIndices } ?: linkedIndices.firstOrNull()
+     val problemNumbers = linkedIndices.withIndex().associate { (order, index) -> index to order + 1 }
+     val marks =
+@@ -159,6 +162,7 @@ fun ScanReviewScreen(
+             }
+             lastSet?.let { (index, color) -> SetStickerLine(index, color, strings) }
+             SelectedStickerLine(review, strings)
++            SuspectLine(review, strings)
+             StickerReviewNet(
+                 selected = review.selected,
+                 invalid = review.outlined,
+@@ -449,3 +453,19 @@ private fun SelectedStickerLine(
+         modifier = Modifier.fillMaxWidth().testTag("review:selected").semantics { liveRegion = LiveRegionMode.Polite },
+     )
+ }
++
++/** Suggests the likely color when the selected sticker is a suspect misread (#174), in a polite live region. */
++@Composable
++private fun SuspectLine(
++    review: ScanReview,
++    strings: ContentStrings,
++) {
++    val index = review.selected ?: return
++    val suspect = review.suspects.firstOrNull { it.index == index } ?: return
++    val color = stringResource(colorName(suspect.likely)).lowercase(LocalConfiguration.current.locales[0])
++    Text(
++        strings.resolve(ContentText("msg.scan.suspect-suggestion", mapOf("color" to color))),
++        style = MaterialTheme.typography.bodyMedium,
++        modifier = Modifier.fillMaxWidth().testTag("review:suggestion").semantics { liveRegion = LiveRegionMode.Polite },
++    )
++}
+diff --git a/app/src/test/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreenTest.kt b/app/src/test/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreenTest.kt
+index d4cb4d68..8491631a 100644
+--- a/app/src/test/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreenTest.kt
++++ b/app/src/test/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreenTest.kt
+@@ -65,6 +65,9 @@ import dev.cubentia.domain.content.ContentLoader
+ import dev.cubentia.domain.content.ContentSource
+ import dev.cubentia.domain.cube.Color
+ import dev.cubentia.domain.cube.CubeState
++import dev.cubentia.domain.cube.Facelets
++import dev.cubentia.domain.recognition.CalibrationCenters
++import dev.cubentia.domain.recognition.Lab
+ import dev.cubentia.domain.recognition.ScanResult
+ import dev.cubentia.domain.recognition.ScanReview
+ import dev.cubentia.domain.recognition.StickerConfidence
+@@ -376,6 +379,112 @@ class ScanReviewScreenTest {
+         rule.onNodeWithTag("sticker:0").assertIsDisplayed().assertIsSelected()
+     }
+ 
++    // #174: wrong color counts point at the likely misread stickers.
++
++    private val labs =
++        mapOf(
++            Color.WHITE to Lab(90.0, 0.0, 0.0),
++            Color.YELLOW to Lab(85.0, -5.0, 80.0),
++            Color.GREEN to Lab(55.0, -60.0, 40.0),
++            Color.BLUE to Lab(40.0, 10.0, -50.0),
++            Color.RED to Lab(45.0, 65.0, 45.0),
++            Color.ORANGE to Lab(65.0, 45.0, 65.0),
++        )
++
++    /** Solved with the L-B edge read yellow (39) and red (50): 10 yellow, 8 orange, 10 red, 8 blue; no piece conflict. */
++    private val miscounted =
++        CubeState.SOLVED.toFacelets().colors.toMutableList().also {
++            it[39] = Color.YELLOW
++            it[50] = Color.RED
++        }
++
++    private fun suspectReview(): ScanReview {
++        val measured =
++            miscounted.mapIndexed { index, color ->
++                when (index) {
++                    39 -> Lab(70.0, 30.0, 70.0)
++
++                    // close to orange
++                    50 -> Lab(42.0, 20.0, -30.0)
++
++                    // close to blue
++                    else -> labs.getValue(color)
++                }
++            }
++        return ScanReview.from(
++            ScanResult.Full(Facelets(miscounted), List(54) { StickerConfidence.CONFIDENT }, measured),
++            CalibrationCenters(labs),
++        )
++    }
++
++    @Test fun `wrong counts with scan evidence number the line, outline the suspects and suggest the top one`() {
++        review = suspectReview()
++        assertEquals(listOf(39, 50, 9), review.suspects.map { it.index })
++        launch()
++        rule.onNodeWithTag("review:problem:0").performScrollTo().assertIsSelected()
++        assertEquals(
++            "msg.validation.wrong-color-counts",
++            review.problems
++                .single()
++                .reason.key,
++        )
++        assertProblemTag("review:problem:0:tag", "1", focused = true)
++        for (index in listOf(39, 50, 9)) {
++            val sticker = rule.onNodeWithTag("sticker:$index").fetchSemanticsNode().config
++            assertTrue(sticker[StickerInvalidKey])
++            assertEquals(listOf(1), sticker[StickerProblemsKey])
++        }
++        assertEquals(setOf(9, 39, 50), review.outlined)
++        rule.onNodeWithTag("sticker:39").assertIsSelected()
++        val suggestion = rule.onNodeWithTag("review:suggestion")
++        suggestion.assertTextEquals("This sticker may be orange — check it.")
++        assertEquals(LiveRegionMode.Polite, suggestion.fetchSemanticsNode().config[SemanticsProperties.LiveRegion])
++    }
++
++    @Test fun `the suggestion follows the selected suspect and disappears on any other sticker`() {
++        review = suspectReview()
++        launch()
++        rule.onNodeWithTag("sticker:50").performClick()
++        rule.onNodeWithTag("review:suggestion").assertTextEquals("This sticker may be blue — check it.")
++        rule.onNodeWithTag("sticker:9").performClick()
++        rule.onNodeWithTag("review:suggestion").assertTextEquals("This sticker may be orange — check it.")
++        rule.onNodeWithTag("sticker:0").performClick()
++        rule.onNodeWithTag("review:suggestion").assertDoesNotExist()
++    }
++
++    @Test fun `wrong counts without scan evidence stay a plain line with nothing outlined`() {
++        review = ScanReview(miscounted, 39)
++        launch()
++        val line = rule.onNodeWithTag("review:problem:0").performScrollTo()
++        assertNull(line.fetchSemanticsNode().config.getOrNull(SemanticsActions.OnClick))
++        rule.onAllNodesWithTag("review:problem:0:tag", useUnmergedTree = true).assertCountEquals(0)
++        assertTrue(review.outlined.isEmpty())
++        assertNull(
++            rule
++                .onNodeWithTag("sticker:39")
++                .fetchSemanticsNode()
++                .config
++                .getOrNull(StickerProblemsKey),
++        )
++        rule.onNodeWithTag("review:suggestion").assertDoesNotExist()
++    }
++
++    @Test fun `right counts with impossible corners open on problem 1's first conflicting sticker`() {
++        val colors =
++            CubeState.SOLVED.toFacelets().colors.toMutableList().also {
++                it[9] = Color.ORANGE
++                it[36] = Color.RED
++            }
++        review = ScanReview.from(ScanResult.Full(Facelets(colors), List(54) { StickerConfidence.CONFIDENT }))
++        assertEquals(0, review.selected)
++        launch()
++        rule.onNodeWithTag("sticker:0").assertIsSelected()
++        rule.onNodeWithTag("review:problem:0").performScrollTo().assertIsSelected()
++        assertProblemTag("review:problem:0:tag", "1", focused = true)
++        assertProblemTag("sticker:0:tag", "1", focused = true)
++        rule.onNodeWithTag("review:suggestion").assertDoesNotExist()
++    }
++
+     private fun assertTagFill(
+         expected: androidx.compose.ui.graphics.Color,
+         pixels: androidx.compose.ui.graphics.PixelMap,
+diff --git a/core/domain/src/main/kotlin/dev/cubentia/domain/cube/PieceCheck.kt b/core/domain/src/main/kotlin/dev/cubentia/domain/cube/PieceCheck.kt
+index cb5afba8..0197da86 100644
+--- a/core/domain/src/main/kotlin/dev/cubentia/domain/cube/PieceCheck.kt
++++ b/core/domain/src/main/kotlin/dev/cubentia/domain/cube/PieceCheck.kt
+@@ -2,6 +2,11 @@ package dev.cubentia.domain.cube
+ 
+ import dev.cubentia.domain.text.Text
+ 
++/**
++ * One review message: [positions] are its conflicting stickers and [piece] every sticker of its piece(s), both sorted
++ * ascending, except the wrong-color-counts problem, whose stickers are the likely misreads in rank order (best first,
++ * #174). Both are empty for a problem that names no sticker.
++ */
+ data class ReviewProblem(
+     val reason: Text,
+     val positions: List<Int>,
+diff --git a/core/domain/src/main/kotlin/dev/cubentia/domain/recognition/ScanAssembler.kt b/core/domain/src/main/kotlin/dev/cubentia/domain/recognition/ScanAssembler.kt
+index 0cbeb278..0f0247cd 100644
+--- a/core/domain/src/main/kotlin/dev/cubentia/domain/recognition/ScanAssembler.kt
++++ b/core/domain/src/main/kotlin/dev/cubentia/domain/recognition/ScanAssembler.kt
+@@ -33,11 +33,14 @@ enum class ScanGap {
+  * A scan's read. [Full] has all six faces as 54 URFDLB [Facelets] (with one [StickerConfidence] each, same order); it is
+  * not validated: 54 colors never count as a valid cube until `CubeValidator` and review accept them. [Partial] carries
+  * the placed faces (colors in net order) and why each other face is absent; it is never completed from an expected state.
++ * [Full.labs], when present, holds each sticker's measured CIELAB in the same net order (rotated like the colors); it is
++ * review evidence only (#174), never shown to the Learner.
+  */
+ sealed interface ScanResult {
+     data class Full(
+         val facelets: Facelets,
+         val confidence: List<StickerConfidence>,
++        val labs: List<Lab>? = null,
+     ) : ScanResult
+ 
+     data class Partial(
+@@ -380,6 +383,7 @@ object ScanAssembler {
+          */
+         data class Placed(
+             val readings: List<StickerReading>,
++            val labs: List<Lab>,
+             val posed: Boolean,
+             val centerDisagrees: Boolean,
+             val turns: Int = 0,
+@@ -417,6 +421,7 @@ object ScanAssembler {
+         val turns = sample.orientationDegrees / QUARTER + (direction ?: 0)
+         return Placement.Placed(
+             rotateClockwise(readings, turns),
++            rotateClockwise(sample.stickers, turns),
+             posed = direction != null,
+             centerDisagrees = centerRead.color != center && sample.centerPlain != false,
+             turns = Math.floorMod(turns, TURNS),
+@@ -473,6 +478,11 @@ object ScanAssembler {
+         val first = candidates.first()
+         val differing = Face.entries.filter { face -> candidates.any { !sameFace(it.grid, first.grid, face) } }.toSet()
+         val resolved = valid.size == 1
++        val labs =
++            Face.entries.flatMap { face ->
++                val placed = faces[face.ordinal]
++                if (placed.posed) placed.labs else rotateClockwise(placed.labs, first.choice[face.ordinal])
++            }
+         val readings =
+             Face.entries.flatMap { face ->
+                 options[face.ordinal][first.choice[face.ordinal]].mapIndexed { index, reading ->
+@@ -480,7 +490,7 @@ object ScanAssembler {
+                     if (ambiguous) reading.copy(confidence = StickerConfidence.UNCERTAIN) else reading
+                 }
+             }
+-        val result = ScanResult.Full(Facelets(readings.map { it.color }), readings.map { it.confidence })
++        val result = ScanResult.Full(Facelets(readings.map { it.color }), readings.map { it.confidence }, labs)
+         val turns =
+             Face.entries.associateWith { face ->
+                 val placed = faces[face.ordinal]
+diff --git a/core/domain/src/main/kotlin/dev/cubentia/domain/recognition/ScanReview.kt b/core/domain/src/main/kotlin/dev/cubentia/domain/recognition/ScanReview.kt
+index b0ef1f57..1504aae1 100644
+--- a/core/domain/src/main/kotlin/dev/cubentia/domain/recognition/ScanReview.kt
++++ b/core/domain/src/main/kotlin/dev/cubentia/domain/recognition/ScanReview.kt
+@@ -10,10 +10,15 @@ import dev.cubentia.domain.cube.ReviewProblem
+ import dev.cubentia.domain.cube.ValidationResult
+ import java.util.Collections
+ 
+-/** An immutable review, with fixed home centers and no inferred colors. */
++/**
++ * An immutable review, with fixed home centers and no inferred colors. [evidence] (#174) is what the scan measured; it
++ * only ranks [suspects] when the color counts are off and is never shown as a number. A sticker keeps its Lab only
++ * while it holds the scanned color: [paint] drops that index's Lab.
++ */
+ class ScanReview(
+     stickers: List<Color?>,
+     selected: Int?,
++    val evidence: ScanEvidence? = null,
+ ) {
+     val stickers: List<Color?> =
+         Collections.unmodifiableList(
+@@ -24,29 +29,48 @@ class ScanReview(
+     val selected: Int? = selected?.takeIf(::editable)
+     val blanks: List<Int> get() = stickers.indices.filter { stickers[it] == null }
+     private val facelets: Facelets? get() = if (blanks.isEmpty()) Facelets(stickers.filterNotNull()) else null
++
++    /** Stickers that likely explain wrong color counts, best first ([SuspectRanking]); empty without [evidence]. */
++    val suspects: List<Suspect> get() = evidence?.let { SuspectRanking.rank(stickers, it) }.orEmpty()
++
++    /** The wrong-counts problem lists the [suspects] as its stickers, in rank order (not sorted). */
+     val problems: List<ReviewProblem> get() =
+         PieceCheck.problems(stickers) +
+-            facelets?.let(CubeValidator::problems).orEmpty().map { ReviewProblem(it.reason, it.positions, piece = it.positions) }
++            facelets?.let(CubeValidator::problems).orEmpty().map { invalid ->
++                val positions =
++                    if (invalid is ValidationResult.WrongColorCounts) suspects.map { it.index } else invalid.positions
++                ReviewProblem(invalid.reason, positions, piece = positions)
++            }
+     val outlined: Set<Int> get() = problems.flatMap { it.piece }.toSet()
+     val accepted: CubeState? get() = facelets?.let { (CubeValidator.validate(it) as? ValidationResult.Valid)?.state }
+ 
+-    override fun equals(other: Any?): Boolean = other is ScanReview && stickers == other.stickers && selected == other.selected
++    override fun equals(other: Any?): Boolean =
++        other is ScanReview && stickers == other.stickers && selected == other.selected && evidence == other.evidence
+ 
+-    override fun hashCode(): Int = 31 * stickers.hashCode() + (selected ?: -1)
++    override fun hashCode(): Int = 31 * (31 * stickers.hashCode() + (selected ?: -1)) + evidence.hashCode()
+ 
+-    fun select(index: Int): ScanReview = if (editable(index)) ScanReview(stickers, index) else this
++    fun select(index: Int): ScanReview = if (editable(index)) ScanReview(stickers, index, evidence) else this
+ 
+     fun paint(color: Color): ScanReview {
+         val index = selected ?: return this
+         val painted = stickers.toMutableList().also { it[index] = color }
+         val next = (1..Facelets.SIZE).map { (index + it) % Facelets.SIZE }.firstOrNull { painted[it] == null } ?: index
+-        return ScanReview(painted, next)
++        val kept = evidence?.let { it.copy(labs = it.labs.toMutableList().also { labs -> if (index in labs.indices) labs[index] = null }) }
++        return ScanReview(painted, next, kept)
+     }
+ 
+     companion object {
+         private fun editable(index: Int): Boolean = index in 0 until Facelets.SIZE && index % 9 != 4
+ 
+-        fun from(result: ScanResult): ScanReview {
++        /**
++         * The review of [result]. With [centers] and a [ScanResult.Full] carrying Labs, the review keeps them as
++         * [evidence]. Pre-selects the first blank, else the top suspect, else the first sticker of the first problem
++         * that names stickers.
++         */
++        fun from(
++            result: ScanResult,
++            centers: CalibrationCenters? = null,
++        ): ScanReview {
+             val colors =
+                 List(Facelets.SIZE) { i ->
+                     when (result) {
+@@ -65,8 +89,17 @@ class ScanReview(
+                         }
+                     }
+                 }
+-            val review = ScanReview(colors, null)
+-            return ScanReview(review.stickers, review.blanks.firstOrNull())
++            val labs = (result as? ScanResult.Full)?.labs?.takeIf { it.size == Facelets.SIZE }
++            val evidence = if (labs != null && centers != null) ScanEvidence(labs, centers.centers) else null
++            val review = ScanReview(colors, null, evidence)
++            val selected =
++                review.blanks.firstOrNull()
++                    ?: review.suspects.firstOrNull()?.index
++                    ?: review.problems
++                        .firstOrNull { it.positions.isNotEmpty() }
++                        ?.positions
++                        ?.first()
++            return ScanReview(review.stickers, selected, evidence)
+         }
+ 
+         fun fromSamples(
+@@ -75,7 +108,7 @@ class ScanReview(
+         ): ScanReview =
+             when (val calibration = SelfCalibration.from(samples, saved)) {
+                 is SelfCalibration.Calibrated -> {
+-                    from(ScanAssembler.assemble(samples, calibration.calibration))
++                    from(ScanAssembler.assemble(samples, calibration.calibration), calibration.calibration)
+                 }
+ 
+                 is SelfCalibration.NeedsCalibration -> {
+diff --git a/core/domain/src/main/kotlin/dev/cubentia/domain/recognition/SuspectRanking.kt b/core/domain/src/main/kotlin/dev/cubentia/domain/recognition/SuspectRanking.kt
+new file mode 100644
+index 00000000..c48a6ca0
+--- /dev/null
++++ b/core/domain/src/main/kotlin/dev/cubentia/domain/recognition/SuspectRanking.kt
+@@ -0,0 +1,56 @@
++package dev.cubentia.domain.recognition
++
++import dev.cubentia.domain.cube.Color
++import dev.cubentia.domain.cube.Facelets
++
++/** A scanned sticker that may be misread: its net [index] and the under-count color it most likely is. */
++data class Suspect(
++    val index: Int,
++    val likely: Color,
++)
++
++/**
++ * What a scan measured, for review only (#174): each sticker's CIELAB in net order (null when the sticker was not
++ * scanned or the Learner painted it since) and the calibration [centers] the scan classified against. Never shown to the
++ * Learner.
++ */
++data class ScanEvidence(
++    val labs: List<Lab?>,
++    val centers: Map<Color, Lab>,
++)
++
++/**
++ * Which stickers likely explain wrong color counts (#174). Candidates are the non-center stickers of every color seen
++ * more than 9 times that still carry a measured Lab; each scores the CIE76 ΔE from its Lab to the nearest calibration
++ * center of a color seen fewer than 9 times, which is its [Suspect.likely] color. Lowest score first, ties by lower
++ * sticker index; at most [MAX_SUSPECTS]. Empty when the counts are right, any sticker is blank, or no color is short.
++ */
++object SuspectRanking {
++    const val MAX_SUSPECTS = 3
++    private const val PER_COLOR = 9
++
++    fun rank(
++        stickers: List<Color?>,
++        evidence: ScanEvidence,
++    ): List<Suspect> {
++        if (stickers.size != Facelets.SIZE || stickers.any { it == null }) return emptyList()
++        val counts = Color.entries.associateWith { color -> stickers.count { it == color } }
++        val over = Color.entries.filter { counts.getValue(it) > PER_COLOR }.toSet()
++        val under = Color.entries.filter { counts.getValue(it) < PER_COLOR && it in evidence.centers }
++        if (over.isEmpty() || under.isEmpty()) return emptyList()
++        return stickers.indices
++            .asSequence()
++            .filter { it % 9 != 4 && stickers[it] in over }
++            .mapNotNull { index ->
++                val lab = evidence.labs.getOrNull(index) ?: return@mapNotNull null
++                val (likely, score) =
++                    under
++                        .map { it to StickerClassifier.deltaE(lab, evidence.centers.getValue(it)) }
++                        .minBy { it.second }
++                Triple(index, likely, score)
++            }.sortedWith(compareBy({ it.third }, { it.first }))
++            .take(MAX_SUSPECTS)
++            .map { (index, likely, _) -> Suspect(index, likely) }
++            .toList()
++    }
++}
+diff --git a/core/domain/src/main/resources/content/strings/en.json b/core/domain/src/main/resources/content/strings/en.json
+index d26ee328..3ffaaeaa 100644
+--- a/core/domain/src/main/resources/content/strings/en.json
++++ b/core/domain/src/main/resources/content/strings/en.json
+@@ -734,6 +734,7 @@
+   "btn.scan.accept": "Accept",
+   "msg.scan.blank-label": "?",
+   "msg.scan.selected": "Selected: {sticker}",
++  "msg.scan.suspect-suggestion": "This sticker may be {color} — check it.",
+   "btn.physical.quick-check": "Quick Check",
+   "btn.physical.confirm-scan": "Scan it",
+   "btn.physical.scan-all-faces": "Scan all 6 faces",
+diff --git a/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/GuidedScanTest.kt b/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/GuidedScanTest.kt
+index 36673187..b28bf202 100644
+--- a/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/GuidedScanTest.kt
++++ b/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/GuidedScanTest.kt
+@@ -10,6 +10,7 @@ import dev.cubentia.domain.cube.Turn
+ import dev.cubentia.domain.cube.ValidationResult
+ import dev.cubentia.domain.recognition.RecognitionFixtures.CALIBRATION
+ import dev.cubentia.domain.recognition.RecognitionFixtures.LABS
++import dev.cubentia.domain.recognition.RecognitionFixtures.fullRead
+ import org.junit.jupiter.api.Assertions.assertEquals
+ import org.junit.jupiter.api.Assertions.assertFalse
+ import org.junit.jupiter.api.Assertions.assertNull
+@@ -345,10 +346,10 @@ class GuidedScanTest {
+         val samples = requireNotNull(done)
+         assertEquals(GuidedScanPlan.steps.map { it.centerColor }, samples.map { it.centerColor })
+         assertTrue(samples.all { it.orientationDegrees == 90 && it.quality == CaptureQuality.ACCEPTABLE && it.centerPlain == true })
+-        assertEquals(ScanResult.Full(cube, List(54) { StickerConfidence.CONFIDENT }), ScanAssembler.assemble(samples, CALIBRATION))
++        assertEquals(fullRead(cube, List(54) { StickerConfidence.CONFIDENT }), ScanAssembler.assemble(samples, CALIBRATION))
+         val selfCalibrated = SelfCalibration.from(samples) as SelfCalibration.Calibrated
+         assertEquals(
+-            ScanResult.Full(cube, List(54) { StickerConfidence.CONFIDENT }),
++            fullRead(cube, List(54) { StickerConfidence.CONFIDENT }),
+             ScanAssembler.assemble(samples, selfCalibrated.calibration),
+         )
+     }
+@@ -743,7 +744,7 @@ class GuidedScanTest {
+         assertFalse(controller.repeating)
+         assertNull(controller.step)
+         val calibration = (SelfCalibration.from(samples) as SelfCalibration.Calibrated).calibration
+-        assertEquals(ScanResult.Full(r2, List(54) { StickerConfidence.CONFIDENT }), ScanAssembler.assemble(samples, calibration))
++        assertEquals(fullRead(r2, List(54) { StickerConfidence.CONFIDENT }), ScanAssembler.assemble(samples, calibration))
+         assertEquals(emptyList<GuidedScanEffect>(), controller.shoot(faceOf(Face.F), now))
+     }
+ 
+diff --git a/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/RecognitionFixtures.kt b/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/RecognitionFixtures.kt
+index cf1f3761..7ff884be 100644
+--- a/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/RecognitionFixtures.kt
++++ b/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/RecognitionFixtures.kt
+@@ -2,6 +2,7 @@ package dev.cubentia.domain.recognition
+ 
+ import dev.cubentia.domain.cube.Color
+ import dev.cubentia.domain.cube.Face
++import dev.cubentia.domain.cube.Facelets
+ 
+ /** Shared synthetic colors for the 10.1 recognition tests. */
+ internal object RecognitionFixtures {
+@@ -19,6 +20,12 @@ internal object RecognitionFixtures {
+ 
+     val LOGO = Lab(40.0, 0.0, -40.0)
+ 
++    /** The [ScanResult.Full] of a scan whose stickers all measured their color's [LABS] value: Labs follow the net order. */
++    fun fullRead(
++        facelets: Facelets,
++        confidence: List<StickerConfidence>,
++    ) = ScanResult.Full(facelets, confidence, facelets.colors.map(LABS::getValue))
++
+     fun sample(
+         center: Color?,
+         stickers: List<Lab> = List(9) { LABS.getValue(center ?: Color.WHITE) },
+diff --git a/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/ScanAssemblerTest.kt b/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/ScanAssemblerTest.kt
+index 544f45a2..14853c10 100644
+--- a/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/ScanAssemblerTest.kt
++++ b/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/ScanAssemblerTest.kt
+@@ -11,6 +11,7 @@ import dev.cubentia.domain.cube.Turn
+ import dev.cubentia.domain.cube.ValidationResult
+ import dev.cubentia.domain.recognition.RecognitionFixtures.CALIBRATION
+ import dev.cubentia.domain.recognition.RecognitionFixtures.LABS
++import dev.cubentia.domain.recognition.RecognitionFixtures.fullRead
+ import dev.cubentia.domain.recognition.RecognitionFixtures.sample
+ import io.kotest.common.ExperimentalKotest
+ import io.kotest.property.Arb
+@@ -133,7 +134,7 @@ class ScanAssemblerTest {
+                 // Order and the prompted `face` field do not matter; placement follows the center color.
+                 val shuffled = (samples.drop(shift) + samples.take(shift)).map { it.copy(face = Face.D) }
+                 val result = ScanAssembler.assemble(shuffled, CALIBRATION)
+-                assertEquals(ScanResult.Full(facelets, List(54) { StickerConfidence.CONFIDENT }), result)
++                assertEquals(fullRead(facelets, List(54) { StickerConfidence.CONFIDENT }), result)
+             }
+         }
+ 
+@@ -292,7 +293,7 @@ class ScanAssemblerTest {
+                 val involved = ScanAssembler.repromptFaces(samples, CALIBRATION)
+                 if (involved.isEmpty()) {
+                     resolved++
+-                    assertEquals(ScanResult.Full(facelets, allConfident), full)
++                    assertEquals(fullRead(facelets, allConfident), full)
+                 } else {
+                     // A rare state where another turn of a face is also a valid cube: never a confidently wrong turn,
+                     // and the faces involved, once posed, give the cube.
+@@ -303,7 +304,7 @@ class ScanAssemblerTest {
+                         },
+                     )
+                     val posed = samples.map { if (it.face in involved) capture(facelets, it.face, 0, 0) else it }
+-                    assertEquals(ScanResult.Full(facelets, allConfident), ScanAssembler.assemble(posed, CALIBRATION))
++                    assertEquals(fullRead(facelets, allConfident), ScanAssembler.assemble(posed, CALIBRATION))
+                 }
+             }
+             // Ambiguity is the exception: almost every deep scramble resolves with no re-prompt.
+@@ -314,7 +315,7 @@ class ScanAssemblerTest {
+     fun `a solved cube in any turns is one distinct state`() {
+         listOf(List(6) { 0 }, listOf(1, 2, 3, 0, 1, 2), List(6) { 3 }).forEach { turns ->
+             val samples = unposedSamples(solved, turns)
+-            assertEquals(ScanResult.Full(solved, allConfident), ScanAssembler.assemble(samples, CALIBRATION))
++            assertEquals(fullRead(solved, allConfident), ScanAssembler.assemble(samples, CALIBRATION))
+             assertEquals(emptyList<Face>(), ScanAssembler.repromptFaces(samples, CALIBRATION))
+         }
+     }
+@@ -325,7 +326,7 @@ class ScanAssemblerTest {
+             Face.entries.map { face ->
+                 if (face.ordinal % 2 == 0) capture(scrambled, face, (face.ordinal + 1) % 4, 90) else unposed(scrambled, face, 3, 180)
+             }
+-        assertEquals(ScanResult.Full(scrambled, allConfident), ScanAssembler.assemble(samples, CALIBRATION))
++        assertEquals(fullRead(scrambled, allConfident), ScanAssembler.assemble(samples, CALIBRATION))
+         assertEquals(emptyList<Face>(), ScanAssembler.repromptFaces(samples, CALIBRATION))
+     }
+ 
+@@ -345,7 +346,7 @@ class ScanAssemblerTest {
+         listOf(Face.R, Face.L).forEach { face -> range(face).forEach { assertEquals(StickerConfidence.CONFIDENT, full.confidence[it]) } }
+         // Posing the involved faces (their prompted turn) resolves it.
+         val reprompted = samples.map { if (it.face in listOf(Face.F, Face.B, Face.U, Face.D)) capture(r2, it.face, 0, 0) else it }
+-        assertEquals(ScanResult.Full(r2, allConfident), ScanAssembler.assemble(reprompted, CALIBRATION))
++        assertEquals(fullRead(r2, allConfident), ScanAssembler.assemble(reprompted, CALIBRATION))
+         assertEquals(emptyList<Face>(), ScanAssembler.repromptFaces(reprompted, CALIBRATION))
+     }
+ 
+@@ -510,7 +511,7 @@ class ScanAssemblerTest {
+         val twisted = Facelets(colors)
+         assertTrue(CubeValidator.validate(twisted) !is ValidationResult.Valid)
+         val samples = unposedSamples(twisted, listOf(1, 2, 3, 0, 1, 2))
+-        assertEquals(ScanResult.Full(twisted, allConfident), ScanAssembler.assemble(samples, CALIBRATION))
++        assertEquals(fullRead(twisted, allConfident), ScanAssembler.assemble(samples, CALIBRATION))
+         assertEquals(emptyList<Face>(), ScanAssembler.repromptFaces(samples, CALIBRATION))
+     }
+ 
+@@ -534,7 +535,7 @@ class ScanAssemblerTest {
+     @Test
+     fun `one unposed face among prompted ones is searched`() {
+         val samples = Face.entries.map { if (it == Face.F) unposed(scrambled, it, 2) else capture(scrambled, it, 0, 0) }
+-        assertEquals(ScanResult.Full(scrambled, allConfident), ScanAssembler.assemble(samples, CALIBRATION))
++        assertEquals(fullRead(scrambled, allConfident), ScanAssembler.assemble(samples, CALIBRATION))
+     }
+ 
+     @Test
+@@ -542,6 +543,27 @@ class ScanAssemblerTest {
+         assertEquals(emptyList<Face>(), ScanAssembler.repromptFaces(unposedSamples(r2), CalibrationCenters(emptyMap())))
+     }
+ 
++    @Test
++    fun `each sticker's Lab follows its color into net order, posed or searched (#174)`() {
++        // Every sticker gets its own Lab (its color's, nudged by its net index), so any misrotation shows.
++        val netLabs = scrambled.colors.mapIndexed { index, color -> LABS.getValue(color).let { it.copy(l = it.l + index * 0.01) } }
++        val turns = listOf(1, 2, 3, 0, 1, 2)
++        val orientations = listOf(90, 0, 270, 180, 90, 0)
++        val samples =
++            Face.entries.map { slot ->
++                val net = netLabs.subList(slot.ordinal * 9, slot.ordinal * 9 + 9)
++                val viewfinder = clockwise(net, 4 - turns[slot.ordinal])
++                val orientation = orientations[slot.ordinal]
++                val pixels = clockwise(viewfinder, 4 - orientation / 90)
++                // F is posed (its up neighbor at the held direction); the others are searched.
++                val up = if (slot == Face.F) Color.home(neighbors.getValue(slot)[turns[slot.ordinal]]) else null
++                sample(center = Color.home(slot), stickers = pixels, up = up, orientation = orientation, face = slot)
++            }
++        val full = ScanAssembler.assemble(samples, CALIBRATION) as ScanResult.Full
++        assertEquals(scrambled, full.facelets)
++        assertEquals(netLabs, full.labs)
++    }
++
+     // Device diagnostics (Story 10.7 device-fix round 1): the trace shows what the assembler decided and why.
+ 
+     @Test
+diff --git a/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/ScanReviewTest.kt b/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/ScanReviewTest.kt
+index 5a5c437c..7aefc22e 100644
+--- a/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/ScanReviewTest.kt
++++ b/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/ScanReviewTest.kt
+@@ -180,6 +180,33 @@ class ScanReviewTest {
+         assertEquals(setOf(0, 3, 5, 8, 9, 10, 20, 36, 37, 47), review.outlined)
+     }
+ 
++    @Test fun `with right counts but impossible pieces the review opens on the first conflicting sticker (#174)`() {
++        val colors =
++            solved.colors.toMutableList().also {
++                it[9] = Color.ORANGE
++                it[36] = Color.RED
++            }
++        val confident = List(54) { StickerConfidence.CONFIDENT }
++        val review = ScanReview.from(ScanResult.Full(Facelets(colors), confident))
++        assertEquals(listOf(0, 8, 9, 20, 36, 47), review.problems.first().positions)
++        assertEquals(0, review.selected)
++        // Blanks still come first.
++        val blank =
++            ScanReview.from(
++                ScanResult.Full(Facelets(colors), confident.toMutableList().also { it[30] = StickerConfidence.UNCERTAIN }),
++            )
++        assertEquals(30, blank.selected)
++        // A twisted corner names no sticker: nothing is pre-selected.
++        val twisted =
++            solved.colors.toMutableList().also {
++                val a = it[8]
++                it[8] = it[9]
++                it[9] = it[20]
++                it[20] = a
++            }
++        assertNull(ScanReview.from(ScanResult.Full(Facelets(twisted), confident)).selected)
++    }
++
+     @Test fun `complete twist flip and parity failures never accept`() {
+         val variants =
+             listOf(
+diff --git a/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/SuspectRankingTest.kt b/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/SuspectRankingTest.kt
+new file mode 100644
+index 00000000..512dfb3f
+--- /dev/null
++++ b/core/domain/src/test/kotlin/dev/cubentia/domain/recognition/SuspectRankingTest.kt
+@@ -0,0 +1,162 @@
++package dev.cubentia.domain.recognition
++
++import dev.cubentia.domain.cube.Color
++import dev.cubentia.domain.cube.CubeState
++import dev.cubentia.domain.cube.Face
++import dev.cubentia.domain.cube.Facelets
++import dev.cubentia.domain.recognition.RecognitionFixtures.CALIBRATION
++import dev.cubentia.domain.recognition.RecognitionFixtures.LABS
++import org.junit.jupiter.api.Assertions.assertEquals
++import org.junit.jupiter.api.Assertions.assertNotEquals
++import org.junit.jupiter.api.Assertions.assertNull
++import org.junit.jupiter.api.Assertions.assertTrue
++import org.junit.jupiter.api.Test
++
++/** #174: wrong color counts point at the scanned stickers that most likely are the missing color. */
++class SuspectRankingTest {
++    private val solved = CubeState.SOLVED.toFacelets().colors
++    private val counts = "msg.validation.wrong-color-counts"
++
++    private val letters =
++        mapOf(
++            'W' to Color.WHITE,
++            'Y' to Color.YELLOW,
++            'G' to Color.GREEN,
++            'B' to Color.BLUE,
++            'R' to Color.RED,
++            'O' to Color.ORANGE,
++        )
++
++    /** A yellow between yellow and orange, still a CONFIDENT yellow: about 22 ΔE from yellow, 34 from orange. */
++    private val orangeishYellow = Lab(77.0, 15.0, 74.0)
++
++    /**
++     * The Story 10.7 Lenovo scan (#174 log): six unposed faces, read in pixel order, all confident, 10 yellow and 8
++     * orange. Each color measures its [LABS] value except F's pixel 1, the misread orange.
++     */
++    private fun issueSamples(): List<FaceSample> =
++        listOf(
++            Color.GREEN to "OYYOGOYBR",
++            Color.RED to "RRBRRBYYG",
++            Color.BLUE to "GGGBBGBWW",
++            Color.ORANGE to "BOYGOYWWW",
++            Color.WHITE to "OYOGWWBYW",
++            Color.YELLOW to "RROWYRGBR",
++        ).map { (center, read) ->
++            val stickers =
++                read.mapIndexed { index, letter ->
++                    if (center == Color.GREEN && index == 1) orangeishYellow else LABS.getValue(letters.getValue(letter))
++                }
++            RecognitionFixtures.sample(center = center, stickers = stickers, face = Face.entries.first { Color.home(it) == center })
++        }
++
++    @Test fun `the issue scan ranks the orange-looking yellow first and pre-selects it`() {
++        val samples = issueSamples()
++        val trace = ScanAssembler.trace(samples, CALIBRATION)
++        assertEquals(ScanBranch.NO_VALID_REVIEW, trace.branch)
++        assertTrue(trace.samples.all { it.uncertain.isEmpty() })
++
++        val review = ScanReview.fromSamples(samples)
++        assertTrue(review.blanks.isEmpty())
++        assertEquals(10, review.stickers.count { it == Color.YELLOW })
++        assertEquals(8, review.stickers.count { it == Color.ORANGE })
++        val misread = requireNotNull(review.evidence).labs.indexOf(orangeishYellow)
++        assertNotEquals(-1, misread)
++        assertEquals(Color.YELLOW, review.stickers[misread])
++
++        val suspects = review.suspects
++        assertEquals(SuspectRanking.MAX_SUSPECTS, suspects.size)
++        assertEquals(Suspect(misread, Color.ORANGE), suspects.first())
++        assertTrue(suspects.all { review.stickers[it.index] == Color.YELLOW && it.likely == Color.ORANGE })
++        // The other yellows tie, so the lowest net indexes follow.
++        val others = review.stickers.indices.filter { it % 9 != 4 && it != misread && review.stickers[it] == Color.YELLOW }
++        assertEquals(others.take(2), suspects.drop(1).map { it.index })
++        assertEquals(misread, review.selected)
++
++        val problem = review.problems.single { it.reason.key == counts }
++        assertEquals(suspects.map { it.index }, problem.positions)
++        assertEquals(problem.positions, problem.piece)
++        assertTrue(review.outlined.containsAll(problem.positions))
++
++        val painted = review.paint(Color.ORANGE)
++        assertNull(requireNotNull(painted.evidence).labs[misread])
++        assertTrue(painted.problems.none { it.reason.key == counts })
++        assertTrue(painted.suspects.isEmpty())
++    }
++
++    /** Solved, with L's sticker 38 read yellow: 10 yellow, 8 orange. */
++    private val oneOrangeAsYellow = solved.toMutableList().also { it[38] = Color.YELLOW }
++
++    private fun evidence(
++        colors: List<Color?>,
++        vararg overrides: Pair<Int, Lab>,
++    ): ScanEvidence {
++        val labs = colors.map { it?.let(LABS::getValue) }.toMutableList()
++        overrides.forEach { (index, lab) -> labs[index] = lab }
++        return ScanEvidence(labs, LABS)
++    }
++
++    @Test fun `ties go to the lower sticker index and centers are never suspects`() {
++        // Every yellow measures exactly yellow; the D center even measures orange, but centers are fixed.
++        val review = ScanReview(oneOrangeAsYellow, null, evidence(oneOrangeAsYellow, 31 to LABS.getValue(Color.ORANGE)))
++        assertEquals(listOf(27, 28, 29).map { Suspect(it, Color.ORANGE) }, review.suspects)
++    }
++
++    @Test fun `a sticker the Learner painted loses its Lab while other scanned stickers still rank`() {
++        val review = ScanReview(oneOrangeAsYellow, 38, evidence(oneOrangeAsYellow, 38 to orangeishYellow))
++        assertEquals(Suspect(38, Color.ORANGE), review.suspects.first())
++        // Painted, even with the same color: the measurement no longer describes what the Learner set.
++        val edited = review.paint(Color.YELLOW)
++        assertNull(requireNotNull(edited.evidence).labs[38])
++        assertTrue(edited.suspects.none { it.index == 38 })
++        assertEquals(listOf(27, 28, 29), edited.suspects.map { it.index })
++        assertEquals(listOf(27, 28, 29), edited.problems.single { it.reason.key == counts }.positions)
++    }
++
++    @Test fun `without evidence the counts line names no sticker`() {
++        val review = ScanReview(oneOrangeAsYellow, null)
++        assertTrue(review.suspects.isEmpty())
++        val problem = review.problems.single { it.reason.key == counts }
++        assertTrue(problem.positions.isEmpty() && problem.piece.isEmpty())
++        val unlabeled = ScanReview.from(ScanResult.Full(Facelets(oneOrangeAsYellow), List(54) { StickerConfidence.CONFIDENT }))
++        assertNull(unlabeled.evidence)
++        assertTrue(unlabeled.suspects.isEmpty())
++        // No suspect: the first problem that names stickers (the white-yellow corner 6, 38, 18) is selected instead.
++        assertEquals(6, unlabeled.selected)
++        val noCenters =
++            ScanReview.from(
++                ScanResult.Full(
++                    Facelets(oneOrangeAsYellow),
++                    List(54) { StickerConfidence.CONFIDENT },
++                    oneOrangeAsYellow.map(LABS::getValue),
++                ),
++            )
++        assertNull(noCenters.evidence)
++    }
++
++    @Test fun `several over and under colors score each candidate against its nearest short color`() {
++        // +1 yellow, +1 red, -1 orange, -1 blue.
++        val colors =
++            solved.toMutableList().also {
++                it[38] = Color.YELLOW
++                it[46] = Color.RED
++            }
++        val review = ScanReview(colors, null, evidence(colors, 38 to Lab(70.0, 30.0, 70.0), 46 to Lab(42.0, 20.0, -30.0)))
++        // 38 is ~17 from orange, 46 ~22 from blue, then reds (~35 from orange) beat yellows (~56), lowest index first.
++        assertEquals(listOf(Suspect(38, Color.ORANGE), Suspect(46, Color.BLUE), Suspect(9, Color.ORANGE)), review.suspects)
++    }
++
++    @Test fun `right counts or any blank rank nothing`() {
++        assertTrue(SuspectRanking.rank(solved, evidence(solved)).isEmpty())
++        val blank = oneOrangeAsYellow.toMutableList<Color?>().also { it[0] = null }
++        assertTrue(SuspectRanking.rank(blank, evidence(blank)).isEmpty())
++    }
++
++    @Test fun `select keeps the evidence and equality includes it`() {
++        val review = ScanReview(oneOrangeAsYellow, null, evidence(oneOrangeAsYellow))
++        assertEquals(review.evidence, review.select(28).evidence)
++        assertNotEquals(review, ScanReview(oneOrangeAsYellow, null))
++        assertEquals(review, ScanReview(oneOrangeAsYellow, null, evidence(oneOrangeAsYellow)))
++        assertEquals(review.hashCode(), ScanReview(oneOrangeAsYellow, null, evidence(oneOrangeAsYellow)).hashCode())
++    }
++}
