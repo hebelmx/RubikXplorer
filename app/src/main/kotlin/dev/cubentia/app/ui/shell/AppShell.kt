@@ -323,7 +323,8 @@ private fun ShellContent(
     val solveOnSolved: suspend (CubeState, List<FaceTurn>) -> Unit = { state, moves ->
         if (ready != null) {
             val scanned = solveFlow.isAcceptedScan()
-            host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it, ready.bundle.tutorConfig, scanned) }
+            val colors = if (scanned) solveFlow.acceptedScanColors() else null
+            host.dispatch(colors) { SessionEvent.SolvePlaybackStarted(state, moves, it, ready.bundle.tutorConfig, scanned) }
         }
     }
     // Cancel a running solve and discard its scan baseline when the Learner leaves the Solve tab.

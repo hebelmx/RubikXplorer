@@ -9,7 +9,7 @@ import dev.cubentia.domain.cube.CubeValidator
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.ValidationResult
 
-/** Only validated colors cross the Activity boundary; samples stay inside the scan. */
+/** Only validated colors (and a guided run's measured centers, GH #172) cross the Activity boundary; samples stay inside the scan. */
 class ScanFlowContract(
     private val launcher: ScanLauncher,
     private val quick: Boolean = false,
@@ -32,13 +32,16 @@ class ScanFlowContract(
             when (outcome) {
                 is ScanOutcome.Accepted -> {
                     Activity.RESULT_OK to
-                        Intent().putExtra(
-                            EXTRA_FACELETS,
-                            outcome.state
-                                .toFacelets()
-                                .colors
-                                .map { it.name }
-                                .toTypedArray(),
+                        RunScanColorsExtra.put(
+                            Intent().putExtra(
+                                EXTRA_FACELETS,
+                                outcome.state
+                                    .toFacelets()
+                                    .colors
+                                    .map { it.name }
+                                    .toTypedArray(),
+                            ),
+                            outcome.runScanColors,
                         )
                 }
 
@@ -62,7 +65,9 @@ class ScanFlowContract(
                         if (colors?.size != Facelets.SIZE) {
                             ScanOutcome.Cancelled
                         } else {
-                            (CubeValidator.validate(Facelets(colors)) as? ValidationResult.Valid)?.let { ScanOutcome.Accepted(it.state) }
+                            (CubeValidator.validate(Facelets(colors)) as? ValidationResult.Valid)?.let {
+                                ScanOutcome.Accepted(it.state, RunScanColorsExtra.get(intent))
+                            }
                                 ?: ScanOutcome.Cancelled
                         }
                     }.getOrDefault(ScanOutcome.Cancelled)

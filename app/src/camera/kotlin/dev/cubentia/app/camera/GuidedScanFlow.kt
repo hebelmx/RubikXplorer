@@ -12,6 +12,7 @@ import dev.cubentia.domain.recognition.FrameQuality
 import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.GuidedScanController
 import dev.cubentia.domain.recognition.GuidedScanEffect
+import dev.cubentia.domain.recognition.Lab
 import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.recognition.ScanAssembler
 import dev.cubentia.domain.recognition.ScanResult
@@ -20,18 +21,22 @@ import dev.cubentia.domain.recognition.SelfCalibration
 import dev.cubentia.domain.recognition.StickerClassification
 import dev.cubentia.domain.recognition.StickerClassifier
 import dev.cubentia.domain.recognition.StickerConfidence
+import kotlin.math.sqrt
 
 /** The Guided Scan Activity's decisions, kept pure so they are unit-tested without a camera or a permission dialog. */
 internal object GuidedScanFlow {
     /**
      * Only whole posed faces with every non-center sticker CONFIDENT are evidence. No Expected state participates. The
      * stickers are read as every scan and its diagnostics read them ([calibrationFor]); the center is judged against
-     * [saved] ([centerAgrees]).
+     * [saved] ([centerAgrees]). With [runScan] (GH #172), [saved] is the run's start-scan centers, not a saved
+     * calibration, and no face is evidence unless the light is unchanged ([lightUnchanged]).
      */
     fun quickCheckOf(
         samples: List<FaceSample>,
         saved: CalibrationCenters,
+        runScan: Boolean = false,
     ): PhysicalObservation.Partial {
+        if (runScan && !lightUnchanged(samples, saved)) return PhysicalObservation.Partial(emptyMap())
         val result =
             ScanAssembler
                 .assemble(samples, calibrationFor(samples, saved))
@@ -53,12 +58,15 @@ internal object GuidedScanFlow {
     /**
      * The Quick Check faces to capture once more (PO 2026-11-17), in sample order: a face with an UNCERTAIN non-center
      * sticker, or whose center reads a color other than the face asked for (the wrong face was held). The controller
-     * asks for each once, with its named top; a re-capture still doubtful is then no evidence ([quickCheckOf]).
+     * asks for each once, with its named top; a re-capture still doubtful is then no evidence ([quickCheckOf]). With
+     * [runScan] and changed light ([lightUnchanged]), every captured face is doubtful.
      */
     fun quickCheckRetakes(
         samples: List<FaceSample>,
         saved: CalibrationCenters,
+        runScan: Boolean = false,
     ): List<Face> {
+        if (runScan && !lightUnchanged(samples, saved)) return samples.map { it.face }.distinct()
         val result = ScanAssembler.assemble(samples, calibrationFor(samples, saved)) as? ScanResult.Partial ?: return emptyList()
         val centerAgrees = centerAgrees(samples, saved)
         return samples
@@ -79,6 +87,45 @@ internal object GuidedScanFlow {
         samples: List<FaceSample>,
         saved: CalibrationCenters,
     ): CalibrationCenters = (SelfCalibration.from(samples, saved) as? SelfCalibration.Calibrated)?.calibration ?: saved
+
+    /**
+     * The run-scan colors a finished Guided 6-face Scan returns (GH #172): its own six centers from [SelfCalibration]
+     * with no saved calibration, or null when a calibration is [saved] or the scan cannot calibrate itself (6 faces then).
+     */
+    fun runScanColorsOf(
+        samples: List<FaceSample>,
+        saved: CalibrationCenters?,
+    ): CalibrationCenters? = if (saved == null) (SelfCalibration.from(samples) as? SelfCalibration.Calibrated)?.calibration else null
+
+    /**
+     * Lighting guard for a run-scan reference (GH #172): a captured center self-calibrates its own color, but the other
+     * colors still come from the start scan, so the light counts as unchanged only when at least one captured plain
+     * center exists and every one is within [StickerClassifier.CLOSE_CALL_DELTA_E] (ΔE76) of [reference]'s center of
+     * the color it claims. A logo-only capture has no probe, so it is doubtful.
+     */
+    private fun lightUnchanged(
+        samples: List<FaceSample>,
+        reference: CalibrationCenters,
+    ): Boolean {
+        val probes =
+            samples
+                .filter { it.centerPlain != false }
+                .map { sample -> Triple(sample.centerColor, sample.center, sample.centerColor?.let { reference.centers[it] }) }
+        return probes.isNotEmpty() &&
+            probes.all { (color, center, expected) ->
+                color != null && center != null && expected != null && deltaE76(center, expected) < StickerClassifier.CLOSE_CALL_DELTA_E
+            }
+    }
+
+    private fun deltaE76(
+        left: Lab,
+        right: Lab,
+    ): Double {
+        val dl = left.l - right.l
+        val da = left.a - right.a
+        val db = left.b - right.b
+        return sqrt(dl * dl + da * da + db * db)
+    }
 
     /** Every non-center sticker of [face] is CONFIDENT; the center is judged by [centerAgrees] instead. */
     private fun confident(

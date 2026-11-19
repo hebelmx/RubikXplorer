@@ -34,6 +34,7 @@ import dev.cubentia.app.preferences.PreferenceProvider
 import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.app.scan.CaseCaptureContract
 import dev.cubentia.app.scan.QuickCheckContract
+import dev.cubentia.app.scan.RunScanColorsExtra
 import dev.cubentia.app.scan.ScanFlowContract
 import dev.cubentia.app.scan.ScanOutcome
 import dev.cubentia.app.ui.scan.ScanCoachMarkRecord
@@ -131,11 +132,13 @@ class GuidedScanActivity : ComponentActivity() {
         lifecycleScope.launch {
             if (!scan.calibrationLoaded) {
                 scan.saved = (calibrationRepository.load() as? CalibrationLoad.Loaded)?.calibration
+                // A saved calibration always wins; otherwise a Quick Check may use the run's start-scan colors (GH #172).
+                if (scan.saved == null) scan.runScan = RunScanColorsExtra.get(intent)
                 val faces = intent.getStringArrayExtra(QuickCheckContract.EXTRA_FACES)
                 scan.quickFaces =
                     runCatching { faces?.map(Face::valueOf)?.toSet() }
                         .getOrNull()
-                        ?.takeIf { it.isNotEmpty() && it.size < 6 && scan.saved != null }
+                        ?.takeIf { it.isNotEmpty() && it.size < 6 && (scan.saved ?: scan.runScan) != null }
                 withContext(scan.analyzerExecutor.asCoroutineDispatcher()) { scan.controller = scan.newController() }
                 if (scan.quickScanMode && scan.quickScan == null) scan.quickScan = QuickScanController(scan.saved)
                 val corners = scan.caseCorners
@@ -293,7 +296,7 @@ class GuidedScanActivity : ComponentActivity() {
                                 } else {
                                     null
                                 },
-                            onAccept = { finishWith(ScanOutcome.Accepted(it)) },
+                            onAccept = { finishWith(ScanOutcome.Accepted(it, scan.runScanColorsToReturn())) },
                             onClose = { finishWith(ScanOutcome.Cancelled) },
                             modifier = Modifier.fillMaxSize(),
                             coachMarkPending = scan.coachMarkPending,
@@ -533,16 +536,20 @@ class GuidedScanActivity : ComponentActivity() {
         val done = effects.filterIsInstance<GuidedScanEffect.Done>().firstOrNull()
         done?.takeIf { quick == null }?.let {
             dev.cubentia.app.ScanDiagnostics
-                .onAssembly(if (scan.quickFaces == null) "final" else "quick", it.samples, scan.saved)
+                .onAssembly(if (scan.quickFaces == null) "final" else "quick", it.samples, scan.saved ?: scan.runScan)
         }
         val partial =
             if (scan.quickFaces != null &&
                 done != null
             ) {
-                GuidedScanFlow.quickCheckOf(done.samples, checkNotNull(scan.saved))
+                GuidedScanFlow.quickCheckOf(done.samples, checkNotNull(scan.saved ?: scan.runScan), runScan = scan.saved == null)
             } else {
                 null
             }
+        // A guided run's own centers, measured with no saved calibration, go back with Accepted for the run (GH #172).
+        if (done != null && quick == null && scan.isGuidedRun) {
+            scan.measuredCenters = GuidedScanFlow.runScanColorsOf(done.samples, scan.saved)
+        }
         val result =
             if (quick != null) {
                 quickReview(quickDone)
@@ -640,6 +647,15 @@ internal class GuidedScanViewModel : ViewModel() {
 
     @Volatile var quickFaces: Set<Face>? = null
 
+    /** The run's start-scan centers from the Quick Check intent (GH #172); only read when [saved] is null. */
+    @Volatile var runScan: CalibrationCenters? = null
+
+    /** This guided run's own six centers when no calibration was saved at its Done (GH #172); in memory only. */
+    @Volatile var measuredCenters: CalibrationCenters? = null
+
+    /** What Accepted carries back: a guided run's measured centers, only while no calibration is saved. */
+    fun runScanColorsToReturn(): CalibrationCenters? = measuredCenters?.takeIf { isGuidedRun && saved == null }
+
     fun guidedController(): GuidedScanController? {
         val quick = quickScan
         return if (quick == null) controller else quick.fallback
@@ -664,7 +680,12 @@ internal class GuidedScanViewModel : ViewModel() {
                             it in faces
                         }.map(GuidedScanPlan::reprompt),
                 // A doubtful face (an UNCERTAIN sticker, or the wrong face held) is asked once more (PO 2026-11-17).
-                reprompt = { samples -> saved?.let { GuidedScanFlow.quickCheckRetakes(samples, it) }.orEmpty() },
+                reprompt = { samples ->
+                    val reference = saved
+                    (reference ?: runScan)
+                        ?.let { GuidedScanFlow.quickCheckRetakes(samples, it, runScan = reference == null) }
+                        .orEmpty()
+                },
             )
         }
     }
