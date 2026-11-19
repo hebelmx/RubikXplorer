@@ -1131,3 +1131,15 @@ action_items:
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-201-solution-length-up-front.md"
+  - id: "issue-203-deferred-clear-pending-scan-on-fallback"
+    epic: 10
+    action: "Clear mutablePendingScan alongside scanned in enterColors(), scanDenied() and onScanOutcome(FellBackToEditor), as closeEditor()/leaveSolveTab() do (low; deferred from #203, SolveFlowViewModel.kt:72-100)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-203-scan-accept-skips-editor.md"
+  - id: "issue-203-deferred-device-single-review-scan"
+    epic: 10
+    action: "On a device, check scan review Accept goes straight to Solution Playback (and Already solved for a solved cube), the Editor fallback after cancel shows the home frame, and the pause note shows on Solve Home with a Lesson open (low; deferred from #203)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-203-scan-accept-skips-editor.md"
