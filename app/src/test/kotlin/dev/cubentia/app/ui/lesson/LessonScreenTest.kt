@@ -48,6 +48,8 @@ import dev.cubentia.app.render.Net2DRenderer
 import dev.cubentia.app.render.PreviewedMoveKey
 import dev.cubentia.app.render.RenderedArrow
 import dev.cubentia.app.render.RenderedArrowKey
+import dev.cubentia.app.render.RenderedFovKey
+import dev.cubentia.app.render.RenderedOrbitKey
 import dev.cubentia.app.render.RenderedStickersKey
 import dev.cubentia.app.render.StickerDimmedKey
 import dev.cubentia.app.render.StickerHighlightedKey
@@ -94,6 +96,7 @@ import dev.cubentia.domain.content.FaceletString
 import dev.cubentia.domain.content.LessonId
 import dev.cubentia.domain.content.StageId
 import dev.cubentia.domain.cube.Axis
+import dev.cubentia.domain.cube.CubeGeometry
 import dev.cubentia.domain.cube.CubeRotation
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Face
@@ -103,6 +106,7 @@ import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.domain.cube.Turn
+import dev.cubentia.domain.input.GestureInterpreter
 import dev.cubentia.domain.input.Vector3
 import dev.cubentia.domain.input.ViewOrbit
 import dev.cubentia.domain.input.ViewPose
@@ -827,8 +831,7 @@ class LessonScreenTest {
         open(whiteCrossLesson().id.value)
         switchTo(TeachingMode.LET_ME_TRY)
         val before = host.state.value
-        val bounds = node("cube3d").fetchSemanticsNode().boundsInRoot
-        val pose = ViewPose(bounds.width.toInt(), bounds.height.toInt(), ViewOrbit.DEFAULT.eye())
+        val pose = renderedPose()
         // Across the top of the front face, right to left: a U turn.
         val from = Vector3(0.0, 1.0, 1.5)
 
@@ -855,6 +858,41 @@ class LessonScreenTest {
     }
 
     @Test
+    fun `compact lesson drag near the silhouette edge is picked at the rendered FOV`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.LET_ME_TRY)
+        val before = host.state.value
+        val pose = renderedPose()
+        assertEquals(34.0, pose.fovDegrees, 0.0)
+        // Inside the front-bottom-left corner sticker: on the cube as drawn at 34°, off it under the default 38°.
+        val from = Vector3(-1.36, -1.36, 1.0 + CubeGeometry.STICKER_LIFT)
+        val start = pose.project(from)
+        assertTrue(GestureInterpreter.startsOnCube(start, pose))
+        assertFalse(GestureInterpreter.startsOnCube(start, pose.copy(fovDegrees = 38.0)))
+
+        fun offset(point: Vector3): Offset = pose.project(point).let { Offset(it.x.toFloat(), it.y.toFloat()) }
+        node("cube3d").performTouchInput {
+            down(offset(from))
+            moveTo(offset(from + Vector3(1.0, 0.0, 0.0)))
+            up()
+        }
+        rule.waitUntil(5_000) { host.state.value.history.done.size == 1 }
+        // Along the bottom row, left to right: a D turn.
+        val d = FaceTurn(Face.D, Turn.CLOCKWISE)
+        assertEquals(before.history.done + d, host.state.value.history.done)
+        assertEquals(before.virtual.apply(d), host.state.value.virtual)
+        node("toolbar:undo").performClick()
+        rule.waitUntil(5_000) {
+            host.state.value.history.done
+                .isEmpty()
+        }
+        node("moveKey:D").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.history.done.size == 1 }
+        assertEquals(before.virtual.apply(d), host.state.value.virtual)
+        assertNetMatchesSession("Move key and edge drag agree")
+    }
+
+    @Test
     fun `locked drag hides the teaching arrow until cancellation and physical mode blocks preview`() {
         open(whiteCrossLesson().id.value)
         switchTo(TeachingMode.TEST_ME)
@@ -864,8 +902,7 @@ class LessonScreenTest {
         val expectedArrow = stage.fetchSemanticsNode().config[RenderedArrowKey]
 
         fun dragAndHold() {
-            val size = stage.fetchSemanticsNode().size
-            val pose = ViewPose(size.width, size.height, ViewOrbit.DEFAULT.eye())
+            val pose = renderedPose()
 
             fun offset(x: Double): Offset = pose.project(Vector3(x, 1.0, 1.5)).let { Offset(it.x.toFloat(), it.y.toFloat()) }
             stage.performTouchInput {
@@ -900,12 +937,11 @@ class LessonScreenTest {
         open(whiteCrossLesson().id.value)
         switchTo(TeachingMode.LET_ME_TRY)
         val before = host.state.value
-        val bounds = node("cube3d").fetchSemanticsNode().boundsInRoot
         val from = Vector3(0.0, 1.0, 1.5)
         val u = FaceTurn(Face.U, Turn.CLOCKWISE)
 
         fun dragU(orbit: ViewOrbit) {
-            val pose = ViewPose(bounds.width.toInt(), bounds.height.toInt(), orbit.eye())
+            val pose = renderedPose(orbit)
 
             fun offset(point: Vector3): Offset = pose.project(point).let { Offset(it.x.toFloat(), it.y.toFloat()) }
             node("cube3d").performTouchInput {
@@ -932,6 +968,109 @@ class LessonScreenTest {
         rule.waitUntil(5_000) { host.state.value.history.done.size == 2 }
         assertEquals(before.virtual.apply(u).apply(u), host.state.value.virtual)
         assertNetMatchesSession("view controls leave the cube in step with the session")
+    }
+
+    private fun renderedPose(expectedOrbit: ViewOrbit? = null): ViewPose {
+        val cube = node("cube3d").fetchSemanticsNode()
+        val orbit = cube.config[RenderedOrbitKey]
+        expectedOrbit?.let { assertEquals(it, orbit) }
+        return ViewPose(cube.size.width, cube.size.height, orbit.eye(), cube.config[RenderedFovKey])
+    }
+
+    @Test
+    fun compactVirtualGuideMeFitsLargerCube() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.GUIDE_ME)
+        assertCompactVirtualCubeFits()
+    }
+
+    @Test
+    fun compactVirtualLetMeTryFitsLargerCubeAt200PercentFont() {
+        open(whiteCrossLesson().id.value, fontScale = 2f)
+        switchTo(TeachingMode.LET_ME_TRY)
+        assertCompactVirtualCubeFits()
+    }
+
+    @Test
+    fun compactLessonRestoresDefaultFovAndCanvasInPhysicalMode() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.GUIDE_ME)
+        assertEquals(34.0, renderedPose().fovDegrees, 0.0)
+        runBlocking {
+            host.dispatch { SessionEvent.ModeSwitched(dev.cubentia.application.session.CubeMode.PHYSICAL, it) }
+        }
+        rule.waitForIdle()
+        assertEquals(38.0, renderedPose().fovDegrees, 0.0)
+        val canvas = node("cube3d").getUnclippedBoundsInRoot()
+        assertEquals(275.dp, canvas.bottom - canvas.top)
+        val stage = node("lesson:stage").getUnclippedBoundsInRoot()
+        // The existing physical instruction takes space above the stage.
+        assertEquals(351.dp, stage.bottom - stage.top)
+        runBlocking {
+            host.dispatch { SessionEvent.ModeSwitched(dev.cubentia.application.session.CubeMode.VIRTUAL, it) }
+        }
+        rule.waitForIdle()
+        assertEquals(34.0, renderedPose().fovDegrees, 0.0)
+    }
+
+    @Test
+    @Config(qualifiers = "w600dp-h960dp")
+    fun mediumVirtualLessonKeepsDefaultFov() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.GUIDE_ME)
+        assertEquals(38.0, renderedPose().fovDegrees, 0.0)
+    }
+
+    private fun assertCompactVirtualCubeFits() {
+        val stage = node("lesson:stage").getUnclippedBoundsInRoot()
+        val canvas = node("cube3d").getUnclippedBoundsInRoot()
+        val canvasHeightDp = (canvas.bottom - canvas.top).value
+        val pose = renderedPose()
+        assertEquals(360.dp, stage.bottom - stage.top)
+        assertEquals(34.0, pose.fovDegrees, 0.0)
+
+        val extent = 1.0 + CubeGeometry.STICKER_LIFT
+        val axes = listOf(-extent, extent)
+        val corners = axes.flatMap { x -> axes.flatMap { y -> axes.map { z -> Vector3(x, y, z) } } }
+        val projected = corners.map(pose::project)
+        assertTrue(projected.all { it.x in 0.0..pose.width.toDouble() && it.y in 0.0..pose.height.toDouble() })
+
+        val sphereAngle = kotlin.math.asin(Vector3(extent, extent, extent).length() / pose.eye.length())
+        assertTrue(sphereAngle < Math.toRadians(pose.fovDegrees / 2))
+
+        val height = projected.maxOf { it.y } - projected.minOf { it.y }
+        val baselineCanvasHeight = (pose.height * (canvasHeightDp - 8f) / canvasHeightDp).toInt()
+        val baseline = corners.map(pose.copy(height = baselineCanvasHeight, fovDegrees = 38.0)::project)
+        val baselineHeight = baseline.maxOf { it.y } - baseline.minOf { it.y }
+        assertTrue("Silhouette grew from $baselineHeight to $height px", height >= baselineHeight * 1.15)
+        val silhouetteDp = height * canvasHeightDp / pose.height
+        assertTrue("Silhouette height was $silhouetteDp dp", silhouetteDp >= 156)
+
+        assertCubeDoesNotOverlapControls()
+        node("stage:viewMenu").performClick()
+        node("viewRotate:left").performClick()
+        node("stage:viewRotated").assertIsDisplayed()
+        assertCubeDoesNotOverlapControls()
+    }
+
+    private fun assertCubeDoesNotOverlapControls() {
+        val cube = node("cube3d").fetchSemanticsNode().boundsInRoot
+        val controls =
+            rule
+                .onAllNodes(
+                    SemanticsMatcher("stage controls") { node ->
+                        val tag = node.config.getOrNull(SemanticsProperties.TestTag).orEmpty()
+                        tag.startsWith("moveKey:") || tag.startsWith("toolbar:") || tag == "stage:viewRotated"
+                    },
+                    useUnmergedTree = true,
+                ).fetchSemanticsNodes()
+        assertTrue(controls.isNotEmpty())
+        controls.forEach { control ->
+            val bounds = control.boundsInRoot
+            if (!bounds.isEmpty) {
+                assertFalse("${control.config[SemanticsProperties.TestTag]} overlaps the cube", cube.overlaps(bounds))
+            }
+        }
     }
 
     private fun node(tag: String) = rule.onNodeWithTag(tag)
@@ -1699,8 +1838,7 @@ class LessonScreenTest {
         assertNotEquals("the demonstration is drawing its first rotation", session, drawnColors())
 
         val stage = node("cube3d")
-        val size = stage.fetchSemanticsNode().size
-        val pose = ViewPose(size.width, size.height, ViewOrbit.DEFAULT.eye())
+        val pose = renderedPose()
 
         fun offset(x: Double): Offset = pose.project(Vector3(x, 1.0, 1.5)).let { Offset(it.x.toFloat(), it.y.toFloat()) }
         stage.performTouchInput {

@@ -27,6 +27,8 @@ class CubeGlRenderer(
     private val fragmentShader: String,
 ) : GLSurfaceView.Renderer {
     @Volatile var eye = ViewPose.DEFAULT_EYE
+
+    @Volatile var fovDegrees = 38.0
     private val camera = ViewProjectionCache()
 
     @Volatile var snapshot: GlSnapshot? = null
@@ -98,8 +100,11 @@ class CubeGlRenderer(
         }
     }
 
+    /** The view-projection [draw] uploads: the current [eye] and [fovDegrees] at the last surface size. */
+    internal fun viewProjection(): FloatArray = camera.matrixFor(eye, fovDegrees)
+
     private fun draw() {
-        val viewProj = camera.matrixFor(eye)
+        val viewProj = viewProjection()
         val frame = snapshot ?: return
         frame.models.copyInto(models)
         var cursor = 0

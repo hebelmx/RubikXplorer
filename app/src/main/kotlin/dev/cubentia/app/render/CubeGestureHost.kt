@@ -59,7 +59,7 @@ internal fun cubeGestureInput(
                 second.consume()
             }
             var baseOrbit = renderer.orbit
-            var pose = ViewPose(size.width, size.height, baseOrbit.eye())
+            var pose = renderer.pose(size.width, size.height, baseOrbit.eye())
             val side = minOf(size.width, size.height).toDouble()
             var onCube = !freeViewRotation && startsOnCube(pathA.first(), pathB.firstOrNull(), pose)
             // Both fingers off the cube around it: a View Rotation that can still become a z twist (only when Moves are wired).
@@ -86,7 +86,7 @@ internal fun cubeGestureInput(
                             pathB.add(second.position.screenPoint())
                             renderer.cancelViewReset()
                             baseOrbit = renderer.orbit
-                            pose = ViewPose(size.width, size.height, baseOrbit.eye())
+                            pose = renderer.pose(size.width, size.height, baseOrbit.eye())
                             onCube = !freeViewRotation && startsOnCube(pathA.first(), pathB.first(), pose)
                             midpointOnly =
                                 commit != null && !freeViewRotation && !onCube && midpointOnCube(pathA.first(), pathB.first(), pose)
