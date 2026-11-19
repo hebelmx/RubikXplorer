@@ -1143,3 +1143,15 @@ action_items:
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-203-scan-accept-skips-editor.md"
+  - id: "issue-139-deferred-device-gl-cube-34deg"
+    epic: 12
+    action: "On the Galaxy S24 FE, confirm the GL-rendered virtual Lesson cube redraws at 34 degrees on a settled cube and stays fully visible at normal and 200% font, with teaching arrow and face labels aligned (low; deferred from #139, Cube3DRenderer.kt:510, CubeGlRenderer.kt:107)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-139-compact-virtual-lesson-cube-size.md"
+  - id: "issue-139-deferred-overlap-test-stage-frame-badge"
+    epic: 12
+    action: "Include the stage:frame badge in LessonScreenTest.assertCubeDoesNotOverlapControls so the larger cube is checked against it too (low; deferred from #139, LessonScreenTest.kt:1062-1064)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-139-compact-virtual-lesson-cube-size.md"
