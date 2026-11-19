@@ -275,7 +275,7 @@ action_items:
     action: "Decide release levels for TEST_ME and ADAPTIVE_ASSISTANCE (FeatureFlagLevels.kt:16),
       incl. BETA so the beta label shows, before Story 7.8"
     owner: "hebelmx"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-11-04.md"
   - id: "epic-4-retro-item-13-orchestrator-writes-gate-surviving-mediu"
     epic: 4
@@ -318,7 +318,7 @@ action_items:
     action: "Double-tap reset also checks tap distance (Cube3DRenderer.kt:458-459,
       doubleTapSlop) with a far-apart-taps test"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-11-05.md"
   - id: "epic-5-retro-item-19-split-cube3drenderer-kt-551-lines-gestur"
     epic: 5
