@@ -48,7 +48,6 @@ import dev.cubentia.app.render.ViewRotatedBadge
 import dev.cubentia.app.scan.QuickCheckCapture
 import dev.cubentia.app.ui.freecube.ToolbarButton
 import dev.cubentia.app.ui.freecube.ViewControls
-import dev.cubentia.app.ui.lesson.FrameLabel
 import dev.cubentia.app.ui.lesson.rememberReduceMotion
 import dev.cubentia.app.ui.playback.MoveStrip
 import dev.cubentia.app.ui.playback.NET_ASPECT
@@ -71,7 +70,6 @@ import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.playback.MoveNote
-import dev.cubentia.domain.tutor.Certainty
 import kotlin.time.Instant
 import dev.cubentia.domain.text.Text as ContentText
 
@@ -382,7 +380,7 @@ fun SolutionPlayback(
                         renderer.Content(style, Modifier.fillMaxSize())
                     }
                 }
-                if (state.isPhysical || cube != null) {
+                if (cube != null) {
                     FlowRow(
                         itemVerticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(Spacing.s2),
@@ -392,18 +390,7 @@ fun SolutionPlayback(
                                 traversalIndex = -1f
                             },
                     ) {
-                        if (state.isPhysical) {
-                            FrameLabel(
-                                strings,
-                                syncState = state.session.syncState,
-                                verified =
-                                    quickCheck != null && state.session.syncState == SyncState.PHYSICAL_VERIFIED &&
-                                        state.session.quickCheck?.certainty == Certainty.VERIFIED,
-                            )
-                        }
-                        if (cube != null) {
-                            ViewRotatedBadge(cube, strings)
-                        }
+                        ViewRotatedBadge(cube, strings)
                     }
                 }
             }
