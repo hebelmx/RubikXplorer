@@ -68,12 +68,41 @@ class AlgorithmDetailScreenTest {
     private val case = bundle.cases.first { it.id == algorithm.caseId }
     private val strings = ContentStrings(bundle.strings)
     private val demo = (Demonstration.ofCase(algorithm) as DemonstrationResult.Ready).demonstration
+    private lateinit var accessibilityHost: android.view.View
 
     private fun show(
         algorithm: Algorithm = this.algorithm,
         diagram: Boolean = true,
     ) {
-        rule.setContent { CubentiaTheme { AlgorithmDetailScreen(case, algorithm, strings, {}, Modifier.fillMaxSize(), diagram) } }
+        rule.setContent {
+            accessibilityHost = androidx.compose.ui.platform.LocalView.current
+            CubentiaTheme { AlgorithmDetailScreen(case, algorithm, strings, {}, Modifier.fillMaxSize(), diagram) }
+        }
+    }
+
+    private fun assertDirectTraversal(
+        firstTag: String,
+        secondTag: String,
+    ) {
+        val app =
+            androidx.test.core.app.ApplicationProvider
+                .getApplicationContext<Application>()
+        org.robolectric.Shadows.shadowOf(app.getSystemService(android.view.accessibility.AccessibilityManager::class.java)).apply {
+            setEnabled(true)
+            setTouchExplorationEnabled(true)
+            setEnabledAccessibilityServiceList(listOf(android.accessibilityservice.AccessibilityServiceInfo()))
+        }
+        val firstId = rule.onNodeWithTag(firstTag).fetchSemanticsNode().id
+        val secondId = rule.onNodeWithTag(secondTag).fetchSemanticsNode().id
+        val nextId =
+            rule.runOnIdle {
+                val provider = checkNotNull(accessibilityHost.accessibilityNodeProvider)
+                val key = "android.view.accessibility.extra.EXTRA_DATA_TEST_TRAVERSALBEFORE_VAL"
+                val info = checkNotNull(provider.createAccessibilityNodeInfo(firstId))
+                provider.addExtraDataToAccessibilityNodeInfo(firstId, info, key, null)
+                info.extras.getInt(key, -1)
+            }
+        assertEquals("Expected $secondTag immediately after $firstTag in platform traversal", secondId, nextId)
     }
 
     private fun assertBoundary(boundary: Int) {
@@ -242,6 +271,7 @@ class AlgorithmDetailScreenTest {
 
     @Test fun `transport steps speed and view gestures never turn layers`() {
         show()
+        rule.onNodeWithTag("stage:viewRotated").assertDoesNotExist()
         rule.onNodeWithTag("playback:forward").performClick()
         assertBoundary(1)
         rule.onNodeWithTag("playback:back").performClick()
@@ -256,9 +286,21 @@ class AlgorithmDetailScreenTest {
             )
         }
         assertBoundary(0)
+        val frameBounds = rule.onNodeWithTag("stage:frame").fetchSemanticsNode().boundsInRoot
+        val badgeBounds = rule.onNodeWithTag("stage:viewRotated").fetchSemanticsNode().boundsInRoot
+        assertTrue(badgeBounds.left >= frameBounds.right)
+        assertDirectTraversal("stage:frame", "stage:viewRotated")
+        assertDirectTraversal("stage:viewRotated", "cube3d")
         rule.onNodeWithTag("cube3d").performTouchInput { doubleClick() }
         assertBoundary(0)
-        rule.onNodeWithTag("stage:resetView").assertExists()
+        rule.waitForIdle()
+        rule.onNodeWithTag("stage:viewRotated").assertDoesNotExist()
+        rule.onNodeWithTag("stage:viewMenu").performClick()
+        rule.onNodeWithTag("viewRotate:left").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("stage:viewRotated").assertExists().performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("stage:viewRotated").assertDoesNotExist()
     }
 
     @Test fun `free view drag orbits on cube and double tap resets without committing a Move`() {

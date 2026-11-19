@@ -1,4 +1,7 @@
 {
+  "msg.view.rotated": "View rotated",
+  "btn.view.reset": "Reset view",
+  "msg.view.reset": "View reset",
   "msg.gesture.turn-cancelled": "Turn cancelled",
   "btn.library.recognize-case": "Recognize case",
   "msg.recognize.hold-first": "Hold yellow on top, with one corner facing you.",

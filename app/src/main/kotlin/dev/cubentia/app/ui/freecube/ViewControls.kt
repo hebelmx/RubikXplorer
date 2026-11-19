@@ -19,7 +19,6 @@ import dev.cubentia.domain.input.ViewOrbit
 
 @Composable
 internal fun ViewControls(renderer: Cube3DRenderer) {
-    ToolbarButton(R.drawable.ic_reset_view, R.string.reset_view, "stage:resetView", true) { renderer.resetView() }
     var menu by remember { mutableStateOf(false) }
     Box {
         ToolbarButton(R.drawable.ic_more_vert, R.string.view_options, "stage:viewMenu", true) { menu = true }

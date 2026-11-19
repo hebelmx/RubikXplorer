@@ -6,11 +6,13 @@ import android.os.Looper
 import android.os.SystemClock
 import android.os.Trace
 import android.view.View
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -45,7 +47,9 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.text
+import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntSize
@@ -68,10 +72,13 @@ import dev.cubentia.app.ui.freecube.movePlainName
 import dev.cubentia.app.ui.theme.CubeTokens
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.input.DragPreview
+import dev.cubentia.domain.input.FaceLabel
+import dev.cubentia.domain.input.FaceLabels
 import dev.cubentia.domain.input.MoveArrow
 import dev.cubentia.domain.input.MoveIntent
 import dev.cubentia.domain.input.ScreenPoint
@@ -103,6 +110,8 @@ val PreviewedMoveKey = SemanticsPropertyKey<PreviewedMove>("PreviewedMove")
 
 val RenderedOrbitKey = SemanticsPropertyKey<ViewOrbit>("RenderedOrbit")
 
+val RenderedFaceLabelsKey = SemanticsPropertyKey<List<Face>>("RenderedFaceLabels")
+
 /** Main-thread adapter. Compose owns presentation; GL only draws published snapshots. */
 class Cube3DRenderer(
     initial: Facelets = CubeState.SOLVED.toFacelets(),
@@ -110,10 +119,21 @@ class Cube3DRenderer(
     var orbit by mutableStateOf(ViewOrbit.DEFAULT)
         private set
 
+    val isViewRotated: Boolean
+        get() = !orbit.isHome()
+
+    private class ResetRun(
+        val from: ViewOrbit,
+    )
+
+    private var resetFrom by mutableStateOf<ResetRun?>(null)
+    private var latestReduceMotion = false
+
     fun rotateView(
         yaw: Double,
         pitch: Double,
     ) {
+        cancelViewReset()
         orbit = orbit.rotated(yaw, pitch)
     }
 
@@ -122,6 +142,7 @@ class Cube3DRenderer(
         dy: Double,
         sidePx: Double,
     ) {
+        cancelViewReset()
         orbit = orbit.dragged(dx, dy, sidePx)
     }
 
@@ -131,11 +152,26 @@ class Cube3DRenderer(
         dy: Double,
         sidePx: Double,
     ) {
+        cancelViewReset()
         orbit = base.dragged(dx, dy, sidePx)
     }
 
     fun resetView() {
-        orbit = ViewOrbit.DEFAULT
+        if (orbit.isHome()) {
+            cancelViewReset()
+            orbit = ViewOrbit.DEFAULT
+            return
+        }
+        if (publishNow == null || latestReduceMotion) {
+            cancelViewReset()
+            orbit = ViewOrbit.DEFAULT
+        } else {
+            resetFrom = ResetRun(orbit)
+        }
+    }
+
+    fun cancelViewReset() {
+        resetFrom = null
     }
 
     private val model = CubieModel(initial)
@@ -334,7 +370,10 @@ class Cube3DRenderer(
         strings: ContentStrings? = null,
     ) {
         val latestStyle by rememberUpdatedState(style)
-        SideEffect { queue.animationSpeed = style.animationSpeed }
+        SideEffect {
+            queue.animationSpeed = style.animationSpeed
+            latestReduceMotion = reduceMotion
+        }
         val latestEmphasis by rememberUpdatedState(emphasis)
         val density by rememberUpdatedState(LocalDensity.current.density)
         var arrowProgress by remember(arrow, reduceMotion) { mutableFloatStateOf(if (reduceMotion) 1f else 0f) }
@@ -424,6 +463,22 @@ class Cube3DRenderer(
                         model.setGhost(easing.move, value)
                         publish()
                     }
+                }
+            }
+        }
+        val resetRun = resetFrom
+        LaunchedEffect(resetRun) {
+            val run = resetRun ?: return@LaunchedEffect
+            try {
+                animate(0f, 1f, animationSpec = tween(RESET_MILLIS, easing = FastOutSlowInEasing)) { value, _ ->
+                    if (resetFrom === run) {
+                        orbit = run.from.towards(ViewOrbit.DEFAULT, value.toDouble())
+                    }
+                }
+            } finally {
+                if (resetFrom === run) {
+                    orbit = ViewOrbit.DEFAULT
+                    resetFrom = null
                 }
             }
         }
@@ -530,12 +585,37 @@ class Cube3DRenderer(
         val overlayProgress = if (activePreview != null) 1f else arrowProgress
         val arrowColor = CubeTokens.stickerHighlight.copy(alpha = if (activePreview != null) 0.6f else 1f)
         val gesture = if (viewGestures) cubeGestureInput(this, onMoveIntent, onDragStart, freeViewRotation, reduceMotion) else Modifier
-        Box(modifier) {
+        val rotated = isViewRotated
+        var wasRotated by remember(this) { mutableStateOf(rotated) }
+        var viewNoticeKey by remember(this) { mutableStateOf<String?>(null) }
+        SideEffect {
+            if (rotated != wasRotated) {
+                wasRotated = rotated
+                viewNoticeKey = if (rotated) VIEW_ROTATED_KEY else VIEW_RESET_KEY
+            }
+        }
+        val labelGlyphs = rememberFaceLabelGlyphs()
+        val labelGapPx = with(LocalDensity.current) { FACE_LABEL_GAP.toPx().toDouble() }
+        BoxWithConstraints(modifier) {
+            val stageW = if (constraints.hasBoundedWidth) constraints.maxWidth else 0
+            val stageH = if (constraints.hasBoundedHeight) constraints.maxHeight else 0
+            val faceLabels =
+                if (rotated && stageW > 0 && stageH > 0) {
+                    FaceLabels.place(
+                        ViewPose(stageW, stageH, orbit.eye()),
+                        labelGlyphs.boxWidth.toDouble(),
+                        labelGlyphs.boxHeight.toDouble(),
+                        labelGapPx,
+                    )
+                } else {
+                    emptyList()
+                }
             Box(
                 modifier =
                     Modifier.fillMaxSize().testTag("cube3d").clearAndSetSemantics {
                         this[RenderedStickersKey] = stickers
                         this[RenderedOrbitKey] = orbit
+                        if (rotated) this[RenderedFaceLabelsKey] = faceLabels.map { it.face }
                         if (teachingArrow != null) this[RenderedArrowKey] = RenderedArrow(Notation.format(teachingArrow), arrowProgress)
                         if (activePreview != null) {
                             this[PreviewedMoveKey] =
@@ -607,6 +687,12 @@ class Cube3DRenderer(
                         }
                     }
                 }
+                FaceLabelOverlay(
+                    orbit = orbit,
+                    modifier = Modifier.matchParentSize(),
+                    glyphs = labelGlyphs,
+                    labels = faceLabels,
+                )
                 if (viewGestures) Box(Modifier.matchParentSize().then(gesture))
             }
             if (onMoveIntent != null) {
@@ -623,6 +709,18 @@ class Cube3DRenderer(
                     },
                 )
             }
+            val viewMessage =
+                viewNoticeKey
+                    ?.let { key -> strings?.resolve(Text(key))?.takeIf { it != key } }
+                    .orEmpty()
+            Box(
+                Modifier.size(1.dp).testTag("cube3d:viewAnnouncement").semantics {
+                    liveRegion = LiveRegionMode.Polite
+                    // Keep the invisible announcement leaf after the stage controls in traversal order.
+                    traversalIndex = 100f
+                    if (viewMessage.isNotEmpty()) text = AnnotatedString(viewMessage)
+                },
+            )
         }
     }
 
@@ -707,5 +805,52 @@ class Cube3DRenderer(
         const val TURN_MILLIS = PresentationQueue.TURN_MILLIS
         const val FAST_FORWARD_AFTER = PresentationQueue.FAST_FORWARD_AFTER
         const val FAST_FORWARD_DIVISOR = PresentationQueue.FAST_FORWARD_DIVISOR
+        const val RESET_MILLIS = 200
+        internal const val VIEW_ROTATED_KEY = "msg.view.rotated"
+        internal const val VIEW_RESET_KEY = "msg.view.reset"
+    }
+}
+
+internal val FACE_LABEL_GAP = 6.dp
+
+internal class FaceLabelGlyphs(
+    val layouts: Map<Face, TextLayoutResult>,
+    val boxWidth: Int,
+    val boxHeight: Int,
+)
+
+@Composable
+internal fun rememberFaceLabelGlyphs(): FaceLabelGlyphs {
+    val measurer = rememberTextMeasurer()
+    val style = RubikTheme.textStyles.notation.copy(color = RubikTheme.tokens.inkSecondary)
+    val layouts = Face.entries.associateWith { face -> measurer.measure(face.name, style) }
+    val boxWidth = layouts.values.maxOf { it.size.width }
+    val boxHeight = layouts.values.maxOf { it.size.height }
+    return FaceLabelGlyphs(layouts, boxWidth, boxHeight)
+}
+
+@Composable
+internal fun FaceLabelOverlay(
+    orbit: ViewOrbit,
+    modifier: Modifier = Modifier,
+    glyphs: FaceLabelGlyphs = rememberFaceLabelGlyphs(),
+    labels: List<FaceLabel>? = null,
+) {
+    if (orbit.isHome()) return
+    Canvas(modifier) {
+        val placed =
+            labels
+                ?: FaceLabels.place(
+                    ViewPose(size.width.toInt(), size.height.toInt(), orbit.eye()),
+                    glyphs.boxWidth.toDouble(),
+                    glyphs.boxHeight.toDouble(),
+                    FACE_LABEL_GAP.toPx().toDouble(),
+                )
+        for (label in placed) {
+            val layout = glyphs.layouts.getValue(label.face)
+            val dx = (glyphs.boxWidth - layout.size.width) / 2f
+            val dy = (glyphs.boxHeight - layout.size.height) / 2f
+            drawText(layout, topLeft = Offset(label.left.toFloat() + dx, label.top.toFloat() + dy))
+        }
     }
 }

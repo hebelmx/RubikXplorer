@@ -914,7 +914,7 @@ class LessonScreenTest {
                 up()
             }
         }
-        node("stage:resetView").assertIsEnabled()
+        node("stage:viewRotated").assertDoesNotExist()
         node("stage:viewMenu").performClick()
         node("viewRotate:right").performClick()
         rule.waitForIdle()
@@ -924,8 +924,9 @@ class LessonScreenTest {
         dragU(ViewOrbit.DEFAULT.rotated(-ViewOrbit.STEP_DEGREES, 0.0))
         rule.waitUntil(5_000) { host.state.value.history.done.size == 1 }
         assertEquals(before.virtual.apply(u), host.state.value.virtual)
-        node("stage:resetView").performClick()
+        node("stage:viewRotated").assertIsEnabled().performClick()
         rule.waitForIdle()
+        node("stage:viewRotated").assertDoesNotExist()
         assertEquals("resetting the view records no Move", listOf(u), host.state.value.history.done)
         dragU(ViewOrbit.DEFAULT)
         rule.waitUntil(5_000) { host.state.value.history.done.size == 2 }
@@ -1261,8 +1262,9 @@ class LessonScreenTest {
         node("playback:counter").assertTextContains("1 / 4")
         assertEquals("turning the view leaves the Session alone", before, host.state.value)
         assertEquals("turning the view leaves the drawn Cube State alone", drawn, drawnColors())
-        node("stage:resetView").performClick()
+        node("stage:viewRotated").performClick()
         rule.waitForIdle()
+        node("stage:viewRotated").assertDoesNotExist()
         node("playback:counter").assertTextContains("1 / 4")
         assertEquals("resetting the view leaves the Session alone", before, host.state.value)
     }
@@ -2425,12 +2427,13 @@ class LessonScreenTest {
             val hint = node("lesson:hint").fetchSemanticsNode().id
             val next = node("lesson:next").fetchSemanticsNode().id
             val modeOption = node("mode:SHOW_ME").fetchSemanticsNode().id
-            val chain =
+
+            fun walkFrom(start: Int): List<Int> =
                 rule.runOnIdle {
                     val provider = accessibilityHost.accessibilityNodeProvider!!
                     val key = "android.view.accessibility.extra.EXTRA_DATA_TEST_TRAVERSALBEFORE_VAL"
                     val result = mutableListOf<Int>()
-                    var id = frame
+                    var id = start
                     while (id != -1 && id !in result) {
                         result += id
                         val info = provider.createAccessibilityNodeInfo(id) ?: break
@@ -2439,6 +2442,7 @@ class LessonScreenTest {
                     }
                     result
                 }
+            val chain = walkFrom(frame)
             assertEquals("$mode: the cube follows the frame label directly: $chain", cube, chain.getOrNull(1))
             listOf(cube to move, move to undo, undo to objective, objective to hint, hint to next, next to modeOption)
                 .forEach { (before, after) ->
@@ -2447,6 +2451,15 @@ class LessonScreenTest {
                         before in chain && after in chain && chain.indexOf(before) < chain.indexOf(after),
                     )
                 }
+            node("stage:viewMenu").performClick()
+            node("viewRotate:left").performClick()
+            rule.waitForIdle()
+            val badge = node("stage:viewRotated").fetchSemanticsNode().id
+            val rotatedChain = walkFrom(frame)
+            assertEquals("$mode: the rotated badge follows the frame label directly: $rotatedChain", badge, rotatedChain.getOrNull(1))
+            assertEquals("$mode: the cube follows the rotated badge: $rotatedChain", cube, rotatedChain.getOrNull(2))
+            node("stage:viewRotated").performClick()
+            rule.waitForIdle()
         }
     }
 
@@ -2916,5 +2929,18 @@ class LessonScreenTest {
         val first = rule.onNodeWithTag("mode:SHOW_ME").fetchSemanticsNode().boundsInRoot
         val last = rule.onNodeWithTag("mode:LET_ME_TRY").fetchSemanticsNode().boundsInRoot
         assertTrue(last.top > first.top)
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp", fontScale = 2.0f)
+    fun rotatedBadgeWrapsInsideCompactLessonStageAt200PercentFont() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.LET_ME_TRY)
+        node("stage:viewMenu").performClick()
+        node("viewRotate:left").performClick()
+        rule.waitForIdle()
+        val stageBounds = node("lesson:stageScroll").getUnclippedBoundsInRoot()
+        val badgeBounds = node("stage:viewRotated").getUnclippedBoundsInRoot()
+        assertTrue(badgeBounds.left >= stageBounds.left && badgeBounds.right <= stageBounds.right)
     }
 }

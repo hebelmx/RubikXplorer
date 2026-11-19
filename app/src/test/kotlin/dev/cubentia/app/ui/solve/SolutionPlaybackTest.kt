@@ -84,6 +84,7 @@ class SolutionPlaybackTest {
     private val solution: List<Move> = listOf(f.inverse(), u.inverse(), r.inverse())
 
     private lateinit var state: SolutionPlaybackState
+    private lateinit var accessibilityHost: android.view.View
 
     private fun session(
         start: CubeState = scrambled,
@@ -98,6 +99,7 @@ class SolutionPlaybackTest {
         val host = SessionHost(TickingClock(), Dispatchers.Unconfined)
         runBlocking { host.dispatch { SessionEvent.SolvePlaybackStarted(session.entry, session.solution, it) } }
         rule.setContent {
+            accessibilityHost = androidx.compose.ui.platform.LocalView.current
             val current by host.state.collectAsState()
             CubentiaTheme {
                 PreferenceProvider(store) {
@@ -113,6 +115,31 @@ class SolutionPlaybackTest {
         rule.waitForIdle()
     }
 
+    private fun assertDirectTraversal(
+        firstTag: String,
+        secondTag: String,
+    ) {
+        val app =
+            androidx.test.core.app.ApplicationProvider
+                .getApplicationContext<Application>()
+        org.robolectric.Shadows.shadowOf(app.getSystemService(android.view.accessibility.AccessibilityManager::class.java)).apply {
+            setEnabled(true)
+            setTouchExplorationEnabled(true)
+            setEnabledAccessibilityServiceList(listOf(android.accessibilityservice.AccessibilityServiceInfo()))
+        }
+        val firstId = rule.onNodeWithTag(firstTag).fetchSemanticsNode().id
+        val secondId = rule.onNodeWithTag(secondTag).fetchSemanticsNode().id
+        val nextId =
+            rule.runOnIdle {
+                val provider = checkNotNull(accessibilityHost.accessibilityNodeProvider)
+                val key = "android.view.accessibility.extra.EXTRA_DATA_TEST_TRAVERSALBEFORE_VAL"
+                val info = checkNotNull(provider.createAccessibilityNodeInfo(firstId))
+                provider.addExtraDataToAccessibilityNodeInfo(firstId, info, key, null)
+                info.extras.getInt(key, -1)
+            }
+        assertEquals("Expected $secondTag immediately after $firstTag in platform traversal", secondId, nextId)
+    }
+
     private fun netPreferences() = PreferenceStore().apply { update(Preference.PlaybackViewChoice(PlaybackView.NET_2D)) }
 
     private fun tag(name: String) = rule.onNodeWithTag("playback:$name")
@@ -124,7 +151,9 @@ class SolutionPlaybackTest {
 
     @Test
     fun the3DArrowFollowsTheCurrentMoveAndResetViewKeepsThePosition() {
-        show(store = PreferenceStore())
+        val store = PreferenceStore()
+        show(store = store)
+        rule.onNodeWithTag("stage:viewRotated").assertDoesNotExist()
         click("forward")
         click("forward")
         assertEquals(2, state.position)
@@ -135,10 +164,34 @@ class SolutionPlaybackTest {
         val cube = state.renderer as Cube3DRenderer
         rule.runOnIdle { cube.rotateView(ViewOrbit.STEP_DEGREES, 0.0) }
         assertNotEquals(ViewOrbit.DEFAULT, cube.orbit)
-        rule.onNodeWithTag("stage:resetView").performClick()
+        val badge = rule.onNodeWithTag("stage:viewRotated")
+        // Virtual Solution Playback has no frame label, so the badge is first on the stage.
+        rule.onNodeWithTag("stage:frame").assertDoesNotExist()
+        badge.assertExists()
+        assertDirectTraversal("stage:viewRotated", "cube3d")
+        // Switching to the 2D net hides the badge even while the 3D renderer was rotated.
+        click("viewSwitch")
+        rule.onNodeWithTag("net").assertExists()
+        rule.onNodeWithTag("stage:viewRotated").assertDoesNotExist()
+        click("viewSwitch")
+        val restoredCube = state.renderer as Cube3DRenderer
+        rule.runOnIdle { restoredCube.rotateView(ViewOrbit.STEP_DEGREES, 0.0) }
+        rule.onNodeWithTag("stage:viewRotated").performClick()
         rule.waitForIdle()
-        assertEquals(ViewOrbit.DEFAULT, cube.orbit)
+        rule.onNodeWithTag("stage:viewRotated").assertDoesNotExist()
+        assertEquals(ViewOrbit.DEFAULT, restoredCube.orbit)
         assertEquals(2, state.position)
+
+        // In physical 3D playback, the badge sits right after the EXPECTED frame label.
+        click("followOnMyCube")
+        val physicalCube = state.renderer as Cube3DRenderer
+        rule.runOnIdle { physicalCube.rotateView(ViewOrbit.STEP_DEGREES, 0.0) }
+        rule.waitForIdle()
+        val frameBounds = rule.onNodeWithTag("stage:frame").fetchSemanticsNode().boundsInRoot
+        val badgeBounds = rule.onNodeWithTag("stage:viewRotated").fetchSemanticsNode().boundsInRoot
+        assertTrue(badgeBounds.left >= frameBounds.right)
+        assertDirectTraversal("stage:frame", "stage:viewRotated")
+        assertDirectTraversal("stage:viewRotated", "cube3d")
     }
 
     @Test

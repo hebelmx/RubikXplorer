@@ -82,6 +82,7 @@ import dev.cubentia.app.render.CubeRenderer
 import dev.cubentia.app.render.NetEmphasis
 import dev.cubentia.app.render.PresentationItem
 import dev.cubentia.app.render.RenderStyle
+import dev.cubentia.app.render.ViewRotatedBadge
 import dev.cubentia.app.scan.QuickCheckCapture
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.toItems
@@ -1227,7 +1228,15 @@ private fun LearnerStage(
             // below instead of squeezing its 48dp buttons.
             FlowRow(itemVerticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 val isPhysical = session.syncState != SyncState.VIRTUAL
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                FlowRow(
+                    itemVerticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.s2),
+                    modifier =
+                        Modifier.semantics {
+                            isTraversalGroup = true
+                            traversalIndex = 0f
+                        },
+                ) {
                     FrameLabel(
                         strings,
                         certainty,
@@ -1239,8 +1248,9 @@ private fun LearnerStage(
                     if (session.syncState == SyncState.PHYSICAL_MISMATCH || session.syncState == SyncState.PHYSICAL_VERIFIED ||
                         (camera && session.quickCheck != null) || (isPhysical && session.lastDiagnosis != null)
                     ) {
-                        CertaintyChip(certainty, Modifier.padding(start = Spacing.s2))
+                        CertaintyChip(certainty)
                     }
+                    ViewRotatedBadge(renderer, strings)
                 }
                 Row(
                     Modifier.weight(1f).semantics {

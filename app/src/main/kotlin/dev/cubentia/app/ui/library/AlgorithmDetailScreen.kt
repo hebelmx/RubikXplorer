@@ -34,6 +34,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -194,14 +195,20 @@ fun AlgorithmDetailScreen(
         if (maxHeight >= maxWidth || maxWidth / 2 < MinLandscapePaneWidth) {
             Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
                 title()
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    Modifier.weight(1f).semantics { isTraversalGroup = true },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
                     DemonstrationStage(state, strings, style, null, null, showFrameLabel = true, freeViewRotation = true)
                 }
                 Column(Modifier.heightIn(max = portraitControlsHeight).verticalScroll(rememberScrollState())) { controls() }
             }
         } else {
             Row(Modifier.fillMaxSize()) {
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    Modifier.weight(1f).semantics { isTraversalGroup = true },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
                     title()
                     DemonstrationStage(state, strings, style, null, null, showFrameLabel = true, freeViewRotation = true)
                 }

@@ -33,8 +33,10 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.content.ContentStrings
+import dev.cubentia.app.preferences.LocalReduceMotionOverride
 import dev.cubentia.app.render.Cube3DRenderer
 import dev.cubentia.app.render.PreviewedMoveKey
+import dev.cubentia.app.render.RenderedFaceLabelsKey
 import dev.cubentia.app.render.RenderedStickersKey
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.domain.appearance.StickerAppearance
@@ -72,6 +74,7 @@ class FreeCubeScreenTest {
         dev.cubentia.app.preferences
             .PreferenceStore()
     private lateinit var viewModel: FreeCubeViewModel
+    private lateinit var accessibilityHost: android.view.View
     private var dark by mutableStateOf(false)
     private val ticks = mutableListOf<HapticFeedbackType>()
     private val haptics =
@@ -81,16 +84,33 @@ class FreeCubeScreenTest {
             }
         }
 
-    private fun launch(showDebugToggles: Boolean = true) {
+    private fun launch(
+        showDebugToggles: Boolean = true,
+        reduceMotionOverride: Boolean? = null,
+        strings: ContentStrings =
+            ContentStrings(
+                mapOf(
+                    "msg.gesture.turn-cancelled" to "Turn cancelled",
+                    "msg.view.rotated" to "View rotated",
+                    "btn.view.reset" to "Reset view",
+                    "msg.view.reset" to "View reset",
+                ),
+            ),
+    ) {
         viewModel = FreeCubeViewModel()
         rule.setContent {
-            CompositionLocalProvider(LocalHapticFeedback provides haptics) {
-                CubentiaTheme(darkTheme = dark) {
-                    dev.cubentia.app.preferences.PreferenceProvider(preferences) {
+            accessibilityHost = androidx.compose.ui.platform.LocalView.current
+            CubentiaTheme(darkTheme = dark) {
+                dev.cubentia.app.preferences.PreferenceProvider(preferences) {
+                    val override = reduceMotionOverride ?: LocalReduceMotionOverride.current
+                    CompositionLocalProvider(
+                        LocalHapticFeedback provides haptics,
+                        LocalReduceMotionOverride provides override,
+                    ) {
                         FreeCubeScreen(
                             viewModel = viewModel,
                             showDebugToggles = showDebugToggles,
-                            strings = ContentStrings(mapOf("msg.gesture.turn-cancelled" to "Turn cancelled")),
+                            strings = strings,
                         )
                     }
                 }
@@ -517,11 +537,50 @@ class FreeCubeScreenTest {
         assertEquals(ViewOrbit.DEFAULT.pitchDegrees, orbit.pitchDegrees, 1e-9)
     }
 
+    private fun assertDirectTraversal(
+        firstTag: String,
+        secondTag: String,
+    ) {
+        val app =
+            androidx.test.core.app.ApplicationProvider
+                .getApplicationContext<Application>()
+        org.robolectric.Shadows.shadowOf(app.getSystemService(android.view.accessibility.AccessibilityManager::class.java)).apply {
+            setEnabled(true)
+            setTouchExplorationEnabled(true)
+            setEnabledAccessibilityServiceList(listOf(android.accessibilityservice.AccessibilityServiceInfo()))
+        }
+        val firstId = rule.onNodeWithTag(firstTag).fetchSemanticsNode().id
+        val secondId = rule.onNodeWithTag(secondTag).fetchSemanticsNode().id
+        val nextId =
+            rule.runOnIdle {
+                val provider = checkNotNull(accessibilityHost.accessibilityNodeProvider)
+                val key = "android.view.accessibility.extra.EXTRA_DATA_TEST_TRAVERSALBEFORE_VAL"
+                val info = checkNotNull(provider.createAccessibilityNodeInfo(firstId))
+                provider.addExtraDataToAccessibilityNodeInfo(firstId, info, key, null)
+                info.extras.getInt(key, -1)
+            }
+        assertEquals("Expected $secondTag immediately after $firstTag in platform traversal", secondId, nextId)
+    }
+
     @Test
-    fun `view menu reset button and double tap keep history unchanged`() {
+    fun `view menu reset badge face labels announcements and double tap keep history unchanged`() {
         launch()
-        rule.onNodeWithTag("stage:resetView").assertContentDescriptionEquals("Reset view").assertTouchWidthIsAtLeast(48.dp)
-        rule.onNodeWithTag("stage:resetView").assertTouchHeightIsAtLeast(48.dp)
+        rule.onNodeWithTag("stage:" + "resetView").assertDoesNotExist()
+        rule.onNodeWithTag("stage:viewRotated").assertDoesNotExist()
+        assertNull(
+            rule
+                .onNodeWithTag("cube3d")
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(RenderedFaceLabelsKey),
+        )
+        assertNull(
+            rule
+                .onNodeWithTag("cube3d:viewAnnouncement")
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(SemanticsProperties.Text),
+        )
         rule
             .onNodeWithTag("stage:viewMenu")
             .assertContentDescriptionEquals("View options")
@@ -533,21 +592,50 @@ class FreeCubeScreenTest {
             .assertTouchHeightIsAtLeast(48.dp)
             .assertTouchWidthIsAtLeast(48.dp)
             .performClick()
-        assertEquals(ViewOrbit.DEFAULT.rotated(45.0, 0.0), viewModel.renderer.orbit)
+        val rotatedOrbit = ViewOrbit.DEFAULT.rotated(45.0, 0.0)
+        assertEquals(rotatedOrbit, viewModel.renderer.orbit)
         rule.waitForIdle()
         assertEquals(viewModel.renderer.orbit.eye(), viewModel.renderer.glEye)
-        rule.onNodeWithTag("stage:resetView").performClick()
-        assertEquals(ViewOrbit.DEFAULT, viewModel.renderer.orbit)
+        val badge = rule.onNodeWithTag("stage:viewRotated")
+        badge
+            .assertTextEquals("View rotated · Reset view")
+            .assertTouchWidthIsAtLeast(48.dp)
+            .assertTouchHeightIsAtLeast(48.dp)
+        assertEquals(
+            "Reset view",
+            badge
+                .fetchSemanticsNode()
+                .config[androidx.compose.ui.semantics.SemanticsActions.OnClick]
+                .label,
+        )
+        val faces = rule.onNodeWithTag("cube3d").fetchSemanticsNode().config[RenderedFaceLabelsKey]
+        assertTrue(faces.isNotEmpty())
+        rule.onNodeWithTag("cube3d:viewAnnouncement").assertTextEquals("View rotated")
+        assertDirectTraversal("stage:frame", "stage:viewRotated")
+        assertDirectTraversal("stage:viewRotated", "cube3d")
+        badge.performClick()
         rule.waitForIdle()
+        assertEquals(ViewOrbit.DEFAULT, viewModel.renderer.orbit)
         assertEquals(ViewOrbit.DEFAULT.eye(), viewModel.renderer.glEye)
+        rule.onNodeWithTag("stage:viewRotated").assertDoesNotExist()
+        assertNull(
+            rule
+                .onNodeWithTag("cube3d")
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(RenderedFaceLabelsKey),
+        )
+        rule.onNodeWithTag("cube3d:viewAnnouncement").assertTextEquals("View reset")
         listOf("right" to (-45.0 to 0.0), "up" to (0.0 to -45.0), "down" to (0.0 to 45.0)).forEach { (direction, angles) ->
             rule.onNodeWithTag("stage:viewMenu").performClick()
             rule.onNodeWithTag("viewRotate:$direction").performClick()
             assertEquals(ViewOrbit.DEFAULT.rotated(angles.first, angles.second), viewModel.renderer.orbit)
-            rule.onNodeWithTag("stage:resetView").performClick()
+            rule.onNodeWithTag("stage:viewRotated").performClick()
+            rule.waitForIdle()
         }
         rule.runOnIdle { viewModel.renderer.rotateView(45.0, 10.0) }
         rule.onNodeWithTag("cube3d").performTouchInput { doubleClick() }
+        rule.waitForIdle()
         assertEquals(ViewOrbit.DEFAULT, viewModel.renderer.orbit)
         assertEquals(CubeState.SOLVED, viewModel.history.state)
         assertTrue(ticks.isEmpty())
@@ -1023,6 +1111,124 @@ class FreeCubeScreenTest {
         }
         assertEquals(CubeState.SOLVED.apply(move(Face.U)), viewModel.history.state)
         assertEquals(listOf(HapticFeedbackType.KeyboardTap), ticks)
+    }
+
+    @Test
+    fun `animated reset interpolates over 200ms and reduce motion jumps immediately`() {
+        launch()
+        val rotated = ViewOrbit.DEFAULT.rotated(60.0, 20.0)
+        rule.runOnIdle { viewModel.renderer.rotateView(60.0, 20.0) }
+        rule.waitForIdle()
+        assertEquals(rotated, viewModel.renderer.orbit)
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithTag("stage:viewRotated").performClick()
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeBy(100)
+        val midway = viewModel.renderer.orbit
+        assertTrue(midway.yawDegrees > ViewOrbit.DEFAULT.yawDegrees && midway.yawDegrees < rotated.yawDegrees)
+        assertTrue(midway.pitchDegrees > ViewOrbit.DEFAULT.pitchDegrees && midway.pitchDegrees < rotated.pitchDegrees)
+        rule.mainClock.advanceTimeBy(120)
+        rule.mainClock.advanceTimeByFrame()
+        assertEquals(ViewOrbit.DEFAULT, viewModel.renderer.orbit)
+        rule.mainClock.autoAdvance = true
+        rule.waitForIdle()
+        rule.onNodeWithTag("stage:viewRotated").assertDoesNotExist()
+    }
+
+    @Test
+    fun `reduce motion override makes reset jump immediately`() {
+        launch(reduceMotionOverride = true)
+        rule.runOnIdle { viewModel.renderer.rotateView(60.0, 20.0) }
+        rule.waitForIdle()
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithTag("stage:viewRotated").performClick()
+        assertEquals(ViewOrbit.DEFAULT, viewModel.renderer.orbit)
+        rule.mainClock.autoAdvance = true
+    }
+
+    @Test
+    fun `press and drag during reset stops animation and continues from the pressed orbit`() {
+        launch()
+        val rotated = ViewOrbit.DEFAULT.rotated(80.0, 0.0)
+        rule.runOnIdle { viewModel.renderer.rotateView(80.0, 0.0) }
+        rule.waitForIdle()
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithTag("stage:viewRotated").performClick()
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeBy(80)
+        val midOrbit = viewModel.renderer.orbit
+        assertNotEquals(ViewOrbit.DEFAULT, midOrbit)
+        assertNotEquals(rotated, midOrbit)
+
+        val stage = rule.onNodeWithTag("cube3d")
+        stage.performTouchInput {
+            down(Offset(10f, 10f))
+            moveTo(Offset(10f, 60f))
+        }
+        val draggedOrbit = viewModel.renderer.orbit
+        val side =
+            minOf(stage.fetchSemanticsNode().size.width, stage.fetchSemanticsNode().size.height).toDouble()
+        assertEquals(midOrbit.dragged(0.0, 50.0, side), draggedOrbit)
+        // Advancing past 200ms does not snap back to DEFAULT.
+        rule.mainClock.advanceTimeBy(250)
+        assertEquals(draggedOrbit, viewModel.renderer.orbit)
+        stage.performTouchInput { up() }
+        rule.mainClock.autoAdvance = true
+        rule.waitForIdle()
+        assertEquals(draggedOrbit, viewModel.renderer.orbit)
+        rule.onNodeWithTag("stage:viewRotated").assertExists()
+    }
+
+    @Test
+    fun `far apart double tap does not reset while third near tap resets`() {
+        launch()
+        val rotated = ViewOrbit.DEFAULT.rotated(45.0, 0.0)
+        rule.runOnIdle { viewModel.renderer.rotateView(45.0, 0.0) }
+        val stage = rule.onNodeWithTag("cube3d")
+        // Two taps within doubleTapTimeoutMillis (~40ms apart) but far apart (250px > doubleTapSlop).
+        stage.performTouchInput {
+            down(Offset(20f, 20f))
+            up()
+            advanceEventTime(40)
+            down(Offset(270f, 20f))
+            up()
+        }
+        rule.waitForIdle()
+        assertEquals(rotated, viewModel.renderer.orbit)
+        // A third tap near the second tap's location within timeout completes a double-tap and resets.
+        stage.performTouchInput {
+            advanceEventTime(40)
+            down(Offset(275f, 22f))
+            up()
+        }
+        rule.waitForIdle()
+        assertEquals(ViewOrbit.DEFAULT, viewModel.renderer.orbit)
+    }
+
+    @Test
+    fun `unresolved content strings keep view announcement silent while badge still shows`() {
+        launch(strings = ContentStrings(emptyMap()))
+        rule.runOnIdle { viewModel.renderer.rotateView(45.0, 0.0) }
+        rule.waitForIdle()
+        rule.onNodeWithTag("stage:viewRotated").assertExists()
+        assertNull(
+            rule
+                .onNodeWithTag("cube3d:viewAnnouncement")
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(SemanticsProperties.Text),
+        )
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp", fontScale = 2.0f)
+    fun `200 percent font on compact width wraps badge inside stage header`() {
+        launch()
+        rule.runOnIdle { viewModel.renderer.rotateView(45.0, 0.0) }
+        rule.waitForIdle()
+        val stageBounds = rule.onNodeWithTag("freeCube:stage").getUnclippedBoundsInRoot()
+        val badgeBounds = rule.onNodeWithTag("stage:viewRotated").getUnclippedBoundsInRoot()
+        assertTrue(badgeBounds.left >= stageBounds.left && badgeBounds.right <= stageBounds.right)
     }
 
     private companion object {

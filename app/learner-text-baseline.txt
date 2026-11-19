@@ -109,7 +109,6 @@ objective_in_sync
 objective_catching_up
 free_cube_haptics
 frame_virtual_front
-reset_view
 view_options
 rotate_view_left
 rotate_view_right
