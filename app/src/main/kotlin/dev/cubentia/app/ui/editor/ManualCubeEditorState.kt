@@ -12,11 +12,14 @@ import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.CubeValidator
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.Facelets
+import dev.cubentia.domain.cube.StickerOrder
 import dev.cubentia.domain.cube.ValidationResult
 
 /**
  * The Manual Cube Editor's state (FR-14): the entered [facelets], the [selected] sticker and the
- * [face] shown when a compact window edits one face at a time. Centers
+ * [face] shown when a compact window edits one face at a time. Painting auto-advances the selection
+ * along the review net's order (EXPERIENCE.md "Sticker review net"), so a face takes about one touch
+ * per sticker. Centers
  * are always the home-frame colors (WHITE U, GREEN F) and cannot be selected. Validation is derived
  * live through [CubeValidator]; this is not a session (AD-3/AD-20), so nothing here is persisted or
  * goes through a reducer.
@@ -28,7 +31,7 @@ class ManualCubeEditorState(
     var facelets: Facelets by mutableStateOf(withHomeCenters(initial))
         private set
 
-    /** The sticker the next palette color paints, or null before any sticker is tapped. */
+    /** The sticker the next palette color paints (moved on by [paint]), or null before any sticker is tapped. */
     var selected: Int? by mutableStateOf(null)
         private set
 
@@ -65,11 +68,18 @@ class ManualCubeEditorState(
         if (selected?.let { it / PER_FACE } != face) selected = null
     }
 
-    /** Paints the selected sticker [color]; ignored while nothing is selected. Selection stays put. */
+    /**
+     * Paints the selected sticker [color], then advances the selection to the next editable sticker in
+     * [StickerOrder] (URFDLB row-major, centers skipped, crossing faces), so [face] follows it. A tap
+     * of the color the sticker already holds still advances. After sticker 53 the selection stays put
+     * (no wrap). Ignored while nothing is selected.
+     */
     fun paint(color: Color) {
         val index = selected ?: return
-        if (facelets.colors[index] == color) return
-        facelets = Facelets(facelets.colors.toMutableList().also { it[index] = color })
+        if (facelets.colors[index] != color) {
+            facelets = Facelets(facelets.colors.toMutableList().also { it[index] = color })
+        }
+        select(StickerOrder.next(index) ?: index)
     }
 
     companion object {

@@ -1209,3 +1209,15 @@ action_items:
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-172-reuse-start-scan-colors.md"
+  - id: "issue-204-deferred-talkback-two-live-regions"
+    epic: 3
+    action: "With TalkBack on a device, paint a Manual Cube Editor sticker that creates or clears a problem and check that both polite live regions (selected sticker and problem lines) are announced, not one dropped (medium; deferred from #204, ManualCubeEditor.kt)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-204-editor-low-tap.md"
+  - id: "issue-204-deferred-compact-cue-replay"
+    epic: 3
+    action: "In the compact one-face Editor, painting a face's last sticker sets the update cue after the view switches faces, so the cue replays when the Learner returns to that face; set it only for the shown face or clear it on face change (low; deferred from #204, ManualCubeEditor.kt:155)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-204-editor-low-tap.md"

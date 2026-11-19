@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -108,13 +109,68 @@ class ManualCubeEditorTest {
         rule.waitForIdle()
     }
 
+    private fun isSelected(index: Int): Boolean = sticker(index).fetchSemanticsNode().config.getOrNull(SemanticsProperties.Selected) == true
+
+    private fun selectedLine(): String {
+        val node = rule.onNodeWithTag("editor:selected").fetchSemanticsNode()
+        assertEquals(LiveRegionMode.Polite, node.config[SemanticsProperties.LiveRegion])
+        return node.config[SemanticsProperties.Text].joinToString { it.text }
+    }
+
     @Test
-    fun `tapping a sticker then a color paints it and keeps it selected`() {
+    fun `tapping a sticker then a color paints it and advances the selection`() {
         launch()
+        assertTrue(rule.onAllNodesWithTag("editor:selected").fetchSemanticsNodes().isEmpty())
         paint(0, CubeColor.RED)
         assertEquals(fill(CubeColor.RED), drawnColor(0))
-        assertEquals(true, sticker(0).fetchSemanticsNode().config.getOrNull(SemanticsProperties.Selected))
+        assertFalse(isSelected(0))
+        assertTrue(isSelected(1))
         assertEquals(fill(solved[1]), drawnColor(1))
+        assertEquals("Selected: White sticker, up face, position 2", selectedLine())
+    }
+
+    @Test
+    fun `the update cue stays on the painted sticker while the selection advances`() {
+        launch()
+        sticker(0).performClick()
+        rule.mainClock.autoAdvance = false
+        swatch(CubeColor.RED).performClick()
+        rule.mainClock.advanceTimeBy(50)
+        rule.onNodeWithTag("sticker:0:cue", useUnmergedTree = true).assertExists()
+        rule.onNodeWithTag("sticker:1:cue", useUnmergedTree = true).assertDoesNotExist()
+        assertTrue(isSelected(1))
+    }
+
+    @Test
+    fun `painting skips the center and the polite line names the next sticker`() {
+        launch()
+        paint(3, CubeColor.RED)
+        assertEquals(fill(CubeColor.RED), drawnColor(3))
+        assertTrue(isSelected(5))
+        assertEquals("Selected: White sticker, up face, position 6", selectedLine())
+    }
+
+    @Test
+    fun `tapping an earlier sticker fixes it and advances from it`() {
+        launch()
+        paint(8, CubeColor.RED)
+        swatch(CubeColor.RED).performClick()
+        rule.waitForIdle()
+        assertTrue(isSelected(10))
+        paint(2, CubeColor.GREEN)
+        assertEquals(fill(CubeColor.GREEN), drawnColor(2))
+        assertTrue(isSelected(3))
+        assertFalse(isSelected(10))
+    }
+
+    @Test
+    fun `the last sticker stays selected after it is painted`() {
+        launch()
+        paint(53, CubeColor.GREEN)
+        assertEquals(fill(CubeColor.GREEN), drawnColor(53))
+        assertTrue(isSelected(53))
+        assertEquals(solved.take(53).map(::fill), (0 until 53).map(::drawnColor))
+        assertEquals("Selected: Green sticker, back face, position 9", selectedLine())
     }
 
     @Test
@@ -268,8 +324,7 @@ class ManualCubeEditorTest {
         launch()
         paint(0, CubeColor.RED)
         accept().assertIsNotEnabled()
-        swatch(CubeColor.WHITE).performClick()
-        rule.waitForIdle()
+        paint(0, CubeColor.WHITE)
         assertTrue(problemLines().isEmpty())
         accept().assertIsEnabled().performClick()
         rule.waitForIdle()

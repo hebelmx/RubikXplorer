@@ -7,6 +7,7 @@ import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.PieceCheck
 import dev.cubentia.domain.cube.ReviewProblem
+import dev.cubentia.domain.cube.StickerOrder
 import dev.cubentia.domain.cube.ValidationResult
 import java.util.Collections
 
@@ -54,7 +55,7 @@ class ScanReview(
     fun paint(color: Color): ScanReview {
         val index = selected ?: return this
         val painted = stickers.toMutableList().also { it[index] = color }
-        val next = (1..Facelets.SIZE).map { (index + it) % Facelets.SIZE }.firstOrNull { painted[it] == null }
+        val next = StickerOrder.next(index, wrap = true) { painted[it] == null }
         val kept = evidence?.without(setOf(index))
         if (next != null) return ScanReview(painted, next, kept)
         // The last blank is set: if the counts are now off, move to the top suspect (#174).

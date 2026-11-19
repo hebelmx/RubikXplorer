@@ -19,13 +19,68 @@ import org.junit.Test
 /** The editor's I/O matrix on the plain state holder. */
 class ManualCubeEditorStateTest {
     @Test
-    fun `a selected sticker takes the painted color and selection stays`() {
+    fun `a selected sticker takes the painted color and selection advances within the face`() {
         val state = ManualCubeEditorState()
         state.select(0)
         state.paint(Color.RED)
         assertEquals(Color.RED, state.facelets.colors[0])
-        assertEquals(0, state.selected)
+        assertEquals(1, state.selected)
+        assertEquals(0, state.face)
         assertEquals(solved.drop(1), state.facelets.colors.drop(1))
+    }
+
+    @Test
+    fun `advance skips the center`() {
+        val state = ManualCubeEditorState()
+        state.select(3)
+        state.paint(Color.BLUE)
+        assertEquals(5, state.selected)
+    }
+
+    @Test
+    fun `advance crosses into the next face and the shown face follows`() {
+        val state = ManualCubeEditorState()
+        state.select(8)
+        state.paint(Color.RED)
+        assertEquals(9, state.selected)
+        assertEquals(1, state.face)
+    }
+
+    @Test
+    fun `painting the color a sticker already holds still advances`() {
+        val state = ManualCubeEditorState()
+        state.select(0)
+        state.paint(Color.WHITE)
+        assertEquals(CubeState.SOLVED.toFacelets(), state.facelets)
+        assertEquals(1, state.selected)
+    }
+
+    @Test
+    fun `the last sticker keeps the selection without wrapping`() {
+        val state = ManualCubeEditorState()
+        state.select(52)
+        state.paint(Color.RED)
+        assertEquals(53, state.selected)
+        state.paint(Color.GREEN)
+        assertEquals(Color.RED, state.facelets.colors[52])
+        assertEquals(Color.GREEN, state.facelets.colors[53])
+        assertEquals(53, state.selected)
+        assertEquals(5, state.face)
+        assertEquals(solved.take(52), state.facelets.colors.take(52))
+    }
+
+    @Test
+    fun `tapping an earlier sticker fixes it and advances from it`() {
+        val state = ManualCubeEditorState()
+        state.select(8)
+        state.paint(Color.RED)
+        state.paint(Color.RED)
+        assertEquals(10, state.selected)
+        state.select(2)
+        state.paint(Color.GREEN)
+        assertEquals(Color.GREEN, state.facelets.colors[2])
+        assertEquals(3, state.selected)
+        assertEquals(0, state.face)
     }
 
     @Test
@@ -50,6 +105,7 @@ class ManualCubeEditorStateTest {
         val state = ManualCubeEditorState()
         state.paint(Color.RED)
         assertEquals(CubeState.SOLVED.toFacelets(), state.facelets)
+        assertNull(state.selected)
     }
 
     @Test
@@ -160,6 +216,7 @@ class ManualCubeEditorStateTest {
         state.select(0)
         state.paint(Color.RED)
         assertNull(state.validState)
+        state.select(0)
         state.paint(Color.WHITE)
         assertEquals(CubeState.SOLVED.toFacelets(), state.validState?.toFacelets())
     }
