@@ -91,6 +91,8 @@ import dev.cubentia.domain.content.LessonId
 import dev.cubentia.domain.content.LibraryFilter
 import dev.cubentia.domain.content.Stage
 import dev.cubentia.domain.content.StageId
+import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.domain.lastlayer.RecognitionDiagram
@@ -212,6 +214,7 @@ private fun ShellContent(
     val recognitionPending by recognizeFlow.pending.collectAsState()
     val recognizeAction = onRecognize.takeIf { flags.isEnabled(FeatureFlag.CASE_RECOGNITION) }
     val placementPhase by placementFlow.phase.collectAsState()
+    val pendingScan by solveFlow.pendingScan.collectAsState()
     val placementScanState by placementFlow.acceptedScan.collectAsState()
     var acceptingPlacement by remember { mutableStateOf(false) }
     var placementSaveFailed by remember(placementPhase) { mutableStateOf(false) }
@@ -315,6 +318,21 @@ private fun ShellContent(
     LaunchedEffect(ready, placementScanState, placementFlow) {
         if (ready != null && placementScanState != null) {
             placementFlow.evaluateScan(ready.bundle.stages)
+        }
+    }
+    val solveOnSolved: suspend (CubeState, List<FaceTurn>) -> Unit = { state, moves ->
+        if (ready != null) {
+            val scanned = solveFlow.isAcceptedScan()
+            host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it, ready.bundle.tutorConfig, scanned) }
+        }
+    }
+    // Cancel a running solve and discard its scan baseline when the Learner leaves the Solve tab.
+    LaunchedEffect(tab) { if (tab != Tab.SOLVE) solveFlow.leaveSolveTab() }
+    LaunchedEffect(ready, pendingScan, tab) {
+        if (ready != null && pendingScan != null && tab == Tab.SOLVE) {
+            // A scan returned into a recreated process waits for the cold-start restore, so playback never races it.
+            host.awaitRestored()
+            solveFlow.takePendingScan()?.let { solveFlow.confirm(it, solveOnSolved) }
         }
     }
     if (ready != null && session.kind == SessionKind.SOLVE_PLAYBACK) {
@@ -671,9 +689,6 @@ private fun ShellContent(
                     s == StageStatus.MASTERED
             }
 
-    // A solve still running when the Learner leaves the Solve tab is cancelled, so its result never suspends a session started elsewhere.
-    LaunchedEffect(tab) { if (tab != Tab.SOLVE) solveFlow.cancelSolving() }
-
     val destination: @Composable (Modifier, WindowWidthClass) -> Unit = { destinationModifier, widthClass ->
         when (tab) {
             Tab.LIBRARY -> {
@@ -828,13 +843,7 @@ private fun ShellContent(
                             solveFlow.closeEditor()
                             tab = Tab.LEARN
                         },
-                        onSolved = {
-                            state,
-                            moves,
-                            ->
-                            val scanned = solveFlow.isAcceptedScan()
-                            host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it, ready.bundle.tutorConfig, scanned) }
-                        },
+                        onSolved = solveOnSolved,
                         // Edge-to-edge: the themed surface fills the bar area while controls sit inside the safe area.
                         modifier = destinationModifier.background(RubikTheme.tokens.surfaceBase).safeDrawingPadding(),
                     )

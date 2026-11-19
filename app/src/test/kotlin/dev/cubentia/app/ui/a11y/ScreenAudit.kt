@@ -196,15 +196,12 @@ internal fun auditScreens(
     rule.waitUntil(10_000) { rule.onAllNodesWithTag("solve:alreadySolved").fetchSemanticsNodes().isNotEmpty() }
     check("Solve already solved")
     rule.onNodeWithTag("solve:alreadySolved:again").performScrollTo().performClick()
-    rule.onNodeWithTag("solve:enterColors").performClick()
     rule.runOnIdle {
         solveFlow.onScanOutcome(
             dev.cubentia.app.scan.ScanOutcome
                 .Accepted(scrambled),
         )
     }
-    check("Solve Enter colors scanned")
-    rule.onNodeWithTag("editor:accept").performScrollTo().performClick()
     rule.waitUntil(10_000) { rule.onAllNodesWithTag("solve:preparing").fetchSemanticsNodes().isNotEmpty() }
     check("Solve preparing")
     rule.assertSolvingCancel("Solve preparing")

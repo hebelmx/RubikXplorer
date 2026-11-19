@@ -20,7 +20,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -51,9 +53,11 @@ class SolveFlowViewModel
     ) : ViewModel() {
         private val mutablePhase = MutableStateFlow<SolvePhase>(SolvePhase.Home)
         val phase = mutablePhase.asStateFlow()
+        private val mutablePendingScan = MutableStateFlow<CubeState?>(null)
+        val pendingScan: StateFlow<CubeState?> = mutablePendingScan.asStateFlow()
         private var accepted = CubeState.SOLVED.toFacelets()
 
-        /** The Facelets of the scan the editor opened with, until the editor closes; null without a scan. */
+        /** The accepted scan that started this solve flow, including any Editor retry. */
         private var scanned: Facelets? = null
         private var revision = 0L
         private var job: Job? = null
@@ -61,11 +65,8 @@ class SolveFlowViewModel
         fun onScanOutcome(outcome: ScanOutcome) {
             when (outcome) {
                 is ScanOutcome.Accepted -> {
-                    val facelets = outcome.state.toFacelets()
-                    scanned = facelets
-                    // The editor fixes its centers to the home frame.
-                    val initial = if (outcome.state.isSolved) outcome.state.reoriented(Orientation.HOME).toFacelets() else facelets
-                    mutablePhase.value = SolvePhase.Editing(initial)
+                    scanned = outcome.state.toFacelets()
+                    mutablePendingScan.value = outcome.state
                 }
 
                 ScanOutcome.FellBackToEditor -> {
@@ -80,10 +81,11 @@ class SolveFlowViewModel
             }
         }
 
+        fun takePendingScan(): CubeState? = mutablePendingScan.getAndUpdate { null }
+
         /**
-         * Whether the editor being confirmed opened with an accepted scan (PO 2026-11-17): its playback starts with the
-         * confirmed state as the Full verified baseline, whether the Learner confirmed the scan unchanged or corrected
-         * some stickers first (device-fix round 2). Manual color entry is not a scan.
+         * Whether this solve started from an accepted scan. Playback uses the confirmed state as the Full verified
+         * baseline, including after a retry from the Editor with corrected stickers.
          */
         fun isAcceptedScan(): Boolean = scanned != null
 
@@ -99,13 +101,20 @@ class SolveFlowViewModel
 
         fun closeEditor() {
             scanned = null
+            mutablePendingScan.value = null
             revision++
             job?.cancel()
             mutablePhase.value = SolvePhase.Home
         }
 
+        fun leaveSolveTab() {
+            cancelSolving()
+            scanned = null
+            mutablePendingScan.value = null
+        }
+
         /** Cancels only a running solve, keeping the entered colors; does nothing in other phases. */
-        fun cancelSolving() {
+        private fun cancelSolving() {
             if (mutablePhase.value is SolvePhase.Solving) cancel()
         }
 
@@ -137,7 +146,7 @@ class SolveFlowViewModel
         ) {
             val attempt = ++revision
             job?.cancel()
-            accepted = state.toFacelets()
+            accepted = state.reoriented(Orientation.HOME).toFacelets()
             mutablePhase.value = SolvePhase.Solving(if (source.isReady) Preparation.NONE else Preparation.WARMING_UP)
             job =
                 viewModelScope.launch {

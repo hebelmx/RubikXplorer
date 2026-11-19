@@ -92,6 +92,12 @@ fun SolveScreen(
                         EnterColors(strings, flow::enterColors)
                     }
                 }
+                if (pausesLesson) {
+                    Text(
+                        strings.resolve(ContentText("msg.solve.pauses-lesson")),
+                        Modifier.padding(horizontal = Spacing.s4).testTag("solve:pauseNote"),
+                    )
+                }
                 Box(Modifier.weight(1f)) { FreeCubeScreen(freeCube, showDebugToggles, Modifier.fillMaxSize(), strings) }
             }
 

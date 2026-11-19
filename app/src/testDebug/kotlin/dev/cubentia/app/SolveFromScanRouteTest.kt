@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.os.Looper
-import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertTextEquals
@@ -33,10 +32,6 @@ import dev.cubentia.app.scan.ScanLauncher
 import dev.cubentia.app.scan.ScanOutcome
 import dev.cubentia.app.solver.SolverLoad
 import dev.cubentia.app.solver.SolverSource
-import dev.cubentia.app.ui.editor.FACE_NAMES
-import dev.cubentia.app.ui.editor.colorName
-import dev.cubentia.app.ui.solve.SolveFlowViewModel
-import dev.cubentia.app.ui.solve.SolvePhase
 import dev.cubentia.application.port.CubeSolver
 import dev.cubentia.application.port.SolveResult
 import dev.cubentia.application.session.SessionKind
@@ -110,7 +105,7 @@ class SolveFromScanRouteTest {
         shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(Manifest.permission.CAMERA)
     }
 
-    @Test fun acceptedScanReachesPlaybackOnlyAfterValidatingInTheEditor() =
+    @Test fun acceptedScanGoesStraightToPlayback() =
         solveScan { main, scan, started ->
             rule.onNodeWithTag("scanEnterColors").assertIsDisplayed()
             captureCube(scan)
@@ -118,25 +113,7 @@ class SolveFromScanRouteTest {
             rule.onNodeWithTag("review:accept").performScrollTo().performClick()
             returnToSolve(main, scan, started, ScanOutcome.Accepted(cube))
 
-            val flow = ViewModelProvider(main)[SolveFlowViewModel::class.java]
-            assertEquals(cube.toFacelets(), (flow.phase.value as SolvePhase.Editing).initial)
-            val upColors = cube.toFacelets().colors.take(9)
-            upColors.forEachIndexed { index, color ->
-                rule.onNodeWithTag("sticker:$index").assertContentDescriptionEquals(
-                    main.getString(
-                        R.string.editor_sticker,
-                        main.getString(colorName(color)),
-                        main.getString(FACE_NAMES[Face.U.ordinal]),
-                        index + 1,
-                    ),
-                )
-            }
-            assertNotEquals(SessionKind.SOLVE_PLAYBACK, main.sessionHost.state.value.kind)
-            rule
-                .onNodeWithTag("editor:accept")
-                .performScrollTo()
-                .assertIsEnabled()
-                .performClick()
+            rule.onNodeWithTag("editor:accept").assertDoesNotExist()
             rule.waitUntil(10_000) {
                 shadowOf(Looper.getMainLooper()).idle()
                 main.sessionHost.state.value.kind == SessionKind.SOLVE_PLAYBACK
@@ -146,17 +123,13 @@ class SolveFromScanRouteTest {
             assertEquals(PhysicalObservation.Full(cube), main.sessionHost.state.value.observed)
         }
 
-    @Test fun solvedScanShowsAlreadySolvedAfterValidatingInTheEditor() =
+    @Test fun solvedScanShowsAlreadySolvedWithoutTheEditor() =
         solveScan { main, scan, started ->
             captureCube(scan, CubeState.SOLVED)
             rule.onNodeWithTag("review:accept").performScrollTo().performClick()
             returnToSolve(main, scan, started, ScanOutcome.Accepted(CubeState.SOLVED))
 
-            rule
-                .onNodeWithTag("editor:accept")
-                .performScrollTo()
-                .assertIsEnabled()
-                .performClick()
+            rule.onNodeWithTag("editor:accept").assertDoesNotExist()
             rule.onNodeWithTag("solve:alreadySolved").assertIsDisplayed()
             rule.onNodeWithTag("solvePlayback:screen").assertDoesNotExist()
             assertNotEquals(SessionKind.SOLVE_PLAYBACK, main.sessionHost.state.value.kind)
