@@ -1179,3 +1179,21 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-199-link-errors-to-net.md"
+  - id: "issue-174-deferred-counts-line-wording-on-scan"
+    epic: 10
+    action: "On a camera scan with suspects, stop the color-count line from reading 'Check the colors you entered.' and name the ranked suspects as likely misreads in its TalkBack text, not plain 'Stickers' (low; deferred from #174, en.json msg.validation.wrong-color-counts)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-174-point-at-misread-stickers.md"
+  - id: "issue-174-deferred-focus-after-last-blank"
+    epic: 10
+    action: "When painting the last blank leaves wrong color counts beside an earlier piece problem, move review focus to the counts line led by the selected suspect (low; deferred from #174, ScanReviewScreen.kt:112-124)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-174-point-at-misread-stickers.md"
+  - id: "issue-174-deferred-suspect-distance-threshold"
+    epic: 10
+    action: "Suspect ranking always fills 3 slots, padding with exact-color stickers by net index; on a device, decide whether a delta-E threshold should drop padded suspects that read nowhere near the missing color (low; deferred from #174, SuspectRanking.kt:51-53)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-174-point-at-misread-stickers.md"
