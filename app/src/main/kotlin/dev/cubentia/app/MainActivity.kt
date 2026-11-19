@@ -196,7 +196,9 @@ class MainActivity : ComponentActivity() {
                                 if (full != null && issued.revision == current.revision &&
                                     current.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM
                                 ) {
-                                    sessionHost.dispatch {
+                                    // The start scan's centers stay with this run for its Quick Checks (GH #172).
+                                    val colors = (outcome as? QuickCheckOutcome.Observed)?.runScanColors
+                                    sessionHost.dispatch(colors) {
                                         SessionEvent
                                             .EditorEntered(full.state, it)
                                     }
@@ -263,7 +265,13 @@ class MainActivity : ComponentActivity() {
                             try {
                                 result.launch(
                                     dev.cubentia.app.scan
-                                        .QuickCheckInput(effect.faces, effect.faces.size == 6, saved != null),
+                                        .QuickCheckInput(
+                                            effect.faces,
+                                            effect.faces.size == 6,
+                                            saved != null,
+                                            // A saved calibration always wins over the run's start-scan colors.
+                                            if (saved == null) sessionHost.runScanColors() else null,
+                                        ),
                                 )
                             } catch (failed: RuntimeException) {
                                 quickInFlight = null

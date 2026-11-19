@@ -39,6 +39,7 @@ import dev.cubentia.domain.content.AlgorithmStatus
 import dev.cubentia.domain.content.ContentBundle
 import dev.cubentia.domain.content.Stage
 import dev.cubentia.domain.content.StageId
+import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.tutor.ProgressEvent
 import dev.cubentia.domain.tutor.StageProgress
 import dev.cubentia.domain.tutor.StageStatus
@@ -193,6 +194,15 @@ class SessionHost internal constructor(
     private var sessionId = ""
     private var contentRevision: String? = null
     private var stages: List<Stage> = emptyList()
+
+    /**
+     * The run-scan colors of the current physical run (GH #172): in memory only, never in Session State or any store;
+     * written only inside [dispatch] on the confined loop.
+     */
+    @Volatile private var heldRunScanColors: CalibrationCenters? = null
+
+    /** The start scan's centers for this run's Quick Checks when no calibration is saved, or null (6 faces). */
+    fun runScanColors(): CalibrationCenters? = heldRunScanColors
 
     /** The open attempt's id; confined like [sessionId]. */
     private var attemptId: String? = null
@@ -642,12 +652,28 @@ class SessionHost internal constructor(
      * Builds the event with the dispatch time (`SessionEvent::Undo`, or `{ MoveCommitted(move, it) }`),
      * reduces it and publishes the new state; returns the [Transition] for its effects and presentation.
      */
-    suspend fun dispatch(event: (at: Instant) -> SessionEvent): Transition =
+    suspend fun dispatch(event: (at: Instant) -> SessionEvent): Transition = dispatch(null, event)
+
+    /**
+     * The start-scan form of [dispatch]: [runScanColors] are the centers the accepted Guided 6-face Scan behind a
+     * start-scan event measured (GH #172). They are held only when that event is applied ([setsRunScanColors]).
+     */
+    suspend fun dispatch(
+        runScanColors: CalibrationCenters?,
+        event: (at: Instant) -> SessionEvent,
+    ): Transition =
         withContext(confined) {
             val previousSessionId = sessionId
             val before = current.value
             val stamped = event(clock.now())
             val transition = reduce(before, stamped)
+            // Before the state is published, so a reader reacting to the new state sees the matching colors.
+            heldRunScanColors =
+                when {
+                    runScanColors != null && setsRunScanColors(before, stamped, transition.state) -> runScanColors
+                    keepsRunScanColors(before, stamped, transition.state) -> heldRunScanColors
+                    else -> null
+                }
             current.value = transition.state
             reduced(stamped)
             if (stamped is SessionEvent.SessionEnded && transition.state !== before) {

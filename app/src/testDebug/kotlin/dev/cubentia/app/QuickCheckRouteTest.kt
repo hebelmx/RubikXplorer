@@ -259,6 +259,161 @@ class QuickCheckRouteTest {
         }
     }
 
+    @Test fun uncalibratedRunReusesTheStartScanColorsForASubsetQuickCheck() {
+        val main = Robolectric.buildActivity(MainActivity::class.java).setup()
+        try {
+            physicalLesson(main)
+            val scanned = host.state.value.expected
+            rule.onNodeWithTag("confirmCube:scan").performScrollTo().performClick()
+            awaitStarted(main)
+            val confirm = shadowOf(main.get()).nextStartedActivityForResult
+            assertTrue(confirm.intent.getBooleanExtra(QuickCheckContract.EXTRA_FULL_QUICK_CHECK, false))
+            val startColors =
+                dev.cubentia.domain.recognition
+                    .CalibrationCenters(labs)
+            val (code, data) =
+                dev.cubentia.app.scan.ScanFlowContract
+                    .encode(
+                        dev.cubentia.app.scan.ScanOutcome
+                            .Accepted(scanned, startColors),
+                    )
+            shadowOf(main.get()).receiveResult(confirm.intent, code, data)
+            rule.waitUntil(10_000) { host.state.value.syncState == SyncState.PHYSICAL_VERIFIED }
+            assertEquals(startColors, host.runScanColors())
+            runBlocking { host.dispatch { SessionEvent.PhysicalConfirmed(FaceTurn(Face.R, Turn.CLOCKWISE), it) } }
+            rule.waitForIdle()
+            rule.onNodeWithTag("lesson:overflowMenu").performScrollTo().performClick()
+            rule.onNodeWithTag("lesson:menuMismatch").performClick()
+            rule.waitForIdle()
+            rule.onNodeWithTag("lesson:quickCheck").performScrollTo().performClick()
+            awaitStarted(main)
+            val pending = host.state.value.pendingQuickCheck!!
+            assertTrue(pending.faces.size < Face.entries.size)
+            val started = shadowOf(main.get()).nextStartedActivityForResult
+            // No saved calibration: the subset intent carries the run's start-scan colors.
+            assertEquals(
+                pending.faces,
+                started.intent
+                    .getStringArrayExtra(QuickCheckContract.EXTRA_FACES)!!
+                    .map(Face::valueOf)
+                    .toSet(),
+            )
+            assertNotNull(started.intent.getDoubleArrayExtra(QuickCheckContract.EXTRA_RUN_SCAN_COLORS))
+            val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, started.intent).setup()
+            try {
+                rule.waitForIdle()
+                val vm = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
+                rule.waitUntil(10_000) {
+                    shadowOf(android.os.Looper.getMainLooper()).idle()
+                    source.starts > 0
+                }
+                assertEquals(pending.faces, vm.quickFaces)
+                val actual = host.state.value.expected
+                Face.entries.filter { it in pending.faces }.forEach { face ->
+                    assertEquals(GuidedScanPlan.reprompt(face), vm.controller.step)
+                    val colors = actual.toFacelets().colors.subList(face.ordinal * 9, face.ordinal * 9 + 9)
+                    source.feed(FrameStats(colors.map { CellReading(labs.getValue(it), true) }, 120.0, 0.0, 100.0, 12), null)
+                    rule.waitForIdle()
+                    vm.frozen?.let { vm.endFreeze(it.id) }
+                }
+                val result = shadowOf(scan.get())
+                assertEquals(android.app.Activity.RESULT_OK, result.resultCode)
+                assertEquals(pending.faces, vm.quickResult!!.faces.keys)
+                shadowOf(main.get()).receiveResult(started.intent, result.resultCode, result.resultIntent)
+            } finally {
+                scan.pause().stop().destroy()
+            }
+            rule.waitUntil(10_000) { host.state.value.pendingQuickCheck == null }
+            assertEquals(
+                dev.cubentia.domain.tutor.Certainty.VERIFIED,
+                host.state.value.quickCheck
+                    ?.certainty,
+            )
+            // Back to virtual ends the run's colors; the next physical run starts over with 6 faces.
+            runBlocking { host.dispatch { SessionEvent.ModeSwitched(dev.cubentia.application.session.CubeMode.VIRTUAL, it) } }
+            assertEquals(null, host.runScanColors())
+        } finally {
+            main.pause().stop().destroy()
+        }
+    }
+
+    @Test fun uncalibratedRunQuickCheckUnderChangedLightRetakesEveryFaceAndNeverVerifies() {
+        val main = Robolectric.buildActivity(MainActivity::class.java).setup()
+        try {
+            physicalLesson(main)
+            val scanned = host.state.value.expected
+            rule.onNodeWithTag("confirmCube:scan").performScrollTo().performClick()
+            awaitStarted(main)
+            val confirm = shadowOf(main.get()).nextStartedActivityForResult
+            val (code, data) =
+                dev.cubentia.app.scan.ScanFlowContract
+                    .encode(
+                        dev.cubentia.app.scan.ScanOutcome
+                            .Accepted(
+                                scanned,
+                                dev.cubentia.domain.recognition
+                                    .CalibrationCenters(labs),
+                            ),
+                    )
+            shadowOf(main.get()).receiveResult(confirm.intent, code, data)
+            rule.waitUntil(10_000) { host.state.value.syncState == SyncState.PHYSICAL_VERIFIED }
+            runBlocking { host.dispatch { SessionEvent.PhysicalConfirmed(FaceTurn(Face.R, Turn.CLOCKWISE), it) } }
+            rule.waitForIdle()
+            rule.onNodeWithTag("lesson:overflowMenu").performScrollTo().performClick()
+            rule.onNodeWithTag("lesson:menuMismatch").performClick()
+            rule.waitForIdle()
+            rule.onNodeWithTag("lesson:quickCheck").performScrollTo().performClick()
+            awaitStarted(main)
+            val pending = host.state.value.pendingQuickCheck!!
+            val started = shadowOf(main.get()).nextStartedActivityForResult
+            assertNotNull(started.intent.getDoubleArrayExtra(QuickCheckContract.EXTRA_RUN_SCAN_COLORS))
+            // The light changed after the start scan: every sticker is darker and yellower.
+            val shifted = labs.mapValues { (_, lab) -> Lab(lab.l - 15.0, lab.a, lab.b + 20.0) }
+            val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, started.intent).setup()
+            try {
+                rule.waitForIdle()
+                val vm = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
+                rule.waitUntil(10_000) {
+                    shadowOf(android.os.Looper.getMainLooper()).idle()
+                    source.starts > 0
+                }
+                val actual = host.state.value.expected
+                val asked = mutableListOf<Face>()
+                repeat(4 * Face.entries.size) {
+                    val step = vm.controller.step ?: return@repeat
+                    asked += step.face
+                    val colors = actual.toFacelets().colors.subList(step.face.ordinal * 9, step.face.ordinal * 9 + 9)
+                    source.feed(FrameStats(colors.map { CellReading(shifted.getValue(it), true) }, 120.0, 0.0, 100.0, 12), null)
+                    rule.waitForIdle()
+                    vm.frozen?.let { vm.endFreeze(it.id) }
+                }
+                val planned = Face.entries.filter { it in pending.faces }
+                // Each face asked once, then every captured face is doubtful and asked once more (up to the retake cap).
+                assertEquals(planned, asked.take(planned.size))
+                val retakes = asked.drop(planned.size)
+                assertEquals(
+                    minOf(planned.size, dev.cubentia.domain.recognition.ScanAssembler.MAX_REPROMPT_FACES),
+                    retakes.size,
+                )
+                assertEquals(retakes.distinct(), retakes)
+                assertTrue(planned.containsAll(retakes))
+                val result = shadowOf(scan.get())
+                assertEquals(android.app.Activity.RESULT_OK, result.resultCode)
+                assertTrue(vm.quickResult!!.faces.isEmpty())
+                shadowOf(main.get()).receiveResult(started.intent, result.resultCode, result.resultIntent)
+            } finally {
+                scan.pause().stop().destroy()
+            }
+            rule.waitUntil(10_000) { host.state.value.pendingQuickCheck == null }
+            assertTrue(
+                host.state.value.quickCheck
+                    ?.certainty != dev.cubentia.domain.tutor.Certainty.VERIFIED,
+            )
+        } finally {
+            main.pause().stop().destroy()
+        }
+    }
+
     @Test fun quickCheckResultReturningAfterRecreationStillApplies() {
         runBlocking {
             repository.save(

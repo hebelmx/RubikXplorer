@@ -46,6 +46,7 @@ import dev.cubentia.domain.recognition.GuidedScanPlan
 import dev.cubentia.domain.recognition.PhysicalObservation
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -111,13 +112,15 @@ class SolveFromScanRouteTest {
             captureCube(scan)
             rule.onNodeWithTag("review:enterColors").performScrollTo().assertIsDisplayed()
             rule.onNodeWithTag("review:accept").performScrollTo().performClick()
-            returnToSolve(main, scan, started, ScanOutcome.Accepted(cube))
+            val accepted = returnToSolve(main, scan, started, ScanOutcome.Accepted(cube)) as ScanOutcome.Accepted
 
             rule.onNodeWithTag("editor:accept").assertDoesNotExist()
             rule.waitUntil(10_000) {
                 shadowOf(Looper.getMainLooper()).idle()
                 main.sessionHost.state.value.kind == SessionKind.SOLVE_PLAYBACK
             }
+            // The playback started from the accepted scan holds its colors for this run's Quick Checks (GH #172).
+            assertEquals(accepted.runScanColors, main.sessionHost.runScanColors())
             rule.onNodeWithTag("solvePlayback:screen").assertIsDisplayed()
             rule.onNodeWithTag("solutionPlayback").assertIsDisplayed()
             assertEquals(PhysicalObservation.Full(cube), main.sessionHost.state.value.observed)
@@ -265,11 +268,16 @@ class SolveFromScanRouteTest {
         scan: ActivityController<GuidedScanActivity>,
         started: Intent,
         expected: ScanOutcome,
-    ) {
+    ): ScanOutcome {
         val result = shadowOf(scan.get())
-        assertEquals(expected, ScanFlowContract.decode(result.resultCode, result.resultIntent))
+        val decoded = ScanFlowContract.decode(result.resultCode, result.resultIntent)
+        // With no saved calibration, a guided run also returns its measured centers (GH #172).
+        val accepted = decoded as? ScanOutcome.Accepted
+        assertEquals(expected, accepted?.copy(runScanColors = null) ?: decoded)
+        if (accepted != null) assertNotNull(accepted.runScanColors)
         shadowOf(main).receiveResult(started, result.resultCode, result.resultIntent)
         scan.pause().stop().destroy()
         rule.waitForIdle()
+        return decoded
     }
 }

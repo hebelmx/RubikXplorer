@@ -13,6 +13,7 @@ import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Orientation
+import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.text.Text
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +60,9 @@ class SolveFlowViewModel
 
         /** The accepted scan that started this solve flow, including any Editor retry. */
         private var scanned: Facelets? = null
+
+        /** The accepted scan's measured centers (GH #172), kept and cleared with [scanned]. */
+        private var scannedColors: CalibrationCenters? = null
         private var revision = 0L
         private var job: Job? = null
 
@@ -66,11 +70,13 @@ class SolveFlowViewModel
             when (outcome) {
                 is ScanOutcome.Accepted -> {
                     scanned = outcome.state.toFacelets()
+                    scannedColors = outcome.runScanColors
                     mutablePendingScan.value = outcome.state
                 }
 
                 ScanOutcome.FellBackToEditor -> {
                     scanned = null
+                    scannedColors = null
                     mutablePhase.value =
                         SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = Text("msg.solve.scan-fell-back"))
                 }
@@ -89,18 +95,24 @@ class SolveFlowViewModel
          */
         fun isAcceptedScan(): Boolean = scanned != null
 
+        /** The accepted scan's run-scan colors (GH #172), or null when this solve has none. */
+        fun acceptedScanColors(): CalibrationCenters? = scannedColors.takeIf { scanned != null }
+
         fun scanDenied() {
             scanned = null
+            scannedColors = null
             mutablePhase.value = SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = Text("msg.solve.scan-camera-denied"))
         }
 
         fun enterColors() {
             scanned = null
+            scannedColors = null
             mutablePhase.value = SolvePhase.Editing(accepted)
         }
 
         fun closeEditor() {
             scanned = null
+            scannedColors = null
             mutablePendingScan.value = null
             revision++
             job?.cancel()
@@ -110,6 +122,7 @@ class SolveFlowViewModel
         fun leaveSolveTab() {
             cancelSolving()
             scanned = null
+            scannedColors = null
             mutablePendingScan.value = null
         }
 
@@ -137,6 +150,7 @@ class SolveFlowViewModel
             // The editor fixes its centers to the home frame, so it reopens the solved cube held that way.
             accepted = state.reoriented(Orientation.HOME).toFacelets()
             scanned = null
+            scannedColors = null
             mutablePhase.value = SolvePhase.AlreadySolved
         }
 
@@ -190,6 +204,7 @@ class SolveFlowViewModel
                             onSolved(state, outcome.moves)
                             if (attempt == revision) {
                                 scanned = null
+                                scannedColors = null
                                 mutablePhase.value = SolvePhase.Home
                             }
                         }
