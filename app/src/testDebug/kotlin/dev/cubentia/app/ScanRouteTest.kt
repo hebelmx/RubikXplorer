@@ -15,6 +15,7 @@ import androidx.lifecycle.ViewModelProvider
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
@@ -26,11 +27,17 @@ import dev.cubentia.app.camera.GuidedScanPhase
 import dev.cubentia.app.camera.GuidedScanViewModel
 import dev.cubentia.app.camera.ScanFrame
 import dev.cubentia.app.camera.ScanFrameSource
+import dev.cubentia.app.di.SolverModule
 import dev.cubentia.app.scan.ScanLauncher
+import dev.cubentia.app.solver.SolverLoad
+import dev.cubentia.app.solver.SolverSource
 import dev.cubentia.app.ui.solve.SolveFlowViewModel
 import dev.cubentia.app.ui.solve.SolvePhase
 import dev.cubentia.application.port.CalibrationLoad
 import dev.cubentia.application.port.CalibrationRepository
+import dev.cubentia.application.port.CubeSolver
+import dev.cubentia.application.port.SolveResult
+import dev.cubentia.application.session.SessionKind
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Face
@@ -61,7 +68,7 @@ import java.util.concurrent.ExecutorService
 import javax.inject.Inject
 
 @HiltAndroidTest
-@UninstallModules(CameraModule::class)
+@UninstallModules(CameraModule::class, SolverModule::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(application = HiltTestApplication::class, qualifiers = "w411dp-h891dp")
 class ScanRouteTest {
@@ -73,6 +80,28 @@ class ScanRouteTest {
 
     @Inject lateinit var repository: CalibrationRepository
 
+    private val scramble =
+        listOf(
+            FaceTurn(Face.R, Turn.CLOCKWISE),
+            FaceTurn(Face.U, Turn.COUNTERCLOCKWISE),
+            FaceTurn(Face.F, Turn.HALF),
+            FaceTurn(Face.L, Turn.CLOCKWISE),
+        )
+    private val cube = CubeState.SOLVED.apply(scramble)
+
+    @BindValue val solverSource: SolverSource =
+        object : SolverSource {
+            override val isReady = true
+
+            override suspend fun load(onGenerating: () -> Unit): SolverLoad =
+                SolverLoad.Ready(
+                    CubeSolver {
+                        assertEquals(cube.cubies, it)
+                        SolveResult.Solved(scramble.asReversed().map(FaceTurn::inverse))
+                    },
+                )
+        }
+
     @Before fun setup() {
         hilt.inject()
         source = FakeFrames()
@@ -80,7 +109,7 @@ class ScanRouteTest {
         shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(Manifest.permission.CAMERA)
     }
 
-    @Test fun scanCalibrationRescanReturnsCorrectedStickersToSolveEditor() {
+    @Test fun scanCalibrationRescanSolvesWithCorrectedStickers() {
         val main = Robolectric.buildActivity(MainActivity::class.java).setup()
         rule.waitForIdle()
         rule.waitUntil(10_000) { rule.onAllNodesWithTag("welcome:imNew").fetchSemanticsNodes().isNotEmpty() }
@@ -101,15 +130,6 @@ class ScanRouteTest {
         rule.waitUntil(10_000) { source.starts > 0 }
         rule.waitForIdle()
         assertEquals(1, source.starts)
-        val cube =
-            CubeState.SOLVED.apply(
-                listOf(
-                    FaceTurn(Face.R, Turn.CLOCKWISE),
-                    FaceTurn(Face.U, Turn.COUNTERCLOCKWISE),
-                    FaceTurn(Face.F, Turn.HALF),
-                    FaceTurn(Face.L, Turn.CLOCKWISE),
-                ),
-            )
 
         // [misread] reads that facelet as another clear color, so only the Learner's carried correction can fix it.
         fun frames(
@@ -199,10 +219,23 @@ class ScanRouteTest {
         shadowOf(main.get()).receiveResult(started.intent, result.resultCode, result.resultIntent)
         scan.pause().stop().destroy()
         rule.waitForIdle()
-        val editor = ViewModelProvider(main.get())[SolveFlowViewModel::class.java].phase.value as SolvePhase.Editing
-        assertEquals(cube.toFacelets(), editor.initial)
-        assertNull(editor.note)
-        rule.onNodeWithTag("editor:accept").assertExists()
+        rule.waitUntil(10_000) {
+            shadowOf(android.os.Looper.getMainLooper()).idle()
+            main
+                .get()
+                .sessionHost.state.value.kind == SessionKind.SOLVE_PLAYBACK
+        }
+        val flow = ViewModelProvider(main.get())[SolveFlowViewModel::class.java]
+        assertNull(flow.pendingScan.value)
+        assertFalse(flow.phase.value is SolvePhase.Editing)
+        assertEquals(
+            cube,
+            main
+                .get()
+                .sessionHost.state.value.entry,
+        )
+        rule.onNodeWithTag("editor:accept").assertDoesNotExist()
+        rule.onNodeWithTag("solvePlayback:screen").assertExists()
         val records = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.filter { it.startsWith("guidedScan run ") }
         assertEquals(1, records.size)
         val record =

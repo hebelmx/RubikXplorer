@@ -129,7 +129,7 @@ class QuickScanRouteTest {
                 shadow.receiveResult(intent, result.resultCode, result.resultIntent)
                 rule.waitForIdle()
                 val flow = ViewModelProvider(main.get())[SolveFlowViewModel::class.java]
-                assertEquals(CubeState.SOLVED.toFacelets(), (flow.phase.value as SolvePhase.Editing).initial)
+                assertEquals(SolvePhase.AlreadySolved, flow.phase.value)
             } finally {
                 scan.pause().stop().destroy()
             }

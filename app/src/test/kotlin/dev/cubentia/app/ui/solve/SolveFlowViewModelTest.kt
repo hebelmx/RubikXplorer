@@ -11,6 +11,7 @@ import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.cube.Orientation
 import dev.cubentia.domain.cube.Turn
+import dev.cubentia.domain.text.Text
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -30,6 +31,7 @@ import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -88,7 +90,7 @@ class SolveFlowViewModelTest {
             val solved = CubeState.SOLVED.reoriented(orientation)
             vm.onScanOutcome(ScanOutcome.Accepted(solved))
             assertTrue(vm.isAcceptedScan())
-            vm.confirm(solved) { _, _ -> throw AssertionError("Playback must not start") }
+            vm.confirm(checkNotNull(vm.takePendingScan())) { _, _ -> throw AssertionError("Playback must not start") }
             assertEquals(SolvePhase.AlreadySolved, vm.phase.value)
             assertFalse(vm.isAcceptedScan())
             vm.closeEditor()
@@ -104,83 +106,100 @@ class SolveFlowViewModelTest {
             val vm = viewModel(source(CubeSolver { SolveResult.Solved(moves) }))
             val result = CompletableDeferred<Pair<CubeState, List<FaceTurn>>>()
             vm.onScanOutcome(ScanOutcome.Accepted(cube))
-            vm.confirm(cube) { state, solution -> result.complete(state to solution) }
+            vm.confirm(checkNotNull(vm.takePendingScan())) { state, solution -> result.complete(state to solution) }
             assertEquals(cube to moves, withTimeout(5000) { result.await() })
             withTimeout(5000) { vm.phase.first { it == SolvePhase.Home } }
             assertFalse(vm.isAcceptedScan())
         }
 
-    @Test fun scanOutcomesOnlyPrepareTheEditor() {
-        val vm = viewModel(source(CubeSolver { error("Scan must not solve") }))
-        vm.onScanOutcome(dev.cubentia.app.scan.ScanOutcome.Cancelled)
+    @Test fun acceptedScanStaysPendingUntilTakenOnce() {
+        val vm = viewModel(source(CubeSolver { error("Scan must not solve before confirmation") }))
+        vm.onScanOutcome(ScanOutcome.Cancelled)
         assertEquals(SolvePhase.Home, vm.phase.value)
-        vm.onScanOutcome(
-            dev.cubentia.app.scan.ScanOutcome
-                .Accepted(cube),
-        )
-        assertEquals(SolvePhase.Editing(cube.toFacelets()), vm.phase.value)
-        vm.closeEditor()
-        vm.enterColors()
-        assertEquals(SolvePhase.Editing(CubeState.SOLVED.toFacelets()), vm.phase.value)
-        vm.onScanOutcome(dev.cubentia.app.scan.ScanOutcome.FellBackToEditor)
-        assertEquals(
-            SolvePhase.Editing(
-                CubeState.SOLVED.toFacelets(),
-                note =
-                    dev.cubentia.domain.text
-                        .Text("msg.solve.scan-fell-back"),
-            ),
-            vm.phase.value,
-        )
-        vm.scanDenied()
-        assertEquals(
-            SolvePhase.Editing(
-                CubeState.SOLVED.toFacelets(),
-                note =
-                    dev.cubentia.domain.text
-                        .Text("msg.solve.scan-camera-denied"),
-            ),
-            vm.phase.value,
-        )
+        assertNull(vm.pendingScan.value)
+        vm.onScanOutcome(ScanOutcome.Accepted(cube))
+        assertEquals(SolvePhase.Home, vm.phase.value)
+        assertTrue(vm.isAcceptedScan())
+        assertEquals(cube, vm.pendingScan.value)
+        assertEquals(cube, vm.takePendingScan())
+        assertNull(vm.takePendingScan())
+        assertNull(vm.pendingScan.value)
     }
 
-    @Test fun anAcceptedScanConfirmedUnchangedOrCorrectedCountsAsTheScanBaseline() =
-        runBlocking {
-            val vm = viewModel(source(CubeSolver { SolveResult.Solved(listOf(move.inverse())) }))
+    @Test fun scanFallbackAndManualEntryOpenTheEditorWithExistingNotes() {
+        val vm = viewModel(source(CubeSolver { error("Fallback must not solve") }))
+        for ((openEditor, note) in listOf(
+            vm::enterColors to null,
+            vm::scanDenied to Text("msg.solve.scan-camera-denied"),
+            { vm.onScanOutcome(ScanOutcome.FellBackToEditor) } to Text("msg.solve.scan-fell-back"),
+        )) {
+            vm.onScanOutcome(ScanOutcome.Accepted(cube))
+            vm.takePendingScan()
+            openEditor()
             assertFalse(vm.isAcceptedScan())
-            vm.onScanOutcome(
-                dev.cubentia.app.scan.ScanOutcome
-                    .Accepted(cube),
-            )
-            assertTrue(vm.isAcceptedScan())
-            var fromScan: Boolean? = null
-            vm.accept(cube) { _, _ -> fromScan = vm.isAcceptedScan() }
-            withTimeout(5000) { vm.phase.first { it == SolvePhase.Home } }
-            assertEquals(true, fromScan)
-            // Once solved, or after the editor closes or opens for manual entry, the scan no longer counts.
-            assertFalse(vm.isAcceptedScan())
-            // PO 2026-11-17 round 2: a scan the Learner corrected in the editor, then confirmed, still counts.
-            vm.onScanOutcome(
-                dev.cubentia.app.scan.ScanOutcome
-                    .Accepted(CubeState.SOLVED),
-            )
-            var corrected: Boolean? = null
-            vm.accept(cube) { _, _ -> corrected = vm.isAcceptedScan() }
-            withTimeout(5000) { vm.phase.first { it == SolvePhase.Home } }
-            assertEquals(true, corrected)
-            assertFalse(vm.isAcceptedScan())
-            vm.onScanOutcome(
-                dev.cubentia.app.scan.ScanOutcome
-                    .Accepted(cube),
-            )
+            assertEquals(SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = note), vm.phase.value)
             vm.closeEditor()
-            assertFalse(vm.isAcceptedScan())
-            vm.onScanOutcome(
-                dev.cubentia.app.scan.ScanOutcome
-                    .Accepted(cube),
-            )
-            vm.enterColors()
-            assertFalse(vm.isAcceptedScan())
+        }
+    }
+
+    @Test fun scanSolveRecoveryUsesTheHomeFrameAndKeepsTheBaselineOnRetry() =
+        runBlocking {
+            val held = cube.reoriented(Orientation.of(Face.U, Face.R))
+            for ((failure, recovery) in listOf(
+                null to null,
+                SolveResult.TimedOut to Text("msg.solve.timed-out"),
+                SolveResult.Failed to Text("msg.solve.failed"),
+            )) {
+                var solveResult = failure
+                val enteredSolver = CompletableDeferred<Unit>()
+                val vm =
+                    viewModel(
+                        source(
+                            CubeSolver {
+                                enteredSolver.complete(Unit)
+                                solveResult ?: awaitCancellation()
+                            },
+                        ),
+                    )
+                vm.onScanOutcome(ScanOutcome.Accepted(held))
+                vm.confirm(checkNotNull(vm.takePendingScan())) { _, _ -> error("unexpected playback") }
+                if (failure == null) {
+                    withTimeout(5000) { enteredSolver.await() }
+                    vm.cancel()
+                }
+                assertEquals(SolvePhase.Editing(cube.toFacelets(), recovery), vm.editing())
+                assertTrue(vm.isAcceptedScan())
+
+                // Retry both the original colors and a corrected entry across the recovery cases.
+                val retryMove = if (failure == SolveResult.Failed) FaceTurn(Face.U, Turn.CLOCKWISE) else move
+                val retry = CubeState.SOLVED.apply(retryMove)
+                solveResult = SolveResult.Solved(listOf(retryMove.inverse()))
+                val fromScan = CompletableDeferred<Boolean>()
+                vm.confirm(retry) { _, _ -> fromScan.complete(vm.isAcceptedScan()) }
+                assertTrue(withTimeout(5000) { fromScan.await() })
+                withTimeout(5000) { vm.phase.first { it == SolvePhase.Home } }
+                assertFalse(vm.isAcceptedScan())
+            }
+        }
+
+    @Test fun closingTheFallbackEditorOrLeavingSolveClearsTheScanBaseline() =
+        runBlocking {
+            val gate = CompletableDeferred<Unit>()
+            for (leaveTab in listOf(false, true)) {
+                val vm = viewModel(source(CubeSolver { SolveResult.Solved(listOf(move.inverse())) }, gate = gate))
+                vm.onScanOutcome(ScanOutcome.Accepted(cube))
+                vm.confirm(checkNotNull(vm.takePendingScan())) { _, _ -> error("unexpected playback") }
+                vm.cancel()
+                assertTrue(vm.isAcceptedScan())
+                if (leaveTab) vm.leaveSolveTab() else vm.closeEditor()
+                assertFalse(vm.isAcceptedScan())
+
+                vm.onScanOutcome(ScanOutcome.Accepted(cube))
+                if (leaveTab) vm.leaveSolveTab() else vm.closeEditor()
+                assertNull(vm.takePendingScan())
+                vm.enterColors()
+                assertFalse(vm.isAcceptedScan())
+            }
         }
 
     @Test fun fallbackAndDenialAfterASolveUseTheFreshEditorState() =

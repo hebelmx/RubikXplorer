@@ -18,6 +18,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.lifecycle.viewModelScope
+import dev.cubentia.app.content.CatalogState
 import dev.cubentia.app.content.LessonCatalog
 import dev.cubentia.app.data.SerialWriter
 import dev.cubentia.app.scan.ScanOutcome
@@ -61,12 +62,14 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -152,8 +155,8 @@ class AppShellSolveTest {
         quickLevel: FlagLevel = FlagLevel.OFF,
         cameraScan: dev.cubentia.application.port.FlagLevel = dev.cubentia.application.port.FlagLevel.OFF,
         quickCheck: dev.cubentia.app.scan.QuickCheckCapture? = null,
+        catalog: LessonCatalog = LessonCatalog.of(ContentLoadResult.Loaded(bundle)),
     ) {
-        val catalog = LessonCatalog.of(ContentLoadResult.Loaded(bundle))
         val freeCube = FreeCubeViewModel()
         rule.setContent {
             view = androidx.compose.ui.platform.LocalView.current
@@ -293,13 +296,13 @@ class AppShellSolveTest {
         )
         click("nav:solve")
         click("solve:scan")
-        click("editor:accept")
+        rule.onNodeWithTag("editor:accept").assertDoesNotExist()
         assertAlreadySolved()
         click("solve:alreadySolved:again")
         rule.onNodeWithTag("solve:enterColors").assertExists()
         rule.onNodeWithTag("solve:scan").assertExists()
         click("solve:scan")
-        click("editor:accept")
+        rule.onNodeWithTag("editor:accept").assertDoesNotExist()
         assertAlreadySolved()
         rule.runOnIdle { back!!.onBackPressed() }
         rule.onNodeWithTag("solve:enterColors").assertExists()
@@ -502,7 +505,7 @@ class AppShellSolveTest {
         )
         click("nav:solve")
         click("solve:scan")
-        click("editor:accept")
+        rule.onNodeWithTag("editor:accept").assertDoesNotExist()
         rule.waitUntil(10000) { host.state.value.kind == SessionKind.SOLVE_PLAYBACK }
         rule.waitForIdle()
         click("playback:followOnMyCube")
@@ -541,6 +544,106 @@ class AppShellSolveTest {
         rule.onNodeWithTag("playback:useMyCube").assertDoesNotExist()
     }
 
+    @Test fun aScanHeldOffHomeStartsPlaybackInItsOwnFrame() {
+        val move = FaceTurn(Face.R, Turn.CLOCKWISE)
+        val held = CubeState.SOLVED.apply(move).reoriented(Orientation.of(Face.U, Face.R))
+        solver = CubeSolver { SolveResult.Solved(listOf(move.inverse())) }
+        show(
+            scan = { flow.onScanOutcome(ScanOutcome.Accepted(held)) },
+            cameraScan = dev.cubentia.application.port.FlagLevel.GA,
+        )
+        click("nav:solve")
+        click("solve:scan")
+        rule.waitUntil(10000) { host.state.value.kind == SessionKind.SOLVE_PLAYBACK }
+        assertEquals(held, host.state.value.entry)
+        assertEquals(
+            dev.cubentia.domain.recognition.PhysicalObservation
+                .Full(held),
+            host.state.value.observed,
+        )
+    }
+
+    @Test fun aFailedScanSolveRetriedFromTheEditorKeepsTheScanBaseline() {
+        val move = FaceTurn(Face.R, Turn.CLOCKWISE)
+        val held = CubeState.SOLVED.apply(move).reoriented(Orientation.of(Face.U, Face.R))
+        solver = CubeSolver { SolveResult.TimedOut }
+        show(
+            scan = { flow.onScanOutcome(ScanOutcome.Accepted(held)) },
+            cameraScan = dev.cubentia.application.port.FlagLevel.GA,
+        )
+        click("nav:solve")
+        click("solve:scan")
+        rule.waitUntil(10000) { flow.phase.value is SolvePhase.Editing }
+        assertEquals(held.reoriented(Orientation.HOME).toFacelets(), (flow.phase.value as SolvePhase.Editing).initial)
+        solver = CubeSolver { SolveResult.Solved(listOf(move.inverse())) }
+        click("editor:accept")
+        rule.waitUntil(10000) { host.state.value.kind == SessionKind.SOLVE_PLAYBACK }
+        val entry = host.state.value.entry
+        assertEquals(
+            dev.cubentia.domain.recognition.PhysicalObservation
+                .Full(entry),
+            host.state.value.observed,
+        )
+    }
+
+    @Test fun leavingSolveAfterAFailedScanSolveDropsTheScanBaseline() {
+        val move = FaceTurn(Face.R, Turn.CLOCKWISE)
+        val cube = CubeState.SOLVED.apply(move)
+        solver = CubeSolver { SolveResult.TimedOut }
+        show(
+            scan = { flow.onScanOutcome(ScanOutcome.Accepted(cube)) },
+            cameraScan = dev.cubentia.application.port.FlagLevel.GA,
+        )
+        click("nav:solve")
+        click("solve:scan")
+        rule.waitUntil(10000) { flow.phase.value is SolvePhase.Editing }
+        click("nav:learn")
+        click("nav:solve")
+        solver = CubeSolver { SolveResult.Solved(listOf(move.inverse())) }
+        click("editor:accept")
+        rule.waitUntil(10000) { host.state.value.kind == SessionKind.SOLVE_PLAYBACK }
+        assertEquals(cube, host.state.value.entry)
+        assertNotEquals(
+            dev.cubentia.domain.recognition.PhysicalObservation
+                .Full(cube),
+            host.state.value.observed,
+        )
+    }
+
+    @Test fun acceptedScanWaitsForCatalogAndStartsPlaybackOnce() {
+        val catalogIo = StandardTestDispatcher()
+        val catalog = LessonCatalog({ ContentLoadResult.Loaded(bundle) }, catalogIo)
+        val move = FaceTurn(Face.R, Turn.CLOCKWISE)
+        val cube = CubeState.SOLVED.apply(move)
+        val solves =
+            java.util.concurrent.atomic
+                .AtomicInteger()
+        solver =
+            CubeSolver {
+                solves.incrementAndGet()
+                SolveResult.Solved(listOf(move.inverse()))
+            }
+        show(catalog = catalog)
+        click("nav:solve")
+        val beforeScan = host.state.value
+        rule.runOnIdle { flow.onScanOutcome(ScanOutcome.Accepted(cube)) }
+        rule.onNodeWithTag("editor:accept").assertDoesNotExist()
+        assertEquals(CatalogState.Loading, catalog.state.value)
+        assertEquals(cube, flow.pendingScan.value)
+        assertEquals(SolvePhase.Home, flow.phase.value)
+        assertEquals(beforeScan, host.state.value)
+        assertEquals(0, solves.get())
+
+        catalogIo.scheduler.runCurrent()
+        rule.waitUntil(10000) { host.state.value.kind == SessionKind.SOLVE_PLAYBACK }
+        rule.onNodeWithTag("solvePlayback:screen").assertExists()
+        rule.onNodeWithTag("editor:accept").assertDoesNotExist()
+        assertNull(flow.pendingScan.value)
+        assertEquals(cube, host.state.value.entry)
+        assertEquals(beforeScan.revision + 1, host.state.value.revision)
+        assertEquals(1, solves.get())
+    }
+
     @Test fun lessonIsUntouchedDuringPreparationAndReturnsOnClose() {
         runBlocking {
             host.restore(bundle)
@@ -558,6 +661,8 @@ class AppShellSolveTest {
         val lesson = host.state.value.lesson
         show()
         click("nav:solve")
+        rule.onNodeWithTag("solve:pauseNote").assertTextEquals("Starting a solve pauses your lesson.")
+        assertPauseNoteMargin()
         click("solve:enterColors")
         val move = FaceTurn(Face.R, Turn.CLOCKWISE)
         val cube = CubeState.SOLVED.apply(move)
