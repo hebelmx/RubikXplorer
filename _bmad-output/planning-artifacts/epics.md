@@ -114,7 +114,7 @@ From the architecture spine (no starter template is specified; Epic 1 Story 1 is
 UX-DR1: Implement the DESIGN.md color tokens as a Compose Material3 theme: chrome (`surface-base/raised/stage`, `ink-primary/secondary/disabled`, `hairline`, `accent`, `on-accent`) in light and dark; status tokens (`verified`, `likely`, `unknown`, `invalid`) per theme; sticker tokens, `cubie-body`, `sticker-highlight`, `scan-grid`, `sticker-dimmed-overlay` theme-invariant. A contrast test asserts text ≥ 4.5:1 on every surface token, status ≥ 3:1 as icons and ≥ 4.5:1 as chip text, highlight ≈ 7:1 on `cubie-body`. [ASSUMPTION: hex values pending confirmation.]
 UX-DR2: Bundle IBM Plex Sans and IBM Plex Mono (no network) and map the roles `display`, `title`, `body`, `label`, `meta`, `notation`, `data` to the M3 type scale; `notation` one step above surrounding text; `data` uses tabular figures; at most one `display` per screen; no all-caps except short status chips. [ASSUMPTION: font pairing pending confirmation.]
 UX-DR3: Spacing scale 4/8/12/16/24/32/48dp, `touch-min` 48dp, gutters 16dp compact / 24dp medium+expanded; shapes `xs` 2dp (stickers), `sm` 4dp (keys, inputs), `md` 8dp (cards, buttons, tiles), `lg` 12dp (stage well, sheets), `full` only for certainty chips; no pill buttons, no card shadows.
-UX-DR4: Cube stage component: `surface-stage` well; top toolbar Undo · Redo · Reset (icon buttons, TalkBack labels, `ink-disabled` when disabled); frame label VIRTUAL / EXPECTED (dashed `expected-badge`) / VERIFIED (status icon); double-tap reset; a View rotated badge with a one-tap Reset view in the top-left overlay (after the frame label when shown) while the view is off home, and face letters beside the visible faces (SCP 2026-11-18); dimming of off-step pieces with Keep pieces lit; SEEN strip of observed face thumbnails with differing stickers outlined during a mismatch; a Partial observation is never drawn as a whole cube; on Solution Playback a toolbar view switch between the 3D cube and the 2D net, labeled with the view it switches to (SCP 2026-11-17).
+UX-DR4: Cube stage component: `surface-stage` well; top toolbar Undo · Redo · Reset (icon buttons, TalkBack labels, `ink-disabled` when disabled); frame label VIRTUAL / EXPECTED (dashed `expected-badge`) / VERIFIED (status icon), none on Solution Playback, which shows Certainty only through the certainty chip below the stage (SCP 2026-11-19); double-tap reset; a View rotated badge with a one-tap Reset view in the top-left overlay (after the frame label when shown) while the view is off home, and face letters beside the visible faces (SCP 2026-11-18); dimming of off-step pieces with Keep pieces lit; SEEN strip of observed face thumbnails with differing stickers outlined during a mismatch; a Partial observation is never drawn as a whole cube; on Solution Playback a toolbar view switch between the 3D cube and the 2D net, labeled with the view it switches to (SCP 2026-11-17).
 UX-DR5: Move key bar: `move-key` buttons labeled in `notation` (`U`, `U'`, `U2`…), press inversion, ⟳ x/y/z group, "more" for wide and slice turns (also reachable by gesture, UX-DR26), long-press plain-language name, light haptic tick on commit, labels never change with View Rotation; horizontal scrollable on compact, vertical grid on expanded; in Physical-cube Mode shown only after *I did something else*.
 UX-DR6: Move arrow overlay and piece highlight: curved `sticker-highlight` arrow following the turning layer (Demonstrations, hint rung 2, and the current Move of Solution Playback in 3D, SCP 2026-11-17) with the Move in `notation` at its tip (static when reduce motion is on); highlight = 3dp `sticker-highlight` outline with 1dp `cubie-body` inner stroke; stickers never recolored.
 UX-DR7: Lesson panel in this order: Objective (`title`) → step card → Teaching Mode switcher → Hint (secondary) + **Next** (`button-primary`; disabled = `hairline` fill + `ink-disabled` text). Step card shows Goal, Keep, Watch before the Move and Notice after it, with Moves as `notation-chip`s; the UI label *Keep* renders schema field `preserve`.
@@ -2003,7 +2003,7 @@ So that I fix the real problem.
 
 **Given** a matching result
 **When** shown
-**Then** a ✓ *Verified* chip and a VERIFIED frame appear until the next *Done*; a mismatch shows the SEEN strip with differing stickers outlined, never a whole cube from a Partial
+**Then** a ✓ *Verified* chip and a VERIFIED frame appear until the next *Done* (on Solution Playback the chip only, with no frame label; SCP 2026-11-19); a mismatch shows the SEEN strip with differing stickers outlined, never a whole cube from a Partial
 
 **Given** a Full observation in mismatch
 **When** *Use my cube as it is now* is chosen
@@ -2707,7 +2707,7 @@ So that I can follow each turn the way that suits me.
 
 **Given** playback is mid-turn (an animation in flight, or several queued)
 **When** the view is switched
-**Then** the new view shows the committed state of the current step at once (`Snap`, AD-4), the playback position is unchanged, no `SessionEvent` is dispatched, and the frame label (VIRTUAL / EXPECTED / VERIFIED), the certainty chip and the SEEN strip are unchanged
+**Then** the new view shows the committed state of the current step at once (`Snap`, AD-4), the playback position is unchanged, no `SessionEvent` is dispatched, and the certainty chip and the SEEN strip are unchanged (Solution Playback has no frame label; SCP 2026-11-19)
 
 **Given** the 3D view during playback
 **When** a step is current
@@ -2859,7 +2859,7 @@ So that I can still predict what R or U will do.
 
 **Given** the five 3D stages (Lesson, free cube, Demonstration, Solution Playback in 3D, Library detail)
 **When** the badge shows
-**Then** it sits right after the frame label where one is shown, and first in the top-left overlay where none is (today virtual Solution Playback and a Lesson *Show me* Demonstration have no frame label); the overlay wraps (a flow row) instead of clipping at 200% font scale; the badge's touch target is at least 48dp; TalkBack focus reaches it right after the frame label, or first on the stage when there is none; the 2D net has no badge
+**Then** it sits right after the frame label where one is shown, and first in the top-left overlay where none is (Solution Playback, virtual or physical, and a Lesson *Show me* Demonstration have no frame label; SCP 2026-11-19); the overlay wraps (a flow row) instead of clipping at 200% font scale; the badge's touch target is at least 48dp; TalkBack focus reaches it right after the frame label, or first on the stage when there is none; the 2D net has no badge
 
 **Given** the view is rotated
 **When** the Learner taps the badge's **Reset view** action or double-taps the stage
