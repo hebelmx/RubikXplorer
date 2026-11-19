@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-18-2026 16:15'
+last_updated: '11-18-2026 18:06'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -170,7 +170,7 @@ development_status:
   12-13-closing-a-session-is-durable-when-a-write-fails: done
   12-14-solution-playback-in-3d-or-on-the-2d-net: done
   12-15-move-pictures-and-the-move-strip: done
-  12-16-see-the-turn-while-dragging-commit-on-release: backlog
+  12-16-see-the-turn-while-dragging-commit-on-release: in-progress
   12-17-know-when-the-view-is-rotated-and-reset-it-in-one-tap: backlog
   epic-12-retrospective: optional
 
