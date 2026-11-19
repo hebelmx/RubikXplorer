@@ -1107,3 +1107,9 @@ action_items:
     owner: "SM (orchestrator)"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-19.md"
+  - id: "issue-205-deferred-device-status-bar-contrast"
+    epic: 12
+    action: "On the Galaxy S24 FE, check Placement status-bar icon contrast in light and dark themes (Robolectric pixel test only so far) (low; deferred from #205, PlacementScreen.kt:53)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-205-placement-outcome-dark-theme.md"
