@@ -63,6 +63,7 @@ import dev.cubentia.domain.appearance.StickerAppearance
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Color as CubeColor
+import dev.cubentia.domain.text.Text as ContentText
 
 /** Palette order, matching the glyph order `W Y R O G B`. */
 private val PALETTE =
@@ -81,12 +82,16 @@ private val FACE_LABELS =
 
 private const val FACE_SELECTOR_COLUMNS = 3
 
+private const val PER_FACE = 9
+
 /** Largest side of the one-face grid, so the palette stays close below it. */
 private val FACE_MAX = Spacing.touchMin * 6
 
 /**
  * The Manual Cube Editor (FR-14, UX-DR16/21/25): tap a sticker on the net, then a palette color, to
- * paint it, with the update cue and a light haptic tick. Centers stay at the home-frame colors.
+ * paint it, with the update cue and a light haptic tick. The selection then auto-advances to the next
+ * editable sticker (stopping at the last one), announced in a polite live region; tap any sticker to
+ * fix it. Centers stay at the home-frame colors.
  * Offending pieces are outlined by the cube-highlight rule and every problem gets its own plain-language line, resolved through [strings]. **Accept** is
  * enabled only while the entry is valid and hands [onAccept] the [CubeState] [CubeValidator]
  * produced for exactly the entered stickers. Starts from [initial] (centers overwritten), drawn in
@@ -153,6 +158,7 @@ fun ManualCubeEditor(
                     }
                 }
             }
+            SelectedStickerLine(state, strings)
             Column(
                 modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
                 verticalArrangement = Arrangement.spacedBy(Spacing.s2),
@@ -176,6 +182,27 @@ fun ManualCubeEditor(
             }
         }
     }
+}
+
+/** Names the selected sticker in a polite live region, so auto-advance is announced to TalkBack. */
+@Composable
+private fun SelectedStickerLine(
+    state: ManualCubeEditorState,
+    strings: ContentStrings,
+) {
+    val index = state.selected ?: return
+    val sticker =
+        stringResource(
+            R.string.editor_sticker,
+            stringResource(colorName(state.facelets.colors[index])),
+            stringResource(FACE_NAMES[index / PER_FACE]),
+            index % PER_FACE + 1,
+        )
+    Text(
+        strings.resolve(ContentText("msg.editor.selected", mapOf("sticker" to sticker))),
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.fillMaxWidth().testTag("editor:selected").semantics { liveRegion = LiveRegionMode.Polite },
+    )
 }
 
 /** The [WindowSizeClass] of the current window, from its container size. */

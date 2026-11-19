@@ -734,6 +734,7 @@
   "btn.scan.accept": "Accept",
   "msg.scan.blank-label": "?",
   "msg.scan.selected": "Selected: {sticker}",
+  "msg.editor.selected": "Selected: {sticker}",
   "msg.scan.suspect-suggestion": "This sticker may be {color} — check it.",
   "btn.physical.quick-check": "Quick Check",
   "btn.physical.confirm-scan": "Scan it",

@@ -3,6 +3,7 @@ package dev.cubentia.app.ui.editor
 import android.app.Application
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -169,6 +170,8 @@ class ManualCubeEditorCompactTest {
         (0 until Facelets.SIZE).filter { it % PER_FACE != CENTER }.forEach { index ->
             val color = if (solved[index] == CubeColor.RED) CubeColor.BLUE else CubeColor.RED
             paint(index, color)
+            // Painting a face's last sticker advances onto the next face; go back to check it.
+            showFace(index / PER_FACE)
             assertEquals("$index", fill(color), drawnColor(index))
         }
     }
@@ -235,10 +238,41 @@ class ManualCubeEditorCompactTest {
         rule.waitForIdle()
         faceTab(2).assertIsSelected()
         assertEquals(fill(CubeColor.RED), drawnColor(20))
-        assertEquals(true, sticker(20).fetchSemanticsNode().config.getOrNull(SemanticsProperties.Selected))
+        // Painting advanced the selection to 21; it survives the restore and takes the next color.
+        assertEquals(true, sticker(21).fetchSemanticsNode().config.getOrNull(SemanticsProperties.Selected))
         swatch(CubeColor.GREEN).performClick()
         rule.waitForIdle()
-        assertEquals(fill(CubeColor.GREEN), drawnColor(20))
+        assertEquals(fill(CubeColor.RED), drawnColor(20))
+        assertEquals(fill(CubeColor.GREEN), drawnColor(21))
+    }
+
+    @Test
+    fun `painting the last sticker of a face shows the next face with its first sticker selected and announced`() {
+        launch()
+        paint(8, CubeColor.RED)
+        faceTab(1).assertIsSelected()
+        assertEquals((PER_FACE until 2 * PER_FACE).toList(), visibleStickers())
+        assertEquals(true, sticker(9).fetchSemanticsNode().config.getOrNull(SemanticsProperties.Selected))
+        val line = rule.onNodeWithTag("editor:selected").fetchSemanticsNode()
+        assertEquals(LiveRegionMode.Polite, line.config[SemanticsProperties.LiveRegion])
+        assertEquals("Selected: Red sticker, right face, position 1", line.config[SemanticsProperties.Text].joinToString { it.text })
+        showFace(0)
+        assertEquals(fill(CubeColor.RED), drawnColor(8))
+    }
+
+    @Test
+    fun `tapping a sticker on the shown face fixes it and advances from it`() {
+        launch()
+        paint(0, CubeColor.RED)
+        paint(1, CubeColor.RED)
+        assertEquals(true, sticker(2).fetchSemanticsNode().config.getOrNull(SemanticsProperties.Selected))
+        sticker(0).performClick()
+        swatch(CubeColor.WHITE).performClick()
+        rule.waitForIdle()
+        assertEquals(fill(CubeColor.WHITE), drawnColor(0))
+        assertEquals(fill(CubeColor.RED), drawnColor(1))
+        assertEquals(true, sticker(1).fetchSemanticsNode().config.getOrNull(SemanticsProperties.Selected))
+        faceTab(0).assertIsSelected()
     }
 
     @Test
