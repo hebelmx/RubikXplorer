@@ -33,11 +33,14 @@ enum class ScanGap {
  * A scan's read. [Full] has all six faces as 54 URFDLB [Facelets] (with one [StickerConfidence] each, same order); it is
  * not validated: 54 colors never count as a valid cube until `CubeValidator` and review accept them. [Partial] carries
  * the placed faces (colors in net order) and why each other face is absent; it is never completed from an expected state.
+ * [Full.labs], when present, holds each sticker's measured CIELAB in the same net order (rotated like the colors); it is
+ * review evidence only (#174), never shown to the Learner.
  */
 sealed interface ScanResult {
     data class Full(
         val facelets: Facelets,
         val confidence: List<StickerConfidence>,
+        val labs: List<Lab>? = null,
     ) : ScanResult
 
     data class Partial(
@@ -380,6 +383,7 @@ object ScanAssembler {
          */
         data class Placed(
             val readings: List<StickerReading>,
+            val labs: List<Lab>,
             val posed: Boolean,
             val centerDisagrees: Boolean,
             val turns: Int = 0,
@@ -417,6 +421,7 @@ object ScanAssembler {
         val turns = sample.orientationDegrees / QUARTER + (direction ?: 0)
         return Placement.Placed(
             rotateClockwise(readings, turns),
+            rotateClockwise(sample.stickers, turns),
             posed = direction != null,
             centerDisagrees = centerRead.color != center && sample.centerPlain != false,
             turns = Math.floorMod(turns, TURNS),
@@ -473,6 +478,11 @@ object ScanAssembler {
         val first = candidates.first()
         val differing = Face.entries.filter { face -> candidates.any { !sameFace(it.grid, first.grid, face) } }.toSet()
         val resolved = valid.size == 1
+        val labs =
+            Face.entries.flatMap { face ->
+                val placed = faces[face.ordinal]
+                if (placed.posed) placed.labs else rotateClockwise(placed.labs, first.choice[face.ordinal])
+            }
         val readings =
             Face.entries.flatMap { face ->
                 options[face.ordinal][first.choice[face.ordinal]].mapIndexed { index, reading ->
@@ -480,7 +490,7 @@ object ScanAssembler {
                     if (ambiguous) reading.copy(confidence = StickerConfidence.UNCERTAIN) else reading
                 }
             }
-        val result = ScanResult.Full(Facelets(readings.map { it.color }), readings.map { it.confidence })
+        val result = ScanResult.Full(Facelets(readings.map { it.color }), readings.map { it.confidence }, labs)
         val turns =
             Face.entries.associateWith { face ->
                 val placed = faces[face.ordinal]

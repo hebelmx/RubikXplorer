@@ -107,7 +107,20 @@ fun ScanReviewScreen(
     LaunchedEffect(review.selected) { review.selected?.let { face = it / 9 } }
     val problems = review.problems
     val linkedIndices = problems.indices.filter { problems[it].piece.isNotEmpty() }
-    var focusedIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+    // Opens on the problem led by the pre-selected sticker (the count line for the top suspect, #174), else the first
+    // problem holding it, else the first linked one.
+    var focusedIndex by rememberSaveable {
+        mutableStateOf(
+            review.selected?.let { selected ->
+                linkedIndices.firstOrNull {
+                    problems[it].reason.key == "msg.validation.wrong-color-counts" &&
+                        problems[it].positions.firstOrNull() == selected
+                }
+                    ?: linkedIndices.firstOrNull { problems[it].positions.firstOrNull() == selected }
+                    ?: linkedIndices.firstOrNull { selected in problems[it].positions }
+            },
+        )
+    }
     val focused = focusedIndex?.takeIf { it in linkedIndices } ?: linkedIndices.firstOrNull()
     val problemNumbers = linkedIndices.withIndex().associate { (order, index) -> index to order + 1 }
     val marks =
@@ -159,6 +172,7 @@ fun ScanReviewScreen(
             }
             lastSet?.let { (index, color) -> SetStickerLine(index, color, strings) }
             SelectedStickerLine(review, strings)
+            SuspectLine(review, strings)
             StickerReviewNet(
                 selected = review.selected,
                 invalid = review.outlined,
@@ -447,5 +461,21 @@ private fun SelectedStickerLine(
         line,
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.fillMaxWidth().testTag("review:selected").semantics { liveRegion = LiveRegionMode.Polite },
+    )
+}
+
+/** Suggests the likely color when the selected sticker is a suspect misread (#174), in a polite live region. */
+@Composable
+private fun SuspectLine(
+    review: ScanReview,
+    strings: ContentStrings,
+) {
+    val index = review.selected ?: return
+    val suspect = review.suspects.firstOrNull { it.index == index } ?: return
+    val color = stringResource(colorName(suspect.likely)).lowercase(LocalConfiguration.current.locales[0])
+    Text(
+        strings.resolve(ContentText("msg.scan.suspect-suggestion", mapOf("color" to color))),
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.fillMaxWidth().testTag("review:suggestion").semantics { liveRegion = LiveRegionMode.Polite },
     )
 }

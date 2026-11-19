@@ -10,6 +10,7 @@ import dev.cubentia.domain.cube.Turn
 import dev.cubentia.domain.cube.ValidationResult
 import dev.cubentia.domain.recognition.RecognitionFixtures.CALIBRATION
 import dev.cubentia.domain.recognition.RecognitionFixtures.LABS
+import dev.cubentia.domain.recognition.RecognitionFixtures.fullRead
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -345,10 +346,10 @@ class GuidedScanTest {
         val samples = requireNotNull(done)
         assertEquals(GuidedScanPlan.steps.map { it.centerColor }, samples.map { it.centerColor })
         assertTrue(samples.all { it.orientationDegrees == 90 && it.quality == CaptureQuality.ACCEPTABLE && it.centerPlain == true })
-        assertEquals(ScanResult.Full(cube, List(54) { StickerConfidence.CONFIDENT }), ScanAssembler.assemble(samples, CALIBRATION))
+        assertEquals(fullRead(cube, List(54) { StickerConfidence.CONFIDENT }), ScanAssembler.assemble(samples, CALIBRATION))
         val selfCalibrated = SelfCalibration.from(samples) as SelfCalibration.Calibrated
         assertEquals(
-            ScanResult.Full(cube, List(54) { StickerConfidence.CONFIDENT }),
+            fullRead(cube, List(54) { StickerConfidence.CONFIDENT }),
             ScanAssembler.assemble(samples, selfCalibrated.calibration),
         )
     }
@@ -743,7 +744,7 @@ class GuidedScanTest {
         assertFalse(controller.repeating)
         assertNull(controller.step)
         val calibration = (SelfCalibration.from(samples) as SelfCalibration.Calibrated).calibration
-        assertEquals(ScanResult.Full(r2, List(54) { StickerConfidence.CONFIDENT }), ScanAssembler.assemble(samples, calibration))
+        assertEquals(fullRead(r2, List(54) { StickerConfidence.CONFIDENT }), ScanAssembler.assemble(samples, calibration))
         assertEquals(emptyList<GuidedScanEffect>(), controller.shoot(faceOf(Face.F), now))
     }
 
