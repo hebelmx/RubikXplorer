@@ -165,7 +165,10 @@ internal fun ColumnScope.DemonstrationStage(
     // than its slot), so a short stage shrinks the net rather than overlapping the controls.
     state.renderer.Content(
         style,
-        Modifier.weight(1f, fill = false).aspectRatio(1f).semantics { traversalIndex = 1f },
+        Modifier.weight(1f, fill = false).aspectRatio(1f).semantics {
+            isTraversalGroup = true
+            traversalIndex = 1f
+        },
         emphasis = state.emphasis,
         arrow = state.arrow,
         reduceMotion = state.reduceMotion,

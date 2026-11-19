@@ -1,4 +1,5 @@
 {
+  "msg.gesture.turn-cancelled": "Turn cancelled",
   "btn.library.recognize-case": "Recognize case",
   "msg.recognize.hold-first": "Hold yellow on top, with one corner facing you.",
   "msg.recognize.hold-second": "Now turn the cube halfway, yellow still on top, so the opposite corner faces you.",

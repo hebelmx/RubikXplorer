@@ -45,6 +45,7 @@ import dev.cubentia.app.content.CatalogState
 import dev.cubentia.app.content.LessonCatalog
 import dev.cubentia.app.data.SerialWriter
 import dev.cubentia.app.render.Net2DRenderer
+import dev.cubentia.app.render.PreviewedMoveKey
 import dev.cubentia.app.render.RenderedArrow
 import dev.cubentia.app.render.RenderedArrowKey
 import dev.cubentia.app.render.RenderedStickersKey
@@ -127,6 +128,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -850,6 +852,47 @@ class LessonScreenTest {
         rule.waitUntil(5_000) { host.state.value.history.done.size == 1 }
         assertEquals(before.virtual.apply(u), host.state.value.virtual)
         assertNetMatchesSession("Move key and drag agree")
+    }
+
+    @Test
+    fun `locked drag hides the teaching arrow until cancellation and physical mode blocks preview`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.TEST_ME)
+        tapHint(HintRung.CLUE)
+        tapHint(HintRung.TARGET)
+        val stage = node("cube3d")
+        val expectedArrow = stage.fetchSemanticsNode().config[RenderedArrowKey]
+
+        fun dragAndHold() {
+            val size = stage.fetchSemanticsNode().size
+            val pose = ViewPose(size.width, size.height, ViewOrbit.DEFAULT.eye())
+
+            fun offset(x: Double): Offset = pose.project(Vector3(x, 1.0, 1.5)).let { Offset(it.x.toFloat(), it.y.toFloat()) }
+            stage.performTouchInput {
+                down(offset(0.0))
+                moveTo(offset(-0.8))
+            }
+        }
+
+        val before = host.state.value.history
+        dragAndHold()
+        val held = stage.fetchSemanticsNode().config
+        assertEquals("U", held[PreviewedMoveKey].notation)
+        assertEquals(null, held.getOrNull(RenderedArrowKey))
+        stage.performTouchInput { cancel() }
+        assertEquals(expectedArrow, stage.fetchSemanticsNode().config[RenderedArrowKey])
+        assertEquals(before, host.state.value.history)
+
+        runBlocking {
+            host.dispatch { SessionEvent.ModeSwitched(dev.cubentia.application.session.CubeMode.PHYSICAL, it) }
+        }
+        rule.waitForIdle()
+        node("moveKey:U").assertDoesNotExist()
+        val physical = host.state.value
+        dragAndHold()
+        assertEquals(null, stage.fetchSemanticsNode().config.getOrNull(PreviewedMoveKey))
+        stage.performTouchInput { up() }
+        assertEquals(physical, host.state.value)
     }
 
     @Test
@@ -1625,6 +1668,54 @@ class LessonScreenTest {
         assertEquals("net still shows the post-Move session after the hold", afterMove, drawnColors())
         rule.mainClock.autoAdvance = true
         assertNetMatchesSession("net still matches the session once the clock runs freely")
+    }
+
+    @Test
+    fun `a drag started during Show me how stops the demonstration and previews from the session's cube`() {
+        open(whiteCrossLesson().id.value)
+        switchTo(TeachingMode.TEST_ME)
+        press("y", 1)
+        press("x", 2)
+        rule.waitUntil(5_000) {
+            host.state.value.decision
+                ?.diagnosis != null
+        }
+        rule.waitForIdle()
+        val before = host.state.value
+        val session =
+            before.virtual
+                .toFacelets()
+                .colors
+                .map { Color(StickerAppearance.of(it).fill) }
+
+        node("lesson:showMeHow").performScrollTo()
+        rule.waitForIdle()
+        rule.mainClock.autoAdvance = false
+        node("lesson:showMeHow").performClick()
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeBy(REORIENT_STEP_MILLIS / 2)
+        assertNotEquals("the demonstration is drawing its first rotation", session, drawnColors())
+
+        val stage = node("cube3d")
+        val size = stage.fetchSemanticsNode().size
+        val pose = ViewPose(size.width, size.height, ViewOrbit.DEFAULT.eye())
+
+        fun offset(x: Double): Offset = pose.project(Vector3(x, 1.0, 1.5)).let { Offset(it.x.toFloat(), it.y.toFloat()) }
+        stage.performTouchInput {
+            down(offset(0.0))
+            moveTo(offset(-0.8))
+        }
+        rule.mainClock.advanceTimeByFrame()
+        assertEquals("the drag drew the session's cube before its preview", session, drawnColors())
+        assertNotNull(stage.fetchSemanticsNode().config.getOrNull(PreviewedMoveKey))
+        // Past where the demonstration's later steps and hold would have played: it stays stopped.
+        rule.mainClock.advanceTimeBy(REORIENT_STEP_MILLIS * 3 + REORIENT_HOLD_MILLIS + 500)
+        assertEquals("the demonstration did not resume under the drag", session, drawnColors())
+        stage.performTouchInput { cancel() }
+        rule.mainClock.autoAdvance = true
+        rule.waitForIdle()
+        assertEquals(before.history, host.state.value.history)
+        assertNetMatchesSession("net matches the session after the cancelled drag")
     }
 
     @Test

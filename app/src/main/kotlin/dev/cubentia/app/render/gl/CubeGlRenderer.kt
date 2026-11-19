@@ -42,6 +42,7 @@ class CubeGlRenderer(
     private var uViewProj = 0
     private var uModel = 0
     private var uDim = 0
+    private var uPreview = 0
     private var uHighlight = 0
     private var uPulse = 0
     private var uPxPerDp = 0
@@ -58,6 +59,7 @@ class CubeGlRenderer(
         uViewProj = GLES30.glGetUniformLocation(program, "uViewProj")
         uModel = GLES30.glGetUniformLocation(program, "uModel")
         uDim = GLES30.glGetUniformLocation(program, "uDim")
+        uPreview = GLES30.glGetUniformLocation(program, "uPreview")
         uHighlight = GLES30.glGetUniformLocation(program, "uHighlight")
         uPulse = GLES30.glGetUniformLocation(program, "uPulse")
         uPxPerDp = GLES30.glGetUniformLocation(program, "uPxPerDp")
@@ -134,6 +136,7 @@ class CubeGlRenderer(
             if (count[i] == 0) continue
             GLES30.glUniformMatrix4fv(uModel, 1, false, models, i * MAT4)
             GLES30.glUniform1f(uDim, if (frame.emphasisFlags[i] and 1 != 0) 1f else 0f)
+            GLES30.glUniform1f(uPreview, if (frame.emphasisFlags[i] and 4 != 0) 1f else 0f)
             GLES30.glUniform1f(uHighlight, if (frame.emphasisFlags[i] and 2 != 0) 1f else 0f)
             GLES30.glDrawArrays(GLES30.GL_TRIANGLES, first[i], count[i])
         }

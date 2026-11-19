@@ -32,7 +32,9 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.render.Cube3DRenderer
+import dev.cubentia.app.render.PreviewedMoveKey
 import dev.cubentia.app.render.RenderedStickersKey
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.domain.appearance.StickerAppearance
@@ -43,6 +45,8 @@ import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.cube.Turn
+import dev.cubentia.domain.input.GestureInterpreter
+import dev.cubentia.domain.input.ScreenPoint
 import dev.cubentia.domain.input.Vector3
 import dev.cubentia.domain.input.ViewOrbit
 import dev.cubentia.domain.input.ViewPose
@@ -83,7 +87,11 @@ class FreeCubeScreenTest {
             CompositionLocalProvider(LocalHapticFeedback provides haptics) {
                 CubentiaTheme(darkTheme = dark) {
                     dev.cubentia.app.preferences.PreferenceProvider(preferences) {
-                        FreeCubeScreen(viewModel = viewModel, showDebugToggles = showDebugToggles)
+                        FreeCubeScreen(
+                            viewModel = viewModel,
+                            showDebugToggles = showDebugToggles,
+                            strings = ContentStrings(mapOf("msg.gesture.turn-cancelled" to "Turn cancelled")),
+                        )
                     }
                 }
             }
@@ -430,10 +438,10 @@ class FreeCubeScreenTest {
         stage.performTouchInput { up() }
         rule.runOnIdle { viewModel.renderer.resetView() }
         stage.performTouchInput {
-            down(0, center - Offset(40f, 0f))
-            down(1, center + Offset(40f, 0f))
-            moveTo(0, center - Offset(40f, 0f) + Offset(0f, 30f), delayMillis = 0)
-            moveTo(1, center + Offset(40f, 0f) + Offset(0f, 30f))
+            down(0, Offset(2f, 2f))
+            down(1, Offset(42f, 2f))
+            moveTo(0, Offset(2f, 32f), delayMillis = 0)
+            moveTo(1, Offset(42f, 32f))
         }
         // The camera follows the pair's centroid: both fingers moved down 30px.
         assertEquals(ViewOrbit.DEFAULT.dragged(0.0, 30.0, side), viewModel.renderer.orbit)
@@ -442,8 +450,71 @@ class FreeCubeScreenTest {
             up(1)
         }
         assertEquals(history, viewModel.history)
+        // A pair straddling the cube, both fingers off it, is still a View Rotation.
+        rule.runOnIdle { viewModel.renderer.resetView() }
+        val size = stage.fetchSemanticsNode().size
+        val pose = ViewPose(size.width, size.height, ViewOrbit.DEFAULT.eye())
+        val left = Offset(4f, size.height / 2f)
+        val right = Offset(size.width - 4f, size.height / 2f)
+        assertFalse(GestureInterpreter.startsOnCube(ScreenPoint(left.x.toDouble(), left.y.toDouble()), pose))
+        assertFalse(GestureInterpreter.startsOnCube(ScreenPoint(right.x.toDouble(), right.y.toDouble()), pose))
+        assertTrue(GestureInterpreter.startsOnCube(ScreenPoint(size.width / 2.0, size.height / 2.0), pose))
+        stage.performTouchInput {
+            down(0, left)
+            down(1, right)
+            moveTo(0, left + Offset(0f, 30f), delayMillis = 0)
+            moveTo(1, right + Offset(0f, 30f))
+        }
+        assertEquals(ViewOrbit.DEFAULT.dragged(0.0, 30.0, side), viewModel.renderer.orbit)
+        stage.performTouchInput {
+            up(0)
+            up(1)
+        }
+        assertEquals(history, viewModel.history)
         assertTrue(ticks.isEmpty())
         assertRenderedMatchesState()
+    }
+
+    @Test
+    fun `a straddling pair that twists restores the camera and commits z on its last lift`() {
+        launch()
+        rule.waitForIdle()
+        val stage = rule.onNodeWithTag("cube3d")
+        val size = stage.fetchSemanticsNode().size
+        val pose = ViewPose(size.width, size.height, ViewOrbit.DEFAULT.eye())
+        val mid = Offset(size.width / 2f, size.height / 2f)
+        val reach = size.width / 2f - 4f
+        val left = mid - Offset(reach, 0f)
+        val right = mid + Offset(reach, 0f)
+        assertFalse(GestureInterpreter.startsOnCube(ScreenPoint(left.x.toDouble(), left.y.toDouble()), pose))
+        assertFalse(GestureInterpreter.startsOnCube(ScreenPoint(right.x.toDouble(), right.y.toDouble()), pose))
+        val turned = reach * 0.7071f
+        stage.performTouchInput {
+            down(0, left)
+            down(1, right)
+            moveTo(0, left + Offset(0f, 20f), delayMillis = 0)
+            moveTo(1, right + Offset(0f, 20f))
+            moveTo(0, mid - Offset(turned, turned), delayMillis = 0)
+            moveTo(1, mid + Offset(turned, turned))
+        }
+        assertOrbitAtDefault()
+        assertNull(stage.fetchSemanticsNode().config.getOrNull(PreviewedMoveKey))
+        stage.performTouchInput { up(0) }
+        assertEquals(CubeState.SOLVED, viewModel.history.state)
+        assertTrue(ticks.isEmpty())
+        stage.performTouchInput { up(1) }
+        val z =
+            dev.cubentia.domain.cube
+                .CubeRotation(dev.cubentia.domain.cube.Axis.Z, Turn.CLOCKWISE)
+        assertEquals(CubeState.SOLVED.apply(z), viewModel.history.state)
+        assertEquals(listOf(HapticFeedbackType.KeyboardTap), ticks)
+        assertOrbitAtDefault()
+    }
+
+    private fun assertOrbitAtDefault() {
+        val orbit = viewModel.renderer.orbit
+        assertEquals(ViewOrbit.DEFAULT.yawDegrees, orbit.yawDegrees, 1e-9)
+        assertEquals(ViewOrbit.DEFAULT.pitchDegrees, orbit.pitchDegrees, 1e-9)
     }
 
     @Test
@@ -595,10 +666,12 @@ class FreeCubeScreenTest {
         assertTrue(ticks.isEmpty())
     }
 
-    private fun gesturePoints(delta: Vector3 = Vector3(-1.0, 0.0, 0.0)): Pair<Offset, Offset> {
+    private fun gesturePoints(
+        delta: Vector3 = Vector3(-1.0, 0.0, 0.0),
+        start: Vector3 = Vector3(0.0, 1.0, 1.5),
+    ): Pair<Offset, Offset> {
         val bounds = rule.onNodeWithTag("cube3d").fetchSemanticsNode().boundsInRoot
         val pose = ViewPose(bounds.width.toInt(), bounds.height.toInt(), viewModel.renderer.orbit.eye())
-        val start = Vector3(0.0, 1.0, 1.5)
 
         fun offset(point: Vector3): Offset = pose.project(point).let { Offset(it.x.toFloat(), it.y.toFloat()) }
         return offset(start) to offset(start + delta)
@@ -736,12 +809,220 @@ class FreeCubeScreenTest {
         rule.waitForIdle()
         rule.mainClock.autoAdvance = false
         rule.onNodeWithTag("moveKey:R").performClick()
-        drag()
+        val committed = CubeState.SOLVED.apply(move(Face.R))
+        val (start, end) = gesturePoints()
+        val stage = rule.onNodeWithTag("cube3d")
+        stage.performTouchInput {
+            down(start)
+            moveTo(end)
+        }
+        rule.mainClock.advanceTimeByFrame()
+        assertEquals("the queue drains before the preview", committed.toFacelets(), viewModel.renderer.renderedFacelets())
+        assertEquals("U", stage.fetchSemanticsNode().config[PreviewedMoveKey].notation)
+        assertEquals(committed, viewModel.history.state)
+        stage.performTouchInput { up() }
         assertEquals(CubeState.SOLVED.apply(move(Face.R), move(Face.U)), viewModel.history.state)
         assertEquals(2, ticks.size)
         rule.mainClock.autoAdvance = true
         rule.waitForIdle()
         assertRenderedMatchesState()
+    }
+
+    @Test
+    fun `a released drag continues from the held angle and never draws an uncommitted frame at 0 degrees`() {
+        launch()
+        rule.waitForIdle()
+        val baseline = checkNotNull(viewModel.renderer.glSnapshot).models
+        val stage = rule.onNodeWithTag("cube3d")
+        val (start, end) = gesturePoints(Vector3(0.0, -0.8, 0.0), Vector3(1.0, 0.0, 1.5))
+        rule.mainClock.autoAdvance = false
+        stage.performTouchInput {
+            down(start)
+            moveTo(end)
+        }
+        rule.mainClock.advanceTimeByFrame()
+        val held = checkNotNull(viewModel.renderer.glSnapshot).models
+        assertFalse("the ghost turn is drawn", held.contentEquals(baseline))
+        stage.performTouchInput { up() }
+        val expected = CubeState.SOLVED.apply(move(Face.R, Turn.COUNTERCLOCKWISE))
+        repeat(40) {
+            rule.mainClock.advanceTimeByFrame()
+            val models = checkNotNull(viewModel.renderer.glSnapshot).models
+            val uncommitted = viewModel.renderer.renderedFacelets() == CubeState.SOLVED.toFacelets()
+            assertFalse("frame $it snapped back to 0 degrees before the commit", uncommitted && models.contentEquals(baseline))
+        }
+        assertEquals(expected, viewModel.history.state)
+        assertEquals(expected.toFacelets(), viewModel.renderer.renderedFacelets())
+        rule.mainClock.autoAdvance = true
+    }
+
+    @Test
+    fun `R drag previews without committing and commits once outside the stage`() {
+        launch()
+        val stage = rule.onNodeWithTag("cube3d")
+        val (start, end) = gesturePoints(Vector3(0.0, -0.8, 0.0), Vector3(1.0, 0.0, 1.5))
+        stage.performTouchInput {
+            down(start)
+            moveTo(end)
+        }
+        val config = stage.fetchSemanticsNode().config
+        val preview = config[PreviewedMoveKey]
+        assertEquals("R'", preview.notation)
+        assertTrue(kotlin.math.abs(preview.degrees) > 0.0)
+        // Nine R-face stickers and three on each adjacent face.
+        assertEquals(21, config[RenderedStickersKey].count { it.previewed })
+        assertEquals(CubeState.SOLVED.toFacelets(), viewModel.renderer.renderedFacelets())
+        assertFalse(viewModel.history.canUndo)
+        assertTrue(ticks.isEmpty())
+        rule.onNodeWithTag("cube3d:announcement").assertTextEquals("R prime: right face counter-clockwise")
+
+        val outside = stage.fetchSemanticsNode().size.height + 20f
+        stage.performTouchInput {
+            moveTo(Offset(end.x, outside))
+            up()
+        }
+        rule.waitForIdle()
+        val expected = CubeState.SOLVED.apply(move(Face.R, Turn.COUNTERCLOCKWISE))
+        assertEquals(expected, viewModel.history.state)
+        assertEquals(expected.toFacelets(), viewModel.renderer.renderedFacelets())
+        assertEquals(listOf(HapticFeedbackType.KeyboardTap), ticks)
+        assertNull(stage.fetchSemanticsNode().config.getOrNull(PreviewedMoveKey))
+    }
+
+    @Test
+    fun `return to start announces cancellation while a system cancel stays silent`() {
+        launch()
+        val stage = rule.onNodeWithTag("cube3d")
+        val (start, end) = gesturePoints()
+        stage.performTouchInput {
+            down(start)
+            moveTo(end)
+            moveTo(start)
+        }
+        assertNull(stage.fetchSemanticsNode().config.getOrNull(PreviewedMoveKey))
+        assertTrue(stage.fetchSemanticsNode().config[RenderedStickersKey].any { it.previewed })
+        stage.performTouchInput { up() }
+        rule.onNodeWithTag("cube3d:announcement").assertTextEquals("Turn cancelled")
+        assertTrue(stage.fetchSemanticsNode().config[RenderedStickersKey].none { it.previewed })
+
+        stage.performTouchInput {
+            down(start)
+            moveTo(end)
+            cancel()
+        }
+        assertNull(stage.fetchSemanticsNode().config.getOrNull(PreviewedMoveKey))
+        assertNull(
+            rule
+                .onNodeWithTag("cube3d:announcement")
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(SemanticsProperties.Text),
+        )
+        assertFalse(viewModel.history.canUndo)
+        assertEquals(CubeState.SOLVED.toFacelets(), viewModel.renderer.renderedFacelets())
+        assertTrue(ticks.isEmpty())
+    }
+
+    @Test
+    fun `returning to the start eases the layer back to rest at the turn rate and keeps it outlined`() {
+        launch()
+        rule.waitForIdle()
+        val baseline = checkNotNull(viewModel.renderer.glSnapshot).models
+        val stage = rule.onNodeWithTag("cube3d")
+        val (start, end) = gesturePoints(Vector3(0.0, -0.8, 0.0), Vector3(1.0, 0.0, 1.5))
+        rule.mainClock.autoAdvance = false
+        stage.performTouchInput {
+            down(start)
+            moveTo(end)
+        }
+        rule.mainClock.advanceTimeByFrame()
+        val held = checkNotNull(viewModel.renderer.glSnapshot).models
+        assertTrue("the ghost turn is drawn", maxDifference(held, baseline) > 1e-3f)
+        stage.performTouchInput { moveTo(start) }
+        var intermediate = false
+        // A quarter turn takes TURN_MILLIS; this ghost is under a quarter, so it is at rest well within one turn.
+        repeat((Cube3DRenderer.TURN_MILLIS / 16) + 4) {
+            rule.mainClock.advanceTimeByFrame()
+            rule.waitForIdle()
+            val models = checkNotNull(viewModel.renderer.glSnapshot).models
+            if (maxDifference(models, held) > 1e-4f && maxDifference(models, baseline) > 1e-4f) intermediate = true
+        }
+        assertTrue("the layer passes through an intermediate angle", intermediate)
+        val rest = checkNotNull(viewModel.renderer.glSnapshot).models
+        assertTrue("the layer is back at rest before lift", maxDifference(rest, baseline) < 1e-4f)
+        assertTrue(stage.fetchSemanticsNode().config[RenderedStickersKey].any { it.previewed })
+        stage.performTouchInput { up() }
+        rule.mainClock.advanceTimeByFrame()
+        assertFalse(viewModel.history.canUndo)
+        assertTrue(ticks.isEmpty())
+        rule.mainClock.autoAdvance = true
+    }
+
+    private fun maxDifference(
+        a: FloatArray,
+        b: FloatArray,
+    ): Float = a.indices.maxOf { kotlin.math.abs(a[it] - b[it]) }
+
+    @Test
+    fun `parallel pair previews wide R and freezes until its last lift`() {
+        launch()
+        val stage = rule.onNodeWithTag("cube3d")
+        val delta = Vector3(0.0, 0.7, 0.0)
+        val (r, rEnd) = gesturePoints(delta, Vector3(1.0, 0.0, 1.5))
+        val (m, mEnd) = gesturePoints(delta, Vector3(0.0, 0.0, 1.5))
+        stage.performTouchInput {
+            down(0, r)
+            down(1, m)
+            updatePointerTo(0, rEnd)
+            updatePointerTo(1, mEnd)
+            move()
+        }
+        val locked = stage.fetchSemanticsNode().config[PreviewedMoveKey]
+        assertEquals("r", locked.notation)
+        stage.performTouchInput {
+            up(0)
+            moveTo(1, m)
+        }
+        assertEquals(locked, stage.fetchSemanticsNode().config[PreviewedMoveKey])
+        assertFalse(viewModel.history.canUndo)
+        stage.performTouchInput { up(1) }
+        val expected =
+            dev.cubentia.domain.cube
+                .WideTurn(Face.R, Turn.CLOCKWISE)
+        assertEquals(CubeState.SOLVED.apply(expected), viewModel.history.state)
+        assertEquals(listOf(HapticFeedbackType.KeyboardTap), ticks)
+        assertEquals(ViewOrbit.DEFAULT, viewModel.renderer.orbit)
+    }
+
+    @Test
+    fun `reduce motion keeps geometry still and a late finger leaves a single turn locked`() {
+        preferences.update(
+            dev.cubentia.application.preference.Preference
+                .ReduceMotion(true),
+        )
+        launch()
+        val stage = rule.onNodeWithTag("cube3d")
+        val (start, end) = gesturePoints()
+        val before = checkNotNull(viewModel.renderer.glSnapshot).models
+        stage.performTouchInput {
+            down(0, start)
+            moveTo(0, end)
+        }
+        val locked = stage.fetchSemanticsNode().config[PreviewedMoveKey]
+        assertEquals("U", locked.notation)
+        assertTrue(stage.fetchSemanticsNode().config[RenderedStickersKey].none { it.previewed })
+        org.junit.Assert.assertArrayEquals(before, checkNotNull(viewModel.renderer.glSnapshot).models, 0f)
+        stage.performTouchInput {
+            down(1, center)
+            moveTo(1, center + Offset(15f, 20f))
+        }
+        assertEquals(locked, stage.fetchSemanticsNode().config[PreviewedMoveKey])
+        stage.performTouchInput {
+            up(0)
+            up(1)
+        }
+        assertEquals(CubeState.SOLVED.apply(move(Face.U)), viewModel.history.state)
+        assertEquals(listOf(HapticFeedbackType.KeyboardTap), ticks)
     }
 
     private companion object {

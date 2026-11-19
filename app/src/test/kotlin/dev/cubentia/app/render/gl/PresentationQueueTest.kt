@@ -3,6 +3,7 @@ package dev.cubentia.app.render.gl
 import dev.cubentia.app.render.PresentationItem
 import dev.cubentia.app.session.allMoves
 import dev.cubentia.domain.cube.CubeState
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -82,5 +83,82 @@ class PresentationQueueTest {
         q.onFrame(time)
         assertEquals(snap, q.model.facelets())
         assertFalse(q.isBusy)
+    }
+
+    @Test fun finishAllCommitsActiveAndWaitingTurnsOnBothSidesOfSnap() {
+        val q = PresentationQueue()
+        val initial = CubeState.SOLVED
+        val first = allMoves[0]
+        val second = allMoves[3]
+        val last = allMoves[6]
+        val checkpoint = initial.apply(first, second)
+        val final = checkpoint.apply(last).toFacelets()
+        q.submit(
+            listOf(
+                PresentationItem.Animate(first, 1, initial.apply(first).toFacelets()),
+                PresentationItem.Animate(second, 2, checkpoint.toFacelets()),
+            ),
+        )
+        q.onFrame(0)
+        q.onFrame(50_000_000)
+        q.finishAll()
+        assertEquals(checkpoint.toFacelets(), q.model.facelets())
+        q.submit(
+            listOf(
+                PresentationItem.Snap(3, initial.toFacelets()),
+                PresentationItem.Snap(4, checkpoint.toFacelets()),
+                PresentationItem.Animate(last, 5, final),
+            ),
+        )
+        q.finishAll()
+        assertEquals(final, q.model.facelets())
+        assertFalse(q.isBusy)
+    }
+
+    @Test fun matchingTurnAdoptsGhostWithoutRewindingAndFinishesInRemainingTime() {
+        val q = PresentationQueue()
+        val initial = CubeState.SOLVED
+        val move = allMoves[0]
+        val target = initial.apply(move).toFacelets()
+        q.model.setGhost(move, -54f)
+        val layer = q.model.ghostLayer
+        assertEquals(9, layer.size)
+        val held = FloatArray(16).also { q.model.modelMatrix(layer.first(), it) }
+        assertEquals(initial.toFacelets(), q.model.facelets())
+        q.submit(listOf(PresentationItem.Animate(move, 1, target)))
+        q.onFrame(0)
+        val firstFrame = FloatArray(16).also { q.model.modelMatrix(layer.first(), it) }
+        assertArrayEquals(held, firstFrame, 0f)
+        assertTrue(q.model.ghostLayer.isEmpty())
+        q.onFrame(79_000_000)
+        assertTrue(q.isBusy)
+        q.onFrame(80_000_000)
+        assertFalse(q.isBusy)
+        assertEquals(target, q.model.facelets())
+    }
+
+    @Test fun cancellationMismatchAndSnapClearGhost() {
+        val q = PresentationQueue()
+        val solved = CubeState.SOLVED.toFacelets()
+        val move = allMoves[0]
+        val other = allMoves[3]
+        q.model.setGhost(move, 40f)
+        val cubie = q.model.ghostLayer.first()
+        q.model.clearGhost()
+        val initial = FloatArray(16).also { q.model.modelMatrix(cubie, it) }
+        assertEquals(solved, q.model.facelets())
+
+        q.model.setGhost(move, 40f)
+        q.submit(listOf(PresentationItem.Animate(other, 1, CubeState.SOLVED.apply(other).toFacelets())))
+        q.onFrame(0)
+        assertArrayEquals(initial, FloatArray(16).also { q.model.modelMatrix(cubie, it) }, 0f)
+        assertTrue(q.model.ghostLayer.isEmpty())
+        q.finishAll()
+
+        q.model.setGhost(move, 40f)
+        q.submit(listOf(PresentationItem.Snap(2, solved)))
+        q.onFrame(100_000_000)
+        assertTrue(q.model.ghostLayer.isEmpty())
+        assertEquals(solved, q.model.facelets())
     }
 }

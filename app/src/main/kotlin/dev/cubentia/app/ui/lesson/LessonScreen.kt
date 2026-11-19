@@ -576,7 +576,7 @@ private fun LessonBody(
     var playingState by remember(lesson.id) { mutableStateOf<CubeState?>(null) }
     val onPlayingState: (CubeState?) -> Unit = { playingState = it }
     val reorientation = remember(lesson.id) { mutableStateOf<Job?>(null) }
-    val stopReorientation = {
+    val stopReorientation: () -> Unit = {
         playingMove = null
         playingState = null
         reorientation.value?.let { job ->
@@ -904,6 +904,7 @@ private fun LessonBody(
                         strings = strings,
                         send = send,
                         showMoveKeyBar = if (isMismatch) mismatchRung == 1 else (!isPhysical || showMoveKeyBar),
+                        onDragStart = stopReorientation,
                         onMove = onMoveKey,
                     )
                 }
@@ -1215,6 +1216,7 @@ private fun LearnerStage(
     strings: ContentStrings,
     send: ((Instant) -> SessionEvent) -> Unit,
     showMoveKeyBar: Boolean = true,
+    onDragStart: () -> Unit,
     onMove: (Move) -> Unit = {},
 ) {
     val tokens = RubikTheme.tokens
@@ -1283,17 +1285,22 @@ private fun LearnerStage(
                     cube = {
                         renderer.Content(
                             LocalRenderStyle.current,
-                            Modifier.fillMaxSize().semantics { traversalIndex = 1f },
-                            onMoveIntent = { intent ->
-                                caption = null
-                                if (session.syncState != SyncState.VIRTUAL) {
-                                    if (showMoveKeyBar) {
+                            Modifier.fillMaxSize().semantics {
+                                isTraversalGroup = true
+                                traversalIndex = 1f
+                            },
+                            onMoveIntent =
+                                if (session.syncState == SyncState.VIRTUAL || showMoveKeyBar) {
+                                    { intent ->
+                                        caption = null
                                         onMove(intent.move)
                                     }
                                 } else {
-                                    onMove(intent.move)
-                                }
-                            },
+                                    null
+                                },
+                            onDragStart = onDragStart,
+                            viewGestures = true,
+                            strings = strings,
                             emphasis = emphasis,
                             arrow = arrow,
                             reduceMotion = reduceMotion,

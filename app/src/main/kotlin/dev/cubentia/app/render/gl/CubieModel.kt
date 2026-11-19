@@ -12,6 +12,7 @@ import dev.cubentia.domain.cube.Slice
 import dev.cubentia.domain.cube.SliceTurn
 import dev.cubentia.domain.cube.Turn
 import dev.cubentia.domain.cube.WideTurn
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -52,6 +53,15 @@ class CubieModel(
         internal fun position(): IntArray = rotation.times(homeX, homeY, homeZ)
     }
 
+    internal fun committedStickerIndex(
+        cubie: Cubie,
+        sticker: Sticker,
+    ): Int {
+        val position = cubie.position()
+        val normal = cubie.rotation.times(sticker.nx, sticker.ny, sticker.nz)
+        return faceletIndex(position[0], position[1], position[2], normal[0], normal[1], normal[2])
+    }
+
     private class ActiveTurn(
         val axis: IntArray,
         val layer: List<Cubie>,
@@ -65,6 +75,37 @@ class CubieModel(
 
     private var turn: ActiveTurn? = null
     private var angle = 0f
+
+    private var ghostMove: Move? = null
+    private var ghost: ActiveTurn? = null
+    private var ghostAngle = 0f
+    var ghostHighlighted = false
+        private set
+
+    val ghostLayer: List<Int>
+        get() = ghost?.let { active -> cubies.indices.filter { cubies[it] in active.layer } }.orEmpty()
+
+    fun setGhost(
+        move: Move,
+        degrees: Float,
+        highlighted: Boolean = true,
+    ) {
+        if (ghostMove != move) ghost = buildTurn(move)
+        ghostMove = move
+        ghostAngle = abs(degrees).coerceAtMost(QUARTER) * (checkNotNull(ghost).degrees / QUARTER).coerceIn(-1f, 1f)
+        ghostHighlighted = highlighted
+    }
+
+    fun hideGhostHighlight() {
+        ghostHighlighted = false
+    }
+
+    fun clearGhost() {
+        ghostMove = null
+        ghost = null
+        ghostAngle = 0f
+        ghostHighlighted = false
+    }
 
     /** Bumped whenever a sticker color changes (a [reset]); renderers rebuild colors when it moves. */
     var colorVersion: Int = 0
@@ -81,6 +122,7 @@ class CubieModel(
 
     /** Every cubie home and unrotated, sticker colors taken from [facelets]. Cancels any turn. */
     fun reset(facelets: Facelets) {
+        clearGhost()
         turn = null
         angle = 0f
         for (cubie in cubies) {
@@ -92,9 +134,17 @@ class CubieModel(
         colorVersion++
     }
 
-    /** Starts animating [move] at progress 0; the committed geometry is unchanged until [commit]. */
-    fun begin(move: Move) {
+    /** Starts a turn, continuing from its ghost angle if the Move matches. */
+    fun begin(move: Move): Float {
         check(turn == null) { "a turn is already in progress" }
+        val matchingGhost = ghost.takeIf { ghostMove == move }
+        turn = matchingGhost ?: buildTurn(move)
+        angle = if (matchingGhost == null) 0f else ghostAngle
+        clearGhost()
+        return abs(angle / checkNotNull(turn).degrees)
+    }
+
+    private fun buildTurn(move: Move): ActiveTurn {
         val face =
             when (move) {
                 is FaceTurn -> {
@@ -145,8 +195,7 @@ class CubieModel(
                 Turn.COUNTERCLOCKWISE -> QUARTER
                 Turn.HALF -> -2 * QUARTER
             }
-        turn = ActiveTurn(axis, layer, degrees)
-        angle = 0f
+        return ActiveTurn(axis, layer, degrees)
     }
 
     /** Sets the animation to [progress] in 0..1 of the current turn. */
@@ -169,10 +218,8 @@ class CubieModel(
     fun facelets(): Facelets {
         val colors = arrayOfNulls<Color>(Facelets.SIZE)
         for (cubie in cubies) {
-            val position = cubie.position()
             for (sticker in cubie.stickers) {
-                val normal = cubie.rotation.times(sticker.nx, sticker.ny, sticker.nz)
-                val index = faceletIndex(position[0], position[1], position[2], normal[0], normal[1], normal[2])
+                val index = committedStickerIndex(cubie, sticker)
                 check(colors[index] == null) { "two stickers read back at facelet $index" }
                 colors[index] = sticker.color
             }
@@ -190,10 +237,11 @@ class CubieModel(
         offset: Int = 0,
     ) {
         val cubie = cubies[index]
-        val active = turn
+        val active = turn ?: ghost
+        val displayedAngle = if (turn != null) angle else ghostAngle
         val anim =
             if (active != null && cubie in active.layer) {
-                val radians = Math.toRadians(angle.toDouble())
+                val radians = Math.toRadians(displayedAngle.toDouble())
                 floatRotation(active.axis, cos(radians).toFloat(), sin(radians).toFloat())
             } else {
                 FLOAT_IDENTITY

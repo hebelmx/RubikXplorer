@@ -840,7 +840,14 @@ private fun ShellContent(
                     )
                 } else {
                     // The solve flow needs content copy; until it loads (or if it fails) the free cube stays usable.
-                    FreeCubeScreen(viewModel = freeCube, showDebugToggles = showDebugToggles, modifier = destinationModifier)
+                    FreeCubeScreen(
+                        viewModel = freeCube,
+                        showDebugToggles = showDebugToggles,
+                        modifier = destinationModifier,
+                        strings =
+                            dev.cubentia.app.content
+                                .ContentStrings(emptyMap()),
+                    )
                 }
             }
         }

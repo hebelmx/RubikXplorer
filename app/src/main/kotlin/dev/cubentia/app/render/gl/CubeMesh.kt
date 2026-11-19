@@ -14,6 +14,7 @@ data class StickerDraw(
     val dimmed: Boolean = false,
     val highlighted: Boolean = false,
     val pulsing: Boolean = false,
+    val previewed: Boolean = false,
 )
 
 object CubeMesh {
@@ -28,13 +29,20 @@ object CubeMesh {
         emphasis: NetEmphasis? = null,
     ): List<StickerDraw> {
         val flags = emphasisFlags(model, emphasis)
-        val byPiece = model.cubies.mapIndexed { i, cubie -> cubie.stickers.map { it.color }.toSet() to flags[i] }.toMap()
+        val byFacelet = IntArray(54)
+        model.cubies.forEachIndexed { index, cubie ->
+            for (sticker in cubie.stickers) {
+                byFacelet[model.committedStickerIndex(cubie, sticker)] =
+                    if (cubie.stickers.size == 1) flags[index] and 4 else flags[index]
+            }
+        }
         val facelets = model.facelets()
         return facelets.colors.mapIndexed { index, color ->
-            val flag = Piece.at(facelets, index)?.let { byPiece[it.colors] } ?: 0
+            val flag = byFacelet[index]
             appearance(color, style).copy(
                 dimmed = flag and 1 != 0,
                 highlighted = flag and 2 != 0,
+                previewed = flag and 4 != 0,
                 pulsing =
                     flag and 2 != 0 && (emphasis?.pulse ?: 0f) > 0f,
             )
@@ -45,12 +53,16 @@ object CubeMesh {
     fun emphasisFlags(
         model: CubieModel,
         emphasis: NetEmphasis?,
-    ): IntArray =
-        model.cubies
-            .map { cubie ->
-                val piece = cubie.stickers.takeIf { it.size > 1 }?.let { Piece(it.map { sticker -> sticker.color }.toSet()) }
-                (if (emphasis?.dims(piece) == true) 1 else 0) or (if (emphasis?.highlights(piece) == true) 2 else 0)
-            }.toIntArray()
+    ): IntArray {
+        val preview = if (model.ghostHighlighted) model.ghostLayer else emptyList()
+        return IntArray(model.cubies.size) { index ->
+            val cubie = model.cubies[index]
+            val piece = if (emphasis == null || cubie.stickers.size < 2) null else Piece(cubie.stickers.map { it.color }.toSet())
+            (if (emphasis?.dims(piece) == true) 1 else 0) or
+                (if (emphasis?.highlights(piece) == true) 2 else 0) or
+                (if (index in preview) 4 else 0)
+        }
+    }
 
     private fun appearance(
         color: dev.cubentia.domain.cube.Color,
