@@ -1197,3 +1197,15 @@ action_items:
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-174-point-at-misread-stickers.md"
+  - id: "issue-172-deferred-ad9-run-scan-reference-note"
+    epic: 10
+    action: "Record in the architecture spine (AD-9 and the Ownership Matrix), through bmad-correct-course, that SessionHost owns an in-memory run-scan color reference beside CalibrationRepository, set and expired only inside the confined dispatch and never persisted (medium; deferred from #172, SessionHost.kt:198)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-172-reuse-start-scan-colors.md"
+  - id: "issue-172-deferred-refresh-run-colors-on-full-check"
+    epic: 10
+    action: "Decide whether a full 6-face Quick Check later in the run (Full VERIFIED) should refresh the held run-scan colors, so subset checks recover after the light drifts instead of staying doubtful for the rest of the run (low; deferred from #172, MainActivity.kt:193)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-172-reuse-start-scan-colors.md"
