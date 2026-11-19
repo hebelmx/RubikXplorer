@@ -139,6 +139,17 @@ class DemonstrationPlayerTest {
         return (Demonstration.of(lesson) as DemonstrationResult.Ready).demonstration
     }
 
+    /** The shared transport's counter keeps its pre-#201 look here: `data` in `ink-secondary`. */
+    private fun assertDefaultCounterStyle() {
+        val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        rule.onNodeWithTag("playback:counter").performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        assertEquals(
+            dev.cubentia.app.ui.theme.RubikExtraTextStyles.data
+                .copy(color = dev.cubentia.app.ui.theme.LightTokens.inkSecondary),
+            layouts.single().layoutInput.style,
+        )
+    }
+
     private fun assertCounter(text: String) = rule.onNodeWithTag("playback:counter").assertTextEquals(text)
 
     /** The stickers whose highlight semantics are set, read against the drawn facelets' [pieces]. */
@@ -191,6 +202,7 @@ class DemonstrationPlayerTest {
             assertEquals(false, flag(StickerHighlightedKey, it))
         }
         rule.onNodeWithTag("playback:counter").assertTextEquals("0 / 1")
+        assertDefaultCounterStyle()
         rule.onNodeWithTag("playback:move").assertTextEquals("F'")
         rule.onNodeWithTag("playback:back").assertIsNotEnabled()
 

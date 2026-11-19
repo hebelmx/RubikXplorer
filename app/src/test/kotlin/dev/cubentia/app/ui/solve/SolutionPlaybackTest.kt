@@ -12,6 +12,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertHasNoClickAction
@@ -19,10 +20,13 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.TextUnit
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.PreferenceProvider
 import dev.cubentia.app.preferences.PreferenceStore
@@ -32,6 +36,9 @@ import dev.cubentia.app.render.RenderedArrowKey
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.TickingClock
 import dev.cubentia.app.ui.theme.CubentiaTheme
+import dev.cubentia.app.ui.theme.DarkTokens
+import dev.cubentia.app.ui.theme.LightTokens
+import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.application.preference.PlaybackView
 import dev.cubentia.application.preference.Preference
 import dev.cubentia.application.session.CubeMode
@@ -769,6 +776,115 @@ class SolutionPlaybackTest {
         }
     }
 
+    @Test
+    fun solutionLengthIsShownBeforeSteppingAndUpdatesWithTheSolution() {
+        val moves = List(13) { listOf(r, u, f)[it % 3] }
+        var current by mutableStateOf(session(CubeState.SOLVED.apply(moves.asReversed().map { it.inverse() }), moves))
+        val store = netPreferences()
+        rule.setContent {
+            CubentiaTheme { PreferenceProvider(store) { SolvePlaybackScreen(current, strings, {}, {}, {}) } }
+        }
+
+        val length = rule.onNodeWithTag("solvePlayback:length")
+        length.assertTextEquals("13 moves")
+        tag("counter").assertTextEquals("0 / 13")
+
+        // The header is the Solution's length, not the moves left.
+        click("forward")
+        tag("counter").assertTextEquals("1 / 13")
+        length.assertTextEquals("13 moves")
+
+        rule.runOnIdle { current = session(CubeState.SOLVED.apply(r), listOf(r.inverse())) }
+        length.assertTextEquals("1 move")
+
+        rule.runOnIdle { current = session(CubeState.SOLVED, emptyList()) }
+        length.assertTextEquals("0 moves")
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp", fontScale = 2.0f)
+    fun lengthAndProminentCounterFitInBothPlaybackModesAtLargeFontScale() = assertLargeFontLayout(darkTheme = false)
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp", fontScale = 2.0f)
+    fun lengthAndProminentCounterFitInBothPlaybackModesAtLargeFontScaleInDarkTheme() = assertLargeFontLayout(darkTheme = true)
+
+    private fun assertLargeFontLayout(darkTheme: Boolean) {
+        val moves = List(13) { listOf(r, u, f)[it % 3] }
+        var current by mutableStateOf(session(CubeState.SOLVED.apply(moves.asReversed().map { it.inverse() }), moves))
+        val store = netPreferences().apply { update(Preference.MovePictures(true)) }
+        var notationSize = TextUnit.Unspecified
+        rule.setContent {
+            CubentiaTheme(darkTheme = darkTheme) {
+                notationSize = RubikTheme.textStyles.notation.fontSize
+                PreferenceProvider(store) {
+                    SolvePlaybackScreen(current, strings, { current = reduce(current, it).state }, {}, {})
+                }
+            }
+        }
+        val ink = if (darkTheme) DarkTokens.inkPrimary else LightTokens.inkPrimary
+
+        val screen = rule.onNodeWithTag("solvePlayback:screen").fetchSemanticsNode().boundsInRoot
+        val length = rule.onNodeWithTag("solvePlayback:length")
+        val close = rule.onNodeWithTag("solvePlayback:close")
+        repeat(2) { mode ->
+            if (mode == 0) repeat(10) { click("forward") }
+            length.assertTextEquals("13 moves")
+            assertTextFits(length, textLayout(length))
+            assertEquals(ink, textLayout(length).layoutInput.style.color)
+            assertFalse(length.fetchSemanticsNode().boundsInRoot.overlaps(close.fetchSemanticsNode().boundsInRoot))
+            assertWithin(screen, length)
+
+            val counter = tag("counter")
+            counter.assertTextEquals(if (mode == 0) "10 / 13" else "0 / 13")
+            val layout = textLayout(counter)
+            assertTextFits(counter, layout)
+            assertWithin(screen, counter)
+            assertWithin(screen, tag("move"))
+            assertFalse(counter.fetchSemanticsNode().boundsInRoot.overlaps(tag("move").fetchSemanticsNode().boundsInRoot))
+            assertEquals(notationSize, layout.layoutInput.style.fontSize)
+            assertEquals(ink, layout.layoutInput.style.color)
+            assertEquals("tnum", layout.layoutInput.style.fontFeatureSettings)
+
+            if (mode == 0) {
+                click("followOnMyCube")
+                tag("done").assertExists()
+            }
+        }
+    }
+
+    /** The node's unclipped bounds lie inside [screen] horizontally, so no parent clips its text. */
+    private fun assertWithin(
+        screen: androidx.compose.ui.geometry.Rect,
+        node: SemanticsNodeInteraction,
+    ) {
+        val bounds = node.getUnclippedBoundsInRoot()
+        val density =
+            node
+                .fetchSemanticsNode()
+                .layoutInfo.density.density
+        assertTrue(bounds.left.value * density >= screen.left - 1f && bounds.right.value * density <= screen.right + 1f)
+    }
+
+    private fun assertTextFits(
+        node: SemanticsNodeInteraction,
+        layout: TextLayoutResult,
+    ) {
+        assertFalse(layout.didOverflowHeight)
+        // The semantics action can rebuild the paragraph at max width. Check its lines against the measured node.
+        val width = node.fetchSemanticsNode().size.width
+        for (line in 0 until layout.lineCount) {
+            assertFalse(layout.isLineEllipsized(line))
+            assertTrue(layout.getLineRight(line) - layout.getLineLeft(line) <= width + 1f)
+        }
+    }
+
+    private fun textLayout(node: SemanticsNodeInteraction): TextLayoutResult {
+        val layouts = mutableListOf<TextLayoutResult>()
+        node.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        return layouts.single()
+    }
+
     @Test fun netFitsPhone() = assertNetFits()
 
     @Test
@@ -809,7 +925,9 @@ class SolutionPlaybackTest {
             }
         }
         val pixels = rule.onNodeWithTag("solvePlayback:screen").captureToImage().toPixelMap()
-        assertEquals(dev.cubentia.app.ui.theme.DarkTokens.surfaceBase, pixels[0, 0])
+        assertEquals(DarkTokens.surfaceBase, pixels[0, 0])
+        val length = rule.onNodeWithTag("solvePlayback:length")
+        assertEquals(DarkTokens.inkPrimary, textLayout(length).layoutInput.style.color)
     }
 
     @Test fun physicalPlaybackNoteHasStandardMargin() {

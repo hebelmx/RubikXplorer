@@ -6,9 +6,12 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextStyle
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.render.Cube3DRenderer
 import dev.cubentia.app.ui.theme.CubentiaTheme
+import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.cube.NotationResult
@@ -29,6 +32,19 @@ class PlaybackTransportScrubTest {
     @Test fun `scrub is absent by default`() {
         rule.setContent { CubentiaTheme { PlaybackTransport(state, ContentStrings(emptyMap())) } }
         rule.onNodeWithTag("playback:scrub").assertDoesNotExist()
+    }
+
+    @Test fun `counter uses the data style by default`() {
+        var expectedStyle = TextStyle.Default
+        rule.setContent {
+            CubentiaTheme {
+                expectedStyle = RubikTheme.textStyles.data.copy(color = RubikTheme.tokens.inkSecondary)
+                PlaybackTransport(state, ContentStrings(emptyMap()))
+            }
+        }
+        val layouts = mutableListOf<TextLayoutResult>()
+        rule.onNodeWithTag("playback:counter").performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        assertEquals(expectedStyle, layouts.single().layoutInput.style)
     }
 
     @Test fun `slider exposes all boundaries and sends rounded fractions`() {

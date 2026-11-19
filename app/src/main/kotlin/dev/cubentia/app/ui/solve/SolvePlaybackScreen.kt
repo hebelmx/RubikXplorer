@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -60,10 +62,16 @@ fun SolvePlaybackScreen(
                 // Expose existing tags to UiAutomator for the macrobenchmark.
                 .semantics { testTagsAsResourceId = true },
         ) {
-            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onClose, modifier = Modifier.testTag("solvePlayback:close")) {
                     Icon(painterResource(R.drawable.ic_close), contentDescription = strings.resolve(ContentText("btn.solve.close")))
                 }
+                Text(
+                    strings.resolve(ContentText("msg.playback.solution-length", mapOf("count" to playback.size))),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = RubikTheme.tokens.inkPrimary,
+                    modifier = Modifier.weight(1f).testTag("solvePlayback:length"),
+                )
             }
             SolutionPlayback(
                 playback,

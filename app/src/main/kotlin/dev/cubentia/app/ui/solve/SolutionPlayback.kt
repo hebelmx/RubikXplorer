@@ -452,7 +452,13 @@ fun SolutionPlayback(
                 }
                 PhysicalPlaybackControls(state, strings, preferences.movePictures)
             } else {
-                PlaybackTransport(state, strings, note = state.note?.let(strings::resolve), onScrub = state::seekTo)
+                PlaybackTransport(
+                    state,
+                    strings,
+                    note = state.note?.let(strings::resolve),
+                    onScrub = state::seekTo,
+                    prominentCounter = true,
+                )
                 Box(modifier = Modifier.testTag("playback:followOnCube")) {
                     Button(
                         onClick = state::followOnMyCube,
@@ -503,8 +509,8 @@ private fun PhysicalPlaybackControls(
         ) {
             Text(
                 stringResource(R.string.playback_counter, state.position, state.size),
-                style = styles.data,
-                color = tokens.inkSecondary,
+                style = styles.notation.copy(fontFeatureSettings = "tnum"),
+                color = tokens.inkPrimary,
                 modifier = Modifier.testTag("playback:counter"),
             )
             PlaybackMoveLabel(state.currentMove, pictures)
