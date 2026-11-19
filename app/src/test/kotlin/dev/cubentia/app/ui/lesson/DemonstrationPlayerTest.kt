@@ -76,6 +76,7 @@ class DemonstrationPlayerTest {
     private val centers = Face.entries.map { it.ordinal * 9 + 4 }
 
     private lateinit var state: DemonstrationPlayerState
+    private lateinit var accessibilityHost: android.view.View
 
     private val resolver get() = RuntimeEnvironment.getApplication().contentResolver
 
@@ -89,11 +90,37 @@ class DemonstrationPlayerTest {
         demo: Demonstration = demonstration,
     ) {
         rule.setContent {
+            accessibilityHost = androidx.compose.ui.platform.LocalView.current
             CubentiaTheme {
                 state = rememberDemonstrationPlayerState(demo, reduceMotion)
                 DemonstrationPlayer(state, strings, Modifier.fillMaxSize())
             }
         }
+    }
+
+    private fun assertDirectTraversal(
+        firstTag: String,
+        secondTag: String,
+    ) {
+        val app =
+            androidx.test.core.app.ApplicationProvider
+                .getApplicationContext<Application>()
+        org.robolectric.Shadows.shadowOf(app.getSystemService(android.view.accessibility.AccessibilityManager::class.java)).apply {
+            setEnabled(true)
+            setTouchExplorationEnabled(true)
+            setEnabledAccessibilityServiceList(listOf(android.accessibilityservice.AccessibilityServiceInfo()))
+        }
+        val firstId = rule.onNodeWithTag(firstTag).fetchSemanticsNode().id
+        val secondId = rule.onNodeWithTag(secondTag).fetchSemanticsNode().id
+        val nextId =
+            rule.runOnIdle {
+                val provider = checkNotNull(accessibilityHost.accessibilityNodeProvider)
+                val key = "android.view.accessibility.extra.EXTRA_DATA_TEST_TRAVERSALBEFORE_VAL"
+                val info = checkNotNull(provider.createAccessibilityNodeInfo(firstId))
+                provider.addExtraDataToAccessibilityNodeInfo(firstId, info, key, null)
+                info.extras.getInt(key, -1)
+            }
+        assertEquals("Expected $secondTag immediately after $firstTag in platform traversal", secondId, nextId)
     }
 
     private fun moves(text: String) = (Notation.parse(text) as NotationResult.Parsed).moves
@@ -307,6 +334,7 @@ class DemonstrationPlayerTest {
     @Test
     fun `view controls turn and reset the camera without moving the playback`() {
         show(reduceMotion = true)
+        rule.onNodeWithTag("stage:viewRotated").assertDoesNotExist()
         rule.onNodeWithTag("playback:forward").performClick()
         rule.waitForIdle()
         assertCounter("1 / 1")
@@ -319,8 +347,14 @@ class DemonstrationPlayerTest {
         assertEquals(1, state.position)
         assertFalse(state.isPlaying)
         assertEquals(drawn, state.renderer.renderedFacelets())
-        rule.onNodeWithTag("stage:resetView").performClick()
+        val badge = rule.onNodeWithTag("stage:viewRotated")
+        val cubeBounds = rule.onNodeWithTag("cube3d").fetchSemanticsNode().boundsInRoot
+        // In a Lesson Show me Demonstration (no frame label), the badge sits first above the cube.
+        assertTrue(badge.fetchSemanticsNode().boundsInRoot.bottom <= cubeBounds.top)
+        assertDirectTraversal("stage:viewRotated", "cube3d")
+        badge.performClick()
         rule.waitForIdle()
+        rule.onNodeWithTag("stage:viewRotated").assertDoesNotExist()
         assertEquals(ViewOrbit.DEFAULT, state.renderer.orbit)
         assertCounter("1 / 1")
         assertEquals(drawn, state.renderer.renderedFacelets())

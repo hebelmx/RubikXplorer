@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,8 +32,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.traversalIndex
 import dev.cubentia.app.R
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.LocalPreferenceStore
@@ -41,6 +44,7 @@ import dev.cubentia.app.render.Cube3DRenderer
 import dev.cubentia.app.render.CubeRenderer
 import dev.cubentia.app.render.Net2DRenderer
 import dev.cubentia.app.render.RenderStyle
+import dev.cubentia.app.render.ViewRotatedBadge
 import dev.cubentia.app.scan.QuickCheckCapture
 import dev.cubentia.app.ui.freecube.ToolbarButton
 import dev.cubentia.app.ui.freecube.ViewControls
@@ -353,7 +357,11 @@ fun SolutionPlayback(
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
             val aspect = if (cube != null) 1f else NET_ASPECT
             val width = minOf(maxWidth, maxHeight * aspect)
-            Box(Modifier.size(width, width / aspect)) {
+            Box(
+                Modifier
+                    .size(width, width / aspect)
+                    .semantics { isTraversalGroup = true },
+            ) {
                 when (renderer) {
                     // A new adapter (a re-solve, or a view switch) must not reuse the old one's remembered GL surface.
                     is Cube3DRenderer -> {
@@ -365,6 +373,7 @@ fun SolutionPlayback(
                                 reduceMotion = state.reduceMotion,
                                 summary = null,
                                 freeViewRotation = true,
+                                strings = strings,
                             )
                         }
                     }
@@ -373,14 +382,29 @@ fun SolutionPlayback(
                         renderer.Content(style, Modifier.fillMaxSize())
                     }
                 }
-                if (state.isPhysical) {
-                    FrameLabel(
-                        strings,
-                        syncState = state.session.syncState,
-                        verified =
-                            quickCheck != null && state.session.syncState == SyncState.PHYSICAL_VERIFIED &&
-                                state.session.quickCheck?.certainty == Certainty.VERIFIED,
-                    )
+                if (state.isPhysical || cube != null) {
+                    FlowRow(
+                        itemVerticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.s2),
+                        modifier =
+                            Modifier.semantics {
+                                isTraversalGroup = true
+                                traversalIndex = -1f
+                            },
+                    ) {
+                        if (state.isPhysical) {
+                            FrameLabel(
+                                strings,
+                                syncState = state.session.syncState,
+                                verified =
+                                    quickCheck != null && state.session.syncState == SyncState.PHYSICAL_VERIFIED &&
+                                        state.session.quickCheck?.certainty == Certainty.VERIFIED,
+                            )
+                        }
+                        if (cube != null) {
+                            ViewRotatedBadge(cube, strings)
+                        }
+                    }
                 }
             }
         }

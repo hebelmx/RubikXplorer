@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -40,8 +42,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.min
@@ -50,6 +54,7 @@ import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.LocalHaptics
 import dev.cubentia.app.preferences.LocalPreferenceStore
 import dev.cubentia.app.preferences.LocalRenderStyle
+import dev.cubentia.app.render.ViewRotatedBadge
 import dev.cubentia.app.ui.editor.colorName
 import dev.cubentia.app.ui.lesson.rememberReduceMotion
 import dev.cubentia.app.ui.theme.RubikTheme
@@ -170,39 +175,69 @@ private fun CubeStage(
         modifier =
             modifier
                 .background(tokens.surfaceStage, MaterialTheme.shapes.large)
-                .padding(Spacing.s2),
+                .padding(Spacing.s2)
+                .semantics { isTraversalGroup = true },
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = frameLabel,
-                style = MaterialTheme.typography.labelMedium,
-                color = tokens.inkSecondary,
+        FlowRow(itemVerticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            FlowRow(
+                itemVerticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.s2),
                 modifier =
-                    Modifier.weight(1f).padding(start = Spacing.s2).testTag("stage:frame").semantics {
-                        // Announce the front notice only, not the return to the plain frame label.
-                        if (front != null) liveRegion = LiveRegionMode.Polite
+                    Modifier.semantics {
+                        isTraversalGroup = true
+                        traversalIndex = 0f
                     },
-            )
-            ToolbarButton(R.drawable.ic_undo, R.string.toolbar_undo, "toolbar:undo", history.canUndo) {
-                onClearCaption()
-                viewModel.onUndo()
+            ) {
+                Text(
+                    text = frameLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = tokens.inkSecondary,
+                    modifier =
+                        Modifier.padding(start = Spacing.s2).testTag("stage:frame").semantics {
+                            // Announce the front notice only, not the return to the plain frame label.
+                            if (front != null) liveRegion = LiveRegionMode.Polite
+                        },
+                )
+                ViewRotatedBadge(viewModel.renderer, strings)
             }
-            ToolbarButton(R.drawable.ic_redo, R.string.toolbar_redo, "toolbar:redo", history.canRedo) {
-                onClearCaption()
-                viewModel.onRedo()
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier =
+                    Modifier.weight(1f).semantics {
+                        isTraversalGroup = true
+                        traversalIndex = 3f
+                    },
+            ) {
+                Spacer(Modifier.weight(1f))
+                ToolbarButton(R.drawable.ic_undo, R.string.toolbar_undo, "toolbar:undo", history.canUndo) {
+                    onClearCaption()
+                    viewModel.onUndo()
+                }
+                ToolbarButton(R.drawable.ic_redo, R.string.toolbar_redo, "toolbar:redo", history.canRedo) {
+                    onClearCaption()
+                    viewModel.onRedo()
+                }
+                ToolbarButton(R.drawable.ic_reset, R.string.toolbar_reset, "toolbar:reset", history != MoveHistory()) {
+                    onClearCaption()
+                    viewModel.onReset()
+                }
+                ViewControls(viewModel.renderer)
             }
-            ToolbarButton(R.drawable.ic_reset, R.string.toolbar_reset, "toolbar:reset", history != MoveHistory()) {
-                onClearCaption()
-                viewModel.onReset()
-            }
-            ViewControls(viewModel.renderer)
         }
         viewModel.renderer.Content(
             style = LocalRenderStyle.current,
             onMoveIntent = onMoveIntent,
             reduceMotion = rememberReduceMotion(),
             strings = strings,
-            modifier = Modifier.fillMaxWidth().weight(1f).padding(Spacing.s2),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(Spacing.s2)
+                    .semantics {
+                        isTraversalGroup = true
+                        traversalIndex = 1f
+                    },
         )
         Box(Modifier.fillMaxWidth().heightIn(min = Spacing.s5), contentAlignment = Alignment.Center) {
             if (caption != null) {

@@ -3,8 +3,8 @@ package dev.cubentia.app.ui.lesson
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
@@ -21,6 +21,7 @@ import dev.cubentia.app.preferences.LocalRenderStyle
 import dev.cubentia.app.render.Cube3DRenderer
 import dev.cubentia.app.render.NetEmphasis
 import dev.cubentia.app.render.RenderStyle
+import dev.cubentia.app.render.ViewRotatedBadge
 import dev.cubentia.app.ui.freecube.ViewControls
 import dev.cubentia.app.ui.playback.NetPlayback
 import dev.cubentia.app.ui.playback.PlaybackFrameLoop
@@ -151,9 +152,19 @@ internal fun ColumnScope.DemonstrationStage(
     showFrameLabel: Boolean = certainty != null,
     freeViewRotation: Boolean = false,
 ) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        if (showFrameLabel) FrameLabel(strings, certainty)
-        Spacer(Modifier.weight(1f))
+    FlowRow(Modifier.fillMaxWidth(), itemVerticalAlignment = Alignment.CenterVertically) {
+        FlowRow(
+            itemVerticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.s2),
+            modifier =
+                Modifier.weight(1f).semantics {
+                    isTraversalGroup = true
+                    traversalIndex = 0f
+                },
+        ) {
+            if (showFrameLabel) FrameLabel(strings, certainty)
+            ViewRotatedBadge(state.renderer, strings)
+        }
         Row(
             Modifier.semantics {
                 isTraversalGroup = true
@@ -174,6 +185,7 @@ internal fun ColumnScope.DemonstrationStage(
         reduceMotion = state.reduceMotion,
         summary = summary,
         freeViewRotation = freeViewRotation,
+        strings = strings,
     )
 }
 

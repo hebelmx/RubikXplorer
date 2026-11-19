@@ -333,10 +333,20 @@ private fun ComposeContentTestRule.assertButtonRoutes() {
     onNodeWithTag("moveKey:more").assertHasClickAction().performScrollTo().performClick()
     (MoveKeys.wide + MoveKeys.slice).forEach { onNodeWithTag("moveKey:${Notation.format(it)}").assertHasClickAction() }
     onNodeWithTag("moveKey:more").performClick()
-    onNodeWithTag("stage:resetView").assertHasClickAction()
+    onNodeWithTag("stage:viewRotated").assertDoesNotExist()
     onNodeWithTag("stage:viewMenu").performClick()
     listOf("left", "right", "up", "down").forEach { onNodeWithTag("viewRotate:$it").assertHasClickAction() }
     onNodeWithTag("viewRotate:left").performClick()
+    waitForIdle()
+    val badgeBounds =
+        onNodeWithTag("stage:viewRotated")
+            .assertHasClickAction()
+            .getUnclippedBoundsInRoot()
+    assertTrue("viewRotated width", badgeBounds.right - badgeBounds.left >= 48.dp)
+    assertTrue("viewRotated height", badgeBounds.bottom - badgeBounds.top >= 48.dp)
+    onNodeWithTag("stage:viewRotated").performClick()
+    waitForIdle()
+    onNodeWithTag("stage:viewRotated").assertDoesNotExist()
     val actions = onNodeWithTag("cube3d").fetchSemanticsNode().config[SemanticsActions.CustomActions]
     assertTrue("Read faces route", actions.any { it.label == "Read faces" })
 }

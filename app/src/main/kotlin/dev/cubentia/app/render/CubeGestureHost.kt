@@ -1,14 +1,17 @@
 package dev.cubentia.app.render
 
+import android.view.ViewConfiguration
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import dev.cubentia.app.preferences.LocalHaptics
 import dev.cubentia.domain.input.DragPreview
@@ -19,6 +22,7 @@ import dev.cubentia.domain.input.PairKind
 import dev.cubentia.domain.input.ScreenPoint
 import dev.cubentia.domain.input.TouchPath
 import dev.cubentia.domain.input.ViewPose
+import dev.cubentia.domain.input.isDoubleTap
 
 @Composable
 internal fun cubeGestureInput(
@@ -35,13 +39,18 @@ internal fun cubeGestureInput(
     val tick by rememberUpdatedState<() -> Unit>(
         if (LocalHaptics.current) ({ haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap) }) else ({}),
     )
-    return Modifier.pointerInput(renderer, freeViewRotation, onMoveIntent != null) {
-        var previousTap: Long? = null
+    val context = LocalContext.current
+    val doubleTapSlopPx = remember(context) { ViewConfiguration.get(context).scaledDoubleTapSlop.toDouble() }
+    return Modifier.pointerInput(renderer, freeViewRotation, onMoveIntent != null, doubleTapSlopPx) {
+        var previousTapMillis: Long? = null
+        var previousTapPoint: ScreenPoint? = null
         awaitEachGesture {
             val down = awaitFirstDown()
+            renderer.cancelViewReset()
             renderer.clearAnnouncement()
             val first = down.position
-            val pathA = mutableListOf(first.screenPoint())
+            val firstPoint = first.screenPoint()
+            val pathA = mutableListOf(firstPoint)
             val pathB = mutableListOf<ScreenPoint>()
             var secondId = currentEvent.changes.firstOrNull { it.id != down.id && it.pressed }?.id
             secondId?.let { id ->
@@ -75,6 +84,7 @@ internal fun cubeGestureInput(
                             pathA.clear()
                             pathA.add(primary.position.screenPoint())
                             pathB.add(second.position.screenPoint())
+                            renderer.cancelViewReset()
                             baseOrbit = renderer.orbit
                             pose = ViewPose(size.width, size.height, baseOrbit.eye())
                             onCube = !freeViewRotation && startsOnCube(pathA.first(), pathB.first(), pose)
@@ -172,15 +182,28 @@ internal fun cubeGestureInput(
                     }
                 }
                 if (completed && secondId == null && !moved && preview == null) {
-                    val previous = previousTap
-                    if (previous != null && down.uptimeMillis - previous <= viewConfiguration.doubleTapTimeoutMillis) {
+                    val prevMillis = previousTapMillis
+                    val prevPoint = previousTapPoint
+                    if (prevMillis != null && prevPoint != null &&
+                        isDoubleTap(
+                            prevMillis,
+                            prevPoint,
+                            down.uptimeMillis,
+                            firstPoint,
+                            viewConfiguration.doubleTapTimeoutMillis,
+                            doubleTapSlopPx,
+                        )
+                    ) {
                         renderer.resetView()
-                        previousTap = null
+                        previousTapMillis = null
+                        previousTapPoint = null
                     } else {
-                        previousTap = down.uptimeMillis
+                        previousTapMillis = down.uptimeMillis
+                        previousTapPoint = firstPoint
                     }
                 } else {
-                    previousTap = null
+                    previousTapMillis = null
+                    previousTapPoint = null
                 }
             } finally {
                 if (!completed) renderer.clearAnnouncement()

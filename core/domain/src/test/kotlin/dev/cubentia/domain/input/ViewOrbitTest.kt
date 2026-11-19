@@ -7,6 +7,7 @@ import io.kotest.property.arbitrary.list
 import io.kotest.property.checkAll
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -24,6 +25,36 @@ class ViewOrbitTest {
         assertTrue(
             ViewPose(400, 400, orbit.dragged(100.0, 0.0, 400.0).eye()).project(front).x > ViewPose(400, 400, orbit.eye()).project(front).x,
         )
+    }
+
+    @Test
+    fun `isHome checks tolerance on yaw and pitch including wrap`() {
+        assertTrue(ViewOrbit.DEFAULT.isHome())
+        assertTrue(ViewOrbit.DEFAULT.rotated(0.9, -0.9).isHome())
+        assertFalse(ViewOrbit.DEFAULT.rotated(1.1, 0.0).isHome())
+        assertFalse(ViewOrbit.DEFAULT.rotated(0.0, 1.1).isHome())
+        // Wrapping around 360° lands back within tolerance of DEFAULT.
+        assertTrue(ViewOrbit.DEFAULT.rotated(360.0 - 0.5, 0.4).isHome())
+        assertFalse(ViewOrbit.DEFAULT.rotated(180.0, 0.0).isHome())
+    }
+
+    @Test
+    fun `towards interpolates shortest yaw path and returns target at fraction 1`() {
+        val from = ViewOrbit(-170.0, -40.0)
+        val target = ViewOrbit(170.0, 20.0)
+        // Shortest path from -170 to +170 is -20 degrees, passing through 180.
+        val mid = from.towards(target, 0.5)
+        assertEquals(180.0, kotlin.math.abs(mid.yawDegrees), 1e-9)
+        assertEquals(-10.0, mid.pitchDegrees, 1e-9)
+        assertEquals(from, from.towards(target, 0.0))
+        assertEquals(from, from.towards(target, Double.NaN))
+        assertEquals(target, from.towards(target, 1.0))
+
+        // From -155° back to DEFAULT (~33.3°): shortest delta is -171.7°, so halfway is near +119°.
+        val nearWrap = ViewOrbit(-155.0, 10.0)
+        val halfwayHome = nearWrap.towards(ViewOrbit.DEFAULT, 0.5)
+        assertTrue(halfwayHome.yawDegrees > 90.0)
+        assertEquals(ViewOrbit.DEFAULT, nearWrap.towards(ViewOrbit.DEFAULT, 1.0))
     }
 
     @OptIn(io.kotest.common.ExperimentalKotest::class)
