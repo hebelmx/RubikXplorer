@@ -1935,7 +1935,7 @@ So that I can put my real cube into the app without typing every color.
 
 **Given** *Scan my cube* on the Solve tab
 **When** the scan returns `Accepted`
-**Then** the validated `Facelets` open in the Manual Cube Editor for the Learner to check and confirm before anything uses them; `FellBackToEditor` opens the Editor empty with a one-line note, and `Cancelled` returns to the Solve tab unchanged; only the Solve flow dispatches the result (Story 10.3)
+**Then** the validated Cube State is handed to the Solve flow without opening the Manual Cube Editor, and Story 10.15 owns what follows (solve and Solution Playback, or the already-solved state) *(SCP 2026-11-19 scan Accept skips the Editor, #203; until then `Accepted` opened the Editor for a second check)*; `FellBackToEditor` (*Enter colors instead*, or an invalid or incomplete scan) opens the Editor empty with a one-line note, and `Cancelled` returns to the Solve tab unchanged; only the Solve flow dispatches the result (Story 10.3)
 
 **Given** camera permission denied from the Solve tab
 **When** the Learner taps *Scan my cube*
@@ -1943,7 +1943,7 @@ So that I can put my real cube into the app without typing every color.
 
 **Given** one Activity-level test (Robolectric or instrumented) driving the real route *(closes the deferral in #158, #161, #164 and #166)*
 **When** it runs
-**Then** it covers Solve tab *Scan my cube* → `GuidedScanActivity` → review → "Colors look off — calibrate?" → calibration → *Save* → rescan with the saved calibration loaded and the preview rebound → review → *Accept* → Manual Cube Editor, using a fake frame source, and the review edits made before calibration are kept
+**Then** it covers Solve tab *Scan my cube* → `GuidedScanActivity` → review → "Colors look off — calibrate?" → calibration → *Save* → rescan with the saved calibration loaded and the preview rebound → review → *Accept* → solving and Solution Playback without the Manual Cube Editor *(SCP 2026-11-19, #203; until then → Manual Cube Editor)*, using a fake frame source, and the review edits made before calibration are kept
 
 **Given** Color Calibration (from review or Settings)
 **When** a swatch's cell is aligned and steady
@@ -1963,7 +1963,7 @@ So that I can put my real cube into the app without typing every color.
 
 **Given** device session B3 on the main app build
 **When** the PO runs it
-**Then** a full scan from the Solve tab reaches the Editor on both devices, and the Story 10.4 checks not done on a device are run there (#166): the "Colors look off — calibrate?" offer on review, the logo-center (stka) and implausible-swatch re-prompts, a rescan after *Save* that reads better, swatch auto-capture, and the Lenovo; the PO records the calibration offer rule in the PRD memlog (today a stickerless cube that reads well gets no offer; Story 10.4's AC expects one on a first stickerless scan), and a change to the rule is made in this story
+**Then** a full scan from the Solve tab reaches the Editor on both devices *(as accepted on 2026-11-18; since SCP 2026-11-19, #203, a full scan reaches Solution Playback directly)*, and the Story 10.4 checks not done on a device are run there (#166): the "Colors look off — calibrate?" offer on review, the logo-center (stka) and implausible-swatch re-prompts, a rescan after *Save* that reads better, swatch auto-capture, and the Lenovo; the PO records the calibration offer rule in the PRD memlog (today a stickerless cube that reads well gets no offer; Story 10.4's AC expects one on a first stickerless scan), and a change to the rule is made in this story
 
 ### Story 10.6: Quick Check evidence and Certainty
 
@@ -2239,7 +2239,19 @@ So that I go from scrambled to solving in under a minute.
 
 **Given** the Solve tab
 **When** *Scan my cube* is chosen and the scan is accepted
-**Then** scan → review → validate → solve → playback runs without leaving the flow, and *Enter colors instead* is always visible
+**Then** scan → review (live validation) → *Accept* → solve → playback runs without leaving the flow, and *Enter colors instead* is always visible; validation gates the review's *Accept* (UX-DR16) and is not a separate step after it, and *Accept* is the only confirmation, so no Manual Cube Editor or second net opens between the review and Solution Playback *(SCP 2026-11-19, #203; until then the flow read "scan → review → validate → solve → playback")*
+
+**Given** the Solve tab and an accepted scan that is already solved *(SCP 2026-11-19, #203)*
+**When** the review's *Accept* is tapped
+**Then** the existing already-solved state shows ("Your cube is already solved. Scramble it and try again, or learn to solve it yourself."), the same one the Editor's *Accept* shows, and the Solver is not called
+
+**Given** *Enter colors instead*, an invalid or incomplete scan (`FellBackToEditor`), or denied camera permission *(SCP 2026-11-19, #203)*
+**When** the scan flow returns to the Solve tab
+**Then** the Manual Cube Editor opens as the fallback, as Story 10.5 says
+
+**Given** a solve started from an accepted scan *(SCP 2026-11-19, #203)*
+**When** the Learner cancels it, or the Solver times out or fails
+**Then** the Manual Cube Editor opens with the scanned cube held in the home frame (`Orientation.HOME`, the same pieces), and its playback still counts as the Full verified baseline even if the Learner corrects colors there (the Story 10.7 rule); the scan stops counting only when the Editor is closed or the Learner leaves the Solve tab
 
 **Given** `CAMERA_SCAN` is BETA
 **When** the Solve tab renders
