@@ -7,6 +7,7 @@ import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.cube.Slice
 import dev.cubentia.domain.cube.SliceTurn
 import dev.cubentia.domain.cube.Turn
+import dev.cubentia.domain.cube.WideTurn
 import dev.cubentia.domain.input.GestureInterpreter
 import dev.cubentia.domain.input.MoveIntent
 import dev.cubentia.domain.input.TouchPath
@@ -15,7 +16,9 @@ import dev.cubentia.domain.input.ViewPose
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlin.math.abs
 
 class GestureInterpreterTest {
     @Test
@@ -91,6 +94,20 @@ class GestureInterpreterTest {
                                 val key = start to direction
                                 val previous = expected.putIfAbsent(key, actual!!)
                                 if (previous != null) assertEquals(previous, actual)
+                                // The same drag, curved off its row and over-dragged past a quarter turn, keeps its lock.
+                                val across = tangent.first { abs(it.dot(direction)) < 0.5 }
+                                val curved =
+                                    listOf(
+                                        start,
+                                        start + direction * 0.4 + across * 0.1,
+                                        start + direction * 0.9 + across * 0.3,
+                                        start + direction * 4.0 + across * 0.2,
+                                    ).map(pose::project)
+                                assertEquals(
+                                    DragPreview.Active(actual.move, if (direction.x + direction.y + direction.z > 0) 90.0 else -90.0),
+                                    GestureInterpreter.preview(GestureInput(listOf(TouchPath(curved))), pose),
+                                    "$eye $start $direction curved",
+                                )
                                 assertEquals(
                                     actual.move.inverse(),
                                     GestureInterpreter.interpret(path(pose, start, direction * -0.6), pose)!!.move,
@@ -177,5 +194,94 @@ class GestureInterpreterTest {
         val pose = ViewPose(800, 600)
         val gap = Vector3(0.5, 0.0, CubeGeometry.STICKER_LIFT + 1.0)
         assertNull(GestureInterpreter.interpret(path(pose, gap, Vector3(0.0, 0.6, 0.0)), pose))
+    }
+
+    @Test
+    fun `lock survives bends and missed rays and can cancel and reverse`() {
+        val pose = ViewPose(800, 600)
+        val start = Vector3(1.0, 0.0, CubeGeometry.STICKER_LIFT.toDouble() + 1.0)
+        val samples = mutableListOf(pose.project(start))
+        val input = GestureInput(listOf(TouchPath(samples)))
+
+        fun append(
+            x: Double,
+            y: Double,
+        ) {
+            samples.add(pose.project(start + Vector3(x, y, 0.0)))
+        }
+
+        append(0.0, 0.2)
+        assertNull(GestureInterpreter.preview(input, pose))
+        append(0.0, 0.7)
+        val r = FaceTurn(Face.R, Turn.CLOCKWISE)
+        assertEquals(r, (GestureInterpreter.preview(input, pose) as DragPreview.Active).move)
+        append(1.0, 0.8)
+        assertEquals(r, (GestureInterpreter.preview(input, pose) as DragPreview.Active).move)
+        append(0.0, 4.0)
+        val clamped = DragPreview.Active(r, 90.0)
+        assertEquals(clamped, GestureInterpreter.preview(input, pose))
+        samples.add(pose.project(pose.eye + Vector3(-1.0, 0.0, 0.0)))
+        assertEquals(clamped, GestureInterpreter.preview(input, pose))
+
+        append(0.0, 0.0)
+        assertEquals(DragPreview.CancelZone, GestureInterpreter.preview(input, pose))
+        assertNull(GestureInterpreter.release(input, pose))
+        append(0.0, -0.36)
+        val reversed = GestureInterpreter.preview(input, pose) as DragPreview.Active
+        assertEquals(r.inverse(), reversed.move)
+        assertTrue(reversed.degrees in -1.0..0.0)
+        assertEquals(MoveIntent(r.inverse()), GestureInterpreter.release(input, pose))
+    }
+
+    @Test
+    fun `first ambiguous sample prevents a later lock`() {
+        val pose = ViewPose(800, 600)
+        val start = Vector3(1.0, 0.0, 1.5)
+        val points = listOf(start, start + Vector3(0.3, 0.3, 0.0), start + Vector3(0.0, 1.0, 0.0))
+        assertNull(GestureInterpreter.preview(GestureInput(listOf(TouchPath(points.map(pose::project)))), pose))
+    }
+
+    @Test
+    fun `classifies paired displacement and twist`() {
+        val pose = ViewPose(800, 600)
+        val a = ScreenPoint(350.0, 300.0)
+        val b = ScreenPoint(450.0, 300.0)
+
+        fun kind(
+            endA: ScreenPoint,
+            endB: ScreenPoint,
+        ) = GestureInterpreter.classifyPair(TouchPath(listOf(a, endA)), TouchPath(listOf(b, endB)), pose)
+
+        assertEquals(PairKind.UNDECIDED, kind(a.copy(y = 315.0), b))
+        assertEquals(PairKind.PARALLEL, kind(a.copy(y = 340.0), b.copy(y = 340.0)))
+        assertEquals(PairKind.PINCH, kind(a.copy(x = 400.0), b.copy(x = 420.0)))
+        assertEquals(PairKind.TWIST, kind(ScreenPoint(365.0, 265.0), ScreenPoint(435.0, 335.0)))
+    }
+
+    @Test
+    fun `wide lock uses the outer layer and survives retreat and reversal`() {
+        val pose = ViewPose(800, 600, Vector3(0.0, 0.0, 9.0))
+
+        fun finger(
+            x: Double,
+            y: Double,
+            vararg travel: Double,
+        ) = TouchPath((listOf(0.0) + travel.toList()).map { pose.project(Vector3(x, y + it, 1.5)) })
+
+        fun preview(
+            a: TouchPath,
+            b: TouchPath,
+        ) = GestureInterpreter.preview(GestureInput(listOf(a, b)), pose)
+        val r = WideTurn(Face.R, Turn.CLOCKWISE)
+        val right = finger(1.0, 0.0, 0.8)
+        val middle = finger(0.0, 0.0, 0.8)
+        assertEquals(r, (preview(right, middle) as DragPreview.Active).move)
+        assertEquals(r, (preview(middle, right) as DragPreview.Active).move)
+        assertEquals(r, (preview(finger(3.0, 0.0, 0.8), right) as DragPreview.Active).move)
+        assertNull(preview(middle, finger(0.0, 1.0, 0.8)))
+        assertNull(preview(right, finger(-1.0, 0.0, 0.8)))
+        assertEquals(DragPreview.CancelZone, preview(finger(1.0, 0.0, 0.8, 0.0), finger(0.0, 0.0, 0.8, 0.0)))
+        val reversed = preview(finger(1.0, 0.0, 0.8, -0.4), finger(0.0, 0.0, 0.8, -0.4))
+        assertEquals(r.inverse(), (reversed as DragPreview.Active).move)
     }
 }

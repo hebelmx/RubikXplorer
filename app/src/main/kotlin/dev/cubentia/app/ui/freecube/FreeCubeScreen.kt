@@ -35,8 +35,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -48,10 +46,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.min
 import dev.cubentia.app.R
+import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.LocalHaptics
 import dev.cubentia.app.preferences.LocalPreferenceStore
 import dev.cubentia.app.preferences.LocalRenderStyle
 import dev.cubentia.app.ui.editor.colorName
+import dev.cubentia.app.ui.lesson.rememberReduceMotion
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.application.preference.Preference
@@ -72,6 +72,7 @@ fun FreeCubeScreen(
     viewModel: FreeCubeViewModel,
     showDebugToggles: Boolean,
     modifier: Modifier = Modifier,
+    strings: ContentStrings = ContentStrings(emptyMap()),
 ) {
     val preferenceStore = LocalPreferenceStore.current
     val hapticsEnabled = LocalHaptics.current
@@ -85,10 +86,8 @@ fun FreeCubeScreen(
             front = null
         }
     }
-    val haptics = LocalHapticFeedback.current
     val commit: (MoveIntent) -> Unit = { intent ->
         caption = null
-        if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
         viewModel.onMoveIntent(intent)
         if (intent.move is CubeRotation) {
             front =
@@ -119,6 +118,7 @@ fun FreeCubeScreen(
                 caption = caption,
                 front = front,
                 onMoveIntent = commit,
+                strings = strings,
                 onClearCaption = {
                     caption = null
                     front = null
@@ -131,7 +131,6 @@ fun FreeCubeScreen(
             ) {
                 MoveKeyBar(
                     onMove = { commit(MoveIntent(it)) },
-                    tickOnCommit = false,
                     onShowName = { caption = it },
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -155,6 +154,7 @@ private fun CubeStage(
     caption: String?,
     front: Color?,
     onMoveIntent: (MoveIntent) -> Unit,
+    strings: ContentStrings,
     onClearCaption: () -> Unit,
     modifier: Modifier,
 ) {
@@ -200,6 +200,8 @@ private fun CubeStage(
         viewModel.renderer.Content(
             style = LocalRenderStyle.current,
             onMoveIntent = onMoveIntent,
+            reduceMotion = rememberReduceMotion(),
+            strings = strings,
             modifier = Modifier.fillMaxWidth().weight(1f).padding(Spacing.s2),
         )
         Box(Modifier.fillMaxWidth().heightIn(min = Spacing.s5), contentAlignment = Alignment.Center) {
@@ -253,6 +255,7 @@ internal fun ToolbarButton(
 @Composable
 private fun DebugToggles(viewModel: FreeCubeViewModel) {
     val preferenceStore = LocalPreferenceStore.current
+    val hapticsEnabled = LocalHaptics.current
     var objective by rememberSaveable { mutableStateOf(false) }
     LabelledSwitch(R.string.debug_glyphs, "debug:glyphs", LocalRenderStyle.current.colorBlindGlyphs, {
         preferenceStore.update(

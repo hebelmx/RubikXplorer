@@ -92,7 +92,7 @@ fun SolveScreen(
                         EnterColors(strings, flow::enterColors)
                     }
                 }
-                Box(Modifier.weight(1f)) { FreeCubeScreen(freeCube, showDebugToggles, Modifier.fillMaxSize()) }
+                Box(Modifier.weight(1f)) { FreeCubeScreen(freeCube, showDebugToggles, Modifier.fillMaxSize(), strings) }
             }
 
             is SolvePhase.Editing -> {

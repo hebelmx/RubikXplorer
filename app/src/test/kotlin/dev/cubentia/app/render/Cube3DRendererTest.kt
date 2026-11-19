@@ -3,6 +3,7 @@ package dev.cubentia.app.render
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Application
 import android.graphics.Rect
+import android.os.Looper
 import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.View
@@ -51,11 +52,13 @@ import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.domain.cube.Slice
 import dev.cubentia.domain.cube.SliceTurn
 import dev.cubentia.domain.cube.Turn
+import dev.cubentia.domain.input.DragPreview
 import dev.cubentia.domain.input.MoveArrow
 import dev.cubentia.domain.input.ScreenPoint
 import dev.cubentia.domain.input.Vector3
 import dev.cubentia.domain.input.ViewOrbit
 import dev.cubentia.domain.input.ViewPose
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -66,6 +69,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import java.time.Duration
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
@@ -139,6 +143,38 @@ class Cube3DRendererTest {
         assertEquals(first.toFacelets(), cube.renderedFacelets())
         rule.mainClock.advanceTimeBy(200)
         assertEquals(second.toFacelets(), cube.renderedFacelets())
+    }
+
+    @Test
+    fun heldGhostTimesOutWithoutChangingTheMeshOrCommittedCube() {
+        val cube = Cube3DRenderer()
+        rule.setContent { cube.Content(RenderStyle(), Modifier.size(300.dp), onMoveIntent = {}) }
+        rule.waitForIdle()
+        val baseline = checkNotNull(cube.glSnapshot)
+        val move = FaceTurn(Face.R, Turn.CLOCKWISE)
+        rule.runOnIdle {
+            cube.beginDrag()
+            cube.showPreview(DragPreview.Active(move, 54.0), Offset(50f, 50f))
+        }
+        val ghost = checkNotNull(cube.glSnapshot)
+        assertEquals(9, ghost.emphasisFlags.count { it and 4 != 0 })
+        assertEquals(baseline.meshVersion, ghost.meshVersion)
+        assertFalse(baseline.models.contentEquals(ghost.models))
+        assertEquals(CubeState.SOLVED.toFacelets(), cube.renderedFacelets())
+
+        rule.runOnIdle {
+            cube.holdForCommit()
+            val held = checkNotNull(cube.glSnapshot)
+            assertArrayEquals(ghost.models, held.models, 0f)
+            assertTrue(held.emphasisFlags.none { it and 4 != 0 })
+        }
+        rule.waitForIdle()
+        val looper = shadowOf(Looper.getMainLooper())
+        looper.idleFor(Duration.ofMillis(Cube3DRenderer.HOLD_TIMEOUT_MILLIS / 2))
+        assertArrayEquals(ghost.models, checkNotNull(cube.glSnapshot).models, 0f)
+        looper.idleFor(Duration.ofMillis(Cube3DRenderer.HOLD_TIMEOUT_MILLIS / 2))
+        assertArrayEquals(baseline.models, checkNotNull(cube.glSnapshot).models, 0f)
+        assertEquals(CubeState.SOLVED.toFacelets(), cube.renderedFacelets())
     }
 
     @Test fun exposesLocalizedStateDerivedDescription() {

@@ -9,6 +9,7 @@ in vec2 vLocal;
 in float vSticker;
 uniform float uDim;
 uniform float uHighlight;
+uniform float uPreview;
 uniform float uPulse;
 uniform float uPxPerDp;
 out vec4 outColor;
@@ -20,9 +21,9 @@ void main() {
     vec3 color = mix(vColor, vInk, texture(uAtlas, vUv).a * vGlyph);
     if (vSticker > 0.5) {
         color *= mix(1.0, 0.4, uDim);
-        if (uHighlight > 0.5) {
+        if (max(uHighlight, uPreview) > 0.5) {
             vec3 highlight = vec3(167.0, 151.0, 255.0) / 255.0;
-            color = mix(color, highlight, 0.55 * clamp(uPulse, 0.0, 1.0));
+            color = mix(color, highlight, 0.55 * uHighlight * clamp(uPulse, 0.0, 1.0));
             vec2 edge = (vec2(1.0) - abs(vLocal)) / max(sqrt(dx * dx + dy * dy), vec2(0.00001));
             float distanceDp = min(edge.x, edge.y) / uPxPerDp;
             if (distanceDp < 3.0) color = highlight;

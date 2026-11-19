@@ -12,6 +12,7 @@ class PresentationQueue(
     private val waiting = ArrayDeque<PresentationItem>()
     private var current: PresentationItem.Animate? = null
     private var started = 0L
+    private var startFraction = 0f
     private var duration = 0L
 
     @get:Synchronized
@@ -33,7 +34,13 @@ class PresentationQueue(
     @Synchronized
     fun onFrame(nanos: Long) {
         if (current != null) {
-            val progress = (nanos - started).toFloat() / duration
+            val progress =
+                if (duration == 0L) {
+                    1f
+                } else {
+                    startFraction +
+                        (1f - startFraction) * (nanos - started).toFloat() / duration
+                }
             model.setProgress(progress)
             if (progress >= 1f) finishCurrent()
             return
@@ -46,12 +53,33 @@ class PresentationQueue(
             is PresentationItem.Animate -> {
                 current = item
                 started = nanos
-                duration =
+                startFraction = model.begin(item.move)
+                val fullDuration =
                     animationSpeed.scale(TURN_MILLIS.toLong()) * 1_000_000L /
-                    if (waiting.size >= FAST_FORWARD_AFTER) FAST_FORWARD_DIVISOR else 1
-                model.begin(item.move)
+                        if (waiting.size >= FAST_FORWARD_AFTER) FAST_FORWARD_DIVISOR else 1
+                duration = (fullDuration * (1f - startFraction)).toLong()
             }
         }
+    }
+
+    /** Immediately applies the current item and every waiting item in FIFO order. */
+    @Synchronized
+    fun finishAll() {
+        model.clearGhost()
+        finishCurrent()
+        for (item in waiting) {
+            when (item) {
+                is PresentationItem.Snap -> {
+                    model.reset(item.target)
+                }
+
+                is PresentationItem.Animate -> {
+                    model.begin(item.move)
+                    model.commit()
+                }
+            }
+        }
+        waiting.clear()
     }
 
     /** Drops every outstanding item, the turn in flight included, and shows [target] now. */

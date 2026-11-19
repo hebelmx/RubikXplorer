@@ -1,16 +1,18 @@
 package dev.cubentia.app.render
 
 import android.opengl.GLSurfaceView
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.os.Trace
 import android.view.View
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -29,7 +31,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -41,7 +42,10 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntSize
@@ -51,6 +55,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.cubentia.app.R
+import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.render.gl.CubeGlRenderer
 import dev.cubentia.app.render.gl.CubeMesh
 import dev.cubentia.app.render.gl.CubieModel
@@ -59,20 +64,21 @@ import dev.cubentia.app.render.gl.GlyphAtlas
 import dev.cubentia.app.render.gl.PresentationQueue
 import dev.cubentia.app.render.gl.StickerDraw
 import dev.cubentia.app.ui.editor.colorName
+import dev.cubentia.app.ui.freecube.movePlainName
 import dev.cubentia.app.ui.theme.CubeTokens
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Notation
-import dev.cubentia.domain.input.GestureInterpreter
+import dev.cubentia.domain.input.DragPreview
 import dev.cubentia.domain.input.MoveArrow
 import dev.cubentia.domain.input.MoveIntent
 import dev.cubentia.domain.input.ScreenPoint
-import dev.cubentia.domain.input.TouchPath
 import dev.cubentia.domain.input.Vector3
 import dev.cubentia.domain.input.ViewOrbit
 import dev.cubentia.domain.input.ViewPose
+import dev.cubentia.domain.text.Text
 import kotlinx.coroutines.channels.Channel
 import kotlin.math.abs
 import kotlin.math.max
@@ -87,6 +93,13 @@ data class RenderedArrow(
 )
 
 val RenderedArrowKey = SemanticsPropertyKey<RenderedArrow>("RenderedArrow")
+
+data class PreviewedMove(
+    val notation: String,
+    val degrees: Double,
+)
+
+val PreviewedMoveKey = SemanticsPropertyKey<PreviewedMove>("PreviewedMove")
 
 val RenderedOrbitKey = SemanticsPropertyKey<ViewOrbit>("RenderedOrbit")
 
@@ -110,6 +123,15 @@ class Cube3DRenderer(
         sidePx: Double,
     ) {
         orbit = orbit.dragged(dx, dy, sidePx)
+    }
+
+    internal fun dragViewFrom(
+        base: ViewOrbit,
+        dx: Double,
+        dy: Double,
+        sidePx: Double,
+    ) {
+        orbit = base.dragged(dx, dy, sidePx)
     }
 
     fun resetView() {
@@ -201,9 +223,100 @@ class Cube3DRenderer(
 
     /** Discards everything outstanding and draws [target] at once, without waiting for a frame. */
     fun snapNow(target: Facelets) {
+        clearPreview()
         queue.snapNow(target)
+        drawn = model.facelets()
         publishNow?.invoke()
         endTracedTurn()
+    }
+
+    private var preview by mutableStateOf<DragPreview?>(null)
+    private var finger by mutableStateOf(Offset.Zero)
+    private var ghost: DragPreview.Active? = null
+    private var cancelFrom by mutableStateOf<DragPreview.Active?>(null)
+    private var heldUntil by mutableStateOf<Long?>(null)
+    private var announcement by mutableStateOf<DragPreview?>(null)
+
+    internal fun clearAnnouncement() {
+        announcement = null
+    }
+
+    internal fun announceCancelled() {
+        announcement = DragPreview.CancelZone
+    }
+
+    fun beginDrag() {
+        clearPreview()
+        queue.finishAll()
+        endTracedTurn()
+        drawn = model.facelets()
+        presented = null
+        publishNow?.invoke()
+    }
+
+    fun showPreview(
+        next: DragPreview?,
+        position: Offset,
+        reduceMotion: Boolean = false,
+    ) {
+        val previous = preview
+        preview = next
+        finger = position
+        when (next) {
+            is DragPreview.Active -> {
+                if ((previous as? DragPreview.Active)?.move != next.move) announcement = next
+                cancelFrom = null
+                if (reduceMotion) {
+                    ghost = null
+                    model.clearGhost()
+                } else {
+                    ghost = next
+                    model.setGhost(next.move, next.degrees.toFloat())
+                }
+                publishNow?.invoke()
+            }
+
+            DragPreview.CancelZone -> {
+                announcement = null
+                if (previous is DragPreview.Active) cancelPreview(animated = true)
+            }
+
+            null -> {
+                if (previous != null) cancelPreview(animated = false)
+            }
+        }
+    }
+
+    fun holdForCommit() {
+        preview = null
+        cancelFrom = null
+        if (ghost != null) {
+            heldUntil = SystemClock.uptimeMillis() + HOLD_TIMEOUT_MILLIS
+            model.hideGhostHighlight()
+            publishNow?.invoke()
+        }
+    }
+
+    internal fun endDrag() {
+        if (heldUntil == null) cancelPreview(animated = false)
+    }
+
+    fun cancelPreview(animated: Boolean) {
+        if (animated) {
+            cancelFrom = ghost
+        } else if (clearPreview()) {
+            publishNow?.invoke()
+        }
+    }
+
+    private fun clearPreview(): Boolean {
+        val hadGhost = ghost != null
+        preview = null
+        cancelFrom = null
+        heldUntil = null
+        ghost = null
+        model.clearGhost()
+        return hadGhost
     }
 
     @Composable
@@ -216,8 +329,10 @@ class Cube3DRenderer(
         reduceMotion: Boolean = false,
         summary: String? = null,
         freeViewRotation: Boolean = false,
+        onDragStart: (() -> Unit)? = null,
+        viewGestures: Boolean = onMoveIntent != null || freeViewRotation,
+        strings: ContentStrings? = null,
     ) {
-        val latestCommit by rememberUpdatedState(onMoveIntent)
         val latestStyle by rememberUpdatedState(style)
         SideEffect { queue.animationSpeed = style.animationSpeed }
         val latestEmphasis by rememberUpdatedState(emphasis)
@@ -294,8 +409,33 @@ class Cube3DRenderer(
             publishNow = { publish() }
             onDispose {
                 publishNow = null
+                // A held ghost loses its timeout with the stage; never bring a stale pose back on return.
+                clearPreview()
                 endTracedTurn()
             }
+        }
+        val easing = cancelFrom
+        LaunchedEffect(easing) {
+            if (easing != null) {
+                val duration = (style.animationSpeed.scale(TURN_MILLIS.toLong()) * abs(easing.degrees) / 90).toInt()
+                animate(easing.degrees.toFloat(), 0f, animationSpec = tween(duration, easing = LinearEasing)) { value, _ ->
+                    if (cancelFrom == easing) {
+                        ghost = easing.copy(degrees = value.toDouble())
+                        model.setGhost(easing.move, value)
+                        publish()
+                    }
+                }
+            }
+        }
+        val deadline = heldUntil
+        DisposableEffect(deadline) {
+            val handler = Handler(Looper.getMainLooper())
+            val expire =
+                Runnable {
+                    if (heldUntil == deadline) cancelPreview(animated = false)
+                }
+            if (deadline != null) handler.postAtTime(expire, deadline)
+            onDispose { handler.removeCallbacks(expire) }
         }
         renderer.eye = orbit.eye()
         LaunchedEffect(orbit) { view.requestRender() }
@@ -311,7 +451,19 @@ class Cube3DRenderer(
                     }
                     while (queue.isBusy) {
                         withFrameNanos {
-                            queue.onFrame(it)
+                            if (preview != null) {
+                                // A prior session dispatch can reach the queue after the new drag starts.
+                                queue.finishAll()
+                                ghost?.let { model.setGhost(it.move, it.degrees.toFloat()) }
+                            } else {
+                                if (queue.active == null) {
+                                    val deadlineAtFrame = heldUntil
+                                    if (deadlineAtFrame == null || SystemClock.uptimeMillis() >= deadlineAtFrame) model.clearGhost()
+                                    heldUntil = null
+                                    ghost = null
+                                }
+                                queue.onFrame(it)
+                            }
                             publish()
                         }
                     }
@@ -372,170 +524,102 @@ class Cube3DRenderer(
         val state = stringResource(if (isSolved(drawn)) R.string.cube_state_solved else R.string.cube_state_unsolved)
         // Semantics on an AndroidView's own node never reach TalkBack (the interop view replaces it),
         // so a plain Compose node wraps the surface and is the single focusable leaf that speaks for it.
-        Box(
-            modifier =
-                modifier.testTag("cube3d").clearAndSetSemantics {
-                    this[RenderedStickersKey] = stickers
-                    this[RenderedOrbitKey] = orbit
-                    if (arrow != null) this[RenderedArrowKey] = RenderedArrow(Notation.format(arrow), arrowProgress)
-                    contentDescription = if (facesMode) faces else summary ?: description
-                    customActions =
-                        listOf(
-                            CustomAccessibilityAction(actionLabel) {
-                                facesMode = !facesMode
-                                true
-                            },
+        val teachingArrow = arrow.takeIf { preview == null }
+        val activePreview = preview as? DragPreview.Active
+        val overlayMove = activePreview?.move ?: teachingArrow
+        val overlayProgress = if (activePreview != null) 1f else arrowProgress
+        val arrowColor = CubeTokens.stickerHighlight.copy(alpha = if (activePreview != null) 0.6f else 1f)
+        val gesture = if (viewGestures) cubeGestureInput(this, onMoveIntent, onDragStart, freeViewRotation, reduceMotion) else Modifier
+        Box(modifier) {
+            Box(
+                modifier =
+                    Modifier.fillMaxSize().testTag("cube3d").clearAndSetSemantics {
+                        this[RenderedStickersKey] = stickers
+                        this[RenderedOrbitKey] = orbit
+                        if (teachingArrow != null) this[RenderedArrowKey] = RenderedArrow(Notation.format(teachingArrow), arrowProgress)
+                        if (activePreview != null) {
+                            this[PreviewedMoveKey] =
+                                PreviewedMove(Notation.format(activePreview.move), activePreview.degrees)
+                        }
+                        contentDescription = if (facesMode) faces else summary ?: description
+                        customActions =
+                            listOf(
+                                CustomAccessibilityAction(actionLabel) {
+                                    facesMode = !facesMode
+                                    true
+                                },
+                            )
+                        if (facesMode) liveRegion = LiveRegionMode.Polite
+                        stateDescription = state
+                    },
+            ) {
+                AndroidView(factory = { view }, modifier = Modifier.fillMaxSize())
+                if (overlayMove != null) {
+                    val measurer = rememberTextMeasurer()
+                    val label =
+                        measurer.measure(
+                            Notation.format(overlayMove),
+                            RubikTheme.textStyles.notation.copy(color = arrowColor),
                         )
-                    if (facesMode) liveRegion = LiveRegionMode.Polite
-                    stateDescription = state
-                },
-        ) {
-            AndroidView(factory = { view }, modifier = Modifier.fillMaxSize())
-            if (arrow != null) {
-                val measurer = rememberTextMeasurer()
-                val label =
-                    measurer.measure(
-                        Notation.format(arrow),
-                        RubikTheme.textStyles.notation.copy(color = CubeTokens.stickerHighlight),
-                    )
-                Canvas(Modifier.matchParentSize()) {
-                    val pose = ViewPose(size.width.toInt(), size.height.toInt(), orbit.eye())
-                    val points = arrowPoints(arrow, pose)
-                    val position = arrowProgress * points.lastIndex
-                    val whole = position.toInt().coerceAtMost(points.lastIndex)
-                    val tip =
-                        if (whole ==
-                            points.lastIndex
-                        ) {
-                            points.last()
-                        } else {
-                            points[whole] + (points[whole + 1] - points[whole]) * (position - whole)
+                    Canvas(Modifier.matchParentSize()) {
+                        val pose = ViewPose(size.width.toInt(), size.height.toInt(), orbit.eye())
+                        val points = arrowPoints(overlayMove, pose)
+                        val position = overlayProgress * points.lastIndex
+                        val whole = position.toInt().coerceAtMost(points.lastIndex)
+                        val tip =
+                            if (whole ==
+                                points.lastIndex
+                            ) {
+                                points.last()
+                            } else {
+                                points[whole] + (points[whole + 1] - points[whole]) * (position - whole)
+                            }
+                        val path =
+                            Path().apply {
+                                moveTo(points.first().x, points.first().y)
+                                for (i in 1..whole) lineTo(points[i].x, points[i].y)
+                                lineTo(tip.x, tip.y)
+                            }
+                        drawPath(path, arrowColor, style = Stroke(4.dp.toPx()))
+                        if (overlayProgress > 0f) {
+                            val previous = points[(whole - 1).coerceAtLeast(0)]
+                            val direction = (tip - previous).let { if (it.getDistance() > 0f) it / it.getDistance() else Offset(1f, 0f) }
+                            val back = tip - direction * 12.dp.toPx()
+                            val side = Offset(-direction.y, direction.x) * 6.dp.toPx()
+                            drawLine(arrowColor, tip, back + side, 4.dp.toPx())
+                            drawLine(arrowColor, tip, back - side, 4.dp.toPx())
+                            drawText(
+                                label,
+                                topLeft =
+                                    arrowLabelTopLeft(
+                                        if (activePreview !=
+                                            null
+                                        ) {
+                                            finger
+                                        } else {
+                                            tip
+                                        },
+                                        label.size,
+                                        size,
+                                        8.dp.toPx(),
+                                    ),
+                            )
                         }
-                    val path =
-                        Path().apply {
-                            moveTo(points.first().x, points.first().y)
-                            for (i in 1..whole) lineTo(points[i].x, points[i].y)
-                            lineTo(tip.x, tip.y)
-                        }
-                    drawPath(path, CubeTokens.stickerHighlight, style = Stroke(4.dp.toPx()))
-                    if (arrowProgress > 0f) {
-                        val previous = points[(whole - 1).coerceAtLeast(0)]
-                        val direction = (tip - previous).let { if (it.getDistance() > 0f) it / it.getDistance() else Offset(1f, 0f) }
-                        val back = tip - direction * 12.dp.toPx()
-                        val side = Offset(-direction.y, direction.x) * 6.dp.toPx()
-                        drawLine(CubeTokens.stickerHighlight, tip, back + side, 4.dp.toPx())
-                        drawLine(CubeTokens.stickerHighlight, tip, back - side, 4.dp.toPx())
-                        drawText(label, topLeft = arrowLabelTopLeft(tip, label.size, size, 8.dp.toPx()))
                     }
                 }
+                if (viewGestures) Box(Modifier.matchParentSize().then(gesture))
             }
-            if (onMoveIntent != null || freeViewRotation) {
+            if (onMoveIntent != null) {
+                val message =
+                    when (val notice = announcement) {
+                        is DragPreview.Active -> movePlainName(notice.move)
+                        DragPreview.CancelZone -> strings?.resolve(Text(TURN_CANCELLED_KEY))?.takeIf { it != TURN_CANCELLED_KEY }.orEmpty()
+                        null -> ""
+                    }
                 Box(
-                    Modifier.matchParentSize().pointerInput(freeViewRotation) {
-                        var previousTap: Long? = null
-                        awaitEachGesture {
-                            val down = awaitFirstDown()
-
-                            fun point(p: androidx.compose.ui.geometry.Offset) = ScreenPoint(p.x.toDouble(), p.y.toDouble())
-                            val first = point(down.position)
-                            var last = first
-                            val initialOrbit = orbit
-                            val pose = ViewPose(size.width, size.height, initialOrbit.eye())
-                            val onCube = !freeViewRotation && GestureInterpreter.startsOnCube(first, pose)
-                            val side = minOf(size.width, size.height).toDouble()
-                            val initialSecond = currentEvent.changes.firstOrNull { it.id != down.id && it.pressed }
-                            var secondId = initialSecond?.id
-                            var startA = first
-                            var startB = initialSecond?.let { point(it.position) } ?: first
-                            var endA = first
-                            var endB = startB
-                            var pairOrbit = initialOrbit
-                            var pairPose = pose
-                            var twisted = false
-                            var moved = false
-                            var valid = true
-                            down.consume()
-                            initialSecond?.consume()
-                            do {
-                                val event = awaitPointerEvent()
-                                val primary = event.changes.firstOrNull { it.id == down.id }
-                                if (secondId == null) {
-                                    val second = event.changes.firstOrNull { it.id != down.id && it.pressed }
-                                    if (second != null && primary != null && primary.pressed) {
-                                        secondId = second.id
-                                        startA = point(primary.position)
-                                        startB = point(second.position)
-                                        endA = startA
-                                        endB = startB
-                                        pairOrbit = orbit
-                                        // Judge the twist against the camera shown when the pair formed.
-                                        pairPose = ViewPose(size.width, size.height, pairOrbit.eye())
-                                    }
-                                }
-                                if ((primary == null && secondId == null) || primary?.isConsumed == true) valid = false
-                                if (primary != null) {
-                                    last = point(primary.position)
-                                    val dx = last.x - first.x
-                                    val dy = last.y - first.y
-                                    if (dx * dx + dy * dy >= viewConfiguration.touchSlop * viewConfiguration.touchSlop) moved = true
-                                }
-                                if (secondId != null) {
-                                    val second = event.changes.firstOrNull { it.id == secondId }
-                                    if (primary != null && second != null && primary.previousPressed && second.previousPressed) {
-                                        endA = point(primary.position)
-                                        endB = point(second.position)
-                                        if (!freeViewRotation &&
-                                            GestureInterpreter.interpretTwist(startA, startB, endA, endB, pairPose) != null
-                                        ) {
-                                            twisted = true
-                                        }
-                                        orbit =
-                                            if (twisted) {
-                                                pairOrbit
-                                            } else {
-                                                pairOrbit.dragged(
-                                                    (endA.x + endB.x - startA.x - startB.x) / 2,
-                                                    (endA.y + endB.y - startA.y - startB.y) / 2,
-                                                    side,
-                                                )
-                                            }
-                                    }
-                                } else if (!onCube) {
-                                    orbit = initialOrbit.dragged(last.x - first.x, last.y - first.y, side)
-                                }
-                                event.changes.filter { it.id == down.id || it.id == secondId }.forEach { it.consume() }
-                            } while (event.changes.any { (it.id == down.id || it.id == secondId) && it.pressed })
-                            if (secondId != null) {
-                                previousTap = null
-                                if (valid && !freeViewRotation &&
-                                    twisted
-                                ) {
-                                    GestureInterpreter
-                                        .interpretTwist(
-                                            startA,
-                                            startB,
-                                            endA,
-                                            endB,
-                                            pairPose,
-                                        )?.let { latestCommit?.invoke(it) }
-                                }
-                            } else if (!moved && valid) {
-                                val previous = previousTap
-                                if (previous != null && down.uptimeMillis - previous <= viewConfiguration.doubleTapTimeoutMillis) {
-                                    resetView()
-                                    previousTap = null
-                                } else {
-                                    previousTap = down.uptimeMillis
-                                }
-                            } else {
-                                previousTap = null
-                                if (valid &&
-                                    onCube
-                                ) {
-                                    GestureInterpreter.interpret(TouchPath(listOf(first, last)), pose)?.let { latestCommit?.invoke(it) }
-                                }
-                            }
-                        }
+                    Modifier.size(1.dp).testTag("cube3d:announcement").semantics {
+                        liveRegion = LiveRegionMode.Polite
+                        if (message.isNotEmpty()) text = AnnotatedString(message)
                     },
                 )
             }
@@ -549,6 +633,11 @@ class Cube3DRenderer(
 
         /** True when every face shows one color, in any orientation. */
         internal fun isSolved(facelets: Facelets): Boolean = facelets.colors.chunked(PER_FACE).all { face -> face.all { it == face[0] } }
+
+        const val HOLD_TIMEOUT_MILLIS = 500L
+
+        /** Content key of the cancellation announcement; with no content loaded it stays silent instead of reading the key. */
+        internal const val TURN_CANCELLED_KEY = "msg.gesture.turn-cancelled"
 
         const val ARROW_IN_MILLIS = 200
 
