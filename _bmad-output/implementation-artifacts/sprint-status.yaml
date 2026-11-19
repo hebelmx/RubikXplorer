@@ -1113,3 +1113,9 @@ action_items:
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-205-placement-outcome-dark-theme.md"
+  - id: "issue-200-deferred-device-playback-chip-only"
+    epic: 12
+    action: "On the Galaxy S24 FE in portrait, with TalkBack, check Physical-cube Solution Playback shows only the certainty chip and nothing overlaps the net; run the instrumented Cube3DRenderSyncTest (compiled only) (low; deferred from #200, SolutionPlayback.kt:383)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-200-playback-status-shown-twice.md"
