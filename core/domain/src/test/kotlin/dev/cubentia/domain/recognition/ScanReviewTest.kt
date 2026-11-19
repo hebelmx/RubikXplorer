@@ -99,6 +99,31 @@ class ScanReviewTest {
         assertEquals(solved, ScanReview.fromSamples(samples).accepted?.toFacelets())
     }
 
+    @Test fun `sample pipeline leaves a close yellow white reading blank until painted`() {
+        val index = 0
+        val samples =
+            GuidedScanPlan.steps.map { step ->
+                RecognitionFixtures.sample(
+                    center = step.centerColor,
+                    up = step.upNeighborColor,
+                    stickers =
+                        List(9) { cell ->
+                            if (step.face.ordinal * 9 + cell == index) {
+                                Lab(88.0, -2.0, 38.0)
+                            } else {
+                                RecognitionFixtures.LABS.getValue(step.centerColor)
+                            }
+                        },
+                )
+            }
+
+        val review = ScanReview.fromSamples(samples)
+        assertEquals(listOf(index), review.blanks)
+        assertEquals(index, review.selected)
+        assertNull(review.accepted)
+        assertEquals(solved, review.paint(solved.colors[index]).accepted?.toFacelets())
+    }
+
     @Test fun `piece lines precede validator lines and only filled pieces are checked`() {
         val colors = solved.colors.toMutableList().also { it[9] = Color.WHITE }
         val review = ScanReview(colors, null)

@@ -3,9 +3,11 @@ package dev.cubentia.app
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.SystemClock
 import android.view.View
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -131,34 +133,7 @@ class ScanRouteTest {
         rule.waitForIdle()
         assertEquals(1, source.starts)
 
-        // [misread] reads that facelet as another clear color, so only the Learner's carried correction can fix it.
-        fun frames(
-            logo: Boolean,
-            misread: Int = -1,
-        ) {
-            GuidedScanPlan.steps.forEach { step ->
-                val cells =
-                    cube
-                        .toFacelets()
-                        .colors
-                        .subList(step.face.ordinal * 9, step.face.ordinal * 9 + 9)
-                        .mapIndexed { i, color ->
-                            CellReading(
-                                when {
-                                    step.face.ordinal * 9 + i == misread -> labs.getValue(labs.keys.first { it != color })
-                                    step.face == Face.F && i == 0 -> closeCall(color)
-                                    else -> labs.getValue(color)
-                                },
-                                !(logo && step.centerColor == Color.WHITE && i == 4),
-                            )
-                        }
-                source.feed(FrameStats(cells, 120.0, 0.0, 100.0, 12), null)
-                rule.waitForIdle()
-                vm.frozen?.let { vm.endFreeze(it.id) }
-                rule.waitForIdle()
-            }
-        }
-        frames(true)
+        captureFaces(vm, logo = true)
         assertTrue(
             "Expected review, got ${vm.phase}; captured=${vm.controller.captured.map {
                 it.face
@@ -207,7 +182,7 @@ class ScanRouteTest {
         assertTrue("After save: ${vm.phase}", vm.phase is GuidedScanPhase.Viewfinder)
         assertEquals(labs, (runBlocking { repository.load() } as CalibrationLoad.Loaded).calibration?.centers)
         assertEquals(before + 1, source.starts)
-        frames(false, misread = index)
+        captureFaces(vm, logo = false, misread = index)
         val review = vm.phase as GuidedScanPhase.Review
         assertEquals(color, review.review.stickers[index])
         assertTrue(review.edited)
@@ -325,10 +300,86 @@ class ScanRouteTest {
         rule.waitForIdle()
     }
 
+    @Test fun cameraStopsInReviewAndStaysStoppedAfterRotation() {
+        val scan = Robolectric.buildActivity(GuidedScanActivity::class.java).setup()
+        try {
+            rule.waitForIdle()
+            rule.waitUntil(10_000) {
+                shadowOf(android.os.Looper.getMainLooper()).idle()
+                source.running
+            }
+            val starts = source.starts
+            val vm = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
+            captureFaces(vm, logo = false)
+            val captured = vm.phase as GuidedScanPhase.Review
+            rule.onNodeWithTag("review:screen").assertIsDisplayed()
+            assertFalse(source.running)
+            // A Learner correction made before rotating must survive it.
+            val index = captured.review.blanks.first()
+            if (rule.onAllNodesWithTag("review:coach").fetchSemanticsNodes().isNotEmpty()) {
+                rule.onNodeWithTag("review:coach").performClick()
+            }
+            rule.onNodeWithTag("sticker:$index").performClick()
+            rule.onNodeWithTag("swatch:${cube.toFacelets().colors[index].name}").performClick()
+            rule.waitForIdle()
+            val review = vm.phase as GuidedScanPhase.Review
+            assertEquals(cube.toFacelets().colors[index], review.review.stickers[index])
+            assertTrue(review.edited)
+
+            RuntimeEnvironment.setQualifiers("+land")
+            scan.recreate()
+            rule.waitForIdle()
+
+            assertEquals(
+                Configuration.ORIENTATION_LANDSCAPE,
+                scan
+                    .get()
+                    .resources.configuration.orientation,
+            )
+            assertEquals(review, ViewModelProvider(scan.get())[GuidedScanViewModel::class.java].phase)
+            rule.onNodeWithTag("review:screen").assertIsDisplayed()
+            assertEquals(starts, source.starts)
+            assertFalse(source.running)
+        } finally {
+            scan.pause().stop().destroy()
+        }
+    }
+
+    // [misread] reads that facelet as another clear color, so only the Learner's carried correction can fix it.
+    private fun captureFaces(
+        vm: GuidedScanViewModel,
+        logo: Boolean,
+        misread: Int = -1,
+    ) {
+        GuidedScanPlan.steps.forEach { step ->
+            val cells =
+                cube
+                    .toFacelets()
+                    .colors
+                    .subList(step.face.ordinal * 9, step.face.ordinal * 9 + 9)
+                    .mapIndexed { i, color ->
+                        CellReading(
+                            when {
+                                step.face.ordinal * 9 + i == misread -> labs.getValue(labs.keys.first { it != color })
+                                step.face == Face.F && i == 0 -> closeCall(color)
+                                else -> labs.getValue(color)
+                            },
+                            !(logo && step.centerColor == Color.WHITE && i == 4),
+                        )
+                    }
+            source.feed(FrameStats(cells, 120.0, 0.0, 100.0, 12), null)
+            rule.waitForIdle()
+            vm.frozen?.let { vm.endFreeze(it.id) }
+            rule.waitForIdle()
+        }
+    }
+
     internal class FakeFrames : ScanFrameSource {
         var starts = 0
         private lateinit var executor: ExecutorService
         private var receiver: ((ScanFrame) -> Unit)? = null
+
+        val running: Boolean get() = receiver != null
 
         override fun preview(context: Context) = View(context)
 

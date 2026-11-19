@@ -12,11 +12,24 @@ class PieceCheckTest {
                     val stickers = MutableList<Color?>(54) { null }.also { values -> piece.forEach { values[it] = color } }
                     val problem = PieceCheck.problems(stickers).single()
                     assertEquals("msg.validation.piece-repeats.${color.name.lowercase()}", problem.reason.key)
-                    assertEquals(mapOf("piece" to kind), problem.reason.args)
+                    assertEquals(mapOf("piece" to kind, "count" to piece.size), problem.reason.args)
                     assertEquals(piece.sorted(), problem.positions)
                 }
             }
         }
+    }
+
+    @Test fun `two matching corner stickers count and outline only the pair`() {
+        val corner = FaceletTables.CORNER_FACELETS.first()
+        val stickers = MutableList<Color?>(54) { null }
+        stickers[corner[0]] = Color.WHITE
+        stickers[corner[1]] = Color.WHITE
+        stickers[corner[2]] = Color.RED
+
+        val problem = PieceCheck.problems(stickers).single()
+        assertEquals("msg.validation.piece-repeats.white", problem.reason.key)
+        assertEquals(mapOf("piece" to "corner", "count" to 2), problem.reason.args)
+        assertEquals(corner.take(2).sorted(), problem.positions)
     }
 
     @Test fun `all opposite pairs on every piece outline only the pair`() {

@@ -5,10 +5,12 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -25,10 +27,14 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toSize
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.LocalHaptics
 import dev.cubentia.app.preferences.LocalReduceMotionOverride
+import dev.cubentia.app.render.Net2DRenderer
+import dev.cubentia.app.render.STICKER_GAP_FRACTION
 import dev.cubentia.app.render.StickerColorKey
 import dev.cubentia.app.ui.a11y.assertClickablesAtLeast48dp
 import dev.cubentia.app.ui.a11y.assertNoMidWordBreaks
@@ -63,9 +69,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, qualifiers = "w640dp-h960dp")
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ScanReviewScreenTest {
     @get:Rule val rule = createComposeRule()
     private val strings = ContentStrings((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings)
@@ -397,6 +405,65 @@ class ScanReviewScreenTest {
             .onChildren()
             .filterToOne(hasText("?"))
             .assertExists()
+    }
+
+    @Test fun `blank labels fit their stickers in the full net at 200 percent`() {
+        launch(large = true)
+        rule.onAllNodesWithTag("sticker:53").assertCountEquals(1)
+        assertBlankLabelsSizedLikeGlyphs(Net2DRenderer.NET_COLUMNS, "full scan review net at 200 percent")
+    }
+
+    @Test
+    @Config(qualifiers = "w608dp-h960dp")
+    fun `blank labels fit their stickers in the smallest full net at 200 percent`() {
+        launch(large = true)
+        rule.onAllNodesWithTag("sticker:53").assertCountEquals(1)
+        assertBlankLabelsSizedLikeGlyphs(Net2DRenderer.NET_COLUMNS, "608 dp scan review net at 200 percent")
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp")
+    fun `blank labels fit their stickers in the compact one-face view at 200 percent`() {
+        launch(large = true)
+        rule.onAllNodesWithTag("sticker:53").assertCountEquals(0)
+        assertBlankLabelsSizedLikeGlyphs(3, "compact scan review at 200 percent")
+    }
+
+    /** Each shown blank's "?" is sized like StickerGlyph from its [columns]-wide net's cell and stays inside its sticker. */
+    private fun assertBlankLabelsSizedLikeGlyphs(
+        columns: Int,
+        screen: String,
+    ) {
+        rule.assertNoTextOverflow(screen)
+        val net = rule.onNodeWithTag("reviewNet").fetchSemanticsNode()
+        val cellDp = net.size.width / net.layoutInfo.density.density / columns
+        // Sized like StickerGlyph: 55% of the cell in dp (at least 16dp, at most the sticker), never scaled by font size.
+        val expectedDp = (cellDp * 0.55f).coerceIn(16f, cellDp * (1f - 2f * STICKER_GAP_FRACTION))
+        val shown = review.blanks.filter { rule.onAllNodesWithTag("sticker:$it").fetchSemanticsNodes().isNotEmpty() }
+        assertTrue("$screen shows a blank", shown.isNotEmpty())
+        shown.forEach { index ->
+            val sticker = rule.onNodeWithTag("sticker:$index", useUnmergedTree = true)
+            val cell = sticker.fetchSemanticsNode()
+            val label = sticker.onChildren().filterToOne(hasText("?")).fetchSemanticsNode()
+            val cellBounds = Rect(cell.positionInRoot, cell.size.toSize())
+            val labelBounds = Rect(label.positionInRoot, label.size.toSize())
+            val layouts = mutableListOf<TextLayoutResult>()
+            label.config[SemanticsActions.GetTextLayoutResult].action?.invoke(layouts)
+            val labelDp =
+                with(label.layoutInfo.density) {
+                    layouts
+                        .single()
+                        .layoutInput.style.fontSize
+                        .toDp()
+                        .value
+                }
+            assertEquals("$screen: blank label $index font size in dp", expectedDp, labelDp, 0.5f)
+            assertTrue(
+                "$screen: blank label $labelBounds exceeds sticker $index at $cellBounds",
+                labelBounds.left >= cellBounds.left && labelBounds.top >= cellBounds.top &&
+                    labelBounds.right <= cellBounds.right && labelBounds.bottom <= cellBounds.bottom,
+            )
+        }
     }
 
     @Test fun `close is enabled and closes at once when nothing was changed`() {

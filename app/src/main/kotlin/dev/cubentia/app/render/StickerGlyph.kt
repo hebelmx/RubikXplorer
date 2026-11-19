@@ -6,7 +6,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
 import dev.cubentia.app.ui.theme.PlexSans
 import dev.cubentia.domain.appearance.StickerAppearance
 import kotlin.math.max
@@ -27,12 +27,22 @@ internal fun StickerGlyph(
     appearance: StickerAppearance,
     cell: Dp,
 ) {
+    StickerLabel(appearance.glyph.toString(), Color(appearance.glyphInk), cell)
+}
+
+@Composable
+internal fun StickerLabel(
+    text: String,
+    color: Color,
+    cell: Dp,
+) {
     val inner = cell.value * (1f - 2f * STICKER_GAP_FRACTION)
     val glyphDp = min(max(MIN_GLYPH_DP, cell.value * GLYPH_FRACTION), inner)
-    val fontSize = with(LocalDensity.current) { (glyphDp / fontScale).sp }
+    // dp → sp through the density, so a nonlinear font scale cannot resize it either.
+    val fontSize = with(LocalDensity.current) { glyphDp.dp.toSp() }
     Text(
-        text = appearance.glyph.toString(),
-        color = Color(appearance.glyphInk),
+        text = text,
+        color = color,
         fontFamily = PlexSans,
         fontWeight = FontWeight.SemiBold,
         fontSize = fontSize,
