@@ -48,6 +48,20 @@ class SolveCubeTest {
     }
 
     @Test
+    fun `merges and verifies adapter turns including a plan that cancels to empty`() =
+        runBlocking {
+            val clockwise = FaceTurn(Face.R, Turn.CLOCKWISE)
+            val half = FaceTurn(Face.R, Turn.HALF)
+            val inverse = clockwise.inverse()
+            val merge = SolveCube(CubeSolver { SolveResult.Solved(listOf(clockwise, half)) })
+            assertEquals(SolveCubeOutcome.Solved(listOf(inverse)), merge(request(CubeState.SOLVED.apply(clockwise))).outcome)
+
+            val cancel = SolveCube(CubeSolver { SolveResult.Solved(listOf(clockwise, inverse)) })
+            assertEquals(SolveCubeOutcome.Solved(emptyList()), cancel(request()).outcome)
+            assertInstanceOf(SolveCubeOutcome.Failed::class.java, cancel(request(CubeState.SOLVED.apply(half))).outcome)
+        }
+
+    @Test
     fun `every orientation face and amount maps back to the exact input and echoes metadata`() =
         runBlocking<Unit> {
             orientedSolved().forEach { solved ->
