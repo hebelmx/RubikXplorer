@@ -5,10 +5,17 @@ created: '2026-11-19'
 status: 'done'
 baseline_revision: 'b25c7438815493fd75d568e52fad47b947758399'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context: []
 warnings: [oversized]
-deferred: []
+deferred:
+  - summary: >-
+      Device check: confirm the GL-rendered Lesson cube redraws at 34 degrees on a settled cube and stays fully visible on the Galaxy S24 FE (normal and 200% font), with teaching arrow and face labels aligned.
+    evidence: |-
+      Code is wired (LaunchedEffect(orbit, fovDegrees) requests a render; draw() uploads viewProjection(), which keys on eye + FOV) and JVM tests cover the handoff, but no rasterized frame is inspected; Robolectric cannot render GL. Planned for the next PO device session.
+    location: >-
+      app/src/main/kotlin/dev/cubentia/app/render/Cube3DRenderer.kt:510, app/src/main/kotlin/dev/cubentia/app/render/gl/CubeGlRenderer.kt:107
+    severity: low
 ---
 
 <intent-contract>
@@ -89,6 +96,29 @@ deferred: []
   - `[low]` `[reject]` (intent-alignment) "Unchanged" assertions are fixed values, expanded width untested — the fixed values (360/351/275dp) are the pre-change measurements; expanded is excluded by the same `compactVirtual` predicate as medium.
   - `[false]` `[reject]` (intent-alignment) Renderer-wide FOV plumbing goes beyond "only the cube's size" — the plumbing is what keeps picking and overlays consistent with the zoom; no other screen sets a non-default FOV.
 
+### 2026-11-19 — Review pass
+- verdicts: 19 findings — high 0, medium 0, low 10, false 9, maybe-false 0
+- findings:
+  - `[false]` `[reject]` (blind-hunter) Growth test uses a shorter baseline canvas, FOV alone gives ~1.126x — carried: pre-change measurement gave the 176dp canvas the reconstruction uses; an absolute >=156dp floor is also asserted.
+  - `[false]` `[reject]` (blind-hunter) 200% font canvas may extend past the scrolling stage viewport; silhouette not re-checked after rotation — carried: the stage does not scroll at 411x891 font 2.0, and the bounding-sphere assertion is orbit-independent.
+  - `[low]` `[defer]` (blind-hunter) GL tests stop at the FOV field and projection helper; a FOV-only change could fail to redraw — code requests a render on `fovDegrees` change (`LaunchedEffect(orbit, fovDegrees)`) and `draw()` uploads `viewProjection()`; only a rasterized frame check is missing, recorded as a deferred device check for the planned PO device session (grouped with the verification-gap GL row).
+  - `[low]` `[reject]` (blind-hunter) Teaching-arrow and face-label alignment at 34° unverified — carried: both overlays call the same `pose()` helper whose FOV is tested; a pixel harness is new work for a regression-only risk.
+  - `[low]` `[reject]` (blind-hunter) Medium test checks only FOV, expanded untested — carried: wide layouts take the same `compactVirtual` false branch for FOV and padding; adding geometry assertions is new coverage for a regression-only risk.
+  - `[low]` `[reject]` (blind-hunter) Drag keeps the pointer-down pose across a live resize — carried: needs a mid-gesture window resize across the breakpoint; the fix adds cancellation branches for a near-unreachable case.
+  - `[low]` `[reject]` (edge-case-hunter) Drag active while the window crosses the compact breakpoint — carried: same as the live-resize row.
+  - `[false]` `[reject]` (edge-case-hunter) Non-finite or out-of-range FOV breaks projection — carried: the only writer (`LessonScreen.kt:943`) assigns 34.0 or 38.0.
+  - `[low]` `[defer]` (verification-gap) FOV-only change on an idle cube not shown to produce a new 34° frame — grouped with the blind-hunter GL row; deferred device check.
+  - `[low]` `[reject]` (verification-gap) Teaching-arrow Canvas placement at 34° unverified — carried: same reason as the arrow row above.
+  - `[low]` `[reject]` (verification-gap) Rotated face-label placement at 34° unverified — carried: same reason; `FaceLabels.place` is pure and tested.
+  - `[false]` `[reject]` (intent-alignment) "At the same canvas" vs the derived pre-change baseline — carried: the baseline equals the measured pre-change canvas, and the matrix's own figures (136 -> 156dp) only fit the before/after reading.
+  - `[false]` `[reject]` (intent-alignment) Tests check the projection model, not rendered pixels — carried: Robolectric cannot rasterize GL; the GL matrix is the same `ViewPose`, and the handoff is tested; the pixel check is the deferred device check.
+  - `[false]` `[reject]` (intent-alignment) Overlap uses the canvas rectangle; no-clip not checked during a layer turn — carried for the overlap; the bounding sphere contains every turning and rotated state, so the sphere assertion covers turns.
+  - `[false]` `[reject]` (intent-alignment) Drag test proves picking at 34° but not that GL drew at 34° — GL `fovDegrees` is set in the same composition as picking's pose (`Cube3DRenderer.kt:509`), so the two cannot disagree; the handoff has its own test.
+  - `[low]` `[reject]` (intent-alignment) Matrix coverage gaps (Test me, per-mode font scales, PHYSICAL_MISMATCH, expanded) — carried: all share one `LearnerStage` layout and the `== VIRTUAL` / COMPACT predicate; a cross-product adds runtime, not coverage.
+  - `[false]` `[reject]` (intent-alignment) Lesson renderer holds 34° during Show me — Show me draws through `DemonstrationPlayer`'s own renderer at 38°; the Lesson renderer is not on screen.
+  - `[low]` `[reject]` (intent-alignment) The 38.0 default is written in four places — no caller changes the default today and the spec forbids changing `ViewPose`'s 38°; a shared constant across modules is more than a direct correction for an unlikely divergence.
+  - `[false]` `[reject]` (intent-alignment) Decision (B) is not in the diff — it is a PR-description deliverable, recorded in this spec's Auto Run Result for the PR author.
+
 ## Design Notes
 
 FOV 34° comes from the bounding sphere: radius 1.472·√3 ≈ 2.55 at orbit radius |(4.2,4.6,6.4)| ≈ 8.93 subtends asin(2.55/8.93) ≈ 16.6°, so tan(17°) keeps the sphere (every turn and view rotation) inside the narrower side, filling ~97% of it vs ~87% at 38°. Gain ≈ tan(19°)/tan(17°) ≈ 1.126, plus ~8dp of padding; on the device's shorter stage the canvas grows ~8% and the cube ~25-30% in linear size. The header and key bar cannot shrink under decision (A), so this is the available headroom.
@@ -121,3 +151,16 @@ Status: done
 
 **Residual risks:** Growth is ≈1.17x linear in the test harness and ≈1.25x on the device's shorter stage — parity with physical mode is not reachable while the header and key bar stay fixed (decision A). Spec I/O row wording "at the same canvas" was interpreted as against the pre-change canvas (the measured baseline).
 
+### Follow-up review pass (2026-11-19)
+
+**Summary:** Fresh review of the done change (no code changes this pass). Compact virtual Lesson Learner stage uses FOV 34° and 4dp vertical padding; physical and wide layouts unchanged; GL, picking, arrows and face labels share the renderer's FOV.
+
+**Files changed this pass:** spec only (triage log, deferred device check, this result).
+
+**Review:** 19 findings — 0 patched, 1 deferred entry (2 rows: GL-rendered frame at 34° not rasterized in tests -> device check in the planned PO device session), 17 rejected (9 false, 8 low; reasons in the Review Triage Log; most carried from the first pass). Patched counts by verdict: high 0, medium 0, low 0.
+
+**Follow-up review recommended:** false — follow-up pass patched no high finding; the work has converged.
+
+**Verification:** No code changed this pass, so the first pass's results stand (`./gradlew :app:testDebugUnitTest --tests 'dev.cubentia.app.ui.lesson.*' --tests 'dev.cubentia.app.render.*'` pass; `./gradlew spotlessCheck build` BUILD SUCCESSFUL). Code inspection confirmed the FOV-keyed redraw (`Cube3DRenderer.kt:510`) and `draw()` uploading `viewProjection()` (`CubeGlRenderer.kt:107`).
+
+**Residual risks:** GL-rendered size and overlay alignment are confirmed only by the shared projection model until the device session; parity with physical mode is out of reach under decision (A).
