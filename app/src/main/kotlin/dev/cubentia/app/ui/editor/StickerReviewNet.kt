@@ -57,6 +57,7 @@ import dev.cubentia.app.render.Net2DRenderer
 import dev.cubentia.app.render.RenderStyle
 import dev.cubentia.app.render.STICKER_GAP_FRACTION
 import dev.cubentia.app.render.StickerGlyph
+import dev.cubentia.app.render.StickerLabel
 import dev.cubentia.app.render.stickerColor
 import dev.cubentia.app.render.stickerGlyphInk
 import dev.cubentia.app.ui.lesson.rememberReduceMotion
@@ -360,11 +361,10 @@ private fun ReviewSticker(
         contentAlignment = Alignment.Center,
     ) {
         if (appearance == null) {
-            Text(
-                requireNotNull(strings).resolve(
-                    ContentText("msg.scan.blank-label"),
-                ),
+            StickerLabel(
+                text = requireNotNull(strings).resolve(ContentText("msg.scan.blank-label")),
                 color = ink,
+                cell = cell,
             )
         } else if (style.colorBlindGlyphs) {
             StickerGlyph(appearance, cell)

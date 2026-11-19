@@ -5,7 +5,11 @@ import dev.cubentia.app.session.testBundle
 import dev.cubentia.app.session.whiteCrossLesson
 import dev.cubentia.domain.content.ContentLoadError
 import dev.cubentia.domain.content.ContentLoadResult
+import dev.cubentia.domain.content.ContentLoader
+import dev.cubentia.domain.content.ContentSource
 import dev.cubentia.domain.content.TextKey
+import dev.cubentia.domain.cube.Color
+import dev.cubentia.domain.cube.PieceCheck
 import dev.cubentia.domain.text.Text
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -35,6 +39,27 @@ class ContentStringsTest {
             strings.resolve(Text("msg.validation.impossible-piece", mapOf("piece" to "edge"))),
         )
         assertEquals("Turn 2 faces", strings.resolve(Text("lesson.lesson-01-01.goal.1", mapOf("count" to 2))))
+    }
+
+    @Test
+    fun `shipped repeated-color messages say three for a one-color corner and two otherwise`() {
+        val shipped = ContentStrings((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings)
+        // The URF corner (U9, R1, F3) and the UF edge (U8, F2) in URFDLB facelet order.
+        val corner = listOf(8, 9, 20)
+        val edge = listOf(7, 19)
+        val opposite = mapOf(Color.WHITE to Color.YELLOW, Color.GREEN to Color.BLUE, Color.RED to Color.ORANGE)
+        Color.entries.forEach { color ->
+            val name = color.name.lowercase()
+            val other = Color.entries.first { it != color && opposite[it] != color && opposite[color] != it }
+
+            fun line(vararg stickers: Pair<Int, Color>): String {
+                val colors = MutableList<Color?>(54) { null }.also { list -> stickers.forEach { (i, c) -> list[i] = c } }
+                return shipped.resolve(PieceCheck.problems(colors).single().reason)
+            }
+            assertEquals("This corner shows three ${name}s.", line(*corner.map { it to color }.toTypedArray()))
+            assertEquals("This corner shows two ${name}s.", line(corner[0] to color, corner[1] to color, corner[2] to other))
+            assertEquals("This edge shows two ${name}s.", line(*edge.map { it to color }.toTypedArray()))
+        }
     }
 
     @Test

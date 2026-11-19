@@ -31,7 +31,7 @@ object PieceCheck {
                                         Color.RED -> "msg.validation.piece-repeats.red"
                                         Color.ORANGE -> "msg.validation.piece-repeats.orange"
                                     }
-                                val reason = Text(key, mapOf("piece" to kind.id))
+                                val reason = Text(key, mapOf("piece" to kind.id, "count" to repeated.size))
                                 add(ReviewProblem(reason, repeated))
                             }
                         }
