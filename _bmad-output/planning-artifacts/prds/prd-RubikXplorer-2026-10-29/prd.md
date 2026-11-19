@@ -2,7 +2,7 @@
 title: RubikXplorer — MVP Product Requirements Document
 status: final
 created: 2026-10-29
-updated: 2026-11-14
+updated: 2026-11-19
 ---
 
 # PRD: RubikXplorer
@@ -477,7 +477,7 @@ The Learner can capture all six faces in a live viewfinder, with face prompts an
 
 **Consequences (testable):**
 - Each face is captured automatically once the grid is aligned and the image is stable. A manual shutter is also available.
-- Each face may be shown in any rotation. The app works out each face's rotation from adjacency checks across the six faces; when it can't, it asks again for only the faces involved, naming the side to put on top. It never guesses. (SCP 2026-11-16)
+- Each face may be shown in any rotation. The app works out each face's rotation from adjacency checks across the six faces; when it can't, it asks again for only the faces involved, naming the side to put on top. It never guesses. (SCP 2026-11-16) When no rotation fits and more than 2 faces are involved, it asks again for none of them: the colors were probably misread, so it goes straight to review with the best-fitting rotations, where the Learner corrects the stickers (SCP 2026-11-19, #164).
 - Every sticker gets a Sticker Confidence. Uncertain stickers are highlighted for one-tap correction before the result can be accepted.
 
 #### FR-22: Quick Scan (corner views)
