@@ -1119,3 +1119,15 @@ action_items:
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-200-playback-status-shown-twice.md"
+  - id: "issue-201-deferred-header-length-end-padding"
+    epic: 12
+    action: "Give the Solution Playback \"<N> moves\" header text end padding (Spacing.s4) so wrapped text does not sit flush on the right edge (low; deferred from #201, SolvePlaybackScreen.kt:73)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-201-solution-length-up-front.md"
+  - id: "issue-201-deferred-device-length-header-200pct"
+    epic: 12
+    action: "On a device at 200% font scale, check the \"<N> moves\" header and prominent counter fit (Robolectric only so far); confirm an empty Solution never reaches Playback showing \"0 moves\" (low; deferred from #201)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-201-solution-length-up-front.md"

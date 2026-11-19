@@ -245,6 +245,7 @@ fun PlaybackTransport(
     modifier: Modifier = Modifier,
     note: String? = null,
     onScrub: ((Double) -> Unit)? = null,
+    prominentCounter: Boolean = false,
 ) {
     val tokens = RubikTheme.tokens
     val styles = RubikTheme.textStyles
@@ -310,8 +311,8 @@ fun PlaybackTransport(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.s4)) {
             Text(
                 stringResource(R.string.playback_counter, state.position, state.size),
-                style = styles.data,
-                color = tokens.inkSecondary,
+                style = if (prominentCounter) styles.notation.copy(fontFeatureSettings = "tnum") else styles.data,
+                color = if (prominentCounter) tokens.inkPrimary else tokens.inkSecondary,
                 modifier = Modifier.testTag("playback:counter"),
             )
             PlaybackMoveLabel(state.currentMove, preferences.movePictures)

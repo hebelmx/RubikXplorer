@@ -119,6 +119,17 @@ class AlgorithmDetailScreenTest {
         rule.onNodeWithTag("playback:counter").assertTextEquals("$boundary / ${demo.moves.size}")
     }
 
+    /** The shared transport's counter keeps its pre-#201 look here: `data` in `ink-secondary`. */
+    private fun assertDefaultCounterStyle() {
+        val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        rule.onNodeWithTag("playback:counter").performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        assertEquals(
+            dev.cubentia.app.ui.theme.RubikExtraTextStyles.data
+                .copy(color = dev.cubentia.app.ui.theme.LightTokens.inkSecondary),
+            layouts.single().layoutInput.style,
+        )
+    }
+
     private fun orbit() = rule.onNodeWithTag("cube3d").fetchSemanticsNode().config[RenderedOrbitKey]
 
     private fun assertCurrent(
@@ -135,6 +146,7 @@ class AlgorithmDetailScreenTest {
     @Test fun `starts at Case with VIRTUAL label diagram notation and default status controls`() {
         show()
         assertBoundary(0)
+        assertDefaultCounterStyle()
         rule.onNodeWithTag(DIAGRAM_TAG).assertExists()
         rule.onNodeWithTag("stage:frame").assertExists()
         rule.onNodeWithTag("algorithmDetail:title").assertTextEquals(strings.resolve(case.name))

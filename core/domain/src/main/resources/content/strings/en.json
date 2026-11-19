@@ -446,6 +446,7 @@
   "msg.milestone.first-solve": "You solved the cube!",
   "msg.milestone.stage-mastered": "{stage} mastered.",
   "btn.settings.move-pictures": "Move pictures",
+  "msg.playback.solution-length": "{count, plural, one {# move} other {# moves}}",
   "msg.playback.move-chip": "Move {index} of {total}, {notation}",
   "msg.playback.move-chip-current": "Current move",
   "btn.playback.show-net": "Show the 2D net",
