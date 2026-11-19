@@ -9,6 +9,7 @@ import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -37,6 +38,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -49,6 +51,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -65,6 +68,7 @@ import dev.cubentia.app.render.stickerGlyphInk
 import dev.cubentia.app.ui.lesson.rememberReduceMotion
 import dev.cubentia.app.ui.theme.CubeTokens
 import dev.cubentia.app.ui.theme.DarkTokens
+import dev.cubentia.app.ui.theme.PlexSans
 import dev.cubentia.app.ui.theme.Radii
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.domain.appearance.StickerAppearance
@@ -78,6 +82,19 @@ import dev.cubentia.domain.text.Text as ContentText
 /** Whether a sticker carries the invalid-piece outline (it belongs to an offending piece). */
 val StickerInvalidKey = SemanticsPropertyKey<Boolean>("StickerInvalid")
 var SemanticsPropertyReceiver.stickerInvalid by StickerInvalidKey
+
+val StickerProblemsKey = SemanticsPropertyKey<List<Int>>("StickerProblems")
+val StickerProblemFocusedKey = SemanticsPropertyKey<Boolean>("StickerProblemFocused")
+
+val StickerProblemTagShapeKey = SemanticsPropertyKey<StickerProblemTagShape>("StickerProblemTagShape")
+
+enum class StickerProblemTagShape { CIRCLE, ROUNDED_SQUARE }
+
+data class StickerProblemMark(
+    val numbers: List<Int>,
+    val conflicts: List<Int>,
+    val focusedNumber: Int?,
+)
 
 /** The color of an invalid sticker's outline: `sticker-highlight`, per the cube-highlight rule. */
 val StickerOutlineColorKey = SemanticsPropertyKey<Color>("StickerOutlineColor")
@@ -189,6 +206,7 @@ fun StickerReviewNet(
     unresolved: List<CubeColor?>? = null,
     strings: ContentStrings? = null,
     cue: StickerCue? = null,
+    problemMarks: Map<Int, StickerProblemMark>? = null,
 ) {
     val reduceMotion = rememberReduceMotion()
     // Cues already played, so a sticker scrolled back into a one-face view does not replay its cue.
@@ -232,6 +250,7 @@ fun StickerReviewNet(
                         reduceMotion = reduceMotion,
                         cueSerial = cue?.takeIf { it.index == index }?.serial,
                         playedCues = playedCues,
+                        problemMark = problemMarks?.get(index),
                         modifier = Modifier.offset(cell * column, cell * row),
                     )
                 }
@@ -253,6 +272,7 @@ private fun ReviewSticker(
     reduceMotion: Boolean,
     cueSerial: Int?,
     playedCues: MutableSet<Int>,
+    problemMark: StickerProblemMark?,
     modifier: Modifier,
 ) {
     val appearance = color?.let(StickerAppearance::of)
@@ -309,6 +329,7 @@ private fun ReviewSticker(
             )
         }
     val invalidState = stringResource(R.string.editor_sticker_invalid)
+    val problemState = problemMark?.let { problemStateDescription(requireNotNull(strings), it) }
     Box(
         modifier =
             modifier
@@ -320,7 +341,7 @@ private fun ReviewSticker(
                     scaleY = cueScale.value
                 }.background(fill, RoundedCornerShape(Radii.xs))
                 .drawWithContent {
-                    drawContent()
+                    if (problemMark == null) drawContent()
                     var inset = 0f
                     if (color == null) {
                         inset = BLANK_EDGE_DP.dp.toPx()
@@ -337,6 +358,7 @@ private fun ReviewSticker(
                     // The cube-highlight rule: never `status-invalid` red on the cube body.
                     if (isInvalid) inset = drawRing(tokens.stickerHighlight, inset)
                     if (isSelected) drawSelectedRing(tokens.accent, inset, ringAlpha.value)
+                    if (problemMark != null) drawContent()
                 }.testTag("sticker:$index")
                 .semantics {
                     contentDescription = description
@@ -353,6 +375,11 @@ private fun ReviewSticker(
                     }
                     if (cueSerial != null) stickerCueScales = !reduceMotion
                     if (isInvalid) stateDescription = invalidState
+                    if (problemMark != null && problemState != null) {
+                        this[StickerProblemsKey] = problemMark.numbers
+                        this[StickerProblemFocusedKey] = problemMark.focusedNumber in problemMark.numbers
+                        stateDescription = problemState
+                    }
                     if (color == null) {
                         stateDescription =
                             requireNotNull(strings).resolve(
@@ -371,6 +398,22 @@ private fun ReviewSticker(
         } else if (style.colorBlindGlyphs) {
             StickerGlyph(appearance, cell)
         }
+        if (problemMark != null) {
+            // Prefer a problem this sticker conflicts in, so a second problem on the same piece keeps a visible number.
+            val tagNumber =
+                problemMark.focusedNumber?.takeIf { it in problemMark.conflicts }
+                    ?: problemMark.conflicts.firstOrNull()
+                    ?: problemMark.focusedNumber?.takeIf { it in problemMark.numbers }
+                    ?: problemMark.numbers.first()
+            ProblemTag(
+                tagNumber,
+                focused = tagNumber == problemMark.focusedNumber,
+                tag = "sticker:$index:tag",
+                modifier = Modifier.align(Alignment.TopStart),
+                diameter = (cell * 0.4f).coerceAtLeast(16.dp),
+                isConflict = tagNumber in problemMark.conflicts,
+            )
+        }
         if (checkAlpha.value > 0f) {
             Box(
                 Modifier
@@ -383,6 +426,57 @@ private fun ReviewSticker(
                 Text("✓", color = tokens.onAccent, style = MaterialTheme.typography.labelSmall)
             }
         }
+    }
+}
+
+private fun problemStateDescription(
+    strings: ContentStrings,
+    mark: StickerProblemMark,
+): String =
+    listOf(
+        "msg.scan.sticker-conflict-in-problem" to mark.conflicts,
+        "msg.scan.sticker-in-problem" to (mark.numbers - mark.conflicts.toSet()),
+    ).mapNotNull { (key, numbers) ->
+        numbers.takeIf { it.isNotEmpty() }?.let {
+            strings.resolve(ContentText(key, mapOf("count" to it.size, "numbers" to it.joinToString())))
+        }
+    }.joinToString(". ")
+
+@Composable
+internal fun ProblemTag(
+    number: Int,
+    focused: Boolean,
+    tag: String,
+    modifier: Modifier = Modifier,
+    diameter: Dp = 24.dp,
+    isConflict: Boolean = true,
+) {
+    val tokens = RubikTheme.tokens
+    val shape = if (isConflict) CircleShape else RoundedCornerShape(Radii.xs)
+    Box(
+        modifier
+            .requiredSize(diameter)
+            .background(if (focused) tokens.stickerHighlight else tokens.cubieBody, shape)
+            .border(1.dp, tokens.stickerHighlight, shape)
+            .clearAndSetSemantics {
+                testTag = tag
+                this[StickerProblemFocusedKey] = focused
+                this[StickerProblemTagShapeKey] =
+                    if (isConflict) StickerProblemTagShape.CIRCLE else StickerProblemTagShape.ROUNDED_SQUARE
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        val fontSize = with(LocalDensity.current) { (diameter * 0.57f).toSp() }
+        Text(
+            number.toString(),
+            color = if (focused) tokens.cubieBody else tokens.stickerHighlight,
+            fontFamily = PlexSans,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = fontSize,
+            lineHeight = fontSize,
+            maxLines = 1,
+            softWrap = false,
+        )
     }
 }
 
