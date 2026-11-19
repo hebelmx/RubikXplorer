@@ -5,7 +5,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -272,7 +271,7 @@ class Cube3DRenderSyncTest {
     }
 
     private fun assertPhysicalEvidence() {
-        rule.onNodeWithTag("stage:frame").assertTextEquals("EXPECTED")
+        rule.onNodeWithTag("stage:frame").assertDoesNotExist()
         rule.onNodeWithTag("certainty:label").assertExists()
         rule.onNodeWithTag("stage:seen").assertExists()
         rule.onNodeWithTag("playback:quickCheck").assertExists()

@@ -31,7 +31,6 @@ import dev.cubentia.app.render.RenderedArrow
 import dev.cubentia.app.render.RenderedArrowKey
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.TickingClock
-import dev.cubentia.app.ui.lesson.DashedBorderKey
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.application.preference.PlaybackView
 import dev.cubentia.application.preference.Preference
@@ -182,16 +181,29 @@ class SolutionPlaybackTest {
         assertEquals(ViewOrbit.DEFAULT, restoredCube.orbit)
         assertEquals(2, state.position)
 
-        // In physical 3D playback, the badge sits right after the EXPECTED frame label.
+        // The rotated badge also starts at the left edge in physical 3D playback.
         click("followOnMyCube")
         val physicalCube = state.renderer as Cube3DRenderer
         rule.runOnIdle { physicalCube.rotateView(ViewOrbit.STEP_DEGREES, 0.0) }
         rule.waitForIdle()
-        val frameBounds = rule.onNodeWithTag("stage:frame").fetchSemanticsNode().boundsInRoot
+        rule.onNodeWithTag("stage:frame").assertDoesNotExist()
+        rule.onNodeWithTag("stage:viewRotated").assertExists()
+        val stageBounds = rule.onNodeWithTag("cube3d").fetchSemanticsNode().boundsInRoot
         val badgeBounds = rule.onNodeWithTag("stage:viewRotated").fetchSemanticsNode().boundsInRoot
-        assertTrue(badgeBounds.left >= frameBounds.right)
-        assertDirectTraversal("stage:frame", "stage:viewRotated")
+        assertEquals(stageBounds.left, badgeBounds.left, 1f)
+        assertEquals(stageBounds.top, badgeBounds.top, 1f)
         assertDirectTraversal("stage:viewRotated", "cube3d")
+    }
+
+    @Test
+    fun physicalNetStartsWithoutAStageOverlayOrCertaintyChip() {
+        show(store = netPreferences())
+        click("followOnMyCube")
+
+        rule.onNodeWithTag("net").assertExists()
+        rule.onNodeWithTag("stage:frame").assertDoesNotExist()
+        rule.onNodeWithTag("stage:viewRotated").assertDoesNotExist()
+        rule.onNodeWithTag("certainty:label").assertDoesNotExist()
     }
 
     @Test
@@ -224,7 +236,7 @@ class SolutionPlaybackTest {
         assertEquals(before, events)
         assertEquals(1, state.position)
         assertEquals(scrambled.apply(solution.take(1)).toFacelets(), state.renderer.renderedFacelets())
-        rule.onNodeWithTag("stage:frame").assertTextEquals("EXPECTED")
+        rule.onNodeWithTag("stage:frame").assertDoesNotExist()
         tag("done").assertExists()
         tag("back").assertExists()
 
@@ -445,8 +457,7 @@ class SolutionPlaybackTest {
         tag("chip:0").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Current move"))
         assertTrue(state.isPhysical)
         assertEquals(SyncState.PHYSICAL_PREDICTED, state.session.syncState)
-        rule.onNodeWithTag("stage:frame").assertTextEquals("EXPECTED")
-        assertTrue(rule.onNodeWithTag("stage:frame").fetchSemanticsNode().config[DashedBorderKey])
+        rule.onNodeWithTag("stage:frame").assertDoesNotExist()
 
         // First step (0 / 3) awaiting F'
         tag("counter").assertTextEquals("0 / 3")
@@ -490,8 +501,7 @@ class SolutionPlaybackTest {
         assertEquals(CubeState.SOLVED, state.session.expected)
         assertNull(state.session.observed)
         assertEquals(SyncState.PHYSICAL_PREDICTED, state.session.syncState)
-        rule.onNodeWithTag("stage:frame").assertTextEquals("EXPECTED")
-        assertTrue(rule.onNodeWithTag("stage:frame").fetchSemanticsNode().config[DashedBorderKey])
+        rule.onNodeWithTag("stage:frame").assertDoesNotExist()
 
         tag("counter").assertTextEquals("3 / 3")
         tag("move").assertTextEquals("")
@@ -871,6 +881,7 @@ class SolutionPlaybackTest {
                 }
             }
         }
+        rule.onNodeWithTag("net").assertExists()
         tag("quickCheck").performClick()
         assertEquals(1, requests)
         runBlocking {
@@ -886,16 +897,21 @@ class SolutionPlaybackTest {
             }
         }
         rule.waitForIdle()
-        rule.onNodeWithTag("stage:frame").assertTextEquals("VERIFIED")
+        rule.onNodeWithTag("stage:frame").assertDoesNotExist()
         rule.onNodeWithTag("certainty:label").assertTextEquals("Verified")
         tag("viewSwitch").performClick()
         rule.onNodeWithTag("cube3d").assertExists()
-        rule.onNodeWithTag("stage:frame").assertTextEquals("VERIFIED")
+        rule.onNodeWithTag("stage:frame").assertDoesNotExist()
         rule.onNodeWithTag("certainty:label").assertTextEquals("Verified")
         tag("quickCheck").assertExists()
         tag("done").performClick()
         rule.waitForIdle()
         tag("quickCheck").assertExists()
-        rule.onNodeWithTag("stage:frame").assertTextEquals("EXPECTED")
+        rule.onNodeWithTag("stage:frame").assertDoesNotExist()
+        rule.onNodeWithTag("certainty:label").assertDoesNotExist()
+        tag("viewSwitch").performClick()
+        rule.onNodeWithTag("net").assertExists()
+        rule.onNodeWithTag("stage:frame").assertDoesNotExist()
+        rule.onNodeWithTag("certainty:label").assertDoesNotExist()
     }
 }
