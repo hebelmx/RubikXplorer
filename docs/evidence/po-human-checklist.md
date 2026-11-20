@@ -44,21 +44,11 @@ We are still on internal testing waiting for the laters build  to promote to clo
 - 
 
 **Website (cubentia-site)**
-4. [ ] Open `/`, `/privacy/` and `/support/`. ✅ For each one:
-https://hebelmx.github.io/cubentia-site/privacy/#main
+4. [x] Open `/`, `/privacy/` and `/support/`. ✅ Verified 2026-11-20 after `hebelmx/cubentia-site#8`:
    - you can reach everything with Tab, and the focus is visible . ✅
    - it still reads well at 200% zoom . ✅
    - it works on a narrow window (320 px) . ✅
-   - it works in light and dark mode . 
-   - 
-During manual verification of `cubentia-site` (`/`, `/privacy/`, `/support/`), I could not switch the site into light mode.
-
-Please update `cubentia-site` so that:
-1. All pages (`/`, `/privacy/`, `/support/`) support both **light and dark themes** with readable contrast and proper focus rings in both modes.
-2. It respects the user's system preference (`prefers-color-scheme`) by default.
-3. Add an accessible **Light / Dark mode toggle button** in the top navigation/header (reachable via `Tab`, with clear `aria-label` / `aria-pressed` state) so users can manually switch themes on any page and persist their choice across pages (`localStorage`).
-4. 
-   Note the result on site PR #4.
+   - it works in light and dark mode . ✅ (zero-JS `Switch light / dark theme` toggle works on every page; cross-page persistence deferred to `hebelmx/cubentia-site#9`)
 
 **Quick yes/no answers for me** (reply in chat)
 
