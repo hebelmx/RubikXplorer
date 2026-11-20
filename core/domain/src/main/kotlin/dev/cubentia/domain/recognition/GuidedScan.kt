@@ -598,10 +598,15 @@ class GuidedScanController internal constructor(
         const val STEADY_DELTA_E = 5.0
 
         /**
-         * A center this close (CIE76) to an already captured center is the same face again. Provisional, tuned in
-         * device session B.
+         * A center this close (CIE76) to an already captured center is the same face again (GH #158). Tuned on the 12
+         * recorded live sets (`Fixtures/live`, studio light, Lenovo TB128XU and S24 FE): face centers of different
+         * colors in one set are at least 24.8 apart (RED vs ORANGE, `sm-s721u1_stla_studio-a`), and a face center is at
+         * least 23.9 from any other color's calibration center (RED vs ORANGE, `sm-s721u1_stla_studio-a/L`), so 12.0 is
+         * about half the smallest cross-color distance while covering ~75 % of recorded same-color jitter (~70 % at
+         * 10). CIEDE2000 was rejected: it shrinks WHITE vs BLUE to 9.1 on a GAN logo center. Warm and dim light stay a
+         * Story 10.8 measurement; `RepeatedFaceFixtureTest` guards the margin.
          */
-        const val SAME_CENTER_DELTA_E = 10.0
+        const val SAME_CENTER_DELTA_E = 12.0
 
         /**
          * A cell this far (CIE76) from the face just captured means the cube moved on (the recorder's threshold).

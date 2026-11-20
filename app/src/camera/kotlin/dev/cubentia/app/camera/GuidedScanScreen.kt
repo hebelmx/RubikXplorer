@@ -33,6 +33,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -54,6 +55,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
@@ -81,6 +83,7 @@ import dev.cubentia.domain.recognition.Lab
 import dev.cubentia.domain.recognition.QuickScanPlan
 import dev.cubentia.domain.recognition.ScanStep
 import kotlinx.coroutines.delay
+import java.util.Locale
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import androidx.compose.ui.graphics.Color as UiColor
@@ -451,7 +454,9 @@ private fun CoachingLine(
 
 /**
  * The frame just captured, frozen over the viewfinder for [CaptureFreeze.FREEZE_MS] with a haptic tick, then shrinking
- * its grid square into the face on the mini net (skipped under reduced motion; the freeze stays).
+ * its grid square into the face on the mini net (skipped under reduced motion; the freeze stays). Leaving composition
+ * also ends the freeze (GH #158): when the phase leaves the viewfinder or the Activity is recreated, a held result is
+ * published and a recreated screen shows no overlay, so it never ticks twice. Ending a freeze already ended is ignored.
  */
 @Composable
 private fun FrozenOverlay(
@@ -464,6 +469,7 @@ private fun FrozenOverlay(
     val hapticsOn = LocalHaptics.current
     val end by rememberUpdatedState(onEnd)
     val progress = remember(frozen.id) { Animatable(0f) }
+    DisposableEffect(frozen.id) { onDispose { end(frozen.id) } }
     LaunchedEffect(frozen.id) {
         if (hapticsOn) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
         delay(CaptureFreeze.FREEZE_MS)
@@ -528,9 +534,10 @@ private fun Prompt(
     modifier: Modifier = Modifier,
 ) {
     val step = phase.step ?: return
-    val center = stringResource(colorName(step.centerColor)).lowercase()
+    val locale = LocalConfiguration.current.locales[0]
+    val center = promptColorName(stringResource(colorName(step.centerColor)), locale)
     val top = step.upNeighborColor
-    val up = top?.let { stringResource(colorName(it)).lowercase() }
+    val up = top?.let { promptColorName(stringResource(colorName(it)), locale) }
     Row(
         modifier
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), RoundedCornerShape(8.dp))
@@ -555,6 +562,12 @@ private fun Prompt(
         )
     }
 }
+
+/** A color name as it reads mid-sentence in a prompt: lowercased by the casing rules of the UI [locale] (GH #158). */
+internal fun promptColorName(
+    name: String,
+    locale: Locale,
+): String = name.lowercase(locale)
 
 @Composable
 internal fun CornerPrompt(
