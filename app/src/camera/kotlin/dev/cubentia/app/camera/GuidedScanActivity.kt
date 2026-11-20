@@ -115,7 +115,7 @@ class GuidedScanActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // MediaActionSound.load reads the disk: off the main thread (GH #158).
-        lifecycleScope.launch(Dispatchers.IO) { shutterSound.load() }
+        lifecycleScope.launch(Dispatchers.IO) { shutterSound.loadOrSkip() }
         // Back and a destroyed task read as Cancelled.
         setResult(RESULT_CANCELED)
         if (phase == GuidedScanPhase.Rationale) phase = GuidedScanFlow.initialPhase(hasPermission())
@@ -578,11 +578,9 @@ class GuidedScanActivity : ComponentActivity() {
             }
         val captured = effects.filterIsInstance<GuidedScanEffect.Capture>().firstOrNull()
         ContextCompat.getMainExecutor(this).execute {
-            if (captured != null) {
-                // Capture feedback (PO 2026-11-16): shutter sound, then the frame frozen and shrunk into the net.
-                shutterSound.play()
-                vm.frozen = FrozenCapture(++vm.captures, captured.sample.face, frameSource.snapshot())
-            }
+            // Capture feedback (PO 2026-11-16): the frame frozen and shrunk into the net, with the shutter sound; none once
+            // the viewfinder is gone (e.g. Unavailable), so a finished scan is never held behind a freeze nothing ends.
+            if (captured != null && vm.onCaptured(captured.sample.face) { frameSource.snapshot() }) shutterSound.play()
             // A finished retake's viewfinder stays until its held review is published or the Learner backs out.
             val current = vm.phase
             if (state != null && current is GuidedScanPhase.Viewfinder && current.fromReview == null && current != state) vm.phase = state
@@ -818,6 +816,19 @@ internal class GuidedScanViewModel : ViewModel() {
 
     /** A finished scan held until the last face's freeze ends, so its freeze, shrink and shutter sound play out. */
     private var held: GuidedScanPhase.Review? = null
+
+    /**
+     * Main thread: the capture feedback for [face]. Freezes the frame from [image] only while the viewfinder shows, the
+     * only phase whose screen ends a freeze; returns whether it froze, so the caller plays the shutter sound only then.
+     */
+    fun onCaptured(
+        face: Face,
+        image: () -> androidx.compose.ui.graphics.ImageBitmap?,
+    ): Boolean {
+        if (phase !is GuidedScanPhase.Viewfinder) return false
+        frozen = FrozenCapture(++captures, face, image())
+        return true
+    }
 
     /** Main thread: publishes the finished scan now, or when the current freeze ends. */
     fun publish(capture: ScanReview) = publish(GuidedScanPhase.Review(capture))

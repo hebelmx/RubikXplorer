@@ -17,10 +17,12 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.lifecycle.viewModelScope
 import dev.cubentia.app.content.CatalogState
 import dev.cubentia.app.content.LessonCatalog
 import dev.cubentia.app.data.SerialWriter
+import dev.cubentia.app.render.StickerColorKey
 import dev.cubentia.app.scan.ScanOutcome
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.TickingClock
@@ -76,6 +78,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import dev.cubentia.domain.cube.Color as CubeColor
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -220,13 +223,22 @@ class AppShellSolveTest {
         assertEquals(true, launched)
     }
 
-    @Test fun quickScanGaShowsNoQuickScanBetaCopy() {
+    @Test fun quickScanGaShowsTheBetaLabelWhileCameraScanIsBeta() {
+        // EXPERIENCE *Feature flag BETA*: every camera feature is BETA-labelled while CAMERA_SCAN is BETA.
         show(scan = {}, cameraScan = FlagLevel.BETA, quickScan = {}, quickLevel = FlagLevel.GA)
+        click("nav:solve")
+        rule.onNodeWithTag("solve:quickScan").assertContentDescriptionEquals("Quick Scan, BETA")
+        rule.onNodeWithTag("solve:quickScan:beta", useUnmergedTree = true).assertTextEquals("BETA")
+        rule.onNodeWithTag("solve:scan:betaNote").assertExists()
+    }
+
+    @Test fun quickScanGaWithCameraScanGaShowsNoBetaCopy() {
+        show(scan = {}, cameraScan = FlagLevel.GA, quickScan = {}, quickLevel = FlagLevel.GA)
         click("nav:solve")
         rule.onNodeWithTag("solve:quickScan").assertExists()
         rule.onNodeWithTag("solve:quickScan:beta", useUnmergedTree = true).assertDoesNotExist()
         rule.onNodeWithTag("solve:quickScan:betaNote").assertDoesNotExist()
-        rule.onNodeWithTag("solve:scan:betaNote").assertExists()
+        assertNoScanBeta()
     }
 
     @Test fun quickScanOffHidesTheAction() {
@@ -384,6 +396,30 @@ class AppShellSolveTest {
         assertEquals(SolvePhase.Editing(cube.toFacelets()), flow.phase.value)
         rule.onNodeWithTag("editor:accept").assertExists()
         rule.onNodeWithTag("solve:preparing").assertDoesNotExist()
+    }
+
+    @Test fun unacceptedEditorStickersSurviveATabSwitch() {
+        show()
+        click("nav:solve")
+        click("solve:enterColors")
+        rule.onNodeWithTag("sticker:0").performClick()
+        rule.onNodeWithTag("swatch:RED").performScrollTo().performClick()
+        rule.waitForIdle()
+        val red =
+            androidx.compose.ui.graphics
+                .Color(
+                    dev.cubentia.domain.appearance.StickerAppearance
+                        .of(CubeColor.RED)
+                        .fill,
+                )
+        click("nav:learn")
+        click("nav:solve")
+        assertEquals(red, rule.onNodeWithTag("sticker:0").fetchSemanticsNode().config[StickerColorKey])
+        // Close discards the draft: Enter colors opens on the accepted stickers again.
+        click("solve:close")
+        click("solve:enterColors")
+        assertEquals(CubeColor.WHITE, (flow.phase.value as SolvePhase.Editing).initial.colors[0])
+        org.junit.Assert.assertNotEquals(red, rule.onNodeWithTag("sticker:0").fetchSemanticsNode().config[StickerColorKey])
     }
 
     @Test fun leavingSolveCancelsARunningSolve() {

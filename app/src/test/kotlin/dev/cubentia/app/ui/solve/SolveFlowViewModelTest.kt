@@ -142,6 +142,33 @@ class SolveFlowViewModelTest {
         }
     }
 
+    @Test fun anUnacceptedEditorDraftSurvivesLeavingTheSolveTab() {
+        val vm = viewModel(source(CubeSolver { error("A draft must not solve") }))
+        vm.scanDenied()
+        val painted = cube.toFacelets()
+        vm.onEdit(painted)
+        vm.leaveSolveTab()
+        assertEquals(SolvePhase.Editing(painted, note = Text("msg.solve.scan-camera-denied")), vm.phase.value)
+        // Leaving again without new edits keeps the same stickers.
+        vm.leaveSolveTab()
+        assertEquals(painted, (vm.phase.value as SolvePhase.Editing).initial)
+    }
+
+    @Test fun closingTheEditorDiscardsItsDraft() {
+        val vm = viewModel(source(CubeSolver { error("A draft must not solve") }))
+        vm.enterColors()
+        vm.onEdit(cube.toFacelets())
+        vm.closeEditor()
+        vm.enterColors()
+        vm.leaveSolveTab()
+        assertEquals(SolvePhase.Editing(CubeState.SOLVED.toFacelets()), vm.phase.value)
+        // An edit reported outside the editor is ignored.
+        vm.closeEditor()
+        vm.onEdit(cube.toFacelets())
+        vm.leaveSolveTab()
+        assertEquals(SolvePhase.Home, vm.phase.value)
+    }
+
     @Test fun scanSolveRecoveryUsesTheHomeFrameAndKeepsTheBaselineOnRetry() =
         runBlocking {
             val held = cube.reoriented(Orientation.of(Face.U, Face.R))

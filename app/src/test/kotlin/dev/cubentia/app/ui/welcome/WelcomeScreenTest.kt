@@ -111,6 +111,59 @@ class WelcomeScreenTest {
     }
 
     @Test
+    fun `placement GA shows the BETA label while CAMERA_SCAN is BETA`() {
+        val flags =
+            object : FeatureFlags {
+                override fun level(flag: FeatureFlag): FlagLevel =
+                    when (flag) {
+                        FeatureFlag.PLACEMENT -> FlagLevel.GA
+                        FeatureFlag.CAMERA_SCAN -> FlagLevel.BETA
+                        else -> FlagLevel.OFF
+                    }
+            }
+        val shipped = ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded
+        rule.setContent {
+            CubentiaTheme {
+                WelcomeScreen(
+                    onImNew = {},
+                    onCanAlreadySolve = {},
+                    flags = flags,
+                    preferenceStore = preferences,
+                    onStartFromCube = {},
+                    strings = ContentStrings(shipped.bundle.strings),
+                )
+            }
+        }
+
+        rule.onNodeWithTag("welcome:startFromCube").assertContentDescriptionEquals("Start from my cube, BETA")
+        rule.onNodeWithTag("welcome:startFromCube:beta", useUnmergedTree = true).assertTextContains("BETA")
+    }
+
+    @Test
+    fun `placement GA with CAMERA_SCAN GA shows no BETA label`() {
+        val flags =
+            object : FeatureFlags {
+                override fun level(flag: FeatureFlag): FlagLevel = FlagLevel.GA
+            }
+        val shipped = ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded
+        rule.setContent {
+            CubentiaTheme {
+                WelcomeScreen(
+                    onImNew = {},
+                    onCanAlreadySolve = {},
+                    flags = flags,
+                    preferenceStore = preferences,
+                    onStartFromCube = {},
+                    strings = ContentStrings(shipped.bundle.strings),
+                )
+            }
+        }
+
+        rule.onNodeWithTag("welcome:startFromCube").assertIsDisplayed()
+        rule.onNodeWithTag("welcome:startFromCube:beta", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
     fun `clicking imNew triggers callback`() {
         var imNewClicked = false
         rule.setContent {

@@ -466,6 +466,9 @@ class ScanRouteTest {
             rule.waitForIdle()
             assertTrue(vm.phase === review)
             rule.onNodeWithTag("review:screen").assertIsDisplayed()
+            // The review comes back in review mode, not the inert retake mode (ai-b1).
+            rule.onNodeWithTag("review:accept").assertExists()
+            rule.onNodeWithTag("review:retake:start").assertDoesNotExist()
             assertFalse(activity.isFinishing)
         }
     }
@@ -477,6 +480,9 @@ class ScanRouteTest {
             rule.waitForIdle()
             assertTrue(vm.phase === review)
             rule.onNodeWithTag("review:screen").assertIsDisplayed()
+            // The review comes back in review mode, not the inert retake mode (ai-b1).
+            rule.onNodeWithTag("review:accept").assertExists()
+            rule.onNodeWithTag("review:retake:start").assertDoesNotExist()
             assertFalse(activity.isFinishing)
         }
     }

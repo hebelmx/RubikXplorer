@@ -115,7 +115,13 @@ fun SolveScreen(
                 current.error?.let {
                     Text(strings.resolve(it), Modifier.testTag("solve:error").semantics { liveRegion = LiveRegionMode.Polite })
                 }
-                ManualCubeEditor(strings, { flow.confirm(it, onSolved) }, Modifier.weight(1f), initial = current.initial)
+                ManualCubeEditor(
+                    strings,
+                    { flow.confirm(it, onSolved) },
+                    Modifier.weight(1f),
+                    initial = current.initial,
+                    onChange = flow::onEdit,
+                )
             }
 
             SolvePhase.AlreadySolved -> {

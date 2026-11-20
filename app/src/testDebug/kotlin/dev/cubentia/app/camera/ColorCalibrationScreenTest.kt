@@ -9,6 +9,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -28,6 +29,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.util.Locale
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, qualifiers = "w360dp-h640dp-port")
@@ -81,5 +83,34 @@ class ColorCalibrationScreenTest {
         }
         rule.onNodeWithTag("calibration:save").assertIsEnabled()
         rule.onNodeWithTag("calibration:save-failed").assertIsDisplayed()
+    }
+
+    @Test fun whitePromptResolvesUnderATurkishDefaultLocale() {
+        // GH #158: the prompt key lowercases the color name; under tr, a locale-sensitive "WHITE" would become "whıte".
+        val before = Locale.getDefault()
+        Locale.setDefault(Locale.forLanguageTag("tr-TR"))
+        try {
+            val labs =
+                mapOf(
+                    Color.GREEN to Lab(55.0, -60.0, 40.0),
+                    Color.RED to Lab(45.0, 65.0, 45.0),
+                    Color.BLUE to Lab(40.0, 10.0, -50.0),
+                    Color.ORANGE to Lab(65.0, 45.0, 65.0),
+                    Color.WHITE to Lab(90.0, 0.0, 0.0),
+                    Color.YELLOW to Lab(85.0, -5.0, 80.0),
+                )
+            var session = CalibrationSession()
+            repeat(labs.size) {
+                if (session.current != Color.WHITE) session = session.offer(CellReading(labs.getValue(session.current!!), true)).keep()
+            }
+            assertEquals(Color.WHITE, session.current)
+            var phase by mutableStateOf(GuidedScanPhase.Calibration(session = session))
+            rule.setContent { CubentiaTheme { GuidedScanScreen(phase, strings, GuidedScanActions()) } }
+            rule.onNodeWithTag("calibration:prompt").assertTextEquals("Show the white center.")
+            rule.runOnIdle { phase = phase.copy(session = phase.session.offer(null)) }
+            rule.onNodeWithTag("calibration:prompt").assertTextEquals("Put a plain white sticker in the middle square.")
+        } finally {
+            Locale.setDefault(before)
+        }
     }
 }
