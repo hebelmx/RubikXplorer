@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-20-2026 00:39'
+last_updated: '11-20-2026 01:07'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -146,7 +146,7 @@ development_status:
   10-13-choose-the-recognition-approach-oq-7: done
   10-14-scan-each-face-in-any-rotation: done
   10-15-solve-from-a-scan: done
-  10-16-retake-faces-from-the-scan-review: review
+  10-16-retake-faces-from-the-scan-review: done
   epic-10-retrospective: optional
 
   epic-11: done
@@ -1361,3 +1361,24 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-158-scan-viewfinder-followups.md"
+  - id: "epic-10-deferred-10.16-device-session"
+    epic: 10
+    action: "Run the Story 10.16 device session on the Lenovo Tab M10 Plus 3rd Gen
+      and Galaxy S24 FE, main app build from the Solve tab: retake 1 and several faces,
+      back out after 1 of 2 captures, Enter colors from the retake viewfinder, 200% font
+      at 600 dp, phone portrait fit, TalkBack face labels; confirm the title stays visible
+      in retake mode, back-out returns to normal review, kept faces' suspect hints re-rank;
+      no frame persisted (medium; deferred from 10.16 by PO decision 2026-11-20, human-gate
+      AC; batch with the combined human-verification session, #106)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-16-retake-faces-from-the-scan-review.md"
+  - id: "epic-10-deferred-10.16-retake-launch-controls-flash"
+    epic: 10
+    action: "Tapping Retake N faces leaves retake mode before the viewfinder phase posts
+      from the analyzer thread, so review controls show and are tappable for one hop;
+      keep a launching state until the phase leaves Review (low, Learner-visible; deferred
+      from 10.16, ScanReviewScreen.kt:117-122)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-16-retake-faces-from-the-scan-review.md"
