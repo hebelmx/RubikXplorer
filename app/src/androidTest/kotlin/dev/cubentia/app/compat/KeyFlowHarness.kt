@@ -58,6 +58,11 @@ typealias KeyFlowRule = AndroidComposeTestRule<ActivityScenarioRule<MainActivity
  * unfreezes the rotation (which turns auto-rotate on) and then writes those settings back, best effort,
  * so a run from Android Studio or `connectedAndroidTest` leaves the device as found. The host script
  * (`tools/run-keyflow-rotation.sh`) restores and checks them again as a backstop.
+ *
+ * With the instrumentation argument `offline=true` (the host script's `OFFLINE=1`; Story 12.3, NFR-5)
+ * a flow's harness fails before the flow starts unless `airplane_mode_on` reads 1 and
+ * `dumpsys connectivity` shows no active default network, and logs
+ * `offline,flow=<flow>,airplane=1,network=none` as proof that the flow ran offline.
  */
 class KeyFlowHarness(
     private val rule: KeyFlowRule,
@@ -68,6 +73,26 @@ class KeyFlowHarness(
 
     private var surfaces = 0
     private val failures = mutableListOf<String>()
+
+    init {
+        // Only a flow's harness checks: the setup and teardown harnesses rotate the display, and a
+        // failing check there would skip the teardown's rotation restore.
+        if (flow !in HOUSEKEEPING && InstrumentationRegistry.getArguments().getString(OFFLINE_ARGUMENT) == "true") {
+            val airplane = device().executeShellCommand("settings get global airplane_mode_on").trim()
+            if (airplane != "1") fail("$flow: device is not offline (airplane_mode_on=$airplane)")
+            // A radio left up in airplane mode (e.g. Wi-Fi turned back on) still gives a default network.
+            val network =
+                device()
+                    .executeShellCommand("dumpsys connectivity")
+                    .lineSequence()
+                    .map { it.trim() }
+                    .firstOrNull { it.startsWith(ACTIVE_NETWORK) }
+                    ?.substringAfter(ACTIVE_NETWORK)
+                    ?.trim() ?: "unknown"
+            if (network != "none") fail("$flow: network still active in airplane mode ($ACTIVE_NETWORK $network)")
+            Log.i(TAG, "offline,flow=$flow,airplane=$airplane,network=$network")
+        }
+    }
 
     fun activity(): MainActivity {
         var current: MainActivity? = null
@@ -560,6 +585,11 @@ class KeyFlowHarness(
 
     companion object {
         const val TAG = "KeyFlowRotation"
+
+        /** Instrumentation argument (`-e offline true`): every flow must see airplane mode on (Story 12.3). */
+        const val OFFLINE_ARGUMENT = "offline"
+        private val HOUSEKEEPING = setOf("setup", "teardown")
+        private const val ACTIVE_NETWORK = "Active default network:"
         private val ROTATION_SETTINGS = listOf("accelerometer_rotation", "user_rotation")
 
         /** The rotation settings as found before the first freeze; null when none are recorded. */

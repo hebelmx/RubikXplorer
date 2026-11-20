@@ -1,0 +1,9 @@
+Cubentia release installed-size estimate (bytes)
+AAB: 5856022
+Universal APK: 3175101
+Uncompressed dex: 2934600
+App-data allowance: 153600
+Installed estimate (APK + 3 x dex + data): 12132501
+Budget: 30000000
+Headroom: 17867499
+Estimate only; measured device method: docs/pruning-tables.md (Story 3.8).
