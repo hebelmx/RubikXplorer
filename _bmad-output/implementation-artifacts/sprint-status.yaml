@@ -748,7 +748,7 @@ action_items:
       the draft across tab switches (medium, Learner-visible; residual risk from 3.7,
       spec-3-7:174,190)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-3-7-solve-tab-end-to-end.md"
   - id: "epic-3-deferred-3-7-preparing-copy-on-cold-cache-read"
     epic: 3
@@ -845,7 +845,7 @@ action_items:
       is BETA, not when CAMERA_SCAN is BETA as EXPERIENCE.md requires for every camera
       feature (low; deferred from 11.2, WelcomeScreen.kt:130)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-11-2-start-the-course-from-my-cube-placement.md"
   - id: "epic-11-deferred-11.2-two-look-chooser-numbering"
     epic: 11
@@ -910,7 +910,7 @@ action_items:
       not when CAMERA_SCAN is BETA as EXPERIENCE.md requires (low, Learner-visible;
       deferred from 11.1, AppShell.kt:768-769)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-11-1-quick-scan-from-two-corners.md"
   - id: "epic-11-deferred-11.3-device-capture-and-sticker-order"
     epic: 11
@@ -953,7 +953,7 @@ action_items:
       not when CAMERA_SCAN is BETA; fix together with the 11.1 and 11.2 BETA-label
       items (low, Learner-visible; deferred from 11.3, AppShell.kt:727)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-11-3-recognize-an-oll-pll-case.md"
   - id: "epic-11-retro-item-102-one-beta-label-helper-feature-flag-beta"
     epic: 11
@@ -962,7 +962,7 @@ action_items:
       BETA deferrals plus the untracked Recognize Placement-link site (AppShell.kt:707,
       RecognizeScreen.kt:129)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-11-retro-2026-11-18.md"
   - id: "epic-11-retro-item-103-run-bmad-correct-course-to-reconcile-pla"
     epic: 11
@@ -1343,7 +1343,7 @@ action_items:
       Unavailable before it runs on the last face can leave the result held; guard
       it and publish (medium; gate finding #158, GuidedScanActivity.kt:562-575)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-158-scan-viewfinder-followups.md"
   - id: "issue-158-deferred-shutter-load-runcatching"
     epic: 10
@@ -1351,7 +1351,7 @@ action_items:
       MediaActionSound.load() throw can't crash the scan (low; gate finding #158,
       GuidedScanActivity.kt:118)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-158-scan-viewfinder-followups.md"
   - id: "issue-158-deferred-calibration-locale-root"
     epic: 10
@@ -1359,7 +1359,7 @@ action_items:
       so a Turkish locale builds an invalid content key for white; use Locale.ROOT
       (low, Learner-visible, pre-existing; gate finding #158, GuidedScanScreen.kt:751)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-158-scan-viewfinder-followups.md"
   - id: "epic-10-deferred-10.16-device-session"
     epic: 10
@@ -1381,7 +1381,7 @@ action_items:
       one hop; keep a launching state until the phase leaves Review (low, Learner-visible;
       deferred from 10.16, ScanReviewScreen.kt:117-122)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-16-retake-faces-from-the-scan-review.md"
   - id: "epic-12-deferred-12.3-phys-offline-release"
     epic: 12
@@ -1413,3 +1413,27 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-12-3-stability-size-and-privacy-hardening.md"
+  - id: "ai-b1-deferred-device-freeze-unavailable-race"
+    epic: 10
+    action: "On a reference device, confirm a camera failure during the last face capture never leaves Guided Scan stuck (Activity wiring of onCaptured in handle() is not route-tested) (medium; deferred from ai-b1, GuidedScanActivity.kt:583; batch with the combined human-verification session, #106)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-ai-b1-learner-visible-fixes.md"
+  - id: "ai-b1-deferred-device-shutter-load-failure"
+    epic: 10
+    action: "On a reference device, confirm a real MediaActionSound load failure leaves the scan running silently (medium; deferred from ai-b1, GuidedScanActivity.kt:118; batch with #106)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-ai-b1-learner-visible-fixes.md"
+  - id: "ai-b1-deferred-device-retake-no-flash"
+    epic: 10
+    action: "On hardware, tap Retake N faces and confirm the review controls never flash before the retake viewfinder opens (low, Learner-visible; deferred from ai-b1, ScanReviewScreen.kt:113; batch with #106)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-ai-b1-learner-visible-fixes.md"
+  - id: "ai-b1-deferred-editor-draft-selection-reset"
+    epic: 10
+    action: "A restored unaccepted editor draft keeps the painted colors but resets the selected sticker and the compact-mode face tab after a Solve tab switch; keep them too (low, Learner-visible; gate finding ai-b1, ManualCubeEditor.kt:117)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-ai-b1-learner-visible-fixes.md"
