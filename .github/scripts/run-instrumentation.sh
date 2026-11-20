@@ -2,6 +2,8 @@
 # Story 7.8 release gate (AD-14): the instrumentation, UI and renderer-sync suites on the CI emulator.
 # KeyFlowRotationTest needs a cleared install per method (Story 12.2), so it runs through
 # tools/run-keyflow-rotation.sh; every other androidTest class runs through Gradle in one pass.
+# Story 12.3 (NFR-5): the Key Flow suite runs with airplane mode on (OFFLINE=1), so every release tag
+# proves the flows work offline; the tool restores airplane mode on exit.
 set -euo pipefail
 serial="${1:-emulator-5554}"
 label=ci
@@ -14,7 +16,7 @@ export ADB="${ADB:-$(command -v adb)}"
 ANDROID_SERIAL="$serial" ./gradlew :app:connectedDebugAndroidTest \
   -Pandroid.testInstrumentationRunnerArguments.notClass=dev.cubentia.app.compat.KeyFlowRotationTest
 ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
-bash tools/run-keyflow-rotation.sh "$serial" "$label"
+OFFLINE=1 EVIDENCE_DIR=docs/evidence/12-2/keyflow bash tools/run-keyflow-rotation.sh "$serial" "$label"
 
 summary="docs/evidence/12-2/keyflow/$label/summary.txt"
 methods="$(wc -l < "$summary")"
@@ -29,4 +31,11 @@ if [ "$methods" -eq 0 ] || grep -qv ' pass$' "$summary"; then
   cat "$summary" >&2
   exit 1
 fi
-echo "Key Flow rotation suite: $methods methods passed"
+# Every method must show its harness saw airplane mode on and no network: a dropped `-e offline true` must fail here.
+while read -r method _; do
+  if ! grep -q 'offline,flow=.*airplane=1,network=none' "docs/evidence/12-2/keyflow/$label/$method.logcat.txt" 2> /dev/null; then
+    echo "::error::Key Flow method $method has no offline check (offline,flow=... airplane=1,network=none) in its logcat" >&2
+    exit 1
+  fi
+done < "$summary"
+echo "Key Flow rotation suite (offline): $methods methods passed"
