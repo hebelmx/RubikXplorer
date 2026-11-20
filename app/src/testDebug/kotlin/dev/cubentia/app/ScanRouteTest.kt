@@ -29,6 +29,7 @@ import dagger.hilt.android.testing.UninstallModules
 import dagger.hilt.components.SingletonComponent
 import dev.cubentia.app.camera.CameraModule
 import dev.cubentia.app.camera.GuidedScanActivity
+import dev.cubentia.app.camera.GuidedScanFlow
 import dev.cubentia.app.camera.GuidedScanPhase
 import dev.cubentia.app.camera.GuidedScanViewModel
 import dev.cubentia.app.camera.ScanFrame
@@ -443,18 +444,109 @@ class ScanRouteTest {
         }
     }
 
+    @Test fun retakeFromReviewAsksOnlyTheChosenFaceAndBackRestoresTheReview() {
+        withScan { activity, vm ->
+            captureFaces(vm, logo = false)
+            val review = vm.phase as GuidedScanPhase.Review
+            if (rule.onAllNodesWithTag("review:coach").fetchSemanticsNodes().isNotEmpty()) {
+                rule.onNodeWithTag("review:coach").performClick()
+            }
+            rule.onNodeWithTag("review:retakeFaces").performScrollTo().performClick()
+            rule.onNodeWithTag("reviewNet:face:${Face.F.ordinal}").performClick()
+            rule.onNodeWithTag("review:retake:start").performScrollTo().performClick()
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                vm.phase is GuidedScanPhase.Viewfinder
+            }
+            val phase = vm.phase as GuidedScanPhase.Viewfinder
+            assertTrue(phase.fromReview === review)
+            assertEquals(GuidedScanPlan.steps.first { it.face == Face.F }, phase.step)
+            rule.onNodeWithTag("scanProgress").assertTextEquals("Face 1 of 1")
+            rule.runOnIdle { activity.onBackPressedDispatcher.onBackPressed() }
+            rule.waitForIdle()
+            assertTrue(vm.phase === review)
+            rule.onNodeWithTag("review:screen").assertIsDisplayed()
+            assertFalse(activity.isFinishing)
+        }
+    }
+
+    @Test fun retakeViewfinderCloseRestoresTheReview() {
+        withScan { activity, vm ->
+            val review = startRetakeOfFront(vm)
+            rule.onNodeWithTag("scanClose").performClick()
+            rule.waitForIdle()
+            assertTrue(vm.phase === review)
+            rule.onNodeWithTag("review:screen").assertIsDisplayed()
+            assertFalse(activity.isFinishing)
+        }
+    }
+
+    @Test fun finishedRetakeReturnsToAnEditedReviewWithOnlyTheRetakenFaceReplaced() {
+        withScan { activity, vm ->
+            val review = startRetakeOfFront(vm)
+            val colors = cube.toFacelets().colors
+            captureFace(vm, GuidedScanPlan.steps.first { it.face == Face.F }) { index -> labs.getValue(colors[index]) }
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                vm.phase is GuidedScanPhase.Review
+            }
+            val after = vm.phase as GuidedScanPhase.Review
+            assertTrue(after !== review)
+            assertTrue(after.edited)
+            val front = Face.F.ordinal * 9 until Face.F.ordinal * 9 + 9
+            Face.entries.filter { it != Face.F }.forEach { face ->
+                val kept = face.ordinal * 9 until face.ordinal * 9 + 9
+                assertEquals(review.review.stickers.slice(kept), after.review.stickers.slice(kept))
+            }
+            // The close call on F's first sticker was retaken with a clear read.
+            assertEquals(colors.slice(front), after.review.stickers.slice(front))
+            rule.runOnIdle { assertNull(vm.retake) }
+            assertTrue(vm.guidedController() === vm.controller)
+            assertEquals(GuidedScanFlow.runScanColorsOf(after.samples, vm.saved), vm.measuredCenters)
+            rule.onNodeWithTag("review:close").performScrollTo().performClick()
+            rule.onNodeWithTag("review:discard").assertIsDisplayed()
+            assertFalse(activity.isFinishing)
+        }
+    }
+
+    /** From a fresh Guided Scan review, starts a retake of the front (green) face; returns the review it started from. */
+    private fun startRetakeOfFront(vm: GuidedScanViewModel): GuidedScanPhase.Review {
+        captureFaces(vm, logo = false)
+        val review = vm.phase as GuidedScanPhase.Review
+        if (rule.onAllNodesWithTag("review:coach").fetchSemanticsNodes().isNotEmpty()) {
+            rule.onNodeWithTag("review:coach").performClick()
+        }
+        rule.onNodeWithTag("review:retakeFaces").performScrollTo().performClick()
+        rule.onNodeWithTag("reviewNet:face:${Face.F.ordinal}").performClick()
+        rule.onNodeWithTag("review:retake:start").performScrollTo().performClick()
+        // The retake starts through the analyzer thread; the camera starts only after the recompositions that follow.
+        awaitCameraStart { vm.phase is GuidedScanPhase.Viewfinder }
+        return review
+    }
+
     private fun withScan(test: (GuidedScanActivity, GuidedScanViewModel) -> Unit) {
         val scan = Robolectric.buildActivity(GuidedScanActivity::class.java).setup()
         try {
             rule.waitForIdle()
-            rule.waitUntil(10_000) {
-                shadowOf(Looper.getMainLooper()).idle()
-                source.running
-            }
+            // The calibration load and controller hand back to main from other threads before the camera can start.
+            awaitCameraStart { true }
             test(scan.get(), ViewModelProvider(scan.get())[GuidedScanViewModel::class.java])
         } finally {
             scan.pause().stop().destroy()
             rule.waitForIdle()
+        }
+    }
+
+    /**
+     * Waits until the camera runs and [phase] holds. A state change another thread (analyzer, IO) posts to main lands
+     * mid-wait, and waitUntil alone only steps the Compose clock: under load the recomposition that starts the camera
+     * (previewReady, then startCamera) was never run and the wait timed out. A full Compose sync on every poll runs it.
+     */
+    private fun awaitCameraStart(phase: () -> Boolean) {
+        rule.waitUntil(10_000) {
+            rule.waitForIdle()
+            shadowOf(Looper.getMainLooper()).idle()
+            phase() && source.running
         }
     }
 

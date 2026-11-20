@@ -157,8 +157,16 @@ class GuidedScanActivity : ComponentActivity() {
             GuidedScanActions(
                 onClose = {
                     val calibration = phase as? GuidedScanPhase.Calibration
+                    val retakeFrom = (phase as? GuidedScanPhase.Viewfinder)?.fromReview
                     if (!scan.saving) {
-                        if (calibration?.fromReview != null) phase = calibration.fromReview else finishWith(ScanOutcome.Cancelled)
+                        when {
+                            // Backing out of a retake restores the review exactly (Story 10.16, all or nothing).
+                            retakeFrom != null -> scan.backOutOfRetake(retakeFrom)
+
+                            calibration?.fromReview != null -> phase = calibration.fromReview
+
+                            else -> finishWith(ScanOutcome.Cancelled)
+                        }
                     }
                 },
                 onContinue = {
@@ -226,7 +234,8 @@ class GuidedScanActivity : ComponentActivity() {
                         }
                     }
                     androidx.activity.compose.BackHandler(enabled = phase !is GuidedScanPhase.Calibration) {
-                        finishWith(ScanOutcome.Cancelled)
+                        val retakeFrom = (phase as? GuidedScanPhase.Viewfinder)?.fromReview
+                        if (retakeFrom != null) scan.backOutOfRetake(retakeFrom) else finishWith(ScanOutcome.Cancelled)
                     }
                     if (strings == null) return@CubentiaTheme
                     LaunchedEffect(scan.caseResult) {
@@ -298,6 +307,8 @@ class GuidedScanActivity : ComponentActivity() {
                                 },
                             onAccept = { finishWith(ScanOutcome.Accepted(it, scan.runScanColorsToReturn())) },
                             onClose = { finishWith(ScanOutcome.Cancelled) },
+                            // Retake only in a Guided 6-face Scan review: never Quick Scan, Quick Check, calibration or Case capture.
+                            onRetake = if (scan.isGuidedRun && !isQuickCheck) ({ faces -> startRetake(reviewPhase, faces) }) else null,
                             modifier = Modifier.fillMaxSize(),
                             coachMarkPending = scan.coachMarkPending,
                             edited = reviewPhase.edited,
@@ -351,7 +362,10 @@ class GuidedScanActivity : ComponentActivity() {
                 intent.getBooleanExtra(QuickCheckContract.EXTRA_FULL_QUICK_CHECK, false)
 
     private fun finishWith(capture: ScanOutcome) {
-        val review = (phase as? GuidedScanPhase.Review) ?: (phase as? GuidedScanPhase.Calibration)?.fromReview
+        val review =
+            (phase as? GuidedScanPhase.Review)
+                ?: (phase as? GuidedScanPhase.Calibration)?.fromReview
+                ?: (phase as? GuidedScanPhase.Viewfinder)?.fromReview
         val outcome =
             when (capture) {
                 is ScanOutcome.Accepted -> "ACCEPTED"
@@ -529,6 +543,10 @@ class GuidedScanActivity : ComponentActivity() {
      * so an Activity recreated meanwhile still shows them and finishes with the result.
      */
     private fun handle(effects: List<GuidedScanEffect>) {
+        scan.retake?.let { run ->
+            handleRetake(run, effects)
+            return
+        }
         val vm = scan
         val quick = scan.quickScan
         val quickDone = quick?.onGuidedEffects(effects) as? QuickScanEffect.Done
@@ -565,13 +583,67 @@ class GuidedScanActivity : ComponentActivity() {
                 shutterSound.play()
                 vm.frozen = FrozenCapture(++vm.captures, captured.sample.face, frameSource.snapshot())
             }
-            if (state != null && vm.phase is GuidedScanPhase.Viewfinder && vm.phase != state) vm.phase = state
+            // A finished retake's viewfinder stays until its held review is published or the Learner backs out.
+            val current = vm.phase
+            if (state != null && current is GuidedScanPhase.Viewfinder && current.fromReview == null && current != state) vm.phase = state
             if (GuidedScanFlow.remeters(effects)) meterOnGrid()
             if (partial != null) {
                 ScanDiagnostics.onQuickCheckCaptured(vm.quickCheckStartedAt, vm.captures)
                 vm.quickResult = partial
             }
             if (result != null) vm.publish(result)
+        }
+    }
+
+    /** Main thread: starts a retake of [faces] from review [from] (Story 10.16); its controller is made on the analyzer thread. */
+    private fun startRetake(
+        from: GuidedScanPhase.Review,
+        faces: Set<Face>,
+    ) {
+        if (faces.isEmpty()) return
+        analyzerExecutor.execute {
+            val run = GuidedScanFlow.retakeRun(faces, from)
+            scan.retake = run
+            val next = GuidedScanFlow.retakePhase(run)
+            ContextCompat.getMainExecutor(this).execute {
+                if (phase === from) {
+                    phase = next
+                } else {
+                    analyzerExecutor.execute { if (scan.retake === run) scan.retake = null }
+                }
+            }
+        }
+    }
+
+    /**
+     * Analyzer thread: a retake's controller state and effects. Its Done builds the merged review directly (kept faces as
+     * reviewed, corrections on retaken faces dropped), never through [GuidedScanViewModel.publish]'s re-application of
+     * earlier corrections, but still held until the last capture's freeze ends. Nothing applies once the Learner backed
+     * out.
+     */
+    private fun handleRetake(
+        run: RetakeRun,
+        effects: List<GuidedScanEffect>,
+    ) {
+        val vm = scan
+        val state = GuidedScanFlow.retakePhase(run)
+        val done = effects.filterIsInstance<GuidedScanEffect.Done>().firstOrNull()
+        val result = done?.let { GuidedScanFlow.reviewAfterRetake(run.from, it.samples, vm.saved) }
+        if (result != null) vm.retake = null
+        val captured = effects.filterIsInstance<GuidedScanEffect.Capture>().firstOrNull()
+        ContextCompat.getMainExecutor(this).execute {
+            if ((vm.phase as? GuidedScanPhase.Viewfinder)?.fromReview !== run.from) return@execute
+            if (captured != null) {
+                shutterSound.play()
+                vm.frozen = FrozenCapture(++vm.captures, captured.sample.face, frameSource.snapshot())
+            }
+            if (vm.phase != state) vm.phase = state
+            if (GuidedScanFlow.remeters(effects)) meterOnGrid()
+            if (result != null) {
+                // A guided run's own centers follow the merged samples (GH #172).
+                vm.measuredCenters = GuidedScanFlow.runScanColorsOf(result.samples, vm.saved)
+                vm.publishRetake(result)
+            }
         }
     }
 
@@ -656,7 +728,11 @@ internal class GuidedScanViewModel : ViewModel() {
     /** What Accepted carries back: a guided run's measured centers, only while no calibration is saved. */
     fun runScanColorsToReturn(): CalibrationCenters? = measuredCenters?.takeIf { isGuidedRun && saved == null }
 
+    /** A retake from review in progress (Story 10.16); set and cleared on [analyzerExecutor]. */
+    @Volatile var retake: RetakeRun? = null
+
     fun guidedController(): GuidedScanController? {
+        retake?.let { return it.controller }
         val quick = quickScan
         return if (quick == null) controller else quick.fallback
     }
@@ -754,6 +830,24 @@ internal class GuidedScanViewModel : ViewModel() {
                 edited = corrections.isNotEmpty(),
             )
         if (frozen != null) held = corrected else phase = corrected
+    }
+
+    /** Main thread: publishes a retake's merged review as is (no correction re-applied), now or when the freeze ends. */
+    fun publishRetake(review: GuidedScanPhase.Review) {
+        if (frozen != null) held = review else phase = review
+    }
+
+    /**
+     * Main thread: leaves a retake before every face was taken (Story 10.16, all or nothing): the review it started
+     * [from] comes back exactly, and nothing captured in the retake is kept.
+     */
+    fun backOutOfRetake(from: GuidedScanPhase.Review) {
+        held = null
+        frozen = null
+        phase = from
+        // A retake finished during the freeze may have set centers from its discarded samples (GH #172).
+        measuredCenters = GuidedScanFlow.runScanColorsOf(from.samples, saved)
+        analyzerExecutor.execute { retake = null }
     }
 
     /** Main thread: the freeze of capture [id] ended; live view resumes, or a held result is published. */

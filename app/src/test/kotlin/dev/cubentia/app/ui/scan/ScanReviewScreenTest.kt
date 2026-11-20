@@ -25,6 +25,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.filterToOne
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -66,6 +67,7 @@ import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.Lab
@@ -104,6 +106,8 @@ class ScanReviewScreenTest {
     private lateinit var backDispatcher: OnBackPressedDispatcher
     private var closed = false
     private var enterColors: (() -> Unit)? = null
+    private var retake: ((Set<Face>) -> Unit)? = null
+    private var calibrate: (() -> Unit)? = null
     private var coachPending by mutableStateOf(false)
     private var coachDismissed = 0
     private var ticks = 0
@@ -143,6 +147,8 @@ class ScanReviewScreenTest {
             { closed = true },
             edited = edited,
             onEnterColors = enterColors,
+            onRetake = retake,
+            onCalibrate = calibrate,
             coachMarkPending = coachPending,
             onCoachMarkDismissed = {
                 coachPending = false
@@ -882,6 +888,206 @@ class ScanReviewScreenTest {
         rule.onNodeWithTag("review:calibrate:offer").performScrollTo().performClick()
         rule.onNodeWithTag("review:calibrate:confirm").performClick()
         assertEquals(1, calls)
+    }
+
+    // Story 10.16: retake faces from the review.
+
+    private var retaken: Set<Face>? = null
+
+    private fun launchRetake(
+        large: Boolean = false,
+        edited: Boolean = false,
+    ) {
+        retake = { retaken = it }
+        enterColors = {}
+        launch(large = large, edited = edited)
+        rule.onNodeWithTag("review:retakeFaces").performScrollTo().performClick()
+    }
+
+    private fun faceDescription(index: Int) =
+        rule
+            .onNodeWithTag("reviewNet:face:$index")
+            .fetchSemanticsNode()
+            .config[SemanticsProperties.ContentDescription]
+            .single()
+
+    @Test fun `without onRetake there is no Retake faces button`() {
+        launch()
+        rule.onNodeWithTag("review:close").assertExists()
+        rule.onNodeWithTag("review:retakeFaces").assertDoesNotExist()
+    }
+
+    @Test fun `Retake faces sits directly after Close`() {
+        retake = {}
+        enterColors = {}
+        launch()
+        val close = rule.onNodeWithTag("review:close").performScrollTo().getUnclippedBoundsInRoot()
+        val retakeButton = rule.onNodeWithTag("review:retakeFaces").assertTextEquals("Retake faces").getUnclippedBoundsInRoot()
+        val enter = rule.onNodeWithTag("review:enterColors").getUnclippedBoundsInRoot()
+        assertTrue(close.bottom <= retakeButton.top)
+        assertTrue(retakeButton.bottom <= enter.top)
+    }
+
+    @Test fun `retake mode shows only the net, the hint, Retake N faces and Cancel`() {
+        // A review with a problem line, a suspect suggestion and a calibration offer, and a color just set.
+        val labs =
+            mapOf(
+                Color.GREEN to Lab(55.0, -60.0, 40.0),
+                Color.RED to Lab(45.0, 65.0, 45.0),
+                Color.BLUE to Lab(40.0, 10.0, -50.0),
+                Color.ORANGE to Lab(65.0, 45.0, 65.0),
+                Color.WHITE to Lab(90.0, 0.0, 0.0),
+                Color.YELLOW to Lab(85.0, -5.0, 80.0),
+            )
+        val colors =
+            CubeState.SOLVED
+                .toFacelets()
+                .colors
+                .toMutableList()
+                .also { it[38] = Color.YELLOW }
+        review =
+            ScanReview.from(
+                ScanResult.Full(
+                    Facelets(colors),
+                    List(54) { StickerConfidence.CONFIDENT },
+                    colors.mapIndexed { i, color -> if (i == 38) Lab(77.0, 15.0, 74.0) else labs.getValue(color) },
+                ),
+                CalibrationCenters(labs),
+            )
+        calibrate = {}
+        retake = { retaken = it }
+        enterColors = {}
+        launch()
+        rule.onNodeWithTag("sticker:0").performClick()
+        rule.onNodeWithTag("swatch:WHITE").performScrollTo().performClick()
+        val hidden =
+            listOf(
+                "review:accept",
+                "review:close",
+                "review:enterColors",
+                "review:retakeFaces",
+                "review:calibrate",
+                "review:selected",
+                "review:suggestion",
+                "review:updated",
+                "review:problem:0",
+                "swatch:WHITE",
+            )
+        hidden.forEach { rule.onNodeWithTag(it).assertExists() }
+        rule.onNodeWithTag("review:retakeFaces").performScrollTo().performClick()
+        rule.onNodeWithTag("review:instruction").assertTextEquals("Tap each face to scan again.")
+        rule
+            .onNodeWithText(
+                strings.resolve(
+                    dev.cubentia.domain.text
+                        .Text("msg.scan.review-title"),
+                ),
+            ).assertExists()
+        (hidden + listOf("review:coach", "editor:face:0")).forEach { rule.onNodeWithTag(it).assertDoesNotExist() }
+        rule.onNodeWithTag("review:retake:start").assertIsNotEnabled()
+        rule.onNodeWithTag("review:retake:cancel").assertTextEquals("Cancel")
+    }
+
+    private fun assertFaceSelected(
+        index: Int,
+        selected: Boolean,
+    ) = assertEquals(selected, faceDescription(index).endsWith(", selected for retake"))
+
+    @Test fun `tapping faces toggles them with an outline, a check badge and their announcement`() {
+        launchRetake()
+        val before = review
+        // Stickers are silent and inert: only the face targets are announced.
+        listOf(7, 20).forEach { index ->
+            val config = rule.onNodeWithTag("sticker:$index", useUnmergedTree = true).fetchSemanticsNode().config
+            assertNull(config.getOrNull(SemanticsProperties.ContentDescription))
+            assertNull(config.getOrNull(SemanticsProperties.Selected))
+            assertNull(config.getOrNull(StickerPulsingKey))
+            assertNull(config.getOrNull(StickerBlankEdgeKey))
+            assertNull(config.getOrNull(SemanticsActions.OnClick))
+        }
+        assertEquals("Green face", faceDescription(2))
+        assertNull(
+            rule
+                .onNodeWithTag("reviewNet:face:2")
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(SemanticsProperties.Selected),
+        )
+        rule.onNodeWithTag("reviewNet:face:2:check", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithTag("reviewNet:face:2").performClick()
+        assertEquals("Green face, selected for retake", faceDescription(2))
+        assertNull(
+            rule
+                .onNodeWithTag("reviewNet:face:2")
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(SemanticsProperties.Selected),
+        )
+        rule.onNodeWithTag("reviewNet:face:2:check", useUnmergedTree = true).assertExists()
+        rule.onNodeWithTag("review:retake:start").assertIsEnabled().assertTextEquals("Retake 1 face")
+        rule.onNodeWithTag("reviewNet:face:1").performClick()
+        rule.onNodeWithTag("review:retake:start").assertTextEquals("Retake 2 faces")
+        rule.onNodeWithTag("reviewNet:face:1").performClick()
+        assertEquals("Red face", faceDescription(1))
+        // A tap on a sticker toggles its face and edits nothing.
+        rule.onNodeWithTag("sticker:7", useUnmergedTree = true).performClick()
+        assertFaceSelected(0, true)
+        assertEquals(before, review)
+        rule.onNodeWithTag("review:retake:start").performClick()
+        assertEquals(setOf(Face.U, Face.F), retaken)
+        // Starting a retake leaves retake mode.
+        rule.onNodeWithTag("review:accept").assertExists()
+    }
+
+    @Test fun `Cancel leaves retake mode with the selection cleared and the review unchanged`() {
+        launchRetake(edited = true)
+        val before = review
+        rule.onNodeWithTag("reviewNet:face:3").performClick()
+        rule.onNodeWithTag("review:retake:cancel").performClick()
+        rule.onNodeWithTag("review:discard").assertDoesNotExist()
+        rule.onNodeWithTag("review:accept").assertExists()
+        assertEquals(before, review)
+        assertNull(retaken)
+        rule.onNodeWithTag("review:retakeFaces").performScrollTo().performClick()
+        rule.onNodeWithTag("review:retake:start").assertIsNotEnabled()
+        assertFaceSelected(3, false)
+    }
+
+    @Test fun `system Back in retake mode is Cancel, with no discard dialog`() {
+        launchRetake(edited = true)
+        rule.onNodeWithTag("reviewNet:face:4").performClick()
+        rule.runOnIdle { backDispatcher.onBackPressed() }
+        rule.onNodeWithTag("review:discard").assertDoesNotExist()
+        rule.onNodeWithTag("review:accept").assertExists()
+        assertFalse(closed)
+        assertNull(retaken)
+        // Back in review, Back asks before discarding again.
+        rule.runOnIdle { backDispatcher.onBackPressed() }
+        rule.onNodeWithTag("review:discard").assertExists()
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp")
+    fun `retake mode shows the full net on a compact phone`() {
+        launchRetake()
+        (0 until 6).forEach { rule.onNodeWithTag("reviewNet:face:$it").assertIsDisplayed() }
+        rule.onAllNodesWithTag("sticker:7").assertCountEquals(1)
+        rule.onAllNodesWithTag("sticker:20").assertCountEquals(1)
+        rule.onNodeWithTag("reviewNet:face:5").performClick()
+        rule.onNodeWithTag("review:retake:start").performScrollTo().performClick()
+        assertEquals(setOf(Face.B), retaken)
+    }
+
+    @Test
+    @Config(qualifiers = "w600dp-h960dp")
+    fun `retake mode at 200 percent has no broken words overflow or undersized controls`() {
+        launchRetake(large = true)
+        rule.onNodeWithTag("reviewNet:face:0").performClick()
+        rule.onNodeWithTag("reviewNet:face:1").performClick()
+        rule.onNodeWithTag("review:retake:start").performScrollTo().assertTextEquals("Retake 2 faces")
+        rule.assertNoMidWordBreaks()
+        rule.assertNoTextOverflow("retake mode at 200 percent")
+        rule.assertClickablesAtLeast48dp("retake mode")
     }
 }
 
