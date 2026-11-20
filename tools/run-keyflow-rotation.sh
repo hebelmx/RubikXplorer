@@ -155,6 +155,12 @@ if [ "$offline" = 1 ]; then
     echo "error: airplane mode did not turn on (airplane_mode_on=$(airplane))" >&2
     exit 1
   fi
+  # The radios go down after the setting flips: wait for no default network too (best effort; the
+  # harness fails a flow that still sees one).
+  for _ in $(seq 1 30); do
+    a shell dumpsys connectivity | tr -d '\r' | grep -q 'Active default network: none' && break
+    sleep 1
+  done
   echo "airplane during: airplane_mode_on=$(airplane)" >> "$out/device.txt"
   instrument_args=(-e offline true)
 fi
@@ -162,14 +168,13 @@ fi
 a install -r -t "$root/app/build/outputs/apk/debug/app-debug.apk" > /dev/null
 a install -r -t "$root/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk" > /dev/null
 
-# A headless emulator's screen can be asleep after boot, which fails every method (best effort).
-a shell input keyevent KEYCODE_WAKEUP > /dev/null 2>&1 || true
-a shell wm dismiss-keyguard > /dev/null 2>&1 || true
-
 summary="$out/summary.txt"
 : > "$summary"
 for method in "${methods[@]}"; do
   a shell pm clear "$pkg" > /dev/null
+  # A headless emulator's screen can be asleep (after boot or between methods), which fails the method (best effort).
+  a shell input keyevent KEYCODE_WAKEUP > /dev/null 2>&1 || true
+  a shell wm dismiss-keyguard > /dev/null 2>&1 || true
   a logcat -c
   set +e
   a shell am instrument -w -r ${instrument_args[@]+"${instrument_args[@]}"} -e class "$class#$method" "$runner" > "$out/$method.instrument.txt" 2>&1

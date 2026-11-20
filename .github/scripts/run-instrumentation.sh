@@ -31,10 +31,10 @@ if [ "$methods" -eq 0 ] || grep -qv ' pass$' "$summary"; then
   cat "$summary" >&2
   exit 1
 fi
-# Every method must show its harness saw airplane mode on: a dropped `-e offline true` must fail here.
+# Every method must show its harness saw airplane mode on and no network: a dropped `-e offline true` must fail here.
 while read -r method _; do
-  if ! grep -q 'offline,flow=.*airplane=1' "docs/evidence/12-2/keyflow/$label/$method.logcat.txt" 2> /dev/null; then
-    echo "::error::Key Flow method $method has no offline check (offline,flow=... airplane=1) in its logcat" >&2
+  if ! grep -q 'offline,flow=.*airplane=1,network=none' "docs/evidence/12-2/keyflow/$label/$method.logcat.txt" 2> /dev/null; then
+    echo "::error::Key Flow method $method has no offline check (offline,flow=... airplane=1,network=none) in its logcat" >&2
     exit 1
   fi
 done < "$summary"

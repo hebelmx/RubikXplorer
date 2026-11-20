@@ -1,0 +1,14 @@
+# Key Flow rotation run 2026-11-20T03:34:55-06:00
+serial=emulator-5554 label=avd-GalaxyTabS7FE_API34 git=f5e96a6da2e311835b0cb021ba3b24f1fc51b032 (app has uncommitted changes)
+model=sdk_gphone64_x86_64 release=14 sdk=34 emulator=1
+fingerprint=google/sdk_gphone64_x86_64/emu64xa:14/UE1A.230829.050/12077443:userdebug/dev-keys
+density=Physical density: 320  size=Physical size: 2560x1600 
+ignore-orientation-request=ignoreOrientationRequest true for displayId=0 
+rotation before: accelerometer_rotation=0 user_rotation=1
+offline=1
+airplane before: airplane_mode_on=0
+airplane during: airplane_mode_on=1
+rotation after run: accelerometer_rotation=1 user_rotation=1
+airplane after run: airplane_mode_on=1
+airplane after (restored): airplane_mode_on=0 (found 0)
+rotation after (restored): accelerometer_rotation=0 user_rotation=1

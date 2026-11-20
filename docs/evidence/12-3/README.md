@@ -39,6 +39,8 @@ AVD `GalaxyS24FE_API36` (Android 16, headless), debug build, each method from a 
 
 The headless emulator's screen had gone to sleep after boot, which made the first attempt fail at "welcome never appeared" in every method. The tool now wakes the screen and dismisses the keyguard before the methods (best effort). One later attempt was cut short when the emulator itself crashed in its host-GPU layer (gfxstream, exit 139); the run recorded here is a clean rerun after a reboot.
 
+Follow-up review rerun (2026-11-20) on AVD `GalaxyTabS7FE_API34` (Android 14, the same API level as the release-tag CI emulator), after the tool started waiting for no default network and waking the screen before each method: 7/7 pass, each logcat has `offline,flow=<flow>,airplane=1,network=none`, airplane mode restored to 0. Output: [offline/avd-GalaxyTabS7FE_API34/](offline/avd-GalaxyTabS7FE_API34/).
+
 From now on every release tag runs the Key Flow suite offline (`.github/scripts/run-instrumentation.sh` sets `OFFLINE=1`; API 34 emulator).
 
 The app declares no `INTERNET` permission, so this run shows the flows need no network (no wait on connectivity, Play services or downloadable resources), not that the app is blocked from one.
@@ -50,5 +52,5 @@ This is the debug build on an emulator. The release build on a physical referenc
 | Item | Ref | Date | Result / numbers | By |
 |---|---|---|---|---|
 | AC2 physical: fresh install of the release build from the Play internal or closed track on a reference device, airplane mode on, run the Course, Library, cube entry and solve, including cold start and resume | NFR-5 | | | |
-| AC3: closed-testing build's Android vitals: user-perceived crash-free sessions (>= 99.5%), user-perceived ANR rate (below Play's bad-behavior threshold), versionCode read | NFR-9, AD-16 | | | |
+| AC3: closed-testing build's Android vitals: user-perceived crash rate (<= 0.5%, read for NFR-9's >= 99.5% crash-free sessions), user-perceived ANR rate (below Play's bad-behavior threshold), crash and ANR counts, versionCode read | NFR-9, AD-16 | | | |
 | AC3: Play data-safety form declares "no data collected" and is saved against the registered privacy-policy URL (Story 13.6) | NFR-8, AD-13 | | | |

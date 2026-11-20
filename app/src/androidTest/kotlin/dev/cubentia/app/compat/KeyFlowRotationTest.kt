@@ -34,7 +34,8 @@ import org.junit.runner.RunWith
  *
  * Offline (Story 12.3 AC2, NFR-5): `OFFLINE=1 tools/run-keyflow-rotation.sh <serial>` turns airplane
  * mode on and passes `-e offline true`; [KeyFlowHarness] then fails any flow that starts while
- * `airplane_mode_on` is not 1. The release-tag CI runs this suite offline.
+ * `airplane_mode_on` is not 1 or `dumpsys connectivity` still shows an active default network. The
+ * release-tag CI runs this suite offline.
  */
 @RunWith(AndroidJUnit4::class)
 class KeyFlowRotationTest {

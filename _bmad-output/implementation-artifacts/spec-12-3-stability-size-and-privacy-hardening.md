@@ -5,7 +5,7 @@ created: '2026-11-20'
 status: 'done'
 baseline_revision: 'ae86a56ea12c6cfe9ab97b98fd4e6c62b72c2dee'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-12-context.md'
 warnings: ['oversized']
@@ -33,6 +33,13 @@ deferred:
     location: >-
       app/src/main/kotlin/dev/cubentia/app/preferences/PreferenceStore.kt
     severity: medium
+  - summary: >-
+      The recompiled epic-12-context.md dropped epic-wide rules (AD-4 commit-before-animate, session integrity, learner text in en.json via checkLearnerText) that Story 12.4 pilot fixes may need.
+    evidence: |-
+      Follow-up review 2026-11-20 (blind, intent). AGENTS.md still carries the learner-text and SessionEvent rules and the architecture doc carries AD-4, so the loss is guidance in the cached context only; the fix edits an agent-context file. Recompile or extend the context when 12.4 starts.
+    location: >-
+      _bmad-output/implementation-artifacts/epic-12-context.md
+    severity: low
 ---
 
 <intent-contract>
@@ -121,6 +128,43 @@ deferred:
   - `[medium]` `[patch]` (intent) epic-6-retro-item-1 excluded and context line removed — context note restored; implementing the item is excluded by the intent ("exactly this story's acceptance criteria"), so it is deferred as a PO decision.
   - `[false]` `[reject]` (intent) AD-15/AD-16 re-stated, not exercised — the diff touches neither; DebugStrictMode.kt and release.yml mapping upload exist unchanged, no deviation.
 
+### 2026-11-20 — Review pass (follow-up)
+- verdicts: 33 findings — high 0, medium 2, low 19, false 10, maybe-false 2
+- findings:
+  - `[medium]` `[patch]` (blind) Script waits only for the airplane setting, harness checks the network at once with no retry — host script now also waits up to 30 s for "Active default network: none" before the methods.
+  - `[false]` `[reject]` (blind) Offline check unproven on the API 34 CI image ("Active default network:" may be missing) — AOSP ConnectivityService.dump prints that line on API 34; rerun on GalaxyTabS7FE_API34 (Android 14) logged `network=none` in all 7 flows.
+  - `[low]` `[patch]` (blind) CI grep does not require `network=none` — pattern now `offline,flow=.*airplane=1,network=none`.
+  - `[low]` `[patch]` (blind) Vitals crash rate is per daily user, not per session — release.md step 1 says so, keeps the 0.5% reading as an approximation and asks for crash and ANR counts.
+  - `[low]` `[patch]` (blind) Too-little-data vitals has no way forward — release.md: not a pass; promoting without one is a PO decision recorded in the table.
+  - `[low]` `[patch]` (blind) README PO row asks for "crash-free sessions", which vitals does not show — row now asks for the user-perceived crash rate (<= 0.5%) and counts.
+  - `[false]` `[reject]` (blind) AC1 has no CI evidence for the committed revision — carried: ci.yml runs checkReleaseSize, merged-manifest, denylist and privacy-facts gates on every PR, including this one.
+  - `[low]` `[patch]` (blind) KeyFlowRotationTest KDoc omits the network check — KDoc now names the `dumpsys connectivity` check.
+  - `[low]` `[patch]` (blind) Screen wake runs once before all methods — wake and dismiss-keyguard moved into the per-method loop after `pm clear`.
+  - `[maybe-false]` `[defer]` (blind) Offline gate runs only the debug build — carried: already deferred (release-build offline run, medium unverified).
+  - `[low]` `[defer]` (blind) Recompiled epic-12-context dropped AD-4, session-integrity and learner-text rules — AGENTS.md and the architecture doc still hold them; fix edits an agent-context file, deferred.
+  - `[false]` `[reject]` (blind) epic-6-retro-item-1 has no tracked follow-up — it is open in sprint-status.yaml and a deferred PO decision in this spec.
+  - `[low]` `[reject]` (blind) CI offline output lands under the 12-2 folder — carried: cosmetic; path unchanged keeps the summary/upload wiring.
+  - `[medium]` `[patch]` (edge) Wait loop stops at airplane=1 while radios are still going down — same fix as blind finding 1.
+  - `[false]` `[reject]` (edge) Logcat ring buffer can drop the early offline line on long flows — 12.2 API 34 evidence (flow1, 50 lines) and both 12.3 runs keep the run-start lines; the longest flow (flow1) still has the offline line at line 4.
+  - `[low]` `[patch]` (edge) Screen can sleep again during later methods — same fix as blind screen-wake finding.
+  - `[false]` `[reject]` (edge) dumpsys format may differ on API 34 — same refutation as blind finding 2 (API 34 rerun 7/7 `network=none`).
+  - `[low]` `[reject]` (edge) OFFLINE=1 accepted for a physical serial — carried: caller picks the serial; header and docs say emulator only.
+  - `[low]` `[reject]` (edge, claim) Online path not "exactly as today" (wake, keyguard, `offline=0` line) — the matrix's Online row holds (no airplane change, no offline argument); gating the wake to OFFLINE=1 would bring back the headless sleep failure for online runs.
+  - `[low]` `[reject]` (edge, claim) No emulator check for the serial — carried: same as the physical-serial row.
+  - `[false]` `[reject]` (gap) New CI path never run on a release tag — carried: needs an operator tag; the API 34 rerun now covers the airplane and dumpsys parts on the CI API level.
+  - `[low]` `[patch]` (gap) README and release.md disagree on the stability metric — same fix as the blind README row.
+  - `[low]` `[reject]` (gap) Evidence captured before the commit — carried: same pattern as 12.2 evidence; the tree is this story's commit.
+  - `[low]` `[patch]` (gap) CI grep weaker than the harness check — same fix as the blind CI grep row.
+  - `[maybe-false]` `[defer]` (intent) Debug build on an emulator vs release on a device — carried: already deferred.
+  - `[false]` `[reject]` (intent) Check runs after MainActivity launched — the script turns airplane mode on before install and any `am instrument`, so startup is offline too; the matrix asks that the flow's steps start after the check, which holds.
+  - `[false]` `[reject]` (intent) Network check goes beyond the matrix — not a defect; added by the first review pass to make the offline proof real.
+  - `[low]` `[reject]` (intent) Online default path changed — same as the edge claim row.
+  - `[low]` `[reject]` (intent) Restore path has no automated test — carried: failure-path checks only in prose, re-verified by hand.
+  - `[low]` `[reject]` (intent) Script does not refuse a physical serial — carried: same as the physical-serial row.
+  - `[false]` `[reject]` (intent) AC1 evidence is a local transcript — carried: CI runs the same gates on every PR.
+  - `[false]` `[reject]` (intent) Vitals thresholds 1.09% / 0.47% unsourced — these are Play's published bad-behavior thresholds, and the runbook tells the PO to confirm them in Console.
+  - `[low]` `[defer]` (intent) epic-12-context rewrite beyond story scope — same entry as the blind epic-context row.
+
 ## Verification
 
 **Commands:**
@@ -133,22 +177,22 @@ deferred:
 
 Status: done
 
-**Summary:** Story 12.3's automatable parts. AC1 gates (size, manifest, SDK denylist, privacy facts) already existed and were run and recorded. AC2 gained an opt-in offline mode for the Key Flow suite (airplane mode on, per-flow check of airplane mode and no default network, restore on exit), run on the GalaxyS24FE_API36 emulator (7/7 pass) and wired into release-tag CI with a per-flow log check. AC3 got a "Before production" runbook; the human steps are PO deferred items.
+**Summary:** Story 12.3's automatable parts. AC1 gates (size, manifest, SDK denylist, privacy facts) run and recorded. AC2: opt-in offline mode for the Key Flow suite (airplane mode on, per-flow check of airplane mode and no default network, restore on exit), wired into release-tag CI with a per-flow log check, run 7/7 on GalaxyS24FE_API36 and, in this follow-up pass, 7/7 on GalaxyTabS7FE_API34 (CI's API level). AC3: "Before production" runbook; vitals, data safety and the physical device check stay PO deferred items for the combined human-verification session.
 
-**Files changed:**
-- `tools/run-keyflow-rotation.sh` -- OFFLINE=1 mode, EVIDENCE_DIR override, screen wake, airplane restore + verify in the EXIT trap.
+**Files changed (whole story):**
+- `tools/run-keyflow-rotation.sh` -- OFFLINE=1 mode, EVIDENCE_DIR override, wait for no default network, per-method screen wake, airplane restore + verify in the EXIT trap.
 - `app/src/androidTest/kotlin/dev/cubentia/app/compat/KeyFlowHarness.kt` -- offline check (airplane_mode_on=1 and "Active default network: none") with evidence log line.
-- `app/src/androidTest/kotlin/dev/cubentia/app/compat/KeyFlowRotationTest.kt` -- KDoc for offline mode.
-- `.github/scripts/run-instrumentation.sh` -- release-tag Key Flow suite runs offline; every method must log its offline check.
-- `docs/evidence/12-3/` -- README (AC1 results, AC2 table, PO items), release-size.txt, offline run output.
-- `docs/release.md` -- "Before production" (vitals, data safety, physical offline check) and offline note.
+- `app/src/androidTest/kotlin/dev/cubentia/app/compat/KeyFlowRotationTest.kt` -- KDoc for offline mode, including the network check.
+- `.github/scripts/run-instrumentation.sh` -- release-tag Key Flow suite runs offline; every method must log `airplane=1,network=none`.
+- `docs/evidence/12-3/` -- README (AC1 results, AC2 runs, PO items), release-size.txt, offline output for API 36 and API 34.
+- `docs/release.md` -- "Before production" (vitals with the per-user metric note and low-data rule, data safety, physical offline check) and offline note.
 - `docs/release-gates-v1.0.md` -- gate 5 offline evidence.
-- `_bmad-output/implementation-artifacts/epic-12-context.md` -- recompiled (stale), with the SCP note on epic-6-retro-item-1.
+- `_bmad-output/implementation-artifacts/epic-12-context.md` -- recompiled in the first pass.
 
-**Review findings:** 27 findings; 10 patch entries applied (medium: network check, screen wake, vitals runbook, epic-context note, CI per-flow check; low: proof wording, cold start/resume, empty read-back, explicit EVIDENCE_DIR); 2 deferred (release-build offline run, medium unverified; epic-6-retro-item-1 PO decision); 15 rejected with reasons in the triage log.
+**Review findings (follow-up pass):** 33 findings. Patched: 2 medium entries grouped as one (wait for no default network), plus low entries: CI grep requires `network=none`, vitals per-user note, low-data PO decision, README metric row, KDoc, per-method screen wake. Deferred: epic-context rule loss (low, agent-context file). Rejected with reasons in the triage log: 10 false, 8 low (carried physical-serial guard, 12-2 folder, dirty-tree evidence, prose-only failure checks; online path wake/keyguard), and 2 carried maybe-false entries already deferred.
 
-**Follow-up review recommended:** true (patched: 0 high, 5 medium entries, 4 low entries — counting grouped entries once). Unverified risk: the new offline mode (airplane toggle, `dumpsys connectivity` parsing, CI logcat check) has run only on the local API 36 emulator, not on the API 34 CI emulator of the release workflow.
+**Follow-up review recommended:** false (follow-up pass; patched 0 high, 1 medium entry, 6 low entries).
 
-**Verification:** `./gradlew spotlessCheck build :app:checkReleaseSize :app:assembleDebugAndroidTest` BUILD SUCCESSFUL (estimate 12,132,501 < 30,000,000 bytes); `bash -n` on both scripts ok; offline Key Flow suite on GalaxyS24FE_API36 7/7 pass with `airplane=1,network=none` per flow, airplane restored to 0; default (online) mode run of flow8 passes with no airplane change; `-e offline true` with airplane off fails "flow8: device is not offline (airplane_mode_on=0)"; offline run with a failing method restores airplane to 0; Wi-Fi left on in airplane mode fails "network still active in airplane mode".
+**Verification:** `./gradlew spotlessCheck build :app:checkReleaseSize :app:assembleDebug :app:assembleDebugAndroidTest` BUILD SUCCESSFUL (estimate 12,132,501 < 30,000,000 bytes); `bash -n` on both scripts ok; `OFFLINE=1 EVIDENCE_DIR=docs/evidence/12-3/offline tools/run-keyflow-rotation.sh emulator-5554 avd-GalaxyTabS7FE_API34` (headless, Android 14) 7/7 pass, exit 0, `airplane=1,network=none` in every logcat (CI grep pattern matches all 7), airplane restored to 0. First pass: API 36 run 7/7 and the negative cases (airplane off, Wi-Fi on, failed run restore).
 
-**Residual risks:** offline evidence is the debug build on an emulator; release-build offline, vitals and data safety are PO items. Release-tag CI run of offline mode not yet observed.
+**Residual risks:** offline evidence is the debug build on emulators; release-build offline, Android vitals and the Play data-safety form are PO items for the combined human-verification session. A release-tag CI run of the offline mode is not yet observed.
