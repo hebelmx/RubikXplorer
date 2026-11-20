@@ -198,7 +198,7 @@ Kotlin 2.4.21 · AGP 9.5 (built-in Kotlin) · Compose BOM 2026.09.00 · Material
 | Question | Resolved by |
 | --- | --- |
 | Quick Scan corner detection (Kotlin / OpenCV / LiteRT) | Kotlin-first; confirmed by Story 10.10, decided by Story 11.1; contained in the camera adapter |
-| Performance on the reference devices (Galaxy Tab S7 FE 5G, Galaxy S24 FE) | Story 1.10 benchmark; above 33.3 ms p90 per frame reopens the renderer choice |
+| Performance on the reference devices (minimum Lenovo Tab M10 Plus 3rd Gen, mid Galaxy S24 FE; the Galaxy Tab S7 FE 5G, minimum until 2026-11-12, is an additional compatibility device, SCP 2026-11-12) | Story 1.10 benchmark; above 33.3 ms p90 per frame reopens the renderer choice. On the Lenovo the frame-interval p90 is 18.35 ms (face turns) and 19.66 ms (View Rotation) (Story 12.2 Macrobenchmark, `docs/benchmarks.md`) |
 | Solver internals (bundled or generated pruning tables) | solver epic, within the 3 s timeout and 30 MB app size |
 
 Gestures are interpreted by the pure `domain/input/GestureInterpreter`; `ViewPose` drives both picking and the GL camera.

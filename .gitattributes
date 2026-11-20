@@ -1,5 +1,7 @@
 * text=auto
 gradlew text eol=lf
+# Shell scripts run under bash on Linux/WSL/CI; CRLF breaks them, so keep LF even with core.autocrlf=true (#119 item 8).
+*.sh text eol=lf
 *.bat text eol=crlf
 *.jar binary
 # :app:checkPrivacyFacts compares exact text; keep the generated facts LF on every checkout.

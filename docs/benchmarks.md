@@ -341,7 +341,9 @@ are reached through the UI too (Flow 2 passes the skip-ahead check first, Flow 7
 Skip checks and practice Scrambles are solved by tapping the Move keys of a Solution computed
 in-process by the app's production solver. At each surface the test rotates portrait → landscape →
 portrait with `Activity.requestedOrientation` (never device settings; restored to
-`SCREEN_ORIENTATION_UNSPECIFIED`) and checks, after each rotation:
+`SCREEN_ORIENTATION_UNSPECIFIED`) and checks, after each rotation. *(That was the method at the
+time of these runs. Since #119 the harness rotates the display itself through UI Automator; see the
+Lenovo AC3 subsection below.)*
 
 - `SessionHost.state.value` is equal before and after (read from the activity's injected
   `@Singleton`; a test-source Hilt `@EntryPoint` is not aggregated into the app's component without
@@ -471,14 +473,20 @@ S24 FE until `androidTestImplementation` pinned espresso-core 3.7.0 (test-only).
 3. API 30 is not in the target set (AVDs cover 29, 34, 35, 36, 37; physical 31 and 37): the API 30 gap is
    **accepted** for "API 29 through targetSdk 36".
 
-## Additional device: Lenovo Tab M10 Plus 3rd Gen (TB128XU), 2026-11-11
+<a id="additional-device-lenovo-tab-m10-plus-3rd-gen-tb128xu-2026-11-11"></a>
 
-**Not a reference device.** The reference devices stay the Galaxy Tab S7 FE 5G (minimum) and the
-Galaxy S24 FE (mid). These runs repeat their methods on a third, lower-end tablet so the product owner
-can decide, through `bmad-correct-course`, whether to add it. No criterion, waiver or verdict above
-changes because of these numbers. The pass column applies the thresholds used for the reference
-devices. Where the minimum and the mid thresholds differ, it applies the minimum one and states the
-mid one as well.
+## Minimum reference device: Lenovo Tab M10 Plus 3rd Gen (TB128XU), measured 2026-11-11
+
+**The minimum reference device since 2026-11-12.** The product owner made the Lenovo the minimum
+reference device in
+[SCP 2026-11-12](../_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-12-lenovo-minimum-reference.md)
+(this section was "Additional device" until then). The reference devices are now the Lenovo (minimum)
+and the Galaxy S24 FE (mid). The Galaxy Tab S7 FE 5G is an **additional Samsung compatibility device**.
+Its Story 3.8, 1.11 and 12.2 results above, labelled "minimum", are **dated evidence** from when it was
+the minimum device (until 2026-11-12). They are not re-run, and no criterion, waiver or verdict above
+changes. These runs repeat the same methods on the Lenovo. The pass column applies the minimum-device
+thresholds and states the mid one where they differ. The device's known limitations are listed at the
+end of this section (#119).
 
 | Identity | Value |
 | --- | --- |
@@ -585,7 +593,8 @@ classed as mid-tier.
 ### Story 12.2 AC3: rotation and compatibility (Key Flow suite)
 
 `tools/run-keyflow-rotation.sh HA1S28MM lenovo-tb128xu-api33`, debug build, the same seven methods.
-Two findings came before the valid run:
+Two findings came before the valid run. Both are fixed in the harness since #119 (see *Harness changes
+since this run* below):
 
 1. **Script line endings (local checkout).** The working copy of `tools/run-keyflow-rotation.sh` has
    CRLF endings (`core.autocrlf=true` here, and `.gitattributes` forces LF only for `gradlew`). The
@@ -616,6 +625,26 @@ the window class. The device adds API 33, which no earlier target covered. With 
 ignored, no letterbox was observed, because the configuration never changed. The letterbox case
 stays the one recorded for the Tab AVD above.
 
+The PO accepted this method (`wm set-ignore-orientation-request false`, restored afterwards) for AC3 on
+this device (SCP 2026-11-12, decision 2), so AC3 is met here for v1.0.
+
+**Harness changes since this run (#119).**
+
+- *Rotation (item 1).* `KeyFlowHarness` now rotates the display itself through UI Automator
+  (`UiDevice.setOrientationPortrait` / `setOrientationLandscape`, which freeze the display rotation) and
+  leaves `Activity.requestedOrientation` unspecified, so the app follows the system as it does when a
+  Learner turns the tablet. It no longer depends on orientation requests being honored. The test
+  unfreezes the rotation afterwards, and `tools/run-keyflow-rotation.sh` records
+  `wm get-ignore-orientation-request` and puts `accelerometer_rotation` and `user_rotation` back as it
+  found them on exit, also after a failure. It changes no window-manager setting.
+- *Line endings (item 8).* `.gitattributes` now has `*.sh text eol=lf`, so the scripts check out with
+  LF under `core.autocrlf=true` and the `tr -d '\r'` workaround is no longer needed. An existing
+  clone with CRLF working copies needs one re-checkout:
+  `rm tools/*.sh .github/scripts/*.sh .claude/hooks/*.sh && git checkout -- tools .github/scripts .claude/hooks`.
+- **Pending:** the suite has not yet been re-run on the Lenovo with default settings
+  (`ignore-orientation-request` = `true`, no override). Until it is, the result above (with the
+  accepted override) is the AC3 record on this device.
+
 ### Story 12.2 AC2: solve corpus (NFR-3)
 
 Same runner, `benchmark` build (`build,debuggable=false`), `--ei cases 10000 --el seed 20261031 --ei
@@ -635,33 +664,50 @@ margin to the 3 s timeout.
 
 ### Summary against the reference thresholds
 
-| Criterion (threshold as for the reference devices) | Lenovo TB128XU | Tab S7 FE 5G (min) | S24 FE (mid) | Lenovo pass |
+| Criterion (threshold as for the reference devices) | Lenovo TB128XU (min) | Tab S7 FE 5G (compatibility; min until 2026-11-12) | S24 FE (mid) | Lenovo pass |
 | --- | --- | --- | --- | --- |
-| NFR-1/AC1 face turns ≥ 30 FPS (min) / 60 FPS (mid), median | 61.96 | 60.61 | 60.32 | **yes** (both) |
-| NFR-1/AC1 View Rotation ≥ 30 FPS (min) / 60 FPS (mid), median | 59.69 | 59.86 | 60.09 | **yes** at ≥ 30; below 60 |
-| NFR-2/AC1 face-turn input acknowledged ≤ 100 ms, max | 57.52 ms | 47.30 ms | 45.62 ms | **yes** |
-| NFR-2/AC1 View Rotation input → frame ≤ 100 ms, max | 30.94 ms | 22.31 ms | 20.47 ms | **yes** |
+| NFR-2/AC1 face turns ≥ 30 FPS (min) / 60 FPS (mid), median | 61.96 | 60.61 | 60.32 | **yes** (both) |
+| NFR-2/AC1 View Rotation ≥ 30 FPS (min) / 60 FPS (mid), median | 59.69 | 59.86 | 60.09 | **yes** at ≥ 30 (the minimum threshold); below 60 |
+| NFR-1/AC1 face-turn input acknowledged ≤ 100 ms, max | 57.52 ms | 47.30 ms | 45.62 ms | **yes** |
+| NFR-1/AC1 View Rotation input → frame ≤ 100 ms, max | 30.94 ms | 22.31 ms | 20.47 ms | **yes** |
 | NFR-3/AC2 ≥ 95 % of corpus within 3 s | 100 % (0 failures) | 100 % (0 failures) | not run | **yes** |
-| NFR-13/AC3 rotation keeps state and layout follows window class | 7/7 flows with orientation requests honored; 0/7 as shipped (harness cannot rotate) | 7/7 | 7/7 | **yes** with the override; harness finding as shipped |
+| NFR-13/AC3 rotation keeps state and layout follows window class | 7/7 flows with orientation requests honored; 0/7 with default settings on the old harness (it could not rotate) | 7/7 | 7/7 | **yes** with the PO-accepted override; default-settings re-run with the #119 harness pending |
 | 3.8 StrictMode: no main-thread disk access | 0 violations | 10 platform-only (waived, #107) | — | **yes**, no waiver needed |
 | 3.8 first-run delivery rule G ≤ 5 s (decides delivery, not a pass criterion) | 14.35 s | 10.01 s | — | fails, so bundled (as on the Tab) |
 | #104 per-process preparation (accepted for v1.0, no threshold) | 12.6 s debug; ≤ 10.5 s release (coarse) | 8.3 s; ≤ 7.6–7.8 s | — | n/a, about 1.5× the Tab |
 
-Questions for the product owner before adding the device through `bmad-correct-course`:
+NFR-1 is responsiveness (input acknowledged ≤ 100 ms) and NFR-2 is rendering (≥ 30 FPS on the minimum
+device); earlier drafts of this table had the two labels swapped.
 
-- Tier: as a minimum-tier device it meets every threshold. Its View Rotation median of 59.69 FPS would
-  miss the mid device's 60 FPS reading.
-- AC3 method: should the Key Flow suite on this tablet run with `ignore-orientation-request` off (as
-  here)? The alternative is to add a rotation path that works when the system ignores orientation
-  requests.
-- #104: about 10.5 s release-equivalent preparation per process. This is the longest wait measured so
-  far behind the #112 copy.
+Decisions by the product owner (SCP 2026-11-12), which replace the questions this section first asked:
+
+- **Tier:** the Lenovo replaces the Tab S7 FE as the **minimum** reference device; the S24 FE stays mid.
+  It meets every minimum threshold. The mid device's 60 FPS reading does not apply to it.
+- **AC3 method:** running the Key Flow suite with `wm set-ignore-orientation-request false` (restored
+  afterwards) is an accepted method on this device. A rotation path that works with default settings is
+  the #119 harness change above; its device re-run is pending.
+- **#104:** about 10.5 s release-equivalent preparation per process stays accepted for v1.0 and is
+  tracked in #104 (v1.1). The preparing copy was reworded so it promises no duration (#123).
+
+### Known limitations on the minimum device (#119)
+
+| # | Limitation | Measured | Disposition |
+| --- | --- | --- | --- |
+| 2 | Per-process solver preparation is long | 12.6 s debug (median, n = 5); ≤ 10.5 s release-equivalent (coarse) | **Accepted for v1.0; speed-up tracked in #104 (v1.1).** The copy no longer promises "a few seconds": `msg.solve.preparing` now reads "Preparing the solver. The first solve after the app starts takes longer. Later solves are faster." (`core/domain/src/main/resources/content/strings/en.json`, #123). A second solve in the same process goes straight to playback. |
+| 3 | First-time table generation is long | G = 14.35 s | **Accepted.** Generation runs only on the fallback path (bundled tables are selected, Story 3.8 rule G ≤ 5 s), once per install. The first-use copy ("This can take a little while.") promises no duration. |
+| 4 | View Rotation drops a few frames | 5 of 1,990 intervals > 33.3 ms (max 40.2 ms); median 59.69 FPS; p90 19.66 ms | **Accepted.** Within NFR-2 (≥ 30 FPS) and the AD-4 p90 ≤ 33.3 ms gate. None seen on the Samsung devices. |
+| 5 | Face-turn input latency is higher than on the Samsung devices | p90 53.39 ms, max 57.52 ms | **Accepted.** Within NFR-1 (≤ 100 ms). |
+| 6 | Macrobenchmark reports `cpuLocked: true` | Clocks were not locked (`scaling_min_freq` < `scaling_max_freq` on every cluster) | **Accepted** as the library's reading of this kernel; the flag does not describe the run conditions. |
+| 7 | Release-equivalent preparation timing is coarse | `uiautomator` dumps take 2–3 s here, so 10.46–10.49 s are upper bounds | **Accepted** as an upper bound; a precise release-build measurement belongs to #104 (and the k recalibration to #105), v1.1. |
+
+Items 1 (rotation harness) and 8 (script line endings) are the harness changes in the AC3 subsection.
 
 ## Out of scope
 
 - The product owner waived the Story 1.11 2D net reference-device baselines for v1.0. Device
   measurement of the benchmark retargeted to Solution Playback is pending under
   [issue #106](https://github.com/hebelmx/RubikXplorer/issues/106).
-- Solver performance work and a release-equivalent recalibration of k: v1.1, #105. The ~8 s
-  per-process preparation: v1.1, #104. Story 12.2 measured both as they are and did not tune them.
+- Solver performance work and a release-equivalent recalibration of k: v1.1, #105. The
+  per-process preparation (about 8 s on the Tab S7 FE, 12.6 s debug / ≤ 10.5 s release-equivalent on the
+  minimum Lenovo): v1.1, #104. Story 12.2 measured both as they are and did not tune them.
 - Camera, scan and Quick Check flows (Key Flows 4, 5 and 9 steps 1–3): v1.1.

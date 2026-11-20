@@ -1,6 +1,6 @@
 # Emulators and KVM
 
-Local Android Virtual Devices (AVDs) that simulate the project's two reference devices, the Galaxy S24 FE and the Galaxy Tab S7 FE 5G (`SM-T738U`). Set up and verified 2026-11-07 on the Kali dev host.
+Local Android Virtual Devices (AVDs) that simulate the mid reference device, the Galaxy S24 FE, and the compatibility tablet, the Galaxy Tab S7 FE 5G (`SM-T738U`; the minimum reference device until 2026-11-12). The minimum reference device since SCP 2026-11-12, the Lenovo Tab M10 Plus 3rd Gen (TB128XU, API 33), has no AVD and is measured on the physical tablet (`docs/benchmarks.md`). Set up and verified 2026-11-07 on the Kali dev host.
 
 Emulator numbers are only a rough guide. Performance and camera acceptance still run on the physical devices (`docs/pruning-tables.md`, `docs/ARCHITECTURE.md`, `docs/benchmarks.md`).
 
