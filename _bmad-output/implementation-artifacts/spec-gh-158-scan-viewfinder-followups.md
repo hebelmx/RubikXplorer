@@ -5,7 +5,7 @@ created: '2026-11-19'
 status: 'done'
 baseline_revision: '167fcca1fa7d0aef64264228d52990b85ede8f82'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
 warnings: [multiple-goals, oversized]
@@ -31,6 +31,13 @@ deferred:
       maybe-false. All 12 live sets are studio light (min red/orange face-center distance 24.8 CIE76); raising the threshold from 10 to 12 trades a little red/orange margin for catching more repeats. Settle with warm/dim captures in the Story 10.8 recognition matrix (Lab values, not only C/L diag lines).
     location: >-
       core/domain/src/main/kotlin/dev/cubentia/domain/recognition/GuidedScan.kt (SAME_CENTER_DELTA_E)
+    severity: medium (unverified)
+  - summary: >-
+      Shutter click audible on a real capture (Activity starts the IO load; play is silent until loaded) is not checked on a device.
+    evidence: |-
+      maybe-false. ShutterSound.play() is now a no-op until load() finished, so a missing or cancelled load in GuidedScanActivity would silence every capture without failing any test. 2026-11-19 re-run on the final build (Lenovo HA1S28MM) opened Guided Scan and pressed Capture with 0 StrictMode lines, but the scene was too dark to capture, so no click was produced. Settle at the next device session with a cube in good light.
+    location: >-
+      app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt (onCreate load, play call sites)
     severity: medium (unverified)
 ---
 
@@ -144,6 +151,38 @@ Debug APK of this branch installed on both devices; Guided Scan opened from the 
   - `[false]` `[reject]` (intent) shutter wiring / locale lookup untested — the StrictMode device run covers the IO load end to end; ShutterSoundTest covers release guards; locale helper tested with tr.
 
 
+### 2026-11-19 — Review pass (follow-up)
+- verdicts: 28 findings — high 0, medium 0, low 15, false 6, maybe-false 7
+- findings:
+  - `[maybe-false]` `[defer]` (verification-gap) Activity never loading the sound would silence every capture undetected — deferred as a device-session check (medium, unverified).
+  - `[low]` `[patch]` (verification-gap other) a throwing player.load() still set loaded = true — `loaded` is now set only after a normal return; ShutterSoundTest adds a throwing-load case (5/5). MediaActionSound.load throws only for an invalid sound id and SHUTTER_CLICK is a constant, so the uncaught coroutine exception stays unreachable.
+  - `[low]` `[patch]` (blind) failed load marked as loaded — same group and fix.
+  - `[low]` `[patch]` (blind) no test for a throwing load — same group; test added.
+  - `[false]` `[reject]` (blind) phones mostly get 1280x960 — S24 FE 2026-11-19: Guided Scan TextureView is 1080x890 (ratio 1.21 ≤ 4:3) and dumpsys media.camera shows the YUV analysis stream at 640 x 480.
+  - `[low]` `[reject]` (blind) ≤ 4:3 path no longer CameraX's implicit default — it targets 640x480 at 4:3 like the default; S24 FE binds 640 x 480; only devices lacking 640x480 could differ.
+  - `[low]` `[reject]` (blind) review summary counts wrong — fix edits this spec.
+  - `[low]` `[reject]` (blind) StrictMode PASS does not name the build — fix edits this spec; re-run on the final build recorded in Auto Run Result.
+  - `[low]` `[reject]` (blind) threshold test does not assert its own distance — `Lab(55,-60,51)` vs RecognitionFixtures GREEN `(55,-60,40)` is fixed test data; a guard assertion adds nothing today.
+  - `[low]` `[reject]` (blind) RepeatedFaceFixtureTest passes vacuously with no data / brittle 12 count — the count test fails the suite when the directory is missing; updating 12 when a set is recorded is intended.
+  - `[low]` `[reject]` (blind) no fixture-jitter repeat in the 10–12 band — GuidedScanTest's 11 dE repeat pins the band.
+  - `[low]` `[reject]` (blind) rotation deferral overstates JVM coverage — fix edits this spec.
+  - `[false]` `[reject]` (blind) review_loop_iteration not bumped — it counts bad_spec loopbacks only; none happened.
+  - `[low]` `[reject]` (blind) freeze ends early on corner fallback and finish — carried: cosmetic, recorded as residual risk.
+  - `[low]` `[patch]` (edge) throwing load sets loaded — same group as above.
+  - `[low]` `[reject]` (edge) recoverable error never clears — carried: device check showed the focused app re-acquires the camera.
+  - `[false]` `[reject]` (edge) bind() rebuilds ImageAnalysis repeatedly — the analysis is built only after `view.viewPort` is non-null; once bind() returns true the layout listener is removed, and a failed bind goes to unavailable().
+  - `[false]` `[reject]` (edge) duplicate truth center dropped by associateBy — `every live set is recorded with six distinct centers` asserts all six colors per set, so a duplicate fails it.
+  - `[false]` `[reject]` (edge) empty Configuration.locales → NPE — carried false.
+  - `[low]` `[patch]` (edge claim) KDoc says play never makes the platform load on main, false after a failed load — same group; now true.
+  - `[maybe-false]` `[reject]` (intent A) Activity wiring of the sound not unit-tested — covered by the deferred device check above.
+  - `[low]` `[reject]` (intent A2) a capture during the IO load window is silent — the load takes milliseconds and the first capture needs a steady face for ≥ 600 ms.
+  - `[maybe-false]` `[reject]` (intent B) held/Review proven only through a fake — carried; VM endFreeze covered by QuickScanRouteTest/QuickCheckRouteTest; real rotation deferred.
+  - `[maybe-false]` `[reject]` (intent B1 vs B3) every disposal ends the freeze — carried; Approach chose B1.
+  - `[maybe-false]` `[reject]` (intent C) observer wiring covered only on device — device split-screen check recorded.
+  - `[false]` `[reject]` (intent D) LocalConfiguration lookup untested — carried; no color name contains a capital I.
+  - `[maybe-false]` `[reject]` (intent E) known-center path not fixture-tested and 3 % headroom — carried; same comparison and constant.
+  - `[maybe-false]` `[reject]` (intent F) explicit selector on the ≤ 4:3 path untested — S24 FE binds 640 x 480 (device).
+
 ## Design Notes
 
 **SAME_CENTER_DELTA_E evidence** (12 live sets, 2026-11-19 script over `Fixtures/live/*/*.json`): the smallest recorded distance from a face's center to any other color's calibration center is 23.9 CIE76 (RED vs ORANGE, `sm-s721u1_stla_studio-a/L`); red/orange calibration centers are 26.2–51.9 apart. CIEDE2000 was evaluated and rejected: it shrinks WHITE vs BLUE to 9.1 (`lenovo-tb128xu_stla_studio-a/U`, GAN logo center), leaving a 1.3× margin at any useful threshold, while CIE76 keeps ≥ 2×. 12.0 is half the smallest cross-color distance (the midpoint rule) and covers ~75 % of recorded same-color jitter (sticker vs own center, p75 ≈ 11) versus ~70 % at 10. All sets are studio light; warm/dim stays a 10.8 matrix measurement.
@@ -180,3 +219,12 @@ Debug APK of this branch installed on both devices; Guided Scan opened from the 
 **Verification:** `./gradlew spotlessCheck build` passed after the patches (2026-11-19). Targeted tests passed: ShutterSoundTest 4/4, GuidedScanTest 47/47, RepeatedFaceFixtureTest 4/4, ScanFrameSourcePolicyTest 5/5, GuidedScanScreenTest 18/18. Device checks are under Device Checks: StrictMode, onResume after grant and camera-state observer PASS; analysis stream 1280x960 confirmed on the Lenovo; rotation during a freeze deferred.
 
 **Residual risks:** the freeze now ends at once on a rotation and on a Quick Scan corner → fallback switch (the shrink is skipped); analyzer cost at 1280x960 on the Lenovo; warm/dim red/orange at 12.0.
+
+### Follow-up pass (2026-11-19)
+
+- **Patched:** 1 entry (low): `ShutterSound` keeps `loaded` false after a throwing load; `ShutterSoundTest` 5/5.
+- **Deferred:** shutter click audible on a real capture (device session, medium unverified).
+- **Rejected:** 7 false and 19 low or maybe-false (reasons in the follow-up triage entry).
+- **Device evidence added:** Galaxy S24 FE binds the YUV analysis stream at 640 x 480 with a 1080x890 viewfinder (ratio ≤ 4:3). On the final build, the Lenovo (HA1S28MM) opened Guided Scan, pressed Capture (too dark to capture) and closed with 0 StrictMode lines and no crash.
+- **Verification:** `./gradlew spotlessCheck build` passed after the patch.
+- **Follow-up review recommended:** false (no high patched on a follow-up pass).

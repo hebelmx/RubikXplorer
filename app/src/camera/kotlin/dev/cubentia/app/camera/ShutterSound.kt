@@ -32,12 +32,15 @@ internal class ShutterSound(
             if (released || loading || loaded) return
             loading = true
         }
+        var ok = false
         try {
             player.load()
+            ok = true
         } finally {
             synchronized(lock) {
                 loading = false
-                if (released) player.release() else loaded = true
+                // A failed load stays unloaded, so play() never reaches a sound that would load itself on main.
+                if (released) player.release() else loaded = ok
             }
         }
     }
