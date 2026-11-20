@@ -2407,29 +2407,29 @@ So that the two corner photos read my cube instead of sending faces to a rescan.
 
 **Refs:** FR-22, FR-23 · recognition NFRs, NFR-7, NFR-11 · AD-9, AD-13, AD-18 · OQ-7 · UX-DR15 · Story 11.1 · #195, #196, #197
 
-**Depends on** Story 11.1. **Runs before** Story 10.17 (an appended ID that runs earlier, as the How-to-read note allows). **Approach (PO approved 2026-11-20):** detect the cube's real edges and corners in the camera frame and unwarp each face from them, within the OQ-7 decision K (Kotlin, no new runtime) and NFR-11. A perspective-correct guide sketch is not used. **Human gate (acceptance):** a device session on the Lenovo Tab M10 Plus 3rd Gen (TB128XU, the minimum camera spec) and the Galaxy S24 FE, both test cubes, main app build, `QUICK_SCAN` raised in debug. *(SCP 2026-11-20 v1.1 promotion: moved into v1.0 as the dependency of #198, Story 10.17.)*
+**Depends on** Story 11.1. **Runs before** Story 10.17 (an appended ID that runs earlier, as the How-to-read note allows). **Approach (PO approved 2026-11-20):** detect the cube's real edges and corners in the camera frame (within a loose framing zone) and unwarp each face from them, within the OQ-7 decision K (Kotlin, no new runtime) and NFR-11. A perspective-correct guide sketch is not used. **Human gate (acceptance):** a fast BETA evaluation on the Lenovo Tab M10 Plus 3rd Gen (TB128XU, the minimum camera spec) and the Galaxy S24 FE, both test cubes, main app build, `QUICK_SCAN` raised in debug. *(SCP 2026-11-20 v1.1 promotion: moved into v1.0 as the dependency of #198, Story 10.17; ACs refined 2026-11-20 per PO review.)*
 
 **Acceptance Criteria:**
 
-**Given** a cube held by a corner at 20–40 cm on the minimum device, in any position in the frame
+**Given** a cube held by a corner at 20–40 cm on the minimum device, roughly within the center framing zone
 **When** a frame is analysed
 **Then** the camera adapter detects the cube's real outer edges and its seven visible corners in the camera frame, and unwarps each of the three visible faces from those detected corners, never from the fixed isometric `CornerGuide.quads`; the Learner never has to line the cube up with a drawn sketch, and no perspective-correct guide sketch is drawn (any overlay only outlines the detected cube)
 
-**Given** recorded Quick Scan frames from device session C (the Lenovo and the S24 FE, both test cubes)
-**When** the JVM suite runs the detector
-**Then** the detected corners are within a reported pixel tolerance of hand-labeled corners, and the share of frames with a detection is reported per device
+**Given** existing Quick Scan frames/evidence under `Fixtures/` and `docs/evidence/` (plus synthetic perspective-warped fixtures where real labeled frames are missing)
+**When** the developer evaluates the available fixtures and runs the JVM detector suite
+**Then** the detected corners are within a reported pixel tolerance of the labeled corners, and if the existing real fixtures are insufficient for development the developer flags what additional captures are needed
 
 **Given** a dark or glossy background (#196)
 **When** no corner is detected for about 3 s
-**Then** inline coaching reads "Try a plain, light surface." and the Learner can switch to *Scan face by face* (Story 10.17)
+**Then** inline coaching (from `en.json`) reads "Try a plain, light surface." alongside the existing manual/guided fallback (Story 10.17 later wires *Scan face by face* keeping captured faces)
 
 **Given** each corner capture (#197)
 **When** it is taken
-**Then** a visible cue shows on both captures (a brief frame flash and a thumbnail of the captured corner, with the counter change enlarged), the same shutter sound plays on both, and nothing relies on haptics alone
+**Then** a visible cue shows on both captures (a subtle highlight/flash avoiding harsh strobe, and a thumbnail of the captured corner, with the counter change enlarged), the same shutter sound plays on both, and nothing relies on haptics alone
 
-**Given** the test matrix on both devices
-**When** Quick Scan is measured
-**Then** the share of faces sent to the Guided Scan is reported per device in `docs/scan-accuracy.md` and compared with the device session C baseline (4 of 6 faces on the Lenovo), and the GA/BETA recommendation of Story 11.1 AC3 is restated
+**Given** a fast hands-on BETA evaluation on both devices
+**When** Quick Scan is tested after the fix
+**Then** the PO confirms whether Quick Scan is viable as `BETA` for v1.0 (before running a full test matrix in `docs/scan-accuracy.md`)
 
 ## Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition
 
