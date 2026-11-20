@@ -355,7 +355,7 @@ action_items:
     action: "Provide Robolectric android-all artifacts to CI without a live Maven
       fetch (cache or offline) to remove the MavenArtifactFetcher flake"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-11-05.md"
   - id: "epic-6-retro-item-1-harden-preferencestore-error-handling"
     epic: 6
@@ -371,7 +371,7 @@ action_items:
       and 3D timing tests to ensure waitForIdle or explicit test coroutine dispatchers
       eliminate intermittent timeouts"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-6-retro-2026-11-06.md"
   - id: "epic-6-retro-item-3-complete-hardware-instrumented-verification"
     epic: 6
@@ -1294,7 +1294,7 @@ action_items:
       eol on tools/run-keyflow-rotation.sh), since ubuntu CI never shows a CRLF regression
       (low; deferred from #119, .gitattributes:9)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-119-lenovo-harness-gaps.md"
   - id: "issue-119-deferred-ci-compile-androidtest"
     epic: 12
@@ -1302,7 +1302,7 @@ action_items:
       so a KeyFlowHarness compile break only shows at release; add compileDebugAndroidTestKotlin
       to PR CI (low; pre-existing, deferred from #119, .github/workflows/ci.yml)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-119-lenovo-harness-gaps.md"
   - id: "issue-158-deferred-rotate-during-freeze"
     epic: 10

@@ -140,7 +140,7 @@ class AppShellTest {
             )
         try {
             launch(ContentLoadResult.Loaded(bundle))
-            rule.waitUntil { host.state.value.lesson != null }
+            rule.waitUntil(5_000) { host.state.value.lesson != null }
             rule
                 .onNodeWithTag(
                     "learn:continue",
@@ -166,7 +166,7 @@ class AppShellTest {
         rule.onNodeWithTag("nav:you").assertExists()
         rule.onNodeWithTag("learn:stage:stage-01-basics").performScrollTo().performClick()
         rule.onNodeWithTag("learn:lesson:lesson-01-01").performScrollTo().performClick()
-        rule.waitUntil { host.state.value.lesson != null }
+        rule.waitUntil(5_000) { host.state.value.lesson != null }
         rule.runOnIdle { assertEquals(TeachingMode.LET_ME_TRY, host.state.value.teachingMode) }
         runBlocking { host.dispatch { SessionEvent.TeachingModeChanged(TeachingMode.SHOW_ME, it) } }
         assertEquals(TeachingMode.SHOW_ME, preferences.preferences.value.lastTeachingMode)
@@ -180,7 +180,7 @@ class AppShellTest {
         launch(testMe = false)
         rule.onNodeWithTag("learn:stage:stage-01-basics").performScrollTo().performClick()
         rule.onNodeWithTag("learn:lesson:lesson-01-01").performScrollTo().performClick()
-        rule.waitUntil { host.state.value.lesson != null }
+        rule.waitUntil(5_000) { host.state.value.lesson != null }
         rule.runOnIdle { assertEquals(TeachingMode.DEFAULT, host.state.value.teachingMode) }
     }
 

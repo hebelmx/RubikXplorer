@@ -1,0 +1,47 @@
+package dev.cubentia.buildlogic.functional
+
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import java.io.File
+
+/** ai-b3 (#119): PR CI compiles androidTest sources and guards shell-script line endings. */
+class CiWorkflowTest {
+    private val workflow = File("../.github/workflows/ci.yml").readText().replace("\r\n", "\n")
+
+    private val onBlock = workflow.substringAfter("\non:\n").substringBefore("\n\n")
+
+    /** The `build` job: from its key to the next two-space-indented job key. */
+    private val buildJob =
+        Regex("""(?ms)^  build:\n(.*?)(?=^  \S|\z)""").find(workflow)?.groupValues?.get(1)
+            ?: error("ci.yml has no build job")
+
+    private val runs =
+        Regex("""(?m)^\s*(?:-\s+)?run:\s*(.+)$""").findAll(buildJob).map { it.groupValues[1] }.toList()
+
+    @Test
+    fun `ci triggers on pull requests`() {
+        assertTrue(Regex("""(?m)^  pull_request:""").containsMatchIn(onBlock), onBlock)
+    }
+
+    @Test
+    fun `build job compiles androidTest Kotlin`() {
+        assertTrue(runs.any { it.contains(":app:compileDebugAndroidTestKotlin") }, runs.toString())
+    }
+
+    @Test
+    fun `build job runs the shell-script LF guard`() {
+        assertTrue(runs.any { it.contains(".github/scripts/check-sh-eol.sh") }, runs.toString())
+    }
+
+    /** Each step of the build job, from its `- ` line to the next one. */
+    private val steps = buildJob.split(Regex("""(?m)^(?=      - )""")).filter { it.startsWith("      - ") }
+
+    @Test
+    fun `the new gates can neither be skipped nor ignored`() {
+        listOf(":app:compileDebugAndroidTestKotlin", "check-sh-eol.sh").forEach { marker ->
+            val step = steps.singleOrNull { it.contains(marker) } ?: error("no single build step runs $marker")
+            assertTrue(!step.contains("continue-on-error"), step)
+            assertTrue(!Regex("""(?m)^\s+if:""").containsMatchIn(step), step)
+        }
+    }
+}

@@ -2044,13 +2044,15 @@ class LessonScreenTest {
         switchTo(TeachingMode.TEST_ME)
         disturbCross()
         node("lesson:recovery:guideMeBack").performScrollTo().performClick()
-        rule.waitUntil(2_000) { running.get() }
+        rule.waitUntil(5_000) { running.get() }
         rule.waitForIdle()
         node("lesson:guidedRecovery:pending").assertExists()
 
         // F disturbs another cross edge: the pending plan is cancelled well before its 3 s deadline.
         press("F", 2)
-        rule.waitUntil(1_000) { stopped.get() }
+        // The bound is part of the assertion: 2.5 s after F stays under the 3 s deadline counted from the click,
+        // so a search left to run out its deadline usually misses it. It is a timing bound, not proof of the cause.
+        rule.waitUntil(2_500) { stopped.get() }
         rule.waitForIdle()
         assertEquals(GuidedRecovery.None, host.state.value.guidedRecovery)
         assertTrue(

@@ -95,6 +95,34 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
 
+// Epic 5 retro item 23: Robolectric reads android-all from a Gradle-resolved directory (robolectric.offline)
+// instead of fetching it from Maven inside the test JVM, where a network blip failed every test. Gradle
+// retries the download and setup-gradle caches it between CI runs; a missing jar fails Robolectric loudly.
+val robolectricAndroidAll = configurations.dependencyScope("robolectricAndroidAll")
+val robolectricAndroidAllJars =
+    configurations.resolvable("robolectricAndroidAllJars") {
+        extendsFrom(robolectricAndroidAll.get())
+        isTransitive = false
+    }
+dependencies { add(robolectricAndroidAll.name, libs.robolectric.android.all.instrumented) }
+
+val robolectricDependencyDir = layout.buildDirectory.dir("robolectric-android-all")
+val syncRobolectricAndroidAll =
+    tasks.register<Sync>("syncRobolectricAndroidAll") {
+        from(robolectricAndroidAllJars)
+        into(robolectricDependencyDir)
+    }
+tasks.withType<Test>().configureEach {
+    // The jar is a tracked input (a new pin re-runs tests); its absolute path is not, so the build cache relocates.
+    inputs
+        .files(syncRobolectricAndroidAll)
+        .withPropertyName("robolectricAndroidAll")
+        .withPathSensitivity(PathSensitivity.NAME_ONLY)
+    systemProperty("robolectric.offline", "true")
+    val dependencyDir = robolectricDependencyDir.get().asFile.absolutePath
+    jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Drobolectric.dependency.dir=$dependencyDir") })
+}
+
 // OQ-3 spike (Story 1.8), throwaway: compiled only with -Pcubentia.spike3d=true. Without the
 // property nothing below adds a source, manifest entry or task to the default build. OpenGL ES only:
 // the SceneView prototype was removed in Story 1.11 once reference-device timing confirmed OpenGL ES.
