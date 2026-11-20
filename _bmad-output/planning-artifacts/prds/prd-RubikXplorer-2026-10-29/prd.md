@@ -2,7 +2,7 @@
 title: RubikXplorer — MVP Product Requirements Document
 status: final
 created: 2026-10-29
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 # PRD: RubikXplorer
@@ -224,6 +224,7 @@ The Learner moves through the Stages in order. A Stage unlocks when its prerequi
 - For every Lesson, an automated test drives at least one legal path from its entry Cube State to its Completion Predicate.
 - Completion is decided by the Completion Predicate, never by counting Moves.
 - An "I already know this" action runs a short check (solving that Stage's Objective from a fresh Scramble). Passing it marks the Stage *skipped*, not *mastered*. [ASSUMPTION: the skip-ahead check is in MVP.]
+- A Learner who can already solve can instead **choose an entry level** (for example "I can solve the first two layers", "I solve with the beginner method", "I know 2-look OLL and PLL"), with no check. Every Stage before that level is marked *skipped* (a self-chosen skip, recorded as such), never *mastered*, and stays revisitable. Choosing a level never re-locks or downgrades a Stage the Learner has already reached. The skip-ahead check stays available for Learners who prefer to prove it. *(SCP 2026-11-20 v1.1 promotion, #209)*
 
 #### FR-5: Teaching Modes
 The Learner can run any Lesson in any of four modes:
@@ -362,6 +363,8 @@ The Learner can enter all 54 sticker colors and have the configuration validated
   - a flipped edge;
   - a parity violation.
 - Having 54 colors entered never counts as valid by itself.
+- Each face may be entered in any rotation. When the entered faces resolve to exactly one valid cube by turning faces, the editor accepts it without asking; only when no turn or more than one fits does it name the face and show how to hold the cube for it. *(SCP 2026-11-20, #253)*
+- Validation messages are specific: wrong color counts name each color and how far off it is; impossible pieces name the piece and the faces it touches; suspect stickers and their faces are marked. While some faces of a new entry haven't been entered yet, the editor says which faces are left instead of reporting piece errors. *(SCP 2026-11-20, #253)*
 
 #### FR-15: Solve a valid state
 The Learner can solve any valid Cube State offline.
@@ -382,7 +385,7 @@ The Learner can step forward and back through a Solution, pause and replay it, a
 - Each Move can be shown with a small picture of the turn, next to its notation and in the Move strip, unless the Learner turns *Move pictures* off (FR-19). The picture is never the only way the Move is given: the notation and the note are always there. *(SCP 2026-11-17)*
 
 **Out of Scope:**
-- A "teaching solve" that re-explains arbitrary Solver output in beginner-method terms (§6.2, P2).
+- A "teaching solve" that re-explains arbitrary Solver output in beginner-method terms. Solver output still never gets a strategic explanation. Method-aware solutions are a separate feature, FR-30, built by the Course's own methods rather than by explaining the Solver's path. *(SCP 2026-11-20, #210)*
 
 ---
 
@@ -414,7 +417,8 @@ The Learner can browse all 78 Algorithms grouped by family, for example:
 For any Algorithm, the Learner can:
 - watch its Demonstration (play, pause, step, speed, View Rotation);
 - see its recognition diagram and Notation;
-- set its Algorithm Status.
+- set its Algorithm Status;
+- practice it on a real cube (*I'm doing it on my cube*): the set-up Moves from solved (skippable when the cube already shows the Case), then the Algorithm's Moves, each advanced with *Done*, with a Quick Check (FR-26) available at any step, including mid-Algorithm. *(SCP 2026-11-20, #208)*
 
 **Consequences (testable):**
 - An automated test verifies every Algorithm. Applying the Algorithm's inverse to a solved cube must produce a state that matches its Case. Applying the Algorithm to that state must solve the LL, up to a final U-layer adjustment (AUF). A wrong or mistyped Algorithm fails the build.
@@ -460,7 +464,7 @@ The Learner can do Independent practice on a fresh Scramble with reduced help. A
 
 ### 4.8 Camera Cube Recognition
 
-> **Release: v1.1, flag-gated.** Deferred from P0 on 2026-11-08 (`sprint-change-proposal-2026-11-08-vision-deferral`); restored to the plan on 2026-11-14 (`sprint-change-proposal-2026-11-14-v1-1-camera`). Built on `main` with every camera flag OFF in release; at each release the PO sets each feature OFF, BETA or GA from the test-matrix evidence. Requirements unchanged. v1.0 hides every entry point behind the AD-18 flags and declares no camera permission.
+> **Release: v1.0 for FR-21–FR-27, per SCP 2026-11-20 (PO moved #198, #208, #249, #251, #252 and their camera dependencies into v1.0; FR-28 keeps its own release decision). Earlier text:** **Release: v1.1, flag-gated.** Deferred from P0 on 2026-11-08 (`sprint-change-proposal-2026-11-08-vision-deferral`); restored to the plan on 2026-11-14 (`sprint-change-proposal-2026-11-14-v1-1-camera`). Built on `main` with every camera flag OFF in release; at each release the PO sets each feature OFF, BETA or GA from the test-matrix evidence. Requirements unchanged. v1.0 hides every entry point behind the AD-18 flags and declares no camera permission.
 
 **Description:** the Learner points the phone camera at a physical cube and the app reads its Cube State. This is how the app comes to *know* the Physical State instead of predicting it. Recognition serves four uses:
 - **Core:** solving without typing colors (FR-25), and verifying physical Moves (FR-26), which turns the tutor's guesses into evidence.
@@ -486,6 +490,8 @@ The Learner can capture the cube in 2–3 corner-angle photos, each showing thre
 **Consequences (testable):**
 - Two captures from opposite corners yield all 54 stickers.
 - If perspective, glare or occlusion leaves stickers uncertain or the state invalid, the app asks for only the faces it is missing, using the Guided 6-face Scan. It never produces a guessed state.
+- Quick Scan detects the cube's real edges and corners in the camera frame and unwarps each face from them; the Learner never has to line the cube up with a drawn guide, and no perspective-correct guide sketch is used (PO, 2026-11-20, Story 10.18, #195). *(SCP 2026-11-20)*
+- The Learner can also switch from Quick Scan to the Guided 6-face Scan at any time. Faces already captured are kept, the Guided Scan asks only for the others, and all six faces are assembled together. *(SCP 2026-11-20, #198)*
 - Quick Scan is labeled "beta" unless it meets its own targets (§4.8 NFRs).
 
 #### FR-23: Validate and correct a Scan Result
@@ -521,6 +527,7 @@ In Physical-cube Mode, the Learner can scan to confirm their real cube matches t
 - The tutor reports *verified* only when the observed faces fit exactly one candidate Move sequence from the Expected State. A Quick Check of only some faces can verify only a match. A mismatch is *verified* only by a Guided 6-face Scan (e.g. "you turned `R` instead of `R'`"). When a Quick Check shows a mismatch, or several candidates fit, the tutor reports *likely* and offers a Guided 6-face Scan. *(SCP 2026-11-17: never a false* verified *(FR-10) outranks verifying a mismatch from a few faces.)*
 - The Learner can adopt the observed state as the new starting point for a Guided recovery.
 - The tutor offers a Quick Check at Stage milestones and after reported mismatches, but never requires one. *Done* still works (FR-7).
+- In Physical-cube Mode a Quick Check is also available at any step of a Lesson, Solution Playback or Algorithm practice (FR-18), including mid-Algorithm. *(SCP 2026-11-20, #208)*
 - [ASSUMPTION: a Quick Check takes at most two captures.]
 
 #### FR-27: Start the Course from my cube (Placement)
@@ -529,6 +536,8 @@ The Learner can scan any scrambled or partly solved cube, and the tutor suggests
 **Consequences (testable):**
 - The tutor evaluates each Stage Predicate on the scanned Cube State and suggests the first Stage whose predicate is not met. The Learner can accept it or pick a different Stage. [ASSUMPTION: white cross first only, in MVP.]
 - Accepting a suggestion unlocks that Stage. Earlier Stages are marked *skipped by placement*: they are never *mastered* and can always be revisited (same rule as FR-4's skip-ahead check).
+- Before the suggestion, the result says in plain language what the scan saw and why that Stage fits (for example "Your white cross is done, and 2 of 4 first-layer corners are in place."). A cube at most 2 Moves from solved (including a last-layer or first-layer turn, AUF) gets its own outcome before the Stage Predicates are evaluated. A cube solved from a color other than white is told its solve is fine and why the Course starts from white. TalkBack reads the reading and the reason. *(SCP 2026-11-20, #251)*
+- An onboarded Learner can run Placement again from outside Welcome without resetting progress. A re-placement only adds progress: it never re-locks or downgrades a Stage and never erases Lesson completions, Checkpoints, attempts or Algorithm Statuses. *(SCP 2026-11-20, #252)*
 
 #### FR-28: Recognize an OLL/PLL Case
 The Learner can scan the top layer, and the app names its OLL or PLL Case; tapping the result opens the Algorithm in the Algorithm Library and plays its Demonstration. The scan is two captures of opposite top corners, yellow on top, each showing the U face and two side faces; together they show every side, so the first two layers are checked before a Case is named (SCP 2026-11-18). Realizes UJ-5.
@@ -561,6 +570,19 @@ The Learner can scan the top layer, and the app names its OLL or PLL Case; tappi
 
 #### FR-29 (P1): Recognition and execution drills
 The Learner can drill OLL and PLL Case recognition (name the Case shown) and execution (perform the Algorithm on the virtual cube against a timer). Spaced repetition is driven by their Algorithm Status and results. FR-29 defines a per-Algorithm mastery rule that is separate from the Learner-set Algorithm Status.
+
+### 4.10 Method-aware Solutions
+
+#### FR-30: Method-aware solutions
+*(SCP 2026-11-20, #210)* For any valid Cube State, the Learner can ask for a solution shaped by a method they are learning, instead of the shortest one: the beginner layer-by-layer method (the Course's Stages), the beginner first two layers with 2-look OLL and PLL, or the beginner first two layers with full OLL and PLL. The Solve tab keeps the optimal solution (FR-15) as its default.
+
+**Consequences (testable):**
+- Each segment of the solution is tagged with the Stage or Case it practices, and its label comes from content, never from a note about Solver output.
+- Last-layer segments use the Library's Algorithms, preferring those the Learner has marked *Learning* or *Learned* when more than one fits.
+- The solution is built from the Course's predicates and the Library's Algorithms, never by re-labelling the Solver's path (AD-8, AD-21). Applying it to its input always yields the solved state, verified over the same corpus as FR-15.
+- The method is suggested from the Learner's progress (for example 2-look once *Faster last layer* is unlocked), and the Learner can change it.
+
+**Out of Scope:** CFOP F2L, Roux and ZZ segments (§6.2, P2).
 
 ## 5. Cross-Cutting Non-Functional Requirements
 
@@ -610,7 +632,7 @@ Targets are validated on a defined set of **reference devices**. [ASSUMPTION: th
   - validation and correction, plus Color Calibration;
   - uses: scan to solve, Quick Check, Placement and Case recognition.
 
-  Deferred by PO decision on 2026-11-08 (`sprint-change-proposal-2026-11-08-vision-deferral`); restored to the plan on 2026-11-14 as v1.1, flag-gated (Epics 10–11; `sprint-change-proposal-2026-11-14-v1-1-camera`). The AD-18 flags stay OFF in v1.0.
+  Deferred by PO decision on 2026-11-08 (`sprint-change-proposal-2026-11-08-vision-deferral`); restored to the plan on 2026-11-14 as v1.1, flag-gated (Epics 10–11; `sprint-change-proposal-2026-11-14-v1-1-camera`). The AD-18 flags stay OFF in v1.0. **Superseded by SCP 2026-11-20:** FR-21–FR-27 move into v1.0; Story 10.11 raises `CAMERA_SCAN`, `QUICK_SCAN` and `PLACEMENT` (BETA or GA from the test-matrix evidence) for the v1.0 release, so v1.0 declares the `CAMERA` permission. FR-30 (method-aware solutions) is also v1.0.
 - **P1:**
   - recognition and execution drills (FR-29);
   - alternative Algorithms per Case;
@@ -621,7 +643,7 @@ Targets are validated on a defined set of **reference devices**. [ASSUMPTION: th
   - crosses in colors other than white.
 - **P2:**
   - advanced methods (CFOP F2L first, perhaps Roux or ZZ later);
-  - a "teaching solve" that explains any state in beginner-method steps;
+  - a "teaching solve" that explains any state in beginner-method steps *(moved into v1.0 as FR-30, method-aware solutions, by SCP 2026-11-20, #210)*;
   - other puzzles (2×2, 4×4);
   - more languages;
   - a conversational or voice tutor;
@@ -735,7 +757,8 @@ Recorded in `.memlog.md`:
 - 2026-11-14: camera recognition restored to the plan as v1.1, flag-gated; per-feature release levels set by the PO at each release (SCP 2026-11-14).
 - 2026-11-17: a Quick Check (Partial observation) verifies only a match; only a Guided 6-face Scan (Full observation) verifies a mismatch (SCP 2026-11-17 quick-check-verified-rule).
 - 2026-11-17: Solution Playback switches between the 3D cube and the 2D net (opens in 3D, on the net in Physical-cube Mode, then remembers the choice), and each Move gets an optional move picture (default on) with the UX-DR14 Move strip; both are v1 release scope, before Story 12.3 and the store screenshots (PO, SCP 2026-11-17 playback view and move glyphs).
-- 2026-11-18: Case recognition takes two opposite top-corner captures, with yellow on top, and intersects their candidate Cases. A Placement suggestion reads "Start at *Stage*?" with no progress sentence (SCP 2026-11-18 recognize-two-corners).
+- 2026-11-18: Case recognition takes two opposite top-corner captures, with yellow on top, and intersects their candidate Cases. A Placement suggestion reads "Start at *Stage*?" with no progress sentence (SCP 2026-11-18 recognize-two-corners). *(The "no progress sentence" part is superseded by SCP 2026-11-20: Placement now states what the scan saw and why.)*
+- 2026-11-20: GitHub issues #198, #208, #209, #210, #249, #251, #252 and #253 are promoted out of the v1.1 deferral into current work (PO). Placement explains the scanned cube and its reason, and can be run again without a reset; the Manual Cube Editor accepts any face rotation; *I can already solve it* offers entry levels; every Algorithm and Lesson step can be practiced on a real cube; Quick Scan can switch to the Guided Scan keeping its faces; method-aware solutions become FR-30. **Scope move (PO, 2026-11-20, ahead of schedule):** all of these ship in v1.0, together with the camera features they depend on (Guided 6-face Scan and review, Quick Check, Quick Scan, whose rework detects the cube's real edges and corners in the frame instead of drawing a guide sketch, Placement), whose flags Story 10.11 raises for the v1.0 release. The Lenovo Tab M10 Plus 3rd Gen (TB128XU) camera is the minimum camera spec (SCP 2026-11-20 v1.1 promotion).
 - 2026-11-18: FR-1 — gestures preview on drag and commit on release; slices by middle-layer drag, wide Moves by two-finger drag on the cube; a View rotated badge with Reset view and face letters while the view is off home (SCP 2026-11-18 drag-preview-and-view-rotated, GitHub #206, #207).
 - 2026-11-15: `CAMERA_SCAN` is BETA-only on the Story 10.10 session A result (216/216, operator-dependent calibration); re-plan with a UX pass on scan layout, calibration and color input; Stories 10.12 (recorder rework, session A2) and 10.13 (OQ-7 recognition approach) added; OQ-7 re-opened (SCP 2026-11-15).
 - 2026-11-15: OQ-7 closed with decision K: Kotlin nearest-center classification fed by a per-cell histogram-mode reader and self-calibrated from the six face centers, with a logo-center guard; LiteRT is the fallback if field use shows K is not enough; OpenCV rejected on size (PO, Story 10.13, PR #155).

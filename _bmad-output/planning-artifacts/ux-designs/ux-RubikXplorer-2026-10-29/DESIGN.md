@@ -3,7 +3,7 @@ name: RubikXplorer
 description: A precise, instrument-like cube tutor. Neutral graphite chrome so the six sticker colors carry the color, one signal-violet accent, honest state indicators, light and dark designed equally.
 status: final
 created: 2026-10-29
-updated: 2026-11-19
+updated: 2026-11-20
 sources:
   - ../../prds/prd-RubikXplorer-2026-10-29/prd.md
   - ../../architecture/architecture-RubikXplorer-2026-10-29/ARCHITECTURE-SPINE.md
@@ -266,11 +266,15 @@ No pill-shaped buttons. Sticker squares in 2D nets and diagrams use `rounded.xs`
   - An *uncertain* sticker gets a dashed `accent` ring and a small "?" badge.
   - A *blank* sticker (a close call left for the Learner) is a `surface-stage-dark` well with a dashed `sticker-highlight` edge and a "?", with no sticker color, so it can never be read as white.
   - The *next sticker to mark* (the selected one) has the solid `accent` ring, which pulses slowly: opacity 100% → 35% → 100%, about 1.5 s per cycle. With reduce motion the ring is static at 3dp.
-  - *Update cue:* when a color is set, the sticker scales to about 110% and settles in about 200 ms, and a small ✓ in `on-accent` on an `accent` dot fades out over it. With reduce motion, only the ✓ shows.
+  - *Update cue:* when a color is set, the sticker scales to about 110% and settles in about 200 ms, and a small ✓ in `on-accent` on an `accent` dot fades out over it. With reduce motion, only the ✓ shows. *(SCP 2026-11-20, #253)* The dot has a 1.5dp `cubie-body` ring, so it stays legible on every sticker color, green included; the contrast test checks the ring against all six sticker tokens (≥ 3:1).
+  - *Paint mode* (SCP 2026-11-20, #249): the locked palette swatch gets a 3dp solid `accent` outline and the same ✓ badge as a retake-selected face; the other swatches stay as they are. The instruction line names the locked color with its glyph swatch. The next-sticker pulse is hidden while painting.
+  - *Editor face tabs and hold* (SCP 2026-11-20, #253): a face tab whose stickers are all set shows a small ✓ in `ink-secondary`; a tab a validation message points at shows a small dot in `sticker-highlight` (never red). Around the face being edited, a 6dp band beside each edge shows the neighbouring center's sticker color with its glyph, so the hold can be read at a glance. The face-done line ("Front done ✓ → Right") is `meta`, shows about 1.5 s, and does not move the layout.
+  - *Numbered markers* from Scan review are reused in the Editor for suspect stickers (SCP 2026-11-20).
   - An *invalid piece* follows the cube-highlight rule: a 3dp `sticker-highlight` outline with a 1dp `cubie-body` inner stroke, plus its label. `status-invalid` red is not used on the cube body, where it has about 2.6:1 contrast.
   - *Close* is a normal, enabled outlined button with `ink-primary` text, never greyed.
   - *Retake mode* (SCP 2026-11-19, #235): *Retake faces* is an outlined button beside *Close* (Guided 6-face Scan review only). In retake mode a selected face gets the solid `accent` outline around the whole face (static, no pulse) and a small ✓ badge in `on-accent` on an `accent` dot; unselected faces stay as they are. The uncertain-sticker rings and the next-sticker pulse are hidden. *Retake N faces* is the primary filled button, disabled with no face selected, and *Cancel* is an outlined button beside it.
-- **Color palette**: the Manual Cube Editor's six sticker swatches, in a 2×3 block next to the face net, each at least `touch-min` with its glyph, in the same order as the editor palette: white, yellow, red, orange, green, blue.
+- **Color palette**: the Manual Cube Editor's six sticker swatches, in a 2×3 block next to the face net, each at least `touch-min` with its glyph, in the same order as the editor palette: white, yellow, red, orange, green, blue. A long-press locks a swatch for paint mode (see Sticker review net), in Scan review and the Editor alike (SCP 2026-11-20, #249).
+- **Placement result** (SCP 2026-11-20, #251): the cube reading in `body` (`ink-primary`), the reason in `meta` (`ink-secondary`), then the suggestion "Start at *Stage*?" in `title` with its buttons, then the set-up note in `meta`. Plain text only: no cube net, icons or color in this pass.
 - **Algorithm tile**: the Case recognition diagram (U face plus side bands, derived from state), the Case name in `label`, the Algorithm in `notation`, and the Algorithm Status as a small text label.
   - The status reads `Learning` or `Learned`. *Not started* shows no label on the tile, and the detail screen says "Not in your set yet."
   - No stars, scores or badges. The Learned count is never framed as an achievement (SM-C3).
@@ -283,7 +287,7 @@ No pill-shaped buttons. Sticker squares in 2D nets and diagrams use `rounded.xs`
 - **Mastery progress line**: the Stage's Mastery Condition in `meta`, for example "Mastery: 1 of 2 solves · 1 with reduced help", with a two-segment progress indicator.
 - **Stage row**: the Stage number in `data`, the name in `title`, and the state as text plus icon: *Locked*, *In progress*, *Completed*, *Skipped*, *Skipped by placement* or *Mastered*.
   - *Mastered* uses `accent` with a filled ◆.
-  - Both skipped states use an outlined ◇. Placement adds the subtitle "by placement".
+  - Every skipped state uses an outlined ◇. Placement adds the subtitle "by placement"; a skip by a chosen entry level reads like a skip-ahead check, "Skipped" (SCP 2026-11-20).
   - The same row is reused for the 2-look mini-Course.
 - **Beta label**: a tiny outlined `BETA` tag next to a feature name when its feature flag is BETA (AD-18).
 - **Milestone moment**: shown only for the first solve and for each Stage mastered. In Physical-cube Mode, it plays only after a Quick Check or the Learner's explicit "Yes, it's solved" (EXPERIENCE.md). A short, restrained burst of the six sticker colors around the solved cube (≤ 1.2 s), then a `display` line. No confetti loops and no sound by default.

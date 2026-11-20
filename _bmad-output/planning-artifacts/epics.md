@@ -3,7 +3,7 @@ status: final
 stepsCompleted: [step-01-validate-prerequisites, step-02-design-epics, step-03-create-stories, step-04-final-validation]
 mode: fast-path
 created: 2026-10-29
-updated: 2026-11-16
+updated: 2026-11-20
 inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/prd.md
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/addendum.md
@@ -37,7 +37,7 @@ This document provides the complete epic and story breakdown for RubikXplorer, d
 FR-1: Render a 3×3 cube (6 × 9 stickers) and apply Moves. Gestures cover face turns and Cube Rotations; buttons cover every Move type, including wide and slice turns A drag previews its Move and commits on release; a middle-layer drag makes a slice and a two-finger drag on the cube makes a wide Move (SCP 2026-11-18). After every committed Move the rendered cube equals the Virtual State sticker by sticker; input during animation is handled deterministically; a quarter turn animates in ≤ 250 ms on the reference device.
 FR-2: Rotate the view freely without changing the Cube State. No sequence of View Rotations changes the Virtual State; Notation follows the cube's orientation, not the camera [ASSUMPTION].
 FR-3: Undo repeatedly, redo, and reset. Undo restores the exact previous state; redo restores an undone state and any new Move clears redo; reset asks for confirmation if it would discard unsaved Lesson progress.
-FR-4: Stage-gated Course (7 Stages). A Stage unlocks by prerequisites, a skip-ahead check, or Placement. Every Lesson declares prerequisites, Objective, Demonstration, learner action, Completion Predicate and Recovery Path (schema test fails the build otherwise); every Lesson has an automated legal path to its predicate; completion is by predicate, never Move count; "I already know this" runs a check from a fresh Scramble and marks *skipped*, not *mastered*.
+FR-4: Stage-gated Course (7 Stages). A Stage unlocks by prerequisites, a skip-ahead check, a chosen entry level (SCP 2026-11-20, #209; skipped, never mastered, nothing downgraded), or Placement. Every Lesson declares prerequisites, Objective, Demonstration, learner action, Completion Predicate and Recovery Path (schema test fails the build otherwise); every Lesson has an automated legal path to its predicate; completion is by predicate, never Move count; "I already know this" runs a check from a fresh Scramble and marks *skipped*, not *mastered*.
 FR-5: Four Teaching Modes (*Show me*, *Guide me*, *Test me*, *Let me try*) all evaluate the same Completion Predicate; *Guide me* states the Objective before each Move; *Test me* / *Let me try* reveal the next Move only after a hint request.
 FR-6: Explained Demonstrations with Notation step by step, highlighted pieces and direction arrows; play, pause, step forward/back, replay, speed; every step states goal, preserve, watch and (after) notice, each a Lesson-schema field; all text outside UI code.
 FR-7: Physical-cube Mode: perform the Move on a real cube, then tap *Done* or enter the Move actually made. The Expected State changes only after confirmation or a validated Scan; it always carries an "Expected" label; View Rotation changes neither Notation nor Expected State.
@@ -47,22 +47,23 @@ FR-10: Diagnose the supported Error Categories from Cube State, Move history and
 FR-11: Hint Ladder: each request moves up exactly one rung (clue → highlighted target or Move → full Demonstration); resets when the Objective changes; hint use recorded per attempt; full Solution never shown by default.
 FR-12: Recover from mistakes: retry, undo, or Guided recovery to the shortest correction that restores the current Objective's preserved pieces; never restarts the Lesson unless chosen. Disturbed-cross scenario: say so, offer undo/Guided recovery, keep the earlier Checkpoint, don't unlock the next Stage.
 FR-13: Rule-based adaptive assistance (first mistake → explain + highlight; repeated → demonstrate; continued difficulty → guide step by step; repeated success → less help). Thresholds are configuration data with tests; tuning from pilot data is P1.
-FR-14: Manual Cube Editor for 54 sticker colors with validation that rejects wrong color counts, impossible pieces, a twisted corner, a flipped edge and a parity violation, each with a plain-language reason; 54 colors entered never counts as valid by itself; same validation applies to every Scan Result; fallback whenever the camera is unavailable.
+FR-14: Manual Cube Editor for 54 sticker colors with validation that rejects wrong color counts, impossible pieces, a twisted corner, a flipped edge and a parity violation, each with a plain-language reason; 54 colors entered never counts as valid by itself; same validation applies to every Scan Result; fallback whenever the camera is unavailable; each face may be entered in any rotation (resolved through `ScanAssembler`, asked only when ambiguous or unresolvable), messages are specific (color counts, named pieces and faces), and no piece error shows while faces of a new entry are not entered yet (SCP 2026-11-20, #253).
 FR-15: Solve any valid Cube State offline. Solution always solves its input (verified over solved + ≥ 10,000 random legal states, incl. deep Scrambles); invalid input rejected before the Solver; timeout/failure → explicit error with recovery prompt, never a made-up Solution; never blocks the UI thread.
 FR-16: Solution Playback: step forward/back, pause, replay, with a templated note per Move (face, direction, piece group); notes never claim strategic purpose; in Physical-cube Mode each *Done* advances one step and a Quick Check is available at any step; the Learner can switch between the 3D cube and the 2D net (opens in 3D, on the net in Physical-cube Mode, then remembers the choice) and see an optional picture of each Move (SCP 2026-11-17).
 FR-17: 2-look LL mini-Course (2-look OLL + 2-look PLL) unlocked after the Course or a skip-ahead check; Lesson predicates are LL-step predicates on Cube State; Case Lessons reference Library entries; *completed* when all predicates met, *mastered* after two hint-free LL solves of fresh Scrambles using only 2-look Algorithms [ASSUMPTION]; offers (never sets) Algorithm Status *Learning*.
-FR-18: Algorithm Library of all 78 (57 OLL + 21 PLL) Algorithms grouped by family; watch Demonstration (play, pause, step, speed, View Rotation), see recognition diagram and Notation, set Algorithm Status; build-failing verification test per Algorithm (inverse from solved matches Case; Algorithm solves LL up to AUF); filter by status and family; diagrams derived from Case state; one primary Algorithm per Case [ASSUMPTION].
+FR-18: Algorithm Library of all 78 (57 OLL + 21 PLL) Algorithms grouped by family; watch Demonstration (play, pause, step, speed, View Rotation), see recognition diagram and Notation, set Algorithm Status; practice it on a real cube with *Done* and a Quick Check at any step (SCP 2026-11-20, #208); build-failing verification test per Algorithm (inverse from solved matches Case; Algorithm solves LL up to AUF); filter by status and family; diagrams derived from Case state; one primary Algorithm per Case [ASSUMPTION].
 FR-19: Persist across restarts and forced process death: Stage completed/skipped/mastered, current Checkpoint, attempt outcomes (errors, hints), Algorithm Statuses, Color Calibration, preferences (animation speed, color-blind display, last Teaching Mode, Solution Playback view, Move pictures (SCP 2026-11-17)). Latest committed Checkpoint restored; physical Checkpoint asks to confirm/scan/re-enter; repeats append, never corrupt; reset progress + Algorithm Statuses with confirmation, separate resets for calibration and preferences.
 FR-20: Independent practice on a fresh Scramble with reduced help; a Stage is *mastered* only by its Mastery Condition (initially 2 successful completions, ≥ 1 with reduced assistance, configurable [ASSUMPTION]); transitions follow configuration with tests; neither Lesson completion nor *skipped* marks *mastered*; the Learner can see their hint and error trend.
 FR-21: Guided 6-face Scan: live viewfinder, face prompts, automatic capture when aligned and stable plus a manual shutter; each face's rotation worked out from adjacency checks, and the faces involved re-prompted with a named top when it can't be (SCP 2026-11-16; with no valid state, only when at most 2 faces are involved, else straight to review with the best-fitting turns, SCP 2026-11-19, #164); every sticker has a Sticker Confidence, uncertain ones highlighted for correction before acceptance.
-FR-22: Quick Scan: 2–3 corner-angle captures, each showing three faces; two opposite-corner captures yield 54 stickers; uncertain/invalid → ask only for missing faces via Guided 6-face Scan, never a guessed state; "beta" unless it meets its targets.
+FR-22: Quick Scan: 2–3 corner-angle captures, each showing three faces; two opposite-corner captures yield 54 stickers; uncertain/invalid → ask only for missing faces via Guided 6-face Scan, never a guessed state; the Learner can switch to the Guided Scan at any time, keeping captured faces (SCP 2026-11-20, #198); "beta" unless it meets its targets.
 FR-23: Review a Scan Result on a net (or 3D cube), correct any sticker, accept only once valid; invalid states name likely bad stickers; 54 recognized colors never valid by themselves; low light/glare/blur/incomplete capture → specific guidance and recapture.
 FR-24: Color Calibration from the six centers; stickers classified against the cube's own centers (stickerless/pastel work after calibration); persists per device, resettable; standard color scheme only [ASSUMPTION].
 FR-25: Scan to solve in *Solve my cube*: scan → correct → validate → solve → playback without leaving the flow; Solver never called on an unvalidated Scan Result; camera permission denied → Manual Cube Editor.
-FR-26: Quick Check in Physical-cube Mode (Guided 6-face Scan or only affected faces, ≤ 2 captures [ASSUMPTION]): match → recorded *verified*; mismatch → observed faces become Diagnosis evidence; *verified* only when exactly one candidate Move sequence fits, and a Quick Check of only some faces verifies only a match (a mismatch is verified only by a Guided 6-face Scan), otherwise *likely* + offer a Guided 6-face Scan *(SCP 2026-11-17)*; Learner can adopt the observed state for Guided recovery; offered at milestones and after mismatches, never required.
-FR-27: Placement: scan a cube, evaluate every Stage Predicate, suggest the first unmet Stage (white cross only [ASSUMPTION]); Learner accepts or picks another; earlier Stages marked *skipped by placement*, never *mastered*, always revisitable.
+FR-26: Quick Check in Physical-cube Mode (Guided 6-face Scan or only affected faces, ≤ 2 captures [ASSUMPTION]): match → recorded *verified*; mismatch → observed faces become Diagnosis evidence; *verified* only when exactly one candidate Move sequence fits, and a Quick Check of only some faces verifies only a match (a mismatch is verified only by a Guided 6-face Scan), otherwise *likely* + offer a Guided 6-face Scan *(SCP 2026-11-17)*; Learner can adopt the observed state for Guided recovery; offered at milestones and after mismatches, available at any step including mid-Algorithm (SCP 2026-11-20, #208), never required.
+FR-27: Placement: scan a cube, evaluate every Stage Predicate, suggest the first unmet Stage (white cross only [ASSUMPTION]); Learner accepts or picks another; earlier Stages marked *skipped by placement*, never *mastered*, always revisitable; the result states what the scan saw and why, with a ≤ 2-Moves-from-solved outcome first (#251); re-placement from outside Welcome only adds progress (#252) (SCP 2026-11-20).
 FR-28: Recognize an OLL/PLL Case from two opposite top-corner captures (yellow on top; U + two sides each): compare against every Case's derived pattern under AUF and intersect the captures' candidates; ambiguous → list candidates and offer another angle; no fit → say so; F2L not solved → say so and offer Placement; offer (never force) an Algorithm Status change.
 FR-29 (P1, out of MVP scope): recognition and execution drills with spaced repetition and a per-Algorithm mastery rule separate from Algorithm Status.
+FR-30 (v1.0, SCP 2026-11-20, #210): method-aware solutions (beginner, 2-look, full OLL + PLL) built from the Course's predicates and Library Algorithms, segment-tagged by Stage or Case, preferring *Learning*/*Learned* Algorithms; the Solve tab keeps the optimal solution as default.
 
 ### NonFunctional Requirements
 
@@ -122,11 +123,11 @@ UX-DR8: Teaching Mode switcher: segmented control (*Show me*, *Guide me*, *Test 
 UX-DR9: Hint button labeled **Hint (n/3)**; each tap moves one rung (clue → highlighted target or Move arrow → full Demonstration); resets on a new Objective.
 UX-DR10: Assistance line: one `meta` line under the step card explaining why help changed, with *Back to my usual help*; never switches Teaching Mode without a tap; absent when `ADAPTIVE_ASSISTANCE` is OFF.
 UX-DR11: Recovery prompt: inline in the lesson panel, never a dialog; *Undo*, *Guide me back*, *Try again* in that order; pending copy "Finding the shortest way back…", plan copy ("3 moves — your cross stays") with preserved pieces highlighted, no-plan copy "I can't find a short way back. Undo, or start this step again."
-UX-DR12: Physical controls: **Done** stays primary (even under a recovery prompt); secondary *I did something else*; overflow with *My cube doesn't match* and *I'm not sure what I did*; *Quick Check* camera icon at Objective boundaries, Stage milestones and after mismatch reports, never required.
+UX-DR12: Physical controls: **Done** stays primary (even under a recovery prompt); secondary *I did something else*; overflow with *My cube doesn't match* and *I'm not sure what I did*; *Quick Check* camera icon at Objective boundaries, Stage milestones and after mismatch reports, and available at any step including mid-Algorithm (SCP 2026-11-20), never required.
 UX-DR13: Certainty chip (`rounded.full`, icon + label + status color: ✓ *Verified*, ≈ *Likely*, ? *Unknown*), tappable to explain its evidence, never a percentage; Expected badge (dashed outline, `EXPECTED`) on every rendering of a predicted physical state; no chip while Expected-only.
 UX-DR14: Playback transport shared by Demonstrations, Solution Playback and Algorithm detail: |◀ ◀ ▶/❚❚ ▶ ▶|, speed 0.5×/1×/2×, step counter in `data`, current Move in large `notation` with its MoveNote line in `meta`, current Move in the strip marked by an `ink-primary` outline, scrubbing snaps to Move boundaries; the Move strip and a visible scrubber are shown (read-only strip, no scrubber in Physical-cube Mode), with move pictures (UX-DR32) on the current Move label and strip chips when *Move pictures* is on (SCP 2026-11-17).
-UX-DR15: Scan viewfinder: full-bleed preview, 3×3 grid in `scan-grid` at 70% with 1dp dark halo, auto-capture after ~600 ms aligned and steady, manual shutter, face prompt naming the center color with a glyph swatch (the up color only on a re-prompt, SCP 2026-11-16 / Story 10.14), mini net progress, inline quality coaching, wrong orientation → re-prompt not error; Quick Scan variant with a Y-shaped corner guide and "1 / 2" counter, unreadable faces hand off to the per-face grid; portrait camera with rotating overlays in landscape.
-UX-DR16: Sticker review net (Scan review and Editor): uncertain stickers pre-selected with a dashed `accent` ring and "?" badge; tap a sticker, then a color; invalid pieces outlined in `status-invalid` with labels; non-local errors on their own lines (twisted corner, flipped edge, swapped pieces); **Accept** disabled until every uncertain sticker is resolved and the state is valid.
+UX-DR15: Scan viewfinder: full-bleed preview, 3×3 grid in `scan-grid` at 70% with 1dp dark halo, auto-capture after ~600 ms aligned and steady, manual shutter, face prompt naming the center color with a glyph swatch (the up color only on a re-prompt, SCP 2026-11-16 / Story 10.14), mini net progress, inline quality coaching, wrong orientation → re-prompt not error; Quick Scan variant with a Y-shaped corner guide and "1 / 2" counter (SCP 2026-11-20, Story 10.18: the cube's real edges and corners are detected in the frame, so the Learner never aligns with a sketch, and each capture gets a visible cue), unreadable faces hand off to the per-face grid; portrait camera with rotating overlays in landscape.
+UX-DR16: Sticker review net (Scan review and Editor): uncertain stickers pre-selected with a dashed `accent` ring and "?" badge; tap a sticker, then a color; invalid pieces outlined in `status-invalid` with labels; non-local errors on their own lines (twisted corner, flipped edge, swapped pieces); **Accept** disabled until every uncertain sticker is resolved and the state is valid. *(SCP 2026-11-20)* Paint mode by long-pressing a palette color (#249); in the Editor, any face rotation, neighbour-center bands, face-tab ✓ and warning dot, face-done line, specific count and piece messages, and no piece errors before every face is entered (#253).
 UX-DR17: Algorithm tile (diagram of U face + side bands derived from state, Case name in `label`, Algorithm in `notation`, status label *Learning*/*Learned*, nothing for *Not started*); fallback tile without a diagram; neutral M3 filter chips (selected = `surface-raised` + ✓, never violet); no stars, scores or badges.
 UX-DR18: Stage row (number in `data`, name in `title`, state text + icon: Locked, In progress, Completed, ◇ Skipped, ◇ Skipped by placement, ◆ Mastered in `accent`), reused for the 2-look mini-Course; Mastery progress line ("Mastery: 1 of 2 solves · 1 with reduced help") with a two-segment indicator; Trend row (dot sparkline of hints per attempt in date order, latest emphasized, attempt count in `data`, no totals, no red).
 UX-DR19: Beta label (tiny outlined `BETA` tag) shown from the flag, with per-feature tooltip copy; flag OFF hides the entry point and every cross-link, with no dead buttons; the manual route always one tap away.
@@ -135,7 +136,7 @@ UX-DR21: Color-blind glyphs W Y R O G B on every sticker surface from `StickerAp
 UX-DR22: Information architecture: Welcome (first launch only) and a 4-tab bottom bar (Learn, Solve, Library, You) that becomes a navigation rail at medium/expanded widths; Lesson, Scan and Playback are full-screen task flows with a top app bar; never more than one modal level; the Scan sub-flow returns to its caller. [ASSUMPTION: 4-tab IA pending confirmation.]
 UX-DR23: Responsive Lesson layout per window class: compact stacked (stage ≈ 45% height, min 280dp, key bar on stage bottom edge); medium side by side (stage ≈ 55% left, vertical key grid); expanded side by side with the panel capped at 560dp; Library 4 columns at expanded; orientation change never changes session state.
 UX-DR24: Voice and copy: all strings as content keys; Goal/Keep/Watch/Notice; fixed Certainty wording each with its next action; the Do/Don't table and UI-label↔Glossary map from EXPERIENCE.md; no exclamation marks except milestones; mistakes in neutral ink, never red.
-UX-DR25: State-pattern copy and treatments from EXPERIENCE.md State Patterns, each implemented where its feature lands (resume notes, session paused, content changed, Objective met variants, mismatch ladder, Test me outcomes, error-category copy, stale scan, solver working/timeout/tables building, invalid entry, permission denied, Placement outcomes, Recognize not-at-LL/ambiguous/no-fit/last-layer-solved, filter empty, progress reset).
+UX-DR25: State-pattern copy and treatments from EXPERIENCE.md State Patterns, each implemented where its feature lands (resume notes, session paused, content changed, Objective met variants, mismatch ladder, Test me outcomes, error-category copy, stale scan, solver working/timeout/tables building, invalid entry, permission denied, Placement outcomes (with cube reading and reason, SCP 2026-11-20), re-placement, entry level, Recognize not-at-LL/ambiguous/no-fit/last-layer-solved, filter empty, progress reset).
 UX-DR26: Gestures: one-finger drag starting on a sticker along a row/column previews that layer's Move (an outer face or a middle slice) and commits it on release (UX-DR33); a parallel two-finger drag starting on the cube previews and commits the wide Move; a one- or two-finger drag starting off the cube = View Rotation; below threshold nothing happens; two-finger twist = z; x/y via ⟳ keys [ASSUMPTION]; Cube Rotation animates 200 ms and briefly labels the new front color; The View rotated badge is shown while the view is off home (UX-DR34).
 UX-DR27: Haptics: light tick on each committed Move, soft confirm on Objective met, nothing on a mistake; all switchable off in Settings.
 UX-DR28: Banned patterns enforced in review: shake on error, red flash for a Learner mistake, countdown timers (outside P1 drills), streaks/points/push notifications/badges, auto-advance past a Notice, carousels.
@@ -151,7 +152,7 @@ UX-DR34: View-rotated badge and face labels: a "View rotated" badge with a Reset
 FR-1: Epic 1 (buttons, 2D net, all Move types) · Epic 5 (3D, gestures, 250 ms animation) · Epic 12 (drag preview, slices and wide Moves by gesture, 12.16)
 FR-2: Epic 5 — View Rotation independent of Cube State · Epic 12 (view-rotated badge, Reset view, face labels, 12.17)
 FR-3: Epic 1 (free-cube undo/redo/reset) · Epic 2 (in-session undo/redo, reset confirmation) · Epic 8 (physical undo)
-FR-4: Epic 2 (Lesson schema, path tests) · Epic 7 (Stage gating, all Stages, skip-ahead check)
+FR-4: Epic 2 (Lesson schema, path tests) · Epic 7 (Stage gating, all Stages, skip-ahead check) · Epic 14 (entry level, Story 14.1)
 FR-5: Epic 2 — four Teaching Modes
 FR-6: Epic 2 (explained Demonstrations on the net) · Epic 5 (3D arrows and highlights)
 FR-7: Epic 8 — confirm physical Moves, Expected label
@@ -165,18 +166,19 @@ FR-14: Epic 1 (`CubeValidator` rules) · Epic 3 (Manual Cube Editor)
 FR-15: Epic 3 — offline Solver
 FR-16: Epic 3 (Solution Playback) · Epic 8 (physical follow-along) · Epic 10 (Quick Check in playback, v1.1, flag-gated) · Epic 12 (3D/2D view switch, move pictures and Move strip; Stories 12.14–12.15)
 FR-17: Epic 9 — 2-look LL mini-Course
-FR-18: Epic 9 — Algorithm Library
+FR-18: Epic 9 — Algorithm Library · Epic 14 (practice on a real cube, Story 14.2)
 FR-19: Epic 6 (snapshots, Checkpoints, attempts, preferences) · Epic 7 (progress reset) · Epic 9 (Algorithm Status) · Epic 10 (calibration reset, v1.1, flag-gated) · Epic 12 (playback view and Move pictures preferences)
 FR-20: Epic 7 — Independent practice, mastery, trend
 FR-21: Epic 10 — Guided 6-face Scan (v1.1, flag-gated)
-FR-22: Epic 11 — Quick Scan (v1.1, flag-gated)
+FR-22: Epic 11 — Quick Scan (v1.1, flag-gated) · Epic 10 (switch to the Guided Scan, Story 10.17)
 FR-23: Epic 10 — validate and correct a Scan Result (v1.1, flag-gated)
 FR-24: Epic 10 — Color Calibration (v1.1, flag-gated)
 FR-25: Epic 10 — scan to solve (v1.1, flag-gated)
-FR-26: Epic 10 — Quick Check (v1.1, flag-gated)
+FR-26: Epic 10 — Quick Check (v1.1, flag-gated) · Epic 14 (any step, Stories 14.2–14.3)
 FR-27: Epic 11 — Placement (v1.1, flag-gated)
 FR-28: Epic 11 — Case recognition (v1.1, flag-gated)
 FR-29: not covered — P1, out of MVP scope (deferred in PRD §6.2 and spine Deferred)
+FR-30: Epic 15 — method-aware solutions (v1.0, SCP 2026-11-20)
 
 NFRs: NFR-1/2 Epics 5, 12 · NFR-3 Epic 3 · NFR-4 Epics 1, 2, 5, 8 · NFR-5/8 Epic 1 (build checks), Epic 12, Epic 13 (privacy facts and public policy) · NFR-6 Epic 6 · NFR-7 Epics 1, 5, 12 (+ every UI story) · NFR-9/11 Epics 7, 12 · NFR-10 Epic 2 · NFR-12 Epic 1 (gates), all `:core:*` stories · NFR-13 Epic 12 (+ every UI story).
 
@@ -228,14 +230,14 @@ A Learner can browse and watch all 78 verified OLL/PLL Algorithms, track their o
 **FRs covered:** FR-17, FR-18, FR-19 (Algorithm Status). **Also:** AR-19, AR-23, UX-DR17.
 
 ### Epic 10: Scan my cube (v1.1, flag-gated)
-A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. Built on `main` with every camera flag OFF in release; each feature reaches users only when the PO raises its flag at a release (Story 10.11). Restored from `post-launch/v1.1-camera-recognition.md` by `sprint-change-proposal-2026-11-14-v1-1-camera.md`.
+A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. Built on `main` with every camera flag OFF in release; each feature reaches users only when the PO raises its flag at a release (Story 10.11). Restored from `post-launch/v1.1-camera-recognition.md` by `sprint-change-proposal-2026-11-14-v1-1-camera.md`. *(SCP 2026-11-20: moves into v1.0 as the dependency of #198, #208, #249, #251, #252; Story 10.11 raises `CAMERA_SCAN` for the v1.0 release.)*
 **FRs covered:** FR-21, FR-23 – FR-26, plus the Quick Check rung of FR-9 and FR-16, and the calibration reset of FR-19. **Also:** recognition NFRs, NFR-5, NFR-8, NFR-11, NFR-12, AD-9, AD-13, AD-18, AR-13, UX-DR15, UX-DR16, UX-DR19 – UX-DR22, UX-DR25.
-**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) → Epic 11 → 10.8 → 10.11 *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16; 10.5 split into 10.5 and 10.15 by SCP 2026-11-16 main-app entry points)*. Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance (10.4 partial); B2 = 10.14; B3 = 10.5 (main app; re-runs the 10.4 checks not done on a device, #166); C = 11.1, 11.3 capture and 10.8.
+**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) → Epic 11 → 10.8 → 10.11; 10.16 after 10.14; 11.1 → 10.18 (Quick Scan finds the cube's real edges and corners, #195) → 10.17 (after 10.16 too); all v1.0 scope (SCP 2026-11-20) *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16; 10.5 split into 10.5 and 10.15 by SCP 2026-11-16 main-app entry points)*. Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance (10.4 partial); B2 = 10.14; B3 = 10.5 (main app; re-runs the 10.4 checks not done on a device, #166); C = 11.1, 11.3 capture and 10.8.
 **Main-app rule (SCP 2026-11-16 main-app entry points):** a camera story is accepted on the main app build, reached from its real entry point. A debug-only launcher is never a story's device-session gate, and debug raises a flag above OFF only once that flag's entry point is wired in the main app (AD-15, AD-18).
-**Never blocks** tester-feedback fixes or Stories 12.3, 12.4, 12.5 and 13.6: camera stories merge only with release camera flags OFF, and Story 10.9's gate keeps the release free of camera code and permissions.
+**Never blocks** tester-feedback fixes or Stories 12.3, 12.4, 12.5 and 13.6: camera stories merge only with release camera flags OFF, and Story 10.9's gate keeps the release free of camera code and permissions. *(Superseded by SCP 2026-11-20: for v1.0, Story 10.11 raises `CAMERA_SCAN`, `QUICK_SCAN` and `PLACEMENT` before Stories 12.3–12.5, and the Story 10.9 gate then checks the flags-ON release instead.)*
 
 ### Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition (v1.1, flag-gated)
-First on the PRD cut order (Quick Scan → beta, then Case recognition, then Placement). Each ships behind its AD-18 flag and can be turned OFF without dead UI.
+First on the PRD cut order (Quick Scan → beta, then Case recognition, then Placement). Each ships behind its AD-18 flag and can be turned OFF without dead UI. *(SCP 2026-11-20: Quick Scan and Placement move into v1.0 with #198, #251 and #252.)*
 **FRs covered:** FR-22, FR-27, FR-28. **Also:** recognition NFRs, NFR-11, AD-6, AD-9, AD-10, AD-18, AD-19, UX-DR19, UX-DR25.
 
 ### Epic 12: Release-ready for learners and reviewers (P0.6, weeks 15–16)
@@ -243,7 +245,7 @@ The app meets every release gate. It is accessible, fast and stable on the refer
 **Absorbs:** E09, PRD §7.
 **FRs covered:** none new (verifies all), plus FR-16 and FR-19 additions in 12.14–12.15, and FR-1/FR-2 gesture and view changes in 12.16–12.17. **Also:** NFR-1, NFR-2, NFR-7, NFR-8, NFR-9, NFR-11, NFR-13, AR-3, AR-5, AR-16, UX-DR4, UX-DR6, UX-DR14, UX-DR28, UX-DR5, UX-DR26, UX-DR29, UX-DR32, UX-DR33, UX-DR34, Flow 6.
 **Also carries** the pre-pilot stories 12.6–12.10 (Cubentia rebrand; Epic 8 retrospective fixes), which run before Story 7.8 (`sprint-change-proposal-2026-11-08-cubentia-and-pre-pilot.md`), and 12.11–12.12 (Epic 9 seams; 2-look rules), also before 7.8 (`sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md`), and 12.13 (durable session end; Story 12.11 deferrals), also before 7.8 (`sprint-change-proposal-2026-11-10-session-end-deferrals.md`). It also carries 12.14 (Solution Playback in 3D or on the 2D net, #175) and then 12.15 (Move pictures and the Move strip, #176), v1 release scope that runs before Story 12.3 and the store screenshots of Story 12.5 (`sprint-change-proposal-2026-11-17-playback-view-and-move-glyphs.md`). It also carries 12.16 (drag preview, #206) and 12.17 (view-rotated badge, #207), which run before 12.3 (`sprint-change-proposal-2026-11-18-drag-preview-and-view-rotated.md`).
-**Epic 13** (public website and privacy policy, `sprint-change-proposal-2026-11-13-cubentia-site.md`) runs before Stories 12.3, 12.4 and 12.5. Story 12.3 depends on 13.6, and Story 12.5 on 13.4 and 13.5. Epics 10 and 11 (v1.1 camera, flag-gated) run in parallel with Epics 12 and 13 and never gate them (`sprint-change-proposal-2026-11-14-v1-1-camera.md`).
+**Epic 13** (public website and privacy policy, `sprint-change-proposal-2026-11-13-cubentia-site.md`) runs before Stories 12.3, 12.4 and 12.5. Story 12.3 depends on 13.6, and Story 12.5 on 13.4 and 13.5. Epics 10 and 11 (v1.1 camera, flag-gated) run in parallel with Epics 12 and 13 and never gate them (`sprint-change-proposal-2026-11-14-v1-1-camera.md`). *(Superseded by SCP 2026-11-20: Stories 10.11, 10.17, 10.18 and Epics 14–15, plus the #249/#251/#252/#253 fixes, are v1.0 scope and run before Stories 12.3, 12.4 and 12.5.)*
 **Device batch** (reference devices connected after the device-free stories; `sprint-change-proposal-2026-11-10-session-end-deferrals.md`): Stories 3.8, 1.11 and 12.2, plus the Story 12.1 physical pass in `docs/accessibility-manual-check.md`. Story 3.7 stays in `review` until 3.8 passes (its last AC), and Story 12.1 stays in `review` until that physical pass is recorded.
 **Reference devices (SCP 2026-11-12, `sprint-change-proposal-2026-11-12-lenovo-minimum-reference.md`):** minimum Lenovo Tab M10 Plus 3rd Gen (TB128XU, Android 13 / API 33), mid Samsung Galaxy S24 FE. The Galaxy Tab S7 FE 5G, the minimum until 2026-11-12, is kept as an additional compatibility device, and its 3.8, 1.11 and 12.2 results stay as dated evidence. The Lenovo was measured with the 3.8 and 12.2 methods and meets every threshold (`docs/benchmarks.md` § Additional device: Lenovo Tab M10 Plus 3rd Gen); its limitations are tracked in #119.
 
@@ -252,6 +254,18 @@ Anyone can open Cubentia's public website, read a privacy policy that states exa
 **Absorbs:** the privacy-policy page of Story 12.5 AC2 (PRD §7 store readiness).
 **FRs covered:** none. **Also:** NFR-5, NFR-7, NFR-8, NFR-10, AD-13, AD-14, AR-4.
 **Runs before** Stories 12.3, 12.4 and 12.5 and the #127 closed-testing review (`sprint-change-proposal-2026-11-13-cubentia-site.md`).
+
+### Epic 14: Practice on my real cube and start at my level (SCP 2026-11-20)
+A Learner who can already solve picks an entry level instead of proving every Stage, and any Algorithm or Lesson step can be practiced on a real cube with *Done* and a Quick Check at any step.
+**FRs covered:** FR-4 (entry level), FR-18 (practice on a real cube), FR-26 (any step), FR-17 (physical 2-look). **Also:** AD-3, AD-10, AD-18, AD-20, UX-DR12, UX-DR18, UX-DR25, Flows 8 and 11. GitHub #208, #209.
+**Order:** 14.1 → 14.2 → 14.3. **v1.0 scope** (PO, 2026-11-20): runs before release Stories 12.3, 12.4 and 12.5; camera ACs stay behind `CAMERA_SCAN`, which Story 10.11 raises for v1.0.
+
+### Epic 15: Method-aware solutions (v1.0, SCP 2026-11-20)
+A Learner can see a solution shaped by the method they are learning instead of the shortest one, each segment tagged by Stage or Case.
+**FRs covered:** FR-30. **Also:** AD-8 (unchanged), AD-19, AD-20, AD-21, NFR-3, NFR-12. GitHub #210.
+**Order:** 15.1 → 15.2 → 15.3. **v1.0 scope** (PO, 2026-11-20): runs before release Stories 12.3, 12.4 and 12.5.
+
+**SCP 2026-11-20 v1.1 promotion** (`sprint-change-proposal-2026-11-20-v1-1-promotion.md`): #249, #251, #252 and #253 are built as issue fixes (`/bmad-orchestrate-issues`) against the amended Stories 10.3, 11.2 and 3.5; #198 is Story 10.17; #208 and #209 are Epic 14; #210 is Epic 15. The Lenovo Tab M10 Plus 3rd Gen (TB128XU) camera is the minimum camera spec for every device gate. **Scope move v1.1 → v1.0 (PO, 2026-11-20, ahead of schedule):** all of these ship in v1.0, together with what they depend on: the camera scan and review (`CAMERA_SCAN`, Epic 10), Placement (`PLACEMENT`, Story 11.2), Quick Scan (`QUICK_SCAN`, Story 11.1) and its corner-guide rework (Story 10.18, which detects the cube's real edges and corners in the frame, #195–#197), and Story 10.11, which raises those flags for the v1.0 release from the test-matrix evidence (BETA or GA). Release Stories 12.3, 12.4 and 12.5 run after them. `CASE_RECOGNITION` (Story 11.3) is not a dependency and keeps its own release decision at 10.11.
 
 ## Epic 1: Turn and verify a cube
 
@@ -832,6 +846,28 @@ So that I can solve a real cube without a camera.
 **Given** a valid entry
 **When** Accept is tapped
 **Then** the editor returns the validated `CubeState` to its caller, and it is not a session (AD-3)
+
+*Amended by SCP 2026-11-20 v1.1 promotion (#253), built as an issue fix through `/bmad-orchestrate-issues`; acceptance on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE, main app build, Solve → Enter colors:*
+
+**Given** every face entered, with any face turned 90°, 180° or 270° from the editor's hold
+**When** the faces resolve through `ScanAssembler` (AD-9) to exactly one valid cube
+**Then** it is accepted with no question, the net redraws the turned face, and a `meta` note (and TalkBack) says "We turned the Up face to match the others."
+
+**Given** entered faces that resolve to no valid cube or to more than one
+**When** validation runs
+**Then** the instruction line names the face and its hold ("Check the Up face: hold green toward you and look at the top."), that face's tab is marked, and TalkBack reads it; the neighbour-center bands around the edited face always show the hold
+
+**Given** an Editor opened on the default solved cube with faces not yet touched
+**When** validation runs
+**Then** no piece or count error shows; the line reads "{n} faces left to enter: …", and *Accept* stays disabled
+
+**Given** an invalid entry once every face is entered
+**When** validation runs
+**Then** color counts name each color that is off ("Red: 10 (one too many) · Green: 8 (one missing)"), impossible pieces name the piece and its faces, suspect stickers carry Scan review's numbered markers, and their face tabs a warning dot
+
+**Given** auto-advance
+**When** a sticker or a whole face is set
+**Then** the next sticker carries the pulsing cursor, a completed face's tab gets a ✓ and "Front done ✓ → Right" shows for about 1.5 s, TalkBack announces "Front face done. Right face next.", and the update-cue ✓ is legible on every sticker color, green included (DESIGN.md)
 
 ### Story 3.6: Step through a Solution with generated notes
 
@@ -1469,6 +1505,8 @@ So that I'm not forced through Stages I've mastered elsewhere.
 **When** they exit
 **Then** "Let's do this Stage together — it'll be quick." (or "Let's find where to start" from Welcome) shows, with no record against them
 
+*SCP 2026-11-20 v1.1 promotion (#209): Welcome's* I can already solve it *now opens the entry-level picker of Story 14.1; this story's whole-Course check stays as its* Check me with a scramble instead *choice.*
+
 ### Story 7.8: Ship a pilot build to closed testing
 
 As the developer,
@@ -1739,6 +1777,8 @@ So that I can learn its finger flow.
 **When** it is scrubbed back and forth
 **Then** the rendered cube always matches the Move boundary it snapped to
 
+*SCP 2026-11-20 v1.1 promotion (#208): Algorithm detail gains* I'm doing it on my cube *(Algorithm practice on a real cube), Story 14.2.*
+
 ### Story 9.6: Set my Algorithm Status
 
 As a Learner,
@@ -1888,6 +1928,20 @@ So that a bad read never reaches the Solver or the tutor.
 **Given** the review screen at 200% font on the Lenovo's 600 dp two-pane width *(SCP 2026-11-14: #137 found word breaks at this width)*
 **When** it renders
 **Then** no word breaks mid-word and nothing is cut off (`docs/accessibility-manual-check.md`)
+
+*Amended by SCP 2026-11-20 v1.1 promotion (#249), built as an issue fix through `/bmad-orchestrate-issues`; acceptance on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE, main app build, from the Solve tab. The shared sticker review net carries it, so the Manual Cube Editor gets it too (PO approved 2026-11-20):*
+
+**Given** the review (or Editor) palette
+**When** the Learner long-presses a color, or uses its *Lock this color* accessibility action
+**Then** paint mode starts: the swatch shows the locked outline and ✓, the instruction line reads "Painting {color}. Tap stickers to set them. Tap {color} again to stop.", TalkBack announces "Painting {color}", and auto-advance and the next-sticker pulse pause
+
+**Given** paint mode
+**When** the Learner taps stickers
+**Then** each tap sets the locked color with the update cue and haptic tick, so 9 stickers of one color take 1 long-press + 9 taps
+
+**Given** paint mode
+**When** the Learner taps or long-presses the locked color, plain-taps another color, or enters retake mode
+**Then** paint mode ends, TalkBack announces "Painting off", and tap-sticker-then-color behaves exactly as before
 
 ### Story 10.4: Calibrate colors for my cube
 
@@ -2269,7 +2323,7 @@ So that I don't fix a whole face sticker by sticker or rescan all six faces.
 
 **Refs:** FR-23, FR-14, FR-21 · recognition NFRs, NFR-10 · AD-3, AD-9, AD-13, AD-18 · UX-DR15, UX-DR16 · Stories 10.2, 10.3, 10.14, 10.15 · #235
 
-**Depends on** Stories 10.3 and 10.14. **Human gate:** a device session on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE, on the main app build from the Solve tab. *(SCP 2026-11-19 review face retake, #235: PO decisions 2026-11-19. Guided 6-face Scan review only; retake in the Quick Scan review is a v1.1 follow-up noted with #198.)*
+**Depends on** Stories 10.3 and 10.14. **Human gate:** a device session on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE, on the main app build from the Solve tab. *(SCP 2026-11-19 review face retake, #235: PO decisions 2026-11-19. Guided 6-face Scan review only; retake in the Quick Scan review is a v1.1 follow-up noted with #198.)* *(SCP 2026-11-20: now v1.0, through Story 10.17, #198.)*
 
 **Acceptance Criteria:**
 
@@ -2308,6 +2362,74 @@ So that I don't fix a whole face sticker by sticker or rescan all six faces.
 **Given** the story is accepted on a device
 **When** it is run
 **Then** it runs on the main app build from the Solve tab, never from a debug-only launcher, and no frame from the retake is persisted or sent (Story 10.2)
+
+### Story 10.17: Switch from Quick Scan to the Guided Scan and keep the captured faces
+
+As a Learner whose Quick Scan read some faces well,
+I want to finish the rest face by face without starting over,
+So that one bad corner photo doesn't cost me the faces that were already read.
+
+**Refs:** FR-22, FR-21, FR-23 · recognition NFRs, NFR-10 · AD-3, AD-9, AD-13, AD-18 · UX-DR15, UX-DR16 · Stories 10.2, 10.14, 10.16, 11.1 · #198
+
+**Depends on** Stories 11.1, 10.16 and 10.18 (Quick Scan finds the cube's real edges and corners, #195; added by this SCP and moved into v1.0 with it). **Human gate:** a device session on the Lenovo Tab M10 Plus 3rd Gen (TB128XU, the minimum camera spec) and the Galaxy S24 FE, on the main app build from the Solve tab, with `QUICK_SCAN` raised in debug. *(SCP 2026-11-20 v1.1 promotion, #198.)*
+
+**Acceptance Criteria:**
+
+**Given** `QUICK_SCAN` is BETA or GA and a Quick Scan in progress
+**When** the Learner taps *Scan face by face* (visible before, between and after the corner captures)
+**Then** every face already captured with all nine stickers read is kept, and the Guided 6-face Scan viewfinder asks for only the other faces, in the fixed face order, with the Story 10.14 any-rotation prompt; the mini net shows the kept faces as done
+
+**Given** the kept faces and the newly captured faces
+**When** they are assembled
+**Then** `ScanAssembler` assembles all six together, tries the four quarter turns of each new face with the kept faces' poses held as captured, stays the only place samples are rotated (AD-9), and never reclassifies a kept face; ambiguity or no valid state goes to Story 10.3 review with the best fit, as Story 10.16 does, with no re-prompt loop
+
+**Given** Quick Scan's own hand-over (uncertain faces after two corners, Story 11.1 AC2)
+**When** it hands over
+**Then** it uses this same path, so both entries behave alike
+
+**Given** the Learner backs out of the Guided Scan before the remaining faces are captured
+**When** they return
+**Then** Quick Scan resumes with the kept faces intact, or *Close* asks "Discard this scan?"
+
+**Given** the combined review
+**When** it renders
+**Then** it is the Story 10.3 review (with retake, Story 10.16, now available in it), and *Accept* returns the same `ScanOutcome` to the caller
+
+**Given** the copy
+**When** it renders
+**Then** it comes from content strings (NFR-10), fits a phone in portrait without scrolling, and no frame is persisted or sent
+
+### Story 10.18: Quick Scan finds the cube's real edges and corners
+
+As a Learner using Quick Scan,
+I want the camera to find my cube however it appears in the frame, and a clear sign each corner photo was taken,
+So that the two corner photos read my cube instead of sending faces to a rescan.
+
+**Refs:** FR-22, FR-23 · recognition NFRs, NFR-7, NFR-11 · AD-9, AD-13, AD-18 · OQ-7 · UX-DR15 · Story 11.1 · #195, #196, #197
+
+**Depends on** Story 11.1. **Runs before** Story 10.17 (an appended ID that runs earlier, as the How-to-read note allows). **Approach (PO approved 2026-11-20):** detect the cube's real edges and corners in the camera frame and unwarp each face from them, within the OQ-7 decision K (Kotlin, no new runtime) and NFR-11. A perspective-correct guide sketch is not used. **Human gate (acceptance):** a device session on the Lenovo Tab M10 Plus 3rd Gen (TB128XU, the minimum camera spec) and the Galaxy S24 FE, both test cubes, main app build, `QUICK_SCAN` raised in debug. *(SCP 2026-11-20 v1.1 promotion: moved into v1.0 as the dependency of #198, Story 10.17.)*
+
+**Acceptance Criteria:**
+
+**Given** a cube held by a corner at 20–40 cm on the minimum device, in any position in the frame
+**When** a frame is analysed
+**Then** the camera adapter detects the cube's real outer edges and its seven visible corners in the camera frame, and unwarps each of the three visible faces from those detected corners, never from the fixed isometric `CornerGuide.quads`; the Learner never has to line the cube up with a drawn sketch, and no perspective-correct guide sketch is drawn (any overlay only outlines the detected cube)
+
+**Given** recorded Quick Scan frames from device session C (the Lenovo and the S24 FE, both test cubes)
+**When** the JVM suite runs the detector
+**Then** the detected corners are within a reported pixel tolerance of hand-labeled corners, and the share of frames with a detection is reported per device
+
+**Given** a dark or glossy background (#196)
+**When** no corner is detected for about 3 s
+**Then** inline coaching reads "Try a plain, light surface." and the Learner can switch to *Scan face by face* (Story 10.17)
+
+**Given** each corner capture (#197)
+**When** it is taken
+**Then** a visible cue shows on both captures (a brief frame flash and a thumbnail of the captured corner, with the counter change enlarged), the same shutter sound plays on both, and nothing relies on haptics alone
+
+**Given** the test matrix on both devices
+**When** Quick Scan is measured
+**Then** the share of faces sent to the Guided Scan is reported per device in `docs/scan-accuracy.md` and compared with the device session C baseline (4 of 6 faces on the Lenovo), and the GA/BETA recommendation of Story 11.1 AC3 is restated
 
 ## Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition
 
@@ -2366,6 +2488,32 @@ So that I continue from where I really am.
 **Given** this story wires Welcome's *Start from my cube* (`AppShell` passes `onStartFromCube`) *(SCP 2026-11-16 main-app entry points)*
 **When** the PR merges
 **Then** `PLACEMENT` goes back to GA in debug in the same PR, and an AppShell test taps the button and reaches the scan
+
+*Amended by SCP 2026-11-20 v1.1 promotion (#251, #252), built as issue fixes through `/bmad-orchestrate-issues`; acceptance on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE, main app build, with `PLACEMENT` raised in debug:*
+
+**Given** an accepted cube (scan or Editor)
+**When** Placement shows its result
+**Then** it shows the cube reading, the reason and the suggestion in that order (EXPERIENCE.md *Placement outcomes*), all from content strings, read by TalkBack in that order, with the line "The lesson sets up its own cube, so you can put yours aside."
+
+**Given** a cube 1 or 2 face turns from solved (including a last-layer or first-layer turn)
+**When** Placement evaluates it, before any Stage Predicate
+**Then** a dedicated outcome names the turn(s) in words, found by a bounded enumeration of at most 2 Moves (never the Solver, AD-8)
+
+**Given** a cross or first two layers solved on a color other than white
+**When** shown
+**Then** the reading credits the solve and the reason explains why the Course starts from white, suggesting *First cross* (PO approved 2026-11-20), with *Show me the last layer anyway* added when the first two layers are solved
+
+**Given** a partly solved cube
+**When** shown
+**Then** the reading names what is done and the next Stage's progress from its Objective progress measure (AD-6), e.g. "2 of 4 first-layer corners are in place", and an at-last-layer cube names its Case when exactly one fits (AD-19)
+
+**Given** an onboarded Learner and `PLACEMENT` above OFF
+**When** they open Learn → *Find my place* → *Scan my cube*
+**Then** "This keeps your progress. Stages you've finished stay as they are." shows, then the usual scan, review and Placement; accepting only adds progress (AD-10: earlier `LOCKED`/`IN_PROGRESS` Stages become *Skipped by placement*, the target unlocks, nothing is re-locked or erased); a target already reached shows "You've already reached *Stage*." with *Open Stage* and writes nothing
+
+**Given** `PLACEMENT` is OFF
+**When** Learn renders
+**Then** *Find my place* offers only *Choose my level* (Story 14.1), with no dead control
 
 ### Story 11.3: Recognize an OLL/PLL Case
 
@@ -3100,3 +3248,161 @@ So that the closed-testing review can go ahead and nobody has to work out the UR
 **Given** this repository
 **When** the story's PR merges
 **Then** `docs/play-first-publish.md` § 2 step 1 names the site repository and the registered URL instead of `docs/privacy.md`, the README links the website and the privacy policy, and #127 records the date the URL was registered (no tester data)
+
+## Epic 14: Practice on my real cube and start at my level
+
+A Learner who can already solve picks their entry level instead of proving every Stage, and any Algorithm or Lesson step can be practiced on a real cube with *Done*, with a Quick Check at any step. *(SCP 2026-11-20 v1.1 promotion, #208, #209.)* Camera parts are behind `CAMERA_SCAN` (AD-18); everything else works with every camera flag OFF.
+
+### Story 14.1: Choose my entry level when I can already solve it
+
+As a Learner who already solves with the beginner method or 2-look,
+I want to say where I am instead of passing every Stage check,
+So that I go straight to what I want to learn next.
+
+**Refs:** FR-4, FR-17, FR-19 · AD-6, AD-10, AD-18 · UX-DR18, UX-DR22, UX-DR25 · UX Flow 8 · Story 7.7 · #209
+
+**Depends on** Story 7.7. **Human gate:** a device check on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE, on the main app build.
+
+**Acceptance Criteria:**
+
+**Given** Welcome → *I can already solve it*, or Learn → *Find my place* → *Choose my level*
+**When** the picker opens
+**Then** "Where do you want to start?" lists *I can solve the first two layers*, *I solve with the beginner method*, *I know 2-look OLL and PLL* and *Check me with a scramble instead*, with "Skipped Stages stay open, and nothing is marked mastered." and, when `PLACEMENT` is on, *Not sure? Scan my cube*
+
+**Given** a level is chosen
+**When** `ChooseEntryLevel` records it
+**Then** it appends `StageSkippedByChoice` for each earlier Stage that is `LOCKED` or `IN_PROGRESS` and `StageUnlocked` for the target (Stages 1–4 → *Last-layer orientation*; Stages 1–7 → *Faster last layer*; Stages 1–7 and both 2-look Stages → the Library filtered to the full OLL set), each skipped Stage shows ◇ *Skipped*, never mastered, and stays revisitable
+
+**Given** existing progress (a Stage completed, mastered or skipped)
+**When** a level is chosen
+**Then** nothing is re-locked, downgraded or erased, and no `ProgressReset` is written (AD-10, only add)
+
+**Given** *Check me with a scramble instead*
+**When** chosen
+**Then** the Story 7.7 whole-Course skip-ahead check runs unchanged
+
+**Given** the progress log
+**When** the new event type is added
+**Then** `StageSkippedByChoice` round-trips through Room (with a migration and migration test if the stored type is a closed set), `StageProgress.status` treats it like `StageSkippedByCheck`, and `ChooseEntryLevel` is its only writer (Ownership Matrix)
+
+**Given** the copy
+**When** it renders
+**Then** it comes from content strings, reads correctly with TalkBack, and fits at 200% font on the Lenovo's 600 dp width
+
+### Story 14.2: Practice an Algorithm on my real cube
+
+As a Learner building muscle memory,
+I want to do any Algorithm on my own cube one turn at a time,
+So that I learn it with my hands, not only on screen.
+
+**Refs:** FR-18, FR-16, FR-26, FR-7 · AD-3, AD-5, AD-18, AD-19, AD-20 · UX-DR12, UX-DR14 · UX Flow 11 · Stories 8.5, 9.5, 10.7 · #208
+
+**Depends on** Stories 9.5 and 8.5; the Quick Check AC also on Story 10.7. **Human gate:** a device check on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE, on the main app build, from Library → an Algorithm.
+
+**Acceptance Criteria:**
+
+**Given** any of the 78 Algorithm details
+**When** the Learner taps *I'm doing it on my cube*
+**Then** they choose *Set it up from solved* or *My cube already shows this case*, and a `SOLVE_PLAYBACK` session opens in Physical-cube Mode on the 2D net whose Move list is the set-up Moves (the Algorithm's inverse, AD-19) then the Algorithm, labeled as *Set-up* and *Algorithm* segments (AD-20), or the Algorithm only
+
+**Given** the practice session
+**When** the Learner taps *Done*
+**Then** it advances one Move with the Expected State, `MoveNote` and mismatch ladder exactly as Solution Playback in Physical-cube Mode (Story 8.5), and the last *Done* offers *Again*
+
+**Given** `CAMERA_SCAN` above OFF
+**When** the Learner is at any step, including mid-Algorithm
+**Then** *Quick Check* is available and behaves as Story 10.7 (a match verifies; a mismatch is *likely* and offers a Guided 6-face Scan)
+
+**Given** `CAMERA_SCAN` OFF
+**When** practice runs
+**Then** it works end to end with *Done* only and no camera control is shown
+
+**Given** a Learner who knows the Case
+**When** they choose *My cube already shows this case*
+**Then** practice starts at the Algorithm with no Recognize or Quick Scan step
+
+### Story 14.3: Practice every Lesson step on my real cube, with a Quick Check at any step
+
+As a Learner in any Lesson, including 2-look,
+I want Physical-cube Mode and a Quick Check wherever I am,
+So that I can confirm my cube mid-Algorithm instead of only at the end of a step.
+
+**Refs:** FR-8, FR-17, FR-26, FR-7 · AD-3, AD-5, AD-18 · UX-DR12 · Stories 8.2, 9.7, 10.7 · #208
+
+**Depends on** Stories 8.2, 9.7 and 10.7. **Human gate:** a device check on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE, on the main app build.
+
+**Acceptance Criteria:**
+
+**Given** any Lesson, including every 2-look Lesson (`TWO_LOOK`)
+**When** it opens
+**Then** the Physical-mode switch is offered and works as Story 8.2 (*Done*, Expected State, mismatch ladder)
+
+**Given** Physical-cube Mode and `CAMERA_SCAN` above OFF
+**When** the Learner is at any step, including partway through a step's Moves
+**Then** the *Quick Check* icon is available (highlighted only at Objective boundaries, milestones and after mismatches), never required, and its result follows FR-26 (never a false *verified*)
+
+**Given** `CAMERA_SCAN` OFF
+**When** the Lesson renders
+**Then** no camera control shows and Physical-cube Mode still works
+
+## Epic 15: Method-aware solutions
+
+A Learner can see a solution for any cube shaped by the method they are learning (beginner layer-by-layer, 2-look OLL/PLL, or full OLL + PLL) instead of the shortest one, each part tagged with the Stage or Case it practices. The Solve tab keeps the optimal solution as its default. *(SCP 2026-11-20 v1.1 promotion, #210; FR-30, AD-21. v1.0 scope by PO decision 2026-11-20; sits next to the P1 FR-29 drills.)*
+
+### Story 15.1: Build a beginner-method solution from the Course's Stages
+
+As a Learner,
+I want a solution for my cube that follows the beginner method I'm learning,
+So that each part matches a Stage I know.
+
+**Refs:** FR-30, FR-15, FR-4 · AD-6, AD-8, AD-21 · NFR-3, NFR-12
+
+**Acceptance Criteria:**
+
+**Given** any valid `CubeState`
+**When** `MethodSolve(BEGINNER)` runs as an Effect with a timeout
+**Then** it returns segments tagged with Course Stage IDs in order (cross, first-layer corners, middle layer, last-layer orientation, last-layer completion), each found by the bounded `preservedPieces` search (the `RecoveryPlanner` search) against that Stage's completion predicate, never by calling `CubeSolver` (AD-8, AD-21)
+
+**Given** the FR-15 corpus (solved plus ≥ 10,000 random legal states)
+**When** the JVM suite applies each result to its input
+**Then** every result solves its input, no segment breaks a piece placed by an earlier segment, and median and p95 time on the JVM are reported
+
+### Story 15.2: Last-layer segments for 2-look and full OLL + PLL, preferring my Algorithms
+
+As a Learner going faster,
+I want the last layer solved with the Algorithm set I'm learning,
+So that the solution drills the Algorithms I chose.
+
+**Refs:** FR-30, FR-17, FR-18 · AD-19, AD-21 · Story 15.1
+
+**Acceptance Criteria:**
+
+**Given** a cube after the first two layers
+**When** `MethodSolve` runs with `TWO_LOOK` or `FULL_OLL_PLL`
+**Then** the last-layer segments use only Library Algorithms matched through `LastLayerMatcher` (2-look: the 2-look Lessons' Algorithms; full: one per Case), tagged with Case IDs, and when more than one fits, an Algorithm with status *Learning* or *Learned* wins
+
+**Given** the corpus
+**When** verified
+**Then** every result solves its input and uses only Algorithms of the chosen set plus U adjustments
+
+### Story 15.3: Choose a solution style in Solution Playback
+
+As a Learner,
+I want to switch between the shortest solution and one in my method,
+So that I can watch how I would solve this cube.
+
+**Refs:** FR-30, FR-16 · AD-3, AD-20, AD-21 · UX-DR14 · Stories 15.1, 15.2
+
+**Acceptance Criteria:**
+
+**Given** Solution Playback from the Solve tab
+**When** it opens
+**Then** it shows *Shortest* (the optimal solution) by default, with a *Solution style* control offering *Beginner*, *2-look* and *Full OLL + PLL*, the suggested method preselected from progress
+
+**Given** a method style
+**When** chosen
+**Then** playback restarts at step 1 with segment labels (the Stage or Case name from content, AD-20), per-Move notes only from `MoveNote`, and works in Physical-cube Mode with *Done*
+
+**Given** the method solution's Effect is pending or times out
+**When** shown
+**Then** "Building a step-by-step solution…" shows, and on timeout "Couldn't build that solution in time. The shortest one is still here." keeps *Shortest*
