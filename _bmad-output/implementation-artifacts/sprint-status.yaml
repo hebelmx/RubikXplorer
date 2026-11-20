@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-18-2026 21:24'
+last_updated: '11-19-2026 21:37'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -146,6 +146,7 @@ development_status:
   10-13-choose-the-recognition-approach-oq-7: done
   10-14-scan-each-face-in-any-rotation: done
   10-15-solve-from-a-scan: done
+  10-16-retake-faces-from-the-scan-review: backlog
   epic-10-retrospective: optional
 
   epic-11: done
@@ -1061,217 +1062,302 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-12-16-see-the-turn-while-dragging-commit-on-release.md"
   - id: "issue-202-deferred-solver-regression-pinned-to-order"
     epic: 12
-    action: "The real-solver regression test for R U2 F L2 D B2 is pinned to the solver's current search order; update it if the solver changes (low; deferred from #202, TwoPhaseCubeSolverTest)"
+    action: "The real-solver regression test for R U2 F L2 D B2 is pinned to the solver's
+      current search order; update it if the solver changes (low; deferred from #202,
+      TwoPhaseCubeSolverTest)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-202-solver-merge-same-face-turns.md"
   - id: "issue-194-deferred-device-reask-off-named-top"
     epic: 11
-    action: "Device check on Lenovo + S24: a Quick Scan re-ask held off its named top merges in the corner frame (fix is proven only by domain tests that model the grid turn) (medium; deferred from #194)"
+    action: "Device check on Lenovo + S24: a Quick Scan re-ask held off its named
+      top merges in the corner frame (fix is proven only by domain tests that model
+      the grid turn) (medium; deferred from #194)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-194-quick-scan-reasked-face-rotated.md"
   - id: "issue-194-deferred-ambiguous-reask-fallback"
     epic: 11
-    action: "When freeing the re-asked grid faces is AMBIGUOUS, or a corner face is misread, Quick Scan falls back to the named-top merge, which can implicate more than 2 faces and skip the round-2 re-ask or show a rotated face in Review; pass the unposed result to involvedFaces in that case (medium; deferred from #194, QuickScan.kt:119-128)"
+    action: "When freeing the re-asked grid faces is AMBIGUOUS, or a corner face is
+      misread, Quick Scan falls back to the named-top merge, which can implicate more
+      than 2 faces and skip the round-2 re-ask or show a rotated face in Review; pass
+      the unposed result to involvedFaces in that case (medium; deferred from #194,
+      QuickScan.kt:119-128)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-194-quick-scan-reasked-face-rotated.md"
   - id: "epic-13-retro-item-107-manual-a11y-pass-on-site-pages"
     epic: 13
-    action: "Do the manual accessibility pass on the site's /, /privacy/ and /support/ (keyboard with visible focus, 200% zoom, 320 CSS px, light and dark) and record it on site PR #4 or a site issue; blocks full acceptance of 13.2 AC3 and 13.4 AC3 and the epic-13 close"
+    action: "Do the manual accessibility pass on the site's /, /privacy/ and /support/
+      (keyboard with visible focus, 200% zoom, 320 CSS px, light and dark) and record
+      it on site PR #4 or a site issue; blocks full acceptance of 13.2 AC3 and 13.4
+      AC3 and the epic-13 close"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-19.md"
   - id: "epic-13-retro-item-108-reconcile-13-4-publisher-and-app-ref"
     epic: 13
-    action: "Reconcile epics.md Story 13.4 with the as-built via bmad-correct-course: AC1 publisher line 'Exxerpro Solutions, S.A. de C.V. (published on Google Play as Abel Briones)'; AC2 facts read at vars.APP_REF, schema 2 for camera releases"
+    action: "Reconcile epics.md Story 13.4 with the as-built via bmad-correct-course:
+      AC1 publisher line 'Exxerpro Solutions, S.A. de C.V. (published on Google Play
+      as Abel Briones)'; AC2 facts read at vars.APP_REF, schema 2 for camera releases"
     owner: "PM (John) + PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-19.md"
   - id: "epic-13-retro-item-109-agents-md-site-and-privacy-facts-pointer"
     epic: 13
-    action: "Add the AGENTS.md pointer required by epic-13-context.md:73: website and site repo, docs/privacy-facts.json with :app:writePrivacyFacts and :app:checkPrivacyFacts, and the rule that a manifest or SDK change also changes the public policy (via bmad-project-context)"
+    action: "Add the AGENTS.md pointer required by epic-13-context.md:73: website
+      and site repo, docs/privacy-facts.json with :app:writePrivacyFacts and :app:checkPrivacyFacts,
+      and the rule that a manifest or SDK change also changes the public policy (via
+      bmad-project-context)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-19.md"
   - id: "epic-13-retro-item-110-supersede-epic-13-context-publisher"
     epic: 13
-    action: "Regenerate epic-13-context.md or mark its line 20 (publisher and contact) and line 45 (weekly external link check) superseded"
+    action: "Regenerate epic-13-context.md or mark its line 20 (publisher and contact)
+      and line 45 (weekly external link check) superseded"
     owner: "SM (orchestrator)"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-19.md"
   - id: "epic-13-retro-item-111-prune-settled-13-4-deferrals"
     epic: 13
-    action: "Prune the settled deferrals in spec-13-4 frontmatter and the schema-2 entry in spec-privacy-facts-schema-2-and-site-app-ref.md; add an orchestrator rule that stories built in another repo route spec deferrals and post-merge human checks to action_items at story close"
+    action: "Prune the settled deferrals in spec-13-4 frontmatter and the schema-2
+      entry in spec-privacy-facts-schema-2-and-site-app-ref.md; add an orchestrator
+      rule that stories built in another repo route spec deferrals and post-merge
+      human checks to action_items at story close"
     owner: "SM (orchestrator)"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-19.md"
   - id: "issue-205-deferred-device-status-bar-contrast"
     epic: 12
-    action: "On the Galaxy S24 FE, check Placement status-bar icon contrast in light and dark themes (Robolectric pixel test only so far) (low; deferred from #205, PlacementScreen.kt:53)"
+    action: "On the Galaxy S24 FE, check Placement status-bar icon contrast in light
+      and dark themes (Robolectric pixel test only so far) (low; deferred from #205,
+      PlacementScreen.kt:53)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-205-placement-outcome-dark-theme.md"
   - id: "issue-200-deferred-device-playback-chip-only"
     epic: 12
-    action: "On the Galaxy S24 FE in portrait, with TalkBack, check Physical-cube Solution Playback shows only the certainty chip and nothing overlaps the net; run the instrumented Cube3DRenderSyncTest (compiled only) (low; deferred from #200, SolutionPlayback.kt:383)"
+    action: "On the Galaxy S24 FE in portrait, with TalkBack, check Physical-cube
+      Solution Playback shows only the certainty chip and nothing overlaps the net;
+      run the instrumented Cube3DRenderSyncTest (compiled only) (low; deferred from
+      #200, SolutionPlayback.kt:383)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-200-playback-status-shown-twice.md"
   - id: "issue-201-deferred-header-length-end-padding"
     epic: 12
-    action: "Give the Solution Playback \"<N> moves\" header text end padding (Spacing.s4) so wrapped text does not sit flush on the right edge (low; deferred from #201, SolvePlaybackScreen.kt:73)"
+    action: "Give the Solution Playback \"<N> moves\" header text end padding (Spacing.s4)
+      so wrapped text does not sit flush on the right edge (low; deferred from #201,
+      SolvePlaybackScreen.kt:73)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-201-solution-length-up-front.md"
   - id: "issue-201-deferred-device-length-header-200pct"
     epic: 12
-    action: "On a device at 200% font scale, check the \"<N> moves\" header and prominent counter fit (Robolectric only so far); confirm an empty Solution never reaches Playback showing \"0 moves\" (low; deferred from #201)"
+    action: "On a device at 200% font scale, check the \"<N> moves\" header and prominent
+      counter fit (Robolectric only so far); confirm an empty Solution never reaches
+      Playback showing \"0 moves\" (low; deferred from #201)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-201-solution-length-up-front.md"
   - id: "issue-203-deferred-clear-pending-scan-on-fallback"
     epic: 10
-    action: "Clear mutablePendingScan alongside scanned in enterColors(), scanDenied() and onScanOutcome(FellBackToEditor), as closeEditor()/leaveSolveTab() do (low; deferred from #203, SolveFlowViewModel.kt:72-100)"
+    action: "Clear mutablePendingScan alongside scanned in enterColors(), scanDenied()
+      and onScanOutcome(FellBackToEditor), as closeEditor()/leaveSolveTab() do (low;
+      deferred from #203, SolveFlowViewModel.kt:72-100)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-203-scan-accept-skips-editor.md"
   - id: "issue-203-deferred-device-single-review-scan"
     epic: 10
-    action: "On a device, check scan review Accept goes straight to Solution Playback (and Already solved for a solved cube), the Editor fallback after cancel shows the home frame, and the pause note shows on Solve Home with a Lesson open (low; deferred from #203)"
+    action: "On a device, check scan review Accept goes straight to Solution Playback
+      (and Already solved for a solved cube), the Editor fallback after cancel shows
+      the home frame, and the pause note shows on Solve Home with a Lesson open (low;
+      deferred from #203)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-203-scan-accept-skips-editor.md"
   - id: "issue-139-deferred-device-gl-cube-34deg"
     epic: 12
-    action: "On the Galaxy S24 FE, confirm the GL-rendered virtual Lesson cube redraws at 34 degrees on a settled cube and stays fully visible at normal and 200% font, with teaching arrow and face labels aligned (low; deferred from #139, Cube3DRenderer.kt:510, CubeGlRenderer.kt:107)"
+    action: "On the Galaxy S24 FE, confirm the GL-rendered virtual Lesson cube redraws
+      at 34 degrees on a settled cube and stays fully visible at normal and 200% font,
+      with teaching arrow and face labels aligned (low; deferred from #139, Cube3DRenderer.kt:510,
+      CubeGlRenderer.kt:107)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-139-compact-virtual-lesson-cube-size.md"
   - id: "issue-139-deferred-overlap-test-stage-frame-badge"
     epic: 12
-    action: "Include the stage:frame badge in LessonScreenTest.assertCubeDoesNotOverlapControls so the larger cube is checked against it too (low; deferred from #139, LessonScreenTest.kt:1062-1064)"
+    action: "Include the stage:frame badge in LessonScreenTest.assertCubeDoesNotOverlapControls
+      so the larger cube is checked against it too (low; deferred from #139, LessonScreenTest.kt:1062-1064)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-139-compact-virtual-lesson-cube-size.md"
   - id: "issue-164-deferred-no-valid-review-trace-label"
     epic: 10
-    action: "When no assignment is valid and every face is posed, record the debug-only CubentiaScanDiag branch as NO_VALID_REVIEW, not NO_VALID_REPROMPT (low; deferred from #164, ScanAssembler.kt:504-507)"
+    action: "When no assignment is valid and every face is posed, record the debug-only
+      CubentiaScanDiag branch as NO_VALID_REVIEW, not NO_VALID_REPROMPT (low; deferred
+      from #164, ScanAssembler.kt:504-507)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-164-scan-capture-review-followups.md"
   - id: "issue-199-deferred-instruction-hint-global-problem"
     epic: 10
-    action: "Don't append 'Check the outlined piece.' to the scan review instruction when the first problem is global (parity, twist, flip, color counts) and nothing is outlined (low; deferred from #199, ScanReviewScreen.kt instruction())"
+    action: "Don't append 'Check the outlined piece.' to the scan review instruction
+      when the first problem is global (parity, twist, flip, color counts) and nothing
+      is outlined (low; deferred from #199, ScanReviewScreen.kt instruction())"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-199-link-errors-to-net.md"
   - id: "issue-199-deferred-problem-tap-positions-first"
     epic: 10
-    action: "Make the validation-message tap handler use positions.firstOrNull() ?: piece.first() instead of relying on positions never being empty when piece is set (low; deferred from #199, ScanReviewScreen.kt:206)"
+    action: "Make the validation-message tap handler use positions.firstOrNull() ?:
+      piece.first() instead of relying on positions never being empty when piece is
+      set (low; deferred from #199, ScanReviewScreen.kt:206)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-199-link-errors-to-net.md"
   - id: "issue-199-deferred-problem-tag-glyph-overlap"
     epic: 10
-    action: "On small full-net cells with color-blind glyphs on, keep the problem number tag from overlapping the sticker glyph (inset or shrink the glyph when a tag shows) (low; deferred from #199, StickerReviewNet.kt:408-415)"
+    action: "On small full-net cells with color-blind glyphs on, keep the problem
+      number tag from overlapping the sticker glyph (inset or shrink the glyph when
+      a tag shows) (low; deferred from #199, StickerReviewNet.kt:408-415)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-199-link-errors-to-net.md"
   - id: "issue-174-deferred-counts-line-wording-on-scan"
     epic: 10
-    action: "On a camera scan with suspects, stop the color-count line from reading 'Check the colors you entered.' and name the ranked suspects as likely misreads in its TalkBack text, not plain 'Stickers' (low; deferred from #174, en.json msg.validation.wrong-color-counts)"
+    action: "On a camera scan with suspects, stop the color-count line from reading
+      'Check the colors you entered.' and name the ranked suspects as likely misreads
+      in its TalkBack text, not plain 'Stickers' (low; deferred from #174, en.json
+      msg.validation.wrong-color-counts)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-174-point-at-misread-stickers.md"
   - id: "issue-174-deferred-focus-after-last-blank"
     epic: 10
-    action: "When painting the last blank leaves wrong color counts beside an earlier piece problem, move review focus to the counts line led by the selected suspect (low; deferred from #174, ScanReviewScreen.kt:112-124)"
+    action: "When painting the last blank leaves wrong color counts beside an earlier
+      piece problem, move review focus to the counts line led by the selected suspect
+      (low; deferred from #174, ScanReviewScreen.kt:112-124)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-174-point-at-misread-stickers.md"
   - id: "issue-174-deferred-suspect-distance-threshold"
     epic: 10
-    action: "Suspect ranking always fills 3 slots, padding with exact-color stickers by net index; on a device, decide whether a delta-E threshold should drop padded suspects that read nowhere near the missing color (low; deferred from #174, SuspectRanking.kt:51-53)"
+    action: "Suspect ranking always fills 3 slots, padding with exact-color stickers
+      by net index; on a device, decide whether a delta-E threshold should drop padded
+      suspects that read nowhere near the missing color (low; deferred from #174,
+      SuspectRanking.kt:51-53)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-174-point-at-misread-stickers.md"
   - id: "issue-172-deferred-ad9-run-scan-reference-note"
     epic: 10
-    action: "Record in the architecture spine (AD-9 and the Ownership Matrix), through bmad-correct-course, that SessionHost owns an in-memory run-scan color reference beside CalibrationRepository, set and expired only inside the confined dispatch and never persisted (medium; deferred from #172, SessionHost.kt:198)"
+    action: "Record in the architecture spine (AD-9 and the Ownership Matrix), through
+      bmad-correct-course, that SessionHost owns an in-memory run-scan color reference
+      beside CalibrationRepository, set and expired only inside the confined dispatch
+      and never persisted (medium; deferred from #172, SessionHost.kt:198)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-172-reuse-start-scan-colors.md"
   - id: "issue-172-deferred-refresh-run-colors-on-full-check"
     epic: 10
-    action: "Decide whether a full 6-face Quick Check later in the run (Full VERIFIED) should refresh the held run-scan colors, so subset checks recover after the light drifts instead of staying doubtful for the rest of the run (low; deferred from #172, MainActivity.kt:193)"
+    action: "Decide whether a full 6-face Quick Check later in the run (Full VERIFIED)
+      should refresh the held run-scan colors, so subset checks recover after the
+      light drifts instead of staying doubtful for the rest of the run (low; deferred
+      from #172, MainActivity.kt:193)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-172-reuse-start-scan-colors.md"
   - id: "issue-204-deferred-talkback-two-live-regions"
     epic: 3
-    action: "With TalkBack on a device, paint a Manual Cube Editor sticker that creates or clears a problem and check that both polite live regions (selected sticker and problem lines) are announced, not one dropped (medium; deferred from #204, ManualCubeEditor.kt)"
+    action: "With TalkBack on a device, paint a Manual Cube Editor sticker that creates
+      or clears a problem and check that both polite live regions (selected sticker
+      and problem lines) are announced, not one dropped (medium; deferred from #204,
+      ManualCubeEditor.kt)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-204-editor-low-tap.md"
   - id: "issue-204-deferred-compact-cue-replay"
     epic: 3
-    action: "In the compact one-face Editor, painting a face's last sticker sets the update cue after the view switches faces, so the cue replays when the Learner returns to that face; set it only for the shown face or clear it on face change (low; deferred from #204, ManualCubeEditor.kt:155)"
+    action: "In the compact one-face Editor, painting a face's last sticker sets the
+      update cue after the view switches faces, so the cue replays when the Learner
+      returns to that face; set it only for the shown face or clear it on face change
+      (low; deferred from #204, ManualCubeEditor.kt:155)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-204-editor-low-tap.md"
   - id: "issue-119-deferred-ci-guard-sh-lf"
     epic: 12
-    action: "Add a CI check that *.sh files keep the LF rule (for example git check-attr eol on tools/run-keyflow-rotation.sh), since ubuntu CI never shows a CRLF regression (low; deferred from #119, .gitattributes:9)"
+    action: "Add a CI check that *.sh files keep the LF rule (for example git check-attr
+      eol on tools/run-keyflow-rotation.sh), since ubuntu CI never shows a CRLF regression
+      (low; deferred from #119, .gitattributes:9)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-119-lenovo-harness-gaps.md"
   - id: "issue-119-deferred-ci-compile-androidtest"
     epic: 12
-    action: "PR CI (ci.yml spotlessCheck build) never compiles androidTest sources, so a KeyFlowHarness compile break only shows at release; add compileDebugAndroidTestKotlin to PR CI (low; pre-existing, deferred from #119, .github/workflows/ci.yml)"
+    action: "PR CI (ci.yml spotlessCheck build) never compiles androidTest sources,
+      so a KeyFlowHarness compile break only shows at release; add compileDebugAndroidTestKotlin
+      to PR CI (low; pre-existing, deferred from #119, .github/workflows/ci.yml)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-119-lenovo-harness-gaps.md"
   - id: "issue-158-deferred-rotate-during-freeze"
     epic: 10
-    action: "On the Lenovo, rotate while the last scanned face is frozen and check for one haptic tick and the Review screen (medium; deferred from #158, GuidedScanScreen.kt FrozenOverlay)"
+    action: "On the Lenovo, rotate while the last scanned face is frozen and check
+      for one haptic tick and the Review screen (medium; deferred from #158, GuidedScanScreen.kt
+      FrozenOverlay)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-158-scan-viewfinder-followups.md"
   - id: "issue-158-deferred-analysis-1280-throughput"
     epic: 10
-    action: "Measure ImageAnalysis throughput at 1280x960 on the Lenovo minimum device for narrow tablet viewports (medium; deferred from #158, ScanFrameSource.kt analysisTarget)"
+    action: "Measure ImageAnalysis throughput at 1280x960 on the Lenovo minimum device
+      for narrow tablet viewports (medium; deferred from #158, ScanFrameSource.kt
+      analysisTarget)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-158-scan-viewfinder-followups.md"
   - id: "issue-158-deferred-red-orange-warm-dim"
     epic: 10
-    action: "Check red vs orange repeated-face separation at SAME_CENTER_DELTA_E 12.0 under warm and dim light; only studio-light fixtures prove it today (medium; deferred from #158, GuidedScan.kt SAME_CENTER_DELTA_E)"
+    action: "Check red vs orange repeated-face separation at SAME_CENTER_DELTA_E 12.0
+      under warm and dim light; only studio-light fixtures prove it today (medium;
+      deferred from #158, GuidedScan.kt SAME_CENTER_DELTA_E)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-158-scan-viewfinder-followups.md"
   - id: "issue-158-deferred-shutter-audible"
     epic: 10
-    action: "On a device, check that the shutter click is audible on a real Guided Scan capture after the off-main-thread load (medium; deferred from #158, GuidedScanActivity.kt onCreate)"
+    action: "On a device, check that the shutter click is audible on a real Guided
+      Scan capture after the off-main-thread load (medium; deferred from #158, GuidedScanActivity.kt
+      onCreate)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-158-scan-viewfinder-followups.md"
   - id: "issue-158-deferred-freeze-callback-phase-race"
     epic: 10
-    action: "In GuidedScanActivity.handle(), the main-thread callback sets frozen and plays the shutter without checking the phase is still Viewfinder, so an Unavailable before it runs on the last face can leave the result held; guard it and publish (medium; gate finding #158, GuidedScanActivity.kt:562-575)"
+    action: "In GuidedScanActivity.handle(), the main-thread callback sets frozen
+      and plays the shutter without checking the phase is still Viewfinder, so an
+      Unavailable before it runs on the last face can leave the result held; guard
+      it and publish (medium; gate finding #158, GuidedScanActivity.kt:562-575)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-158-scan-viewfinder-followups.md"
   - id: "issue-158-deferred-shutter-load-runcatching"
     epic: 10
-    action: "Wrap shutterSound.load() in runCatching inside the IO coroutine so a MediaActionSound.load() throw can't crash the scan (low; gate finding #158, GuidedScanActivity.kt:118)"
+    action: "Wrap shutterSound.load() in runCatching inside the IO coroutine so a
+      MediaActionSound.load() throw can't crash the scan (low; gate finding #158,
+      GuidedScanActivity.kt:118)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-158-scan-viewfinder-followups.md"
   - id: "issue-158-deferred-calibration-locale-root"
     epic: 10
-    action: "CalibrationViewfinder uses color.name.lowercase() without Locale.ROOT, so a Turkish locale builds an invalid content key for white; use Locale.ROOT (low, Learner-visible, pre-existing; gate finding #158, GuidedScanScreen.kt:751)"
+    action: "CalibrationViewfinder uses color.name.lowercase() without Locale.ROOT,
+      so a Turkish locale builds an invalid content key for white; use Locale.ROOT
+      (low, Learner-visible, pre-existing; gate finding #158, GuidedScanScreen.kt:751)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-158-scan-viewfinder-followups.md"
