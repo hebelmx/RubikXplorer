@@ -10,11 +10,6 @@ context:
   - '{project-root}/_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-12-lenovo-minimum-reference.md'
 warnings: ['oversized']
 deferred:
-  - summary: 'Re-run tools/run-keyflow-rotation.sh on the Lenovo TB128XU with default settings (wm get-ignore-orientation-request = true, no override) and record the result in docs/benchmarks.md § Story 12.2 AC3 on the minimum device.'
-    evidence: 'No physical Lenovo is attached during this build (PO clarification); the harness change is compiled but unverified on the device it targets.'
-    location: 'docs/benchmarks.md (Lenovo AC3 subsection); app/src/androidTest/kotlin/dev/cubentia/app/compat/KeyFlowHarness.kt'
-    severity: medium
-    kind: device-session-check
   - summary: >-
       Add a CI guard that the *.sh LF rule holds (e.g. git check-attr eol on tools/run-keyflow-rotation.sh).
     evidence: |-
@@ -161,4 +156,6 @@ Status: done
   - GalaxyS24FE_API36 (phone): flow8 and flow9 passed. The first attempt on the freshly booted AVD failed with "welcome never appeared" (the camera app was in front after boot); the re-run passed.
   - After the patches, a direct `am instrument` of flow9 (no script) on the Tab AVD with ignore=true and auto-rotate off passed and left `accelerometer_rotation=0 user_rotation=1` as found.
 
-**Residual risks.** Not yet run on the physical Lenovo TB128XU with default settings (deferred, medium). The physical S24 FE and Tab S7 FE were not re-run with the new rotation method; the AVDs stand in for them. The serial `HA1S28MM` (the Lenovo) was listed by `adb devices` during this build but was deliberately not used, per the PO's statement that no Lenovo is attached for this build.
+**Residual risks.** The physical S24 FE and Tab S7 FE were not re-run with the new rotation method; the AVDs stand in for them.
+
+**Lenovo default-settings run (PO decision 2026-11-19, replaces the deferred device-session check).** `tools/run-keyflow-rotation.sh HA1S28MM lenovo-tb128xu-api33-default` on the physical Lenovo TB128XU (Android 13, API 33) at `88d057f1a2e97217e99f10e57e128885ee46fe69`, with `ignore-orientation-request=true` (default, no override): flows 1, 2, 3, 6, 7, 8 and 9 all pass (43/43 surfaces; portrait MEDIUM 800 dp, landscape EXPANDED 1333 dp). The rotation settings (`accelerometer_rotation=1`, `user_rotation=0`) were the same after the run; `stay_on_while_plugged_in` was restored to 0. Recorded in `docs/benchmarks.md` § Story 12.2 AC3 on the minimum device; the medium deferred entry was removed. The same commit also corrects the leftover "reference devices"/"minimum device" wording at `docs/benchmarks.md:532,577,587,589,661` (gate finding, low).

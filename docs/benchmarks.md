@@ -529,7 +529,7 @@ three fresh processes. A dump takes 2–3 s on this tablet, so these are upper b
   (Tab 7.6–7.8 s). The #112 copy ("This can take a few seconds the first time after the app starts.")
   was shown on every fresh-process Accept. A second solve in the same process went straight to
   playback.
-- Delivery rule (first-run needs G ≤ 5 s): G = 14.35 s also fails here, so bundled would be selected
+- Delivery rule (first-run needs G ≤ 5 s): G = 14.35 s also fails here, so bundled is selected
   on this device too.
 
 Raw: [`pruning-tables-lenovo-tb128xu.log`](evidence/lenovo-tb128xu/pruning-tables-lenovo-tb128xu.log),
@@ -574,7 +574,7 @@ the 10 iterations (min–max), pooled linear-interpolated percentiles, maxima ov
 | S24 FE (mid) | View Rotation | 60.09 (59.96–60.16) | 59.86 | 168–187 | 16.63 / 17.62 / 18.96 | 23.11 | 0 | 12.28 / 15.02 | 20.47 |
 
 `inputTimeFromSliceStart` was 0 in every iteration. Macrobenchmark reported `cpuLocked: true` here
-(false on both reference devices). Nothing locked the clocks: after the run `scaling_min_freq` was
+(false on both Samsung devices). Nothing locked the clocks: after the run `scaling_min_freq` was
 below `scaling_max_freq` on every cluster (691.2 MHz / 1.9 GHz and 1.056 / 2.4 GHz). Treat the flag as
 the library's reading of this kernel, not as a different condition. Raw:
 [JSON](evidence/lenovo-tb128xu/cube3d-macrobenchmark-lenovo-tb128xu.json),
@@ -584,9 +584,9 @@ the library's reading of this kernel, not as a different condition. Raw:
 [conditions](evidence/lenovo-tb128xu/macrobenchmark-conditions-lenovo-tb128xu.txt). Perfetto traces are
 not committed.
 
-The renderer holds the panel rate, but with less headroom than on the reference devices. View Rotation
+The renderer holds the panel rate, but with less headroom than on the Samsung devices. View Rotation
 p90 is 19.7 ms against 17.6–17.7 ms, and 5 of 1,990 intervals exceed 33.3 ms (max 40.2 ms), where both
-reference devices had none. View Rotation's median is 59.69 FPS: at or above the minimum threshold, but
+Samsung devices had none. View Rotation's median is 59.69 FPS: at or above the minimum threshold, but
 below 60 (the PO's 60-on-the-median reading for the mid device). This matters only if the tablet were
 classed as mid-tier.
 
@@ -641,9 +641,21 @@ this device (SCP 2026-11-12, decision 2), so AC3 is met here for v1.0.
   LF under `core.autocrlf=true` and the `tr -d '\r'` workaround is no longer needed. An existing
   clone with CRLF working copies needs one re-checkout:
   `rm tools/*.sh .github/scripts/*.sh .claude/hooks/*.sh && git checkout -- tools .github/scripts .claude/hooks`.
-- **Pending:** the suite has not yet been re-run on the Lenovo with default settings
-  (`ignore-orientation-request` = `true`, no override). Until it is, the result above (with the
-  accepted override) is the AC3 record on this device.
+
+**Default-settings re-run with the #119 harness (2026-11-19).**
+`tools/run-keyflow-rotation.sh HA1S28MM lenovo-tb128xu-api33-default`, debug build at revision
+`88d057f1a2e97217e99f10e57e128885ee46fe69`, Lenovo TB128XU, Android 13 (API 33), no override:
+`wm get-ignore-orientation-request` = `true` (the device default). Rotation settings were
+`accelerometer_rotation=1`, `user_rotation=0` before, and the same after the run (restored by the harness and
+checked by the script). Stay-awake was set for the run (`svc power stayon usb`) and put back to
+`stay_on_while_plugged_in=0`. Raw logs are not committed.
+
+| Target | Revision | API | Form factor | Portrait | Landscape | Flow 1 | Flow 2 | Flow 3 | Flow 6 | Flow 7 | Flow 8 | Flow 9 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| lenovo-tb128xu-api33-default (TB128XU, physical, default settings) | `88d057f` | 33 | tablet | MEDIUM (800 dp) | EXPANDED (1333 dp) | pass (11/11) | pass (6/6) | pass (6/6) | pass (8/8) | pass (5/5) | pass (2/2) | pass (5/5) |
+
+All 7 flows and all 43 surfaces pass with the tablet's default settings, so AC3 is met on the minimum
+device without the override, and the override run above is kept as the earlier record.
 
 ### Story 12.2 AC2: solve corpus (NFR-3)
 
@@ -658,8 +670,8 @@ start. Raw: [log](evidence/lenovo-tb128xu/solve-corpus-benchmark-build-lenovo-tb
 | **Lenovo TB128XU** | `benchmark` | 10,101 | **26.999 ms** | **138.710 ms** | 1,561.215 ms | **10,101 / 10,101 (100%)** | **0** | **32.7 MiB** (34,287,936 B; limit 256 MiB) | 476.5 s | 5.18 s |
 | Tab S7 FE 5G (12.2) | `benchmark` | 10,101 | 17.012 ms | 101.730 ms | 1,074.199 ms | 10,101 / 10,101 (100%) | 0 | 28.9 MiB (limit 512 MiB) | 326.8 s | 3.13 s |
 
-The S24 FE was not run on the corpus in Story 12.2, so it has no column. Compared with the minimum
-device: median ×1.59, p95 ×1.36, max ×1.45, wall ×1.46. The slowest case (1.56 s) still has 1.44 s of
+The S24 FE was not run on the corpus in Story 12.2, so it has no column. Compared with the Tab S7
+FE: median ×1.59, p95 ×1.36, max ×1.45, wall ×1.46. The slowest case (1.56 s) still has 1.44 s of
 margin to the 3 s timeout.
 
 ### Summary against the reference thresholds
@@ -671,7 +683,7 @@ margin to the 3 s timeout.
 | NFR-1/AC1 face-turn input acknowledged ≤ 100 ms, max | 57.52 ms | 47.30 ms | 45.62 ms | **yes** |
 | NFR-1/AC1 View Rotation input → frame ≤ 100 ms, max | 30.94 ms | 22.31 ms | 20.47 ms | **yes** |
 | NFR-3/AC2 ≥ 95 % of corpus within 3 s | 100 % (0 failures) | 100 % (0 failures) | not run | **yes** |
-| NFR-13/AC3 rotation keeps state and layout follows window class | 7/7 flows with orientation requests honored; 0/7 with default settings on the old harness (it could not rotate) | 7/7 | 7/7 | **yes** with the PO-accepted override; default-settings re-run with the #119 harness pending |
+| NFR-13/AC3 rotation keeps state and layout follows window class | 7/7 flows with default settings (#119 harness); 7/7 with orientation requests honored; 0/7 with default settings on the old harness (it could not rotate) | 7/7 | 7/7 | **yes**, with default settings (#119 harness, 2026-11-19, 7/7) and with the PO-accepted override |
 | 3.8 StrictMode: no main-thread disk access | 0 violations | 10 platform-only (waived, #107) | — | **yes**, no waiver needed |
 | 3.8 first-run delivery rule G ≤ 5 s (decides delivery, not a pass criterion) | 14.35 s | 10.01 s | — | fails, so bundled (as on the Tab) |
 | #104 per-process preparation (accepted for v1.0, no threshold) | 12.6 s debug; ≤ 10.5 s release (coarse) | 8.3 s; ≤ 7.6–7.8 s | — | n/a, about 1.5× the Tab |
@@ -685,7 +697,7 @@ Decisions by the product owner (SCP 2026-11-12), which replace the questions thi
   It meets every minimum threshold. The mid device's 60 FPS reading does not apply to it.
 - **AC3 method:** running the Key Flow suite with `wm set-ignore-orientation-request false` (restored
   afterwards) is an accepted method on this device. A rotation path that works with default settings is
-  the #119 harness change above; its device re-run is pending.
+  the #119 harness change above; it passed 7/7 on this device on 2026-11-19.
 - **#104:** about 10.5 s release-equivalent preparation per process stays accepted for v1.0 and is
   tracked in #104 (v1.1). The preparing copy was reworded so it promises no duration (#123).
 
