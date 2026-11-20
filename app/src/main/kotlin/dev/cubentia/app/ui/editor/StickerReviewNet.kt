@@ -168,6 +168,8 @@ private const val CHECK_SIZE_FRACTION = 0.45f
 private const val CELLS_PER_FACE = 9
 private const val FACE_SIDE = 3
 private const val FACE_COUNT = 6
+private const val PROBLEM_TAG_FRACTION = 0.4f
+private const val PROBLEM_TAG_MIN_DP = 16
 
 /** The selected face's outline in retake mode (Story 10.16). */
 private const val RETAKE_OUTLINE_DP = 3
@@ -427,7 +429,20 @@ private fun ReviewSticker(
                 cell = cell,
             )
         } else if (style.colorBlindGlyphs) {
-            StickerGlyph(appearance, cell)
+            if (problemMark == null) {
+                StickerGlyph(appearance, cell, Modifier.testTag("sticker:$index:glyph"))
+            } else {
+                // Beside a problem tag the glyph sits in the room below and right of it, so the two never overlap.
+                val tagDiameter = problemTagDiameter(cell)
+                Box(Modifier.matchParentSize().padding(start = tagDiameter, top = tagDiameter), contentAlignment = Alignment.Center) {
+                    StickerGlyph(
+                        appearance,
+                        cell,
+                        Modifier.testTag("sticker:$index:glyph"),
+                        maxSize = cell * (1f - 2f * STICKER_GAP_FRACTION) - tagDiameter,
+                    )
+                }
+            }
         }
         if (problemMark != null) {
             // Prefer a problem this sticker conflicts in, so a second problem on the same piece keeps a visible number.
@@ -441,7 +456,7 @@ private fun ReviewSticker(
                 focused = tagNumber == problemMark.focusedNumber,
                 tag = "sticker:$index:tag",
                 modifier = Modifier.align(Alignment.TopStart),
-                diameter = (cell * 0.4f).coerceAtLeast(16.dp),
+                diameter = problemTagDiameter(cell),
                 isConflict = tagNumber in problemMark.conflicts,
             )
         }
@@ -506,6 +521,9 @@ private fun RetakeFace(
         }
     }
 }
+
+/** A sticker's problem tag: 40% of the [cell], never under 16dp. */
+private fun problemTagDiameter(cell: Dp): Dp = (cell * PROBLEM_TAG_FRACTION).coerceAtLeast(PROBLEM_TAG_MIN_DP.dp)
 
 private fun problemStateDescription(
     strings: ContentStrings,

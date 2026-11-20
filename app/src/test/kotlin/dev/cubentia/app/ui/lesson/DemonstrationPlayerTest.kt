@@ -220,6 +220,25 @@ class DemonstrationPlayerTest {
     }
 
     @Test
+    fun `the MoveNote of the shown Move sits under it in a polite live region`() {
+        show()
+        rule.onNodeWithTag("playback:forward").performClick()
+        rule.waitForIdle()
+        val move = checkNotNull(state.currentMove)
+        val note = rule.onNodeWithTag("playback:note")
+        note.assertTextEquals(
+            strings.resolve(
+                dev.cubentia.domain.playback.MoveNote
+                    .of(move),
+            ),
+        )
+        assertEquals(
+            androidx.compose.ui.semantics.LiveRegionMode.Polite,
+            note.fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.LiveRegion],
+        )
+    }
+
+    @Test
     fun `step back, step forward, end and restart move the counter`() {
         show()
         rule.onNodeWithTag("playback:forward").performClick()

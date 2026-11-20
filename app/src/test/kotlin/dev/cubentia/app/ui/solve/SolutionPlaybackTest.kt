@@ -802,6 +802,24 @@ class SolutionPlaybackTest {
     }
 
     @Test
+    @Config(qualifiers = "w320dp-h800dp", fontScale = 2.0f)
+    fun lengthHeaderKeepsAnEndMarginOnANarrowPhoneAtLargeFontScale() {
+        val moves = List(13) { listOf(r, u, f)[it % 3] }
+        val current = session(CubeState.SOLVED.apply(moves.asReversed().map { it.inverse() }), moves)
+        val store = netPreferences()
+        rule.setContent {
+            CubentiaTheme { PreferenceProvider(store) { SolvePlaybackScreen(current, strings, {}, {}, {}) } }
+        }
+        val screen = rule.onNodeWithTag("solvePlayback:screen").fetchSemanticsNode()
+        val length = rule.onNodeWithTag("solvePlayback:length").fetchSemanticsNode()
+        val margin = 16f * length.layoutInfo.density.density
+        assertTrue(
+            "length right ${length.boundsInRoot.right} vs screen ${screen.boundsInRoot.right}",
+            length.boundsInRoot.right <= screen.boundsInRoot.right - margin + 0.5f,
+        )
+    }
+
+    @Test
     @Config(qualifiers = "w360dp-h800dp", fontScale = 2.0f)
     fun lengthAndProminentCounterFitInBothPlaybackModesAtLargeFontScale() = assertLargeFontLayout(darkTheme = false)
 

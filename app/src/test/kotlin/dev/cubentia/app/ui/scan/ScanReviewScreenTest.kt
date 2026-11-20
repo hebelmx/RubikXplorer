@@ -3,6 +3,7 @@ package dev.cubentia.app.ui.scan
 import android.app.Application
 import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +35,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
@@ -1100,6 +1102,138 @@ class ScanReviewScreenTest {
         rule.assertNoMidWordBreaks()
         rule.assertNoTextOverflow("retake mode at 200 percent")
         rule.assertClickablesAtLeast48dp("retake mode")
+    }
+
+    // ai-b4: copy, focus and layout polish (#199, #174).
+
+    @Test fun `a global first problem with nothing outlined reads as the problem alone`() {
+        review = ScanReview(miscounted, 39)
+        launch()
+        rule
+            .onNodeWithTag("review:instruction")
+            .assertTextEquals("Each color should appear on exactly nine stickers. Check the colors you entered.")
+        rule
+            .onNodeWithTag("review:problem:0")
+            .performScrollTo()
+            .assertTextEquals("Each color should appear on exactly nine stickers. Check the colors you entered.")
+    }
+
+    @Test fun `wrong counts with suspects read a scan reason and name the likely misreads best first`() {
+        review = suspectReview()
+        launch()
+        val reason = "Each color should appear on exactly nine stickers. The camera may have misread a sticker."
+        rule.onNodeWithTag("review:instruction").assertTextEquals("$reason Check the outlined piece.")
+        val line = rule.onNodeWithTag("review:problem:0").performScrollTo()
+        line.assertTextEquals(reason)
+        assertEquals(
+            "Problem 1: $reason Likely misreads, most likely first: " +
+                "Left face, position 4; Back face, position 6; Right face, position 1.",
+            line.fetchSemanticsNode().config[SemanticsProperties.ContentDescription].single(),
+        )
+    }
+
+    @Test fun `painting the last blank that leaves the counts off focuses the counts line led by the top suspect`() {
+        // As in the top-suspect fixture, but R's sticker 9 is unread: painting it white leaves a corner with two whites
+        // (problem 1) and whites over by one, and the top suspect 8 leads the counts line.
+        val colors =
+            CubeState.SOLVED
+                .toFacelets()
+                .colors
+                .toMutableList()
+                .also { it[9] = Color.WHITE }
+        review =
+            ScanReview.from(
+                ScanResult.Full(
+                    Facelets(colors),
+                    List(54) { if (it == 9) StickerConfidence.UNCERTAIN else StickerConfidence.CONFIDENT },
+                    colors.mapIndexed { index, color -> if (index == 8) Lab(55.0, 50.0, 40.0) else labs.getValue(color) },
+                ),
+                CalibrationCenters(labs),
+            )
+        assertEquals(listOf(9), review.blanks)
+        launch()
+        rule.onNodeWithTag("swatch:WHITE").performScrollTo().performClick()
+        rule.waitForIdle()
+        assertEquals(8, review.selected)
+        assertEquals(listOf(8, 9), review.problems[0].positions)
+        val counts = review.problems.indexOfFirst { it.reason.key == "msg.validation.wrong-color-counts" }
+        assertTrue(counts > 0)
+        rule.onNodeWithTag("review:problem:$counts").performScrollTo().assertIsSelected()
+        rule.onNodeWithTag("review:problem:0").performScrollTo().assertIsNotSelected()
+    }
+
+    @Test fun `a problem line's tap target is its first conflicting sticker, else its piece's first`() {
+        val reason =
+            dev.cubentia.domain.text
+                .Text("msg.validation.parity")
+        assertEquals(
+            3,
+            problemTapTarget(
+                dev.cubentia.domain.cube
+                    .ReviewProblem(reason, emptyList(), piece = listOf(3, 5)),
+            ),
+        )
+        assertEquals(
+            5,
+            problemTapTarget(
+                dev.cubentia.domain.cube
+                    .ReviewProblem(reason, listOf(5), piece = listOf(3, 5)),
+            ),
+        )
+    }
+
+    @Test fun `on the smallest full-net cell a problem tag and the glyph never overlap`() {
+        val cell = 48.dp
+        rule.setContent {
+            CubentiaTheme {
+                dev.cubentia.app.ui.editor.StickerReviewNet(
+                    style =
+                        dev.cubentia.app.render
+                            .RenderStyle(colorBlindGlyphs = true),
+                    selected = null,
+                    invalid = setOf(8),
+                    onStickerClick = {},
+                    unresolved = CubeState.SOLVED.toFacelets().colors,
+                    strings = strings,
+                    problemMarks =
+                        mapOf(
+                            8 to
+                                dev.cubentia.app.ui.editor
+                                    .StickerProblemMark(listOf(1), listOf(1), 1),
+                        ),
+                    modifier =
+                        androidx.compose.ui.Modifier.size(
+                            cell * Net2DRenderer.NET_COLUMNS,
+                            cell * Net2DRenderer.NET_ROWS,
+                        ),
+                )
+            }
+        }
+        val tag = rule.onNodeWithTag("sticker:8:tag", useUnmergedTree = true).getUnclippedBoundsInRoot()
+        val glyph = rule.onNodeWithTag("sticker:8:glyph", useUnmergedTree = true).getUnclippedBoundsInRoot()
+        assertTrue("glyph $glyph overlaps tag $tag", glyph.left >= tag.right || glyph.top >= tag.bottom)
+        assertTrue("glyph size ${glyphSize("sticker:8:glyph")}", glyphSize("sticker:8:glyph") >= 16f)
+        // Without a mark the glyph stays centered at its old size (55% of the cell).
+        val sticker = rule.onNodeWithTag("sticker:0").getUnclippedBoundsInRoot()
+        val plain = rule.onNodeWithTag("sticker:0:glyph", useUnmergedTree = true).getUnclippedBoundsInRoot()
+        assertEquals(((sticker.left + sticker.right) / 2).value, ((plain.left + plain.right) / 2).value, 0.5f)
+        assertEquals(((sticker.top + sticker.bottom) / 2).value, ((plain.top + plain.bottom) / 2).value, 0.5f)
+        assertEquals(cell.value * 0.55f, glyphSize("sticker:0:glyph"), 0.5f)
+    }
+
+    /** The glyph's font size in dp (its line height equals it). */
+    private fun glyphSize(tag: String): Float {
+        val node = rule.onNodeWithTag(tag, useUnmergedTree = true)
+        val layouts = mutableListOf<TextLayoutResult>()
+        node.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        val density = node.fetchSemanticsNode().layoutInfo.density
+        return with(density) {
+            layouts
+                .single()
+                .layoutInput.style.fontSize
+                .toDp()
+                .value
+        }
     }
 }
 

@@ -231,10 +231,7 @@ private fun ReviewMode(
     var focusedIndex by rememberSaveable {
         mutableStateOf(
             review.selected?.let { selected ->
-                linkedIndices.firstOrNull {
-                    problems[it].reason.key == "msg.validation.wrong-color-counts" &&
-                        problems[it].positions.firstOrNull() == selected
-                }
+                countsLineLedBy(problems, selected)
                     ?: linkedIndices.firstOrNull { problems[it].positions.firstOrNull() == selected }
                     ?: linkedIndices.firstOrNull { selected in problems[it].positions }
             },
@@ -323,7 +320,14 @@ private fun ReviewMode(
                             val painted = review.paint(color)
                             if (painted.stickers != review.stickers) {
                                 changed = true
-                                focusedIndex = null
+                                // The last blank set with the counts off: focus the counts line led by the top suspect
+                                // that paint selected (#174), even beside an earlier piece problem.
+                                focusedIndex =
+                                    if (review.blanks.isNotEmpty() && painted.blanks.isEmpty()) {
+                                        painted.selected?.let { countsLineLedBy(painted.problems, it) }
+                                    } else {
+                                        null
+                                    }
                             }
                             cue = StickerCue(index, (cue?.serial ?: 0) + 1)
                             lastSet = index to color
@@ -336,7 +340,7 @@ private fun ReviewMode(
             Column(Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }) {
                 problems.forEachIndexed { index, problem ->
                     ProblemLine(problem, problemNumbers[index], index == focused, strings, "review:problem:$index") {
-                        val sticker = problem.positions.first()
+                        val sticker = problemTapTarget(problem)
                         focusedIndex = index
                         face = sticker / 9
                         onReview(review.select(sticker))
@@ -450,7 +454,7 @@ private fun ProblemLine(
     tag: String,
     onSelect: () -> Unit,
 ) {
-    val reason = strings.resolve(problem.reason)
+    val reason = strings.resolve(shownReason(problem))
     val color = RubikTheme.tokens.statusInvalid
     if (number == null) {
         Text(reason, color = color, modifier = Modifier.testTag(tag))
@@ -460,7 +464,10 @@ private fun ProblemLine(
     val args = mapOf("number" to number, "problem" to reason, "stickers" to stickers.joinToString("; "))
     val description =
         strings.resolve(
-            if (problem.piece == problem.positions) {
+            if (hasSuspects(problem)) {
+                // The counts line's stickers are likely misreads, best first (#174).
+                ContentText("msg.scan.problem-description-suspects", args)
+            } else if (problem.piece == problem.positions) {
                 ContentText("msg.scan.problem-description-stickers", args)
             } else {
                 val piece = problem.piece.map { strings.resolve(ContentText("msg.scan.sticker-ref", stickerArgs(it))) }
@@ -491,8 +498,8 @@ private fun ProblemLine(
 
 /**
  * The instruction line follows the state: blanks left, else the first problem pointing at the
- * outlined piece, else valid: "All set" after the Learner [fixed] stickers, "Everything was read" when
- * the scan needed no fixes (PO 2026-11-16).
+ * outlined piece (the problem alone when it names no piece and nothing is outlined), else valid: "All set" after the
+ * Learner [fixed] stickers, "Everything was read" when the scan needed no fixes (PO 2026-11-16).
  */
 private fun instruction(
     review: ScanReview,
@@ -503,11 +510,38 @@ private fun instruction(
     val problem = review.problems.firstOrNull()
     return when {
         blanks > 0 -> ContentText("msg.scan.review-hint-blanks", mapOf("count" to blanks))
-        problem != null -> ContentText("msg.scan.review-hint-invalid", mapOf("problem" to strings.resolve(problem.reason)))
+        problem != null && problem.piece.isEmpty() && review.outlined.isEmpty() -> shownReason(problem)
+        problem != null -> ContentText("msg.scan.review-hint-invalid", mapOf("problem" to strings.resolve(shownReason(problem))))
         fixed -> ContentText("msg.scan.review-hint-fixed")
         else -> ContentText("msg.scan.review-hint-ready")
     }
 }
+
+private const val WRONG_COUNTS_KEY = "msg.validation.wrong-color-counts"
+
+/** Whether [problem] is the wrong-counts problem listing suspects (a camera scan with evidence, #174). */
+private fun hasSuspects(problem: ReviewProblem): Boolean = problem.reason.key == WRONG_COUNTS_KEY && problem.positions.isNotEmpty()
+
+/**
+ * The reason shown for [problem]: on a camera scan the wrong-counts line names a likely misread instead of the
+ * manual-entry "Check the colors you entered." (#174); every other problem shows its own reason.
+ */
+internal fun shownReason(problem: ReviewProblem): ContentText =
+    if (hasSuspects(problem)) ContentText("msg.scan.wrong-color-counts-suspects") else problem.reason
+
+/** The sticker a problem line's tap selects: its first conflicting sticker, else the first of its piece. */
+internal fun problemTapTarget(problem: ReviewProblem): Int = problem.positions.firstOrNull() ?: problem.piece.first()
+
+/** The linked wrong-counts line among [problems] led by [selected] (its top suspect), if any. */
+private fun countsLineLedBy(
+    problems: List<ReviewProblem>,
+    selected: Int,
+): Int? =
+    problems.indices.firstOrNull {
+        problems[it].piece.isNotEmpty() &&
+            problems[it].reason.key == WRONG_COUNTS_KEY &&
+            problems[it].positions.firstOrNull() == selected
+    }
 
 /** The one-time coach mark: points up at the flashing sticker and down at the palette; one tap dismisses it. */
 @Composable

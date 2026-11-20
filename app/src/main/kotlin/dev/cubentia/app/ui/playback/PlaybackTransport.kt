@@ -352,7 +352,7 @@ fun PlaybackTransport(
                 colors =
                     SliderDefaults.colors(
                         thumbColor = tokens.inkPrimary,
-                        activeTrackColor = tokens.inkPrimary,
+                        activeTrackColor = tokens.inkSecondary,
                         inactiveTrackColor = tokens.hairline,
                     ),
                 modifier =

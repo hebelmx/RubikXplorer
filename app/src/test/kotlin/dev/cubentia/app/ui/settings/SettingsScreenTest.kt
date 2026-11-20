@@ -244,6 +244,11 @@ class SettingsScreenTest {
         pictures.performScrollTo().assertIsOn()
     }
 
+    @Test fun movePicturesShowsOnceStringsAreGivenEvenWithoutItsKey() {
+        rule.setContent { CubentiaTheme { SettingsScreen({}, strings = ContentStrings(emptyMap())) } }
+        rule.onNodeWithTag("settings:movePictures").performScrollTo().assertTextEquals("btn.settings.move-pictures")
+    }
+
     @Test fun calibrationRowsAreHiddenWithoutBinding() {
         rule.setContent { CubentiaTheme { SettingsScreen({}) } }
         rule.onNodeWithTag("settings:calibration").assertDoesNotExist()
