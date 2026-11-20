@@ -9,15 +9,16 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,7 +50,8 @@ fun MoveStrip(
     onSelect: ((Int) -> Unit)?,
 ) {
     if (moves.isEmpty()) return
-    val list = rememberLazyListState(initialFirstVisibleItemIndex = currentIndex ?: 0)
+    // Keyed on the Moves: a new list starts from its own current Move (or its first), not the old scroll position.
+    val list = rememberSaveable(moves, saver = LazyListState.Saver) { LazyListState(currentIndex ?: 0) }
     val reduceMotion = rememberReduceMotion()
     LaunchedEffect(currentIndex, list, reduceMotion) {
         if (currentIndex == null) return@LaunchedEffect

@@ -65,6 +65,24 @@ class MoveStripTest {
         assertEquals(last.size.width.toFloat(), last.boundsInRoot.width, 0.5f)
     }
 
+    @Test fun aNewMoveListStartsFromItsFirstChip() {
+        val longList = List(40) { FaceTurn(Face.U, Turn.CLOCKWISE) }
+        val shown = mutableStateOf(longList to (30 as Int?))
+        rule.setContent {
+            CubentiaTheme {
+                androidx.compose.foundation.layout.Box(Modifier.width(170.dp)) {
+                    MoveStrip(shown.value.first, shown.value.second, pictures = false, strings) {}
+                }
+            }
+        }
+        rule.onNodeWithTag("playback:chip:30").assert(current)
+        rule.onNodeWithTag("playback:chip:0").assertDoesNotExist()
+        rule.runOnIdle { shown.value = moves to null }
+        val row = rule.onNodeWithTag("playback:strip").fetchSemanticsNode().boundsInRoot
+        val first = rule.onNodeWithTag("playback:chip:0").fetchSemanticsNode().boundsInRoot
+        assertEquals(row.left, first.left, 0.5f)
+    }
+
     @Test fun readOnlyChipStillSpeaksTheMoveAndCurrentState() {
         rule.setContent { CubentiaTheme { MoveStrip(moves.take(1), 0, pictures = false, strings, onSelect = null) } }
         rule

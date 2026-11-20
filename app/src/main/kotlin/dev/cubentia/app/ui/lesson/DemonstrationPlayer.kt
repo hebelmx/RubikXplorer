@@ -32,6 +32,7 @@ import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.playback.Demonstration
 import dev.cubentia.domain.playback.DemonstrationStep
+import dev.cubentia.domain.playback.MoveNote
 import dev.cubentia.domain.playback.PlaybackSpeed
 import dev.cubentia.domain.tutor.Certainty
 import dev.cubentia.app.ui.playback.frameDelta as sharedFrameDelta
@@ -137,6 +138,8 @@ fun DemonstrationPlayer(
                     isTraversalGroup = true
                     traversalIndex = 2f
                 }.playbackControlsScroll(),
+            // UX-DR14: the MoveNote line under the current Move, as on every shared transport.
+            note = state.currentMove?.let { strings.resolve(MoveNote.of(it)) },
             onScrub = state::scrubTo,
         )
     }

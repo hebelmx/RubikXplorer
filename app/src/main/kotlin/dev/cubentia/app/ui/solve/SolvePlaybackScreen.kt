@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,6 +27,7 @@ import dev.cubentia.app.R
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.scan.QuickCheckCapture
 import dev.cubentia.app.ui.theme.RubikTheme
+import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionState
 import kotlinx.coroutines.launch
@@ -70,7 +72,7 @@ fun SolvePlaybackScreen(
                     strings.resolve(ContentText("msg.playback.solution-length", mapOf("count" to playback.size))),
                     style = MaterialTheme.typography.titleMedium,
                     color = RubikTheme.tokens.inkPrimary,
-                    modifier = Modifier.weight(1f).testTag("solvePlayback:length"),
+                    modifier = Modifier.weight(1f).padding(end = Spacing.s4).testTag("solvePlayback:length"),
                 )
             }
             SolutionPlayback(

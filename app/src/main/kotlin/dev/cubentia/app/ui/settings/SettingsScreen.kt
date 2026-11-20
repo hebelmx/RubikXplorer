@@ -54,9 +54,8 @@ fun SettingsScreen(
     onResetProgress: suspend () -> Boolean = { true },
     store: PreferenceStore = LocalPreferenceStore.current,
     calibration: CalibrationSettings? = null,
-    strings: dev.cubentia.app.content.ContentStrings =
-        dev.cubentia.app.content
-            .ContentStrings(emptyMap()),
+    // Null while content loads: content-text rows (Move pictures, calibration) wait for it.
+    strings: dev.cubentia.app.content.ContentStrings? = null,
 ) {
     val prefs by store.preferences.collectAsState()
     var confirm by rememberSaveable { mutableStateOf(false) }
@@ -100,9 +99,8 @@ fun SettingsScreen(
                 "glyphs",
                 prefs.colorBlindGlyphs,
             ) { store.update(Preference.ColorBlindGlyphs(it)) }
-            val movePicturesKey = "btn.settings.move-pictures"
-            val movePicturesLabel = strings.resolve(ContentText(movePicturesKey))
-            if (movePicturesLabel != movePicturesKey) {
+            if (strings != null) {
+                val movePicturesLabel = strings.resolve(ContentText("btn.settings.move-pictures"))
                 SettingSwitch(movePicturesLabel, "movePictures", prefs.movePictures) { store.update(Preference.MovePictures(it)) }
             }
             Text(stringResource(R.string.settings_speed))
@@ -131,7 +129,7 @@ fun SettingsScreen(
             }, modifier = Modifier.heightIn(min = 48.dp).testTag("settings:resetProgress")) {
                 Text(stringResource(R.string.settings_reset_progress))
             }
-            if (calibration != null) CalibrationRows(calibration, strings)
+            if (calibration != null && strings != null) CalibrationRows(calibration, strings)
         }
     }
     if (confirm) {

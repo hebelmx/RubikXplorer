@@ -782,21 +782,21 @@ action_items:
     action: "Lesson Demonstrations pass no MoveNote to the shared transport, so TalkBack
       hears the notation but no generated note there (low; deferred from 12.15, DemonstrationPlayer.kt:131)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-12-15-move-pictures-and-the-move-strip.md"
   - id: "epic-12-deferred-12.15-scrubber-track-ink-secondary"
     epic: 12
     action: "Scrubber active track uses ink-primary instead of the DESIGN.md ink-secondary
       track (low; deferred from 12.15, PlaybackTransport.kt:354)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-12-15-move-pictures-and-the-move-strip.md"
   - id: "epic-12-deferred-12.15-move-strip-state-keyed-on-moves"
     epic: 12
     action: "Key the Move strip LazyListState on the Move list so a new list does
       not keep the old scroll offset (low; deferred from 12.15, MoveStrip.kt:52)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-12-15-move-pictures-and-the-move-strip.md"
   - id: "epic-12-deferred-12.15-settings-switch-missing-string"
     epic: 12
@@ -804,7 +804,7 @@ action_items:
       not only while content loads; guarantee loaded strings (low; deferred from 12.15,
       SettingsScreen.kt:105)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-12-15-move-pictures-and-the-move-strip.md"
   - id: "epic-12-deferred-12.15-po-device-review-pictures"
     epic: 12
@@ -1151,7 +1151,7 @@ action_items:
       so wrapped text does not sit flush on the right edge (low; deferred from #201,
       SolvePlaybackScreen.kt:73)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-201-solution-length-up-front.md"
   - id: "issue-201-deferred-device-length-header-200pct"
     epic: 12
@@ -1208,7 +1208,7 @@ action_items:
       when the first problem is global (parity, twist, flip, color counts) and nothing
       is outlined (low; deferred from #199, ScanReviewScreen.kt instruction())"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-199-link-errors-to-net.md"
   - id: "issue-199-deferred-problem-tap-positions-first"
     epic: 10
@@ -1216,7 +1216,7 @@ action_items:
       piece.first() instead of relying on positions never being empty when piece is
       set (low; deferred from #199, ScanReviewScreen.kt:206)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-199-link-errors-to-net.md"
   - id: "issue-199-deferred-problem-tag-glyph-overlap"
     epic: 10
@@ -1224,7 +1224,7 @@ action_items:
       number tag from overlapping the sticker glyph (inset or shrink the glyph when
       a tag shows) (low; deferred from #199, StickerReviewNet.kt:408-415)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-199-link-errors-to-net.md"
   - id: "issue-174-deferred-counts-line-wording-on-scan"
     epic: 10
@@ -1233,7 +1233,7 @@ action_items:
       in its TalkBack text, not plain 'Stickers' (low; deferred from #174, en.json
       msg.validation.wrong-color-counts)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-174-point-at-misread-stickers.md"
   - id: "issue-174-deferred-focus-after-last-blank"
     epic: 10
@@ -1241,7 +1241,7 @@ action_items:
       piece problem, move review focus to the counts line led by the selected suspect
       (low; deferred from #174, ScanReviewScreen.kt:112-124)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-174-point-at-misread-stickers.md"
   - id: "issue-174-deferred-suspect-distance-threshold"
     epic: 10
@@ -1449,3 +1449,27 @@ action_items:
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-ai-b2-state-safety.md"
+  - id: "ai-b4-deferred-device-header-wrap-edge"
+    epic: 10
+    action: "On a narrow phone at large font scale, check the wrapped \"<N> moves\" header on Solution Playback no longer touches the right edge (low, Learner-visible; deferred from ai-b4, SolvePlaybackScreen.kt:75; batch with the combined human-verification session, #106)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-ai-b4-copy-and-layout-polish.md"
+  - id: "ai-b4-deferred-device-tag-glyph-legibility"
+    epic: 10
+    action: "On the full review net with color-blind glyphs on, check the problem number tag and sticker glyph read clearly side by side on the smallest full-net cell (low, Learner-visible; deferred from ai-b4, StickerReviewNet.kt:436; batch with #106)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-ai-b4-copy-and-layout-polish.md"
+  - id: "ai-b4-deferred-device-demo-movenote-talkback"
+    epic: 10
+    action: "With TalkBack in a Lesson Demonstration, check the generated MoveNote is read after each Move and the scrubber active track shows ink-secondary (low, Learner-visible; deferred from ai-b4, DemonstrationPlayer.kt:142; batch with #106)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-ai-b4-copy-and-layout-polish.md"
+  - id: "ai-b4-deferred-scan-suspects-instruction-suffix"
+    epic: 10
+    action: "On a camera scan with wrong color counts and suspects across faces, the review instruction still ends \"Check the outlined piece.\"; add a scan-suspect instruction variant (low, Learner-visible, pre-existing; deferred from ai-b4, ScanReviewScreen.kt:514)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-ai-b4-copy-and-layout-polish.md"

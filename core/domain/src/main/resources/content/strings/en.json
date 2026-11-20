@@ -713,6 +713,8 @@
   "msg.validation.piece-repeats.orange": "This {piece} shows {count, plural, =3 {three oranges} other {two oranges}}.",
   "msg.validation.piece-opposite": "This {piece} shows opposite colors.",
   "msg.scan.problem-description-stickers": "Problem {number}: {problem} Stickers: {stickers}.",
+  "msg.scan.problem-description-suspects": "Problem {number}: {problem} Likely misreads, most likely first: {stickers}.",
+  "msg.scan.wrong-color-counts-suspects": "Each color should appear on exactly nine stickers. The camera may have misread a sticker.",
   "msg.scan.problem-description": "Problem {number}: {problem} Its piece: {piece}. Conflicting stickers: {stickers}.",
   "msg.scan.sticker-ref": "{face} face, position {position}",
   "msg.scan.problem-action": "Select it on the net",

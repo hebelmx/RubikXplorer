@@ -269,9 +269,7 @@ private fun ShellContent(
                 calibration.takeIf {
                     content is CatalogState.Ready && flags.isEnabled(FeatureFlag.CAMERA_SCAN)
                 },
-            strings =
-                (content as? CatalogState.Ready)?.strings ?: dev.cubentia.app.content
-                    .ContentStrings(emptyMap()),
+            strings = (content as? CatalogState.Ready)?.strings,
             onClose = { settings = false },
             onResetProgress = {
                 // Runs in the shell's scope so closing Settings does not cancel the reset; navigates only on success.
