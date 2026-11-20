@@ -3,7 +3,7 @@ name: RubikXplorer
 description: A precise, instrument-like cube tutor. Neutral graphite chrome so the six sticker colors carry the color, one signal-violet accent, honest state indicators, light and dark designed equally.
 status: final
 created: 2026-10-29
-updated: 2026-11-16
+updated: 2026-11-19
 sources:
   - ../../prds/prd-RubikXplorer-2026-10-29/prd.md
   - ../../architecture/architecture-RubikXplorer-2026-10-29/ARCHITECTURE-SPINE.md
@@ -269,6 +269,7 @@ No pill-shaped buttons. Sticker squares in 2D nets and diagrams use `rounded.xs`
   - *Update cue:* when a color is set, the sticker scales to about 110% and settles in about 200 ms, and a small ✓ in `on-accent` on an `accent` dot fades out over it. With reduce motion, only the ✓ shows.
   - An *invalid piece* follows the cube-highlight rule: a 3dp `sticker-highlight` outline with a 1dp `cubie-body` inner stroke, plus its label. `status-invalid` red is not used on the cube body, where it has about 2.6:1 contrast.
   - *Close* is a normal, enabled outlined button with `ink-primary` text, never greyed.
+  - *Retake mode* (SCP 2026-11-19, #235): *Retake faces* is an outlined button beside *Close* (Guided 6-face Scan review only). In retake mode a selected face gets the solid `accent` outline around the whole face (static, no pulse) and a small ✓ badge in `on-accent` on an `accent` dot; unselected faces stay as they are. The uncertain-sticker rings and the next-sticker pulse are hidden. *Retake N faces* is the primary filled button, disabled with no face selected, and *Cancel* is an outlined button beside it.
 - **Color palette**: the Manual Cube Editor's six sticker swatches, in a 2×3 block next to the face net, each at least `touch-min` with its glyph, in the same order as the editor palette: white, yellow, red, orange, green, blue.
 - **Algorithm tile**: the Case recognition diagram (U face plus side bands, derived from state), the Case name in `label`, the Algorithm in `notation`, and the Algorithm Status as a small text label.
   - The status reads `Learning` or `Learned`. *Not started* shows no label on the tile, and the detail screen says "Not in your set yet."

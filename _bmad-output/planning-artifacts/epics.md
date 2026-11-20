@@ -1801,7 +1801,7 @@ So that I know when to move to the full set.
 
 ## Epic 10: Scan my cube
 
-A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. P0.4 exit: the Guided Scan meets its accuracy targets on the test matrix, or `CAMERA_SCAN` ships as BETA. *(SCP 2026-11-14: restored from `post-launch/v1.1-camera-recognition.md`. Every story merges to `main` with every camera flag OFF in release; Story 10.9 lands first and Story 10.10 second. Stories 10.9–10.11 are appended IDs that run earlier than their number, as the How-to-read note allows.)* *(SCP 2026-11-15: Stories 10.12 (recorder rework, session A2) and 10.13 (OQ-7 spike) run after 10.10 and before 10.1.)* *(SCP 2026-11-16: Story 10.14 (scan each face in any rotation) runs after 10.3.)* *(SCP 2026-11-16 main-app entry points: Story 10.5 is split. 10.5 keeps the scan entry from the Solve tab, and the appended Story 10.15 takes solve, playback and the BETA label; 10.15 runs right after 10.5.)*
+A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. P0.4 exit: the Guided Scan meets its accuracy targets on the test matrix, or `CAMERA_SCAN` ships as BETA. *(SCP 2026-11-14: restored from `post-launch/v1.1-camera-recognition.md`. Every story merges to `main` with every camera flag OFF in release; Story 10.9 lands first and Story 10.10 second. Stories 10.9–10.11 are appended IDs that run earlier than their number, as the How-to-read note allows.)* *(SCP 2026-11-15: Stories 10.12 (recorder rework, session A2) and 10.13 (OQ-7 spike) run after 10.10 and before 10.1.)* *(SCP 2026-11-16: Story 10.14 (scan each face in any rotation) runs after 10.3.)* *(SCP 2026-11-16 main-app entry points: Story 10.5 is split. 10.5 keeps the scan entry from the Solve tab, and the appended Story 10.15 takes solve, playback and the BETA label; 10.15 runs right after 10.5.)* *(SCP 2026-11-19 review face retake, #235: Story 10.16 (retake faces from the scan review) runs after 10.14.)*
 
 ### Story 10.1: Classify stickers and assemble a Scan Result
 
@@ -2197,7 +2197,7 @@ So that I don't have to work out which side goes on top.
 
 **Refs:** FR-21, FR-23 · recognition NFRs, NFR-10 · AD-2, AD-9 · UX-DR15 · Stories 10.2, 10.3 · #158
 
-**Depends on** Stories 10.2 and 10.3. **Human gate:** device session B2 on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE, with a stickered and a stickerless cube. *(SCP 2026-11-16: PO idea from device session B. Per-face retake from review is a separate story.)*
+**Depends on** Stories 10.2 and 10.3. **Human gate:** device session B2 on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE, with a stickered and a stickerless cube. *(SCP 2026-11-16: PO idea from device session B. Per-face retake from review is a separate story: Story 10.16, SCP 2026-11-19, #235.)*
 
 **Acceptance Criteria:**
 
@@ -2260,6 +2260,54 @@ So that I go from scrambled to solving in under a minute.
 **Given** the Solve flow from a scan
 **When** it is accepted on a device
 **Then** it is run on the main app build from the Solve tab, never from a debug-only launcher
+
+### Story 10.16: Retake faces from the scan review
+
+As a Learner,
+I want to scan again only the faces the camera misread,
+So that I don't fix a whole face sticker by sticker or rescan all six faces.
+
+**Refs:** FR-23, FR-14, FR-21 · recognition NFRs, NFR-10 · AD-3, AD-9, AD-13, AD-18 · UX-DR15, UX-DR16 · Stories 10.2, 10.3, 10.14, 10.15 · #235
+
+**Depends on** Stories 10.3 and 10.14. **Human gate:** a device session on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE, on the main app build from the Solve tab. *(SCP 2026-11-19 review face retake, #235: PO decisions 2026-11-19. Guided 6-face Scan review only; retake in the Quick Scan review is a v1.1 follow-up noted with #198.)*
+
+**Acceptance Criteria:**
+
+**Given** the Guided 6-face Scan review (Story 10.3)
+**When** the Learner taps *Retake faces*
+**Then** the review net enters a retake mode: the instruction line reads "Tap each face to scan again.", tapping a face toggles it for retake (any 1 to 6 faces), a selected face is marked for sight and announced by TalkBack as "{Color} face, selected for retake" (for example "Green face, selected for retake"), sticker editing is off, and the primary action reads *Retake N faces* ("Retake 1 face" for one), enabled once at least one face is selected; *Cancel* leaves retake mode and clears the selection; outside retake mode, taps edit stickers as Story 10.3 says
+
+**Given** faces selected for retake
+**When** *Retake N faces* is tapped
+**Then** the Guided Scan viewfinder asks for only those faces, in the fixed face order, each with the Story 10.14 any-rotation prompt ("Show the **green** center"), never the named-top re-prompt, and the mini net shows only those faces as left to capture
+
+**Given** every selected face captured
+**When** review reopens
+**Then** every kept face shows exactly the stickers it had, including the Learner's corrections; each retaken face shows only its new capture, with any earlier edit on it dropped; prefill, blanks and pre-selection on the retaken faces follow the Story 10.3 close-call rule; and validation and *Accept* work as Story 10.3 says
+
+**Given** the retaken faces
+**When** they are assembled
+**Then** `ScanAssembler` tries the four quarter turns of each retaken face with the kept faces held fixed, stays the only place samples are rotated (AD-9), and never reclassifies a kept face; when the turns are ambiguous (two or more valid states) or none is valid, review reopens with the best-fitting turns (the assignment with the most legal pieces, retaken faces that differ across tied best fits left blank, as the Story 10.14 cap rule does) and the usual validation messages, with no re-prompt
+
+**Given** the retake viewfinder
+**When** the Learner backs out before every selected face is captured
+**Then** review reopens exactly as it was before the retake, with nothing replaced (all or nothing)
+
+**Given** a completed retake
+**When** the Learner taps *Close* on the review
+**Then** it counts as a change, so *Close* asks "Discard this scan?"
+
+**Given** a review reopened after a retake
+**When** the Learner taps *Accept*
+**Then** the result returns through the same `ScanOutcome` as any review, and the caller's path is unchanged (Story 10.15: solve and Solution Playback, the already-solved state, or the Editor fallback)
+
+**Given** the retake copy
+**When** it renders
+**Then** it comes from content strings (NFR-10); at 200% font on the Lenovo's 600 dp width no word breaks mid-word and nothing is cut off; and on a phone in portrait the viewfinder and prompt still fit without scrolling
+
+**Given** the story is accepted on a device
+**When** it is run
+**Then** it runs on the main app build from the Solve tab, never from a debug-only launcher, and no frame from the retake is persisted or sent (Story 10.2)
 
 ## Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition
 
