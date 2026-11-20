@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-20-2026 03:50'
+last_updated: '11-20-2026 03:51'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -158,7 +158,7 @@ development_status:
   epic-12: in-progress
   12-1-accessibility-audit-and-fixes: done
   12-2-performance-and-compatibility-on-the-reference-devices: done
-  12-3-stability-size-and-privacy-hardening: review
+  12-3-stability-size-and-privacy-hardening: done
   12-4-pilot-findings-fixed-and-release-gates-passed: backlog
   12-5-store-listing-and-public-portfolio-repo: backlog
   12-6-rebrand-to-cubentia: done
@@ -1383,3 +1383,33 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-16-retake-faces-from-the-scan-review.md"
+  - id: "epic-12-deferred-12.3-phys-offline-release"
+    epic: 12
+    action: "On a reference device, install the release build fresh from the Play internal or closed track, switch on airplane mode, run the Course, Library, cube entry and solve, and record the result in docs/evidence/12-3/README.md (medium; deferred from 12.3 by PO decision 2026-11-20, AC2; batch with the combined human-verification session, #106)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-12-3-stability-size-and-privacy-hardening.md"
+  - id: "epic-12-deferred-12.3-play-vitals-review"
+    epic: 12
+    action: "In Play Console, review the closed-testing build Android vitals before production (user-perceived crash-free sessions >= 99.5%, user-perceived ANR rate below the bad-behavior threshold) and record the numbers, date and versionCode in docs/evidence/12-3/README.md (high; deferred from 12.3 by PO decision 2026-11-20, AC3, runbook docs/release.md Before production)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-12-3-stability-size-and-privacy-hardening.md"
+  - id: "epic-12-deferred-12.3-play-data-safety-form"
+    epic: 12
+    action: "Confirm the Play data-safety form declares no data collected or shared and is saved against the registered privacy-policy URL (Story 13.6), and record the date in docs/evidence/12-3/README.md (high; deferred from 12.3 by PO decision 2026-11-20, AC3, answers in docs/play-first-publish.md section 2)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-12-3-stability-size-and-privacy-hardening.md"
+  - id: "epic-12-deferred-12.3-release-build-offline-run"
+    epic: 12
+    action: "Run the offline Key Flows against release code (benchmark build, debug-signed) on an emulator, or confirm the first release-tag CI offline run passes, since the automated offline run covers only the debug build (medium, unverified; deferred from 12.3, tools/run-keyflow-rotation.sh, .github/scripts/run-instrumentation.sh)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-12-3-stability-size-and-privacy-hardening.md"
+  - id: "epic-12-deferred-12.3-epic-12-context-rules"
+    epic: 12
+    action: "Recompile or extend epic-12-context.md when Story 12.4 starts so it again carries AD-4 commit-before-animate, session integrity and the en.json checkLearnerText rule (low; deferred from 12.3, _bmad-output/implementation-artifacts/epic-12-context.md)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-12-3-stability-size-and-privacy-hardening.md"
