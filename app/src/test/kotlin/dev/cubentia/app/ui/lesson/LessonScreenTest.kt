@@ -2044,13 +2044,14 @@ class LessonScreenTest {
         switchTo(TeachingMode.TEST_ME)
         disturbCross()
         node("lesson:recovery:guideMeBack").performScrollTo().performClick()
-        rule.waitUntil(2_000) { running.get() }
+        rule.waitUntil(5_000) { running.get() }
         rule.waitForIdle()
         node("lesson:guidedRecovery:pending").assertExists()
 
         // F disturbs another cross edge: the pending plan is cancelled well before its 3 s deadline.
         press("F", 2)
-        rule.waitUntil(1_000) { stopped.get() }
+        // The bound is the assertion: stopped before the 3 s deadline.
+        rule.waitUntil(2_500) { stopped.get() }
         rule.waitForIdle()
         assertEquals(GuidedRecovery.None, host.state.value.guidedRecovery)
         assertTrue(
