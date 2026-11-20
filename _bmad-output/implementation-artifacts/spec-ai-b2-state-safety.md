@@ -5,7 +5,7 @@ created: '2026-11-20'
 status: 'done'
 baseline_revision: '254b64763327d9b1daf15485e1fa7f01b0e9086e'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context: []
 warnings: ['multiple-goals', 'oversized']
 deferred:
@@ -127,6 +127,35 @@ Items: epic-6-retro-item-1-harden-preferencestore-error-handling, epic-11-deferr
   - `[low]` `[reject]` (intent-alignment) Stage 1 practice path argued, not tested — same as the blind item-4 row.
   - `[low]` `[reject]` (intent-alignment) Changes made while the disk stays unreadable are never saved — same as the blind PreferenceStore-loss row.
 
+### 2026-11-20 — Review pass (follow-up)
+- verdicts: 25 findings — high 0, medium 0, low 17, false 8, maybe-false 0
+- findings:
+  - `[false]` `[reject]` (blind) reset() sets known=true even when the reset write fails, so the next update saves DEFAULT+change — carried: the Learner asked to reset preferences, so DEFAULT+change is the intended value, not an overwrite of other stored choices.
+  - `[false]` `[reject]` (blind) saveOverRetriedLoad ignores a failed save and marks the value known — the next write saves found+changes (the value read from disk plus the Learner's changes), never DEFAULT+change; this matches the known path, where a failed save also advances `written` (PreferenceStoreTest failed-save rule).
+  - `[low]` `[reject]` (blind) Changes made while the store stays unreadable are kept only in memory, with no diagnostic or retry — carried: matches the matrix row; a background retry or diagnostic adds surface for a rare disk failure.
+  - `[low]` `[reject]` (blind) The stale-Placement effect can reset while an accept is Saving and drop Saved — carried: no path shown; Welcome stays true until Saved is consumed, the skip check cannot open from Placement, Recognize state survives recreation.
+  - `[low]` `[reject]` (blind) Skips saved but onboarded=false is never repaired — carried: Welcome is derived from `!onboarded && progress empty`, so the Learner-visible flow resumes; the cold-start test pins it.
+  - `[false]` `[reject]` (blind) show() keeps a stale save failure when the next phase is equal — every route from a failed Result passes through a different phase (Choosing, Editing) or through onScanAgain's clearSaveFailure(), so an equal-phase transition with Failed set does not occur.
+  - `[false]` `[reject]` (blind) Every stale reset logs a phantom declined Placement run — carried: onPlacementRun(null) records "no active run", which is accurate after a stale outcome.
+  - `[low]` `[reject]` (blind) The 2-look gate expression appears twice in LessonScreen.kt; confirm-then-switch-to-virtual untested — both copies are identical one-liners next to each other in one file; extracting a helper is a refactor, not a correction, and the confirmed path is the existing milestone behavior.
+  - `[low]` `[patch]` (blind) `appends` in AppShellPlacementTest is a plain var written on the writer thread and polled from the test thread — marked `@Volatile` (single writer thread, so visibility is all that is needed).
+  - `[low]` `[reject]` (blind) Recreation tests rebuild only the composition, not the Activity or process — real Activity recreation is already a deferred PO device item in frontmatter; process death is covered by the cold-start test.
+  - `[false]` `[reject]` (blind) withTimeout in closeWriter cannot stop a blocking hang — `writer.close()` waits by suspending, and that suspension point is cancellable, so the timeout fires as the comment says.
+  - `[low]` `[patch]` (edge) runCatching around the retried load swallows CancellationException — replaced it with try/catch that rethrows CancellationException (same idiom as PlacementFlowViewModel.accept).
+  - `[false]` `[reject]` (edge) reset() whose repository reset fails sets known=true — carried: same as the blind reset row.
+  - `[low]` `[reject]` (edge) reset() during Saving, then a second accept, runs two writes — carried: needs a scan outcome while the Placement buttons are inert; re-accept writes nothing new; the fix adds job tracking.
+  - `[false]` `[reject]` (edge) A late Welcome scan outcome renders Placement over an open Recognize result — the scan outcome is delivered when the scan Activity returns to Welcome. Reaching the Library tab first sets welcome=false while Recognize is Idle, and the stale effect then resets the phase. "I'm new" / startCourse also resets recognizeFlow.
+  - `[low]` `[reject]` (edge) Saved can land while ShellContent returns early (welcome==null, SOLVE_PLAYBACK) — neither screen is reachable from a Saving Placement screen (welcome is rememberSaveable; playback needs the Solve tab); hoisting the effect restructures the shell for an unreachable case.
+  - `[low]` `[reject]` (edge) Code gates Placement on !placementStale, not welcome==true as the spec task says — carried: the fix edits this build's spec; the Spec Change Log already records the Recognize entry point.
+  - `[low]` `[reject]` (edge) The result-line gate is stricter than the spec task (hides the line in virtual after an unconfirmed physical solve) — carried: a deliberate patch from the first review so it matches the milestone gate; the fix edits the spec.
+  - `[low]` `[reject]` (edge) AC "only the L106 test changed" is broken by other test edits — carried: the fix edits the spec; the LessonScreenTest wait is logged in the Spec Change Log.
+  - `[low]` `[reject]` (edge) Each recovered write saves found + changes only up to itself, so a crash between queued writes persists only part of the changes — each later change has its own queued write; per-change persistence is the same as the known path; the gap is a crash-timing window.
+  - `[low]` `[reject]` (intent-alignment) The diff implements "Welcome or Recognize result" rather than the literal "only from Welcome" — the fix edits the spec; the existing Recognize entry is pinned by AppShellRecognizeTest and logged in the Spec Change Log.
+  - `[low]` `[reject]` (intent-alignment) The recreation test is composition-only and counts appends rather than placeFromScan calls — placeFromScan commits in one append, so they are equivalent; real Activity recreation is a deferred device item.
+  - `[low]` `[reject]` (intent-alignment) Virtual-mode result line changes for an unconfirmed physical solve — carried: deliberate first-review patch; the plain virtual path is unchanged.
+  - `[false]` `[reject]` (intent-alignment) Cancel-on-reset in PreferenceStore goes beyond the matrix — the matrix's "Reset after failed load" row says base becomes DEFAULT. A write queued before the reset would overwrite that DEFAULT, so dropping it is what the row requires, not extra scope.
+  - `[low]` `[reject]` (intent-alignment) Item-4 tests cannot be shown failing on the code before 0ec0d6ba — the AC for already-fixed items asks for the test and file:line, which the Auto Run Result gives.
+
 ## Auto Run Result
 
 **Summary:** Six action items resolved. PreferenceStore no longer overwrites stored preferences with defaults after a failed load (each write retries the read and saves only over a found value). Placement's accept write runs in `PlacementFlowViewModel.viewModelScope` with a resumable acceptance state, so recreation mid-write still navigates and onboards. A stale Placement phase (late scan outcome, course skip check, progress reset) is reset and never drawn; Placement is live only on Welcome or a Recognize result. Item 4 was already fixed by 0ec0d6ba and is proven by two new tests. The physical 2-look result line waits for "Yes, it's solved" (same gate as the milestone). The three Solve fallbacks clear the pending scan.
@@ -149,6 +178,22 @@ Items: epic-6-retro-item-1-harden-preferencestore-error-handling, epic-11-deferr
 
 - Item 4 (epic-9-deferred-9-8-rotation-regenerates-course-practice): already fixed by 0ec0d6ba, no code change. Proven by `AppShellTest` "the Course skip-ahead check from Welcome keeps its scramble and attempt across recreation" and "the independent practice keeps its scramble and attempt across recreation" (both pass on the baseline), covering `AppShell.kt:249-250,549,595`. The independent-practice test opens `practice-stage-07-independent-practice` from the Stage 7 detail; the Stage 1 Lesson's "practice new scramble" sets the same `openPractice` key (`AppShell.kt` LessonScreen `onPracticeNewScramble`), so it shares the kept scramble.
 - All other new tests fail on the baseline and pass after the change.
+
+### Follow-up review pass (2026-11-20)
+
+**Summary:** Follow-up review of the ai-b2 batch. Four layers ran (blind, edge-case, verification-gap, intent-alignment). The verification-gap layer found no gaps. Two low findings were patched. No high or medium findings were raised.
+
+**Files changed:**
+- `app/src/main/kotlin/dev/cubentia/app/preferences/PreferenceStore.kt` -- the retried load in `saveOverRetriedLoad` now rethrows `CancellationException` (it used `runCatching` before).
+- `app/src/test/kotlin/dev/cubentia/app/ui/shell/AppShellPlacementTest.kt` -- `appends` is now `@Volatile`.
+
+**Review findings:** 25 findings, 2 patched (both low), 0 deferred, 23 rejected (8 false, 15 low). Each has its reason in the triage log entry "Review pass (follow-up)".
+
+**Follow-up review recommendation:** false. This was a follow-up pass and patched no high finding. Patched counts: high 0, medium 0, low 2.
+
+**Verification:** targeted suites (PreferenceStoreTest, AppShellPlacementTest, AppShellTest, PhysicalLessonScreenTest, LessonScreenTest, SolveFlowViewModelTest, PlacementFromScanRouteTest, AppShellRecognizeTest, PlacementFlowViewModelTest) BUILD SUCCESSFUL. `./gradlew spotlessCheck build` BUILD SUCCESSFUL.
+
+**Residual risks:** unchanged. The device items in frontmatter `deferred` remain open.
 
 ## Design Notes
 

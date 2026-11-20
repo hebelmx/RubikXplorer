@@ -5,6 +5,7 @@ import dev.cubentia.application.port.PreferencesRepository
 import dev.cubentia.application.preference.Preference
 import dev.cubentia.application.preference.Preferences
 import dev.cubentia.application.preference.UpdatePreference
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -123,7 +124,15 @@ class PreferenceStore private constructor(
         queuedIn: Int,
     ) {
         if (synchronized(this) { generation != queuedIn }) return
-        val found = (runCatching { repository?.load() }.getOrNull() as? PreferencesLoad.Found)?.prefs ?: return
+        val load =
+            try {
+                repository?.load()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                null
+            }
+        val found = (load as? PreferencesLoad.Found)?.prefs ?: return
         val (before, change) =
             synchronized(this) {
                 if (generation != queuedIn || known) return

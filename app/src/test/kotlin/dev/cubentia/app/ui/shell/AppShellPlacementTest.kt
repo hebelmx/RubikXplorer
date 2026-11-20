@@ -102,7 +102,8 @@ class AppShellPlacementTest {
 
     /** Holds an append until completed, then saves it; [appends] counts every append call. */
     private var gatedWrite: CompletableDeferred<Unit>? = null
-    private var appends = 0
+
+    @Volatile private var appends = 0
     private val records = mutableListOf<ProgressRecord>()
     private val repository =
         object : ProgressRepository {
