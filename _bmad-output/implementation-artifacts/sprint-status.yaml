@@ -1233,3 +1233,45 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-119-lenovo-harness-gaps.md"
+  - id: "issue-158-deferred-rotate-during-freeze"
+    epic: 10
+    action: "On the Lenovo, rotate while the last scanned face is frozen and check for one haptic tick and the Review screen (medium; deferred from #158, GuidedScanScreen.kt FrozenOverlay)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-158-scan-viewfinder-followups.md"
+  - id: "issue-158-deferred-analysis-1280-throughput"
+    epic: 10
+    action: "Measure ImageAnalysis throughput at 1280x960 on the Lenovo minimum device for narrow tablet viewports (medium; deferred from #158, ScanFrameSource.kt analysisTarget)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-158-scan-viewfinder-followups.md"
+  - id: "issue-158-deferred-red-orange-warm-dim"
+    epic: 10
+    action: "Check red vs orange repeated-face separation at SAME_CENTER_DELTA_E 12.0 under warm and dim light; only studio-light fixtures prove it today (medium; deferred from #158, GuidedScan.kt SAME_CENTER_DELTA_E)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-158-scan-viewfinder-followups.md"
+  - id: "issue-158-deferred-shutter-audible"
+    epic: 10
+    action: "On a device, check that the shutter click is audible on a real Guided Scan capture after the off-main-thread load (medium; deferred from #158, GuidedScanActivity.kt onCreate)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-158-scan-viewfinder-followups.md"
+  - id: "issue-158-deferred-freeze-callback-phase-race"
+    epic: 10
+    action: "In GuidedScanActivity.handle(), the main-thread callback sets frozen and plays the shutter without checking the phase is still Viewfinder, so an Unavailable before it runs on the last face can leave the result held; guard it and publish (medium; gate finding #158, GuidedScanActivity.kt:562-575)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-158-scan-viewfinder-followups.md"
+  - id: "issue-158-deferred-shutter-load-runcatching"
+    epic: 10
+    action: "Wrap shutterSound.load() in runCatching inside the IO coroutine so a MediaActionSound.load() throw can't crash the scan (low; gate finding #158, GuidedScanActivity.kt:118)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-158-scan-viewfinder-followups.md"
+  - id: "issue-158-deferred-calibration-locale-root"
+    epic: 10
+    action: "CalibrationViewfinder uses color.name.lowercase() without Locale.ROOT, so a Turkish locale builds an invalid content key for white; use Locale.ROOT (low, Learner-visible, pre-existing; gate finding #158, GuidedScanScreen.kt:751)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-158-scan-viewfinder-followups.md"

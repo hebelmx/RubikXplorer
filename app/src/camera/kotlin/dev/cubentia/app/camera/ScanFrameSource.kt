@@ -2,6 +2,7 @@ package dev.cubentia.app.camera
 
 import android.content.Context
 import android.os.SystemClock
+import android.util.Size
 import android.view.ViewOutlineProvider
 import android.view.ViewTreeObserver
 import androidx.activity.ComponentActivity
@@ -18,6 +19,9 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.core.SurfaceOrientedMeteringPointFactory
 import androidx.camera.core.UseCaseGroup
+import androidx.camera.core.resolutionselector.AspectRatioStrategy
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ExperimentalCameraProviderConfiguration
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -80,8 +84,7 @@ internal class CameraXFrameSource
         private var cameraProvider: ProcessCameraProvider? = null
         private val cameraStateObserver =
             Observer<CameraState> { state ->
-                val closed = state.type == CameraState.Type.CLOSED || state.type == CameraState.Type.PENDING_OPEN
-                if (state.error != null && closed && cameraPhase()) unavailable()
+                if (cameraUnavailable(state) && cameraPhase()) unavailable()
             }
         private var camera: Camera? = null
         private var previewView: PreviewView? = null
@@ -178,19 +181,12 @@ internal class CameraXFrameSource
             view: PreviewView,
         ) {
             val preview = Preview.Builder().build().also { it.surfaceProvider = view.surfaceProvider }
-            val analysis = ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build()
-            analysisUseCase = analysis
-            analysis.setAnalyzer(analyzerExecutor) { image ->
-                try {
-                    read(image)
-                } finally {
-                    image.close()
-                }
-            }
 
             fun bind(): Boolean {
                 if (!cameraPhase() || previewView !== view) return true
                 val viewPort = view.viewPort ?: return false
+                // Sized once the viewport is known: a pane longer than 4:3 crops more of the frame (GH #158).
+                val analysis = analysis(analysisTarget(view.width, view.height))
                 val useCases =
                     UseCaseGroup
                         .Builder()
@@ -203,8 +199,8 @@ internal class CameraXFrameSource
                     provider.unbindAll()
                     camera =
                         provider.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, useCases).also { bound ->
-                            // Bound but failed to open (in use, disabled, fatal error): the camera-unavailable card,
-                            // never remembered.
+                            // Bound but a critical error (disabled, fatal, Do Not Disturb, …): the camera-unavailable
+                            // card, never remembered. An in-use error is not shown; CameraX retries the open.
                             bound.cameraInfo.cameraState.observe(owner, cameraStateObserver)
                         }
                 } catch (ignored: IllegalArgumentException) {
@@ -224,6 +220,31 @@ internal class CameraXFrameSource
                     }
                 },
             )
+        }
+
+        private fun analysis(target: Size): ImageAnalysis {
+            analysisUseCase?.clearAnalyzer()
+            val selector =
+                ResolutionSelector
+                    .Builder()
+                    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+                    .setResolutionStrategy(ResolutionStrategy(target, ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER))
+                    .build()
+            return ImageAnalysis
+                .Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .setResolutionSelector(selector)
+                .build()
+                .also { analysis ->
+                    analysisUseCase = analysis
+                    analysis.setAnalyzer(analyzerExecutor) { image ->
+                        try {
+                            read(image)
+                        } finally {
+                            image.close()
+                        }
+                    }
+                }
         }
 
         @Volatile private var corner = false
@@ -283,6 +304,31 @@ internal class CameraXFrameSource
             const val METERING_LOCK_SECONDS = 3L
         }
     }
+
+/**
+ * Whether [state] means the camera cannot be used (GH #158): only a CRITICAL error (disabled, fatal, Do Not Disturb,
+ * stream configuration, removed). A RECOVERABLE one (in use, max cameras in use) keeps the viewfinder; CameraX retries
+ * the open when the other client releases the camera.
+ */
+internal fun cameraUnavailable(state: CameraState): Boolean = state.error?.type == CameraState.ErrorType.CRITICAL
+
+/**
+ * The ImageAnalysis target for a [viewWidth]×[viewHeight] viewport (GH #158): 640×480 (CameraX's default) when its long
+ * to short ratio is at most 4:3 or the size is unknown, else 1280×960, so a narrow pane's crop still gives the 12×12
+ * lattice cells of a useful size (a 3.15:1 pane: ~406 px short side instead of ~203 px).
+ */
+internal fun analysisTarget(
+    viewWidth: Int,
+    viewHeight: Int,
+): Size {
+    val long = maxOf(viewWidth, viewHeight)
+    val short = minOf(viewWidth, viewHeight)
+    // long / short > 4 / 3, in integers.
+    return if (short > 0 && long * 3 > short * 4) LARGE_ANALYSIS else DEFAULT_ANALYSIS
+}
+
+private val DEFAULT_ANALYSIS = Size(640, 480)
+private val LARGE_ANALYSIS = Size(1280, 960)
 
 private class MeteringGrid(
     val width: Int,

@@ -527,6 +527,16 @@ class GuidedScanTest {
     }
 
     @Test
+    fun `a repeat about 11 dE from the captured center is still the same face (GH #158 threshold)`() {
+        val controller = afterGreen()
+        val repeat = stats(cells = List(9) { CellReading(Lab(55.0, -60.0, 51.0), true) })
+        controller.onFrame(repeat, 0, 100)
+        assertEquals(emptyList<GuidedScanEffect>(), controller.onShutter(110))
+        assertEquals(Coaching.WRONG_FACE, controller.coaching)
+        assertEquals(1, controller.captured.size)
+    }
+
+    @Test
     fun `auto-capture rejects a repeated face too and keeps waiting on the same step`() {
         val controller = afterGreen()
         // Remeter at 100, reference at 400, rejection at 1000.

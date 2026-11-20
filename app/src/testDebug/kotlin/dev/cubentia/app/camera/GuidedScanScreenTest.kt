@@ -4,6 +4,10 @@ import android.app.Application
 import android.graphics.Bitmap
 import android.provider.Settings
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -43,6 +47,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.util.Locale
 
 /** Story 10.2: the Guided Scan screen on a compact portrait phone, and its permission cards. */
 @RunWith(RobolectricTestRunner::class)
@@ -286,6 +291,80 @@ class GuidedScanScreenTest {
         assertEquals(emptyList<Long>(), ended)
         rule.mainClock.advanceTimeBy(100)
         assertEquals(listOf(7L), ended)
+    }
+
+    /** The ViewModel side of a freeze: the frozen capture and its end, which ignores a stale id (GH #158). */
+    private var heldFrozen by mutableStateOf<FrozenCapture?>(null)
+    private var heldPhase by mutableStateOf<GuidedScanPhase>(GuidedScanPhase.Viewfinder(stepIndex = 1))
+
+    private val freezeEnded: (Long) -> Unit = { id ->
+        if (heldFrozen?.id == id) {
+            heldFrozen = null
+            ended += id
+        }
+    }
+
+    @androidx.compose.runtime.Composable
+    private fun FrozenScreen() {
+        val haptics =
+            object : HapticFeedback {
+                override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) {
+                    ticks += hapticFeedbackType
+                }
+            }
+        CompositionLocalProvider(LocalHapticFeedback provides haptics) {
+            CubentiaTheme { GuidedScanScreen(heldPhase, strings, GuidedScanActions(onFreezeEnd = freezeEnded), heldFrozen) }
+        }
+    }
+
+    private fun frozenCapture() = FrozenCapture(7, Face.F, Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888).asImageBitmap())
+
+    /** Applies a state change made by the test, then draws one frame (the test clock is paused). */
+    private fun change(block: () -> Unit) {
+        rule.runOnIdle(block)
+        Snapshot.sendApplyNotifications()
+        rule.mainClock.advanceTimeByFrame()
+    }
+
+    @Test
+    fun `leaving the viewfinder during a freeze ends it at once, so a held result is published`() {
+        heldFrozen = frozenCapture()
+        rule.mainClock.autoAdvance = false
+        rule.setContent { FrozenScreen() }
+        rule.mainClock.advanceTimeByFrame()
+        rule.onNodeWithTag("scanFrozen").assertIsDisplayed()
+        assertEquals(emptyList<Long>(), ended)
+        change { heldPhase = GuidedScanPhase.Unavailable }
+        assertEquals(listOf(7L), ended)
+        rule.onNodeWithTag("scanFrozen").assertDoesNotExist()
+        // The freeze's own timer never ends it a second time.
+        rule.mainClock.advanceTimeBy(CaptureFreeze.FREEZE_MS + SHRINK_MS + 200)
+        assertEquals(listOf(7L), ended)
+    }
+
+    @Test
+    fun `a recreate during a freeze ends it and ticks the haptic only once`() {
+        heldFrozen = frozenCapture()
+        var shown by mutableStateOf(true)
+        rule.mainClock.autoAdvance = false
+        // A configuration change disposes the old composition before the recreated Activity composes a new one.
+        rule.setContent { if (shown) FrozenScreen() }
+        rule.mainClock.advanceTimeByFrame()
+        assertEquals(listOf(HapticFeedbackType.KeyboardTap), ticks)
+        change { shown = false }
+        assertEquals(listOf(7L), ended)
+        change { shown = true }
+        rule.onNodeWithTag("scanFrozen").assertDoesNotExist()
+        rule.mainClock.advanceTimeBy(CaptureFreeze.FREEZE_MS + SHRINK_MS + 200)
+        assertEquals(listOf(HapticFeedbackType.KeyboardTap), ticks)
+        assertEquals(listOf(7L), ended)
+    }
+
+    @Test
+    fun `prompt color names lowercase by the UI locale's casing rules`() {
+        assertEquals("indigo", promptColorName("INDIGO", Locale.ENGLISH))
+        assertEquals("ındıgo", promptColorName("INDIGO", Locale.forLanguageTag("tr")))
+        assertEquals("white", promptColorName("White", Locale.forLanguageTag("tr")))
     }
 
     @Test

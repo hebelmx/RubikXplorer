@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.media.MediaActionSound
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
@@ -81,8 +80,8 @@ class GuidedScanActivity : ComponentActivity() {
 
     @Inject lateinit var updateCalibration: dev.cubentia.application.usecase.UpdateCalibration
 
-    /** The system camera shutter sound played on each capture; released with the Activity. */
-    private val shutterSound = MediaActionSound()
+    /** The system camera shutter sound played on each capture; loaded off main, released with the Activity. */
+    private val shutterSound = ShutterSound()
 
     private val scan: GuidedScanViewModel by viewModels()
     private val analyzerExecutor get() = scan.analyzerExecutor
@@ -115,7 +114,8 @@ class GuidedScanActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        shutterSound.load(MediaActionSound.SHUTTER_CLICK)
+        // MediaActionSound.load reads the disk: off the main thread (GH #158).
+        lifecycleScope.launch(Dispatchers.IO) { shutterSound.load() }
         // Back and a destroyed task read as Cancelled.
         setResult(RESULT_CANCELED)
         if (phase == GuidedScanPhase.Rationale) phase = GuidedScanFlow.initialPhase(hasPermission())
@@ -482,7 +482,7 @@ class GuidedScanActivity : ComponentActivity() {
         val next = if (done == null) GuidedScanFlow.phaseOf(controller) else null
         ContextCompat.getMainExecutor(this).execute {
             if (phase !is GuidedScanPhase.CornerViewfinder || isFinishing) return@execute
-            if (effects.any { it is CaseCaptureEffect.CornerCaptured }) shutterSound.play(MediaActionSound.SHUTTER_CLICK)
+            if (effects.any { it is CaseCaptureEffect.CornerCaptured }) shutterSound.play()
             if (CaseCaptureEffect.Remeter in effects) meterOnGrid()
             if (next != null && phase != next) phase = next
             if (done != null) {
@@ -504,7 +504,7 @@ class GuidedScanActivity : ComponentActivity() {
         ContextCompat.getMainExecutor(this).execute {
             if (phase !is GuidedScanPhase.CornerViewfinder) return@execute
             if (capture != null) {
-                shutterSound.play(MediaActionSound.SHUTTER_CLICK)
+                shutterSound.play()
                 scan.frozen = FrozenCapture(++scan.captures, Face.U, frameSource.snapshot(), shrink = false)
             }
             if (next != null && phase != next) phase = next
@@ -562,7 +562,7 @@ class GuidedScanActivity : ComponentActivity() {
         ContextCompat.getMainExecutor(this).execute {
             if (captured != null) {
                 // Capture feedback (PO 2026-11-16): shutter sound, then the frame frozen and shrunk into the net.
-                shutterSound.play(MediaActionSound.SHUTTER_CLICK)
+                shutterSound.play()
                 vm.frozen = FrozenCapture(++vm.captures, captured.sample.face, frameSource.snapshot())
             }
             if (state != null && vm.phase is GuidedScanPhase.Viewfinder && vm.phase != state) vm.phase = state
