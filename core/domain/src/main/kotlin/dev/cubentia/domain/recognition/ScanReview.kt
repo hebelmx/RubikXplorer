@@ -132,7 +132,8 @@ class ScanReview(
          * scan's [samples], and self-calibration runs over that merged set (with [saved]). Kept faces (those not
          * retaken) keep [before]'s stickers exactly, the Learner's edits included, and are never reclassified; retaken
          * faces come from [ScanAssembler.assembleRetake] with kept faces fixed, prefilled by the close-call rule, and
-         * keep no earlier edit. Evidence is [before]'s Labs on kept faces and the new Labs on retaken faces. When the
+         * keep no earlier edit. Evidence is [before]'s Labs on kept faces and [ScanAssembler.assembleRetake]'s Labs on retaken
+         * faces: measured for a placed retaken face, calibration-center placeholders for one that could not be placed. When the
          * merged samples cannot self-calibrate, retaken faces are blank. Selection follows the [from] rule.
          */
         fun retaken(

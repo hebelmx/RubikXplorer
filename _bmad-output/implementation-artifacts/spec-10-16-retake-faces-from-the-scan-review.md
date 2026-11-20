@@ -5,7 +5,7 @@ created: '2026-11-19'
 status: 'done'
 baseline_revision: '9498d47437b216567183bcfd7541e36af132c967'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-10-context.md'
   - '{project-root}/_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-19-review-face-retake.md'
@@ -126,6 +126,39 @@ Refs (binding, verbatim): FR-23, FR-14, FR-21 · recognition NFRs, NFR-10 · AD-
   - `[low]` `[reject]` (intent) Title kept in retake mode vs strict "only … remain" — clarification 2 scopes to review controls and its list omits the title; recorded as a device-session check.
   - `[low]` `[reject]` (intent) Back-out restores review data, not retake mode with its selection — AC is "nothing replaced (all or nothing)"; recorded as a device-session check.
 
+### 2026-11-20 — Review pass (follow-up)
+- verdicts: 29 findings — high 1, medium 8, low 15, false 5, maybe-false 0
+- findings:
+  - `[medium]` `[patch]` (verification-gap) A retake that finishes is never run through the Activity (handleRetake, publishRetake, retake cleared, handle() guard) — added ScanRouteTest.finishedRetakeReturnsToAnEditedReviewWithOnlyTheRetakenFaceReplaced: feeds the retaken face through FakeFrames, asserts the merged Review (kept faces unchanged, F replaced), edited, vm.retake null, the main controller back.
+  - `[medium]` `[patch]` (verification-gap) measuredCenters after a finished retake or a back-out unchecked — the new route test asserts measuredCenters == runScanColorsOf(merged samples); the GuidedScanFlowTest back-out test now sets a held review and a cleared measuredCenters and asserts runScanColorsOf(from.samples).
+  - `[medium]` `[patch]` (verification-gap) Viewfinder Close during a retake unchecked — added ScanRouteTest.retakeViewfinderCloseRestoresTheReview (scanClose restores the same review, Activity not finishing).
+  - `[medium]` `[patch]` (blind) No Activity-level test runs a retake to the end — same root cause as the first verification-gap row; patched there.
+  - `[high]` `[patch]` (blind) Freeze-window guard in handle() has no frame-level test — carried: same claim as the logged high row ("covered by the guard, no separate frame-level test"); the guard still reads as described; not patched again. The new route test now passes a retake capture with its freeze through handleRetake.
+  - `[medium]` `[patch]` (blind) Back-out tests miss Close, held/frozen clearing and measuredCenters — grouped with the Close and measuredCenters rows; the back-out test now also asserts frozen cleared and a held review never published by endFreeze.
+  - `[low]` `[reject]` (blind) Mini net draws kept faces from raw sample Labs, so a corrected kept sticker shows its old read — spec-directed ("kept faces as captured"); a small progress thumbnail; fix adds a stickers path to the viewfinder.
+  - `[low]` `[reject]` (blind) No diagnostics trace for a retake — debug-only logs, no Learner impact; fix adds new diagnostic events.
+  - `[low]` `[reject]` (blind) scan.retake installed before the main thread switches phase — the gap is one main-thread hop, and a capture needs a sustained stable read over many frames (tests feed 16 frames at 100 ms); fix adds a guard.
+  - `[false]` `[reject]` (blind) Data-class equals on large phase objects every frame — Kotlin data-class equals short-circuits on identity and fromReview/kept are the same references per run; the cost is negligible.
+  - `[low]` `[reject]` (blind) Self-calibration on the main thread in handleRetake/backOutOfRetake — one run over six samples, once per retake; negligible.
+  - `[low]` `[reject]` (blind) Retake mode ignores window size; landscape pushes the buttons down — the column scrolls, so the buttons stay reachable; fix adds a layout branch.
+  - `[low]` `[patch]` (blind) assembleRetake returns placeholder Labs that look measured — KDoc of ScanAssembler.assembleRetake and ScanReview.retaken now state that kept faces and unplaced retaken faces carry calibration-center placeholders, not measurements.
+  - `[low]` `[reject]` (blind) Test cleanup (duplicated scrambled fixture, formatter-split lambda, repeated helpers) — no defect; refactor only.
+  - `[false]` `[reject]` (edge) Showing a kept face during a retake is not caught as repeated, so it is stored as the retaken face — the intent's matrix row "Retaken gap: claims another face's center → that retaken face is all blank" defines the outcome; the sample is never used as the retaken face's colors.
+  - `[low]` `[reject]` (edge) Camera failure during a retake goes to Unavailable, whose Close cancels the scan — camera loss mid-run is rare; fix adds a branch.
+  - `[low]` `[reject]` (edge) Enter colors in the retake viewfinder drops an edited review without the discard dialog — Design Notes keep its FellBackToEditor meaning, same as the normal viewfinder; a deliberate, labelled choice; fix needs a viewfinder dialog. Recorded as a device-session check.
+  - `[false]` `[reject]` (edge) Blank stickers get home-center placeholder Labs as evidence, skewing suspects — carried: same claim as the logged false row; SuspectRanking (the only evidence.labs reader) returns empty while any sticker is blank.
+  - `[low]` `[reject]` (edge) Kept Labs scored against merged centers — carried: same as the logged low rows.
+  - `[low]` `[patch]` (edge claim) ScanReview.retaken KDoc says retaken evidence is the new Labs — KDoc corrected (placeholders on an unplaced retaken face).
+  - `[low]` `[patch]` (edge claim) assembleRetake KDoc says labs holds the retaken faces' measured CIELAB — KDoc corrected (only placed retaken faces are measured).
+  - `[medium]` `[patch]` (intent) Completed retake reopening the review is tested only below the Activity — grouped with the first verification-gap row; patched there.
+  - `[medium]` `[patch]` (intent) "Close asks Discard this scan?" after a retake tested only as the edited flag — the new route test clicks review:close and asserts review:discard is displayed.
+  - `[medium]` `[patch]` (intent) Back-out tested only for system Back with 0 captures, not viewfinder Close — Close route test added; back-out after 1..k-1 captures of a multi-face retake uses the same backOutOfRetake path and is left to the device session.
+  - `[low]` `[reject]` (intent) Accept after a retake not tested — onAccept is unchanged and reads the published Review, which the new route test asserts.
+  - `[low]` `[reject]` (intent) Calibration and Case capture rely on isGuidedRun with no test — both runs never render the Guided review with onRetake; fix adds tests for a negligible risk.
+  - `[false]` `[reject]` (intent) enumerate refactor changes assemble with no test of its own — the existing ScanAssemblerTest assemble suite runs through enumerate and passes.
+  - `[false]` `[reject]` (intent) Back-out allowed during the last capture's freeze is wider than "0..k-1" — the merged review was never shown, so restoring the pre-retake review is all-or-nothing as the intent asks; no bad outcome.
+  - `[low]` `[reject]` (intent) Diagnostics skipped during a retake — same as the blind diagnostics row.
+
 ## Design Notes
 
 Settled from the story, UX spec (EXPERIENCE.md:96–97, DESIGN.md:272), PO clarifications 2026-11-19 and precedent:
@@ -170,3 +203,19 @@ Settled from the story, UX spec (EXPERIENCE.md:96–97, DESIGN.md:272), PO clari
   - Backing out of the retake viewfinder returns to normal review, not to retake mode with the earlier selection.
   - Kept faces' suspect hints are re-ranked against the merged self-calibration.
 - TalkBack behaviour on device is unverified; it was checked through semantics only.
+
+### Follow-up review pass (2026-11-20)
+
+**Review findings:** 29 findings (high 1 carried, medium 8, low 15, false 5). Patched: medium 8 in two root-cause groups (Activity retake completion untested; back-out Close/measuredCenters/held untested), low 3 (placeholder-Lab KDoc). 0 deferred. 18 rejected, with reasons in the triage log. No new high was patched.
+
+**Files changed:**
+- `core/domain/.../recognition/ScanAssembler.kt`: `assembleRetake` KDoc states which labs are placeholders.
+- `core/domain/.../recognition/ScanReview.kt`: `retaken` KDoc states the same.
+- `app/src/testDebug/kotlin/dev/cubentia/app/ScanRouteTest.kt`: `finishedRetakeReturnsToAnEditedReviewWithOnlyTheRetakenFaceReplaced`, `retakeViewfinderCloseRestoresTheReview`, `startRetakeOfFront` helper.
+- `app/src/testDebug/kotlin/dev/cubentia/app/camera/GuidedScanFlowTest.kt`: back-out test asserts frozen and held cleared and `measuredCenters` restored.
+
+**Follow-up review recommended:** false. This follow-up pass patched no high; the work has converged. Patched by verdict: high 0, medium 8, low 3.
+
+**Verification:** targeted `ScanRouteTest` + `GuidedScanFlowTest` passed; `./gradlew spotlessCheck build` (JDK 25): BUILD SUCCESSFUL.
+
+**Residual risks:** back-out after 1..k-1 captures of a multi-face retake, Enter colors from the retake viewfinder with an edited review, and the earlier device-session checks remain for the PO device session.

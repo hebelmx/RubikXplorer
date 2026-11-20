@@ -554,9 +554,10 @@ object ScanAssembler {
      *
      * A retaken sample that cannot be placed (not ACCEPTABLE, malformed, no quarter-turn pose, or claiming another
      * face's center), a face with no sample and no kept colors, and every retaken face when [calibration] cannot
-     * classify, are blank: only their centers are colored. [ScanResult.Full.labs] holds the retaken faces' measured
-     * CIELAB in net order; every other entry is a placeholder (the calibration center of the color shown), never
-     * evidence; it is null when [calibration] cannot classify.
+     * classify, are blank: only their centers are colored. [ScanResult.Full.labs] holds, in net order, the measured CIELAB of
+     * each retaken face that was placed; every other entry (kept faces, and retaken faces that could not be placed) is a
+     * placeholder (the calibration center of the color shown), never a measurement; it is null when [calibration]
+     * cannot classify.
      */
     fun assembleRetake(
         kept: Map<Face, List<Color?>>,

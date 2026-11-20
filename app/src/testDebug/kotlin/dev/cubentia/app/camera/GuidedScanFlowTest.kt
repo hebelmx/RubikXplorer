@@ -16,6 +16,7 @@ import dev.cubentia.domain.recognition.Lab
 import dev.cubentia.domain.recognition.ScanReview
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -740,8 +741,18 @@ class GuidedScanFlowTest {
         vm.retake = run
         vm.phase = GuidedScanFlow.retakePhase(run)
         run.controller.shoot(upright(Face.F))
+        // The retake finished during its last capture's freeze: its review is held and its centers were measured.
+        vm.frozen = FrozenCapture(9, Face.F, null)
+        vm.publishRetake(GuidedScanFlow.reviewAfterRetake(from, listOf(upright(Face.F)), null))
+        vm.measuredCenters = null
         vm.backOutOfRetake(from)
         assertTrue(vm.phase === from)
+        assertNull(vm.frozen)
+        vm.endFreeze(9)
+        assertTrue(vm.phase === from)
+        val expected = GuidedScanFlow.runScanColorsOf(from.samples, null)
+        assertNotNull(expected)
+        assertEquals(expected, vm.measuredCenters)
         vm.analyzerExecutor.submit {}.get()
         assertNull(vm.retake)
         assertTrue(vm.guidedController() === vm.controller)
