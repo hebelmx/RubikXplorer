@@ -81,5 +81,5 @@ On the bad stka black-bg read, the calibrate prompt was right: calibrating and r
 ## Stop (2026-11-20)
 - Quick Scan (Part 1) not run. PO: the 3D corner grid still doesn't match the real cube and can't be aligned, so it would not pass. It needs v1.1 stories first.
 - Not run: Part 2 (Recognize), Part 3 (Placement from Welcome), Part 4 (retake and robustness), and the calibration before/after test.
-- Issues to open (PO to confirm): (1) dark background: base the dark-cell check and exposure on the face region; (2) Lenovo out-of-focus captures: check autofocus/focus point; (3) review screen "paint mode": long-press a color, then tap stickers.
+- Issues opened 2026-11-20: #247 dark background / DARK_CELLS, #248 Lenovo out-of-focus frames, #249 review-screen paint mode.
 - One Galaxy screenshot removed because it showed a personal notification.
