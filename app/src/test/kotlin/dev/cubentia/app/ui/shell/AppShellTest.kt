@@ -188,6 +188,7 @@ class AppShellTest {
         result: ContentLoadResult = ContentLoadResult.Loaded(testBundle()),
         restoration: StateRestorationTester? = null,
         testMe: Boolean = true,
+        showWelcome: Boolean = false,
     ) {
         val catalog = LessonCatalog.of(result)
         val setContent: (@Composable () -> Unit) -> Unit = restoration?.let { it::setContent } ?: rule::setContent
@@ -201,6 +202,7 @@ class AppShellTest {
                     freeCube = FreeCubeViewModel(),
                     showDebugToggles = false,
                     flags = testFlags(testMe),
+                    showWelcome = showWelcome,
                 )
             }
         }
@@ -678,18 +680,30 @@ class AppShellTest {
     @Test fun `a Stage skip-ahead check keeps its scramble and attempt across recreation`() =
         keepsGeneratedScramble("skip-check-stage-02-first-cross") { "stageDetail:skipCheck" }
 
+    @Test fun `the Course skip-ahead check from Welcome keeps its scramble and attempt across recreation`() =
+        keepsGeneratedScramble("skip-check-course", stageTag = null, showWelcome = true) { "welcome:canSolve" }
+
+    @Test fun `the independent practice keeps its scramble and attempt across recreation`() =
+        keepsGeneratedScramble("practice-stage-07-independent-practice", stageTag = "learn:stage:stage-07-independent-practice") {
+            finishedCourseHost(it)
+            "stageDetail:practice"
+        }
+
     /** Story 12.2 AC3: recreating the activity must not deal the generated Lesson a new scramble or restart it. */
     private fun keepsGeneratedScramble(
         lessonId: String,
+        stageTag: String? = "learn:stage:stage-02-first-cross",
+        showWelcome: Boolean = false,
         arrange: (dev.cubentia.domain.content.ContentBundle) -> String,
     ) {
         val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
         val open = arrange(bundle)
         val restoration = StateRestorationTester(rule)
-        launch(ContentLoadResult.Loaded(bundle), restoration = restoration)
-        rule.waitUntil(5_000) { rule.onAllNodesWithTag("learn:stage:stage-02-first-cross").fetchSemanticsNodes().isNotEmpty() }
+        launch(ContentLoadResult.Loaded(bundle), restoration = restoration, showWelcome = showWelcome)
+        val first = stageTag ?: open
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag(first).fetchSemanticsNodes().isNotEmpty() }
         rule.waitForIdle()
-        rule.onNodeWithTag("learn:stage:stage-02-first-cross").performScrollTo().performClick()
+        if (stageTag != null) rule.onNodeWithTag(stageTag).performScrollTo().performClick()
         rule.onNodeWithTag(open).performScrollTo().performClick()
         rule.waitUntil(5_000) {
             host.state.value.lesson

@@ -23,6 +23,7 @@ import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.TickingClock
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
 import dev.cubentia.app.ui.placement.PlacementFlowViewModel
+import dev.cubentia.app.ui.placement.PlacementPhase
 import dev.cubentia.app.ui.recognize.RecognizeFlowViewModel
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.application.port.FeatureFlag
@@ -142,6 +143,21 @@ class AppShellRecognizeTest {
         rule.onNodeWithTag("recognize:startFromCube").assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
         rule.onNodeWithText("Start from my cube").performClick()
         assertEquals(1, placementRequests)
+    }
+
+    @Test
+    fun aLateScanOutcomeAfterLeavingTheRecognizeResultDoesNotShowPlacement() {
+        launch(placement = FlagLevel.GA)
+        showUnsolved()
+        rule.onNodeWithText("Start from my cube").performClick()
+        rule.runOnIdle { back.onBackPressed() }
+        rule.onNodeWithTag("library:recognize").assertIsDisplayed()
+        val moves = (Notation.parse("F") as NotationResult.Parsed).moves
+        rule.runOnIdle { placementFlow.onScanOutcome(ScanOutcome.Accepted(CubeState.SOLVED.apply(moves))) }
+        rule.waitForIdle()
+        rule.onNodeWithTag("placement:prompt").assertDoesNotExist()
+        rule.onNodeWithTag("placement:screen").assertDoesNotExist()
+        assertEquals(PlacementPhase.Idle, placementFlow.phase.value)
     }
 
     @Test

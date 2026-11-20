@@ -363,7 +363,7 @@ action_items:
       without falling back to overwriting preferences on disk with defaults on next
       save"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-6-retro-2026-11-06.md"
   - id: "epic-6-retro-item-2-investigate-compose-clock-stabilization"
     epic: 6
@@ -562,7 +562,7 @@ action_items:
     action: "Rotation regenerates a Course practice scramble (medium; deferred from
       9.8)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md"
   - id: "epic-9-deferred-9-8-physical-stage-mastery-milestone"
     epic: 9
@@ -575,7 +575,7 @@ action_items:
     action: "In physical mode the 2-look result line shows before 'Yes, it's solved'
       (medium; 9.8 gate round 5, LessonScreen.kt:353)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md"
   - id: "epic-1-retro-item-54-make-ci-a-required-status-check-on-main"
     epic: 1
@@ -821,7 +821,7 @@ action_items:
       write and onboarding persistence atomic or resumable (medium; residual risk
       from 11.2, AppShell.kt)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-11-2-start-the-course-from-my-cube-placement.md"
   - id: "epic-11-deferred-11.2-stale-placement-phase"
     epic: 11
@@ -829,7 +829,7 @@ action_items:
       leave a stale Placement phase; reset placementFlow on reset progress and ignore
       late outcomes (medium; residual risk from 11.2, AppShell.kt:259-266)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-11-2-start-the-course-from-my-cube-placement.md"
   - id: "epic-11-deferred-11.2-device-placement-scan"
     epic: 11
@@ -1167,7 +1167,7 @@ action_items:
       and onScanOutcome(FellBackToEditor), as closeEditor()/leaveSolveTab() do (low;
       deferred from #203, SolveFlowViewModel.kt:72-100)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-203-scan-accept-skips-editor.md"
   - id: "issue-203-deferred-device-single-review-scan"
     epic: 10
@@ -1437,3 +1437,15 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-ai-b1-learner-visible-fixes.md"
+  - id: "ai-b2-deferred-device-placement-accept-rotate"
+    epic: 11
+    action: "On a reference device, rotate while the Placement accept write is in flight and confirm the Learner lands on Learn at the accepted Stage, onboarded, with no second write (low; deferred from ai-b2, AppShell.kt; batch with the combined human-verification session, #106)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-ai-b2-state-safety.md"
+  - id: "ai-b2-deferred-device-physical-2look-result-line"
+    epic: 11
+    action: "In 2-look practice in physical mode on a real cube, confirm the qualified or not-qualified result line appears only after tapping Yes, it's solved (low, Learner-visible; deferred from ai-b2, LessonScreen.kt:371; batch with #106)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-ai-b2-state-safety.md"

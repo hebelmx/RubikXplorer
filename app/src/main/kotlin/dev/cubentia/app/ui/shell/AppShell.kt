@@ -56,6 +56,7 @@ import dev.cubentia.app.ui.library.AlgorithmDetailScreen
 import dev.cubentia.app.ui.library.LibraryFilterSaver
 import dev.cubentia.app.ui.library.LibraryScreen
 import dev.cubentia.app.ui.library.RequestedAlgorithmStatus
+import dev.cubentia.app.ui.placement.PlacementAcceptance
 import dev.cubentia.app.ui.placement.PlacementFlowViewModel
 import dev.cubentia.app.ui.placement.PlacementPhase
 import dev.cubentia.app.ui.placement.PlacementScreen
@@ -217,8 +218,7 @@ private fun ShellContent(
     val placementPhase by placementFlow.phase.collectAsState()
     val pendingScan by solveFlow.pendingScan.collectAsState()
     val placementScanState by placementFlow.acceptedScan.collectAsState()
-    var acceptingPlacement by remember { mutableStateOf(false) }
-    var placementSaveFailed by remember(placementPhase) { mutableStateOf(false) }
+    val placementAcceptance by placementFlow.acceptance.collectAsState()
     val algorithmStatusLoad by host.algorithmStatusLoad.collectAsState(null)
     var algorithmStatuses by remember { mutableStateOf<Map<AlgorithmId, AlgorithmStatus>>(emptyMap()) }
     LaunchedEffect(algorithmStatusLoad) {
@@ -283,6 +283,8 @@ private fun ShellContent(
                                 twoLookLocked = false
                                 stageAbandoned = null
                                 welcomeAbandoned = false
+                                // A Placement phase left by a late scan outcome must not render over the fresh Welcome.
+                                placementFlow.reset()
                                 preferenceStore.update(Preference.Onboarded(false))
                                 welcome = true
                             }
@@ -411,8 +413,26 @@ private fun ShellContent(
                 ?.value ?: "stage-01-fundamentals",
         )
     }
+    // An accept write finished, possibly in a composition lost to recreation: this one navigates and onboards.
+    LaunchedEffect(placementAcceptance) {
+        if (placementAcceptance is PlacementAcceptance.Saved) {
+            placementFlow.consumeSaved()?.let { saved ->
+                placementFlow.accepted(saved.stageId)
+                startCourse(saved.stageId.value.takeUnless { saved.faster })
+                scrollToTwoLook = saved.faster
+            }
+        }
+    }
+    // Placement is entered from Welcome or from a Recognize result's "Start from my cube" (Library tab): a phase or scan
+    // still set once neither is the active screen is a late scan outcome (or a denial) for a flow the Learner already
+    // left, so it is dropped instead of rendering.
+    val recognizeOffersPlacement = tab == Tab.LIBRARY && openAlgorithm == null && recognizePhase != RecognizePhase.Idle
+    val placementStale = openSkipCheck != null || (welcome == false && !recognizeOffersPlacement)
+    LaunchedEffect(placementStale, placementPhase, placementScanState) {
+        if (placementStale && (placementPhase != PlacementPhase.Idle || placementScanState != null)) placementFlow.reset()
+    }
     val placementScan = onPlacementScan.takeIf { ready != null && flags.isEnabled(FeatureFlag.PLACEMENT) }
-    if (ready != null && placementScan != null && placementPhase != PlacementPhase.Idle) {
+    if (ready != null && placementScan != null && placementPhase != PlacementPhase.Idle && !placementStale) {
         PlacementScreen(
             phase = placementPhase,
             flow = placementFlow,
@@ -420,38 +440,26 @@ private fun ShellContent(
             stages = ready.bundle.stages,
             twoLookStages = ready.bundle.twoLookStages,
             onAccept = { target, faster ->
-                if (!acceptingPlacement) {
+                if (placementAcceptance != PlacementAcceptance.Saving) {
                     if (target == ready.bundle.stages.first()) {
                         placementFlow.accepted(target.id)
                         startStageOne()
                     } else {
-                        placementSaveFailed = false
-                        acceptingPlacement = true
-                        scope.launch {
-                            try {
-                                val course = ready.bundle.stages
-                                val saved = host.placeFromScan(target.id, if (target in course) course else course + target)
-                                if (saved) {
-                                    placementFlow.accepted(target.id)
-                                    startCourse(target.id.value.takeUnless { faster })
-                                    scrollToTwoLook = faster
-                                } else {
-                                    placementSaveFailed = true
-                                }
-                            } finally {
-                                acceptingPlacement = false
-                            }
+                        // Runs in the view model's scope so recreating the Activity mid-write keeps the outcome.
+                        val course = ready.bundle.stages
+                        placementFlow.accept(target.id, faster) {
+                            host.placeFromScan(target.id, if (target in course) course else course + target)
                         }
                     }
                 }
             },
             onScanAgain = {
-                placementSaveFailed = false
+                placementFlow.clearSaveFailure()
                 placementScan()
             },
             modifier = modifier,
-            accepting = acceptingPlacement,
-            saveFailed = placementSaveFailed,
+            accepting = placementAcceptance == PlacementAcceptance.Saving,
+            saveFailed = placementAcceptance == PlacementAcceptance.Failed,
         )
         return
     }

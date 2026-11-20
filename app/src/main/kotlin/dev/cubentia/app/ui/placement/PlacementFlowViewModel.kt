@@ -1,6 +1,7 @@
 package dev.cubentia.app.ui.placement
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.cubentia.app.ScanDiagnostics
 import dev.cubentia.app.scan.ScanOutcome
@@ -11,8 +12,10 @@ import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.text.Text
 import dev.cubentia.domain.tutor.Placement
 import dev.cubentia.domain.tutor.PlacementOutcome
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 sealed interface PlacementPhase {
@@ -31,6 +34,20 @@ sealed interface PlacementPhase {
     ) : PlacementPhase
 }
 
+/** The accept write of a suggested Stage; held by the view model so an Activity recreation mid-write keeps its outcome. */
+sealed interface PlacementAcceptance {
+    data object Idle : PlacementAcceptance
+
+    data object Saving : PlacementAcceptance
+
+    data object Failed : PlacementAcceptance
+
+    data class Saved(
+        val stageId: StageId,
+        val faster: Boolean,
+    ) : PlacementAcceptance
+}
+
 @HiltViewModel
 class PlacementFlowViewModel private constructor(
     private val suggest: (CubeState, List<Stage>) -> PlacementOutcome,
@@ -46,6 +63,56 @@ class PlacementFlowViewModel private constructor(
     private val mutableAcceptedScan = MutableStateFlow<CubeState?>(null)
     val acceptedScan = mutableAcceptedScan.asStateFlow()
 
+    private val mutableAcceptance = MutableStateFlow<PlacementAcceptance>(PlacementAcceptance.Idle)
+    val acceptance = mutableAcceptance.asStateFlow()
+
+    /** Bumped by [reset], so a write still saving when the flow is reset cannot report into the next one. */
+    private var acceptEpoch = 0
+
+    /** Shows [next]; a shown save failure belongs to the phase it was shown in. */
+    private fun show(next: PlacementPhase) {
+        if (next != mutablePhase.value && mutableAcceptance.value == PlacementAcceptance.Failed) {
+            mutableAcceptance.value = PlacementAcceptance.Idle
+        }
+        mutablePhase.value = next
+    }
+
+    /** Runs the accept write [save] in this view model's scope; ignored while a write is already saving. */
+    fun accept(
+        stageId: StageId,
+        faster: Boolean,
+        save: suspend () -> Boolean,
+    ) {
+        if (mutableAcceptance.value == PlacementAcceptance.Saving) return
+        val epoch = acceptEpoch
+        mutableAcceptance.value = PlacementAcceptance.Saving
+        viewModelScope.launch {
+            val saved =
+                try {
+                    save()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    false
+                }
+            if (epoch == acceptEpoch) {
+                mutableAcceptance.value = if (saved) PlacementAcceptance.Saved(stageId, faster) else PlacementAcceptance.Failed
+            }
+        }
+    }
+
+    /** Returns a finished accept write once, clearing it. */
+    fun consumeSaved(): PlacementAcceptance.Saved? {
+        val saved = mutableAcceptance.value as? PlacementAcceptance.Saved ?: return null
+        mutableAcceptance.value = PlacementAcceptance.Idle
+        return saved
+    }
+
+    /** Clears a shown save failure, as when the Learner scans again. */
+    fun clearSaveFailure() {
+        if (mutableAcceptance.value == PlacementAcceptance.Failed) mutableAcceptance.value = PlacementAcceptance.Idle
+    }
+
     fun onScanOutcome(outcome: ScanOutcome) {
         when (outcome) {
             is ScanOutcome.Accepted -> {
@@ -54,7 +121,7 @@ class PlacementFlowViewModel private constructor(
             }
 
             ScanOutcome.FellBackToEditor -> {
-                mutablePhase.value = PlacementPhase.Editing(Text("msg.solve.scan-fell-back"))
+                show(PlacementPhase.Editing(Text("msg.solve.scan-fell-back")))
             }
 
             ScanOutcome.Cancelled -> {
@@ -68,23 +135,23 @@ class PlacementFlowViewModel private constructor(
         mutableAcceptedScan.value = null
         val outcome = suggest(state, stages)
         ScanDiagnostics.onPlacementSuggested(outcome)
-        mutablePhase.value = PlacementPhase.Result(outcome)
+        show(PlacementPhase.Result(outcome))
     }
 
     fun scanDenied() {
-        mutablePhase.value = PlacementPhase.Editing(Text("msg.solve.scan-camera-denied"))
+        show(PlacementPhase.Editing(Text("msg.solve.scan-camera-denied")))
     }
 
     fun editorAccepted(
         state: CubeState,
         stages: List<Stage>,
     ) {
-        mutablePhase.value = PlacementPhase.Result(suggest(state, stages))
+        show(PlacementPhase.Result(suggest(state, stages)))
     }
 
     fun chooseAnother() {
         val result = mutablePhase.value as? PlacementPhase.Result ?: return
-        mutablePhase.value = PlacementPhase.Choosing(result.outcome)
+        show(PlacementPhase.Choosing(result.outcome))
     }
 
     fun accepted(stageId: StageId) = ScanDiagnostics.onPlacementRun(stageId.value)
@@ -96,12 +163,14 @@ class PlacementFlowViewModel private constructor(
     fun back() {
         val current = mutablePhase.value
         if (current !is PlacementPhase.Choosing) ScanDiagnostics.onPlacementRun(null)
-        mutablePhase.value = if (current is PlacementPhase.Choosing) PlacementPhase.Result(current.outcome) else PlacementPhase.Idle
+        show(if (current is PlacementPhase.Choosing) PlacementPhase.Result(current.outcome) else PlacementPhase.Idle)
     }
 
     fun reset() {
         ScanDiagnostics.onPlacementRun(null)
         mutableAcceptedScan.value = null
+        acceptEpoch++
+        mutableAcceptance.value = PlacementAcceptance.Idle
         mutablePhase.value = PlacementPhase.Idle
     }
 }
