@@ -26,8 +26,8 @@ while IFS= read -r file; do
     status=1
   fi
   index="$(git -C "$repo" ls-files --eol -- ":(literal)$file" | awk '{print $1}')"
-  # i/ is an empty file: nothing to normalize, so it is accepted.
-  if [[ "$index" != "i/lf" && "$index" != "i/" ]]; then
+  # i/none is a file with no line ending at all (empty, or one line with no newline): no CRLF, so it is accepted.
+  if [[ "$index" != "i/lf" && "$index" != "i/none" ]]; then
     echo "::error::$file is stored as $index in the index, expected i/lf"
     status=1
   fi

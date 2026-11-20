@@ -5,7 +5,7 @@ created: '2026-11-20'
 status: 'done'
 baseline_revision: '35ddbb27be69027ed509c5eab1d92414313dfb65'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context: []
 warnings: ['multiple-goals', 'oversized']
 deferred: []
@@ -102,6 +102,45 @@ deferred: []
   - `medium` `patch` (intent) Explicit 1 s / 2 s waits contradict the documented convention — grouped with E10 fix.
   - `low` `reject` (intent) Flake elimination under CI load not exercised at runtime — CI-load timing cannot be asserted deterministically in a JVM test; the guard plus a green full suite is the proxy the intent allows.
 
+### 2026-11-20 — Review pass (follow-up)
+- verdicts: 35 findings — high 0, medium 4, low 27, false 4, maybe-false 0
+- findings:
+  - `low` `reject` (blind) LF guard does not cover `gradlew` — intent scopes the guard to `*.sh`; a CRLF `gradlew` already fails loudly at the first `./gradlew` step on ubuntu, so the guard would add nothing there.
+  - `low` `reject` (blind) Exit 2 covers only the first git call; in-loop `check-attr`/`ls-files --eol` failure exits with git's code — needs git to fail after `ls-files` succeeded on the same repo (not everyday); it still exits non-zero, so CI fails loudly; the fix adds per-call branches.
+  - `low` `patch` (blind) Tests assert only non-zero exit, not 1/2 — `CheckShEolScriptTest` now asserts exit 1 for every rule violation and 2 for the not-a-repo case.
+  - `low` `patch` (blind) Empty-file and `:(literal)` pathspec branches untested — added `an empty script under the LF rule passes` and `a script whose name has spaces and glob brackets is checked literally`; the empty-file test showed git reports `i/none`, not `i/`, so an empty or newline-free `.sh` failed the guard: script now accepts `i/none` and the comment is corrected.
+  - `low` `patch` (blind) Not-a-repo test depends on where @TempDir lives — `exec` sets `GIT_CEILING_DIRECTORIES` to the temp dir's parent.
+  - `medium` `patch` (blind) Timing guard is line-based: misses multi-line/`condition =` default waits, flags positional `waitUntilAtLeastOneExists(matcher, 5_000)` and later-line `timeoutMillis` — guard now scans whole files, reads each call's balanced argument list, accepts `timeoutMillis =` or the positional timeout slot per variant; mutation probe (multi-line `conditionDescription`, positional Exists, multi-line `timeoutMillis`) flagged only the default call.
+  - `low` `patch` (blind) Guard skips `src/spike3dTest` (added to `test` with `-Pcubentia.spike3d=true`); empty-sources message names one dir — dir added to the scan list; message lists all dirs. androidTest is out of the unit-test guard (its waits all pass explicit timeouts).
+  - `false` `reject` (blind) Clock check covers only LessonScreenTest, fragile regex — carried: createComposeRule is per test, so a paused clock cannot leak to the next test; the regex matches the real LessonScreenTest tearDown (test passes).
+  - `low` `reject` (blind) `waitUntil(2_500) { stopped.get() }` is still a wall-clock bound — the spin loop polls `go()` continuously, so 2.5 s is ample under load; replacing it with a behaviour assertion is a test rewrite the intent excludes ("rewrite tests beyond the timing waits named here").
+  - `low` `reject` (blind) android-all pin covers only SDK 34; no check against Robolectric's SDK table — every `@Config` and `robolectric.properties` use 34; a new SDK or Robolectric bump fails every Robolectric test loudly (missing jar); an SDK-table check is added machinery.
+  - `low` `patch` (blind) `compileDebugAndroidTestKotlin` is not `assembleDebugAndroidTest`; ci.yml comment "PR CI scope only" is wrong (also runs on push to main) — the task choice is fixed by the intent's Approach; comment corrected to "CI scope only".
+  - `low` `reject` (blind) CiWorkflowTest ignores job-level `if:`/`continue-on-error`, step order and multi-line `run: |` — nobody edits the build job's header in everyday work, and the step-level check covers the realistic edit; extra parsing adds complexity.
+  - `low` `reject` (edge) Tracked `.sh` path containing a newline is split — no such path exists or is plausible; the fix restructures the loop.
+  - `low` `reject` (edge) In-loop git failure exits with git's code, no `::error::` — same as blind row 2.
+  - `low` `reject` (edge) `text=auto` reported as failure — only reachable by weakening the documented `*.sh text eol=lf` rule; failing loudly on that is the guard's job.
+  - `low` `reject` (edge) Zero tracked .sh passes vacuously — carried: repo tracks 5 scripts; reaching zero is not everyday and the fix adds a branch.
+  - `low` `reject` (edge) readText before waitFor can hang — carried: same pattern as existing ValidateReleaseInputsScriptTest; git/bash here do not keep stdout open.
+  - `low` `patch` (edge) @TempDir inside a git work tree makes the not-a-repo test fail — grouped with blind row 5 (`GIT_CEILING_DIRECTORIES`).
+  - `false` `reject` (edge) CiWorkflowTest `on:` parsing passes vacuously for quoted/inline `on:` — with an inline `on: [..]` the `^  pull_request:` regex matches nothing and the test fails; with a quoted key the fallback searches the whole file, where the only two-space `pull_request:` is the real trigger. No vacuous pass.
+  - `low` `reject` (edge) Job-level `if:`/`continue-on-error` on `build` bypasses the gates — same as blind row 12.
+  - `medium` `patch` (edge) Multi-line default-timeout calls get past the guard — grouped with blind row 6.
+  - `low` `patch` (edge) Positional timeout wrongly flagged — grouped with blind row 6.
+  - `low` `patch` (edge) LessonScreenTest comment claims the 2.5 s bound proves stop-before-deadline, but the 3 s deadline starts at the click — comment reworded: the bound is a timing bound that usually separates the two cases, not proof of the cause.
+  - `medium` `patch` (edge) Spec claim "no waitUntil relies on the 1 s default" not fully enforced by a line-based guard — grouped with blind row 6.
+  - `low` `patch` (gap) Exit-code contract 1/2 not pinned — grouped with blind row 3.
+  - `low` `patch` (gap) Empty-file acceptance branch has no test — grouped with blind row 4 (test added; exposed `i/none`, script fixed).
+  - `medium` `patch` (gap, other) Guard misses `waitUntil(condition = {...})` and split `conditionDescription` calls — grouped with blind row 6.
+  - `low` `patch` (gap, other) 2_500 comment may overstate what the bound proves — grouped with edge row 11.
+  - `low` `reject` (intent) The "build never depends on compileDebugAndroidTestKotlin" clause and the androidTest compile are checked only as ci.yml text — carried: the intent limits tests to JVM; the real compile runs locally (passed again) and on every PR.
+  - `low` `reject` (intent) Working-tree `w/` EOL never checked; `i/mixed` untested — CI checks a fresh checkout whose `w/` follows the index and attributes the guard already checks; `i/mixed` takes the same "not i/lf" branch the `i/crlf` test covers.
+  - `false` `reject` (intent) Offline Robolectric only checked as configuration, not runtime — every Robolectric test, `RobolectricOfflineTest` included, runs with `robolectric.offline=true`; Robolectric then loads only from `robolectric.dependency.dir`, so the passing suite is the runtime proof.
+  - `low` `reject` (intent) 5 s is not the suite norm (route tests use 10_000) — the intent itself fixes the 5 s value.
+  - `low` `reject` (intent) LessonScreenTest explicit waits edited beyond the default-timeout calls — they are timing waits of the same item, raised by the previous pass's triage; no other test code changed.
+  - `low` `patch` (intent) Guard enforces no minimum and is line-based — the multi-line part is fixed with blind row 6; a minimum is not enforced on purpose (the 2_500 assertion bound is deliberate and visible in review).
+  - `false` `reject` (intent) "Compose UI tests" could include androidTest — every androidTest `waitUntil` already passes an explicit timeout, so no call is left on the default.
+
 ## Design Notes
 
 Offline Robolectric: with `robolectric.offline=true` Robolectric never calls `MavenArtifactFetcher`; it reads `<dependency.dir>/android-all-instrumented-<version>.jar`, which is exactly the Gradle cache file name. Gradle resolves it with its own retries, and `gradle/actions/setup-gradle` caches it between CI runs, satisfying "cache or offline". A Robolectric version bump that changes the android-all version fails every Robolectric test loudly (missing jar), so the pin cannot drift silently.
@@ -143,3 +182,22 @@ Status: done
 **Device-only (PO) items:** none.
 
 **Residual risks:** new CI steps first run on GitHub's runner when the PR opens; the android-all pin must move with Robolectric upgrades (fails loudly if not); ComposeTestTimingGuardTest reads one line per call, so a `timeoutMillis` on a later line would be a false positive.
+
+### Follow-up review pass (2026-11-20)
+
+**Summary:** Follow-up review of the ai-b3 change. Four review layers (all Claude; Codex guard off) reported 35 findings; 15 were patched in 6 root-cause groups, none deferred, 20 rejected.
+
+**Files changed in this pass:**
+- `.github/scripts/check-sh-eol.sh` -- accepts `i/none` (empty or newline-free file), not the `i/` value git never prints.
+- `.github/workflows/ci.yml` -- comment "PR CI scope only" corrected to "CI scope only".
+- `build-logic/src/test/kotlin/dev/cubentia/buildlogic/functional/CheckShEolScriptTest.kt` -- exact exit codes (1 violation, 2 git failure), `GIT_CEILING_DIRECTORIES`, empty-file and literal-name fixtures (9 tests).
+- `app/src/test/kotlin/dev/cubentia/app/ComposeTestTimingGuardTest.kt` -- whole-file, argument-aware scan for default-timeout waits; also scans `src/spike3dTest`.
+- `app/src/test/kotlin/dev/cubentia/app/ui/lesson/LessonScreenTest.kt` -- comment on the 2_500 bound no longer claims proof of the cause.
+
+**Review findings:** 35 total; patched 15 (medium 4, low 11) in 6 groups; deferred 0; rejected 20 (4 false, 16 low), each with its reason in the Review Triage Log.
+
+**Follow-up review recommended:** false -- follow-up pass patched no `high` entry. Patched counts by verdict: high 0, medium 4, low 11.
+
+**Verification:** `bash .github/scripts/check-sh-eol.sh` exit 0; `./gradlew -p build-logic test --rerun` pass (CheckShEolScriptTest 9/9, CiWorkflowTest 4/4); mutation probe confirmed the guard flags a multi-line `waitUntil(conditionDescription = ...)` and passes positional/multi-line explicit timeouts (probe removed); `./gradlew spotlessCheck build :app:compileDebugAndroidTestKotlin` BUILD SUCCESSFUL (ComposeTestTimingGuardTest 2/2, RobolectricOfflineTest 1/1, LessonScreenTest 94/94, AppShellTest 49/49).
+
+**Residual risks:** the new CI steps first run on GitHub's runner when the PR opens; the guard's paren matcher ignores parens inside string literals (a string with an unbalanced paren inside a wait call could mis-scope one call); the android-all pin must move with Robolectric upgrades (fails loudly if not).

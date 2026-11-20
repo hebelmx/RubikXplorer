@@ -75,7 +75,7 @@ jobs:
       # build = compile + Android lint + JVM tests + Kover >= 80% on :core:*
       # + AD-1 module boundaries + AD-13 merged-manifest and SDK-denylist checks.
       # androidTest sources compile on every PR (#119): a KeyFlowHarness break must not wait for a release run.
-      # PR CI scope only; `build` itself never depends on compileDebugAndroidTestKotlin.
+      # CI scope only; `build` itself never depends on compileDebugAndroidTestKotlin.
       - name: Spotless and build
         run: ./gradlew spotlessCheck build :app:compileDebugAndroidTestKotlin
 

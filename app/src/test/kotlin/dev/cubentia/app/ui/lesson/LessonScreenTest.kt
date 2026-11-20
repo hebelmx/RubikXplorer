@@ -2050,7 +2050,8 @@ class LessonScreenTest {
 
         // F disturbs another cross edge: the pending plan is cancelled well before its 3 s deadline.
         press("F", 2)
-        // The bound is the assertion: stopped before the 3 s deadline.
+        // The bound is part of the assertion: 2.5 s after F stays under the 3 s deadline counted from the click,
+        // so a search left to run out its deadline usually misses it. It is a timing bound, not proof of the cause.
         rule.waitUntil(2_500) { stopped.get() }
         rule.waitForIdle()
         assertEquals(GuidedRecovery.None, host.state.value.guidedRecovery)

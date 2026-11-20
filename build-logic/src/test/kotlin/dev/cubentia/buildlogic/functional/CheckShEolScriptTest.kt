@@ -1,7 +1,6 @@
 package dev.cubentia.buildlogic.functional
 
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -28,6 +27,8 @@ class CheckShEolScriptTest {
                     environment().keys.removeIf { it.startsWith("GIT_") }
                     environment()["GIT_CONFIG_GLOBAL"] = "/dev/null"
                     environment()["GIT_CONFIG_NOSYSTEM"] = "1"
+                    // A fixture under @TempDir must never find an enclosing repository, wherever java.io.tmpdir lives.
+                    environment()["GIT_CEILING_DIRECTORIES"] = temp.parentFile.absolutePath
                 }.start()
         val output = process.inputStream.bufferedReader().readText()
         check(process.waitFor(30, TimeUnit.SECONDS)) { "${command.toList()} timed out" }
@@ -47,6 +48,7 @@ class CheckShEolScriptTest {
     private fun repoWith(
         attributes: String,
         script: String,
+        path: String = "tools/run.sh",
     ): File {
         git("init", "-q")
         git("config", "core.autocrlf", "false")
@@ -54,7 +56,7 @@ class CheckShEolScriptTest {
         git("config", "user.email", "ci@example.invalid")
         File(temp, ".gitattributes").writeText(attributes)
         File(temp, "tools").mkdirs()
-        File(temp, "tools/run.sh").writeText(script)
+        File(temp, path).writeText(script)
         commitAll()
         return temp
     }
@@ -71,7 +73,7 @@ class CheckShEolScriptTest {
     fun `a CRLF script committed without the sh rule fails and is named`() {
         val repo = repoWith("*.jar binary\n", "#!/usr/bin/env bash\r\necho hi\r\n")
         val (exit, output) = runGuard(repo)
-        assertNotEquals(0, exit, output)
+        assertEquals(1, exit, output)
         assertTrue(output.contains("::error::tools/run.sh"), output)
         assertTrue(output.contains("i/crlf"), output)
     }
@@ -80,7 +82,7 @@ class CheckShEolScriptTest {
     fun `an sh rule resolving to crlf fails and is named`() {
         val repo = repoWith("*.sh text eol=crlf\n", "#!/usr/bin/env bash\necho hi\n")
         val (exit, output) = runGuard(repo)
-        assertNotEquals(0, exit, output)
+        assertEquals(1, exit, output)
         assertTrue(output.contains("::error::tools/run.sh resolves to eol=crlf"), output)
     }
 
@@ -88,7 +90,7 @@ class CheckShEolScriptTest {
     fun `an LF script without the sh rule fails on the attribute only`() {
         val repo = repoWith("*.jar binary\n", "#!/usr/bin/env bash\necho hi\n")
         val (exit, output) = runGuard(repo)
-        assertNotEquals(0, exit, output)
+        assertEquals(1, exit, output)
         assertTrue(output.contains("::error::tools/run.sh resolves to eol=unspecified"), output)
         assertTrue(!output.contains("stored as"), output)
     }
@@ -100,7 +102,7 @@ class CheckShEolScriptTest {
         git("add", ".gitattributes")
         git("-c", "commit.gpgsign=false", "commit", "-q", "--no-verify", "-m", "add rule")
         val (exit, output) = runGuard(repo)
-        assertNotEquals(0, exit, output)
+        assertEquals(1, exit, output)
         assertTrue(output.contains("::error::tools/run.sh is stored as i/crlf"), output)
         assertTrue(!output.contains("resolves to"), output)
     }
@@ -108,7 +110,7 @@ class CheckShEolScriptTest {
     @Test
     fun `a directory that is not a git repository fails`() {
         val (exit, output) = runGuard(temp)
-        assertNotEquals(0, exit, output)
+        assertEquals(2, exit, output)
         assertTrue(output.contains("::error::git ls-files failed"), output)
     }
 
@@ -116,7 +118,21 @@ class CheckShEolScriptTest {
     fun `an sh rule that unsets text fails on the text attribute`() {
         val repo = repoWith("*.sh -text eol=lf\n", "#!/usr/bin/env bash\necho hi\n")
         val (exit, output) = runGuard(repo)
-        assertNotEquals(0, exit, output)
+        assertEquals(1, exit, output)
         assertTrue(output.contains("::error::tools/run.sh has text attribute unset"), output)
+    }
+
+    @Test
+    fun `an empty script under the LF rule passes`() {
+        val repo = repoWith("*.sh text eol=lf\n", "")
+        val (exit, output) = runGuard(repo)
+        assertEquals(0, exit, output)
+    }
+
+    @Test
+    fun `a script whose name has spaces and glob brackets is checked literally`() {
+        val repo = repoWith("*.sh text eol=lf\n", "#!/usr/bin/env bash\necho hi\n", path = "tools/my [x] run.sh")
+        val (exit, output) = runGuard(repo)
+        assertEquals(0, exit, output)
     }
 }
