@@ -519,10 +519,8 @@ class ScanRouteTest {
         rule.onNodeWithTag("review:retakeFaces").performScrollTo().performClick()
         rule.onNodeWithTag("reviewNet:face:${Face.F.ordinal}").performClick()
         rule.onNodeWithTag("review:retake:start").performScrollTo().performClick()
-        rule.waitUntil(10_000) {
-            shadowOf(Looper.getMainLooper()).idle()
-            vm.phase is GuidedScanPhase.Viewfinder && source.running
-        }
+        // The retake starts through the analyzer thread; the camera starts only after the recompositions that follow.
+        awaitCameraStart { vm.phase is GuidedScanPhase.Viewfinder }
         return review
     }
 
@@ -530,14 +528,25 @@ class ScanRouteTest {
         val scan = Robolectric.buildActivity(GuidedScanActivity::class.java).setup()
         try {
             rule.waitForIdle()
-            rule.waitUntil(10_000) {
-                shadowOf(Looper.getMainLooper()).idle()
-                source.running
-            }
+            // The calibration load and controller hand back to main from other threads before the camera can start.
+            awaitCameraStart { true }
             test(scan.get(), ViewModelProvider(scan.get())[GuidedScanViewModel::class.java])
         } finally {
             scan.pause().stop().destroy()
             rule.waitForIdle()
+        }
+    }
+
+    /**
+     * Waits until the camera runs and [phase] holds. A state change another thread (analyzer, IO) posts to main lands
+     * mid-wait, and waitUntil alone only steps the Compose clock: under load the recomposition that starts the camera
+     * (previewReady, then startCamera) was never run and the wait timed out. A full Compose sync on every poll runs it.
+     */
+    private fun awaitCameraStart(phase: () -> Boolean) {
+        rule.waitUntil(10_000) {
+            rule.waitForIdle()
+            shadowOf(Looper.getMainLooper()).idle()
+            phase() && source.running
         }
     }
 
