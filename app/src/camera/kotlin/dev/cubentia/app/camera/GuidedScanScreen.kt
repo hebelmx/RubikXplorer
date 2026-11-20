@@ -61,6 +61,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -99,6 +100,8 @@ internal sealed interface GuidedScanPhase {
         val edited: Boolean = false,
         val corrections: Map<Int, dev.cubentia.domain.cube.Color> = emptyMap(),
         val initialStickers: List<CubeColor?> = review.stickers,
+        /** The scan's six samples (retaken faces replaced), for a retake from this review (Story 10.16). */
+        val samples: List<FaceSample> = emptyList(),
     ) : GuidedScanPhase
 
     data class Calibration(
@@ -145,8 +148,15 @@ internal sealed interface GuidedScanPhase {
         val total: Int = GuidedScanPlan.steps.size,
         /** A Quick Check face captured once more because it was doubtful: "Show the red face again, …" (PO 2026-11-17). */
         val retake: Boolean = false,
+        /** A retake from review (Story 10.16): the kept faces' samples, shown as captured on the mini net. */
+        val kept: List<FaceSample> = emptyList(),
+        /** A retake from review: the review to restore exactly when the Learner backs out before every face is taken. */
+        val fromReview: Review? = null,
     ) : GuidedScanPhase
 }
+
+/** Whether a mini-net face shows captured colors (a face captured in this run, or a retake's kept face). */
+internal val ScanNetFaceCaptured = SemanticsPropertyKey<Boolean>("ScanNetFaceCaptured")
 
 /** Re-prompt round progress (Story 10.14): face [n] (1-based) of [total] faces asked again. */
 internal data class RepromptProgress(
@@ -627,7 +637,8 @@ private fun MiniNet(
     modifier: Modifier,
     highlighted: Set<Face>,
 ) {
-    val byFace = phase.captured.associateBy { it.face }
+    // A retake from review shows its kept faces as captured (Story 10.16).
+    val byFace = (phase.kept + phase.captured).associateBy { it.face }
     BoxWithConstraints(modifier.testTag("scanNet"), contentAlignment = Alignment.Center) {
         val cell = minOf(maxWidth / (NET_COLUMNS * SIDE), maxHeight / (NET_ROWS * SIDE))
         val outline = MaterialTheme.colorScheme.primary
@@ -642,6 +653,7 @@ private fun MiniNet(
                         .requiredSize(cell * SIDE)
                         .then(if (face in highlighted) Modifier.border(BorderStroke(2.dp, outline)) else Modifier)
                         .onGloballyPositioned { geometry.faces[face] = it.boundsInRoot() }
+                        .semantics { this[ScanNetFaceCaptured] = colors != null }
                         .testTag("scanNetFace:${face.name}"),
                 ) {
                     for (index in 0 until SIDE * SIDE) {

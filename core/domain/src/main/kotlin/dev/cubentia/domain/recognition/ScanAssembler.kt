@@ -225,6 +225,9 @@ object ScanAssembler {
     private const val FACES = 6
     private const val ILLEGAL = -1
 
+    /** A blank sticker in a search grid (a retake's kept face, Story 10.16): its piece is never legal. */
+    private const val BLANK = -1
+
     /** Source cell of each cell after one clockwise quarter turn of a row-major 3×3. */
     private val CLOCKWISE = listOf(6, 3, 0, 7, 4, 1, 8, 5, 2)
 
@@ -441,42 +444,11 @@ object ScanAssembler {
     ): Outcome {
         val options: List<List<List<StickerReading>>> =
             faces.map { face -> if (face.posed) listOf(face.readings) else List(TURNS) { rotateClockwise(face.readings, it) } }
-        val optionGrids: List<List<IntArray>> =
-            options.map { face -> face.map { readings -> IntArray(STICKERS) { HOME_FACE.getValue(readings[it].color).ordinal } } }
-        val sizes = options.map { it.size }
-        val total = sizes.fold(1) { product, size -> product * size }
-        val valid = LinkedHashMap<List<Int>, Assignment>()
-        val validated = HashMap<List<Int>, Boolean>()
-        var best = LinkedHashMap<List<Int>, Assignment>()
-        var mostLegal = -1
-        val grid = IntArray(Facelets.SIZE)
-        val choice = IntArray(FACES)
-        for (code in 0 until total) {
-            // U is the most significant digit, B the least; turn 0 first.
-            var rest = code
-            for (face in FACES - 1 downTo 0) {
-                choice[face] = rest % sizes[face]
-                rest /= sizes[face]
-                System.arraycopy(optionGrids[face][choice[face]], 0, grid, face * STICKERS, STICKERS)
-            }
-            val legal = legal(grid).count { it }
-            if (legal == PIECES) {
-                val key = grid.toList()
-                val accepted =
-                    validated.getOrPut(key) {
-                        CubeValidator.validate(Facelets(grid.map { Color.home(Face.entries[it]) })) is ValidationResult.Valid
-                    }
-                if (accepted && key !in valid) valid[key] = Assignment(choice.copyOf(), grid.copyOf())
-            }
-            if (legal > mostLegal) {
-                mostLegal = legal
-                best = LinkedHashMap()
-            }
-            if (legal == mostLegal) best.getOrPut(grid.toList()) { Assignment(choice.copyOf(), grid.copyOf()) }
-        }
-        val candidates = (if (valid.isNotEmpty()) valid.values else best.values).toList()
-        val first = candidates.first()
-        val differing = Face.entries.filter { face -> candidates.any { !sameFace(it.grid, first.grid, face) } }.toSet()
+        val found = enumerate(options.map { face -> face.map(::gridOf) })
+        val valid = found.valid
+        val best = found.best
+        val first = found.first
+        val differing = found.differing
         val resolved = valid.size == 1
         val labs =
             Face.entries.flatMap { face ->
@@ -518,6 +490,154 @@ object ScanAssembler {
         return Outcome(result, involved, branch, valid.size, turns)
     }
 
+    /** The home-face ordinals of [readings] (one face, net order); [BLANK] for a sticker with no color. */
+    private fun gridOf(readings: List<StickerReading?>): IntArray =
+        IntArray(STICKERS) { index -> readings[index]?.let { HOME_FACE.getValue(it.color).ordinal } ?: BLANK }
+
+    /**
+     * Every assignment of one option per face ([optionGrids], URFDLB, each option a face's 9 home-face ordinals): the
+     * distinct valid states ([Enumeration.valid]) and the distinct assignments with the most legal pieces
+     * ([Enumeration.best]), both in enumeration order (U the most significant digit, B the least; option 0 first).
+     */
+    private fun enumerate(optionGrids: List<List<IntArray>>): Enumeration {
+        val sizes = optionGrids.map { it.size }
+        val total = sizes.fold(1) { product, size -> product * size }
+        val valid = LinkedHashMap<List<Int>, Assignment>()
+        val validated = HashMap<List<Int>, Boolean>()
+        var best = LinkedHashMap<List<Int>, Assignment>()
+        var mostLegal = -1
+        val grid = IntArray(Facelets.SIZE)
+        val choice = IntArray(FACES)
+        for (code in 0 until total) {
+            var rest = code
+            for (face in FACES - 1 downTo 0) {
+                choice[face] = rest % sizes[face]
+                rest /= sizes[face]
+                System.arraycopy(optionGrids[face][choice[face]], 0, grid, face * STICKERS, STICKERS)
+            }
+            val legal = legal(grid).count { it }
+            // A blank sticker makes its piece illegal, so only an all-colored grid is ever validated.
+            if (legal == PIECES) {
+                val key = grid.toList()
+                val accepted =
+                    validated.getOrPut(key) {
+                        CubeValidator.validate(Facelets(grid.map { Color.home(Face.entries[it]) })) is ValidationResult.Valid
+                    }
+                if (accepted && key !in valid) valid[key] = Assignment(choice.copyOf(), grid.copyOf())
+            }
+            if (legal > mostLegal) {
+                mostLegal = legal
+                best = LinkedHashMap()
+            }
+            if (legal == mostLegal) best.getOrPut(grid.toList()) { Assignment(choice.copyOf(), grid.copyOf()) }
+        }
+        return Enumeration(valid, best)
+    }
+
+    /** What [enumerate] found; [first] is the first candidate and [differing] the faces whose colors vary across them. */
+    private class Enumeration(
+        val valid: LinkedHashMap<List<Int>, Assignment>,
+        val best: LinkedHashMap<List<Int>, Assignment>,
+    ) {
+        val candidates: List<Assignment> = (if (valid.isNotEmpty()) valid.values else best.values).toList()
+        val first: Assignment = candidates.first()
+        val differing: Set<Face> = Face.entries.filter { face -> candidates.any { !sameFace(it.grid, first.grid, face) } }.toSet()
+    }
+
+    /**
+     * A retake from the review (Story 10.16): [kept] faces stay exactly as reviewed (each a single fixed option; a null
+     * sticker is blank, which makes its piece illegal, and comes out UNCERTAIN), and each [retaken] sample, on the face
+     * it was prompted for ([FaceSample.face]), is placed as [assemble] places it and, unless it names a top, searched
+     * over its 4 quarter turns with every other face held fixed. The result is the first valid state, or with none the
+     * first assignment with the most legal pieces; unless exactly one valid state fits, every non-center sticker of a
+     * retaken face whose colors differ across those candidates is UNCERTAIN. It never asks for a re-prompt.
+     *
+     * A retaken sample that cannot be placed (not ACCEPTABLE, malformed, no quarter-turn pose, or claiming another
+     * face's center), a face with no sample and no kept colors, and every retaken face when [calibration] cannot
+     * classify, are blank: only their centers are colored. [ScanResult.Full.labs] holds the retaken faces' measured
+     * CIELAB in net order; every other entry is a placeholder (the calibration center of the color shown), never
+     * evidence; it is null when [calibration] cannot classify.
+     */
+    fun assembleRetake(
+        kept: Map<Face, List<Color?>>,
+        retaken: List<FaceSample>,
+        calibration: CalibrationCenters,
+    ): ScanResult.Full {
+        val classifiable = StickerClassifier.isValid(calibration)
+        val samples = retaken.groupBy { it.face }
+        val placed: Map<Face, Placement.Placed> =
+            if (!classifiable) {
+                emptyMap()
+            } else {
+                samples
+                    .filter { (face, claims) -> face !in kept && claims.size == 1 && claims.single().centerColor == Color.home(face) }
+                    .mapNotNull { (face, claims) ->
+                        (place(face, claims.single(), calibration.centers) as? Placement.Placed)?.let {
+                            face to
+                                it
+                        }
+                    }.toMap()
+            }
+        val options: List<List<List<StickerReading?>>> =
+            Face.entries.map { face ->
+                val fixed = placed[face]
+                when {
+                    fixed == null -> listOf(fixedFace(face, kept[face]))
+                    fixed.posed -> listOf(fixed.readings)
+                    else -> List(TURNS) { rotateClockwise(fixed.readings, it) }
+                }
+            }
+        val found = enumerate(options.map { face -> face.map(::gridOf) })
+        val resolved = found.valid.size == 1
+        val readings =
+            Face.entries.flatMap { face ->
+                options[face.ordinal][found.first.choice[face.ordinal]].mapIndexed { index, reading ->
+                    val ambiguous = !resolved && face in placed && face in found.differing && index != FaceSample.CENTER_INDEX
+                    when {
+                        reading == null -> StickerReading(Color.home(face), StickerConfidence.UNCERTAIN)
+                        ambiguous -> reading.copy(confidence = StickerConfidence.UNCERTAIN)
+                        else -> reading
+                    }
+                }
+            }
+        val labs =
+            if (!classifiable) {
+                null
+            } else {
+                Face.entries.flatMap { face ->
+                    val fixed = placed[face]
+                    when {
+                        fixed == null -> {
+                            readings
+                                .subList(
+                                    face.ordinal * STICKERS,
+                                    (face.ordinal + 1) * STICKERS,
+                                ).map { calibration.centers.getValue(it.color) }
+                        }
+
+                        fixed.posed -> {
+                            fixed.labs
+                        }
+
+                        else -> {
+                            rotateClockwise(fixed.labs, found.first.choice[face.ordinal])
+                        }
+                    }
+                }
+            }
+        return ScanResult.Full(Facelets(readings.map { it.color }), readings.map { it.confidence }, labs)
+    }
+
+    /** A face held fixed in a retake: its [colors] (null stickers blank), or all blank but the center without any. */
+    private fun fixedFace(
+        face: Face,
+        colors: List<Color?>?,
+    ): List<StickerReading?> =
+        List(STICKERS) { index ->
+            val color = if (index == FaceSample.CENTER_INDEX) Color.home(face) else colors?.getOrNull(index)
+            color?.let { StickerReading(it, StickerConfidence.CONFIDENT) }
+        }
+
     private fun sameFace(
         left: IntArray,
         right: IntArray,
@@ -528,10 +648,16 @@ object ScanAssembler {
     private fun cubies(grid: IntArray): IntArray {
         val pieces = IntArray(PIECES)
         FaceletTables.CORNER_FACELETS.forEachIndexed { slot, facets ->
-            pieces[slot] = CORNER_CUBIE[grid[facets[0]] * FACES * FACES + grid[facets[1]] * FACES + grid[facets[2]]]
+            val a = grid[facets[0]]
+            val b = grid[facets[1]]
+            val c = grid[facets[2]]
+            // A blank facet shows no cubie; never index the tables with it.
+            pieces[slot] = if (a < 0 || b < 0 || c < 0) ILLEGAL else CORNER_CUBIE[a * FACES * FACES + b * FACES + c]
         }
         FaceletTables.EDGE_FACELETS.forEachIndexed { slot, facets ->
-            val cubie = EDGE_CUBIE[grid[facets[0]] * FACES + grid[facets[1]]]
+            val a = grid[facets[0]]
+            val b = grid[facets[1]]
+            val cubie = if (a < 0 || b < 0) ILLEGAL else EDGE_CUBIE[a * FACES + b]
             pieces[CORNERS + slot] = if (cubie < 0) ILLEGAL else CORNERS + cubie
         }
         return pieces

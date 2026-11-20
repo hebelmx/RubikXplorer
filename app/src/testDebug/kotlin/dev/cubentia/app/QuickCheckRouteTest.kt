@@ -186,6 +186,8 @@ class QuickCheckRouteTest {
                 }
                 assertTrue("Full scan ended in ${vm.phase}", vm.phase is dev.cubentia.app.camera.GuidedScanPhase.Review)
                 ShadowLog.clear()
+                // A Quick Check's review never offers Retake faces (Story 10.16).
+                rule.onNodeWithTag("review:retakeFaces").assertDoesNotExist()
                 rule.onNodeWithTag("review:accept").performClick()
                 val result = shadowOf(fullScan.get())
                 assertEquals(android.app.Activity.RESULT_OK, result.resultCode)

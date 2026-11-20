@@ -73,6 +73,7 @@ import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.ReviewProblem
 import dev.cubentia.domain.recognition.ScanReview
 import kotlinx.coroutines.launch
@@ -102,6 +103,117 @@ fun ScanReviewScreen(
     onCalibrate: (() -> Unit)? = null,
     edited: Boolean = false,
     onEnterColors: (() -> Unit)? = null,
+    onRetake: ((Set<Face>) -> Unit)? = null,
+) {
+    // Retake mode (Story 10.16): the net selects whole faces to scan again; every other control is hidden.
+    var retaking by rememberSaveable { mutableStateOf(false) }
+    var retakeFaces by rememberSaveable { mutableStateOf(emptySet<Int>()) }
+    if (retaking && onRetake != null) {
+        RetakeMode(
+            review = review,
+            strings = strings,
+            selectedFaces = retakeFaces,
+            onToggle = { shown -> retakeFaces = if (shown in retakeFaces) retakeFaces - shown else retakeFaces + shown },
+            onStart = {
+                val faces = retakeFaces.map { Face.entries[it] }.toSet()
+                retaking = false
+                retakeFaces = emptySet()
+                onRetake(faces)
+            },
+            onCancel = {
+                retaking = false
+                retakeFaces = emptySet()
+            },
+            modifier = modifier,
+        )
+        return
+    }
+    ReviewMode(
+        review = review,
+        strings = strings,
+        onReview = onReview,
+        onAccept = onAccept,
+        onClose = onClose,
+        modifier = modifier,
+        windowSizeClass = windowSizeClass,
+        coachMarkPending = coachMarkPending,
+        onCoachMarkDismissed = onCoachMarkDismissed,
+        onCalibrate = onCalibrate,
+        edited = edited,
+        onEnterColors = onEnterColors,
+        onRetakeFaces = onRetake?.let { { retaking = true } },
+    )
+}
+
+/**
+ * Retake mode (Story 10.16, PO 2026-11-19): the title, the full 6-face net (also on a compact phone) whose faces toggle
+ * for retake, the instruction line, *Retake N faces* (enabled with at least one face) and *Cancel*. System Back is
+ * *Cancel*: it leaves retake mode with the selection cleared and the review unchanged.
+ */
+@Composable
+private fun RetakeMode(
+    review: ScanReview,
+    strings: ContentStrings,
+    selectedFaces: Set<Int>,
+    onToggle: (Int) -> Unit,
+    onStart: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier,
+) {
+    BackHandler(onBack = onCancel)
+    Column(
+        modifier
+            .safeDrawingPadding()
+            .testTag("review:screen")
+            .verticalScroll(rememberScrollState())
+            .padding(Spacing.s4),
+        verticalArrangement = Arrangement.spacedBy(Spacing.s4),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(strings.resolve(ContentText("msg.scan.review-title")), style = MaterialTheme.typography.headlineSmall)
+        StickerReviewNet(
+            selected = null,
+            invalid = emptySet(),
+            onStickerClick = {},
+            editable = { false },
+            unresolved = review.stickers,
+            strings = strings,
+            retakeSelected = selectedFaces,
+            onFaceClick = onToggle,
+            modifier = Modifier.fillMaxWidth().aspectRatio(Net2DRenderer.NET_COLUMNS.toFloat() / Net2DRenderer.NET_ROWS),
+        )
+        Text(
+            strings.resolve(ContentText("msg.scan.retake-hint")),
+            modifier = Modifier.fillMaxWidth().testTag("review:instruction"),
+        )
+        Button(
+            onClick = onStart,
+            enabled = selectedFaces.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth().testTag("review:retake:start"),
+        ) {
+            Text(strings.resolve(ContentText("btn.scan.retake-count", mapOf("count" to selectedFaces.size))))
+        }
+        OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth().testTag("review:retake:cancel")) {
+            Text(strings.resolve(ContentText("btn.scan.cancel")))
+        }
+    }
+}
+
+@Composable
+private fun ReviewMode(
+    review: ScanReview,
+    strings: ContentStrings,
+    onReview: (ScanReview) -> Unit,
+    onAccept: (CubeState) -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier,
+    windowSizeClass: WindowSizeClass,
+    coachMarkPending: Boolean,
+    onCoachMarkDismissed: () -> Unit,
+    onCalibrate: (() -> Unit)?,
+    edited: Boolean,
+    onEnterColors: (() -> Unit)?,
+    onRetakeFaces: (() -> Unit)?,
 ) {
     var face by rememberSaveable { mutableIntStateOf((review.selected ?: 0) / 9) }
     LaunchedEffect(review.selected) { review.selected?.let { face = it / 9 } }
@@ -260,6 +372,11 @@ fun ScanReviewScreen(
                 modifier = Modifier.fillMaxWidth().testTag("review:close"),
             ) {
                 Text(strings.resolve(ContentText("btn.scan.close")))
+            }
+            if (onRetakeFaces != null) {
+                OutlinedButton(onClick = onRetakeFaces, modifier = Modifier.fillMaxWidth().testTag("review:retakeFaces")) {
+                    Text(strings.resolve(ContentText("btn.scan.retake-faces")))
+                }
             }
             if (onEnterColors != null) {
                 OutlinedButton(

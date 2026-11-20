@@ -2,9 +2,10 @@
 title: 'Story 10.16: Retake faces from the scan review'
 type: 'feature'
 created: '2026-11-19'
-status: 'ready-for-dev'
+status: 'done'
+baseline_revision: '9498d47437b216567183bcfd7541e36af132c967'
 review_loop_iteration: 0
-followup_review_recommended: false
+followup_review_recommended: true
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-10-context.md'
   - '{project-root}/_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-19-review-face-retake.md'
@@ -92,6 +93,39 @@ Refs (binding, verbatim): FR-23, FR-14, FR-21 · recognition NFRs, NFR-10 · AD-
 
 ## Review Triage Log
 
+### 2026-11-20 — Review pass
+- verdicts: 29 findings — high 1, medium 5, low 11, false 12, maybe-false 0
+- findings:
+  - `[medium]` `[patch]` (verification-gap) Activity retake wiring (onRetake gate, startRetake/handleRetake, Close/Back back-out) untested — added ScanRouteTest retake route (Face 1 of 1, Back restores the same review, Activity not finishing) and review:retakeFaces absence checks in QuickScanRouteTest and QuickCheckRouteTest.
+  - `[high]` `[patch]` (verification-gap) Frames during the 400 ms freeze after the last retake capture are not covered — fixed with the freeze-window guard below; covered by the guard, no separate frame-level test.
+  - `[high]` `[patch]` (verification-gap other) After a retake Done clears scan.retake, handle()'s normal path replaces the retake viewfinder with the finished original controller's Viewfinder (fromReview null), so Close/Back cancel the scan — handle() no longer replaces a Viewfinder whose fromReview is set.
+  - `[false]` `[reject]` (blind) Fake placeholder Labs on blank retaken stickers become suspect evidence — SuspectRanking.rank returns empty while any sticker is null and paint() drops a painted index's Lab; a fixed center with a Lab equal to its calibration center is never a suspect.
+  - `[low]` `[reject]` (blind) Stale-post guard compares the review, not the run — needs a back-out and three taps to re-enter a retake before already-queued main posts drain; not met in practice, fix adds a token.
+  - `[low]` `[reject]` (blind) Two startRetake calls can orphan the viewfinder — the screen leaves retake mode on the first tap; a second start needs a re-entry within one analyzer hop; fix adds an in-flight guard.
+  - `[medium]` `[patch]` (blind) Selected face announces its state twice (selected semantics plus the suffix) against Design Notes — removed selected semantics; tests now assert the content description.
+  - `[medium]` `[patch]` (blind) 54 sticker nodes stay in the accessibility tree in retake mode — stickers clear their semantics in retake mode (test tags kept).
+  - `[low]` `[reject]` (blind) Entering retake mode discards ReviewMode's saveable view state (compact shown face) — review data is unchanged; the face re-derives from the selection; fix needs a SaveableStateHolder.
+  - `[false]` `[reject]` (blind) Retake offered on reviews without six samples — every Guided-run review comes from GuidedScanFlow.reviewOf, which sets samples; publish(ScanReview) is only used by the Quick Scan path, which never offers retake.
+  - `[low]` `[reject]` (blind) Debug diagnostics count retaken stickers as corrections via initialStickers — debug-only, no-op in release; changing initialStickers would undercount kept-face edits.
+  - `[low]` `[reject]` (blind) Kept faces' old Labs paired with merged-calibration centers can shift suspects — spec-directed evidence merge; kept stickers unchanged; fix is not a direct correction.
+  - `[false]` `[reject]` (blind) Activity untested — duplicate of the verification-gap finding, patched there (recorded as its own row: same claim).
+  - `[medium]` `[patch]` (blind) Vacuous doesNotExist assertions in the retake-mode hidden-controls test — test now launches with onCalibrate, a wrong-counts review with a suspect and a painted sticker, asserts presence in normal review then absence in retake mode.
+  - `[false]` `[reject]` (blind) Matrix "Retaken gap" uses BLURRED not POOR_QUALITY — any non-ACCEPTABLE quality (BLURRED included) is the POOR_QUALITY gap in place(); the row is covered.
+  - `[low]` `[reject]` (blind) No tests for all-six retake, second retake, within-run repeat rule, Enter colors in retake — existing controller/assembler behaviour reused; low risk.
+  - `[low]` `[reject]` (blind) Back-out leaves the analyzer CaptureFreeze running for ≤400 ms — at most a sub-second delay on an immediate re-retake.
+  - `[false]` `[reject]` (blind) Spec record sections empty at in-review — fix is editing this build's spec; sections are filled at finalize.
+  - `[false]` `[reject]` (edge) Freeze-window overwrite — duplicate claim of the high row above, patched there.
+  - `[false]` `[reject]` (edge) Close/Back during the held window cancels the scan — same root cause, patched by the handle() guard.
+  - `[medium]` `[patch]` (edge) Back-out after a held retake keeps measuredCenters from discarded samples — backOutOfRetake restores runScanColorsOf(from.samples, saved).
+  - `[false]` `[reject]` (edge) Disagreeing retaken center becomes blank and uneditable — ScanReview's constructor forces every center to Color.home(face).
+  - `[low]` `[reject]` (edge) Kept Labs vs new centers — same as the blind row; rejected.
+  - `[low]` `[reject]` (edge) Stale post from a backed-out run — same as the blind row; rejected.
+  - `[false]` `[reject]` (edge) retakeSelected with null strings gives no face targets — ScanReviewScreen always passes strings.
+  - `[false]` `[reject]` (edge) onRetake turning null mid-retake leaves retake mode stuck — onRetake depends only on isGuidedRun/isQuickCheck, constant for the Activity.
+  - `[false]` `[reject]` (edge claim) Spec claim that Close/Back restore the review broken in the freeze window — true before the patch; resolved by the handle() guard.
+  - `[low]` `[reject]` (intent) Title kept in retake mode vs strict "only … remain" — clarification 2 scopes to review controls and its list omits the title; recorded as a device-session check.
+  - `[low]` `[reject]` (intent) Back-out restores review data, not retake mode with its selection — AC is "nothing replaced (all or nothing)"; recorded as a device-session check.
+
 ## Design Notes
 
 Settled from the story, UX spec (EXPERIENCE.md:96–97, DESIGN.md:272), PO clarifications 2026-11-19 and precedent:
@@ -107,3 +141,32 @@ Settled from the story, UX spec (EXPERIENCE.md:96–97, DESIGN.md:272), PO clari
 
 **Commands:**
 - `export JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64 ANDROID_HOME=$HOME/Android/Sdk && ./gradlew spotlessCheck build` -- expected: BUILD SUCCESSFUL (known flake: ScanRouteTest:450; re-run once if only it fails)
+
+## Auto Run Result
+
+**Summary:** Retake faces from the Guided 6-face Scan review. *Retake faces* enters a retake mode (full net on phones, face toggles with outline and ✓, TalkBack "Green face, selected for retake", *Retake N faces*/*Cancel*, Back = Cancel, every other control hidden). The viewfinder asks only the chosen faces in fixed order with no re-prompt. `ScanAssembler.assembleRetake` searches retaken faces' turns with kept faces fixed (AD-9). `ScanReview.retaken` keeps kept faces and edits and drops edits on retaken faces. Backing out restores the exact review, and a completed retake counts as edited.
+
+**Files changed:**
+- `core/domain/.../recognition/ScanAssembler.kt`: `assembleRetake` and a shared enumeration; blank facets make a piece illegal.
+- `core/domain/.../recognition/ScanReview.kt`: `retaken` and `mergedSamples`.
+- `core/domain/src/main/resources/content/strings/en.json`: 5 retake strings.
+- `app/src/camera/.../GuidedScanFlow.kt`: `retakePlan`/`retakeRun`/`retakePhase`/`reviewAfterRetake`, plus `RetakeRun`.
+- `app/src/camera/.../GuidedScanScreen.kt`: `Review.samples` and `Viewfinder.kept`/`fromReview`; the mini net shows kept faces as captured.
+- `app/src/camera/.../GuidedScanActivity.kt`: `onRetake` gate, start and handle a retake, back-out, `publishRetake`.
+- `app/src/main/.../ScanReviewScreen.kt`: retake mode.
+- `app/src/main/.../StickerReviewNet.kt`: face-level retake targets, outline and badge; sticker semantics cleared in retake mode.
+- Tests: `ScanAssemblerTest`, `ScanReviewTest`, `GuidedScanFlowTest`, `GuidedScanScreenTest`, `ScanReviewScreenTest`, `ScanRouteTest`, `QuickScanRouteTest`, `QuickCheckRouteTest`.
+
+**Review findings:** 29 findings. 6 patch entries applied: high 1 (freeze-window phase overwrite, with its 2 gap rows), medium 5 (route tests, double TalkBack state, sticker a11y nodes, vacuous assertions, `measuredCenters` on back-out). 0 deferred. 12 false and 11 low were rejected; reasons are in the triage log.
+
+**Follow-up review recommended:** true. A high was patched, the freeze-window guard in `GuidedScanActivity.handle()`. It has no frame-level route test: no test feeds a frame between the last retake capture and `endFreeze`. Patched by verdict: high 1, medium 5, low 0.
+
+**Verification:** `./gradlew spotlessCheck build` (JDK 25): BUILD SUCCESSFUL before and after the patches. Every I/O matrix row has a passing test (`ScanAssemblerTest`, `ScanReviewTest`, `GuidedScanFlowTest`).
+
+**Residual risks:**
+- The device-session human gate (Lenovo Tab M10 Plus 3rd Gen and Galaxy S24 FE, main app from the Solve tab) has not run yet. The orchestrator runs it with the PO after the PR opens.
+- Readings to confirm with the PO in that session:
+  - The review title stays visible in retake mode.
+  - Backing out of the retake viewfinder returns to normal review, not to retake mode with the earlier selection.
+  - Kept faces' suspect hints are re-ranked against the merged self-calibration.
+- TalkBack behaviour on device is unverified; it was checked through semantics only.

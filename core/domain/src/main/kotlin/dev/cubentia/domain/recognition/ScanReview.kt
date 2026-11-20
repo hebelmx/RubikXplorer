@@ -127,6 +127,52 @@ class ScanReview(
         private fun ScanEvidence.without(indices: Set<Int>): ScanEvidence =
             copy(labs = labs.mapIndexed { i, lab -> lab.takeUnless { i in indices } })
 
+        /**
+         * The review after a retake from [before] (Story 10.16): [retaken] replaces the samples of its faces in the
+         * scan's [samples], and self-calibration runs over that merged set (with [saved]). Kept faces (those not
+         * retaken) keep [before]'s stickers exactly, the Learner's edits included, and are never reclassified; retaken
+         * faces come from [ScanAssembler.assembleRetake] with kept faces fixed, prefilled by the close-call rule, and
+         * keep no earlier edit. Evidence is [before]'s Labs on kept faces and the new Labs on retaken faces. When the
+         * merged samples cannot self-calibrate, retaken faces are blank. Selection follows the [from] rule.
+         */
+        fun retaken(
+            before: ScanReview,
+            retaken: List<FaceSample>,
+            samples: List<FaceSample>,
+            saved: CalibrationCenters? = null,
+        ): ScanReview {
+            val faces = retaken.map { it.face }.toSet()
+            val kept = Face.entries.filter { it !in faces }
+            val keptColors = kept.associateWith { face -> before.stickers.subList(face.ordinal * 9, face.ordinal * 9 + 9) }
+            val retakenIndices = faces.flatMap { face -> face.ordinal * 9 until face.ordinal * 9 + 9 }.toSet()
+            val calibration =
+                (SelfCalibration.from(mergedSamples(samples, retaken), saved) as? SelfCalibration.Calibrated)?.calibration
+                    ?: return preselected(
+                        before.stickers.mapIndexed { i, color -> color.takeUnless { i in retakenIndices } },
+                        before.evidence?.without(retakenIndices),
+                    )
+            val result = ScanAssembler.assembleRetake(keptColors, retaken, calibration)
+            val colors =
+                List(Facelets.SIZE) { i ->
+                    if (i in retakenIndices) {
+                        result.facelets.colors[i].takeIf { result.confidence[i] == StickerConfidence.CONFIDENT }
+                    } else {
+                        before.stickers[i]
+                    }
+                }
+            val labs = List(Facelets.SIZE) { i -> if (i in retakenIndices) result.labs?.get(i) else before.evidence?.labs?.get(i) }
+            return preselected(colors, ScanEvidence(labs, calibration.centers))
+        }
+
+        /** [samples] with each face in [retaken] replaced by its retaken sample, in [samples] order (new faces last). */
+        fun mergedSamples(
+            samples: List<FaceSample>,
+            retaken: List<FaceSample>,
+        ): List<FaceSample> {
+            val byFace = retaken.associateBy { it.face }
+            return samples.map { byFace[it.face] ?: it } + retaken.filter { sample -> samples.none { it.face == sample.face } }
+        }
+
         fun fromSamples(
             samples: List<FaceSample>,
             saved: CalibrationCenters? = null,

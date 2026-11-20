@@ -12,11 +12,13 @@ import dev.cubentia.domain.recognition.FrameQuality
 import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.GuidedScanController
 import dev.cubentia.domain.recognition.GuidedScanEffect
+import dev.cubentia.domain.recognition.GuidedScanPlan
 import dev.cubentia.domain.recognition.Lab
 import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.recognition.ScanAssembler
 import dev.cubentia.domain.recognition.ScanResult
 import dev.cubentia.domain.recognition.ScanReview
+import dev.cubentia.domain.recognition.ScanStep
 import dev.cubentia.domain.recognition.SelfCalibration
 import dev.cubentia.domain.recognition.StickerClassification
 import dev.cubentia.domain.recognition.StickerClassifier
@@ -240,8 +242,51 @@ internal object GuidedScanFlow {
                 review,
                 CalibrationOffer
                     .offered(it.samples, saved, review),
+                samples = it.samples,
             )
         }
+
+    /** A retake's plan (Story 10.16): the fixed Guided Scan order filtered to [faces], each prompt naming only its center. */
+    fun retakePlan(faces: Set<Face>): List<ScanStep> = GuidedScanPlan.steps.filter { it.face in faces }
+
+    /**
+     * A retake of [faces] from [from]: a controller for only those faces, any rotation, never a named-top re-prompt.
+     * Its controller is touched on the analyzer thread only.
+     */
+    fun retakeRun(
+        faces: Set<Face>,
+        from: GuidedScanPhase.Review,
+    ): RetakeRun = RetakeRun(faces, from, GuidedScanController(plan = retakePlan(faces), reprompt = { emptyList() }))
+
+    /**
+     * The viewfinder of a retake [run]: its controller's step and "Face n of N" over the faces retaken, with the kept
+     * faces' samples shown as captured, and the review to restore on back-out.
+     */
+    fun retakePhase(run: RetakeRun): GuidedScanPhase.Viewfinder =
+        phaseOf(run.controller).copy(kept = run.from.samples.filter { it.face !in run.faces }, fromReview = run.from)
+
+    /**
+     * The review after a retake from [before] whose [retaken] samples are all captured: kept faces exactly as reviewed
+     * (edits included), retaken faces from the new capture only ([ScanReview.retaken]); corrections on retaken faces are
+     * dropped, the review counts as edited (so *Close* asks), the calibration offer is recomputed over the merged samples,
+     * and those merged samples are what a later retake starts from.
+     */
+    fun reviewAfterRetake(
+        before: GuidedScanPhase.Review,
+        retaken: List<FaceSample>,
+        saved: CalibrationCenters?,
+    ): GuidedScanPhase.Review {
+        val faces = retaken.map { it.face }.toSet()
+        val samples = ScanReview.mergedSamples(before.samples, retaken)
+        val review = ScanReview.retaken(before.review, retaken, before.samples, saved)
+        return before.copy(
+            review = review,
+            offerCalibration = CalibrationOffer.offered(samples, saved, review),
+            edited = true,
+            corrections = before.corrections.filterKeys { Face.entries[it / 9] !in faces },
+            samples = samples,
+        )
+    }
 
     fun calibrationCapture(
         phase: GuidedScanPhase.Calibration,
@@ -267,6 +312,13 @@ internal object GuidedScanFlow {
         saved: CalibrationCenters? = null,
     ): ScanReview? = effects.filterIsInstance<GuidedScanEffect.Done>().firstOrNull()?.let { ScanReview.fromSamples(it.samples, saved) }
 }
+
+/** A retake from review in progress (Story 10.16): the [faces] asked for, the review it started [from], its [controller]. */
+internal class RetakeRun(
+    val faces: Set<Face>,
+    val from: GuidedScanPhase.Review,
+    val controller: GuidedScanController,
+)
 
 /**
  * The capture freeze (PO 2026-11-16): after a face is captured the captured frame stays on screen for [durationMs], and

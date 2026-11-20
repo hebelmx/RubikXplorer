@@ -443,6 +443,32 @@ class ScanRouteTest {
         }
     }
 
+    @Test fun retakeFromReviewAsksOnlyTheChosenFaceAndBackRestoresTheReview() {
+        withScan { activity, vm ->
+            captureFaces(vm, logo = false)
+            val review = vm.phase as GuidedScanPhase.Review
+            if (rule.onAllNodesWithTag("review:coach").fetchSemanticsNodes().isNotEmpty()) {
+                rule.onNodeWithTag("review:coach").performClick()
+            }
+            rule.onNodeWithTag("review:retakeFaces").performScrollTo().performClick()
+            rule.onNodeWithTag("reviewNet:face:${Face.F.ordinal}").performClick()
+            rule.onNodeWithTag("review:retake:start").performScrollTo().performClick()
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                vm.phase is GuidedScanPhase.Viewfinder
+            }
+            val phase = vm.phase as GuidedScanPhase.Viewfinder
+            assertTrue(phase.fromReview === review)
+            assertEquals(GuidedScanPlan.steps.first { it.face == Face.F }, phase.step)
+            rule.onNodeWithTag("scanProgress").assertTextEquals("Face 1 of 1")
+            rule.runOnIdle { activity.onBackPressedDispatcher.onBackPressed() }
+            rule.waitForIdle()
+            assertTrue(vm.phase === review)
+            rule.onNodeWithTag("review:screen").assertIsDisplayed()
+            assertFalse(activity.isFinishing)
+        }
+    }
+
     private fun withScan(test: (GuidedScanActivity, GuidedScanViewModel) -> Unit) {
         val scan = Robolectric.buildActivity(GuidedScanActivity::class.java).setup()
         try {

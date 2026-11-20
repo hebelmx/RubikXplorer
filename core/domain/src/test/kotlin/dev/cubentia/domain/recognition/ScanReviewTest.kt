@@ -245,4 +245,103 @@ class ScanReviewTest {
         assertEquals(review.hashCode(), ScanReview(solved.colors, null).hashCode())
         assertNotEquals(review, review.select(0))
     }
+
+    // Story 10.16: the review after a retake.
+
+    private val scrambled =
+        CubeState.SOLVED
+            .apply(
+                listOf(
+                    dev.cubentia.domain.cube
+                        .FaceTurn(Face.R, dev.cubentia.domain.cube.Turn.CLOCKWISE),
+                    dev.cubentia.domain.cube
+                        .FaceTurn(Face.U, dev.cubentia.domain.cube.Turn.COUNTERCLOCKWISE),
+                    dev.cubentia.domain.cube
+                        .FaceTurn(Face.F, dev.cubentia.domain.cube.Turn.HALF),
+                    dev.cubentia.domain.cube
+                        .FaceTurn(Face.L, dev.cubentia.domain.cube.Turn.CLOCKWISE),
+                    dev.cubentia.domain.cube
+                        .FaceTurn(Face.D, dev.cubentia.domain.cube.Turn.CLOCKWISE),
+                    dev.cubentia.domain.cube
+                        .FaceTurn(Face.B, dev.cubentia.domain.cube.Turn.COUNTERCLOCKWISE),
+                    dev.cubentia.domain.cube
+                        .FaceTurn(Face.R, dev.cubentia.domain.cube.Turn.HALF),
+                    dev.cubentia.domain.cube
+                        .FaceTurn(Face.F, dev.cubentia.domain.cube.Turn.CLOCKWISE),
+                ),
+            ).toFacelets()
+
+    /** The face [slot] of [facelets] shown upright with no named top, read as the [colors] Labs. */
+    private fun shown(
+        facelets: Facelets,
+        slot: Face,
+        colors: List<Color> = facelets.colors.subList(slot.ordinal * 9, slot.ordinal * 9 + 9),
+    ) = RecognitionFixtures.sample(center = Color.home(slot), stickers = colors.map(RecognitionFixtures.LABS::getValue), face = slot)
+
+    private fun faceRange(face: Face) = face.ordinal * 9 until face.ordinal * 9 + 9
+
+    @Test fun `a retake keeps kept faces with their edits and replaces retaken faces and their edits`() {
+        // F was misread as all green; the Learner fixed one sticker on U and one on F, then retakes F.
+        val misread = Face.entries.map { if (it == Face.F) shown(scrambled, it, List(9) { Color.GREEN }) else shown(scrambled, it) }
+        val first = ScanReview.fromSamples(misread)
+        val uEdit = 0
+        val fEdit = 18
+        val before = first.corrected(mapOf(uEdit to Color.YELLOW, fEdit to Color.BLUE))
+        val retake = listOf(shown(scrambled, Face.F).copy(orientationDegrees = 90))
+        val after = ScanReview.retaken(before, retake, misread)
+        (Face.entries - Face.F).flatMap(::faceRange).forEach { assertEquals(before.stickers[it], after.stickers[it]) }
+        assertEquals(Color.YELLOW, after.stickers[uEdit])
+        assertEquals(scrambled.colors.subList(18, 27), after.stickers.subList(18, 27))
+        // Kept evidence is unchanged; the edited sticker still has no Lab.
+        assertNull(after.evidence!!.labs[uEdit])
+        assertEquals(before.evidence!!.labs[1], after.evidence!!.labs[1])
+        assertEquals(scrambled.colors.subList(18, 27).map(RecognitionFixtures.LABS::getValue), after.evidence!!.labs.subList(18, 27))
+    }
+
+    @Test fun `a retake that resolves the cube accepts it and selects nothing`() {
+        val misread = Face.entries.map { if (it == Face.R) shown(scrambled, it, List(9) { Color.RED }) else shown(scrambled, it) }
+        val before = ScanReview(scrambled.colors.mapIndexed { i, color -> if (i in faceRange(Face.R)) Color.RED else color }, null)
+        val after = ScanReview.retaken(before, listOf(shown(scrambled, Face.R)), misread)
+        assertEquals(scrambled, after.accepted?.toFacelets())
+        assertNull(after.selected)
+    }
+
+    @Test fun `a retaken face that cannot be placed is blank and pre-selected`() {
+        val samples = Face.entries.map { shown(scrambled, it) }
+        val before = ScanReview.fromSamples(samples)
+        val after =
+            ScanReview.retaken(
+                before,
+                listOf(
+                    shown(scrambled, Face.F).copy(
+                        stickers =
+                            List(8) {
+                                RecognitionFixtures.LABS.getValue(Color.GREEN)
+                            },
+                    ),
+                ),
+                samples,
+            )
+        assertEquals(faceRange(Face.F).filter { it != 22 }, after.blanks)
+        assertEquals(18, after.selected)
+        (Face.entries - Face.F).flatMap(::faceRange).forEach { assertEquals(before.stickers[it], after.stickers[it]) }
+    }
+
+    @Test fun `an uncalibrated retake blanks retaken faces and keeps the rest`() {
+        val samples = Face.entries.map { shown(scrambled, it) }
+        val before = ScanReview.fromSamples(samples)
+        // The retaken red face is unusable for self-calibration and no calibration is saved.
+        val after = ScanReview.retaken(before, listOf(shown(scrambled, Face.R).copy(quality = CaptureQuality.BLURRED)), samples)
+        assertEquals(faceRange(Face.R).filter { it != 13 }, after.blanks)
+        (Face.entries - Face.R).flatMap(::faceRange).forEach { assertEquals(before.stickers[it], after.stickers[it]) }
+        assertEquals(9, after.selected)
+    }
+
+    @Test fun `merged samples replace retaken faces in place`() {
+        val samples = Face.entries.map { shown(scrambled, it) }
+        val again = shown(scrambled, Face.F).copy(orientationDegrees = 180)
+        val merged = ScanReview.mergedSamples(samples, listOf(again))
+        assertEquals(samples.map { it.face }, merged.map { it.face })
+        assertSame(again, merged[Face.F.ordinal])
+    }
 }

@@ -415,6 +415,37 @@ class GuidedScanScreenTest {
         rule.onNodeWithTag("scanClose").performClick()
         assertEquals(1, closed)
     }
+
+    @Test
+    fun `a retake from review counts only its faces and shows kept faces as captured`() {
+        val samples =
+            Face.entries.map { face ->
+                FaceSample(
+                    face = face,
+                    orientationDegrees = 0,
+                    stickers = List(9) { Lab(55.0, -60.0, 40.0) },
+                    quality = CaptureQuality.ACCEPTABLE,
+                    centerColor = Color.home(face),
+                )
+            }
+        val from =
+            GuidedScanPhase.Review(
+                dev.cubentia.domain.recognition
+                    .ScanReview(List(54) { null }, null),
+                samples = samples,
+            )
+        show(GuidedScanFlow.retakePhase(GuidedScanFlow.retakeRun(setOf(Face.R, Face.D), from)))
+        assertFitsOnOneScreen()
+        rule.onNodeWithText("Face 1 of 2").assertIsDisplayed()
+        rule.onNodeWithText("Show the red center.").assertIsDisplayed()
+        rule.onNodeWithTag("scanSwatch:WHITE").assertDoesNotExist()
+        Face.entries.forEach { face ->
+            assertEquals(
+                face !in setOf(Face.R, Face.D),
+                rule.onNodeWithTag("scanNetFace:${face.name}").fetchSemanticsNode().config[ScanNetFaceCaptured],
+            )
+        }
+    }
 }
 
 /** True when this rectangle and [other] share any area. */

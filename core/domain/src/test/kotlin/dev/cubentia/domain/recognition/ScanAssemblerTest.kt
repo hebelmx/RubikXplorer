@@ -615,4 +615,123 @@ class ScanAssemblerTest {
         assertTrue("F:c=G/up=-/o=0/read=GGGGGGGGG" in line, line)
         assertEquals("-", ScanTrace.letter(null))
     }
+
+    // Story 10.16: retake from review, kept faces fixed.
+
+    private fun keptOf(
+        facelets: Facelets,
+        retaken: Set<Face>,
+    ): Map<Face, List<Color?>> = (Face.entries - retaken).associateWith { facelets.colors.subList(it.ordinal * 9, it.ordinal * 9 + 9) }
+
+    private fun nonCenters(face: Face) = range(face).filter { it % 9 != 4 }
+
+    @Test
+    fun `retake with one valid fit fills the retaken face in its turn and keeps kept faces`() {
+        (0..3).forEach { turn ->
+            val result =
+                ScanAssembler.assembleRetake(
+                    keptOf(scrambled, setOf(Face.F)),
+                    listOf(unposed(scrambled, Face.F, turn)),
+                    CALIBRATION,
+                )
+            assertEquals(scrambled, result.facelets)
+            assertEquals(allConfident, result.confidence)
+            assertEquals(scrambled.colors.subList(18, 27).map(LABS::getValue), result.labs!!.subList(18, 27))
+        }
+    }
+
+    @Test
+    fun `retake of two faces searches both turns with the rest fixed`() {
+        val result =
+            ScanAssembler.assembleRetake(
+                keptOf(scrambled, setOf(Face.U, Face.B)),
+                listOf(unposed(scrambled, Face.B, 3), unposed(scrambled, Face.U, 1, orientation = 90)),
+                CALIBRATION,
+            )
+        assertEquals(scrambled, result.facelets)
+        assertEquals(allConfident, result.confidence)
+    }
+
+    @Test
+    fun `ambiguous retake keeps the first valid state and blanks only retaken faces that differ`() {
+        val retaken = setOf(Face.U, Face.F, Face.D, Face.B)
+        val result = ScanAssembler.assembleRetake(keptOf(r2, retaken), retaken.map { unposed(r2, it, 0) }, CALIBRATION)
+        assertEquals(r2, result.facelets)
+        retaken.forEach { face -> nonCenters(face).forEach { assertEquals(StickerConfidence.UNCERTAIN, result.confidence[it]) } }
+        (range(Face.R) + range(Face.L)).forEach { assertEquals(StickerConfidence.CONFIDENT, result.confidence[it]) }
+    }
+
+    @Test
+    fun `no valid retake with a kept blank reviews the best fit and blanks differing retaken faces`() {
+        val retaken = setOf(Face.U, Face.F, Face.D, Face.B)
+        val blank = range(Face.R).first()
+        val kept = keptOf(r2, retaken).mapValues { (face, colors) -> if (face == Face.R) listOf(null) + colors.drop(1) else colors }
+        val result = ScanAssembler.assembleRetake(kept, retaken.map { unposed(r2, it, 0) }, CALIBRATION)
+        assertEquals(StickerConfidence.UNCERTAIN, result.confidence[blank])
+        (range(Face.R) - blank + range(Face.L)).forEach { assertEquals(StickerConfidence.CONFIDENT, result.confidence[it]) }
+        assertEquals(r2.colors.subList(blank + 1, blank + 9), result.facelets.colors.subList(blank + 1, blank + 9))
+        retaken.forEach { face -> nonCenters(face).forEach { assertEquals(StickerConfidence.UNCERTAIN, result.confidence[it]) } }
+    }
+
+    @Test
+    fun `a kept blank leaves its piece illegal but a single best fit still fills the retaken face`() {
+        val blank = range(Face.U).first()
+        val kept =
+            keptOf(scrambled, setOf(Face.F)).mapValues { (face, colors) ->
+                if (face ==
+                    Face.U
+                ) {
+                    listOf(null) + colors.drop(1)
+                } else {
+                    colors
+                }
+            }
+        val result = ScanAssembler.assembleRetake(kept, listOf(unposed(scrambled, Face.F, 1)), CALIBRATION)
+        assertEquals(StickerConfidence.UNCERTAIN, result.confidence[blank])
+        assertEquals(scrambled.colors.subList(18, 27), result.facelets.colors.subList(18, 27))
+        nonCenters(Face.F).forEach { assertEquals(StickerConfidence.CONFIDENT, result.confidence[it]) }
+    }
+
+    @Test
+    fun `a retaken sample that cannot be placed is blank and kept faces are unchanged`() {
+        val good = unposed(scrambled, Face.F, 0)
+        listOf(
+            good.copy(quality = CaptureQuality.BLURRED),
+            good.copy(stickers = good.stickers.take(8)),
+            good.copy(orientationDegrees = 45),
+            good.copy(centerColor = Color.RED),
+        ).forEach { sample ->
+            val result = ScanAssembler.assembleRetake(keptOf(scrambled, setOf(Face.F)), listOf(sample), CALIBRATION)
+            nonCenters(Face.F).forEach { assertEquals(StickerConfidence.UNCERTAIN, result.confidence[it]) }
+            assertEquals(Color.GREEN, result.facelets.colors[22])
+            (Face.entries - Face.F).flatMap(::range).forEach {
+                assertEquals(scrambled.colors[it], result.facelets.colors[it])
+                assertEquals(StickerConfidence.CONFIDENT, result.confidence[it])
+            }
+        }
+    }
+
+    @Test
+    fun `an uncalibrated retake blanks retaken faces and keeps the rest`() {
+        val result =
+            ScanAssembler.assembleRetake(
+                keptOf(scrambled, setOf(Face.F)),
+                listOf(unposed(scrambled, Face.F, 0)),
+                CalibrationCenters(emptyMap()),
+            )
+        nonCenters(Face.F).forEach { assertEquals(StickerConfidence.UNCERTAIN, result.confidence[it]) }
+        (Face.entries - Face.F).flatMap(::range).forEach { assertEquals(scrambled.colors[it], result.facelets.colors[it]) }
+        assertNull(result.labs)
+    }
+
+    @Test
+    fun `a retaken face with a named top is placed at its turn`() {
+        val result =
+            ScanAssembler.assembleRetake(
+                keptOf(scrambled, setOf(Face.R)),
+                listOf(capture(scrambled, Face.R, 2, 180).copy(face = Face.R)),
+                CALIBRATION,
+            )
+        assertEquals(scrambled, result.facelets)
+    }
 }

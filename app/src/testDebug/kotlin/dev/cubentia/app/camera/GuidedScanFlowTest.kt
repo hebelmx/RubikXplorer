@@ -631,4 +631,132 @@ class GuidedScanFlowTest {
             deviceCheck(partial, expected, setOf(Face.F, Face.L)).certainty,
         )
     }
+
+    // Story 10.16: retake faces from the scan review.
+
+    private val retakeLabs =
+        mapOf(
+            Color.WHITE to Lab(90.0, 0.0, 0.0),
+            Color.YELLOW to Lab(85.0, -5.0, 80.0),
+            Color.GREEN to Lab(55.0, -60.0, 40.0),
+            Color.BLUE to Lab(40.0, 10.0, -50.0),
+            Color.RED to Lab(45.0, 65.0, 45.0),
+            Color.ORANGE to Lab(65.0, 45.0, 65.0),
+        )
+
+    private val scrambled =
+        dev.cubentia.domain.cube.CubeState.SOLVED
+            .apply(
+                listOf(
+                    dev.cubentia.domain.cube
+                        .FaceTurn(Face.R, dev.cubentia.domain.cube.Turn.CLOCKWISE),
+                    dev.cubentia.domain.cube
+                        .FaceTurn(Face.U, dev.cubentia.domain.cube.Turn.COUNTERCLOCKWISE),
+                    dev.cubentia.domain.cube
+                        .FaceTurn(Face.F, dev.cubentia.domain.cube.Turn.HALF),
+                    dev.cubentia.domain.cube
+                        .FaceTurn(Face.L, dev.cubentia.domain.cube.Turn.CLOCKWISE),
+                    dev.cubentia.domain.cube
+                        .FaceTurn(Face.D, dev.cubentia.domain.cube.Turn.CLOCKWISE),
+                    dev.cubentia.domain.cube
+                        .FaceTurn(Face.B, dev.cubentia.domain.cube.Turn.COUNTERCLOCKWISE),
+                ),
+            ).toFacelets()
+
+    private fun upright(
+        slot: Face,
+        colors: List<Color> = scrambled.colors.subList(slot.ordinal * 9, slot.ordinal * 9 + 9),
+    ) = FaceSample(
+        face = slot,
+        orientationDegrees = 0,
+        stickers = colors.map(retakeLabs::getValue),
+        quality = CaptureQuality.ACCEPTABLE,
+        centerColor = Color.home(slot),
+    )
+
+    /** A review of [scrambled] whose F face was misread all green, with one edit on U (0) and one on F (18). */
+    private fun misreadReview(): GuidedScanPhase.Review {
+        val samples = Face.entries.map { if (it == Face.F) upright(it, List(9) { Color.GREEN }) else upright(it) }
+        val first = checkNotNull(GuidedScanFlow.reviewOf(listOf(GuidedScanEffect.Done(samples)), null))
+        val corrections = mapOf(0 to Color.YELLOW, 18 to Color.BLUE)
+        return first.copy(review = first.review.corrected(corrections), corrections = corrections, edited = true)
+    }
+
+    @Test fun `a retake asks only the chosen faces in Guided Scan order, each naming only its center`() {
+        val plan = GuidedScanFlow.retakePlan(setOf(Face.D, Face.U, Face.L, Face.F))
+        assertEquals(listOf(Color.GREEN, Color.ORANGE, Color.WHITE, Color.YELLOW), plan.map { it.centerColor })
+        assertTrue(plan.all { it.upNeighborColor == null })
+    }
+
+    @Test fun `a retake run counts its own faces, shows kept faces as captured and never re-prompts`() {
+        val from = misreadReview()
+        val run = GuidedScanFlow.retakeRun(setOf(Face.R, Face.F), from)
+        val phase = GuidedScanFlow.retakePhase(run)
+        assertEquals(2, phase.total)
+        assertEquals(0, phase.stepIndex)
+        assertEquals(Color.GREEN, phase.step?.centerColor)
+        assertNull(phase.step?.upNeighborColor)
+        assertEquals(setOf(Face.U, Face.D, Face.L, Face.B), phase.kept.map { it.face }.toSet())
+        assertTrue(phase.fromReview === from)
+        // A misread pair of faces still finishes after two captures, with no named-top round.
+        assertFalse(run.controller.shoot(upright(Face.F, List(9) { Color.RED })).any { it is GuidedScanEffect.Done })
+        assertEquals(1, GuidedScanFlow.retakePhase(run).stepIndex)
+        val done =
+            run.controller
+                .shoot(upright(Face.R, List(9) { Color.YELLOW }))
+                .filterIsInstance<GuidedScanEffect.Done>()
+                .single()
+        assertEquals(listOf(Face.F, Face.R), done.samples.map { it.face })
+        assertEquals(0, run.controller.repromptCount)
+    }
+
+    @Test fun `the review after a retake keeps kept faces and edits, replaces retaken ones and counts as edited`() {
+        val before = misreadReview()
+        val after = GuidedScanFlow.reviewAfterRetake(before, listOf(upright(Face.F).copy(orientationDegrees = 270)), null)
+        (Face.entries - Face.F).flatMap { face -> face.ordinal * 9 until face.ordinal * 9 + 9 }.forEach {
+            assertEquals(before.review.stickers[it], after.review.stickers[it])
+        }
+        assertEquals(Color.YELLOW, after.review.stickers[0])
+        assertEquals(scrambled.colors.subList(18, 27), after.review.stickers.subList(18, 27))
+        assertEquals(mapOf(0 to Color.YELLOW), after.corrections)
+        assertTrue(after.edited)
+        assertEquals(Face.entries.toList(), after.samples.map { it.face })
+        assertEquals(270, after.samples[Face.F.ordinal].orientationDegrees)
+        assertEquals(before.initialStickers, after.initialStickers)
+    }
+
+    @Test fun `a fresh review is never edited, so only a completed retake makes Close ask`() {
+        val samples = Face.entries.map { upright(it) }
+        val fresh = checkNotNull(GuidedScanFlow.reviewOf(listOf(GuidedScanEffect.Done(samples)), null))
+        assertFalse(fresh.edited)
+        assertEquals(samples, fresh.samples)
+        assertTrue(GuidedScanFlow.reviewAfterRetake(fresh, listOf(upright(Face.B)), null).edited)
+    }
+
+    @Test fun `backing out of a retake restores the review it started from exactly`() {
+        val vm = GuidedScanViewModel()
+        val from = misreadReview()
+        val run = GuidedScanFlow.retakeRun(setOf(Face.F), from)
+        vm.retake = run
+        vm.phase = GuidedScanFlow.retakePhase(run)
+        run.controller.shoot(upright(Face.F))
+        vm.backOutOfRetake(from)
+        assertTrue(vm.phase === from)
+        vm.analyzerExecutor.submit {}.get()
+        assertNull(vm.retake)
+        assertTrue(vm.guidedController() === vm.controller)
+    }
+
+    @Test fun `a finished retake is held until the last capture's freeze ends`() {
+        val vm = GuidedScanViewModel()
+        val from = misreadReview()
+        vm.phase = GuidedScanFlow.retakePhase(GuidedScanFlow.retakeRun(setOf(Face.F), from))
+        val after = GuidedScanFlow.reviewAfterRetake(from, listOf(upright(Face.F)), null)
+        vm.frozen = FrozenCapture(7, Face.F, null)
+        vm.publishRetake(after)
+        assertTrue(vm.phase is GuidedScanPhase.Viewfinder)
+        vm.endFreeze(7)
+        // Published as built: earlier corrections are not re-applied.
+        assertTrue(vm.phase === after)
+    }
 }

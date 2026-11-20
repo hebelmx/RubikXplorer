@@ -71,6 +71,7 @@ import dev.cubentia.app.ui.theme.DarkTokens
 import dev.cubentia.app.ui.theme.PlexSans
 import dev.cubentia.app.ui.theme.Radii
 import dev.cubentia.app.ui.theme.RubikTheme
+import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.domain.appearance.StickerAppearance
 import dev.cubentia.domain.cube.Facelets
 import kotlinx.coroutines.launch
@@ -168,6 +169,10 @@ private const val CELLS_PER_FACE = 9
 private const val FACE_SIDE = 3
 private const val FACE_COUNT = 6
 
+/** The selected face's outline in retake mode (Story 10.16). */
+private const val RETAKE_OUTLINE_DP = 3
+private const val RETAKE_CHECK_TEXT_FRACTION = 0.6f
+
 /** How far the cube body extends past the outer stickers, on top of the sticker gap. */
 private const val BODY_RIM_DP = 2
 private const val BODY_OUTLINE_DP = 1
@@ -192,6 +197,11 @@ internal val FACE_NAMES =
  * calls [onStickerClick]; other stickers are not clickable. With a [face] (URFDLB index) only that
  * face's 3×3 stickers are drawn, for windows too narrow to give every net sticker a touch-sized cell.
  * Reusable for scan review.
+ *
+ * With [retakeSelected] (retake mode, Story 10.16) whole faces are the targets: tapping a face calls [onFaceClick]
+ * with its URFDLB index, each face is announced "Green face" or "Green face, selected for retake", and a selected face
+ * gets a static `accent` outline and a ✓ badge; stickers are not clickable and show no selected ring, pulse, invalid
+ * outline, problem mark or blank edge.
  */
 @Composable
 fun StickerReviewNet(
@@ -207,7 +217,10 @@ fun StickerReviewNet(
     strings: ContentStrings? = null,
     cue: StickerCue? = null,
     problemMarks: Map<Int, StickerProblemMark>? = null,
+    retakeSelected: Set<Int>? = null,
+    onFaceClick: (Int) -> Unit = {},
 ) {
+    val retake = retakeSelected != null
     val reduceMotion = rememberReduceMotion()
     // Cues already played, so a sticker scrolled back into a one-face view does not replay its cue.
     val playedCues = remember { mutableSetOf<Int>() }
@@ -243,16 +256,30 @@ fun StickerReviewNet(
                         strings = strings,
                         index = index,
                         style = style,
-                        isSelected = index == selected,
-                        isInvalid = index in invalid,
-                        onClick = if (editable(index)) ({ onStickerClick(index) }) else null,
+                        isSelected = !retake && index == selected,
+                        isInvalid = !retake && index in invalid,
+                        onClick = if (!retake && editable(index)) ({ onStickerClick(index) }) else null,
                         cell = cell,
                         reduceMotion = reduceMotion,
-                        cueSerial = cue?.takeIf { it.index == index }?.serial,
+                        cueSerial = cue?.takeIf { !retake && it.index == index }?.serial,
                         playedCues = playedCues,
-                        problemMark = problemMarks?.get(index),
+                        problemMark = if (retake) null else problemMarks?.get(index),
+                        retake = retake,
                         modifier = Modifier.offset(cell * column, cell * row),
                     )
+                }
+                if (retakeSelected != null && strings != null) {
+                    faceOrigins.forEachIndexed { slot, (column, row) ->
+                        val shown = face ?: slot
+                        RetakeFace(
+                            index = shown,
+                            isSelected = shown in retakeSelected,
+                            strings = strings,
+                            cell = cell,
+                            onClick = { onFaceClick(shown) },
+                            modifier = Modifier.offset(cell * column, cell * row),
+                        )
+                    }
                 }
             }
         }
@@ -274,6 +301,7 @@ private fun ReviewSticker(
     playedCues: MutableSet<Int>,
     problemMark: StickerProblemMark?,
     modifier: Modifier,
+    retake: Boolean = false,
 ) {
     val appearance = color?.let(StickerAppearance::of)
     val tokens = RubikTheme.tokens
@@ -343,7 +371,7 @@ private fun ReviewSticker(
                 .drawWithContent {
                     if (problemMark == null) drawContent()
                     var inset = 0f
-                    if (color == null) {
+                    if (color == null && !retake) {
                         inset = BLANK_EDGE_DP.dp.toPx()
                         val edge = BLANK_EDGE_DP.dp.toPx()
                         val dash = DASH_DP.dp.toPx()
@@ -359,15 +387,18 @@ private fun ReviewSticker(
                     if (isInvalid) inset = drawRing(tokens.stickerHighlight, inset)
                     if (isSelected) drawSelectedRing(tokens.accent, inset, ringAlpha.value)
                     if (problemMark != null) drawContent()
-                }.testTag("sticker:$index")
-                .semantics {
+                }.then(
+                    // In retake mode only the six face targets are announced (Story 10.16).
+                    if (retake) Modifier.clearAndSetSemantics { testTag = "sticker:$index" } else Modifier.testTag("sticker:$index"),
+                ).semantics {
+                    if (retake) return@semantics
                     contentDescription = description
                     stickerColor = fill
                     if (style.colorBlindGlyphs && color != null) stickerGlyphInk = ink
                     selected = isSelected
                     stickerInvalid = isInvalid
                     if (isInvalid) stickerOutlineColor = tokens.stickerHighlight
-                    if (color == null) stickerBlankEdge = tokens.stickerHighlight
+                    if (color == null && !retake) stickerBlankEdge = tokens.stickerHighlight
                     if (isSelected) stickerPulsing = pulsing
                     if (isSelected) {
                         stickerSelectedRing =
@@ -424,6 +455,53 @@ private fun ReviewSticker(
                 contentAlignment = Alignment.Center,
             ) {
                 Text("✓", color = tokens.onAccent, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
+/**
+ * One face of the net in retake mode (Story 10.16): a touch target over its 3×3 announced "Green face" (with ", selected
+ * for retake" when [isSelected]); selected, it gets a static 3dp `accent` outline and a ✓ badge (`on-accent` on an
+ * `accent` dot).
+ */
+@Composable
+private fun RetakeFace(
+    index: Int,
+    isSelected: Boolean,
+    strings: ContentStrings,
+    cell: Dp,
+    onClick: () -> Unit,
+    modifier: Modifier,
+) {
+    val tokens = RubikTheme.tokens
+    val badge = cell * CHECK_SIZE_FRACTION
+    // Sized to the badge, not the font scale, so the ✓ never overflows its dot at 200%.
+    val checkSize = with(LocalDensity.current) { (badge * RETAKE_CHECK_TEXT_FRACTION).toSp() }
+    val color = stringResource(colorName(CubeColor.home(dev.cubentia.domain.cube.Face.entries[index])))
+    val key = if (isSelected) "msg.scan.retake-face-selected" else "msg.scan.retake-face"
+    val label = strings.resolve(ContentText(key, mapOf("color" to color)))
+    Box(
+        modifier
+            .requiredSize(cell * FACE_SIDE)
+            .clickable(role = Role.Button, onClick = onClick)
+            .then(if (isSelected) Modifier.border(RETAKE_OUTLINE_DP.dp, tokens.accent, RoundedCornerShape(Radii.xs)) else Modifier)
+            .semantics(mergeDescendants = true) {
+                // The "…, selected for retake" label is the only state marker.
+                contentDescription = label
+            }.testTag("reviewNet:face:$index"),
+        contentAlignment = Alignment.TopEnd,
+    ) {
+        if (isSelected) {
+            Box(
+                Modifier
+                    .padding(Spacing.s1)
+                    .requiredSize(badge)
+                    .background(tokens.accent, CircleShape)
+                    .clearAndSetSemantics { testTag = "reviewNet:face:$index:check" },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("✓", color = tokens.onAccent, fontSize = checkSize, lineHeight = checkSize, maxLines = 1, softWrap = false)
             }
         }
     }

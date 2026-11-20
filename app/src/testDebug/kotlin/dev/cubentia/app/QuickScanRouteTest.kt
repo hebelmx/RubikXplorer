@@ -114,6 +114,8 @@ class QuickScanRouteTest {
                     shutter(model)
                 }
                 ShadowLog.clear()
+                // Retake faces is a Guided 6-face Scan review action only (Story 10.16).
+                rule.onNodeWithTag("review:retakeFaces").assertDoesNotExist()
                 rule.onNodeWithTag("review:accept").performScrollTo().performClick()
                 val result = shadowOf(scan.get())
                 assertEquals(ScanOutcome.Accepted(CubeState.SOLVED), ScanFlowContract.decode(result.resultCode, result.resultIntent))
