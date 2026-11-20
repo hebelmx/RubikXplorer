@@ -74,6 +74,7 @@ import dev.cubentia.application.port.AlgorithmStatusLoad
 import dev.cubentia.application.port.FeatureFlag
 import dev.cubentia.application.port.FeatureFlags
 import dev.cubentia.application.port.FlagLevel
+import dev.cubentia.application.port.showsBeta
 import dev.cubentia.application.preference.Preference
 import dev.cubentia.application.session.CubeMode
 import dev.cubentia.application.session.Effect
@@ -722,7 +723,7 @@ private fun ShellContent(
                         recognizeFlow,
                         recognizeAction,
                         placementScan,
-                        placementBeta = flags.level(FeatureFlag.PLACEMENT) == FlagLevel.BETA,
+                        placementBeta = flags.showsBeta(FeatureFlag.PLACEMENT),
                         onOpen = { id, autoPlay ->
                             autoPlayAlgorithm = autoPlay
                             openAlgorithm = id.value
@@ -753,7 +754,7 @@ private fun ShellContent(
                             openAlgorithm = it.value
                         },
                         onRecognize = recognizeAction?.let { start -> { start(2) } },
-                        recognizeBeta = flags.level(FeatureFlag.CASE_RECOGNITION) == FlagLevel.BETA,
+                        recognizeBeta = flags.showsBeta(FeatureFlag.CASE_RECOGNITION),
                     )
                 }
             }
@@ -838,8 +839,8 @@ private fun ShellContent(
                         session.kind?.takesMoves == true,
                         onScan = onScan.takeIf { flags.isEnabled(FeatureFlag.CAMERA_SCAN) },
                         onQuickScan = onQuickScan.takeIf { flags.isEnabled(FeatureFlag.QUICK_SCAN) },
-                        quickScanBeta = flags.level(FeatureFlag.QUICK_SCAN) == FlagLevel.BETA,
-                        scanBeta = flags.level(FeatureFlag.CAMERA_SCAN) == FlagLevel.BETA,
+                        quickScanBeta = flags.showsBeta(FeatureFlag.QUICK_SCAN),
+                        scanBeta = flags.showsBeta(FeatureFlag.CAMERA_SCAN),
                         onLearn = {
                             solveFlow.closeEditor()
                             tab = Tab.LEARN

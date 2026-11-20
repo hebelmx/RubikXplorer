@@ -61,6 +61,15 @@ class ShutterSoundTest {
     }
 
     @Test
+    fun `loadOrSkip swallows a throwing load, so play stays a no-op`() {
+        val player = Recorder { throw IllegalStateException("no sound") }
+        val sound = ShutterSound(player)
+        sound.loadOrSkip()
+        sound.play()
+        assertEquals(emptyList<String>(), player.calls)
+    }
+
+    @Test
     fun `a capture effect posted after release plays nothing, and a late load is skipped`() {
         val player = Recorder()
         val sound = ShutterSound(player)

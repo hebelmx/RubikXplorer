@@ -45,6 +45,14 @@ internal class ShutterSound(
         }
     }
 
+    /**
+     * [load] that never throws (GH #158): a platform failure (e.g. [MediaActionSound.load] throwing) leaves the sound
+     * unloaded, so the scan goes on silently and [play] stays a no-op.
+     */
+    fun loadOrSkip() {
+        runCatching { load() }
+    }
+
     /** Plays the shutter click once loaded; a no-op before the load finished or after [release]. */
     fun play() {
         synchronized(lock) {

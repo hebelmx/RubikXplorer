@@ -154,6 +154,28 @@ class AppShellRecognizeTest {
     }
 
     @Test
+    fun recognizeGaShowsTheBetaLabelWhileCameraScanIsBeta() {
+        launch(FlagLevel.GA, cameraScan = FlagLevel.BETA)
+        rule.onNodeWithTag("library:recognize:beta", useUnmergedTree = true).assertExists()
+        rule.onNodeWithTag("library:recognize").assertContentDescriptionEquals("Recognize case, BETA")
+    }
+
+    @Test
+    fun recognizeGaWithCameraScanGaShowsNoBetaLabel() {
+        launch(FlagLevel.GA)
+        rule.onNodeWithTag("library:recognize").assertExists()
+        rule.onNodeWithTag("library:recognize:beta", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun placementGaShowsTheBetaLabelWhileCameraScanIsBeta() {
+        launch(placement = FlagLevel.GA, cameraScan = FlagLevel.BETA)
+        showUnsolved()
+        rule.onNodeWithTag("recognize:startFromCube").assertContentDescriptionEquals("Start from my cube, BETA")
+        rule.onNodeWithText(content.bundle.strings.getValue("msg.feature.camera.beta-note")).assertIsDisplayed()
+    }
+
+    @Test
     fun placementStartedFromRecognitionShowsItsSuggestionAfterOnboarding() {
         launch(placement = FlagLevel.GA)
         showUnsolved()
@@ -177,6 +199,7 @@ class AppShellRecognizeTest {
     private fun launch(
         level: FlagLevel = FlagLevel.GA,
         placement: FlagLevel = FlagLevel.OFF,
+        cameraScan: FlagLevel = FlagLevel.GA,
     ) {
         val preferences = PreferenceStore()
         val host = SessionHost(TickingClock(), Dispatchers.Default.limitedParallelism(1), preferences = preferences)
@@ -188,6 +211,7 @@ class AppShellRecognizeTest {
                     when (flag) {
                         FeatureFlag.CASE_RECOGNITION -> level
                         FeatureFlag.PLACEMENT -> placement
+                        FeatureFlag.CAMERA_SCAN -> cameraScan
                         else -> FlagLevel.GA
                     }
             }

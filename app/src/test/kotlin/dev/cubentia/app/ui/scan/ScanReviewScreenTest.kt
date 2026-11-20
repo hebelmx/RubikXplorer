@@ -893,12 +893,16 @@ class ScanReviewScreenTest {
     // Story 10.16: retake faces from the review.
 
     private var retaken: Set<Face>? = null
+    private var retakeStarts = 0
 
     private fun launchRetake(
         large: Boolean = false,
         edited: Boolean = false,
     ) {
-        retake = { retaken = it }
+        retake = {
+            retakeStarts++
+            retaken = it
+        }
         enterColors = {}
         launch(large = large, edited = edited)
         rule.onNodeWithTag("review:retakeFaces").performScrollTo().performClick()
@@ -1035,8 +1039,16 @@ class ScanReviewScreenTest {
         assertEquals(before, review)
         rule.onNodeWithTag("review:retake:start").performClick()
         assertEquals(setOf(Face.U, Face.F), retaken)
-        // Starting a retake leaves retake mode.
-        rule.onNodeWithTag("review:accept").assertExists()
+        assertEquals(1, retakeStarts)
+        // Starting a retake stays in retake mode, inert, until the screen leaves the review: no review control flashes.
+        rule.onNodeWithTag("review:accept").assertDoesNotExist()
+        rule.onNodeWithTag("review:retakeFaces").assertDoesNotExist()
+        rule.onNodeWithTag("review:retake:start").assertIsNotEnabled().assertTextEquals("Retake 2 faces")
+        rule.onNodeWithTag("review:retake:cancel").assertIsNotEnabled()
+        rule.onNodeWithTag("review:retake:start").performClick()
+        rule.onNodeWithTag("reviewNet:face:3").performClick()
+        assertEquals(1, retakeStarts)
+        assertFaceSelected(3, false)
     }
 
     @Test fun `Cancel leaves retake mode with the selection cleared and the review unchanged`() {

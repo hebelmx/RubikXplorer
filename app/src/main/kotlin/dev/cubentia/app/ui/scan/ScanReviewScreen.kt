@@ -108,17 +108,19 @@ fun ScanReviewScreen(
     // Retake mode (Story 10.16): the net selects whole faces to scan again; every other control is hidden.
     var retaking by rememberSaveable { mutableStateOf(false) }
     var retakeFaces by rememberSaveable { mutableStateOf(emptySet<Int>()) }
+    // After *Retake N faces* the screen stays in retake mode, inert, until the Activity leaves the review (its phase hop
+    // is asynchronous), so the review controls never flash; a changed review clears it.
+    var launching by rememberSaveable(review) { mutableStateOf(false) }
     if (retaking && onRetake != null) {
         RetakeMode(
             review = review,
             strings = strings,
             selectedFaces = retakeFaces,
+            launching = launching,
             onToggle = { shown -> retakeFaces = if (shown in retakeFaces) retakeFaces - shown else retakeFaces + shown },
             onStart = {
-                val faces = retakeFaces.map { Face.entries[it] }.toSet()
-                retaking = false
-                retakeFaces = emptySet()
-                onRetake(faces)
+                launching = true
+                onRetake(retakeFaces.map { Face.entries[it] }.toSet())
             },
             onCancel = {
                 retaking = false
@@ -155,12 +157,13 @@ private fun RetakeMode(
     review: ScanReview,
     strings: ContentStrings,
     selectedFaces: Set<Int>,
+    launching: Boolean,
     onToggle: (Int) -> Unit,
     onStart: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier,
 ) {
-    BackHandler(onBack = onCancel)
+    BackHandler { if (!launching) onCancel() }
     Column(
         modifier
             .safeDrawingPadding()
@@ -179,7 +182,7 @@ private fun RetakeMode(
             unresolved = review.stickers,
             strings = strings,
             retakeSelected = selectedFaces,
-            onFaceClick = onToggle,
+            onFaceClick = { if (!launching) onToggle(it) },
             modifier = Modifier.fillMaxWidth().aspectRatio(Net2DRenderer.NET_COLUMNS.toFloat() / Net2DRenderer.NET_ROWS),
         )
         Text(
@@ -188,12 +191,16 @@ private fun RetakeMode(
         )
         Button(
             onClick = onStart,
-            enabled = selectedFaces.isNotEmpty(),
+            enabled = selectedFaces.isNotEmpty() && !launching,
             modifier = Modifier.fillMaxWidth().testTag("review:retake:start"),
         ) {
             Text(strings.resolve(ContentText("btn.scan.retake-count", mapOf("count" to selectedFaces.size))))
         }
-        OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth().testTag("review:retake:cancel")) {
+        OutlinedButton(
+            onClick = onCancel,
+            enabled = !launching,
+            modifier = Modifier.fillMaxWidth().testTag("review:retake:cancel"),
+        ) {
             Text(strings.resolve(ContentText("btn.scan.cancel")))
         }
     }

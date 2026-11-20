@@ -95,7 +95,8 @@ private val FACE_MAX = Spacing.touchMin * 6
  * Offending pieces are outlined by the cube-highlight rule and every problem gets its own plain-language line, resolved through [strings]. **Accept** is
  * enabled only while the entry is valid and hands [onAccept] the [CubeState] [CubeValidator]
  * produced for exactly the entered stickers. Starts from [initial] (centers overwritten), drawn in
- * [style]. Not a session: it returns its result to the caller.
+ * [style]. Not a session: it returns its result to the caller, and reports each painted sticker's new
+ * stickers to [onChange], so a caller can keep an unaccepted draft across leaving composition.
  *
  * Layout is keyed on [windowSizeClass] (AD-17): the compact width class edits one face at a time
  * with a face selector that marks faces holding outlined stickers; wider classes show the full net.
@@ -110,6 +111,7 @@ fun ManualCubeEditor(
     initial: Facelets = CubeState.SOLVED.toFacelets(),
     style: RenderStyle = LocalRenderStyle.current,
     windowSizeClass: WindowSizeClass = currentWindowSizeClass(),
+    onChange: (Facelets) -> Unit = {},
 ) {
     val compact = !windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
     val state = rememberSaveable(initial, saver = ManualCubeEditorState.Saver) { ManualCubeEditorState(initial) }
@@ -152,6 +154,7 @@ fun ManualCubeEditor(
                     Swatch(color, style) {
                         state.selected?.let { index ->
                             state.paint(color)
+                            onChange(state.facelets)
                             cue = StickerCue(index, (cue?.serial ?: 0) + 1)
                             if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
                         }

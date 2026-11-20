@@ -41,7 +41,7 @@ import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.application.port.FeatureFlag
 import dev.cubentia.application.port.FeatureFlags
-import dev.cubentia.application.port.FlagLevel
+import dev.cubentia.application.port.showsBeta
 import dev.cubentia.application.preference.Preference
 import dev.cubentia.domain.text.Text as ContentText
 
@@ -127,7 +127,7 @@ fun WelcomeScreen(
 
             if (flags.isEnabled(FeatureFlag.PLACEMENT) && onStartFromCube != null) {
                 val label = stringResource(R.string.welcome_start_from_cube)
-                val betaStrings = strings.takeIf { flags.level(FeatureFlag.PLACEMENT) == FlagLevel.BETA }
+                val betaStrings = strings.takeIf { flags.showsBeta(FeatureFlag.PLACEMENT) }
                 val betaLabel = betaStrings?.resolve(ContentText("msg.feature.beta"))
                 OutlinedButton(
                     onClick = onStartFromCube,

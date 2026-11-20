@@ -64,6 +64,21 @@ class SolveFlowViewModel
         /** The accepted scan's measured centers (GH #172), kept and cleared with [scanned]. */
         private var scannedColors: CalibrationCenters? = null
         private var revision = 0L
+
+        /** The open editor's unaccepted stickers, kept across a Solve tab switch (in memory only, never on disk). */
+        private var draft: Facelets? = null
+
+        /** Shows [next]; any editor draft belongs to the phase it replaces, so it is dropped. */
+        private fun show(next: SolvePhase) {
+            draft = null
+            mutablePhase.value = next
+        }
+
+        /** The Learner changed a sticker in the open editor; kept so leaving the Solve tab does not lose it. */
+        fun onEdit(facelets: Facelets) {
+            if (mutablePhase.value is SolvePhase.Editing) draft = facelets
+        }
+
         private var job: Job? = null
 
         fun onScanOutcome(outcome: ScanOutcome) {
@@ -77,8 +92,7 @@ class SolveFlowViewModel
                 ScanOutcome.FellBackToEditor -> {
                     scanned = null
                     scannedColors = null
-                    mutablePhase.value =
-                        SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = Text("msg.solve.scan-fell-back"))
+                    show(SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = Text("msg.solve.scan-fell-back")))
                 }
 
                 ScanOutcome.Cancelled -> {
@@ -101,13 +115,13 @@ class SolveFlowViewModel
         fun scanDenied() {
             scanned = null
             scannedColors = null
-            mutablePhase.value = SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = Text("msg.solve.scan-camera-denied"))
+            show(SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = Text("msg.solve.scan-camera-denied")))
         }
 
         fun enterColors() {
             scanned = null
             scannedColors = null
-            mutablePhase.value = SolvePhase.Editing(accepted)
+            show(SolvePhase.Editing(accepted))
         }
 
         fun closeEditor() {
@@ -116,11 +130,16 @@ class SolveFlowViewModel
             mutablePendingScan.value = null
             revision++
             job?.cancel()
-            mutablePhase.value = SolvePhase.Home
+            show(SolvePhase.Home)
         }
 
         fun leaveSolveTab() {
             cancelSolving()
+            // The editor leaves composition with the tab: it reopens on the unaccepted stickers.
+            val current = mutablePhase.value
+            val edited = draft
+            if (current is SolvePhase.Editing && edited != null) mutablePhase.value = current.copy(initial = edited)
+            draft = null
             scanned = null
             scannedColors = null
             mutablePendingScan.value = null
@@ -134,7 +153,7 @@ class SolveFlowViewModel
         fun cancel() {
             revision++
             job?.cancel()
-            mutablePhase.value = SolvePhase.Editing(accepted)
+            show(SolvePhase.Editing(accepted))
         }
 
         fun confirm(
@@ -151,7 +170,7 @@ class SolveFlowViewModel
             accepted = state.reoriented(Orientation.HOME).toFacelets()
             scanned = null
             scannedColors = null
-            mutablePhase.value = SolvePhase.AlreadySolved
+            show(SolvePhase.AlreadySolved)
         }
 
         fun accept(
@@ -161,7 +180,7 @@ class SolveFlowViewModel
             val attempt = ++revision
             job?.cancel()
             accepted = state.reoriented(Orientation.HOME).toFacelets()
-            mutablePhase.value = SolvePhase.Solving(if (source.isReady) Preparation.NONE else Preparation.WARMING_UP)
+            show(SolvePhase.Solving(if (source.isReady) Preparation.NONE else Preparation.WARMING_UP))
             job =
                 viewModelScope.launch {
                     val outcome =
@@ -175,7 +194,7 @@ class SolveFlowViewModel
                                                     attempt == revision &&
                                                     mutablePhase.value == SolvePhase.Solving(Preparation.WARMING_UP)
                                                 ) {
-                                                    mutablePhase.value = SolvePhase.Solving(Preparation.FIRST_USE)
+                                                    show(SolvePhase.Solving(Preparation.FIRST_USE))
                                                 }
                                             }
                                         }
@@ -188,7 +207,7 @@ class SolveFlowViewModel
                                 is SolverLoad.Ready -> {
                                     currentCoroutineContext().ensureActive()
                                     if (attempt != revision) return@launch
-                                    mutablePhase.value = SolvePhase.Solving(Preparation.NONE)
+                                    show(SolvePhase.Solving(Preparation.NONE))
                                     SolveCube(loaded.solver)(Effect.SolveCube(attempt, attempt, state)).outcome
                                 }
                             }
@@ -205,16 +224,16 @@ class SolveFlowViewModel
                             if (attempt == revision) {
                                 scanned = null
                                 scannedColors = null
-                                mutablePhase.value = SolvePhase.Home
+                                show(SolvePhase.Home)
                             }
                         }
 
                         is SolveCubeOutcome.TimedOut -> {
-                            mutablePhase.value = SolvePhase.Editing(accepted, outcome.recovery)
+                            show(SolvePhase.Editing(accepted, outcome.recovery))
                         }
 
                         is SolveCubeOutcome.Failed -> {
-                            mutablePhase.value = SolvePhase.Editing(accepted, outcome.recovery)
+                            show(SolvePhase.Editing(accepted, outcome.recovery))
                         }
                     }
                 }

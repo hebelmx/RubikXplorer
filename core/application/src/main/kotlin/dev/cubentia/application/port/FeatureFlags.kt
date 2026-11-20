@@ -23,3 +23,18 @@ interface FeatureFlags {
 
     fun isEnabled(flag: FeatureFlag): Boolean = level(flag) != FlagLevel.OFF
 }
+
+/** The camera features that carry a BETA label whenever [FeatureFlag.CAMERA_SCAN] is BETA. */
+private val cameraFeatures =
+    setOf(FeatureFlag.CAMERA_SCAN, FeatureFlag.QUICK_SCAN, FeatureFlag.PLACEMENT, FeatureFlag.CASE_RECOGNITION)
+
+/**
+ * Whether [flag]'s entry point shows the BETA label: the one rule for every site (EXPERIENCE *Feature flag BETA*).
+ * True when [flag] is enabled and either is BETA itself or is a camera feature while [FeatureFlag.CAMERA_SCAN] is BETA.
+ */
+fun FeatureFlags.showsBeta(flag: FeatureFlag): Boolean {
+    val own = level(flag)
+    if (own == FlagLevel.OFF) return false
+    if (own == FlagLevel.BETA) return true
+    return flag in cameraFeatures && level(FeatureFlag.CAMERA_SCAN) == FlagLevel.BETA
+}

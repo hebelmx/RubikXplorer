@@ -264,6 +264,34 @@ class GuidedScanFlowTest {
     }
 
     @Test
+    fun `a last capture after the camera became Unavailable neither freezes nor holds the review`() {
+        val vm = GuidedScanViewModel()
+        val done = ScanReview.fromSamples(List(6) { sample() })
+        vm.phase = GuidedScanPhase.Unavailable
+        var snapshots = 0
+        assertFalse(vm.onCaptured(Face.B) { null.also { snapshots++ } })
+        assertNull(vm.frozen)
+        assertEquals(0, snapshots)
+        vm.publish(done)
+        assertEquals(GuidedScanPhase.Review(done), vm.phase)
+    }
+
+    @Test
+    fun `a capture in the viewfinder freezes and holds the review until its freeze ends`() {
+        val vm = GuidedScanViewModel()
+        val done = ScanReview.fromSamples(List(6) { sample() })
+        vm.phase = GuidedScanPhase.Viewfinder()
+        assertTrue(vm.onCaptured(Face.B) { null })
+        val frozen = checkNotNull(vm.frozen)
+        assertEquals(Face.B, frozen.face)
+        vm.publish(done)
+        assertEquals(GuidedScanPhase.Viewfinder(), vm.phase)
+        vm.endFreeze(frozen.id)
+        assertNull(vm.frozen)
+        assertEquals(GuidedScanPhase.Review(done), vm.phase)
+    }
+
+    @Test
     fun `the finished scan is published at once when no capture is frozen`() {
         val vm = GuidedScanViewModel()
         val done = ScanReview.fromSamples(List(6) { sample() })
