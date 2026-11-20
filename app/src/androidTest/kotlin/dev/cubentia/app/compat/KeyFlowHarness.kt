@@ -20,6 +20,8 @@ import androidx.compose.ui.test.swipe
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
 import androidx.test.ext.junit.rules.ActivityScenarioRule
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.UiDevice
 import dev.cubentia.app.MainActivity
 import dev.cubentia.app.di.SolverModule
 import dev.cubentia.app.session.SessionHost
@@ -43,10 +45,19 @@ typealias KeyFlowRule = AndroidComposeTestRule<ActivityScenarioRule<MainActivity
 
 /**
  * Drives the real [MainActivity] through a Key Flow and, at each surface, rotates portrait →
- * landscape → portrait through `Activity.requestedOrientation` (never device settings), asserting
- * that the session ([SessionHost.state]) and the visible cube and step are unchanged and that the
- * layout follows the current window class (Story 12.2, AC3). Every check is logged under [TAG] so the
- * host script can keep the per-surface record as evidence.
+ * landscape → portrait, asserting that the session ([SessionHost.state]) and the visible cube and
+ * step are unchanged and that the layout follows the current window class (Story 12.2, AC3). Every
+ * check is logged under [TAG] so the host script can keep the per-surface record as evidence.
+ *
+ * The display itself is rotated through UI Automator ([UiDevice.setOrientationPortrait] /
+ * [UiDevice.setOrientationLandscape], which freeze the display rotation), and the activity's
+ * `requestedOrientation` stays `SCREEN_ORIENTATION_UNSPECIFIED`, so the app follows the system as it
+ * does when a Learner turns the device. This works on large screens that ignore orientation requests
+ * (Android 13 `wm get-ignore-orientation-request` = true, e.g. the Lenovo TB128XU; #119 item 1).
+ * Before the first freeze it records `accelerometer_rotation` and `user_rotation`; [restoreOrientation]
+ * unfreezes the rotation (which turns auto-rotate on) and then writes those settings back, best effort,
+ * so a run from Android Studio or `connectedAndroidTest` leaves the device as found. The host script
+ * (`tools/run-keyflow-rotation.sh`) restores and checks them again as a backstop.
  */
 class KeyFlowHarness(
     private val rule: KeyFlowRule,
@@ -262,12 +273,48 @@ class KeyFlowHarness(
         settle()
     }
 
+    /**
+     * Resets the activity's orientation request, unfreezes the display rotation and puts the recorded
+     * rotation settings back (best effort; see [saveRotationSettings]).
+     */
     fun restoreOrientation() {
         try {
             val activity = activity()
             rule.runOnUiThread { activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
         } catch (_: Throwable) {
             // The activity is already gone.
+        }
+        try {
+            device().unfreezeRotation()
+        } catch (_: Throwable) {
+            // Best effort: the settings below and the host script still put the rotation back.
+        }
+        restoreRotationSettings()
+    }
+
+    /** Records the rotation settings once per run, before the first freeze (setup and teardown are separate instances). */
+    private fun saveRotationSettings() {
+        if (savedRotationSettings != null) return
+        savedRotationSettings =
+            try {
+                ROTATION_SETTINGS.associateWith { device().executeShellCommand("settings get system $it").trim() }
+            } catch (_: Throwable) {
+                emptyMap()
+            }
+    }
+
+    /** Writes the recorded rotation settings back (`settings delete` for an unset one), then forgets them. */
+    private fun restoreRotationSettings() {
+        val saved = savedRotationSettings ?: return
+        savedRotationSettings = null
+        saved.forEach { (key, value) ->
+            try {
+                val command =
+                    if (value.isEmpty() || value == "null") "settings delete system $key" else "settings put system $key $value"
+                device().executeShellCommand(command)
+            } catch (_: Throwable) {
+                Log.w(TAG, "restore,setting=$key,result=fail")
+            }
         }
     }
 
@@ -277,6 +324,12 @@ class KeyFlowHarness(
         if (failures.isNotEmpty()) fail("$flow: ${failures.size} rotation check(s) failed:\n" + failures.joinToString("\n"))
     }
 
+    private fun device(): UiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+
+    /**
+     * Rotates the display to [orientation] (`SCREEN_ORIENTATION_LANDSCAPE` or `_PORTRAIT`) through
+     * [UiDevice] and waits until the current activity's configuration follows (recreated if needed).
+     */
     private fun rotate(orientation: Int) {
         val want =
             if (orientation == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) {
@@ -286,7 +339,10 @@ class KeyFlowHarness(
             }
         val old = activity()
         val recreate = old.resources.configuration.orientation != want
-        rule.runOnUiThread { old.requestedOrientation = orientation }
+        // Rotate the display, not the activity's request: the app follows the system (#119 item 1).
+        // setOrientation* waits for the display rotation; the await below waits for the activity.
+        saveRotationSettings()
+        if (want == Configuration.ORIENTATION_LANDSCAPE) device().setOrientationLandscape() else device().setOrientationPortrait()
         await("rotation to ${if (want == Configuration.ORIENTATION_LANDSCAPE) "landscape" else "portrait"}", ROTATE_TIMEOUT_MS) {
             val current =
                 try {
@@ -504,6 +560,11 @@ class KeyFlowHarness(
 
     companion object {
         const val TAG = "KeyFlowRotation"
+        private val ROTATION_SETTINGS = listOf("accelerometer_rotation", "user_rotation")
+
+        /** The rotation settings as found before the first freeze; null when none are recorded. */
+        @Volatile
+        private var savedRotationSettings: Map<String, String>? = null
         private const val TIMEOUT_MS = 20_000L
         private const val ROTATE_TIMEOUT_MS = 15_000L
         private const val POLL_MS = 100L
