@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-20-2026 03:51'
+last_updated: '11-20-2026 17:25'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -147,6 +147,8 @@ development_status:
   10-14-scan-each-face-in-any-rotation: done
   10-15-solve-from-a-scan: done
   10-16-retake-faces-from-the-scan-review: done
+  10-17-switch-from-quick-scan-to-the-guided-scan-and-keep-the-captu: backlog
+  10-18-quick-scan-finds-the-cube-s-real-edges-and-corners: backlog
   epic-10-retrospective: optional
 
   epic-11: done
@@ -183,6 +185,18 @@ development_status:
   13-5-give-learners-a-support-and-contact-page: done
   13-6-register-the-privacy-policy-in-play-console: done
   epic-13-retrospective: done
+
+  epic-14: backlog
+  14-1-choose-my-entry-level-when-i-can-already-solve-it: backlog
+  14-2-practice-an-algorithm-on-my-real-cube: backlog
+  14-3-practice-every-lesson-step-on-my-real-cube-with-a-quick-chec: backlog
+  epic-14-retrospective: optional
+
+  epic-15: backlog
+  15-1-build-a-beginner-method-solution-from-the-course-s-stages: backlog
+  15-2-last-layer-segments-for-2-look-and-full-oll-pll-preferring-m: backlog
+  15-3-choose-a-solution-style-in-solution-playback: backlog
+  epic-15-retrospective: optional
 action_items:
   - id: "epic-2-retro-item-1-create-a-deferred-findings-ledger-or-rou"
     epic: 2
@@ -838,7 +852,8 @@ action_items:
       session (medium; residual risk from 11.2, #106)"
     owner: "PO (hebelmx)"
     status: done
-    evidence: "docs/evidence/session-c/notes.md (Placement table, 2026-11-20, Galaxy S24 FE); follow-ups #251 #252 #253"
+    evidence: "docs/evidence/session-c/notes.md (Placement table, 2026-11-20, Galaxy
+      S24 FE); follow-ups #251 #252 #253"
     ref: "_bmad-output/implementation-artifacts/spec-11-2-start-the-course-from-my-cube-placement.md"
   - id: "epic-11-deferred-11.2-camera-scan-beta-label"
     epic: 11
@@ -1386,91 +1401,133 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-10-16-retake-faces-from-the-scan-review.md"
   - id: "epic-12-deferred-12.3-phys-offline-release"
     epic: 12
-    action: "On a reference device, install the release build fresh from the Play internal or closed track, switch on airplane mode, run the Course, Library, cube entry and solve, and record the result in docs/evidence/12-3/README.md (medium; deferred from 12.3 by PO decision 2026-11-20, AC2; batch with the combined human-verification session, #106)"
+    action: "On a reference device, install the release build fresh from the Play
+      internal or closed track, switch on airplane mode, run the Course, Library,
+      cube entry and solve, and record the result in docs/evidence/12-3/README.md
+      (medium; deferred from 12.3 by PO decision 2026-11-20, AC2; batch with the combined
+      human-verification session, #106)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-12-3-stability-size-and-privacy-hardening.md"
   - id: "epic-12-deferred-12.3-play-vitals-review"
     epic: 12
-    action: "In Play Console, review the closed-testing build Android vitals before production (user-perceived crash-free sessions >= 99.5%, user-perceived ANR rate below the bad-behavior threshold) and record the numbers, date and versionCode in docs/evidence/12-3/README.md (high; deferred from 12.3 by PO decision 2026-11-20, AC3, runbook docs/release.md Before production)"
+    action: "In Play Console, review the closed-testing build Android vitals before
+      production (user-perceived crash-free sessions >= 99.5%, user-perceived ANR
+      rate below the bad-behavior threshold) and record the numbers, date and versionCode
+      in docs/evidence/12-3/README.md (high; deferred from 12.3 by PO decision 2026-11-20,
+      AC3, runbook docs/release.md Before production)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-12-3-stability-size-and-privacy-hardening.md"
   - id: "epic-12-deferred-12.3-play-data-safety-form"
     epic: 12
-    action: "Confirm the Play data-safety form declares no data collected or shared and is saved against the registered privacy-policy URL (Story 13.6), and record the date in docs/evidence/12-3/README.md (high; deferred from 12.3 by PO decision 2026-11-20, AC3, answers in docs/play-first-publish.md section 2)"
+    action: "Confirm the Play data-safety form declares no data collected or shared
+      and is saved against the registered privacy-policy URL (Story 13.6), and record
+      the date in docs/evidence/12-3/README.md (high; deferred from 12.3 by PO decision
+      2026-11-20, AC3, answers in docs/play-first-publish.md section 2)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-12-3-stability-size-and-privacy-hardening.md"
   - id: "epic-12-deferred-12.3-release-build-offline-run"
     epic: 12
-    action: "Run the offline Key Flows against release code (benchmark build, debug-signed) on an emulator, or confirm the first release-tag CI offline run passes, since the automated offline run covers only the debug build (medium, unverified; deferred from 12.3, tools/run-keyflow-rotation.sh, .github/scripts/run-instrumentation.sh)"
+    action: "Run the offline Key Flows against release code (benchmark build, debug-signed)
+      on an emulator, or confirm the first release-tag CI offline run passes, since
+      the automated offline run covers only the debug build (medium, unverified; deferred
+      from 12.3, tools/run-keyflow-rotation.sh, .github/scripts/run-instrumentation.sh)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-12-3-stability-size-and-privacy-hardening.md"
   - id: "epic-12-deferred-12.3-epic-12-context-rules"
     epic: 12
-    action: "Recompile or extend epic-12-context.md when Story 12.4 starts so it again carries AD-4 commit-before-animate, session integrity and the en.json checkLearnerText rule (low; deferred from 12.3, _bmad-output/implementation-artifacts/epic-12-context.md)"
+    action: "Recompile or extend epic-12-context.md when Story 12.4 starts so it again
+      carries AD-4 commit-before-animate, session integrity and the en.json checkLearnerText
+      rule (low; deferred from 12.3, _bmad-output/implementation-artifacts/epic-12-context.md)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-12-3-stability-size-and-privacy-hardening.md"
   - id: "ai-b1-deferred-device-freeze-unavailable-race"
     epic: 10
-    action: "On a reference device, confirm a camera failure during the last face capture never leaves Guided Scan stuck (Activity wiring of onCaptured in handle() is not route-tested) (medium; deferred from ai-b1, GuidedScanActivity.kt:583; batch with the combined human-verification session, #106)"
+    action: "On a reference device, confirm a camera failure during the last face
+      capture never leaves Guided Scan stuck (Activity wiring of onCaptured in handle()
+      is not route-tested) (medium; deferred from ai-b1, GuidedScanActivity.kt:583;
+      batch with the combined human-verification session, #106)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-ai-b1-learner-visible-fixes.md"
   - id: "ai-b1-deferred-device-shutter-load-failure"
     epic: 10
-    action: "On a reference device, confirm a real MediaActionSound load failure leaves the scan running silently (medium; deferred from ai-b1, GuidedScanActivity.kt:118; batch with #106)"
+    action: "On a reference device, confirm a real MediaActionSound load failure leaves
+      the scan running silently (medium; deferred from ai-b1, GuidedScanActivity.kt:118;
+      batch with #106)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-ai-b1-learner-visible-fixes.md"
   - id: "ai-b1-deferred-device-retake-no-flash"
     epic: 10
-    action: "On hardware, tap Retake N faces and confirm the review controls never flash before the retake viewfinder opens (low, Learner-visible; deferred from ai-b1, ScanReviewScreen.kt:113; batch with #106)"
+    action: "On hardware, tap Retake N faces and confirm the review controls never
+      flash before the retake viewfinder opens (low, Learner-visible; deferred from
+      ai-b1, ScanReviewScreen.kt:113; batch with #106)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-ai-b1-learner-visible-fixes.md"
   - id: "ai-b1-deferred-editor-draft-selection-reset"
     epic: 10
-    action: "A restored unaccepted editor draft keeps the painted colors but resets the selected sticker and the compact-mode face tab after a Solve tab switch; keep them too (low, Learner-visible; gate finding ai-b1, ManualCubeEditor.kt:117)"
+    action: "A restored unaccepted editor draft keeps the painted colors but resets
+      the selected sticker and the compact-mode face tab after a Solve tab switch;
+      keep them too (low, Learner-visible; gate finding ai-b1, ManualCubeEditor.kt:117)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-ai-b1-learner-visible-fixes.md"
   - id: "ai-b2-deferred-device-placement-accept-rotate"
     epic: 11
-    action: "On a reference device, rotate while the Placement accept write is in flight and confirm the Learner lands on Learn at the accepted Stage, onboarded, with no second write (low; deferred from ai-b2, AppShell.kt; batch with the combined human-verification session, #106)"
+    action: "On a reference device, rotate while the Placement accept write is in
+      flight and confirm the Learner lands on Learn at the accepted Stage, onboarded,
+      with no second write (low; deferred from ai-b2, AppShell.kt; batch with the
+      combined human-verification session, #106)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-ai-b2-state-safety.md"
   - id: "ai-b2-deferred-device-physical-2look-result-line"
     epic: 11
-    action: "In 2-look practice in physical mode on a real cube, confirm the qualified or not-qualified result line appears only after tapping Yes, it's solved (low, Learner-visible; deferred from ai-b2, LessonScreen.kt:371; batch with #106)"
+    action: "In 2-look practice in physical mode on a real cube, confirm the qualified
+      or not-qualified result line appears only after tapping Yes, it's solved (low,
+      Learner-visible; deferred from ai-b2, LessonScreen.kt:371; batch with #106)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-ai-b2-state-safety.md"
   - id: "ai-b4-deferred-device-header-wrap-edge"
     epic: 10
-    action: "On a narrow phone at large font scale, check the wrapped \"<N> moves\" header on Solution Playback no longer touches the right edge (low, Learner-visible; deferred from ai-b4, SolvePlaybackScreen.kt:75; batch with the combined human-verification session, #106)"
+    action: "On a narrow phone at large font scale, check the wrapped \"<N> moves\"\
+      \ header on Solution Playback no longer touches the right edge (low, Learner-visible;
+      deferred from ai-b4, SolvePlaybackScreen.kt:75; batch with the combined human-verification
+      session, #106)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-ai-b4-copy-and-layout-polish.md"
   - id: "ai-b4-deferred-device-tag-glyph-legibility"
     epic: 10
-    action: "On the full review net with color-blind glyphs on, check the problem number tag and sticker glyph read clearly side by side on the smallest full-net cell (low, Learner-visible; deferred from ai-b4, StickerReviewNet.kt:436; batch with #106)"
+    action: "On the full review net with color-blind glyphs on, check the problem
+      number tag and sticker glyph read clearly side by side on the smallest full-net
+      cell (low, Learner-visible; deferred from ai-b4, StickerReviewNet.kt:436; batch
+      with #106)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-ai-b4-copy-and-layout-polish.md"
   - id: "ai-b4-deferred-device-demo-movenote-talkback"
     epic: 10
-    action: "With TalkBack in a Lesson Demonstration, check the generated MoveNote is read after each Move and the scrubber active track shows ink-secondary (low, Learner-visible; deferred from ai-b4, DemonstrationPlayer.kt:142; batch with #106)"
+    action: "With TalkBack in a Lesson Demonstration, check the generated MoveNote
+      is read after each Move and the scrubber active track shows ink-secondary (low,
+      Learner-visible; deferred from ai-b4, DemonstrationPlayer.kt:142; batch with
+      #106)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-ai-b4-copy-and-layout-polish.md"
   - id: "ai-b4-deferred-scan-suspects-instruction-suffix"
     epic: 10
-    action: "On a camera scan with wrong color counts and suspects across faces, the review instruction still ends \"Check the outlined piece.\"; add a scan-suspect instruction variant (low, Learner-visible, pre-existing; deferred from ai-b4, ScanReviewScreen.kt:514)"
+    action: "On a camera scan with wrong color counts and suspects across faces, the
+      review instruction still ends \"Check the outlined piece.\"; add a scan-suspect
+      instruction variant (low, Learner-visible, pre-existing; deferred from ai-b4,
+      ScanReviewScreen.kt:514)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-ai-b4-copy-and-layout-polish.md"

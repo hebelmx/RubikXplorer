@@ -4,11 +4,11 @@ type: architecture-spine
 purpose: build-substrate
 altitude: feature
 paradigm: 'hexagonal (ports & adapters) + functional core / imperative shell'
-scope: 'RubikXplorer Android app MVP — whole system (FR-1..FR-28, NFR-1..NFR-13); FR-21..FR-28 in progress for v1.1 behind flags (SCP 2026-11-14); FR-29 (P1) deferred'
+scope: 'RubikXplorer Android app MVP — whole system (FR-1..FR-28, NFR-1..NFR-13); FR-21..FR-28 in progress for v1.1 behind flags (SCP 2026-11-14); FR-29 (P1) deferred; FR-30 method-aware solutions and FR-21..FR-27 move into v1.0 (SCP 2026-11-20)'
 status: final
 created: '2026-10-29'
-updated: 2026-11-16
-binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, NFR-12, NFR-13]
+updated: 2026-11-20
+binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-30, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, NFR-12, NFR-13]
 sources:
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/prd.md
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/addendum.md
@@ -92,6 +92,7 @@ graph TD
     - At most one session is active app-wide. It is held by an `@Singleton SessionHost` in `:app`, never by a ViewModel.
     - Starting a session of another kind first suspends the current one.
   - **Not sessions (AD-20):** the Library, Demonstrations, the free cube, the Manual Cube Editor and Scan review.
+  - **Algorithm practice on a real cube (SCP 2026-11-20, #208):** Algorithm detail stays outside any session. Its *I'm doing it on my cube* starts a `SOLVE_PLAYBACK` session whose Move list is the Algorithm's set-up Moves (inverse from solved, skippable) followed by the Algorithm, so *Done*, the Expected State, the mismatch ladder and Quick Check work exactly as in Solution Playback. No new `SessionKind`; like every `SOLVE_PLAYBACK`, it is not resumed after the app closes.
   - **Reducer:**
     - Every change is a `SessionEvent`, applied by the pure `reduce(SessionState, SessionEvent): Transition(state, effects, presentation)`.
     - Events are serialized on one confined loop. Each event is stamped with `at: Instant` at dispatch, and the reducer never reads `Clock` or `RandomSource`.
@@ -243,7 +244,7 @@ stateDiagram-v2
 ### AD-9 — Recognition: neutral samples in, validated observations out
 
 - **Binds:** FR-21–FR-28, NFR-5, NFR-8, NFR-11, NFR-12
-- **Status:** v1.1, active from Story 10.9; every camera story binds it (SCP 2026-11-14).
+- **Status:** v1.1, active from Story 10.9; every camera story binds it (SCP 2026-11-14). **SCP 2026-11-20:** the scan, review, Quick Check, Quick Scan and Placement move into v1.0; Story 10.11 raises their flags for the v1.0 release, so its release build carries the camera source set and the `CAMERA` permission (AD-13 checks and `docs/privacy-facts.json` follow from the manifest).
 - **Prevents:** pixel code spreading across features; camera types reaching the domain; unvalidated or partial scans reaching the Solver; two owners of Color Calibration.
 - **Rule:**
   - **Camera adapter:**
@@ -253,7 +254,7 @@ stateDiagram-v2
     - Quick Scan's detection and perspective correction live inside the adapter and emit the same type.
     - **Detection method** (OQ-7 decision K, PO 2026-11-15, Story 10.13, `docs/spikes/oq-7-recognition-approach.md`): Kotlin nearest-center classification fed by a per-cell histogram-mode reader, self-calibrated from the six face centers; no new runtime, so the Story 10.9 classpath gate is unchanged. LiteRT is the fallback if field use shows this is not enough; OpenCV is rejected on size (NFR-11). Story 11.1 builds Quick Scan's detection within this decision.
   - **Assembly and classification:**
-    - Only `ScanAssembler` in `:core:domain` rotates samples into `Facelets` order. A sample with no `upNeighborColor` gets the quarter turn that makes the six faces a state `CubeValidator` accepts; when no turn or more than one distinct state fits, it reports the faces involved for a re-prompt with a named top and never guesses (Story 10.14, SCP 2026-11-16). With no valid state it reports them only when they are at most `MAX_REPROMPT_FACES` (2); more go to review with the best fit and no re-prompt (SCP 2026-11-19, #164).
+    - Only `ScanAssembler` in `:core:domain` rotates samples into `Facelets` order. The Manual Cube Editor's per-face rotation (SCP 2026-11-20, #253) and the Quick Scan → Guided Scan hand-over that keeps captured faces (#198) use the same `ScanAssembler` entry on face colors; neither rotates faces itself. A sample with no `upNeighborColor` gets the quarter turn that makes the six faces a state `CubeValidator` accepts; when no turn or more than one distinct state fits, it reports the faces involved for a re-prompt with a named top and never guesses (Story 10.14, SCP 2026-11-16). With no valid state it reports them only when they are at most `MAX_REPROMPT_FACES` (2); more go to review with the best fit and no re-prompt (SCP 2026-11-19, #164).
     - `StickerClassifier` receives the calibration as a parameter.
     - The result is `ScanResult` = `Full(Facelets + confidence)` or `Partial(...)`.
   - **Acceptance:** the reducer rejects `ScanAccepted` unless:
@@ -284,7 +285,9 @@ stateDiagram-v2
     - Log rows carry an idempotency key `(sessionId, revision)`.
   - **Append-only logs:**
     - `attempt` is written only from the reducer's `AttemptStarted` / `AttemptEnded(objectiveId, outcome, errors, hints, assistanceLevel)` effects.
-    - `progress_event` has the types `LessonCompleted`, `StageSkippedByCheck`, `StageSkippedByPlacement`, `StageUnlocked` and `ProgressReset(epoch)`. Stage status and Mastery are pure functions over the current epoch.
+    - `progress_event` has the types `LessonCompleted`, `StageSkippedByCheck`, `StageSkippedByPlacement`, `StageSkippedByChoice`, `StageUnlocked` and `ProgressReset(epoch)`. Stage status and Mastery are pure functions over the current epoch.
+    - `StageSkippedByChoice` (SCP 2026-11-20, #209) records a Stage the Learner skipped by choosing an entry level, with no check. It counts as *skipped* (◇ *Skipped*), never *mastered*, exactly like `StageSkippedByCheck`.
+    - **Only add, never downgrade (SCP 2026-11-20, #252):** `PlaceFromScan` and `ChooseEntryLevel` may run on any existing progress. They append `StageSkippedBy…` only for earlier Stages that are `LOCKED` or `IN_PROGRESS`, and `StageUnlocked` only for a target that is not yet unlocked. They never write `ProgressReset`, never re-lock a Stage, and never touch Lesson completions, Checkpoints, attempts or Algorithm Statuses.
     - `algorithm_status_event` is keyed by `algorithmId` and written only by `SetAlgorithmStatus`.
   - **Preferences:** written only by `UpdatePreference`.
   - **Changes and deletes:** rows are never updated. The only deletes are the Learner's scoped resets (progress, calibration, preferences). *Reset progress* also ends the live session and deletes its snapshot (SCP 2026-11-10).
@@ -405,6 +408,18 @@ stateDiagram-v2
 - **Rule:**
   - One pure `PlaybackController` over `List<Move>` (play, pause, step, back, replay, speed) drives Demonstrations, Solution Playback and the Library through `CubeRenderer`. It is never checkpointed.
   - Solution Playback text comes only from `MoveNote.of(move): Text`.
+  - **Segments (SCP 2026-11-20, #208, #210):** a Move list may be split into labeled segments (*Set-up* and *Algorithm* for Algorithm practice; a Stage or Case for a method-aware solution, AD-21). A segment label is a content `Text` key naming the Stage, Case or segment kind; it names *what is practiced*, never claims why a Solver Move was chosen. Per-Move notes still come only from `MoveNote`.
+
+### AD-21 — Method-aware solutions come from the Course, not the Solver
+
+- **Binds:** FR-30, FR-16, FR-17, FR-18 *(SCP 2026-11-20, #210)*
+- **Prevents:** re-labelling Kociemba output as a beginner solve (Principle 3, AD-8); method logic forked from the Course's predicates; a second definition of Case patterns.
+- **Rule:**
+  - `MethodSolve` in `:core:domain` builds a method-aware solution as an ordered list of segments, each `(tag: StageId | CaseId, moves)`. It never calls `CubeSolver`, and AD-8 is unchanged: the Solver still only finds paths.
+  - First-two-layer segments follow the Course's Stage completion predicates in order (AD-6), each found by the bounded `preservedPieces` search that `RecoveryPlanner` uses, so a segment never breaks a piece an earlier segment placed.
+  - Last-layer segments use `LastLayerMatcher` (AD-19) and Library Algorithms only: beginner (Stages 5–6 Lessons' Algorithms), 2-look (the 2-look Lessons' Algorithms) or full OLL + PLL (one Algorithm per Case). When several fit, an Algorithm with Algorithm Status *Learning* or *Learned* wins.
+  - It runs as an Effect with a timeout, like `SolveCube`, and every result is re-verified by applying it to its input before it is shown.
+  - Playback is a `SOLVE_PLAYBACK` session through the shared `PlaybackController`, with AD-20 segment labels.
 
 ## Ownership Matrix
 
@@ -413,7 +428,7 @@ stateDiagram-v2
 | `virtual` / `expected` / `observed` | `LearningSession` reducer | memory + `SessionSnapshot` |
 | Checkpoint | reducer effect `PersistCheckpoint` | Room |
 | Attempt | reducer effects `AttemptStarted` / `AttemptEnded` | Room (append-only) |
-| Stage progress | `CompleteLesson`, `PassSkipCheck`, `PlaceFromScan`, `ResetProgress` | Room `progress_event` |
+| Stage progress | `CompleteLesson`, `PassSkipCheck`, `PlaceFromScan`, `ChooseEntryLevel` (SCP 2026-11-20), `ResetProgress` | Room `progress_event` |
 | Algorithm Status | `SetAlgorithmStatus` | Room `algorithm_status_event` |
 | Color Calibration | `UpdateCalibration`, `ResetCalibration` | Room (schema 8, Story 10.4) |
 | Preferences | `UpdatePreference` | Room / DataStore |
@@ -527,7 +542,8 @@ graph LR
 | FR-7–FR-9 Physical-cube Mode | reducer and Sync State Machine | AD-3, AD-5 |
 | FR-10–FR-13 Diagnosis, hints, recovery, adaptation | `tutor/`, `PlanRecovery` | AD-5, AD-6, AD-8 |
 | FR-14–FR-16 Editor, Solver, playback | `CubeValidator`, `:core:solver`, `SolveCube` | AD-2, AD-8, AD-20 |
-| FR-17–FR-18 2-look LL, Library | content, `lastlayer/`, `ui/library` | AD-6, AD-19, AD-20 |
+| FR-17–FR-18 2-look LL, Library (and Algorithm practice on a real cube, SCP 2026-11-20) | content, `lastlayer/`, `ui/library` | AD-3, AD-6, AD-19, AD-20 |
+| FR-30 Method-aware solutions | `MethodSolve`, `ui/playback` | AD-21, AD-6, AD-19, AD-20 |
 | FR-19–FR-20 Progress, mastery | Room logs, `tutor/Mastery` | AD-10 |
 | FR-21–FR-24 Scan capture, validation, calibration (v1.1) | `app/src/camera/`, `recognition/` | AD-9, AD-2, AD-17, AD-18 |
 | FR-25–FR-28 Scan uses (v1.1) | `SolveCube`, `ConfirmPhysical`, `PlaceFromScan`, `RecognizeCase` | AD-9, AD-5, AD-19, AD-18 |
