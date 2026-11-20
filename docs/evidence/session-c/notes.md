@@ -83,3 +83,21 @@ On the bad stka black-bg read, the calibrate prompt was right: calibrating and r
 - Not run: Part 2 (Recognize), Part 3 (Placement from Welcome), Part 4 (retake and robustness), and the calibration before/after test.
 - Issues opened 2026-11-20: #247 dark background / DARK_CELLS, #248 Lenovo out-of-focus frames, #249 review-screen paint mode.
 - One Galaxy screenshot removed because it showed a personal notification.
+
+## Placement from Welcome (Galaxy S24 FE, white LED), 2026-11-20 evening
+| path | cube | scan | suggestion | result |
+|---|---|---|---|---|
+| mixed | L' F' D2 B D F2 D' U2 | 54/54, 0 corr., 63 s | Cube fundamentals (Start / Choose another Stage) | pass. An earlier try chose Two-look PLL via Choose another Stage. |
+| A (classic hold: yellow top) | last layer only (Sune-inverse) | 54/54 (matches R D2 R' D' R D' R' in scan frame), 0 corr., 26 s | Last-layer orientation (+ Faster last layer, Choose another Stage); log outcome=AT_LAST_LAYER, accepted=none | pass |
+| B | solved | 54/54, 0 corr., 26 s (an earlier attempt was cancelled after 139 s) | "Your cube is solved, scramble it and scan again, or start Stage 1." (Scan again / Start Stage 1) | pass |
+| C (Enter colors) | solved + U' (white face turned one step), entered by hand in the editor (outcome=FELL_BACK_TO_EDITOR) | n/a | "Start with a white cross for this course." | flow pass; suggestion follows the matrix but is poor for a cube 1 move from solved (commented on #251) |
+| C2 (Enter colors) | solved + D (yellow layer turned one step, white on top), entered by hand | n/a | "Start at Last-layer completion?" | pass: first two layers recognised. Same edge case: the cube is 1 move (AUF) from solved (see #251 comment) |
+| D (camera refused) | Start from my cube with CAMERA revoked | n/a | in-app rationale ("reads them on this device, nothing saved or sent"; Continue / Enter colors instead), then Android prompt → Don't allow → "Camera access is off for Cubentia… enter your cube's colors by hand" (Enter colors instead / Open settings) | pass |
+| A' (white on top, non-classic) | R U2 R' U' R U' R' with white on top (held with red in front) | 54/54, 0 corr., 43 s | "Start with a white cross for this course." (Start / Choose another Stage); non-white-cross outcome | pass (expected edge outcome) |
+
+- PO: Placement only picks the Stage and the Lesson uses its own set-up. That is OK as designed. What's missing is telling the Learner what the scan saw and why: #251.
+
+- Path C (Enter colors): the editor shows the corner warning "Some corners show colors that no real corner has" while faces are still unedited (editor starts from solved). The PO had entered all faces and still saw it, so they are re-entering face by face to find the cause. Being checked.
+- Root cause: the Up face was entered turned 180° (W W B / W W W / G W R vs expected R W G / W W W / B W W). The editor never states the orientation per face. PO direction: accept any orientation like the scan does, and ask only when it can't resolve -> https://github.com/hebelmx/RubikXplorer/issues/253.
+
+Placement device check (epic-11-deferred-11.2-device-placement-scan) closed: scan, editor fallback, camera denial and every outcome (unsolved, at last layer, solved, non-white cross) were exercised on the Galaxy S24 FE. Camera permission restored afterwards.

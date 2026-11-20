@@ -837,7 +837,8 @@ action_items:
       device (scan, editor fallback, camera denial, each outcome) in the next device
       session (medium; residual risk from 11.2, #106)"
     owner: "PO (hebelmx)"
-    status: open
+    status: done
+    evidence: "docs/evidence/session-c/notes.md (Placement table, 2026-11-20, Galaxy S24 FE); follow-ups #251 #252 #253"
     ref: "_bmad-output/implementation-artifacts/spec-11-2-start-the-course-from-my-cube-placement.md"
   - id: "epic-11-deferred-11.2-camera-scan-beta-label"
     epic: 11
