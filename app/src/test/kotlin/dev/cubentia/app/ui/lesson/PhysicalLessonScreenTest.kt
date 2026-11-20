@@ -190,6 +190,66 @@ class PhysicalLessonScreenTest {
     }
 
     @Test
+    fun physicalTwoLookPracticeShowsTheResultLineOnlyAfterYesItsSolved() {
+        val host = solvePhysicalTwoLookPractice()
+        // The Objective is met only on the expected cube: the result waits for the Learner's own confirmation.
+        node("lesson:twoLookResult").assertDoesNotExist()
+
+        node("lesson:yesItsSolved").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.physicalSolveConfirmed }
+        rule.waitForIdle()
+        node("lesson:twoLookResult").assertTextEquals(bundle.strings.getValue("msg.lesson.two-look.qualified"))
+    }
+
+    @Test
+    fun anUnconfirmedPhysicalTwoLookSolveSwitchedToVirtualShowsNoResultLine() {
+        val host = solvePhysicalTwoLookPractice()
+        runBlocking { host.dispatch { SessionEvent.ModeSwitched(CubeMode.VIRTUAL, it) } }
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.VIRTUAL }
+        rule.waitForIdle()
+        assertTrue(host.state.value.physicalSolveUnconfirmed)
+        node("lesson:twoLookResult").assertDoesNotExist()
+    }
+
+    /** Opens an LL practice, switches to Physical-cube Mode and confirms its moves until the Objective is met. */
+    private fun solvePhysicalTwoLookPractice(): SessionHost {
+        val authored = bundle.twoLookStages.first().lessons[1]
+        val lesson = authored.copy(id = LessonId("practice-two-look"), completion = dev.cubentia.domain.predicate.CubeSolved)
+        val entry = CatalogEntry(lesson, bundle.twoLookStages.first(), bundle.tutorConfig)
+        val algorithms =
+            bundle.lessonAlgorithms.values.flatten().toSet().map { id ->
+                (Notation.parse(bundle.algorithms.single { it.id == id }.notation) as NotationResult.Parsed).moves
+            }
+        val host = SessionHost(TickingClock())
+        rule.setContent {
+            CubentiaTheme {
+                LessonScreen(
+                    host,
+                    entry,
+                    ready.strings,
+                    emptyList(),
+                    {},
+                    isPractice = true,
+                    twoLookPractice = true,
+                    twoLookAlgorithms = algorithms,
+                    twoLookStages = bundle.twoLookStages,
+                )
+            }
+        }
+        rule.waitUntil(5_000) { host.state.value.kind == SessionKind.PRACTICE }
+        runBlocking {
+            host.dispatch { SessionEvent.ModeSwitched(CubeMode.PHYSICAL, it) }
+            host.dispatch { SessionEvent.PhysicalConfirmed(at = it) }
+            (Notation.parse(authored.demonstration) as NotationResult.Parsed).moves.forEach { move ->
+                host.dispatch { SessionEvent.PhysicalConfirmed(move, it) }
+            }
+        }
+        rule.waitUntil(5_000) { host.state.value.objectiveMet }
+        rule.waitForIdle()
+        return host
+    }
+
+    @Test
     fun ac1_togglePhysicalModeOn_showsConfirmCard_andDashedExpectedBadge_suppressesCertainty_scanHidden_andDisablesReset() {
         val host = SessionHost(TickingClock())
         setLessonContent(host)

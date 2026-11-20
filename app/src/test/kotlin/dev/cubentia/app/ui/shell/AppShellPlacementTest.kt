@@ -10,6 +10,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -27,6 +28,7 @@ import dev.cubentia.app.session.TickingClock
 import dev.cubentia.app.session.testFlags
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
 import dev.cubentia.app.ui.placement.PlacementFlowViewModel
+import dev.cubentia.app.ui.placement.PlacementPhase
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.app.ui.theme.DarkTokens
 import dev.cubentia.app.ui.theme.LightTokens
@@ -97,12 +99,18 @@ class AppShellPlacementTest {
     private var scanCount = 0
     private var failWrite = false
     private var pendingWrite: CompletableDeferred<ProgressSave>? = null
+
+    /** Holds an append until completed, then saves it; [appends] counts every append call. */
+    private var gatedWrite: CompletableDeferred<Unit>? = null
+    private var appends = 0
     private val records = mutableListOf<ProgressRecord>()
     private val repository =
         object : ProgressRepository {
             override suspend fun all(): ProgressLoad = ProgressLoad.Found(records.map { it.event }, records.toList())
 
             override suspend fun append(records: List<ProgressRecord>): ProgressSave {
+                appends++
+                gatedWrite?.await()
                 pendingWrite?.let { return it.await() }
                 if (failWrite) return ProgressSave.Failed
                 this@AppShellPlacementTest.records.addAll(records)
@@ -113,7 +121,8 @@ class AppShellPlacementTest {
 
     @After
     fun closeWriter() {
-        runBlocking { writer.close() }
+        // Bounded: a write left waiting on the main thread must fail the test, not hang it.
+        runBlocking { kotlinx.coroutines.withTimeout(10_000) { writer.close() } }
     }
 
     @Test
@@ -273,6 +282,10 @@ class AppShellPlacementTest {
         runBlocking { writer.flush() }
         assertFalse(preferences.preferences.value.onboarded)
         assertFalse(savedPreferences.onboarded)
+
+        // The failure belongs to the phase it was shown in.
+        rule.onNodeWithTag("placement:chooseAnother").performClick()
+        rule.onNodeWithText(failure).assertDoesNotExist()
     }
 
     @Test
@@ -439,6 +452,96 @@ class AppShellPlacementTest {
         assertTrue(close.top >= top)
     }
 
+    @Test
+    fun `recreating the shell while the accept write is in flight still opens the accepted Stage and onboards`() {
+        val gate = CompletableDeferred<Unit>()
+        gatedWrite = gate
+        val restoration = StateRestorationTester(rule)
+        show(restoration = restoration)
+        startScan()
+        deliver(ScanOutcome.Accepted(entry("lesson-03-01")))
+        rule.onNodeWithTag("placement:start").performClick()
+        rule.waitUntil(5_000) { appends == 1 }
+
+        restoration.emulateSavedInstanceStateRestore()
+        rule.waitForIdle()
+        // The write is still saving in the new composition: a second accept is inert.
+        rule.onNodeWithTag("placement:close").assertIsNotEnabled()
+        rule.onNodeWithTag("placement:start").performClick()
+        gate.complete(Unit)
+
+        assertDetail("First-layer corners")
+        assertSkipped(2)
+        assertOnboarded()
+        assertEquals(1, appends)
+    }
+
+    @Test
+    fun `a cold start with Placement skips saved but not onboarded opens Learn, not Welcome`() {
+        records +=
+            bundle.stages.take(2).mapIndexed { index, stage ->
+                ProgressRecord("placement", index.toLong(), ProgressEvent.StageSkippedByPlacement(stage.id))
+            }
+        show(awaitWelcome = false)
+        waitForTag("learn")
+        rule.onNodeWithTag("welcome").assertDoesNotExist()
+        assertFalse(preferences.preferences.value.onboarded)
+    }
+
+    @Test
+    fun `a late scan outcome after I'm new leaves Placement idle and hidden`() {
+        show()
+        startScan()
+        rule.onNodeWithTag("welcome:imNew").performClick()
+        assertDetail("Cube fundamentals")
+        for (late in listOf(ScanOutcome.Accepted(entry("lesson-03-01")), ScanOutcome.FellBackToEditor)) {
+            deliver(late)
+            rule.waitForIdle()
+            assertEquals(PlacementPhase.Idle, flow.phase.value)
+            assertEquals(null, flow.acceptedScan.value)
+            rule.onNodeWithTag("placement:screen").assertDoesNotExist()
+        }
+        rule.runOnIdle { flow.scanDenied() }
+        rule.waitForIdle()
+        assertEquals(PlacementPhase.Idle, flow.phase.value)
+        rule.onNodeWithTag("placement:screen").assertDoesNotExist()
+        rule.onNodeWithTag("stageDetail:title").assertTextContains("Cube fundamentals")
+    }
+
+    @Test
+    fun `a late scan outcome during the Course skip check does not show Placement`() {
+        show()
+        startScan()
+        rule.onNodeWithTag("welcome:canSolve").performClick()
+        waitForTag("lesson")
+        deliver(ScanOutcome.Accepted(entry("lesson-03-01")))
+        rule.waitForIdle()
+        rule.onNodeWithTag("placement:screen").assertDoesNotExist()
+        rule.onNodeWithTag("lesson").assertExists()
+        assertEquals(PlacementPhase.Idle, flow.phase.value)
+        assertEquals(null, flow.acceptedScan.value)
+    }
+
+    @Test
+    fun `resetting progress with a stale Placement phase shows Welcome`() {
+        show()
+        rule.onNodeWithTag("welcome:imNew").performClick()
+        assertDetail("Cube fundamentals")
+        rule.onNodeWithTag("nav:you").performClick()
+        rule.onNodeWithTag("you:settings").performClick()
+        // Late outcomes land while Settings covers the shell.
+        deliver(ScanOutcome.Accepted(entry("lesson-03-01")))
+        deliver(ScanOutcome.FellBackToEditor)
+        rule.onNodeWithTag("settings:resetProgress").performScrollTo().performClick()
+        rule.onNodeWithTag("settings:resetProgress:confirm").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("settings:resetProgress:confirm").fetchSemanticsNodes().isEmpty() }
+        rule.waitForIdle()
+        rule.onNodeWithTag("settings:close").performClick()
+        waitForTag("welcome")
+        rule.onNodeWithTag("placement:screen").assertDoesNotExist()
+        assertEquals(PlacementPhase.Idle, flow.phase.value)
+    }
+
     private fun assertPlacementSurface(expected: Color) {
         rule.onNodeWithTag("placement:screen").assertIsDisplayed()
         val pixels = rule.onRoot().captureToImage().toPixelMap()
@@ -450,6 +553,8 @@ class AppShellPlacementTest {
         hasScan: Boolean = true,
         failedCatalog: Boolean = false,
         dark: Boolean = false,
+        restoration: StateRestorationTester? = null,
+        awaitWelcome: Boolean = true,
     ) {
         val catalog =
             if (failedCatalog) {
@@ -458,7 +563,8 @@ class AppShellPlacementTest {
                 LessonCatalog.of(shipped)
             }
         val freeCube = FreeCubeViewModel()
-        rule.setContent {
+        val setContent: (@androidx.compose.runtime.Composable () -> Unit) -> Unit = restoration?.let { it::setContent } ?: rule::setContent
+        setContent {
             view = androidx.compose.ui.platform.LocalView.current
             back = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
             CubentiaTheme(darkTheme = dark) {
@@ -475,7 +581,7 @@ class AppShellPlacementTest {
                 )
             }
         }
-        waitForTag("welcome")
+        if (awaitWelcome) waitForTag("welcome")
     }
 
     private fun startScan() {

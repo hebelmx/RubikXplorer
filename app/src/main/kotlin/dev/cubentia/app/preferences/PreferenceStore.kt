@@ -40,6 +40,21 @@ class PreferenceStore private constructor(
     private var resetBeforeLoad = false
     private var written = Preferences.DEFAULT
 
+    /**
+     * Whether [written] is the value on disk. After a failed load it is not: a write then retries the read and saves only
+     * over a found value, so an unreadable store is never overwritten with defaults.
+     */
+    private var known = false
+
+    /** Changes made while the disk value is unknown, in order; folded over the value a retried read finds. */
+    private val unknownChanges = mutableListOf<Preference>()
+
+    /**
+     * Bumped by a [reset] made while the disk value is unknown: a retried write queued before it is obsolete, since the
+     * reset writes over it.
+     */
+    private var generation = 0
+
     init {
         if (writer == null) {
             loaded.complete(Unit)
@@ -52,6 +67,10 @@ class PreferenceStore private constructor(
                                 if (it is PreferencesLoad.Found) {
                                     written =
                                         it.prefs
+                                    synchronized(this@PreferenceStore) {
+                                        known = true
+                                        unknownChanges.clear()
+                                    }
                                 }
                             }
                         }
@@ -77,7 +96,48 @@ class PreferenceStore private constructor(
     @Synchronized fun update(preference: Preference) {
         if (!loaded.isCompleted) beforeLoad += preference
         current.value = current.value.with(preference)
-        writer?.enqueue { updater?.invoke(written, preference)?.let { written = it.value } }
+        if (writer == null) return
+        val upTo =
+            if (known) {
+                0
+            } else {
+                unknownChanges += preference
+                unknownChanges.size
+            }
+        val queuedIn = generation
+        writer.enqueue {
+            if (synchronized(this) { known }) {
+                updater?.invoke(written, preference)?.let { written = it.value }
+            } else {
+                saveOverRetriedLoad(upTo, queuedIn)
+            }
+        }
+    }
+
+    /**
+     * Runs in the writer: retries the read and, on a found value, saves it folded with the first [upTo] unknown changes
+     * (the last is this write's own change) through the single writer [updater].
+     */
+    private suspend fun saveOverRetriedLoad(
+        upTo: Int,
+        queuedIn: Int,
+    ) {
+        if (synchronized(this) { generation != queuedIn }) return
+        val found = (runCatching { repository?.load() }.getOrNull() as? PreferencesLoad.Found)?.prefs ?: return
+        val (before, change) =
+            synchronized(this) {
+                if (generation != queuedIn || known) return
+                unknownChanges.take(upTo - 1).fold(found) { prefs, change -> prefs.with(change) } to unknownChanges[upTo - 1]
+            }
+        val base = updater?.invoke(before, change)?.value ?: return
+        synchronized(this) {
+            if (generation != queuedIn || known) return
+            written = base
+            known = true
+            // Changes made after this write stay applied in memory; their own queued writes save them next.
+            current.value = unknownChanges.drop(upTo).fold(base) { prefs, change -> prefs.with(change) }
+            unknownChanges.clear()
+        }
     }
 
     @Synchronized fun reset() {
@@ -86,9 +146,17 @@ class PreferenceStore private constructor(
             resetBeforeLoad = true
         }
         current.value = Preferences.DEFAULT
+        if (!known) {
+            generation++
+            unknownChanges.clear()
+        }
         writer?.enqueue {
             updater?.reset()
-            written = Preferences.DEFAULT
+            synchronized(this) {
+                written = Preferences.DEFAULT
+                known = true
+                unknownChanges.clear()
+            }
         }
     }
 }

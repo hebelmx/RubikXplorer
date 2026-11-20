@@ -142,6 +142,18 @@ class SolveFlowViewModelTest {
         }
     }
 
+    @Test fun eachEditorFallbackDropsAPendingScan() {
+        val vm = viewModel(source(CubeSolver { error("Fallback must not solve") }))
+        for (fallback in listOf(vm::enterColors, vm::scanDenied, { vm.onScanOutcome(ScanOutcome.FellBackToEditor) })) {
+            vm.onScanOutcome(ScanOutcome.Accepted(cube))
+            assertEquals(cube, vm.pendingScan.value)
+            fallback()
+            assertNull(vm.takePendingScan())
+            assertNull(vm.pendingScan.value)
+            vm.closeEditor()
+        }
+    }
+
     @Test fun anUnacceptedEditorDraftSurvivesLeavingTheSolveTab() {
         val vm = viewModel(source(CubeSolver { error("A draft must not solve") }))
         vm.scanDenied()

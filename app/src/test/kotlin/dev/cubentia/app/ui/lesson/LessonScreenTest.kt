@@ -251,7 +251,11 @@ class LessonScreenTest {
                 }
             }
         }
-        if (physical) rule.onNodeWithTag("lesson:yesItsSolved").performScrollTo().performClick()
+        if (physical) {
+            rule.onNodeWithTag("lesson:yesItsSolved").performScrollTo().performClick()
+            // The result line waits for the confirmation, which the host reduces on its background dispatcher.
+            rule.waitUntil(5_000) { localHost.state.value.physicalSolveConfirmed }
+        }
         rule.waitForIdle()
         rule.onNodeWithTag("lesson:twoLookResult").assertTextContains(
             if (hint ||

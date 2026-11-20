@@ -92,6 +92,7 @@ class SolveFlowViewModel
                 ScanOutcome.FellBackToEditor -> {
                     scanned = null
                     scannedColors = null
+                    mutablePendingScan.value = null
                     show(SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = Text("msg.solve.scan-fell-back")))
                 }
 
@@ -115,12 +116,14 @@ class SolveFlowViewModel
         fun scanDenied() {
             scanned = null
             scannedColors = null
+            mutablePendingScan.value = null
             show(SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = Text("msg.solve.scan-camera-denied")))
         }
 
         fun enterColors() {
             scanned = null
             scannedColors = null
+            mutablePendingScan.value = null
             show(SolvePhase.Editing(accepted))
         }
 

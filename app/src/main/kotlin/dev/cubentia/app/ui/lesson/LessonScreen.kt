@@ -369,7 +369,11 @@ fun LessonScreen(
                     offerAlgorithms = offerAlgorithms,
                     onAddToLearning = onAddToLearning,
                     twoLookResult =
-                        if (twoLookPractice && session.objectiveMet) {
+                        if (
+                            twoLookPractice &&
+                            session.objectiveMet &&
+                            (if (isPhysical) session.physicalSolveConfirmed else !session.physicalSolveUnconfirmed)
+                        ) {
                             val errors = remember(session.history, session.twoLookAlgorithms) { session.twoLookErrors }
                             val qualified = session.hintsUsed == 0 && errors == 0
                             strings.resolve(
