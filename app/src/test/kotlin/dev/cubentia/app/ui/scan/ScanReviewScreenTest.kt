@@ -1493,6 +1493,21 @@ class ScanReviewScreenTest {
         rule.onNodeWithTag("review:selected").assertTextEquals("Front face, position 3, needs a color")
     }
 
+    @Test
+    @Config(qualifiers = "w360dp-h640dp")
+    fun `in compact paint mode painting the paused selected sticker keeps the shown face`() {
+        launch()
+        longPress("swatch:WHITE")
+        rule.onNodeWithTag("sticker:7").performClick()
+        rule.waitForIdle()
+        assertEquals(Color.WHITE, review.stickers[7])
+        assertEquals(20, review.selected)
+        // The selection moved on to the Front face, but the shown face stays the Up face while painting.
+        rule.onNodeWithTag("editor:face:0").assertIsSelected()
+        rule.onAllNodesWithTag("sticker:7").assertCountEquals(1)
+        rule.onAllNodesWithTag("sticker:20").assertCountEquals(0)
+    }
+
     @Test fun `with haptics off a paint-mode tap gives no tick`() {
         launch(hapticsOn = false)
         longPress("swatch:RED", resetTicks = false)

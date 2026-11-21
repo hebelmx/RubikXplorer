@@ -242,7 +242,10 @@ private fun ReviewMode(
 ) {
     val painting = paint.locked
     var face by rememberSaveable { mutableIntStateOf((review.selected ?: 0) / 9) }
-    LaunchedEffect(review.selected) { review.selected?.let { face = it / 9 } }
+    // In paint mode the selection is paused, so a paint that moves it on never switches the shown face.
+    LaunchedEffect(review.selected, painting == null) {
+        if (painting == null) review.selected?.let { face = it / 9 }
+    }
     val problems = review.problems
     val linkedIndices = problems.indices.filter { problems[it].piece.isNotEmpty() }
     // Opens on the problem led by the pre-selected sticker (the count line for the top suspect, #174), else the first
