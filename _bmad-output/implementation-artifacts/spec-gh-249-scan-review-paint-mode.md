@@ -2,7 +2,7 @@
 title: 'GH-249 Sticker review net: paint mode (long-press a color to fix many stickers quickly)'
 type: 'feature'
 created: '2026-11-20'
-status: 'done'
+status: done
 baseline_revision: 'd2bfe4bb3e2b3b394bddc3fd0d7d080406cc3ca6'
 review_loop_iteration: 0
 followup_review_recommended: false

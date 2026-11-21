@@ -1567,3 +1567,21 @@ action_items:
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-253-cube-editor-any-face-orientation.md"
+  - id: "issue-249-deferred-device-paint-mode-talkback"
+    epic: 10
+    action: "On the Lenovo and S24 FE, check paint mode in Scan review and the Editor with TalkBack: 'Painting {color}' and 'Painting off' are spoken, and 1 long-press + 9 taps paints a face (medium, unverified; deferred from #249, PaintMode.kt PaintAnnouncer; batch with #106)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-249-scan-review-paint-mode.md"
+  - id: "issue-249-deferred-swatch-duplicate-a11y-action"
+    epic: 10
+    action: "The editor Swatch sets onLongClickLabel and a CustomAccessibilityAction with the same label, so TalkBack's actions menu can list lock/stop twice; keep one (low, Learner-visible; deferred from #249, ManualCubeEditor.kt:596)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-249-scan-review-paint-mode.md"
+  - id: "issue-249-deferred-paint-tests-compact-200pct"
+    epic: 10
+    action: "Add paint-mode tests for the Editor compact one-face mode and for the locked-swatch check badge next to the color-blind glyph at 200% font (low; deferred from #249, ManualCubeEditorCompactTest.kt)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-249-scan-review-paint-mode.md"
