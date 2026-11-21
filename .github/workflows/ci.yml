@@ -79,6 +79,11 @@ jobs:
       - name: Spotless and build
         run: ./gradlew spotlessCheck build :app:compileDebugAndroidTestKotlin
 
+      # Story 10.18: assemble the opt-in R8 cornerR8 build type and its androidTest APK on every PR, so an R8 /
+      # keep-rule break in LiteRT fails here instead of on a device run. Assemble only; no connected task.
+      - name: Assemble cornerR8 (R8 + LiteRT keep rules)
+        run: ./gradlew -Pcubentia.cornerR8=true :app:assembleCornerR8 :app:assembleCornerR8AndroidTest
+
       - name: build-logic policy tests
         run: ./gradlew -p build-logic test
 

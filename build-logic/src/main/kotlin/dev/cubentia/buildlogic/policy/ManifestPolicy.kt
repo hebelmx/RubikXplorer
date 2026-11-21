@@ -13,6 +13,10 @@ import javax.xml.parsers.DocumentBuilderFactory
  * build type has a camera flag above OFF (Story 10.9), and none otherwise. A camera `uses-feature`
  * is a violation wherever `CAMERA` is not allowed. The rule keys on `variant.debuggable`, never on
  * a build-type name, so no build type can opt out by what it is called.
+ *
+ * Every variant also rejects the background/network plumbing an offline app never needs (Story 10.18:
+ * LiteRT's Play AI-pack download path merged it into corner-flag builds): [offlineForbiddenPermissions],
+ * any `FOREGROUND_SERVICE*` permission, and Play asset/AI-delivery or WorkManager components.
  */
 object ManifestPolicy {
     private const val ANDROID_NS = "http://schemas.android.com/apk/res/android"
@@ -20,6 +24,21 @@ object ManifestPolicy {
     const val INTERNET = "android.permission.INTERNET"
 
     const val CAMERA = "android.permission.CAMERA"
+
+    private const val FOREGROUND_SERVICE_PREFIX = "android.permission.FOREGROUND_SERVICE"
+
+    /** Normal permissions that only serve background downloads or scheduling, which offline Cubentia never does (AD-13). */
+    val offlineForbiddenPermissions: Set<String> =
+        setOf(
+            "android.permission.ACCESS_NETWORK_STATE",
+            "android.permission.RECEIVE_BOOT_COMPLETED",
+            "android.permission.WAKE_LOCK",
+        )
+
+    /** Component-name prefixes of Play Core asset/AI-pack delivery and WorkManager (AD-13). */
+    val forbiddenComponentPrefixes: List<String> = listOf("com.google.android.play.core.", "androidx.work.")
+
+    private val componentTags = listOf("activity", "activity-alias", "service", "receiver", "provider")
 
     /** Runtime permissions a variant may declare: `CAMERA` when [debuggable] or [cameraEnabled], none otherwise. */
     fun allowedRuntimePermissions(
@@ -115,6 +134,10 @@ object ManifestPolicy {
                     violations += "Manifest declares $INTERNET; the app is offline (AD-13, NFR-8)."
                 }
 
+                permission in offlineForbiddenPermissions || permission.startsWith(FOREGROUND_SERVICE_PREFIX) -> {
+                    violations += "Manifest declares $permission; the offline app has no background downloads or services (AD-13)."
+                }
+
                 isRuntimePermission(permission) && permission !in allowedRuntimePermissions -> {
                     val allowed =
                         if (allowedRuntimePermissions.isEmpty()) {
@@ -136,6 +159,11 @@ object ManifestPolicy {
             }
         }
         val application = root.childElements("application").firstOrNull()
+        componentTags
+            .flatMap { tag -> application?.childElements(tag).orEmpty() }
+            .map { it.getAttributeNS(ANDROID_NS, "name") }
+            .filter { name -> forbiddenComponentPrefixes.any(name::startsWith) }
+            .forEach { name -> violations += "Manifest declares Play delivery/WorkManager component $name (AD-13)." }
         val allowBackup = application?.getAttributeNS(ANDROID_NS, "allowBackup").orEmpty()
         when {
             allowBackup.isEmpty() -> {

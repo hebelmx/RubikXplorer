@@ -77,5 +77,27 @@ class QuickScanScreenTest {
         rule.onNodeWithTag("quickScan:detectedOutline").assertIsDisplayed()
         rule.onNodeWithTag("quickScan:thumbnail").assertIsDisplayed()
         rule.onNodeWithTag("scanCoaching").assertTextEquals("Try a plain, light surface.")
+        rule.onNodeWithTag("quickScan:captureFlash").assertDoesNotExist()
+    }
+
+    @Test
+    fun captureFlashOverlayAndViewfinderCoexistDuringCornerFreeze() {
+        val strings = ContentStrings((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings)
+        val thumb = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888).asImageBitmap()
+        rule.setContent {
+            CubentiaTheme {
+                GuidedScanScreen(
+                    GuidedScanPhase.CornerViewfinder(hold = 2),
+                    strings,
+                    GuidedScanActions(),
+                    frozen = FrozenCapture(id = 1L, face = Face.U, image = thumb, shrink = false),
+                    cornerThumbnail = thumb,
+                )
+            }
+        }
+        rule.onNodeWithTag("scanViewfinder").assertIsDisplayed()
+        rule.onNodeWithTag("quickScan:captureFlash").assertIsDisplayed()
+        rule.onNodeWithTag("quickScan:thumbnail").assertIsDisplayed()
+        rule.onNodeWithTag("quickScan:counter").assertTextEquals("2 / 2")
     }
 }

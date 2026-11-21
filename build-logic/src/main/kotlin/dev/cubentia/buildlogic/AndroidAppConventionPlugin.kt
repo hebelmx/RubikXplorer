@@ -2,8 +2,10 @@ package dev.cubentia.buildlogic
 
 import com.android.build.api.dsl.ApplicationExtension
 import dev.cubentia.buildlogic.policy.AccessibilityLint
+import dev.cubentia.buildlogic.policy.ConnectedTestResults
 import dev.cubentia.buildlogic.tasks.CheckLearnerTextTask
 import dev.cubentia.buildlogic.tasks.CheckModuleBoundariesTask
+import org.gradle.api.GradleException
 import org.gradle.api.JavaVersion
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -48,6 +50,23 @@ class AndroidAppConventionPlugin : Plugin<Project> {
             CheckModuleBoundariesTask.register(this)
             // NFR-10: no Learner-facing literals in :app main sources.
             CheckLearnerTextTask.register(this)
+            // AGP exits a connected test task with success when the instrumentation process crashes before any test
+            // runs (its JUnit XML holds only a synthetic testRunFailed failure); fail on any failure in the XML.
+            tasks.matching { CONNECTED_TEST.matches(it.name) }.configureEach {
+                val variant = CONNECTED_TEST.matchEntire(name)!!.groupValues[1].replaceFirstChar { it.lowercase() }
+                val results = layout.buildDirectory.dir("outputs/androidTest-results/connected/$variant")
+                doLast {
+                    val failures = ConnectedTestResults.failuresIn(results.get().asFile)
+                    if (failures.isNotEmpty()) {
+                        throw GradleException("Connected tests failed:\n" + failures.joinToString("\n"))
+                    }
+                }
+            }
             Unit
         }
+
+    private companion object {
+        /** `connectedDebugAndroidTest`, `connectedCornerR8AndroidTest`; not the `connectedAndroidTest` lifecycle task. */
+        val CONNECTED_TEST = Regex("connected(\\w+)AndroidTest")
+    }
 }

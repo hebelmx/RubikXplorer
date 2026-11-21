@@ -85,7 +85,7 @@ class ManifestPolicyTest {
     @ValueSource(
         strings = [
             "com.exxerpro.cubentia.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
-            "android.permission.WAKE_LOCK",
+            "android.permission.REORDER_TASKS",
             "android.permission.VIBRATE",
         ],
     )
@@ -110,5 +110,51 @@ class ManifestPolicyTest {
     @Test
     fun `missing application element fails`() {
         assertEquals(1, ManifestPolicy.check(manifest(application = ""), release).size)
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            "android.permission.FOREGROUND_SERVICE",
+            "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
+            "android.permission.RECEIVE_BOOT_COMPLETED",
+            "android.permission.ACCESS_NETWORK_STATE",
+            "android.permission.WAKE_LOCK",
+        ],
+    )
+    fun `background download permissions fail in every variant, corner-flag debug included`(permission: String) {
+        listOf(release, debug, ManifestPolicy.allowedRuntimePermissions(false, cameraEnabled = true)).forEach { allowed ->
+            val violations = ManifestPolicy.check(manifest(listOf(permission)), allowed)
+            assertEquals(1, violations.size)
+            assertTrue(permission in violations.single())
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            "<service android:name=\"com.google.android.play.core.assetpacks.AssetPackExtractionService\" />",
+            "<receiver android:name=\"com.google.android.play.core.assetpacks.SessionStateBroadcastReceiver\" />",
+            "<activity android:name=\"com.google.android.play.core.common.PlayCoreDialogWrapperActivity\" />",
+            "<service android:name=\"androidx.work.impl.background.systemjob.SystemJobService\" />",
+            "<receiver android:name=\"androidx.work.impl.background.systemalarm.RescheduleReceiver\" />",
+        ],
+    )
+    fun `Play delivery and WorkManager components fail`(component: String) {
+        val xml = manifest(application = """<application android:allowBackup="false">$component</application>""")
+        val violations = ManifestPolicy.check(xml, debug)
+        assertEquals(1, violations.size)
+        assertTrue("AD-13" in violations.single())
+    }
+
+    @Test
+    fun `app components pass`() {
+        val xml =
+            manifest(
+                application =
+                    """<application android:allowBackup="false"><activity android:name="dev.cubentia.app.MainActivity" />""" +
+                        """<receiver android:name="androidx.profileinstaller.ProfileInstallReceiver" /></application>""",
+            )
+        assertEquals(emptyList<String>(), ManifestPolicy.check(xml, debug))
     }
 }

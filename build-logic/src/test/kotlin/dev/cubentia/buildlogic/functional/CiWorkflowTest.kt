@@ -33,12 +33,23 @@ class CiWorkflowTest {
         assertTrue(runs.any { it.contains(".github/scripts/check-sh-eol.sh") }, runs.toString())
     }
 
+    @Test
+    fun `build job assembles the cornerR8 build type and its androidTest APK`() {
+        assertTrue(
+            runs.any {
+                it.contains("-Pcubentia.cornerR8=true") && it.contains(":app:assembleCornerR8 ") &&
+                    it.contains(":app:assembleCornerR8AndroidTest") && !it.contains("connected")
+            },
+            runs.toString(),
+        )
+    }
+
     /** Each step of the build job, from its `- ` line to the next one. */
     private val steps = buildJob.split(Regex("""(?m)^(?=      - )""")).filter { it.startsWith("      - ") }
 
     @Test
     fun `the new gates can neither be skipped nor ignored`() {
-        listOf(":app:compileDebugAndroidTestKotlin", "check-sh-eol.sh").forEach { marker ->
+        listOf(":app:compileDebugAndroidTestKotlin", "check-sh-eol.sh", ":app:assembleCornerR8AndroidTest").forEach { marker ->
             val step = steps.singleOrNull { it.contains(marker) } ?: error("no single build step runs $marker")
             assertTrue(!step.contains("continue-on-error"), step)
             assertTrue(!Regex("""(?m)^\s+if:""").containsMatchIn(step), step)
