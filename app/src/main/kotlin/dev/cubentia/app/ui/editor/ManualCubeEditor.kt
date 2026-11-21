@@ -3,6 +3,7 @@ package dev.cubentia.app.ui.editor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -47,12 +49,15 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.testTag
@@ -80,9 +85,6 @@ import dev.cubentia.domain.recognition.ScanAssembler
 import kotlinx.coroutines.delay
 import dev.cubentia.domain.cube.Color as CubeColor
 import dev.cubentia.domain.text.Text as ContentText
-
-/** Palette order, matching the glyph order `W Y R O G B`. */
-private val PALETTE = EditorProblems.PALETTE
 
 /** Face selector labels (and face names in messages) in URFDLB order. */
 internal val FACE_LABELS =
@@ -119,6 +121,13 @@ private val TAB_DOT = 6.dp
 private const val HOLD_SIDES = 4
 
 private val HOLD_NAMES = listOf("top", "right", "bottom", "left")
+
+/** A locked paint-mode swatch's outline (DESIGN.md, #249): the retake-selected face's 3dp. */
+private val LOCK_OUTLINE = 3.dp
+
+/** The locked swatch's ✓ badge, as a fraction of the swatch, and its ✓ as a fraction of the badge. */
+private const val LOCK_BADGE_FRACTION = 0.4f
+private const val LOCK_CHECK_TEXT_FRACTION = 0.6f
 
 /**
  * The Manual Cube Editor (FR-14, UX-DR16/21/25): tap a sticker on the net, then a palette color, to
@@ -163,6 +172,9 @@ fun ManualCubeEditor(
     val hapticsEnabled = LocalHaptics.current
     val haptics = LocalHapticFeedback.current
     var cue by remember { mutableStateOf<StickerCue?>(null) }
+    // Paint mode (#249): while a color is locked, a sticker tap sets it directly and the selection pauses.
+    val paint = rememberPaintMode(initial, fresh)
+    val painting = paint.locked
     val faceNames = FACE_LABELS.map { stringResource(it) }
     val colorNames = CubeColor.entries.associateWith { stringResource(colorName(it)) }
     BoxWithConstraints(modifier = modifier) {
@@ -183,9 +195,19 @@ fun ManualCubeEditor(
                 StickerReviewNet(
                     facelets = state.facelets,
                     style = style,
-                    selected = state.selected,
+                    selected = if (painting == null) state.selected else null,
                     invalid = state.outlined,
-                    onStickerClick = state::select,
+                    onStickerClick = { index ->
+                        val locked = paint.locked
+                        if (locked == null) {
+                            state.select(index)
+                        } else if (ManualCubeEditorState.isEditable(index)) {
+                            state.paintAt(index, locked)
+                            onChange(state.facelets, state.set)
+                            cue = StickerCue(state.cueIndex ?: index, (cue?.serial ?: 0) + 1)
+                            if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+                        }
+                    },
                     editable = ManualCubeEditorState::isEditable,
                     face = if (onePerFace) state.face else null,
                     strings = strings,
@@ -204,24 +226,21 @@ fun ManualCubeEditor(
             }
             FaceDoneLine(state.faceDone, faceNames, strings)
             // Wraps onto more rows when a narrow window cannot fit all six touch-sized swatches (AD-17).
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(Spacing.s2, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(Spacing.s2),
-            ) {
-                PALETTE.forEach { color ->
-                    Swatch(color, style) {
-                        state.selected?.let { index ->
-                            state.paint(color)
-                            onChange(state.facelets, state.set)
-                            // The painted sticker, moved with its face when the paint turned that face.
-                            cue = StickerCue(state.cueIndex ?: index, (cue?.serial ?: 0) + 1)
-                            if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
-                        }
-                    }
+            PaintPalette(paint, style, strings, Arrangement.spacedBy(Spacing.s2, Alignment.CenterHorizontally)) { color ->
+                state.selected?.let { index ->
+                    state.paint(color)
+                    onChange(state.facelets, state.set)
+                    // The painted sticker, moved with its face when the paint turned that face.
+                    cue = StickerCue(state.cueIndex ?: index, (cue?.serial ?: 0) + 1)
+                    if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
                 }
             }
-            SelectedStickerLine(state, strings)
-            instruction(state, strings, faceNames, colorNames)?.let { line ->
+            if (painting != null) {
+                PaintInstruction(painting, strings, "editor:instruction", textStyle = MaterialTheme.typography.bodyMedium)
+            } else {
+                SelectedStickerLine(state, strings)
+            }
+            instruction(state, strings, faceNames, colorNames)?.takeIf { painting == null }?.let { line ->
                 Text(
                     line,
                     style = MaterialTheme.typography.bodyMedium,
@@ -279,6 +298,7 @@ fun ManualCubeEditor(
                 Text(stringResource(R.string.editor_accept))
             }
         }
+        PaintAnnouncer(paint, strings)
     }
 }
 
@@ -534,11 +554,19 @@ internal fun currentWindowSizeClass(): WindowSizeClass {
     }
 }
 
-/** One palette color: a touch-sized sticker with its glyph while [style] asks for glyphs. */
+/**
+ * One palette color: a touch-sized sticker with its glyph while [style] asks for glyphs. With [onLongClick] (paint mode,
+ * #249) a long-press or the [paintActionLabel] accessibility action calls it, and the swatch reports [locked] as its
+ * selected state; [locked] draws a 3dp `accent` outline and a ✓ badge (`on-accent` on an `accent` dot), as on a
+ * retake-selected face.
+ */
 @Composable
 internal fun Swatch(
     color: CubeColor,
     style: RenderStyle,
+    locked: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
+    paintActionLabel: String? = null,
     onClick: () -> Unit,
 ) {
     val appearance = StickerAppearance.of(color)
@@ -546,22 +574,64 @@ internal fun Swatch(
     val ink = Color(appearance.glyphInk)
     val description = stringResource(colorName(color))
     val shape = RoundedCornerShape(Radii.sm)
+    val tokens = RubikTheme.tokens
+    val badge = Spacing.touchMin * LOCK_BADGE_FRACTION
+    val hapticsEnabled = LocalHaptics.current
+    // Sized to the badge, not the font scale, so the ✓ never overflows its dot at 200%.
+    val checkSize = with(LocalDensity.current) { (badge * LOCK_CHECK_TEXT_FRACTION).toSp() }
     Box(
         modifier =
             Modifier
                 .size(Spacing.touchMin)
                 .background(fill, shape)
-                .border(1.dp, RubikTheme.tokens.hairline, shape)
-                .clickable(role = Role.Button, onClick = onClick)
-                .testTag("swatch:${color.name}")
+                .border(if (locked) LOCK_OUTLINE else 1.dp, if (locked) tokens.accent else tokens.hairline, shape)
+                .then(
+                    if (onLongClick == null) {
+                        Modifier.clickable(role = Role.Button, onClick = onClick)
+                    } else {
+                        Modifier.combinedClickable(
+                            role = Role.Button,
+                            // The long-press tick follows the Learner's haptics setting, like every other tick.
+                            hapticFeedbackEnabled = hapticsEnabled,
+                            onLongClickLabel = paintActionLabel,
+                            onLongClick = onLongClick,
+                            onClick = onClick,
+                        )
+                    },
+                ).testTag("swatch:${color.name}")
                 .semantics {
                     contentDescription = description
                     stickerColor = fill
                     if (style.colorBlindGlyphs) stickerGlyphInk = ink
+                    if (onLongClick != null) {
+                        selected = locked
+                        if (paintActionLabel != null) {
+                            customActions =
+                                listOf(
+                                    CustomAccessibilityAction(paintActionLabel) {
+                                        onLongClick()
+                                        true
+                                    },
+                                )
+                        }
+                    }
                 },
         contentAlignment = Alignment.Center,
     ) {
         if (style.colorBlindGlyphs) StickerGlyph(appearance, Spacing.touchMin)
+        if (locked) {
+            Box(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(2.dp)
+                    .requiredSize(badge)
+                    .background(tokens.accent, CircleShape)
+                    .clearAndSetSemantics { testTag = "swatch:${color.name}:check" },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("✓", color = tokens.onAccent, fontSize = checkSize, lineHeight = checkSize, maxLines = 1, softWrap = false)
+            }
+        }
     }
 }
 

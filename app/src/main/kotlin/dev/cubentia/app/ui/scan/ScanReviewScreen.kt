@@ -4,9 +4,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -62,13 +62,17 @@ import dev.cubentia.app.preferences.LocalRenderStyle
 import dev.cubentia.app.render.Net2DRenderer
 import dev.cubentia.app.ui.editor.FACE_NAMES
 import dev.cubentia.app.ui.editor.FaceSelector
+import dev.cubentia.app.ui.editor.PaintAnnouncer
+import dev.cubentia.app.ui.editor.PaintInstruction
+import dev.cubentia.app.ui.editor.PaintMode
+import dev.cubentia.app.ui.editor.PaintPalette
 import dev.cubentia.app.ui.editor.ProblemTag
 import dev.cubentia.app.ui.editor.StickerCue
 import dev.cubentia.app.ui.editor.StickerProblemMark
 import dev.cubentia.app.ui.editor.StickerReviewNet
-import dev.cubentia.app.ui.editor.Swatch
 import dev.cubentia.app.ui.editor.colorName
 import dev.cubentia.app.ui.editor.currentWindowSizeClass
+import dev.cubentia.app.ui.editor.rememberPaintMode
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.domain.cube.Color
@@ -111,40 +115,53 @@ fun ScanReviewScreen(
     // After *Retake N faces* the screen stays in retake mode, inert, until the Activity leaves the review (its phase hop
     // is asynchronous), so the review controls never flash; a changed review clears it.
     var launching by rememberSaveable(review) { mutableStateOf(false) }
-    if (retaking && onRetake != null) {
-        RetakeMode(
-            review = review,
-            strings = strings,
-            selectedFaces = retakeFaces,
-            launching = launching,
-            onToggle = { shown -> retakeFaces = if (shown in retakeFaces) retakeFaces - shown else retakeFaces + shown },
-            onStart = {
-                launching = true
-                onRetake(retakeFaces.map { Face.entries[it] }.toSet())
-            },
-            onCancel = {
-                retaking = false
-                retakeFaces = emptySet()
-            },
-            modifier = modifier,
-        )
-        return
+    // Paint mode (#249) lives here, not in ReviewMode, so retake mode can end it and still announce "Painting off".
+    val paint = rememberPaintMode()
+    Box(modifier) {
+        if (retaking && onRetake != null) {
+            RetakeMode(
+                review = review,
+                strings = strings,
+                selectedFaces = retakeFaces,
+                launching = launching,
+                onToggle = { shown -> retakeFaces = if (shown in retakeFaces) retakeFaces - shown else retakeFaces + shown },
+                onStart = {
+                    launching = true
+                    onRetake(retakeFaces.map { Face.entries[it] }.toSet())
+                },
+                onCancel = {
+                    retaking = false
+                    retakeFaces = emptySet()
+                },
+                modifier = Modifier,
+            )
+        } else {
+            ReviewMode(
+                review = review,
+                strings = strings,
+                onReview = onReview,
+                onAccept = onAccept,
+                onClose = onClose,
+                modifier = Modifier,
+                windowSizeClass = windowSizeClass,
+                coachMarkPending = coachMarkPending,
+                onCoachMarkDismissed = onCoachMarkDismissed,
+                onCalibrate = onCalibrate,
+                edited = edited,
+                onEnterColors = onEnterColors,
+                paint = paint,
+                // Entering retake mode ends paint mode first.
+                onRetakeFaces =
+                    onRetake?.let {
+                        {
+                            paint.stop()
+                            retaking = true
+                        }
+                    },
+            )
+        }
+        PaintAnnouncer(paint, strings)
     }
-    ReviewMode(
-        review = review,
-        strings = strings,
-        onReview = onReview,
-        onAccept = onAccept,
-        onClose = onClose,
-        modifier = modifier,
-        windowSizeClass = windowSizeClass,
-        coachMarkPending = coachMarkPending,
-        onCoachMarkDismissed = onCoachMarkDismissed,
-        onCalibrate = onCalibrate,
-        edited = edited,
-        onEnterColors = onEnterColors,
-        onRetakeFaces = onRetake?.let { { retaking = true } },
-    )
 }
 
 /**
@@ -220,8 +237,10 @@ private fun ReviewMode(
     onCalibrate: (() -> Unit)?,
     edited: Boolean,
     onEnterColors: (() -> Unit)?,
+    paint: PaintMode,
     onRetakeFaces: (() -> Unit)?,
 ) {
+    val painting = paint.locked
     var face by rememberSaveable { mutableIntStateOf((review.selected ?: 0) / 9) }
     LaunchedEffect(review.selected) { review.selected?.let { face = it / 9 } }
     val problems = review.problems
@@ -275,10 +294,14 @@ private fun ReviewMode(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(strings.resolve(ContentText("msg.scan.review-title")), style = MaterialTheme.typography.headlineSmall)
-            Text(
-                strings.resolve(instruction(review, strings, changed)),
-                modifier = Modifier.fillMaxWidth().testTag("review:instruction"),
-            )
+            if (painting != null) {
+                PaintInstruction(painting, strings, "review:instruction")
+            } else {
+                Text(
+                    strings.resolve(instruction(review, strings, changed)),
+                    modifier = Modifier.fillMaxWidth().testTag("review:instruction"),
+                )
+            }
             if (oneFace) {
                 FaceSelector(face, (review.outlined + review.blanks).map { it / 9 }.toSet()) { shown ->
                     face = shown
@@ -287,12 +310,39 @@ private fun ReviewMode(
                 }
             }
             lastSet?.let { (index, color) -> SetStickerLine(index, color, strings) }
-            SelectedStickerLine(review, strings)
-            SuspectLine(review, strings)
+            // In paint mode the selection is paused and hidden, so neither line names it.
+            if (painting == null) {
+                SelectedStickerLine(review, strings)
+                SuspectLine(review, strings)
+            }
             StickerReviewNet(
-                selected = review.selected,
+                selected = if (painting == null) review.selected else null,
                 invalid = review.outlined,
-                onStickerClick = { onReview(review.select(it)) },
+                onStickerClick = { index ->
+                    val locked = paint.locked
+                    if (locked == null) {
+                        onReview(review.select(index))
+                    } else if (index % 9 != 4) {
+                        // Paint mode: set this sticker, keeping the paused selection where it was, unless this paint
+                        // filled the selected sticker itself: then the selection moves on as a plain paint's does.
+                        val stroke = review.select(index).paint(locked)
+                        val kept = if (index == review.selected) stroke.selected else review.selected
+                        val painted = ScanReview(stroke.stickers, kept, stroke.evidence)
+                        if (painted.stickers != review.stickers) {
+                            changed = true
+                            focusedIndex =
+                                if (review.blanks.isNotEmpty() && painted.blanks.isEmpty()) {
+                                    stroke.selected?.let { countsLineLedBy(painted.problems, it) }
+                                } else {
+                                    null
+                                }
+                        }
+                        cue = StickerCue(index, (cue?.serial ?: 0) + 1)
+                        lastSet = index to locked
+                        if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+                        onReview(painted)
+                    }
+                },
                 editable = { it % 9 != 4 },
                 face = if (oneFace) face else null,
                 unresolved = review.stickers,
@@ -306,35 +356,31 @@ private fun ReviewMode(
                         netModifier.fillMaxWidth().aspectRatio(Net2DRenderer.NET_COLUMNS.toFloat() / Net2DRenderer.NET_ROWS)
                     },
             )
-            if (coachVisible && needsFix) {
+            if (coachVisible && needsFix && painting == null) {
                 CoachMark(strings) {
                     coachVisible = false
                     onCoachMarkDismissed()
                 }
             }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s2), verticalArrangement = Arrangement.spacedBy(Spacing.s2)) {
-                listOf(Color.WHITE, Color.YELLOW, Color.RED, Color.ORANGE, Color.GREEN, Color.BLUE).forEach { color ->
-                    Swatch(color, LocalRenderStyle.current) {
-                        val index = review.selected
-                        if (index != null && (!oneFace || index / 9 == face)) {
-                            val painted = review.paint(color)
-                            if (painted.stickers != review.stickers) {
-                                changed = true
-                                // The last blank set with the counts off: focus the counts line led by the top suspect
-                                // that paint selected (#174), even beside an earlier piece problem.
-                                focusedIndex =
-                                    if (review.blanks.isNotEmpty() && painted.blanks.isEmpty()) {
-                                        painted.selected?.let { countsLineLedBy(painted.problems, it) }
-                                    } else {
-                                        null
-                                    }
+            PaintPalette(paint, LocalRenderStyle.current, strings) { color ->
+                val index = review.selected
+                if (index != null && (!oneFace || index / 9 == face)) {
+                    val painted = review.paint(color)
+                    if (painted.stickers != review.stickers) {
+                        changed = true
+                        // The last blank set with the counts off: focus the counts line led by the top suspect
+                        // that paint selected (#174), even beside an earlier piece problem.
+                        focusedIndex =
+                            if (review.blanks.isNotEmpty() && painted.blanks.isEmpty()) {
+                                painted.selected?.let { countsLineLedBy(painted.problems, it) }
+                            } else {
+                                null
                             }
-                            cue = StickerCue(index, (cue?.serial ?: 0) + 1)
-                            lastSet = index to color
-                            if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
-                            onReview(painted)
-                        }
                     }
+                    cue = StickerCue(index, (cue?.serial ?: 0) + 1)
+                    lastSet = index to color
+                    if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+                    onReview(painted)
                 }
             }
             Column(Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }) {

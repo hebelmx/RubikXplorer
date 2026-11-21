@@ -28,7 +28,9 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.filterToOne
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onChildren
 import androidx.compose.ui.test.onNodeWithTag
@@ -36,6 +38,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
@@ -1219,6 +1222,339 @@ class ScanReviewScreenTest {
         assertEquals(((sticker.left + sticker.right) / 2).value, ((plain.left + plain.right) / 2).value, 0.5f)
         assertEquals(((sticker.top + sticker.bottom) / 2).value, ((plain.top + plain.bottom) / 2).value, 0.5f)
         assertEquals(cell.value * 0.55f, glyphSize("sticker:0:glyph"), 0.5f)
+    }
+
+    // #249: paint mode (long-press a color, then tap stickers).
+
+    /** The paint announcement [action] made, read while it is still in the live region (null if it made none). */
+    private var lastAnnouncement: String? = null
+
+    private fun announcing(action: () -> Unit) {
+        rule.mainClock.autoAdvance = false
+        action()
+        rule.mainClock.advanceTimeBy(100)
+        val node = rule.onNodeWithTag("paint:announce", useUnmergedTree = true).fetchSemanticsNode()
+        lastAnnouncement = node.config.getOrNull(SemanticsProperties.ContentDescription)?.single()
+        if (lastAnnouncement != null) assertEquals(LiveRegionMode.Polite, node.config[SemanticsProperties.LiveRegion])
+        rule.mainClock.autoAdvance = true
+        rule.waitForIdle()
+    }
+
+    private fun longPress(
+        tag: String,
+        resetTicks: Boolean = true,
+    ) {
+        announcing { rule.onNodeWithTag(tag).performScrollTo().performTouchInput { longClick() } }
+        // Only the update cue's ticks are counted, not the long-press feedback.
+        if (resetTicks) ticks = 0
+    }
+
+    private fun tapToStop(tag: String) = announcing { rule.onNodeWithTag(tag).performScrollTo().performClick() }
+
+    private fun customAction(
+        tag: String,
+        label: String,
+    ) {
+        val actions =
+            rule
+                .onNodeWithTag(tag)
+                .performScrollTo()
+                .fetchSemanticsNode()
+                .config[SemanticsActions.CustomActions]
+        val action = actions.single { it.label == label }
+        announcing {
+            rule.runOnIdle {
+                action.action()
+                androidx.compose.runtime.snapshots.Snapshot
+                    .sendApplyNotifications()
+            }
+        }
+    }
+
+    private fun announcement(): String? = lastAnnouncement
+
+    private fun assertPainting(color: String) {
+        rule.onNodeWithTag("swatch:${color.uppercase()}").assertIsSelected()
+        rule.onNodeWithTag("swatch:${color.uppercase()}:check", useUnmergedTree = true).assertExists()
+        rule
+            .onNodeWithTag("review:instruction")
+            .assertTextEquals("Painting $color. Tap stickers to set them. Tap $color again to stop.")
+        assertEquals("Painting $color", announcement())
+    }
+
+    private fun assertNotPainting() {
+        Color.entries.forEach { color ->
+            rule.onNodeWithTag("swatch:${color.name}").assertIsNotSelected()
+            rule.onNodeWithTag("swatch:${color.name}:check", useUnmergedTree = true).assertDoesNotExist()
+        }
+        assertEquals("Painting off", announcement())
+    }
+
+    @Test fun `a long-press locks a color with its outline, check, instruction and announcement and pauses the selection`() {
+        launch()
+        rule.onNodeWithTag("paint:announce").assertExists()
+        longPress("swatch:RED")
+        assertPainting("red")
+        assertEquals(
+            listOf("Stop painting"),
+            rule
+                .onNodeWithTag("swatch:RED")
+                .fetchSemanticsNode()
+                .config[SemanticsActions.CustomActions]
+                .map { it.label },
+        )
+        rule.onNodeWithTag("swatch:WHITE").assertIsNotSelected()
+        rule.onNodeWithTag("swatch:WHITE:check", useUnmergedTree = true).assertDoesNotExist()
+        // The net shows no selected ring or pulse, and the selected-sticker line is hidden.
+        rule.onNodeWithTag("sticker:7").assertIsNotSelected()
+        assertFalse(
+            rule
+                .onNodeWithTag("sticker:7")
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(StickerPulsingKey) == true,
+        )
+        rule.onNodeWithTag("review:selected").assertDoesNotExist()
+        assertEquals(7, review.selected)
+    }
+
+    @Test fun `the Lock this color action starts paint mode without a long-press`() {
+        launch()
+        assertEquals(
+            listOf("Lock this color"),
+            rule
+                .onNodeWithTag("swatch:GREEN")
+                .fetchSemanticsNode()
+                .config[SemanticsActions.CustomActions]
+                .map { it.label },
+        )
+        customAction("swatch:GREEN", "Lock this color")
+        assertPainting("green")
+    }
+
+    @Test fun `each paint-mode tap sets the locked color with the cue and a tick and keeps the selection`() {
+        launch()
+        longPress("swatch:RED")
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithTag("sticker:0").performClick()
+        rule.mainClock.advanceTimeBy(50)
+        rule.onNodeWithTag("sticker:0:cue", useUnmergedTree = true).assertExists()
+        assertEquals(1, ticks)
+        rule.onNodeWithTag("review:updated").assertTextEquals("Up face, position 1: red")
+        rule.mainClock.autoAdvance = true
+        rule.onNodeWithTag("sticker:1").performClick()
+        rule.waitForIdle()
+        assertEquals(Color.RED, review.stickers[0])
+        assertEquals(Color.RED, review.stickers[1])
+        assertEquals(7, review.selected)
+        assertEquals(2, ticks)
+        rule.onNodeWithTag("review:selected").assertDoesNotExist()
+        // A paint-mode change still asks before Close discards it.
+        rule.onNodeWithTag("review:close").performScrollTo().performClick()
+        rule.onNodeWithTag("review:discard").assertExists()
+    }
+
+    @Test fun `a whole face is fixed with one long-press and a tap per sticker, the center tap ignored`() {
+        val colors =
+            CubeState.SOLVED
+                .toFacelets()
+                .colors
+                .mapIndexed { i, color -> if (i < 9 && i != 4) null else color }
+        review = ScanReview(colors, 0)
+        launch()
+        rule.onNodeWithTag("review:accept").performScrollTo().assertIsNotEnabled()
+        longPress("swatch:WHITE")
+        (0 until 9).forEach { rule.onNodeWithTag("sticker:$it").performClick() }
+        rule.waitForIdle()
+        assertEquals(CubeState.SOLVED.toFacelets().colors, review.stickers)
+        assertEquals(8, ticks)
+        rule.onNodeWithTag("review:accept").performScrollTo().assertIsEnabled()
+    }
+
+    @Test fun `painting a sticker its own color still plays the cue and a tick`() {
+        launch()
+        longPress("swatch:RED")
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithTag("sticker:9").performClick()
+        rule.mainClock.advanceTimeBy(50)
+        rule.onNodeWithTag("sticker:9:cue", useUnmergedTree = true).assertExists()
+        assertEquals(1, ticks)
+        assertEquals(Color.RED, review.stickers[9])
+    }
+
+    @Test fun `a plain tap on the locked color ends paint mode and plain taps behave as before`() {
+        launch()
+        val instruction = "2 stickers need a color. Tap the flashing one, then its color."
+        rule.onNodeWithTag("review:instruction").assertTextEquals(instruction)
+        longPress("swatch:RED")
+        tapToStop("swatch:RED")
+        assertNotPainting()
+        rule.onNodeWithTag("review:instruction").assertTextEquals(instruction)
+        rule.onNodeWithTag("sticker:7").assertIsSelected()
+        assertEquals(true, rule.onNodeWithTag("sticker:7").fetchSemanticsNode().config[StickerPulsingKey])
+        rule.onNodeWithTag("review:selected").assertTextEquals("Up face, position 8, needs a color")
+        assertNull(review.stickers[7])
+        rule.onNodeWithTag("swatch:WHITE").performScrollTo().performClick()
+        assertEquals(Color.WHITE, review.stickers[7])
+        rule.onNodeWithTag("sticker:20").assertIsSelected()
+    }
+
+    @Test fun `a long-press or Stop painting on the locked color ends paint mode`() {
+        launch()
+        longPress("swatch:RED")
+        longPress("swatch:RED")
+        assertNotPainting()
+        rule.onNodeWithTag("sticker:7").assertIsSelected()
+        customAction("swatch:RED", "Lock this color")
+        assertPainting("red")
+        customAction("swatch:RED", "Stop painting")
+        assertNotPainting()
+        rule.onNodeWithTag("review:selected").assertExists()
+    }
+
+    @Test fun `a plain tap on another color only ends paint mode`() {
+        launch()
+        longPress("swatch:RED")
+        tapToStop("swatch:BLUE")
+        assertNotPainting()
+        assertNull(review.stickers[7])
+        assertEquals(0, ticks)
+        rule.onNodeWithTag("swatch:BLUE").performScrollTo().performClick()
+        assertEquals(Color.BLUE, review.stickers[7])
+    }
+
+    @Test fun `a long-press on another color switches the lock`() {
+        launch()
+        longPress("swatch:RED")
+        longPress("swatch:BLUE")
+        assertPainting("blue")
+        rule.onNodeWithTag("swatch:RED").assertIsNotSelected()
+        rule.onNodeWithTag("sticker:0").performClick()
+        assertEquals(Color.BLUE, review.stickers[0])
+    }
+
+    @Test fun `Retake faces ends paint mode, announced in retake mode, and Cancel returns not painting`() {
+        retake = {}
+        launch()
+        longPress("swatch:RED")
+        tapToStop("review:retakeFaces")
+        rule.onNodeWithTag("review:instruction").assertTextEquals("Tap each face to scan again.")
+        assertEquals("Painting off", announcement())
+        rule.onNodeWithTag("review:retake:cancel").performClick()
+        assertNotPainting()
+        rule.onNodeWithTag("review:instruction").assertTextEquals("2 stickers need a color. Tap the flashing one, then its color.")
+        rule.onNodeWithTag("sticker:7").assertIsSelected()
+    }
+
+    @Test fun `paint mode survives recreation`() {
+        val restoration = StateRestorationTester(rule)
+        restoration.setContent {
+            CompositionLocalProvider(LocalHapticFeedback provides haptics) {
+                CubentiaTheme { screen() }
+            }
+        }
+        longPress("swatch:ORANGE")
+        assertPainting("orange")
+        restoration.emulateSavedInstanceStateRestore()
+        rule.waitForIdle()
+        assertPainting("orange")
+        // The restored screen does not speak the old announcement again.
+        assertNull(
+            rule
+                .onNodeWithTag("paint:announce", useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(SemanticsProperties.ContentDescription),
+        )
+        rule.onNodeWithTag("sticker:0").performClick()
+        assertEquals(Color.ORANGE, review.stickers[0])
+    }
+
+    @Test fun `a same-color paint-mode tap is no change, so Close closes without asking`() {
+        launch()
+        longPress("swatch:RED")
+        rule.onNodeWithTag("sticker:9").performClick()
+        rule.waitForIdle()
+        assertEquals(1, ticks)
+        rule.onNodeWithTag("review:close").performScrollTo().performClick()
+        rule.onNodeWithTag("review:discard").assertDoesNotExist()
+        assertTrue(closed)
+    }
+
+    @Test fun `painting the paused selected sticker itself moves the selection on as a plain paint does`() {
+        launch()
+        longPress("swatch:WHITE")
+        rule.onNodeWithTag("sticker:7").performClick()
+        rule.waitForIdle()
+        assertEquals(Color.WHITE, review.stickers[7])
+        assertEquals(20, review.selected)
+        tapToStop("swatch:WHITE")
+        rule.onNodeWithTag("sticker:20").assertIsSelected()
+        rule.onNodeWithTag("review:selected").assertTextEquals("Front face, position 3, needs a color")
+    }
+
+    @Test fun `with haptics off a paint-mode tap gives no tick`() {
+        launch(hapticsOn = false)
+        longPress("swatch:RED", resetTicks = false)
+        rule.onNodeWithTag("sticker:0").performClick()
+        rule.waitForIdle()
+        assertEquals(Color.RED, review.stickers[0])
+        assertEquals(0, ticks)
+    }
+
+    @Test fun `the announcer speaks each event for a moment, then leaves the live region`() {
+        launch()
+        val announcer = { rule.onNodeWithTag("paint:announce", useUnmergedTree = true).fetchSemanticsNode().config }
+        assertNull(announcer().getOrNull(SemanticsProperties.ContentDescription))
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithTag("swatch:RED").performScrollTo().performTouchInput { longClick() }
+        rule.mainClock.advanceTimeBy(100)
+        assertEquals(listOf("Painting red"), announcer()[SemanticsProperties.ContentDescription])
+        assertEquals(LiveRegionMode.Polite, announcer()[SemanticsProperties.LiveRegion])
+        rule.mainClock.advanceTimeBy(2_000)
+        assertNull(announcer().getOrNull(SemanticsProperties.ContentDescription))
+        assertNull(announcer().getOrNull(SemanticsProperties.LiveRegion))
+        rule.onNodeWithTag("swatch:RED").performScrollTo().performClick()
+        rule.mainClock.advanceTimeBy(100)
+        assertEquals(listOf("Painting off"), announcer()[SemanticsProperties.ContentDescription])
+        rule.mainClock.autoAdvance = true
+    }
+
+    @Test fun `paint mode on a scan with evidence drops the painted Labs and focuses the counts line`() {
+        // R's sticker 9 is unread and sticker 8 measures off: painting 9 white leaves whites over by one, led by 8.
+        val colors =
+            CubeState.SOLVED
+                .toFacelets()
+                .colors
+                .toMutableList()
+                .also { it[9] = Color.WHITE }
+        review =
+            ScanReview.from(
+                ScanResult.Full(
+                    Facelets(colors),
+                    List(54) { if (it == 9) StickerConfidence.UNCERTAIN else StickerConfidence.CONFIDENT },
+                    colors.mapIndexed { index, color -> if (index == 8) Lab(55.0, 50.0, 40.0) else labs.getValue(color) },
+                ),
+                CalibrationCenters(labs),
+            )
+        launch()
+        longPress("swatch:WHITE")
+        rule.onNodeWithTag("sticker:9").performClick()
+        rule.waitForIdle()
+        assertTrue(review.blanks.isEmpty())
+        assertNull(review.evidence?.labs?.get(9))
+        val counts = review.problems.indexOfFirst { it.reason.key == "msg.validation.wrong-color-counts" }
+        assertTrue(counts >= 0)
+        rule.onNodeWithTag("review:problem:$counts").performScrollTo().assertIsSelected()
+        // Painting the suspect 8 drops its Lab too, so no suggestion names it any more.
+        assertTrue(review.suspects.any { it.index == 8 })
+        rule.onNodeWithTag("sticker:8").performClick()
+        rule.waitForIdle()
+        assertNull(review.evidence?.labs?.get(8))
+        assertTrue(review.suspects.none { it.index == 8 })
+        tapToStop("swatch:WHITE")
+        rule.onNodeWithTag("sticker:8").performClick()
+        rule.onNodeWithTag("review:suggestion").assertDoesNotExist()
     }
 
     /** The glyph's font size in dp (its line height equals it). */
