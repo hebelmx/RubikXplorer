@@ -446,13 +446,7 @@ private fun CameraArea(
             .fillMaxSize()
             .clipToBounds()
             .background(UiColor.Black)
-            .then(
-                if (captureHighlight) {
-                    Modifier.border(4.dp, MaterialTheme.colorScheme.primary).testTag("quickScan:captureFlash")
-                } else {
-                    Modifier
-                },
-            ).onGloballyPositioned { geometry.pane = it.boundsInRoot() }
+            .onGloballyPositioned { geometry.pane = it.boundsInRoot() }
             .testTag("scanViewfinder"),
     ) {
         preview()
@@ -462,22 +456,31 @@ private fun CameraArea(
                 detectedCornerQuads = detectedCornerQuads,
                 modifier = Modifier.fillMaxSize().onGloballyPositioned { geometry.grid = it.boundsInRoot() },
             )
-            return@BoxWithConstraints
-        }
-        Canvas(
-            Modifier
-                .align(Alignment.Center)
-                .size(side)
-                .onGloballyPositioned { geometry.grid = it.boundsInRoot() }
-                .testTag("scanGrid"),
-        ) {
-            val stroke = 2.dp.toPx()
-            drawRect(UiColor.White, Offset.Zero, Size(size.width, size.height), style = Stroke(stroke))
-            for (line in 1..2) {
-                val at = size.width * line / SIDE
-                drawLine(UiColor.White, Offset(at, 0f), Offset(at, size.height), stroke)
-                drawLine(UiColor.White, Offset(0f, at), Offset(size.width, at), stroke)
+        } else {
+            Canvas(
+                Modifier
+                    .align(Alignment.Center)
+                    .size(side)
+                    .onGloballyPositioned { geometry.grid = it.boundsInRoot() }
+                    .testTag("scanGrid"),
+            ) {
+                val stroke = 2.dp.toPx()
+                drawRect(UiColor.White, Offset.Zero, Size(size.width, size.height), style = Stroke(stroke))
+                for (line in 1..2) {
+                    val at = size.width * line / SIDE
+                    drawLine(UiColor.White, Offset(at, 0f), Offset(at, size.height), stroke)
+                    drawLine(UiColor.White, Offset(0f, at), Offset(size.width, at), stroke)
+                }
             }
+        }
+        if (captureHighlight) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.22f))
+                    .border(4.dp, MaterialTheme.colorScheme.primary)
+                    .testTag("quickScan:captureFlash"),
+            )
         }
     }
 }

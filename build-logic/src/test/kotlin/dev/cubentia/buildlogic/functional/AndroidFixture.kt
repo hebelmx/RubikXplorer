@@ -28,11 +28,22 @@ internal class AndroidFixture(
         write("settings.gradle.kts", settingsScript(name))
         write(
             "gradle/libs.versions.toml",
-            listOf("camera2", "lifecycle", "view").joinToString("\n", "[libraries]\n") {
-                "androidx-camera-$it = { module = \"androidx.camera:camera-$it\", version = \"1.0\" }"
-            },
+            (
+                listOf("camera2", "lifecycle", "view").map {
+                    "androidx-camera-$it = { module = \"androidx.camera:camera-$it\", version = \"1.0\" }"
+                } + listOf("litert = { module = \"com.google.ai.edge.litert:litert\", version = \"1.0\" }")
+            ).joinToString("\n", "[libraries]\n"),
         )
         listOf("camera2", "lifecycle", "view").forEach { publishModule("androidx.camera", "camera-$it") }
+        publishAar(
+            "com.google.ai.edge.litert",
+            "litert",
+            mapOf(
+                "jni/arm64-v8a/libLiteRt.so" to
+                    dev.cubentia.buildlogic.policy.ElfAlignmentPolicyTest
+                        .elf64(listOf(0x4000L)),
+            ),
+        )
         write("gradle.properties", GRADLE_PROPERTIES)
         write("build.gradle.kts", buildScript(plugins, buildTypes, defaultConfig))
         write("src/main/AndroidManifest.xml", manifest(permissions))
@@ -73,6 +84,37 @@ internal class AndroidFixture(
 <groupId>$group</groupId><artifactId>$module</artifactId><version>1.0</version></project>""",
         )
         ZipOutputStream(projectDir.resolve("$dir/$module-1.0.jar").outputStream()).use { it.finish() }
+    }
+
+    fun publishAar(
+        group: String,
+        module: String,
+        entries: Map<String, ByteArray> = emptyMap(),
+    ) {
+        val dir = "local-repo/${group.replace('.', '/')}/$module/1.0"
+        write(
+            "$dir/$module-1.0.pom",
+            """<project><modelVersion>4.0.0</modelVersion>
+<groupId>$group</groupId><artifactId>$module</artifactId><version>1.0</version><packaging>aar</packaging></project>""",
+        )
+        ZipOutputStream(projectDir.resolve("$dir/$module-1.0.aar").outputStream()).use { zip ->
+            zip.putNextEntry(java.util.zip.ZipEntry("AndroidManifest.xml"))
+            zip.write(
+                """<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="$group"><uses-sdk android:minSdkVersion="21"/></manifest>"""
+                    .toByteArray(),
+            )
+            zip.closeEntry()
+            zip.putNextEntry(java.util.zip.ZipEntry("classes.jar"))
+            val jarOut = java.io.ByteArrayOutputStream()
+            ZipOutputStream(jarOut).use { it.finish() }
+            zip.write(jarOut.toByteArray())
+            zip.closeEntry()
+            entries.forEach { (path, data) ->
+                zip.putNextEntry(java.util.zip.ZipEntry(path))
+                zip.write(data)
+                zip.closeEntry()
+            }
+        }
     }
 
     fun build(vararg tasks: String): BuildResult = runner(*tasks).build()

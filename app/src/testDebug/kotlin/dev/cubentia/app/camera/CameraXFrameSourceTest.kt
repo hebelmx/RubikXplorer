@@ -5,6 +5,7 @@ import android.graphics.ImageFormat
 import android.graphics.Rect
 import android.os.SystemClock
 import androidx.activity.ComponentActivity
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageInfo
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.impl.TagBundle
@@ -24,11 +25,40 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowLog
 import java.nio.ByteBuffer
+import java.util.Optional
 import java.util.concurrent.Executors
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class CameraXFrameSourceTest {
+    @Test fun meteringIncludesAwbOnlyWhenAsked() {
+        val afAe = FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE
+        assertEquals(afAe or FocusMeteringAction.FLAG_AWB, CameraXFrameSource.meteringFlags(includeAwb = true))
+        assertEquals(afAe, CameraXFrameSource.meteringFlags(includeAwb = false))
+    }
+
+    @Test fun cornerFramesUseTheInjectedDetectorInsteadOfTheHeuristic() {
+        val guides = mutableListOf<CornerGuide>()
+        val recording = CornerDetector { _, guide -> null.also { guides += guide } }
+        val activity = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val executor = Executors.newSingleThreadExecutor()
+        val source = CameraXFrameSource(Optional.of(recording))
+        val delivered = mutableListOf<ScanFrame>()
+        try {
+            source.start(activity.get(), executor, { delivered.add(it) }, { error("Camera unexpectedly unavailable") })
+            source.cornerMode(true)
+            executor.submit { source.read(dimFace()) }.get()
+
+            assertEquals(1, guides.size)
+            assertEquals(90, guides.single().rotationDegrees)
+            assertEquals(false, delivered.single().corner?.detected)
+        } finally {
+            source.stop()
+            executor.shutdownNow()
+            activity.pause().stop().destroy()
+        }
+    }
+
     @Test fun deliversLocatedStatsAndLogsTheLatticeForAReadableDimFace() {
         val image = dimFace()
         val crop = image.cropRect

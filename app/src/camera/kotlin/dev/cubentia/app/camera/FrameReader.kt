@@ -246,6 +246,7 @@ internal object FrameReader {
     fun readAt(
         frame: YuvFrame,
         square: GridSquare,
+        roiFraction: Double = CELL_ROI_FRACTION,
     ): FrameStats {
         if (frame.width <= 0 || frame.height <= 0) return empty()
         val side = square.side
@@ -256,9 +257,9 @@ internal object FrameReader {
         var glare = 0.0
         val cells =
             (0 until FrameQuality.CELLS).map { index ->
-                val roiLeft = gridLeft + (index % 3) * cell + cell * (1 - CELL_ROI_FRACTION) / 2
-                val roiTop = gridTop + (index / 3) * cell + cell * (1 - CELL_ROI_FRACTION) / 2
-                val step = cell * CELL_ROI_FRACTION / LATTICE
+                val roiLeft = gridLeft + (index % 3) * cell + cell * (1 - roiFraction) / 2
+                val roiTop = gridTop + (index / 3) * cell + cell * (1 - roiFraction) / 2
+                val step = cell * roiFraction / LATTICE
                 val clipped = mutableListOf<Boolean>()
                 val pixels =
                     (0 until LATTICE * LATTICE).map { point ->

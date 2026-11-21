@@ -464,6 +464,9 @@ internal data class CornerFrame(
 )
 
 internal object CornerReader {
+    /** Tighter cell ROI for oblique 3D unwarped faces to avoid bevel/border desaturation on Red/Orange side faces. */
+    internal const val CORNER_CELL_ROI_FRACTION = 0.48
+
     fun read(
         frame: YuvFrame,
         guide: CornerGuide,
@@ -473,7 +476,7 @@ internal object CornerReader {
         val faces =
             located.quads.map { quad ->
                 unwarp(frame, quad)?.let {
-                    FrameReader.readAt(it, GridSquare(0.0, 0.0, it.width.toDouble()))
+                    FrameReader.readAt(it, GridSquare(0.0, 0.0, it.width.toDouble()), roiFraction = CORNER_CELL_ROI_FRACTION)
                 }
             }
 
