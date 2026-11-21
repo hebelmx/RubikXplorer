@@ -237,10 +237,13 @@ internal class CameraXFrameSource
                 return
             }
             torchAppliedAt = now
-            // Applied once the future completes (also on failure: the domain's settle cap covers a torch that never lit).
-            bound.cameraControl
-                .enableTorch(lit)
-                .addListener({ appliedTorch = lit }, ContextCompat.getMainExecutor(context))
+            // Applied only once the future succeeds: a failed or cancelled change leaves the torch unapplied, and the
+            // domain's settle cap covers a torch that never lit.
+            val future = bound.cameraControl.enableTorch(lit)
+            future.addListener(
+                { if (runCatching { future.get() }.isSuccess) appliedTorch = lit },
+                ContextCompat.getMainExecutor(context),
+            )
         }
 
         override fun torchApplied(): Boolean? = appliedTorch

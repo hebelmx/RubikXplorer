@@ -4,7 +4,8 @@ package dev.cubentia.domain.recognition
  * Metering, coaching and steady-hold detection shared by both corner capture modes.
  *
  * Story 10.19 adds, for Quick Scan corners only (the case capture passes neither input and behaves as before):
- * - a light hold driven by a [SideLight.Verdict] per frame: it engages on the first detected frame whose check fails and
+ * - a light hold driven by a [SideLight.Verdict] per frame: it engages on the first detected frame whose check fails
+ *   (never while a metering change settles: an exposure transient is not evidence of bad light) and
  *   blocks auto and manual capture; the sides-dark coaching shows after [SIDES_DARK_COACHING_MS] of continuous failing
  *   with the cube detected and outranks every other corner coaching; the hold (and the line with it) clears once the
  *   check passes for [LIGHT_CLEAR_MS] while steady, and the steady count restarts. Losing the cube clears the line at
@@ -87,6 +88,12 @@ internal class CornerHold {
             reference = null
             return Decision.Wait
         }
+        val metering = meteredAt
+        if (detected && metering != null && !settledSinceMeter) {
+            // Settled on this frame counts before the light check, so a settled frame may start a light hold.
+            settledSinceMeter =
+                if (settled == null) nowMs - metering >= SETTLE_MS else settled || nowMs - metering >= SETTLE_CAP_MS
+        }
         val lightCleared = updateLight(detected, light, values, nowMs)
         val qualities = latest.map { it?.let(FrameQuality::assessShutter) }
         val longUndetected = !detected && undetectedSince?.let { nowMs - it >= UNDETECTED_COACHING_MS } == true
@@ -127,10 +134,6 @@ internal class CornerHold {
             remeterPending = false
             reference = null
             return Decision.Remeter
-        }
-        if (!settledSinceMeter) {
-            settledSinceMeter =
-                if (settled == null) nowMs - metered >= SETTLE_MS else settled || nowMs - metered >= SETTLE_CAP_MS
         }
         if (lightHeld) {
             reference = null
@@ -222,6 +225,12 @@ internal class CornerHold {
             return false
         }
         if (!light.passed) {
+            if (!lightHeld && settling) {
+                // An exposure transient while a metering change settles never starts a hold (the verdict is still reported).
+                lightPassingSince = null
+                lightReference = null
+                return false
+            }
             if (!lightHeld) {
                 lightHeld = true
                 lightHeldSince = nowMs

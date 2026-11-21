@@ -582,6 +582,32 @@ class QuickScanControllerTest {
     }
 
     @Test
+    fun `a failing verdict while a metering change settles never starts the light hold`() {
+        val scan = lightScan()
+        val first = hold(1)
+        val dark = darkSides(first)
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 0, settled = false))
+        // An exposure transient right after metering: the verdict fails and is reported, but no hold starts.
+        assertTrue(scan.onFrame(true, dark, 100, settled = false).isEmpty())
+        assertFalse(scan.light!!.passed)
+        assertFalse(scan.lightHeld)
+        assertTrue(scan.onFrame(true, first, 200, settled = true).isEmpty())
+        assertFalse(scan.lightHeld)
+        // A torch toggle is a metering change: while it is pending or settling a failing verdict holds nothing.
+        scan.syncTorch(requested = true, applied = false, nowMs = 300)
+        scan.onFrame(true, dark, 350, settled = false)
+        assertFalse(scan.lightHeld)
+        scan.syncTorch(requested = true, applied = true, nowMs = 400)
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 450, settled = false))
+        scan.onFrame(true, dark, 500, settled = false)
+        assertFalse(scan.lightHeld)
+        // Once settled, a failing frame starts the hold.
+        scan.onFrame(true, dark, 600, settled = true)
+        assertTrue(scan.lightHeld)
+        assertEquals(600L, scan.lightHeldSince)
+    }
+
+    @Test
     fun `a moving pass or a pass shorter than half a second keeps the hold and the line`() {
         val scan = lightScan()
         val first = hold(1)

@@ -269,7 +269,7 @@ class QuickScanSideFaceReplayTest {
             }
         }
 
-    /** Required-but-missing scored groups (reported, never a failure). */
+    /** Required-but-missing scored groups (a failure once any group is scored; reported only while none is). */
     private fun missing(groups: List<Group>): List<String> {
         val front = groups.filter { it.scored && it.direction == LightDirection.FRONT }
         return REQUIRED_DEVICES.flatMap { (name, matches) ->
@@ -414,6 +414,8 @@ class QuickScanSideFaceReplayTest {
                 violations.joinToString("\n") { "- $it" }.ifEmpty { "- none" }
         println(report)
         assertTrue(violations.isEmpty(), report)
+        // AC6 coverage: once the device session records any scored group, partial coverage cannot pass the bar.
+        if (scored > 0) assertTrue(missing.isEmpty(), report)
     }
 
     private companion object {
