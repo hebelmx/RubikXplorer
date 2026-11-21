@@ -2,7 +2,7 @@
 title: 'Story 10.19: Quick Scan reads the side faces in good light'
 type: 'feature'
 created: '2026-11-21'
-status: 'blocked'
+status: draft
 baseline_revision: 'eff37c49a232f283ca2e7b28a273f64ddbeaf7a5'
 review_loop_iteration: 0
 followup_review_recommended: false
