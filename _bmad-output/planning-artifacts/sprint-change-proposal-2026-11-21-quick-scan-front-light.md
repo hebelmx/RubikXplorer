@@ -210,6 +210,10 @@ NEW:
 
 ---
 
+### 4.6 Addendum (PO, 2026-11-21, after approval)
+
+Story 10.19's saved-calibration AC now names the geometry mismatch the PO observed: calibration is taken with each face flat to the camera, but corner captures see the side faces at an angle and in shade, and Yellow and Orange suffer most (D2: of 60 cells the operator entered, Red 15, Yellow 13, Orange 12). Each captured face is also corrected against its own known center sticker, and the replay covers a frontal calibration applied to angled side faces and reports results per color.
+
 ## 5. Implementation Handoff
 
 - **Scope:** Moderate (backlog change plus story ACs; no replan).

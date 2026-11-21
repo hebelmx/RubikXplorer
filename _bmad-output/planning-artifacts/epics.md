@@ -2461,7 +2461,7 @@ So that both corner photos read all three faces instead of sending me face by fa
 
 **Given** saved color calibration (Story 10.4)
 **When** Quick Scan classifies the stickers
-**Then** it uses the saved calibration when one exists, and self-calibrates from the face centers when none exists; the replay covers no saved calibration, a matching calibration, and calibrations made under different light and on a different cube, and in every mismatched case the result is uncertainty or fallback, never a confidently wrong sticker; the Guided 6-face Scan's behavior is unchanged
+**Then** it uses the saved calibration when one exists, and self-calibrates from the face centers when none exists; because calibration is taken with each face flat to the camera while corner captures see the side faces at an angle and in shade, each captured face is also corrected against its own known center sticker before classification; the replay covers no saved calibration, a matching calibration, a frontal calibration applied to angled side faces, and calibrations made under different light and on a different cube, reports results per color (Yellow and Orange are the most affected, PO 2026-11-21), and in every mismatched case the result is uncertainty or fallback, never a confidently wrong sticker; the Guided 6-face Scan's behavior is unchanged
 
 **Given** front-lit real corner captures under `Fixtures/corner/`, from the Lenovo and the S24 FE, with at least one stickered and one stickerless cube under at least two lights
 **When** `QuickScanSideFaceReplayTest` runs in CI with its bar enforced
