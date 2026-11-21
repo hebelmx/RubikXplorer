@@ -35,10 +35,16 @@ sealed interface SolvePhase {
 
     data object AlreadySolved : SolvePhase
 
+    /**
+     * The open editor: [fresh] when it opens on the default solved cube with no cube accepted yet (#253), and [set] the
+     * stickers already set in it (kept across a Solve tab switch).
+     */
     data class Editing(
         val initial: Facelets,
         val error: Text? = null,
         val note: Text? = null,
+        val fresh: Boolean = false,
+        val set: Set<Int> = emptySet(),
     ) : SolvePhase
 
     data class Solving(
@@ -58,6 +64,9 @@ class SolveFlowViewModel
         val pendingScan: StateFlow<CubeState?> = mutablePendingScan.asStateFlow()
         private var accepted = CubeState.SOLVED.toFacelets()
 
+        /** Whether a cube has been accepted or confirmed in this ViewModel; until then the editor opens fresh. */
+        private var hasAccepted = false
+
         /** The accepted scan that started this solve flow, including any Editor retry. */
         private var scanned: Facelets? = null
 
@@ -68,15 +77,25 @@ class SolveFlowViewModel
         /** The open editor's unaccepted stickers, kept across a Solve tab switch (in memory only, never on disk). */
         private var draft: Facelets? = null
 
+        /** The open editor's set stickers, kept with [draft]. */
+        private var draftSet: Set<Int> = emptySet()
+
         /** Shows [next]; any editor draft belongs to the phase it replaces, so it is dropped. */
         private fun show(next: SolvePhase) {
             draft = null
+            draftSet = emptySet()
             mutablePhase.value = next
         }
 
         /** The Learner changed a sticker in the open editor; kept so leaving the Solve tab does not lose it. */
-        fun onEdit(facelets: Facelets) {
-            if (mutablePhase.value is SolvePhase.Editing) draft = facelets
+        fun onEdit(
+            facelets: Facelets,
+            set: Set<Int>,
+        ) {
+            if (mutablePhase.value is SolvePhase.Editing) {
+                draft = facelets
+                draftSet = set
+            }
         }
 
         private var job: Job? = null
@@ -93,7 +112,7 @@ class SolveFlowViewModel
                     scanned = null
                     scannedColors = null
                     mutablePendingScan.value = null
-                    show(SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = Text("msg.solve.scan-fell-back")))
+                    show(SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = Text("msg.solve.scan-fell-back"), fresh = true))
                 }
 
                 ScanOutcome.Cancelled -> {
@@ -117,14 +136,14 @@ class SolveFlowViewModel
             scanned = null
             scannedColors = null
             mutablePendingScan.value = null
-            show(SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = Text("msg.solve.scan-camera-denied")))
+            show(SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = Text("msg.solve.scan-camera-denied"), fresh = true))
         }
 
         fun enterColors() {
             scanned = null
             scannedColors = null
             mutablePendingScan.value = null
-            show(SolvePhase.Editing(accepted))
+            show(SolvePhase.Editing(accepted, fresh = !hasAccepted))
         }
 
         fun closeEditor() {
@@ -141,8 +160,9 @@ class SolveFlowViewModel
             // The editor leaves composition with the tab: it reopens on the unaccepted stickers.
             val current = mutablePhase.value
             val edited = draft
-            if (current is SolvePhase.Editing && edited != null) mutablePhase.value = current.copy(initial = edited)
+            if (current is SolvePhase.Editing && edited != null) mutablePhase.value = current.copy(initial = edited, set = draftSet)
             draft = null
+            draftSet = emptySet()
             scanned = null
             scannedColors = null
             mutablePendingScan.value = null
@@ -156,7 +176,7 @@ class SolveFlowViewModel
         fun cancel() {
             revision++
             job?.cancel()
-            show(SolvePhase.Editing(accepted))
+            show(SolvePhase.Editing(accepted, fresh = !hasAccepted))
         }
 
         fun confirm(
@@ -171,6 +191,7 @@ class SolveFlowViewModel
             job?.cancel()
             // The editor fixes its centers to the home frame, so it reopens the solved cube held that way.
             accepted = state.reoriented(Orientation.HOME).toFacelets()
+            hasAccepted = true
             scanned = null
             scannedColors = null
             show(SolvePhase.AlreadySolved)
@@ -183,6 +204,7 @@ class SolveFlowViewModel
             val attempt = ++revision
             job?.cancel()
             accepted = state.reoriented(Orientation.HOME).toFacelets()
+            hasAccepted = true
             show(SolvePhase.Solving(if (source.isReady) Preparation.NONE else Preparation.WARMING_UP))
             job =
                 viewModelScope.launch {

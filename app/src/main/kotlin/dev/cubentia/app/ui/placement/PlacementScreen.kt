@@ -75,7 +75,7 @@ internal fun PlacementScreen(
 
                     is PlacementPhase.Editing -> {
                         Text(strings.resolve(phase.note), modifier = Modifier.testTag("placement:editorNote"))
-                        ManualCubeEditor(strings, { flow.editorAccepted(it, stages) }, Modifier.weight(1f))
+                        ManualCubeEditor(strings, { flow.editorAccepted(it, stages) }, Modifier.weight(1f), fresh = true)
                     }
 
                     is PlacementPhase.Choosing -> {

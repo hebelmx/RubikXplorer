@@ -63,6 +63,78 @@ class ContentStringsTest {
     }
 
     @Test
+    fun `shipped editor messages pluralize and fill their lists (#253)`() {
+        val shipped = ContentStrings((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings)
+
+        fun line(
+            key: String,
+            vararg args: Pair<String, Any>,
+        ) = shipped.resolve(Text(key, mapOf(*args)))
+        assertEquals("1 face left to enter: Down.", line("msg.editor.faces-left", "count" to 1, "faces" to "Down"))
+        assertEquals("We turned the Up face to match the others.", line("msg.editor.turned", "count" to 1, "faces" to "Up"))
+        assertEquals(
+            "We turned the Up and Front faces to match the others.",
+            line(
+                "msg.editor.turned",
+                "count" to 2,
+                "faces" to "Up and Front",
+            ),
+        )
+        assertEquals("Red: 10 (one too many)", line("msg.editor.count-over", "color" to "Red", "count" to 10, "diff" to 1))
+        assertEquals("Green: 6 (3 missing)", line("msg.editor.count-under", "color" to "Green", "count" to 6, "diff" to 3))
+        assertEquals(
+            "The corner between Up, Front and Right shows three greens.",
+            line("msg.editor.piece-repeats.green", "piece" to "corner", "faces" to "Up, Front and Right", "count" to 3),
+        )
+        assertEquals(
+            "The edge between Front and Right has colors that don't fit the rest of the cube.",
+            line("msg.editor.piece-impossible", "piece" to "edge", "faces" to "Front and Right"),
+        )
+        assertEquals("Front done ✓ → Right", line("msg.editor.face-done", "face" to "Front", "next" to "Right"))
+        assertEquals("Front face done. Right face next.", line("msg.editor.face-done-spoken", "face" to "Front", "next" to "Right"))
+        assertEquals(
+            "6 faces left to enter: Up, Front, Right, Back, Left, Down.",
+            line("msg.editor.faces-left", "count" to 6, "faces" to "Up, Front, Right, Back, Left, Down"),
+        )
+        assertEquals(
+            "Check the Up face: hold green toward you and look at the top.",
+            line("msg.editor.check-face-top", "face" to "Up", "front" to "green"),
+        )
+        assertEquals(
+            "Check the Down face: hold green on top and turn yellow toward you.",
+            line("msg.editor.check-face-side", "face" to "Down", "up" to "green", "center" to "yellow"),
+        )
+        assertEquals(
+            "Check the Right face: hold white on top and turn red toward you.",
+            line("msg.editor.check-face-side", "face" to "Right", "up" to "white", "center" to "red"),
+        )
+        assertEquals("Turned to match", line("msg.editor.face-turned"))
+        assertEquals("All stickers set", line("msg.editor.face-complete"))
+        assertEquals("Red: 11 (two too many)", line("msg.editor.count-over", "color" to "Red", "count" to 11, "diff" to 2))
+        assertEquals("Green: 8 (one missing)", line("msg.editor.count-under", "color" to "Green", "count" to 8, "diff" to 1))
+        assertEquals(
+            "Red: 10 (one too many) · Green: 8 (one missing)",
+            line(
+                "msg.editor.counts",
+                "parts" to "Red: 10 (one too many) · Green: 8 (one missing)",
+            ),
+        )
+        listOf("white", "yellow", "red", "orange", "green", "blue").forEach { color ->
+            assertEquals(
+                "The edge between Up and Front shows two ${color}s.",
+                line("msg.editor.piece-repeats.$color", "piece" to "edge", "faces" to "Up and Front", "count" to 2),
+            )
+        }
+        assertEquals(
+            "The corner between Up, Front and Left shows opposite colors.",
+            line("msg.editor.piece-opposite", "piece" to "corner", "faces" to "Up, Front and Left"),
+        )
+        assertEquals("Up and Front", line("msg.editor.list-two", "a" to "Up", "b" to "Front"))
+        assertEquals("Up, Front and Right", line("msg.editor.list-three", "a" to "Up", "b" to "Front", "c" to "Right"))
+        assertEquals("Up, Front, Right and Back", line("msg.editor.list-more", "rest" to "Up, Front, Right", "last" to "Back"))
+    }
+
+    @Test
     fun `a lone apostrophe stays literal and a text key resolves like a text`() {
         assertEquals("Reset the cube? This lesson's unsaved steps will be lost.", strings.resolve(Text("msg.session.reset-unsaved")))
         assertEquals("Turn 1 face", ContentStrings(mapOf("a.b.c" to "Turn 1 face")).resolve(TextKey("a.b.c")))

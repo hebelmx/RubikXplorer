@@ -120,6 +120,8 @@ fun SolveScreen(
                     { flow.confirm(it, onSolved) },
                     Modifier.weight(1f),
                     initial = current.initial,
+                    fresh = current.fresh,
+                    initialSet = current.set,
                     onChange = flow::onEdit,
                 )
             }

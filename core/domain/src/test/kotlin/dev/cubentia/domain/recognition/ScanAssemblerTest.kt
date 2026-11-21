@@ -724,6 +724,107 @@ class ScanAssemblerTest {
         assertNull(result.labs)
     }
 
+    /** [facelets] with each face in [turns] turned that many clockwise quarter turns (centers stay). */
+    private fun turned(
+        facelets: Facelets,
+        turns: Map<Face, Int>,
+    ): Facelets =
+        Facelets(
+            Face.entries.flatMap { face ->
+                clockwise(facelets.colors.subList(face.ordinal * 9, face.ordinal * 9 + 9), turns[face] ?: 0)
+            },
+        )
+
+    @Test
+    fun `orient keeps valid input as entered with nothing turned`() {
+        listOf(solved, scrambled).forEach { assertEquals(FaceTurnFit.Resolved(it, emptyMap()), ScanAssembler.orient(it)) }
+    }
+
+    @Test
+    fun `orient turns one face entered at 90, 180 or 270 degrees back to the only valid cube`() {
+        (1..3).forEach { turn ->
+            val entered = turned(scrambled, mapOf(Face.U to turn))
+            assertTrue(CubeValidator.validate(entered) !is ValidationResult.Valid)
+            // Entered $turn clockwise, so the fit turns it back by the rest of a full turn.
+            assertEquals(FaceTurnFit.Resolved(scrambled, mapOf(Face.U to 4 - turn)), ScanAssembler.orient(entered), "U turned $turn")
+        }
+    }
+
+    @Test
+    fun `orient turns two faces back and names both in URFDLB order`() {
+        val entered = turned(scrambled, mapOf(Face.B to 1, Face.R to 2))
+        val fit = ScanAssembler.orient(entered)
+        assertEquals(FaceTurnFit.Resolved(scrambled, mapOf(Face.R to 2, Face.B to 3)), fit)
+        fit as FaceTurnFit.Resolved
+        assertEquals(listOf(Face.R, Face.B), fit.turned)
+    }
+
+    @Test
+    fun `orient takes a half-turn-symmetric face's turn count from the assignment`() {
+        // After F' B the Up face reads the same after a half turn, so entered 270 degrees it is fixed by one quarter turn.
+        val cube = CubeState.SOLVED.apply(listOf(FaceTurn(Face.F, Turn.COUNTERCLOCKWISE), FaceTurn(Face.B, Turn.CLOCKWISE))).toFacelets()
+        val up = cube.colors.subList(0, 9)
+        assertEquals(up, clockwise(up, 2))
+        assertTrue(up != clockwise(up, 1))
+        val fit = ScanAssembler.orient(turned(cube, mapOf(Face.U to 3)))
+        assertEquals(FaceTurnFit.Resolved(cube, mapOf(Face.U to 1)), fit)
+    }
+
+    @Test
+    fun `orient keeps a valid entry even when another turning is also valid`() {
+        // R2: turning U, F, D and B by a half turn gives L2, also valid; the entry as entered wins.
+        val other = turned(r2, listOf(Face.U, Face.F, Face.D, Face.B).associateWith { 2 })
+        assertTrue(CubeValidator.validate(other) is ValidationResult.Valid)
+        assertEquals(FaceTurnFit.Resolved(r2, emptyMap()), ScanAssembler.orient(r2))
+    }
+
+    @Test
+    fun `orient with several valid turnings is unresolved and names the faces that differ`() {
+        // R2 with U entered a quarter turn off: U back gives R2; U on with F, D and B half-turned gives L2.
+        val fit = ScanAssembler.orient(turned(r2, mapOf(Face.U to 1)))
+        fit as FaceTurnFit.Unresolved
+        assertTrue(fit.valid >= 2, "valid ${fit.valid}")
+        assertEquals(listOf(Face.U, Face.F, Face.D, Face.B), fit.involved)
+    }
+
+    @Test
+    fun `orient with no valid turning is unresolved with the faces to check`() {
+        val colors = scrambled.colors.toMutableList()
+        val b = (9 until 54).first { it % 9 != 4 && colors[it] != colors[0] }
+        colors[0] = scrambled.colors[b]
+        colors[b] = scrambled.colors[0]
+        val fit = ScanAssembler.orient(Facelets(colors))
+        fit as FaceTurnFit.Unresolved
+        assertEquals(0, fit.valid)
+        assertTrue(fit.involved.isNotEmpty())
+        assertEquals(Face.entries.filter { it in fit.involved }, fit.involved)
+    }
+
+    @Test
+    fun `orient with a twisted corner and every piece legal names no face`() {
+        // URF corner twisted in place: right counts, every piece legal, so no face turn can fix it.
+        val colors = solved.colors.toMutableList()
+        val (u, r, f) = listOf(colors[8], colors[9], colors[20])
+        colors[9] = u
+        colors[20] = r
+        colors[8] = f
+        assertEquals(FaceTurnFit.Unresolved(0, emptyList()), ScanAssembler.orient(Facelets(colors)))
+    }
+
+    @Test
+    fun `orient with wrong color counts never resolves`() {
+        val colors = solved.colors.toMutableList().also { it[0] = Color.RED }
+        val fit = ScanAssembler.orient(Facelets(colors))
+        fit as FaceTurnFit.Unresolved
+        assertEquals(0, fit.valid)
+        assertTrue(Face.U in fit.involved)
+    }
+
+    @Test
+    fun `net neighbors are top, right, bottom and left of each face`() {
+        Face.entries.forEach { assertEquals(neighbors.getValue(it), ScanAssembler.netNeighbors(it)) }
+    }
+
     @Test
     fun `a retaken face with a named top is placed at its turn`() {
         val result =

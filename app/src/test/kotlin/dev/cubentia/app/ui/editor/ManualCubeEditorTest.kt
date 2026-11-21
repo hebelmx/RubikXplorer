@@ -39,6 +39,8 @@ import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Facelets
+import dev.cubentia.domain.cube.Notation
+import dev.cubentia.domain.cube.NotationResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -68,7 +70,13 @@ class ManualCubeEditorTest {
     private val accepted = mutableListOf<CubeState>()
     private var glyphs by mutableStateOf(false)
 
-    private fun launch(initial: Facelets = CubeState.SOLVED.toFacelets()) {
+    private val changes = mutableListOf<Pair<Facelets, Set<Int>>>()
+
+    private fun launch(
+        initial: Facelets = CubeState.SOLVED.toFacelets(),
+        fresh: Boolean = false,
+        initialSet: Set<Int> = emptySet(),
+    ) {
         rule.setContent {
             CubentiaTheme {
                 ManualCubeEditor(
@@ -76,6 +84,9 @@ class ManualCubeEditorTest {
                     onAccept = { accepted += it },
                     initial = initial,
                     style = RenderStyle(colorBlindGlyphs = glyphs),
+                    fresh = fresh,
+                    initialSet = initialSet,
+                    onChange = { facelets, set -> changes += facelets to set },
                 )
             }
         }
@@ -264,11 +275,17 @@ class ManualCubeEditorTest {
     }
 
     @Test
-    fun `wrong counts show the count line without outlines and disable Accept`() {
+    fun `wrong counts name each color that is off and the piece they broke, and disable Accept`() {
         launch()
-        paint(0, CubeColor.RED)
-        assertEquals(listOf("Each color should appear on exactly nine stickers. Check the colors you entered."), problemLines())
-        assertEquals(emptySet<Int>(), outlined())
+        paint(18, CubeColor.RED)
+        assertEquals(
+            listOf("Red: 10 (one too many) · Green: 8 (one missing)", "The corner between Up, Front and Left shows opposite colors."),
+            problemLines(),
+        )
+        // The counts line marks no sticker; the named corner is outlined and numbered.
+        assertEquals(setOf(6, 18, 38), outlined())
+        rule.onNodeWithTag("editor:problem:0:tag", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithTag("editor:problem:1:tag", useUnmergedTree = true).assertExists()
         accept().assertIsNotEnabled()
     }
 
@@ -278,11 +295,22 @@ class ManualCubeEditorTest {
         paint(18, CubeColor.WHITE)
         paint(8, CubeColor.GREEN)
         assertEquals(setOf(6, 8, 9, 18, 20, 38), outlined())
+        // Every outlined sticker carries the numbered marker of its piece's line, like Scan review.
+        val numbers = mapOf(8 to 1, 9 to 1, 20 to 1, 6 to 2, 18 to 2, 38 to 2)
         (0 until Facelets.SIZE).forEach { index ->
-            val state = sticker(index).fetchSemanticsNode().config.getOrNull(SemanticsProperties.StateDescription)
-            assertEquals("$index", if (index in outlined()) "Check this piece" else null, state)
+            val marked = sticker(index).fetchSemanticsNode().config.getOrNull(StickerProblemsKey)
+            assertEquals("$index", numbers[index]?.let(::listOf), marked)
         }
-        assertEquals(listOf("Some corners show colors that no real corner has. Check the outlined stickers."), problemLines())
+        rule.onNodeWithTag("sticker:8:tag", useUnmergedTree = true).assertExists()
+        assertEquals(
+            listOf(
+                "The corner between Up, Front and Right shows two greens.",
+                "The corner between Up, Front and Left shows two whites.",
+            ),
+            problemLines(),
+        )
+        rule.onNodeWithTag("editor:problem:0:tag", useUnmergedTree = true).assertExists()
+        rule.onNodeWithTag("editor:problem:1:tag", useUnmergedTree = true).assertExists()
         accept().assertIsNotEnabled()
     }
 
@@ -293,6 +321,7 @@ class ManualCubeEditorTest {
             listOf("One corner is twisted — check the corners you changed last.", "One edge is flipped."),
             problemLines(),
         )
+        rule.onNodeWithTag("editor:instruction").assertDoesNotExist()
         assertEquals(emptySet<Int>(), outlined())
         accept().assertIsNotEnabled()
     }
@@ -330,5 +359,214 @@ class ManualCubeEditorTest {
         rule.waitForIdle()
         assertEquals(CubeState.SOLVED.toFacelets(), accepted.single().toFacelets())
         assertFalse(isInvalid(0))
+    }
+
+    private fun text(tag: String): String =
+        rule
+            .onNodeWithTag(tag)
+            .fetchSemanticsNode()
+            .config[SemanticsProperties.Text]
+            .joinToString { it.text }
+
+    private val editable = (0 until Facelets.SIZE).filter(ManualCubeEditorState::isEditable).toSet()
+
+    private val r2 = CubeState.SOLVED.apply((Notation.parse("R2") as NotationResult.Parsed).moves).toFacelets()
+
+    @Test
+    fun `a fresh entry asks for the faces left to enter, shows no problem and keeps Accept disabled`() {
+        launch(fresh = true)
+        assertTrue(isSelected(0))
+        assertEquals("6 faces left to enter: Up, Front, Right, Back, Left, Down.", text("editor:instruction"))
+        paint(0, CubeColor.RED)
+        paint(18, CubeColor.GREEN)
+        paint(36, CubeColor.ORANGE)
+        assertEquals("3 faces left to enter: Right, Back, Down.", text("editor:instruction"))
+        assertEquals(emptyList<String>(), problemLines())
+        assertEquals(emptySet<Int>(), outlined())
+        accept().assertIsNotEnabled()
+        // onChange reports the stickers and the set stickers.
+        assertEquals(setOf(0, 18, 36), changes.last().second)
+    }
+
+    @Test
+    fun `a face entered at 180 degrees is turned, noted, and Accept returns the original cube`() {
+        val entered = EditorFixtures.turned(scrambled, mapOf(0 to 2))
+        launch(entered, fresh = true, initialSet = editable - 53)
+        rule.onNodeWithTag("editor:turned").assertDoesNotExist()
+        paint(53, CubeColor.entries.first { it == scrambled.colors[53] })
+        (0 until 9).forEach { assertEquals("$it", fill(scrambled.colors[it]), drawnColor(it)) }
+        val note = rule.onNodeWithTag("editor:turned").fetchSemanticsNode()
+        assertEquals("We turned the Up face to match the others.", note.config[SemanticsProperties.Text].joinToString { it.text })
+        assertEquals(LiveRegionMode.Polite, note.config[SemanticsProperties.LiveRegion])
+        rule.onNodeWithTag("editor:instruction").assertDoesNotExist()
+        assertEquals(scrambled, changes.last().first)
+        accept().assertIsEnabled().performClick()
+        rule.waitForIdle()
+        assertEquals(scrambled, accepted.single().toFacelets())
+    }
+
+    @Test
+    fun `a valid entry is kept as entered even when another turning also fits`() {
+        launch(r2, fresh = true, initialSet = editable - 53)
+        paint(53, r2.colors[53])
+        rule.onNodeWithTag("editor:turned").assertDoesNotExist()
+        accept().assertIsEnabled()
+    }
+
+    @Test
+    fun `entered faces that fit several turnings name the face and its hold, and disable Accept`() {
+        val entered = EditorFixtures.turned(r2, mapOf(0 to 1))
+        launch(entered, fresh = true, initialSet = editable - 53)
+        paint(53, entered.colors[53])
+        val line = rule.onNodeWithTag("editor:instruction").fetchSemanticsNode()
+        assertEquals(
+            "Check the Up face: hold green toward you and look at the top.",
+            line.config[SemanticsProperties.Text].joinToString { it.text },
+        )
+        assertEquals(LiveRegionMode.Polite, line.config[SemanticsProperties.LiveRegion])
+        accept().assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a side face to check names its center and white on top`() {
+        // Two Front edge stickers swapped: no turning fits, and the first face to check is Front.
+        val entered = Facelets(EditorFixtures.swap(scrambled.colors, 21, 23))
+        launch(entered)
+        paint(53, entered.colors[53])
+        assertEquals("Check the Front face: hold white on top and turn green toward you.", text("editor:instruction"))
+        accept().assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a caller's cube shows its problems at once and selects nothing`() {
+        launch(twistedAndFlipped, fresh = false)
+        assertTrue(rule.onAllNodesWithTag("editor:selected").fetchSemanticsNodes().isEmpty())
+        // No faces-left gating: the twist and flip lines show at once.
+        assertEquals(2, problemLines().size)
+    }
+
+    @Test
+    fun `a twisted corner with right counts and every piece legal shows its line and names no face`() {
+        val twisted = Facelets(EditorFixtures.cycle(solved, 8, 9, 20))
+        launch(twisted, fresh = true, initialSet = editable - 53)
+        paint(53, twisted.colors[53])
+        assertEquals(listOf("One corner is twisted — check the corners you changed last."), problemLines())
+        rule.onNodeWithTag("editor:instruction").assertDoesNotExist()
+        rule.onNodeWithTag("editor:turned").assertDoesNotExist()
+        accept().assertIsNotEnabled()
+    }
+
+    @Test
+    fun `the update cue plays on the painted sticker where its turned face moved it`() {
+        // Up entered at 180 degrees with sticker 6 painted last: the fix turns Up, and 6 lands on 2.
+        val entered = EditorFixtures.turned(scrambled, mapOf(0 to 2))
+        launch(entered, fresh = true, initialSet = editable - 6)
+        sticker(6).performClick()
+        rule.mainClock.autoAdvance = false
+        swatch(entered.colors[6]).performClick()
+        rule.mainClock.advanceTimeBy(50)
+        rule.onNodeWithTag("sticker:2:cue", useUnmergedTree = true).assertExists()
+        rule.onNodeWithTag("sticker:6:cue", useUnmergedTree = true).assertDoesNotExist()
+        rule.mainClock.autoAdvance = true
+        rule.waitForIdle()
+        assertEquals(scrambled, changes.last().first)
+    }
+
+    @Test
+    fun `a turned note names two faces in URFDLB order`() {
+        val entered = EditorFixtures.turned(scrambled, mapOf(1 to 2, 5 to 1))
+        launch(entered, fresh = true, initialSet = editable - 53)
+        paint(53, entered.colors[53])
+        assertEquals("We turned the Right and Back faces to match the others.", text("editor:turned"))
+        assertEquals(scrambled, changes.last().first)
+        accept().assertIsEnabled()
+    }
+
+    @Test
+    fun `an edge line names its two faces`() {
+        launch()
+        paint(7, CubeColor.GREEN)
+        assertEquals(
+            listOf("White: 8 (one missing) · Green: 10 (one too many)", "The edge between Up and Front shows two greens."),
+            problemLines(),
+        )
+        rule.onNodeWithTag("editor:problem:1:tag", useUnmergedTree = true).assertExists()
+        accept().assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a mirrored corner shows the impossible-piece line with its numbered markers`() {
+        // URF corner with its Up and Right stickers swapped: right counts, no repeat or opposite colors.
+        launch(Facelets(EditorFixtures.swap(solved, 8, 9)))
+        assertEquals("The corner between Up, Front and Right has colors that don't fit the rest of the cube.", problemLines().first())
+        rule.onNodeWithTag("editor:problem:0:tag", useUnmergedTree = true).assertExists()
+        listOf(8, 9, 20).forEach { assertTrue("$it", isInvalid(it)) }
+        accept().assertIsNotEnabled()
+    }
+
+    private fun stateDescription(tag: String): String? =
+        rule
+            .onNodeWithTag(tag)
+            .fetchSemanticsNode()
+            .config
+            .getOrNull(SemanticsProperties.StateDescription)
+
+    private fun exists(tag: String): Boolean = rule.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+
+    @Test
+    fun `the full net shows all six face tabs above the net and no hold bands`() {
+        launch(fresh = true)
+        val netTop = sticker(0).getUnclippedBoundsInRoot().top
+        repeat(6) { face ->
+            val tab = rule.onNodeWithTag("editor:face:$face")
+            assertTrue("$face", tab.getUnclippedBoundsInRoot().bottom <= netTop)
+        }
+        listOf("top", "right", "bottom", "left").forEach { assertFalse(it, exists("editor:hold:$it")) }
+        // The strip's current tab is the selected sticker's face.
+        assertEquals(
+            true,
+            rule
+                .onNodeWithTag("editor:face:0")
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(SemanticsProperties.Selected),
+        )
+    }
+
+    @Test
+    fun `the full-net strip marks a completed face with its tick`() {
+        launch(fresh = true)
+        assertFalse(exists("editor:face:0:done"))
+        repeat(8) { swatch(CubeColor.WHITE).performClick() }
+        rule.waitForIdle()
+        assertTrue(exists("editor:face:0:done"))
+        assertEquals("All stickers set", stateDescription("editor:face:0"))
+    }
+
+    @Test
+    fun `the full-net strip dots the face the instruction line names`() {
+        val entered = Facelets(EditorFixtures.swap(scrambled.colors, 21, 23))
+        launch(entered)
+        paint(53, entered.colors[53])
+        assertEquals("Check the Front face: hold white on top and turn green toward you.", text("editor:instruction"))
+        assertTrue(exists("editor:face:2:dot"))
+        assertEquals("Has pieces to check", stateDescription("editor:face:2"))
+    }
+
+    @Test
+    fun `the full-net strip says a uniquely turned face was turned to match`() {
+        val entered = EditorFixtures.turned(scrambled, mapOf(0 to 2))
+        launch(entered, fresh = true, initialSet = editable - 53)
+        paint(53, scrambled.colors[53])
+        assertTrue(stateDescription("editor:face:0")!!.contains("Turned to match"))
+    }
+
+    @Test
+    fun `tapping a full-net tab selects that face's first sticker`() {
+        launch()
+        rule.onNodeWithTag("editor:face:5").performScrollTo().performClick()
+        rule.waitForIdle()
+        assertTrue(isSelected(45))
+        assertEquals("Selected: Blue sticker, back face, position 1", selectedLine())
     }
 }
