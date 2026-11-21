@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -49,6 +50,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -62,9 +64,11 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -187,6 +191,8 @@ internal class GuidedScanActions(
     val onDiscardConfirm: () -> Unit = {},
     /** "Discard this scan?" dismissed: the scan goes on exactly as it was. */
     val onDiscardCancel: () -> Unit = {},
+    /** Quick Scan's torch toggle (Story 10.19), shown only on a camera with a flash unit. */
+    val onToggleTorch: () -> Unit = {},
 )
 
 /**
@@ -225,6 +231,8 @@ internal fun GuidedScanScreen(
     detectedCornerQuads: List<List<CornerPoint>> = emptyList(),
     cornerThumbnail: ImageBitmap? = null,
     confirmDiscard: Boolean = false,
+    /** Story 10.19: the torch control's state in Quick Scan's corner view; null shows no control (no flash unit). */
+    cornerTorch: Boolean? = null,
     viewfinder: @Composable () -> Unit = {},
 ) {
     if (confirmDiscard) DiscardDialog(strings, actions)
@@ -341,6 +349,7 @@ internal fun GuidedScanScreen(
                         cornerPrompt = phase.prompt,
                         detectedCornerQuads = detectedCornerQuads,
                         faceByFace = phase.faceByFace,
+                        torch = cornerTorch?.let { on -> TorchControl(on, strings, actions.onToggleTorch) },
                     )
                 }
 
@@ -394,6 +403,7 @@ private fun Viewfinder(
     cornerPrompt: ContentText? = null,
     detectedCornerQuads: List<List<CornerPoint>> = emptyList(),
     faceByFace: Boolean = false,
+    torch: TorchControl? = null,
 ) {
     val geometry = remember { ViewfinderGeometry() }
     val steps = cornerHold?.takeIf { cornerPrompt == null }?.let { QuickScanPlan.holds[it - 1] }.orEmpty()
@@ -404,7 +414,14 @@ private fun Viewfinder(
         if (wide) {
             Row(Modifier.fillMaxSize()) {
                 Box(Modifier.weight(1f).fillMaxHeight()) {
-                    CameraArea(geometry, preview, showCorner, detectedCornerQuads, captureHighlight = frozen != null && showCorner)
+                    CameraArea(
+                        geometry,
+                        preview,
+                        showCorner,
+                        detectedCornerQuads,
+                        captureHighlight = frozen != null && showCorner,
+                        torch = torch,
+                    )
                 }
                 Column(
                     Modifier
@@ -431,7 +448,14 @@ private fun Viewfinder(
                     CornerPrompt(cornerHold, strings, cornerPrompt)
                 }
                 Box(Modifier.fillMaxWidth().height(cameraHeight)) {
-                    CameraArea(geometry, preview, showCorner, detectedCornerQuads, captureHighlight = frozen != null && showCorner)
+                    CameraArea(
+                        geometry,
+                        preview,
+                        showCorner,
+                        detectedCornerQuads,
+                        captureHighlight = frozen != null && showCorner,
+                        torch = torch,
+                    )
                 }
                 CoachingLine(phase, strings)
                 Column(
@@ -457,6 +481,7 @@ private fun CameraArea(
     corner: Boolean = false,
     detectedCornerQuads: List<List<CornerPoint>> = emptyList(),
     captureHighlight: Boolean = false,
+    torch: TorchControl? = null,
 ) {
     BoxWithConstraints(
         Modifier
@@ -498,6 +523,65 @@ private fun CameraArea(
                     .border(4.dp, MaterialTheme.colorScheme.primary)
                     .testTag("quickScan:captureFlash"),
             )
+        }
+        if (torch != null) TorchButton(torch, Modifier.align(Alignment.TopEnd).padding(8.dp))
+    }
+}
+
+/** The torch toggle's state and action (Story 10.19). */
+internal class TorchControl(
+    val on: Boolean,
+    val strings: ContentStrings,
+    val onToggle: () -> Unit,
+)
+
+/**
+ * Quick Scan's torch toggle (Story 10.19): a flash icon with a visible label in the corner viewfinder's top corner. The
+ * label is the current state ("Torch on" / "Torch off") and is the button's only text, so it is what TalkBack reads; a tap
+ * toggles it.
+ */
+@Composable
+private fun TorchButton(
+    torch: TorchControl,
+    modifier: Modifier = Modifier,
+) {
+    val label = torch.strings.resolve(ContentText(if (torch.on) "btn.quick-scan.torch-on" else "btn.quick-scan.torch-off"))
+    Surface(
+        onClick = torch.onToggle,
+        modifier =
+            modifier
+                .widthIn(max = 160.dp)
+                .heightIn(min = 48.dp)
+                // The state label is the spoken text; no toggleable state, so TalkBack reads the state once.
+                .semantics { role = Role.Button }
+                .testTag("quickScan:torch"),
+        shape = RoundedCornerShape(24.dp),
+        color = if (torch.on) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+        contentColor = if (torch.on) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+    ) {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            val tint = LocalContentColor.current
+            Canvas(Modifier.size(18.dp)) {
+                // A lightning bolt: the flash icon, filled when the torch is on.
+                val w = size.width
+                val h = size.height
+                val bolt =
+                    Path().apply {
+                        moveTo(w * 0.62f, 0f)
+                        lineTo(w * 0.12f, h * 0.58f)
+                        lineTo(w * 0.46f, h * 0.58f)
+                        lineTo(w * 0.36f, h)
+                        lineTo(w * 0.88f, h * 0.40f)
+                        lineTo(w * 0.54f, h * 0.40f)
+                        close()
+                    }
+                if (torch.on) drawPath(bolt, tint) else drawPath(bolt, tint, style = Stroke(1.5.dp.toPx()))
+            }
+            Text(label, style = MaterialTheme.typography.labelLarge)
         }
     }
 }
@@ -587,6 +671,8 @@ internal fun coachingKey(coaching: Coaching): String =
         Coaching.MOVE_UP -> "msg.scan.coach.move-up"
         Coaching.MOVE_DOWN -> "msg.scan.coach.move-down"
         Coaching.PLAIN_LIGHT_SURFACE -> "msg.scan.plain-light-surface"
+        Coaching.SIDES_DARK -> "msg.scan.coach.sides-dark"
+        Coaching.TORCH_GLARE -> "msg.scan.coach.torch-glare"
     }
 
 /** "Face 2 of 6" (a Quick Check: "Face 1 of 2") in the first round; "Again: face 1 of 2" in the re-prompt round. */

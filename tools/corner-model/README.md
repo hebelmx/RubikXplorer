@@ -33,21 +33,32 @@ uv run --project tools/corner-model python tools/corner-model/evaluate_model.py
 
 Real labeled Lenovo TB128XU and Galaxy S24 FE captures serve two purposes:
 
-- **Acceptance (Story 10.18 AC2, the PO capture session's check):**
+- **Acceptance (Story 10.19 device item D5):**
 
   ```bash
   uv run --project tools/corner-model python tools/corner-model/evaluate_model.py --fixtures-corner Fixtures/corner
   ```
 
-  Evaluates only the real captures: recall, mean/median/p90 keypoint error (128 px crop) on positives and rejection on negatives, with the same presence threshold and geometry guard as the app. It exits nonzero when the directory is missing, holds no labeled capture, lacks positives or negatives, or falls below recall 92% / rejection 96%. `--json-out` writes the numbers for the evidence doc.
+  Evaluates only the real keypoint fixtures, **per device**, all held out (Story 10.19 does not retrain the model): recall
+  on positives, rejection on negatives and the mean corner error as a share of the labeled cube outline's diagonal (the
+  bounding box of the 7 labeled corners), with the same presence threshold and geometry guard as the app. It exits
+  nonzero when the directory is missing or holds no keypoint fixture, when the Lenovo (`TB128XU`) or the S24 FE
+  (`SM-S721…`) has none, or when a device has fewer than 20 positives or 10 negatives, recall below 92%, rejection below
+  96% or a corner error above 3% of the outline diagonal. `--json-out` writes the numbers per device for the evidence doc.
 - **Fine-tuning (optional):** `train_corner_model.py --fixtures-corner` (default `Fixtures/corner/`) appends the captures to training. Evaluate on captures that were not trained on.
 
-Each `*.json` file:
+Only **keypoint fixtures** are read; the color records (`corner-<hold>.json`, schema 3/4, with `labeledSamples`) and the
+`group.json` manifests in the same folders are skipped. The 10.19 fixture recorder (debug build, corner mode) writes each
+capture as `<group>/keypoints/NNNN.json` with `NNNN.png`:
 
 ```json
-{ "frame": "lenovo_stka_0001.png", "label": "positive", "keypoints": [[0.50, 0.12], [0.18, 0.31], [0.20, 0.72], [0.50, 0.90], [0.80, 0.72], [0.82, 0.31], [0.50, 0.50]] }
+{ "kind": "corner-keypoints", "frame": "0001.png", "label": "positive", "keypoints": [[0.50, 0.20], [0.24, 0.35], [0.24, 0.65], [0.50, 0.80], [0.76, 0.65], [0.76, 0.35], [0.50, 0.50]], "detectorKeypoints": null, "device": { "model": "Lenovo TB128XU", "...": "..." }, "cube": "stla", "light": "warm", "lightDirection": "front", "capturedAt": "..." }
 ```
 
-- `frame` (next to the JSON) must already be the model input crop, not a whole camera frame: square, upright, centred on `CornerGuide.vertices().last()` with half-size `guide.radius * 1.65`, and rotated by the sensor rotation exactly as `CornerModelTransform.cropToFrame` maps it. It is resized to 128×128.
-- `label` is `"positive"` with exactly 7 `keypoints` `[T, UL, LL, B, LR, UR, C]`, each `[u, v]` normalized to that crop (`[0, 1]`), or `"negative"` with no keypoints. A sample is a negative only when labeled so.
-- A malformed file (bad JSON, missing/non-square frame, missing label, wrong keypoint count or out-of-crop keypoint) stops training with its path; nothing is skipped silently.
+A hand-written file without `kind` (just `frame`, `label`, `keypoints`) is read too.
+
+- `frame` (next to the JSON) must already be the model input crop, not a whole camera frame: square, upright, centred on `CornerGuide.vertices().last()` with half-size `guide.radius * 1.65`, and rotated by the sensor rotation exactly as `CornerModelTransform.cropToFrame` maps it. The recorder writes it at 128×128, sampled like `CornerModelTransform.fillRgbInput`; other sizes are resized to 128×128.
+- `label` is `"positive"` with exactly 7 `keypoints` `[T, UL, LL, B, LR, UR, C]`, each `[u, v]` normalized to that crop (`[0, 1]`), or `"negative"` with no keypoints. The keypoints are the operator's **manual** placement on the frozen crop; `detectorKeypoints` is what the detector found (diagnostics only, never a label), null when it missed. A positive is saved even when the detector missed. A sample is a negative only when labeled so (the recorder's *No cube (negative)* action).
+- `device.model` groups the report per device; a fixture without it stops the run.
+- A malformed keypoint fixture (bad JSON, missing/non-square frame, missing label, wrong keypoint count, out-of-crop keypoint or no `device.model`) stops the run with its path, and so does any JSON file under the folder that is neither a keypoint fixture, a color record nor a `group.json` manifest; nothing is skipped silently. In `--json-out`, a metric with no data (e.g. corner error with no accepted positive) is `null`, never `Infinity`.
+- The recorder also writes `torch` (true/false on a camera with a flash unit, else null) in each keypoint fixture, color record and `group.json`, so torch-on and torch-off captures stay apart.

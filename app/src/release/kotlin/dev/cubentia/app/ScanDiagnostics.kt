@@ -8,6 +8,7 @@ import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.recognition.ScanReview
+import dev.cubentia.domain.recognition.SideLight
 import dev.cubentia.domain.tutor.Certainty
 import dev.cubentia.domain.tutor.PlacementOutcome
 
@@ -19,6 +20,29 @@ object ScanDiagnostics {
         detected: Boolean,
         faces: List<FrameStats?>,
         score: Double,
+        light: SideLight.Verdict? = null,
+        lightHeld: Boolean = false,
+        torch: Boolean = false,
+    ) = Unit
+
+    fun onLightHold(
+        started: Boolean,
+        heldMs: Long?,
+    ) = Unit
+
+    fun onMetering(
+        supported: Boolean,
+        onOutline: Boolean,
+    ) = Unit
+
+    fun onMeteringSettled(
+        settleMs: Long,
+        timeout: Boolean,
+    ) = Unit
+
+    fun onTorch(
+        hasFlash: Boolean,
+        torch: Boolean,
     ) = Unit
 
     fun onQuickScanRun(

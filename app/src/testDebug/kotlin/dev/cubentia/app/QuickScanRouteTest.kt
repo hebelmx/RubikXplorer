@@ -90,6 +90,47 @@ class QuickScanRouteTest {
 
     @Test fun onlyTheUncertainFaceUsesTheGuidedGrid() = scan(uncertain = true)
 
+    /** Story 10.19: the activity feeds the corner faces to the domain's light check, which holds a backlit corner. */
+    @Test fun aBacklitCornerIsHeldAndCapturesOnceTheSidesAreLit() {
+        val main = Robolectric.buildActivity(MainActivity::class.java).setup()
+        try {
+            rule.waitUntil(10_000) { rule.onAllNodesWithTag("welcome:imNew").fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithTag("welcome:imNew").performClick()
+            rule.onNodeWithTag("nav:solve").performClick()
+            rule.onNodeWithTag("solve:quickScan").performClick()
+            val shadow = shadowOf(main.get())
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                shadow.peekNextStartedActivityForResult() != null
+            }
+            val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, shadow.nextStartedActivityForResult.intent).setup()
+            try {
+                waitForCamera(corner = true)
+                val model = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
+                // Hold 1's sides (Green, Red) 40 L* darker than the White top: the light behind the cube.
+                shade = 40.0
+                shadedColors = setOf(Color.GREEN, Color.RED)
+                captureHold(1, uncertain = false, model = model)
+                assertTrue("held by the light check", checkNotNull(model.quickScan).lightHeld)
+                rule.onNodeWithTag("quickScan:counter").assertTextEquals("1 / 2")
+                rule.onNodeWithTag("quickScan:faceByFace").assertExists()
+                // The Learner turns toward the light: the check passes for half a second while steady, then a press captures.
+                shade = 0.0
+                val lit = QuickScanPlan.holds[0].map { step -> stats(step.centerColor) }
+                camera.feed(ScanFrame(lit.first(), 0, corner = CornerFrame(true, lit)))
+                shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(600))
+                camera.feed(ScanFrame(lit.first(), 0, corner = CornerFrame(true, lit)))
+                assertTrue("the hold cleared", !checkNotNull(model.quickScan).lightHeld)
+                shutter(model)
+                rule.onNodeWithTag("quickScan:counter").assertTextEquals("2 / 2")
+            } finally {
+                scan.pause().stop().destroy()
+            }
+        } finally {
+            main.pause().stop().destroy()
+        }
+    }
+
     @Test fun captureTwoFallbackPlaysCaptureFlashAndCounterCueBeforeEnteringGuidedGrid() {
         val main = Robolectric.buildActivity(MainActivity::class.java).setup()
         try {
@@ -462,6 +503,51 @@ class QuickScanRouteTest {
         }
     }
 
+    /**
+     * Story 10.19 activity wiring: on a camera with a flash the torch is on by default in the corner view and off after
+     * *Scan face by face*, it is suspended on stop, and a settle signal still false delays the auto-capture past the fixed
+     * settle wait (until the settle cap).
+     */
+    @Test fun theTorchFollowsThePhasesAndTheSettleSignalDelaysAutoCapture() {
+        camera.flash = true
+        quickScanActivity { scan, model ->
+            val faces = QuickScanPlan.holds[0].map { step -> stats(step.centerColor) }
+            val frame = ScanFrame(faces.first(), 0, corner = CornerFrame(true, faces))
+            camera.feed(frame)
+            rule.waitForIdle()
+            shadowOf(Looper.getMainLooper()).idle()
+            assertEquals("the torch is on by default", true, camera.torchCalls.lastOrNull())
+            rule.onNodeWithText("Torch on").assertExists()
+            // The torch applied: this frame re-meters; the settle signal then stays false.
+            camera.settledSignal = false
+            camera.feed(frame)
+            val quick = checkNotNull(model.quickScan)
+            assertTrue("waiting for the settle signal", quick.settling)
+            // With no signal the fixed 600 ms wait would settle at 600 and capture after 1000 ms steady (by 1650).
+            listOf(600L, 800L, 250L).forEach { step ->
+                shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(step))
+                camera.feed(frame)
+            }
+            rule.onNodeWithTag("quickScan:counter").assertTextEquals("1 / 2")
+            // The settle cap (1500 ms) passed at the last frame: the steady count starts there and captures 1 s later.
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1050))
+            camera.feed(frame)
+            rule.waitForIdle()
+            rule.onNodeWithTag("quickScan:counter").assertTextEquals("2 / 2")
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(500))
+            rule.runOnIdle { model.frozen?.let { model.endFreeze(it.id) } }
+            // Leaving to the background suspends the torch; coming back resumes it.
+            scan.pause().stop()
+            assertEquals(true, camera.suspendCalls.lastOrNull())
+            scan.start().resume()
+            assertEquals(false, camera.suspendCalls.lastOrNull())
+            // Scan face by face hands over to the Guided grid: the torch goes off.
+            rule.onNodeWithTag("quickScan:faceByFace").performClick()
+            settle(model)
+            assertEquals("the torch is off on Scan face by face", false, camera.torchCalls.lastOrNull())
+        }
+    }
+
     /** Opens Quick Scan from the Solve tab (`solve:quickScan`) and runs [body] on its activity once the corner camera runs. */
     private fun quickScanActivity(
         body: (org.robolectric.android.controller.ActivityController<GuidedScanActivity>, GuidedScanViewModel) -> Unit,
@@ -555,22 +641,35 @@ class QuickScanRouteTest {
         uncertain: Boolean = false,
     ): FrameStats = stats(List(9) { color }, uncertain)
 
+    /**
+     * Story 10.19: the six colors with their a*b* from [ScanRouteTest.labs] but L* spread like a cube in even front light,
+     * so the uncalibrated light check (75th-percentile L*, top vs sides) passes every hold of the solved cube these tests
+     * scan; [shade] darkens the [shadedColors] (the light behind the cube).
+     */
+    private val evenLight =
+        ScanRouteTest.labs.mapValues { (color, lab) ->
+            lab.copy(
+                l =
+                    when (color) {
+                        Color.WHITE -> 85.0
+                        Color.YELLOW -> 80.0
+                        Color.ORANGE -> 70.0
+                        Color.GREEN -> 65.0
+                        else -> 60.0
+                    },
+            )
+        }
+    private var shade = 0.0
+    private var shadedColors = emptySet<Color>()
+
     private fun stats(
         colors: List<Color>,
         uncertain: Boolean = false,
     ): FrameStats =
         FrameStats(
             colors.mapIndexed { index, color ->
-                CellReading(
-                    if (uncertain &&
-                        index == 0
-                    ) {
-                        Lab(55.0, 55.0, 55.0)
-                    } else {
-                        ScanRouteTest.labs.getValue(color)
-                    },
-                    true,
-                )
+                val lab = evenLight.getValue(color).let { it.copy(l = it.l - if (color in shadedColors) shade else 0.0) }
+                CellReading(if (uncertain && index == 0) Lab(55.0, 55.0, 55.0) else lab, true)
             },
             120.0,
             0.0,
@@ -624,6 +723,29 @@ class QuickScanRouteTest {
         override fun meter(includeAwb: Boolean) {
             meterCalls += includeAwb
         }
+
+        /** Story 10.19: whether the fake camera has a flash unit (null: unknown, as before a camera is bound). */
+        @Volatile var flash: Boolean? = null
+
+        /** The settle signal the activity reads per frame (null: no signal, the fixed settle wait applies). */
+        @Volatile var settledSignal: Boolean? = null
+        val torchCalls = java.util.concurrent.CopyOnWriteArrayList<Boolean>()
+        val suspendCalls = java.util.concurrent.CopyOnWriteArrayList<Boolean>()
+
+        override fun hasFlashUnit(): Boolean? = flash
+
+        override fun torch(on: Boolean) {
+            torchCalls += on
+        }
+
+        override fun suspendTorch(suspended: Boolean) {
+            suspendCalls += suspended
+        }
+
+        /** The torch applies at once: the last state the activity asked for. */
+        override fun torchApplied(): Boolean? = if (flash == true) torchCalls.lastOrNull() ?: false else null
+
+        override fun settled(): Boolean? = settledSignal
 
         fun feed(frame: ScanFrame) {
             executor.submit { checkNotNull(receiver)(frame) }.get()

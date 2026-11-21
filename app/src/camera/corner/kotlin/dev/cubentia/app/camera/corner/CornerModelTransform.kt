@@ -17,7 +17,7 @@ internal object CornerModelTransform {
     const val INPUT_BYTES = INPUT_SIZE * INPUT_SIZE * CHANNELS * Float.SIZE_BYTES
     const val NUM_KEYPOINTS = 7
     const val OUTPUT_FLOATS = 1 + NUM_KEYPOINTS * 2
-    const val CROP_RADIUS_MULTIPLIER = 1.65
+    const val CROP_RADIUS_MULTIPLIER = dev.cubentia.app.camera.CORNER_MODEL_CROP_RADIUS_MULTIPLIER
     const val DEFAULT_PRESENCE_THRESHOLD = 0.55f
 
     /** Maps upright normalized crop coords `(u, v) in [0, 1]^2` to frame pixels `(x, y)` using the inverse of ViewfinderGrid rotation. */

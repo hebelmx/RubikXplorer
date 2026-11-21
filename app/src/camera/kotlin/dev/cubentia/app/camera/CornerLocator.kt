@@ -22,6 +22,12 @@ internal data class CornerPoint(
     operator fun times(scale: Double) = CornerPoint(x * scale, y * scale)
 }
 
+/**
+ * The corner model's input crop half-size as a multiple of the guide radius: the one value both the model transform
+ * (`CornerModelTransform`) and the debug fixture recorder's model-input crop use (Story 10.19).
+ */
+internal const val CORNER_MODEL_CROP_RADIUS_MULTIPLIER = 1.65
+
 internal class CornerGuide(
     square: GridSquare,
     val rotationDegrees: Int = 0,
