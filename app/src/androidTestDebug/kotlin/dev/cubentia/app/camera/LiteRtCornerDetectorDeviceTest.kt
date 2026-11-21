@@ -45,62 +45,85 @@ class LiteRtCornerDetectorDeviceTest {
         val detector = LiteRtCornerDetector(context)
         val executor = Executors.newSingleThreadExecutor()
         try {
-            val result =
-                executor
-                    .submit<BenchmarkReport> {
-                        assertFalse("Inference must run off the main thread", Looper.myLooper() == Looper.getMainLooper())
-                        runBenchmark(detector)
-                    }.get()
-
-            Log.i(
-                TAG,
-                "LiteRtCornerDetector device benchmark: frames=${result.totalFrames} " +
-                    "medianMs=${"%.2f".format(result.medianMs)} p90Ms=${"%.2f".format(result.p90Ms)} " +
-                    "minMs=${"%.2f".format(result.minMs)} maxMs=${"%.2f".format(result.maxMs)} " +
-                    "posDetected=${result.positiveDetected}/${result.positiveTotal} " +
-                    "meanPxErr=${"%.2f".format(result.meanKeypointErrPx)} " +
-                    "realPaletteDetected=${result.realPaletteDetected}/${result.realPaletteTotal} " +
-                    "realPaletteMeanPxErr=${"%.2f".format(result.realPaletteMeanErrPx)} " +
-                    "negRejected=${result.negativeRejected}/${result.negativeTotal}",
-            )
-
-            assertTrue("Expected >= 50 benchmarked frames, got ${result.totalFrames}", result.totalFrames >= 50)
-            // The latency budget is a minimum-device (Lenovo TB128XU) gate; an emulator's timing says nothing about it,
-            // so the release workflow's CI emulator run checks accuracy and rejection only.
-            if (!isEmulator()) {
-                assertTrue(
-                    "Expected median latency < 40 ms on minimum device, got ${"%.2f".format(result.medianMs)} ms",
-                    result.medianMs < 40.0,
-                )
+            // Production analysis frames are 640x480 or 1280x960 (ScanFrameSource DEFAULT_ANALYSIS / LARGE_ANALYSIS), so the
+            // crop's decimation/aliasing is benchmarked at those sizes too, with the same asserts per size.
+            for (scale in FRAME_SCALES) {
+                val result =
+                    executor
+                        .submit<BenchmarkReport> {
+                            assertFalse("Inference must run off the main thread", Looper.myLooper() == Looper.getMainLooper())
+                            runBenchmark(detector, scale)
+                        }.get()
+                assertBenchmark(result, "${BASE_LONG * scale}x${BASE_SHORT * scale}")
             }
-            assertTrue(
-                "Expected >= 90% detection on synthetic 3D cubes, got ${result.positiveDetected}/${result.positiveTotal}",
-                result.positiveDetected * 10 >= result.positiveTotal * 9,
-            )
-            assertTrue(
-                "Expected mean keypoint error < 10 px on 320x240 frame, got ${"%.2f".format(result.meanKeypointErrPx)} px",
-                result.meanKeypointErrPx < 10.0,
-            )
-            assertTrue("End-to-end CornerReader.read check never ran (no positive detected)", result.endToEndChecked)
-            assertTrue(
-                "Expected >= 90% detection on real Lenovo/S24 FE palette cubes, got ${result.realPaletteDetected}/${result.realPaletteTotal}",
-                result.realPaletteDetected * 10 >= result.realPaletteTotal * 9,
-            )
-            assertTrue(
-                "Expected mean keypoint error < 10 px on real-palette cubes, got ${"%.2f".format(result.realPaletteMeanErrPx)} px",
-                result.realPaletteMeanErrPx < 10.0,
-            )
-            assertTrue(
-                "Every empty & dark/glossy reflection frame must return null, got ${result.negativeRejected}/${result.negativeTotal}",
-                result.negativeRejected == result.negativeTotal,
-            )
         } finally {
             detector.close()
             executor.shutdownNow()
         }
     }
 
-    private fun runBenchmark(detector: LiteRtCornerDetector): BenchmarkReport {
+    private fun assertBenchmark(
+        result: BenchmarkReport,
+        size: String,
+    ) {
+        Log.i(
+            TAG,
+            "LiteRtCornerDetector device benchmark: size=$size frames=${result.totalFrames} " +
+                "medianMs=${"%.2f".format(result.medianMs)} p90Ms=${"%.2f".format(result.p90Ms)} " +
+                "minMs=${"%.2f".format(result.minMs)} maxMs=${"%.2f".format(result.maxMs)} " +
+                "posDetected=${result.positiveDetected}/${result.positiveTotal} " +
+                "meanPxErr=${"%.2f".format(result.meanKeypointErrPx)} " +
+                "realPaletteDetected=${result.realPaletteDetected}/${result.realPaletteTotal} " +
+                "realPaletteMeanPxErr=${"%.2f".format(result.realPaletteMeanErrPx)} " +
+                "negRejected=${result.negativeRejected}/${result.negativeTotal}",
+        )
+
+        assertTrue("[$size] Expected >= 50 benchmarked frames, got ${result.totalFrames}", result.totalFrames >= 50)
+        // The latency budget is a minimum-device (Lenovo TB128XU) gate; an emulator's timing says nothing about it,
+        // so the release workflow's CI emulator run checks accuracy and rejection only.
+        if (!isEmulator()) {
+            assertTrue(
+                "[$size] Expected median latency < 40 ms on minimum device, got ${"%.2f".format(result.medianMs)} ms",
+                result.medianMs < 40.0,
+            )
+        }
+        assertTrue(
+            "[$size] Expected >= 90% detection on synthetic 3D cubes, got ${result.positiveDetected}/${result.positiveTotal}",
+            result.positiveDetected * 10 >= result.positiveTotal * 9,
+        )
+        assertTrue(
+            "[$size] Expected mean keypoint error < 10 px (320x240-equivalent) on synthetic cubes, got ${"%.2f".format(
+                result.meanKeypointErrPx,
+            )} px",
+            result.meanKeypointErrPx < 10.0,
+        )
+        assertTrue("[$size] End-to-end CornerReader.read check never ran (no positive detected)", result.endToEndChecked)
+        assertTrue(
+            "[$size] Expected >= 90% detection on real Lenovo/S24 FE palette cubes, got ${result.realPaletteDetected}/${result.realPaletteTotal}",
+            result.realPaletteDetected * 10 >= result.realPaletteTotal * 9,
+        )
+        assertTrue(
+            "[$size] Expected mean keypoint error < 10 px (320x240-equivalent) on real-palette cubes, got ${"%.2f".format(
+                result.realPaletteMeanErrPx,
+            )} px",
+            result.realPaletteMeanErrPx < 10.0,
+        )
+        assertTrue(
+            "[$size] Every empty & dark/glossy reflection frame must return null, got ${result.negativeRejected}/${result.negativeTotal}",
+            result.negativeRejected == result.negativeTotal,
+        )
+    }
+
+    /**
+     * Benchmarks one frame size, [scale] x the 320x240 base. Keypoint errors are divided by [scale] (reported in
+     * 320x240-equivalent px), so the < 10 px accuracy bar means the same relative accuracy at every size.
+     */
+    private fun runBenchmark(
+        detector: LiteRtCornerDetector,
+        scale: Int,
+    ): BenchmarkReport {
+        val long = BASE_LONG * scale
+        val short = BASE_SHORT * scale
         val scramble =
             CubeState.SOLVED.apply(
                 listOf(FaceTurn(Face.R, Turn.CLOCKWISE), FaceTurn(Face.U, Turn.HALF), FaceTurn(Face.F, Turn.COUNTERCLOCKWISE)),
@@ -131,17 +154,18 @@ class LiteRtCornerDetectorDeviceTest {
 
         // Warm up interpreter (lazy load + XNNPACK delegate init)
         run {
-            val warmGuide = CornerGuide(ViewfinderGrid.inFrame(0.0, 0.0, 0, 0, 320, 240, 90), 90)
+            val warmGuide = CornerGuide(ViewfinderGrid.inFrame(0.0, 0.0, 0, 0, long, short, 90), 90)
             val warmPts = CornerLocator.projectCube(warmGuide.vertices().last(), warmGuide.radius * 0.80, 90, 32.0, 0.0, 0.0, 0.20)
-            val warmFrame = renderCubeYuv(320, 240, warmGuide.quads(warmPts), scramble, 0, stickerless = false, bgRgb = 0xdcdad4, noise = 2)
+            val warmFrame =
+                renderCubeYuv(long, short, warmGuide.quads(warmPts), scramble, 0, stickerless = false, bgRgb = 0xdcdad4, noise = 2)
             assertNotNull("Warmup cube should detect cleanly", detector.locate(warmFrame, warmGuide))
         }
 
         // 40 diverse positive 3D cube frames across 0/90/180/270 rotations, stickered + stickerless, solved + scrambled
         for (i in 0 until posTotal) {
             val rot = rotations[i % rotations.size]
-            val w = if (rot % 180 == 0) 240 else 320
-            val h = if (rot % 180 == 0) 320 else 240
+            val w = if (rot % 180 == 0) short else long
+            val h = if (rot % 180 == 0) long else short
             val guide = CornerGuide(ViewfinderGrid.inFrame(0.0, 0.0, 0, 0, w, h, rot), rot)
             val dx = (rng.nextDouble() - 0.5) * guide.radius * 0.45
             val dy = (rng.nextDouble() - 0.5) * guide.radius * 0.45
@@ -174,7 +198,7 @@ class LiteRtCornerDetectorDeviceTest {
 
             if (loc != null) {
                 posDetected++
-                val err = truthPts.zip(predicted(loc)).map { (a, b) -> hypot(a.x - b.x, a.y - b.y) }.average()
+                val err = truthPts.zip(predicted(loc)).map { (a, b) -> hypot(a.x - b.x, a.y - b.y) }.average() / scale
                 keypointErrors += err
                 if (!endToEndChecked) {
                     val reading = CornerReader.read(frame, guide, detector = detector)
@@ -190,8 +214,8 @@ class LiteRtCornerDetectorDeviceTest {
             repeat(3) { k ->
                 val i = p * 3 + k
                 val rot = rotations[i % rotations.size]
-                val w = if (rot % 180 == 0) 240 else 320
-                val h = if (rot % 180 == 0) 320 else 240
+                val w = if (rot % 180 == 0) short else long
+                val h = if (rot % 180 == 0) long else short
                 val guide = CornerGuide(ViewfinderGrid.inFrame(0.0, 0.0, 0, 0, w, h, rot), rot)
                 val truthPts =
                     CornerLocator.projectCube(
@@ -220,7 +244,7 @@ class LiteRtCornerDetectorDeviceTest {
                 latenciesMs += (SystemClock.elapsedRealtimeNanos() - t0) / 1_000_000.0
                 if (loc != null) {
                     realDetected++
-                    realErrors += truthPts.zip(predicted(loc)).map { (a, b) -> hypot(a.x - b.x, a.y - b.y) }.average()
+                    realErrors += truthPts.zip(predicted(loc)).map { (a, b) -> hypot(a.x - b.x, a.y - b.y) }.average() / scale
                 }
             }
         }
@@ -228,8 +252,8 @@ class LiteRtCornerDetectorDeviceTest {
         // 20 negative frames: 10 empty plain/dark + 10 dark glossy reflection-only (#196)
         for (i in 0 until negTotal) {
             val rot = rotations[i % rotations.size]
-            val w = if (rot % 180 == 0) 240 else 320
-            val h = if (rot % 180 == 0) 320 else 240
+            val w = if (rot % 180 == 0) short else long
+            val h = if (rot % 180 == 0) long else short
             val guide = CornerGuide(ViewfinderGrid.inFrame(0.0, 0.0, 0, 0, w, h, rot), rot)
             val frame = if (i < 10) renderEmptyYuv(w, h, dark = i % 2 == 0) else renderDarkGlossyReflectionYuv(w, h, i)
 
@@ -294,12 +318,14 @@ class LiteRtCornerDetectorDeviceTest {
         val expected = QuickScanPlan.holds[holdIdx].map { step -> expectedFace(cube, step.face) }
         val gap = if (stickerless) 0.025 else 0.09
         val shades = listOf(1.0, 0.88, 0.78)
+        // 240 samples per face edge at 320x240; scale with the frame so larger frames have no unpainted holes.
+        val samples = 240 * (maxOf(width, height) / BASE_LONG).coerceAtLeast(1)
         quads.forEachIndexed { face, quad ->
             val h = Homography.from(quad) ?: return@forEachIndexed
-            for (row in 0 until 240) {
-                val v = (row + 0.5) / 240.0
-                for (col in 0 until 240) {
-                    val u = (col + 0.5) / 240.0
+            for (row in 0 until samples) {
+                val v = (row + 0.5) / samples
+                for (col in 0 until samples) {
+                    val u = (col + 0.5) / samples
                     val p = h.apply(u, v)
                     val x = p.x.toInt()
                     val y = p.y.toInt()
@@ -339,13 +365,14 @@ class LiteRtCornerDetectorDeviceTest {
         seed: Int,
     ): YuvFrame {
         val pixels = IntArray(width * height)
+        val patchPx = 24 * (maxOf(width, height) / BASE_LONG).coerceAtLeast(1)
         for (y in 0 until height) {
             for (x in 0 until width) {
                 val sheen = ((x + y + seed * 17) % width).toDouble() / width
                 val base = (16 + sheen * 28).roundToInt()
                 val glow =
                     if (x in width / 3..(2 * width / 3) && y in height / 3..(2 * height / 3)) {
-                        val patch = ((x / 24 + y / 24 + seed) % 3)
+                        val patch = ((x / patchPx + y / patchPx + seed) % 3)
                         when (patch) {
                             0 -> (base + 34 shl 16) or (base + 12 shl 8) or base + 10
                             1 -> (base + 10 shl 16) or (base + 30 shl 8) or base + 12
@@ -413,6 +440,12 @@ class LiteRtCornerDetectorDeviceTest {
                 Build.PRODUCT.startsWith("sdk")
 
         const val TAG = "LiteRtDeviceTest"
+
+        const val BASE_LONG = 320
+        const val BASE_SHORT = 240
+
+        /** 320x240, plus the production analysis sizes 640x480 and 1280x960 (ScanFrameSource.kt). */
+        val FRAME_SCALES = listOf(1, 2, 4)
 
         val REAL_PALETTE_ORDER = listOf(Color.WHITE, Color.YELLOW, Color.RED, Color.ORANGE, Color.GREEN, Color.BLUE)
 

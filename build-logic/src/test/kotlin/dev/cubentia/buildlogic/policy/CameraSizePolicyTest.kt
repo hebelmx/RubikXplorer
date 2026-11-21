@@ -75,7 +75,7 @@ class CameraSizePolicyTest {
             zip.write(ByteArray(7_500_000))
             zip.closeEntry()
         }
-        // Expect 40% of 100 KB jar + 100% of 5 MB arm64-v8a (NOT 7.5 MB x86_64).
-        assertEquals(5_040_000L, CheckCameraSizeTask.artifactRuntimeBytes(aar))
+        // Expect 55% (measured cornerR8 factor) of 100 KB jar + 100% of 5 MB arm64-v8a (NOT 7.5 MB x86_64).
+        assertEquals(5_055_000L, CheckCameraSizeTask.artifactRuntimeBytes(aar))
     }
 }

@@ -1,6 +1,7 @@
 package dev.cubentia.buildlogic.tasks
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
@@ -30,7 +31,18 @@ class CheckCameraSizeTaskTest {
                     zip.closeEntry()
                 }
             }
-        // 40% R8 retention of the 25 KB jar + 100% of the Play-delivered arm64-v8a .so (not summed across ABIs).
-        assertEquals(5_610_000L, CheckCameraSizeTask.artifactRuntimeBytes(aar))
+        // 55% R8 retention of the 25 KB jar + 100% of the Play-delivered arm64-v8a .so (not summed across ABIs).
+        assertEquals(5_613_750L, CheckCameraSizeTask.artifactRuntimeBytes(aar))
+    }
+
+    @Test
+    fun `the jar R8 factor is not below the measured cornerR8 retention`() {
+        // 2026-11-21 cornerR8 vs release classes.dex: 5,071,618 B retained of ~10,002,505 B camera jar bytes (50.7%).
+        val measuredRetained = 5_071_618L
+        val measuredJarBytes = 10_002_505L
+        assertTrue(
+            measuredJarBytes * CheckCameraSizeTask.UNMINIFIED_JAR_R8_NUMERATOR / CheckCameraSizeTask.UNMINIFIED_JAR_R8_DENOMINATOR >=
+                measuredRetained,
+        )
     }
 }

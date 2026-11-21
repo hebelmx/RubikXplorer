@@ -89,11 +89,17 @@ abstract class CheckCameraSizeTask : DefaultTask() {
         private val cameraRuntimeGroups = setOf("androidx.camera", "com.google.ai.edge.litert")
 
         /**
-         * Conservative R8 retention factor for unminified third-party debug `.jar` bytecode (CameraX, Guava,
-         * LiteRT API) on `debugRuntimeClasspath` (SCP 2026-11-20 §4.4). Native `.so` libraries (single Play ABI
-         * `arm64-v8a`) and `.tflite` assets are always counted at 100% uncompressed size.
+         * R8 retention factor for unminified third-party debug `.jar` bytes (CameraX, Guava, LiteRT API) on
+         * `debugRuntimeClasspath` (SCP 2026-11-20 §4.4), pinned to a measured minified build. Native `.so` libraries
+         * (single Play ABI `arm64-v8a`) and `.tflite` assets are always counted at 100% uncompressed size.
+         *
+         * Measured 2026-11-21 (Story 10.18, after the ai-delivery exclusion; docs/evidence/10-18/litert-model-evaluation.md):
+         * `cornerR8` `classes.dex` 8,832,716 B minus `release` `classes.dex` 2,977,180 B = 5,855,536 B of camera dex;
+         * minus the 783,918 B of camera classes counted at 100% leaves 5,071,618 B retained from ~10,002,505 B of camera
+         * jars = 50.7%. That is an upper bound (`cornerR8` also keeps all of `dev.cubentia.**` and the Kotlin runtime for
+         * its test APK); 55% rounds it up. `CheckCameraSizeTaskTest` pins the factor at or above the measurement.
          */
-        internal const val UNMINIFIED_JAR_R8_NUMERATOR = 40L
+        internal const val UNMINIFIED_JAR_R8_NUMERATOR = 55L
         internal const val UNMINIFIED_JAR_R8_DENOMINATOR = 100L
 
         /**
