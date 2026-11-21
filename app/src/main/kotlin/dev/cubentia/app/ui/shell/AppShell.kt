@@ -97,6 +97,8 @@ import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.cube.NotationResult
+import dev.cubentia.domain.lastlayer.LastLayerMatcher
+import dev.cubentia.domain.lastlayer.LastLayerMatcherResult
 import dev.cubentia.domain.lastlayer.RecognitionDiagram
 import dev.cubentia.domain.lastlayer.RecognitionDiagramResult
 import dev.cubentia.domain.recognition.PhysicalObservation
@@ -311,6 +313,10 @@ private fun ShellContent(
     val ready = content as? CatalogState.Ready
     // One matcher per loaded catalog, not one per capture.
     val recognizeCase = remember(ready) { ready?.let { RecognizeCase.of(it.bundle.cases, it.bundle.algorithms) } }
+    val placementMatcher =
+        remember(ready) {
+            ready?.let { (LastLayerMatcher.of(it.bundle.cases, it.bundle.algorithms) as? LastLayerMatcherResult.Built)?.matcher }
+        }
     LaunchedEffect(ready, recognitionPending, recognizeFlow) {
         if (ready != null && recognitionPending) {
             recognizeFlow.evaluate(recognizeCase)
@@ -318,7 +324,7 @@ private fun ShellContent(
     }
     LaunchedEffect(ready, placementScanState, placementFlow) {
         if (ready != null && placementScanState != null) {
-            placementFlow.evaluateScan(ready.bundle.stages)
+            placementFlow.evaluateScan(ready.bundle.stages, placementMatcher)
         }
     }
     val solveOnSolved: suspend (CubeState, List<FaceTurn>) -> Unit = { state, moves ->
@@ -437,6 +443,8 @@ private fun ShellContent(
             strings = ready.strings,
             stages = ready.bundle.stages,
             twoLookStages = ready.bundle.twoLookStages,
+            matcher = placementMatcher,
+            cases = ready.bundle.cases,
             onAccept = { target, faster ->
                 if (placementAcceptance != PlacementAcceptance.Saving) {
                     if (target == ready.bundle.stages.first()) {

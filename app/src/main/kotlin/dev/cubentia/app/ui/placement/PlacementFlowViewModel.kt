@@ -9,6 +9,7 @@ import dev.cubentia.application.usecase.PlaceFromScan
 import dev.cubentia.domain.content.Stage
 import dev.cubentia.domain.content.StageId
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.lastlayer.LastLayerMatcher
 import dev.cubentia.domain.text.Text
 import dev.cubentia.domain.tutor.Placement
 import dev.cubentia.domain.tutor.PlacementOutcome
@@ -50,7 +51,7 @@ sealed interface PlacementAcceptance {
 
 @HiltViewModel
 class PlacementFlowViewModel private constructor(
-    private val suggest: (CubeState, List<Stage>) -> PlacementOutcome,
+    private val suggest: (CubeState, List<Stage>, LastLayerMatcher?) -> PlacementOutcome,
 ) : ViewModel() {
     @Inject
     constructor(placeFromScan: PlaceFromScan) : this(placeFromScan::suggest)
@@ -130,10 +131,14 @@ class PlacementFlowViewModel private constructor(
         }
     }
 
-    fun evaluateScan(stages: List<Stage>) {
+    /** Places the accepted scan; [matcher] names a last-layer Case when exactly one fits. */
+    fun evaluateScan(
+        stages: List<Stage>,
+        matcher: LastLayerMatcher? = null,
+    ) {
         val state = mutableAcceptedScan.value ?: return
         mutableAcceptedScan.value = null
-        val outcome = suggest(state, stages)
+        val outcome = suggest(state, stages, matcher)
         ScanDiagnostics.onPlacementSuggested(outcome)
         show(PlacementPhase.Result(outcome))
     }
@@ -145,8 +150,9 @@ class PlacementFlowViewModel private constructor(
     fun editorAccepted(
         state: CubeState,
         stages: List<Stage>,
+        matcher: LastLayerMatcher? = null,
     ) {
-        show(PlacementPhase.Result(suggest(state, stages)))
+        show(PlacementPhase.Result(suggest(state, stages, matcher)))
     }
 
     fun chooseAnother() {

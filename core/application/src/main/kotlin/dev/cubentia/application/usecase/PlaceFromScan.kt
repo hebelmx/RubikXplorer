@@ -8,6 +8,7 @@ import dev.cubentia.application.port.ProgressWrite
 import dev.cubentia.domain.content.Stage
 import dev.cubentia.domain.content.StageId
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.lastlayer.LastLayerMatcher
 import dev.cubentia.domain.tutor.Placement
 import dev.cubentia.domain.tutor.PlacementOutcome
 import dev.cubentia.domain.tutor.ProgressEvent
@@ -23,11 +24,12 @@ import kotlin.time.Instant
 class PlaceFromScan(
     private val repository: ProgressRepository,
 ) {
-    /** Suggests a Course Stage from an accepted cube without reading or writing progress. */
+    /** Suggests a Course Stage from an accepted cube without reading or writing progress; [matcher] names a last-layer Case. */
     fun suggest(
         state: CubeState,
         stages: List<Stage>,
-    ): PlacementOutcome = Placement.evaluate(state, stages)
+        matcher: LastLayerMatcher? = null,
+    ): PlacementOutcome = Placement.evaluate(state, stages, matcher)
 
     suspend operator fun invoke(
         targetStageId: StageId,
