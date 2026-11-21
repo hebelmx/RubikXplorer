@@ -4,11 +4,15 @@ import android.Manifest
 import android.content.Context
 import android.os.Looper
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.lifecycle.ViewModelProvider
@@ -21,9 +25,11 @@ import dev.cubentia.app.camera.CameraModule
 import dev.cubentia.app.camera.CameraScanLauncher
 import dev.cubentia.app.camera.CornerFrame
 import dev.cubentia.app.camera.GuidedScanActivity
+import dev.cubentia.app.camera.GuidedScanPhase
 import dev.cubentia.app.camera.GuidedScanViewModel
 import dev.cubentia.app.camera.ScanFrame
 import dev.cubentia.app.camera.ScanFrameSource
+import dev.cubentia.app.camera.ScanNetFaceCaptured
 import dev.cubentia.app.camera.ShutterSound
 import dev.cubentia.app.scan.ScanFlowContract
 import dev.cubentia.app.scan.ScanLauncher
@@ -101,7 +107,7 @@ class QuickScanRouteTest {
             try {
                 waitForCamera(corner = true)
                 val model = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
-                // Hold 1 with an uncertain face -> Capture 2 will trigger Guided fallback.
+                // Hold 1 with an uncertain face -> Capture 2 will trigger the Guided hand-over.
                 captureHold(1, uncertain = true, model = model)
                 rule.onNodeWithTag("quickScan:counter").assertTextEquals("2 / 2")
 
@@ -125,7 +131,7 @@ class QuickScanRouteTest {
                 rule.runOnIdle { model.frozen?.let { model.endFreeze(it.id) } }
                 rule.waitForIdle()
                 rule.onNodeWithTag("quickScan:counter").assertDoesNotExist()
-                rule.onNodeWithTag("scanProgress").assertTextEquals("Again: face 1 of 1")
+                rule.onNodeWithTag("scanProgress").assertTextEquals("Face 1 of 1")
             } finally {
                 scan.pause().stop().destroy()
             }
@@ -220,14 +226,14 @@ class QuickScanRouteTest {
                 captureHold(2, false, model)
                 if (uncertain) {
                     rule.onNodeWithTag("quickScan:counter").assertDoesNotExist()
-                    rule.onNodeWithTag("scanProgress").assertTextEquals("Again: face 1 of 1")
+                    rule.onNodeWithTag("scanProgress").assertTextEquals("Face 1 of 1")
                     waitForCamera(corner = false)
                     camera.feed(ScanFrame(stats(Color.GREEN), 0))
                     shutter(model)
                 }
                 ShadowLog.clear()
-                // Retake faces is a Guided 6-face Scan review action only (Story 10.16).
-                rule.onNodeWithTag("review:retakeFaces").assertDoesNotExist()
+                // The combined Quick Scan review offers Retake faces too (Stories 10.16, 10.17).
+                rule.onNodeWithTag("review:retakeFaces").assertExists()
                 rule.onNodeWithTag("review:accept").performScrollTo().performClick()
                 val result = shadowOf(scan.get())
                 assertEquals(ScanOutcome.Accepted(CubeState.SOLVED), ScanFlowContract.decode(result.resultCode, result.resultIntent))
@@ -252,7 +258,7 @@ class QuickScanRouteTest {
         }
     }
 
-    /** Issue #194: the accepted review is built from Quick Scan's oriented Done samples, not the grid face's named top. */
+    /** Issue #194, Story 10.17: a hand-over face held upside down is searched over its quarter turns, the kept faces held. */
     @Test fun aReaskedFaceHeldUpsideDownIsAcceptedInTheCornerFrame() {
         val cube = CubeState.SOLVED.apply((Notation.parse("U R2 F' D L' B2") as NotationResult.Parsed).moves)
         val net = { face: Face ->
@@ -293,9 +299,9 @@ class QuickScanRouteTest {
                         }
                     captureFaces(faces, model)
                 }
-                rule.onNodeWithTag("scanProgress").assertTextEquals("Again: face 1 of 1")
+                rule.onNodeWithTag("scanProgress").assertTextEquals("Face 1 of 1")
                 waitForCamera(corner = false)
-                // Held 180 degrees off its named top at camera rotation 90: one clockwise quarter turn of the net in pixel order
+                // Held 180 degrees off the net's top at camera rotation 90: one clockwise quarter turn of the net in pixel order
                 // (ScanAssembler.rotateClockwise(net, 1), which is internal to :core:domain).
                 val pixels = listOf(6, 3, 0, 7, 4, 1, 8, 5, 2).map(net(Face.U)::get)
                 camera.feed(ScanFrame(stats(pixels), 90))
@@ -357,6 +363,141 @@ class QuickScanRouteTest {
         } finally {
             main.pause().stop().destroy()
         }
+    }
+
+    /** Story 10.17 AC1/AC2: capture hold 1, *Scan face by face*, capture the three remaining faces, Accept. */
+    @Test fun scanFaceByFaceAfterTheFirstCornerAsksOnlyTheRemainingFacesAndAccepts() {
+        quickScanActivity { scan, model ->
+            rule.onNodeWithTag("quickScan:faceByFace").assertIsDisplayed()
+            captureHold(1, uncertain = false, model = model)
+            rule.onNodeWithTag("quickScan:faceByFace").assertIsDisplayed().performClick()
+            settle(model)
+            rule.onNodeWithTag("quickScan:counter").assertDoesNotExist()
+            rule.onNodeWithTag("scanProgress").assertTextEquals("Face 1 of 3")
+            rule.onNodeWithText("Show the blue center.").assertIsDisplayed()
+            // Close in the hand-over with kept faces asks first; Cancel keeps the hand-over exactly.
+            rule.onNodeWithTag("scanClose").performClick()
+            rule.onNodeWithTag("scan:discard").assertIsDisplayed()
+            assertTrue(!scan.get().isFinishing)
+            rule.onNodeWithTag("scan:discard:cancel").performClick()
+            rule.waitForIdle()
+            rule.onNodeWithTag("scan:discard").assertDoesNotExist()
+            rule.onNodeWithTag("scanProgress").assertTextEquals("Face 1 of 3")
+            listOf(Face.U, Face.F, Face.R).forEach {
+                rule.onNodeWithTag("scanNetFace:${it.name}").assert(SemanticsMatcher.expectValue(ScanNetFaceCaptured, true))
+            }
+            waitForCamera(corner = false)
+            listOf(Color.BLUE, Color.ORANGE, Color.YELLOW).forEach { color ->
+                camera.feed(ScanFrame(stats(color), 0))
+                shutter(model)
+            }
+            // Retake faces runs from the combined Quick Scan review (Story 10.16) and returns to it.
+            rule.waitUntil(10_000) { model.phase is GuidedScanPhase.Review }
+            if (rule.onAllNodesWithTag("review:coach").fetchSemanticsNodes().isNotEmpty()) {
+                rule.onNodeWithTag("review:coach").performClick()
+            }
+            rule.onNodeWithTag("review:retakeFaces").performScrollTo().performClick()
+            rule.onNodeWithTag("reviewNet:face:${Face.F.ordinal}").performClick()
+            rule.onNodeWithTag("review:retake:start").performScrollTo().performClick()
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                (model.phase as? GuidedScanPhase.Viewfinder)?.fromReview != null
+            }
+            rule.onNodeWithTag("scanProgress").assertTextEquals("Face 1 of 1")
+            waitForCamera(corner = false)
+            camera.feed(ScanFrame(stats(Color.GREEN), 0))
+            shutter(model)
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                model.phase is GuidedScanPhase.Review
+            }
+            rule.onNodeWithTag("review:accept").performScrollTo().performClick()
+            val result = shadowOf(scan.get())
+            assertEquals(ScanOutcome.Accepted(CubeState.SOLVED), ScanFlowContract.decode(result.resultCode, result.resultIntent))
+        }
+    }
+
+    /** Story 10.17 PO Q1: Back from the hand-over resumes the corner view; Close asks before discarding kept faces. */
+    @Test fun backFromTheHandOverResumesTheCornerViewAndCloseAsksBeforeDiscarding() {
+        quickScanActivity { scan, model ->
+            captureHold(1, uncertain = false, model = model)
+            rule.onNodeWithTag("quickScan:faceByFace").performClick()
+            settle(model)
+            waitForCamera(corner = false)
+            camera.feed(ScanFrame(stats(Color.BLUE), 0))
+            shutter(model)
+            rule.onNodeWithTag("scanProgress").assertTextEquals("Face 2 of 3")
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            settle(model)
+            waitForCamera(corner = true)
+            rule.onNodeWithTag("quickScan:counter").assertTextEquals("2 / 2")
+            rule.onNodeWithTag("scanNetFace:${Face.B.name}").assert(SemanticsMatcher.expectValue(ScanNetFaceCaptured, false))
+            rule.onNodeWithTag("scanNetFace:${Face.U.name}").assert(SemanticsMatcher.expectValue(ScanNetFaceCaptured, true))
+            // Close with kept faces asks; Cancel keeps the scan exactly.
+            rule.onNodeWithTag("scanClose").performClick()
+            rule.onNodeWithTag("scan:discard").assertIsDisplayed()
+            rule.onNodeWithTag("scan:discard:cancel").performClick()
+            rule.waitForIdle()
+            rule.onNodeWithTag("scan:discard").assertDoesNotExist()
+            assertTrue(!scan.get().isFinishing)
+            rule.onNodeWithTag("quickScan:counter").assertTextEquals("2 / 2")
+            // System Back in the corner view asks too; Discard ends the scan Cancelled.
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            rule.waitForIdle()
+            rule.onNodeWithTag("scan:discard:confirm").performClick()
+            rule.waitForIdle()
+            val result = shadowOf(scan.get())
+            assertEquals(ScanOutcome.Cancelled, ScanFlowContract.decode(result.resultCode, result.resultIntent))
+        }
+    }
+
+    @Test fun closeWithNothingCapturedCancelsAtOnce() {
+        quickScanActivity { scan, _ ->
+            rule.onNodeWithTag("scanClose").performClick()
+            rule.waitForIdle()
+            rule.onNodeWithTag("scan:discard").assertDoesNotExist()
+            assertTrue(scan.get().isFinishing)
+            val result = shadowOf(scan.get())
+            assertEquals(ScanOutcome.Cancelled, ScanFlowContract.decode(result.resultCode, result.resultIntent))
+        }
+    }
+
+    /** Opens Quick Scan from the Solve tab (`solve:quickScan`) and runs [body] on its activity once the corner camera runs. */
+    private fun quickScanActivity(
+        body: (org.robolectric.android.controller.ActivityController<GuidedScanActivity>, GuidedScanViewModel) -> Unit,
+    ) {
+        val main = Robolectric.buildActivity(MainActivity::class.java).setup()
+        try {
+            rule.waitUntil(10_000) { rule.onAllNodesWithTag("welcome:imNew").fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithTag("welcome:imNew").performClick()
+            rule.onNodeWithTag("nav:solve").performClick()
+            rule.onNodeWithTag("solve:quickScan").performClick()
+            val shadow = shadowOf(main.get())
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                shadow.peekNextStartedActivityForResult() != null
+            }
+            val intent = shadow.nextStartedActivityForResult.intent
+            val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, intent).setup()
+            try {
+                waitForCamera(corner = true)
+                body(scan, ViewModelProvider(scan.get())[GuidedScanViewModel::class.java])
+            } finally {
+                scan.pause().stop().destroy()
+            }
+        } finally {
+            main.pause().stop().destroy()
+        }
+    }
+
+    /** Lets the analyzer thread and the main looper run what a tap or Back started. */
+    private fun settle(model: GuidedScanViewModel) {
+        model.analyzerExecutor.submit {}.get()
+        shadowOf(Looper.getMainLooper()).idle()
+        rule.waitForIdle()
+        model.analyzerExecutor.submit {}.get()
+        shadowOf(Looper.getMainLooper()).idle()
+        rule.waitForIdle()
     }
 
     /** Feeds one hold's corner frames over time with no shutter tap: remeter, settle, then 1000 ms steady. */

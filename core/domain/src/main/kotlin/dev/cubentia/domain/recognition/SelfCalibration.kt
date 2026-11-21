@@ -30,12 +30,8 @@ sealed interface SelfCalibration {
             samples: List<FaceSample>,
             saved: CalibrationCenters? = null,
         ): SelfCalibration {
-            val chosen =
-                Color.entries
-                    .associateWith { color -> samples.filter { it.centerColor == color } }
-                    .filterValues { it.size == 1 && usable(it.single()) }
-                    .mapValues { it.value.single() }
-            val trusted = chosen.filterValues { it.centerPlain != false }.mapValues { it.value.stickers[FaceSample.CENTER_INDEX] }
+            val chosen = chosen(samples)
+            val trusted = trusted(chosen)
             val guarded = chosen.filterValues { it.centerPlain == false }.keys
             val missing = Color.entries.toSet() - chosen.keys
             val replace = guarded + missing
@@ -58,6 +54,21 @@ sealed interface SelfCalibration {
             if (unresolved.isNotEmpty()) return NeedsCalibration(unresolved)
             return Calibrated(CalibrationCenters(Color.entries.associateWith { filled.getValue(it) }), guarded)
         }
+
+        /**
+         * The colors whose own center [from] trusts (one usable sample, plain center), each with that center: the
+         * capture's own partial calibration while some colors still have no sample.
+         */
+        fun trustedCenters(samples: List<FaceSample>): Map<Color, Lab> = trusted(chosen(samples))
+
+        private fun chosen(samples: List<FaceSample>): Map<Color, FaceSample> =
+            Color.entries
+                .associateWith { color -> samples.filter { it.centerColor == color } }
+                .filterValues { it.size == 1 && usable(it.single()) }
+                .mapValues { it.value.single() }
+
+        private fun trusted(chosen: Map<Color, FaceSample>): Map<Color, Lab> =
+            chosen.filterValues { it.centerPlain != false }.mapValues { it.value.stickers[FaceSample.CENTER_INDEX] }
 
         private fun usable(sample: FaceSample): Boolean =
             sample.quality == CaptureQuality.ACCEPTABLE &&

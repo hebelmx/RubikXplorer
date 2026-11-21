@@ -616,6 +616,44 @@ class ScanAssemblerTest {
         assertEquals("-", ScanTrace.letter(null))
     }
 
+    // Story 10.17: Quick Scan's combined assembly, kept corner faces posed (held) and hand-over faces searched.
+
+    @Test
+    fun `combined assembly with one fit reviews the whole cube with kept faces at their captured pose`() {
+        val keptFaces = setOf(Face.U, Face.F, Face.R)
+        val samples =
+            Face.entries.map { face ->
+                if (face in keptFaces) capture(scrambled, face, face.ordinal % 4, 0) else unposed(scrambled, face, 3 - face.ordinal % 4, 90)
+            }
+        val review = ScanReview.fromSamples(samples, CALIBRATION)
+        assertEquals(scrambled.colors, review.stickers)
+        assertEquals(scrambled, review.accepted?.toFacelets())
+    }
+
+    @Test
+    fun `combined assembly with new faces fitting two turns blanks their differing stickers and keeps the kept faces`() {
+        // R and L kept (posed): U, F, D and B each fit both R2 and L2.
+        val samples = Face.entries.map { face -> if (face == Face.R || face == Face.L) capture(r2, face, 0, 0) else unposed(r2, face, 0) }
+        val review = ScanReview.fromSamples(samples, CALIBRATION)
+        (range(Face.R) + range(Face.L)).forEach { assertEquals(r2.colors[it], review.stickers[it], "kept $it") }
+        listOf(Face.U, Face.F, Face.D, Face.B).forEach { face ->
+            assertTrue(nonCenters(face).any { review.stickers[it] == null }, "$face")
+        }
+        assertNull(review.accepted)
+    }
+
+    @Test
+    fun `combined assembly with no fit opens the best fit without throwing and keeps the kept faces as read`() {
+        val colors = r2.colors.toMutableList()
+        colors[10] = Color.ORANGE
+        val misread = Facelets(colors)
+        val samples =
+            Face.entries.map { face -> if (face == Face.R || face == Face.L) capture(misread, face, 0, 0) else unposed(misread, face, 1) }
+        val review = ScanReview.fromSamples(samples, CALIBRATION)
+        (range(Face.R) + range(Face.L)).forEach { assertEquals(misread.colors[it], review.stickers[it], "kept $it") }
+        assertNull(review.accepted)
+    }
+
     // Story 10.16: retake from review, kept faces fixed.
 
     private fun keptOf(

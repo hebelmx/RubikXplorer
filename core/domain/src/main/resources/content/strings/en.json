@@ -22,6 +22,7 @@
   "msg.quick-scan.hold-first": "Hold white on top, green and red facing you",
   "msg.quick-scan.hold-second": "Now yellow on top, blue and orange facing you",
   "msg.quick-scan.counter": "{n} / {total}",
+  "btn.quick-scan.face-by-face": "Scan face by face",
   "msg.scan.plain-light-surface": "Try a plain, light surface.",
   "msg.placement.save-failed": "Could not save your progress. Try again.",
   "msg.placement.suggest": "Start at {stage}?",

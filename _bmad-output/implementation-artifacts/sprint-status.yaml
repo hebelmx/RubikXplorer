@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-21-2026 09:25'
+last_updated: '11-21-2026 12:59'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -147,7 +147,7 @@ development_status:
   10-14-scan-each-face-in-any-rotation: done
   10-15-solve-from-a-scan: done
   10-16-retake-faces-from-the-scan-review: done
-  10-17-switch-from-quick-scan-to-the-guided-scan-and-keep-the-captu: backlog
+  10-17-switch-from-quick-scan-to-the-guided-scan-and-keep-the-captu: done
   10-18-quick-scan-finds-the-cube-s-real-edges-and-corners: done
   10-19-quick-scan-reads-the-side-faces-in-good-light: backlog
   epic-10-retrospective: optional
@@ -1626,13 +1626,37 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-gh-251-placement-explain-scan-and-stage.md"
   - id: "epic-10-deferred-10.18-cornerr8-keep-rules-scope"
     epic: 10
-    action: "In the Story 10.11 release check, prove release-minified app code (LiteRtCornerDetector, Hilt wiring) runs: the cornerR8 test keep rules keep dev.cubentia.**, kotlin.** and kotlinx.**, so D3 only proves LiteRT survives R8 with the shipped rules (medium; deferred from 10.18, build-logic/src/main/kotlin/dev/cubentia/buildlogic/ReleaseConventionPlugin.kt:228)"
+    action: "In the Story 10.11 release check, prove release-minified app code (LiteRtCornerDetector,
+      Hilt wiring) runs: the cornerR8 test keep rules keep dev.cubentia.**, kotlin.**
+      and kotlinx.**, so D3 only proves LiteRT survives R8 with the shipped rules
+      (medium; deferred from 10.18, build-logic/src/main/kotlin/dev/cubentia/buildlogic/ReleaseConventionPlugin.kt:228)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-18-quick-scan-finds-the-cube-s-real-edges-and-corners.md"
   - id: "epic-10-deferred-10.18-litert-init-failure-silent"
     epic: 10
-    action: "A single LiteRT interpreter init failure disables corner detection for the whole process and the Learner sees only the generic plain-surface coaching; add a bounded retry or an unavailable state that offers the fallback, and document the app-lifetime Interpreter (low, Learner-visible; deferred from 10.18, app/src/camera/corner/kotlin/dev/cubentia/app/camera/corner/LiteRtCornerDetector.kt:60)"
+    action: "A single LiteRT interpreter init failure disables corner detection for
+      the whole process and the Learner sees only the generic plain-surface coaching;
+      add a bounded retry or an unavailable state that offers the fallback, and document
+      the app-lifetime Interpreter (low, Learner-visible; deferred from 10.18, app/src/camera/corner/kotlin/dev/cubentia/app/camera/corner/LiteRtCornerDetector.kt:60)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-18-quick-scan-finds-the-cube-s-real-edges-and-corners.md"
+  - id: "epic-10-deferred-10.17-freeze-tap-untested"
+    epic: 10
+    action: "No test (and no device check: corner auto-capture fires before an adb tap) covers tapping 'Scan face by face' during the 400 ms corner capture freeze (low; deferred from 10.17, app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt switchToFaceByFace)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-17-switch-from-quick-scan-to-the-guided-scan-and-keep-the-captured-faces.md"
+  - id: "epic-10-deferred-10.17-kept-face-colour-stability"
+    epic: 10
+    action: "Kept corner faces get their colours once in the combined review against the merged six-face calibration, not the reading judged at keep time; add a test pinning kept-face colour stability or carry the judged colours into review as reviewAfterRetake does (medium; deferred from 10.17, core/domain/src/main/kotlin/dev/cubentia/domain/recognition/QuickScan.kt:177)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-17-switch-from-quick-scan-to-the-guided-scan-and-keep-the-captured-faces.md"
+  - id: "epic-10-deferred-10.17-fbf-inert-during-freeze"
+    epic: 10
+    action: "'Scan face by face' stays visible but does nothing during the freeze after capture 2; hide it once the corner view is left or make the tap take effect (low, Learner-visible; deferred from 10.17, app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanFlow.kt:225)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-17-switch-from-quick-scan-to-the-guided-scan-and-keep-the-captured-faces.md"

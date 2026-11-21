@@ -12,16 +12,22 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
 import dev.cubentia.domain.cube.Face
+import dev.cubentia.domain.recognition.CaptureQuality
 import dev.cubentia.domain.recognition.Coaching
+import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.GuidedScanPlan
+import dev.cubentia.domain.recognition.Lab
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -58,6 +64,90 @@ class QuickScanScreenTest {
         rule.onNodeWithTag("scanNet").assertIsDisplayed()
         rule.onNodeWithTag("scanEnterColors").assertIsDisplayed()
     }
+
+    @Test
+    fun scanFaceByFaceShowsAtBothHoldsAboveEnterColorsAndNowhereElse() {
+        val strings = ContentStrings((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings)
+        var taps = 0
+        val phase = mutableStateOf<GuidedScanPhase>(GuidedScanPhase.CornerViewfinder(hold = 1, faceByFace = true))
+        rule.setContent {
+            CubentiaTheme {
+                GuidedScanScreen(phase.value, strings, GuidedScanActions(onFaceByFace = { taps++ }), offerEnterColors = true)
+            }
+        }
+        rule
+            .onNodeWithTag("quickScan:faceByFace")
+            .assertIsDisplayed()
+            .assertTextEquals("Scan face by face")
+            .performClick()
+        rule.runOnIdle { assertEquals(1, taps) }
+        val button = rule.onNodeWithTag("quickScan:faceByFace").fetchSemanticsNode().boundsInRoot
+        val enter = rule.onNodeWithTag("scanEnterColors").fetchSemanticsNode().boundsInRoot
+        // Stacked directly above *Enter colors instead*, full width.
+        org.junit.Assert.assertTrue(button.bottom <= enter.top)
+        assertEquals(enter.width, button.width, 1f)
+        rule.runOnIdle { phase.value = GuidedScanPhase.CornerViewfinder(hold = 2, faceByFace = true) }
+        rule.onNodeWithTag("quickScan:faceByFace").assertIsDisplayed()
+        // Not in the Guided viewfinder (already face by face), nor in Case capture's corner view.
+        rule.runOnIdle { phase.value = GuidedScanPhase.Viewfinder(handOver = true) }
+        rule.onNodeWithTag("quickScan:faceByFace").assertDoesNotExist()
+        rule.runOnIdle { phase.value = GuidedScanPhase.CornerViewfinder(hold = 1) }
+        rule.onNodeWithTag("quickScan:faceByFace").assertDoesNotExist()
+    }
+
+    @Test
+    fun theHandOverViewfinderCountsOnlyTheAskedFacesAndShowsKeptFacesDone() {
+        val strings = ContentStrings((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings)
+        val kept = listOf(Face.U, Face.F, Face.R).map { sample(it) }
+        val steps = GuidedScanPlan.steps.filter { it.face in setOf(Face.B, Face.L, Face.D) }
+        rule.setContent {
+            CubentiaTheme {
+                GuidedScanScreen(
+                    GuidedScanPhase.Viewfinder(step = steps.first(), total = 3, kept = kept, handOver = true),
+                    strings,
+                    GuidedScanActions(),
+                    offerEnterColors = true,
+                )
+            }
+        }
+        rule.onNodeWithTag("scanProgress").assertTextEquals("Face 1 of 3")
+        rule.onNodeWithText("Show the blue center.").assertIsDisplayed()
+        listOf(Face.U, Face.F, Face.R).forEach {
+            rule.onNodeWithTag("scanNetFace:${it.name}").assert(SemanticsMatcher.expectValue(ScanNetFaceCaptured, true))
+        }
+        listOf(Face.B, Face.L, Face.D).forEach {
+            rule.onNodeWithTag("scanNetFace:${it.name}").assert(SemanticsMatcher.expectValue(ScanNetFaceCaptured, false))
+        }
+        rule.onNodeWithTag("scanEnterColors").assertIsDisplayed()
+    }
+
+    @Test
+    fun closeAsksDiscardThisScanAndCancelKeepsTheScan() {
+        val strings = ContentStrings((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings)
+        val confirm = mutableStateOf(true)
+        var discarded = 0
+        rule.setContent {
+            CubentiaTheme {
+                GuidedScanScreen(
+                    GuidedScanPhase.CornerViewfinder(hold = 2, captured = listOf(sample(Face.U)), faceByFace = true),
+                    strings,
+                    GuidedScanActions(onDiscardConfirm = { discarded++ }, onDiscardCancel = { confirm.value = false }),
+                    confirmDiscard = confirm.value,
+                )
+            }
+        }
+        rule.onNodeWithTag("scan:discard").assertIsDisplayed()
+        rule.onNodeWithText("Discard this scan?").assertIsDisplayed()
+        rule.onNodeWithTag("scan:discard:confirm").assertTextEquals("Discard").performClick()
+        rule.runOnIdle { assertEquals(1, discarded) }
+        rule.onNodeWithTag("scan:discard:cancel").assertTextEquals("Cancel").performClick()
+        rule.waitForIdle()
+        assertEquals(0, rule.onAllNodesWithTag("scan:discard").fetchSemanticsNodes().size)
+        rule.onNodeWithTag("quickScan:counter").assertTextEquals("2 / 2")
+    }
+
+    private fun sample(face: Face) =
+        FaceSample(face = face, orientationDegrees = 0, stickers = List(9) { Lab(50.0, 0.0, 0.0) }, quality = CaptureQuality.ACCEPTABLE)
 
     @Test
     fun detectedCornerOutlineThumbnailAndLightSurfaceCoachingShow() {

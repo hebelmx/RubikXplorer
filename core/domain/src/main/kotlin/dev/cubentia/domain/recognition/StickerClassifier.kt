@@ -62,12 +62,15 @@ object StickerClassifier {
         return StickerReading(nearest, if (margin >= CLOSE_CALL_DELTA_E) StickerConfidence.CONFIDENT else StickerConfidence.UNCERTAIN)
     }
 
-    /** Nearest color and how much farther (ΔE) the second-nearest center is; internal by the categorical-only rule. */
+    /**
+     * Nearest color and how much farther (ΔE) the second-nearest center is; internal by the categorical-only rule. Only
+     * the colors [centers] holds compete (at least two), in [Color.entries] order.
+     */
     internal fun nearestWithMargin(
         sticker: Lab,
         centers: Map<Color, Lab>,
     ): Pair<Color, Double> {
-        val distances = Color.entries.map { it to deltaE(sticker, centers.getValue(it)) }
+        val distances = Color.entries.filter { it in centers }.map { it to deltaE(sticker, centers.getValue(it)) }
         val nearest = distances.minBy { it.second }
         val second = distances.filter { it.first != nearest.first }.minOf { it.second }
         return nearest.first to second - nearest.second

@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -119,6 +120,8 @@ internal sealed interface GuidedScanPhase {
         val coaching: Coaching? = null,
         val prompt: ContentText? = null,
         val totalHolds: Int = QuickScanPlan.holds.size,
+        /** Quick Scan's corner view (Story 10.17): offers *Scan face by face*. Never in Case capture. */
+        val faceByFace: Boolean = false,
     ) : GuidedScanPhase
 
     /** The camera rationale, before any system dialog. */
@@ -152,6 +155,8 @@ internal sealed interface GuidedScanPhase {
         val kept: List<FaceSample> = emptyList(),
         /** A retake from review: the review to restore exactly when the Learner backs out before every face is taken. */
         val fromReview: Review? = null,
+        /** Quick Scan's hand-over (Story 10.17): Back returns to the corner view, Close asks before discarding. */
+        val handOver: Boolean = false,
     ) : GuidedScanPhase
 }
 
@@ -176,6 +181,12 @@ internal class GuidedScanActions(
     val onSave: () -> Unit = {},
     /** The freeze of capture [FrozenCapture.id] ended: live view resumes. */
     val onFreezeEnd: (Long) -> Unit = {},
+    /** Quick Scan's *Scan face by face* (Story 10.17). */
+    val onFaceByFace: () -> Unit = {},
+    /** "Discard this scan?" confirmed: the scan ends Cancelled. */
+    val onDiscardConfirm: () -> Unit = {},
+    /** "Discard this scan?" dismissed: the scan goes on exactly as it was. */
+    val onDiscardCancel: () -> Unit = {},
 )
 
 /**
@@ -213,8 +224,10 @@ internal fun GuidedScanScreen(
     offerEnterColors: Boolean = false,
     detectedCornerQuads: List<List<CornerPoint>> = emptyList(),
     cornerThumbnail: ImageBitmap? = null,
+    confirmDiscard: Boolean = false,
     viewfinder: @Composable () -> Unit = {},
 ) {
+    if (confirmDiscard) DiscardDialog(strings, actions)
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().safeDrawingPadding()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -327,6 +340,7 @@ internal fun GuidedScanScreen(
                         cornerHold = phase.hold,
                         cornerPrompt = phase.prompt,
                         detectedCornerQuads = detectedCornerQuads,
+                        faceByFace = phase.faceByFace,
                     )
                 }
 
@@ -379,6 +393,7 @@ private fun Viewfinder(
     cornerHold: Int? = null,
     cornerPrompt: ContentText? = null,
     detectedCornerQuads: List<List<CornerPoint>> = emptyList(),
+    faceByFace: Boolean = false,
 ) {
     val geometry = remember { ViewfinderGeometry() }
     val steps = cornerHold?.takeIf { cornerPrompt == null }?.let { QuickScanPlan.holds[it - 1] }.orEmpty()
@@ -403,6 +418,7 @@ private fun Viewfinder(
                     CoachingLine(phase, strings)
                     if (cornerPrompt == null) MiniNet(phase, geometry, Modifier.weight(1f).fillMaxWidth(), highlighted)
                     CaptureButtons(phase, strings, actions)
+                    if (faceByFace) FaceByFaceButton(strings, actions.onFaceByFace)
                     if (offerEnterColors) EnterColorsButton(strings, actions.onEnterColors)
                 }
             }
@@ -424,6 +440,7 @@ private fun Viewfinder(
                 ) {
                     if (cornerPrompt == null) MiniNet(phase, geometry, Modifier.weight(1f).fillMaxWidth(), highlighted)
                     CaptureButtons(phase, strings, actions)
+                    if (faceByFace) FaceByFaceButton(strings, actions.onFaceByFace)
                     if (offerEnterColors) EnterColorsButton(strings, actions.onEnterColors)
                 }
             }
@@ -792,6 +809,43 @@ internal fun labColor(lab: Lab): UiColor {
         gamma(3.2404542 * x - 1.5371385 * y - 0.4985314 * z),
         gamma(-0.9692660 * x + 1.8760108 * y + 0.0415560 * z),
         gamma(0.0556434 * x - 0.2040259 * y + 1.0572252 * z),
+    )
+}
+
+/** Quick Scan's *Scan face by face* (Story 10.17): a secondary action stacked directly above *Enter colors instead*. */
+@Composable
+private fun FaceByFaceButton(
+    strings: ContentStrings,
+    onClick: () -> Unit,
+) {
+    OutlinedButton(
+        onClick,
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("quickScan:faceByFace"),
+    ) {
+        Text(strings.resolve(ContentText("btn.quick-scan.face-by-face")))
+    }
+}
+
+/** "Discard this scan?" before Close (or Back) would drop at least one captured face (Story 10.17). */
+@Composable
+private fun DiscardDialog(
+    strings: ContentStrings,
+    actions: GuidedScanActions,
+) {
+    AlertDialog(
+        onDismissRequest = actions.onDiscardCancel,
+        title = { Text(strings.resolve(ContentText("msg.scan.discard-title"))) },
+        confirmButton = {
+            TextButton(onClick = actions.onDiscardConfirm, modifier = Modifier.testTag("scan:discard:confirm")) {
+                Text(strings.resolve(ContentText("btn.scan.discard")))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = actions.onDiscardCancel, modifier = Modifier.testTag("scan:discard:cancel")) {
+                Text(strings.resolve(ContentText("btn.scan.cancel")))
+            }
+        },
+        modifier = Modifier.testTag("scan:discard"),
     )
 }
 
