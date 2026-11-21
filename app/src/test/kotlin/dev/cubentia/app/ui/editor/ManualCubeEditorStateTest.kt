@@ -499,4 +499,36 @@ class ManualCubeEditorStateTest {
         val saved = with(ManualCubeEditorState.Saver) { SaverScope { true }.save(state) }
         return ManualCubeEditorState.Saver.restore(saved!!)!!
     }
+
+    @Test
+    fun `paint mode paints a sticker directly, keeps the selection and records no face-done event`() {
+        val state = ManualCubeEditorState(fresh = true)
+        listOf(0, 1, 2, 3, 5, 6, 7, 8).forEach { state.paintAt(it, Color.RED) }
+        assertTrue((0 until 9).filter { it != 4 }.all { state.facelets.colors[it] == Color.RED })
+        assertTrue(state.complete(0))
+        assertEquals(0, state.selected)
+        assertEquals(0, state.face)
+        assertEquals(8, state.cueIndex)
+        assertNull(state.faceDone)
+        // A same-color paint still marks the sticker set; a center is ignored.
+        state.paintAt(9, Color.RED)
+        assertTrue(9 in state.set)
+        state.paintAt(13, Color.BLUE)
+        assertEquals(Color.RED, state.facelets.colors[13])
+        assertFalse(13 in state.set)
+        assertEquals(9, state.cueIndex)
+    }
+
+    @Test
+    fun `paint mode applies the unique turn fit and moves the selection and the cue with the face`() {
+        val entered = EditorFixtures.turned(scrambled, mapOf(0 to 2))
+        val state = almostEntered(entered, last = 6)
+        state.paintAt(6, entered.colors[6])
+        assertEquals(scrambled, state.facelets)
+        assertEquals(listOf(0), state.turned)
+        // Painted 6 lands on 2, and so does the paused selection on 6.
+        assertEquals(2, state.cueIndex)
+        assertEquals(2, state.selected)
+        assertEquals(scrambled, state.validState?.toFacelets())
+    }
 }

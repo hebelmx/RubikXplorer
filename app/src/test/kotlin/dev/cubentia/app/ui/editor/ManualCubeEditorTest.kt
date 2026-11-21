@@ -1,10 +1,14 @@
 package dev.cubentia.app.ui.editor
 
 import android.app.Application
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -16,14 +20,18 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.content.ContentStrings
+import dev.cubentia.app.preferences.LocalHaptics
 import dev.cubentia.app.render.RenderStyle
 import dev.cubentia.app.render.StickerColorKey
 import dev.cubentia.app.render.StickerGlyphInkKey
@@ -72,24 +80,37 @@ class ManualCubeEditorTest {
 
     private val changes = mutableListOf<Pair<Facelets, Set<Int>>>()
 
+    private var ticks = 0
+    private val haptics =
+        object : HapticFeedback {
+            override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) {
+                ticks++
+            }
+        }
+
     private fun launch(
         initial: Facelets = CubeState.SOLVED.toFacelets(),
         fresh: Boolean = false,
         initialSet: Set<Int> = emptySet(),
+        restoration: StateRestorationTester? = null,
+        hapticsOn: Boolean = true,
     ) {
-        rule.setContent {
-            CubentiaTheme {
-                ManualCubeEditor(
-                    strings = strings,
-                    onAccept = { accepted += it },
-                    initial = initial,
-                    style = RenderStyle(colorBlindGlyphs = glyphs),
-                    fresh = fresh,
-                    initialSet = initialSet,
-                    onChange = { facelets, set -> changes += facelets to set },
-                )
+        val content: @androidx.compose.runtime.Composable () -> Unit = {
+            CompositionLocalProvider(LocalHaptics provides hapticsOn, LocalHapticFeedback provides haptics) {
+                CubentiaTheme {
+                    ManualCubeEditor(
+                        strings = strings,
+                        onAccept = { accepted += it },
+                        initial = initial,
+                        style = RenderStyle(colorBlindGlyphs = glyphs),
+                        fresh = fresh,
+                        initialSet = initialSet,
+                        onChange = { facelets, set -> changes += facelets to set },
+                    )
+                }
             }
         }
+        if (restoration == null) rule.setContent(content) else restoration.setContent(content)
     }
 
     private fun sticker(index: Int) = rule.onNodeWithTag("sticker:$index")
@@ -568,5 +589,234 @@ class ManualCubeEditorTest {
         rule.waitForIdle()
         assertTrue(isSelected(45))
         assertEquals("Selected: Blue sticker, back face, position 1", selectedLine())
+    }
+    // #249: paint mode in the editor.
+
+    /** The paint announcement [action] made, read while it is still in the live region (null if it made none). */
+    private var lastAnnouncement: String? = null
+
+    private fun announcing(action: () -> Unit) {
+        rule.mainClock.autoAdvance = false
+        action()
+        rule.mainClock.advanceTimeBy(100)
+        val node = rule.onNodeWithTag("paint:announce", useUnmergedTree = true).fetchSemanticsNode()
+        lastAnnouncement = node.config.getOrNull(SemanticsProperties.ContentDescription)?.single()
+        if (lastAnnouncement != null) assertEquals(LiveRegionMode.Polite, node.config[SemanticsProperties.LiveRegion])
+        rule.mainClock.autoAdvance = true
+        rule.waitForIdle()
+    }
+
+    private fun longPress(
+        color: CubeColor,
+        resetTicks: Boolean = true,
+    ) {
+        announcing { swatch(color).performTouchInput { longClick() } }
+        // Only the update cue's ticks are counted, not the long-press feedback.
+        if (resetTicks) ticks = 0
+    }
+
+    private fun tapToStop(color: CubeColor) = announcing { swatch(color).performClick() }
+
+    private fun customAction(
+        color: CubeColor,
+        label: String,
+    ) {
+        val actions = swatch(color).fetchSemanticsNode().config[SemanticsActions.CustomActions]
+        val action = actions.single { it.label == label }
+        announcing {
+            rule.runOnIdle {
+                action.action()
+                androidx.compose.runtime.snapshots.Snapshot
+                    .sendApplyNotifications()
+            }
+        }
+    }
+
+    private fun announcement(): String? = lastAnnouncement
+
+    private fun isLocked(color: CubeColor): Boolean = swatch(color).fetchSemanticsNode().config[SemanticsProperties.Selected]
+
+    private fun assertPainting(color: CubeColor) {
+        val name = color.name.lowercase()
+        assertTrue(isLocked(color))
+        rule.onNodeWithTag("swatch:${color.name}:check", useUnmergedTree = true).assertExists()
+        assertEquals("Painting $name. Tap stickers to set them. Tap $name again to stop.", text("editor:instruction"))
+        assertEquals("Painting $name", announcement())
+        assertTrue(rule.onAllNodesWithTag("editor:selected").fetchSemanticsNodes().isEmpty())
+    }
+
+    private fun assertNotPainting() {
+        CubeColor.entries.forEach { color ->
+            assertFalse(isLocked(color))
+            rule.onNodeWithTag("swatch:${color.name}:check", useUnmergedTree = true).assertDoesNotExist()
+        }
+        assertEquals("Painting off", announcement())
+    }
+
+    @Test
+    fun `a long-press locks a color and pauses the selection`() {
+        launch(fresh = true)
+        assertTrue(isSelected(0))
+        longPress(CubeColor.RED)
+        assertPainting(CubeColor.RED)
+        assertFalse(isLocked(CubeColor.WHITE))
+        assertFalse(isSelected(0))
+        assertFalse(sticker(0).fetchSemanticsNode().config.getOrNull(StickerPulsingKey) == true)
+    }
+
+    @Test
+    fun `nine stickers take one long-press and nine taps, with a cue and a tick each and no face-done line`() {
+        launch(fresh = true)
+        longPress(CubeColor.RED)
+        val stickers = listOf(0, 1, 2, 3, 5, 6, 7, 8, 9)
+        stickers.forEach { sticker(it).performClick() }
+        // A center tap is ignored.
+        sticker(4).performClick()
+        rule.waitForIdle()
+        stickers.forEach { assertEquals("$it", fill(CubeColor.RED), drawnColor(it)) }
+        assertEquals(fill(solved[4]), drawnColor(4))
+        assertEquals(stickers.size, ticks)
+        assertEquals(stickers.toSet(), changes.last().second)
+        rule.onNodeWithTag("editor:faceDone").assertDoesNotExist()
+        // The selection did not move: stopping shows it on the first sticker again.
+        tapToStop(CubeColor.RED)
+        assertNotPainting()
+        assertTrue(isSelected(0))
+        assertEquals("Selected: Red sticker, up face, position 1", selectedLine())
+    }
+
+    @Test
+    fun `painting a sticker its own color still ticks and marks it set`() {
+        launch(fresh = true)
+        longPress(CubeColor.WHITE)
+        rule.mainClock.autoAdvance = false
+        sticker(3).performClick()
+        rule.mainClock.advanceTimeBy(50)
+        rule.onNodeWithTag("sticker:3:cue", useUnmergedTree = true).assertExists()
+        rule.mainClock.autoAdvance = true
+        rule.waitForIdle()
+        assertEquals(1, ticks)
+        assertEquals(setOf(3), changes.last().second)
+        // The same-color tap entered the Up face.
+        swatch(CubeColor.WHITE).performClick()
+        assertEquals("5 faces left to enter: Front, Right, Back, Left, Down.", text("editor:instruction"))
+    }
+
+    @Test
+    fun `a plain tap, a long-press or Stop painting on the locked color ends paint mode`() {
+        launch(fresh = true)
+        longPress(CubeColor.GREEN)
+        tapToStop(CubeColor.GREEN)
+        assertNotPainting()
+        assertTrue(isSelected(0))
+        longPress(CubeColor.GREEN)
+        longPress(CubeColor.GREEN)
+        assertNotPainting()
+        customAction(CubeColor.GREEN, "Lock this color")
+        assertPainting(CubeColor.GREEN)
+        customAction(CubeColor.GREEN, "Stop painting")
+        assertNotPainting()
+        assertEquals(EditorFixtures.SIX_FACES_LEFT, text("editor:instruction"))
+    }
+
+    @Test
+    fun `a plain tap on another color only ends paint mode, then plain taps paint as before`() {
+        launch(fresh = true)
+        longPress(CubeColor.RED)
+        tapToStop(CubeColor.BLUE)
+        assertNotPainting()
+        assertEquals(fill(solved[0]), drawnColor(0))
+        assertEquals(0, ticks)
+        swatch(CubeColor.BLUE).performClick()
+        rule.waitForIdle()
+        assertEquals(fill(CubeColor.BLUE), drawnColor(0))
+        assertTrue(isSelected(1))
+    }
+
+    @Test
+    fun `a long-press on another color switches the lock`() {
+        launch(fresh = true)
+        longPress(CubeColor.RED)
+        longPress(CubeColor.BLUE)
+        assertPainting(CubeColor.BLUE)
+        assertFalse(isLocked(CubeColor.RED))
+        sticker(2).performClick()
+        rule.waitForIdle()
+        assertEquals(fill(CubeColor.BLUE), drawnColor(2))
+    }
+
+    @Test
+    fun `a paint that completes a uniquely turnable cube turns and notes it like a plain paint`() {
+        val entered = EditorFixtures.turned(scrambled, mapOf(0 to 2))
+        launch(entered, fresh = true, initialSet = editable - 53)
+        longPress(scrambled.colors[53])
+        sticker(53).performClick()
+        rule.waitForIdle()
+        (0 until 9).forEach { assertEquals("$it", fill(scrambled.colors[it]), drawnColor(it)) }
+        assertEquals("We turned the Up face to match the others.", text("editor:turned"))
+        assertEquals(scrambled, changes.last().first)
+        accept().assertIsEnabled().performClick()
+        rule.waitForIdle()
+        assertEquals(scrambled, accepted.single().toFacelets())
+    }
+
+    @Test
+    fun `paint mode survives recreation`() {
+        val restoration = StateRestorationTester(rule)
+        launch(fresh = true, restoration = restoration)
+        longPress(CubeColor.ORANGE)
+        assertPainting(CubeColor.ORANGE)
+        restoration.emulateSavedInstanceStateRestore()
+        rule.waitForIdle()
+        assertPainting(CubeColor.ORANGE)
+        // The restored editor does not speak the old announcement again.
+        assertNull(
+            rule
+                .onNodeWithTag("paint:announce", useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(SemanticsProperties.ContentDescription),
+        )
+        sticker(5).performClick()
+        rule.waitForIdle()
+        assertEquals(fill(CubeColor.ORANGE), drawnColor(5))
+    }
+
+    @Test
+    fun `with haptics off a paint-mode tap gives no tick`() {
+        launch(fresh = true, hapticsOn = false)
+        longPress(CubeColor.RED, resetTicks = false)
+        sticker(0).performClick()
+        rule.waitForIdle()
+        assertEquals(fill(CubeColor.RED), drawnColor(0))
+        assertEquals(0, ticks)
+    }
+
+    @Test
+    fun `the announcer leaves the live region after a moment`() {
+        launch(fresh = true)
+        longPress(CubeColor.RED)
+        assertEquals("Painting red", announcement())
+        rule.mainClock.autoAdvance = false
+        rule.mainClock.advanceTimeBy(2_000)
+        val node = rule.onNodeWithTag("paint:announce", useUnmergedTree = true).fetchSemanticsNode()
+        assertNull(node.config.getOrNull(SemanticsProperties.ContentDescription))
+        assertNull(node.config.getOrNull(SemanticsProperties.LiveRegion))
+        rule.mainClock.autoAdvance = true
+    }
+
+    @Test
+    fun `an editor opened on new content starts with paint mode off`() {
+        var initial by mutableStateOf(CubeState.SOLVED.toFacelets())
+        rule.setContent {
+            CubentiaTheme {
+                ManualCubeEditor(strings = strings, onAccept = {}, initial = initial)
+            }
+        }
+        longPress(CubeColor.RED)
+        assertTrue(isLocked(CubeColor.RED))
+        initial = scrambled
+        rule.waitForIdle()
+        CubeColor.entries.forEach { assertFalse(isLocked(it)) }
     }
 }

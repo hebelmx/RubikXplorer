@@ -185,17 +185,47 @@ class ManualCubeEditorState(
         val index = selected ?: return
         val painted = index / PER_FACE
         val wasComplete = complete(painted)
+        setSticker(index, color)
+        val next = StickerOrder.next(index) ?: index
+        select(next)
+        if (!wasComplete && complete(painted) && next / PER_FACE != painted) {
+            faceDone = FaceDone(painted, next / PER_FACE, (faceDone?.serial ?: 0) + 1)
+        }
+        applyFit(index)
+    }
+
+    /**
+     * Paint mode (#249): paints sticker [index] [color] and marks it [set] (a same-color tap included), with the same
+     * [cueIndex] and turn fit as [paint], but leaves the selection where it is and records no [faceDone]. Centers and
+     * out-of-range indices are ignored.
+     */
+    fun paintAt(
+        index: Int,
+        color: Color,
+    ) {
+        if (!isEditable(index)) return
+        setSticker(index, color)
+        applyFit(index)
+    }
+
+    /** Sets sticker [index] to [color], marks it [set], clears [turned] and puts the update cue on it. */
+    private fun setSticker(
+        index: Int,
+        color: Color,
+    ) {
         if (facelets.colors[index] != color) {
             facelets = Facelets(facelets.colors.toMutableList().also { it[index] = color })
         }
         set = set + index
         turned = emptyList()
         cueIndex = index
-        val next = StickerOrder.next(index) ?: index
-        select(next)
-        if (!wasComplete && complete(painted) && next / PER_FACE != painted) {
-            faceDone = FaceDone(painted, next / PER_FACE, (faceDone?.serial ?: 0) + 1)
-        }
+    }
+
+    /**
+     * With a unique quarter-turn fit, replaces the stickers by it and turns the set flags, the selection and the update
+     * cue of the just-painted sticker [index] with their faces.
+     */
+    private fun applyFit(index: Int) {
         val resolved = fit as? FaceTurnFit.Resolved ?: return
         if (resolved.turns.isEmpty()) return
         val turns = resolved.turns.mapKeys { it.key.ordinal }
