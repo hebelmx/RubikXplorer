@@ -386,7 +386,7 @@ stateDiagram-v2
   - A `FeatureFlags` port maps a closed enum `{QUICK_SCAN, PLACEMENT, CASE_RECOGNITION, TEST_ME, CAMERA_SCAN, ADAPTIVE_ASSISTANCE}` to `{OFF, BETA, GA}`.
   - The levels are set per build type in `build-logic`.
   - The UI shows the beta label from the flag, through one shared BETA label component (introduced for *Test me*, #137/#141). No feature checks `BuildConfig` directly.
-  - **Flags compose the build (SCP 2026-11-14):** when a build type has `CAMERA_SCAN`, `QUICK_SCAN`, `PLACEMENT` or `CASE_RECOGNITION` above OFF, `build-logic` adds the camera source set and its dependencies to that build type; otherwise neither is added.
+  - **Flags compose the build (SCP 2026-11-14; corner-model split SCP 2026-11-20):** when a build type has `CAMERA_SCAN`, `QUICK_SCAN`, `PLACEMENT` or `CASE_RECOGNITION` above OFF, `build-logic` adds `app/src/camera/` (`kotlin/`, `assets/`, manifest) and CameraX dependencies to that build type; otherwise neither is added. The corner-model source set (`app/src/camera/corner/` Kotlin + `.tflite` assets) and LiteRT dependency are composed only when a corner-model flag (`QUICK_SCAN` or `CASE_RECOGNITION`) is above OFF (`CameraClasspathPolicy` and `CameraSizePolicy` enforce this in CI).
   - `PLACEMENT`, `QUICK_SCAN` and `CASE_RECOGNITION` may be above OFF only when `CAMERA_SCAN` is above OFF in the same build type. `build-logic` fails the build otherwise, naming the flag.
   - **Debug levels follow wiring (SCP 2026-11-16 main-app entry points):** `debug` raises a flag above OFF (normally to GA) only once that flag's entry point is wired in the main app, in the same PR. A raised flag never shows a dead or unconnected entry point, and a feature is accepted on the main app build, not through a debug-only launcher.
 
@@ -465,6 +465,7 @@ stateDiagram-v2
 | Hilt / KSP | 2.60.1 / 2.3.12 [ASSUMPTION: KSP compatibility with Kotlin 2.4.21 to confirm at scaffold] |
 | Room | androidx.room3 3.0.3 (KSP) |
 | CameraX | 1.6.2 |
+| LiteRT | `com.google.ai.edge.litert:litert` 2.3.2 (camera corner source set only, gated on `QUICK_SCAN` / `CASE_RECOGNITION` above OFF; 7-keypoint `.tflite` model, SCP 2026-11-20) |
 | kotlinx.serialization / coroutines | 1.12.0 / 1.11.0 |
 | 3D rendering | custom OpenGL ES 3.0 on `GLSurfaceView`, no dependency; the manifest declares `glEsVersion 0x00030000` as required (OQ-3, Story 1.8 spike) |
 | Reference devices | minimum Lenovo Tab M10 Plus 3rd Gen (TB128XU, Snapdragon 680, 4 GB, Android 13 / API 33), mid Samsung Galaxy S24 FE (ARCH-OQ-1, PO 2026-10-30; minimum replaced 2026-11-12, sprint-change-proposal-2026-11-12-lenovo-minimum-reference; supersedes the PRD §5 device assumption). The Galaxy Tab S7 FE 5G (minimum until 2026-11-12) is an additional compatibility device. API 29–30 coverage is emulator-only. Recognition pass/fail is decided on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE; the Galaxy Tab S7 FE reports only; emulator cameras are never acceptance evidence (SCP 2026-11-14 Q12). |
@@ -504,7 +505,9 @@ RubikXplorer/
     di/
   app/src/camera/                      # build-time camera source set, only for build types with a camera flag above OFF (AD-18)
     AndroidManifest.xml                # CAMERA + uses-feature android.hardware.camera.any required="false"
-    kotlin/…/camera/                   # CameraX adapter → FaceSample; scan port binding; debug fixture recorder
+    kotlin/…/camera/                   # CameraX adapter → FaceSample; CornerDetector seam; scan port binding; debug fixture recorder
+    assets/                            # camera-only assets (absent when all camera flags are OFF)
+    corner/{kotlin,assets}/            # LiteRT 7-keypoint corner detector + .tflite model, only when QUICK_SCAN or CASE_RECOGNITION is above OFF (AD-9, AD-18)
 ```
 
 ```mermaid
