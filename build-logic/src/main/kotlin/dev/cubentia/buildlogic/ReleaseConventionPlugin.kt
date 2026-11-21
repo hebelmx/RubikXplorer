@@ -148,7 +148,8 @@ class ReleaseConventionPlugin : Plugin<Project> {
                     }
                 }
                 if (cornerR8) {
-                    // The androidTest APK links against the app's own classes and the Kotlin runtime, which R8 would
+                    // The androidTest APK links against the app's own classes, the Kotlin runtime and the libraries the
+                    // androidx.test runner shares with the app (androidx.tracing, androidx.annotation), which R8 would
                     // otherwise strip or rename; LiteRT (org.tensorflow.lite) keeps only the shipped keep rules.
                     val testRules =
                         tasks.register<GenerateKeepRulesTask>("generateCornerR8TestKeepRules") {
@@ -225,6 +226,7 @@ class ReleaseConventionPlugin : Plugin<Project> {
         const val BENCHMARK = "benchmark"
         const val CORNER_R8 = "cornerR8"
         const val CORNER_R8_TEST_RULES =
-            "-keep class dev.cubentia.** { *; }\n-keep class kotlin.** { *; }\n-keep class kotlinx.** { *; }\n"
+            "-keep class dev.cubentia.** { *; }\n-keep class kotlin.** { *; }\n-keep class kotlinx.** { *; }\n" +
+                "-keep class androidx.tracing.** { *; }\n-keep class androidx.annotation.** { *; }\n"
     }
 }
