@@ -24,6 +24,7 @@ import dev.cubentia.app.camera.GuidedScanActivity
 import dev.cubentia.app.camera.GuidedScanViewModel
 import dev.cubentia.app.camera.ScanFrame
 import dev.cubentia.app.camera.ScanFrameSource
+import dev.cubentia.app.camera.ShutterSound
 import dev.cubentia.app.scan.ScanFlowContract
 import dev.cubentia.app.scan.ScanLauncher
 import dev.cubentia.app.scan.ScanOutcome
@@ -125,6 +126,38 @@ class QuickScanRouteTest {
                 rule.waitForIdle()
                 rule.onNodeWithTag("quickScan:counter").assertDoesNotExist()
                 rule.onNodeWithTag("scanProgress").assertTextEquals("Again: face 1 of 1")
+            } finally {
+                scan.pause().stop().destroy()
+            }
+        } finally {
+            main.pause().stop().destroy()
+        }
+    }
+
+    /** AC5: both corner captures play the same shutter sound, once per capture. */
+    @Test fun bothCornerCapturesPlayTheShutterSoundOncePerCapture() {
+        val main = Robolectric.buildActivity(MainActivity::class.java).setup()
+        try {
+            rule.waitUntil(10_000) { rule.onAllNodesWithTag("welcome:imNew").fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithTag("welcome:imNew").performClick()
+            rule.onNodeWithTag("nav:solve").performClick()
+            rule.onNodeWithTag("solve:quickScan").performClick()
+            val shadow = shadowOf(main.get())
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                shadow.peekNextStartedActivityForResult() != null
+            }
+            val intent = shadow.nextStartedActivityForResult.intent
+            val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, intent).setup()
+            try {
+                val player = FakeShutterPlayer()
+                scan.get().shutterSound = ShutterSound(player).apply { load() }
+                waitForCamera(corner = true)
+                val model = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
+                captureHold(1, uncertain = false, model = model)
+                assertEquals(1, player.plays)
+                captureHold(2, uncertain = false, model = model)
+                assertEquals(2, player.plays)
             } finally {
                 scan.pause().stop().destroy()
             }
@@ -403,6 +436,18 @@ class QuickScanRouteTest {
             100.0,
             12,
         )
+
+    private class FakeShutterPlayer : ShutterSound.Player {
+        var plays = 0
+
+        override fun load() = Unit
+
+        override fun play() {
+            plays++
+        }
+
+        override fun release() = Unit
+    }
 
     private class FakeCornerFrames : ScanFrameSource {
         @Volatile var receiver: ((ScanFrame) -> Unit)? = null

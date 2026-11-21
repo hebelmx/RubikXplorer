@@ -12,6 +12,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.annotation.VisibleForTesting
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -80,8 +81,11 @@ class GuidedScanActivity : ComponentActivity() {
 
     @Inject lateinit var updateCalibration: dev.cubentia.application.usecase.UpdateCalibration
 
-    /** The system camera shutter sound played on each capture; loaded off main, released with the Activity. */
-    private val shutterSound = ShutterSound()
+    /**
+     * The system camera shutter sound played on each capture; loaded off main, released with the Activity. A var only so
+     * route tests can swap in a [ShutterSound] over a fake [ShutterSound.Player].
+     */
+    @VisibleForTesting internal var shutterSound = ShutterSound()
 
     private val scan: GuidedScanViewModel by viewModels()
     private val analyzerExecutor get() = scan.analyzerExecutor

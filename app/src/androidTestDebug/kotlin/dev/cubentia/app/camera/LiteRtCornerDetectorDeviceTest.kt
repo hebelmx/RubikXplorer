@@ -169,7 +169,7 @@ class LiteRtCornerDetectorDeviceTest {
             val guide = CornerGuide(ViewfinderGrid.inFrame(0.0, 0.0, 0, 0, w, h, rot), rot)
             val dx = (rng.nextDouble() - 0.5) * guide.radius * 0.45
             val dy = (rng.nextDouble() - 0.5) * guide.radius * 0.45
-            val scale = 0.62 + rng.nextDouble() * 0.34
+            val cubeScale = 0.62 + rng.nextDouble() * 0.34
             // The full trained pose range (tools/corner-model: pitch 16-52, yaw +-26, roll +-28 degrees).
             val pitch = 16.0 + rng.nextDouble() * 36.0
             val yaw = (rng.nextDouble() - 0.5) * 52.0
@@ -178,7 +178,7 @@ class LiteRtCornerDetectorDeviceTest {
             val truthPts =
                 CornerLocator.projectCube(
                     guide.vertices().last() + CornerPoint(dx, dy),
-                    guide.radius * scale,
+                    guide.radius * cubeScale,
                     rot,
                     pitch,
                     yaw,
