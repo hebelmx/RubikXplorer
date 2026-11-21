@@ -2,8 +2,15 @@
 
 Recorded 2026-11-21 by the PO on the Lenovo TB128XU (minimum device) with the debug FixtureRecorder: four cubes
 (stla = GAN, stlb = other Chinese, stka = Rubik's with logo, stkb = generic sticker) in cool light, plus stka and stla in
-warm light (recorded while this analysis ran, so they served as an untouched held-out set), two corner holds each, in
+warm light (recorded while this analysis ran, so they served as an untouched held-out set) and stka and stla in
+"cool-front" light, two corner holds each, in
 `Fixtures/corner/lenovo-tb128xu_<cube>_<light>/`. Every face was ACCEPTABLE ("clean") at the shutter.
+
+Lighting (PO, 2026-11-21): the "cool" captures were backlit (the light behind the cube, facing the camera); "warm" and
+"cool-front" were lit from the camera side.
+
+> **Scope note (SCP 2026-11-21, quick-scan-front-light):** the enforced side-face bar below, real-capture validation and
+> the BETA decision moved to Story 10.19. Story 10.18 records this replay as a baseline; it does not have to meet the bar.
 
 Replay: `core/domain/src/test/kotlin/dev/cubentia/domain/recognition/QuickScanSideFaceReplayTest.kt` feeds each
 fixture's unwarped per-sticker Lab through the production path Quick Scan runs after the unwarp
@@ -18,7 +25,7 @@ classification the fallback decision in `QuickScanController` now calls). Counts
 3. Other colors read like a frontal face: >= 90% correct and <= 2% confidently wrong (top faces read 62/64 = 97%
    against the recorder calibration; 90% leaves room for the side faces' shading, and it is not met today).
 
-## Baseline (current code, `5f0ae132` + fixtures)
+## Baseline (current code, `74885f08` + fixtures, re-run 2026-11-21)
 
 | cube | top correct/uncertain/wrong | side correct/uncertain/wrong | side R<->O wrong | side R/O uncertain | side faces to grid |
 |---|---|---|---|---|---|
@@ -29,9 +36,15 @@ classification the fallback decision in `QuickScanController` now calls). Counts
 | **all cool** | **41/21/2 of 64** | **81/42/5 of 128** | **0** | **22** | **16/16** |
 | stka warm | 13/3/0 | 23/9/0 | 0 | 4 | 4/4 |
 | stla warm | 14/2/0 | 17/5/10 | 1 | 1 | 3/4 |
-| **all (cool + warm)** | **68/26/2 of 96** | **121/56/15 of 192** | **1** | **27** | **23/24** |
+| stka cool-front | 13/3/0 | 24/7/1 | 0 | 7 | 4/4 |
+| stla cool-front | 15/1/0 | 27/5/0 | 0 | 4 | 2/4 |
+| **all cool-front** | **28/4/0 of 32** | **51/12/1 of 64** | **0** | **11** | **6/8** |
+| **all (cool + warm + cool-front)** | **96/30/2 of 128** | **172/68/16 of 256** | **1** | **38** | **29/32** |
 
-The bar fails on every item with warm light included (cool light alone: items 2 and 3). In cool light there is no
+Over all eight groups the bar fails on every item: 1 RED<->ORANGE wrong, 38 RED/ORANGE side cells uncertain, side
+faces 172/256 correct (67%, bar >= 90%) and 16/256 wrong (6%, bar <= 2%); cool light alone fails items 2 and 3. Lit
+from the camera side, stla reads much better in cool-front (side 27/5/0, 2 of 4 side faces to grid) than backlit
+(13/17/2), but cool-front still leaves 11 RED/ORANGE side cells uncertain. In cool light there is no
 confident RED/ORANGE swap, but 22 RED/ORANGE side cells are uncertain and every side face (and 6 of 8 top faces) would
 fall back to the Guided grid; stla in warm light reads 10 side cells confidently wrong, one of them RED<->ORANGE. The replay test asserts this gap as a strict expected
 failure; `CUBENTIA_D2_ENFORCE=1 ./gradlew :core:domain:test --tests '*QuickScanSideFaceReplayTest*' --rerun` runs it
@@ -77,6 +90,9 @@ classification is unchanged; only the fallback decision's classification moved i
 unchanged) so the replay exercises production code.
 
 ## Decision needed
+
+*Resolved by SCP 2026-11-21 (quick-scan-front-light): Quick Scan reads side faces in front light, and the enforced bar,
+real-capture validation and the BETA decision moved to Story 10.19.*
 
 Meeting AC3 needs more than a classifier change: e.g. per-face side calibration (calibrate RED/ORANGE as seen on a
 shaded side face), a different capture (a light/angle that lights both side faces, or a per-face exposure), or

@@ -41,7 +41,15 @@ All slices are synthetic renders from the training generator (fresh seeds). Only
 
 ## 3. On-Device Verification — Lenovo Tab M10 Plus 3rd Gen (`TB128XU`, `HA1S28MM`, Snapdragon 680)
 
-> **Status: from a previous revision of `LiteRtCornerDetectorDeviceTest`, pending device gate D1.** The numbers below come from an earlier revision of the test (before its poses were widened and the real-palette fields were added); its raw XML and logcat are not committed, so they are not reproducible from the repository. Re-run the current test on the Lenovo (D1) and commit the raw report before treating them as AC evidence.
+> **Device gate D1: PASS (2026-11-21, `485880c8`).** `LiteRtCornerDetectorDeviceTest` (current revision, widened poses + real-palette frames) passed on the Lenovo TB128XU (`HA1S28MM`) at three frame sizes:
+>
+> | Frame | Median | p90 | Positives | meanPxErr | Real palette | Negatives rejected |
+> | --- | --- | --- | --- | --- | --- | --- |
+> | 320×240 | 13.96 ms | 14.34 ms | 39/40 | 2.87 px | 24/24 (meanPxErr 2.21 px) | 20/20 |
+> | 640×480 | 13.97 ms | 14.10 ms | 37/40 | 2.98 px | 24/24 | 20/20 |
+> | 1280×960 | 14.09 ms | 14.32 ms | 38/40 | 2.91 px | 24/24 | 20/20 |
+>
+> The AC3 synthetic pixel tolerance is checked by this device test and by `evaluate_model.py`, not by a JVM test suite. The older single-size run below is kept for history (earlier test revision; its raw XML and logcat are not committed).
 
 Executed via `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.cubentia.app.camera.LiteRtCornerDetectorDeviceTest` against the main app debug build (off main thread on single-thread analyzer executor). Run on 2026-11-20 23:04 CST against the committed `corner_keypoints.tflite` (406,100 bytes); result `TEST-Lenovo TB128XU - 13.xml` (1 test, 0 failures, device `HA1S28MM`) and logcat tag `LiteRtDeviceTest`:
 
@@ -69,7 +77,9 @@ The benchmark frames are synthetic renders (with the Kotlin test palette) fed th
   - `checkReleaseCameraClasspath`: **0** CameraX / LiteRT classes, native libs, or `.tflite` assets.
 - **Projected Camera + LiteRT (`checkCameraSize`):**
   - Single-ABI `arm64-v8a` native accounting + 55% R8 retention for unminified debug jars (measured below) + uncompressed `.tflite` (`406,100` bytes): **26,861,212 bytes (26.86 MB < 30.00 MB)** (2026-11-21, after the ai-delivery exclusion).
-- **R8 inference check (device gate D3):** `./gradlew -Pcubentia.cornerR8=true :app:connectedCornerR8AndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.cubentia.app.camera.LiteRtCornerDetectorDeviceTest` runs the device test against the opt-in `cornerR8` build type: release R8 and `cubentia-keep-rules.pro` with `CAMERA_SCAN`/`QUICK_SCAN`/`CASE_RECOGNITION` = BETA, debug-signed (the test-only keep rules retain `dev.cubentia.**` and the Kotlin runtime so the test APK links; LiteRT keeps only the shipped rules). `assembleCornerR8` and `assembleCornerR8AndroidTest` build locally; the connected run needs a device and has not run. Release flags stay OFF.
+- **R8 inference check (device gate D3):** `./gradlew -Pcubentia.cornerR8=true :app:connectedCornerR8AndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.cubentia.app.camera.LiteRtCornerDetectorDeviceTest` runs the device test against the opt-in `cornerR8` build type: release R8 and `cubentia-keep-rules.pro` with `CAMERA_SCAN`/`QUICK_SCAN`/`CASE_RECOGNITION` = BETA, debug-signed (the test-only keep rules retain `dev.cubentia.**` and the Kotlin runtime so the test APK links; LiteRT keeps only the shipped rules). `assembleCornerR8` and `assembleCornerR8AndroidTest` build locally. Release flags stay OFF.
+  - **D3: PASS (2026-11-21, `5f0ae132`, Lenovo TB128XU `HA1S28MM`).** `connectedCornerR8AndroidTest` with the `LiteRtCornerDetectorDeviceTest` class filter: medians **6.36 / 6.35 / 6.46 ms** (320×240 / 640×480 / 1280×960), accuracy the same as D1. The first D3 attempt crashed on `androidx.tracing` (missing under R8); fixed in `5f0ae132`.
+  - **Limit:** the `cornerR8` test keep rules keep `dev.cubentia.**`, `kotlin.**` and `kotlinx.**`, so D3 proves LiteRT survives R8 with the shipped rules, not that release-minified app code runs. Action item for Story 10.11: verify release-minified app code on device.
 - **AD-13 manifest (corner flags on):** `litert` is added without `com.google.android.play:ai-delivery` (the Play AI-pack download path, unused with a bundled model: it brought asset-delivery, WorkManager and Play services), and `src/camera/corner/AndroidManifest.xml` removes litert-api's `FOREGROUND_SERVICE`/`FOREGROUND_SERVICE_DATA_SYNC`; `src/camera/AndroidManifest.xml` removes `ACCESS_NETWORK_STATE` (media3-common via CameraX). `ManifestPolicy` now fails any variant that declares `FOREGROUND_SERVICE*`, `RECEIVE_BOOT_COMPLETED`, `ACCESS_NETWORK_STATE`, `WAKE_LOCK` or a Play Core / WorkManager component.
 - **Measured R8-minified build (`benchmark`, temporary init-script with `CAMERA_SCAN = BETA, QUICK_SCAN = BETA`; measured before the ai-delivery exclusion):**
   - Single-ABI `arm64-v8a` APK: `13,004,957` bytes; uncompressed DEX: `4,248,056` bytes; **installed estimate: `25,902,725` bytes (25.90 MB, 4.10 MB headroom below NFR-11 30 MB)**.
