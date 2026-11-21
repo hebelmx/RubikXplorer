@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-21-2026 09:25'
+last_updated: '11-21-2026 10:06'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -147,7 +147,8 @@ development_status:
   10-14-scan-each-face-in-any-rotation: done
   10-15-solve-from-a-scan: done
   10-16-retake-faces-from-the-scan-review: done
-  10-17-switch-from-quick-scan-to-the-guided-scan-and-keep-the-captu: backlog
+  10-17-switch-from-quick-scan-to-the-guided-scan-and-keep-the-captu: 
+    in-progress
   10-18-quick-scan-finds-the-cube-s-real-edges-and-corners: done
   10-19-quick-scan-reads-the-side-faces-in-good-light: backlog
   epic-10-retrospective: optional
@@ -1626,13 +1627,19 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-gh-251-placement-explain-scan-and-stage.md"
   - id: "epic-10-deferred-10.18-cornerr8-keep-rules-scope"
     epic: 10
-    action: "In the Story 10.11 release check, prove release-minified app code (LiteRtCornerDetector, Hilt wiring) runs: the cornerR8 test keep rules keep dev.cubentia.**, kotlin.** and kotlinx.**, so D3 only proves LiteRT survives R8 with the shipped rules (medium; deferred from 10.18, build-logic/src/main/kotlin/dev/cubentia/buildlogic/ReleaseConventionPlugin.kt:228)"
+    action: "In the Story 10.11 release check, prove release-minified app code (LiteRtCornerDetector,
+      Hilt wiring) runs: the cornerR8 test keep rules keep dev.cubentia.**, kotlin.**
+      and kotlinx.**, so D3 only proves LiteRT survives R8 with the shipped rules
+      (medium; deferred from 10.18, build-logic/src/main/kotlin/dev/cubentia/buildlogic/ReleaseConventionPlugin.kt:228)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-18-quick-scan-finds-the-cube-s-real-edges-and-corners.md"
   - id: "epic-10-deferred-10.18-litert-init-failure-silent"
     epic: 10
-    action: "A single LiteRT interpreter init failure disables corner detection for the whole process and the Learner sees only the generic plain-surface coaching; add a bounded retry or an unavailable state that offers the fallback, and document the app-lifetime Interpreter (low, Learner-visible; deferred from 10.18, app/src/camera/corner/kotlin/dev/cubentia/app/camera/corner/LiteRtCornerDetector.kt:60)"
+    action: "A single LiteRT interpreter init failure disables corner detection for
+      the whole process and the Learner sees only the generic plain-surface coaching;
+      add a bounded retry or an unavailable state that offers the fallback, and document
+      the app-lifetime Interpreter (low, Learner-visible; deferred from 10.18, app/src/camera/corner/kotlin/dev/cubentia/app/camera/corner/LiteRtCornerDetector.kt:60)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-18-quick-scan-finds-the-cube-s-real-edges-and-corners.md"
