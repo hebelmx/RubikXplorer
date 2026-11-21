@@ -24,6 +24,10 @@ class QuickScanControllerTest {
             Color.ORANGE to Lab(65.0, 45.0, 65.0),
             Color.BLUE to Lab(40.0, 10.0, -50.0),
         )
+
+    /** A saved calibration: with it every captured face is judged by the six centers, as before Story 10.17's fix. */
+    private val saved = CalibrationCenters(Color.entries.associateWith(labs::getValue))
+
     private val cube = CubeState.SOLVED.apply(listOf(FaceTurn(Face.R, Turn.CLOCKWISE), FaceTurn(Face.U, Turn.COUNTERCLOCKWISE)))
 
     private val evidenceCube = CubeState.SOLVED.apply((Notation.parse("U R2 F' D L' B2") as NotationResult.Parsed).moves)
@@ -99,7 +103,7 @@ class QuickScanControllerTest {
 
     @Test
     fun `an undetected second corner coaches and the shutter sends its faces to the guided grid`() {
-        val scan = QuickScanController()
+        val scan = QuickScanController(saved)
         scan.onFrame(true, hold(1), 0)
         assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onShutter())
         val second = hold(2)
@@ -129,9 +133,12 @@ class QuickScanControllerTest {
         val scan = QuickScanController()
         val first = hold(1)
         val input = listOf(null, first[1].copy(meanLuma = 10.0), first[2])
-        assertEquals(QuickScanEffect.Fallback(listOf(Face.F, Face.U)), capture(scan, input, hold(2)))
+        // No white or green center was captured, so B and L (white and green stickers) cannot be read either.
+        assertEquals(QuickScanEffect.Fallback(listOf(Face.F, Face.B, Face.L, Face.U)), capture(scan, input, hold(2)))
         assertEquals(Face.F, scan.fallback?.step?.face)
         assertEquals(null, guidedCapture(scan, face(Face.F)))
+        assertEquals(null, guidedCapture(scan, face(Face.B)))
+        assertEquals(null, guidedCapture(scan, face(Face.L)))
         val done = guidedCapture(scan, face(Face.U)) as QuickScanEffect.Done
         assertEquals(cube.toFacelets(), assemble(done.samples).facelets)
     }
@@ -140,7 +147,7 @@ class QuickScanControllerTest {
     fun `a missing corner face can be captured in the grid with any top at camera rotation 90`() {
         for (missing in Face.entries) {
             for (heldTurns in 0..3) {
-                val scan = QuickScanController()
+                val scan = QuickScanController(saved)
                 val holds =
                     QuickScanPlan.holds.mapIndexed { index, steps ->
                         steps.zip(hold(index + 1, evidenceCube)).map { (step, stats) ->
@@ -196,7 +203,7 @@ class QuickScanControllerTest {
 
     @Test
     fun `an invalid merged state after the hand-over goes straight to review without a second round`() {
-        val scan = QuickScanController()
+        val scan = QuickScanController(saved)
         val first = hold(1)
         val invalidF = first[1].withCell(1, labs.getValue(Color.WHITE))
         assertEquals(QuickScanEffect.Fallback(listOf(Face.U)), capture(scan, listOf(null, invalidF, first[2]), hold(2)))
@@ -226,7 +233,7 @@ class QuickScanControllerTest {
 
     @Test
     fun `the shutter keeps a partial corner even when automatic detection does not arm`() {
-        val scan = QuickScanController()
+        val scan = QuickScanController(saved)
         assertTrue(scan.onFrame(false, listOf(hold(1)[0], null, null), 0).isEmpty())
         assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onShutter())
         assertEquals(listOf(Face.U), scan.captured.map { it.face })
@@ -262,11 +269,21 @@ class QuickScanControllerTest {
     fun `a kept corner face is never asked again once calibration becomes possible`() {
         val scan = QuickScanController()
         val first = hold(1)
-        val uncertainF = first[1].withCell(0, Lab(55.0, 55.0, 55.0))
-        assertEquals(QuickScanEffect.Fallback(listOf(Face.U)), capture(scan, listOf(null, uncertainF, first[2]), hold(2)))
+        // Between white and yellow: confident while no white center is captured, uncertain once it is.
+        val between = Lab(87.5, -2.5, 40.0)
+        val laterUncertainF = first[1].withCell(0, between)
+        // No white center yet: U is missing and B and L (white stickers) cannot be read; F is read against the others.
+        assertEquals(
+            QuickScanEffect.Fallback(listOf(Face.B, Face.L, Face.U)),
+            capture(scan, listOf(null, laterUncertainF, first[2]), hold(2)),
+        )
         val keptF = scan.kept.single { it.face == Face.F }
+        assertEquals(null, guidedCapture(scan, face(Face.B)))
+        assertEquals(null, guidedCapture(scan, face(Face.L)))
         val done = guidedCapture(scan, face(Face.U)) as QuickScanEffect.Done
         assertEquals(keptF, done.samples.single { it.face == Face.F })
+        val calibration = (SelfCalibration.from(done.samples) as SelfCalibration.Calibrated).calibration
+        assertEquals(StickerConfidence.UNCERTAIN, QuickScanReadout.read(keptF, calibration)[0]?.confidence)
     }
 
     @Test
@@ -304,7 +321,7 @@ class QuickScanControllerTest {
 
     @Test
     fun `face by face between captures keeps the first corner and asks the other three`() {
-        val scan = QuickScanController()
+        val scan = QuickScanController(saved)
         scan.onFrame(true, hold(1), 0)
         assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onShutter())
         val corner = scan.captured
@@ -324,7 +341,7 @@ class QuickScanControllerTest {
 
     @Test
     fun `face by face drops a doubtful corner face and asks it with the missing ones`() {
-        val scan = QuickScanController()
+        val scan = QuickScanController(saved)
         val first = hold(1).toMutableList().also { it[1] = it[1].copy(meanLuma = 10.0) }
         scan.onFrame(true, first, 0)
         scan.onShutter()
@@ -349,7 +366,7 @@ class QuickScanControllerTest {
         assertFalse(atOne.backOut())
 
         // Hold 2, the first corner kept.
-        val atTwo = QuickScanController()
+        val atTwo = QuickScanController(saved)
         atTwo.onFrame(true, hold(1), 0)
         atTwo.onShutter()
         val corner = atTwo.captured
@@ -386,6 +403,46 @@ class QuickScanControllerTest {
         assertEquals(kept, done.samples.filter { it.face != Face.B })
         assertEquals(cube.toFacelets(), assemble(done.samples).facelets)
         assertFalse(scan.backOut())
+    }
+
+    @Test
+    fun `with no calibration a corner face with ambiguous stickers is not kept and is asked in the hand-over`() {
+        val solved = CubeState.SOLVED
+        // Pale red, halfway to white: neither center wins by the close-call margin.
+        val pale = Lab(67.5, 32.5, 22.5)
+        val switched = QuickScanController()
+        val first = hold(1, solved).toMutableList()
+        first[2] = listOf(0, 2, 8).fold(first[2]) { stats, index -> stats.withCell(index, pale) }
+        switched.onFrame(true, first, 0)
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), switched.onShutter())
+        assertEquals(QuickScanEffect.Fallback(listOf(Face.R, Face.B, Face.L, Face.D)), switched.switchToFaceByFace())
+        assertEquals(setOf(Face.U, Face.F), switched.keptFaces)
+
+        // The automatic hand-over with no green center: a top read between yellow and orange is asked with the missing F.
+        val automatic = QuickScanController()
+        val second = hold(2, solved).toMutableList()
+        second[0] = listOf(1, 3).fold(second[0]) { stats, index -> stats.withCell(index, Lab(75.0, 20.0, 72.5)) }
+        val start = hold(1, solved)
+        assertEquals(QuickScanEffect.Fallback(listOf(Face.F, Face.D)), capture(automatic, listOf(start[0], null, start[2]), second))
+        assertEquals(setOf(Face.U, Face.R, Face.L, Face.B), automatic.keptFaces)
+        assertEquals(null, guidedCapture(automatic, face(Face.F, solved)))
+        val done = guidedCapture(automatic, face(Face.D, solved)) as QuickScanEffect.Done
+        assertEquals(solved.toFacelets(), assemble(done.samples).facelets)
+    }
+
+    @Test
+    fun `with no calibration corner faces whose stickers are all confident are kept as before`() {
+        val solved = CubeState.SOLVED
+        val switched = QuickScanController()
+        switched.onFrame(true, hold(1, solved), 0)
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), switched.onShutter())
+        assertEquals(QuickScanEffect.Fallback(listOf(Face.B, Face.L, Face.D)), switched.switchToFaceByFace())
+        assertEquals(setOf(Face.U, Face.F, Face.R), switched.keptFaces)
+
+        val automatic = QuickScanController()
+        val start = hold(1, solved)
+        assertEquals(QuickScanEffect.Fallback(listOf(Face.F)), capture(automatic, listOf(start[0], null, start[2]), hold(2, solved)))
+        assertEquals(Face.entries.toSet() - Face.F, automatic.keptFaces)
     }
 
     private fun capture(

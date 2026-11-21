@@ -35,6 +35,19 @@ sealed interface QuickScanEffect {
  * fallback). The D2 replay (`QuickScanSideFaceReplayTest`) measures recorded corner fixtures through this same path.
  */
 object QuickScanReadout {
+    /**
+     * The judged readings against the capture's own [centers] when no full calibration exists yet (Story 10.17): only
+     * the colors seen compete, so a sticker is CONFIDENT only when it clearly matches one of them; null for an invalid
+     * sticker or fewer than two centers.
+     */
+    fun judgedAgainst(
+        sample: FaceSample,
+        centers: Map<Color, Lab>,
+    ): List<StickerReading?> =
+        sample.stickers
+            .map { sticker -> if (centers.size >= 2 && sticker.isValid()) StickerClassifier.read(sticker, centers) else null }
+            .filterIndexed { index, _ -> index != FaceSample.CENTER_INDEX || sample.centerPlain != false }
+
     /** One reading per sticker, null where the classifier is unavailable. */
     fun read(
         sample: FaceSample,
@@ -226,7 +239,11 @@ class QuickScanController(
         return ScanAssembler.repromptFaces(merged, calibration.calibration, repromptPosed = true)
     }
 
-    /** Faces among [faces] that the Guided grid must read: missing, not ACCEPTABLE, uncalibrated or with an UNCERTAIN sticker. */
+    /**
+     * Faces among [faces] that the Guided grid must read: missing, not ACCEPTABLE, uncalibrated or with an UNCERTAIN
+     * sticker. With no calibration yet, a face's stickers are judged against the captured faces' own centers, so only a
+     * face with all nine stickers read is kept (AC1; the colors are still produced once, in the combined assembly).
+     */
     private fun needGrid(
         merged: List<FaceSample>,
         faces: List<Face>,
@@ -238,7 +255,10 @@ class QuickScanController(
             sample == null || sample.quality != CaptureQuality.ACCEPTABLE ||
                 when (calibration) {
                     is SelfCalibration.NeedsCalibration -> {
-                        Color.home(face) in calibration.colors
+                        Color.home(face) in calibration.colors ||
+                            QuickScanReadout
+                                .judgedAgainst(sample, SelfCalibration.trustedCenters(merged))
+                                .any { it?.confidence != StickerConfidence.CONFIDENT }
                     }
 
                     is SelfCalibration.Calibrated -> {
