@@ -1,11 +1,7 @@
 package dev.cubentia.app.camera
 
-import kotlin.math.PI
 import kotlin.math.abs
-import kotlin.math.cos
-import kotlin.math.hypot
 import kotlin.math.roundToInt
-import kotlin.math.sin
 
 /**
  * Bottom-up sticker-first cube corner detector (Story 10.18).
@@ -36,10 +32,10 @@ internal object StickerBlobDetector {
         val frameCenter = guide.vertices().last()
         val rotation = guide.rotationDegrees
 
-        // Compute the median blob size to estimate the cube's rough scale (~6.5 sticker widths across a 3×3 corner).
+        // Compute the median blob bounding-box size to estimate cube circumradius (~2.3x stickerless to ~3.4x stickered).
         val sortedSizes = blobs.map { it.size }.sorted()
         val medianSize = sortedSizes[sortedSizes.size / 2]
-        val estRadius = (medianSize * 3.8).coerceIn(guide.radius * 0.45, guide.radius * 1.45)
+        val estRadius = (medianSize * 2.85).coerceIn(guide.radius * 0.45, guide.radius * 1.35)
 
         var bestPts: List<CornerPoint>? = null
         var bestScore = Double.NEGATIVE_INFINITY
@@ -62,7 +58,7 @@ internal object StickerBlobDetector {
             persp: Double,
             minFaces: Int,
         ): Pair<Double, List<CornerPoint>> {
-            val pts = projectCube(CornerPoint(cx, cy), radius, rotation, pitch, yaw, roll, persp)
+            val pts = CornerLocator.projectCube(CornerPoint(cx, cy), radius, rotation, pitch, yaw, roll, persp)
             val quads = guide.quads(pts)
             val s = scorePoseAgainstBlobs(quads, blobs, medianSize, minFaces)
             return s to pts
@@ -89,34 +85,86 @@ internal object StickerBlobDetector {
 
         if (bestPts == null || bestScore < 6.0) return null
 
-        // Local pose refinement (keeps strict 3D cube geometry — no independent vertex warping).
-        val bx = bestParams[0]
-        val by = bestParams[1]
-        val br = bestParams[2]
-        val bRoll = bestParams[4]
+        // Local pose refinement in three fast passes (keeps strict 3D cube geometry, ~3.3x faster than a 6D product grid).
+        var bx = bestParams[0]
+        var by = bestParams[1]
+        var br = bestParams[2]
+        var bPitch = bestParams[3]
+        var bRoll = bestParams[4]
+        var bPersp = bestParams[5]
         val fineStep = (medianSize * 0.25).coerceAtLeast(2.5)
+        // Pass 1: refine translation, scale, coarse pitch, and roll.
         for (dx in -2..2) {
             for (dy in -2..2) {
                 for (scaleDelta in listOf(0.92, 1.0, 1.08)) {
-                    for (pitch in listOf(22.0, 28.0, 35.0, 44.0)) {
-                        for (persp in listOf(0.0, 0.16, 0.30)) {
-                            for (rollDelta in listOf(-5.0, 0.0, 5.0)) {
-                                val (s, pts) =
-                                    evalPose(
-                                        bx + dx * fineStep,
-                                        by + dy * fineStep,
-                                        br * scaleDelta,
-                                        pitch,
-                                        0.0,
-                                        bRoll + rollDelta,
-                                        persp,
-                                        minFaces = 3,
-                                    )
-                                if (s > bestScore) {
-                                    bestScore = s
-                                    bestPts = pts
-                                }
+                    for (pitch in listOf(24.0, 35.0)) {
+                        for (rollDelta in listOf(-5.0, 0.0, 5.0)) {
+                            val cx = bx + dx * fineStep
+                            val cy = by + dy * fineStep
+                            val r = br * scaleDelta
+                            val roll = bRoll + rollDelta
+                            val (s, pts) = evalPose(cx, cy, r, pitch, 0.0, roll, bPersp, minFaces = 3)
+                            if (s > bestScore) {
+                                bestScore = s
+                                bestPts = pts
+                                bestParams = doubleArrayOf(cx, cy, r, pitch, roll, bPersp)
                             }
+                        }
+                    }
+                }
+            }
+        }
+        bx = bestParams[0]
+        by = bestParams[1]
+        br = bestParams[2]
+        bPitch = bestParams[3]
+        bRoll = bestParams[4]
+        // Pass 2: refine pitch, perspective, scale, and small translation adjustment.
+        for (pitchDelta in listOf(-4.0, 0.0, 4.0)) {
+            for (persp in listOf(0.0, 0.16, 0.30)) {
+                for (scaleDelta in listOf(0.95, 1.0, 1.05)) {
+                    for (dx in -1..1) {
+                        for (dy in -1..1) {
+                            val cx = bx + dx * fineStep
+                            val cy = by + dy * fineStep
+                            val r = br * scaleDelta
+                            val pitch = (bPitch + pitchDelta).coerceIn(18.0, 46.0)
+                            val (s, pts) = evalPose(cx, cy, r, pitch, 0.0, bRoll, persp, minFaces = 3)
+                            if (s > bestScore) {
+                                bestScore = s
+                                bestPts = pts
+                                bestParams = doubleArrayOf(cx, cy, r, pitch, bRoll, persp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        bx = bestParams[0]
+        by = bestParams[1]
+        br = bestParams[2]
+        bPitch = bestParams[3]
+        bRoll = bestParams[4]
+        bPersp = bestParams[5]
+        // Pass 3: refine yaw, roll, and fine center alignment.
+        for (yaw in listOf(-10.0, -5.0, 0.0, 5.0, 10.0)) {
+            for (rollDelta in listOf(-3.0, 0.0, 3.0)) {
+                for (dx in -1..1) {
+                    for (dy in -1..1) {
+                        val (s, pts) =
+                            evalPose(
+                                bx + dx * (fineStep * 0.6),
+                                by + dy * (fineStep * 0.6),
+                                br,
+                                bPitch,
+                                yaw,
+                                bRoll + rollDelta,
+                                bPersp,
+                                minFaces = 3,
+                            )
+                        if (s > bestScore) {
+                            bestScore = s
+                            bestPts = pts
                         }
                     }
                 }
@@ -278,12 +326,8 @@ internal object StickerBlobDetector {
                     val cu = uGrid[cur]
                     val cv = vGrid[cur]
 
-                    val neighbors = intArrayOf(cur - 1, cur + 1, cur - gw, cur + gw)
-                    for (nIdx in neighbors) {
-                        val nx = nIdx % gw
-                        val ny = nIdx / gw
-                        if (nx < 0 || nx >= gw || ny < 0 || ny >= gh) continue
-                        if (visited[nIdx]) continue
+                    fun tryVisit(nIdx: Int) {
+                        if (aborted || visited[nIdx]) return
                         val nl = lumaGrid[nIdx]
                         val nu = uGrid[nIdx]
                         val nv = vGrid[nIdx]
@@ -296,12 +340,16 @@ internal object StickerBlobDetector {
                         ) {
                             if (tail >= maxCells) {
                                 aborted = true
-                                break
+                                return
                             }
                             visited[nIdx] = true
                             queue[tail++] = nIdx
                         }
                     }
+                    if (cx > 0) tryVisit(cur - 1)
+                    if (cx + 1 < gw) tryVisit(cur + 1)
+                    if (cy > 0) tryVisit(cur - gw)
+                    if (cy + 1 < gh) tryVisit(cur + gw)
                     if (aborted) break
                 }
 
@@ -310,9 +358,10 @@ internal object StickerBlobDetector {
                 val bh = (maxY - minY + 1) * stride.toDouble()
                 if (bw < minSide || bh < minSide || bw > maxSide || bh > maxSide) continue
                 val aspect = bw / bh
-                if (aspect < 0.42 || aspect > 2.40) continue
+                // Foreshortened top-face diamonds can reach ~3.5:1 aspect and ~0.35–0.48 bounding-box fill ratio.
+                if (aspect < 0.30 || aspect > 3.60) continue
                 val fillRatio = (count * stride * stride) / (bw * bh)
-                if (fillRatio < 0.45) continue
+                if (fillRatio < 0.32) continue
 
                 blobs +=
                     Blob(
@@ -324,48 +373,5 @@ internal object StickerBlobDetector {
             }
         }
         return blobs
-    }
-
-    private fun projectCube(
-        center: CornerPoint,
-        radius: Double,
-        frameRotation: Int,
-        pitchDeg: Double,
-        yawDeg: Double,
-        rollDeg: Double,
-        persp: Double,
-    ): List<CornerPoint> {
-        val yaw = (45.0 + yawDeg) * PI / 180.0
-        val pitch = pitchDeg * PI / 180.0
-        val roll = (-rollDeg - frameRotation) * PI / 180.0
-        val cosY = cos(yaw)
-        val sinY = sin(yaw)
-        val cosP = cos(pitch)
-        val sinP = sin(pitch)
-        val cosR = cos(roll)
-        val sinR = sin(roll)
-        val unitScale = radius / 1.632993161855452
-        val corners3D =
-            listOf(
-                Triple(-1.0, 1.0, -1.0), // T
-                Triple(-1.0, 1.0, 1.0), // UL
-                Triple(-1.0, -1.0, 1.0), // LL
-                Triple(1.0, -1.0, 1.0), // B
-                Triple(1.0, -1.0, -1.0), // LR
-                Triple(1.0, 1.0, -1.0), // UR
-                Triple(1.0, 1.0, 1.0), // C
-            )
-        return corners3D.map { (cx, cy, cz) ->
-            val x1 = cx * cosY - cz * sinY
-            val z1 = cx * sinY + cz * cosY
-            val y2 = cy * cosP - z1 * sinP
-            val z2 = cy * sinP + z1 * cosP
-            val depth = (1.0 - z2 * persp / 1.732).coerceAtLeast(0.35)
-            val px = x1 / depth
-            val py = -y2 / depth
-            val rx = px * cosR - py * sinR
-            val ry = px * sinR + py * cosR
-            center + CornerPoint(rx * unitScale, ry * unitScale)
-        }
     }
 }

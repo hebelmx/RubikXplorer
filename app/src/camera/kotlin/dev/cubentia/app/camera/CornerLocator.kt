@@ -132,7 +132,8 @@ internal object CornerLocator {
                 val edge = points[(index + 1) % 6] - start
                 val len = hypot(edge.x, edge.y)
                 if (len < 1.0) continue
-                val normal = CornerPoint(edge.y, -edge.x) * (guide.radius * 0.12 / len)
+                // Vertices are CCW in image coordinates (y-down), so (-edge.y, edge.x) points outward.
+                val normal = CornerPoint(-edge.y, edge.x) * (guide.radius * 0.12 / len)
                 for (step in listOf(0.25, 0.5, 0.75)) {
                     val p = start + edge * step + normal
                     samples++
@@ -187,7 +188,7 @@ internal object CornerLocator {
             maxDrift: Double = 0.09,
         ): Location? {
             var polished = initial
-            var polishedScore = score(polished, checkExterior = false)
+            var polishedScore = score(polished, checkExterior = true)
             for (step in listOf(0.05, 0.025, 0.012)) {
                 for (index in polished.indices) {
                     val origin = polished[index]
@@ -197,7 +198,7 @@ internal object CornerLocator {
                             val drift = point - initial[index]
                             if (hypot(drift.x, drift.y) > guide.radius * maxDrift) continue
                             val candidate = polished.toMutableList().also { it[index] = point }
-                            val rating = score(candidate, checkExterior = false)
+                            val rating = score(candidate, checkExterior = true)
                             if (rating > polishedScore) {
                                 polished = candidate
                                 polishedScore = rating
@@ -249,14 +250,14 @@ internal object CornerLocator {
             val rawPts = listOf(q0[0], q0[3], q1[3], q1[2], q2[2], q0[1], q0[2])
             val anchor = rawPts[6]
             var snapped = rawPts
-            var snappedScore = score(rawPts, checkExterior = false)
+            var snappedScore = score(rawPts, checkExterior = true)
             val snapStep = guide.radius * 0.04
             for (scale in listOf(0.95, 1.0, 1.05)) {
                 for (dx in -1..1) {
                     for (dy in -1..1) {
                         val shift = CornerPoint(dx * snapStep, dy * snapStep)
                         val candidate = rawPts.map { anchor + (it - anchor) * scale + shift }
-                        val rating = score(candidate, checkExterior = false)
+                        val rating = score(candidate, checkExterior = true)
                         if (rating > snappedScore) {
                             snapped = candidate
                             snappedScore = rating
@@ -301,69 +302,26 @@ internal object CornerLocator {
             val fineStep = guide.radius * 0.05
             for (scaleDelta in listOf(-0.04, 0.0, 0.04)) {
                 for (pitch in listOf(22.0, 30.0, 42.0)) {
-                    for (persp in listOf(0.14, 0.28, 0.36)) {
-                        val base = projectCube(center, guide.radius * (bestScale + scaleDelta), rotation, pitch, 0.0, bestRoll, persp)
-                        for (dx in -1..1) {
-                            for (dy in -1..1) {
-                                val shift = bestShift + CornerPoint(dx * fineStep, dy * fineStep)
-                                val candidate = base.map { it + shift }
-                                val rating = score(candidate)
-                                if (rating > perspBestScore) {
-                                    perspBest = candidate
-                                    perspBestScore = rating
+                    for (yaw in listOf(-10.0, 0.0, 10.0)) {
+                        for (persp in listOf(0.14, 0.28, 0.36)) {
+                            val base =
+                                projectCube(center, guide.radius * (bestScale + scaleDelta), rotation, pitch, yaw, bestRoll, persp)
+                            for (dx in -1..1) {
+                                for (dy in -1..1) {
+                                    val shift = bestShift + CornerPoint(dx * fineStep, dy * fineStep)
+                                    val candidate = base.map { it + shift }
+                                    val rating = score(candidate)
+                                    if (rating > perspBestScore) {
+                                        perspBest = candidate
+                                        perspBestScore = rating
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-            best = perspBest
-            bestScore = perspBestScore
-            polishVertices(best, maxDrift = 0.15)?.let { return it }
-        }
-
-        val seed = best
-        for (step in listOf(0.03, 0.015)) {
-            for (index in best.indices) {
-                val origin = best[index]
-                for (dx in -1..1) {
-                    for (dy in -1..1) {
-                        val point = origin + CornerPoint(dx * step * guide.radius, dy * step * guide.radius)
-                        val drift = point - seed[index]
-                        if (hypot(drift.x, drift.y) > guide.radius * 0.045) continue
-                        val candidate = best.toMutableList().also { it[index] = point }
-                        val rating = score(candidate, checkExterior = false)
-                        if (rating > bestScore) {
-                            best = candidate
-                            bestScore = rating
-                        }
-                    }
-                }
-            }
-        }
-        StickerBlobDetector.detect(frame, guide)?.let { blobLoc ->
-            val q0 = blobLoc.quads[0]
-            val q1 = blobLoc.quads[1]
-            val q2 = blobLoc.quads[2]
-            val rawPts = listOf(q0[0], q0[3], q1[3], q1[2], q2[2], q0[1], q0[2])
-            val anchor = rawPts[6]
-            var snapped = rawPts
-            var snappedScore = score(rawPts, checkExterior = false)
-            val snapStep = guide.radius * 0.04
-            for (scale in listOf(0.95, 1.0, 1.05)) {
-                for (dx in -1..1) {
-                    for (dy in -1..1) {
-                        val shift = CornerPoint(dx * snapStep, dy * snapStep)
-                        val candidate = rawPts.map { anchor + (it - anchor) * scale + shift }
-                        val rating = score(candidate, checkExterior = false)
-                        if (rating > snappedScore) {
-                            snapped = candidate
-                            snappedScore = rating
-                        }
-                    }
-                }
-            }
-            polishVertices(snapped)?.let { return it }
+            polishVertices(perspBest, maxDrift = 0.15)?.let { return it }
         }
         return null
     }
@@ -372,7 +330,7 @@ internal object CornerLocator {
      * Projects the 7 visible corners `[T, UL, LL, B, LR, UR, C]` of a unit cube `[-1, 1]^3` through a pinhole
      * perspective camera (with [persp] = `0.0` matching orthographic) rotated into frame pixels by [frameRotation].
      */
-    private fun projectCube(
+    internal fun projectCube(
         center: CornerPoint,
         radius: Double,
         frameRotation: Int,
@@ -520,5 +478,59 @@ internal object CornerReader {
             }
         val frameQuads = if (detected) located.quads else emptyList()
         return CornerFrame(detected, locatedFaces, located.score, normalized, frameQuads)
+    }
+}
+
+/**
+ * Exponential moving average filter for normalized corner overlay quads so minor frame-to-frame vertex jitter stays
+ * calm while large pose changes or losses snap immediately.
+ */
+internal class CornerOverlaySmoother(
+    private val alpha: Double = DEFAULT_ALPHA,
+    private val snapThreshold: Double = DEFAULT_SNAP_THRESHOLD,
+) {
+    private var previous: List<List<CornerPoint>> = emptyList()
+
+    fun update(quads: List<List<CornerPoint>>): List<List<CornerPoint>> {
+        if (quads.isEmpty()) {
+            previous = emptyList()
+            return emptyList()
+        }
+        val prior = previous
+        val next =
+            if (prior.size != quads.size || prior.zip(quads).any { (a, b) -> a.size != b.size }) {
+                quads
+            } else {
+                var maxDelta = 0.0
+                for (q in quads.indices) {
+                    for (p in quads[q].indices) {
+                        val d = hypot(quads[q][p].x - prior[q][p].x, quads[q][p].y - prior[q][p].y)
+                        if (d > maxDelta) maxDelta = d
+                    }
+                }
+                if (maxDelta > snapThreshold) {
+                    quads
+                } else {
+                    prior.zip(quads) { pq, nq ->
+                        pq.zip(nq) { pp, np ->
+                            CornerPoint(
+                                pp.x + alpha * (np.x - pp.x),
+                                pp.y + alpha * (np.y - pp.y),
+                            )
+                        }
+                    }
+                }
+            }
+        previous = next
+        return next
+    }
+
+    fun reset() {
+        previous = emptyList()
+    }
+
+    companion object {
+        const val DEFAULT_ALPHA = 0.45
+        const val DEFAULT_SNAP_THRESHOLD = 0.12
     }
 }

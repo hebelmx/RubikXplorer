@@ -313,6 +313,39 @@ class QuickScanControllerTest {
         assertEquals(null, scan.coaching)
     }
 
+    @Test
+    fun `guided fallback round one delays auto capture so the learner can turn the cube`() {
+        val scan = QuickScanController()
+        val first = hold(1).toMutableList().also { it[1] = it[1].withCell(0, Lab(55.0, 55.0, 55.0)) }
+        assertEquals(QuickScanEffect.Fallback(listOf(Face.F), 1), capture(scan, first, hold(2)))
+        val grid = checkNotNull(scan.fallback)
+        val front = face(Face.F)
+        assertEquals(listOf(GuidedScanEffect.Remeter), grid.onFrame(front, 0, 1000))
+        // Steady for > 600 ms but still within the 2.5 s initial turn delay: must not auto-capture yet.
+        assertTrue(grid.onFrame(front, 0, 1500).isEmpty())
+        assertTrue(grid.onFrame(front, 0, 3499).isEmpty())
+        // Once past 2.5 s from the first frame, steady auto-capture proceeds.
+        val effects = grid.onFrame(front, 0, 3500)
+        assertTrue(effects.any { it is GuidedScanEffect.Capture }, "$effects")
+    }
+
+    @Test
+    fun `turnover without top center requires at least two other centers to change`() {
+        val scan = QuickScanController()
+        val first = hold(1)
+        scan.onFrame(true, first, 0)
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onShutter())
+        val noisySingleFace = listOf(null, first[1].withCell(FaceSample.CENTER_INDEX, labs.getValue(Color.ORANGE)), first[2])
+        assertTrue(scan.onFrame(true, noisySingleFace, 100).isEmpty())
+        val twoChanged =
+            listOf(
+                null,
+                first[1].withCell(FaceSample.CENTER_INDEX, labs.getValue(Color.ORANGE)),
+                first[2].withCell(FaceSample.CENTER_INDEX, labs.getValue(Color.BLUE)),
+            )
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, twoChanged, 200))
+    }
+
     private fun guidedCapture(
         scan: QuickScanController,
         stats: FrameStats,
