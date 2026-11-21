@@ -312,7 +312,13 @@ internal fun auditEditorStates(rule: ComposeContentTestRule) {
     val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
     val strings = CatalogState.Ready(bundle).strings
     var initial by mutableStateOf(CubeState.SOLVED.toFacelets())
-    rule.setContent { fontScale200 { CubentiaTheme { ManualCubeEditor(strings = strings, onAccept = {}, initial = initial) } } }
+    var fresh by mutableStateOf(false)
+    var initialSet by mutableStateOf(emptySet<Int>())
+    rule.setContent {
+        fontScale200 {
+            CubentiaTheme { ManualCubeEditor(strings = strings, onAccept = {}, initial = initial, fresh = fresh, initialSet = initialSet) }
+        }
+    }
 
     fun check(name: String) {
         rule.waitForIdle()
@@ -352,6 +358,32 @@ internal fun auditEditorStates(rule: ComposeContentTestRule) {
     }
     rule.runOnIdle { initial = Facelets(CubeState.SOLVED.toFacelets().colors) }
     check("Manual editor ready to accept")
+
+    // #253: a fresh entry's face-done line and Up's ✓ tab, held on screen by stopping the clock before Up's 8th sticker.
+    rule.runOnIdle { fresh = true }
+    rule.waitForIdle()
+    repeat(7) {
+        rule.onNodeWithTag("swatch:${CubeColor.WHITE.name}").performScrollTo().performClick()
+        rule.waitForIdle()
+    }
+    rule.mainClock.autoAdvance = false
+    rule.onNodeWithTag("swatch:${CubeColor.WHITE.name}").performScrollTo().performClick()
+    rule.mainClock.advanceTimeBy(100)
+    rule.onNodeWithTag("editor:faceDone").assertExists()
+    rule.onNodeWithTag("editor:face:0:done", useUnmergedTree = true).assertExists()
+    check("Manual editor face done")
+    rule.mainClock.autoAdvance = true
+
+    // #253: a scramble with Up entered 180° and every editable sticker but Down's last set; painting it turns Up to match.
+    val editable = (0 until 54).filter { it % 9 != 4 }.toSet()
+    rule.runOnIdle {
+        initialSet = editable - 53
+        initial = EditorFixtures.turned(EditorFixtures.scrambled, mapOf(0 to 2))
+    }
+    rule.waitForIdle()
+    rule.onNodeWithTag("swatch:${EditorFixtures.scrambled.colors[53].name}").performScrollTo().performClick()
+    rule.onNodeWithTag("editor:turned").assertExistsAfterIdle(rule)
+    check("Manual editor turned to match")
 }
 
 private fun androidx.compose.ui.test.SemanticsNodeInteraction.assertExistsAfterIdle(rule: ComposeContentTestRule) {

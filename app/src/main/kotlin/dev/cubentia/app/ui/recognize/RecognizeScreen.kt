@@ -60,7 +60,7 @@ fun RecognizeScreen(
 
             is RecognizePhase.Editing -> {
                 Text(strings.resolve(phase.note))
-                ManualCubeEditor(strings, flow::editorAccepted, Modifier.weight(1f))
+                ManualCubeEditor(strings, flow::editorAccepted, Modifier.weight(1f), fresh = true)
             }
 
             is RecognizePhase.Result -> {

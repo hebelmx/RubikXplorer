@@ -199,6 +199,14 @@ class AppShellSolveTest {
         click("solve:scan")
         rule.onNodeWithTag("solve:scanNote").assertTextEquals("Camera access is off, so enter your cube's colors here.")
         rule.onNodeWithTag("editor:accept").assertExists()
+        with(dev.cubentia.app.ui.editor.EditorFixtures) { rule.assertEditorGated() }
+    }
+
+    @Test fun scanFallBackOpensAFreshEditor() {
+        show(scan = { flow.onScanOutcome(ScanOutcome.FellBackToEditor) }, cameraScan = dev.cubentia.application.port.FlagLevel.GA)
+        click("nav:solve")
+        click("solve:scan")
+        with(dev.cubentia.app.ui.editor.EditorFixtures) { rule.assertEditorGated() }
     }
 
     @Test fun betaMakesManualEntryPrimaryAndExplainsTheScan() {
@@ -291,6 +299,10 @@ class AppShellSolveTest {
         rule.onNodeWithText("Scan my cube").assertDoesNotExist()
         click("solve:enterColors")
         rule.onNodeWithTag("solve:pauseNote").assertDoesNotExist()
+        with(dev.cubentia.app.ui.editor.EditorFixtures) {
+            rule.assertEditorGated()
+            rule.enterEveryFace()
+        }
         click("editor:accept")
         assertAlreadySolved()
         click("solve:alreadySolved:learn")
@@ -402,9 +414,12 @@ class AppShellSolveTest {
         show()
         click("nav:solve")
         click("solve:enterColors")
+        with(dev.cubentia.app.ui.editor.EditorFixtures) { rule.assertEditorGated() }
         rule.onNodeWithTag("sticker:0").performClick()
         rule.onNodeWithTag("swatch:RED").performScrollTo().performClick()
         rule.waitForIdle()
+        val fiveLeft = "5 faces left to enter: Front, Right, Back, Left, Down."
+        with(dev.cubentia.app.ui.editor.EditorFixtures) { rule.assertEditorGated(fiveLeft) }
         val red =
             androidx.compose.ui.graphics
                 .Color(
@@ -415,6 +430,8 @@ class AppShellSolveTest {
         click("nav:learn")
         click("nav:solve")
         assertEquals(red, rule.onNodeWithTag("sticker:0").fetchSemanticsNode().config[StickerColorKey])
+        // The set stickers survive too: Up still counts as entered.
+        with(dev.cubentia.app.ui.editor.EditorFixtures) { rule.assertEditorGated(fiveLeft) }
         // Close discards the draft: Enter colors opens on the accepted stickers again.
         click("solve:close")
         click("solve:enterColors")

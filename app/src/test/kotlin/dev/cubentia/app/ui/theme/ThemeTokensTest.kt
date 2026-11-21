@@ -117,6 +117,16 @@ class ThemeTokensTest {
     }
 
     @Test
+    fun `the update-cue ring in each sticker's glyph ink stands out from its fill (PO 2026-11-20, #253)`() {
+        dev.cubentia.domain.cube.Color.entries.forEach { color ->
+            val appearance =
+                dev.cubentia.domain.appearance.StickerAppearance
+                    .of(color)
+            assertAtLeast(3.0, Color(appearance.glyphInk), Color(appearance.fill), "cue ring on $color")
+        }
+    }
+
+    @Test
     fun `typography uses Plex Sans, with notation and data in Plex Mono`() {
         val t = RubikTypography
         listOf(t.headlineMedium, t.titleLarge, t.bodyLarge, t.labelLarge, t.bodySmall).forEach {

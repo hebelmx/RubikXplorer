@@ -137,7 +137,8 @@ class SolveFlowViewModelTest {
             vm.takePendingScan()
             openEditor()
             assertFalse(vm.isAcceptedScan())
-            assertEquals(SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = note), vm.phase.value)
+            // No cube accepted yet: every path opens a fresh editor on the default solved cube (#253).
+            assertEquals(SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = note, fresh = true), vm.phase.value)
             vm.closeEditor()
         }
     }
@@ -158,25 +159,49 @@ class SolveFlowViewModelTest {
         val vm = viewModel(source(CubeSolver { error("A draft must not solve") }))
         vm.scanDenied()
         val painted = cube.toFacelets()
-        vm.onEdit(painted)
+        vm.onEdit(painted, setOf(0, 1, 9))
         vm.leaveSolveTab()
-        assertEquals(SolvePhase.Editing(painted, note = Text("msg.solve.scan-camera-denied")), vm.phase.value)
+        assertEquals(
+            SolvePhase.Editing(painted, note = Text("msg.solve.scan-camera-denied"), fresh = true, set = setOf(0, 1, 9)),
+            vm.phase.value,
+        )
         // Leaving again without new edits keeps the same stickers.
         vm.leaveSolveTab()
         assertEquals(painted, (vm.phase.value as SolvePhase.Editing).initial)
     }
 
+    @Test fun theEditorOpensFreshOnlyUntilACubeIsAccepted() =
+        runBlocking {
+            val vm = viewModel(source(CubeSolver { SolveResult.TimedOut }))
+            vm.enterColors()
+            assertTrue((vm.phase.value as SolvePhase.Editing).fresh)
+            vm.accept(cube) { _, _ -> error("unexpected playback") }
+            val retry = vm.editing()
+            assertEquals(cube.toFacelets(), retry.initial)
+            assertFalse(retry.fresh)
+            vm.closeEditor()
+            vm.enterColors()
+            assertEquals(SolvePhase.Editing(cube.toFacelets()), vm.phase.value)
+            vm.cancel()
+            assertFalse((vm.phase.value as SolvePhase.Editing).fresh)
+            // A scan fall-back or a camera denial still opens on the default solved cube, so it stays fresh.
+            vm.onScanOutcome(ScanOutcome.FellBackToEditor)
+            assertTrue((vm.phase.value as SolvePhase.Editing).fresh)
+            vm.scanDenied()
+            assertTrue((vm.phase.value as SolvePhase.Editing).fresh)
+        }
+
     @Test fun closingTheEditorDiscardsItsDraft() {
         val vm = viewModel(source(CubeSolver { error("A draft must not solve") }))
         vm.enterColors()
-        vm.onEdit(cube.toFacelets())
+        vm.onEdit(cube.toFacelets(), emptySet())
         vm.closeEditor()
         vm.enterColors()
         vm.leaveSolveTab()
-        assertEquals(SolvePhase.Editing(CubeState.SOLVED.toFacelets()), vm.phase.value)
+        assertEquals(SolvePhase.Editing(CubeState.SOLVED.toFacelets(), fresh = true), vm.phase.value)
         // An edit reported outside the editor is ignored.
         vm.closeEditor()
-        vm.onEdit(cube.toFacelets())
+        vm.onEdit(cube.toFacelets(), emptySet())
         vm.leaveSolveTab()
         assertEquals(SolvePhase.Home, vm.phase.value)
     }

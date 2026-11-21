@@ -192,6 +192,7 @@ internal fun auditScreens(
     val scrambled = CubeState.SOLVED.apply(move)
     rule.onNodeWithTag("solve:enterColors").performClick()
     check("Solve Enter colors")
+    with(dev.cubentia.app.ui.editor.EditorFixtures) { rule.enterEveryFace() }
     rule.onNodeWithTag("editor:accept").performScrollTo().performClick()
     rule.waitUntil(10_000) { rule.onAllNodesWithTag("solve:alreadySolved").fetchSemanticsNodes().isNotEmpty() }
     check("Solve already solved")

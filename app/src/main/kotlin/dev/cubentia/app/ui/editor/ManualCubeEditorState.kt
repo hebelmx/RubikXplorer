@@ -14,42 +14,139 @@ import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.StickerOrder
 import dev.cubentia.domain.cube.ValidationResult
+import dev.cubentia.domain.recognition.FaceTurnFit
+import dev.cubentia.domain.recognition.ScanAssembler
+
+/**
+ * A face just completed by a paint while auto-advance moved on to [next] (URFDLB indices); [serial] tells one event
+ * from the next, so the face-done line shows once per event.
+ */
+data class FaceDone(
+    val face: Int,
+    val next: Int,
+    val serial: Int,
+)
 
 /**
  * The Manual Cube Editor's state (FR-14): the entered [facelets], the [selected] sticker and the
  * [face] shown when a compact window edits one face at a time. Painting auto-advances the selection
  * along the review net's order (EXPERIENCE.md "Sticker review net"), so a face takes about one touch
- * per sticker. Centers
- * are always the home-frame colors (WHITE U, GREEN F) and cannot be selected. Validation is derived
- * live through [CubeValidator]; this is not a session (AD-3/AD-20), so nothing here is persisted or
- * goes through a reducer.
+ * per sticker. Centers are always the home-frame colors (WHITE U, GREEN F) and cannot be selected.
+ * Validation is derived live through [CubeValidator]; this is not a session (AD-3/AD-20), so nothing
+ * here is persisted or goes through a reducer.
+ *
+ * A [fresh] editor (opened on the default solved cube with no caller cube, #253) counts a face as entered only once a
+ * sticker of it is [set], shows no problem until every face is entered ([unentered]) and opens with the first sticker
+ * selected. Once every face is entered and the stickers are invalid, each paint tries the faces' quarter turns through
+ * [ScanAssembler.orient] (AD-9) once every color count is right: a unique fit replaces the stickers ([turned]), turning
+ * the set flags, the selection and [cueIndex] with them; otherwise [checkFace] names the face to check.
  */
 class ManualCubeEditorState(
     initial: Facelets = CubeState.SOLVED.toFacelets(),
+    val fresh: Boolean = false,
+    initialSet: Set<Int> = emptySet(),
 ) {
     /** The stickers as entered, centers forced to home colors. */
     var facelets: Facelets by mutableStateOf(withHomeCenters(initial))
         private set
 
-    /** The sticker the next palette color paints (moved on by [paint]), or null before any sticker is tapped. */
-    var selected: Int? by mutableStateOf(null)
+    /** Stickers painted in this editor (a same-color tap included), carried over from [initialSet]. */
+    var set: Set<Int> by mutableStateOf(initialSet.filterTo(mutableSetOf(), ::isEditable))
+        private set
+
+    /**
+     * The sticker the next palette color paints (moved on by [paint]); on a [fresh] entry the first sticker in
+     * [StickerOrder] not yet [set] (null when every sticker is set), so a restored draft never lands on an entered one.
+     */
+    var selected: Int? by mutableStateOf(if (fresh) StickerOrder.next(Facelets.SIZE - 1, wrap = true) { it !in set } else null)
         private set
 
     /** The face (URFDLB index) shown in one-face mode; follows the selected sticker. */
-    var face: Int by mutableIntStateOf(0)
+    var face: Int by mutableIntStateOf(selected?.let { it / PER_FACE } ?: 0)
         private set
 
-    /** Every reported failure of [facelets], in validator order; empty exactly when they are valid. */
-    val problems: List<ValidationResult.Invalid> by derivedStateOf { CubeValidator.problems(facelets) }
+    /** The sticker the last paint set, moved with its face when that paint turned it: where the update cue plays. */
+    var cueIndex: Int? by mutableStateOf(null)
+        private set
 
-    /** Sticker indices of the offending pieces, to outline with the cube-highlight rule. */
-    val outlined: Set<Int> by derivedStateOf { problems.flatMapTo(mutableSetOf()) { it.positions } }
+    /** Faces (URFDLB indices) the last paint turned to fit the only valid cube; cleared by the next paint. */
+    var turned: List<Int> by mutableStateOf(emptyList())
+        private set
 
-    /** Faces (URFDLB indices) holding at least one [outlined] sticker. */
-    val facesWithProblems: Set<Int> by derivedStateOf { outlined.mapTo(mutableSetOf()) { it / PER_FACE } }
+    /** The last face-done event, or null before any. */
+    var faceDone: FaceDone? by mutableStateOf(null)
+        private set
 
-    /** The validated state of exactly [facelets], or null while they are invalid. */
-    val validState: CubeState? by derivedStateOf { (CubeValidator.validate(facelets) as? ValidationResult.Valid)?.state }
+    /** Whether [face] counts as entered: always, unless [fresh]; then once any of its stickers is [set]. */
+    fun entered(face: Int): Boolean = !fresh || stickersOf(face).any { it in set }
+
+    /** Whether all 8 non-center stickers of [face] are [set]. */
+    fun complete(face: Int): Boolean = stickersOf(face).filter(::isEditable).all { it in set }
+
+    /** Faces not yet entered, in Learner order U, F, R, B, L, D; empty unless [fresh]. */
+    val unentered: List<Int> by derivedStateOf { LEARNER_ORDER.filter { !entered(it) } }
+
+    /**
+     * The quarter-turn fit of [facelets] ([ScanAssembler.orient]), tried only when every face is entered, the stickers
+     * are invalid and every color appears exactly 9 times (a turn never changes counts); null otherwise.
+     */
+    private val fit: FaceTurnFit? by derivedStateOf {
+        val colors = facelets.colors
+        val countsRight = Color.entries.all { color -> colors.count { it == color } == PER_COLOR }
+        if (unentered.isNotEmpty() || !countsRight || CubeValidator.validate(facelets) is ValidationResult.Valid) {
+            null
+        } else {
+            ScanAssembler.orient(facelets)
+        }
+    }
+
+    /**
+     * The first face to check (Learner order) when the counts are right but no turning, or several, fit; null
+     * otherwise. Derived from the stickers, so it survives recreation and a Solve tab switch.
+     */
+    val checkFace: Int? by derivedStateOf {
+        (fit as? FaceTurnFit.Unresolved)?.let { unresolved ->
+            val involved = unresolved.involved.map { it.ordinal }
+            LEARNER_ORDER.firstOrNull { it in involved }
+        }
+    }
+
+    /** Every reported failure of [facelets], in validator order; empty while faces are [unentered]. */
+    val problems: List<ValidationResult.Invalid> by derivedStateOf {
+        if (unentered.isNotEmpty()) emptyList() else CubeValidator.problems(facelets)
+    }
+
+    /** The problem lines to show (counts, named pieces, global rules), empty while faces are [unentered]. */
+    val lines: List<EditorProblem> by derivedStateOf {
+        if (unentered.isNotEmpty()) emptyList() else EditorProblems.of(facelets, problems)
+    }
+
+    /** The numbered problems (those naming a piece), in line order; problem number = position + 1. */
+    val numbered: List<EditorProblem.Piece> by derivedStateOf { lines.filterIsInstance<EditorProblem.Piece>() }
+
+    /** Numbered markers for every sticker of a numbered problem's piece (Scan review's markers, nothing focused). */
+    val marks: Map<Int, StickerProblemMark> by derivedStateOf {
+        numbered.flatMap { it.piece }.distinct().associateWith { sticker ->
+            StickerProblemMark(
+                numbers = numbered.indices.filter { sticker in numbered[it].piece }.map { it + 1 },
+                conflicts = numbered.indices.filter { sticker in numbered[it].positions }.map { it + 1 },
+                focusedNumber = null,
+            )
+        }
+    }
+
+    /** Sticker indices of the numbered problems' pieces, to outline with the cube-highlight rule. */
+    val outlined: Set<Int> by derivedStateOf { marks.keys }
+
+    /** Faces (URFDLB indices) whose tab carries the warning dot: holding an [outlined] sticker, or [checkFace]. */
+    val facesWithProblems: Set<Int> by derivedStateOf {
+        outlined.mapTo(mutableSetOf()) { it / PER_FACE }.also { faces -> checkFace?.let(faces::add) }
+    }
+
+    /** The validated state of exactly [facelets], or null while they are invalid or faces are [unentered]. */
+    val validState: CubeState? by derivedStateOf {
+        if (unentered.isNotEmpty()) null else (CubeValidator.validate(facelets) as? ValidationResult.Valid)?.state
+    }
 
     /** Selects sticker [index] for painting; centers and out-of-range indices are ignored. */
     fun select(index: Int) {
@@ -69,23 +166,56 @@ class ManualCubeEditorState(
     }
 
     /**
-     * Paints the selected sticker [color], then advances the selection to the next editable sticker in
-     * [StickerOrder] (URFDLB row-major, centers skipped, crossing faces), so [face] follows it. A tap
+     * Selects face [face]'s first editable sticker (the full-net status strip's tab tap), so the cursor moves there.
+     * Out-of-range faces are ignored.
+     */
+    fun selectFace(face: Int) {
+        if (face !in 0 until FACES) return
+        select(face * PER_FACE)
+    }
+
+    /**
+     * Paints the selected sticker [color] and marks it [set], then advances the selection to the next editable sticker
+     * in [StickerOrder] (URFDLB row-major, centers skipped, crossing faces), so [face] follows it. A tap
      * of the color the sticker already holds still advances. After sticker 53 the selection stays put
-     * (no wrap). Ignored while nothing is selected.
+     * (no wrap). Ignored while nothing is selected. Completing a face while the selection moves to another face records
+     * a [faceDone]; with every face entered and the stickers invalid, the faces' turns are then tried.
      */
     fun paint(color: Color) {
         val index = selected ?: return
+        val painted = index / PER_FACE
+        val wasComplete = complete(painted)
         if (facelets.colors[index] != color) {
             facelets = Facelets(facelets.colors.toMutableList().also { it[index] = color })
         }
-        select(StickerOrder.next(index) ?: index)
+        set = set + index
+        turned = emptyList()
+        cueIndex = index
+        val next = StickerOrder.next(index) ?: index
+        select(next)
+        if (!wasComplete && complete(painted) && next / PER_FACE != painted) {
+            faceDone = FaceDone(painted, next / PER_FACE, (faceDone?.serial ?: 0) + 1)
+        }
+        val resolved = fit as? FaceTurnFit.Resolved ?: return
+        if (resolved.turns.isEmpty()) return
+        val turns = resolved.turns.mapKeys { it.key.ordinal }
+
+        fun moved(sticker: Int): Int = turnedIndex(sticker, turns[sticker / PER_FACE] ?: 0)
+        set = set.mapTo(mutableSetOf(), ::moved)
+        selected = selected?.let(::moved)
+        cueIndex = moved(index)
+        facelets = resolved.facelets
+        turned = resolved.turned.map { it.ordinal }
     }
 
     companion object {
         private const val PER_FACE = 9
+        private const val PER_COLOR = 9
         private const val CENTER_CELL = 4
         private const val FACES = 6
+
+        /** The Learner's face order (URFDLB indices): U, F, R, B, L, D. */
+        val LEARNER_ORDER = listOf(0, 2, 1, 5, 4, 3)
 
         /** Whether sticker [index] is a center (fixed to its home color). */
         fun isCenter(index: Int): Boolean = index % PER_FACE == CENTER_CELL
@@ -93,19 +223,51 @@ class ManualCubeEditorState(
         /** Whether the Learner may select and paint sticker [index]. */
         fun isEditable(index: Int): Boolean = index in 0 until Facelets.SIZE && !isCenter(index)
 
+        private fun stickersOf(face: Int): IntRange = face * PER_FACE until (face + 1) * PER_FACE
+
+        /** Where sticker [index] lands when its face is turned [turns] clockwise quarter turns (centers stay). */
+        internal fun turnedIndex(
+            index: Int,
+            turns: Int,
+        ): Int {
+            val face = index / PER_FACE
+            val cells = ScanAssembler.rotateClockwise((0 until PER_FACE).toList(), turns)
+            return face * PER_FACE + cells.indexOf(index % PER_FACE)
+        }
+
         /**
-         * Persists the 54 color ordinals, the selected index (-1 for none) and the shown face across
-         * recreation.
+         * Persists, across recreation: the 54 color ordinals, the selected index (-1 for none), the shown face, fresh
+         * (1 or 0), and the set stickers and the turned faces (each as a count then the indices). The face to check is
+         * derived from the stickers, so it is not saved.
          */
         internal val Saver: Saver<ManualCubeEditorState, Any> =
             listSaver(
-                save = { state -> state.facelets.colors.map { it.ordinal } + (state.selected ?: -1) + state.face },
+                save = { state ->
+                    buildList {
+                        addAll(state.facelets.colors.map { it.ordinal })
+                        add(state.selected ?: -1)
+                        add(state.face)
+                        add(if (state.fresh) 1 else 0)
+                        add(state.set.size)
+                        addAll(state.set.sorted())
+                        add(state.turned.size)
+                        addAll(state.turned)
+                    }
+                },
                 restore = { saved ->
-                    ManualCubeEditorState(Facelets(saved.take(Facelets.SIZE).map { Color.entries[it] }))
-                        .also { state ->
-                            state.select(saved[Facelets.SIZE])
-                            state.showFace(saved.getOrElse(Facelets.SIZE + 1) { state.face })
-                        }
+                    var at = Facelets.SIZE
+                    val colors = Facelets(saved.take(Facelets.SIZE).map { Color.entries[it] })
+                    val selected = saved[at++]
+                    val face = saved[at++]
+                    val fresh = saved[at++] == 1
+                    val set = saved.subList(at + 1, at + 1 + saved[at]).toSet().also { at += 1 + it.size }
+                    val turned = saved.subList(at + 1, at + 1 + saved[at]).toList()
+                    ManualCubeEditorState(colors, fresh, set).also { state ->
+                        state.selected = null
+                        state.select(selected)
+                        state.showFace(face)
+                        state.turned = turned
+                    }
                 },
             )
 
