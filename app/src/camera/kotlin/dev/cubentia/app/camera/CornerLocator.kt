@@ -75,14 +75,59 @@ internal class Homography private constructor(
     }
 }
 
+/**
+ * Plug-in seam for Quick Scan 3D corner detection: locates the three visible face quads (`[U/D, F/L, R/B]`) in frame
+ * pixels. Allows the pure-Kotlin [CornerLocator] and the upcoming LiteRT 7-keypoint detector to share [CornerReader],
+ * [unwarp], geometric validation, and JVM test coverage.
+ */
+internal fun interface CornerDetector {
+    fun locate(
+        frame: YuvFrame,
+        guide: CornerGuide,
+    ): CornerLocator.Location?
+}
+
 /** Searches the guide-relative silhouette and Y seams before refining each of the seven vertices. */
-internal object CornerLocator {
+internal object CornerLocator : CornerDetector {
     data class Location(
         val quads: List<List<CornerPoint>>,
         val score: Double,
     )
 
-    fun locate(
+    /**
+     * Reusable geometric sanity guard for any [CornerDetector] (heuristic or LiteRT 7-keypoint output): ensures the
+     * nearest corner `C` stays inside the framing zone and all 3 face quads have non-collapsed, roughly parallel sides.
+     */
+    internal fun isValidCubeGeometry(
+        points: List<CornerPoint>,
+        guide: CornerGuide,
+    ): Boolean {
+        if (points.size != 7) return false
+        val center = guide.vertices().last()
+        // 1. Center vertex C must stay within a reasonable norm distance of the guide center.
+        val c = points[6]
+        if (hypot(c.x - center.x, c.y - center.y) > guide.radius * 0.55) return false
+        // 2. Each of the 3 face quads must have roughly parallel/converging opposite sides and non-collapsed edges.
+        val minEdge = guide.radius * 0.24
+        return guide.quads(points).all { (a, b, d, e) ->
+            val top = b - a
+            val bottom = d - e
+            val left = e - a
+            val right = d - b
+            val topLen = hypot(top.x, top.y)
+            val botLen = hypot(bottom.x, bottom.y)
+            val leftLen = hypot(left.x, left.y)
+            val rightLen = hypot(right.x, right.y)
+            if (minOf(topLen, botLen, leftLen, rightLen) < minEdge) return@all false
+            val cosH = (top.x * bottom.x + top.y * bottom.y) / (topLen * botLen)
+            val cosV = (left.x * right.x + left.y * right.y) / (leftLen * rightLen)
+            // Opposite edges within ~35 degrees (cos >= 0.82) and comparable length.
+            cosH >= 0.82 && cosV >= 0.82 &&
+                (topLen / botLen) in 0.50..2.00 && (leftLen / rightLen) in 0.50..2.00
+        }
+    }
+
+    override fun locate(
         frame: YuvFrame,
         guide: CornerGuide,
     ): Location? {
@@ -124,14 +169,69 @@ internal object CornerLocator {
                 (1..11).count { frame.stickerStrength(start + edge * (it / 12.0) + normal) < 32 }
             }
 
+        fun exteriorChromaPenalty(points: List<CornerPoint>): Double {
+            var colored = 0
+            var samples = 0
+            for (index in 0..5) {
+                val start = points[index]
+                val edge = points[(index + 1) % 6] - start
+                val len = hypot(edge.x, edge.y)
+                if (len < 1.0) continue
+                // Vertices are CCW in image coordinates (y-down), so (-edge.y, edge.x) points outward.
+                val normal = CornerPoint(-edge.y, edge.x) * (guide.radius * 0.12 / len)
+                for (step in listOf(0.25, 0.5, 0.75)) {
+                    val p = start + edge * step + normal
+                    samples++
+                    val sat = maxOf(abs(frame.chroma(frame.u, p) - 128), abs(frame.chroma(frame.v, p) - 128))
+                    if (sat > 38) colored++
+                }
+            }
+            return if (samples == 0) 0.0 else 1.2 * colored / samples
+        }
+
         fun outline(points: List<CornerPoint>): List<Double> = (0..5).map { contrast(points[it], points[(it + 1) % 6], false) }
 
         fun seams(points: List<CornerPoint>): List<Double> = listOf(1, 3, 5).map { contrast(points[it], points[6], true) }
 
-        fun score(points: List<CornerPoint>): Double {
+        fun score(
+            points: List<CornerPoint>,
+            checkExterior: Boolean = true,
+        ): Double {
             val outline = outline(points)
             val seams = seams(points)
-            return 2 * outline.average() + 2 * outline.min() + seams.average() + seams.min()
+            val penalty = if (checkExterior) exteriorChromaPenalty(points) else 0.0
+            return 2 * outline.average() + 2 * outline.min() + seams.average() + seams.min() - penalty
+        }
+
+        fun polishVertices(
+            initial: List<CornerPoint>,
+            minSeam: Double = 0.19,
+            maxDrift: Double = 0.09,
+        ): Location? {
+            var polished = initial
+            var polishedScore = score(polished, checkExterior = true)
+            for (step in listOf(0.05, 0.025, 0.012)) {
+                for (index in polished.indices) {
+                    val origin = polished[index]
+                    for (dx in -1..1) {
+                        for (dy in -1..1) {
+                            val point = origin + CornerPoint(dx * step * guide.radius, dy * step * guide.radius)
+                            val drift = point - initial[index]
+                            if (hypot(drift.x, drift.y) > guide.radius * maxDrift) continue
+                            val candidate = polished.toMutableList().also { it[index] = point }
+                            val rating = score(candidate, checkExterior = true)
+                            if (rating > polishedScore) {
+                                polished = candidate
+                                polishedScore = rating
+                            }
+                        }
+                    }
+                }
+            }
+            if (!isValidCubeGeometry(polished, guide)) return null
+            if (outline(polished).min() < 0.23 || seams(polished).min() < minSeam) return null
+            if (darkSurroundings && exterior(polished) < 6) return null
+            return Location(guide.quads(polished), polishedScore)
         }
 
         var best = guide.vertices()
@@ -159,9 +259,37 @@ internal object CornerLocator {
                 }
             }
         }
+        if (outline(best).min() >= 0.45 && seams(best).min() >= 0.35) {
+            polishVertices(best)?.let { return it }
+        }
 
-        // If the near-isometric seed did not find a clean cube (e.g. perspective foreshortening or off-center hold),
-        // search the wider framing zone using a 3D pinhole perspective model.
+        // Real-world / perspective / off-center frames: use bottom-up sticker-blob detection first, then sub-pixel polish.
+        StickerBlobDetector.detect(frame, guide)?.let { blobLoc ->
+            val q0 = blobLoc.quads[0]
+            val q1 = blobLoc.quads[1]
+            val q2 = blobLoc.quads[2]
+            val rawPts = listOf(q0[0], q0[3], q1[3], q1[2], q2[2], q0[1], q0[2])
+            val anchor = rawPts[6]
+            var snapped = rawPts
+            var snappedScore = score(rawPts, checkExterior = true)
+            val snapStep = guide.radius * 0.04
+            for (scale in listOf(0.95, 1.0, 1.05)) {
+                for (dx in -1..1) {
+                    for (dy in -1..1) {
+                        val shift = CornerPoint(dx * snapStep, dy * snapStep)
+                        val candidate = rawPts.map { anchor + (it - anchor) * scale + shift }
+                        val rating = score(candidate, checkExterior = true)
+                        if (rating > snappedScore) {
+                            snapped = candidate
+                            snappedScore = rating
+                        }
+                    }
+                }
+            }
+            polishVertices(snapped)?.let { return it }
+        }
+
+        // Fallback perspective search if blob segmentation found too few uniform regions.
         if (outline(best).min() < 0.45 || seams(best).min() < 0.35) {
             val zoneStep = guide.radius * 0.11
             var perspBest = best
@@ -195,55 +323,35 @@ internal object CornerLocator {
             val fineStep = guide.radius * 0.05
             for (scaleDelta in listOf(-0.04, 0.0, 0.04)) {
                 for (pitch in listOf(22.0, 30.0, 42.0)) {
-                    for (persp in listOf(0.14, 0.28, 0.36)) {
-                        val base = projectCube(center, guide.radius * (bestScale + scaleDelta), rotation, pitch, 0.0, bestRoll, persp)
-                        for (dx in -1..1) {
-                            for (dy in -1..1) {
-                                val shift = bestShift + CornerPoint(dx * fineStep, dy * fineStep)
-                                val candidate = base.map { it + shift }
-                                val rating = score(candidate)
-                                if (rating > perspBestScore) {
-                                    perspBest = candidate
-                                    perspBestScore = rating
+                    for (yaw in listOf(-10.0, 0.0, 10.0)) {
+                        for (persp in listOf(0.14, 0.28, 0.36)) {
+                            val base =
+                                projectCube(center, guide.radius * (bestScale + scaleDelta), rotation, pitch, yaw, bestRoll, persp)
+                            for (dx in -1..1) {
+                                for (dy in -1..1) {
+                                    val shift = bestShift + CornerPoint(dx * fineStep, dy * fineStep)
+                                    val candidate = base.map { it + shift }
+                                    val rating = score(candidate)
+                                    if (rating > perspBestScore) {
+                                        perspBest = candidate
+                                        perspBestScore = rating
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-            best = perspBest
-            bestScore = perspBestScore
+            polishVertices(perspBest, maxDrift = 0.15)?.let { return it }
         }
-
-        val seed = best
-        for (step in listOf(0.07, 0.035, 0.018)) {
-            for (index in best.indices) {
-                val origin = best[index]
-                for (dx in -1..1) {
-                    for (dy in -1..1) {
-                        val point = origin + CornerPoint(dx * step * guide.radius, dy * step * guide.radius)
-                        val drift = point - seed[index]
-                        if (hypot(drift.x, drift.y) > guide.radius * 0.15) continue
-                        val candidate = best.toMutableList().also { it[index] = point }
-                        val rating = score(candidate)
-                        if (rating > bestScore) {
-                            best = candidate
-                            bestScore = rating
-                        }
-                    }
-                }
-            }
-        }
-        if (outline(best).min() < 0.23 || seams(best).min() < 0.19) return null
-        if (darkSurroundings && exterior(best) < 8) return null
-        return Location(guide.quads(best), bestScore)
+        return null
     }
 
     /**
      * Projects the 7 visible corners `[T, UL, LL, B, LR, UR, C]` of a unit cube `[-1, 1]^3` through a pinhole
      * perspective camera (with [persp] = `0.0` matching orthographic) rotated into frame pixels by [frameRotation].
      */
-    private fun projectCube(
+    internal fun projectCube(
         center: CornerPoint,
         radius: Double,
         frameRotation: Int,
@@ -352,14 +460,16 @@ internal data class CornerFrame(
     val faces: List<FrameStats?>,
     val score: Double = 0.0,
     val normalizedQuads: List<List<CornerPoint>> = emptyList(),
+    val frameQuads: List<List<CornerPoint>> = emptyList(),
 )
 
 internal object CornerReader {
     fun read(
         frame: YuvFrame,
         guide: CornerGuide,
+        detector: CornerDetector = CornerLocator,
     ): CornerFrame {
-        val located = CornerLocator.locate(frame, guide) ?: return CornerFrame(false, List(3) { null })
+        val located = detector.locate(frame, guide) ?: return CornerFrame(false, List(3) { null })
         val faces =
             located.quads.map { quad ->
                 unwarp(frame, quad)?.let {
@@ -388,6 +498,61 @@ internal object CornerReader {
             } else {
                 emptyList()
             }
-        return CornerFrame(detected, locatedFaces, located.score, normalized)
+        val frameQuads = if (detected) located.quads else emptyList()
+        return CornerFrame(detected, locatedFaces, located.score, normalized, frameQuads)
+    }
+}
+
+/**
+ * Exponential moving average filter for normalized corner overlay quads so minor frame-to-frame vertex jitter stays
+ * calm while large pose changes or losses snap immediately.
+ */
+internal class CornerOverlaySmoother(
+    private val alpha: Double = DEFAULT_ALPHA,
+    private val snapThreshold: Double = DEFAULT_SNAP_THRESHOLD,
+) {
+    private var previous: List<List<CornerPoint>> = emptyList()
+
+    fun update(quads: List<List<CornerPoint>>): List<List<CornerPoint>> {
+        if (quads.isEmpty()) {
+            previous = emptyList()
+            return emptyList()
+        }
+        val prior = previous
+        val next =
+            if (prior.size != quads.size || prior.zip(quads).any { (a, b) -> a.size != b.size }) {
+                quads
+            } else {
+                var maxDelta = 0.0
+                for (q in quads.indices) {
+                    for (p in quads[q].indices) {
+                        val d = hypot(quads[q][p].x - prior[q][p].x, quads[q][p].y - prior[q][p].y)
+                        if (d > maxDelta) maxDelta = d
+                    }
+                }
+                if (maxDelta > snapThreshold) {
+                    quads
+                } else {
+                    prior.zip(quads) { pq, nq ->
+                        pq.zip(nq) { pp, np ->
+                            CornerPoint(
+                                pp.x + alpha * (np.x - pp.x),
+                                pp.y + alpha * (np.y - pp.y),
+                            )
+                        }
+                    }
+                }
+            }
+        previous = next
+        return next
+    }
+
+    fun reset() {
+        previous = emptyList()
+    }
+
+    companion object {
+        const val DEFAULT_ALPHA = 0.45
+        const val DEFAULT_SNAP_THRESHOLD = 0.12
     }
 }

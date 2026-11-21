@@ -484,7 +484,7 @@ class GuidedScanActivity : ComponentActivity() {
             if (scan.quickStartedAt == null) scan.quickStartedAt = ScanDiagnostics.startRun()
             dev.cubentia.app.ScanDiagnostics
                 .onCornerFrame(now, corner.detected, corner.faces, corner.score)
-            val quads = corner.normalizedQuads
+            val quads = scan.cornerOverlaySmoother.update(corner.normalizedQuads)
             ContextCompat.getMainExecutor(this).execute { scan.detectedCornerQuads = quads }
             captureCorner { it.onFrame(corner.detected, corner.faces, now) }
             return
@@ -681,6 +681,7 @@ internal class GuidedScanViewModel : ViewModel() {
     var calibrationMode = false
     var quickScanMode = false
     var detectedCornerQuads by mutableStateOf<List<List<CornerPoint>>>(emptyList())
+    val cornerOverlaySmoother = CornerOverlaySmoother()
     var cornerThumbnail by mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null)
 
     @Volatile var caseCorners: Int? = null

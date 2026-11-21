@@ -218,7 +218,7 @@ internal fun GuidedScanScreen(
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().safeDrawingPadding()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(
+                OutlinedButton(
                     onClick = actions.onClose,
                     modifier = Modifier.testTag("scanClose"),
                 ) { Text(strings.resolve(ContentText("btn.scan.close"))) }
@@ -651,6 +651,24 @@ internal fun CornerOutline(
     Canvas(
         modifier.testTag(if (detectedCornerQuads.isEmpty()) "quickScan:outline" else "quickScan:detectedOutline"),
     ) {
+        // Always draw the 3-line Y guide so it never disappears or flickers during detection.
+        val zone = minOf(size.width, size.height) * FrameReader.GRID_FRACTION.toFloat()
+        val arm = zone * 0.46f
+        val cx = size.width / 2f
+        val cy = size.height / 2f
+        val guideStroke = 2.5.dp.toPx()
+        val guideOutline = 4.5.dp.toPx()
+        val guideColor = UiColor.White.copy(alpha = 0.68f)
+        val centerPt = Offset(cx, cy)
+        val arms =
+            listOf(-150, -30, 90).map { deg ->
+                val rad = deg * kotlin.math.PI / 180.0
+                Offset(cx + (kotlin.math.cos(rad) * arm).toFloat(), cy + (kotlin.math.sin(rad) * arm).toFloat())
+            }
+        arms.forEach { end ->
+            drawLine(UiColor.Black.copy(alpha = 0.50f), centerPt, end, guideOutline)
+            drawLine(guideColor, centerPt, end, guideStroke)
+        }
         if (detectedCornerQuads.isNotEmpty()) {
             detectedCornerQuads.forEach { quad ->
                 if (quad.size == 4) {
@@ -662,25 +680,6 @@ internal fun CornerOutline(
                         drawLine(detectedColor, a, b, 2.dp.toPx())
                     }
                 }
-            }
-        } else {
-            // Loose center framing zone only (Story 10.18 AC1: never draw an isometric or perspective cube sketch).
-            val zone = minOf(size.width, size.height) * FrameReader.GRID_FRACTION.toFloat()
-            val left = (size.width - zone) / 2f
-            val top = (size.height - zone) / 2f
-            val bracket = zone * 0.16f
-            val stroke = 2.dp.toPx()
-            val color = UiColor.White.copy(alpha = 0.55f)
-            val corners =
-                listOf(
-                    Offset(left, top) to Pair(Offset(bracket, 0f), Offset(0f, bracket)),
-                    Offset(left + zone, top) to Pair(Offset(-bracket, 0f), Offset(0f, bracket)),
-                    Offset(left, top + zone) to Pair(Offset(bracket, 0f), Offset(0f, -bracket)),
-                    Offset(left + zone, top + zone) to Pair(Offset(-bracket, 0f), Offset(0f, -bracket)),
-                )
-            corners.forEach { (origin, deltas) ->
-                drawLine(color, origin, origin + deltas.first, stroke)
-                drawLine(color, origin, origin + deltas.second, stroke)
             }
         }
     }

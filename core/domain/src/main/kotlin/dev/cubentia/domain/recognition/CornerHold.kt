@@ -57,7 +57,7 @@ internal class CornerHold {
             meteredAt = nowMs
             return Decision.Remeter
         }
-        if (qualities.any { it != CaptureQuality.ACCEPTABLE } || nowMs - metered < GuidedScanController.SETTLE_MS) {
+        if (qualities.any { it != CaptureQuality.ACCEPTABLE } || nowMs - metered < SETTLE_MS) {
             reference = null
             return Decision.Wait
         }
@@ -67,7 +67,7 @@ internal class CornerHold {
             steadySince = nowMs
             return Decision.Wait
         }
-        return if (nowMs - steadySince >= GuidedScanController.STEADY_MS) Decision.Capture else Decision.Wait
+        return if (nowMs - steadySince >= STEADY_MS) Decision.Capture else Decision.Wait
     }
 
     fun reset() {
@@ -80,6 +80,8 @@ internal class CornerHold {
     }
 
     companion object {
+        const val SETTLE_MS = 600L
+        const val STEADY_MS = 1000L
         const val UNDETECTED_COACHING_MS = 3000L
     }
 

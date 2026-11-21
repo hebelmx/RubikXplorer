@@ -162,7 +162,7 @@ graph LR
 - **Pixel code stays in one adapter.** Only the CameraX adapter touches pixels; everything after it is pure, JVM-testable Kotlin. Recorded `FaceSample` fixtures let recognition accuracy be tested in CI (AD-9).
 - **The 6-face scan needs no computer-vision library.** It uses a fixed on-screen grid, so the adapter only reads colors from known positions.
 - **Images stay in memory and on the device.** A debug-only tool records samples, never images, for the device × lighting × cube test matrix.
-- **OFF means absent, not hidden.** Camera recognition is in progress for v1.1 behind flags. The CameraX adapter lives in a separate `app/src/camera/` source set that the build adds only when a camera flag is above OFF; the rest of the app reaches it through a scan port. A release with every camera flag OFF has no camera code, no ML library and no camera permission (AD-9, AD-13, AD-18).
+- **OFF means absent, not hidden.** The CameraX adapter lives in a separate `app/src/camera/` source set that the build adds only when a camera flag is above OFF, and Quick Scan's LiteRT 7-keypoint corner detector + `.tflite` model live in `app/src/camera/corner/` added only when `QUICK_SCAN` or `CASE_RECOGNITION` is above OFF; the rest of the app reaches scanning through `ScanLauncher`. A release with camera flags OFF has no camera code, no ML library and no camera permission (AD-9, AD-13, AD-18).
 
 ## 9. Privacy, offline and quality are enforced by the build
 
@@ -191,13 +191,13 @@ graph LR
 
 ## 11. Stack (verified October 2026)
 
-Kotlin 2.4.21 · AGP 9.5 (built-in Kotlin) · Compose BOM 2026.09.00 · Material3 1.4 · Hilt 2.60 · Room 3.0 · CameraX 1.6.2 · kotlinx.serialization 1.12 · coroutines 1.11 · custom OpenGL ES 3.0 renderer (no 3D library) · Kotest 6.2 · JUnit Jupiter 6 · Kover · Spotless/ktlint · GitHub Actions · minSdk 29, targetSdk 36.
+Kotlin 2.4.21 · AGP 9.5 (built-in Kotlin) · Compose BOM 2026.09.00 · Material3 1.4 · Hilt 2.60 · Room 3.0 · CameraX 1.6.2 · LiteRT 2.3.2 (Quick Scan corner source set only) · kotlinx.serialization 1.12 · coroutines 1.11 · custom OpenGL ES 3.0 renderer (no 3D library) · Kotest 6.2 · JUnit Jupiter 6 · Kover · Spotless/ktlint · GitHub Actions · minSdk 29, targetSdk 36.
 
 ## 12. Open technical questions
 
 | Question | Resolved by |
 | --- | --- |
-| Quick Scan corner detection (Kotlin / OpenCV / LiteRT) | Kotlin-first; confirmed by Story 10.10, decided by Story 11.1; contained in the camera adapter |
+| Quick Scan corner detection (Kotlin / OpenCV / LiteRT) | Resolved (OQ-7 + SCP 2026-11-20): Guided 6-face Scan and sticker classification stay pure Kotlin; Quick Scan 3D corner detection uses a tiny 7-keypoint LiteRT `.tflite` model behind `CornerDetector` in `app/src/camera/corner/` (within 30 MB NFR-11; OpenCV rejected on size) |
 | Performance on the reference devices (minimum Lenovo Tab M10 Plus 3rd Gen, mid Galaxy S24 FE; the Galaxy Tab S7 FE 5G, minimum until 2026-11-12, is an additional compatibility device, SCP 2026-11-12) | Story 1.10 benchmark; above 33.3 ms p90 per frame reopens the renderer choice. On the Lenovo the frame-interval p90 is 18.35 ms (face turns) and 19.66 ms (View Rotation) (Story 12.2 Macrobenchmark, `docs/benchmarks.md`) |
 | Solver internals (bundled or generated pruning tables) | solver epic, within the 3 s timeout and 30 MB app size |
 

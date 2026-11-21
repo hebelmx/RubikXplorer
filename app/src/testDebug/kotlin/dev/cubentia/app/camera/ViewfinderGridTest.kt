@@ -94,6 +94,37 @@ class ViewfinderGridTest {
         assertSquare(GridSquare(148.0, 48.0, 384.0), ViewfinderGrid.inFrame(0.0, 0.0, 100, 0, 580, 480, 90))
     }
 
+    @Test
+    fun `frameToViewFraction is the exact inverse of inFrame across rotations and viewports`() {
+        val scenarios =
+            listOf(
+                Triple(1080.0 to 990.0, intArrayOf(100, 0, 540, 480), 90),
+                Triple(600.0 to 1890.0, intArrayOf(0, 138, 640, 341), 90),
+                Triple(600.0 to 1890.0, intArrayOf(0, 0, 640, 480), 270),
+                Triple(1200.0 to 1000.0, intArrayOf(32, 0, 608, 480), 0),
+                Triple(1200.0 to 1000.0, intArrayOf(10, 20, 630, 470), 180),
+            )
+        scenarios.forEach { (view, crop, rotation) ->
+            val (vw, vh) = view
+            val grid = ViewfinderGrid.inFrame(vw, vh, crop[0], crop[1], crop[2], crop[3], rotation)
+            val drawn = ViewfinderGrid.inView(vw, vh)
+            val corners =
+                listOf(
+                    grid.left to grid.top,
+                    grid.left + grid.side to grid.top,
+                    grid.left + grid.side to grid.top + grid.side,
+                    grid.left to grid.top + grid.side,
+                ).map { (x, y) ->
+                    ViewfinderGrid.frameToViewFraction(x, y, vw, vh, crop[0], crop[1], crop[2], crop[3], rotation)
+                }
+            val tolerance = 1e-6
+            assertEquals(drawn.left / vw, corners.minOf { it.first }, tolerance, "rot=$rotation left")
+            assertEquals(drawn.top / vh, corners.minOf { it.second }, tolerance, "rot=$rotation top")
+            assertEquals((drawn.left + drawn.side) / vw, corners.maxOf { it.first }, tolerance, "rot=$rotation right")
+            assertEquals((drawn.top + drawn.side) / vh, corners.maxOf { it.second }, tolerance, "rot=$rotation bottom")
+        }
+    }
+
     private fun assertSquare(
         expected: GridSquare,
         actual: GridSquare,
