@@ -538,10 +538,17 @@ class QuickScanControllerTest {
         val bright = FrameStats(List(9) { CellReading(Lab(90.0, 0.0, 0.0), true) }, 120.0, 0.0, 100.0, 12)
         val dim = FrameStats(List(9) { CellReading(Lab(50.0, 0.0, 0.0), true) }, 120.0, 0.0, 100.0, 12)
         uncalibrated.onFrame(true, listOf(bright, dim, bright), 0, settled = false)
+        uncalibrated.onFrame(true, listOf(bright, dim, bright), 100, settled = true)
         assertEquals(SideLight.Mode.UNCALIBRATED, uncalibrated.light?.mode)
         assertEquals(40.0, uncalibrated.light!!.darkerSideDifference!!, 1e-9)
         assertTrue(uncalibrated.lightHeld)
-        assertFalse(QuickScanController(lightCheck = false).also { it.onFrame(true, listOf(bright, dim, bright), 0) }.lightHeld)
+        assertFalse(
+            QuickScanController(lightCheck = false)
+                .also {
+                    it.onFrame(true, listOf(bright, dim, bright), 0, settled = false)
+                    it.onFrame(true, listOf(bright, dim, bright), 100, settled = true)
+                }.lightHeld,
+        )
     }
 
     @Test
@@ -549,12 +556,13 @@ class QuickScanControllerTest {
         val scan = lightScan()
         val dark = darkSides(hold(1))
         assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, dark, 0, settled = false))
-        assertTrue(scan.lightHeld)
-        assertEquals(0L, scan.lightHeldSince)
+        assertFalse(scan.lightHeld, "the first frame re-meters onto the cube and holds nothing")
         assertEquals(null, scan.coaching)
         for (now in 100L..5000L step 100) {
             assertTrue(scan.onFrame(true, dark, now, settled = true).isEmpty(), "no auto capture at $now")
-            assertEquals(if (now >= 1000) Coaching.SIDES_DARK else null, scan.coaching, "coaching at $now")
+            assertTrue(scan.lightHeld, "held at $now")
+            assertEquals(100L, scan.lightHeldSince, "the hold starts on the first settled failing frame")
+            assertEquals(if (now >= 1100) Coaching.SIDES_DARK else null, scan.coaching, "coaching at $now")
             assertTrue(scan.onShutter().isEmpty(), "the shutter is ignored while held at $now")
         }
         assertEquals(1, scan.hold)
@@ -566,19 +574,43 @@ class QuickScanControllerTest {
         val first = hold(1)
         val dark = darkSides(first)
         scan.onFrame(true, dark, 0, settled = false)
-        scan.onFrame(true, dark, 1000, settled = true)
+        scan.onFrame(true, dark, 100, settled = true)
+        scan.onFrame(true, dark, 1100, settled = true)
         assertEquals(Coaching.SIDES_DARK, scan.coaching)
-        assertTrue(scan.onFrame(true, first, 1100, settled = true).isEmpty())
-        assertTrue(scan.onFrame(true, first, 1599, settled = true).isEmpty())
+        assertTrue(scan.onFrame(true, first, 1200, settled = true).isEmpty())
+        assertTrue(scan.onFrame(true, first, 1699, settled = true).isEmpty())
         assertTrue(scan.lightHeld)
         assertEquals(Coaching.SIDES_DARK, scan.coaching, "the line stays up through the pass window")
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 1600, settled = true))
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 1700, settled = true))
         assertFalse(scan.lightHeld)
         assertEquals(null, scan.coaching)
-        assertTrue(scan.onFrame(true, first, 1700, settled = false).isEmpty())
-        assertTrue(scan.onFrame(true, first, 1800, settled = true).isEmpty())
-        assertTrue(scan.onFrame(true, first, 2799, settled = true).isEmpty())
-        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, first, 2800, settled = true))
+        assertTrue(scan.onFrame(true, first, 1800, settled = false).isEmpty())
+        assertTrue(scan.onFrame(true, first, 1900, settled = true).isEmpty())
+        assertTrue(scan.onFrame(true, first, 2899, settled = true).isEmpty())
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, first, 2900, settled = true))
+    }
+
+    @Test
+    fun `a failing verdict on an episode's first detected frame never starts the light hold`() {
+        val scan = lightScan()
+        val dark = darkSides(hold(1))
+        // The first frame is still exposed on the whole scene and triggers the re-meter: even reported settled, no hold.
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, dark, 0, settled = true))
+        assertFalse(scan.light!!.passed, "the failing verdict is still reported")
+        assertFalse(scan.lightHeld)
+        assertEquals(null, scan.lightHeldSince)
+        // After losing the cube, the next episode's first frame holds nothing either.
+        scan.onFrame(false, List(3) { null }, 100)
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, dark, 200, settled = true))
+        assertFalse(scan.lightHeld)
+        // Once metering on the cube has settled, a failing frame starts the hold and its coaching timer.
+        scan.onFrame(true, dark, 300, settled = true)
+        assertTrue(scan.lightHeld)
+        assertEquals(300L, scan.lightHeldSince)
+        scan.onFrame(true, dark, 1299, settled = true)
+        assertEquals(null, scan.coaching)
+        scan.onFrame(true, dark, 1300, settled = true)
+        assertEquals(Coaching.SIDES_DARK, scan.coaching)
     }
 
     @Test
@@ -612,20 +644,21 @@ class QuickScanControllerTest {
         val scan = lightScan()
         val first = hold(1)
         val dark = darkSides(first)
-        scan.onFrame(true, dark, 0, settled = true)
-        scan.onFrame(true, dark, 1000, settled = true)
-        scan.onFrame(true, first, 1100, settled = true)
-        scan.onFrame(true, first, 1400, settled = true)
-        assertTrue(scan.onFrame(true, dark, 1500, settled = true).isEmpty())
+        scan.onFrame(true, dark, 0, settled = false)
+        scan.onFrame(true, dark, 100, settled = true)
+        scan.onFrame(true, dark, 1100, settled = true)
+        scan.onFrame(true, first, 1200, settled = true)
+        scan.onFrame(true, first, 1500, settled = true)
+        assertTrue(scan.onFrame(true, dark, 1600, settled = true).isEmpty())
         assertTrue(scan.lightHeld)
         assertEquals(Coaching.SIDES_DARK, scan.coaching)
         // Passing but moving: each change restarts the pass-and-steady window.
         val moved = first.toMutableList().also { it[0] = it[0].withCell(0, Lab(70.0, 0.0, 0.0)) }
-        scan.onFrame(true, first, 1600, settled = true)
-        scan.onFrame(true, moved, 1900, settled = true)
-        assertTrue(scan.onFrame(true, moved, 2399, settled = true).isEmpty())
+        scan.onFrame(true, first, 1700, settled = true)
+        scan.onFrame(true, moved, 2000, settled = true)
+        assertTrue(scan.onFrame(true, moved, 2499, settled = true).isEmpty())
         assertTrue(scan.lightHeld)
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, moved, 2400, settled = true))
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, moved, 2500, settled = true))
         assertFalse(scan.lightHeld)
     }
 
@@ -635,22 +668,23 @@ class QuickScanControllerTest {
         val first = hold(1)
         val dark = darkSides(first)
         val unreadable = listOf(first[0], first[1].copy(cells = List(9) { null }), first[2])
-        scan.onFrame(true, dark, 0, settled = true)
+        scan.onFrame(true, dark, 0, settled = false)
+        scan.onFrame(true, dark, 100, settled = true)
         assertTrue(scan.lightHeld)
-        scan.onFrame(true, first, 1100, settled = true)
-        scan.onFrame(true, unreadable, 1300, settled = true)
+        scan.onFrame(true, first, 1200, settled = true)
+        scan.onFrame(true, unreadable, 1400, settled = true)
         assertEquals(null, scan.light!!.score, "an unreadable face has no score")
         assertTrue(scan.light!!.passed, "a verdict without a score passes, but must not clear the hold")
-        // Without the reset the window from 1100 would clear the hold at 1600.
-        listOf(1400L, 1600L, 1899L).forEach { now ->
+        // Without the reset the window from 1200 would clear the hold at 1700.
+        listOf(1500L, 1700L, 1999L).forEach { now ->
             assertTrue(scan.onFrame(true, first, now, settled = true).isEmpty())
             assertTrue(scan.lightHeld, "still held at $now")
         }
         // Unreadable frames alone never clear it.
-        listOf(2000L, 3000L, 4000L).forEach { now -> scan.onFrame(true, unreadable, now, settled = true) }
+        listOf(2100L, 3100L, 4100L).forEach { now -> scan.onFrame(true, unreadable, now, settled = true) }
         assertTrue(scan.lightHeld)
-        scan.onFrame(true, first, 4100, settled = true)
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 4600, settled = true))
+        scan.onFrame(true, first, 4200, settled = true)
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 4700, settled = true))
         assertFalse(scan.lightHeld)
     }
 
@@ -659,13 +693,14 @@ class QuickScanControllerTest {
         val scan = lightScan()
         val first = hold(1)
         val dark = darkSides(first)
-        scan.onFrame(true, dark, 0, settled = true)
+        scan.onFrame(true, dark, 0, settled = false)
+        scan.onFrame(true, dark, 100, settled = true)
         // Short passes (each under the 0.5 s clear window) never restart the one-second failing timer.
-        listOf(200L to first, 400L to dark, 600L to first, 800L to dark, 900L to first).forEach { (now, faces) ->
+        listOf(300L to first, 500L to dark, 700L to first, 900L to dark, 1000L to first).forEach { (now, faces) ->
             scan.onFrame(true, faces, now, settled = true)
             assertEquals(null, scan.coaching, "no line yet at $now")
         }
-        scan.onFrame(true, dark, 1000, settled = true)
+        scan.onFrame(true, dark, 1100, settled = true)
         assertEquals(Coaching.SIDES_DARK, scan.coaching)
         assertTrue(scan.lightHeld)
     }
@@ -675,31 +710,32 @@ class QuickScanControllerTest {
         val scan = lightScan()
         val first = hold(1)
         val dark = darkSides(first)
-        scan.onFrame(true, dark, 0, settled = true)
-        scan.onFrame(true, dark, 1000, settled = true)
+        scan.onFrame(true, dark, 0, settled = false)
+        scan.onFrame(true, dark, 100, settled = true)
+        scan.onFrame(true, dark, 1100, settled = true)
         assertEquals(Coaching.SIDES_DARK, scan.coaching)
-        assertTrue(scan.onFrame(false, List(3) { null }, 1100).isEmpty())
+        assertTrue(scan.onFrame(false, List(3) { null }, 1200).isEmpty())
         assertEquals(null, scan.coaching)
         assertTrue(scan.lightHeld)
         assertTrue(scan.onShutter().isEmpty(), "the shutter stays blocked while the hold persists")
-        scan.onFrame(false, List(3) { null }, 4099)
+        scan.onFrame(false, List(3) { null }, 4199)
         assertEquals(null, scan.coaching)
-        scan.onFrame(false, List(3) { null }, 4100)
+        scan.onFrame(false, List(3) { null }, 4200)
         assertEquals(Coaching.PLAIN_LIGHT_SURFACE, scan.coaching)
         // Found again, still failing: the one-second timer restarts.
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, dark, 4200, settled = false))
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, dark, 4300, settled = false))
         assertEquals(null, scan.coaching)
-        scan.onFrame(true, dark, 5199, settled = true)
+        scan.onFrame(true, dark, 5299, settled = true)
         assertEquals(null, scan.coaching)
-        scan.onFrame(true, dark, 5200, settled = true)
+        scan.onFrame(true, dark, 5300, settled = true)
         assertEquals(Coaching.SIDES_DARK, scan.coaching)
         // Found again and passing: the hold clears only after a pass-and-steady window.
-        scan.onFrame(false, List(3) { null }, 5300)
-        scan.onFrame(true, first, 5400, settled = true)
+        scan.onFrame(false, List(3) { null }, 5400)
         scan.onFrame(true, first, 5500, settled = true)
+        scan.onFrame(true, first, 5600, settled = true)
         assertTrue(scan.lightHeld)
         assertEquals(null, scan.coaching)
-        scan.onFrame(true, first, 5900, settled = true)
+        scan.onFrame(true, first, 6000, settled = true)
         assertFalse(scan.lightHeld)
     }
 
@@ -709,9 +745,10 @@ class QuickScanControllerTest {
         val first = hold(1)
         val dark = darkSides(first)
         val darkFace = listOf(dark[0].copy(meanLuma = 10.0), dark[1].copy(glareFraction = 0.5), dark[2].copy(sharpness = 0.0))
-        scan.onFrame(true, darkFace, 0, settled = true)
+        scan.onFrame(true, darkFace, 0, settled = false)
+        scan.onFrame(true, darkFace, 100, settled = true)
         assertEquals(Coaching.LOW_LIGHT, scan.coaching)
-        scan.onFrame(true, darkFace, 1000, settled = true)
+        scan.onFrame(true, darkFace, 1100, settled = true)
         assertEquals(Coaching.SIDES_DARK, scan.coaching)
         val other = lightScan()
         other.onFrame(true, listOf(first[0], first[1].copy(glareFraction = 0.5), first[2].copy(sharpness = 0.0)), 0, settled = true)
@@ -880,11 +917,13 @@ class QuickScanControllerTest {
         assertFalse(scan.lightHeld)
         val dark = darkSides(hold(2))
         assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, dark, 1200, settled = false))
+        assertFalse(scan.lightHeld, "hold 2's first frame re-meters onto the cube and holds nothing")
+        scan.onFrame(true, dark, 1300, settled = true)
         assertTrue(scan.lightHeld)
-        assertEquals(1200L, scan.lightHeldSince)
-        scan.onFrame(true, dark, 2199, settled = true)
+        assertEquals(1300L, scan.lightHeldSince)
+        scan.onFrame(true, dark, 2299, settled = true)
         assertEquals(null, scan.coaching, "the one-second timer starts with this hold")
-        assertTrue(scan.onFrame(true, dark, 2200, settled = true).isEmpty())
+        assertTrue(scan.onFrame(true, dark, 2300, settled = true).isEmpty())
         assertEquals(Coaching.SIDES_DARK, scan.coaching)
         assertEquals(2, scan.hold)
         // Scan face by face clears the hold with the hand-over.

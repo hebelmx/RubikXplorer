@@ -889,7 +889,10 @@ class GuidedScanFlowTest {
         val dark = List(9) { CellReading(Lab(40.0, 0.0, 0.0), true) }
         val bright = List(9) { CellReading(Lab(90.0, 0.0, 0.0), true) }
         val stats = { cells: List<CellReading> -> FrameStats(cells, 120.0, 0.0, 100.0, 12) }
-        quick.onFrame(true, listOf(stats(bright), stats(dark), stats(bright)), 100)
+        // The first detected frame re-meters onto the cube and holds nothing; the settled frame after it starts the hold.
+        quick.onFrame(true, listOf(stats(bright), stats(dark), stats(bright)), 50, settled = false)
+        assertFalse(quick.lightHeld)
+        quick.onFrame(true, listOf(stats(bright), stats(dark), stats(bright)), 100, settled = true)
         assertTrue(quick.lightHeld)
         val since = quick.lightHeldSince
         quick.switchToFaceByFace()

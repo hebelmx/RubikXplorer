@@ -5,7 +5,8 @@ package dev.cubentia.domain.recognition
  *
  * Story 10.19 adds, for Quick Scan corners only (the case capture passes neither input and behaves as before):
  * - a light hold driven by a [SideLight.Verdict] per frame: it engages on the first detected frame whose check fails
- *   (never while a metering change settles: an exposure transient is not evidence of bad light) and
+ *   once metering on the cube has settled (never on an episode's first detected frame, still exposed on the whole scene,
+ *   nor while a metering change settles: an exposure transient is not evidence of bad light) and
  *   blocks auto and manual capture; the sides-dark coaching shows after [SIDES_DARK_COACHING_MS] of continuous failing
  *   with the cube detected and outranks every other corner coaching; the hold (and the line with it) clears once the
  *   check passes for [LIGHT_CLEAR_MS] while steady, and the steady count restarts. Losing the cube clears the line at
@@ -225,8 +226,9 @@ internal class CornerHold {
             return false
         }
         if (!light.passed) {
-            if (!lightHeld && settling) {
-                // An exposure transient while a metering change settles never starts a hold (the verdict is still reported).
+            if (!lightHeld && (settling || meteredAt == null)) {
+                // The first detected frame of an episode (exposed on the whole scene, it re-meters onto the cube) or an
+                // exposure transient while a metering change settles never starts a hold (the verdict is still reported).
                 lightPassingSince = null
                 lightReference = null
                 return false

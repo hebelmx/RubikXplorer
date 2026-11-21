@@ -110,6 +110,11 @@ class QuickScanRouteTest {
                 // Hold 1's sides (Green, Red) 40 L* darker than the White top: the light behind the cube.
                 shade = 40.0
                 shadedColors = setOf(Color.GREEN, Color.RED)
+                // The first frame re-meters onto the cube and holds nothing; the hold starts once metering has settled.
+                val dark = QuickScanPlan.holds[0].map { step -> stats(step.centerColor) }
+                camera.feed(ScanFrame(dark.first(), 0, corner = CornerFrame(true, dark)))
+                assertTrue("no hold on the first frame", !checkNotNull(model.quickScan).lightHeld)
+                shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(600))
                 captureHold(1, uncertain = false, model = model)
                 assertTrue("held by the light check", checkNotNull(model.quickScan).lightHeld)
                 rule.onNodeWithTag("quickScan:counter").assertTextEquals("1 / 2")
