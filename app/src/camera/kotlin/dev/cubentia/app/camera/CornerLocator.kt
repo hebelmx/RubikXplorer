@@ -24,7 +24,7 @@ internal data class CornerPoint(
 
 internal class CornerGuide(
     square: GridSquare,
-    rotationDegrees: Int = 0,
+    val rotationDegrees: Int = 0,
 ) {
     private val center = CornerPoint(square.left + square.side / 2, square.top + square.side / 2)
     val radius = square.side / 2
@@ -34,11 +34,9 @@ internal class CornerGuide(
         roll: Double = 0.0,
     ): List<CornerPoint> =
         List(6) { index ->
-            val angle = (-90 - index * 60 - rotation + roll) * PI / 180
+            val angle = (-90 - index * 60 - rotationDegrees + roll) * PI / 180
             center + CornerPoint(cos(angle), sin(angle)) * (radius * scale)
         } + center
-
-    private val rotation = rotationDegrees
 
     fun quads(points: List<CornerPoint>): List<List<CornerPoint>> {
         val (t, ul, ll, b, lr) = points
@@ -90,6 +88,7 @@ internal object CornerLocator {
     ): Location? {
         if (guide.radius < 18) return null
 
+        val rotation = guide.rotationDegrees
         val center = guide.vertices().last()
         val darkSurroundings = guide.vertices(scale = 1.13).take(6).count { frame.stickerStrength(it) < 28 } >= 5
 
@@ -160,6 +159,62 @@ internal object CornerLocator {
                 }
             }
         }
+
+        // If the near-isometric seed did not find a clean cube (e.g. perspective foreshortening or off-center hold),
+        // search the wider framing zone using a 3D pinhole perspective model.
+        if (outline(best).min() < 0.45 || seams(best).min() < 0.35) {
+            val zoneStep = guide.radius * 0.11
+            var perspBest = best
+            var perspBestScore = bestScore
+            var bestScale = 0.80
+            var bestShift = CornerPoint(0.0, 0.0)
+            var bestRoll = 0.0
+            for (scale in listOf(0.58, 0.72, 0.86, 1.00)) {
+                for (roll in listOf(-10.0, 0.0, 10.0)) {
+                    for (persp in listOf(0.16, 0.30)) {
+                        for (pitch in listOf(24.0, 35.26)) {
+                            val base = projectCube(center, guide.radius * scale, rotation, pitch, 0.0, roll, persp)
+                            for (dx in -2..2) {
+                                for (dy in -2..2) {
+                                    val shift = CornerPoint(dx * zoneStep, dy * zoneStep)
+                                    val candidate = base.map { it + shift }
+                                    val rating = score(candidate)
+                                    if (rating > perspBestScore) {
+                                        perspBest = candidate
+                                        perspBestScore = rating
+                                        bestScale = scale
+                                        bestShift = shift
+                                        bestRoll = roll
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            val fineStep = guide.radius * 0.05
+            for (scaleDelta in listOf(-0.04, 0.0, 0.04)) {
+                for (pitch in listOf(22.0, 30.0, 42.0)) {
+                    for (persp in listOf(0.14, 0.28, 0.36)) {
+                        val base = projectCube(center, guide.radius * (bestScale + scaleDelta), rotation, pitch, 0.0, bestRoll, persp)
+                        for (dx in -1..1) {
+                            for (dy in -1..1) {
+                                val shift = bestShift + CornerPoint(dx * fineStep, dy * fineStep)
+                                val candidate = base.map { it + shift }
+                                val rating = score(candidate)
+                                if (rating > perspBestScore) {
+                                    perspBest = candidate
+                                    perspBestScore = rating
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            best = perspBest
+            bestScore = perspBestScore
+        }
+
         val seed = best
         for (step in listOf(0.07, 0.035, 0.018)) {
             for (index in best.indices) {
@@ -182,6 +237,58 @@ internal object CornerLocator {
         if (outline(best).min() < 0.23 || seams(best).min() < 0.19) return null
         if (darkSurroundings && exterior(best) < 8) return null
         return Location(guide.quads(best), bestScore)
+    }
+
+    /**
+     * Projects the 7 visible corners `[T, UL, LL, B, LR, UR, C]` of a unit cube `[-1, 1]^3` through a pinhole
+     * perspective camera (with [persp] = `0.0` matching orthographic) rotated into frame pixels by [frameRotation].
+     */
+    private fun projectCube(
+        center: CornerPoint,
+        radius: Double,
+        frameRotation: Int,
+        pitchDeg: Double,
+        yawDeg: Double,
+        rollDeg: Double,
+        persp: Double,
+    ): List<CornerPoint> {
+        val yaw = (45.0 + yawDeg) * PI / 180.0
+        val pitch = pitchDeg * PI / 180.0
+        val roll = (-rollDeg - frameRotation) * PI / 180.0
+        val cosY = cos(yaw)
+        val sinY = sin(yaw)
+        val cosP = cos(pitch)
+        val sinP = sin(pitch)
+        val cosR = cos(roll)
+        val sinR = sin(roll)
+        // Scale so that at orthographic pitch=35.26°, yaw=0, the outer hexagon circumradius equals `radius` (sqrt(8/3)).
+        val unitScale = radius / 1.632993161855452
+        val corners3D =
+            listOf(
+                Triple(-1.0, 1.0, -1.0), // T
+                Triple(-1.0, 1.0, 1.0), // UL
+                Triple(-1.0, -1.0, 1.0), // LL
+                Triple(1.0, -1.0, 1.0), // B
+                Triple(1.0, -1.0, -1.0), // LR
+                Triple(1.0, 1.0, -1.0), // UR
+                Triple(1.0, 1.0, 1.0), // C (nearest corner)
+            )
+        return corners3D.map { (cx, cy, cz) ->
+            // Yaw around Y
+            val x1 = cx * cosY - cz * sinY
+            val z1 = cx * sinY + cz * cosY
+            // Pitch around X (tilts top face toward viewer)
+            val y2 = cy * cosP - z1 * sinP
+            val z2 = cy * sinP + z1 * cosP
+            // Perspective foreshortening: z2 > 0 is closer to camera
+            val depth = (1.0 - z2 * persp / 1.732).coerceAtLeast(0.35)
+            val px = x1 / depth
+            val py = -y2 / depth
+            // Roll in image plane (down is +y)
+            val rx = px * cosR - py * sinR
+            val ry = px * sinR + py * cosR
+            center + CornerPoint(rx * unitScale, ry * unitScale)
+        }
     }
 
     private fun YuvFrame.contrast(
@@ -244,6 +351,7 @@ internal data class CornerFrame(
     val detected: Boolean,
     val faces: List<FrameStats?>,
     val score: Double = 0.0,
+    val normalizedQuads: List<List<CornerPoint>> = emptyList(),
 )
 
 internal object CornerReader {
@@ -266,6 +374,20 @@ internal object CornerReader {
             faces.map { face ->
                 face?.takeIf { hasStickerEvidence(it) || FrameQuality.assessShutter(it) != CaptureQuality.ACCEPTABLE }
             }
-        return CornerFrame(plausible >= 2, locatedFaces, located.score)
+        val detected = plausible >= 2
+        val normalized =
+            if (detected && frame.width > 0 && frame.height > 0) {
+                located.quads.map { quad ->
+                    quad.map { p ->
+                        CornerPoint(
+                            (p.x - frame.left) / frame.width.toDouble(),
+                            (p.y - frame.top) / frame.height.toDouble(),
+                        )
+                    }
+                }
+            } else {
+                emptyList()
+            }
+        return CornerFrame(detected, locatedFaces, located.score, normalized)
     }
 }

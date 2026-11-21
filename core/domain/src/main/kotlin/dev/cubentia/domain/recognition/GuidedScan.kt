@@ -280,7 +280,19 @@ data class FrameInspection(
  * Categorical coaching for the Learner; never an error. The MOVE_ values coach a face that is clearly present but outside
  * the framing tolerance (PO 2026-11-16), as the Learner sees the preview.
  */
-enum class Coaching { GLARE, BLURRED, LOW_LIGHT, MISALIGNED, WRONG_FACE, MOVE_CLOSER, MOVE_LEFT, MOVE_RIGHT, MOVE_UP, MOVE_DOWN }
+enum class Coaching {
+    GLARE,
+    BLURRED,
+    LOW_LIGHT,
+    MISALIGNED,
+    WRONG_FACE,
+    MOVE_CLOSER,
+    MOVE_LEFT,
+    MOVE_RIGHT,
+    MOVE_UP,
+    MOVE_DOWN,
+    PLAIN_LIGHT_SURFACE,
+}
 
 /** What the viewfinder must do after a controller call. */
 sealed interface GuidedScanEffect {
