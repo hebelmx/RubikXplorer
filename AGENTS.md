@@ -54,6 +54,12 @@ Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual o
 
 <!-- /bmad:context -->
 
+## Human-in-the-Loop Escalation Rule
+
+When pausing to ask the user for a decision or sign-off:
+- Translate internal shorthand (story numbers, AC codes, design tokens, CI gates) into plain product/engineering impact first.
+- Briefly explain *why* the blocker matters before listing numbered options.
+
 ## Emulators
 
 - Reference-device AVDs (Galaxy S24 FE on Android 15/16/17, Galaxy Tab S7 FE 5G on Android 14), KVM checks, launch/install commands and how to recreate them: `docs/emulators.md`. Emulators give indicative numbers only; performance and camera acceptance stay on the physical devices.
