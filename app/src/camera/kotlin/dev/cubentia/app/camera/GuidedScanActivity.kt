@@ -521,6 +521,31 @@ class GuidedScanActivity : ComponentActivity() {
         val now = SystemClock.elapsedRealtime()
         if (scan.freeze.isFrozen(now) || !quick.inCorner) return
         val effects = decision(quick)
+        effects.filterIsInstance<QuickScanEffect.Fallback>().firstOrNull()?.let { fb ->
+            val cal =
+                dev.cubentia.domain.recognition.SelfCalibration
+                    .from(quick.captured, scan.saved)
+            val calDesc =
+                when (cal) {
+                    is dev.cubentia.domain.recognition.SelfCalibration.Calibrated -> "Calibrated(guarded=${cal.guarded})"
+                    is dev.cubentia.domain.recognition.SelfCalibration.NeedsCalibration -> "NeedsCalibration(${cal.colors})"
+                }
+            val faceDesc =
+                quick.captured.joinToString(" ") { sample ->
+                    val uncertain =
+                        (cal as? dev.cubentia.domain.recognition.SelfCalibration.Calibrated)?.let { c ->
+                            sample.stickers.count {
+                                val r =
+                                    dev.cubentia.domain.recognition.StickerClassifier
+                                        .classify(it, c.calibration)
+                                (r as? dev.cubentia.domain.recognition.StickerClassification.Classified)?.reading?.confidence !=
+                                    dev.cubentia.domain.recognition.StickerConfidence.CONFIDENT
+                            }
+                        } ?: -1
+                    "${sample.face}:${sample.quality}/plain=${sample.centerPlain}/unc=$uncertain"
+                }
+            android.util.Log.d(ScanDiagnostics.TAG, "quickScan fallback=${fb.faces} round=${fb.round} cal=$calDesc faces=[$faceDesc]")
+        }
         val capture = effects.filterIsInstance<QuickScanEffect.CornerCaptured>().firstOrNull()
         if (capture != null) scan.freeze.start(now)
         val next = GuidedScanFlow.phaseOf(quick)

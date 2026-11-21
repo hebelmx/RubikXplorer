@@ -124,14 +124,92 @@ internal object CornerLocator {
                 (1..11).count { frame.stickerStrength(start + edge * (it / 12.0) + normal) < 32 }
             }
 
+        fun exteriorChromaPenalty(points: List<CornerPoint>): Double {
+            var colored = 0
+            var samples = 0
+            for (index in 0..5) {
+                val start = points[index]
+                val edge = points[(index + 1) % 6] - start
+                val len = hypot(edge.x, edge.y)
+                if (len < 1.0) continue
+                val normal = CornerPoint(edge.y, -edge.x) * (guide.radius * 0.12 / len)
+                for (step in listOf(0.25, 0.5, 0.75)) {
+                    val p = start + edge * step + normal
+                    samples++
+                    val sat = maxOf(abs(frame.chroma(frame.u, p) - 128), abs(frame.chroma(frame.v, p) - 128))
+                    if (sat > 38) colored++
+                }
+            }
+            return if (samples == 0) 0.0 else 1.2 * colored / samples
+        }
+
         fun outline(points: List<CornerPoint>): List<Double> = (0..5).map { contrast(points[it], points[(it + 1) % 6], false) }
 
         fun seams(points: List<CornerPoint>): List<Double> = listOf(1, 3, 5).map { contrast(points[it], points[6], true) }
 
-        fun score(points: List<CornerPoint>): Double {
+        fun score(
+            points: List<CornerPoint>,
+            checkExterior: Boolean = true,
+        ): Double {
             val outline = outline(points)
             val seams = seams(points)
-            return 2 * outline.average() + 2 * outline.min() + seams.average() + seams.min()
+            val penalty = if (checkExterior) exteriorChromaPenalty(points) else 0.0
+            return 2 * outline.average() + 2 * outline.min() + seams.average() + seams.min() - penalty
+        }
+
+        fun isValidCubeGeometry(points: List<CornerPoint>): Boolean {
+            // 1. Center vertex C must stay within a reasonable norm distance of the guide center.
+            val c = points[6]
+            if (hypot(c.x - center.x, c.y - center.y) > guide.radius * 0.55) return false
+            // 2. Each of the 3 face quads must have roughly parallel/converging opposite sides and non-collapsed edges.
+            val minEdge = guide.radius * 0.24
+            return guide.quads(points).all { (a, b, d, e) ->
+                val top = b - a
+                val bottom = d - e
+                val left = e - a
+                val right = d - b
+                val topLen = hypot(top.x, top.y)
+                val botLen = hypot(bottom.x, bottom.y)
+                val leftLen = hypot(left.x, left.y)
+                val rightLen = hypot(right.x, right.y)
+                if (minOf(topLen, botLen, leftLen, rightLen) < minEdge) return@all false
+                val cosH = (top.x * bottom.x + top.y * bottom.y) / (topLen * botLen)
+                val cosV = (left.x * right.x + left.y * right.y) / (leftLen * rightLen)
+                // Opposite edges within ~35 degrees (cos >= 0.82) and comparable length.
+                cosH >= 0.82 && cosV >= 0.82 &&
+                    (topLen / botLen) in 0.50..2.00 && (leftLen / rightLen) in 0.50..2.00
+            }
+        }
+
+        fun polishVertices(
+            initial: List<CornerPoint>,
+            minSeam: Double = 0.19,
+            maxDrift: Double = 0.09,
+        ): Location? {
+            var polished = initial
+            var polishedScore = score(polished, checkExterior = false)
+            for (step in listOf(0.05, 0.025, 0.012)) {
+                for (index in polished.indices) {
+                    val origin = polished[index]
+                    for (dx in -1..1) {
+                        for (dy in -1..1) {
+                            val point = origin + CornerPoint(dx * step * guide.radius, dy * step * guide.radius)
+                            val drift = point - initial[index]
+                            if (hypot(drift.x, drift.y) > guide.radius * maxDrift) continue
+                            val candidate = polished.toMutableList().also { it[index] = point }
+                            val rating = score(candidate, checkExterior = false)
+                            if (rating > polishedScore) {
+                                polished = candidate
+                                polishedScore = rating
+                            }
+                        }
+                    }
+                }
+            }
+            if (!isValidCubeGeometry(polished)) return null
+            if (outline(polished).min() < 0.23 || seams(polished).min() < minSeam) return null
+            if (darkSurroundings && exterior(polished) < 6) return null
+            return Location(guide.quads(polished), polishedScore)
         }
 
         var best = guide.vertices()
@@ -159,9 +237,37 @@ internal object CornerLocator {
                 }
             }
         }
+        if (outline(best).min() >= 0.45 && seams(best).min() >= 0.35) {
+            polishVertices(best)?.let { return it }
+        }
 
-        // If the near-isometric seed did not find a clean cube (e.g. perspective foreshortening or off-center hold),
-        // search the wider framing zone using a 3D pinhole perspective model.
+        // Real-world / perspective / off-center frames: use bottom-up sticker-blob detection first, then sub-pixel polish.
+        StickerBlobDetector.detect(frame, guide)?.let { blobLoc ->
+            val q0 = blobLoc.quads[0]
+            val q1 = blobLoc.quads[1]
+            val q2 = blobLoc.quads[2]
+            val rawPts = listOf(q0[0], q0[3], q1[3], q1[2], q2[2], q0[1], q0[2])
+            val anchor = rawPts[6]
+            var snapped = rawPts
+            var snappedScore = score(rawPts, checkExterior = false)
+            val snapStep = guide.radius * 0.04
+            for (scale in listOf(0.95, 1.0, 1.05)) {
+                for (dx in -1..1) {
+                    for (dy in -1..1) {
+                        val shift = CornerPoint(dx * snapStep, dy * snapStep)
+                        val candidate = rawPts.map { anchor + (it - anchor) * scale + shift }
+                        val rating = score(candidate, checkExterior = false)
+                        if (rating > snappedScore) {
+                            snapped = candidate
+                            snappedScore = rating
+                        }
+                    }
+                }
+            }
+            polishVertices(snapped)?.let { return it }
+        }
+
+        // Fallback perspective search if blob segmentation found too few uniform regions.
         if (outline(best).min() < 0.45 || seams(best).min() < 0.35) {
             val zoneStep = guide.radius * 0.11
             var perspBest = best
@@ -213,19 +319,20 @@ internal object CornerLocator {
             }
             best = perspBest
             bestScore = perspBestScore
+            polishVertices(best, maxDrift = 0.15)?.let { return it }
         }
 
         val seed = best
-        for (step in listOf(0.07, 0.035, 0.018)) {
+        for (step in listOf(0.03, 0.015)) {
             for (index in best.indices) {
                 val origin = best[index]
                 for (dx in -1..1) {
                     for (dy in -1..1) {
                         val point = origin + CornerPoint(dx * step * guide.radius, dy * step * guide.radius)
                         val drift = point - seed[index]
-                        if (hypot(drift.x, drift.y) > guide.radius * 0.15) continue
+                        if (hypot(drift.x, drift.y) > guide.radius * 0.045) continue
                         val candidate = best.toMutableList().also { it[index] = point }
-                        val rating = score(candidate)
+                        val rating = score(candidate, checkExterior = false)
                         if (rating > bestScore) {
                             best = candidate
                             bestScore = rating
@@ -234,9 +341,31 @@ internal object CornerLocator {
                 }
             }
         }
-        if (outline(best).min() < 0.23 || seams(best).min() < 0.19) return null
-        if (darkSurroundings && exterior(best) < 8) return null
-        return Location(guide.quads(best), bestScore)
+        StickerBlobDetector.detect(frame, guide)?.let { blobLoc ->
+            val q0 = blobLoc.quads[0]
+            val q1 = blobLoc.quads[1]
+            val q2 = blobLoc.quads[2]
+            val rawPts = listOf(q0[0], q0[3], q1[3], q1[2], q2[2], q0[1], q0[2])
+            val anchor = rawPts[6]
+            var snapped = rawPts
+            var snappedScore = score(rawPts, checkExterior = false)
+            val snapStep = guide.radius * 0.04
+            for (scale in listOf(0.95, 1.0, 1.05)) {
+                for (dx in -1..1) {
+                    for (dy in -1..1) {
+                        val shift = CornerPoint(dx * snapStep, dy * snapStep)
+                        val candidate = rawPts.map { anchor + (it - anchor) * scale + shift }
+                        val rating = score(candidate, checkExterior = false)
+                        if (rating > snappedScore) {
+                            snapped = candidate
+                            snappedScore = rating
+                        }
+                    }
+                }
+            }
+            polishVertices(snapped)?.let { return it }
+        }
+        return null
     }
 
     /**
@@ -352,6 +481,7 @@ internal data class CornerFrame(
     val faces: List<FrameStats?>,
     val score: Double = 0.0,
     val normalizedQuads: List<List<CornerPoint>> = emptyList(),
+    val frameQuads: List<List<CornerPoint>> = emptyList(),
 )
 
 internal object CornerReader {
@@ -388,6 +518,7 @@ internal object CornerReader {
             } else {
                 emptyList()
             }
-        return CornerFrame(detected, locatedFaces, located.score, normalized)
+        val frameQuads = if (detected) located.quads else emptyList()
+        return CornerFrame(detected, locatedFaces, located.score, normalized, frameQuads)
     }
 }

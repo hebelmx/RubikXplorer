@@ -146,6 +146,7 @@ class QuickScanController(
                 plan = faces.map(GuidedScanPlan::reprompt),
                 allowAdditionalReprompts = round == 1,
                 known = samples.values.filter { it.face !in faces },
+                initialDelayMs = if (round == 1) 2500L else 0L,
                 reprompt = { replacements ->
                     if (round == 1) {
                         val merged = (samples + replacements.associateBy { it.face }).values.toList()
@@ -202,7 +203,21 @@ class QuickScanController(
         val priorTop = prior[FaceSample.CENTER_INDEX]
         if (top != null && priorTop != null) return StickerClassifier.deltaE(top, priorTop) >= threshold
         val comparable = now.zip(prior).any { (a, b) -> a != null && b != null }
-        return !comparable || corner.changed(now, prior, threshold)
+        if (!comparable) return true
+        // Never clear the prior hold on a single noisy edge sticker; require >= 2 other face centers to differ.
+        val centerIndices =
+            listOf(
+                FaceSample.CENTER_INDEX,
+                FrameQuality.CELLS + FaceSample.CENTER_INDEX,
+                2 * FrameQuality.CELLS + FaceSample.CENTER_INDEX,
+            )
+        val changedCenters =
+            centerIndices.count { idx ->
+                val a = now.getOrNull(idx)
+                val b = prior.getOrNull(idx)
+                a != null && b != null && StickerClassifier.deltaE(a, b) >= threshold
+            }
+        return changedCenters >= 2
     }
 
     private fun finish(): QuickScanEffect = QuickScanEffect.Done(oriented(captured, gridFaces))

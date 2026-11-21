@@ -262,7 +262,25 @@ internal class CameraXFrameSource
             meteringGrid = MeteringGrid(image.width, image.height, grid)
             if (corner) {
                 val reading = CornerReader.read(with(FrameReader) { image.asYuvFrame() }, CornerGuide(grid, rotation))
-                deliver(ScanFrame(EMPTY_STATS, rotation, corner = reading))
+                val viewQuads =
+                    reading.frameQuads.map { quad ->
+                        quad.map { p ->
+                            val (vx, vy) =
+                                ViewfinderGrid.frameToViewFraction(
+                                    p.x,
+                                    p.y,
+                                    width.toDouble(),
+                                    height.toDouble(),
+                                    crop.left,
+                                    crop.top,
+                                    crop.right,
+                                    crop.bottom,
+                                    rotation,
+                                )
+                            CornerPoint(vx, vy)
+                        }
+                    }
+                deliver(ScanFrame(EMPTY_STATS, rotation, corner = reading.copy(normalizedQuads = viewQuads)))
                 return
             }
             val reading = FrameReader.locate(image, grid, rotation)
