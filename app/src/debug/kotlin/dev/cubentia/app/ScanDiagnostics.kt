@@ -51,35 +51,6 @@ object ScanDiagnostics {
         Log.d(TAG, fields.joinToString(" "))
     }
 
-    fun onQuickScanFallback(
-        faces: List<dev.cubentia.domain.cube.Face>,
-        round: Int,
-        samples: List<FaceSample>,
-        saved: CalibrationCenters?,
-    ) {
-        val cal = SelfCalibration.from(samples, saved)
-        val calDesc =
-            when (cal) {
-                is SelfCalibration.Calibrated -> "Calibrated(guarded=${cal.guarded})"
-                is SelfCalibration.NeedsCalibration -> "NeedsCalibration(${cal.colors})"
-            }
-        val faceDesc =
-            samples.joinToString(" ") { sample ->
-                val uncertain =
-                    (cal as? SelfCalibration.Calibrated)?.let { c ->
-                        sample.stickers.count {
-                            val r =
-                                dev.cubentia.domain.recognition.StickerClassifier
-                                    .classify(it, c.calibration)
-                            (r as? dev.cubentia.domain.recognition.StickerClassification.Classified)?.reading?.confidence !=
-                                dev.cubentia.domain.recognition.StickerConfidence.CONFIDENT
-                        }
-                    } ?: -1
-                "${sample.face}:${sample.quality}/plain=${sample.centerPlain}/unc=$uncertain"
-            }
-        Log.d(TAG, "quickScan fallback=$faces round=$round cal=$calDesc faces=[$faceDesc]")
-    }
-
     fun onQuickScanRun(
         started: Long?,
         fallbackFaces: Int,

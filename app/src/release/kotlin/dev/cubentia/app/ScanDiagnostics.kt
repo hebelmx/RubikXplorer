@@ -21,13 +21,6 @@ object ScanDiagnostics {
         score: Double,
     ) = Unit
 
-    fun onQuickScanFallback(
-        faces: List<dev.cubentia.domain.cube.Face>,
-        round: Int,
-        samples: List<FaceSample>,
-        saved: CalibrationCenters?,
-    ) = Unit
-
     fun onQuickScanRun(
         started: Long?,
         fallbackFaces: Int,

@@ -521,9 +521,6 @@ class GuidedScanActivity : ComponentActivity() {
         val now = SystemClock.elapsedRealtime()
         if (scan.freeze.isFrozen(now) || !quick.inCorner) return
         val effects = decision(quick)
-        effects.filterIsInstance<QuickScanEffect.Fallback>().firstOrNull()?.let { fb ->
-            ScanDiagnostics.onQuickScanFallback(fb.faces, fb.round, quick.captured, scan.saved)
-        }
         val capture = effects.filterIsInstance<QuickScanEffect.CornerCaptured>().firstOrNull()
         if (capture != null) scan.freeze.start(now)
         val next = GuidedScanFlow.phaseOf(quick)
