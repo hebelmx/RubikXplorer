@@ -1,6 +1,7 @@
 package dev.cubentia.app.camera
 
 import android.content.Context
+import android.os.Build
 import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
@@ -61,10 +62,14 @@ class LiteRtCornerDetectorDeviceTest {
             )
 
             assertTrue("Expected >= 50 benchmarked frames, got ${result.totalFrames}", result.totalFrames >= 50)
-            assertTrue(
-                "Expected median latency < 40 ms on minimum device, got ${"%.2f".format(result.medianMs)} ms",
-                result.medianMs < 40.0,
-            )
+            // The latency budget is a minimum-device (Lenovo TB128XU) gate; an emulator's timing says nothing about it,
+            // so the release workflow's CI emulator run checks accuracy and rejection only.
+            if (!isEmulator()) {
+                assertTrue(
+                    "Expected median latency < 40 ms on minimum device, got ${"%.2f".format(result.medianMs)} ms",
+                    result.medianMs < 40.0,
+                )
+            }
             assertTrue(
                 "Expected >= 90% detection on synthetic 3D cubes, got ${result.positiveDetected}/${result.positiveTotal}",
                 result.positiveDetected * 10 >= result.positiveTotal * 9,
@@ -138,9 +143,10 @@ class LiteRtCornerDetectorDeviceTest {
             val dx = (rng.nextDouble() - 0.5) * guide.radius * 0.45
             val dy = (rng.nextDouble() - 0.5) * guide.radius * 0.45
             val scale = 0.62 + rng.nextDouble() * 0.34
-            val pitch = 22.0 + rng.nextDouble() * 22.0
-            val yaw = (rng.nextDouble() - 0.5) * 32.0
-            val roll = (rng.nextDouble() - 0.5) * 32.0
+            // The full trained pose range (tools/corner-model: pitch 16-52, yaw +-26, roll +-28 degrees).
+            val pitch = 16.0 + rng.nextDouble() * 36.0
+            val yaw = (rng.nextDouble() - 0.5) * 52.0
+            val roll = (rng.nextDouble() - 0.5) * 56.0
             val persp = 0.12 + rng.nextDouble() * 0.18
             val truthPts =
                 CornerLocator.projectCube(
@@ -397,6 +403,12 @@ class LiteRtCornerDetectorDeviceTest {
     }
 
     private companion object {
+        /** Android emulator images (CI's `google_apis` x86_64 AVD) report a ranchu/goldfish board or a generic build. */
+        fun isEmulator(): Boolean =
+            Build.HARDWARE in setOf("ranchu", "goldfish") ||
+                Build.FINGERPRINT.startsWith("generic") ||
+                Build.PRODUCT.startsWith("sdk")
+
         const val TAG = "LiteRtDeviceTest"
 
         val REAL_PALETTE_ORDER = listOf(Color.WHITE, Color.YELLOW, Color.RED, Color.ORANGE, Color.GREEN, Color.BLUE)

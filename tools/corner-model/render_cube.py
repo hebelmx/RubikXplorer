@@ -659,17 +659,20 @@ def generate_dataset(
     neg_fraction: float = 0.26,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Generate `(X, Y)` arrays of synthetic 3D cubes + hard negatives in parallel."""
-    workers = min(os.cpu_count() or 1, 8)
+    # A fixed chunk count keeps the dataset (chunk sizes and per-chunk seeds) independent of the machine's core count;
+    # only the pool size follows the cores.
+    chunk_count = 8
+    workers = min(os.cpu_count() or 1, chunk_count)
     n_neg = int(round(n_samples * neg_fraction))
-    if workers <= 1 or n_samples < 512:
+    if n_samples < 512:
         x, y = _generate_chunk((n_samples, n_neg, seed, assets, img_size, neg_fraction))
     else:
         chunks = []
-        base = n_samples // workers
-        rem = n_samples % workers
-        neg_base = n_neg // workers
-        neg_rem = n_neg % workers
-        for w in range(workers):
+        base = n_samples // chunk_count
+        rem = n_samples % chunk_count
+        neg_base = n_neg // chunk_count
+        neg_rem = n_neg % chunk_count
+        for w in range(chunk_count):
             c_n = base + (1 if w < rem else 0)
             c_neg = neg_base + (1 if w < neg_rem else 0)
             chunks.append((c_n, c_neg, seed + w * 1009, assets, img_size, neg_fraction))

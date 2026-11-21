@@ -332,7 +332,10 @@ internal class CameraXFrameSource
         companion object {
             const val METERING_LOCK_SECONDS = 3L
 
-            /** AF + AE always; AWB only when [includeAwb] (Quick Scan Hold 2 skips it so no-white Y/O/B faces keep Hold 1's white balance). */
+            /**
+             * AF + AE always; AWB only when [includeAwb]. Quick Scan Hold 2 skips it so white balance is not re-metered on
+             * a no-white Y/O/B grid; this is no AWB lock (AWB stays continuous auto once Hold 1's action cancels).
+             */
             internal fun meteringFlags(includeAwb: Boolean): Int =
                 if (includeAwb) {
                     FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE or FocusMeteringAction.FLAG_AWB

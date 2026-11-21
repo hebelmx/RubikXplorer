@@ -5,7 +5,7 @@ created: '2026-11-20'
 status: 'done'
 baseline_revision: '859e7f5a3d061baeef8aa41e7da667a67ba5f698'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-10-context.md'
   - '{project-root}/_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-20-quick-scan-litert-escalation.md'
@@ -141,6 +141,16 @@ Status: done
 
 **Residual risks:** the model is trained on synthetic renders plus real palettes only (no `Fixtures/corner/` captures); real-camera generalization is the main risk until the PO device session.
 
+### Follow-up review pass (2026-11-20)
+
+- Four Claude review layers (blind, edge-case, verification-gap, intent) re-reviewed the full diff since `859e7f5a`: 42 findings, 0 high.
+- Patches applied (medium 2, low 5): CameraXFrameSource injected-detector test; emulator guard on the device test's latency assertion; device test poses widened to the trained range; AWB KDoc corrected (no lock); dataset chunking fixed at 8 independent of core count; evidence doc states the in-distribution nature of the eval and recipe-not-SHA reproducibility; stale training comment fixed.
+- Deferred: nothing new; carried findings fold into device gates D1-D3.
+- Files changed: app/src/testDebug/.../CameraXFrameSourceTest.kt (new test), app/src/androidTestDebug/.../LiteRtCornerDetectorDeviceTest.kt (emulator guard, poses), app/src/camera/.../ScanFrameSource.kt (KDoc), tools/corner-model/render_cube.py (fixed chunks), tools/corner-model/train_corner_model.py (comment), docs/evidence/10-18/litert-model-evaluation.md (wording).
+- Verification: evaluate_model.py (396.6 KB, precision 99.84%, recall 98.28%, unchanged); `./gradlew -p build-logic test` BUILD SUCCESSFUL; `./gradlew spotlessCheck build checkReleaseSize checkCameraSize` BUILD SUCCESSFUL (projected camera 26,727,904 B < 30,000,000); `:app:compileDebugAndroidTestKotlin` OK. The connected Lenovo run was not performed (D1).
+- Follow-up review recommended: false (follow-up pass patched no high finding).
+- Residual risks: D1-D3 device gates. The device test's widened poses and the emulator latency skip have been compiled but not run.
+
 ## Spec Change Log
 
 ## Review Triage Log
@@ -189,6 +199,52 @@ Status: done
   - `[medium]` `[patch]` (intent) ΔE >= 10 never asserted — same fix as the blind R/L row.
   - `[false]` `[reject]` (intent) ShutterSound not asserted on both captures — captureCorner calls shutterSound.play() on the same `capture != null` branch for both captures, and ShutterSoundTest covers the player.
   - `[false]` `[reject]` (intent) Dark-surface coaching timing with LiteRT nulls untested — the coaching depends only on null detections, covered by QuickScanControllerTest (PLAIN_LIGHT_SURFACE) and QuickScanScreenTest (copy).
+
+### 2026-11-20 — Review pass (follow-up)
+- verdicts: 42 findings — high 0, medium 9, low 14, false 16, maybe-false 3
+- findings:
+  - `[low]` `[patch]` (intent) Device test poses (pitch 22-44, yaw ±16, roll ±16) are narrower than the intent's input range — widened to the full trained range (pitch 16-52, yaw ±26, roll ±28); compiled, not run (D1).
+  - `[medium]` `[defer]` (intent) Evidence-doc logcat predates the current device test (no realPalette fields) — carried: same as the device-results row; device gate D1.
+  - `[false]` `[reject]` (intent) `orElse(CornerLocator)` falls back when the Optional is absent — carried: the Optional is empty only when both corner flags are OFF, and then Quick Scan is unreachable.
+  - `[medium]` `[defer]` (intent) R/L check uses an exact detector on synthetic faces; AWB fix verified only as flags — carried: device gate D2.
+  - `[false]` `[reject]` (intent) ShutterSound/thumbnail not asserted for Capture 2 on the route — carried: captureCorner plays the sound on the same `capture != null` branch for both captures.
+  - `[medium]` `[defer]` (intent) Size projection uses the 40% R8 estimate and R8 inference never ran — carried: 40% row rejected (low), R8 inference is device gate D3.
+  - `[medium]` `[reject]` (intent) ELF gate scans classpath AARs, not the APK — carried: the ELF row's APK part was rejected (AGP aligns uncompressed libs; no first-party .so exists).
+  - `[false]` `[reject]` (intent) Dark-surface coaching with LiteRT nulls untested — carried: covered by QuickScanControllerTest and QuickScanScreenTest.
+  - `[false]` `[reject]` (intent) Diff edits epic-10-context.md despite the planning-artifacts ban — the file is under implementation-artifacts, which the intent does not forbid.
+  - `[low]` `[patch]` (intent) Held-out figures are mostly in-distribution synthetic — evidence doc §2 now states that only heldout_real_crop_3d withholds data and the figures are not live-camera accuracy (same root cause as blind row 9).
+  - `[false]` `[reject]` (intent) 406,100-byte FP16 model misses "tiny quantized ~150-400 KB" — 396.6 KiB is within the approximate range and FP16 weight quantization is quantization; the spec's budget is < 450 KB.
+  - `[medium]` `[patch]` (gap) CameraXFrameSource's use of the injected detector is unverified — added CameraXFrameSourceTest.cornerFramesUseTheInjectedDetectorInsteadOfTheHeuristic (Optional.of(recording detector), corner mode, asserts it was called with the frame's rotation and its null result reached ScanFrame.corner); passes.
+  - `[medium]` `[patch]` (gap) Device test's < 40 ms assertion runs on the release workflow's CI emulator — latency assertion now skipped on emulators (ranchu/goldfish/generic/sdk); accuracy and rejection still asserted there.
+  - `[medium]` `[defer]` (gap) LiteRT keep rules not checked by any automated minified build — carried: device gate D3.
+  - `[medium]` `[defer]` (blind) Device evidence out of date vs the committed test — carried: D1.
+  - `[false]` `[reject]` (blind) Epic context claims real Lenovo/S24 FE fine-tuning; S24 FE not benchmarked — carried: the context restates the planned decision; real-frame validation is D2.
+  - `[maybe-false]` `[defer]` (blind) Skipping AWB on Hold 2 does not keep Hold 1's white balance (no lock; auto-cancel after 3 s) — carried: D2. The KDoc's "keep Hold 1's white balance" was inaccurate and now says it only avoids re-metering on a no-white grid and is no lock.
+  - `[low]` `[reject]` (blind) Model load failure disables detection for the process — carried: close() reset patched earlier; an unavailable state is new surface.
+  - `[low]` `[reject]` (blind) JVM failure test hits only the LinkageError branch, not a native rejection of a corrupt model — the IllegalArgumentException path is a generic `catch (e: Exception)`; reaching it needs an instrumented test, more than a direct fix.
+  - `[low]` `[reject]` (blind) No build check ties the .tflite to its I/O shape, size and SHA — a mismatched model fails the device test's detection asserts; a JVM flatbuffer check is new machinery.
+  - `[low]` `[patch]` (blind) Dataset depends on the machine's core count — generate_dataset now always uses 8 chunks (pool size still follows cores); the evidence doc says the committed artifact predates this and a GPU retrain reproduces the recipe, not the SHA. evaluate_model.py output unchanged (its slices use the single-chunk path).
+  - `[low]` `[reject]` (blind) Python geometry guard is an untested mirror of Kotlin — carried.
+  - `[low]` `[patch]` (blind) Held-out headline is in-distribution — same fix as intent row 10.
+  - `[low]` `[reject]` (blind) Nearest-neighbour app crop vs bilinear training — carried.
+  - `[low]` `[reject]` (blind) `meter(includeAwb)` default drops the flag — carried.
+  - `[medium]` `[reject]` (blind) ELF gate checks only dependency AARs, not APK zip alignment — carried (ELF row's APK part).
+  - `[false]` `[reject]` (blind) `noCompress += "tflite"` is global and appended per build type — the .tflite exists only in the corner source set, so corner-OFF variants have nothing to leave uncompressed; a duplicate extension entry changes nothing.
+  - `[false]` `[reject]` (blind) Silent CornerLocator fallback — carried false.
+  - `[false]` `[reject]` (blind) .tflite size accounting not in code — CheckCameraSizeTask.check sums cameraAssets (wired in ReleaseConventionPlugin) into CameraSizePolicy.evaluate as assetBytes; the report prints "Camera model/runtime assets".
+  - `[low]` `[patch]` (blind) Contradictory hold-out comments in train_corner_model.py; no SHA print — comments replaced with one accurate line; printing the SHA rejected (new feature, the doc records it).
+  - `[low]` `[reject]` (edge) run() can throw an Error (UnsatisfiedLinkError/OOM) onto the analyzer thread — the native library is already loaded once the interpreter exists, and OOM should not be swallowed; the fix adds a catch branch.
+  - `[false]` `[reject]` (edge) Rotation not a multiple of 90 — CameraX ImageInfo.rotationDegrees is always 0/90/180/270.
+  - `[low]` `[reject]` (edge) Held Guided fallback overwrites Unavailable/back during the freeze — carried.
+  - `[maybe-false]` `[reject]` (edge) A Guided capture lands between the analyzer's freeze end and main-thread endFreeze — would need a stable Guided capture within milliseconds of the fallback; settling it needs a timing trace; if true it is low (a missed cue on one capture).
+  - `[false]` `[reject]` (edge) Capture-2 fallback `next` and a review both non-null — phaseOf(quick) returns null once Done (not in corner, no fallback), so they never coexist.
+  - `[false]` `[reject]` (edge) ELF phoff overflow crashes the task — a malformed ELF makes the gate fail loudly, which is correct.
+  - `[low]` `[reject]` (edge) Corrupt archive gives a raw ZipException — carried.
+  - `[false]` `[reject]` (edge) First-party .so escapes the ELF gate — no jniLibs or .so exist in app/ or core/.
+  - `[false]` `[reject]` (edge) readAt roiFraction out of range — carried.
+  - `[maybe-false]` `[defer]` (edge) Hold 2 without FLAG_AWB leaves AWB drifting — carried: D2 (KDoc corrected, see blind row 3).
+  - `[false]` `[reject]` (edge) 0.48 ROI changes recorder exports vs fixtures recorded at 0.60 — no Fixtures/corner captures exist.
+  - `[false]` `[reject]` (edge) Model size claim exceeded — same refutation as intent row 11.
 
 ## Design Notes
 

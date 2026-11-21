@@ -14,7 +14,7 @@
 - **Backbone + Head:** Compact depthwise-separable inverted-residual CNN (`16 → 24 → 40 → 64 → 96`, 198,247 parameters) with a spatial-preserving `4×4×32` flattened head (`Dense(64) → Dense(15, sigmoid)`), predicting `[presence, T.x, T.y, UL.x, UL.y, LL.x, LL.y, B.x, B.y, LR.x, LR.y, UR.x, UR.y, C.x, C.y]`.
 - **Artifact identity:** `corner_keypoints.tflite` SHA-256 `4875896238d96564175912e9bfdb1d2a0b7a341705e98aad525a9bf83c73720d` (406,100 bytes), exported by `tools/corner-model/train_corner_model.py` (seed `20261120`, `--quant fp16`) with TensorFlow 2.19.1 and its bundled `tf.lite.TFLiteConverter` (`from_keras_model`, `Optimize.DEFAULT` + `float16` supported type) on Python 3.12.13, NumPy 2.1.3, Pillow 11.3.0, Linux x86_64 + CUDA (`tensorflow[and-cuda]`).
 - **Quantization & Packaging:** FP16 weight quantization (`406,100` bytes = **396.6 KB**, limit `< 450 KB`), stored uncompressed (`compress_type = 0` via `androidResources.noCompress += "tflite"`) for zero-copy `mmap`.
-- **Training Data (reproducible, seed `20261120`):**
+- **Training Data (seeded, `20261120`):** generation now always uses 8 fixed chunks, so the dataset no longer depends on the machine's core count (the committed artifact was generated before this was pinned). GPU training is not bit-exact, so a retrain reproduces the recipe and its metrics, not the SHA-256 above.
   - 24,000 train / 2,400 val synthetic 3D cubes rendered with randomized pinhole perspective (`pitch 16–52°`, `yaw ±26°`, `roll ±28°`, `persp 0.05–0.38`, off-center shifts), both stickered (black/white/grey body) and stickerless, solved and scrambled, directional face shading, specular glare, YUV 4:2:0 chroma subsampling, sensor noise/blur, gripping hands, cluttered desks, and dark glossy tabletop reflections (#196), plus 26% hard negatives (empty surfaces, dark glossy reflection-only frames, single flat 2D faces, hands only, colored clutter).
   - Real device palettes and warped 3×3 face crops sourced from `Fixtures/live/` (Lenovo TB128XU & Galaxy S24 FE `stka`/`stkb`/`stla`/`stlb`), holding out `lenovo-tb128xu_stkb_studio-a` and `sm-s721u1_stlb_studio-a` crops for out-of-distribution evaluation.
 
@@ -23,6 +23,8 @@
 ---
 
 ## 2. Held-Out Model Evaluation (`evaluate_model.py`, threshold `0.55` + `CornerLocator.isValidCubeGeometry`)
+
+All slices are synthetic renders from the training generator (fresh seeds). Only `heldout_real_crop_3d` withholds data the model never saw (two fixture groups' face crops); the rest are in-distribution, so these figures are not a measure of live-camera accuracy.
 
 | Evaluation Slice (`N = 160` each) | Recall / Rejection | Raw Presence | Mean Err (128 px crop) | Median Err | p90 Err |
 | --- | --- | --- | --- | --- | --- |

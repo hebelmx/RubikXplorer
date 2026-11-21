@@ -200,8 +200,7 @@ def main() -> None:
     gpus = tf.config.list_physical_devices("GPU")
     print(f"TensorFlow {tf.__version__} | GPUs: {gpus}")
 
-    # Hold out `-a` studio fixtures for out-of-distribution evaluation when training on non-`-a` + palettes
-    # Include all palettes in train except hold out sm-s721u1_stlb_studio-a and lenovo-tb128xu_stkb_studio-a for eval
+    # Train on every Fixtures/live palette and face crop except two groups held out for out-of-distribution evaluation.
     train_assets = load_live_fixtures(
         args.fixtures_live,
         exclude_suffixes=("lenovo-tb128xu_stkb_studio-a", "sm-s721u1_stlb_studio-a"),
