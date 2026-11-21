@@ -252,7 +252,7 @@ stateDiagram-v2
     - `:app` main code reaches the camera only through the `ScanLauncher` port, with an optional Hilt binding (`@BindsOptionalOf`) that only the camera source set provides. With no binding, every scan entry point is hidden; a debuggable app with a camera flag above OFF and no binding fails at startup.
     - It emits `FaceSample`s: `centerColor`, `upNeighborColor` (only when the prompt named a top, SCP 2026-11-16) and 9 CIELAB samples **in viewfinder order**, plus quality flags and the capture pose.
     - Quick Scan's detection and perspective correction live inside the adapter and emit the same type.
-    - **Detection method** (OQ-7 decision K, PO 2026-11-15, Story 10.13, `docs/spikes/oq-7-recognition-approach.md`): Kotlin nearest-center classification fed by a per-cell histogram-mode reader, self-calibrated from the six face centers; no new runtime, so the Story 10.9 classpath gate is unchanged. LiteRT is the fallback if field use shows this is not enough; OpenCV is rejected on size (NFR-11). Story 11.1 builds Quick Scan's detection within this decision.
+    - **Detection method** (OQ-7 decision K, PO 2026-11-15, Story 10.13, `docs/spikes/oq-7-recognition-approach.md`; Quick Scan fallback activated PO 2026-11-20, SCP 2026-11-20): Guided 6-face Scan and all sticker color classification stay pure Kotlin (per-cell histogram-mode reader + self-calibration from the six face centers + nearest-center classifier in `:core:domain`). For **Quick Scan 3D corner detection**, the pre-approved **LiteRT** fallback is activated (`docs/evidence/10-18/quick-scan-litert-escalation.md`): a tiny quantized 7-keypoint `.tflite` model (`com.google.ai.edge.litert`) predicts `[T, UL, LL, B, LR, UR, C]` inside `app/src/camera/corner/` behind `CornerDetector`, feeding the existing `unwarp()` and `FrameReader` pipeline. `build-logic` gates the LiteRT dependency and corner assets strictly on corner-model flags (`QUICK_SCAN`, `CASE_RECOGNITION`) above `OFF`, so builds with those flags `OFF` carry zero LiteRT runtime or model bytes. OpenCV remains rejected on size (NFR-11). Native `.so` size gates count the largest single Play delivery ABI (`arm64-v8a`) and enforce NFR-11 (< 30 MB) plus 16 KB ELF page alignment (`targetSdk 36`).
   - **Assembly and classification:**
     - Only `ScanAssembler` in `:core:domain` rotates samples into `Facelets` order. The Manual Cube Editor's per-face rotation (SCP 2026-11-20, #253) and the Quick Scan → Guided Scan hand-over that keeps captured faces (#198) use the same `ScanAssembler` entry on face colors; neither rotates faces itself. A sample with no `upNeighborColor` gets the quarter turn that makes the six faces a state `CubeValidator` accepts; when no turn or more than one distinct state fits, it reports the faces involved for a re-prompt with a named top and never guesses (Story 10.14, SCP 2026-11-16). With no valid state it reports them only when they are at most `MAX_REPROMPT_FACES` (2); more go to review with the best fit and no re-prompt (SCP 2026-11-19, #164).
     - `StickerClassifier` receives the calibration as a parameter.
@@ -386,7 +386,7 @@ stateDiagram-v2
   - A `FeatureFlags` port maps a closed enum `{QUICK_SCAN, PLACEMENT, CASE_RECOGNITION, TEST_ME, CAMERA_SCAN, ADAPTIVE_ASSISTANCE}` to `{OFF, BETA, GA}`.
   - The levels are set per build type in `build-logic`.
   - The UI shows the beta label from the flag, through one shared BETA label component (introduced for *Test me*, #137/#141). No feature checks `BuildConfig` directly.
-  - **Flags compose the build (SCP 2026-11-14):** when a build type has `CAMERA_SCAN`, `QUICK_SCAN`, `PLACEMENT` or `CASE_RECOGNITION` above OFF, `build-logic` adds the camera source set and its dependencies to that build type; otherwise neither is added.
+  - **Flags compose the build (SCP 2026-11-14; corner-model split SCP 2026-11-20):** when a build type has `CAMERA_SCAN`, `QUICK_SCAN`, `PLACEMENT` or `CASE_RECOGNITION` above OFF, `build-logic` adds `app/src/camera/` (`kotlin/`, `assets/`, manifest) and CameraX dependencies to that build type; otherwise neither is added. The corner-model source set (`app/src/camera/corner/` Kotlin + `.tflite` assets) and LiteRT dependency are composed only when a corner-model flag (`QUICK_SCAN` or `CASE_RECOGNITION`) is above OFF (`CameraClasspathPolicy` and `CameraSizePolicy` enforce this in CI).
   - `PLACEMENT`, `QUICK_SCAN` and `CASE_RECOGNITION` may be above OFF only when `CAMERA_SCAN` is above OFF in the same build type. `build-logic` fails the build otherwise, naming the flag.
   - **Debug levels follow wiring (SCP 2026-11-16 main-app entry points):** `debug` raises a flag above OFF (normally to GA) only once that flag's entry point is wired in the main app, in the same PR. A raised flag never shows a dead or unconnected entry point, and a feature is accepted on the main app build, not through a debug-only launcher.
 
@@ -465,6 +465,7 @@ stateDiagram-v2
 | Hilt / KSP | 2.60.1 / 2.3.12 [ASSUMPTION: KSP compatibility with Kotlin 2.4.21 to confirm at scaffold] |
 | Room | androidx.room3 3.0.3 (KSP) |
 | CameraX | 1.6.2 |
+| LiteRT | `com.google.ai.edge.litert:litert` 2.3.2 (camera corner source set only, gated on `QUICK_SCAN` / `CASE_RECOGNITION` above OFF; 7-keypoint `.tflite` model, SCP 2026-11-20) |
 | kotlinx.serialization / coroutines | 1.12.0 / 1.11.0 |
 | 3D rendering | custom OpenGL ES 3.0 on `GLSurfaceView`, no dependency; the manifest declares `glEsVersion 0x00030000` as required (OQ-3, Story 1.8 spike) |
 | Reference devices | minimum Lenovo Tab M10 Plus 3rd Gen (TB128XU, Snapdragon 680, 4 GB, Android 13 / API 33), mid Samsung Galaxy S24 FE (ARCH-OQ-1, PO 2026-10-30; minimum replaced 2026-11-12, sprint-change-proposal-2026-11-12-lenovo-minimum-reference; supersedes the PRD §5 device assumption). The Galaxy Tab S7 FE 5G (minimum until 2026-11-12) is an additional compatibility device. API 29–30 coverage is emulator-only. Recognition pass/fail is decided on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE; the Galaxy Tab S7 FE reports only; emulator cameras are never acceptance evidence (SCP 2026-11-14 Q12). |
@@ -504,7 +505,9 @@ RubikXplorer/
     di/
   app/src/camera/                      # build-time camera source set, only for build types with a camera flag above OFF (AD-18)
     AndroidManifest.xml                # CAMERA + uses-feature android.hardware.camera.any required="false"
-    kotlin/…/camera/                   # CameraX adapter → FaceSample; scan port binding; debug fixture recorder
+    kotlin/…/camera/                   # CameraX adapter → FaceSample; CornerDetector seam; scan port binding; debug fixture recorder
+    assets/                            # camera-only assets (absent when all camera flags are OFF)
+    corner/{kotlin,assets}/            # LiteRT 7-keypoint corner detector + .tflite model, only when QUICK_SCAN or CASE_RECOGNITION is above OFF (AD-9, AD-18)
 ```
 
 ```mermaid

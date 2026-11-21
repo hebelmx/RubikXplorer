@@ -24,12 +24,20 @@ abstract class CheckCameraClasspathTask : DefaultTask() {
     @get:Input
     abstract val cameraEnabled: Property<Boolean>
 
+    @get:Input
+    abstract val cornerModelEnabled: Property<Boolean>
+
     @get:OutputFile
     abstract val report: RegularFileProperty
 
     @TaskAction
     fun check() {
-        val violations = CameraClasspathPolicy.check(runtimeCoordinates.get(), cameraEnabled.get())
+        val violations =
+            CameraClasspathPolicy.check(
+                runtimeCoordinates.get(),
+                cameraEnabled.get(),
+                cornerModelEnabled.getOrElse(cameraEnabled.get()),
+            )
         report.get().asFile.writeText(violations.joinToString("\n"))
         if (violations.isNotEmpty()) {
             throw GradleException(

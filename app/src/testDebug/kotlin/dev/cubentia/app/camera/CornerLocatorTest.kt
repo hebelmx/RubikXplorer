@@ -270,6 +270,87 @@ class CornerLocatorTest {
         }
     }
 
+    @Test
+    fun `yawed perspective corner is detected accurately without collapsing to a sub-grid`() {
+        val cube =
+            CubeState.SOLVED.apply(
+                listOf(FaceTurn(Face.R, Turn.CLOCKWISE), FaceTurn(Face.U, Turn.HALF), FaceTurn(Face.F, Turn.COUNTERCLOCKWISE)),
+            )
+        val centers = CalibrationCenters(palette.mapValues { (_, rgb) -> readColor(rgb) })
+        val guide = CornerGuide(grid(240, 320, 0), 0)
+        val center = guide.vertices().last() + CornerPoint(-8.0, 10.0)
+        val pts = CornerLocator.projectCube(center, guide.radius * 0.80, 0, 29.0, 9.0, -5.0, 0.20)
+        val quads = guide.quads(pts)
+        val expected = QuickScanPlan.holds[0].map { step -> expectedFace(cube, step.face) }
+        val image =
+            render(240, 320, quads) { face, x, y ->
+                val column = (x * 3).toInt()
+                val row = (y * 3).toInt()
+                if (listOf(x, y).any { abs(it * 3 - (it * 3).roundToInt()) < 0.06 }) {
+                    BODY
+                } else {
+                    palette.getValue(expected[face][row * 3 + column])
+                }
+            }
+        val frame = image.toCornerFrame(noise = 2)
+        val blobs = StickerBlobDetector.extractBlobs(frame, guide.radius)
+        val blob = StickerBlobDetector.detect(frame, guide)
+        assertTrue(
+            blob != null,
+            "Expected StickerBlobDetector to detect yawed perspective corner (blobs=${blobs.size}, sizes=${blobs.map {
+                it.size.roundToInt()
+            }})",
+        )
+        val corner = CornerReader.read(frame, guide)
+        assertTrue(corner.detected, "Expected yawed perspective corner to be detected: $corner")
+        corner.faces.forEachIndexed { face, stats ->
+            assertEquals(expected[face], stats?.cells?.map { it?.value?.let { lab -> classify(lab, centers).color } })
+        }
+    }
+
+    @Test
+    fun `overlay smoother dampens small jitter, snaps on large moves, and clears on empty`() {
+        val smoother = CornerOverlaySmoother(alpha = 0.5, snapThreshold = 0.1)
+        val q1 = listOf(listOf(CornerPoint(0.2, 0.2), CornerPoint(0.4, 0.2), CornerPoint(0.4, 0.4), CornerPoint(0.2, 0.4)))
+        assertEquals(q1, smoother.update(q1))
+        val jittered = listOf(listOf(CornerPoint(0.22, 0.2), CornerPoint(0.4, 0.2), CornerPoint(0.4, 0.4), CornerPoint(0.2, 0.4)))
+        val smoothed = smoother.update(jittered)
+        assertEquals(0.21, smoothed[0][0].x, 1e-6)
+        val jumped = listOf(listOf(CornerPoint(0.5, 0.5), CornerPoint(0.7, 0.5), CornerPoint(0.7, 0.7), CornerPoint(0.5, 0.7)))
+        assertEquals(jumped, smoother.update(jumped))
+        assertTrue(smoother.update(emptyList()).isEmpty())
+    }
+
+    @Test
+    fun `CornerReader unwarps and validates stickers from an injected CornerDetector seam`() {
+        val cube =
+            CubeState.SOLVED.apply(
+                listOf(FaceTurn(Face.R, Turn.CLOCKWISE), FaceTurn(Face.U, Turn.HALF), FaceTurn(Face.F, Turn.COUNTERCLOCKWISE)),
+            )
+        val centers = CalibrationCenters(palette.mapValues { (_, rgb) -> readColor(rgb) })
+        val guide = CornerGuide(grid(240, 320, 0), 0)
+        val pts = CornerLocator.projectCube(guide.vertices().last(), guide.radius * 0.80, 0, 29.0, 9.0, -5.0, 0.20)
+        assertTrue(CornerLocator.isValidCubeGeometry(pts, guide))
+        val quads = guide.quads(pts)
+        val expected = QuickScanPlan.holds[0].map { step -> expectedFace(cube, step.face) }
+        val image =
+            render(240, 320, quads) { face, x, y ->
+                val column = (x * 3).toInt()
+                val row = (y * 3).toInt()
+                if (listOf(x, y).any { abs(it * 3 - (it * 3).roundToInt()) < 0.06 }) {
+                    BODY
+                } else {
+                    palette.getValue(expected[face][row * 3 + column])
+                }
+            }
+        val injected = CornerDetector { _, _ -> CornerLocator.Location(quads, 1.0) }
+        val corner = CornerReader.read(image.toCornerFrame(), guide, detector = injected)
+        assertTrue(corner.detected)
+        corner.faces.forEachIndexed { face, stats ->
+            assertEquals(expected[face], stats?.cells?.map { it?.value?.let { lab -> classify(lab, centers).color } })
+        }
+    }
+
     private fun readColor(rgb: Int): Lab {
         val image =
             BufferedImage(96, 96, BufferedImage.TYPE_INT_RGB).apply {

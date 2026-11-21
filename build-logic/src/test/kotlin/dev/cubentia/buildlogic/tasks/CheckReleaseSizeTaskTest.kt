@@ -61,4 +61,34 @@ class CheckReleaseSizeTaskTest {
         assertTrue(failure.message.orEmpty().contains("30000000"), failure.message)
         assertTrue(projectDir.resolve("reports/release-size.txt").readText().contains("Headroom: -"))
     }
+
+    @Test
+    fun `a universal APK with multiple native ABIs charges only the largest single ABI`() {
+        val multiAbiApk =
+            projectDir.resolve("multi-abi.apk").apply {
+                ZipOutputStream(outputStream()).use { zip ->
+                    zip.setLevel(0)
+                    zip.putNextEntry(ZipEntry("classes.dex"))
+                    zip.write(ByteArray(1_000))
+                    zip.closeEntry()
+                    // Four 10 MB ABIs (40 MB total in universal APK), but one Play device receives only 10 MB.
+                    listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64").forEach { abi ->
+                        zip.putNextEntry(ZipEntry("lib/$abi/libLiteRt.so"))
+                        zip.write(ByteArray(10_000_000))
+                        zip.closeEntry()
+                    }
+                }
+            }
+        val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
+        val checkTask =
+            project.tasks.register("checkMultiAbiReleaseSize", CheckReleaseSizeTask::class.java).get().apply {
+                apk.set(multiAbiApk)
+                bundle.set(projectDir.resolve("multi.aab").apply { writeBytes(ByteArray(1234)) })
+                report.set(projectDir.resolve("reports/multi-release-size.txt"))
+            }
+        checkTask.check()
+        val report = projectDir.resolve("reports/multi-release-size.txt").readText()
+        assertTrue(report.contains("Headroom: "), report)
+        assertTrue(!report.contains("Headroom: -"), report)
+    }
 }

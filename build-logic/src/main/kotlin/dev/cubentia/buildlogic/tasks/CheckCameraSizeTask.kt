@@ -33,8 +33,15 @@ abstract class CheckCameraSizeTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.NAME_ONLY)
     abstract val cameraRuntime: ConfigurableFileCollection
 
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val cameraAssets: ConfigurableFileCollection
+
     @get:Input
     abstract val runtimeArtifacts: ListProperty<String>
+
+    @get:Input
+    abstract val allowLiteRt: org.gradle.api.provider.Property<Boolean>
 
     @get:OutputFile
     abstract val report: RegularFileProperty
@@ -46,37 +53,27 @@ abstract class CheckCameraSizeTask : DefaultTask() {
                 lines.single { it.startsWith("Installed estimate ") }.substringAfterLast(": ").toLong()
             }
         val classBytes = cameraClasses.sumOf { it.length() }
-        val runtimeBytes =
-            cameraRuntime.sumOf { file ->
-                when (file.extension) {
-                    "aar" -> {
-                        ZipFile(file).use { zip ->
-                            zip
-                                .entries()
-                                .asSequence()
-                                .filter { it.name.endsWith(".jar") || it.name.endsWith(".so") }
-                                .sumOf { it.size }
-                        }
-                    }
-
-                    "jar", "so" -> {
-                        file.length()
-                    }
-
-                    else -> {
-                        0
-                    }
-                }
-            }
-        val verdict = CameraSizePolicy.evaluate(release, classBytes, runtimeBytes, runtimeArtifacts.get())
+        val assetBytes = cameraAssets.files.filter { it.isFile }.sumOf { it.length() }
+        val runtimeBytes = cameraRuntime.sumOf(::artifactRuntimeBytes)
+        val verdict =
+            CameraSizePolicy.evaluate(
+                releaseEstimate = release,
+                classBytes = classBytes,
+                runtimeBytes = runtimeBytes,
+                artifacts = runtimeArtifacts.get(),
+                allowLiteRt = allowLiteRt.getOrElse(false),
+                assetBytes = assetBytes,
+            )
         val message =
             """
             Cubentia camera installed-size estimate (bytes)
             Release estimate: $release
             Debug camera classes excluding recorder: $classBytes
-            Additional runtime jars and native libraries: $runtimeBytes
+            Additional runtime jars and single-ABI native libraries: $runtimeBytes
+            Camera model/runtime assets: $assetBytes
             Projected camera size: ${verdict.estimatedBytes}
             Budget: ${AppSizePolicy.BUDGET}
+            LiteRT allowed: ${allowLiteRt.getOrElse(false)}
             Forbidden artifacts: ${verdict.forbidden.joinToString().ifEmpty { "none" }}
             """.trimIndent() + "\n"
         report
@@ -89,7 +86,45 @@ abstract class CheckCameraSizeTask : DefaultTask() {
     }
 
     companion object {
-        /** CameraX and its runtime dependencies that are absent from the release estimate. */
+        private val cameraRuntimeGroups = setOf("androidx.camera", "com.google.ai.edge.litert")
+
+        /**
+         * Measures one artifact's installed runtime cost: all `.jar` entries plus the largest single native ABI
+         * directory under `jni/<abi>/` (matching single-ABI Play AAB delivery rather than summing 4 ABIs).
+         */
+        internal fun artifactRuntimeBytes(file: java.io.File): Long =
+            when (file.extension) {
+                "aar" -> {
+                    ZipFile(file).use { zip ->
+                        var jarBytes = 0L
+                        val abiBytes = mutableMapOf<String, Long>()
+                        zip.entries().asSequence().forEach { entry ->
+                            val size = entry.size.coerceAtLeast(0L)
+                            when {
+                                entry.name.endsWith(".jar") -> {
+                                    jarBytes += size
+                                }
+
+                                entry.name.endsWith(".so") -> {
+                                    val abi = entry.name.removePrefix("jni/").substringBefore('/', missingDelimiterValue = "default")
+                                    abiBytes[abi] = (abiBytes[abi] ?: 0L) + size
+                                }
+                            }
+                        }
+                        jarBytes + (abiBytes.values.maxOrNull() ?: 0L)
+                    }
+                }
+
+                "jar", "so" -> {
+                    file.length()
+                }
+
+                else -> {
+                    0L
+                }
+            }
+
+        /** CameraX / LiteRT and their runtime dependencies that are absent from the release estimate. */
         fun additionalCameraComponents(
             debug: ResolvedComponentResult,
             release: ResolvedComponentResult,
@@ -107,7 +142,7 @@ abstract class CheckCameraSizeTask : DefaultTask() {
 
             debug.dependencies
                 .filterIsInstance<ResolvedDependencyResult>()
-                .filter { (it.selected.id as? ModuleComponentIdentifier)?.group == "androidx.camera" }
+                .filter { (it.selected.id as? ModuleComponentIdentifier)?.group in cameraRuntimeGroups }
                 .forEach { collect(it.selected) }
             return seen
                 .filterIsInstance<ModuleComponentIdentifier>()

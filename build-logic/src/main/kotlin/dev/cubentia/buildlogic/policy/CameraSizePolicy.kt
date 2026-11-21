@@ -13,13 +13,20 @@ object CameraSizePolicy {
         classBytes: Long,
         runtimeBytes: Long,
         artifacts: Collection<String>,
+        allowLiteRt: Boolean = false,
+        assetBytes: Long = 0L,
     ): Verdict {
-        require(releaseEstimate >= 0 && classBytes >= 0 && runtimeBytes >= 0)
-        val estimate = Math.addExact(Math.addExact(releaseEstimate, Math.multiplyExact(3, classBytes)), runtimeBytes)
+        require(releaseEstimate >= 0 && classBytes >= 0 && runtimeBytes >= 0 && assetBytes >= 0)
+        val estimate =
+            Math.addExact(
+                Math.addExact(Math.addExact(releaseEstimate, Math.multiplyExact(3, classBytes)), runtimeBytes),
+                assetBytes,
+            )
+        val forbiddenTokens = if (allowLiteRt) listOf("tensorflow", "opencv") else listOf("litert", "tensorflow", "opencv")
         val forbidden =
             artifacts
                 .filter { artifact ->
-                    listOf("litert", "tensorflow", "opencv").any { artifact.contains(it, ignoreCase = true) }
+                    forbiddenTokens.any { artifact.contains(it, ignoreCase = true) }
                 }.distinct()
                 .sorted()
         return Verdict(estimate, forbidden)

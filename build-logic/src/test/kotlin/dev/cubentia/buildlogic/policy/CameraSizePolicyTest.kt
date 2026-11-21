@@ -26,4 +26,31 @@ class CameraSizePolicyTest {
         assertFalse(verdict.passes)
         assertEquals(listOf("litert.jar", "opencv.aar", "tensorflow-lite.aar"), verdict.forbidden)
     }
+
+    @Test
+    fun allowLiteRtPermitsLiteRtAndCountsAssetsWhileStillRejectingOpenCv() {
+        val allowed =
+            CameraSizePolicy.evaluate(
+                releaseEstimate = 12_000_000,
+                classBytes = 100_000,
+                runtimeBytes = 5_700_000,
+                artifacts = listOf("litert-2.3.2.aar", "camera-core.aar"),
+                allowLiteRt = true,
+                assetBytes = 300_000,
+            )
+        assertTrue(allowed.passes)
+        assertEquals(18_300_000L, allowed.estimatedBytes)
+        assertTrue(allowed.forbidden.isEmpty())
+
+        val rejected =
+            CameraSizePolicy.evaluate(
+                releaseEstimate = 12_000_000,
+                classBytes = 1,
+                runtimeBytes = 1,
+                artifacts = listOf("litert-2.3.2.aar", "opencv-4.12.0.aar", "tensorflow-lite.aar"),
+                allowLiteRt = true,
+            )
+        assertFalse(rejected.passes)
+        assertEquals(listOf("opencv-4.12.0.aar", "tensorflow-lite.aar"), rejected.forbidden)
+    }
 }

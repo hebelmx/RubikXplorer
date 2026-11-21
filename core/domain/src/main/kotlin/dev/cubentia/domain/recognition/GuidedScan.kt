@@ -348,6 +348,7 @@ class GuidedScanController internal constructor(
     private val reprompt: (List<FaceSample>) -> List<Face>,
     /** Faces read elsewhere (Quick Scan's corners) that a capture must not repeat, besides the faces stored here. */
     private val known: List<FaceSample> = emptyList(),
+    private val initialDelayMs: Long = 0L,
 ) {
     constructor(
         plan: List<ScanStep> = GuidedScanPlan.steps,
@@ -374,6 +375,7 @@ class GuidedScanController internal constructor(
     private var rejections = 0
     private var lastRejected: Frame? = null
     private var stuckSince: Long? = null
+    private var firstFrameAt: Long? = null
 
     /** How many faces the first round asks for: 6 for a Guided Scan, 1 or 2 for a Quick Check. */
     val planSize: Int get() = plan.size
@@ -421,6 +423,7 @@ class GuidedScanController internal constructor(
         val quality = inspection.quality
         val frame = Frame(stats, orientationDegrees, quality, FrameQuality.assessShutter(stats))
         latest = frame
+        val first = firstFrameAt ?: nowMs.also { firstFrameAt = it }
         if (quality != CaptureQuality.ACCEPTABLE) {
             justCaptured = null
             aligned = false
@@ -453,7 +456,7 @@ class GuidedScanController internal constructor(
             return emptyList()
         }
         val hold = if (inspection.outlinedOnly) OUTLINED_STEADY_MS else STEADY_MS
-        if (nowMs - steadySince < hold) return emptyList()
+        if (nowMs - first < initialDelayMs || nowMs - steadySince < hold) return emptyList()
         return capture(frame, nowMs)
     }
 

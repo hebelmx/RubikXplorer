@@ -69,6 +69,39 @@ internal object ViewfinderGrid {
         return GridSquare(centerX - side / 2, centerY - side / 2, side)
     }
 
+    /** Inverse of [inFrame]: maps a frame-pixel point ([x], [y]) to normalized [0..1] view coordinates under FILL_CENTER. */
+    fun frameToViewFraction(
+        x: Double,
+        y: Double,
+        viewWidth: Double,
+        viewHeight: Double,
+        cropLeft: Int,
+        cropTop: Int,
+        cropRight: Int,
+        cropBottom: Int,
+        rotationDegrees: Int,
+    ): Pair<Double, Double> {
+        val cropWidth = (cropRight - cropLeft).toDouble()
+        val cropHeight = (cropBottom - cropTop).toDouble()
+        val quarterTurn = Math.floorMod(rotationDegrees, HALF_TURN) == QUARTER_TURN
+        val uprightWidth = if (quarterTurn) cropHeight else cropWidth
+        val uprightHeight = if (quarterTurn) cropWidth else cropHeight
+        val (width, height) = if (viewWidth > 0 && viewHeight > 0) viewWidth to viewHeight else uprightWidth to uprightHeight
+        val scale = max(width / uprightWidth, height / uprightHeight)
+        val fx = x - (cropLeft + cropWidth / 2)
+        val fy = y - (cropTop + cropHeight / 2)
+        val (upX, upY) =
+            when (Math.floorMod(rotationDegrees, FULL_TURN)) {
+                QUARTER_TURN -> -fy to fx
+                HALF_TURN -> -fx to -fy
+                THREE_QUARTER_TURN -> fy to -fx
+                else -> fx to fy
+            }
+        val vx = width / 2 + upX * scale
+        val vy = height / 2 + upY * scale
+        return (vx / width) to (vy / height)
+    }
+
     private const val QUARTER_TURN = 90
     private const val HALF_TURN = 180
     private const val THREE_QUARTER_TURN = 270

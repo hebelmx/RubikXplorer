@@ -247,7 +247,7 @@ class QuickScanRouteTest {
         }
     }
 
-    /** Feeds one hold's corner frames over time with no shutter tap: remeter, settle, then 600 ms steady. */
+    /** Feeds one hold's corner frames over time with no shutter tap: remeter, settle, then 1000 ms steady. */
     private fun holdSteady(
         hold: Int,
         model: GuidedScanViewModel,
@@ -255,9 +255,9 @@ class QuickScanRouteTest {
         val faces = QuickScanPlan.holds[hold - 1].map { step -> stats(step.centerColor) }
         val frame = ScanFrame(faces.first(), 0, corner = CornerFrame(true, faces))
         camera.feed(frame)
-        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(350))
-        camera.feed(frame)
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(650))
+        camera.feed(frame)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1050))
         camera.feed(frame)
         rule.waitForIdle()
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(500))
