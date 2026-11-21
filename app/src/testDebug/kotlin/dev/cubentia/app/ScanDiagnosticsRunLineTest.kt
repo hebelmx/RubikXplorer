@@ -102,4 +102,49 @@ class ScanDiagnosticsRunLineTest {
         flow.reset()
         assertTrue(runs("placement").isEmpty())
     }
+
+    @Test fun `quick scan logs the light check, light hold, metering and torch as numbers only`() {
+        val face =
+            dev.cubentia.domain.recognition.FrameStats(
+                List(9) {
+                    dev.cubentia.domain.recognition
+                        .CellReading(
+                            dev.cubentia.domain.recognition
+                                .Lab(80.0, 0.0, 0.0),
+                            true,
+                        )
+                },
+                120.0,
+                0.5,
+                100.0,
+                12,
+            )
+        val dark =
+            dev.cubentia.domain.recognition.SideLight
+                .Verdict(false, 90.0, 55.0, 80.0)
+        val line = ScanDiagnostics.cornerFrameLine(true, listOf(face, face, face), 0.9, dark, lightHeld = true, torch = true)
+        assertEquals(
+            "quickScan frame detected=true quality=GLARE,GLARE,GLARE score=0.9 light=90.0,55.0,80.0 sideDiff=35.0 " +
+                "lightCheck=fail lightHold=true torch=on glare=torch",
+            line,
+        )
+        val none = ScanDiagnostics.cornerFrameLine(false, listOf(null, null, null), 0.0, null, lightHeld = false, torch = false)
+        assertTrue(none, none.endsWith("light=-,-,- sideDiff=- lightCheck=- lightHold=false torch=off glare=-"))
+        ScanDiagnostics.onLightHold(started = true, heldMs = null)
+        ScanDiagnostics.onLightHold(started = false, heldMs = 1200)
+        ScanDiagnostics.onMetering(supported = false, onOutline = false)
+        ScanDiagnostics.onMeteringSettled(settleMs = 1500, timeout = true)
+        ScanDiagnostics.onTorch(hasFlash = false, torch = false)
+        val lines = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }
+        assertEquals(
+            listOf(
+                "quickScan lightHold start",
+                "quickScan lightHold clear heldMs=1200",
+                "quickScan metering supported=false region=centre",
+                "quickScan metering settleMs=1500 timeout=true",
+                "quickScan torch hasFlash=false torch=off",
+            ),
+            lines,
+        )
+    }
 }

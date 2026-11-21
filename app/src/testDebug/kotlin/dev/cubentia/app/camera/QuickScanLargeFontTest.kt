@@ -40,6 +40,25 @@ class QuickScanLargeFontTest {
         )
 
     @Test
+    fun theCornerViewWithTheTorchToggleFitsWithoutScrollingAtTwoHundredPercentFont() {
+        assertFits(
+            GuidedScanPhase.CornerViewfinder(hold = 1, faceByFace = true),
+            listOf("scanCapture", "quickScan:faceByFace", "scanEnterColors"),
+            cornerTorch = false,
+        )
+        val camera = rule.onNodeWithTag("scanViewfinder").fetchSemanticsNode().boundsInRoot
+        val torch =
+            rule
+                .onNodeWithTag("quickScan:torch")
+                .assertIsDisplayed()
+                .fetchSemanticsNode()
+                .boundsInRoot
+        // The torch toggle sits wholly inside the viewfinder, so it never pushes the buttons below off screen.
+        assertTrue("$torch in $camera", torch.top >= camera.top && torch.bottom <= camera.bottom && torch.right <= camera.right + 0.5f)
+        assertTrue("$torch in $camera", torch.left >= camera.left)
+    }
+
+    @Test
     fun theHandOverViewfinderFitsWithoutScrollingAtTwoHundredPercentFont() {
         val kept =
             listOf(Face.U, Face.F, Face.R).map {
@@ -60,11 +79,12 @@ class QuickScanLargeFontTest {
     private fun assertFits(
         phase: GuidedScanPhase,
         tags: List<String>,
+        cornerTorch: Boolean? = null,
     ) {
         var minTouch = 0f
         rule.setContent {
             minTouch = with(LocalDensity.current) { 48.dp.toPx() }
-            CubentiaTheme { GuidedScanScreen(phase, strings, GuidedScanActions(), offerEnterColors = true) }
+            CubentiaTheme { GuidedScanScreen(phase, strings, GuidedScanActions(), offerEnterColors = true, cornerTorch = cornerTorch) }
         }
         val camera = rule.onNodeWithTag("scanViewfinder").fetchSemanticsNode().boundsInRoot
         val screen = rule.onRoot().fetchSemanticsNode().boundsInRoot
