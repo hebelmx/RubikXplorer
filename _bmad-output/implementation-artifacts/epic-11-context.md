@@ -4,55 +4,56 @@
 
 ## Goal
 
-Build three camera shortcuts on top of the Epic 10 scan pipeline for v1.1. Quick Scan reads the whole cube from two corner photos. Placement scans the Learner's cube and suggests the Course Stage to start from. Case recognition names the OLL/PLL Case from one top-corner photo. Each feature ships behind its own feature flag, merges with that flag OFF in release, and can be left OFF with no dead UI. They are the first things cut if work slips, in this order: Quick Scan drops to beta, then Case recognition, then Placement. Story 10.11 raises the release flags. Epic 11 never gates the v1.0 release work in Epics 12 and 13.
+Build three camera shortcuts on top of the Epic 10 scan pipeline. Quick Scan reads the whole cube from two corner photos. Placement looks at the Learner's cube (scanned or entered in the Editor), explains what it sees, and suggests the Course Stage to start from. Case recognition names the OLL/PLL Case from two top-corner photos. Each feature sits behind its own feature flag and can be turned OFF with no dead UI. If work slips they are cut in this order: Quick Scan drops to BETA, then Case recognition, then Placement. As of 2026-11-20, Quick Scan and Placement are v1.0 scope, together with the Placement fixes for #251 (explain the result) and #252 (re-placement without resetting progress). Story 10.11 raises `QUICK_SCAN` and `PLACEMENT` for the v1.0 release. `CASE_RECOGNITION` gets its own release decision.
 
 ## Stories
 
 - Story 11.1: Quick Scan from two corners
-- Story 11.2: Start the Course from my cube (Placement)
+- Story 11.2: Start the Course from my cube (Placement), amended 2026-11-20 for #251 and #252
 - Story 11.3: Recognize an OLL/PLL Case
 
 ## Requirements & Constraints
 
-- **Quick Scan:** two captures from opposite corners give all 54 stickers. If any sticker is uncertain or the state is invalid, the app asks for only the missing faces through the Guided 6-face Scan grid. It never guesses a state. It is recommended for GA only if ≥ 95% of scans reach a valid state after ≤ 3 corrections, in under 15 s. Otherwise it stays BETA.
-- **Placement:** evaluate each Stage Predicate on an accepted Full scan and suggest the first unmet Stage. The Learner can accept it or choose another Stage. Accepting unlocks that Stage and marks every earlier Stage *skipped by placement*: never mastered, always revisitable (same rule as the skip-ahead check). MVP assumes a white cross first.
-- **Case recognition:** compare the visible U and side stickers with every Case pattern under AUF and return the result less than 1 s after capture. At most 1% of single-Case results may name the wrong Case. If more than one Case fits, list the candidates and never pick one silently. If the first two layers are unsolved, say so and offer Placement. Offer an Algorithm Status change, but never apply one automatically.
-- **Recognition test matrix:** at least one stickered and one stickerless cube, 4 lighting conditions, and the reference devices (Lenovo Tab M10 Plus 3rd Gen sets the minimum, S24 FE is mid, Tab S7 FE is a compatibility row that does not gate). At most 0.1% of stickers may be both misread and marked confident.
-- **Privacy:** camera frames are processed in memory and never stored or sent. A manual route is always one tap away.
-- **Size:** each feature must fit the APK size budget. Any new runtime (OpenCV or LiteRT) goes only in the camera source set.
-- **Human gates:** 11.1 and 11.3 capture need device session C with real cubes. 11.3 matching and 11.2 are device-free and tested on the JVM.
+- **Quick Scan:** two captures from opposite corners give all 54 stickers. If any face is uncertain or the state is invalid, the Guided Scan grid asks for only those faces, and the app never guesses a state. It is recommended GA only at ≥ 95% valid after ≤ 3 corrections in under 15 s. Otherwise it stays BETA. Any OpenCV or LiteRT runtime goes only in the camera source set, within the APK size budget.
+- **Placement, base:** evaluate each Stage Predicate on an accepted Full cube and suggest the first unmet Stage, with *Choose another Stage*. Accepting unlocks that Stage and records earlier Stages as skipped by placement (◇, never mastered, always revisitable). With `PLACEMENT` OFF, *Start from my cube* is absent everywhere, and the persisted onboarding-complete behavior (#137) is unchanged.
+- **Placement result (#251):**
+  - The result shows the cube reading, then the reason, then the suggestion, in that order. All of it comes from content strings, and TalkBack reads it in the same order. It ends with the line "The lesson sets up its own cube, so you can put yours aside."
+  - Before any Stage Predicate runs, a cube 1 or 2 face turns from solved (including a last-layer or first-layer turn) gets its own outcome that names the turn(s) in words. The turns are found by a bounded enumeration of at most 2 Moves, never by the Solver.
+  - A cross or first two layers solved on a color other than white: the reading credits the solve, the reason explains that the Course starts from white, and the suggestion is *First cross*. *Show me the last layer anyway* is added when the first two layers are solved.
+  - Partly solved: the reading names what is done and how far the next Stage is, using that Stage's Objective progress measure (for example "2 of 4 first-layer corners are in place"). At the last layer, the reading names the Case when exactly one fits.
+- **Re-placement (#252):** Learn → *Find my place* → *Scan my cube* first shows "This keeps your progress. Stages you've finished stay as they are.", then the usual scan, review and Placement. Accepting only adds progress. If the target is already reached, it shows "You've already reached *Stage*." with *Open Stage* and writes nothing. With `PLACEMENT` OFF, *Find my place* offers only *Choose my level* (Story 14.1) and has no dead control.
+- **Case recognition:** two opposite top-corner views with yellow on top. Match under AUF, intersect the candidates from the two captures, and answer within 1 s. Never pick silently among several candidates. Offer *Mark as Learning*, never apply it automatically.
+- **Acceptance:** on the main app build from the real entry point, never a debug-only launcher. The #251 and #252 work is accepted on the Lenovo Tab M10 Plus 3rd Gen (the minimum camera spec) and the Galaxy S24 FE, with `PLACEMENT` raised in debug. 11.1 and 11.3 capture need device session C with real cubes. 11.3 matching is JVM-tested.
+- **Privacy:** frames stay in memory and are never stored or sent. A manual route is always one tap away.
 
 ## Technical Decisions
 
-- **Feature flags:** the `FeatureFlags` port maps `QUICK_SCAN`, `PLACEMENT` and `CASE_RECOGNITION` to OFF, BETA or GA, with levels set per build type in `build-logic`. Each of these flags can be above OFF only when `CAMERA_SCAN` is above OFF in the same build type, or the build fails. Any of them above OFF adds the camera source set to that build type. Code never reads `BuildConfig` directly.
-- **Debug levels follow wiring:** debug keeps a flag OFF until the PR that wires its main-app entry point raises it (normally to GA) in `FeatureFlagLevels.byBuildType["debug"]`. `FeatureFlagLevelsTest` pins that map. A story is accepted on the main-app build from its real entry point, never from a debug-only launcher.
-- **Recognition:** only the CameraX adapter in `app/src/camera/` touches pixels. Main code reaches the camera only through the `ScanLauncher` port, which has an optional binding. When the binding is absent, every scan entry point is hidden. Quick Scan's corner detection and perspective unwarp live inside the adapter and emit ordinary `FaceSample`s.
-- **Detection method:** Kotlin nearest-center classification with a per-cell histogram-mode reader, self-calibrated from the six face centers. It adds no runtime. LiteRT is the fallback, and OpenCV is rejected because of APK size. Story 11.1 builds within this decision.
-- **Scan assembly and acceptance:** only `ScanAssembler` rotates samples into `Facelets` order. Quick Scan's per-face hand-off keeps the prompted top. The result is `ScanResult` Full or Partial. The reducer accepts a scan only if the Full result is valid, every UNCERTAIN sticker is resolved, and the revision is current. The scan sub-flow returns `ScanOutcome {Accepted, Cancelled, FellBackToEditor}` through a typed navigation result. Only the caller dispatches it, and the scan flow never touches a session.
-- **Placement:** reuse the existing writer `core/application/.../usecase/PlaceFromScan.kt`, which is the only writer of `StageSkippedByPlacement`. Add the predicate evaluation and the UI around it, and do not rewrite the writer. Placement never calls the Solver. Stage Predicates are content data (`Predicate` JSON), and all user-facing text is `Text(key, args)` content keys.
-- **Progress log:** `progress_event` is append-only, and Stage status is a pure function over the current epoch. Write through the single serial writer with idempotency keys.
-- **Case recognition:** `LastLayerMatcher` in `:core:domain` is the only definition of Case patterns and AUF. Never define patterns elsewhere. Partial views return the full candidate set. The LL is the face opposite the solved F2L color (yellow for the Course), rotated to U.
+- **Flags:** the `FeatureFlags` port maps `QUICK_SCAN`, `PLACEMENT` and `CASE_RECOGNITION` to OFF, BETA or GA per build type in `build-logic`. Each can be above OFF only when `CAMERA_SCAN` is above OFF in the same build type, or the build fails. Debug raises a flag only in the PR that wires its main-app entry point (`FeatureFlagLevels.byBuildType["debug"]`). Code never reads `BuildConfig`.
+- **Recognition:** only the CameraX adapter in `app/src/camera/` touches pixels, reached through the `ScanLauncher` port. Quick Scan's corner detection and unwarp emit ordinary `FaceSample`s. Only `ScanAssembler` rotates samples into `Facelets` order, and the Editor and the Quick Scan hand-over also go through it.
+- **Placement:** reuse `core/application/.../usecase/PlaceFromScan.kt` as the only writer of `StageSkippedByPlacement`. Placement never calls the Solver. Stage Predicates and Objective progress come from content data, and all text is `Text(key, args)`.
+- **Only add, never downgrade:** `PlaceFromScan` may run on existing progress. It appends `StageSkippedByPlacement` only for earlier Stages that are `LOCKED` or `IN_PROGRESS`, and `StageUnlocked` only for a target not yet unlocked. It never writes `ProgressReset`, never re-locks, and never touches Lesson completions, Checkpoints, attempts or Algorithm Statuses. `progress_event` is append-only and goes through the single serial writer with idempotency keys.
+- **Case naming:** `LastLayerMatcher` in `:core:domain` is the only definition of Case patterns and AUF. Placement's "It looks like {case}." and Recognize both use it. The LL is the face opposite the solved F2L color, rotated to U.
 
 ## UX & Interaction Patterns
 
-- **Flag states:** when a flag is OFF, its entry point and every cross-link to it disappear. For example, *Start from my cube* disappears from Welcome and Recognize. When a flag is BETA, the feature shows the one shared BETA label component (the one *Test me* uses), with the camera tooltip "May misread colors in poor light. Manual entry always works." TalkBack reads "<feature>, BETA".
-- **Quick Scan capture:** a corner outline (Y-shaped three-face guide) and a "1 / 2" counter. Any face that can't be read hands off to the per-face Guided grid. *Enter colors instead* stays visible.
-- **Placement (Flow 4):** Welcome → *Start from my cube* → scan → review → Accept → a suggestion such as "Your cross is done and 2 of 4 corners are in. Start at *First-layer corners*?" with *Choose another Stage*. Skipped Stages show ◇ *Skipped by placement*.
-- **Placement outcomes:**
-  - Partly solved: suggest the first unmet Stage.
-  - Nothing solved: suggest Stage 1.
-  - Non-white cross: "Start with a white cross for this course."
-  - At the last layer: offer *Faster last layer* or Stage 5.
-  - Solved: "Your cube is solved — scramble it and scan again, or start Stage 1."
-- **Welcome:** Welcome shows only on first launch and respects the persisted onboarding-complete state (#137). *Start from my cube* is also reachable from Recognize and from the skip-ahead failure "Let's find where to start".
-- **Recognize (Flow 5):** Library → *Recognize case* → one top-corner photo.
-  - Unique match: "OLL 45 · T-shape" opens the Algorithm detail with its Demonstration playing, and *Mark as Learning* is offered.
-  - Ambiguous: "This could be one of 3 cases" with candidate tiles and *Scan another angle*.
-  - Not at the LL: "The first two layers aren't solved yet." with *Start from my cube* when `PLACEMENT` is on.
+- **Placement outcomes, checked in this order.** Each outcome gives a reading, then a reason, then an action:
+  - **Solved:** "Your cube is solved." / "Scramble it and scan again, or start Stage 1." Actions: *Scan again*, *Start Stage 1*.
+  - **1–2 turns from solved:** "Your cube is one turn from solved: {move, in words}." (or "two turns from solved: … then …") / "Finish it, then scramble it and scan again, or pick a Stage." Actions: *Scan again*, *Choose another Stage*.
+  - **Nothing solved:** "Your cube is fully mixed. Nothing is solved yet." / "*Cube fundamentals* starts from here."
+  - **Non-white:** "Your {color} cross is solved, nice work." (or "Your first two layers are solved, nice work. You started from {color}.") / "Our lessons start with the white face and leave yellow for the end, so to follow them, start with the white cross." Suggests *First cross*, with *Choose another Stage*, plus *Show me the last layer anyway* (suggests *Last-layer orientation*) when the first two layers are solved.
+  - **Partly solved:** for example "Your white cross is done, and 2 of 4 first-layer corners are in place." / "*First-layer corners* picks up from here."
+  - **At the last layer:** "Your first two layers are solved. Only the last layer is left: the top needs orienting." (or "…the top is oriented; the pieces need moving into place."), plus "It looks like {case}." when exactly one Case fits / "*Last-layer orientation* (or *Faster last layer*) covers this." Offers *Faster last layer* or Stage 5/6.
+- **Placement details:** accepting *Faster last layer* or a 2-look Stage marks Stages 1–7 skipped by placement. *Choose another Stage* lists Stages 1–7 and the 2-look Stages. *Enter colors instead* or a camera denial opens the Manual Cube Editor, and its accepted cube is placed like a scanned one. No exclamation marks.
+- **Placement result visual:** the reading in `body` (`ink-primary`), the reason in `meta` (`ink-secondary`), the suggestion "Start at *Stage*?" in `title` with its buttons, then the set-up note in `meta`. Plain text only: no cube net, icons or color in this pass.
+- **TalkBack:** Placement reads the reading, then the reason, then the suggestion. A BETA feature reads "<feature>, BETA".
+- **Entry points:** *Start from my cube* is on Welcome (first launch only), on Recognize's "The first two layers aren't solved yet.", and on the failed skip-ahead check ("Let's find where to start"). The Learn top app bar has *Find my place*, a sheet with *Scan my cube* (hidden when `PLACEMENT` is OFF) and *Choose my level*. Links to a feature that is OFF are removed.
+- **BETA:** one shared BETA label component sits inside the feature's control, with the tooltip "May misread colors in poor light. Manual entry always works."
+- **Quick Scan capture:** a Y-shaped corner guide and a "1 / 2" counter. *Enter colors instead* stays visible.
+- **Recognize:** a unique match shows "OLL 45 · T-shape" and opens the Algorithm detail with its Demonstration playing. Several matches show "This could be one of 3 cases" with tiles and *Scan another angle*. No match shows "I couldn't match this to a case. Try another angle or better light." An already solved LL shows "Your last layer is already solved." with *Back to Library*.
 
 ## Cross-Story Dependencies
 
-- Sequence: Epic 11 runs after the Epic 10 pipeline (10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) and before 10.8 (field test) and 10.11 (release flag decision).
-- 11.1 depends on 10.2 and 10.3 (and the 10.10 and 10.13 detection baselines).
-- 11.2 depends on an accepted Full scan, which Story 10.5 provides. Its PR wires Welcome's `onStartFromCube` in `AppShell`, puts `PLACEMENT` back to GA in debug, and adds an AppShell test that taps the button and reaches the scan.
-- 11.3 depends on 10.2 and on `LastLayerMatcher` and the Algorithm Library from Epic 9 (9.2). Its *Start from my cube* link appears only when `PLACEMENT` is on.
+- 11.1 depends on 10.2 and 10.3. After it come 10.18 (Quick Scan detects the cube's real edges and corners in the frame) and then 10.17. If 10.18 slips, Quick Scan ships BETA or OFF without blocking the rest of v1.0.
+- 11.2 depends on an accepted Full scan (10.5) or an accepted Editor cube. Its base PR wires Welcome's `onStartFromCube` in `AppShell` and raises `PLACEMENT` to GA in debug, with an AppShell test that taps through to the scan. The #251 and #252 fixes are issue builds against the amendment: #251 comes before #252, and both come after #253 (Editor messages) and #249 (paint mode). They share the same Placement result. *Find my place* is shared with Story 14.1's *Choose my level* (#209, `StageSkippedByChoice`).
+- 11.3 depends on 10.2 and on `LastLayerMatcher` and the Algorithm Library (Epic 9). Its *Start from my cube* link shows only when `PLACEMENT` is on.
+- Story 10.11 raises `CAMERA_SCAN`, `QUICK_SCAN` and `PLACEMENT` for v1.0 from the test-matrix evidence, which adds the `CAMERA` permission. This happens before release Stories 12.3, 12.4 and 12.5.

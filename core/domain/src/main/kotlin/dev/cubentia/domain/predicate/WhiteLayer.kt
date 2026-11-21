@@ -50,5 +50,28 @@ internal object WhiteLayer {
         return holds && !correct
     }
 
+    /** True when all four edges of the face whose center is [centerColor] sit correctly: that color's cross. */
+    fun crossSolved(
+        state: CubeState,
+        centerColor: Color,
+    ): Boolean = correctPieces(state, FaceletTables.EDGE_FACELETS, centerColor).size == CROSS_EDGES
+
+    /**
+     * True when the first two layers are solved from [centerColor]: every corner and edge not touching the face
+     * opposite that color's center sits correctly. Color-anchored, so whole-cube rotation does not change it.
+     */
+    fun firstTwoLayersSolved(
+        state: CubeState,
+        centerColor: Color,
+    ): Boolean {
+        val colors = state.toFacelets().colors
+        val far = Face.entries.single { colors[FaceletTables.center(it)] == centerColor }.opposite
+        return (FaceletTables.CORNER_FACELETS + FaceletTables.EDGE_FACELETS)
+            .filter { stickers -> stickers.none { faceOf(it) == far } }
+            .all { stickers -> stickers.all { colors[it] == colors[FaceletTables.center(faceOf(it))] } }
+    }
+
+    private const val CROSS_EDGES = 4
+
     private fun faceOf(index: Int): Face = Face.entries[index / PER_FACE]
 }

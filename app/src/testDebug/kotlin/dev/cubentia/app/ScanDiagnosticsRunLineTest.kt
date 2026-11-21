@@ -79,12 +79,21 @@ class ScanDiagnosticsRunLineTest {
 
     @Test fun `placement logs the suggestion kind and none when the Learner leaves`() {
         val flow = PlacementFlowViewModel()
-        flow.onScanOutcome(ScanOutcome.Accepted(CubeState.SOLVED.apply(FaceTurn(Face.R, Turn.CLOCKWISE))))
+        // R U R' keeps the yellow cross but breaks the white one, and is three turns from solved: a non-white cross at First cross.
+        val threeTurns =
+            CubeState.SOLVED.apply(
+                FaceTurn(Face.R, Turn.CLOCKWISE),
+                FaceTurn(Face.U, Turn.CLOCKWISE),
+                FaceTurn(Face.R, Turn.COUNTERCLOCKWISE),
+            )
+        flow.onScanOutcome(ScanOutcome.Accepted(threeTurns))
         flow.evaluateScan(bundle.stages)
         flow.reset()
         val line = runs("placement").single()
-        assertTrue(line, Regex("placement run elapsedMs=\\d+ outcome=[A-Z_]+ suggested=stage-\\S+ accepted=none device=\\S+").matches(line))
-        assertTrue(line, !line.contains("outcome=SOLVED"))
+        assertTrue(
+            line,
+            Regex("placement run elapsedMs=\\d+ outcome=NON_WHITE suggested=stage-02-first-cross accepted=none device=\\S+").matches(line),
+        )
     }
 
     @Test fun `a placement suggestion from manual entry is never logged`() {

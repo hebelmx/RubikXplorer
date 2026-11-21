@@ -227,24 +227,16 @@ object ScanDiagnostics {
     fun onPlacementSuggested(outcome: PlacementOutcome) {
         val started = placementStartedAt ?: return
         placementStartedAt = null
-        val stage =
+        val (kind, stage) =
             when (outcome) {
-                is PlacementOutcome.Suggested -> outcome.stage.id.value
-                is PlacementOutcome.AtLastLayer -> outcome.stage.id.value
-                is PlacementOutcome.NonWhiteCross -> outcome.stage.id.value
-                PlacementOutcome.Solved -> "SOLVED"
+                PlacementOutcome.Solved -> "SOLVED" to "SOLVED"
+                is PlacementOutcome.NearlySolved -> "NEARLY_SOLVED" to "NEARLY_SOLVED"
+                is PlacementOutcome.NothingSolved -> "NOTHING_SOLVED" to outcome.stage.id.value
+                is PlacementOutcome.NonWhite -> "NON_WHITE" to outcome.stage.id.value
+                is PlacementOutcome.PartlySolved -> "PARTLY_SOLVED" to outcome.stage.id.value
+                is PlacementOutcome.AtLastLayer -> "AT_LAST_LAYER" to outcome.stage.id.value
             }
-        placementSuggestion =
-            PlacementSuggestion(
-                elapsed(started),
-                when (outcome) {
-                    is PlacementOutcome.Suggested -> "SUGGESTED"
-                    is PlacementOutcome.AtLastLayer -> "AT_LAST_LAYER"
-                    is PlacementOutcome.NonWhiteCross -> "NON_WHITE_CROSS"
-                    PlacementOutcome.Solved -> "SOLVED"
-                },
-                stage,
-            )
+        placementSuggestion = PlacementSuggestion(elapsed(started), kind, stage)
     }
 
     fun onPlacementRun(accepted: String?) {

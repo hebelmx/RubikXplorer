@@ -82,7 +82,7 @@ class PlacementFromScanRouteTest {
             rule.waitUntil(10_000) { rule.onAllNodesWithTag("placement:prompt").fetchSemanticsNodes().isNotEmpty() }
             rule
                 .onNodeWithTag("placement:prompt")
-                .assertTextContains("Your cube is solved — scramble it and scan again, or start Stage 1.")
+                .assertTextContains("Your cube is solved.")
             assertEquals(SolvePhase.Home, main.solveFlowPhase())
             ShadowLog.clear()
             rule.onNodeWithTag("placement:startStage1").performClick()
