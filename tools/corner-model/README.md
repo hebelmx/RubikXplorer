@@ -29,9 +29,20 @@ Evaluate held-out synthetic 3D, real-palette warped `Fixtures/live/` frames, and
 uv run --project tools/corner-model python tools/corner-model/evaluate_model.py
 ```
 
-## Real corner fixtures (`Fixtures/corner/`, optional fine-tuning)
+## Real corner fixtures (`Fixtures/corner/`)
 
-`train_corner_model.py --fixtures-corner` (default `Fixtures/corner/`) appends real labeled captures. Each `*.json` file:
+Real labeled Lenovo TB128XU and Galaxy S24 FE captures serve two purposes:
+
+- **Acceptance (Story 10.18 AC2, the PO capture session's check):**
+
+  ```bash
+  uv run --project tools/corner-model python tools/corner-model/evaluate_model.py --fixtures-corner Fixtures/corner
+  ```
+
+  Evaluates only the real captures: recall, mean/median/p90 keypoint error (128 px crop) on positives and rejection on negatives, with the same presence threshold and geometry guard as the app. It exits nonzero when the directory is missing, holds no labeled capture, lacks positives or negatives, or falls below recall 92% / rejection 96%. `--json-out` writes the numbers for the evidence doc.
+- **Fine-tuning (optional):** `train_corner_model.py --fixtures-corner` (default `Fixtures/corner/`) appends the captures to training. Evaluate on captures that were not trained on.
+
+Each `*.json` file:
 
 ```json
 { "frame": "lenovo_stka_0001.png", "label": "positive", "keypoints": [[0.50, 0.12], [0.18, 0.31], [0.20, 0.72], [0.50, 0.90], [0.80, 0.72], [0.82, 0.31], [0.50, 0.50]] }

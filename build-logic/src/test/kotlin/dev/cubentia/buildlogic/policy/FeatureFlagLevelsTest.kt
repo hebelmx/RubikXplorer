@@ -28,6 +28,14 @@ class FeatureFlagLevelsTest {
     }
 
     @Test
+    fun `the opt-in cornerR8 test build type raises only the corner flags over the release levels`() {
+        assertEquals(
+            "QUICK_SCAN=BETA,PLACEMENT=OFF,CASE_RECOGNITION=BETA,TEST_ME=BETA,CAMERA_SCAN=BETA,ADAPTIVE_ASSISTANCE=GA",
+            FeatureFlagLevels.forBuildType("cornerR8"),
+        )
+    }
+
+    @Test
     fun `unknown build type is rejected`() {
         assertThrows<IllegalArgumentException> { FeatureFlagLevels.forBuildType("staging") }
     }

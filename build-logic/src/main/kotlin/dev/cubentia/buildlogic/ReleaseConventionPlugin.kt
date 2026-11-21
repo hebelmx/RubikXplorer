@@ -11,6 +11,8 @@ import dev.cubentia.buildlogic.tasks.CheckReleaseSizeTask
 import dev.cubentia.buildlogic.tasks.GenerateKeepRulesTask
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.artifacts.ExternalModuleDependency
+import org.gradle.api.artifacts.MinimalExternalModuleDependency
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.register
@@ -25,6 +27,10 @@ import org.gradle.kotlin.dsl.register
  * Also creates the `benchmark` build type that `:macrobenchmark` measures (NFR-2): a copy of
  * release (R8, shrinking, keep rules, release flag levels, release `DebugOptions`) that is
  * debug-signed so it installs, and profileable from shell only through its own manifest.
+ *
+ * With `-Pcubentia.cornerR8=true` only, also creates `cornerR8` (Story 10.18): release R8 + keep rules with the
+ * corner flags raised, debug-signed, made the `testBuildType` so `LiteRtCornerDetectorDeviceTest` proves LiteRT
+ * inference survives R8. It never ships and the default build never has it.
  */
 class ReleaseConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) =
@@ -32,6 +38,8 @@ class ReleaseConventionPlugin : Plugin<Project> {
             pluginManager.withPlugin("com.android.application") {
                 val flagLevels = featureFlagLevels()
                 flagLevels.composesCamera = true
+                // Opt-in only (-Pcubentia.cornerR8=true): the default build never has the cornerR8 build type.
+                val cornerR8 = providers.gradleProperty("cubentia.cornerR8").orNull == "true"
                 val signing =
                     ReleaseInputs.signing(
                         ReleaseInputs.signingKeys
@@ -66,6 +74,18 @@ class ReleaseConventionPlugin : Plugin<Project> {
                     }
                     // Per-build-type sources (DebugOptions) come from release, so benchmark ships the same code.
                     sourceSets.getByName(BENCHMARK).kotlin.directories += "src/$RELEASE/kotlin"
+                    if (cornerR8) {
+                        // Story 10.18: R8-minified like release, corner flags raised, debug-signed, and the
+                        // instrumented test build type so LiteRtCornerDetectorDeviceTest runs against R8 output.
+                        buildTypes.create(CORNER_R8) {
+                            initWith(release)
+                            signingConfig = signingConfigs.getByName("debug")
+                            matchingFallbacks += RELEASE
+                        }
+                        sourceSets.getByName(CORNER_R8).kotlin.directories += "src/$RELEASE/kotlin"
+                        sourceSets.getByName("androidTestCornerR8").kotlin.directories += "src/androidTestDebug/kotlin"
+                        testBuildType = CORNER_R8
+                    }
                 }
 
                 val keepRules =
@@ -91,7 +111,15 @@ class ReleaseConventionPlugin : Plugin<Project> {
                             if (FeatureFlagLevels.isCornerModelEnabled(levels)) {
                                 sourceSet.kotlin.directories += "src/camera/corner/kotlin"
                                 sourceSet.assets.directories += "src/camera/corner/assets"
-                                dependencies.add("${buildType.name}Implementation", libs.library("litert"))
+                                dependencies.addProvider<MinimalExternalModuleDependency, ExternalModuleDependency>(
+                                    "${buildType.name}Implementation",
+                                    libs.library("litert"),
+                                ) {
+                                    // AD-13: ai-delivery is LiteRT's Play AI-pack download path (asset-delivery,
+                                    // WorkManager, Play services: boot/network/foreground-service components). The
+                                    // model is a bundled asset read by Interpreter, which never touches it.
+                                    exclude(mapOf("group" to "com.google.android.play", "module" to "ai-delivery"))
+                                }
                                 android.androidResources.noCompress += "tflite"
                             }
                             if (buildType.isDebuggable) {
@@ -106,14 +134,29 @@ class ReleaseConventionPlugin : Plugin<Project> {
                 androidComponents.onVariants { variant ->
                     if (flagLevels.isCameraEnabled(variant.buildType)) {
                         variant.sources.manifests.addStaticManifestFile("src/camera/AndroidManifest.xml")
+                        if (flagLevels.isCornerModelEnabled(variant.buildType)) {
+                            variant.sources.manifests.addStaticManifestFile("src/camera/corner/AndroidManifest.xml")
+                        }
                         if (variant.debuggable) {
                             variant.sources.manifests.addStaticManifestFile("src/camera/debug/AndroidManifest.xml")
                         }
                     }
                 }
-                listOf(RELEASE, BENCHMARK).forEach { buildType ->
+                listOf(RELEASE, BENCHMARK, CORNER_R8).forEach { buildType ->
                     androidComponents.onVariants(androidComponents.selector().withBuildType(buildType)) { variant ->
                         variant.proguardFiles.add(keepRules.flatMap { it.outputFile })
+                    }
+                }
+                if (cornerR8) {
+                    // The androidTest APK links against the app's own classes and the Kotlin runtime, which R8 would
+                    // otherwise strip or rename; LiteRT (org.tensorflow.lite) keeps only the shipped keep rules.
+                    val testRules =
+                        tasks.register<GenerateKeepRulesTask>("generateCornerR8TestKeepRules") {
+                            rules.set(CORNER_R8_TEST_RULES)
+                            outputFile.set(layout.buildDirectory.file("generated/cubentia/corner-r8-test-rules.pro"))
+                        }
+                    androidComponents.onVariants(androidComponents.selector().withBuildType(CORNER_R8)) { variant ->
+                        variant.proguardFiles.add(testRules.flatMap { it.outputFile })
                     }
                 }
                 androidComponents.onVariants { variant ->
@@ -168,8 +211,10 @@ class ReleaseConventionPlugin : Plugin<Project> {
                     }
                 }
                 // The benchmark variant shares release code; running the Robolectric suite a third time adds nothing.
-                androidComponents.beforeVariants(androidComponents.selector().withBuildType(BENCHMARK)) { variant ->
-                    variant.hostTests[HostTestBuilder.UNIT_TEST_TYPE]?.enable = false
+                listOf(BENCHMARK, CORNER_R8).forEach { buildType ->
+                    androidComponents.beforeVariants(androidComponents.selector().withBuildType(buildType)) { variant ->
+                        variant.hostTests[HostTestBuilder.UNIT_TEST_TYPE]?.enable = false
+                    }
                 }
             }
         }
@@ -178,5 +223,8 @@ class ReleaseConventionPlugin : Plugin<Project> {
         const val FLAG_FIELD = "FEATURE_FLAG_LEVELS"
         const val RELEASE = "release"
         const val BENCHMARK = "benchmark"
+        const val CORNER_R8 = "cornerR8"
+        const val CORNER_R8_TEST_RULES =
+            "-keep class dev.cubentia.** { *; }\n-keep class kotlin.** { *; }\n-keep class kotlinx.** { *; }\n"
     }
 }

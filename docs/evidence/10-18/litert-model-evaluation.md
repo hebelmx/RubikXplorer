@@ -18,7 +18,7 @@
   - 24,000 train / 2,400 val synthetic 3D cubes rendered with randomized pinhole perspective (`pitch 16–52°`, `yaw ±26°`, `roll ±28°`, `persp 0.05–0.38`, off-center shifts), both stickered (black/white/grey body) and stickerless, solved and scrambled, directional face shading, specular glare, YUV 4:2:0 chroma subsampling, sensor noise/blur, gripping hands, cluttered desks, and dark glossy tabletop reflections (#196), plus 26% hard negatives (empty surfaces, dark glossy reflection-only frames, single flat 2D faces, hands only, colored clutter).
   - Real device palettes and warped 3×3 face crops sourced from `Fixtures/live/` (Lenovo TB128XU & Galaxy S24 FE `stka`/`stkb`/`stla`/`stlb`), holding out `lenovo-tb128xu_stkb_studio-a` and `sm-s721u1_stlb_studio-a` crops for out-of-distribution evaluation.
 
-> **PO Device Session Note (`Fixtures/corner/`):** No real corner-hold captures are committed under `Fixtures/corner/` yet. `train_corner_model.py` includes a `--fixtures-corner` fine-tuning hook ready to ingest real Lenovo TB128XU and Galaxy S24 FE corner captures once recorded during the PO hands-on BETA session.
+> **PO Device Session Note (`Fixtures/corner/`):** No real corner-hold captures are committed under `Fixtures/corner/` yet, so AC2's validation on real Lenovo TB128XU and Galaxy S24 FE frames has not run. Once the PO capture session records and labels them (format in [`tools/corner-model/README.md`](../../../tools/corner-model/README.md#real-corner-fixtures-fixturescorner)), the acceptance check is `uv run --project tools/corner-model python tools/corner-model/evaluate_model.py --fixtures-corner Fixtures/corner`: it reports recall, pixel error and negative rejection on the real captures and exits nonzero below recall 92% / rejection 96% or when the directory is missing or empty. `train_corner_model.py --fixtures-corner` can also fine-tune on the same captures (keep an evaluation split apart).
 
 ---
 
@@ -40,6 +40,8 @@ All slices are synthetic renders from the training generator (fresh seeds). Only
 ---
 
 ## 3. On-Device Verification — Lenovo Tab M10 Plus 3rd Gen (`TB128XU`, `HA1S28MM`, Snapdragon 680)
+
+> **Status: from a previous revision of `LiteRtCornerDetectorDeviceTest`, pending device gate D1.** The numbers below come from an earlier revision of the test (before its poses were widened and the real-palette fields were added); its raw XML and logcat are not committed, so they are not reproducible from the repository. Re-run the current test on the Lenovo (D1) and commit the raw report before treating them as AC evidence.
 
 Executed via `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.cubentia.app.camera.LiteRtCornerDetectorDeviceTest` against the main app debug build (off main thread on single-thread analyzer executor). Run on 2026-11-20 23:04 CST against the committed `corner_keypoints.tflite` (406,100 bytes); result `TEST-Lenovo TB128XU - 13.xml` (1 test, 0 failures, device `HA1S28MM`) and logcat tag `LiteRtDeviceTest`:
 
@@ -67,7 +69,9 @@ The benchmark frames are synthetic renders (with the Kotlin test palette) fed th
   - `checkReleaseCameraClasspath`: **0** CameraX / LiteRT classes, native libs, or `.tflite` assets.
 - **Projected Camera + LiteRT (`checkCameraSize`):**
   - Single-ABI `arm64-v8a` native accounting + conservative 40% R8 retention for unminified debug jars + uncompressed `.tflite` (`406,100` bytes): **26,715,613 bytes (26.72 MB < 30.00 MB)**.
-- **Measured R8-minified build (`benchmark`, temporary init-script with `CAMERA_SCAN = BETA, QUICK_SCAN = BETA`):**
+- **R8 inference check (device gate D3):** `./gradlew -Pcubentia.cornerR8=true :app:connectedCornerR8AndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.cubentia.app.camera.LiteRtCornerDetectorDeviceTest` runs the device test against the opt-in `cornerR8` build type: release R8 and `cubentia-keep-rules.pro` with `CAMERA_SCAN`/`QUICK_SCAN`/`CASE_RECOGNITION` = BETA, debug-signed (the test-only keep rules retain `dev.cubentia.**` and the Kotlin runtime so the test APK links; LiteRT keeps only the shipped rules). `assembleCornerR8` and `assembleCornerR8AndroidTest` build locally; the connected run needs a device and has not run. Release flags stay OFF.
+- **AD-13 manifest (corner flags on):** `litert` is added without `com.google.android.play:ai-delivery` (the Play AI-pack download path, unused with a bundled model: it brought asset-delivery, WorkManager and Play services), and `src/camera/corner/AndroidManifest.xml` removes litert-api's `FOREGROUND_SERVICE`/`FOREGROUND_SERVICE_DATA_SYNC`; `src/camera/AndroidManifest.xml` removes `ACCESS_NETWORK_STATE` (media3-common via CameraX). `ManifestPolicy` now fails any variant that declares `FOREGROUND_SERVICE*`, `RECEIVE_BOOT_COMPLETED`, `ACCESS_NETWORK_STATE`, `WAKE_LOCK` or a Play Core / WorkManager component.
+- **Measured R8-minified build (`benchmark`, temporary init-script with `CAMERA_SCAN = BETA, QUICK_SCAN = BETA`; measured before the ai-delivery exclusion):**
   - Single-ABI `arm64-v8a` APK: `13,004,957` bytes; uncompressed DEX: `4,248,056` bytes; **installed estimate: `25,902,725` bytes (25.90 MB, 4.10 MB headroom below NFR-11 30 MB)**.
   - `corner_keypoints.tflite` packaged uncompressed (`compress_type = 0`, `406,100` bytes).
   - R8 mapping confirmed `org.tensorflow.lite.NativeInterpreterWrapper`, `org.tensorflow.lite.TensorImpl`, and `LiteRtCornerDetector` retained cleanly with `cubentia-keep-rules.pro`.
@@ -80,7 +84,7 @@ The benchmark frames are synthetic renders (with the Kotlin test palette) fed th
 
 - **3D side-face Red (`R`) vs. Orange (`L`):**
   - Tightened 3D unwarped cell ROI (`CornerReader.CORNER_CELL_ROI_FRACTION = 0.48`, keeping 2D Guided Scan at `0.60`) and disabled Hold-2 AWB re-metering (`includeAwb = (quick.hold == 1)`) so Hold 2 (`Y/O/B`, no white face) does not shift white balance.
-  - Verified across all 8 real Lenovo TB128XU & Galaxy S24 FE `stka`/`stkb`/`stla`/`stlb` studio palettes under directional side-face shading in `CornerLocatorTest`: **0 `R`/`L` 2D fallbacks**.
+  - **Synthetic only; device check pending (device gate D2).** `CornerLocatorTest` gives **0 `R`/`L` 2D fallbacks** over all 8 real Lenovo TB128XU & Galaxy S24 FE `stka`/`stkb`/`stla`/`stlb` studio palettes under assumed 0.92/0.88 side-face shading with an exact injected detector. It is a regression guard, not a repro: it also passes with the old 0.60 ROI (checked locally by reverting the ROI), and the Lenovo log records only `unc=9` on `R`/`L`, no side-face colours to replay. Only the bevel-band ROI test fails on the old ROI. Whether the ROI and the Hold 2 AWB change remove the device `unc=9` fallback is unverified until D2.
 - **Capture-cue regressions (#197):**
   - Fixed `quickScan:captureFlash` overlay in `GuidedScanScreen.CameraArea` (child overlay `Box`, no longer overwritten by `.testTag("scanViewfinder")`).
   - Fixed Capture 2 fallback transition in `GuidedScanActivity.captureCorner` (`GuidedScanViewModel.holdTransition`) so leaving `CornerViewfinder` for Guided fallback waits for the full 400 ms freeze cue.

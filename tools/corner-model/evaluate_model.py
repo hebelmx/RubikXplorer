@@ -3,6 +3,8 @@ real-palette warped Fixtures/live/ frames, and adversarial dark/glossy & empty n
 
 Usage:
     uv run --project tools/corner-model python tools/corner-model/evaluate_model.py
+    # Story 10.18 AC2 acceptance on real labelled Lenovo / S24 FE captures (README "Real corner fixtures"):
+    uv run --project tools/corner-model python tools/corner-model/evaluate_model.py --fixtures-corner Fixtures/corner
 """
 
 from __future__ import annotations
@@ -10,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
@@ -30,6 +33,10 @@ DEFAULT_MODEL = REPO_ROOT / "app/src/camera/corner/assets/corner_keypoints.tflit
 DEFAULT_FIXTURES_LIVE = REPO_ROOT / "Fixtures/live"
 DEFAULT_THRESHOLD = 0.55
 MAX_MODEL_BYTES = 450 * 1024
+# Gates shared by the synthetic run and the real-capture slice.
+MIN_PRECISION = 0.96
+MIN_RECALL = 0.92
+MIN_NEG_REJECTION = 0.96
 
 
 def run_tflite(interpreter: tf.lite.Interpreter, batch: np.ndarray) -> np.ndarray:
@@ -90,6 +97,23 @@ def evaluate_slice(
     return metrics
 
 
+def evaluate_real_corner_fixtures(interpreter: tf.lite.Interpreter, corner_dir: Path, threshold: float) -> dict[str, float]:
+    """Evaluates labelled real captures under `corner_dir` (README contract, same loader as training).
+
+    Exits nonzero with a clear message when the directory is missing or holds no labelled capture; a malformed
+    capture stops the run with its path (the loader never skips one).
+    """
+    from train_corner_model import load_optional_corner_fixtures
+
+    if not corner_dir.is_dir():
+        sys.exit(f"--fixtures-corner {corner_dir} does not exist; record and label real captures first (README).")
+    loaded = load_optional_corner_fixtures(corner_dir)
+    if loaded is None:
+        sys.exit(f"--fixtures-corner {corner_dir} holds no labelled *.json capture; nothing to evaluate (README).")
+    xs, ys = loaded
+    return evaluate_slice(interpreter, list(zip(xs, ys)), threshold)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate quantized corner_keypoints.tflite.")
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL)
@@ -98,6 +122,12 @@ def main() -> None:
     parser.add_argument("--per-slice", type=int, default=160)
     parser.add_argument("--seed", type=int, default=991018)
     parser.add_argument("--json-out", type=Path, default=None)
+    parser.add_argument(
+        "--fixtures-corner",
+        type=Path,
+        default=None,
+        help="Evaluate only labelled real captures in this directory (Story 10.18 AC2 acceptance), not the synthetic slices.",
+    )
     args = parser.parse_args()
 
     if not args.model.is_file():
@@ -106,6 +136,37 @@ def main() -> None:
     size_bytes = args.model.stat().st_size
     interpreter = tf.lite.Interpreter(model_path=str(args.model), num_threads=4)
     interpreter.allocate_tensors()
+
+    if args.fixtures_corner is not None:
+        m = evaluate_real_corner_fixtures(interpreter, args.fixtures_corner, args.threshold)
+        positives = int(m["tp"] + m["fn"])
+        negatives = int(m["tn"] + m["fp"])
+        print(f"Model: {args.model} ({size_bytes:,} bytes); real captures: {args.fixtures_corner}")
+        print(f"Presence threshold: {args.threshold:.2f} + CornerLocator.isValidCubeGeometry guard")
+        failures = []
+        if positives:
+            print(
+                f"positives={positives} | recall={m['recall']*100:5.1f}% (raw={m['raw_presence_recall']*100:5.1f}%) "
+                f"| mean={m['mean_px_err']:4.2f}px med={m['median_px_err']:4.2f}px p90={m['p90_px_err']:4.2f}px (128 px crop)"
+            )
+            if m["recall"] < MIN_RECALL:
+                failures.append(f"recall {m['recall']:.4f} < {MIN_RECALL}")
+        else:
+            failures.append("no positive capture; recall and pixel error cannot be measured")
+        if negatives:
+            print(f"negatives={negatives} | rejection={m['rejection_rate']*100:5.1f}% | FP={int(m['fp'])}")
+            if m["rejection_rate"] < MIN_NEG_REJECTION:
+                failures.append(f"negative rejection {m['rejection_rate']:.4f} < {MIN_NEG_REJECTION}")
+        else:
+            failures.append("no negative capture; rejection cannot be measured")
+        if args.json_out is not None:
+            args.json_out.parent.mkdir(parents=True, exist_ok=True)
+            report = {"model_path": str(args.model), "fixtures_corner": str(args.fixtures_corner), "threshold": args.threshold, "real": m}
+            args.json_out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        if failures:
+            sys.exit("Real-capture acceptance FAILED: " + "; ".join(failures))
+        print("Real-capture acceptance PASSED")
+        return
 
     # Load ALL live fixtures (including held-out lenovo stkb and s24fe stlb!)
     all_assets = load_live_fixtures(args.fixtures_live)
@@ -194,9 +255,9 @@ def main() -> None:
         args.json_out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 
     assert size_bytes < MAX_MODEL_BYTES, f"Model size {size_bytes} exceeds {MAX_MODEL_BYTES} bytes"
-    assert precision >= 0.96, f"Precision too low: {precision:.4f}"
-    assert recall >= 0.92, f"Recall too low: {recall:.4f}"
-    assert neg_reject >= 0.96, f"Negative rejection too low: {neg_reject:.4f}"
+    assert precision >= MIN_PRECISION, f"Precision too low: {precision:.4f}"
+    assert recall >= MIN_RECALL, f"Recall too low: {recall:.4f}"
+    assert neg_reject >= MIN_NEG_REJECTION, f"Negative rejection too low: {neg_reject:.4f}"
 
 
 if __name__ == "__main__":

@@ -61,6 +61,8 @@ object FeatureFlagLevels {
                 },
             "release" to releaseLevels,
             "benchmark" to releaseLevels,
+            // Opt-in R8 test build type (-Pcubentia.cornerR8=true, Story 10.18); never shipped.
+            "cornerR8" to releaseLevels + cornerModelFlags.plus("CAMERA_SCAN").associateWith { "BETA" },
         )
 
     /** Encodes [levelsByFlag] as `FLAG=LEVEL,...` in [flags] order, rejecting a missing or unknown entry. */

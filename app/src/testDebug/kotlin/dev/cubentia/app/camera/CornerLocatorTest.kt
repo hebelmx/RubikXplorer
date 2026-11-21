@@ -357,7 +357,9 @@ class CornerLocatorTest {
     }
 
     @Test
-    fun `shaded 3D side faces with real Lenovo and S24 FE palettes separate Red and Orange without R or L fallback`() {
+    fun `synthetic shading over real Lenovo and S24 FE palettes keeps Red and Orange apart without R or L fallback`() {
+        // Regression guard only: it is not a repro of the Lenovo unc=9 R/L fallback (lenovo-quickscan-2026-11-20-6cd18ab1.log
+        // logs no side-face colours to replay) and it passes with the old 0.60 ROI too. On-device R/L is device gate D2.
         val groups =
             listOf(
                 "lenovo-tb128xu_stka_studio-a",
@@ -389,8 +391,8 @@ class CornerLocatorTest {
             var orange: Lab? = null
             QuickScanPlan.holds.forEachIndexed { holdIdx, hold ->
                 val expected = hold.map { step -> expectedFace(cube, step.face) }
-                // Directional 3D shading (~17–25% linear-light drop on oblique side faces -> 0.92/0.88 in sRGB),
-                // plus bevel dark border at cell edges (where the old 0.60 ROI picked up border darkening).
+                // Assumed (not measured) directional 3D shading: 0.92/0.88 in sRGB on the oblique side faces, plus a
+                // dark body border at cell edges.
                 val shades = listOf(1.0, 0.92, 0.88)
                 val image =
                     render(320, 240, quads) { face, x, y ->

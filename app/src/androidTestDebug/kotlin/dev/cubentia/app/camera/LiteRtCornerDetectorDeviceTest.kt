@@ -33,6 +33,9 @@ import kotlin.math.roundToInt
  * - Detects 7 visible corners across 0/90/180/270 rotations, stickered & stickerless, solved & scrambled cubes,
  *   reporting pixel error and validating end-to-end [CornerReader.read] unwarping.
  * - Rejects empty and dark/glossy reflection-only negative frames (#196) by returning `null`.
+ *
+ * With `-Pcubentia.cornerR8=true` it also runs against the R8-minified `cornerR8` build type
+ * (`:app:connectedCornerR8AndroidTest`), proving the LiteRT keep rules (device gate D3).
  */
 @RunWith(AndroidJUnit4::class)
 class LiteRtCornerDetectorDeviceTest {
