@@ -134,6 +134,62 @@ class CornerLocatorTest {
         }
     }
 
+    @Test
+    fun `off-center perspective-foreshortened cube is detected and read without isometric guide alignment`() {
+        val cube =
+            CubeState.SOLVED.apply(
+                listOf(FaceTurn(Face.R, Turn.CLOCKWISE), FaceTurn(Face.U, Turn.HALF), FaceTurn(Face.F, Turn.COUNTERCLOCKWISE)),
+            )
+        val centers = CalibrationCenters(palette.mapValues { (_, rgb) -> readColor(rgb) })
+        val guide = CornerGuide(grid(240, 320, 0), 0)
+        val center = guide.vertices().last() + CornerPoint(14.0, -16.0)
+        // Perspective-foreshortened projection (low pitch, strong perspective) shifted off-center
+        val radius = guide.radius * 0.74
+        val yaw = 45.0 * kotlin.math.PI / 180.0
+        val pitch = 24.0 * kotlin.math.PI / 180.0
+        val roll = -10.0 * kotlin.math.PI / 180.0
+        val unitScale = radius / 1.4142135623730951
+        val pts =
+            listOf(
+                Triple(-1.0, 1.0, -1.0),
+                Triple(-1.0, 1.0, 1.0),
+                Triple(-1.0, -1.0, 1.0),
+                Triple(1.0, -1.0, 1.0),
+                Triple(1.0, -1.0, -1.0),
+                Triple(1.0, 1.0, -1.0),
+                Triple(1.0, 1.0, 1.0),
+            ).map { (cx, cy, cz) ->
+                val x1 = cx * kotlin.math.cos(yaw) - cz * kotlin.math.sin(yaw)
+                val z1 = cx * kotlin.math.sin(yaw) + cz * kotlin.math.cos(yaw)
+                val y2 = cy * kotlin.math.cos(pitch) - z1 * kotlin.math.sin(pitch)
+                val z2 = cy * kotlin.math.sin(pitch) + z1 * kotlin.math.cos(pitch)
+                val depth = 1.0 - z2 * 0.30 / 1.732
+                val px = x1 / depth
+                val py = -y2 / depth
+                val rx = px * kotlin.math.cos(roll) - py * kotlin.math.sin(roll)
+                val ry = px * kotlin.math.sin(roll) + py * kotlin.math.cos(roll)
+                center + CornerPoint(rx * unitScale, ry * unitScale)
+            }
+        val quads = guide.quads(pts)
+        val expected = QuickScanPlan.holds[0].map { step -> expectedFace(cube, step.face) }
+        val image =
+            render(240, 320, quads) { face, x, y ->
+                val column = (x * 3).toInt()
+                val row = (y * 3).toInt()
+                if (listOf(x, y).any { abs(it * 3 - (it * 3).roundToInt()) < 0.06 }) {
+                    BODY
+                } else {
+                    palette.getValue(expected[face][row * 3 + column])
+                }
+            }
+        val corner = CornerReader.read(image.toCornerFrame(noise = 3), guide)
+        assertTrue(corner.detected, "Expected off-center perspective cube to be detected: $corner")
+        assertEquals(3, corner.normalizedQuads.size)
+        corner.faces.forEachIndexed { face, stats ->
+            assertEquals(expected[face], stats?.cells?.map { it?.value?.let { lab -> classify(lab, centers).color } })
+        }
+    }
+
     private fun expectedFace(
         cube: CubeState,
         face: Face,

@@ -318,7 +318,15 @@ class GuidedScanActivity : ComponentActivity() {
                             },
                         )
                     } else {
-                        GuidedScanScreen(phase, strings, actions, scan.frozen, offerEnterColors = solveScan) {
+                        GuidedScanScreen(
+                            phase,
+                            strings,
+                            actions,
+                            scan.frozen,
+                            offerEnterColors = solveScan,
+                            detectedCornerQuads = scan.detectedCornerQuads,
+                            cornerThumbnail = scan.cornerThumbnail,
+                        ) {
                             AndroidView(
                                 factory = { context ->
                                     frameSource.preview(context).also {
@@ -476,6 +484,8 @@ class GuidedScanActivity : ComponentActivity() {
             if (scan.quickStartedAt == null) scan.quickStartedAt = ScanDiagnostics.startRun()
             dev.cubentia.app.ScanDiagnostics
                 .onCornerFrame(now, corner.detected, corner.faces, corner.score)
+            val quads = corner.normalizedQuads
+            ContextCompat.getMainExecutor(this).execute { scan.detectedCornerQuads = quads }
             captureCorner { it.onFrame(corner.detected, corner.faces, now) }
             return
         }
@@ -519,7 +529,9 @@ class GuidedScanActivity : ComponentActivity() {
             if (phase !is GuidedScanPhase.CornerViewfinder) return@execute
             if (capture != null) {
                 shutterSound.play()
-                scan.frozen = FrozenCapture(++scan.captures, Face.U, frameSource.snapshot(), shrink = false)
+                val snap = frameSource.snapshot()
+                scan.cornerThumbnail = snap
+                scan.frozen = FrozenCapture(++scan.captures, Face.U, snap, shrink = false)
             }
             if (next != null && phase != next) phase = next
             if (QuickScanEffect.Remeter in effects) meterOnGrid()
@@ -668,6 +680,8 @@ internal class GuidedScanViewModel : ViewModel() {
     var quickResult by mutableStateOf<dev.cubentia.domain.recognition.PhysicalObservation.Partial?>(null)
     var calibrationMode = false
     var quickScanMode = false
+    var detectedCornerQuads by mutableStateOf<List<List<CornerPoint>>>(emptyList())
+    var cornerThumbnail by mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null)
 
     @Volatile var caseCorners: Int? = null
 
