@@ -299,6 +299,20 @@ class QuickScanControllerTest {
         return scan.onShutter().last()
     }
 
+    @Test
+    fun `undetected corner for three seconds coaches a plain light surface and clears on detection`() {
+        val scan = QuickScanController()
+        val first = hold(1)
+        scan.onFrame(false, List(3) { null }, 100)
+        assertEquals(null, scan.coaching)
+        scan.onFrame(false, List(3) { null }, 3099)
+        assertEquals(null, scan.coaching)
+        scan.onFrame(false, List(3) { null }, 3100)
+        assertEquals(Coaching.PLAIN_LIGHT_SURFACE, scan.coaching)
+        scan.onFrame(true, first, 3200)
+        assertEquals(null, scan.coaching)
+    }
+
     private fun guidedCapture(
         scan: QuickScanController,
         stats: FrameStats,

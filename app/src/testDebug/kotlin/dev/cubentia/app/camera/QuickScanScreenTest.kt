@@ -1,7 +1,10 @@
 package dev.cubentia.app.camera
 
 import android.app.Application
+import android.graphics.Bitmap
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -17,6 +20,7 @@ import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
 import dev.cubentia.domain.cube.Face
+import dev.cubentia.domain.recognition.Coaching
 import dev.cubentia.domain.recognition.GuidedScanPlan
 import org.junit.Rule
 import org.junit.Test
@@ -53,5 +57,25 @@ class QuickScanScreenTest {
         rule.onNodeWithText("Show the green face again, with white on top.").assertIsDisplayed()
         rule.onNodeWithTag("scanNet").assertIsDisplayed()
         rule.onNodeWithTag("scanEnterColors").assertIsDisplayed()
+    }
+
+    @Test
+    fun detectedCornerOutlineThumbnailAndLightSurfaceCoachingShow() {
+        val strings = ContentStrings((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings)
+        val quad = listOf(CornerPoint(0.5, 0.2), CornerPoint(0.7, 0.35), CornerPoint(0.5, 0.5), CornerPoint(0.3, 0.35))
+        rule.setContent {
+            CubentiaTheme {
+                GuidedScanScreen(
+                    GuidedScanPhase.CornerViewfinder(hold = 2, coaching = Coaching.PLAIN_LIGHT_SURFACE),
+                    strings,
+                    GuidedScanActions(),
+                    detectedCornerQuads = listOf(quad),
+                    cornerThumbnail = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888).asImageBitmap(),
+                )
+            }
+        }
+        rule.onNodeWithTag("quickScan:detectedOutline").assertIsDisplayed()
+        rule.onNodeWithTag("quickScan:thumbnail").assertIsDisplayed()
+        rule.onNodeWithTag("scanCoaching").assertTextEquals("Try a plain, light surface.")
     }
 }

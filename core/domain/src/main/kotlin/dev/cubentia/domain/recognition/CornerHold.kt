@@ -11,6 +11,7 @@ internal class CornerHold {
     private var meteredAt: Long? = null
     private var reference: List<Lab?>? = null
     private var steadySince = 0L
+    private var undetectedSince: Long? = null
     var coaching: Coaching? = null
         private set
 
@@ -24,6 +25,11 @@ internal class CornerHold {
         require(faces.size == 3)
         latest = faces
         unlocated = !detected
+        if (detected) {
+            undetectedSince = null
+        } else if (undetectedSince == null) {
+            undetectedSince = nowMs
+        }
         val values = values()
         if (detected && !allowAuto(values)) {
             // Time spent on a view that may not auto-capture never counts toward the next steady hold.
@@ -31,11 +37,13 @@ internal class CornerHold {
             return Decision.Wait
         }
         val qualities = latest.map { it?.let(FrameQuality::assessShutter) }
+        val longUndetected = !detected && undetectedSince?.let { nowMs - it >= UNDETECTED_COACHING_MS } == true
         coaching =
             when {
                 CaptureQuality.LOW_LIGHT in qualities -> Coaching.LOW_LIGHT
                 CaptureQuality.GLARE in qualities -> Coaching.GLARE
                 CaptureQuality.BLURRED in qualities -> Coaching.BLURRED
+                longUndetected -> Coaching.PLAIN_LIGHT_SURFACE
                 else -> null
             }
         if (!detected) {
@@ -67,7 +75,12 @@ internal class CornerHold {
         unlocated = false
         meteredAt = null
         reference = null
+        undetectedSince = null
         coaching = null
+    }
+
+    companion object {
+        const val UNDETECTED_COACHING_MS = 3000L
     }
 
     fun values(): List<Lab?> = latest.flatMap { face -> List(FrameQuality.CELLS) { face?.cells?.getOrNull(it)?.value } }

@@ -211,6 +211,8 @@ internal fun GuidedScanScreen(
     actions: GuidedScanActions,
     frozen: FrozenCapture? = null,
     offerEnterColors: Boolean = false,
+    detectedCornerQuads: List<List<CornerPoint>> = emptyList(),
+    cornerThumbnail: ImageBitmap? = null,
     viewfinder: @Composable () -> Unit = {},
 ) {
     Surface(Modifier.fillMaxSize()) {
@@ -221,19 +223,40 @@ internal fun GuidedScanScreen(
                     modifier = Modifier.testTag("scanClose"),
                 ) { Text(strings.resolve(ContentText("btn.scan.close"))) }
                 if (phase is GuidedScanPhase.CornerViewfinder && phase.totalHolds == 2) {
-                    Text(
-                        strings.resolve(
-                            ContentText("msg.quick-scan.counter", mapOf("n" to phase.hold, "total" to phase.totalHolds)),
-                        ),
-                        Modifier
-                            .weight(
-                                1f,
-                            ).padding(end = 8.dp)
-                            .semantics { liveRegion = LiveRegionMode.Polite }
-                            .testTag("quickScan:counter"),
-                        textAlign = TextAlign.End,
-                        style = LocalRubikTextStyles.current.data,
-                    )
+                    Row(
+                        Modifier.weight(1f).padding(end = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (cornerThumbnail != null) {
+                            Image(
+                                bitmap = cornerThumbnail,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier =
+                                    Modifier
+                                        .size(36.dp)
+                                        .clipToBounds()
+                                        .border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(6.dp))
+                                        .testTag("quickScan:thumbnail"),
+                            )
+                        }
+                        Text(
+                            strings.resolve(
+                                ContentText("msg.quick-scan.counter", mapOf("n" to phase.hold, "total" to phase.totalHolds)),
+                            ),
+                            Modifier
+                                .semantics { liveRegion = LiveRegionMode.Polite }
+                                .testTag("quickScan:counter"),
+                            textAlign = TextAlign.End,
+                            style =
+                                if (phase.hold > 1 || cornerThumbnail != null) {
+                                    MaterialTheme.typography.titleLarge
+                                } else {
+                                    LocalRubikTextStyles.current.data
+                                },
+                        )
+                    }
                 }
                 if (phase is GuidedScanPhase.Viewfinder) {
                     Text(
@@ -303,6 +326,7 @@ internal fun GuidedScanScreen(
                         viewfinder,
                         cornerHold = phase.hold,
                         cornerPrompt = phase.prompt,
+                        detectedCornerQuads = detectedCornerQuads,
                     )
                 }
 
@@ -354,6 +378,7 @@ private fun Viewfinder(
     preview: @Composable () -> Unit,
     cornerHold: Int? = null,
     cornerPrompt: ContentText? = null,
+    detectedCornerQuads: List<List<CornerPoint>> = emptyList(),
 ) {
     val geometry = remember { ViewfinderGeometry() }
     val steps = cornerHold?.takeIf { cornerPrompt == null }?.let { QuickScanPlan.holds[it - 1] }.orEmpty()
@@ -363,7 +388,9 @@ private fun Viewfinder(
         val wide = maxWidth >= EXPANDED_WIDTH || maxWidth > maxHeight
         if (wide) {
             Row(Modifier.fillMaxSize()) {
-                Box(Modifier.weight(1f).fillMaxHeight()) { CameraArea(geometry, preview, showCorner) }
+                Box(Modifier.weight(1f).fillMaxHeight()) {
+                    CameraArea(geometry, preview, showCorner, detectedCornerQuads, captureHighlight = frozen != null && showCorner)
+                }
                 Column(
                     Modifier
                         .weight(1f)
@@ -387,7 +414,9 @@ private fun Viewfinder(
                 } else {
                     CornerPrompt(cornerHold, strings, cornerPrompt)
                 }
-                Box(Modifier.fillMaxWidth().height(cameraHeight)) { CameraArea(geometry, preview, showCorner) }
+                Box(Modifier.fillMaxWidth().height(cameraHeight)) {
+                    CameraArea(geometry, preview, showCorner, detectedCornerQuads, captureHighlight = frozen != null && showCorner)
+                }
                 CoachingLine(phase, strings)
                 Column(
                     Modifier.weight(1f).fillMaxWidth().padding(16.dp),
@@ -409,19 +438,30 @@ private fun CameraArea(
     geometry: ViewfinderGeometry,
     preview: @Composable () -> Unit,
     corner: Boolean = false,
+    detectedCornerQuads: List<List<CornerPoint>> = emptyList(),
+    captureHighlight: Boolean = false,
 ) {
     BoxWithConstraints(
         Modifier
             .fillMaxSize()
             .clipToBounds()
             .background(UiColor.Black)
-            .onGloballyPositioned { geometry.pane = it.boundsInRoot() }
+            .then(
+                if (captureHighlight) {
+                    Modifier.border(4.dp, MaterialTheme.colorScheme.primary).testTag("quickScan:captureFlash")
+                } else {
+                    Modifier
+                },
+            ).onGloballyPositioned { geometry.pane = it.boundsInRoot() }
             .testTag("scanViewfinder"),
     ) {
         preview()
         val side = minOf(maxWidth, maxHeight) * FrameReader.GRID_FRACTION.toFloat()
         if (corner) {
-            CornerOutline(Modifier.align(Alignment.Center).size(side).onGloballyPositioned { geometry.grid = it.boundsInRoot() })
+            CornerOutline(
+                detectedCornerQuads = detectedCornerQuads,
+                modifier = Modifier.fillMaxSize().onGloballyPositioned { geometry.grid = it.boundsInRoot() },
+            )
             return@BoxWithConstraints
         }
         Canvas(
@@ -526,6 +566,7 @@ internal fun coachingKey(coaching: Coaching): String =
         Coaching.MOVE_RIGHT -> "msg.scan.coach.move-right"
         Coaching.MOVE_UP -> "msg.scan.coach.move-up"
         Coaching.MOVE_DOWN -> "msg.scan.coach.move-down"
+        Coaching.PLAIN_LIGHT_SURFACE -> "msg.scan.plain-light-surface"
     }
 
 /** "Face 2 of 6" (a Quick Check: "Face 1 of 2") in the first round; "Again: face 1 of 2" in the re-prompt round. */
@@ -602,15 +643,46 @@ internal fun CornerPrompt(
 }
 
 @Composable
-internal fun CornerOutline(modifier: Modifier) {
-    Canvas(modifier.testTag("quickScan:outline")) {
-        val points =
-            CornerGuide(GridSquare(0.0, 0.0, size.width.toDouble()))
-                .vertices()
-                .map { Offset(it.x.toFloat(), it.y.toFloat()) }
-        val edges = (0..5).map { points[it] to points[(it + 1) % 6] } + listOf(1, 3, 5).map { points[it] to points[6] }
-        edges.forEach { (a, b) -> drawLine(UiColor.Black, a, b, 4.dp.toPx()) }
-        edges.forEach { (a, b) -> drawLine(UiColor.White.copy(alpha = 0.7f), a, b, 2.dp.toPx()) }
+internal fun CornerOutline(
+    modifier: Modifier,
+    detectedCornerQuads: List<List<CornerPoint>> = emptyList(),
+) {
+    val detectedColor = MaterialTheme.colorScheme.primary
+    Canvas(
+        modifier.testTag(if (detectedCornerQuads.isEmpty()) "quickScan:outline" else "quickScan:detectedOutline"),
+    ) {
+        if (detectedCornerQuads.isNotEmpty()) {
+            detectedCornerQuads.forEach { quad ->
+                if (quad.size == 4) {
+                    val pts = quad.map { Offset((it.x * size.width).toFloat(), (it.y * size.height).toFloat()) }
+                    for (i in 0..3) {
+                        val a = pts[i]
+                        val b = pts[(i + 1) % 4]
+                        drawLine(UiColor.Black, a, b, 4.dp.toPx())
+                        drawLine(detectedColor, a, b, 2.dp.toPx())
+                    }
+                }
+            }
+        } else {
+            // Loose center framing zone only (Story 10.18 AC1: never draw an isometric or perspective cube sketch).
+            val zone = minOf(size.width, size.height) * FrameReader.GRID_FRACTION.toFloat()
+            val left = (size.width - zone) / 2f
+            val top = (size.height - zone) / 2f
+            val bracket = zone * 0.16f
+            val stroke = 2.dp.toPx()
+            val color = UiColor.White.copy(alpha = 0.55f)
+            val corners =
+                listOf(
+                    Offset(left, top) to Pair(Offset(bracket, 0f), Offset(0f, bracket)),
+                    Offset(left + zone, top) to Pair(Offset(-bracket, 0f), Offset(0f, bracket)),
+                    Offset(left, top + zone) to Pair(Offset(bracket, 0f), Offset(0f, -bracket)),
+                    Offset(left + zone, top + zone) to Pair(Offset(-bracket, 0f), Offset(0f, -bracket)),
+                )
+            corners.forEach { (origin, deltas) ->
+                drawLine(color, origin, origin + deltas.first, stroke)
+                drawLine(color, origin, origin + deltas.second, stroke)
+            }
+        }
     }
 }
 
