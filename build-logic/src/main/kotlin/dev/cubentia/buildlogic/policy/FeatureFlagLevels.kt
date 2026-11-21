@@ -13,8 +13,12 @@ object FeatureFlagLevels {
 
     val cameraFlags = setOf("CAMERA_SCAN", "QUICK_SCAN", "PLACEMENT", "CASE_RECOGNITION")
     val cameraDependentFlags = cameraFlags - "CAMERA_SCAN"
+    val cornerModelFlags = setOf("QUICK_SCAN", "CASE_RECOGNITION")
 
     fun isCameraEnabled(levels: Map<String, String>): Boolean = cameraFlags.any { levels[it] in setOf("BETA", "GA") }
+
+    /** True when any corner-detection feature that can use the LiteRT 7-keypoint model is above OFF. */
+    fun isCornerModelEnabled(levels: Map<String, String>): Boolean = cornerModelFlags.any { levels[it] in setOf("BETA", "GA") }
 
     fun cameraViolations(
         buildType: String,

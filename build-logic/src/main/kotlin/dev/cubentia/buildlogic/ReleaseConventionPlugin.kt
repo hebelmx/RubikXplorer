@@ -85,13 +85,15 @@ class ReleaseConventionPlugin : Plugin<Project> {
                         require(violations.isEmpty()) { violations.joinToString("\n") }
                         buildType.buildConfigField("String", FLAG_FIELD, "\"${FeatureFlagLevels.encode(levels)}\"")
                         if (FeatureFlagLevels.isCameraEnabled(levels)) {
-                            android.sourceSets
-                                .getByName(buildType.name)
-                                .kotlin.directories += "src/camera/kotlin"
+                            val sourceSet = android.sourceSets.getByName(buildType.name)
+                            sourceSet.kotlin.directories += "src/camera/kotlin"
+                            sourceSet.assets.directories += "src/camera/assets"
+                            if (FeatureFlagLevels.isCornerModelEnabled(levels)) {
+                                sourceSet.kotlin.directories += "src/camera/corner/kotlin"
+                                sourceSet.assets.directories += "src/camera/corner/assets"
+                            }
                             if (buildType.isDebuggable) {
-                                android.sourceSets
-                                    .getByName(buildType.name)
-                                    .kotlin.directories += "src/camera/debug/kotlin"
+                                sourceSet.kotlin.directories += "src/camera/debug/kotlin"
                             }
                             listOf("camera2", "lifecycle", "view").forEach { component ->
                                 dependencies.add("${buildType.name}Implementation", libs.library("androidx-camera-$component"))
@@ -149,6 +151,11 @@ class ReleaseConventionPlugin : Plugin<Project> {
                                     all.filter { it.id.componentIdentifier in included }.map { it.file }
                                 },
                             )
+                            cameraAssets.from(
+                                fileTree("src/camera/assets"),
+                                fileTree("src/camera/corner/assets"),
+                            )
+                            allowLiteRt.set(flagLevels.isCornerModelEnabled("debug"))
                             runtimeArtifacts.set(
                                 artifacts.map { all ->
                                     all.map { "${it.id.componentIdentifier.displayName}/${it.file.name}" }.sorted()

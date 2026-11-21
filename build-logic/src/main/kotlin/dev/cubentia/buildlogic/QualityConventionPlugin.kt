@@ -40,6 +40,7 @@ class QualityConventionPlugin : Plugin<Project> {
                             group = LifecycleBasePlugin.VERIFICATION_GROUP
                             variantName.set(variant.name)
                             cameraEnabled.set(flagLevels.isCameraEnabled(variant.buildType))
+                            cornerModelEnabled.set(flagLevels.isCornerModelEnabled(variant.buildType))
                             runtimeCoordinates.set(
                                 variant.runtimeConfiguration.incoming.resolutionResult.rootComponent
                                     .map(CheckSdkDenylistTask::coordinates),

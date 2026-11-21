@@ -19,4 +19,7 @@ open class FeatureFlagLevelsExtension {
 
     /** True when [buildType] has a camera flag above OFF and `cubentia.release` composes the camera into it. */
     fun isCameraEnabled(buildType: String?): Boolean = composesCamera && FeatureFlagLevels.isCameraEnabled(levels(buildType))
+
+    /** True when [buildType] enables a corner-detection feature eligible for the LiteRT 7-keypoint runtime. */
+    fun isCornerModelEnabled(buildType: String?): Boolean = composesCamera && FeatureFlagLevels.isCornerModelEnabled(levels(buildType))
 }

@@ -70,8 +70,17 @@ After fixing the `CornerLocator` outward normal sign, removing duplicate `Sticke
 
 ---
 
-## 4. Next Steps (Coordinated With Concurrent Work)
+## 4. Pre-Approved Fallback Enhancements Completed on This Branch
 
-1. Keep this worktree (`fix/10-18-outline-viewport-mapping`) unmerged while concurrent repo jobs coordinate merges to `main`.
-2. Run `bmad-correct-course` (or `bmad-architecture` update) to formally record the AD-9 LiteRT fallback activation for Quick Scan corner detection and update Story 10.18 / add the LiteRT training + integration story.
+Before wiring the LiteRT `.tflite` runtime, the following build-logic and code-seam enhancements were completed so the upcoming LiteRT story plugs in cleanly without breaking CI gates:
+
+1. **Corner-flag granularity (`FeatureFlagLevels`, `CameraClasspathPolicy`, `QualityConventionPlugin`):** `isCornerModelEnabled()` gates LiteRT specifically on `QUICK_SCAN` / `CASE_RECOGNITION` above `OFF` (so a release with `CAMERA_SCAN = GA` and `QUICK_SCAN = OFF` still rejects LiteRT; `org.opencv`, `org.tensorflow`, and `com.google.mlkit` remain always forbidden).
+2. **LiteRT & single-ABI size accounting (`CameraSizePolicy`, `CheckCameraSizeTask`, `CheckReleaseSizeTask`):** `CameraSizePolicy` permits `litert` when `allowLiteRt = true` (still forbidding `opencv` and `tensorflow`), includes `com.google.ai.edge.litert` + `src/camera/assets` + `src/camera/corner/assets` in projected size, and counts only the **largest single native ABI** (matching Play AAB delivery rather than summing 4 ABIs in a universal APK/AAR).
+3. **Camera asset & corner source-set wiring (`ReleaseConventionPlugin`):** wires `src/camera/assets` when camera is enabled and `src/camera/corner/kotlin` + `src/camera/corner/assets` when a corner-model flag is enabled.
+4. **JVM-testable `CornerDetector` seam (`CornerLocator.kt`):** extracted `internal fun interface CornerDetector` and reusable `CornerLocator.isValidCubeGeometry(points, guide)` so `LiteRtCornerDetector` plugs into `CornerReader.read(..., detector)` while `unwarp`, `CornerReader`, geometric guards, and `CornerOverlaySmoother` stay 100% JVM-tested.
+
+## 5. Next Steps (Coordinated With Concurrent Work)
+
+1. Wait for concurrent repo merges to `main`, then merge/rebase this branch.
+2. Run `bmad-correct-course` (or `bmad-architecture` update) to formally amend AD-9 (scoping LiteRT specifically to Quick Scan 7-keypoint corner detection, keeping 2D Guided Scan pure Kotlin and OpenCV rejected) and update Story 10.18 / add the LiteRT training + integration story (verifying `litert:2.3.2` + `litert-api` transitive size, R8 consumer rules, 16 KB ELF page alignment for `targetSdk 36`, 3D Red/Orange shading separation, and `#196` dark glossy reflection accuracy).
 3. Verify `QUICK_SCAN` release flag policy under AD-18 cut order (Quick Scan stays `BETA` or `OFF` if v1.0 ships before LiteRT lands, never blocking Guided 6-face Scan or the rest of v1.0).

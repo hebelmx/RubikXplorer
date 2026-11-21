@@ -75,14 +75,59 @@ internal class Homography private constructor(
     }
 }
 
+/**
+ * Plug-in seam for Quick Scan 3D corner detection: locates the three visible face quads (`[U/D, F/L, R/B]`) in frame
+ * pixels. Allows the pure-Kotlin [CornerLocator] and the upcoming LiteRT 7-keypoint detector to share [CornerReader],
+ * [unwarp], geometric validation, and JVM test coverage.
+ */
+internal fun interface CornerDetector {
+    fun locate(
+        frame: YuvFrame,
+        guide: CornerGuide,
+    ): CornerLocator.Location?
+}
+
 /** Searches the guide-relative silhouette and Y seams before refining each of the seven vertices. */
-internal object CornerLocator {
+internal object CornerLocator : CornerDetector {
     data class Location(
         val quads: List<List<CornerPoint>>,
         val score: Double,
     )
 
-    fun locate(
+    /**
+     * Reusable geometric sanity guard for any [CornerDetector] (heuristic or LiteRT 7-keypoint output): ensures the
+     * nearest corner `C` stays inside the framing zone and all 3 face quads have non-collapsed, roughly parallel sides.
+     */
+    internal fun isValidCubeGeometry(
+        points: List<CornerPoint>,
+        guide: CornerGuide,
+    ): Boolean {
+        if (points.size != 7) return false
+        val center = guide.vertices().last()
+        // 1. Center vertex C must stay within a reasonable norm distance of the guide center.
+        val c = points[6]
+        if (hypot(c.x - center.x, c.y - center.y) > guide.radius * 0.55) return false
+        // 2. Each of the 3 face quads must have roughly parallel/converging opposite sides and non-collapsed edges.
+        val minEdge = guide.radius * 0.24
+        return guide.quads(points).all { (a, b, d, e) ->
+            val top = b - a
+            val bottom = d - e
+            val left = e - a
+            val right = d - b
+            val topLen = hypot(top.x, top.y)
+            val botLen = hypot(bottom.x, bottom.y)
+            val leftLen = hypot(left.x, left.y)
+            val rightLen = hypot(right.x, right.y)
+            if (minOf(topLen, botLen, leftLen, rightLen) < minEdge) return@all false
+            val cosH = (top.x * bottom.x + top.y * bottom.y) / (topLen * botLen)
+            val cosV = (left.x * right.x + left.y * right.y) / (leftLen * rightLen)
+            // Opposite edges within ~35 degrees (cos >= 0.82) and comparable length.
+            cosH >= 0.82 && cosV >= 0.82 &&
+                (topLen / botLen) in 0.50..2.00 && (leftLen / rightLen) in 0.50..2.00
+        }
+    }
+
+    override fun locate(
         frame: YuvFrame,
         guide: CornerGuide,
     ): Location? {
@@ -158,30 +203,6 @@ internal object CornerLocator {
             return 2 * outline.average() + 2 * outline.min() + seams.average() + seams.min() - penalty
         }
 
-        fun isValidCubeGeometry(points: List<CornerPoint>): Boolean {
-            // 1. Center vertex C must stay within a reasonable norm distance of the guide center.
-            val c = points[6]
-            if (hypot(c.x - center.x, c.y - center.y) > guide.radius * 0.55) return false
-            // 2. Each of the 3 face quads must have roughly parallel/converging opposite sides and non-collapsed edges.
-            val minEdge = guide.radius * 0.24
-            return guide.quads(points).all { (a, b, d, e) ->
-                val top = b - a
-                val bottom = d - e
-                val left = e - a
-                val right = d - b
-                val topLen = hypot(top.x, top.y)
-                val botLen = hypot(bottom.x, bottom.y)
-                val leftLen = hypot(left.x, left.y)
-                val rightLen = hypot(right.x, right.y)
-                if (minOf(topLen, botLen, leftLen, rightLen) < minEdge) return@all false
-                val cosH = (top.x * bottom.x + top.y * bottom.y) / (topLen * botLen)
-                val cosV = (left.x * right.x + left.y * right.y) / (leftLen * rightLen)
-                // Opposite edges within ~35 degrees (cos >= 0.82) and comparable length.
-                cosH >= 0.82 && cosV >= 0.82 &&
-                    (topLen / botLen) in 0.50..2.00 && (leftLen / rightLen) in 0.50..2.00
-            }
-        }
-
         fun polishVertices(
             initial: List<CornerPoint>,
             minSeam: Double = 0.19,
@@ -207,7 +228,7 @@ internal object CornerLocator {
                     }
                 }
             }
-            if (!isValidCubeGeometry(polished)) return null
+            if (!isValidCubeGeometry(polished, guide)) return null
             if (outline(polished).min() < 0.23 || seams(polished).min() < minSeam) return null
             if (darkSurroundings && exterior(polished) < 6) return null
             return Location(guide.quads(polished), polishedScore)
@@ -446,8 +467,9 @@ internal object CornerReader {
     fun read(
         frame: YuvFrame,
         guide: CornerGuide,
+        detector: CornerDetector = CornerLocator,
     ): CornerFrame {
-        val located = CornerLocator.locate(frame, guide) ?: return CornerFrame(false, List(3) { null })
+        val located = detector.locate(frame, guide) ?: return CornerFrame(false, List(3) { null })
         val faces =
             located.quads.map { quad ->
                 unwarp(frame, quad)?.let {
