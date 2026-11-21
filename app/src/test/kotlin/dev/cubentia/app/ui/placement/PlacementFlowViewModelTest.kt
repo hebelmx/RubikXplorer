@@ -1,8 +1,17 @@
 package dev.cubentia.app.ui.placement
 
 import androidx.lifecycle.viewModelScope
+import dev.cubentia.domain.content.CaseId
+import dev.cubentia.domain.content.ContentLoadResult
+import dev.cubentia.domain.content.ContentLoader
+import dev.cubentia.domain.content.ContentSource
 import dev.cubentia.domain.content.StageId
+import dev.cubentia.domain.cube.Color
+import dev.cubentia.domain.lastlayer.CaseStateResult
+import dev.cubentia.domain.lastlayer.LastLayerMatcher
+import dev.cubentia.domain.lastlayer.LastLayerMatcherResult
 import dev.cubentia.domain.text.Text
+import dev.cubentia.domain.tutor.PlacementOutcome
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -66,6 +75,19 @@ class PlacementFlowViewModelTest {
         assertEquals(PlacementAcceptance.Saved(stage, true), vm.consumeSaved())
         assertNull(vm.consumeSaved())
         assertEquals(PlacementAcceptance.Idle, vm.acceptance.value)
+    }
+
+    @Test fun theMatcherReachesPlacementFromTheEditor() {
+        val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val matcher = (LastLayerMatcher.of(bundle.cases, bundle.algorithms) as LastLayerMatcherResult.Built).matcher
+        val id = CaseId("case-oll-01")
+        val primary = bundle.algorithms.single { it.isPrimary && it.caseId == id }
+        val state = (LastLayerMatcher.caseState(primary, Color.YELLOW) as CaseStateResult.Derived).state
+
+        vm.editorAccepted(state, bundle.stages, matcher)
+        assertEquals(PlacementPhase.Result(PlacementOutcome.AtLastLayer(bundle.stages[4], oriented = false, case = id)), vm.phase.value)
+        vm.editorAccepted(state, bundle.stages)
+        assertEquals(PlacementPhase.Result(PlacementOutcome.AtLastLayer(bundle.stages[4], oriented = false, case = null)), vm.phase.value)
     }
 
     @Test fun aPhaseChangeClearsAShownFailure() {

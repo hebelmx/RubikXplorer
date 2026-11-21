@@ -1585,3 +1585,15 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-249-scan-review-paint-mode.md"
+  - id: "issue-251-deferred-device-placement-result-talkback"
+    epic: 11
+    action: "On the Lenovo and S24 FE, scan cubes for each Placement outcome (1-2 turns from solved, non-white solve, partly solved, last-layer Case) and check that TalkBack reads the result as reading, reason, suggestion, then set-up line (medium, unverified; deferred from #251, PlacementScreen.kt; batch with #106)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-251-placement-explain-scan-and-stage.md"
+  - id: "issue-251-deferred-last-layer-anyway-target"
+    epic: 11
+    action: "Confirm that 'Show me the last layer anyway' starting Last-layer orientation directly is the intended reading of SCP 2026-11-20 decision 3 for a non-white F2L solve (low, Learner-visible; deferred from #251)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-251-placement-explain-scan-and-stage.md"

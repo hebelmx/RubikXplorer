@@ -5,10 +5,16 @@ import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -50,8 +56,13 @@ import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.CubeValidator
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
+import dev.cubentia.domain.cube.Notation
+import dev.cubentia.domain.cube.NotationResult
+import dev.cubentia.domain.cube.Orientation
 import dev.cubentia.domain.cube.Turn
 import dev.cubentia.domain.cube.ValidationResult
+import dev.cubentia.domain.lastlayer.CaseStateResult
+import dev.cubentia.domain.lastlayer.LastLayerMatcher
 import dev.cubentia.domain.tutor.ProgressEvent
 import dev.cubentia.domain.tutor.StageProgress
 import dev.cubentia.domain.tutor.StageStatus
@@ -69,6 +80,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadows.ShadowLog
+import dev.cubentia.domain.cube.Color as DomainColor
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, qualifiers = "w411dp-h891dp")
@@ -166,17 +178,201 @@ class AppShellPlacementTest {
     }
 
     @Test
-    fun `a non-white cross shows the white-cross guidance and still offers another Stage`() {
+    fun `a partly solved cube reads, reasons and suggests in order, then notes the set-up`() {
         show()
         startScan()
-        deliver(ScanOutcome.Accepted(CubeState.SOLVED.apply(listOf(FaceTurn(Face.U, Turn.CLOCKWISE)))))
-        rule.onNodeWithTag("placement:prompt").assertTextContains("Start with a white cross for this course.")
+        deliver(ScanOutcome.Accepted(entry("lesson-03-01")))
+
+        assertPrompt(
+            "Your white cross is done, and 3 of 4 first-layer corners are in place.",
+            "First-layer corners picks up from here.",
+            "Start at First-layer corners?",
+        )
+        rule.onNodeWithTag("placement:reading", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("placement:reason", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("placement:suggestion", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("placement:setup").assertTextEquals("The lesson sets up its own cube, so you can put yours aside.")
+        val prompt = rule.onNodeWithTag("placement:prompt").fetchSemanticsNode().config
+        assertEquals(LiveRegionMode.Polite, prompt[SemanticsProperties.LiveRegion])
+    }
+
+    @Test
+    fun `a cube one turn from solved names the turn and offers no Start`() {
+        show()
+        startScan()
+        deliver(ScanOutcome.Accepted(CubeState.SOLVED.apply(FaceTurn(Face.U, Turn.COUNTERCLOCKWISE))))
+
+        assertPrompt(
+            "Your cube is one turn from solved: turn the white face clockwise.",
+            "Finish it, then scramble it and scan again, or pick a Stage.",
+        )
+        rule.onNodeWithTag("placement:scanAgain").assertIsDisplayed()
+        rule.onNodeWithTag("placement:chooseAnother").assertIsDisplayed()
+        rule.onNodeWithTag("placement:start").assertDoesNotExist()
+        rule.onNodeWithTag("placement:setup").assertIsDisplayed()
+    }
+
+    @Test
+    fun `two turns and a half turn are named in words, in the order to make them`() {
+        show()
+        startScan()
+        deliver(ScanOutcome.Accepted(state("R U")))
+        rule
+            .onNodeWithTag("placement:reading", useUnmergedTree = true)
+            .assertTextEquals(
+                "Your cube is two turns from solved: turn the white face counter-clockwise, then turn the red face counter-clockwise.",
+            )
+        rule.onNodeWithTag("placement:close").performClick()
+        waitForTag("welcome")
+
+        startScan()
+        deliver(ScanOutcome.Accepted(state("D2")))
+        rule
+            .onNodeWithTag("placement:reading", useUnmergedTree = true)
+            .assertTextEquals("Your cube is one turn from solved: turn the yellow face a half turn.")
+    }
+
+    @Test
+    fun `a cube entered in the Editor gets its Case named`() {
+        val primary = bundle.algorithms.single { it.isPrimary && it.caseId.value == "case-oll-01" }
+        // Held in the home frame, as the editor shows it: white on U, the OLL 1 last layer on D.
+        val case = (LastLayerMatcher.caseState(primary, DomainColor.YELLOW) as CaseStateResult.Derived).state.reoriented(Orientation.HOME)
+        val target = case.toFacelets().colors
+        val solved = CubeState.SOLVED.toFacelets().colors
+        show()
+        startScan()
+        deliver(ScanOutcome.FellBackToEditor)
+        with(dev.cubentia.app.ui.editor.EditorFixtures) { rule.enterEveryFace() }
+        repeat(6) { face ->
+            if (rule.onAllNodesWithTag("editor:face:$face").fetchSemanticsNodes().isNotEmpty()) {
+                rule.onNodeWithTag("editor:face:$face").performScrollTo().performClick()
+                rule.waitForIdle()
+            }
+            (face * 9 until face * 9 + 9).filter { target[it] != solved[it] }.forEach { index ->
+                rule.onNodeWithTag("sticker:$index").performScrollTo().performClick()
+                rule.onNodeWithTag("swatch:${target[index].name}").performScrollTo().performClick()
+                rule.waitForIdle()
+            }
+        }
+        rule.onNodeWithTag("editor:accept").performScrollTo().performClick()
+        rule
+            .onNodeWithTag("placement:reading", useUnmergedTree = true)
+            .assertTextContains("It looks like OLL 1.", substring = true)
+    }
+
+    @Test
+    fun `a yellow cross credits the solve and starts at First cross`() {
+        show()
+        startScan()
+        deliver(ScanOutcome.Accepted(state("R U R'")))
+        assertPrompt(
+            "Your yellow cross is solved, nice work.",
+            NON_WHITE_REASON,
+            "Start at First cross?",
+        )
+        rule.onNodeWithTag("placement:lastLayerAnyway").assertDoesNotExist()
+        rule.onNodeWithTag("placement:start").performClick()
+
+        assertDetail("First cross")
+        assertSkipped(1)
+        assertOnboarded()
+    }
+
+    @Test
+    fun `first two layers from yellow start at First cross`() {
+        show()
+        startScan()
+        deliver(ScanOutcome.Accepted(state(YELLOW_F2L)))
+        assertPrompt(
+            "Your first two layers are solved, nice work. You started from yellow.",
+            NON_WHITE_REASON,
+            "Start at First cross?",
+        )
         rule.onNodeWithTag("placement:chooseAnother").assertIsDisplayed()
         rule.onNodeWithTag("placement:start").performClick()
 
-        assertDetail("Cube fundamentals")
-        assertTrue(records.isEmpty())
-        assertOnboarded()
+        assertDetail("First cross")
+        assertSkipped(1)
+        assertEquals(StageStatus.IN_PROGRESS, StageProgress.status(bundle.stages[1], bundle.stages, host.progressEvents.value))
+    }
+
+    @Test
+    fun `first two layers from yellow can show the last layer anyway`() {
+        show()
+        startScan()
+        deliver(ScanOutcome.Accepted(state(YELLOW_F2L)))
+        rule.onNodeWithTag("placement:lastLayerAnyway").assertTextContains("Show me the last layer anyway").performClick()
+
+        assertDetail("Last-layer orientation")
+        assertSkipped(4)
+    }
+
+    @Test
+    fun `an oriented last layer reads as oriented and offers the faster last layer`() {
+        show()
+        startScan()
+        deliver(ScanOutcome.Accepted(entry("lesson-06-02")))
+        rule
+            .onNodeWithTag("placement:reading", useUnmergedTree = true)
+            .assertTextContains(
+                "Your first two layers are solved. Only the last layer is left: the top is oriented; the pieces need moving into place.",
+                substring = true,
+            )
+        rule
+            .onNodeWithTag("placement:reason", useUnmergedTree = true)
+            .assertTextEquals("Last-layer completion (or Faster last layer) covers this.")
+        rule.onNodeWithTag("placement:suggestion", useUnmergedTree = true).assertTextEquals("Start at Last-layer completion?")
+        rule.onNodeWithTag("placement:fasterLastLayer").assertIsDisplayed()
+        rule.onNodeWithTag("placement:chooseAnother").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a shipped OLL Case is named in the last-layer reading`() {
+        val primary = bundle.algorithms.single { it.isPrimary && it.caseId.value == "case-oll-01" }
+        val case = (LastLayerMatcher.caseState(primary, DomainColor.YELLOW) as CaseStateResult.Derived).state
+        show()
+        startScan()
+        deliver(ScanOutcome.Accepted(case))
+        assertPrompt(
+            "Your first two layers are solved. Only the last layer is left: the top needs orienting. It looks like OLL 1.",
+            "Last-layer orientation (or Faster last layer) covers this.",
+            "Start at Last-layer orientation?",
+        )
+    }
+
+    @Test
+    fun `every Placement result text comes from content strings`() {
+        // Every content string is replaced by its key in brackets, so any other text was hard-coded or came from strings.xml.
+        val keyed = shipped.copy(bundle = bundle.copy(strings = bundle.strings.mapValues { (key, _) -> "[[$key]]" }))
+        show(catalogResult = keyed)
+        val cubes =
+            listOf(
+                CubeState.SOLVED,
+                state("U'"),
+                state("R U"),
+                state(SCRAMBLE),
+                state("R U R'"),
+                state(YELLOW_F2L),
+                entry("lesson-03-01"),
+                entry("lesson-04-01"),
+                entry("lesson-05-01"),
+                entry("lesson-06-02"),
+            )
+        val keyedLine = Regex("""\[\[[a-z0-9.-]+]]( \[\[[a-z0-9.-]+]])*""")
+        for (cube in cubes) {
+            startScan()
+            deliver(ScanOutcome.Accepted(cube))
+            rule.onNodeWithTag("placement:setup").assertIsDisplayed()
+            val texts =
+                rule
+                    .onAllNodes(hasAnyAncestor(hasTestTag("placement:screen")) and hasTextProperty(), useUnmergedTree = true)
+                    .fetchSemanticsNodes()
+                    .flatMap { node -> node.config[SemanticsProperties.Text].map { it.text } }
+            assertTrue(texts.isNotEmpty())
+            texts.forEach { assertTrue("hard-coded Placement text: $it", keyedLine.matches(it)) }
+            rule.onNodeWithTag("placement:close").performClick()
+            waitForTag("welcome")
+        }
     }
 
     @Test
@@ -241,7 +437,8 @@ class AppShellPlacementTest {
             rule.enterEveryFace()
         }
         rule.onNodeWithTag("editor:accept").performScrollTo().performClick()
-        rule.onNodeWithTag("placement:prompt").assertTextContains("Your cube is solved — scramble it and scan again, or start Stage 1.")
+        assertPrompt("Your cube is solved.", "Scramble it and scan again, or start Stage 1.")
+        rule.onNodeWithTag("placement:setup").assertIsDisplayed()
         assertTrue(records.isEmpty())
         assertFalse(preferences.preferences.value.onboarded)
     }
@@ -547,6 +744,20 @@ class AppShellPlacementTest {
         assertEquals(PlacementPhase.Idle, flow.phase.value)
     }
 
+    private fun assertPrompt(vararg lines: String) {
+        val texts =
+            rule
+                .onNodeWithTag("placement:prompt")
+                .fetchSemanticsNode()
+                .config[SemanticsProperties.Text]
+                .map { it.text }
+        assertEquals(lines.toList(), texts)
+    }
+
+    private fun state(moves: String): CubeState = CubeState.SOLVED.apply((Notation.parse(moves) as NotationResult.Parsed).moves)
+
+    private fun hasTextProperty() = SemanticsMatcher.keyIsDefined(SemanticsProperties.Text)
+
     private fun assertPlacementSurface(expected: Color) {
         rule.onNodeWithTag("placement:screen").assertIsDisplayed()
         val pixels = rule.onRoot().captureToImage().toPixelMap()
@@ -557,6 +768,7 @@ class AppShellPlacementTest {
         enabled: Boolean = true,
         hasScan: Boolean = true,
         failedCatalog: Boolean = false,
+        catalogResult: ContentLoadResult = shipped,
         dark: Boolean = false,
         restoration: StateRestorationTester? = null,
         awaitWelcome: Boolean = true,
@@ -565,7 +777,7 @@ class AppShellPlacementTest {
             if (failedCatalog) {
                 LessonCatalog.of(ContentLoadResult.Failed(ContentLoadError.MissingResource("missing.json")))
             } else {
-                LessonCatalog.of(shipped)
+                LessonCatalog.of(catalogResult)
             }
         val freeCube = FreeCubeViewModel()
         val setContent: (@androidx.compose.runtime.Composable () -> Unit) -> Unit = restoration?.let { it::setContent } ?: rule::setContent
@@ -623,5 +835,15 @@ class AppShellPlacementTest {
         val events = records.map { it.event }
         assertEquals(stages.take(count).map { it.id }, events.filterIsInstance<ProgressEvent.StageSkippedByPlacement>().map { it.stageId })
         stages.take(count).forEach { assertEquals(StageStatus.SKIPPED_BY_PLACEMENT, StageProgress.status(it, stages, events)) }
+    }
+
+    private companion object {
+        const val NON_WHITE_REASON =
+            "Our lessons start with the white face and leave yellow for the end, so to follow them, start with the white cross."
+
+        /** Device session C: the first two layers solved from yellow, white on top. */
+        const val YELLOW_F2L = "R U2 R' U' R U' R'"
+
+        const val SCRAMBLE = "R2 U' F L2 D B' R U2 B2 D' L F2 U' R2 D2 L' B U2"
     }
 }

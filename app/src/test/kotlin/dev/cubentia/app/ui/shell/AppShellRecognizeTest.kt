@@ -196,7 +196,8 @@ class AppShellRecognizeTest {
         launch(placement = FlagLevel.GA)
         showUnsolved()
         rule.onNodeWithText("Start from my cube").performClick()
-        val moves = (Notation.parse("F") as NotationResult.Parsed).moves
+        // Fully mixed, so Placement suggests Stage 1 (a cube one or two turns from solved offers no Start).
+        val moves = (Notation.parse("R2 U' F L2 D B' R U2 B2 D' L F2 U' R2 D2 L' B U2") as NotationResult.Parsed).moves
         rule.runOnIdle { placementFlow.onScanOutcome(ScanOutcome.Accepted(CubeState.SOLVED.apply(moves))) }
         rule.onNodeWithTag("placement:prompt").assertIsDisplayed()
         rule.onNodeWithTag("placement:start").performClick()

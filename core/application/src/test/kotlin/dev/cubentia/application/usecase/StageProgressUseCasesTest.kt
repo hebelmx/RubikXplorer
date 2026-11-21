@@ -17,6 +17,7 @@ import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.domain.cube.Turn
+import dev.cubentia.domain.predicate.ObjectiveProgress
 import dev.cubentia.domain.tutor.PlacementOutcome
 import dev.cubentia.domain.tutor.ProgressEvent
 import dev.cubentia.domain.tutor.StageProgress
@@ -159,7 +160,7 @@ class StageProgressUseCasesTest {
             }
         val state = entryState(stage3.lessons.first())
 
-        assertEquals(PlacementOutcome.Suggested(stage3), PlaceFromScan(repo).suggest(state, stages))
+        assertEquals(PlacementOutcome.PartlySolved(stage3, ObjectiveProgress(3, 4)), PlaceFromScan(repo).suggest(state, stages))
         assertTrue(repo.storedRecords.isEmpty())
     }
 
