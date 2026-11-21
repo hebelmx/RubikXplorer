@@ -2,9 +2,9 @@
 title: 'Story 10.19: Quick Scan reads the side faces in good light'
 type: 'feature'
 created: '2026-11-21'
-status: draft
-baseline_revision: 'eff37c49a232f283ca2e7b28a273f64ddbeaf7a5'
-review_loop_iteration: 0
+status: 'blocked'
+baseline_revision: '457d05c3308e529daf5847601da908879b8f8055'
+review_loop_iteration: 1
 followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-10-context.md'
@@ -49,7 +49,8 @@ deferred: []
 - **A — replay bar scope:** build the light check, metering, torch and per-face centre correction now. `QuickScanSideFaceReplayTest` enforces the per-device-and-light bar only on fixture groups recorded in the 10.19 device session with the new metering, identified by a group manifest (`group.json` in the group folder with `"pipeline": "10.19"` and `"lightDirection": "front"|"back"`, written by the recorder). Pre-10.19 groups (no manifest) are reported per group, not scored. If new captures miss the bar later, the story stays unmerged.
 - **B — no-calibration path:** "never confidently wrong" applies there too: Quick Scan's self-calibration path gets the same agreement gate, so disagreeing stickers become UNCERTAIN (their face goes to the Guided grid). The Guided 6-face Scan stays unchanged.
 - **C — safe outcome:** a confidently wrong sticker on a face sent to the Guided grid is fallback (safe); 0 confidently wrong is required on kept faces only.
-- **D — light check:** side faces against the top face only, cut about 27 L* (darker side face's 75th-percentile sticker L* vs the top face's), from the captures; no background measurement.
+- **D — light check:** side faces against the top face only; no background measurement.
+- **E — light signal (PO 2026-11-21, after the attempt-1 review):** with a saved colour calibration, compare each face's brightness against the calibration's per-colour lightness for the colours seen on it (so a red or blue side under a white top in good front light is not held), with the cut re-derived from `Fixtures/corner/`. Without a saved calibration, fall back to the 75th-percentile sticker L* check (darker side face vs top, cut about 27 L*), accepting possible false holds on solved or nearly solved cubes; the device session measures false holds and missed blocks per device and per mode.
 
 ## Settled UI behavior (PO clarifications 2026-11-21 plus the ACs)
 
@@ -104,7 +105,8 @@ deferred: []
 ## Tasks & Acceptance
 
 **Execution:**
-- `core/domain/.../recognition/SideLight.kt` (new) -- pure function `SideLight.check(top, left, right)` over per-face cell L*: light level = 75th-percentile L* of a face's nine stickers; fails when the darker side face is more than `MAX_SIDE_DARKER_L` (≈ 27, derived from `Fixtures/corner/`) below the top face; returns pass/fail plus the measured differences. Measured on the pre-10.19 captures: front-lit holds 13.8–25.0, backlit 28.6–36.3 except stla backlit hold 1 at 17.2; the constant must pass all 8 front-lit holds and trip at least one hold in every backlit group (test this).
+- `_bmad-output/implementation-artifacts/spec-10-19-attempt-1.patch` -- start by applying it (`git apply`), excluding nothing; it is attempt 1 of this spec (built, `spotlessCheck build` green). Then make the changes below, the Spec Change Log amendments, and every `patch` row of the Review Triage Log (B8, B9, B10/V5, B11, B14, B17/E11, B18/E10, E1, E3, E7/V7, E8, V1, V2, V3, V4, V9). Keep everything else in it unless a task here changes it.
+- `core/domain/.../recognition/SideLight.kt` -- pure light check over per-face sticker L*, two modes (PO decision E). **Calibrated** (a saved calibration exists): a face's shading = median over its nine stickers of (sticker L* − the saved calibration's L* for that sticker's nearest saved colour, matched on a*b* only so shading does not change the match); fails when the darker side face's shading is more than `MAX_SIDE_DARKER_CALIBRATED_L` below the top face's; derive that constant from `Fixtures/corner/` using each group's own recorder calibration, and record per-hold values (including stla backlit hold 1) in the evidence doc. **Uncalibrated:** light level = 75th-percentile L* of a face's nine stickers; fails when the darker side face is more than `MAX_SIDE_DARKER_L` (27) below the top face (pre-10.19 values: front-lit 13.8–25.0, backlit 28.6–36.3, stla backlit hold 1 at 17.2). Each constant must pass all 8 front-lit holds and trip at least one hold in every backlit group (test both modes on the fixtures). Add a synthetic test: a solved cube in uniform front light passes in calibrated mode. The verdict is computed in the domain (the controller has `saved`), not in `CornerReader`; diagnostics log the mode.
 - `core/domain/.../recognition/CornerHold.kt`, `QuickScan.kt`, `GuidedScan.kt` -- add `Coaching.SIDES_DARK` and `Coaching.TORCH_GLARE`; implement the light hold, 1 s coaching timer, 0.5 s pass-and-steady clear, coaching order, cube-lost behavior, settle wait (external `settled` signal with a cap, replacing the fixed `SETTLE_MS` only for Quick Scan corners) and the queued manual press, exactly per "Settled UI behavior"; Remeter also on hold change and on torch toggle; `QuickScanController` gets torch state (for coaching) and light inputs via `onFrame`; `onShutter` honours the light hold and settle.
 - `core/domain/.../recognition/QuickScan.kt` (or new `QuickScanClassification.kt`) -- Quick-Scan-only classification with an agreement gate on both paths. Saved calibration: per-face correction mapping the face's own centre sticker to the saved centre of that color (L* gain or the variant the replay shows safest), applied to that face's stickers, classified against the saved centres with the 10 ΔE rule; CONFIDENT only when it agrees with the (confident) self-calibration read. No saved calibration: the self-calibration read (`SelfCalibration.from` centres) must agree with a second read against the same centres after per-face light normalization (each reference centre's L* scaled by the ratio of this face's light level to the light level of the face that centre came from, light level as in `SideLight`); CONFIDENT only when both reads are CONFIDENT and agree. Otherwise UNCERTAIN (face goes to the grid). Use it in `needGrid` and `involvedFaces`. `SelfCalibration`, `StickerClassifier` and all Guided paths untouched.
 - `core/domain/src/test/.../QuickScanSideFaceReplayTest.kt` -- rewrite: group by `device.model` × light condition; a group is **scored** only when its `group.json` manifest says `"pipeline": "10.19"` (light direction from the manifest); pre-10.19 groups are reported only (their direction from the legacy table `warm`/`cool-front` → front, `cool` → back; an unknown legacy label is reported as unknown, never scored); use the production `needGrid` decision (quality + classification) for "sent to the Guided grid"; scenarios: no saved, matching (group's recorder calibration), different light (same cube's other-light group calibration), different cube (another cube's calibration), frontal calibration applied to angled side faces (the recorder calibration is frontal, so name it and report it), each reported per color (Yellow and Orange called out). Bar enforced by default (no env gate, no expected-failure) for every scored front-lit device×light group present: in the matching and no-saved scenarios 0 confidently wrong side stickers on kept faces, 0 Red↔Orange confusions on kept faces, ≥ 90% side stickers correct, ≥ 3 of 4 side faces not sent to the grid; in every scenario 0 confidently wrong stickers on kept faces. Scored backlit groups are reported, not scored for the bar, and each must trip `SideLight`. Pre-10.19 groups: full report, no assertions except that the legacy backlit groups trip `SideLight` and front-lit ones pass (AC1 threshold evidence). Print a report and list required-but-missing scored groups (Lenovo and S24 FE; ≥ 1 stickered and ≥ 1 stickerless cube; ≥ 2 front lights per device) without failing for absence; with zero scored groups the test passes and says so. Do not stop if pre-10.19 groups miss the bar.
@@ -125,6 +127,35 @@ deferred: []
 - **Device-session items (before-merge human gate, orchestrator over adb; not claimed by this build):** (D1) ≥ 10 front-lit and ≥ 10 backlit attempts per device on Lenovo TB128XU and Galaxy S24 FE: false-block and missed-block counts from `lightHold` diagnostics; (D2) metering support and settle times on both devices; (D3) S24 FE torch: default on, toggle, carry-over, off on face-by-face/leave/background, glossy cube both holds torch on/off, torch glare detected and cleared by turning the torch off; Lenovo shows no torch UI; (D4) new 10.19-pipeline corner fixtures (with `group.json`) on both devices, stickered, stickerless and glossy cubes, front and back light, then the replay bar on them (story stays unmerged if missed); (D5) `evaluate_model.py --fixtures-corner` on ≥ 20 positives and ≥ 10 negatives per device; (D6) PO two-corner completion before/after on the Lenovo and the Quick Scan BETA call (release level stays with Stories 10.8/10.11).
 
 ## Spec Change Log
+
+### 2026-11-21: review loop 1 (bad_spec and intent_gap from the attempt-1 review)
+- **Triggers:**
+  - B3/B4/B5/I3 (intent_gap, now answered by PO decision E): the colour-dependent light signal.
+  - B12/E5: the torch toggle re-meters before the physical torch changes.
+  - B13/E6: the settle signal accepts a stale or absent AE state.
+  - B19/E9: `normalized()` finds each centre's source face by exact Lab equality.
+  - E12: `involvedFaces` uses the ungated read.
+- **Amended:**
+  1. SideLight runs in two modes per decision E, computed in the domain.
+  2. Torch: a toggle re-meters only after the physical torch change is applied (the `enableTorch` future completed, or the next frame after the apply when no future is available); the settle window starts then; a manual press in between is queued.
+  3. Settle: `meterCube` resets the AE state to unknown, and only capture results produced after the metering request count. Settled = the metering future completed and the post-request AE state is CONVERGED, LOCKED or FLASH_REQUIRED. An AE state still unknown counts as settled only at the 1500 ms cap (logged as a timeout). Define the cap once and share it with the domain.
+  4. `normalized()`: a centre's source face is the captured sample whose `centerColor` is that colour. A centre with no captured source (filled from saved or derived) is explicitly unscaled and tested.
+  5. `involvedFaces` uses the same gated Quick-Scan classification as `needGrid`.
+- **Known-bad state avoided:**
+  - solved cubes held in front light when a calibration exists;
+  - captures taken on pre-torch or pre-metering exposure;
+  - a normalization that silently does nothing;
+  - reprompt faces chosen by an ungated read.
+- **KEEP:** everything else in attempt 1:
+  - the light-hold state machine and its PO-settled timings and coaching order;
+  - the torch UI, its state rules and the strings;
+  - the cube-region metering with centre fallback;
+  - the agreement gate on both paths;
+  - the replay rewrite (scoring only `group.json` 10.19 groups, legacy groups reported);
+  - schema 4, the manifest and the recorder corner-mode features;
+  - the per-device rules in `evaluate_model.py`;
+  - the diagnostics;
+  - the evidence doc (update it for both modes).
 
 ## Review Triage Log
 
@@ -239,3 +270,19 @@ Attempted change: [spec-10-19-attempt-1.patch](spec-10-19-attempt-1.patch) (comm
 - Verification before review: `./gradlew spotlessCheck build` passed; QuickScanSideFaceReplayTest (2 tests) and SideLightTest (4 tests) ran, with 0 skipped.
 - Bad-spec findings to fold in when the code is re-derived: B12/E5 (torch toggle and settle out of order), B13/E6 (stale AE state), B19/E9 (normalized centre source lookup), E12 (involvedFaces is not gated).
 - Patch findings to carry: B8, B9, B10/V5, B11, B14, B17/E11, B18/E10, E1, E3, E7/V7, E8, V1, V2, V3, V4, V9.
+
+### Run 3 (2026-11-21): implemented per decision E, blocked at verification
+
+Status: blocked
+Blocking condition: implementation verification failed. No cut on the calibrated signal from decision E separates the recorded captures, so the test "both light check modes trip every legacy backlit group and pass every legacy front-lit hold" fails, and `./gradlew spotlessCheck build` is red on that one test. The signal is the median, over a face's stickers, of (sticker L* − the saved calibration's L* for its nearest colour on a*b*), each group measured against its own recorder calibration.
+- Worst front-lit hold: stla warm hold 1 at 24.2 (the light comes from the side: top −2.8, one side −27.0, the other +16.2).
+- Highest backlit group values: stka cool peaks at 24.0, stkb cool at 23.3. A cut would have to be ≥ 24.2 and < 23.3 at once.
+- The 25th, 75th and 90th percentiles of the shading, compared against the top face and on their own, do not separate the two sets either; the median against the top comes closest, 0.9 L* short.
+- A provisional cut of 23.0 trips every backlit group, including stla cool hold 1 (27.1), which the uncalibrated mode misses, but it holds stla warm hold 1.
+
+Attempt 2 (attempt 1 plus all Spec Change Log amendments and every triage `patch` row, with the provisional 23.0 cut) is saved as [spec-10-19-attempt-2.patch](spec-10-19-attempt-2.patch), and the working tree is reset. With only that one assertion switched off, the full `spotlessCheck build` passed.
+
+Question for the PO:
+- (1) Treat stla warm hold 1 (side-lit) as correctly held, and set the test expectation for it to "held", keeping the cut at about 23.
+- (2) Accept missed blocks on stka cool and stkb cool, with the cut at 24.2 or more.
+- (3) Define a different calibrated signal.
