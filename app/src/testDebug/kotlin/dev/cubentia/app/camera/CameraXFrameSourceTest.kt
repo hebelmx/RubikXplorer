@@ -5,6 +5,7 @@ import android.graphics.ImageFormat
 import android.graphics.Rect
 import android.os.SystemClock
 import androidx.activity.ComponentActivity
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageInfo
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.impl.TagBundle
@@ -29,6 +30,12 @@ import java.util.concurrent.Executors
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class CameraXFrameSourceTest {
+    @Test fun meteringIncludesAwbOnlyWhenAsked() {
+        val afAe = FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE
+        assertEquals(afAe or FocusMeteringAction.FLAG_AWB, CameraXFrameSource.meteringFlags(includeAwb = true))
+        assertEquals(afAe, CameraXFrameSource.meteringFlags(includeAwb = false))
+    }
+
     @Test fun deliversLocatedStatsAndLogsTheLatticeForAReadableDimFace() {
         val image = dimFace()
         val crop = image.cropRect

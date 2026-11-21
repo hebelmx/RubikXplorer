@@ -89,8 +89,17 @@ abstract class CheckCameraSizeTask : DefaultTask() {
         private val cameraRuntimeGroups = setOf("androidx.camera", "com.google.ai.edge.litert")
 
         /**
-         * Measures one artifact's installed runtime cost: all `.jar` entries plus the largest single native ABI
-         * directory under `jni/<abi>/` (matching single-ABI Play AAB delivery rather than summing 4 ABIs).
+         * Conservative R8 retention factor for unminified third-party debug `.jar` bytecode (CameraX, Guava,
+         * LiteRT API) on `debugRuntimeClasspath` (SCP 2026-11-20 §4.4). Native `.so` libraries (single Play ABI
+         * `arm64-v8a`) and `.tflite` assets are always counted at 100% uncompressed size.
+         */
+        internal const val UNMINIFIED_JAR_R8_NUMERATOR = 40L
+        internal const val UNMINIFIED_JAR_R8_DENOMINATOR = 100L
+
+        /**
+         * Measures one artifact's installed runtime cost: R8-estimated `.jar` bytecode plus the Play-delivered
+         * `arm64-v8a` native `.so` directory under `jni/` (falling back to the largest ABI when `arm64-v8a` is
+         * absent), matching single-ABI Play AAB delivery rather than summing all ABIs or emulator `x86_64`.
          */
         internal fun artifactRuntimeBytes(file: java.io.File): Long =
             when (file.extension) {
@@ -111,11 +120,16 @@ abstract class CheckCameraSizeTask : DefaultTask() {
                                 }
                             }
                         }
-                        jarBytes + (abiBytes.values.maxOrNull() ?: 0L)
+                        val nativeBytes = abiBytes["arm64-v8a"] ?: abiBytes.values.maxOrNull() ?: 0L
+                        (jarBytes * UNMINIFIED_JAR_R8_NUMERATOR / UNMINIFIED_JAR_R8_DENOMINATOR) + nativeBytes
                     }
                 }
 
-                "jar", "so" -> {
+                "jar" -> {
+                    file.length() * UNMINIFIED_JAR_R8_NUMERATOR / UNMINIFIED_JAR_R8_DENOMINATOR
+                }
+
+                "so" -> {
                     file.length()
                 }
 

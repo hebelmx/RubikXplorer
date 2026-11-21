@@ -22,6 +22,7 @@ import java.nio.ByteBuffer
 import java.util.Random
 import javax.imageio.ImageIO
 import kotlin.math.abs
+import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
@@ -349,6 +350,145 @@ class CornerLocatorTest {
         corner.faces.forEachIndexed { face, stats ->
             assertEquals(expected[face], stats?.cells?.map { it?.value?.let { lab -> classify(lab, centers).color } })
         }
+
+        // A detector miss (null) must never fall back to CornerLocator heuristics.
+        val missing = CornerReader.read(image.toCornerFrame(), guide, detector = CornerDetector { _, _ -> null })
+        assertFalse(missing.detected)
+    }
+
+    @Test
+    fun `shaded 3D side faces with real Lenovo and S24 FE palettes separate Red and Orange without R or L fallback`() {
+        val groups =
+            listOf(
+                "lenovo-tb128xu_stka_studio-a",
+                "lenovo-tb128xu_stkb_studio-a",
+                "lenovo-tb128xu_stla_studio-a",
+                "lenovo-tb128xu_stlb_studio-a",
+                "sm-s721u1_stka_studio-a",
+                "sm-s721u1_stkb_studio-a",
+                "sm-s721u1_stla_studio-a",
+                "sm-s721u1_stlb_studio-a",
+            )
+        val cube =
+            CubeState.SOLVED.apply(
+                listOf(FaceTurn(Face.R, Turn.CLOCKWISE), FaceTurn(Face.U, Turn.HALF), FaceTurn(Face.F, Turn.COUNTERCLOCKWISE)),
+            )
+        val guide = CornerGuide(grid(320, 240, 90), 90)
+        val pts = CornerLocator.projectCube(guide.vertices().last(), guide.radius * 0.84, 90, 30.0, 6.0, -4.0, 0.22)
+        val quads = guide.quads(pts)
+        val exactDetector = CornerDetector { _, _ -> CornerLocator.Location(quads, 0.96) }
+
+        groups.forEach { groupName ->
+            val uRecord = LiveFixtureJson.decode(File("../Fixtures/live/$groupName/U.json").readText())
+            val realPalette = uRecord.calibration.centers.mapValues { (_, lab) -> labToRgbInt(lab) }
+            val controller =
+                dev.cubentia.domain.recognition
+                    .QuickScanController()
+            var now = 1_000L
+            var red: Lab? = null
+            var orange: Lab? = null
+            QuickScanPlan.holds.forEachIndexed { holdIdx, hold ->
+                val expected = hold.map { step -> expectedFace(cube, step.face) }
+                // Directional 3D shading (~17–25% linear-light drop on oblique side faces -> 0.92/0.88 in sRGB),
+                // plus bevel dark border at cell edges (where the old 0.60 ROI picked up border darkening).
+                val shades = listOf(1.0, 0.92, 0.88)
+                val image =
+                    render(320, 240, quads) { face, x, y ->
+                        val column = (x * 3).toInt()
+                        val row = (y * 3).toInt()
+                        val border = listOf(x, y).any { abs(it * 3 - (it * 3).roundToInt()) < 0.14 }
+                        if (border) {
+                            BODY
+                        } else {
+                            scaleRgb(realPalette.getValue(expected[face][row * 3 + column]), shades[face])
+                        }
+                    }
+                val reading = CornerReader.read(image.toCornerFrame(noise = 2), guide, detector = exactDetector)
+                assertTrue(reading.detected, "$groupName hold ${holdIdx + 1}")
+                hold.forEachIndexed { index, step ->
+                    val center =
+                        reading.faces[index]
+                            ?.cells
+                            ?.get(CENTER_CELL)
+                            ?.value
+                    if (step.face == Face.R) red = center
+                    if (step.face == Face.L) orange = center
+                }
+                controller.onFrame(reading.detected, reading.faces, now)
+                now += 1_000L
+                if (holdIdx == 1) {
+                    // Feed another frame so Hold 2 clears prior hold tracking before shutter.
+                    controller.onFrame(reading.detected, reading.faces, now)
+                    now += 1_000L
+                }
+                val effects = controller.onShutter()
+                assertTrue(
+                    effects.any { it is dev.cubentia.domain.recognition.QuickScanEffect.CornerCaptured },
+                    "$groupName hold ${holdIdx + 1}",
+                )
+            }
+            assertFalse(
+                Face.R in controller.fallbackFaces || Face.L in controller.fallbackFaces,
+                "$groupName triggered R/L fallback: ${controller.fallbackFaces}",
+            )
+            val separation = deltaE(checkNotNull(red) { "$groupName: no R center" }, checkNotNull(orange) { "$groupName: no L center" })
+            assertTrue(separation >= 10.0, "$groupName shaded Red/Orange centers only ${"%.1f".format(separation)} ΔE apart")
+        }
+    }
+
+    @Test
+    fun `the 3D corner ROI skips a cell's bevel band that the 2D ROI reads`() {
+        // 600 px face, 200 px cells: a desaturated bevel band 0.200–0.275 of a cell in from every cell edge. The 2D ROI
+        // (0.6) puts its two outer lattice rings (56% of samples) on the band; the 3D corner ROI starts inside it.
+        val side = 600
+        val cell = side / 3
+        val sticker = 0xd53133
+        val bevel = 0x8a6a68
+        val plainImage = BufferedImage(side, side, BufferedImage.TYPE_INT_RGB)
+        val bevelImage = BufferedImage(side, side, BufferedImage.TYPE_INT_RGB)
+        for (y in 0 until side) {
+            for (x in 0 until side) {
+                fun edge(p: Int) = minOf(p % cell + 0.5, cell - (p % cell + 0.5)) / cell
+                val d = minOf(edge(x), edge(y))
+                plainImage.setRGB(x, y, sticker)
+                bevelImage.setRGB(x, y, if (d >= 0.2 && d < 0.275) bevel else sticker)
+            }
+        }
+        val square = GridSquare(0.0, 0.0, side.toDouble())
+        val truth = FrameReader.readAt(plainImage.toCornerFrame(), square, CornerReader.CORNER_CELL_ROI_FRACTION).cells
+        val corner = FrameReader.readAt(bevelImage.toCornerFrame(), square, CornerReader.CORNER_CELL_ROI_FRACTION).cells
+        val flat = FrameReader.readAt(bevelImage.toCornerFrame(), square, FrameReader.CELL_ROI_FRACTION).cells
+        corner.forEachIndexed { index, reading ->
+            val expected = checkNotNull(truth[index]?.value)
+            assertTrue(reading != null && reading.plain && deltaE(reading.value, expected) < 3.0, "corner ROI cell $index: $reading")
+        }
+        assertTrue(
+            flat.all { it == null || !it.plain || deltaE(it.value, checkNotNull(truth[0]?.value)) >= 3.0 },
+            "the 2D ROI was expected to read the bevel band: $flat",
+        )
+    }
+
+    private fun deltaE(
+        first: Lab,
+        second: Lab,
+    ): Double = sqrt((first.l - second.l).pow(2) + (first.a - second.a).pow(2) + (first.b - second.b).pow(2))
+
+    private fun labToRgbInt(lab: Lab): Int {
+        val color = labColor(lab)
+        val r = (color.red * 255f).roundToInt().coerceIn(0, 255)
+        val g = (color.green * 255f).roundToInt().coerceIn(0, 255)
+        val b = (color.blue * 255f).roundToInt().coerceIn(0, 255)
+        return (r shl 16) or (g shl 8) or b
+    }
+
+    private fun scaleRgb(
+        rgb: Int,
+        factor: Double,
+    ): Int {
+        val r = ((rgb shr 16 and 255) * factor).roundToInt().coerceIn(0, 255)
+        val g = ((rgb shr 8 and 255) * factor).roundToInt().coerceIn(0, 255)
+        val b = ((rgb and 255) * factor).roundToInt().coerceIn(0, 255)
+        return (r shl 16) or (g shl 8) or b
     }
 
     private fun readColor(rgb: Int): Lab {
@@ -398,6 +538,7 @@ class CornerLocatorTest {
     companion object {
         private const val BACKGROUND = 0x080b10
         private const val BODY = 0x26282a
+        private const val CENTER_CELL = 4
         private val palette =
             mapOf(
                 Color.WHITE to 0xf6f4f0,

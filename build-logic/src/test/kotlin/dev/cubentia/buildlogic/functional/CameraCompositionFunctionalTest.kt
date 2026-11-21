@@ -40,8 +40,11 @@ class CameraCompositionFunctionalTest {
         }
         val debug = f.build("dependencies", "--configuration", "debugRuntimeClasspath").output
         assertTrue("androidx.camera:camera-camera2:1.0" in debug, debug)
+        assertTrue("com.google.ai.edge.litert:litert:1.0" in debug, debug)
         val release = f.build("dependencies", "--configuration", "releaseRuntimeClasspath").output
         assertTrue("androidx.camera:" !in release, release)
+        assertTrue("com.google.ai.edge.litert:" !in release, release)
+        f.build("checkDebugElfAlignment", "checkReleaseElfAlignment")
         val facts = f.projectDir.resolve("docs/privacy-facts.json").readText()
         assertTrue("\"schemaVersion\": 1," in facts && "cameraFramesLeaveDevice" !in facts, facts)
     }
@@ -101,6 +104,38 @@ class CameraCompositionFunctionalTest {
         val facts = f.projectDir.resolve("docs/privacy-facts.json").readText()
         assertTrue(Regex("\"runtimePermissions\":\\s*\\[\\s*\"android.permission.CAMERA\"\\s*]").containsMatchIn(facts), facts)
         assertTrue("\"schemaVersion\": 2," in facts && "\"cameraFramesLeaveDevice\": false," in facts, facts)
+        val releaseDeps = f.build("dependencies", "--configuration", "releaseRuntimeClasspath").output
+        assertTrue("androidx.camera:camera-camera2:1.0" in releaseDeps, releaseDeps)
+        assertTrue("com.google.ai.edge.litert:" !in releaseDeps, releaseDeps)
+    }
+
+    @Test
+    fun `corner-flag release composes LiteRT and ELF alignment gate catches 4 KB native libs`() {
+        val f = fixture("corner-release")
+        append(
+            f,
+            """
+            cubentiaFeatureFlags {
+                byBuildType = byBuildType + ("release" to (byBuildType.getValue("release") + ("CAMERA_SCAN" to "BETA") + ("QUICK_SCAN" to "BETA")))
+            }
+            """.trimIndent(),
+        )
+        f.build("checkReleaseMergedManifest", "checkReleaseCameraClasspath", "checkReleaseElfAlignment")
+        val releaseDeps = f.build("dependencies", "--configuration", "releaseRuntimeClasspath").output
+        assertTrue("com.google.ai.edge.litert:litert:1.0" in releaseDeps, releaseDeps)
+
+        // Replace LiteRT with a 4 KB aligned .so and verify checkReleaseElfAlignment fails loudly.
+        f.publishAar(
+            "com.google.ai.edge.litert",
+            "litert",
+            mapOf(
+                "jni/arm64-v8a/libLiteRt.so" to
+                    dev.cubentia.buildlogic.policy.ElfAlignmentPolicyTest
+                        .elf64(listOf(0x1000L)),
+            ),
+        )
+        val fail = f.buildAndFail("checkReleaseElfAlignment").output
+        assertTrue("0x1000" in fail && "libLiteRt.so" in fail, fail)
     }
 
     @Test

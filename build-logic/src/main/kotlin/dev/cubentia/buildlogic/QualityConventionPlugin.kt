@@ -3,6 +3,7 @@ package dev.cubentia.buildlogic
 import com.android.build.api.artifact.SingleArtifact
 import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 import dev.cubentia.buildlogic.tasks.CheckCameraClasspathTask
+import dev.cubentia.buildlogic.tasks.CheckElfAlignmentTask
 import dev.cubentia.buildlogic.tasks.CheckMergedManifestTask
 import dev.cubentia.buildlogic.tasks.CheckPrivacyFactsTask
 import dev.cubentia.buildlogic.tasks.CheckSdkDenylistTask
@@ -58,6 +59,18 @@ class QualityConventionPlugin : Plugin<Project> {
                             )
                             report.set(layout.buildDirectory.file("reports/cubentia/${variant.name}/sdk-denylist.txt"))
                         }
+                    val elfAlignmentCheck =
+                        tasks.register<CheckElfAlignmentTask>("check${suffix}ElfAlignment") {
+                            group = LifecycleBasePlugin.VERIFICATION_GROUP
+                            description = "Fails when any 64-bit native library in ${variant.name} lacks 16 KB ELF page alignment."
+                            variantName.set(variant.name)
+                            archives.from(
+                                variant.runtimeConfiguration.incoming.artifacts.resolvedArtifacts.map { resolved ->
+                                    resolved.map { it.file }
+                                },
+                            )
+                            report.set(layout.buildDirectory.file("reports/cubentia/${variant.name}/elf-alignment.txt"))
+                        }
                     if (variant.name == "release") {
                         val coordinates =
                             variant.runtimeConfiguration.incoming.resolutionResult.rootComponent
@@ -88,7 +101,7 @@ class QualityConventionPlugin : Plugin<Project> {
                         tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) { dependsOn(checker) }
                     }
                     tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) {
-                        dependsOn(manifestCheck, denylistCheck, cameraCheck)
+                        dependsOn(manifestCheck, denylistCheck, cameraCheck, elfAlignmentCheck)
                     }
                 }
             }

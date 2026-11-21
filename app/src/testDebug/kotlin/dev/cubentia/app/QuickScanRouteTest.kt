@@ -83,6 +83,85 @@ class QuickScanRouteTest {
 
     @Test fun onlyTheUncertainFaceUsesTheGuidedGrid() = scan(uncertain = true)
 
+    @Test fun captureTwoFallbackPlaysCaptureFlashAndCounterCueBeforeEnteringGuidedGrid() {
+        val main = Robolectric.buildActivity(MainActivity::class.java).setup()
+        try {
+            rule.waitUntil(10_000) { rule.onAllNodesWithTag("welcome:imNew").fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithTag("welcome:imNew").performClick()
+            rule.onNodeWithTag("nav:solve").performClick()
+            rule.onNodeWithTag("solve:quickScan").performClick()
+            val shadow = shadowOf(main.get())
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                shadow.peekNextStartedActivityForResult() != null
+            }
+            val intent = shadow.nextStartedActivityForResult.intent
+            val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, intent).setup()
+            try {
+                waitForCamera(corner = true)
+                val model = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
+                // Hold 1 with an uncertain face -> Capture 2 will trigger Guided fallback.
+                captureHold(1, uncertain = true, model = model)
+                rule.onNodeWithTag("quickScan:counter").assertTextEquals("2 / 2")
+
+                // Trigger Hold 2 capture WITHOUT ending the 400 ms freeze yet.
+                val hold2Faces = QuickScanPlan.holds[1].map { step -> stats(step.centerColor) }
+                camera.feed(ScanFrame(hold2Faces.first(), 0, corner = CornerFrame(true, hold2Faces)))
+                rule.onNodeWithTag("scanCapture").performClick()
+                model.analyzerExecutor.submit {}.get()
+                shadowOf(Looper.getMainLooper()).idle()
+
+                // During the 400 ms freeze, Capture 2 stays on CornerViewfinder with the capture flash cue active.
+                assertTrue("Expected freeze to remain active before fallback", model.frozen != null)
+                assertTrue(
+                    "Expected CornerViewfinder during Capture 2 freeze, got ${model.phase}",
+                    model.phase is dev.cubentia.app.camera.GuidedScanPhase.CornerViewfinder,
+                )
+                rule.onNodeWithTag("quickScan:captureFlash").assertExists()
+                rule.onNodeWithTag("quickScan:counter").assertTextEquals("2 / 2")
+
+                // Once the 400 ms freeze ends, it transitions cleanly to Guided fallback.
+                rule.runOnIdle { model.frozen?.let { model.endFreeze(it.id) } }
+                rule.waitForIdle()
+                rule.onNodeWithTag("quickScan:counter").assertDoesNotExist()
+                rule.onNodeWithTag("scanProgress").assertTextEquals("Again: face 1 of 1")
+            } finally {
+                scan.pause().stop().destroy()
+            }
+        } finally {
+            main.pause().stop().destroy()
+        }
+    }
+
+    @Test fun holdOneRemetersWithAwbAndHoldTwoSkipsAwb() {
+        val main = Robolectric.buildActivity(MainActivity::class.java).setup()
+        try {
+            rule.waitUntil(10_000) { rule.onAllNodesWithTag("welcome:imNew").fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithTag("welcome:imNew").performClick()
+            rule.onNodeWithTag("nav:solve").performClick()
+            rule.onNodeWithTag("solve:quickScan").performClick()
+            val shadow = shadowOf(main.get())
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                shadow.peekNextStartedActivityForResult() != null
+            }
+            val intent = shadow.nextStartedActivityForResult.intent
+            val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, intent).setup()
+            try {
+                waitForCamera(corner = true)
+                val model = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
+                camera.meterCalls.clear()
+                holdSteady(1, model)
+                holdSteady(2, model)
+                assertEquals(listOf(true, false), camera.meterCalls)
+            } finally {
+                scan.pause().stop().destroy()
+            }
+        } finally {
+            main.pause().stop().destroy()
+        }
+    }
+
     private fun scan(uncertain: Boolean) {
         val main = Robolectric.buildActivity(MainActivity::class.java).setup()
         try {
@@ -329,6 +408,7 @@ class QuickScanRouteTest {
         @Volatile var receiver: ((ScanFrame) -> Unit)? = null
 
         @Volatile var corner = false
+        val meterCalls = mutableListOf<Boolean>()
         private lateinit var executor: ExecutorService
 
         override fun preview(context: Context) = android.view.View(context)
@@ -351,7 +431,13 @@ class QuickScanRouteTest {
             receiver = null
         }
 
-        override fun meter() = Unit
+        override fun meter() {
+            meterCalls += true
+        }
+
+        override fun meter(includeAwb: Boolean) {
+            meterCalls += includeAwb
+        }
 
         fun feed(frame: ScanFrame) {
             executor.submit { checkNotNull(receiver)(frame) }.get()

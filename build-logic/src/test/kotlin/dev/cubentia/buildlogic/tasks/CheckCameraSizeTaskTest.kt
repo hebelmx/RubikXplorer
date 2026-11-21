@@ -12,7 +12,7 @@ class CheckCameraSizeTaskTest {
     lateinit var tempDir: File
 
     @Test
-    fun `artifactRuntimeBytes counts jars plus the largest single ABI native library set`() {
+    fun `artifactRuntimeBytes counts R8-estimated jars plus the arm64-v8a native library set`() {
         val aar =
             tempDir.resolve("litert-2.3.2.aar").apply {
                 ZipOutputStream(outputStream()).use { zip ->
@@ -30,6 +30,7 @@ class CheckCameraSizeTaskTest {
                     zip.closeEntry()
                 }
             }
-        assertEquals(5_625_000L, CheckCameraSizeTask.artifactRuntimeBytes(aar))
+        // 40% R8 retention of the 25 KB jar + 100% of the Play-delivered arm64-v8a .so (not summed across ABIs).
+        assertEquals(5_610_000L, CheckCameraSizeTask.artifactRuntimeBytes(aar))
     }
 }

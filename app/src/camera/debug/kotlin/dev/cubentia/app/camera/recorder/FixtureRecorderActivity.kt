@@ -21,8 +21,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.core.content.ContextCompat
+import dagger.hilt.android.AndroidEntryPoint
+import dev.cubentia.app.camera.CornerDetector
 import dev.cubentia.app.camera.CornerFrame
 import dev.cubentia.app.camera.CornerGuide
+import dev.cubentia.app.camera.CornerLocator
 import dev.cubentia.app.camera.CornerReader
 import dev.cubentia.app.camera.FrameReader
 import dev.cubentia.app.camera.ViewfinderGrid
@@ -31,9 +34,11 @@ import dev.cubentia.domain.recognition.Lab
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.ByteArrayOutputStream
+import java.util.Optional
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
+import javax.inject.Inject
 import kotlin.math.pow
 
 /** One analysis frame: the per-cell center-pixel samples (unchanged since 10.10) plus the center cell's calibration ring. */
@@ -78,7 +83,11 @@ internal interface RecorderCamera {
  * Disposable, debug-only CameraX screen (Story 10.10, reworked in 10.12). It exports CIELAB measurements, operator truth
  * and metadata, plus one downscaled JPEG per captured face; frames are written only on a Capture tap.
  */
+@AndroidEntryPoint
 class FixtureRecorderActivity : ComponentActivity() {
+    @Inject
+    internal lateinit var cornerDetector: Optional<CornerDetector>
+
     private val analyzerExecutor = Executors.newSingleThreadExecutor()
     private val latestFrame = AtomicReference<FrameMeasurements?>(null)
     private val captureRequest = AtomicReference<CompletableDeferred<CapturedFrame>?>(null)
@@ -206,7 +215,11 @@ class FixtureRecorderActivity : ComponentActivity() {
             val corner =
                 if (isCorner) {
                     val grid = ViewfinderGrid.inFrame(0.0, 0.0, crop.left, crop.top, crop.right, crop.bottom, rotation)
-                    CornerReader.read(with(FrameReader) { image.asYuvFrame() }, CornerGuide(grid, rotation))
+                    CornerReader.read(
+                        with(FrameReader) { image.asYuvFrame() },
+                        CornerGuide(grid, rotation),
+                        cornerDetector.orElse(CornerLocator),
+                    )
                 } else {
                     null
                 }

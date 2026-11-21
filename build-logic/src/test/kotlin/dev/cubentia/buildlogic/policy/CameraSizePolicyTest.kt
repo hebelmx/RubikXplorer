@@ -1,9 +1,14 @@
 package dev.cubentia.buildlogic.policy
 
+import dev.cubentia.buildlogic.tasks.CheckCameraSizeTask
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.io.File
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 class CameraSizePolicyTest {
     @Test
@@ -52,5 +57,25 @@ class CameraSizePolicyTest {
             )
         assertFalse(rejected.passes)
         assertEquals(listOf("opencv-4.12.0.aar", "tensorflow-lite.aar"), rejected.forbidden)
+    }
+
+    @Test
+    fun artifactRuntimeBytesPrefersArm64NativeAndAppliesR8JarEstimate(
+        @TempDir tempDir: File,
+    ) {
+        val aar = File(tempDir, "litert.aar")
+        ZipOutputStream(aar.outputStream()).use { zip ->
+            zip.putNextEntry(ZipEntry("classes.jar"))
+            zip.write(ByteArray(100_000))
+            zip.closeEntry()
+            zip.putNextEntry(ZipEntry("jni/arm64-v8a/libLiteRt.so"))
+            zip.write(ByteArray(5_000_000))
+            zip.closeEntry()
+            zip.putNextEntry(ZipEntry("jni/x86_64/libLiteRt.so"))
+            zip.write(ByteArray(7_500_000))
+            zip.closeEntry()
+        }
+        // Expect 40% of 100 KB jar + 100% of 5 MB arm64-v8a (NOT 7.5 MB x86_64).
+        assertEquals(5_040_000L, CheckCameraSizeTask.artifactRuntimeBytes(aar))
     }
 }

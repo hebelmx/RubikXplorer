@@ -34,6 +34,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Optional
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -65,12 +66,19 @@ internal interface ScanFrameSource {
 
     fun meter()
 
+    fun meter(includeAwb: Boolean) = meter()
+
     fun snapshot(): androidx.compose.ui.graphics.ImageBitmap? = null
 }
 
 internal class CameraXFrameSource
     @Inject
-    constructor() : ScanFrameSource {
+    constructor(
+        private val cornerDetector: Optional<CornerDetector>,
+    ) : ScanFrameSource {
+        @VisibleForTesting
+        internal constructor() : this(Optional.empty())
+
         private lateinit var context: Context
         private lateinit var owner: ComponentActivity
         private lateinit var analyzerExecutor: ExecutorService
@@ -133,7 +141,9 @@ internal class CameraXFrameSource
             cameraStarted = false
         }
 
-        override fun meter() = meterOnGrid()
+        override fun meter() = meterOnGrid(includeAwb = true)
+
+        override fun meter(includeAwb: Boolean) = meterOnGrid(includeAwb = includeAwb)
 
         override fun snapshot() = previewView?.bitmap?.asImageBitmap()
 
@@ -261,7 +271,8 @@ internal class CameraXFrameSource
             val grid = ViewfinderGrid.inFrame(width.toDouble(), height.toDouble(), crop.left, crop.top, crop.right, crop.bottom, rotation)
             meteringGrid = MeteringGrid(image.width, image.height, grid)
             if (corner) {
-                val reading = CornerReader.read(with(FrameReader) { image.asYuvFrame() }, CornerGuide(grid, rotation))
+                val detector = cornerDetector.orElse(CornerLocator)
+                val reading = CornerReader.read(with(FrameReader) { image.asYuvFrame() }, CornerGuide(grid, rotation), detector)
                 val viewQuads =
                     reading.frameQuads.map { quad ->
                         quad.map { p ->
@@ -295,7 +306,7 @@ internal class CameraXFrameSource
          * region stays inside the grid. The lock cancels after [METERING_LOCK_SECONDS] so continuous AF resumes when the
          * cube moves nearer or farther (PO 2026-11-16).
          */
-        private fun meterOnGrid() {
+        private fun meterOnGrid(includeAwb: Boolean = true) {
             val grid = meteringGrid ?: return
             val analysis = analysisUseCase ?: return
             val square = grid.square
@@ -312,7 +323,7 @@ internal class CameraXFrameSource
                 }
             val action =
                 FocusMeteringAction
-                    .Builder(point, FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE or FocusMeteringAction.FLAG_AWB)
+                    .Builder(point, meteringFlags(includeAwb))
                     .setAutoCancelDuration(METERING_LOCK_SECONDS, TimeUnit.SECONDS)
                     .build()
             camera?.cameraControl?.startFocusAndMetering(action)
@@ -320,6 +331,14 @@ internal class CameraXFrameSource
 
         companion object {
             const val METERING_LOCK_SECONDS = 3L
+
+            /** AF + AE always; AWB only when [includeAwb] (Quick Scan Hold 2 skips it so no-white Y/O/B faces keep Hold 1's white balance). */
+            internal fun meteringFlags(includeAwb: Boolean): Int =
+                if (includeAwb) {
+                    FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE or FocusMeteringAction.FLAG_AWB
+                } else {
+                    FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE
+                }
         }
     }
 

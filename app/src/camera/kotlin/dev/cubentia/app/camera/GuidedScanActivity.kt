@@ -525,6 +525,7 @@ class GuidedScanActivity : ComponentActivity() {
         if (capture != null) scan.freeze.start(now)
         val next = GuidedScanFlow.phaseOf(quick)
         val review = quickReview(effects.filterIsInstance<QuickScanEffect.Done>().firstOrNull())
+        val includeAwb = quick.hold == 1
         ContextCompat.getMainExecutor(this).execute {
             if (phase !is GuidedScanPhase.CornerViewfinder) return@execute
             if (capture != null) {
@@ -533,8 +534,15 @@ class GuidedScanActivity : ComponentActivity() {
                 scan.cornerThumbnail = snap
                 scan.frozen = FrozenCapture(++scan.captures, Face.U, snap, shrink = false)
             }
-            if (next != null && phase != next) phase = next
-            if (QuickScanEffect.Remeter in effects) meterOnGrid()
+            if (next != null && phase != next) {
+                // Hold leaving the corner viewfinder (e.g. Capture 2 -> Guided fallback) until the 400 ms cue finishes.
+                if (capture != null && next !is GuidedScanPhase.CornerViewfinder) {
+                    scan.holdTransition(next)
+                } else {
+                    phase = next
+                }
+            }
+            if (QuickScanEffect.Remeter in effects) meterOnGrid(includeAwb = includeAwb)
             if (review != null) scan.publish(review)
         }
     }
@@ -657,7 +665,7 @@ class GuidedScanActivity : ComponentActivity() {
         }
     }
 
-    private fun meterOnGrid() = frameSource.meter()
+    private fun meterOnGrid(includeAwb: Boolean = true) = frameSource.meter(includeAwb)
 
     companion object {
         const val EXTRA_CASE_CAPTURE = "dev.cubentia.app.scan.CASE_CAPTURE"
@@ -829,8 +837,13 @@ internal class GuidedScanViewModel : ViewModel() {
     /** Captures so far, numbering each [FrozenCapture]; main thread only. */
     var captures = 0L
 
-    /** A finished scan held until the last face's freeze ends, so its freeze, shrink and shutter sound play out. */
-    private var held: GuidedScanPhase.Review? = null
+    /** A pending phase transition (review or Guided fallback) held until the current capture freeze ends. */
+    private var held: GuidedScanPhase? = null
+
+    /** Main thread: holds a non-review phase transition (e.g. Capture 2 fallback) until the current freeze ends. */
+    fun holdTransition(next: GuidedScanPhase) {
+        if (frozen != null) held = next else phase = next
+    }
 
     /**
      * Main thread: the capture feedback for [face]. Freezes the frame from [image] only while the viewfinder shows, the

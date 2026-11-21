@@ -91,6 +91,8 @@ class ReleaseConventionPlugin : Plugin<Project> {
                             if (FeatureFlagLevels.isCornerModelEnabled(levels)) {
                                 sourceSet.kotlin.directories += "src/camera/corner/kotlin"
                                 sourceSet.assets.directories += "src/camera/corner/assets"
+                                dependencies.add("${buildType.name}Implementation", libs.library("litert"))
+                                android.androidResources.noCompress += "tflite"
                             }
                             if (buildType.isDebuggable) {
                                 sourceSet.kotlin.directories += "src/camera/debug/kotlin"
