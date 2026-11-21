@@ -265,7 +265,7 @@ A Learner can see a solution shaped by the method they are learning instead of t
 **FRs covered:** FR-30. **Also:** AD-8 (unchanged), AD-19, AD-20, AD-21, NFR-3, NFR-12. GitHub #210.
 **Order:** 15.1 → 15.2 → 15.3. **v1.0 scope** (PO, 2026-11-20): runs before release Stories 12.3, 12.4 and 12.5.
 
-**SCP 2026-11-20 v1.1 promotion** (`sprint-change-proposal-2026-11-20-v1-1-promotion.md`): #249, #251, #252 and #253 are built as issue fixes (`/bmad-orchestrate-issues`) against the amended Stories 10.3, 11.2 and 3.5; #198 is Story 10.17; #208 and #209 are Epic 14; #210 is Epic 15. The Lenovo Tab M10 Plus 3rd Gen (TB128XU) camera is the minimum camera spec for every device gate. **Scope move v1.1 → v1.0 (PO, 2026-11-20, ahead of schedule):** all of these ship in v1.0, together with what they depend on: the camera scan and review (`CAMERA_SCAN`, Epic 10), Placement (`PLACEMENT`, Story 11.2), Quick Scan (`QUICK_SCAN`, Story 11.1) and its corner-guide rework (Story 10.18, which detects the cube's real edges and corners in the frame, #195–#197), and Story 10.11, which raises those flags for the v1.0 release from the test-matrix evidence (BETA or GA). Release Stories 12.3, 12.4 and 12.5 run after them. `CASE_RECOGNITION` (Story 11.3) is not a dependency and keeps its own release decision at 10.11.
+**SCP 2026-11-20 v1.1 promotion** (`sprint-change-proposal-2026-11-20-v1-1-promotion.md`): #249, #251, #252 and #253 are built as issue fixes (`/bmad-orchestrate-issues`) against the amended Stories 10.3, 11.2 and 3.5; #198 is Story 10.17; #208 and #209 are Epic 14; #210 is Epic 15. The Lenovo Tab M10 Plus 3rd Gen (TB128XU) camera is the minimum camera spec for every device gate. **Scope move v1.1 → v1.0 (PO, 2026-11-20, ahead of schedule):** all of these ship in v1.0, together with what they depend on: the camera scan and review (`CAMERA_SCAN`, Epic 10), Placement (`PLACEMENT`, Story 11.2), Quick Scan (`QUICK_SCAN`, Story 11.1) and its corner-guide rework (Story 10.18, which detects the cube's real edges and corners in the frame, #195–#197), and Story 10.11, which raises those flags for the v1.0 release from the test-matrix evidence (BETA or GA). Release Stories 12.3, 12.4 and 12.5 run before Story 10.11, which depends on them and is the last PR before the tag. *(SCP 2026-11-21 quick-scan-front-light: `QUICK_SCAN` reaches 10.11 only through Stories 10.17 and 10.19 and Story 10.8's matrix; if it stays OFF, 10.11 raises `CAMERA_SCAN` and `PLACEMENT` without it.)* `CASE_RECOGNITION` (Story 11.3) is not a dependency and keeps its own release decision at 10.11.
 
 ## Epic 1: Turn and verify a cube
 
@@ -2407,7 +2407,7 @@ So that the two corner photos read my cube instead of sending faces to a rescan.
 
 **Refs:** FR-22, FR-23 · recognition NFRs, NFR-7, NFR-11 · AD-9, AD-13, AD-18 · OQ-7 · UX-DR15 · Story 11.1 · #195, #196, #197
 
-**Depends on** Story 11.1. **Runs before** Story 10.17 (an appended ID that runs earlier, as the How-to-read note allows). **Approach (amended PO 2026-11-20, SCP 2026-11-20 quick-scan-litert-escalation):** detect the cube's seven visible corners `[T, UL, LL, B, LR, UR, C]` in the camera frame using a tiny in-house quantized 7-keypoint `.tflite` model on LiteRT (`com.google.ai.edge.litert`, AD-9 pre-approved fallback, isolated in `app/src/camera/corner/` behind `CornerDetector`, gated on corner-model flags above `OFF`) and unwarp each face from those detected corners. Guided 6-face Scan stays pure Kotlin; OpenCV remains rejected on NFR-11; no perspective-correct hexagon guide sketch is drawn (minimal 3-line Y framing anchor + smoothed detected outline). **Human gate (acceptance):** a fast BETA evaluation on the Lenovo Tab M10 Plus 3rd Gen (TB128XU, the minimum camera spec) and the Galaxy S24 FE, both test cubes (stickered scrambled + solved, and stickerless), main app build, `QUICK_SCAN` raised in debug. *(SCP 2026-11-20 v1.1 promotion: moved into v1.0 as the dependency of #198, Story 10.17; ACs refined 2026-11-20 per PO review; LiteRT fallback activated 2026-11-20 after Lenovo `6cd18ab1` evidence.)*
+**Depends on** Story 11.1. **Runs before** Story 10.17 (an appended ID that runs earlier, as the How-to-read note allows). **Approach (amended PO 2026-11-20, SCP 2026-11-20 quick-scan-litert-escalation):** detect the cube's seven visible corners `[T, UL, LL, B, LR, UR, C]` in the camera frame using a tiny in-house quantized 7-keypoint `.tflite` model on LiteRT (`com.google.ai.edge.litert`, AD-9 pre-approved fallback, isolated in `app/src/camera/corner/` behind `CornerDetector`, gated on corner-model flags above `OFF`) and unwarp each face from those detected corners. Guided 6-face Scan stays pure Kotlin; OpenCV remains rejected on NFR-11; no perspective-correct hexagon guide sketch is drawn (minimal 3-line Y framing anchor + smoothed detected outline). **Human gate (acceptance):** on the Lenovo Tab M10 Plus 3rd Gen (TB128XU, the minimum camera spec): `LiteRtCornerDetectorDeviceTest` on the debug build (D1) and on the R8-minified `cornerR8` build (D3). *(SCP 2026-11-21 quick-scan-front-light: the BETA evaluation on both devices, real-capture model validation and the enforced side-face bar move to Story 10.19.)* *(SCP 2026-11-20 v1.1 promotion: moved into v1.0 as the dependency of #198, Story 10.17; ACs refined 2026-11-20 per PO review; LiteRT fallback activated 2026-11-20 after Lenovo `6cd18ab1` evidence.)*
 
 **Acceptance Criteria:**
 
@@ -2417,11 +2417,11 @@ So that the two corner photos read my cube instead of sending faces to a rescan.
 
 **Given** the in-house 7-keypoint `.tflite` model and LiteRT runtime
 **When** the app is built and checked in CI and on the minimum device
-**Then** the model is trained from reproducible synthetic 3D cube renders (covering scrambled and solved stickered cubes, stickerless cubes, hands, cluttered desks, and dark glossy reflections for #196) fine-tuned/validated on real Lenovo and S24 FE captures; release installed size stays `< 30 MB` (NFR-11, single-ABI `arm64-v8a` accounting including transitive `litert` + `litert-api` + `.tflite`), `libLiteRt.so` passes 16 KB ELF page alignment (`targetSdk 36`), R8 release builds run inference cleanly, builds with corner-model flags `OFF` carry zero LiteRT classes/libs/assets, and on Lenovo TB128XU median inference stays `< 40 ms` per frame off the main thread while `CornerReader`/`unwarp`/geometry guards stay JVM-tested via `CornerDetector`
+**Then** the model is trained from reproducible synthetic 3D cube renders (covering scrambled and solved stickered cubes, stickerless cubes, hands, cluttered desks, and dark glossy reflections for #196), with real Lenovo and S24 FE palettes and face crops (validation on real labelled corner captures moves to Story 10.19, SCP 2026-11-21); release installed size stays `< 30 MB` (NFR-11, single-ABI `arm64-v8a` accounting including transitive `litert` + `litert-api` + `.tflite`), `libLiteRt.so` passes 16 KB ELF page alignment (`targetSdk 36`), R8 release builds run inference cleanly, builds with corner-model flags `OFF` carry zero LiteRT classes/libs/assets, and on Lenovo TB128XU median inference stays `< 40 ms` per frame off the main thread while `CornerReader`/`unwarp`/geometry guards stay JVM-tested via `CornerDetector`
 
 **Given** existing Quick Scan frames/evidence under `Fixtures/` and `docs/evidence/` (plus synthetic perspective-warped fixtures where real labeled frames are missing)
 **When** the developer evaluates the available fixtures and runs the JVM detector suite
-**Then** the detected corners are within a reported pixel tolerance of the labeled corners, post-unwarp 3D side-face color separation (specifically shaded Red `R` vs. Orange `L` observed as `unc=9` in `docs/evidence/10-18/lenovo-quickscan-2026-11-20-6cd18ab1.log`) is verified so clean corners avoid forced `R`/`L` 2D fallbacks, and if additional real fixtures are needed the developer flags them
+**Then** the detected corners are within a reported pixel tolerance of the labeled corners on synthetic fixtures, and a replay of real corner captures (`Fixtures/corner/`) through the production Quick Scan side-face readout reports, per cube, light and face, the stickers read correctly, left uncertain and read wrong, with Red↔Orange confusions counted separately; the baseline is recorded in `docs/evidence/10-18/` *(SCP 2026-11-21: the enforced side-face bar moves to Story 10.19)*
 
 **Given** a dark or glossy background (#196)
 **When** no corner is detected for about 3 s
@@ -2431,9 +2431,49 @@ So that the two corner photos read my cube instead of sending faces to a rescan.
 **When** it is taken
 **Then** a visible cue shows on both captures (a subtle highlight/flash avoiding harsh strobe, and a thumbnail of the captured corner, with the counter change enlarged), the same shutter sound plays on both, and nothing relies on haptics alone
 
-**Given** a fast hands-on BETA evaluation on both devices
-**When** Quick Scan is tested after the fix
-**Then** the PO confirms whether Quick Scan is viable as `BETA` for v1.0 (before running a full test matrix in `docs/scan-accuracy.md`)
+### Story 10.19: Quick Scan reads the side faces in good light
+
+As a Learner using Quick Scan,
+I want the app to help me light my cube and read its shaded sides with my own colors,
+So that both corner photos read all three faces instead of sending me face by face.
+
+**Refs:** FR-22, FR-23, FR-24 · recognition NFRs (Quick Scan, Confidence calibration), NFR-10, NFR-11 · AD-9, AD-13, AD-18 · OQ-8 · UX-DR15 · Stories 10.4, 10.8, 10.17, 10.18, 11.1 · #195, #196
+
+**Depends on** Stories 10.18 and 10.17 (*Scan face by face* is the exit from a held capture). **Human gate:** a device session on the main app build, `QUICK_SCAN` raised in debug, on the Lenovo Tab M10 Plus 3rd Gen (TB128XU, no flash) and the Galaxy S24 FE (flash), with a stickered, a stickerless and a glossy cube, light from the camera side and light behind the cube. *(SCP 2026-11-21 quick-scan-front-light. Out of scope by PO decision: a side-face calibration step, and turning uncertain side stickers into suggestions. Numeric thresholds below are proposed in the SCP and confirmed by the PO at approval.)*
+
+**Acceptance Criteria:**
+
+**Given** the corners are detected and the side faces are much darker than the top face or the background (the light is behind the cube)
+**When** frames are analysed in the corner capture view
+**Then** the light check is part of "aligned and steady": while it fails, neither auto-capture (UX-DR15, about 600 ms aligned and steady) nor the manual shutter takes a photo; after about 1 s of failing, inline coaching from `en.json` reads "Turn so the light shines on the cube."; the hold clears once the side faces pass for about 0.5 s while steady, and auto-capture then restarts its normal count; *Scan face by face* (Story 10.17) stays visible and keeps any corner already captured; the threshold comes from the recorded captures
+
+**Given** the main app on each device
+**When** a tester starts a Quick Scan with the light behind the cube, then turns so the light falls on the cube
+**Then** the capture is held with the coaching shown, and resumes and captures after the light is corrected; across at least 10 front-lit attempts per device in ordinary room light the light check never blocks (false blocks), and across at least 10 backlit attempts it always blocks (missed blocks); both counts are recorded in the device evidence
+
+**Given** a detected cube outline
+**When** frames are analysed
+**Then** the camera adapter meters on the detected cube region, not the whole frame: auto-exposure and focus on both holds, and white balance on Hold 1 only (Hold 2's grid has no white reference, as in Story 10.18); before metering, the adapter checks that regional metering is supported (`CameraInfo.isFocusMeteringSupported`) and falls back to center metering when it is not; a capture waits until the camera has settled after a metering change (settle signal defined in the spec: exposure converged, or a fixed settle time measured on both devices); support and settle times on both devices are recorded; pixels and camera control stay in `app/src/camera/` (AD-9); no frame is stored
+
+**Given** a device whose back camera has a flash unit
+**When** the corner capture view is open
+**Then** the torch is on by default during corner capture, with a visible control to turn it off; the Learner's choice carries over from Hold 1 to Hold 2; the torch turns off on *Scan face by face*, on leaving the capture view and when the app goes to the background; on a device without a flash (the Lenovo) no torch control or copy appears; on the S24 FE a glossy cube is captured in both holds with the torch on and off, and glare caused by the torch is detected and recoverable (turning the torch off clears it)
+
+**Given** saved color calibration (Story 10.4)
+**When** Quick Scan classifies the stickers
+**Then** it uses the saved calibration when one exists, and self-calibrates from the face centers when none exists; because calibration is taken with each face flat to the camera while corner captures see the side faces at an angle and in shade, each captured face is also corrected against its own known center sticker before classification; the replay covers no saved calibration, a matching calibration, a frontal calibration applied to angled side faces, and calibrations made under different light and on a different cube, reports results per color (Yellow and Orange are the most affected, PO 2026-11-21), and in every mismatched case the result is uncertainty or fallback, never a confidently wrong sticker; the Guided 6-face Scan's behavior is unchanged
+
+**Given** front-lit real corner captures under `Fixtures/corner/`, from the Lenovo and the S24 FE, with at least one stickered and one stickerless cube under at least two lights
+**When** `QuickScanSideFaceReplayTest` runs in CI with its bar enforced
+**Then** results are reported and enforced **per device and lighting condition**, never pooled: 0 confidently wrong side stickers (0 Red↔Orange confusions; Confidence calibration NFR), at least 90% of side stickers read correctly, and at least 3 of every 4 side faces read without being sent to the Guided grid for any reason; this replaces Story 10.18's original "no forced R/L fallback" wording, which demanded zero Red/Orange uncertainty; backlit captures are reported, not scored, and must trip the light check
+
+**Given** the debug fixture recorder in corner mode
+**When** an operator records corner captures
+**Then** it shows the Y anchor and the live detected outline, lets the operator place the 7 corners on the frozen frame by hand (the detector's points are saved separately for diagnostics and are never used as labels), keeps positive frames even when the detector misses, records no-cube (negative) captures, starts the camera right after the permission is granted, and never silently overwrites a saved capture group; `evaluate_model.py --fixtures-corner` on held-out captures, with at least 20 positives and 10 negatives per device, meets recall ≥ 92%, rejection ≥ 96% and mean corner error ≤ 3% of the cube outline's diagonal (validation moved from Story 10.18)
+
+**Given** a hands-on evaluation on both devices after this story
+**When** the PO compares two-corner completion on the Lenovo before and after
+**Then** the PO confirms whether Quick Scan is viable as `BETA` for v1.0 (moved from Story 10.18); the release level itself is decided by Story 10.8's full recognition matrix and raised by Story 10.11
 
 ## Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition
 
