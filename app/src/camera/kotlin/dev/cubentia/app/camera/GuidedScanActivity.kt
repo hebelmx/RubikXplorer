@@ -169,7 +169,7 @@ class GuidedScanActivity : ComponentActivity() {
 
                             calibration?.fromReview != null -> phase = calibration.fromReview
 
-                            else -> finishWith(ScanOutcome.Cancelled)
+                            else -> closeOrConfirm()
                         }
                     }
                 },
@@ -185,20 +185,8 @@ class GuidedScanActivity : ComponentActivity() {
                     }
                 },
                 onCapture = {
-                    when (phase) {
-                        is GuidedScanPhase.Calibration -> {
-                            scan.captureCalibration = true
-                        }
-
-                        is GuidedScanPhase.CornerViewfinder -> {
-                            analyzerExecutor.execute {
-                                if (scan.caseCorners != null) captureCase { it.onShutter() } else captureCorner { it.onShutter() }
-                            }
-                        }
-
-                        else -> {
-                            decide { now -> scan.guidedController()?.onShutter(now).orEmpty() }
-                        }
+                    if (!scan.confirmDiscard) {
+                        capture()
                     }
                 },
                 onKeep = {
@@ -219,6 +207,12 @@ class GuidedScanActivity : ComponentActivity() {
                 onSave = { scan.saveCalibration(updateCalibration) },
                 onUseAnyway = { decide { now -> scan.guidedController()?.onUseAnyway(now).orEmpty() } },
                 onFreezeEnd = { id -> scan.endFreeze(id) },
+                onFaceByFace = { switchToFaceByFace() },
+                onDiscardConfirm = {
+                    scan.confirmDiscard = false
+                    finishWith(ScanOutcome.Cancelled)
+                },
+                onDiscardCancel = { scan.confirmDiscard = false },
             )
         setContent {
             val catalog by lessonCatalog.state.collectAsState()
@@ -238,8 +232,16 @@ class GuidedScanActivity : ComponentActivity() {
                         }
                     }
                     androidx.activity.compose.BackHandler(enabled = phase !is GuidedScanPhase.Calibration) {
-                        val retakeFrom = (phase as? GuidedScanPhase.Viewfinder)?.fromReview
-                        if (retakeFrom != null) scan.backOutOfRetake(retakeFrom) else finishWith(ScanOutcome.Cancelled)
+                        val viewfinder = phase as? GuidedScanPhase.Viewfinder
+                        val retakeFrom = viewfinder?.fromReview
+                        when {
+                            retakeFrom != null -> scan.backOutOfRetake(retakeFrom)
+
+                            // Back from Quick Scan's hand-over returns to its corner view (Story 10.17, PO Q1).
+                            viewfinder?.handOver == true -> scan.backOutOfHandOver()
+
+                            else -> closeOrConfirm()
+                        }
                     }
                     if (strings == null) return@CubentiaTheme
                     LaunchedEffect(scan.caseResult) {
@@ -311,8 +313,13 @@ class GuidedScanActivity : ComponentActivity() {
                                 },
                             onAccept = { finishWith(ScanOutcome.Accepted(it, scan.runScanColorsToReturn())) },
                             onClose = { finishWith(ScanOutcome.Cancelled) },
-                            // Retake only in a Guided 6-face Scan review: never Quick Scan, Quick Check, calibration or Case capture.
-                            onRetake = if (scan.isGuidedRun && !isQuickCheck) ({ faces -> startRetake(reviewPhase, faces) }) else null,
+                            // Retake in a Guided 6-face Scan or Quick Scan review: never Quick Check, calibration or Case capture.
+                            onRetake =
+                                if ((scan.isGuidedRun || scan.quickScanMode) && !isQuickCheck) {
+                                    { faces -> startRetake(reviewPhase, faces) }
+                                } else {
+                                    null
+                                },
                             modifier = Modifier.fillMaxSize(),
                             coachMarkPending = scan.coachMarkPending,
                             edited = reviewPhase.edited,
@@ -330,6 +337,7 @@ class GuidedScanActivity : ComponentActivity() {
                             offerEnterColors = solveScan,
                             detectedCornerQuads = scan.detectedCornerQuads,
                             cornerThumbnail = scan.cornerThumbnail,
+                            confirmDiscard = scan.confirmDiscard,
                         ) {
                             AndroidView(
                                 factory = { context ->
@@ -372,6 +380,60 @@ class GuidedScanActivity : ComponentActivity() {
         get() =
             intent.hasExtra(QuickCheckContract.EXTRA_FACES) ||
                 intent.getBooleanExtra(QuickCheckContract.EXTRA_FULL_QUICK_CHECK, false)
+
+    /** The shutter: a corner, Case or Guided capture decision on the analyzer thread, or a calibration sample. */
+    private fun capture() {
+        when (phase) {
+            is GuidedScanPhase.Calibration -> {
+                scan.captureCalibration = true
+            }
+
+            is GuidedScanPhase.CornerViewfinder -> {
+                analyzerExecutor.execute {
+                    if (scan.caseCorners != null) captureCase { it.onShutter() } else captureCorner { it.onShutter() }
+                }
+            }
+
+            else -> {
+                decide { now -> scan.guidedController()?.onShutter(now).orEmpty() }
+            }
+        }
+    }
+
+    /**
+     * Close (and system Back in Quick Scan's corner view): asks "Discard this scan?" when it would drop at least one face
+     * Quick Scan captured, kept or read in its hand-over (Story 10.17); otherwise the scan ends Cancelled at once.
+     */
+    private fun closeOrConfirm() {
+        val current = phase
+        val faces =
+            when {
+                !scan.quickScanMode -> false
+                current is GuidedScanPhase.CornerViewfinder -> current.captured.isNotEmpty()
+                current is GuidedScanPhase.Viewfinder && current.handOver -> (current.kept + current.captured).isNotEmpty()
+                else -> false
+            }
+        if (faces) scan.confirmDiscard = true else finishWith(ScanOutcome.Cancelled)
+    }
+
+    /**
+     * *Scan face by face* (Story 10.17): the switch runs on the analyzer thread; its hand-over viewfinder replaces the
+     * corner view now, or once a capture freeze ends. A tap once the hand-over or Done has started changes nothing.
+     */
+    private fun switchToFaceByFace() {
+        if (phase !is GuidedScanPhase.CornerViewfinder || !scan.quickScanMode) return
+        analyzerExecutor.execute {
+            val quick = scan.quickScan ?: return@execute
+            val effect = quick.switchToFaceByFace() ?: return@execute
+            val next = GuidedScanFlow.phaseOf(quick)
+            val review = quickReview(effect as? QuickScanEffect.Done)
+            ContextCompat.getMainExecutor(this).execute {
+                if (phase !is GuidedScanPhase.CornerViewfinder) return@execute
+                if (next != null) scan.holdTransition(next)
+                if (review != null) scan.publish(review)
+            }
+        }
+    }
 
     private fun finishWith(capture: ScanOutcome) {
         val review =
@@ -435,7 +497,8 @@ class GuidedScanActivity : ComponentActivity() {
     /** Analyzer thread: read the frame into stats, drop it, and run the controller — unless a capture is frozen. */
     private fun analyze(frame: ScanFrame) {
         val now = SystemClock.elapsedRealtime()
-        if (scan.freeze.isFrozen(now)) return
+        // No capture decision runs while "Discard this scan?" is open (Story 10.17).
+        if (scan.freeze.isFrozen(now) || scan.confirmDiscard) return
         val rotation = frame.rotationDegrees
         val stats = frame.stats
         // One snapshot: main may leave calibration while this frame is read.
@@ -824,7 +887,15 @@ internal class GuidedScanViewModel : ViewModel() {
     }
 
     var controller = newController()
-    var phase by mutableStateOf<GuidedScanPhase>(GuidedScanPhase.Rationale)
+    private var shownPhase by mutableStateOf<GuidedScanPhase>(GuidedScanPhase.Rationale)
+
+    /** The shown phase; a move to another kind of phase dismisses "Discard this scan?" (Story 10.17). */
+    var phase: GuidedScanPhase
+        get() = shownPhase
+        set(value) {
+            if (value::class != shownPhase::class) confirmDiscard = false
+            shownPhase = value
+        }
 
     /** Whether the system would have shown a rationale just before the last permission request. */
     var rationaleBefore = false
@@ -892,6 +963,28 @@ internal class GuidedScanViewModel : ViewModel() {
         measuredCenters = GuidedScanFlow.runScanColorsOf(from.samples, saved)
         analyzerExecutor.execute { retake = null }
     }
+
+    /**
+     * Main thread: leaves Quick Scan's hand-over before review (Story 10.17, PO Q1): the corner view at the hold it
+     * started from, kept faces intact, faces captured in the hand-over (and a held combined review) dropped.
+     */
+    fun backOutOfHandOver() {
+        held = null
+        frozen = null
+        viewModelScope.launch {
+            val next =
+                withContext(analyzerExecutor.asCoroutineDispatcher()) {
+                    quickScan?.takeIf { it.backOut() }?.let(GuidedScanFlow::phaseOf)
+                } ?: return@launch
+            // A last capture handled before the back-out may have held its review meanwhile: it is dropped too.
+            held = null
+            frozen = null
+            phase = next
+        }
+    }
+
+    /** Main thread: Close asked "Discard this scan?" (Story 10.17). */
+    var confirmDiscard by mutableStateOf(false)
 
     /** Main thread: the freeze of capture [id] ended; live view resumes, or a held result is published. */
     fun endFreeze(id: Long) {

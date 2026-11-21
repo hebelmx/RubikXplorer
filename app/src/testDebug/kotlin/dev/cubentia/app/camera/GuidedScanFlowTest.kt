@@ -798,4 +798,57 @@ class GuidedScanFlowTest {
         // Published as built: earlier corrections are not re-applied.
         assertTrue(vm.phase === after)
     }
+
+    // Story 10.17: Quick Scan's corner view offers *Scan face by face*; its hand-over viewfinder counts only the asked faces.
+
+    private fun cornerHold(index: Int): List<FrameStats> {
+        val labs =
+            mapOf(
+                Color.WHITE to Lab(90.0, 0.0, 0.0),
+                Color.GREEN to Lab(55.0, -60.0, 40.0),
+                Color.RED to Lab(45.0, 65.0, 45.0),
+                Color.YELLOW to Lab(85.0, -5.0, 80.0),
+                Color.ORANGE to Lab(65.0, 45.0, 65.0),
+                Color.BLUE to Lab(40.0, 10.0, -50.0),
+            )
+        return dev.cubentia.domain.recognition.QuickScanPlan.holds[index - 1].map { step ->
+            FrameStats(List(9) { CellReading(labs.getValue(step.centerColor), true) }, 120.0, 0.0, 100.0, 12)
+        }
+    }
+
+    @Test fun `quick scan's corner view offers face by face and its hand-over shows kept faces and Face n of N`() {
+        val quick =
+            dev.cubentia.domain.recognition
+                .QuickScanController()
+        val corner = GuidedScanFlow.phaseOf(quick) as GuidedScanPhase.CornerViewfinder
+        assertTrue(corner.faceByFace)
+        quick.onFrame(true, cornerHold(1), 0)
+        quick.onShutter()
+        val second = GuidedScanFlow.phaseOf(quick) as GuidedScanPhase.CornerViewfinder
+        assertEquals(2, second.hold)
+        assertTrue(second.faceByFace)
+        assertNotNull(quick.switchToFaceByFace())
+        val handOver = GuidedScanFlow.phaseOf(quick) as GuidedScanPhase.Viewfinder
+        assertTrue(handOver.handOver)
+        assertNull(handOver.again)
+        assertFalse(handOver.retake)
+        assertEquals(3, handOver.total)
+        assertEquals(0, handOver.stepIndex)
+        assertEquals(Color.BLUE, handOver.step?.centerColor)
+        assertNull(handOver.step?.upNeighborColor)
+        assertEquals(listOf(Face.U, Face.F, Face.R), handOver.kept.map { it.face })
+        assertTrue(handOver.captured.isEmpty())
+        // Back returns to the corner view at hold 2 with the kept faces.
+        assertTrue(quick.backOut())
+        val back = GuidedScanFlow.phaseOf(quick) as GuidedScanPhase.CornerViewfinder
+        assertEquals(2, back.hold)
+        assertEquals(listOf(Face.U, Face.F, Face.R), back.captured.map { it.face })
+    }
+
+    @Test fun `case capture's corner view never offers face by face`() {
+        val case =
+            dev.cubentia.domain.recognition
+                .CaseCaptureController(CalibrationCenters(emptyMap()), 2)
+        assertFalse(GuidedScanFlow.phaseOf(case).faceByFace)
+    }
 }

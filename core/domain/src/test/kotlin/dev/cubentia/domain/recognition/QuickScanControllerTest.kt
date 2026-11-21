@@ -82,11 +82,18 @@ class QuickScanControllerTest {
     }
 
     @Test
-    fun `shutter captures immediately and uncertain readings re-prompt only the affected face`() {
+    fun `shutter captures immediately and an uncertain face alone is handed over, any rotation, with no second round`() {
         val scan = QuickScanController()
         val first = hold(1).toMutableList().also { it[1] = it[1].withCell(0, Lab(55.0, 55.0, 55.0)) }
-        assertEquals(QuickScanEffect.Fallback(listOf(Face.F), 1), capture(scan, first, hold(2)))
+        assertEquals(QuickScanEffect.Fallback(listOf(Face.F)), capture(scan, first, hold(2)))
+        val grid = checkNotNull(scan.fallback)
+        assertEquals(ScanStep(Color.GREEN), grid.step)
+        assertEquals(1, grid.planSize)
+        assertEquals(Face.entries.toSet() - Face.F, scan.keptFaces)
+        assertTrue(scan.added.isEmpty())
         val done = guidedCapture(scan, face(Face.F)) as QuickScanEffect.Done
+        assertEquals(null, scan.fallback)
+        assertEquals(Face.entries.toSet(), done.samples.map { it.face }.toSet())
         assertEquals(cube.toFacelets(), assemble(done.samples).facelets)
     }
 
@@ -100,7 +107,7 @@ class QuickScanControllerTest {
         assertTrue(scan.onFrame(false, listOf(second[0].copy(meanLuma = 10.0), second[1], second[2]), 200).isEmpty())
         assertEquals(Coaching.LOW_LIGHT, scan.coaching)
         assertEquals(
-            listOf(QuickScanEffect.CornerCaptured(2), QuickScanEffect.Fallback(listOf(Face.D, Face.L, Face.B), 1)),
+            listOf(QuickScanEffect.CornerCaptured(2), QuickScanEffect.Fallback(listOf(Face.B, Face.L, Face.D))),
             scan.onShutter(),
         )
         assertEquals(QuickScanPlan.holds[0].map { it.face }, scan.captured.map { it.face })
@@ -122,10 +129,10 @@ class QuickScanControllerTest {
         val scan = QuickScanController()
         val first = hold(1)
         val input = listOf(null, first[1].copy(meanLuma = 10.0), first[2])
-        assertEquals(QuickScanEffect.Fallback(listOf(Face.U, Face.F), 1), capture(scan, input, hold(2)))
-        assertEquals(Face.U, scan.fallback?.step?.face)
-        assertEquals(null, guidedCapture(scan, face(Face.U)))
-        val done = guidedCapture(scan, face(Face.F)) as QuickScanEffect.Done
+        assertEquals(QuickScanEffect.Fallback(listOf(Face.F, Face.U)), capture(scan, input, hold(2)))
+        assertEquals(Face.F, scan.fallback?.step?.face)
+        assertEquals(null, guidedCapture(scan, face(Face.F)))
+        val done = guidedCapture(scan, face(Face.U)) as QuickScanEffect.Done
         assertEquals(cube.toFacelets(), assemble(done.samples).facelets)
     }
 
@@ -141,7 +148,7 @@ class QuickScanControllerTest {
                         }
                     }
                 val scenario = "face $missing, held turns $heldTurns"
-                assertEquals(QuickScanEffect.Fallback(listOf(missing), 1), capture(scan, holds[0], holds[1]), scenario)
+                assertEquals(QuickScanEffect.Fallback(listOf(missing)), capture(scan, holds[0], holds[1]), scenario)
                 val done = guidedCapture(scan, evidenceGridFace(missing, heldTurns), rotation = 90)
                 assertTrue(done is QuickScanEffect.Done, "$scenario: $done")
                 val samples = (done as QuickScanEffect.Done).samples
@@ -149,14 +156,15 @@ class QuickScanControllerTest {
                 assertEquals(evidenceCube.toFacelets(), merged, scenario)
                 if (missing == Face.U) assertEquals("OWORWYORB", merged.colors.take(9).joinToString("") { it.name.take(1) }, scenario)
                 val reasked = samples.single { it.face == missing }
-                assertEquals(if (heldTurns == 0) GuidedScanPlan.reprompt(missing).upNeighborColor else null, reasked.upNeighborColor)
+                // The hand-over names no top: the assembler searches the face's four quarter turns.
+                assertEquals(null, reasked.upNeighborColor)
                 assertTrue(samples.filter { it.face != missing }.all { it.upNeighborColor != null }, scenario)
             }
         }
     }
 
     @Test
-    fun `an involved corner face reasked in round two can be held upside down`() {
+    fun `an invalid merge hands over the involved faces once, and one can be held upside down`() {
         val scan = QuickScanController()
         val first = hold(1, evidenceCube).toMutableList()
         // A U edge read from the corner hold implicates two faces, within the re-prompt limit.
@@ -164,8 +172,9 @@ class QuickScanControllerTest {
         val effect = capture(scan, first, hold(2, evidenceCube))
         assertTrue(effect is QuickScanEffect.Fallback, "$effect")
         val fallback = effect as QuickScanEffect.Fallback
-        assertEquals(2, fallback.round)
+        assertEquals(scan.repromptFaces.toSet(), fallback.faces.toSet())
         assertTrue(Face.U in fallback.faces && fallback.faces.size <= 2, "${fallback.faces}")
+        assertTrue(checkNotNull(scan.fallback).step?.upNeighborColor == null)
         val done =
             fallback.faces
                 .map { face ->
@@ -186,32 +195,15 @@ class QuickScanControllerTest {
     }
 
     @Test
-    fun `an invalid merged state asks involved faces once and then goes to review even if still invalid`() {
+    fun `an invalid merged state after the hand-over goes straight to review without a second round`() {
         val scan = QuickScanController()
         val first = hold(1)
         val invalidF = first[1].withCell(1, labs.getValue(Color.WHITE))
-        assertEquals(QuickScanEffect.Fallback(listOf(Face.U), 1), capture(scan, listOf(null, invalidF, first[2]), hold(2)))
-        val expectedSamples =
-            scan.captured +
-                FaceSample(
-                    face = Face.U,
-                    orientationDegrees = 0,
-                    stickers = face(Face.U).cells.map { it!!.value },
-                    quality = CaptureQuality.ACCEPTABLE,
-                    centerColor = Color.WHITE,
-                    upNeighborColor = Color.BLUE,
-                )
-        val calibration = (SelfCalibration.from(expectedSamples) as SelfCalibration.Calibrated).calibration
-        val involved = ScanAssembler.repromptFaces(expectedSamples, calibration, repromptPosed = true)
-        assertTrue(involved.isNotEmpty())
-        assertEquals(QuickScanEffect.Fallback(involved, 2), guidedCapture(scan, face(Face.U)))
-        val grid = checkNotNull(scan.fallback)
-        assertTrue(grid.repeating)
-        assertTrue(grid.onFrame(face(Face.U), 0, 1000).isEmpty())
-        assertTrue(grid.onShutter(1000).isEmpty())
-        val done = involved.map { guidedCapture(scan, if (it == Face.F) invalidF else face(it)) }.last() as QuickScanEffect.Done
+        assertEquals(QuickScanEffect.Fallback(listOf(Face.U)), capture(scan, listOf(null, invalidF, first[2]), hold(2)))
+        val done = guidedCapture(scan, face(Face.U)) as QuickScanEffect.Done
         assertFalse(CubeValidator.validate(assemble(done.samples).facelets) is ValidationResult.Valid)
         assertEquals(null, scan.fallback)
+        assertEquals(null, scan.switchToFaceByFace())
     }
 
     @Test
@@ -229,7 +221,7 @@ class QuickScanControllerTest {
         scan.onFrame(false, List(3) { null }, 1)
         assertEquals(null, scan.coaching)
         assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onShutter())
-        assertEquals(QuickScanEffect.Fallback(Face.entries.toList(), 1), scan.onShutter().last())
+        assertEquals(QuickScanEffect.Fallback(GuidedScanPlan.steps.map { it.face }), scan.onShutter().last())
     }
 
     @Test
@@ -239,7 +231,7 @@ class QuickScanControllerTest {
         assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onShutter())
         assertEquals(listOf(Face.U), scan.captured.map { it.face })
         scan.onFrame(true, hold(2), 100)
-        assertEquals(QuickScanEffect.Fallback(listOf(Face.R, Face.F), 1), scan.onShutter().last())
+        assertEquals(QuickScanEffect.Fallback(listOf(Face.F, Face.R)), scan.onShutter().last())
     }
 
     @Test
@@ -267,25 +259,133 @@ class QuickScanControllerTest {
     }
 
     @Test
-    fun `a kept corner face with an uncertain sticker is asked once calibration becomes possible`() {
+    fun `a kept corner face is never asked again once calibration becomes possible`() {
         val scan = QuickScanController()
         val first = hold(1)
         val uncertainF = first[1].withCell(0, Lab(55.0, 55.0, 55.0))
-        assertEquals(QuickScanEffect.Fallback(listOf(Face.U), 1), capture(scan, listOf(null, uncertainF, first[2]), hold(2)))
-        val next = guidedCapture(scan, face(Face.U)) as QuickScanEffect.Fallback
-        assertEquals(2, next.round)
-        assertTrue(Face.F in next.faces, "${next.faces}")
+        assertEquals(QuickScanEffect.Fallback(listOf(Face.U)), capture(scan, listOf(null, uncertainF, first[2]), hold(2)))
+        val keptF = scan.kept.single { it.face == Face.F }
+        val done = guidedCapture(scan, face(Face.U)) as QuickScanEffect.Done
+        assertEquals(keptF, done.samples.single { it.face == Face.F })
     }
 
     @Test
     fun `the guided grid rejects a face already read from a corner`() {
         val scan = QuickScanController()
         val first = hold(1).toMutableList().also { it[1] = it[1].withCell(0, Lab(55.0, 55.0, 55.0)) }
-        assertEquals(QuickScanEffect.Fallback(listOf(Face.F), 1), capture(scan, first, hold(2)))
+        assertEquals(QuickScanEffect.Fallback(listOf(Face.F)), capture(scan, first, hold(2)))
         val grid = checkNotNull(scan.fallback)
         grid.onFrame(face(Face.U), 0, 0)
         assertTrue(grid.onShutter(0).none { it is GuidedScanEffect.Capture })
         assertEquals(Coaching.WRONG_FACE, grid.coaching)
+    }
+
+    @Test
+    fun `face by face before the first capture asks all six faces in guided order with no named top`() {
+        val scan = QuickScanController()
+        scan.onFrame(true, hold(1), 0)
+        assertEquals(QuickScanEffect.Fallback(GuidedScanPlan.steps.map { it.face }), scan.switchToFaceByFace())
+        assertFalse(scan.inCorner)
+        assertTrue(scan.keptFaces.isEmpty())
+        assertTrue(scan.kept.isEmpty())
+        val grid = checkNotNull(scan.fallback)
+        assertEquals(6, grid.planSize)
+        assertEquals(ScanStep(Color.GREEN), grid.step)
+        // The switch is a no-op once the hand-over runs, and corner frames are ignored.
+        assertEquals(null, scan.switchToFaceByFace())
+        assertTrue(scan.onShutter().isEmpty())
+        val done =
+            GuidedScanPlan.steps
+                .map { guidedCapture(scan, face(it.face, evidenceCube)) }
+                .last() as QuickScanEffect.Done
+        assertEquals(evidenceCube.toFacelets(), assemble(done.samples).facelets)
+        assertTrue(done.samples.all { it.upNeighborColor == null })
+    }
+
+    @Test
+    fun `face by face between captures keeps the first corner and asks the other three`() {
+        val scan = QuickScanController()
+        scan.onFrame(true, hold(1), 0)
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onShutter())
+        val corner = scan.captured
+        assertEquals(QuickScanEffect.Fallback(listOf(Face.B, Face.L, Face.D)), scan.switchToFaceByFace())
+        assertEquals(setOf(Face.U, Face.F, Face.R), scan.keptFaces)
+        assertEquals(corner, scan.kept)
+        val added = listOf(Face.B, Face.L, Face.D).map { it to face(it) }
+        val effects = added.map { (_, stats) -> guidedCapture(scan, stats) }
+        assertEquals(listOf(null, null), effects.dropLast(1))
+        val done = effects.last() as QuickScanEffect.Done
+        // Kept samples are exactly as captured (named top, orientation 0, same stickers); the new ones are searched.
+        assertEquals(corner, done.samples.take(3))
+        assertEquals(scan.added, done.samples.drop(3))
+        assertTrue(done.samples.drop(3).all { it.upNeighborColor == null })
+        assertEquals(cube.toFacelets(), assemble(done.samples).facelets)
+    }
+
+    @Test
+    fun `face by face drops a doubtful corner face and asks it with the missing ones`() {
+        val scan = QuickScanController()
+        val first = hold(1).toMutableList().also { it[1] = it[1].copy(meanLuma = 10.0) }
+        scan.onFrame(true, first, 0)
+        scan.onShutter()
+        assertEquals(QuickScanEffect.Fallback(listOf(Face.F, Face.B, Face.L, Face.D)), scan.switchToFaceByFace())
+        assertEquals(setOf(Face.U, Face.R), scan.keptFaces)
+        assertEquals(listOf(Face.U, Face.R), scan.captured.map { it.face })
+    }
+
+    @Test
+    fun `back from the hand-over resumes the hold it started from with kept faces intact`() {
+        // Hold 1, nothing captured.
+        val atOne = QuickScanController()
+        assertFalse(atOne.backOut())
+        atOne.switchToFaceByFace()
+        guidedCapture(atOne, face(Face.F))
+        assertTrue(atOne.backOut())
+        assertEquals(1, atOne.hold)
+        assertTrue(atOne.inCorner)
+        assertTrue(atOne.captured.isEmpty())
+        assertTrue(atOne.added.isEmpty())
+        assertEquals(null, atOne.fallback)
+        assertFalse(atOne.backOut())
+
+        // Hold 2, the first corner kept.
+        val atTwo = QuickScanController()
+        atTwo.onFrame(true, hold(1), 0)
+        atTwo.onShutter()
+        val corner = atTwo.captured
+        atTwo.switchToFaceByFace()
+        guidedCapture(atTwo, face(Face.B))
+        assertTrue(atTwo.backOut())
+        assertEquals(2, atTwo.hold)
+        assertEquals(corner, atTwo.kept)
+        assertTrue(atTwo.added.isEmpty())
+        // The second corner then fills the rest and the scan finishes with the kept corner untouched.
+        atTwo.onFrame(true, hold(2), 100)
+        val done = atTwo.onShutter().last() as QuickScanEffect.Done
+        assertEquals(corner, done.samples.filter { it.face in corner.map(FaceSample::face) })
+        assertEquals(cube.toFacelets(), assemble(done.samples).facelets)
+    }
+
+    @Test
+    fun `back after both captures resumes hold 2 and a re-capture fills only faces not kept`() {
+        val scan = QuickScanController()
+        val uncertain = hold(2).toMutableList().also { it[2] = it[2].withCell(0, Lab(55.0, 55.0, 55.0)) }
+        assertEquals(QuickScanEffect.Fallback(listOf(Face.B)), capture(scan, hold(1), uncertain))
+        val kept = scan.kept
+        assertEquals(Face.entries.toSet() - Face.B, scan.keptFaces)
+        // The last hand-over face is captured, then Back before review drops it.
+        assertTrue(guidedCapture(scan, face(Face.B)) is QuickScanEffect.Done)
+        assertTrue(scan.backOut())
+        assertEquals(2, scan.hold)
+        assertEquals(kept, scan.kept)
+        assertTrue(scan.added.isEmpty())
+        // A re-capture with D read differently keeps D as it was; B is read again and is now confident.
+        val recapture = hold(2).toMutableList().also { it[0] = it[0].withCell(0, labs.getValue(Color.RED)) }
+        scan.onFrame(true, recapture, 200)
+        val done = scan.onShutter().last() as QuickScanEffect.Done
+        assertEquals(kept, done.samples.filter { it.face != Face.B })
+        assertEquals(cube.toFacelets(), assemble(done.samples).facelets)
+        assertFalse(scan.backOut())
     }
 
     private fun capture(
@@ -314,10 +414,10 @@ class QuickScanControllerTest {
     }
 
     @Test
-    fun `guided fallback round one delays auto capture so the learner can turn the cube`() {
+    fun `the hand-over delays auto capture so the learner can turn the cube`() {
         val scan = QuickScanController()
         val first = hold(1).toMutableList().also { it[1] = it[1].withCell(0, Lab(55.0, 55.0, 55.0)) }
-        assertEquals(QuickScanEffect.Fallback(listOf(Face.F), 1), capture(scan, first, hold(2)))
+        assertEquals(QuickScanEffect.Fallback(listOf(Face.F)), capture(scan, first, hold(2)))
         val grid = checkNotNull(scan.fallback)
         val front = face(Face.F)
         assertEquals(listOf(GuidedScanEffect.Remeter), grid.onFrame(front, 0, 1000))

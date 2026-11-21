@@ -217,19 +217,14 @@ internal object GuidedScanFlow {
             totalHolds = case.corners,
         )
 
+    /**
+     * Quick Scan's corner view with *Scan face by face* (Story 10.17), or its hand-over viewfinder: "Face n of N" over the
+     * faces asked, any rotation, the kept corner faces shown as done on the mini net; null once the scan is done.
+     */
     fun phaseOf(quick: dev.cubentia.domain.recognition.QuickScanController): GuidedScanPhase? {
-        if (quick.inCorner) return GuidedScanPhase.CornerViewfinder(quick.hold, quick.captured, quick.coaching)
+        if (quick.inCorner) return GuidedScanPhase.CornerViewfinder(quick.hold, quick.captured, quick.coaching, faceByFace = true)
         val grid = quick.fallback ?: return null
-        return phaseOf(grid).copy(
-            captured = quick.captured,
-            again =
-                if (grid.repeating) {
-                    RepromptProgress(grid.repromptIndex + 1, grid.repromptCount)
-                } else {
-                    RepromptProgress(grid.stepIndex + 1, grid.planSize)
-                },
-            retake = true,
-        )
+        return phaseOf(grid).copy(kept = quick.kept, captured = quick.added, again = null, retake = false, handOver = true)
     }
 
     fun reviewOf(
