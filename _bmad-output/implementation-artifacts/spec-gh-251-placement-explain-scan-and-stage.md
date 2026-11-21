@@ -2,7 +2,7 @@
 title: 'GH #251: Placement tells the Learner what the scan saw and why this Stage'
 type: 'feature'
 created: '2026-11-20'
-status: 'done'
+status: done
 baseline_revision: '0228ad0ad2d16ea57d66a5a5a196315198975db3'
 review_loop_iteration: 0
 followup_review_recommended: false
