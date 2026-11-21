@@ -227,24 +227,6 @@ internal object GuidedScanFlow {
         return phaseOf(grid).copy(kept = quick.kept, captured = quick.added, again = null, retake = false, handOver = true)
     }
 
-    /**
-     * Story 10.19: the torch control [phase] shows: the Learner's choice [torchOn] in Quick Scan's corner view on a camera
-     * with a flash unit; null (no control, no torch copy) without a flash unit, before the camera is known, or in any
-     * other phase (Case capture, the Guided grid and the hand-over included).
-     */
-    fun torchControl(
-        phase: GuidedScanPhase,
-        hasFlash: Boolean?,
-        torchOn: Boolean,
-    ): Boolean? = torchOn.takeIf { hasFlash == true && phase is GuidedScanPhase.CornerViewfinder && phase.faceByFace }
-
-    /** Whether the torch is physically on in [phase]: only in Quick Scan's corner view, with a flash unit, when chosen. */
-    fun torchLit(
-        phase: GuidedScanPhase,
-        hasFlash: Boolean?,
-        torchOn: Boolean,
-    ): Boolean = torchControl(phase, hasFlash, torchOn) == true
-
     fun reviewOf(
         effects: List<GuidedScanEffect>,
         saved: CalibrationCenters?,

@@ -87,19 +87,6 @@ class QuickScanController(
     var hold = 1
         private set
     val coaching: Coaching? get() = corner.coaching
-
-    /** Whether the torch is on (Story 10.19): glare coaching then says to turn it off. The adapter sets it. */
-    var torchOn = false
-        private set
-
-    /** True while the light check holds back every capture (Story 10.19). */
-    val lightHeld: Boolean get() = corner.lightHeld
-
-    /** When the running light hold engaged; null when none is held. */
-    val lightHeldSince: Long? get() = corner.lightHeldSince
-
-    /** True while a metering change waits for the settle signal on a detected cube. */
-    val settling: Boolean get() = corner.settling
     var fallback: GuidedScanController? = null
         private set
     var fallbackFaces: List<Face> = emptyList()
@@ -121,29 +108,14 @@ class QuickScanController(
 
     val inCorner: Boolean get() = hold <= QuickScanPlan.holds.size
 
-    /**
-     * One analysis frame of the corner view. [light] is this frame's [SideLight] check (null: not measured, never holds);
-     * [settled] is the adapter's settle signal for the latest metering change (null: no signal, the fixed
-     * [CornerHold.SETTLE_MS] applies and a manual press is never queued).
-     */
     fun onFrame(
         detected: Boolean,
         faces: List<FrameStats?>,
         nowMs: Long,
-        light: SideLight.Verdict? = null,
-        settled: Boolean? = null,
     ): List<QuickScanEffect> {
         if (!inCorner) return emptyList()
         val decision =
-            corner.onFrame(
-                detected,
-                faces,
-                nowMs,
-                clearWhenUnlocated = hold == 2,
-                light = light,
-                settled = settled,
-                torchOn = torchOn,
-            ) { values ->
+            corner.onFrame(detected, faces, nowMs, clearWhenUnlocated = hold == 2) { values ->
                 val prior = previous
                 if (prior != null && !turnedOver(values, prior)) {
                     false
@@ -155,30 +127,11 @@ class QuickScanController(
         return when (decision) {
             CornerHold.Decision.Wait -> emptyList()
             CornerHold.Decision.Remeter -> listOf(QuickScanEffect.Remeter)
-            CornerHold.Decision.Capture -> take()
+            CornerHold.Decision.Capture -> onShutter()
         }
     }
 
-    /** The torch was switched (Story 10.19): coaching follows it, and the next detected frame re-meters. */
-    fun setTorch(on: Boolean) {
-        if (on == torchOn) return
-        torchOn = on
-        corner.remeter()
-    }
-
-    /**
-     * The manual shutter: ignored while the light hold blocks capture, queued while the metering settles (it fires once
-     * settled, unless the light hold engages or the cube is lost first), otherwise the corner is taken now.
-     */
     fun onShutter(): List<QuickScanEffect> {
-        if (!inCorner || (previous != null && !corner.unlocated)) return emptyList()
-        return when (corner.press()) {
-            CornerHold.Press.Take -> take()
-            CornerHold.Press.Queued, CornerHold.Press.Ignored -> emptyList()
-        }
-    }
-
-    private fun take(): List<QuickScanEffect> {
         if (!inCorner || (previous != null && !corner.unlocated)) return emptyList()
         val taken = hold++
         QuickScanPlan.holds[taken - 1].zip(corner.latest).forEach { (step, stats) ->
@@ -282,18 +235,38 @@ class QuickScanController(
     }
 
     private fun involvedFaces(merged: List<FaceSample>): List<Face> {
-        val calibration = QuickScanClassification.calibration(merged, saved) ?: return emptyList()
-        return ScanAssembler.repromptFaces(merged, calibration, repromptPosed = true)
+        val calibration = SelfCalibration.from(merged, saved) as? SelfCalibration.Calibrated ?: return emptyList()
+        return ScanAssembler.repromptFaces(merged, calibration.calibration, repromptPosed = true)
     }
 
     /**
-     * Faces among [faces] that the Guided grid must read, by the Quick-Scan-only gated classification
-     * ([QuickScanClassification.needGrid]): missing, not ACCEPTABLE, uncalibrated or with a sticker not CONFIDENT.
+     * Faces among [faces] that the Guided grid must read: missing, not ACCEPTABLE, uncalibrated or with an UNCERTAIN
+     * sticker. With no calibration yet, a face's stickers are judged against the captured faces' own centers, so only a
+     * face with all nine stickers read is kept (AC1; the colors are still produced once, in the combined assembly).
      */
     private fun needGrid(
         merged: List<FaceSample>,
         faces: List<Face>,
-    ): List<Face> = QuickScanClassification.needGrid(merged, faces, saved)
+    ): List<Face> {
+        val calibration = SelfCalibration.from(merged, saved)
+        val byFace = merged.associateBy { it.face }
+        return faces.filter { face ->
+            val sample = byFace[face]
+            sample == null || sample.quality != CaptureQuality.ACCEPTABLE ||
+                when (calibration) {
+                    is SelfCalibration.NeedsCalibration -> {
+                        Color.home(face) in calibration.colors ||
+                            QuickScanReadout
+                                .judgedAgainst(sample, SelfCalibration.trustedCenters(merged))
+                                .any { it?.confidence != StickerConfidence.CONFIDENT }
+                    }
+
+                    is SelfCalibration.Calibrated -> {
+                        QuickScanReadout.judged(sample, calibration.calibration).any { it?.confidence != StickerConfidence.CONFIDENT }
+                    }
+                }
+        }
+    }
 
     /**
      * True once the view shows another corner than the one just taken: the top center (white vs yellow) changed, or,

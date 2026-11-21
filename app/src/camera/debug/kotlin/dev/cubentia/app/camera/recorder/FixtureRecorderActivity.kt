@@ -20,14 +20,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.AndroidEntryPoint
 import dev.cubentia.app.camera.CornerDetector
 import dev.cubentia.app.camera.CornerFrame
 import dev.cubentia.app.camera.CornerGuide
 import dev.cubentia.app.camera.CornerLocator
-import dev.cubentia.app.camera.CornerPoint
 import dev.cubentia.app.camera.CornerReader
 import dev.cubentia.app.camera.FrameReader
 import dev.cubentia.app.camera.ViewfinderGrid
@@ -42,7 +40,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import kotlin.math.pow
-import kotlin.math.roundToInt
 
 /** One analysis frame: the per-cell center-pixel samples (unchanged since 10.10) plus the center cell's calibration ring. */
 internal data class FrameMeasurements(
@@ -60,18 +57,12 @@ internal data class CapturedFrame(
     val frameError: String?,
     val corner: CornerFrame? = null,
     val capturedAt: java.time.Instant = java.time.Instant.now(),
-    /** Story 10.19 corner mode: the model-input crop as a PNG and where it sits on the frame. */
-    val modelInput: ByteArray? = null,
-    val crop: ModelCrop? = null,
 )
 
 /** What the recorder screen needs from the camera; implemented by [FixtureRecorderActivity]. */
 internal interface RecorderCamera {
     /** Bumped on every automatic re-meter, so the screen can say so. */
     val autoRemeters: State<Int>
-
-    /** Corner mode (Story 10.19): the live detected outline, as view fractions; empty when nothing is detected. */
-    val detectedQuads: State<List<List<CornerPoint>>>
 
     fun bind(view: PreviewView)
 
@@ -84,12 +75,6 @@ internal interface RecorderCamera {
 
     /** Re-meters AF/AE/AWB on the grid now and takes the next frame as the settled reference. */
     fun remeter()
-
-    /**
-     * Corner mode (Story 10.19): meters like Quick Scan, AF+AE on the detected outline (the grid centre when none or
-     * unsupported) and AWB only when [includeAwb] (hold 1).
-     */
-    fun remeterCorner(includeAwb: Boolean) = remeter()
 
     fun changeExposure(delta: Int): String
 }
@@ -109,22 +94,13 @@ class FixtureRecorderActivity : ComponentActivity() {
     private val settleRequested = AtomicBoolean(false)
     private val remeterTrigger = RemeterTrigger()
     private val autoRemeterCount = mutableIntStateOf(0)
-    private val detectedQuads = mutableStateOf<List<List<CornerPoint>>>(emptyList())
     private var camera: Camera? = null
-    private var analysisUseCase: ImageAnalysis? = null
-
-    /** The last detected outline in analysis-frame pixels, with that frame's size, for corner metering. */
-    @Volatile private var lastOutline: Triple<List<List<CornerPoint>>, Int, Int>? = null
-
-    @Volatile private var viewSize = 0 to 0
 
     @Volatile private var cornerMode = false
 
     private val recorderCamera =
         object : RecorderCamera {
             override val autoRemeters: State<Int> get() = autoRemeterCount
-
-            override val detectedQuads: State<List<List<CornerPoint>>> get() = this@FixtureRecorderActivity.detectedQuads
 
             override fun bind(view: PreviewView) = startCamera(view)
 
@@ -141,11 +117,6 @@ class FixtureRecorderActivity : ComponentActivity() {
             }
 
             override fun remeter() = this@FixtureRecorderActivity.remeter()
-
-            override fun remeterCorner(includeAwb: Boolean) {
-                meterOnCube(includeAwb)
-                settleRequested.set(true)
-            }
 
             override fun changeExposure(delta: Int): String = this@FixtureRecorderActivity.changeExposure(delta)
         }
@@ -169,39 +140,6 @@ class FixtureRecorderActivity : ComponentActivity() {
                 .disableAutoCancel()
                 .build()
         camera?.cameraControl?.startFocusAndMetering(action)
-    }
-
-    /** Story 10.19: AF+AE (AWB when [includeAwb]) on the last detected outline, as Quick Scan meters; the grid centre otherwise. */
-    private fun meterOnCube(includeAwb: Boolean) {
-        val bound = camera ?: return
-        val analysis = analysisUseCase
-        val outline = lastOutline
-        val flags =
-            FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE or (if (includeAwb) FocusMeteringAction.FLAG_AWB else 0)
-        val point =
-            outline?.let { (quads, width, height) ->
-                val points = quads.flatten()
-                if (analysis == null || points.isEmpty() || width <= 0 || height <= 0) return@let null
-                val left = points.minOf { it.x }
-                val right = points.maxOf { it.x }
-                val top = points.minOf { it.y }
-                val bottom = points.maxOf { it.y }
-                runCatching {
-                    SurfaceOrientedMeteringPointFactory(width.toFloat(), height.toFloat(), analysis).createPoint(
-                        ((left + right) / 2).toFloat(),
-                        ((top + bottom) / 2).toFloat(),
-                        (maxOf(right - left, bottom - top) / maxOf(width, height)).toFloat().coerceIn(0f, 1f),
-                    )
-                }.getOrNull()
-            }
-        val onOutline = point?.let { FocusMeteringAction.Builder(it, flags).disableAutoCancel().build() }
-        val action =
-            onOutline?.takeIf { bound.cameraInfo.isFocusMeteringSupported(it) }
-                ?: FocusMeteringAction
-                    .Builder(SurfaceOrientedMeteringPointFactory(1f, 1f).createPoint(0.5f, 0.5f, 0.5f), flags)
-                    .disableAutoCancel()
-                    .build()
-        bound.cameraControl.startFocusAndMetering(action)
     }
 
     /** Steps exposure compensation by [delta] (0 re-meters on the grid); returns a status line. */
@@ -228,7 +166,6 @@ class FixtureRecorderActivity : ComponentActivity() {
     }
 
     private fun startCamera(view: PreviewView) {
-        view.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ -> viewSize = v.width to v.height }
         val providerFuture = ProcessCameraProvider.getInstance(this)
         providerFuture.addListener({
             val provider = providerFuture.get()
@@ -246,33 +183,24 @@ class FixtureRecorderActivity : ComponentActivity() {
                     image.close()
                 }
             }
-            analysisUseCase = analysis
-
-            fun bind(): Boolean {
-                val viewPort = view.viewPort ?: return false
-                val useCases =
-                    UseCaseGroup
-                        .Builder()
-                        .setViewPort(viewPort)
-                        .addUseCase(preview)
-                        .addUseCase(analysis)
-                        .build()
-                provider.unbindAll()
-                camera = provider.bindToLifecycle(this@FixtureRecorderActivity, CameraSelector.DEFAULT_BACK_CAMERA, useCases)
-                remeter()
-                return true
-            }
-            // Story 10.19: bind at once when the preview is already laid out (e.g. right after the permission grant);
-            // only wait for a layout pass when it is not.
-            if (!bind()) {
-                view.viewTreeObserver.addOnGlobalLayoutListener(
-                    object : ViewTreeObserver.OnGlobalLayoutListener {
-                        override fun onGlobalLayout() {
-                            if (bind()) view.viewTreeObserver.removeOnGlobalLayoutListener(this)
-                        }
-                    },
-                )
-            }
+            view.viewTreeObserver.addOnGlobalLayoutListener(
+                object : ViewTreeObserver.OnGlobalLayoutListener {
+                    override fun onGlobalLayout() {
+                        val viewPort = view.viewPort ?: return
+                        view.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                        val useCases =
+                            UseCaseGroup
+                                .Builder()
+                                .setViewPort(viewPort)
+                                .addUseCase(preview)
+                                .addUseCase(analysis)
+                                .build()
+                        provider.unbindAll()
+                        camera = provider.bindToLifecycle(this@FixtureRecorderActivity, CameraSelector.DEFAULT_BACK_CAMERA, useCases)
+                        remeter()
+                    }
+                },
+            )
         }, ContextCompat.getMainExecutor(this))
     }
 
@@ -280,35 +208,24 @@ class FixtureRecorderActivity : ComponentActivity() {
     private fun analyze(image: ImageProxy) {
         val frame = measure(image)
         latestFrame.set(frame)
-        val isCorner = cornerMode
-        val crop = image.cropRect
-        val rotation = image.imageInfo.rotationDegrees
-        // Story 10.19: corner mode detects on every frame, so the operator sees the live outline over the Y anchor.
-        val guide =
-            if (isCorner) {
-                CornerGuide(
-                    ViewfinderGrid.inFrame(0.0, 0.0, crop.left, crop.top, crop.right, crop.bottom, rotation),
-                    rotation,
-                )
-            } else {
-                null
-            }
-        val yuv = if (guide != null) with(FrameReader) { image.asYuvFrame() } else null
-        val corner = if (guide != null && yuv != null) CornerReader.read(yuv, guide, cornerDetector.orElse(CornerLocator)) else null
-        publishOutline(corner, image.width, image.height, crop, rotation)
         captureRequest.getAndSet(null)?.let { request ->
+            val isCorner = cornerMode
+            val crop = image.cropRect
+            val rotation = image.imageInfo.rotationDegrees
+            val corner =
+                if (isCorner) {
+                    val grid = ViewfinderGrid.inFrame(0.0, 0.0, crop.left, crop.top, crop.right, crop.bottom, rotation)
+                    CornerReader.read(
+                        with(FrameReader) { image.asYuvFrame() },
+                        CornerGuide(grid, rotation),
+                        cornerDetector.orElse(CornerLocator),
+                    )
+                } else {
+                    null
+                }
             val encoded = runCatching { encodeFrame(image, isCorner) }
-            val modelCrop = guide?.let(ModelCrop::of)
-            val modelInput = if (modelCrop != null && yuv != null) runCatching { encodeModelInput(yuv, modelCrop) }.getOrNull() else null
             request.complete(
-                CapturedFrame(
-                    frame,
-                    encoded.getOrNull(),
-                    encoded.exceptionOrNull()?.let { it.message ?: it.toString() },
-                    corner,
-                    modelInput = modelInput,
-                    crop = modelCrop,
-                ),
+                CapturedFrame(frame, encoded.getOrNull(), encoded.exceptionOrNull()?.let { it.message ?: it.toString() }, corner),
             )
         }
         val now = SystemClock.elapsedRealtime()
@@ -320,70 +237,6 @@ class FixtureRecorderActivity : ComponentActivity() {
                 meterOnGrid()
                 autoRemeterCount.intValue++
             }
-        }
-    }
-
-    /** Keeps the outline for metering and shows it as view fractions; cleared when nothing is detected or not in corner mode. */
-    private fun publishOutline(
-        corner: CornerFrame?,
-        width: Int,
-        height: Int,
-        crop: android.graphics.Rect,
-        rotation: Int,
-    ) {
-        val quads = corner?.takeIf { it.detected }?.frameQuads.orEmpty()
-        lastOutline = if (quads.isEmpty()) lastOutline.takeIf { cornerMode } else Triple(quads, width, height)
-        val (viewWidth, viewHeight) = viewSize
-        val view =
-            quads.map { quad ->
-                quad.map { p ->
-                    val (vx, vy) =
-                        ViewfinderGrid.frameToViewFraction(
-                            p.x,
-                            p.y,
-                            viewWidth.toDouble(),
-                            viewHeight.toDouble(),
-                            crop.left,
-                            crop.top,
-                            crop.right,
-                            crop.bottom,
-                            rotation,
-                        )
-                    CornerPoint(vx, vy)
-                }
-            }
-        if (view != detectedQuads.value) ContextCompat.getMainExecutor(this).execute { detectedQuads.value = view }
-    }
-
-    /**
-     * The model-input crop (Story 10.19) as a PNG: [MODEL_CROP_SIZE] square, upright, sampled from the same YUV frame and
-     * in the same way (nearest pixel, BT.601) as `CornerModelTransform.fillRgbInput`, so the evaluator sees what the model
-     * saw.
-     */
-    private fun encodeModelInput(
-        frame: dev.cubentia.app.camera.YuvFrame,
-        crop: ModelCrop,
-    ): ByteArray {
-        val size = MODEL_CROP_SIZE
-        val pixels = IntArray(size * size)
-        for (row in 0 until size) {
-            for (column in 0 until size) {
-                val point = crop.toFrame((column + 0.5) / size, (row + 0.5) / size)
-                val px = point.x.roundToInt().coerceIn(frame.left, (frame.right - 1).coerceAtLeast(frame.left))
-                val py = point.y.roundToInt().coerceIn(frame.top, (frame.bottom - 1).coerceAtLeast(frame.top))
-                val yy = frame.y.at(px, py).toFloat()
-                val uu = frame.u.at(px shr 1, py shr 1).toFloat() - 128f
-                val vv = frame.v.at(px shr 1, py shr 1).toFloat() - 128f
-                val r = (yy + 1.402f * vv).toInt().coerceIn(0, 255)
-                val g = (yy - 0.344136f * uu - 0.714136f * vv).toInt().coerceIn(0, 255)
-                val b = (yy + 1.772f * uu).toInt().coerceIn(0, 255)
-                pixels[row * size + column] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
-            }
-        }
-        val bitmap = Bitmap.createBitmap(pixels, size, size, Bitmap.Config.ARGB_8888)
-        return ByteArrayOutputStream().use { output ->
-            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) { "PNG encoding failed" }
-            output.toByteArray()
         }
     }
 

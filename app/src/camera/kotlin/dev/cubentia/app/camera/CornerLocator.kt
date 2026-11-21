@@ -3,7 +3,6 @@ package dev.cubentia.app.camera
 import dev.cubentia.domain.recognition.CaptureQuality
 import dev.cubentia.domain.recognition.FrameQuality
 import dev.cubentia.domain.recognition.FrameStats
-import dev.cubentia.domain.recognition.SideLight
 import java.nio.ByteBuffer
 import kotlin.math.PI
 import kotlin.math.abs
@@ -462,8 +461,6 @@ internal data class CornerFrame(
     val score: Double = 0.0,
     val normalizedQuads: List<List<CornerPoint>> = emptyList(),
     val frameQuads: List<List<CornerPoint>> = emptyList(),
-    /** Story 10.19: the side-vs-top light check over the located faces' cell L*; null when no cube was detected. */
-    val light: SideLight.Verdict? = null,
 )
 
 internal object CornerReader {
@@ -505,14 +502,7 @@ internal object CornerReader {
                 emptyList()
             }
         val frameQuads = if (detected) located.quads else emptyList()
-        return CornerFrame(
-            detected,
-            locatedFaces,
-            located.score,
-            normalized,
-            frameQuads,
-            if (detected) SideLight.check(locatedFaces) else null,
-        )
+        return CornerFrame(detected, locatedFaces, located.score, normalized, frameQuads)
     }
 }
 

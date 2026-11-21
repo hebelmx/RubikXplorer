@@ -9,7 +9,6 @@ import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Orientation
 import dev.cubentia.domain.recognition.CalibrationCenters
-import dev.cubentia.domain.recognition.CaptureQuality
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.FrameInspection
 import dev.cubentia.domain.recognition.FrameQuality
@@ -19,7 +18,6 @@ import dev.cubentia.domain.recognition.ScanAssembler
 import dev.cubentia.domain.recognition.ScanReview
 import dev.cubentia.domain.recognition.ScanTrace
 import dev.cubentia.domain.recognition.SelfCalibration
-import dev.cubentia.domain.recognition.SideLight
 import dev.cubentia.domain.tutor.Certainty
 import dev.cubentia.domain.tutor.PlacementOutcome
 import java.util.Locale
@@ -40,107 +38,17 @@ import java.util.concurrent.atomic.AtomicLong
 object ScanDiagnostics {
     private val lastCornerLogMs = AtomicLong(Long.MIN_VALUE / 2)
 
-    /**
-     * One corner frame (rate-limited): detection, per-face shutter quality, and Story 10.19's light check (per-face light
-     * level, the darker side face's difference to the top, the verdict and the light hold), the torch and glare with the
-     * torch state. Numbers only, never pixels or Cube States.
-     */
     fun onCornerFrame(
         nowMs: Long,
         detected: Boolean,
         faces: List<FrameStats?>,
         score: Double,
-        light: SideLight.Verdict? = null,
-        lightHeld: Boolean = false,
-        torch: Boolean = false,
     ) {
         val last = lastCornerLogMs.get()
         if (nowMs - last < INTERVAL_MS || !lastCornerLogMs.compareAndSet(last, nowMs)) return
-        Log.d(TAG, cornerFrameLine(detected, faces, score, light, lightHeld, torch))
-    }
-
-    internal fun cornerFrameLine(
-        detected: Boolean,
-        faces: List<FrameStats?>,
-        score: Double,
-        light: SideLight.Verdict?,
-        lightHeld: Boolean,
-        torch: Boolean,
-    ): String {
-        val qualities = faces.map { it?.let(FrameQuality::assessShutter) }
-        val glare = qualities.any { it == CaptureQuality.GLARE }
-
-        fun level(value: Double?) = value?.let(::format) ?: "-"
-        val verdict =
-            when {
-                light == null || light.darkerSideDifference == null -> "-"
-                light.passed -> "pass"
-                else -> "fail"
-            }
-        return listOf(
-            "quickScan",
-            "frame",
-            "detected=$detected",
-            "quality=${qualities.joinToString(",") { it?.name ?: "-" }}",
-            "score=${format(score)}",
-            "light=${level(light?.topLevel)},${level(light?.leftLevel)},${level(light?.rightLevel)}",
-            "sideDiff=${level(light?.darkerSideDifference)}",
-            "lightCheck=$verdict",
-            "lightHold=$lightHeld",
-            "torch=${if (torch) "on" else "off"}",
-            "glare=${if (!glare) {
-                "-"
-            } else if (torch) {
-                "torch"
-            } else {
-                "plain"
-            }}",
-        ).joinToString(" ")
-    }
-
-    /** The light hold engaged ([started]) or cleared after [heldMs]. */
-    fun onLightHold(
-        started: Boolean,
-        heldMs: Long?,
-    ) {
-        val fields =
-            if (started) {
-                listOf(
-                    "quickScan",
-                    "lightHold",
-                    "start",
-                )
-            } else {
-                listOf("quickScan", "lightHold", "clear", "heldMs=${heldMs ?: "-"}")
-            }
+        val qualities = faces.joinToString(",") { it?.let(FrameQuality::assessShutter)?.name ?: "-" }
+        val fields = listOf("quickScan", "frame", "detected=$detected", "quality=$qualities", "score=${format(score)}")
         Log.d(TAG, fields.joinToString(" "))
-    }
-
-    /** A Quick Scan metering action: whether the camera supported it and whether it covers the cube outline or the grid centre. */
-    fun onMetering(
-        supported: Boolean,
-        onOutline: Boolean,
-    ) {
-        Log.d(
-            TAG,
-            listOf("quickScan", "metering", "supported=$supported", "region=${if (onOutline) "outline" else "centre"}").joinToString(" "),
-        )
-    }
-
-    /** The settle signal after a metering change: how long it took, or that it hit the cap. */
-    fun onMeteringSettled(
-        settleMs: Long,
-        timeout: Boolean,
-    ) {
-        Log.d(TAG, listOf("quickScan", "metering", "settleMs=$settleMs", "timeout=$timeout").joinToString(" "))
-    }
-
-    /** The bound camera's flash unit and the torch state applied. */
-    fun onTorch(
-        hasFlash: Boolean,
-        torch: Boolean,
-    ) {
-        Log.d(TAG, listOf("quickScan", "torch", "hasFlash=$hasFlash", "torch=${if (torch) "on" else "off"}").joinToString(" "))
     }
 
     fun onQuickScanRun(

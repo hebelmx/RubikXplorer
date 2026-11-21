@@ -292,12 +292,6 @@ enum class Coaching {
     MOVE_UP,
     MOVE_DOWN,
     PLAIN_LIGHT_SURFACE,
-
-    /** Quick Scan corner: a side face is much darker than the top; turn so the light shines on the cube (Story 10.19). */
-    SIDES_DARK,
-
-    /** Quick Scan corner: glare while the torch is on; turn the torch off (Story 10.19). */
-    TORCH_GLARE,
 }
 
 /** What the viewfinder must do after a controller call. */

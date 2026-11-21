@@ -1,10 +1,6 @@
 package dev.cubentia.app.camera
 
 import android.content.Context
-import android.hardware.camera2.CameraCaptureSession
-import android.hardware.camera2.CaptureRequest
-import android.hardware.camera2.CaptureResult
-import android.hardware.camera2.TotalCaptureResult
 import android.os.SystemClock
 import android.util.Size
 import android.view.ViewOutlineProvider
@@ -13,8 +9,6 @@ import androidx.activity.ComponentActivity
 import androidx.annotation.OptIn
 import androidx.annotation.VisibleForTesting
 import androidx.camera.camera2.Camera2Config
-import androidx.camera.camera2.interop.Camera2Interop
-import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.CameraState
@@ -24,7 +18,6 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.core.SurfaceOrientedMeteringPointFactory
-import androidx.camera.core.TorchState
 import androidx.camera.core.UseCaseGroup
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
@@ -33,7 +26,6 @@ import androidx.camera.lifecycle.ExperimentalCameraProviderConfiguration
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
 import dev.cubentia.app.ScanDiagnostics
@@ -77,25 +69,6 @@ internal interface ScanFrameSource {
     fun meter(includeAwb: Boolean) = meter()
 
     fun snapshot(): androidx.compose.ui.graphics.ImageBitmap? = null
-
-    /**
-     * Story 10.19: AF+AE (and AWB when [includeAwb]) on the detected cube outline of the last corner frame, falling back
-     * to the grid centre when the camera cannot meter that region. Safe on the analyzer thread: the settle signal resets
-     * at once, so [settled] reads false for the very next frame.
-     */
-    fun meterCube(includeAwb: Boolean) = meter(includeAwb)
-
-    /** Whether the last metering change has settled (null: this source reports no settle signal). */
-    fun settled(): Boolean? = null
-
-    /** Whether the bound camera has a flash unit; null before a camera is bound. */
-    fun hasFlashUnit(): Boolean? = null
-
-    /** The torch the corner view wants (Story 10.19); applied only on a camera with a flash unit. */
-    fun torch(on: Boolean) = Unit
-
-    /** The app went to the background (true) or came back (false): the torch is off while suspended. */
-    fun suspendTorch(suspended: Boolean) = Unit
 }
 
 internal class CameraXFrameSource
@@ -131,29 +104,6 @@ internal class CameraXFrameSource
         /** The last analysed grid, as an AF/AE/AWB point on the analysis frame; null before the first frame. */
         @Volatile private var meteringGrid: MeteringGrid? = null
 
-        /** The last detected cube outline in analysis-frame pixels (corner mode); empty when none was detected. */
-        @Volatile private var meteringQuads: List<List<CornerPoint>> = emptyList()
-
-        /** Settle tracking for the latest metering change: its generation, start and whether its future completed. */
-        @Volatile private var meteringGeneration = 0
-
-        @Volatile private var meteringStartedAt: Long? = null
-
-        @Volatile private var meteringDone = false
-
-        @Volatile private var settleReported = true
-
-        /** The latest CONTROL_AE_STATE from the capture results; null when the camera reports none. */
-        @Volatile private var aeState: Int? = null
-
-        @Volatile private var torchWanted = false
-
-        @Volatile private var torchSuspended = false
-
-        @Volatile private var torchAppliedAt = 0L
-
-        @Volatile private var flashReported: Boolean? = null
-
         private var analysisUseCase: ImageAnalysis? = null
 
         override fun preview(context: Context): android.view.View {
@@ -183,8 +133,6 @@ internal class CameraXFrameSource
 
         override fun stop() {
             active = false
-            // The torch is physically off whenever the camera is released (hand-over, leaving the capture view, finish).
-            camera?.takeIf { it.cameraInfo.hasFlashUnit() }?.cameraControl?.enableTorch(false)
             startJob?.cancel()
             analysisUseCase?.clearAnalyzer()
             camera?.cameraInfo?.cameraState?.removeObserver(cameraStateObserver)
@@ -198,54 +146,6 @@ internal class CameraXFrameSource
         override fun meter(includeAwb: Boolean) = meterOnGrid(includeAwb = includeAwb)
 
         override fun snapshot() = previewView?.bitmap?.asImageBitmap()
-
-        override fun hasFlashUnit(): Boolean? = camera?.cameraInfo?.hasFlashUnit()
-
-        override fun torch(on: Boolean) {
-            torchWanted = on
-            applyTorch(force = true)
-        }
-
-        override fun suspendTorch(suspended: Boolean) {
-            torchSuspended = suspended
-            applyTorch(force = true)
-        }
-
-        /** Sets the torch to what is wanted; on frames ([force] false) only when it drifted (e.g. after a camera reopen). */
-        private fun applyTorch(force: Boolean) {
-            val bound = camera ?: return
-            val hasFlash = bound.cameraInfo.hasFlashUnit()
-            val lit = hasFlash && torchWanted && !torchSuspended && corner
-            if (flashReported != hasFlash || force) {
-                flashReported = hasFlash
-                ScanDiagnostics.onTorch(hasFlash, lit)
-            }
-            if (!hasFlash) return
-            val now = SystemClock.elapsedRealtime()
-            val current = bound.cameraInfo.torchState.value == TorchState.ON
-            if (!force && (current == lit || now - torchAppliedAt < TORCH_RETRY_MS)) return
-            torchAppliedAt = now
-            bound.cameraControl.enableTorch(lit)
-        }
-
-        override fun meterCube(includeAwb: Boolean) {
-            val generation = ++meteringGeneration
-            meteringStartedAt = SystemClock.elapsedRealtime()
-            meteringDone = false
-            settleReported = false
-            ContextCompat.getMainExecutor(context).execute { meterOn(includeAwb, generation, cube = true) }
-        }
-
-        override fun settled(): Boolean? {
-            val started = meteringStartedAt ?: return null
-            val elapsed = SystemClock.elapsedRealtime() - started
-            val outcome = settleOutcome(meteringDone, aeState, elapsed)
-            if (outcome != Settle.SETTLING && !settleReported) {
-                settleReported = true
-                ScanDiagnostics.onMeteringSettled(elapsed, timeout = outcome == Settle.TIMEOUT)
-            }
-            return outcome != Settle.SETTLING
-        }
 
         /** Obtains the provider off the main thread, then binds on main once the preview has a viewport. */
         private fun startCamera() {
@@ -340,13 +240,10 @@ internal class CameraXFrameSource
                     .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
                     .setResolutionStrategy(ResolutionStrategy(target, ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER))
                     .build()
-            val builder =
-                ImageAnalysis
-                    .Builder()
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .setResolutionSelector(selector)
-            observeAeState(builder)
-            return builder
+            return ImageAnalysis
+                .Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .setResolutionSelector(selector)
                 .build()
                 .also { analysis ->
                     analysisUseCase = analysis
@@ -366,22 +263,6 @@ internal class CameraXFrameSource
             corner = enabled
         }
 
-        /** Reads CONTROL_AE_STATE from every capture result: the settle signal's exposure half (Story 10.19). */
-        @OptIn(ExperimentalCamera2Interop::class)
-        private fun observeAeState(builder: ImageAnalysis.Builder) {
-            Camera2Interop.Extender(builder).setSessionCaptureCallback(
-                object : CameraCaptureSession.CaptureCallback() {
-                    override fun onCaptureCompleted(
-                        session: CameraCaptureSession,
-                        request: CaptureRequest,
-                        result: TotalCaptureResult,
-                    ) {
-                        aeState = result.get(CaptureResult.CONTROL_AE_STATE)
-                    }
-                },
-            )
-        }
-
         @VisibleForTesting
         internal fun read(image: ImageProxy) {
             val rotation = image.imageInfo.rotationDegrees
@@ -392,8 +273,6 @@ internal class CameraXFrameSource
             if (corner) {
                 val detector = cornerDetector.orElse(CornerLocator)
                 val reading = CornerReader.read(with(FrameReader) { image.asYuvFrame() }, CornerGuide(grid, rotation), detector)
-                if (reading.detected) meteringQuads = reading.frameQuads
-                applyTorch(force = false)
                 val viewQuads =
                     reading.frameQuads.map { quad ->
                         quad.map { p ->
@@ -427,122 +306,31 @@ internal class CameraXFrameSource
          * region stays inside the grid. The lock cancels after [METERING_LOCK_SECONDS] so continuous AF resumes when the
          * cube moves nearer or farther (PO 2026-11-16).
          */
-        private fun meterOnGrid(includeAwb: Boolean = true) = meterOn(includeAwb, generation = null, cube = false)
-
-        /**
-         * Main thread. With [cube], meters on the last detected outline when the camera supports that action, else on the
-         * grid centre (logged); [generation] ties the future's completion to the settle signal of [meterCube].
-         */
-        private fun meterOn(
-            includeAwb: Boolean,
-            generation: Int?,
-            cube: Boolean,
-        ) {
-            fun skip() {
-                // Nothing to meter: the settle signal does not wait for it.
-                if (generation == meteringGeneration) meteringDone = true
-            }
-            val grid = meteringGrid ?: return skip()
-            val analysis = analysisUseCase ?: return skip()
-            val bound = camera ?: return skip()
+        private fun meterOnGrid(includeAwb: Boolean = true) {
+            val grid = meteringGrid ?: return
+            val analysis = analysisUseCase ?: return
             val square = grid.square
-            val centre =
-                MeteringRegion(
-                    square.left + square.side / 2,
-                    square.top + square.side / 2,
-                    square.side / maxOf(grid.width, grid.height),
-                )
-            val outline = if (cube) cubeMeteringRegion(meteringQuads, grid.width, grid.height) else null
-            val factory = SurfaceOrientedMeteringPointFactory(grid.width.toFloat(), grid.height.toFloat(), analysis)
-
-            fun action(region: MeteringRegion): FocusMeteringAction? =
+            val point =
                 try {
-                    FocusMeteringAction
-                        .Builder(
-                            factory.createPoint(region.x.toFloat(), region.y.toFloat(), region.size.toFloat().coerceIn(0f, 1f)),
-                            meteringFlags(includeAwb),
-                        ).setAutoCancelDuration(METERING_LOCK_SECONDS, TimeUnit.SECONDS)
-                        .build()
+                    SurfaceOrientedMeteringPointFactory(grid.width.toFloat(), grid.height.toFloat(), analysis).createPoint(
+                        (square.left + square.side / 2).toFloat(),
+                        (square.top + square.side / 2).toFloat(),
+                        (square.side / maxOf(grid.width, grid.height)).toFloat().coerceIn(0f, 1f),
+                    )
                 } catch (ignored: IllegalStateException) {
                     // The analysis use case is no longer bound: nothing to meter.
-                    null
+                    return
                 }
-            val (region, supported) =
-                chooseMetering(outline, centre) { r ->
-                    action(r)?.let(bound.cameraInfo::isFocusMeteringSupported) ==
-                        true
-                }
-            if (cube) ScanDiagnostics.onMetering(supported = supported, onOutline = region === outline)
-            val chosen = action(region) ?: return skip()
-            val future = bound.cameraControl.startFocusAndMetering(chosen)
-            if (generation != null) {
-                future.addListener({ if (generation == meteringGeneration) meteringDone = true }, ContextCompat.getMainExecutor(context))
-            }
+            val action =
+                FocusMeteringAction
+                    .Builder(point, meteringFlags(includeAwb))
+                    .setAutoCancelDuration(METERING_LOCK_SECONDS, TimeUnit.SECONDS)
+                    .build()
+            camera?.cameraControl?.startFocusAndMetering(action)
         }
 
         companion object {
             const val METERING_LOCK_SECONDS = 3L
-
-            /** The longest the settle signal waits for the metering future and AE convergence. */
-            const val SETTLE_CAP_MS = 1500L
-
-            /** The torch is re-applied at most this often when it drifted from what is wanted. */
-            const val TORCH_RETRY_MS = 1000L
-
-            /**
-             * The metering region over the detected cube outline [quads] (analysis-frame pixels): the centre of the
-             * outline's bounding box, sized by its longer side as a share of the frame's longer side; null when no
-             * outline was detected or the frame size is unknown.
-             */
-            internal fun cubeMeteringRegion(
-                quads: List<List<CornerPoint>>,
-                width: Int,
-                height: Int,
-            ): MeteringRegion? {
-                val points = quads.flatten()
-                if (points.isEmpty() || width <= 0 || height <= 0) return null
-                val left = points.minOf { it.x }.coerceIn(0.0, width.toDouble())
-                val right = points.maxOf { it.x }.coerceIn(0.0, width.toDouble())
-                val top = points.minOf { it.y }.coerceIn(0.0, height.toDouble())
-                val bottom = points.maxOf { it.y }.coerceIn(0.0, height.toDouble())
-                if (right <= left || bottom <= top) return null
-                val size = (maxOf(right - left, bottom - top) / maxOf(width, height)).coerceIn(0.0, 1.0)
-                return MeteringRegion((left + right) / 2, (top + bottom) / 2, size)
-            }
-
-            /** The outline when the camera supports metering it, else the grid [centre]; second: whether it was supported. */
-            internal fun chooseMetering(
-                outline: MeteringRegion?,
-                centre: MeteringRegion,
-                supported: (MeteringRegion) -> Boolean,
-            ): Pair<MeteringRegion, Boolean> =
-                when {
-                    outline == null -> centre to supported(centre)
-                    supported(outline) -> outline to true
-                    else -> centre to false
-                }
-
-            /**
-             * The settle signal: settled once the metering future completed and AE reports CONVERGED, LOCKED or
-             * FLASH_REQUIRED (or no AE state at all); a timeout once [SETTLE_CAP_MS] passed without that.
-             */
-            internal fun settleOutcome(
-                futureDone: Boolean,
-                aeState: Int?,
-                elapsedMs: Long,
-            ): Settle =
-                when {
-                    futureDone && (aeState == null || aeState in SETTLED_AE_STATES) -> Settle.SETTLED
-                    elapsedMs >= SETTLE_CAP_MS -> Settle.TIMEOUT
-                    else -> Settle.SETTLING
-                }
-
-            private val SETTLED_AE_STATES =
-                setOf(
-                    CaptureResult.CONTROL_AE_STATE_CONVERGED,
-                    CaptureResult.CONTROL_AE_STATE_LOCKED,
-                    CaptureResult.CONTROL_AE_STATE_FLASH_REQUIRED,
-                )
 
             /**
              * AF + AE always; AWB only when [includeAwb]. Quick Scan Hold 2 skips it so white balance is not re-metered on
@@ -581,15 +369,6 @@ internal fun analysisTarget(
 
 private val DEFAULT_ANALYSIS = Size(640, 480)
 private val LARGE_ANALYSIS = Size(1280, 960)
-
-/** A metering point on the analysis frame: centre ([x], [y]) in pixels, [size] a share of the frame's longer side. */
-internal data class MeteringRegion(
-    val x: Double,
-    val y: Double,
-    val size: Double,
-)
-
-internal enum class Settle { SETTLING, SETTLED, TIMEOUT }
 
 private class MeteringGrid(
     val width: Int,

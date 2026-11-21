@@ -851,46 +851,4 @@ class GuidedScanFlowTest {
                 .CaseCaptureController(CalibrationCenters(emptyMap()), 2)
         assertFalse(GuidedScanFlow.phaseOf(case).faceByFace)
     }
-
-    // Story 10.19: the torch follows the Learner's choice in Quick Scan's corner view only, on a camera with a flash unit.
-    @Test fun `the torch is lit only in quick scan's corner view with a flash and is kept through the hand-over and back`() {
-        val quick =
-            dev.cubentia.domain.recognition
-                .QuickScanController()
-        val first = GuidedScanFlow.phaseOf(quick)!!
-        assertEquals(true, GuidedScanFlow.torchControl(first, hasFlash = true, torchOn = true))
-        assertTrue(GuidedScanFlow.torchLit(first, hasFlash = true, torchOn = true))
-        // The Learner's choice off: the control shows "Torch off" and the torch is dark.
-        assertEquals(false, GuidedScanFlow.torchControl(first, hasFlash = true, torchOn = false))
-        assertFalse(GuidedScanFlow.torchLit(first, hasFlash = true, torchOn = false))
-        // No flash unit (or not known yet): no control and no torch.
-        assertNull(GuidedScanFlow.torchControl(first, hasFlash = false, torchOn = true))
-        assertNull(GuidedScanFlow.torchControl(first, hasFlash = null, torchOn = true))
-        quick.onFrame(true, cornerHold(1), 0)
-        quick.onShutter()
-        val second = GuidedScanFlow.phaseOf(quick)!!
-        assertTrue("carries from hold 1 to hold 2", GuidedScanFlow.torchLit(second, hasFlash = true, torchOn = true))
-        quick.switchToFaceByFace()
-        val handOver = GuidedScanFlow.phaseOf(quick)!!
-        assertNull(GuidedScanFlow.torchControl(handOver, hasFlash = true, torchOn = true))
-        assertFalse("physically off in the hand-over", GuidedScanFlow.torchLit(handOver, hasFlash = true, torchOn = true))
-        assertTrue(quick.backOut())
-        assertTrue(
-            "back to the corner view: on again",
-            GuidedScanFlow.torchLit(GuidedScanFlow.phaseOf(quick)!!, hasFlash = true, torchOn = true),
-        )
-        // Case capture's corner view and every other phase never light it.
-        val case =
-            dev.cubentia.domain.recognition
-                .CaseCaptureController(CalibrationCenters(emptyMap()), 2)
-        assertFalse(GuidedScanFlow.torchLit(GuidedScanFlow.phaseOf(case), hasFlash = true, torchOn = true))
-        listOf(
-            GuidedScanPhase.Viewfinder(),
-            GuidedScanPhase.Calibration(),
-            GuidedScanPhase.Rationale,
-            GuidedScanPhase.Unavailable,
-        ).forEach {
-            assertFalse("$it", GuidedScanFlow.torchLit(it, hasFlash = true, torchOn = true))
-        }
-    }
 }

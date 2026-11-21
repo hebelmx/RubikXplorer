@@ -111,32 +111,17 @@ def presence_acc(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     return tf.reduce_mean(tf.cast(tf.equal(y_true[:, 0] > 0.5, y_pred[:, 0] > 0.5), tf.float32))
 
 
-KEYPOINT_FIXTURE_KIND = "corner-keypoints"
+def load_optional_corner_fixtures(corner_dir: Path, img_size: int = 128) -> tuple[np.ndarray, np.ndarray] | None:
+    """Optional fine-tune hook for real labeled `Fixtures/corner/` captures (contract in README.md).
 
-
-def is_keypoint_fixture(data: object) -> bool:
-    """A keypoint fixture: the 10.19 recorder's `"kind": "corner-keypoints"` file, or a hand-written README-format file
-    (`frame` + `label`). Color records (`corner-<hold>.json`, schema 3/4, with `labeledSamples`) and `group.json`
-    manifests are not keypoint fixtures and are skipped."""
-    if not isinstance(data, dict):
-        return False
-    if data.get("kind") == KEYPOINT_FIXTURE_KIND:
-        return True
-    return "kind" not in data and "label" in data and "labeledSamples" not in data and "pipeline" not in data
-
-
-def load_corner_keypoint_fixtures(corner_dir: Path, img_size: int = 128) -> list[dict]:
-    """Every keypoint fixture under `corner_dir` (contract in README.md) as `{"path", "device", "x", "y"}`.
-
-    Each fixture names a `frame` image that is already the app's model input crop: square, upright, centred on the
+    Each `*.json` names a `frame` image that is already the app's model input crop: square, upright, centred on the
     `CornerGuide` with half-size `guide.radius * 1.65` and rotation-corrected exactly as `CornerModelTransform`.
     `label` is `"positive"` (with 7 crop-normalized `keypoints` `[T, UL, LL, B, LR, UR, C]`, each `[u, v]` in
-    [0, 1]) or `"negative"` (no keypoints). `detectorKeypoints` (diagnostics) are never used as labels. Color records
-    and manifests are skipped; a malformed keypoint fixture stops the run instead of being skipped.
+    [0, 1]) or `"negative"` (no keypoints). Any malformed file stops training instead of being skipped.
     """
     if not corner_dir.is_dir():
-        return []
-    loaded: list[dict] = []
+        return None
+    xs, ys = [], []
     for meta in sorted(corner_dir.rglob("*.json")):
         def bad(reason: str) -> SystemExit:
             return SystemExit(f"Malformed corner fixture {meta}: {reason}")
@@ -145,8 +130,8 @@ def load_corner_keypoint_fixtures(corner_dir: Path, img_size: int = 128) -> list
             data = json.loads(meta.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
             raise bad(f"unreadable JSON ({error})") from error
-        if not is_keypoint_fixture(data):
-            continue
+        if not isinstance(data, dict):
+            raise bad("top level must be an object")
         img_name = data.get("frame")
         if not isinstance(img_name, str) or not img_name:
             raise bad("missing 'frame'")
@@ -180,18 +165,11 @@ def load_corner_keypoint_fixtures(corner_dir: Path, img_size: int = 128) -> list
                 arr = np.asarray(im.convert("RGB").resize((img_size, img_size), Image.Resampling.BILINEAR), dtype=np.float32) / 255.0
         except OSError as error:
             raise bad(f"unreadable frame ({error})") from error
-        device = data.get("device")
-        model = device.get("model") if isinstance(device, dict) else None
-        loaded.append({"path": str(meta), "device": model if isinstance(model, str) and model else "unknown", "x": arr, "y": target})
-    return loaded
-
-
-def load_optional_corner_fixtures(corner_dir: Path, img_size: int = 128) -> tuple[np.ndarray, np.ndarray] | None:
-    """Optional fine-tune hook for real labeled `Fixtures/corner/` keypoint fixtures (see `load_corner_keypoint_fixtures`)."""
-    loaded = load_corner_keypoint_fixtures(corner_dir, img_size)
-    if not loaded:
+        xs.append(arr)
+        ys.append(target)
+    if not xs:
         return None
-    return np.stack([f["x"] for f in loaded], axis=0), np.stack([f["y"] for f in loaded], axis=0)
+    return np.stack(xs, axis=0), np.stack(ys, axis=0)
 
 
 def export_tflite(model: tf.keras.Model, output_path: Path, quant: str = "fp16") -> int:

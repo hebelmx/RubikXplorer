@@ -357,12 +357,9 @@ class CornerLocatorTest {
     }
 
     @Test
-    fun `synthetic shading over real Lenovo and S24 FE palettes keeps Red and Orange apart and never confidently wrong`() {
+    fun `synthetic shading over real Lenovo and S24 FE palettes keeps Red and Orange apart without R or L fallback`() {
         // Regression guard only: it is not a repro of the Lenovo unc=9 R/L fallback (lenovo-quickscan-2026-11-20-6cd18ab1.log
         // logs no side-face colours to replay) and it passes with the old 0.60 ROI too. On-device R/L is device gate D2.
-        // Story 10.19 (PO 2026-11-21 B): with no saved calibration Quick Scan's agreement gate may send a face to the Guided
-        // grid (a safe fallback; e.g. stlb's R over a Blue sticker), so the guard is now: Red and Orange centers stay
-        // apart, and no R or L sticker the gated read keeps CONFIDENT is wrong.
         val groups =
             listOf(
                 "lenovo-tb128xu_stka_studio-a",
@@ -390,7 +387,6 @@ class CornerLocatorTest {
                 dev.cubentia.domain.recognition
                     .QuickScanController()
             var now = 1_000L
-            val samples = mutableListOf<dev.cubentia.domain.recognition.FaceSample>()
             var red: Lab? = null
             var orange: Lab? = null
             QuickScanPlan.holds.forEachIndexed { holdIdx, hold ->
@@ -419,21 +415,6 @@ class CornerLocatorTest {
                             ?.value
                     if (step.face == Face.R) red = center
                     if (step.face == Face.L) orange = center
-                    val cells = reading.faces[index]?.cells?.filterNotNull()
-                    if (cells != null && cells.size == 9) {
-                        samples +=
-                            dev.cubentia.domain.recognition.FaceSample(
-                                face = step.face,
-                                orientationDegrees = 0,
-                                stickers = cells.map { it.value },
-                                quality =
-                                    dev.cubentia.domain.recognition.FrameQuality
-                                        .assessShutter(reading.faces[index]!!),
-                                centerColor = step.centerColor,
-                                upNeighborColor = step.upNeighborColor,
-                                centerPlain = cells[CENTER_CELL].plain,
-                            )
-                    }
                 }
                 controller.onFrame(reading.detected, reading.faces, now)
                 now += 1_000L
@@ -448,27 +429,10 @@ class CornerLocatorTest {
                     "$groupName hold ${holdIdx + 1}",
                 )
             }
-            listOf(Face.R, Face.L).forEach { face ->
-                val sample = samples.single { it.face == face }
-                val truth = expectedFace(cube, face)
-                val readings =
-                    dev.cubentia.domain.recognition.QuickScanClassification
-                        .read(sample, samples, null)
-                readings.forEachIndexed { i, reading ->
-                    val confident = reading?.confidence == dev.cubentia.domain.recognition.StickerConfidence.CONFIDENT
-                    assertFalse(
-                        confident && reading?.color != truth[i],
-                        "$groupName $face sticker $i confidently $reading, truth ${truth[i]}",
-                    )
-                }
-                // Even a face sent to the grid (a safe fallback) never reads a Red sticker as Orange or back.
-                val redOrange = setOf(Color.RED, Color.ORANGE)
-                val swapped =
-                    readings.withIndex().filter { (i, r) ->
-                        r?.color in redOrange && truth[i] in redOrange && r?.color != truth[i]
-                    }
-                assertTrue(swapped.isEmpty(), "$groupName $face Red/Orange swapped at ${swapped.map { it.index }}")
-            }
+            assertFalse(
+                Face.R in controller.fallbackFaces || Face.L in controller.fallbackFaces,
+                "$groupName triggered R/L fallback: ${controller.fallbackFaces}",
+            )
             val separation = deltaE(checkNotNull(red) { "$groupName: no R center" }, checkNotNull(orange) { "$groupName: no L center" })
             assertTrue(separation >= 10.0, "$groupName shaded Red/Orange centers only ${"%.1f".format(separation)} ΔE apart")
         }
