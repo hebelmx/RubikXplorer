@@ -29,6 +29,27 @@ sealed interface QuickScanEffect {
     ) : QuickScanEffect
 }
 
+/**
+ * How Quick Scan reads a corner face once the frame is unwarped: every sticker against one calibration, by the shared
+ * close-call rule. A face with any judged reading that is null or not CONFIDENT goes to the Guided grid (the 2D
+ * fallback). The D2 replay (`QuickScanSideFaceReplayTest`) measures recorded corner fixtures through this same path.
+ */
+object QuickScanReadout {
+    /** One reading per sticker, null where the classifier is unavailable. */
+    fun read(
+        sample: FaceSample,
+        calibration: CalibrationCenters,
+    ): List<StickerReading?> =
+        sample.stickers.map { (StickerClassifier.classify(it, calibration) as? StickerClassification.Classified)?.reading }
+
+    /** The readings the fallback decision judges: all but a guarded (not plain) center, which marks no face for the grid. */
+    fun judged(
+        sample: FaceSample,
+        calibration: CalibrationCenters,
+    ): List<StickerReading?> =
+        read(sample, calibration).filterIndexed { index, _ -> index != FaceSample.CENTER_INDEX || sample.centerPlain != false }
+}
+
 /** One analyzer-thread state machine over neutral readings and the Guided fallback controller. */
 class QuickScanController(
     private val saved: CalibrationCenters? = null,
@@ -179,12 +200,7 @@ class QuickScanController(
                     }
 
                     is SelfCalibration.Calibrated -> {
-                        sample.stickers
-                            .filterIndexed { index, _ -> index != FaceSample.CENTER_INDEX || sample.centerPlain != false }
-                            .any {
-                                val reading = StickerClassifier.classify(it, calibration.calibration) as? StickerClassification.Classified
-                                reading?.reading?.confidence != StickerConfidence.CONFIDENT
-                            }
+                        QuickScanReadout.judged(sample, calibration.calibration).any { it?.confidence != StickerConfidence.CONFIDENT }
                     }
                 }
         }
