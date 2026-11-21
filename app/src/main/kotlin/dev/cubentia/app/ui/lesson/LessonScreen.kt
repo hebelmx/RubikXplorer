@@ -982,6 +982,7 @@ private fun LessonBody(
                 ManualCubeEditor(
                     strings = strings,
                     initial = session.expected.toFacelets(),
+                    fresh = false,
                     onAccept = { state ->
                         showManualEditor = false
                         send { SessionEvent.EditorEntered(state, it) }

@@ -122,6 +122,9 @@ data class SelectedRing(
 val StickerSelectedRingKey = SemanticsPropertyKey<SelectedRing>("StickerSelectedRing")
 var SemanticsPropertyReceiver.stickerSelectedRing by StickerSelectedRingKey
 
+/** The ring color around a sticker's update-cue ✓ dot: the sticker's glyph ink, so the dot reads on every fill (#253). */
+val StickerCueRingKey = SemanticsPropertyKey<Color>("StickerCueRing")
+
 /** Whether a sticker's update cue scales it (false while reduce motion is on: only the ✓ shows). */
 val StickerCueScalesKey = SemanticsPropertyKey<Boolean>("StickerCueScales")
 var SemanticsPropertyReceiver.stickerCueScales by StickerCueScalesKey
@@ -165,6 +168,9 @@ private const val CUE_PEAK_MS = 80
 private const val CUE_SETTLE_MS = 200
 private const val CHECK_FADE_MS = 600
 private const val CHECK_SIZE_FRACTION = 0.45f
+
+/** The update-cue dot's ring (PO 2026-11-20): 1.5dp in the sticker's glyph ink. */
+private val CUE_RING = 1.5.dp
 private const val CELLS_PER_FACE = 9
 private const val FACE_SIDE = 3
 private const val FACE_COUNT = 6
@@ -466,7 +472,11 @@ private fun ReviewSticker(
                     .requiredSize(cell * CHECK_SIZE_FRACTION)
                     .graphicsLayer { alpha = checkAlpha.value }
                     .background(tokens.accent, CircleShape)
-                    .clearAndSetSemantics { testTag = "sticker:$index:cue" },
+                    .border(CUE_RING, ink, CircleShape)
+                    .clearAndSetSemantics {
+                        testTag = "sticker:$index:cue"
+                        this[StickerCueRingKey] = ink
+                    },
                 contentAlignment = Alignment.Center,
             ) {
                 Text("✓", color = tokens.onAccent, style = MaterialTheme.typography.labelSmall)

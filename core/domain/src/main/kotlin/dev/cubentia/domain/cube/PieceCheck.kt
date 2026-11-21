@@ -15,6 +15,14 @@ data class ReviewProblem(
 
 /** Local checks in home-frame corner, then edge order. Only fully observed pieces are checked. */
 object PieceCheck {
+    /** Each corner's (or edge's) sticker indices in slot order, from `FaceletTables`; empty for centers. */
+    fun pieces(kind: PieceKind): List<List<Int>> =
+        when (kind) {
+            PieceKind.CORNER -> FaceletTables.CORNER_FACELETS
+            PieceKind.EDGE -> FaceletTables.EDGE_FACELETS
+            PieceKind.CENTER -> emptyList()
+        }
+
     fun problems(stickers: List<Color?>): List<ReviewProblem> =
         buildList {
             val kinds =

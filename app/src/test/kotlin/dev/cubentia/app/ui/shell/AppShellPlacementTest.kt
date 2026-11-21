@@ -236,6 +236,10 @@ class AppShellPlacementTest {
         rule
             .onNodeWithTag("placement:editorNote")
             .assertTextContains(bundle.strings.getValue("msg.solve.scan-fell-back"))
+        with(dev.cubentia.app.ui.editor.EditorFixtures) {
+            rule.assertEditorGated()
+            rule.enterEveryFace()
+        }
         rule.onNodeWithTag("editor:accept").performScrollTo().performClick()
         rule.onNodeWithTag("placement:prompt").assertTextContains("Your cube is solved — scramble it and scan again, or start Stage 1.")
         assertTrue(records.isEmpty())

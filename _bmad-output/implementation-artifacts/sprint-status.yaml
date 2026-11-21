@@ -1531,3 +1531,39 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-ai-b4-copy-and-layout-polish.md"
+  - id: "issue-253-deferred-editor-turn-search-main-thread"
+    epic: 3
+    action: "Time an editor paint on the Lenovo Tab M10 Plus 3rd Gen when every face is touched and the entry is invalid; ScanAssembler.orient (up to 4096 grids) and repeated CubeValidator calls run on the main thread inside derivedStateOf; move off-main if a frame drops (medium, unverified; deferred from #253, ManualCubeEditorState.kt:93)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-253-cube-editor-any-face-orientation.md"
+  - id: "issue-253-deferred-face-tab-dot-color-assert"
+    epic: 3
+    action: "Assert the editor face-tab problem dot is sticker-highlight, never red; its semantics are cleared so no test observes the color (low; deferred from #253, ManualCubeEditor.kt EditorFaceTab)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-253-cube-editor-any-face-orientation.md"
+  - id: "issue-253-deferred-cue-ring-pixel-test"
+    epic: 3
+    action: "Pin the update-cue ring border colour with a screenshot or pixel test; today only StickerCueRingKey semantics are asserted (low; deferred from #253, StickerReviewNet.kt:475)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-253-cube-editor-any-face-orientation.md"
+  - id: "issue-253-deferred-editor-saveable-initialset-key"
+    epic: 3
+    action: "Key the editor rememberSaveable on initialSet as well as (initial, fresh) so a parent change to initialSet cannot keep stale set state (low; deferred from #253, ManualCubeEditor.kt:158)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-253-cube-editor-any-face-orientation.md"
+  - id: "issue-253-deferred-solve-tab-turned-note-lost"
+    epic: 3
+    action: "Switching away from the Solve tab after a face auto-turn keeps the redrawn facelets but drops the turned note and tab state; keep them or accept (low, Learner-visible; deferred from #253, SolveFlowViewModel.kt:91)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-253-cube-editor-any-face-orientation.md"
+  - id: "issue-253-deferred-design-md-cue-ring-wording"
+    epic: 3
+    action: "Update DESIGN.md through bmad-correct-course: the update-cue ring takes per-sticker glyph ink (sticker-white on red and blue, cubie-body elsewhere, each at least 3:1) and the full-net layout carries a face-tab status strip with no hold bands (PO decisions 2026-11-20; deferred from #253)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-253-cube-editor-any-face-orientation.md"

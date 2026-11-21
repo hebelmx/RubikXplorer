@@ -208,6 +208,10 @@ class AppShellRecognizeTest {
         launch()
         rule.runOnIdle { flow.onCapture(CaseCaptureOutcome.FellBackToEditor) }
         rule.onNodeWithText("No scan this time. Enter your cube's colors here.").assertIsDisplayed()
+        with(dev.cubentia.app.ui.editor.EditorFixtures) {
+            rule.assertEditorGated()
+            rule.enterEveryFace()
+        }
         rule.onNodeWithTag("editor:accept").performScrollTo().performClick()
         rule.onNodeWithText("Your last layer is already solved.").assertIsDisplayed()
     }

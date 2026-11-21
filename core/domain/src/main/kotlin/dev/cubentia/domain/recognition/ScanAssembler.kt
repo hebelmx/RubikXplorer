@@ -117,6 +117,27 @@ data class ScanTrace(
     }
 }
 
+/**
+ * How [ScanAssembler.orient] fits colour-only input (the Manual Cube Editor, AD-9). [Resolved]: the as-entered stickers
+ * are valid ([turns] empty), or exactly one distinct valid state comes from turning faces, [turns] giving the clockwise
+ * quarter turns (1..3) of each face whose colors changed, as the chosen assignment turned it. [Unresolved]: [valid]
+ * distinct valid states fit (0 or at least 2) and [involved] names the faces to check (URFDLB order).
+ */
+sealed interface FaceTurnFit {
+    data class Resolved(
+        val facelets: Facelets,
+        val turns: Map<Face, Int>,
+    ) : FaceTurnFit {
+        /** The faces in [turns], in URFDLB order. */
+        val turned: List<Face> get() = Face.entries.filter { it in turns }
+    }
+
+    data class Unresolved(
+        val valid: Int,
+        val involved: List<Face>,
+    ) : FaceTurnFit
+}
+
 sealed interface CornerLastLayer {
     data class View(
         val view: LastLayerView,
@@ -271,6 +292,48 @@ object ScanAssembler {
         samples: List<FaceSample>,
         calibration: CalibrationCenters,
     ): ScanResult = analyze(samples, calibration).result
+
+    /** The faces around [face] in the [Facelets] net: top, right, bottom, left (the hold a face is entered in). */
+    fun netNeighbors(face: Face): List<Face> = NET_NEIGHBORS.getValue(face)
+
+    /**
+     * Fits colour-only [facelets] (centers at home) by per-face quarter turns: valid as entered wins with nothing
+     * turned; otherwise each face's 9 colors (center fixed) try their 4 clockwise turns, and exactly one distinct valid
+     * state resolves, naming the faces it turned. Zero or several valid states are [FaceTurnFit.Unresolved]: with
+     * several, the faces that differ across them; with none, the faces holding an illegal piece of the best candidates,
+     * falling back to the faces that differ. [FaceTurnFit.Unresolved.involved] is never padded, so it may be empty (a
+     * twisted corner, flipped edge or parity error with every piece legal: no face turn can fix it). Pure; never throws.
+     */
+    fun orient(facelets: Facelets): FaceTurnFit {
+        if (CubeValidator.validate(facelets) is ValidationResult.Valid) return FaceTurnFit.Resolved(facelets, emptyMap())
+        val colors = facelets.colors
+        val input = IntArray(Facelets.SIZE) { HOME_FACE.getValue(colors[it]).ordinal }
+        val options =
+            Face.entries.map { face ->
+                val cells = input.toList().subList(face.ordinal * STICKERS, (face.ordinal + 1) * STICKERS)
+                List(TURNS) { turn -> rotateClockwise(cells, turn).toIntArray() }
+            }
+        val found = enumerate(options)
+
+        if (found.valid.size == 1) {
+            val fit = found.valid.values.single()
+            val turns =
+                Face.entries
+                    .filter { !sameFace(fit.grid, input, it) }
+                    .associateWith { fit.choice[it.ordinal] }
+            return FaceTurnFit.Resolved(Facelets(fit.grid.map { Color.home(Face.entries[it]) }), turns)
+        }
+        val involved =
+            if (found.valid.size >= 2) {
+                found.differing
+            } else {
+                found.best.values
+                    .flatMap { illegalFaces(it.grid) }
+                    .toSet()
+                    .ifEmpty { found.differing }
+            }
+        return FaceTurnFit.Unresolved(found.valid.size, Face.entries.filter { it in involved })
+    }
 
     /**
      * The unposed faces to re-prompt with a named top: first faces whose plain center read disagrees with their
@@ -683,7 +746,7 @@ object ScanAssembler {
     }
 
     /** [cells] (a row-major 3×3) turned [turns] clockwise quarter turns. */
-    internal fun <T> rotateClockwise(
+    fun <T> rotateClockwise(
         cells: List<T>,
         turns: Int,
     ): List<T> = (0 until Math.floorMod(turns, TURNS)).fold(cells) { grid, _ -> CLOCKWISE.map { grid[it] } }
