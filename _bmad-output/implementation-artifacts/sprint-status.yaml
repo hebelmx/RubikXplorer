@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-22-2026 11:53'
+last_updated: '11-22-2026 12:58'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -198,7 +198,7 @@ development_status:
   epic-15: in-progress
   15-1-build-a-beginner-method-solution-from-the-course-s-stages: done
   15-2-last-layer-segments-for-2-look-and-full-oll-pll-preferring-m: done
-  15-3-choose-a-solution-style-in-solution-playback: review
+  15-3-choose-a-solution-style-in-solution-playback: done
   epic-15-retrospective: optional
 action_items:
   - id: "epic-2-retro-item-1-create-a-deferred-findings-ledger-or-rou"
@@ -1836,3 +1836,39 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-15-2-last-layer-segments-for-2-look-and-full-oll-pll-preferring-m.md"
+  - id: "epic-15-deferred-15.3-method-result-discard-unrecorded"
+    epic: 15
+    action: "The Solution style ViewModel runs Effect.MethodSolve itself and drops a stale result without an EffectResultDiscarded record, short of AD-3; route the result through the reducer or record the discard, or have the architect note the exception in AD-3 (medium; deferred from 15.3, app/src/main/kotlin/dev/cubentia/app/ui/solve/SolutionStyles.kt:206-228)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-15-3-choose-a-solution-style-in-solution-playback.md"
+  - id: "epic-15-deferred-15.3-method-cache-ignores-status-changes"
+    epic: 15
+    action: "The method-solution cache is keyed by (facelets, method) only, so after the Learner marks an Algorithm Learning/Learned the same cube still gets the older 2-look/Full solution; add a status fingerprint to the key or clear on AlgorithmStatusRepository emits (medium; deferred from 15.3 gate and Epic 15 review, app/src/main/kotlin/dev/cubentia/app/solver/MethodSolverFactory.kt:20-37)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-15-3-choose-a-solution-style-in-solution-playback.md"
+  - id: "epic-15-deferred-15.3-two-look-full-physical-playback-test"
+    epic: 15
+    action: "No test or device run plays a real 2-look or Full OLL + PLL solution (z2 rotation, wide and slice Moves) through Solution Playback or follows it with Done/Back/Quick Check in Physical-cube Mode; add an AppShellSolveTest from an F2L-solved cube and check it in the next device session on the Lenovo and S24 FE (medium; deferred from 15.3 gate and Epic 15 review, app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt:369-378)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-15-3-choose-a-solution-style-in-solution-playback.md"
+  - id: "epic-15-deferred-15.3-revision-cancel-shell-test"
+    epic: 15
+    action: "A session revision change during a method build is cancelled at once only through AppShell's LaunchedEffect(session.revision), which no shell test pins; add a shell test that presses Done during a pending build (low; deferred from 15.3, app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt:356)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-15-3-choose-a-solution-style-in-solution-playback.md"
+  - id: "epic-15-deferred-15.3-mode-switch-cancels-build-silently"
+    epic: 15
+    action: "Switching to 'I'm following on my cube' or asking for a Quick Check while a style builds cancels it and reverts the chip with no message; cancel only when the input is replaced, or show the failure copy (low, Learner-visible; deferred from Epic 15 review, app/src/main/kotlin/dev/cubentia/app/ui/solve/SolutionStyles.kt:170)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-15-3-choose-a-solution-style-in-solution-playback.md"
+  - id: "epic-15-deferred-15.3-ci-upload-test-results"
+    epic: 15
+    action: "CI reported AppShellSolveTest.physicalPlaybackQuickCheckAndScanAllCanResolveAnAlreadySolvedCube failing with only \"AssertionError at :199\" and it never reproduced locally (fix 5edb79eb waits for exactly one node); upload app/build/test-results on failure so the full message is kept if it returns (low; deferred from 15.3 CI fix, .github/workflows)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-15-3-choose-a-solution-style-in-solution-playback.md"
