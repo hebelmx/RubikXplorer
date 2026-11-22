@@ -183,6 +183,7 @@ internal fun FindMyPlaceSheet(
     onChooseLevel: () -> Unit,
     onDismiss: () -> Unit,
     onScan: (() -> Unit)? = null,
+    scanBeta: Boolean = false,
 ) {
     val tokens = RubikTheme.tokens
 
@@ -210,14 +211,38 @@ internal fun FindMyPlaceSheet(
                 modifier = Modifier.semantics { heading() }.testTag("findMyPlace:title"),
             )
             if (onScan != null) {
+                val label = text("btn.find-my-place.scan")
+                val betaLabel = if (scanBeta) text("msg.feature.beta") else null
                 TextButton(
                     onClick = {
                         onDismiss()
                         onScan()
                     },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = Spacing.touchMin).testTag("findMyPlace:scan"),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = Spacing.touchMin)
+                            .testTag("findMyPlace:scan")
+                            .semantics { if (betaLabel != null) contentDescription = "$label, $betaLabel" },
                 ) {
-                    Text(text("btn.find-my-place.scan"), modifier = Modifier.fillMaxWidth())
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.s1),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(label)
+                        if (betaLabel != null) {
+                            BetaLabel(
+                                betaLabel,
+                                LocalContentColor.current,
+                                MaterialTheme.typography.labelMedium,
+                                Modifier.testTag("findMyPlace:scan:beta"),
+                            )
+                        }
+                    }
+                }
+                if (scanBeta) {
+                    BetaNote(text("msg.feature.camera.beta-note"), Modifier.testTag("findMyPlace:scan:betaNote"))
                 }
             }
             TextButton(

@@ -115,9 +115,12 @@ class LibraryScreenTest {
         rule.onNodeWithTag("library:case:${oll.last().id.value}").assertIsDisplayed()
         val pll = bundle.cases.first { it.set == CaseSet.PLL }
         assertTrue(runCatching { rule.onNodeWithTag("library:grid").performScrollToKey(pll.id.value) }.isFailure)
+        // Only the filtered set's families are offered, so no chip can empty the grid.
+        rule.onNodeWithTag("library:family:${pll.family.value}").assertDoesNotExist()
 
         chip.performClick()
         rule.onNodeWithTag("library:set:OLL").assertDoesNotExist()
+        rule.onNodeWithTag("library:family:${pll.family.value}").assertExists()
         rule.onNodeWithTag("library:grid").performScrollToKey(pll.id.value)
         rule.onNodeWithTag("library:case:${pll.id.value}").assertIsDisplayed()
     }

@@ -173,7 +173,8 @@ fun LibraryScreen(
                     }
                 }
                 Row(Modifier.horizontalScroll(familyChipsScroll), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AlgorithmLibrary.families(catalog.bundle.cases).forEach { family ->
+                    val shownCases = catalog.bundle.cases.filter { filter.set == null || it.set == filter.set }
+                    AlgorithmLibrary.families(shownCases).forEach { family ->
                         LibraryChip(text("msg.library.family.${family.value}"), filter.family == family, "library:family:${family.value}") {
                             onFilterChange(filter.copy(family = family.takeUnless { filter.family == it }))
                         }

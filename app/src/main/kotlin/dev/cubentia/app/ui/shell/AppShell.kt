@@ -995,6 +995,7 @@ private fun ShellContent(
                                     scan()
                                 }
                             },
+                        scanBeta = flags.showsBeta(FeatureFlag.PLACEMENT),
                     )
                 }
             }

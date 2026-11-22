@@ -5,7 +5,7 @@ created: '2026-11-22'
 status: done
 review_loop_iteration: 0
 baseline_revision: 6dc8f83ef19e5d62dc12afc2140e9108df716aff
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-14-context.md'
@@ -138,6 +138,42 @@ Binding ADs (story Refs line, verbatim): **AD-6, AD-10, AD-18**. UX: UX-DR18, UX
   - `[maybe-false]` `[reject]` (edge) `placementFromLearn` stays on after a cancel before leaving Idle — a cancelled scan delivers no later outcome; it clears on leaving Learn; if true only low.
   - `[low]` `[reject]` (edge) *Faster last layer* summary reads In progress while both 2-look rows read Skipped — the spec settled this (group row, not a Stage).
 
+### 2026-11-22 — Review pass (follow-up)
+- verdicts: 32 findings — high 0, medium 1, low 19, false 9, maybe-false 3
+- findings:
+  - `[false]` `[reject]` (intent) Sheet *Scan my cube* contradicts the Never clause on #252 re-placement — PO clarifications 2 and 4 (binding) put the sheet's *Scan my cube* in scope and name #252's note and "already reached" result as the excluded part; neither is built and `PlaceFromScan` is unchanged.
+  - `[false]` `[reject]` (intent) OLL Library filter is surface the intent did not name — PO clarification 1 (binding) asks for exactly this chip and filter.
+  - `[false]` `[reject]` (intent) Target unlock uses derived status, not "no StageUnlocked event" — a target that reads IN_PROGRESS is already unlocked by its prerequisites, so no unlock is missing; the intent's "not yet unlocked" holds.
+  - `[low]` `[reject]` carried (intent) 7.7 entry/abandon routing changed and tests gained an `entryLevel:check` tap — same as the earlier row: the entry path moved by design; the check itself is unchanged.
+  - `[low]` `[reject]` carried (intent) Existing-progress and target-reached rows tested only at the use case — same as the earlier row.
+  - `[false]` `[reject]` (intent) New `epic-14-context.md` is a planning-artifact edit — it lives in implementation-artifacts; nothing under planning-artifacts changed.
+  - `[false]` `[reject]` (intent) Unknown-type Room rows get no new test — `ProgressEventEntity` unknown-type handling is unchanged; only a new known type was added.
+  - `[low]` `[reject]` carried (blind) `UnknownStage` shows the generic save error — same as the earlier row.
+  - `[low]` `[reject]` carried (blind) stage-05 / stage-08 ids hard-coded — same as the earlier row (shipped-bundle tests pin the ids).
+  - `[false]` `[reject]` (blind) Mastery not passed, so a mastered Stage with open Lessons gets a Choice skip — `StageProgress.status` returns MASTERED before any skip is read, and mastery only ends with a `ProgressReset`, which also ends the skip's epoch; the Learner never sees a change, and the spec defines status on the loaded log.
+  - `[false]` `[reject]` (blind) 2-look status computed against `course + twoLook` while the UI uses `listOf(stage)` — a completed or mastered 2-look Stage reads COMPLETED/MASTERED in the UI before any skip is consulted, so an extra skip never changes what is shown.
+  - `[false]` `[reject]` (blind) Giving up from Learn skips Flow 8's "Let's find where to start" line — PO clarification 5 (binding) says no abandon line on the picker.
+  - `[low]` `[reject]` (blind) Save error below the choices is easy to miss for sighted users — a rare failure path; moving or restyling it is a layout change, not a direct correction.
+  - `[low]` `[reject]` (blind) Learn top bar has no 200% overflow check — a heading with `weight(1f)` beside one TextButton; a test would only add breadth.
+  - `[low]` `[reject]` (blind) `SessionHost.chooseEntryLevel` has no unit tests — it mirrors `placeFromScan`, and the shell tests drive it end to end.
+  - `[low]` `[reject]` carried (blind) Cancelled scan from Learn leaves `placementFromLearn` set — same as the earlier maybe-false row.
+  - `[low]` `[reject]` (blind) `entryLevelFrom` is a plain string — refactor with no named failure; two values, all compared in one file.
+  - `[low]` `[reject]` carried (blind) Picker state after recreation / `entryLevelSaving` not saveable — same as the earlier recreation row.
+  - `[low]` `[reject]` carried (blind) Picker back uses the close icon and `btn.solve.close` — same as the earlier row.
+  - `[false]` `[reject]` (blind) `at` defaults to epoch 0 — the same default as `PlaceFromScan` and `PassSkipCheck`; the only production caller passes `clock.now()`.
+  - `[low]` `[reject]` (blind) Skip-type check repeated in four places in `StageProgress` — refactor; no caller diverges today.
+  - `[low]` `[reject]` (blind) "No PLL tile" asserted with `runCatching { … }.isFailure` — weak but correct; the patched Library test now also asserts the PLL family chip is absent.
+  - `[low]` `[reject]` (blind) `ChooseEntryLevelTest` misses COMPLETED / placement / post-reset seeds — breadth only; the filter is one status check covered by the matrix rows.
+  - `[low]` `[reject]` carried (edge) Recreation mid-write drops navigation — same as the earlier row.
+  - `[low]` `[reject]` carried (edge) `entryLevelSaving` resets on recreation — same root as the earlier recreation row.
+  - `[low]` `[reject]` carried (edge) `UnknownStage` retry loop — same as the earlier row.
+  - `[maybe-false]` `[reject]` carried (edge) `placementFromLearn` stays on after a cancelled scan — same as the earlier row.
+  - `[low]` `[patch]` (edge) With the OLL set filter on, PLL family chips still show and tapping one empties the grid with "No algorithms marked Learning yet." — `LibraryScreen` now offers only the families of the cases the set filter shows; `LibraryScreenTest` asserts the PLL family chip is hidden while the filter is on and back after clearing.
+  - `[maybe-false]` `[reject]` (edge) Same mastered-Stage claim as the blind row — see that row's refutation; if true only low.
+  - `[maybe-false]` `[defer]` carried (gap) Tab-change / Idle resets of `placementFromLearn` untested — same as the earlier deferred row; already in `deferred`, not added again.
+  - `[medium]` `[patch]` (gap) The picker's *Not sure? Scan my cube* Beta label and note are never tested (every test flag set is GA) — added `while PLACEMENT shows Beta the picker and the sheet label their scan entries` (CAMERA_SCAN at BETA) and a GA counterpart in `AppShellEntryLevelTest`.
+  - `[low]` `[patch]` (gap other) The *Find my place* sheet's *Scan my cube* shows no Beta label or note while PLACEMENT is Beta, unlike Welcome and the picker — `FindMyPlaceSheet` gained `scanBeta` (`BetaLabel`, "…, BETA" description, `BetaNote`); `AppShell` passes `showsBeta(PLACEMENT)`; covered by the same new test.
+
 ## Design Notes
 
 **PO clarifications (2026-11-22), binding:** (1) *I know 2-look* opens the Library with a removable "OLL" chip, shown only while the filter is on; tapping it clears it; the filter is not kept — the next Library visit is unfiltered. (2) *Not sure? Scan my cube* from Learn runs the existing Placement flow as Welcome/Recognize do; #252's note and "already reached" result are out of scope. (3) After levels 1 and 2 the Learner lands on the Learn Stage list; level 2 scrolls to *Faster last layer*. (4) With PLACEMENT on, the sheet shows *Scan my cube* beside *Choose my level*. (5) Giving up the check opened from Learn returns to the picker (no abandon line on it).
@@ -201,3 +237,22 @@ Status: done
 - Recreating the Activity during the write can leave the Learner on the picker; tapping again is harmless.
 - The *Faster last layer* summary row keeps its mastery status while the 2-look rows read Skipped.
 - The device check on the Lenovo TB128XU and Galaxy S24 FE (main app build) is still pending.
+
+### Follow-up review pass (2026-11-22)
+
+**Summary:** A fresh four-layer review (blind, edge-case, verification-gap, intent-alignment; all on Claude, no Codex marker) of the whole story diff. 32 findings: 3 patched, 1 deferred (carried, already listed), 28 rejected.
+
+**Files changed in this pass:**
+- `app/.../ui/shell/EntryLevelScreen.kt`: the *Find my place* sheet's *Scan my cube* shows the Beta label, the "…, BETA" description and the camera Beta note while PLACEMENT shows Beta (same pattern as Welcome and the picker).
+- `app/.../ui/shell/AppShell.kt`: passes `showsBeta(PLACEMENT)` to the sheet.
+- `app/.../ui/library/LibraryScreen.kt`: family chips list only the families of the cases the set filter shows, so a PLL family chip can no longer empty the OLL-filtered grid behind the misleading "No algorithms marked Learning yet." line.
+- `app/src/test/.../ui/shell/AppShellEntryLevelTest.kt`: two new tests (Beta labels on the sheet and picker with CAMERA_SCAN at BETA; none at GA).
+- `app/src/test/.../ui/library/LibraryScreenTest.kt`: the OLL filter test asserts the PLL family chip is hidden, then shown after clearing.
+
+**Review findings:** patched 1 medium (Beta disclosure on the picker scan untested) and 2 low (sheet scan missing its Beta label; PLL family chips under the OLL filter). Deferred: the `placementFromLearn` reset tests (carried; unchanged entry). Rejected: 28, each with its reason in the Review Triage Log (follow-up pass entry).
+
+**Follow-up review recommended:** false. This was a follow-up pass and no high was patched (patched: high 0, medium 1, low 2).
+
+**Verification:** `./gradlew spotlessCheck build` passed after the patches (BUILD SUCCESSFUL in 5m 14s); it covers `:core:domain:test`, `:core:application:test` and `:app:testDebugUnitTest`. JUnit reports: `AppShellEntryLevelTest` 18/18 and `LibraryScreenTest` 11/11 passed.
+
+**Residual risks:** unchanged from the first pass: Activity recreation during the write, the *Faster last layer* summary row's status, the untested `placementFromLearn` resets, and the pending device check.

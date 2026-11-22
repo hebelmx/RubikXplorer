@@ -7,10 +7,12 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -31,6 +33,7 @@ import dev.cubentia.app.ui.a11y.fontScale200
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
 import dev.cubentia.app.ui.placement.PlacementFlowViewModel
 import dev.cubentia.app.ui.theme.CubentiaTheme
+import dev.cubentia.application.port.FlagLevel
 import dev.cubentia.application.port.PreferenceSave
 import dev.cubentia.application.port.PreferencesLoad
 import dev.cubentia.application.port.PreferencesRepository
@@ -113,6 +116,7 @@ class AppShellEntryLevelTest {
         welcome: Boolean = true,
         placement: Boolean = false,
         largeType: Boolean = false,
+        cameraScan: FlagLevel = FlagLevel.GA,
     ) {
         rule.setContent {
             back = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
@@ -123,7 +127,7 @@ class AppShellEntryLevelTest {
                         catalog = LessonCatalog.of(ContentLoadResult.Loaded(bundle)),
                         freeCube = FreeCubeViewModel(),
                         showDebugToggles = false,
-                        flags = testFlags(placement = placement),
+                        flags = testFlags(placement = placement, cameraScan = cameraScan),
                         showWelcome = welcome,
                         preferenceStore = preferences,
                         placementFlow = flow,
@@ -202,6 +206,36 @@ class AppShellEntryLevelTest {
         show(placement = true)
         openPickerFromWelcome()
         rule.onNodeWithTag("entryLevel:scan").performScrollTo().assertTextContains("Not sure? Scan my cube")
+    }
+
+    @Test
+    fun `while PLACEMENT shows Beta the picker and the sheet label their scan entries`() {
+        show(welcome = false, placement = true, cameraScan = FlagLevel.BETA)
+        openSheet()
+        rule.onNodeWithTag("findMyPlace:scan").assertContentDescriptionEquals("Scan my cube, BETA")
+        rule.onNodeWithTag("findMyPlace:scan:beta", useUnmergedTree = true).assertTextEquals("BETA")
+        rule.onNodeWithTag("findMyPlace:scan:betaNote").assertTextEquals("May misread colors in poor light. Manual entry always works.")
+        rule.onNodeWithTag("findMyPlace:chooseLevel").performClick()
+        waitForTag("entryLevel")
+        rule.onNodeWithTag("entryLevel:scan").performScrollTo().assertContentDescriptionEquals("Not sure? Scan my cube, BETA")
+        rule.onNodeWithTag("entryLevel:scan:beta", useUnmergedTree = true).assertTextEquals("BETA")
+        rule
+            .onNodeWithTag(
+                "entryLevel:scan:betaNote",
+            ).performScrollTo()
+            .assertTextEquals("May misread colors in poor light. Manual entry always works.")
+    }
+
+    @Test
+    fun `with PLACEMENT at GA the scan entries carry no Beta label`() {
+        show(welcome = false, placement = true)
+        openSheet()
+        rule.onNodeWithTag("findMyPlace:scan:beta", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithTag("findMyPlace:scan:betaNote").assertDoesNotExist()
+        rule.onNodeWithTag("findMyPlace:chooseLevel").performClick()
+        waitForTag("entryLevel")
+        rule.onNodeWithTag("entryLevel:scan:beta", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithTag("entryLevel:scan:betaNote").assertDoesNotExist()
     }
 
     @Test
