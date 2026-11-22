@@ -232,7 +232,7 @@ A Learner can browse and watch all 78 verified OLL/PLL Algorithms, track their o
 ### Epic 10: Scan my cube (v1.1, flag-gated)
 A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. Built on `main` with every camera flag OFF in release; each feature reaches users only when the PO raises its flag at a release (Story 10.11). Restored from `post-launch/v1.1-camera-recognition.md` by `sprint-change-proposal-2026-11-14-v1-1-camera.md`. *(SCP 2026-11-20: moves into v1.0 as the dependency of #198, #208, #249, #251, #252; Story 10.11 raises `CAMERA_SCAN` for the v1.0 release.)*
 **FRs covered:** FR-21, FR-23 – FR-26, plus the Quick Check rung of FR-9 and FR-16, and the calibration reset of FR-19. **Also:** recognition NFRs, NFR-5, NFR-8, NFR-11, NFR-12, AD-9, AD-13, AD-18, AR-13, UX-DR15, UX-DR16, UX-DR19 – UX-DR22, UX-DR25.
-**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) → Epic 11 → 10.8 → 10.11; 10.16 after 10.14; 11.1 → 10.18 (Quick Scan finds the cube's real edges and corners, #195) → 10.17 (after 10.16 too) → 10.19 → 10.22 → 10.20 → 10.21 *(SCP 2026-11-22 quick-scan-reliability: 10.22 before the fixture session)* *(SCP 2026-11-21 quick-scan-side-face-accuracy, #274: 10.20 and 10.21 do not block Story 10.11, which raises `CAMERA_SCAN` and `PLACEMENT` with `QUICK_SCAN` OFF; Quick Scan is raised in a later 10.11-n after 10.21's BETA call)*; all v1.0 scope (SCP 2026-11-20) *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16; 10.5 split into 10.5 and 10.15 by SCP 2026-11-16 main-app entry points)*. Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance (10.4 partial); B2 = 10.14; B3 = 10.5 (main app; re-runs the 10.4 checks not done on a device, #166); C = 11.1, 11.3 capture and 10.8.
+**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) → Epic 11 → 10.8 → 10.11; 10.16 after 10.14; 11.1 → 10.18 (Quick Scan finds the cube's real edges and corners, #195) → 10.17 (after 10.16 too) → 10.19 → 10.22 → (10.20 ∥ 10.23) → 10.21 *(SCP 2026-11-22 quick-scan-reliability: 10.22 before the fixture session)* *(SCP 2026-11-22 quick-scan-sticker-reader: 10.23, the shadow sticker reader, after 10.22; it does not block 10.20, 10.21 or 10.11)* *(SCP 2026-11-21 quick-scan-side-face-accuracy, #274: 10.20 and 10.21 do not block Story 10.11, which raises `CAMERA_SCAN` and `PLACEMENT` with `QUICK_SCAN` OFF; Quick Scan is raised in a later 10.11-n after 10.21's BETA call)*; all v1.0 scope (SCP 2026-11-20) *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16; 10.5 split into 10.5 and 10.15 by SCP 2026-11-16 main-app entry points)*. Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance (10.4 partial); B2 = 10.14; B3 = 10.5 (main app; re-runs the 10.4 checks not done on a device, #166); C = 11.1, 11.3 capture and 10.8.
 **Main-app rule (SCP 2026-11-16 main-app entry points):** a camera story is accepted on the main app build, reached from its real entry point. A debug-only launcher is never a story's device-session gate, and debug raises a flag above OFF only once that flag's entry point is wired in the main app (AD-15, AD-18).
 **Never blocks** tester-feedback fixes or Stories 12.3, 12.4, 12.5 and 13.6: camera stories merge only with release camera flags OFF, and Story 10.9's gate keeps the release free of camera code and permissions. *(Superseded by SCP 2026-11-20: for v1.0, Story 10.11 raises `CAMERA_SCAN`, `QUICK_SCAN` and `PLACEMENT` before Stories 12.3–12.5, and the Story 10.9 gate then checks the flags-ON release instead.)* *(SCP 2026-11-21 quick-scan-side-face-accuracy: `QUICK_SCAN` leaves this first raise and follows Story 10.21.)*
 
@@ -2565,7 +2565,7 @@ So that Quick Scan is faster than scanning face by face.
 
 **Refs:** FR-22 · recognition NFRs (Quick Scan) · AD-9, AD-18 · Stories 10.17, 10.18, 10.19 · spec `_bmad-output/specs/spec-quick-scan-reliability/` (CAP-2, CAP-4; failure modes F1, F2, F4, F6, F11, F13, F14, F15)
 
-**Depends on** Story 10.19. **Human gate:** a device session on the main app build, `QUICK_SCAN` raised in debug, on the Lenovo TB128XU and the Galaxy S24 FE. *(SCP 2026-11-22 quick-scan-reliability. Sticker reading, classification and gates stay in Kotlin. PO decisions 2026-11-22: the light check becomes advisory in this story; every hold captures within 10 s. The keep rule and the agreement gate are not changed here; they stay with Story 10.21.)*
+**Depends on** Story 10.19. **Human gate:** a device session on the main app build, `QUICK_SCAN` raised in debug, on the Lenovo TB128XU and the Galaxy S24 FE. *(SCP 2026-11-22 quick-scan-reliability. Sticker reading, classification and gates stay in Kotlin in this story; Story 10.23 adds a LiteRT shadow reader that decides nothing, SCP 2026-11-22 quick-scan-sticker-reader. PO decisions 2026-11-22: the light check becomes advisory in this story; every hold captures within 10 s. The keep rule and the agreement gate are not changed here; they stay with Story 10.21.)*
 
 **Acceptance Criteria:**
 
@@ -2596,6 +2596,54 @@ So that Quick Scan is faster than scanning face by face.
 **Given** the main app on each device after these changes
 **When** a tester runs at least 10 holds with everything still and 10 hand-held per device
 **Then** the time from cube detected to automatic capture, the time undetected and the blocking gate are recorded per hold from the diagnostics, with the median and the worst case per device, next to the 2026-11-22 baseline in `docs/evidence/10-22/`. Every hold auto-captures within **10 s** of the cube being detected, still and hand-held (PO 2026-11-22); a hold that misses is recorded with its blocking gate and routed to the PO. A recorder burst on each device shows one exposure level per hold.
+
+### Story 10.23: A shadow sticker reader runs beside the Kotlin reads
+
+As the developer tuning Quick Scan,
+I want a small on-device model to read every captured face next to the Kotlin reads without deciding anything,
+So that we learn on real scans whether a model reads shaded and glossy faces better, at no risk to the scan.
+
+**Refs:** FR-22, FR-24 · recognition NFRs (Quick Scan, Confidence calibration), NFR-8, NFR-11 · AD-9, AD-13, AD-18 · OQ-7 · Stories 10.13, 10.18, 10.19, 10.22 · spec `_bmad-output/specs/spec-quick-scan-reliability/` (CAP-3; failure modes F7, F8, F9, F10)
+
+**Depends on** Story 10.22 (per-hold diagnostics and the capture pipeline the reader hooks into). May run alongside Story 10.20. **Human gate:** a device session on the main app debug build, `QUICK_SCAN` raised, on the Lenovo TB128XU and the Galaxy S24 FE. *(SCP 2026-11-22 quick-scan-sticker-reader. PO decisions 2026-11-22: LiteRT is allowed for per-face sticker color classification; this story is shadow mode only, with a runtime debug toggle; the first model trains on existing fixtures and earlier capture evidence, extra real captures where coverage is thin, and synthetic data; whole capture groups are held out. The Kotlin classifier, the agreement gate and the keep rule are not changed here.)*
+
+**Acceptance Criteria:**
+
+**Given** the existing `Fixtures/` tree and the capture evidence committed earlier (`docs/evidence/`, including git history)
+**When** the training set is assembled by a seeded, reproducible pipeline under `tools/sticker-model/`
+**Then** an inventory in `docs/evidence/10-23/` lists every source, what it holds (face images or cell measurements only), its labels, and its coverage per device, cube and light. The set combines those real captures with synthetic faces that target shaded side faces, glare, red against orange and white against yellow. Where the inventory shows a device, cube or light with too few real faces, additional captures are recorded with the debug fixture recorder and added. Synthetic faces are used for training only.
+
+**Given** the assembled set
+**When** it is split
+**Then** whole capture groups are held out: no group, and no frame of a held-out group, appears in training or tuning. The held-out groups are named in a committed file and cover both devices, a stickered and a stickerless cube, and at least one shaded or backlit group. A test fails when a group appears on both sides.
+
+**Given** the sticker model
+**When** it is exported
+**Then** it takes one unwarped face image and returns, for each of the nine stickers, a color and a certainty that maps to `StickerConfidence` (AD-9: categorical only across the port). It reads the image only and takes no Kotlin reading as input, so its read is independent of both Kotlin reads. The `.tflite` file is under 500 KB, and its hash, recipe and tool versions are recorded as for the corner model (Story 10.18).
+
+**Given** the held-out groups
+**When** the evaluation runs
+**Then** `docs/evidence/10-23/` reports, per device, cube and light, for the model and for the current Kotlin reads: stickers correct, uncertain and confidently wrong; where the two agree and disagree; the red/orange and white/yellow confusions; and results as the real training data grows (a learning curve). No bar is enforced; the report is routed to the PO.
+
+**Given** a Quick Scan capture in a debug build with the reader on
+**When** a corner is captured
+**Then** the three unwarped face crops are read once by the model off the main thread, and `CubentiaScanDiag` logs per face the model's nine colors and certainties beside both Kotlin reads, with the inference time. The crops stay in memory and are discarded when the scan ends (AD-9, AD-13). The reader has no input to `QuickScanClassification`, the keep rule, `ScanAssembler` or the review: a test replays recorded captures with the reader on, off and failing (model missing, inference error) and gets the same `ScanResult` each time.
+
+**Given** a debug build on a device
+**When** the developer uses the debug-only reader control
+**Then** the reader is switched on or off without reinstalling, the state is logged at the start of each scan, and it takes effect from the next capture.
+
+**Given** the release and benchmark builds
+**When** the build gates run
+**Then** they contain no sticker model asset and no shadow-reader class: the reader and its model live only in the debug camera source set, a `build-logic` check fails otherwise, and the release size report is unchanged (NFR-11).
+
+**Given** both reference devices
+**When** a tester runs at least 10 Quick Scans per device with the reader on and 10 with it off
+**Then** `docs/evidence/10-23/` records the inference time per capture (median and worst) and the per-hold capture times from the Story 10.22 diagnostics for both settings, showing the reader does not slow capture.
+
+**Given** the Story 10.20 held-out corner groups, once they exist
+**When** the evaluation is run on them
+**Then** the same report is added to `docs/evidence/10-23/`. Letting the model take part in a result (as the second read in the agreement gate, or deciding stickers Kotlin left UNCERTAIN) is not part of this story: it needs that report, a per-sticker safety result and a further sprint change proposal.
 
 ### Story 11.1: Quick Scan from two corners
 

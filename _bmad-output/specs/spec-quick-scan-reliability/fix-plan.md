@@ -56,6 +56,40 @@ Nothing here is implemented yet. The sprint change proposal of 2026-11-22 (`spri
   two independent reads and must not raise the per-sticker wrong count in any replay scenario. "Capture 1's green
   face kept" is not a valid check: it is true by construction once the veto is removed.
 
+## Planned: shadow sticker reader (Story 10.23)
+
+Sprint change proposal `sprint-change-proposal-2026-11-22-quick-scan-sticker-reader.md`. Runs after Story 10.22,
+alongside 10.20; blocks nothing.
+
+- **Shadow-mode sticker reader (CAP-3, first step of the hybrid reader).** Run a small LiteRT per-face sticker reader
+  beside the Kotlin reads without letting it decide anything. The PO lifted "LiteRT stays in corner detection only"
+  for this on 2026-11-22.
+  - *What it does.* In debug builds, once per capture, it reads the nine cells of each unwarped face and logs its
+    color and certainty per sticker next to both Kotlin reads in `CubentiaScanDiag`. It has no input to
+    `QuickScanClassification.gate`, the keep rule, `ScanAssembler` or the review, so scan results are identical with
+    it on or off.
+  - *Where it plugs in.* The camera side keeps the three unwarped face crops in memory at capture and passes the
+    model's result through a new port, following the `CornerDetector` / `LiteRtCornerDetector` pattern in
+    `app/src/camera/corner`. The domain receives only per-sticker results; crops are discarded when the scan ends.
+  - *Switching.* Flags are build-time today; a debug-only runtime toggle turns the reader on and off on the device.
+    Release builds do not run it.
+  - *What it answers.* On labelled captures (Story 10.20) and on live debug scans: where the model and Kotlin agree,
+    where each is confidently wrong, and how many UNCERTAIN stickers the model would settle, per device, cube and
+    light. It runs once per capture, so inference time does not affect capture time.
+  - *Later modes, each a separate decision on the per-sticker wrong count.* (a) Second read: the model replaces the
+    saved calibration as the second read in the agreement gate; two independent reads must still agree (bears on
+    CAP-6). (b) Rescue: the model decides stickers Kotlin left UNCERTAIN; this ends the two-reads-agree rule and needs
+    its own safety evidence.
+  - *Why now.* The comparison data should accumulate from the 10.20 session onward. Judgement of 2026-11-22,
+    unmeasured: Story 10.22 is probably enough for capture time; the keep-rule work of Story 10.21 alone
+    probably does not reach CAP-5 on shaded faces.
+  - *Training data (PO 2026-11-22).* Existing `Fixtures/` and capture evidence from earlier commits; additional real
+    captures if edge-case coverage is insufficient; synthetic faces targeting shaded faces, glare, and red/orange and
+    white/yellow separation. Whole capture groups are held out for validation. The story starts with an inventory:
+    some sources hold cell measurements without images.
+  - *Model input.* The first model reads the face image only, so its read is independent of both Kotlin reads; the
+    hybrid inputs of CAP-3 (Kotlin candidates, earlier captures, centers) remain a later variant.
+
 ## Candidate ideas, not yet planned
 
 - **Gather several views during one corner hold.** A small tilt can move glare off a sticker or bring a side into
@@ -69,6 +103,10 @@ Nothing here is implemented yet. The sprint change proposal of 2026-11-22 (`spri
 - **Hybrid per-face sticker reader (CAP-3).** As a bounded ML spike, evaluate a **hybrid per-face sticker reader** on the nine cells of already detected and unwarped faces. Give the model the face image and the existing Kotlin classifier's per-sticker candidate colors and certainty, plus prior-capture readings and known center colors where available. Prior evidence can come from earlier captures in the current scan. A bounded recent-frame buffer in memory could also provide appearance context; discard its images when the scan ends. The project currently says release and benchmark builds never persist camera frames. Existing saved color calibration is a possible cross-session color reference, but the repository does not establish a same-cube identity/profile mechanism. Persisting cube-specific model outputs or reference images would therefore be a separate privacy and architecture decision, not implied by this experiment.
   Treat the model inputs as evidence: the model should be able to use the image to correct a misleading Kotlin result, while cube-level consistency can rank or reject implausible combined readings. The standard cube scheme gives six known center colors and nine stickers of each color across the full cube, and previous captures add constraints, but these facts do not in general identify every unsampled sticker by themselves. Keep visual evidence and an explicit uncertain outcome so global constraints cannot force an unsupported confident label.
   Use manually labeled real face crops across supported devices, cubes, lighting and relevant torch/calibration conditions. Keep whole capture groups held out to avoid near-duplicate frames leaking across splits. Measure results as labeled data accumulates (a learning curve) to determine whether a useful model is possible with a practical dataset; the required data volume is not yet known. Compare hybrid and Kotlin-only results on correct colors, uncertain readings, confidently wrong labels, latency, and packaged model size. Make no production replacement decision until the held-out comparison is reviewed.
+- **Fine-tune the corner model on real frames.** The model was trained on synthetic renders and its real-frame check
+  never ran. After Story 10.22 its outline feeds the steady gate; the outline drifted up to 14.5 px on a still cube and
+  capture 1 lost the cube in 48 of 228 frames (F14). Do this only if the 10.22 per-hold timelines show cube-lost or
+  steady restarts as the blocking gate. No model is proposed for the exposure, settle, steady or light gates.
 - **Judge the learner's whole scan.** Compare time to a correct reviewed cube, faces requested again, abandoned scans
   and incorrect cubes accepted, on known cubes, hand-held.
 
@@ -80,3 +118,5 @@ Nothing here is implemented yet. The sprint change proposal of 2026-11-22 (`spri
   with the safety conditions above.
 - **Story 10.11** (raise the release flag): unchanged; follows 10.21's BETA call.
 - **Story 10.22** (new, before 10.20): steps 0–5, with a 10-second bar per hold.
+- **Story 10.23** (new, after 10.22, alongside 10.20): the shadow sticker reader above. Second-read and rescue modes
+  need its held-out report and a further sprint change proposal.
