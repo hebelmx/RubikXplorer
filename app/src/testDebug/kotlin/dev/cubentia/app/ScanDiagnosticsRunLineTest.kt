@@ -199,12 +199,8 @@ class ScanDiagnosticsRunLineTest {
             )
         ScanDiagnostics.onCornerCapture(report)
         val check =
-            dev.cubentia.domain.recognition.CenterCheck(
-                2,
-                listOf(dev.cubentia.domain.cube.Color.YELLOW, dev.cubentia.domain.cube.Color.ORANGE, dev.cubentia.domain.cube.Color.BLUE),
-                listOf(dev.cubentia.domain.cube.Color.WHITE, null, dev.cubentia.domain.cube.Color.RED),
-                listOf(false, null, false),
-            )
+            dev.cubentia.domain.recognition
+                .CenterCheck(2, listOf(1.2, null, 7.0))
         ScanDiagnostics.onCenterBlock(0, check)
         val lines = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }
         assertEquals(
@@ -212,7 +208,7 @@ class ScanDiagnosticsRunLineTest {
                 "quickScan capture hold=2 D:center=YELLOW,confident=8,uncertain=0,kept,reason=- " +
                     "L:center=ORANGE,confident=5,uncertain=3,grid,reason=disagree=2/closeCall=1/correction=rejected " +
                     "B:center=-,confident=0,uncertain=0,grid,reason=missing",
-                "quickScan centerBlock hold=2 expected=YELLOW,ORANGE,BLUE read=WHITE,-,RED matches=false,-,false",
+                "quickScan centerBlock hold=2 deltaE=1.2,-,7.0",
             ),
             lines,
         )

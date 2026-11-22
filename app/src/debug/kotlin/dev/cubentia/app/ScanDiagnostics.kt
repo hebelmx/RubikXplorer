@@ -129,8 +129,8 @@ object ScanDiagnostics {
     }
 
     /**
-     * The Quick Scan centre check blocked a corner frame (PO 2026-11-21, rate-limited like the frame line): the hold, its
-     * prompted centre colours, the colours read and per centre whether it matched (`-` unknown). Colour names only.
+     * The Quick Scan pose-unchanged check blocked a corner frame (PO 2026-11-21, rate-limited like the frame line): the
+     * hold and per screen position the centre's ΔE to the other hold's captured centre (`-` missing). Distances only.
      */
     fun onCenterBlock(
         nowMs: Long,
@@ -146,9 +146,7 @@ object ScanDiagnostics {
             "quickScan",
             "centerBlock",
             "hold=${check.hold}",
-            "expected=${check.expected.joinToString(",")}",
-            "read=${check.read.joinToString(",") { it?.name ?: "-" }}",
-            "matches=${check.matches.joinToString(",") { it?.toString() ?: "-" }}",
+            "deltaE=${check.deltaE.joinToString(",") { format(it) }}",
         ).joinToString(" ")
 
     /**

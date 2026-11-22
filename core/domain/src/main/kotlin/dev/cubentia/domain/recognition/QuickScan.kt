@@ -85,11 +85,14 @@ class QuickScanController(
     private var previous: List<Lab?>? = null
 
     /**
-     * The centre check that blocked the last detected corner frame (PO 2026-11-21, Story 10.19); null when it passed or
-     * did not run. While it blocks, nothing is captured (auto or manual) and the steady count does not start.
+     * The pose-unchanged check that blocked the last detected corner frame (PO 2026-11-21, Story 10.19); null when it
+     * passed or did not run. While it blocks, nothing is captured (auto or manual) and the steady count does not start.
      */
     var centerBlock: CenterCheck? = null
         private set
+
+    /** The three centre cells (Lab, by screen position) captured at each hold, for the pose-unchanged [CenterCheck]. */
+    private val holdCenters = mutableMapOf<Int, List<Lab?>>()
 
     /** What the last corner capture read and decided per face, for the debug diagnostics; null before the first. */
     var lastCapture: CornerCaptureReport? = null
@@ -197,10 +200,10 @@ class QuickScanController(
                 settled = settled,
                 torchOn = torchOn,
             ) { values ->
-                val check = CenterCheck.of(hold, corner.latest, captured, saved)
+                val check = CenterCheck.of(hold, corner.latest, holdCenters.entries.firstOrNull { it.key != hold }?.value)
                 val prior = previous
-                if (check.blocks) {
-                    // PO 2026-11-21: a hold whose centres read as another pose never captures; the prompt stays.
+                if (check != null && check.blocks) {
+                    // PO 2026-11-21: a hold still showing the other hold's centres (the cube not turned) never captures.
                     centerBlock = check
                     false
                 } else if (prior != null && !turnedOver(values, prior)) {
@@ -275,6 +278,7 @@ class QuickScanController(
                     )
             }
         }
+        holdCenters[taken] = CenterCheck.centers(corner.latest)
         val merged = captured
         lastCapture =
             CornerCaptureReport(
@@ -422,75 +426,45 @@ class QuickScanController(
 }
 
 /**
- * The three visible centre stickers of a corner hold against the hold's prompted centre colours (PO 2026-11-21, Story
- * 10.19), read with the calibration Quick Scan uses at that hold: the self-calibration over the faces captured so far
- * (the saved calibration filling the rest), or, while some colours have no centre yet, the captured faces' own trusted
- * centres. [read] is null where the centre cannot be read (missing, invalid, a guarded logo centre or fewer than two
- * centres); [matches] is true for a CONFIDENT read of the prompted colour, false for a confidently different colour, and
- * null (unknown) otherwise. When the prompted colour has no centre yet, a read only counts as different when it sits
- * within the close-call distance of the centre of the colour another hold showed at that position (the Learner still
- * holds that corner). The check [blocks] only when some centre is confidently different: an unclear read never does.
+ * The pose-unchanged check of a corner hold (PO 2026-11-21, Story 10.19): the three visible centre cells against the
+ * centre cells captured at the other hold in the same screen positions, compared in Lab with no colour classification (a
+ * saved calibration made on another cube cannot block a capture, AC5). [deltaE] is per screen position, null where either
+ * centre is missing or invalid. The check [blocks] only when all three centres lie within [POSE_MATCH_DELTA_E] of the
+ * other hold's: the cube was not turned. Before the other hold was captured there is nothing to compare and nothing blocks.
  */
 data class CenterCheck(
     val hold: Int,
-    val expected: List<Color>,
-    val read: List<Color?>,
-    val matches: List<Boolean?>,
+    val deltaE: List<Double?>,
 ) {
-    val blocks: Boolean get() = matches.any { it == false }
+    val blocks: Boolean get() = deltaE.isNotEmpty() && deltaE.all { it != null && it < POSE_MATCH_DELTA_E }
 
     companion object {
+        /** Two centre cells closer than this (CIE76) are the same sticker seen again: the pose did not change. */
+        const val POSE_MATCH_DELTA_E = 11.0
+
+        /** The check of [faces] at [hold] against [other], the other hold's captured centres; null when none was captured. */
         fun of(
             hold: Int,
             faces: List<FrameStats?>,
-            captured: List<FaceSample>,
-            saved: CalibrationCenters?,
-        ): CenterCheck {
-            val steps = QuickScanPlan.holds[hold - 1]
-            val centers: Map<Color, Lab> =
-                when (val self = SelfCalibration.from(captured, saved)) {
-                    is SelfCalibration.Calibrated -> self.calibration.centers
-                    is SelfCalibration.NeedsCalibration -> SelfCalibration.trustedCenters(captured)
-                }
-            val reads =
-                steps.indices.map { index ->
-                    val cell = faces.getOrNull(index)?.cells?.getOrNull(FaceSample.CENTER_INDEX)
-                    val lab = cell?.value
-                    if (lab == null || !lab.isValid() || !cell.plain ||
-                        centers.size < 2
-                    ) {
-                        null
-                    } else {
-                        lab to StickerClassifier.read(lab, centers)
-                    }
-                }
-            val matches =
-                steps.mapIndexed { index, step ->
-                    val (lab, reading) = reads[index] ?: return@mapIndexed null
-                    when {
-                        reading.confidence != StickerConfidence.CONFIDENT -> null
-
-                        reading.color == step.centerColor -> true
-
-                        step.centerColor in centers -> false
-
-                        reading.color in otherHoldColors(hold, index) &&
-                            StickerClassifier.deltaE(lab, centers.getValue(reading.color)) < StickerClassifier.CLOSE_CALL_DELTA_E -> false
-
-                        else -> null
-                    }
-                }
-            return CenterCheck(hold, steps.map { it.centerColor }, reads.map { it?.second?.color }, matches)
+            other: List<Lab?>?,
+        ): CenterCheck? {
+            other ?: return null
+            val now = centers(faces)
+            return CenterCheck(
+                hold,
+                now.zip(other).map { (a, b) -> if (a != null && b != null) StickerClassifier.deltaE(a, b) else null },
+            )
         }
 
-        private fun otherHoldColors(
-            hold: Int,
-            index: Int,
-        ): Set<Color> =
-            QuickScanPlan.holds
-                .filterIndexed { i, _ -> i != hold - 1 }
-                .map { it[index].centerColor }
-                .toSet()
+        /** The centre cell of each of [faces], null where missing or invalid. */
+        fun centers(faces: List<FrameStats?>): List<Lab?> =
+            faces.map { stats ->
+                stats
+                    ?.cells
+                    ?.getOrNull(FaceSample.CENTER_INDEX)
+                    ?.value
+                    ?.takeIf { it.isValid() }
+            }
     }
 }
 
