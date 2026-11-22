@@ -112,6 +112,41 @@ internal object FaceletTables {
             ?: checkNotNull(pieceToHome(orientation, index, EDGE_FACES, EDGE_FACELETS)) { "no piece holds $index" }
     }
 
+    /**
+     * [toHome] of every sticker under [orientation], precomputed once for all 24 rotations: the
+     * entry at Learner sticker `i` is its home sticker. Callers must not modify the array.
+     */
+    fun homeIndices(orientation: Orientation): IntArray = HOME_INDICES.getValue(orientation)
+
+    private val HOME_INDICES: Map<Orientation, IntArray> by lazy {
+        Orientation.ALL.associateWith { orientation -> IntArray(Facelets.SIZE) { toHome(orientation, it) } }
+    }
+
+    // Per sticker: its corner slot (0..7), or 8 + its edge slot, or -1 for a center; and its facet there.
+    private val STICKER_SLOT: IntArray = IntArray(Facelets.SIZE) { -1 }
+    private val STICKER_FACET: IntArray = IntArray(Facelets.SIZE)
+
+    init {
+        CORNER_FACELETS.forEachIndexed { slot, stickers ->
+            stickers.forEachIndexed { facet, sticker ->
+                STICKER_SLOT[sticker] = slot
+                STICKER_FACET[sticker] = facet
+            }
+        }
+        EDGE_FACELETS.forEachIndexed { slot, stickers ->
+            stickers.forEachIndexed { facet, sticker ->
+                STICKER_SLOT[sticker] = CORNER_FACELETS.size + slot
+                STICKER_FACET[sticker] = facet
+            }
+        }
+    }
+
+    /** The slot holding sticker [index]: a corner slot (0..7), `8 +` an edge slot, or -1 for a center. */
+    fun stickerSlot(index: Int): Int = STICKER_SLOT[index]
+
+    /** The facet of sticker [index] within its slot, in [CORNER_FACELETS] / [EDGE_FACELETS] order. */
+    fun stickerFacet(index: Int): Int = STICKER_FACET[index]
+
     /** `map[home] = learner` for every sticker under [orientation]. */
     fun learnerOf(orientation: Orientation): IntArray {
         val map = IntArray(Facelets.SIZE)

@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-21-2026 20:54'
+last_updated: '11-22-2026 08:11'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -150,7 +150,7 @@ development_status:
   10-17-switch-from-quick-scan-to-the-guided-scan-and-keep-the-captu: done
   10-18-quick-scan-finds-the-cube-s-real-edges-and-corners: done
   10-19-quick-scan-reads-the-side-faces-in-good-light: done
-  10-20-record-10-19-pipeline-corner-fixtures-and-check-the-corner-model: backlog
+  10-20-record-10-19-pipeline-corner-fixtures-and-check-the-corner-m: backlog
   10-21-quick-scan-keeps-the-side-faces-it-reads-well: backlog
   epic-10-retrospective: optional
 
@@ -195,8 +195,8 @@ development_status:
   14-3-practice-every-lesson-step-on-my-real-cube-with-a-quick-chec: backlog
   epic-14-retrospective: optional
 
-  epic-15: backlog
-  15-1-build-a-beginner-method-solution-from-the-course-s-stages: backlog
+  epic-15: in-progress
+  15-1-build-a-beginner-method-solution-from-the-course-s-stages: done
   15-2-last-layer-segments-for-2-look-and-full-oll-pll-preferring-m: backlog
   15-3-choose-a-solution-style-in-solution-playback: backlog
   epic-15-retrospective: optional
@@ -1672,68 +1672,124 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-10-17-switch-from-quick-scan-to-the-guided-scan-and-keep-the-captured-faces.md"
   - id: "epic-10-deferred-10.19-side-face-accuracy"
     epic: 10
-    action: "Side-face accuracy deferred from 10.19 by PO decision 2026-11-21: AC2 front-lit/backlit light-check counts per device, AC4 glossy-cube torch glare, AC6 side-face replay bar on new 10.19-pipeline fixtures, AC7 held-out evaluate_model.py metrics, AC8 BETA call; includes refitting the provisional light cuts (27 L*, 1.34) and checking live vs recorded L*; plan via bmad-correct-course (medium; deferred from 10.19, https://github.com/hebelmx/RubikXplorer/issues/274)"
+    action: "Side-face accuracy deferred from 10.19 by PO decision 2026-11-21: AC2
+      front-lit/backlit light-check counts per device, AC4 glossy-cube torch glare,
+      AC6 side-face replay bar on new 10.19-pipeline fixtures, AC7 held-out evaluate_model.py
+      metrics, AC8 BETA call; includes refitting the provisional light cuts (27 L*,
+      1.34) and checking live vs recorded L*; plan via bmad-correct-course (medium;
+      deferred from 10.19, https://github.com/hebelmx/RubikXplorer/issues/274)"
     owner: "PO (hebelmx)"
     status: done
-    resolution: "planned by SCP 2026-11-21 quick-scan-side-face-accuracy as Stories 10.20 and 10.21"
+    resolution: "planned by SCP 2026-11-21 quick-scan-side-face-accuracy as Stories
+      10.20 and 10.21"
     ref: "_bmad-output/implementation-artifacts/spec-10-19-quick-scan-reads-the-side-faces-in-good-light.md"
   - id: "epic-10-deferred-10.19-torch-requested-vs-lit"
     epic: 10
-    action: "The light check is skipped when the torch is requested, not when it is actually lit; if enableTorch fails (e.g. a hot S24 FE) a backlit cube captures with no light hold; skip only while the torch is applied (medium; deferred from 10.19, core/domain/src/main/kotlin/dev/cubentia/domain/recognition/QuickScan.kt:199); built in Story 10.21"
+    action: "The light check is skipped when the torch is requested, not when it is
+      actually lit; if enableTorch fails (e.g. a hot S24 FE) a backlit cube captures
+      with no light hold; skip only while the torch is applied (medium; deferred from
+      10.19, core/domain/src/main/kotlin/dev/cubentia/domain/recognition/QuickScan.kt:199);
+      built in Story 10.21"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-19-quick-scan-reads-the-side-faces-in-good-light.md"
   - id: "epic-10-deferred-10.19-light-clear-steadiness"
     epic: 10
-    action: "The light hold now clears after 500 ms of passing frames with no steadiness check (session fix f7b0573f), while AC1 says pass about 0.5 s while steady; PO to confirm movement may be ignored in the light-clear window or restore the 2-cells-per-face restart (medium; deferred from 10.19, core/domain/src/main/kotlin/dev/cubentia/domain/recognition/CornerHold.kt:278); built in Story 10.21"
+    action: "The light hold now clears after 500 ms of passing frames with no steadiness
+      check (session fix f7b0573f), while AC1 says pass about 0.5 s while steady;
+      PO to confirm movement may be ignored in the light-clear window or restore the
+      2-cells-per-face restart (medium; deferred from 10.19, core/domain/src/main/kotlin/dev/cubentia/domain/recognition/CornerHold.kt:278);
+      built in Story 10.21"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-19-quick-scan-reads-the-side-faces-in-good-light.md"
   - id: "epic-10-deferred-10.19-cal-offer-reappears"
     epic: 10
-    action: "Backing out of calibration opened from the Quick Scan corner view shows the calibration offer again at once from the stale light hold; clear the hold or offer on return (low, Learner-visible; deferred from 10.19, app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt:173); built in Story 10.21"
+    action: "Backing out of calibration opened from the Quick Scan corner view shows
+      the calibration offer again at once from the stale light hold; clear the hold
+      or offer on return (low, Learner-visible; deferred from 10.19, app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt:173);
+      built in Story 10.21"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-19-quick-scan-reads-the-side-faces-in-good-light.md"
   - id: "issue-270-deferred-decode-rejections-silent"
     epic: 10
-    action: "CornerModelTransform.decode() rejections are silent and look the same (size, non-finite, out-of-range, low presence and geometry all return null with no log), so a mis-exported model doesn't show in device diagnostics; log the rejection reason (low; deferred from #270, app/src/camera/corner/kotlin/dev/cubentia/app/camera/corner/LiteRtCornerDetector.kt:55)"
+    action: "CornerModelTransform.decode() rejections are silent and look the same
+      (size, non-finite, out-of-range, low presence and geometry all return null with
+      no log), so a mis-exported model doesn't show in device diagnostics; log the
+      rejection reason (low; deferred from #270, app/src/camera/corner/kotlin/dev/cubentia/app/camera/corner/LiteRtCornerDetector.kt:55)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-270-reject-out-of-range-litert-corner-keypoints.md"
   - id: "issue-270-deferred-decode-buffer-size-untested"
     epic: 10
-    action: "The output.size < OUTPUT_FLOATS guard in CornerModelTransform.decode() and oversized output buffers have no unit test; add both cases to CornerModelTransformTest (low; deferred from #270)"
+    action: "The output.size < OUTPUT_FLOATS guard in CornerModelTransform.decode()
+      and oversized output buffers have no unit test; add both cases to CornerModelTransformTest
+      (low; deferred from #270)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-270-reject-out-of-range-litert-corner-keypoints.md"
   - id: "issue-275-deferred-tb128xu-settings-screenshot"
     epic: 12
-    action: "Confirm on the physical TB128XU (You -> Settings screenshot) that the Settings labels are no longer clipped at the start edge; Robolectric reports zero insets, so the cause (a missing inset versus a device-specific edge) is assumed; if clipping remains, look into the window and edge insets (medium; deferred from #275, app/src/main/kotlin/dev/cubentia/app/ui/settings/SettingsScreen.kt:76)"
+    action: "Confirm on the physical TB128XU (You -> Settings screenshot) that the
+      Settings labels are no longer clipped at the start edge; Robolectric reports
+      zero insets, so the cause (a missing inset versus a device-specific edge) is
+      assumed; if clipping remains, look into the window and edge insets (medium;
+      deferred from #275, app/src/main/kotlin/dev/cubentia/app/ui/settings/SettingsScreen.kt:76)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-275-settings-labels-start-inset.md"
   - id: "issue-275-deferred-radio-switch-alignment"
     epic: 12
-    action: "In Settings, the RadioButton circle sits about 2dp right of the 'Close settings' text because of the radio's own padding, and the end inset moves each Switch 12dp inward; offset by the internal padding if pixel alignment matters (low, Learner-visible; deferred from #275, app/src/main/kotlin/dev/cubentia/app/ui/settings/SettingsScreen.kt:258)"
+    action: "In Settings, the RadioButton circle sits about 2dp right of the 'Close
+      settings' text because of the radio's own padding, and the end inset moves each
+      Switch 12dp inward; offset by the internal padding if pixel alignment matters
+      (low, Learner-visible; deferred from #275, app/src/main/kotlin/dev/cubentia/app/ui/settings/SettingsScreen.kt:258)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-275-settings-labels-start-inset.md"
   - id: "issue-276-deferred-stop-unbind-untested"
     epic: 10
-    action: "CameraXFrameSource.stop() (unbinds only its own use cases, torch off while they're bound) isn't run by any test, so putting unbindAll() back would fail none; add a seam over ProcessCameraProvider (isBound/unbind) and test that a late stop after another bind leaves the newer use cases bound (medium; deferred from #276, app/src/camera/kotlin/dev/cubentia/app/camera/ScanFrameSource.kt:188)"
+    action: "CameraXFrameSource.stop() (unbinds only its own use cases, torch off
+      while they're bound) isn't run by any test, so putting unbindAll() back would
+      fail none; add a seam over ProcessCameraProvider (isBound/unbind) and test that
+      a late stop after another bind leaves the newer use cases bound (medium; deferred
+      from #276, app/src/camera/kotlin/dev/cubentia/app/camera/ScanFrameSource.kt:188)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-276-quick-scan-reopen-fresh-corner-view.md"
   - id: "issue-276-deferred-face-by-face-before-first-frame"
     epic: 10
-    action: "'Scan face by face' accepts a tap before the corner camera delivers its first frame, which can hand over all six faces at once; gate switchToFaceByFace on the camera having started (low, Learner-visible, existing before #276; app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt:454)"
+    action: "'Scan face by face' accepts a tap before the corner camera delivers its
+      first frame, which can hand over all six faces at once; gate switchToFaceByFace
+      on the camera having started (low, Learner-visible, existing before #276; app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt:454)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-276-quick-scan-reopen-fresh-corner-view.md"
   - id: "issue-260-deferred-device-arrow-look-and-label"
     epic: 12
-    action: "Device session: look at the cased Move arrow and ghost arrow over every sticker colour (the SCP 2026-11-22 success criterion), and check whether the uncased 60% notation label stays readable and clear of the larger 18dp arrowhead; if not, open an issue (low, Learner-visible; deferred from #260, app/src/main/kotlin/dev/cubentia/app/render/Cube3DRenderer.kt:672)"
+    action: "Device session: look at the cased Move arrow and ghost arrow over every
+      sticker colour (the SCP 2026-11-22 success criterion), and check whether the
+      uncased 60% notation label stays readable and clear of the larger 18dp arrowhead;
+      if not, open an issue (low, Learner-visible; deferred from #260, app/src/main/kotlin/dev/cubentia/app/render/Cube3DRenderer.kt:672)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-260-move-arrow-casing-filled-arrowhead.md"
+  - id: "epic-15-deferred-15.1-cold-start-table-build-timeout"
+    epic: 15
+    action: "The first MethodSolve builds ~220 triple-distance BFS tables without polling shouldContinue, so a cold solve can overrun the 3 s timeout; poll in PieceDistances.build() or pre-warm off the main thread, and time a cold first solve on the Lenovo Tab M10 Plus 3rd Gen (medium, unverified; deferred from 15.1, core/domain/src/main/kotlin/dev/cubentia/domain/tutor/PieceDistances.kt:84)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-15-1-build-a-beginner-method-solution-from-the-course-s-stages.md"
+  - id: "epic-15-deferred-15.1-planpieces-home-predicate-check"
+    epic: 15
+    action: "RecoveryPlanner.planPieces is admissible only for home-based keep predicates and nothing checks it at runtime; add a content test over every MethodSolve.FIRST_TWO_LAYER_STAGES Stage or fall back to plan() (medium; deferred from 15.1, core/domain/src/main/kotlin/dev/cubentia/domain/tutor/RecoveryPlanner.kt:150)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-15-1-build-a-beginner-method-solution-from-the-course-s-stages.md"
+  - id: "epic-15-deferred-15.1-ac1-wording-ad-21"
+    epic: 15
+    action: "Run bmad-correct-course to amend Story 15.1 AC 1 to match AD-21: only the first-two-layer segments use the preservedPieces search; Stage 5-6 segments use LastLayerMatcher and the Stages 5-6 Lessons' Algorithms (PO decision 2026-11-22; deferred from 15.1)"
+    owner: "PM (John) + PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-15-1-build-a-beginner-method-solution-from-the-course-s-stages.md"

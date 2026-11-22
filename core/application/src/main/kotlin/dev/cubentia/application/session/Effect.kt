@@ -5,6 +5,7 @@ import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.MoveHistory
+import dev.cubentia.domain.method.SolveMethod
 import dev.cubentia.domain.text.Text
 import dev.cubentia.domain.tutor.AssistanceLevel
 import dev.cubentia.domain.tutor.RecoveryGoal
@@ -68,6 +69,17 @@ sealed interface Effect {
         override val effectId: Long,
         override val revision: Long,
         val state: CubeState,
+    ) : Effect
+
+    /**
+     * Build a method-shaped solution of a validated Cube State (FR-30, AD-21) without changing the
+     * session; run by `SolveByMethod` and answered by `MethodSolveCompleted`.
+     */
+    data class MethodSolve(
+        override val effectId: Long,
+        override val revision: Long,
+        val state: CubeState,
+        val method: SolveMethod,
     ) : Effect
 
     /** Ask the Learner whether to reset, with [prompt]; answered by `ResetConfirmed` or `ResetDeclined`. */

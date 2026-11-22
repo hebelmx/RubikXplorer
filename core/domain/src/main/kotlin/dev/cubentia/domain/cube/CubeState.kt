@@ -34,22 +34,30 @@ data class CubeState internal constructor(
      * to the home sticker it shows, then read from the cubie in that home slot using the [Cubies]
      * twist and flip conventions.
      */
-    fun toFacelets(): Facelets = Facelets(List(Facelets.SIZE) { homeColor(FaceletTables.toHome(orientation, it)) })
+    fun toFacelets(): Facelets {
+        val home = FaceletTables.homeIndices(orientation)
+        return Facelets(List(Facelets.SIZE) { homeColor(home[it]) })
+    }
 
     private fun homeColor(index: Int): Color {
         val t = FaceletTables
-        val corner = t.CORNER_FACELETS.indexOfFirst { index in it }
-        if (corner >= 0) {
-            val facet = t.CORNER_FACELETS[corner].indexOf(index)
-            val twist = cubies.cornerOrientation[corner]
-            return Color.home(t.CORNER_FACES[cubies.cornerPermutation[corner]][(facet - twist + Cubies.TWISTS) % Cubies.TWISTS])
+        val slot = t.stickerSlot(index)
+        val facet = t.stickerFacet(index)
+        return when {
+            slot < 0 -> {
+                Color.home(Face.entries[index / 9])
+            }
+
+            slot < Cubies.CORNERS -> {
+                val twist = cubies.cornerOrientation[slot]
+                Color.home(t.CORNER_FACES[cubies.cornerPermutation[slot]][(facet - twist + Cubies.TWISTS) % Cubies.TWISTS])
+            }
+
+            else -> {
+                val edge = slot - Cubies.CORNERS
+                Color.home(t.EDGE_FACES[cubies.edgePermutation[edge]][(facet + cubies.edgeOrientation[edge]) % Cubies.FLIPS])
+            }
         }
-        val edge = t.EDGE_FACELETS.indexOfFirst { index in it }
-        if (edge >= 0) {
-            val facet = t.EDGE_FACELETS[edge].indexOf(index)
-            return Color.home(t.EDGE_FACES[cubies.edgePermutation[edge]][(facet + cubies.edgeOrientation[edge]) % Cubies.FLIPS])
-        }
-        return Color.home(Face.entries[index / 9])
     }
 
     /** The same pieces held in [orientation], without turning a layer. */
