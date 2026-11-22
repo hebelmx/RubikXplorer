@@ -3,7 +3,7 @@ name: RubikXplorer
 description: A precise, instrument-like cube tutor. Neutral graphite chrome so the six sticker colors carry the color, one signal-violet accent, honest state indicators, light and dark designed equally.
 status: final
 created: 2026-10-29
-updated: 2026-11-20
+updated: 2026-11-22
 sources:
   - ../../prds/prd-RubikXplorer-2026-10-29/prd.md
   - ../../architecture/architecture-RubikXplorer-2026-10-29/ARCHITECTURE-SPINE.md
@@ -229,8 +229,8 @@ No pill-shaped buttons. Sticker squares in 2D nets and diagrams use `rounded.xs`
   - While the view is off home, **face labels** U, D, F, B, R, L in `notation` sit outside the cube's silhouette beside each face that clearly faces the camera, in `ink-secondary`, kept inside the stage. They are never drawn on a sticker.
   - Pieces not involved in the current step can be dimmed with `sticker-dimmed-overlay`.
   - **Mismatch view:** when an observation differs from the Expected State, the observed faces are drawn as a flat strip of face thumbnails under the cube, labeled `SEEN`, with each differing sticker outlined in `status-likely` or `status-verified`. A Partial observation is never drawn as a whole cube.
-- **Move arrow overlay**: during a Demonstration, on hint rung 2, and on the current Move of Solution Playback in the 3D view, a curved arrow in `sticker-highlight` follows the turning layer, with the Move shown in `notation` at its tip. With reduce motion on, the arrow appears without animating.
-- **Drag preview**: while a turn gesture is locked, the dragged layer turns with the finger (at most a quarter turn) and all its cubies get the `sticker-highlight` outline, added to any Lesson emphasis and without the pulse tint. A ghost Move arrow (the Move arrow overlay at 60% opacity) carries the Move in `notation` near the finger; a teaching arrow on the stage is hidden while the ghost shows. With reduce motion on, the layer stays still and only the arrow and label show.
+- **Move arrow overlay**: during a Demonstration, on hint rung 2, and on the current Move of Solution Playback in the 3D view, a curved arrow in `sticker-highlight` follows the turning layer and ends in a filled triangular arrowhead, with the Move shown in `notation` at its tip. The stroke and the arrowhead carry a dark `cubie-body` casing (an outline on both sides), so the arrow reads against all six sticker colors. The arrowhead is about 1.5 times the earlier open-V tip (about 18dp long and 9dp half-width, from 12dp and 6dp) (SCP 2026-11-22, #260). With reduce motion on, the arrow appears without animating.
+- **Drag preview**: while a turn gesture is locked, the dragged layer turns with the finger (at most a quarter turn) and all its cubies get the `sticker-highlight` outline, added to any Lesson emphasis and without the pulse tint. A ghost Move arrow (the Move arrow overlay at 60% opacity, with the same casing and arrowhead) carries the Move in `notation` near the finger; a teaching arrow on the stage is hidden while the ghost shows. With reduce motion on, the layer stays still and only the arrow and label show.
 - **Move key bar**: a row or grid of `move-key` buttons, each labeled in `notation` (`U`, `U'`, `U2`, …), styled like keyboard keys.
   - When a key is pressed it inverts briefly to `ink-primary` on `surface-raised`.
   - A **⟳ x/y/z** key group holds the Cube Rotations.
