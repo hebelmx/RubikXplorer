@@ -18,6 +18,7 @@ prints this report on every run; re-run it after the device session to refresh t
   a running hold clears at once when it turns on (`quickScan lightHold clear` is logged) and no sides-dark line shows;
   torch-glare coaching is unchanged. The verdict is still logged, with `lightMode=torch`. With the torch off or no
   flash unit the check works as before.
+- **Calibration offer (PO 2026-11-21, device session):** an uncalibrated light hold that runs `QuickScanController.CALIBRATION_OFFER_MS` = 5 s without clearing shows the Guided Scan's "Colors look off — calibrate?" / *Calibrate colors* (same confirm) below the sides-dark line; it hides when the hold clears, the cube is lost, on *Scan face by face*, and never shows calibrated or torch-lit; the hold blocks as before (`quickScan calibrationOffer show hold=… heldMs=…`).
 
 **Both cuts are provisional** until the device session (D1 false and missed blocks, D4 new 10.19 captures): each was
 fitted on the same 16 Lenovo TB128XU holds below, with no held-out data and no second device.

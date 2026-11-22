@@ -116,6 +116,8 @@ internal sealed interface GuidedScanPhase {
         val coaching: Coaching? = null,
         val saveFailed: Boolean = false,
         val fromReview: Review? = null,
+        /** Opened from Quick Scan's corner view (Story 10.19): *Close* returns to it, *Save* restarts the Quick Scan. */
+        val fromQuickScan: Boolean = false,
     ) : GuidedScanPhase
 
     data class CornerViewfinder(
@@ -126,6 +128,8 @@ internal sealed interface GuidedScanPhase {
         val totalHolds: Int = QuickScanPlan.holds.size,
         /** Quick Scan's corner view (Story 10.17): offers *Scan face by face*. Never in Case capture. */
         val faceByFace: Boolean = false,
+        /** Story 10.19 (PO 2026-11-21): an uncalibrated light hold ran on: "Colors look off — calibrate?" below the coaching. */
+        val offerCalibration: Boolean = false,
     ) : GuidedScanPhase
 
     /** The camera rationale, before any system dialog. */
@@ -193,6 +197,8 @@ internal class GuidedScanActions(
     val onDiscardCancel: () -> Unit = {},
     /** Quick Scan's torch toggle (Story 10.19), shown only on a camera with a flash unit. */
     val onToggleTorch: () -> Unit = {},
+    /** Quick Scan's calibration offer confirmed (Story 10.19): opens calibration. */
+    val onCalibrate: () -> Unit = {},
 )
 
 /**
@@ -350,6 +356,7 @@ internal fun GuidedScanScreen(
                         detectedCornerQuads = detectedCornerQuads,
                         faceByFace = phase.faceByFace,
                         torch = cornerTorch?.let { on -> TorchControl(on, strings, actions.onToggleTorch) },
+                        onCalibrate = actions.onCalibrate.takeIf { phase.offerCalibration },
                     )
                 }
 
@@ -404,6 +411,7 @@ private fun Viewfinder(
     detectedCornerQuads: List<List<CornerPoint>> = emptyList(),
     faceByFace: Boolean = false,
     torch: TorchControl? = null,
+    onCalibrate: (() -> Unit)? = null,
 ) {
     val geometry = remember { ViewfinderGeometry() }
     val steps = cornerHold?.takeIf { cornerPrompt == null }?.let { QuickScanPlan.holds[it - 1] }.orEmpty()
@@ -433,6 +441,7 @@ private fun Viewfinder(
                 ) {
                     if (cornerHold == null) Prompt(phase, strings) else CornerPrompt(cornerHold, strings, cornerPrompt)
                     CoachingLine(phase, strings)
+                    if (onCalibrate != null) CalibrationOfferLine(strings, onCalibrate)
                     if (cornerPrompt == null) MiniNet(phase, geometry, Modifier.weight(1f).fillMaxWidth(), highlighted)
                     CaptureButtons(phase, strings, actions)
                     if (faceByFace) FaceByFaceButton(strings, actions.onFaceByFace)
@@ -458,6 +467,7 @@ private fun Viewfinder(
                     )
                 }
                 CoachingLine(phase, strings)
+                if (onCalibrate != null) CalibrationOfferLine(strings, onCalibrate, Modifier.padding(horizontal = 16.dp))
                 Column(
                     Modifier.weight(1f).fillMaxWidth().padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -909,6 +919,50 @@ private fun FaceByFaceButton(
         Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("quickScan:faceByFace"),
     ) {
         Text(strings.resolve(ContentText("btn.quick-scan.face-by-face")))
+    }
+}
+
+/**
+ * Quick Scan's calibration offer (Story 10.19, PO 2026-11-21), as the review offers it: "Colors look off — calibrate?"
+ * and *Calibrate colors*, which asks the same confirm before [onCalibrate] opens calibration.
+ */
+@Composable
+private fun CalibrationOfferLine(
+    strings: ContentStrings,
+    onCalibrate: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var confirm by remember { mutableStateOf(false) }
+    Column(modifier.fillMaxWidth().testTag("quickScan:calibrate"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            strings.resolve(ContentText("msg.calibration.offer")),
+            Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        OutlinedButton(
+            { confirm = true },
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("quickScan:calibrate:offer"),
+        ) { Text(strings.resolve(ContentText("btn.calibration.offer"))) }
+    }
+    if (confirm) {
+        AlertDialog(
+            onDismissRequest = { confirm = false },
+            text = { Text(strings.resolve(ContentText("msg.calibration.confirm"))) },
+            confirmButton = {
+                TextButton({
+                    confirm = false
+                    onCalibrate()
+                }, Modifier.testTag("quickScan:calibrate:confirm")) {
+                    Text(strings.resolve(ContentText("btn.calibration.offer")))
+                }
+            },
+            dismissButton = {
+                TextButton({ confirm = false }, Modifier.testTag("quickScan:calibrate:cancel")) {
+                    Text(strings.resolve(ContentText("btn.scan.cancel")))
+                }
+            },
+        )
     }
 }
 

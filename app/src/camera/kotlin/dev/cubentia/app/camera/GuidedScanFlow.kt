@@ -223,7 +223,15 @@ internal object GuidedScanFlow {
      * faces asked, any rotation, the kept corner faces shown as done on the mini net; null once the scan is done.
      */
     fun phaseOf(quick: dev.cubentia.domain.recognition.QuickScanController): GuidedScanPhase? {
-        if (quick.inCorner) return GuidedScanPhase.CornerViewfinder(quick.hold, quick.captured, quick.coaching, faceByFace = true)
+        if (quick.inCorner) {
+            return GuidedScanPhase.CornerViewfinder(
+                quick.hold,
+                quick.captured,
+                quick.coaching,
+                faceByFace = true,
+                offerCalibration = quick.calibrationOffered,
+            )
+        }
         val grid = quick.fallback ?: return null
         return phaseOf(grid).copy(kept = quick.kept, captured = quick.added, again = null, retake = false, handOver = true)
     }

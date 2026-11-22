@@ -116,6 +116,25 @@ class QuickScanController(
     /** When the running light hold engaged; null when none is held. */
     val lightHeldSince: Long? get() = corner.lightHeldSince
 
+    /** The light check runs uncalibrated: no valid saved calibration ([SideLight.calibrated]). */
+    private val uncalibrated = !SideLight.calibrated(saved)
+
+    /** The time of the last corner frame; null before the first. */
+    private var lastFrameMs: Long? = null
+
+    /**
+     * The calibration offer (PO 2026-11-21, Story 10.19): an uncalibrated light hold that has run [CALIBRATION_OFFER_MS]
+     * without clearing, in the corner view, with the cube not lost and the torch off. It is never offered in calibrated
+     * mode or with the torch lit, and goes when the hold clears, the cube is lost or the corner view ends. It only offers:
+     * the light hold blocks capture exactly as without it.
+     */
+    val calibrationOffered: Boolean
+        get() {
+            val since = corner.lightHeldSince ?: return false
+            val now = lastFrameMs ?: return false
+            return inCorner && uncalibrated && !torchOn && corner.lightHeld && !corner.lostNow && now - since >= CALIBRATION_OFFER_MS
+        }
+
     /** True while a metering change waits for the settle signal on a detected cube. */
     val settling: Boolean get() = corner.settling
     var fallback: GuidedScanController? = null
@@ -152,6 +171,7 @@ class QuickScanController(
         settled: Boolean? = null,
     ): List<QuickScanEffect> {
         if (!inCorner) return emptyList()
+        lastFrameMs = nowMs
         val light = if (detected && lightCheck) SideLight.check(faces, saved) else null
         this.light = light
         val decision =
@@ -372,5 +392,8 @@ class QuickScanController(
 
         /** The settle cap of the shared corner hold ([CornerSettle.CAP_MS]). */
         const val SETTLE_CAP_MS = CornerSettle.CAP_MS
+
+        /** How long an uncalibrated light hold runs without clearing before the calibration offer shows (PO 2026-11-21). */
+        const val CALIBRATION_OFFER_MS = 5000L
     }
 }

@@ -14,6 +14,7 @@ import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.recognition.CaptureQuality
+import dev.cubentia.domain.recognition.Coaching
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.GuidedScanPlan
 import dev.cubentia.domain.recognition.Lab
@@ -56,6 +57,36 @@ class QuickScanLargeFontTest {
         // The torch toggle sits wholly inside the viewfinder, so it never pushes the buttons below off screen.
         assertTrue("$torch in $camera", torch.top >= camera.top && torch.bottom <= camera.bottom && torch.right <= camera.right + 0.5f)
         assertTrue("$torch in $camera", torch.left >= camera.left)
+    }
+
+    @Test
+    fun theCornerViewWithTheCalibrationOfferFitsWithoutScrollingAtTwoHundredPercentFont() =
+        assertFits(
+            GuidedScanPhase.CornerViewfinder(hold = 1, coaching = Coaching.SIDES_DARK, faceByFace = true, offerCalibration = true),
+            listOf("quickScan:calibrate:offer", "scanCapture", "quickScan:faceByFace", "scanEnterColors"),
+            cornerTorch = false,
+        )
+
+    /** Story 10.19: on a 600 dp tablet at 200 % font the panel beside the viewfinder holds the offer and every button. */
+    @Test
+    @Config(qualifiers = "w600dp-h960dp-port", fontScale = 2.0f)
+    fun theCalibrationOfferFitsTheSidePanelOnSixHundredDpAtTwoHundredPercentFont() {
+        var minTouch = 0f
+        val phase = GuidedScanPhase.CornerViewfinder(hold = 1, coaching = Coaching.SIDES_DARK, faceByFace = true, offerCalibration = true)
+        rule.setContent {
+            minTouch = with(LocalDensity.current) { 48.dp.toPx() }
+            CubentiaTheme { GuidedScanScreen(phase, strings, GuidedScanActions(), offerEnterColors = true, cornerTorch = false) }
+        }
+        val screen = rule.onRoot().fetchSemanticsNode().boundsInRoot
+        listOf("quickScan:calibrate:offer", "scanCapture", "quickScan:faceByFace", "scanEnterColors").forEach { tag ->
+            val bounds =
+                rule
+                    .onNodeWithTag(tag)
+                    .assertIsDisplayed()
+                    .fetchSemanticsNode()
+                    .boundsInRoot
+            assertTrue("$tag at $bounds in $screen", bounds.bottom <= screen.bottom && bounds.height >= minTouch - 0.5f)
+        }
     }
 
     @Test

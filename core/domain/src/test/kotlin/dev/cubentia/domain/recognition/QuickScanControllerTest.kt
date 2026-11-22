@@ -553,6 +553,71 @@ class QuickScanControllerTest {
     }
 
     @Test
+    fun `an uncalibrated light hold offers calibration after five seconds, never calibrated nor torch-lit`() {
+        val bright = FrameStats(List(9) { CellReading(Lab(90.0, 0.0, 0.0), true) }, 120.0, 0.0, 100.0, 12)
+        val dim = FrameStats(List(9) { CellReading(Lab(50.0, 0.0, 0.0), true) }, 120.0, 0.0, 100.0, 12)
+        val dark = listOf(bright, dim, bright)
+        val lit = listOf(bright, bright, bright)
+        val none = List<FrameStats?>(3) { null }
+        val offerAt = 100 + QuickScanController.CALIBRATION_OFFER_MS
+
+        val scan = QuickScanController()
+        scan.onFrame(true, dark, 0, settled = false)
+        scan.onFrame(true, dark, 100, settled = true)
+        assertTrue(scan.lightHeld)
+        scan.onFrame(true, dark, offerAt - 1, settled = true)
+        assertFalse(scan.calibrationOffered, "not before five seconds of hold")
+        assertTrue(scan.onFrame(true, dark, offerAt, settled = true).isEmpty())
+        assertTrue(scan.calibrationOffered)
+        // The offer only adds: the sides-dark line stays and the hold still blocks capture.
+        assertEquals(Coaching.SIDES_DARK, scan.coaching)
+        assertTrue(scan.onShutter().isEmpty())
+        assertEquals(1, scan.hold)
+        // A detection gap inside the grace keeps it; a lost cube hides it, and it comes back while the hold runs on.
+        scan.onFrame(false, none, offerAt + 100)
+        assertTrue(scan.calibrationOffered)
+        scan.onFrame(false, none, offerAt + 100 + CornerHold.LOST_MS)
+        assertFalse(scan.calibrationOffered, "hidden once the cube is lost")
+        scan.onFrame(true, dark, offerAt + 600, settled = true)
+        assertTrue(scan.lightHeld)
+        assertTrue(scan.calibrationOffered)
+        // The hold clearing hides it.
+        scan.onFrame(true, lit, offerAt + 700, settled = true)
+        scan.onFrame(true, lit, offerAt + 700 + CornerHold.LIGHT_CLEAR_MS, settled = true)
+        assertFalse(scan.lightHeld)
+        assertFalse(scan.calibrationOffered)
+
+        // The torch turning on clears the hold and with it the offer; while lit, no hold and no offer.
+        val torch = QuickScanController()
+        torch.onFrame(true, dark, 0, settled = false)
+        torch.onFrame(true, dark, 100, settled = true)
+        torch.onFrame(true, dark, offerAt, settled = true)
+        assertTrue(torch.calibrationOffered)
+        torch.syncTorch(requested = true, applied = true, nowMs = offerAt + 50)
+        assertFalse(torch.calibrationOffered)
+        for (now in offerAt + 100..offerAt + 7000 step 100) torch.onFrame(true, dark, now, settled = true)
+        assertFalse(torch.lightHeld)
+        assertFalse(torch.calibrationOffered, "never offered with the torch lit")
+
+        // Scan face by face hides it.
+        val switched = QuickScanController()
+        switched.onFrame(true, dark, 0, settled = false)
+        switched.onFrame(true, dark, 100, settled = true)
+        switched.onFrame(true, dark, offerAt, settled = true)
+        assertTrue(switched.calibrationOffered)
+        switched.switchToFaceByFace()
+        assertFalse(switched.calibrationOffered)
+
+        // Calibrated mode: the hold runs as long, but calibration is never offered.
+        val calibrated = lightScan()
+        val calibratedDark = darkSides(hold(1))
+        calibrated.onFrame(true, calibratedDark, 0, settled = false)
+        for (now in 100L..offerAt + 2000 step 100) calibrated.onFrame(true, calibratedDark, now, settled = true)
+        assertTrue(calibrated.lightHeld)
+        assertFalse(calibrated.calibrationOffered, "never offered with a saved calibration")
+    }
+
+    @Test
     fun `a backlit corner holds every capture and coaches sides-dark after one second of failing`() {
         val scan = lightScan()
         val dark = darkSides(hold(1))

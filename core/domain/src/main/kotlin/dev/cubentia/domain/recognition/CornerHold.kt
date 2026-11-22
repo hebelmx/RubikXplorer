@@ -41,6 +41,10 @@ internal class CornerHold(
         private set
     var unlocated = false
         private set
+
+    /** True once the cube has been undetected for [LOST_MS] or more on the last frame (the short-gap grace ran out). */
+    var lostNow = false
+        private set
     private var meteredAt: Long? = null
     private var reference: List<Lab?>? = null
     private var steadySince = 0L
@@ -105,6 +109,7 @@ internal class CornerHold(
         } else if (undetectedSince == null) {
             undetectedSince = nowMs
         }
+        lostNow = lost(nowMs)
         val values = values()
         if (detected && !allowAuto(values)) {
             // Time spent on a view that may not auto-capture never counts toward the next steady hold.
@@ -300,6 +305,7 @@ internal class CornerHold(
     fun reset() {
         latest = List(3) { null }
         unlocated = false
+        lostNow = false
         meteredAt = null
         settledSinceMeter = false
         reference = null

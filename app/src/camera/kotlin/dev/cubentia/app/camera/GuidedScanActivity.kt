@@ -169,6 +169,9 @@ class GuidedScanActivity : ComponentActivity() {
 
                             calibration?.fromReview != null -> phase = calibration.fromReview
 
+                            // Back from calibration opened in Quick Scan's corner view returns to it (Story 10.19).
+                            calibration?.fromQuickScan == true -> phase = scan.capturePhase()
+
                             else -> closeOrConfirm()
                         }
                     }
@@ -210,6 +213,14 @@ class GuidedScanActivity : ComponentActivity() {
                 onFaceByFace = { switchToFaceByFace() },
                 // Story 10.19: the choice carries across holds, the hand-over and the background; the analyzer re-meters.
                 onToggleTorch = { scan.torchOn = !scan.torchOn },
+                // Story 10.19 (PO 2026-11-21): the corner view's calibration offer, routed as the review's is.
+                onCalibrate = {
+                    if (phase is GuidedScanPhase.CornerViewfinder && scan.quickScanMode && !scan.confirmDiscard) {
+                        scan.captureCalibration = false
+                        scan.calibrationMeterColor = null
+                        phase = GuidedScanPhase.Calibration(fromQuickScan = true)
+                    }
+                },
                 onDiscardConfirm = {
                     scan.confirmDiscard = false
                     finishWith(ScanOutcome.Cancelled)
@@ -230,7 +241,11 @@ class GuidedScanActivity : ComponentActivity() {
                     androidx.activity.compose.BackHandler(enabled = phase is GuidedScanPhase.Calibration) {
                         val calibration = phase as? GuidedScanPhase.Calibration
                         if (!scan.saving) {
-                            if (calibration?.fromReview != null) phase = calibration.fromReview else finishWith(ScanOutcome.Cancelled)
+                            when {
+                                calibration?.fromReview != null -> phase = calibration.fromReview
+                                calibration?.fromQuickScan == true -> phase = scan.capturePhase()
+                                else -> finishWith(ScanOutcome.Cancelled)
+                            }
                         }
                     }
                     androidx.activity.compose.BackHandler(enabled = phase !is GuidedScanPhase.Calibration) {
@@ -624,7 +639,11 @@ class GuidedScanActivity : ComponentActivity() {
         val quick = scan.quickScan ?: return false
         val now = SystemClock.elapsedRealtime()
         if (scan.freeze.isFrozen(now) || !quick.inCorner) return false
+        val offered = quick.calibrationOffered
         val effects = logLightHold(quick, now) { decision(quick) }
+        if (!offered && quick.calibrationOffered) {
+            ScanDiagnostics.onCalibrationOffer(hold = quick.hold, heldMs = quick.lightHeldSince?.let { now - it })
+        }
         val capture = effects.filterIsInstance<QuickScanEffect.CornerCaptured>().firstOrNull()
         if (capture != null) scan.freeze.start(now)
         val next = GuidedScanFlow.phaseOf(quick)
@@ -928,10 +947,12 @@ internal class GuidedScanViewModel : ViewModel() {
                     if (corners != null) {
                         caseCapture = CaseCaptureController(centers, corners)
                         phase = capturePhase()
-                    } else if (calibration.fromReview == null) {
+                    } else if (calibration.fromReview == null && !calibration.fromQuickScan) {
                         calibrationFinished = true
                     } else {
-                        corrections = calibration.fromReview.corrections
+                        // From Quick Scan's corner view (Story 10.19) the scan restarts with no face and no correction.
+                        corrections = calibration.fromReview?.corrections.orEmpty()
+                        if (calibration.fromQuickScan) cornerThumbnail = null
                         withContext(analyzerExecutor.asCoroutineDispatcher()) {
                             controller = newController()
                             if (quickScanMode) quickScan = QuickScanController(saved)

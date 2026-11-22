@@ -143,6 +143,14 @@ object ScanDiagnostics {
         Log.d(TAG, fields.joinToString(" "))
     }
 
+    /** Quick Scan's calibration offer showed (Story 10.19): at corner [hold], after an uncalibrated light hold of [heldMs]. */
+    fun onCalibrationOffer(
+        hold: Int,
+        heldMs: Long?,
+    ) {
+        Log.d(TAG, listOf("quickScan", "calibrationOffer", "show", "hold=$hold", "heldMs=${heldMs ?: "-"}").joinToString(" "))
+    }
+
     /** A Quick Scan metering action: whether the camera supported it and whether it covers the cube outline or the grid centre. */
     fun onMetering(
         supported: Boolean,

@@ -192,6 +192,39 @@ class QuickScanScreenTest {
     }
 
     @Test
+    fun theCalibrationOfferShowsBelowTheSidesDarkLineAndRoutesToCalibrationAfterTheConfirm() {
+        val strings = ContentStrings((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings)
+        var calibrate = 0
+        val offered = GuidedScanPhase.CornerViewfinder(hold = 1, coaching = Coaching.SIDES_DARK, faceByFace = true, offerCalibration = true)
+        val phase = mutableStateOf<GuidedScanPhase>(offered)
+        rule.setContent {
+            CubentiaTheme {
+                GuidedScanScreen(phase.value, strings, GuidedScanActions(onCalibrate = { calibrate++ }), offerEnterColors = true)
+            }
+        }
+        val coaching = rule.onNodeWithTag("scanCoaching").assertTextEquals("Turn so the light shines on the cube.")
+        val line = rule.onNodeWithText("Colors look off — calibrate?").assertIsDisplayed()
+        org.junit.Assert.assertTrue(coaching.fetchSemanticsNode().boundsInRoot.bottom <= line.fetchSemanticsNode().boundsInRoot.top)
+        rule
+            .onNodeWithTag("quickScan:calibrate:offer")
+            .assertIsDisplayed()
+            .assertTextEquals("Calibrate colors")
+            .performClick()
+        // The same confirm as the review's offer comes first.
+        rule.onNodeWithText("Calibrate your cube's six colors? Saving will restart this scan.").assertIsDisplayed()
+        rule.runOnIdle { assertEquals(0, calibrate) }
+        rule.onNodeWithTag("quickScan:calibrate:cancel").performClick()
+        rule.runOnIdle { assertEquals(0, calibrate) }
+        rule.onNodeWithTag("quickScan:calibrate:offer").performClick()
+        rule.onNodeWithTag("quickScan:calibrate:confirm").performClick()
+        rule.runOnIdle { assertEquals(1, calibrate) }
+        // No offer when the controller withdraws it (hold cleared, cube lost, calibrated or torch-lit); the line stays.
+        rule.runOnIdle { phase.value = offered.copy(offerCalibration = false) }
+        rule.onNodeWithTag("quickScan:calibrate").assertDoesNotExist()
+        rule.onNodeWithTag("scanCoaching").assertTextEquals("Turn so the light shines on the cube.")
+    }
+
+    @Test
     fun sidesDarkAndTorchGlareCoachingLinesShow() {
         val strings = ContentStrings((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings)
         val phase =

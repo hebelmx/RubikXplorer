@@ -37,6 +37,11 @@ object ScanDiagnostics {
         heldMs: Long?,
     ) = Unit
 
+    fun onCalibrationOffer(
+        hold: Int,
+        heldMs: Long?,
+    ) = Unit
+
     fun onMetering(
         supported: Boolean,
         onOutline: Boolean,
