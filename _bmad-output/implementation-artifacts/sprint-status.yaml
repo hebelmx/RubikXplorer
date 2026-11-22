@@ -1695,3 +1695,15 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-19-quick-scan-reads-the-side-faces-in-good-light.md"
+  - id: "issue-270-deferred-decode-rejections-silent"
+    epic: 10
+    action: "CornerModelTransform.decode() rejections are silent and look the same (size, non-finite, out-of-range, low presence and geometry all return null with no log), so a mis-exported model doesn't show in device diagnostics; log the rejection reason (low; deferred from #270, app/src/camera/corner/kotlin/dev/cubentia/app/camera/corner/LiteRtCornerDetector.kt:55)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-270-reject-out-of-range-litert-corner-keypoints.md"
+  - id: "issue-270-deferred-decode-buffer-size-untested"
+    epic: 10
+    action: "The output.size < OUTPUT_FLOATS guard in CornerModelTransform.decode() and oversized output buffers have no unit test; add both cases to CornerModelTransformTest (low; deferred from #270)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-270-reject-out-of-range-litert-corner-keypoints.md"
