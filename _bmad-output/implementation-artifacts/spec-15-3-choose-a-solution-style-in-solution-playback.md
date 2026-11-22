@@ -5,7 +5,7 @@ created: '2026-11-22'
 status: done
 baseline_revision: '5fc87568f173ad0cec6a5f6dd5419b128cda9fd6'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-15-context.md'
@@ -164,6 +164,46 @@ Binding ADs (story Refs line, verbatim): **AD-3, AD-20, AD-21**. Also followed: 
   - `[low]` `[reject]` (edge) Use my cube does not cancel the build before the re-solve — grouped with the Use my cube race row.
   - `[false]` `[reject]` (edge) fallBack restart on failure — see blind failed-build row.
 
+### 2026-11-22 — Review pass
+- verdicts: 36 findings — high 0, medium 2, low 23, false 11, maybe-false 0
+- findings:
+  - `[low]` `[reject]` (blind) Restart reads `solutionStyles.input` late, so a Use my cube re-solve in between pairs old Moves with the new input — carried: same as the logged "build finishing during a Use my cube re-solve" row; the reducer's `startPlayback` also rejects a solution that does not solve the entry.
+  - `[false]` `[reject]` (blind) Autoplay bumps the session revision and silently cancels a build — virtual playback position is local; `SolutionPlayback` dispatches only ModeSwitched, Undo and PhysicalConfirmed, so stepping does not change the revision.
+  - `[low]` `[reject]` (blind) Cache ignores Algorithm Status changes — carried: PO answer 3 keys the cache per input state.
+  - `[low]` `[reject]` (blind) Cache has no size bound — carried: a few small lists per process.
+  - `[false]` `[reject]` (blind) Locked hint is wrong after a switch to virtual — PO answer 9 settles that a virtual switch does not unlock and gives the hint copy verbatim.
+  - `[low]` `[patch]` (blind) Selected chip uses disabled ink on the accent fill while locked (poor contrast, seen after every physical *Done*) — `StyleChip` now checks `selected` before `!enabled`, so a selected chip keeps `onAccent` ink; semantics still report it disabled.
+  - `[low]` `[reject]` (blind) Restart may carry different scan colours than the original playback — carried: same as the logged "reads runScanColors at restart" row; the new verification-gap test now pins that the held colours survive.
+  - `[low]` `[reject]` (blind) Physical restart is two dispatches, not atomic — carried: copies the Use my cube pattern; one confined dispatch gap.
+  - `[low]` `[reject]` (blind) AppShell default VM is outside a ViewModelStore and lacks the repository — carried: test-only default; production passes the Hilt VM.
+  - `[low]` `[reject]` (blind) Segment label live region announced on every step — carried: Compose announces live regions on content change, which is only at segment boundaries.
+  - `[false]` `[reject]` (blind) Stage/Case missing from content gives a silent label — carried: tags come from the same validated bundle.
+  - `[low]` `[reject]` (blind) Nested `Text` argument resolvable only by `resolveNested` — `SolvePlaybackScreen` is the only renderer of `state.message`; a shared resolver adds surface for no caller.
+  - `[low]` `[reject]` (blind) `14.dp` progress size is a magic number — cosmetic; no named harm.
+  - `[false]` `[reject]` (blind) `effectIds` repeat across playbacks — ids are only compared by identity within one VM (`pending != effect`); nothing logs or matches them elsewhere.
+  - `[low]` `[reject]` (blind) Fully qualified names instead of imports, copied `@BindValue` block — carried: matches existing style; ktlint passes.
+  - `[low]` `[reject]` (blind) No test for 2-look Stages skipped without the Course finished — that combination is the spec's suggestion rule and `SolutionStyleViewModelTest.theSuggestionFollowsProgress` pins the rule; another case is cosmetic.
+  - `[false]` `[reject]` (blind) No test for choosing a style after *Done* then a Quick Check — chips are locked after *Done* (`expected != input`), so the path cannot be reached.
+  - `[low]` `[reject]` (blind) `Thread.sleep` negative assertions — carried: can only false-pass, never flake red.
+  - `[low]` `[defer]` (intent) Stale handling lives in the VM; `LaunchedEffect(session.revision)` link untested in the shell — carried: already in `deferred`; not deferred again.
+  - `[low]` `[reject]` (intent) Wiring tested at the provider, not the Hilt graph — carried.
+  - `[false]` `[reject]` (intent) Timeout/failure while a method plays restarts Shortest — carried: the coherent reading of PO 7/11.
+  - `[false]` `[reject]` (intent) Cache keyed by facelets lets two orientations share a Move list — `toFacelets()` is the Learner-facing view and Face Moves act through `orientation`, so equal facelets give equal Move effects; `isSolved` ignores orientation.
+  - `[low]` `[patch]` (intent) Timeout/failure copy checked only at VM level — carried: patched in the earlier pass with `SolutionStyleChipsTest`; not patched again.
+  - `[low]` `[reject]` (intent) Real-device surface (paused start, physical following after the two-event restart) not exercised — needs a device; kept as a named residual risk.
+  - `[low]` `[reject]` (edge) Two quick physical restarts lose physical mode — carried: millisecond window.
+  - `[low]` `[reject]` (edge) Restart coroutine reads a swapped input — carried, grouped with the blind restart-input row.
+  - `[low]` `[reject]` (edge) Cache ignores status changes — carried.
+  - `[low]` `[reject]` (edge) Unbounded cache — carried.
+  - `[false]` `[reject]` (edge) Identical Moves do not return to step 1 — carried: `updateSession` rewinds on a revision bump.
+  - `[false]` `[reject]` (edge) `opened()` runs before a `SolvePlaybackStarted` the reducer ignores — both callers dispatch a Shortest already verified to solve that input, so `startPlayback` accepts it.
+  - `[false]` `[reject]` (edge) `choose()` with null input leaves chips enabled but inert — carried: every `SOLVE_PLAYBACK` in :app starts through `opened()`.
+  - `[low]` `[reject]` (edge) Default VM scope never cleared — carried.
+  - `[low]` `[reject]` (edge) Stale discard selects the playing method, not Shortest — carried.
+  - `[false]` `[reject]` (edge) Restart with identical Moves keeps old position — carried.
+  - `[medium]` `[patch]` (verification-gap) A style restart from an accepted scan can drop the run-scan colours untested — `aStyleRestartFromAnAcceptedScanKeepsTheScanBaseline` now scans with non-null `runScanColors` and asserts `host.runScanColors()` before and after the Beginner restart.
+  - `[medium]` `[patch]` (verification-gap) After Use my cube, the style restart's verified baseline is not asserted — the Use my cube test now asserts `touchedSinceVerified == emptySet()` and `observed == PhysicalObservation.Full(actual)` after the Beginner restart.
+
 ## Design Notes
 
 No reducer, `SessionEvent` or `SessionState` change: a style switch is a new `SolvePlaybackStarted` on the same `SOLVE_PLAYBACK` kind (AD-3), as the "Use my cube" re-solve already does; style, cache and segments are ephemeral app state like playback position (AD-20). Process death never restores a `SOLVE_PLAYBACK` (`resumesOnColdStart`), so nothing is persisted. `SolveByMethod` already re-verifies (AD-21) and never calls the Solver.
@@ -197,3 +237,19 @@ Status: done
 **Verification:** `./gradlew :app:testDebugUnitTest --tests '*SolutionStyle*' --tests '*SolutionPlayback*' --tests '*AppShellSolve*' --tests '*MethodSolverWiring*' --tests '*ContentStrings*'` passed; `./gradlew spotlessCheck build` BUILD SUCCESSFUL (after patches). Matrix audit: every I/O row covered by a passing VM or shell test.
 
 **Residual risks:** cache does not refresh after an Algorithm Status change in the same process (by PO answer 3); a style build finishing during a Use my cube re-solve can drop the re-solve (narrow timing); device check of rotation/wide Moves in physical mode pending.
+
+### Follow-up review pass (2026-11-22)
+
+**Summary:** Follow-up review of the 15.3 diff since `5fc87568`. No reducer or behavior change; tightened two shell tests and one chip colour.
+
+**Files changed this pass:**
+- `app/src/test/kotlin/dev/cubentia/app/ui/shell/AppShellSolveTest.kt` — scan-baseline test now carries run-scan colours and asserts they survive a style restart; Use my cube test asserts the restart keeps the Full verified baseline.
+- `app/src/main/kotlin/dev/cubentia/app/ui/solve/SolvePlaybackScreen.kt` — a selected chip keeps `onAccent` ink while locked.
+
+**Review:** 36 findings (high 0, medium 2, low 23, false 11). Patched: 2 medium (verification gaps), 1 low (locked selected chip contrast). Deferred: none new (the `LaunchedEffect(session.revision)` item stays deferred). Rejected: all others, with reasons in the triage log (most carried from the first pass).
+
+**Follow-up review recommended:** false — follow-up pass patched no high (patched counts: high 0, medium 2, low 1).
+
+**Verification:** `./gradlew :app:testDebugUnitTest --tests '*SolutionStyle*' --tests '*SolutionPlayback*' --tests '*AppShellSolve*' --tests '*MethodSolverWiring*' --tests '*ContentStrings*'` BUILD SUCCESSFUL (AppShellSolveTest 32/32); `./gradlew spotlessApply && ./gradlew spotlessCheck build` BUILD SUCCESSFUL.
+
+**Residual risks:** unchanged from the first pass — cache not refreshed after an Algorithm Status change in-process (PO 3); narrow Use my cube / restart timing; device check of rotation and wide/slice Moves in physical mode and of the two-event physical restart pending.

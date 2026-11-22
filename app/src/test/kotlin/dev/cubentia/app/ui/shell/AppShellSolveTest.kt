@@ -617,26 +617,43 @@ class AppShellSolveTest {
         assertEquals(actual, beginner.entry)
         org.junit.Assert.assertTrue(beginner.entry.apply(beginner.solution).isSolved)
         org.junit.Assert.assertTrue(beginner.isPhysical)
+        // The restart keeps the re-solve's Full verified baseline.
+        assertEquals(emptySet<Face>(), beginner.touchedSinceVerified)
+        assertEquals(
+            dev.cubentia.domain.recognition.PhysicalObservation
+                .Full(actual),
+            beginner.observed,
+        )
     }
 
     @Test fun aStyleRestartFromAnAcceptedScanKeepsTheScanBaseline() {
         val move = FaceTurn(Face.R, Turn.CLOCKWISE)
         val cube = CubeState.SOLVED.apply(move)
         solver = CubeSolver { SolveResult.Solved(shortest) }
+        val colors =
+            dev.cubentia.domain.recognition.CalibrationCenters(
+                dev.cubentia.domain.cube.Color.entries.associateWith {
+                    dev.cubentia.domain.recognition
+                        .Lab(50.0, it.ordinal * 4.0, -it.ordinal * 2.0)
+                },
+            )
         show(
             cameraScan = dev.cubentia.application.port.FlagLevel.GA,
-            scan = { flow.onScanOutcome(ScanOutcome.Accepted(cube)) },
+            scan = { flow.onScanOutcome(ScanOutcome.Accepted(cube, colors)) },
         )
         click("nav:solve")
         click("solve:scan")
         rule.waitUntil(10000) { host.state.value.kind == SessionKind.SOLVE_PLAYBACK }
         rule.waitForIdle()
         assertEquals(emptySet<Face>(), host.state.value.touchedSinceVerified)
+        assertEquals(colors, host.runScanColors())
         chooseBeginnerAndAwaitRestart()
         val restarted = host.state.value
         assertNotEquals(shortest, restarted.solution)
         assertEquals(cube, restarted.entry)
         assertEquals(emptySet<Face>(), restarted.touchedSinceVerified)
+        // The run-scan colors survive the restart for this run's Quick Checks (GH #172).
+        assertEquals(colors, host.runScanColors())
     }
 
     /** Taps Beginner and waits until its solution has restarted the session. */

@@ -182,8 +182,8 @@ private fun StyleChip(
     val shape = MaterialTheme.shapes.small
     val content =
         when {
-            !enabled -> tokens.inkDisabled
             selected -> tokens.onAccent
+            !enabled -> tokens.inkDisabled
             else -> tokens.inkPrimary
         }
     Surface(
