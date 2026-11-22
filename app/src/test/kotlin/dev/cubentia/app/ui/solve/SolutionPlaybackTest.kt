@@ -877,6 +877,41 @@ class SolutionPlaybackTest {
     }
 
     @Test
+    fun aRestoredStateAfterLeavingAndFollowingAgainDoesNotJumpBackIntoTheSetUp() {
+        val restoration =
+            androidx.compose.ui.test.junit4
+                .StateRestorationTester(rule)
+        val host = SessionHost(TickingClock(), Dispatchers.Unconfined)
+        runBlocking { host.dispatch { SessionEvent.SolvePlaybackStarted(CubeState.SOLVED, practice, it) } }
+        restoration.setContent {
+            val current by host.state.collectAsState()
+            CubentiaTheme {
+                PreferenceProvider(netPreferences()) {
+                    state =
+                        rememberSolutionPlaybackState(current, reduceMotion = true, onEvent = { event ->
+                            runBlocking { host.dispatch { event } }
+                        })
+                    SolutionPlayback(state, strings, Modifier.fillMaxSize())
+                }
+            }
+        }
+        // Left at step 1 (in the set-up), followed again, then two Dones reach step 3: the same cube as step 1.
+        click("followOnMyCube")
+        click("done")
+        click("switchToVirtual")
+        click("followOnMyCube")
+        click("done")
+        click("done")
+        rule.runOnIdle { assertEquals(3, state.position) }
+        restoration.emulateSavedInstanceStateRestore()
+        rule.runOnIdle {
+            assertTrue(state.isPhysical)
+            assertEquals(3, state.position)
+            assertEquals(practice[3], state.currentMove)
+        }
+    }
+
+    @Test
     fun aStateRebuiltAfterReturningToVirtualStillPlaysFromTheSolutionStart() {
         show()
         click("followOnMyCube")

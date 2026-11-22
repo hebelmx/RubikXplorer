@@ -457,6 +457,8 @@ private fun ShellContent(
         key(if (practice != null) practiceRun else -1) {
             SolvePlaybackScreen(
                 title = practiceCase?.let { ready.strings.resolve(it.name) },
+                // Story 14.2 AC1: a practice opens on the 2D net, whatever the saved view.
+                opensOnNet = practice != null,
                 onAgain = practiced?.takeIf { practice != null }?.let { algorithm -> { scope.launch { startPractice(algorithm, true) } } },
                 styles = styles.takeIf { practice == null },
                 suggestedStyle = suggested,

@@ -71,10 +71,11 @@ fun SolvePlaybackScreen(
     segments: SegmentLabels? = null,
     title: String? = null,
     onAgain: (() -> Unit)? = null,
+    opensOnNet: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
     BackHandler(onBack = onClose)
-    val playback = rememberSolutionPlaybackState(session, onEvent = onEvent)
+    val playback = rememberSolutionPlaybackState(session, onEvent = onEvent, opensOnNet = opensOnNet)
     Surface(modifier = modifier.fillMaxSize(), color = RubikTheme.tokens.surfaceBase, contentColor = RubikTheme.tokens.inkPrimary) {
         Column(
             Modifier

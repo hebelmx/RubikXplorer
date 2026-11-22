@@ -34,9 +34,12 @@ import dev.cubentia.application.port.FeatureFlag
 import dev.cubentia.application.port.FeatureFlags
 import dev.cubentia.application.port.FlagLevel
 import dev.cubentia.application.port.SolveResult
+import dev.cubentia.application.preference.PlaybackView
+import dev.cubentia.application.preference.Preference
 import dev.cubentia.application.session.Effect
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionKind
+import dev.cubentia.application.session.SyncState
 import dev.cubentia.application.usecase.SolveByMethod
 import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
@@ -44,11 +47,13 @@ import dev.cubentia.domain.content.ContentSource
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
+import dev.cubentia.domain.cube.Orientation
 import dev.cubentia.domain.cube.Turn
 import dev.cubentia.domain.playback.AlgorithmPractice
 import dev.cubentia.domain.playback.AlgorithmPracticeResult
 import dev.cubentia.domain.playback.MoveNote
 import dev.cubentia.domain.recognition.PhysicalObservation
+import dev.cubentia.domain.tutor.Certainty
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.job
@@ -116,8 +121,8 @@ class AppShellAlgorithmPracticeTest {
     private fun launch(
         cameraScan: FlagLevel = FlagLevel.OFF,
         recognize: Boolean = false,
+        preferences: PreferenceStore = PreferenceStore(),
     ) {
-        val preferences = PreferenceStore()
         val flags =
             if (recognize) {
                 object : FeatureFlags {
@@ -353,6 +358,73 @@ class AppShellAlgorithmPracticeTest {
         rule.onNodeWithTag("playback:playPause").assertContentDescriptionEquals("Play")
         assertNotEquals(SessionKind.SOLVE_PLAYBACK, host.state.value.kind)
         assertTrue(rule.onAllNodesWithTag("solvePlayback:screen").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test fun `a practice opens on the 2D net even with a saved 3D view, which it leaves saved`() {
+        val preferences = PreferenceStore().apply { update(Preference.PlaybackViewChoice(PlaybackView.CUBE_3D)) }
+        launch(preferences = preferences)
+        openDetail()
+        practice(fromSetUp = true)
+        rule.onNodeWithTag("net").assertExists()
+        rule.onNodeWithTag("cube3d").assertDoesNotExist()
+        assertEquals(PlaybackView.CUBE_3D, preferences.preferences.value.playbackView)
+        // The view switch still shows the cube in 3D.
+        click("playback:viewSwitch")
+        rule.onNodeWithTag("cube3d").assertExists()
+        rule.onNodeWithTag("net").assertDoesNotExist()
+    }
+
+    @Test fun `a Partial Quick Check mid-Algorithm verifies a match and flags a mismatch as likely`() {
+        launch(cameraScan = FlagLevel.GA)
+        openDetail()
+        practice(fromSetUp = true)
+        done(setUp.algorithmStart + 1)
+        val expected = host.state.value.expected
+        observePartial(expected)
+        rule.waitUntil(10000) { host.state.value.syncState == SyncState.PHYSICAL_VERIFIED }
+        rule.waitForIdle()
+        assertEquals(
+            Certainty.VERIFIED,
+            host.state.value.quickCheck
+                ?.certainty,
+        )
+        rule.onNodeWithTag("certainty:label").assertTextEquals("Verified")
+        rule.onNodeWithTag("playback:scanAll").assertDoesNotExist()
+
+        observePartial(expected.apply(FaceTurn(Face.U, Turn.CLOCKWISE)))
+        rule.waitUntil(10000) { host.state.value.syncState == SyncState.PHYSICAL_MISMATCH }
+        rule.waitForIdle()
+        assertEquals(
+            Certainty.LIKELY,
+            host.state.value.quickCheck
+                ?.certainty,
+        )
+        assertTrue(host.state.value.offersFullScan)
+        rule.onNodeWithTag("certainty:label").assertTextEquals("Likely")
+        rule.onNodeWithTag("playback:scanAll").assertExists()
+        // Still in the practice, at the same step of the Algorithm.
+        assertEquals(setUp.moves, host.state.value.solution)
+        counter(setUp.algorithmStart + 1, setUp.moves.size)
+        rule.onNodeWithTag("playback:segment").assertTextEquals("Algorithm")
+    }
+
+    private fun observePartial(cube: CubeState) {
+        val before = started.size
+        click("playback:quickCheck")
+        rule.waitUntil(10000) { started.size > before }
+        val effect = started.last()
+        val colors = cube.reoriented(Orientation.HOME).toFacelets().colors
+        runBlocking {
+            host.dispatch {
+                SessionEvent.QuickCheckObserved(
+                    effect.effectId,
+                    effect.revision,
+                    PhysicalObservation.Partial(effect.faces.associateWith { colors.subList(it.ordinal * 9, it.ordinal * 9 + 9) }),
+                    it,
+                )
+            }
+        }
+        rule.waitUntil(10000) { host.state.value.pendingQuickCheck == null }
     }
 
     private fun observeFull(cube: CubeState) {

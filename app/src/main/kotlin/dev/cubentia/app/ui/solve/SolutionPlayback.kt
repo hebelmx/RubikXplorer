@@ -101,6 +101,7 @@ class SolutionPlaybackState private constructor(
         },
         initialView: PlaybackView = defaultPlaybackView(session),
         leftPhysicalAt: Int? = null,
+        opensOnNet: Boolean = false,
     ) : this(
         session,
         origin(session).let { NetPlayback(it, session.solution, reduceMotion, initialView.rendererAt(it.toFacelets())) },
@@ -109,6 +110,7 @@ class SolutionPlaybackState private constructor(
         clock,
     ) {
         this.leftPhysicalAt = leftPhysicalAt
+        this.opensOnNet = opensOnNet
         if (leftPhysicalAt != null && session.isPhysical) alignToExpected(rebuild = true)
         require(session.kind == SessionKind.SOLVE_PLAYBACK) { "not a Solve Playback session: ${session.kind}" }
     }
@@ -120,6 +122,13 @@ class SolutionPlaybackState private constructor(
      * [rememberSolutionPlaybackState] across recreation through [onLeftPhysical].
      */
     private var leftPhysicalAt: Int? = null
+
+    /**
+     * Whether this playback opened on the 2D net whatever the saved view (an Algorithm practice, Story 14.2 AC1); it then
+     * follows the saved view only once that changes, and the saved view itself is left as it is.
+     */
+    internal var opensOnNet: Boolean = false
+        private set
 
     /** Told the position each time the Learner leaves physical mode. */
     internal var onLeftPhysical: (Int) -> Unit = {}
@@ -191,18 +200,18 @@ class SolutionPlaybackState private constructor(
     /**
      * Moves to the position whose state is the session's Expected State. A Solution can pass the same state more than
      * once (an Algorithm practice from solved holds the same cube at k and 2n - k, and ends where it starts), so among
-     * equal states it prefers the position held when the Learner left physical mode, then, on a physical [rebuild],
-     * one whose preceding Moves are the ones confirmed since the switch, else the first.
+     * equal states, on a physical [rebuild] after Moves were confirmed since the switch, it prefers one whose preceding
+     * Moves are those; otherwise the position held when the Learner left physical mode, else the first.
      */
     private fun alignToExpected(rebuild: Boolean = false) {
         val expectedPosition =
             if (size > 0) {
                 val matches = (0..size).filter { index -> start.apply(solution.take(index)) == session.expected }
                 val done = session.history.done
-                matches.firstOrNull { it == leftPhysicalAt }
-                    ?: matches
-                        .takeIf { rebuild }
-                        ?.firstOrNull { index -> index >= done.size && solution.subList(index - done.size, index) == done }
+                matches
+                    .takeIf { rebuild && done.isNotEmpty() }
+                    ?.firstOrNull { index -> index >= done.size && solution.subList(index - done.size, index) == done }
+                    ?: matches.firstOrNull { it == leftPhysicalAt }
                     ?: matches.firstOrNull()
                     ?: 0
             } else {
@@ -320,14 +329,16 @@ fun rememberSolutionPlaybackState(
         kotlin.time.Clock.System
             .now()
     },
+    opensOnNet: Boolean = false,
 ): SolutionPlaybackState {
     require(session.kind == SessionKind.SOLVE_PLAYBACK) { "not a Solve Playback session: ${session.kind}" }
-    val initialView = LocalPreferenceStore.current.preferences.value.playbackView ?: defaultPlaybackView(session)
+    val initialView =
+        if (opensOnNet) PlaybackView.NET_2D else LocalPreferenceStore.current.preferences.value.playbackView ?: defaultPlaybackView(session)
     // Where the Learner left physical mode, saved so a recreated state resolves equal states the same way.
     var leftPhysicalAt by rememberSaveable(session.solution) { mutableStateOf<Int?>(null) }
     val state =
         remember(session.solution, reduceMotion) {
-            SolutionPlaybackState(session, reduceMotion, onEvent, clock, initialView, leftPhysicalAt)
+            SolutionPlaybackState(session, reduceMotion, onEvent, clock, initialView, leftPhysicalAt, opensOnNet)
         }
     state.onLeftPhysical = { leftPhysicalAt = it }
     state.updateSession(session)
@@ -356,7 +367,11 @@ fun SolutionPlayback(
 ) {
     val store = LocalPreferenceStore.current
     val preferences by store.preferences.collectAsState()
-    state.showView(preferences.playbackView ?: defaultPlaybackView(state.session))
+    // A playback that opens on the net follows the saved view only once it changes from the one it opened under.
+    val openedUnder = remember(state) { preferences.playbackView }
+    if (!state.opensOnNet || preferences.playbackView != openedUnder) {
+        state.showView(preferences.playbackView ?: defaultPlaybackView(state.session))
+    }
     PlaybackFrameLoop(state)
     val tokens = RubikTheme.tokens
     val segment = state.segmentOf(segments)?.let(strings::resolve)
@@ -388,6 +403,7 @@ fun SolutionPlayback(
             val label = if (cube != null) "btn.playback.show-net" else "btn.playback.show-cube"
             ToolbarButton(icon, strings.resolve(ContentText(label)), "playback:viewSwitch", true) {
                 store.update(Preference.PlaybackViewChoice(target))
+                state.showView(target)
             }
             if (cube != null) ViewControls(cube)
         }
