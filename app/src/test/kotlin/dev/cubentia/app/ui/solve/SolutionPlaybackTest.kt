@@ -1050,4 +1050,62 @@ class SolutionPlaybackTest {
         rule.onNodeWithTag("stage:frame").assertDoesNotExist()
         rule.onNodeWithTag("certainty:label").assertDoesNotExist()
     }
+
+    @Test
+    fun segmentLabelNamesTheCurrentSegmentAboveTheCounterOnlyForItsOwnMoves() {
+        val host = SessionHost(TickingClock(), Dispatchers.Unconfined)
+        runBlocking { host.dispatch { SessionEvent.SolvePlaybackStarted(scrambled, solution, it) } }
+        val labels =
+            SegmentLabels(
+                solution,
+                listOf(2, 3),
+                listOf(
+                    dev.cubentia.domain.text
+                        .Text("stage.stage-02-first-cross.title"),
+                    dev.cubentia.domain.text
+                        .Text("case.case-oll-01.name"),
+                ),
+            )
+        var shown by mutableStateOf<SegmentLabels?>(labels)
+        rule.setContent {
+            val current by host.state.collectAsState()
+            CubentiaTheme {
+                PreferenceProvider(netPreferences()) {
+                    state =
+                        rememberSolutionPlaybackState(current, reduceMotion = true, onEvent = { event ->
+                            runBlocking { host.dispatch { event } }
+                        })
+                    SolutionPlayback(state, strings, Modifier.fillMaxSize(), segments = shown)
+                }
+            }
+        }
+        rule.waitForIdle()
+        rule.onNodeWithTag("playback:segment").assertTextEquals("First cross")
+        val segment = rule.onNodeWithTag("playback:segment").fetchSemanticsNode().boundsInRoot
+        val counter = rule.onNodeWithTag("playback:counter").fetchSemanticsNode().boundsInRoot
+        assertTrue(segment.bottom <= counter.top)
+        rule.runOnIdle { state.seekTo(1.0) }
+        rule.waitForIdle()
+        rule.onNodeWithTag("playback:segment").assertTextEquals("OLL 1")
+
+        // Physical: the step to do next names its segment; none once every step is done.
+        rule.runOnIdle { state.seekTo(0.0) }
+        rule.runOnIdle { state.followOnMyCube() }
+        rule.waitUntil(5_000) { host.state.value.isPhysical }
+        rule.waitForIdle()
+        rule.onNodeWithTag("playback:segment").assertTextEquals("First cross")
+        repeat(3) {
+            rule.onNodeWithTag("playback:done").performClick()
+            rule.waitForIdle()
+        }
+        rule.onNodeWithTag("playback:segment").assertDoesNotExist()
+
+        // Labels for other Moves are never shown.
+        rule.runOnIdle { shown = labels.copy(moves = listOf(r)) }
+        rule.waitForIdle()
+        rule.onNodeWithTag("playback:segment").assertDoesNotExist()
+        rule.runOnIdle { state.stepBack() }
+        rule.waitForIdle()
+        rule.onNodeWithTag("playback:segment").assertDoesNotExist()
+    }
 }

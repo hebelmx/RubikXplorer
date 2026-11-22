@@ -68,6 +68,8 @@ class MainActivity : ComponentActivity() {
 
     private val freeCube: FreeCubeViewModel by viewModels()
 
+    private val solutionStyles: dev.cubentia.app.ui.solve.SolutionStyleViewModel by viewModels()
+
     /** True from a *Scan my cube* tap until its denial check opens the Editor or the scan's result returns. */
     private var scanInFlight = false
     private var quickInFlight: Effect.QuickCheck? = null
@@ -297,6 +299,7 @@ class MainActivity : ComponentActivity() {
                     solveFlow = solveFlow,
                     placementFlow = placementFlow,
                     recognizeFlow = recognizeFlow,
+                    solutionStyles = solutionStyles,
                     onRecognize = onRecognize,
                     onPlacementScan = onPlacementScan,
                     catalog = lessonCatalog,

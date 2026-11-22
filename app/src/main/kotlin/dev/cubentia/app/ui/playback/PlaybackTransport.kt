@@ -236,7 +236,8 @@ fun PlaybackFrameLoop(state: PlaybackTransportState) {
 
 /**
  * The one playback transport (AD-20, UX-DR14): |◀ ◀ ▶/❚❚ ▶ ▶|, the speed choice, the step counter
- * and the current Move, with the optional [note] (already resolved) under the Move.
+ * and the current Move, with the optional [note] (already resolved) under the Move and the optional [segment] label
+ * (the current segment's Stage or Case name, already resolved) above the counter.
  */
 @Composable
 fun PlaybackTransport(
@@ -246,6 +247,7 @@ fun PlaybackTransport(
     note: String? = null,
     onScrub: ((Double) -> Unit)? = null,
     prominentCounter: Boolean = false,
+    segment: String? = null,
 ) {
     val tokens = RubikTheme.tokens
     val styles = RubikTheme.textStyles
@@ -308,6 +310,7 @@ fun PlaybackTransport(
                 }
             }
         }
+        segment?.let { PlaybackSegmentLabel(it) }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.s4)) {
             Text(
                 stringResource(R.string.playback_counter, state.position, state.size),
@@ -373,6 +376,21 @@ internal fun Modifier.playbackControlsScroll(): Modifier =
         val pane = measurable.measure(constraints.copy(maxHeight = constraints.maxHeight - stageHeight))
         layout(pane.width, pane.height) { pane.placeRelative(0, 0) }
     }.verticalScroll(rememberScrollState())
+
+/** The current segment's Stage or Case name (AD-20), shown above the Move counter. */
+@Composable
+internal fun PlaybackSegmentLabel(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelLarge,
+        color = RubikTheme.tokens.inkSecondary,
+        modifier =
+            Modifier
+                .padding(horizontal = Spacing.s4)
+                .testTag("playback:segment")
+                .semantics { liveRegion = LiveRegionMode.Polite },
+    )
+}
 
 @Composable
 internal fun PlaybackMoveLabel(
