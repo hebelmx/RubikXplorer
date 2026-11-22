@@ -93,14 +93,20 @@ class QuickScanController(
         private set
     val coaching: Coaching? get() = corner.coaching
 
-    /** Whether the torch is on (Story 10.19): glare coaching then says to turn it off. The adapter sets it. */
+    /**
+     * Whether the torch is on (Story 10.19): glare coaching then says to turn it off, and the light check is skipped (PO
+     * 2026-11-21: the torch is camera-side light, so no light hold and no sides-dark coaching). The adapter sets it.
+     */
     var torchOn = false
         private set
 
     /** True while the light check holds back every capture (Story 10.19). */
     val lightHeld: Boolean get() = corner.lightHeld
 
-    /** The last corner frame's [SideLight] verdict (calibrated when [saved] is valid); null when undetected or unmeasured. */
+    /**
+     * The last corner frame's [SideLight] verdict (calibrated when [saved] is valid); null when undetected or unmeasured.
+     * Still measured with the torch lit, for the diagnostics, but then it holds nothing.
+     */
     var light: SideLight.Verdict? = null
         private set
 
@@ -154,7 +160,8 @@ class QuickScanController(
                 faces,
                 nowMs,
                 clearWhenUnlocated = hold == 2,
-                light = light,
+                // PO 2026-11-21: the light check is skipped while the torch is lit.
+                light = light.takeUnless { torchOn },
                 settled = settled,
                 torchOn = torchOn,
             ) { values ->
@@ -192,6 +199,8 @@ class QuickScanController(
         val drifted = lastApplied == requested && applied != requested
         torchOn = requested
         lastApplied = applied
+        // PO 2026-11-21: the torch turning on clears a running light hold at once (the check is skipped while it is lit).
+        if (changed && requested) corner.clearLightHold()
         when {
             changed || drifted -> if (applied == requested) corner.remeter() else corner.awaitTorch(nowMs)
             applied == requested -> corner.torchApplied()

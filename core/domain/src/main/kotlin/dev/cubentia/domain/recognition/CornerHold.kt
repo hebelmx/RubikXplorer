@@ -9,17 +9,24 @@ package dev.cubentia.domain.recognition
  *   nor while a metering change settles: an exposure transient is not evidence of bad light) and
  *   blocks auto and manual capture; the sides-dark coaching shows after [SIDES_DARK_COACHING_MS] of continuous failing
  *   with the cube detected and outranks every other corner coaching; the hold (and the line with it) clears once the
- *   check passes for [LIGHT_CLEAR_MS] while steady, and the steady count restarts. Losing the cube clears the line at
- *   once and restarts the failing timer, but the hold stays until a pass-and-steady window after the cube is found again;
+ *   check passed for [LIGHT_CLEAR_MS] in total since the last failing verdict, and the steady count restarts. While held,
+ *   only a failing verdict restarts that pass window: undetected frames and frames with a face unscored are neutral
+ *   (they neither advance nor reset it), and movement does not restart it (the capture after the clear re-meters, waits
+ *   for the settle and needs [STEADY_MS] steady; device session 2026-11-21, S24 FE). An undetected frame clears the line
+ *   at once; once the cube is lost ([LOST_MS]) the failing timer restarts, but the hold stays until a pass window after
+ *   the cube is found again. The caller skips the check while the torch is lit (PO 2026-11-21): it passes no verdict and
+ *   clears a running hold with [clearLightHold];
  * - an external settle signal: after each metering change a capture waits until the adapter reports the exposure
  *   settled, or [SETTLE_CAP_MS] passed, instead of the fixed [SETTLE_MS]; a manual press while settling is queued and
  *   fires once settled, unless the light hold engages or the cube is lost first;
- * - a per-face steady rule (PO 2026-11-21, [faceSteady]): the steady and light-clear windows restart only when two or
- *   more cells of one face move, so a single flickering cell no longer blocks auto-capture; [steadyRestart] reports why
- *   the steady window last restarted, for the debug diagnostics;
+ * - a per-face steady rule (PO 2026-11-21, [faceSteady]): the steady window restarts only when two or more cells of one
+ *   face move, so a single flickering cell no longer blocks auto-capture; [steadyRestart] reports why the steady window
+ *   last restarted, for the debug diagnostics;
  * - the torch state, which turns glare coaching into torch-glare coaching. A torch toggle is a metering change that
  *   starts only once the adapter applied the physical torch change ([awaitTorch], then [torchApplied], or
- *   [SETTLE_CAP_MS] at most): until then nothing is captured and a manual press is queued.
+ *   [SETTLE_CAP_MS] at most): until then nothing is captured and a manual press is queued;
+ * - a detection grace (device session 2026-11-21, S24 FE): the cube counts as lost only once it has been undetected for
+ *   [LOST_MS]. A shorter gap keeps the metering, its settle state, the steady window and a queued press.
  */
 internal class CornerHold(
     /** Quick Scan corners: a frame changed only when [MIN_MOVED_CELLS] or more cells of one face moved (Story 10.19). */
@@ -53,8 +60,12 @@ internal class CornerHold(
     var lightHeldSince: Long? = null
         private set
     private var lightFailingSince: Long? = null
-    private var lightPassingSince: Long? = null
-    private var lightReference: List<Lab?>? = null
+
+    /** Passing time accumulated toward [LIGHT_CLEAR_MS] since the last failing verdict while held. */
+    private var passedMs = 0L
+
+    /** The last passing frame of the running pass window; null after a neutral frame (the gap does not count). */
+    private var lastPassAt: Long? = null
     private var sidesDark = false
 
     /** The settle signal is external (Quick Scan corners) since the last frame that said so. */
@@ -106,7 +117,7 @@ internal class CornerHold(
             settledSinceMeter =
                 if (settled == null) nowMs - metering >= SETTLE_MS else settled || nowMs - metering >= SETTLE_CAP_MS
         }
-        val lightCleared = updateLight(detected, light, values, nowMs)
+        val lightCleared = updateLight(detected, light, nowMs)
         val qualities = latest.map { it?.let(FrameQuality::assessShutter) }
         val longUndetected = !detected && undetectedSince?.let { nowMs - it >= UNDETECTED_COACHING_MS } == true
         coaching =
@@ -120,6 +131,8 @@ internal class CornerHold(
             }
         if (!detected) {
             if (clearWhenUnlocated) latest = List(3) { null }
+            // A short detection gap (one-frame flicker) is ignored: no re-meter, the settle and steady windows run on.
+            if (!lost(nowMs)) return Decision.Wait
             meteredAt = null
             settledSinceMeter = false
             reference = null
@@ -220,38 +233,34 @@ internal class CornerHold(
     private fun updateLight(
         detected: Boolean,
         light: SideLight.Verdict?,
-        values: List<Lab?>,
         nowMs: Long,
     ): Boolean {
         if (!detected) {
-            // The line clears at once; the hold stays until a pass-and-steady window after the cube is found again.
+            // The line clears at once; once the cube is lost the failing timer restarts. The pass window is untouched (an
+            // undetected frame is neutral) and the hold stays until it completes after the cube is found again.
             sidesDark = false
-            lightFailingSince = null
-            lightPassingSince = null
-            lightReference = null
+            if (lost(nowMs)) lightFailingSince = null
+            lastPassAt = null
             return false
         }
         light ?: return false
         if (lightHeld && light.score == null) {
-            // A face was unreadable: no evidence the light is good, so the pass window neither starts nor advances.
-            lightPassingSince = null
-            lightReference = null
+            // A face was unreadable: no evidence either way, so the pass window neither advances nor resets.
+            lastPassAt = null
             return false
         }
         if (!light.passed) {
             if (!lightHeld && (settling || meteredAt == null)) {
                 // The first detected frame of an episode (exposed on the whole scene, it re-meters onto the cube) or an
                 // exposure transient while a metering change settles never starts a hold (the verdict is still reported).
-                lightPassingSince = null
-                lightReference = null
+                resetPassWindow()
                 return false
             }
             if (!lightHeld) {
                 lightHeld = true
                 lightHeldSince = nowMs
             }
-            lightPassingSince = null
-            lightReference = null
+            resetPassWindow()
             val failing = lightFailingSince ?: nowMs.also { lightFailingSince = it }
             if (nowMs - failing >= SIDES_DARK_COACHING_MS) sidesDark = true
             return false
@@ -261,25 +270,31 @@ internal class CornerHold(
             lightFailingSince = null
             return false
         }
-        val prior = lightReference
-        val since = lightPassingSince
-        if (since == null || prior == null || moved(values, prior)) {
-            lightReference = values
-            lightPassingSince = nowMs
-            return false
-        }
-        if (nowMs - since < LIGHT_CLEAR_MS) return false
+        // Only consecutive passing frames add up: the time across a neutral frame never counts.
+        lastPassAt?.let { passedMs += nowMs - it }
+        lastPassAt = nowMs
+        if (passedMs < LIGHT_CLEAR_MS) return false
         clearLight()
         return true
     }
+
+    private fun resetPassWindow() {
+        passedMs = 0L
+        lastPassAt = null
+    }
+
+    /** True once the cube has been undetected for [LOST_MS] or more. */
+    private fun lost(nowMs: Long): Boolean = undetectedSince?.let { nowMs - it >= LOST_MS } == true
+
+    /** Clears a running light hold at once (the torch was lit, PO 2026-11-21: the check is skipped while it is). */
+    fun clearLightHold() = clearLight()
 
     private fun clearLight() {
         lightHeld = false
         lightHeldSince = null
         sidesDark = false
         lightFailingSince = null
-        lightPassingSince = null
-        lightReference = null
+        resetPassWindow()
     }
 
     fun reset() {
@@ -309,20 +324,17 @@ internal class CornerHold(
         /** Continuous failing with the cube detected before the sides-dark coaching shows. */
         const val SIDES_DARK_COACHING_MS = 1000L
 
-        /** The light check must pass this long while steady to clear the light hold. */
+        /** The light check must pass this long (in total since the last failing verdict) to clear the light hold. */
         const val LIGHT_CLEAR_MS = 500L
+
+        /** Undetected this long, the cube is lost: metering, settle, the steady window and a queued press restart. */
+        const val LOST_MS = 300L
 
         /** With [faceSteady], the cells of one face that must move for a frame to count as changed. */
         const val MIN_MOVED_CELLS = 2
     }
 
     fun values(): List<Lab?> = latest.flatMap { face -> List(FrameQuality.CELLS) { face?.cells?.getOrNull(it)?.value } }
-
-    /** The steady and light-clear windows' change test: per face with [faceSteady], any one cell otherwise. */
-    private fun moved(
-        now: List<Lab?>,
-        prior: List<Lab?>,
-    ): Boolean = if (faceSteady) steadyMove(now, prior) != null else changed(now, prior, GuidedScanController.STEADY_DELTA_E)
 
     /** The first face on which [MIN_MOVED_CELLS] or more cells moved by the steady threshold; null when none did. */
     private fun steadyMove(

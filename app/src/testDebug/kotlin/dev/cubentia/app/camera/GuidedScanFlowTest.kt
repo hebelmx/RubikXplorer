@@ -899,6 +899,22 @@ class GuidedScanFlowTest {
         assertEquals(false to 400L, GuidedScanFlow.lightHoldChange(true, since, quick.lightHeld, 500))
     }
 
+    @Test fun `the torch turning on during a light hold is logged as a clear`() {
+        val quick =
+            dev.cubentia.domain.recognition
+                .QuickScanController()
+        val dark = List(9) { CellReading(Lab(40.0, 0.0, 0.0), true) }
+        val bright = List(9) { CellReading(Lab(90.0, 0.0, 0.0), true) }
+        val stats = { cells: List<CellReading> -> FrameStats(cells, 120.0, 0.0, 100.0, 12) }
+        quick.onFrame(true, listOf(stats(bright), stats(dark), stats(bright)), 50, settled = false)
+        quick.onFrame(true, listOf(stats(bright), stats(dark), stats(bright)), 100, settled = true)
+        assertTrue(quick.lightHeld)
+        val since = quick.lightHeldSince
+        // PO 2026-11-21: the light check is skipped while the torch is lit, so lighting it clears the hold at once.
+        GuidedScanFlow.syncTorch(quick, hasFlash = true, torchOn = true, applied = true, nowMs = 300)
+        assertEquals(false to 200L, GuidedScanFlow.lightHoldChange(true, since, quick.lightHeld, 300))
+    }
+
     // Story 10.19: the torch follows the Learner's choice in Quick Scan's corner view only, on a camera with a flash unit.
     @Test fun `the torch is lit only in quick scan's corner view with a flash and is kept through the hand-over and back`() {
         val quick =

@@ -656,17 +656,18 @@ class QuickScanControllerTest {
         assertFalse(scan.light!!.passed, "the failing verdict is still reported")
         assertFalse(scan.lightHeld)
         assertEquals(null, scan.lightHeldSince)
-        // After losing the cube, the next episode's first frame holds nothing either.
+        // After losing the cube (undetected for LOST_MS), the next episode's first frame holds nothing either.
         scan.onFrame(false, List(3) { null }, 100)
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, dark, 200, settled = true))
+        scan.onFrame(false, List(3) { null }, 100 + CornerHold.LOST_MS)
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, dark, 500, settled = true))
         assertFalse(scan.lightHeld)
         // Once metering on the cube has settled, a failing frame starts the hold and its coaching timer.
-        scan.onFrame(true, dark, 300, settled = true)
+        scan.onFrame(true, dark, 600, settled = true)
         assertTrue(scan.lightHeld)
-        assertEquals(300L, scan.lightHeldSince)
-        scan.onFrame(true, dark, 1299, settled = true)
+        assertEquals(600L, scan.lightHeldSince)
+        scan.onFrame(true, dark, 1599, settled = true)
         assertEquals(null, scan.coaching)
-        scan.onFrame(true, dark, 1300, settled = true)
+        scan.onFrame(true, dark, 1600, settled = true)
         assertEquals(Coaching.SIDES_DARK, scan.coaching)
     }
 
@@ -682,11 +683,13 @@ class QuickScanControllerTest {
         assertFalse(scan.lightHeld)
         assertTrue(scan.onFrame(true, first, 200, settled = true).isEmpty())
         assertFalse(scan.lightHeld)
-        // A torch toggle is a metering change: while it is pending or settling a failing verdict holds nothing.
-        scan.syncTorch(requested = true, applied = false, nowMs = 300)
+        // A torch toggle is a metering change: while it is pending or settling a failing verdict holds nothing. The
+        // toggle is to off: with the torch lit the check is skipped altogether (PO 2026-11-21).
+        scan.syncTorch(requested = true, applied = true, nowMs = 250)
+        scan.syncTorch(requested = false, applied = true, nowMs = 300)
         scan.onFrame(true, dark, 350, settled = false)
         assertFalse(scan.lightHeld)
-        scan.syncTorch(requested = true, applied = true, nowMs = 400)
+        scan.syncTorch(requested = false, applied = false, nowMs = 400)
         assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 450, settled = false))
         scan.onFrame(true, dark, 500, settled = false)
         assertFalse(scan.lightHeld)
@@ -697,7 +700,7 @@ class QuickScanControllerTest {
     }
 
     @Test
-    fun `a moving pass or a pass shorter than half a second keeps the hold and the line`() {
+    fun `a pass shorter than half a second keeps the hold and the line, and a moving pass clears it`() {
         val scan = lightScan()
         val first = hold(1)
         val dark = darkSides(first)
@@ -709,18 +712,19 @@ class QuickScanControllerTest {
         assertTrue(scan.onFrame(true, dark, 1600, settled = true).isEmpty())
         assertTrue(scan.lightHeld)
         assertEquals(Coaching.SIDES_DARK, scan.coaching)
-        // Passing but moving (two cells of one face): each change restarts the pass-and-steady window.
+        // Passing but moving (two cells of one face): movement no longer restarts the pass window (device session
+        // 2026-11-21); only a failing verdict does. The capture after the clear still needs settle and steadiness.
         val moved = first.toMutableList().also { it[0] = it[0].withCell(0, Lab(70.0, 0.0, 0.0)).withCell(1, Lab(70.0, 0.0, 0.0)) }
         scan.onFrame(true, first, 1700, settled = true)
         scan.onFrame(true, moved, 2000, settled = true)
-        assertTrue(scan.onFrame(true, moved, 2499, settled = true).isEmpty())
+        assertTrue(scan.onFrame(true, first, 2199, settled = true).isEmpty())
         assertTrue(scan.lightHeld)
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, moved, 2500, settled = true))
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, moved, 2200, settled = true))
         assertFalse(scan.lightHeld)
     }
 
     @Test
-    fun `an unreadable face while held neither starts nor advances the pass window`() {
+    fun `an unreadable face while held neither advances nor resets the pass window`() {
         val scan = lightScan()
         val first = hold(1)
         val dark = darkSides(first)
@@ -729,20 +733,107 @@ class QuickScanControllerTest {
         scan.onFrame(true, dark, 100, settled = true)
         assertTrue(scan.lightHeld)
         scan.onFrame(true, first, 1200, settled = true)
-        scan.onFrame(true, unreadable, 1400, settled = true)
+        scan.onFrame(true, first, 1400, settled = true)
+        scan.onFrame(true, unreadable, 1500, settled = true)
         assertEquals(null, scan.light!!.score, "an unreadable face has no score")
         assertTrue(scan.light!!.passed, "a verdict without a score passes, but must not clear the hold")
-        // Without the reset the window from 1200 would clear the hold at 1700.
-        listOf(1500L, 1700L, 1999L).forEach { now ->
+        // Unreadable frames alone never clear it, however long they last.
+        listOf(2100L, 3100L, 4100L).forEach { now -> scan.onFrame(true, unreadable, now, settled = true) }
+        assertTrue(scan.lightHeld)
+        // 200 ms passed before the unreadable frames (kept, not reset); the time across them does not count.
+        listOf(4200L, 4400L, 4499L).forEach { now ->
             assertTrue(scan.onFrame(true, first, now, settled = true).isEmpty())
             assertTrue(scan.lightHeld, "still held at $now")
         }
-        // Unreadable frames alone never clear it.
-        listOf(2100L, 3100L, 4100L).forEach { now -> scan.onFrame(true, unreadable, now, settled = true) }
-        assertTrue(scan.lightHeld)
-        scan.onFrame(true, first, 4200, settled = true)
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 4700, settled = true))
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 4500, settled = true))
         assertFalse(scan.lightHeld)
+    }
+
+    @Test
+    fun `one-frame detection flicker while held neither resets nor advances the pass window`() {
+        // The S24 FE session: the cube was lost for one frame every 100-800 ms and a hold lasted 256 s.
+        val scan = lightScan()
+        val first = hold(1)
+        val dark = darkSides(first)
+        scan.onFrame(true, dark, 0, settled = false)
+        scan.onFrame(true, dark, 100, settled = true)
+        assertTrue(scan.lightHeld)
+        var clearedAt: Long? = null
+        var now = 200L
+        while (clearedAt == null && now < 5_000L) {
+            val detected = (now / 33) % 5 != 0L
+            val effects = scan.onFrame(detected, if (detected) first else List(3) { null }, now, settled = true)
+            if (QuickScanEffect.Remeter in effects) clearedAt = now
+            now += 33
+        }
+        val cleared = checkNotNull(clearedAt) { "the light hold cleared despite the detection flicker" }
+        assertTrue(cleared <= 200 + 2 * CornerHold.LIGHT_CLEAR_MS, "light cleared at $cleared")
+        assertFalse(scan.lightHeld)
+    }
+
+    @Test
+    fun `a detection gap shorter than LOST_MS neither re-meters nor restarts the steady window`() {
+        val scan = lightScan()
+        val first = hold(1)
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 0, settled = false))
+        assertTrue(scan.onFrame(true, first, 100, settled = true).isEmpty())
+        // A gap of under LOST_MS: no re-meter when found again, and the steady window started at 100 runs on.
+        assertTrue(scan.onFrame(false, List(3) { null }, 500).isEmpty())
+        assertTrue(scan.onFrame(false, List(3) { null }, 500 + CornerHold.LOST_MS - 1).isEmpty())
+        assertTrue(scan.onFrame(true, first, 900, settled = true).isEmpty(), "no re-meter after a short gap")
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, first, 1100, settled = true))
+
+        // Undetected for LOST_MS: the cube is lost, the next detected frame re-meters.
+        val other = lightScan()
+        other.onFrame(true, first, 0, settled = false)
+        other.onFrame(true, first, 100, settled = true)
+        other.onFrame(false, List(3) { null }, 500)
+        other.onFrame(false, List(3) { null }, 500 + CornerHold.LOST_MS)
+        assertEquals(listOf(QuickScanEffect.Remeter), other.onFrame(true, first, 900, settled = false))
+        assertTrue(other.onFrame(true, first, 1100, settled = true).isEmpty(), "the steady window restarted")
+    }
+
+    @Test
+    fun `a backlit corner with the torch lit captures with no light hold and no sides-dark line`() {
+        val scan = lightScan()
+        val dark = darkSides(hold(1))
+        scan.syncTorch(requested = true, applied = true, nowMs = 0)
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, dark, 0, settled = false))
+        assertTrue(scan.onFrame(true, dark, 100, settled = true).isEmpty())
+        assertFalse(scan.light!!.passed, "the verdict is still measured for the diagnostics")
+        assertFalse(scan.lightHeld)
+        scan.onFrame(true, dark, 1099, settled = true)
+        assertEquals(null, scan.coaching)
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, dark, 1100, settled = true))
+        assertEquals(null, scan.coaching, "no sides-dark line with the torch lit")
+    }
+
+    @Test
+    fun `turning the torch on during a light hold clears it at once, and turning it off restores the check`() {
+        val scan = lightScan()
+        val first = hold(1)
+        val dark = darkSides(first)
+        scan.onFrame(true, dark, 0, settled = false)
+        scan.onFrame(true, dark, 100, settled = true)
+        scan.onFrame(true, dark, 1100, settled = true)
+        assertTrue(scan.lightHeld)
+        assertEquals(Coaching.SIDES_DARK, scan.coaching)
+        scan.syncTorch(requested = true, applied = true, nowMs = 1200)
+        assertFalse(scan.lightHeld, "the torch turning on clears the hold at once")
+        assertEquals(null, scan.lightHeldSince)
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, dark, 1250, settled = false))
+        assertEquals(null, scan.coaching)
+        scan.onFrame(true, dark, 1300, settled = true)
+        assertFalse(scan.lightHeld)
+        // Torch off: a metering change, then the check holds again once settled.
+        scan.syncTorch(requested = false, applied = false, nowMs = 1400)
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, dark, 1450, settled = false))
+        assertFalse(scan.lightHeld, "no hold while the torch-off metering settles")
+        scan.onFrame(true, dark, 1500, settled = true)
+        assertTrue(scan.lightHeld)
+        assertEquals(1500L, scan.lightHeldSince)
+        scan.onFrame(true, dark, 2500, settled = true)
+        assertEquals(Coaching.SIDES_DARK, scan.coaching)
     }
 
     @Test
@@ -929,9 +1020,11 @@ class QuickScanControllerTest {
         val lost = lightScan()
         lost.onFrame(true, first, 0, settled = false)
         assertTrue(lost.onShutter().isEmpty())
+        // Lost only once undetected for LOST_MS (a shorter gap keeps the press).
         lost.onFrame(false, List(3) { null }, 100)
-        assertEquals(listOf(QuickScanEffect.Remeter), lost.onFrame(true, first, 200, settled = false))
-        assertTrue(lost.onFrame(true, first, 300, settled = true).isEmpty(), "the dropped press never fires")
+        lost.onFrame(false, List(3) { null }, 100 + CornerHold.LOST_MS)
+        assertEquals(listOf(QuickScanEffect.Remeter), lost.onFrame(true, first, 500, settled = false))
+        assertTrue(lost.onFrame(true, first, 600, settled = true).isEmpty(), "the dropped press never fires")
         assertEquals(1, lost.hold)
 
         val held = lightScan()

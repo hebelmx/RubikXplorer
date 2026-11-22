@@ -569,7 +569,8 @@ class GuidedScanActivity : ComponentActivity() {
             // torch change re-meters only once the camera applied it.
             val flash = frameSource.hasFlashUnit()
             if (flash != null && flash != scan.hasFlash) ContextCompat.getMainExecutor(this).execute { scan.hasFlash = flash }
-            GuidedScanFlow.syncTorch(quick, flash, scan.torchOn, frameSource.torchApplied(), now)
+            // The torch turning on clears a running light hold (PO 2026-11-21): logged like any other clear.
+            logLightHold(quick, now) { GuidedScanFlow.syncTorch(quick, flash, scan.torchOn, frameSource.torchApplied(), now) }
             val settled = frameSource.settled()
             val quads = scan.cornerOverlaySmoother.update(corner.normalizedQuads)
             ContextCompat.getMainExecutor(this).execute { scan.detectedCornerQuads = quads }

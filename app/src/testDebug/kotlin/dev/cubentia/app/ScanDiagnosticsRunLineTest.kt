@@ -125,7 +125,7 @@ class ScanDiagnosticsRunLineTest {
         val line = ScanDiagnostics.cornerFrameLine(true, listOf(face, face, face), 0.9, dark, lightHeld = true, torch = true)
         assertEquals(
             "quickScan frame detected=true quality=GLARE,GLARE,GLARE score=0.9 light=90.0,55.0,80.0 sideDiff=35.0 " +
-                "lightScore=35.0 lightCheck=fail lightMode=uncalibrated lightHold=true torch=on glare=torch",
+                "lightScore=35.0 lightCheck=fail lightMode=torch lightHold=true torch=on glare=torch",
             line,
         )
         val calibrated =

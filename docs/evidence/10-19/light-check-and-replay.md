@@ -6,6 +6,19 @@ prints this report on every run; re-run it after the device session to refresh t
 
 ## Light check (`SideLight`)
 
+**S24 FE device session (D3, 2026-11-21) changes** (`.git/bmad-orchestrate/d3-s24-torch1.log`):
+
+- **Light clear:** the cube was lost for one frame every 100–800 ms and any undetected frame, unscored face or moved
+  frame restarted the 500 ms pass window, so a hold lasted 256 s. While held, only a failing verdict now restarts the
+  window; undetected and unscored frames are neutral (neither advance nor reset it), and movement no longer restarts it
+  (the capture after the clear re-meters, waits for the settle and needs `STEADY_MS` steady).
+- **Detection grace:** one-frame flicker re-metered 63 times in about 60 s. The cube now counts as lost (re-meter,
+  settle, steady window and queued press restart) only once undetected for `CornerHold.LOST_MS` = 300 ms.
+- **Torch skips the check (PO 2026-11-21):** the torch is camera-side light, so while it is lit no light hold engages,
+  a running hold clears at once when it turns on (`quickScan lightHold clear` is logged) and no sides-dark line shows;
+  torch-glare coaching is unchanged. The verdict is still logged, with `lightMode=torch`. With the torch off or no
+  flash unit the check works as before.
+
 **Both cuts are provisional** until the device session (D1 false and missed blocks, D4 new 10.19 captures): each was
 fitted on the same 16 Lenovo TB128XU holds below, with no held-out data and no second device.
 

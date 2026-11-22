@@ -43,8 +43,8 @@ object ScanDiagnostics {
 
     /**
      * One corner frame (rate-limited): detection, per-face shutter quality, and Story 10.19's light check (per-face light
-     * level, the darker side face's difference to the top, the verdict and the light hold), the torch and glare with the
-     * torch state. Numbers only, never pixels or Cube States.
+     * level, the darker side face's difference to the top, the verdict and the light hold; lightMode=torch when the torch
+     * is lit and the check skipped), the torch and glare with the torch state. Numbers only, never pixels or Cube States.
      */
     fun onCornerFrame(
         nowMs: Long,
@@ -92,7 +92,8 @@ object ScanDiagnostics {
             if (calibrated) null else "sideDiff=${level(light?.darkerSideDifference)}",
             "lightScore=${level(light?.score)}",
             "lightCheck=$verdict",
-            "lightMode=${light?.mode?.name?.lowercase() ?: "-"}",
+            // PO 2026-11-21: with the torch lit the check is measured but skipped (it holds nothing).
+            "lightMode=${if (light != null && torch) "torch" else light?.mode?.name?.lowercase() ?: "-"}",
             "lightHold=$lightHeld",
             "torch=${if (torch) "on" else "off"}",
             "glare=${if (!glare) {
