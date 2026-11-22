@@ -232,9 +232,9 @@ A Learner can browse and watch all 78 verified OLL/PLL Algorithms, track their o
 ### Epic 10: Scan my cube (v1.1, flag-gated)
 A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. Built on `main` with every camera flag OFF in release; each feature reaches users only when the PO raises its flag at a release (Story 10.11). Restored from `post-launch/v1.1-camera-recognition.md` by `sprint-change-proposal-2026-11-14-v1-1-camera.md`. *(SCP 2026-11-20: moves into v1.0 as the dependency of #198, #208, #249, #251, #252; Story 10.11 raises `CAMERA_SCAN` for the v1.0 release.)*
 **FRs covered:** FR-21, FR-23 – FR-26, plus the Quick Check rung of FR-9 and FR-16, and the calibration reset of FR-19. **Also:** recognition NFRs, NFR-5, NFR-8, NFR-11, NFR-12, AD-9, AD-13, AD-18, AR-13, UX-DR15, UX-DR16, UX-DR19 – UX-DR22, UX-DR25.
-**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) → Epic 11 → 10.8 → 10.11; 10.16 after 10.14; 11.1 → 10.18 (Quick Scan finds the cube's real edges and corners, #195) → 10.17 (after 10.16 too); all v1.0 scope (SCP 2026-11-20) *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16; 10.5 split into 10.5 and 10.15 by SCP 2026-11-16 main-app entry points)*. Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance (10.4 partial); B2 = 10.14; B3 = 10.5 (main app; re-runs the 10.4 checks not done on a device, #166); C = 11.1, 11.3 capture and 10.8.
+**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) → Epic 11 → 10.8 → 10.11; 10.16 after 10.14; 11.1 → 10.18 (Quick Scan finds the cube's real edges and corners, #195) → 10.17 (after 10.16 too) → 10.19 → 10.20 → 10.21 *(SCP 2026-11-21 quick-scan-side-face-accuracy, #274: 10.20 and 10.21 do not block Story 10.11, which raises `CAMERA_SCAN` and `PLACEMENT` with `QUICK_SCAN` OFF; Quick Scan is raised in a later 10.11-n after 10.21's BETA call)*; all v1.0 scope (SCP 2026-11-20) *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16; 10.5 split into 10.5 and 10.15 by SCP 2026-11-16 main-app entry points)*. Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance (10.4 partial); B2 = 10.14; B3 = 10.5 (main app; re-runs the 10.4 checks not done on a device, #166); C = 11.1, 11.3 capture and 10.8.
 **Main-app rule (SCP 2026-11-16 main-app entry points):** a camera story is accepted on the main app build, reached from its real entry point. A debug-only launcher is never a story's device-session gate, and debug raises a flag above OFF only once that flag's entry point is wired in the main app (AD-15, AD-18).
-**Never blocks** tester-feedback fixes or Stories 12.3, 12.4, 12.5 and 13.6: camera stories merge only with release camera flags OFF, and Story 10.9's gate keeps the release free of camera code and permissions. *(Superseded by SCP 2026-11-20: for v1.0, Story 10.11 raises `CAMERA_SCAN`, `QUICK_SCAN` and `PLACEMENT` before Stories 12.3–12.5, and the Story 10.9 gate then checks the flags-ON release instead.)*
+**Never blocks** tester-feedback fixes or Stories 12.3, 12.4, 12.5 and 13.6: camera stories merge only with release camera flags OFF, and Story 10.9's gate keeps the release free of camera code and permissions. *(Superseded by SCP 2026-11-20: for v1.0, Story 10.11 raises `CAMERA_SCAN`, `QUICK_SCAN` and `PLACEMENT` before Stories 12.3–12.5, and the Story 10.9 gate then checks the flags-ON release instead.)* *(SCP 2026-11-21 quick-scan-side-face-accuracy: `QUICK_SCAN` leaves this first raise and follows Story 10.21.)*
 
 ### Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition (v1.1, flag-gated)
 First on the PRD cut order (Quick Scan → beta, then Case recognition, then Placement). Each ships behind its AD-18 flag and can be turned OFF without dead UI. *(SCP 2026-11-20: Quick Scan and Placement move into v1.0 with #198, #251 and #252.)*
@@ -2157,6 +2157,8 @@ So that the app, the public privacy policy, Play Console and the store listing a
 
 **Runs** once per release in which at least one camera flag leaves OFF; it is reopened (or copied as 10.11-n) for each such release. **Depends on** Story 10.8's recommendation for every raised feature, and on Stories 12.3, 12.4, 12.5 and 13.6 being done (§6 Q5). **Human gates:** the PO's per-feature level decision; the site-repository PR; Play Console.
 
+*(SCP 2026-11-21 quick-scan-side-face-accuracy: the first run raises `CAMERA_SCAN` and `PLACEMENT` only; `QUICK_SCAN` is raised by a later 10.11-n once Story 10.21's BETA call passes.)*
+
 **Acceptance Criteria:**
 
 **Given** the PO's decision recorded in the PRD memlog
@@ -2441,6 +2443,8 @@ So that both corner photos read all three faces instead of sending me face by fa
 
 **Depends on** Stories 10.18 and 10.17 (*Scan face by face* is the exit from a held capture). **Human gate:** a device session on the main app build, `QUICK_SCAN` raised in debug, on the Lenovo Tab M10 Plus 3rd Gen (TB128XU, no flash) and the Galaxy S24 FE (flash), with a stickered, a stickerless and a glossy cube, light from the camera side and light behind the cube. *(SCP 2026-11-21 quick-scan-front-light. Out of scope by PO decision: a side-face calibration step, and turning uncertain side stickers into suggestions. Numeric thresholds below are proposed in the SCP and confirmed by the PO at approval.)*
 
+*(SCP 2026-11-21 quick-scan-side-face-accuracy, #274: 10.19 merged as the Quick Scan lighting pipeline (PR #272). The AC2 counts, AC4 glossy-cube glare, AC6 side-face bar, AC7 held-out metrics and AC8 BETA call move to Stories 10.20 and 10.21; the provisional light cuts (27 L*, 1.34) are refitted in 10.21.)*
+
 **Acceptance Criteria:**
 
 **Given** the corners are detected and the side faces are much darker than the top face or the background (the light is behind the cube)
@@ -2474,6 +2478,74 @@ So that both corner photos read all three faces instead of sending me face by fa
 **Given** a hands-on evaluation on both devices after this story
 **When** the PO compares two-corner completion on the Lenovo before and after
 **Then** the PO confirms whether Quick Scan is viable as `BETA` for v1.0 (moved from Story 10.18); the release level itself is decided by Story 10.8's full recognition matrix and raised by Story 10.11
+
+### Story 10.20: Record 10.19-pipeline corner fixtures and check the corner model
+
+As the developer tuning Quick Scan,
+I want labelled corner captures recorded through the 10.19 pipeline on both reference devices,
+So that the keep rule, the agreement gate and the light cuts are fitted and scored on real data, per device and light.
+
+**Refs:** FR-22 · recognition NFRs (Quick Scan, Confidence calibration) · AD-9, AD-15 · OQ-8 · Stories 10.10, 10.12, 10.18, 10.19 · #274
+
+**Depends on** Story 10.19. **Human gate:** one recording session on the debug fixture recorder (corner mode), on the Lenovo Tab M10 Plus 3rd Gen (TB128XU, no flash) and the Galaxy S24 FE (flash). *(SCP 2026-11-21 quick-scan-side-face-accuracy.)*
+
+**Acceptance Criteria:**
+
+**Given** the debug fixture recorder in corner mode
+**When** an operator records a capture group
+**Then** the group's `group.json` records `"pipeline": "10.19"`, the device model, the cube id (`stla`/`stlb`/`stka`/`stkb`, or a new id for a glossy cube), the light direction (`front`/`back`/`side`), the light name, the torch state per hold, and the recorder calibration it took. On a device with a flash, the recorder offers the same torch toggle as the Quick Scan corner view (on by default), and its calibration is taken with the torch state the operator chose. Each hold stores the 10.19 per-capture diagnostics (`light=`, `lightScore=`, `lightMode=`, metering settle) next to the frame.
+
+**Given** the recording session
+**When** it ends
+**Then** `Fixtures/corner/` holds, **per device**: a stickered, a stickerless and (on the S24 FE) a glossy cube; at least two front lights and one backlit group; on the S24 FE, groups with the torch on and with it off; and a held-out split, named in the group index and never used for tuning in Story 10.21, that on its own holds at least 20 positive and 10 negative (no-cube) captures per device and at least one group for every scored device, light and torch condition; the tuning split holds at least one other group for each of those conditions
+
+**Given** the held-out split
+**When** `uv run --project tools/corner-model python tools/corner-model/evaluate_model.py --fixtures-corner Fixtures/corner` runs
+**Then** it reports, per device, recall ≥ 92%, rejection ≥ 96% and mean corner error ≤ 3% of the outline diagonal (10.19 AC7). A miss is recorded in the evidence and routed to the PO, and does not block Story 10.21 unless the PO says so.
+
+**Given** `QuickScanSideFaceReplayTest`
+**When** it runs in CI on the new groups
+**Then** it reports, without enforcing the bar, the current (10.19) results per device, light and torch state: side stickers correct, uncertain and wrong, side faces kept, and the keep reason per face (`closeCall`/`disagree`). This is Story 10.21's baseline, written to `docs/evidence/10-20/`.
+
+### Story 10.21: Quick Scan keeps the side faces it reads well
+
+As a Learner using Quick Scan,
+I want the faces the app read well to stay read, with at most one sticker left for me to fill,
+So that two corner photos usually finish the scan instead of sending me face by face.
+
+**Refs:** FR-22, FR-23, FR-24 · recognition NFRs (Quick Scan, Confidence calibration), NFR-10, NFR-11 · AD-9, AD-18 · OQ-8 · UX-DR15 · Stories 10.4, 10.17, 10.19, 10.20 · #274
+
+**Depends on** Story 10.20 (fixtures and held-out split). **Human gate:** a device session on the main app build, `QUICK_SCAN` raised in debug, on the Lenovo TB128XU and the Galaxy S24 FE with a stickered, a stickerless and a glossy cube, front-lit and backlit. *(SCP 2026-11-21 quick-scan-side-face-accuracy; PO decisions 2026-11-21: keep rule ≤ 1 blank with a matching calibration; calibration torch with a torch tag; Story 10.11 does not wait for this story.)*
+
+**Acceptance Criteria:**
+
+**Given** a saved calibration that matches the scan: the same torch state (AC2), and every face centre captured so far reads CONFIDENT as its own colour against the saved calibration (a calibration from another cube or another light fails this check)
+**When** a corner capture's face is classified
+**Then** the face is kept when at most **1** of its stickers is uncertain and none disagrees beyond the agreement gate. The uncertain sticker is left blank and pre-selected in the Quick Scan review, as the sticker review net already does (EXPERIENCE.md). A face with 2 or more uncertain stickers goes to the Guided grid, as before. **Without** a matching calibration (none, a torch mismatch, or a centre that fails the check, logged as `calibration=mismatch centre`), the Story 10.17 rule is unchanged: a face is kept only when all 9 stickers are CONFIDENT. A kept face never carries a confidently wrong sticker (Confidence calibration NFR).
+
+**Given** the calibration screen (Story 10.4) on a device whose back camera has a flash
+**When** the Learner calibrates
+**Then** the screen shows the same torch toggle as the Quick Scan corner view, on by default, and the saved calibration records the torch state it was taken under (`ColorCalibrationEntity` gets a nullable torch column through a Room migration with a migration test; rows saved before it count as torch-off). Quick Scan uses a saved calibration only when its torch state equals the current one. Otherwise it self-calibrates as when no calibration exists, logs `calibration=mismatch torch`, and shows the 10.19 *Calibrate colors* offer. On a device without a flash, no torch control appears and the torch state is always off. The Guided 6-face Scan's use of calibration is unchanged.
+
+**Given** the agreement gate between a face's self-calibrated and calibrated reads
+**When** it is tuned against the Story 10.20 tuning split
+**Then** its rule and thresholds are chosen per colour where the data supports it (Yellow, Orange and Red against Blue on the shaded back face), and the spec records the before and after numbers. No change turns an uncertain sticker into a confident wrong one on any group, tuning or held-out.
+
+**Given** the light check (10.19 AC1)
+**When** it is refitted on the Story 10.20 captures
+**Then** both cuts (uncalibrated L* difference, calibrated top-over-sides ratio) are refitted per mode with **hysteresis** (a hold starts above the hold cut and clears only below a lower clear cut), so an ordinary torch-off S24 FE light no longer flips hold and release. The light check is skipped only while the torch is **actually lit** (`enableTorch` succeeded), not merely requested (action item `torch-requested-vs-lit`). The light-clear window's steadiness rule is settled with the PO and matches the AC (action item `light-clear-steadiness`). Returning from calibration opened from the corner view clears a stale light hold, so the offer does not reappear at once (action item `cal-offer-reappears`).
+
+**Given** the Story 10.20 **held-out** groups
+**When** `QuickScanSideFaceReplayTest` runs in CI with its bar enforced
+**Then** per device, light and torch state (never pooled): 0 confidently wrong side stickers and 0 Red↔Orange confusions on kept faces, at least 90% of side stickers read correctly, and at least 3 of every 4 side faces kept (a face kept with one blank sticker counts as kept; its blank counts as not correct). Backlit groups are reported, not scored, and must trip the light check. The replay also runs the held-out groups with a calibration from another cube and from another light, and in those runs too no kept face carries a confidently wrong sticker. This is 10.19 AC6.
+
+**Given** the main app on each device after the tuning
+**When** a tester runs at least 10 front-lit and 10 backlit Quick Scans per device, including a solved cube without a saved calibration
+**Then** false-block and missed-block counts per light mode are recorded from the diagnostics (10.19 AC2). On the S24 FE a glossy cube is captured at both holds with the torch on and off, and torch glare is coached and cleared by turning the torch off (10.19 AC4). Faces kept per scan are recorded per device.
+
+**Given** the device evidence
+**When** the PO compares two-corner completion before (Story 10.20 baseline) and after
+**Then** the PO records whether Quick Scan is viable as `BETA` (10.19 AC8). If it is, a later Story 10.11 run (`10.11-n`) raises `QUICK_SCAN`; the level itself still follows the recognition matrix (Story 10.8). If it is not, Quick Scan stays OFF and the reasons go to a new issue.
 
 ## Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition
 

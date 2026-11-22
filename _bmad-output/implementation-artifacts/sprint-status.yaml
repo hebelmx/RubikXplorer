@@ -150,6 +150,8 @@ development_status:
   10-17-switch-from-quick-scan-to-the-guided-scan-and-keep-the-captu: done
   10-18-quick-scan-finds-the-cube-s-real-edges-and-corners: done
   10-19-quick-scan-reads-the-side-faces-in-good-light: done
+  10-20-record-10-19-pipeline-corner-fixtures-and-check-the-corner-model: backlog
+  10-21-quick-scan-keeps-the-side-faces-it-reads-well: backlog
   epic-10-retrospective: optional
 
   epic-11: done
@@ -1672,23 +1674,24 @@ action_items:
     epic: 10
     action: "Side-face accuracy deferred from 10.19 by PO decision 2026-11-21: AC2 front-lit/backlit light-check counts per device, AC4 glossy-cube torch glare, AC6 side-face replay bar on new 10.19-pipeline fixtures, AC7 held-out evaluate_model.py metrics, AC8 BETA call; includes refitting the provisional light cuts (27 L*, 1.34) and checking live vs recorded L*; plan via bmad-correct-course (medium; deferred from 10.19, https://github.com/hebelmx/RubikXplorer/issues/274)"
     owner: "PO (hebelmx)"
-    status: open
+    status: done
+    resolution: "planned by SCP 2026-11-21 quick-scan-side-face-accuracy as Stories 10.20 and 10.21"
     ref: "_bmad-output/implementation-artifacts/spec-10-19-quick-scan-reads-the-side-faces-in-good-light.md"
   - id: "epic-10-deferred-10.19-torch-requested-vs-lit"
     epic: 10
-    action: "The light check is skipped when the torch is requested, not when it is actually lit; if enableTorch fails (e.g. a hot S24 FE) a backlit cube captures with no light hold; skip only while the torch is applied (medium; deferred from 10.19, core/domain/src/main/kotlin/dev/cubentia/domain/recognition/QuickScan.kt:199)"
+    action: "The light check is skipped when the torch is requested, not when it is actually lit; if enableTorch fails (e.g. a hot S24 FE) a backlit cube captures with no light hold; skip only while the torch is applied (medium; deferred from 10.19, core/domain/src/main/kotlin/dev/cubentia/domain/recognition/QuickScan.kt:199); built in Story 10.21"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-19-quick-scan-reads-the-side-faces-in-good-light.md"
   - id: "epic-10-deferred-10.19-light-clear-steadiness"
     epic: 10
-    action: "The light hold now clears after 500 ms of passing frames with no steadiness check (session fix f7b0573f), while AC1 says pass about 0.5 s while steady; PO to confirm movement may be ignored in the light-clear window or restore the 2-cells-per-face restart (medium; deferred from 10.19, core/domain/src/main/kotlin/dev/cubentia/domain/recognition/CornerHold.kt:278)"
+    action: "The light hold now clears after 500 ms of passing frames with no steadiness check (session fix f7b0573f), while AC1 says pass about 0.5 s while steady; PO to confirm movement may be ignored in the light-clear window or restore the 2-cells-per-face restart (medium; deferred from 10.19, core/domain/src/main/kotlin/dev/cubentia/domain/recognition/CornerHold.kt:278); built in Story 10.21"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-19-quick-scan-reads-the-side-faces-in-good-light.md"
   - id: "epic-10-deferred-10.19-cal-offer-reappears"
     epic: 10
-    action: "Backing out of calibration opened from the Quick Scan corner view shows the calibration offer again at once from the stale light hold; clear the hold or offer on return (low, Learner-visible; deferred from 10.19, app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt:173)"
+    action: "Backing out of calibration opened from the Quick Scan corner view shows the calibration offer again at once from the stale light hold; clear the hold or offer on return (low, Learner-visible; deferred from 10.19, app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt:173); built in Story 10.21"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-19-quick-scan-reads-the-side-faces-in-good-light.md"
