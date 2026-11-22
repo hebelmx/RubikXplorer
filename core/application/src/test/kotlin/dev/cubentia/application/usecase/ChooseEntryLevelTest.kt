@@ -104,9 +104,9 @@ class ChooseEntryLevelTest {
             assertEquals(StageStatus.COMPLETED, before[course[0].id])
             assertEquals(StageStatus.SKIPPED, before[course[1].id])
 
-            val write = ChooseEntryLevel(repo)(EntryLevel.FIRST_TWO_LAYERS, course, twoLook, t0)
+            val write = ChooseEntryLevel(repo)(EntryLevel.FIRST_TWO_LAYERS, course, twoLook, t0, mastered = mastered)
 
-            val expected = skipped(listOf(course[2].id, course[3].id)) + ProgressEvent.StageUnlocked(stage5, t0)
+            val expected = skipped(listOf(course[3].id)) + ProgressEvent.StageUnlocked(stage5, t0)
             assertEquals(ProgressWrite.Written(expected), write)
             assertTrue(repo.events.none { it is ProgressEvent.ProgressReset })
             assertEquals(seed, repo.events.take(seed.size))
@@ -114,6 +114,21 @@ class ChooseEntryLevelTest {
             assertEquals(StageStatus.COMPLETED, after[course[0].id])
             assertEquals(StageStatus.SKIPPED, after[course[1].id])
             assertEquals(StageStatus.MASTERED, after[course[2].id])
+        }
+
+    @Test
+    fun `a MASTERED Stage gets no skip event`() =
+        runBlocking {
+            val mastered = setOf(course[0].id)
+            val repo = Repo()
+            assertEquals(StageStatus.MASTERED, StageProgress.status(course[0], course, repo.events, mastered))
+
+            val write = ChooseEntryLevel(repo)(EntryLevel.BEGINNER_METHOD, course, twoLook, t0, mastered = mastered)
+
+            val expected = skipped(course.drop(1).map { it.id }) + ProgressEvent.StageUnlocked(oll, t0)
+            assertEquals(ProgressWrite.Written(expected), write)
+            assertTrue(repo.events.none { it is ProgressEvent.StageSkippedByChoice && it.stageId == course[0].id })
+            assertEquals(StageStatus.MASTERED, StageProgress.status(course[0], course, repo.events, mastered))
         }
 
     @Test

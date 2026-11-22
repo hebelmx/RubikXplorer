@@ -108,6 +108,7 @@ import dev.cubentia.domain.lastlayer.LastLayerMatcherResult
 import dev.cubentia.domain.lastlayer.RecognitionDiagram
 import dev.cubentia.domain.lastlayer.RecognitionDiagramResult
 import dev.cubentia.domain.recognition.PhysicalObservation
+import dev.cubentia.domain.tutor.Mastery
 import dev.cubentia.domain.tutor.StageProgress
 import dev.cubentia.domain.tutor.StageStatus
 import dev.cubentia.domain.tutor.TeachingMode
@@ -478,7 +479,15 @@ private fun ShellContent(
         entryLevelSaving = true
         entryLevelFailed = false
         scope.launch {
-            val saved = host.chooseEntryLevel(level, bundle.stages, bundle.twoLookStages)
+            // A MASTERED Stage is never skipped (AD-10): pass the current-epoch mastered Stages.
+            val mastered =
+                Mastery.masteredStages(
+                    bundle.stages + bundle.twoLookStages,
+                    attemptRecords,
+                    progressEvents,
+                    bundle.tutorConfig.mastery,
+                )
+            val saved = host.chooseEntryLevel(level, bundle.stages, bundle.twoLookStages, mastered)
             entryLevelSaving = false
             if (!saved) {
                 entryLevelFailed = true

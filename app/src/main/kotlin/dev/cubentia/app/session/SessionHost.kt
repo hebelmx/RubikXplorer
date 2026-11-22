@@ -608,19 +608,20 @@ class SessionHost internal constructor(
         level: EntryLevel,
         courseStages: List<Stage>,
         twoLookStages: List<Stage>,
+        mastered: Set<StageId> = emptySet(),
     ): Boolean {
         val useCase = entryLevelUseCase
         if (useCase == null) {
             return withContext(confined) {
-                memoryEntryLevel(level, courseStages, twoLookStages, at = clock.now()) is ProgressWrite.Written
+                memoryEntryLevel(level, courseStages, twoLookStages, at = clock.now(), mastered = mastered) is ProgressWrite.Written
             }
         }
         val result =
             try {
                 if (writer != null) {
-                    writer.read { useCase(level, courseStages, twoLookStages, at = clock.now()) }
+                    writer.read { useCase(level, courseStages, twoLookStages, at = clock.now(), mastered = mastered) }
                 } else {
-                    useCase(level, courseStages, twoLookStages, at = clock.now())
+                    useCase(level, courseStages, twoLookStages, at = clock.now(), mastered = mastered)
                 }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled

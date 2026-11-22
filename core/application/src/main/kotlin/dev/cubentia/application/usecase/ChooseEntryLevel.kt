@@ -26,7 +26,8 @@ enum class EntryLevel {
 
 /**
  * Single writer for [ProgressEvent.StageSkippedByChoice] (FR-4, FR-19, AD-10): only adds, never
- * downgrades. It skips only planned Stages that are `LOCKED` or `IN_PROGRESS` on the loaded log and
+ * downgrades. It skips only planned Stages that are `LOCKED` or `IN_PROGRESS` on the loaded log (with the
+ * caller's current-epoch `mastered` Stages, so a `MASTERED` Stage is never skipped) and
  * unlocks the target Stage only while it is `LOCKED`; it never writes [ProgressEvent.ProgressReset]
  * and never touches Lesson completions, Checkpoints, attempts or Algorithm Statuses.
  */
@@ -40,6 +41,7 @@ class ChooseEntryLevel(
         at: Instant = Instant.fromEpochMilliseconds(0),
         sessionId: String = "",
         revision: Long = -1L,
+        mastered: Set<StageId> = emptySet(),
     ): ProgressWrite {
         val plan =
             when (val planned = plan(level, courseStages, twoLookStages)) {
@@ -55,12 +57,12 @@ class ChooseEntryLevel(
         val skippedEvents =
             plan.skipped
                 .filter { stage ->
-                    val status = StageProgress.status(stage, plan.stages, existing)
+                    val status = StageProgress.status(stage, plan.stages, existing, mastered)
                     status == StageStatus.LOCKED || status == StageStatus.IN_PROGRESS
                 }.map { stage -> ProgressEvent.StageSkippedByChoice(stage.id, at) }
         val unlockedEvents =
             plan.target
-                ?.takeIf { target -> StageProgress.status(target, plan.stages, existing) == StageStatus.LOCKED }
+                ?.takeIf { target -> StageProgress.status(target, plan.stages, existing, mastered) == StageStatus.LOCKED }
                 ?.let { target -> listOf(ProgressEvent.StageUnlocked(target.id, at)) }
                 .orEmpty()
         val newEvents = skippedEvents + unlockedEvents

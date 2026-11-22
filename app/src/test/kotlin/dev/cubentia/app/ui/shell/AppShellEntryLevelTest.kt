@@ -416,6 +416,26 @@ class AppShellEntryLevelTest {
     }
 
     @Test
+    fun `a scan from the sheet that returns after leaving Learn shows no Placement`() {
+        show(welcome = false, placement = true)
+        openSheet()
+        rule.onNodeWithTag("findMyPlace:scan").performClick()
+        assertEquals(1, scanCount)
+        waitGone("findMyPlace:scan")
+
+        rule.onNodeWithTag("nav:library").performClick()
+        rule.waitForIdle()
+        rule.runOnIdle { flow.onScanOutcome(ScanOutcome.Accepted(entry("lesson-03-01"))) }
+        rule.waitForIdle()
+        rule.onNodeWithTag("placement:screen").assertDoesNotExist()
+
+        rule.onNodeWithTag("nav:learn").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("placement:screen").assertDoesNotExist()
+        assertTrue(records.isEmpty())
+    }
+
+    @Test
     fun `Not sure Scan my cube on the picker opened from Learn runs Placement and closing returns to the picker`() {
         show(welcome = false, placement = true)
         openPickerFromLearn()
