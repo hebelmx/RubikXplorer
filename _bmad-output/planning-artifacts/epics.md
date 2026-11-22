@@ -3475,13 +3475,13 @@ As a Learner,
 I want a solution for my cube that follows the beginner method I'm learning,
 So that each part matches a Stage I know.
 
-**Refs:** FR-30, FR-15, FR-4 · AD-6, AD-8, AD-21 · NFR-3, NFR-12
+**Refs:** FR-30, FR-15, FR-4 · AD-6, AD-8, AD-19, AD-21 · NFR-3, NFR-12
 
 **Acceptance Criteria:**
 
 **Given** any valid `CubeState`
 **When** `MethodSolve(BEGINNER)` runs as an Effect with a timeout
-**Then** it returns segments tagged with Course Stage IDs in order (cross, first-layer corners, middle layer, last-layer orientation, last-layer completion), each found by the bounded `preservedPieces` search (the `RecoveryPlanner` search) against that Stage's completion predicate, never by calling `CubeSolver` (AD-8, AD-21)
+**Then** it returns segments tagged with Course Stage IDs in order (cross, first-layer corners, middle layer, last-layer orientation, last-layer completion), never by calling `CubeSolver` (AD-8, AD-21): the first-two-layer segments (Stages 2–4) are each found by the bounded `preservedPieces` search (the `RecoveryPlanner` search) against that Stage's completion predicate, and the last-layer segments (Stages 5–6) use `LastLayerMatcher` (AD-19) with the Stages 5–6 Lessons' Algorithms *(SCP 2026-11-22 epic-15-ac-wording: aligned with AD-21, PO decision 2026-11-22)*
 
 **Given** the FR-15 corpus (solved plus ≥ 10,000 random legal states)
 **When** the JVM suite applies each result to its input
@@ -3499,11 +3499,11 @@ So that the solution drills the Algorithms I chose.
 
 **Given** a cube after the first two layers
 **When** `MethodSolve` runs with `TWO_LOOK` or `FULL_OLL_PLL`
-**Then** the last-layer segments use only Library Algorithms matched through `LastLayerMatcher` (2-look: the 2-look Lessons' Algorithms; full: one per Case), tagged with Case IDs, and when more than one fits, an Algorithm with status *Learning* or *Learned* wins
+**Then** the last-layer segments use only Library Algorithms matched through `LastLayerMatcher` (2-look: the 2-look Lessons' Algorithms; full: one per Case), tagged with Case IDs, and when more than one fits, an Algorithm with status *Learning* or *Learned* wins; the first last-layer segment starts with one Cube Rotation that brings yellow to U (`z2` for the usual hold; none when yellow is already on U), then each Algorithm plays exactly as written, with U adjustments; the final AUF joins the last Case segment, and a lone AUF (no Case) is one segment tagged with the method's last-layer Stage *(SCP 2026-11-22 epic-15-ac-wording: 15.2 PO clarifications 1–2, 2026-11-22)*
 
 **Given** the corpus
 **When** verified
-**Then** every result solves its input and uses only Algorithms of the chosen set plus U adjustments
+**Then** every result solves its input and uses only Algorithms of the chosen set plus U adjustments and the one leading Cube Rotation
 
 ### Story 15.3: Choose a solution style in Solution Playback
 
@@ -3517,7 +3517,7 @@ So that I can watch how I would solve this cube.
 
 **Given** Solution Playback from the Solve tab
 **When** it opens
-**Then** it shows *Shortest* (the optimal solution) by default, with a *Solution style* control offering *Beginner*, *2-look* and *Full OLL + PLL*, the suggested method preselected from progress
+**Then** *Shortest* (the optimal solution) is selected and plays by default, with a *Solution style* control offering *Beginner*, *2-look* and *Full OLL + PLL*; the method suggested from progress is not preselected: its chip carries a "Suggested" badge, and one tap starts it *(SCP 2026-11-22 epic-15-ac-wording: PO decision 2026-11-22)*
 
 **Given** a method style
 **When** chosen
