@@ -131,7 +131,10 @@ internal object CornerModelTransform {
 
     /**
      * Decodes `[presence, T.x, T.y, ..., C.x, C.y]` model output into frame-pixel face quads, guarded by
-     * [presenceThreshold] and [CornerLocator.isValidCubeGeometry]. Returns `null` on low presence or invalid geometry.
+     * [presenceThreshold] and [CornerLocator.isValidCubeGeometry]. Returns `null` on non-finite values, on presence or
+     * any normalized keypoint coordinate outside the closed range `[0, 1]` (never clamped), on low presence, or on
+     * invalid geometry. The model head is a sigmoid (`tools/corner-model/train_corner_model.py`), so a value outside
+     * `[0, 1]` means a wrong or mis-exported model and is rejected rather than clamped.
      */
     fun decode(
         output: FloatArray,
@@ -141,6 +144,9 @@ internal object CornerModelTransform {
         if (output.size < OUTPUT_FLOATS) return null
         for (i in 0 until OUTPUT_FLOATS) {
             if (!output[i].isFinite()) return null
+        }
+        for (i in 0 until OUTPUT_FLOATS) {
+            if (output[i] !in 0f..1f) return null
         }
         val presence = output[0]
         if (presence < presenceThreshold) return null

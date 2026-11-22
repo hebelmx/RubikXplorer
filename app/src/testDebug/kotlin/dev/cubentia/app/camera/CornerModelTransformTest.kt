@@ -2,6 +2,7 @@ package dev.cubentia.app.camera
 
 import dev.cubentia.app.camera.corner.CornerModelTransform
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -121,5 +122,126 @@ class CornerModelTransformTest {
         val guide = CornerGuide(grid(240, 320, 0), 0)
         val collapsed = FloatArray(CornerModelTransform.OUTPUT_FLOATS) { 0.5f }.also { it[0] = 0.99f }
         assertNull(CornerModelTransform.decode(collapsed, guide))
+    }
+
+    @Test
+    fun `decode rejects presence outside 0 to 1 and accepts presence exactly 1 (#270)`() {
+        for (rotation in listOf(0, 90, 180, 270)) {
+            val (guide, output) = validOutput(rotation)
+
+            val above = output.copyOf().also { it[0] = 1.2f }
+            assertNull(CornerModelTransform.decode(above, guide), "rot=$rotation presence=1.2")
+
+            // Threshold below zero so only the range check can reject a negative presence.
+            val below = output.copyOf().also { it[0] = -0.1f }
+            assertNull(CornerModelTransform.decode(below, guide, presenceThreshold = -1f), "rot=$rotation presence=-0.1")
+
+            val exactlyOne = output.copyOf().also { it[0] = 1.0f }
+            val located = CornerModelTransform.decode(exactlyOne, guide)
+            assertNotNull(located, "rot=$rotation presence=1.0")
+            assertEquals(3, located!!.quads.size)
+
+            val exactlyZero = output.copyOf().also { it[0] = 0.0f }
+            assertNotNull(CornerModelTransform.decode(exactlyZero, guide, presenceThreshold = -1f), "rot=$rotation presence=0.0")
+        }
+    }
+
+    @Test
+    fun `decode rejects any keypoint u or v outside 0 to 1 (#270)`() {
+        for (rotation in listOf(0, 90, 180, 270)) {
+            val (guide, output) = validOutput(rotation)
+            for (idx in 1 until CornerModelTransform.OUTPUT_FLOATS) {
+                for (bad in listOf(-0.05f, 1.05f)) {
+                    val perturbed = output.copyOf().also { it[idx] = bad }
+                    assertNull(CornerModelTransform.decode(perturbed, guide), "rot=$rotation index=$idx value=$bad")
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `decode rejects out-of-range keypoints even when cube geometry would pass and accepts exact bounds (#270)`() {
+        for (rotation in listOf(0, 90, 180, 270)) {
+            // A cube that nearly fills the crop puts outer keypoints close to the [0, 1] edges.
+            val (guide, output) = validOutput(rotation, cubeRadiusScale = 1.5)
+            val center = guide.vertices().last()
+            val half = guide.radius * CornerModelTransform.CROP_RADIUS_MULTIPLIER
+            var checked = 0
+            assertNotNull(CornerModelTransform.decode(output, guide), "rot=$rotation baseline must be valid")
+            for (idx in 1 until CornerModelTransform.OUTPUT_FLOATS) {
+                // Only coordinates already near an edge can be pushed past it without breaking the cube shape.
+                if (minOf(output[idx], 1f - output[idx]) > 0.06f) continue
+                checked++
+                val towardOne = output[idx] >= 0.5f
+                val bound = if (towardOne) 1.0f else 0.0f
+                val beyond = if (towardOne) 1.01f else -0.01f
+
+                val atBound = output.copyOf().also { it[idx] = bound }
+                assertNotNull(CornerModelTransform.decode(atBound, guide), "rot=$rotation index=$idx value=$bound")
+
+                val outOfRange = output.copyOf().also { it[idx] = beyond }
+                val mapped =
+                    List(CornerModelTransform.NUM_KEYPOINTS) { k ->
+                        CornerModelTransform.cropToFrame(
+                            outOfRange[1 + k * 2].toDouble(),
+                            outOfRange[2 + k * 2].toDouble(),
+                            center.x,
+                            center.y,
+                            half,
+                            rotation,
+                        )
+                    }
+                assertTrue(CornerLocator.isValidCubeGeometry(mapped, guide), "rot=$rotation index=$idx geometry should pass")
+                assertNull(CornerModelTransform.decode(outOfRange, guide), "rot=$rotation index=$idx value=$beyond")
+            }
+            assertTrue(checked >= 2, "rot=$rotation expected near-edge keypoint coordinates, got $checked")
+        }
+    }
+
+    @Test
+    fun `out-of-range decode output never reaches face unwarping through CornerReader (#270)`() {
+        val (guide, output) = validOutput(0)
+        val frame = BufferedImage(240, 320, BufferedImage.TYPE_INT_RGB).toCornerFrame()
+
+        fun readWith(modelOutput: FloatArray): Pair<CornerFrame, CornerLocator.Location?> {
+            var located: CornerLocator.Location? = null
+            val detector =
+                CornerDetector { _, g -> CornerModelTransform.decode(modelOutput, g).also { located = it } }
+            return CornerReader.read(frame, guide, detector = detector) to located
+        }
+
+        val badPresence = output.copyOf().also { it[0] = 1.2f }
+        val badUv = output.copyOf().also { it[1] = 1.05f }
+        for ((name, bad) in listOf("presence=1.2" to badPresence, "T.x=1.05" to badUv)) {
+            val (corner, located) = readWith(bad)
+            assertNull(located, name)
+            assertFalse(corner.detected, name)
+            assertTrue(corner.faces.all { it == null }, name)
+        }
+
+        // Non-vacuous: the same path with the valid output hands quads to unwarping.
+        val (_, validLocated) = readWith(output)
+        assertNotNull(validLocated)
+        assertEquals(3, validLocated!!.quads.size)
+    }
+
+    private fun validOutput(
+        rotation: Int,
+        cubeRadiusScale: Double = 0.82,
+    ): Pair<CornerGuide, FloatArray> {
+        val width = if (rotation % 180 == 0) 240 else 320
+        val height = if (rotation % 180 == 0) 320 else 240
+        val guide = CornerGuide(grid(width, height, rotation), rotation)
+        val center = guide.vertices().last()
+        val half = guide.radius * CornerModelTransform.CROP_RADIUS_MULTIPLIER
+        val pts = CornerLocator.projectCube(center, guide.radius * cubeRadiusScale, rotation, 32.0, -8.0, 6.0, 0.22)
+        val output = FloatArray(CornerModelTransform.OUTPUT_FLOATS)
+        output[0] = 0.91f
+        pts.forEachIndexed { idx, p ->
+            val uv = CornerModelTransform.frameToCrop(p.x, p.y, center.x, center.y, half, rotation)
+            output[1 + idx * 2] = uv.x.toFloat()
+            output[2 + idx * 2] = uv.y.toFloat()
+        }
+        return guide to output
     }
 }
