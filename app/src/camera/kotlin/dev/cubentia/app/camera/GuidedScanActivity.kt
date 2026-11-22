@@ -421,7 +421,12 @@ class GuidedScanActivity : ComponentActivity() {
 
             is GuidedScanPhase.CornerViewfinder -> {
                 analyzerExecutor.execute {
-                    if (scan.caseCorners != null) captureCase { it.onShutter() } else captureCorner { it.onShutter() }
+                    if (scan.caseCorners != null) {
+                        captureCase { it.onShutter() }
+                    } else {
+                        // Story 10.22: a manual capture is logged as trigger=manual, at the time of the press.
+                        captureCorner { it.onShutter(SystemClock.elapsedRealtime()) }
+                    }
                 }
             }
 
@@ -455,7 +460,8 @@ class GuidedScanActivity : ComponentActivity() {
         if (phase !is GuidedScanPhase.CornerViewfinder || !scan.quickScanMode) return
         analyzerExecutor.execute {
             val quick = scan.quickScan ?: return@execute
-            val effect = logLightHold(quick, SystemClock.elapsedRealtime()) { quick.switchToFaceByFace() } ?: return@execute
+            val effect = quick.switchToFaceByFace() ?: return@execute
+            quick.drainEvents().forEach(ScanDiagnostics::onHoldEvent)
             val next = GuidedScanFlow.phaseOf(quick)
             val review = quickReview(effect as? QuickScanEffect.Done)
             ContextCompat.getMainExecutor(this).execute {
@@ -522,6 +528,15 @@ class GuidedScanActivity : ComponentActivity() {
         if (!previewReady || cameraStarted || !hasPermission() || !scan.calibrationLoaded || !cameraPhase()) return
         cameraStarted = true
         frameSource.cornerMode(phase is GuidedScanPhase.CornerViewfinder)
+        if (phase is GuidedScanPhase.CornerViewfinder) {
+            // Story 10.22: the hold's timeline starts when its viewfinder opens (analyzer thread owns the controller).
+            val entered = SystemClock.elapsedRealtime()
+            analyzerExecutor.execute {
+                val quick = scan.quickScan ?: return@execute
+                quick.viewEntered(entered)
+                quick.drainEvents().forEach(ScanDiagnostics::onHoldEvent)
+            }
+        }
         frameSource.start(this, analyzerExecutor, ::analyze) { if (cameraPhase()) phase = GuidedScanPhase.Unavailable }
     }
 
@@ -584,13 +599,15 @@ class GuidedScanActivity : ComponentActivity() {
             // torch change re-meters only once the camera applied it.
             val flash = frameSource.hasFlashUnit()
             if (flash != null && flash != scan.hasFlash) ContextCompat.getMainExecutor(this).execute { scan.hasFlash = flash }
-            // The torch turning on clears a running light hold (PO 2026-11-21): logged like any other clear.
-            logLightHold(quick, now) { GuidedScanFlow.syncTorch(quick, flash, scan.torchOn, frameSource.torchApplied(), now) }
+            // The torch turning on clears a running light fail (PO 2026-11-21): logged on the hold's timeline.
+            GuidedScanFlow.syncTorch(quick, flash, scan.torchOn, frameSource.torchApplied(), now)
             val settled = frameSource.settled()
+            // Story 10.22: the outline crosses to the domain as plain coordinates; steadiness and re-metering follow it.
+            val outline = GuidedScanFlow.outlineOf(corner)
             val quads = scan.cornerOverlaySmoother.update(corner.normalizedQuads)
             ContextCompat.getMainExecutor(this).execute { scan.detectedCornerQuads = quads }
             // The light check runs in the domain over these faces (calibrated when a saved calibration exists).
-            val measured = captureCorner { it.onFrame(corner.detected, corner.faces, now, settled) }
+            val measured = captureCorner { it.onFrame(corner.detected, corner.faces, now, settled, outline) }
             // A frozen frame is not run through the domain: its verdict is not this frame's, so none is logged.
             dev.cubentia.app.ScanDiagnostics
                 .onCornerFrame(
@@ -602,10 +619,6 @@ class GuidedScanActivity : ComponentActivity() {
                     quick.lightHeld,
                     quick.torchOn,
                 )
-            if (measured) {
-                quick.steadyRestart?.let { ScanDiagnostics.onSteadyRestart(now, it.face, it.cells, it.maxDeltaE) }
-                quick.centerBlock?.let { ScanDiagnostics.onCenterBlock(now, it) }
-            }
             return
         }
         if (frame.corner != null) return
@@ -641,7 +654,12 @@ class GuidedScanActivity : ComponentActivity() {
         val now = SystemClock.elapsedRealtime()
         if (scan.freeze.isFrozen(now) || !quick.inCorner) return false
         val offered = quick.calibrationOffered
-        val effects = logLightHold(quick, now) { decision(quick) }
+        val effects = decision(quick)
+        // Story 10.22: every state change of the hold, as it happens, with its time since the hold began.
+        val events = quick.drainEvents()
+        events.forEach(ScanDiagnostics::onHoldEvent)
+        // A lost cube ends the exposure lock (once, as it becomes lost); the next detection re-meters.
+        if (events.any { it.kind == dev.cubentia.domain.recognition.CornerHoldEventKind.CUBE_LOST }) frameSource.releaseExposure()
         if (!offered && quick.calibrationOffered) {
             ScanDiagnostics.onCalibrationOffer(hold = quick.hold, heldMs = quick.lightHeldSince?.let { now - it })
         }
@@ -649,6 +667,8 @@ class GuidedScanActivity : ComponentActivity() {
         if (capture != null) {
             scan.freeze.start(now)
             quick.lastCapture?.let(ScanDiagnostics::onCornerCapture)
+            // Story 10.22: the exposure lock ends with the capture; hold 1's white balance is carried to hold 2.
+            frameSource.releaseExposure()
         }
         val next = GuidedScanFlow.phaseOf(quick)
         val review = quickReview(effects.filterIsInstance<QuickScanEffect.Done>().firstOrNull())
@@ -675,21 +695,6 @@ class GuidedScanActivity : ComponentActivity() {
         // the corner view: the source also skips it once corner mode is off (the Guided grid took over meanwhile).
         if (QuickScanEffect.Remeter in effects && phase is GuidedScanPhase.CornerViewfinder) frameSource.meterCube(includeAwb = includeAwb)
         return true
-    }
-
-    /** Runs [block] on [quick] and logs a light hold it started or cleared (also by a reset: face by face, a capture). */
-    private fun <T> logLightHold(
-        quick: QuickScanController,
-        now: Long,
-        block: () -> T,
-    ): T {
-        val wasHeld = quick.lightHeld
-        val heldSince = quick.lightHeldSince
-        return block().also {
-            GuidedScanFlow.lightHoldChange(wasHeld, heldSince, quick.lightHeld, now)?.let { (started, heldMs) ->
-                ScanDiagnostics.onLightHold(started = started, heldMs = heldMs)
-            }
-        }
     }
 
     private fun quickReview(done: QuickScanEffect.Done?): GuidedScanPhase.Review? =

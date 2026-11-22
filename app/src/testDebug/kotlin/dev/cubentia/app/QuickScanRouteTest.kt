@@ -90,8 +90,11 @@ class QuickScanRouteTest {
 
     @Test fun onlyTheUncertainFaceUsesTheGuidedGrid() = scan(uncertain = true)
 
-    /** Story 10.19: the activity feeds the corner faces to the domain's light check, which holds a backlit corner. */
-    @Test fun aBacklitCornerIsHeldAndCapturesOnceTheSidesAreLit() {
+    /**
+     * Stories 10.19 and 10.22: the activity feeds the corner faces to the domain's light check. A backlit corner is flagged
+     * for coaching, and the check holds nothing back: the shutter captures it, logged with its trigger and the failing light.
+     */
+    @Test fun aBacklitCornerIsCoachedAndStillCapturesOnAPress() {
         val main = Robolectric.buildActivity(MainActivity::class.java).setup()
         try {
             rule.waitUntil(10_000) { rule.onAllNodesWithTag("welcome:imNew").fetchSemanticsNodes().isNotEmpty() }
@@ -110,24 +113,21 @@ class QuickScanRouteTest {
                 // Hold 1's sides (Green, Red) 40 L* darker than the White top: the light behind the cube.
                 shade = 40.0
                 shadedColors = setOf(Color.GREEN, Color.RED)
-                // The first frame re-meters onto the cube and holds nothing; the hold starts once metering has settled.
+                // The first frame re-meters onto the cube and flags nothing; the fail starts once metering has settled.
                 val dark = QuickScanPlan.holds[0].map { step -> stats(step.centerColor) }
                 camera.feed(ScanFrame(dark.first(), 0, corner = CornerFrame(true, dark)))
-                assertTrue("no hold on the first frame", !checkNotNull(model.quickScan).lightHeld)
+                assertTrue("nothing flagged on the first frame", !checkNotNull(model.quickScan).lightHeld)
                 shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(600))
-                captureHold(1, uncertain = false, model = model)
-                assertTrue("held by the light check", checkNotNull(model.quickScan).lightHeld)
+                camera.feed(ScanFrame(dark.first(), 0, corner = CornerFrame(true, dark)))
+                assertTrue("the failing light is flagged", checkNotNull(model.quickScan).lightHeld)
                 rule.onNodeWithTag("quickScan:counter").assertTextEquals("1 / 2")
-                rule.onNodeWithTag("quickScan:faceByFace").assertExists()
-                // The Learner turns toward the light: the check passes for half a second while steady, then a press captures.
-                shade = 0.0
-                val lit = QuickScanPlan.holds[0].map { step -> stats(step.centerColor) }
-                camera.feed(ScanFrame(lit.first(), 0, corner = CornerFrame(true, lit)))
-                shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(600))
-                camera.feed(ScanFrame(lit.first(), 0, corner = CornerFrame(true, lit)))
-                assertTrue("the hold cleared", !checkNotNull(model.quickScan).lightHeld)
+                ShadowLog.clear()
                 shutter(model)
                 rule.onNodeWithTag("quickScan:counter").assertTextEquals("2 / 2")
+                val lines = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }
+                val capture = lines.single { it.startsWith("quickScan capture hold=1 ") && it.contains("totalMs=") }
+                assertTrue(capture, capture.contains(" trigger=manual ") && capture.contains(" light=fail "))
+                assertTrue(lines.toString(), lines.any { Regex("""quickScan capture hold=1 t=\d+ trigger=manual""").matches(it) })
             } finally {
                 scan.pause().stop().destroy()
             }
@@ -236,9 +236,14 @@ class QuickScanRouteTest {
                 waitForCamera(corner = true)
                 val model = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
                 camera.meterCalls.clear()
+                camera.cubeMeterCalls.clear()
+                camera.releases.set(0)
                 holdSteady(1, model)
+                assertEquals("one exposure release per capture", 1, camera.releases.get())
                 holdSteady(2, model)
                 assertEquals(listOf(true, false), camera.meterCalls)
+                assertEquals("both holds meter on the cube", listOf(true, false), camera.cubeMeterCalls.toList())
+                assertEquals("one exposure release per capture", 2, camera.releases.get())
             } finally {
                 scan.pause().stop().destroy()
             }
@@ -612,6 +617,71 @@ class QuickScanRouteTest {
     }
 
     /** Opens Quick Scan from the Solve tab (`solve:quickScan`) and runs [body] on its activity once the corner camera runs. */
+    private fun diagLines() = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }
+
+    /** A detected hold-1 frame whose outline (bounding box 300 × 400 px, diagonal 500) is shifted [dx] px. */
+    private fun outlined(dx: Double): ScanFrame {
+        val faces = QuickScanPlan.holds[0].map { step -> stats(step.centerColor) }
+        val p = listOf(150.0 to 0.0, 300.0 to 100.0, 150.0 to 200.0, 0.0 to 100.0, 0.0 to 300.0, 150.0 to 400.0, 300.0 to 300.0)
+        val quads =
+            listOf(listOf(p[0], p[1], p[2], p[3]), listOf(p[3], p[2], p[5], p[4]), listOf(p[2], p[1], p[6], p[5]))
+                .map { quad ->
+                    quad.map { (x, y) ->
+                        dev.cubentia.app.camera
+                            .CornerPoint(x + dx, y)
+                    }
+                }
+        return ScanFrame(faces.first(), 0, corner = CornerFrame(true, faces, frameQuads = quads))
+    }
+
+    /** Story 10.22: the corner view's opening and its first frame start the hold's timeline. */
+    @Test fun openingTheCornerViewLogsTheViewfinderEntryAndThenTheFirstFrame() {
+        quickScanActivity { _, model ->
+            model.analyzerExecutor.submit {}.get()
+            assertTrue(diagLines().toString(), "quickScan viewfinder hold=1 t=0" in diagLines())
+            assertTrue(diagLines().none { it.startsWith("quickScan firstFrame") })
+            camera.feed(outlined(0.0))
+            assertTrue(diagLines().toString(), diagLines().any { Regex("""quickScan firstFrame hold=1 t=\d+""").matches(it) })
+        }
+    }
+
+    /** Story 10.22: the activity passes the detected outline on; steadiness and re-metering follow it. */
+    @Test fun theOutlineMovingRestartsTheSteadyWindowAndLeavingTheMeteredRegionRemeters() {
+        quickScanActivity { _, _ ->
+            camera.cubeMeterCalls.clear()
+            camera.feed(outlined(0.0))
+            assertEquals(listOf(true), camera.cubeMeterCalls.toList())
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(650))
+            camera.feed(outlined(0.0))
+            // 75 px of a 500 px diagonal: beyond the steady fraction, inside the metered region.
+            camera.feed(outlined(75.0))
+            val restart = Regex("""quickScan steadyRestart hold=1 t=\d+ reason=outline amount=0\.150""")
+            assertTrue(diagLines().toString(), diagLines().any(restart::matches))
+            assertEquals(1, camera.cubeMeterCalls.size)
+            // 175 px from where it was metered: the cube left the metered region, one more metering on the cube.
+            camera.feed(outlined(175.0))
+            assertEquals(listOf(true, true), camera.cubeMeterCalls.toList())
+            val remeter = Regex("""quickScan meteringRequested hold=1 t=\d+ reason=outline amount=0\.350""")
+            assertTrue(diagLines().toString(), diagLines().any(remeter::matches))
+        }
+    }
+
+    /** Story 10.22: a lost cube ends the exposure lock, once. */
+    @Test fun losingTheCubeReleasesTheExposureLockOnce() {
+        quickScanActivity { _, _ ->
+            val gone = ScanFrame(outlined(0.0).stats, 0, corner = CornerFrame(false, List(3) { null }))
+            camera.feed(outlined(0.0))
+            camera.feed(gone)
+            assertEquals("a short gap keeps the lock", 0, camera.releases.get())
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(350))
+            camera.feed(gone)
+            assertEquals(1, camera.releases.get())
+            assertTrue(diagLines().toString(), diagLines().any { it.startsWith("quickScan cubeLost hold=1 ") })
+            camera.feed(gone)
+            assertEquals("released once, as the cube becomes lost", 1, camera.releases.get())
+        }
+    }
+
     private fun quickScanActivity(
         body: (org.robolectric.android.controller.ActivityController<GuidedScanActivity>, GuidedScanViewModel) -> Unit,
     ) {
@@ -649,14 +719,17 @@ class QuickScanRouteTest {
         rule.waitForIdle()
     }
 
-    /** Feeds one hold's corner frames over time with no shutter tap: remeter, settle, then 1000 ms steady. */
+    /**
+     * Feeds one hold's corner frames over time with no shutter tap: the frames that confirm the corner in view (Story
+     * 10.22: hold 2 needs the turn on consecutive frames), remeter, settle, then 1000 ms steady.
+     */
     private fun holdSteady(
         hold: Int,
         model: GuidedScanViewModel,
     ) {
         val faces = QuickScanPlan.holds[hold - 1].map { step -> stats(step.centerColor) }
         val frame = ScanFrame(faces.first(), 0, corner = CornerFrame(true, faces))
-        camera.feed(frame)
+        repeat(dev.cubentia.domain.recognition.QuickScanController.TURN_CONFIRM_FRAMES) { camera.feed(frame) }
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(650))
         camera.feed(frame)
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1050))
@@ -785,6 +858,21 @@ class QuickScanRouteTest {
 
         override fun meter(includeAwb: Boolean) {
             meterCalls += includeAwb
+        }
+
+        /** Story 10.22: each metering on the cube and each exposure release the activity asked for. */
+        val cubeMeterCalls = java.util.concurrent.CopyOnWriteArrayList<Boolean>()
+        val releases =
+            java.util.concurrent.atomic
+                .AtomicInteger()
+
+        override fun meterCube(includeAwb: Boolean) {
+            cubeMeterCalls += includeAwb
+            meter(includeAwb)
+        }
+
+        override fun releaseExposure() {
+            releases.incrementAndGet()
         }
 
         /** Story 10.19: whether the fake camera has a flash unit (null: unknown, as before a camera is bound). */

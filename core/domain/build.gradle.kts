@@ -21,6 +21,11 @@ tasks.test {
             repo.dir("app/src/main/res").asFileTree.matching { include("values*/strings.xml") },
         ).withPathSensitivity(PathSensitivity.RELATIVE)
         .withPropertyName("textScanSources")
+    // Story 10.22: the Quick Scan replay tests read the recorded bursts by file path.
+    inputs
+        .dir(repo.dir("docs/evidence/quick-scan-2026-11-22/bursts"))
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+        .withPropertyName("quickScanBursts")
 }
 
 // Offline evaluation tooling never enters the shipped main jar or Kover denominator.

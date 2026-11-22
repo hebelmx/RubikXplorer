@@ -14,6 +14,7 @@ import dev.cubentia.domain.recognition.GuidedScanController
 import dev.cubentia.domain.recognition.GuidedScanEffect
 import dev.cubentia.domain.recognition.GuidedScanPlan
 import dev.cubentia.domain.recognition.Lab
+import dev.cubentia.domain.recognition.OutlinePoint
 import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.recognition.QuickScanController
 import dev.cubentia.domain.recognition.ScanAssembler
@@ -261,20 +262,14 @@ internal object GuidedScanFlow {
     ) = quick.syncTorch(requested = hasFlash == true && torchOn, applied = applied, nowMs = nowMs)
 
     /**
-     * The light-hold diagnostic a controller step implies (Story 10.19): (true, null) when a hold started, (false, held ms)
-     * when one cleared, by passing the check or by a reset (face by face, a hand-over); null when nothing changed.
+     * The detected cube outline of [corner] for the domain (Story 10.22): the twelve quad points in analysis-frame
+     * pixels, as plain coordinates; null when no cube was detected.
      */
-    fun lightHoldChange(
-        wasHeld: Boolean,
-        heldSince: Long?,
-        nowHeld: Boolean,
-        nowMs: Long,
-    ): Pair<Boolean, Long?>? =
-        when {
-            wasHeld == nowHeld -> null
-            nowHeld -> true to null
-            else -> false to heldSince?.let { nowMs - it }
-        }
+    fun outlineOf(corner: CornerFrame): List<OutlinePoint>? =
+        corner.frameQuads
+            .flatten()
+            .map { OutlinePoint(it.x, it.y) }
+            .takeIf { corner.detected && it.isNotEmpty() }
 
     /** Whether the torch is physically on in [phase]: only in Quick Scan's corner view, with a flash unit, when chosen. */
     fun torchLit(

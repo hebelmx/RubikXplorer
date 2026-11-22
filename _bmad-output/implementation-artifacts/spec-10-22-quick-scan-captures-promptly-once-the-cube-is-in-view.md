@@ -2,7 +2,7 @@
 title: 'Story 10.22: Quick Scan captures promptly once the cube is in view'
 type: 'feature'
 created: '2026-11-22'
-status: 'in-progress'
+status: 'done'
 baseline_commit: 'eee7bbcf58d9855f09b1357f507b6f521203c1a4'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -69,14 +69,14 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `core/domain/.../recognition/CornerHold.kt` -- outline-based steady rule (largest corner displacement from the reference frame over the outline's bounding-box diagonal; colors only to detect a different face); light check advisory (coaching only, never blocks, never drops a press, clearing does not re-meter); re-meter triggers (lost, torch, outline outside the metered region, face brightness beyond a bound since metering); per-hold event list with elapsed ms -- AC2–AC4.
-- [ ] `core/domain/.../recognition/QuickScan.kt` -- pass the outline through `onFrame`; turn and pose checks skip non-plain centres and need the turn confirmed over several frames; `backOut` clears `previous` and the resumed hold's centres; capture report gains trigger, hold total ms, undetected ms, light score and pass/fail -- AC1, AC5, AC6.
-- [ ] `app/src/camera/.../ScanFrameSource.kt` -- settle on exposure time × ISO within a tolerance over a window after the metering future; AE lock from settle until capture or re-meter, AWB lock carried from hold 1 to hold 2; unlock on re-meter and on leaving the corner view; `lock=unsupported` path; CameraX logging limited to errors -- AC2.
-- [ ] `app/src/camera/.../GuidedScanActivity.kt`, `GuidedScanFlow.kt` -- wire outline, lock and events; log viewfinder entry and first frame; manual shutter marks `trigger=manual` -- AC1, AC4.
-- [ ] `app/src/debug/.../ScanDiagnostics.kt`, `app/src/release/.../ScanDiagnostics.kt` -- unthrottled state-change lines with `hold=` and `t=` ms; extended capture line -- AC1.
-- [ ] Tests -- rewrite light-hold tests to advisory; unit-test every matrix row; replay tests over the committed bursts (settle on still burst 1's exposure series; steady rule on all bursts; logo-centre hold 2; back-out then capture) -- all ACs.
-- [ ] `docs/evidence/10-22/README.md` -- threshold derivations with replay tables, the 2026-11-22 baseline, and an empty device-session table for the human gate.
-- [ ] `_bmad-output/implementation-artifacts/sprint-status.yaml` -- story status per the workflow.
+- [x] `core/domain/.../recognition/CornerHold.kt` -- outline-based steady rule (largest corner displacement from the reference frame over the outline's bounding-box diagonal; colors only to detect a different face); light check advisory (coaching only, never blocks, never drops a press, clearing does not re-meter); re-meter triggers (lost, torch, outline outside the metered region, face brightness beyond a bound since metering); per-hold event list with elapsed ms -- AC2–AC4.
+- [x] `core/domain/.../recognition/QuickScan.kt` -- pass the outline through `onFrame`; turn and pose checks skip non-plain centres and need the turn confirmed over several frames; `backOut` clears `previous` and the resumed hold's centres; capture report gains trigger, hold total ms, undetected ms, light score and pass/fail -- AC1, AC5, AC6.
+- [x] `app/src/camera/.../ScanFrameSource.kt` -- settle on exposure time × ISO within a tolerance over a window after the metering future; AE lock from settle until capture or re-meter, AWB lock carried from hold 1 to hold 2; unlock on re-meter and on leaving the corner view; `lock=unsupported` path; CameraX logging limited to errors -- AC2.
+- [x] `app/src/camera/.../GuidedScanActivity.kt`, `GuidedScanFlow.kt` -- wire outline, lock and events; log viewfinder entry and first frame; manual shutter marks `trigger=manual` -- AC1, AC4.
+- [x] `app/src/debug/.../ScanDiagnostics.kt`, `app/src/release/.../ScanDiagnostics.kt` -- unthrottled state-change lines with `hold=` and `t=` ms; extended capture line -- AC1.
+- [x] Tests -- rewrite light-hold tests to advisory; unit-test every matrix row; replay tests over the committed bursts (settle on still burst 1's exposure series; steady rule on all bursts; logo-centre hold 2; back-out then capture) -- all ACs.
+- [x] `docs/evidence/10-22/README.md` -- threshold derivations with replay tables, the 2026-11-22 baseline, and an empty device-session table for the human gate.
+- [x] `_bmad-output/implementation-artifacts/sprint-status.yaml` -- story status per the workflow.
 
 **Acceptance Criteria:**
 - AC1: Given a corner hold in a debug build, when it runs, then `CubentiaScanDiag` logs each state change as it happens with ms since the hold began (viewfinder entry, first frame, cube lost and found, pose rejected, metering requested and settled, light fail start and clear, steady restart, capture with `trigger=auto|manual`), each capture line carries the hold's total time, its undetected time, the light score and `light=pass|fail`, and steady-restart lines are not rate-limited.
@@ -89,9 +89,60 @@ context:
 
 ## Implementation Notes
 
+- **Thresholds (all replayed in `docs/evidence/10-22/README.md`):** outline steady fraction 0.10; different face = 2 plain centres changed by ΔE 15; settle = exposure time × ISO within 6% for 600 ms after the metering future (cap 1.5 s); re-meter at outline 0.30 of the metered diagonal or faces' mean luma changed 25% since the settle; turn confirmed on 3 consecutive detected frames with 2 plain centres changed.
+- **Domain:** `CornerHold` gains `outline` (`OutlinePoint` list), the drift re-meter triggers and a mark list; `lightHeld` keeps its name and now means "light failing, coached". `QuickScanController` gains `viewEntered`, `drainEvents`, `onShutter(nowMs)` and the extended `CornerCaptureReport`. `CenterCheck` compares plain centres only and blocks with at least two comparable.
+- **Manual shutter at hold 2:** a press needs the current frame to show another corner than the one just captured; only auto-capture needs the 3-frame confirmation.
+- **Adapter:** `SettleTracker` follows exposure time × ISO from the Camera2 capture results; `ExposureLocks` is the lock policy (AE from settle to capture or re-meter, AWB from hold 1's settle through hold 2), applied through `Camera2CameraControl` capture-request options and cleared on `cornerMode(false)` and `stop()`. New `ScanFrameSource.releaseExposure()` (default no-op). CameraX minimum logging level is ERROR.
+- **Diagnostics:** `onSteadyRestart`, `onCenterBlock` and `onLightHold` are replaced by `onHoldEvent` (one unthrottled line per state change); `GuidedScanFlow.lightHoldChange` is removed with them. `onMeteringSettled` carries `lock=`.
+- **Finding for the device session:** hand-held burst 2 reads its right face in 21 of 120 frames; the unchanged rule that all three faces must be readable completes no steady window on it as recorded (the steady rule alone completes six). Not changed here.
+- **Not verified here:** the AE/AWB lock and the settle signal on real cameras (no device in this run). AC7 stays open.
+
 ## Spec Change Log
 
 ## Review Triage Log
+
+### 2026-11-22 — Review pass 1 (blind hunter, edge-case hunter, verification gap)
+
+| # | Finding | Verdict | Evidence | Route |
+|---|---|---|---|---|
+| V1 | The activity is never shown to pass the outline to the controller | medium | Every `QuickScanRouteTest` frame is `CornerFrame(true, faces)`: `outlineOf` returns null, so dropping the argument keeps all tests green. | patch |
+| V2a | The activity's `releaseExposure()` and `meterCube` calls are unobserved | medium | `FakeCornerFrames` overrides neither. | patch |
+| V2b | Applying the Camera2 lock options is executed by no test | medium | Needs a bound camera; Robolectric has none. | defer (device session) |
+| V3 | `viewEntered` wiring for hold 1 is unobserved | low | Only domain tests call it; the route test's regexes pass without it. | patch |
+| B1 | `lock=on` is logged from the wanted state, not the camera's | medium | `lockExposure()` returns `ExposureLocks.label(wanted)`; `applyLocks` discards the future. AC7 evidence reads this word. | patch |
+| B2 | A locked exposure that leaves faces unreadable has no re-meter trigger | maybe-false | A quality failure only waits; whether a metered-on-cube lock yields unreadable faces needs a device hold showing `steadyRestart reason=quality` under `lock=on` until the cube is lost. Would be medium. | defer |
+| B3 | White balance is locked on an exposure-only settle | maybe-false | `SettleTracker` never reads the AWB state; needs the AWB state logged at lock time on a device. Would be medium. | defer |
+| B4 | A torch change at hold 2 keeps hold 1's white balance | medium | `includeAwb = quick.hold == 1` and `ExposureLocks.onMeter` keeps `awb` when AWB is not metered; before this story AWB was continuous. | patch (with E4) |
+| B5 | The two settle lines disagree on `timeout` | low | Adapter TIMEOUT returns settled=true, so the domain mark prints `timeout=false` for the same event. | patch |
+| B6 | No evidence for the metering future's latency | low | The window starts after the future; a future slower than 900 ms always ends at the cap, and the log cannot show it. | patch |
+| B7 | `sinceDetectedMs` at hold 2 includes the freeze and the turn | medium | `firstDetectedMs` is the first detected frame after the capture, normally the unturned corner; it is the 10 s measure. | patch |
+| B8 | AC3 holds for `handheld-2` only with the missing face filled in | medium | True as recorded: capture needs all three faces ACCEPTABLE, a rule that predates this story and is outside its intent. | defer (pre-existing; raised to the PO) |
+| B9 | Advisory light check has no downstream guard | false | PO decision 2026-11-22: the keep rule is unchanged and still discards a face with any sticker not CONFIDENT. | reject |
+| B10 | Calibration offer rarely reachable now | low | Real consequence of the PO's "keeps its 10.19 timing"; not a direct correction. | reject |
+| B11 | `turnedOver` counts a frame with nothing comparable as turned | low | Same as before this story (`if (!comparable) return true`), now behind a 3-frame confirmation. | reject |
+| B12 | Steady rule completes without an outline | false | The activity passes `frameQuads` on every detected frame; V1's test pins that. | reject |
+| B13 | Turn check has only negative recorded evidence | maybe-false | No burst shows a really turned logo cube; needs hold-2 timelines from the device session. Would be medium. | defer |
+| B14 | Thresholds fitted and checked on the same Lenovo bursts | medium | Acknowledged in the evidence README; S24 FE data comes with the device session. | defer |
+| B15 | `locks` is read-modify-written from two threads | medium | `cornerMode(false)` on main can race `lockExposure()` on the analyzer and leave a lock in the Guided grid. | patch |
+| B16 | `clearCaptureRequestOptions()` wipes all interop options | false | No other `Camera2CameraControl` use exists in `app/src`. | reject |
+| B17 | Diagnostics lost detail (per-position ΔE, quality face, shared `amount=`) | low | Cosmetic; AC1's events are all present. | reject |
+| B18 | Regenerated `epic-10-context.md` dropped constraints still in force | low | Privacy, size-gate and ownership lines are gone; fixed directly by the orchestrator (planning artifact, not story code). | fixed outside the patch |
+| B19 | `OUTLINE_STEADY_FRACTION` KDoc cites 0.074 and 0.060 | low | Those are the README's from-first-frame re-meter figures. | patch |
+| E1 | Cube lost keeps the exposure locked | medium | Matrix row "Cube lost: Unlock"; the activity releases only on capture. | patch |
+| E2 | A queued press is postponed by a drift re-meter | low | Needs 30% drift on each settle frame; reordering changes capture semantics. | reject |
+| E3 | Camera reporting no exposure values waits the cap on every metering | false | The frozen rule forbids settling on the AE state alone; the cap releases the wait. | reject |
+| E4 | Camera restart during hold 2 drops the AWB lock and never re-meters it | low | `stop()` clears locks; hold 2 meters without AWB (as before this story). Same root as B4. | patch (with B4) |
+| E5 | `onShutter()` without a time before any frame gives negative times | low | The activity always passes a time; the fallback is `0L`. | patch |
+| E6 | Time before a hold's first frame counts as undetected when that frame is undetected | low | Small mis-attribution, bounded by the freeze. | reject |
+| E7 | Turn frames add up across undetected frames | false | Documented design: consecutive *detected* frames; turning the cube passes through undetected frames. | reject |
+| E8 | Invalid outer cells count as comparable and unchanged in `turnedOver` | low | Centres are `isValid`-filtered, outer cells are not. | patch |
+| E9 | A light fail ended by a reset logs no clear | low | The capture line carries `light=fail` and ends the hold; `reset()` has no clock. | reject |
+| E10 | Per-position centre ΔE no longer logged | low | Same as B17. | reject |
+| E11 | Lock also applied at the settle cap | false | Spec design note: at the cap the adapter locks what it has and logs `timeout=true`. | reject |
+| E12 | AWB carry lost on pause and resume | low | Same as E4. | patch (with B4) |
+| E13 | AC1 "light fail start and clear" not met on reset | low | Same as E9. | reject |
+
+Review pass 1 outcome (2026-11-22): the 13 patch entries were applied by the implementation agent; `./gradlew spotlessCheck build` passed afterwards (272 tasks). Six entries are in `deferred-work.md`. No intent gap, no spec loopback.
 
 ## Design Notes
 

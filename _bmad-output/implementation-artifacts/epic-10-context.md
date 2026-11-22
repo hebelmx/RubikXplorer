@@ -40,6 +40,7 @@ A Learner can put their real cube into the app with the camera: scan it face by 
 - **Corner model.** Held-out real captures per device: recall ≥ 92%, rejection ≥ 96%, mean corner error ≤ 3% of the outline diagonal; median inference < 40 ms off the main thread on the minimum device.
 - **Devices and cubes.** Lenovo Tab M10 Plus 3rd Gen (TB128XU, minimum spec, no flash) and Galaxy S24 FE (flash) gate acceptance, with stickered, stickerless and glossy cubes, front-lit and backlit.
 - **Privacy and size.** Frames and face crops stay in memory and are discarded when the scan ends; nothing is stored, sent or logged in release. `CAMERA` is the only runtime permission (the torch needs none). Release install stays < 30 MB.
+- **Also in force.** No `INTERNET`, backup, analytics, ads, crash SDK, ML Kit or Play-services ML. Raising a camera flag for a release regenerates `docs/privacy-facts.json` and re-confirms Play Data safety. The LiteRT native library passes 16 KB ELF page alignment and R8 release builds. `:core:*` stays pure Kotlin with at least 80% line coverage. `ScanAssembler` is the only place samples rotate into `Facelets` order. Guided Scan and Quick Check accuracy targets are unchanged.
 - **Acceptance.** Camera stories are accepted on the main app build from their real entry point, with the flag raised in debug; a debug-only launcher is never the gate. Learner text lives in `en.json`. Device evidence goes to `docs/evidence/<story>/`.
 
 ## Technical Decisions

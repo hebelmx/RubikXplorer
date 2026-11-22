@@ -118,6 +118,11 @@ tasks.withType<Test>().configureEach {
         .files(syncRobolectricAndroidAll)
         .withPropertyName("robolectricAndroidAll")
         .withPathSensitivity(PathSensitivity.NAME_ONLY)
+    // Story 10.22: the settle replay reads still burst 1's exposure series by file path.
+    inputs
+        .dir(rootProject.layout.projectDirectory.dir("docs/evidence/quick-scan-2026-11-22/bursts"))
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+        .withPropertyName("quickScanBursts")
     systemProperty("robolectric.offline", "true")
     val dependencyDir = robolectricDependencyDir.get().asFile.absolutePath
     jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Drobolectric.dependency.dir=$dependencyDir") })

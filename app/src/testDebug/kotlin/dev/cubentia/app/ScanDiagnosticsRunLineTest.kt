@@ -13,6 +13,7 @@ import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.cube.Turn
+import dev.cubentia.domain.recognition.CornerHoldEventKind
 import dev.cubentia.domain.recognition.ScanReview
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -146,25 +147,86 @@ class ScanDiagnosticsRunLineTest {
         )
         val none = ScanDiagnostics.cornerFrameLine(false, listOf(null, null, null), 0.0, null, lightHeld = false, torch = false)
         assertTrue(none, none.endsWith("light=-,-,- sideDiff=- lightScore=- lightCheck=- lightMode=- lightHold=false torch=off glare=-"))
-        ScanDiagnostics.onLightHold(started = true, heldMs = null)
-        ScanDiagnostics.onLightHold(started = false, heldMs = 1200)
         ScanDiagnostics.onMetering(supported = false, onOutline = false)
-        ScanDiagnostics.onMeteringSettled(settleMs = 1500, timeout = true)
+        ScanDiagnostics.onMeteringSettled(settleMs = 1500, timeout = true, lock = "unsupported")
+        ScanDiagnostics.onMeteringSettled(settleMs = 700, timeout = false, lock = "on+awb", futureMs = 120)
+        ScanDiagnostics.onExposureLockReleased(confirmed = true, heldMs = 1105)
+        ScanDiagnostics.onExposureLockReleased(confirmed = false, heldMs = null)
         ScanDiagnostics.onTorch(hasFlash = false, torch = false)
         val lines = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }
         assertEquals(
             listOf(
-                "quickScan lightHold start",
-                "quickScan lightHold clear heldMs=1200",
                 "quickScan metering supported=false region=centre",
-                "quickScan metering settleMs=1500 timeout=true",
+                "quickScan metering settleMs=1500 timeout=true lock=unsupported futureMs=-",
+                "quickScan metering settleMs=700 timeout=false lock=on+awb futureMs=120",
+                "quickScan exposureLock released confirmed=true heldMs=1105",
+                "quickScan exposureLock released confirmed=false heldMs=-",
                 "quickScan torch hasFlash=false torch=off",
             ),
             lines,
         )
     }
 
-    @Test fun `quick scan logs each corner capture and a centre block with colour names and counts only`() {
+    @Test fun `quick scan logs every hold state change as it happens with the hold and its elapsed time, never rate-limited`() {
+        fun event(
+            elapsedMs: Long,
+            kind: dev.cubentia.domain.recognition.CornerHoldEventKind,
+            reason: String? = null,
+            amount: Double? = null,
+            timeout: Boolean? = null,
+            durationMs: Long? = null,
+            hold: Int = 1,
+        ) = dev.cubentia.domain.recognition
+            .CornerHoldEvent(hold, elapsedMs, kind, reason, amount, timeout, durationMs)
+        listOf(
+            event(0, CornerHoldEventKind.VIEWFINDER),
+            event(412, CornerHoldEventKind.FIRST_FRAME),
+            event(500, CornerHoldEventKind.CUBE_FOUND),
+            event(500, CornerHoldEventKind.METERING_REQUESTED, reason = "first"),
+            event(1300, CornerHoldEventKind.METERING_SETTLED, timeout = false, durationMs = 800),
+            event(1300, CornerHoldEventKind.STEADY_START),
+            // Three restarts within 100 ms: each is logged (the 10.19 line was limited to one per 500 ms).
+            event(1380, CornerHoldEventKind.STEADY_RESTART, reason = "outline", amount = 0.1234),
+            event(1420, CornerHoldEventKind.STEADY_RESTART, reason = "outline", amount = 0.2),
+            event(1460, CornerHoldEventKind.STEADY_RESTART, reason = "face", amount = 31.0),
+            event(1500, CornerHoldEventKind.LIGHT_FAIL, amount = 1.52),
+            event(2100, CornerHoldEventKind.LIGHT_CLEAR, amount = 1.2, durationMs = 600),
+            event(2200, CornerHoldEventKind.CUBE_LOST),
+            event(2600, CornerHoldEventKind.CUBE_FOUND),
+            event(2600, CornerHoldEventKind.METERING_REQUESTED, reason = "lost"),
+            event(4100, CornerHoldEventKind.METERING_SETTLED, timeout = true, durationMs = 1500),
+            event(5200, CornerHoldEventKind.CAPTURE, reason = "auto"),
+            event(300, CornerHoldEventKind.POSE_REJECTED, reason = "centres", amount = 4.0, hold = 2),
+            event(900, CornerHoldEventKind.POSE_ACCEPTED, hold = 2),
+            event(2000, CornerHoldEventKind.CAPTURE, reason = "manual", hold = 2),
+        ).forEach(ScanDiagnostics::onHoldEvent)
+        assertEquals(
+            listOf(
+                "quickScan viewfinder hold=1 t=0",
+                "quickScan firstFrame hold=1 t=412",
+                "quickScan cubeFound hold=1 t=500",
+                "quickScan meteringRequested hold=1 t=500 reason=first",
+                "quickScan meteringSettled hold=1 t=1300 timeout=false ms=800",
+                "quickScan steadyStart hold=1 t=1300",
+                "quickScan steadyRestart hold=1 t=1380 reason=outline amount=0.123",
+                "quickScan steadyRestart hold=1 t=1420 reason=outline amount=0.200",
+                "quickScan steadyRestart hold=1 t=1460 reason=face amount=31.000",
+                "quickScan lightFail hold=1 t=1500 amount=1.520",
+                "quickScan lightClear hold=1 t=2100 amount=1.200 ms=600",
+                "quickScan cubeLost hold=1 t=2200",
+                "quickScan cubeFound hold=1 t=2600",
+                "quickScan meteringRequested hold=1 t=2600 reason=lost",
+                "quickScan meteringSettled hold=1 t=4100 timeout=true ms=1500",
+                "quickScan capture hold=1 t=5200 trigger=auto",
+                "quickScan poseRejected hold=2 t=300 reason=centres amount=4.000",
+                "quickScan poseAccepted hold=2 t=900",
+                "quickScan capture hold=2 t=2000 trigger=manual",
+            ),
+            ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg },
+        )
+    }
+
+    @Test fun `quick scan logs each corner capture with its trigger, times and light, colour names and counts only`() {
         val report =
             dev.cubentia.domain.recognition.CornerCaptureReport(
                 2,
@@ -196,19 +258,27 @@ class ScanDiagnosticsRunLineTest {
                     dev.cubentia.domain.recognition.QuickScanClassification
                         .FaceReport(Face.B, null, 0, 0, true, null, false, 0, 0, false),
                 ),
+                manual = false,
+                totalMs = 3210,
+                undetectedMs = 400,
+                sinceDetectedMs = 2900,
+                lightScore = 1.4567,
+                lightPassed = false,
             )
         ScanDiagnostics.onCornerCapture(report)
-        val check =
+        // A manual capture with the cube never detected and the light unmeasured.
+        ScanDiagnostics.onCornerCapture(
             dev.cubentia.domain.recognition
-                .CenterCheck(2, listOf(1.2, null, 7.0))
-        ScanDiagnostics.onCenterBlock(0, check)
+                .CornerCaptureReport(1, emptyList(), manual = true, totalMs = 900, undetectedMs = 900),
+        )
         val lines = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }
         assertEquals(
             listOf(
-                "quickScan capture hold=2 D:center=YELLOW,confident=8,uncertain=0,kept,reason=- " +
+                "quickScan capture hold=2 trigger=auto totalMs=3210 undetectedMs=400 sinceDetectedMs=2900 lightScore=1.457 light=fail " +
+                    "D:center=YELLOW,confident=8,uncertain=0,kept,reason=- " +
                     "L:center=ORANGE,confident=5,uncertain=3,grid,reason=disagree=2/closeCall=1/correction=rejected " +
                     "B:center=-,confident=0,uncertain=0,grid,reason=missing",
-                "quickScan centerBlock hold=2 deltaE=1.2,-,7.0",
+                "quickScan capture hold=1 trigger=manual totalMs=900 undetectedMs=900 sinceDetectedMs=- lightScore=- light=-",
             ),
             lines,
         )

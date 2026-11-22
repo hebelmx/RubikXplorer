@@ -50,6 +50,38 @@ class QuickScanControllerTest {
         return FrameStats(colors.map { CellReading(labs.getValue(it), true) }, 120.0, 0.0, 100.0, 12)
     }
 
+    /** A cube outline of twelve points whose bounding box is 300 × 400 px (diagonal 500), shifted [dx] px to the right. */
+    private fun outline(dx: Double = 0.0): List<OutlinePoint> =
+        listOf(150.0 to 0.0, 300.0 to 100.0, 150.0 to 200.0, 0.0 to 100.0, 0.0 to 300.0, 150.0 to 400.0, 300.0 to 300.0)
+            .let { p -> listOf(p[0], p[1], p[2], p[3], p[3], p[2], p[5], p[4], p[2], p[1], p[6], p[5]) }
+            .map { (x, y) -> OutlinePoint(x + dx, y) }
+
+    private var jitter = 0
+
+    /** An outline that moves 100 px (0.2 of its diagonal) on every call: a hand that never holds still. */
+    private fun shaking(): List<OutlinePoint> = outline(dx = (jitter++ % 2) * 100.0)
+
+    /** One settled, detected frame whose outline keeps moving: the steady window restarts, so nothing auto-captures. */
+    private fun QuickScanController.shake(
+        faces: List<FrameStats?>,
+        nowMs: Long,
+    ) = onFrame(true, faces, nowMs, settled = true, outline = shaking())
+
+    /**
+     * The detected frames that confirm the cube was turned to another corner (Story 10.22), the last one at [nowMs]:
+     * the earlier ones change nothing, the last one's effects are returned.
+     */
+    private fun confirmTurn(
+        scan: QuickScanController,
+        faces: List<FrameStats?>,
+        nowMs: Long,
+        settled: Boolean? = null,
+    ): List<QuickScanEffect> {
+        val frames = QuickScanController.TURN_CONFIRM_FRAMES
+        for (earlier in frames - 1 downTo 1) assertTrue(scan.onFrame(true, faces, nowMs - earlier, settled).isEmpty())
+        return scan.onFrame(true, faces, nowMs, settled)
+    }
+
     private fun hold(
         index: Int,
         cube: CubeState = this.cube,
@@ -64,22 +96,21 @@ class QuickScanControllerTest {
         }
 
     @Test
-    fun `auto capture settles and holds all 27 cells steady before taking each corner`() {
+    fun `auto capture settles and holds the outline steady before taking each corner`() {
         val scan = QuickScanController(lightCheck = false)
         val first = hold(1)
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 0))
-        assertTrue(scan.onFrame(true, first, 599).isEmpty())
-        assertTrue(scan.onFrame(true, first, 600).isEmpty())
-        // Two cells of one face moving restart the steady window (PO 2026-11-21: one flickering cell alone does not).
-        val moved = first.toMutableList().also { it[0] = it[0].withCell(0, Lab(79.0, 0.0, 0.0)).withCell(1, Lab(79.0, 0.0, 0.0)) }
-        assertTrue(scan.onFrame(true, moved, 800).isEmpty())
-        assertTrue(scan.onFrame(true, first, 899).isEmpty())
-        assertTrue(scan.onFrame(true, first, 1898).isEmpty())
-        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, first, 1899))
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 0, outline = outline()))
+        assertTrue(scan.onFrame(true, first, 599, outline = outline()).isEmpty())
+        assertTrue(scan.onFrame(true, first, 600, outline = outline()).isEmpty())
+        // Story 10.22: the outline moving 0.12 of its diagonal restarts the steady window.
+        assertTrue(scan.onFrame(true, first, 800, outline = outline(dx = 60.0)).isEmpty())
+        assertTrue(scan.onFrame(true, first, 899, outline = outline(dx = 60.0)).isEmpty())
+        assertTrue(scan.onFrame(true, first, 1799, outline = outline(dx = 60.0)).isEmpty())
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, first, 1800, outline = outline(dx = 60.0)))
         assertTrue(scan.onFrame(false, List(3) { null }, 2000).isEmpty())
         assertTrue(scan.onFrame(true, first, 3000).isEmpty())
         assertTrue(scan.onShutter().isEmpty())
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, hold(2), 4000))
+        assertEquals(listOf(QuickScanEffect.Remeter), confirmTurn(scan, hold(2), 4000))
         assertTrue(scan.onFrame(true, hold(2), 4600).isEmpty())
         val effects = scan.onFrame(true, hold(2), 5600)
         assertEquals(QuickScanEffect.CornerCaptured(2), effects.first())
@@ -248,7 +279,7 @@ class QuickScanControllerTest {
     }
 
     @Test
-    fun `the second corner arms only on a detected view whose top center changed`() {
+    fun `the second corner arms only once detected frames in a row show other centres`() {
         val scan = QuickScanController(lightCheck = false)
         val first = hold(1)
         scan.onFrame(true, first, 0)
@@ -259,7 +290,14 @@ class QuickScanControllerTest {
         val shifted = first.toMutableList().also { it[1] = it[1].withCell(0, labs.getValue(Color.BLUE)) }
         assertTrue(scan.onFrame(true, shifted, 200).isEmpty())
         assertTrue(scan.onShutter().isEmpty())
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, hold(2), 300))
+        // Story 10.22: a single frame showing another corner never clears the previous hold, and the count starts over
+        // when the first corner shows again.
+        assertTrue(scan.onFrame(true, hold(2), 300).isEmpty())
+        assertTrue(scan.onFrame(true, hold(2), 400).isEmpty())
+        assertTrue(scan.onFrame(true, first, 500).isEmpty())
+        assertTrue(scan.onFrame(true, hold(2), 600).isEmpty())
+        assertTrue(scan.onFrame(true, hold(2), 700).isEmpty())
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, hold(2), 800))
     }
 
     @Test
@@ -268,7 +306,7 @@ class QuickScanControllerTest {
         scan.onFrame(true, listOf(hold(1)[0], null, null), 0)
         assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onShutter())
         val second = hold(2)
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, listOf(null, second[1], second[2]), 100))
+        assertEquals(listOf(QuickScanEffect.Remeter), confirmTurn(scan, listOf(null, second[1], second[2]), 100))
     }
 
     @Test
@@ -506,7 +544,7 @@ class QuickScanControllerTest {
                 first[1].withCell(FaceSample.CENTER_INDEX, labs.getValue(Color.ORANGE)),
                 first[2].withCell(FaceSample.CENTER_INDEX, labs.getValue(Color.BLUE)),
             )
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, twoChanged, 200))
+        assertEquals(listOf(QuickScanEffect.Remeter), confirmTurn(scan, twoChanged, 200))
     }
 
     /** [faces] with both side faces at [brightness] times their L* (the light behind the cube): fails the calibrated check against [saved]. */
@@ -553,7 +591,7 @@ class QuickScanControllerTest {
     }
 
     @Test
-    fun `an uncalibrated light hold offers calibration after five seconds, never calibrated nor torch-lit`() {
+    fun `an uncalibrated light fail offers calibration after five seconds, never calibrated nor torch-lit`() {
         val bright = FrameStats(List(9) { CellReading(Lab(90.0, 0.0, 0.0), true) }, 120.0, 0.0, 100.0, 12)
         val dim = FrameStats(List(9) { CellReading(Lab(50.0, 0.0, 0.0), true) }, 120.0, 0.0, 100.0, 12)
         val dark = listOf(bright, dim, bright)
@@ -561,155 +599,209 @@ class QuickScanControllerTest {
         val none = List<FrameStats?>(3) { null }
         val offerAt = 100 + QuickScanController.CALIBRATION_OFFER_MS
 
+        // The outline keeps moving in this test: the light check no longer holds a capture back (Story 10.22), so only a
+        // hold that does not capture can fail for five seconds.
         val scan = QuickScanController()
         scan.onFrame(true, dark, 0, settled = false)
-        scan.onFrame(true, dark, 100, settled = true)
+        scan.shake(dark, 100)
         assertTrue(scan.lightHeld)
-        scan.onFrame(true, dark, offerAt - 1, settled = true)
-        assertFalse(scan.calibrationOffered, "not before five seconds of hold")
-        assertTrue(scan.onFrame(true, dark, offerAt, settled = true).isEmpty())
+        scan.shake(dark, offerAt - 1)
+        assertFalse(scan.calibrationOffered, "not before five seconds of failing")
+        assertTrue(scan.shake(dark, offerAt).isEmpty())
         assertTrue(scan.calibrationOffered)
-        // The offer only adds: the sides-dark line stays and the hold still blocks capture.
+        // The offer only adds: the sides-dark line stays.
         assertEquals(Coaching.SIDES_DARK, scan.coaching)
-        assertTrue(scan.onShutter().isEmpty())
         assertEquals(1, scan.hold)
-        // A detection gap inside the grace keeps it; a lost cube hides it, and it comes back while the hold runs on.
+        // A detection gap inside the grace keeps it; a lost cube hides it, and it comes back while the fail runs on.
         scan.onFrame(false, none, offerAt + 100)
         assertTrue(scan.calibrationOffered)
         scan.onFrame(false, none, offerAt + 100 + CornerHold.LOST_MS)
         assertFalse(scan.calibrationOffered, "hidden once the cube is lost")
-        scan.onFrame(true, dark, offerAt + 600, settled = true)
+        scan.onFrame(true, dark, offerAt + 600, settled = false)
         assertTrue(scan.lightHeld)
         assertTrue(scan.calibrationOffered)
-        // The hold clearing hides it.
-        scan.onFrame(true, lit, offerAt + 700, settled = true)
-        scan.onFrame(true, lit, offerAt + 700 + CornerHold.LIGHT_CLEAR_MS, settled = true)
+        // The check passing again hides it.
+        scan.shake(lit, offerAt + 700)
+        scan.shake(lit, offerAt + 700 + CornerHold.LIGHT_CLEAR_MS)
         assertFalse(scan.lightHeld)
         assertFalse(scan.calibrationOffered)
 
-        // The torch turning on clears the hold and with it the offer; while lit, no hold and no offer.
+        // The torch turning on clears the fail and with it the offer; while lit, no fail and no offer.
         val torch = QuickScanController()
         torch.onFrame(true, dark, 0, settled = false)
-        torch.onFrame(true, dark, 100, settled = true)
-        torch.onFrame(true, dark, offerAt, settled = true)
+        torch.shake(dark, 100)
+        torch.shake(dark, offerAt)
         assertTrue(torch.calibrationOffered)
         torch.syncTorch(requested = true, applied = true, nowMs = offerAt + 50)
         assertFalse(torch.calibrationOffered)
-        for (now in offerAt + 100..offerAt + 7000 step 100) torch.onFrame(true, dark, now, settled = true)
+        for (now in offerAt + 100..offerAt + 7000 step 100) torch.shake(dark, now)
         assertFalse(torch.lightHeld)
         assertFalse(torch.calibrationOffered, "never offered with the torch lit")
 
         // Scan face by face hides it.
         val switched = QuickScanController()
         switched.onFrame(true, dark, 0, settled = false)
-        switched.onFrame(true, dark, 100, settled = true)
-        switched.onFrame(true, dark, offerAt, settled = true)
+        switched.shake(dark, 100)
+        switched.shake(dark, offerAt)
         assertTrue(switched.calibrationOffered)
         switched.switchToFaceByFace()
         assertFalse(switched.calibrationOffered)
 
-        // Calibrated mode: the hold runs as long, but calibration is never offered.
+        // Calibrated mode: the fail runs as long, but calibration is never offered.
         val calibrated = lightScan()
         val calibratedDark = darkSides(hold(1))
         calibrated.onFrame(true, calibratedDark, 0, settled = false)
-        for (now in 100L..offerAt + 2000 step 100) calibrated.onFrame(true, calibratedDark, now, settled = true)
+        for (now in 100L..offerAt + 2000 step 100) calibrated.shake(calibratedDark, now)
         assertTrue(calibrated.lightHeld)
         assertFalse(calibrated.calibrationOffered, "never offered with a saved calibration")
     }
 
     @Test
-    fun `a backlit corner holds every capture and coaches sides-dark after one second of failing`() {
+    fun `a backlit corner coaches sides-dark after one second of failing and still captures, auto and manual`() {
         val scan = lightScan()
         val dark = darkSides(hold(1))
         assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, dark, 0, settled = false))
-        assertFalse(scan.lightHeld, "the first frame re-meters onto the cube and holds nothing")
+        assertFalse(scan.lightHeld, "the first frame re-meters onto the cube and coaches nothing")
         assertEquals(null, scan.coaching)
-        for (now in 100L..5000L step 100) {
-            assertTrue(scan.onFrame(true, dark, now, settled = true).isEmpty(), "no auto capture at $now")
-            assertTrue(scan.lightHeld, "held at $now")
-            assertEquals(100L, scan.lightHeldSince, "the hold starts on the first settled failing frame")
+        // Hand-held and moving, nothing captures: the coaching keeps its 10.19 timing.
+        for (now in 100L..3000L step 100) {
+            assertTrue(scan.shake(dark, now).isEmpty(), "no auto capture while moving at $now")
+            assertTrue(scan.lightHeld, "failing at $now")
+            assertEquals(100L, scan.lightHeldSince, "the fail starts on the first settled failing frame")
             assertEquals(if (now >= 1100) Coaching.SIDES_DARK else null, scan.coaching, "coaching at $now")
-            assertTrue(scan.onShutter().isEmpty(), "the shutter is ignored while held at $now")
         }
-        assertEquals(1, scan.hold)
+        // Story 10.22: the check is advisory. Held still, the corner auto-captures in the failing light after one steady
+        // second, with the line still showing.
+        val still = outline(dx = 50.0)
+        assertTrue(scan.onFrame(true, dark, 3100, settled = true, outline = still).isEmpty())
+        assertTrue(scan.onFrame(true, dark, 4099, settled = true, outline = still).isEmpty())
+        assertEquals(Coaching.SIDES_DARK, scan.coaching)
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, dark, 4100, settled = true, outline = still))
+        val auto = checkNotNull(scan.lastCapture)
+        assertFalse(auto.manual)
+        assertEquals(false, auto.lightPassed)
+        assertTrue(auto.lightScore!! > SideLight.MAX_TOP_OVER_SIDES_RATIO)
+        assertEquals(4100L, auto.totalMs)
+        assertEquals(0L, auto.undetectedMs)
+
+        // The manual shutter works in the failing light too.
+        val manual = lightScan()
+        manual.onFrame(true, dark, 0, settled = false)
+        manual.shake(dark, 100)
+        manual.shake(dark, 1100)
+        assertEquals(Coaching.SIDES_DARK, manual.coaching)
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), manual.onShutter(1150))
+        assertTrue(manual.lastCapture!!.manual)
+        assertEquals(false, manual.lastCapture!!.lightPassed)
+        assertEquals(1150L, manual.lastCapture!!.totalMs)
     }
 
     @Test
-    fun `correcting the light clears the line with the hold, re-meters and restarts the steady count`() {
+    fun `correcting the light hides the line without a re-meter and without restarting the steady window`() {
         val scan = lightScan()
         val first = hold(1)
         val dark = darkSides(first)
         scan.onFrame(true, dark, 0, settled = false)
-        scan.onFrame(true, dark, 100, settled = true)
-        scan.onFrame(true, dark, 1100, settled = true)
+        scan.shake(dark, 100)
+        scan.shake(dark, 600)
+        scan.shake(dark, 1100)
         assertEquals(Coaching.SIDES_DARK, scan.coaching)
-        assertTrue(scan.onFrame(true, first, 1200, settled = true).isEmpty())
-        assertTrue(scan.onFrame(true, first, 1699, settled = true).isEmpty())
+        // The Learner turns to the light and holds still: the steady window starts at 1200.
+        val still = outline(dx = 50.0)
+        assertTrue(scan.onFrame(true, first, 1200, settled = true, outline = still).isEmpty())
+        assertTrue(scan.onFrame(true, first, 1699, settled = true, outline = still).isEmpty())
         assertTrue(scan.lightHeld)
         assertEquals(Coaching.SIDES_DARK, scan.coaching, "the line stays up through the pass window")
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 1700, settled = true))
+        // Story 10.22: the clear is no metering change (F4)...
+        assertTrue(scan.onFrame(true, first, 1700, settled = true, outline = still).isEmpty())
         assertFalse(scan.lightHeld)
         assertEquals(null, scan.coaching)
-        assertTrue(scan.onFrame(true, first, 1800, settled = false).isEmpty())
-        assertTrue(scan.onFrame(true, first, 1900, settled = true).isEmpty())
-        assertTrue(scan.onFrame(true, first, 2899, settled = true).isEmpty())
-        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, first, 2900, settled = true))
+        assertFalse(scan.settling)
+        // ...and the steady window that began at 1200 runs on.
+        assertTrue(scan.onFrame(true, first, 2199, settled = true, outline = still).isEmpty())
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, first, 2200, settled = true, outline = still))
+        assertEquals(true, scan.lastCapture!!.lightPassed)
     }
 
     @Test
-    fun `one flickering right-face cell neither blocks the light clear nor auto capture after a light hold`() {
+    fun `one flickering right-face cell neither restarts the steady window nor delays auto capture`() {
         val scan = lightScan()
         val first = hold(1)
-        val dark = darkSides(first)
-        scan.onFrame(true, dark, 0, settled = false)
-        scan.onFrame(true, dark, 100, settled = true)
-        assertTrue(scan.lightHeld)
+        scan.onFrame(true, first, 0, settled = false, outline = outline())
+        scan.onFrame(true, first, 100, settled = true, outline = outline())
         // The Lenovo session: one right-face cell alternating L* ~86/96 while everything else holds still.
         val low = first.toMutableList().also { it[2] = it[2].withCell(4, Lab(86.0, 0.0, 0.0)) }
         val high = first.toMutableList().also { it[2] = it[2].withCell(4, Lab(96.0, 0.0, 0.0)) }
-        var clearedAt: Long? = null
         var capturedAt: Long? = null
-        var now = 200L
+        var now = 133L
         while (capturedAt == null && now < 10_000L) {
             val frame = if ((now / 33) % 2 == 0L) low else high
-            val effects = scan.onFrame(true, frame, now, settled = if (clearedAt == null) true else null)
-            if (QuickScanEffect.Remeter in effects && clearedAt == null) clearedAt = now
+            val effects = scan.onFrame(true, frame, now, settled = true, outline = outline())
+            assertFalse(QuickScanEffect.Remeter in effects, "no re-meter at $now")
             if (QuickScanEffect.CornerCaptured(1) in effects) capturedAt = now
             assertEquals(null, scan.steadyRestart, "one moving cell never restarts the steady window at $now")
             now += 33
         }
-        val cleared = checkNotNull(clearedAt) { "the light hold cleared despite the flickering cell" }
-        assertTrue(cleared <= 200 + CornerHold.LIGHT_CLEAR_MS + 100, "light cleared at $cleared")
         val captured = checkNotNull(capturedAt) { "auto capture fired despite the flickering cell" }
-        assertTrue(
-            captured <= cleared + CornerHold.SETTLE_MS + CornerHold.STEADY_MS + 200,
-            "captured at $captured, light cleared at $cleared",
-        )
+        assertTrue(captured <= 100 + CornerHold.STEADY_MS + 33, "captured at $captured")
     }
 
     @Test
-    fun `two cells moving on one face still restart the steady window and report it`() {
+    fun `cells changing colour on a still outline never restart the steady window, an outline move does and reports it`() {
         val scan = QuickScanController(lightCheck = false)
         val first = hold(1)
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 0))
-        assertTrue(scan.onFrame(true, first, 600).isEmpty())
-        // One moving cell on each of two faces is not a face change: the window started at 600 runs on.
-        val spread =
-            first.toMutableList().also {
-                it[1] = it[1].withCell(0, Lab(30.0, 0.0, 0.0))
-                it[2] = it[2].withCell(0, Lab(30.0, 0.0, 0.0))
-            }
-        assertTrue(scan.onFrame(true, spread, 700).isEmpty())
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 0, outline = outline()))
+        assertTrue(scan.onFrame(true, first, 600, outline = outline()).isEmpty())
+        // Story 10.22: an exposure change moves every sticker by ΔE 5–8 on a resting cube; the window started at 600 runs on.
+        val shifted = first.map { stats -> stats.copy(cells = stats.cells.map { it?.copy(value = it.value.copy(l = it.value.l - 8.0)) }) }
+        assertTrue(scan.onFrame(true, shifted, 700, outline = outline()).isEmpty())
         assertEquals(null, scan.steadyRestart)
-        val moved = first.toMutableList().also { it[2] = it[2].withCell(3, Lab(86.0, 0.0, 0.0)).withCell(5, Lab(96.0, 0.0, 0.0)) }
-        assertTrue(scan.onFrame(true, moved, 800).isEmpty())
+        // The outline moving less than the steady fraction of its diagonal (500 px) is a hand tremor, not a move.
+        assertTrue(scan.onFrame(true, first, 800, outline = outline(dx = 500 * CornerHold.OUTLINE_STEADY_FRACTION - 1)).isEmpty())
+        assertEquals(null, scan.steadyRestart)
+        assertTrue(scan.onFrame(true, first, 900, outline = outline(dx = 500 * CornerHold.OUTLINE_STEADY_FRACTION + 1)).isEmpty())
         val restart = checkNotNull(scan.steadyRestart)
-        assertEquals(2, restart.face)
-        assertEquals(listOf(3, 5), restart.cells)
-        assertTrue(restart.maxDeltaE >= GuidedScanController.STEADY_DELTA_E)
-        assertTrue(scan.onFrame(true, moved, 1600).isEmpty(), "the window restarted at 800, not 600")
-        assertTrue(scan.onFrame(true, moved, 1799).isEmpty())
-        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, moved, 1800))
+        assertEquals(CornerSteadyRestart.Reason.OUTLINE, restart.reason)
+        assertEquals(CornerHold.OUTLINE_STEADY_FRACTION + 1.0 / 500, restart.amount, 1e-9)
+        val moved = outline(dx = 500 * CornerHold.OUTLINE_STEADY_FRACTION + 1)
+        assertTrue(scan.onFrame(true, first, 1700, outline = moved).isEmpty(), "the window restarted at 900, not 600")
+        assertTrue(scan.onFrame(true, first, 1899, outline = moved).isEmpty())
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, first, 1900, outline = moved))
+    }
+
+    @Test
+    fun `two plain centres changing colour restart the steady window as a different face, one does not`() {
+        val scan = QuickScanController(lightCheck = false)
+        val first = hold(1)
+        scan.onFrame(true, first, 0, outline = outline())
+        assertTrue(scan.onFrame(true, first, 600, outline = outline()).isEmpty())
+        val one = first.toMutableList().also { it[1] = it[1].withCell(FaceSample.CENTER_INDEX, labs.getValue(Color.ORANGE)) }
+        assertTrue(scan.onFrame(true, one, 700, outline = outline()).isEmpty())
+        assertEquals(null, scan.steadyRestart, "one centre alone (a logo, a glint) is not another face")
+        // A centre that is not plain decides nothing either.
+        val logo =
+            one.toMutableList().also {
+                it[2] =
+                    it[2].copy(
+                        cells =
+                            it[2].cells.mapIndexed { i, c ->
+                                if (i ==
+                                    FaceSample.CENTER_INDEX
+                                ) {
+                                    CellReading(labs.getValue(Color.BLUE), false)
+                                } else {
+                                    c
+                                }
+                            },
+                    )
+            }
+        assertTrue(scan.onFrame(true, logo, 800, outline = outline()).isEmpty())
+        assertEquals(null, scan.steadyRestart)
+        val two = one.toMutableList().also { it[2] = it[2].withCell(FaceSample.CENTER_INDEX, labs.getValue(Color.BLUE)) }
+        assertTrue(scan.onFrame(true, two, 900, outline = outline()).isEmpty())
+        assertEquals(CornerSteadyRestart.Reason.FACE, scan.steadyRestart?.reason)
+        assertTrue(scan.onFrame(true, two, 1899, outline = outline()).isEmpty())
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, two, 1900, outline = outline()))
     }
 
     @Test
@@ -727,12 +819,12 @@ class QuickScanControllerTest {
         assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, dark, 500, settled = true))
         assertFalse(scan.lightHeld)
         // Once metering on the cube has settled, a failing frame starts the hold and its coaching timer.
-        scan.onFrame(true, dark, 600, settled = true)
+        scan.shake(dark, 600)
         assertTrue(scan.lightHeld)
         assertEquals(600L, scan.lightHeldSince)
-        scan.onFrame(true, dark, 1599, settled = true)
+        scan.shake(dark, 1599)
         assertEquals(null, scan.coaching)
-        scan.onFrame(true, dark, 1600, settled = true)
+        scan.shake(dark, 1600)
         assertEquals(Coaching.SIDES_DARK, scan.coaching)
     }
 
@@ -765,75 +857,75 @@ class QuickScanControllerTest {
     }
 
     @Test
-    fun `a pass shorter than half a second keeps the hold and the line, and a moving pass clears it`() {
+    fun `a pass shorter than half a second keeps the line, and a moving pass clears it without a re-meter`() {
         val scan = lightScan()
         val first = hold(1)
         val dark = darkSides(first)
         scan.onFrame(true, dark, 0, settled = false)
-        scan.onFrame(true, dark, 100, settled = true)
-        scan.onFrame(true, dark, 1100, settled = true)
-        scan.onFrame(true, first, 1200, settled = true)
-        scan.onFrame(true, first, 1500, settled = true)
-        assertTrue(scan.onFrame(true, dark, 1600, settled = true).isEmpty())
+        scan.shake(dark, 100)
+        scan.shake(dark, 1100)
+        scan.shake(first, 1200)
+        scan.shake(first, 1500)
+        assertTrue(scan.shake(dark, 1600).isEmpty())
         assertTrue(scan.lightHeld)
         assertEquals(Coaching.SIDES_DARK, scan.coaching)
-        // Passing but moving (two cells of one face): movement no longer restarts the pass window (device session
-        // 2026-11-21); only a failing verdict does. The capture after the clear still needs settle and steadiness.
-        val moved = first.toMutableList().also { it[0] = it[0].withCell(0, Lab(70.0, 0.0, 0.0)).withCell(1, Lab(70.0, 0.0, 0.0)) }
-        scan.onFrame(true, first, 1700, settled = true)
-        scan.onFrame(true, moved, 2000, settled = true)
-        assertTrue(scan.onFrame(true, first, 2199, settled = true).isEmpty())
+        // Passing but moving: movement never restarts the pass window (device session 2026-11-21); only a failing
+        // verdict does. Story 10.22: the clear re-meters nothing.
+        scan.shake(first, 1700)
+        scan.shake(first, 2000)
+        assertTrue(scan.shake(first, 2199).isEmpty())
         assertTrue(scan.lightHeld)
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, moved, 2200, settled = true))
+        assertTrue(scan.shake(first, 2200).isEmpty())
         assertFalse(scan.lightHeld)
+        assertEquals(null, scan.coaching)
     }
 
     @Test
-    fun `an unreadable face while held neither advances nor resets the pass window`() {
+    fun `an unreadable face while failing neither advances nor resets the pass window`() {
         val scan = lightScan()
         val first = hold(1)
         val dark = darkSides(first)
         val unreadable = listOf(first[0], first[1].copy(cells = List(9) { null }), first[2])
         scan.onFrame(true, dark, 0, settled = false)
-        scan.onFrame(true, dark, 100, settled = true)
+        scan.shake(dark, 100)
         assertTrue(scan.lightHeld)
-        scan.onFrame(true, first, 1200, settled = true)
-        scan.onFrame(true, first, 1400, settled = true)
-        scan.onFrame(true, unreadable, 1500, settled = true)
+        scan.shake(first, 1200)
+        scan.shake(first, 1400)
+        scan.shake(unreadable, 1500)
         assertEquals(null, scan.light!!.score, "an unreadable face has no score")
-        assertTrue(scan.light!!.passed, "a verdict without a score passes, but must not clear the hold")
+        assertTrue(scan.light!!.passed, "a verdict without a score passes, but must not clear the fail")
         // Unreadable frames alone never clear it, however long they last.
-        listOf(2100L, 3100L, 4100L).forEach { now -> scan.onFrame(true, unreadable, now, settled = true) }
+        listOf(2100L, 3100L, 4100L).forEach { now -> scan.shake(unreadable, now) }
         assertTrue(scan.lightHeld)
         // 200 ms passed before the unreadable frames (kept, not reset); the time across them does not count.
         listOf(4200L, 4400L, 4499L).forEach { now ->
-            assertTrue(scan.onFrame(true, first, now, settled = true).isEmpty())
-            assertTrue(scan.lightHeld, "still held at $now")
+            assertTrue(scan.shake(first, now).isEmpty())
+            assertTrue(scan.lightHeld, "still failing at $now")
         }
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 4500, settled = true))
+        assertTrue(scan.shake(first, 4500).isEmpty(), "the clear re-meters nothing")
         assertFalse(scan.lightHeld)
     }
 
     @Test
-    fun `one-frame detection flicker while held neither resets nor advances the pass window`() {
-        // The S24 FE session: the cube was lost for one frame every 100-800 ms and a hold lasted 256 s.
+    fun `one-frame detection flicker while failing neither resets nor advances the pass window`() {
+        // The S24 FE session: the cube was lost for one frame every 100-800 ms and a light hold lasted 256 s.
         val scan = lightScan()
         val first = hold(1)
         val dark = darkSides(first)
         scan.onFrame(true, dark, 0, settled = false)
-        scan.onFrame(true, dark, 100, settled = true)
+        scan.shake(dark, 100)
         assertTrue(scan.lightHeld)
         var clearedAt: Long? = null
         var now = 200L
         while (clearedAt == null && now < 5_000L) {
             val detected = (now / 33) % 5 != 0L
-            val effects = scan.onFrame(detected, if (detected) first else List(3) { null }, now, settled = true)
-            if (QuickScanEffect.Remeter in effects) clearedAt = now
+            val effects = if (detected) scan.shake(first, now) else scan.onFrame(false, List(3) { null }, now, settled = true)
+            assertTrue(effects.isEmpty(), "neither a re-meter nor a capture at $now")
+            if (!scan.lightHeld) clearedAt = now
             now += 33
         }
-        val cleared = checkNotNull(clearedAt) { "the light hold cleared despite the detection flicker" }
+        val cleared = checkNotNull(clearedAt) { "the light fail cleared despite the detection flicker" }
         assertTrue(cleared <= 200 + 2 * CornerHold.LIGHT_CLEAR_MS, "light cleared at $cleared")
-        assertFalse(scan.lightHeld)
     }
 
     @Test
@@ -879,8 +971,8 @@ class QuickScanControllerTest {
         val first = hold(1)
         val dark = darkSides(first)
         scan.onFrame(true, dark, 0, settled = false)
-        scan.onFrame(true, dark, 100, settled = true)
-        scan.onFrame(true, dark, 1100, settled = true)
+        scan.shake(dark, 100)
+        scan.shake(dark, 1100)
         assertTrue(scan.lightHeld)
         assertEquals(Coaching.SIDES_DARK, scan.coaching)
         scan.syncTorch(requested = true, applied = true, nowMs = 1200)
@@ -888,16 +980,16 @@ class QuickScanControllerTest {
         assertEquals(null, scan.lightHeldSince)
         assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, dark, 1250, settled = false))
         assertEquals(null, scan.coaching)
-        scan.onFrame(true, dark, 1300, settled = true)
+        scan.shake(dark, 1300)
         assertFalse(scan.lightHeld)
         // Torch off: a metering change, then the check holds again once settled.
         scan.syncTorch(requested = false, applied = false, nowMs = 1400)
         assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, dark, 1450, settled = false))
         assertFalse(scan.lightHeld, "no hold while the torch-off metering settles")
-        scan.onFrame(true, dark, 1500, settled = true)
+        scan.shake(dark, 1500)
         assertTrue(scan.lightHeld)
         assertEquals(1500L, scan.lightHeldSince)
-        scan.onFrame(true, dark, 2500, settled = true)
+        scan.shake(dark, 2500)
         assertEquals(Coaching.SIDES_DARK, scan.coaching)
     }
 
@@ -907,30 +999,29 @@ class QuickScanControllerTest {
         val first = hold(1)
         val dark = darkSides(first)
         scan.onFrame(true, dark, 0, settled = false)
-        scan.onFrame(true, dark, 100, settled = true)
+        scan.shake(dark, 100)
         // Short passes (each under the 0.5 s clear window) never restart the one-second failing timer.
         listOf(300L to first, 500L to dark, 700L to first, 900L to dark, 1000L to first).forEach { (now, faces) ->
-            scan.onFrame(true, faces, now, settled = true)
+            scan.shake(faces, now)
             assertEquals(null, scan.coaching, "no line yet at $now")
         }
-        scan.onFrame(true, dark, 1100, settled = true)
+        scan.shake(dark, 1100)
         assertEquals(Coaching.SIDES_DARK, scan.coaching)
         assertTrue(scan.lightHeld)
     }
 
     @Test
-    fun `losing the cube while held clears the line at once but keeps the hold`() {
+    fun `losing the cube while failing clears the line at once but keeps the fail running`() {
         val scan = lightScan()
         val first = hold(1)
         val dark = darkSides(first)
         scan.onFrame(true, dark, 0, settled = false)
-        scan.onFrame(true, dark, 100, settled = true)
-        scan.onFrame(true, dark, 1100, settled = true)
+        scan.shake(dark, 100)
+        scan.shake(dark, 1100)
         assertEquals(Coaching.SIDES_DARK, scan.coaching)
         assertTrue(scan.onFrame(false, List(3) { null }, 1200).isEmpty())
         assertEquals(null, scan.coaching)
         assertTrue(scan.lightHeld)
-        assertTrue(scan.onShutter().isEmpty(), "the shutter stays blocked while the hold persists")
         scan.onFrame(false, List(3) { null }, 4199)
         assertEquals(null, scan.coaching)
         scan.onFrame(false, List(3) { null }, 4200)
@@ -938,17 +1029,17 @@ class QuickScanControllerTest {
         // Found again, still failing: the one-second timer restarts.
         assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, dark, 4300, settled = false))
         assertEquals(null, scan.coaching)
-        scan.onFrame(true, dark, 5299, settled = true)
+        scan.shake(dark, 5299)
         assertEquals(null, scan.coaching)
-        scan.onFrame(true, dark, 5300, settled = true)
+        scan.shake(dark, 5300)
         assertEquals(Coaching.SIDES_DARK, scan.coaching)
-        // Found again and passing: the hold clears only after a pass-and-steady window.
+        // Found again and passing: the fail clears only after a pass window.
         scan.onFrame(false, List(3) { null }, 5400)
-        scan.onFrame(true, first, 5500, settled = true)
-        scan.onFrame(true, first, 5600, settled = true)
+        scan.shake(first, 5500)
+        scan.shake(first, 5600)
         assertTrue(scan.lightHeld)
         assertEquals(null, scan.coaching)
-        scan.onFrame(true, first, 6000, settled = true)
+        scan.shake(first, 6000)
         assertFalse(scan.lightHeld)
     }
 
@@ -1073,7 +1164,7 @@ class QuickScanControllerTest {
     }
 
     @Test
-    fun `a manual press while settling fires once settled, unless the hold engages or the cube is lost first`() {
+    fun `a manual press while settling fires once settled, in failing light too, unless the cube is lost first`() {
         val first = hold(1)
         val queued = lightScan()
         queued.onFrame(true, first, 0, settled = false)
@@ -1081,6 +1172,7 @@ class QuickScanControllerTest {
         assertTrue(queued.onFrame(true, first, 100, settled = false).isEmpty())
         assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), queued.onFrame(true, first, 200, settled = true))
         assertEquals(2, queued.hold)
+        assertTrue(queued.lastCapture!!.manual, "a queued press is a manual capture")
 
         val lost = lightScan()
         lost.onFrame(true, first, 0, settled = false)
@@ -1092,14 +1184,13 @@ class QuickScanControllerTest {
         assertTrue(lost.onFrame(true, first, 600, settled = true).isEmpty(), "the dropped press never fires")
         assertEquals(1, lost.hold)
 
-        val held = lightScan()
-        held.onFrame(true, first, 0, settled = false)
-        assertTrue(held.onShutter().isEmpty())
-        assertTrue(held.onFrame(true, darkSides(first), 100, settled = true).isEmpty())
-        held.onFrame(true, first, 200, settled = true)
-        assertEquals(listOf(QuickScanEffect.Remeter), held.onFrame(true, first, 700, settled = true))
-        assertTrue(held.onFrame(true, first, 800, settled = true).isEmpty(), "the dropped press never fires")
-        assertEquals(1, held.hold)
+        // Story 10.22: the light check failing on the settle frame no longer drops the queued press.
+        val failing = lightScan()
+        failing.onFrame(true, first, 0, settled = false)
+        assertTrue(failing.onShutter().isEmpty())
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), failing.onFrame(true, darkSides(first), 100, settled = true))
+        assertTrue(failing.lastCapture!!.manual)
+        assertEquals(false, failing.lastCapture!!.lightPassed)
 
         // Settled already: the press is taken at once.
         val settledScan = lightScan()
@@ -1115,7 +1206,7 @@ class QuickScanControllerTest {
         scan.onFrame(true, first, 0, settled = false)
         scan.onFrame(true, first, 100, settled = true)
         assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, first, 1100, settled = true))
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, hold(2), 1200, settled = false))
+        assertEquals(listOf(QuickScanEffect.Remeter), confirmTurn(scan, hold(2), 1200, settled = false))
         scan.onFrame(true, hold(2), 1300, settled = true)
         val effects = scan.onFrame(true, hold(2), 2300, settled = true)
         assertEquals(QuickScanEffect.CornerCaptured(2), effects.first())
@@ -1123,7 +1214,7 @@ class QuickScanControllerTest {
     }
 
     @Test
-    fun `the light hold starts afresh on hold 2 after a front-lit hold 1`() {
+    fun `the light fail starts afresh on hold 2 after a front-lit hold 1`() {
         val scan = lightScan()
         val first = hold(1)
         scan.onFrame(true, first, 0, settled = false)
@@ -1131,14 +1222,14 @@ class QuickScanControllerTest {
         assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, first, 1100, settled = true))
         assertFalse(scan.lightHeld)
         val dark = darkSides(hold(2))
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, dark, 1200, settled = false))
+        assertEquals(listOf(QuickScanEffect.Remeter), confirmTurn(scan, dark, 1200, settled = false))
         assertFalse(scan.lightHeld, "hold 2's first frame re-meters onto the cube and holds nothing")
-        scan.onFrame(true, dark, 1300, settled = true)
+        scan.shake(dark, 1300)
         assertTrue(scan.lightHeld)
         assertEquals(1300L, scan.lightHeldSince)
-        scan.onFrame(true, dark, 2299, settled = true)
+        scan.shake(dark, 2299)
         assertEquals(null, scan.coaching, "the one-second timer starts with this hold")
-        assertTrue(scan.onFrame(true, dark, 2300, settled = true).isEmpty())
+        assertTrue(scan.shake(dark, 2300).isEmpty())
         assertEquals(Coaching.SIDES_DARK, scan.coaching)
         assertEquals(2, scan.hold)
         // Scan face by face clears the hold with the hand-over.
@@ -1226,7 +1317,7 @@ class QuickScanControllerTest {
         assertEquals(listOf(4.0, 0.0, 0.0), block.deltaE)
         assertTrue(scan.onShutter().isEmpty())
         assertEquals(2, scan.hold)
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, hold(2), 5000))
+        assertEquals(listOf(QuickScanEffect.Remeter), confirmTurn(scan, hold(2), 5000))
         assertEquals(null, scan.centerBlock)
         assertTrue(scan.onFrame(true, hold(2), 5600).isEmpty())
         assertEquals(QuickScanEffect.CornerCaptured(2), scan.onFrame(true, hold(2), 6600).first())
@@ -1241,7 +1332,7 @@ class QuickScanControllerTest {
         val still = hold(1).toMutableList().also { it[0] = it[0].withCell(FaceSample.CENTER_INDEX, Lab(86.0, 0.0, 0.0)) }
         for (now in 100L..3000L step 100L) assertTrue(scan.onFrame(true, still, now).isEmpty(), "at $now")
         assertEquals(listOf(4.0, 0.0, 0.0), scan.centerBlock?.deltaE)
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, hold(2), 4000))
+        assertEquals(listOf(QuickScanEffect.Remeter), confirmTurn(scan, hold(2), 4000))
         assertTrue(scan.onFrame(true, hold(2), 4600).isEmpty())
         assertEquals(QuickScanEffect.CornerCaptured(2), scan.onFrame(true, hold(2), 5600).first())
     }
@@ -1255,7 +1346,7 @@ class QuickScanControllerTest {
         assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onShutter())
         val turned = hold(2).toMutableList().also { it[2] = it[2].withCell(FaceSample.CENTER_INDEX, paleBlue) }
         assertEquals(Color.WHITE, StickerClassifier.read(paleBlue, saved.centers).color)
-        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, turned, 1000))
+        assertEquals(listOf(QuickScanEffect.Remeter), confirmTurn(scan, turned, 1000))
         assertEquals(null, scan.centerBlock)
         assertTrue(scan.onFrame(true, turned, 1600).isEmpty())
         assertEquals(QuickScanEffect.CornerCaptured(2), scan.onFrame(true, turned, 2600).first())
@@ -1269,6 +1360,200 @@ class QuickScanControllerTest {
         assertTrue(scan.onFrame(true, wrong, 600).isEmpty())
         assertEquals(null, scan.centerBlock)
         assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, wrong, 1600))
+    }
+
+    @Test
+    fun `the outline leaving the metered region re-meters once, and tremor does not`() {
+        val scan = QuickScanController(lightCheck = false)
+        val first = hold(1)
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 0, settled = false, outline = outline()))
+        assertTrue(scan.onFrame(true, first, 100, settled = true, outline = outline()).isEmpty())
+        // Below the bound (0.30 of the 500 px diagonal): the steady window restarts, the exposure lock stays.
+        assertTrue(scan.onFrame(true, first, 200, settled = true, outline = outline(dx = 140.0)).isEmpty())
+        assertEquals(CornerSteadyRestart.Reason.OUTLINE, scan.steadyRestart?.reason)
+        // Beyond it the cube left the region the exposure was metered on: one re-meter.
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 300, settled = true, outline = outline(dx = 160.0)))
+        assertTrue(scan.settling)
+        assertTrue(scan.onFrame(true, first, 400, settled = false, outline = outline(dx = 160.0)).isEmpty())
+        assertTrue(scan.onFrame(true, first, 500, settled = true, outline = outline(dx = 160.0)).isEmpty())
+        assertTrue(scan.onFrame(true, first, 1499, settled = true, outline = outline(dx = 160.0)).isEmpty())
+        assertEquals(
+            listOf(QuickScanEffect.CornerCaptured(1)),
+            scan.onFrame(true, first, 1500, settled = true, outline = outline(dx = 160.0)),
+        )
+        val meters = scan.drainEvents().filter { it.kind == CornerHoldEventKind.METERING_REQUESTED }
+        assertEquals(listOf("first", "outline"), meters.map { it.reason })
+        assertEquals(0.32, meters.last().amount!!, 1e-9)
+    }
+
+    @Test
+    fun `the faces' brightness changing beyond the bound since metering re-meters once`() {
+        val scan = QuickScanController(lightCheck = false)
+        val first = hold(1)
+
+        fun lit(luma: Double) = first.map { it.copy(meanLuma = luma) }
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, lit(120.0), 0, settled = false, outline = outline()))
+        // The baseline is the frame the metering settled on, not the frame that asked for it.
+        assertTrue(scan.onFrame(true, lit(100.0), 100, settled = true, outline = outline()).isEmpty())
+        assertTrue(scan.onFrame(true, lit(120.0), 200, settled = true, outline = outline()).isEmpty(), "20% is within the bound")
+        assertTrue(scan.onFrame(true, lit(80.0), 300, settled = true, outline = outline()).isEmpty())
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, lit(126.0), 400, settled = true, outline = outline()))
+        assertTrue(scan.onFrame(true, lit(126.0), 500, settled = true, outline = outline()).isEmpty())
+        assertTrue(scan.onFrame(true, lit(126.0), 1499, settled = true, outline = outline()).isEmpty(), "no second re-meter")
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, lit(126.0), 1500, settled = true, outline = outline()))
+        val meters = scan.drainEvents().filter { it.kind == CornerHoldEventKind.METERING_REQUESTED }
+        assertEquals(listOf("first", "brightness"), meters.map { it.reason })
+        assertEquals(0.26, meters.last().amount!!, 1e-9)
+    }
+
+    @Test
+    fun `a lost cube re-meters on the next detection and its undetected time is counted in the capture report`() {
+        val scan = QuickScanController(lightCheck = false)
+        val first = hold(1)
+        val none = List<FrameStats?>(3) { null }
+        scan.viewEntered(1000)
+        assertTrue(scan.onFrame(false, none, 1200).isEmpty())
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 1500, settled = false, outline = outline()))
+        assertTrue(scan.onFrame(true, first, 1600, settled = true, outline = outline()).isEmpty())
+        assertTrue(scan.onFrame(false, none, 1700).isEmpty())
+        assertTrue(scan.onFrame(false, none, 1700 + CornerHold.LOST_MS).isEmpty())
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 2100, settled = false, outline = outline()))
+        assertTrue(scan.onFrame(true, first, 2200, settled = true, outline = outline()).isEmpty(), "settle and steady restart")
+        assertTrue(scan.onFrame(true, first, 3199, settled = true, outline = outline()).isEmpty())
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, first, 3200, settled = true, outline = outline()))
+        val report = checkNotNull(scan.lastCapture)
+        assertEquals(2200L, report.totalMs, "since the viewfinder opened")
+        // Undetected: 1000–1200 before the first frame, then 1600–2000 around the loss.
+        assertEquals(200L + 400L, report.undetectedMs)
+        assertEquals(1700L, report.sinceDetectedMs)
+        assertFalse(report.manual)
+        assertEquals(null, report.lightPassed, "the light check is off in this controller")
+    }
+
+    @Test
+    fun `a press with no time before any frame is taken at the hold's start, never before it`() {
+        val scan = QuickScanController(lightCheck = false)
+        scan.viewEntered(1000)
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onShutter())
+        assertEquals(0L, scan.lastCapture!!.totalMs)
+        assertEquals(listOf(0L, 0L), scan.drainEvents().filter { it.hold == 1 }.map { it.elapsedMs })
+        // Hold 2 began with that capture; the last frame's time is older and must not be used.
+        assertTrue(scan.onShutter().isNotEmpty())
+        assertEquals(0L, scan.lastCapture!!.totalMs)
+    }
+
+    @Test
+    fun `every state change of a hold is recorded once with its time since the hold began`() {
+        val scan = lightScan()
+        val first = hold(1)
+        val dark = darkSides(first)
+        val none = List<FrameStats?>(3) { null }
+        scan.viewEntered(1000)
+        scan.onFrame(false, none, 1100)
+        scan.onFrame(true, first, 1200, settled = false, outline = outline())
+        scan.onFrame(true, first, 1300, settled = true, outline = outline())
+        scan.onFrame(true, first, 1400, settled = true, outline = outline(dx = 60.0))
+        scan.onFrame(false, none, 1500)
+        scan.onFrame(false, none, 1500 + CornerHold.LOST_MS)
+        scan.onFrame(true, first, 1900, settled = false, outline = outline())
+        scan.onFrame(true, first, 2000, settled = false, outline = outline())
+        // The settle signal never comes: the cap releases the wait.
+        scan.onFrame(true, dark, 1900 + CornerHold.SETTLE_CAP_MS, settled = false, outline = outline())
+        scan.onFrame(true, first.map { it.copy(sharpness = 0.0) }, 3500, settled = false, outline = outline())
+        scan.onFrame(true, first, 3600, settled = false, outline = outline())
+        scan.onFrame(true, first, 4100, settled = false, outline = outline())
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, first, 4600, settled = false, outline = outline()))
+        // Hold 2 begins with the capture: the first corner still in view is rejected, then the turn is confirmed.
+        scan.onFrame(true, first, 5000, settled = false, outline = outline())
+        scan.onFrame(true, first, 5100, settled = false, outline = outline())
+        scan.onFrame(true, hold(2), 5200, settled = false, outline = outline())
+        scan.onFrame(true, hold(2), 5300, settled = false, outline = outline())
+        scan.onFrame(true, hold(2), 5400, settled = false, outline = outline())
+        scan.onFrame(true, hold(2), 5500, settled = true, outline = outline())
+        assertEquals(QuickScanEffect.CornerCaptured(2), scan.onShutter(5600).first())
+        // Hold 2's "since detected" starts at the first frame that passed the pose and turn checks (5400), not at the
+        // first corner still in view (5000).
+        assertEquals(200L, scan.lastCapture!!.sinceDetectedMs)
+        val lines =
+            scan.drainEvents().map { event ->
+                listOfNotNull(
+                    "h${event.hold}",
+                    "t${event.elapsedMs}",
+                    event.kind.label,
+                    event.reason,
+                    event.timeout?.let { "timeout=$it" },
+                    event.durationMs?.let { "ms=$it" },
+                ).joinToString(" ")
+            }
+        assertEquals(
+            listOf(
+                "h1 t0 viewfinder",
+                "h1 t100 firstFrame",
+                "h1 t200 cubeFound",
+                "h1 t200 meteringRequested first",
+                "h1 t300 meteringSettled ms=100",
+                "h1 t300 steadyStart",
+                "h1 t400 steadyRestart outline",
+                "h1 t800 cubeLost",
+                "h1 t900 cubeFound",
+                "h1 t900 meteringRequested lost",
+                "h1 t2400 meteringSettled timeout=true ms=1500",
+                "h1 t2400 lightFail",
+                "h1 t2400 steadyStart",
+                "h1 t2500 steadyRestart quality",
+                "h1 t2600 steadyStart",
+                "h1 t3100 lightClear ms=700",
+                "h1 t3600 capture auto",
+                "h2 t0 viewfinder",
+                "h2 t400 firstFrame",
+                "h2 t400 cubeFound",
+                "h2 t400 poseRejected centres",
+                "h2 t600 poseRejected turn",
+                "h2 t800 poseAccepted",
+                "h2 t800 meteringRequested first",
+                "h2 t900 meteringSettled ms=100",
+                "h2 t900 steadyStart",
+                "h2 t1000 capture manual",
+            ),
+            lines,
+        )
+        assertTrue(scan.drainEvents().isEmpty(), "each change is reported once")
+    }
+
+    @Test
+    fun `after a back-out the resumed hold starts clean and the corner in view captures again`() {
+        // Hold 1 captured, the Learner switches to face by face before turning the cube, then backs out.
+        val scan = QuickScanController(saved, lightCheck = false)
+        scan.onFrame(true, hold(1), 0)
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onShutter(50))
+        scan.onFrame(true, hold(1), 100)
+        checkNotNull(scan.switchToFaceByFace())
+        assertTrue(scan.backOut())
+        assertEquals(2, scan.hold)
+        // Story 10.22: no stale turn-over state: the second corner re-meters on its first frame and captures on its own.
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, hold(2), 1000, settled = false, outline = outline()))
+        assertTrue(scan.onFrame(true, hold(2), 1100, settled = true, outline = outline()).isEmpty())
+        val effects = scan.onFrame(true, hold(2), 2100, settled = true, outline = outline())
+        assertEquals(QuickScanEffect.CornerCaptured(2), effects.first())
+        assertEquals(1100L, scan.lastCapture!!.totalMs, "the resumed hold's time starts with its first frame")
+
+        // Both corners captured, back from the hand-over: hold 2 resumes and the same corner captures again, although
+        // it shows the centres hold 2 captured before.
+        val again = QuickScanController(lightCheck = false)
+        val uncertain = hold(2).toMutableList().also { it[2] = it[2].withCell(0, Lab(55.0, 55.0, 55.0)) }
+        assertEquals(QuickScanEffect.Fallback(listOf(Face.B)), capture(again, hold(1), uncertain))
+        assertTrue(again.backOut())
+        assertEquals(listOf(QuickScanEffect.Remeter), again.onFrame(true, hold(2), 1000, settled = false, outline = outline()))
+        again.onFrame(true, hold(2), 1100, settled = true, outline = outline())
+        assertEquals(QuickScanEffect.CornerCaptured(2), again.onFrame(true, hold(2), 2100, settled = true, outline = outline()).first())
+        // The first corner shown again after a back-out is still not taken as the second.
+        val same = QuickScanController(lightCheck = false)
+        same.onFrame(true, hold(1), 0)
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), same.onShutter(50))
+        checkNotNull(same.switchToFaceByFace())
+        assertTrue(same.backOut())
+        for (now in 1000L..3000L step 100) assertTrue(same.onFrame(true, hold(1), now, settled = true, outline = outline()).isEmpty())
+        assertTrue(same.onShutter(3050).isEmpty())
     }
 
     private fun guidedCapture(
