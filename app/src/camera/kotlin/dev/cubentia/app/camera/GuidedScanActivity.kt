@@ -604,6 +604,7 @@ class GuidedScanActivity : ComponentActivity() {
                 )
             if (measured) {
                 quick.steadyRestart?.let { ScanDiagnostics.onSteadyRestart(now, it.face, it.cells, it.maxDeltaE) }
+                quick.centerBlock?.let { ScanDiagnostics.onCenterBlock(now, it) }
             }
             return
         }
@@ -645,7 +646,10 @@ class GuidedScanActivity : ComponentActivity() {
             ScanDiagnostics.onCalibrationOffer(hold = quick.hold, heldMs = quick.lightHeldSince?.let { now - it })
         }
         val capture = effects.filterIsInstance<QuickScanEffect.CornerCaptured>().firstOrNull()
-        if (capture != null) scan.freeze.start(now)
+        if (capture != null) {
+            scan.freeze.start(now)
+            quick.lastCapture?.let(ScanDiagnostics::onCornerCapture)
+        }
         val next = GuidedScanFlow.phaseOf(quick)
         val review = quickReview(effects.filterIsInstance<QuickScanEffect.Done>().firstOrNull())
         val includeAwb = quick.hold == 1

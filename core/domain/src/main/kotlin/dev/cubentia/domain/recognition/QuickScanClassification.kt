@@ -77,6 +77,66 @@ object QuickScanClassification {
         }
     }
 
+    /**
+     * What [needGrid] decided for each of [faces], and why (debug diagnostics, Story 10.19): the gated center color, the
+     * judged stickers' CONFIDENT and UNCERTAIN counts, and for a face sent to the grid the cause. [FaceReport.closeCalls]
+     * counts judged stickers the self-calibration read already left UNCERTAIN (or could not read); [FaceReport.disagreements]
+     * those it read CONFIDENT that the second read did not confirm; [FaceReport.correctionRejected] is true when a saved
+     * calibration exists but the per-face correction could not use the face's own center (guarded, missing or invalid).
+     */
+    fun report(
+        merged: List<FaceSample>,
+        faces: List<Face>,
+        saved: CalibrationCenters?,
+    ): List<FaceReport> {
+        val self = SelfCalibration.from(merged, saved)
+        val centers: Map<Color, Lab> =
+            when (self) {
+                is SelfCalibration.Calibrated -> self.calibration.centers
+                is SelfCalibration.NeedsCalibration -> SelfCalibration.trustedCenters(merged)
+            }
+        val grid = needGrid(merged, faces, saved).toSet()
+        val byFace = merged.associateBy { it.face }
+        return faces.map { face ->
+            val sample = byFace[face] ?: return@map FaceReport(face, null, 0, 0, face in grid, null, false, 0, 0, false)
+            val keep = { index: Int -> index != FaceSample.CENTER_INDEX || sample.centerPlain != false }
+            val gated = read(sample, merged, saved)
+            val first = readAll(sample.stickers, centers)
+            val judged = gated.filterIndexed { index, _ -> keep(index) }
+            val firstJudged = first.filterIndexed { index, _ -> keep(index) }
+            val savedValid = saved != null && StickerClassifier.isValid(saved)
+            FaceReport(
+                face = face,
+                center = gated.getOrNull(FaceSample.CENTER_INDEX)?.color,
+                confident = judged.count { it?.confidence == StickerConfidence.CONFIDENT },
+                uncertain = judged.count { it?.confidence != StickerConfidence.CONFIDENT },
+                grid = face in grid,
+                quality = sample.quality,
+                uncalibrated = self is SelfCalibration.NeedsCalibration && Color.home(face) in self.colors,
+                closeCalls = firstJudged.count { it?.confidence != StickerConfidence.CONFIDENT },
+                disagreements =
+                    judged.zip(firstJudged).count { (g, f) ->
+                        f?.confidence == StickerConfidence.CONFIDENT && g?.confidence != StickerConfidence.CONFIDENT
+                    },
+                correctionRejected = savedValid && corrected(sample, checkNotNull(saved)) === sample.stickers,
+            )
+        }
+    }
+
+    /** One face's [report]: color names and counts only. [quality] is null for a face not captured. */
+    data class FaceReport(
+        val face: Face,
+        val center: Color?,
+        val confident: Int,
+        val uncertain: Int,
+        val grid: Boolean,
+        val quality: CaptureQuality?,
+        val uncalibrated: Boolean,
+        val closeCalls: Int,
+        val disagreements: Int,
+        val correctionRejected: Boolean,
+    )
+
     private fun gate(
         first: StickerReading?,
         second: StickerReading?,

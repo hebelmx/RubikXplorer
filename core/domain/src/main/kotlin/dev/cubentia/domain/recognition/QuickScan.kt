@@ -84,6 +84,17 @@ class QuickScanController(
     private val corner = CornerHold(faceSteady = true)
     private var previous: List<Lab?>? = null
 
+    /**
+     * The centre check that blocked the last detected corner frame (PO 2026-11-21, Story 10.19); null when it passed or
+     * did not run. While it blocks, nothing is captured (auto or manual) and the steady count does not start.
+     */
+    var centerBlock: CenterCheck? = null
+        private set
+
+    /** What the last corner capture read and decided per face, for the debug diagnostics; null before the first. */
+    var lastCapture: CornerCaptureReport? = null
+        private set
+
     /** Why the last frame restarted the corner steady window (two or more cells of one face moved); null when it did not. */
     val steadyRestart: CornerSteadyRestart? get() = corner.steadyRestart
 
@@ -172,6 +183,7 @@ class QuickScanController(
     ): List<QuickScanEffect> {
         if (!inCorner) return emptyList()
         lastFrameMs = nowMs
+        centerBlock = null
         val light = if (detected && lightCheck) SideLight.check(faces, saved) else null
         this.light = light
         val decision =
@@ -185,8 +197,13 @@ class QuickScanController(
                 settled = settled,
                 torchOn = torchOn,
             ) { values ->
+                val check = CenterCheck.of(hold, corner.latest, captured, saved)
                 val prior = previous
-                if (prior != null && !turnedOver(values, prior)) {
+                if (check.blocks) {
+                    // PO 2026-11-21: a hold whose centres read as another pose never captures; the prompt stays.
+                    centerBlock = check
+                    false
+                } else if (prior != null && !turnedOver(values, prior)) {
                     false
                 } else {
                     previous = null
@@ -232,7 +249,7 @@ class QuickScanController(
      * settled, unless the light hold engages or the cube is lost first), otherwise the corner is taken now.
      */
     fun onShutter(): List<QuickScanEffect> {
-        if (!inCorner || (previous != null && !corner.unlocated)) return emptyList()
+        if (!inCorner || (previous != null && !corner.unlocated) || centerBlock != null) return emptyList()
         return when (corner.press()) {
             CornerHold.Press.Take -> take()
             CornerHold.Press.Queued, CornerHold.Press.Ignored -> emptyList()
@@ -258,6 +275,12 @@ class QuickScanController(
                     )
             }
         }
+        val merged = captured
+        lastCapture =
+            CornerCaptureReport(
+                taken,
+                QuickScanClassification.report(merged, QuickScanPlan.holds[taken - 1].map { it.face }.filter { it !in keptSet }, saved),
+            )
         if (inCorner) {
             previous =
                 corner.values().takeIf { it.any { value -> value != null } }
@@ -397,3 +420,82 @@ class QuickScanController(
         const val CALIBRATION_OFFER_MS = 5000L
     }
 }
+
+/**
+ * The three visible centre stickers of a corner hold against the hold's prompted centre colours (PO 2026-11-21, Story
+ * 10.19), read with the calibration Quick Scan uses at that hold: the self-calibration over the faces captured so far
+ * (the saved calibration filling the rest), or, while some colours have no centre yet, the captured faces' own trusted
+ * centres. [read] is null where the centre cannot be read (missing, invalid, a guarded logo centre or fewer than two
+ * centres); [matches] is true for a CONFIDENT read of the prompted colour, false for a confidently different colour, and
+ * null (unknown) otherwise. When the prompted colour has no centre yet, a read only counts as different when it sits
+ * within the close-call distance of the centre of the colour another hold showed at that position (the Learner still
+ * holds that corner). The check [blocks] only when some centre is confidently different: an unclear read never does.
+ */
+data class CenterCheck(
+    val hold: Int,
+    val expected: List<Color>,
+    val read: List<Color?>,
+    val matches: List<Boolean?>,
+) {
+    val blocks: Boolean get() = matches.any { it == false }
+
+    companion object {
+        fun of(
+            hold: Int,
+            faces: List<FrameStats?>,
+            captured: List<FaceSample>,
+            saved: CalibrationCenters?,
+        ): CenterCheck {
+            val steps = QuickScanPlan.holds[hold - 1]
+            val centers: Map<Color, Lab> =
+                when (val self = SelfCalibration.from(captured, saved)) {
+                    is SelfCalibration.Calibrated -> self.calibration.centers
+                    is SelfCalibration.NeedsCalibration -> SelfCalibration.trustedCenters(captured)
+                }
+            val reads =
+                steps.indices.map { index ->
+                    val cell = faces.getOrNull(index)?.cells?.getOrNull(FaceSample.CENTER_INDEX)
+                    val lab = cell?.value
+                    if (lab == null || !lab.isValid() || !cell.plain ||
+                        centers.size < 2
+                    ) {
+                        null
+                    } else {
+                        lab to StickerClassifier.read(lab, centers)
+                    }
+                }
+            val matches =
+                steps.mapIndexed { index, step ->
+                    val (lab, reading) = reads[index] ?: return@mapIndexed null
+                    when {
+                        reading.confidence != StickerConfidence.CONFIDENT -> null
+
+                        reading.color == step.centerColor -> true
+
+                        step.centerColor in centers -> false
+
+                        reading.color in otherHoldColors(hold, index) &&
+                            StickerClassifier.deltaE(lab, centers.getValue(reading.color)) < StickerClassifier.CLOSE_CALL_DELTA_E -> false
+
+                        else -> null
+                    }
+                }
+            return CenterCheck(hold, steps.map { it.centerColor }, reads.map { it?.second?.color }, matches)
+        }
+
+        private fun otherHoldColors(
+            hold: Int,
+            index: Int,
+        ): Set<Color> =
+            QuickScanPlan.holds
+                .filterIndexed { i, _ -> i != hold - 1 }
+                .map { it[index].centerColor }
+                .toSet()
+    }
+}
+
+/** One corner capture's per-face outcome (Story 10.19 diagnostics): colour names and counts only, never pixels. */
+data class CornerCaptureReport(
+    val hold: Int,
+    val faces: List<QuickScanClassification.FaceReport>,
+)

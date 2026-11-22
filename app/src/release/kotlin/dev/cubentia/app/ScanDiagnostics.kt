@@ -4,6 +4,8 @@ import dev.cubentia.application.usecase.Recognition
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.recognition.CalibrationCenters
+import dev.cubentia.domain.recognition.CenterCheck
+import dev.cubentia.domain.recognition.CornerCaptureReport
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.PhysicalObservation
@@ -31,6 +33,13 @@ object ScanDiagnostics {
         cells: List<Int>,
         maxDeltaE: Double,
     ) = Unit
+
+    fun onCenterBlock(
+        nowMs: Long,
+        check: CenterCheck,
+    ) = Unit
+
+    fun onCornerCapture(report: CornerCaptureReport) = Unit
 
     fun onLightHold(
         started: Boolean,

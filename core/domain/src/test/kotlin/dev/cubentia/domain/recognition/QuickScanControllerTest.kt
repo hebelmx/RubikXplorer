@@ -664,9 +664,10 @@ class QuickScanControllerTest {
         scan.onFrame(true, dark, 0, settled = false)
         scan.onFrame(true, dark, 100, settled = true)
         assertTrue(scan.lightHeld)
-        // The Lenovo session: one right-face cell alternating L* ~86/96 while everything else holds still.
-        val low = first.toMutableList().also { it[2] = it[2].withCell(4, Lab(86.0, 0.0, 0.0)) }
-        val high = first.toMutableList().also { it[2] = it[2].withCell(4, Lab(96.0, 0.0, 0.0)) }
+        // The Lenovo session: one right-face cell alternating L* ~86/96 while everything else holds still (an edge cell:
+        // a centre confidently read as another colour is a wrong pose and blocks capture, PO 2026-11-21).
+        val low = first.toMutableList().also { it[2] = it[2].withCell(0, Lab(86.0, 0.0, 0.0)) }
+        val high = first.toMutableList().also { it[2] = it[2].withCell(0, Lab(96.0, 0.0, 0.0)) }
         var clearedAt: Long? = null
         var capturedAt: Long? = null
         var now = 200L
@@ -1206,6 +1207,70 @@ class QuickScanControllerTest {
             }
         val readings = QuickScanClassification.read(mixed.single { it.face == Face.B }, mixed, null)
         assertTrue(readings[0]?.confidence != StickerConfidence.CONFIDENT || readings[0]?.color == Color.WHITE, "$readings")
+    }
+
+    @Test
+    fun `hold 2 does not capture while the hold-1 centres are shown and captures once the hold-2 centres appear`() {
+        val scan = QuickScanController(saved, lightCheck = false)
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, hold(1), 0))
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onShutter())
+        assertEquals(1, scan.lastCapture?.hold)
+        assertEquals(QuickScanPlan.holds[0].map { it.face }, scan.lastCapture?.faces?.map { it.face })
+        assertTrue(scan.lastCapture!!.faces.none { it.grid }, "${scan.lastCapture}")
+        // Still the first corner, its top a little darker: the turnover check alone would let it through (PO 2026-11-21).
+        val still = hold(1).toMutableList().also { it[0] = it[0].withCell(FaceSample.CENTER_INDEX, Lab(74.0, 0.0, 0.0)) }
+        for (now in 100L..4000L step 100L) {
+            assertTrue(scan.onFrame(true, still, now).none { it is QuickScanEffect.CornerCaptured }, "at $now")
+        }
+        val block = checkNotNull(scan.centerBlock)
+        assertEquals(2, block.hold)
+        assertEquals(listOf(Color.YELLOW, Color.ORANGE, Color.BLUE), block.expected)
+        assertEquals(listOf(Color.WHITE, Color.GREEN, Color.RED), block.read)
+        assertEquals(listOf(false, false, false), block.matches)
+        assertTrue(scan.onShutter().isEmpty())
+        assertEquals(2, scan.hold)
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, hold(2), 5000))
+        assertEquals(null, scan.centerBlock)
+        assertTrue(scan.onFrame(true, hold(2), 5600).isEmpty())
+        assertEquals(QuickScanEffect.CornerCaptured(2), scan.onFrame(true, hold(2), 6600).first())
+        assertEquals(2, scan.lastCapture?.hold)
+    }
+
+    @Test
+    fun `hold 2 without a saved calibration is blocked by the hold-1 centres it already captured`() {
+        val scan = QuickScanController(lightCheck = false)
+        scan.onFrame(true, hold(1), 0)
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onShutter())
+        val still = hold(1).toMutableList().also { it[0] = it[0].withCell(FaceSample.CENTER_INDEX, Lab(74.0, 0.0, 0.0)) }
+        for (now in 100L..3000L step 100L) assertTrue(scan.onFrame(true, still, now).isEmpty(), "at $now")
+        assertEquals(listOf(null, false, false), scan.centerBlock?.matches)
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, hold(2), 4000))
+        assertTrue(scan.onFrame(true, hold(2), 4600).isEmpty())
+        assertEquals(QuickScanEffect.CornerCaptured(2), scan.onFrame(true, hold(2), 5600).first())
+    }
+
+    @Test
+    fun `an uncertain centre does not block capture`() {
+        val scan = QuickScanController(saved, lightCheck = false)
+        // Halfway between green and yellow: a close call, so unknown, not a wrong pose.
+        val unclear = hold(1).toMutableList().also { it[1] = it[1].withCell(FaceSample.CENTER_INDEX, Lab(70.0, -32.5, 60.0)) }
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, unclear, 0))
+        assertTrue(scan.onFrame(true, unclear, 600).isEmpty())
+        assertEquals(null, scan.centerBlock)
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, unclear, 1600))
+    }
+
+    @Test
+    fun `hold 1 with a wrong top centre does not capture`() {
+        val scan = QuickScanController(saved, lightCheck = false)
+        val wrong = hold(1).toMutableList().also { it[0] = it[0].withCell(FaceSample.CENTER_INDEX, labs.getValue(Color.YELLOW)) }
+        for (now in 0L..4000L step 100L) {
+            assertTrue(scan.onFrame(true, wrong, now).none { it is QuickScanEffect.CornerCaptured }, "at $now")
+        }
+        assertEquals(listOf(false, true, true), scan.centerBlock?.matches)
+        assertTrue(scan.onShutter().isEmpty())
+        assertEquals(1, scan.hold)
+        assertEquals(null, scan.lastCapture)
     }
 
     private fun guidedCapture(

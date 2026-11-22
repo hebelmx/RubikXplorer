@@ -10,6 +10,8 @@ import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Orientation
 import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.CaptureQuality
+import dev.cubentia.domain.recognition.CenterCheck
+import dev.cubentia.domain.recognition.CornerCaptureReport
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.FrameInspection
 import dev.cubentia.domain.recognition.FrameQuality
@@ -40,6 +42,7 @@ import java.util.concurrent.atomic.AtomicLong
 object ScanDiagnostics {
     private val lastCornerLogMs = AtomicLong(Long.MIN_VALUE / 2)
     private val lastSteadyLogMs = AtomicLong(Long.MIN_VALUE / 2)
+    private val lastCenterLogMs = AtomicLong(Long.MIN_VALUE / 2)
 
     /**
      * One corner frame (rate-limited): detection, per-face shutter quality, and Story 10.19's light check (per-face light
@@ -124,6 +127,74 @@ object ScanDiagnostics {
                 .joinToString(" "),
         )
     }
+
+    /**
+     * The Quick Scan centre check blocked a corner frame (PO 2026-11-21, rate-limited like the frame line): the hold, its
+     * prompted centre colours, the colours read and per centre whether it matched (`-` unknown). Colour names only.
+     */
+    fun onCenterBlock(
+        nowMs: Long,
+        check: CenterCheck,
+    ) {
+        val last = lastCenterLogMs.get()
+        if (nowMs - last < INTERVAL_MS || !lastCenterLogMs.compareAndSet(last, nowMs)) return
+        Log.d(TAG, centerBlockLine(check))
+    }
+
+    internal fun centerBlockLine(check: CenterCheck): String =
+        listOf(
+            "quickScan",
+            "centerBlock",
+            "hold=${check.hold}",
+            "expected=${check.expected.joinToString(",")}",
+            "read=${check.read.joinToString(",") { it?.name ?: "-" }}",
+            "matches=${check.matches.joinToString(",") { it?.toString() ?: "-" }}",
+        ).joinToString(" ")
+
+    /**
+     * One line per Quick Scan corner capture (Story 10.19): per face of the hold its centre colour read, the CONFIDENT and
+     * UNCERTAIN sticker counts, whether it is kept or sent to the grid (`grid`), and why when sent (`missing`, the
+     * shutter quality, `uncalibrated`, or the agreement-gate disagreements, close calls and a rejected centre correction).
+     * Colour names and counts only, never pixels (AD-9).
+     */
+    fun onCornerCapture(report: CornerCaptureReport) {
+        Log.d(TAG, cornerCaptureLine(report))
+    }
+
+    internal fun cornerCaptureLine(report: CornerCaptureReport): String =
+        (
+            listOf("quickScan", "capture", "hold=${report.hold}") +
+                report.faces.map { face ->
+                    val reason =
+                        when {
+                            !face.grid -> {
+                                "-"
+                            }
+
+                            face.quality == null -> {
+                                "missing"
+                            }
+
+                            face.quality != CaptureQuality.ACCEPTABLE -> {
+                                "quality=${face.quality}"
+                            }
+
+                            face.uncalibrated -> {
+                                "uncalibrated"
+                            }
+
+                            else -> {
+                                listOfNotNull(
+                                    "disagree=${face.disagreements}",
+                                    "closeCall=${face.closeCalls}",
+                                    if (face.correctionRejected) "correction=rejected" else null,
+                                ).joinToString("/")
+                            }
+                        }
+                    "${face.face}:center=${face.center?.name ?: "-"},confident=${face.confident},uncertain=${face.uncertain}," +
+                        "${if (face.grid) "grid" else "kept"},reason=$reason"
+                }
+        ).joinToString(" ")
 
     /** The light hold engaged ([started]) or cleared after [heldMs]. */
     fun onLightHold(

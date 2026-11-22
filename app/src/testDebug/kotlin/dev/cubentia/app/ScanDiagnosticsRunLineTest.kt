@@ -163,4 +163,58 @@ class ScanDiagnosticsRunLineTest {
             lines,
         )
     }
+
+    @Test fun `quick scan logs each corner capture and a centre block with colour names and counts only`() {
+        val report =
+            dev.cubentia.domain.recognition.CornerCaptureReport(
+                2,
+                listOf(
+                    dev.cubentia.domain.recognition.QuickScanClassification.FaceReport(
+                        Face.D,
+                        dev.cubentia.domain.cube.Color.YELLOW,
+                        8,
+                        0,
+                        false,
+                        dev.cubentia.domain.recognition.CaptureQuality.ACCEPTABLE,
+                        false,
+                        0,
+                        0,
+                        false,
+                    ),
+                    dev.cubentia.domain.recognition.QuickScanClassification.FaceReport(
+                        Face.L,
+                        dev.cubentia.domain.cube.Color.ORANGE,
+                        5,
+                        3,
+                        true,
+                        dev.cubentia.domain.recognition.CaptureQuality.ACCEPTABLE,
+                        false,
+                        1,
+                        2,
+                        true,
+                    ),
+                    dev.cubentia.domain.recognition.QuickScanClassification
+                        .FaceReport(Face.B, null, 0, 0, true, null, false, 0, 0, false),
+                ),
+            )
+        ScanDiagnostics.onCornerCapture(report)
+        val check =
+            dev.cubentia.domain.recognition.CenterCheck(
+                2,
+                listOf(dev.cubentia.domain.cube.Color.YELLOW, dev.cubentia.domain.cube.Color.ORANGE, dev.cubentia.domain.cube.Color.BLUE),
+                listOf(dev.cubentia.domain.cube.Color.WHITE, null, dev.cubentia.domain.cube.Color.RED),
+                listOf(false, null, false),
+            )
+        ScanDiagnostics.onCenterBlock(0, check)
+        val lines = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }
+        assertEquals(
+            listOf(
+                "quickScan capture hold=2 D:center=YELLOW,confident=8,uncertain=0,kept,reason=- " +
+                    "L:center=ORANGE,confident=5,uncertain=3,grid,reason=disagree=2/closeCall=1/correction=rejected " +
+                    "B:center=-,confident=0,uncertain=0,grid,reason=missing",
+                "quickScan centerBlock hold=2 expected=YELLOW,ORANGE,BLUE read=WHITE,-,RED matches=false,-,false",
+            ),
+            lines,
+        )
+    }
 }
