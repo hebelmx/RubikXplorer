@@ -9,6 +9,9 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
@@ -175,11 +178,22 @@ class AppShellSolveTest {
                     onScan = scan,
                     onQuickScan = quickScan,
                     quickCheck = quickCheck,
+                    solutionStyles = styles,
                 )
             }
         }
         rule.waitForIdle()
     }
+
+    private val styles =
+        dev.cubentia.app.ui.solve.SolutionStyleViewModel(
+            {
+                dev.cubentia.application.usecase
+                    .SolveByMethod(it)
+            },
+            dev.cubentia.app.solver
+                .MethodSolutionCache(),
+        )
 
     private fun click(tag: String) {
         rule.onNodeWithTag(tag).performClick()
@@ -595,6 +609,45 @@ class AppShellSolveTest {
         assertEquals(2, restarted.solution.size)
         assertEquals(emptySet<Face>(), restarted.touchedSinceVerified)
         rule.onNodeWithTag("playback:useMyCube").assertDoesNotExist()
+        // The re-solve plays as *Shortest*, and a style now builds from the observed cube.
+        chip(dev.cubentia.app.ui.solve.SolutionStyle.SHORTEST).assertIsSelected()
+        chip(dev.cubentia.app.ui.solve.SolutionStyle.BEGINNER).assertIsEnabled()
+        chooseBeginnerAndAwaitRestart()
+        val beginner = host.state.value
+        assertEquals(actual, beginner.entry)
+        org.junit.Assert.assertTrue(beginner.entry.apply(beginner.solution).isSolved)
+        org.junit.Assert.assertTrue(beginner.isPhysical)
+    }
+
+    @Test fun aStyleRestartFromAnAcceptedScanKeepsTheScanBaseline() {
+        val move = FaceTurn(Face.R, Turn.CLOCKWISE)
+        val cube = CubeState.SOLVED.apply(move)
+        solver = CubeSolver { SolveResult.Solved(shortest) }
+        show(
+            cameraScan = dev.cubentia.application.port.FlagLevel.GA,
+            scan = { flow.onScanOutcome(ScanOutcome.Accepted(cube)) },
+        )
+        click("nav:solve")
+        click("solve:scan")
+        rule.waitUntil(10000) { host.state.value.kind == SessionKind.SOLVE_PLAYBACK }
+        rule.waitForIdle()
+        assertEquals(emptySet<Face>(), host.state.value.touchedSinceVerified)
+        chooseBeginnerAndAwaitRestart()
+        val restarted = host.state.value
+        assertNotEquals(shortest, restarted.solution)
+        assertEquals(cube, restarted.entry)
+        assertEquals(emptySet<Face>(), restarted.touchedSinceVerified)
+    }
+
+    /** Taps Beginner and waits until its solution has restarted the session. */
+    private fun chooseBeginnerAndAwaitRestart() {
+        val before = host.state.value.revision
+        click("solutionStyle:BEGINNER")
+        rule.waitUntil(10000) {
+            styles.state.value.playing == dev.cubentia.app.ui.solve.SolutionStyle.BEGINNER &&
+                host.state.value.revision > before
+        }
+        rule.waitForIdle()
     }
 
     @Test fun aScanHeldOffHomeStartsPlaybackInItsOwnFrame() {
@@ -835,5 +888,107 @@ class AppShellSolveTest {
     private fun assertPauseNoteMargin() {
         val note = rule.onNodeWithTag("solve:pauseNote").fetchSemanticsNode()
         org.junit.Assert.assertTrue(note.boundsInRoot.left >= 16 * note.layoutInfo.density.density)
+    }
+
+    private fun startPlaybackFromTheEditor(
+        cube: CubeState,
+        moves: List<FaceTurn>,
+    ) {
+        click("nav:solve")
+        click("solve:enterColors")
+        seedScrambledEditor(cube)
+        solver = CubeSolver { SolveResult.Solved(moves) }
+        click("editor:accept")
+        rule.waitUntil(10000) { host.state.value.kind == SessionKind.SOLVE_PLAYBACK }
+        rule.waitForIdle()
+    }
+
+    /** A longer Solver answer for R (L and R commute) than the Beginner method's single R'. */
+    private val shortest =
+        listOf(FaceTurn(Face.L, Turn.CLOCKWISE), FaceTurn(Face.R, Turn.COUNTERCLOCKWISE), FaceTurn(Face.L, Turn.COUNTERCLOCKWISE))
+
+    private fun chip(style: dev.cubentia.app.ui.solve.SolutionStyle) = rule.onNodeWithTag("solutionStyle:" + style.name)
+
+    @Test fun solutionStylesOpenOnShortestAndAMethodRestartsAtStepOneWithItsSegmentLabel() {
+        val move = FaceTurn(Face.R, Turn.CLOCKWISE)
+        val cube = CubeState.SOLVED.apply(move)
+        show()
+        startPlaybackFromTheEditor(cube, shortest)
+        dev.cubentia.app.ui.solve.SolutionStyle.entries
+            .forEach { chip(it).assertExists() }
+        chip(dev.cubentia.app.ui.solve.SolutionStyle.SHORTEST).assertIsSelected()
+        chip(dev.cubentia.app.ui.solve.SolutionStyle.BEGINNER).assertIsNotSelected()
+        chip(dev.cubentia.app.ui.solve.SolutionStyle.SHORTEST).assertTextEquals("Shortest")
+        // No progress yet: Beginner is the suggested method.
+        rule
+            .onNodeWithTag("solutionStyle:BEGINNER:suggested", useUnmergedTree = true)
+            .assertTextEquals("Suggested")
+        rule.onNodeWithTag("solutionStyle:TWO_LOOK:suggested", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithTag("playback:segment").assertDoesNotExist()
+        rule.onNodeWithTag("solutionStyle:message").assertDoesNotExist()
+
+        click("playback:end")
+        click("solutionStyle:BEGINNER")
+        rule.waitUntil(10000) { host.state.value.solution != shortest }
+        rule.waitForIdle()
+        val beginner = host.state.value
+        assertEquals(SessionKind.SOLVE_PLAYBACK, beginner.kind)
+        assertEquals(cube, beginner.entry)
+        org.junit.Assert.assertTrue(cube.apply(beginner.solution).isSolved)
+        chip(dev.cubentia.app.ui.solve.SolutionStyle.BEGINNER).assertIsSelected()
+        rule.onNodeWithTag("playback:counter").assertTextEquals("0 / " + beginner.solution.size)
+        rule.onNodeWithTag("playback:segment").assertTextEquals("First cross")
+        val segment = rule.onNodeWithTag("playback:segment").fetchSemanticsNode().boundsInRoot
+        val counter = rule.onNodeWithTag("playback:counter").fetchSemanticsNode().boundsInRoot
+        org.junit.Assert.assertTrue(segment.bottom <= counter.top)
+
+        click("solutionStyle:SHORTEST")
+        rule.waitUntil(10000) { host.state.value.solution == shortest }
+        rule.waitForIdle()
+        chip(dev.cubentia.app.ui.solve.SolutionStyle.SHORTEST).assertIsSelected()
+        rule.onNodeWithTag("playback:counter").assertTextEquals("0 / 3")
+        rule.onNodeWithTag("playback:segment").assertDoesNotExist()
+    }
+
+    @Test fun physicalStyleLocksAfterDoneUntilBackToStepOneAndAMethodKeepsFollowing() {
+        val move = FaceTurn(Face.R, Turn.CLOCKWISE)
+        val cube = CubeState.SOLVED.apply(move)
+        show()
+        startPlaybackFromTheEditor(cube, shortest)
+        click("playback:followOnMyCube")
+        rule.waitUntil(10000) { host.state.value.isPhysical }
+        rule.waitForIdle()
+        chip(dev.cubentia.app.ui.solve.SolutionStyle.BEGINNER).assertIsEnabled()
+        click("playback:done")
+        rule.waitUntil(10000) { host.state.value.expected != cube }
+        rule.waitForIdle()
+        dev.cubentia.app.ui.solve.SolutionStyle.entries
+            .forEach { chip(it).assertIsNotEnabled() }
+        rule.onNodeWithTag("solutionStyle:message").assertTextEquals("Go back to step 1 to change style")
+        click("playback:back")
+        rule.waitUntil(10000) { host.state.value.expected == cube }
+        rule.waitForIdle()
+        chip(dev.cubentia.app.ui.solve.SolutionStyle.BEGINNER).assertIsEnabled()
+        rule.onNodeWithTag("solutionStyle:message").assertDoesNotExist()
+
+        click("solutionStyle:BEGINNER")
+        rule.waitUntil(10000) { host.state.value.solution != shortest && host.state.value.isPhysical }
+        rule.waitForIdle()
+        val following = host.state.value
+        assertEquals(cube, following.expected)
+        org.junit.Assert.assertTrue(cube.apply(following.solution).isSolved)
+        rule.onNodeWithTag("playback:counter").assertTextEquals("0 / " + following.solution.size)
+        rule.onNodeWithTag("playback:segment").assertExists()
+        rule.onNodeWithTag("playback:done").assertExists()
+
+        // A *Done*, then a switch to the virtual cube: the real cube is still off the start, so the style stays locked.
+        click("playback:done")
+        rule.waitUntil(10000) { host.state.value.expected != cube }
+        click("playback:switchToVirtual")
+        rule.waitUntil(10000) { !host.state.value.isPhysical }
+        rule.waitForIdle()
+        dev.cubentia.app.ui.solve.SolutionStyle.entries
+            .forEach { chip(it).assertIsNotEnabled() }
+        rule.onNodeWithTag("solutionStyle:message").assertTextEquals("Go back to step 1 to change style")
     }
 }
