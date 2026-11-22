@@ -1731,3 +1731,9 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-276-quick-scan-reopen-fresh-corner-view.md"
+  - id: "issue-260-deferred-device-arrow-look-and-label"
+    epic: 12
+    action: "Device session: look at the cased Move arrow and ghost arrow over every sticker colour (the SCP 2026-11-22 success criterion), and check whether the uncased 60% notation label stays readable and clear of the larger 18dp arrowhead; if not, open an issue (low, Learner-visible; deferred from #260, app/src/main/kotlin/dev/cubentia/app/render/Cube3DRenderer.kt:672)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-260-move-arrow-casing-filled-arrowhead.md"
