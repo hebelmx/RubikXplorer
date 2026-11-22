@@ -14,6 +14,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
@@ -445,5 +446,74 @@ class AlgorithmDetailScreenTest {
         val title = rule.onNodeWithTag("algorithmDetail:title").fetchSemanticsNode()
         org.junit.Assert.assertTrue(close.boundsInRoot.left <= 24 * close.layoutInfo.density.density)
         org.junit.Assert.assertTrue(close.boundsInRoot.right <= title.boundsInRoot.left)
+    }
+
+    private fun showPractice(onPractice: ((Boolean) -> Unit)?) {
+        rule.setContent {
+            CubentiaTheme {
+                AlgorithmDetailScreen(case, algorithm, strings, {}, Modifier.fillMaxSize(), onPractice = onPractice)
+            }
+        }
+    }
+
+    @Test fun `practice asks set-up or already-case and starts the chosen one after closing the sheet`() {
+        val chosen = mutableListOf<Boolean>()
+        showPractice { chosen += it }
+        rule.onNodeWithTag("algorithmDetail:practiceChoice").assertDoesNotExist()
+        rule
+            .onNodeWithTag("algorithmDetail:practice")
+            .performScrollTo()
+            .assertHasClickAction()
+            .assertTextEquals("I'm doing it on my cube")
+        rule.onNodeWithTag("algorithmDetail:practice").assertHeightIsAtLeast(Spacing.touchMin)
+        rule.onNodeWithTag("algorithmDetail:practice").performClick()
+        rule
+            .onNodeWithTag("algorithmDetail:practiceChoice:title")
+            .assertTextEquals("Set it up from solved, or does your cube already show this case?")
+        rule.onNodeWithTag("algorithmDetail:practice:setUp").assertTextEquals("Set it up from solved")
+        rule.onNodeWithTag("algorithmDetail:practice:alreadyCase").assertTextEquals("My cube already shows this case")
+        rule.onNodeWithTag("algorithmDetail:practice:setUp").performClick()
+        rule.waitForIdle()
+        assertEquals(listOf(true), chosen)
+        rule.onNodeWithTag("algorithmDetail:practiceChoice").assertDoesNotExist()
+        rule.onNodeWithTag("algorithmDetail:practice").performScrollTo().performClick()
+        rule.onNodeWithTag("algorithmDetail:practice:alreadyCase").performClick()
+        rule.waitForIdle()
+        assertEquals(listOf(true, false), chosen)
+    }
+
+    @Test fun `dismissing the practice choice starts nothing`() {
+        val chosen = mutableListOf<Boolean>()
+        rule.setContent {
+            CubentiaTheme {
+                AlgorithmDetailScreen(case, algorithm, strings, {}, Modifier.fillMaxSize(), onPractice = { chosen += it })
+            }
+        }
+        rule.onNodeWithTag("algorithmDetail:practice").performScrollTo().performClick()
+        rule.onNodeWithTag("algorithmDetail:practiceChoice").assertExists()
+        // A system back press on the sheet's own window, which Compose routes to onDismissRequest.
+        (
+            org.robolectric.shadows.ShadowDialog
+                .getLatestDialog() as androidx.activity.ComponentDialog
+        ).onBackPressedDispatcher.onBackPressed()
+        rule.waitForIdle()
+        rule.onNodeWithTag("algorithmDetail:practiceChoice").assertDoesNotExist()
+        assertTrue(chosen.isEmpty())
+    }
+
+    @Test fun `without a practice action there is no practice button`() {
+        showPractice(null)
+        rule.onNodeWithTag("algorithmDetail:title").assertExists()
+        rule.onNodeWithTag("algorithmDetail:practice").assertDoesNotExist()
+    }
+
+    @Test fun `bad notation shows no practice button`() {
+        rule.setContent {
+            CubentiaTheme {
+                AlgorithmDetailScreen(case, algorithm.copy(notation = "invalid"), strings, {}, Modifier.fillMaxSize(), onPractice = {})
+            }
+        }
+        rule.onNodeWithTag("algorithmDetail:title").assertExists()
+        rule.onNodeWithTag("algorithmDetail:practice").assertDoesNotExist()
     }
 }
