@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-22-2026 10:25'
+last_updated: '11-22-2026 10:49'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -198,7 +198,7 @@ development_status:
   epic-15: in-progress
   15-1-build-a-beginner-method-solution-from-the-course-s-stages: done
   15-2-last-layer-segments-for-2-look-and-full-oll-pll-preferring-m: done
-  15-3-choose-a-solution-style-in-solution-playback: backlog
+  15-3-choose-a-solution-style-in-solution-playback: in-progress
   epic-15-retrospective: optional
 action_items:
   - id: "epic-2-retro-item-1-create-a-deferred-findings-ledger-or-rou"
@@ -1804,25 +1804,35 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-15-1-build-a-beginner-method-solution-from-the-course-s-stages.md"
   - id: "epic-15-deferred-15.2-fallback-tie-break-prefers-status"
     epic: 15
-    action: "When the preferred-only search misses, the fallback breadth-first search breaks equal-length ties by content order, so a same-length path with a Learning/Learned Algorithm can lose; sort look.algorithms preferred-first in the fallback (medium; deferred from 15.2, core/domain/src/main/kotlin/dev/cubentia/domain/method/FasterLastLayer.kt:257)"
+    action: "When the preferred-only search misses, the fallback breadth-first search
+      breaks equal-length ties by content order, so a same-length path with a Learning/Learned
+      Algorithm can lose; sort look.algorithms preferred-first in the fallback (medium;
+      deferred from 15.2, core/domain/src/main/kotlin/dev/cubentia/domain/method/FasterLastLayer.kt:257)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-15-2-last-layer-segments-for-2-look-and-full-oll-pll-preferring-m.md"
   - id: "epic-15-deferred-15.2-wire-status-repository-in-15-3"
     epic: 15
-    action: "Nothing in :app constructs SolveByMethod yet, so Algorithm-status preference has no effect; Story 15.3 must construct it with the real AlgorithmStatusRepository and add a wiring test (low, Learner-visible; deferred from 15.2, core/application/src/main/kotlin/dev/cubentia/application/usecase/SolveByMethod.kt:66)"
+    action: "Nothing in :app constructs SolveByMethod yet, so Algorithm-status preference
+      has no effect; Story 15.3 must construct it with the real AlgorithmStatusRepository
+      and add a wiring test (low, Learner-visible; deferred from 15.2, core/application/src/main/kotlin/dev/cubentia/application/usecase/SolveByMethod.kt:66)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-15-2-last-layer-segments-for-2-look-and-full-oll-pll-preferring-m.md"
   - id: "epic-15-deferred-15.2-preferred-parse-fail-fallback"
     epic: 15
-    action: "In fullLooks, a preferred Algorithm whose Notation fails to parse makes the whole look null and the full method NotFound; fall back to the Case primary (low, Learner-visible; deferred from 15.2, core/domain/src/main/kotlin/dev/cubentia/domain/method/FasterLastLayer.kt:139)"
+    action: "In fullLooks, a preferred Algorithm whose Notation fails to parse makes
+      the whole look null and the full method NotFound; fall back to the Case primary
+      (low, Learner-visible; deferred from 15.2, core/domain/src/main/kotlin/dev/cubentia/domain/method/FasterLastLayer.kt:139)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-15-2-last-layer-segments-for-2-look-and-full-oll-pll-preferring-m.md"
   - id: "epic-15-deferred-15.2-status-flow-exception-no-preference"
     epic: 15
-    action: "An exception thrown by the Algorithm-status Flow fails the whole method solve instead of meaning no preference; wrap the read in runCatching (rethrow CancellationException) and default to emptyMap() (low, Learner-visible; deferred from 15.2, core/application/src/main/kotlin/dev/cubentia/application/usecase/SolveByMethod.kt:103)"
+    action: "An exception thrown by the Algorithm-status Flow fails the whole method
+      solve instead of meaning no preference; wrap the read in runCatching (rethrow
+      CancellationException) and default to emptyMap() (low, Learner-visible; deferred
+      from 15.2, core/application/src/main/kotlin/dev/cubentia/application/usecase/SolveByMethod.kt:103)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-15-2-last-layer-segments-for-2-look-and-full-oll-pll-preferring-m.md"
