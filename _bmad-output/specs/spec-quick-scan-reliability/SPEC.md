@@ -2,16 +2,21 @@
 id: SPEC-quick-scan-reliability
 companions:
   - concerns-and-evidence.md
+  - pipeline-audit.md
+  - failure-modes.md
+  - fix-plan.md
 sources:
   - ../../planning-artifacts/sprint-change-proposal-2026-11-21-quick-scan-front-light.md
   - ../../planning-artifacts/sprint-change-proposal-2026-11-21-quick-scan-side-face-accuracy.md
 ---
 
-# Quick Scan Reliability and Diagnosis
+> **Canonical contract.** This SPEC and the files in `companions:` are the complete, preservation-validated contract for what to build, test, and validate. Source documents listed in frontmatter are for traceability — consult them only if you need narrative rationale or prose color this contract intentionally omits.
+
+# Quick Scan Reliability
 
 ## Why
 
-Quick Scan users report long and unpredictable waits after positioning a cube, a detected-corner grid that moves, uncertainty about whether the static aiming guide matches the cube, and sticker readings that vary with lighting. The current per-frame model benchmark does not explain the end-to-end wait, and current device evidence does not settle the visual or color concerns.
+Quick Scan does not work well enough to use. With tablet, cube and lights all still, a corner capture takes 3–4 seconds at best, often 20 seconds, and up to 2 minutes; when both corners are captured the scan usually keeps no face and sends the learner to face-by-face capture. Bench captures and frame bursts on 2026-11-22 identified several causes in the capture gates and in the keep rule; a review the same day showed which of them are established and which are not. The owner wants it fixed now, not deferred to a later version.
 
 ## Capabilities
 
@@ -24,34 +29,53 @@ Quick Scan users report long and unpredictable waits after positioning a cube, a
 - **CAP-3**
   - **intent:** The team can determine whether a hybrid LiteRT sticker reader improves Quick Scan readout by combining face-image evidence with the existing Kotlin classifier's candidate labels and certainty, earlier captures, and known center colors.
   - **success:** A held-out, labeled device-and-lighting evaluation compares the hybrid with Kotlin alone on correct classifications, uncertain readings, confidently wrong readings, inference latency, model size, and performance as training data grows before an integration decision.
+- **CAP-4**
+  - **intent:** A cube in view, resting or hand-held, is captured within a bounded time.
+  - **success:** On recorded reference-device runs, each hold captures within 5 seconds of the cube being detected when everything is still, and within 8 seconds hand-held.
+- **CAP-5**
+  - **intent:** Two corner captures usually finish the scan.
+  - **success:** On labelled Lenovo captures, most scans reach review with at most one sticker left for the learner, and no accepted cube carries a confidently wrong sticker.
+- **CAP-6**
+  - **intent:** Sticker colors are judged against the cube in hand under the current light.
+  - **success:** On labelled captures, a saved calibration from another cube or light does not lower the number of stickers kept.
 
 ## Constraints
 
 - Keep recognition offline and on-device; do not add internet permission, analytics, or crash-reporting SDKs.
 - Keep camera and LiteRT code behind existing feature flags. Preserve the current Kotlin classifier until comparative evaluation supports a change.
 - Camera images used as model context remain in a bounded in-memory recent-frame buffer and are discarded when the scan ends. Persistent cube-specific references or images require separate privacy and architecture review.
+- Frame bursts and stored frames exist only in the debug fixture recorder. Release and benchmark builds never persist camera frames.
+- Safety is per sticker: no sticker accepted without learner confirmation may be wrong in the side-face replay. Today that holds only because a face with any uncertain sticker is discarded whole.
+- Kotlin-side fixes come first. Sticker reading, classification, gates and diagnostics stay in Kotlin; LiteRT stays in corner detection only.
+- Work is committed locally on `audit/quick-scan` and not pushed while another agent's CI runs on the repository.
 
 ## Non-goals
 
-- This spec does not prescribe a fix for the guide or overlay before device evidence identifies the cause.
 - This spec does not commit to replacing Kotlin color classification with LiteRT.
 - This spec does not authorize saving camera images or adding a persistent cube profile.
 - Cube color counts, center colors, and prior captures may constrain or rank candidate readings; they must not be treated as proof that a sticker's color is uniquely determined without sufficient visual evidence.
 - This spec does not redesign the complete Quick Scan user flow or train a new corner detector.
+- This spec does not raise the release `QUICK_SCAN` flag; that stays with Stories 10.21 and 10.11.
 
 ## Success signal
 
-A reference-device session can explain the user-visible wait from viewfinder entry to capture or fallback, show whether guide alignment and detected-grid motion are acceptable, and provide a held-out comparison that supports a clear keep-or-adopt decision for LiteRT color classification.
+On the Lenovo bench used on 2026-11-22, with everything still, a recorded Quick Scan of a scrambled cube auto-captures both corners in under 15 seconds in total and reaches review without face-by-face capture. A hand-held run of the same build meets CAP-4.
 
 ## Assumptions
 
 - The user's reported 3–4 second to 30+ second interval begins when the cube is positioned within the static three-axis guide and ends when the app captures; this is not necessarily the same interval as viewfinder-entry-to-capture.
-- The user’s terms “guide” and “grid” refer respectively to the static three-axis aiming graphic and the moving detected-corner overlay.
-- “Prior captures” means current-scan captures or a bounded in-memory recent-frame history by default; using cross-session cube references is a separate option that may require a product/privacy decision.
+- The user's terms "guide" and "grid" refer respectively to the static three-axis aiming graphic and the moving detected-corner overlay.
+- "Prior captures" means current-scan captures or a bounded in-memory recent-frame history by default; using cross-session cube references is a separate option that may require a product/privacy decision.
+- The CAP-4 and CAP-5 thresholds (5 s still, 8 s hand-held, at most one sticker left) are provisional. The 3-second floor is arithmetic from the gate timings; no recorded hold finished under 19 seconds, and no hand-held Quick Scan run exists.
 
 ## Open Questions
 
-- Which device, cube, lighting, torch, and saved-calibration conditions reproduce the longest waits and color variation?
-- Does a recorded viewfinder session show preview-to-analysis coordinate mismatch, model miss/loss, overlay movement, or a downstream capture gate?
+- Should the light check become advisory, or stay a block? No capture exists at a failing light score, so the effect of capturing in that light is unmeasured.
+- Was hold 1 of capture 2 (11:19:49) ended by a manual Capture press?
+- What changed on the bench at 11:09:56 in capture 1, when one face's light level jumped and the 52.9-second hold cleared?
+- What wait and error rates are acceptable for release?
+- Which cube and light produced the saved calibration on the Lenovo during the 2026-11-22 captures?
+- Do the exposure and steady findings hold on the Galaxy S24 FE? Only the Lenovo was measured.
+- Inside Quick Scan itself, hand-held, which gate dominates the wait? The hand-held burst measured the recorder, not the Quick Scan flow.
 - What held-out thresholds for accuracy, uncertain reads, confidently wrong reads, latency, and model size justify adding LiteRT color classification?
 - Is existing saved color calibration sufficient as a persistent same-cube color reference, or would a separate cube identity/profile be needed—and is that privacy/storage change acceptable?
