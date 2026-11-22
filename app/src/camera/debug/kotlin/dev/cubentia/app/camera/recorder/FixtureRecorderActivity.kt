@@ -1,11 +1,23 @@
 package dev.cubentia.app.camera.recorder
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Bitmap
+import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.CaptureResult
+import android.hardware.camera2.TotalCaptureResult
 import android.os.Bundle
 import android.os.SystemClock
+import android.util.Log
 import android.view.ViewTreeObserver
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.OptIn
+import androidx.camera.camera2.interop.Camera2Interop
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.FocusMeteringAction
@@ -37,6 +49,9 @@ import dev.cubentia.domain.recognition.Lab
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.Optional
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -135,6 +150,19 @@ class FixtureRecorderActivity : ComponentActivity() {
 
     @Volatile private var cornerMode = false
 
+    /** The running adb-started burst ([RecorderBurst]); null when none. While it runs every frame is read as a corner. */
+    @Volatile private var burst: RecorderBurst? = null
+
+    private val exposure = AtomicReference<ExposureState?>(null)
+
+    private val burstReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context,
+                intent: Intent,
+            ) = startBurst(intent)
+        }
+
     private val recorderCamera =
         object : RecorderCamera {
             override val autoRemeters: State<Int> get() = autoRemeterCount
@@ -177,6 +205,24 @@ class FixtureRecorderActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent { MaterialTheme { Surface { FixtureRecorderScreen(recorderCamera) } } }
+        ContextCompat.registerReceiver(this, burstReceiver, IntentFilter(RecorderBurst.ACTION), ContextCompat.RECEIVER_EXPORTED)
+    }
+
+    /** Starts a burst from the adb broadcast's extras; a burst already running is replaced. */
+    private fun startBurst(intent: Intent) {
+        val frames = intent.getIntExtra("frames", RecorderBurst.DEFAULT_FRAMES).coerceIn(1, RecorderBurst.MAX_FRAMES)
+        val jpegEvery = intent.getIntExtra("jpegEvery", 0).coerceAtLeast(0)
+        val label = intent.getStringExtra("label").orEmpty().filter { it.isLetterOrDigit() || it == '-' }
+        val stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
+        val root = getExternalFilesDir(null) ?: return
+        val directory = File(root, "bursts/$stamp" + if (label.isEmpty()) "" else "-$label")
+        if (!directory.isDirectory && !directory.mkdirs()) return
+        if (intent.getBooleanExtra("meter", false)) {
+            cornerMeterAwb = true
+            cornerMeterPending.set(true)
+        }
+        Log.d(RecorderBurst.TAG, "recorderBurst start frames=$frames jpegEvery=$jpegEvery dir=${directory.absolutePath}")
+        burst = RecorderBurst(directory, frames, jpegEvery, SystemClock.elapsedRealtime())
     }
 
     private fun remeter() {
@@ -247,6 +293,8 @@ class FixtureRecorderActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        unregisterReceiver(burstReceiver)
+        burst = null
         captureRequest.getAndSet(null)?.cancel()
         analyzerExecutor.shutdown()
     }
@@ -262,6 +310,7 @@ class FixtureRecorderActivity : ComponentActivity() {
                     .Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .setOutputImageRotationEnabled(true)
+                    .also(::observeExposure)
                     .build()
             analysis.setAnalyzer(analyzerExecutor) { image ->
                 try {
@@ -302,11 +351,37 @@ class FixtureRecorderActivity : ComponentActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
+    /** Keeps the latest capture result's exposure and white-balance state for a running [RecorderBurst]. */
+    @OptIn(ExperimentalCamera2Interop::class)
+    private fun observeExposure(builder: ImageAnalysis.Builder) {
+        Camera2Interop.Extender(builder).setSessionCaptureCallback(
+            object : CameraCaptureSession.CaptureCallback() {
+                override fun onCaptureCompleted(
+                    session: CameraCaptureSession,
+                    request: CaptureRequest,
+                    result: TotalCaptureResult,
+                ) {
+                    val gains = result.get(CaptureResult.COLOR_CORRECTION_GAINS)
+                    exposure.set(
+                        ExposureState(
+                            aeState = result.get(CaptureResult.CONTROL_AE_STATE),
+                            awbState = result.get(CaptureResult.CONTROL_AWB_STATE),
+                            exposureNs = result.get(CaptureResult.SENSOR_EXPOSURE_TIME),
+                            iso = result.get(CaptureResult.SENSOR_SENSITIVITY),
+                            gains = gains?.let { listOf(it.red, it.greenEven, it.greenOdd, it.blue) },
+                        ),
+                    )
+                }
+            },
+        )
+    }
+
     /** Analyzer thread: measure, answer a pending capture with the same image, and decide on an automatic re-meter. */
     private fun analyze(image: ImageProxy) {
         val frame = measure(image)
         latestFrame.set(frame)
-        val isCorner = cornerMode
+        val bursting = burst
+        val isCorner = cornerMode || bursting != null
         val crop = image.cropRect
         val rotation = image.imageInfo.rotationDegrees
         // Story 10.19: corner mode detects on every frame, so the operator sees the live outline over the Y anchor.
@@ -332,6 +407,11 @@ class FixtureRecorderActivity : ComponentActivity() {
             ContextCompat.getMainExecutor(this).execute { meterOnCube(quads, width, height, square, awb) }
         }
         wasDetected = detectedNow
+        if (bursting != null) {
+            val jpeg = if (bursting.wantsJpeg()) runCatching { encodeFrame(image, true) }.getOrNull() else null
+            val done = bursting.add(SystemClock.elapsedRealtime(), corner, image.width, image.height, rotation, exposure.get(), jpeg)
+            if (done) burst = null
+        }
         captureRequest.getAndSet(null)?.let { request ->
             val encoded = runCatching { encodeFrame(image, isCorner) }
             val modelCrop = guide?.let(ModelCrop::of)
