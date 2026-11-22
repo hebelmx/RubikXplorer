@@ -191,13 +191,13 @@ graph LR
 
 ## 11. Stack (verified October 2026)
 
-Kotlin 2.4.21 · AGP 9.5 (built-in Kotlin) · Compose BOM 2026.09.00 · Material3 1.4 · Hilt 2.60 · Room 3.0 · CameraX 1.6.2 · LiteRT 2.3.2 (Quick Scan corner source set only) · kotlinx.serialization 1.12 · coroutines 1.11 · custom OpenGL ES 3.0 renderer (no 3D library) · Kotest 6.2 · JUnit Jupiter 6 · Kover · Spotless/ktlint · GitHub Actions · minSdk 29, targetSdk 36.
+Kotlin 2.4.21 · AGP 9.5 (built-in Kotlin) · Compose BOM 2026.09.00 · Material3 1.4 · Hilt 2.60 · Room 3.0 · CameraX 1.6.2 · LiteRT 2.3.2 (Quick Scan corner source set; debug-only shadow sticker reader) · kotlinx.serialization 1.12 · coroutines 1.11 · custom OpenGL ES 3.0 renderer (no 3D library) · Kotest 6.2 · JUnit Jupiter 6 · Kover · Spotless/ktlint · GitHub Actions · minSdk 29, targetSdk 36.
 
 ## 12. Open technical questions
 
 | Question | Resolved by |
 | --- | --- |
-| Quick Scan corner detection (Kotlin / OpenCV / LiteRT) | Resolved (OQ-7 + SCP 2026-11-20): Guided 6-face Scan and sticker classification stay pure Kotlin; Quick Scan 3D corner detection uses a tiny 7-keypoint LiteRT `.tflite` model behind `CornerDetector` in `app/src/camera/corner/` (within 30 MB NFR-11; OpenCV rejected on size) |
+| Quick Scan corner detection (Kotlin / OpenCV / LiteRT) | Resolved (OQ-7 + SCP 2026-11-20): Guided 6-face Scan stays pure Kotlin and the Kotlin sticker classifier stays the reader of record; Quick Scan 3D corner detection uses a tiny 7-keypoint LiteRT `.tflite` model behind `CornerDetector` in `app/src/camera/corner/` (within 30 MB NFR-11; OpenCV rejected on size). Since SCP 2026-11-22 quick-scan-sticker-reader, LiteRT is also allowed for Quick Scan sticker reading: Story 10.23 adds a shadow reader in debug builds only, which logs beside the Kotlin reads and decides nothing |
 | Performance on the reference devices (minimum Lenovo Tab M10 Plus 3rd Gen, mid Galaxy S24 FE; the Galaxy Tab S7 FE 5G, minimum until 2026-11-12, is an additional compatibility device, SCP 2026-11-12) | Story 1.10 benchmark; above 33.3 ms p90 per frame reopens the renderer choice. On the Lenovo the frame-interval p90 is 18.35 ms (face turns) and 19.66 ms (View Rotation) (Story 12.2 Macrobenchmark, `docs/benchmarks.md`) |
 | Solver internals (bundled or generated pruning tables) | solver epic, within the 3 s timeout and 30 MB app size |
 
