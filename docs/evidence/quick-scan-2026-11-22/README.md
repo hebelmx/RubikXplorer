@@ -23,14 +23,16 @@ Two screen recordings of Quick Scan with the matching diagnostic logs, collected
 
 The videos, screenshots and full logcats are not committed: the videos are too large for git, and the
 images show the camera view of the operator's desk. They exist only on the development machine.
-Capture 1's logcat buffer was not cleared beforehand; capture 2's was, so its log holds that run only.
+Capture 1's logcat buffer was not cleared beforehand and lost the first minute of the run; capture 2's was cleared, so its log holds that whole run and nothing else.
+The `quickScan frame` lines are throttled to one per 500 ms by `ScanDiagnostics`, so they sample the frames and do not give the analysis frame rate. State changes (hold, metering, restart, capture) are logged as they happen.
 
 ## Capture 1 — 11:09:14 to 11:11:17 (solved-looking cube)
 
-- Hold 1 took **58.5 s** from the first diagnostic line (11:09:14.290) to capture (11:10:12.810). One light hold lasted 52.9 s (`heldMs=52933`), followed by one of 11.1 s.
+- **The log is missing the first minute of this run.** Quick Scan was tapped at about 11:08:12, but the device's log buffer had already wrapped: the first surviving diagnostic line is 11:09:14.290. Hold 1 therefore took about **2 minutes** (11:08:12 to capture at 11:10:12.810), of which only the last 58.5 s are logged.
+- One light hold lasted 52.9 s (`heldMs=52933`, so it began near 11:09:04, before the surviving log), followed by one of 11.1 s.
 - Hold 1 capture: U white 9 confident, kept. R red 9 confident, kept. F green 0 confident / 9 uncertain (`disagree=9`), sent to grid.
 - Hold 2 never captured in the remaining 65 s. Light holds of 7.4, 4.8, 13.1, 6.1, 3.2 and 14.8 s cleared and re-engaged; the last re-engaged 1 s after clearing.
-- Frames: 228 logged, 48 with `detected=false`. Light check: 125 fail, 43 pass, 60 not evaluated.
+- Frames in the surviving log: 228, 48 with `detected=false`. Light check: 125 fail, 43 pass, 60 not evaluated.
 - The recording ended on corner 2 of 2, so there is no finished cube to score colors against.
 
 ## Capture 2 — 11:19:29 to 11:20:29 (scrambled cube)

@@ -18,7 +18,7 @@ The operator recorded Quick Scan with the Lenovo tablet on a base. The local evi
 - At 11:10:12.810 the first capture reported white, green and red centers. The two color reads disagreed on all nine front stickers. The final screenshot pairs that first corner’s filled net with the live second corner. Comparing those two views cannot establish a sticker misclassification. It does show how easily a learner could interpret a filled face as confirmed.
 - The recording ended on corner 2. The session provides no final cube against which to score sticker accuracy.
 
-A second recording from the same bench (scrambled cube, 11:19–11:20) captured both holds in 44 seconds and sent all six faces to face-by-face capture. Both sessions' diagnostic logs, timings and the location of the local videos are indexed in [the November 22 capture evidence](../../../docs/evidence/quick-scan-2026-11-22/README.md).
+A second recording from the same bench (scrambled cube, 11:19–11:20) captured both holds in 44 seconds and sent all six faces to face-by-face capture. Both sessions' diagnostic logs, timings and the location of the local videos are indexed in [the November 22 capture evidence](../../../docs/evidence/quick-scan-2026-11-22/README.md). The causes found in the code and a fix plan are in [the fix analysis](fix-analysis.md).
 
 ## Design ideas for discussion
 
