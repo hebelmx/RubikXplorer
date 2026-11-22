@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-22-2026 12:58'
+last_updated: '11-22-2026 13:46'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -199,7 +199,7 @@ development_status:
   15-1-build-a-beginner-method-solution-from-the-course-s-stages: done
   15-2-last-layer-segments-for-2-look-and-full-oll-pll-preferring-m: done
   15-3-choose-a-solution-style-in-solution-playback: done
-  epic-15-retrospective: optional
+  epic-15-retrospective: done
 action_items:
   - id: "epic-2-retro-item-1-create-a-deferred-findings-ledger-or-rou"
     epic: 2
@@ -1838,37 +1838,123 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-15-2-last-layer-segments-for-2-look-and-full-oll-pll-preferring-m.md"
   - id: "epic-15-deferred-15.3-method-result-discard-unrecorded"
     epic: 15
-    action: "The Solution style ViewModel runs Effect.MethodSolve itself and drops a stale result without an EffectResultDiscarded record, short of AD-3; route the result through the reducer or record the discard, or have the architect note the exception in AD-3 (medium; deferred from 15.3, app/src/main/kotlin/dev/cubentia/app/ui/solve/SolutionStyles.kt:206-228)"
+    action: "The Solution style ViewModel runs Effect.MethodSolve itself and drops
+      a stale result without an EffectResultDiscarded record, short of AD-3; route
+      the result through the reducer or record the discard, or have the architect
+      note the exception in AD-3 (medium; deferred from 15.3, app/src/main/kotlin/dev/cubentia/app/ui/solve/SolutionStyles.kt:206-228)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-15-3-choose-a-solution-style-in-solution-playback.md"
   - id: "epic-15-deferred-15.3-method-cache-ignores-status-changes"
     epic: 15
-    action: "The method-solution cache is keyed by (facelets, method) only, so after the Learner marks an Algorithm Learning/Learned the same cube still gets the older 2-look/Full solution; add a status fingerprint to the key or clear on AlgorithmStatusRepository emits (medium; deferred from 15.3 gate and Epic 15 review, app/src/main/kotlin/dev/cubentia/app/solver/MethodSolverFactory.kt:20-37)"
+    action: "The method-solution cache is keyed by (facelets, method) only, so after
+      the Learner marks an Algorithm Learning/Learned the same cube still gets the
+      older 2-look/Full solution; add a status fingerprint to the key or clear on
+      AlgorithmStatusRepository emits (medium; deferred from 15.3 gate and Epic 15
+      review, app/src/main/kotlin/dev/cubentia/app/solver/MethodSolverFactory.kt:20-37)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-15-3-choose-a-solution-style-in-solution-playback.md"
   - id: "epic-15-deferred-15.3-two-look-full-physical-playback-test"
     epic: 15
-    action: "No test or device run plays a real 2-look or Full OLL + PLL solution (z2 rotation, wide and slice Moves) through Solution Playback or follows it with Done/Back/Quick Check in Physical-cube Mode; add an AppShellSolveTest from an F2L-solved cube and check it in the next device session on the Lenovo and S24 FE (medium; deferred from 15.3 gate and Epic 15 review, app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt:369-378)"
+    action: "No test or device run plays a real 2-look or Full OLL + PLL solution
+      (z2 rotation, wide and slice Moves) through Solution Playback or follows it
+      with Done/Back/Quick Check in Physical-cube Mode; add an AppShellSolveTest from
+      an F2L-solved cube and check it in the next device session on the Lenovo and
+      S24 FE (medium; deferred from 15.3 gate and Epic 15 review, app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt:369-378)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-15-3-choose-a-solution-style-in-solution-playback.md"
   - id: "epic-15-deferred-15.3-revision-cancel-shell-test"
     epic: 15
-    action: "A session revision change during a method build is cancelled at once only through AppShell's LaunchedEffect(session.revision), which no shell test pins; add a shell test that presses Done during a pending build (low; deferred from 15.3, app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt:356)"
+    action: "A session revision change during a method build is cancelled at once
+      only through AppShell's LaunchedEffect(session.revision), which no shell test
+      pins; add a shell test that presses Done during a pending build (low; deferred
+      from 15.3, app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt:356)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-15-3-choose-a-solution-style-in-solution-playback.md"
   - id: "epic-15-deferred-15.3-mode-switch-cancels-build-silently"
     epic: 15
-    action: "Switching to 'I'm following on my cube' or asking for a Quick Check while a style builds cancels it and reverts the chip with no message; cancel only when the input is replaced, or show the failure copy (low, Learner-visible; deferred from Epic 15 review, app/src/main/kotlin/dev/cubentia/app/ui/solve/SolutionStyles.kt:170)"
+    action: "Switching to 'I'm following on my cube' or asking for a Quick Check while
+      a style builds cancels it and reverts the chip with no message; cancel only
+      when the input is replaced, or show the failure copy (low, Learner-visible;
+      deferred from Epic 15 review, app/src/main/kotlin/dev/cubentia/app/ui/solve/SolutionStyles.kt:170)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-15-3-choose-a-solution-style-in-solution-playback.md"
   - id: "epic-15-deferred-15.3-ci-upload-test-results"
     epic: 15
-    action: "CI reported AppShellSolveTest.physicalPlaybackQuickCheckAndScanAllCanResolveAnAlreadySolvedCube failing with only \"AssertionError at :199\" and it never reproduced locally (fix 5edb79eb waits for exactly one node); upload app/build/test-results on failure so the full message is kept if it returns (low; deferred from 15.3 CI fix, .github/workflows)"
+    action: "CI reported AppShellSolveTest.physicalPlaybackQuickCheckAndScanAllCanResolveAnAlreadySolvedCube
+      failing with only \"AssertionError at :199\" and it never reproduced locally
+      (fix 5edb79eb waits for exactly one node); upload app/build/test-results on
+      failure so the full message is kept if it returns (low; deferred from 15.3 CI
+      fix, .github/workflows)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-15-3-choose-a-solution-style-in-solution-playback.md"
+  - id: "epic-15-retro-item-207-fix-the-virtual-mode-style-lock-dead-end"
+    epic: 15
+    action: "Fix the virtual-mode style-lock dead end: after Done and a switch to
+      virtual, 'Go back to step 1' cannot be followed because virtual stepping never
+      changes expected (AppShell.kt:383, AppShellSolveTest.kt:1010-1018) (medium)"
+    owner: "Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-15-retro-2026-11-22.md"
+  - id: "epic-15-retro-item-208-reference-device-nfr-3-timing-for-method"
+    epic: 15
+    action: "Reference-device NFR-3 timing for MethodSolve on the Lenovo Tab M10 Plus
+      3rd Gen (median, p95, memory, failure rate, all three styles) incl. a cold first
+      solve and a chip switch during a cold build; batch with epic-15-deferred-15.3-two-look-full-physical-playback-test"
+    owner: "PO"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-15-retro-2026-11-22.md"
+  - id: "epic-15-retro-item-209-run-bmad-correct-course-to-amend-epics-m"
+    epic: 15
+    action: "Run bmad-correct-course to amend epics.md Story 15.3 AC 1 'preselected'
+      to the as-built Suggested badge with Shortest selected (PO answer 1); batch
+      with epic-15-deferred-15.1-ac1-wording-ad-21"
+    owner: "PM"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-15-retro-2026-11-22.md"
+  - id: "epic-15-retro-item-210-make-epic-11-retro-item-105-a-preconditi"
+    epic: 15
+    action: "Make epic-11-retro-item-105 a precondition: extract solution-style, Placement
+      and Recognize wiring out of AppShell.kt (953 -> 1,029 lines after Epic 15) before
+      the next story that touches it"
+    owner: "SM/Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-15-retro-2026-11-22.md"
+  - id: "epic-15-retro-item-211-add-a-ui-level-test-that-plays-a-method"
+    epic: 15
+    action: "Add a UI-level test that plays a method style with an Algorithm Status
+      repository marking an alternative Learning and asserts the preferred Algorithm
+      plays (AppShellSolveTest builds SolveByMethod without statuses, AppShellSolveTest.kt:191-199)"
+    owner: "Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-15-retro-2026-11-22.md"
+  - id: "epic-15-retro-item-212-po-decision-should-a-style-change-in-phy"
+    epic: 15
+    action: "PO decision: should a style change in Physical-cube Mode keep a step-1
+      Quick Check verification? The restart (SolvePlaybackStarted + ModeSwitched,
+      AppShell.kt:369-377) clears observed for non-scan input (low)"
+    owner: "PO"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-15-retro-2026-11-22.md"
+  - id: "epic-15-retro-item-213-track-the-solution-style-restart-job-so"
+    epic: 15
+    action: "Track the solution-style restart job so a chip tap before its dispatch
+      is not silently cancelled by sessionMoved (SolutionStyles.kt:206,251; AppShell.kt:375-376)
+      (low)"
+    owner: "Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-15-retro-2026-11-22.md"
+  - id: "epic-15-retro-item-214-reproduce-activity-recreation-during-sol"
+    epic: 15
+    action: "Reproduce Activity recreation during Solution Playback with the process
+      alive; if style chips go inert (Activity-scoped SolutionStyleViewModel input
+      == null vs process-scoped SessionHost), scope or restore the style input (low,
+      unreproduced)"
+    owner: "Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-15-retro-2026-11-22.md"
