@@ -186,4 +186,40 @@ class ScanFrameSourcePolicyTest {
         assertTrue(all and androidx.camera.core.FocusMeteringAction.FLAG_AWB != 0)
         assertEquals(0, noAwb and androidx.camera.core.FocusMeteringAction.FLAG_AWB)
     }
+
+    @Test
+    fun `a late stop from a closed scan releases nothing the next scan bound`() {
+        // Scan B's bind already unbound A's use cases and bound its own.
+        val bound = mutableSetOf("previewB", "analysisB")
+        val unbound = mutableListOf<String>()
+        val released =
+            releaseOwnUseCases(listOf("previewA", "analysisA"), bound::contains) {
+                unbound += it
+                bound -= it.toSet()
+            }
+        assertFalse(released)
+        assertTrue(unbound.isEmpty())
+        assertEquals(setOf("previewB", "analysisB"), bound)
+    }
+
+    @Test
+    fun `a normal stop releases this source's own use cases`() {
+        val bound = mutableSetOf("preview", "analysis")
+        val unbound = mutableListOf<String>()
+        val released =
+            releaseOwnUseCases(listOf("preview", "analysis"), bound::contains) {
+                unbound += it
+                bound -= it.toSet()
+            }
+        assertTrue(released)
+        assertEquals(listOf("preview", "analysis"), unbound)
+        assertTrue(bound.isEmpty())
+    }
+
+    @Test
+    fun `a stop before any bind releases nothing`() {
+        var calls = 0
+        assertFalse(releaseOwnUseCases(emptyList<String>(), { true }) { calls++ })
+        assertEquals(0, calls)
+    }
 }

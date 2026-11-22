@@ -497,6 +497,64 @@ class QuickScanRouteTest {
         }
     }
 
+    /** Issue #276: Close from the Guided fallback discards the scan; the next Quick Scan opens a fresh corner view at hold 1. */
+    @Test fun closeFromTheGuidedFallbackThenReopenStartsAFreshCornerViewAtHoldOne() {
+        val main = Robolectric.buildActivity(MainActivity::class.java).setup()
+        try {
+            rule.waitUntil(10_000) { rule.onAllNodesWithTag("welcome:imNew").fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithTag("welcome:imNew").performClick()
+            rule.onNodeWithTag("nav:solve").performClick()
+            val shadow = shadowOf(main.get())
+            val first = openQuickScan(shadow)
+            val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, first).setup()
+            try {
+                waitForCamera(corner = true)
+                val model = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
+                rule.onNodeWithTag("quickScan:faceByFace").performClick()
+                settle(model)
+                rule.onNodeWithTag("scanProgress").assertTextEquals("Face 1 of 6")
+                waitForCamera(corner = false)
+                camera.feed(ScanFrame(stats(Color.WHITE), 0))
+                shutter(model)
+                rule.onNodeWithTag("scanProgress").assertTextEquals("Face 2 of 6")
+                rule.onNodeWithTag("scanClose").performClick()
+                rule.onNodeWithTag("scan:discard:confirm").performClick()
+                rule.waitForIdle()
+                assertTrue(scan.get().isFinishing)
+                val result = shadowOf(scan.get())
+                assertEquals(ScanOutcome.Cancelled, ScanFlowContract.decode(result.resultCode, result.resultIntent))
+                shadow.receiveResult(first, result.resultCode, result.resultIntent)
+                rule.waitForIdle()
+            } finally {
+                scan.pause().stop().destroy()
+            }
+            val second = openQuickScan(shadow)
+            val again = Robolectric.buildActivity(GuidedScanActivity::class.java, second).setup()
+            try {
+                waitForCamera(corner = true)
+                rule.onNodeWithTag("quickScan:counter").assertTextEquals("1 / 2")
+                rule.onNodeWithTag("scanProgress").assertDoesNotExist()
+                val model = ViewModelProvider(again.get())[GuidedScanViewModel::class.java]
+                assertEquals(GuidedScanPhase.CornerViewfinder::class, model.phase::class)
+                assertEquals(1, (model.phase as GuidedScanPhase.CornerViewfinder).hold)
+            } finally {
+                again.pause().stop().destroy()
+            }
+        } finally {
+            main.pause().stop().destroy()
+        }
+    }
+
+    /** Taps Quick Scan on the Solve tab and returns the intent it started. */
+    private fun openQuickScan(shadow: org.robolectric.shadows.ShadowActivity): android.content.Intent {
+        rule.onNodeWithTag("solve:quickScan").performClick()
+        rule.waitUntil(10_000) {
+            shadowOf(Looper.getMainLooper()).idle()
+            shadow.peekNextStartedActivityForResult() != null
+        }
+        return shadow.nextStartedActivityForResult.intent
+    }
+
     @Test fun closeWithNothingCapturedCancelsAtOnce() {
         quickScanActivity { scan, _ ->
             rule.onNodeWithTag("scanClose").performClick()

@@ -1719,3 +1719,15 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-275-settings-labels-start-inset.md"
+  - id: "issue-276-deferred-stop-unbind-untested"
+    epic: 10
+    action: "CameraXFrameSource.stop() (unbinds only its own use cases, torch off while they're bound) isn't run by any test, so putting unbindAll() back would fail none; add a seam over ProcessCameraProvider (isBound/unbind) and test that a late stop after another bind leaves the newer use cases bound (medium; deferred from #276, app/src/camera/kotlin/dev/cubentia/app/camera/ScanFrameSource.kt:188)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-276-quick-scan-reopen-fresh-corner-view.md"
+  - id: "issue-276-deferred-face-by-face-before-first-frame"
+    epic: 10
+    action: "'Scan face by face' accepts a tap before the corner camera delivers its first frame, which can hand over all six faces at once; gate switchToFaceByFace on the camera having started (low, Learner-visible, existing before #276; app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt:454)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-276-quick-scan-reopen-fresh-corner-view.md"
