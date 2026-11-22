@@ -2,7 +2,7 @@
 
 Revised after the 2026-11-22 review. Kotlin-side fixes come first: reading, gates and diagnostics stay in Kotlin, and
 each fix also serves a later evaluation of any color reader. Failure modes are in [failure-modes.md](failure-modes.md).
-Nothing here is implemented yet, and no pipeline code changes before the sprint change proposal is approved.
+Nothing here is implemented yet. The sprint change proposal of 2026-11-22 (`sprint-change-proposal-2026-11-22-quick-scan-reliability.md`) plans steps 0–4 and the advisory light check as Story 10.22.
 
 ## Now: Kotlin fixes that need no new labelled data
 
@@ -13,6 +13,7 @@ Nothing here is implemented yet, and no pipeline code changes before the sprint 
 | 2 | Steady by outline movement | F6 | CAP-4 | Zero restarts on both still bursts; windows complete on two hand-held bursts; a fast-moving burst restarts |
 | 3 | Turn check not anchored on a logo centre | F15, F10 | CAP-4 | Still burst 1 replayed as hold 2 does not pass the pose gate |
 | 4 | Small fixes | F11 | — | Unit test for back-out then re-capture |
+| 5 | Light check advisory (PO 2026-11-22) | F3, F4, F5 | CAP-4 | A hold with the check failing still captures; the coaching line shows; the capture line logs the light score |
 
 0. **Diagnostics first.** Log every hold state transition unthrottled with an elapsed clock: viewfinder entry, first
    frame, detection lost and found, pose rejected, metering requested and settled, light hold start and clear,
@@ -32,18 +33,20 @@ Nothing here is implemented yet, and no pipeline code changes before the sprint 
 3. **Turn check.** Do not anchor the turn and pose checks on a centre that is not plain; use the ring around a logo
    (`FrameReader.centerRing`) or the two side centres, and do not clear the previous hold on a single frame.
 4. **Small fixes.** Clear `previous` in `backOut`.
+5. **Light check advisory.** The coaching line stays; capture and the manual shutter are no longer held. The keep rule
+   is unchanged, so a face read in poor light still goes to the Guided grid unless all nine stickers are CONFIDENT.
 
 ## Later: needs labelled captures (Story 10.20) before design
 
 | Topic | Addresses | Serves | What must exist first |
 |---|---|---|---|
-| Light check: advisory or block | F3, F5 | CAP-4 | Labelled captures taken at failing scores, scored per sticker; cuts re-derived under the step-1 exposure policy on both devices; the cause of single-face level jumps |
+| Light check: when to coach, whether to block again | F3 | CAP-4 | Labelled captures taken at failing scores, scored per sticker; cuts re-derived under the step-1 exposure policy on both devices; the cause of single-face level jumps |
 | Keep stickers, not faces | F7, F8 | CAP-5 | A per-sticker safety assertion in the side-face replay, run on the existing groups first; it will fail today and that sizes the work |
 | Calibrate on the cube in hand | F9, F10 | CAP-6 | The calibration origin for the 2026-11-22 captures; a defined independent second read |
 
-- **Light check.** Reversing the 2026-11-21 decision is a product call. On present evidence neither side is
-  measured: nothing shows the hold improves readings, and nothing shows readings taken in the light it blocks. Any
-  engage and clear levels must come from data; the earlier 1.40 and 1.30 would miss five of the eight backlit fixture
+- **Light check.** The product owner made it advisory on 2026-11-22. Still unmeasured: whether a hold improves
+  readings, and what readings look like in the light it flagged. Any levels for the coaching line, or for a restored
+  block, must come from data; the earlier 1.40 and 1.30 would miss five of the eight backlit fixture
   holds.
 - **Keep stickers.** This is a new search over per-sticker color candidates with its own pruning, a cap and a "too
   many unknowns, ask the learner" branch. `ScanAssembler` today only enumerates quarter-turns of unposed faces.
@@ -71,9 +74,9 @@ Nothing here is implemented yet, and no pipeline code changes before the sprint 
 
 ## Relation to planned stories
 
-- **Story 10.20** (record 10.19-pipeline fixtures): now a prerequisite for the three "later" topics and for CAP-3. The
+- **Story 10.20** (record fixtures, now on the 10.22 pipeline): a prerequisite for the three "later" topics and for CAP-3. The
   recorder burst (commit 763f4496) belongs with it. The `lenovo-tb128xu_stla_cool-2` group is a start.
 - **Story 10.21** (keep the side faces it reads well): the "keep stickers" and "calibration" topics are its content,
   with the safety conditions above.
 - **Story 10.11** (raise the release flag): unchanged; follows 10.21's BETA call.
-- Steps 0–4 are not covered by any planned story.
+- **Story 10.22** (new, before 10.20): steps 0–5, with a 10-second bar per hold.

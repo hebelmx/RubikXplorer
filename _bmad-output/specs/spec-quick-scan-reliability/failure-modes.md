@@ -92,7 +92,8 @@ address this: it adds nothing at steady exposure and little hand-held (10% of re
 The second read applies an L*-only gain and compares with the saved centers (`QuickScanClassification.corrected`). Hue
 and chroma are not adapted. Capture 1's green face was confident on all nine stickers against the cube's own centers
 and rejected on all nine by the saved calibration. Two explanations are open: the saved calibration came from another
-cube or light, or the L*-only correction fails on a shaded side face. The second has precedent: in the 10.19 session
+cube or light, or the L*-only correction fails on a shaded side face. The saved calibration was made on `stla` in `cool`
+front light (PO 2026-11-22); whether the recorded cube was `stla` is not confirmed. The second has precedent: in the 10.19 session
 the shaded back face was rejected in every Lenovo calibrated run with a matching calibration. The calibrated light
 check uses the same saved centers.
 
