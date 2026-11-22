@@ -1,12 +1,16 @@
 # Concerns and Evidence
 
+What the owner reported, what the repository shows, and what was measured on 2026-11-22. Causes are in
+[failure-modes.md](failure-modes.md); fixes in [fix-plan.md](fix-plan.md). Raw logs and burst data are in
+[docs/evidence/quick-scan-2026-11-22](../../../docs/evidence/quick-scan-2026-11-22/README.md).
+
 ## User observations
 
 - After positioning the cube inside the static three-axis **guide**, automatic capture can take about 3–4 seconds and sometimes 30 seconds or longer.
+- **All attempts so far were made with the tablet, the cube and the light fixtures still.** The reported times are for these ideal conditions, not hand-held use.
 - The detected-corner **grid** moves as the model updates its estimate. It improved substantially with LiteRT compared with earlier sessions, but its stability is still in question.
 - The learner cannot tell what the app is waiting for. Existing viewfinder feedback and logs have not made the delay easy to diagnose.
 - Sticker colors appear to vary with lighting; white balance is a suspected contributor.
-- Prior sessions produced screenshots, but their storage location is unknown. No video or session screenshots for this specific report were found in the checked-in repository.
 
 ## What repository evidence supports
 
@@ -19,20 +23,80 @@
 | Color reliability | `docs/evidence/10-18/quick-scan-litert-escalation.md` records Red/Orange uncertainty on shaded side faces. Kotlin reads sampled colors and classifies in CIELAB; follow-up work adjusts the sample ROI and when AWB is re-metered. | Lighting and side-face color separation are credible concerns. Evidence does not establish that Kotlin is inherently insufficient or that a learned classifier would improve results. |
 | Existing captures | `Fixtures/corner/` and `Fixtures/live/` contain fixture images and labels; `docs/evidence/10-18/lenovo-quickscan-2026-11-20-6cd18ab1.log` is a historical diagnostic log. | These are not a recording of the newly reported slow session. The repository does not establish whether screenshots from other sessions were saved outside it. |
 
-## Small investigation and model proposal
+## Bench evidence, 2026-11-22
 
-1. Record one representative device session from before cube positioning through capture or fallback. Include the static guide, detected-corner grid, status/coaching, and timestamps. Preserve the recording and matching device logs together.
-2. Instrument each hold with elapsed time and state transitions: viewfinder entry, model detection/loss, overlay stability, metering requested/settled, light gate, sticker stability, hold-turn gate, capture, and fallback. Show the current blocking reason in a developer-readable diagnostic view or log; learner-facing coaching can be decided separately.
-3. Compare the static guide and analysis crop on the recording, then replay matching frames to determine whether long waits align with detector loss, overlay instability, or a downstream gate.
-4. As a bounded ML spike, evaluate a **hybrid per-face sticker reader** on the nine cells of already detected and unwarped faces. Give the model the face image and the existing Kotlin classifier's per-sticker candidate colors and certainty, plus prior-capture readings and known center colors where available. Prior evidence can come from earlier captures in the current scan. A bounded recent-frame buffer in memory could also provide appearance context; discard its images when the scan ends. The project currently says release and benchmark builds never persist camera frames. Existing saved color calibration is a possible cross-session color reference, but the repository does not establish a same-cube identity/profile mechanism. Persisting cube-specific model outputs or reference images would therefore be a separate privacy and architecture decision, not implied by this experiment.
+Lenovo TB128XU, Android 13, no flash, tablet on a base, `lightMode=calibrated`. App 0.1.0 installed 2026-11-21 for
+the captures; a debug build of `audit/quick-scan` for the bursts.
 
-   Treat the model inputs as evidence: the model should be able to use the image to correct a misleading Kotlin result, while cube-level consistency can rank or reject implausible combined readings. The standard cube scheme gives six known center colors and nine stickers of each color across the full cube, and previous captures add constraints, but these facts do not in general identify every unsampled sticker by themselves. Keep visual evidence and an explicit uncertain outcome so global constraints cannot force an unsupported confident label.
+### Quick Scan screen recordings
 
-   Use manually labeled real face crops across supported devices, cubes, lighting and relevant torch/calibration conditions. Keep whole capture groups held out to avoid near-duplicate frames leaking across splits. Measure results as labeled data accumulates (a learning curve) to determine whether a useful model is possible with a practical dataset; the required data volume is not yet known. Compare hybrid and Kotlin-only results on correct colors, uncertain readings, confidently wrong labels, latency, and packaged model size. Make no production replacement decision until the held-out comparison is reviewed.
+| | Capture 1 (solved-looking cube) | Capture 2 (scrambled cube) |
+|---|---|---|
+| Hold 1, time to capture | about 2 min; one light hold of 52.9 s | 19.2 s |
+| Hold 2 | not captured in 65 s | 24.8 s |
+| Faces kept | 2 of 3 (green face: 9 of 9 rejected, `disagree=9`) | 0 of 6 (7, 7, 6, 8, 2, 6 confident of 9) |
+| Light check, logged frames | 125 fail, 43 pass | 37 fail, 33 pass |
+| Metering requests | 22 in the surviving 123 s | 8 in 44 s |
+| After capture | recording ended on corner 2 | face-by-face rejected 20 frames as MISALIGNED, cube still corner-on |
+
+Reading these figures:
+
+- Capture 2's hold 1 was captured 505 ms after a logged steady restart. Auto-capture needs 1,000 ms, so it was
+  probably ended by a manual press; 19.2 s is then not an auto-capture time.
+- Capture 1's 52.9 s light hold was a sustained fail: 62 of 68 logged frames scored 1.5 or more (about 1.8). It
+  cleared when the left face's level jumped from 0.64 to 1.00 with the other faces unchanged.
+- Capture 1 had 48 of 228 logged frames with no cube detected. 13–14 of its 22 metering requests follow a loss, and
+  parts of the 11.1 s and 14.8 s light holds were undetected time.
+- Every capture in both logs happened at a passing light score (1.02–1.12). Nothing shows readings taken at a
+  failing score.
+- Steady restart lines are throttled to one per 500 ms, so restart counts are lower bounds.
+
+Capture 1's log lost its first minute. Its final screenshot shows the first corner's faces filled in the net beside
+the live second corner, including the green face that was in fact rejected: a learner could read a filled face as
+confirmed. Capture 2, hold 1, splits into light holds 8.2 s, re-meters after each clear
+3.8 s, steady restarts 4.8 s and first settle 1.5 s.
+
+### Recorder bursts
+
+Each burst records, per analysis frame, the detected quads, the 27 sticker readings, face quality and the camera's
+exposure. Analysis ran at about 12 frames per second.
+
+| | Still, 60 frames | Still, 150 frames | Hand-held, 120 frames |
+|---|---|---|---|
+| Cube detected, all faces readable | 60 of 60 | 150 of 150 | 120 of 120 |
+| Exposure | moving from 1.3 s to 2.8 s after metering | one level 0.4–3.5 s, a second level after | changed at 0.5 s and 3.6 s |
+| Sticker variation with exposure steady | 1 sticker (logo centre) | ΔE 0.3–0.5; none reach 5 | not separable from tilt |
+| Stickers ΔE ≥ 5 from their median | up to 19 of 27 during the swing | 14–22 of 27 on the first level | 33% of readings (10% at ΔE ≥ 10) |
+| Outline movement | 5 px typical, 13 px worst | 1 px typical | 1.7% of cube size per frame, 5.3% worst |
+
+Replaying the hand-held burst through steady rules (1-second window; light, metering, pose and loss gates ignored).
+The outline rows depend on how "cube size" is defined and were not reproduced by the 2026-11-22 review; under some
+definitions the rule also restarts on still burst 1, whose outline drifts up to 14.5 px. Treat them as indicative:
+
+| Rule | Restarts | Windows completed in 9.7 s |
+|---|---|---|
+| Current: two stickers of a face change by ΔE 5 | 56 | 1 |
+| Current rule on a 5-frame median | 20 | 1 |
+| Outline moved more than 3% of cube size | 17 | 3 |
+| Outline moved more than 5% | 4 | 6 |
+| Outline moved more than 8% | 0 | 8 |
+
+A labelled corner fixture group, `lenovo-tb128xu_stla_cool-2` (pipeline 10.19, front light), was recorded in the same
+session and is held locally for Story 10.20.
+
+For comparison, the 10.19 device session on the same tablet (runs L7 and L8, GAN calibration on `stla`) kept 3–5 of
+6 faces, with the shaded back face rejected in every calibrated run. Quick Scan has kept faces when the saved
+calibration matched the cube.
 
 ## Evidence limits
 
-- The current 14 ms LiteRT measurement is not end-to-end capture latency.
-- Existing logs do not start a timer at the user's “cube positioned in guide” moment.
+- One device, one room, one session. No Galaxy S24 FE data.
+- The Quick Scan recordings were made with everything still. The only hand-held data is one recorder burst, which
+  does not run the Quick Scan gates.
+- No ground-truth colors exist for the two recorded scans. The videos were not compared with the logs frame by frame.
+- The hand-held 33% and 10% figures compare each reading with its median over 10 seconds of tilting, so they include
+  real lighting change.
+- This camera reports white-balance gains as a constant, so the bursts cannot show white-balance drift.
+- The 14 ms LiteRT measurement is per-frame inference, not capture latency.
 - Static source inspection can assess the intended preview-to-frame transform but cannot validate its appearance on the user's current device, screen layout, or session.
-- The hybrid color model is a proposed experiment. Representative labeled captures, the amount of data it needs, and acceptance thresholds remain unknown. Cube-level constraints can reduce ambiguity but must not replace visual evidence or create unjustified confidence. Cross-session reuse of cube-specific images or derived references is not approved by this brief; the default proposal keeps recent images in memory only and discards them at scan end, consistent with current camera-frame persistence rules.
+- The source commit of the app build used for captures 1 and 2 was not recorded.
