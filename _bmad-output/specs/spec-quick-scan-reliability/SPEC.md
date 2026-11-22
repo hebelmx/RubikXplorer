@@ -31,7 +31,7 @@ Quick Scan does not work well enough to use. With tablet, cube and lights all st
   - **success:** A held-out, labeled device-and-lighting evaluation compares the hybrid with Kotlin alone on correct classifications, uncertain readings, confidently wrong readings, inference latency, model size, and performance as training data grows before an integration decision.
 - **CAP-4**
   - **intent:** A cube in view, resting or hand-held, is captured within a bounded time.
-  - **success:** On recorded reference-device runs, each hold captures within 5 seconds of the cube being detected when everything is still, and within 8 seconds hand-held.
+  - **success:** On recorded reference-device runs, every hold auto-captures within 10 seconds of the cube being detected, still or hand-held.
 - **CAP-5**
   - **intent:** Two corner captures usually finish the scan.
   - **success:** On labelled Lenovo captures, most scans reach review with at most one sticker left for the learner, and no accepted cube carries a confidently wrong sticker.
@@ -46,7 +46,8 @@ Quick Scan does not work well enough to use. With tablet, cube and lights all st
 - Camera images used as model context remain in a bounded in-memory recent-frame buffer and are discarded when the scan ends. Persistent cube-specific references or images require separate privacy and architecture review.
 - Frame bursts and stored frames exist only in the debug fixture recorder. Release and benchmark builds never persist camera frames.
 - Safety is per sticker: no sticker accepted without learner confirmation may be wrong in the side-face replay. Today that holds only because a face with any uncertain sticker is discarded whole.
-- Kotlin-side fixes come first. Sticker reading, classification, gates and diagnostics stay in Kotlin; LiteRT stays in corner detection only.
+- Kotlin-side fixes come first. Gates and diagnostics stay in Kotlin, and the Kotlin classifier stays the reader of record. LiteRT runs in corner detection and, since the PO decision of 2026-11-22, may read sticker colors per face; until a further sprint change proposal on held-out per-sticker evidence it runs in shadow only (debug builds, no input to any result, Story 10.23).
+- Sticker-model training and evaluation hold out whole capture groups for validation.
 - Work is committed locally on `audit/quick-scan` and not pushed while another agent's CI runs on the repository.
 
 ## Non-goals
@@ -59,22 +60,23 @@ Quick Scan does not work well enough to use. With tablet, cube and lights all st
 
 ## Success signal
 
-On the Lenovo bench used on 2026-11-22, with everything still, a recorded Quick Scan of a scrambled cube auto-captures both corners in under 15 seconds in total and reaches review without face-by-face capture. A hand-held run of the same build meets CAP-4.
+On the Lenovo bench used on 2026-11-22, with everything still, a recorded Quick Scan of a scrambled cube auto-captures both corners in under 15 seconds in total and reaches review without face-by-face capture. A hand-held run of the same build meets CAP-4. The work is planned as Story 10.22, then Stories 10.20 and 10.21, with the shadow sticker reader (Story 10.23) alongside 10.20.
 
 ## Assumptions
 
 - The user's reported 3–4 second to 30+ second interval begins when the cube is positioned within the static three-axis guide and ends when the app captures; this is not necessarily the same interval as viewfinder-entry-to-capture.
 - The user's terms "guide" and "grid" refer respectively to the static three-axis aiming graphic and the moving detected-corner overlay.
 - "Prior captures" means current-scan captures or a bounded in-memory recent-frame history by default; using cross-session cube references is a separate option that may require a product/privacy decision.
-- The CAP-4 and CAP-5 thresholds (5 s still, 8 s hand-held, at most one sticker left) are provisional. The 3-second floor is arithmetic from the gate timings; no recorded hold finished under 19 seconds, and no hand-held Quick Scan run exists.
+- Unmeasured judgement of 2026-11-22: Story 10.22 is probably enough for capture time (CAP-4); the keep-rule work of Story 10.21 alone probably does not reach CAP-5 on shaded side faces. The shadow sticker reader (Story 10.23) gathers the evidence for that case.
+- The CAP-5 threshold (at most one sticker left) is provisional. The CAP-4 bar of 10 seconds was set by the product owner on 2026-11-22; no recorded hold has yet finished under 19 seconds, and no hand-held Quick Scan run exists.
 
 ## Open Questions
 
-- Should the light check become advisory, or stay a block? No capture exists at a failing light score, so the effect of capturing in that light is unmeasured.
+- After Story 10.21's backlit captures, should the light check, advisory since the 2026-11-22 decision, go back to blocking?
 - Was hold 1 of capture 2 (11:19:49) ended by a manual Capture press?
 - What changed on the bench at 11:09:56 in capture 1, when one face's light level jumped and the 52.9-second hold cleared?
-- What wait and error rates are acceptable for release?
-- Which cube and light produced the saved calibration on the Lenovo during the 2026-11-22 captures?
+- What error rates are acceptable for release?
+- Were the cubes in the two 2026-11-22 recordings `stla`, the cube the saved calibration (`stla`, `cool`, front-lit) was made on?
 - Do the exposure and steady findings hold on the Galaxy S24 FE? Only the Lenovo was measured.
 - Inside Quick Scan itself, hand-held, which gate dominates the wait? The hand-held burst measured the recorder, not the Quick Scan flow.
 - What held-out thresholds for accuracy, uncertain reads, confidently wrong reads, latency, and model size justify adding LiteRT color classification?

@@ -54,11 +54,15 @@ Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual o
 
 <!-- /bmad:context -->
 
-## Human-in-the-Loop Escalation Rule
+## Communication & Human-in-the-Loop Rules
 
-When pausing to ask the user for a decision or sign-off:
-- Translate internal shorthand (story numbers, AC codes, design tokens, CI gates) into plain product/engineering impact first.
-- Briefly explain *why* the blocker matters before listing numbered options.
+- **Lead with the bottom line:** Start every response with a 1–2 sentence plain-English summary of what changed, what was decided, or what you need next before diving into technical details or file paths.
+- **Pair IDs with plain meaning:** On first mention in any message, explain internal shorthand (e.g., write *"Story 10.20 (offline replay benchmark)"* or *"AD-15 (debug feature flag policy)"*, never just *"10.20"* or *"AD-15"*).
+- **Keep git metadata minimal:** Mention branch names and commit hashes once at the end as a reference, rather than weaving them into the main explanation.
+- **When pausing for a decision or sign-off:**
+  - Translate internal shorthand (story numbers, AC codes, design tokens, CI gates) into plain product/engineering impact first.
+  - Briefly explain *why* the blocker matters before listing numbered options.
+  - Provide a clear recommendation (e.g., *"Option A [Recommended]: ..."*) rather than open-ended questions.
 
 ## Emulators
 
