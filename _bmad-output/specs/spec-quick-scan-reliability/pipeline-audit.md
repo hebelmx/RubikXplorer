@@ -1,14 +1,32 @@
 # Quick Scan pipeline audit
 
-Reviewed at 33c1219b against the [operator notes](concerns-and-evidence.md) and the [10.19 physical-device results](../../../docs/evidence/10-19/light-check-and-replay.md). This is a source and evidence review. The reported slow session has no matching recording or frame trace.
+Reviewed at 33c1219b against the [operator notes](concerns-and-evidence.md) and the [10.19 physical-device results](../../../docs/evidence/10-19/light-check-and-replay.md). The November 22 recording and diagnostics add a device observation to the original source review.
 
 | Stage | What reaches the learner | Failure or delay to distinguish |
 |---|---|---|
 | Camera and aiming | The corner view shows a static aiming guide. ScanFrameSource maps the preview grid into the rotated analysis frame and calls CornerReader with the selected detector. | A cube inside the guide can still miss detection. Check crop alignment on device with the cube stationary, then moved toward each edge. |
 | Detection and sampling | CornerReader supplies three faces of cell measurements. Detected quads are mapped back to preview coordinates. GuidedScanActivity smooths those quads for display and passes the original face readings to the controller. | A steady-looking grid can coexist with fluctuating sticker samples. Detection loss can clear the overlay before the capture controller's 300 ms loss grace expires. Log raw and displayed corners against the same frame. |
-| Permission to capture | QuickScanController checks the changed hold. CornerHold handles detection loss, metering, lighting and sticker stability. A lit torch bypasses the side-light gate. | A rejected pose returns early. Loss can trigger fresh metering. Clearing a light hold needs 500 ms of passing evidence and re-metering. Movement in two cells of one face can restart the one-second stability window. The 1.5 s settle cap bounds one wait only. Repeated resets can explain a long tail, but the dominant cause for the reported 30+ seconds is unknown. |
+| Permission to capture | QuickScanController checks the changed hold. CornerHold handles detection loss, metering, lighting and sticker stability. A lit torch bypasses the side-light gate. | A rejected pose returns early. Loss can trigger fresh metering. Clearing a light hold needs 500 ms of passing evidence and re-metering. Movement in two cells of one face can restart the one-second stability window. The 1.5 s settle cap bounds one wait only. The November 22 diagnostics confirm a prolonged light hold and repeated re-entry. |
 | Two holds and color reads | A capture advances the hold and saves available complete nine-cell samples. The second hold supplies the other three faces. Kotlin compares sticker colors in Lab using scan and calibration evidence. | Capture feedback acknowledges the hold even if faces later need recapture. The Lenovo evidence records a back face rejected in every calibrated run. The S24 FE session also identified different torch conditions between calibration and scanning. White balance remains a hypothesis. |
 | Assembly and review | After the second hold, uncertain faces go to face-by-face capture. Assembly can request additional faces when the combined readings are ambiguous or do not fit. Completed scans enter review. | In the documented Lenovo run, eight confident cells and one close call sent an entire face back. Measure time to a correct reviewed cube and faces repeated alongside time to the shutter. |
+
+## November 22 bench session
+
+The operator recorded Quick Scan with the Lenovo tablet on a base. The local evidence is in the original checkout under `captures/quickscan-20261122-111103/`. The recording shows the viewfinder, the diagnostic log records capture decisions, and the final screenshot shows where the learner stopped.
+
+- The lighting gate recorded a **52.933-second hold**. Later, during corner 2, it cleared a 14.831-second hold at 11:11:14.060 and engaged again at 11:11:15.034. Several frames reported acceptable image quality on all three faces while the calibrated lighting check failed. Lighting accounted for a measurable part of the wait even with the tablet supported.
+- At 11:10:12.810 the first capture reported white, green and red centers. The two color reads disagreed on all nine front stickers. The final screenshot pairs that first corner’s filled net with the live second corner. Comparing those two views cannot establish a sticker misclassification. It does show how easily a learner could interpret a filled face as confirmed.
+- The recording ended on corner 2. The session provides no final cube against which to score sticker accuracy.
+
+## Design ideas for discussion
+
+**Gather several views during one corner hold.** A learner holding a phone or turning a cube will move. A small tilt can move glare off a sticker or bring a side into better light. Keep a short burst in session memory, align each visible face to a common 3×3 grid, and retain clear views across angles. A one-cell alignment error could assign several convincing readings to the wrong sticker. Start a fresh group when tracking loses the pose, and give near-duplicate frames little extra weight.
+
+**Keep the faces that read well.** Lighting and blur can affect one side more than its neighbors. Preserve usable evidence for each face and sticker as it arrives. If one side remains ambiguous, prompt for a slight tilt or another view of that side. In the net, distinguish faces already seen, colors still uncertain and the corner currently requested.
+
+**Compare two readers on the same bursts.** One candidate combines the existing Kotlin readings across aligned frames. The hybrid candidate receives several aligned images of the same face, the Kotlin candidates and their certainty, and available center or earlier-capture evidence. Include red/orange disagreements, shadows and reflections. Group frames from each capture together when holding out evaluation data. Measure correct, uncertain and confidently wrong reads. Keep recent camera images in bounded memory and discard them when the scan ends.
+
+**Judge the learner’s whole scan.** Use the supported-tablet run as a baseline and evaluate natural handheld use on known cubes. Compare time to a correct reviewed cube, faces requested again, abandoned scans and incorrect cubes accepted. These ideas are candidates for a later plan. Burst length, tracking tolerance and model choice remain open.
 
 ## What to resolve before enabling release
 
