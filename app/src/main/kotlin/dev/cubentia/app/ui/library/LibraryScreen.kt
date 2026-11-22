@@ -19,6 +19,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -35,6 +37,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.R
@@ -56,11 +59,12 @@ internal const val SELECTED_ICON_TAG = "library:selected-icon"
 
 val LibraryFilterSaver =
     listSaver<LibraryFilter, String>(
-        save = { listOf(it.family?.value.orEmpty(), it.status?.name.orEmpty()) },
+        save = { listOf(it.family?.value.orEmpty(), it.status?.name.orEmpty(), it.set?.name.orEmpty()) },
         restore = {
             LibraryFilter(
                 it[0].takeIf(String::isNotEmpty)?.let(::FamilyId),
                 it[1].takeIf(String::isNotEmpty)?.let(AlgorithmStatus::valueOf),
+                it.getOrNull(2)?.takeIf(String::isNotEmpty)?.let(CaseSet::valueOf),
             )
         },
     )
@@ -69,7 +73,8 @@ val LibraryFilterSaver =
  * The Library tab (FR-18): the Algorithm tiles under OLL and PLL family headings, with neutral filter
  * chips for family and Algorithm Status. [widthClass] is the window's class, not the width beside the
  * rail. [statuses] holds the Learner's own Algorithm Statuses; an absent Algorithm is *Not started*.
- * A filter that matches nothing offers [onOpenTwoLook].
+ * A filter that matches nothing offers [onOpenTwoLook]. While [LibraryFilter.set] is on (the *I know 2-look* entry
+ * level), a removable chip for that set shows above the family chips; tapping it clears only the set.
  */
 @Composable
 fun LibraryScreen(
@@ -136,8 +141,40 @@ fun LibraryScreen(
                 if (onRecognize != null && recognizeBeta) {
                     BetaNote(text("msg.feature.camera.beta-note"), Modifier.testTag("library:recognize:betaNote"))
                 }
+                filter.set?.let { set ->
+                    val setLabel = text("msg.library.set.${set.name.lowercase()}")
+                    val clearLabel = strings.resolve(ContentText("msg.library.set-filter.clear", mapOf("set" to setLabel)))
+                    Row(Modifier.fillMaxWidth()) {
+                        InputChip(
+                            selected = true,
+                            onClick = { onFilterChange(filter.copy(set = null)) },
+                            label = { Text(setLabel, color = ink) },
+                            trailingIcon = {
+                                Icon(
+                                    painterResource(R.drawable.ic_close),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(InputChipDefaults.IconSize),
+                                )
+                            },
+                            colors =
+                                InputChipDefaults.inputChipColors(
+                                    selectedContainerColor = RubikTheme.tokens.surfaceRaised,
+                                    selectedLabelColor = ink,
+                                    selectedTrailingIconColor = ink,
+                                ),
+                            modifier =
+                                Modifier.testTag("library:set:${set.name}").semantics {
+                                    onClick(label = clearLabel) {
+                                        onFilterChange(filter.copy(set = null))
+                                        true
+                                    }
+                                },
+                        )
+                    }
+                }
                 Row(Modifier.horizontalScroll(familyChipsScroll), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AlgorithmLibrary.families(catalog.bundle.cases).forEach { family ->
+                    val shownCases = catalog.bundle.cases.filter { filter.set == null || it.set == filter.set }
+                    AlgorithmLibrary.families(shownCases).forEach { family ->
                         LibraryChip(text("msg.library.family.${family.value}"), filter.family == family, "library:family:${family.value}") {
                             onFilterChange(filter.copy(family = family.takeUnless { filter.family == it }))
                         }

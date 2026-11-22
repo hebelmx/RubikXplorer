@@ -43,6 +43,11 @@ data class ProgressEventEntity(
                     ProgressEvent.StageSkippedByCheck(StageId(stageId), at)
                 }
 
+                TYPE_STAGE_SKIPPED_BY_CHOICE -> {
+                    if (stageId.isEmpty()) return null
+                    ProgressEvent.StageSkippedByChoice(StageId(stageId), at)
+                }
+
                 TYPE_STAGE_SKIPPED_BY_PLACEMENT -> {
                     if (stageId.isEmpty()) return null
                     ProgressEvent.StageSkippedByPlacement(StageId(stageId), at)
@@ -67,6 +72,7 @@ data class ProgressEventEntity(
     companion object {
         const val TYPE_LESSON_COMPLETED = "LESSON_COMPLETED"
         const val TYPE_STAGE_SKIPPED_BY_CHECK = "STAGE_SKIPPED_BY_CHECK"
+        const val TYPE_STAGE_SKIPPED_BY_CHOICE = "STAGE_SKIPPED_BY_CHOICE"
         const val TYPE_STAGE_SKIPPED_BY_PLACEMENT = "STAGE_SKIPPED_BY_PLACEMENT"
         const val TYPE_STAGE_UNLOCKED = "STAGE_UNLOCKED"
         const val TYPE_PROGRESS_RESET = "PROGRESS_RESET"
@@ -89,6 +95,16 @@ data class ProgressEventEntity(
                         sessionId = record.sessionId,
                         revision = record.revision,
                         type = TYPE_STAGE_SKIPPED_BY_CHECK,
+                        stageId = event.stageId.value,
+                        atMs = atMs,
+                    )
+                }
+
+                is ProgressEvent.StageSkippedByChoice -> {
+                    ProgressEventEntity(
+                        sessionId = record.sessionId,
+                        revision = record.revision,
+                        type = TYPE_STAGE_SKIPPED_BY_CHOICE,
                         stageId = event.stageId.value,
                         atMs = atMs,
                     )

@@ -8,12 +8,12 @@ import java.io.File
 
 /**
  * Story 7.1 AC 1 (AD-10, AR-14, AR-21): only `CompleteLesson`, `PassSkipCheck`, `PlaceFromScan`,
- * and `ResetProgress` write to `ProgressRepository`, and `ProgressDao` is strictly append-only
+ * `ChooseEntryLevel`, and `ResetProgress` write to `ProgressRepository`, and `ProgressDao` is strictly append-only
  * (`@Insert` and `SELECT` only, never update, upsert, or delete).
  */
 class ProgressWriterTest {
     @Test
-    fun `only the four Stage progress use cases call ProgressRepository append`() {
+    fun `only the five Stage progress use cases call ProgressRepository append`() {
         val repo = File("../..")
         val modules =
             repo
@@ -48,7 +48,7 @@ class ProgressWriterTest {
         assertEquals(
             emptyList<String>(),
             offending,
-            "only CompleteLesson, PassSkipCheck, PlaceFromScan, and ResetProgress may append progress events",
+            "only CompleteLesson, PassSkipCheck, PlaceFromScan, ChooseEntryLevel, and ResetProgress may append progress events",
         )
     }
 
@@ -64,6 +64,7 @@ class ProgressWriterTest {
         val ALLOWED_WRITERS =
             setOf(
                 "core/application/src/main/kotlin/dev/cubentia/application/port/ProgressRepository.kt",
+                "core/application/src/main/kotlin/dev/cubentia/application/usecase/ChooseEntryLevel.kt",
                 "core/application/src/main/kotlin/dev/cubentia/application/usecase/CompleteLesson.kt",
                 "core/application/src/main/kotlin/dev/cubentia/application/usecase/PassSkipCheck.kt",
                 "core/application/src/main/kotlin/dev/cubentia/application/usecase/PlaceFromScan.kt",

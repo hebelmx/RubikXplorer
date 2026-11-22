@@ -55,6 +55,15 @@ class AlgorithmLibraryTest {
         )
     }
 
+    @Test fun `set filter keeps only that set and ANDs with family and status`() {
+        val oll = sections(LibraryFilter(set = CaseSet.OLL))
+        assertEquals(57, oll.sumOf { it.entries.size })
+        assertTrue(oll.all { it.set == CaseSet.OLL })
+        assertEquals(21, sections(LibraryFilter(set = CaseSet.PLL)).sumOf { it.entries.size })
+        assertTrue(sections(LibraryFilter(family = FamilyId("pll-edges-only"), set = CaseSet.OLL)).isEmpty())
+        assertTrue(sections(LibraryFilter(status = AlgorithmStatus.LEARNED, set = CaseSet.OLL)).isEmpty())
+    }
+
     @Test fun `missing primary is omitted and set order overrides input order`() {
         val oll = bundle.cases.first()
         val pll = bundle.cases.last()

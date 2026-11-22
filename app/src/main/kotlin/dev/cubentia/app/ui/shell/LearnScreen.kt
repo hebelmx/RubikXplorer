@@ -92,6 +92,7 @@ fun LearnScreen(
     attemptRecords: List<MasteryAttempt> = emptyList(),
     twoLookProgress: dev.cubentia.domain.tutor.TwoLookProgress? = null,
     abandonedSkipCheckStage: StageId? = null,
+    onFindMyPlace: (() -> Unit)? = null,
 ) {
     Box(
         modifier =
@@ -203,6 +204,7 @@ fun LearnScreen(
                         onTwoLookPractice = onTwoLookPractice,
                         onOpen = onOpen,
                         onSelectStage = { onSelectStage(it) },
+                        onFindMyPlace = onFindMyPlace,
                     )
                 }
             }
@@ -222,11 +224,73 @@ private fun StageListContent(
     onTwoLookPractice: () -> Unit,
     onOpen: (LessonId) -> Unit,
     onSelectStage: (StageId) -> Unit,
+    onFindMyPlace: (() -> Unit)?,
+) {
+    Column(Modifier.fillMaxSize()) {
+        // The Stage list's top app bar (UX Flow 8): the tab heading and, when offered, *Find my place*.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.s2),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = Spacing.touchMin)
+                    .padding(horizontal = Spacing.s4, vertical = Spacing.s2)
+                    .testTag("learn:topBar"),
+        ) {
+            Text(
+                text = stringResource(R.string.nav_learn),
+                style = MaterialTheme.typography.titleLarge,
+                color = RubikTheme.tokens.inkPrimary,
+                modifier = Modifier.weight(1f).semantics { heading() },
+            )
+            if (onFindMyPlace != null && catalog.bundle.stages.isNotEmpty()) {
+                TextButton(
+                    onClick = onFindMyPlace,
+                    modifier = Modifier.heightIn(min = Spacing.touchMin).testTag("learn:findMyPlace"),
+                ) {
+                    Text(
+                        catalog.strings.resolve(
+                            dev.cubentia.domain.text
+                                .Text("btn.learn.find-my-place"),
+                        ),
+                    )
+                }
+            }
+        }
+        StageListBody(
+            catalog,
+            continueEntry,
+            progressEvents,
+            masteredStages,
+            scrollState,
+            showFasterLastLayer,
+            twoLookProgress,
+            onTwoLookPractice,
+            onOpen,
+            onSelectStage,
+        )
+    }
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.ColumnScope.StageListBody(
+    catalog: CatalogState.Ready,
+    continueEntry: CatalogEntry?,
+    progressEvents: List<ProgressEvent>,
+    masteredStages: Set<StageId>,
+    scrollState: ScrollState,
+    showFasterLastLayer: Boolean,
+    twoLookProgress: dev.cubentia.domain.tutor.TwoLookProgress,
+    onTwoLookPractice: () -> Unit,
+    onOpen: (LessonId) -> Unit,
+    onSelectStage: (StageId) -> Unit,
 ) {
     Column(
         modifier =
             Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
+                .weight(1f)
                 .verticalScroll(scrollState),
     ) {
         if (catalog.bundle.stages.isEmpty() || catalog.lessons.isEmpty()) {

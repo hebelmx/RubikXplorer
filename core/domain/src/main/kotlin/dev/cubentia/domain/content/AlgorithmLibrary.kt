@@ -3,9 +3,11 @@ package dev.cubentia.domain.content
 /** Learner-owned status; absent entries are Not started. */
 enum class AlgorithmStatus { NOT_STARTED, LEARNING, LEARNED }
 
+/** Library filters, ANDed together; [set] narrows to one Case set (the *I know 2-look* entry level opens on OLL). */
 data class LibraryFilter(
     val family: FamilyId? = null,
     val status: AlgorithmStatus? = null,
+    val set: CaseSet? = null,
 )
 
 data class LibraryEntry(
@@ -33,6 +35,7 @@ object AlgorithmLibrary {
         return cases
             .sortedBy { it.set.ordinal }
             .mapNotNull { case -> primary[case.id]?.let { LibraryEntry(case, it) } }
+            .filter { filter.set == null || it.case.set == filter.set }
             .filter { filter.family == null || it.case.family == filter.family }
             .filter { filter.status == null || (statuses[it.algorithm.id] ?: AlgorithmStatus.NOT_STARTED) == filter.status }
             .groupBy { it.case.set to it.case.family }
