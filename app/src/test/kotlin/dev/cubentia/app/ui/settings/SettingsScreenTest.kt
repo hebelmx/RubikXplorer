@@ -2,6 +2,9 @@ package dev.cubentia.app.ui.settings
 import android.app.Application
 import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.semantics.SemanticsNode
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertTextEquals
@@ -10,8 +13,10 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.toSize
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.content.LessonCatalog
 import dev.cubentia.app.preferences.PreferenceProvider
@@ -42,6 +47,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, qualifiers = "w411dp-h891dp")
@@ -247,6 +253,82 @@ class SettingsScreenTest {
     @Test fun movePicturesShowsOnceStringsAreGivenEvenWithoutItsKey() {
         rule.setContent { CubentiaTheme { SettingsScreen({}, strings = ContentStrings(emptyMap())) } }
         rule.onNodeWithTag("settings:movePictures").performScrollTo().assertTextEquals("btn.settings.move-pictures")
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h1280dp")
+    // Real text measurement: fake measurement centres "Close settings" inside the button's min width, hiding its true inset.
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun labelsStartAtTheCloseSettingsTextInsetOnTablet() {
+        val strings = ContentStrings((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings)
+        rule.setContent { CubentiaTheme { PreferenceProvider(PreferenceStore()) { SettingsScreen({}, strings = strings) } } }
+        val density = rule.density.density
+        val root = rule.onRoot().fetchSemanticsNode().boundsInRoot
+
+        // boundsInRoot is clipped to ancestors, so a clipped label would still look "inside": measure unclipped layout bounds.
+        fun SemanticsNode.unclipped() = Rect(positionInRoot, size.toSize())
+        val linkStart =
+            rule
+                .onNodeWithText("Close settings", useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .unclipped()
+                .left
+        assertTrue("Close settings text is inset", linkStart > 0f)
+
+        fun assertStartsAtLink(
+            name: String,
+            bounds: Rect,
+        ) {
+            assertEquals("$name start (dp)", linkStart / density, bounds.left / density, 0.5f)
+            assertTrue("$name starts inside the screen", bounds.left > 0f && bounds.left >= root.left)
+            assertTrue("$name ends inside the screen", bounds.right <= root.right)
+        }
+        listOf("settings:title", "settings:themeHeading", "settings:speedHeading").forEach { tag ->
+            assertStartsAtLink(
+                tag,
+                rule
+                    .onNodeWithTag(tag)
+                    .performScrollTo()
+                    .fetchSemanticsNode()
+                    .unclipped(),
+            )
+        }
+        mapOf(
+            "glyphs" to "Color-blind glyphs",
+            "movePictures" to "Move pictures",
+            "haptics" to "Haptics",
+            "reduceMotion" to "Reduce motion",
+        ).forEach { (tag, label) ->
+            val row =
+                rule
+                    .onNodeWithTag("settings:$tag")
+                    .performScrollTo()
+                    .fetchSemanticsNode()
+                    .boundsInRoot
+            assertEquals("$tag row stays full-width", root.width, row.width, 0.5f * density)
+            assertStartsAtLink(label, rule.onNodeWithText(label, useUnmergedTree = true).fetchSemanticsNode().unclipped())
+        }
+        listOf("theme:system", "theme:light", "theme:dark", "speed:slow", "speed:normal", "speed:fast").forEach { tag ->
+            val row =
+                rule
+                    .onNodeWithTag("settings:$tag")
+                    .performScrollTo()
+                    .fetchSemanticsNode()
+                    .boundsInRoot
+            assertEquals("$tag row stays full-width", root.width, row.width, 0.5f * density)
+            val radio = rule.onNodeWithTag("settings:$tag:radio", useUnmergedTree = true).fetchSemanticsNode().unclipped()
+            assertEquals("$tag radio start (dp)", linkStart / density, radio.left / density, 0.5f)
+            val label =
+                rule
+                    .onNodeWithTag("settings:$tag", useUnmergedTree = true)
+                    .fetchSemanticsNode()
+                    .children
+                    .single { it.config.contains(SemanticsProperties.Text) }
+                    .unclipped()
+            assertTrue("$tag radio starts inside the screen", radio.left > 0f)
+            assertTrue("$tag label starts after its radio", label.left >= radio.right)
+            assertTrue("$tag label ends inside the screen", label.right <= root.right)
+        }
     }
 
     @Test fun calibrationRowsAreHiddenWithoutBinding() {

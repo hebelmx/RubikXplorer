@@ -2,10 +2,14 @@ package dev.cubentia.app.ui.settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -13,6 +17,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
@@ -29,9 +34,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.R
 import dev.cubentia.app.preferences.LocalPreferenceStore
@@ -65,6 +72,8 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     BackHandler(onBack = onClose)
     val tokens = RubikTheme.tokens
+    // Labels start where the Close settings link text starts (#275): the link's inset is its TextButton content padding.
+    val inset = labelInset(LocalLayoutDirection.current)
     CompositionLocalProvider(LocalContentColor provides tokens.inkPrimary) {
         Column(
             Modifier
@@ -77,8 +86,8 @@ fun SettingsScreen(
             TextButton(onClick = onClose, modifier = Modifier.heightIn(min = 48.dp).testTag("settings:close")) {
                 Text(stringResource(R.string.settings_close))
             }
-            Text(stringResource(R.string.settings_title))
-            Text(stringResource(R.string.settings_theme))
+            Text(stringResource(R.string.settings_title), Modifier.padding(inset).testTag("settings:title"))
+            Text(stringResource(R.string.settings_theme), Modifier.padding(inset).testTag("settings:themeHeading"))
             Column(Modifier.selectableGroup()) {
                 ThemeChoice.entries.forEach { choice ->
                     val label =
@@ -91,6 +100,7 @@ fun SettingsScreen(
                         label,
                         "theme:${choice.name.lowercase()}",
                         prefs.theme == choice,
+                        inset,
                     ) { store.update(Preference.Theme(choice)) }
                 }
             }
@@ -98,12 +108,13 @@ fun SettingsScreen(
                 stringResource(R.string.settings_glyphs),
                 "glyphs",
                 prefs.colorBlindGlyphs,
+                inset,
             ) { store.update(Preference.ColorBlindGlyphs(it)) }
             if (strings != null) {
                 val movePicturesLabel = strings.resolve(ContentText("btn.settings.move-pictures"))
-                SettingSwitch(movePicturesLabel, "movePictures", prefs.movePictures) { store.update(Preference.MovePictures(it)) }
+                SettingSwitch(movePicturesLabel, "movePictures", prefs.movePictures, inset) { store.update(Preference.MovePictures(it)) }
             }
-            Text(stringResource(R.string.settings_speed))
+            Text(stringResource(R.string.settings_speed), Modifier.padding(inset).testTag("settings:speedHeading"))
             Column(Modifier.selectableGroup()) {
                 AnimationSpeed.entries.forEach { speed ->
                     val label =
@@ -112,13 +123,18 @@ fun SettingsScreen(
                             AnimationSpeed.NORMAL -> R.string.settings_normal
                             AnimationSpeed.FAST -> R.string.settings_fast
                         }
-                    SettingRadio(label, "speed:${speed.name.lowercase()}", prefs.animationSpeed == speed) {
+                    SettingRadio(label, "speed:${speed.name.lowercase()}", prefs.animationSpeed == speed, inset) {
                         store.update(Preference.Speed(speed))
                     }
                 }
             }
-            SettingSwitch(stringResource(R.string.free_cube_haptics), "haptics", prefs.haptics) { store.update(Preference.Haptics(it)) }
-            SettingSwitch(stringResource(R.string.settings_reduce_motion), "reduceMotion", prefs.reduceMotion) {
+            SettingSwitch(
+                stringResource(R.string.free_cube_haptics),
+                "haptics",
+                prefs.haptics,
+                inset,
+            ) { store.update(Preference.Haptics(it)) }
+            SettingSwitch(stringResource(R.string.settings_reduce_motion), "reduceMotion", prefs.reduceMotion, inset) {
                 store.update(Preference.ReduceMotion(it))
             }
             TextButton(onClick = {
@@ -215,12 +231,19 @@ fun SettingsScreen(
     }
 }
 
+/** Horizontal-only inset matching the text inside a [TextButton], so plain labels line up with link text. */
+private fun labelInset(direction: LayoutDirection): PaddingValues {
+    val button = ButtonDefaults.TextButtonContentPadding
+    return PaddingValues(start = button.calculateStartPadding(direction), end = button.calculateEndPadding(direction))
+}
+
 /** One option of a mutually exclusive group; the whole row, label included, selects it. */
 @Composable
 private fun SettingRadio(
     labelId: Int,
     tag: String,
     selected: Boolean,
+    inset: PaddingValues,
     select: () -> Unit,
 ) {
     Row(
@@ -228,10 +251,11 @@ private fun SettingRadio(
             .fillMaxWidth()
             .heightIn(min = 48.dp)
             .selectable(selected = selected, role = Role.RadioButton, onClick = select)
-            .testTag("settings:$tag"),
+            .testTag("settings:$tag")
+            .padding(inset),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(selected = selected, onClick = null)
+        RadioButton(selected = selected, onClick = null, modifier = Modifier.testTag("settings:$tag:radio"))
         Text(stringResource(labelId))
     }
 }
@@ -242,6 +266,7 @@ private fun SettingSwitch(
     label: String,
     tag: String,
     value: Boolean,
+    inset: PaddingValues,
     change: (Boolean) -> Unit,
 ) {
     Row(
@@ -249,7 +274,8 @@ private fun SettingSwitch(
             .fillMaxWidth()
             .heightIn(min = 48.dp)
             .toggleable(value = value, role = Role.Switch, onValueChange = change)
-            .testTag("settings:$tag"),
+            .testTag("settings:$tag")
+            .padding(inset),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, Modifier.weight(1f))
