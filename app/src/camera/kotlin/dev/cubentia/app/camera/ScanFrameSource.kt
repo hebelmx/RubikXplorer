@@ -157,6 +157,9 @@ internal class CameraXFrameSource
 
         private var analysisUseCase: ImageAnalysis? = null
 
+        /** The Preview this source bound; released with its analysis on stop (GH #276). */
+        private var previewUseCase: Preview? = null
+
         override fun preview(context: Context): android.view.View {
             this.context = context
             return PreviewView(context).also {
@@ -184,14 +187,23 @@ internal class CameraXFrameSource
 
         override fun stop() {
             active = false
-            // The torch is physically off whenever the camera is released (hand-over, leaving the capture view, finish).
-            camera?.takeIf { it.cameraInfo.hasFlashUnit() }?.cameraControl?.enableTorch(false)
+            val lastCamera = camera
+            val provider = cameraProvider
+            val ours = listOfNotNull(previewUseCase, analysisUseCase)
+            // The torch is physically off whenever the camera is released (hand-over, leaving the capture view, finish);
+            // turned off while still attached, and skipped when another scan already took the camera over (GH #276).
+            if (provider != null && ours.any(provider::isBound)) {
+                lastCamera?.takeIf { it.cameraInfo.hasFlashUnit() }?.cameraControl?.enableTorch(false)
+            }
             // Released with the camera: the next corner view waits for the torch to come back on before metering.
             appliedTorch = false
             startJob?.cancel()
             analysisUseCase?.clearAnalyzer()
-            camera?.cameraInfo?.cameraState?.removeObserver(cameraStateObserver)
-            cameraProvider?.unbindAll()
+            lastCamera?.cameraInfo?.cameraState?.removeObserver(cameraStateObserver)
+            // Only this source's own use cases: the provider is process-wide, and a closed scan's late stop must never
+            // release the next scan's camera (GH #276).
+            if (provider != null) releaseOwnUseCases(ours, provider::isBound) { provider.unbind(*it.toTypedArray()) }
+            previewUseCase = null
             camera = null
             cameraStarted = false
             // Frame numbers restart with the next camera session.
@@ -324,6 +336,7 @@ internal class CameraXFrameSource
                 try {
                     camera?.cameraInfo?.cameraState?.removeObserver(cameraStateObserver)
                     provider.unbindAll()
+                    previewUseCase = preview
                     // A new camera session numbers its capture results from scratch.
                     settle.reset()
                     camera =
@@ -699,3 +712,17 @@ private class MeteringGrid(
     val height: Int,
     val square: GridSquare,
 )
+
+/**
+ * Unbinds those of [ours] still bound and reports whether any were (GH #276). Use cases another scan took over were already
+ * unbound by its bind, so a late stop releases nothing and leaves the newer camera alone.
+ */
+internal fun <T> releaseOwnUseCases(
+    ours: List<T>,
+    isBound: (T) -> Boolean,
+    unbind: (List<T>) -> Unit,
+): Boolean {
+    val still = ours.filter(isBound)
+    if (still.isNotEmpty()) unbind(still)
+    return still.isNotEmpty()
+}
