@@ -25,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -99,6 +100,7 @@ class SolutionPlaybackState private constructor(
                 .now()
         },
         initialView: PlaybackView = defaultPlaybackView(session),
+        leftPhysicalAt: Int? = null,
     ) : this(
         session,
         origin(session).let { NetPlayback(it, session.solution, reduceMotion, initialView.rendererAt(it.toFacelets())) },
@@ -106,10 +108,21 @@ class SolutionPlaybackState private constructor(
         onEvent,
         clock,
     ) {
+        this.leftPhysicalAt = leftPhysicalAt
+        if (leftPhysicalAt != null && session.isPhysical) alignToExpected(rebuild = true)
         require(session.kind == SessionKind.SOLVE_PLAYBACK) { "not a Solve Playback session: ${session.kind}" }
     }
 
     private var start: CubeState = origin(session)
+
+    /**
+     * The position held when the Learner last left physical mode, to resume there among equal states; kept by
+     * [rememberSolutionPlaybackState] across recreation through [onLeftPhysical].
+     */
+    private var leftPhysicalAt: Int? = null
+
+    /** Told the position each time the Learner leaves physical mode. */
+    internal var onLeftPhysical: (Int) -> Unit = {}
 
     var session: SessionState by mutableStateOf(session)
         internal set
@@ -175,12 +188,23 @@ class SolutionPlaybackState private constructor(
         dispatch(SessionEvent.ModeSwitched(CubeMode.PHYSICAL, clock()))
     }
 
+    /**
+     * Moves to the position whose state is the session's Expected State. A Solution can pass the same state more than
+     * once (an Algorithm practice from solved holds the same cube at k and 2n - k, and ends where it starts), so among
+     * equal states it prefers the position held when the Learner left physical mode, then, on a physical [rebuild],
+     * one whose preceding Moves are the ones confirmed since the switch, else the first.
+     */
     private fun alignToExpected(rebuild: Boolean = false) {
         val expectedPosition =
             if (size > 0) {
-                (0..size).firstOrNull { index ->
-                    start.apply(solution.take(index)) == session.expected
-                } ?: 0
+                val matches = (0..size).filter { index -> start.apply(solution.take(index)) == session.expected }
+                val done = session.history.done
+                matches.firstOrNull { it == leftPhysicalAt }
+                    ?: matches
+                        .takeIf { rebuild }
+                        ?.firstOrNull { index -> index >= done.size && solution.subList(index - done.size, index) == done }
+                    ?: matches.firstOrNull()
+                    ?: 0
             } else {
                 0
             }
@@ -197,6 +221,8 @@ class SolutionPlaybackState private constructor(
 
     fun switchToVirtual() {
         if (!isPhysical) return
+        leftPhysicalAt = position
+        onLeftPhysical(position)
         dispatch(SessionEvent.ModeSwitched(CubeMode.VIRTUAL, clock()))
     }
 
@@ -297,10 +323,13 @@ fun rememberSolutionPlaybackState(
 ): SolutionPlaybackState {
     require(session.kind == SessionKind.SOLVE_PLAYBACK) { "not a Solve Playback session: ${session.kind}" }
     val initialView = LocalPreferenceStore.current.preferences.value.playbackView ?: defaultPlaybackView(session)
+    // Where the Learner left physical mode, saved so a recreated state resolves equal states the same way.
+    var leftPhysicalAt by rememberSaveable(session.solution) { mutableStateOf<Int?>(null) }
     val state =
         remember(session.solution, reduceMotion) {
-            SolutionPlaybackState(session, reduceMotion, onEvent, clock, initialView)
+            SolutionPlaybackState(session, reduceMotion, onEvent, clock, initialView, leftPhysicalAt)
         }
+    state.onLeftPhysical = { leftPhysicalAt = it }
     state.updateSession(session)
     state.onEvent = onEvent
     state.clock = clock

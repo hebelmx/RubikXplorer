@@ -14,10 +14,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -25,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +54,7 @@ import dev.cubentia.app.ui.lesson.rememberDemonstrationPlayerState
 import dev.cubentia.app.ui.playback.PlaybackFrameLoop
 import dev.cubentia.app.ui.playback.PlaybackTransport
 import dev.cubentia.app.ui.theme.RubikTheme
+import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.domain.content.Algorithm
 import dev.cubentia.domain.content.AlgorithmStatus
 import dev.cubentia.domain.content.Case
@@ -97,6 +105,7 @@ fun AlgorithmDetailScreen(
     status: AlgorithmStatus = AlgorithmStatus.NOT_STARTED,
     onSetStatus: (AlgorithmStatus) -> Unit = {},
     autoPlay: Boolean = false,
+    onPractice: ((fromSetUp: Boolean) -> Unit)? = null,
 ) {
     val result = remember(algorithm) { Demonstration.ofCase(algorithm) }
     val tokens = RubikTheme.tokens
@@ -128,6 +137,18 @@ fun AlgorithmDetailScreen(
         return
     }
     val state = rememberDemonstrationPlayerState(result.demonstration)
+    var choosingPractice by rememberSaveable(algorithm.id.value) { mutableStateOf(false) }
+    if (choosingPractice && onPractice != null) {
+        PracticeChoiceSheet(
+            strings,
+            onChoose = { fromSetUp ->
+                choosingPractice = false
+                state.pause()
+                onPractice(fromSetUp)
+            },
+            onDismiss = { choosingPractice = false },
+        )
+    }
     LaunchedEffect(algorithm.id) { if (autoPlay) state.play() }
     PlaybackFrameLoop(state)
     val controls: @Composable () -> Unit = {
@@ -169,6 +190,16 @@ fun AlgorithmDetailScreen(
                         }
                     }
                 }
+            }
+        }
+        if (onPractice != null) {
+            Button(
+                onClick = { choosingPractice = true },
+                shape = MaterialTheme.shapes.medium,
+                colors = ButtonDefaults.buttonColors(containerColor = tokens.accent, contentColor = tokens.onAccent),
+                modifier = Modifier.fillMaxWidth().heightIn(min = Spacing.touchMin).testTag("algorithmDetail:practice"),
+            ) {
+                Text(strings.resolve(ContentText("btn.library.practice")))
             }
         }
         FlowRow(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -213,6 +244,59 @@ fun AlgorithmDetailScreen(
                     DemonstrationStage(state, strings, style, null, null, showFrameLabel = true, freeViewRotation = true)
                 }
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) { controls() }
+            }
+        }
+    }
+}
+
+/**
+ * The Algorithm practice choice (UX Flow 11): set the Case up from solved, or start at the Algorithm because the
+ * cube already shows the Case. Each option closes the sheet first; back or the scrim calls [onDismiss] and starts
+ * nothing.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun PracticeChoiceSheet(
+    strings: ContentStrings,
+    onChoose: (fromSetUp: Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val tokens = RubikTheme.tokens
+
+    fun text(key: String) = strings.resolve(ContentText(key))
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = tokens.surfaceRaised,
+        contentColor = tokens.inkPrimary,
+        // Back and the scrim dismiss the sheet; Material's 32dp drag handle would be a sub-48dp target.
+        dragHandle = null,
+        modifier = Modifier.testTag("algorithmDetail:practiceChoice"),
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = Spacing.s4, vertical = Spacing.s2),
+            verticalArrangement = Arrangement.spacedBy(Spacing.s2),
+        ) {
+            Text(
+                text("msg.library.practice.question"),
+                style = MaterialTheme.typography.titleLarge,
+                color = tokens.inkPrimary,
+                modifier = Modifier.semantics { heading() }.testTag("algorithmDetail:practiceChoice:title"),
+            )
+            TextButton(
+                onClick = { onChoose(true) },
+                modifier = Modifier.fillMaxWidth().heightIn(min = Spacing.touchMin).testTag("algorithmDetail:practice:setUp"),
+            ) {
+                Text(text("btn.library.practice.set-up"), modifier = Modifier.fillMaxWidth())
+            }
+            TextButton(
+                onClick = { onChoose(false) },
+                modifier = Modifier.fillMaxWidth().heightIn(min = Spacing.touchMin).testTag("algorithmDetail:practice:alreadyCase"),
+            ) {
+                Text(text("btn.library.practice.already-case"), modifier = Modifier.fillMaxWidth())
             }
         }
     }

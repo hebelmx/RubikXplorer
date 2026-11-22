@@ -31,6 +31,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
@@ -68,6 +69,8 @@ fun SolvePlaybackScreen(
     styleLocked: Boolean = false,
     onChooseStyle: (SolutionStyle) -> Unit = {},
     segments: SegmentLabels? = null,
+    title: String? = null,
+    onAgain: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     BackHandler(onBack = onClose)
@@ -85,12 +88,31 @@ fun SolvePlaybackScreen(
                 IconButton(onClick = onClose, modifier = Modifier.testTag("solvePlayback:close")) {
                     Icon(painterResource(R.drawable.ic_close), contentDescription = strings.resolve(ContentText("btn.solve.close")))
                 }
-                Text(
-                    strings.resolve(ContentText("msg.playback.solution-length", mapOf("count" to playback.size))),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = RubikTheme.tokens.inkPrimary,
-                    modifier = Modifier.weight(1f).padding(end = Spacing.s4).testTag("solvePlayback:length"),
-                )
+                val length = strings.resolve(ContentText("msg.playback.solution-length", mapOf("count" to playback.size)))
+                if (title == null) {
+                    Text(
+                        length,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = RubikTheme.tokens.inkPrimary,
+                        modifier = Modifier.weight(1f).padding(end = Spacing.s4).testTag("solvePlayback:length"),
+                    )
+                } else {
+                    // An Algorithm practice names its Case, with the Move count under it (Story 14.2).
+                    Column(Modifier.weight(1f).padding(end = Spacing.s4)) {
+                        Text(
+                            title,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = RubikTheme.tokens.inkPrimary,
+                            modifier = Modifier.semantics { heading() }.testTag("solvePlayback:title"),
+                        )
+                        Text(
+                            length,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = RubikTheme.tokens.inkSecondary,
+                            modifier = Modifier.testTag("solvePlayback:length"),
+                        )
+                    }
+                }
             }
             styles?.let { SolutionStyleChips(it, suggestedStyle, styleLocked, strings, onChooseStyle) }
             SolutionPlayback(
@@ -106,6 +128,14 @@ fun SolvePlaybackScreen(
                 segments = segments,
             )
             if (playback.atEnd) {
+                onAgain?.let { again ->
+                    TextButton(
+                        onClick = again,
+                        modifier = Modifier.heightIn(min = Spacing.touchMin).testTag("practice:again"),
+                    ) {
+                        Text(strings.resolve(ContentText("btn.practice.again")))
+                    }
+                }
                 TextButton(onClick = onLearn, modifier = Modifier.testTag("solve:learnOffer")) {
                     Text(strings.resolve(ContentText("msg.solve.learn-offer")))
                 }

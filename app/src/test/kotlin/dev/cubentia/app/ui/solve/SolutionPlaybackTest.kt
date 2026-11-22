@@ -760,6 +760,122 @@ class SolutionPlaybackTest {
         }
     }
 
+    // An Algorithm practice from solved (Story 14.2): set-up U' R' then the Algorithm R U, so steps 1 and 3 hold the same
+    // cube and the end is the start.
+    private val practice: List<Move> = listOf(u.inverse(), r.inverse(), r, u)
+
+    @Test
+    fun aPracticeStateRebuiltMidAlgorithmDoesNotJumpBackIntoTheSetUp() {
+        show(session(CubeState.SOLVED, practice))
+        click("followOnMyCube")
+        click("done")
+        click("done")
+        click("done")
+        rule.runOnIdle {
+            assertEquals(3, state.position)
+            val rebuilt = SolutionPlaybackState(state.session, reduceMotion = true)
+            assertEquals(3, rebuilt.position)
+            assertEquals(u, rebuilt.currentMove)
+        }
+        click("done")
+        rule.runOnIdle {
+            assertTrue(state.atEnd)
+            val rebuilt = SolutionPlaybackState(state.session, reduceMotion = true)
+            assertEquals(4, rebuilt.position)
+            assertTrue(rebuilt.atEnd)
+        }
+    }
+
+    @Test
+    fun aPracticeStateBuiltPhysicalAtTheStartBeginsAtStepOne() {
+        val physical =
+            reduce(
+                session(CubeState.SOLVED, practice),
+                SessionEvent.ModeSwitched(CubeMode.PHYSICAL, Instant.fromEpochMilliseconds(1)),
+            ).state
+        val built = SolutionPlaybackState(physical, reduceMotion = true)
+        assertTrue(built.isPhysical)
+        assertEquals(0, built.position)
+        assertEquals(u.inverse(), built.currentMove)
+    }
+
+    @Test
+    fun followingAgainAfterLeavingPhysicalMidAlgorithmResumesWhereTheLearnerLeft() {
+        show(session(CubeState.SOLVED, practice))
+        click("followOnMyCube")
+        click("done")
+        click("done")
+        click("done")
+        click("switchToVirtual")
+        click("followOnMyCube")
+        rule.runOnIdle {
+            assertTrue(state.isPhysical)
+            assertEquals(3, state.position)
+            assertEquals(u, state.currentMove)
+        }
+    }
+
+    @Test
+    fun aPracticeStateRebuiltRightAfterFollowingAgainKeepsTheSavedPosition() {
+        show(session(CubeState.SOLVED, practice))
+        click("followOnMyCube")
+        click("done")
+        click("done")
+        click("done")
+        click("switchToVirtual")
+        rule.runOnIdle {
+            // Rebuilt in virtual mode (recreation) with the saved hint, then following on the cube again.
+            val virtual = SolutionPlaybackState(state.session, reduceMotion = true, leftPhysicalAt = 3)
+            virtual.followOnMyCube()
+            assertEquals(3, virtual.position)
+        }
+        click("followOnMyCube")
+        rule.runOnIdle {
+            assertTrue(
+                state.session.history.done
+                    .isEmpty(),
+            )
+            // Rebuilt physical before the next Done: the hint carried through recreation decides between steps 1 and 3.
+            val rebuilt = SolutionPlaybackState(state.session, reduceMotion = true, leftPhysicalAt = 3)
+            assertTrue(rebuilt.isPhysical)
+            assertEquals(3, rebuilt.position)
+            assertEquals(practice[3], rebuilt.currentMove)
+        }
+    }
+
+    @Test
+    fun theLeftPhysicalPositionSurvivesStateRestoration() {
+        val restoration =
+            androidx.compose.ui.test.junit4
+                .StateRestorationTester(rule)
+        val host = SessionHost(TickingClock(), Dispatchers.Unconfined)
+        runBlocking { host.dispatch { SessionEvent.SolvePlaybackStarted(CubeState.SOLVED, practice, it) } }
+        restoration.setContent {
+            val current by host.state.collectAsState()
+            CubentiaTheme {
+                PreferenceProvider(netPreferences()) {
+                    state =
+                        rememberSolutionPlaybackState(current, reduceMotion = true, onEvent = { event ->
+                            runBlocking { host.dispatch { event } }
+                        })
+                    SolutionPlayback(state, strings, Modifier.fillMaxSize())
+                }
+            }
+        }
+        click("followOnMyCube")
+        click("done")
+        click("done")
+        click("done")
+        click("switchToVirtual")
+        click("followOnMyCube")
+        restoration.emulateSavedInstanceStateRestore()
+        rule.runOnIdle {
+            assertTrue(state.isPhysical)
+            assertEquals(3, state.position)
+            assertEquals(practice[3], state.currentMove)
+        }
+    }
+
     @Test
     fun aStateRebuiltAfterReturningToVirtualStillPlaysFromTheSolutionStart() {
         show()
