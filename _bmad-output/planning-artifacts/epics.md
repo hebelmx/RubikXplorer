@@ -1951,11 +1951,11 @@ So that scans read it correctly.
 
 **Refs:** FR-24, FR-19 · AD-9, AD-10 · AR-13, AR-21 · UX-DR25 · UX Flow 9
 
-**Human gate:** the first-stickerless-scan prompt is accepted on a device with the stickerless test cube (device session B). *(SCP 2026-11-16 main-app entry points: the PO accepted a partial session B on 2026-11-16 (#166). The checks not done on a device (the review offer, logo-center and implausible re-prompt, rescan after Save, Lenovo) and the offer rule move to Story 10.5's device session B3, run on the main app.)*
+**Human gate:** the first-stickerless-scan prompt is accepted on a device with the stickerless test cube (device session B). *(SCP 2026-11-16 main-app entry points: the PO accepted a partial session B on 2026-11-16 (#166). The checks not done on a device (the review offer, logo-center and implausible re-prompt, rescan after Save, Lenovo) and the offer rule move to Story 10.5's device session B3, run on the main app.)* *(SCP 2026-11-22, #166: the PO's offer rule applies to this gate too: the prompt is offered only on uncertain reads; see the AC annotation below. Accepted at session B3.)*
 
 **Acceptance Criteria:**
 
-**Given** many uncertain stickers in a scan, a first stickerless scan, or Settings *(SCP 2026-11-17 annotation, PO decision of 2026-11-17 at device session B3: "a first stickerless scan" means a first scan that reads uncertain. The review offers calibration only on uncertain reads (NeedsCalibration, a guarded center with no saved calibration, or 6 or more blank stickers). A clean scan gets no offer, and Settings → Color calibration is always available. No scope change.)*
+**Given** many uncertain stickers in a scan, a first stickerless scan, or Settings *(SCP 2026-11-17 annotation, PO decision of 2026-11-17 at device session B3: "a first stickerless scan" means a first scan that reads uncertain. The review offers calibration only on uncertain reads (NeedsCalibration, a guarded center with no saved calibration, or 6 or more blank stickers). A clean scan gets no offer, and Settings → Color calibration is always available. No scope change.)* *(SCP 2026-11-22: this annotation closes the 10.4 AC wording item in #166.)*
 **When** "Colors look off — calibrate?" or Settings → Color Calibration is chosen
 **Then** each of the six colors is shown in turn, sampled from a plain sticker of that color (a logo or printed center is rejected or excluded from the sample, per the UX pass), an implausible swatch is refused with a plain re-prompt, the Learner confirms each swatch, and *Save* calls `UpdateCalibration` *(SCP 2026-11-15: a logo white center gave a bad WHITE and a 53/54 read in session A)*
 
@@ -2485,7 +2485,7 @@ As the developer tuning Quick Scan,
 I want labelled corner captures recorded through the 10.19 pipeline on both reference devices,
 So that the keep rule, the agreement gate and the light cuts are fitted and scored on real data, per device and light.
 
-**Refs:** FR-22 · recognition NFRs (Quick Scan, Confidence calibration) · AD-9, AD-15 · OQ-8 · Stories 10.10, 10.12, 10.18, 10.19 · #274
+**Refs:** FR-22, FR-24 · recognition NFRs (Quick Scan, Confidence calibration) · AD-9, AD-15 · OQ-8 · Stories 10.4, 10.10, 10.12, 10.18, 10.19 · #274, #166
 
 **Depends on** Story 10.19. **Human gate:** one recording session on the debug fixture recorder (corner mode), on the Lenovo Tab M10 Plus 3rd Gen (TB128XU, no flash) and the Galaxy S24 FE (flash). *(SCP 2026-11-21 quick-scan-side-face-accuracy.)*
 
@@ -2502,6 +2502,10 @@ So that the keep rule, the agreement gate and the light cuts are fitted and scor
 **Given** the held-out split
 **When** `uv run --project tools/corner-model python tools/corner-model/evaluate_model.py --fixtures-corner Fixtures/corner` runs
 **Then** it reports, per device, recall ≥ 92%, rejection ≥ 96% and mean corner error ≤ 3% of the outline diagonal (10.19 AC7). A miss is recorded in the evidence and routed to the PO, and does not block Story 10.21 unless the PO says so.
+
+**Given** a pastel stickerless cube (a new cube id) recorded in the same session, with its recorder calibration *(SCP 2026-11-22, #166: the pastel-cube check deferred from Story 10.4)*
+**When** `ColorCalibrationTest`'s fixture-plausibility check runs on its swatches and stickers
+**Then** they pass `ColorPlausibility`, or the chroma floors in `ColorCalibration.kt` are tuned so they pass while the standard-fixture checks still pass and implausible swatches are still refused; the result and any new floors are written to `docs/evidence/10-20/` (FR-24: pastel cubes work after calibration)
 
 **Given** `QuickScanSideFaceReplayTest`
 **When** it runs in CI on the new groups
