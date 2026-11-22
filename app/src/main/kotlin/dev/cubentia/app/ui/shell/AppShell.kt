@@ -47,6 +47,7 @@ import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.app.random.KotlinRandomSource
 import dev.cubentia.app.scan.QuickCheckCapture
 import dev.cubentia.app.session.SessionHost
+import dev.cubentia.app.solver.MethodSolutionCache
 import dev.cubentia.app.solver.SolverLoad
 import dev.cubentia.app.solver.SolverSource
 import dev.cubentia.app.ui.freecube.FreeCubeScreen
@@ -65,6 +66,7 @@ import dev.cubentia.app.ui.recognize.RecognizePhase
 import dev.cubentia.app.ui.recognize.RecognizeScreen
 import dev.cubentia.app.ui.settings.SettingsScreen
 import dev.cubentia.app.ui.solve.ResolveState
+import dev.cubentia.app.ui.solve.SolutionStyleViewModel
 import dev.cubentia.app.ui.solve.SolveFlowViewModel
 import dev.cubentia.app.ui.solve.SolvePhase
 import dev.cubentia.app.ui.solve.SolvePlaybackScreen
@@ -83,6 +85,7 @@ import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionKind
 import dev.cubentia.application.session.SessionState
 import dev.cubentia.application.usecase.RecognizeCase
+import dev.cubentia.application.usecase.SolveByMethod
 import dev.cubentia.application.usecase.StagePractice
 import dev.cubentia.application.usecase.TwoLookPractice
 import dev.cubentia.domain.content.AlgorithmId
@@ -95,6 +98,7 @@ import dev.cubentia.domain.content.Stage
 import dev.cubentia.domain.content.StageId
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.FaceTurn
+import dev.cubentia.domain.cube.Move
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.domain.lastlayer.LastLayerMatcher
@@ -161,6 +165,7 @@ fun AppShell(
     placementFlow: PlacementFlowViewModel = remember { PlacementFlowViewModel() },
     onRecognize: ((Int) -> Unit)? = null,
     recognizeFlow: RecognizeFlowViewModel = remember { RecognizeFlowViewModel() },
+    solutionStyles: SolutionStyleViewModel = remember { SolutionStyleViewModel({ SolveByMethod(it) }, MethodSolutionCache()) },
 ) {
     PreferenceProvider(preferenceStore) {
         ShellContent(
@@ -182,6 +187,7 @@ fun AppShell(
             placementFlow,
             onRecognize,
             recognizeFlow,
+            solutionStyles,
         )
     }
 }
@@ -206,6 +212,7 @@ private fun ShellContent(
     placementFlow: PlacementFlowViewModel,
     onRecognize: ((Int) -> Unit)?,
     recognizeFlow: RecognizeFlowViewModel,
+    solutionStyles: SolutionStyleViewModel,
 ) {
     // Quick Check is a camera capture: like Scan it and calibration, it stays hidden while CAMERA_SCAN is OFF.
     @Suppress("NAME_SHADOWING")
@@ -331,6 +338,8 @@ private fun ShellContent(
         if (ready != null) {
             val scanned = solveFlow.isAcceptedScan()
             val colors = if (scanned) solveFlow.acceptedScanColors() else null
+            // A new playback opens on *Shortest* (Story 15.3).
+            solutionStyles.opened(state, moves, scanned)
             host.dispatch(colors) { SessionEvent.SolvePlaybackStarted(state, moves, it, ready.bundle.tutorConfig, scanned) }
         }
     }
@@ -344,7 +353,36 @@ private fun ShellContent(
         }
     }
     if (ready != null && session.kind == SessionKind.SOLVE_PLAYBACK) {
+        LaunchedEffect(session.revision) { solutionStyles.sessionMoved(session.revision) }
+        val styles by solutionStyles.state.collectAsState()
+        val suggested =
+            remember(ready, progressEvents, attemptRecords) {
+                dev.cubentia.app.ui.solve
+                    .suggestedStyle(ready.bundle, progressEvents, attemptRecords)
+            }
+        val segmentLabels =
+            remember(ready, styles.segments) {
+                dev.cubentia.app.ui.solve
+                    .segmentLabels(styles.segments, ready.bundle)
+            }
+        // Restarts the same SOLVE_PLAYBACK at step 1 on [moves] from the input, still following on the real cube (AD-3).
+        val restartPlayback: suspend (List<Move>) -> Unit = { moves ->
+            val input = solutionStyles.input
+            val before = host.state.value
+            if (input != null && before.kind == SessionKind.SOLVE_PLAYBACK) {
+                val scanned = solutionStyles.fromAcceptedScan
+                val colors = if (scanned) host.runScanColors() else null
+                host.dispatch(colors) { SessionEvent.SolvePlaybackStarted(input, moves, it, ready.bundle.tutorConfig, scanned) }
+                if (before.isPhysical) host.dispatch { SessionEvent.ModeSwitched(CubeMode.PHYSICAL, it) }
+            }
+        }
         SolvePlaybackScreen(
+            styles = styles,
+            suggestedStyle = suggested,
+            // The real cube has left the start (after *Done*): the style changes only back at step 1.
+            styleLocked = solutionStyles.input?.let { session.expected != it } ?: false,
+            onChooseStyle = { style -> solutionStyles.choose(style, ready.bundle, { host.state.value.revision }, restartPlayback) },
+            segments = segmentLabels,
             quickCheck = quickCheck,
             requestQuickCheck = { full ->
                 if (host.state.value.pendingQuickCheck == null) {
@@ -369,11 +407,13 @@ private fun ShellContent(
                     solveFlow.confirm(observed) { state, moves ->
                         val now = host.state.value
                         if (now.revision == from.revision && now.canResolveObserved) {
+                            solutionStyles.opened(state, moves, true)
                             host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it, ready.bundle.tutorConfig, true) }
                             host.dispatch { SessionEvent.ModeSwitched(CubeMode.PHYSICAL, it) }
                         }
                     }
                     if (observed.isSolved) {
+                        solutionStyles.left()
                         scope.launch {
                             host.endSolve(ready.bundle)
                             tab = Tab.SOLVE
@@ -382,12 +422,14 @@ private fun ShellContent(
                 }
             },
             onClose = {
+                solutionStyles.left()
                 scope.launch {
                     host.endSolve(ready.bundle)
                     tab = Tab.SOLVE
                 }
             },
             onLearn = {
+                solutionStyles.left()
                 scope.launch {
                     host.endSolve(ready.bundle)
                     tab = Tab.LEARN

@@ -6,8 +6,11 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import dev.cubentia.app.solver.MethodSolverFactory
 import dev.cubentia.app.solver.PruningTableSolverSource
 import dev.cubentia.app.solver.SolverSource
+import dev.cubentia.application.port.AlgorithmStatusRepository
+import dev.cubentia.application.usecase.SolveByMethod
 import dev.cubentia.solver.PruningTableProvider
 import java.io.File
 import javax.inject.Singleton
@@ -41,4 +44,9 @@ object SolverModule {
 
     @Provides @Singleton
     fun source(provider: PruningTableProvider): SolverSource = PruningTableSolverSource(provider)
+
+    /** The method-shaped solve for Solution Playback, preferring the Learner's *Learning* or *Learned* Algorithms (Story 15.3). */
+    @Provides @Singleton
+    fun methodSolverFactory(repository: AlgorithmStatusRepository): MethodSolverFactory =
+        MethodSolverFactory { SolveByMethod(it, algorithmStatuses = repository) }
 }

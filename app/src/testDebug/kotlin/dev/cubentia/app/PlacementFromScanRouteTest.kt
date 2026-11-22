@@ -65,6 +65,13 @@ class PlacementFromScanRouteTest {
             override fun guidedScanIntent(context: Context) = Intent(context, GuidedScanActivity::class.java)
         }
 
+    /** SolverModule is uninstalled here, so the method-shaped solve it provides is bound too (Story 15.3). */
+    @BindValue val methodSolver: dev.cubentia.app.solver.MethodSolverFactory =
+        dev.cubentia.app.solver.MethodSolverFactory {
+            dev.cubentia.application.usecase
+                .SolveByMethod(it)
+        }
+
     @BindValue val solverSource: SolverSource =
         object : SolverSource {
             override val isReady = false

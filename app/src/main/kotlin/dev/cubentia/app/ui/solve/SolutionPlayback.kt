@@ -54,6 +54,7 @@ import dev.cubentia.app.ui.playback.NET_ASPECT
 import dev.cubentia.app.ui.playback.NetPlayback
 import dev.cubentia.app.ui.playback.PlaybackFrameLoop
 import dev.cubentia.app.ui.playback.PlaybackMoveLabel
+import dev.cubentia.app.ui.playback.PlaybackSegmentLabel
 import dev.cubentia.app.ui.playback.PlaybackTransport
 import dev.cubentia.app.ui.playback.PlaybackTransportState
 import dev.cubentia.app.ui.playback.playbackControlsScroll
@@ -152,6 +153,12 @@ class SolutionPlaybackState private constructor(
             } else {
                 playback.currentMove
             }
+
+    /**
+     * The name of the current step's segment among [labels] (AD-20), used only while [labels] hold the Moves being
+     * played; null with no current step (at the end in physical mode).
+     */
+    fun segmentOf(labels: SegmentLabels?): ContentText? = labels?.takeIf { it.moves == solution }?.at(currentIndex)
 
     /** The generated note of the current Move (AD-20); null with no Moves or when at end in physical mode. */
     val note: ContentText? get() = currentMove?.let(MoveNote::of)
@@ -303,7 +310,8 @@ fun rememberSolutionPlaybackState(
 /**
  * A verified Solution (FR-16) in 3D or on the 2D net with the shared playback transport (forward, back,
  * pause, replay, speed) and, under the current Move, its note from [MoveNote], resolved through
- * [strings]. The last step draws the solved state.
+ * [strings]. With [segments] for the Solution being played, the current segment's Stage or Case name shows above
+ * the Move counter. The last step draws the solved state.
  */
 @Composable
 fun SolutionPlayback(
@@ -315,12 +323,14 @@ fun SolutionPlayback(
     requestQuickCheck: (Boolean) -> Unit = {},
     resolve: ResolveState = ResolveState(),
     onUseMyCube: () -> Unit = {},
+    segments: SegmentLabels? = null,
 ) {
     val store = LocalPreferenceStore.current
     val preferences by store.preferences.collectAsState()
     state.showView(preferences.playbackView ?: defaultPlaybackView(state.session))
     PlaybackFrameLoop(state)
     val tokens = RubikTheme.tokens
+    val segment = state.segmentOf(segments)?.let(strings::resolve)
 
     Column(
         modifier = modifier.testTag("solutionPlayback"),
@@ -450,7 +460,7 @@ fun SolutionPlayback(
                         }
                     }
                 }
-                PhysicalPlaybackControls(state, strings, preferences.movePictures)
+                PhysicalPlaybackControls(state, strings, preferences.movePictures, segment)
             } else {
                 PlaybackTransport(
                     state,
@@ -458,6 +468,7 @@ fun SolutionPlayback(
                     note = state.note?.let(strings::resolve),
                     onScrub = state::seekTo,
                     prominentCounter = true,
+                    segment = segment,
                 )
                 Box(modifier = Modifier.testTag("playback:followOnCube")) {
                     Button(
@@ -493,6 +504,7 @@ private fun PhysicalPlaybackControls(
     state: SolutionPlaybackState,
     strings: ContentStrings,
     pictures: Boolean,
+    segment: String?,
     modifier: Modifier = Modifier,
 ) {
     val tokens = RubikTheme.tokens
@@ -503,6 +515,7 @@ private fun PhysicalPlaybackControls(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Spacing.s2),
     ) {
+        segment?.let { PlaybackSegmentLabel(it) }
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.s4),
