@@ -143,6 +143,9 @@ class AppShellSolveTest {
             runBlocking {
                 flow.viewModelScope.coroutineContext.job
                     .cancelAndJoin()
+                // A style restart still in flight must not outlive its test (Story 15.3).
+                styles.viewModelScope.coroutineContext.job
+                    .cancelAndJoin()
                 writer.close()
             }
         } finally {
@@ -196,6 +199,9 @@ class AppShellSolveTest {
         )
 
     private fun click(tag: String) {
+        // The shell reacts to host and solve-flow state set off the main thread, which waitForIdle does not track: wait
+        // until the target is composed (exactly once) before clicking it.
+        rule.waitUntil(10000) { rule.onAllNodesWithTag(tag).fetchSemanticsNodes().size == 1 }
         rule.onNodeWithTag(tag).performClick()
         rule.waitForIdle()
     }
@@ -656,13 +662,15 @@ class AppShellSolveTest {
         assertEquals(colors, host.runScanColors())
     }
 
-    /** Taps Beginner and waits until its solution has restarted the session. */
+    /** Taps Beginner and waits until its solution has restarted the session, back in physical mode when it was. */
     private fun chooseBeginnerAndAwaitRestart() {
-        val before = host.state.value.revision
+        val before = host.state.value
         click("solutionStyle:BEGINNER")
         rule.waitUntil(10000) {
+            val now = host.state.value
             styles.state.value.playing == dev.cubentia.app.ui.solve.SolutionStyle.BEGINNER &&
-                host.state.value.revision > before
+                now.revision > before.revision &&
+                now.isPhysical == before.isPhysical
         }
         rule.waitForIdle()
     }
