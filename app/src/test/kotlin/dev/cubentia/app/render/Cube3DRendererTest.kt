@@ -37,6 +37,7 @@ import dev.cubentia.app.preferences.PreferenceProvider
 import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.app.session.allMoves
 import dev.cubentia.app.ui.editor.colorName
+import dev.cubentia.app.ui.theme.CubeTokens
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.application.preference.AnimationSpeed
@@ -418,6 +419,74 @@ class Cube3DRendererTest {
             val plain = MoveArrow.arc(move, eye).map { pose.project(it).let { p -> Offset(p.x.toFloat(), p.y.toFloat()) } }
             assertEquals(plain, Cube3DRenderer.arrowPoints(move, pose))
         }
+    }
+
+    @Test fun moveArrowHasACasedFilledArrowheadOfTheDesignedSize() {
+        assertEquals(18.dp, Cube3DRenderer.ARROWHEAD_LENGTH)
+        assertEquals(9.dp, Cube3DRenderer.ARROWHEAD_HALF_WIDTH)
+        assertTrue(Cube3DRenderer.ARROW_CASING > 0.dp)
+        assertEquals(0.6f, Cube3DRenderer.GHOST_ARROW_ALPHA)
+        assertEquals(CubeTokens.stickerHighlight, Cube3DRenderer.arrowColors().fill)
+        assertEquals(CubeTokens.cubieBody, Cube3DRenderer.arrowColors().casing)
+
+        // A head pointing along +x from a tip at (100, 50): apex on the tip, base 18 back, corners 9 either side.
+        val tip = Offset(100f, 50f)
+        val head = Cube3DRenderer.arrowhead(tip, Offset(1f, 0f), 18f, 9f)
+        assertEquals(3, head.size)
+        assertEquals(tip, head[0])
+        val baseMid = (head[1] + head[2]) / 2f
+        assertEquals(82f, baseMid.x, 1e-4f)
+        assertEquals(50f, baseMid.y, 1e-4f)
+        assertEquals(9f, (head[1] - baseMid).getDistance(), 1e-4f)
+        assertEquals(9f, (head[2] - baseMid).getDistance(), 1e-4f)
+        assertEquals(0f, (head[1] - baseMid).x, 1e-4f)
+        assertEquals(-(head[1] - baseMid).y, (head[2] - baseMid).y, 1e-4f)
+    }
+
+    @Test fun arrowCutEndsAtTheAnimatedTip() {
+        val points = (0..4).map { Offset(10f * it, 0f) }
+        // Progress 0: just the start.
+        assertEquals(listOf(points.first()), Cube3DRenderer.arrowCut(points, 0f))
+        // Progress 0.55 is position 2.2: the first three points, then a tip a fifth of the way to the fourth.
+        val partway = Cube3DRenderer.arrowCut(points, 0.55f)
+        assertEquals(points.subList(0, 3), partway.subList(0, 3))
+        assertEquals(4, partway.size)
+        assertEquals(22f, partway.last().x, 1e-3f)
+        assertEquals(0f, partway.last().y, 1e-3f)
+        // Progress 1: the whole arc, its last point the tip.
+        assertEquals(points, Cube3DRenderer.arrowCut(points, 1f))
+    }
+
+    @Test fun pointBackMeasuresArcLengthAlongACurveAndClampsAtTheStart() {
+        // A half circle of radius 50 in 64 steps, ending at angle 0.
+        val radius = 50f
+        val steps = 64
+        val arc =
+            (0..steps).map { i ->
+                val angle = Math.PI * (steps - i) / steps
+                Offset(radius * kotlin.math.cos(angle).toFloat(), radius * kotlin.math.sin(angle).toFloat())
+            }
+        val stepLength = (arc[1] - arc[0]).getDistance()
+        // Four whole steps back along the arc lands on the fourth point back, not on a chord.
+        val back = Cube3DRenderer.pointBack(arc, 4 * stepLength)
+        assertEquals(arc[steps - 4].x, back.x, 1e-3f)
+        assertEquals(arc[steps - 4].y, back.y, 1e-3f)
+        // Half a step back sits halfway along the last segment.
+        val half = Cube3DRenderer.pointBack(arc, stepLength / 2)
+        val expected = (arc[steps - 1] + arc[steps]) / 2f
+        assertEquals(expected.x, half.x, 1e-3f)
+        assertEquals(expected.y, half.y, 1e-3f)
+        // Arc length differs from chord length: a quarter-circle's worth of arc length is a quarter turn back.
+        val quarter = Cube3DRenderer.pointBack(arc, (Math.PI * radius / 2).toFloat())
+        assertEquals(0f, quarter.x, 0.05f)
+        assertEquals(radius, quarter.y, 0.05f)
+        // Past the whole arc it clamps at the first point.
+        assertEquals(arc.first(), Cube3DRenderer.pointBack(arc, 10_000f))
+        // The trim ends where pointBack lands and keeps every earlier point.
+        val trimmed = Cube3DRenderer.trimBack(arc, 4 * stepLength)
+        assertEquals(arc.subList(0, steps - 4), trimmed.subList(0, steps - 4))
+        assertEquals(back, trimmed.last())
+        assertEquals(listOf(arc.first()), Cube3DRenderer.trimBack(arc, 10_000f))
     }
 
     private companion object {
