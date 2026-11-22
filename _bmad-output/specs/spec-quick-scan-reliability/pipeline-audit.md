@@ -1,6 +1,9 @@
 # Quick Scan pipeline audit
 
-Reviewed at 33c1219b against the [operator notes](concerns-and-evidence.md) and the [10.19 physical-device results](../../../docs/evidence/10-19/light-check-and-replay.md). The November 22 recording and diagnostics add a device observation to the original source review.
+How a corner frame becomes a reviewed cube, and where each stage can delay or lose a scan. Reviewed at 33c1219b
+against the operator notes and the [10.19 physical-device results](../../../docs/evidence/10-19/light-check-and-replay.md).
+Measured behaviour is in [concerns-and-evidence.md](concerns-and-evidence.md); defects in
+[failure-modes.md](failure-modes.md).
 
 | Stage | What reaches the learner | Failure or delay to distinguish |
 |---|---|---|
@@ -10,31 +13,40 @@ Reviewed at 33c1219b against the [operator notes](concerns-and-evidence.md) and 
 | Two holds and color reads | A capture advances the hold and saves available complete nine-cell samples. The second hold supplies the other three faces. Kotlin compares sticker colors in Lab using scan and calibration evidence. | Capture feedback acknowledges the hold even if faces later need recapture. The Lenovo evidence records a back face rejected in every calibrated run. The S24 FE session also identified different torch conditions between calibration and scanning. White balance remains a hypothesis. |
 | Assembly and review | After the second hold, uncertain faces go to face-by-face capture. Assembly can request additional faces when the combined readings are ambiguous or do not fit. Completed scans enter review. | In the documented Lenovo run, eight confident cells and one close call sent an entire face back. Measure time to a correct reviewed cube and faces repeated alongside time to the shutter. |
 
-## November 22 bench session
+## Capture gates in order
 
-The operator recorded Quick Scan with the Lenovo tablet on a base. The local evidence is in the original checkout under `captures/quickscan-20261122-111103/`. The recording shows the viewfinder, the diagnostic log records capture decisions, and the final screenshot shows where the learner stopped.
+A hold captures when every gate below passes on consecutive frames (`CornerHold.onFrame`).
 
-- The lighting gate recorded a **52.933-second hold**. Later, during corner 2, it cleared a 14.831-second hold at 11:11:14.060 and engaged again at 11:11:15.034. Several frames reported acceptable image quality on all three faces while the calibrated lighting check failed. Lighting accounted for a measurable part of the wait even with the tablet supported.
-- At 11:10:12.810 the first capture reported white, green and red centers. The two color reads disagreed on all nine front stickers. The final screenshot pairs that first corner’s filled net with the live second corner. Comparing those two views cannot establish a sticker misclassification. It does show how easily a learner could interpret a filled face as confirmed.
-- The recording ended on corner 2. The session provides no final cube against which to score sticker accuracy.
+| Gate | Passes when | Cost when it fails |
+|---|---|---|
+| Pose | The cube was turned since the other hold (`CenterCheck`, `turnedOver`) | Waits; steady reference dropped |
+| Detection | Cube not lost for 300 ms | Loss re-meters and restarts settle and steady |
+| Metering settle | Camera reports AE converged, or 1.5 s cap | Up to 1.5 s per metering request |
+| Light | Top-to-sides ratio at most 1.34 (calibrated) | Hold until 500 ms of passes, then a re-meter |
+| Quality | All three faces ACCEPTABLE | Waits |
+| Steady | No two stickers of a face moved ΔE 5 for 1 s | Window restarts |
 
-A second recording from the same bench (scrambled cube, 11:19–11:20) captured both holds in 44 seconds and sent all six faces to face-by-face capture. Both sessions' diagnostic logs, timings and the location of the local videos are indexed in [the November 22 capture evidence](../../../docs/evidence/quick-scan-2026-11-22/README.md). The causes found in the code and a fix plan are in [the fix analysis](fix-analysis.md).
-
-## Design ideas for discussion
-
-**Gather several views during one corner hold.** A learner holding a phone or turning a cube will move. A small tilt can move glare off a sticker or bring a side into better light. Keep a short burst in session memory, align each visible face to a common 3×3 grid, and retain clear views across angles. A one-cell alignment error could assign several convincing readings to the wrong sticker. Start a fresh group when tracking loses the pose, and give near-duplicate frames little extra weight.
-
-**Keep the faces that read well.** Lighting and blur can affect one side more than its neighbors. Preserve usable evidence for each face and sticker as it arrives. If one side remains ambiguous, prompt for a slight tilt or another view of that side. In the net, distinguish faces already seen, colors still uncertain and the corner currently requested.
-
-**Compare two readers on the same bursts.** One candidate combines the existing Kotlin readings across aligned frames. The hybrid candidate receives several aligned images of the same face, the Kotlin candidates and their certainty, and available center or earlier-capture evidence. Include red/orange disagreements, shadows and reflections. Group frames from each capture together when holding out evaluation data. Measure correct, uncertain and confidently wrong reads. Keep recent camera images in bounded memory and discard them when the scan ends.
-
-**Judge the learner’s whole scan.** Use the supported-tablet run as a baseline and evaluate natural handheld use on known cubes. Compare time to a correct reviewed cube, faces requested again, abandoned scans and incorrect cubes accepted. These ideas are candidates for a later plan. Burst length, tracking tolerance and model choice remain open.
+With every gate passing first time a hold needs about 3 seconds.
 
 ## What to resolve before enabling release
 
-1. **Attribute the wait on a reference device.** Give each hold a monotonic timeline with viewfinder entry, first frame, operator positioning marker, detection transitions, pose rejection, metering request and settle, torch state, light hold, stability resets, shutter and handover. The current run timer starts on a delivered corner frame. Pair a developer-session screen recording with the timeline. Report both entry-to-capture and positioned-to-capture, plus fallback and abandoned holds. The reported 14 ms median measures detector inference alone.
-2. **Separate geometry errors from color errors.** Use Story 10.20 to gather labeled corner captures on the current pipeline, including misses. Inspect the overlay and actual sample locations on the same frame. For valid geometry compare torch on/off and matching/mismatched calibration, with shaded and glossy sides. Report confident errors, uncertainty, retained faces and final cube correctness by condition. The existing target is at least 90% correct side stickers and three of four side faces kept. Historical 10.19 evidence explicitly leaves this evaluation open.
-3. **Use those results to scope the fix.** If traces show repeated metering or stability resets, address that gate and compare the same device scenarios. If correct crops still produce unreliable colors, evaluate the proposed hybrid reader against Kotlin alone on held-out capture groups. Include uncertain and confidently wrong readings, latency and packaged size. Keep recent image context in bounded session memory. Center colors, prior captures and sticker counts can reject an implausible cube but cannot establish an unseen sticker's color.
-4. **Make the release decision on the full flow.** Repeat from the Solve tab through review with known cubes on physical devices. Record median and tail wait per hold, fallback frequency, repeated faces and incorrect cubes accepted. Agree on acceptable wait and error rates before evaluating results. Keep release Quick Scan OFF pending this evidence.
+1. **Attribute the wait on a reference device.** Answered for the still bench case (see concerns-and-evidence.md).
+   Still open hand-held inside Quick Scan. Give each hold a monotonic timeline with viewfinder entry, first frame,
+   detection transitions, pose rejection, metering request and settle, light hold, stability resets, shutter and
+   handover. Report entry-to-capture and positioned-to-capture, plus fallback and abandoned holds.
+2. **Separate geometry errors from color errors.** Use Story 10.20 to gather labeled corner captures on the current
+   pipeline, including misses. Inspect the overlay and actual sample locations on the same frame. For valid geometry
+   compare torch on/off and matching/mismatched calibration, with shaded and glossy sides. The existing target is at
+   least 90% correct side stickers and three of four side faces kept.
+3. **Apply the fix plan and re-measure** on the same bench and hand-held (fix-plan.md).
+4. **Make the release decision on the full flow.** Repeat from the Solve tab through review with known cubes on
+   physical devices. Record median and tail wait per hold, fallback frequency, repeated faces and incorrect cubes
+   accepted. Agree on acceptable wait and error rates before evaluating results. Keep release Quick Scan OFF pending
+   this evidence.
 
-Implementation landmarks are ScanFrameSource.analyze (corner frame production), GuidedScanActivity (overlay, capture dispatch and review), QuickScanController.onFrame/take (pose and handover), CornerHold.onFrame (waits and resets) and QuickScanClassification.needGrid (face retention).
+## Implementation landmarks
+
+`ScanFrameSource.analyze` (corner frame production, metering, settle signal), `GuidedScanActivity` (overlay, capture
+dispatch and review), `QuickScanController.onFrame`/`take` (pose and handover), `CornerHold.onFrame` (waits and
+resets), `SideLight` (light check), `QuickScanClassification.needGrid` (face retention), `ScanAssembler` (cube
+assembly and legality), `FixtureRecorderActivity` and `RecorderBurst` (debug recorder and bursts).

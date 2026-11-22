@@ -1,8 +1,12 @@
-# Quick Scan bench captures — 2026-11-22 (Lenovo TB128XU)
+# Quick Scan bench evidence — 2026-11-22 (Lenovo TB128XU)
 
-Two screen recordings of Quick Scan with the matching diagnostic logs, collected as evidence for
-[the Quick Scan reliability spec](../../../_bmad-output/specs/spec-quick-scan-reliability/SPEC.md) and its
-[pipeline audit](../../../_bmad-output/specs/spec-quick-scan-reliability/pipeline-audit.md).
+Raw data for [the Quick Scan reliability spec](../../../_bmad-output/specs/spec-quick-scan-reliability/SPEC.md): two
+screen recordings of Quick Scan with their diagnostic logs, and three frame bursts from the debug fixture recorder.
+The readings drawn from them are in the spec's
+[concerns and evidence](../../../_bmad-output/specs/spec-quick-scan-reliability/concerns-and-evidence.md).
+
+Every recording and the first two bursts were made with tablet, cube and lights still. Only the third burst is
+hand-held.
 
 ## Conditions
 
@@ -53,3 +57,30 @@ The `quickScan frame` lines are throttled to one per 500 ms by `ScanDiagnostics`
 
 These are log readings. The videos have not been reviewed frame by frame against the timelines, and no
 labeled ground truth exists for either cube state.
+
+## Recorder bursts
+
+Recorded with the debug fixture recorder's burst (`RecorderBurst`, commit 763f4496), started over adb:
+
+    adb shell am broadcast -p com.exxerpro.cubentia -a dev.cubentia.debug.RECORDER_BURST --ei frames 60 --ez meter true --es label still
+
+Each line of a `.jsonl` file is one analysis frame: `tMs`, `detected`, `score`, `quads` (three faces, four corners,
+frame pixels), `faces` (quality, mean luma, glare, sharpness and nine cells as L*, a*, b*, plain), and `exposure` (AE
+and AWB state, exposure time, ISO, colour gains). Metering on the cube was requested at the start of each burst.
+
+| File | Conditions | Frames | Duration |
+|---|---|---|---|
+| [bursts/20261122-114155-still.jsonl](bursts/20261122-114155-still.jsonl) | Cube and tablet still | 60 | 4.9 s |
+| [bursts/20261122-114230-still-long.jsonl](bursts/20261122-114230-still-long.jsonl) | Cube and tablet still | 150 | 12.9 s |
+| [bursts/20261122-115658-handheld.jsonl](bursts/20261122-115658-handheld.jsonl) | Cube held in the hand, tablet still | 120 | 9.7 s |
+
+The reference pictures saved with each burst (206×206, every tenth frame) stay local in
+`RubikXplorer-quick-scan-audit/captures/bursts/`.
+
+## Other local material from the session
+
+- `captures/fixtures/lenovo-tb128xu_stla_cool-2/`: a labelled corner fixture group (pipeline 10.19, front light),
+  for Story 10.20. Corner 2 was captured by an adb tap at 11:47:40.
+- `captures/recorder-stuck-20261122-114708/`: screenshots and logs from when the tablet's touchscreen stopped
+  reporting touches. The raw touch device produced no events for 12 seconds while adb taps worked; touch returned
+  after the power menu was opened. Cause unknown.
