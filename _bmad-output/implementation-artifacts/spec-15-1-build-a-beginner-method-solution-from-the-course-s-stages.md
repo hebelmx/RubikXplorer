@@ -2,7 +2,7 @@
 title: 'Story 15.1: Build a beginner-method solution from the Course''s Stages'
 type: 'feature'
 created: '2026-11-22'
-status: 'done'
+status: done
 baseline_revision: '227a3e900ab3e0877c3cd1d6edd49c62d5ae9705'
 review_loop_iteration: 0
 followup_review_recommended: false
