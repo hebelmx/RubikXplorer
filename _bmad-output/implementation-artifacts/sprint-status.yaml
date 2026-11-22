@@ -1707,3 +1707,15 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-270-reject-out-of-range-litert-corner-keypoints.md"
+  - id: "issue-275-deferred-tb128xu-settings-screenshot"
+    epic: 12
+    action: "Confirm on the physical TB128XU (You -> Settings screenshot) that the Settings labels are no longer clipped at the start edge; Robolectric reports zero insets, so the cause (a missing inset versus a device-specific edge) is assumed; if clipping remains, look into the window and edge insets (medium; deferred from #275, app/src/main/kotlin/dev/cubentia/app/ui/settings/SettingsScreen.kt:76)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-275-settings-labels-start-inset.md"
+  - id: "issue-275-deferred-radio-switch-alignment"
+    epic: 12
+    action: "In Settings, the RadioButton circle sits about 2dp right of the 'Close settings' text because of the radio's own padding, and the end inset moves each Switch 12dp inward; offset by the internal padding if pixel alignment matters (low, Learner-visible; deferred from #275, app/src/main/kotlin/dev/cubentia/app/ui/settings/SettingsScreen.kt:258)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-275-settings-labels-start-inset.md"
