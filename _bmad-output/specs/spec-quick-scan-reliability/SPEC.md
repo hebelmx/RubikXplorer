@@ -16,7 +16,7 @@ sources:
 
 ## Why
 
-Quick Scan does not work well enough to use. With tablet, cube and lights all still, a corner capture takes 3–4 seconds at best, often 20 seconds, and up to 2 minutes; when both corners are captured the scan usually keeps no face and sends the learner to face-by-face capture. Bench captures and frame bursts on 2026-11-22 identified causes in the capture gates and in the keep rule. The owner wants it fixed now, not deferred to a later version.
+Quick Scan does not work well enough to use. With tablet, cube and lights all still, a corner capture takes 3–4 seconds at best, often 20 seconds, and up to 2 minutes; when both corners are captured the scan usually keeps no face and sends the learner to face-by-face capture. Bench captures and frame bursts on 2026-11-22 identified several causes in the capture gates and in the keep rule; a review the same day showed which of them are established and which are not. The owner wants it fixed now, not deferred to a later version.
 
 ## Capabilities
 
@@ -45,7 +45,8 @@ Quick Scan does not work well enough to use. With tablet, cube and lights all st
 - Keep camera and LiteRT code behind existing feature flags. Preserve the current Kotlin classifier until comparative evaluation supports a change.
 - Camera images used as model context remain in a bounded in-memory recent-frame buffer and are discarded when the scan ends. Persistent cube-specific references or images require separate privacy and architecture review.
 - Frame bursts and stored frames exist only in the debug fixture recorder. Release and benchmark builds never persist camera frames.
-- The agreement gate's safety property holds through every change: no confidently wrong sticker on a kept face in the side-face replay.
+- Safety is per sticker: no sticker accepted without learner confirmation may be wrong in the side-face replay. Today that holds only because a face with any uncertain sticker is discarded whole.
+- Kotlin-side fixes come first. Sticker reading, classification, gates and diagnostics stay in Kotlin; LiteRT stays in corner detection only.
 - Work is committed locally on `audit/quick-scan` and not pushed while another agent's CI runs on the repository.
 
 ## Non-goals
@@ -58,19 +59,20 @@ Quick Scan does not work well enough to use. With tablet, cube and lights all st
 
 ## Success signal
 
-On the Lenovo bench used on 2026-11-22, a recorded Quick Scan of a scrambled cube captures both corners in under 15 seconds in total and reaches review without face-by-face capture, and the same build passes a hand-held run.
+On the Lenovo bench used on 2026-11-22, with everything still, a recorded Quick Scan of a scrambled cube auto-captures both corners in under 15 seconds in total and reaches review without face-by-face capture. A hand-held run of the same build meets CAP-4.
 
 ## Assumptions
 
 - The user's reported 3–4 second to 30+ second interval begins when the cube is positioned within the static three-axis guide and ends when the app captures; this is not necessarily the same interval as viewfinder-entry-to-capture.
 - The user's terms "guide" and "grid" refer respectively to the static three-axis aiming graphic and the moving detected-corner overlay.
 - "Prior captures" means current-scan captures or a bounded in-memory recent-frame history by default; using cross-session cube references is a separate option that may require a product/privacy decision.
-- The CAP-4 and CAP-5 thresholds (5 s still, 8 s hand-held, at most one sticker left) are proposals from the bench floor of about 3 seconds and Story 10.21's wording. The product owner has not confirmed them.
-- The light check's flapping is assumed to share the exposure cause found in the bursts. The bursts did not compute the light score.
+- The CAP-4 and CAP-5 thresholds (5 s still, 8 s hand-held, at most one sticker left) are provisional. The 3-second floor is arithmetic from the gate timings; no recorded hold finished under 19 seconds, and no hand-held Quick Scan run exists.
 
 ## Open Questions
 
-- Should the light check become advisory (coaching only), or stay a block with a wider margin, a 3-second cap and the manual shutter allowed?
+- Should the light check become advisory, or stay a block? No capture exists at a failing light score, so the effect of capturing in that light is unmeasured.
+- Was hold 1 of capture 2 (11:19:49) ended by a manual Capture press?
+- What changed on the bench at 11:09:56 in capture 1, when one face's light level jumped and the 52.9-second hold cleared?
 - What wait and error rates are acceptable for release?
 - Which cube and light produced the saved calibration on the Lenovo during the 2026-11-22 captures?
 - Do the exposure and steady findings hold on the Galaxy S24 FE? Only the Lenovo was measured.

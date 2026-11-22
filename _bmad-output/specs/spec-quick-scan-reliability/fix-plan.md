@@ -1,42 +1,57 @@
 # Fix plan
 
-Ordered by what the 2026-11-22 evidence shows costs most ([failure-modes.md](failure-modes.md)). Each step is checked
-with the same bench recording and a hand-held run. Nothing here is implemented yet.
+Revised after the 2026-11-22 review. Kotlin-side fixes come first: reading, gates and diagnostics stay in Kotlin, and
+each fix also serves a later evaluation of any color reader. Failure modes are in [failure-modes.md](failure-modes.md).
+Nothing here is implemented yet, and no pipeline code changes before the sprint change proposal is approved.
+
+## Now: Kotlin fixes that need no new labelled data
 
 | Step | Change | Addresses | Serves | Check |
 |---|---|---|---|---|
-| 1 | Hold one exposure through the scan | F1, F2, F4, F12 | CAP-4 | Burst shows one exposure level per hold; no steady restart on a still cube |
-| 2 | Steady by outline movement | F6 | CAP-4 | Hand-held replay completes a window about every 1.6 s at 5% |
-| 3 | Light check stops blocking | F3, F4, F5 | CAP-4 | Capture 2's hold 1 near 3 s on the bench |
-| 4 | Keep stickers, resolve by cube legality | F7, F8 | CAP-5 | Capture 2-like scan reaches review without face-by-face |
-| 5 | Calibrate on the cube in hand | F9, F10 | CAP-6 | Capture 1's green face kept |
-| 6 | Small fixes and diagnostics | F11, F13 | CAP-2 | Unit test; per-hold timeline in the log |
+| 0 | Diagnostics and a re-measured baseline | F13, F14 | CAP-2 | A bench run and a hand-held Quick Scan run, each with a full per-hold timeline |
+| 1 | Lock exposure for the hold | F1, F2, F4 | CAP-4 | Burst and Quick Scan log show one exposure level per hold; still burst 1 replays as "not settled" during its swing |
+| 2 | Steady by outline movement | F6 | CAP-4 | Zero restarts on both still bursts; windows complete on two hand-held bursts; a fast-moving burst restarts |
+| 3 | Turn check not anchored on a logo centre | F15, F10 | CAP-4 | Still burst 1 replayed as hold 2 does not pass the pose gate |
+| 4 | Small fixes | F11 | — | Unit test for back-out then re-capture |
 
-## Steps
+0. **Diagnostics first.** Log every hold state transition unthrottled with an elapsed clock: viewfinder entry, first
+   frame, detection lost and found, pose rejected, metering requested and settled, light hold start and clear,
+   steady restart, capture and whether it was automatic or manual. Log the light score and the three face levels in
+   recorder bursts. Report hold times net of undetected time. Then record the baseline again, still and hand-held,
+   through the Quick Scan flow. The 2026-11-22 baseline has a probable manual capture and a lost first minute.
+1. **Lock exposure.** After metering on the cube converges, apply an exposure lock (and carry white balance) until
+   capture; leave focus continuous, which is why the 3-second auto-cancel exists (PO 2026-11-16). Judge "settled" on
+   the product of exposure time and ISO staying within a tolerance over a window, not on the AE state and not on a
+   few unchanged frames. Keep re-meter triggers: cube lost, torch change, outline leaving the metered region, and a
+   large change in face brightness since metering (the learner turned toward the light). Do not re-meter merely
+   because a light hold cleared.
+2. **Steady by outline.** Define the measure precisely (largest corner displacement from the reference frame, divided
+   by a stated outline dimension) and derive the threshold on the two still bursts and at least two hand-held bursts.
+   The earlier 5% figure came from one burst and was not reproduced. Do this after step 1 is verified on the device:
+   the color rule is today the only gate that reacts to an exposure shift.
+3. **Turn check.** Do not anchor the turn and pose checks on a centre that is not plain; use the ring around a logo
+   (`FrameReader.centerRing`) or the two side centres, and do not clear the previous hold on a single frame.
+4. **Small fixes.** Clear `previous` in `backOut`.
 
-1. **Hold one exposure.** Meter on the cube once per hold and keep that exposure until capture: no auto-cancel
-   mid-hold, no re-meter when a light hold clears, re-meter only after the cube is lost. Judge "settled" by exposure
-   time and ISO staying unchanged for several frames, not by the AE state. Meter hold 2 the same way as hold 1 or
-   carry hold 1's white balance over.
-2. **Steady by outline.** Restart the steady window when any outline corner moves more than about 5% of the cube's
-   size from the reference frame. Keep a color comparison only to detect that a different face is shown. The 5%
-   figure comes from one hand-held burst and needs a second.
-3. **Light check advisory.** Keep the sides-dark coaching line; let capture proceed. If the product owner keeps a
-   block: engage above 1.40 for three consecutive frames, clear below 1.30, cap the hold at 3 seconds, and let the
-   manual shutter through.
-4. **Keep stickers, not faces.** Carry each uncertain sticker with its two nearest colors. `ScanAssembler` already
-   enumerates option grids and checks piece legality: if exactly one legal cube fits, finish; otherwise ask the
-   learner about the remaining stickers in review, or for the one face that holds them. This is Story 10.21 made
-   concrete. The agreement gate's safety property must still hold in the replay.
-5. **Calibrate on this cube.** After hold 2 all six centers are known under the current light. Use them as the
-   primary reference; use a saved calibration only where it agrees, and drop it when its centers are far from this
-   cube's. Read a logo centre from the ring around the logo (`FrameReader.centerRing`), or mark it unusable as an anchor.
-6. **Small fixes.** Clear `previous` in `backOut`. Log each hold's state transitions with an elapsed clock. Raise the
-   device log buffer before recording.
+## Later: needs labelled captures (Story 10.20) before design
 
-Steps 1–3 are domain and camera-adapter changes with unit tests in `QuickScanControllerTest` and
-`CameraXFrameSourceTest`; they need no new fixtures. Steps 4–5 are scored on the side-face replay and on Story 10.20
-fixtures.
+| Topic | Addresses | Serves | What must exist first |
+|---|---|---|---|
+| Light check: advisory or block | F3, F5 | CAP-4 | Labelled captures taken at failing scores, scored per sticker; cuts re-derived under the step-1 exposure policy on both devices; the cause of single-face level jumps |
+| Keep stickers, not faces | F7, F8 | CAP-5 | A per-sticker safety assertion in the side-face replay, run on the existing groups first; it will fail today and that sizes the work |
+| Calibrate on the cube in hand | F9, F10 | CAP-6 | The calibration origin for the 2026-11-22 captures; a defined independent second read |
+
+- **Light check.** Reversing the 2026-11-21 decision is a product call. On present evidence neither side is
+  measured: nothing shows the hold improves readings, and nothing shows readings taken in the light it blocks. Any
+  engage and clear levels must come from data; the earlier 1.40 and 1.30 would miss five of the eight backlit fixture
+  holds.
+- **Keep stickers.** This is a new search over per-sticker color candidates with its own pruning, a cap and a "too
+  many unknowns, ask the learner" branch. `ScanAssembler` today only enumerates quarter-turns of unposed faces.
+  Capture 2 had 17 uncertain stickers. A cube may finish without learner confirmation only when the true color is
+  known to lie within the carried candidates.
+- **Calibration.** Dropping the saved calibration removes the gate's only independent read. A change here must keep
+  two independent reads and must not raise the per-sticker wrong count in any replay scenario. "Capture 1's green
+  face kept" is not a valid check: it is true by construction once the veto is removed.
 
 ## Candidate ideas, not yet planned
 
@@ -56,8 +71,9 @@ fixtures.
 
 ## Relation to planned stories
 
-- **Story 10.20** (record 10.19-pipeline fixtures): still needed to score steps 4–5 and CAP-3. The recorder burst and
-  the `lenovo-tb128xu_stla_cool-2` group are a start.
-- **Story 10.21** (keep the side faces it reads well): steps 4–5 are its content.
+- **Story 10.20** (record 10.19-pipeline fixtures): now a prerequisite for the three "later" topics and for CAP-3. The
+  recorder burst (commit 763f4496) belongs with it. The `lenovo-tb128xu_stla_cool-2` group is a start.
+- **Story 10.21** (keep the side faces it reads well): the "keep stickers" and "calibration" topics are its content,
+  with the safety conditions above.
 - **Story 10.11** (raise the release flag): unchanged; follows 10.21's BETA call.
-- Steps 1–3 are not covered by any planned story.
+- Steps 0–4 are not covered by any planned story.

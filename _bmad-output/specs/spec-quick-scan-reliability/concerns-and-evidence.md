@@ -39,6 +39,18 @@ the captures; a debug build of `audit/quick-scan` for the bursts.
 | Metering requests | 22 in the surviving 123 s | 8 in 44 s |
 | After capture | recording ended on corner 2 | face-by-face rejected 20 frames as MISALIGNED, cube still corner-on |
 
+Reading these figures:
+
+- Capture 2's hold 1 was captured 505 ms after a logged steady restart. Auto-capture needs 1,000 ms, so it was
+  probably ended by a manual press; 19.2 s is then not an auto-capture time.
+- Capture 1's 52.9 s light hold was a sustained fail: 62 of 68 logged frames scored 1.5 or more (about 1.8). It
+  cleared when the left face's level jumped from 0.64 to 1.00 with the other faces unchanged.
+- Capture 1 had 48 of 228 logged frames with no cube detected. 13–14 of its 22 metering requests follow a loss, and
+  parts of the 11.1 s and 14.8 s light holds were undetected time.
+- Every capture in both logs happened at a passing light score (1.02–1.12). Nothing shows readings taken at a
+  failing score.
+- Steady restart lines are throttled to one per 500 ms, so restart counts are lower bounds.
+
 Capture 1's log lost its first minute. Its final screenshot shows the first corner's faces filled in the net beside
 the live second corner, including the green face that was in fact rejected: a learner could read a filled face as
 confirmed. Capture 2, hold 1, splits into light holds 8.2 s, re-meters after each clear
@@ -57,7 +69,9 @@ exposure. Analysis ran at about 12 frames per second.
 | Stickers ΔE ≥ 5 from their median | up to 19 of 27 during the swing | 14–22 of 27 on the first level | 33% of readings (10% at ΔE ≥ 10) |
 | Outline movement | 5 px typical, 13 px worst | 1 px typical | 1.7% of cube size per frame, 5.3% worst |
 
-Replaying the hand-held burst through steady rules (1-second window; light and metering gates ignored):
+Replaying the hand-held burst through steady rules (1-second window; light, metering, pose and loss gates ignored).
+The outline rows depend on how "cube size" is defined and were not reproduced by the 2026-11-22 review; under some
+definitions the rule also restarts on still burst 1, whose outline drifts up to 14.5 px. Treat them as indicative:
 
 | Rule | Restarts | Windows completed in 9.7 s |
 |---|---|---|
@@ -69,6 +83,10 @@ Replaying the hand-held burst through steady rules (1-second window; light and m
 
 A labelled corner fixture group, `lenovo-tb128xu_stla_cool-2` (pipeline 10.19, front light), was recorded in the same
 session and is held locally for Story 10.20.
+
+For comparison, the 10.19 device session on the same tablet (runs L7 and L8, GAN calibration on `stla`) kept 3–5 of
+6 faces, with the shaded back face rejected in every calibrated run. Quick Scan has kept faces when the saved
+calibration matched the cube.
 
 ## Evidence limits
 
