@@ -66,6 +66,7 @@ On the Lenovo bench used on 2026-11-22, with everything still, a recorded Quick 
 - The user's reported 3–4 second to 30+ second interval begins when the cube is positioned within the static three-axis guide and ends when the app captures; this is not necessarily the same interval as viewfinder-entry-to-capture.
 - The user's terms "guide" and "grid" refer respectively to the static three-axis aiming graphic and the moving detected-corner overlay.
 - "Prior captures" means current-scan captures or a bounded in-memory recent-frame history by default; using cross-session cube references is a separate option that may require a product/privacy decision.
+- Unmeasured judgement of 2026-11-22: Story 10.22 is probably enough for capture time (CAP-4); the keep-rule work of Story 10.21 alone probably does not reach CAP-5 on shaded side faces. The shadow-mode sticker reader in fix-plan.md is the candidate held for that case.
 - The CAP-5 threshold (at most one sticker left) is provisional. The CAP-4 bar of 10 seconds was set by the product owner on 2026-11-22; no recorded hold has yet finished under 19 seconds, and no hand-held Quick Scan run exists.
 
 ## Open Questions
@@ -78,4 +79,6 @@ On the Lenovo bench used on 2026-11-22, with everything still, a recorded Quick 
 - Do the exposure and steady findings hold on the Galaxy S24 FE? Only the Lenovo was measured.
 - Inside Quick Scan itself, hand-held, which gate dominates the wait? The hand-held burst measured the recorder, not the Quick Scan flow.
 - What held-out thresholds for accuracy, uncertain reads, confidently wrong reads, latency, and model size justify adding LiteRT color classification?
+- Does a debug-only shadow run of a LiteRT sticker reader (fix-plan.md, candidate ideas) need a PO decision against "LiteRT stays in corner detection only", given it changes no scan result?
+- What trains a first shadow sticker reader: existing `Fixtures/live` face crops, or only Story 10.20 corner fixtures?
 - Is existing saved color calibration sufficient as a persistent same-cube color reference, or would a separate cube identity/profile be needed—and is that privacy/storage change acceptable?
