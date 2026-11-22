@@ -81,8 +81,11 @@ class QuickScanController(
     private val samples = linkedMapOf<Face, FaceSample>()
     private val keptSet = linkedSetOf<Face>()
     private val addedSamples = linkedMapOf<Face, FaceSample>()
-    private val corner = CornerHold()
+    private val corner = CornerHold(faceSteady = true)
     private var previous: List<Lab?>? = null
+
+    /** Why the last frame restarted the corner steady window (two or more cells of one face moved); null when it did not. */
+    val steadyRestart: CornerSteadyRestart? get() = corner.steadyRestart
 
     /** The corner hold the hand-over returns to on [backOut]; null when no hand-over was started since the last one. */
     private var resumeHold: Int? = null

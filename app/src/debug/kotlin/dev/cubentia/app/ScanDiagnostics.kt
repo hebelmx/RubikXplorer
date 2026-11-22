@@ -39,6 +39,7 @@ import java.util.concurrent.atomic.AtomicLong
  */
 object ScanDiagnostics {
     private val lastCornerLogMs = AtomicLong(Long.MIN_VALUE / 2)
+    private val lastSteadyLogMs = AtomicLong(Long.MIN_VALUE / 2)
 
     /**
      * One corner frame (rate-limited): detection, per-face shutter quality, and Story 10.19's light check (per-face light
@@ -102,6 +103,25 @@ object ScanDiagnostics {
                 "plain"
             }}",
         ).joinToString(" ")
+    }
+
+    /**
+     * The Quick Scan corner steady window restarted (rate-limited like the frame line): the corner [face] index, its moved
+     * [cells] and their largest delta E. Numbers only.
+     */
+    fun onSteadyRestart(
+        nowMs: Long,
+        face: Int,
+        cells: List<Int>,
+        maxDeltaE: Double,
+    ) {
+        val last = lastSteadyLogMs.get()
+        if (nowMs - last < INTERVAL_MS || !lastSteadyLogMs.compareAndSet(last, nowMs)) return
+        Log.d(
+            TAG,
+            listOf("quickScan", "steadyRestart", "face=$face", "cells=${cells.joinToString(",")}", "maxDeltaE=${format(maxDeltaE)}")
+                .joinToString(" "),
+        )
     }
 
     /** The light hold engaged ([started]) or cleared after [heldMs]. */

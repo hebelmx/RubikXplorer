@@ -70,7 +70,8 @@ class QuickScanControllerTest {
         assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 0))
         assertTrue(scan.onFrame(true, first, 599).isEmpty())
         assertTrue(scan.onFrame(true, first, 600).isEmpty())
-        val moved = first.toMutableList().also { it[0] = it[0].withCell(0, Lab(79.0, 0.0, 0.0)) }
+        // Two cells of one face moving restart the steady window (PO 2026-11-21: one flickering cell alone does not).
+        val moved = first.toMutableList().also { it[0] = it[0].withCell(0, Lab(79.0, 0.0, 0.0)).withCell(1, Lab(79.0, 0.0, 0.0)) }
         assertTrue(scan.onFrame(true, moved, 800).isEmpty())
         assertTrue(scan.onFrame(true, first, 899).isEmpty())
         assertTrue(scan.onFrame(true, first, 1898).isEmpty())
@@ -591,6 +592,62 @@ class QuickScanControllerTest {
     }
 
     @Test
+    fun `one flickering right-face cell neither blocks the light clear nor auto capture after a light hold`() {
+        val scan = lightScan()
+        val first = hold(1)
+        val dark = darkSides(first)
+        scan.onFrame(true, dark, 0, settled = false)
+        scan.onFrame(true, dark, 100, settled = true)
+        assertTrue(scan.lightHeld)
+        // The Lenovo session: one right-face cell alternating L* ~86/96 while everything else holds still.
+        val low = first.toMutableList().also { it[2] = it[2].withCell(4, Lab(86.0, 0.0, 0.0)) }
+        val high = first.toMutableList().also { it[2] = it[2].withCell(4, Lab(96.0, 0.0, 0.0)) }
+        var clearedAt: Long? = null
+        var capturedAt: Long? = null
+        var now = 200L
+        while (capturedAt == null && now < 10_000L) {
+            val frame = if ((now / 33) % 2 == 0L) low else high
+            val effects = scan.onFrame(true, frame, now, settled = if (clearedAt == null) true else null)
+            if (QuickScanEffect.Remeter in effects && clearedAt == null) clearedAt = now
+            if (QuickScanEffect.CornerCaptured(1) in effects) capturedAt = now
+            assertEquals(null, scan.steadyRestart, "one moving cell never restarts the steady window at $now")
+            now += 33
+        }
+        val cleared = checkNotNull(clearedAt) { "the light hold cleared despite the flickering cell" }
+        assertTrue(cleared <= 200 + CornerHold.LIGHT_CLEAR_MS + 100, "light cleared at $cleared")
+        val captured = checkNotNull(capturedAt) { "auto capture fired despite the flickering cell" }
+        assertTrue(
+            captured <= cleared + CornerHold.SETTLE_MS + CornerHold.STEADY_MS + 200,
+            "captured at $captured, light cleared at $cleared",
+        )
+    }
+
+    @Test
+    fun `two cells moving on one face still restart the steady window and report it`() {
+        val scan = QuickScanController(lightCheck = false)
+        val first = hold(1)
+        assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 0))
+        assertTrue(scan.onFrame(true, first, 600).isEmpty())
+        // One moving cell on each of two faces is not a face change: the window started at 600 runs on.
+        val spread =
+            first.toMutableList().also {
+                it[1] = it[1].withCell(0, Lab(30.0, 0.0, 0.0))
+                it[2] = it[2].withCell(0, Lab(30.0, 0.0, 0.0))
+            }
+        assertTrue(scan.onFrame(true, spread, 700).isEmpty())
+        assertEquals(null, scan.steadyRestart)
+        val moved = first.toMutableList().also { it[2] = it[2].withCell(3, Lab(86.0, 0.0, 0.0)).withCell(5, Lab(96.0, 0.0, 0.0)) }
+        assertTrue(scan.onFrame(true, moved, 800).isEmpty())
+        val restart = checkNotNull(scan.steadyRestart)
+        assertEquals(2, restart.face)
+        assertEquals(listOf(3, 5), restart.cells)
+        assertTrue(restart.maxDeltaE >= GuidedScanController.STEADY_DELTA_E)
+        assertTrue(scan.onFrame(true, moved, 1600).isEmpty(), "the window restarted at 800, not 600")
+        assertTrue(scan.onFrame(true, moved, 1799).isEmpty())
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, moved, 1800))
+    }
+
+    @Test
     fun `a failing verdict on an episode's first detected frame never starts the light hold`() {
         val scan = lightScan()
         val dark = darkSides(hold(1))
@@ -652,8 +709,8 @@ class QuickScanControllerTest {
         assertTrue(scan.onFrame(true, dark, 1600, settled = true).isEmpty())
         assertTrue(scan.lightHeld)
         assertEquals(Coaching.SIDES_DARK, scan.coaching)
-        // Passing but moving: each change restarts the pass-and-steady window.
-        val moved = first.toMutableList().also { it[0] = it[0].withCell(0, Lab(70.0, 0.0, 0.0)) }
+        // Passing but moving (two cells of one face): each change restarts the pass-and-steady window.
+        val moved = first.toMutableList().also { it[0] = it[0].withCell(0, Lab(70.0, 0.0, 0.0)).withCell(1, Lab(70.0, 0.0, 0.0)) }
         scan.onFrame(true, first, 1700, settled = true)
         scan.onFrame(true, moved, 2000, settled = true)
         assertTrue(scan.onFrame(true, moved, 2499, settled = true).isEmpty())

@@ -25,6 +25,13 @@ object ScanDiagnostics {
         torch: Boolean = false,
     ) = Unit
 
+    fun onSteadyRestart(
+        nowMs: Long,
+        face: Int,
+        cells: List<Int>,
+        maxDeltaE: Double,
+    ) = Unit
+
     fun onLightHold(
         started: Boolean,
         heldMs: Long?,

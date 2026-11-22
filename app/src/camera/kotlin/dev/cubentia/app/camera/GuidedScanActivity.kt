@@ -586,6 +586,9 @@ class GuidedScanActivity : ComponentActivity() {
                     quick.lightHeld,
                     quick.torchOn,
                 )
+            if (measured) {
+                quick.steadyRestart?.let { ScanDiagnostics.onSteadyRestart(now, it.face, it.cells, it.maxDeltaE) }
+            }
             return
         }
         if (frame.corner != null) return

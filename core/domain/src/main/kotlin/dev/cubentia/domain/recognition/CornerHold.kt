@@ -14,11 +14,17 @@ package dev.cubentia.domain.recognition
  * - an external settle signal: after each metering change a capture waits until the adapter reports the exposure
  *   settled, or [SETTLE_CAP_MS] passed, instead of the fixed [SETTLE_MS]; a manual press while settling is queued and
  *   fires once settled, unless the light hold engages or the cube is lost first;
+ * - a per-face steady rule (PO 2026-11-21, [faceSteady]): the steady and light-clear windows restart only when two or
+ *   more cells of one face move, so a single flickering cell no longer blocks auto-capture; [steadyRestart] reports why
+ *   the steady window last restarted, for the debug diagnostics;
  * - the torch state, which turns glare coaching into torch-glare coaching. A torch toggle is a metering change that
  *   starts only once the adapter applied the physical torch change ([awaitTorch], then [torchApplied], or
  *   [SETTLE_CAP_MS] at most): until then nothing is captured and a manual press is queued.
  */
-internal class CornerHold {
+internal class CornerHold(
+    /** Quick Scan corners: a frame changed only when [MIN_MOVED_CELLS] or more cells of one face moved (Story 10.19). */
+    private val faceSteady: Boolean = false,
+) {
     enum class Decision { Wait, Remeter, Capture }
 
     /** What a manual press does now. */
@@ -33,6 +39,10 @@ internal class CornerHold {
     private var steadySince = 0L
     private var undetectedSince: Long? = null
     var coaching: Coaching? = null
+        private set
+
+    /** Why the steady window restarted on the last frame; null when it did not (or [faceSteady] is off). */
+    var steadyRestart: CornerSteadyRestart? = null
         private set
 
     /** True while the light hold blocks capture. */
@@ -75,6 +85,7 @@ internal class CornerHold {
         allowAuto: (List<Lab?>) -> Boolean,
     ): Decision {
         require(faces.size == 3)
+        steadyRestart = null
         latest = faces
         unlocated = !detected
         externalSettle = settled != null
@@ -150,7 +161,9 @@ internal class CornerHold {
             return Decision.Wait
         }
         val baseline = reference
-        if (baseline == null || changed(values, baseline, GuidedScanController.STEADY_DELTA_E)) {
+        val restart = if (faceSteady) baseline?.let { steadyMove(values, it) } else null
+        if (baseline == null || (if (faceSteady) restart != null else changed(values, baseline, GuidedScanController.STEADY_DELTA_E))) {
+            steadyRestart = restart
             reference = values
             steadySince = nowMs
             return Decision.Wait
@@ -250,7 +263,7 @@ internal class CornerHold {
         }
         val prior = lightReference
         val since = lightPassingSince
-        if (since == null || prior == null || changed(values, prior, GuidedScanController.STEADY_DELTA_E)) {
+        if (since == null || prior == null || moved(values, prior)) {
             lightReference = values
             lightPassingSince = nowMs
             return false
@@ -277,6 +290,7 @@ internal class CornerHold {
         reference = null
         undetectedSince = null
         coaching = null
+        steadyRestart = null
         pendingPress = false
         remeterPending = false
         torchPendingSince = null
@@ -297,9 +311,38 @@ internal class CornerHold {
 
         /** The light check must pass this long while steady to clear the light hold. */
         const val LIGHT_CLEAR_MS = 500L
+
+        /** With [faceSteady], the cells of one face that must move for a frame to count as changed. */
+        const val MIN_MOVED_CELLS = 2
     }
 
     fun values(): List<Lab?> = latest.flatMap { face -> List(FrameQuality.CELLS) { face?.cells?.getOrNull(it)?.value } }
+
+    /** The steady and light-clear windows' change test: per face with [faceSteady], any one cell otherwise. */
+    private fun moved(
+        now: List<Lab?>,
+        prior: List<Lab?>,
+    ): Boolean = if (faceSteady) steadyMove(now, prior) != null else changed(now, prior, GuidedScanController.STEADY_DELTA_E)
+
+    /** The first face on which [MIN_MOVED_CELLS] or more cells moved by the steady threshold; null when none did. */
+    private fun steadyMove(
+        now: List<Lab?>,
+        prior: List<Lab?>,
+    ): CornerSteadyRestart? {
+        for (face in 0 until 3) {
+            val moves =
+                (0 until FrameQuality.CELLS).mapNotNull { cell ->
+                    val index = face * FrameQuality.CELLS + cell
+                    val a = now.getOrNull(index)
+                    val b = prior.getOrNull(index)
+                    if (a == null || b == null) return@mapNotNull null
+                    val delta = StickerClassifier.deltaE(a, b)
+                    if (delta >= GuidedScanController.STEADY_DELTA_E) cell to delta else null
+                }
+            if (moves.size >= MIN_MOVED_CELLS) return CornerSteadyRestart(face, moves.map { it.first }, moves.maxOf { it.second })
+        }
+        return null
+    }
 
     fun changed(
         now: List<Lab?>,
@@ -307,6 +350,13 @@ internal class CornerHold {
         threshold: Double,
     ): Boolean = now.zip(prior).any { (a, b) -> a != null && b != null && StickerClassifier.deltaE(a, b) >= threshold }
 }
+
+/** Why a Quick Scan corner's steady window restarted: the [face] index (0 top), its moved [cells] and their [maxDeltaE]. */
+data class CornerSteadyRestart(
+    val face: Int,
+    val cells: List<Int>,
+    val maxDeltaE: Double,
+)
 
 /** Settle timing shared by the domain's corner hold and the camera adapter's settle signal (Story 10.19). */
 object CornerSettle {
