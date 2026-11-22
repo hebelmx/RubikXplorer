@@ -16,7 +16,8 @@ data class ProgressRecord(
 /**
  * Port for the append-only `progress_event` log (AD-10, AR-14).
  *
- * Only `CompleteLesson`, `PassSkipCheck`, `PlaceFromScan`, and `ResetProgress` may call [append].
+ * Only `CompleteLesson`, `PassSkipCheck`, `PlaceFromScan`, `ChooseEntryLevel`, and `ResetProgress` may call
+ * [append].
  */
 interface ProgressRepository {
     suspend fun all(): ProgressLoad

@@ -681,7 +681,12 @@ class AppShellTest {
         keepsGeneratedScramble("skip-check-stage-02-first-cross") { "stageDetail:skipCheck" }
 
     @Test fun `the Course skip-ahead check from Welcome keeps its scramble and attempt across recreation`() =
-        keepsGeneratedScramble("skip-check-course", stageTag = null, showWelcome = true) { "welcome:canSolve" }
+        keepsGeneratedScramble(
+            "skip-check-course",
+            stageTag = null,
+            showWelcome = true,
+            thenTag = "entryLevel:check",
+        ) { "welcome:canSolve" }
 
     @Test fun `the independent practice keeps its scramble and attempt across recreation`() =
         keepsGeneratedScramble("practice-stage-07-independent-practice", stageTag = "learn:stage:stage-07-independent-practice") {
@@ -694,6 +699,7 @@ class AppShellTest {
         lessonId: String,
         stageTag: String? = "learn:stage:stage-02-first-cross",
         showWelcome: Boolean = false,
+        thenTag: String? = null,
         arrange: (dev.cubentia.domain.content.ContentBundle) -> String,
     ) {
         val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
@@ -705,6 +711,7 @@ class AppShellTest {
         rule.waitForIdle()
         if (stageTag != null) rule.onNodeWithTag(stageTag).performScrollTo().performClick()
         rule.onNodeWithTag(open).performScrollTo().performClick()
+        if (thenTag != null) rule.onNodeWithTag(thenTag).performClick()
         rule.waitUntil(5_000) {
             host.state.value.lesson
                 ?.id

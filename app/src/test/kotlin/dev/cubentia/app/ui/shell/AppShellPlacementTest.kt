@@ -715,6 +715,7 @@ class AppShellPlacementTest {
         show()
         startScan()
         rule.onNodeWithTag("welcome:canSolve").performClick()
+        rule.onNodeWithTag("entryLevel:check").performClick()
         waitForTag("lesson")
         deliver(ScanOutcome.Accepted(entry("lesson-03-01")))
         rule.waitForIdle()

@@ -30,12 +30,14 @@ import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.app.ui.theme.RubikTheme
 import dev.cubentia.domain.content.AlgorithmId
 import dev.cubentia.domain.content.AlgorithmStatus
+import dev.cubentia.domain.content.CaseSet
 import dev.cubentia.domain.content.ContentLoadError
 import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
 import dev.cubentia.domain.content.LibraryFilter
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -54,11 +56,12 @@ class LibraryScreenTest {
     private fun launch(
         catalog: CatalogState = CatalogState.Ready(bundle),
         statuses: Map<AlgorithmId, AlgorithmStatus> = emptyMap(),
+        initial: LibraryFilter = LibraryFilter(),
     ) {
         rule.setContent {
             CubentiaTheme {
                 ink = RubikTheme.tokens.inkPrimary
-                var filter by remember { mutableStateOf(LibraryFilter()) }
+                var filter by remember { mutableStateOf(initial) }
                 LibraryScreen(
                     catalog,
                     WindowWidthClass.COMPACT,
@@ -101,6 +104,34 @@ class LibraryScreenTest {
                 .id.value,
         )
         rule.onNodeWithTag("library:case:${bundle.cases.last().id.value}").assertIsDisplayed()
+    }
+
+    @Test fun `an OLL set filter shows only OLL tiles behind a removable chip that clears it`() {
+        launch(initial = LibraryFilter(set = CaseSet.OLL))
+        val chip = rule.onNodeWithTag("library:set:OLL").assertIsDisplayed()
+        assertEquals("Show all, not only OLL", chip.fetchSemanticsNode().config[SemanticsActions.OnClick].label)
+        val oll = bundle.cases.filter { it.set == CaseSet.OLL }
+        rule.onNodeWithTag("library:grid").performScrollToKey(oll.last().id.value)
+        rule.onNodeWithTag("library:case:${oll.last().id.value}").assertIsDisplayed()
+        val pll = bundle.cases.first { it.set == CaseSet.PLL }
+        assertTrue(runCatching { rule.onNodeWithTag("library:grid").performScrollToKey(pll.id.value) }.isFailure)
+
+        chip.performClick()
+        rule.onNodeWithTag("library:set:OLL").assertDoesNotExist()
+        rule.onNodeWithTag("library:grid").performScrollToKey(pll.id.value)
+        rule.onNodeWithTag("library:case:${pll.id.value}").assertIsDisplayed()
+    }
+
+    @Test fun `the saver keeps the set filter and restores older two-field saves`() {
+        val filter = LibraryFilter(status = AlgorithmStatus.LEARNING, set = CaseSet.OLL)
+        val saved =
+            with(LibraryFilterSaver) {
+                androidx.compose.runtime.saveable
+                    .SaverScope { true }
+                    .save(filter)
+            }!!
+        assertEquals(filter, LibraryFilterSaver.restore(saved))
+        assertEquals(LibraryFilter(status = AlgorithmStatus.LEARNING), LibraryFilterSaver.restore(listOf("", "LEARNING")))
     }
 
     @Test fun `supplied status matches the primary Algorithm`() {

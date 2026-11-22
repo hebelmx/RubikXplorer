@@ -23,6 +23,12 @@ sealed interface ProgressEvent {
         override val at: Instant = Instant.fromEpochMilliseconds(0),
     ) : ProgressEvent
 
+    /** A Stage the Learner chose to skip by picking an entry level (FR-4); reads like [StageSkippedByCheck]. */
+    data class StageSkippedByChoice(
+        val stageId: StageId,
+        override val at: Instant = Instant.fromEpochMilliseconds(0),
+    ) : ProgressEvent
+
     data class StageSkippedByPlacement(
         val stageId: StageId,
         override val at: Instant = Instant.fromEpochMilliseconds(0),

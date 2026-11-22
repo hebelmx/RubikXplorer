@@ -84,12 +84,14 @@ import dev.cubentia.application.session.Effect
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionKind
 import dev.cubentia.application.session.SessionState
+import dev.cubentia.application.usecase.EntryLevel
 import dev.cubentia.application.usecase.RecognizeCase
 import dev.cubentia.application.usecase.SolveByMethod
 import dev.cubentia.application.usecase.StagePractice
 import dev.cubentia.application.usecase.TwoLookPractice
 import dev.cubentia.domain.content.AlgorithmId
 import dev.cubentia.domain.content.AlgorithmStatus
+import dev.cubentia.domain.content.CaseSet
 import dev.cubentia.domain.content.ContentBundle
 import dev.cubentia.domain.content.Lesson
 import dev.cubentia.domain.content.LessonId
@@ -264,6 +266,15 @@ private fun ShellContent(
     val libraryFamilyChips = rememberScrollState()
     var scrollToTwoLook by remember { mutableStateOf(false) }
     var twoLookLocked by rememberSaveable { mutableStateOf(false) }
+
+    // The entry-level picker's caller ("welcome" or "learn"), the Learn *Find my place* sheet, and a Placement run
+    // started from Learn (Story 14.1, UX Flow 8).
+    var entryLevelFrom by rememberSaveable { mutableStateOf<String?>(null) }
+    var findMyPlace by rememberSaveable { mutableStateOf(false) }
+    var placementFromLearn by rememberSaveable { mutableStateOf(false) }
+    var placementLeftIdle by rememberSaveable { mutableStateOf(false) }
+    var entryLevelSaving by remember { mutableStateOf(false) }
+    var entryLevelFailed by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(tab, selectedStage, scrollToTwoLook) {
         if (tab == Tab.LEARN && selectedStage == null && scrollToTwoLook) {
             withFrameNanos { }
@@ -345,6 +356,14 @@ private fun ShellContent(
     }
     // Cancel a running solve and discard its scan baseline when the Learner leaves the Solve tab.
     LaunchedEffect(tab) { if (tab != Tab.SOLVE) solveFlow.leaveSolveTab() }
+    // The *I know 2-look* OLL filter lasts one Library visit; leaving Learn ends a Placement run and the sheet opened there.
+    LaunchedEffect(tab) {
+        if (tab != Tab.LIBRARY && libraryFilter.set != null) libraryFilter = libraryFilter.copy(set = null)
+        if (tab != Tab.LEARN) {
+            placementFromLearn = false
+            findMyPlace = false
+        }
+    }
     LaunchedEffect(ready, pendingScan, tab) {
         if (ready != null && pendingScan != null && tab == Tab.SOLVE) {
             // A scan returned into a recreated process waits for the cold-start restore, so playback never races it.
@@ -447,6 +466,35 @@ private fun ShellContent(
         selectedStage = stage
         placementFlow.reset()
         recognizeFlow.reset()
+        entryLevelFrom = null
+        entryLevelFailed = false
+        placementFromLearn = false
+    }
+
+    // Records the chosen entry level (Story 14.1) in the shell's scope; navigates only once the write succeeded.
+    fun chooseEntryLevel(level: EntryLevel) {
+        val bundle = ready?.bundle ?: return
+        if (entryLevelSaving) return
+        entryLevelSaving = true
+        entryLevelFailed = false
+        scope.launch {
+            val saved = host.chooseEntryLevel(level, bundle.stages, bundle.twoLookStages)
+            entryLevelSaving = false
+            if (!saved) {
+                entryLevelFailed = true
+                return@launch
+            }
+            welcomeAbandoned = false
+            startCourse(null)
+            // Levels 1 and 2 land on the Learn Stage list (level 2 at *Faster last layer*); 2-look opens the OLL Library.
+            scrollToTwoLook = level == EntryLevel.BEGINNER_METHOD
+            if (level == EntryLevel.TWO_LOOK) {
+                tab = Tab.LIBRARY
+                openAlgorithm = null
+                libraryFilter = LibraryFilter(set = CaseSet.OLL)
+                libraryGrid.requestScrollToItem(0)
+            }
+        }
     }
 
     fun startStageOne() {
@@ -473,7 +521,16 @@ private fun ShellContent(
     // still set once neither is the active screen is a late scan outcome (or a denial) for a flow the Learner already
     // left, so it is dropped instead of rendering.
     val recognizeOffersPlacement = tab == Tab.LIBRARY && openAlgorithm == null && recognizePhase != RecognizePhase.Idle
-    val placementStale = openSkipCheck != null || (welcome == false && !recognizeOffersPlacement)
+    val placementStale = openSkipCheck != null || (welcome == false && !recognizeOffersPlacement && !placementFromLearn)
+    // A Placement run from Learn ends once its phase returns to Idle after having left it.
+    LaunchedEffect(placementPhase) {
+        if (placementPhase != PlacementPhase.Idle) {
+            placementLeftIdle = true
+        } else if (placementLeftIdle) {
+            placementLeftIdle = false
+            placementFromLearn = false
+        }
+    }
     LaunchedEffect(placementStale, placementPhase, placementScanState) {
         if (placementStale && (placementPhase != PlacementPhase.Idle || placementScanState != null)) placementFlow.reset()
     }
@@ -511,14 +568,45 @@ private fun ShellContent(
         )
         return
     }
+    if (ready != null && entryLevelFrom != null && openSkipCheck == null) {
+        val fromLearn = entryLevelFrom == "learn"
+        EntryLevelScreen(
+            strings = ready.strings,
+            onChoose = ::chooseEntryLevel,
+            onCheck = {
+                entryLevelFailed = false
+                openSkipCheck = "course"
+                skipCheckEpoch++
+            },
+            onBack = {
+                if (!entryLevelSaving) {
+                    entryLevelFrom = null
+                    entryLevelFailed = false
+                }
+            },
+            onScan =
+                placementScan?.let { scan ->
+                    {
+                        entryLevelFailed = false
+                        placementFromLearn = fromLearn
+                        scan()
+                    }
+                },
+            scanBeta = flags.showsBeta(FeatureFlag.PLACEMENT),
+            saving = entryLevelSaving,
+            saveFailed = entryLevelFailed,
+            modifier = modifier,
+        )
+        return
+    }
     if (welcome == true && openSkipCheck == null) {
         WelcomeScreen(
             onImNew = ::startStageOne,
             onStartFromCube = placementScan,
             strings = ready?.strings,
             onCanAlreadySolve = {
-                openSkipCheck = "course"
-                skipCheckEpoch++
+                entryLevelFailed = false
+                entryLevelFrom = "welcome"
             },
             flags = flags,
             preferenceStore = preferenceStore,
@@ -671,7 +759,11 @@ private fun ShellContent(
                 scope.launch { host.endSession() }
                 if (!wasSatisfied) {
                     if (isCourse) {
-                        welcomeAbandoned = true
+                        // Given up from Learn's picker: back to the picker, with no abandon line on it.
+                        if (entryLevelFrom != "learn") {
+                            entryLevelFrom = null
+                            welcomeAbandoned = true
+                        }
                     } else if (stageId != null) {
                         stageAbandoned = stageId
                     }
@@ -688,6 +780,7 @@ private fun ShellContent(
                 val currentStageId = openSkipCheck?.let(::StageId)
                 openSkipCheck = null
                 if (isCourse) {
+                    entryLevelFrom = null
                     welcome = false
                     welcomeAbandoned = false
                     tab = Tab.LEARN
@@ -720,7 +813,10 @@ private fun ShellContent(
             openSkipCheck = null
             scope.launch { host.endSession() }
             if (isCourse) {
-                welcomeAbandoned = true
+                if (entryLevelFrom != "learn") {
+                    entryLevelFrom = null
+                    welcomeAbandoned = true
+                }
             } else if (stageId != null) {
                 stageAbandoned = stageId
             }
@@ -880,9 +976,27 @@ private fun ShellContent(
                     showTwoLookLocked = twoLookLocked && !allStagesFinished,
                     onCloseTwoLookLocked = { twoLookLocked = false },
                     scrollState = learnScroll,
+                    onFindMyPlace = { findMyPlace = true }.takeIf { ready != null },
                     // The inset area takes surfaceBase too, not the window background.
                     modifier = destinationModifier.background(RubikTheme.tokens.surfaceBase).safeDrawingPadding(),
                 )
+                if (findMyPlace && ready != null && selectedStage == null) {
+                    FindMyPlaceSheet(
+                        strings = ready.strings,
+                        onChooseLevel = {
+                            entryLevelFailed = false
+                            entryLevelFrom = "learn"
+                        },
+                        onDismiss = { findMyPlace = false },
+                        onScan =
+                            placementScan?.let { scan ->
+                                {
+                                    placementFromLearn = true
+                                    scan()
+                                }
+                            },
+                    )
+                }
             }
 
             Tab.SOLVE -> {
