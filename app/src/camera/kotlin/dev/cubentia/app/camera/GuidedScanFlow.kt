@@ -15,6 +15,7 @@ import dev.cubentia.domain.recognition.GuidedScanEffect
 import dev.cubentia.domain.recognition.GuidedScanPlan
 import dev.cubentia.domain.recognition.Lab
 import dev.cubentia.domain.recognition.PhysicalObservation
+import dev.cubentia.domain.recognition.QuickScanController
 import dev.cubentia.domain.recognition.ScanAssembler
 import dev.cubentia.domain.recognition.ScanResult
 import dev.cubentia.domain.recognition.ScanReview
@@ -222,10 +223,65 @@ internal object GuidedScanFlow {
      * faces asked, any rotation, the kept corner faces shown as done on the mini net; null once the scan is done.
      */
     fun phaseOf(quick: dev.cubentia.domain.recognition.QuickScanController): GuidedScanPhase? {
-        if (quick.inCorner) return GuidedScanPhase.CornerViewfinder(quick.hold, quick.captured, quick.coaching, faceByFace = true)
+        if (quick.inCorner) {
+            return GuidedScanPhase.CornerViewfinder(
+                quick.hold,
+                quick.captured,
+                quick.coaching,
+                faceByFace = true,
+                offerCalibration = quick.calibrationOffered,
+            )
+        }
         val grid = quick.fallback ?: return null
         return phaseOf(grid).copy(kept = quick.kept, captured = quick.added, again = null, retake = false, handOver = true)
     }
+
+    /**
+     * Story 10.19: the torch control [phase] shows: the Learner's choice [torchOn] in Quick Scan's corner view on a camera
+     * with a flash unit; null (no control, no torch copy) without a flash unit, before the camera is known, or in any
+     * other phase (Case capture, the Guided grid and the hand-over included).
+     */
+    fun torchControl(
+        phase: GuidedScanPhase,
+        hasFlash: Boolean?,
+        torchOn: Boolean,
+    ): Boolean? = torchOn.takeIf { hasFlash == true && phase is GuidedScanPhase.CornerViewfinder && phase.faceByFace }
+
+    /**
+     * One corner frame's torch state into Quick Scan (Story 10.19): the torch wanted is the Learner's choice [torchOn] on a
+     * camera with a flash unit ([hasFlash]); [applied] is what the camera applied last, so the controller re-meters only
+     * once a toggle took effect.
+     */
+    fun syncTorch(
+        quick: QuickScanController,
+        hasFlash: Boolean?,
+        torchOn: Boolean,
+        applied: Boolean?,
+        nowMs: Long,
+    ) = quick.syncTorch(requested = hasFlash == true && torchOn, applied = applied, nowMs = nowMs)
+
+    /**
+     * The light-hold diagnostic a controller step implies (Story 10.19): (true, null) when a hold started, (false, held ms)
+     * when one cleared, by passing the check or by a reset (face by face, a hand-over); null when nothing changed.
+     */
+    fun lightHoldChange(
+        wasHeld: Boolean,
+        heldSince: Long?,
+        nowHeld: Boolean,
+        nowMs: Long,
+    ): Pair<Boolean, Long?>? =
+        when {
+            wasHeld == nowHeld -> null
+            nowHeld -> true to null
+            else -> false to heldSince?.let { nowMs - it }
+        }
+
+    /** Whether the torch is physically on in [phase]: only in Quick Scan's corner view, with a flash unit, when chosen. */
+    fun torchLit(
+        phase: GuidedScanPhase,
+        hasFlash: Boolean?,
+        torchOn: Boolean,
+    ): Boolean = torchControl(phase, hasFlash, torchOn) == true
 
     fun reviewOf(
         effects: List<GuidedScanEffect>,

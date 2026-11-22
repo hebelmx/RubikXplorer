@@ -169,6 +169,9 @@ class GuidedScanActivity : ComponentActivity() {
 
                             calibration?.fromReview != null -> phase = calibration.fromReview
 
+                            // Back from calibration opened in Quick Scan's corner view returns to it (Story 10.19).
+                            calibration?.fromQuickScan == true -> phase = scan.capturePhase()
+
                             else -> closeOrConfirm()
                         }
                     }
@@ -208,6 +211,16 @@ class GuidedScanActivity : ComponentActivity() {
                 onUseAnyway = { decide { now -> scan.guidedController()?.onUseAnyway(now).orEmpty() } },
                 onFreezeEnd = { id -> scan.endFreeze(id) },
                 onFaceByFace = { switchToFaceByFace() },
+                // Story 10.19: the choice carries across holds, the hand-over and the background; the analyzer re-meters.
+                onToggleTorch = { scan.torchOn = !scan.torchOn },
+                // Story 10.19 (PO 2026-11-21): the corner view's calibration offer, routed as the review's is.
+                onCalibrate = {
+                    if (phase is GuidedScanPhase.CornerViewfinder && scan.quickScanMode && !scan.confirmDiscard) {
+                        scan.captureCalibration = false
+                        scan.calibrationMeterColor = null
+                        phase = GuidedScanPhase.Calibration(fromQuickScan = true)
+                    }
+                },
                 onDiscardConfirm = {
                     scan.confirmDiscard = false
                     finishWith(ScanOutcome.Cancelled)
@@ -228,7 +241,11 @@ class GuidedScanActivity : ComponentActivity() {
                     androidx.activity.compose.BackHandler(enabled = phase is GuidedScanPhase.Calibration) {
                         val calibration = phase as? GuidedScanPhase.Calibration
                         if (!scan.saving) {
-                            if (calibration?.fromReview != null) phase = calibration.fromReview else finishWith(ScanOutcome.Cancelled)
+                            when {
+                                calibration?.fromReview != null -> phase = calibration.fromReview
+                                calibration?.fromQuickScan == true -> phase = scan.capturePhase()
+                                else -> finishWith(ScanOutcome.Cancelled)
+                            }
                         }
                     }
                     androidx.activity.compose.BackHandler(enabled = phase !is GuidedScanPhase.Calibration) {
@@ -262,6 +279,8 @@ class GuidedScanActivity : ComponentActivity() {
                         if (scan.calibrationFinished) finishWith(ScanOutcome.Cancelled)
                     }
                     val ready = previewReady && scan.calibrationLoaded
+                    val torchLit = GuidedScanFlow.torchLit(phase, scan.hasFlash, scan.torchOn)
+                    LaunchedEffect(torchLit) { frameSource.torch(torchLit) }
                     LaunchedEffect(phase::class, ready) {
                         frameSource.stop()
                         cameraStarted = false
@@ -338,6 +357,7 @@ class GuidedScanActivity : ComponentActivity() {
                             detectedCornerQuads = scan.detectedCornerQuads,
                             cornerThumbnail = scan.cornerThumbnail,
                             confirmDiscard = scan.confirmDiscard,
+                            cornerTorch = GuidedScanFlow.torchControl(phase, scan.hasFlash, scan.torchOn),
                         ) {
                             AndroidView(
                                 factory = { context ->
@@ -358,6 +378,17 @@ class GuidedScanActivity : ComponentActivity() {
         frameSource.stop()
         shutterSound.release()
         super.onDestroy()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        frameSource.suspendTorch(false)
+    }
+
+    /** Story 10.19: the torch is off while the app is in the background; the choice comes back with the corner view. */
+    override fun onStop() {
+        frameSource.suspendTorch(true)
+        super.onStop()
     }
 
     override fun onResume() {
@@ -424,7 +455,7 @@ class GuidedScanActivity : ComponentActivity() {
         if (phase !is GuidedScanPhase.CornerViewfinder || !scan.quickScanMode) return
         analyzerExecutor.execute {
             val quick = scan.quickScan ?: return@execute
-            val effect = quick.switchToFaceByFace() ?: return@execute
+            val effect = logLightHold(quick, SystemClock.elapsedRealtime()) { quick.switchToFaceByFace() } ?: return@execute
             val next = GuidedScanFlow.phaseOf(quick)
             val review = quickReview(effect as? QuickScanEffect.Done)
             ContextCompat.getMainExecutor(this).execute {
@@ -549,11 +580,32 @@ class GuidedScanActivity : ComponentActivity() {
         if (quick?.inCorner == true) {
             val corner = frame.corner ?: return
             if (scan.quickStartedAt == null) scan.quickStartedAt = ScanDiagnostics.startRun()
-            dev.cubentia.app.ScanDiagnostics
-                .onCornerFrame(now, corner.detected, corner.faces, corner.score)
+            // Story 10.19: the flash unit is known once a camera is bound; the torch state drives glare coaching, and a
+            // torch change re-meters only once the camera applied it.
+            val flash = frameSource.hasFlashUnit()
+            if (flash != null && flash != scan.hasFlash) ContextCompat.getMainExecutor(this).execute { scan.hasFlash = flash }
+            // The torch turning on clears a running light hold (PO 2026-11-21): logged like any other clear.
+            logLightHold(quick, now) { GuidedScanFlow.syncTorch(quick, flash, scan.torchOn, frameSource.torchApplied(), now) }
+            val settled = frameSource.settled()
             val quads = scan.cornerOverlaySmoother.update(corner.normalizedQuads)
             ContextCompat.getMainExecutor(this).execute { scan.detectedCornerQuads = quads }
-            captureCorner { it.onFrame(corner.detected, corner.faces, now) }
+            // The light check runs in the domain over these faces (calibrated when a saved calibration exists).
+            val measured = captureCorner { it.onFrame(corner.detected, corner.faces, now, settled) }
+            // A frozen frame is not run through the domain: its verdict is not this frame's, so none is logged.
+            dev.cubentia.app.ScanDiagnostics
+                .onCornerFrame(
+                    now,
+                    corner.detected,
+                    corner.faces,
+                    corner.score,
+                    quick.light.takeIf { measured },
+                    quick.lightHeld,
+                    quick.torchOn,
+                )
+            if (measured) {
+                quick.steadyRestart?.let { ScanDiagnostics.onSteadyRestart(now, it.face, it.cells, it.maxDeltaE) }
+                quick.centerBlock?.let { ScanDiagnostics.onCenterBlock(now, it) }
+            }
             return
         }
         if (frame.corner != null) return
@@ -583,13 +635,21 @@ class GuidedScanActivity : ComponentActivity() {
         }
     }
 
-    private fun captureCorner(decision: (QuickScanController) -> List<QuickScanEffect>) {
-        val quick = scan.quickScan ?: return
+    /** Runs [decision] on the Quick Scan controller and applies its effects; false when it did not run (frozen, not in the corner view). */
+    private fun captureCorner(decision: (QuickScanController) -> List<QuickScanEffect>): Boolean {
+        val quick = scan.quickScan ?: return false
         val now = SystemClock.elapsedRealtime()
-        if (scan.freeze.isFrozen(now) || !quick.inCorner) return
-        val effects = decision(quick)
+        if (scan.freeze.isFrozen(now) || !quick.inCorner) return false
+        val offered = quick.calibrationOffered
+        val effects = logLightHold(quick, now) { decision(quick) }
+        if (!offered && quick.calibrationOffered) {
+            ScanDiagnostics.onCalibrationOffer(hold = quick.hold, heldMs = quick.lightHeldSince?.let { now - it })
+        }
         val capture = effects.filterIsInstance<QuickScanEffect.CornerCaptured>().firstOrNull()
-        if (capture != null) scan.freeze.start(now)
+        if (capture != null) {
+            scan.freeze.start(now)
+            quick.lastCapture?.let(ScanDiagnostics::onCornerCapture)
+        }
         val next = GuidedScanFlow.phaseOf(quick)
         val review = quickReview(effects.filterIsInstance<QuickScanEffect.Done>().firstOrNull())
         val includeAwb = quick.hold == 1
@@ -609,8 +669,26 @@ class GuidedScanActivity : ComponentActivity() {
                     phase = next
                 }
             }
-            if (QuickScanEffect.Remeter in effects) meterOnGrid(includeAwb = includeAwb)
             if (review != null) scan.publish(review)
+        }
+        // Story 10.19: metering on the detected cube; its settle signal resets now, before the next frame is read. Only in
+        // the corner view: the source also skips it once corner mode is off (the Guided grid took over meanwhile).
+        if (QuickScanEffect.Remeter in effects && phase is GuidedScanPhase.CornerViewfinder) frameSource.meterCube(includeAwb = includeAwb)
+        return true
+    }
+
+    /** Runs [block] on [quick] and logs a light hold it started or cleared (also by a reset: face by face, a capture). */
+    private fun <T> logLightHold(
+        quick: QuickScanController,
+        now: Long,
+        block: () -> T,
+    ): T {
+        val wasHeld = quick.lightHeld
+        val heldSince = quick.lightHeldSince
+        return block().also {
+            GuidedScanFlow.lightHoldChange(wasHeld, heldSince, quick.lightHeld, now)?.let { (started, heldMs) ->
+                ScanDiagnostics.onLightHold(started = started, heldMs = heldMs)
+            }
         }
     }
 
@@ -759,6 +837,12 @@ internal class GuidedScanViewModel : ViewModel() {
     val cornerOverlaySmoother = CornerOverlaySmoother()
     var cornerThumbnail by mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null)
 
+    /** Story 10.19: the Learner's torch choice (default on), kept across holds, the hand-over and the background. */
+    var torchOn by mutableStateOf(true)
+
+    /** Whether the bound camera has a flash unit; null until a camera reports it. */
+    var hasFlash by mutableStateOf<Boolean?>(null)
+
     @Volatile var caseCorners: Int? = null
 
     @Volatile var caseCapture: CaseCaptureController? = null
@@ -867,10 +951,12 @@ internal class GuidedScanViewModel : ViewModel() {
                     if (corners != null) {
                         caseCapture = CaseCaptureController(centers, corners)
                         phase = capturePhase()
-                    } else if (calibration.fromReview == null) {
+                    } else if (calibration.fromReview == null && !calibration.fromQuickScan) {
                         calibrationFinished = true
                     } else {
-                        corrections = calibration.fromReview.corrections
+                        // From Quick Scan's corner view (Story 10.19) the scan restarts with no face and no correction.
+                        corrections = calibration.fromReview?.corrections.orEmpty()
+                        if (calibration.fromQuickScan) cornerThumbnail = null
                         withContext(analyzerExecutor.asCoroutineDispatcher()) {
                             controller = newController()
                             if (quickScanMode) quickScan = QuickScanController(saved)

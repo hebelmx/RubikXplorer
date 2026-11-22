@@ -139,4 +139,105 @@ class LiveFixtureTest {
             assertThrows(IllegalArgumentException::class.java) { CornerFixtureJson.decode(CornerFixtureJson.encode(bad)) }
         }
     }
+
+    @Test
+    fun `schema 4 adds labels, keypoints and light direction and still decodes schema 3`() {
+        val legacy =
+            CornerFixtureRecord(
+                schemaVersion = 3,
+                device = record.device,
+                cube = record.cube,
+                light = record.light,
+                capturedAt = record.capturedAt,
+                calibration = record.calibration,
+                hold = 1,
+                labeledSamples =
+                    QuickScanPlan.holds.first().map { step ->
+                        LabeledFaceSample(
+                            FaceSample(
+                                face = step.face,
+                                orientationDegrees = 0,
+                                stickers = List(9) { record.calibration.centers.getValue(step.centerColor) },
+                                quality = CaptureQuality.ACCEPTABLE,
+                                centerColor = step.centerColor,
+                                upNeighborColor = step.upNeighborColor,
+                            ),
+                            List(9) { step.centerColor },
+                        )
+                    },
+                truthSources = List(3) { record.truthSources },
+            )
+        assertEquals(legacy, CornerFixtureJson.decode(CornerFixtureJson.encode(legacy)))
+        val points = List(7) { listOf(0.1 * (it + 1), 0.5) }
+        val current =
+            legacy.copy(
+                schemaVersion = 4,
+                lightDirection = LightDirection.FRONT,
+                keypoints = points,
+                detectorKeypoints = points,
+                torch = true,
+            )
+        assertEquals(current, CornerFixtureJson.decode(CornerFixtureJson.encode(current)))
+        // A positive the detector missed keeps its manual keypoints without color samples; a negative carries neither.
+        val missed = current.copy(labeledSamples = emptyList(), truthSources = emptyList(), detectorKeypoints = null)
+        assertEquals(missed, CornerFixtureJson.decode(CornerFixtureJson.encode(missed)))
+        val negative = missed.copy(label = CornerLabel.NEGATIVE, keypoints = null)
+        assertEquals(negative, CornerFixtureJson.decode(CornerFixtureJson.encode(negative)))
+        // A sample-less capture may carry no calibration at all.
+        val bare = negative.copy(calibration = CalibrationCenters(emptyMap()))
+        assertEquals(bare, CornerFixtureJson.decode(CornerFixtureJson.encode(bare)))
+        val partial =
+            CalibrationCenters(
+                record.calibration.centers -
+                    record.calibration.centers.keys
+                        .first(),
+            )
+        listOf(
+            legacy.copy(keypoints = points),
+            legacy.copy(lightDirection = LightDirection.BACK),
+            legacy.copy(torch = false),
+            current.copy(keypoints = points.dropLast(1)),
+            current.copy(keypoints = points.map { listOf(1.5, 0.5) }),
+            negative.copy(keypoints = points),
+            missed.copy(truthSources = List(3) { record.truthSources }),
+            // A sample-less positive needs its manual corners, and a calibration it carries must still be valid.
+            missed.copy(keypoints = null),
+            missed.copy(calibration = partial),
+            negative.copy(calibration = partial),
+            current.copy(schemaVersion = 5),
+        ).forEach { bad ->
+            assertThrows(IllegalArgumentException::class.java) { CornerFixtureJson.decode(CornerFixtureJson.encode(bad)) }
+        }
+    }
+
+    @Test
+    fun `the group manifest and keypoint fixtures round-trip`() {
+        val manifest = CornerGroupManifest(CornerFixturePaths.PIPELINE_10_19, LightDirection.BACK, record.device, "stla", "cool")
+        assertEquals(manifest, CornerFixtureJson.decodeManifest(CornerFixtureJson.encodeManifest(manifest)))
+        val torchOn = manifest.copy(torch = true)
+        assertEquals(torchOn, CornerFixtureJson.decodeManifest(CornerFixtureJson.encodeManifest(torchOn)))
+        assertTrue("\"lightDirection\": \"back\"" in CornerFixtureJson.encodeManifest(manifest))
+        val points = List(7) { listOf(0.5, 0.1 * (it + 1)) }
+        val positive =
+            CornerKeypointFixture(
+                frame = CornerFixturePaths.keypointFrameName(3),
+                label = CornerLabel.POSITIVE,
+                keypoints = points,
+                device = record.device,
+                cube = "stla",
+                light = "cool",
+                lightDirection = LightDirection.FRONT,
+                capturedAt = record.capturedAt,
+            )
+        assertEquals("0003.png", positive.frame)
+        assertEquals("0003.json", CornerFixturePaths.keypointFileName(3))
+        val encoded = CornerFixtureJson.encodeKeypoints(positive)
+        assertTrue("\"label\": \"positive\"" in encoded && "\"kind\": \"corner-keypoints\"" in encoded, encoded)
+        assertEquals(positive, CornerFixtureJson.decodeKeypoints(encoded))
+        val negative = positive.copy(label = CornerLabel.NEGATIVE, keypoints = null)
+        assertEquals(negative, CornerFixtureJson.decodeKeypoints(CornerFixtureJson.encodeKeypoints(negative)))
+        listOf(positive.copy(keypoints = null), negative.copy(keypoints = points), positive.copy(kind = "other")).forEach { bad ->
+            assertThrows(IllegalArgumentException::class.java) { CornerFixtureJson.decodeKeypoints(CornerFixtureJson.encodeKeypoints(bad)) }
+        }
+    }
 }

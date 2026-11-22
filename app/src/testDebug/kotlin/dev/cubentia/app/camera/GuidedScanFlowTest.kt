@@ -819,7 +819,7 @@ class GuidedScanFlowTest {
     @Test fun `quick scan's corner view offers face by face and its hand-over shows kept faces and Face n of N`() {
         val quick =
             dev.cubentia.domain.recognition
-                .QuickScanController()
+                .QuickScanController(lightCheck = false)
         val corner = GuidedScanFlow.phaseOf(quick) as GuidedScanPhase.CornerViewfinder
         assertTrue(corner.faceByFace)
         quick.onFrame(true, cornerHold(1), 0)
@@ -850,5 +850,110 @@ class GuidedScanFlowTest {
             dev.cubentia.domain.recognition
                 .CaseCaptureController(CalibrationCenters(emptyMap()), 2)
         assertFalse(GuidedScanFlow.phaseOf(case).faceByFace)
+    }
+
+    // Story 10.19: the activity's torch wiring: the wanted torch reaches the controller, which re-meters once it applied.
+    @Test fun `torch sync wants the choice only with a flash unit and re-meters once the camera applied it`() {
+        val quick =
+            dev.cubentia.domain.recognition
+                .QuickScanController(lightCheck = false)
+        GuidedScanFlow.syncTorch(quick, hasFlash = null, torchOn = true, applied = null, nowMs = 0)
+        assertFalse("no flash known: no torch", quick.torchOn)
+        GuidedScanFlow.syncTorch(quick, hasFlash = false, torchOn = true, applied = false, nowMs = 10)
+        assertFalse("no flash unit: never a torch", quick.torchOn)
+        assertFalse(quick.torchPending)
+        GuidedScanFlow.syncTorch(quick, hasFlash = true, torchOn = true, applied = false, nowMs = 20)
+        assertTrue(quick.torchOn)
+        assertTrue("waits for the camera to light it", quick.torchPending)
+        assertTrue(quick.onFrame(true, cornerHold(1), 30).isEmpty())
+        GuidedScanFlow.syncTorch(quick, hasFlash = true, torchOn = true, applied = true, nowMs = 40)
+        assertFalse(quick.torchPending)
+        assertEquals(
+            listOf(dev.cubentia.domain.recognition.QuickScanEffect.Remeter),
+            quick.onFrame(true, cornerHold(1), 50),
+        )
+        GuidedScanFlow.syncTorch(quick, hasFlash = true, torchOn = false, applied = true, nowMs = 60)
+        assertFalse(quick.torchOn)
+        assertTrue(quick.torchPending)
+    }
+
+    @Test fun `a light hold change is logged as a start or a clear with its duration`() {
+        assertEquals(null, GuidedScanFlow.lightHoldChange(wasHeld = false, heldSince = null, nowHeld = false, nowMs = 5))
+        assertEquals(null, GuidedScanFlow.lightHoldChange(wasHeld = true, heldSince = 0, nowHeld = true, nowMs = 5))
+        assertEquals(true to null, GuidedScanFlow.lightHoldChange(wasHeld = false, heldSince = null, nowHeld = true, nowMs = 5))
+        assertEquals(false to 1200L, GuidedScanFlow.lightHoldChange(wasHeld = true, heldSince = 300, nowHeld = false, nowMs = 1500))
+        // A reset during a hold (face by face) is a clear too.
+        val quick =
+            dev.cubentia.domain.recognition
+                .QuickScanController()
+        val dark = List(9) { CellReading(Lab(40.0, 0.0, 0.0), true) }
+        val bright = List(9) { CellReading(Lab(90.0, 0.0, 0.0), true) }
+        val stats = { cells: List<CellReading> -> FrameStats(cells, 120.0, 0.0, 100.0, 12) }
+        // The first detected frame re-meters onto the cube and holds nothing; the settled frame after it starts the hold.
+        quick.onFrame(true, listOf(stats(bright), stats(dark), stats(bright)), 50, settled = false)
+        assertFalse(quick.lightHeld)
+        quick.onFrame(true, listOf(stats(bright), stats(dark), stats(bright)), 100, settled = true)
+        assertTrue(quick.lightHeld)
+        val since = quick.lightHeldSince
+        quick.switchToFaceByFace()
+        assertEquals(false to 400L, GuidedScanFlow.lightHoldChange(true, since, quick.lightHeld, 500))
+    }
+
+    @Test fun `the torch turning on during a light hold is logged as a clear`() {
+        val quick =
+            dev.cubentia.domain.recognition
+                .QuickScanController()
+        val dark = List(9) { CellReading(Lab(40.0, 0.0, 0.0), true) }
+        val bright = List(9) { CellReading(Lab(90.0, 0.0, 0.0), true) }
+        val stats = { cells: List<CellReading> -> FrameStats(cells, 120.0, 0.0, 100.0, 12) }
+        quick.onFrame(true, listOf(stats(bright), stats(dark), stats(bright)), 50, settled = false)
+        quick.onFrame(true, listOf(stats(bright), stats(dark), stats(bright)), 100, settled = true)
+        assertTrue(quick.lightHeld)
+        val since = quick.lightHeldSince
+        // PO 2026-11-21: the light check is skipped while the torch is lit, so lighting it clears the hold at once.
+        GuidedScanFlow.syncTorch(quick, hasFlash = true, torchOn = true, applied = true, nowMs = 300)
+        assertEquals(false to 200L, GuidedScanFlow.lightHoldChange(true, since, quick.lightHeld, 300))
+    }
+
+    // Story 10.19: the torch follows the Learner's choice in Quick Scan's corner view only, on a camera with a flash unit.
+    @Test fun `the torch is lit only in quick scan's corner view with a flash and is kept through the hand-over and back`() {
+        val quick =
+            dev.cubentia.domain.recognition
+                .QuickScanController(lightCheck = false)
+        val first = GuidedScanFlow.phaseOf(quick)!!
+        assertEquals(true, GuidedScanFlow.torchControl(first, hasFlash = true, torchOn = true))
+        assertTrue(GuidedScanFlow.torchLit(first, hasFlash = true, torchOn = true))
+        // The Learner's choice off: the control shows "Torch off" and the torch is dark.
+        assertEquals(false, GuidedScanFlow.torchControl(first, hasFlash = true, torchOn = false))
+        assertFalse(GuidedScanFlow.torchLit(first, hasFlash = true, torchOn = false))
+        // No flash unit (or not known yet): no control and no torch.
+        assertNull(GuidedScanFlow.torchControl(first, hasFlash = false, torchOn = true))
+        assertNull(GuidedScanFlow.torchControl(first, hasFlash = null, torchOn = true))
+        quick.onFrame(true, cornerHold(1), 0)
+        quick.onShutter()
+        val second = GuidedScanFlow.phaseOf(quick)!!
+        assertTrue("carries from hold 1 to hold 2", GuidedScanFlow.torchLit(second, hasFlash = true, torchOn = true))
+        quick.switchToFaceByFace()
+        val handOver = GuidedScanFlow.phaseOf(quick)!!
+        assertNull(GuidedScanFlow.torchControl(handOver, hasFlash = true, torchOn = true))
+        assertFalse("physically off in the hand-over", GuidedScanFlow.torchLit(handOver, hasFlash = true, torchOn = true))
+        assertTrue(quick.backOut())
+        assertTrue(
+            "back to the corner view: on again",
+            GuidedScanFlow.torchLit(GuidedScanFlow.phaseOf(quick)!!, hasFlash = true, torchOn = true),
+        )
+        // Case capture's corner view and every other phase never light it.
+        val case =
+            dev.cubentia.domain.recognition
+                .CaseCaptureController(CalibrationCenters(emptyMap()), 2)
+        assertFalse(GuidedScanFlow.torchLit(GuidedScanFlow.phaseOf(case), hasFlash = true, torchOn = true))
+        listOf(
+            GuidedScanPhase.Viewfinder(),
+            GuidedScanPhase.Calibration(),
+            GuidedScanPhase.Rationale,
+            GuidedScanPhase.Unavailable,
+        ).forEach {
+            assertFalse("$it", GuidedScanFlow.torchLit(it, hasFlash = true, torchOn = true))
+        }
     }
 }

@@ -4,10 +4,13 @@ import dev.cubentia.application.usecase.Recognition
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.recognition.CalibrationCenters
+import dev.cubentia.domain.recognition.CenterCheck
+import dev.cubentia.domain.recognition.CornerCaptureReport
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.recognition.ScanReview
+import dev.cubentia.domain.recognition.SideLight
 import dev.cubentia.domain.tutor.Certainty
 import dev.cubentia.domain.tutor.PlacementOutcome
 
@@ -19,6 +22,48 @@ object ScanDiagnostics {
         detected: Boolean,
         faces: List<FrameStats?>,
         score: Double,
+        light: SideLight.Verdict? = null,
+        lightHeld: Boolean = false,
+        torch: Boolean = false,
+    ) = Unit
+
+    fun onSteadyRestart(
+        nowMs: Long,
+        face: Int,
+        cells: List<Int>,
+        maxDeltaE: Double,
+    ) = Unit
+
+    fun onCenterBlock(
+        nowMs: Long,
+        check: CenterCheck,
+    ) = Unit
+
+    fun onCornerCapture(report: CornerCaptureReport) = Unit
+
+    fun onLightHold(
+        started: Boolean,
+        heldMs: Long?,
+    ) = Unit
+
+    fun onCalibrationOffer(
+        hold: Int,
+        heldMs: Long?,
+    ) = Unit
+
+    fun onMetering(
+        supported: Boolean,
+        onOutline: Boolean,
+    ) = Unit
+
+    fun onMeteringSettled(
+        settleMs: Long,
+        timeout: Boolean,
+    ) = Unit
+
+    fun onTorch(
+        hasFlash: Boolean,
+        torch: Boolean,
     ) = Unit
 
     fun onQuickScanRun(

@@ -3,7 +3,7 @@ real-palette warped Fixtures/live/ frames, and adversarial dark/glossy & empty n
 
 Usage:
     uv run --project tools/corner-model python tools/corner-model/evaluate_model.py
-    # Story 10.18 AC2 acceptance on real labelled Lenovo / S24 FE captures (README "Real corner fixtures"):
+    # Story 10.19 D5 acceptance on real labelled Lenovo / S24 FE keypoint fixtures (README "Real corner fixtures"):
     uv run --project tools/corner-model python tools/corner-model/evaluate_model.py --fixtures-corner Fixtures/corner
 """
 
@@ -37,6 +37,11 @@ MAX_MODEL_BYTES = 450 * 1024
 MIN_PRECISION = 0.96
 MIN_RECALL = 0.92
 MIN_NEG_REJECTION = 0.96
+# Story 10.19 D5, per device on real held-out keypoint fixtures.
+MIN_DEVICE_POSITIVES = 20
+MIN_DEVICE_NEGATIVES = 10
+MAX_CORNER_ERROR_FRACTION = 0.03
+REQUIRED_DEVICES = ("TB128XU", "SM-S721")
 
 
 def run_tflite(interpreter: tf.lite.Interpreter, batch: np.ndarray) -> np.ndarray:
@@ -97,21 +102,61 @@ def evaluate_slice(
     return metrics
 
 
-def evaluate_real_corner_fixtures(interpreter: tf.lite.Interpreter, corner_dir: Path, threshold: float) -> dict[str, float]:
-    """Evaluates labelled real captures under `corner_dir` (README contract, same loader as training).
+def json_safe(value: object) -> object:
+    """`value` with every non-finite float (an empty slice's inf error) as null, so `--json-out` writes strict JSON."""
+    if isinstance(value, float):
+        return value if np.isfinite(value) else None
+    if isinstance(value, dict):
+        return {key: json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [json_safe(item) for item in value]
+    return value
 
-    Exits nonzero with a clear message when the directory is missing or holds no labelled capture; a malformed
-    capture stops the run with its path (the loader never skips one).
+
+def corner_error_fraction(true_kps: np.ndarray, pred_kps: np.ndarray) -> float:
+    """Mean distance of the 7 predicted corners to the labeled ones, as a fraction of the labeled cube outline's diagonal
+    (the bounding box of the 7 labeled corners), so the bar does not depend on how large the cube is in the crop."""
+    span = true_kps.max(axis=0) - true_kps.min(axis=0)
+    diagonal = float(np.hypot(span[0], span[1]))
+    if diagonal <= 0.0:
+        return float("inf")
+    return float(np.mean(np.sqrt(np.sum((true_kps - pred_kps) ** 2, axis=-1)))) / diagonal
+
+
+def evaluate_real_corner_fixtures(interpreter: tf.lite.Interpreter, corner_dir: Path, threshold: float) -> dict[str, dict]:
+    """Evaluates the labeled real keypoint fixtures under `corner_dir` per device (Story 10.19 D5).
+
+    Every real capture is held out (the model is not retrained in Story 10.19). Color records and manifests are skipped.
+    Exits nonzero with a clear message when the directory is missing or holds no keypoint fixture; a malformed one stops
+    the run with its path (the loader never skips one). Returns `{device: metrics}`.
     """
-    from train_corner_model import load_optional_corner_fixtures
+    from train_corner_model import load_corner_keypoint_fixtures
 
     if not corner_dir.is_dir():
         sys.exit(f"--fixtures-corner {corner_dir} does not exist; record and label real captures first (README).")
-    loaded = load_optional_corner_fixtures(corner_dir)
-    if loaded is None:
-        sys.exit(f"--fixtures-corner {corner_dir} holds no labelled *.json capture; nothing to evaluate (README).")
-    xs, ys = loaded
-    return evaluate_slice(interpreter, list(zip(xs, ys)), threshold)
+    loaded = load_corner_keypoint_fixtures(corner_dir)
+    if not loaded:
+        sys.exit(f"--fixtures-corner {corner_dir} holds no keypoint fixture; nothing to evaluate (README).")
+    by_device: dict[str, list[dict]] = {}
+    for fixture in loaded:
+        by_device.setdefault(fixture["device"], []).append(fixture)
+    report: dict[str, dict] = {}
+    for device, fixtures in sorted(by_device.items()):
+        samples = [(f["x"], f["y"]) for f in fixtures]
+        m = evaluate_slice(interpreter, samples, threshold)
+        xs = np.stack([s[0] for s in samples], axis=0)
+        ys = np.stack([s[1] for s in samples], axis=0)
+        preds = run_tflite(interpreter, xs)
+        errors = []
+        for i in range(len(samples)):
+            accepted = preds[i, 0] >= threshold and is_valid_geometry_normalized(preds[i, 1:].reshape(7, 2))
+            if ys[i, 0] > 0.5 and accepted:
+                errors.append(corner_error_fraction(ys[i, 1:].reshape(7, 2), preds[i, 1:].reshape(7, 2)))
+        m["positives"] = float(np.sum(ys[:, 0] > 0.5))
+        m["negatives"] = float(np.sum(ys[:, 0] <= 0.5))
+        m["mean_corner_error_fraction"] = float(np.mean(errors)) if errors else float("inf")
+        report[device] = m
+    return report
 
 
 def main() -> None:
@@ -138,31 +183,42 @@ def main() -> None:
     interpreter.allocate_tensors()
 
     if args.fixtures_corner is not None:
-        m = evaluate_real_corner_fixtures(interpreter, args.fixtures_corner, args.threshold)
-        positives = int(m["tp"] + m["fn"])
-        negatives = int(m["tn"] + m["fp"])
-        print(f"Model: {args.model} ({size_bytes:,} bytes); real captures: {args.fixtures_corner}")
+        devices = evaluate_real_corner_fixtures(interpreter, args.fixtures_corner, args.threshold)
+        print(f"Model: {args.model} ({size_bytes:,} bytes); real captures (all held out): {args.fixtures_corner}")
         print(f"Presence threshold: {args.threshold:.2f} + CornerLocator.isValidCubeGeometry guard")
         failures = []
-        if positives:
-            print(
-                f"positives={positives} | recall={m['recall']*100:5.1f}% (raw={m['raw_presence_recall']*100:5.1f}%) "
-                f"| mean={m['mean_px_err']:4.2f}px med={m['median_px_err']:4.2f}px p90={m['p90_px_err']:4.2f}px (128 px crop)"
-            )
-            if m["recall"] < MIN_RECALL:
-                failures.append(f"recall {m['recall']:.4f} < {MIN_RECALL}")
-        else:
-            failures.append("no positive capture; recall and pixel error cannot be measured")
-        if negatives:
-            print(f"negatives={negatives} | rejection={m['rejection_rate']*100:5.1f}% | FP={int(m['fp'])}")
-            if m["rejection_rate"] < MIN_NEG_REJECTION:
-                failures.append(f"negative rejection {m['rejection_rate']:.4f} < {MIN_NEG_REJECTION}")
-        else:
-            failures.append("no negative capture; rejection cannot be measured")
+        missing = [name for name in REQUIRED_DEVICES if not any(name.lower() in d.lower() for d in devices)]
+        for name in missing:
+            failures.append(f"no keypoint fixture from {name}")
+        for device, m in devices.items():
+            positives = int(m["positives"])
+            negatives = int(m["negatives"])
+            line = f"{device}: positives={positives} negatives={negatives}"
+            if positives:
+                line += (
+                    f" | recall={m['recall']*100:5.1f}% (raw={m['raw_presence_recall']*100:5.1f}%)"
+                    f" | corner error={m['mean_corner_error_fraction']*100:4.2f}% of the outline diagonal"
+                    f" (mean={m['mean_px_err']:4.2f}px p90={m['p90_px_err']:4.2f}px, 128 px crop)"
+                )
+            if negatives:
+                line += f" | rejection={m['rejection_rate']*100:5.1f}% FP={int(m['fp'])}"
+            print(line)
+            if positives < MIN_DEVICE_POSITIVES:
+                failures.append(f"{device}: {positives} positives (need >= {MIN_DEVICE_POSITIVES})")
+            if negatives < MIN_DEVICE_NEGATIVES:
+                failures.append(f"{device}: {negatives} negatives (need >= {MIN_DEVICE_NEGATIVES})")
+            if positives and m["recall"] < MIN_RECALL:
+                failures.append(f"{device}: recall {m['recall']:.4f} < {MIN_RECALL}")
+            if negatives and m["rejection_rate"] < MIN_NEG_REJECTION:
+                failures.append(f"{device}: negative rejection {m['rejection_rate']:.4f} < {MIN_NEG_REJECTION}")
+            if positives and m["mean_corner_error_fraction"] > MAX_CORNER_ERROR_FRACTION:
+                failures.append(
+                    f"{device}: corner error {m['mean_corner_error_fraction']:.4f} > {MAX_CORNER_ERROR_FRACTION} of the outline diagonal"
+                )
         if args.json_out is not None:
             args.json_out.parent.mkdir(parents=True, exist_ok=True)
-            report = {"model_path": str(args.model), "fixtures_corner": str(args.fixtures_corner), "threshold": args.threshold, "real": m}
-            args.json_out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+            report = {"model_path": str(args.model), "fixtures_corner": str(args.fixtures_corner), "threshold": args.threshold, "devices": devices}
+            args.json_out.write_text(json.dumps(json_safe(report), indent=2, allow_nan=False) + "\n", encoding="utf-8")
         if failures:
             sys.exit("Real-capture acceptance FAILED: " + "; ".join(failures))
         print("Real-capture acceptance PASSED")
@@ -252,7 +308,7 @@ def main() -> None:
 
     if args.json_out is not None:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
-        args.json_out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        args.json_out.write_text(json.dumps(json_safe(report), indent=2, allow_nan=False) + "\n", encoding="utf-8")
 
     assert size_bytes < MAX_MODEL_BYTES, f"Model size {size_bytes} exceeds {MAX_MODEL_BYTES} bytes"
     assert precision >= MIN_PRECISION, f"Precision too low: {precision:.4f}"

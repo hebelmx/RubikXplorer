@@ -8,9 +8,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -21,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
@@ -45,13 +48,16 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -61,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import dev.cubentia.app.camera.CornerOutline
+import dev.cubentia.app.camera.CornerPoint
 import dev.cubentia.app.camera.FrameReader
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.Face
@@ -70,10 +77,13 @@ import dev.cubentia.domain.recognition.ClassificationResult
 import dev.cubentia.domain.recognition.CornerFixtureJson
 import dev.cubentia.domain.recognition.CornerFixturePaths
 import dev.cubentia.domain.recognition.CornerFixtureRecord
+import dev.cubentia.domain.recognition.CornerKeypointFixture
+import dev.cubentia.domain.recognition.CornerLabel
 import dev.cubentia.domain.recognition.DeviceInfo
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.Lab
 import dev.cubentia.domain.recognition.LabeledFaceSample
+import dev.cubentia.domain.recognition.LightDirection
 import dev.cubentia.domain.recognition.LiveFixturePaths
 import dev.cubentia.domain.recognition.NearestCenterClassifier
 import dev.cubentia.domain.recognition.QuickScanPlan
@@ -84,6 +94,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.Instant
+import kotlin.math.hypot
 import kotlin.math.pow
 import androidx.compose.ui.graphics.Color as UiColor
 
@@ -101,6 +112,22 @@ private data class SwatchPreview(
 )
 
 private enum class Confirm { RESET_LABELS, RECALIBRATE }
+
+/** What a corner-mode capture records (Story 10.19). */
+private enum class CornerCapture { CORNER, KEYPOINTS_ONLY, NEGATIVE }
+
+/**
+ * A frozen corner capture whose seven corners the operator places on the model-input crop (Story 10.19): [points] are
+ * the manual labels, [detector] what the detector found (diagnostics only); [samples] are the color samples, null when
+ * the detector missed or only keypoints are recorded.
+ */
+private data class Placement(
+    val shot: CapturedFrame,
+    val kind: CornerCapture,
+    val samples: List<FaceSample>?,
+    val detector: List<List<Double>>?,
+    val points: List<List<Double>>,
+)
 
 /**
  * One-screen recorder (Story 10.12 UX pass): viewfinder with grid and 6-face progress, then the face net beside the
@@ -128,6 +155,19 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
     var cornerHold by remember { mutableStateOf(1) }
     var cornerShot by remember { mutableStateOf<CapturedFrame?>(null) }
     var cornerSamples by remember { mutableStateOf<List<FaceSample>>(emptyList()) }
+    var lightDirection by remember { mutableStateOf<LightDirection?>(null) }
+
+    // Story 10.19: the torch the corner session records with (Quick Scan's default, on), only on a camera with a flash.
+    var torchOn by remember { mutableStateOf(true) }
+    val hasFlash by camera.hasFlash
+    val torch = recordedTorch(hasFlash, torchOn)
+    var placement by remember { mutableStateOf<Placement?>(null) }
+
+    // The confirmed placement of the capture now being labeled (written with its color record).
+    var cornerKeypoints by remember { mutableStateOf<Placement?>(null) }
+
+    // This recording session's group folder name; a new session never writes into a saved group (Story 10.19).
+    var groupName by remember { mutableStateOf<String?>(null) }
     val cornerLabels = remember { mutableStateListOf<Pair<List<Color>, List<TruthSource>>>() }
     var saving by remember { mutableStateOf(false) }
 
@@ -140,31 +180,136 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
     var confirm by remember { mutableStateOf<Confirm?>(null) }
     var choosingOverride by remember { mutableStateOf(false) }
     val calibrated = centers.size == Color.entries.size
-    val metaReady = cube.any { it.isLetterOrDigit() && it.code < 128 } && light.any { it.isLetterOrDigit() && it.code < 128 }
+    val metaReady =
+        cube.any { it.isLetterOrDigit() && it.code < 128 } &&
+            light.any { it.isLetterOrDigit() && it.code < 128 } &&
+            (!cornerMode || lightDirection != null)
+    val device = DeviceInfo(Build.MODEL, Build.MANUFACTURER, Build.VERSION.RELEASE, Build.DISPLAY, Build.VERSION.SDK_INT)
 
     LaunchedEffect(cornerMode, calibrated) { camera.cornerMode(cornerMode && calibrated) }
+    LaunchedEffect(cornerMode, calibrated, torchOn) { camera.torch(cornerMode && calibrated && torchOn) }
 
     fun resetCorner() {
         cornerShot = null
         cornerSamples = emptyList()
         cornerLabels.clear()
         entry = TruthEntry(selected = null)
+        placement = null
+        cornerKeypoints = null
     }
 
-    fun captureCorner() {
+    /** IO: this session's group folder (a fresh numbered one when the base name is taken) with its manifest. */
+    fun groupDirectory(): File {
+        val root = checkNotNull(context.getExternalFilesDir(null)) { "External files directory unavailable" }
+        val parent = File(root, "Fixtures/corner")
+        val name =
+            groupName ?: freshGroupName(CornerFixturePaths.directoryName(device.model, cube.trim(), light.trim())) { candidate ->
+                File(parent, candidate).let { it.exists() && it.list().orEmpty().isNotEmpty() }
+            }
+        val directory = File(parent, name)
+        check(directory.isDirectory || directory.mkdirs()) { "Cannot create $directory" }
+        val manifest = File(directory, CornerFixturePaths.MANIFEST)
+        if (!manifest.isFile) {
+            manifest.writeText(CornerFixtureJson.encodeManifest(groupManifest(device, cube, light, checkNotNull(lightDirection), torch)))
+        }
+        groupName = name
+        return directory
+    }
+
+    /** IO: writes one keypoint fixture (the model-input crop and its labels) into this session's group; returns its number. */
+    fun writeKeypoints(
+        shot: CapturedFrame,
+        label: CornerLabel,
+        points: List<List<Double>>?,
+        detector: List<List<Double>>?,
+    ): Int {
+        val folder = File(groupDirectory(), CornerFixturePaths.KEYPOINTS_DIR)
+        check(folder.isDirectory || folder.mkdirs()) { "Cannot create $folder" }
+        val index = nextKeypointIndex(folder.list().orEmpty().toList())
+        val fixture =
+            CornerKeypointFixture(
+                frame = CornerFixturePaths.keypointFrameName(index),
+                label = label,
+                keypoints = points,
+                detectorKeypoints = detector,
+                device = device,
+                cube = cube.trim(),
+                light = light.trim(),
+                lightDirection = checkNotNull(lightDirection),
+                capturedAt = shot.capturedAt.toString(),
+                torch = torch,
+            )
+        File(folder, fixture.frame).writeBytes(checkNotNull(shot.modelInput) { "No model-input crop was encoded" })
+        File(folder, CornerFixturePaths.keypointFileName(index)).writeText(CornerFixtureJson.encodeKeypoints(fixture))
+        return index
+    }
+
+    /**
+     * Corner mode (Story 10.19): a corner with colors, a keypoint-only positive, or a no-cube negative. Positives freeze for
+     * manual corner placement, even when the detector missed (colors are then not recorded); a negative saves at once.
+     */
+    fun captureCorner(kind: CornerCapture) {
         saving = true
         scope.launch {
             try {
                 val shot = camera.capture()
-                val samples = shot?.corner?.let { cornerSamples(cornerHold, it) }
-                if (shot?.jpeg == null || samples == null) {
-                    status = "Corner could not be read. Align all three faces and try again."
-                } else {
-                    cornerShot = shot
-                    cornerSamples = samples
-                    entry = TruthEntry().withPrefill(prefill(samples.first().stickers, CalibrationCenters(centers.toMap())))
-                    status = "Check and confirm all nine stickers on each face."
+                val crop = shot?.crop
+                if (shot?.modelInput == null || crop == null) {
+                    status = "No camera frame arrived; try again."
+                    return@launch
                 }
+                if (kind == CornerCapture.NEGATIVE) {
+                    val index =
+                        withContext(
+                            Dispatchers.IO,
+                        ) { writeKeypoints(shot, CornerLabel.NEGATIVE, null, detectorKeypoints(shot.corner?.frameQuads.orEmpty(), crop)) }
+                    status = "Saved negative %04d.".format(index)
+                    return@launch
+                }
+                val samples =
+                    if (kind == CornerCapture.CORNER &&
+                        shot.jpeg != null
+                    ) {
+                        shot.corner?.let { cornerSamples(cornerHold, it) }
+                    } else {
+                        null
+                    }
+                val detector = detectorKeypoints(shot.corner?.frameQuads.orEmpty(), crop)
+                placement = Placement(shot, kind, samples, detector, initialKeypoints())
+                status =
+                    when {
+                        kind == CornerCapture.CORNER && samples == null -> "Detector missed: place the 7 corners (colors are not saved)."
+                        else -> "Drag the 7 corners onto the cube, then Use corners."
+                    }
+            } catch (failure: Exception) {
+                status = "Save failed: ${failure.message}"
+            } finally {
+                saving = false
+            }
+        }
+    }
+
+    /** The operator placed the corners: label colors next, or save the keypoint-only positive now. */
+    fun usePlacement() {
+        val placed = placement ?: return
+        val samples = placed.samples
+        placement = null
+        if (samples != null) {
+            cornerShot = placed.shot
+            cornerSamples = samples
+            cornerKeypoints = placed
+            entry = TruthEntry().withPrefill(prefill(samples.first().stickers, CalibrationCenters(centers.toMap())))
+            status = "Check and confirm all nine stickers on each face."
+            return
+        }
+        saving = true
+        scope.launch {
+            try {
+                val index =
+                    withContext(Dispatchers.IO) { writeKeypoints(placed.shot, CornerLabel.POSITIVE, placed.points, placed.detector) }
+                status = "Saved positive %04d (keypoints only).".format(index)
+            } catch (failure: Exception) {
+                status = "Save failed: ${failure.message}"
             } finally {
                 saving = false
             }
@@ -187,9 +332,10 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
             entry = TruthEntry().withPrefill(prefill(next.stickers, calibration))
             return
         }
+        val placed = cornerKeypoints
         val record =
             CornerFixtureRecord(
-                device = DeviceInfo(Build.MODEL, Build.MANUFACTURER, Build.VERSION.RELEASE, Build.DISPLAY, Build.VERSION.SDK_INT),
+                device = device,
                 cube = cube.trim(),
                 light = light.trim(),
                 capturedAt = shot.capturedAt.toString(),
@@ -197,22 +343,25 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                 hold = cornerHold,
                 labeledSamples = cornerSamples.zip(nextLabels).map { (sample, label) -> LabeledFaceSample(sample, label.first) },
                 truthSources = nextLabels.map { it.second },
+                lightDirection = lightDirection,
+                keypoints = placed?.points,
+                detectorKeypoints = placed?.detector,
+                torch = torch,
             )
         saving = true
         scope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    val root = checkNotNull(context.getExternalFilesDir(null))
-                    val directory =
-                        File(root, "Fixtures/corner/${CornerFixturePaths.directoryName(record.device.model, record.cube, record.light)}")
-                    check(directory.isDirectory || directory.mkdirs()) { "Cannot create $directory" }
+                    val directory = groupDirectory()
+                    // A session's group is new, so a corner file there is this session's own retake of that hold.
                     File(directory, record.frame).writeBytes(checkNotNull(shot.jpeg))
                     File(directory, CornerFixturePaths.fileName(record.hold)).writeText(CornerFixtureJson.encode(record))
+                    if (placed != null) writeKeypoints(placed.shot, CornerLabel.POSITIVE, placed.points, placed.detector)
                 }
-                status = "Saved corner ${record.hold}."
+                status = "Saved corner ${record.hold} in ${groupName.orEmpty()}."
                 cornerHold++
                 resetCorner()
-            } catch (failure: java.io.IOException) {
+            } catch (failure: Exception) {
                 status = "Save failed: ${failure.message}"
             } finally {
                 saving = false
@@ -256,7 +405,11 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
         selectFace(Face.entries.firstOrNull { it !in saved } ?: Face.U)
     }
     // Re-meter on the grid on every face selection and calibration-color change; realignment is handled by the analyzer.
-    LaunchedEffect(selectedFace, calibrationColor, calibrated, cornerHold) { camera.remeter() }
+    LaunchedEffect(selectedFace, calibrationColor, calibrated, cornerHold, cornerMode, torchOn) {
+        // Corner mode meters like Quick Scan (Story 10.19): on the detected outline, AWB on hold 1 only.
+        if (cornerMode && calibrated) camera.remeterCorner(includeAwb = cornerHold == 1) else camera.remeter()
+    }
+    val liveQuads by camera.detectedQuads
     val autoRemeters by camera.autoRemeters
     var remeterNote by remember { mutableStateOf<String?>(null) }
     // Shown beside the status, so it never hides a save result.
@@ -448,6 +601,14 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
             bind = camera::bind,
             calibrated = calibrated && !cornerMode,
             corner = calibrated && cornerMode,
+            detectedQuads = if (calibrated && cornerMode) liveQuads else emptyList(),
+            placement = placement,
+            onMovePoint = { index, du, dv ->
+                placement =
+                    placement?.let { current ->
+                        current.copy(points = current.points.mapIndexed { i, p -> if (i == index) movedKeypoint(p, du, dv) else p })
+                    }
+            },
             selectedFace = selectedFace,
             capturedFaces = capturedFaces,
             prompt =
@@ -537,25 +698,53 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                     }
                 }
 
+                cornerMode && placement != null -> {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { placement = null }, enabled = !saving) { Text("Retake") }
+                        Button(onClick = ::usePlacement, enabled = !saving, modifier = Modifier.weight(1f)) { Text("Use corners") }
+                    }
+                }
+
                 cornerMode -> {
-                    if (cornerHold <= 2) {
+                    val ready = !saving && metaReady && hasPermission
+                    if (cornerShot != null) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (cornerShot != null) {
-                                OutlinedButton(onClick = ::resetCorner, enabled = !saving) { Text("Retake corner") }
-                                Button(onClick = ::confirmCornerFace, enabled = !saving && entry.confirmed() != null) {
-                                    Text("Confirm face")
-                                }
-                            } else {
-                                Button(onClick = ::captureCorner, enabled = !saving && metaReady && hasPermission) {
-                                    Text("Capture corner $cornerHold")
-                                }
+                            OutlinedButton(onClick = ::resetCorner, enabled = !saving) { Text("Retake corner") }
+                            Button(onClick = ::confirmCornerFace, enabled = !saving && entry.confirmed() != null) {
+                                Text("Confirm face")
                             }
                         }
                     } else {
-                        OutlinedButton(onClick = {
-                            cornerHold = 1
-                            resetCorner()
-                        }) { Text("Record both corners again") }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (cornerHold <= 2) {
+                                Button(onClick = { captureCorner(CornerCapture.CORNER) }, enabled = ready, modifier = Modifier.weight(1f)) {
+                                    Text("Capture corner $cornerHold")
+                                }
+                            } else {
+                                // A new session: the next corners go to a new numbered group, never over this one.
+                                OutlinedButton(onClick = {
+                                    cornerHold = 1
+                                    groupName = null
+                                    resetCorner()
+                                }, modifier = Modifier.weight(1f)) { Text("Record both corners again") }
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = { captureCorner(CornerCapture.KEYPOINTS_ONLY) },
+                                enabled = ready,
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text("Keypoints only")
+                            }
+                            OutlinedButton(
+                                onClick = { captureCorner(CornerCapture.NEGATIVE) },
+                                enabled = ready,
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text("No cube (negative)")
+                            }
+                        }
                     }
                 }
 
@@ -589,12 +778,26 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
     }
 
     if (editingMeta) {
-        MetaDialog(cube, light, cornerMode, onDismiss = { editingMeta = false }) { newCube, newLight, newMode ->
-            if (newMode != cornerMode || newCube.trim() != cube.trim() || newLight.trim() != light.trim()) {
+        MetaDialog(
+            cube,
+            light,
+            cornerMode,
+            lightDirection,
+            torchOn,
+            hasFlash = hasFlash == true,
+            onDismiss = { editingMeta = false },
+        ) { newCube, newLight, newMode, newDirection, newTorch ->
+            // A torch change is a new capture condition: a new group, like a new light direction.
+            if (newMode != cornerMode || newCube.trim() != cube.trim() || newLight.trim() != light.trim() ||
+                newDirection != lightDirection || newTorch != torchOn
+            ) {
                 resetCorner()
                 cornerHold = 1
+                groupName = null
             }
             cornerMode = newMode
+            lightDirection = newDirection
+            torchOn = newTorch
             // A new cube or light is a new capture context: earlier centers and truth never carry over.
             if (newCube.trim() != cube.trim() || newLight.trim() != light.trim()) {
                 if (centers.isNotEmpty()) status = "Cube or light changed: calibrate all six again."
@@ -662,9 +865,14 @@ private fun Viewfinder(
     capturedFaces: List<Face>,
     prompt: String,
     onFace: (Face) -> Unit,
+    detectedQuads: List<List<CornerPoint>> = emptyList(),
+    placement: Placement? = null,
+    onMovePoint: (Int, Double, Double) -> Unit = { _, _, _ -> },
 ) {
     Box(modifier.clipToBounds().background(UiColor.Black), contentAlignment = Alignment.Center) {
-        if (hasPermission) {
+        if (hasPermission && placement != null) {
+            KeypointPlacement(placement, onMovePoint, Modifier.fillMaxSize())
+        } else if (hasPermission) {
             AndroidView(
                 factory = { context ->
                     PreviewView(context)
@@ -674,9 +882,8 @@ private fun Viewfinder(
                 modifier = Modifier.fillMaxSize().clipToBounds(),
             )
             if (corner) {
-                BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CornerOutline(Modifier.size(minOf(maxWidth, maxHeight) * FrameReader.GRID_FRACTION.toFloat()))
-                }
+                // The live detected outline over the Y anchor, in view fractions like Quick Scan's corner view.
+                CornerOutline(Modifier.fillMaxSize(), detectedCornerQuads = detectedQuads)
             } else {
                 FixedGrid(Modifier.fillMaxSize())
             }
@@ -725,6 +932,86 @@ private fun Viewfinder(
                     .background(UiColor.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
                     .padding(horizontal = 8.dp, vertical = 2.dp),
         )
+    }
+}
+
+/**
+ * Story 10.19: the frozen model-input crop with the seven corners `[T, UL, LL, B, LR, UR, C]` as handles the operator
+ * drags onto the cube's real corners (the labels the evaluator reads; the detector's points are kept apart).
+ */
+@Composable
+private fun KeypointPlacement(
+    placement: Placement,
+    onMove: (Int, Double, Double) -> Unit,
+    modifier: Modifier,
+) {
+    val image =
+        remember(placement.shot) {
+            placement.shot.modelInput?.let { bytes ->
+                android.graphics.BitmapFactory
+                    .decodeByteArray(bytes, 0, bytes.size)
+                    ?.asImageBitmap()
+            }
+        }
+    BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
+        val side = minOf(maxWidth, maxHeight)
+        Box(Modifier.size(side)) {
+            if (image != null) {
+                Image(
+                    image,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    filterQuality = androidx.compose.ui.graphics.FilterQuality.None,
+                )
+            }
+            val points = placement.points
+            val latest by rememberUpdatedState(points)
+            Canvas(
+                Modifier.fillMaxSize().pointerInput(placement.shot) {
+                    var dragging = -1
+                    detectDragGestures(
+                        onDragStart = { start ->
+                            dragging =
+                                latest.indices.minByOrNull { i ->
+                                    val p = latest[i]
+                                    hypot(p[0] * size.width - start.x, p[1] * size.height - start.y).toDouble()
+                                } ?: -1
+                        },
+                        onDragEnd = { dragging = -1 },
+                    ) { change, amount ->
+                        change.consume()
+                        if (dragging >= 0) onMove(dragging, amount.x / size.width.toDouble(), amount.y / size.height.toDouble())
+                    }
+                },
+            ) {
+                val pts = points.map { Offset((it[0] * size.width).toFloat(), (it[1] * size.height).toFloat()) }
+                // The outline the seven corners imply: hexagon T-UR-LR-B-LL-UL and the three edges to C.
+                listOf(0 to 5, 5 to 4, 4 to 3, 3 to 2, 2 to 1, 1 to 0, 6 to 0, 6 to 2, 6 to 4).forEach { (a, b) ->
+                    drawLine(UiColor.Magenta, pts[a], pts[b], 2.dp.toPx())
+                }
+                placement.detector?.forEach { p ->
+                    drawCircle(UiColor.Cyan, 3.dp.toPx(), Offset((p[0] * size.width).toFloat(), (p[1] * size.height).toFloat()))
+                }
+                pts.forEach {
+                    drawCircle(
+                        UiColor.Yellow,
+                        7.dp.toPx(),
+                        it,
+                        style =
+                            androidx.compose.ui.graphics.drawscope
+                                .Stroke(2.dp.toPx()),
+                    )
+                }
+            }
+            points.forEachIndexed { index, p ->
+                Text(
+                    KEYPOINT_NAMES[index],
+                    color = UiColor.Yellow,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.offset(side * p[0].toFloat() + 8.dp, side * p[1].toFloat() - 8.dp),
+                )
+            }
+        }
     }
 }
 
@@ -925,12 +1212,17 @@ private fun MetaDialog(
     cube: String,
     light: String,
     cornerMode: Boolean,
+    lightDirection: LightDirection?,
+    torchOn: Boolean,
+    hasFlash: Boolean,
     onDismiss: () -> Unit,
-    onSave: (String, String, Boolean) -> Unit,
+    onSave: (String, String, Boolean, LightDirection?, Boolean) -> Unit,
 ) {
+    var newTorch by remember { mutableStateOf(torchOn) }
     var newCube by remember { mutableStateOf(cube) }
     var newLight by remember { mutableStateOf(light) }
     var newMode by remember { mutableStateOf(cornerMode) }
+    var newDirection by remember { mutableStateOf(lightDirection) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Cube and light") },
@@ -952,10 +1244,41 @@ private fun MetaDialog(
                     androidx.compose.material3.Checkbox(checked = newMode, onCheckedChange = { newMode = it })
                     Text("Corner mode")
                 }
+                if (newMode) {
+                    // Story 10.19: the group manifest records where the light comes from; the replay scores front-lit groups.
+                    Text("Light direction", style = MaterialTheme.typography.labelLarge)
+                    listOf(
+                        LightDirection.FRONT to "Front (light from the camera side)",
+                        LightDirection.BACK to "Back (light behind the cube)",
+                    ).forEach { (direction, label) ->
+                        Row(
+                            Modifier.fillMaxWidth().selectable(selected = newDirection == direction, onClick = {
+                                newDirection =
+                                    direction
+                            }),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = newDirection == direction, onClick = { newDirection = direction })
+                            Text(label)
+                        }
+                    }
+                    if (hasFlash) {
+                        // Story 10.19: the manifest and every fixture record the torch, so torch-on groups stay apart.
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            androidx.compose.material3.Checkbox(checked = newTorch, onCheckedChange = { newTorch = it })
+                            Text("Torch on")
+                        }
+                    }
+                }
                 Text("Changing either clears the calibration.", style = MaterialTheme.typography.bodySmall)
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(newCube, newLight, newMode) }) { Text("Save") } },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(newCube, newLight, newMode, newDirection, newTorch) },
+                enabled = !newMode || newDirection != null,
+            ) { Text("Save") }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

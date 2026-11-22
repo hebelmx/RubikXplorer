@@ -9,6 +9,9 @@ import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Orientation
 import dev.cubentia.domain.recognition.CalibrationCenters
+import dev.cubentia.domain.recognition.CaptureQuality
+import dev.cubentia.domain.recognition.CenterCheck
+import dev.cubentia.domain.recognition.CornerCaptureReport
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.FrameInspection
 import dev.cubentia.domain.recognition.FrameQuality
@@ -18,6 +21,7 @@ import dev.cubentia.domain.recognition.ScanAssembler
 import dev.cubentia.domain.recognition.ScanReview
 import dev.cubentia.domain.recognition.ScanTrace
 import dev.cubentia.domain.recognition.SelfCalibration
+import dev.cubentia.domain.recognition.SideLight
 import dev.cubentia.domain.tutor.Certainty
 import dev.cubentia.domain.tutor.PlacementOutcome
 import java.util.Locale
@@ -37,18 +41,210 @@ import java.util.concurrent.atomic.AtomicLong
  */
 object ScanDiagnostics {
     private val lastCornerLogMs = AtomicLong(Long.MIN_VALUE / 2)
+    private val lastSteadyLogMs = AtomicLong(Long.MIN_VALUE / 2)
+    private val lastCenterLogMs = AtomicLong(Long.MIN_VALUE / 2)
 
+    /**
+     * One corner frame (rate-limited): detection, per-face shutter quality, and Story 10.19's light check (per-face light
+     * level, the darker side face's difference to the top, the verdict and the light hold; lightMode=torch when the torch
+     * is lit and the check skipped), the torch and glare with the torch state. Numbers only, never pixels or Cube States.
+     */
     fun onCornerFrame(
         nowMs: Long,
         detected: Boolean,
         faces: List<FrameStats?>,
         score: Double,
+        light: SideLight.Verdict? = null,
+        lightHeld: Boolean = false,
+        torch: Boolean = false,
     ) {
         val last = lastCornerLogMs.get()
         if (nowMs - last < INTERVAL_MS || !lastCornerLogMs.compareAndSet(last, nowMs)) return
-        val qualities = faces.joinToString(",") { it?.let(FrameQuality::assessShutter)?.name ?: "-" }
-        val fields = listOf("quickScan", "frame", "detected=$detected", "quality=$qualities", "score=${format(score)}")
+        Log.d(TAG, cornerFrameLine(detected, faces, score, light, lightHeld, torch))
+    }
+
+    internal fun cornerFrameLine(
+        detected: Boolean,
+        faces: List<FrameStats?>,
+        score: Double,
+        light: SideLight.Verdict?,
+        lightHeld: Boolean,
+        torch: Boolean,
+    ): String {
+        val qualities = faces.map { it?.let(FrameQuality::assessShutter) }
+        val glare = qualities.any { it == CaptureQuality.GLARE }
+
+        val decimals = if (light?.mode == SideLight.Mode.CALIBRATED) 3 else 1
+
+        fun level(value: Double?) = format(value, decimals)
+        val verdict =
+            when {
+                light == null || light.score == null -> "-"
+                light.passed -> "pass"
+                else -> "fail"
+            }
+        val calibrated = light?.mode == SideLight.Mode.CALIBRATED
+        return listOfNotNull(
+            "quickScan",
+            "frame",
+            "detected=$detected",
+            "quality=${qualities.joinToString(",") { it?.name ?: "-" }}",
+            "score=${format(score)}",
+            "light=${level(light?.topLevel)},${level(light?.leftLevel)},${level(light?.rightLevel)}",
+            // Calibrated: the levels are relative brightness and only the ratio score decides (no L* difference).
+            if (calibrated) null else "sideDiff=${level(light?.darkerSideDifference)}",
+            "lightScore=${level(light?.score)}",
+            "lightCheck=$verdict",
+            // PO 2026-11-21: with the torch lit the check is measured but skipped (it holds nothing).
+            "lightMode=${if (light != null && torch) "torch" else light?.mode?.name?.lowercase() ?: "-"}",
+            "lightHold=$lightHeld",
+            "torch=${if (torch) "on" else "off"}",
+            "glare=${if (!glare) {
+                "-"
+            } else if (torch) {
+                "torch"
+            } else {
+                "plain"
+            }}",
+        ).joinToString(" ")
+    }
+
+    /**
+     * The Quick Scan corner steady window restarted (rate-limited like the frame line): the corner [face] index, its moved
+     * [cells] and their largest delta E. Numbers only.
+     */
+    fun onSteadyRestart(
+        nowMs: Long,
+        face: Int,
+        cells: List<Int>,
+        maxDeltaE: Double,
+    ) {
+        val last = lastSteadyLogMs.get()
+        if (nowMs - last < INTERVAL_MS || !lastSteadyLogMs.compareAndSet(last, nowMs)) return
+        Log.d(
+            TAG,
+            listOf("quickScan", "steadyRestart", "face=$face", "cells=${cells.joinToString(",")}", "maxDeltaE=${format(maxDeltaE)}")
+                .joinToString(" "),
+        )
+    }
+
+    /**
+     * The Quick Scan pose-unchanged check blocked a corner frame (PO 2026-11-21, rate-limited like the frame line): the
+     * hold and per screen position the centre's ΔE to the other hold's captured centre (`-` missing). Distances only.
+     */
+    fun onCenterBlock(
+        nowMs: Long,
+        check: CenterCheck,
+    ) {
+        val last = lastCenterLogMs.get()
+        if (nowMs - last < INTERVAL_MS || !lastCenterLogMs.compareAndSet(last, nowMs)) return
+        Log.d(TAG, centerBlockLine(check))
+    }
+
+    internal fun centerBlockLine(check: CenterCheck): String =
+        listOf(
+            "quickScan",
+            "centerBlock",
+            "hold=${check.hold}",
+            "deltaE=${check.deltaE.joinToString(",") { format(it) }}",
+        ).joinToString(" ")
+
+    /**
+     * One line per Quick Scan corner capture (Story 10.19): per face of the hold its centre colour read, the CONFIDENT and
+     * UNCERTAIN sticker counts, whether it is kept or sent to the grid (`grid`), and why when sent (`missing`, the
+     * shutter quality, `uncalibrated`, or the agreement-gate disagreements, close calls and a rejected centre correction).
+     * Colour names and counts only, never pixels (AD-9).
+     */
+    fun onCornerCapture(report: CornerCaptureReport) {
+        Log.d(TAG, cornerCaptureLine(report))
+    }
+
+    internal fun cornerCaptureLine(report: CornerCaptureReport): String =
+        (
+            listOf("quickScan", "capture", "hold=${report.hold}") +
+                report.faces.map { face ->
+                    val reason =
+                        when {
+                            !face.grid -> {
+                                "-"
+                            }
+
+                            face.quality == null -> {
+                                "missing"
+                            }
+
+                            face.quality != CaptureQuality.ACCEPTABLE -> {
+                                "quality=${face.quality}"
+                            }
+
+                            face.uncalibrated -> {
+                                "uncalibrated"
+                            }
+
+                            else -> {
+                                listOfNotNull(
+                                    "disagree=${face.disagreements}",
+                                    "closeCall=${face.closeCalls}",
+                                    if (face.correctionRejected) "correction=rejected" else null,
+                                ).joinToString("/")
+                            }
+                        }
+                    "${face.face}:center=${face.center?.name ?: "-"},confident=${face.confident},uncertain=${face.uncertain}," +
+                        "${if (face.grid) "grid" else "kept"},reason=$reason"
+                }
+        ).joinToString(" ")
+
+    /** The light hold engaged ([started]) or cleared after [heldMs]. */
+    fun onLightHold(
+        started: Boolean,
+        heldMs: Long?,
+    ) {
+        val fields =
+            if (started) {
+                listOf(
+                    "quickScan",
+                    "lightHold",
+                    "start",
+                )
+            } else {
+                listOf("quickScan", "lightHold", "clear", "heldMs=${heldMs ?: "-"}")
+            }
         Log.d(TAG, fields.joinToString(" "))
+    }
+
+    /** Quick Scan's calibration offer showed (Story 10.19): at corner [hold], after an uncalibrated light hold of [heldMs]. */
+    fun onCalibrationOffer(
+        hold: Int,
+        heldMs: Long?,
+    ) {
+        Log.d(TAG, listOf("quickScan", "calibrationOffer", "show", "hold=$hold", "heldMs=${heldMs ?: "-"}").joinToString(" "))
+    }
+
+    /** A Quick Scan metering action: whether the camera supported it and whether it covers the cube outline or the grid centre. */
+    fun onMetering(
+        supported: Boolean,
+        onOutline: Boolean,
+    ) {
+        Log.d(
+            TAG,
+            listOf("quickScan", "metering", "supported=$supported", "region=${if (onOutline) "outline" else "centre"}").joinToString(" "),
+        )
+    }
+
+    /** The settle signal after a metering change: how long it took, or that it hit the cap. */
+    fun onMeteringSettled(
+        settleMs: Long,
+        timeout: Boolean,
+    ) {
+        Log.d(TAG, listOf("quickScan", "metering", "settleMs=$settleMs", "timeout=$timeout").joinToString(" "))
+    }
+
+    /** The bound camera's flash unit and the torch state applied. */
+    fun onTorch(
+        hasFlash: Boolean,
+        torch: Boolean,
+    ) {
+        Log.d(TAG, listOf("quickScan", "torch", "hasFlash=$hasFlash", "torch=${if (torch) "on" else "off"}").joinToString(" "))
     }
 
     fun onQuickScanRun(

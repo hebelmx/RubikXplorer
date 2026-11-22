@@ -1,0 +1,231 @@
+package dev.cubentia.domain.recognition
+
+import dev.cubentia.domain.cube.Color
+import dev.cubentia.domain.cube.Face
+
+/**
+ * Quick-Scan-only sticker classification with an agreement gate (Story 10.19). The Guided 6-face Scan never uses it;
+ * [SelfCalibration] and [StickerClassifier] keep their semantics and are only reused.
+ *
+ * Every sticker gets two reads, and it is CONFIDENT only when both are CONFIDENT and name the same color; otherwise it is
+ * UNCERTAIN (its face goes to the Guided grid). The gate only ever lowers confidence, so a mismatched calibration ends
+ * in uncertainty, never in a confident wrong sticker that the self-calibration read would not also give.
+ * - The **self-calibration read** is the one Quick Scan used before: [SelfCalibration.from] over the captured faces
+ *   (with the saved calibration filling guarded or missing colors), or, while some colors have no sample yet, the
+ *   captured faces' own trusted centers.
+ * - With a **saved calibration**, the second read is a per-face correction against it: the face's own center sticker
+ *   is a known color, so the L* gain that maps it to the saved center of that color is applied to all of the face's
+ *   stickers, which are then read against the saved centers by the 10 ΔE close-call rule.
+ * - With **no saved calibration**, the second read uses the same centers after per-face light normalization: each
+ *   center's L* is scaled by this face's light level over the light level of the face that center came from
+ *   ([SideLight.level]).
+ */
+object QuickScanClassification {
+    /** The self-calibration the Quick Scan path reads with, null while some colors have no sample. */
+    fun calibration(
+        merged: List<FaceSample>,
+        saved: CalibrationCenters?,
+    ): CalibrationCenters? = (SelfCalibration.from(merged, saved) as? SelfCalibration.Calibrated)?.calibration
+
+    /** One gated reading per sticker of [sample] (all nine), null where no read is possible. */
+    fun read(
+        sample: FaceSample,
+        merged: List<FaceSample>,
+        saved: CalibrationCenters?,
+    ): List<StickerReading?> {
+        val self = SelfCalibration.from(merged, saved)
+        val centers: Map<Color, Lab> =
+            when (self) {
+                is SelfCalibration.Calibrated -> self.calibration.centers
+                is SelfCalibration.NeedsCalibration -> SelfCalibration.trustedCenters(merged)
+            }
+        val first = readAll(sample.stickers, centers)
+        val second =
+            if (saved != null && StickerClassifier.isValid(saved)) {
+                readAll(corrected(sample, saved), saved.centers)
+            } else {
+                readAll(sample.stickers, normalized(sample, merged, centers))
+            }
+        return first.zip(second).map { (a, b) -> gate(a, b) }
+    }
+
+    /** The readings the fallback decision judges: all but a guarded (not plain) center, which marks no face for the grid. */
+    fun judged(
+        sample: FaceSample,
+        merged: List<FaceSample>,
+        saved: CalibrationCenters?,
+    ): List<StickerReading?> =
+        read(sample, merged, saved).filterIndexed { index, _ -> index != FaceSample.CENTER_INDEX || sample.centerPlain != false }
+
+    /**
+     * Faces among [faces] that the Guided grid must read: missing, not ACCEPTABLE, whose own color has no usable center
+     * yet, or with any judged sticker not CONFIDENT after the gate.
+     */
+    fun needGrid(
+        merged: List<FaceSample>,
+        faces: List<Face>,
+        saved: CalibrationCenters?,
+    ): List<Face> {
+        val self = SelfCalibration.from(merged, saved)
+        val byFace = merged.associateBy { it.face }
+        return faces.filter { face ->
+            val sample = byFace[face]
+            sample == null ||
+                sample.quality != CaptureQuality.ACCEPTABLE ||
+                (self is SelfCalibration.NeedsCalibration && Color.home(face) in self.colors) ||
+                judged(sample, merged, saved).any { it?.confidence != StickerConfidence.CONFIDENT }
+        }
+    }
+
+    /**
+     * What [needGrid] decided for each of [faces], and why (debug diagnostics, Story 10.19): the gated center color, the
+     * judged stickers' CONFIDENT and UNCERTAIN counts, and for a face sent to the grid the cause. [FaceReport.closeCalls]
+     * counts judged stickers the self-calibration read already left UNCERTAIN (or could not read); [FaceReport.disagreements]
+     * those it read CONFIDENT that the second read did not confirm; [FaceReport.correctionRejected] is true when a saved
+     * calibration exists but the per-face correction could not use the face's own center (guarded, missing or invalid).
+     */
+    fun report(
+        merged: List<FaceSample>,
+        faces: List<Face>,
+        saved: CalibrationCenters?,
+    ): List<FaceReport> {
+        val self = SelfCalibration.from(merged, saved)
+        val centers: Map<Color, Lab> =
+            when (self) {
+                is SelfCalibration.Calibrated -> self.calibration.centers
+                is SelfCalibration.NeedsCalibration -> SelfCalibration.trustedCenters(merged)
+            }
+        val grid = needGrid(merged, faces, saved).toSet()
+        val byFace = merged.associateBy { it.face }
+        return faces.map { face ->
+            val sample = byFace[face] ?: return@map FaceReport(face, null, 0, 0, face in grid, null, false, 0, 0, false)
+            val keep = { index: Int -> index != FaceSample.CENTER_INDEX || sample.centerPlain != false }
+            val gated = read(sample, merged, saved)
+            val first = readAll(sample.stickers, centers)
+            val judged = gated.filterIndexed { index, _ -> keep(index) }
+            val firstJudged = first.filterIndexed { index, _ -> keep(index) }
+            val savedValid = saved != null && StickerClassifier.isValid(saved)
+            FaceReport(
+                face = face,
+                center = gated.getOrNull(FaceSample.CENTER_INDEX)?.color,
+                confident = judged.count { it?.confidence == StickerConfidence.CONFIDENT },
+                uncertain = judged.count { it?.confidence != StickerConfidence.CONFIDENT },
+                grid = face in grid,
+                quality = sample.quality,
+                uncalibrated = self is SelfCalibration.NeedsCalibration && Color.home(face) in self.colors,
+                closeCalls = firstJudged.count { it?.confidence != StickerConfidence.CONFIDENT },
+                disagreements =
+                    judged.zip(firstJudged).count { (g, f) ->
+                        f?.confidence == StickerConfidence.CONFIDENT && g?.confidence != StickerConfidence.CONFIDENT
+                    },
+                correctionRejected = savedValid && corrected(sample, checkNotNull(saved)) === sample.stickers,
+            )
+        }
+    }
+
+    /** One face's [report]: color names and counts only. [quality] is null for a face not captured. */
+    data class FaceReport(
+        val face: Face,
+        val center: Color?,
+        val confident: Int,
+        val uncertain: Int,
+        val grid: Boolean,
+        val quality: CaptureQuality?,
+        val uncalibrated: Boolean,
+        val closeCalls: Int,
+        val disagreements: Int,
+        val correctionRejected: Boolean,
+    )
+
+    private fun gate(
+        first: StickerReading?,
+        second: StickerReading?,
+    ): StickerReading? {
+        first ?: return null
+        val agree =
+            second != null &&
+                first.confidence == StickerConfidence.CONFIDENT &&
+                second.confidence == StickerConfidence.CONFIDENT &&
+                first.color == second.color
+        return if (agree) first else first.copy(confidence = StickerConfidence.UNCERTAIN)
+    }
+
+    private fun readAll(
+        stickers: List<Lab>,
+        centers: Map<Color, Lab>,
+    ): List<StickerReading?> =
+        stickers.map { sticker ->
+            if (centers.size >= 2 && sticker.isValid() &&
+                centers.values.all { it.isValid() }
+            ) {
+                StickerClassifier.read(sticker, centers)
+            } else {
+                null
+            }
+        }
+
+    /**
+     * Faces to re-prompt once every face passed [needGrid] (an ambiguous or no-fit assembly), by the same gated
+     * classification: any face whose gated read is not all CONFIDENT is involved; otherwise every gated read equals the
+     * self-calibration read (the gate keeps the first read's color), so [ScanAssembler.repromptFaces] over the
+     * self-calibration sees exactly the gated colors. Faces in [kept] (kept by an earlier hand-over) are never asked
+     * again: when every gated-uncertain face is kept, the assembly's own reprompt faces outside [kept] are asked instead,
+     * so an ambiguous scan never ends Done without a reprompt. Empty while some colors have no center.
+     */
+    fun involvedFaces(
+        merged: List<FaceSample>,
+        saved: CalibrationCenters?,
+        kept: Set<Face> = emptySet(),
+    ): List<Face> {
+        val calibration = calibration(merged, saved) ?: return emptyList()
+        val uncertain = needGrid(merged, merged.map { it.face }, saved).filter { it !in kept }
+        if (uncertain.isNotEmpty()) return uncertain
+        return ScanAssembler.repromptFaces(merged, calibration, repromptPosed = true).filter { it !in kept }
+    }
+
+    /** The face's stickers with the L* gain that maps its own (plain) center onto the saved center of that color. */
+    internal fun corrected(
+        sample: FaceSample,
+        saved: CalibrationCenters,
+    ): List<Lab> {
+        val own = sample.center
+        val target = saved.centers[sample.centerColor ?: Color.home(sample.face)]
+        if (own == null || target == null || sample.centerPlain == false || !own.isValid() || own.l <= 0.0) return sample.stickers
+        val gain = target.l / own.l
+        return sample.stickers.map { it.copy(l = (it.l * gain).coerceIn(0.0, 100.0)) }
+    }
+
+    /**
+     * [centers] with each L* scaled by this face's light level over the level of the face the center came from. A
+     * center's source face is the one captured sample whose [FaceSample.centerColor] is that color, when its center is
+     * plain and the sample usable (as [SelfCalibration] trusts it); a center with no captured source (derived from the
+     * other stickers, or none) is left unscaled.
+     */
+    internal fun normalized(
+        sample: FaceSample,
+        merged: List<FaceSample>,
+        centers: Map<Color, Lab>,
+    ): Map<Color, Lab> {
+        val level = SideLight.level(sample.stickers.map { it.l }) ?: return centers
+        return centers.mapValues { (color, center) ->
+            val sourceLevel = sourceOf(color, merged)?.let { SideLight.level(it.stickers.map { sticker -> sticker.l }) }
+            if (sourceLevel == null || sourceLevel <= 0.0) {
+                center
+            } else {
+                center.copy(l = (center.l * level / sourceLevel).coerceIn(0.0, 100.0))
+            }
+        }
+    }
+
+    /** The captured face [color]'s center came from: the single sample with that center color, plain and usable; else null. */
+    internal fun sourceOf(
+        color: Color,
+        merged: List<FaceSample>,
+    ): FaceSample? =
+        merged.singleOrNull { it.centerColor == color }?.takeIf { sample ->
+            sample.centerPlain != false &&
+                sample.quality == CaptureQuality.ACCEPTABLE &&
+                sample.stickers.size == ScanAssembler.STICKERS &&
+                sample.stickers.all { it.isValid() }
+        }
+}

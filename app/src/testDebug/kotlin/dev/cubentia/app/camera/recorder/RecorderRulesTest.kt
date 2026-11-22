@@ -255,4 +255,122 @@ class RecorderRulesTest {
         assertEquals(Face.R, nextFace(listOf(Face.U, Face.F), Face.U))
         assertEquals(Face.L, nextFace(Face.entries, Face.L))
     }
+
+    // Story 10.19 corner-mode rules.
+
+    @Test fun `the seven keypoints come from the detector quads in model order and map onto the crop`() {
+        val t =
+            dev.cubentia.app.camera
+                .CornerPoint(100.0, 40.0)
+        val ul =
+            dev.cubentia.app.camera
+                .CornerPoint(50.0, 70.0)
+        val ll =
+            dev.cubentia.app.camera
+                .CornerPoint(55.0, 130.0)
+        val b =
+            dev.cubentia.app.camera
+                .CornerPoint(100.0, 160.0)
+        val lr =
+            dev.cubentia.app.camera
+                .CornerPoint(145.0, 130.0)
+        val ur =
+            dev.cubentia.app.camera
+                .CornerPoint(150.0, 70.0)
+        val c =
+            dev.cubentia.app.camera
+                .CornerPoint(100.0, 100.0)
+        val quads = listOf(listOf(t, ur, c, ul), listOf(ul, c, b, ll), listOf(c, ur, lr, b))
+        assertEquals(listOf(t, ul, ll, b, lr, ur, c), keypointsOf(quads))
+        assertNull(keypointsOf(quads.take(2)))
+        val crop = ModelCrop(100.0, 100.0, 80.0, 0)
+        val points = checkNotNull(detectorKeypoints(quads, crop))
+        assertEquals(listOf(0.5, 0.5), points[6])
+        assertEquals(0.5, points[0][0], 1e-9)
+        assertEquals(0.125, points[0][1], 1e-9)
+        // Every rotation round-trips between the frame and the crop.
+        listOf(0, 90, 180, 270).forEach { rotation ->
+            val rotated = ModelCrop(100.0, 100.0, 80.0, rotation)
+            val back = rotated.toCrop(rotated.toFrame(0.2, 0.7))
+            assertEquals(0.2, back[0], 1e-9, "$rotation")
+            assertEquals(0.7, back[1], 1e-9, "$rotation")
+        }
+        // The recorder's crop mapping equals the model transform's at every rotation.
+        listOf(0, 90, 180, 270).forEach { rotation ->
+            val rotated = ModelCrop(100.0, 100.0, 80.0, rotation)
+            listOf(0.2 to 0.7, 0.0 to 0.0, 1.0 to 0.35).forEach { (u, v) ->
+                val mine = rotated.toFrame(u, v)
+                val model =
+                    dev.cubentia.app.camera.corner.CornerModelTransform
+                        .cropToFrame(u, v, 100.0, 100.0, 80.0, rotation)
+                assertEquals(model.x, mine.x, 1e-9, "toFrame x at $rotation")
+                assertEquals(model.y, mine.y, 1e-9, "toFrame y at $rotation")
+            }
+            listOf(
+                dev.cubentia.app.camera
+                    .CornerPoint(37.0, 151.0),
+                dev.cubentia.app.camera
+                    .CornerPoint(180.0, 20.0),
+            ).forEach { point ->
+                val mine = rotated.toCrop(point)
+                val model =
+                    dev.cubentia.app.camera.corner.CornerModelTransform
+                        .frameToCrop(point.x, point.y, 100.0, 100.0, 80.0, rotation)
+                assertEquals(model.x, mine[0], 1e-9, "toCrop u at $rotation")
+                assertEquals(model.y, mine[1], 1e-9, "toCrop v at $rotation")
+            }
+        }
+        // At 90 degrees the crop's top (v = 0) lies toward the frame's -x... as CornerModelTransform maps it.
+        val at90 = ModelCrop(100.0, 100.0, 80.0, 90).toFrame(0.5, 0.0)
+        assertEquals(20.0, at90.x, 1e-9)
+        assertEquals(100.0, at90.y, 1e-9)
+    }
+
+    @Test fun `manual placement always starts at the guide hexagon, never the detector points, and stays inside the crop`() {
+        val template = initialKeypoints()
+        // The seed is the Y-anchor guide geometry alone, whatever the detector found: an untouched point is never its guess.
+        val detector = List(7) { listOf(0.1 * it, 0.5) }
+        assertTrue(template != detector)
+        assertEquals(template, initialKeypoints())
+        assertEquals(7, template.size)
+        assertEquals(listOf(0.5, 0.5), template[6])
+        assertEquals(0.5, template[0][0], 1e-9)
+        assertTrue(template[0][1] < 0.5 && template[3][1] > 0.5, "T above, B below the centre")
+        assertTrue(template[1][0] < 0.5 && template[5][0] > 0.5, "UL left, UR right")
+        assertEquals(listOf(1.0, 0.0), movedKeypoint(listOf(0.9, 0.1), 0.5, -0.5))
+        assertEquals(listOf(0.6, 0.3), movedKeypoint(listOf(0.5, 0.5), 0.1, -0.2).map { Math.round(it * 10) / 10.0 })
+    }
+
+    @Test fun `a new session never writes into a saved group`() {
+        val taken = setOf("lenovo_stla_warm", "lenovo_stla_warm-2")
+        assertEquals("lenovo_stla_cool", freshGroupName("lenovo_stla_cool") { it in taken })
+        assertEquals("lenovo_stla_warm-3", freshGroupName("lenovo_stla_warm") { it in taken })
+        assertEquals(1, nextKeypointIndex(emptyList()))
+        assertEquals(4, nextKeypointIndex(listOf("0001.json", "0001.png", "0003.json", "notes.txt")))
+    }
+
+    @Test fun `the group manifest marks the 10-19 pipeline and the operator's light direction`() {
+        val device =
+            dev.cubentia.domain.recognition
+                .DeviceInfo("TB128XU", "LENOVO", "13", "b", 33)
+        val manifest = groupManifest(device, " stla ", "warm ", dev.cubentia.domain.recognition.LightDirection.FRONT)
+        assertEquals("10.19", manifest.pipeline)
+        assertEquals("stla", manifest.cube)
+        assertEquals("warm", manifest.light)
+        assertEquals(dev.cubentia.domain.recognition.LightDirection.FRONT, manifest.lightDirection)
+        assertEquals(null, manifest.torch)
+        val lit = groupManifest(device, "stla", "warm", dev.cubentia.domain.recognition.LightDirection.FRONT, torch = true)
+        assertEquals(true, lit.torch)
+    }
+
+    @Test fun `the torch is recorded only on a camera with a flash unit`() {
+        assertEquals(true, recordedTorch(hasFlash = true, torchOn = true))
+        assertEquals(false, recordedTorch(hasFlash = true, torchOn = false))
+        assertEquals(null, recordedTorch(hasFlash = false, torchOn = true))
+        assertEquals(null, recordedTorch(hasFlash = null, torchOn = true))
+    }
+
+    @Test fun `the model-input crop uses the corner model's own radius multiplier`() {
+        assertEquals(dev.cubentia.app.camera.CORNER_MODEL_CROP_RADIUS_MULTIPLIER, MODEL_CROP_RADIUS_MULTIPLIER, 0.0)
+    }
 }

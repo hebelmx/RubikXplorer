@@ -31,8 +31,8 @@ sealed interface QuickScanEffect {
 
 /**
  * How Quick Scan reads a corner face once the frame is unwarped: every sticker against one calibration, by the shared
- * close-call rule. A face with any judged reading that is null or not CONFIDENT goes to the Guided grid (the 2D
- * fallback). The D2 replay (`QuickScanSideFaceReplayTest`) measures recorded corner fixtures through this same path.
+ * close-call rule, with no agreement gate. Since Story 10.19 the hand-over decision uses [QuickScanClassification]
+ * (gated), and the side-face replay (`QuickScanSideFaceReplayTest`) measures that path, not this one.
  */
 object QuickScanReadout {
     /**
@@ -75,18 +75,82 @@ object QuickScanReadout {
  */
 class QuickScanController(
     private val saved: CalibrationCenters? = null,
+    /** Whether [onFrame] runs the [SideLight] check (Story 10.19); off only in tests about other behavior. */
+    private val lightCheck: Boolean = true,
 ) {
     private val samples = linkedMapOf<Face, FaceSample>()
     private val keptSet = linkedSetOf<Face>()
     private val addedSamples = linkedMapOf<Face, FaceSample>()
-    private val corner = CornerHold()
+    private val corner = CornerHold(faceSteady = true)
     private var previous: List<Lab?>? = null
+
+    /**
+     * The pose-unchanged check that blocked the last detected corner frame (PO 2026-11-21, Story 10.19); null when it
+     * passed or did not run. While it blocks, nothing is captured (auto or manual) and the steady count does not start.
+     */
+    var centerBlock: CenterCheck? = null
+        private set
+
+    /** The three centre cells (Lab, by screen position) captured at each hold, for the pose-unchanged [CenterCheck]. */
+    private val holdCenters = mutableMapOf<Int, List<Lab?>>()
+
+    /** What the last corner capture read and decided per face, for the debug diagnostics; null before the first. */
+    var lastCapture: CornerCaptureReport? = null
+        private set
+
+    /** Why the last frame restarted the corner steady window (two or more cells of one face moved); null when it did not. */
+    val steadyRestart: CornerSteadyRestart? get() = corner.steadyRestart
 
     /** The corner hold the hand-over returns to on [backOut]; null when no hand-over was started since the last one. */
     private var resumeHold: Int? = null
     var hold = 1
         private set
     val coaching: Coaching? get() = corner.coaching
+
+    /**
+     * Whether the torch is on (Story 10.19): glare coaching then says to turn it off, and the light check is skipped (PO
+     * 2026-11-21: the torch is camera-side light, so no light hold and no sides-dark coaching). The adapter sets it.
+     */
+    var torchOn = false
+        private set
+
+    /** True while the light check holds back every capture (Story 10.19). */
+    val lightHeld: Boolean get() = corner.lightHeld
+
+    /**
+     * The last corner frame's [SideLight] verdict (calibrated when [saved] is valid); null when undetected or unmeasured.
+     * Still measured with the torch lit, for the diagnostics, but then it holds nothing.
+     */
+    var light: SideLight.Verdict? = null
+        private set
+
+    /** True while a torch change waits for the adapter to apply it (nothing is captured meanwhile). */
+    val torchPending: Boolean get() = corner.torchPending
+
+    /** When the running light hold engaged; null when none is held. */
+    val lightHeldSince: Long? get() = corner.lightHeldSince
+
+    /** The light check runs uncalibrated: no valid saved calibration ([SideLight.calibrated]). */
+    private val uncalibrated = !SideLight.calibrated(saved)
+
+    /** The time of the last corner frame; null before the first. */
+    private var lastFrameMs: Long? = null
+
+    /**
+     * The calibration offer (PO 2026-11-21, Story 10.19): an uncalibrated light hold that has run [CALIBRATION_OFFER_MS]
+     * without clearing, in the corner view, with the cube not lost and the torch off. It is never offered in calibrated
+     * mode or with the torch lit, and goes when the hold clears, the cube is lost or the corner view ends. It only offers:
+     * the light hold blocks capture exactly as without it.
+     */
+    val calibrationOffered: Boolean
+        get() {
+            val since = corner.lightHeldSince ?: return false
+            val now = lastFrameMs ?: return false
+            return inCorner && uncalibrated && !torchOn && corner.lightHeld && !corner.lostNow && now - since >= CALIBRATION_OFFER_MS
+        }
+
+    /** True while a metering change waits for the settle signal on a detected cube. */
+    val settling: Boolean get() = corner.settling
     var fallback: GuidedScanController? = null
         private set
     var fallbackFaces: List<Face> = emptyList()
@@ -108,16 +172,41 @@ class QuickScanController(
 
     val inCorner: Boolean get() = hold <= QuickScanPlan.holds.size
 
+    /**
+     * One analysis frame of the corner view. The domain runs the [SideLight] check over [faces] itself (calibrated
+     * against [saved] when it is valid, PO 2026-11-21 E); an undetected frame is not measured and never holds. [settled]
+     * is the adapter's settle signal for the latest metering change (null: no signal, the fixed [CornerHold.SETTLE_MS]
+     * applies and a manual press is queued only while a torch change is pending).
+     */
     fun onFrame(
         detected: Boolean,
         faces: List<FrameStats?>,
         nowMs: Long,
+        settled: Boolean? = null,
     ): List<QuickScanEffect> {
         if (!inCorner) return emptyList()
+        lastFrameMs = nowMs
+        centerBlock = null
+        val light = if (detected && lightCheck) SideLight.check(faces, saved) else null
+        this.light = light
         val decision =
-            corner.onFrame(detected, faces, nowMs, clearWhenUnlocated = hold == 2) { values ->
+            corner.onFrame(
+                detected,
+                faces,
+                nowMs,
+                clearWhenUnlocated = hold == 2,
+                // PO 2026-11-21: the light check is skipped while the torch is lit.
+                light = light.takeUnless { torchOn },
+                settled = settled,
+                torchOn = torchOn,
+            ) { values ->
+                val check = CenterCheck.of(hold, corner.latest, holdCenters.entries.firstOrNull { it.key != hold }?.value)
                 val prior = previous
-                if (prior != null && !turnedOver(values, prior)) {
+                if (check != null && check.blocks) {
+                    // PO 2026-11-21: a hold still showing the other hold's centres (the cube not turned) never captures.
+                    centerBlock = check
+                    false
+                } else if (prior != null && !turnedOver(values, prior)) {
                     false
                 } else {
                     previous = null
@@ -127,11 +216,50 @@ class QuickScanController(
         return when (decision) {
             CornerHold.Decision.Wait -> emptyList()
             CornerHold.Decision.Remeter -> listOf(QuickScanEffect.Remeter)
-            CornerHold.Decision.Capture -> onShutter()
+            CornerHold.Decision.Capture -> take()
         }
     }
 
+    /** The physical torch state the adapter reported on the last [syncTorch]; null before it reported one. */
+    private var lastApplied: Boolean? = null
+
+    /**
+     * One frame's torch state (Story 10.19): [requested] is the torch the corner view wants (the Learner's choice on a
+     * camera with a flash unit), [applied] what the adapter last applied physically (null: unknown yet). Coaching follows
+     * [requested] at once. A torch change is a metering change, but it starts only once the physical torch matches: until
+     * then nothing is captured and a press is queued (at most [SETTLE_CAP_MS], so a torch that never applies cannot
+     * block capture). The same wait runs when the physical torch drifts from the wanted state (a camera reopen).
+     */
+    fun syncTorch(
+        requested: Boolean,
+        applied: Boolean?,
+        nowMs: Long,
+    ) {
+        val changed = requested != torchOn
+        val drifted = lastApplied == requested && applied != requested
+        torchOn = requested
+        lastApplied = applied
+        // PO 2026-11-21: the torch turning on clears a running light hold at once (the check is skipped while it is lit).
+        if (changed && requested) corner.clearLightHold()
+        when {
+            changed || drifted -> if (applied == requested) corner.remeter() else corner.awaitTorch(nowMs)
+            applied == requested -> corner.torchApplied()
+        }
+    }
+
+    /**
+     * The manual shutter: ignored while the light hold blocks capture, queued while the metering settles (it fires once
+     * settled, unless the light hold engages or the cube is lost first), otherwise the corner is taken now.
+     */
     fun onShutter(): List<QuickScanEffect> {
+        if (!inCorner || (previous != null && !corner.unlocated) || centerBlock != null) return emptyList()
+        return when (corner.press()) {
+            CornerHold.Press.Take -> take()
+            CornerHold.Press.Queued, CornerHold.Press.Ignored -> emptyList()
+        }
+    }
+
+    private fun take(): List<QuickScanEffect> {
         if (!inCorner || (previous != null && !corner.unlocated)) return emptyList()
         val taken = hold++
         QuickScanPlan.holds[taken - 1].zip(corner.latest).forEach { (step, stats) ->
@@ -150,6 +278,13 @@ class QuickScanController(
                     )
             }
         }
+        holdCenters[taken] = CenterCheck.centers(corner.latest)
+        val merged = captured
+        lastCapture =
+            CornerCaptureReport(
+                taken,
+                QuickScanClassification.report(merged, QuickScanPlan.holds[taken - 1].map { it.face }.filter { it !in keptSet }, saved),
+            )
         if (inCorner) {
             previous =
                 corner.values().takeIf { it.any { value -> value != null } }
@@ -162,7 +297,7 @@ class QuickScanController(
         fallbackFaces = needGrid(captured, Face.entries.filter { it !in keptSet })
         val asked =
             fallbackFaces.ifEmpty {
-                repromptFaces = involvedFaces(captured).filter { it !in keptSet }
+                repromptFaces = involvedFaces(captured, keptSet)
                 repromptFaces
             }
         return listOf(capture, if (asked.isEmpty()) QuickScanEffect.Done(captured) else handOver(asked.toSet(), resumeAt = taken))
@@ -234,39 +369,19 @@ class QuickScanController(
         return QuickScanEffect.Fallback(plan.map { it.face })
     }
 
-    private fun involvedFaces(merged: List<FaceSample>): List<Face> {
-        val calibration = SelfCalibration.from(merged, saved) as? SelfCalibration.Calibrated ?: return emptyList()
-        return ScanAssembler.repromptFaces(merged, calibration.calibration, repromptPosed = true)
-    }
+    private fun involvedFaces(
+        merged: List<FaceSample>,
+        kept: Set<Face>,
+    ): List<Face> = QuickScanClassification.involvedFaces(merged, saved, kept)
 
     /**
-     * Faces among [faces] that the Guided grid must read: missing, not ACCEPTABLE, uncalibrated or with an UNCERTAIN
-     * sticker. With no calibration yet, a face's stickers are judged against the captured faces' own centers, so only a
-     * face with all nine stickers read is kept (AC1; the colors are still produced once, in the combined assembly).
+     * Faces among [faces] that the Guided grid must read, by the Quick-Scan-only gated classification
+     * ([QuickScanClassification.needGrid]): missing, not ACCEPTABLE, uncalibrated or with a sticker not CONFIDENT.
      */
     private fun needGrid(
         merged: List<FaceSample>,
         faces: List<Face>,
-    ): List<Face> {
-        val calibration = SelfCalibration.from(merged, saved)
-        val byFace = merged.associateBy { it.face }
-        return faces.filter { face ->
-            val sample = byFace[face]
-            sample == null || sample.quality != CaptureQuality.ACCEPTABLE ||
-                when (calibration) {
-                    is SelfCalibration.NeedsCalibration -> {
-                        Color.home(face) in calibration.colors ||
-                            QuickScanReadout
-                                .judgedAgainst(sample, SelfCalibration.trustedCenters(merged))
-                                .any { it?.confidence != StickerConfidence.CONFIDENT }
-                    }
-
-                    is SelfCalibration.Calibrated -> {
-                        QuickScanReadout.judged(sample, calibration.calibration).any { it?.confidence != StickerConfidence.CONFIDENT }
-                    }
-                }
-        }
-    }
+    ): List<Face> = QuickScanClassification.needGrid(merged, faces, saved)
 
     /**
      * True once the view shows another corner than the one just taken: the top center (white vs yellow) changed, or,
@@ -301,5 +416,60 @@ class QuickScanController(
     companion object {
         /** The hand-over viewfinder waits this long before its first auto-capture, so the Learner can turn the cube. */
         const val HAND_OVER_DELAY_MS = 2500L
+
+        /** The settle cap of the shared corner hold ([CornerSettle.CAP_MS]). */
+        const val SETTLE_CAP_MS = CornerSettle.CAP_MS
+
+        /** How long an uncalibrated light hold runs without clearing before the calibration offer shows (PO 2026-11-21). */
+        const val CALIBRATION_OFFER_MS = 5000L
     }
 }
+
+/**
+ * The pose-unchanged check of a corner hold (PO 2026-11-21, Story 10.19): the three visible centre cells against the
+ * centre cells captured at the other hold in the same screen positions, compared in Lab with no colour classification (a
+ * saved calibration made on another cube cannot block a capture, AC5). [deltaE] is per screen position, null where either
+ * centre is missing or invalid. The check [blocks] only when all three centres lie within [POSE_MATCH_DELTA_E] of the
+ * other hold's: the cube was not turned. Before the other hold was captured there is nothing to compare and nothing blocks.
+ */
+data class CenterCheck(
+    val hold: Int,
+    val deltaE: List<Double?>,
+) {
+    val blocks: Boolean get() = deltaE.isNotEmpty() && deltaE.all { it != null && it < POSE_MATCH_DELTA_E }
+
+    companion object {
+        /** Two centre cells closer than this (CIE76) are the same sticker seen again: the pose did not change. */
+        const val POSE_MATCH_DELTA_E = 11.0
+
+        /** The check of [faces] at [hold] against [other], the other hold's captured centres; null when none was captured. */
+        fun of(
+            hold: Int,
+            faces: List<FrameStats?>,
+            other: List<Lab?>?,
+        ): CenterCheck? {
+            other ?: return null
+            val now = centers(faces)
+            return CenterCheck(
+                hold,
+                now.zip(other).map { (a, b) -> if (a != null && b != null) StickerClassifier.deltaE(a, b) else null },
+            )
+        }
+
+        /** The centre cell of each of [faces], null where missing or invalid. */
+        fun centers(faces: List<FrameStats?>): List<Lab?> =
+            faces.map { stats ->
+                stats
+                    ?.cells
+                    ?.getOrNull(FaceSample.CENTER_INDEX)
+                    ?.value
+                    ?.takeIf { it.isValid() }
+            }
+    }
+}
+
+/** One corner capture's per-face outcome (Story 10.19 diagnostics): colour names and counts only, never pixels. */
+data class CornerCaptureReport(
+    val hold: Int,
+    val faces: List<QuickScanClassification.FaceReport>,
+)

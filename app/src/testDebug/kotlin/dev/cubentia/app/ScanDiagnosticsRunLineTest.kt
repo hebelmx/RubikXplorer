@@ -102,4 +102,115 @@ class ScanDiagnosticsRunLineTest {
         flow.reset()
         assertTrue(runs("placement").isEmpty())
     }
+
+    @Test fun `quick scan logs the light check, light hold, metering and torch as numbers only`() {
+        val face =
+            dev.cubentia.domain.recognition.FrameStats(
+                List(9) {
+                    dev.cubentia.domain.recognition
+                        .CellReading(
+                            dev.cubentia.domain.recognition
+                                .Lab(80.0, 0.0, 0.0),
+                            true,
+                        )
+                },
+                120.0,
+                0.5,
+                100.0,
+                12,
+            )
+        val dark =
+            dev.cubentia.domain.recognition.SideLight
+                .Verdict(false, 90.0, 55.0, 80.0)
+        val line = ScanDiagnostics.cornerFrameLine(true, listOf(face, face, face), 0.9, dark, lightHeld = true, torch = true)
+        assertEquals(
+            "quickScan frame detected=true quality=GLARE,GLARE,GLARE score=0.9 light=90.0,55.0,80.0 sideDiff=35.0 " +
+                "lightScore=35.0 lightCheck=fail lightMode=torch lightHold=true torch=on glare=torch",
+            line,
+        )
+        val calibrated =
+            dev.cubentia.domain.recognition.SideLight
+                .Verdict(true, 1.2, 0.9, 1.1, dev.cubentia.domain.recognition.SideLight.Mode.CALIBRATED)
+        val calibratedLine =
+            ScanDiagnostics.cornerFrameLine(
+                true,
+                listOf(face, face, face),
+                0.9,
+                calibrated,
+                lightHeld = false,
+                torch = false,
+            )
+        assertTrue(
+            calibratedLine,
+            calibratedLine.contains("light=1.200,0.900,1.100 lightScore=1.200 lightCheck=pass lightMode=calibrated"),
+        )
+        val none = ScanDiagnostics.cornerFrameLine(false, listOf(null, null, null), 0.0, null, lightHeld = false, torch = false)
+        assertTrue(none, none.endsWith("light=-,-,- sideDiff=- lightScore=- lightCheck=- lightMode=- lightHold=false torch=off glare=-"))
+        ScanDiagnostics.onLightHold(started = true, heldMs = null)
+        ScanDiagnostics.onLightHold(started = false, heldMs = 1200)
+        ScanDiagnostics.onMetering(supported = false, onOutline = false)
+        ScanDiagnostics.onMeteringSettled(settleMs = 1500, timeout = true)
+        ScanDiagnostics.onTorch(hasFlash = false, torch = false)
+        val lines = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }
+        assertEquals(
+            listOf(
+                "quickScan lightHold start",
+                "quickScan lightHold clear heldMs=1200",
+                "quickScan metering supported=false region=centre",
+                "quickScan metering settleMs=1500 timeout=true",
+                "quickScan torch hasFlash=false torch=off",
+            ),
+            lines,
+        )
+    }
+
+    @Test fun `quick scan logs each corner capture and a centre block with colour names and counts only`() {
+        val report =
+            dev.cubentia.domain.recognition.CornerCaptureReport(
+                2,
+                listOf(
+                    dev.cubentia.domain.recognition.QuickScanClassification.FaceReport(
+                        Face.D,
+                        dev.cubentia.domain.cube.Color.YELLOW,
+                        8,
+                        0,
+                        false,
+                        dev.cubentia.domain.recognition.CaptureQuality.ACCEPTABLE,
+                        false,
+                        0,
+                        0,
+                        false,
+                    ),
+                    dev.cubentia.domain.recognition.QuickScanClassification.FaceReport(
+                        Face.L,
+                        dev.cubentia.domain.cube.Color.ORANGE,
+                        5,
+                        3,
+                        true,
+                        dev.cubentia.domain.recognition.CaptureQuality.ACCEPTABLE,
+                        false,
+                        1,
+                        2,
+                        true,
+                    ),
+                    dev.cubentia.domain.recognition.QuickScanClassification
+                        .FaceReport(Face.B, null, 0, 0, true, null, false, 0, 0, false),
+                ),
+            )
+        ScanDiagnostics.onCornerCapture(report)
+        val check =
+            dev.cubentia.domain.recognition
+                .CenterCheck(2, listOf(1.2, null, 7.0))
+        ScanDiagnostics.onCenterBlock(0, check)
+        val lines = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }
+        assertEquals(
+            listOf(
+                "quickScan capture hold=2 D:center=YELLOW,confident=8,uncertain=0,kept,reason=- " +
+                    "L:center=ORANGE,confident=5,uncertain=3,grid,reason=disagree=2/closeCall=1/correction=rejected " +
+                    "B:center=-,confident=0,uncertain=0,grid,reason=missing",
+                "quickScan centerBlock hold=2 deltaE=1.2,-,7.0",
+            ),
+            lines,
+        )
+    }
 }
