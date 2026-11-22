@@ -29,8 +29,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -52,6 +57,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -89,6 +95,7 @@ import dev.cubentia.domain.text.Text
 import kotlinx.coroutines.channels.Channel
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -597,7 +604,8 @@ class Cube3DRenderer(
         val activePreview = preview as? DragPreview.Active
         val overlayMove = activePreview?.move ?: teachingArrow
         val overlayProgress = if (activePreview != null) 1f else arrowProgress
-        val arrowColor = CubeTokens.stickerHighlight.copy(alpha = if (activePreview != null) 0.6f else 1f)
+        val ghostArrow = activePreview != null
+        val labelColor = arrowColors().fill.copy(alpha = if (ghostArrow) GHOST_ARROW_ALPHA else 1f)
         val gesture = if (viewGestures) cubeGestureInput(this, onMoveIntent, onDragStart, freeViewRotation, reduceMotion) else Modifier
         val rotated = isViewRotated
         var wasRotated by remember(this) { mutableStateOf(rotated) }
@@ -654,35 +662,15 @@ class Cube3DRenderer(
                     val label =
                         measurer.measure(
                             Notation.format(overlayMove),
-                            RubikTheme.textStyles.notation.copy(color = arrowColor),
+                            RubikTheme.textStyles.notation.copy(color = labelColor),
                         )
                     Canvas(Modifier.matchParentSize()) {
                         val pose = pose(size.width.toInt(), size.height.toInt())
                         val points = arrowPoints(overlayMove, pose)
-                        val position = overlayProgress * points.lastIndex
-                        val whole = position.toInt().coerceAtMost(points.lastIndex)
-                        val tip =
-                            if (whole ==
-                                points.lastIndex
-                            ) {
-                                points.last()
-                            } else {
-                                points[whole] + (points[whole + 1] - points[whole]) * (position - whole)
-                            }
-                        val path =
-                            Path().apply {
-                                moveTo(points.first().x, points.first().y)
-                                for (i in 1..whole) lineTo(points[i].x, points[i].y)
-                                lineTo(tip.x, tip.y)
-                            }
-                        drawPath(path, arrowColor, style = Stroke(4.dp.toPx()))
+                        val cut = arrowCut(points, overlayProgress)
+                        val tip = cut.last()
                         if (overlayProgress > 0f) {
-                            val previous = points[(whole - 1).coerceAtLeast(0)]
-                            val direction = (tip - previous).let { if (it.getDistance() > 0f) it / it.getDistance() else Offset(1f, 0f) }
-                            val back = tip - direction * 12.dp.toPx()
-                            val side = Offset(-direction.y, direction.x) * 6.dp.toPx()
-                            drawLine(arrowColor, tip, back + side, 4.dp.toPx())
-                            drawLine(arrowColor, tip, back - side, 4.dp.toPx())
+                            drawMoveArrow(cut, ghost = ghostArrow)
                             drawText(
                                 label,
                                 topLeft =
@@ -780,6 +768,90 @@ class Cube3DRenderer(
             )
         }
 
+        /** Width of the Move arrow's sticker-highlight shaft (DESIGN.md, Move arrow). */
+        internal val ARROW_STROKE: Dp = 4.dp
+
+        /** Width of the cubie-body casing on each side of the shaft and around the arrowhead. */
+        internal val ARROW_CASING: Dp = 1.5.dp
+
+        /** Length of the filled arrowhead along the direction of travel. */
+        internal val ARROWHEAD_LENGTH: Dp = 18.dp
+
+        /** Half-width of the filled arrowhead at its base. */
+        internal val ARROWHEAD_HALF_WIDTH: Dp = 9.dp
+
+        /** Opacity of the whole ghost Move arrow while a drag preview is active. */
+        internal const val GHOST_ARROW_ALPHA = 0.6f
+
+        /** Opaque colours of the Move arrow: [fill] for the shaft and head, [casing] around them. */
+        internal data class ArrowColors(
+            val fill: Color,
+            val casing: Color,
+        )
+
+        /** Sticker-highlight on a cubie-body casing; the ghost arrow fades the whole arrow instead. */
+        internal fun arrowColors(): ArrowColors = ArrowColors(fill = CubeTokens.stickerHighlight, casing = CubeTokens.cubieBody)
+
+        /**
+         * Corners of a filled arrowhead with its apex on [tip], pointing along the unit [direction]:
+         * the apex, then the two base corners [length] back and [halfWidth] either side.
+         */
+        internal fun arrowhead(
+            tip: Offset,
+            direction: Offset,
+            length: Float,
+            halfWidth: Float,
+        ): List<Offset> {
+            val base = tip - direction * length
+            val side = Offset(-direction.y, direction.x) * halfWidth
+            return listOf(tip, base + side, base - side)
+        }
+
+        /**
+         * The drawn part of the arc [points] at animation [progress] (0..1): the points up to the
+         * animated tip, then the tip interpolated along the next segment; the last point is the tip.
+         */
+        internal fun arrowCut(
+            points: List<Offset>,
+            progress: Float,
+        ): List<Offset> {
+            val position = progress * points.lastIndex
+            val whole = position.toInt().coerceAtMost(points.lastIndex)
+            val tip =
+                if (whole == points.lastIndex) {
+                    points.last()
+                } else {
+                    points[whole] + (points[whole + 1] - points[whole]) * (position - whole)
+                }
+            return points.subList(0, whole + 1).let { if (tip == it.last()) it else it + tip }
+        }
+
+        /** The point [distance] back from the last of [points], measured along the polyline, clamped at its first point. */
+        internal fun pointBack(
+            points: List<Offset>,
+            distance: Float,
+        ): Offset = trimBack(points, distance).last()
+
+        /**
+         * [points] cut to end [distance] back from their last point, measured along the polyline;
+         * just the first point when the polyline is no longer than [distance].
+         */
+        internal fun trimBack(
+            points: List<Offset>,
+            distance: Float,
+        ): List<Offset> {
+            var remaining = distance
+            for (i in points.lastIndex downTo 1) {
+                val segment = points[i] - points[i - 1]
+                val length = segment.getDistance()
+                if (length > 0f && length >= remaining) {
+                    return points.subList(0, i) + (points[i] - segment * (max(0f, remaining) / length))
+                }
+                remaining -= length
+            }
+            return points.take(1)
+        }
+
         /** Projected curvature (sagitta over chord) below which the drawn arc would read as a straight line. */
         internal const val MIN_ARC_CURVATURE = 0.05
 
@@ -828,6 +900,73 @@ class Cube3DRenderer(
 }
 
 internal val FACE_LABEL_GAP = 6.dp
+
+/**
+ * Draws the Move arrow along [points], whose last point is the tip: a sticker-highlight shaft and
+ * filled arrowhead, both cased in cubie-body. A [ghost] arrow is drawn opaque into one offscreen
+ * layer faded to [Cube3DRenderer.GHOST_ARROW_ALPHA], so overlapping paths never stack alpha.
+ */
+internal fun DrawScope.drawMoveArrow(
+    points: List<Offset>,
+    ghost: Boolean,
+) {
+    if (points.size < 2) return
+    val colors = Cube3DRenderer.arrowColors()
+    val stroke = Cube3DRenderer.ARROW_STROKE.toPx()
+    val casing = Cube3DRenderer.ARROW_CASING.toPx()
+    val headLength = Cube3DRenderer.ARROWHEAD_LENGTH.toPx()
+    val tip = points.last()
+    // Head direction: the chord over the head's own arc length, else the last non-zero segment.
+    val direction =
+        (tip - Cube3DRenderer.pointBack(points, headLength)).takeIf { it.getDistance() > 0f }
+            ?: points.zipWithNext().lastOrNull { (a, b) -> b != a }?.let { (a, b) -> b - a }
+    val unit = direction?.let { it / it.getDistance() }
+    val head =
+        unit?.let {
+            val corners = Cube3DRenderer.arrowhead(tip, it, headLength, Cube3DRenderer.ARROWHEAD_HALF_WIDTH.toPx())
+            Path().apply {
+                moveTo(corners[0].x, corners[0].y)
+                lineTo(corners[1].x, corners[1].y)
+                lineTo(corners[2].x, corners[2].y)
+                close()
+            }
+        }
+    // The shaft ends inside the head, where the head is wider than the cased shaft, so the head
+    // covers its end: no seam at the base and nothing past the narrow apex. The end sits on the
+    // head's axis so a tightly curved arc cannot sag it out of the head's side.
+    val trimmed = Cube3DRenderer.trimBack(points, headLength / 2)
+    val shaftPoints =
+        if (unit != null && trimmed.size >= 2) trimmed.dropLast(1) + (tip - unit * (headLength / 2)) else trimmed
+    val shaft =
+        if (shaftPoints.size < 2) {
+            null
+        } else {
+            Path().apply {
+                moveTo(shaftPoints.first().x, shaftPoints.first().y)
+                for (i in 1..shaftPoints.lastIndex) lineTo(shaftPoints[i].x, shaftPoints[i].y)
+            }
+        }
+    val canvas = drawContext.canvas
+    if (ghost) {
+        val reach = headLength + casing
+        val bounds =
+            Rect(
+                min(0f, points.minOf { it.x } - reach),
+                min(0f, points.minOf { it.y } - reach),
+                max(size.width, points.maxOf { it.x } + reach),
+                max(size.height, points.maxOf { it.y } + reach),
+            )
+        canvas.saveLayer(bounds, Paint().apply { alpha = Cube3DRenderer.GHOST_ARROW_ALPHA })
+    }
+    try {
+        shaft?.let { drawPath(it, colors.casing, style = Stroke(stroke + 2 * casing)) }
+        head?.let { drawPath(it, colors.casing, style = Stroke(2 * casing, join = StrokeJoin.Round)) }
+        shaft?.let { drawPath(it, colors.fill, style = Stroke(stroke)) }
+        head?.let { drawPath(it, colors.fill) }
+    } finally {
+        if (ghost) canvas.restore()
+    }
+}
 
 internal class FaceLabelGlyphs(
     val layouts: Map<Face, TextLayoutResult>,
