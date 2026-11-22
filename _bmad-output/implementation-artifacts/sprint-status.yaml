@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-22-2026 17:10'
+last_updated: '11-22-2026 17:35'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -193,7 +193,7 @@ development_status:
 
   epic-14: in-progress
   14-1-choose-my-entry-level-when-i-can-already-solve-it: done
-  14-2-practice-an-algorithm-on-my-real-cube: review
+  14-2-practice-an-algorithm-on-my-real-cube: done
   14-3-practice-every-lesson-step-on-my-real-cube-with-a-quick-chec: backlog
   epic-14-retrospective: optional
 
@@ -1989,3 +1989,15 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-14-1-choose-my-entry-level-when-i-can-already-solve-it.md"
+  - id: "epic-14-deferred-14.2-device-check"
+    epic: 14
+    action: "Story 14.2 device check on the main app build, Lenovo Tab M10 Plus 3rd Gen and Galaxy S24 FE: practice an OLL and a PLL Algorithm on the real cube both ways (set up from solved, already shows this case), Again, close back to the detail, a Quick Check mid-Algorithm with CAMERA_SCAN on, TalkBack and 200% font at 600dp (medium; deferred from 14.2 by PO decision 2026-11-22, merged before the device check; batch with epic-14-deferred-14.1-device-check)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-14-2-practice-an-algorithm-on-my-real-cube.md"
+  - id: "epic-14-deferred-14.2-practice-start-virtual-frame"
+    epic: 14
+    action: "Starting an Algorithm practice dispatches SolvePlaybackStarted and ModeSwitched separately, so one frame of virtual playback (3D, scrubber) can show before Physical-cube Mode; start in physical mode in one dispatch or hold the overlay until isPhysical (low, Learner-visible; deferred from 14.2, app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt:392-398)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-14-2-practice-an-algorithm-on-my-real-cube.md"
