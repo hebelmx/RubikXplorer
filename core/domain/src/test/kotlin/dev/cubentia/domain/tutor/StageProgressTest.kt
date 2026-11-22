@@ -185,4 +185,21 @@ class StageProgressTest {
             StageProgress.status(practiceStage, withPractice, stage1Done, mastered = setOf(practiceStage.id)),
         )
     }
+
+    @Test
+    fun `a Stage skipped by choice reads SKIPPED, unlocks, satisfies prerequisites and is never MASTERED`() {
+        val chosen = listOf(ProgressEvent.StageSkippedByChoice(stage1.id), ProgressEvent.StageSkippedByChoice(stage2.id))
+
+        assertEquals(StageStatus.SKIPPED, StageProgress.status(stage1, stages, chosen))
+        assertEquals(StageStatus.SKIPPED, StageProgress.status(stage2, stages, chosen))
+        assertEquals(StageStatus.IN_PROGRESS, StageProgress.status(stage3, stages, chosen))
+        assertTrue(StageProgress.prerequisitesMet(stage3, stages, chosen))
+        assertTrue(stage2.lessons.all { StageProgress.isLessonUnlocked(it, stages, chosen) })
+        assertEquals(StageStatus.LOCKED, StageProgress.status(stage4, stages, chosen))
+        assertTrue(StageProgress.statuses(stages, chosen).values.none { it == StageStatus.MASTERED })
+
+        val onlyLater = listOf(ProgressEvent.StageSkippedByChoice(stage3.id))
+        assertEquals(StageStatus.SKIPPED, StageProgress.status(stage3, stages, onlyLater))
+        assertEquals(StageStatus.IN_PROGRESS, StageProgress.status(stage4, stages, onlyLater))
+    }
 }

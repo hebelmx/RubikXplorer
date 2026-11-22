@@ -48,7 +48,7 @@ import dev.cubentia.domain.text.Text as ContentText
 /**
  * The Welcome screen (FR-4, FR-17, AD-10, AD-18, UX-DR21, UX-DR22, UX Flow 8):
  * Offers beginners *I'm new* (navigates to Stage 1), proficient solvers *I can already solve it*
- * (full-Course skip check), an inline color-blind glyphs toggle (`W Y R O G B`), a conditional
+ * (the entry-level picker, Story 14.1), an inline color-blind glyphs toggle (`W Y R O G B`), a conditional
  * *Start from my cube* placement action (gated behind [FeatureFlag.PLACEMENT]), and displays
  * an encouraging exit banner when a check is abandoned.
  */

@@ -286,6 +286,7 @@ class StageProgressUseCasesTest {
         private fun stageIdOf(event: ProgressEvent): StageId? =
             when (event) {
                 is ProgressEvent.StageSkippedByCheck -> event.stageId
+                is ProgressEvent.StageSkippedByChoice -> event.stageId
                 is ProgressEvent.StageSkippedByPlacement -> event.stageId
                 is ProgressEvent.StageUnlocked -> event.stageId
                 is ProgressEvent.LessonCompleted, is ProgressEvent.ProgressReset -> null

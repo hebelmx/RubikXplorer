@@ -28,7 +28,9 @@ import dev.cubentia.application.session.SessionSnapshot
 import dev.cubentia.application.session.SessionState
 import dev.cubentia.application.session.Transition
 import dev.cubentia.application.session.reduce
+import dev.cubentia.application.usecase.ChooseEntryLevel
 import dev.cubentia.application.usecase.CompleteLesson
+import dev.cubentia.application.usecase.EntryLevel
 import dev.cubentia.application.usecase.PassSkipCheck
 import dev.cubentia.application.usecase.PlaceFromScan
 import dev.cubentia.application.usecase.ResetProgress
@@ -84,6 +86,7 @@ class SessionHost internal constructor(
     private val algorithmStatusRepository: AlgorithmStatusRepository? = null,
     private val setAlgorithmStatus: SetAlgorithmStatus? = null,
     private val placeFromScan: PlaceFromScan? = null,
+    private val chooseEntryLevel: ChooseEntryLevel? = null,
     /** Sees every event this host reduced, in order; tests use it to observe events that change no state. */
     private val reduced: (SessionEvent) -> Unit = {},
 ) {
@@ -102,6 +105,7 @@ class SessionHost internal constructor(
         placeFromScan: PlaceFromScan,
         algorithmStatusRepository: AlgorithmStatusRepository,
         setAlgorithmStatus: SetAlgorithmStatus,
+        chooseEntryLevel: ChooseEntryLevel,
     ) :
         this(
             clock,
@@ -118,6 +122,7 @@ class SessionHost internal constructor(
             placeFromScan = placeFromScan,
             algorithmStatusRepository = algorithmStatusRepository,
             setAlgorithmStatus = setAlgorithmStatus,
+            chooseEntryLevel = chooseEntryLevel,
         )
 
     constructor(clock: Clock) : this(clock, Dispatchers.Default.limitedParallelism(1))
@@ -577,6 +582,46 @@ class SessionHost internal constructor(
                     writer.read { useCase(target, stages, at = clock.now()) }
                 } else {
                     useCase(target, stages, at = clock.now())
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                ProgressWrite.Failed
+            }
+        if (result !is ProgressWrite.Written) return false
+        refreshProgressAfterWrite(result.events)
+        return true
+    }
+
+    private val entryLevelUseCase = chooseEntryLevel ?: progress?.let(::ChooseEntryLevel)
+    private val memoryEntryLevel =
+        ChooseEntryLevel.inMemory(
+            events = { currentProgress.value },
+            onWritten = { written -> currentProgress.update { it + written } },
+        )
+
+    /**
+     * Records a chosen entry level through the [ChooseEntryLevel] single writer (FR-4, AD-10) without opening or
+     * changing a LearningSession; true when the write (possibly empty) succeeded.
+     */
+    suspend fun chooseEntryLevel(
+        level: EntryLevel,
+        courseStages: List<Stage>,
+        twoLookStages: List<Stage>,
+        mastered: Set<StageId> = emptySet(),
+    ): Boolean {
+        val useCase = entryLevelUseCase
+        if (useCase == null) {
+            return withContext(confined) {
+                memoryEntryLevel(level, courseStages, twoLookStages, at = clock.now(), mastered = mastered) is ProgressWrite.Written
+            }
+        }
+        val result =
+            try {
+                if (writer != null) {
+                    writer.read { useCase(level, courseStages, twoLookStages, at = clock.now(), mastered = mastered) }
+                } else {
+                    useCase(level, courseStages, twoLookStages, at = clock.now(), mastered = mastered)
                 }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled

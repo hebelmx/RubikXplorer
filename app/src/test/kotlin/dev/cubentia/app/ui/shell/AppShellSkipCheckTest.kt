@@ -192,7 +192,7 @@ class AppShellSkipCheckTest {
     }
 
     @Test
-    fun `tapping I can already solve it opens course skip check with hints disabled and no mode or Physical mode switcher`() {
+    fun `Check me with a scramble opens the course skip check with hints off and no mode or Physical switcher`() {
         val host = createHost()
         val shipped = ContentLoader.load(ContentSource.SHIPPED)
         val catalog = LessonCatalog.of(shipped)
@@ -213,6 +213,7 @@ class AppShellSkipCheckTest {
         }
 
         rule.onNodeWithTag("welcome:canSolve").performClick()
+        rule.onNodeWithTag("entryLevel:check").performClick()
 
         // Course skip check opens
         rule.onNodeWithTag("lesson").assertIsDisplayed()
@@ -249,6 +250,7 @@ class AppShellSkipCheckTest {
         }
 
         rule.onNodeWithTag("welcome:canSolve").performClick()
+        rule.onNodeWithTag("entryLevel:check").performClick()
         rule.onNodeWithTag("lesson").assertIsDisplayed()
 
         // Commit a move
@@ -291,6 +293,7 @@ class AppShellSkipCheckTest {
         }
 
         rule.onNodeWithTag("welcome:canSolve").performClick()
+        rule.onNodeWithTag("entryLevel:check").performClick()
         rule.onNodeWithTag("lesson").assertIsDisplayed()
 
         // Solve the 1-move scramble (U was applied, turn U' to solve)

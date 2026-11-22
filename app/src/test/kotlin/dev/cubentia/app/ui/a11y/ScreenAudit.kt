@@ -162,10 +162,21 @@ internal fun auditScreens(
         }
     }
     check("Welcome")
+    rule.onNodeWithTag("welcome:canSolve").performScrollTo().performClick()
+    check("Entry level picker")
+    rule.onNodeWithTag("entryLevel:note").performScrollTo().assertIsDisplayed()
+    rule.onNodeWithTag("entryLevel:back").performClick()
     rule.onNodeWithTag("welcome:imNew").performScrollTo().performClick()
     check("Stage detail")
     rule.onNodeWithTag("stageDetail:back").performClick()
     check("Learn")
+    rule.onNodeWithTag("learn:findMyPlace").performClick()
+    rule.waitUntil(5_000) { rule.onAllNodesWithTag("findMyPlace:chooseLevel").fetchSemanticsNodes().isNotEmpty() }
+    check("Find my place")
+    rule.onNodeWithTag("findMyPlace:chooseLevel").performClick()
+    rule.waitUntil(5_000) { rule.onAllNodesWithTag("findMyPlace:chooseLevel").fetchSemanticsNodes().isEmpty() }
+    check("Entry level picker from Learn")
+    rule.onNodeWithTag("entryLevel:back").performClick()
     rule.onNodeWithTag("nav:library").performClick()
     check("Library")
     rule

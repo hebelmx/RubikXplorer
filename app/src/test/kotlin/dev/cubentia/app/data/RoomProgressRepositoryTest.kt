@@ -54,7 +54,7 @@ class RoomProgressRepositoryTest {
         return start.apply(moves)
     }
 
-    @Test fun roundTripsAllFiveEventTypesIgnoresDuplicateKeysAndHandlesFailures() =
+    @Test fun roundTripsAllSixEventTypesIgnoresDuplicateKeysAndHandlesFailures() =
         runBlocking {
             val db =
                 Room
@@ -70,6 +70,7 @@ class RoomProgressRepositoryTest {
                     ProgressRecord("s1", 3, ProgressEvent.StageSkippedByPlacement(StageId("stage-01-fundamentals"), t0)),
                     ProgressRecord("s1", 4, ProgressEvent.StageUnlocked(StageId("stage-03-first-layer-corners"), t0)),
                     ProgressRecord("s1", 5, ProgressEvent.ProgressReset(1L, t0)),
+                    ProgressRecord("s1", 6, ProgressEvent.StageSkippedByChoice(StageId("stage-04-middle-layer"), t0)),
                 )
             try {
                 assertEquals(ProgressSave.Saved, repo.append(records))
@@ -81,6 +82,7 @@ class RoomProgressRepositoryTest {
                             when (val e = record.event) {
                                 is ProgressEvent.LessonCompleted -> e.copy(at = later)
                                 is ProgressEvent.StageSkippedByCheck -> e.copy(at = later)
+                                is ProgressEvent.StageSkippedByChoice -> e.copy(at = later)
                                 is ProgressEvent.StageSkippedByPlacement -> e.copy(at = later)
                                 is ProgressEvent.StageUnlocked -> e.copy(at = later)
                                 is ProgressEvent.ProgressReset -> e.copy(at = later)

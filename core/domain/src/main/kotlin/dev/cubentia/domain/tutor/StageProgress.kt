@@ -118,10 +118,12 @@ object StageProgress {
         val latestSkip =
             epochEvents.lastOrNull { event ->
                 (event is ProgressEvent.StageSkippedByCheck && event.stageId == stage.id) ||
+                    (event is ProgressEvent.StageSkippedByChoice && event.stageId == stage.id) ||
                     (event is ProgressEvent.StageSkippedByPlacement && event.stageId == stage.id)
             }
         return when (latestSkip) {
             is ProgressEvent.StageSkippedByCheck -> StageStatus.SKIPPED
+            is ProgressEvent.StageSkippedByChoice -> StageStatus.SKIPPED
             is ProgressEvent.StageSkippedByPlacement -> StageStatus.SKIPPED_BY_PLACEMENT
             else -> StageStatus.IN_PROGRESS
         }
@@ -165,6 +167,7 @@ object StageProgress {
             epochEvents.any { event ->
                 (event is ProgressEvent.StageUnlocked && event.stageId == stage.id) ||
                     (event is ProgressEvent.StageSkippedByCheck && event.stageId == stage.id) ||
+                    (event is ProgressEvent.StageSkippedByChoice && event.stageId == stage.id) ||
                     (event is ProgressEvent.StageSkippedByPlacement && event.stageId == stage.id)
             }
         ) {
@@ -202,6 +205,7 @@ object StageProgress {
         if (
             epochEvents.any { event ->
                 (event is ProgressEvent.StageSkippedByCheck && event.stageId == stageId) ||
+                    (event is ProgressEvent.StageSkippedByChoice && event.stageId == stageId) ||
                     (event is ProgressEvent.StageSkippedByPlacement && event.stageId == stageId)
             }
         ) {
@@ -211,6 +215,7 @@ object StageProgress {
         return epochEvents.any { event ->
             (event is ProgressEvent.StageUnlocked && event.stageId in subsequentIds) ||
                 (event is ProgressEvent.StageSkippedByCheck && event.stageId in subsequentIds) ||
+                (event is ProgressEvent.StageSkippedByChoice && event.stageId in subsequentIds) ||
                 (event is ProgressEvent.StageSkippedByPlacement && event.stageId in subsequentIds)
         }
     }

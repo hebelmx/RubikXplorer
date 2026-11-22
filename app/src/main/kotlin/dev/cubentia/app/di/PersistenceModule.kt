@@ -21,6 +21,7 @@ import dev.cubentia.application.port.PreferencesRepository
 import dev.cubentia.application.port.ProgressRepository
 import dev.cubentia.application.port.SessionSnapshotRepository
 import dev.cubentia.application.preference.UpdatePreference
+import dev.cubentia.application.usecase.ChooseEntryLevel
 import dev.cubentia.application.usecase.CompleteLesson
 import dev.cubentia.application.usecase.PassSkipCheck
 import dev.cubentia.application.usecase.PlaceFromScan
@@ -80,6 +81,9 @@ object PersistenceModule {
 
     @Provides @Singleton
     fun placeFromScan(repository: ProgressRepository): PlaceFromScan = PlaceFromScan(repository)
+
+    @Provides @Singleton
+    fun chooseEntryLevel(repository: ProgressRepository): ChooseEntryLevel = ChooseEntryLevel(repository)
 
     @Provides @Singleton
     fun resetProgress(repository: ProgressRepository): ResetProgress = ResetProgress(repository)
