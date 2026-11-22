@@ -104,9 +104,44 @@ object RecoveryPlanner {
         require(maxDepth >= 0) { "maxDepth must not be negative, was $maxDepth" }
         val start = heuristic(goal.missing(from))
         if (start == 0) return RecoveryPlan.Found(emptyList())
-        val search = Search(goal, moveSet, shouldContinue)
+        val search =
+            Search<CubeState>(
+                moveSet = moveSet,
+                shouldContinue = shouldContinue,
+                step = { state, index -> state.apply(moveSet[index]) },
+                estimate = { state, _ -> heuristic(goal.missing(state)) },
+                accept = { _, _ -> true },
+            )
         for (bound in start..maxDepth) {
             when (val result = search.run(from, bound)) {
+                is RecoveryPlan.Found, RecoveryPlan.Stopped -> return result
+                RecoveryPlan.NotFound -> Unit
+            }
+        }
+        return RecoveryPlan.NotFound
+    }
+
+    /**
+     * [plan]'s bounded IDA* for a goal whose [RecoveryGoal.keep] predicates preserve a piece exactly
+     * when its cubie is home and untwisted (unflipped), as the first-two-layer predicates do. Same
+     * bound loop, Move order, same-face rule, [CHECK_INTERVAL] polling and results as [plan], but it
+     * tracks only the goal pieces and bounds by exact one-, two- and three-piece distances
+     * ([PieceDistances]), so deep goals (a middle-layer edge) stay fast. A goal state is confirmed
+     * with [RecoveryGoal.isMet] before it is reported. [moveSet] must hold face turns only, read in
+     * [from]'s held frame.
+     */
+    fun planPieces(
+        from: CubeState,
+        goal: RecoveryGoal,
+        maxDepth: Int,
+        moveSet: List<Move>,
+        shouldContinue: () -> Boolean = { true },
+    ): RecoveryPlan {
+        require(maxDepth >= 0) { "maxDepth must not be negative, was $maxDepth" }
+        if (goal.isMet(from)) return RecoveryPlan.Found(emptyList())
+        val search = PieceSearch(from, goal, moveSet, shouldContinue)
+        for (bound in search.startBound..maxDepth) {
+            when (val result = search.run(bound)) {
                 is RecoveryPlan.Found, RecoveryPlan.Stopped -> return result
                 RecoveryPlan.NotFound -> Unit
             }
@@ -149,18 +184,24 @@ object RecoveryPlanner {
         next: Move,
     ): Boolean = previous == next || (previous is FaceTurn && next is FaceTurn && previous.face == next.face)
 
-    /** One depth-first pass of IDA* per bound, sharing the node count across passes. */
-    private class Search(
-        private val goal: RecoveryGoal,
+    /**
+     * One depth-first pass of IDA* per bound over nodes of type [N], sharing the node count across
+     * passes: [step] gives the node after `moveSet[i]`, [estimate] the admissible lower bound (0 at a
+     * goal; it may stop early with any value above the budget it is given, the depth left), and [accept] confirms a node whose estimate is 0, given the path that reaches it.
+     */
+    private class Search<N>(
         private val moveSet: List<Move>,
         private val shouldContinue: () -> Boolean,
+        private val step: (N, Int) -> N,
+        private val estimate: (N, Int) -> Int,
+        private val accept: (N, List<Move>) -> Boolean,
     ) {
         private var nodes = 0L
         private var stopped = false
         private val path = ArrayDeque<Move>()
 
         fun run(
-            from: CubeState,
+            from: N,
             bound: Int,
         ): RecoveryPlan {
             path.clear()
@@ -171,26 +212,70 @@ object RecoveryPlanner {
             }
         }
 
-        /** True when a goal state lies within [bound] of [state], reached at depth [g]; [path] then holds the way there. */
+        /** True when a goal node lies within [bound] of [node], reached at depth [g]; [path] then holds the way there. */
         private fun dfs(
-            state: CubeState,
+            node: N,
             g: Int,
             bound: Int,
         ): Boolean {
             if (++nodes % CHECK_INTERVAL == 0L && !shouldContinue()) stopped = true
             if (stopped) return false
-            val h = heuristic(goal.missing(state))
-            if (h == 0) return true
+            val h = estimate(node, bound - g)
+            if (h == 0 && accept(node, path)) return true
             if (g + h > bound) return false
             val last = path.lastOrNull()
-            for (move in moveSet) {
+            for (index in moveSet.indices) {
+                val move = moveSet[index]
                 if (last != null && redundant(last, move)) continue
                 path.addLast(move)
-                if (dfs(state.apply(move), g + 1, bound)) return true
+                if (dfs(step(node, index), g + 1, bound)) return true
                 path.removeLast()
                 if (stopped) return false
             }
             return false
         }
+    }
+
+    /**
+     * [planPieces]'s search from [from], one bound at a time: tracks only the goal pieces' (slot,
+     * twist/flip) through per-cubie move tables and bounds by [PieceBound]. A goal node is confirmed
+     * with [RecoveryGoal.isMet] on the real [CubeState] before it is reported.
+     */
+    internal class PieceSearch(
+        private val from: CubeState,
+        private val goal: RecoveryGoal,
+        moveSet: List<Move>,
+        shouldContinue: () -> Boolean,
+    ) {
+        private val pieces: IntArray =
+            goal.pieces
+                .map { piece -> checkNotNull(PieceDistances.idOf(piece)) { "no cubie has the colors of $piece" } }
+                .sorted()
+                .toIntArray()
+        private val moves: IntArray =
+            moveSet
+                .map { move ->
+                    require(move is FaceTurn) { "planPieces searches face turns only, not $move" }
+                    PieceDistances.moveIndex(from.orientation.homeFaceAt(move.face), move.turn)
+                }.toIntArray()
+        private val start: IntArray = IntArray(pieces.size) { PieceDistances.positionOf(from.cubies, pieces[it]) }
+        private val bound = PieceBound(pieces, BooleanArray(pieces.size) { start[it] != PieceDistances.home(pieces[it]) })
+        private val search =
+            Search<IntArray>(
+                moveSet = moveSet,
+                shouldContinue = shouldContinue,
+                step = { positions, index ->
+                    val move = moves[index]
+                    IntArray(positions.size) { PieceDistances.next(pieces[it], positions[it], move) }
+                },
+                estimate = bound::of,
+                accept = { _, path -> goal.isMet(from.apply(path)) },
+            )
+
+        /** The lower bound at [from]: no plan is shorter. */
+        val startBound: Int = bound.of(start, Int.MAX_VALUE)
+
+        /** One IDA* pass with [bound]. */
+        fun run(bound: Int): RecoveryPlan = search.run(start, bound)
     }
 }

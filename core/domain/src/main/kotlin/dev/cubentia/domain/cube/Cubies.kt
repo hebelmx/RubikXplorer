@@ -30,15 +30,10 @@ data class Cubies internal constructor(
     internal fun turn(
         face: Face,
         turn: Turn,
-    ): Cubies {
-        val quarter = QUARTER_TURNS.getValue(face)
-        var result = this
-        repeat(turn.quarters) { result = result.compose(quarter) }
-        return result
-    }
+    ): Cubies = compose(TURNS[face.ordinal * Turn.entries.size + turn.ordinal])
 
     /** Applies [move] after this: slot `i` receives what was in slot `move.cornerPermutation[i]`. */
-    private fun compose(move: Cubies): Cubies =
+    internal fun compose(move: Cubies): Cubies =
         Cubies(
             cornerPermutation = List(CORNERS) { cornerPermutation[move.cornerPermutation[it]] },
             cornerOrientation =
@@ -63,6 +58,18 @@ data class Cubies internal constructor(
         // One clockwise quarter turn of each home face, derived from the cube's geometry: rotate each
         // slot's position and reference-sticker normal by -90° about the face axis and read off which
         // slot it lands in and which facet the reference sticker lands on.
+        // Every face turn as one Cubies (the quarter turn composed 1, 2 or 3 times), by face then Turn ordinal.
+        private val TURNS: List<Cubies> by lazy {
+            Face.entries.flatMap { face ->
+                val quarter = QUARTER_TURNS.getValue(face)
+                Turn.entries.map { turn ->
+                    var result = SOLVED
+                    repeat(turn.quarters) { result = result.compose(quarter) }
+                    result
+                }
+            }
+        }
+
         private val QUARTER_TURNS: Map<Face, Cubies> =
             mapOf(
                 Face.U to
@@ -115,7 +122,11 @@ data class Cubies internal constructor(
             size: Int,
         ) {
             require(values.size == size) { "$name must have $size entries, was ${values.size}" }
-            require(values.sorted() == List(size) { it }) { "$name must be a permutation of 0..${size - 1}: $values" }
+            val seen = BooleanArray(size)
+            for (value in values) {
+                require(value in 0 until size && !seen[value]) { "$name must be a permutation of 0..${size - 1}: $values" }
+                seen[value] = true
+            }
         }
 
         private fun requireValues(
