@@ -1800,7 +1800,7 @@ action_items:
       use LastLayerMatcher and the Stages 5-6 Lessons' Algorithms (PO decision 2026-11-22;
       deferred from 15.1)"
     owner: "PM (John) + PO (hebelmx)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-15-1-build-a-beginner-method-solution-from-the-course-s-stages.md"
   - id: "epic-15-deferred-15.2-fallback-tie-break-prefers-status"
     epic: 15
