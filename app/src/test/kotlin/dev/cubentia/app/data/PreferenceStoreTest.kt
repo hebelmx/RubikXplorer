@@ -204,8 +204,14 @@ class PreferenceStoreTest {
             try {
                 val store = PreferenceStore(repo, writer)
                 store.awaitLoaded()
+                // Hold the writer until reset() is called, so the write is still queued when the reset arrives. Without
+                // the gate the writer thread can run the write first, and its retried read then saves before any reset
+                // exists (#271).
+                val gate = CompletableDeferred<Unit>()
+                writer.enqueue { gate.await() }
                 store.update(Preference.Haptics(false))
                 store.reset()
+                gate.complete(Unit)
                 writer.flush()
                 assertEquals(listOf("reset"), repo.writes)
                 assertEquals(Preferences.DEFAULT, store.preferences.value)
