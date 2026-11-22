@@ -232,7 +232,7 @@ A Learner can browse and watch all 78 verified OLL/PLL Algorithms, track their o
 ### Epic 10: Scan my cube (v1.1, flag-gated)
 A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. Built on `main` with every camera flag OFF in release; each feature reaches users only when the PO raises its flag at a release (Story 10.11). Restored from `post-launch/v1.1-camera-recognition.md` by `sprint-change-proposal-2026-11-14-v1-1-camera.md`. *(SCP 2026-11-20: moves into v1.0 as the dependency of #198, #208, #249, #251, #252; Story 10.11 raises `CAMERA_SCAN` for the v1.0 release.)*
 **FRs covered:** FR-21, FR-23 – FR-26, plus the Quick Check rung of FR-9 and FR-16, and the calibration reset of FR-19. **Also:** recognition NFRs, NFR-5, NFR-8, NFR-11, NFR-12, AD-9, AD-13, AD-18, AR-13, UX-DR15, UX-DR16, UX-DR19 – UX-DR22, UX-DR25.
-**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) → Epic 11 → 10.8 → 10.11; 10.16 after 10.14; 11.1 → 10.18 (Quick Scan finds the cube's real edges and corners, #195) → 10.17 (after 10.16 too) → 10.19 → 10.20 → 10.21 *(SCP 2026-11-21 quick-scan-side-face-accuracy, #274: 10.20 and 10.21 do not block Story 10.11, which raises `CAMERA_SCAN` and `PLACEMENT` with `QUICK_SCAN` OFF; Quick Scan is raised in a later 10.11-n after 10.21's BETA call)*; all v1.0 scope (SCP 2026-11-20) *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16; 10.5 split into 10.5 and 10.15 by SCP 2026-11-16 main-app entry points)*. Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance (10.4 partial); B2 = 10.14; B3 = 10.5 (main app; re-runs the 10.4 checks not done on a device, #166); C = 11.1, 11.3 capture and 10.8.
+**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) → Epic 11 → 10.8 → 10.11; 10.16 after 10.14; 11.1 → 10.18 (Quick Scan finds the cube's real edges and corners, #195) → 10.17 (after 10.16 too) → 10.19 → 10.22 → 10.20 → 10.21 *(SCP 2026-11-22 quick-scan-reliability: 10.22 before the fixture session)* *(SCP 2026-11-21 quick-scan-side-face-accuracy, #274: 10.20 and 10.21 do not block Story 10.11, which raises `CAMERA_SCAN` and `PLACEMENT` with `QUICK_SCAN` OFF; Quick Scan is raised in a later 10.11-n after 10.21's BETA call)*; all v1.0 scope (SCP 2026-11-20) *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16; 10.5 split into 10.5 and 10.15 by SCP 2026-11-16 main-app entry points)*. Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance (10.4 partial); B2 = 10.14; B3 = 10.5 (main app; re-runs the 10.4 checks not done on a device, #166); C = 11.1, 11.3 capture and 10.8.
 **Main-app rule (SCP 2026-11-16 main-app entry points):** a camera story is accepted on the main app build, reached from its real entry point. A debug-only launcher is never a story's device-session gate, and debug raises a flag above OFF only once that flag's entry point is wired in the main app (AD-15, AD-18).
 **Never blocks** tester-feedback fixes or Stories 12.3, 12.4, 12.5 and 13.6: camera stories merge only with release camera flags OFF, and Story 10.9's gate keeps the release free of camera code and permissions. *(Superseded by SCP 2026-11-20: for v1.0, Story 10.11 raises `CAMERA_SCAN`, `QUICK_SCAN` and `PLACEMENT` before Stories 12.3–12.5, and the Story 10.9 gate then checks the flags-ON release instead.)* *(SCP 2026-11-21 quick-scan-side-face-accuracy: `QUICK_SCAN` leaves this first raise and follows Story 10.21.)*
 
@@ -2445,6 +2445,8 @@ So that both corner photos read all three faces instead of sending me face by fa
 
 *(SCP 2026-11-21 quick-scan-side-face-accuracy, #274: 10.19 merged as the Quick Scan lighting pipeline (PR #272). The AC2 counts, AC4 glossy-cube glare, AC6 side-face bar, AC7 held-out metrics and AC8 BETA call move to Stories 10.20 and 10.21; the provisional light cuts (27 L*, 1.34) are refitted in 10.21.)*
 
+*(SCP 2026-11-22 quick-scan-reliability, PO decision: from Story 10.22 the light check of AC1 only coaches; it no longer blocks auto-capture or the manual shutter.)*
+
 **Acceptance Criteria:**
 
 **Given** the corners are detected and the side faces are much darker than the top face or the background (the light is behind the cube)
@@ -2487,13 +2489,13 @@ So that the keep rule, the agreement gate and the light cuts are fitted and scor
 
 **Refs:** FR-22, FR-24 · recognition NFRs (Quick Scan, Confidence calibration) · AD-9, AD-15 · OQ-8 · Stories 10.4, 10.10, 10.12, 10.18, 10.19 · #274, #166
 
-**Depends on** Story 10.19. **Human gate:** one recording session on the debug fixture recorder (corner mode), on the Lenovo Tab M10 Plus 3rd Gen (TB128XU, no flash) and the Galaxy S24 FE (flash). *(SCP 2026-11-21 quick-scan-side-face-accuracy.)*
+**Depends on** Stories 10.19 and 10.22 (fixtures are recorded under 10.22's exposure handling). **Human gate:** one recording session on the debug fixture recorder (corner mode), on the Lenovo Tab M10 Plus 3rd Gen (TB128XU, no flash) and the Galaxy S24 FE (flash). *(SCP 2026-11-21 quick-scan-side-face-accuracy; SCP 2026-11-22 quick-scan-reliability.)*
 
 **Acceptance Criteria:**
 
 **Given** the debug fixture recorder in corner mode
 **When** an operator records a capture group
-**Then** the group's `group.json` records `"pipeline": "10.19"`, the device model, the cube id (`stla`/`stlb`/`stka`/`stkb`, or a new id for a glossy cube), the light direction (`front`/`back`/`side`), the light name, the torch state per hold, and the recorder calibration it took. On a device with a flash, the recorder offers the same torch toggle as the Quick Scan corner view (on by default), and its calibration is taken with the torch state the operator chose. Each hold stores the 10.19 per-capture diagnostics (`light=`, `lightScore=`, `lightMode=`, metering settle) next to the frame.
+**Then** the group's `group.json` records `"pipeline": "10.22"`, the device model, the cube id (`stla`/`stlb`/`stka`/`stkb`, or a new id for a glossy cube), the light direction (`front`/`back`/`side`), the light name, the torch state per hold, and the recorder calibration it took. On a device with a flash, the recorder offers the same torch toggle as the Quick Scan corner view (on by default), and its calibration is taken with the torch state the operator chose. Each hold stores the 10.19 per-capture diagnostics (`light=`, `lightScore=`, `lightMode=`, metering settle) next to the frame. The recorder's burst (`RecorderBurst`, PR #289) stays a debug-only tool; each burst line also carries the light score and the three face levels, and `RecorderBurst.line` has a JVM test *(SCP 2026-11-22 quick-scan-reliability)*.
 
 **Given** the recording session
 **When** it ends
@@ -2509,7 +2511,7 @@ So that the keep rule, the agreement gate and the light cuts are fitted and scor
 
 **Given** `QuickScanSideFaceReplayTest`
 **When** it runs in CI on the new groups
-**Then** it reports, without enforcing the bar, the current (10.19) results per device, light and torch state: side stickers correct, uncertain and wrong, side faces kept, and the keep reason per face (`closeCall`/`disagree`). This is Story 10.21's baseline, written to `docs/evidence/10-20/`.
+**Then** it reports, without enforcing the bar, the current (10.19) results per device, light and torch state: side stickers correct, uncertain and wrong, side faces kept, and the keep reason per face (`closeCall`/`disagree`). This is Story 10.21's baseline, written to `docs/evidence/10-20/`. The report also counts confidently wrong stickers among all CONFIDENT stickers, on kept and discarded faces alike, per group. Backlit groups are captured with the light check failing, and their light scores are recorded *(SCP 2026-11-22 quick-scan-reliability)*.
 
 ### Story 10.21: Quick Scan keeps the side faces it reads well
 
@@ -2519,7 +2521,7 @@ So that two corner photos usually finish the scan instead of sending me face by 
 
 **Refs:** FR-22, FR-23, FR-24 · recognition NFRs (Quick Scan, Confidence calibration), NFR-10, NFR-11 · AD-9, AD-18 · OQ-8 · UX-DR15 · Stories 10.4, 10.17, 10.19, 10.20 · #274
 
-**Depends on** Story 10.20 (fixtures and held-out split). **Human gate:** a device session on the main app build, `QUICK_SCAN` raised in debug, on the Lenovo TB128XU and the Galaxy S24 FE with a stickered, a stickerless and a glossy cube, front-lit and backlit. *(SCP 2026-11-21 quick-scan-side-face-accuracy; PO decisions 2026-11-21: keep rule ≤ 1 blank with a matching calibration; calibration torch with a torch tag; Story 10.11 does not wait for this story.)*
+**Depends on** Story 10.20 (fixtures and held-out split) and Story 10.22. **Human gate:** a device session on the main app build, `QUICK_SCAN` raised in debug, on the Lenovo TB128XU and the Galaxy S24 FE with a stickered, a stickerless and a glossy cube, front-lit and backlit. *(SCP 2026-11-21 quick-scan-side-face-accuracy; PO decisions 2026-11-21: keep rule ≤ 1 blank with a matching calibration; calibration torch with a torch tag; Story 10.11 does not wait for this story.)*
 
 **Acceptance Criteria:**
 
@@ -2537,7 +2539,7 @@ So that two corner photos usually finish the scan instead of sending me face by 
 
 **Given** the light check (10.19 AC1)
 **When** it is refitted on the Story 10.20 captures
-**Then** both cuts (uncalibrated L* difference, calibrated top-over-sides ratio) are refitted per mode with **hysteresis** (a hold starts above the hold cut and clears only below a lower clear cut), so an ordinary torch-off S24 FE light no longer flips hold and release. The light check is skipped only while the torch is **actually lit** (`enableTorch` succeeded), not merely requested (action item `torch-requested-vs-lit`). The light-clear window's steadiness rule is settled with the PO and matches the AC (action item `light-clear-steadiness`). Returning from calibration opened from the corner view clears a stale light hold, so the offer does not reappear at once (action item `cal-offer-reappears`).
+**Then** both cuts (uncalibrated L* difference, calibrated top-over-sides ratio) are refitted per mode with **hysteresis** (a hold starts above the hold cut and clears only below a lower clear cut), so an ordinary torch-off S24 FE light no longer flips hold and release. The light check is skipped only while the torch is **actually lit** (`enableTorch` succeeded), not merely requested (action item `torch-requested-vs-lit`). The light-clear window's steadiness rule is settled with the PO and matches the AC (action item `light-clear-steadiness`). Returning from calibration opened from the corner view clears a stale light hold, so the offer does not reappear at once (action item `cal-offer-reappears`). *(SCP 2026-11-22 quick-scan-reliability: since Story 10.22 the light check only coaches. The refit uses captures made under 10.22's exposure handling and sets when the coaching line shows and hides; "hold" above means the line. It reports separately light checks that fail far above the cut, that flip at the cut, and a single face's level changing between frames (with the per-sticker nearest-color matches logged). From the backlit captures the PO decides whether the check goes back to blocking.)*
 
 **Given** the Story 10.20 **held-out** groups
 **When** `QuickScanSideFaceReplayTest` runs in CI with its bar enforced
@@ -2554,6 +2556,46 @@ So that two corner photos usually finish the scan instead of sending me face by 
 ## Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition
 
 These are first on the PRD cut order (Quick Scan → beta, then Case recognition, then Placement). Each ships behind its AD-18 flag and can be turned OFF without dead UI. *(SCP 2026-11-14: restored; each merges with its flag OFF in release, and Story 10.11 raises it.)* *(SCP 2026-11-16 main-app entry points: each story also raises its own flag in debug (`FeatureFlagLevels.byBuildType["debug"]`) in the PR that wires its entry point in the main app, and is accepted on the main app build; Story 10.5 sets these flags OFF in debug until then.)*
+
+### Story 10.22: Quick Scan captures promptly once the cube is in view
+
+As a Learner using Quick Scan,
+I want each corner captured within a few seconds of holding my cube in view,
+So that Quick Scan is faster than scanning face by face.
+
+**Refs:** FR-22 · recognition NFRs (Quick Scan) · AD-9, AD-18 · Stories 10.17, 10.18, 10.19 · spec `_bmad-output/specs/spec-quick-scan-reliability/` (CAP-2, CAP-4; failure modes F1, F2, F4, F6, F11, F13, F14, F15)
+
+**Depends on** Story 10.19. **Human gate:** a device session on the main app build, `QUICK_SCAN` raised in debug, on the Lenovo TB128XU and the Galaxy S24 FE. *(SCP 2026-11-22 quick-scan-reliability. Sticker reading, classification and gates stay in Kotlin. PO decisions 2026-11-22: the light check becomes advisory in this story; every hold captures within 10 s. The keep rule and the agreement gate are not changed here; they stay with Story 10.21.)*
+
+**Acceptance Criteria:**
+
+**Given** a Quick Scan corner hold in a debug build
+**When** it runs
+**Then** `CubentiaScanDiag` logs every state change as it happens, with milliseconds since the hold began: viewfinder entry, first frame, cube lost and found, pose rejected, metering requested and settled, light hold start and clear, steady restart, and capture with `trigger=auto|manual`. Each capture line carries the hold's total time and its time with the cube undetected. Steady-restart lines are no longer rate-limited. CameraX's own logging is limited so a three-minute session fits the device's default log buffer.
+
+**Given** metering on the detected cube has converged
+**When** the hold continues
+**Then** exposure stays locked until the capture, or until a re-meter trigger: the cube lost for `CornerHold.LOST_MS`, a torch change, the outline leaving the metered region, or the faces' mean brightness changing beyond a set bound since metering. Focus stays continuous (PO 2026-11-16). A cleared light hold no longer re-meters. White balance at hold 2 is carried from hold 1. The settle signal is true only once exposure time × ISO has stayed within a tolerance for a set window; the AE state alone never settles it. `CameraXFrameSourceTest` replays the exposure series of `docs/evidence/quick-scan-2026-11-22/bursts/20261122-114155-still.jsonl` and reports "not settled" throughout its swing.
+
+**Given** a settled hold
+**When** the steady window runs
+**Then** it restarts when the detected outline moves more than a threshold from the reference frame, measured as the largest corner displacement divided by the outline's bounding-box diagonal. A color comparison remains only to detect that a different face is shown. The threshold is derived from the three recorded bursts and at least one more hand-held burst, and is written to `docs/evidence/10-22/` with the replay: no restart on either still burst, windows completing on every hand-held burst, and a restart on a burst in which the cube is moved quickly.
+
+**Given** the light check fails during a hold (10.19 AC1)
+**When** frames are analysed
+**Then** the "Turn so the light shines on the cube." coaching still shows after about 1 s of failing and hides once the check passes, but the check no longer blocks: auto-capture and the manual shutter work as when it passes, and the calibration offer keeps its 10.19 timing. Each capture line logs the light score and `light=pass|fail` at the moment of capture. The keep rule is unchanged, so a face read in poor light is still sent to the Guided grid unless every sticker is CONFIDENT.
+
+**Given** hold 2
+**When** the turn and pose checks run
+**Then** they do not rely on a centre that is not plain: a logo centre is read from its ring or left out, and the previous hold is not cleared by a single frame. A test replays the logo-centre readings of the still burst as hold 2 with the cube unturned and no capture happens.
+
+**Given** a back-out from the face-by-face hand-over
+**When** the corner view resumes
+**Then** stale turn-over state is cleared (`QuickScanController.backOut`), with a test that captures again after the back-out.
+
+**Given** the main app on each device after these changes
+**When** a tester runs at least 10 holds with everything still and 10 hand-held per device
+**Then** the time from cube detected to automatic capture, the time undetected and the blocking gate are recorded per hold from the diagnostics, with the median and the worst case per device, next to the 2026-11-22 baseline in `docs/evidence/10-22/`. Every hold auto-captures within **10 s** of the cube being detected, still and hand-held (PO 2026-11-22); a hold that misses is recorded with its blocking gate and routed to the PO. A recorder burst on each device shows one exposure level per hold.
 
 ### Story 11.1: Quick Scan from two corners
 

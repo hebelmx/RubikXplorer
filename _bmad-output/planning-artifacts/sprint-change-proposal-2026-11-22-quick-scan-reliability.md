@@ -1,10 +1,10 @@
 # Sprint Change Proposal: Quick Scan capture reliability (2026-11-22)
 
-**Status: Draft, awaiting product-owner approval. No planning artifact has been edited; Section 4 lists the edits to apply on approval.**
+**Status: Approved by the product owner (`hebelmx`) on 2026-11-22 with three decisions: Story 10.22 runs before 10.20; the light check becomes advisory in 10.22; every hold must capture within 10 s. Section 4 planning edits are applied on branch `docs/scp-2026-11-22-quick-scan-reliability`.**
 
 - **Trigger:** owner report that Quick Scan is not usable (3–4 s at best, 30+ s at times, all with tablet, cube and lights still), investigated on 2026-11-22 in `_bmad-output/specs/spec-quick-scan-reliability/`.
 - **Mode:** Batch (Fast path).
-- **Scope:** **Moderate.** One new story in Epic 10 (10.22), dependency and wording edits to Stories 10.20 and 10.21, the Epic 10 order line, one sprint-status entry and a PRD memlog note. No new epic, AD, module, dependency or permission. Quick Scan stays OFF in release; Story 10.11 is unchanged.
+- **Scope:** **Moderate.** One new story in Epic 10 (10.22), dependency and wording edits to Stories 10.20 and 10.21, an annotation on 10.19, the Epic 10 order line, one sprint-status entry and a PRD memlog note. No new epic, AD, module, dependency or permission. Quick Scan stays OFF in release; Story 10.11 is unchanged.
 - **Evidence:** [`docs/evidence/quick-scan-2026-11-22/`](../../docs/evidence/quick-scan-2026-11-22/README.md) (two Quick Scan diagnostic logs, three recorder bursts), the spec's [concerns and evidence](../specs/spec-quick-scan-reliability/concerns-and-evidence.md), [failure modes](../specs/spec-quick-scan-reliability/failure-modes.md) and [fix plan](../specs/spec-quick-scan-reliability/fix-plan.md), and a `bmad-review` pass on 2026-11-22 whose findings are applied to that spec.
 
 ---
@@ -77,12 +77,12 @@ Epic 10 gains Story 10.22. Stories 10.20 and 10.21 keep their content and gain a
 
 - The fixes are Kotlin and camera-adapter changes that need no new labelled data, and they improve the inputs of every later evaluation, whichever color reader is used.
 - Recording the 10.20 fixtures after 10.22 avoids recording them twice: the light cuts and the agreement gate are to be fitted on captures made under the exposure handling that will ship.
-- The light check keeps its approved 2026-11-21 behavior (it blocks; the manual shutter is ignored while it holds). The only change touching it is that a cleared hold no longer forces a re-meter. Whether it becomes advisory is decided in 10.21, with captures taken at failing scores.
+- **Light check (PO decision 2026-11-22, replacing the 2026-11-21 block):** it becomes advisory in Story 10.22. The coaching line stays; capture and the manual shutter are no longer held. The keep rule is unchanged, so a face read in poor light still goes to the Guided grid unless all nine stickers are CONFIDENT; the cost of a bad-light capture is a face-by-face fallback, not a wrong cube. Story 10.21 refits when the line shows, and the PO can restore a block from the backlit captures. The draft had recommended keeping the block until then because neither its benefit nor its cost is measured.
 - Sticker-level keeping resolved by cube legality, and any change that drops the saved calibration as second read, are **not** proposed. The review showed they would remove the containment that keeps confidently wrong stickers out today. They remain candidate ideas in the spec.
 
 **Effort:** medium (one story, two modules, one device session). **Risk:** medium; the exposure lock must be proven on both devices, and thresholds must come from recorded data. **Timeline:** adds one story ahead of 10.20; nothing on the v1.0 path waits for it.
 
-**Alternatives considered:** fold the fixes into 10.21 (rejected: 10.21 depends on fixtures that should be recorded after the fix); make the light check advisory now (rejected: neither its benefit nor its cost is measured).
+**Alternatives considered:** fold the fixes into 10.21 (rejected: 10.21 depends on fixtures that should be recorded after the fix); keep the light check blocking until 10.21 (the draft's recommendation; the PO chose advisory now).
 
 ---
 
@@ -101,7 +101,7 @@ So that Quick Scan is faster than scanning face by face.
 
 **Refs:** FR-22 · recognition NFRs (Quick Scan) · AD-9, AD-18 · Stories 10.17, 10.18, 10.19 · spec `_bmad-output/specs/spec-quick-scan-reliability/` (CAP-2, CAP-4; failure modes F1, F2, F4, F6, F11, F13, F14, F15)
 
-**Depends on** Story 10.19. **Human gate:** a device session on the main app build, `QUICK_SCAN` raised in debug, on the Lenovo TB128XU and the Galaxy S24 FE. *(SCP 2026-11-22 quick-scan-reliability. Sticker reading, classification and gates stay in Kotlin. The light check's blocking behavior, the keep rule and the agreement gate are not changed here; they stay with Story 10.21.)*
+**Depends on** Story 10.19. **Human gate:** a device session on the main app build, `QUICK_SCAN` raised in debug, on the Lenovo TB128XU and the Galaxy S24 FE. *(SCP 2026-11-22 quick-scan-reliability. Sticker reading, classification and gates stay in Kotlin. PO decisions 2026-11-22: the light check becomes advisory in this story; every hold captures within 10 s. The keep rule and the agreement gate are not changed here; they stay with Story 10.21.)*
 
 **Acceptance Criteria:**
 
@@ -117,6 +117,10 @@ So that Quick Scan is faster than scanning face by face.
 **When** the steady window runs
 **Then** it restarts when the detected outline moves more than a threshold from the reference frame, measured as the largest corner displacement divided by the outline's bounding-box diagonal. A color comparison remains only to detect that a different face is shown. The threshold is derived from the three recorded bursts and at least one more hand-held burst, and is written to `docs/evidence/10-22/` with the replay: no restart on either still burst, windows completing on every hand-held burst, and a restart on a burst in which the cube is moved quickly.
 
+**Given** the light check fails during a hold (10.19 AC1)
+**When** frames are analysed
+**Then** the "Turn so the light shines on the cube." coaching still shows after about 1 s of failing and hides once the check passes, but the check no longer blocks: auto-capture and the manual shutter work as when it passes, and the calibration offer keeps its 10.19 timing. Each capture line logs the light score and `light=pass|fail` at the moment of capture. The keep rule is unchanged, so a face read in poor light is still sent to the Guided grid unless every sticker is CONFIDENT.
+
 **Given** hold 2
 **When** the turn and pose checks run
 **Then** they do not rely on a centre that is not plain: a logo centre is read from its ring or left out, and the previous hold is not cleared by a single frame. A test replays the logo-centre readings of the still burst as hold 2 with the cube unturned and no capture happens.
@@ -127,7 +131,7 @@ So that Quick Scan is faster than scanning face by face.
 
 **Given** the main app on each device after these changes
 **When** a tester runs at least 10 holds with everything still and 10 hand-held per device
-**Then** the time from cube detected to automatic capture, the time undetected and the blocking gate are recorded per hold from the diagnostics, with the median and the worst case per device, next to the 2026-11-22 baseline in `docs/evidence/10-22/`. The PO sets the acceptable wait from these numbers. A recorder burst on each device shows one exposure level per hold.
+**Then** the time from cube detected to automatic capture, the time undetected and the blocking gate are recorded per hold from the diagnostics, with the median and the worst case per device, next to the 2026-11-22 baseline in `docs/evidence/10-22/`. Every hold auto-captures within **10 s** of the cube being detected, still and hand-held (PO 2026-11-22); a hold that misses is recorded with its blocking gate and routed to the PO. A recorder burst on each device shows one exposure level per hold.
 ~~~
 
 **B. Story 10.20, dependency line:**
@@ -157,9 +161,13 @@ NEW: `**Depends on** Story 10.20 (fixtures and held-out split) and Story 10.22.`
 
 **F. Story 10.21, light-check criterion, appended:**
 
-"The refit uses captures made under Story 10.22's exposure handling. It reports separately holds that fail far above the cut, holds that flip at the cut, and a single face's level changing between frames (with the per-sticker nearest-color matches logged), and the PO decides from the backlit captures whether the check blocks or only coaches."
+"*(SCP 2026-11-22 quick-scan-reliability: since Story 10.22 the light check only coaches. The refit uses captures made under 10.22's exposure handling and sets when the coaching line shows and hides; "hold" above means the line. It reports separately light checks that fail far above the cut, that flip at the cut, and a single face's level changing between frames (with the per-sticker nearest-color matches logged). From the backlit captures the PO decides whether the check goes back to blocking.)*"
 
-Rationale: the three light-check failure shapes seen on 2026-11-22 need different answers; the block-or-coach decision needs readings taken in the light the check blocks.
+Rationale: the three light-check failure shapes seen on 2026-11-22 need different answers; a decision to block again needs readings taken in the light the check flagged.
+
+**H. Story 10.19, annotation added after the 2026-11-21 note:**
+
+"*(SCP 2026-11-22 quick-scan-reliability, PO decision: from Story 10.22 the light check of AC1 only coaches; it no longer blocks auto-capture or the manual shutter.)*"
 
 **G. Epic 10 order line (line 235):**
 
@@ -168,7 +176,7 @@ NEW: `… → 10.19 → 10.22 → 10.20 → 10.21` with `*(SCP 2026-11-22 quick-
 
 ### 4.2 PRD (`prds/prd-RubikXplorer-2026-10-29/.memlog.md`)
 
-Append with `memlog.py`: "(decision by user) SCP 2026-11-22 quick-scan-reliability: Story 10.22 added before 10.20 to fix Quick Scan capture latency (exposure lock, outline-based steady, diagnostics); no FR or NFR change; light-check block-or-coach decision stays with Story 10.21."
+Appended with `memlog.py`: "(decision by user) SCP 2026-11-22 quick-scan-reliability (PO hebelmx): Story 10.22 added before 10.20 to fix Quick Scan capture latency (exposure lock, outline-based steady, diagnostics); the Quick Scan light check becomes advisory from 10.22; every hold must auto-capture within 10 s; no FR or NFR change."
 
 No edit to `prd.md`.
 
@@ -200,11 +208,11 @@ Append: fix-plan steps 0–4 are Story 10.22; the three "later" topics stay with
 | Developer agent (this session or the orchestrator) | Apply Section 4 on branch `docs/scp-2026-11-22-quick-scan-reliability`, open the PR, then run Story 10.22 through `bmad-build`. |
 | Product owner | Device session for 10.22 on both reference devices. |
 
-**Decisions for the product owner**
+**Product-owner decisions (2026-11-22)**
 
-1. **Order.** 10.22 before 10.20 (recommended), or record fixtures first.
-2. **Light check during 10.22.** Keep it blocking as approved on 2026-11-21 (recommended), or make it advisory now.
-3. **Acceptable wait.** Set after the 10.22 device numbers (recommended), or fix a target now (the spec's provisional 5 s still, 8 s hand-held).
-4. **Still open from the spec:** which cube and light the Lenovo's saved calibration came from on 2026-11-22.
+1. **Order:** 10.22 before 10.20.
+2. **Light check:** advisory from Story 10.22.
+3. **Acceptable wait:** at most 10 s per hold.
+4. **Saved calibration on the Lenovo during the 2026-11-22 recordings:** cube `stla` (stickerless GAN), light `cool`, front-lit.
 
-**Success criteria:** Story 10.22 merged with its tests; the device evidence shows each still hold auto-capturing in a time the PO accepts, with a per-hold timeline that names what it waited for; Stories 10.20 and 10.21 start from fixtures recorded on that pipeline.
+**Success criteria:** Story 10.22 merged with its tests; the device evidence shows every hold auto-capturing within 10 s, with a per-hold timeline that names what it waited for; Stories 10.20 and 10.21 start from fixtures recorded on that pipeline.
