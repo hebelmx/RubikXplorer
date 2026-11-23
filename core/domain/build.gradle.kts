@@ -42,6 +42,19 @@ tasks.register<JavaExec>("evaluateLiveBaseline") {
     args(rootProject.file("Fixtures/live").path, rootProject.file("docs/spikes/oq-4-guided-scan.md").path)
 }
 
+// Story 10.23: the per-sticker Kotlin reads (self, second, gated) of the sticker model's held-out groups. On demand only.
+tasks.register<JavaExec>("exportKotlinStickerReads") {
+    group = "verification"
+    description = "Writes docs/evidence/10-23/kotlin-reads.json for tools/sticker-model/evaluate.py."
+    classpath = evaluation.runtimeClasspath
+    mainClass.set("dev.cubentia.domain.recognition.evaluation.sticker.KotlinStickerReadsMainKt")
+    args(
+        rootProject.file("tools/sticker-model/holdout.json").path,
+        rootProject.file("Fixtures").path,
+        rootProject.file("docs/evidence/10-23/kotlin-reads.json").path,
+    )
+}
+
 // Story 10.1: the decision K pipeline (all-Kotlin reader, self-calibration, assembly) on the live fixtures. On demand only.
 tasks.register<JavaExec>("evaluateScanAccuracy") {
     group = "verification"

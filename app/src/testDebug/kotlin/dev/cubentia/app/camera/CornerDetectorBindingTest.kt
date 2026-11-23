@@ -4,6 +4,7 @@ import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
 import dev.cubentia.app.camera.corner.LiteRtCornerDetector
+import dev.cubentia.app.camera.sticker.ShadowStickerReader
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -25,6 +26,9 @@ class CornerDetectorBindingTest {
     @Inject
     internal lateinit var cornerDetector: Optional<CornerDetector>
 
+    @Inject
+    internal lateinit var capturedFaceObserver: Optional<CapturedFaceObserver>
+
     @Before
     fun setup() = hilt.inject()
 
@@ -32,5 +36,12 @@ class CornerDetectorBindingTest {
     fun debugGraphBindsTheLiteRtCornerDetector() {
         assertTrue("Optional<CornerDetector> is empty in the debug graph", cornerDetector.isPresent)
         assertTrue("Bound ${cornerDetector.get()::class}", cornerDetector.get() is LiteRtCornerDetector)
+    }
+
+    /** Story 10.23: the debug graph (corner model on) binds the shadow sticker reader to the capture path's seam. */
+    @Test
+    fun debugGraphBindsTheShadowStickerReader() {
+        assertTrue("Optional<CapturedFaceObserver> is empty in the debug graph", capturedFaceObserver.isPresent)
+        assertTrue("Bound ${capturedFaceObserver.get()::class}", capturedFaceObserver.get() is ShadowStickerReader)
     }
 }

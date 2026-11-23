@@ -157,4 +157,31 @@ class QuickScanClassificationTest {
             QuickScanClassification.calibration(samples, null),
         )
     }
+
+    /** Story 10.23: the report exposes both pre-gate reads for logging; gating them gives exactly what [read] decides. */
+    @Test
+    fun `the report carries the self and second reads the gate combines, and which second read it was`() {
+        val samples = solved { if (it == Face.R) 0.6 else 1.0 }
+        listOf(saved to QuickScanClassification.SecondRead.CALIBRATION, null to QuickScanClassification.SecondRead.NORMALIZED)
+            .forEach { (calibration, source) ->
+                val reports = QuickScanClassification.report(samples, Face.entries, calibration)
+                reports.forEach { report ->
+                    val sample = samples.single { it.face == report.face }
+                    assertEquals(source, report.secondRead)
+                    assertEquals(9, report.self.size)
+                    assertEquals(9, report.second.size)
+                    val gated =
+                        report.self.zip(report.second).map { (first, second) ->
+                            val agree =
+                                first != null && second != null && first.confidence == StickerConfidence.CONFIDENT &&
+                                    second.confidence == StickerConfidence.CONFIDENT && first.color == second.color
+                            if (agree || first == null) first else first.copy(confidence = StickerConfidence.UNCERTAIN)
+                        }
+                    assertEquals(QuickScanClassification.read(sample, samples, calibration), gated, "${report.face} $source")
+                }
+            }
+        // A face not captured has no reads.
+        val missing = QuickScanClassification.report(samples.filter { it.face != Face.B }, listOf(Face.B), saved).single()
+        assertTrue(missing.self.isEmpty() && missing.second.isEmpty() && missing.secondRead == null)
+    }
 }

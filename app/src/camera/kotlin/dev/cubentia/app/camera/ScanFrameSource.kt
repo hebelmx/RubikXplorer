@@ -122,9 +122,10 @@ internal class CameraXFrameSource
     @Inject
     constructor(
         private val cornerDetector: Optional<CornerDetector>,
+        private val capturedFaceObserver: Optional<CapturedFaceObserver>,
     ) : ScanFrameSource {
         @VisibleForTesting
-        internal constructor() : this(Optional.empty())
+        internal constructor() : this(Optional.empty(), Optional.empty())
 
         private lateinit var context: Context
         private lateinit var owner: ComponentActivity
@@ -563,7 +564,14 @@ internal class CameraXFrameSource
             meteringGrid = MeteringGrid(image.width, image.height, grid)
             if (corner) {
                 val detector = cornerDetector.orElse(CornerLocator)
-                val reading = CornerReader.read(with(FrameReader) { image.asYuvFrame() }, CornerGuide(grid, rotation), detector)
+                // Story 10.23: the unwarped faces are kept for the frame only when a captured-face observer is bound.
+                val reading =
+                    CornerReader.read(
+                        with(FrameReader) { image.asYuvFrame() },
+                        CornerGuide(grid, rotation),
+                        detector,
+                        keepCrops = capturedFaceObserver.isPresent,
+                    )
                 meteringQuads = if (reading.detected) reading.frameQuads else emptyList()
                 applyTorch(force = false)
                 val viewQuads =

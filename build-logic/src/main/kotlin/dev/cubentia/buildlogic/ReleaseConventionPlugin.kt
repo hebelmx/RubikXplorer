@@ -4,8 +4,10 @@ import com.android.build.api.artifact.SingleArtifact
 import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 import com.android.build.api.variant.HostTestBuilder
+import dev.cubentia.buildlogic.policy.CameraSizePolicy
 import dev.cubentia.buildlogic.policy.FeatureFlagLevels
 import dev.cubentia.buildlogic.policy.ReleaseInputs
+import dev.cubentia.buildlogic.policy.ShadowReaderPolicy
 import dev.cubentia.buildlogic.tasks.CheckCameraSizeTask
 import dev.cubentia.buildlogic.tasks.CheckReleaseSizeTask
 import dev.cubentia.buildlogic.tasks.GenerateKeepRulesTask
@@ -125,6 +127,11 @@ class ReleaseConventionPlugin : Plugin<Project> {
                             if (buildType.isDebuggable) {
                                 sourceSet.kotlin.directories += "src/camera/debug/kotlin"
                             }
+                            // Story 10.23: the shadow sticker reader needs LiteRT, so only debuggable + corner model.
+                            if (ShadowReaderPolicy.composes(buildType.isDebuggable, FeatureFlagLevels.isCornerModelEnabled(levels))) {
+                                sourceSet.kotlin.directories += "${ShadowReaderPolicy.SOURCE_DIR}/kotlin"
+                                sourceSet.assets.directories += "${ShadowReaderPolicy.SOURCE_DIR}/assets"
+                            }
                             listOf("camera2", "lifecycle", "view").forEach { component ->
                                 dependencies.add("${buildType.name}Implementation", libs.library("androidx-camera-$component"))
                             }
@@ -139,6 +146,9 @@ class ReleaseConventionPlugin : Plugin<Project> {
                         }
                         if (variant.debuggable) {
                             variant.sources.manifests.addStaticManifestFile("src/camera/debug/AndroidManifest.xml")
+                        }
+                        if (ShadowReaderPolicy.composes(variant.debuggable, flagLevels.isCornerModelEnabled(variant.buildType))) {
+                            variant.sources.manifests.addStaticManifestFile("${ShadowReaderPolicy.SOURCE_DIR}/AndroidManifest.xml")
                         }
                     }
                 }
@@ -181,7 +191,7 @@ class ReleaseConventionPlugin : Plugin<Project> {
                                 compile.map { task ->
                                     task.outputs.files.asFileTree.matching {
                                         include("dev/cubentia/app/camera/**/*.class")
-                                        exclude("dev/cubentia/app/camera/recorder/**")
+                                        exclude(CameraSizePolicy.debugOnlyClassGlobs)
                                     }
                                 },
                             )

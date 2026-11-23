@@ -1,0 +1,15 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Story 10.23 shadow sticker reader toggle (debug builds with a corner-model flag only; never Learner UI).
+             Send action dev.cubentia.debug.SHADOW_READER with the boolean extra "on" from adb (see ShadowReaderToggle).
+             DUMP: only the adb shell (which holds it) can send the broadcast. -->
+        <receiver
+            android:name="dev.cubentia.app.camera.sticker.ShadowReaderToggleReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="dev.cubentia.debug.SHADOW_READER" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

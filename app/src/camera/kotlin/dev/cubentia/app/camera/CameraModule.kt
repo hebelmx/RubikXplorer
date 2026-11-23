@@ -18,6 +18,17 @@ abstract class CameraModule {
 }
 
 /**
+ * Story 10.23: the shadow sticker reader's seam, bound only by the debug sticker source set. Separate from [CameraModule]
+ * for the same reason as [CornerDetectorOptionalModule].
+ */
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class CapturedFaceObserverOptionalModule {
+    @BindsOptionalOf
+    internal abstract fun capturedFaceObserver(): CapturedFaceObserver
+}
+
+/**
  * Separate from [CameraModule] so Hilt tests that `@UninstallModules(CameraModule::class)` to fake [ScanFrameSource]
  * still satisfy `@Inject Optional<CornerDetector>` bindings on camera activities.
  */
