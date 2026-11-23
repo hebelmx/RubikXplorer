@@ -355,7 +355,7 @@
             0.4465457201004029
         ]
     ],
-    "torch": false,
+    "torch": true,
     "diagnostics": {
         "topLevel": 0.9251269407052007,
         "leftLevel": 1.113955392480558,
@@ -364,7 +364,7 @@
         "lightPassed": true,
         "lightMode": "torch",
         "uncalibratedScore": 21.626106136286616,
-        "torch": false,
+        "torch": true,
         "settle": {
             "settleMs": 1530,
             "outcome": "timeout",
