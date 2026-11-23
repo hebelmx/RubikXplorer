@@ -1,0 +1,23 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuites tests="2" failures="1" errors="0" skipped="0" time="0.000" timestamp="2026-11-23T15:52:04" hostname="localhost">
+  <testsuite name="dev.cubentia.app.render.Cube3DRenderSyncTest" tests="2" failures="1" errors="0" skipped="0" time="305.655" timestamp="2026-11-23T15:52:04" hostname="localhost">
+    <properties>
+      <property name="device" value="HA1S28MM" />
+    </properties>
+    <testcase name="physicalSwitchKeepsTheStepControlsAndQuickCheckEvidence" classname="dev.cubentia.app.render.Cube3DRenderSyncTest" time="4.714" />
+    <testcase name="tenThousandRandomStepsKeepTheCubeEqualToTheVirtualState" classname="dev.cubentia.app.render.Cube3DRenderSyncTest" time="300.941">
+      <failure>org.junit.runners.model.TestTimedOutException: test timed out after 300000 milliseconds
+	at kotlinx.coroutines.channels.BufferedChannel.bufferOrRendezvousSend(BufferedChannel.kt:611)
+	at kotlinx.coroutines.channels.BufferedChannel.updateCellSend(BufferedChannel.kt:429)
+	at kotlinx.coroutines.channels.BufferedChannel.access$updateCellSend(BufferedChannel.kt:33)
+	at kotlinx.coroutines.channels.ConflatedBufferedChannel.trySendDropOldest-JP2dKIU(ConflatedBufferedChannel.kt:153)
+	at kotlinx.coroutines.channels.ConflatedBufferedChannel.trySendImpl-Mj0NB7M(ConflatedBufferedChannel.kt:54)
+	at kotlinx.coroutines.channels.ConflatedBufferedChannel.trySend-JP2dKIU(ConflatedBufferedChannel.kt:50)
+	at dev.cubentia.app.render.Cube3DRenderer.submit(Cube3DRenderer.kt:275)
+	at dev.cubentia.app.render.Cube3DRenderSyncTest.dispatch(Cube3DRenderSyncTest.kt:61)
+	at dev.cubentia.app.render.Cube3DRenderSyncTest.tenThousandRandomStepsKeepTheCubeEqualToTheVirtualState$step(Cube3DRenderSyncTest.kt:94)
+	at dev.cubentia.app.render.Cube3DRenderSyncTest.tenThousandRandomStepsKeepTheCubeEqualToTheVirtualState(Cube3DRenderSyncTest.kt:130)
+</failure>
+    </testcase>
+  </testsuite>
+</testsuites>
