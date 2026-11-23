@@ -95,7 +95,8 @@ human gate **H1** (`human-gate.md`) asks for extra fixture captures in the thin 
 
 - no Galaxy S24 FE Quick Scan corner capture, no shaded or backlit S24 FE face and no torch-on capture exist;
 - no Lenovo corner capture of the stickerless `stlb` cube or the stickered `stkb` cube in front light;
-- the backlit groups (`cool`) are Lenovo-only, and the S24 FE groups are studio front light only.
+- the backlit groups (`cool`) are Lenovo-only, and the S24 FE groups are studio front light only;
+- no capture group is labelled glossy (no glare or gloss condition was recorded), so nothing here can speak to glossy faces.
 
 Light notes: `corner/lenovo-tb128xu_stla_warm` hold 1 is side-shaded (docs/evidence/10-19/light-check-and-replay.md,
 docs/evidence/10-18/d2-side-face-replay.md); `cool` corner groups are backlit; `photo` light was not metered.

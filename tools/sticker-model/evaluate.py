@@ -109,7 +109,7 @@ def empty_agreement() -> dict:
 
 
 def score(records: list[dict], model: dict[str, list[dict]], kotlin: dict[str, dict]) -> dict:
-    cells: dict[str, dict] = defaultdict(lambda: {"faces": 0, "groups": set(), **{r: empty_tally() for r in READERS}, "agreementGated": empty_agreement(), "agreementSelf": empty_agreement(), "kotlinFaces": 0})
+    cells: dict[str, dict] = defaultdict(lambda: {"faces": 0, "groups": set(), **{r: empty_tally() for r in READERS}, "agreementGated": empty_agreement(), "agreementSelf": empty_agreement(), "agreementSecond": empty_agreement(), "kotlinFaces": 0})
     for record in records:
         key = f"{record['device']} / {record['cube']} / {record['light']}"
         for name in (key, "ALL held-out"):
@@ -124,6 +124,7 @@ def score(records: list[dict], model: dict[str, list[dict]], kotlin: dict[str, d
                     tally(cell[reader], record["labels"], reads[reader])
                 agreement(model[record["item"]], reads["gated"], record["labels"], cell["agreementGated"])
                 agreement(model[record["item"]], reads["self"], record["labels"], cell["agreementSelf"])
+                agreement(model[record["item"]], reads["second"], record["labels"], cell["agreementSecond"])
     return {name: {**cell, "groups": sorted(cell["groups"])} for name, cell in sorted(cells.items(), key=lambda kv: (kv[0] == "ALL held-out", kv[0]))}
 
 
@@ -210,7 +211,8 @@ def render(result: dict) -> str:
         "- **Caveats:** held-out cells hold about 6 faces (54 stickers) each, so every number is indicative. Corner crops are",
         "  unwarped in Python from the saved 200x200 crop, while the Kotlin Lab values were measured on the device's analysis",
         "  frame: the pixels the two readers saw differ. The backlit held-out groups are Lenovo-only; the S24 FE held-out groups",
-        "  are studio front light only. No S24 FE corner capture, shaded or backlit S24 FE face or torch-on capture exists (H1).",
+        "  are studio front light only. No S24 FE corner capture, shaded or backlit S24 FE face or torch-on capture exists (H1). No",
+        "  group is labelled glossy, so the report cannot speak to glossy faces.",
         "",
         "## Headline (all held-out stickers)",
         "",
@@ -240,7 +242,7 @@ def render(result: dict) -> str:
         "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for name, cell in result["cells"].items():
-        for label, key in (("gated", "agreementGated"), ("self", "agreementSelf")):
+        for label, key in (("gated", "agreementGated"), ("self", "agreementSelf"), ("second", "agreementSecond")):
             a = cell[key]
             if cell["kotlinFaces"] == 0:
                 continue

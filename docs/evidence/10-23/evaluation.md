@@ -13,7 +13,8 @@ decision on a further mode (second read or rescue), which needs a further SCP. G
 - **Caveats:** held-out cells hold about 6 faces (54 stickers) each, so every number is indicative. Corner crops are
   unwarped in Python from the saved 200x200 crop, while the Kotlin Lab values were measured on the device's analysis
   frame: the pixels the two readers saw differ. The backlit held-out groups are Lenovo-only; the S24 FE held-out groups
-  are studio front light only. No S24 FE corner capture, shaded or backlit S24 FE face or torch-on capture exists (H1).
+  are studio front light only. No S24 FE corner capture, shaded or backlit S24 FE face or torch-on capture exists (H1). No
+  group is labelled glossy, so the report cannot speak to glossy faces.
 
 ## Headline (all held-out stickers)
 
@@ -54,14 +55,19 @@ decision on a further mode (second read or rescue), which needs a further SCP. G
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Galaxy S24 FE / stka / studio (front) | gated | 53 | 1 | 0 | 0 | 0 | 0 | 0 |
 | Galaxy S24 FE / stka / studio (front) | self | 53 | 1 | 0 | 0 | 0 | 0 | 0 |
+| Galaxy S24 FE / stka / studio (front) | second | 53 | 1 | 0 | 0 | 0 | 0 | 0 |
 | Galaxy S24 FE / stla / studio (front) | gated | 52 | 0 | 2 | 0 | 0 | 2 | 0 |
 | Galaxy S24 FE / stla / studio (front) | self | 52 | 0 | 2 | 0 | 0 | 2 | 0 |
+| Galaxy S24 FE / stla / studio (front) | second | 53 | 0 | 1 | 0 | 0 | 1 | 0 |
 | Lenovo TB128XU / stka / cool (backlit) | gated | 32 | 0 | 20 | 2 | 0 | 18 | 2 |
 | Lenovo TB128XU / stka / cool (backlit) | self | 38 | 1 | 13 | 2 | 0 | 12 | 2 |
+| Lenovo TB128XU / stka / cool (backlit) | second | 43 | 4 | 5 | 2 | 0 | 5 | 2 |
 | Lenovo TB128XU / stla / cool (backlit) | gated | 25 | 2 | 23 | 0 | 4 | 23 | 0 |
 | Lenovo TB128XU / stla / cool (backlit) | self | 30 | 2 | 18 | 4 | 0 | 18 | 3 |
+| Lenovo TB128XU / stla / cool (backlit) | second | 43 | 4 | 3 | 1 | 3 | 3 | 0 |
 | ALL held-out | gated | 162 | 3 | 45 | 2 | 4 | 43 | 2 |
 | ALL held-out | self | 173 | 4 | 33 | 6 | 0 | 32 | 5 |
+| ALL held-out | second | 192 | 9 | 9 | 3 | 3 | 9 | 2 |
 
 ## Learning curve (all held-out faces; synthetic training faces held constant)
 

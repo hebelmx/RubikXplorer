@@ -11,6 +11,15 @@
         "onlyKotlinConfident": 2,
         "onlyModelConfident": 45
       },
+      "agreementSecond": {
+        "bothConfidentDiffer": 9,
+        "bothConfidentSame": 192,
+        "kotlinRightWhereModelUncertain": 2,
+        "modelRightWhereKotlinUncertain": 9,
+        "neitherConfident": 3,
+        "onlyKotlinConfident": 3,
+        "onlyModelConfident": 9
+      },
       "agreementSelf": {
         "bothConfidentDiffer": 4,
         "bothConfidentSame": 173,
@@ -87,6 +96,15 @@
     },
     "Galaxy S24 FE / stka / studio (front)": {
       "agreementGated": {
+        "bothConfidentDiffer": 1,
+        "bothConfidentSame": 53,
+        "kotlinRightWhereModelUncertain": 0,
+        "modelRightWhereKotlinUncertain": 0,
+        "neitherConfident": 0,
+        "onlyKotlinConfident": 0,
+        "onlyModelConfident": 0
+      },
+      "agreementSecond": {
         "bothConfidentDiffer": 1,
         "bothConfidentSame": 53,
         "kotlinRightWhereModelUncertain": 0,
@@ -176,6 +194,15 @@
         "onlyKotlinConfident": 0,
         "onlyModelConfident": 2
       },
+      "agreementSecond": {
+        "bothConfidentDiffer": 0,
+        "bothConfidentSame": 53,
+        "kotlinRightWhereModelUncertain": 0,
+        "modelRightWhereKotlinUncertain": 1,
+        "neitherConfident": 0,
+        "onlyKotlinConfident": 0,
+        "onlyModelConfident": 1
+      },
       "agreementSelf": {
         "bothConfidentDiffer": 0,
         "bothConfidentSame": 52,
@@ -257,6 +284,15 @@
         "onlyKotlinConfident": 2,
         "onlyModelConfident": 20
       },
+      "agreementSecond": {
+        "bothConfidentDiffer": 4,
+        "bothConfidentSame": 43,
+        "kotlinRightWhereModelUncertain": 2,
+        "modelRightWhereKotlinUncertain": 5,
+        "neitherConfident": 0,
+        "onlyKotlinConfident": 2,
+        "onlyModelConfident": 5
+      },
       "agreementSelf": {
         "bothConfidentDiffer": 1,
         "bothConfidentSame": 38,
@@ -337,6 +373,15 @@
         "neitherConfident": 4,
         "onlyKotlinConfident": 0,
         "onlyModelConfident": 23
+      },
+      "agreementSecond": {
+        "bothConfidentDiffer": 4,
+        "bothConfidentSame": 43,
+        "kotlinRightWhereModelUncertain": 0,
+        "modelRightWhereKotlinUncertain": 3,
+        "neitherConfident": 3,
+        "onlyKotlinConfident": 1,
+        "onlyModelConfident": 3
       },
       "agreementSelf": {
         "bothConfidentDiffer": 2,

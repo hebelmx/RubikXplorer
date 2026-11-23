@@ -234,6 +234,10 @@ class ShadowReaderReplayTest {
             on.toString(),
             on.all { Regex(""".* inferMs=\d+ model=[WYROBG]{9}/C{9} self=\S+ second=(cal|norm|-):?\S*""").matches(it) },
         )
+        assertTrue(
+            "the judged faces carry both Kotlin reads: $on",
+            on.any { Regex(""".* self=[WYROBG-]{9}/[CU-]{9} second=(cal|norm):[WYROBG-]{9}/[CU-]{9}""").matches(it) },
+        )
         assertEquals("quickScan shadowReader state=on", runs.getValue(Mode.ON).second.first())
         assertEquals(listOf(Mode.ON), Mode.entries.filter { shadow(it).isNotEmpty() })
         assertEquals(

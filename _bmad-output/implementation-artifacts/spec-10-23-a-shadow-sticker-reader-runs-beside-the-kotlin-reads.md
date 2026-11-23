@@ -6,7 +6,7 @@ status: 'done'
 baseline_commit: '0861996fd0f14bfa1e2ed5274640b80487f309ef'
 route: 'dispatch'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-10-context.md'
@@ -300,6 +300,45 @@ deferred:
   - `[false]` `[reject]` (intent 7) The replay uses one training group — the AC requires equality across reader modes, not held-out data. This is the route-level proof, and the reader never changes the result.
   - `[false]` `[reject]` (intent 8) No new real captures — this is the H1 human gate by orchestrator instruction.
 
+### 2026-11-22 — Follow-up review pass
+- verdicts: 35 findings — high 0, medium 4, low 21, false 8, maybe-false 2
+- findings:
+  - `[medium]` `[patch]` (verification-gap 1) The route replay's regex accepted `self=- second=-`, so a broken hand-off of the Kotlin reads to the observer would pass — the replay now also requires a line with nine-letter `self=` and a `cal`/`norm` second read (grouped with blind 3).
+  - `[low]` `[reject]` (verification-gap 2) Keeping a scan alive across a configuration change is untested — the `!isChangingConfigurations` guard is in place; the cost is debug-only log lines, and the fix is a new recreate test.
+  - `[low]` `[reject]` (verification-gap other) The camera-size exclusion of `camera/sticker/**` is pinned only as a list value — a regression only makes the estimate larger, the safe direction.
+  - `[low]` `[patch]` (intent 1) "Glossy" from the Problem is never addressed in the inventory or the report — both generators now state that no group is labelled glossy, so the evidence cannot speak to glossy faces; inventory.md and evaluation.md regenerated.
+  - `[false]` `[reject]` (intent 2) The shaded group is in train — carried (intent 5): the spec names the held-out groups.
+  - `[low]` `[reject]` (intent 3) No Kotlin test runs the real asset through LiteRT — the LiteRT natives do not load on the JVM; `StickerModelContractTest` pins the hash and the H2 device session exercises the real interpreter.
+  - `[medium]` `[defer]` (intent 4) Python and Kotlin readers see different pixels — carried (blind 11): already deferred.
+  - `[false]` `[reject]` (intent 5) With the toggle off, crops are still kept — the matrix row requires no inference and no shadow lines, which holds; the crops stay in memory for one frame (AD-13).
+  - `[low]` `[reject]` (intent 6) The merged manifest is not inspected by the release check — carried (blind 7).
+  - `[medium]` `[patch]` (intent 7) The replay's unbound mode builds crops itself — carried (intent 1): `cornerFramesCarryFaceCropsOnlyWithABoundObserver` was added then.
+  - `[low]` `[reject]` (intent 8) The DUMP-guarded receiver is untested on a real device — that is the H2 device session, a human gate.
+  - `[low]` `[reject]` (blind 1) `inferMs` is whole milliseconds — enough to compare against capture times in hundreds of ms, which is what H2 records.
+  - `[false]` `[reject]` (blind 2) Hilt aggregated classes outside the package would leak unnoticed — they exist only when the module in `camera/sticker` is compiled, and those classes are caught; a renamed asset is hypothetical.
+  - `[medium]` `[patch]` (blind 3) The replay regex accepts `self=- second=-` — same fix as verification-gap 1.
+  - `[low]` `[reject]` (blind 4) `-` in the log versus `none` in kotlin-reads.json — `-` marks a face with no report on the device line, `none` a null enum in JSON; joining needs no shared token.
+  - `[low]` `[patch]` (blind 5) KotlinStickerReads has no test — carried (verification-gap other).
+  - `[low]` `[reject]` (blind 6) No face-level safety count — AC4 lists sticker metrics; a face-level view is a new metric for the PO's later SCP.
+  - `[low]` `[patch]` (blind 7) Model-versus-Kotlin agreement left out the `second` read, which the task names — `evaluate.py` now tallies `agreementSecond` and renders it; evaluation regenerated with `--reuse-curve` (same model SHA).
+  - `[low]` `[patch]` (blind 8) τ is stuck at the 0.99 ceiling — carried (blind 2): the grid is the spec's rule.
+  - `[low]` `[reject]` (blind 9) No test that inference runs off the analyzer thread, and H2 does not measure frame drops — the reader posts to its own executor by construction; H2 records what the AC asks.
+  - `[low]` `[reject]` (blind 10) Bookkeeping (status in-review mid-review, unchecked task boxes, AAB number, epic context) — the fix edits this build's spec or a context cache.
+  - `[low]` `[reject]` (blind 11) `report()` recomputes the second read in release too — nine Lab distances per face, negligible, and the comment states what the fields are for.
+  - `[low]` `[reject]` (blind 12) Interpreter never closed, singleton `active` flag, `np.roll` wrap in augmentation — debug-process lifetime is intended; the roll fix needs a retrain that is not bit-exact.
+  - `[low]` `[reject]` (edge 1) `OutOfMemoryError` or other `Error`s are not caught — the spec asks for `Exception` and `LinkageError`; catching OOM is unsafe and unlikely on a 96×96 read.
+  - `[low]` `[reject]` (edge 2) An in-flight read of the previous scan can log into the next scan — inference takes milliseconds and scans are seconds apart; the fix adds a generation counter.
+  - `[false]` `[reject]` (edge 3) A zero-size crop breaks `fillInput` — `unwarp()` always returns a 96×96 frame.
+  - `[false]` `[reject]` (edge 4) Crops of a non-detected frame mislead the comparison — the Kotlin reads in the same line come from the same located quads, so both readers see the same faces.
+  - `[false]` `[reject]` (edge 5) A bare relative output path gives a null parent — the Gradle task always passes an absolute project path.
+  - `[low]` `[reject]` (edge 6) `--reuse-curve` ignores a change of groups — H3 uses its own `--name`, and the README does not tell H3 to reuse; the fix adds a guard.
+  - `[false]` `[reject]` (edge 7) Empty `--groups` crashes in `np.stack` — carried (edge 6): loud failure.
+  - `[maybe-false]` `[reject]` (edge 8) A group with no calibration would report `norm` reads as `second` — all 24 held-out items are `cal`; whether Story 10.20 records lack calibration would settle it, and if true it is only a labelling issue (low).
+  - `[low]` `[reject]` (edge 9) Empty tune side gives τ 0.50 — carried (edge 5).
+  - `[low]` `[reject]` (edge 10) Empty held-out side skips coverage checks — carried (edge 14).
+  - `[false]` `[reject]` (edge 11) Unknown fixture directory names crash assembly — carried (edge 12): loud failure.
+  - `[maybe-false]` `[reject]` (edge 12, claim) `second` may fall back to normalized centres — same as edge 8.
+
 ## Design Notes
 
 - **Data limits:**
@@ -375,3 +414,10 @@ Status: done (code complete; the human-gate items H1–H3 stay open for the PO).
 - The model has 4 confidently wrong stickers.
 - The Python and Kotlin readers saw different pixels.
 - H1–H3 are open in `docs/evidence/10-23/human-gate.md`.
+
+**Follow-up review pass (2026-11-22):**
+- 35 findings: 3 entries patched (1 medium: the replay now proves both Kotlin reads reach the shadow line; 2 low: the `second` agreement row in the evaluation, and the "no glossy group" limit in the inventory and the report), 0 new deferrals, the rest rejected or carried with reasons in the triage log.
+- Files changed: `ShadowReaderReplayTest.kt` (stricter assertion), `tools/sticker-model/evaluate.py` (`agreementSecond`, glossy caveat), `tools/sticker-model/inventory_report.py` (glossy line), regenerated `docs/evidence/10-23/{evaluation.md,evaluation.json,inventory.md}` (model, split and manifest unchanged).
+- Verification: Python unittest 17 OK; `assemble.py` re-run (manifest and split.json unchanged); `evaluate.py --reuse-curve` (same held-out numbers); `:core:domain:exportKotlinStickerReads :core:domain:test :app:testDebugUnitTest` (sticker, QuickScan, CornerFixture) pass; `spotlessCheck build :app:checkReleaseSize` pass with `release-size.txt` unchanged.
+- Follow-up review recommended: false (patched at entry verdict: high 0, medium 1, low 2; no high patched on a follow-up pass).
+- Residual risks are unchanged: thin data, Lenovo-only backlit held-out, no glossy or shaded held-out group, different pixels for the two readers, and H1–H3 open.
