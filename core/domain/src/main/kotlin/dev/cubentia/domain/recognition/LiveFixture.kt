@@ -115,6 +115,10 @@ enum class LightDirection {
 
     @SerialName("back")
     BACK,
+
+    /** Story 10.20: light from one side of the cube. */
+    @SerialName("side")
+    SIDE,
 }
 
 /**
@@ -143,12 +147,68 @@ data class CornerFixtureRecord(
     val detectorKeypoints: List<List<Double>>? = null,
     /** Schema 4: whether the torch was on (null: unknown, or a camera without a flash unit). */
     val torch: Boolean? = null,
+    /** Schema 4, Story 10.20: the hold's light check and metering settle as the recorder measured them (null: older records). */
+    val diagnostics: CornerHoldDiagnostics? = null,
+)
+
+/** How the 10.22 metering before a recorder capture ended: settled, at the settle cap, or still settling at the capture. */
+@Serializable
+enum class SettleOutcome {
+    @SerialName("settled")
+    SETTLED,
+
+    @SerialName("timeout")
+    TIMEOUT,
+
+    @SerialName("settling")
+    SETTLING,
+}
+
+/**
+ * The metering settle before a recorder capture (Story 10.20, the 10.22 settle signal): how long it took ([settleMs]),
+ * how it ended, the exposure lock taken then ([lock]: `on`, `on+awb`, `unsupported`, or `none` for a capture taken while
+ * still settling) and the metering future's part of the wait ([futureMs], null when unknown).
+ */
+@Serializable
+data class CornerSettleDiagnostics(
+    val settleMs: Long?,
+    val outcome: SettleOutcome,
+    val lock: String,
+    val futureMs: Long? = null,
 )
 
 /**
- * The manifest `group.json` the 10.19 recorder writes in each corner group folder. [pipeline] `"10.19"` marks a group
- * recorded with the 10.19 metering, which the side-face replay scores; a group without a manifest is pre-10.19 and only
- * reported.
+ * One recorded hold's diagnostics (Story 10.20), numbers only: the [SideLight] check of the three faces in hold order
+ * (levels, [lightScore], [lightPassed]) in the recorder's mode, the [lightMode] word Quick Scan's diagnostics log
+ * (`calibrated`, `uncalibrated`, or `torch` when the torch was lit), the uncalibrated score beside it, the torch and the
+ * metering [settle]. A face not measured leaves its level and the scores null ([lightPassed] null then too).
+ */
+@Serializable
+data class CornerHoldDiagnostics(
+    val topLevel: Double?,
+    val leftLevel: Double?,
+    val rightLevel: Double?,
+    val lightScore: Double?,
+    val lightPassed: Boolean?,
+    val lightMode: String,
+    val uncalibratedScore: Double?,
+    val torch: Boolean?,
+    val settle: CornerSettleDiagnostics? = null,
+)
+
+/** One hold of a recorded group (Story 10.20): its number and the torch state at its capture (null: no flash unit). */
+@Serializable
+data class CornerHoldManifest(
+    val hold: Int,
+    val torch: Boolean? = null,
+)
+
+/**
+ * The manifest `group.json` the recorder writes in each corner group folder. [pipeline] `"10.19"` marks a group
+ * recorded with the 10.19 metering, which the side-face replay scores; `"10.22"` (Story 10.20) a group recorded with the
+ * 10.19 lighting plus 10.22's settle-and-lock, reported as the unenforced baseline until Story 10.21 enforces it. A group
+ * without a manifest is pre-10.19 and only reported. Story 10.20 adds the recorder [calibration] the group was recorded
+ * with and the torch state per hold ([holds]); older manifests decode without them.
  */
 @Serializable
 data class CornerGroupManifest(
@@ -159,7 +219,46 @@ data class CornerGroupManifest(
     val light: String,
     /** Whether the torch was on for the whole group (null: a camera without a flash unit, or unknown). */
     val torch: Boolean? = null,
+    val calibration: CalibrationCenters? = null,
+    val holds: List<CornerHoldManifest> = emptyList(),
 )
+
+/** Which split a recorded group belongs to (Story 10.20): held out (never tuned or trained on) or tuning. */
+@Serializable
+enum class CornerSplit {
+    @SerialName("heldout")
+    HELDOUT,
+
+    @SerialName("tuning")
+    TUNING,
+}
+
+/** One group of the [CornerGroupIndex]: its folder name under `Fixtures/corner/`, its split, and whether its cube is pastel. */
+@Serializable
+data class CornerGroupIndexEntry(
+    val group: String,
+    val split: CornerSplit,
+    val pastel: Boolean = false,
+)
+
+/**
+ * The group index `Fixtures/corner/groups.json` (Story 10.20), written after the recording session: every 10.22 group
+ * once, with its held-out or tuning split. Whole groups are held out. [kind] tells it from fixtures and manifests.
+ */
+@Serializable
+data class CornerGroupIndex(
+    val kind: String = KIND,
+    val schemaVersion: Int = SCHEMA,
+    val groups: List<CornerGroupIndexEntry>,
+) {
+    /** The entry for folder [group]; null when the index does not list it. */
+    fun entry(group: String): CornerGroupIndexEntry? = groups.firstOrNull { it.group == group }
+
+    companion object {
+        const val KIND = "corner-group-index"
+        const val SCHEMA = 1
+    }
+}
 
 /**
  * One keypoint fixture for the corner model evaluator (`tools/corner-model/evaluate_model.py --fixtures-corner`):
@@ -203,6 +302,12 @@ object CornerFixturePaths {
     /** The pipeline tag of a group recorded with the Story 10.19 metering. */
     const val PIPELINE_10_19 = "10.19"
 
+    /** The pipeline tag of a group recorded with the 10.19 lighting plus the Story 10.22 settle-and-lock (Story 10.20). */
+    const val PIPELINE_10_22 = "10.22"
+
+    /** The group index in `Fixtures/corner/` naming each 10.22 group's split (Story 10.20). */
+    const val GROUP_INDEX = "groups.json"
+
     /** The keypoint fixtures' subfolder in a group folder. */
     const val KEYPOINTS_DIR = "keypoints"
 
@@ -226,6 +331,24 @@ object CornerFixtureJson {
     fun encodeManifest(manifest: CornerGroupManifest): String = json.encodeToString(manifest)
 
     fun decodeManifest(value: String): CornerGroupManifest = json.decodeFromString<CornerGroupManifest>(value)
+
+    fun encodeIndex(index: CornerGroupIndex): String = json.encodeToString(validIndex(index))
+
+    /** Decodes and validates a group index: its kind and schema, a split per group, non-blank and unique group names. */
+    fun decodeIndex(value: String): CornerGroupIndex = validIndex(json.decodeFromString<CornerGroupIndex>(value))
+
+    private fun validIndex(index: CornerGroupIndex): CornerGroupIndex =
+        index.also {
+            require(it.kind == CornerGroupIndex.KIND) { "Not a corner group index: ${it.kind}" }
+            require(it.schemaVersion == CornerGroupIndex.SCHEMA) { "Unsupported corner group index schema: ${it.schemaVersion}" }
+            it.groups.forEach { entry -> require(entry.group.isNotBlank()) { "A group index entry needs a group name" } }
+            val repeated =
+                it.groups
+                    .groupBy { entry -> entry.group }
+                    .filterValues { entries -> entries.size > 1 }
+                    .keys
+            require(repeated.isEmpty()) { "Groups listed more than once in the group index: ${repeated.joinToString()}" }
+        }
 
     fun encodeKeypoints(fixture: CornerKeypointFixture): String = json.encodeToString(fixture)
 
@@ -252,7 +375,7 @@ object CornerFixtureJson {
             require(record.frame == CornerFixturePaths.frameName(record.hold))
             if (record.schemaVersion == LEGACY_SCHEMA) {
                 require(record.label == CornerLabel.POSITIVE && record.keypoints == null && record.detectorKeypoints == null)
-                require(record.lightDirection == null && record.torch == null)
+                require(record.lightDirection == null && record.torch == null && record.diagnostics == null)
             } else {
                 require(
                     record.keypoints == null || validKeypoints(record.keypoints),

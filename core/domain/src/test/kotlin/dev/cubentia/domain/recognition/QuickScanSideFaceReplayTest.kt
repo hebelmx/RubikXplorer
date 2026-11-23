@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 /**
@@ -28,6 +29,12 @@ import java.io.File
  * scenario 0 confidently wrong stickers on kept faces (a wrong sticker on a face sent to the grid is a safe fallback, PO
  * 2026-11-21 C). Scored backlit groups are reported and must trip [SideLight]. Pre-10.19 groups must trip [SideLight]
  * when backlit and pass it when front-lit (the threshold evidence for AC1); their replay is reported, not asserted.
+ *
+ * Story 10.20: a group whose manifest says `"pipeline": "10.22"` (10.19 lighting plus 10.22 settle-and-lock) is never
+ * scored by this story and is excluded from every enforcing assertion; it gets the **baseline** section instead, per
+ * device × light direction × light name × torch, in the no-saved and matching scenarios, printed and written to
+ * `build/reports/quick-scan/baseline-10-20.md`. Story 10.21 enforces the bar on it. The group index
+ * (`Fixtures/corner/groups.json`) names each group's split when it exists.
  */
 class QuickScanSideFaceReplayTest {
     private class Tally {
@@ -39,6 +46,11 @@ class QuickScanSideFaceReplayTest {
         var redOrangeKept = 0
         var sideFaces = 0
         var sideFacesKept = 0
+
+        /** CONFIDENT judged stickers on kept faces and on faces sent to the grid, and the wrong ones among the latter. */
+        var keptConfident = 0
+        var gridConfident = 0
+        var gridWrong = 0
         val byColor = Color.entries.associateWith { IntArray(3) }
 
         val cells get() = correct + uncertain + wrong
@@ -52,6 +64,9 @@ class QuickScanSideFaceReplayTest {
             redOrangeKept += other.redOrangeKept
             sideFaces += other.sideFaces
             sideFacesKept += other.sideFacesKept
+            keptConfident += other.keptConfident
+            gridConfident += other.gridConfident
+            gridWrong += other.gridWrong
             byColor.forEach { (color, counts) -> other.byColor.getValue(color).forEachIndexed { i, n -> counts[i] += n } }
         }
     }
@@ -73,7 +88,14 @@ class QuickScanSideFaceReplayTest {
         val direction: LightDirection?,
         val scored: Boolean,
         val records: List<CornerFixtureRecord>,
+        /** The manifest's pipeline tag; null for a pre-10.19 group without a manifest. */
+        val pipeline: String? = null,
+        val torch: Boolean? = null,
+        val split: CornerSplit? = null,
     ) {
+        /** A 10.22-pipeline group (Story 10.20): reported in the baseline, never enforced here. */
+        val baseline: Boolean get() = pipeline == CornerFixturePaths.PIPELINE_10_22
+
         val samples get() = records.flatMap { record -> record.labeledSamples.map { it.sample } }
         val calibration get() = records.first().calibration
         val stickered: Boolean? get() =
@@ -99,9 +121,10 @@ class QuickScanSideFaceReplayTest {
         fun lightModes(): List<List<Pair<Int, SideLight.Verdict>>> = listOf(lightChecks(false), lightChecks(true))
     }
 
-    private fun groups(): List<Group> {
-        val root = File("../../Fixtures/corner")
+    private fun groups(root: File = FIXTURES): List<Group> {
         assumeTrue(root.isDirectory, "Corner fixtures are recorded in the device session")
+        val index =
+            File(root, CornerFixturePaths.GROUP_INDEX).takeIf { it.isFile }?.let { CornerFixtureJson.decodeIndex(it.readText()) }
         return root
             .walkTopDown()
             .filter { dir -> dir.isDirectory && dir.listFiles().orEmpty().any { it.name.matches(FIXTURE) } }
@@ -123,14 +146,18 @@ class QuickScanSideFaceReplayTest {
                     ).takeIf { it.isFile }?.let { CornerFixtureJson.decodeManifest(it.readText()) }
                 val scored = manifest?.pipeline == CornerFixturePaths.PIPELINE_10_19
                 val first = records.first()
+                val name = dir.relativeTo(root).path
                 Group(
-                    name = dir.relativeTo(root).path,
+                    name = name,
                     device = first.device.model,
                     cube = first.cube,
                     light = first.light,
                     direction = if (manifest != null) manifest.lightDirection else LEGACY_DIRECTION[first.light],
                     scored = scored,
                     records = records,
+                    pipeline = manifest?.pipeline,
+                    torch = manifest?.torch ?: first.torch,
+                    split = index?.entry(name)?.split,
                 )
             }.toList()
     }
@@ -183,6 +210,14 @@ class QuickScanSideFaceReplayTest {
                     val wrong = confident && reading.color != truth
                     val judged = index != FaceSample.CENTER_INDEX || labeled.sample.centerPlain != false
                     if (kept && wrong && judged) tally.wrongKept++
+                    if (confident && judged) {
+                        if (kept) {
+                            tally.keptConfident++
+                        } else {
+                            tally.gridConfident++
+                            if (wrong) tally.gridWrong++
+                        }
+                    }
                     if (!side || index == FaceSample.CENTER_INDEX) return@forEachIndexed
                     val counts = tally.byColor.getValue(truth)
                     when {
@@ -360,7 +395,7 @@ class QuickScanSideFaceReplayTest {
 
     @Test
     fun `both light check modes trip every legacy backlit group and pass every legacy front-lit hold`() {
-        val legacy = groups().filter { !it.scored }
+        val legacy = groups().filter { it.pipeline == null }
         assumeTrue(legacy.isNotEmpty(), "No pre-10.19 corner groups")
         legacy.forEach { group ->
             group.lightModes().forEachIndexed { mode, checks ->
@@ -374,7 +409,7 @@ class QuickScanSideFaceReplayTest {
                         assertTrue(checks.all { it.second.passed }, "${group.name} is front-lit and must pass $name SideLight")
                     }
 
-                    null -> {
+                    LightDirection.SIDE, null -> {
                         Unit
                     }
                 }
@@ -382,25 +417,30 @@ class QuickScanSideFaceReplayTest {
         }
     }
 
+    /** The groups this story enforces on: legacy and 10.19 groups; 10.22 groups are only reported (Story 10.20). */
+    private fun enforced(groups: List<Group>) = groups.filter { !it.baseline }
+
+    /** Every enforced group's confidently wrong stickers on kept faces, per calibration scenario. */
+    private fun unsafe(groups: List<Group>): List<String> =
+        groups.flatMap { group ->
+            Scenario.entries.flatMap { scenario ->
+                calibrations(group, groups, scenario).mapNotNull { saved ->
+                    val wrong = tally(group, saved).wrongKept
+                    if (wrong > 0) "${group.name} / ${scenario.title}: $wrong confidently wrong on kept faces" else null
+                }
+            }
+        }
+
     @Test
     fun `no group in any scenario reads a confidently wrong sticker on a kept face`() {
         // Confidence calibration NFR (PO 2026-11-21 C): legacy and scored groups alike, every calibration scenario.
-        val groups = groups()
-        val unsafe =
-            groups.flatMap { group ->
-                Scenario.entries.flatMap { scenario ->
-                    calibrations(group, groups, scenario).mapNotNull { saved ->
-                        val wrong = tally(group, saved).wrongKept
-                        if (wrong > 0) "${group.name} / ${scenario.title}: $wrong confidently wrong on kept faces" else null
-                    }
-                }
-            }
+        val unsafe = unsafe(enforced(groups()))
         assertTrue(unsafe.isEmpty(), unsafe.joinToString("\n"))
     }
 
     @Test
     fun `the side-face bar holds on every scored front-lit device and light`() {
-        val groups = groups()
+        val groups = enforced(groups())
         val violations = violations(groups)
         val missing = missing(groups)
         val scored = groups.count { it.scored }
@@ -418,7 +458,163 @@ class QuickScanSideFaceReplayTest {
         if (scored > 0) assertTrue(missing.isEmpty(), report)
     }
 
+    private fun format(
+        value: Double?,
+        mode: SideLight.Mode,
+    ): String = value?.let { (if (mode == SideLight.Mode.CALIBRATED) "%.3f" else "%.1f").format(java.util.Locale.ROOT, it) } ?: "n/a"
+
+    /** Per face of [group] under [saved]: kept or sent to the grid, with the close calls and disagreements of the gate. */
+    private fun faceReasons(
+        group: Group,
+        saved: CalibrationCenters?,
+    ): String {
+        val merged = group.samples
+        val faces = Face.entries.filter { face -> merged.any { it.face == face } }
+        return QuickScanClassification.report(merged, faces, saved).joinToString(" ") { face ->
+            "${face.face}:${if (face.grid) "grid" else "kept"}(closeCall=${face.closeCalls},disagree=${face.disagreements})"
+        }
+    }
+
+    /**
+     * The Story 10.20 baseline of the 10.22 groups among [groups], never enforced: per device × light direction × light
+     * name × torch, in the no-saved and matching scenarios, each group's side stickers correct/uncertain/wrong, side faces
+     * kept, confidently wrong among CONFIDENT stickers on kept and grid faces, and each face's keep or grid reason; per
+     * backlit group the light check scores per hold, flagging a hold that passes.
+     */
+    private fun baseline(groups: List<Group>): String =
+        buildString {
+            val recorded = groups.filter { it.baseline }
+            appendLine("# Story 10.20 baseline: 10.22-pipeline corner groups (reported, not enforced; Story 10.21 enforces)")
+            appendLine()
+            if (recorded.isEmpty()) {
+                appendLine("no 10.22 groups recorded yet")
+                return@buildString
+            }
+            val conditions =
+                recorded
+                    .groupBy { listOf(it.device, it.direction?.name?.lowercase() ?: "unknown", it.light, "torch=${it.torch ?: "n/a"}") }
+                    .toSortedMap(compareBy { it.joinToString("|") })
+            conditions.forEach { (key, members) ->
+                appendLine("## ${key.joinToString(" × ")}")
+                appendLine()
+                appendLine(
+                    "| group (split) / scenario | side correct/uncertain/wrong | side faces kept | kept: wrong/confident | grid: wrong/confident | faces |",
+                )
+                appendLine("|---|---|---|---|---|---|")
+                listOf(Scenario.NONE, Scenario.MATCHING).forEach { scenario ->
+                    val total = Tally()
+                    members.forEach { group ->
+                        val saved = calibrations(group, groups, scenario).single()
+                        val tally = tally(group, saved).also { total += it }
+                        val label = "${group.name} (${group.split?.name?.lowercase() ?: "unsplit"}) / ${scenario.title}"
+                        appendLine(
+                            "| $label | ${tally.correct}/${tally.uncertain}/${tally.wrong} | ${tally.sideFacesKept}/${tally.sideFaces} | " +
+                                "${tally.wrongKept}/${tally.keptConfident} | ${tally.gridWrong}/${tally.gridConfident} | ${faceReasons(
+                                    group,
+                                    saved,
+                                )} |",
+                        )
+                    }
+                    appendLine(
+                        "| all / ${scenario.title} | ${total.correct}/${total.uncertain}/${total.wrong} | " +
+                            "${total.sideFacesKept}/${total.sideFaces} | " +
+                            "${total.wrongKept}/${total.keptConfident} | ${total.gridWrong}/${total.gridConfident} | |",
+                    )
+                }
+                appendLine()
+                members.filter { it.direction == LightDirection.BACK }.forEach { group ->
+                    val holds =
+                        group.lightModes().flatten().joinToString("; ") { (hold, verdict) ->
+                            val mode = verdict.mode.name.lowercase()
+                            val flag = if (verdict.passed && verdict.score != null) " PASSES (backlit)" else ""
+                            "hold $hold $mode ${format(verdict.score, verdict.mode)}$flag"
+                        }
+                    appendLine("Backlit light scores, ${group.name}: $holds")
+                }
+                appendLine()
+            }
+        }
+
+    /** Prints the baseline and writes it to the build reports. */
+    private fun writeBaseline(groups: List<Group>): String =
+        baseline(groups).also { text ->
+            println(text)
+            BASELINE_REPORT.parentFile.mkdirs()
+            BASELINE_REPORT.writeText(text)
+        }
+
+    @Test
+    fun `the 10-22 baseline is reported and never enforced`() {
+        val groups = if (FIXTURES.isDirectory) groups() else emptyList()
+        val text = writeBaseline(groups)
+        if (groups.none { it.baseline }) assertTrue("no 10.22 groups" in text, text)
+    }
+
+    @Test
+    fun `a 10-22 group gets the baseline section with its counts and no assertion fails on it`(
+        @TempDir root: File,
+    ) {
+        val front = File(FIXTURES, "lenovo-tb128xu_stka_warm")
+        val back = File(FIXTURES, "lenovo-tb128xu_stka_cool")
+        assumeTrue(front.isDirectory && back.isDirectory, "The legacy Lenovo groups are needed as copies")
+        listOf(front to LightDirection.FRONT, back to LightDirection.BACK).forEach { (source, direction) ->
+            val target = File(root, source.name)
+            source.copyRecursively(target)
+            val first = CornerFixtureJson.decode(File(target, CornerFixturePaths.fileName(1)).readText())
+            val manifest =
+                CornerGroupManifest(
+                    CornerFixturePaths.PIPELINE_10_22,
+                    direction,
+                    first.device,
+                    first.cube,
+                    first.light,
+                    calibration = first.calibration,
+                    holds = listOf(CornerHoldManifest(1), CornerHoldManifest(2)),
+                )
+            File(target, CornerFixturePaths.MANIFEST).writeText(CornerFixtureJson.encodeManifest(manifest))
+        }
+        val index = CornerGroupIndex(groups = listOf(CornerGroupIndexEntry(front.name, CornerSplit.HELDOUT)))
+        File(root, CornerFixturePaths.GROUP_INDEX).writeText(CornerFixtureJson.encodeIndex(index))
+
+        val groups = groups(root)
+        assertEquals(2, groups.count { it.baseline })
+        assertTrue(groups.none { it.scored })
+        val text = baseline(groups)
+        val warm = groups.single { it.name == front.name }
+        assertEquals(CornerSplit.HELDOUT, warm.split)
+        listOf(Scenario.NONE to null, Scenario.MATCHING to warm.calibration).forEach { (scenario, saved) ->
+            val tally = tally(warm, saved)
+            val row =
+                "| ${warm.name} (heldout) / ${scenario.title} | ${tally.correct}/${tally.uncertain}/${tally.wrong} | " +
+                    "${tally.sideFacesKept}/${tally.sideFaces} | ${tally.wrongKept}/${tally.keptConfident} | ${tally.gridWrong}/${tally.gridConfident} |"
+            assertTrue(row in text, "$row\n$text")
+            // The kept/grid confident counters, checked against an independent count of CONFIDENT judged stickers.
+            val merged = warm.samples
+            val confident =
+                merged.sumOf { sample ->
+                    QuickScanClassification.read(sample, merged, saved).withIndex().count { (index, reading) ->
+                        (index != FaceSample.CENTER_INDEX || sample.centerPlain != false) &&
+                            reading?.confidence == StickerConfidence.CONFIDENT
+                    }
+                }
+            assertEquals(confident, tally.keptConfident + tally.gridConfident, scenario.title)
+            assertTrue(tally.wrongKept <= tally.keptConfident, scenario.title)
+            assertTrue(tally.gridWrong <= tally.gridConfident, scenario.title)
+            assertTrue(tally.keptConfident > 0, "${scenario.title}: the front-lit group keeps some confident stickers")
+        }
+        assertTrue("## ${warm.device} × front × ${warm.light} × torch=n/a" in text, text)
+        assertTrue("(unsplit) / no saved calibration" in text, text)
+        assertTrue("Backlit light scores, lenovo-tb128xu_stka_cool: hold 1 uncalibrated" in text, text)
+        // Nothing enforces on 10.22 groups: no bar violation, missing-group failure or unsafe-kept failure comes from them.
+        val enforced = enforced(groups)
+        assertTrue(enforced.isEmpty())
+        assertTrue(violations(enforced).isEmpty())
+        assertTrue(unsafe(enforced).isEmpty())
+    }
+
     private companion object {
+        val FIXTURES = File("../../Fixtures/corner")
+        val BASELINE_REPORT = File("build/reports/quick-scan/baseline-10-20.md")
         val FIXTURE = Regex("""corner-\d+\.json""")
         const val MIN_SIDE_CORRECT = 0.90
         const val MIN_SIDE_FACES_KEPT = 0.75

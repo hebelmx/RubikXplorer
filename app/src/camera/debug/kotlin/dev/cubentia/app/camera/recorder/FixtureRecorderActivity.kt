@@ -42,10 +42,16 @@ import dev.cubentia.app.camera.CornerGuide
 import dev.cubentia.app.camera.CornerLocator
 import dev.cubentia.app.camera.CornerPoint
 import dev.cubentia.app.camera.CornerReader
+import dev.cubentia.app.camera.ExposureLocks
 import dev.cubentia.app.camera.FrameReader
+import dev.cubentia.app.camera.Settle
+import dev.cubentia.app.camera.SettleTracker
 import dev.cubentia.app.camera.ViewfinderGrid
+import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.CaptureQuality
+import dev.cubentia.domain.recognition.CornerSettleDiagnostics
 import dev.cubentia.domain.recognition.Lab
+import dev.cubentia.domain.recognition.SettleOutcome
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.ByteArrayOutputStream
@@ -79,6 +85,10 @@ internal data class CapturedFrame(
     /** Story 10.19 corner mode: the model-input crop as a PNG and where it sits on the frame. */
     val modelInput: ByteArray? = null,
     val crop: ModelCrop? = null,
+    /** Story 10.20 corner mode: the 10.22 metering settle before this frame (null: no metering asked yet). */
+    val settle: CornerSettleDiagnostics? = null,
+    /** The torch state last applied physically (null: no flash unit, or none applied yet). */
+    val torch: Boolean? = null,
 )
 
 /** What the recorder screen needs from the camera; implemented by [FixtureRecorderActivity]. */
@@ -92,8 +102,20 @@ internal interface RecorderCamera {
     /** Whether the bound back camera has a flash unit; null before a camera is bound. */
     val hasFlash: State<Boolean?> get() = mutableStateOf(null)
 
-    /** Corner mode: the torch the session records with (applied only on a camera with a flash unit). */
+    /**
+     * The torch the session records with (applied only on a camera with a flash unit). Story 10.20: applied as asked,
+     * whatever the calibration state, so the screen lights it from the moment corner mode is set ([recorderTorchOn]).
+     */
     fun torch(on: Boolean) = Unit
+
+    /**
+     * Story 10.20, corner mode: whether the latest 10.22 metering has settled (or hit the settle cap); false while it
+     * settles, null when none was asked. Reading it locks the exposure once the metering settled, as Quick Scan does.
+     */
+    fun settled(): Boolean? = null
+
+    /** Story 10.20: the recorder calibration the adb burst's light check uses (null: uncalibrated). */
+    fun calibration(centers: CalibrationCenters?) = Unit
 
     fun bind(view: PreviewView)
 
@@ -110,6 +132,8 @@ internal interface RecorderCamera {
     /**
      * Corner mode (Story 10.19): meters like Quick Scan, on the next frame with a detected cube (and again on each new
      * detection): AF+AE on that frame's outline (the grid centre when unsupported) and AWB only when [includeAwb] (hold 1).
+     * Story 10.20: with 10.22's settle-and-lock: the exposure lock is released for the metering, taken once it settled
+     * ([settled]) and released again after a capture; the white balance locked at hold 1 is carried through hold 2.
      */
     fun remeterCorner(includeAwb: Boolean) = remeter()
 
@@ -146,6 +170,22 @@ class FixtureRecorderActivity : ComponentActivity() {
 
     @Volatile private var torchWanted = false
 
+    /** The torch state last applied physically; null on a camera without a flash unit or before one was applied. */
+    @Volatile private var appliedTorch: Boolean? = null
+
+    /** Story 10.20: the 10.22 settle signal of the latest corner metering and the exposure locks wanted now. */
+    private val settle = SettleTracker()
+    private val locks = AtomicReference(ExposureLocks.NONE)
+    private val settleReported = AtomicBoolean(true)
+
+    @Volatile private var meteredAwb = false
+
+    /** The latest metering's settle as reported when it settled; null while it settles or before any. */
+    @Volatile private var lastSettle: CornerSettleDiagnostics? = null
+
+    /** The recorder calibration for the burst's light check; null while uncalibrated. */
+    @Volatile private var burstCalibration: CalibrationCenters? = null
+
     @Volatile private var viewSize = 0 to 0
 
     @Volatile private var cornerMode = false
@@ -172,15 +212,24 @@ class FixtureRecorderActivity : ComponentActivity() {
             override val hasFlash: State<Boolean?> get() = flashState
 
             override fun torch(on: Boolean) {
+                // Story 10.22: a white balance locked under the other torch state is stale; the next metering redoes it.
+                if (on != torchWanted) moveLocks(change = ExposureLocks::onTorchChanged)
                 torchWanted = on
                 applyTorch()
+            }
+
+            override fun settled(): Boolean? = settledNow()
+
+            override fun calibration(centers: CalibrationCenters?) {
+                burstCalibration = centers
             }
 
             override fun bind(view: PreviewView) = startCamera(view)
 
             override fun cornerMode(enabled: Boolean) {
                 cornerMode = enabled
-                applyTorch()
+                // Story 10.22: leaving corner mode releases every lock; the grid meters as before.
+                if (!enabled) moveLocks(change = ExposureLocks::cleared)
             }
 
             override fun latest(): FrameMeasurements? = latestFrame.get()
@@ -242,9 +291,37 @@ class FixtureRecorderActivity : ComponentActivity() {
     }
 
     /**
+     * Story 10.20, analyzer thread: one corner metering request with 10.22's settle-and-lock, as Quick Scan's
+     * `meterCube`: a new settle request, the exposure lock released (and the white balance when it is metered: at hold 1
+     * or when stale), then the metering itself on the main thread.
+     */
+    private fun requestCubeMetering(
+        quads: List<List<CornerPoint>>,
+        width: Int,
+        height: Int,
+        square: dev.cubentia.app.camera.GridSquare,
+        includeAwb: Boolean,
+    ) {
+        val generation =
+            synchronized(this) {
+                lastSettle = null
+                settleReported.set(false)
+                settle.request(SystemClock.elapsedRealtime())
+            }
+        val awb = ExposureLocks.metersAwb(locks.get(), includeAwb)
+        moveLocks(post = false) { ExposureLocks.onMeter(it, includeAwb) }
+        meteredAwb = awb
+        ContextCompat.getMainExecutor(this).execute {
+            applyLatestLocks()
+            meterOnCube(quads, width, height, square, awb, generation)
+        }
+    }
+
+    /**
      * Story 10.19, main thread: meters exactly as Quick Scan does (same region, fallback, flags and auto-cancel, through
      * [CameraXFrameSource]'s shared helpers) on [quads], the outline detected on the frame that asked for it (never an
-     * older one), falling back to the grid [square]'s centre when the camera cannot meter the outline.
+     * older one), falling back to the grid [square]'s centre when the camera cannot meter the outline. Story 10.20: the
+     * metering future's completion feeds settle request [generation]; nothing to meter completes it at once.
      */
     private fun meterOnCube(
         quads: List<List<CornerPoint>>,
@@ -252,9 +329,11 @@ class FixtureRecorderActivity : ComponentActivity() {
         height: Int,
         square: dev.cubentia.app.camera.GridSquare,
         includeAwb: Boolean,
+        generation: Int,
     ) {
-        val bound = camera ?: return
-        val analysis = analysisUseCase ?: return
+        fun skip() = settle.onFutureDone(generation, SystemClock.elapsedRealtime())
+        val bound = camera ?: return skip()
+        val analysis = analysisUseCase ?: return skip()
         runCatching {
             val factory = SurfaceOrientedMeteringPointFactory(width.toFloat(), height.toFloat(), analysis)
             val outline = CameraXFrameSource.cubeMeteringRegion(quads, width, height)
@@ -263,15 +342,98 @@ class FixtureRecorderActivity : ComponentActivity() {
                 CameraXFrameSource.chooseMetering(outline, centre) { candidate ->
                     bound.cameraInfo.isFocusMeteringSupported(CameraXFrameSource.meteringAction(factory, candidate, includeAwb))
                 }
-            bound.cameraControl.startFocusAndMetering(CameraXFrameSource.meteringAction(factory, region, includeAwb))
-        }
+            val future = bound.cameraControl.startFocusAndMetering(CameraXFrameSource.meteringAction(factory, region, includeAwb))
+            future.addListener(
+                { settle.onFutureDone(generation, SystemClock.elapsedRealtime()) },
+                ContextCompat.getMainExecutor(this),
+            )
+        }.onFailure { skip() }
     }
 
-    /** Main thread: the torch on in corner mode when wanted and the camera has a flash unit, else off. */
+    /**
+     * Story 10.20, any thread: whether the latest corner metering settled (or hit the cap); null before any. The first
+     * time it has, the exposure (and at hold 1 the white balance) is locked where the camera can, and the settle is kept
+     * for the next capture's diagnostics.
+     */
+    @Synchronized
+    private fun settledNow(): Boolean? {
+        val now = SystemClock.elapsedRealtime()
+        val outcome = settle.outcome(now) ?: return null
+        if (outcome != Settle.SETTLING && settleReported.compareAndSet(false, true)) {
+            val lock = lockExposure()
+            lastSettle =
+                CornerSettleDiagnostics(
+                    settleMs = settle.elapsed(now),
+                    outcome = if (outcome == Settle.TIMEOUT) SettleOutcome.TIMEOUT else SettleOutcome.SETTLED,
+                    lock = lock,
+                    futureMs = settle.futureMs(),
+                )
+        }
+        return outcome != Settle.SETTLING
+    }
+
+    /**
+     * The settle a capture now records: the latest metering's (reported and locked first if it just finished), or that it
+     * is still settling (lock word `none`: the metering released the lock); null before any metering.
+     */
+    @Synchronized
+    private fun settleAtCapture(): CornerSettleDiagnostics? {
+        val settled = settledNow() ?: return null
+        if (settled) return lastSettle
+        val now = SystemClock.elapsedRealtime()
+        return CornerSettleDiagnostics(settle.elapsed(now), SettleOutcome.SETTLING, LOCK_NONE, settle.futureMs())
+    }
+
+    /** After a corner capture: no metering counts until the next request, so settled() and the next capture report none. */
+    @Synchronized
+    private fun forgetSettle() {
+        settle.reset()
+        lastSettle = null
+        settleReported.set(true)
+    }
+
+    /** Locks the exposure (and the white balance when this metering included it) where the camera can; returns the lock word. */
+    private fun lockExposure(): String {
+        val bound = camera ?: return CameraXFrameSource.LOCK_UNSUPPORTED
+        val (ae, awb) = CameraXFrameSource.lockSupport(bound)
+        val metered = meteredAwb
+        // Never once corner mode is off: the lock would outlive it.
+        val wanted = moveLocks { if (cornerMode) ExposureLocks.onSettled(it, metered, aeSupported = ae, awbSupported = awb) else it }
+        return ExposureLocks.label(wanted)
+    }
+
+    /** One atomic transition of the wanted locks; with [post] the latest state is applied on the main thread when it changed. */
+    private fun moveLocks(
+        post: Boolean = true,
+        change: (ExposureLocks) -> ExposureLocks,
+    ): ExposureLocks {
+        val before = locks.getAndUpdate(change)
+        val after = change(before)
+        if (post && (before.ae != after.ae || before.awb != after.awb)) {
+            ContextCompat.getMainExecutor(this).execute { applyLatestLocks() }
+        }
+        return after
+    }
+
+    /** Main thread: sets the camera to the locks wanted now; outside corner mode that is none. */
+    private fun applyLatestLocks() {
+        val bound = camera ?: return
+        CameraXFrameSource.applyLocks(bound, if (cornerMode) locks.get() else moveLocks(post = false, change = ExposureLocks::cleared))
+    }
+
+    /**
+     * Main thread: the torch as the screen wants it (Story 10.20: in corner mode from the moment it is set, calibration
+     * included) on a camera with a flash unit; the applied state is kept once the camera confirmed it.
+     */
     private fun applyTorch() {
         val bound = camera ?: return
-        if (!bound.cameraInfo.hasFlashUnit()) return
-        bound.cameraControl.enableTorch(torchWanted && cornerMode)
+        if (!bound.cameraInfo.hasFlashUnit()) {
+            appliedTorch = null
+            return
+        }
+        val lit = torchWanted
+        val future = bound.cameraControl.enableTorch(lit)
+        future.addListener({ if (runCatching { future.get() }.isSuccess) appliedTorch = lit }, ContextCompat.getMainExecutor(this))
     }
 
     /** Steps exposure compensation by [delta] (0 re-meters on the grid); returns a status line. */
@@ -331,6 +493,9 @@ class FixtureRecorderActivity : ComponentActivity() {
                         .addUseCase(analysis)
                         .build()
                 provider.unbindAll()
+                // A new camera session numbers its capture results from scratch, and holds no lock.
+                settle.reset()
+                moveLocks(post = false, change = ExposureLocks::cleared)
                 camera = provider.bindToLifecycle(this@FixtureRecorderActivity, CameraSelector.DEFAULT_BACK_CAMERA, useCases)
                 flashState.value = camera?.cameraInfo?.hasFlashUnit()
                 applyTorch()
@@ -351,7 +516,7 @@ class FixtureRecorderActivity : ComponentActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
-    /** Keeps the latest capture result's exposure and white-balance state for a running [RecorderBurst]. */
+    /** Keeps the latest capture result's exposure and white-balance state for a running [RecorderBurst] and the settle signal. */
     @OptIn(ExperimentalCamera2Interop::class)
     private fun observeExposure(builder: ImageAnalysis.Builder) {
         Camera2Interop.Extender(builder).setSessionCaptureCallback(
@@ -362,15 +527,17 @@ class FixtureRecorderActivity : ComponentActivity() {
                     result: TotalCaptureResult,
                 ) {
                     val gains = result.get(CaptureResult.COLOR_CORRECTION_GAINS)
-                    exposure.set(
+                    val state =
                         ExposureState(
                             aeState = result.get(CaptureResult.CONTROL_AE_STATE),
                             awbState = result.get(CaptureResult.CONTROL_AWB_STATE),
                             exposureNs = result.get(CaptureResult.SENSOR_EXPOSURE_TIME),
                             iso = result.get(CaptureResult.SENSOR_SENSITIVITY),
                             gains = gains?.let { listOf(it.red, it.greenEven, it.greenOdd, it.blue) },
-                        ),
-                    )
+                        )
+                    exposure.set(state)
+                    // Story 10.20: the 10.22 settle signal's exposure half, as Quick Scan reads it.
+                    settle.onCaptureResult(result.frameNumber, state.aeState, state.exposureNs, state.iso, SystemClock.elapsedRealtime())
                 }
             },
         )
@@ -403,13 +570,24 @@ class FixtureRecorderActivity : ComponentActivity() {
             val quads = corner.frameQuads
             val square = ViewfinderGrid.inFrame(0.0, 0.0, crop.left, crop.top, crop.right, crop.bottom, rotation)
             val (width, height) = image.width to image.height
-            val awb = cornerMeterAwb
-            ContextCompat.getMainExecutor(this).execute { meterOnCube(quads, width, height, square, awb) }
+            requestCubeMetering(quads, width, height, square, cornerMeterAwb)
         }
         wasDetected = detectedNow
+        // Story 10.20: lock once the metering settled, as Quick Scan does on its frames.
+        if (cornerMode) settledNow()
         if (bursting != null) {
             val jpeg = if (bursting.wantsJpeg()) runCatching { encodeFrame(image, true) }.getOrNull() else null
-            val done = bursting.add(SystemClock.elapsedRealtime(), corner, image.width, image.height, rotation, exposure.get(), jpeg)
+            val done =
+                bursting.add(
+                    SystemClock.elapsedRealtime(),
+                    corner,
+                    image.width,
+                    image.height,
+                    rotation,
+                    exposure.get(),
+                    jpeg,
+                    burstCalibration,
+                )
             if (done) burst = null
         }
         captureRequest.getAndSet(null)?.let { request ->
@@ -424,14 +602,25 @@ class FixtureRecorderActivity : ComponentActivity() {
                     corner,
                     modelInput = modelInput,
                     crop = modelCrop,
+                    settle = if (cornerMode) settleAtCapture() else null,
+                    torch = appliedTorch,
                 ),
             )
+            if (cornerMode) {
+                // Story 10.22: a capture frees the exposure (the hold-1 white balance stays); the next capture meters again.
+                moveLocks(change = ExposureLocks::onCaptured)
+                forgetSettle()
+                // AWB at Hold 1 only: the next metering keeps the hold-1 white balance (a new group meters it again).
+                cornerMeterAwb = false
+                cornerMeterPending.set(true)
+            }
         }
         val now = SystemClock.elapsedRealtime()
         val grid = frame.lab.takeIf { it.size == 9 }
         if (settleRequested.getAndSet(false)) {
             remeterTrigger.settle(grid, now)
-        } else if (grid != null && remeterTrigger.onFrame(grid, now)) {
+        } else if (!cornerMode && grid != null && remeterTrigger.onFrame(grid, now)) {
+            // Corner mode meters on the cube and holds its exposure lock (Story 10.20); only the grid re-meters itself.
             ContextCompat.getMainExecutor(this).execute {
                 meterOnGrid()
                 autoRemeterCount.intValue++
@@ -652,5 +841,8 @@ class FixtureRecorderActivity : ComponentActivity() {
 
     private companion object {
         const val CAPTURE_TIMEOUT_MS = 3000L
+
+        /** The settle lock word of a capture taken while the metering still settles (no lock is held then). */
+        const val LOCK_NONE = "none"
     }
 }

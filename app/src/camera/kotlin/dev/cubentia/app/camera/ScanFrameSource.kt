@@ -370,37 +370,6 @@ internal class CameraXFrameSource
             applyLocks(bound, if (corner) locks.get() else moveLocks(post = false, change = ExposureLocks::cleared))
         }
 
-        /** Whether the bound camera can lock AE and AWB; (false, false) when it cannot say. */
-        @OptIn(ExperimentalCamera2Interop::class)
-        private fun lockSupport(bound: Camera): Pair<Boolean, Boolean> =
-            runCatching {
-                val info = Camera2CameraInfo.from(bound.cameraInfo)
-                (info.getCameraCharacteristic(CameraCharacteristics.CONTROL_AE_LOCK_AVAILABLE) == true) to
-                    (info.getCameraCharacteristic(CameraCharacteristics.CONTROL_AWB_LOCK_AVAILABLE) == true)
-            }.getOrDefault(false to false)
-
-        /** Sets the capture-request lock options to [wanted]; never throws (a camera that refuses keeps its auto modes). */
-        @OptIn(ExperimentalCamera2Interop::class)
-        private fun applyLocks(
-            bound: Camera,
-            wanted: ExposureLocks,
-        ) {
-            runCatching {
-                val control = Camera2CameraControl.from(bound.cameraControl)
-                if (!wanted.held) {
-                    control.clearCaptureRequestOptions()
-                } else {
-                    control.setCaptureRequestOptions(
-                        CaptureRequestOptions
-                            .Builder()
-                            .setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK, wanted.ae)
-                            .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, wanted.awb)
-                            .build(),
-                    )
-                }
-            }
-        }
-
         /** Obtains the provider off the main thread, then binds on main once the preview has a viewport. */
         private fun startCamera() {
             val view = previewView ?: return
@@ -675,6 +644,43 @@ internal class CameraXFrameSource
 
             /** [ScanDiagnostics.onMeteringSettled]'s lock word when the camera cannot lock its exposure. */
             const val LOCK_UNSUPPORTED = "unsupported"
+
+            /**
+             * Whether [bound] can lock AE and AWB; (false, false) when it cannot say. Shared with the debug fixture
+             * recorder (Story 10.20), so its corner captures lock exactly as Quick Scan does.
+             */
+            @OptIn(ExperimentalCamera2Interop::class)
+            internal fun lockSupport(bound: Camera): Pair<Boolean, Boolean> =
+                runCatching {
+                    val info = Camera2CameraInfo.from(bound.cameraInfo)
+                    (info.getCameraCharacteristic(CameraCharacteristics.CONTROL_AE_LOCK_AVAILABLE) == true) to
+                        (info.getCameraCharacteristic(CameraCharacteristics.CONTROL_AWB_LOCK_AVAILABLE) == true)
+                }.getOrDefault(false to false)
+
+            /**
+             * Sets [bound]'s capture-request lock options to [wanted]; never throws (a camera that refuses keeps its auto
+             * modes). Shared with the debug fixture recorder (Story 10.20).
+             */
+            @OptIn(ExperimentalCamera2Interop::class)
+            internal fun applyLocks(
+                bound: Camera,
+                wanted: ExposureLocks,
+            ) {
+                runCatching {
+                    val control = Camera2CameraControl.from(bound.cameraControl)
+                    if (!wanted.held) {
+                        control.clearCaptureRequestOptions()
+                    } else {
+                        control.setCaptureRequestOptions(
+                            CaptureRequestOptions
+                                .Builder()
+                                .setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK, wanted.ae)
+                                .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, wanted.awb)
+                                .build(),
+                        )
+                    }
+                }
+            }
 
             /** The torch is re-applied at most this often when it drifted from what is wanted. */
             const val TORCH_RETRY_MS = 1000L

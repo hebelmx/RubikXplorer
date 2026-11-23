@@ -5,11 +5,19 @@ import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.CaptureQuality
 import dev.cubentia.domain.recognition.ClassificationResult
+import dev.cubentia.domain.recognition.CornerFixtureJson
+import dev.cubentia.domain.recognition.CornerFixturePaths
+import dev.cubentia.domain.recognition.CornerFixtureRecord
+import dev.cubentia.domain.recognition.CornerHoldManifest
+import dev.cubentia.domain.recognition.CornerLabel
+import dev.cubentia.domain.recognition.CornerSettleDiagnostics
 import dev.cubentia.domain.recognition.DeviceInfo
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.Lab
+import dev.cubentia.domain.recognition.LightDirection
 import dev.cubentia.domain.recognition.LiveFixtureJson
 import dev.cubentia.domain.recognition.NearestCenterClassifier
+import dev.cubentia.domain.recognition.SettleOutcome
 import dev.cubentia.domain.recognition.TruthSource
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -111,5 +119,52 @@ class FixtureExportTest {
                 false,
             )
         }
+    }
+
+    @Test
+    fun `a corner group's manifest and hold records round-trip on disk with their torch and diagnostics`() {
+        val group = File(root, "Fixtures/corner/sm-s721u1_stla_warm").also { it.mkdirs() }
+        val manifest = groupManifest(device, "stla", "warm", LightDirection.FRONT, torch = true, calibration = calibration)
+        ensureGroupManifest(group, manifest)
+        // An existing manifest is never replaced when the group folder is opened again.
+        ensureGroupManifest(group, manifest.copy(light = "other"))
+        assertEquals(manifest, CornerFixtureJson.decodeManifest(File(group, CornerFixturePaths.MANIFEST).readText()))
+
+        val diagnostics =
+            holdDiagnostics(
+                List(3) { null },
+                calibration,
+                torch = true,
+                settle = CornerSettleDiagnostics(700, SettleOutcome.TIMEOUT, "unsupported", null),
+            )
+        val record =
+            CornerFixtureRecord(
+                device = device,
+                cube = "stla",
+                light = "warm",
+                capturedAt = "2026-11-23T10:00:00Z",
+                calibration = calibration,
+                hold = 1,
+                labeledSamples = emptyList(),
+                truthSources = emptyList(),
+                label = CornerLabel.POSITIVE,
+                lightDirection = LightDirection.FRONT,
+                keypoints = List(7) { listOf(0.5, 0.1 * (it + 1)) },
+                torch = true,
+                diagnostics = diagnostics,
+            )
+        val file = writeCornerHold(group, record, jpeg)
+        assertEquals("corner-1.json", file.name)
+        assertEquals(record, CornerFixtureJson.decode(file.readText()))
+        assertArrayEquals(jpeg, File(group, "corner-1.jpg").readBytes())
+        assertEquals("torch", CornerFixtureJson.decode(file.readText()).diagnostics?.lightMode)
+
+        recordHold(group, 1, true)
+        val after = recordHold(group, 2, false)
+        assertEquals(listOf(CornerHoldManifest(1, true), CornerHoldManifest(2, false)), after.holds)
+        assertEquals(after, CornerFixtureJson.decodeManifest(File(group, CornerFixturePaths.MANIFEST).readText()))
+        assertEquals(calibration, after.calibration)
+        // A group without a manifest cannot take a hold: the caller reports it and keeps the capture.
+        assertThrows(java.io.IOException::class.java) { recordHold(File(root, "missing"), 1, null) }
     }
 }

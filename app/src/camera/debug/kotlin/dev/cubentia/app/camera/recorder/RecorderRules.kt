@@ -474,22 +474,120 @@ internal fun nextKeypointIndex(existing: List<String>): Int =
             }.maxOrNull() ?: 0
     ) + 1
 
-/** The manifest a 10.19 recording session writes in its group folder. */
+/**
+ * The manifest a recording session writes in its group folder when the group starts (Story 10.20): the 10.22 pipeline
+ * (10.19 lighting plus 10.22 settle-and-lock), the recorder [calibration] the group is recorded with, and no hold yet.
+ */
 internal fun groupManifest(
     device: dev.cubentia.domain.recognition.DeviceInfo,
     cube: String,
     light: String,
     direction: dev.cubentia.domain.recognition.LightDirection,
     torch: Boolean? = null,
+    calibration: CalibrationCenters? = null,
 ): dev.cubentia.domain.recognition.CornerGroupManifest =
     dev.cubentia.domain.recognition.CornerGroupManifest(
-        pipeline = dev.cubentia.domain.recognition.CornerFixturePaths.PIPELINE_10_19,
+        pipeline = dev.cubentia.domain.recognition.CornerFixturePaths.PIPELINE_10_22,
         lightDirection = direction,
         device = device,
         cube = cube.trim(),
         light = light.trim(),
         torch = torch,
+        calibration = calibration,
     )
+
+/**
+ * [manifest] with hold [hold] recorded at torch state [torch]: a new hold is added in hold order, a retaken hold replaces
+ * its own entry, and every other entry is kept unchanged.
+ */
+internal fun withHold(
+    manifest: dev.cubentia.domain.recognition.CornerGroupManifest,
+    hold: Int,
+    torch: Boolean?,
+): dev.cubentia.domain.recognition.CornerGroupManifest =
+    manifest.copy(
+        holds =
+            (
+                manifest.holds.filter { it.hold != hold } +
+                    dev.cubentia.domain.recognition
+                        .CornerHoldManifest(hold, torch)
+            ).sortedBy { it.hold },
+    )
+
+/**
+ * One saved hold's diagnostics (Story 10.20): the [dev.cubentia.domain.recognition.SideLight] check of the three faces
+ * in hold order against the recorder [calibration] (uncalibrated without a valid one), the uncalibrated score beside it,
+ * and the light mode word by `ScanDiagnostics`' rule (`torch` when the torch was lit, else the check's mode), plus the
+ * torch and metering [settle]. A face not measured leaves its level and the score null, and then nothing passed or failed.
+ */
+internal fun holdDiagnostics(
+    faces: List<dev.cubentia.domain.recognition.FrameStats?>,
+    calibration: CalibrationCenters?,
+    torch: Boolean?,
+    settle: dev.cubentia.domain.recognition.CornerSettleDiagnostics?,
+): dev.cubentia.domain.recognition.CornerHoldDiagnostics {
+    val three = List(3) { faces.getOrNull(it) }
+    val verdict =
+        dev.cubentia.domain.recognition.SideLight
+            .check(three, calibration)
+    val uncalibrated =
+        dev.cubentia.domain.recognition.SideLight
+            .check(three, null)
+    return dev.cubentia.domain.recognition.CornerHoldDiagnostics(
+        topLevel = verdict.topLevel,
+        leftLevel = verdict.leftLevel,
+        rightLevel = verdict.rightLevel,
+        lightScore = verdict.score,
+        lightPassed = verdict.passed.takeIf { verdict.score != null },
+        lightMode = lightMode(verdict, torch == true),
+        uncalibratedScore = uncalibrated.score,
+        torch = torch,
+        settle = settle,
+    )
+}
+
+/** The `lightMode` word of `ScanDiagnostics.cornerFrameLine`: `torch` when the torch is lit, else the check's mode. */
+internal fun lightMode(
+    verdict: dev.cubentia.domain.recognition.SideLight.Verdict,
+    torch: Boolean,
+): String = if (torch) "torch" else verdict.mode.name.lowercase()
+
+/**
+ * Whether a settings change clears the six calibrated colors (Story 10.20): a new cube, light or torch choice, or a mode
+ * change that lights or darkens the torch on this camera ([recorderTorchOn] differs for [hasFlash]), so the colors are
+ * always calibrated under the torch state the corners are recorded with.
+ */
+internal fun recalibrates(
+    oldCube: String,
+    newCube: String,
+    oldLight: String,
+    newLight: String,
+    oldTorch: Boolean,
+    newTorch: Boolean,
+    oldMode: Boolean,
+    newMode: Boolean,
+    hasFlash: Boolean?,
+): Boolean =
+    oldCube.trim() != newCube.trim() ||
+        oldLight.trim() != newLight.trim() ||
+        oldTorch != newTorch ||
+        recorderTorchOn(oldMode, hasFlash, oldTorch) != recorderTorchOn(newMode, hasFlash, newTorch)
+
+/** The torch a saved hold records: null without a flash unit ([recorded] null), else the applied state, else the choice. */
+internal fun holdTorch(
+    recorded: Boolean?,
+    applied: Boolean?,
+): Boolean? = if (recorded == null) null else applied ?: recorded
+
+/**
+ * Whether the recorder's torch is lit (Story 10.20): in corner mode, from the moment it is set and so while calibrating
+ * too, when the operator wants it and the camera has a flash unit; never in face (live) mode.
+ */
+internal fun recorderTorchOn(
+    cornerMode: Boolean,
+    hasFlash: Boolean?,
+    torchOn: Boolean,
+): Boolean = cornerMode && hasFlash == true && torchOn
 
 /** The torch state a recording records: the operator's choice on a camera with a flash unit, else null (no torch). */
 internal fun recordedTorch(

@@ -2,6 +2,10 @@ package dev.cubentia.app.camera.recorder
 
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.recognition.CalibrationCenters
+import dev.cubentia.domain.recognition.CornerFixtureJson
+import dev.cubentia.domain.recognition.CornerFixturePaths
+import dev.cubentia.domain.recognition.CornerFixtureRecord
+import dev.cubentia.domain.recognition.CornerGroupManifest
 import dev.cubentia.domain.recognition.DeviceInfo
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.LabeledFaceSample
@@ -61,4 +65,39 @@ internal fun writeFixture(
     val file = File(directory, LiveFixturePaths.fileName(face))
     file.writeText(LiveFixtureJson.encode(record))
     return file
+}
+
+/** Story 10.20: writes [manifest] as the group folder's `group.json` unless the group already has one; returns the file. */
+internal fun ensureGroupManifest(
+    directory: File,
+    manifest: CornerGroupManifest,
+): File {
+    val file = File(directory, CornerFixturePaths.MANIFEST)
+    if (!file.isFile) file.writeText(CornerFixtureJson.encodeManifest(manifest))
+    return file
+}
+
+/** Writes one corner hold's color record `corner-N.json` (with its diagnostics) and its frame `corner-N.jpg`; returns the record file. */
+internal fun writeCornerHold(
+    directory: File,
+    record: CornerFixtureRecord,
+    jpeg: ByteArray,
+): File {
+    File(directory, record.frame).writeBytes(jpeg)
+    return File(directory, CornerFixturePaths.fileName(record.hold)).also { it.writeText(CornerFixtureJson.encode(record)) }
+}
+
+/**
+ * Story 10.20: rewrites the group's `group.json` with hold [hold] recorded at torch state [torch] ([withHold]); the other
+ * holds stay as they were. Throws when the manifest is missing or unreadable, so the caller can say so.
+ */
+internal fun recordHold(
+    directory: File,
+    hold: Int,
+    torch: Boolean?,
+): CornerGroupManifest {
+    val file = File(directory, CornerFixturePaths.MANIFEST)
+    val updated = withHold(CornerFixtureJson.decodeManifest(file.readText()), hold, torch)
+    file.writeText(CornerFixtureJson.encodeManifest(updated))
+    return updated
 }
