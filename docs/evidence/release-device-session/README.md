@@ -48,7 +48,8 @@ S3 notes from Block 1: (a) Solution Playback's 3D view is blank for ~1–3 s on 
 | 8.3 #203 Scan review → Accept; Editor fallback; pause note | ✅ PASS | Accept (11:46:33 `outcome=ACCEPTED`) → straight to Solution Playback "25 moves" (`shots/8-3b-galaxy-review.png` → `shots/8-3b-galaxy-after-accept.png`); Close on review → `FELL_BACK_TO_EDITOR`, Editor in home frame (white up, bars correct) with "Starting a solve pauses your lesson." (`shots/8-3-galaxy-done.png`). PO: the fallback Editor drops the valid scanned colours (starts empty), see issue 8. |
 | 8.5 addendum | ✅ | Certainty chip "✓ Verified" shown beside EXPECTED in a Lesson's Physical mode without overlap (`shots/8-7-galaxy-quickcheck-result.png`). |
 | 8.7 Full Quick Check after one wrong move | ⏭ moved to Block 2.5–2.6 | Attempt read a cube 6 turns from EXPECTED (`U2 R F D2 L B`, 0 of 20 pieces match), so "I can't tell what changed" was correct; the single-wrong-move setup was not reached. PO: run it with 2.5–2.6. |
-| 8.8, 8.9 | ⏭ not yet | |
+| 8.8 #174 Suspects when a colour count is off | ❌ FAIL | Two hand-painted errors (Up 3 orange→blue; Up 9 white→blue). Both times Problem 1 (impossible corner) outlined the changed piece correctly, but the "likely misreads" ranking put a genuine blue read (Up 2) first: "This sticker may be orange/white — check it" (`shots/8-8-galaxy-review-counts-off.png`, `shots/8-8b-galaxy-review-white-to-blue.png`). Clearly different colours are suggested, against the PO decision of 2026-11-20. Caveat: hand-painted, not a camera misread; hand-set stickers are excluded from the ranking. → issue 9. |
+| 8.9 Non-home orientation scan | ✅ not reproducible | The guided scan prompts by centre + top neighbour, so it normalises orientation: every accepted scan today opened "Cube, White on top, Green in front"; the Editor fallback opened in the home frame. PO agreed; propose closing `issue-178-deferred-scrambled-non-home-scan-centers` after review. |
 
 ### Placement runs (evidence for 6.7 #251, Galaxy, PO confirmed every reading)
 
@@ -79,3 +80,4 @@ Doubt for the PO panel: a solved-cube scan offers only Stage 1.
 8. Scan fallback to the Editor should keep the scanned colours so the user only corrects the rest.
 
 Doubts for a short panel at the end of the block: solved-cube Placement → only Stage 1; Close on a face-by-face scan with captured faces has no Discard confirmation (6.2 / #198); Solve-tab physical playback vs Lesson physical mode differ in Quick Check flow.
+9. Scan review "likely misreads" (#174 follow-up): list only stickers whose measured colour is near the under-count colour; if none, give no "may be X" suggestion.
