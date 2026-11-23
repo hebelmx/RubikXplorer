@@ -2,14 +2,14 @@
 title: 'Story 14.3: Practice every Lesson step on my real cube, with a Quick Check at any step'
 type: 'feature'
 created: '2026-11-22'
-status: 'blocked'
+status: 'ready-for-dev'
 baseline_revision: '07abb2cd960623d792b7240517969cd1c01a5316'
 review_loop_iteration: 0
 followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-14-context.md'
-warnings: []
+warnings: ['oversized']
 deferred: []
 ---
 
@@ -32,7 +32,7 @@ Binding ADs (story Refs line, verbatim): **AD-3, AD-5, AD-18**. UX: UX-DR12. FRs
 - Never required: *Done* / *Next* never wait on a Quick Check.
 - AD-6: any new copy in `core/domain/src/main/resources/content/strings/en.json`; TalkBack labels; fits at 200% font on 600 dp.
 
-**Never:** reducer or Assess changes; Quick Check in `PHYSICAL_AWAITING_CONFIRM` beyond the Confirm card's *Scan it*; changes to Solution Playback or Algorithm practice (pending PO question 2); editing planning artifacts.
+**Never:** reducer or Assess changes; Quick Check in `PHYSICAL_AWAITING_CONFIRM` beyond the Confirm card's *Scan it*; changes to Solution Playback or Algorithm practice (PO answer 2: Lesson-only; playback parity is follow-up #298); editing planning artifacts.
 
 ## I/O & Edge-Case Matrix
 
@@ -52,7 +52,10 @@ Binding ADs (story Refs line, verbatim): **AD-3, AD-5, AD-18**. UX: UX-DR12. FRs
 - `app/src/main/kotlin/dev/cubentia/app/ui/lesson/LessonScreen.kt` ~L743-799 -- `quickCheck` composable lambda and its visibility gate (the gate becomes the highlight condition; visibility becomes `quickCheck != null`); L318 `showPhysicalMode = !isSkipCheck` (switch already in every Lesson, incl. TWO_LOOK via `isTwoLook` L180/277/298); L639-645 `stepMove`; L715 `onDone`.
 - `app/src/main/kotlin/dev/cubentia/app/ui/lesson/LessonPanel.kt` ~L235-254 -- Confirm card / MismatchLadder / `quickCheck?.invoke()` in PREDICTED/VERIFIED physical row; L293-312 Done/Next.
 - `app/src/main/kotlin/dev/cubentia/app/ui/lesson/MismatchLadder.kt` L65-68 -- rung 0 `mismatch:quickCheck` (unchanged).
-- `app/src/main/kotlin/dev/cubentia/app/ui/solve/SolutionPlayback.kt` L454-487 -- playback icon at every step, no highlight (reference; unchanged).
+- `app/src/main/kotlin/dev/cubentia/app/ui/solve/SolutionPlayback.kt` L454-487 -- playback icon at every step, no highlight (reference; unchanged per PO answer 2).
+- `app/src/main/kotlin/dev/cubentia/app/ui/editor/StickerReviewNet.kt` L84-126 -- precedent for test-only `SemanticsPropertyKey<Boolean>` state flags (not announced by TalkBack).
+- `app/src/test/.../ui/shell/AppShellCameraScanTest.kt` L86-105 -- existing finale tests assert `lesson:quickCheck` exists (GA + capture) / absent (OFF); must stay green.
+- `app/src/test/.../ui/lesson/PhysicalLessonScreenTest.kt` L1642-1650 `quickCheckUnavailableKeepsExistingLadderAndHidesCameraNodes` -- no-capture case; stays green.
 - `core/application/.../session/Reduce.kt` L629 `switchMode` (no kind restriction), L1293 `quickAllowed`, L1320 `quickObserved`; read-only.
 - `app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt` ~L225-227 flag gate; L711-721 `isTwoLook = entry.stage in twoLookStages`.
 - Tests: `app/src/test/.../ui/lesson/PhysicalLessonScreenTest.kt` (`setLessonContent(..., quickCheck)` L100, `enterPhysicalMode` L136, `reportMismatch` L146, Quick Check tests L1539-1700); `ui/shell/AppShellLibraryTest.kt` `openFirstTwoLookLesson()` L241; `ui/shell/AppShellCameraScanTest.kt` (`testFlags(cameraScan = ...)`); `core/application/src/test/.../session/QuickCheckSessionTest.kt`, `TwoLookSessionTest.kt`.
@@ -60,9 +63,9 @@ Binding ADs (story Refs line, verbatim): **AD-3, AD-5, AD-18**. UX: UX-DR12. FRs
 ## Tasks & Acceptance
 
 **Execution:**
-- `app/src/main/kotlin/dev/cubentia/app/ui/lesson/LessonScreen.kt` -- show the `quickCheck` lambda whenever `quickCheck != null`; pass `highlighted = PHYSICAL_MISMATCH || decision.advance || objectiveMet || quickCheckRetry != null` to the icon; treatment per PO answer 1.
+- `app/src/main/kotlin/dev/cubentia/app/ui/lesson/LessonScreen.kt` -- show the `quickCheck` lambda whenever `quickCheck != null`; compute `highlighted = PHYSICAL_MISMATCH || decision.advance || objectiveMet || quickCheckRetry != null`; highlighted renders `FilledIconButton` (`containerColor = tokens.accent`, icon tint `tokens.onAccent`), plain renders the current `IconButton` with icon tint `tokens.inkSecondary`; both keep tag `lesson:quickCheck`, the same `contentDescription` "Quick Check" and the same `request(false)` click; expose the state to tests through a new `QuickCheckHighlightedKey = SemanticsPropertyKey<Boolean>("QuickCheckHighlighted")` set on the button (no stateDescription, no new copy).
 - `core/application/src/test/.../session/QuickCheckSessionTest.kt` -- mid-step (LESSON and TWO_LOOK): request accepted after one `PhysicalConfirmed` of a multi-Move step; Full match -> VERIFIED; Partial mismatch -> LIKELY + `offersFullScan`; Partial match without baseline not VERIFIED.
-- `app/src/test/.../ui/lesson/PhysicalLessonScreenTest.kt` -- icon mid-step (not highlighted) and at boundary (highlighted); tap dispatches and starts capture; TWO_LOOK Lesson switch -> Confirm -> Done -> mismatch ladder; camera OFF hides every camera node.
+- `app/src/test/.../ui/lesson/PhysicalLessonScreenTest.kt` -- icon mid-step (`QuickCheckHighlightedKey` false, same content description) and at boundary / after mismatch (true); tap dispatches and starts capture; TWO_LOOK Lesson switch -> Confirm -> Done -> mismatch ladder; camera OFF hides every camera node.
 - `app/src/test/.../ui/shell/AppShellCameraScanTest.kt` (or new `AppShellLessonQuickCheckTest.kt`) -- from Learn, a 2-look Lesson in physical mode: icon mid-step with `CAMERA_SCAN` on; none with it OFF and Done still advances.
 
 **Acceptance Criteria:**
@@ -81,7 +84,9 @@ Settled from the story, UX spec and precedent:
 - Placement: the existing physical-row slot in `LessonPanel`; retry line, *Scan all 6 faces* and *Use my cube* keep their current conditions. No animation, no auto-start of a capture.
 - Physical-mode switch, Confirm card, *Done*, Expected badge and ladder are 8.2/8.3/12.8 behavior, reused unchanged for TWO_LOOK (the reducer has no kind restriction).
 
-Not settled (PO questions, see Auto Run Result): the visual and TalkBack treatment of highlighted vs plain; whether Solution Playback / Algorithm practice also gain the highlight in this story.
+PO answers (2026-11-22):
+1. Highlighted = accent-filled icon button (`accent` container, `onAccent` icon; DESIGN.md "one accent ... used for action and highlight"); plain = the current `IconButton` in `inkSecondary`. TalkBack label stays "Quick Check" in both states, no extra state copy. The switch between the two is immediate (no animation, no auto-play of a capture); nothing is cleared when the highlight goes away.
+2. Scope is Lesson-only, as the ACs read; Solution Playback and Algorithm practice keep their plain icon. Playback parity: https://github.com/hebelmx/RubikXplorer/issues/298 (not here).
 
 ## Verification
 
@@ -92,9 +97,4 @@ Not settled (PO questions, see Auto Run Result): the visual and TalkBack treatme
 
 ## Auto Run Result
 
-Status: blocked
-Blocking condition: intent gap
-
-Questions for the PO:
-1. How should a *highlighted* Quick Check icon (Objective boundary, milestone, after a mismatch) differ from the plain always-available one mid-step, and does TalkBack announce the difference? Recommended: highlighted = accent-filled icon button (`accent` container, `onAccent` icon; DESIGN.md "one accent ... used for action and highlight"), plain = the current `IconButton` in `inkSecondary`; TalkBack label "Quick Check" in both, with no extra state copy.
-2. EXPERIENCE.md says the same highlight rule applies to Solution Playback and Algorithm practice, where Story 10.7/14.2 show a plain icon at every step. Should 14.3 also add the highlight there, or stay Lesson-only as its ACs read? Recommended: Lesson-only; raise playback parity as a follow-up issue.
+Earlier pass: blocked on intent gap (two PO questions on the highlight treatment and scope). Both answered by the PO on 2026-11-22 and recorded in Design Notes; planning resumed.
