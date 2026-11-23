@@ -120,3 +120,10 @@ alongside 10.20; blocks nothing.
 - **Story 10.22** (new, before 10.20): steps 0–5, with a 10-second bar per hold.
 - **Story 10.23** (new, after 10.22, alongside 10.20): the shadow sticker reader above. Second-read and rescue modes
   need its held-out report and a further sprint change proposal.
+- **Any corner first, retake a corner, sticker-level legality** (#302, #299, #301; F16, F17, "Keep stickers, not faces"):
+  SCP 2026-11-22 quick-scan-corners-and-solver-copy (PO decisions 2026-11-22) adds, after 10.20 and 10.21, Story 10.24
+  (retake a corner: by a control and the system Back at hold 2, from the face-by-face viewfinder and from review,
+  keeping the better read face by face), Story 10.25 (hold 1 accepts whichever corner is shown and names its faces
+  from their centres; hold 2 asks for the other three; a same-corner message with the way back), and Story 10.26
+  (sticker-level resolution from cube legality, safety assertion first, starting only after the 10.21 BETA call). The
+  "almost no CONFIDENT stickers" wait for #302 is added to Story 10.21.

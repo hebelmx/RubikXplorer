@@ -20,6 +20,8 @@ Defects and weaknesses found by reading the source at 43e4f472 and by the 2026-1
 | F13 | Diagnostics gaps | First minute of capture 1 lost; capture trigger and restart counts unknown | Confirmed |
 | F14 | Cube lost during a hold | Re-meter, settle and steady restart; light hold frozen | Confirmed in capture 1 |
 | F15 | Turn check anchored on the top centre | Hold 2 may capture the hold-1 pose | Inferred; not observed |
+| F16 | Hold 1 labels its faces from the prompt, not from the centres shown | Another corner is captured and labelled as the requested one | Observed on the S24 FE after Story 10.22 (#302) |
+| F17 | Hold 2 blocked as the same corner, with no message and no way back | The Learner is stuck at hold 2 | Observed on the S24 FE after Story 10.22 (#302) |
 
 ## F1. Exposure changes during a hold
 
@@ -118,6 +120,27 @@ cube in every frame and do not show this.
 `QuickScanController.turnedOver` passes when the top centre differs by ΔE 15 from the previous hold. A logo top centre
 read ΔE 19–36 from its first value for 2.1 s on a still cube. In capture 2 one frame passed the pose gate between two
 `centerBlock` lines with the cube unturned. Today's waits delay a wrong hold-2 capture; removing them exposes it.
+
+## F16. Hold 1 labels its faces from the prompt, not from the centres shown
+
+Hold 1 has no pose check: whatever corner is in view is captured and its faces are labelled from the prompt. On the
+Galaxy S24 FE (2026-11-22, torch on, after Story 10.22) a cube resting yellow on top with orange and blue facing the
+camera was captured as corner 1 ("white on top, green and red facing you") 2.6 s after detection. Its read was
+U 1 confident / 8 uncertain, F 0 / 9, R 1 / 8 (close calls and disagreements). Before Story 10.22 a hold took 20 s or
+more, which gave the Learner time to orient the cube. Without a saved calibration, self-calibration labels the wrong
+corner from the prompt and can produce a valid but wrong state (action item
+`epic-11-deferred-11.1-wrong-corner-self-calibration`). Fix (PO 2026-11-22, Q-a, SCP 2026-11-22
+quick-scan-corners-and-solver-copy): hold 1 accepts whichever corner is shown and names its faces from their centres;
+hold 2 asks for the other three faces (Story 10.25). Almost no CONFIDENT sticker on a hold is a separate wait in Story
+10.21 (Q-b).
+
+## F17. Hold 2 blocked as the same corner, with no message and no way back
+
+In the same session hold 2 asked for "yellow on top, blue and orange facing you", the corner already in view. The pose
+check correctly saw the hold-1 centres (`poseRejected reason=centres`, ΔE 3 to 6) and blocked. Over 85 s it flapped
+between accepted and rejected on single frames, the Learner saw an instruction that already looked satisfied, and no
+control returned to corner 1 (#299). Fix (SCP 2026-11-22 quick-scan-corners-and-solver-copy): a same-corner message judged
+over a window, with *Retake corner 1* and the system Back as the way back (Stories 10.24, 10.25).
 
 ## F11–F13
 
