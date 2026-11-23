@@ -33,22 +33,46 @@ uv run --project tools/corner-model python tools/corner-model/evaluate_model.py
 
 Real labeled Lenovo TB128XU and Galaxy S24 FE captures serve two purposes:
 
-- **Acceptance (Story 10.19 device item D5):**
+- **Acceptance (Story 10.19 device item D5, Story 10.20 AC3):**
 
   ```bash
   uv run --project tools/corner-model python tools/corner-model/evaluate_model.py --fixtures-corner Fixtures/corner
   ```
 
-  Evaluates only the real keypoint fixtures, **per device**, all held out (Story 10.19 does not retrain the model): recall
+  With the group index `Fixtures/corner/groups.json` (below) this scores the **held-out** groups only; `--split tuning`
+  scores the tuning groups and `--split all` every fixture. Without the index it scores every fixture and prints a
+  notice. The split used is printed and written to `--json-out`.
+
+  Evaluates only the real keypoint fixtures, **per device** (the model is not retrained on held-out groups): recall
   on positives, rejection on negatives and the mean corner error as a share of the labeled cube outline's diagonal (the
   bounding box of the 7 labeled corners), with the same presence threshold and geometry guard as the app. It exits
   nonzero when the directory is missing or holds no keypoint fixture, when the Lenovo (`TB128XU`) or the S24 FE
   (`SM-S721…`) has none, or when a device has fewer than 20 positives or 10 negatives, recall below 92%, rejection below
   96% or a corner error above 3% of the outline diagonal. `--json-out` writes the numbers per device for the evidence doc.
-- **Fine-tuning (optional):** `train_corner_model.py --fixtures-corner` (default `Fixtures/corner/`) appends the captures to training. Evaluate on captures that were not trained on.
+- **Fine-tuning (optional):** `train_corner_model.py --fixtures-corner` (default `Fixtures/corner/`) appends the captures to training, except every group the index holds out (never trained on). Evaluate on captures that were not trained on.
 
-Only **keypoint fixtures** are read; the color records (`corner-<hold>.json`, schema 3/4, with `labeledSamples`) and the
-`group.json` manifests in the same folders are skipped. The 10.19 fixture recorder (debug build, corner mode) writes each
+### Group index (`Fixtures/corner/groups.json`, Story 10.20)
+
+Written after the recording session; it names every 10.22-pipeline group folder once with its split. Whole groups are
+held out: a held-out group is never trained or tuned on; tuning groups are where Story 10.21 fits its thresholds.
+Training takes a 10.22 group only once the index lists it as tuning, so an unlisted one (or any before the index exists)
+never leaks into the model; older groups (10.19 or no manifest) train as before.
+`pastel: true` marks a pastel stickerless cube's group for the calibration plausibility check (`ColorCalibrationTest`).
+
+```json
+{ "kind": "corner-group-index", "schemaVersion": 1, "groups": [
+  { "group": "sm-s721u1_stla_warm", "split": "heldout" },
+  { "group": "sm-s721u1_stlp_warm", "split": "tuning", "pastel": true } ] }
+```
+
+`corner_index.py` (stdlib only) reads and validates it and maps a fixture path to its group and split; a malformed index
+or a listed group without a folder stops the evaluator and the training script with the group's name. Its tests:
+`python3 -m unittest discover -s tools/corner-model -p 'test_*.py'`. `CornerGroupIndexTest` (`:core:domain`) checks the
+index against the folders and the AC2 coverage (per device at least 20 held-out positives and 10 negatives, a held-out and
+a tuning group per front-lit device × light × torch condition, a backlit group per device).
+
+Only **keypoint fixtures** are read; the color records (`corner-<hold>.json`, schema 3/4, with `labeledSamples`), the
+`group.json` manifests in the same folders and the `groups.json` index are skipped. The 10.19 fixture recorder (debug build, corner mode) writes each
 capture as `<group>/keypoints/NNNN.json` with `NNNN.png`:
 
 ```json
@@ -62,3 +86,4 @@ A hand-written file without `kind` (just `frame`, `label`, `keypoints`) is read 
 - `device.model` groups the report per device; a fixture without it stops the run.
 - A malformed keypoint fixture (bad JSON, missing/non-square frame, missing label, wrong keypoint count, out-of-crop keypoint or no `device.model`) stops the run with its path, and so does any JSON file under the folder that is neither a keypoint fixture, a color record nor a `group.json` manifest; nothing is skipped silently. In `--json-out`, a metric with no data (e.g. corner error with no accepted positive) is `null`, never `Infinity`.
 - The recorder also writes `torch` (true/false on a camera with a flash unit, else null) in each keypoint fixture, color record and `group.json`, so torch-on and torch-off captures stay apart.
+- Since Story 10.20 the recorder tags `group.json` `"pipeline": "10.22"` (10.19 lighting plus 10.22 settle-and-lock) and adds the recorder `calibration` and the torch per hold (`holds`); each `corner-N.json` carries `diagnostics` (light levels, score, mode, uncalibrated score, torch and the metering settle). `lightDirection` may also be `"side"`.

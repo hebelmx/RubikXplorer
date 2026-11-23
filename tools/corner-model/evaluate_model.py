@@ -3,8 +3,9 @@ real-palette warped Fixtures/live/ frames, and adversarial dark/glossy & empty n
 
 Usage:
     uv run --project tools/corner-model python tools/corner-model/evaluate_model.py
-    # Story 10.19 D5 acceptance on real labelled Lenovo / S24 FE keypoint fixtures (README "Real corner fixtures"):
+    # Story 10.19 D5 / 10.20 AC3 acceptance on real labelled Lenovo / S24 FE keypoint fixtures (README "Real corner fixtures"):
     uv run --project tools/corner-model python tools/corner-model/evaluate_model.py --fixtures-corner Fixtures/corner
+    # (held-out groups of the group index by default; --split tuning|all to change)
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 import numpy as np
 import tensorflow as tf
 
+import corner_index
 from render_cube import (
     FixtureAssets,
     is_valid_geometry_normalized,
@@ -123,20 +125,29 @@ def corner_error_fraction(true_kps: np.ndarray, pred_kps: np.ndarray) -> float:
     return float(np.mean(np.sqrt(np.sum((true_kps - pred_kps) ** 2, axis=-1)))) / diagonal
 
 
-def evaluate_real_corner_fixtures(interpreter: tf.lite.Interpreter, corner_dir: Path, threshold: float) -> dict[str, dict]:
-    """Evaluates the labeled real keypoint fixtures under `corner_dir` per device (Story 10.19 D5).
+def evaluate_real_corner_fixtures(
+    interpreter: tf.lite.Interpreter,
+    corner_dir: Path,
+    threshold: float,
+    split: str = corner_index.ALL,
+    index: dict[str, dict] | None = None,
+) -> dict[str, dict]:
+    """Evaluates the labeled real keypoint fixtures under `corner_dir` per device (Story 10.19 D5, Story 10.20 AC3).
 
-    Every real capture is held out (the model is not retrained in Story 10.19). Color records and manifests are skipped.
-    Exits nonzero with a clear message when the directory is missing or holds no keypoint fixture; a malformed one stops
-    the run with its path (the loader never skips one). Returns `{device: metrics}`.
+    Story 10.20: only the fixtures in `split` of the group `index` (`groups.json`) are scored (`all`: every one).
+    Color records, manifests and the index are skipped. Exits nonzero with a clear message when the directory is missing
+    or holds no keypoint fixture in the split; a malformed one stops the run with its path (the loader never skips one).
+    Returns `{device: metrics}`.
     """
     from train_corner_model import load_corner_keypoint_fixtures
 
     if not corner_dir.is_dir():
         sys.exit(f"--fixtures-corner {corner_dir} does not exist; record and label real captures first (README).")
-    loaded = load_corner_keypoint_fixtures(corner_dir)
+    every = load_corner_keypoint_fixtures(corner_dir)
+    chosen = {str(p) for p in corner_index.select([Path(f["path"]) for f in every], corner_dir, index, split)}
+    loaded = [f for f in every if f["path"] in chosen]
     if not loaded:
-        sys.exit(f"--fixtures-corner {corner_dir} holds no keypoint fixture; nothing to evaluate (README).")
+        sys.exit(f"--fixtures-corner {corner_dir} holds no keypoint fixture in split '{split}'; nothing to evaluate (README).")
     by_device: dict[str, list[dict]] = {}
     for fixture in loaded:
         by_device.setdefault(fixture["device"], []).append(fixture)
@@ -173,6 +184,12 @@ def main() -> None:
         default=None,
         help="Evaluate only labelled real captures in this directory (Story 10.18 AC2 acceptance), not the synthetic slices.",
     )
+    parser.add_argument(
+        "--split",
+        choices=(corner_index.HELDOUT, corner_index.TUNING, corner_index.ALL),
+        default=None,
+        help="With --fixtures-corner: the group-index split to score (default: heldout when groups.json exists, else all).",
+    )
     args = parser.parse_args()
 
     if not args.model.is_file():
@@ -183,8 +200,15 @@ def main() -> None:
     interpreter.allocate_tensors()
 
     if args.fixtures_corner is not None:
-        devices = evaluate_real_corner_fixtures(interpreter, args.fixtures_corner, args.threshold)
-        print(f"Model: {args.model} ({size_bytes:,} bytes); real captures (all held out): {args.fixtures_corner}")
+        try:
+            index = corner_index.load_index(args.fixtures_corner) if args.fixtures_corner.is_dir() else None
+            split, notice = corner_index.resolve_split(args.split, index)
+        except corner_index.GroupIndexError as error:
+            sys.exit(f"Corner group index: {error}")
+        if notice:
+            print(notice)
+        devices = evaluate_real_corner_fixtures(interpreter, args.fixtures_corner, args.threshold, split, index)
+        print(f"Model: {args.model} ({size_bytes:,} bytes); real captures: {args.fixtures_corner}; split: {split}")
         print(f"Presence threshold: {args.threshold:.2f} + CornerLocator.isValidCubeGeometry guard")
         failures = []
         missing = [name for name in REQUIRED_DEVICES if not any(name.lower() in d.lower() for d in devices)]
@@ -217,7 +241,13 @@ def main() -> None:
                 )
         if args.json_out is not None:
             args.json_out.parent.mkdir(parents=True, exist_ok=True)
-            report = {"model_path": str(args.model), "fixtures_corner": str(args.fixtures_corner), "threshold": args.threshold, "devices": devices}
+            report = {
+                "model_path": str(args.model),
+                "fixtures_corner": str(args.fixtures_corner),
+                "split": split,
+                "threshold": args.threshold,
+                "devices": devices,
+            }
             args.json_out.write_text(json.dumps(json_safe(report), indent=2, allow_nan=False) + "\n", encoding="utf-8")
         if failures:
             sys.exit("Real-capture acceptance FAILED: " + "; ".join(failures))

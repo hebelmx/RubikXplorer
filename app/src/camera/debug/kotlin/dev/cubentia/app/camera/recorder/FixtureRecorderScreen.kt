@@ -46,6 +46,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -69,6 +70,12 @@ import androidx.core.content.ContextCompat
 import dev.cubentia.app.camera.CornerOutline
 import dev.cubentia.app.camera.CornerPoint
 import dev.cubentia.app.camera.FrameReader
+import dev.cubentia.app.camera.TorchButton
+import dev.cubentia.app.camera.TorchControl
+import dev.cubentia.app.content.ContentStrings
+import dev.cubentia.domain.content.ContentLoadResult
+import dev.cubentia.domain.content.ContentLoader
+import dev.cubentia.domain.content.ContentSource
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.recognition.CalibrationCenters
@@ -79,6 +86,7 @@ import dev.cubentia.domain.recognition.CornerFixturePaths
 import dev.cubentia.domain.recognition.CornerFixtureRecord
 import dev.cubentia.domain.recognition.CornerKeypointFixture
 import dev.cubentia.domain.recognition.CornerLabel
+import dev.cubentia.domain.recognition.CornerSettle
 import dev.cubentia.domain.recognition.DeviceInfo
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.Lab
@@ -92,6 +100,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.time.Instant
 import kotlin.math.hypot
@@ -103,6 +112,10 @@ private val PALETTE = listOf(Color.WHITE, Color.YELLOW, Color.RED, Color.ORANGE,
 
 private const val PREFILL_REFRESH_MS = 300L
 private const val REMETER_NOTE_MS = 2000L
+
+/** Story 10.20: how often a corner Capture press polls the 10.22 settle signal, and the slack past its cap. */
+private const val SETTLE_POLL_MS = 50L
+private const val SETTLE_WAIT_SLACK_MS = 500L
 
 /** A sampled calibration swatch shown before the operator saves or retakes it. */
 private data class SwatchPreview(
@@ -187,7 +200,20 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
     val device = DeviceInfo(Build.MODEL, Build.MANUFACTURER, Build.VERSION.RELEASE, Build.DISPLAY, Build.VERSION.SDK_INT)
 
     LaunchedEffect(cornerMode, calibrated) { camera.cornerMode(cornerMode && calibrated) }
-    LaunchedEffect(cornerMode, calibrated, torchOn) { camera.torch(cornerMode && calibrated && torchOn) }
+
+    // Story 10.20: the torch follows the operator's choice from the moment corner mode is set, so the six colors are
+    // calibrated under the torch state the corners are recorded with.
+    LaunchedEffect(cornerMode, torchOn, hasFlash) { camera.torch(recorderTorchOn(cornerMode, hasFlash, torchOn)) }
+    val calibrationNow = if (calibrated) CalibrationCenters(centers.toMap()) else null
+    LaunchedEffect(calibrationNow) { camera.calibration(calibrationNow) }
+
+    // Quick Scan's own en.json strings for the shared torch control (no recorder copy of its labels).
+    val strings by produceState<ContentStrings?>(null) {
+        value =
+            withContext(Dispatchers.IO) {
+                (ContentLoader.load(ContentSource.SHIPPED) as? ContentLoadResult.Loaded)?.bundle?.strings?.let(::ContentStrings)
+            }
+    }
 
     fun resetCorner() {
         cornerShot = null
@@ -196,6 +222,32 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
         entry = TruthEntry(selected = null)
         placement = null
         cornerKeypoints = null
+    }
+
+    /**
+     * A new capture condition (Story 10.19): the next corners start a new group. With [recalibrate] (a new cube, light
+     * or, since Story 10.20, torch state) the six calibrated colors are cleared too, so they are sampled again under it.
+     */
+    fun newCondition(recalibrate: Boolean) {
+        resetCorner()
+        cornerHold = 1
+        groupName = null
+        if (recalibrate) {
+            if (centers.isNotEmpty()) status = "Cube or light changed: calibrate all six again."
+            centers.clear()
+            preview = null
+            calibrationColor = Color.WHITE
+            entry = TruthEntry(selected = null)
+        }
+    }
+
+    /** The corner view's torch control (Story 10.20): the same path as the Settings dialog's torch checkbox. */
+    fun toggleTorch() {
+        if (saving) return
+        val next = !torchOn
+        val recalibrate = recalibrates(cube, cube, light, light, torchOn, next, cornerMode, cornerMode, hasFlash)
+        torchOn = next
+        newCondition(recalibrate)
     }
 
     /** IO: this session's group folder (a fresh numbered one when the base name is taken) with its manifest. */
@@ -208,10 +260,11 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
             }
         val directory = File(parent, name)
         check(directory.isDirectory || directory.mkdirs()) { "Cannot create $directory" }
-        val manifest = File(directory, CornerFixturePaths.MANIFEST)
-        if (!manifest.isFile) {
-            manifest.writeText(CornerFixtureJson.encodeManifest(groupManifest(device, cube, light, checkNotNull(lightDirection), torch)))
-        }
+        // Story 10.20: the manifest is created with the recorder calibration when the group starts; each hold adds itself.
+        ensureGroupManifest(
+            directory,
+            groupManifest(device, cube, light, checkNotNull(lightDirection), torch, CalibrationCenters(centers.toMap())),
+        )
         groupName = name
         return directory
     }
@@ -252,6 +305,13 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
         saving = true
         scope.launch {
             try {
+                // Story 10.20: a press while the 10.22 metering settles waits for it (or its cap), as Quick Scan queues one.
+                if (camera.settled() == false) {
+                    status = "Waiting for exposure to settle…"
+                    withTimeoutOrNull(CornerSettle.CAP_MS + SETTLE_WAIT_SLACK_MS) {
+                        while (camera.settled() == false) delay(SETTLE_POLL_MS)
+                    }
+                }
                 val shot = camera.capture()
                 val crop = shot?.crop
                 if (shot?.modelInput == null || crop == null) {
@@ -333,6 +393,8 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
             return
         }
         val placed = cornerKeypoints
+        // The torch at this capture: the state the camera applied, on a camera with a flash unit only.
+        val holdTorch = holdTorch(torch, shot.torch)
         val record =
             CornerFixtureRecord(
                 device = device,
@@ -346,19 +408,24 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                 lightDirection = lightDirection,
                 keypoints = placed?.points,
                 detectorKeypoints = placed?.detector,
-                torch = torch,
+                torch = holdTorch,
+                diagnostics = holdDiagnostics(shot.corner?.faces.orEmpty(), calibration, holdTorch, shot.settle),
             )
         saving = true
         scope.launch {
             try {
-                withContext(Dispatchers.IO) {
-                    val directory = groupDirectory()
-                    // A session's group is new, so a corner file there is this session's own retake of that hold.
-                    File(directory, record.frame).writeBytes(checkNotNull(shot.jpeg))
-                    File(directory, CornerFixturePaths.fileName(record.hold)).writeText(CornerFixtureJson.encode(record))
-                    if (placed != null) writeKeypoints(placed.shot, CornerLabel.POSITIVE, placed.points, placed.detector)
-                }
-                status = "Saved corner ${record.hold} in ${groupName.orEmpty()}."
+                val manifestFailure =
+                    withContext(Dispatchers.IO) {
+                        val directory = groupDirectory()
+                        // A session's group is new, so a corner file there is this session's own retake of that hold.
+                        writeCornerHold(directory, record, checkNotNull(shot.jpeg))
+                        if (placed != null) writeKeypoints(placed.shot, CornerLabel.POSITIVE, placed.points, placed.detector)
+                        // The capture is saved either way; a manifest that cannot take the hold is reported, not fatal.
+                        runCatching { recordHold(directory, record.hold, holdTorch) }.exceptionOrNull()
+                    }
+                status =
+                    "Saved corner ${record.hold} in ${groupName.orEmpty()}." +
+                    (manifestFailure?.let { " group.json not updated: ${it.message}" } ?: "")
                 cornerHold++
                 resetCorner()
             } catch (failure: Exception) {
@@ -611,6 +678,8 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
             },
             selectedFace = selectedFace,
             capturedFaces = capturedFaces,
+            // Story 10.20: Quick Scan's torch control in corner mode on a camera with a flash unit, calibration included.
+            torch = strings?.takeIf { cornerMode && hasFlash == true }?.let { TorchControl(torchOn, it, ::toggleTorch) },
             prompt =
                 if (calibrated && cornerMode) {
                     val hold = QuickScanPlan.holds.getOrNull(cornerHold - 1)
@@ -787,25 +856,13 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
             hasFlash = hasFlash == true,
             onDismiss = { editingMeta = false },
         ) { newCube, newLight, newMode, newDirection, newTorch ->
-            // A torch change is a new capture condition: a new group, like a new light direction.
-            if (newMode != cornerMode || newCube.trim() != cube.trim() || newLight.trim() != light.trim() ||
-                newDirection != lightDirection || newTorch != torchOn
-            ) {
-                resetCorner()
-                cornerHold = 1
-                groupName = null
-            }
+            // A torch change is a new capture condition: a new group, like a new light direction. A new cube, light or
+            // (Story 10.20) torch state is a new capture context: earlier centers and truth never carry over.
+            val recalibrate = recalibrates(cube, newCube, light, newLight, torchOn, newTorch, cornerMode, newMode, hasFlash)
+            if (recalibrate || newMode != cornerMode || newDirection != lightDirection) newCondition(recalibrate)
             cornerMode = newMode
             lightDirection = newDirection
             torchOn = newTorch
-            // A new cube or light is a new capture context: earlier centers and truth never carry over.
-            if (newCube.trim() != cube.trim() || newLight.trim() != light.trim()) {
-                if (centers.isNotEmpty()) status = "Cube or light changed: calibrate all six again."
-                centers.clear()
-                preview = null
-                calibrationColor = Color.WHITE
-                resetEntry()
-            }
             cube = newCube
             light = newLight
             editingMeta = false
@@ -868,6 +925,7 @@ private fun Viewfinder(
     detectedQuads: List<List<CornerPoint>> = emptyList(),
     placement: Placement? = null,
     onMovePoint: (Int, Double, Double) -> Unit = { _, _, _ -> },
+    torch: TorchControl? = null,
 ) {
     Box(modifier.clipToBounds().background(UiColor.Black), contentAlignment = Alignment.Center) {
         if (hasPermission && placement != null) {
@@ -889,6 +947,9 @@ private fun Viewfinder(
             }
         } else {
             Button(onClick = onAllow) { Text("Allow camera") }
+        }
+        if (hasPermission && placement == null && torch != null) {
+            TorchButton(torch, Modifier.align(Alignment.TopEnd).padding(8.dp), testTag = "recorder:torch")
         }
         Column(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             if (calibrated) {
@@ -1250,6 +1311,7 @@ private fun MetaDialog(
                     listOf(
                         LightDirection.FRONT to "Front (light from the camera side)",
                         LightDirection.BACK to "Back (light behind the cube)",
+                        LightDirection.SIDE to "Side (light from one side)",
                     ).forEach { (direction, label) ->
                         Row(
                             Modifier.fillMaxWidth().selectable(selected = newDirection == direction, onClick = {
@@ -1270,7 +1332,7 @@ private fun MetaDialog(
                         }
                     }
                 }
-                Text("Changing either clears the calibration.", style = MaterialTheme.typography.bodySmall)
+                Text("Changing the cube, light or torch clears the calibration.", style = MaterialTheme.typography.bodySmall)
             }
         },
         confirmButton = {

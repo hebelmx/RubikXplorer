@@ -2,7 +2,9 @@ package dev.cubentia.app.camera.recorder
 
 import android.util.Log
 import dev.cubentia.app.camera.CornerFrame
+import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.FrameQuality
+import dev.cubentia.domain.recognition.SideLight
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -22,6 +24,10 @@ internal data class ExposureState(
  * frame (0: none). Started over adb while the recorder is open:
  *
  *     adb shell am broadcast -p com.exxerpro.cubentia -a dev.cubentia.debug.RECORDER_BURST --ei frames 30 --ei jpegEvery 10 --ez meter true --es label still
+ *
+ * Story 10.20: each line also carries the light check (`light`: the three face levels, score, mode and verdict) from
+ * [SideLight.check] against the recorder calibration, or uncalibrated before the recorder is calibrated; `null` when no
+ * corner was detected.
  *
  * Analyzer thread only. Numbers and frames stay on the device until the operator pulls them.
  */
@@ -46,10 +52,12 @@ internal class RecorderBurst(
         rotation: Int,
         exposure: ExposureState?,
         jpeg: ByteArray?,
+        calibration: CalibrationCenters? = null,
     ): Boolean {
         val name = jpeg?.let { "frame-%03d.jpg".format(count) }
         if (jpeg != null && name != null) runCatching { File(directory, name).writeBytes(jpeg) }
-        lines.append(line(count, nowMs - startedMs, corner, width, height, rotation, exposure, name)).append('\n')
+        val light = lightCheck(corner, calibration)
+        lines.append(line(count, nowMs - startedMs, corner, width, height, rotation, exposure, name, light)).append('\n')
         count++
         if (count < frames) return false
         runCatching { File(directory, "frames.jsonl").writeText(lines.toString()) }
@@ -64,6 +72,12 @@ internal class RecorderBurst(
         const val DEFAULT_FRAMES = 30
         const val MAX_FRAMES = 600
 
+        /** The light check of [corner]'s three faces (calibrated against a valid [calibration]); null when no corner was detected. */
+        internal fun lightCheck(
+            corner: CornerFrame?,
+            calibration: CalibrationCenters?,
+        ): SideLight.Verdict? = corner?.takeIf { it.detected && it.faces.size == 3 }?.let { SideLight.check(it.faces, calibration) }
+
         internal fun line(
             index: Int,
             elapsedMs: Long,
@@ -73,6 +87,7 @@ internal class RecorderBurst(
             rotation: Int,
             exposure: ExposureState?,
             jpeg: String?,
+            light: SideLight.Verdict? = null,
         ): String {
             val json = JSONObject()
             json.put("i", index)
@@ -120,6 +135,18 @@ internal class RecorderBurst(
                 } ?: JSONObject.NULL,
             )
             json.put("jpeg", jpeg ?: JSONObject.NULL)
+            json.put(
+                "light",
+                light?.let {
+                    JSONObject()
+                        .put("top", it.topLevel ?: JSONObject.NULL)
+                        .put("left", it.leftLevel ?: JSONObject.NULL)
+                        .put("right", it.rightLevel ?: JSONObject.NULL)
+                        .put("score", it.score ?: JSONObject.NULL)
+                        .put("mode", it.mode.name.lowercase())
+                        .put("passed", if (it.score == null) JSONObject.NULL else it.passed)
+                } ?: JSONObject.NULL,
+            )
             return json.toString()
         }
     }

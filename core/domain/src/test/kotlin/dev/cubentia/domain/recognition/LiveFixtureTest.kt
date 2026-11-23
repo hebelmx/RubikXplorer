@@ -240,4 +240,110 @@ class LiveFixtureTest {
             assertThrows(IllegalArgumentException::class.java) { CornerFixtureJson.decodeKeypoints(CornerFixtureJson.encodeKeypoints(bad)) }
         }
     }
+
+    @Test
+    fun `story 10-20 manifest, hold diagnostics and side light round-trip, and older files still decode`() {
+        val manifest =
+            CornerGroupManifest(
+                CornerFixturePaths.PIPELINE_10_22,
+                LightDirection.SIDE,
+                record.device,
+                "stla",
+                "warm",
+                torch = true,
+                calibration = record.calibration,
+                holds = listOf(CornerHoldManifest(1, true), CornerHoldManifest(2, false)),
+            )
+        val encoded = CornerFixtureJson.encodeManifest(manifest)
+        assertTrue("\"lightDirection\": \"side\"" in encoded && "\"pipeline\": \"10.22\"" in encoded, encoded)
+        assertEquals(manifest, CornerFixtureJson.decodeManifest(encoded))
+        // A 10.19 manifest written before Story 10.20 has neither calibration nor holds.
+        val old =
+            """
+            {"pipeline": "10.19", "lightDirection": "front", "device": {"model": "m", "manufacturer": "x", "osRelease": "13",
+            "osBuild": "b", "sdkInt": 33}, "cube": "stla", "light": "warm", "torch": null}
+            """.trimIndent()
+        val decoded = CornerFixtureJson.decodeManifest(old)
+        assertEquals(null, decoded.calibration)
+        assertEquals(emptyList<CornerHoldManifest>(), decoded.holds)
+        assertEquals(LightDirection.FRONT, decoded.lightDirection)
+
+        val points = List(7) { listOf(0.1 * (it + 1), 0.5) }
+        val diagnostics =
+            CornerHoldDiagnostics(
+                topLevel = 1.0,
+                leftLevel = 0.9,
+                rightLevel = null,
+                lightScore = null,
+                lightPassed = null,
+                lightMode = "torch",
+                uncalibratedScore = null,
+                torch = true,
+                settle = CornerSettleDiagnostics(640, SettleOutcome.SETTLED, "on+awb", 120),
+            )
+        val hold =
+            CornerFixtureRecord(
+                device = record.device,
+                cube = "stla",
+                light = "warm",
+                capturedAt = record.capturedAt,
+                calibration = record.calibration,
+                hold = 1,
+                labeledSamples = emptyList(),
+                truthSources = emptyList(),
+                lightDirection = LightDirection.SIDE,
+                keypoints = points,
+                torch = true,
+                diagnostics = diagnostics,
+            )
+        val holdJson = CornerFixtureJson.encode(hold)
+        assertTrue("\"outcome\": \"settled\"" in holdJson && "\"lightMode\": \"torch\"" in holdJson, holdJson)
+        assertEquals(hold, CornerFixtureJson.decode(holdJson))
+        val timeout =
+            hold.copy(
+                diagnostics = diagnostics.copy(settle = CornerSettleDiagnostics(1500, SettleOutcome.TIMEOUT, "unsupported")),
+            )
+        assertEquals(timeout, CornerFixtureJson.decode(CornerFixtureJson.encode(timeout)))
+        // A schema-4 record without diagnostics (Story 10.19) still decodes, with none.
+        val withoutDiagnostics = holdJson.substringBefore(",\n    \"diagnostics\"") + "\n}"
+        assertEquals(hold.copy(diagnostics = null), CornerFixtureJson.decode(withoutDiagnostics))
+        // Schema 3 carries no Story 10.20 diagnostics.
+        assertThrows(IllegalArgumentException::class.java) {
+            CornerFixtureJson.decode(
+                CornerFixtureJson.encode(hold.copy(schemaVersion = 3, lightDirection = null, keypoints = null, torch = null)),
+            )
+        }
+    }
+
+    @Test
+    fun `the group index round-trips and rejects a bad split, kind, schema or a group listed twice`() {
+        val index =
+            CornerGroupIndex(
+                groups =
+                    listOf(
+                        CornerGroupIndexEntry("sm-s721u1_stla_warm", CornerSplit.HELDOUT),
+                        CornerGroupIndexEntry("sm-s721u1_stlp_warm", CornerSplit.TUNING, pastel = true),
+                    ),
+            )
+        val encoded = CornerFixtureJson.encodeIndex(index)
+        assertTrue("\"kind\": \"corner-group-index\"" in encoded && "\"split\": \"heldout\"" in encoded, encoded)
+        assertEquals(index, CornerFixtureJson.decodeIndex(encoded))
+        assertEquals(CornerSplit.TUNING, index.entry("sm-s721u1_stlp_warm")?.split)
+        assertEquals(null, index.entry("missing"))
+        // The pastel flag is optional.
+        val minimal = """{"kind": "corner-group-index", "schemaVersion": 1, "groups": [{"group": "a", "split": "tuning"}]}"""
+        assertEquals(CornerGroupIndexEntry("a", CornerSplit.TUNING), CornerFixtureJson.decodeIndex(minimal).groups.single())
+        listOf(
+            minimal.replace("tuning", "training"),
+            minimal.replace("corner-group-index", "corner-keypoints"),
+            minimal.replace("\"schemaVersion\": 1", "\"schemaVersion\": 2"),
+            minimal.replace("\"a\"", "\" \""),
+            """{"kind": "corner-group-index", "schemaVersion": 1, "groups": [{"group": "a", "split": "tuning"}, {"group": "a", "split": "heldout"}]}""",
+        ).forEach { bad ->
+            assertThrows(IllegalArgumentException::class.java) { CornerFixtureJson.decodeIndex(bad) }
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            CornerFixtureJson.encodeIndex(CornerGroupIndex(groups = index.groups + index.groups.first()))
+        }
+    }
 }

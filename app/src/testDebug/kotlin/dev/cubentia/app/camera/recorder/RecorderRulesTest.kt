@@ -349,18 +349,136 @@ class RecorderRulesTest {
         assertEquals(4, nextKeypointIndex(listOf("0001.json", "0001.png", "0003.json", "notes.txt")))
     }
 
-    @Test fun `the group manifest marks the 10-19 pipeline and the operator's light direction`() {
+    @Test fun `the group manifest marks the 10-22 pipeline, the operator's light direction and the recorder calibration`() {
         val device =
             dev.cubentia.domain.recognition
                 .DeviceInfo("TB128XU", "LENOVO", "13", "b", 33)
         val manifest = groupManifest(device, " stla ", "warm ", dev.cubentia.domain.recognition.LightDirection.FRONT)
-        assertEquals("10.19", manifest.pipeline)
+        assertEquals("10.22", manifest.pipeline)
         assertEquals("stla", manifest.cube)
         assertEquals("warm", manifest.light)
         assertEquals(dev.cubentia.domain.recognition.LightDirection.FRONT, manifest.lightDirection)
         assertEquals(null, manifest.torch)
-        val lit = groupManifest(device, "stla", "warm", dev.cubentia.domain.recognition.LightDirection.FRONT, torch = true)
+        assertEquals(null, manifest.calibration)
+        assertEquals(emptyList<dev.cubentia.domain.recognition.CornerHoldManifest>(), manifest.holds)
+        val centers = calibration(white = 5.0, yellow = 30.0)
+        val lit =
+            groupManifest(device, "stla", "warm", dev.cubentia.domain.recognition.LightDirection.SIDE, torch = true, calibration = centers)
         assertEquals(true, lit.torch)
+        assertEquals(centers, lit.calibration)
+        assertEquals(dev.cubentia.domain.recognition.LightDirection.SIDE, lit.lightDirection)
+    }
+
+    @Test fun `each saved hold adds its torch state and leaves the other holds unchanged`() {
+        val device =
+            dev.cubentia.domain.recognition
+                .DeviceInfo("SM-S721U1", "samsung", "15", "b", 35)
+        val manifest = groupManifest(device, "stla", "warm", dev.cubentia.domain.recognition.LightDirection.FRONT, torch = true)
+        val one = withHold(manifest, 1, true)
+        assertEquals(
+            listOf(
+                dev.cubentia.domain.recognition
+                    .CornerHoldManifest(1, true),
+            ),
+            one.holds,
+        )
+        val two = withHold(one, 2, false)
+        assertEquals(
+            listOf(
+                dev.cubentia.domain.recognition
+                    .CornerHoldManifest(1, true),
+                dev.cubentia.domain.recognition
+                    .CornerHoldManifest(2, false),
+            ),
+            two.holds,
+        )
+        assertEquals(manifest.copy(holds = two.holds), two)
+        // A retaken hold replaces only its own entry, kept in hold order; a camera without a flash records null.
+        assertEquals(
+            listOf(
+                dev.cubentia.domain.recognition
+                    .CornerHoldManifest(1, null),
+                dev.cubentia.domain.recognition
+                    .CornerHoldManifest(2, false),
+            ),
+            withHold(two, 1, null).holds,
+        )
+    }
+
+    private fun face(vararg lightness: Double): dev.cubentia.domain.recognition.FrameStats =
+        dev.cubentia.domain.recognition.FrameStats(
+            lightness.map {
+                dev.cubentia.domain.recognition
+                    .CellReading(Lab(it, 0.0, 0.0), true)
+            },
+            0.0,
+            0.0,
+            0.0,
+            0,
+        )
+
+    @Test fun `hold diagnostics carry the light check in the recorder's mode, the uncalibrated score, torch and settle`() {
+        val settle =
+            dev.cubentia.domain.recognition
+                .CornerSettleDiagnostics(640, dev.cubentia.domain.recognition.SettleOutcome.SETTLED, "on+awb", 120)
+        val top = face(*DoubleArray(9) { 80.0 })
+        val shaded = face(*DoubleArray(9) { 40.0 })
+        val lit = face(*DoubleArray(9) { 75.0 })
+        // Uncalibrated: no valid calibration; the darker side face is 40 L* below the top, over the 27 L* cut.
+        val uncalibrated = holdDiagnostics(listOf(top, shaded, lit), null, torch = null, settle = settle)
+        assertEquals("uncalibrated", uncalibrated.lightMode)
+        assertEquals(80.0, uncalibrated.topLevel!!, 1e-9)
+        assertEquals(40.0, uncalibrated.leftLevel!!, 1e-9)
+        assertEquals(40.0, uncalibrated.lightScore!!, 1e-9)
+        assertEquals(false, uncalibrated.lightPassed)
+        assertEquals(40.0, uncalibrated.uncalibratedScore!!, 1e-9)
+        assertEquals(settle, uncalibrated.settle)
+        assertEquals(null, uncalibrated.torch)
+        // Calibrated against the recorder calibration: relative brightness, the ratio score; the uncalibrated score stays beside it.
+        val centers =
+            CalibrationCenters(
+                Color.entries.associateWith { color ->
+                    if (color ==
+                        Color.WHITE
+                    ) {
+                        Lab(80.0, 0.0, 0.0)
+                    } else {
+                        Lab(
+                            50.0,
+                            60.0 * kotlin.math.cos(color.ordinal.toDouble()),
+                            60.0 * kotlin.math.sin(color.ordinal.toDouble()),
+                        )
+                    }
+                },
+            )
+        val calibrated = holdDiagnostics(listOf(top, lit, lit), centers, torch = false, settle = null)
+        assertEquals("calibrated", calibrated.lightMode)
+        assertEquals(1.0, calibrated.topLevel!!, 1e-9)
+        assertEquals(80.0 / 75.0, calibrated.lightScore!!, 1e-9)
+        assertEquals(true, calibrated.lightPassed)
+        assertEquals(5.0, calibrated.uncalibratedScore!!, 1e-9)
+        assertEquals(false, calibrated.torch)
+        assertEquals(null, calibrated.settle)
+        // A lit torch names the mode `torch`, as ScanDiagnostics does; the check is still measured.
+        val torch = holdDiagnostics(listOf(top, lit, lit), centers, torch = true, settle = null)
+        assertEquals("torch", torch.lightMode)
+        assertEquals(calibrated.lightScore, torch.lightScore)
+        // A face not measured: its level and the scores are null, and nothing passed or failed.
+        val unmeasured = holdDiagnostics(listOf(top, null, lit), null, torch = null, settle = null)
+        assertNull(unmeasured.leftLevel)
+        assertNull(unmeasured.lightScore)
+        assertNull(unmeasured.lightPassed)
+        assertNull(unmeasured.uncalibratedScore)
+        assertEquals(80.0, unmeasured.topLevel!!, 1e-9)
+        assertNull(holdDiagnostics(emptyList(), null, null, null).topLevel)
+    }
+
+    @Test fun `the recorder torch is lit in corner mode while calibrating too, never in face mode or without a flash`() {
+        assertTrue(recorderTorchOn(cornerMode = true, hasFlash = true, torchOn = true))
+        assertFalse(recorderTorchOn(cornerMode = true, hasFlash = true, torchOn = false))
+        assertFalse(recorderTorchOn(cornerMode = false, hasFlash = true, torchOn = true))
+        assertFalse(recorderTorchOn(cornerMode = true, hasFlash = false, torchOn = true))
+        assertFalse(recorderTorchOn(cornerMode = true, hasFlash = null, torchOn = true))
     }
 
     @Test fun `the torch is recorded only on a camera with a flash unit`() {
@@ -372,5 +490,39 @@ class RecorderRulesTest {
 
     @Test fun `the model-input crop uses the corner model's own radius multiplier`() {
         assertEquals(dev.cubentia.app.camera.CORNER_MODEL_CROP_RADIUS_MULTIPLIER, MODEL_CROP_RADIUS_MULTIPLIER, 0.0)
+    }
+
+    @Test fun `a cube, light or torch change, or a mode change that switches the torch, recalibrates`() {
+        fun change(
+            cube: String = "stla",
+            light: String = "warm",
+            torch: Boolean = true,
+            fromMode: Boolean = true,
+            toMode: Boolean = true,
+            hasFlash: Boolean? = true,
+        ) = recalibrates("stla", cube, "warm", light, true, torch, fromMode, toMode, hasFlash)
+        assertFalse(change())
+        assertFalse(change(cube = " stla ", light = "warm "))
+        assertTrue(change(cube = "stlb"))
+        assertTrue(change(light = "cool"))
+        assertTrue(change(torch = false))
+        assertTrue(change(torch = false, hasFlash = false))
+        // Face mode calibrated with the torch off; corner mode lights it on a flash device: calibrate again.
+        assertTrue(change(fromMode = false, toMode = true))
+        assertTrue(change(fromMode = true, toMode = false))
+        // Without a flash unit the torch never lights, so a mode change alone keeps the calibration.
+        assertFalse(change(fromMode = false, toMode = true, hasFlash = false))
+        assertFalse(change(fromMode = false, toMode = true, hasFlash = null))
+        // The torch off in both modes: a mode change does not switch it.
+        assertFalse(recalibrates("stla", "stla", "warm", "warm", false, false, false, true, true))
+    }
+
+    @Test fun `a saved hold records the applied torch, falling back to the choice, and null without a flash`() {
+        assertNull(holdTorch(recorded = null, applied = true))
+        assertNull(holdTorch(recorded = null, applied = null))
+        assertEquals(false, holdTorch(recorded = true, applied = false))
+        assertEquals(true, holdTorch(recorded = false, applied = true))
+        assertEquals(true, holdTorch(recorded = true, applied = null))
+        assertEquals(false, holdTorch(recorded = false, applied = null))
     }
 }

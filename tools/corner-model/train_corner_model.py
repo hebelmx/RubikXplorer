@@ -17,6 +17,7 @@ import numpy as np
 import tensorflow as tf
 from PIL import Image
 
+import corner_index
 from render_cube import FixtureAssets, generate_dataset, load_live_fixtures
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -117,13 +118,16 @@ KEYPOINT_FIXTURE_KIND = "corner-keypoints"
 def fixture_kind(data: object) -> str | None:
     """What a JSON file under `Fixtures/corner/` is: `"keypoints"` (the 10.19 recorder's `"kind": "corner-keypoints"`
     file, or a hand-written README-format file with `frame` + `label` and no `kind`), `"color"` (a color record,
-    `corner-<hold>.json` schema 3/4 with `labeledSamples`) or `"manifest"` (a `group.json` with `pipeline`); None for
-    anything else, which the loader reports instead of skipping silently."""
+    `corner-<hold>.json` schema 3/4 with `labeledSamples`), `"manifest"` (a `group.json` with `pipeline`) or `"index"`
+    (Story 10.20's `groups.json` group index); None for anything else, which the loader reports instead of skipping
+    silently."""
     if not isinstance(data, dict):
         return None
     kind = data.get("kind")
     if kind == KEYPOINT_FIXTURE_KIND:
         return "keypoints"
+    if corner_index.is_index(data):
+        return "index"
     if kind is not None:
         return None
     if "labeledSamples" in data and "schemaVersion" in data:
@@ -148,7 +152,8 @@ def load_corner_keypoint_fixtures(corner_dir: Path, img_size: int = 128) -> list
     `label` is `"positive"` (with 7 crop-normalized `keypoints` `[T, UL, LL, B, LR, UR, C]`, each `[u, v]` in
     [0, 1]) or `"negative"` (no keypoints). `detectorKeypoints` (diagnostics) are never used as labels. Color records
     and manifests are skipped; a malformed keypoint fixture, one without `device.model`, or a JSON file that is none of
-    the three kinds stops the run with its path instead of being skipped.
+    the three kinds stops the run with its path instead of being skipped. The group index is skipped too; which split a
+    fixture belongs to is `corner_index`'s job.
     """
     if not corner_dir.is_dir():
         return []
@@ -163,7 +168,7 @@ def load_corner_keypoint_fixtures(corner_dir: Path, img_size: int = 128) -> list
             raise bad(f"unreadable JSON ({error})") from error
         kind = fixture_kind(data)
         if kind is None:
-            raise bad("neither a keypoint fixture, a color record nor a group manifest")
+            raise bad("neither a keypoint fixture, a color record, a group manifest nor the group index")
         if kind != "keypoints":
             continue
         img_name = data.get("frame")
@@ -209,8 +214,18 @@ def load_corner_keypoint_fixtures(corner_dir: Path, img_size: int = 128) -> list
 
 
 def load_optional_corner_fixtures(corner_dir: Path, img_size: int = 128) -> tuple[np.ndarray, np.ndarray] | None:
-    """Optional fine-tune hook for real labeled `Fixtures/corner/` keypoint fixtures (see `load_corner_keypoint_fixtures`)."""
-    loaded = load_corner_keypoint_fixtures(corner_dir, img_size)
+    """Optional fine-tune hook for real labeled `Fixtures/corner/` keypoint fixtures (see `load_corner_keypoint_fixtures`).
+
+    Story 10.20: only fixtures `corner_index.training_allowed` admits are trained on (never a held-out group, and a
+    10.22 group only once the index lists it as tuning).
+    """
+    try:
+        index = corner_index.load_index(corner_dir) if corner_dir.is_dir() else None
+    except corner_index.GroupIndexError as error:
+        raise SystemExit(f"Malformed corner group index: {error}") from error
+    loaded = [f for f in load_corner_keypoint_fixtures(corner_dir, img_size) if corner_index.training_allowed(Path(f["path"]), corner_dir, index)]
+    if index is None:
+        print(f"Notice: no group index in {corner_dir}; 10.22 corner groups stay out of training until it lists them.")
     if not loaded:
         return None
     return np.stack([f["x"] for f in loaded], axis=0), np.stack([f["y"] for f in loaded], axis=0)
