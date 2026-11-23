@@ -106,6 +106,7 @@ fun AlgorithmDetailScreen(
     onSetStatus: (AlgorithmStatus) -> Unit = {},
     autoPlay: Boolean = false,
     onPractice: ((fromSetUp: Boolean) -> Unit)? = null,
+    pausesLesson: Boolean = false,
 ) {
     val result = remember(algorithm) { Demonstration.ofCase(algorithm) }
     val tokens = RubikTheme.tokens
@@ -141,6 +142,7 @@ fun AlgorithmDetailScreen(
     if (choosingPractice && onPractice != null) {
         PracticeChoiceSheet(
             strings,
+            pausesLesson = pausesLesson,
             onChoose = { fromSetUp ->
                 choosingPractice = false
                 state.pause()
@@ -252,7 +254,7 @@ fun AlgorithmDetailScreen(
 /**
  * The Algorithm practice choice (UX Flow 11): set the Case up from solved, or start at the Algorithm because the
  * cube already shows the Case. Each option closes the sheet first; back or the scrim calls [onDismiss] and starts
- * nothing.
+ * nothing. When [pausesLesson], it says that starting a practice pauses the live Lesson, as the Solve tab does.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -260,6 +262,7 @@ internal fun PracticeChoiceSheet(
     strings: ContentStrings,
     onChoose: (fromSetUp: Boolean) -> Unit,
     onDismiss: () -> Unit,
+    pausesLesson: Boolean = false,
 ) {
     val tokens = RubikTheme.tokens
 
@@ -286,6 +289,13 @@ internal fun PracticeChoiceSheet(
                 color = tokens.inkPrimary,
                 modifier = Modifier.semantics { heading() }.testTag("algorithmDetail:practiceChoice:title"),
             )
+            if (pausesLesson) {
+                Text(
+                    text("msg.solve.pauses-lesson"),
+                    color = tokens.inkSecondary,
+                    modifier = Modifier.testTag("algorithmDetail:practiceChoice:pauseNote"),
+                )
+            }
             TextButton(
                 onClick = { onChoose(true) },
                 modifier = Modifier.fillMaxWidth().heightIn(min = Spacing.touchMin).testTag("algorithmDetail:practice:setUp"),
