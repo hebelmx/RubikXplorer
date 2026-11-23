@@ -1,0 +1,25 @@
+{
+  "model_path": "/mnt/e/Dynamic/IndFun/RubikXplorer-device-session-2/app/src/camera/corner/assets/corner_keypoints.tflite",
+  "fixtures_corner": "/tmp/claude-1000/-mnt-e-Dynamic-IndFun-RubikXplorer/e08b3e59-da36-4722-bff8-1e6b09b84e4f/scratchpad/rename/eval-lenovo/corner",
+  "split": "all",
+  "threshold": 0.55,
+  "devices": {
+    "Lenovo TB128XU": {
+      "count": 85.0,
+      "tp": 53.0,
+      "fn": 0.0,
+      "fp": 0.0,
+      "tn": 32.0,
+      "recall": 1.0,
+      "raw_presence_recall": 1.0,
+      "mean_px_err": 5.449628829956055,
+      "median_px_err": 5.284074783325195,
+      "p90_px_err": 9.10029125213623,
+      "rejection_rate": 1.0,
+      "false_positive_rate": 0.0,
+      "positives": 53.0,
+      "negatives": 32.0,
+      "mean_corner_error_fraction": 0.05331760440036344
+    }
+  }
+}

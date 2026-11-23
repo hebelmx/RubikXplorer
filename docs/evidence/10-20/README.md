@@ -106,3 +106,13 @@ Debug build is already on the Galaxy. Open the recorder with `adb shell am start
 3. **#249 (6.6) and 6.9** in the same TalkBack pass.
 4. **Block 2** (includes 8.7 single-wrong-move Quick Check and the #200 end-of-playback check), **Block 6** camera items (6.2 #198, 6.4 #195, 6.5 #196, 6.8 #253), **Blocks 3, 4, 7**.
 5. Close-out: issue comments for what passed, `sprint_plan.py` for settled action items, push, PR, merge on green CI + PO OK, remove worktree.
+
+## Preview: corner model on the Lenovo groups (not the acceptance run)
+
+`evaluate_model.py --fixtures-corner <copy of the 6 Lenovo 10.22 groups>`, no group index (split = all, tuning groups included), 2026-11-23. JSON: `corner-model-lenovo-preview.json`.
+
+| Device | Positives | Negatives | Recall | Rejection | Corner error |
+|---|---|---|---|---|---|
+| Lenovo TB128XU | 53 | 32 | 100.0% | 100.0% (0 FP) | 5.33% of the outline diagonal (5.45 px mean, 9.10 px p90) |
+
+Recall and rejection already clear the AC3 bars (92% / 96%) on this data. The corner error is **not meaningful**: it is measured against the guide's default points left in the labels (#315), not the real corners. The negatives are similar empty-table views; harder negatives would make rejection more informative. The official run needs the Galaxy groups and `groups.json` (held-out split only).
