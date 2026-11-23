@@ -232,7 +232,7 @@ A Learner can browse and watch all 78 verified OLL/PLL Algorithms, track their o
 ### Epic 10: Scan my cube (v1.1, flag-gated)
 A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. Built on `main` with every camera flag OFF in release; each feature reaches users only when the PO raises its flag at a release (Story 10.11). Restored from `post-launch/v1.1-camera-recognition.md` by `sprint-change-proposal-2026-11-14-v1-1-camera.md`. *(SCP 2026-11-20: moves into v1.0 as the dependency of #198, #208, #249, #251, #252; Story 10.11 raises `CAMERA_SCAN` for the v1.0 release.)*
 **FRs covered:** FR-21, FR-23 – FR-26, plus the Quick Check rung of FR-9 and FR-16, and the calibration reset of FR-19. **Also:** recognition NFRs, NFR-5, NFR-8, NFR-11, NFR-12, AD-9, AD-13, AD-18, AR-13, UX-DR15, UX-DR16, UX-DR19 – UX-DR22, UX-DR25.
-**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) → Epic 11 → 10.8 → 10.11; 10.16 after 10.14; 11.1 → 10.18 (Quick Scan finds the cube's real edges and corners, #195) → 10.17 (after 10.16 too) → 10.19 → 10.22 → (10.20 ∥ 10.23) → 10.21 *(SCP 2026-11-22 quick-scan-reliability: 10.22 before the fixture session)* *(SCP 2026-11-22 quick-scan-sticker-reader: 10.23, the shadow sticker reader, after 10.22; it does not block 10.20, 10.21 or 10.11)* *(SCP 2026-11-21 quick-scan-side-face-accuracy, #274: 10.20 and 10.21 do not block Story 10.11, which raises `CAMERA_SCAN` and `PLACEMENT` with `QUICK_SCAN` OFF; Quick Scan is raised in a later 10.11-n after 10.21's BETA call)*; all v1.0 scope (SCP 2026-11-20) *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16; 10.5 split into 10.5 and 10.15 by SCP 2026-11-16 main-app entry points)*. Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance (10.4 partial); B2 = 10.14; B3 = 10.5 (main app; re-runs the 10.4 checks not done on a device, #166); C = 11.1, 11.3 capture and 10.8.
+**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) → Epic 11 → 10.8 → 10.11; 10.16 after 10.14; 11.1 → 10.18 (Quick Scan finds the cube's real edges and corners, #195) → 10.17 (after 10.16 too) → 10.19 → 10.22 → (10.20 ∥ 10.23) → 10.21 *(SCP 2026-11-22 quick-scan-reliability: 10.22 before the fixture session)* *(SCP 2026-11-22 quick-scan-sticker-reader: 10.23, the shadow sticker reader, after 10.22; it does not block 10.20, 10.21 or 10.11)* *(SCP 2026-11-22 quick-scan-corners-and-solver-copy: 10.21 → 10.24 (retake a corner, #299) → 10.25 (start from whichever corner is shown, #302); 10.26 (fill a few unread stickers from cube rules, #301) only after the 10.21 BETA call. PO Q-h: the 10.11-n run that raises `QUICK_SCAN` does not wait for 10.25, and no new story is added to its dependencies.)* *(SCP 2026-11-21 quick-scan-side-face-accuracy, #274: 10.20 and 10.21 do not block Story 10.11, which raises `CAMERA_SCAN` and `PLACEMENT` with `QUICK_SCAN` OFF; Quick Scan is raised in a later 10.11-n after 10.21's BETA call)*; all v1.0 scope (SCP 2026-11-20) *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16; 10.5 split into 10.5 and 10.15 by SCP 2026-11-16 main-app entry points)*. Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance (10.4 partial); B2 = 10.14; B3 = 10.5 (main app; re-runs the 10.4 checks not done on a device, #166); C = 11.1, 11.3 capture and 10.8.
 **Main-app rule (SCP 2026-11-16 main-app entry points):** a camera story is accepted on the main app build, reached from its real entry point. A debug-only launcher is never a story's device-session gate, and debug raises a flag above OFF only once that flag's entry point is wired in the main app (AD-15, AD-18).
 **Never blocks** tester-feedback fixes or Stories 12.3, 12.4, 12.5 and 13.6: camera stories merge only with release camera flags OFF, and Story 10.9's gate keeps the release free of camera code and permissions. *(Superseded by SCP 2026-11-20: for v1.0, Story 10.11 raises `CAMERA_SCAN`, `QUICK_SCAN` and `PLACEMENT` before Stories 12.3–12.5, and the Story 10.9 gate then checks the flags-ON release instead.)* *(SCP 2026-11-21 quick-scan-side-face-accuracy: `QUICK_SCAN` leaves this first raise and follows Story 10.21.)*
 
@@ -905,7 +905,7 @@ So that I don't have to take a course first.
 
 **Given** a valid entry
 **When** the Solver runs
-**Then** a cancelable indeterminate progress bar shows; while the solver prepares (the first solve in each app process) "Preparing the solver. The first solve after the app starts takes longer. Later solves are faster." shows (SCP 2026-11-12, PO-approved 2026-11-12; it replaces the SCP 2026-11-11 text "Preparing the solver. This can take a few seconds the first time after the app starts."), or, when no valid shipped or saved tables exist and they must be generated, "Setting up the solver for first use. This can take a little while." (SCP 2026-11-11); and a timeout shows "Couldn't find a solution in time. Your colors are still here — try again." with no partial result
+**Then** a cancelable indeterminate progress bar shows; while the solver prepares (the first solve in each app process) "Preparing the solver." shows (SCP 2026-11-22 quick-scan-corners-and-solver-copy, PO Q-g, #262; it replaces the SCP 2026-11-12 and SCP 2026-11-11 texts, and makes no claim about how long later solves take; a JVM test checks that the line shows only on the first solve in a process), or, when no valid shipped or saved tables exist and they must be generated, "Setting up the solver for first use. This can take a little while." (SCP 2026-11-11); and a timeout shows "Couldn't find a solution in time. Your colors are still here — try again." with no partial result
 
 **Given** the last Playback step
 **When** the cube is solved
@@ -2537,6 +2537,10 @@ So that two corner photos usually finish the scan instead of sending me face by 
 **When** it is tuned against the Story 10.20 tuning split
 **Then** its rule and thresholds are chosen per colour where the data supports it (Yellow, Orange and Red against Blue on the shaded back face), and the spec records the before and after numbers. No change turns an uncertain sticker into a confident wrong one on any group, tuning or held-out.
 
+**Given** a corner hold in which almost no sticker reads CONFIDENT
+**When** auto-capture would fire
+**Then** it waits while fewer than **N** of the hold's 27 stickers read CONFIDENT. N is fitted on the Story 10.20 tuning split so that no positive tuning capture is held back for more than 10 s (Story 10.22); a starting value of 6 is scored on that split, and the chosen N and its numbers are recorded in the spec. While it waits, coaching shows the hold's prompt again, the manual shutter still captures, and `CubentiaScanDiag` logs `poseRejected reason=few-confident` with the count. The held-out replay reports how many holds the wait delayed and for how long. *(#302; SCP 2026-11-22 quick-scan-corners-and-solver-copy, PO Q-b: this gate lives here, beside the agreement gate, and not in Story 10.25.)*
+
 **Given** the light check (10.19 AC1)
 **When** it is refitted on the Story 10.20 captures
 **Then** both cuts (uncalibrated L* difference, calibrated top-over-sides ratio) are refitted per mode with **hysteresis** (a hold starts above the hold cut and clears only below a lower clear cut), so an ordinary torch-off S24 FE light no longer flips hold and release. The light check is skipped only while the torch is **actually lit** (`enableTorch` succeeded), not merely requested (action item `torch-requested-vs-lit`). The light-clear window's steadiness rule is settled with the PO and matches the AC (action item `light-clear-steadiness`). Returning from calibration opened from the corner view clears a stale light hold, so the offer does not reappear at once (action item `cal-offer-reappears`). *(SCP 2026-11-22 quick-scan-reliability: since Story 10.22 the light check only coaches. The refit uses captures made under 10.22's exposure handling and sets when the coaching line shows and hides; "hold" above means the line. It reports separately light checks that fail far above the cut, that flip at the cut, and a single face's level changing between frames (with the per-sticker nearest-color matches logged). From the backlit captures the PO decides whether the check goes back to blocking.)*
@@ -2552,6 +2556,106 @@ So that two corner photos usually finish the scan instead of sending me face by 
 **Given** the device evidence
 **When** the PO compares two-corner completion before (Story 10.20 baseline) and after
 **Then** the PO records whether Quick Scan is viable as `BETA` (10.19 AC8). If it is, a later Story 10.11 run (`10.11-n`) raises `QUICK_SCAN`; the level itself still follows the recognition matrix (Story 10.8). If it is not, Quick Scan stays OFF and the reasons go to a new issue.
+
+### Story 10.24: Retake a corner in Quick Scan
+
+As a Learner using Quick Scan,
+I want to take a corner again when I see the photo went wrong,
+So that one bad photo doesn't make me restart the scan or go face by face.
+
+**Refs:** FR-22, FR-23, NFR-10 · recognition NFRs (Quick Scan) · AD-9, AD-18 · UX-DR15 · Stories 10.16, 10.17, 10.21, 10.22 · #299
+
+**Depends on** Story 10.21. **Human gate:** a device session on the main app build, `QUICK_SCAN` raised in debug, on the Lenovo TB128XU and the Galaxy S24 FE, with TalkBack on for part of it. *(SCP 2026-11-22 quick-scan-corners-and-solver-copy. PO decisions 2026-11-22: Q-d, retake corner 1 while corner 2 is awaited, by a visible control and by the system Back, and retake corner 1 or corner 2 from the Quick Scan review; Q-e, a retake keeps the better read face by face; Q-f, the retake is also offered from the face-by-face viewfinder.)*
+
+**Acceptance Criteria:**
+
+**Given** the Quick Scan corner view while corner 2 is awaited (corner 1 captured)
+**When** it renders
+**Then** an outlined *Retake corner 1* button (`en.json` `btn.quick-scan.retake-corner`, "Retake corner {n}") shows beside *Scan face by face* (DESIGN.md), the screen still fits a phone in portrait without scrolling, and TalkBack reads "Retake corner 1"; while corner 1 is awaited it does not show
+
+**Given** corner 2 is awaited
+**When** the Learner taps *Retake corner 1* or uses the system Back
+**Then** both do the same: the corner view returns to corner 1 with its prompt and the counter "1 / 2", the turn-over state and the hold-1 centres are cleared as `backOut` does (Story 10.22), the torch state is kept, and TalkBack announces the corner-1 prompt. While corner 1 is awaited, the system Back leaves Quick Scan as before
+
+**Given** a corner retake captures
+**When** its faces are compared with the earlier reads of the same faces
+**Then** the better read is kept face by face: a face that passes the keep rule (Story 10.21) beats one that does not; between two that both pass or both fail, the read with more CONFIDENT stickers wins; a tie takes the new read. This applies to faces kept by an earlier hand-over too, the one exception to Story 10.17's "a kept face never changes until review". After a retake of corner 1, hold 2 compares against the new hold-1 centres
+
+**Given** the face-by-face viewfinder of a Quick Scan hand-over (Story 10.17)
+**When** it renders
+**Then** it offers *Retake corner 1*, and *Retake corner 2* once corner 2 was captured. Tapping one drops the faces captured in the hand-over (all or nothing, as `backOut` does) and opens the corner view at that corner; after the capture the better read is kept face by face, and faces that still need the grid are handed over again as usual. The system Back in that viewfinder stays `backOut` (Story 10.17), and *Scan face by face* still keeps every face that passes the keep rule
+
+**Given** the Quick Scan review in retake mode (Stories 10.16, 10.17)
+**When** it renders
+**Then** outlined *Retake corner 1* and *Retake corner 2* buttons sit above the face net (each only when that corner was captured); one opens the corner view for that corner only ("1 / 2" or "2 / 2"), and after the capture review reopens with the better read kept face by face. A face that keeps its earlier read keeps the Learner's fixes; a face that takes the new read shows only its new capture, as in Story 10.16. If the faces can't make one valid cube, review shows the best fit with the usual messages and no re-prompt. Backing out before the capture reopens review as it was. *Close* asks "Discard this scan?" after a completed corner retake, as after a face retake
+
+**Given** `QuickScanControllerTest`
+**When** it runs
+**Then** it covers: capture corner 1, retake it by the control and by Back, and capture corner 1 again with better and with worse readings, then corner 2, and the scan keeps the better read per face; a retake from the face-by-face viewfinder after a hand-over that kept a hold-1 face; a retake of each corner from review; and a back-out of each retake that changes nothing
+
+### Story 10.25: Quick Scan starts from whichever corner it is shown
+
+As a Learner using Quick Scan,
+I want the first photo to take whichever corner I show and the second to ask for the faces still missing,
+So that a fast capture never mislabels my cube and I never get stuck at the second corner.
+
+**Refs:** FR-22 · recognition NFRs (Quick Scan, Confidence calibration), NFR-10 · AD-9, AD-18 · UX-DR15 · Stories 10.17, 10.21, 10.22, 10.24, 11.1 · spec `_bmad-output/specs/spec-quick-scan-reliability/` (F15, F16, F17) · #302
+
+**Depends on** Story 10.21 (calibration-match check and the confident-sticker wait) and Story 10.24 (the way back). **Human gate:** a device session on the main app build, `QUICK_SCAN` raised in debug, on the Lenovo TB128XU and the Galaxy S24 FE, with a saved calibration and without, starting from at least three different corners. Closes action item `epic-11-deferred-11.1-wrong-corner-self-calibration`. *(SCP 2026-11-22 quick-scan-corners-and-solver-copy. PO decision 2026-11-22, Q-a: accept whichever corner hold 1 shows and ask for the opposite corner at hold 2; no wrong-corner block. The requested corner was only the natural order. PO Q-h: Story 10.11-n does not wait for this story.)*
+
+**Acceptance Criteria:**
+
+**Given** the corner view while corner 1 is awaited
+**When** it renders
+**Then** the prompt reads "Hold the cube with a corner toward you, so three faces show." (`msg.quick-scan.hold-first`), and no check blocks a capture for showing another corner than a requested one; Story 10.22's 10 s bar applies
+
+**Given** a hold-1 capture
+**When** its faces are named
+**Then** they are named from their three centres, never from the prompt: each centre is read against the saved calibration when it matches (Story 10.21), otherwise against fixed reference colours recorded in the spec; a logo centre is read from its ring or left out (Story 10.22). The white–yellow and green–blue centres are named by colour, and a red–orange centre takes the colour that the cube's colour scheme allows for that corner, so a red/orange close call never names it. When this gives exactly one corner, the samples carry that corner's faces and pose for `ScanAssembler`, and self-calibration labels its references from the named centres. When it gives none (two centres on one axis, a scheme conflict, or too few plain centres), the corner stays unnamed and the capture is kept. `CubentiaScanDiag` logs `corner=named <colours>` or `corner=unnamed <reason>` with the three centre reads
+
+**Given** corner 1 is captured
+**When** the corner view asks for corner 2
+**Then** the prompt names the faces still missing, for example "Now turn the cube halfway, so yellow, blue and orange face you." (`msg.quick-scan.hold-second` with the colours as arguments); for an unnamed corner 1 it reads "Now turn the cube halfway, so the other three faces show." After hold 2 the faces are named from all six centres; a scan whose faces still can't be named goes to the Guided grid or the review as today, never to a guessed state (FR-22)
+
+**Given** hold 2 blocked by the pose check because it still shows the hold-1 faces
+**When** the block has lasted about 2 s, judged over the window (not frame by frame, so single-frame flaps neither show nor hide it)
+**Then** inline coaching reads "That's the same corner as the first photo. Turn the cube halfway, or retake corner 1." (`msg.quick-scan.same-corner`), *Retake corner 1* (Story 10.24) takes its highlighted outline, and TalkBack announces the line once; the line hides once the turn is confirmed
+
+**Given** the readings of the #302 session (committed as a domain fixture of per-frame centre and sticker reads, no frames)
+**When** `QuickScanControllerTest` replays them with the session's calibration
+**Then** a hold 1 on the yellow-top corner, once it captures, is named yellow, orange and blue, and hold 2 asks for white, green and red; replayed as hold 2 after that hold 1, the same-corner state is set and the retake then captures; no hold is left with no message and no way out
+
+**Given** the Story 10.20 held-out groups, replayed as hold 1 from each corner they show, with a matching calibration, without one, and with a calibration from another cube and another light
+**When** the replay runs
+**Then** **0** corners are named wrongly (a wrongly named corner would be a wrong cube), and the share of corners left unnamed is reported per device, light and torch state
+
+### Story 10.26: Quick Scan fills a few unread stickers from the cube's rules
+
+As a Learner using Quick Scan,
+I want the few stickers the camera couldn't read to be worked out from the rest of my cube when that is certain,
+So that a handful of doubtful stickers doesn't send whole faces to face-by-face capture.
+
+**Refs:** FR-22, FR-23 · recognition NFRs (Quick Scan, Confidence calibration) · AD-9 · Stories 10.17, 10.20, 10.21 · spec `_bmad-output/specs/spec-quick-scan-reliability/fix-plan.md` ("Keep stickers, not faces", CAP-5) · #301
+
+**Depends on** Stories 10.20 and 10.21. **Starts** only after the PO's 10.21 BETA call (Story 10.21's last AC), with the held-out report in hand; the safety assertion (first AC) is built and run before any search. **Human gate:** a device session on both reference devices. *(SCP 2026-11-22 quick-scan-corners-and-solver-copy. PO decision 2026-11-22, Q-c: plan it now in the backlog. SCP 2026-11-22 quick-scan-reliability did not propose it; the "Keep stickers, not faces" candidate in the spec and its constraint that cube rules cannot force an unsupported label (fix-plan.md) are carried into the ACs below. It does not change Story 10.21's keep rule.)*
+
+**Acceptance Criteria:**
+
+**Given** `QuickScanSideFaceReplayTest`
+**When** a per-sticker safety assertion is added first (no sticker that would be accepted without Learner confirmation is wrong), and run on the existing and 10.20 groups before any search is built
+**Then** its result is recorded in the spec and sizes the work
+
+**Given** a two-corner scan whose faces carry per-sticker colour candidates (a CONFIDENT sticker carries one, an uncertain sticker its plausible readings from the image)
+**When** `ScanAssembler` searches the combinations
+**Then** the search prunes by cube rules (six known centres, nine of each colour, only legal edge and corner pieces), stops at a cap on combinations and unknown stickers, and cube rules only rank or reject candidates; they never give a sticker a colour that is not among its candidates
+
+**Given** the search
+**When** exactly one legal cube remains and every filled sticker's true colour lies within its candidates
+**Then** the filled stickers arrive in review marked as filled and pre-selected for checking; otherwise (several cubes, none, over the cap, or too many unknowns) the review or the Guided grid asks the Learner, as today
+
+**Given** the held-out replay
+**When** it runs per device, light and torch state
+**Then** 0 confidently wrong stickers are added, and faces kept and stickers filled are reported against the 10.21 baseline
 
 ## Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition
 
@@ -2595,7 +2699,7 @@ So that Quick Scan is faster than scanning face by face.
 
 **Given** the main app on each device after these changes
 **When** a tester runs at least 10 holds with everything still and 10 hand-held per device
-**Then** the time from cube detected to automatic capture, the time undetected and the blocking gate are recorded per hold from the diagnostics, with the median and the worst case per device, next to the 2026-11-22 baseline in `docs/evidence/10-22/`. Every hold auto-captures within **10 s** of the cube being detected, still and hand-held (PO 2026-11-22); a hold that misses is recorded with its blocking gate and routed to the PO. A recorder burst on each device shows one exposure level per hold.
+**Then** the time from cube detected to automatic capture, the time undetected and the blocking gate are recorded per hold from the diagnostics, with the median and the worst case per device, next to the 2026-11-22 baseline in `docs/evidence/10-22/`. Every hold auto-captures within **10 s** of the cube being detected, still and hand-held (PO 2026-11-22); a hold that misses is recorded with its blocking gate and routed to the PO. *(SCP 2026-11-22 quick-scan-corners-and-solver-copy, PO Q-a: from Story 10.25, hold 1 captures whichever corner is shown and hold 2 asks for the other three faces, so no hold waits for showing "the wrong corner". A hold 2 that still shows the hold-1 faces is not a miss: it is told so and offered the way back to corner 1 (Stories 10.24, 10.25). Story 10.21's confident-sticker wait counts toward the 10 s.)* A recorder burst on each device shows one exposure level per hold.
 
 ### Story 10.23: A shadow sticker reader runs beside the Kotlin reads
 

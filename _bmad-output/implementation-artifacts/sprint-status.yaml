@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-22-2026 20:08'
+last_updated: '11-22-2026 22:49'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -152,6 +152,9 @@ development_status:
   10-19-quick-scan-reads-the-side-faces-in-good-light: done
   10-20-record-10-19-pipeline-corner-fixtures-and-check-the-corner-m: backlog
   10-21-quick-scan-keeps-the-side-faces-it-reads-well: backlog
+  10-24-retake-a-corner-in-quick-scan: backlog
+  10-25-quick-scan-starts-from-whichever-corner-it-is-shown: backlog
+  10-26-quick-scan-fills-a-few-unread-stickers-from-the-cube-s-rules: backlog
   10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: done
   10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads: backlog
   epic-10-retrospective: optional
@@ -2126,19 +2129,18 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-gh-261-scan-review-secondary-button-contrast.md"
   - id: "issue-261-deferred-secondary-button-hairline-3to1"
     epic: 10
-    action: "The secondary outlined-button hairline border is about 1.3:1 on
-      surface-base, under WCAG 1.4.11's 3:1 non-text minimum; decide in DESIGN.md
-      whether button-secondary uses a stronger border token (low; deferred from #261,
-      ScanReviewScreen.kt SecondaryButton)"
+    action: "The secondary outlined-button hairline border is about 1.3:1 on surface-base,
+      under WCAG 1.4.11's 3:1 non-text minimum; decide in DESIGN.md whether button-secondary
+      uses a stronger border token (low; deferred from #261, ScanReviewScreen.kt SecondaryButton)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-261-scan-review-secondary-button-contrast.md"
   - id: "issue-261-deferred-review-calibrate-cancel-style"
     epic: 10
     action: "The review's calibration offer (review:calibrate:offer) and the retake
-      Cancel still use default M3 outlined buttons with accent labels; reuse
-      SecondaryButton so the review's secondary buttons match (low, Learner-visible;
-      gate finding on #261, ScanReviewScreen.kt:416)"
+      Cancel still use default M3 outlined buttons with accent labels; reuse SecondaryButton
+      so the review's secondary buttons match (low, Learner-visible; gate finding
+      on #261, ScanReviewScreen.kt:416)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-261-scan-review-secondary-button-contrast.md"
