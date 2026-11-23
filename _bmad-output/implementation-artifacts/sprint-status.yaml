@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-22-2026 17:37'
+last_updated: '11-22-2026 18:40'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -152,7 +152,7 @@ development_status:
   10-19-quick-scan-reads-the-side-faces-in-good-light: done
   10-20-record-10-19-pipeline-corner-fixtures-and-check-the-corner-m: backlog
   10-21-quick-scan-keeps-the-side-faces-it-reads-well: backlog
-  10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: review
+  10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: done
   10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads: backlog
   epic-10-retrospective: optional
 
@@ -193,7 +193,7 @@ development_status:
 
   epic-14: in-progress
   14-1-choose-my-entry-level-when-i-can-already-solve-it: done
-  14-2-practice-an-algorithm-on-my-real-cube: backlog
+  14-2-practice-an-algorithm-on-my-real-cube: done
   14-3-practice-every-lesson-step-on-my-real-cube-with-a-quick-chec: backlog
   epic-14-retrospective: optional
 
@@ -1962,19 +1962,42 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/epic-15-retro-2026-11-22.md"
   - id: "epic-14-deferred-14.1-device-check"
     epic: 14
-    action: "Story 14.1 device check on the main app build, Lenovo Tab M10 Plus 3rd Gen and Galaxy S24 FE: Welcome 'I can already solve it' and Learn 'Find my place' open the picker; each level skips the right Stages with the Skipped badge; 2-look opens the Library on the removable OLL chip; TalkBack reads it; 200% font fits at 600dp (medium; deferred from 14.1 by PO decision 2026-11-22, merged before the device check)"
+    action: "Story 14.1 device check on the main app build, Lenovo Tab M10 Plus 3rd
+      Gen and Galaxy S24 FE: Welcome 'I can already solve it' and Learn 'Find my place'
+      open the picker; each level skips the right Stages with the Skipped badge; 2-look
+      opens the Library on the removable OLL chip; TalkBack reads it; 200% font fits
+      at 600dp (medium; deferred from 14.1 by PO decision 2026-11-22, merged before
+      the device check)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-14-1-choose-my-entry-level-when-i-can-already-solve-it.md"
   - id: "epic-14-deferred-14.1-entry-write-lost-on-recreate"
     epic: 14
-    action: "The entry-level write runs in the composition scope with a plain-remember saving flag, so recreating the Activity mid-write loses the navigation and leaves the Learner on the picker (re-tap recovers); run it in a ViewModel or host scope as placementFlow.accept does (low, Learner-visible; deferred from 14.1, app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt:476)"
+    action: "The entry-level write runs in the composition scope with a plain-remember
+      saving flag, so recreating the Activity mid-write loses the navigation and leaves
+      the Learner on the picker (re-tap recovers); run it in a ViewModel or host scope
+      as placementFlow.accept does (low, Learner-visible; deferred from 14.1, app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt:476)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-14-1-choose-my-entry-level-when-i-can-already-solve-it.md"
   - id: "epic-14-deferred-14.1-two-look-badge-ignores-skips"
     epic: 14
-    action: "After 'I know 2-look', the Faster last layer header badge comes from TwoLookMastery, which ignores skips, so it can read In progress while both 2-look Stage rows read Skipped; report SKIPPED when every 2-look Stage is skipped (low, Learner-visible; deferred from 14.1, app/src/main/kotlin/dev/cubentia/app/ui/shell/LearnScreen.kt:424)"
+    action: "After 'I know 2-look', the Faster last layer header badge comes from
+      TwoLookMastery, which ignores skips, so it can read In progress while both 2-look
+      Stage rows read Skipped; report SKIPPED when every 2-look Stage is skipped (low,
+      Learner-visible; deferred from 14.1, app/src/main/kotlin/dev/cubentia/app/ui/shell/LearnScreen.kt:424)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-14-1-choose-my-entry-level-when-i-can-already-solve-it.md"
+  - id: "epic-14-deferred-14.2-device-check"
+    epic: 14
+    action: "Story 14.2 device check on the main app build, Lenovo Tab M10 Plus 3rd Gen and Galaxy S24 FE: practice an OLL and a PLL Algorithm on the real cube both ways (set up from solved, already shows this case), Again, close back to the detail, a Quick Check mid-Algorithm with CAMERA_SCAN on, TalkBack and 200% font at 600dp (medium; deferred from 14.2 by PO decision 2026-11-22, merged before the device check; batch with epic-14-deferred-14.1-device-check)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-14-2-practice-an-algorithm-on-my-real-cube.md"
+  - id: "epic-14-deferred-14.2-practice-start-virtual-frame"
+    epic: 14
+    action: "Starting an Algorithm practice dispatches SolvePlaybackStarted and ModeSwitched separately, so one frame of virtual playback (3D, scrubber) can show before Physical-cube Mode; start in physical mode in one dispatch or hold the overlay until isPhysical (low, Learner-visible; deferred from 14.2, app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt:392-398)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-14-2-practice-an-algorithm-on-my-real-cube.md"

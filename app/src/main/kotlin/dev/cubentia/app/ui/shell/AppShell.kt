@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,6 +67,7 @@ import dev.cubentia.app.ui.recognize.RecognizePhase
 import dev.cubentia.app.ui.recognize.RecognizeScreen
 import dev.cubentia.app.ui.settings.SettingsScreen
 import dev.cubentia.app.ui.solve.ResolveState
+import dev.cubentia.app.ui.solve.SegmentLabels
 import dev.cubentia.app.ui.solve.SolutionStyleViewModel
 import dev.cubentia.app.ui.solve.SolveFlowViewModel
 import dev.cubentia.app.ui.solve.SolvePhase
@@ -89,6 +91,7 @@ import dev.cubentia.application.usecase.RecognizeCase
 import dev.cubentia.application.usecase.SolveByMethod
 import dev.cubentia.application.usecase.StagePractice
 import dev.cubentia.application.usecase.TwoLookPractice
+import dev.cubentia.domain.content.Algorithm
 import dev.cubentia.domain.content.AlgorithmId
 import dev.cubentia.domain.content.AlgorithmStatus
 import dev.cubentia.domain.content.CaseSet
@@ -107,6 +110,8 @@ import dev.cubentia.domain.lastlayer.LastLayerMatcher
 import dev.cubentia.domain.lastlayer.LastLayerMatcherResult
 import dev.cubentia.domain.lastlayer.RecognitionDiagram
 import dev.cubentia.domain.lastlayer.RecognitionDiagramResult
+import dev.cubentia.domain.playback.AlgorithmPractice
+import dev.cubentia.domain.playback.AlgorithmPracticeResult
 import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.tutor.Mastery
 import dev.cubentia.domain.tutor.StageProgress
@@ -247,6 +252,12 @@ private fun ShellContent(
     var selectedStage by rememberSaveable { mutableStateOf<String?>(null) }
     var openAlgorithm by rememberSaveable { mutableStateOf<String?>(null) }
     var autoPlayAlgorithm by rememberSaveable { mutableStateOf(false) }
+
+    // The Algorithm practice marker (Story 14.2): which Algorithm the SOLVE_PLAYBACK session practices (from the set-up
+    // or the Case, whichever the session plays), and a run counter so *Again* rebuilds playback. UI navigation state only (AD-3, AD-20): ignored
+    // unless its Moves are the session's.
+    var practiceAlgorithm by rememberSaveable { mutableStateOf<String?>(null) }
+    var practiceRun by rememberSaveable { mutableIntStateOf(0) }
     var openLesson by rememberSaveable { mutableStateOf<String?>(null) }
     var openPractice by rememberSaveable { mutableStateOf<String?>(null) }
     var practiceEpoch by rememberSaveable { mutableIntStateOf(0) }
@@ -351,6 +362,7 @@ private fun ShellContent(
             val scanned = solveFlow.isAcceptedScan()
             val colors = if (scanned) solveFlow.acceptedScanColors() else null
             // A new playback opens on *Shortest* (Story 15.3).
+            practiceAlgorithm = null
             solutionStyles.opened(state, moves, scanned)
             host.dispatch(colors) { SessionEvent.SolvePlaybackStarted(state, moves, it, ready.bundle.tutorConfig, scanned) }
         }
@@ -372,7 +384,52 @@ private fun ShellContent(
             solveFlow.takePendingScan()?.let { solveFlow.confirm(it, solveOnSolved) }
         }
     }
+    // Starts practicing [algorithm] on the real cube (Story 14.2, UX Flow 11): a SOLVE_PLAYBACK session over the set-up and
+    // the Algorithm (or the Algorithm only), switched to Physical-cube Mode (AD-3). The run counter moves once the session
+    // is physical, so *Again* builds a fresh playback at step 1 rather than reusing the one at its end.
+    val startPractice: suspend (Algorithm, Boolean) -> Unit = { algorithm, fromSetUp ->
+        val practice = (AlgorithmPractice.of(algorithm, fromSetUp) as? AlgorithmPracticeResult.Ready)?.practice
+        if (ready != null && practice != null) {
+            solutionStyles.left()
+            practiceAlgorithm = algorithm.id.value
+            host.dispatch { SessionEvent.SolvePlaybackStarted(practice.start, practice.moves, it, ready.bundle.tutorConfig) }
+            host.dispatch { SessionEvent.ModeSwitched(CubeMode.PHYSICAL, it) }
+            practiceRun++
+        }
+    }
     if (ready != null && session.kind == SessionKind.SOLVE_PLAYBACK) {
+        val practiced = ready.bundle.algorithms.firstOrNull { it.id.value == practiceAlgorithm }
+        // Whichever variant of the marked Algorithm the session plays (from the set-up or the Case): an *Again* restart
+        // need not be in step with the marker.
+        val practice =
+            remember(practiced) {
+                practiced?.let { algorithm ->
+                    listOf(true, false).mapNotNull { (AlgorithmPractice.of(algorithm, it) as? AlgorithmPracticeResult.Ready)?.practice }
+                } ?: emptyList()
+            }.firstOrNull { it.moves == session.solution }
+        val practiceCase = practice?.let { ready.bundle.cases.firstOrNull { it.id == practiced?.caseId } }
+        // AD-20: the practice's segments name what is practiced, *Set-up* then *Algorithm*.
+        val practiceSegments =
+            remember(practice) {
+                practice?.let {
+                    val algorithmLabel =
+                        dev.cubentia.domain.text
+                            .Text("msg.practice.segment.algorithm")
+                    if (it.algorithmStart > 0) {
+                        SegmentLabels(
+                            it.moves,
+                            listOf(it.algorithmStart, it.moves.size),
+                            listOf(
+                                dev.cubentia.domain.text
+                                    .Text("msg.practice.segment.set-up"),
+                                algorithmLabel,
+                            ),
+                        )
+                    } else {
+                        SegmentLabels(it.moves, listOf(it.moves.size), listOf(algorithmLabel))
+                    }
+                }
+            }
         LaunchedEffect(session.revision) { solutionStyles.sessionMoved(session.revision) }
         val styles by solutionStyles.state.collectAsState()
         val suggested =
@@ -396,67 +453,86 @@ private fun ShellContent(
                 if (before.isPhysical) host.dispatch { SessionEvent.ModeSwitched(CubeMode.PHYSICAL, it) }
             }
         }
-        SolvePlaybackScreen(
-            styles = styles,
-            suggestedStyle = suggested,
-            // The real cube has left the start (after *Done*): the style changes only back at step 1.
-            styleLocked = solutionStyles.input?.let { session.expected != it } ?: false,
-            onChooseStyle = { style -> solutionStyles.choose(style, ready.bundle, { host.state.value.revision }, restartPlayback) },
-            segments = segmentLabels,
-            quickCheck = quickCheck,
-            requestQuickCheck = { full ->
-                if (host.state.value.pendingQuickCheck == null) {
-                    host
-                        .dispatch {
-                            SessionEvent.QuickCheckRequested(at = it, fullScan = full)
-                        }.effects
-                        .filterIsInstance<Effect.QuickCheck>()
-                        .forEach { quickCheck?.start(it) }
-                }
-            },
-            session = session,
-            strings = ready.strings,
-            onEvent = { event -> scope.launch { host.dispatch { event } } },
-            resolve = ResolveState(solvePhase is SolvePhase.Solving, (solvePhase as? SolvePhase.Editing)?.error),
-            onUseMyCube = {
-                // Re-solves the observed cube off the main thread (the Solve tab's path) and restarts playback from it, still
-                // following on the real cube; a result is dropped when the session moved on meanwhile (AD-3 revision echo).
-                val from = host.state.value
-                val observed = (from.observed as? PhysicalObservation.Full)?.state
-                if (from.canResolveObserved && observed != null) {
-                    solveFlow.confirm(observed) { state, moves ->
-                        val now = host.state.value
-                        if (now.revision == from.revision && now.canResolveObserved) {
-                            solutionStyles.opened(state, moves, true)
-                            host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it, ready.bundle.tutorConfig, true) }
-                            host.dispatch { SessionEvent.ModeSwitched(CubeMode.PHYSICAL, it) }
+        // A practice run is keyed by its counter, so *Again* (the same Moves) starts a fresh playback at step 1.
+        key(if (practice != null) practiceRun else -1) {
+            SolvePlaybackScreen(
+                title = practiceCase?.let { ready.strings.resolve(it.name) },
+                // Story 14.2 AC1: a practice opens on the 2D net, whatever the saved view.
+                opensOnNet = practice != null,
+                onAgain = practiced?.takeIf { practice != null }?.let { algorithm -> { scope.launch { startPractice(algorithm, true) } } },
+                styles = styles.takeIf { practice == null },
+                suggestedStyle = suggested,
+                // The real cube has left the start (after *Done*): the style changes only back at step 1.
+                styleLocked = solutionStyles.input?.let { session.expected != it } ?: false,
+                onChooseStyle = { style -> solutionStyles.choose(style, ready.bundle, { host.state.value.revision }, restartPlayback) },
+                segments = practiceSegments ?: segmentLabels,
+                quickCheck = quickCheck,
+                requestQuickCheck = { full ->
+                    if (host.state.value.pendingQuickCheck == null) {
+                        host
+                            .dispatch {
+                                SessionEvent.QuickCheckRequested(at = it, fullScan = full)
+                            }.effects
+                            .filterIsInstance<Effect.QuickCheck>()
+                            .forEach { quickCheck?.start(it) }
+                    }
+                },
+                session = session,
+                strings = ready.strings,
+                onEvent = { event -> scope.launch { host.dispatch { event } } },
+                resolve = ResolveState(solvePhase is SolvePhase.Solving, (solvePhase as? SolvePhase.Editing)?.error),
+                onUseMyCube = {
+                    // Re-solves the observed cube off the main thread (the Solve tab's path) and restarts playback from it, still
+                    // following on the real cube; a result is dropped when the session moved on meanwhile (AD-3 revision echo).
+                    val from = host.state.value
+                    val observed = (from.observed as? PhysicalObservation.Full)?.state
+                    if (from.canResolveObserved && observed != null) {
+                        solveFlow.confirm(observed) { state, moves ->
+                            val now = host.state.value
+                            if (now.revision == from.revision && now.canResolveObserved) {
+                                // The re-solved session is a plain Solution Playback, no longer a practice (Story 14.2).
+                                practiceAlgorithm = null
+                                solutionStyles.opened(state, moves, true)
+                                host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it, ready.bundle.tutorConfig, true) }
+                                host.dispatch { SessionEvent.ModeSwitched(CubeMode.PHYSICAL, it) }
+                            }
+                        }
+                        if (observed.isSolved) {
+                            solutionStyles.left()
+                            scope.launch {
+                                host.endSolve(ready.bundle)
+                                practiceAlgorithm = null
+                                tab = Tab.SOLVE
+                            }
                         }
                     }
-                    if (observed.isSolved) {
-                        solutionStyles.left()
-                        scope.launch {
-                            host.endSolve(ready.bundle)
+                },
+                onClose = {
+                    solutionStyles.left()
+                    // A practice returns to the same Algorithm detail on the Library tab (UX-DR22), Solution Playback to Solve.
+                    val practicedId = practiced?.id?.value?.takeIf { practice != null }
+                    scope.launch {
+                        host.endSolve(ready.bundle)
+                        if (practicedId != null) {
+                            practiceAlgorithm = null
+                            openAlgorithm = practicedId
+                            tab = Tab.LIBRARY
+                        } else {
                             tab = Tab.SOLVE
                         }
                     }
-                }
-            },
-            onClose = {
-                solutionStyles.left()
-                scope.launch {
-                    host.endSolve(ready.bundle)
-                    tab = Tab.SOLVE
-                }
-            },
-            onLearn = {
-                solutionStyles.left()
-                scope.launch {
-                    host.endSolve(ready.bundle)
-                    tab = Tab.LEARN
-                }
-            },
-            modifier = modifier,
-        )
+                },
+                onLearn = {
+                    solutionStyles.left()
+                    scope.launch {
+                        host.endSolve(ready.bundle)
+                        practiceAlgorithm = null
+                        tab = Tab.LEARN
+                    }
+                },
+                modifier = modifier,
+            )
+        }
         return
     }
 
@@ -872,6 +948,7 @@ private fun ShellContent(
                                 algorithmStatuses[algorithm.id] ?: AlgorithmStatus.NOT_STARTED,
                             ),
                         autoPlay = autoPlayAlgorithm,
+                        onPractice = { fromSetUp -> scope.launch { startPractice(algorithm, fromSetUp) } },
                         onSetStatus = { status ->
                             requestedStatus.request(status)
                             scope.launch { requestedStatus.settled(host.setAlgorithmStatus(algorithm.id, status)) }
