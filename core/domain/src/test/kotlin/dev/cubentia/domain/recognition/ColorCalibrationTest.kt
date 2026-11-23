@@ -156,7 +156,19 @@ class ColorCalibrationTest {
         val pastel = CornerFixtureJson.decodeIndex(index.readText()).groups.filter { it.pastel }
         if (pastel.isEmpty()) println("ColorCalibrationTest: the group index marks no pastel group")
         val problems = pastel.flatMap { pastelProblems(File(root, it.group)) }
-        assertTrue(problems.isEmpty(), problems.joinToString("\n"))
+        val unexpected = problems.filterNot { problem -> KNOWN_PASTEL_PROBLEMS.any { problem.startsWith(it) } }
+        assertTrue(unexpected.isEmpty(), unexpected.joinToString("\n"))
+        // Strict: once Story 10.27 fixes a known problem, this fails until the entry is removed.
+        val fixed = KNOWN_PASTEL_PROBLEMS.filterNot { known -> problems.any { it.startsWith(known) } }
+        assertTrue(fixed.isEmpty(), "known pastel problems no longer reported; remove them from KNOWN_PASTEL_PROBLEMS: $fixed")
+    }
+
+    private companion object {
+        /**
+         * Expected failures of the fixed-window pastel check, tracked by Story 10.27 (clean the corner fixture labels and
+         * judge pastel stickers against the cube's own colours, SCP 2026-11-23). Story 10.27 removes these entries.
+         */
+        val KNOWN_PASTEL_PROBLEMS = listOf("lenovo-tb128xu_stlb_bar-warm hold 2 L[8]: BLUE is not plausible")
     }
 
     @Test fun `the pastel check passes a plausible group and names an implausible sticker or calibration`(

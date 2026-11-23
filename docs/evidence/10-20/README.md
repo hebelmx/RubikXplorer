@@ -2,6 +2,8 @@
 
 **Status:** both devices recorded (Lenovo ~09:35 CST, Galaxy 13:30–14:34 CST, 2026-11-23). `groups.json` written. Acceptance run done: recall/rejection pass, corner error fails only because labels are the guide defaults (#315). Pastel plausibility: one sticker fails (follow-up). 10.23 H3 not run yet.
 
+> **Labels corrected after this session (2026-11-23, SCP pastel-plausibility rev 4):** the PO label review corrected 20 corner labels in 12 records (`docs/evidence/10-27/label-corrections-2026-11-23.json`, commit `c9c9f5cc`). The acceptance results on this page were computed on the labels before that correction; Story 10.23 H3 (`docs/evidence/10-23/evaluation-10-20.md`) used the corrected ones.
+
 - **Date:** 2026-11-23
 - **Main SHA:** `dfc5c3d6` (PR #311 merge); worktree `RubikXplorer-device-session-2`, branch `docs/device-session-2026-11`
 - **Build:** main-app debug (`./gradlew :app:assembleDebug`), installed on both devices at 08:31 CST
