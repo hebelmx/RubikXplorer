@@ -73,5 +73,5 @@
     "light": "bar-cool",
     "lightDirection": "front",
     "capturedAt": "2026-11-23T20:06:14.956319Z",
-    "torch": true
+    "torch": false
 }

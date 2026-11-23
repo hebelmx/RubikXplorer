@@ -48,7 +48,7 @@
     "holds": [
         {
             "hold": 1,
-            "torch": true
+            "torch": false
         },
         {
             "hold": 2,
