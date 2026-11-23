@@ -89,3 +89,5 @@ Doubts for a short panel at the end of the block: solved-cube Placement → only
 ## Issue comments posted 2026-11-23
 
 #276 verified and **closed** (indirect unbind evidence, accepted by the PO). Verification comments on the already-closed #275, #201, #203. #200: partly verified; the end of a Solution Playback after a verifying Quick Check is still to be seen (with Block 2).
+
+6.3 #197: ✅ closed on the PO's judgment (capture feedback always clear on both devices today); TalkBack announcement not checked.
