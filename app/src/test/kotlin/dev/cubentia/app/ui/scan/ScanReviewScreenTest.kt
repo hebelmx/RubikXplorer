@@ -3,8 +3,8 @@ package dev.cubentia.app.ui.scan
 import android.app.Application
 import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.size
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -145,8 +145,9 @@ class ScanReviewScreenTest {
                 LocalHaptics provides hapticsOn,
                 LocalHapticFeedback provides haptics,
             ) {
-                val content = @Composable { if (large) fontScale200 { screen(edited) } else screen(edited) }
-                if (darkTheme == null) CubentiaTheme { content() } else CubentiaTheme(darkTheme = darkTheme) { content() }
+                CubentiaTheme(darkTheme = darkTheme ?: isSystemInDarkTheme()) {
+                    if (large) fontScale200 { screen(edited) } else screen(edited)
+                }
             }
         }
     }

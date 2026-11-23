@@ -435,7 +435,11 @@ private fun ReviewMode(
                 tag = "review:close",
             )
             if (onRetakeFaces != null) {
-                SecondaryButton(onRetakeFaces, strings.resolve(ContentText("btn.scan.retake-faces")), "review:retakeFaces")
+                SecondaryButton(
+                    onClick = onRetakeFaces,
+                    label = strings.resolve(ContentText("btn.scan.retake-faces")),
+                    tag = "review:retakeFaces",
+                )
             }
             if (onEnterColors != null) {
                 SecondaryButton(

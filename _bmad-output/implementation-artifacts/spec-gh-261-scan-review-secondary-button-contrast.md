@@ -5,7 +5,7 @@ created: '2026-11-22'
 status: 'done'
 baseline_revision: '1a0a020ee481b3c3e61fcbd5265e3dab47719e4c'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context: []
 warnings: []
 deferred:
@@ -100,6 +100,31 @@ deferred:
   - `[false]` `[reject]` (intent) The root fillMaxSize/background is a layout change — the host already fills the screen; a background is the minimal surface fix.
   - `[low]` `[reject]` (intent) Close enablement is not checked under the discard dialog or while launching — launching only exists in retake mode, where Close is not shown, and a dialog over the review never changes Close's `enabled`.
 
+### 2026-11-22 — Review pass (follow-up)
+- verdicts: 21 findings — high 0, medium 0, low 10, false 11, maybe-false 0
+- findings:
+  - `[low]` `[reject]` (blind) The calibration offer and retake Cancel still use default accent outlined buttons, unlike the three restyled ones — real inconsistency, but the intent's Never list excludes touching Cancel and the calibration offer.
+  - `[false]` `[reject]` (blind) The root Surface content colour changes untested text (problem lines, live-region lines, offer message, coach mark, dialogs) — ProblemLine text sets `statusInvalid` explicitly, CoachMark has its own `Surface(surfaceRaised, inkPrimary)`, dialogs render in their own windows outside this Surface, and the rest now draw `inkPrimary` on `surfaceBase`, which ThemeTokensTest already proves passes 4.5:1 in both themes.
+  - `[low]` `[reject]` (blind) `assertTextLegible` hard-codes `DarkTokens` and samples pixel [2, 2] of review:screen — only used for the dark regression; a wrong sample fails loudly rather than passing falsely, and a tokens parameter adds surface for no current caller.
+  - `[low]` `[reject]` (blind) The WCAG helpers duplicate ThemeTokensTest and use the 0.03928 threshold — carried: duplication was rejected last pass (sharing needs a new test utility); the threshold part is moot, since no 8-bit channel value lies between 0.03928 and 0.04045.
+  - `[low]` `[patch]` (blind) `SecondaryButton` call sites mix positional and named arguments (and it lacks a modifier parameter) — the retakeFaces call now uses named arguments like the other two; a modifier parameter is rejected as added surface for a private helper with no caller needing it.
+  - `[low]` `[patch]` (blind) `launch` duplicates the `CubentiaTheme` call behind a null check — replaced with `CubentiaTheme(darkTheme = darkTheme ?: isSystemInDarkTheme())` and dropped the `Composable` import.
+  - `[false]` `[reject]` (blind) The regression test depends on Robolectric's light window and could go quiet — without the root Surface the sampled background is the window, which differs from `surfaceBase` whatever its colour, so the equality assertion still fails.
+  - `[false]` `[reject]` (blind) The light-theme exact-equality sample can't tell the Surface from the window — exact equality does fail when the Surface is missing; a future tonal container is speculative.
+  - `[low]` `[reject]` (blind) The deferred items have no GitHub issue — the spec's `deferred` list is this pipeline's tracking hand-off; filing issues is not a change to this diff.
+  - `[false]` `[reject]` (blind) The Close comment duplicates the KDoc and the spec says Box+background — the comment states Close's own acceptance criterion and is accurate; the spec wording part would be an edit to this build's spec.
+  - `[low]` `[reject]` (edge) The calibration offer keeps the accent label — the intent excludes touching the calibration offer.
+  - `[low]` `[reject]` (edge) Retake Cancel keeps the default accent colour and is untested — the intent excludes touching retake mode's Cancel.
+  - `[low]` `[reject]` (edge) `assertTextLegible` always expects dark tokens — same as the blind row; no light caller exists, and a parameter adds complexity.
+  - `[low]` `[reject]` (edge) Pixel [2, 2] sits inside the scrolled area and can land on content after scrolling — the tag sits outside `verticalScroll` in review mode and the tests pass (77/77); a misplaced sample fails loudly, never passes falsely.
+  - `[false]` `[reject]` (edge, claim) The M3 Surface also overrides content colour, consumes pointer input and adds a traversal group — the content colour is the intended fix; the opaque full-screen Surface hides nothing that should receive touches, and a traversal group does not change reading order within one screen.
+  - `[false]` `[reject]` (intent) Tests run on the screen, not through GuidedScanActivity, and the light window is not asserted — carried: the screen is the only surface drawing the labels, and device checks are excluded by the intent.
+  - `[false]` `[reject]` (intent) The dark test is not shown to fail without the fix — without the Surface the background sample is the window colour, not dark `surfaceBase`, and the implementer confirmed the failure against the original screen.
+  - `[false]` `[reject]` (intent) Cancel and the calibration offer now inherit a new surface and content colour — carried: accent and `inkPrimary` both meet 4.5:1 on `surfaceBase` in both themes.
+  - `[false]` `[reject]` (intent) The Close-edited test never confirms the review changed and runs in dark only — carried: `swatch:WHITE` paints the pre-selected sticker 7; the theme does not change enablement.
+  - `[false]` `[reject]` (intent) Ink is matched within a tolerance, not exactly — anti-aliased text has no exact-colour pixel guaranteed; the 4.5:1 ratio plus ~8/255 tolerance is the observable surface.
+  - `[false]` `[reject]` (intent) The Surface adds semantics and touch handling the intent did not mention — same as the edge claim row; no reachable bad outcome.
+
 ## Design Notes
 
 Root cause: the screen is surface-less, not mis-coloured. The fix lives in the screen, not the activity, so any host (and the tests) gets the token surface. The activity uses `CubentiaTheme` (system dark) instead of `PreferredTheme` (the app's theme choice). That is a separate consistency issue and out of scope here.
@@ -137,3 +162,24 @@ Root cause: the screen is surface-less, not mis-coloured. The fix lives in the s
 **Residual risks:**
 - The pixel checks depend on Robolectric rendering: the default button shape and anti-aliased text.
 - The device symptom is attributed to dark system mode. The PO's check on the Lenovo is still pending.
+
+### Follow-up review pass (2026-11-22)
+
+**Summary:** A fresh review of the patched diff found no high or medium problems. Two low test and readability tidy-ups were applied: the retakeFaces `SecondaryButton` call now uses named arguments, and the test `launch` helper uses one `CubentiaTheme(darkTheme = darkTheme ?: isSystemInDarkTheme())` call.
+
+**Files changed in this pass:**
+- `app/src/main/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreen.kt` -- named arguments at the retakeFaces call.
+- `app/src/test/kotlin/dev/cubentia/app/ui/scan/ScanReviewScreenTest.kt` -- single theme call in `launch`.
+
+**Review findings:** 21 in total (high 0, medium 0, low 10, false 11).
+- **Patched: 2 low rows** (call style, launch theme branch).
+- **Deferred: none new.**
+- **Rejected: 19 rows.** Out of scope by intent: the calibration offer and retake Cancel styling (3 rows). Low, not worth the added surface: the dark-only legibility helper, the pixel [2, 2] sample, the duplicated WCAG helper (carried), the missing GitHub issues for deferred items, a modifier parameter. False: the Surface's effect on other text (coach mark and problem lines set their own colours), the Robolectric window dependency, the exact-equality sample, the Close comment, the Surface's pointer and semantics side effects, and the intent auditor's carried divergences.
+
+**Follow-up review:** not recommended (`false`). This was a follow-up pass and it patched no high entry (patched by verdict: low 2).
+
+**Verification:**
+- `./gradlew :app:testDebugUnitTest --tests 'dev.cubentia.app.ui.scan.ScanReviewScreenTest'` -- BUILD SUCCESSFUL, 77 tests, 0 failures.
+- `./gradlew spotlessCheck build` -- BUILD SUCCESSFUL.
+
+**Residual risks:** unchanged from the first pass: the pixel checks rely on Robolectric rendering, and the PO's device check on the Lenovo is still pending.
