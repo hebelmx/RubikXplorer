@@ -106,7 +106,7 @@
             },
             "truth": [
                 "WHITE",
-                "RED",
+                "ORANGE",
                 "GREEN",
                 "WHITE",
                 "YELLOW",
@@ -177,12 +177,12 @@
             "truth": [
                 "WHITE",
                 "YELLOW",
-                "WHITE",
+                "BLUE",
                 "YELLOW",
                 "ORANGE",
                 "WHITE",
                 "RED",
-                "WHITE",
+                "BLUE",
                 "ORANGE"
             ]
         },
@@ -260,7 +260,7 @@
     "truthSources": [
         [
             "entered",
-            "prefilled",
+            "entered",
             "prefilled",
             "entered",
             "prefilled",
@@ -272,12 +272,12 @@
         [
             "prefilled",
             "prefilled",
+            "entered",
+            "entered",
+            "entered",
             "prefilled",
             "entered",
             "entered",
-            "prefilled",
-            "entered",
-            "prefilled",
             "entered"
         ],
         [

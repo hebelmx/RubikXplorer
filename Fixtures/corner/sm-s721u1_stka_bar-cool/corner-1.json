@@ -247,11 +247,11 @@
             "truth": [
                 "RED",
                 "YELLOW",
-                "WHITE",
+                "BLUE",
                 "WHITE",
                 "RED",
                 "ORANGE",
-                "WHITE",
+                "BLUE",
                 "ORANGE",
                 "GREEN"
             ]
@@ -283,11 +283,11 @@
         [
             "entered",
             "entered",
-            "prefilled",
+            "entered",
             "prefilled",
             "entered",
             "entered",
-            "prefilled",
+            "entered",
             "prefilled",
             "entered"
         ]

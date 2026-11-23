@@ -180,7 +180,7 @@
                 "GREEN",
                 "RED",
                 "GREEN",
-                "WHITE",
+                "BLUE",
                 "RED",
                 "WHITE",
                 "ORANGE"
@@ -247,11 +247,11 @@
             "truth": [
                 "RED",
                 "YELLOW",
-                "WHITE",
+                "BLUE",
                 "WHITE",
                 "RED",
                 "ORANGE",
-                "WHITE",
+                "BLUE",
                 "ORANGE",
                 "GREEN"
             ]
@@ -275,7 +275,7 @@
             "prefilled",
             "prefilled",
             "prefilled",
-            "prefilled",
+            "entered",
             "prefilled",
             "prefilled",
             "prefilled"
@@ -283,11 +283,11 @@
         [
             "entered",
             "prefilled",
-            "prefilled",
+            "entered",
             "prefilled",
             "entered",
             "prefilled",
-            "prefilled",
+            "entered",
             "prefilled",
             "prefilled"
         ]

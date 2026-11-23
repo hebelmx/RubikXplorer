@@ -175,13 +175,13 @@
                 "centerPlain": true
             },
             "truth": [
-                "YELLOW",
+                "WHITE",
                 "YELLOW",
                 "BLUE",
                 "YELLOW",
                 "ORANGE",
                 "WHITE",
-                "ORANGE",
+                "RED",
                 "BLUE",
                 "ORANGE"
             ]
@@ -270,13 +270,13 @@
             "prefilled"
         ],
         [
-            "prefilled",
-            "prefilled",
             "entered",
             "prefilled",
             "entered",
-            "entered",
             "prefilled",
+            "entered",
+            "entered",
+            "entered",
             "entered",
             "entered"
         ],
