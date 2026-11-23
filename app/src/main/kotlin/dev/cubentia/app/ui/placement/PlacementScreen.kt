@@ -54,6 +54,8 @@ internal fun PlacementScreen(
     modifier: Modifier = Modifier,
     accepting: Boolean = false,
     saveFailed: Boolean = false,
+    reached: (Stage) -> Boolean = { false },
+    onOpen: (Stage) -> Unit = {},
 ) {
     BackHandler { if (!accepting) flow.back() }
     Surface(modifier = modifier.fillMaxSize(), color = RubikTheme.tokens.surfaceBase, contentColor = RubikTheme.tokens.inkPrimary) {
@@ -117,7 +119,19 @@ internal fun PlacementScreen(
                     }
 
                     is PlacementPhase.Result -> {
-                        PlacementResult(phase.outcome, flow, strings, stages, twoLookStages, cases, onAccept, onScanAgain, accepting)
+                        PlacementResult(
+                            phase.outcome,
+                            flow,
+                            strings,
+                            stages,
+                            twoLookStages,
+                            cases,
+                            onAccept,
+                            onScanAgain,
+                            accepting,
+                            reached,
+                            onOpen,
+                        )
                     }
                 }
             }
@@ -125,7 +139,12 @@ internal fun PlacementScreen(
     }
 }
 
-/** The result: reading, reason and suggestion as one polite node, then the options and the set-up line (DESIGN.md *Placement result*). */
+/**
+ * The result: reading, reason and suggestion as one polite node, then the options and the set-up line (DESIGN.md
+ * *Placement result*). When the suggested Stage is already [reached] (a re-placement from Learn, GH #252), the
+ * suggestion and *Start* give way to "You've already reached *Stage*." and *Open Stage*, which calls [onOpen] and
+ * writes nothing.
+ */
 @Composable
 private fun PlacementResult(
     outcome: PlacementOutcome,
@@ -137,9 +156,12 @@ private fun PlacementResult(
     onAccept: (Stage, Boolean) -> Unit,
     onScanAgain: () -> Unit,
     accepting: Boolean,
+    reached: (Stage) -> Boolean,
+    onOpen: (Stage) -> Unit,
 ) {
     val copy = resultCopy(outcome, strings, cases)
     val tokens = RubikTheme.tokens
+    val alreadyReached = suggestedStage(outcome)?.takeIf(reached)
     Column(
         modifier = Modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(Spacing.s2),
@@ -163,13 +185,24 @@ private fun PlacementResult(
                 color = tokens.inkSecondary,
                 modifier = Modifier.testTag("placement:reason"),
             )
-            copy.suggestion?.let {
+            if (alreadyReached != null) {
                 Text(
-                    it,
+                    strings.resolve(
+                        ContentText("msg.placement.already-reached", mapOf("stage" to strings.resolve(alreadyReached.title))),
+                    ),
                     style = MaterialTheme.typography.titleLarge,
                     color = tokens.inkPrimary,
-                    modifier = Modifier.testTag("placement:suggestion"),
+                    modifier = Modifier.testTag("placement:alreadyReached"),
                 )
+            } else {
+                copy.suggestion?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = tokens.inkPrimary,
+                        modifier = Modifier.testTag("placement:suggestion"),
+                    )
+                }
             }
         }
         when (outcome) {
@@ -190,13 +223,23 @@ private fun PlacementResult(
             }
 
             else -> {
-                val stage = suggestedStage(outcome) ?: stages.first()
-                Button(
-                    onClick = { onAccept(stage, false) },
-                    enabled = !accepting,
-                    modifier = Modifier.testTag("placement:start"),
-                ) {
-                    Text(strings.resolve(ContentText("btn.placement.start")))
+                if (alreadyReached != null) {
+                    Button(
+                        onClick = { onOpen(alreadyReached) },
+                        enabled = !accepting,
+                        modifier = Modifier.testTag("placement:openStage"),
+                    ) {
+                        Text(strings.resolve(ContentText("btn.placement.open-stage")))
+                    }
+                } else {
+                    val stage = suggestedStage(outcome) ?: stages.first()
+                    Button(
+                        onClick = { onAccept(stage, false) },
+                        enabled = !accepting,
+                        modifier = Modifier.testTag("placement:start"),
+                    ) {
+                        Text(strings.resolve(ContentText("btn.placement.start")))
+                    }
                 }
                 (outcome as? PlacementOutcome.NonWhite)?.lastLayerStage?.let { lastLayer ->
                     OutlinedButton(
