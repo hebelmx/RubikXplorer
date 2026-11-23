@@ -173,7 +173,8 @@ internal fun EntryLevelScreen(
 
 /**
  * The Learn tab's *Find my place* sheet (FR-4, UX Flow 8): *Scan my cube* (only when [onScan] is present, i.e.
- * `PLACEMENT` above OFF, AD-18) and *Choose my level*. Neither action writes progress; each closes the sheet first.
+ * `PLACEMENT` above OFF, AD-18) with the note that re-placement keeps the Learner's progress (GH #252), and
+ * *Choose my level*. Neither action writes progress; each closes the sheet first.
  * Back or the scrim calls [onDismiss].
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -244,6 +245,12 @@ internal fun FindMyPlaceSheet(
                 if (scanBeta) {
                     BetaNote(text("msg.feature.camera.beta-note"), Modifier.testTag("findMyPlace:scan:betaNote"))
                 }
+                Text(
+                    text("msg.find-my-place.keeps-progress"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = tokens.inkSecondary,
+                    modifier = Modifier.testTag("findMyPlace:scan:keepsProgress"),
+                )
             }
             TextButton(
                 onClick = {
