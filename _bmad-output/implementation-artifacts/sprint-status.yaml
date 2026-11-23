@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-22-2026 19:36'
+last_updated: '11-22-2026 20:08'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -191,11 +191,11 @@ development_status:
   13-6-register-the-privacy-policy-in-play-console: done
   epic-13-retrospective: done
 
-  epic-14: in-progress
+  epic-14: done
   14-1-choose-my-entry-level-when-i-can-already-solve-it: done
   14-2-practice-an-algorithm-on-my-real-cube: done
   14-3-practice-every-lesson-step-on-my-real-cube-with-a-quick-chec: done
-  epic-14-retrospective: optional
+  epic-14-retrospective: done
 
   epic-15: done
   15-1-build-a-beginner-method-solution-from-the-course-s-stages: done
@@ -2011,25 +2011,107 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-14-2-practice-an-algorithm-on-my-real-cube.md"
   - id: "epic-14-deferred-14.3-device-check"
     epic: 14
-    action: "Story 14.3 device check on the main app build, Lenovo Tab M10 Plus 3rd Gen and Galaxy S24 FE: a Course Lesson and a 2-look Lesson in Physical-cube Mode, Quick Check mid-step with CAMERA_SCAN on (plain icon mid-step, accent icon at a boundary and after a mismatch, light and dark), Done-only with CAMERA_SCAN OFF, TalkBack reads 'Quick Check', 200% font at 600dp (medium; deferred from 14.3 by PO decision 2026-11-22, merged before the device check; batch with epic-14-deferred-14.1-device-check and -14.2-device-check)"
+    action: "Story 14.3 device check on the main app build, Lenovo Tab M10 Plus 3rd
+      Gen and Galaxy S24 FE: a Course Lesson and a 2-look Lesson in Physical-cube
+      Mode, Quick Check mid-step with CAMERA_SCAN on (plain icon mid-step, accent
+      icon at a boundary and after a mismatch, light and dark), Done-only with CAMERA_SCAN
+      OFF, TalkBack reads 'Quick Check', 200% font at 600dp (medium; deferred from
+      14.3 by PO decision 2026-11-22, merged before the device check; batch with epic-14-deferred-14.1-device-check
+      and -14.2-device-check)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-14-3-practice-every-lesson-step-on-my-real-cube-with-a-quick-chec.md"
   - id: "epic-14-deferred-14.3-hint-during-quick-check"
     epic: 14
-    action: "A Hint Ladder climb that dispatches HintRequested while a Lesson Quick Check is pending may bump the revision and discard the capture as stale; add a test that dispatches HintRequested with pendingQuickCheck set and fix if the observation is rejected (medium, unverified, pre-existing since 10.7; deferred from 14.3, app/src/main/kotlin/dev/cubentia/app/ui/lesson/LessonScreen.kt request(full))"
+    action: "A Hint Ladder climb that dispatches HintRequested while a Lesson Quick
+      Check is pending may bump the revision and discard the capture as stale; add
+      a test that dispatches HintRequested with pendingQuickCheck set and fix if the
+      observation is rejected (medium, unverified, pre-existing since 10.7; deferred
+      from 14.3, app/src/main/kotlin/dev/cubentia/app/ui/lesson/LessonScreen.kt request(full))"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-14-3-practice-every-lesson-step-on-my-real-cube-with-a-quick-chec.md"
   - id: "epic-14-deferred-14.3-suspended-practice-not-restored"
     epic: 14
-    action: "After a solve or a Library Algorithm practice ends, SessionHost.endSolve restores only a LESSON checkpoint, so a suspended Stage practice (PRACTICE) or 2-look Lesson (TWO_LOOK) is not restored; the Learner is now warned before the pause, but restore them too or say they are lost (medium, Learner-visible, pre-existing; found in the Epic 14 cross-story review, app/src/main/kotlin/dev/cubentia/app/session/SessionHost.kt:327-337)"
+    action: "After a solve or a Library Algorithm practice ends, SessionHost.endSolve
+      restores only a LESSON checkpoint, so a suspended Stage practice (PRACTICE)
+      or 2-look Lesson (TWO_LOOK) is not restored; the Learner is now warned before
+      the pause, but restore them too or say they are lost (medium, Learner-visible,
+      pre-existing; found in the Epic 14 cross-story review, app/src/main/kotlin/dev/cubentia/app/session/SessionHost.kt:327-337)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-14-3-practice-every-lesson-step-on-my-real-cube-with-a-quick-chec.md"
   - id: "epic-14-deferred-14.3-quick-check-tap-while-pending"
     epic: 14
-    action: "Tapping the Lesson Quick Check icon while a capture is already pending is ignored with no visible feedback, and the icon still looks tappable; show it disabled or busy while a capture is pending (low, Learner-visible, pre-existing; deferred from 14.3 gate, app/src/main/kotlin/dev/cubentia/app/ui/lesson/LessonScreen.kt:765-790)"
+    action: "Tapping the Lesson Quick Check icon while a capture is already pending
+      is ignored with no visible feedback, and the icon still looks tappable; show
+      it disabled or busy while a capture is pending (low, Learner-visible, pre-existing;
+      deferred from 14.3 gate, app/src/main/kotlin/dev/cubentia/app/ui/lesson/LessonScreen.kt:765-790)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-14-3-practice-every-lesson-step-on-my-real-cube-with-a-quick-chec.md"
+  - id: "epic-14-retro-item-224-learn-picker-check-me-with-a-scramble-in"
+    epic: 14
+    action: "Learn picker 'Check me with a scramble instead' must not silently discard
+      a live Lesson: add a test with a live LESSON/TWO_LOOK session, then warn or
+      restore it when the check ends (medium; R1, AppShell.kt:656-665, 844-899)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-11-22.md"
+  - id: "epic-14-retro-item-225-enforce-epic-15-retro-item-210-extract-e"
+    epic: 14
+    action: "Enforce epic-15-retro-item-210: extract entry-level and practice controllers
+      (plus Placement and solution-style wiring) out of AppShell.kt (1,231 lines,
+      +202 in Epic 14) as its own story before any further story touches AppShell
+      (A3)"
+    owner: "SM / Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-11-22.md"
+  - id: "epic-14-retro-item-226-add-an-algorithm-practice-test-that-driv"
+    epic: 14
+    action: "Add an Algorithm practice test that drives 'I did something else' and
+      the mismatch ladder inside a practice session and asserts Story 8.5 behavior
+      (14.2 AC2 verification gap; R6, AppShellAlgorithmPracticeTest.kt)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-11-22.md"
+  - id: "epic-14-retro-item-227-choosing-an-entry-level-with-a-live-less"
+    epic: 14
+    action: "Choosing an entry level with a live Lesson session: add a test, then
+      end or re-target the session or Continue card when its Stage becomes skipped
+      (low; R2, AppShell.kt:552-582)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-11-22.md"
+  - id: "epic-14-retro-item-228-ledger-the-14-1-spec-deferral-placement"
+    epic: 14
+    action: "Ledger the 14.1 spec deferral (Placement-from-Learn resets on tab change
+      / Idle untested, medium, unverified) and make story-done check every spec frontmatter
+      deferred entry has an action item (A7)"
+    owner: "SM"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-11-22.md"
+  - id: "epic-14-retro-item-229-po-decision-how-long-the-14-3-after-mism"
+    epic: 14
+    action: "PO decision: how long the 14.3 'after mismatches' Quick Check highlight
+      lasts; pin it with a test and fold the rule into issue #298 for Solution Playback
+      and practice (R5, LessonScreen.kt:655-656)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-11-22.md"
+  - id: "epic-14-retro-item-230-compute-the-mastered-set-inside-chooseen"
+    epic: 14
+    action: "Compute the mastered set inside ChooseEntryLevel from its fresh log read
+      so a just-MASTERED Stage never gets a StageSkippedByChoice row (low; R3, AppShell.kt:559-566,
+      ChooseEntryLevel.kt:57-61)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-11-22.md"
+  - id: "epic-14-retro-item-231-run-one-batched-device-session-lenovo-ta"
+    epic: 14
+    action: "Run one batched device session (Lenovo Tab M10 Plus 3rd Gen, Galaxy S24
+      FE) covering epic-14-deferred-14.1/14.2/14.3-device-check and epic-15-retro-item-208
+      before release Stories 12.3-12.5, including practice exit paths (R4)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-11-22.md"
