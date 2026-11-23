@@ -14,6 +14,7 @@ class QuickScanBurstReplayTest {
         val windows: Int,
         val outlineRestarts: Int,
         val faceRestarts: Int,
+        val colorRestarts: Int,
         val lost: Int,
         val driftRemeters: Int,
     )
@@ -32,6 +33,7 @@ class QuickScanBurstReplayTest {
         var windows = 0
         var outline = 0
         var face = 0
+        var color = 0
         for (frame in frames) {
             val faces = if (fill && frame.detected) frame.faces.map { it ?: filler(frame) } else frame.faces
             val decision =
@@ -46,6 +48,7 @@ class QuickScanBurstReplayTest {
             when (hold.steadyRestart?.reason) {
                 CornerSteadyRestart.Reason.OUTLINE -> outline++
                 CornerSteadyRestart.Reason.FACE -> face++
+                CornerSteadyRestart.Reason.COLOR -> color++
                 null -> Unit
             }
             if (decision == CornerHold.Decision.Capture) {
@@ -59,6 +62,7 @@ class QuickScanBurstReplayTest {
             windows,
             outline,
             face,
+            color,
             lost = marks.count { it.kind == CornerHoldEventKind.CUBE_LOST },
             driftRemeters = marks.count { it.kind == CornerHoldEventKind.METERING_REQUESTED && it.reason in drift },
         )
@@ -74,14 +78,17 @@ class QuickScanBurstReplayTest {
     }
 
     /**
-     * The outline rule alone at [fraction]: restarts and completed one-second windows over [frames]; a cube lost for
-     * [CornerHold.LOST_MS] also ends the window.
+     * The outline rule at [fraction], alone or with the colour rule at [colorDeltaE] (frames with a face unread are
+     * skipped then, as the hold waits on them): restarts and completed one-second windows over [frames]; a cube lost
+     * for [CornerHold.LOST_MS] also ends the window.
      */
     private fun sweep(
         frames: List<BurstFrame>,
         fraction: Double,
+        colorDeltaE: Double? = null,
     ): Pair<Int, Int> {
         var reference: List<OutlinePoint>? = null
+        var referenceFaces: List<FrameStats?> = emptyList()
         var since = 0L
         var undetected: Long? = null
         var restarts = 0
@@ -94,16 +101,23 @@ class QuickScanBurstReplayTest {
                 continue
             }
             undetected = null
+            if (colorDeltaE != null && frame.faces.any { it == null }) {
+                reference = null
+                continue
+            }
             val moved = CornerOutline.displacement(outline, reference)
+            val unstable = colorDeltaE != null && CornerHold.unstableFace(frame.faces, referenceFaces, colorDeltaE) != null
             when {
                 moved == null -> {
                     reference = outline
+                    referenceFaces = frame.faces
                     since = frame.tMs
                 }
 
-                moved >= fraction -> {
+                moved >= fraction || unstable -> {
                     restarts++
                     reference = outline
+                    referenceFaces = frame.faces
                     since = frame.tMs
                 }
 
@@ -140,24 +154,40 @@ class QuickScanBurstReplayTest {
     }
 
     @Test
-    fun `a resting cube never restarts the steady window and never re-meters, through an exposure swing`() {
-        // Still burst 1 alternates between two exposure levels (ΔE 5–8 on every sticker): the old colour rule restarted.
-        val still = replay(RecordedBursts.load(RecordedBursts.STILL))
-        val long = replay(RecordedBursts.load(RecordedBursts.STILL_LONG))
-        assertEquals(Replay(windows = 4, outlineRestarts = 0, faceRestarts = 0, lost = 0, driftRemeters = 0), still)
-        assertEquals(Replay(windows = 10, outlineRestarts = 0, faceRestarts = 0, lost = 0, driftRemeters = 0), long)
+    fun `the colour threshold keeps a resting cube steady through the exposure swing and stops fast movement`() {
+        val bursts = RecordedBursts.all.associateWith(RecordedBursts::load)
+        val table =
+            listOf(8.0, 10.0, 12.0, 15.0).associateWith { deltaE ->
+                RecordedBursts.all.map { sweep(bursts.getValue(it), CornerHold.OUTLINE_STEADY_FRACTION, deltaE) }
+            }
+        // Restarts to completed windows per burst: still, still-long, handheld, handheld-2 (as recorded), fast.
+        // ΔE 8 and 10 restart on still burst 1's exposure swing; 12 is the smallest candidate that does not.
+        assertEquals(listOf(2 to 3, 1 to 11, 13 to 2, 2 to 0, 22 to 0), table[8.0])
+        assertEquals(listOf(2 to 3, 0 to 11, 3 to 6, 2 to 0, 21 to 0), table[10.0])
+        assertEquals(listOf(0 to 4, 0 to 11, 3 to 6, 2 to 0, 21 to 0), table[CornerHold.COLOR_STEADY_DELTA_E])
+        assertEquals(listOf(0 to 4, 0 to 11, 0 to 8, 2 to 0, 21 to 0), table[15.0])
     }
 
     @Test
-    fun `hand-held bursts complete steady windows and fast movement restarts them`() {
+    fun `a resting cube never restarts the steady window and never re-meters, through an exposure swing`() {
+        // Still burst 1 alternates between two exposure levels (ΔE 5–8 on every sticker): the pre-10.22 colour rule (ΔE 5) restarted; the 10.22 one (ΔE 12) does not.
+        val still = replay(RecordedBursts.load(RecordedBursts.STILL))
+        val long = replay(RecordedBursts.load(RecordedBursts.STILL_LONG))
+        assertEquals(Replay(windows = 4, outlineRestarts = 0, faceRestarts = 0, colorRestarts = 0, lost = 0, driftRemeters = 0), still)
+        assertEquals(Replay(windows = 10, outlineRestarts = 0, faceRestarts = 0, colorRestarts = 0, lost = 0, driftRemeters = 0), long)
+    }
+
+    @Test
+    fun `the first hand-held burst completes steady windows and fast movement completes none`() {
         val handheld = replay(RecordedBursts.load(RecordedBursts.HANDHELD))
         // Hand-held burst 2 read its right face in 21 of 120 frames only; the steady rule is replayed with it filled in.
         val second = replay(RecordedBursts.load(RecordedBursts.HANDHELD_2), fill = true)
         val fast = replay(RecordedBursts.load(RecordedBursts.FAST), fill = true)
-        assertEquals(Replay(windows = 8, outlineRestarts = 0, faceRestarts = 0, lost = 0, driftRemeters = 0), handheld)
-        assertEquals(Replay(windows = 6, outlineRestarts = 2, faceRestarts = 1, lost = 0, driftRemeters = 0), second)
-        // Fast movement: the window restarts 15 times, the cube is lost once, one re-meter follows it, nothing captures.
-        assertEquals(Replay(windows = 0, outlineRestarts = 15, faceRestarts = 0, lost = 1, driftRemeters = 1), fast)
+        // The colour rule (PO 2026-11-22) costs hand-held windows: 5 where the outline rule alone completed 8.
+        assertEquals(Replay(windows = 5, outlineRestarts = 0, faceRestarts = 0, colorRestarts = 5, lost = 0, driftRemeters = 0), handheld)
+        assertEquals(Replay(windows = 2, outlineRestarts = 0, faceRestarts = 0, colorRestarts = 33, lost = 0, driftRemeters = 0), second)
+        // Fast movement: the window restarts 33 times, the cube is lost once, one re-meter follows it, nothing captures.
+        assertEquals(Replay(windows = 0, outlineRestarts = 9, faceRestarts = 0, colorRestarts = 24, lost = 1, driftRemeters = 1), fast)
         // The unchanged rule that all three faces must be readable completes no window on hand-held burst 2 as recorded.
         assertEquals(0, replay(RecordedBursts.load(RecordedBursts.HANDHELD_2)).windows)
     }

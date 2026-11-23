@@ -35,6 +35,8 @@ context:
 - No recorder-burst format change (Story 10.20). No new dependency, permission or Learner text. No frame persistence outside the debug recorder.
 - Never settle on the AE state alone. Never clear the previous hold on a single frame.
 
+**Decision (PO 2026-11-22, after the first Lenovo device session):** the outline rule alone captures while the cube is still being positioned (13 of 45 faces kept over 15 holds). The steady window also needs stable colors, with a looser threshold than before this story: on every face at least 3 of 5 sampled stickers stay near their reference reading for the whole window. This supersedes "colors only detect a different face" in the Approach and in the Hand-held row.
+
 **Decisions (PO 2026-11-22):** one more hand-held burst and one fast-movement burst are recorded on the Lenovo before implementation and committed beside the three existing bursts; the outline threshold is fitted once on all five. The spec is kept whole (about 3,100 tokens) and not split.
 
 ## I/O & Edge-Case Matrix
@@ -98,6 +100,14 @@ context:
 - **Not verified here:** the AE/AWB lock and the settle signal on real cameras (no device in this run). AC7 stays open.
 
 ## Spec Change Log
+
+### 2026-11-22: device session 1 (Lenovo, still) — steady rule amended by the PO
+
+- **Trigger:** 20 still holds on the Lenovo. Speed met (median 4.4 s from detection, 12 of 15 within 10 s; the three misses had 7–11 s undetected), but the Learner reported captures while still positioning the cube, and faces kept fell to 13 of 45.
+- **Amended:** the steady window restarts on outline movement (unchanged, 0.10) **or** when any face has fewer than 3 of its 5 sampled cells (the four edge cells and the centre when plain) within ΔE 12 of the window's reference frame. Replay on the recorded bursts: no restart on either still burst, including through still burst 1's exposure swing (ΔE 10 restarts twice there); hand-held burst 1 completes 6 windows with 3 restarts; the fast burst completes none.
+- **Known-bad state avoided:** auto-capture during positioning, with a hand on the cube.
+- **KEEP:** exposure lock and settle, advisory light check, turn and pose checks, back-out fix, timeline diagnostics, the outline rule and both re-meter triggers.
+- **Not done here:** a *Retake corner* button (PO idea, recorded as a GitHub issue).
 
 ## Review Triage Log
 

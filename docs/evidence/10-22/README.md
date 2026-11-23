@@ -14,7 +14,7 @@ is empty.
 | --- | --- | --- |
 | Settle signal | Metering future done and AE state converged | Metering future done, then exposure time × ISO within 6% for 600 ms; cap 1.5 s unchanged |
 | Exposure | Metering action only (cancels after 3 s, exposure returns to the scene) | AE lock from settle until the capture or a re-meter; AWB locked at hold 1 and carried through hold 2 |
-| Steady rule | Two cells of one face moving ΔE 5 | Outline corner moving 0.10 of the outline's bounding-box diagonal; two plain centres changing ΔE 15 means another face |
+| Steady rule | Two cells of one face moving ΔE 5 | Outline corner moving 0.10 of the outline's bounding-box diagonal; or a face with fewer than 3 of its 5 sampled cells within ΔE 12 of the reference frame (added after device session 1); two plain centres changing ΔE 15 means another face |
 | Light check | Blocks auto-capture and the shutter; clearing re-meters | Coaching only; clearing changes nothing else |
 | Re-meter | Cube lost, torch change, light hold cleared | Cube lost, torch change, outline 0.30 of its diagonal from where it was metered, faces' mean luma changed 25% since the settle |
 | Turn check (hold 2) | Top centre ΔE 15 on one frame | Two plain centres changed, on 3 consecutive detected frames; a centre that is not plain (a logo) is left out |
@@ -52,26 +52,54 @@ Reading: a resting cube needs at least 0.07 (the detector's own jitter reaches 0
 0.15 both hand-held bursts give the same result. Above 0.10 the fast burst starts completing windows. 0.10 is the
 largest value at which fast movement completes none.
 
+### Colour rule: 3 of 5 sampled cells within ΔE 12 (`COLOR_STEADY_DELTA_E`, `COLOR_STEADY_CELLS`)
+
+Added by the product owner on 2026-11-22 after device session 1 (below): with the outline rule alone the hold
+captured while the cube was still being positioned, a hand on it. The steady window now also restarts when any face
+has fewer than 3 of its 5 sampled cells within ΔE 12 of the window's reference frame. The sampled cells are the four
+edge cells (1, 3, 5, 7) and the centre (4) only when it is plain in both frames; a missing cell is not stable. The
+timeline line is `steadyRestart … reason=color face=<index> amount=<stable cells>`.
+
+Cells are restarts / completed 1 s windows for the outline rule at 0.10 together with the colour rule at each ΔE.
+Frames with a face unread are skipped, as the hold waits on them.
+
+| ΔE | still | still-long | handheld | handheld-2 (as recorded) | fast |
+| --- | --- | --- | --- | --- | --- |
+| outline only | 0 / 4 | 0 / 11 | 0 / 8 | 2 / 7 | 16 / 0 |
+| 8 | 2 / 3 | 1 / 11 | 13 / 2 | 2 / 0 | 22 / 0 |
+| 10 | 2 / 3 | 0 / 11 | 3 / 6 | 2 / 0 | 21 / 0 |
+| **12** | **0 / 4** | **0 / 11** | **3 / 6** | **2 / 0** | **21 / 0** |
+| 15 | 0 / 4 | 0 / 11 | 0 / 8 | 2 / 0 | 21 / 0 |
+
+Reading: ΔE 8 and 10 restart twice on still burst 1, during its exposure swing; 12 is the smallest candidate with no
+restart on either resting burst. It costs the first hand-held burst two windows (6 instead of 8, with 3 restarts). The
+fast burst completes none at any value. Hand-held burst 2 completes none with colours counted because its right face
+is unread in 99 of 120 frames (the outline-only row does not need the faces).
+
 ### The whole hold, replayed (`CornerHold` with the settle signal always true)
 
-| Burst | Completed windows | Outline restarts | Different-face restarts | Cube lost | Drift re-meters |
-| --- | --- | --- | --- | --- | --- |
-| still | 4 | 0 | 0 | 0 | 0 |
-| still-long | 10 | 0 | 0 | 0 | 0 |
-| handheld | 8 | 0 | 0 | 0 | 0 |
-| handheld-2, missing face filled in | 6 | 2 | 1 | 0 | 0 |
-| handheld-2, as recorded | 0 | | | | |
-| fast, missing faces filled in | 0 | 15 | 0 | 1 | 1 |
+| Burst | Completed windows | Outline restarts | Different-face restarts | Colour restarts | Cube lost | Drift re-meters |
+| --- | --- | --- | --- | --- | --- | --- |
+| still | 4 | 0 | 0 | 0 | 0 | 0 |
+| still-long | 10 | 0 | 0 | 0 | 0 | 0 |
+| handheld | 5 | 0 | 0 | 5 | 0 | 0 |
+| handheld-2, missing face filled in | 2 | 0 | 0 | 33 | 0 | 0 |
+| handheld-2, as recorded | 0 | | | | | |
+| fast, missing faces filled in | 0 | 9 | 0 | 24 | 1 | 1 |
+
+The hold replay re-meters after each capture, so its window counts are lower than the rule-only tables above. A frame
+that trips both the outline and the colour rule is counted as an outline restart. Before the colour rule the same
+replay gave 8 windows on handheld, 6 on handheld-2 filled in, and 15 outline restarts on fast.
 
 **Hand-held burst 2 reads its right face in only 21 of 120 frames.** Auto-capture still requires all three faces to be
-readable (unchanged by this story), so that burst as recorded completes no window; the steady rule itself completes six
-once the missing face is filled in with a neutral one. If the device session shows hand-held holds missing 10 s for
+readable (unchanged by this story), so that burst as recorded completes no window; the steady rule itself completes two
+once the missing face is filled in with a neutral one (six before the colour rule). If the device session shows hand-held holds missing 10 s for
 this reason, the blocking gate to record is "face unreadable" (`steadyRestart reason=quality` and `quality=…,-` on
 the frame lines), and it goes to the product owner.
 
 ### Different face: 2 plain centres changed by ΔE 15 (`CornerHold.FACE_CHANGE_CENTRES`)
 
-Colors no longer judge steadiness. They only detect that another face is shown: two of the three centres, each plain
+Separate from the colour rule above, this detects that another face is shown: two of the three centres, each plain
 in both frames, differ by `FACE_CHANGE_DELTA_E` (15) from the reference frame. On the two resting bursts no centre
 moves by 15 within a second (largest 14.6, during the exposure swing). A single centre is not enough: the logo top
 centre of the recorded cube reads up to ΔE 36 apart between frames (F10). A rule on the majority of a face's cells
@@ -167,7 +195,21 @@ Lenovo TB128XU, tablet, cube and lights resting ([source](../quick-scan-2026-11-
 
 Floor if every gate passes first time: about 3 s (never observed).
 
-## Device session (human gate, AC7): not run yet
+## Device session 1 (Lenovo, still), 2026-11-22
+
+Run on the build with the outline rule alone, before the colour rule was added.
+
+- 20 holds with tablet and cube resting.
+- Median 4.4 s from detection to capture over the last 15 holds.
+- 12 of those 15 within 10 s; the three misses had 7 to 11 s with the cube undetected.
+- 13 of 45 faces kept.
+- Captures were seen while the cube was still being positioned.
+
+Outcome: the speed target was met where the cube stayed detected, but the hold captured too early. The product owner
+added the colour rule (above). This session does not count toward the gate below, which must be run on the amended
+rule.
+
+## Device session (human gate, AC7): not run on the amended rule yet
 
 Main app build, `QUICK_SCAN` raised in debug, from the Solve tab. Per device: at least 10 holds with everything
 resting and 10 hand-held. Take `sinceDetectedMs`, `undetectedMs`, `trigger` and `light` from each

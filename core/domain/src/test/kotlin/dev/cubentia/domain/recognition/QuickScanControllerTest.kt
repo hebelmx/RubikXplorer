@@ -747,7 +747,7 @@ class QuickScanControllerTest {
     }
 
     @Test
-    fun `cells changing colour on a still outline never restart the steady window, an outline move does and reports it`() {
+    fun `an exposure shift on a still outline does not restart the steady window, an outline move does and reports it`() {
         val scan = QuickScanController(lightCheck = false)
         val first = hold(1)
         assertEquals(listOf(QuickScanEffect.Remeter), scan.onFrame(true, first, 0, outline = outline()))
@@ -767,6 +767,61 @@ class QuickScanControllerTest {
         assertTrue(scan.onFrame(true, first, 1700, outline = moved).isEmpty(), "the window restarted at 900, not 600")
         assertTrue(scan.onFrame(true, first, 1899, outline = moved).isEmpty())
         assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, first, 1900, outline = moved))
+    }
+
+    @Test
+    fun `a face losing its third stable sampled cell restarts the steady window, two cells changing does not`() {
+        // PO 2026-11-22, after device session 1: the outline rule alone captured while the cube was being positioned.
+        val scan = QuickScanController(lightCheck = false)
+        val first = hold(1)
+        val other = Lab(20.0, 0.0, 0.0)
+
+        fun changed(vararg cells: Int) = first.toMutableList().also { faces -> cells.forEach { faces[1] = faces[1].withCell(it, other) } }
+        scan.onFrame(true, first, 0, outline = outline())
+        assertTrue(scan.onFrame(true, first, 600, outline = outline()).isEmpty())
+        // Two of the five sampled cells (edges 1, 3, 5, 7 and the plain centre) changed: three are still stable.
+        assertTrue(scan.onFrame(true, changed(1, 3), 700, outline = outline()).isEmpty())
+        assertEquals(null, scan.steadyRestart)
+        // Corner cells are not sampled: any number of them changing restarts nothing.
+        assertTrue(scan.onFrame(true, changed(0, 2, 6, 8), 800, outline = outline()).isEmpty())
+        assertEquals(null, scan.steadyRestart)
+        // A third sampled cell changed: the window restarts, and the timeline names the face.
+        assertTrue(scan.onFrame(true, changed(1, 3, 5), 900, outline = outline()).isEmpty())
+        val restart = checkNotNull(scan.steadyRestart)
+        assertEquals(CornerSteadyRestart.Reason.COLOR, restart.reason)
+        assertEquals(1, restart.face)
+        assertEquals(2.0, restart.amount)
+        val event = scan.drainEvents().last { it.kind == CornerHoldEventKind.STEADY_RESTART }
+        assertEquals("color face=1", event.reason)
+        assertTrue(scan.onFrame(true, changed(1, 3, 5), 1899, outline = outline()).isEmpty(), "the window restarted at 900")
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onFrame(true, changed(1, 3, 5), 1900, outline = outline()))
+
+        // A logo centre (not plain) is not sampled, and a missing cell is not stable: two edges gone leave two of four.
+        val logo = QuickScanController(lightCheck = false)
+        val marked =
+            first.toMutableList().also { faces ->
+                faces[1] =
+                    faces[1].copy(
+                        cells =
+                            faces[1].cells.mapIndexed { i, c ->
+                                if (i ==
+                                    FaceSample.CENTER_INDEX
+                                ) {
+                                    c?.copy(plain = false)
+                                } else {
+                                    c
+                                }
+                            },
+                    )
+            }
+        logo.onFrame(true, marked, 0, outline = outline())
+        logo.onFrame(true, marked, 600, outline = outline())
+        val one = marked.toMutableList().also { it[1] = it[1].withCell(1, other) }
+        assertTrue(logo.onFrame(true, one, 700, outline = outline()).isEmpty())
+        assertEquals(null, logo.steadyRestart)
+        val two = one.toMutableList().also { it[1] = it[1].withCell(3, other) }
+        logo.onFrame(true, two, 800, outline = outline())
+        assertEquals(CornerSteadyRestart.Reason.COLOR, logo.steadyRestart?.reason)
     }
 
     @Test

@@ -25,9 +25,10 @@ import kotlin.math.hypot
  *   with a face unscored are neutral). It never blocks auto-capture or the manual shutter, never drops a queued press,
  *   and clearing it neither re-meters nor restarts the steady window;
  * - the steady window is judged by outline movement: it restarts when the largest corner displacement from the window's
- *   reference frame, over the reference outline's bounding-box diagonal, reaches [OUTLINE_STEADY_FRACTION]. Colors only
- *   detect a different face ([FACE_CHANGE_CENTRES] plain centres changed), so an exposure change on a still cube no
- *   longer restarts it;
+ *   reference frame, over the reference outline's bounding-box diagonal, reaches [OUTLINE_STEADY_FRACTION], when
+ *   another face is shown ([FACE_CHANGE_CENTRES] plain centres changed), or (PO 2026-11-22, after device session 1)
+ *   when a face has fewer than [COLOR_STEADY_CELLS] sampled cells within [COLOR_STEADY_DELTA_E] of the reference: loose
+ *   enough that an exposure change on a still cube does not restart it;
  * - re-meter triggers besides a lost cube and a torch change: the outline leaving the metered region
  *   ([REMETER_OUTLINE_FRACTION]) and the faces' mean brightness changing by [REMETER_LUMA_FRACTION] since the metering
  *   settled. The adapter holds its exposure lock between metering changes, so the domain only says "re-meter";
@@ -58,6 +59,7 @@ internal class CornerHold(
     /** The outline and the plain centres of the steady window's reference frame (Quick Scan corners). */
     private var referenceOutline: List<OutlinePoint>? = null
     private var referenceCentres: List<Lab?> = emptyList()
+    private var referenceFaces: List<FrameStats?> = emptyList()
     private var steadySince = 0L
     private var undetectedSince: Long? = null
     var coaching: Coaching? = null
@@ -233,11 +235,13 @@ internal class CornerHold(
             reference = values
             referenceOutline = outline
             referenceCentres = CenterCheck.centers(latest)
+            referenceFaces = latest
             steadySince = nowMs
             if (restart == null) {
                 mark(nowMs, CornerHoldEventKind.STEADY_START)
             } else {
-                mark(nowMs, CornerHoldEventKind.STEADY_RESTART, reason = restart.reason.label, amount = restart.amount)
+                val reason = restart.reason.label + (restart.face?.let { " face=$it" } ?: "")
+                mark(nowMs, CornerHoldEventKind.STEADY_RESTART, reason = reason, amount = restart.amount)
             }
             return Decision.Wait
         }
@@ -402,6 +406,7 @@ internal class CornerHold(
         reference = null
         referenceOutline = null
         referenceCentres = emptyList()
+        referenceFaces = emptyList()
         undetectedSince = null
         coaching = null
         steadyRestart = null
@@ -442,6 +447,44 @@ internal class CornerHold(
          */
         const val OUTLINE_STEADY_FRACTION = 0.10
 
+        /**
+         * The colour half of the steady rule (PO 2026-11-22, after device session 1: the outline rule alone captured
+         * while the cube was still being positioned). On every face at least [COLOR_STEADY_CELLS] of the sampled cells
+         * ([COLOR_SAMPLED_CELLS], and the centre when plain) must stay within this ΔE of the window's reference frame.
+         * Looser than the pre-10.22 ΔE 5: still burst 1's exposure swing restarts the window twice at ΔE 10, never at 12.
+         */
+        const val COLOR_STEADY_DELTA_E = 12.0
+        const val COLOR_STEADY_CELLS = 3
+
+        /** The four edge cells of a face, sampled with its centre for the colour half of the steady rule. */
+        val COLOR_SAMPLED_CELLS = listOf(1, 3, 5, 7)
+
+        /**
+         * The first face of [now] with fewer than [COLOR_STEADY_CELLS] sampled cells within [deltaE] of [reference], as
+         * (face index, stable cells); null when every face is stable. The centre is sampled only when plain in both
+         * frames; a cell missing in either frame is not stable.
+         */
+        internal fun unstableFace(
+            now: List<FrameStats?>,
+            reference: List<FrameStats?>,
+            deltaE: Double = COLOR_STEADY_DELTA_E,
+        ): Pair<Int, Int>? {
+            for (face in now.indices) {
+                val a = now[face]?.cells.orEmpty()
+                val b = reference.getOrNull(face)?.cells.orEmpty()
+                val centrePlain = a.getOrNull(FaceSample.CENTER_INDEX)?.plain == true && b.getOrNull(FaceSample.CENTER_INDEX)?.plain == true
+                val sampled = if (centrePlain) COLOR_SAMPLED_CELLS + FaceSample.CENTER_INDEX else COLOR_SAMPLED_CELLS
+                val stable =
+                    sampled.count { cell ->
+                        val x = a.getOrNull(cell)?.value
+                        val y = b.getOrNull(cell)?.value
+                        x != null && y != null && StickerClassifier.deltaE(x, y) <= deltaE
+                    }
+                if (stable < COLOR_STEADY_CELLS) return face to stable
+            }
+            return null
+        }
+
         /** Plain centres that must change by [GuidedScanController.FACE_CHANGE_DELTA_E] for a different face to be shown. */
         const val FACE_CHANGE_CENTRES = 2
 
@@ -463,7 +506,8 @@ internal class CornerHold(
 
     /**
      * Why the frame restarts the steady window (Quick Scan corners): the outline moved by [OUTLINE_STEADY_FRACTION] from
-     * the reference frame, or [FACE_CHANGE_CENTRES] plain centres changed colour (another face is shown); null otherwise.
+     * the reference frame, [FACE_CHANGE_CENTRES] plain centres changed colour (another face is shown), or a face lost
+     * its third stable sampled cell ([unstableFace]); null otherwise.
      */
     private fun steadyMove(outline: List<OutlinePoint>?): CornerSteadyRestart? {
         val moved = CornerOutline.displacement(outline, referenceOutline)
@@ -473,7 +517,10 @@ internal class CornerHold(
                 if (a != null && b != null) StickerClassifier.deltaE(a, b) else null
             }
         val changed = deltas.filter { it >= GuidedScanController.FACE_CHANGE_DELTA_E }
-        return if (changed.size >= FACE_CHANGE_CENTRES) CornerSteadyRestart(CornerSteadyRestart.Reason.FACE, changed.max()) else null
+        if (changed.size >= FACE_CHANGE_CENTRES) return CornerSteadyRestart(CornerSteadyRestart.Reason.FACE, changed.max())
+        return unstableFace(latest, referenceFaces)?.let { (face, stable) ->
+            CornerSteadyRestart(CornerSteadyRestart.Reason.COLOR, stable.toDouble(), face)
+        }
     }
 
     fun changed(
@@ -485,17 +532,20 @@ internal class CornerHold(
 
 /**
  * Why a Quick Scan corner's steady window restarted (Story 10.22): the outline moved ([amount] is the largest corner
- * displacement over the reference outline's diagonal) or another face is shown ([amount] is the largest centre ΔE).
+ * displacement over the reference outline's diagonal), another face is shown ([amount] is the largest centre ΔE), or
+ * the colours of [face] (index, 0 top) are not stable ([amount] is how many of its sampled cells still are).
  */
 data class CornerSteadyRestart(
     val reason: Reason,
     val amount: Double,
+    val face: Int? = null,
 ) {
     enum class Reason(
         val label: String,
     ) {
         OUTLINE("outline"),
         FACE("face"),
+        COLOR("color"),
     }
 }
 
