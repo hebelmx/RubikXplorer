@@ -81,3 +81,7 @@ Doubt for the PO panel: a solved-cube scan offers only Stage 1.
 
 Doubts for a short panel at the end of the block: solved-cube Placement → only Stage 1; Close on a face-by-face scan with captured faces has no Discard confirmation (6.2 / #198); Solve-tab physical playback vs Lesson physical mode differ in Quick Check flow.
 9. Scan review "likely misreads" (#174 follow-up): list only stickers whose measured colour is near the under-count colour; if none, give no "may be X" suggestion.
+
+## Issues opened 2026-11-23 (after an adversarial review, PO approved)
+
+#313 Close placement · #314 10k-step timeout tiers · #315 corner labelling script · #316 recorder settle cap · #317 recorder dialog carry-over · #318 recorder Use corners keypoints-only · #319 Lenovo touch (watch) · #320 Physical mode switch discoverability · #321 Editor fallback drops scanned colours · #322 Placement review status bar in light theme (re #205) · #323 likely-misread suggestions (re #174).
