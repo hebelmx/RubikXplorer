@@ -441,4 +441,58 @@ class QuickCheckSessionTest {
                 }.canResolveObserved,
         )
     }
+
+    // Story 14.3: a Quick Check is accepted partway through a step's Moves, in a Lesson and a 2-look Lesson alike.
+    private fun midStep(
+        kind: SessionKind,
+        full: Boolean = true,
+    ): SessionState {
+        val lesson = oneLongStepLesson()
+        val predicted =
+            SessionState.IDLE.after(
+                SessionEvent.LessonStarted(lesson, TUTOR_CONFIG, T0, kind = kind),
+                SessionEvent.ModeSwitched(CubeMode.PHYSICAL, T0),
+                SessionEvent.PhysicalConfirmed(null, T0),
+            )
+        val baseline = if (full) predicted.after(SessionEvent.EditorEntered(predicted.expected, T0)) else predicted
+        // The step is `U F'`: one Done leaves it unfinished.
+        return baseline.after(SessionEvent.PhysicalConfirmed(U, T0))
+    }
+
+    @Test fun `mid-step quick check in a Lesson and a 2-look Lesson verifies only a full match`() {
+        for (kind in listOf(SessionKind.LESSON, SessionKind.TWO_LOOK)) {
+            val state = midStep(kind)
+            assertEquals(kind, state.kind)
+            assertEquals(SyncState.PHYSICAL_PREDICTED, state.syncState)
+            assertFalse(state.objectiveMet)
+            val request = reduce(state, SessionEvent.QuickCheckRequested(at = T0))
+            assertEquals(request.state.pendingQuickCheck, request.effects.single())
+            val verified = observed(request.state, PhysicalObservation.Full(state.expected))
+            assertEquals(Certainty.VERIFIED, verified.quickCheck!!.certainty)
+            assertEquals(SyncState.PHYSICAL_VERIFIED, verified.syncState)
+        }
+    }
+
+    @Test fun `mid-step partial mismatch is at most likely and offers a full scan`() {
+        for (kind in listOf(SessionKind.LESSON, SessionKind.TWO_LOOK)) {
+            val state = midStep(kind)
+            val pending = requested(state)
+            val actual = state.expected.apply(FaceTurn(Face.U, Turn.HALF))
+            val mismatch = observed(pending, partial(actual, pending.pendingQuickCheck!!.faces))
+            assertEquals(Certainty.LIKELY, mismatch.quickCheck!!.certainty)
+            assertEquals(SyncState.PHYSICAL_MISMATCH, mismatch.syncState)
+            assertEquals(true, mismatch.offersFullScan)
+        }
+    }
+
+    @Test fun `mid-step partial match without a full baseline is never verified`() {
+        for (kind in listOf(SessionKind.LESSON, SessionKind.TWO_LOOK)) {
+            val state = midStep(kind, full = false)
+            val pending = requested(state)
+            val checked = observed(pending, partial(state.expected, setOf(Face.U, Face.F)))
+            assertEquals(Certainty.LIKELY, checked.quickCheck!!.certainty)
+            assertEquals(SyncState.PHYSICAL_PREDICTED, checked.syncState)
+            assertNull(checked.observed)
+        }
+    }
 }

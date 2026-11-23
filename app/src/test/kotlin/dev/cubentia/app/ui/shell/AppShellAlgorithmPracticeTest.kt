@@ -15,6 +15,7 @@ import androidx.compose.ui.test.performScrollToKey
 import androidx.lifecycle.viewModelScope
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.content.LessonCatalog
+import dev.cubentia.app.data.SerialWriter
 import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.app.scan.QuickCheckCapture
 import dev.cubentia.app.session.SessionHost
@@ -29,6 +30,9 @@ import dev.cubentia.app.ui.solve.SolutionStyle
 import dev.cubentia.app.ui.solve.SolutionStyleViewModel
 import dev.cubentia.app.ui.solve.SolveFlowViewModel
 import dev.cubentia.app.ui.theme.CubentiaTheme
+import dev.cubentia.application.port.CheckpointLoad
+import dev.cubentia.application.port.CheckpointRepository
+import dev.cubentia.application.port.CheckpointSave
 import dev.cubentia.application.port.CubeSolver
 import dev.cubentia.application.port.FeatureFlag
 import dev.cubentia.application.port.FeatureFlags
@@ -36,6 +40,7 @@ import dev.cubentia.application.port.FlagLevel
 import dev.cubentia.application.port.SolveResult
 import dev.cubentia.application.preference.PlaybackView
 import dev.cubentia.application.preference.Preference
+import dev.cubentia.application.session.Checkpoint
 import dev.cubentia.application.session.Effect
 import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionKind
@@ -90,7 +95,25 @@ class AppShellAlgorithmPracticeTest {
     private val case = bundle.cases.single { it.id == algorithm.caseId }
     private val setUp = (AlgorithmPractice.of(algorithm, fromSetUp = true) as AlgorithmPracticeResult.Ready).practice
     private val alreadyCase = (AlgorithmPractice.of(algorithm, fromSetUp = false) as AlgorithmPracticeResult.Ready).practice
-    private val host = SessionHost(TickingClock(), Dispatchers.Default.limitedParallelism(1))
+    private val writer = SerialWriter()
+    private var checkpoint: Checkpoint? = null
+    private val checkpoints =
+        object : CheckpointRepository {
+            override suspend fun clear(): CheckpointSave {
+                checkpoint = null
+                return CheckpointSave.Saved
+            }
+
+            override suspend fun save(checkpoint: Checkpoint): CheckpointSave {
+                this@AppShellAlgorithmPracticeTest.checkpoint = checkpoint
+                return CheckpointSave.Saved
+            }
+
+            override suspend fun find(kind: SessionKind): CheckpointLoad =
+                checkpoint?.let { CheckpointLoad.Found(it) } ?: CheckpointLoad.None
+        }
+    private val host =
+        SessionHost(TickingClock(), Dispatchers.Default.limitedParallelism(1), writer = writer, checkpoints = checkpoints)
     private var solver: CubeSolver = CubeSolver { SolveResult.Solved(emptyList()) }
     private val solveFlow =
         SolveFlowViewModel(
@@ -112,6 +135,7 @@ class AppShellAlgorithmPracticeTest {
                     .cancelAndJoin()
                 styles.viewModelScope.coroutineContext.job
                     .cancelAndJoin()
+                writer.close()
             }
         } finally {
             Dispatchers.resetMain()
@@ -264,6 +288,47 @@ class AppShellAlgorithmPracticeTest {
         rule.waitForIdle()
         rule.onNodeWithTag("algorithmDetail:title").assertExists()
         rule.onNodeWithTag("nav:library").assertIsSelected()
+    }
+
+    @Test fun `practicing while a Lesson is live warns it pauses the Lesson, which resumes from its checkpoint on close`() {
+        val lesson =
+            bundle.stages
+                .first()
+                .lessons
+                .first()
+        runBlocking {
+            host.restore(bundle)
+            host.dispatch { SessionEvent.LessonStarted(lesson, bundle.tutorConfig, it) }
+        }
+        val live = host.state.value.lesson
+        launch()
+        openDetail()
+        rule.onNodeWithTag("algorithmDetail:practice").performScrollTo().performClick()
+        rule.waitForIdle()
+        rule
+            .onNodeWithTag(
+                "algorithmDetail:practiceChoice:pauseNote",
+            ).assertTextEquals("Practicing this pauses what you're doing in Learn.")
+        click("algorithmDetail:practice:alreadyCase")
+        awaitPhysicalAt(0)
+        click("solvePlayback:close")
+        rule.waitUntil(10000) { host.state.value.kind == SessionKind.LESSON }
+        rule.waitForIdle()
+        assertEquals(live, host.state.value.lesson)
+        assertEquals(
+            lesson.id,
+            host.state.value.lesson
+                ?.id,
+        )
+    }
+
+    @Test fun `with no live Lesson the practice choice shows no pause note`() {
+        launch()
+        openDetail()
+        rule.onNodeWithTag("algorithmDetail:practice").performScrollTo().performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("algorithmDetail:practiceChoice:title").assertExists()
+        rule.onNodeWithTag("algorithmDetail:practiceChoice:pauseNote").assertDoesNotExist()
     }
 
     @Test fun `Again after an already-case run replays from the set-up`() {

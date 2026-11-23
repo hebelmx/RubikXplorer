@@ -949,6 +949,7 @@ private fun ShellContent(
                             ),
                         autoPlay = autoPlayAlgorithm,
                         onPractice = { fromSetUp -> scope.launch { startPractice(algorithm, fromSetUp) } },
+                        pausesLesson = session.kind?.takesMoves == true,
                         onSetStatus = { status ->
                             requestedStatus.request(status)
                             scope.launch { requestedStatus.settled(host.setAlgorithmStatus(algorithm.id, status)) }
