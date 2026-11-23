@@ -45,7 +45,22 @@ S3 notes from Block 1: (a) Solution Playback's 3D view is blank for ~1–3 s on 
 | 8.4 #205 Placement status bar light/dark (Galaxy) | ❌ FAIL (light) | Dark ✅ `shots/8-4-galaxy-placement-result-dark.png`; light: status-bar icons stay white on light grey, unreadable (`shots/8-4-galaxy-placement-result-light.png`). Theme switched with `cmd uimode night` (app theme = System), restored. |
 | 8.5 #200 Physical-cube playback + TalkBack (Galaxy portrait) | ✅ PASS (overlap); certainty chip not shown until a Quick Check | `shots/8-5-galaxy-physical-playback-talkback.png`; reading order Close → title → styles → 3D toggle → Quick Check → counter → step → Move strip → Step back → Done → Physical mode. TalkBack could not be toggled by `settings put` (Android 17 refuses); PO switched it on, agent stopped it with `am force-stop`. |
 | 8.6 Rotate while Placement saves (Galaxy) | ✅ PASS | Run 1 (fully mixed cube): rotation on result screen kept state; *Open Stage* + rotate → Stage 1, 0 progress events (nothing to skip). Run 2 (first layer + 2 middle edges): "Start at Middle layer?" → *Start* + rotate → Learn, Stage 4 *Middle layer*; `progress_event`: 3 × `STAGE_SKIPPED_BY_PLACEMENT` (stages 1–3) + 1 × `STAGE_UNLOCKED` (stage 4), one timestamp, no duplicates (read from a copy of the debug app's DB via `run-as`). |
-| 8.3, 8.7–8.9 | ⏭ not yet | |
+| 8.3 #203 Scan review → Accept; Editor fallback; pause note | ✅ PASS | Accept (11:46:33 `outcome=ACCEPTED`) → straight to Solution Playback "25 moves" (`shots/8-3b-galaxy-review.png` → `shots/8-3b-galaxy-after-accept.png`); Close on review → `FELL_BACK_TO_EDITOR`, Editor in home frame (white up, bars correct) with "Starting a solve pauses your lesson." (`shots/8-3-galaxy-done.png`). PO: the fallback Editor drops the valid scanned colours (starts empty), see issue 8. |
+| 8.5 addendum | ✅ | Certainty chip "✓ Verified" shown beside EXPECTED in a Lesson's Physical mode without overlap (`shots/8-7-galaxy-quickcheck-result.png`). |
+| 8.7 Full Quick Check after one wrong move | ⏭ moved to Block 2.5–2.6 | Attempt read a cube 6 turns from EXPECTED (`U2 R F D2 L B`, 0 of 20 pieces match), so "I can't tell what changed" was correct; the single-wrong-move setup was not reached. PO: run it with 2.5–2.6. |
+| 8.8, 8.9 | ⏭ not yet | |
+
+### Placement runs (evidence for 6.7 #251, Galaxy, PO confirmed every reading)
+
+| Run | Cube | Placement said | Saved after Start/Open Stage |
+|---|---|---|---|
+| 1 | fully mixed | "Nothing is solved yet" → Stage 1 | nothing |
+| 2 | first layer + 2 middle edges | "Start at Middle layer?" | stages 1–3 skipped, 4 unlocked |
+| 3 | F2L, top not oriented | "It looks like OLL 51" → Last-layer orientation / Faster last layer | stage 4 skipped, 5 unlocked |
+| 4 | F2L, top oriented | "It looks like Y perm" → Last-layer completion | (not checked) |
+| 5 | solved | "Your cube is solved. Scramble it and scan again, or start Stage 1." | – |
+
+Doubt for the PO panel: a solved-cube scan offers only Stage 1.
 
 ## Block 5 (continued)
 
@@ -60,3 +75,7 @@ S3 notes from Block 1: (a) Solution Playback's 3D view is blank for ~1–3 s on 
 4. Fixture recorder: settle cap on hold 1, dialog carries light/direction, *Use corners* silently saves keypoints only (10.20 F2–F4).
 5. Lenovo touch sometimes unresponsive (also outside the app; lock/unlock restores); track, bug only if it appears app-specific.
 6. #205 light-theme status bar (if the PO wants a new issue rather than reopening/commenting #205).
+7. Physical-mode switch hard to discover in dark theme (off track dark grey on dark); the label does not toggle it — make the whole row toggle.
+8. Scan fallback to the Editor should keep the scanned colours so the user only corrects the rest.
+
+Doubts for a short panel at the end of the block: solved-cube Placement → only Stage 1; Close on a face-by-face scan with captured faces has no Discard confirmation (6.2 / #198); Solve-tab physical playback vs Lesson physical mode differ in Quick Check flow.
