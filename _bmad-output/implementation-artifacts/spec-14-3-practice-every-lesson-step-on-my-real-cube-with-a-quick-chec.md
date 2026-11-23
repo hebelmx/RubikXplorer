@@ -168,4 +168,5 @@ Final pass (2026-11-22): done.
 - **Review:** loop 1 bad_spec (PRACTICE scope + test gaps) re-derived; final pass patched 2 low (isTaught reuse, one button so focus survives highlight flips); 1 deferred (maybe-false Hint Ladder revision race, pre-existing); all rejections logged in the triage log with reasons.
 - **Follow-up review:** false (patched: 0 high, 0 medium, 2 low).
 - **Verification:** `./gradlew :core:application:test :app:testDebugUnitTest spotlessCheck build` — BUILD SUCCESSFUL after the patches.
+- **Epic-boundary fix:** the Library practice sheet now warns when a live Lesson or practice will be paused (cross-story review finding, Stories 14.2/14.3).
 - **Residual risks:** device check on Lenovo Tab M10 Plus 3rd Gen and Galaxy S24 FE (human gate) not done; pixel test covers light theme only.

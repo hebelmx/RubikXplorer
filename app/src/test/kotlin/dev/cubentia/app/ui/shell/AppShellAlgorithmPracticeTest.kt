@@ -305,7 +305,10 @@ class AppShellAlgorithmPracticeTest {
         openDetail()
         rule.onNodeWithTag("algorithmDetail:practice").performScrollTo().performClick()
         rule.waitForIdle()
-        rule.onNodeWithTag("algorithmDetail:practiceChoice:pauseNote").assertTextEquals("Starting a solve pauses your lesson.")
+        rule
+            .onNodeWithTag(
+                "algorithmDetail:practiceChoice:pauseNote",
+            ).assertTextEquals("Practicing this pauses what you're doing in Learn.")
         click("algorithmDetail:practice:alreadyCase")
         awaitPhysicalAt(0)
         click("solvePlayback:close")

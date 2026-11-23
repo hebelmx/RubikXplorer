@@ -254,7 +254,7 @@ fun AlgorithmDetailScreen(
 /**
  * The Algorithm practice choice (UX Flow 11): set the Case up from solved, or start at the Algorithm because the
  * cube already shows the Case. Each option closes the sheet first; back or the scrim calls [onDismiss] and starts
- * nothing. When [pausesLesson], it says that starting a practice pauses the live Lesson, as the Solve tab does.
+ * nothing. When [pausesLesson], it says that starting a practice pauses the live Lesson or practice in Learn.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -291,7 +291,7 @@ internal fun PracticeChoiceSheet(
             )
             if (pausesLesson) {
                 Text(
-                    text("msg.solve.pauses-lesson"),
+                    text("msg.library.practice.pauses-session"),
                     color = tokens.inkSecondary,
                     modifier = Modifier.testTag("algorithmDetail:practiceChoice:pauseNote"),
                 )

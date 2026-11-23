@@ -564,6 +564,7 @@
   "case.case-pll-y.name": "Y perm",
   "case.case-pll-z.name": "Z perm",
   "msg.library.diagram.description": "Last layer diagram for {caseName}",
+  "msg.library.practice.pauses-session": "Practicing this pauses what you're doing in Learn.",
   "msg.library.family.oll-dot": "Dot",
   "msg.library.family.oll-square": "Square",
   "msg.library.family.oll-lightning": "Lightning",
