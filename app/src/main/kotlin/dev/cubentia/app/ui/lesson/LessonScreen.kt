@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -51,6 +52,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.Layout
@@ -138,6 +140,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.time.Instant
 import dev.cubentia.domain.text.Text as ContentText
+
+/** Whether the Lesson's Quick Check icon is highlighted (accent-filled); a test-only flag, not announced by TalkBack. */
+val QuickCheckHighlightedKey = SemanticsPropertyKey<Boolean>("QuickCheckHighlighted")
 
 /**
  * The Lesson task flow (FR-5, FR-6): a top bar with close over the stage and the [LessonPanel],
@@ -645,6 +650,10 @@ private fun LessonBody(
                 ?.firstOrNull()
 
     val step = stepCard(mode, session, decision, lesson, demonstration, player, strings, beta, camera, isPractice || isSkipCheck)
+    // Story 14.3: a Lesson (incl. a 2-look Lesson) offers Quick Check at every step; practice keeps Story 10.7's gate.
+    val quickCheckEveryStep = session.kind?.isTaught == true
+    val quickCheckHighlighted =
+        session.syncState == SyncState.PHYSICAL_MISMATCH || decision.advance || session.objectiveMet || session.quickCheckRetry != null
     val panel: @Composable (Modifier) -> Unit = { panelModifier ->
         LessonPanel(
             objective = strings.resolve(lesson.objective),
@@ -741,12 +750,7 @@ private fun LessonBody(
                     }
                 },
             quickCheck =
-                if (quickCheck != null &&
-                    (
-                        session.syncState == SyncState.PHYSICAL_MISMATCH || decision.advance || session.objectiveMet ||
-                            session.quickCheckRetry != null
-                    )
-                ) {
+                if (quickCheck != null && (quickCheckEveryStep || quickCheckHighlighted)) {
                     {
                         fun request(full: Boolean) {
                             scope.launch {
@@ -759,11 +763,29 @@ private fun LessonBody(
                             }
                         }
                         session.quickCheckRetry?.let { Text(strings.resolve(it), modifier = Modifier.testTag("quickCheck:retry")) }
-                        IconButton(onClick = { request(false) }, modifier = Modifier.testTag("lesson:quickCheck")) {
-                            Icon(
-                                painterResource(R.drawable.ic_camera),
-                                contentDescription = strings.resolve(ContentText("btn.physical.quick-check")),
-                            )
+                        // A Lesson offers it at every step (Story 14.3), highlighted only where Story 10.7 offered it;
+                        // a practice session keeps Story 10.7's gate with the plain icon.
+                        val highlighted = quickCheckEveryStep && quickCheckHighlighted
+                        val quickCheckModifier =
+                            Modifier.testTag("lesson:quickCheck").semantics { this[QuickCheckHighlightedKey] = highlighted }
+                        val quickCheckLabel = strings.resolve(ContentText("btn.physical.quick-check"))
+                        FilledIconButton(
+                            onClick = { request(false) },
+                            modifier = quickCheckModifier,
+                            colors =
+                                if (highlighted) {
+                                    IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = RubikTheme.tokens.accent,
+                                        contentColor = RubikTheme.tokens.onAccent,
+                                    )
+                                } else {
+                                    IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = Color.Transparent,
+                                        contentColor = RubikTheme.tokens.inkSecondary,
+                                    )
+                                },
+                        ) {
+                            Icon(painterResource(R.drawable.ic_camera), contentDescription = quickCheckLabel)
                         }
                         if (session.offersFullScan) {
                             Text(strings.resolve(ContentText("msg.quick-check.likely-mismatch")))

@@ -5,15 +5,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -104,6 +108,7 @@ class PhysicalLessonScreenTest {
         onClose: () -> Unit = {},
         shown: () -> Boolean = { true },
         planRecovery: PlanRecovery = PlanRecovery(),
+        isTwoLook: Boolean = false,
         quickCheck: QuickCheckCapture? =
             if (cameraCheck) {
                 dev.cubentia.app.scan
@@ -124,6 +129,7 @@ class PhysicalLessonScreenTest {
                         cameraCheck = cameraCheck,
                         quickCheck = quickCheck,
                         planRecovery = planRecovery,
+                        isTwoLook = isTwoLook,
                     )
                 }
             }
@@ -1700,5 +1706,313 @@ class PhysicalLessonScreenTest {
                 .config[RenderedStickersKey]
                 .map { Color(it.fill) }
         assertEquals(expected, drawn)
+    }
+
+    // Story 14.3: the Quick Check icon is offered at every step, highlighted only where Story 10.7 offered it.
+
+    private val twoLookEntry =
+        ready.find(
+            bundle.twoLookStages
+                .first()
+                .lessons
+                .first()
+                .id,
+        )!!
+
+    private fun assertQuickCheckHighlighted(highlighted: Boolean) {
+        node("lesson:quickCheck")
+            .assertExists()
+            .assertContentDescriptionEquals("Quick Check")
+            .assert(SemanticsMatcher.expectValue(QuickCheckHighlightedKey, highlighted))
+    }
+
+    @Test fun quickCheckIsOfferedPlainMidStepAndHighlightedAtTheStepBoundary() {
+        val host = SessionHost(TickingClock())
+        val captured = mutableListOf<Effect.QuickCheck>()
+        val entry = ready.lessons.single { it.lesson.id.value == "lesson-01-02" }
+        setLessonContent(host, entry, quickCheck = QuickCheckCapture { captured += it })
+        enterPhysicalMode(host)
+        assertQuickCheckHighlighted(false)
+        node("lesson:quickCheck").performScrollTo().performClick()
+        rule.waitUntil(5_000) { captured.isNotEmpty() }
+        val pending = host.state.value.pendingQuickCheck
+        assertEquals(pending, captured.single())
+        // A second tap while the capture is pending starts nothing.
+        node("lesson:quickCheck").performScrollTo().performClick()
+        rule.waitForIdle()
+        assertEquals(1, captured.size)
+        runBlocking { host.dispatch { SessionEvent.QuickCheckCancelled(pending!!.effectId, it) } }
+        rule.waitForIdle()
+        // Done never waits on a Quick Check; it reaches the step's boundary, where the icon is highlighted.
+        val before = host.state.value.expected
+        node("lesson:done").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.expected != before }
+        rule.waitForIdle()
+        assertQuickCheckHighlighted(true)
+    }
+
+    @Test fun quickCheckIsHighlightedAfterAMismatch() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host, quickCheck = QuickCheckCapture {})
+        enterPhysicalMode(host)
+        assertQuickCheckHighlighted(false)
+        reportMismatch(host)
+        node("mismatch:quickCheck").assertExists()
+        assertQuickCheckHighlighted(true)
+    }
+
+    @Test fun twoLookLessonOffersPhysicalModeDoneAndTheLadderWithAMidStepQuickCheck() {
+        val host = SessionHost(TickingClock())
+        val captured = mutableListOf<Effect.QuickCheck>()
+        setLessonContent(host, twoLookEntry, isTwoLook = true, quickCheck = QuickCheckCapture { captured += it })
+        rule.waitUntil(5_000) { host.state.value.kind == SessionKind.TWO_LOOK }
+        rule.waitForIdle()
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.waitForIdle()
+        node("confirmCube:matches").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+        val before = host.state.value.expected
+        node("lesson:done").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.expected != before }
+        rule.waitForIdle()
+        // Partway through the step's Algorithm: offered, not highlighted.
+        assertTrue(!host.state.value.objectiveMet)
+        assertQuickCheckHighlighted(false)
+        node("lesson:quickCheck").performScrollTo().performClick()
+        rule.waitUntil(5_000) { captured.isNotEmpty() }
+        assertEquals(SessionKind.TWO_LOOK, host.state.value.kind)
+        reportMismatch(host)
+        node("mismatch:quickCheck").assertExists()
+        assertQuickCheckHighlighted(true)
+    }
+
+    @Test fun twoLookLessonWithoutQuickCheckWorksWithDoneAndHidesCameraNodes() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host, twoLookEntry, isTwoLook = true)
+        rule.waitUntil(5_000) { host.state.value.kind == SessionKind.TWO_LOOK }
+        rule.waitForIdle()
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.waitForIdle()
+        node("confirmCube:scan").assertDoesNotExist()
+        node("confirmCube:matches").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+        val before = host.state.value.expected
+        node("lesson:done").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.expected != before }
+        rule.waitForIdle()
+        node("lesson:quickCheck").assertDoesNotExist()
+        reportMismatch(host)
+        node("mismatch:quickCheck").assertDoesNotExist()
+        node("mismatch:question").assertExists()
+        node("lesson:quickCheck").assertDoesNotExist()
+    }
+
+    // Story 14.3 review loop 1: a LESSON truly mid-step, retry, drawn colors, screen-level results, practice keeps 10.7.
+
+    private val longStepEntry = ready.lessons.single { it.lesson.id.value == "lesson-03-01" }
+
+    /** Opens `lesson-03-01` (one step, `R' D' R`) in Physical-cube Mode and confirms one Move with *Done*. */
+    private fun openLessonMidStep(
+        host: SessionHost,
+        captured: MutableList<Effect.QuickCheck>,
+    ) {
+        setLessonContent(host, longStepEntry, quickCheck = QuickCheckCapture { captured += it })
+        assertEquals(SessionKind.LESSON, host.state.value.kind)
+        enterPhysicalMode(host)
+        val before = host.state.value.expected
+        node("lesson:done").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.expected != before }
+        rule.waitForIdle()
+        assertTrue(!host.state.value.objectiveMet)
+        assertTrue(
+            host.state.value.decision
+                ?.advance != true,
+        )
+    }
+
+    private fun requestFromIcon(captured: List<Effect.QuickCheck>): Effect.QuickCheck {
+        val count = captured.size
+        node("lesson:quickCheck").performScrollTo().performClick()
+        rule.waitUntil(5_000) { captured.size > count }
+        return captured.last()
+    }
+
+    @Test fun lessonMidStepAfterOneDoneOffersAPlainQuickCheckThatStartsACapture() {
+        val host = SessionHost(TickingClock())
+        val captured = mutableListOf<Effect.QuickCheck>()
+        openLessonMidStep(host, captured)
+        assertQuickCheckHighlighted(false)
+        val effect = requestFromIcon(captured)
+        assertEquals(host.state.value.pendingQuickCheck, effect)
+    }
+
+    @Test fun aPendingRetryMidStepHighlightsTheQuickCheck() {
+        val host = SessionHost(TickingClock())
+        val captured = mutableListOf<Effect.QuickCheck>()
+        openLessonMidStep(host, captured)
+        val effect = requestFromIcon(captured)
+        // A result for an older cube is discarded and asks the Learner to try again.
+        runBlocking {
+            host.dispatch {
+                SessionEvent.QuickCheckObserved(
+                    effect.effectId,
+                    effect.revision + 1,
+                    PhysicalObservation.Full(host.state.value.expected),
+                    it,
+                )
+            }
+        }
+        rule.waitUntil(5_000) { host.state.value.quickCheckRetry != null }
+        rule.waitForIdle()
+        node("quickCheck:retry").assertExists()
+        assertTrue(!host.state.value.objectiveMet)
+        assertQuickCheckHighlighted(true)
+    }
+
+    @Test fun midStepFullObservationShowsTheVerifiedFrame() {
+        val host = SessionHost(TickingClock())
+        val captured = mutableListOf<Effect.QuickCheck>()
+        openLessonMidStep(host, captured)
+        runBlocking { host.dispatch { SessionEvent.QuickCheckRequested(at = it, fullScan = true) } }
+        val pending = host.state.value.pendingQuickCheck!!
+        runBlocking {
+            host.dispatch {
+                SessionEvent.QuickCheckObserved(pending.effectId, pending.revision, PhysicalObservation.Full(host.state.value.expected), it)
+            }
+        }
+        rule.waitForIdle()
+        node("stage:frame").assertTextEquals("VERIFIED")
+        assertTrue(!host.state.value.objectiveMet)
+    }
+
+    @Test fun midStepPartialMismatchIsLikelyAndOffersScanAllFaces() {
+        val host = SessionHost(TickingClock())
+        val captured = mutableListOf<Effect.QuickCheck>()
+        openLessonMidStep(host, captured)
+        val effect = requestFromIcon(captured)
+        val expected = host.state.value.expected
+        val faceOf = { state: dev.cubentia.domain.cube.CubeState, face: Face ->
+            state.toFacelets().colors.subList(face.ordinal * 9, face.ordinal * 9 + 9)
+        }
+        val actual =
+            listOf(Face.R, Face.U, Face.F, Face.L, Face.B, Face.D)
+                .map { expected.apply(FaceTurn(it, Turn.CLOCKWISE)) }
+                .first { candidate -> effect.faces.any { faceOf(candidate, it) != faceOf(expected, it) } }
+        val partial = PhysicalObservation.Partial(effect.faces.associateWith { faceOf(actual, it) })
+        runBlocking { host.dispatch { SessionEvent.QuickCheckObserved(effect.effectId, effect.revision, partial, it) } }
+        rule.waitForIdle()
+        assertEquals(SyncState.PHYSICAL_MISMATCH, host.state.value.syncState)
+        node("certainty:label").assertTextEquals("Likely")
+        node("mismatch:scanAll").assertExists()
+        node("stage:frame").assertTextEquals("EXPECTED")
+    }
+
+    @Test fun theConfirmCardShowsNoQuickCheckIcon() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host, longStepEntry, quickCheck = QuickCheckCapture {})
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.waitForIdle()
+        node("confirmCube:scan").assertExists()
+        node("lesson:quickCheck").assertDoesNotExist()
+    }
+
+    @Test
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun theHighlightedIconIsDrawnInTheAccentAndThePlainIconIsNot() {
+        val host = SessionHost(TickingClock())
+        val captured = mutableListOf<Effect.QuickCheck>()
+        var accent = Color.Unspecified
+        rule.setContent {
+            CubentiaTheme {
+                accent = dev.cubentia.app.ui.theme.RubikTheme.tokens.accent
+                LessonScreen(
+                    host = host,
+                    entry = longStepEntry,
+                    strings = ready.strings,
+                    modes = TeachingMode.entries,
+                    onClose = {},
+                    quickCheck = QuickCheckCapture { captured += it },
+                )
+            }
+        }
+        rule.waitUntil(5_000) { host.state.value.isActive }
+        enterPhysicalMode(host)
+        node("lesson:done").performScrollTo().performClick()
+        rule.waitForIdle()
+
+        fun accentPixels(): Int {
+            val pixels = node("lesson:quickCheck").performScrollTo().captureToImage().toPixelMap()
+            var count = 0
+            for (x in 0 until pixels.width) {
+                for (y in 0 until pixels.height) {
+                    val c = pixels[x, y]
+                    if (kotlin.math.abs(c.red - accent.red) < 0.04f &&
+                        kotlin.math.abs(c.green - accent.green) < 0.04f &&
+                        kotlin.math.abs(c.blue - accent.blue) < 0.04f
+                    ) {
+                        count++
+                    }
+                }
+            }
+            return count
+        }
+        assertQuickCheckHighlighted(false)
+        assertEquals(0, accentPixels())
+        reportMismatch(host)
+        assertQuickCheckHighlighted(true)
+        val filled = accentPixels()
+        val size = node("lesson:quickCheck").fetchSemanticsNode().size
+        // The accent container fills most of the button.
+        assertTrue("accent pixels $filled of ${size.width * size.height}", filled > size.width * size.height / 4)
+    }
+
+    @Test fun aStagePracticeKeepsStory10_7sGateWithThePlainIcon() {
+        val host = SessionHost(TickingClock())
+        val entry = CatalogEntry(longStepEntry.lesson.copy(id = LessonId("practice-stage-03")), longStepEntry.stage, bundle.tutorConfig)
+        rule.setContent {
+            CubentiaTheme {
+                LessonScreen(
+                    host,
+                    entry,
+                    ready.strings,
+                    emptyList(),
+                    {},
+                    quickCheck = QuickCheckCapture {},
+                    isPractice = true,
+                )
+            }
+        }
+        rule.waitUntil(5_000) { host.state.value.kind == SessionKind.PRACTICE }
+        rule.waitForIdle()
+        enterPhysicalMode(host)
+        val moves = (Notation.parse(longStepEntry.lesson.demonstration) as NotationResult.Parsed).moves
+        runBlocking { host.dispatch { SessionEvent.PhysicalConfirmed(moves.first(), it) } }
+        rule.waitForIdle()
+        assertTrue(!host.state.value.objectiveMet)
+        node("lesson:quickCheck").assertDoesNotExist()
+        runBlocking { moves.drop(1).forEach { move -> host.dispatch { SessionEvent.PhysicalConfirmed(move, it) } } }
+        rule.waitUntil(5_000) { host.state.value.objectiveMet }
+        rule.waitForIdle()
+        assertQuickCheckHighlighted(false)
+    }
+
+    @Test
+    @Config(qualifiers = "w600dp-h960dp", fontScale = 2.0f)
+    fun atDoubleTypeOnATabletTheMidStepRowShowsQuickCheckAndDoneWhole() {
+        val host = SessionHost(TickingClock())
+        val captured = mutableListOf<Effect.QuickCheck>()
+        openLessonMidStep(host, captured)
+        for (tag in listOf("lesson:quickCheck", "lesson:done")) {
+            val semantics = node(tag).performScrollTo().assertIsDisplayed().fetchSemanticsNode()
+            val bounds = semantics.boundsInRoot
+            assertEquals("$tag clipped width", semantics.size.width.toFloat(), bounds.width, 1f)
+            assertEquals("$tag clipped height", semantics.size.height.toFloat(), bounds.height, 1f)
+        }
+        rule.assertNoMidWordBreaks()
     }
 }
