@@ -1,0 +1,4 @@
+interface:
+  display_name: "BMAD Issue Orchestrator"
+  short_description: "Triage and resolve GitHub issues"
+  default_prompt: "Use $bmad-orchestrate-issue to triage open GitHub issues, resolve clear device-free wins, and route blockers."
