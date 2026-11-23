@@ -290,6 +290,8 @@ def lab_only_sources() -> list[dict]:
         {"source": "Fixtures/labeled/face-samples.json", "holds": "one synthetic CIELAB face + truth", "faces": 1, "why": "synthetic contract fixture, no image"},
         {"source": "docs/evidence/quick-scan-2026-11-22/bursts/*.jsonl", "holds": "per-frame corner cell Lab, no truth", "faces": 0, "why": "no labels"},
         {"source": "Fixtures/matrix/*.log", "holds": "diagnostic log lines (test matrix runs)", "faces": 0, "why": "no images"},
+        {"source": "docs/evidence/session-c/shots/*.png", "holds": "device screenshots of the app (editor, review, placement)", "faces": 0, "why": "app renders, not camera frames"},
+        {"source": "docs/evidence/10-18/lenovo-quickscan-2026-11-20-6cd18ab1.log", "holds": "Quick Scan diagnostic log (Lenovo, 2026-11-20)", "faces": 0, "why": "log lines only, no images"},
         {"source": "Fixtures/*_S1, *_S2 photos", "holds": "unlabelled photos of two cubes", "faces": 0, "why": "no labels"},
         {"source": "Fixtures/*_S3 photos", "holds": "monochrome calibration faces (a centre point, no rect)", "faces": 0, "why": "no face rectangle"},
         {"source": "git 4ced73f6 (deleted)", "holds": "WhatsApp copies of the S1/S2 originals", "faces": 0, "why": "recompressed duplicates, no labels"},

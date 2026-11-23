@@ -277,8 +277,8 @@ class ShadowReaderReplayTest {
             java.util.concurrent.atomic
                 .AtomicInteger()
 
-        override fun onScanStarted() {
-            target?.onScanStarted()
+        override fun onScanStarted(scan: Long) {
+            target?.onScanStarted(scan)
         }
 
         override fun onCornerCaptured(
@@ -289,9 +289,9 @@ class ShadowReaderReplayTest {
             target?.onCornerCaptured(hold, crops, reports)
         }
 
-        override fun onScanEnded() {
+        override fun onScanEnded(scan: Long) {
             ended.incrementAndGet()
-            target?.onScanEnded()
+            target?.onScanEnded(scan)
         }
     }
 

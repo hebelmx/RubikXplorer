@@ -16,6 +16,10 @@ Each scan's first reader line is `quickScan shadowReader state=on|off`; with the
 `quickScan shadow hold=… face=… inferMs=… model=… self=… second=…` lines; the per-hold capture times are the Story 10.22
 `quickScan capture hold=… totalMs=…` lines.
 
+A face the hold already kept is not judged again, so it has no Kotlin report at that capture: its shadow line ends
+`self=- second=-`. That is expected (the model still reads the face), not a Kotlin failure; compare such faces only with
+the capture that judged them.
+
 ## H1: extra fixture captures where the inventory is thin
 
 `inventory.md` marks every device x cube x light cell thin (fewer than 2 groups or 12 image-backed faces). Record with the

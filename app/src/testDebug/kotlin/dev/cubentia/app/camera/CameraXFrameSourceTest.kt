@@ -64,7 +64,7 @@ class CameraXFrameSourceTest {
         val locating = CornerDetector { _, guide -> CornerLocator.Location(guide.quads(guide.vertices()), 1.0) }
         val observer =
             object : CapturedFaceObserver {
-                override fun onScanStarted() = Unit
+                override fun onScanStarted(scan: Long) = Unit
 
                 override fun onCornerCaptured(
                     hold: Int,
@@ -72,7 +72,7 @@ class CameraXFrameSourceTest {
                     reports: List<dev.cubentia.domain.recognition.QuickScanClassification.FaceReport>,
                 ) = Unit
 
-                override fun onScanEnded() = Unit
+                override fun onScanEnded(scan: Long) = Unit
             }
 
         fun delivered(bound: Optional<CapturedFaceObserver>): CornerFrame? {

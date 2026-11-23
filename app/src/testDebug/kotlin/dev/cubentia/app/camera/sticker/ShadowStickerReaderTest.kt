@@ -39,7 +39,7 @@ class ShadowStickerReaderTest {
         }
 
     /** A reader with its scan already started (as the activity does at hold 1's view entry). */
-    private fun reader(load: () -> StickerInterpreter = { white }) = unstarted(load).also { it.onScanStarted() }
+    private fun reader(load: () -> StickerInterpreter = { white }) = unstarted(load).also { it.onScanStarted(1) }
 
     private fun unstarted(load: () -> StickerInterpreter = { white }) =
         ShadowStickerReader(
@@ -80,7 +80,7 @@ class ShadowStickerReaderTest {
     @Test
     fun `each capture logs one line per face beside both Kotlin reads`() {
         val reader = reader()
-        reader.onScanStarted()
+        reader.onScanStarted(1)
         reader.onCornerCaptured(1, List(3) { crop() }, reports)
         reader.awaitIdle()
         assertEquals("quickScan shadowReader state=on", lines.first())
@@ -103,7 +103,7 @@ class ShadowStickerReaderTest {
     fun `off logs the state and reads nothing`() {
         on = false
         val reader = reader()
-        reader.onScanStarted()
+        reader.onScanStarted(1)
         reader.onCornerCaptured(1, List(3) { crop() }, reports)
         reader.awaitIdle()
         assertEquals(listOf("quickScan shadowReader state=off"), lines.toList())
@@ -113,7 +113,7 @@ class ShadowStickerReaderTest {
     @Test
     fun `a toggle flipped mid-scan takes effect at the next capture`() {
         val reader = reader()
-        reader.onScanStarted()
+        reader.onScanStarted(1)
         on = false
         reader.onCornerCaptured(1, List(3) { crop() }, reports)
         on = true
@@ -146,13 +146,13 @@ class ShadowStickerReaderTest {
     @Test
     fun `a missing model logs one error per scan, loads once per process and never throws`() {
         val reader = reader { throw java.io.FileNotFoundException("sticker_reader.tflite") }
-        reader.onScanStarted()
+        reader.onScanStarted(1)
         reader.onCornerCaptured(1, List(3) { crop() }, reports)
         reader.onCornerCaptured(2, List(3) { crop() }, emptyList())
         reader.awaitIdle()
         assertEquals(1, lines.count { it == "quickScan shadowReader error=model-missing" })
-        reader.onScanEnded()
-        reader.onScanStarted()
+        reader.onScanEnded(1)
+        reader.onScanStarted(2)
         reader.onCornerCaptured(1, List(3) { crop() }, reports)
         reader.awaitIdle()
         assertEquals("once per scan", 2, lines.count { it == "quickScan shadowReader error=model-missing" })
@@ -163,7 +163,7 @@ class ShadowStickerReaderTest {
     @Test
     fun `a missing native runtime reads as a missing model`() {
         val reader = reader { throw UnsatisfiedLinkError("libLiteRt.so") }
-        reader.onScanStarted()
+        reader.onScanStarted(1)
         reader.onCornerCaptured(1, List(3) { crop() }, reports)
         reader.awaitIdle()
         assertEquals(1, lines.count { it == "quickScan shadowReader error=model-missing" })
@@ -205,22 +205,48 @@ class ShadowStickerReaderTest {
         assertTrue(started.await(5, TimeUnit.SECONDS))
         // Queued behind the read in progress: dropped by the scan end, crops and all.
         reader.onCornerCaptured(2, List(3) { crop() }, emptyList())
-        reader.onScanEnded()
+        reader.onScanEnded(1)
         release.countDown()
         reader.awaitIdle()
         Thread.sleep(200)
         assertFalse(shadowLines().toString(), shadowLines().any { it.contains(" hold=2 ") })
         // A later scan starts a fresh executor.
-        reader.onScanStarted()
+        reader.onScanStarted(2)
         reader.onCornerCaptured(1, List(3) { crop() }, reports)
         reader.awaitIdle()
         assertTrue(shadowLines().any { it.contains(" hold=1 ") })
     }
 
     @Test
+    fun `a start that lands after its scan ended is ignored and the next scan logs its state line`() {
+        val reader = unstarted { throw java.io.FileNotFoundException("sticker_reader.tflite") }
+        // Closed right after hold 1's view opened: the end (main) beats the start queued on the analyzer.
+        reader.onScanEnded(1)
+        reader.onScanStarted(1)
+        reader.onCornerCaptured(1, List(3) { crop() }, reports)
+        reader.awaitIdle()
+        assertTrue(lines.toString(), lines.isEmpty())
+        reader.onScanStarted(2)
+        reader.onCornerCaptured(1, List(3) { crop() }, reports)
+        reader.awaitIdle()
+        assertEquals(listOf("quickScan shadowReader state=on", "quickScan shadowReader error=model-missing"), lines.toList())
+    }
+
+    @Test
+    fun `a late end of an earlier scan leaves the running scan alone`() {
+        val reader = reader()
+        reader.onScanEnded(1)
+        reader.onScanStarted(2)
+        reader.onScanEnded(1)
+        reader.onCornerCaptured(1, List(3) { crop() }, reports)
+        reader.awaitIdle()
+        assertEquals(3, shadowLines().size)
+    }
+
+    @Test
     fun `a capture after the scan ended is ignored and starts no thread`() {
         val reader = reader()
-        reader.onScanEnded()
+        reader.onScanEnded(1)
         reader.onCornerCaptured(1, List(3) { crop() }, reports)
         reader.awaitIdle()
         assertTrue(shadowLines().toString(), shadowLines().isEmpty())
@@ -236,7 +262,7 @@ class ShadowStickerReaderTest {
         val reader = reader { throw java.io.FileNotFoundException("sticker_reader.tflite") }
         reader.onCornerCaptured(1, List(3) { crop() }, reports)
         reader.awaitIdle()
-        reader.onScanStarted()
+        reader.onScanStarted(1)
         reader.onCornerCaptured(1, List(3) { crop() }, reports)
         reader.awaitIdle()
         assertEquals(1, lines.count { it.startsWith("quickScan shadowReader state=") })

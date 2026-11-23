@@ -61,6 +61,8 @@ Pipelines: `live-a2` = `Fixtures/live/*_studio-a` frames (the recorder grid, the
 | `Fixtures/labeled/face-samples.json` | one synthetic CIELAB face + truth | 1 | synthetic contract fixture, no image |
 | `docs/evidence/quick-scan-2026-11-22/bursts/*.jsonl` | per-frame corner cell Lab, no truth | 0 | no labels |
 | `Fixtures/matrix/*.log` | diagnostic log lines (test matrix runs) | 0 | no images |
+| `docs/evidence/session-c/shots/*.png` | device screenshots of the app (editor, review, placement) | 0 | app renders, not camera frames |
+| `docs/evidence/10-18/lenovo-quickscan-2026-11-20-6cd18ab1.log` | Quick Scan diagnostic log (Lenovo, 2026-11-20) | 0 | log lines only, no images |
 | `Fixtures/*_S1, *_S2 photos` | unlabelled photos of two cubes | 0 | no labels |
 | `Fixtures/*_S3 photos` | monochrome calibration faces (a centre point, no rect) | 0 | no face rectangle |
 | `git 4ced73f6 (deleted)` | WhatsApp copies of the S1/S2 originals | 0 | recompressed duplicates, no labels |

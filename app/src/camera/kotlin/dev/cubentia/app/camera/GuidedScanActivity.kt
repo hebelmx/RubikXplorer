@@ -533,7 +533,7 @@ class GuidedScanActivity : ComponentActivity() {
     /** Story 10.23: the scan ended; the observer drops its queued work and crops, and the last frame's crops go too. */
     private fun endShadowScan() {
         scan.lastCornerCrops = null
-        capturedFaceObserver.ifPresent { it.onScanEnded() }
+        capturedFaceObserver.ifPresent { it.onScanEnded(scan.shadowScanId) }
     }
 
     private fun cameraPhase() =
@@ -549,7 +549,8 @@ class GuidedScanActivity : ComponentActivity() {
             analyzerExecutor.execute {
                 val quick = scan.quickScan ?: return@execute
                 // Story 10.23: hold 1's corner view opening starts a scan for the shadow reader (its state line).
-                if (quick.hold == 1) capturedFaceObserver.ifPresent { it.onScanStarted() }
+                // The start is queued here while the end comes on main: the scan id lets the reader drop a start that lands late.
+                if (quick.hold == 1) capturedFaceObserver.ifPresent { it.onScanStarted(scan.shadowScanId) }
                 quick.viewEntered(entered)
                 quick.drainEvents().forEach(ScanDiagnostics::onHoldEvent)
             }
@@ -850,6 +851,11 @@ class GuidedScanActivity : ComponentActivity() {
     }
 }
 
+/** Story 10.23: source of [GuidedScanViewModel.shadowScanId]. */
+private val shadowScanIds =
+    java.util.concurrent.atomic
+        .AtomicLong()
+
 /**
  * What survives a configuration change: the controller (touched only on [analyzerExecutor]), its analyzer thread, the
  * shown phase, the rationale state before the last permission request and a finished result. Holds no frame, except the
@@ -857,6 +863,9 @@ class GuidedScanActivity : ComponentActivity() {
  */
 internal class GuidedScanViewModel : ViewModel() {
     val analyzerExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+
+    /** Story 10.23: this scan's id for the shadow reader, increasing per process (one view model is one scan). */
+    val shadowScanId: Long = shadowScanIds.incrementAndGet()
 
     @Volatile var saved: CalibrationCenters? = null
     var calibrationLoaded by mutableStateOf(false)

@@ -38,6 +38,9 @@ internal fun interface StickerInterpreter {
  *
  * `quickScan shadow hold=<n> face=<F> center=<C> inferMs=<ms|-> model=<9 letters>/<9 C|U>|none self=<..>/<..> second=<cal|norm>:<..>/<..>`
  *
+ * A face the hold already kept has no Kotlin report at that capture, so its line ends `self=- second=-` (expected, not a
+ * Kotlin failure).
+ *
  * It decides nothing: it returns nothing to the capture path, and only categorical results (letters and C/U, AD-9)
  * appear. The model is image-only (no Kotlin reading, centre or calibration goes in). The interpreter loads lazily, once
  * per process, like `LiteRtCornerDetector` (XNNPACK, 4 threads, no GPU or NNAPI delegate); a missing model logs one
@@ -67,16 +70,21 @@ internal class ShadowStickerReader
         private var loadAttempted = false
         private var missingLogged = false
 
-        /** True from [onScanStarted] to [onScanEnded]: captures outside a scan are ignored, a re-entered hold 1 is not a new scan. */
-        private var active = false
+        /** The scan from [onScanStarted] to [onScanEnded]: captures outside a scan are ignored, a re-entered hold 1 is not a new scan. */
+        private var activeScan: Long? = null
+        private val active get() = activeScan != null
+
+        /** The highest scan id ended: a start queued on the analyzer that lands after its scan's end is stale. */
+        private var endedThrough = Long.MIN_VALUE
         private val input: ByteBuffer = ByteBuffer.allocateDirect(StickerModelContract.INPUT_BYTES).order(ByteOrder.nativeOrder())
         private val output = Array(1) { Array(StickerModelContract.CELLS) { FloatArray(StickerModelContract.COLOR_ORDER.size) } }
 
-        override fun onScanStarted() {
+        override fun onScanStarted(scan: Long) {
             synchronized(lock) {
-                // Re-entering hold 1's corner view (back-out, camera restart) within one scan starts nothing new.
-                if (active) return
-                active = true
+                // Re-entering hold 1's corner view (back-out, camera restart) within one scan starts nothing new, and a
+                // start that lands after its scan's end (closed right after hold 1's view opened) starts nothing at all.
+                if (activeScan == scan || scan <= endedThrough) return
+                activeScan = scan
                 missingLogged = false
             }
             log("quickScan shadowReader state=${if (enabled()) "on" else "off"}")
@@ -108,9 +116,12 @@ internal class ShadowStickerReader
             }
         }
 
-        override fun onScanEnded() {
+        override fun onScanEnded(scan: Long) {
             synchronized(lock) {
-                active = false
+                endedThrough = maxOf(endedThrough, scan)
+                // A late end of an earlier scan leaves the running one alone.
+                if (activeScan != null && activeScan != scan) return
+                activeScan = null
                 // Queued reads (and the crops they hold) are dropped; a read in progress finishes and is then released.
                 executor?.shutdownNow()
                 executor = null
