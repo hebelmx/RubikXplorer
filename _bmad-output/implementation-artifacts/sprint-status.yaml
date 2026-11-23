@@ -2097,7 +2097,7 @@ action_items:
       lasts; pin it with a test and fold the rule into issue #298 for Solution Playback
       and practice (R5, LessonScreen.kt:655-656)"
     owner: "PO (hebelmx)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-11-22.md"
   - id: "epic-14-retro-item-230-compute-the-mastered-set-inside-chooseen"
     epic: 14
@@ -2141,3 +2141,12 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-261-scan-review-secondary-button-contrast.md"
+  - id: "issue-298-deferred-mismatch-flag-cleared-before-confirm"
+    epic: 14
+    action: "Quick Check after-mismatch highlight is cleared by done() before
+      PhysicalConfirmed is dispatched, so a rejected or ignored confirm drops the
+      highlight without a step advance; clear it on the session's state or revision
+      change instead (low, Learner-visible; gate finding on #298, LessonScreen.kt:727)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-298-quick-check-highlight-playback-practice.md"
