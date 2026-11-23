@@ -3,6 +3,24 @@
     {
       "cube": "stka",
       "device": "Lenovo TB128XU",
+      "group": "corner/lenovo-tb128xu_stka_bar-cool",
+      "kind": "real",
+      "light": "bar-cool",
+      "side": "train",
+      "stickered": true
+    },
+    {
+      "cube": "stka",
+      "device": "Lenovo TB128XU",
+      "group": "corner/lenovo-tb128xu_stka_bar-warm",
+      "kind": "real",
+      "light": "bar-warm",
+      "side": "train",
+      "stickered": true
+    },
+    {
+      "cube": "stka",
+      "device": "Lenovo TB128XU",
       "group": "corner/lenovo-tb128xu_stka_cool",
       "kind": "real",
       "light": "cool (backlit)",
@@ -39,6 +57,33 @@
     {
       "cube": "stla",
       "device": "Lenovo TB128XU",
+      "group": "corner/lenovo-tb128xu_stla_bar-cool",
+      "kind": "real",
+      "light": "bar-cool",
+      "side": "heldout",
+      "stickered": false
+    },
+    {
+      "cube": "stla",
+      "device": "Lenovo TB128XU",
+      "group": "corner/lenovo-tb128xu_stla_bar-warm",
+      "kind": "real",
+      "light": "bar-warm",
+      "side": "heldout",
+      "stickered": false
+    },
+    {
+      "cube": "stla",
+      "device": "Lenovo TB128XU",
+      "group": "corner/lenovo-tb128xu_stla_ceilback",
+      "kind": "real",
+      "light": "ceilback",
+      "side": "heldout",
+      "stickered": false
+    },
+    {
+      "cube": "stla",
+      "device": "Lenovo TB128XU",
       "group": "corner/lenovo-tb128xu_stla_cool",
       "kind": "real",
       "light": "cool (backlit)",
@@ -66,10 +111,100 @@
     {
       "cube": "stlb",
       "device": "Lenovo TB128XU",
+      "group": "corner/lenovo-tb128xu_stlb_bar-warm",
+      "kind": "real",
+      "light": "bar-warm",
+      "side": "train",
+      "stickered": false
+    },
+    {
+      "cube": "stlb",
+      "device": "Lenovo TB128XU",
       "group": "corner/lenovo-tb128xu_stlb_cool",
       "kind": "real",
       "light": "cool (backlit)",
       "side": "train",
+      "stickered": false
+    },
+    {
+      "cube": "stka",
+      "device": "Galaxy S24 FE",
+      "group": "corner/sm-s721u1_stka_bar-cool",
+      "kind": "real",
+      "light": "bar-cool",
+      "side": "train",
+      "stickered": true
+    },
+    {
+      "cube": "stka",
+      "device": "Galaxy S24 FE",
+      "group": "corner/sm-s721u1_stka_bar-cool-3",
+      "kind": "real",
+      "light": "bar-cool-3",
+      "side": "heldout",
+      "stickered": true
+    },
+    {
+      "cube": "stka",
+      "device": "Galaxy S24 FE",
+      "group": "corner/sm-s721u1_stka_bar-warm",
+      "kind": "real",
+      "light": "bar-warm",
+      "side": "train",
+      "stickered": true
+    },
+    {
+      "cube": "stka",
+      "device": "Galaxy S24 FE",
+      "group": "corner/sm-s721u1_stka_bar-warm-2",
+      "kind": "real",
+      "light": "bar-warm-2",
+      "side": "heldout",
+      "stickered": true
+    },
+    {
+      "cube": "stla",
+      "device": "Galaxy S24 FE",
+      "group": "corner/sm-s721u1_stla_bar-cool",
+      "kind": "real",
+      "light": "bar-cool",
+      "side": "heldout",
+      "stickered": false
+    },
+    {
+      "cube": "stla",
+      "device": "Galaxy S24 FE",
+      "group": "corner/sm-s721u1_stla_bar-cool-2",
+      "kind": "real",
+      "light": "bar-cool-2",
+      "side": "train",
+      "stickered": false
+    },
+    {
+      "cube": "stla",
+      "device": "Galaxy S24 FE",
+      "group": "corner/sm-s721u1_stla_bar-warm",
+      "kind": "real",
+      "light": "bar-warm",
+      "side": "heldout",
+      "stickered": false
+    },
+    {
+      "cube": "stla",
+      "device": "Galaxy S24 FE",
+      "group": "corner/sm-s721u1_stla_bar-warm-2",
+      "kind": "real",
+      "light": "bar-warm-2",
+      "side": "train",
+      "stickered": false
+    },
+    {
+      "cube": "stla",
+      "device": "Galaxy S24 FE",
+      "group": "corner/sm-s721u1_stla_ceilback",
+      "kind": "real",
+      "light": "ceilback",
+      "side": "heldout",
       "stickered": false
     },
     {
@@ -180,6 +315,90 @@
     }
   ],
   "items": [
+    {
+      "group": "corner/lenovo-tb128xu_stka_bar-cool",
+      "item": "corner/lenovo-tb128xu_stka_bar-cool/corner-1/F",
+      "sha256": "ef54f616b6c46c7af32f5115e5fdca04f2580f7dc10f0c3d341e38335db1a6ee",
+      "side": "train",
+      "source": "Fixtures/corner/lenovo-tb128xu_stka_bar-cool/corner-1.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stka_bar-cool",
+      "item": "corner/lenovo-tb128xu_stka_bar-cool/corner-1/R",
+      "sha256": "ef54f616b6c46c7af32f5115e5fdca04f2580f7dc10f0c3d341e38335db1a6ee",
+      "side": "train",
+      "source": "Fixtures/corner/lenovo-tb128xu_stka_bar-cool/corner-1.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stka_bar-cool",
+      "item": "corner/lenovo-tb128xu_stka_bar-cool/corner-1/U",
+      "sha256": "ef54f616b6c46c7af32f5115e5fdca04f2580f7dc10f0c3d341e38335db1a6ee",
+      "side": "train",
+      "source": "Fixtures/corner/lenovo-tb128xu_stka_bar-cool/corner-1.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stka_bar-cool",
+      "item": "corner/lenovo-tb128xu_stka_bar-cool/corner-2/B",
+      "sha256": "4812be089b84bf382dacec0bbcc5c5b4b356184c9df6704e2442f6e9089acb3d",
+      "side": "train",
+      "source": "Fixtures/corner/lenovo-tb128xu_stka_bar-cool/corner-2.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stka_bar-cool",
+      "item": "corner/lenovo-tb128xu_stka_bar-cool/corner-2/D",
+      "sha256": "4812be089b84bf382dacec0bbcc5c5b4b356184c9df6704e2442f6e9089acb3d",
+      "side": "train",
+      "source": "Fixtures/corner/lenovo-tb128xu_stka_bar-cool/corner-2.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stka_bar-cool",
+      "item": "corner/lenovo-tb128xu_stka_bar-cool/corner-2/L",
+      "sha256": "4812be089b84bf382dacec0bbcc5c5b4b356184c9df6704e2442f6e9089acb3d",
+      "side": "train",
+      "source": "Fixtures/corner/lenovo-tb128xu_stka_bar-cool/corner-2.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stka_bar-warm",
+      "item": "corner/lenovo-tb128xu_stka_bar-warm/corner-1/F",
+      "sha256": "5f45ecee07a76fef6129d792970da5822504ccc0b3ce47f9f335d2f1ec88d0b0",
+      "side": "train",
+      "source": "Fixtures/corner/lenovo-tb128xu_stka_bar-warm/corner-1.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stka_bar-warm",
+      "item": "corner/lenovo-tb128xu_stka_bar-warm/corner-1/R",
+      "sha256": "5f45ecee07a76fef6129d792970da5822504ccc0b3ce47f9f335d2f1ec88d0b0",
+      "side": "train",
+      "source": "Fixtures/corner/lenovo-tb128xu_stka_bar-warm/corner-1.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stka_bar-warm",
+      "item": "corner/lenovo-tb128xu_stka_bar-warm/corner-1/U",
+      "sha256": "5f45ecee07a76fef6129d792970da5822504ccc0b3ce47f9f335d2f1ec88d0b0",
+      "side": "train",
+      "source": "Fixtures/corner/lenovo-tb128xu_stka_bar-warm/corner-1.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stka_bar-warm",
+      "item": "corner/lenovo-tb128xu_stka_bar-warm/corner-2/B",
+      "sha256": "3d743b64bf3ae640a8a0682e172d02665b1fd56a550b6e76a9e2ec1f07ebc2d6",
+      "side": "train",
+      "source": "Fixtures/corner/lenovo-tb128xu_stka_bar-warm/corner-2.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stka_bar-warm",
+      "item": "corner/lenovo-tb128xu_stka_bar-warm/corner-2/D",
+      "sha256": "3d743b64bf3ae640a8a0682e172d02665b1fd56a550b6e76a9e2ec1f07ebc2d6",
+      "side": "train",
+      "source": "Fixtures/corner/lenovo-tb128xu_stka_bar-warm/corner-2.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stka_bar-warm",
+      "item": "corner/lenovo-tb128xu_stka_bar-warm/corner-2/L",
+      "sha256": "3d743b64bf3ae640a8a0682e172d02665b1fd56a550b6e76a9e2ec1f07ebc2d6",
+      "side": "train",
+      "source": "Fixtures/corner/lenovo-tb128xu_stka_bar-warm/corner-2.jpg"
+    },
     {
       "group": "corner/lenovo-tb128xu_stka_cool-front",
       "item": "corner/lenovo-tb128xu_stka_cool-front/corner-1/F",
@@ -349,6 +568,97 @@
       "source": "Fixtures/corner/lenovo-tb128xu_stkb_cool/corner-2.jpg"
     },
     {
+      "group": "corner/lenovo-tb128xu_stla_bar-cool",
+      "item": "corner/lenovo-tb128xu_stla_bar-cool/corner-1/F",
+      "sha256": "a9770f98e8d2e71e708277b7b4555bb77d2e5ff92d71af252972ba467d60fe1b",
+      "side": "heldout",
+      "source": "Fixtures/corner/lenovo-tb128xu_stla_bar-cool/corner-1.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stla_bar-cool",
+      "item": "corner/lenovo-tb128xu_stla_bar-cool/corner-1/R",
+      "sha256": "a9770f98e8d2e71e708277b7b4555bb77d2e5ff92d71af252972ba467d60fe1b",
+      "side": "heldout",
+      "source": "Fixtures/corner/lenovo-tb128xu_stla_bar-cool/corner-1.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stla_bar-cool",
+      "item": "corner/lenovo-tb128xu_stla_bar-cool/corner-1/U",
+      "sha256": "a9770f98e8d2e71e708277b7b4555bb77d2e5ff92d71af252972ba467d60fe1b",
+      "side": "heldout",
+      "source": "Fixtures/corner/lenovo-tb128xu_stla_bar-cool/corner-1.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stla_bar-cool",
+      "item": "corner/lenovo-tb128xu_stla_bar-cool/corner-2/B",
+      "sha256": "be2a03b7f232c1503e183413af5f9096d11cdf45bf2dc5ff58bcb85ad80a17f9",
+      "side": "heldout",
+      "source": "Fixtures/corner/lenovo-tb128xu_stla_bar-cool/corner-2.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stla_bar-warm",
+      "item": "corner/lenovo-tb128xu_stla_bar-warm/corner-1/F",
+      "sha256": "a7f65676d740bc0ea0b836dc55b17ffd3d43cca76460f6eb837484c4e84515b3",
+      "side": "heldout",
+      "source": "Fixtures/corner/lenovo-tb128xu_stla_bar-warm/corner-1.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stla_bar-warm",
+      "item": "corner/lenovo-tb128xu_stla_bar-warm/corner-1/U",
+      "sha256": "a7f65676d740bc0ea0b836dc55b17ffd3d43cca76460f6eb837484c4e84515b3",
+      "side": "heldout",
+      "source": "Fixtures/corner/lenovo-tb128xu_stla_bar-warm/corner-1.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stla_bar-warm",
+      "item": "corner/lenovo-tb128xu_stla_bar-warm/corner-2/B",
+      "sha256": "9c39f6a707e89e348ba607e8d9cc92d4ddf331f5119bb851a6583d05368f6813",
+      "side": "heldout",
+      "source": "Fixtures/corner/lenovo-tb128xu_stla_bar-warm/corner-2.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stla_ceilback",
+      "item": "corner/lenovo-tb128xu_stla_ceilback/corner-1/F",
+      "sha256": "d398d8c8674485f85144b4477875c4e8efe910d2a4c2efbc42131503139ba7e1",
+      "side": "heldout",
+      "source": "Fixtures/corner/lenovo-tb128xu_stla_ceilback/corner-1.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stla_ceilback",
+      "item": "corner/lenovo-tb128xu_stla_ceilback/corner-1/R",
+      "sha256": "d398d8c8674485f85144b4477875c4e8efe910d2a4c2efbc42131503139ba7e1",
+      "side": "heldout",
+      "source": "Fixtures/corner/lenovo-tb128xu_stla_ceilback/corner-1.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stla_ceilback",
+      "item": "corner/lenovo-tb128xu_stla_ceilback/corner-1/U",
+      "sha256": "d398d8c8674485f85144b4477875c4e8efe910d2a4c2efbc42131503139ba7e1",
+      "side": "heldout",
+      "source": "Fixtures/corner/lenovo-tb128xu_stla_ceilback/corner-1.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stla_ceilback",
+      "item": "corner/lenovo-tb128xu_stla_ceilback/corner-2/B",
+      "sha256": "ea910af17ae41897d69fa805a3b193ebcb2bc945dfde79088e1a8df6d10cd3e0",
+      "side": "heldout",
+      "source": "Fixtures/corner/lenovo-tb128xu_stla_ceilback/corner-2.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stla_ceilback",
+      "item": "corner/lenovo-tb128xu_stla_ceilback/corner-2/D",
+      "sha256": "ea910af17ae41897d69fa805a3b193ebcb2bc945dfde79088e1a8df6d10cd3e0",
+      "side": "heldout",
+      "source": "Fixtures/corner/lenovo-tb128xu_stla_ceilback/corner-2.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stla_ceilback",
+      "item": "corner/lenovo-tb128xu_stla_ceilback/corner-2/L",
+      "sha256": "ea910af17ae41897d69fa805a3b193ebcb2bc945dfde79088e1a8df6d10cd3e0",
+      "side": "heldout",
+      "source": "Fixtures/corner/lenovo-tb128xu_stla_ceilback/corner-2.jpg"
+    },
+    {
       "group": "corner/lenovo-tb128xu_stla_cool-front",
       "item": "corner/lenovo-tb128xu_stla_cool-front/corner-1/F",
       "sha256": "e7bd44d8666f326f1c8561ee256c8b6b23293334f5397298be09ed74db55e5ad",
@@ -461,6 +771,48 @@
       "source": "Fixtures/corner/lenovo-tb128xu_stla_warm/corner-2.jpg"
     },
     {
+      "group": "corner/lenovo-tb128xu_stlb_bar-warm",
+      "item": "corner/lenovo-tb128xu_stlb_bar-warm/corner-1/F",
+      "sha256": "130535b805ee3c9bc57ecdf834544136f678f5726b0a7c572c25aeab8b8132ff",
+      "side": "train",
+      "source": "Fixtures/corner/lenovo-tb128xu_stlb_bar-warm/corner-1.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stlb_bar-warm",
+      "item": "corner/lenovo-tb128xu_stlb_bar-warm/corner-1/R",
+      "sha256": "130535b805ee3c9bc57ecdf834544136f678f5726b0a7c572c25aeab8b8132ff",
+      "side": "train",
+      "source": "Fixtures/corner/lenovo-tb128xu_stlb_bar-warm/corner-1.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stlb_bar-warm",
+      "item": "corner/lenovo-tb128xu_stlb_bar-warm/corner-1/U",
+      "sha256": "130535b805ee3c9bc57ecdf834544136f678f5726b0a7c572c25aeab8b8132ff",
+      "side": "train",
+      "source": "Fixtures/corner/lenovo-tb128xu_stlb_bar-warm/corner-1.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stlb_bar-warm",
+      "item": "corner/lenovo-tb128xu_stlb_bar-warm/corner-2/B",
+      "sha256": "b7f3f1b22d09466a1e4e23c3df4372abdf6775a3b3a1186f04aa9e0d5f9f1303",
+      "side": "train",
+      "source": "Fixtures/corner/lenovo-tb128xu_stlb_bar-warm/corner-2.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stlb_bar-warm",
+      "item": "corner/lenovo-tb128xu_stlb_bar-warm/corner-2/D",
+      "sha256": "b7f3f1b22d09466a1e4e23c3df4372abdf6775a3b3a1186f04aa9e0d5f9f1303",
+      "side": "train",
+      "source": "Fixtures/corner/lenovo-tb128xu_stlb_bar-warm/corner-2.jpg"
+    },
+    {
+      "group": "corner/lenovo-tb128xu_stlb_bar-warm",
+      "item": "corner/lenovo-tb128xu_stlb_bar-warm/corner-2/L",
+      "sha256": "b7f3f1b22d09466a1e4e23c3df4372abdf6775a3b3a1186f04aa9e0d5f9f1303",
+      "side": "train",
+      "source": "Fixtures/corner/lenovo-tb128xu_stlb_bar-warm/corner-2.jpg"
+    },
+    {
       "group": "corner/lenovo-tb128xu_stlb_cool",
       "item": "corner/lenovo-tb128xu_stlb_cool/corner-1/R",
       "sha256": "b26db3784f8f6b94cbe55c14da30a5d18096d8f9cbdec50e28a652a93c9e1641",
@@ -494,6 +846,335 @@
       "sha256": "1e2fd57c7351acc298125865efa26b81c1fe58d78fb44aaaabcb6ff3cc36f9ac",
       "side": "train",
       "source": "Fixtures/corner/lenovo-tb128xu_stlb_cool/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-cool-3",
+      "item": "corner/sm-s721u1_stka_bar-cool-3/corner-1/F",
+      "sha256": "a79aeba00d860588f751d09248e7a6ad64f498cf0e5873229b073fbdc37cb328",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-cool-3/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-cool-3",
+      "item": "corner/sm-s721u1_stka_bar-cool-3/corner-1/R",
+      "sha256": "a79aeba00d860588f751d09248e7a6ad64f498cf0e5873229b073fbdc37cb328",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-cool-3/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-cool-3",
+      "item": "corner/sm-s721u1_stka_bar-cool-3/corner-1/U",
+      "sha256": "a79aeba00d860588f751d09248e7a6ad64f498cf0e5873229b073fbdc37cb328",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-cool-3/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-cool-3",
+      "item": "corner/sm-s721u1_stka_bar-cool-3/corner-2/D",
+      "sha256": "20ed68963d23ffd2f6ffef3df45a4e471355231ceea4cb4a1a6a31ac2c06b10d",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-cool-3/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-cool-3",
+      "item": "corner/sm-s721u1_stka_bar-cool-3/corner-2/L",
+      "sha256": "20ed68963d23ffd2f6ffef3df45a4e471355231ceea4cb4a1a6a31ac2c06b10d",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-cool-3/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-cool",
+      "item": "corner/sm-s721u1_stka_bar-cool/corner-1/F",
+      "sha256": "8c3fdd7ee7c784b3b5ce0a115dddb7fd670a311c2a8fb64c56d8c62ebf846b8c",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-cool/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-cool",
+      "item": "corner/sm-s721u1_stka_bar-cool/corner-1/R",
+      "sha256": "8c3fdd7ee7c784b3b5ce0a115dddb7fd670a311c2a8fb64c56d8c62ebf846b8c",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-cool/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-cool",
+      "item": "corner/sm-s721u1_stka_bar-cool/corner-1/U",
+      "sha256": "8c3fdd7ee7c784b3b5ce0a115dddb7fd670a311c2a8fb64c56d8c62ebf846b8c",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-cool/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-cool",
+      "item": "corner/sm-s721u1_stka_bar-cool/corner-2/B",
+      "sha256": "d26f0dcca3bccb1e2f0fa923094227efe845940af8a5d986ae7682ffef048baa",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-cool/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-cool",
+      "item": "corner/sm-s721u1_stka_bar-cool/corner-2/D",
+      "sha256": "d26f0dcca3bccb1e2f0fa923094227efe845940af8a5d986ae7682ffef048baa",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-cool/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-cool",
+      "item": "corner/sm-s721u1_stka_bar-cool/corner-2/L",
+      "sha256": "d26f0dcca3bccb1e2f0fa923094227efe845940af8a5d986ae7682ffef048baa",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-cool/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-warm-2",
+      "item": "corner/sm-s721u1_stka_bar-warm-2/corner-1/F",
+      "sha256": "2ff0a759ea7f8930df0d1d33621ab3f10c44f3c6cc0a34d803c9bfb2d9ac82cb",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-warm-2/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-warm-2",
+      "item": "corner/sm-s721u1_stka_bar-warm-2/corner-1/R",
+      "sha256": "2ff0a759ea7f8930df0d1d33621ab3f10c44f3c6cc0a34d803c9bfb2d9ac82cb",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-warm-2/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-warm-2",
+      "item": "corner/sm-s721u1_stka_bar-warm-2/corner-1/U",
+      "sha256": "2ff0a759ea7f8930df0d1d33621ab3f10c44f3c6cc0a34d803c9bfb2d9ac82cb",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-warm-2/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-warm-2",
+      "item": "corner/sm-s721u1_stka_bar-warm-2/corner-2/B",
+      "sha256": "d1b19d5f4c7fe5c232c4ef6693e6c5a726d2520d3459faeca2d649bf34d4c3bd",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-warm-2/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-warm-2",
+      "item": "corner/sm-s721u1_stka_bar-warm-2/corner-2/D",
+      "sha256": "d1b19d5f4c7fe5c232c4ef6693e6c5a726d2520d3459faeca2d649bf34d4c3bd",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-warm-2/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-warm-2",
+      "item": "corner/sm-s721u1_stka_bar-warm-2/corner-2/L",
+      "sha256": "d1b19d5f4c7fe5c232c4ef6693e6c5a726d2520d3459faeca2d649bf34d4c3bd",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-warm-2/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-warm",
+      "item": "corner/sm-s721u1_stka_bar-warm/corner-1/F",
+      "sha256": "d6fec775836afcb78eb79e9e38fb8db03884ae6c52d4fd16201c63574184c395",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-warm/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-warm",
+      "item": "corner/sm-s721u1_stka_bar-warm/corner-1/R",
+      "sha256": "d6fec775836afcb78eb79e9e38fb8db03884ae6c52d4fd16201c63574184c395",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-warm/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-warm",
+      "item": "corner/sm-s721u1_stka_bar-warm/corner-1/U",
+      "sha256": "d6fec775836afcb78eb79e9e38fb8db03884ae6c52d4fd16201c63574184c395",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-warm/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-warm",
+      "item": "corner/sm-s721u1_stka_bar-warm/corner-2/B",
+      "sha256": "14ca11d9792a037e3ce618c2027595e7fb5e2195d5cc403940e1445243c41b5c",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-warm/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-warm",
+      "item": "corner/sm-s721u1_stka_bar-warm/corner-2/D",
+      "sha256": "14ca11d9792a037e3ce618c2027595e7fb5e2195d5cc403940e1445243c41b5c",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-warm/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stka_bar-warm",
+      "item": "corner/sm-s721u1_stka_bar-warm/corner-2/L",
+      "sha256": "14ca11d9792a037e3ce618c2027595e7fb5e2195d5cc403940e1445243c41b5c",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stka_bar-warm/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_bar-cool-2",
+      "item": "corner/sm-s721u1_stla_bar-cool-2/corner-1/R",
+      "sha256": "568382bcfef805fd9b87510fccdbe37baa6cd8f31254fc483b8d91fdc0701135",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stla_bar-cool-2/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_bar-cool-2",
+      "item": "corner/sm-s721u1_stla_bar-cool-2/corner-1/U",
+      "sha256": "568382bcfef805fd9b87510fccdbe37baa6cd8f31254fc483b8d91fdc0701135",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stla_bar-cool-2/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_bar-cool-2",
+      "item": "corner/sm-s721u1_stla_bar-cool-2/corner-2/B",
+      "sha256": "7fad58278a815afe2bad749a23230263cf3fc9fee900cc3cf10bfe3d7abf29b2",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stla_bar-cool-2/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_bar-cool-2",
+      "item": "corner/sm-s721u1_stla_bar-cool-2/corner-2/D",
+      "sha256": "7fad58278a815afe2bad749a23230263cf3fc9fee900cc3cf10bfe3d7abf29b2",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stla_bar-cool-2/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_bar-cool-2",
+      "item": "corner/sm-s721u1_stla_bar-cool-2/corner-2/L",
+      "sha256": "7fad58278a815afe2bad749a23230263cf3fc9fee900cc3cf10bfe3d7abf29b2",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stla_bar-cool-2/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_bar-cool",
+      "item": "corner/sm-s721u1_stla_bar-cool/corner-1/R",
+      "sha256": "f00bbda184fd749323f0cd6cf465a02123cb7680e453d5898b8627cb32533ca0",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stla_bar-cool/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_bar-cool",
+      "item": "corner/sm-s721u1_stla_bar-cool/corner-1/U",
+      "sha256": "f00bbda184fd749323f0cd6cf465a02123cb7680e453d5898b8627cb32533ca0",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stla_bar-cool/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_bar-cool",
+      "item": "corner/sm-s721u1_stla_bar-cool/corner-2/B",
+      "sha256": "c344a7652acc28d35f3bb4b938dbb10b0fb1ce6b70df60b72067196924de2048",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stla_bar-cool/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_bar-cool",
+      "item": "corner/sm-s721u1_stla_bar-cool/corner-2/D",
+      "sha256": "c344a7652acc28d35f3bb4b938dbb10b0fb1ce6b70df60b72067196924de2048",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stla_bar-cool/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_bar-cool",
+      "item": "corner/sm-s721u1_stla_bar-cool/corner-2/L",
+      "sha256": "c344a7652acc28d35f3bb4b938dbb10b0fb1ce6b70df60b72067196924de2048",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stla_bar-cool/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_bar-warm-2",
+      "item": "corner/sm-s721u1_stla_bar-warm-2/corner-1/F",
+      "sha256": "1bd373ecf793cbcac03ab65c25c8ad6a697735b033e3037a6cefb6c6e2b0a84f",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stla_bar-warm-2/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_bar-warm-2",
+      "item": "corner/sm-s721u1_stla_bar-warm-2/corner-1/R",
+      "sha256": "1bd373ecf793cbcac03ab65c25c8ad6a697735b033e3037a6cefb6c6e2b0a84f",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stla_bar-warm-2/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_bar-warm-2",
+      "item": "corner/sm-s721u1_stla_bar-warm-2/corner-1/U",
+      "sha256": "1bd373ecf793cbcac03ab65c25c8ad6a697735b033e3037a6cefb6c6e2b0a84f",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stla_bar-warm-2/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_bar-warm-2",
+      "item": "corner/sm-s721u1_stla_bar-warm-2/corner-2/B",
+      "sha256": "ae723768ada7b06db87e9a8d47d5901ecd76a41703da81a79339c9ac52ebec94",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stla_bar-warm-2/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_bar-warm-2",
+      "item": "corner/sm-s721u1_stla_bar-warm-2/corner-2/L",
+      "sha256": "ae723768ada7b06db87e9a8d47d5901ecd76a41703da81a79339c9ac52ebec94",
+      "side": "train",
+      "source": "Fixtures/corner/sm-s721u1_stla_bar-warm-2/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_bar-warm",
+      "item": "corner/sm-s721u1_stla_bar-warm/corner-1/F",
+      "sha256": "595fcb5157cd521ba4ca117318314295c47fc471681f8b45a8044596135a93cc",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stla_bar-warm/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_bar-warm",
+      "item": "corner/sm-s721u1_stla_bar-warm/corner-1/U",
+      "sha256": "595fcb5157cd521ba4ca117318314295c47fc471681f8b45a8044596135a93cc",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stla_bar-warm/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_bar-warm",
+      "item": "corner/sm-s721u1_stla_bar-warm/corner-2/B",
+      "sha256": "32367550bec44b3631a549ac0c0648046e87a28e18dba72c94ef8923ac0b282b",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stla_bar-warm/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_ceilback",
+      "item": "corner/sm-s721u1_stla_ceilback/corner-1/F",
+      "sha256": "70d008ddce473ddec9b0058c604828c43f8dfc2731bdda078cde910bf3d97b30",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stla_ceilback/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_ceilback",
+      "item": "corner/sm-s721u1_stla_ceilback/corner-1/R",
+      "sha256": "70d008ddce473ddec9b0058c604828c43f8dfc2731bdda078cde910bf3d97b30",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stla_ceilback/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_ceilback",
+      "item": "corner/sm-s721u1_stla_ceilback/corner-1/U",
+      "sha256": "70d008ddce473ddec9b0058c604828c43f8dfc2731bdda078cde910bf3d97b30",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stla_ceilback/corner-1.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_ceilback",
+      "item": "corner/sm-s721u1_stla_ceilback/corner-2/B",
+      "sha256": "bc97713475352f698a2c8bf7efe7fc9727e088e53b3995faead39696bd8f10f9",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stla_ceilback/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_ceilback",
+      "item": "corner/sm-s721u1_stla_ceilback/corner-2/D",
+      "sha256": "bc97713475352f698a2c8bf7efe7fc9727e088e53b3995faead39696bd8f10f9",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stla_ceilback/corner-2.jpg"
+    },
+    {
+      "group": "corner/sm-s721u1_stla_ceilback",
+      "item": "corner/sm-s721u1_stla_ceilback/corner-2/L",
+      "sha256": "bc97713475352f698a2c8bf7efe7fc9727e088e53b3995faead39696bd8f10f9",
+      "side": "heldout",
+      "source": "Fixtures/corner/sm-s721u1_stla_ceilback/corner-2.jpg"
     },
     {
       "group": "live/lenovo-tb128xu_stka_studio-a",

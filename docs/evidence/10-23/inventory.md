@@ -5,8 +5,8 @@ runs beside the Kotlin reads*), SCP 2026-11-22 quick-scan-sticker-reader. Seed `
 
 ## Summary
 
-- **Image-backed real faces used:** 111 (train 69, tune 18, heldout 24).
-- **Excluded image faces:** 9 (listed below with the reason).
+- **Image-backed real faces used:** 189 (train 109, tune 18, heldout 62).
+- **Excluded image faces:** 21 (listed below with the reason).
 - **Synthetic faces:** generated at training time by `synth_faces.py` (seeded), **training side only**; no synthetic
   item is in tune or held-out (checked by `split.py`, `test_split.py` and `StickerModelSplitTest`).
 - **Labels:** every used face carries the nine-sticker `truth` of its record (operator-entered or confirmed), in
@@ -20,14 +20,29 @@ runs beside the Kotlin reads*), SCP 2026-11-22 quick-scan-sticker-reader. Seed `
 
 | Group | Side | Device | Cube | Stickered | Light | Holds | Faces | Image faces used |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `corner/lenovo-tb128xu_stka_bar-cool` | train | Lenovo TB128XU | stka | yes | bar-cool | corner-pre-10.19 (schema 3) | 6 | 6 |
+| `corner/lenovo-tb128xu_stka_bar-warm` | train | Lenovo TB128XU | stka | yes | bar-warm | corner-pre-10.19 (schema 3) | 6 | 6 |
 | `corner/lenovo-tb128xu_stka_cool` | heldout | Lenovo TB128XU | stka | yes | cool (backlit) | corner-pre-10.19 (schema 3) | 6 | 6 |
 | `corner/lenovo-tb128xu_stka_cool-front` | tune | Lenovo TB128XU | stka | yes | cool (front) | corner-pre-10.19 (schema 3) | 6 | 6 |
 | `corner/lenovo-tb128xu_stka_warm` | train | Lenovo TB128XU | stka | yes | warm (front) | corner-pre-10.19 (schema 3) | 6 | 6 |
 | `corner/lenovo-tb128xu_stkb_cool` | train | Lenovo TB128XU | stkb | yes | cool (backlit) | corner-pre-10.19 (schema 3) | 6 | 6 |
+| `corner/lenovo-tb128xu_stla_bar-cool` | heldout | Lenovo TB128XU | stla | no | bar-cool | corner-pre-10.19 (schema 3) | 6 | 4 |
+| `corner/lenovo-tb128xu_stla_bar-warm` | heldout | Lenovo TB128XU | stla | no | bar-warm | corner-pre-10.19 (schema 3) | 6 | 3 |
+| `corner/lenovo-tb128xu_stla_ceilback` | heldout | Lenovo TB128XU | stla | no | ceilback | corner-pre-10.19 (schema 3) | 6 | 6 |
 | `corner/lenovo-tb128xu_stla_cool` | heldout | Lenovo TB128XU | stla | no | cool (backlit) | corner-pre-10.19 (schema 3) | 6 | 6 |
 | `corner/lenovo-tb128xu_stla_cool-front` | train | Lenovo TB128XU | stla | no | cool (front) | corner-pre-10.19 (schema 3) | 6 | 6 |
 | `corner/lenovo-tb128xu_stla_warm` | train | Lenovo TB128XU | stla | no | warm (front) | corner-pre-10.19 (schema 3) | 6 | 4 |
+| `corner/lenovo-tb128xu_stlb_bar-warm` | train | Lenovo TB128XU | stlb | no | bar-warm | corner-pre-10.19 (schema 3) | 6 | 6 |
 | `corner/lenovo-tb128xu_stlb_cool` | train | Lenovo TB128XU | stlb | no | cool (backlit) | corner-pre-10.19 (schema 3) | 6 | 5 |
+| `corner/sm-s721u1_stka_bar-cool` | train | Galaxy S24 FE | stka | yes | bar-cool | corner-pre-10.19 (schema 3) | 6 | 6 |
+| `corner/sm-s721u1_stka_bar-cool-3` | heldout | Galaxy S24 FE | stka | yes | bar-cool-3 | corner-pre-10.19 (schema 3) | 6 | 5 |
+| `corner/sm-s721u1_stka_bar-warm` | train | Galaxy S24 FE | stka | yes | bar-warm | corner-pre-10.19 (schema 3) | 6 | 6 |
+| `corner/sm-s721u1_stka_bar-warm-2` | heldout | Galaxy S24 FE | stka | yes | bar-warm-2 | corner-pre-10.19 (schema 3) | 6 | 6 |
+| `corner/sm-s721u1_stla_bar-cool` | heldout | Galaxy S24 FE | stla | no | bar-cool | corner-pre-10.19 (schema 3) | 6 | 5 |
+| `corner/sm-s721u1_stla_bar-cool-2` | train | Galaxy S24 FE | stla | no | bar-cool-2 | corner-pre-10.19 (schema 3) | 6 | 5 |
+| `corner/sm-s721u1_stla_bar-warm` | heldout | Galaxy S24 FE | stla | no | bar-warm | corner-pre-10.19 (schema 3) | 6 | 3 |
+| `corner/sm-s721u1_stla_bar-warm-2` | train | Galaxy S24 FE | stla | no | bar-warm-2 | corner-pre-10.19 (schema 3) | 6 | 5 |
+| `corner/sm-s721u1_stla_ceilback` | heldout | Galaxy S24 FE | stla | no | ceilback | corner-pre-10.19 (schema 3) | 6 | 6 |
 | `live/lenovo-tb128xu_stka_studio` | not used | Lenovo TB128XU | stka | yes | studio (front) | live-a (schema 1) | 6 | 0 |
 | `live/lenovo-tb128xu_stka_studio-a` | train | Lenovo TB128XU | stka | yes | studio (front) | live-a2 (schema 2) | 6 | 6 |
 | `live/lenovo-tb128xu_stkb_studio-a` | tune | Lenovo TB128XU | stkb | yes | studio (front) | live-a2 (schema 2) | 6 | 6 |
@@ -74,25 +89,40 @@ Pipelines: `live-a2` = `Fixtures/live/*_studio-a` frames (the recorder grid, the
 | --- | --- | --- | --- | --- | --- | --- |
 | Galaxy S24 FE | gan-stickerless | room (unmetered) | 1 | 6 | train | **thin** |
 | Galaxy S24 FE | rubik-stickered | room (unmetered) | 1 | 6 | train | **thin** |
+| Galaxy S24 FE | stka | bar-cool | 1 | 6 | train | **thin** |
+| Galaxy S24 FE | stka | bar-cool-3 | 1 | 5 | heldout | **thin** |
+| Galaxy S24 FE | stka | bar-warm | 1 | 6 | train | **thin** |
+| Galaxy S24 FE | stka | bar-warm-2 | 1 | 6 | heldout | **thin** |
 | Galaxy S24 FE | stka | studio (front) | 1 | 6 | heldout | **thin** |
+| Galaxy S24 FE | stla | bar-cool | 1 | 5 | heldout | **thin** |
+| Galaxy S24 FE | stla | bar-cool-2 | 1 | 5 | train | **thin** |
+| Galaxy S24 FE | stla | bar-warm | 1 | 3 | heldout | **thin** |
+| Galaxy S24 FE | stla | bar-warm-2 | 1 | 5 | train | **thin** |
+| Galaxy S24 FE | stla | ceilback | 1 | 6 | heldout | **thin** |
 | Galaxy S24 FE | stla | studio (front) | 1 | 6 | heldout | **thin** |
 | Galaxy S24 FE | stlb | studio (front) | 1 | 6 | train | **thin** |
 | Galaxy Tab SM-T738U | gan-stickerless | room (unmetered) | 1 | 6 | train | **thin** |
 | Galaxy Tab SM-T738U | rubik-stickered | room (unmetered) | 1 | 6 | tune | **thin** |
+| Lenovo TB128XU | stka | bar-cool | 1 | 6 | train | **thin** |
+| Lenovo TB128XU | stka | bar-warm | 1 | 6 | train | **thin** |
 | Lenovo TB128XU | stka | cool (backlit) | 1 | 6 | heldout | **thin** |
 | Lenovo TB128XU | stka | cool (front) | 1 | 6 | tune | **thin** |
 | Lenovo TB128XU | stka | studio (front) | 1 | 6 | train | **thin** |
 | Lenovo TB128XU | stka | warm (front) | 1 | 6 | train | **thin** |
 | Lenovo TB128XU | stkb | cool (backlit) | 1 | 6 | train | **thin** |
 | Lenovo TB128XU | stkb | studio (front) | 1 | 6 | tune | **thin** |
+| Lenovo TB128XU | stla | bar-cool | 1 | 4 | heldout | **thin** |
+| Lenovo TB128XU | stla | bar-warm | 1 | 3 | heldout | **thin** |
+| Lenovo TB128XU | stla | ceilback | 1 | 6 | heldout | **thin** |
 | Lenovo TB128XU | stla | cool (backlit) | 1 | 6 | heldout | **thin** |
 | Lenovo TB128XU | stla | cool (front) | 1 | 6 | train | **thin** |
 | Lenovo TB128XU | stla | studio (front) | 1 | 6 | train | **thin** |
 | Lenovo TB128XU | stla | warm (front) | 1 | 4 | train | **thin** |
+| Lenovo TB128XU | stlb | bar-warm | 1 | 6 | train | **thin** |
 | Lenovo TB128XU | stlb | cool (backlit) | 1 | 5 | train | **thin** |
 | Lenovo TB128XU | stlb | studio (front) | 1 | 6 | train | **thin** |
 
-**19 of 19 cells are thin** (19 with fewer than 2 groups, 19 with fewer than 12 faces). The
+**34 of 34 cells are thin** (34 with fewer than 2 groups, 34 with fewer than 12 faces). The
 human gate **H1** (`human-gate.md`) asks for extra fixture captures in the thin cells, first where nothing exists at all:
 
 - no Galaxy S24 FE Quick Scan corner capture, no shaded or backlit S24 FE face and no torch-on capture exist;
@@ -107,9 +137,21 @@ docs/evidence/10-18/d2-side-face-replay.md); `cool` corner groups are backlit; `
 
 | Item | Source | Reason |
 | --- | --- | --- |
+| `corner/lenovo-tb128xu_stla_bar-cool/corner-2/D` | `Fixtures/corner/lenovo-tb128xu_stla_bar-cool/corner-2.jpg` | misaligned: max cell dE 33.01 > 30.0 |
+| `corner/lenovo-tb128xu_stla_bar-cool/corner-2/L` | `Fixtures/corner/lenovo-tb128xu_stla_bar-cool/corner-2.jpg` | misaligned: median cell dE 24.04 > 15.0 |
+| `corner/lenovo-tb128xu_stla_bar-warm/corner-1/R` | `Fixtures/corner/lenovo-tb128xu_stla_bar-warm/corner-1.jpg` | misaligned: max cell dE 40.04 > 30.0 |
+| `corner/lenovo-tb128xu_stla_bar-warm/corner-2/D` | `Fixtures/corner/lenovo-tb128xu_stla_bar-warm/corner-2.jpg` | misaligned: max cell dE 56.28 > 30.0 |
+| `corner/lenovo-tb128xu_stla_bar-warm/corner-2/L` | `Fixtures/corner/lenovo-tb128xu_stla_bar-warm/corner-2.jpg` | misaligned: max cell dE 84.28 > 30.0 |
 | `corner/lenovo-tb128xu_stla_warm/corner-2/B` | `Fixtures/corner/lenovo-tb128xu_stla_warm/corner-2.jpg` | misaligned: max cell dE 46.11 > 30.0 |
 | `corner/lenovo-tb128xu_stla_warm/corner-2/L` | `Fixtures/corner/lenovo-tb128xu_stla_warm/corner-2.jpg` | misaligned: median cell dE 19.83 > 15.0 |
 | `corner/lenovo-tb128xu_stlb_cool/corner-1/F` | `Fixtures/corner/lenovo-tb128xu_stlb_cool/corner-1.jpg` | misaligned: max cell dE 66.63 > 30.0 |
+| `corner/sm-s721u1_stka_bar-cool-3/corner-2/B` | `Fixtures/corner/sm-s721u1_stka_bar-cool-3/corner-2.jpg` | misaligned: max cell dE 38.09 > 30.0 |
+| `corner/sm-s721u1_stla_bar-cool-2/corner-1/F` | `Fixtures/corner/sm-s721u1_stla_bar-cool-2/corner-1.jpg` | misaligned: max cell dE 30.47 > 30.0 |
+| `corner/sm-s721u1_stla_bar-cool/corner-1/F` | `Fixtures/corner/sm-s721u1_stla_bar-cool/corner-1.jpg` | misaligned: median cell dE 26.57 > 15.0 |
+| `corner/sm-s721u1_stla_bar-warm-2/corner-2/D` | `Fixtures/corner/sm-s721u1_stla_bar-warm-2/corner-2.jpg` | misaligned: max cell dE 59.94 > 30.0 |
+| `corner/sm-s721u1_stla_bar-warm/corner-1/R` | `Fixtures/corner/sm-s721u1_stla_bar-warm/corner-1.jpg` | misaligned: max cell dE 30.15 > 30.0 |
+| `corner/sm-s721u1_stla_bar-warm/corner-2/D` | `Fixtures/corner/sm-s721u1_stla_bar-warm/corner-2.jpg` | misaligned: max cell dE 55.51 > 30.0 |
+| `corner/sm-s721u1_stla_bar-warm/corner-2/L` | `Fixtures/corner/sm-s721u1_stla_bar-warm/corner-2.jpg` | misaligned: median cell dE 28.9 > 15.0 |
 | `live/sm-s721u1_stkb_studio-a/B` | `Fixtures/live/sm-s721u1_stkb_studio-a/B.jpg` | truth is not a valid cube (docs/scan-accuracy.md) |
 | `live/sm-s721u1_stkb_studio-a/D` | `Fixtures/live/sm-s721u1_stkb_studio-a/D.jpg` | truth is not a valid cube (docs/scan-accuracy.md) |
 | `live/sm-s721u1_stkb_studio-a/F` | `Fixtures/live/sm-s721u1_stkb_studio-a/F.jpg` | truth is not a valid cube (docs/scan-accuracy.md) |
