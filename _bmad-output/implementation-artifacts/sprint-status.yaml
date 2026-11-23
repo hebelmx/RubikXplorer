@@ -778,7 +778,7 @@ action_items:
       it only while tables are actually built (low; residual risk from 3.7, spec-3-7:174;
       #112 (closed) reworded the copy, so check first whether this still holds)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-3-7-solve-tab-end-to-end.md"
   - id: "issue-178-deferred-scrambled-non-home-scan-centers"
     epic: 10
