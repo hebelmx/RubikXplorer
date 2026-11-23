@@ -63,6 +63,7 @@ import dev.cubentia.domain.cube.Turn
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.job
@@ -71,6 +72,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -121,7 +123,13 @@ class AppShellSolveTest {
         )
     private var solver: CubeSolver = CubeSolver { SolveResult.Solved(emptyList()) }
     private var allowSolverLoad = true
-    private var ready = true
+
+    @Volatile private var ready = true
+
+    // Opt-in: the source keeps its solver after its first gated load, like PruningTableSolverSource (#262).
+    private var keepsSolver = false
+
+    @Volatile private var tableLoads = 0
     private var generating = false
     private val loadGate = CompletableDeferred<Unit>()
     private val flow =
@@ -132,7 +140,11 @@ class AppShellSolveTest {
                 override suspend fun load(onGenerating: () -> Unit): SolverLoad {
                     if (!allowSolverLoad) throw AssertionError("Already-solved confirmation must not load the solver")
                     if (generating) onGenerating()
-                    if (!ready) loadGate.await()
+                    if (!ready) {
+                        tableLoads++
+                        loadGate.await()
+                        if (keepsSolver) ready = true
+                    }
                     return SolverLoad.Ready(solver)
                 }
             },
@@ -467,7 +479,7 @@ class AppShellSolveTest {
         rule.runOnIdle { flow.accept(CubeState.SOLVED) { _, _ -> published = true } }
         rule.waitForIdle()
         rule.onNodeWithTag("solve:preparing").assertTextEquals(
-            "Preparing the solver. The first solve after the app starts takes longer. Later solves are faster.",
+            "Preparing the solver.",
         )
         click("nav:learn")
         assertEquals(SolvePhase.Editing(CubeState.SOLVED.toFacelets()), flow.phase.value)
@@ -477,6 +489,48 @@ class AppShellSolveTest {
         rule.waitForIdle()
         assertEquals(false, published)
         assertNotEquals(SessionKind.SOLVE_PLAYBACK, host.state.value.kind)
+    }
+
+    @Test fun preparingShowsOnTheFirstSolveOnlyWhenTheSourceKeepsItsSolver() {
+        // Like PruningTableSolverSource: not ready until its first load completes, then it keeps its solver (#262).
+        ready = false
+        keepsSolver = true
+        val first = FaceTurn(Face.R, Turn.CLOCKWISE)
+        solver = CubeSolver { SolveResult.Solved(listOf(first.inverse())) }
+        show()
+        click("nav:solve")
+        rule.runOnIdle {
+            flow.accept(
+                CubeState.SOLVED.apply(first),
+            ) { state, moves -> host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it) } }
+        }
+        rule.waitUntil(10000) { rule.onAllNodesWithTag("solve:preparing").fetchSemanticsNodes().size == 1 }
+        rule.onNodeWithTag("solve:preparing").assertTextEquals("Preparing the solver.")
+        loadGate.complete(Unit)
+        rule.waitUntil(10000) { host.state.value.kind == SessionKind.SOLVE_PLAYBACK }
+        click("solvePlayback:close")
+        rule.waitUntil(10000) { host.state.value.kind != SessionKind.SOLVE_PLAYBACK }
+        rule.waitForIdle()
+        // Hold the second solve so the solving state is observable. The NonCancellable gate only keeps the solving state
+        // held: SolveCube's 3 s deadline still applies, so the gate must be released within it (as ScreenAudit notes).
+        val second = FaceTurn(Face.U, Turn.CLOCKWISE)
+        val solveGate = CompletableDeferred<Unit>()
+        solver =
+            CubeSolver {
+                withContext(NonCancellable) { solveGate.await() }
+                SolveResult.Solved(listOf(second.inverse()))
+            }
+        rule.runOnIdle {
+            flow.accept(
+                CubeState.SOLVED.apply(second),
+            ) { state, moves -> host.dispatch { SessionEvent.SolvePlaybackStarted(state, moves, it) } }
+        }
+        rule.waitUntil(10000) { rule.onAllNodesWithTag("solve:progress").fetchSemanticsNodes().size == 1 }
+        rule.onNodeWithTag("solve:preparing").assertDoesNotExist()
+        assertEquals(1, tableLoads)
+        solveGate.complete(Unit)
+        rule.waitUntil(10000) { host.state.value.kind == SessionKind.SOLVE_PLAYBACK }
+        assertEquals(CubeState.SOLVED.apply(second), host.state.value.entry)
     }
 
     @Test fun physicalLastDoneOffersLearn() {
@@ -804,7 +858,7 @@ class AppShellSolveTest {
         assertPauseNoteMargin()
         click("editor:accept")
         rule.onNodeWithTag("solve:preparing").assertTextEquals(
-            "Preparing the solver. The first solve after the app starts takes longer. Later solves are faster.",
+            "Preparing the solver.",
         )
         rule.onNodeWithTag("solve:progress").assertExists()
         assertPauseNoteMargin()

@@ -705,7 +705,7 @@ Decisions by the product owner (SCP 2026-11-12), which replace the questions thi
 
 | # | Limitation | Measured | Disposition |
 | --- | --- | --- | --- |
-| 2 | Per-process solver preparation is long | 12.6 s debug (median, n = 5); ≤ 10.5 s release-equivalent (coarse) | **Accepted for v1.0; speed-up tracked in #104 (v1.1).** The copy no longer promises "a few seconds": `msg.solve.preparing` now reads "Preparing the solver. The first solve after the app starts takes longer. Later solves are faster." (`core/domain/src/main/resources/content/strings/en.json`, #123). A second solve in the same process goes straight to playback. |
+| 2 | Per-process solver preparation is long | 12.6 s debug (median, n = 5); ≤ 10.5 s release-equivalent (coarse) | **Accepted for v1.0; speed-up tracked in #104 (v1.1).** The copy no longer promises "a few seconds": `msg.solve.preparing` now reads "Preparing the solver." (`core/domain/src/main/resources/content/strings/en.json`, #262; earlier wording #123). A second solve in the same process goes straight to playback. |
 | 3 | First-time table generation is long | G = 14.35 s | **Accepted.** Generation runs only on the fallback path (bundled tables are selected, Story 3.8 rule G ≤ 5 s), once per install. The first-use copy ("This can take a little while.") promises no duration. |
 | 4 | View Rotation drops a few frames | 5 of 1,990 intervals > 33.3 ms (max 40.2 ms); median 59.69 FPS; p90 19.66 ms | **Accepted.** Within NFR-2 (≥ 30 FPS) and the AD-4 p90 ≤ 33.3 ms gate. None seen on the Samsung devices. |
 | 5 | Face-turn input latency is higher than on the Samsung devices | p90 53.39 ms, max 57.52 ms | **Accepted.** Within NFR-1 (≤ 100 ms). |
