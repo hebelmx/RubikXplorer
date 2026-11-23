@@ -49,6 +49,9 @@ import dev.cubentia.app.render.ViewRotatedBadge
 import dev.cubentia.app.scan.QuickCheckCapture
 import dev.cubentia.app.ui.freecube.ToolbarButton
 import dev.cubentia.app.ui.freecube.ViewControls
+import dev.cubentia.app.ui.lesson.QuickCheckButton
+import dev.cubentia.app.ui.lesson.QuickCheckSuggestion
+import dev.cubentia.app.ui.lesson.rememberQuickCheckSuggestion
 import dev.cubentia.app.ui.lesson.rememberReduceMotion
 import dev.cubentia.app.ui.playback.MoveStrip
 import dev.cubentia.app.ui.playback.NET_ASPECT
@@ -133,6 +136,9 @@ class SolutionPlaybackState private constructor(
     /** Told the position each time the Learner leaves physical mode. */
     internal var onLeftPhysical: (Int) -> Unit = {}
 
+    /** Whether a mismatch happened since the last *Done* (#298); UI state kept by [rememberSolutionPlaybackState]. */
+    internal var quickCheckSuggestion: QuickCheckSuggestion = QuickCheckSuggestion()
+
     var session: SessionState by mutableStateOf(session)
         internal set
 
@@ -180,7 +186,23 @@ class SolutionPlaybackState private constructor(
      * The name of the current step's segment among [labels] (AD-20), used only while [labels] hold the Moves being
      * played; null with no current step (at the end in physical mode).
      */
-    fun segmentOf(labels: SegmentLabels?): ContentText? = labels?.takeIf { it.moves == solution }?.at(currentIndex)
+    fun segmentOf(labels: SegmentLabels?): ContentText? = ownLabels(labels)?.at(currentIndex)
+
+    /** [labels] only while they hold the Moves being played. */
+    private fun ownLabels(labels: SegmentLabels?): SegmentLabels? = labels?.takeIf { it.moves == solution }
+
+    /**
+     * Whether the physical position is a Quick Check boundary (#298): right after a segment of [labels] ends (only while
+     * [labels] hold the Moves being played) or after the last step; never at the start.
+     */
+    fun atQuickCheckBoundary(labels: SegmentLabels?): Boolean {
+        val at = position
+        return isPhysical && at > 0 && (at == size || ownLabels(labels)?.ends?.contains(at) == true)
+    }
+
+    /** Whether the Quick Check icon is highlighted: at a boundary of [labels], in or after a mismatch, or on a retry. */
+    fun quickCheckHighlighted(labels: SegmentLabels?): Boolean =
+        quickCheckSuggestion.suggested(session.syncState, session.quickCheckRetry != null, atQuickCheckBoundary(labels))
 
     /** The generated note of the current Move (AD-20); null with no Moves or when at end in physical mode. */
     val note: ContentText? get() = currentMove?.let(MoveNote::of)
@@ -260,6 +282,7 @@ class SolutionPlaybackState private constructor(
     fun confirmStep() {
         if (!isPhysical || atEnd) return
         val move = currentMove ?: return
+        quickCheckSuggestion.done()
         playback.stepForward()
         dispatch(SessionEvent.PhysicalConfirmed(move, clock()))
     }
@@ -341,6 +364,7 @@ fun rememberSolutionPlaybackState(
             SolutionPlaybackState(session, reduceMotion, onEvent, clock, initialView, leftPhysicalAt, opensOnNet)
         }
     state.onLeftPhysical = { leftPhysicalAt = it }
+    state.quickCheckSuggestion = rememberQuickCheckSuggestion(session.syncState, session.solution)
     state.updateSession(session)
     state.onEvent = onEvent
     state.clock = clock
@@ -470,16 +494,13 @@ fun SolutionPlayback(
                         dev.cubentia.app.ui.lesson
                             .SeenStrip(state.session, strings)
                     }
-                    androidx.compose.material3.IconButton(
+                    // Offered at every physical step, highlighted only at the suggested points (#298).
+                    QuickCheckButton(
+                        highlighted = state.quickCheckHighlighted(segments),
+                        label = strings.resolve(ContentText("btn.physical.quick-check")),
                         onClick = { requestQuickCheck(false) },
                         modifier = Modifier.testTag("playback:quickCheck"),
-                    ) {
-                        androidx.compose.material3.Icon(
-                            androidx.compose.ui.res
-                                .painterResource(R.drawable.ic_camera),
-                            contentDescription = strings.resolve(ContentText("btn.physical.quick-check")),
-                        )
-                    }
+                    )
                     if (state.session.offersFullScan) {
                         TextButton(onClick = { requestQuickCheck(true) }, modifier = Modifier.testTag("playback:scanAll")) {
                             Text(strings.resolve(ContentText("btn.physical.scan-all-faces")))

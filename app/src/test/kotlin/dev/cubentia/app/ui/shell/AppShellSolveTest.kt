@@ -975,6 +975,60 @@ class AppShellSolveTest {
         rule.onNodeWithTag("playback:segment").assertDoesNotExist()
     }
 
+    @Test fun aMethodStyleHighlightsThePhysicalQuickCheckAtItsSegmentEndsOnly() {
+        // A scramble the Beginner method solves in more than one segment.
+        val scramble =
+            listOf(
+                FaceTurn(Face.R, Turn.CLOCKWISE),
+                FaceTurn(Face.U, Turn.CLOCKWISE),
+                FaceTurn(Face.F, Turn.CLOCKWISE),
+            )
+        val cube = CubeState.SOLVED.apply(scramble)
+        val shortest = scramble.asReversed().map { it.inverse() }
+        show(
+            cameraScan = FlagLevel.GA,
+            quickCheck =
+                dev.cubentia.app.scan
+                    .QuickCheckCapture {},
+        )
+        startPlaybackFromTheEditor(cube, shortest)
+        click("solutionStyle:BEGINNER")
+        rule.waitUntil(10000) { host.state.value.solution != shortest }
+        rule.waitForIdle()
+        click("playback:followOnMyCube")
+        rule.waitUntil(10000) { host.state.value.isPhysical }
+        rule.waitForIdle()
+        val size = host.state.value.solution.size
+        val ends =
+            dev.cubentia.app.ui.solve
+                .segmentLabels(styles.state.value.segments, bundle)!!
+                .also { assertEquals(host.state.value.solution, it.moves) }
+                .ends
+
+        fun assertHighlighted(highlighted: Boolean) {
+            rule
+                .onNodeWithTag("playback:quickCheck")
+                .assertContentDescriptionEquals("Quick Check")
+                .assert(SemanticsMatcher.expectValue(dev.cubentia.app.ui.lesson.QuickCheckHighlightedKey, highlighted))
+        }
+        assertHighlighted(false)
+        var plainMidSegment = false
+        var highlightedSegmentEnd = false
+        for (position in 1..size) {
+            val before = host.state.value.revision
+            click("playback:done")
+            rule.waitUntil(10000) { host.state.value.revision > before }
+            rule.waitForIdle()
+            rule.onNodeWithTag("playback:counter").assertTextEquals("$position / $size")
+            val boundary = position in ends || position == size
+            assertHighlighted(boundary)
+            if (!boundary) plainMidSegment = true
+            if (position in ends && position < size) highlightedSegmentEnd = true
+        }
+        org.junit.Assert.assertTrue("a plain mid-segment step in $ends of $size", plainMidSegment)
+        org.junit.Assert.assertTrue("a highlighted segment end before the last step in $ends of $size", highlightedSegmentEnd)
+    }
+
     @Test fun physicalStyleLocksAfterDoneUntilBackToStepOneAndAMethodKeepsFollowing() {
         val move = FaceTurn(Face.R, Turn.CLOCKWISE)
         val cube = CubeState.SOLVED.apply(move)
