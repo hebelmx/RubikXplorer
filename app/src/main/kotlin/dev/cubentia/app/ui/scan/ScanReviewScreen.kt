@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -117,50 +118,54 @@ fun ScanReviewScreen(
     var launching by rememberSaveable(review) { mutableStateOf(false) }
     // Paint mode (#249) lives here, not in ReviewMode, so retake mode can end it and still announce "Painting off".
     val paint = rememberPaintMode()
-    Box(modifier) {
-        if (retaking && onRetake != null) {
-            RetakeMode(
-                review = review,
-                strings = strings,
-                selectedFaces = retakeFaces,
-                launching = launching,
-                onToggle = { shown -> retakeFaces = if (shown in retakeFaces) retakeFaces - shown else retakeFaces + shown },
-                onStart = {
-                    launching = true
-                    onRetake(retakeFaces.map { Face.entries[it] }.toSet())
-                },
-                onCancel = {
-                    retaking = false
-                    retakeFaces = emptySet()
-                },
-                modifier = Modifier,
-            )
-        } else {
-            ReviewMode(
-                review = review,
-                strings = strings,
-                onReview = onReview,
-                onAccept = onAccept,
-                onClose = onClose,
-                modifier = Modifier,
-                windowSizeClass = windowSizeClass,
-                coachMarkPending = coachMarkPending,
-                onCoachMarkDismissed = onCoachMarkDismissed,
-                onCalibrate = onCalibrate,
-                edited = edited,
-                onEnterColors = onEnterColors,
-                paint = paint,
-                // Entering retake mode ends paint mode first.
-                onRetakeFaces =
-                    onRetake?.let {
-                        {
-                            paint.stop()
-                            retaking = true
-                        }
+    // The review paints its own `surface-base` and `ink-primary`: its host sets neither, so text would sit on the window (#261).
+    val tokens = RubikTheme.tokens
+    Surface(modifier = modifier.fillMaxSize(), color = tokens.surfaceBase, contentColor = tokens.inkPrimary) {
+        Box {
+            if (retaking && onRetake != null) {
+                RetakeMode(
+                    review = review,
+                    strings = strings,
+                    selectedFaces = retakeFaces,
+                    launching = launching,
+                    onToggle = { shown -> retakeFaces = if (shown in retakeFaces) retakeFaces - shown else retakeFaces + shown },
+                    onStart = {
+                        launching = true
+                        onRetake(retakeFaces.map { Face.entries[it] }.toSet())
                     },
-            )
+                    onCancel = {
+                        retaking = false
+                        retakeFaces = emptySet()
+                    },
+                    modifier = Modifier,
+                )
+            } else {
+                ReviewMode(
+                    review = review,
+                    strings = strings,
+                    onReview = onReview,
+                    onAccept = onAccept,
+                    onClose = onClose,
+                    modifier = Modifier,
+                    windowSizeClass = windowSizeClass,
+                    coachMarkPending = coachMarkPending,
+                    onCoachMarkDismissed = onCoachMarkDismissed,
+                    onCalibrate = onCalibrate,
+                    edited = edited,
+                    onEnterColors = onEnterColors,
+                    paint = paint,
+                    // Entering retake mode ends paint mode first.
+                    onRetakeFaces =
+                        onRetake?.let {
+                            {
+                                paint.stop()
+                                retaking = true
+                            }
+                        },
+                )
+            }
+            PaintAnnouncer(paint, strings)
         }
-        PaintAnnouncer(paint, strings)
     }
 }
 
@@ -282,7 +287,6 @@ private fun ReviewMode(
     var lastSet by remember { mutableStateOf<Pair<Int, Color>?>(null) }
     val hapticsEnabled = LocalHaptics.current
     val haptics = LocalHapticFeedback.current
-    val tokens = RubikTheme.tokens
     val netRequester = remember { BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
     val compact = !windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
@@ -425,26 +429,20 @@ private fun ReviewMode(
                 Text(strings.resolve(ContentText("btn.scan.accept")))
             }
             // Always enabled, in `ink-primary`: never greyed.
-            OutlinedButton(
+            SecondaryButton(
                 onClick = { if (changed) discardAction = DiscardAction.CLOSE else onClose() },
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = tokens.inkPrimary),
-                border = BorderStroke(1.dp, tokens.hairline),
-                modifier = Modifier.fillMaxWidth().testTag("review:close"),
-            ) {
-                Text(strings.resolve(ContentText("btn.scan.close")))
-            }
+                label = strings.resolve(ContentText("btn.scan.close")),
+                tag = "review:close",
+            )
             if (onRetakeFaces != null) {
-                OutlinedButton(onClick = onRetakeFaces, modifier = Modifier.fillMaxWidth().testTag("review:retakeFaces")) {
-                    Text(strings.resolve(ContentText("btn.scan.retake-faces")))
-                }
+                SecondaryButton(onRetakeFaces, strings.resolve(ContentText("btn.scan.retake-faces")), "review:retakeFaces")
             }
             if (onEnterColors != null) {
-                OutlinedButton(
+                SecondaryButton(
                     onClick = { if (changed) discardAction = DiscardAction.ENTER_COLORS else onEnterColors() },
-                    modifier = Modifier.fillMaxWidth().testTag("review:enterColors"),
-                ) {
-                    Text(strings.resolve(ContentText("btn.scan.enter-colors-instead")))
-                }
+                    label = strings.resolve(ContentText("btn.scan.enter-colors-instead")),
+                    tag = "review:enterColors",
+                )
             }
         }
     }
@@ -491,6 +489,24 @@ private fun ReviewMode(
             },
             modifier = Modifier.testTag("review:discard"),
         )
+    }
+}
+
+/** The review's secondary outlined button (#261): `ink-primary` label and a 1dp `hairline` border, always enabled. */
+@Composable
+private fun SecondaryButton(
+    onClick: () -> Unit,
+    label: String,
+    tag: String,
+) {
+    val tokens = RubikTheme.tokens
+    OutlinedButton(
+        onClick = onClick,
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = tokens.inkPrimary),
+        border = BorderStroke(1.dp, tokens.hairline),
+        modifier = Modifier.fillMaxWidth().testTag(tag),
+    ) {
+        Text(label)
     }
 }
 

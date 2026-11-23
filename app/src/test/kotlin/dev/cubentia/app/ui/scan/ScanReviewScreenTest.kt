@@ -4,11 +4,13 @@ import android.app.Application
 import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.PixelMap
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -17,6 +19,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
@@ -67,6 +70,7 @@ import dev.cubentia.app.ui.theme.CubeTokens
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.app.ui.theme.DarkTokens
 import dev.cubentia.app.ui.theme.LightTokens
+import dev.cubentia.app.ui.theme.RubikTokens
 import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
@@ -90,6 +94,10 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import kotlin.math.abs
+import kotlin.math.pow
+import androidx.compose.ui.graphics.Color as ComposeColor
+import dev.cubentia.domain.text.Text as ContentText
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, qualifiers = "w640dp-h960dp")
@@ -128,6 +136,7 @@ class ScanReviewScreenTest {
         reduceMotion: Boolean = false,
         hapticsOn: Boolean = true,
         edited: Boolean = false,
+        darkTheme: Boolean? = null,
     ) {
         rule.setContent {
             backDispatcher = checkNotNull(LocalOnBackPressedDispatcherOwner.current).onBackPressedDispatcher
@@ -136,9 +145,8 @@ class ScanReviewScreenTest {
                 LocalHaptics provides hapticsOn,
                 LocalHapticFeedback provides haptics,
             ) {
-                CubentiaTheme {
-                    if (large) fontScale200 { screen(edited) } else screen(edited)
-                }
+                val content = @Composable { if (large) fontScale200 { screen(edited) } else screen(edited) }
+                if (darkTheme == null) CubentiaTheme { content() } else CubentiaTheme(darkTheme = darkTheme) { content() }
             }
         }
     }
@@ -819,6 +827,103 @@ class ScanReviewScreenTest {
                     labelBounds.right <= cellBounds.right && labelBounds.bottom <= cellBounds.bottom,
             )
         }
+    }
+
+    @Test fun `secondary buttons draw ink-primary on surface-base in the light theme`() =
+        assertSecondaryButtonsLegible(darkTheme = false, tokens = LightTokens)
+
+    // Robolectric's window is light, so before #261 the dark-theme labels sat on it at about 1.2:1.
+    @Test fun `secondary buttons draw ink-primary on surface-base in the dark theme on a light window`() =
+        assertSecondaryButtonsLegible(darkTheme = true, tokens = DarkTokens)
+
+    @Test fun `close stays enabled and ink-primary after an edit and while painting`() {
+        launch(darkTheme = true)
+        rule.onNodeWithTag("swatch:WHITE").performScrollTo().performClick()
+        rule.onNodeWithTag("review:close").performScrollTo().assertIsEnabled()
+        assertLabelOnSurface("review:close", DarkTokens)
+        longPress("swatch:RED")
+        assertPainting("red")
+        rule.onNodeWithTag("review:close").performScrollTo().assertIsEnabled()
+        assertLabelOnSurface("review:close", DarkTokens)
+    }
+
+    @Test fun `in the dark theme the title and instruction are legible in review and retake mode`() {
+        retake = {}
+        launch(darkTheme = true)
+        val title = strings.resolve(ContentText("msg.scan.review-title"))
+        assertTextLegible(rule.onNodeWithText(title), "review title")
+        assertTextLegible(rule.onNodeWithTag("review:instruction"), "review instruction")
+        rule.onNodeWithTag("review:retakeFaces").performScrollTo().performClick()
+        assertTextLegible(rule.onNodeWithText(title), "retake title")
+        assertTextLegible(rule.onNodeWithTag("review:instruction"), "retake hint")
+    }
+
+    private fun assertSecondaryButtonsLegible(
+        darkTheme: Boolean,
+        tokens: RubikTokens,
+    ) {
+        enterColors = {}
+        retake = {}
+        launch(darkTheme = darkTheme)
+        listOf("review:close", "review:retakeFaces", "review:enterColors").forEach { assertLabelOnSurface(it, tokens) }
+    }
+
+    /** The pixel just inside the left border is the button's background; the highest-contrast pixel is its label ink. */
+    private fun assertLabelOnSurface(
+        tag: String,
+        tokens: RubikTokens,
+    ) {
+        val node = rule.onNodeWithTag(tag).performScrollTo()
+        val inset = with(node.fetchSemanticsNode().layoutInfo.density) { 4.dp.roundToPx() }
+        val pixels = node.captureToImage().toPixelMap()
+        val background = pixels[inset, pixels.height / 2]
+        assertEquals("$tag background", tokens.surfaceBase, background)
+        val ink = highestContrast(pixels, background)
+        val ratio = contrast(ink, background)
+        assertTrue("$tag label contrast %.2f < 4.5".format(ratio), ratio >= 4.5)
+        val expected = tokens.inkPrimary
+        val channels = listOf(ink.red - expected.red, ink.green - expected.green, ink.blue - expected.blue)
+        assertTrue("$tag label ink $ink is not ink-primary $expected", channels.all { abs(it) <= INK_TOLERANCE })
+    }
+
+    /** The screen's top-left corner lies in its padding, so it is surely background: it must be dark surface-base. */
+    private fun assertTextLegible(
+        node: SemanticsNodeInteraction,
+        what: String,
+    ) {
+        val background = rule.onNodeWithTag("review:screen").captureToImage().toPixelMap()[2, 2]
+        assertEquals("$what background", DarkTokens.surfaceBase, background)
+        val ink = highestContrast(node.performScrollTo().captureToImage().toPixelMap(), background)
+        val ratio = contrast(ink, background)
+        assertTrue("$what contrast %.2f < 4.5".format(ratio), ratio >= 4.5)
+    }
+
+    private fun highestContrast(
+        pixels: PixelMap,
+        background: ComposeColor,
+    ): ComposeColor {
+        var ink = background
+        for (x in 0 until pixels.width) {
+            for (y in 0 until pixels.height) {
+                val pixel = pixels[x, y]
+                if (contrast(pixel, background) > contrast(ink, background)) ink = pixel
+            }
+        }
+        return ink
+    }
+
+    private fun contrast(
+        a: ComposeColor,
+        b: ComposeColor,
+    ): Double {
+        val (hi, lo) = listOf(luminance(a), luminance(b)).sortedDescending()
+        return (hi + 0.05) / (lo + 0.05)
+    }
+
+    /** WCAG relative luminance, as in ThemeTokensTest. */
+    private fun luminance(color: ComposeColor): Double {
+        fun channel(c: Float): Double = if (c <= 0.03928) c / 12.92 else ((c + 0.055) / 1.055).pow(2.4)
+        return 0.2126 * channel(color.red) + 0.7152 * channel(color.green) + 0.0722 * channel(color.blue)
     }
 
     @Test fun `close is enabled and closes at once when nothing was changed`() {
@@ -1587,6 +1692,9 @@ class ScanReviewScreenTest {
         }
     }
 }
+
+/** Per-channel tolerance (about 8/255) between a label's darkest-or-lightest pixel and its ink token. */
+private const val INK_TOLERANCE = 0.03f
 
 /** The selected ring: 5dp in all (3dp accent dashes edged by 1dp cubie-body), 8dp dashes. */
 private val DASHED_ACCENT_RING = SelectedRing(LightTokens.accent, 5.dp, 8.dp)
