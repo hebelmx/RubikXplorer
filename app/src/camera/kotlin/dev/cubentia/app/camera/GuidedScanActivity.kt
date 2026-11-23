@@ -97,6 +97,12 @@ class GuidedScanActivity : ComponentActivity() {
         }
 
     @Inject internal lateinit var frameSource: ScanFrameSource
+
+    /**
+     * Story 10.23: the debug shadow sticker reader, when the debug sticker source set binds one; it only observes captures.
+     * A var only so route tests can replace the binding with `Optional.empty()` (the unbound path).
+     */
+    @Inject internal lateinit var capturedFaceObserver: java.util.Optional<CapturedFaceObserver>
     private var cameraStarted = false
     private var previewReady by mutableStateOf(false)
 
@@ -376,6 +382,8 @@ class GuidedScanActivity : ComponentActivity() {
 
     override fun onDestroy() {
         frameSource.stop()
+        // Story 10.23: a scan that ends with its activity drops the shadow reader's queued crops (not on a config change).
+        if (!isChangingConfigurations) endShadowScan()
         shutterSound.release()
         super.onDestroy()
     }
@@ -518,7 +526,14 @@ class GuidedScanActivity : ComponentActivity() {
                 ScanFlowContract.encode(capture)
             }
         setResult(code, data)
+        endShadowScan()
         finish()
+    }
+
+    /** Story 10.23: the scan ended; the observer drops its queued work and crops, and the last frame's crops go too. */
+    private fun endShadowScan() {
+        scan.lastCornerCrops = null
+        capturedFaceObserver.ifPresent { it.onScanEnded() }
     }
 
     private fun cameraPhase() =
@@ -533,6 +548,8 @@ class GuidedScanActivity : ComponentActivity() {
             val entered = SystemClock.elapsedRealtime()
             analyzerExecutor.execute {
                 val quick = scan.quickScan ?: return@execute
+                // Story 10.23: hold 1's corner view opening starts a scan for the shadow reader (its state line).
+                if (quick.hold == 1) capturedFaceObserver.ifPresent { it.onScanStarted() }
                 quick.viewEntered(entered)
                 quick.drainEvents().forEach(ScanDiagnostics::onHoldEvent)
             }
@@ -606,6 +623,8 @@ class GuidedScanActivity : ComponentActivity() {
             val outline = GuidedScanFlow.outlineOf(corner)
             val quads = scan.cornerOverlaySmoother.update(corner.normalizedQuads)
             ContextCompat.getMainExecutor(this).execute { scan.detectedCornerQuads = quads }
+            // Story 10.23: the crops of the frame the domain reads now; a capture (auto or a later press) takes this frame.
+            scan.lastCornerCrops = corner.faceCrops
             // The light check runs in the domain over these faces (calibrated when a saved calibration exists).
             val measured = captureCorner { it.onFrame(corner.detected, corner.faces, now, settled, outline) }
             // A frozen frame is not run through the domain: its verdict is not this frame's, so none is logged.
@@ -667,6 +686,12 @@ class GuidedScanActivity : ComponentActivity() {
         if (capture != null) {
             scan.freeze.start(now)
             quick.lastCapture?.let(ScanDiagnostics::onCornerCapture)
+            // Story 10.23: the shadow reader reads the capturing frame's faces off this thread; it decides nothing.
+            val crops = scan.lastCornerCrops
+            scan.lastCornerCrops = null
+            capturedFaceObserver.ifPresent { observer ->
+                observer.onCornerCaptured(capture.hold, crops ?: List(3) { null }, quick.lastCapture?.faces.orEmpty())
+            }
             // Story 10.22: the exposure lock ends with the capture; hold 1's white balance is carried to hold 2.
             frameSource.releaseExposure()
         }
@@ -854,6 +879,9 @@ internal class GuidedScanViewModel : ViewModel() {
     var caseResult by mutableStateOf<List<CornerView>?>(null)
 
     @Volatile var quickScan: QuickScanController? = null
+
+    /** Story 10.23: the unwarped faces of the last corner frame the domain read, only with a bound observer; analyzer thread. */
+    @Volatile var lastCornerCrops: List<YuvFrame?>? = null
 
     @Volatile var quickStartedAt: Long? = null
     var quickLogged = false
@@ -1088,6 +1116,7 @@ internal class GuidedScanViewModel : ViewModel() {
     }
 
     override fun onCleared() {
+        lastCornerCrops = null
         analyzerExecutor.shutdown()
     }
 }

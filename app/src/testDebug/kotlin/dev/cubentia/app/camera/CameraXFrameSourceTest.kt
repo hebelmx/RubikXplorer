@@ -42,7 +42,7 @@ class CameraXFrameSourceTest {
         val recording = CornerDetector { _, guide -> null.also { guides += guide } }
         val activity = Robolectric.buildActivity(ComponentActivity::class.java).setup()
         val executor = Executors.newSingleThreadExecutor()
-        val source = CameraXFrameSource(Optional.of(recording))
+        val source = CameraXFrameSource(Optional.of(recording), Optional.empty())
         val delivered = mutableListOf<ScanFrame>()
         try {
             source.start(activity.get(), executor, { delivered.add(it) }, { error("Camera unexpectedly unavailable") })
@@ -57,6 +57,45 @@ class CameraXFrameSourceTest {
             executor.shutdownNow()
             activity.pause().stop().destroy()
         }
+    }
+
+    /** Story 10.23: corner frames carry their unwarped crops only when a captured-face observer is bound. */
+    @Test fun cornerFramesCarryFaceCropsOnlyWithABoundObserver() {
+        val locating = CornerDetector { _, guide -> CornerLocator.Location(guide.quads(guide.vertices()), 1.0) }
+        val observer =
+            object : CapturedFaceObserver {
+                override fun onScanStarted() = Unit
+
+                override fun onCornerCaptured(
+                    hold: Int,
+                    crops: List<YuvFrame?>,
+                    reports: List<dev.cubentia.domain.recognition.QuickScanClassification.FaceReport>,
+                ) = Unit
+
+                override fun onScanEnded() = Unit
+            }
+
+        fun delivered(bound: Optional<CapturedFaceObserver>): CornerFrame? {
+            val activity = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+            val executor = Executors.newSingleThreadExecutor()
+            val source = CameraXFrameSource(Optional.of(locating), bound)
+            val frames = mutableListOf<ScanFrame>()
+            try {
+                source.start(activity.get(), executor, { frames.add(it) }, { error("Camera unexpectedly unavailable") })
+                source.cornerMode(true)
+                executor.submit { source.read(dimFace()) }.get()
+                return frames.single().corner
+            } finally {
+                source.stop()
+                executor.shutdownNow()
+                activity.pause().stop().destroy()
+            }
+        }
+
+        val crops = checkNotNull(delivered(Optional.of(observer))).faceCrops
+        assertEquals(3, crops?.size)
+        assertTrue(crops.toString(), crops!!.all { it != null && it.width == 96 && it.height == 96 })
+        assertEquals(null, checkNotNull(delivered(Optional.empty())).faceCrops)
     }
 
     @Test fun deliversLocatedStatsAndLogsTheLatticeForAReadableDimFace() {

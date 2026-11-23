@@ -60,6 +60,12 @@ internal class AndroidFixture(
 <application><activity android:name="dev.cubentia.fixture.FixtureRecorderActivity" android:exported="false"/></application>
 </manifest>""",
         )
+        write(
+            "src/camera/debug/sticker/AndroidManifest.xml",
+            """<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<application><receiver android:name="dev.cubentia.fixture.ShadowReaderToggleReceiver" android:exported="false"/></application>
+</manifest>""",
+        )
         projectDir.resolve("local.properties").outputStream().use { output ->
             Properties().apply { setProperty("sdk.dir", androidSdkDir().path) }.store(output, null)
         }

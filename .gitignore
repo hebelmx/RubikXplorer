@@ -24,6 +24,8 @@ __pycache__/
 .pytest_cache/
 tools/corner-model/.venv/
 tools/corner-model/artifacts/
+tools/sticker-model/.venv/
+tools/sticker-model/artifacts/
 # Signing material and service-account keys (see keys/README.md)
 /keys/*
 !/keys/.gitignore

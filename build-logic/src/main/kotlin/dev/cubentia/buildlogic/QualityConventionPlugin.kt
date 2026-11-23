@@ -1,12 +1,15 @@
 package dev.cubentia.buildlogic
 
+import com.android.build.api.artifact.ScopedArtifact
 import com.android.build.api.artifact.SingleArtifact
 import com.android.build.api.variant.ApplicationAndroidComponentsExtension
+import com.android.build.api.variant.ScopedArtifacts
 import dev.cubentia.buildlogic.tasks.CheckCameraClasspathTask
 import dev.cubentia.buildlogic.tasks.CheckElfAlignmentTask
 import dev.cubentia.buildlogic.tasks.CheckMergedManifestTask
 import dev.cubentia.buildlogic.tasks.CheckPrivacyFactsTask
 import dev.cubentia.buildlogic.tasks.CheckSdkDenylistTask
+import dev.cubentia.buildlogic.tasks.CheckShadowReaderTask
 import dev.cubentia.buildlogic.tasks.WritePrivacyFactsTask
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -71,6 +74,23 @@ class QualityConventionPlugin : Plugin<Project> {
                             )
                             report.set(layout.buildDirectory.file("reports/cubentia/${variant.name}/elf-alignment.txt"))
                         }
+                    if (!variant.debuggable) {
+                        // Story 10.23: the shadow sticker reader and its model are debug-only; every shipped-like variant
+                        // (release, benchmark, cornerR8) proves it carries neither.
+                        val shadowReaderCheck =
+                            tasks.register<CheckShadowReaderTask>("check${suffix}ShadowReader") {
+                                group = LifecycleBasePlugin.VERIFICATION_GROUP
+                                description = "Fails when ${variant.name} carries the debug-only shadow sticker reader or its model."
+                                variantName.set(variant.name)
+                                mergedAssets.set(variant.artifacts.get(SingleArtifact.ASSETS))
+                                report.set(layout.buildDirectory.file("reports/cubentia/${variant.name}/shadow-reader.txt"))
+                            }
+                        variant.artifacts
+                            .forScope(ScopedArtifacts.Scope.PROJECT)
+                            .use(shadowReaderCheck)
+                            .toGet(ScopedArtifact.CLASSES, CheckShadowReaderTask::classJars, CheckShadowReaderTask::classDirectories)
+                        tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) { dependsOn(shadowReaderCheck) }
+                    }
                     if (variant.name == "release") {
                         val coordinates =
                             variant.runtimeConfiguration.incoming.resolutionResult.rootComponent

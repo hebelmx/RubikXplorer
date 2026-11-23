@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "note": "Story 10.23. Whole capture groups. Held-out groups are never trained or tuned on; tune groups only pick the confidence threshold tau. Every other usable real group trains; synthetic faces train only. Story 10.20's held-out corner groups are evaluated later with evaluate.py --groups (human gate H3).",
+  "heldout": [
+    "corner/lenovo-tb128xu_stka_cool",
+    "corner/lenovo-tb128xu_stla_cool",
+    "live/sm-s721u1_stka_studio-a",
+    "live/sm-s721u1_stla_studio-a"
+  ],
+  "tune": [
+    "corner/lenovo-tb128xu_stka_cool-front",
+    "live/lenovo-tb128xu_stkb_studio-a",
+    "photo/RubikStickered_GalaxyTab_S4"
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "bytes": 107848,
+  "colorOrder": [
+    "WHITE",
+    "YELLOW",
+    "RED",
+    "ORANGE",
+    "BLUE",
+    "GREEN"
+  ],
+  "input": [
+    1,
+    96,
+    96,
+    3
+  ],
+  "inputSize": 96,
+  "model": "sticker_reader.tflite",
+  "output": [
+    1,
+    9,
+    6
+  ],
+  "parameters": 46878,
+  "quant": "fp16",
+  "recipe": {
+    "batchSize": 256,
+    "epochs": 24,
+    "learningRate": 0.003,
+    "realCopies": 120,
+    "realFaces": 69,
+    "realGroups": [
+      "corner/lenovo-tb128xu_stka_warm",
+      "corner/lenovo-tb128xu_stkb_cool",
+      "corner/lenovo-tb128xu_stla_cool-front",
+      "corner/lenovo-tb128xu_stla_warm",
+      "corner/lenovo-tb128xu_stlb_cool",
+      "live/lenovo-tb128xu_stka_studio-a",
+      "live/lenovo-tb128xu_stla_studio-a",
+      "live/lenovo-tb128xu_stlb_studio-a",
+      "live/sm-s721u1_stlb_studio-a",
+      "photo/GANStickerless_GalaxyS24FE_S4",
+      "photo/GANStickerless_GalaxyTab_S4",
+      "photo/RubikStickered_GalaxyS24FE_S4"
+    ],
+    "synthetic": 36000
+  },
+  "schemaVersion": 1,
+  "seed": 20261123,
+  "sha256": "a6da207a1de63ca41aefedf14a3f024fa89963a039a0506bb1a597960ff35746",
+  "story": "10.23",
+  "tau": 0.99,
+  "tauGrid": [
+    0.5,
+    0.99,
+    0.01
+  ],
+  "tauRule": {
+    "zeroConfidentlyWrongReached": false
+  },
+  "tools": {
+    "converter": "tf.lite.TFLiteConverter.from_keras_model (bundled with TensorFlow)",
+    "gpu": true,
+    "numpy": "2.1.3",
+    "pillow": "11.3.0",
+    "platform": "Linux x86_64",
+    "python": "3.12.13",
+    "tensorflow": "2.19.1"
+  },
+  "tune": {
+    "confidentCorrect": 147,
+    "confidentlyWrong": 1,
+    "stickers": 162,
+    "top1Correct": 157,
+    "uncertain": 14
+  }
+}

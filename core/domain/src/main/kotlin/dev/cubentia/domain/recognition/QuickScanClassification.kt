@@ -40,14 +40,22 @@ object QuickScanClassification {
                 is SelfCalibration.NeedsCalibration -> SelfCalibration.trustedCenters(merged)
             }
         val first = readAll(sample.stickers, centers)
-        val second =
-            if (saved != null && StickerClassifier.isValid(saved)) {
-                readAll(corrected(sample, saved), saved.centers)
-            } else {
-                readAll(sample.stickers, normalized(sample, merged, centers))
-            }
+        val (second, _) = secondRead(sample, merged, saved, centers)
         return first.zip(second).map { (a, b) -> gate(a, b) }
     }
+
+    /** The second read of [read] and which one it was: the saved calibration's per-face correction, else the normalized centers. */
+    private fun secondRead(
+        sample: FaceSample,
+        merged: List<FaceSample>,
+        saved: CalibrationCenters?,
+        centers: Map<Color, Lab>,
+    ): Pair<List<StickerReading?>, SecondRead> =
+        if (saved != null && StickerClassifier.isValid(saved)) {
+            readAll(corrected(sample, saved), saved.centers) to SecondRead.CALIBRATION
+        } else {
+            readAll(sample.stickers, normalized(sample, merged, centers)) to SecondRead.NORMALIZED
+        }
 
     /** The readings the fallback decision judges: all but a guarded (not plain) center, which marks no face for the grid. */
     fun judged(
@@ -105,6 +113,7 @@ object QuickScanClassification {
             val judged = gated.filterIndexed { index, _ -> keep(index) }
             val firstJudged = first.filterIndexed { index, _ -> keep(index) }
             val savedValid = saved != null && StickerClassifier.isValid(saved)
+            val (second, secondRead) = secondRead(sample, merged, saved, centers)
             FaceReport(
                 face = face,
                 center = gated.getOrNull(FaceSample.CENTER_INDEX)?.color,
@@ -119,11 +128,19 @@ object QuickScanClassification {
                         f?.confidence == StickerConfidence.CONFIDENT && g?.confidence != StickerConfidence.CONFIDENT
                     },
                 correctionRejected = savedValid && corrected(sample, checkNotNull(saved)) === sample.stickers,
+                self = first,
+                second = second,
+                secondRead = secondRead,
             )
         }
     }
 
-    /** One face's [report]: color names and counts only. [quality] is null for a face not captured. */
+    /**
+     * One face's [report]: color names and counts only. [quality] is null for a face not captured. Story 10.23 adds, for
+     * debug logging beside the shadow sticker reader only, the per-sticker [self] (self-calibration) and [second] reads of
+     * all nine stickers before the gate, and which [secondRead] it was; both are empty for a face not captured. Nothing
+     * decides on them.
+     */
     data class FaceReport(
         val face: Face,
         val center: Color?,
@@ -135,7 +152,13 @@ object QuickScanClassification {
         val closeCalls: Int,
         val disagreements: Int,
         val correctionRejected: Boolean,
+        val self: List<StickerReading?> = emptyList(),
+        val second: List<StickerReading?> = emptyList(),
+        val secondRead: SecondRead? = null,
     )
+
+    /** Which second read the gate compared with: the saved calibration (`cal` in the logs) or the normalized centers (`norm`). */
+    enum class SecondRead { CALIBRATION, NORMALIZED }
 
     private fun gate(
         first: StickerReading?,
