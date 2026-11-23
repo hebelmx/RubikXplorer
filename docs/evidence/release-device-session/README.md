@@ -93,3 +93,14 @@ Doubts for a short panel at the end of the block: solved-cube Placement → only
 6.3 #197: ✅ closed on the PO's judgment (capture feedback always clear on both devices today); TalkBack announcement not checked.
 
 Doubts panel (PO accepted): #324  Placement: a solved-cube scan should also offer "I can already solve it"; #325  Guided scan: Close drops captured faces without asking; #326  Solve-tab Physical mode: use the same Quick Check result flow as Lessons
+
+## Resume note (2026-11-23 ~12:50 CST, break)
+
+**State:** worktree `/mnt/e/Dynamic/IndFun/RubikXplorer-device-session-2`, branch `docs/device-session-2026-11` (local commits, not pushed). Both devices have the **debug** build installed. Galaxy: screen timeout and lock delay set to 24 h (restore to 30 s / default when the session ends); dark mode on; TalkBack off. Lenovo: app data was wiped by the connected tests (fixtures are in the commit and in `/mnt/e/Dynamic/IndFun/device-backups-2026-11-23/`).
+
+**Next, in order (PO plan: Galaxy recording after the break):**
+1. **Story 10.20, Galaxy:** 9 groups per `docs/evidence/10-20/README.md` resume table. Check cube, light **and direction** in every dialog; corner points are left at defaults (#315). Then write `Fixtures/corner/groups.json` and run the handoff's after-recording steps 1–6.
+2. **#251 (6.7) remaining:** case 2 (R U2 from solved), case 3 (non-white cross / F2L from yellow, *Show me the last layer anyway*), then one TalkBack listen of the result screen per device.
+3. **#249 (6.6) and 6.9** in the same TalkBack pass.
+4. **Block 2** (includes 8.7 single-wrong-move Quick Check and the #200 end-of-playback check), **Block 6** camera items (6.2 #198, 6.4 #195, 6.5 #196, 6.8 #253), **Blocks 3, 4, 7**.
+5. Close-out: issue comments for what passed, `sprint_plan.py` for settled action items, push, PR, merge on green CI + PO OK, remove worktree.
