@@ -91,3 +91,5 @@ Doubts for a short panel at the end of the block: solved-cube Placement → only
 #276 verified and **closed** (indirect unbind evidence, accepted by the PO). Verification comments on the already-closed #275, #201, #203. #200: partly verified; the end of a Solution Playback after a verifying Quick Check is still to be seen (with Block 2).
 
 6.3 #197: ✅ closed on the PO's judgment (capture feedback always clear on both devices today); TalkBack announcement not checked.
+
+Doubts panel (PO accepted): #324  Placement: a solved-cube scan should also offer "I can already solve it"; #325  Guided scan: Close drops captured faces without asking; #326  Solve-tab Physical mode: use the same Quick Check result flow as Lessons
