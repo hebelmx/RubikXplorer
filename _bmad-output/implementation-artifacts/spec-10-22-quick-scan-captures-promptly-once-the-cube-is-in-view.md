@@ -109,6 +109,12 @@ context:
 - **KEEP:** exposure lock and settle, advisory light check, turn and pose checks, back-out fix, timeline diagnostics, the outline rule and both re-meter triggers.
 - **Not done here:** a *Retake corner* button (PO idea, recorded as a GitHub issue).
 
+### 2026-11-22: device session 2 and positioned test (Lenovo, still, outline + color build)
+
+- **Result:** 9 still holds positioned by hand: median 5.2 s from detection to capture, 7 of 9 within 10 s, 13 of 27 faces kept (29% before the color rule), about 80% of stickers confident. One scan with the cube already resting and uncovered: 2.6 s and 2.5 s, 6 of 6 faces kept, no restart.
+- **Considered and dropped (PO 2026-11-22):** keeping the metering and the lock through a loss shorter than about 2 s. The Learner covers the cube with a hand on purpose while positioning, so the steady timer cannot run; the repeated losses in the log happen during that positioning and cost nothing once the hand is away. The lost-cube rule stays as specified (unlock and re-meter after `LOST_MS`). Revisit only if hand-held data shows losses on an uncovered cube.
+- **Closed here by the PO:** the remaining device acceptance (hand-held on the Lenovo, the Galaxy S24 FE) is tracked in GitHub issue #300; the keep-rule relaxation stays with Story 10.21; issues #299 (retake a corner) and #301 (resolve unread stickers from cube legality) record the PO's ideas.
+
 ## Review Triage Log
 
 ### 2026-11-22 — Review pass 1 (blind hunter, edge-case hunter, verification gap)

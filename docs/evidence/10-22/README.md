@@ -232,3 +232,19 @@ that misses, name the gate it waited on from the timeline lines above; it goes t
 
 Also to record per device: one recorder burst during a hold, showing one exposure level (exposure time × ISO within
 6%) from settle to capture, and the `lock=` word of the settle lines (`on`, `on+awb` or `unsupported`).
+
+## Device session 2 and positioned test (Lenovo TB128XU, 2026-11-22, outline + color build)
+
+Cube resting, lamp, no torch, saved calibration. Logs are kept locally (gitignored `captures/`).
+
+| Run | Holds | Detected to capture | Within 10 s | Faces kept |
+| --- | --- | --- | --- | --- |
+| Positioned by hand (about 3 s, a hand over two faces) | 9 | median 5.2 s, worst 13.3 s | 7 of 9 | 13 of 27 |
+| Cube already resting and uncovered | 2 | 2.6 s and 2.5 s | 2 of 2 | 6 of 6 |
+
+- About 80% of stickers read CONFIDENT in the hand-positioned run; most discarded faces had 7 or 8 of 9 (the keep rule is unchanged, Story 10.21).
+- In the hand-positioned run the cube was lost up to 7 times in one hold. Of 134 sampled undetected frames, 124 had detector score 0.0 (the corner model found no cube) and 10 had the cube found with fewer than two faces showing stickers. The positioned run had no undetected frame in hold 1.
+- Every metering ran to or near the 1.5 s cap (metering future 0.9 to 1.1 s, then the 0.6 s window). The camera reported the exposure lock on about one release in three.
+- A grace period for short losses was considered and dropped by the PO: the hand covers the cube on purpose while positioning, so those losses cost nothing once it is away.
+
+The remaining device acceptance (hand-held on the Lenovo, the Galaxy S24 FE) is tracked in GitHub issue #300.
