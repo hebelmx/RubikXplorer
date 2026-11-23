@@ -191,11 +191,11 @@ development_status:
   13-6-register-the-privacy-policy-in-play-console: done
   epic-13-retrospective: done
 
-  epic-14: in-progress
+  epic-14: done
   14-1-choose-my-entry-level-when-i-can-already-solve-it: done
   14-2-practice-an-algorithm-on-my-real-cube: done
   14-3-practice-every-lesson-step-on-my-real-cube-with-a-quick-chec: done
-  epic-14-retrospective: optional
+  epic-14-retrospective: done
 
   epic-15: done
   15-1-build-a-beginner-method-solution-from-the-course-s-stages: done
@@ -2050,3 +2050,94 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-14-3-practice-every-lesson-step-on-my-real-cube-with-a-quick-chec.md"
+  - id: "epic-14-retro-item-224-learn-picker-check-me-with-a-scramble-in"
+    epic: 14
+    action: "Learn picker 'Check me with a scramble instead' must not silently discard
+      a live Lesson: add a test with a live LESSON/TWO_LOOK session, then warn or
+      restore it when the check ends (medium; R1, AppShell.kt:656-665, 844-899)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-11-22.md"
+  - id: "epic-14-retro-item-225-enforce-epic-15-retro-item-210-extract-e"
+    epic: 14
+    action: "Enforce epic-15-retro-item-210: extract entry-level and practice controllers
+      (plus Placement and solution-style wiring) out of AppShell.kt (1,231 lines,
+      +202 in Epic 14) as its own story before any further story touches AppShell
+      (A3)"
+    owner: "SM / Dev"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-11-22.md"
+  - id: "epic-14-retro-item-226-add-an-algorithm-practice-test-that-driv"
+    epic: 14
+    action: "Add an Algorithm practice test that drives 'I did something else' and
+      the mismatch ladder inside a practice session and asserts Story 8.5 behavior
+      (14.2 AC2 verification gap; R6, AppShellAlgorithmPracticeTest.kt)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-11-22.md"
+  - id: "epic-14-retro-item-227-choosing-an-entry-level-with-a-live-less"
+    epic: 14
+    action: "Choosing an entry level with a live Lesson session: add a test, then
+      end or re-target the session or Continue card when its Stage becomes skipped
+      (low; R2, AppShell.kt:552-582)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-11-22.md"
+  - id: "epic-14-retro-item-228-ledger-the-14-1-spec-deferral-placement"
+    epic: 14
+    action: "Ledger the 14.1 spec deferral (Placement-from-Learn resets on tab change
+      / Idle untested, medium, unverified) and make story-done check every spec frontmatter
+      deferred entry has an action item (A7)"
+    owner: "SM"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-11-22.md"
+  - id: "epic-14-retro-item-229-po-decision-how-long-the-14-3-after-mism"
+    epic: 14
+    action: "PO decision: how long the 14.3 'after mismatches' Quick Check highlight
+      lasts; pin it with a test and fold the rule into issue #298 for Solution Playback
+      and practice (R5, LessonScreen.kt:655-656)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-11-22.md"
+  - id: "epic-14-retro-item-230-compute-the-mastered-set-inside-chooseen"
+    epic: 14
+    action: "Compute the mastered set inside ChooseEntryLevel from its fresh log read
+      so a just-MASTERED Stage never gets a StageSkippedByChoice row (low; R3, AppShell.kt:559-566,
+      ChooseEntryLevel.kt:57-61)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-11-22.md"
+  - id: "epic-14-retro-item-231-run-one-batched-device-session-lenovo-ta"
+    epic: 14
+    action: "Run one batched device session (Lenovo Tab M10 Plus 3rd Gen, Galaxy S24
+      FE) covering epic-14-deferred-14.1/14.2/14.3-device-check and epic-15-retro-item-208
+      before release Stories 12.3-12.5, including practice exit paths (R4)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-11-22.md"
+  - id: "issue-261-deferred-scan-activity-preferred-theme"
+    epic: 10
+    action: "GuidedScanActivity themes with CubentiaTheme (system dark mode) instead
+      of PreferredTheme, so a Learner who picked Light on a dark system gets a dark
+      scan flow; switch it to PreferredTheme (low, Learner-visible; deferred from
+      #261, GuidedScanActivity.kt:240)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-261-scan-review-secondary-button-contrast.md"
+  - id: "issue-261-deferred-secondary-button-hairline-3to1"
+    epic: 10
+    action: "The secondary outlined-button hairline border is about 1.3:1 on surface-base,
+      under WCAG 1.4.11's 3:1 non-text minimum; decide in DESIGN.md whether button-secondary
+      uses a stronger border token (low; deferred from #261, ScanReviewScreen.kt SecondaryButton)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-261-scan-review-secondary-button-contrast.md"
+  - id: "issue-261-deferred-review-calibrate-cancel-style"
+    epic: 10
+    action: "The review's calibration offer (review:calibrate:offer) and the retake
+      Cancel still use default M3 outlined buttons with accent labels; reuse SecondaryButton
+      so the review's secondary buttons match (low, Learner-visible; gate finding
+      on #261, ScanReviewScreen.kt:416)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-261-scan-review-secondary-button-contrast.md"
