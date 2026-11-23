@@ -29,3 +29,34 @@ S3 notes from Block 1: (a) Solution Playback's 3D view is blank for ~1–3 s on 
 | 5.1 `Cube3DRenderSyncTest` (Lenovo) | ❌ 1 of 4 fails | `tenThousandRandomStepsKeepTheCubeEqualToTheVirtualState` times out at 300 s twice (first run and isolated re-run). `physicalSwitchKeepsTheStepControlsAndQuickCheckEvidence` failed once ("No compose hierarchies found") and passed in isolation: flaky. The other two pass. JUnit: `block5/5-1-2-lenovo-junit.xml`, `block5/5-1-rerun-lenovo-junit.xml`. Galaxy not run yet. |
 | 5.2 `EndToEndSyncVerificationTest` (Lenovo) | ✅ PASS | same JUnit file |
 | 5.3–5.5 | ⏭ NOT RUN | |
+
+## Block 6 (partial)
+
+| # | Result | Evidence |
+|---|---|---|
+| 6.1 #276 Quick Scan reopens at a stale step | ✅ PASS (navigation), PO review pending | Lenovo debug: 4 Quick Scan openings 10:25–10:27, every one `quickScan viewfinder hold=1`, first frame 1.2 s (cold) then 0.41–0.59 s; frames keep streaming after each reopen (no late unbind seen, indirect: `CubentiaScanDiag` logs no bind/unbind lines). *Face 1 of 6* never shown on reopen. PO confirmed the face-by-face header does read *Face n of 6* on both devices (top right; far from *Close* on the tablet). Separate observation: from Welcome → *Start from my cube*, *Close* in the face-by-face scan with 2 faces captured cancelled without a *Discard* confirmation (check in 6.2 / #198). |
+
+## Block 8: Quick looks
+
+| # | Result | Evidence |
+|---|---|---|
+| 8.1 #275 Lenovo Settings labels | ✅ PASS | `shots/8-1-lenovo-settings.png`; S3: tight start margin, radio labels touch their circles |
+| 8.2 #201 Playback header at 200% font (Galaxy) | ✅ PASS | `shots/8-2-galaxy-playback-200pct.png`: "1 move" header and "0 / 1" counter fit; real 1-move solution. S3: 3D view shrinks to ~¼ width at 200% |
+| 8.4 #205 Placement status bar light/dark (Galaxy) | ❌ FAIL (light) | Dark ✅ `shots/8-4-galaxy-placement-result-dark.png`; light: status-bar icons stay white on light grey, unreadable (`shots/8-4-galaxy-placement-result-light.png`). Theme switched with `cmd uimode night` (app theme = System), restored. |
+| 8.5 #200 Physical-cube playback + TalkBack (Galaxy portrait) | ✅ PASS (overlap); certainty chip not shown until a Quick Check | `shots/8-5-galaxy-physical-playback-talkback.png`; reading order Close → title → styles → 3D toggle → Quick Check → counter → step → Move strip → Step back → Done → Physical mode. TalkBack could not be toggled by `settings put` (Android 17 refuses); PO switched it on, agent stopped it with `am force-stop`. |
+| 8.6 Rotate while Placement saves (Galaxy) | ✅ PASS | Run 1 (fully mixed cube): rotation on result screen kept state; *Open Stage* + rotate → Stage 1, 0 progress events (nothing to skip). Run 2 (first layer + 2 middle edges): "Start at Middle layer?" → *Start* + rotate → Learn, Stage 4 *Middle layer*; `progress_event`: 3 × `STAGE_SKIPPED_BY_PLACEMENT` (stages 1–3) + 1 × `STAGE_UNLOCKED` (stage 4), one timestamp, no duplicates (read from a copy of the debug app's DB via `run-as`). |
+| 8.3, 8.7–8.9 | ⏭ not yet | |
+
+## Block 5 (continued)
+
+- Galaxy: `Cube3DRenderSyncTest` 4/4 and `EndToEndSyncVerificationTest` ✅ (`block5/5-1-2-galaxy-junit.xml`); 10,000 steps in 183 s.
+- Lenovo 10,000 steps with a temporary local 15-minute timeout (never committed, file restored): ✅ 464.6 s (`block5/5-1-10k-15min-lenovo-junit.xml`). The 300 s limit is too tight for the minimum device, not a sync fault. PO: tier the limit by device speed, 2–3 tiers max.
+
+## Issues to open at the break (drafts pending PO review)
+
+1. Face-by-face scan: move *Close* next to the other controls (hard to find on the tablet).
+2. `Cube3DRenderSyncTest` 10k-step timeout: 2–3 device tiers.
+3. Corner keypoint labelling script outside the app (Story 10.20 F1).
+4. Fixture recorder: settle cap on hold 1, dialog carries light/direction, *Use corners* silently saves keypoints only (10.20 F2–F4).
+5. Lenovo touch sometimes unresponsive (also outside the app; lock/unlock restores); track, bug only if it appears app-specific.
+6. #205 light-theme status bar (if the PO wants a new issue rather than reopening/commenting #205).
