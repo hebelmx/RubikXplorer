@@ -8,6 +8,13 @@ The readings drawn from them are in the spec's
 Every recording and the first two bursts were made with tablet, cube and lights still. Only the third burst is
 hand-held.
 
+## Bursts added for Story 10.22 (2026-11-22, 15:55)
+
+Two more bursts from the same tablet and recorder build, hand-held, recorded to fit the outline steady threshold:
+`bursts/20261122-155528-handheld-2.jsonl` (120 frames, 9.8 s, cube detected in every frame, 21 frames with all three
+faces ACCEPTABLE) and `bursts/20261122-155720-fast.jsonl` (cube moved quickly on purpose: 120 frames, 6.7 s, detected in
+56). The recorder had its own calibration at that time. No JPEGs were kept.
+
 ## Conditions
 
 - Device: Lenovo TB128XU (serial HA1S28MM), Android 13, tablet resting on a base, no flash (`hasFlash=false`, torch off).
