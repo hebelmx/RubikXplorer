@@ -85,3 +85,7 @@ Doubts for a short panel at the end of the block: solved-cube Placement → only
 ## Issues opened 2026-11-23 (after an adversarial review, PO approved)
 
 #313 Close placement · #314 10k-step timeout tiers · #315 corner labelling script · #316 recorder settle cap · #317 recorder dialog carry-over · #318 recorder Use corners keypoints-only · #319 Lenovo touch (watch) · #320 Physical mode switch discoverability · #321 Editor fallback drops scanned colours · #322 Placement review status bar in light theme (re #205) · #323 likely-misread suggestions (re #174).
+
+## Issue comments posted 2026-11-23
+
+#276 verified and **closed** (indirect unbind evidence, accepted by the PO). Verification comments on the already-closed #275, #201, #203. #200: partly verified; the end of a Solution Playback after a verifying Quick Check is still to be seen (with Block 2).
