@@ -2177,3 +2177,33 @@ action_items:
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads.md"
+  - id: "issue-252-deferred-reached-two-look-redundant-unlock"
+    epic: 11
+    action: "In a Learn re-placement, picking an already reached 2-look Stage (Faster last layer, or a 2-look row under Choose another Stage) still calls PlaceFromScan and writes a redundant StageUnlocked instead of showing the already-reached outcome; treat it as reached when StageProgress is not LOCKED and route it through openReached (medium; deferred from #252, app/src/main/kotlin/dev/cubentia/app/ui/shell/AppShell.kt:644)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-252-re-placement-keeps-progress.md"
+  - id: "issue-252-deferred-stage1-already-reached-copy"
+    epic: 11
+    action: "Decide whether a Learn re-placement that suggests Cube fundamentals (fully mixed cube) or an already passed First cross should keep 'Start at Stage?' instead of reading 'You've already reached Cube fundamentals.' (low; deferred from #252, AppShell.kt:627)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-252-re-placement-keeps-progress.md"
+  - id: "issue-252-deferred-flow10-already-reached-wording"
+    epic: 11
+    action: "EXPERIENCE.md Flow 10 steps 3-4 (Marco) say 'Start at First-layer corners?' for a Stage that is already open, contradicting the Re-placement rule at EXPERIENCE.md:132 and the Story 11.2 amendment; reword Flow 10 through bmad-correct-course (low; deferred from #252, EXPERIENCE.md:313)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-252-re-placement-keeps-progress.md"
+  - id: "issue-252-deferred-picker-scan-keeps-progress-note"
+    epic: 11
+    action: "Learn > Find my place > Choose my level > 'Not sure? Scan my cube' starts a Learn re-placement but does not show the 'This keeps your progress.' note; show it there too when the picker was opened from Learn (low; deferred from #252, AppShell.kt:689)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-252-re-placement-keeps-progress.md"
+  - id: "issue-252-deferred-reached-flicker-after-start"
+    epic: 11
+    action: "After a successful Start write in a Learn re-placement, the refreshed progress can flip the result to 'already reached' / Open Stage for a frame before navigation; freeze the reached decision once the result appears (low; deferred from #252, AppShell.kt:626)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-252-re-placement-keeps-progress.md"
