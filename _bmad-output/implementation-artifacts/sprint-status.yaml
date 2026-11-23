@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-22-2026 22:49'
+last_updated: '11-23-2026 01:24'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -150,7 +150,8 @@ development_status:
   10-17-switch-from-quick-scan-to-the-guided-scan-and-keep-the-captu: done
   10-18-quick-scan-finds-the-cube-s-real-edges-and-corners: done
   10-19-quick-scan-reads-the-side-faces-in-good-light: done
-  10-20-record-10-19-pipeline-corner-fixtures-and-check-the-corner-m: backlog
+  10-20-record-10-19-pipeline-corner-fixtures-and-check-the-corner-m: 
+    in-progress
   10-21-quick-scan-keeps-the-side-faces-it-reads-well: backlog
   10-24-retake-a-corner-in-quick-scan: backlog
   10-25-quick-scan-starts-from-whichever-corner-it-is-shown: backlog
@@ -2155,25 +2156,38 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-gh-298-quick-check-highlight-playback-practice.md"
   - id: "epic-10-deferred-10.23-python-kotlin-input-parity-test"
     epic: 10
-    action: "Add a JVM test that runs CornerReader.read(keepCrops) and StickerModelContract.fillInput on one Fixtures/corner JPEG and compares it with a tensor or cell-mean fixture exported by tools/sticker-model/assemble.py, so a flip, rotation or colour mismatch between training and on-device input is caught (medium; deferred from 10.23, StickerModelContract.kt:46)"
+    action: "Add a JVM test that runs CornerReader.read(keepCrops) and StickerModelContract.fillInput
+      on one Fixtures/corner JPEG and compares it with a tensor or cell-mean fixture
+      exported by tools/sticker-model/assemble.py, so a flip, rotation or colour mismatch
+      between training and on-device input is caught (medium; deferred from 10.23,
+      StickerModelContract.kt:46)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads.md"
   - id: "epic-10-deferred-10.23-sticker-model-python-tests-in-ci"
     epic: 10
-    action: "Run the tools/sticker-model Python unittests (assembly determinism, crop orientation, tau choice, size limit) in CI, or a CPU-only subset of them; they need TensorFlow and the corner model (medium; deferred from 10.23, tools/sticker-model/test_*.py)"
+    action: "Run the tools/sticker-model Python unittests (assembly determinism, crop
+      orientation, tau choice, size limit) in CI, or a CPU-only subset of them; they
+      need TensorFlow and the corner model (medium; deferred from 10.23, tools/sticker-model/test_*.py)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads.md"
   - id: "epic-10-deferred-10.23-device-session-h1-h2"
     epic: 10
-    action: "Run the Story 10.23 device session on the main app debug build with QUICK_SCAN raised, Lenovo TB128XU and Galaxy S24 FE: at least 10 Quick Scans per device with the shadow reader on and 10 off, recording inference time per capture and the 10.22 per-hold capture times (H2), plus extra fixture captures where the inventory is thin (H1); fill docs/evidence/10-23/human-gate.md (high; PO-deferred human gate from 10.23, AC8 and AC1)"
+    action: "Run the Story 10.23 device session on the main app debug build with QUICK_SCAN
+      raised, Lenovo TB128XU and Galaxy S24 FE: at least 10 Quick Scans per device
+      with the shadow reader on and 10 off, recording inference time per capture and
+      the 10.22 per-hold capture times (H2), plus extra fixture captures where the
+      inventory is thin (H1); fill docs/evidence/10-23/human-gate.md (high; PO-deferred
+      human gate from 10.23, AC8 and AC1)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads.md"
   - id: "epic-10-deferred-10.23-evaluate-on-10-20-groups"
     epic: 10
-    action: "After Story 10.20 records its held-out corner groups, re-run tools/sticker-model evaluate.py on them and add the report to docs/evidence/10-23/ (H3) (medium; PO-deferred human gate from 10.23, AC9)"
+    action: "After Story 10.20 records its held-out corner groups, re-run tools/sticker-model
+      evaluate.py on them and add the report to docs/evidence/10-23/ (H3) (medium;
+      PO-deferred human gate from 10.23, AC9)"
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads.md"
