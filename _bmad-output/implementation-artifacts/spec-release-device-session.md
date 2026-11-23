@@ -1,12 +1,15 @@
 ---
-title: "Verification Story: Review merged fixes for seven GitHub issues"
+title: "Verification Story: Release device session — verify merged fixes and settle open device checks"
 type: 'verification'
 created: '2026-11-21'
-status: 'draft'
+amended: '2026-11-23'
+status: 'ready'
+checklist: '{project-root}/_bmad-output/implementation-artifacts/checklist-release-device-session.md'
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/spec-10-18-quick-scan-finds-the-cube-s-real-edges-and-corners.md'
   - '{project-root}/_bmad-output/implementation-artifacts/spec-10-17-switch-from-quick-scan-to-the-guided-scan-and-keep-the-captured-faces.md'
-  - 'GitHub issues #195, #196, #197, #198, #249, #251, #253'
+  - 'GitHub issues #195, #196, #197, #198, #249, #251, #253, #276, #300'
+  - '{project-root}/_bmad-output/implementation-artifacts/sprint-status.yaml (device-gated action_items)'
 deferred:
   - summary: >-
       Run this session against the final Story 10.19 build before evaluating #196;
@@ -16,7 +19,10 @@ deferred:
       metering, calibration, and torch behavior relevant to the dark-background case.
     location: 'GitHub issue #196 and Story 10.19'
     severity: medium
+    note: 'Settled 2026-11-23: Story 10.19 is merged, so #196 is evaluated as final in this session.'
 ---
+
+> **Run sheet:** [checklist-release-device-session.md](checklist-release-device-session.md). Run the session from the checklist, in its block order. This story keeps the rules, the per-issue steps (sections 1–8) and the evidence template.
 
 ## Intent
 
@@ -25,6 +31,23 @@ Several product issues were promoted into stories and the stories merged, but th
 **Story:** As the product owner, I want to replay each issue's original failure and acceptance expectations on the shipped app paths, so that I can close only the issues the merged stories fully resolved and keep any partial or failed issue open with a concrete next step.
 
 This is a verification and issue-disposition story. It does not assume that merge means resolution. If a reproducible defect remains, capture the failure and its scope; do not mark that issue resolved by this story.
+
+## Amendment 2026-11-23: one release device session
+
+Renamed from *Review merged fixes for seven GitHub issues*. The scope grows from seven issues to every check that still waits on the reference devices before the first Play release, so one session settles them together:
+
+| Block | Scope | Source |
+|---|---|---|
+| 1 | Release build smoke (blocks the first tag, #127) | `epic-2-retro-item-6`, `epic-12-deferred-12.3-release-build-offline-run` |
+| 2 | Epic 14 learning flows on the real cube | `epic-14-retro-item-231` and the 14.1–14.3 device checks |
+| 3 | Epic 15 solve styles and timing | `epic-15-retro-item-208`, 15.1 and 15.3 deferrals |
+| 4 | Gestures, 3D and Move pictures | 12.15, 12.16/12.17, #139, #260, Epic 5 hardware deferrals |
+| 5 | Automated device tests (agent only) | 12.14, `epic-6-retro-item-3`, `epic-8-retro-item-35`, `epic-1-retro-item-55`, #106 |
+| 6 | The issue checks in sections 1–8 below | #195–#198, #249, #251, #253, #276 |
+| 7 | Quick Scan timing and retakes | #300 (Story 10.22 acceptance), 10.23 H2, 10.16, #158, #194 |
+| 8 | Quick looks | #174, #178, #200, #201, #203, #205, #275 |
+
+The checklist also sets how the agent communicates and escalates during the session (AGENTS.md *Communication & Human-in-the-Loop Rules*). The acceptance criteria and closure rules below apply to every block, not only the issues: an action item is marked `done` in `sprint-status.yaml` only with a recorded PASS, and a FAIL becomes an issue or stays open with its evidence.
 
 ## Linked issues and merged work
 
@@ -37,6 +60,8 @@ This is a verification and issue-disposition story. It does not assume that merg
 | [#249](https://github.com/hebelmx/RubikXplorer/issues/249) | Correct a face efficiently with paint mode and accessible state announcements. | Scan review paint-mode story, [PR #263](https://github.com/hebelmx/RubikXplorer/pull/263), developed and merged 2026-11-21. | Touch and TalkBack behavior on-device; review was not done on a reference device. |
 | [#251](https://github.com/hebelmx/RubikXplorer/issues/251) | Explain what Placement read and why it recommends a Stage, including edge cases. | Placement explanation story, [PR #265](https://github.com/hebelmx/RubikXplorer/pull/265), developed and merged 2026-11-21. | Main-app flow, outcome copy, and TalkBack on reference devices; PR #265 did not include a physical-device check. |
 | [#253](https://github.com/hebelmx/RubikXplorer/issues/253) | Accept uniquely resolvable face rotations; explain ambiguous inputs and avoid premature errors. | Cube-editor orientation story, [PR #258](https://github.com/hebelmx/RubikXplorer/pull/258), developed and merged 2026-11-21. | Device smoke for rotated input, editor guidance, TalkBack, and large text; algorithmic breadth remains covered by tests. |
+| [#276](https://github.com/hebelmx/RubikXplorer/issues/276) | After a fall-through to face-by-face and Close, the next Quick Scan opened at "Face 1 of 6" instead of hold 1. | [PR #283](https://github.com/hebelmx/RubikXplorer/pull/283): `CameraXFrameSource.stop()` no longer unbinds the shared camera provider (cause inferred from code). | Lenovo: Discard, reopen Quick Scan at once, confirm a live corner preview at hold 1. |
+| [#300](https://github.com/hebelmx/RubikXplorer/issues/300) | Story 10.22 device acceptance only partly run on 2026-11-22. | Story 10.22, PR #297. | Hand-held Lenovo and full Galaxy holds; run in checklist Block 7, not in the sections below. |
 
 ## Boundaries and constraints
 
@@ -168,9 +193,23 @@ Use the main-app Enter colors / Manual Cube Editor path on both devices. Use sol
 
 **Close #253 only if:** The physical UI/TalkBack smoke passes and the existing deterministic rotation/ambiguity tests cover the broader state space. Leave open if any issue-thread item (orientation, premature error, generic error, auto-advance cue, or accessibility announcement) remains.
 
+### 8. #276 — Quick Scan always starts at hold 1 after Close
+
+On the Lenovo, from the main app.
+
+1. Start Quick Scan and let it fall through to the face-by-face scan (or tap *Scan face by face*); capture one face so the step reads *Face 2 of 6*.
+2. Tap Close and confirm *Discard*.
+3. Tap Quick Scan again at once. Confirm the corner preview is live and auto-captures at hold 1, not *Face 1 of 6*.
+4. Repeat three times, once with a 5-second pause before reopening. Pull `CubentiaScanDiag` and check no unbind follows the new scan's bind.
+5. Answer the issue's open question: whether *Face 1 of 6* appeared after tapping Quick Scan or after a delay.
+
+**Pass:** Three reopenings in a row start at hold 1 with a live preview.
+
+**Close #276 only if:** The pass holds on the Lenovo and the log shows no late unbind; a single good run is not enough.
+
 ## Session record and issue disposition
 
-Create a dated evidence note under `docs/evidence/issue-follow-up/` with one section per issue and this record for each device/case:
+Create a dated evidence note at `docs/evidence/release-device-session/README.md` with one section per issue and this record for each device/case:
 
 ```text
 Issue:
