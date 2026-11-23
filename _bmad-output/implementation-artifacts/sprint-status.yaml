@@ -2115,3 +2115,30 @@ action_items:
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-14-retro-2026-11-22.md"
+  - id: "issue-261-deferred-scan-activity-preferred-theme"
+    epic: 10
+    action: "GuidedScanActivity themes with CubentiaTheme (system dark mode) instead
+      of PreferredTheme, so a Learner who picked Light on a dark system gets a dark
+      scan flow; switch it to PreferredTheme (low, Learner-visible; deferred from
+      #261, GuidedScanActivity.kt:240)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-261-scan-review-secondary-button-contrast.md"
+  - id: "issue-261-deferred-secondary-button-hairline-3to1"
+    epic: 10
+    action: "The secondary outlined-button hairline border is about 1.3:1 on
+      surface-base, under WCAG 1.4.11's 3:1 non-text minimum; decide in DESIGN.md
+      whether button-secondary uses a stronger border token (low; deferred from #261,
+      ScanReviewScreen.kt SecondaryButton)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-261-scan-review-secondary-button-contrast.md"
+  - id: "issue-261-deferred-review-calibrate-cancel-style"
+    epic: 10
+    action: "The review's calibration offer (review:calibrate:offer) and the retake
+      Cancel still use default M3 outlined buttons with accent labels; reuse
+      SecondaryButton so the review's secondary buttons match (low, Learner-visible;
+      gate finding on #261, ScanReviewScreen.kt:416)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-261-scan-review-secondary-button-contrast.md"
