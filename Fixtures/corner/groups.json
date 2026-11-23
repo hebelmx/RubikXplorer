@@ -1,0 +1,67 @@
+{
+  "kind": "corner-group-index",
+  "schemaVersion": 1,
+  "groups": [
+    {
+      "group": "lenovo-tb128xu_stla_bar-warm",
+      "split": "heldout"
+    },
+    {
+      "group": "lenovo-tb128xu_stka_bar-warm",
+      "split": "tuning"
+    },
+    {
+      "group": "lenovo-tb128xu_stla_bar-cool",
+      "split": "heldout"
+    },
+    {
+      "group": "lenovo-tb128xu_stka_bar-cool",
+      "split": "tuning"
+    },
+    {
+      "group": "lenovo-tb128xu_stla_ceilback",
+      "split": "heldout"
+    },
+    {
+      "group": "lenovo-tb128xu_stlb_bar-warm",
+      "split": "tuning",
+      "pastel": true
+    },
+    {
+      "group": "sm-s721u1_stla_bar-warm",
+      "split": "heldout"
+    },
+    {
+      "group": "sm-s721u1_stka_bar-warm",
+      "split": "tuning"
+    },
+    {
+      "group": "sm-s721u1_stka_bar-warm-2",
+      "split": "heldout"
+    },
+    {
+      "group": "sm-s721u1_stla_bar-warm-2",
+      "split": "tuning"
+    },
+    {
+      "group": "sm-s721u1_stla_bar-cool",
+      "split": "heldout"
+    },
+    {
+      "group": "sm-s721u1_stka_bar-cool",
+      "split": "tuning"
+    },
+    {
+      "group": "sm-s721u1_stka_bar-cool-3",
+      "split": "heldout"
+    },
+    {
+      "group": "sm-s721u1_stla_bar-cool-2",
+      "split": "tuning"
+    },
+    {
+      "group": "sm-s721u1_stla_ceilback",
+      "split": "heldout"
+    }
+  ]
+}
