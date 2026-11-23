@@ -3,6 +3,8 @@ package dev.cubentia.app.ui.shell
 import android.app.Application
 import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
@@ -368,6 +370,9 @@ class AppShellAlgorithmPracticeTest {
         rule.waitForIdle()
         rule.onNodeWithTag("solvePlayback:title").assertDoesNotExist()
         rule.onNodeWithTag("solvePlayback:length").assertTextEquals("1 move")
+        // The new Solution starts with no after-mismatch highlight (step 1 is no boundary).
+        counter(0, 1)
+        assertQuickCheckHighlighted(false)
         rule.onNodeWithTag("solutionStyle:${SolutionStyle.SHORTEST.name}").assertIsSelected()
         rule.onNodeWithTag("playback:segment").assertDoesNotExist()
         click("solvePlayback:close")
@@ -471,6 +476,46 @@ class AppShellAlgorithmPracticeTest {
         assertEquals(setUp.moves, host.state.value.solution)
         counter(setUp.algorithmStart + 1, setUp.moves.size)
         rule.onNodeWithTag("playback:segment").assertTextEquals("Algorithm")
+    }
+
+    // #298: the practice's Quick Check is highlighted at the Set-up -> Algorithm boundary and after a mismatch until the next Done.
+
+    private fun assertQuickCheckHighlighted(highlighted: Boolean) {
+        rule
+            .onNodeWithTag("playback:quickCheck")
+            .assertContentDescriptionEquals("Quick Check")
+            .assert(SemanticsMatcher.expectValue(dev.cubentia.app.ui.lesson.QuickCheckHighlightedKey, highlighted))
+    }
+
+    @Test fun `a practice highlights the Quick Check at the set-up end and after a mismatch until the next Done`() {
+        launch(cameraScan = FlagLevel.GA)
+        openDetail()
+        practice(fromSetUp = true)
+        assertQuickCheckHighlighted(false)
+        done(setUp.algorithmStart - 1)
+        assertQuickCheckHighlighted(false)
+        // Set-up done: the Algorithm starts here.
+        done()
+        counter(setUp.algorithmStart, setUp.moves.size)
+        assertQuickCheckHighlighted(true)
+        // Mid-Algorithm.
+        done()
+        assertQuickCheckHighlighted(false)
+        observePartial(
+            host.state.value.expected
+                .apply(FaceTurn(Face.U, Turn.CLOCKWISE)),
+        )
+        rule.waitUntil(10000) { host.state.value.syncState == SyncState.PHYSICAL_MISMATCH }
+        rule.waitForIdle()
+        assertQuickCheckHighlighted(true)
+        // The next Done lands mid-Algorithm: plain again.
+        done()
+        counter(setUp.algorithmStart + 2, setUp.moves.size)
+        assertTrue(setUp.algorithmStart + 2 < setUp.moves.size)
+        assertQuickCheckHighlighted(false)
+        // The last step.
+        done(setUp.moves.size - setUp.algorithmStart - 2)
+        assertQuickCheckHighlighted(true)
     }
 
     private fun observePartial(cube: CubeState) {

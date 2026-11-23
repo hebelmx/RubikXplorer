@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -52,7 +51,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.Layout
@@ -140,9 +138,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.time.Instant
 import dev.cubentia.domain.text.Text as ContentText
-
-/** Whether the Lesson's Quick Check icon is highlighted (accent-filled); a test-only flag, not announced by TalkBack. */
-val QuickCheckHighlightedKey = SemanticsPropertyKey<Boolean>("QuickCheckHighlighted")
 
 /**
  * The Lesson task flow (FR-5, FR-6): a top bar with close over the stage and the [LessonPanel],
@@ -652,8 +647,13 @@ private fun LessonBody(
     val step = stepCard(mode, session, decision, lesson, demonstration, player, strings, beta, camera, isPractice || isSkipCheck)
     // Story 14.3: a Lesson (incl. a 2-look Lesson) offers Quick Check at every step; practice keeps Story 10.7's gate.
     val quickCheckEveryStep = session.kind?.isTaught == true
-    val quickCheckHighlighted =
-        session.syncState == SyncState.PHYSICAL_MISMATCH || decision.advance || session.objectiveMet || session.quickCheckRetry != null
+    val quickCheckBoundary = decision.advance || session.objectiveMet
+    val quickCheckRetryPending = session.quickCheckRetry != null
+    // PRACTICE keeps Story 10.7's visibility gate, which has no after-mismatch term.
+    val quickCheckOffered =
+        quickCheckSuggested(session.syncState, afterMismatch = false, retryPending = quickCheckRetryPending, boundary = quickCheckBoundary)
+    // #298: after a mismatch the highlight lasts until the next *Done*.
+    val quickCheckSuggestion = rememberQuickCheckSuggestion(session.syncState, lesson.id)
     val panel: @Composable (Modifier) -> Unit = { panelModifier ->
         LessonPanel(
             objective = strings.resolve(lesson.objective),
@@ -724,6 +724,7 @@ private fun LessonBody(
             onDone = {
                 showMoveKeyBar = false
                 stepMove?.let { move ->
+                    quickCheckSuggestion.done()
                     send { SessionEvent.PhysicalConfirmed(move, it) }
                 }
             },
@@ -750,7 +751,7 @@ private fun LessonBody(
                     }
                 },
             quickCheck =
-                if (quickCheck != null && (quickCheckEveryStep || quickCheckHighlighted)) {
+                if (quickCheck != null && (quickCheckEveryStep || quickCheckOffered)) {
                     {
                         fun request(full: Boolean) {
                             scope.launch {
@@ -763,30 +764,16 @@ private fun LessonBody(
                             }
                         }
                         session.quickCheckRetry?.let { Text(strings.resolve(it), modifier = Modifier.testTag("quickCheck:retry")) }
-                        // A Lesson offers it at every step (Story 14.3), highlighted only where Story 10.7 offered it;
+                        // A Lesson offers it at every step (Story 14.3), highlighted only at the suggested points;
                         // a practice session keeps Story 10.7's gate with the plain icon.
-                        val highlighted = quickCheckEveryStep && quickCheckHighlighted
-                        val quickCheckModifier =
-                            Modifier.testTag("lesson:quickCheck").semantics { this[QuickCheckHighlightedKey] = highlighted }
-                        val quickCheckLabel = strings.resolve(ContentText("btn.physical.quick-check"))
-                        FilledIconButton(
+                        QuickCheckButton(
+                            highlighted =
+                                quickCheckEveryStep &&
+                                    quickCheckSuggestion.suggested(session.syncState, quickCheckRetryPending, quickCheckBoundary),
+                            label = strings.resolve(ContentText("btn.physical.quick-check")),
                             onClick = { request(false) },
-                            modifier = quickCheckModifier,
-                            colors =
-                                if (highlighted) {
-                                    IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = RubikTheme.tokens.accent,
-                                        contentColor = RubikTheme.tokens.onAccent,
-                                    )
-                                } else {
-                                    IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = Color.Transparent,
-                                        contentColor = RubikTheme.tokens.inkSecondary,
-                                    )
-                                },
-                        ) {
-                            Icon(painterResource(R.drawable.ic_camera), contentDescription = quickCheckLabel)
-                        }
+                            modifier = Modifier.testTag("lesson:quickCheck"),
+                        )
                         if (session.offersFullScan) {
                             Text(strings.resolve(ContentText("msg.quick-check.likely-mismatch")))
                             session.quickCheck?.consistent?.firstOrNull()?.let { candidate ->
@@ -835,6 +822,7 @@ private fun LessonBody(
             val onMoveKey: (Move) -> Unit = { move ->
                 if (isPhysical) {
                     showMoveKeyBar = false
+                    quickCheckSuggestion.done()
                     send { SessionEvent.PhysicalConfirmed(move, it) }
                 } else {
                     send { SessionEvent.MoveCommitted(MoveIntent(move).move, it) }

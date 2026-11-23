@@ -2001,6 +2001,93 @@ class PhysicalLessonScreenTest {
         assertQuickCheckHighlighted(false)
     }
 
+    // #298 (PO 2026-11-22): after a mismatch the highlight lasts until the next *Done*.
+
+    @Test fun afterAMismatchResolvedWithItMatchesAfterAllTheQuickCheckStaysHighlightedUntilTheNextDone() {
+        val host = SessionHost(TickingClock())
+        val captured = mutableListOf<Effect.QuickCheck>()
+        openLessonMidStep(host, captured)
+        assertQuickCheckHighlighted(false)
+        reportMismatch(host)
+        assertQuickCheckHighlighted(true)
+        val midStep = host.state.value.expected
+        node("mismatch:matchesAfterAll").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+        // Still mid-step, the mismatch resolved without a Done: still highlighted.
+        assertEquals(midStep, host.state.value.expected)
+        assertTrue(!host.state.value.objectiveMet)
+        assertQuickCheckHighlighted(true)
+        // The next Done lands mid-step: plain again.
+        node("lesson:done").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.expected != midStep }
+        rule.waitForIdle()
+        assertTrue(!host.state.value.objectiveMet)
+        assertTrue(
+            host.state.value.decision
+                ?.advance != true,
+        )
+        assertQuickCheckHighlighted(false)
+    }
+
+    @Test fun aMoveKeyConfirmedInAMismatchIsADoneThatClearsTheHighlight() {
+        val host = SessionHost(TickingClock())
+        val captured = mutableListOf<Effect.QuickCheck>()
+        openLessonMidStep(host, captured)
+        reportMismatch(host)
+        assertQuickCheckHighlighted(true)
+        // Rung 1 asks which turn the Learner made; the Move key confirms the step's next Move.
+        node("mismatch:nextQuestion").performScrollTo().performClick()
+        rule.waitForIdle()
+        val midStep = host.state.value.expected
+        node("moveKey:D").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+        assertTrue(host.state.value.expected != midStep)
+        assertTrue(!host.state.value.objectiveMet)
+        assertQuickCheckHighlighted(false)
+    }
+
+    @Test fun theAfterMismatchHighlightSurvivesRecreationUntilTheNextDone() {
+        val host = SessionHost(TickingClock())
+        val restoration = StateRestorationTester(rule)
+        restoration.setContent {
+            CubentiaTheme {
+                LessonScreen(
+                    host = host,
+                    entry = longStepEntry,
+                    strings = ready.strings,
+                    modes = TeachingMode.entries,
+                    onClose = {},
+                    quickCheck = QuickCheckCapture {},
+                )
+            }
+        }
+        rule.waitForIdle()
+        rule.waitUntil(5_000) { host.state.value.isActive }
+        enterPhysicalMode(host)
+        val start = host.state.value.expected
+        node("lesson:done").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.expected != start }
+        rule.waitForIdle()
+        reportMismatch(host)
+        val midStep = host.state.value.expected
+        node("mismatch:matchesAfterAll").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_PREDICTED }
+        rule.waitForIdle()
+
+        restoration.emulateSavedInstanceStateRestore()
+        rule.waitForIdle()
+
+        assertTrue(!host.state.value.objectiveMet)
+        assertQuickCheckHighlighted(true)
+        node("lesson:done").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.expected != midStep }
+        rule.waitForIdle()
+        assertTrue(!host.state.value.objectiveMet)
+        assertQuickCheckHighlighted(false)
+    }
+
     @Test
     @Config(qualifiers = "w600dp-h960dp", fontScale = 2.0f)
     fun atDoubleTypeOnATabletTheMidStepRowShowsQuickCheckAndDoneWhole() {
