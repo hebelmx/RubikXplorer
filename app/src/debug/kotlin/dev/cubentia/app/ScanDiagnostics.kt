@@ -10,8 +10,9 @@ import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Orientation
 import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.CaptureQuality
-import dev.cubentia.domain.recognition.CenterCheck
 import dev.cubentia.domain.recognition.CornerCaptureReport
+import dev.cubentia.domain.recognition.CornerHoldEvent
+import dev.cubentia.domain.recognition.CornerHoldEventKind
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.FrameInspection
 import dev.cubentia.domain.recognition.FrameQuality
@@ -41,13 +42,12 @@ import java.util.concurrent.atomic.AtomicLong
  */
 object ScanDiagnostics {
     private val lastCornerLogMs = AtomicLong(Long.MIN_VALUE / 2)
-    private val lastSteadyLogMs = AtomicLong(Long.MIN_VALUE / 2)
-    private val lastCenterLogMs = AtomicLong(Long.MIN_VALUE / 2)
 
     /**
      * One corner frame (rate-limited): detection, per-face shutter quality, and Story 10.19's light check (per-face light
-     * level, the darker side face's difference to the top, the verdict and the light hold; lightMode=torch when the torch
-     * is lit and the check skipped), the torch and glare with the torch state. Numbers only, never pixels or Cube States.
+     * level, the darker side face's difference to the top, the verdict and whether it is coached (lightHold);
+     * lightMode=torch when the torch is lit and the check skipped), the torch and glare with the torch state. Numbers
+     * only, never pixels or Cube States.
      */
     fun onCornerFrame(
         nowMs: Long,
@@ -110,48 +110,32 @@ object ScanDiagnostics {
     }
 
     /**
-     * The Quick Scan corner steady window restarted (rate-limited like the frame line): the corner [face] index, its moved
-     * [cells] and their largest delta E. Numbers only.
+     * One state change of a Quick Scan corner hold (Story 10.22), logged as it happens and never rate-limited: the hold,
+     * the milliseconds since the hold began, and what changed (viewfinder entry, first frame, cube found or lost, pose
+     * rejected or accepted, metering requested or settled, light fail or clear, steady start or restart, capture with
+     * its trigger). Numbers and fixed words only, never pixels (AD-9).
      */
-    fun onSteadyRestart(
-        nowMs: Long,
-        face: Int,
-        cells: List<Int>,
-        maxDeltaE: Double,
-    ) {
-        val last = lastSteadyLogMs.get()
-        if (nowMs - last < INTERVAL_MS || !lastSteadyLogMs.compareAndSet(last, nowMs)) return
-        Log.d(
-            TAG,
-            listOf("quickScan", "steadyRestart", "face=$face", "cells=${cells.joinToString(",")}", "maxDeltaE=${format(maxDeltaE)}")
-                .joinToString(" "),
-        )
+    fun onHoldEvent(event: CornerHoldEvent) {
+        Log.d(TAG, holdEventLine(event))
     }
 
-    /**
-     * The Quick Scan pose-unchanged check blocked a corner frame (PO 2026-11-21, rate-limited like the frame line): the
-     * hold and per screen position the centre's ΔE to the other hold's captured centre (`-` missing). Distances only.
-     */
-    fun onCenterBlock(
-        nowMs: Long,
-        check: CenterCheck,
-    ) {
-        val last = lastCenterLogMs.get()
-        if (nowMs - last < INTERVAL_MS || !lastCenterLogMs.compareAndSet(last, nowMs)) return
-        Log.d(TAG, centerBlockLine(check))
-    }
-
-    internal fun centerBlockLine(check: CenterCheck): String =
-        listOf(
+    internal fun holdEventLine(event: CornerHoldEvent): String =
+        listOfNotNull(
             "quickScan",
-            "centerBlock",
-            "hold=${check.hold}",
-            "deltaE=${check.deltaE.joinToString(",") { format(it) }}",
+            event.kind.label,
+            "hold=${event.hold}",
+            "t=${event.elapsedMs}",
+            event.reason?.let { "${if (event.kind == CornerHoldEventKind.CAPTURE) "trigger" else "reason"}=$it" },
+            event.amount?.let { "amount=${format(it, 3)}" },
+            event.timeout?.let { "timeout=$it" },
+            event.durationMs?.let { "ms=$it" },
         ).joinToString(" ")
 
     /**
-     * One line per Quick Scan corner capture (Story 10.19): per face of the hold its centre colour read, the CONFIDENT and
-     * UNCERTAIN sticker counts, whether it is kept or sent to the grid (`grid`), and why when sent (`missing`, the
+     * One line per Quick Scan corner capture (Story 10.19): the trigger (`auto` or `manual`), the hold's total time, its
+     * time with the cube undetected, the time since the cube was first detected, and the light check at the moment of
+     * capture (Story 10.22: score and `pass`, `fail` or `-` when unmeasured); then per face of the hold its centre
+     * colour read, the CONFIDENT and UNCERTAIN sticker counts, whether it is kept or sent to the grid (`grid`), and why when sent (`missing`, the
      * shutter quality, `uncalibrated`, or the agreement-gate disagreements, close calls and a rejected centre correction).
      * Colour names and counts only, never pixels (AD-9).
      */
@@ -161,7 +145,21 @@ object ScanDiagnostics {
 
     internal fun cornerCaptureLine(report: CornerCaptureReport): String =
         (
-            listOf("quickScan", "capture", "hold=${report.hold}") +
+            listOf(
+                "quickScan",
+                "capture",
+                "hold=${report.hold}",
+                "trigger=${if (report.manual) "manual" else "auto"}",
+                "totalMs=${report.totalMs}",
+                "undetectedMs=${report.undetectedMs}",
+                "sinceDetectedMs=${report.sinceDetectedMs ?: "-"}",
+                "lightScore=${format(report.lightScore, 3)}",
+                "light=${when (report.lightPassed) {
+                    null -> "-"
+                    true -> "pass"
+                    false -> "fail"
+                }}",
+            ) +
                 report.faces.map { face ->
                     val reason =
                         when {
@@ -194,24 +192,6 @@ object ScanDiagnostics {
                 }
         ).joinToString(" ")
 
-    /** The light hold engaged ([started]) or cleared after [heldMs]. */
-    fun onLightHold(
-        started: Boolean,
-        heldMs: Long?,
-    ) {
-        val fields =
-            if (started) {
-                listOf(
-                    "quickScan",
-                    "lightHold",
-                    "start",
-                )
-            } else {
-                listOf("quickScan", "lightHold", "clear", "heldMs=${heldMs ?: "-"}")
-            }
-        Log.d(TAG, fields.joinToString(" "))
-    }
-
     /** Quick Scan's calibration offer showed (Story 10.19): at corner [hold], after an uncalibrated light hold of [heldMs]. */
     fun onCalibrationOffer(
         hold: Int,
@@ -231,12 +211,33 @@ object ScanDiagnostics {
         )
     }
 
-    /** The settle signal after a metering change: how long it took, or that it hit the cap. */
+    /**
+     * The settle signal after a metering change: how long it took, or that it hit the cap, and the exposure lock taken
+     * then (Story 10.22: `on`, `on+awb` or `unsupported`; that is the lock asked for, [onExposureLockReleased] says
+     * whether the camera took it). [futureMs] is the part of the wait the metering future took (`-` unknown).
+     */
     fun onMeteringSettled(
         settleMs: Long,
         timeout: Boolean,
+        lock: String,
+        futureMs: Long? = null,
     ) {
-        Log.d(TAG, listOf("quickScan", "metering", "settleMs=$settleMs", "timeout=$timeout").joinToString(" "))
+        Log.d(
+            TAG,
+            listOf("quickScan", "metering", "settleMs=$settleMs", "timeout=$timeout", "lock=$lock", "futureMs=${futureMs ?: "-"}")
+                .joinToString(" "),
+        )
+    }
+
+    /**
+     * An exposure lock ended (capture, re-meter, cube lost, leaving the corner view): [confirmed] when a capture result
+     * reported AE LOCKED while it was wanted, and how long it was wanted (Story 10.22).
+     */
+    fun onExposureLockReleased(
+        confirmed: Boolean,
+        heldMs: Long?,
+    ) {
+        Log.d(TAG, listOf("quickScan", "exposureLock", "released", "confirmed=$confirmed", "heldMs=${heldMs ?: "-"}").joinToString(" "))
     }
 
     /** The bound camera's flash unit and the torch state applied. */

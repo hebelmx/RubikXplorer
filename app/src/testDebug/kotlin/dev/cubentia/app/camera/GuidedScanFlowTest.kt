@@ -877,42 +877,57 @@ class GuidedScanFlowTest {
         assertTrue(quick.torchPending)
     }
 
-    @Test fun `a light hold change is logged as a start or a clear with its duration`() {
-        assertEquals(null, GuidedScanFlow.lightHoldChange(wasHeld = false, heldSince = null, nowHeld = false, nowMs = 5))
-        assertEquals(null, GuidedScanFlow.lightHoldChange(wasHeld = true, heldSince = 0, nowHeld = true, nowMs = 5))
-        assertEquals(true to null, GuidedScanFlow.lightHoldChange(wasHeld = false, heldSince = null, nowHeld = true, nowMs = 5))
-        assertEquals(false to 1200L, GuidedScanFlow.lightHoldChange(wasHeld = true, heldSince = 300, nowHeld = false, nowMs = 1500))
-        // A reset during a hold (face by face) is a clear too.
+    @Test fun `the corner outline crosses to the domain as twelve plain points, none when no cube is detected`() {
+        val quads = List(3) { quad -> List(4) { point -> CornerPoint(10.0 * quad + point, 100.0 + point) } }
+        val frame = CornerFrame(true, List(3) { null }, frameQuads = quads)
+        val outline = checkNotNull(GuidedScanFlow.outlineOf(frame))
+        assertEquals(12, outline.size)
+        assertEquals(
+            dev.cubentia.domain.recognition
+                .OutlinePoint(0.0, 100.0),
+            outline.first(),
+        )
+        assertEquals(
+            dev.cubentia.domain.recognition
+                .OutlinePoint(23.0, 103.0),
+            outline.last(),
+        )
+        assertEquals(null, GuidedScanFlow.outlineOf(frame.copy(detected = false)))
+        assertEquals(null, GuidedScanFlow.outlineOf(CornerFrame(true, List(3) { null })))
+    }
+
+    @Test fun `a light fail, and the torch turning on during it, reach the hold's timeline`() {
         val quick =
             dev.cubentia.domain.recognition
                 .QuickScanController()
         val dark = List(9) { CellReading(Lab(40.0, 0.0, 0.0), true) }
         val bright = List(9) { CellReading(Lab(90.0, 0.0, 0.0), true) }
         val stats = { cells: List<CellReading> -> FrameStats(cells, 120.0, 0.0, 100.0, 12) }
-        // The first detected frame re-meters onto the cube and holds nothing; the settled frame after it starts the hold.
+        // The first detected frame re-meters onto the cube and coaches nothing; the settled frame after it starts the fail.
         quick.onFrame(true, listOf(stats(bright), stats(dark), stats(bright)), 50, settled = false)
         assertFalse(quick.lightHeld)
         quick.onFrame(true, listOf(stats(bright), stats(dark), stats(bright)), 100, settled = true)
         assertTrue(quick.lightHeld)
-        val since = quick.lightHeldSince
-        quick.switchToFaceByFace()
-        assertEquals(false to 400L, GuidedScanFlow.lightHoldChange(true, since, quick.lightHeld, 500))
-    }
-
-    @Test fun `the torch turning on during a light hold is logged as a clear`() {
-        val quick =
-            dev.cubentia.domain.recognition
-                .QuickScanController()
-        val dark = List(9) { CellReading(Lab(40.0, 0.0, 0.0), true) }
-        val bright = List(9) { CellReading(Lab(90.0, 0.0, 0.0), true) }
-        val stats = { cells: List<CellReading> -> FrameStats(cells, 120.0, 0.0, 100.0, 12) }
-        quick.onFrame(true, listOf(stats(bright), stats(dark), stats(bright)), 50, settled = false)
-        quick.onFrame(true, listOf(stats(bright), stats(dark), stats(bright)), 100, settled = true)
-        assertTrue(quick.lightHeld)
-        val since = quick.lightHeldSince
-        // PO 2026-11-21: the light check is skipped while the torch is lit, so lighting it clears the hold at once.
+        // PO 2026-11-21: the light check is skipped while the torch is lit, so lighting it clears the fail at once.
         GuidedScanFlow.syncTorch(quick, hasFlash = true, torchOn = true, applied = true, nowMs = 300)
-        assertEquals(false to 200L, GuidedScanFlow.lightHoldChange(true, since, quick.lightHeld, 300))
+        assertFalse(quick.lightHeld)
+        val light =
+            quick.drainEvents().filter {
+                it.kind == dev.cubentia.domain.recognition.CornerHoldEventKind.LIGHT_FAIL ||
+                    it.kind == dev.cubentia.domain.recognition.CornerHoldEventKind.LIGHT_CLEAR
+            }
+        assertEquals(
+            listOf(
+                dev.cubentia.domain.recognition.CornerHoldEventKind.LIGHT_FAIL,
+                dev.cubentia.domain.recognition.CornerHoldEventKind.LIGHT_CLEAR,
+            ),
+            light.map {
+                it.kind
+            },
+        )
+        assertEquals(listOf(50L, 250L), light.map { it.elapsedMs })
+        assertEquals("torch", light.last().reason)
+        assertEquals(200L, light.last().durationMs)
     }
 
     // Story 10.19: the torch follows the Learner's choice in Quick Scan's corner view only, on a camera with a flash unit.

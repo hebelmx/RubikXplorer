@@ -4,8 +4,8 @@ import dev.cubentia.application.usecase.Recognition
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.recognition.CalibrationCenters
-import dev.cubentia.domain.recognition.CenterCheck
 import dev.cubentia.domain.recognition.CornerCaptureReport
+import dev.cubentia.domain.recognition.CornerHoldEvent
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.PhysicalObservation
@@ -27,24 +27,9 @@ object ScanDiagnostics {
         torch: Boolean = false,
     ) = Unit
 
-    fun onSteadyRestart(
-        nowMs: Long,
-        face: Int,
-        cells: List<Int>,
-        maxDeltaE: Double,
-    ) = Unit
-
-    fun onCenterBlock(
-        nowMs: Long,
-        check: CenterCheck,
-    ) = Unit
+    fun onHoldEvent(event: CornerHoldEvent) = Unit
 
     fun onCornerCapture(report: CornerCaptureReport) = Unit
-
-    fun onLightHold(
-        started: Boolean,
-        heldMs: Long?,
-    ) = Unit
 
     fun onCalibrationOffer(
         hold: Int,
@@ -59,6 +44,13 @@ object ScanDiagnostics {
     fun onMeteringSettled(
         settleMs: Long,
         timeout: Boolean,
+        lock: String,
+        futureMs: Long? = null,
+    ) = Unit
+
+    fun onExposureLockReleased(
+        confirmed: Boolean,
+        heldMs: Long?,
     ) = Unit
 
     fun onTorch(

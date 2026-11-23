@@ -2,10 +2,12 @@ package dev.cubentia.app.camera
 
 import android.content.Context
 import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.TotalCaptureResult
 import android.os.SystemClock
+import android.util.Log
 import android.util.Size
 import android.view.ViewOutlineProvider
 import android.view.ViewTreeObserver
@@ -13,7 +15,10 @@ import androidx.activity.ComponentActivity
 import androidx.annotation.OptIn
 import androidx.annotation.VisibleForTesting
 import androidx.camera.camera2.Camera2Config
+import androidx.camera.camera2.interop.Camera2CameraControl
+import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.camera2.interop.Camera2Interop
+import androidx.camera.camera2.interop.CaptureRequestOptions
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
@@ -45,6 +50,7 @@ import kotlinx.coroutines.withContext
 import java.util.Optional
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 
 private val EMPTY_STATS =
@@ -81,12 +87,20 @@ internal interface ScanFrameSource {
     /**
      * Story 10.19: AF+AE (and AWB when [includeAwb]) on the detected cube outline of the last corner frame, falling back
      * to the grid centre when the camera cannot meter that region. Safe on the analyzer thread: the settle signal resets
-     * at once, so [settled] reads false for the very next frame.
+     * at once, so [settled] reads false for the very next frame. Story 10.22: the exposure lock of the previous metering
+     * is released first (and the white-balance lock with it when [includeAwb]), and once this metering has settled the
+     * exposure is locked until the next [meterCube], [releaseExposure] or the end of the corner view.
      */
     fun meterCube(includeAwb: Boolean) = meter(includeAwb)
 
     /** Whether the last metering change has settled (null: this source reports no settle signal). */
     fun settled(): Boolean? = null
+
+    /**
+     * Story 10.22: a corner was captured. The exposure lock is released; a white-balance lock taken at the first hold
+     * stays, so the second hold is read under the same white balance.
+     */
+    fun releaseExposure() = Unit
 
     /**
      * The torch state last applied physically (Story 10.19): set when the camera's `enableTorch` future completed, so a
@@ -145,6 +159,17 @@ internal class CameraXFrameSource
 
         @Volatile private var settleReported = true
 
+        /** The exposure and white-balance locks wanted now (Story 10.22); changed atomically, applied on the main thread. */
+        private val locks = AtomicReference(ExposureLocks.NONE)
+
+        /** When the exposure lock now wanted was asked for, and whether a capture result has reported AE LOCKED since. */
+        @Volatile private var lockRequestedAt: Long? = null
+
+        @Volatile private var lockSeen = false
+
+        /** Whether the latest [meterCube] metered white balance too (hold 1). */
+        @Volatile private var meteredAwb = false
+
         @Volatile private var appliedTorch: Boolean? = null
 
         @Volatile private var torchWanted = false
@@ -194,7 +219,11 @@ internal class CameraXFrameSource
             // turned off while still attached, and skipped when another scan already took the camera over (GH #276).
             if (provider != null && ours.any(provider::isBound)) {
                 lastCamera?.takeIf { it.cameraInfo.hasFlashUnit() }?.cameraControl?.enableTorch(false)
+                // Story 10.22: no exposure or white-balance lock outlives the corner view.
+                if (locks.get().held) lastCamera?.let { applyLocks(it, ExposureLocks.NONE) }
             }
+            // A white balance lock dropped here is stale: the next metering meters and locks it again.
+            moveLocks(post = false, change = ExposureLocks::cleared)
             // Released with the camera: the next corner view waits for the torch to come back on before metering.
             appliedTorch = false
             startJob?.cancel()
@@ -220,6 +249,8 @@ internal class CameraXFrameSource
         override fun hasFlashUnit(): Boolean? = camera?.cameraInfo?.hasFlashUnit()
 
         override fun torch(on: Boolean) {
+            // Story 10.22: a white balance locked under the other torch state is stale; the next metering redoes it.
+            if (on != torchWanted) moveLocks(post = false, change = ExposureLocks::onTorchChanged)
             torchWanted = on
             applyTorch(force = true)
         }
@@ -263,7 +294,18 @@ internal class CameraXFrameSource
         override fun meterCube(includeAwb: Boolean) {
             val generation = settle.request(SystemClock.elapsedRealtime())
             settleReported = false
-            ContextCompat.getMainExecutor(context).execute { meterOn(includeAwb, generation, cube = true) }
+            // Story 10.22: a re-meter releases the exposure lock first, or the metering could not move the exposure. A
+            // stale white balance is metered again even at hold 2.
+            var awb = includeAwb
+            moveLocks(post = false) {
+                awb = ExposureLocks.metersAwb(it, includeAwb)
+                ExposureLocks.onMeter(it, includeAwb)
+            }
+            meteredAwb = awb
+            ContextCompat.getMainExecutor(context).execute {
+                applyLatestLocks()
+                meterOn(awb, generation, cube = true)
+            }
         }
 
         override fun settled(): Boolean? {
@@ -271,9 +313,91 @@ internal class CameraXFrameSource
             val outcome = settle.outcome(now) ?: return null
             if (outcome != Settle.SETTLING && !settleReported) {
                 settleReported = true
-                ScanDiagnostics.onMeteringSettled(settle.elapsed(now) ?: 0L, timeout = outcome == Settle.TIMEOUT)
+                // Story 10.22: lock what the metering settled on (at the cap: whatever exposure the camera has).
+                val lock = lockExposure()
+                ScanDiagnostics.onMeteringSettled(
+                    settle.elapsed(now) ?: 0L,
+                    timeout = outcome == Settle.TIMEOUT,
+                    lock = lock,
+                    futureMs = settle.futureMs(),
+                )
             }
             return outcome != Settle.SETTLING
+        }
+
+        override fun releaseExposure() {
+            moveLocks(change = ExposureLocks::onCaptured)
+        }
+
+        /** Locks the exposure (and the white balance at hold 1) where the camera can; returns the diagnostics word. */
+        private fun lockExposure(): String {
+            val bound = camera ?: return LOCK_UNSUPPORTED
+            val (ae, awb) = lockSupport(bound)
+            val metered = meteredAwb
+            // Never once the corner view is off: the lock would outlive it.
+            val wanted = moveLocks { if (corner) ExposureLocks.onSettled(it, metered, aeSupported = ae, awbSupported = awb) else it }
+            return ExposureLocks.label(wanted)
+        }
+
+        /**
+         * One atomic transition of the wanted locks, from any thread. Logs an exposure lock that ends with what the
+         * camera reported while it was wanted, and with [post] applies the latest state on the main thread.
+         */
+        private fun moveLocks(
+            post: Boolean = true,
+            change: (ExposureLocks) -> ExposureLocks,
+        ): ExposureLocks {
+            val before = locks.getAndUpdate(change)
+            val after = change(before)
+            val now = SystemClock.elapsedRealtime()
+            if (before.ae && !after.ae) {
+                ScanDiagnostics.onExposureLockReleased(confirmed = lockSeen, heldMs = lockRequestedAt?.let { now - it })
+                lockRequestedAt = null
+            } else if (!before.ae && after.ae) {
+                lockSeen = false
+                lockRequestedAt = now
+            }
+            if (post && (before.ae != after.ae || before.awb != after.awb)) {
+                ContextCompat.getMainExecutor(context).execute { applyLatestLocks() }
+            }
+            return after
+        }
+
+        /** Main thread: sets the camera to the locks wanted now; with the corner view off that is none, whatever was asked. */
+        private fun applyLatestLocks() {
+            val bound = camera ?: return
+            applyLocks(bound, if (corner) locks.get() else moveLocks(post = false, change = ExposureLocks::cleared))
+        }
+
+        /** Whether the bound camera can lock AE and AWB; (false, false) when it cannot say. */
+        @OptIn(ExperimentalCamera2Interop::class)
+        private fun lockSupport(bound: Camera): Pair<Boolean, Boolean> =
+            runCatching {
+                val info = Camera2CameraInfo.from(bound.cameraInfo)
+                (info.getCameraCharacteristic(CameraCharacteristics.CONTROL_AE_LOCK_AVAILABLE) == true) to
+                    (info.getCameraCharacteristic(CameraCharacteristics.CONTROL_AWB_LOCK_AVAILABLE) == true)
+            }.getOrDefault(false to false)
+
+        /** Sets the capture-request lock options to [wanted]; never throws (a camera that refuses keeps its auto modes). */
+        @OptIn(ExperimentalCamera2Interop::class)
+        private fun applyLocks(
+            bound: Camera,
+            wanted: ExposureLocks,
+        ) {
+            runCatching {
+                val control = Camera2CameraControl.from(bound.cameraControl)
+                if (!wanted.held) {
+                    control.clearCaptureRequestOptions()
+                } else {
+                    control.setCaptureRequestOptions(
+                        CaptureRequestOptions
+                            .Builder()
+                            .setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK, wanted.ae)
+                            .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, wanted.awb)
+                            .build(),
+                    )
+                }
+            }
         }
 
         /** Obtains the provider off the main thread, then binds on main once the preview has a viewport. */
@@ -308,6 +432,8 @@ internal class CameraXFrameSource
                     CameraXConfig.Builder
                         .fromConfig(Camera2Config.defaultConfig())
                         .setAvailableCamerasLimiter(CameraSelector.DEFAULT_BACK_CAMERA)
+                        // Story 10.22: CameraX's own debug logging filled the device log buffer during a scan session.
+                        .setMinimumLoggingLevel(Log.ERROR)
                         .build(),
                 )
             } catch (ignored: IllegalStateException) {
@@ -396,9 +522,14 @@ internal class CameraXFrameSource
 
         override fun cornerMode(enabled: Boolean) {
             corner = enabled
+            // Story 10.22: leaving the corner view releases every lock; the Guided grid meters as before.
+            if (!enabled) moveLocks(change = ExposureLocks::cleared)
         }
 
-        /** Reads CONTROL_AE_STATE from every capture result: the settle signal's exposure half (Story 10.19). */
+        /**
+         * Reads the AE state, exposure time and sensitivity from every capture result: the settle signal's exposure half
+         * (Stories 10.19, 10.22).
+         */
         @OptIn(ExperimentalCamera2Interop::class)
         private fun observeAeState(builder: ImageAnalysis.Builder) {
             Camera2Interop.Extender(builder).setSessionCaptureCallback(
@@ -408,7 +539,16 @@ internal class CameraXFrameSource
                         request: CaptureRequest,
                         result: TotalCaptureResult,
                     ) {
-                        settle.onCaptureResult(result.frameNumber, result.get(CaptureResult.CONTROL_AE_STATE))
+                        val ae = result.get(CaptureResult.CONTROL_AE_STATE)
+                        // What the camera says, for the lock-release line: the wanted state alone proves nothing.
+                        if (lockRequestedAt != null && ae == CaptureResult.CONTROL_AE_STATE_LOCKED) lockSeen = true
+                        settle.onCaptureResult(
+                            result.frameNumber,
+                            ae,
+                            result.get(CaptureResult.SENSOR_EXPOSURE_TIME),
+                            result.get(CaptureResult.SENSOR_SENSITIVITY),
+                            SystemClock.elapsedRealtime(),
+                        )
                     }
                 },
             )
@@ -472,7 +612,7 @@ internal class CameraXFrameSource
         ) {
             fun skip() {
                 // Nothing to meter: the settle signal does not wait for it.
-                if (generation != null) settle.onFutureDone(generation)
+                if (generation != null) settle.onFutureDone(generation, SystemClock.elapsedRealtime())
             }
             // The corner view may have given way to the Guided grid since the analyzer asked: never meter that on the cube.
             if (cube && !corner) return skip()
@@ -499,15 +639,34 @@ internal class CameraXFrameSource
             val chosen = action(region) ?: return skip()
             val future = bound.cameraControl.startFocusAndMetering(chosen)
             if (generation != null) {
-                future.addListener({ settle.onFutureDone(generation) }, ContextCompat.getMainExecutor(context))
+                future.addListener(
+                    { settle.onFutureDone(generation, SystemClock.elapsedRealtime()) },
+                    ContextCompat.getMainExecutor(context),
+                )
             }
         }
 
         companion object {
             const val METERING_LOCK_SECONDS = 3L
 
-            /** The longest the settle signal waits for the metering future and AE convergence (shared with the domain). */
+            /** The longest the settle signal waits for the metering future and a stable exposure (shared with the domain). */
             const val SETTLE_CAP_MS = dev.cubentia.domain.recognition.CornerSettle.CAP_MS
+
+            /**
+             * Story 10.22: exposure time × ISO counts as one level while its largest value is within this share of its
+             * smallest. Still burst 1 moves about 5% inside a level and 14% between its two levels; every value from 0.04
+             * to 0.10 reports "not settled" throughout that burst's swing (docs/evidence/10-22/README.md).
+             */
+            const val SETTLE_TOLERANCE = 0.06
+
+            /**
+             * Story 10.22: the exposure level must hold this long, after the metering future, to count as settled. On still
+             * burst 1 a 400 ms window settles inside the swing; 500 ms and 750 ms do not.
+             */
+            const val SETTLE_WINDOW_MS = 600L
+
+            /** [ScanDiagnostics.onMeteringSettled]'s lock word when the camera cannot lock its exposure. */
+            const val LOCK_UNSUPPORTED = "unsupported"
 
             /** The torch is re-applied at most this often when it drifted from what is wanted. */
             const val TORCH_RETRY_MS = 1000L
@@ -574,31 +733,25 @@ internal class CameraXFrameSource
                 }
 
             /**
-             * The settle signal: settled once the metering future completed and the AE state reported after the request is
-             * CONVERGED, LOCKED or FLASH_REQUIRED; a timeout once [SETTLE_CAP_MS] passed without that (an AE state still
-             * unknown then included).
+             * The settle signal (Story 10.22): settled once the metering future completed and exposure time × ISO has
+             * stayed within [SETTLE_TOLERANCE] for [SETTLE_WINDOW_MS] since ([stableMs]; null while no exposure level is
+             * known); a timeout once [SETTLE_CAP_MS] passed without that. The AE state alone never settles it.
              */
             internal fun settleOutcome(
                 futureDone: Boolean,
-                aeState: Int?,
+                stableMs: Long?,
                 elapsedMs: Long,
             ): Settle =
                 when {
-                    futureDone && aeState != null && aeState in SETTLED_AE_STATES -> Settle.SETTLED
+                    futureDone && stableMs != null && stableMs >= SETTLE_WINDOW_MS -> Settle.SETTLED
                     elapsedMs >= SETTLE_CAP_MS -> Settle.TIMEOUT
                     else -> Settle.SETTLING
                 }
 
-            private val SETTLED_AE_STATES =
-                setOf(
-                    CaptureResult.CONTROL_AE_STATE_CONVERGED,
-                    CaptureResult.CONTROL_AE_STATE_LOCKED,
-                    CaptureResult.CONTROL_AE_STATE_FLASH_REQUIRED,
-                )
-
             /**
              * AF + AE always; AWB only when [includeAwb]. Quick Scan Hold 2 skips it so white balance is not re-metered on
-             * a no-white Y/O/B grid; this is no AWB lock (AWB stays continuous auto once Hold 1's action cancels).
+             * a no-white Y/O/B grid; since Story 10.22 the white balance locked at Hold 1 is carried through Hold 2
+             * ([ExposureLocks]) where the camera can lock it.
              */
             internal fun meteringFlags(includeAwb: Boolean): Int =
                 if (includeAwb) {
@@ -644,32 +797,96 @@ internal data class MeteringRegion(
 internal enum class Settle { SETTLING, SETTLED, TIMEOUT }
 
 /**
- * The settle signal's state for the latest metering request (Story 10.19), safe across the analyzer, main and capture
- * callback threads. [request] starts a new one: its future is not done and the AE state is unknown again, and only
- * capture results with a frame number after the newest one seen at the request count, so a stale AE state from before
- * the request never settles it.
+ * The exposure (AE) and white-balance (AWB) locks the corner view holds (Story 10.22). AE is locked from the moment a
+ * metering settles until the capture or the next metering; AWB is locked with hold 1's metering and carried through
+ * hold 2, whose metering leaves white balance alone. A camera that cannot lock keeps its auto modes. [awbStale]: the
+ * white balance last locked no longer fits (the torch changed, or a camera stop dropped the lock), so the next metering
+ * meters and locks it again whatever the hold.
+ */
+internal data class ExposureLocks(
+    val ae: Boolean,
+    val awb: Boolean,
+    val awbStale: Boolean = false,
+) {
+    /** True while a lock is wanted on the camera. */
+    val held: Boolean get() = ae || awb
+
+    companion object {
+        val NONE = ExposureLocks(ae = false, awb = false)
+
+        /** Whether a metering request meters white balance: when asked ([includeAwb]) or when the last one is stale. */
+        fun metersAwb(
+            current: ExposureLocks,
+            includeAwb: Boolean,
+        ) = includeAwb || current.awbStale
+
+        /** A metering request: exposure must move again, and white balance too when it is metered ([metersAwb]). */
+        fun onMeter(
+            current: ExposureLocks,
+            includeAwb: Boolean,
+        ) = current.copy(ae = false, awb = current.awb && !metersAwb(current, includeAwb))
+
+        /** The metering settled: lock what the camera can; a metering that included white balance locks that too. */
+        fun onSettled(
+            current: ExposureLocks,
+            includeAwb: Boolean,
+            aeSupported: Boolean,
+            awbSupported: Boolean,
+        ) = ExposureLocks(ae = aeSupported, awb = current.awb || (includeAwb && awbSupported), awbStale = current.awbStale && !includeAwb)
+
+        /** A corner was captured, or the cube was lost: the exposure is free again, the white balance stays. */
+        fun onCaptured(current: ExposureLocks) = current.copy(ae = false)
+
+        /** The torch changed: a white balance locked under the other torch state is stale. */
+        fun onTorchChanged(current: ExposureLocks) = current.copy(awbStale = true)
+
+        /** The corner view ended or the camera stopped: no lock is left, and a white balance that was locked is stale. */
+        fun cleared(current: ExposureLocks) = ExposureLocks(ae = false, awb = false, awbStale = current.awb || current.awbStale)
+
+        /** The word the settle diagnostics line carries: `on`, `on+awb` or `unsupported` (no exposure lock). */
+        fun label(locks: ExposureLocks): String =
+            when {
+                !locks.ae -> CameraXFrameSource.LOCK_UNSUPPORTED
+                locks.awb -> "on+awb"
+                else -> "on"
+            }
+    }
+}
+
+/**
+ * The settle signal's state for the latest metering request (Stories 10.19, 10.22), safe across the analyzer, main and
+ * capture callback threads. [request] starts a new one: its future is not done and no exposure level is known again, and
+ * only capture results with a frame number after the newest one seen at the request count, so a stale result from before
+ * the request never settles it. Once the future completed, the results' exposure time × ISO is followed: the level
+ * restarts whenever a result leaves [CameraXFrameSource.SETTLE_TOLERANCE] of the running level's range, reports no
+ * exposure, or reports AE still searching; [outcome] is settled once one level has held for
+ * [CameraXFrameSource.SETTLE_WINDOW_MS]. A converged AE state alone never settles it (still burst 1 kept moving while
+ * reporting converged).
  */
 internal class SettleTracker {
-    @Volatile private var generation = 0
+    private var generation = 0
+    private var startedAt: Long? = null
+    private var futureDone = false
+    private var futureAt: Long? = null
+    private var lastFrameNumber = Long.MIN_VALUE
+    private var frameFloor = Long.MIN_VALUE
 
-    @Volatile private var startedAt: Long? = null
-
-    @Volatile private var futureDone = false
-
-    @Volatile private var aeState: Int? = null
-
-    @Volatile private var lastFrameNumber = Long.MIN_VALUE
-
-    @Volatile private var frameFloor = Long.MIN_VALUE
+    /** The running exposure level: when it began, its last result, and its smallest and largest exposure time × ISO. */
+    private var levelSince: Long? = null
+    private var levelAt = 0L
+    private var levelMin = 0.0
+    private var levelMax = 0.0
 
     /** A metering request at [nowMs]; returns its generation, for [onFutureDone]. */
+    @Synchronized
     fun request(nowMs: Long): Int {
         // The generation moves first, so a late onFutureDone of the previous request cannot mark this one done.
         val next = generation + 1
         generation = next
         startedAt = nowMs
         futureDone = false
-        aeState = null
+        futureAt = null
+        levelSince = null
         frameFloor = lastFrameNumber
         return next
     }
@@ -678,33 +895,73 @@ internal class SettleTracker {
      * A new camera session (bind) or a released camera (stop): frame numbers restart, so the frame floor and the newest
      * frame number seen are forgotten, and any pending request is dropped (its future can no longer mark anything done).
      */
+    @Synchronized
     fun reset() {
         generation += 1
         startedAt = null
         futureDone = false
-        aeState = null
+        futureAt = null
+        levelSince = null
         lastFrameNumber = Long.MIN_VALUE
         frameFloor = Long.MIN_VALUE
     }
 
+    /** One capture result at [nowMs]: its AE state, exposure time (ns) and sensitivity (ISO), null where unreported. */
+    @Synchronized
     fun onCaptureResult(
         frameNumber: Long,
         ae: Int?,
+        exposureNs: Long?,
+        iso: Int?,
+        nowMs: Long,
     ) {
         lastFrameNumber = maxOf(lastFrameNumber, frameNumber)
-        if (frameNumber > frameFloor) aeState = ae
+        // The window runs after the metering future only, on results newer than the request.
+        if (frameNumber <= frameFloor || !futureDone) return
+        val level = if (exposureNs != null && iso != null && exposureNs > 0 && iso > 0) exposureNs.toDouble() * iso else null
+        if (level == null || ae == CaptureResult.CONTROL_AE_STATE_SEARCHING) {
+            levelSince = null
+            return
+        }
+        val low = minOf(levelMin, level)
+        val high = maxOf(levelMax, level)
+        if (levelSince == null || (high - low) / low > CameraXFrameSource.SETTLE_TOLERANCE) {
+            levelSince = nowMs
+            levelMin = level
+            levelMax = level
+        } else {
+            levelMin = low
+            levelMax = high
+        }
+        levelAt = nowMs
     }
 
-    /** The metering future of request [generation] completed (or there was nothing to meter). */
-    fun onFutureDone(generation: Int) {
-        if (generation == this.generation) futureDone = true
+    /** The metering future of request [generation] completed at [nowMs] (or there was nothing to meter). */
+    @Synchronized
+    fun onFutureDone(
+        generation: Int,
+        nowMs: Long? = null,
+    ) {
+        if (generation != this.generation) return
+        futureDone = true
+        futureAt = nowMs
     }
+
+    /** Milliseconds from the latest request to its metering future's completion; null while unknown. */
+    @Synchronized
+    fun futureMs(): Long? = futureAt?.let { done -> startedAt?.let { done - it } }
 
     /** Milliseconds since the latest request; null before any. */
+    @Synchronized
     fun elapsed(nowMs: Long): Long? = startedAt?.let { nowMs - it }
 
+    /** How long the running exposure level has held, up to its last result; null while none is known. */
+    @Synchronized
+    fun stableMs(): Long? = levelSince?.let { levelAt - it }
+
     /** The latest request's outcome at [nowMs]; null before any request. */
-    fun outcome(nowMs: Long): Settle? = elapsed(nowMs)?.let { CameraXFrameSource.settleOutcome(futureDone, aeState, it) }
+    @Synchronized
+    fun outcome(nowMs: Long): Settle? = elapsed(nowMs)?.let { CameraXFrameSource.settleOutcome(futureDone, stableMs(), it) }
 }
 
 private class MeteringGrid(
