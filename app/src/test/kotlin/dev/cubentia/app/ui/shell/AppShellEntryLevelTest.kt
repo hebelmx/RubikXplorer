@@ -15,6 +15,7 @@ import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -48,8 +49,11 @@ import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
 import dev.cubentia.domain.content.FaceletString
 import dev.cubentia.domain.content.FaceletStringResult
+import dev.cubentia.domain.content.LessonId
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.CubeValidator
+import dev.cubentia.domain.cube.Notation
+import dev.cubentia.domain.cube.NotationResult
 import dev.cubentia.domain.cube.ValidationResult
 import dev.cubentia.domain.tutor.ProgressEvent
 import dev.cubentia.domain.tutor.StageProgress
@@ -183,6 +187,185 @@ class AppShellEntryLevelTest {
         val lesson = bundle.stages.flatMap { it.lessons }.single { it.id.value == id }
         val facelets = (FaceletString.decode(lesson.entryState) as FaceletStringResult.Decoded).facelets
         return (CubeValidator.validate(facelets) as ValidationResult.Valid).state
+    }
+
+    private fun seedCompleted(vararg lessonIds: String) {
+        lessonIds.forEach { records += ProgressRecord("seed", records.size + 1L, ProgressEvent.LessonCompleted(LessonId(it))) }
+    }
+
+    private fun stageLessons(index: Int) =
+        bundle.stages[index]
+            .lessons
+            .map { it.id.value }
+            .toTypedArray()
+
+    private fun status(index: Int) = StageProgress.status(bundle.stages[index], bundle.stages, events)
+
+    private fun scanFromSheet(lessonId: String) {
+        openSheet()
+        rule.onNodeWithTag("findMyPlace:scan").performClick()
+        waitGone("findMyPlace:scan")
+        rule.runOnIdle { flow.onScanOutcome(ScanOutcome.Accepted(entry(lessonId))) }
+        waitForTag("placement:screen")
+    }
+
+    @Test
+    fun `Find my place shows the keeps-progress note under Scan my cube before the scan starts`() {
+        show(welcome = false, placement = true)
+        openSheet()
+        rule.onNodeWithTag("findMyPlace:scan").assertTextContains("Scan my cube")
+        rule
+            .onNodeWithTag("findMyPlace:scan:keepsProgress")
+            .assertTextEquals("This keeps your progress. Stages you've finished stay as they are.")
+        rule.onNodeWithTag("findMyPlace:chooseLevel").assertExists()
+        val scanTop =
+            rule
+                .onNodeWithTag("findMyPlace:scan")
+                .fetchSemanticsNode()
+                .boundsInRoot.top
+        val noteTop =
+            rule
+                .onNodeWithTag("findMyPlace:scan:keepsProgress")
+                .fetchSemanticsNode()
+                .boundsInRoot.top
+        val chooseTop =
+            rule
+                .onNodeWithTag("findMyPlace:chooseLevel")
+                .fetchSemanticsNode()
+                .boundsInRoot.top
+        assertTrue(scanTop < noteTop && noteTop < chooseTop)
+        assertEquals(0, scanCount)
+
+        rule.onNodeWithTag("findMyPlace:scan").performClick()
+        assertEquals(1, scanCount)
+        rule.runOnIdle { flow.onScanOutcome(ScanOutcome.Accepted(entry("lesson-03-01"))) }
+        waitForTag("placement:screen")
+        rule.onNodeWithTag("placement:reading", useUnmergedTree = true).assertExists()
+        assertTrue(records.isEmpty())
+    }
+
+    @Test
+    fun `with PLACEMENT off Find my place shows no keeps-progress note`() {
+        show(welcome = false)
+        openSheet()
+        rule.onNodeWithTag("findMyPlace:scan").assertDoesNotExist()
+        rule.onNodeWithTag("findMyPlace:scan:keepsProgress").assertDoesNotExist()
+        rule.onNodeWithTag("findMyPlace:chooseLevel").assertExists()
+    }
+
+    @Test
+    fun `a Learn re-placement to a not-yet-reached Stage only adds events and keeps completed Stages`() {
+        seedCompleted(*stageLessons(0), "lesson-02-01")
+        val seeded = records.toList()
+        show(welcome = false, placement = true)
+        assertEquals(StageStatus.COMPLETED, status(0))
+        assertEquals(StageStatus.IN_PROGRESS, status(1))
+        assertEquals(StageStatus.LOCKED, status(2))
+
+        scanFromSheet("lesson-04-01")
+        rule.onNodeWithTag("placement:suggestion", useUnmergedTree = true).assertTextEquals("Start at Middle layer?")
+        rule.onNodeWithTag("placement:alreadyReached", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithTag("placement:openStage").assertDoesNotExist()
+        rule.onNodeWithTag("placement:start").performClick()
+
+        waitForTag("stageDetail:title")
+        rule.onNodeWithTag("stageDetail:title").assertTextContains("Middle layer")
+        assertEquals(seeded, records.take(seeded.size))
+        assertEquals(
+            listOf(
+                ProgressEvent.StageSkippedByPlacement::class,
+                ProgressEvent.StageSkippedByPlacement::class,
+                ProgressEvent.StageUnlocked::class,
+            ),
+            events.drop(seeded.size).map { it::class },
+        )
+        assertEquals(
+            listOf(bundle.stages[1].id, bundle.stages[2].id),
+            events.filterIsInstance<ProgressEvent.StageSkippedByPlacement>().map { it.stageId },
+        )
+        assertEquals(bundle.stages[3].id, events.filterIsInstance<ProgressEvent.StageUnlocked>().single().stageId)
+        assertEquals(StageStatus.COMPLETED, status(0))
+        assertEquals(StageStatus.SKIPPED_BY_PLACEMENT, status(1))
+        assertEquals(StageStatus.SKIPPED_BY_PLACEMENT, status(2))
+        assertEquals(StageStatus.IN_PROGRESS, status(3))
+    }
+
+    @Test
+    fun `a failed Learn re-placement write keeps the result with the save-failed line`() {
+        seedCompleted(*stageLessons(0))
+        val seeded = records.toList()
+        failWrite = true
+        show(welcome = false, placement = true)
+        scanFromSheet("lesson-04-01")
+        rule.onNodeWithTag("placement:start").performClick()
+
+        rule.waitUntil(5_000) {
+            rule.onAllNodesWithText("Could not save your progress. Try again.").fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.onNodeWithTag("placement:reading", useUnmergedTree = true).assertExists()
+        rule.onNodeWithTag("stageDetail:title").assertDoesNotExist()
+        assertEquals(seeded, records)
+    }
+
+    @Test
+    fun `a Learn re-placement to an already reached Stage offers Open Stage and writes nothing`() {
+        seedCompleted(*stageLessons(0), *stageLessons(1))
+        val seeded = records.toList()
+        show(welcome = false, placement = true)
+        assertEquals(StageStatus.IN_PROGRESS, status(2))
+
+        scanFromSheet("lesson-03-01")
+        rule.onNodeWithTag("placement:reading", useUnmergedTree = true).assertExists()
+        rule.onNodeWithTag("placement:reason", useUnmergedTree = true).assertExists()
+        rule
+            .onNodeWithTag(
+                "placement:alreadyReached",
+                useUnmergedTree = true,
+            ).assertTextEquals("You've already reached First-layer corners.")
+        rule.onNodeWithTag("placement:prompt").assertTextContains("You've already reached First-layer corners.")
+        rule.onNodeWithTag("placement:suggestion", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithTag("placement:start").assertDoesNotExist()
+        rule.onNodeWithTag("placement:chooseAnother").assertExists()
+        rule.onNodeWithTag("placement:openStage").assertTextContains("Open Stage").performClick()
+
+        waitForTag("stageDetail:title")
+        rule.onNodeWithTag("stageDetail:title").assertTextContains("First-layer corners")
+        runBlocking { writer.flush() }
+        assertEquals(seeded, records)
+    }
+
+    @Test
+    fun `a Learn re-placement choosing a reached Stage from Choose another opens it and writes nothing`() {
+        seedCompleted(*stageLessons(0))
+        val seeded = records.toList()
+        show(welcome = false, placement = true)
+        assertEquals(StageStatus.IN_PROGRESS, status(1))
+
+        scanFromSheet("lesson-03-01")
+        rule.onNodeWithTag("placement:start").assertExists()
+        rule.onNodeWithTag("placement:chooseAnother").performClick()
+        waitForTag("placement:stage:${bundle.stages[1].id.value}")
+        rule.onNodeWithTag("placement:stage:${bundle.stages[1].id.value}").performClick()
+
+        waitForTag("stageDetail:title")
+        rule.onNodeWithTag("stageDetail:title").assertTextContains("First cross")
+        runBlocking { writer.flush() }
+        assertEquals(seeded, records)
+    }
+
+    @Test
+    fun `a Placement run from Welcome keeps the suggestion and Start for an unlocked Stage`() {
+        show(placement = true)
+        openPickerFromWelcome()
+        rule.onNodeWithTag("entryLevel:scan").performScrollTo().performClick()
+        // A fully mixed cube suggests Stage 1, which is never LOCKED: a Learn run would read it as already reached.
+        val scrambled = CubeState.SOLVED.apply((Notation.parse(SCRAMBLE) as NotationResult.Parsed).moves)
+        rule.runOnIdle { flow.onScanOutcome(ScanOutcome.Accepted(scrambled)) }
+        waitForTag("placement:screen")
+        rule.onNodeWithTag("placement:suggestion", useUnmergedTree = true).assertTextEquals("Start at Cube fundamentals?")
+        rule.onNodeWithTag("placement:start").assertExists()
+        rule.onNodeWithTag("placement:alreadyReached", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithTag("placement:openStage").assertDoesNotExist()
     }
 
     @Test
@@ -510,5 +693,9 @@ class AppShellEntryLevelTest {
         rule.assertClickablesLabelled("Find my place")
         rule.assertClickablesAtLeast48dp("Find my place")
         rule.assertNoTextOverflow("Find my place")
+    }
+
+    private companion object {
+        const val SCRAMBLE = "R2 U' F L2 D B' R U2 B2 D' L F2 U' R2 D2 L' B U2"
     }
 }

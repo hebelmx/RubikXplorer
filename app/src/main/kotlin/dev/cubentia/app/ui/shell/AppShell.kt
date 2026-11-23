@@ -621,6 +621,16 @@ private fun ShellContent(
     }
     val placementScan = onPlacementScan.takeIf { ready != null && flags.isEnabled(FeatureFlag.PLACEMENT) }
     if (ready != null && placementScan != null && placementPhase != PlacementPhase.Idle && !placementStale) {
+        // A re-placement from Learn (GH #252): a Course Stage the Learner already reached opens without any write.
+        val course = ready.bundle.stages
+        val reachedFromLearn: (Stage) -> Boolean = { stage ->
+            placementFromLearn && stage in course && StageProgress.status(stage, course, progressEvents) != StageStatus.LOCKED
+        }
+
+        fun openReached(stage: Stage) {
+            placementFlow.accepted(stage.id)
+            startCourse(stage.id.value)
+        }
         PlacementScreen(
             phase = placementPhase,
             flow = placementFlow,
@@ -631,12 +641,13 @@ private fun ShellContent(
             cases = ready.bundle.cases,
             onAccept = { target, faster ->
                 if (placementAcceptance != PlacementAcceptance.Saving) {
-                    if (target == ready.bundle.stages.first()) {
+                    if (target == course.first()) {
                         placementFlow.accepted(target.id)
                         startStageOne()
+                    } else if (!faster && reachedFromLearn(target)) {
+                        openReached(target)
                     } else {
                         // Runs in the view model's scope so recreating the Activity mid-write keeps the outcome.
-                        val course = ready.bundle.stages
                         placementFlow.accept(target.id, faster) {
                             host.placeFromScan(target.id, if (target in course) course else course + target)
                         }
@@ -650,6 +661,8 @@ private fun ShellContent(
             modifier = modifier,
             accepting = placementAcceptance == PlacementAcceptance.Saving,
             saveFailed = placementAcceptance == PlacementAcceptance.Failed,
+            reached = reachedFromLearn,
+            onOpen = ::openReached,
         )
         return
     }
