@@ -2263,7 +2263,7 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-10-20-record-10-19-pipeline-corner-fixtures-and-check-the-corner-m.md"
   - id: "scp-2026-11-23-label-review"
     epic: 10
-    action: "PO label review of the corner fixtures on the label-audit review pages: done 2026-11-23, 20 labels corrected, all 23 groups count 9 of each colour (branch spike/label-cleanse c9c9f5cc; merge into docs/device-session-2026-11 before 10.21 tunes)"
+    action: "PO label review of the corner fixtures on the label-audit review pages: done 2026-11-23, 20 labels corrected, all 23 groups count 9 of each colour (branch spike/label-cleanse c9c9f5cc, carried to main by the docs/device-session-2026-11 PR; Story 10.21 starts after that merge)"
     owner: "PO (hebelmx)"
     status: done
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-23-pastel-plausibility.md"

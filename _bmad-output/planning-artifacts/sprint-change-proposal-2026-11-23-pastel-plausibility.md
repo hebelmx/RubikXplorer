@@ -2,8 +2,9 @@
 
 - **Trigger:** Story 10.20 acceptance run, 2026-11-23 ~14:35 CST: `ColorCalibrationTest` pastel check fails on `lenovo-tb128xu_stlb_bar-warm` hold 2 `L[8]`: BLUE is not plausible for Lab(56.2, -20.1, -13.4)
 - **Mode:** Batch
-- **Scope:** Minor (one new device-free story in Epic 10, one PO action item, two annotations)
+- **Scope:** Moderate (one new device-free story in Epic 10 that carries a label-cleansing pipeline and a domain check, one PO action item (done), two annotations, an interim expected-failure marker)
 - **Product owner decisions:** hebelmx, 2026-11-23 (section 3)
+- **Revision 4 (2026-11-23):** addresses an adversarial review of revision 3 (section 8): stale revision-2 text replaced, scope re-rated, interim rule for the failing pastel test, committed exclusion file with a CI check, guards on exclusions and on the fit, 10.21 records its label set.
 - **Revision 3 (2026-11-23):** after a label-cleansing spike and the PO's review (section 7), Story 10.27 becomes the label-cleansing pipeline plus the pastel check; Q1 decided (10.21 does not wait); Q2 superseded.
 - **Revision 2 (2026-11-23):** addresses an adversarial review (4 gaps: an untracked 10.21 gate, no fitting method, an undefined wrong-label test, no treatment of unresolved suspects); section 6
 
@@ -48,12 +49,12 @@ Angled, shaded side faces drift far from the frontal calibration (the 10.19 adde
 |---|---|---|---|
 | 1 | Trigger understood | [x] | 10.20 evidence README, "Results after recording" item 3 and "PO decisions after recording" |
 | 2 | Epic impact | [x] | Epic 10 gains Story 10.27. No epic added, removed or resequenced |
-| 3 | Story impact | [!] | 10.20 AC4 annotated (result routed to 10.27). 10.21 Depends-on: its runs skip excluded and undecided stickers (Q1 decides whether it also waits) |
+| 3 | Story impact | [!] | 10.20 AC4 annotated (result routed to 10.27). 10.21 Depends-on: does not wait for 10.27 (Q1); starts after `docs/device-session-2026-11` (with the corrected labels) is merged; uses 10.27's shared fixture filter once it exists; records the label-set commit and exclusion-file hash with each run. Existing evidence: 10.23 H3 already used the corrected labels; the 10.20 evidence predates them and is annotated as pre-correction |
 | 4 | PRD | [N/A] | FR-24 already requires classification against the cube's own centres |
 | 5 | Architecture | [N/A] | Domain-only change in `dev.cubentia.domain.recognition` (AD-9) |
 | 6 | UX documents | [N/A] | No Learner-facing change |
-| 7 | Code | [!] | `ColorCalibration.kt` (`plausibleFor`), `ColorCalibrationTest.kt`, label-check report, `Fixtures/corner/label-review.json` read by `QuickScanSideFaceReplayTest` |
-| 8 | Sprint status | [!] | `10-27-clean-the-corner-fixture-labels-and-judge-pastel-stickers: backlog`; action item `scp-2026-11-23-label-review` (PO, open) |
+| 7 | Code | [!] | `ColorCalibration.kt` (`plausibleFor`), `ColorCalibrationTest.kt` (interim `KNOWN_PASTEL_PROBLEMS`, removed by 10.27), `tools/label-audit/`, committed `Fixtures/corner/label-exclusions.json` read by a shared fixture filter (`QuickScanSideFaceReplayTest`, 10.21 runs), a CI label-count test, `TruthSource.REVIEWED` |
+| 8 | Sprint status | [!] | `10-27-clean-the-corner-fixture-labels-and-judge-pastel-stickers: backlog`; action item `scp-2026-11-23-label-review` (PO, done 2026-11-23; the corrections reach `main` with the `docs/device-session-2026-11` PR) |
 | 9 | Path forward | [x] | Direct adjustment |
 
 ## 3. Recommended approach
@@ -70,30 +71,34 @@ PO decisions, 2026-11-23:
 5. **Q2 (superseded):** the manual label list is replaced by an automated pipeline (9-of-each and piece checks, per-group photo reads, review page); the plausibility fit stays on frontal data.
 6. Cleansing is automated (PO, 2026-11-23: a manual list is cumbersome and error-prone).
 
-Effort: small to medium (domain function, tests, report, review file reader; the PO review is the larger part). Risk: low; no production behaviour change. Start: once `docs/device-session-2026-11` (fixtures and `groups.json`) is merged; can run beside 10.23 H3.
+Effort: medium to large (audit CLI and CI count test, photo-read pipeline, generated review page and write-back, domain function, fit and substitution test, shared fixture filter). Risk: low; no production behaviour change. Start: once `docs/device-session-2026-11` (fixtures, `groups.json`, corrected labels) is merged.
+
+**Interim rule until 10.27 lands:** `ColorCalibrationTest`'s pastel check lists `lenovo-tb128xu_stlb_bar-warm` hold 2 `L[8]` in `KNOWN_PASTEL_PROBLEMS`. Any other problem still fails, and the test also fails if a listed problem stops being reported, so the entry cannot linger silently. Story 10.27 removes the list.
 
 ## 4. Detailed change proposals (applied on branch `docs/scp-2026-11-23-pastel-plausibility`)
 
 ### 4.1 epics.md
 
-- **New Story 10.27** "Clean the corner fixture labels and judge pastel stickers against the cube's own colours" (revision 3), after Story 10.26: (1) `audit.py` count and piece checks per group, centres included, non-zero exit on failure; (2) per-group photo reads with corrected outlines, corner-model placement error reported to #315; (3) quarantine plus a script-generated review page and write-back (label fields only, logged), optional DINOv2 off-sticker flag; (4) `plausibleFor` fitted on frontal data, `L[8]` held out and passing, swatch gate unchanged; (5) substitution test with per-pair bars; (6) replay and 10.21 runs skip excluded stickers and failing groups; no threshold changes.
+- **New Story 10.27** "Clean the corner fixture labels and judge pastel stickers against the cube's own colours" (revision 3), after Story 10.26: (1) `audit.py` count and piece checks per group, centres included, non-zero exit on failure; (2) per-group photo reads with corrected outlines, corner-model placement error reported to #315; (3) quarantine plus a script-generated review page and write-back (label fields only, logged), optional DINOv2 off-sticker flag; (4) `plausibleFor` fitted on frontal data, the whole `stlb_bar-warm` group held out, exclusions limited and reported, `KNOWN_PASTEL_PROBLEMS` removed, swatch gate unchanged; (5) substitution test with per-pair bars, `plausibleFor`-only rate reported; (6) a shared fixture filter over a committed exclusion file, used by `QuickScanSideFaceReplayTest`; no threshold changes. Revision 4 also adds: a CI test of the count and piece rules, `truthSources` = `reviewed`, a placement limit for the photo read.
 - **Story 10.20, AC4:** annotation routing the pastel result to 10.27.
-- **Story 10.21, Depends on:** its runs skip `exclude` and undecided stickers and report the count; Q1 decides whether it also waits.
+- **Story 10.21, Depends on:** does not wait for 10.27 (Q1); starts after `docs/device-session-2026-11` is merged; tunes on the corrected labels; once 10.27's shared fixture filter exists its runs use it; every tuning and held-out result records the label-set commit and the exclusion-file hash, and the baseline is re-run when 10.27's exclusions land.
 - Front matter `updated:` 2026-11-20 → 2026-11-23.
 
 ### 4.2 sprint-status.yaml
 
 - `10-27-clean-the-corner-fixture-labels-and-judge-pastel-stickers: backlog` after 10-26.
-- Action item `scp-2026-11-23-label-review` (owner PO, open).
+- Action item `scp-2026-11-23-label-review` (owner PO, done 2026-11-23).
 - At 10.20 close-out (device-session branch), the pastel part of `epic-10-deferred-10.20-recording-session` is owned by 10.27.
 
 ## 5. Implementation handoff
 
-- **Scope:** Minor. Developer agent: `/bmad-orchestrate story 10-27-clean-the-corner-fixture-labels-and-judge-pastel-stickers` once `docs/device-session-2026-11` is merged.
-- **PO:** the label review (`scp-2026-11-23-label-review`).
-- **Success criteria:** fitted numbers recorded before validation; validation 100% (after exclusions); substitution bars met or PO-accepted; label-check report and review file written; replay skips excluded and undecided stickers; no production behaviour change.
+- **Scope:** Moderate. Developer agent: `/bmad-orchestrate story 10-27-clean-the-corner-fixture-labels-and-judge-pastel-stickers` once `docs/device-session-2026-11` is merged.
+- **PO:** the label review (`scp-2026-11-23-label-review`, done); decisions on the stickers 10.27's pipeline quarantines.
+- **Success criteria (Story 10.27 ACs 1–6):** every corner group passes the count and piece checks, in CI too; placement error reported to #315; quarantined stickers decided on the generated review page and written back as `reviewed`; fitted constants committed before the validation run, the whole `stlb_bar-warm` group passes with at most the PO-approved exclusions (never hold 2 `L[8]`), `KNOWN_PASTEL_PROBLEMS` removed; substitution bars met, or a PO acceptance recorded before the run; replay and 10.21 skip through the shared filter; no production behaviour change.
 
 ## 6. Review response (revision 2)
+
+*Historical: AC numbers and `label-review.json` refer to revision 2; revision 3 replaced them (see sections 4.1 and 5 for the current ACs).*
 
 | Gap | Resolution |
 |---|---|
@@ -120,3 +125,24 @@ Effort: small to medium (domain function, tests, report, review file reader; the
 Conclusions carried into Story 10.27: the count rule is the strongest signal; a piece check pinpoints the sticker when counts are off (Red↔Orange cases the photo cannot resolve); an independent photo read is needed but its face placement must improve; centres must be editable (a centre label can be wrong); the review pages must be generated by a script so a round can be rerun.
 
 Evidence: `docs/evidence/10-27/label-corrections-2026-11-23.json`, `docs/evidence/10-27/label-review-decisions-2026-11-23.json` (branch `spike/label-cleanse`, commit `c9c9f5cc`).
+
+Correction to the table above (re-derived from the evidence for revision 4): the PO moved **40** face outlines in 14 groups; 32 moved 7 px or more (max 26.3 px), the rest are nudges; some were moved only for visibility, so 10.27 uses them after a PO pass marks each as a correction or not. Of the 20 corrected labels, 18 were pre-filled (12 WHITE→BLUE) and 2 entered.
+
+## 8. Review response (revision 4)
+
+| Finding | Resolution |
+|---|---|
+| SCP and sprint-status disagree on the label-review item | Item done in both; the merge that carries the labels is the device-session PR, a 10.21 start condition |
+| Revision-2 text left in sections 2, 4, 5 | Rewritten to the revision-3/4 ACs; section 6 marked historical |
+| Scope and effort understated | Moderate; medium to large |
+| Failing pastel test has no interim rule | `KNOWN_PASTEL_PROBLEMS`, strict both ways; 10.27 AC4 removes it |
+| Audit runs outside CI; skip list not committed | AC1 commits `Fixtures/corner/label-exclusions.json` and adds a Kotlin CI test of the count and piece rules |
+| 10.21 baseline moves when 10.27 lands | 10.21 records the label-set commit and exclusion hash per run and re-runs its baseline |
+| 10.27 AC over 10.21's code | AC6 limited to a shared filter and the replay test; 10.21 adopts the filter |
+| Exclusions could make AC4 pass by fiat | Exclusions in the validation group only by PO decision with photo evidence, at most 2 per group, never hold 2 `L[8]`, count reported |
+| Substitution AC cannot fail | `plausibleFor`-only rate reported separately; PO acceptance recorded before the run |
+| Max/min fit set by one sticker; White undefined | The sticker that sets each bound is reported and PO-confirmed; White limits defined |
+| Fit/validation order unchecked; one held-out sticker | Constants in their own commit, SHA cited; whole `stlb_bar-warm` group held out |
+| Corrected labels indistinguishable from recorder entries | `truthSources` = `reviewed` |
+| Photo read on misplaced faces | Faces off by more than 10% of the face side use a corrected outline or are unreadable |
+| Not applied: piece-check behaviour for blank labels, schemes and wrong centres | Left to the story spec |
