@@ -1202,6 +1202,141 @@ class SolutionPlaybackTest {
         rule.onNodeWithTag("certainty:label").assertDoesNotExist()
     }
 
+    // #298: the Quick Check icon is highlighted at segment ends, the last step, and after a mismatch until the next Done.
+
+    private fun assertQuickCheckHighlighted(highlighted: Boolean) {
+        tag("quickCheck")
+            .assertExists()
+            .assertContentDescriptionEquals("Quick Check")
+            .assert(SemanticsMatcher.expectValue(dev.cubentia.app.ui.lesson.QuickCheckHighlightedKey, highlighted))
+    }
+
+    @Test
+    fun physicalQuickCheckIsHighlightedAtSegmentEndsTheLastStepAndAfterAMismatchUntilTheNextDone() {
+        val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val start = CubeState.SOLVED.apply(r, u, f, r)
+        val moves: List<Move> = listOf(r.inverse(), f.inverse(), u.inverse(), r.inverse())
+        val host = SessionHost(TickingClock(), Dispatchers.Unconfined)
+        runBlocking { host.dispatch { SessionEvent.SolvePlaybackStarted(start, moves, it, bundle.tutorConfig) } }
+        val labels = SegmentLabels(moves, listOf(1, 4), listOf(null, null))
+        var requests = 0
+        rule.setContent {
+            val current by host.state.collectAsState()
+            CubentiaTheme {
+                PreferenceProvider(netPreferences()) {
+                    state =
+                        rememberSolutionPlaybackState(current, reduceMotion = true, onEvent = { event ->
+                            runBlocking { host.dispatch { event } }
+                        })
+                    SolutionPlayback(
+                        state,
+                        strings,
+                        Modifier.fillMaxSize(),
+                        quickCheck =
+                            dev.cubentia.app.scan
+                                .QuickCheckCapture {},
+                        requestQuickCheck = { requests++ },
+                        segments = labels,
+                    )
+                }
+            }
+        }
+        rule.waitForIdle()
+        click("followOnMyCube")
+        rule.waitUntil(5_000) { host.state.value.isPhysical }
+        rule.waitForIdle()
+
+        fun observe(cube: CubeState) {
+            runBlocking {
+                val pending = host.dispatch { SessionEvent.QuickCheckRequested(at = it, fullScan = true) }.state.pendingQuickCheck!!
+                host.dispatch { SessionEvent.QuickCheckObserved(pending.effectId, pending.revision, PhysicalObservation.Full(cube), it) }
+            }
+            rule.waitForIdle()
+        }
+
+        // The start is never a boundary.
+        assertQuickCheckHighlighted(false)
+        click("quickCheck")
+        assertEquals(1, requests)
+        // The end of the first segment.
+        click("done")
+        assertEquals(1, state.position)
+        assertQuickCheckHighlighted(true)
+        // Mid-segment.
+        click("done")
+        assertEquals(2, state.position)
+        assertQuickCheckHighlighted(false)
+        // A mismatch highlights it; a Quick Check that matches after all resolves it without a Done, so it stays.
+        val expected = host.state.value.expected
+        observe(expected.apply(u))
+        assertEquals(SyncState.PHYSICAL_MISMATCH, host.state.value.syncState)
+        assertQuickCheckHighlighted(true)
+        observe(expected)
+        assertNotEquals(SyncState.PHYSICAL_MISMATCH, host.state.value.syncState)
+        assertQuickCheckHighlighted(true)
+        // The next Done lands mid-segment: plain.
+        click("done")
+        assertEquals(3, state.position)
+        assertQuickCheckHighlighted(false)
+        // Back after a mismatch keeps the highlight too.
+        observe(
+            host.state.value.expected
+                .apply(u),
+        )
+        assertEquals(SyncState.PHYSICAL_MISMATCH, host.state.value.syncState)
+        click("back")
+        rule.waitUntil(5_000) { host.state.value.syncState != SyncState.PHYSICAL_MISMATCH }
+        rule.waitForIdle()
+        assertEquals(2, state.position)
+        assertQuickCheckHighlighted(true)
+        click("done")
+        assertEquals(3, state.position)
+        assertQuickCheckHighlighted(false)
+        // The last step.
+        click("done")
+        assertEquals(4, state.position)
+        assertQuickCheckHighlighted(true)
+    }
+
+    @Test
+    fun shortestWithNoSegmentsHighlightsTheQuickCheckOnlyAtTheLastStep() {
+        val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val host = SessionHost(TickingClock(), Dispatchers.Unconfined)
+        runBlocking { host.dispatch { SessionEvent.SolvePlaybackStarted(scrambled, solution, it, bundle.tutorConfig) } }
+        // Labels for other Moves set no boundary.
+        val other = SegmentLabels(listOf(r), listOf(1), listOf(null))
+        rule.setContent {
+            val current by host.state.collectAsState()
+            CubentiaTheme {
+                PreferenceProvider(netPreferences()) {
+                    state =
+                        rememberSolutionPlaybackState(current, reduceMotion = true, onEvent = { event ->
+                            runBlocking { host.dispatch { event } }
+                        })
+                    SolutionPlayback(
+                        state,
+                        strings,
+                        Modifier.fillMaxSize(),
+                        quickCheck =
+                            dev.cubentia.app.scan
+                                .QuickCheckCapture {},
+                        segments = other,
+                    )
+                }
+            }
+        }
+        rule.waitForIdle()
+        click("followOnMyCube")
+        rule.waitUntil(5_000) { host.state.value.isPhysical }
+        rule.waitForIdle()
+        repeat(solution.size) {
+            assertQuickCheckHighlighted(false)
+            click("done")
+        }
+        assertTrue(state.atEnd)
+        assertQuickCheckHighlighted(true)
+    }
+
     @Test
     fun segmentLabelNamesTheCurrentSegmentAboveTheCounterOnlyForItsOwnMoves() {
         val host = SessionHost(TickingClock(), Dispatchers.Unconfined)
