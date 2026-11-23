@@ -565,6 +565,8 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
     }
 
     fun saveSwatch(value: SwatchPreview) {
+        // Story 10.20: a group's manifest carries the calibration it was recorded with, so a changed swatch starts a new one.
+        if (groupName != null) newCondition(recalibrate = false)
         centers[value.color] = value.swatch
         preview = null
         val next = PALETTE.firstOrNull { it !in centers }
@@ -1332,7 +1334,14 @@ private fun MetaDialog(
                         }
                     }
                 }
-                Text("Changing the cube, light or torch clears the calibration.", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    if (hasFlash) {
+                        "Changing the cube, light or torch clears the calibration."
+                    } else {
+                        "Changing the cube or light clears the calibration."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
         },
         confirmButton = {

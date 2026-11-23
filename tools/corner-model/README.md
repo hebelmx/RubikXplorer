@@ -39,8 +39,8 @@ Real labeled Lenovo TB128XU and Galaxy S24 FE captures serve two purposes:
   uv run --project tools/corner-model python tools/corner-model/evaluate_model.py --fixtures-corner Fixtures/corner
   ```
 
-  With the group index `Fixtures/corner/groups.json` (below) this scores the **held-out** groups only; `--split tuning`
-  scores the tuning groups and `--split all` every fixture. Without the index it scores every fixture and prints a
+  With the group index `Fixtures/corner/groups.json` (below) this scores the **held-out** groups only (so the 10.19 D5 fixtures, which the index does not list, drop out: rerun D5 with
+  `--split all`); `--split tuning` scores the tuning groups and `--split all` every fixture. Without the index it scores every fixture and prints a
   notice. The split used is printed and written to `--json-out`.
 
   Evaluates only the real keypoint fixtures, **per device** (the model is not retrained on held-out groups): recall
@@ -49,7 +49,7 @@ Real labeled Lenovo TB128XU and Galaxy S24 FE captures serve two purposes:
   nonzero when the directory is missing or holds no keypoint fixture, when the Lenovo (`TB128XU`) or the S24 FE
   (`SM-S721…`) has none, or when a device has fewer than 20 positives or 10 negatives, recall below 92%, rejection below
   96% or a corner error above 3% of the outline diagonal. `--json-out` writes the numbers per device for the evidence doc.
-- **Fine-tuning (optional):** `train_corner_model.py --fixtures-corner` (default `Fixtures/corner/`) appends the captures to training, except every group the index holds out (never trained on). Evaluate on captures that were not trained on.
+- **Fine-tuning (optional):** `train_corner_model.py --fixtures-corner` (default `Fixtures/corner/`) appends the captures to training, except every group the index holds out and every 10.22 group it does not list as tuning (see the group index below). Evaluate on captures that were not trained on.
 
 ### Group index (`Fixtures/corner/groups.json`, Story 10.20)
 

@@ -118,16 +118,19 @@ MANIFEST_NAME = "group.json"
 
 
 def pipeline_of(path: Path, corner_dir: Path) -> str | None:
-    """The `pipeline` of the group `path` is in, from its `group.json`; None without a group, manifest or readable tag."""
+    """The `pipeline` of the group `path` is in, from its `group.json`; None without a group, manifest or tag. Raises
+    GroupIndexError when the manifest exists but cannot be read, so a damaged 10.22 manifest never passes as an older group."""
     group = group_of(path, corner_dir)
     manifest = Path(corner_dir) / group / MANIFEST_NAME if group else None
     if manifest is None or not manifest.is_file():
         return None
     try:
         data = json.loads(manifest.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-        return None
-    return data.get("pipeline") if isinstance(data, dict) else None
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise GroupIndexError(f"{manifest}: unreadable group manifest ({error})") from error
+    if not isinstance(data, dict):
+        raise GroupIndexError(f"{manifest}: the group manifest is not a JSON object")
+    return data.get("pipeline")
 
 
 def training_allowed(path: Path, corner_dir: Path, index: dict[str, dict] | None) -> bool:

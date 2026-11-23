@@ -109,6 +109,13 @@ class CornerDirTest(unittest.TestCase):
         allowed = {g for g, p in fixture.items() if corner_index.training_allowed(p, self.root, index)}
         self.assertEqual({"tune", "legacy", "old"}, allowed)
 
+    def test_a_damaged_group_manifest_is_never_trained_on_as_an_older_group(self) -> None:
+        (self.root / "torn" / "keypoints").mkdir(parents=True)
+        (self.root / "torn" / "group.json").write_text('{"pipeline": "10.2', encoding="utf-8")
+        with self.assertRaises(GroupIndexError) as caught:
+            corner_index.training_allowed(self.root / "torn" / "keypoints" / "0001.json", self.root, None)
+        self.assertIn("torn", str(caught.exception))
+
     def test_an_index_naming_a_missing_folder_fails_with_its_name(self) -> None:
         self.write_index({"group": "held", "split": "heldout"}, {"group": "gone-group", "split": "tuning"})
         with self.assertRaises(GroupIndexError) as caught:

@@ -221,9 +221,9 @@ def load_optional_corner_fixtures(corner_dir: Path, img_size: int = 128) -> tupl
     """
     try:
         index = corner_index.load_index(corner_dir) if corner_dir.is_dir() else None
+        loaded = [f for f in load_corner_keypoint_fixtures(corner_dir, img_size) if corner_index.training_allowed(Path(f["path"]), corner_dir, index)]
     except corner_index.GroupIndexError as error:
-        raise SystemExit(f"Malformed corner group index: {error}") from error
-    loaded = [f for f in load_corner_keypoint_fixtures(corner_dir, img_size) if corner_index.training_allowed(Path(f["path"]), corner_dir, index)]
+        raise SystemExit(f"Malformed corner group index or manifest: {error}") from error
     if index is None:
         print(f"Notice: no group index in {corner_dir}; 10.22 corner groups stay out of training until it lists them.")
     if not loaded:

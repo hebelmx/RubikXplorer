@@ -610,6 +610,8 @@ class FixtureRecorderActivity : ComponentActivity() {
                 // Story 10.22: a capture frees the exposure (the hold-1 white balance stays); the next capture meters again.
                 moveLocks(change = ExposureLocks::onCaptured)
                 forgetSettle()
+                // AWB at Hold 1 only: the next metering keeps the hold-1 white balance (a new group meters it again).
+                cornerMeterAwb = false
                 cornerMeterPending.set(true)
             }
         }

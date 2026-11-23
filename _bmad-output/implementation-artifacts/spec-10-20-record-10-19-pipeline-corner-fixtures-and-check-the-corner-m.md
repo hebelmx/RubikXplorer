@@ -5,12 +5,19 @@ created: '2026-11-23'
 status: 'done'
 baseline_revision: 'cc1a0b547f17cf98bb11c70ae96cef97a7ab9799'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-10-context.md'
 warnings: [oversized]
 deferred:
+  - summary: >-
+      epic-10-context.md lists 10.11 among the done stories though sprint-status has it in backlog.
+    evidence: |-
+      Blind hunter (follow-up pass): "Remaining order" says 10.1-10.19 done; sprint-status.yaml has 10-11 backlog. Agent-context cache; regenerate or correct it.
+    location: >-
+      _bmad-output/implementation-artifacts/epic-10-context.md
+    severity: low
   - summary: >-
       epic-10-context.md regeneration dropped some constraints still in force (LiteRT 16 KB alignment, shadow-reader guardrails, Quick Scan torch carry rules).
     evidence: |-
@@ -174,6 +181,57 @@ deferred:
   - `[false]` `[reject]` (intent-alignment) pipeline-tag "10.19" title vs "10.22" AC — the AC and PO clarification both say 10.22, which the diff writes.
   - `[false]` `[reject]` (intent-alignment) AC4 surface matches — descriptive, no defect.
 
+### 2026-11-23 — Review pass (follow-up)
+- verdicts: 47 findings — high 0, medium 2, low 37, false 8, maybe-false 0
+- findings:
+  - `[low]` `[reject]` (intent-alignment) UI behaviors and Activity wiring only tested through pure helpers — carried: needs CameraX; exercised in the before-merge device session.
+  - `[low]` `[reject]` (intent-alignment) replay prints "no 10.22 groups recorded yet" rather than "no group index", and skips if Fixtures/corner is missing — the replay is report-only and Fixtures/corner is committed; wording difference with no harm.
+  - `[low]` `[reject]` (intent-alignment) replay labels an unlisted group "unsplit" instead of failing; Kotlin bad-split error may not name the group — CornerGroupIndexTest fails on unlisted/unknown groups by name; the replay is report-only.
+  - `[low]` `[reject]` (intent-alignment) AC2 coverage narrower than the full cube/light list — carried: pending-device, checked at the session.
+  - `[false]` `[reject]` (intent-alignment) recalibration on a mode switch goes beyond the intent — it implements the settled rule that swatches are sampled with the chosen torch state.
+  - `[low]` `[reject]` (intent-alignment) extra settle values `settling` / lock `none` — they record a real state (capture during settle) the intent did not name; no harm.
+  - `[false]` `[reject]` (intent-alignment) training also excludes unlisted 10.22 groups — carried from the earlier patch; it is the held-out-leak guard.
+  - `[false]` `[reject]` (intent-alignment) release source set touched — carried: visibility/defaulted parameter only, behavior unchanged.
+  - `[low]` `[patch]` (intent-alignment) Settings footer shows torch copy on a no-flash device — patched: footer says "cube or light" when there is no flash.
+  - `[low]` `[defer]` (intent-alignment) epic-10-context.md rewrite in the feature commit — carried: already deferred (agent-context file).
+  - `[false]` `[reject]` (intent-alignment) AC5 report in build/reports — carried: evidence is pending-device.
+  - `[low]` `[reject]` (verification-gap 1) evaluate/train call sites of corner_index untested — the call sites are one-line delegations to the tested corner_index functions; a test must import the TensorFlow scripts, which the stdlib test command cannot; outputs print the split and counts at the session.
+  - `[low]` `[reject]` (verification-gap 2) test_corner_index.py not run by CI — repo convention: CI runs Gradle only; the tooling is run by hand at the device session (README command).
+  - `[low]` `[defer]` (verification-gap 3) recorder settle/lock/torch wiring has no JVM test — carried: already deferred, device session.
+  - `[low]` `[patch]` (verification-gap other) README fine-tuning line states only the held-out exclusion — patched: it now names the unlisted-10.22 exclusion too.
+  - `[low]` `[defer]` (blind) epic-10-context.md says 10.1–10.19 are done though 10.11 is backlog — agent-context file; deferred.
+  - `[low]` `[reject]` (blind) burst lines lack torch/settle/lock and use SideLight's mode — the spec's matrix defines the burst light block from SideLight.check; holds carry torch and settle.
+  - `[low]` `[reject]` (blind) nothing reads the per-hold settle diagnostics — the data is recorded for 10.21; adding report branches to a report-only test is not needed now.
+  - `[low]` `[patch]` (blind) manifest calibration and record calibration never compared — same root cause as the mid-group swatch re-save below; patched there, so they cannot diverge.
+  - `[low]` `[reject]` (blind) one-hold partial groups counted — a one-hold group is still valid capture data; rare (condition change after hold 1).
+  - `[low]` `[patch]` (blind) a damaged 10.22 group.json is trained on as an older group — patched: corner_index.pipeline_of raises on an unreadable manifest, training stops with SystemExit naming it; tested.
+  - `[low]` `[reject]` (blind) sticker-model holdout.json not synced with groups.json — sticker-model tooling (10.23) and its deferred 10.20-groups evaluation item; outside this intent.
+  - `[low]` `[patch]` (blind) default evaluator drops the 10.19 D5 fixtures once the index exists — patched: README says D5 reruns with `--split all`.
+  - `[false]` `[reject]` (blind) pastel check does not test classification — the intent asks for the plausibility check path.
+  - `[low]` `[reject]` (blind) light names split by case — recorder sessions are run by one operator from the same Settings value; normalising adds code for no observed case.
+  - `[low]` `[reject]` (blind) --json-out lacks per-group lists — the evidence can quote groups.json; extra output not required.
+  - `[false]` `[reject]` (blind) settle null looks like an old record — new records carry a `diagnostics` object; old ones have none.
+  - `[low]` `[reject]` (blind) diff carries the 10.24–10.26 planning context — part of the already-deferred epic-context rewrite.
+  - `[low]` `[reject]` (edge) capture before metering is requested skips the wait (settle null) — needs a press within one frame of re-detection or with no cube detected (then nothing to meter); recorded as null settle.
+  - `[medium]` `[patch]` (edge) after the hold-1 capture the next detected frame re-meters and relocks white balance before hold 2 (cornerMeterAwb stays true until the save) — patched: a corner capture sets cornerMeterAwb = false; a new group's hold 1 sets it again.
+  - `[low]` `[reject]` (edge) appliedTorch stale on enableTorch failure — carried.
+  - `[low]` `[reject]` (edge) moveLocks evaluates change twice — carried.
+  - `[false]` `[reject]` (edge) lockExposure outside corner mode records "unsupported" — settledNow runs only in corner mode (analyzer guard, corner capture path).
+  - `[low]` `[patch]` (edge) a swatch re-saved mid-group leaves group.json with the old calibration — patched: saveSwatch starts a new group when one is open.
+  - `[low]` `[reject]` (edge) partial corner-N files on a write failure — rare IO failure; the status reports it; atomic writes add code.
+  - `[low]` `[reject]` (edge) torch control hidden when shipped strings fail to load — bundled content; same gate as Quick Scan's TorchControl.
+  - `[low]` `[reject]` (edge) Kotlin/Python unknown-key and kind/schema rules differ — carried.
+  - `[low]` `[reject]` (edge) schemaVersion true/1.0 accepted in Python — hand-written index; no realistic case.
+  - `[low]` `[reject]` (edge) path separators in group names — carried.
+  - `[low]` `[reject]` (edge) symlinked group folder escapes the split — the recorder writes real folders; no case.
+  - `[false]` `[reject]` (edge) a root-level non-group folder treated as a group — Fixtures/corner holds only group folders; keypoints live inside each group.
+  - `[low]` `[reject]` (edge) --split with a missing directory names the wrong cause — carried.
+  - `[low]` `[reject]` (edge) burst light null when a detected corner has != 3 faces — a detected corner always has three faces in CornerReader; cosmetic.
+  - `[medium]` `[patch]` (edge claim) AWB at Hold 1 only — same root cause as the AWB re-meter above; same patch.
+  - `[low]` `[reject]` (edge claim) every hold carries a settle — duplicate of the capture-before-metering row.
+  - `[low]` `[patch]` (edge claim) manifest calibration is the one recorded with — duplicate of the swatch re-save row; same patch.
+  - `[low]` `[reject]` (edge claim) torch control shown whenever corner mode is open — duplicate of the strings-load row.
+
 ## Design Notes
 
 - Diagnostics live inside `corner-N.json` (an optional field) rather than a sibling file, so the replay's `corner-\d+\.json` discovery and the Python `rglob("*.json")` loader are not confused by a new file kind; the index carries `kind: "corner-group-index"` for the same reason.
@@ -213,3 +271,13 @@ Status: done (code part; the recording session on the Lenovo TB128XU and Galaxy 
 **Pending-device (before merge):** AC2 fixtures and `groups.json`, AC3 held-out metrics, AC4 pastel result, AC5 baseline and backlit light scores under `docs/evidence/10-20/`.
 
 **Residual risks:** none beyond the follow-up note.
+
+### Follow-up review pass (2026-11-23)
+
+**Patched:** 1 medium entry (a corner capture no longer lets the next metering re-lock white balance before hold 2 — `FixtureRecorderActivity.kt`), 5 low (mid-group swatch re-save starts a new group so `group.json` calibration matches the records — `FixtureRecorderScreen.kt`; no torch copy in Settings without a flash; `corner_index.pipeline_of` refuses an unreadable manifest so a damaged 10.22 group cannot be trained on, with a test, and `train_corner_model.py` stops with its name; README fine-tuning rule and D5 `--split all` note).
+**Deferred:** 1 new (epic-10-context.md marks 10.11 done); 2 carried.
+**Rejected:** 33, reasons in the triage log.
+**Follow-up review recommended:** false — follow-up pass with no high patched; the work has converged.
+**Verification:** `./gradlew spotlessCheck build` BUILD SUCCESSFUL; `python3 -m unittest discover -s tools/corner-model -p 'test_*.py'` OK (9 tests); `./gradlew :core:domain:test --tests '*QuickScanSideFaceReplayTest*' --rerun` pass.
+**Pending-device (before merge):** AC2–AC5 unchanged; the session also confirms the hold-2 white balance carries from hold 1.
+**Residual risks:** none.
