@@ -1,0 +1,42 @@
+{
+  "model_path": "/mnt/e/Dynamic/IndFun/RubikXplorer-device-session-2/app/src/camera/corner/assets/corner_keypoints.tflite",
+  "fixtures_corner": "Fixtures/corner",
+  "split": "heldout",
+  "threshold": 0.55,
+  "devices": {
+    "Lenovo TB128XU": {
+      "count": 49.0,
+      "tp": 34.0,
+      "fn": 0.0,
+      "fp": 0.0,
+      "tn": 15.0,
+      "recall": 1.0,
+      "raw_presence_recall": 1.0,
+      "mean_px_err": 5.725552558898926,
+      "median_px_err": 5.516490936279297,
+      "p90_px_err": 9.303544998168945,
+      "rejection_rate": 1.0,
+      "false_positive_rate": 0.0,
+      "positives": 34.0,
+      "negatives": 15.0,
+      "mean_corner_error_fraction": 0.05612604194178344
+    },
+    "SM-S721U1": {
+      "count": 67.0,
+      "tp": 41.0,
+      "fn": 0.0,
+      "fp": 1.0,
+      "tn": 25.0,
+      "recall": 1.0,
+      "raw_presence_recall": 1.0,
+      "mean_px_err": 7.4382781982421875,
+      "median_px_err": 6.571354389190674,
+      "p90_px_err": 13.645363807678223,
+      "rejection_rate": 0.9615384615384616,
+      "false_positive_rate": 0.038461538461538464,
+      "positives": 41.0,
+      "negatives": 26.0,
+      "mean_corner_error_fraction": 0.07229966414064026
+    }
+  }
+}

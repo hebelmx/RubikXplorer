@@ -1,6 +1,6 @@
-# Story 10.20 recording session: evidence (in progress)
+# Story 10.20 recording session: evidence (recording complete; acceptance pending)
 
-**Status:** paused after the Lenovo, 2026-11-23 ~09:35 CST. Galaxy S24 FE not recorded yet. Resume note at the end.
+**Status:** both devices recorded (Lenovo ~09:35 CST, Galaxy 13:30–14:34 CST, 2026-11-23). `groups.json` written. Acceptance run done: recall/rejection pass, corner error fails only because labels are the guide defaults (#315). Pastel plausibility: one sticker fails (follow-up). 10.23 H3 not run yet.
 
 - **Date:** 2026-11-23
 - **Main SHA:** `dfc5c3d6` (PR #311 merge); worktree `RubikXplorer-device-session-2`, branch `docs/device-session-2026-11`
@@ -63,22 +63,66 @@ The recorder keeps the previous cube, light and direction until the dialog is ch
 | F2 | S3 | 10.22 settle hits its cap (~1.5 s, `timeout`) on 7 of 12 holds; capture still works. |
 | F3 | S3 | Recorder: after a capture where a face has an empty cell, *Use corners* silently saves "keypoints only" and stays on the same corner; the "Detector missed" line is easy to miss. |
 | F4 | S3 | Recorder dialog carries the previous light and direction into a new cube's group; three relabels were needed. |
+| F5 | S2 | **Recorded torch state is stale** (#328): torch-off corners saved as `torch: true` on 3 Galaxy groups, with and without an app restart. Fixed by hand. |
+| F6 | S2 | **Face review selects sticker 0** (#327), not the first `?`, so a colour tap can overwrite a correct sticker. 17 faces with sticker 0 `entered` need checking against their photos. |
+| F7 | S3 | Torch off, glossy `stka` (and backlit `stla`): the corner detector misses until EV+ (shaded face reads too dark); the recorder only says "Detector missed". |
+| F8 | S3 | Using EV+ leaves the hold's `settle` null (groups 3, 9). |
+| F9 | S3 | *Record both corners again* after both corners starts a new `-N` folder; extra shots taken after it are split from their group. |
+
+## Galaxy S24 FE groups (pipeline 10.22), 2026-11-23 13:30–14:34 CST
+
+Dialog filled by the agent over adb for every group (cube, light, direction, torch verified before Save), so no id relabels were needed.
+
+| # | Group | Cube | Light / dir | Torch | Corner holds (light, settle) | Keypoints pos / neg | Split |
+|---|---|---|---|---|---|---|---|
+| 1 | `sm-s721u1_stla_bar-warm` | stla | bar-warm / front | on | 1.13 settled 1116 ms; 1.13 settled 1189 ms | 6 / 5 | held-out |
+| 2 | `sm-s721u1_stka_bar-warm` | stka | bar-warm / front | on | 1.02 settled 1246; 1.06 settled 1284 | 7 / 4 | tuning |
+| 3 | `sm-s721u1_stka_bar-warm-2` | stka | bar-warm / front | off | 0.94 / 0.97, settle **null** (EV+ used) | 12 / 4 | held-out |
+| 4 | `sm-s721u1_stla_bar-warm-2` | stla | bar-warm / front | off | 1.13 settled 1237; 1.32 settled 1232 | 3 / 3 | tuning |
+| 5 | `sm-s721u1_stla_bar-cool` | stla | bar-cool / front | on | 1.02 timeout 1523; 1.01 settled 1163 | 6 / 5 | held-out |
+| 6 | `sm-s721u1_stka_bar-cool` | stka | bar-cool / front | on | 1.07 timeout 1530; 0.94 settled 1274 | 6 / 4 (4+4 merged from `-2`) | tuning |
+| 7 | `sm-s721u1_stka_bar-cool-3` | stka | bar-cool / front | off | (torch-mode score) timeout 1517 / 1533 | 9 / 6 | held-out |
+| 8 | `sm-s721u1_stla_bar-cool-2` | stla | bar-cool / front | off | (torch-mode score) settled | 5 / 4 | tuning |
+| 9 | `sm-s721u1_stla_ceilback` | stla | ceilback / back | off | (torch-mode score) settled 1463; settle null (EV +1.2) | 8 / 6 | held-out |
+
+Held-out totals: **41 positive, 26 negative** (AC2: 20 / 10).
+
+### Galaxy data handling
+
+- Group 6's extra shots landed in a new folder `sm-s721u1_stka_bar-cool-2` (a *Record both corners again* tap starts a fresh folder). Same cube, light, direction and torch, taken 1 min after the corners: merged into group 6 as `0003`–`0010` (`frame` renamed). The `-2` folder stays on the phone only.
+- **Torch relabels (#328):** groups 7, 8 and 9 corners (and holds in `group.json`) were written `torch: true` while the flash was off (photos show no torch light; HAL log has no `ANDROID_FLASH_MODE 0->2` after 14:08 CST). Only the torch fields were changed; their `diagnostics.lightScore` / `lightMode: "torch"` were computed in the wrong mode and are not comparable. A first relabel of group 6 corner 1 was reverted: its photo shows the torch.
+- Group 3 and group 9 hold 2 needed EV+ (group 9: EV +1.2) before the detector found the cube; both have `settle: null`.
 
 ## Coverage matrix (AC2, ticked by hand)
 
 | Need | Lenovo | Galaxy |
 |---|---|---|
-| Stickered cube (`stka`) | ✅ | ☐ |
-| Stickerless cube (`stla`) | ✅ | ☐ |
-| Glossy cube (`stka`, PO) | n/a | ☐ |
-| ≥ 2 front-lit lights | ✅ bar-warm, bar-cool | ☐ |
-| ≥ 1 backlit group | ✅ ceilback | ☐ |
-| Torch on and off | n/a | ☐ |
-| Held-out ≥ 20 pos + ≥ 10 neg | ✅ 34 / 15 | ☐ |
-| Held-out + tuning per light × torch | ✅ (bar-warm, bar-cool; ceilback held-out only, backlit is not a scored front condition) | ☐ |
+| Stickered cube (`stka`) | ✅ | ✅ |
+| Stickerless cube (`stla`) | ✅ | ✅ |
+| Glossy cube (`stka`, PO) | n/a | ✅ |
+| ≥ 2 front-lit lights | ✅ bar-warm, bar-cool | ✅ bar-warm, bar-cool |
+| ≥ 1 backlit group | ✅ ceilback | ✅ ceilback |
+| Torch on and off | n/a | ✅ (torch labels corrected, #328) |
+| Held-out ≥ 20 pos + ≥ 10 neg | ✅ 34 / 15 | ✅ 41 / 26 |
+| Held-out + tuning per light × torch | ✅ (bar-warm, bar-cool; ceilback held-out only, backlit is not a scored front condition) | ✅ (2 lights × 2 torch states, each held-out + tuning; ceilback held-out only) |
 | Pastel group with calibration | ✅ `stlb` bar-warm | (one device enough) |
 
-## Resume note (Galaxy)
+## Results after recording (2026-11-23 ~14:35 CST)
+
+1. `./gradlew :core:domain:test --tests '*CornerGroupIndexTest' --tests '*ColorCalibrationTest' --tests '*QuickScanSideFaceReplayTest'`: 16 tests, **1 failed**: `ColorCalibrationTest` pastel plausibility, `lenovo-tb128xu_stlb_bar-warm hold 2 L[8]: BLUE is not plausible for Lab(56.2, -20.1, -13.4)` (a pale teal-blue). `CornerGroupIndexTest` and the replay test pass.
+2. `evaluate_model.py` (held-out split), JSON `corner-model.json`:
+
+| Device | Positives | Negatives | Recall | Rejection | Corner error |
+|---|---|---|---|---|---|
+| Lenovo TB128XU | 34 | 15 | 100.0% | 100.0% (0 FP) | 5.61% ⛔ |
+| Galaxy S24 FE | 41 | 26 | 100.0% | 96.2% (1 FP) ✅ at the bar | 7.23% ⛔ |
+
+   Recall and rejection pass AC3 (92% / 96%). Corner error fails on both, but it is measured against the guide's default points left in the labels (F1, #315), so it says nothing about the model yet. **Routed to the PO**; per the handoff it does not block 10.21 unless the PO says so.
+3. Pastel: `ColorPlausibility` rejects one pale-blue sticker on hold 2. The chroma floors need tuning for pastel cubes: a follow-up (code change), not a session edit.
+4. Replay baseline (report-only): `replay-baseline.md`.
+5. **10.23 H3 not run:** it needs the new held-out groups added through `tools/sticker-model/assemble.py` and Kotlin reads first. Next session.
+
+## Resume note (Galaxy, done)
 
 Plan, 9 groups (folder names never collide because cubes alternate per light):
 
