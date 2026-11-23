@@ -38,8 +38,8 @@ Continues `handoff-device-session-2026-11-23-part2.md` and the original `handoff
 
 ## Next steps, in order
 
-1. **PO decisions:** accept the corner-error miss until #315 relabels (so 10.21 can start)? Pastel chroma-floor tuning as a follow-up story/issue?
-2. **Issues still to file** (one per finding, adversarial review, then post): F7 (detector needs EV+ in torch-off/backlit, no hint), F8 (EV+ leaves settle null), F9 (*Record both corners again* splits extras into a new folder), pastel plausibility. F1 is #315, F5 #328, F6 #327.
+1. **Decided (14:50 CST):** corner-error miss accepted until #315 (10.21 may start; mark `epic-10-deferred-10.20-recording-session` done at close-out); pastel plausibility becomes a **story** (calibration-relative plausibility; via correct-course or inside 10.21). Issues filed: #329 (F7), #330 (F8), #331 (F9).
+2. Create the pastel story (bmad-correct-course or add to 10.21 with the PO).
 3. **10.23 H3:** add the new held-out groups through `tools/sticker-model/assemble.py` (README line ~72), produce Kotlin reads, then `evaluate.py --groups … --name evaluation-10-20`; report into `docs/evidence/10-23/`.
 4. **#251 (6.7):** case 2 (R U2 from solved), case 3 (non-white cross / F2L from yellow, *Show me the last layer anyway*), TalkBack listen on both devices; **#249 (6.6)** and **6.9** in the same TalkBack pass.
 5. Block 2 (incl. 8.7 and the #200 end-of-playback check), Block 6 camera items (6.2 #198, 6.4 #195, 6.5 #196, 6.8 #253), Blocks 3, 4, 7.

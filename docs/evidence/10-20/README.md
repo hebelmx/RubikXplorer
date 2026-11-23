@@ -122,6 +122,12 @@ Held-out totals: **41 positive, 26 negative** (AC2: 20 / 10).
 4. Replay baseline (report-only): `replay-baseline.md`.
 5. **10.23 H3 not run:** it needs the new held-out groups added through `tools/sticker-model/assemble.py` and Kotlin reads first. Next session.
 
+## PO decisions after recording (2026-11-23 ~14:50 CST)
+
+- **Corner-error miss accepted** until the corners are relabelled (#315); recall and rejection pass, so Story 10.21 may start.
+- **Pastel plausibility → a story** (not an issue): `lenovo-tb128xu_stlb_bar-warm hold 2 L[8]` is a real blue at hue 213.6° (Blue window 215–315°, its own calibrated centre 235°). Direction: calibration-relative plausibility (judge stickers against the cube's own centres) rather than widening fixed windows; candidate home is Story 10.21's refit, or a new story via correct-course.
+- **Issues filed** (adversarial review, then posted): #329 (F7 detector needs EV+ in torch-off/backlit, no hint), #330 (F8 `settle: null`), #331 (F9 *Record both corners again* splits extra shots). F1 = #315, F5 = #328, F6 = #327.
+
 ## Resume note (Galaxy, done)
 
 Plan, 9 groups (folder names never collide because cubes alternate per light):
