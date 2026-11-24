@@ -24,6 +24,7 @@ os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 import numpy as np
 from PIL import Image
 
+import corner_groups
 import split as split_tool
 from sticker_common import (
     ARTIFACTS,
@@ -212,8 +213,14 @@ def assemble_live(out: Path, items: list, excluded: list, sources: list) -> None
 
 
 def assemble_corner(out: Path, items: list, excluded: list, sources: list, detector: CornerModel) -> None:
+    group_index = corner_groups.load_index(CORNER)
     for directory in sorted(p for p in CORNER.iterdir() if p.is_dir()):
         group = f"corner/{directory.name}"
+        # Story 10.28: an unsaved group, or an override the PO has not included, is never trained or scored on.
+        use = corner_groups.folder_use(directory, group_index)
+        if use != corner_groups.USED:
+            excluded.extend(corner_groups.excluded_entries(directory, use, REPO_ROOT))
+            continue
         device_id, cube, light = directory.name.split("_", 2)
         meta = {
             "device": DEVICES[device_id],
@@ -357,7 +364,8 @@ def main() -> int:
         EVIDENCE.mkdir(parents=True, exist_ok=True)
         (EVIDENCE / "inventory.md").write_text(inventory_report.render(manifest, json.loads((args.out / "inventory.json").read_text())), encoding="utf-8")
     counts = {side: sum(1 for r in manifest["items"] if r["side"] == side) for side in ("train", "tune", "heldout")}
-    print(f"Assembled {len(manifest['items'])} real faces {counts}, excluded {len(manifest['excluded'])}.")
+    skipped = {r["item"].rsplit("/", 2)[0] for r in manifest["excluded"] if r["reason"] in corner_groups.REASONS.values()}
+    print(f"Assembled {len(manifest['items'])} real faces {counts}, excluded {len(manifest['excluded'])}, skipped {len(skipped)} corner groups (count check).")
     return 0
 
 

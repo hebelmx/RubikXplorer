@@ -149,6 +149,11 @@ data class CornerFixtureRecord(
     val torch: Boolean? = null,
     /** Schema 4, Story 10.20: the hold's light check and metering settle as the recorder measured them (null: older records). */
     val diagnostics: CornerHoldDiagnostics? = null,
+    /**
+     * Story 10.28: per labeled sample, which of its nine stickers the operator tapped or colour-picked (a pre-fill the
+     * operator confirmed keeps [TruthSource.PREFILLED] and is marked here); null in older records.
+     */
+    val reviewed: List<List<Boolean>>? = null,
 )
 
 /**
@@ -209,6 +214,26 @@ data class CornerHoldDiagnostics(
     val evIndex: Int? = null,
 )
 
+/**
+ * Story 10.28: the recorder's nine-of-each-colour check of a corner group, run once both holds are complete on the latest
+ * capture of each. [PENDING] (a hold was written, the check has not run on it yet) and [REFUSED] (off-count, no override)
+ * groups are unsaved; [PASSED] and [OVERRIDDEN] (off-count, saved with an operator reason) are saved.
+ */
+@Serializable
+enum class CornerCountCheck {
+    @SerialName("pending")
+    PENDING,
+
+    @SerialName("refused")
+    REFUSED,
+
+    @SerialName("passed")
+    PASSED,
+
+    @SerialName("overridden")
+    OVERRIDDEN,
+}
+
 /** One hold of a recorded group (Story 10.20): its number and the torch state at its capture (null: no flash unit). */
 @Serializable
 data class CornerHoldManifest(
@@ -221,7 +246,8 @@ data class CornerHoldManifest(
  * recorded with the 10.19 metering, which the side-face replay scores; `"10.22"` (Story 10.20) a group recorded with the
  * 10.19 lighting plus 10.22's settle-and-lock, reported as the unenforced baseline until Story 10.21 enforces it. A group
  * without a manifest is pre-10.19 and only reported. Story 10.20 adds the recorder [calibration] the group was recorded
- * with and the torch state per hold ([holds]); older manifests decode without them.
+ * with and the torch state per hold ([holds]); older manifests decode without them. Story 10.28 adds the recorder's
+ * [countCheck] and, for an overridden group, the operator's [overrideReason]; a manifest without them counts as saved.
  */
 @Serializable
 data class CornerGroupManifest(
@@ -234,7 +260,13 @@ data class CornerGroupManifest(
     val torch: Boolean? = null,
     val calibration: CalibrationCenters? = null,
     val holds: List<CornerHoldManifest> = emptyList(),
-)
+    val countCheck: CornerCountCheck? = null,
+    val overrideReason: String? = null,
+) {
+    /** Whether the group counts as saved: no count check (older or supplemental-only groups), passed, or overridden. */
+    val saved: Boolean
+        get() = countCheck == null || countCheck == CornerCountCheck.PASSED || countCheck == CornerCountCheck.OVERRIDDEN
+}
 
 /** Which split a recorded group belongs to (Story 10.20): held out (never tuned or trained on) or tuning. */
 @Serializable
@@ -255,17 +287,39 @@ data class CornerGroupIndexEntry(
 )
 
 /**
+ * One overridden group of the [CornerGroupIndex] (Story 10.28): a group the recorder saved off-count with the operator's
+ * [reason]. Tuning and scoring skip it unless the PO includes it by name ([included]).
+ */
+@Serializable
+data class CornerOverriddenEntry(
+    val group: String,
+    val split: CornerSplit,
+    val reason: String,
+    val included: Boolean = false,
+    val pastel: Boolean = false,
+)
+
+/**
  * The group index `Fixtures/corner/groups.json` (Story 10.20), written after the recording session: every 10.22 group
  * once, with its held-out or tuning split. Whole groups are held out. [kind] tells it from fixtures and manifests.
+ * Story 10.28 lists overridden groups apart in [overridden]; only the ones the PO includes are [used].
  */
 @Serializable
 data class CornerGroupIndex(
     val kind: String = KIND,
     val schemaVersion: Int = SCHEMA,
     val groups: List<CornerGroupIndexEntry>,
+    val overridden: List<CornerOverriddenEntry> = emptyList(),
 ) {
-    /** The entry for folder [group]; null when the index does not list it. */
-    fun entry(group: String): CornerGroupIndexEntry? = groups.firstOrNull { it.group == group }
+    /** The groups tuning and scoring use: [groups] plus the overridden groups the PO included. */
+    fun used(): List<CornerGroupIndexEntry> =
+        groups + overridden.filter { it.included }.map { CornerGroupIndexEntry(it.group, it.split, it.pastel) }
+
+    /** The overridden groups the PO has not included, by name. */
+    fun skippedOverrides(): List<String> = overridden.filterNot { it.included }.map { it.group }
+
+    /** The used entry for folder [group]; null when the index does not list it or lists it as a skipped override. */
+    fun entry(group: String): CornerGroupIndexEntry? = used().firstOrNull { it.group == group }
 
     companion object {
         const val KIND = "corner-group-index"
@@ -296,6 +350,43 @@ data class CornerKeypointFixture(
 ) {
     companion object {
         const val KIND = "corner-keypoints"
+    }
+}
+
+/**
+ * Story 10.28: whether tuning, scoring and the group index use a recorded corner group. A group without a manifest or
+ * count check, or one that passed, is [USED]; a pending or refused one is [UNSAVED]; an overridden one is [USED] only
+ * when the index lists it under `overridden` with `included = true`, else [OVERRIDE_SKIPPED].
+ */
+enum class CornerGroupUse {
+    USED,
+    UNSAVED,
+    OVERRIDE_SKIPPED,
+    ;
+
+    companion object {
+        fun of(
+            name: String,
+            manifest: CornerGroupManifest?,
+            index: CornerGroupIndex?,
+        ): CornerGroupUse =
+            when {
+                manifest == null -> {
+                    USED
+                }
+
+                !manifest.saved -> {
+                    UNSAVED
+                }
+
+                manifest.countCheck == CornerCountCheck.OVERRIDDEN -> {
+                    if (index?.overridden?.any { it.group == name && it.included } == true) USED else OVERRIDE_SKIPPED
+                }
+
+                else -> {
+                    USED
+                }
+            }
     }
 }
 
@@ -347,7 +438,10 @@ object CornerFixtureJson {
 
     fun encodeIndex(index: CornerGroupIndex): String = json.encodeToString(validIndex(index))
 
-    /** Decodes and validates a group index: its kind and schema, a split per group, non-blank and unique group names. */
+    /**
+     * Decodes and validates a group index: its kind and schema, a split per group, non-blank and unique group names (across
+     * `groups` and `overridden`), and a non-blank reason per overridden group.
+     */
     fun decodeIndex(value: String): CornerGroupIndex = validIndex(json.decodeFromString<CornerGroupIndex>(value))
 
     private fun validIndex(index: CornerGroupIndex): CornerGroupIndex =
@@ -355,9 +449,13 @@ object CornerFixtureJson {
             require(it.kind == CornerGroupIndex.KIND) { "Not a corner group index: ${it.kind}" }
             require(it.schemaVersion == CornerGroupIndex.SCHEMA) { "Unsupported corner group index schema: ${it.schemaVersion}" }
             it.groups.forEach { entry -> require(entry.group.isNotBlank()) { "A group index entry needs a group name" } }
+            it.overridden.forEach { entry ->
+                require(entry.group.isNotBlank()) { "A group index entry needs a group name" }
+                require(entry.reason.isNotBlank()) { "Overridden group ${entry.group} needs a reason" }
+            }
             val repeated =
-                it.groups
-                    .groupBy { entry -> entry.group }
+                (it.groups.map { entry -> entry.group } + it.overridden.map { entry -> entry.group })
+                    .groupBy { name -> name }
                     .filterValues { entries -> entries.size > 1 }
                     .keys
             require(repeated.isEmpty()) { "Groups listed more than once in the group index: ${repeated.joinToString()}" }
@@ -386,6 +484,11 @@ object CornerFixtureJson {
             }
             val plan = requireNotNull(QuickScanPlan.holds.getOrNull(record.hold - 1)) { "Unknown corner hold: ${record.hold}" }
             require(record.frame == CornerFixturePaths.frameName(record.hold))
+            require(
+                record.reviewed == null || (record.reviewed.size == record.labeledSamples.size && record.reviewed.all { it.size == 9 }),
+            ) {
+                "Reviewed flags need one list of 9 per labeled sample"
+            }
             if (record.schemaVersion == LEGACY_SCHEMA) {
                 require(record.label == CornerLabel.POSITIVE && record.keypoints == null && record.detectorKeypoints == null)
                 require(record.lightDirection == null && record.torch == null && record.diagnostics == null)

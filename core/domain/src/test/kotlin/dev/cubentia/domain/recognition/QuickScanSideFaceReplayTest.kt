@@ -164,9 +164,11 @@ class QuickScanSideFaceReplayTest {
                         dir,
                         CornerFixturePaths.MANIFEST,
                     ).takeIf { it.isFile }?.let { CornerFixtureJson.decodeManifest(it.readText()) }
+                val name = dir.relativeTo(root).path
+                // Story 10.28: unsaved groups and overrides the PO has not included are never replayed.
+                if (CornerGroupUse.of(name, manifest, index) != CornerGroupUse.USED) return@mapNotNull null
                 val scored = manifest?.pipeline == CornerFixturePaths.PIPELINE_10_19
                 val first = records.first()
-                val name = dir.relativeTo(root).path
                 Group(
                     name = name,
                     device = first.device.model,
@@ -180,6 +182,20 @@ class QuickScanSideFaceReplayTest {
                     split = index?.entry(name)?.split,
                 )
             }.toList()
+    }
+
+/** Story 10.28: how many recorded groups under [root] [CornerGroupUse] does not mark used, as the reports' line. */
+    private fun skippedLine(root: File = FIXTURES): String {
+        val index =
+            File(root, CornerFixturePaths.GROUP_INDEX).takeIf { it.isFile }?.let { CornerFixtureJson.decodeIndex(it.readText()) }
+        val uses =
+            root.listFiles().orEmpty().filter { it.isDirectory }.mapNotNull { dir ->
+                File(dir, CornerFixturePaths.MANIFEST).takeIf { it.isFile }?.let {
+                    CornerGroupUse.of(dir.name, CornerFixtureJson.decodeManifest(it.readText()), index)
+                }
+            }
+        return "Skipped: ${uses.count { it == CornerGroupUse.OVERRIDE_SKIPPED }} overridden (not included by the PO), " +
+            "${uses.count { it == CornerGroupUse.UNSAVED }} unsaved"
     }
 
     private fun calibrations(
@@ -587,6 +603,7 @@ class QuickScanSideFaceReplayTest {
         val scored = groups.count { it.scored }
         val report =
             report(groups) +
+                "\n${skippedLine()}" +
                 "\nScored (10.19-pipeline) groups: $scored" +
                 (if (scored == 0) " — no group is scored yet; the bar applies once the device session records them." else "") +
                 "\nRequired but missing scored groups:\n" +
@@ -626,6 +643,8 @@ class QuickScanSideFaceReplayTest {
         buildString {
             val recorded = groups.filter { it.baseline }
             appendLine("# Story 10.20 baseline: 10.22-pipeline corner groups (reported, not enforced; Story 10.21 enforces)")
+            appendLine()
+            appendLine(skippedLine())
             appendLine()
             if (recorded.isEmpty()) {
                 appendLine("no 10.22 groups recorded yet")
@@ -754,6 +773,41 @@ class QuickScanSideFaceReplayTest {
         assertTrue(unsafe(enforced).isEmpty())
     }
 
+    @Test
+    fun `story 10-28 unsaved groups and overrides the PO has not included are skipped and counted`(
+        @TempDir root: File,
+    ) {
+        val source = File(FIXTURES, "lenovo-tb128xu_stka_warm")
+        assumeTrue(source.isDirectory, "The legacy Lenovo group is needed as copies")
+        val first = CornerFixtureJson.decode(File(source, CornerFixturePaths.fileName(1)).readText())
+        val base = CornerGroupManifest(CornerFixturePaths.PIPELINE_10_22, LightDirection.FRONT, first.device, first.cube, first.light)
+        mapOf(
+            "passed" to base.copy(countCheck = CornerCountCheck.PASSED),
+            "refused" to base.copy(countCheck = CornerCountCheck.REFUSED),
+            "pending" to base.copy(countCheck = CornerCountCheck.PENDING),
+            "over_in" to base.copy(countCheck = CornerCountCheck.OVERRIDDEN, overrideReason = "reason"),
+            "over_out" to base.copy(countCheck = CornerCountCheck.OVERRIDDEN, overrideReason = "reason"),
+        ).forEach { (name, manifest) ->
+            val target = File(root, name)
+            source.copyRecursively(target)
+            File(target, CornerFixturePaths.MANIFEST).writeText(CornerFixtureJson.encodeManifest(manifest))
+        }
+        val index =
+            CornerGroupIndex(
+                groups = listOf(CornerGroupIndexEntry("passed", CornerSplit.HELDOUT)),
+                overridden =
+                    listOf(
+                        CornerOverriddenEntry("over_in", CornerSplit.HELDOUT, "reason", included = true),
+                        CornerOverriddenEntry("over_out", CornerSplit.HELDOUT, "reason"),
+                    ),
+            )
+        File(root, CornerFixturePaths.GROUP_INDEX).writeText(CornerFixtureJson.encodeIndex(index))
+        val groups = groups(root)
+        assertEquals(listOf("over_in", "passed"), groups.map { it.name })
+        assertEquals(listOf("over_in", "passed"), heldOut(groups).map { it.name }.sorted())
+        assertEquals("Skipped: 1 overridden (not included by the PO), 2 unsaved", skippedLine(root))
+    }
+
     /** The label-set commit (the last commit that touched the fixtures folder); `unknown` when git cannot tell. */
     private fun labelCommit(root: File = FIXTURES): String =
         runCatching {
@@ -810,6 +864,7 @@ class QuickScanSideFaceReplayTest {
             appendLine()
             appendLine("- label-set commit: ${labelCommit()}")
             appendLine("- label-exclusions.json SHA-256: ${exclusionsHash()}")
+            appendLine("- ${skippedLine()}")
             appendLine("- agreement margins: ${QuickScanClassification.AGREEMENT_MARGIN.entries.joinToString { "${it.key}=${it.value}" }}")
             appendLine("- confident-count wait N: ${QuickScanController.MIN_CONFIDENT}")
             appendLine(

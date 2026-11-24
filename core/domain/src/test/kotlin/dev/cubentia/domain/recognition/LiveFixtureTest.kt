@@ -359,4 +359,134 @@ class LiveFixtureTest {
             CornerFixtureJson.encodeIndex(CornerGroupIndex(groups = index.groups + index.groups.first()))
         }
     }
+
+    @Test
+    fun `story 10-28 count check, override reason and reviewed flags round-trip, and older files count as saved`() {
+        val manifest =
+            CornerGroupManifest(
+                CornerFixturePaths.PIPELINE_10_22,
+                LightDirection.FRONT,
+                record.device,
+                "stla",
+                "warm",
+                countCheck = CornerCountCheck.OVERRIDDEN,
+                overrideReason = "a sticker is peeling; counted by hand",
+            )
+        val encoded = CornerFixtureJson.encodeManifest(manifest)
+        assertTrue("\"countCheck\": \"overridden\"" in encoded && "\"overrideReason\": \"a sticker is peeling" in encoded, encoded)
+        assertEquals(manifest, CornerFixtureJson.decodeManifest(encoded))
+        assertTrue("saved" !in encoded, encoded)
+        mapOf(
+            null to true,
+            CornerCountCheck.PASSED to true,
+            CornerCountCheck.OVERRIDDEN to true,
+            CornerCountCheck.PENDING to false,
+            CornerCountCheck.REFUSED to false,
+        ).forEach { (check, saved) -> assertEquals(saved, manifest.copy(countCheck = check).saved, "$check") }
+        CornerCountCheck.entries.forEach { check ->
+            val json = CornerFixtureJson.encodeManifest(manifest.copy(countCheck = check))
+            assertTrue("\"countCheck\": \"${check.name.lowercase()}\"" in json, json)
+        }
+        // A manifest written before Story 10.28 has no count check and counts as saved.
+        val old =
+            """
+            {"pipeline": "10.22", "lightDirection": "front", "device": {"model": "m", "manufacturer": "x", "osRelease": "13",
+            "osBuild": "b", "sdkInt": 33}, "cube": "stla", "light": "warm", "torch": null, "holds": [{"hold": 1, "torch": null}]}
+            """.trimIndent()
+        val decoded = CornerFixtureJson.decodeManifest(old)
+        assertEquals(null, decoded.countCheck)
+        assertEquals(null, decoded.overrideReason)
+        assertTrue(decoded.saved)
+
+        // Reviewed flags: one list of nine per labeled sample; older records have none.
+        val corner =
+            CornerFixtureRecord(
+                device = record.device,
+                cube = record.cube,
+                light = record.light,
+                capturedAt = record.capturedAt,
+                calibration = record.calibration,
+                hold = 1,
+                labeledSamples =
+                    QuickScanPlan.holds.first().map { step ->
+                        LabeledFaceSample(
+                            FaceSample(
+                                face = step.face,
+                                orientationDegrees = 0,
+                                stickers = List(9) { record.calibration.centers.getValue(step.centerColor) },
+                                quality = CaptureQuality.ACCEPTABLE,
+                                centerColor = step.centerColor,
+                                upNeighborColor = step.upNeighborColor,
+                            ),
+                            List(9) { step.centerColor },
+                        )
+                    },
+                truthSources = List(3) { record.truthSources },
+            )
+        val withoutReviewed = CornerFixtureJson.encode(corner).replace(Regex(",\\s*\"reviewed\": null"), "")
+        assertTrue("reviewed" !in withoutReviewed, withoutReviewed)
+        assertEquals(corner, CornerFixtureJson.decode(withoutReviewed))
+        val reviewed = corner.copy(reviewed = List(3) { face -> List(9) { it == face } })
+        assertEquals(reviewed, CornerFixtureJson.decode(CornerFixtureJson.encode(reviewed)))
+        listOf(corner.copy(reviewed = List(2) { List(9) { true } }), corner.copy(reviewed = List(3) { List(8) { true } })).forEach { bad ->
+            assertThrows(IllegalArgumentException::class.java) { CornerFixtureJson.decode(CornerFixtureJson.encode(bad)) }
+        }
+    }
+
+    @Test
+    fun `story 10-28 overridden groups are listed apart, used only when included, and validated`() {
+        val index =
+            CornerGroupIndex(
+                groups = listOf(CornerGroupIndexEntry("a", CornerSplit.HELDOUT)),
+                overridden =
+                    listOf(
+                        CornerOverriddenEntry("b", CornerSplit.TUNING, "peeling sticker"),
+                        CornerOverriddenEntry("c", CornerSplit.HELDOUT, "logo centre", included = true, pastel = true),
+                    ),
+            )
+        assertEquals(index, CornerFixtureJson.decodeIndex(CornerFixtureJson.encodeIndex(index)))
+        assertEquals(
+            listOf(CornerGroupIndexEntry("a", CornerSplit.HELDOUT), CornerGroupIndexEntry("c", CornerSplit.HELDOUT, pastel = true)),
+            index.used(),
+        )
+        assertEquals(listOf("b"), index.skippedOverrides())
+        assertEquals(CornerSplit.HELDOUT, index.entry("c")?.split)
+        assertEquals(null, index.entry("b"))
+        // An index written before Story 10.28 has no overridden list.
+        val minimal = """{"kind": "corner-group-index", "schemaVersion": 1, "groups": [{"group": "a", "split": "tuning"}]}"""
+        assertEquals(emptyList<CornerOverriddenEntry>(), CornerFixtureJson.decodeIndex(minimal).overridden)
+        listOf(
+            index.copy(overridden = listOf(CornerOverriddenEntry("b", CornerSplit.TUNING, "  "))),
+            index.copy(overridden = listOf(CornerOverriddenEntry("b", CornerSplit.TUNING, ""))),
+            index.copy(overridden = listOf(CornerOverriddenEntry(" ", CornerSplit.TUNING, "reason"))),
+            index.copy(overridden = listOf(CornerOverriddenEntry("a", CornerSplit.TUNING, "listed in both"))),
+            index.copy(overridden = index.overridden + index.overridden.first()),
+        ).forEach { bad ->
+            assertThrows(IllegalArgumentException::class.java) { CornerFixtureJson.encodeIndex(bad) }
+        }
+    }
+
+    @Test
+    fun `story 10-28 a group is used when saved, skipped when unsaved, and an override only when the PO includes it`() {
+        val manifest = CornerGroupManifest(CornerFixturePaths.PIPELINE_10_22, LightDirection.FRONT, record.device, "stla", "warm")
+        val overridden = manifest.copy(countCheck = CornerCountCheck.OVERRIDDEN, overrideReason = "reason")
+        val index =
+            CornerGroupIndex(
+                groups = listOf(CornerGroupIndexEntry("a", CornerSplit.TUNING)),
+                overridden =
+                    listOf(
+                        CornerOverriddenEntry("in", CornerSplit.TUNING, "reason", included = true),
+                        CornerOverriddenEntry("out", CornerSplit.TUNING, "reason"),
+                    ),
+            )
+        assertEquals(CornerGroupUse.USED, CornerGroupUse.of("legacy", null, index))
+        assertEquals(CornerGroupUse.USED, CornerGroupUse.of("a", manifest, index))
+        assertEquals(CornerGroupUse.USED, CornerGroupUse.of("a", manifest.copy(countCheck = CornerCountCheck.PASSED), null))
+        assertEquals(CornerGroupUse.UNSAVED, CornerGroupUse.of("a", manifest.copy(countCheck = CornerCountCheck.PENDING), index))
+        assertEquals(CornerGroupUse.UNSAVED, CornerGroupUse.of("a", manifest.copy(countCheck = CornerCountCheck.REFUSED), index))
+        assertEquals(CornerGroupUse.USED, CornerGroupUse.of("in", overridden, index))
+        assertEquals(CornerGroupUse.OVERRIDE_SKIPPED, CornerGroupUse.of("out", overridden, index))
+        assertEquals(CornerGroupUse.OVERRIDE_SKIPPED, CornerGroupUse.of("unlisted", overridden, index))
+        assertEquals(CornerGroupUse.OVERRIDE_SKIPPED, CornerGroupUse.of("in", overridden, null))
+    }
 }
