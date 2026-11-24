@@ -1,4 +1,4 @@
-# Issue drafts (not posted; PO review first), 2026-11-23
+# Issue drafts, 2026-11-23 (posted as #337 and #338)
 
 Revised after an adversarial review (2026-11-23): counts re-derived from the evidence files, the existing close-call gate and italic marking described, acceptance criteria added. Post after the `docs/device-session-2026-11` PR merges, with evidence links as permalinks to `main`.
 
