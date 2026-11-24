@@ -14,6 +14,7 @@ import dev.cubentia.domain.recognition.GuidedScanEffect
 import dev.cubentia.domain.recognition.GuidedScanPlan
 import dev.cubentia.domain.recognition.Lab
 import dev.cubentia.domain.recognition.ScanReview
+import dev.cubentia.domain.recognition.Suspect
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -59,7 +60,7 @@ class GuidedScanFlowTest {
                 ),
                 CalibrationCenters(labs),
             )
-        assertEquals(38, review.suspects.first().index)
+        assertEquals(listOf(Suspect(38, Color.ORANGE)), review.suspects)
         assertEquals(38, review.selected)
         val published = GuidedScanFlow.withCorrections(review, emptyMap())
         assertEquals(review.evidence, published.evidence)

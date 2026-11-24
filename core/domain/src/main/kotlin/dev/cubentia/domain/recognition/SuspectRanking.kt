@@ -20,13 +20,24 @@ data class ScanEvidence(
 )
 
 /**
- * Which stickers likely explain wrong color counts (#174). Candidates are the non-center stickers of every color seen
- * more than 9 times that still carry a measured Lab; each scores the CIE76 ΔE from its Lab to the nearest calibration
- * center of a color seen fewer than 9 times, which is its [Suspect.likely] color. Lowest score first, ties by lower
- * sticker index; at most [MAX_SUSPECTS]. Empty when the counts are right, any sticker is blank, or no color is short.
+ * Which stickers likely explain wrong color counts (#174, proximity rule #323). Candidates are the non-center stickers
+ * of every color seen more than 9 times that still carry a measured Lab. A candidate qualifies for a color seen fewer
+ * than 9 times (with a calibration center) only when its margin, the CIE76 ΔE from its Lab to that color's center minus
+ * the ΔE to the center of the color it was read as, is at most [SUSPECT_MARGIN_DELTA_E]; its [Suspect.likely] color is
+ * the nearest color it qualifies for. Smallest margin first, ties by lower sticker index; at most [MAX_SUSPECTS], never
+ * padded with stickers that do not qualify. A candidate whose read color has no calibration center cannot qualify.
+ * Empty when the counts are right, any sticker is blank, no color is short, or no candidate qualifies.
  */
 object SuspectRanking {
     const val MAX_SUSPECTS = 3
+
+    /**
+     * The largest margin (CIE76 ΔE to the under-counted color's center minus ΔE to the read color's center) at which a
+     * sticker is still suggested as that color: 20.0, twice [StickerClassifier.CLOSE_CALL_DELTA_E]. A relative margin,
+     * so a sticker measured near the boundary between two colors qualifies while an exact read of a clearly different
+     * color never does (PO 2026-11-24, #323).
+     */
+    const val SUSPECT_MARGIN_DELTA_E = 2 * StickerClassifier.CLOSE_CALL_DELTA_E
     private const val PER_COLOR = 9
 
     fun rank(
@@ -43,11 +54,14 @@ object SuspectRanking {
             .filter { it % 9 != 4 && stickers[it] in over }
             .mapNotNull { index ->
                 val lab = evidence.labs.getOrNull(index) ?: return@mapNotNull null
-                val (likely, score) =
+                val read = evidence.centers[stickers[index]] ?: return@mapNotNull null
+                val own = StickerClassifier.deltaE(lab, read)
+                val (likely, distance) =
                     under
                         .map { it to StickerClassifier.deltaE(lab, evidence.centers.getValue(it)) }
-                        .minBy { it.second }
-                Triple(index, likely, score)
+                        .filter { it.second - own <= SUSPECT_MARGIN_DELTA_E }
+                        .minByOrNull { it.second } ?: return@mapNotNull null
+                Triple(index, likely, distance - own)
             }.sortedWith(compareBy({ it.third }, { it.first }))
             .take(MAX_SUSPECTS)
             .map { (index, likely, _) -> Suspect(index, likely) }

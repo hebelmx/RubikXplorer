@@ -1286,7 +1286,7 @@ action_items:
       suspects that read nowhere near the missing color (low; deferred from #174,
       SuspectRanking.kt:51-53)"
     owner: "PO (hebelmx)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-174-point-at-misread-stickers.md"
   - id: "issue-172-deferred-ad9-run-scan-reference-note"
     epic: 10
