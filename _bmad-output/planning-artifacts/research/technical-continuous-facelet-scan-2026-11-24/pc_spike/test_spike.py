@@ -17,7 +17,38 @@ from cube_model import (
     is_face_rotationally_symmetric,
     solved_cube,
 )
+from lattice_fit import fit_face_quads_from_centers
+from mapper import _shared_edge
 from run_spike import build_scenarios, run_scenario
+from synth_video import generate_sequence
+
+
+def test_lattice_fit_from_unordered_centers():
+    """Verify unordered 2D sticker centers (with 2 dropped stickers + noise) recover 3 non-overlapping shared-edge quads."""
+    cfg = build_scenarios()[0]
+    frames = generate_sequence(cfg)
+    # Pick a balanced 3-face corner frame (all 3 faces well-separated from grazing edge)
+    fr = frames[25]
+    assert len(fr.truth.visible_faces) == 3
+    rng = __import__("numpy").random.default_rng(42)
+    import cv2, numpy as np
+
+    centers = []
+    grid_uv = np.array([[c / 3.0 + 1 / 6.0, r / 3.0 + 1 / 6.0] for r in range(3) for c in range(3)], dtype=np.float32).reshape(-1, 1, 2)
+    unit = np.array([[0, 0], [1, 0], [1, 1], [0, 1]], dtype=np.float32)
+    for q in fr.truth.visible_faces.values():
+        H = cv2.getPerspectiveTransform(unit, q.astype(np.float32))
+        pts = cv2.perspectiveTransform(grid_uv, H).reshape(9, 2)
+        for p in pts:
+            centers.append((float(p[0] + rng.normal(0, 1.0)), float(p[1] + rng.normal(0, 1.0))))
+    # Drop 2 stickers (simulating a missed logo center and one missed edge) and shuffle
+    rng.shuffle(centers)
+    centers = centers[:-2]
+
+    fitted = fit_face_quads_from_centers(centers, max_faces=3, min_inliers=6)
+    assert len(fitted) == 3, f"Expected 3 faces, got {len(fitted)}"
+    shared = sum(1 for i in range(3) for j in range(i + 1, 3) if _shared_edge(fitted[i].quad.corners, fitted[j].quad.corners) is not None)
+    assert shared >= 2, f"Expected >=2 shared edges among 3 faces, got {shared}"
 
 
 def test_cube_geometry_and_invariants():
@@ -59,5 +90,6 @@ def test_all_seven_scenarios():
 
 if __name__ == "__main__":
     test_cube_geometry_and_invariants()
+    test_lattice_fit_from_unordered_centers()
     test_all_seven_scenarios()
     print("ALL PC SPIKE TESTS PASSED.")

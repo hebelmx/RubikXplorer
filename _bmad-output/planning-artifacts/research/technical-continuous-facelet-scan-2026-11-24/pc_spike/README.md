@@ -32,8 +32,37 @@ uv run --no-project --with opencv-python-headless --with numpy python run_spike.
 uv run --no-project --with opencv-python-headless --with numpy python test_spike.py
 ```
 
+## Real-camera detector bridge (`lattice_fit.py`, `run_real_video.py`)
+
+`lattice_fit.py` converts any unordered set of 2D sticker-center points into 1–3 non-overlapping projective 3×3 face quads (`DetectedQuad`) using local basis seeding, projective homography refinement, non-overlap checks, and a rigid-cube shared-edge bonus. It plugs directly into `mapper.process_frame()`.
+
+### Read-only PC detector benchmark (tuning split only; canonical holdout union untouched)
+
+| Public detector (PC-only benchmark) | 3-face tuning hit (`n=14`, 378 stickers) | Top / Left / Right hit | Duplicates | Frontal `Fixtures/live` tuning (`n=30`) | `lattice_fit` 3-face recovery |
+|---|---:|---|---:|---:|---:|
+| **`yush-io/cubeSolver`** (single-class `sticker`) | **89.9% (340/378)** (`S24FE/stk` 96.3%, `Lenovo/stk` 90.7%, `S24FE/stl` 92.6%, `pastel` 70.4%) | **92.1% / 88.9% / 88.9%** | **0** (2 outside) | **99.3% (268/270)** | **40/42 faces (95.2%)**, 13/14 complete 3-face corners, 32 shared edges |
+| **`YORO`** (6-color OBB + `cube face`) | 26.5% (100/378; only 3 `cube face` boxes) | 54.0% / 13.5% / 11.9% | 0 | 95.2% (257/270) | Disqualified |
+| `Super-Morse` (for reference) | 46.3% (all 30; poisoned generator) | 63.0% / 40.0% / 35.9% | 320 | 96.8% | Disqualified |
+
+> **Clean-room rule:** `yush-io/cubeSolver` has no license file and is used **strictly** as a read-only PC spike comparator to test the real-video pipeline — never for bundling, pseudo-labeling, or training Cubentia's LiteRT model.
+
+### Run on a real phone MP4 clip or live PC webcam
+
+Download the pinned `yush-io/cubeSolver` weights outside the repo (`SHA-256 68fd20b050a75f3268385e33afc8a9484ba498259e5a5b0e97914f28e2c1a739`), then run:
+
+```sh
+# Recorded phone clip -> writes side-by-side MP4 replay + contact sheet
+uv run --no-project --extra-index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match \
+  --with torch --with torchvision --with ultralytics --with opencv-python-headless --with numpy \
+  python run_real_video.py --weights /tmp/cubesolver_best.pt --video path/to/clip.mp4 --stride 2 --out-dir /tmp/real_replay
+
+# Live PC webcam (/dev/video0) with interactive window (press r to reset, q to quit)
+uv run --no-project --extra-index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match \
+  --with torch --with torchvision --with ultralytics --with opencv-python --with numpy \
+  python run_real_video.py --weights /tmp/cubesolver_best.pt --webcam 0 --show
+```
+
 ## What stays open for real camera clips
 
-This spike proves the mapping, color-fusion, invariant, and regrip-recovery algorithm under simulated detector noise, glare, AWB drift, occlusion, and twists. Next steps on real clips:
-1. Record clean stickered + stickerless handheld clips with known 54-cell truth.
-2. Plug an unpoisoned free-pose face-quad or sticker-center detector (e.g., LiteRT trained on an extended `render_cube.py`, or read-only PC comparator `yush-io/cubeSolver` / `YORO`) into the exact same `mapper.process_frame()` interface.
+1. Record two clean handheld clips (stickered + stickerless) with known 54-cell truth and run `run_real_video.py` to score exact 54-cell agreement and regrip recovery end-to-end on real video.
+2. Extend `tools/corner-model/render_cube.py` (1–3 visible faces, off-center, hand-occlusion masks) and train a clean Cubentia-owned LiteRT sticker-center / face-quad model on our RTX A2000 GPU to replace the PC-only comparator with a portable model that runs identically on PC and Android.

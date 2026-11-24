@@ -482,6 +482,13 @@ class ContinuousCubeMapper:
         if len(p.observed_faces) == 0:
             return
 
+        # If master was never globally anchored and only holds a tiny stale fragment (e.g. from pre-scan
+        # clutter), promote pending once pending has more observed faces so the scan never stalls forever.
+        if self.global_R is None and len(m.observed_faces) < 3 and len(p.observed_faces) > len(m.observed_faces):
+            self.master = p
+            self.pending = None
+            return
+
         # Gather robust Labs per observed slot in pending and master
         p_slots: Dict[Tuple[str, int], Tuple[np.ndarray, float]] = {}
         for f in p.observed_faces:
