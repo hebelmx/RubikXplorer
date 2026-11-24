@@ -132,3 +132,21 @@ Screenshots: `shots/253/`.
 **F2 (proposed severity 3):** on the minimum device the paint that triggers the turn search drops frames (about 2× an ordinary paint); every paint already drops some frames on the Lenovo.
 
 Issue disposition: all #253 criteria pass on device (orientation, ambiguous hint, no error before every face is touched, specific errors, advance cues, TalkBack, 200%). CLOSE #253 once the PO accepts F1–F3 as follow-up issues; the main-thread timing (F2) stays with `issue-253-deferred-editor-turn-search-main-thread`.
+
+## 6.9 — #354 editor Close confirmation, re-check on the merged fix (2026-11-24)
+
+Device / Android: Android Emulator, AVD `GalaxyS24FE_API36` (Galaxy S24 FE profile, API 36, google_apis x86_64), with the image's own TalkBack
+App revision / build: `3cf43072` (PR #357), debug build
+Driven by adb taps (agent). Screenshots: `shots/354/`.
+
+| Step | Check | Result | Evidence |
+|---|---|---|---|
+| 1 | Solve → Enter colors, paint Up 1–3 Blue, Red, Green → Close: "Discard the colors you entered?" with *Keep entering* / *Discard* | PASS | `e_dialog.png` |
+| 2 | *Keep entering* → the three stickers are kept, selection on Up 4 | PASS | dump |
+| 3 | System Back → same dialog; Back again dismisses it and keeps the stickers | PASS | dump |
+| 4 | TalkBack on, focus on Close, double-tap (the #354 repro) → the dialog opens and TalkBack focus moves to its title; Back keeps the stickers | PASS | `e_tb_title_focus.png`, `e_tb_doubletap_dialog.png`, `e_tb_kept.png` |
+| 5 | *Discard* → Solve home; Enter colors reopens a blank editor | PASS | dump |
+| 6 | Blank editor → Close returns to Solve home at once, no dialog | PASS | dump |
+| 7 | #352/#353: with Up 3 of 8 set the editor still reads "6 faces left to enter: Up, …" (Up not counted, no turn, no problem lines) | PASS | `e_dialog.png` |
+
+Not covered here: the Lesson on-cube editor's Back dialog (Robolectric only), and the Galaxy's own TalkBack build (installing it on the emulator failed on a signature mismatch). F4 (#354) and F1/F3 (#352, #353) closed by PR #357.
