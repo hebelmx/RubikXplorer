@@ -365,8 +365,8 @@ object ScanDiagnostics {
      * `?` not, `-` unread), why the centre is not CONFIDENT (`guarded`: not plain, a logo or glare; `invalid`; `dark`;
      * `no-reference`: fewer than two centres to read against; `uncertain`; `-` when it is) and whether it is plain; the
      * reference the reads used (`saved-match`, `self`, `partial`, `none`) over which colours, and why: the saved
-     * calibration's match (`none` without one), the guarded colours and those with no centre; and the CONFIDENT stickers
-     * among all nine (`counted`, what the few-confident wait sums).
+     * calibration's match (`none` without one), the guarded colours and those with no centre; and the CONFIDENT judged
+     * stickers the few-confident wait sums (`counted`; a guarded centre is not judged, 0 with no reference).
      */
     internal fun faceFields(face: QuickScanDiagnosis.FaceDiagnosis): List<String> =
         listOf(

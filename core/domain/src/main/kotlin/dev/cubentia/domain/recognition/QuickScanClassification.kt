@@ -263,12 +263,8 @@ object QuickScanClassification {
         val decision = decide(sample, merged, saved, captureTorch)
         val matched = usable(sample.face, merged, saved, captureTorch)
         val reads = reads(sample, merged, matched, AGREEMENT_MARGIN)
-        val centers =
-            when (val self = reads.self) {
-                is SelfCalibration.Calibrated -> self.calibration.centers
-                is SelfCalibration.NeedsCalibration -> SelfCalibration.trustedCenters(merged)
-            }
-        val judged = { index: Int -> index != FaceSample.CENTER_INDEX || sample.centerPlain != false }
+        val centers = firstCenters(reads.self, merged)
+        val judged = { index: Int -> judged(sample, index) }
         val stickers =
             sample.stickers.indices.map { index ->
                 val gated = reads.gated.getOrNull(index)
@@ -305,7 +301,7 @@ object QuickScanClassification {
             guarded = guarded + merged.filter { it.centerPlain == false }.mapNotNull { it.centerColor },
             unresolved = (reads.self as? SelfCalibration.NeedsCalibration)?.colors.orEmpty(),
             stickers = stickers,
-            counted = decision.readings.count { it?.confidence == StickerConfidence.CONFIDENT },
+            counted = confidentJudged(sample, merged, saved, captureTorch) ?: 0,
             confident = stickers.count { it.judged && it.confident },
             gridReason = decision.gridReason,
             blanks = decision.blanks,
@@ -337,6 +333,41 @@ object QuickScanClassification {
         saved: CalibrationCenters?,
         captureTorch: Map<Face, Boolean> = emptyMap(),
     ): List<StickerReading?> = decide(sample, merged, saved, captureTorch).readings
+
+    /**
+     * The few-confident wait's count for [sample] (Story 10.21): its CONFIDENT stickers among the judged ones (a guarded
+     * centre is not judged, as in [report] and the capture line), read exactly as [read]; null when the first read has
+     * fewer than two reference centres (device session 2026-11-24: a logo centre and a second unplain one at hold 1 with
+     * no saved calibration), so no sticker can be read and the count is unknowable rather than low.
+     */
+    fun confidentJudged(
+        sample: FaceSample,
+        merged: List<FaceSample>,
+        saved: CalibrationCenters?,
+        captureTorch: Map<Face, Boolean> = emptyMap(),
+    ): Int? {
+        val matched = usable(sample.face, merged, saved, captureTorch)
+        val centers = firstCenters(SelfCalibration.from(merged, matched), merged)
+        if (centers.size < 2 || !centers.values.all { it.isValid() }) return null
+        val readings = decide(sample, merged, saved, captureTorch).readings
+        return readings.indices.count { judged(sample, it) && readings[it]?.confidence == StickerConfidence.CONFIDENT }
+    }
+
+    /** Whether the hand-over decision judges [sample]'s sticker [index]: all but a guarded (not plain) centre. */
+    private fun judged(
+        sample: FaceSample,
+        index: Int,
+    ): Boolean = index != FaceSample.CENTER_INDEX || sample.centerPlain != false
+
+    /** The centres the first (self-calibration) read competes over: six, or the trusted ones while colours are missing. */
+    private fun firstCenters(
+        self: SelfCalibration,
+        merged: List<FaceSample>,
+    ): Map<Color, Lab> =
+        when (self) {
+            is SelfCalibration.Calibrated -> self.calibration.centers
+            is SelfCalibration.NeedsCalibration -> SelfCalibration.trustedCenters(merged)
+        }
 
     /** Both reads of every sticker of [sample] before the gate, with the second read's margin (the tuning data, Story 10.21). */
     internal data class StickerReads(
@@ -376,11 +407,7 @@ object QuickScanClassification {
         margin: Map<Color, Double>,
     ): Reads {
         val self = SelfCalibration.from(merged, saved)
-        val centers: Map<Color, Lab> =
-            when (self) {
-                is SelfCalibration.Calibrated -> self.calibration.centers
-                is SelfCalibration.NeedsCalibration -> SelfCalibration.trustedCenters(merged)
-            }
+        val centers = firstCenters(self, merged)
         val firstMeasured = sample.stickers.map { sticker -> nearest(sticker, centers) }
         val first = firstMeasured.map { it?.let { (color, m) -> reading(color, m) } }
         val calibrated = saved != null && StickerClassifier.isValid(saved)

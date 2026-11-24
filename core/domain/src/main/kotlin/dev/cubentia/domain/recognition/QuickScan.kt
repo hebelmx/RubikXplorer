@@ -155,6 +155,16 @@ class QuickScanController(
     var confidentCount: QuickScanDiagnosis.ConfidentCount? = null
         private set
 
+    /**
+     * Story 10.21 (device session 2026-11-24): the few-confident wait's per-face counts on the frames of the current steady
+     * window within [CONFIDENT_WINDOW_MS], oldest first. The wait decides on the frame with the most, so a one-frame dip
+     * (a centre's plain flag flickering under a torch hot spot) neither blocks nor restarts the steady window.
+     */
+    private val confidentWindow = ArrayDeque<Pair<Long, Map<Face, Int>>>()
+
+    /** Whether this hold already logged a frame the wait skipped for want of a colour reference. */
+    private var fewConfidentSkipLogged = false
+
     /** Debug diagnostics: the last hand-over (kept and grid faces, why, blanks); null before the first. */
     var lastHandOver: QuickScanDiagnosis.HandOverReport? = null
         private set
@@ -329,6 +339,7 @@ class QuickScanController(
                 pose(null)
             }
         }
+        var waitAsked = false
         val decision =
             corner.onFrame(
                 detected,
@@ -341,25 +352,31 @@ class QuickScanController(
                 torchOn = torchOn,
                 outline = outline.takeIf { detected },
                 enoughConfident = {
-                    // Story 10.21: CONFIDENT stickers among the hold's 27, read with the faces captured before it.
-                    val perFace =
-                        frame.associate { sample ->
-                            sample.face to
-                                QuickScanClassification
-                                    .read(
-                                        sample,
-                                        merged,
-                                        saved,
-                                        torch,
-                                    ).count { it?.confidence == StickerConfidence.CONFIDENT }
-                        }
-                    val count = perFace.values.sum()
-                    confidentCount = QuickScanDiagnosis.ConfidentCount(hold, perFace, MIN_CONFIDENT)
+                    waitAsked = true
+                    // Story 10.21: CONFIDENT judged stickers of the hold's faces, read with the faces captured before it
+                    // (the same set the capture line counts); a face with no colour reference (< 2 centres) is not counted.
+                    val counts = frame.associate { it.face to QuickScanClassification.confidentJudged(it, merged, saved, torch) }
+                    val perFace = counts.mapNotNull { (face, n) -> n?.let { face to it } }.toMap()
                     confidentSnapshot = ReadSnapshot(frame, merged, torch)
-                    val enough = count >= MIN_CONFIDENT
+                    // Nothing in view can be read: the count is unknowable, not low, so this frame adds nothing.
+                    val unread = frame.isNotEmpty() && perFace.isEmpty()
+                    if (!unread) confidentWindow.addLast(nowMs to perFace)
+                    while (confidentWindow.isNotEmpty() &&
+                        confidentWindow.first().first < nowMs - CONFIDENT_WINDOW_MS
+                    ) {
+                        confidentWindow.removeFirst()
+                    }
+                    val best = confidentWindow.maxByOrNull { it.second.values.sum() }?.second
+                    confidentCount = best?.let { QuickScanDiagnosis.ConfidentCount(hold, it, MIN_CONFIDENT) }
+                    // An unread frame with no counted frame in the window is never held (PO 2026-11-24).
+                    val enough = best == null || best.values.sum() >= MIN_CONFIDENT
+                    if (unread && best == null && !fewConfidentSkipLogged) {
+                        fewConfidentSkipLogged = true
+                        event(CornerHoldEventKind.FEW_CONFIDENT_SKIPPED, nowMs, reason = FEW_CONFIDENT_NO_REFERENCE)
+                    }
                     fewConfident = !enough
                     if (!enough) {
-                        pose(POSE_FEW_CONFIDENT, count.toDouble(), perFace)
+                        pose(POSE_FEW_CONFIDENT, checkNotNull(best).values.sum().toDouble(), best)
                     } else if (poseRejected == POSE_FEW_CONFIDENT) {
                         pose(null)
                     }
@@ -391,6 +408,12 @@ class QuickScanController(
                 }
             }
         collectMarks()
+        // The smoothing window holds the current steady window's frames only: a view the wait was not asked on (pose,
+        // quality, metering), a lost cube or a restarted window starts it afresh. A short detection gap keeps it.
+        when {
+            (detected && !waitAsked) || corner.lostNow -> confidentWindow.clear()
+            corner.steadyRestart != null -> confidentWindow.removeAll { it.first != nowMs }
+        }
         return when (decision) {
             CornerHold.Decision.Wait -> emptyList()
             CornerHold.Decision.Remeter -> listOf(QuickScanEffect.Remeter)
@@ -443,6 +466,8 @@ class QuickScanController(
         holdFrameMs = null
         turnFrames = 0
         poseRejected = null
+        confidentWindow.clear()
+        fewConfidentSkipLogged = false
         if (startMs != null && inCorner) event(CornerHoldEventKind.VIEWFINDER, startMs)
     }
 
@@ -811,6 +836,16 @@ class QuickScanController(
          * frame reaches under its scan-time calibration. The manual shutter never waits for it.
          */
         const val MIN_CONFIDENT = 6
+
+        /**
+         * Story 10.21 (PO 2026-11-24): the few-confident wait decides on the best count over the frames of the current
+         * steady window within this long, so one frame's dip (30-100 ms apart on device) cannot clear the window, while a
+         * hold whose count stays below [MIN_CONFIDENT] still blocks.
+         */
+        const val CONFIDENT_WINDOW_MS = 500L
+
+        /** [CornerHoldEventKind.FEW_CONFIDENT_SKIPPED] reason: fewer than two reference centres, nothing readable. */
+        const val FEW_CONFIDENT_NO_REFERENCE = "no-reference"
 
         /** A face asked though the gate kept it: the assembly was ambiguous or did not fit (debug diagnostics). */
         private val REPROMPT_REASON = QuickScanDiagnosis.GridReason.REPROMPT

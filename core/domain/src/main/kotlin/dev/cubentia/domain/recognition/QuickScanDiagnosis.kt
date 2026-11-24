@@ -81,8 +81,9 @@ object QuickScanDiagnosis {
      * One captured corner face as [QuickScanClassification] reads it. [centre] is the centre sticker's read and
      * [centreIssue] why it is not CONFIDENT (the first that applies). [reference] is what the first read used, over
      * [referenceColors]; why: the saved [calibration]'s match (null: none saved), the [guarded] colours whose own centre
-     * was not used and the [unresolved] colours with no centre at all. [counted] is the CONFIDENT stickers among all nine
-     * (what the few-confident wait sums), [confident] among the judged ones. [gridReason] is null for a face kept.
+     * was not used and the [unresolved] colours with no centre at all. [counted] is what the few-confident wait sums
+     * ([QuickScanClassification.confidentJudged]: the CONFIDENT judged stickers, 0 with no reference), [confident] the
+     * CONFIDENT judged stickers the capture line counts. [gridReason] is null for a face kept.
      */
     data class FaceDiagnosis(
         val face: Face,
@@ -103,8 +104,9 @@ object QuickScanDiagnosis {
     )
 
     /**
-     * The few-confident wait's count on one frame of corner [hold]: CONFIDENT stickers [perFace] (all nine of each face
-     * in view that has nine cells); [amount] is exactly the number compared with [need].
+     * The few-confident wait's count of corner [hold]: CONFIDENT judged stickers [perFace] (a guarded centre not counted)
+     * of each face in view that has nine cells and a colour reference, on the frame of the smoothing window with the most
+     * ([QuickScanController.CONFIDENT_WINDOW_MS]); [amount] is exactly the number compared with [need].
      */
     data class ConfidentCount(
         val hold: Int,

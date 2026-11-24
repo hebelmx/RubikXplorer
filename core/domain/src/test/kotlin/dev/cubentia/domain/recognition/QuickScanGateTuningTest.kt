@@ -189,7 +189,7 @@ class QuickScanGateTuningTest {
         return "$own/${groups.size}" to "$other/${others.size}"
     }
 
-    /** Each hold's CONFIDENT stickers of its 27 under the scan-time (own, torch-tagged) calibration, read with the holds before it. */
+    /** Each hold's CONFIDENT judged stickers under the scan-time (own, torch-tagged) calibration, read with the holds before it. */
     private fun confidentCounts(
         group: Group,
         margin: Map<Color, Double>,
@@ -199,10 +199,12 @@ class QuickScanGateTuningTest {
             val hold = record.labeledSamples.map { it.sample }
             val merged = prior.filter { old -> hold.none { it.face == old.face } } + hold
             prior = merged
+            // The judged stickers, as the wait counts them (a guarded centre is not judged).
             hold.sumOf { sample ->
                 QuickScanClassification
                     .decide(sample, merged, group.tagged, group.captureTorch, margin)
                     .readings
+                    .filterIndexed { index, _ -> index != FaceSample.CENTER_INDEX || sample.centerPlain != false }
                     .count { it?.confidence == StickerConfidence.CONFIDENT }
             }
         }

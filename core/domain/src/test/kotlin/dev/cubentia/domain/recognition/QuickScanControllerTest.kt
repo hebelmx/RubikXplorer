@@ -1726,33 +1726,54 @@ class QuickScanControllerTest {
         assertTrue(manual.lastCapture!!.manual)
     }
 
-    @Test
-    fun `with no calibration a logo top and a second unplain centre leave hold 1 nothing to read against`() {
-        // Story 10.21 device session (S24 FE, Rubik's logo top, torch lit): the logo White centre is guarded and the
-        // Green centre is not plain either, so only Red is a trusted centre: fewer than two, every read is null.
-        val first =
-            hold(1, CubeState.SOLVED).mapIndexed { index, stats ->
-                if (index == 2) {
-                    stats
-                } else {
-                    stats.copy(
-                        cells =
-                            stats.cells.mapIndexed { i, cell ->
-                                if (i ==
-                                    FaceSample.CENTER_INDEX
-                                ) {
-                                    cell!!.copy(plain = false)
-                                } else {
-                                    cell
-                                }
-                            },
-                    )
-                }
+    /** [stats] with its centre cell's plain flag set to [plain] (a logo, or a torch hot spot on the centre). */
+    private fun centrePlain(
+        stats: FrameStats,
+        plain: Boolean,
+    ): FrameStats =
+        stats.copy(cells = stats.cells.mapIndexed { i, cell -> if (i == FaceSample.CENTER_INDEX) cell!!.copy(plain = plain) else cell })
+
+    /** Hold 1 of the solved cube with the U (White) centre a logo and the F (Green) centre plain or not. */
+    private fun logoTop(greenPlain: Boolean): List<FrameStats> =
+        hold(1, CubeState.SOLVED).mapIndexed { index, stats ->
+            when (index) {
+                0 -> centrePlain(stats, false)
+                1 -> centrePlain(stats, greenPlain)
+                else -> stats
             }
+        }
+
+    /** Feeds [frames] (by time) from 0 every [stepMs] up to [untilMs]; the time hold 1 auto-captured, null when it did not. */
+    private fun firstAuto(
+        scan: QuickScanController,
+        untilMs: Long = 4000L,
+        stepMs: Long = 50L,
+        frames: (Long) -> List<FrameStats>,
+    ): Long? {
+        for (now in 0L..untilMs step stepMs) {
+            if (scan.onFrame(true, frames(now), now).contains(QuickScanEffect.CornerCaptured(1))) return now
+        }
+        return null
+    }
+
+    @Test
+    fun `with no calibration a logo top and a second unplain centre leave nothing to read, and the wait does not hold it`() {
+        // Story 10.21 device session (S24 FE, Rubik's logo top, torch lit): the logo White centre is guarded and the
+        // Green centre is not plain either, so only Red is a trusted centre: fewer than two, every read is null. The count
+        // is unknowable, not low (PO 2026-11-24): the few-confident wait skips the hold and logs why, once.
+        // (Before the fix this test asserted the wait held the hold with amount 0: the bug.)
+        val first = logoTop(greenPlain = false)
+        val plain = firstAuto(QuickScanController(lightCheck = false)) { hold(1, CubeState.SOLVED) }
         val scan = QuickScanController(lightCheck = false)
-        for (now in 0L..2000L step 100) scan.onFrame(true, first, now)
-        assertTrue(scan.fewConfident)
-        assertEquals(0, scan.confidentCount!!.amount)
+        val captured = firstAuto(scan) { first }
+        assertEquals(plain, captured, "auto-captures in the normal steady time")
+        assertFalse(scan.fewConfident)
+        assertEquals(null, scan.confidentCount, "no frame counted")
+        val events = scan.drainEvents()
+        assertTrue(events.none { it.kind == CornerHoldEventKind.POSE_REJECTED })
+        val skipped = events.filter { it.kind == CornerHoldEventKind.FEW_CONFIDENT_SKIPPED }
+        assertEquals(listOf(QuickScanController.FEW_CONFIDENT_NO_REFERENCE), skipped.map { it.reason })
+        assertEquals(listOf(1), skipped.map { it.hold })
         val faces = scan.confidentDiagnoses()
         assertEquals(listOf(Face.U, Face.F, Face.R), faces.map { it.face })
         assertTrue(faces.all { it.reference == QuickScanDiagnosis.Reference.NONE && it.referenceColors == setOf(Color.RED) })
@@ -1775,6 +1796,71 @@ class QuickScanControllerTest {
             faces.map { it.gridReason },
         )
         assertEquals(listOf(false, false, true), faces.map { it.stickers[FaceSample.CENTER_INDEX].judged })
+    }
+
+    @Test
+    fun `a logo top whose second centre flickers plain frame to frame auto-captures in the normal steady time`() {
+        // Story 10.21 device session: the Green centre's plain flag flickers (torch hot spot), so every other frame has
+        // no colour reference. Before the fix each such frame counted 0, cleared the steady window and hold 1 never
+        // auto-captured.
+        val steady = firstAuto(QuickScanController(lightCheck = false)) { logoTop(greenPlain = true) }
+        assertTrue(steady != null)
+        val scan = QuickScanController(lightCheck = false)
+        val captured = firstAuto(scan) { now -> logoTop(greenPlain = (now / 50) % 2 == 0L) }
+        assertEquals(steady, captured)
+        assertTrue(scan.drainEvents().none { it.kind == CornerHoldEventKind.POSE_REJECTED })
+    }
+
+    /** Hold 1 of the solved cube with every non-centre sticker [cell]: a colour a saved calibration reads, or a close call. */
+    private fun allCells(cell: Lab): List<FrameStats> =
+        hold(1, CubeState.SOLVED).map { stats ->
+            stats.copy(cells = stats.cells.mapIndexed { i, c -> if (i == FaceSample.CENTER_INDEX) c else CellReading(cell, true) })
+        }
+
+    /** Orange moved 10 ΔE toward Red: within the colour steadiness ΔE, but below Orange's agreement margin. */
+    private val nearRed = Lab(65.0 - 5.7735, 45.0 + 5.7735, 65.0 - 5.7735)
+
+    @Test
+    fun `one frame of few confident stickers neither restarts the steady window nor delays auto capture`() {
+        val orange = labs.getValue(Color.ORANGE)
+        val steady = firstAuto(QuickScanController(saved, lightCheck = false), stepMs = 100) { allCells(orange) }
+        assertTrue(steady != null)
+        val scan = QuickScanController(saved, lightCheck = false)
+        // One frame inside the steady window reads only the three centres CONFIDENT.
+        val captured =
+            firstAuto(scan, stepMs = 100) { now ->
+                if (now ==
+                    checkNotNull(steady) - 300
+                ) {
+                    allCells(nearRed)
+                } else {
+                    allCells(orange)
+                }
+            }
+        assertEquals(steady, captured)
+        val events = scan.drainEvents()
+        assertTrue(events.none { it.kind == CornerHoldEventKind.POSE_REJECTED })
+        assertEquals(1, events.count { it.kind == CornerHoldEventKind.STEADY_START })
+        assertTrue(events.none { it.kind == CornerHoldEventKind.STEADY_RESTART })
+    }
+
+    @Test
+    fun `a hold that stays below the need with a valid reference still blocks, its amount the judged count the capture logs`() {
+        val scan = QuickScanController(saved, lightCheck = false)
+        // The U centre is a logo: not judged, so not counted by the wait nor by the capture line.
+        val few = allCells(nearRed).mapIndexed { index, stats -> if (index == 0) centrePlain(stats, false) else stats }
+        assertEquals(null, firstAuto(scan, untilMs = 3000, stepMs = 100) { few })
+        assertTrue(scan.fewConfident)
+        val rejected = scan.drainEvents().filter { it.kind == CornerHoldEventKind.POSE_REJECTED }
+        assertEquals(listOf(QuickScanController.POSE_FEW_CONFIDENT), rejected.map { it.reason })
+        assertEquals(2.0, rejected.single().amount)
+        assertEquals(mapOf(Face.U to 0, Face.F to 1, Face.R to 1), rejected.single().confident)
+        assertEquals(2, scan.confidentCount!!.amount)
+        assertEquals(listOf(0, 1, 1), scan.confidentDiagnoses().map { it.counted })
+        assertEquals(listOf(0, 1, 1), scan.confidentDiagnoses().map { it.confident })
+        // The shutter takes it: the capture line's judged CONFIDENT counts sum to the logged amount.
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onShutter(3100))
+        assertEquals(2, scan.lastCapture!!.faces.sumOf { it.confident })
     }
 
     @Test

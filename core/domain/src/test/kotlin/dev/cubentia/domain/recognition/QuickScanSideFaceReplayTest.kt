@@ -788,15 +788,7 @@ class QuickScanSideFaceReplayTest {
             val merged = prior.filter { old -> hold.none { it.face == old.face } } + hold
             prior = merged
             record.hold to
-                hold.sumOf { sample ->
-                    QuickScanClassification
-                        .read(
-                            sample,
-                            merged,
-                            group.tagged,
-                            torch,
-                        ).count { it?.confidence == StickerConfidence.CONFIDENT }
-                }
+                hold.sumOf { sample -> QuickScanClassification.confidentJudged(sample, merged, group.tagged, torch) ?: 0 }
         }
     }
 

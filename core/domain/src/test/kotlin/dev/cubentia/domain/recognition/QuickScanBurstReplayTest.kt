@@ -267,8 +267,11 @@ class QuickScanBurstReplayTest {
         assertTrue(again <= turned.first().tMs + CornerHold.STEADY_MS + 300, "captured at $again")
     }
 
-    /** CONFIDENT stickers among a frame's 27 as the Story 10.21 wait counts them at hold 1 (no saved calibration). */
-    private fun confidentCount(frame: BurstFrame): Int {
+    /**
+     * CONFIDENT judged stickers of a frame's hold-1 faces as the Story 10.21 wait counts them (no saved calibration); null
+     * when no face has a colour reference (the wait does not hold such a frame).
+     */
+    private fun confidentCount(frame: BurstFrame): Int? {
         val samples =
             QuickScanPlan.holds[0].zip(frame.faces).mapNotNull { (step, stats) ->
                 val cells = stats?.cells?.filterNotNull()?.takeIf { it.size == 9 } ?: return@mapNotNull null
@@ -282,9 +285,8 @@ class QuickScanBurstReplayTest {
                     centerPlain = cells[FaceSample.CENTER_INDEX].plain,
                 )
             }
-        return samples.sumOf { sample ->
-            QuickScanClassification.read(sample, samples, null).count { it?.confidence == StickerConfidence.CONFIDENT }
-        }
+        val counts = samples.mapNotNull { QuickScanClassification.confidentJudged(it, samples, null) }
+        return if (samples.isNotEmpty() && counts.isEmpty()) null else counts.sum()
     }
 
     @Test
@@ -304,7 +306,7 @@ class QuickScanBurstReplayTest {
                     var since: Long? = null
                     var below = 0
                     for (frame in detected) {
-                        if (confidentCount(frame) < QuickScanController.MIN_CONFIDENT) {
+                        if ((confidentCount(frame) ?: Int.MAX_VALUE) < QuickScanController.MIN_CONFIDENT) {
                             below++
                             val start = since ?: frame.tMs.also { since = it }
                             longest = maxOf(longest, frame.tMs - start)

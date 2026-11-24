@@ -234,7 +234,7 @@ internal class CornerHold(
             return Decision.Wait
         }
         if (!enoughConfident()) {
-            // Story 10.21: too few CONFIDENT stickers; the steady window starts over once enough read.
+            // Story 10.21: too few CONFIDENT stickers over the smoothing window; the steady window starts over once enough read.
             reference = null
             return Decision.Wait
         }
@@ -665,6 +665,9 @@ enum class CornerHoldEventKind(
     STEADY_START("steadyStart"),
     STEADY_RESTART("steadyRestart"),
     CAPTURE("capture"),
+
+    /** Story 10.21: the few-confident wait did not hold a frame with no colour reference (logged once per hold). */
+    FEW_CONFIDENT_SKIPPED("fewConfidentSkipped"),
 }
 
 /** A timeline mark of [CornerHold] at absolute time [atMs]; [QuickScanController] turns it into a [CornerHoldEvent]. */
