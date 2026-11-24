@@ -2239,9 +2239,9 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-gh-252-re-placement-keeps-progress.md"
   - id: "epic-10-deferred-10.20-recording-session"
     epic: 10
-    action: "Run the Story 10.20 recording session on the debug fixture recorder (corner mode), Lenovo TB128XU and Galaxy S24 FE: record the Fixtures/corner/ groups with the held-out split (AC2), run evaluate_model.py on it (AC3), record and check the pastel cube (AC4), write the replay report and docs/evidence/10-20/ (AC5), and confirm the recorder's settle, lock and torch values in corner-N.json and group.json (high; PO merged the code part before the device gate on 2026-11-23, deferred from 10.20, FixtureRecorderActivity.kt)"
+    action: "Run the Story 10.20 recording session on the debug fixture recorder (corner mode), Lenovo TB128XU and Galaxy S24 FE: record the Fixtures/corner/ groups with the held-out split (AC2), run evaluate_model.py on it (AC3), record and check the pastel cube (AC4), write the replay report and docs/evidence/10-20/ (AC5), and confirm the recorder's settle, lock and torch values in corner-N.json and group.json (high; PO merged the code part before the device gate on 2026-11-23, deferred from 10.20, FixtureRecorderActivity.kt). Done 2026-11-23 (PR #334): both devices recorded, groups.json and docs/evidence/10-20/ written; PO accepted the corner-error miss (#315); the pastel result moved to Story 10.27 (SCP 2026-11-23, PR #335)."
     owner: "PO (BMad)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-20-record-10-19-pipeline-corner-fixtures-and-check-the-corner-m.md"
   - id: "epic-10-deferred-10.20-coverage-check-strength"
     epic: 10
