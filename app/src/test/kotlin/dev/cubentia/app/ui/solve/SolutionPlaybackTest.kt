@@ -7,26 +7,42 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasNoClickAction
+import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.PreferenceProvider
 import dev.cubentia.app.preferences.PreferenceStore
@@ -35,10 +51,12 @@ import dev.cubentia.app.render.RenderedArrow
 import dev.cubentia.app.render.RenderedArrowKey
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.TickingClock
+import dev.cubentia.app.ui.a11y.assertUncheckedPhysicalModeContrast
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.app.ui.theme.DarkTokens
 import dev.cubentia.app.ui.theme.LightTokens
 import dev.cubentia.app.ui.theme.RubikTheme
+import dev.cubentia.app.ui.theme.Spacing
 import dev.cubentia.application.preference.PlaybackView
 import dev.cubentia.application.preference.Preference
 import dev.cubentia.application.session.CubeMode
@@ -247,13 +265,13 @@ class SolutionPlaybackTest {
         tag("done").assertExists()
         tag("back").assertExists()
 
-        click("switchToVirtual")
+        click("physicalModeSwitch")
         cube.assertExists()
         click("viewSwitch")
         assertEquals(PlaybackView.NET_2D, store.preferences.value.playbackView)
         click("followOnMyCube")
         rule.onNodeWithTag("net").assertExists()
-        click("switchToVirtual")
+        click("physicalModeSwitch")
         rule.onNodeWithTag("net").assertExists()
         rule.runOnIdle(store::reset)
         cube.assertExists()
@@ -561,15 +579,66 @@ class SolutionPlaybackTest {
     }
 
     @Test
-    fun `toggling physical mode via switch alternates between virtual and physical`() {
+    @Config(qualifiers = "w320dp-h480dp", fontScale = 2.0f)
+    fun `tapping the physical mode caption switches between playback controls`() {
         show()
-        click("followOnMyCube")
-        assertTrue(state.isPhysical)
 
-        tag("physicalModeSwitch").performClick()
-        rule.waitForIdle()
-        assertFalse(state.isPhysical)
+        val control = tag("physicalModeSwitch")
+        val caption = rule.onNodeWithText("Physical mode", useUnmergedTree = true)
+        control.performScrollTo().assertHeightIsAtLeast(Spacing.touchMin)
+        val id = control.fetchSemanticsNode().id
+        val switchRole = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Switch)
+        val switchSubtree = hasTestTag("playback:physicalModeSwitch")
+
+        fun assertSingleSwitch(checked: Boolean) {
+            control
+                .performScrollTo()
+                .assertIsDisplayed()
+                .assertContentDescriptionEquals("Physical mode")
+                .assert(switchRole)
+            assertEquals(id, control.fetchSemanticsNode().id)
+            rule
+                .onAllNodes(
+                    hasClickAction() and switchRole and (switchSubtree or hasAnyAncestor(switchSubtree)),
+                    useUnmergedTree = true,
+                ).assertCountEquals(1)
+            rule.runOnIdle {
+                val provider = checkNotNull(accessibilityHost.accessibilityNodeProvider)
+                val info =
+                    AccessibilityNodeInfoCompat.wrap(
+                        checkNotNull(provider.createAccessibilityNodeInfo(id)),
+                    )
+                assertEquals("Physical mode", info.contentDescription.toString())
+                assertEquals("switch", info.roleDescription.toString().lowercase())
+                assertTrue(info.isClickable)
+                assertTrue(info.isCheckable)
+                val checkedState =
+                    if (checked) AccessibilityNodeInfoCompat.CHECKED_STATE_TRUE else AccessibilityNodeInfoCompat.CHECKED_STATE_FALSE
+                assertEquals(checkedState, info.checked)
+            }
+        }
+        control.assertIsOff()
+        assertSingleSwitch(checked = false)
+        tag("playPause").assertExists()
+        tag("followOnMyCube").assertExists()
+
+        caption.performTouchInput { click() }
+        control.assertIsOn()
+        assertSingleSwitch(checked = true)
+        tag("done").assertExists()
+        tag("playPause").assertDoesNotExist()
+
+        caption.performTouchInput { click() }
+        control.assertIsOff()
+        assertSingleSwitch(checked = false)
+        tag("done").assertDoesNotExist()
+        tag("playPause").assertExists()
         assertEquals(SyncState.VIRTUAL, state.session.syncState)
+
+        control.performTouchInput { click(centerRight - Offset(24.dp.toPx(), 0f)) }
+        control.assertIsOn()
+        control.performScrollTo().performTouchInput { click(centerRight - Offset(4.dp.toPx(), 0f)) }
+        control.assertIsOff()
     }
 
     @Test
@@ -594,8 +663,8 @@ class SolutionPlaybackTest {
         click("done")
         assertTrue(state.isPhysical)
 
-        tag("switchToVirtual").assertTextEquals("Physical mode")
-        click("switchToVirtual")
+        tag("physicalModeSwitch").assertContentDescriptionEquals("Physical mode")
+        click("physicalModeSwitch")
         assertFalse(state.isPhysical)
         assertEquals(SyncState.VIRTUAL, state.session.syncState)
         assertEquals(state.session.expected, state.session.virtual)
@@ -637,7 +706,7 @@ class SolutionPlaybackTest {
         assertEquals(scrambled.apply(solution.take(2)), state.session.expected)
 
         // Switch to virtual
-        click("switchToVirtual")
+        click("physicalModeSwitch")
         assertFalse(state.isPhysical)
         assertEquals(2, state.position)
         assertEquals(scrambled.apply(solution.take(2)), state.session.expected)
@@ -667,7 +736,7 @@ class SolutionPlaybackTest {
         assertEquals(1, state.position)
         assertEquals(scrambled.apply(solution.take(1)), state.session.expected)
 
-        click("switchToVirtual")
+        click("physicalModeSwitch")
         assertFalse(state.isPhysical)
 
         // User scrubs in virtual mode
@@ -688,7 +757,7 @@ class SolutionPlaybackTest {
         show()
         click("followOnMyCube")
         click("done")
-        click("switchToVirtual")
+        click("physicalModeSwitch")
         click("followOnMyCube")
         tag("back").assertIsNotEnabled()
         rule.runOnIdle {
@@ -707,7 +776,7 @@ class SolutionPlaybackTest {
         show()
         click("followOnMyCube")
         click("done")
-        click("switchToVirtual")
+        click("physicalModeSwitch")
         click("followOnMyCube")
         rule.runOnIdle {
             // A delayed host: events queue up and only reach the reducer when acknowledged.
@@ -806,7 +875,7 @@ class SolutionPlaybackTest {
         click("done")
         click("done")
         click("done")
-        click("switchToVirtual")
+        click("physicalModeSwitch")
         click("followOnMyCube")
         rule.runOnIdle {
             assertTrue(state.isPhysical)
@@ -822,7 +891,7 @@ class SolutionPlaybackTest {
         click("done")
         click("done")
         click("done")
-        click("switchToVirtual")
+        click("physicalModeSwitch")
         rule.runOnIdle {
             // Rebuilt in virtual mode (recreation) with the saved hint, then following on the cube again.
             val virtual = SolutionPlaybackState(state.session, reduceMotion = true, leftPhysicalAt = 3)
@@ -866,7 +935,7 @@ class SolutionPlaybackTest {
         click("done")
         click("done")
         click("done")
-        click("switchToVirtual")
+        click("physicalModeSwitch")
         click("followOnMyCube")
         restoration.emulateSavedInstanceStateRestore()
         rule.runOnIdle {
@@ -898,7 +967,7 @@ class SolutionPlaybackTest {
         // Left at step 1 (in the set-up), followed again, then two Dones reach step 3: the same cube as step 1.
         click("followOnMyCube")
         click("done")
-        click("switchToVirtual")
+        click("physicalModeSwitch")
         click("followOnMyCube")
         click("done")
         click("done")
@@ -917,7 +986,7 @@ class SolutionPlaybackTest {
         click("followOnMyCube")
         click("done")
         click("done")
-        click("switchToVirtual")
+        click("physicalModeSwitch")
         rule.runOnIdle {
             assertNotEquals(scrambled, state.session.entry)
             val rebuilt = SolutionPlaybackState(state.session, reduceMotion = true)
@@ -1060,6 +1129,37 @@ class SolutionPlaybackTest {
     @Config(qualifiers = "w411dp-h480dp")
     fun netFitsShortPhone() = assertNetFits()
 
+    @Test
+    @Config(qualifiers = "w600dp-h240dp", fontScale = 2.0f)
+    fun aVeryShortSolveScreenKeepsTheCubeAndCanScrollToThePhysicalSwitch() {
+        var current by mutableStateOf(session())
+        val store = netPreferences()
+        rule.setContent {
+            CubentiaTheme {
+                PreferenceProvider(store) {
+                    SolvePlaybackScreen(current, strings, { current = reduce(current, it).state }, {}, {})
+                }
+            }
+        }
+
+        val cube = rule.onNodeWithTag("net")
+        val switch = tag("physicalModeSwitch")
+        val caption = rule.onNodeWithText("Physical mode", useUnmergedTree = true)
+        cube.assertIsDisplayed()
+        switch.performScrollTo().assertIsOff().assertHeightIsAtLeast(Spacing.touchMin)
+        val switchId = switch.fetchSemanticsNode().id
+        caption.performTouchInput { click() }
+
+        cube.assertIsDisplayed()
+        switch.performScrollTo().assertIsOn().assertHeightIsAtLeast(Spacing.touchMin)
+        assertEquals(switchId, switch.fetchSemanticsNode().id)
+        caption.performTouchInput { click() }
+
+        cube.assertIsDisplayed()
+        switch.performScrollTo().assertIsOff()
+        assertEquals(switchId, switch.fetchSemanticsNode().id)
+    }
+
     private fun assertNetFits() {
         val store = netPreferences()
         rule.setContent {
@@ -1097,6 +1197,7 @@ class SolutionPlaybackTest {
         assertEquals(DarkTokens.surfaceBase, pixels[0, 0])
         val length = rule.onNodeWithTag("solvePlayback:length")
         assertEquals(DarkTokens.inkPrimary, textLayout(length).layoutInput.style.color)
+        tag("physicalModeSwitch").performScrollTo().assertIsOff().assertUncheckedPhysicalModeContrast()
     }
 
     @Test fun physicalPlaybackNoteHasStandardMargin() {

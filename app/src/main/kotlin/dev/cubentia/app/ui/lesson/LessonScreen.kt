@@ -31,7 +31,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -60,9 +59,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsPropertyKey
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -87,6 +84,7 @@ import dev.cubentia.app.render.ViewRotatedBadge
 import dev.cubentia.app.scan.QuickCheckCapture
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.toItems
+import dev.cubentia.app.ui.components.PhysicalModeSwitch
 import dev.cubentia.app.ui.editor.ManualCubeEditor
 import dev.cubentia.app.ui.freecube.MoveKeyBar
 import dev.cubentia.app.ui.freecube.ToolbarButton
@@ -488,27 +486,12 @@ private fun LessonTopBar(
             )
         }
         if (showPhysicalMode) {
-            val physicalLabel = strings.resolve(ContentText("msg.physical.mode"))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier =
-                    Modifier
-                        .testTag("lesson:physicalMode")
-                        .padding(horizontal = Spacing.s2),
-            ) {
-                // The Switch carries the label for TalkBack; the visible caption is not read twice.
-                Text(
-                    text = physicalLabel,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = tokens.inkSecondary,
-                    modifier = Modifier.padding(end = Spacing.s2).semantics { hideFromAccessibility() },
-                )
-                Switch(
-                    checked = isPhysical,
-                    onCheckedChange = onPhysicalToggle,
-                    modifier = Modifier.semantics { contentDescription = physicalLabel }.testTag("lesson:physicalModeSwitch"),
-                )
-            }
+            PhysicalModeSwitch(
+                label = strings.resolve(ContentText("msg.physical.mode")),
+                checked = isPhysical,
+                onCheckedChange = onPhysicalToggle,
+                modifier = Modifier.testTag("lesson:physicalModeSwitch"),
+            )
         }
     }
 }

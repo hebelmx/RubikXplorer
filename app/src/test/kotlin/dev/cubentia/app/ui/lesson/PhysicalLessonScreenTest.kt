@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
@@ -16,8 +17,13 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -26,6 +32,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
 import dev.cubentia.app.content.CatalogEntry
 import dev.cubentia.app.content.CatalogState
 import dev.cubentia.app.render.RenderedStickersKey
@@ -33,6 +40,7 @@ import dev.cubentia.app.scan.QuickCheckCapture
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.TickingClock
 import dev.cubentia.app.ui.a11y.assertNoMidWordBreaks
+import dev.cubentia.app.ui.a11y.assertUncheckedPhysicalModeContrast
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.application.port.ProgressLoad
 import dev.cubentia.application.port.ProgressRecord
@@ -116,9 +124,10 @@ class PhysicalLessonScreenTest {
             } else {
                 null
             },
+        darkTheme: Boolean = false,
     ) {
         rule.setContent {
-            CubentiaTheme {
+            CubentiaTheme(darkTheme = darkTheme) {
                 if (shown()) {
                     LessonScreen(
                         host = host,
@@ -253,6 +262,32 @@ class PhysicalLessonScreenTest {
         rule.waitUntil(5_000) { host.state.value.objectiveMet }
         rule.waitForIdle()
         return host
+    }
+
+    @Test
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun `the dark Lesson mode switch is visible and its caption toggles it`() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host, darkTheme = true)
+
+        val control = node("lesson:physicalModeSwitch")
+        val caption = rule.onNodeWithText("Physical mode", useUnmergedTree = true)
+        control
+            .assertContentDescriptionEquals("Physical mode")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Switch))
+            .assertIsOff()
+            .assertUncheckedPhysicalModeContrast()
+        rule.onAllNodes(hasClickAction() and (hasText("Physical mode") or hasContentDescription("Physical mode"))).assertCountEquals(1)
+
+        caption.performTouchInput { click() }
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
+        control.assertIsOn()
+        node("confirmCube:card").assertExists()
+
+        caption.performTouchInput { click() }
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.VIRTUAL }
+        control.assertIsOff()
+        node("confirmCube:card").assertDoesNotExist()
     }
 
     @Test
