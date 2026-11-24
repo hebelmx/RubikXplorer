@@ -30,6 +30,7 @@ import androidx.compose.ui.semantics.semantics
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.ui.beta.BetaLabel
 import dev.cubentia.app.ui.beta.BetaNote
+import dev.cubentia.app.ui.editor.EditorDiscardDialog
 import dev.cubentia.app.ui.editor.ManualCubeEditor
 import dev.cubentia.app.ui.freecube.FreeCubeScreen
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
@@ -54,8 +55,16 @@ fun SolveScreen(
     quickScanBeta: Boolean = false,
 ) {
     val phase by flow.phase.collectAsState()
+    val confirmDiscard by flow.confirmDiscard.collectAsState()
     BackHandler(phase != SolvePhase.Home) {
-        if (phase is SolvePhase.Solving) flow.cancel() else flow.closeEditor()
+        when (phase) {
+            is SolvePhase.Solving -> flow.cancel()
+            is SolvePhase.Editing -> flow.requestCloseEditor()
+            else -> flow.closeEditor()
+        }
+    }
+    if (confirmDiscard && phase is SolvePhase.Editing) {
+        EditorDiscardDialog(strings, "solve:discard", onDiscard = flow::discardAndClose, onKeep = flow::keepEditing)
     }
     Column(modifier) {
         when (val current = phase) {
@@ -102,7 +111,7 @@ fun SolveScreen(
             }
 
             is SolvePhase.Editing -> {
-                TextButton(onClick = flow::closeEditor, modifier = Modifier.testTag("solve:close")) {
+                TextButton(onClick = flow::requestCloseEditor, modifier = Modifier.testTag("solve:close")) {
                     Text(strings.resolve(ContentText("btn.solve.close")))
                 }
                 if (pausesLesson) {

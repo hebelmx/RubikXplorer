@@ -1,6 +1,8 @@
 package dev.cubentia.app.ui.lesson
 
 import android.app.Application
+import androidx.activity.OnBackPressedDispatcher
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -103,6 +105,8 @@ import org.robolectric.annotation.Config
 class PhysicalLessonScreenTest {
     @get:Rule val rule = createComposeRule()
 
+    private var back: OnBackPressedDispatcher? = null
+
     private val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
     private val ready = CatalogState.Ready(bundle)
     private val lessonEntry = ready.lessons.first { it.lesson.id.value == "lesson-01-01" }
@@ -127,6 +131,7 @@ class PhysicalLessonScreenTest {
         darkTheme: Boolean = false,
     ) {
         rule.setContent {
+            back = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
             CubentiaTheme(darkTheme = darkTheme) {
                 if (shown()) {
                     LessonScreen(
@@ -383,6 +388,107 @@ class PhysicalLessonScreenTest {
         // Editor dismisses, transitions to PHYSICAL_VERIFIED
         node("lesson:manualEditor").assertDoesNotExist()
         node("confirmCube:card").assertDoesNotExist()
+    }
+
+    @Test
+    fun manualEditorBackLeavesAtOnceUntilAnEditThenAsks() {
+        val host = SessionHost(TickingClock())
+        setLessonContent(host)
+        node("lesson:physicalModeSwitch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
+        rule.waitForIdle()
+        node("confirmCube:enter").performScrollTo().performClick()
+        rule.waitForIdle()
+        // No edit: Back closes the overlay at once.
+        rule.runOnIdle { back!!.onBackPressed() }
+        rule.waitForIdle()
+        node("lesson:manualEditor").assertDoesNotExist()
+        node("lesson:manualEditor:discard").assertDoesNotExist()
+
+        // GH #354: after a sticker changes, Back asks; Back on the dialog keeps entering; Discard closes the overlay.
+        node("confirmCube:enter").performScrollTo().performClick()
+        rule.waitForIdle()
+        val shown =
+            host.state.value.expected
+                .toFacelets()
+                .colors[0]
+        val other =
+            dev.cubentia.domain.cube.Color.entries
+                .first { it != shown }
+        node("sticker:0").performScrollTo().performClick()
+        node("swatch:${other.name}").performScrollTo().performClick()
+        rule.waitForIdle()
+        rule.runOnIdle { back!!.onBackPressed() }
+        rule.waitForIdle()
+        node("lesson:manualEditor:discard").assertExists()
+        rule.onNodeWithText("Discard the colors you entered?").assertExists()
+        rule.runOnIdle {
+            (
+                org.robolectric.shadows.ShadowDialog
+                    .getLatestDialog() as androidx.activity.ComponentDialog
+            ).onBackPressedDispatcher
+                .onBackPressed()
+        }
+        rule.waitForIdle()
+        node("lesson:manualEditor:discard").assertDoesNotExist()
+        node("lesson:manualEditor").assertExists()
+        // The Keep entering button keeps the changed sticker.
+        rule.runOnIdle { back!!.onBackPressed() }
+        rule.waitForIdle()
+        node("lesson:manualEditor:discard:cancel").performClick()
+        rule.waitForIdle()
+        node("lesson:manualEditor:discard").assertDoesNotExist()
+        assertEquals(
+            Color(StickerAppearance.of(other).fill),
+            node("sticker:0").fetchSemanticsNode().config[dev.cubentia.app.render.StickerColorKey],
+        )
+        rule.runOnIdle { back!!.onBackPressed() }
+        rule.waitForIdle()
+        node("lesson:manualEditor:discard:confirm").performClick()
+        rule.waitForIdle()
+        node("lesson:manualEditor").assertDoesNotExist()
+        node("lesson:manualEditor:discard").assertDoesNotExist()
+        // The flags reset with the overlay: reopened, Back with no edit closes it at once.
+        node("confirmCube:enter").performScrollTo().performClick()
+        assertBackClosesTheUneditedOverlay()
+
+        // After an accept too: asked once, kept, then accepted; reopened from the mismatch ladder, Back closes at once.
+        node("confirmCube:enter").performScrollTo().performClick()
+        rule.waitForIdle()
+        node("sticker:0").performScrollTo().performClick()
+        node("swatch:${other.name}").performScrollTo().performClick()
+        rule.waitForIdle()
+        rule.runOnIdle { back!!.onBackPressed() }
+        rule.waitForIdle()
+        node("lesson:manualEditor:discard:cancel").performClick()
+        node("sticker:0").performScrollTo().performClick()
+        node("swatch:${shown.name}").performScrollTo().performClick()
+        rule.waitForIdle()
+        node("editor:accept").performScrollTo().performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_VERIFIED }
+        rule.waitForIdle()
+        node("lesson:manualEditor").assertDoesNotExist()
+        node("lesson:overflowMenu").performScrollTo().performClick()
+        rule.waitForIdle()
+        node("lesson:menuMismatch").performClick()
+        rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_MISMATCH }
+        rule.waitForIdle()
+        node("mismatch:nextQuestion").performScrollTo().performClick()
+        rule.waitForIdle()
+        node("mismatch:nextQuestion").performScrollTo().performClick()
+        rule.waitForIdle()
+        node("mismatch:reenter").performScrollTo().performClick()
+        assertBackClosesTheUneditedOverlay()
+    }
+
+    /** With the overlay editor just opened and nothing edited, Back closes it at once and no discard dialog shows. */
+    private fun assertBackClosesTheUneditedOverlay() {
+        rule.waitForIdle()
+        node("lesson:manualEditor").assertExists()
+        rule.runOnIdle { back!!.onBackPressed() }
+        rule.waitForIdle()
+        node("lesson:manualEditor").assertDoesNotExist()
+        node("lesson:manualEditor:discard").assertDoesNotExist()
     }
 
     @Test

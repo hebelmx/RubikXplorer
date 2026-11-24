@@ -74,8 +74,8 @@ internal object EditorFixtures {
     }
 
     /**
-     * Enters every face of an open editor (a fresh entry counts a face once one of its stickers is set, #253) by
-     * re-painting each face's first sticker with the color it shows; in one-face mode through its face tab.
+     * Enters every face of an open editor (a fresh entry counts a face once all its stickers are set, GH #352) by
+     * re-painting each non-center sticker with the color it shows; in one-face mode through its face tab.
      */
     fun ComposeTestRule.enterEveryFace() {
         repeat(6) { face ->
@@ -83,16 +83,18 @@ internal object EditorFixtures {
                 onNodeWithTag("editor:face:$face").performScrollTo().performClick()
                 waitForIdle()
             }
-            val sticker = onNodeWithTag("sticker:${face * 9}").performScrollTo()
-            sticker.performClick()
-            val shown = sticker.fetchSemanticsNode().config[StickerColorKey]
-            val color =
-                Color.entries.first {
-                    androidx.compose.ui.graphics
-                        .Color(StickerAppearance.of(it).fill) == shown
-                }
-            onNodeWithTag("swatch:${color.name}").performScrollTo().performClick()
-            waitForIdle()
+            (face * 9 until face * 9 + 9).filter { it % 9 != 4 }.forEach { index ->
+                val sticker = onNodeWithTag("sticker:$index").performScrollTo()
+                sticker.performClick()
+                val shown = sticker.fetchSemanticsNode().config[StickerColorKey]
+                val color =
+                    Color.entries.first {
+                        androidx.compose.ui.graphics
+                            .Color(StickerAppearance.of(it).fill) == shown
+                    }
+                onNodeWithTag("swatch:${color.name}").performScrollTo().performClick()
+                waitForIdle()
+            }
         }
     }
 }

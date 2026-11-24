@@ -407,12 +407,31 @@ class ManualCubeEditorTest {
         paint(0, CubeColor.RED)
         paint(18, CubeColor.GREEN)
         paint(36, CubeColor.ORANGE)
-        assertEquals("3 faces left to enter: Right, Back, Down.", text("editor:instruction"))
+        // A face counts only once all its stickers are set (GH #352).
+        assertEquals("6 faces left to enter: Up, Front, Right, Back, Left, Down.", text("editor:instruction"))
         assertEquals(emptyList<String>(), problemLines())
         assertEquals(emptySet<Int>(), outlined())
         accept().assertIsNotEnabled()
         // onChange reports the stickers and the set stickers.
         assertEquals(setOf(0, 18, 36), changes.last().second)
+        listOf(1, 2, 3, 5, 6, 7, 8).forEach { paint(it, CubeColor.WHITE) }
+        assertEquals("5 faces left to enter: Front, Right, Back, Left, Down.", text("editor:instruction"))
+        assertEquals(emptyList<String>(), problemLines())
+        accept().assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a partly entered last face names it, shows no problem, and its last sticker turns it`() {
+        // GH #352/#353: five faces complete, Up entered at 270 degrees with 7 of its 8 stickers set.
+        val entered = EditorFixtures.turned(scrambled, mapOf(0 to 3))
+        launch(initial = entered, fresh = true, initialSet = editable - 3)
+        assertEquals("1 face left to enter: Up.", text("editor:instruction"))
+        assertEquals(emptyList<String>(), problemLines())
+        assertEquals(emptySet<Int>(), outlined())
+        accept().assertIsNotEnabled()
+        paint(3, entered.colors[3])
+        assertEquals(scrambled, changes.last().first)
+        accept().assertIsEnabled()
     }
 
     @Test
@@ -703,9 +722,9 @@ class ManualCubeEditorTest {
         rule.waitForIdle()
         assertEquals(1, ticks)
         assertEquals(setOf(3), changes.last().second)
-        // The same-color tap entered the Up face.
+        // The same-color tap set the sticker, but Up counts only once all 8 are set (GH #352).
         swatch(CubeColor.WHITE).performClick()
-        assertEquals("5 faces left to enter: Front, Right, Back, Left, Down.", text("editor:instruction"))
+        assertEquals("6 faces left to enter: Up, Front, Right, Back, Left, Down.", text("editor:instruction"))
     }
 
     @Test

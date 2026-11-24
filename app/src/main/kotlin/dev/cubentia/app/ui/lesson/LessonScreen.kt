@@ -85,7 +85,9 @@ import dev.cubentia.app.scan.QuickCheckCapture
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.toItems
 import dev.cubentia.app.ui.components.PhysicalModeSwitch
+import dev.cubentia.app.ui.editor.EditorDiscardDialog
 import dev.cubentia.app.ui.editor.ManualCubeEditor
+import dev.cubentia.app.ui.editor.editedFrom
 import dev.cubentia.app.ui.freecube.MoveKeyBar
 import dev.cubentia.app.ui.freecube.ToolbarButton
 import dev.cubentia.app.ui.freecube.ViewControls
@@ -542,8 +544,17 @@ private fun LessonBody(
         }
     }
 
+    // GH #354: Back leaves the overlay editor at once until a sticker is changed, then asks before discarding.
+    var manualEdited by rememberSaveable { mutableStateOf(false) }
+    var confirmManualDiscard by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(showManualEditor) {
+        if (!showManualEditor) {
+            manualEdited = false
+            confirmManualDiscard = false
+        }
+    }
     BackHandler(enabled = showManualEditor) {
-        showManualEditor = false
+        if (manualEdited) confirmManualDiscard = true else showManualEditor = false
     }
 
     val reduceMotion = rememberReduceMotion()
@@ -972,15 +983,30 @@ private fun LessonBody(
                         .safeDrawingPadding()
                         .testTag("lesson:manualEditor"),
             ) {
+                // Captured once per opening, so the baseline cannot move while the overlay is open.
+                val opened = remember { session.expected.toFacelets() }
                 ManualCubeEditor(
                     strings = strings,
-                    initial = session.expected.toFacelets(),
+                    initial = opened,
                     fresh = false,
                     onAccept = { state ->
                         showManualEditor = false
                         send { SessionEvent.EditorEntered(state, it) }
                     },
                     modifier = Modifier.fillMaxSize(),
+                    onChange = { facelets, _ -> manualEdited = editedFrom(opened, facelets) },
+                )
+            }
+            if (confirmManualDiscard) {
+                EditorDiscardDialog(
+                    strings,
+                    "lesson:manualEditor:discard",
+                    onDiscard = {
+                        showManualEditor = false
+                        manualEdited = false
+                        confirmManualDiscard = false
+                    },
+                    onKeep = { confirmManualDiscard = false },
                 )
             }
         }
