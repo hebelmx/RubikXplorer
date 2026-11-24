@@ -1,0 +1,4217 @@
+{
+ "face:lenovo-tb128xu_stka_cool|corner-1|1": {
+  "at": "2026-11-23T23:24:25.545Z",
+  "labels": [
+   "YELLOW",
+   "RED",
+   "YELLOW",
+   "BLUE",
+   "GREEN",
+   "ORANGE",
+   "GREEN",
+   "ORANGE",
+   "BLUE"
+  ],
+  "ok": true,
+  "original": [
+   "YELLOW",
+   "RED",
+   "YELLOW",
+   "BLUE",
+   "GREEN",
+   "ORANGE",
+   "GREEN",
+   "ORANGE",
+   "BLUE"
+  ]
+ },
+ "face:lenovo-tb128xu_stka_cool|corner-2|1": {
+  "at": "2026-11-23T23:24:27.713Z",
+  "labels": [
+   "RED",
+   "RED",
+   "YELLOW",
+   "WHITE",
+   "ORANGE",
+   "GREEN",
+   "BLUE",
+   "BLUE",
+   "GREEN"
+  ],
+  "ok": true,
+  "original": [
+   "RED",
+   "RED",
+   "YELLOW",
+   "WHITE",
+   "ORANGE",
+   "GREEN",
+   "BLUE",
+   "BLUE",
+   "GREEN"
+  ]
+ },
+ "face:lenovo-tb128xu_stka_cool|corner-2|2": {
+  "at": "2026-11-23T23:28:11.689Z",
+  "labels": [
+   "GREEN",
+   "RED",
+   "BLUE",
+   "WHITE",
+   "BLUE",
+   "YELLOW",
+   "ORANGE",
+   "ORANGE",
+   "WHITE"
+  ],
+  "ok": true,
+  "original": [
+   "GREEN",
+   "RED",
+   "BLUE",
+   "WHITE",
+   "BLUE",
+   "YELLOW",
+   "ORANGE",
+   "ORANGE",
+   "WHITE"
+  ]
+ },
+ "face:lenovo-tb128xu_stka_warm|corner-1|2": {
+  "at": "2026-11-23T23:28:16.234Z",
+  "labels": [
+   "RED",
+   "YELLOW",
+   "ORANGE",
+   "WHITE",
+   "RED",
+   "GREEN",
+   "YELLOW",
+   "YELLOW",
+   "WHITE"
+  ],
+  "ok": true,
+  "original": [
+   "RED",
+   "YELLOW",
+   "ORANGE",
+   "WHITE",
+   "RED",
+   "GREEN",
+   "YELLOW",
+   "YELLOW",
+   "WHITE"
+  ]
+ },
+ "face:lenovo-tb128xu_stka_warm|corner-2|1": {
+  "at": "2026-11-23T23:24:33.355Z",
+  "labels": [
+   "RED",
+   "RED",
+   "YELLOW",
+   "WHITE",
+   "ORANGE",
+   "GREEN",
+   "BLUE",
+   "BLUE",
+   "GREEN"
+  ],
+  "ok": true,
+  "original": [
+   "RED",
+   "RED",
+   "YELLOW",
+   "WHITE",
+   "ORANGE",
+   "GREEN",
+   "BLUE",
+   "BLUE",
+   "GREEN"
+  ]
+ },
+ "face:lenovo-tb128xu_stkb_cool|corner-1|1": {
+  "at": "2026-11-23T23:23:53.530Z",
+  "labels": [
+   "ORANGE",
+   "YELLOW",
+   "ORANGE",
+   "BLUE",
+   "GREEN",
+   "WHITE",
+   "RED",
+   "GREEN",
+   "RED"
+  ],
+  "ok": true,
+  "original": [
+   "ORANGE",
+   "YELLOW",
+   "ORANGE",
+   "BLUE",
+   "GREEN",
+   "WHITE",
+   "RED",
+   "GREEN",
+   "RED"
+  ]
+ },
+ "face:lenovo-tb128xu_stkb_cool|corner-2|1": {
+  "at": "2026-11-23T23:24:05.662Z",
+  "labels": [
+   "GREEN",
+   "BLUE",
+   "YELLOW",
+   "ORANGE",
+   "ORANGE",
+   "RED",
+   "WHITE",
+   "GREEN",
+   "BLUE"
+  ],
+  "ok": true,
+  "original": [
+   "GREEN",
+   "BLUE",
+   "YELLOW",
+   "ORANGE",
+   "ORANGE",
+   "RED",
+   "WHITE",
+   "GREEN",
+   "BLUE"
+  ]
+ },
+ "face:lenovo-tb128xu_stkb_cool|corner-2|2": {
+  "at": "2026-11-23T23:24:38.381Z",
+  "labels": [
+   "BLUE",
+   "WHITE",
+   "ORANGE",
+   "WHITE",
+   "BLUE",
+   "YELLOW",
+   "WHITE",
+   "ORANGE",
+   "RED"
+  ],
+  "ok": true,
+  "original": [
+   "BLUE",
+   "WHITE",
+   "ORANGE",
+   "WHITE",
+   "BLUE",
+   "YELLOW",
+   "WHITE",
+   "ORANGE",
+   "RED"
+  ]
+ },
+ "face:lenovo-tb128xu_stla_cool|corner-1|0": {
+  "at": "2026-11-23T23:36:03.013Z",
+  "labels": [
+   "RED",
+   "ORANGE",
+   "BLUE",
+   "WHITE",
+   "WHITE",
+   "GREEN",
+   "GREEN",
+   "BLUE",
+   "ORANGE"
+  ],
+  "ok": true,
+  "original": [
+   "RED",
+   "ORANGE",
+   "BLUE",
+   "WHITE",
+   "WHITE",
+   "GREEN",
+   "GREEN",
+   "BLUE",
+   "ORANGE"
+  ]
+ },
+ "face:lenovo-tb128xu_stla_cool|corner-1|1": {
+  "at": "2026-11-23T23:19:16.482Z",
+  "labels": [
+   "ORANGE",
+   "RED",
+   "YELLOW",
+   "WHITE",
+   "GREEN",
+   "GREEN",
+   "YELLOW",
+   "BLUE",
+   "BLUE"
+  ],
+  "ok": true,
+  "original": [
+   "ORANGE",
+   "RED",
+   "YELLOW",
+   "WHITE",
+   "GREEN",
+   "GREEN",
+   "YELLOW",
+   "BLUE",
+   "BLUE"
+  ]
+ },
+ "face:lenovo-tb128xu_stla_cool|corner-1|2": {
+  "at": "2026-11-23T23:38:17.146Z",
+  "labels": [
+   "GREEN",
+   "RED",
+   "RED",
+   "WHITE",
+   "RED",
+   "RED",
+   "RED",
+   "YELLOW",
+   "GREEN"
+  ],
+  "ok": true,
+  "original": [
+   "GREEN",
+   "RED",
+   "RED",
+   "WHITE",
+   "RED",
+   "RED",
+   "ORANGE",
+   "YELLOW",
+   "GREEN"
+  ]
+ },
+ "face:lenovo-tb128xu_stla_cool|corner-2|0": {
+  "at": "2026-11-23T23:21:08.294Z",
+  "labels": [
+   "WHITE",
+   "GREEN",
+   "YELLOW",
+   "ORANGE",
+   "YELLOW",
+   "RED",
+   "BLUE",
+   "YELLOW",
+   "WHITE"
+  ],
+  "ok": true,
+  "original": [
+   "WHITE",
+   "GREEN",
+   "YELLOW",
+   "ORANGE",
+   "YELLOW",
+   "RED",
+   "BLUE",
+   "YELLOW",
+   "WHITE"
+  ]
+ },
+ "face:lenovo-tb128xu_stla_cool|corner-2|1": {
+  "at": "2026-11-23T23:37:37.747Z",
+  "labels": [
+   "ORANGE",
+   "BLUE",
+   "BLUE",
+   "ORANGE",
+   "ORANGE",
+   "GREEN",
+   "WHITE",
+   "BLUE",
+   "GREEN"
+  ],
+  "ok": true,
+  "original": [
+   "ORANGE",
+   "BLUE",
+   "BLUE",
+   "ORANGE",
+   "ORANGE",
+   "GREEN",
+   "WHITE",
+   "BLUE",
+   "GREEN"
+  ]
+ },
+ "face:lenovo-tb128xu_stla_cool|corner-2|2": {
+  "at": "2026-11-23T23:21:37.404Z",
+  "labels": [
+   "ORANGE",
+   "WHITE",
+   "RED",
+   "ORANGE",
+   "BLUE",
+   "YELLOW",
+   "WHITE",
+   "YELLOW",
+   "YELLOW"
+  ],
+  "ok": true,
+  "original": [
+   "ORANGE",
+   "WHITE",
+   "RED",
+   "ORANGE",
+   "BLUE",
+   "YELLOW",
+   "WHITE",
+   "YELLOW",
+   "YELLOW"
+  ]
+ },
+ "face:lenovo-tb128xu_stla_warm|corner-1|0": {
+  "at": "2026-11-23T23:18:25.879Z",
+  "labels": [
+   "RED",
+   "ORANGE",
+   "BLUE",
+   "WHITE",
+   "WHITE",
+   "GREEN",
+   "GREEN",
+   "BLUE",
+   "ORANGE"
+  ],
+  "ok": true,
+  "original": [
+   "RED",
+   "ORANGE",
+   "BLUE",
+   "WHITE",
+   "WHITE",
+   "GREEN",
+   "GREEN",
+   "BLUE",
+   "ORANGE"
+  ]
+ },
+ "face:lenovo-tb128xu_stla_warm|corner-1|1": {
+  "at": "2026-11-23T23:18:22.949Z",
+  "labels": [
+   "ORANGE",
+   "RED",
+   "YELLOW",
+   "WHITE",
+   "GREEN",
+   "GREEN",
+   "YELLOW",
+   "BLUE",
+   "BLUE"
+  ],
+  "ok": true,
+  "original": [
+   "ORANGE",
+   "RED",
+   "YELLOW",
+   "WHITE",
+   "GREEN",
+   "GREEN",
+   "YELLOW",
+   "BLUE",
+   "BLUE"
+  ]
+ },
+ "face:lenovo-tb128xu_stla_warm|corner-1|2": {
+  "at": "2026-11-23T23:19:27.740Z",
+  "labels": [
+   "GREEN",
+   "RED",
+   "RED",
+   "WHITE",
+   "RED",
+   "RED",
+   "RED",
+   "YELLOW",
+   "GREEN"
+  ],
+  "ok": true,
+  "original": [
+   "GREEN",
+   "RED",
+   "RED",
+   "WHITE",
+   "RED",
+   "RED",
+   "RED",
+   "YELLOW",
+   "GREEN"
+  ]
+ },
+ "face:lenovo-tb128xu_stla_warm|corner-2|0": {
+  "at": "2026-11-23T23:27:21.465Z",
+  "labels": [
+   "WHITE",
+   "GREEN",
+   "YELLOW",
+   "ORANGE",
+   "YELLOW",
+   "RED",
+   "BLUE",
+   "YELLOW",
+   "WHITE"
+  ],
+  "ok": true,
+  "original": [
+   "WHITE",
+   "GREEN",
+   "YELLOW",
+   "ORANGE",
+   "YELLOW",
+   "RED",
+   "BLUE",
+   "YELLOW",
+   "WHITE"
+  ]
+ },
+ "face:lenovo-tb128xu_stla_warm|corner-2|1": {
+  "at": "2026-11-23T23:21:34.582Z",
+  "labels": [
+   "ORANGE",
+   "BLUE",
+   "BLUE",
+   "ORANGE",
+   "ORANGE",
+   "GREEN",
+   "WHITE",
+   "BLUE",
+   "GREEN"
+  ],
+  "ok": true,
+  "original": [
+   "ORANGE",
+   "BLUE",
+   "BLUE",
+   "ORANGE",
+   "ORANGE",
+   "GREEN",
+   "WHITE",
+   "BLUE",
+   "GREEN"
+  ]
+ },
+ "face:lenovo-tb128xu_stla_warm|corner-2|2": {
+  "at": "2026-11-23T23:16:57.063Z",
+  "labels": [
+   "ORANGE",
+   "WHITE",
+   "RED",
+   "ORANGE",
+   "BLUE",
+   "YELLOW",
+   "WHITE",
+   "YELLOW",
+   "YELLOW"
+  ],
+  "ok": true,
+  "original": [
+   "ORANGE",
+   "WHITE",
+   "RED",
+   "RED",
+   "BLUE",
+   "YELLOW",
+   "WHITE",
+   "YELLOW",
+   "YELLOW"
+  ]
+ },
+ "face:lenovo-tb128xu_stlb_cool|corner-1|1": {
+  "at": "2026-11-23T23:28:22.255Z",
+  "labels": [
+   "BLUE",
+   "ORANGE",
+   "RED",
+   "ORANGE",
+   "GREEN",
+   "RED",
+   "ORANGE",
+   "RED",
+   "YELLOW"
+  ],
+  "ok": true,
+  "original": [
+   "BLUE",
+   "ORANGE",
+   "RED",
+   "ORANGE",
+   "GREEN",
+   "RED",
+   "ORANGE",
+   "RED",
+   "YELLOW"
+  ]
+ },
+ "face:sm-s721u1_stka_bar-cool-3|corner-1|1": {
+  "at": "2026-11-23T23:24:51.915Z",
+  "labels": [
+   "BLUE",
+   "GREEN",
+   "GREEN",
+   "RED",
+   "GREEN",
+   "BLUE",
+   "RED",
+   "WHITE",
+   "ORANGE"
+  ],
+  "ok": true,
+  "original": [
+   "BLUE",
+   "GREEN",
+   "GREEN",
+   "RED",
+   "GREEN",
+   "BLUE",
+   "RED",
+   "WHITE",
+   "ORANGE"
+  ]
+ },
+ "face:sm-s721u1_stka_bar-cool-3|corner-1|2": {
+  "at": "2026-11-23T23:28:32.599Z",
+  "labels": [
+   "RED",
+   "YELLOW",
+   "BLUE",
+   "WHITE",
+   "RED",
+   "ORANGE",
+   "BLUE",
+   "ORANGE",
+   "GREEN"
+  ],
+  "ok": true,
+  "original": [
+   "RED",
+   "YELLOW",
+   "BLUE",
+   "WHITE",
+   "RED",
+   "ORANGE",
+   "BLUE",
+   "ORANGE",
+   "GREEN"
+  ]
+ },
+ "face:sm-s721u1_stka_bar-cool|corner-1|0": {
+  "at": "2026-11-23T23:21:55.112Z",
+  "labels": [
+   "GREEN",
+   "BLUE",
+   "ORANGE",
+   "GREEN",
+   "WHITE",
+   "GREEN",
+   "WHITE",
+   "WHITE",
+   "WHITE"
+  ],
+  "ok": true,
+  "original": [
+   "GREEN",
+   "BLUE",
+   "ORANGE",
+   "GREEN",
+   "WHITE",
+   "GREEN",
+   "WHITE",
+   "WHITE",
+   "WHITE"
+  ]
+ },
+ "face:sm-s721u1_stka_bar-cool|corner-1|1": {
+  "at": "2026-11-23T23:22:02.532Z",
+  "labels": [
+   "BLUE",
+   "GREEN",
+   "GREEN",
+   "RED",
+   "GREEN",
+   "BLUE",
+   "RED",
+   "WHITE",
+   "ORANGE"
+  ],
+  "ok": true,
+  "original": [
+   "BLUE",
+   "GREEN",
+   "GREEN",
+   "RED",
+   "GREEN",
+   "BLUE",
+   "RED",
+   "WHITE",
+   "ORANGE"
+  ]
+ },
+ "face:sm-s721u1_stka_bar-cool|corner-1|2": {
+  "at": "2026-11-23T23:38:43.007Z",
+  "labels": [
+   "RED",
+   "YELLOW",
+   "BLUE",
+   "WHITE",
+   "RED",
+   "ORANGE",
+   "BLUE",
+   "ORANGE",
+   "GREEN"
+  ],
+  "ok": true,
+  "original": [
+   "RED",
+   "YELLOW",
+   "BLUE",
+   "WHITE",
+   "RED",
+   "ORANGE",
+   "WHITE",
+   "ORANGE",
+   "GREEN"
+  ]
+ },
+ "face:sm-s721u1_stka_bar-cool|corner-2|0": {
+  "at": "2026-11-23T23:22:08.502Z",
+  "labels": [
+   "WHITE",
+   "WHITE",
+   "ORANGE",
+   "RED",
+   "YELLOW",
+   "RED",
+   "YELLOW",
+   "YELLOW",
+   "BLUE"
+  ],
+  "ok": true,
+  "original": [
+   "WHITE",
+   "WHITE",
+   "ORANGE",
+   "RED",
+   "YELLOW",
+   "RED",
+   "YELLOW",
+   "YELLOW",
+   "BLUE"
+  ]
+ },
+ "face:sm-s721u1_stka_bar-cool|corner-2|1": {
+  "at": "2026-11-23T23:22:18.043Z",
+  "labels": [
+   "GREEN",
+   "BLUE",
+   "RED",
+   "YELLOW",
+   "ORANGE",
+   "YELLOW",
+   "RED",
+   "ORANGE",
+   "ORANGE"
+  ],
+  "ok": true,
+  "original": [
+   "GREEN",
+   "BLUE",
+   "RED",
+   "YELLOW",
+   "ORANGE",
+   "YELLOW",
+   "RED",
+   "ORANGE",
+   "ORANGE"
+  ]
+ },
+ "face:sm-s721u1_stka_bar-cool|corner-2|2": {
+  "at": "2026-11-23T23:17:12.155Z",
+  "labels": [
+   "YELLOW",
+   "GREEN",
+   "YELLOW",
+   "ORANGE",
+   "BLUE",
+   "BLUE",
+   "WHITE",
+   "RED",
+   "YELLOW"
+  ],
+  "ok": true,
+  "original": [
+   "YELLOW",
+   "GREEN",
+   "YELLOW",
+   "ORANGE",
+   "BLUE",
+   "BLUE",
+   "WHITE",
+   "RED",
+   "YELLOW"
+  ]
+ },
+ "face:sm-s721u1_stka_bar-warm-2|corner-1|2": {
+  "at": "2026-11-23T23:25:04.870Z",
+  "labels": [
+   "RED",
+   "YELLOW",
+   "BLUE",
+   "WHITE",
+   "RED",
+   "ORANGE",
+   "BLUE",
+   "ORANGE",
+   "GREEN"
+  ],
+  "ok": true,
+  "original": [
+   "RED",
+   "YELLOW",
+   "BLUE",
+   "WHITE",
+   "RED",
+   "ORANGE",
+   "BLUE",
+   "ORANGE",
+   "GREEN"
+  ]
+ },
+ "face:sm-s721u1_stka_bar-warm-2|corner-2|1": {
+  "at": "2026-11-23T23:32:57.134Z",
+  "labels": [
+   "GREEN",
+   "BLUE",
+   "RED",
+   "YELLOW",
+   "ORANGE",
+   "YELLOW",
+   "RED",
+   "ORANGE",
+   "ORANGE"
+  ],
+  "ok": false,
+  "original": [
+   "GREEN",
+   "BLUE",
+   "RED",
+   "YELLOW",
+   "ORANGE",
+   "YELLOW",
+   "RED",
+   "ORANGE",
+   "ORANGE"
+  ]
+ },
+ "face:sm-s721u1_stka_bar-warm-2|corner-2|2": {
+  "at": "2026-11-23T23:25:11.400Z",
+  "labels": [
+   "YELLOW",
+   "GREEN",
+   "YELLOW",
+   "ORANGE",
+   "BLUE",
+   "BLUE",
+   "WHITE",
+   "RED",
+   "YELLOW"
+  ],
+  "ok": true,
+  "original": [
+   "YELLOW",
+   "GREEN",
+   "YELLOW",
+   "ORANGE",
+   "BLUE",
+   "BLUE",
+   "WHITE",
+   "RED",
+   "YELLOW"
+  ]
+ },
+ "face:sm-s721u1_stka_bar-warm|corner-2|2": {
+  "at": "2026-11-23T23:27:42.142Z",
+  "labels": [
+   "YELLOW",
+   "GREEN",
+   "YELLOW",
+   "ORANGE",
+   "BLUE",
+   "BLUE",
+   "WHITE",
+   "RED",
+   "YELLOW"
+  ],
+  "ok": true,
+  "original": [
+   "YELLOW",
+   "GREEN",
+   "YELLOW",
+   "ORANGE",
+   "BLUE",
+   "BLUE",
+   "WHITE",
+   "RED",
+   "YELLOW"
+  ]
+ },
+ "face:sm-s721u1_stla_bar-cool|corner-1|0": {
+  "at": "2026-11-23T23:29:20.392Z",
+  "labels": [
+   "BLUE",
+   "WHITE",
+   "ORANGE",
+   "RED",
+   "WHITE",
+   "YELLOW",
+   "YELLOW",
+   "BLUE",
+   "WHITE"
+  ],
+  "ok": true,
+  "original": [
+   "BLUE",
+   "WHITE",
+   "ORANGE",
+   "RED",
+   "WHITE",
+   "YELLOW",
+   "YELLOW",
+   "BLUE",
+   "WHITE"
+  ]
+ },
+ "face:sm-s721u1_stla_bar-cool|corner-1|1": {
+  "at": "2026-11-23T23:29:27.424Z",
+  "labels": [
+   "GREEN",
+   "ORANGE",
+   "BLUE",
+   "BLUE",
+   "GREEN",
+   "GREEN",
+   "GREEN",
+   "RED",
+   "BLUE"
+  ],
+  "ok": true,
+  "original": [
+   "GREEN",
+   "ORANGE",
+   "BLUE",
+   "BLUE",
+   "GREEN",
+   "GREEN",
+   "GREEN",
+   "RED",
+   "BLUE"
+  ]
+ },
+ "face:sm-s721u1_stla_bar-cool|corner-1|2": {
+  "at": "2026-11-23T23:29:42.877Z",
+  "labels": [
+   "ORANGE",
+   "GREEN",
+   "YELLOW",
+   "RED",
+   "RED",
+   "WHITE",
+   "RED",
+   "YELLOW",
+   "WHITE"
+  ],
+  "ok": true,
+  "original": [
+   "ORANGE",
+   "GREEN",
+   "YELLOW",
+   "RED",
+   "RED",
+   "WHITE",
+   "RED",
+   "YELLOW",
+   "WHITE"
+  ]
+ },
+ "face:sm-s721u1_stla_bar-cool|corner-2|0": {
+  "at": "2026-11-23T23:30:49.196Z",
+  "labels": [
+   "WHITE",
+   "RED",
+   "GREEN",
+   "WHITE",
+   "YELLOW",
+   "GREEN",
+   "ORANGE",
+   "ORANGE",
+   "YELLOW"
+  ],
+  "ok": true,
+  "original": [
+   "WHITE",
+   "RED",
+   "GREEN",
+   "WHITE",
+   "YELLOW",
+   "GREEN",
+   "ORANGE",
+   "ORANGE",
+   "YELLOW"
+  ]
+ },
+ "face:sm-s721u1_stla_bar-cool|corner-2|1": {
+  "at": "2026-11-23T23:28:02.203Z",
+  "labels": [
+   "WHITE",
+   "YELLOW",
+   "BLUE",
+   "YELLOW",
+   "ORANGE",
+   "WHITE",
+   "RED",
+   "BLUE",
+   "ORANGE"
+  ],
+  "ok": true,
+  "original": [
+   "WHITE",
+   "YELLOW",
+   "BLUE",
+   "YELLOW",
+   "ORANGE",
+   "WHITE",
+   "RED",
+   "BLUE",
+   "ORANGE"
+  ]
+ },
+ "face:sm-s721u1_stla_bar-cool|corner-2|2": {
+  "at": "2026-11-23T23:24:10.680Z",
+  "labels": [
+   "RED",
+   "ORANGE",
+   "RED",
+   "GREEN",
+   "BLUE",
+   "ORANGE",
+   "YELLOW",
+   "BLUE",
+   "GREEN"
+  ],
+  "ok": true,
+  "original": [
+   "RED",
+   "ORANGE",
+   "RED",
+   "GREEN",
+   "BLUE",
+   "ORANGE",
+   "YELLOW",
+   "BLUE",
+   "GREEN"
+  ]
+ },
+ "face:sm-s721u1_stla_bar-warm-2|corner-1|0": {
+  "at": "2026-11-23T23:20:09.599Z",
+  "labels": [
+   "BLUE",
+   "WHITE",
+   "ORANGE",
+   "RED",
+   "WHITE",
+   "YELLOW",
+   "YELLOW",
+   "BLUE",
+   "WHITE"
+  ],
+  "ok": true,
+  "original": [
+   "BLUE",
+   "WHITE",
+   "ORANGE",
+   "RED",
+   "WHITE",
+   "YELLOW",
+   "YELLOW",
+   "BLUE",
+   "WHITE"
+  ]
+ },
+ "face:sm-s721u1_stla_bar-warm-2|corner-1|1": {
+  "at": "2026-11-23T23:39:00.111Z",
+  "labels": [
+   "GREEN",
+   "RED",
+   "BLUE",
+   "BLUE",
+   "GREEN",
+   "GREEN",
+   "GREEN",
+   "RED",
+   "BLUE"
+  ],
+  "ok": true,
+  "original": [
+   "GREEN",
+   "ORANGE",
+   "BLUE",
+   "BLUE",
+   "GREEN",
+   "GREEN",
+   "GREEN",
+   "RED",
+   "BLUE"
+  ]
+ },
+ "face:sm-s721u1_stla_bar-warm-2|corner-1|2": {
+  "at": "2026-11-23T23:22:33.623Z",
+  "labels": [
+   "ORANGE",
+   "GREEN",
+   "YELLOW",
+   "RED",
+   "RED",
+   "WHITE",
+   "RED",
+   "YELLOW",
+   "WHITE"
+  ],
+  "ok": true,
+  "original": [
+   "ORANGE",
+   "GREEN",
+   "YELLOW",
+   "RED",
+   "RED",
+   "WHITE",
+   "RED",
+   "YELLOW",
+   "WHITE"
+  ]
+ },
+ "face:sm-s721u1_stla_bar-warm-2|corner-2|0": {
+  "at": "2026-11-23T23:17:43.901Z",
+  "labels": [
+   "WHITE",
+   "ORANGE",
+   "GREEN",
+   "WHITE",
+   "YELLOW",
+   "GREEN",
+   "ORANGE",
+   "ORANGE",
+   "YELLOW"
+  ],
+  "ok": true,
+  "original": [
+   "RED",
+   "RED",
+   "GREEN",
+   "WHITE",
+   "YELLOW",
+   "GREEN",
+   "ORANGE",
+   "ORANGE",
+   "YELLOW"
+  ]
+ },
+ "face:sm-s721u1_stla_bar-warm-2|corner-2|1": {
+  "at": "2026-11-23T23:22:44.819Z",
+  "labels": [
+   "WHITE",
+   "YELLOW",
+   "BLUE",
+   "YELLOW",
+   "ORANGE",
+   "WHITE",
+   "RED",
+   "BLUE",
+   "ORANGE"
+  ],
+  "ok": true,
+  "original": [
+   "WHITE",
+   "YELLOW",
+   "BLUE",
+   "YELLOW",
+   "ORANGE",
+   "WHITE",
+   "RED",
+   "BLUE",
+   "ORANGE"
+  ]
+ },
+ "face:sm-s721u1_stla_bar-warm-2|corner-2|2": {
+  "at": "2026-11-23T23:27:35.462Z",
+  "labels": [
+   "RED",
+   "ORANGE",
+   "RED",
+   "GREEN",
+   "BLUE",
+   "ORANGE",
+   "YELLOW",
+   "BLUE",
+   "GREEN"
+  ],
+  "ok": true,
+  "original": [
+   "RED",
+   "ORANGE",
+   "RED",
+   "GREEN",
+   "BLUE",
+   "ORANGE",
+   "YELLOW",
+   "BLUE",
+   "GREEN"
+  ]
+ },
+ "face:sm-s721u1_stla_bar-warm|corner-1|0": {
+  "at": "2026-11-23T23:20:28.444Z",
+  "labels": [
+   "BLUE",
+   "WHITE",
+   "ORANGE",
+   "RED",
+   "WHITE",
+   "YELLOW",
+   "YELLOW",
+   "BLUE",
+   "WHITE"
+  ],
+  "ok": true,
+  "original": [
+   "BLUE",
+   "WHITE",
+   "ORANGE",
+   "RED",
+   "WHITE",
+   "YELLOW",
+   "YELLOW",
+   "BLUE",
+   "WHITE"
+  ]
+ },
+ "face:sm-s721u1_stla_bar-warm|corner-1|1": {
+  "at": "2026-11-23T23:23:16.113Z",
+  "labels": [
+   "GREEN",
+   "ORANGE",
+   "BLUE",
+   "BLUE",
+   "GREEN",
+   "GREEN",
+   "GREEN",
+   "RED",
+   "BLUE"
+  ],
+  "ok": true,
+  "original": [
+   "GREEN",
+   "ORANGE",
+   "BLUE",
+   "BLUE",
+   "GREEN",
+   "GREEN",
+   "GREEN",
+   "RED",
+   "BLUE"
+  ]
+ },
+ "face:sm-s721u1_stla_bar-warm|corner-1|2": {
+  "at": "2026-11-23T23:23:24.244Z",
+  "labels": [
+   "ORANGE",
+   "GREEN",
+   "YELLOW",
+   "RED",
+   "RED",
+   "WHITE",
+   "RED",
+   "YELLOW",
+   "WHITE"
+  ],
+  "ok": true,
+  "original": [
+   "ORANGE",
+   "GREEN",
+   "YELLOW",
+   "RED",
+   "RED",
+   "WHITE",
+   "RED",
+   "YELLOW",
+   "WHITE"
+  ]
+ },
+ "face:sm-s721u1_stla_bar-warm|corner-2|0": {
+  "at": "2026-11-23T23:20:40.143Z",
+  "labels": [
+   "WHITE",
+   "RED",
+   "GREEN",
+   "WHITE",
+   "YELLOW",
+   "GREEN",
+   "ORANGE",
+   "ORANGE",
+   "YELLOW"
+  ],
+  "ok": true,
+  "original": [
+   "GREEN",
+   "RED",
+   "GREEN",
+   "WHITE",
+   "YELLOW",
+   "GREEN",
+   "ORANGE",
+   "ORANGE",
+   "YELLOW"
+  ]
+ },
+ "face:sm-s721u1_stla_bar-warm|corner-2|1": {
+  "at": "2026-11-23T23:21:43.487Z",
+  "labels": [
+   "WHITE",
+   "YELLOW",
+   "BLUE",
+   "YELLOW",
+   "ORANGE",
+   "WHITE",
+   "RED",
+   "BLUE",
+   "ORANGE"
+  ],
+  "ok": true,
+  "original": [
+   "YELLOW",
+   "YELLOW",
+   "BLUE",
+   "YELLOW",
+   "ORANGE",
+   "WHITE",
+   "RED",
+   "BLUE",
+   "ORANGE"
+  ]
+ },
+ "face:sm-s721u1_stla_bar-warm|corner-2|2": {
+  "at": "2026-11-23T23:23:31.576Z",
+  "labels": [
+   "RED",
+   "ORANGE",
+   "RED",
+   "GREEN",
+   "BLUE",
+   "ORANGE",
+   "YELLOW",
+   "BLUE",
+   "GREEN"
+  ],
+  "ok": true,
+  "original": [
+   "RED",
+   "ORANGE",
+   "RED",
+   "GREEN",
+   "BLUE",
+   "ORANGE",
+   "YELLOW",
+   "BLUE",
+   "GREEN"
+  ]
+ },
+ "face:sm-s721u1_stla_ceilback|corner-1|0": {
+  "at": "2026-11-23T23:30:00.992Z",
+  "labels": [
+   "BLUE",
+   "WHITE",
+   "ORANGE",
+   "RED",
+   "WHITE",
+   "YELLOW",
+   "YELLOW",
+   "BLUE",
+   "WHITE"
+  ],
+  "ok": true,
+  "original": [
+   "BLUE",
+   "WHITE",
+   "ORANGE",
+   "RED",
+   "WHITE",
+   "YELLOW",
+   "YELLOW",
+   "BLUE",
+   "WHITE"
+  ]
+ },
+ "face:sm-s721u1_stla_ceilback|corner-1|1": {
+  "at": "2026-11-23T23:23:42.307Z",
+  "labels": [
+   "GREEN",
+   "ORANGE",
+   "BLUE",
+   "BLUE",
+   "GREEN",
+   "GREEN",
+   "GREEN",
+   "RED",
+   "BLUE"
+  ],
+  "ok": true,
+  "original": [
+   "GREEN",
+   "ORANGE",
+   "BLUE",
+   "BLUE",
+   "GREEN",
+   "GREEN",
+   "GREEN",
+   "RED",
+   "BLUE"
+  ]
+ },
+ "face:sm-s721u1_stla_ceilback|corner-2|0": {
+  "at": "2026-11-23T23:30:23.711Z",
+  "labels": [
+   "WHITE",
+   "RED",
+   "GREEN",
+   "WHITE",
+   "YELLOW",
+   "GREEN",
+   "ORANGE",
+   "ORANGE",
+   "YELLOW"
+  ],
+  "ok": true,
+  "original": [
+   "WHITE",
+   "RED",
+   "GREEN",
+   "WHITE",
+   "YELLOW",
+   "GREEN",
+   "ORANGE",
+   "ORANGE",
+   "YELLOW"
+  ]
+ },
+ "face:sm-s721u1_stla_ceilback|corner-2|1": {
+  "at": "2026-11-23T23:24:17.059Z",
+  "labels": [
+   "WHITE",
+   "YELLOW",
+   "BLUE",
+   "YELLOW",
+   "ORANGE",
+   "WHITE",
+   "RED",
+   "BLUE",
+   "ORANGE"
+  ],
+  "ok": true,
+  "original": [
+   "WHITE",
+   "YELLOW",
+   "BLUE",
+   "YELLOW",
+   "ORANGE",
+   "WHITE",
+   "RED",
+   "BLUE",
+   "ORANGE"
+  ]
+ },
+ "lenovo-tb128xu_stka_bar-cool|corner-2|1|0": {
+  "at": "2026-11-23T22:47:00.596Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P3"
+ },
+ "lenovo-tb128xu_stka_bar-warm|corner-2|1|0": {
+  "at": "2026-11-23T22:47:01.418Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P3"
+ },
+ "lenovo-tb128xu_stka_cool-front|corner-1|2|7": {
+  "at": "2026-11-23T22:42:10.624Z",
+  "decision": "relabel:YELLOW",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P1a"
+ },
+ "lenovo-tb128xu_stka_cool-front|corner-2|0|0": {
+  "at": "2026-11-23T22:43:18.182Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P1b"
+ },
+ "lenovo-tb128xu_stka_cool-front|corner-2|0|1": {
+  "at": "2026-11-23T22:43:19.516Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P1b"
+ },
+ "lenovo-tb128xu_stka_cool-front|corner-2|0|2": {
+  "at": "2026-11-23T22:43:21.574Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P1b"
+ },
+ "lenovo-tb128xu_stka_cool-front|corner-2|2|1": {
+  "at": "2026-11-23T22:43:23.157Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P1b"
+ },
+ "lenovo-tb128xu_stka_cool-front|corner-2|2|8": {
+  "at": "2026-11-23T22:47:02.566Z",
+  "decision": "keep",
+  "label": "WHITE",
+  "note": "",
+  "tier": "P3"
+ },
+ "lenovo-tb128xu_stka_cool|corner-1|1|3": {
+  "at": "2026-11-23T22:43:14.593Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "lenovo-tb128xu_stka_cool|corner-1|1|8": {
+  "at": "2026-11-23T22:42:08.075Z",
+  "decision": "relabel:BLUE",
+  "label": "WHITE",
+  "note": "",
+  "tier": "P1a"
+ },
+ "lenovo-tb128xu_stka_cool|corner-2|1|6": {
+  "at": "2026-11-23T22:43:15.829Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "lenovo-tb128xu_stka_cool|corner-2|1|7": {
+  "at": "2026-11-23T22:43:16.885Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "lenovo-tb128xu_stka_warm|corner-1|2|2": {
+  "at": "2026-11-23T22:42:43.038Z",
+  "decision": "relabel:ORANGE",
+  "label": "RED",
+  "note": "",
+  "tier": "P1a"
+ },
+ "lenovo-tb128xu_stka_warm|corner-2|1|6": {
+  "at": "2026-11-23T22:43:24.735Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "lenovo-tb128xu_stka_warm|corner-2|1|7": {
+  "at": "2026-11-23T22:43:25.895Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "lenovo-tb128xu_stkb_cool|corner-1|1|3": {
+  "at": "2026-11-23T22:45:10.044Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stkb_cool|corner-1|1|6": {
+  "at": "2026-11-23T22:45:11.001Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stkb_cool|corner-1|1|8": {
+  "at": "2026-11-23T22:45:12.387Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stkb_cool|corner-2|1|1": {
+  "at": "2026-11-23T22:45:13.750Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stkb_cool|corner-2|1|5": {
+  "at": "2026-11-23T22:45:15.203Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stkb_cool|corner-2|1|8": {
+  "at": "2026-11-23T22:45:17.193Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stkb_cool|corner-2|2|2": {
+  "at": "2026-11-23T22:45:19.594Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stkb_cool|corner-2|2|8": {
+  "at": "2026-11-23T22:45:20.891Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_bar-cool|corner-1|0|2": {
+  "at": "2026-11-23T22:45:22.202Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_bar-cool|corner-1|1|1": {
+  "at": "2026-11-23T22:45:23.449Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_bar-cool|corner-2|0|6": {
+  "at": "2026-11-23T22:45:25.440Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_bar-cool|corner-2|0|8": {
+  "at": "2026-11-23T23:03:12.762Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_bar-cool|corner-2|1|0": {
+  "at": "2026-11-23T23:03:24.299Z",
+  "decision": "keep",
+  "label": "WHITE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_bar-cool|corner-2|1|1": {
+  "at": "2026-11-23T23:03:30.221Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_bar-cool|corner-2|1|2": {
+  "at": "2026-11-23T23:03:35.153Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_bar-cool|corner-2|1|3": {
+  "at": "2026-11-23T23:03:43.165Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_bar-cool|corner-2|1|5": {
+  "at": "2026-11-23T23:03:49.551Z",
+  "decision": "keep",
+  "label": "WHITE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_bar-cool|corner-2|1|7": {
+  "at": "2026-11-23T23:03:52.923Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_bar-cool|corner-2|1|8": {
+  "at": "2026-11-23T23:03:58.441Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_bar-warm|corner-1|2|0": {
+  "at": "2026-11-23T22:47:05.974Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P3"
+ },
+ "lenovo-tb128xu_stla_bar-warm|corner-1|2|2": {
+  "at": "2026-11-23T23:04:13.637Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_bar-warm|corner-1|2|7": {
+  "at": "2026-11-23T22:47:07.566Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "tier": "P3"
+ },
+ "lenovo-tb128xu_stla_bar-warm|corner-2|0|3": {
+  "at": "2026-11-23T23:06:47.634Z",
+  "decision": "keep",
+  "label": "WHITE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P3"
+ },
+ "lenovo-tb128xu_stla_bar-warm|corner-2|1|0": {
+  "at": "2026-11-23T23:04:25.791Z",
+  "decision": "keep",
+  "label": "WHITE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_bar-warm|corner-2|1|1": {
+  "at": "2026-11-23T23:06:57.528Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P3"
+ },
+ "lenovo-tb128xu_stla_bar-warm|corner-2|1|3": {
+  "at": "2026-11-23T23:04:31.330Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_bar-warm|corner-2|1|6": {
+  "at": "2026-11-23T23:04:40.580Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_bar-warm|corner-2|1|7": {
+  "at": "2026-11-23T23:04:46.074Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_bar-warm|corner-2|2|0": {
+  "at": "2026-11-23T22:47:14.844Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P3"
+ },
+ "lenovo-tb128xu_stla_ceilback|corner-1|1|3": {
+  "at": "2026-11-23T22:42:44.472Z",
+  "decision": "relabel:BLUE",
+  "label": "WHITE",
+  "note": "",
+  "tier": "P1a"
+ },
+ "lenovo-tb128xu_stla_ceilback|corner-2|2|0": {
+  "at": "2026-11-23T22:47:15.855Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P3"
+ },
+ "lenovo-tb128xu_stla_cool-front|corner-1|1|0": {
+  "at": "2026-11-23T22:47:17.672Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P3"
+ },
+ "lenovo-tb128xu_stla_cool-front|corner-1|2|0": {
+  "at": "2026-11-23T22:45:39.116Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_cool-front|corner-1|2|5": {
+  "at": "2026-11-23T22:45:44.719Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_cool|corner-1|1|1": {
+  "at": "2026-11-23T22:43:28.660Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P1b"
+ },
+ "lenovo-tb128xu_stla_cool|corner-1|1|7": {
+  "at": "2026-11-23T22:42:50.382Z",
+  "decision": "relabel:BLUE",
+  "label": "WHITE",
+  "note": "",
+  "tier": "P1a"
+ },
+ "lenovo-tb128xu_stla_cool|corner-1|1|8": {
+  "at": "2026-11-23T22:42:49.082Z",
+  "decision": "relabel:BLUE",
+  "label": "WHITE",
+  "note": "",
+  "tier": "P1a"
+ },
+ "lenovo-tb128xu_stla_cool|corner-1|2|5": {
+  "at": "2026-11-23T22:43:39.359Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P1b"
+ },
+ "lenovo-tb128xu_stla_cool|corner-1|2|6": {
+  "at": "2026-11-23T22:42:46.474Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P1a"
+ },
+ "lenovo-tb128xu_stla_warm|corner-1|1|0": {
+  "at": "2026-11-23T22:45:48.725Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_warm|corner-1|1|2": {
+  "at": "2026-11-23T22:45:49.831Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_warm|corner-1|1|6": {
+  "at": "2026-11-23T22:45:50.747Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_warm|corner-1|2|0": {
+  "at": "2026-11-23T22:45:51.915Z",
+  "decision": "keep",
+  "label": "GREEN",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_warm|corner-1|2|7": {
+  "at": "2026-11-23T22:45:55.311Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_warm|corner-1|2|8": {
+  "at": "2026-11-23T22:45:59.021Z",
+  "decision": "keep",
+  "label": "GREEN",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_warm|corner-2|0|5": {
+  "at": "2026-11-23T22:46:00.229Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_warm|corner-2|1|2": {
+  "at": "2026-11-23T22:46:01.697Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_warm|corner-2|1|5": {
+  "at": "2026-11-23T22:47:20.662Z",
+  "decision": "keep",
+  "label": "GREEN",
+  "note": "",
+  "tier": "P3"
+ },
+ "lenovo-tb128xu_stla_warm|corner-2|1|7": {
+  "at": "2026-11-23T23:04:57.618Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_warm|corner-2|1|8": {
+  "at": "2026-11-23T23:05:03.598Z",
+  "decision": "keep",
+  "label": "GREEN",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_warm|corner-2|2|2": {
+  "at": "2026-11-23T22:46:09.657Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_warm|corner-2|2|3": {
+  "at": "2026-11-23T23:05:23.467Z",
+  "decision": "relabel:RED",
+  "label": "ORANGE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stla_warm|corner-2|2|6": {
+  "at": "2026-11-23T23:05:29.577Z",
+  "decision": "keep",
+  "label": "WHITE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stlb_bar-warm|corner-1|1|0": {
+  "at": "2026-11-23T23:07:13.629Z",
+  "decision": "keep",
+  "label": "GREEN",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P3"
+ },
+ "lenovo-tb128xu_stlb_bar-warm|corner-1|2|0": {
+  "at": "2026-11-23T22:47:27.196Z",
+  "decision": "keep",
+  "label": "WHITE",
+  "note": "",
+  "tier": "P3"
+ },
+ "lenovo-tb128xu_stlb_bar-warm|corner-1|2|6": {
+  "at": "2026-11-23T23:05:38.851Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stlb_bar-warm|corner-2|0|0": {
+  "at": "2026-11-23T22:47:28.021Z",
+  "decision": "keep",
+  "label": "WHITE",
+  "note": "",
+  "tier": "P3"
+ },
+ "lenovo-tb128xu_stlb_cool|corner-1|0|0": {
+  "at": "2026-11-23T23:05:50.617Z",
+  "decision": "keep",
+  "label": "GREEN",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stlb_cool|corner-1|0|1": {
+  "at": "2026-11-23T23:05:53.925Z",
+  "decision": "keep",
+  "label": "GREEN",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stlb_cool|corner-1|1|0": {
+  "at": "2026-11-23T23:06:07.457Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stlb_cool|corner-1|1|2": {
+  "at": "2026-11-23T23:06:14.453Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stlb_cool|corner-1|1|8": {
+  "at": "2026-11-23T22:46:15.741Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stlb_cool|corner-1|2|0": {
+  "at": "2026-11-23T23:06:18.670Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stlb_cool|corner-1|2|3": {
+  "at": "2026-11-23T23:06:37.782Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stlb_cool|corner-2|0|0": {
+  "at": "2026-11-23T22:46:20.167Z",
+  "decision": "keep",
+  "label": "GREEN",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stlb_cool|corner-2|0|1": {
+  "at": "2026-11-23T22:46:21.263Z",
+  "decision": "keep",
+  "label": "GREEN",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stlb_cool|corner-2|2|0": {
+  "at": "2026-11-23T22:46:22.955Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "tier": "P2"
+ },
+ "lenovo-tb128xu_stlb_cool|corner-2|2|1": {
+  "at": "2026-11-23T22:46:31.033Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "tier": "P2"
+ },
+ "quad:lenovo-tb128xu_stka_cool|corner-2|2": {
+  "at": "2026-11-23T23:28:07.769Z",
+  "original": [
+   [
+    98.15536761283875,
+    107.20546913146973
+   ],
+   [
+    181.68708181381226,
+    49.673155784606934
+   ],
+   [
+    166.44361877441406,
+    128.27824211120605
+   ],
+   [
+    97.04934191703796,
+    183.56275272369385
+   ]
+  ],
+  "quad": [
+   [
+    98.15536761283875,
+    107.20546913146973
+   ],
+   [
+    181.68708181381226,
+    49.673155784606934
+   ],
+   [
+    170.4,
+    128.3
+   ],
+   [
+    97.8,
+    183.6
+   ]
+  ]
+ },
+ "quad:lenovo-tb128xu_stla_bar-cool|corner-2|0": {
+  "at": "2026-11-23T23:03:11.230Z",
+  "original": [
+   [
+    110.57683809280395,
+    29.848926804065698
+   ],
+   [
+    173.7591658782959,
+    62.70886147737503
+   ],
+   [
+    114.04975814819336,
+    95.68257416963577
+   ],
+   [
+    47.555452718734735,
+    57.281074600219725
+   ]
+  ],
+  "quad": [
+   [
+    105.5,
+    31
+   ],
+   [
+    172,
+    66
+   ],
+   [
+    105,
+    105.9
+   ],
+   [
+    37.4,
+    63.1
+   ]
+  ]
+ },
+ "quad:lenovo-tb128xu_stla_bar-cool|corner-2|1": {
+  "at": "2026-11-23T23:03:57.143Z",
+  "original": [
+   [
+    47.555452718734735,
+    57.281074600219725
+   ],
+   [
+    114.04975814819336,
+    95.68257416963577
+   ],
+   [
+    106.33852584838867,
+    169.85025882720947
+   ],
+   [
+    44.00463037729263,
+    131.37004658699036
+   ]
+  ],
+  "quad": [
+   [
+    35.2,
+    65.1
+   ],
+   [
+    101.7,
+    103.5
+   ],
+   [
+    100.2,
+    183.4
+   ],
+   [
+    42.5,
+    135.6
+   ]
+  ]
+ },
+ "quad:lenovo-tb128xu_stla_bar-warm|corner-1|2": {
+  "at": "2026-11-23T23:04:10.606Z",
+  "original": [
+   [
+    102.3768627500534,
+    110.8526768541336
+   ],
+   [
+    159.77179542541504,
+    65.09101176261902
+   ],
+   [
+    157.7966932964325,
+    127.72675124168396
+   ],
+   [
+    102.36725969076157,
+    169.97559293270112
+   ]
+  ],
+  "quad": [
+   [
+    102.4,
+    102.5
+   ],
+   [
+    172.1,
+    62.2
+   ],
+   [
+    166.2,
+    136.1
+   ],
+   [
+    103.8,
+    178.7
+   ]
+  ]
+ },
+ "quad:lenovo-tb128xu_stla_bar-warm|corner-2|0": {
+  "at": "2026-11-23T23:06:45.497Z",
+  "original": [
+   [
+    109.23756383895874,
+    34.475344461202624
+   ],
+   [
+    166.30471209049225,
+    66.92150883674621
+   ],
+   [
+    103.64227853775024,
+    105.15811942100525
+   ],
+   [
+    47.75057715892792,
+    67.63284025907515
+   ]
+  ],
+  "quad": [
+   [
+    102,
+    27.9
+   ],
+   [
+    171,
+    62.9
+   ],
+   [
+    103.64227853775024,
+    105.15811942100525
+   ],
+   [
+    35,
+    64
+   ]
+  ]
+ },
+ "quad:lenovo-tb128xu_stla_bar-warm|corner-2|1": {
+  "at": "2026-11-23T23:06:55.992Z",
+  "original": [
+   [
+    47.75057715892792,
+    67.63284025907515
+   ],
+   [
+    103.64227853775024,
+    105.15811942100525
+   ],
+   [
+    102.19468825817108,
+    171.21621094703676
+   ],
+   [
+    48.42509280204773,
+    131.23732177257537
+   ]
+  ],
+  "quad": [
+   [
+    34.3,
+    62.9
+   ],
+   [
+    98.9,
+    106.6
+   ],
+   [
+    100.4,
+    179.5
+   ],
+   [
+    38.6,
+    138.9
+   ]
+  ]
+ },
+ "quad:lenovo-tb128xu_stla_warm|corner-2|0": {
+  "at": "2026-11-23T23:19:37.751Z",
+  "original": [
+   [
+    99.38866305351257,
+    9.147887587547302
+   ],
+   [
+    181.2551074028015,
+    40.64804244041443
+   ],
+   [
+    115.12454891204834,
+    103.91033458709717
+   ],
+   [
+    27.27705991268158,
+    56.666768312454224
+   ]
+  ],
+  "quad": [
+   [
+    104.1,
+    11
+   ],
+   [
+    179.1,
+    48.6
+   ],
+   [
+    101.7,
+    100.3
+   ],
+   [
+    30.9,
+    49.8
+   ]
+  ]
+ },
+ "quad:lenovo-tb128xu_stla_warm|corner-2|1": {
+  "at": "2026-11-23T23:05:01.896Z",
+  "original": [
+   [
+    27.27705991268158,
+    56.666768312454224
+   ],
+   [
+    115.12454891204834,
+    103.91033458709717
+   ],
+   [
+    117.54429483413696,
+    173.1411418914795
+   ],
+   [
+    42.50871729850769,
+    128.97082996368408
+   ]
+  ],
+  "quad": [
+   [
+    27.6,
+    50.5
+   ],
+   [
+    102,
+    102.1
+   ],
+   [
+    104.4,
+    176.4
+   ],
+   [
+    35.6,
+    125.3
+   ]
+  ]
+ },
+ "quad:lenovo-tb128xu_stlb_bar-warm|corner-1|1": {
+  "at": "2026-11-23T23:07:12.634Z",
+  "original": [
+   [
+    39.27669987440109,
+    64.62908435106277
+   ],
+   [
+    95.22461764335632,
+    106.76827288150787
+   ],
+   [
+    99.9535368156433,
+    167.8530169868469
+   ],
+   [
+    48.06997410058975,
+    127.98273557662964
+   ]
+  ],
+  "quad": [
+   [
+    36,
+    62.5
+   ],
+   [
+    104.7,
+    102.8
+   ],
+   [
+    100.3,
+    178
+   ],
+   [
+    41.6,
+    132.3
+   ]
+  ]
+ },
+ "quad:lenovo-tb128xu_stlb_bar-warm|corner-1|2": {
+  "at": "2026-11-23T23:05:37.007Z",
+  "original": [
+   [
+    95.22461764335632,
+    106.76827288150787
+   ],
+   [
+    162.69144960403443,
+    63.91464915513992
+   ],
+   [
+    161.5234420633316,
+    128.81454689979554
+   ],
+   [
+    99.9535368156433,
+    167.8530169868469
+   ]
+  ],
+  "quad": [
+   [
+    106.2,
+    102.1
+   ],
+   [
+    170.3,
+    62.5
+   ],
+   [
+    166.3,
+    133.9
+   ],
+   [
+    104.7,
+    172.9
+   ]
+  ]
+ },
+ "quad:lenovo-tb128xu_stlb_cool|corner-1|0": {
+  "at": "2026-11-23T23:05:49.280Z",
+  "original": [
+   [
+    103.99780893325806,
+    13.827269434928894
+   ],
+   [
+    177.7028841972351,
+    47.21605348587036
+   ],
+   [
+    108.88501119613647,
+    89.57297611236572
+   ],
+   [
+    30.577206254005432,
+    45.36750292778015
+   ]
+  ],
+  "quad": [
+   [
+    104.7,
+    9.8
+   ],
+   [
+    177.3,
+    54.1
+   ],
+   [
+    97.6,
+    102
+   ],
+   [
+    28,
+    47.6
+   ]
+  ]
+ },
+ "quad:lenovo-tb128xu_stlb_cool|corner-1|1": {
+  "at": "2026-11-23T23:06:12.939Z",
+  "original": [
+   [
+    30.577206254005432,
+    45.36750292778015
+   ],
+   [
+    108.88501119613647,
+    89.57297611236572
+   ],
+   [
+    103.49686527252197,
+    174.24021244049072
+   ],
+   [
+    32.15160286426544,
+    128.7324981689453
+   ]
+  ],
+  "quad": [
+   [
+    26.2,
+    46.1
+   ],
+   [
+    95.1,
+    97.9
+   ],
+   [
+    100.2,
+    176.8
+   ],
+   [
+    32.2,
+    125.8
+   ]
+  ]
+ },
+ "quad:lenovo-tb128xu_stlb_cool|corner-1|2": {
+  "at": "2026-11-23T23:06:36.612Z",
+  "original": [
+   [
+    108.88501119613647,
+    89.57297611236572
+   ],
+   [
+    177.7028841972351,
+    47.21605348587036
+   ],
+   [
+    169.87316703796387,
+    130.77421140670776
+   ],
+   [
+    103.49686527252197,
+    174.24021244049072
+   ]
+  ],
+  "quad": [
+   [
+    102,
+    101.6
+   ],
+   [
+    176.6,
+    50.5
+   ],
+   [
+    168.7,
+    125.3
+   ],
+   [
+    105,
+    179
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stka_bar-cool-3|corner-1|1": {
+  "at": "2026-11-23T23:24:49.321Z",
+  "original": [
+   [
+    29.219215964078927,
+    110.40175376653671
+   ],
+   [
+    186.24758206367494,
+    201.48883959770203
+   ],
+   [
+    197.52279042959213,
+    350.3207931756973
+   ],
+   [
+    70.04394178271295,
+    248.4505219554901
+   ]
+  ],
+  "quad": [
+   [
+    23.4,
+    103.6
+   ],
+   [
+    186.24758206367494,
+    201.48883959770203
+   ],
+   [
+    190.2,
+    351.3
+   ],
+   [
+    65.6,
+    253.8
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stka_bar-cool-3|corner-1|2": {
+  "at": "2026-11-23T23:28:27.009Z",
+  "original": [
+   [
+    186.24758206367494,
+    201.48883959770203
+   ],
+   [
+    333.74716570854184,
+    91.61081889390947
+   ],
+   [
+    305.4705364990234,
+    232.52510047912597
+   ],
+   [
+    197.52279042959213,
+    350.3207931756973
+   ]
+  ],
+  "quad": [
+   [
+    187.7,
+    201.5
+   ],
+   [
+    335.2,
+    91.6
+   ],
+   [
+    308.4,
+    243.8
+   ],
+   [
+    199,
+    350.3
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stka_bar-cool|corner-2|2": {
+  "at": "2026-11-23T23:17:03.670Z",
+  "original": [
+   [
+    220.6452639722824,
+    173.16170988559725
+   ],
+   [
+    360.77081137657166,
+    90.84323449611665
+   ],
+   [
+    330.0769976902008,
+    229.7091579246521
+   ],
+   [
+    221.32388315200805,
+    331.0711039018631
+   ]
+  ],
+  "quad": [
+   [
+    226.5,
+    175.1
+   ],
+   [
+    360.77081137657166,
+    90.84323449611665
+   ],
+   [
+    331.1,
+    234.6
+   ],
+   [
+    221.32388315200805,
+    331.0711039018631
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stka_bar-warm-2|corner-1|2": {
+  "at": "2026-11-23T23:25:02.160Z",
+  "original": [
+   [
+    216.56000240802766,
+    176.6129095840454
+   ],
+   [
+    341.7059917926788,
+    102.88459956645966
+   ],
+   [
+    320.14363847732545,
+    234.71677580833435
+   ],
+   [
+    220.1496219587326,
+    325.09202368736265
+   ]
+  ],
+  "quad": [
+   [
+    216.6,
+    182
+   ],
+   [
+    342.7,
+    105.8
+   ],
+   [
+    324.1,
+    244.5
+   ],
+   [
+    220.1496219587326,
+    325.09202368736265
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stka_bar-warm-2|corner-2|1": {
+  "at": "2026-11-23T23:28:49.228Z",
+  "original": [
+   [
+    85.53487134456635,
+    121.05892031431199
+   ],
+   [
+    200.3139807653427,
+    209.32358916759492
+   ],
+   [
+    203.07485751867296,
+    365.39713552474973
+   ],
+   [
+    115.33753875255586,
+    262.63707931518553
+   ]
+  ],
+  "quad": [
+   [
+    77.2,
+    123
+   ],
+   [
+    192,
+    211.3
+   ],
+   [
+    194.8,
+    367.4
+   ],
+   [
+    107,
+    264.6
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stka_bar-warm-2|corner-2|2": {
+  "at": "2026-11-23T23:25:08.452Z",
+  "original": [
+   [
+    200.3139807653427,
+    209.32358916759492
+   ],
+   [
+    361.6039202594757,
+    135.41338105440138
+   ],
+   [
+    329.35558091163637,
+    277.74854956150057
+   ],
+   [
+    203.07485751867296,
+    365.39713552474973
+   ]
+  ],
+  "quad": [
+   [
+    205.2,
+    215.2
+   ],
+   [
+    366.5,
+    141.3
+   ],
+   [
+    334.2,
+    283.6
+   ],
+   [
+    208,
+    371.3
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stka_bar-warm|corner-2|2": {
+  "at": "2026-11-23T23:27:40.763Z",
+  "original": [
+   [
+    205.69688279151916,
+    210.13033552646638
+   ],
+   [
+    346.3092404317856,
+    126.81371986150742
+   ],
+   [
+    313.16520610809323,
+    264.00208698272706
+   ],
+   [
+    208.62647637844086,
+    362.9181286048889
+   ]
+  ],
+  "quad": [
+   [
+    209.1,
+    214
+   ],
+   [
+    349.7,
+    130.7
+   ],
+   [
+    316.6,
+    267.9
+   ],
+   [
+    212,
+    366.8
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stla_bar-cool|corner-1|0": {
+  "at": "2026-11-23T23:29:11.518Z",
+  "original": [
+   [
+    209.13334072589873,
+    51.52442636013032
+   ],
+   [
+    357.1936094379425,
+    123.61586933135987
+   ],
+   [
+    218.893484210968,
+    231.87247859954834
+   ],
+   [
+    73.69613912582398,
+    127.63177155971528
+   ]
+  ],
+  "quad": [
+   [
+    209.7,
+    55.4
+   ],
+   [
+    361.6,
+    120.2
+   ],
+   [
+    209.1,
+    219.2
+   ],
+   [
+    55.1,
+    114.4
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stla_bar-cool|corner-1|1": {
+  "at": "2026-11-23T23:07:23.822Z",
+  "original": [
+   [
+    73.69613912582398,
+    127.63177155971528
+   ],
+   [
+    218.893484210968,
+    231.87247859954834
+   ],
+   [
+    215.6231035375595,
+    355.2110745859146
+   ],
+   [
+    101.58553141117096,
+    255.30271966934203
+   ]
+  ],
+  "quad": [
+   [
+    58.4,
+    122
+   ],
+   [
+    212.3,
+    219.7
+   ],
+   [
+    206,
+    369.4
+   ],
+   [
+    90.4,
+    260.4
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stla_bar-cool|corner-1|2": {
+  "at": "2026-11-23T23:29:37.264Z",
+  "original": [
+   [
+    218.893484210968,
+    231.87247859954834
+   ],
+   [
+    357.1936094379425,
+    123.61586933135987
+   ],
+   [
+    324.1300571775436,
+    251.34395837783813
+   ],
+   [
+    215.6231035375595,
+    355.2110745859146
+   ]
+  ],
+  "quad": [
+   [
+    213.5,
+    218.2
+   ],
+   [
+    365,
+    120.7
+   ],
+   [
+    336.3,
+    263.6
+   ],
+   [
+    209.8,
+    370.8
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stla_bar-cool|corner-2|0": {
+  "at": "2026-11-23T23:30:46.200Z",
+  "original": [
+   [
+    211.26272878170013,
+    46.74987111806871
+   ],
+   [
+    359.1584143304825,
+    116.00500200271607
+   ],
+   [
+    219.1271942949295,
+    215.62791785240174
+   ],
+   [
+    68.89431660056115,
+    119.63446415901184
+   ]
+  ],
+  "quad": [
+   [
+    210.3,
+    49.7
+   ],
+   [
+    359.1584143304825,
+    116.00500200271607
+   ],
+   [
+    202,
+    214.2
+   ],
+   [
+    52.8,
+    114.3
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stla_bar-cool|corner-2|1": {
+  "at": "2026-11-23T23:27:57.993Z",
+  "original": [
+   [
+    68.89431660056115,
+    119.63446415901184
+   ],
+   [
+    219.1271942949295,
+    215.62791785240174
+   ],
+   [
+    213.57051210403444,
+    356.5102423477173
+   ],
+   [
+    90.36787900924683,
+    258.6771227455139
+   ]
+  ],
+  "quad": [
+   [
+    54.8,
+    120.1
+   ],
+   [
+    205,
+    216.1
+   ],
+   [
+    199.5,
+    357
+   ],
+   [
+    91,
+    261.1
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stla_bar-warm-2|corner-1|0": {
+  "at": "2026-11-23T23:20:03.511Z",
+  "original": [
+   [
+    209.29578234910966,
+    85.0796363735199
+   ],
+   [
+    326.5643407726288,
+    142.9474517607689
+   ],
+   [
+    201.92504972457886,
+    214.91081735610962
+   ],
+   [
+    87.71593858003617,
+    136.11432869434356
+   ]
+  ],
+  "quad": [
+   [
+    211.7,
+    74.3
+   ],
+   [
+    342.2,
+    130.7
+   ],
+   [
+    205.4,
+    207.5
+   ],
+   [
+    73.1,
+    126.3
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stla_bar-warm-2|corner-1|1": {
+  "at": "2026-11-23T23:08:34.107Z",
+  "original": [
+   [
+    87.71593858003617,
+    136.11432869434356
+   ],
+   [
+    201.92504972457886,
+    214.91081735610962
+   ],
+   [
+    200.51121826410292,
+    345.4293496894836
+   ],
+   [
+    105.57400864601136,
+    258.3276366901398
+   ]
+  ],
+  "quad": [
+   [
+    78,
+    128
+   ],
+   [
+    204.5,
+    218.5
+   ],
+   [
+    206.6,
+    359.7
+   ],
+   [
+    104,
+    267.5
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stla_bar-warm-2|corner-1|2": {
+  "at": "2026-11-23T23:22:26.566Z",
+  "original": [
+   [
+    201.92504972457886,
+    214.91081735610962
+   ],
+   [
+    326.5643407726288,
+    142.9474517607689
+   ],
+   [
+    304.21506279468537,
+    264.5144960927963
+   ],
+   [
+    200.51121826410292,
+    345.4293496894836
+   ]
+  ],
+  "quad": [
+   [
+    201.92504972457886,
+    214.91081735610962
+   ],
+   [
+    344.2,
+    135.1
+   ],
+   [
+    322.8,
+    269.4
+   ],
+   [
+    204.9,
+    355.7
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stla_bar-warm-2|corner-2|0": {
+  "at": "2026-11-23T23:02:38.656Z",
+  "original": [
+   [
+    225.86009660720825,
+    98.34903355360032
+   ],
+   [
+    340.0681286811829,
+    149.38319463968276
+   ],
+   [
+    212.5516702747345,
+    205.13526806354523
+   ],
+   [
+    100.11138820648195,
+    137.06143723249437
+   ]
+  ],
+  "quad": [
+   [
+    222.3,
+    76
+   ],
+   [
+    354.3,
+    133.1
+   ],
+   [
+    214.1,
+    221.4
+   ],
+   [
+    80.8,
+    127.9
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stla_bar-warm-2|corner-2|1": {
+  "at": "2026-11-23T23:02:57.171Z",
+  "original": [
+   [
+    100.11138820648195,
+    137.06143723249437
+   ],
+   [
+    212.5516702747345,
+    205.13526806354523
+   ],
+   [
+    206.30410070180892,
+    353.7012390470505
+   ],
+   [
+    112.48582085847855,
+    267.00768033981325
+   ]
+  ],
+  "quad": [
+   [
+    80.8,
+    130.9
+   ],
+   [
+    201.4,
+    209.2
+   ],
+   [
+    201.7,
+    366.8
+   ],
+   [
+    101.3,
+    271
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stla_bar-warm-2|corner-2|2": {
+  "at": "2026-11-23T23:22:54.863Z",
+  "original": [
+   [
+    212.5516702747345,
+    205.13526806354523
+   ],
+   [
+    340.0681286811829,
+    149.38319463968276
+   ],
+   [
+    313.5045322990417,
+    282.5812252044678
+   ],
+   [
+    206.30410070180892,
+    353.7012390470505
+   ]
+  ],
+  "quad": [
+   [
+    212.6,
+    214.9
+   ],
+   [
+    345.4,
+    132.8
+   ],
+   [
+    319.9,
+    285.5
+   ],
+   [
+    206.3,
+    363.5
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stla_bar-warm|corner-1|0": {
+  "at": "2026-11-23T23:01:22.402Z",
+  "original": [
+   [
+    208.33672102928162,
+    81.03252410411835
+   ],
+   [
+    328.8227856683731,
+    147.1240524983406
+   ],
+   [
+    220.22130544662477,
+    224.27150551795958
+   ],
+   [
+    91.14612130403519,
+    139.55868874549867
+   ]
+  ],
+  "quad": [
+   [
+    209.3,
+    72.3
+   ],
+   [
+    344.5,
+    133.3
+   ],
+   [
+    221.2,
+    215.6
+   ],
+   [
+    77.4,
+    131.9
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stla_bar-warm|corner-1|1": {
+  "at": "2026-11-23T23:23:09.172Z",
+  "original": [
+   [
+    91.14612130403519,
+    139.55868874549867
+   ],
+   [
+    220.22130544662477,
+    224.27150551795958
+   ],
+   [
+    212.81416664123535,
+    346.4474610710144
+   ],
+   [
+    101.59469521045686,
+    262.84585456848146
+   ]
+  ],
+  "quad": [
+   [
+    78.4,
+    134.7
+   ],
+   [
+    214.4,
+    215
+   ],
+   [
+    211.3,
+    361.6
+   ],
+   [
+    101.1,
+    268.7
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stla_bar-warm|corner-1|2": {
+  "at": "2026-11-23T23:01:29.625Z",
+  "original": [
+   [
+    220.22130544662477,
+    224.27150551795958
+   ],
+   [
+    328.8227856683731,
+    147.1240524983406
+   ],
+   [
+    307.8996737575531,
+    262.6927261543274
+   ],
+   [
+    212.81416664123535,
+    346.4474610710144
+   ]
+  ],
+  "quad": [
+   [
+    220.22130544662477,
+    224.27150551795958
+   ],
+   [
+    348.1,
+    139.5
+   ],
+   [
+    324.7,
+    268.8
+   ],
+   [
+    213.3,
+    364.7
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stla_bar-warm|corner-2|0": {
+  "at": "2026-11-23T23:07:54.147Z",
+  "original": [
+   [
+    235.29900908470154,
+    96.0805782032013
+   ],
+   [
+    347.6783983707428,
+    146.88368537902832
+   ],
+   [
+    230.31330463409424,
+    197.8987220144272
+   ],
+   [
+    113.31145925283433,
+    134.81293638706208
+   ]
+  ],
+  "quad": [
+   [
+    223.6,
+    80.3
+   ],
+   [
+    357.4,
+    141.3
+   ],
+   [
+    212.5,
+    214.7
+   ],
+   [
+    86.4,
+    132.8
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stla_bar-warm|corner-2|1": {
+  "at": "2026-11-23T23:02:14.635Z",
+  "original": [
+   [
+    113.31145925283433,
+    134.81293638706208
+   ],
+   [
+    230.31330463409424,
+    197.8987220144272
+   ],
+   [
+    225.37607535362244,
+    343.59566017150877
+   ],
+   [
+    122.48594963788987,
+    271.17651176929473
+   ]
+  ],
+  "quad": [
+   [
+    88.5,
+    128.8
+   ],
+   [
+    204.4,
+    222.8
+   ],
+   [
+    208.6,
+    365.9
+   ],
+   [
+    106.8,
+    268.6
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stla_bar-warm|corner-2|2": {
+  "at": "2026-11-23T23:08:19.941Z",
+  "original": [
+   [
+    230.31330463409424,
+    197.8987220144272
+   ],
+   [
+    347.6783983707428,
+    146.88368537902832
+   ],
+   [
+    328.2074498271942,
+    279.31140896797183
+   ],
+   [
+    225.37607535362244,
+    343.59566017150877
+   ]
+  ],
+  "quad": [
+   [
+    213,
+    219.7
+   ],
+   [
+    351.2,
+    139.8
+   ],
+   [
+    331.2,
+    279.3
+   ],
+   [
+    208.1,
+    365.4
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stla_ceilback|corner-1|0": {
+  "at": "2026-11-23T23:29:55.344Z",
+  "original": [
+   [
+    211.6656371307373,
+    66.4958000445366
+   ],
+   [
+    341.7759155654907,
+    133.6582146716118
+   ],
+   [
+    205.26628383159638,
+    226.588884267807
+   ],
+   [
+    82.44243770837784,
+    131.00147652864456
+   ]
+  ],
+  "quad": [
+   [
+    220,
+    76.7
+   ],
+   [
+    342.3,
+    130.2
+   ],
+   [
+    205.8,
+    208.5
+   ],
+   [
+    82.9,
+    127.6
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stla_ceilback|corner-2|0": {
+  "at": "2026-11-23T23:30:19.672Z",
+  "original": [
+   [
+    200.9576878619194,
+    55.4163682818413
+   ],
+   [
+    345.69722480773925,
+    124.80852452754975
+   ],
+   [
+    214.4994424533844,
+    226.52516930103303
+   ],
+   [
+    66.06438763141634,
+    131.99910217046738
+   ]
+  ],
+  "quad": [
+   [
+    217.1,
+    72
+   ],
+   [
+    348.2,
+    130.2
+   ],
+   [
+    213.1,
+    210.8
+   ],
+   [
+    83.2,
+    128.6
+   ]
+  ]
+ },
+ "quad:sm-s721u1_stla_ceilback|corner-2|1": {
+  "at": "2026-11-23T23:08:45.166Z",
+  "original": [
+   [
+    66.06438763141634,
+    131.99910217046738
+   ],
+   [
+    214.4994424533844,
+    226.52516930103303
+   ],
+   [
+    210.14202269077302,
+    359.84925190925594
+   ],
+   [
+    87.34890517711641,
+    264.21278796195986
+   ]
+  ],
+  "quad": [
+   [
+    81.3,
+    131
+   ],
+   [
+    211.4,
+    211.3
+   ],
+   [
+    213.2,
+    360.8
+   ],
+   [
+    102.6,
+    263.2
+   ]
+  ]
+ },
+ "sm-s721u1_stka_bar-cool-3|corner-1|1|0": {
+  "at": "2026-11-23T22:46:28.968Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P2"
+ },
+ "sm-s721u1_stka_bar-cool-3|corner-1|1|5": {
+  "at": "2026-11-23T22:46:27.559Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P2"
+ },
+ "sm-s721u1_stka_bar-cool-3|corner-1|1|8": {
+  "at": "2026-11-23T22:46:26.247Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P2"
+ },
+ "sm-s721u1_stka_bar-cool-3|corner-1|2|5": {
+  "at": "2026-11-23T22:46:25.355Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P2"
+ },
+ "sm-s721u1_stka_bar-cool-3|corner-1|2|6": {
+  "at": "2026-11-23T22:46:32.627Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P2"
+ },
+ "sm-s721u1_stka_bar-cool-3|corner-1|2|7": {
+  "at": "2026-11-23T22:46:33.755Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P2"
+ },
+ "sm-s721u1_stka_bar-cool-3|corner-2|0|2": {
+  "at": "2026-11-23T22:46:36.038Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P2"
+ },
+ "sm-s721u1_stka_bar-cool-3|corner-2|1|2": {
+  "at": "2026-11-23T22:46:37.050Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P2"
+ },
+ "sm-s721u1_stka_bar-cool-3|corner-2|2|7": {
+  "at": "2026-11-23T22:46:38.024Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P2"
+ },
+ "sm-s721u1_stka_bar-cool-3|corner-2|2|8": {
+  "at": "2026-11-23T22:47:29.388Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "tier": "P3"
+ },
+ "sm-s721u1_stka_bar-cool|corner-1|1|3": {
+  "at": "2026-11-23T22:43:35.709Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stka_bar-cool|corner-1|1|6": {
+  "at": "2026-11-23T22:43:41.809Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stka_bar-cool|corner-1|2|2": {
+  "at": "2026-11-23T22:42:52.082Z",
+  "decision": "relabel:BLUE",
+  "label": "WHITE",
+  "note": "",
+  "tier": "P1a"
+ },
+ "sm-s721u1_stka_bar-cool|corner-1|2|5": {
+  "at": "2026-11-23T22:43:43.513Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stka_bar-cool|corner-1|2|7": {
+  "at": "2026-11-23T22:43:44.555Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stka_bar-cool|corner-2|0|3": {
+  "at": "2026-11-23T22:43:46.341Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stka_bar-cool|corner-2|0|5": {
+  "at": "2026-11-23T22:43:47.109Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stka_bar-cool|corner-2|1|2": {
+  "at": "2026-11-23T22:43:49.063Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stka_bar-cool|corner-2|1|6": {
+  "at": "2026-11-23T22:43:50.098Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stka_bar-cool|corner-2|2|3": {
+  "at": "2026-11-23T22:43:51.465Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stka_bar-cool|corner-2|2|5": {
+  "at": "2026-11-23T22:43:53.407Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stka_bar-warm-2|corner-1|1|5": {
+  "at": "2026-11-23T22:42:54.480Z",
+  "decision": "relabel:BLUE",
+  "label": "WHITE",
+  "note": "",
+  "tier": "P1a"
+ },
+ "sm-s721u1_stka_bar-warm-2|corner-1|2|0": {
+  "at": "2026-11-23T22:47:35.481Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P3"
+ },
+ "sm-s721u1_stka_bar-warm-2|corner-1|2|2": {
+  "at": "2026-11-23T22:42:55.933Z",
+  "decision": "relabel:BLUE",
+  "label": "WHITE",
+  "note": "",
+  "tier": "P1a"
+ },
+ "sm-s721u1_stka_bar-warm-2|corner-1|2|6": {
+  "at": "2026-11-23T22:42:57.944Z",
+  "decision": "relabel:BLUE",
+  "label": "WHITE",
+  "note": "",
+  "tier": "P1a"
+ },
+ "sm-s721u1_stka_bar-warm-2|corner-2|1|6": {
+  "at": "2026-11-23T22:43:54.695Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stka_bar-warm-2|corner-2|2|5": {
+  "at": "2026-11-23T22:43:57.193Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stka_bar-warm|corner-2|1|0": {
+  "at": "2026-11-23T22:47:34.689Z",
+  "decision": "keep",
+  "label": "GREEN",
+  "note": "",
+  "tier": "P3"
+ },
+ "sm-s721u1_stka_bar-warm|corner-2|2|5": {
+  "at": "2026-11-23T22:46:39.909Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P2"
+ },
+ "sm-s721u1_stka_bar-warm|corner-2|2|8": {
+  "at": "2026-11-23T22:46:40.796Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "tier": "P2"
+ },
+ "sm-s721u1_stla_bar-cool|corner-1|0|3": {
+  "at": "2026-11-23T22:43:58.223Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-cool|corner-1|1|6": {
+  "at": "2026-11-23T23:07:26.379Z",
+  "decision": "keep",
+  "label": "GREEN",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P3"
+ },
+ "sm-s721u1_stla_bar-cool|corner-1|1|7": {
+  "at": "2026-11-23T23:07:31.071Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P3"
+ },
+ "sm-s721u1_stla_bar-cool|corner-1|1|8": {
+  "at": "2026-11-23T23:07:38.747Z",
+  "decision": "relabel:BLUE",
+  "label": "GREEN",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P3"
+ },
+ "sm-s721u1_stla_bar-cool|corner-1|2|0": {
+  "at": "2026-11-23T22:43:59.799Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-cool|corner-2|0|1": {
+  "at": "2026-11-23T22:44:01.861Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-cool|corner-2|1|6": {
+  "at": "2026-11-23T22:44:02.836Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-cool|corner-2|1|8": {
+  "at": "2026-11-23T22:44:05.371Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-cool|corner-2|2|7": {
+  "at": "2026-11-23T22:44:07.130Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm-2|corner-1|0|3": {
+  "at": "2026-11-23T22:44:47.818Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm-2|corner-1|1|0": {
+  "at": "2026-11-23T23:08:35.428Z",
+  "decision": "keep",
+  "label": "GREEN",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P3"
+ },
+ "sm-s721u1_stla_bar-warm-2|corner-1|1|7": {
+  "at": "2026-11-23T22:44:49.824Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm-2|corner-1|2|0": {
+  "at": "2026-11-23T22:44:52.048Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm-2|corner-2|0|0": {
+  "at": "2026-11-23T22:44:53.338Z",
+  "decision": "relabel:RED",
+  "label": "WHITE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm-2|corner-2|0|1": {
+  "at": "2026-11-23T23:02:28.639Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm-2|corner-2|0|3": {
+  "at": "2026-11-23T23:02:40.284Z",
+  "decision": "keep",
+  "label": "WHITE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm-2|corner-2|1|0": {
+  "at": "2026-11-23T23:02:49.110Z",
+  "decision": "keep",
+  "label": "WHITE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm-2|corner-2|1|2": {
+  "at": "2026-11-23T22:56:54.349Z",
+  "decision": "relabel:BLUE",
+  "label": "WHITE",
+  "note": "",
+  "tier": "P1a"
+ },
+ "sm-s721u1_stla_bar-warm-2|corner-2|1|3": {
+  "at": "2026-11-23T23:02:58.686Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm-2|corner-2|1|7": {
+  "at": "2026-11-23T22:57:27.044Z",
+  "decision": "relabel:BLUE",
+  "label": "WHITE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P1a"
+ },
+ "sm-s721u1_stla_bar-warm-2|corner-2|2|1": {
+  "at": "2026-11-23T22:45:04.087Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm-2|corner-2|2|5": {
+  "at": "2026-11-23T22:45:07.570Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm|corner-1|0|2": {
+  "at": "2026-11-23T23:01:24.215Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm|corner-1|1|1": {
+  "at": "2026-11-23T22:44:17.073Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm|corner-1|1|3": {
+  "at": "2026-11-23T22:44:17.818Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm|corner-1|1|8": {
+  "at": "2026-11-23T22:44:23.849Z",
+  "decision": "relabel:BLUE",
+  "label": "WHITE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm|corner-1|2|0": {
+  "at": "2026-11-23T22:44:26.644Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm|corner-1|2|2": {
+  "at": "2026-11-23T23:01:31.484Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm|corner-1|2|5": {
+  "at": "2026-11-23T23:07:44.313Z",
+  "decision": "keep",
+  "label": "WHITE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P3"
+ },
+ "sm-s721u1_stla_bar-warm|corner-2|0|0": {
+  "at": "2026-11-23T23:08:00.315Z",
+  "decision": "relabel:GREEN",
+  "label": "WHITE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P3"
+ },
+ "sm-s721u1_stla_bar-warm|corner-2|0|3": {
+  "at": "2026-11-23T23:08:06.989Z",
+  "decision": "keep",
+  "label": "WHITE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P3"
+ },
+ "sm-s721u1_stla_bar-warm|corner-2|0|6": {
+  "at": "2026-11-23T22:44:32.916Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm|corner-2|0|7": {
+  "at": "2026-11-23T22:44:34.778Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm|corner-2|1|1": {
+  "at": "2026-11-23T23:08:13.140Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P3"
+ },
+ "sm-s721u1_stla_bar-warm|corner-2|1|2": {
+  "at": "2026-11-23T22:58:44.265Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm|corner-2|1|3": {
+  "at": "2026-11-23T23:00:25.103Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "Facelet 1, is wroing ",
+  "quadCorrected": true,
+  "tier": "P1a"
+ },
+ "sm-s721u1_stla_bar-warm|corner-2|1|5": {
+  "at": "2026-11-23T23:01:44.037Z",
+  "decision": "keep",
+  "label": "WHITE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm|corner-2|1|6": {
+  "at": "2026-11-23T23:01:57.877Z",
+  "decision": "relabel:RED",
+  "label": "ORANGE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm|corner-2|1|7": {
+  "at": "2026-11-23T23:02:10.237Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm|corner-2|1|8": {
+  "at": "2026-11-23T23:02:16.095Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm|corner-2|2|0": {
+  "at": "2026-11-23T23:08:21.986Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "quadCorrected": true,
+  "tier": "P3"
+ },
+ "sm-s721u1_stla_bar-warm|corner-2|2|1": {
+  "at": "2026-11-23T22:43:00.188Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P1a"
+ },
+ "sm-s721u1_stla_bar-warm|corner-2|2|5": {
+  "at": "2026-11-23T22:44:45.116Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_bar-warm|corner-2|2|7": {
+  "at": "2026-11-23T22:44:46.686Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P1b"
+ },
+ "sm-s721u1_stla_ceilback|corner-1|0|3": {
+  "at": "2026-11-23T22:46:41.900Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P2"
+ },
+ "sm-s721u1_stla_ceilback|corner-1|1|1": {
+  "at": "2026-11-23T22:46:43.093Z",
+  "decision": "keep",
+  "label": "ORANGE",
+  "note": "",
+  "tier": "P2"
+ },
+ "sm-s721u1_stla_ceilback|corner-1|1|2": {
+  "at": "2026-11-23T22:46:44.304Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P2"
+ },
+ "sm-s721u1_stla_ceilback|corner-1|1|3": {
+  "at": "2026-11-23T22:46:46.326Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P2"
+ },
+ "sm-s721u1_stla_ceilback|corner-1|1|8": {
+  "at": "2026-11-23T22:46:47.330Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P2"
+ },
+ "sm-s721u1_stla_ceilback|corner-2|0|1": {
+  "at": "2026-11-23T22:46:48.490Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P2"
+ },
+ "sm-s721u1_stla_ceilback|corner-2|1|0": {
+  "at": "2026-11-23T23:08:40.052Z",
+  "decision": "keep",
+  "label": "WHITE",
+  "note": "",
+  "tier": "P3"
+ },
+ "sm-s721u1_stla_ceilback|corner-2|1|2": {
+  "at": "2026-11-23T22:46:49.816Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P2"
+ },
+ "sm-s721u1_stla_ceilback|corner-2|1|3": {
+  "at": "2026-11-23T22:46:51.517Z",
+  "decision": "keep",
+  "label": "YELLOW",
+  "note": "",
+  "tier": "P2"
+ },
+ "sm-s721u1_stla_ceilback|corner-2|1|6": {
+  "at": "2026-11-23T22:46:55.750Z",
+  "decision": "keep",
+  "label": "RED",
+  "note": "",
+  "tier": "P2"
+ },
+ "sm-s721u1_stla_ceilback|corner-2|1|7": {
+  "at": "2026-11-23T22:46:56.544Z",
+  "decision": "keep",
+  "label": "BLUE",
+  "note": "",
+  "tier": "P2"
+ }
+}

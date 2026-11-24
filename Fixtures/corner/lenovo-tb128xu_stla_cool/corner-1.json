@@ -182,8 +182,8 @@
                 "GREEN",
                 "GREEN",
                 "YELLOW",
-                "WHITE",
-                "WHITE"
+                "BLUE",
+                "BLUE"
             ]
         },
         {
@@ -251,7 +251,7 @@
                 "WHITE",
                 "RED",
                 "RED",
-                "ORANGE",
+                "RED",
                 "YELLOW",
                 "GREEN"
             ]
@@ -277,8 +277,8 @@
             "prefilled",
             "prefilled",
             "prefilled",
-            "prefilled",
-            "prefilled"
+            "entered",
+            "entered"
         ],
         [
             "entered",

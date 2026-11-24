@@ -247,7 +247,7 @@
             "truth": [
                 "RED",
                 "YELLOW",
-                "RED",
+                "ORANGE",
                 "WHITE",
                 "RED",
                 "GREEN",
@@ -283,7 +283,7 @@
         [
             "prefilled",
             "entered",
-            "prefilled",
+            "entered",
             "prefilled",
             "prefilled",
             "prefilled",
