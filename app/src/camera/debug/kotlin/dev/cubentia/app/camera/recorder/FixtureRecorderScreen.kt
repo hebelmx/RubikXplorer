@@ -13,6 +13,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -126,6 +128,13 @@ private data class SwatchPreview(
 
 private enum class Confirm { RESET_LABELS, RECALIBRATE }
 
+/** Story 10.28: a corner group the count check refused, its folder, and the faces whose over-coloured pre-fills are ringed. */
+private data class GroupRefusal(
+    val check: ColorCountCheck,
+    val directory: File,
+    val faces: List<RefusalFace>,
+)
+
 /** What a corner-mode capture records (Story 10.19). */
 private enum class CornerCapture { CORNER, KEYPOINTS_ONLY, NEGATIVE }
 
@@ -182,6 +191,13 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
 
     var cornerGroup by remember { mutableStateOf(CornerRecordingGroup()) }
     val cornerLabels = remember { mutableStateListOf<Pair<List<Color>, List<TruthSource>>>() }
+    val cornerReviewed = remember { mutableStateListOf<List<Boolean>>() }
+
+    // Story 10.28: the latest confirmed labels of each written hold of the current group, the refusal and the override.
+    val groupHolds = remember { mutableStateMapOf<Int, CornerHoldLabels>() }
+    var refusal by remember { mutableStateOf<GroupRefusal?>(null) }
+    var overriding by remember { mutableStateOf(false) }
+    var overrideText by remember { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
 
     // The face whose saved truth the net is showing after a capture; Capture and prefill wait until the hold ends.
@@ -219,9 +235,17 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
         cornerShot = null
         cornerSamples = emptyList()
         cornerLabels.clear()
+        cornerReviewed.clear()
         entry = TruthEntry(selected = null)
         placement = null
         cornerKeypoints = null
+    }
+
+    /** Story 10.28: forgets the current group's holds and any refusal (a new group starts with the next hold). */
+    fun clearGroupCheck() {
+        groupHolds.clear()
+        refusal = null
+        overriding = false
     }
 
     /**
@@ -230,6 +254,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
      */
     fun newCondition(recalibrate: Boolean) {
         resetCorner()
+        clearGroupCheck()
         cornerHold = 1
         cornerGroup = CornerRecordingGroup()
         if (recalibrate) {
@@ -390,6 +415,8 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
         if (saving) return
         val shot = cornerShot ?: return
         val labels = entry.confirmed() ?: return
+        // Story 10.28: a side face is confirmed only once each of its pre-filled stickers was tapped or colour-picked.
+        if (cornerFaceLocks(cornerLabels.size, entry).isNotEmpty()) return
         val face = cornerSamples[cornerLabels.size].face
         if (labels.first[FaceSample.CENTER_INDEX] != Color.home(face)) {
             status = "Label the ${colorLabel(Color.home(face))} center before continuing."
@@ -397,9 +424,11 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
         }
         val calibration = CalibrationCenters(centers.toMap())
         val nextLabels = cornerLabels + listOf(labels)
+        val nextReviewed = cornerReviewed + listOf(entry.reviewed)
         val next = cornerSamples.getOrNull(nextLabels.size)
         if (next != null) {
             cornerLabels.add(labels)
+            cornerReviewed.add(entry.reviewed)
             entry = TruthEntry().withPrefill(prefill(next.stickers, calibration))
             return
         }
@@ -421,7 +450,10 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                 detectorKeypoints = placed?.detector,
                 torch = holdTorch,
                 diagnostics = holdDiagnostics(shot.corner?.faces.orEmpty(), calibration, holdTorch, shot.settle, shot.evIndex),
+                reviewed = nextReviewed,
             )
+        val holdLabels =
+            CornerHoldLabels(cornerSamples.map { it.face }, nextLabels.map { it.first }, nextLabels.map { it.second }, nextReviewed)
         saving = true
         scope.launch {
             try {
@@ -436,11 +468,70 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                         if (placed != null) writeKeypoints(directory, placed.shot, CornerLabel.POSITIVE, placed.points, placed.detector)
                         failure
                     }
+                // Story 10.28: once both holds are written, count both holds' latest labels and record the outcome.
+                groupHolds[record.hold] = holdLabels
+                val holds = groupHolds.toMap()
+                val check = colorCount(holds)
+                val checkFailure =
+                    if (check != null && manifestFailure == null) {
+                        withContext(Dispatchers.IO) { runCatching { recordCountCheck(directory, check, null) }.exceptionOrNull() }
+                    } else {
+                        null
+                    }
+                val saved = "Saved corner ${record.hold} in ${directory.name}."
                 status =
-                    "Saved corner ${record.hold} in ${directory.name}." +
-                    (manifestFailure?.let { " group.json not updated: ${it.message}" } ?: "")
-                cornerHold++
+                    when {
+                        manifestFailure != null -> "$saved group.json not updated: ${manifestFailure.message}"
+                        checkFailure != null -> "$saved Count check not written: ${checkFailure.message}"
+                        check == null -> saved
+                        check.passed -> "Saved corner group ${directory.name} · 9 of each colour."
+                        else -> "Wrote corner ${record.hold} in ${directory.name}; the group is not saved."
+                    }
+                cornerHold = nextCornerHold(holds.keys)
                 resetCorner()
+                if (check != null) {
+                    if (check.passed) {
+                        clearGroupCheck()
+                    } else {
+                        refusal = GroupRefusal(check, directory, overCountedPrefills(holds, check.over.keys))
+                    }
+                }
+            } catch (failure: Exception) {
+                status = "Save failed: ${failure.message}"
+            } finally {
+                saving = false
+            }
+        }
+    }
+
+    /** Story 10.28: after a refusal, capture hold [hold] again into the same group folder; the check reruns once written. */
+    fun retakeHold(hold: Int) {
+        if (saving) return
+        refusal = null
+        cornerHold = hold
+        resetCorner()
+        status = "Retake corner $hold: capture it again."
+    }
+
+    /** Record both corners again: the next hold starts a new group folder. */
+    fun recordBothAgain() {
+        if (saving) return
+        cornerHold = 1
+        cornerGroup = cornerGroup.restartHolds()
+        resetCorner()
+        clearGroupCheck()
+    }
+
+    /** Story 10.28: saves the refused group with the operator's non-blank [reason] in its manifest. */
+    fun saveOverride(reason: String) {
+        val current = refusal ?: return
+        if (saving) return
+        saving = true
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) { recordCountCheck(current.directory, current.check, reason) }
+                status = "Saved corner group ${current.directory.name} with an override."
+                clearGroupCheck()
             } catch (failure: Exception) {
                 status = "Save failed: ${failure.message}"
             } finally {
@@ -530,6 +621,10 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                 "Step 2/3 · Calibrate ${colorLabel(calibrationColor)} (${centers.size}/6)"
             }
 
+            cornerMode && refusal != null -> {
+                "Step 3/3 · Group not saved: colour counts are off"
+            }
+
             cornerMode && cornerHold > 2 -> {
                 "Step 3/3 · Both corners saved"
             }
@@ -543,10 +638,13 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                 "Step 3/3 · Face $selectedFace · ${colorLabel(expectedCenter)} center (${capturedFaces.size}/6 saved)"
             }
         }
+    // Story 10.28: a side face of a hold stays locked until each pre-filled sticker was tapped or colour-picked.
+    val cornerLocks = if (cornerMode && cornerShot != null) cornerFaceLocks(cornerLabels.size, entry) else emptyList()
     val lockLine =
         when {
             !calibrated && preview == null && sampleLocks.isNotEmpty() -> "Sample locked: ${sampleLocks.joinToString("; ")}"
             calibrated && !cornerMode && captureLocks.isNotEmpty() -> "Capture locked: ${captureLocks.joinToString("; ")}"
+            calibrated && cornerLocks.isNotEmpty() -> cornerLocks.joinToString("; ")
             else -> null
         }
 
@@ -722,34 +820,48 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
             // filling it, so the status and action sit right under it and leftover space falls below them.
             BoxWithConstraints(Modifier.weight(1f, fill = false).fillMaxWidth()) {
                 val side = minOf(maxHeight, maxWidth * 0.55f)
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (!calibrated) {
-                        CalibrationPanel(Modifier.size(side), centers, calibrationColor, preview)
-                    } else {
-                        Net(Modifier.size(side), entry, onSelect = { if (!saving && !holding) entry = entry.select(it) })
-                    }
-                    Box(Modifier.width(1.5.dp).height(side).background(MaterialTheme.colorScheme.outlineVariant))
-                    Palette(
-                        Modifier.height(side).weight(1f),
-                        highlighted = if (calibrated) null else calibrationColor,
-                        done = if (calibrated) emptySet() else centers.keys,
-                    ) { color ->
+                val shownRefusal = refusal
+                if (calibrated && cornerMode && shownRefusal != null) {
+                    RefusalNets(Modifier.height(side).fillMaxWidth(), shownRefusal.faces, side)
+                } else {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         if (!calibrated) {
-                            calibrationColor = color
-                            preview = null
-                        } else if (!saving && !holding) {
-                            val ready = entry.selected?.let { entry } ?: entry.select(entry.colors.indexOfFirst { it == null })
-                            if (ready.selected == null) status = "All nine are filled: tap a sticker to change it."
-                            entry = ready.set(color)
+                            CalibrationPanel(Modifier.size(side), centers, calibrationColor, preview)
+                        } else {
+                            Net(
+                                Modifier.size(side),
+                                entry,
+                                onSelect = { if (!saving && !holding) entry = if (cornerMode) entry.tap(it) else entry.select(it) },
+                            )
+                        }
+                        Box(Modifier.width(1.5.dp).height(side).background(MaterialTheme.colorScheme.outlineVariant))
+                        Palette(
+                            Modifier.height(side).weight(1f),
+                            highlighted = if (calibrated) null else calibrationColor,
+                            done = if (calibrated) emptySet() else centers.keys,
+                        ) { color ->
+                            if (!calibrated) {
+                                calibrationColor = color
+                                preview = null
+                            } else if (!saving && !holding) {
+                                val ready = entry.selected?.let { entry } ?: entry.select(entry.colors.indexOfFirst { it == null })
+                                if (ready.selected == null) status = "All nine are filled: tap a sticker to change it."
+                                // Story 10.28: in corner mode picking a pre-fill's own colour confirms it and keeps it PREFILLED.
+                                entry = ready.set(color, keepSamePrefill = cornerMode)
+                            }
                         }
                     }
                 }
             }
             Text(stepLine, style = MaterialTheme.typography.labelLarge)
+            refusal?.takeIf { cornerMode }?.let { shown ->
+                // Never truncated: every off colour and its count stay readable.
+                Text(countRefusal(shown.check), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            }
             if (cornerMode) {
                 Text(
                     cornerGroup.name?.let { "Group folder: $it" } ?: "No group folder yet",
@@ -800,10 +912,33 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                     if (cornerShot != null) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = ::resetCorner, enabled = !saving) { Text("Retake corner") }
-                            Button(onClick = ::confirmCornerFace, enabled = !saving && entry.confirmed() != null) {
+                            Button(onClick = ::confirmCornerFace, enabled = !saving && entry.confirmed() != null && cornerLocks.isEmpty()) {
                                 Text("Confirm face")
                             }
                         }
+                    } else if (refusal != null) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { retakeHold(1) }, enabled = !saving, modifier = Modifier.weight(1f)) {
+                                Text("Retake corner 1")
+                            }
+                            OutlinedButton(onClick = { retakeHold(2) }, enabled = !saving, modifier = Modifier.weight(1f)) {
+                                Text("Retake corner 2")
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = {
+                                    overrideText = ""
+                                    overriding = true
+                                },
+                                enabled = !saving,
+                                modifier = Modifier.weight(1f),
+                            ) { Text("Override…") }
+                            OutlinedButton(onClick = ::recordBothAgain, enabled = !saving, modifier = Modifier.weight(1f)) {
+                                Text("Record both corners again")
+                            }
+                        }
+                        KeypointsRow(ready, { captureCorner(CornerCapture.KEYPOINTS_ONLY) }, { captureCorner(CornerCapture.NEGATIVE) })
                     } else {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (cornerHold <= 2) {
@@ -812,34 +947,13 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                                 }
                             } else {
                                 OutlinedButton(
-                                    onClick = {
-                                        if (!saving) {
-                                            cornerHold = 1
-                                            cornerGroup = cornerGroup.restartHolds()
-                                            resetCorner()
-                                        }
-                                    },
+                                    onClick = ::recordBothAgain,
                                     enabled = !saving,
                                     modifier = Modifier.weight(1f),
                                 ) { Text("Record both corners again") }
                             }
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(
-                                onClick = { captureCorner(CornerCapture.KEYPOINTS_ONLY) },
-                                enabled = ready,
-                                modifier = Modifier.weight(1f),
-                            ) {
-                                Text("Keypoints only")
-                            }
-                            OutlinedButton(
-                                onClick = { captureCorner(CornerCapture.NEGATIVE) },
-                                enabled = ready,
-                                modifier = Modifier.weight(1f),
-                            ) {
-                                Text("No cube (negative)")
-                            }
-                        }
+                        KeypointsRow(ready, { captureCorner(CornerCapture.KEYPOINTS_ONLY) }, { captureCorner(CornerCapture.NEGATIVE) })
                     }
                 }
 
@@ -921,6 +1035,24 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                 }) { Text(if (kind == Confirm.RESET_LABELS) "Reset" else "Recalibrate") }
             },
             dismissButton = { TextButton(onClick = { confirm = null }) { Text("Cancel") } },
+        )
+    }
+    val overrideFor = refusal
+    if (overriding && overrideFor != null) {
+        val reason = overrideReason(overrideText)
+        AlertDialog(
+            onDismissRequest = { overriding = false },
+            title = { Text("Override the count check") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(countRefusal(overrideFor.check) + " Tuning and scoring skip this group unless the PO includes it.")
+                    OutlinedTextField(value = overrideText, onValueChange = { overrideText = it }, label = { Text("Reason") })
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { reason?.let(::saveOverride) }, enabled = reason != null && !saving) { Text("Save with reason") }
+            },
+            dismissButton = { TextButton(onClick = { overriding = false }) { Text("Cancel") } },
         )
     }
     if (choosingOverride) {
@@ -1140,12 +1272,68 @@ private fun HeaderRow(
     }
 }
 
-/** The current face's 3×3 net: tap a sticker to select it. Prefilled stickers are italic with a dashed-looking thin border. */
+/** Corner mode's supplemental captures: a keypoint-only positive or a no-cube negative. */
+@Composable
+private fun KeypointsRow(
+    ready: Boolean,
+    onKeypoints: () -> Unit,
+    onNegative: () -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = onKeypoints, enabled = ready, modifier = Modifier.weight(1f)) {
+            Text("Keypoints only")
+        }
+        OutlinedButton(onClick = onNegative, enabled = ready, modifier = Modifier.weight(1f)) {
+            Text("No cube (negative)")
+        }
+    }
+}
+
+/**
+ * Story 10.28: the faces of a refused group holding pre-filled stickers of over-counted colours, each a read-only net
+ * captioned with its hold and centre colour, the stickers to check ringed (never tinted); scrolls sideways.
+ */
+@Composable
+private fun RefusalNets(
+    modifier: Modifier,
+    faces: List<RefusalFace>,
+    side: androidx.compose.ui.unit.Dp,
+) {
+    if (faces.isEmpty()) {
+        Box(modifier, contentAlignment = Alignment.Center) {
+            Text("No pre-filled stickers of the over-counted colours.", style = MaterialTheme.typography.bodySmall)
+        }
+        return
+    }
+    val netSide = (side - 28.dp).coerceAtLeast(48.dp)
+    Row(modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        faces.forEach { face ->
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    "Corner ${face.hold} · ${colorLabel(face.colors[FaceSample.CENTER_INDEX])} face",
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                Net(
+                    Modifier.size(netSide),
+                    TruthEntry(colors = face.colors, sources = face.sources.ifEmpty { List(face.colors.size) { null } }),
+                    onSelect = null,
+                    ringed = face.ringed,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The current face's 3×3 net: tap a sticker to select it ([onSelect] null: read-only). Pre-filled stickers not checked
+ * yet are italic, checked ones upright, entered ones bold; [ringed] stickers get a magenta ring with the fill unchanged.
+ */
 @Composable
 private fun Net(
     modifier: Modifier,
     entry: TruthEntry,
-    onSelect: (Int) -> Unit,
+    onSelect: ((Int) -> Unit)?,
+    ringed: Set<Int> = emptySet(),
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
         repeat(3) { row ->
@@ -1155,24 +1343,29 @@ private fun Net(
                     val color = entry.colors[index]
                     val selected = entry.selected == index
                     val prefilled = entry.sources[index] == TruthSource.PREFILLED
+                    val checked = entry.reviewed.getOrElse(index) { false }
                     val fill = color?.let(::swatch) ?: UiColor.LightGray
+                    val border =
+                        when {
+                            selected -> BorderStroke(4.dp, UiColor.Magenta)
+                            index in ringed -> BorderStroke(3.dp, UiColor.Magenta)
+                            else -> BorderStroke(1.dp, UiColor.DarkGray)
+                        }
                     Box(
                         Modifier
                             .weight(1f)
                             .fillMaxHeight()
                             .clip(RoundedCornerShape(4.dp))
                             .background(fill)
-                            .border(
-                                BorderStroke(if (selected) 4.dp else 1.dp, if (selected) UiColor.Magenta else UiColor.DarkGray),
-                                RoundedCornerShape(4.dp),
-                            ).clickable { onSelect(index) },
+                            .border(border, RoundedCornerShape(4.dp))
+                            .then(if (onSelect != null) Modifier.clickable { onSelect(index) } else Modifier),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             color?.let(::glyph) ?: "?",
                             color = contentOn(fill),
                             fontWeight = if (prefilled) FontWeight.Normal else FontWeight.Bold,
-                            fontStyle = if (prefilled) FontStyle.Italic else FontStyle.Normal,
+                            fontStyle = if (prefilled && !checked) FontStyle.Italic else FontStyle.Normal,
                             style = MaterialTheme.typography.titleMedium,
                         )
                     }

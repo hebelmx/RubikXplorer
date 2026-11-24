@@ -160,17 +160,35 @@ internal data class TruthEntry(
     val colors: List<Color?> = List(STICKERS) { null },
     val sources: List<TruthSource?> = List(STICKERS) { null },
     val selected: Int? = null,
+    /** Story 10.28: the stickers the operator tapped or colour-picked; automatic selection and prefills never mark one. */
+    val reviewed: List<Boolean> = List(STICKERS) { false },
 ) {
     val complete: Boolean get() = colors.all { it != null }
     val anyEntered: Boolean get() = sources.any { it == TruthSource.ENTERED }
 
     fun select(index: Int): TruthEntry = copy(selected = index.takeIf { it in 0 until STICKERS })
 
-    fun set(color: Color): TruthEntry {
+    /** The operator tapped sticker [index]: it is selected and counts as reviewed (Story 10.28). */
+    fun tap(index: Int): TruthEntry {
+        if (index !in 0 until STICKERS) return this
+        return copy(selected = index, reviewed = reviewed.toMutableList().also { it[index] = true })
+    }
+
+    /**
+     * Sets the selected sticker to [color] and marks it reviewed. The sticker becomes [TruthSource.ENTERED], except that
+     * with [keepSamePrefill] picking the colour a [TruthSource.PREFILLED] sticker already has keeps it PREFILLED (the
+     * operator confirmed the pre-fill, Story 10.28).
+     */
+    fun set(
+        color: Color,
+        keepSamePrefill: Boolean = false,
+    ): TruthEntry {
         val index = selected ?: return this
+        val confirmsPrefill = keepSamePrefill && sources[index] == TruthSource.PREFILLED && colors[index] == color
         val nextColors = colors.toMutableList().also { it[index] = color }
-        val nextSources = sources.toMutableList().also { it[index] = TruthSource.ENTERED }
-        return TruthEntry(nextColors, nextSources, nextBlank(nextColors, index))
+        val nextSources = sources.toMutableList().also { it[index] = if (confirmsPrefill) TruthSource.PREFILLED else TruthSource.ENTERED }
+        val nextReviewed = reviewed.toMutableList().also { it[index] = true }
+        return TruthEntry(nextColors, nextSources, nextBlank(nextColors, index), nextReviewed)
     }
 
     /**
@@ -197,7 +215,8 @@ internal data class TruthEntry(
                 if (sources[index] == TruthSource.ENTERED) TruthSource.ENTERED else prefilled[index]?.let { TruthSource.PREFILLED }
             }
         val keep = selected?.takeIf { nextColors[it] == null }
-        return TruthEntry(nextColors, nextSources, keep ?: nextColors.indexOfFirst { it == null }.takeIf { it >= 0 })
+        val nextReviewed = sources.indices.map { sources[it] == TruthSource.ENTERED && reviewed[it] }
+        return TruthEntry(nextColors, nextSources, keep ?: nextColors.indexOfFirst { it == null }.takeIf { it >= 0 }, nextReviewed)
     }
 
     /** The nine truth colors and their sources for a capture; null until every sticker is filled. */
@@ -593,6 +612,9 @@ internal fun withHold(
                     dev.cubentia.domain.recognition
                         .CornerHoldManifest(hold, torch)
             ).sortedBy { it.hold },
+        // Story 10.28: a written hold leaves the group unsaved until the count check runs on both holds.
+        countCheck = dev.cubentia.domain.recognition.CornerCountCheck.PENDING,
+        overrideReason = null,
     )
 
 /**
@@ -724,3 +746,114 @@ internal fun recordedTorch(
     hasFlash: Boolean?,
     torchOn: Boolean,
 ): Boolean? = if (hasFlash == true) torchOn else null
+
+/*
+ * Story 10.28: the nine-of-each-colour count check of a corner group, its refusal copy and the side-face pre-fill lock.
+ */
+
+/** How many stickers of each colour a real cube has. */
+internal const val STICKERS_PER_COLOR = 9
+
+/** The two corner holds of a group. */
+private val CORNER_HOLDS = listOf(1, 2)
+
+/** One hold's confirmed labels: the faces in hold order and, per face, its nine colours, sources and reviewed flags. */
+internal data class CornerHoldLabels(
+    val faces: List<Face>,
+    val colors: List<List<Color>>,
+    val sources: List<List<TruthSource>>,
+    val reviewed: List<List<Boolean>>,
+)
+
+/** A group's colour counts over both holds, centres included; [over] and [under] hold the off colours and their counts. */
+internal data class ColorCountCheck(
+    val counts: Map<Color, Int>,
+) {
+    val over: Map<Color, Int> get() = counts.filterValues { it > STICKERS_PER_COLOR }
+    val under: Map<Color, Int> get() = counts.filterValues { it < STICKERS_PER_COLOR }
+    val passed: Boolean get() = over.isEmpty() && under.isEmpty()
+}
+
+/** The count check on the latest labels of holds 1 and 2; null until both holds are present. */
+internal fun colorCount(holds: Map<Int, CornerHoldLabels>): ColorCountCheck? {
+    if (CORNER_HOLDS.any { it !in holds }) return null
+    val labels = CORNER_HOLDS.flatMap { hold -> holds.getValue(hold).colors.flatten() }
+    return ColorCountCheck(Color.entries.associateWith { color -> labels.count { it == color } })
+}
+
+/** The refusal line, e.g. `Not saved: White 10 (over) · Blue 8 (under)`, off colours in [Color.entries] order. */
+internal fun countRefusal(check: ColorCountCheck): String =
+    "Not saved: " +
+        Color.entries
+            .mapNotNull { color ->
+                val count = check.counts[color] ?: 0
+                when {
+                    count > STICKERS_PER_COLOR -> "${colorLabel(color)} $count (over)"
+                    count < STICKERS_PER_COLOR -> "${colorLabel(color)} $count (under)"
+                    else -> null
+                }
+            }.joinToString(" · ")
+
+/** One face of a refused group shown with rings on its pre-filled stickers of over-counted colours. */
+internal data class RefusalFace(
+    val hold: Int,
+    val faceIndex: Int,
+    val face: Face,
+    val colors: List<Color>,
+    val ringed: Set<Int>,
+    val sources: List<TruthSource> = emptyList(),
+)
+
+/** Every face holding a [TruthSource.PREFILLED] sticker of an [over] colour, in hold order, then face index. */
+internal fun overCountedPrefills(
+    holds: Map<Int, CornerHoldLabels>,
+    over: Set<Color>,
+): List<RefusalFace> =
+    holds.keys.sorted().flatMap { hold ->
+        val labels = holds.getValue(hold)
+        labels.faces.indices.mapNotNull { faceIndex ->
+            val colors = labels.colors[faceIndex]
+            val sources = labels.sources[faceIndex]
+            val ringed = colors.indices.filter { sources[it] == TruthSource.PREFILLED && colors[it] in over }.toSet()
+            ringed.takeIf { it.isNotEmpty() }?.let { RefusalFace(hold, faceIndex, labels.faces[faceIndex], colors, it, sources) }
+        }
+    }
+
+/** The override reason: the trimmed [text], or null when it is empty or spaces only (no override then). */
+internal fun overrideReason(text: String): String? = text.trim().takeIf { it.isNotEmpty() }
+
+/** The hold to capture next: the first of 1 and 2 not [complete], else 3 (both written). */
+internal fun nextCornerHold(complete: Set<Int>): Int = CORNER_HOLDS.firstOrNull { it !in complete } ?: (CORNER_HOLDS.last() + 1)
+
+/**
+ * [manifest] with the count [check]'s outcome: passed, overridden with a non-blank [reason] (trimmed), or refused. A passed
+ * check keeps no reason.
+ */
+internal fun withCountCheck(
+    manifest: dev.cubentia.domain.recognition.CornerGroupManifest,
+    check: ColorCountCheck,
+    reason: String?,
+): dev.cubentia.domain.recognition.CornerGroupManifest {
+    val trimmed = reason?.let(::overrideReason)
+    return when {
+        check.passed -> manifest.copy(countCheck = dev.cubentia.domain.recognition.CornerCountCheck.PASSED, overrideReason = null)
+        trimmed != null -> manifest.copy(countCheck = dev.cubentia.domain.recognition.CornerCountCheck.OVERRIDDEN, overrideReason = trimmed)
+        else -> manifest.copy(countCheck = dev.cubentia.domain.recognition.CornerCountCheck.REFUSED, overrideReason = null)
+    }
+}
+
+/** The side faces of a hold (index 1 and 2), whose pre-fills must each be tapped or colour-picked before Confirm face. */
+private val SIDE_FACE_INDEXES = setOf(1, 2)
+
+/**
+ * Why Confirm face is locked for face [faceIndex] of a hold: on a side face, the pre-filled stickers not reviewed yet,
+ * as `Confirm locked: tap the N pre-filled stickers not checked yet`; empty when it may be confirmed.
+ */
+internal fun cornerFaceLocks(
+    faceIndex: Int,
+    entry: TruthEntry,
+): List<String> {
+    if (faceIndex !in SIDE_FACE_INDEXES) return emptyList()
+    val unchecked = entry.sources.indices.count { entry.sources[it] == TruthSource.PREFILLED && !entry.reviewed[it] }
+    return if (unchecked == 0) emptyList() else listOf("Confirm locked: tap the $unchecked pre-filled stickers not checked yet")
+}

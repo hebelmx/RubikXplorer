@@ -153,7 +153,7 @@ class ColorCalibrationTest {
             println("ColorCalibrationTest: no group index (${index.path}); no pastel corner group to check yet")
             return
         }
-        val pastel = CornerFixtureJson.decodeIndex(index.readText()).groups.filter { it.pastel }
+        val pastel = CornerFixtureJson.decodeIndex(index.readText()).used().filter { it.pastel }
         if (pastel.isEmpty()) println("ColorCalibrationTest: the group index marks no pastel group")
         val problems = pastel.flatMap { pastelProblems(File(root, it.group)) }
         val unexpected = problems.filterNot { problem -> KNOWN_PASTEL_PROBLEMS.any { problem.startsWith(it) } }

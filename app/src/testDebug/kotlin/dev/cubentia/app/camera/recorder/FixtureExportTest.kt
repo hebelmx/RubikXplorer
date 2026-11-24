@@ -5,6 +5,7 @@ import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.CaptureQuality
 import dev.cubentia.domain.recognition.ClassificationResult
+import dev.cubentia.domain.recognition.CornerCountCheck
 import dev.cubentia.domain.recognition.CornerFixtureJson
 import dev.cubentia.domain.recognition.CornerFixturePaths
 import dev.cubentia.domain.recognition.CornerFixtureRecord
@@ -164,7 +165,47 @@ class FixtureExportTest {
         assertEquals(listOf(CornerHoldManifest(1, true), CornerHoldManifest(2, false)), after.holds)
         assertEquals(after, CornerFixtureJson.decodeManifest(File(group, CornerFixturePaths.MANIFEST).readText()))
         assertEquals(calibration, after.calibration)
+        // Story 10.28: every hold write leaves the group pending its count check.
+        assertEquals(CornerCountCheck.PENDING, after.countCheck)
         // A group without a manifest cannot take a hold: the caller reports it and keeps the capture.
         assertThrows(java.io.IOException::class.java) { recordHold(File(root, "missing"), 1, null) }
+    }
+
+    @Test
+    fun `the count check outcome is written to the group's manifest, the override with its trimmed reason`() {
+        val group = File(root, "Fixtures/corner/lenovo_stla_warm").also { it.mkdirs() }
+        ensureGroupManifest(group, groupManifest(device, "stla", "warm", LightDirection.FRONT, calibration = calibration))
+        recordHold(group, 1, null)
+        recordHold(group, 2, null)
+        val manifestFile = File(group, CornerFixturePaths.MANIFEST)
+        assertEquals(CornerCountCheck.PENDING, CornerFixtureJson.decodeManifest(manifestFile.readText()).countCheck)
+        val refused =
+            ColorCountCheck(
+                Color.entries.associateWith {
+                    if (it == Color.WHITE) {
+                        10
+                    } else if (it == Color.BLUE) {
+                        8
+                    } else {
+                        9
+                    }
+                },
+            )
+        val refusedManifest = recordCountCheck(group, refused, null)
+        assertEquals(CornerCountCheck.REFUSED, refusedManifest.countCheck)
+        assertEquals(refusedManifest, CornerFixtureJson.decodeManifest(manifestFile.readText()))
+        assertFalse(refusedManifest.saved)
+        val overridden = recordCountCheck(group, refused, "  logo centre misread ")
+        val saved = CornerFixtureJson.decodeManifest(manifestFile.readText())
+        assertEquals(overridden, saved)
+        assertEquals(CornerCountCheck.OVERRIDDEN, saved.countCheck)
+        assertEquals("logo centre misread", saved.overrideReason)
+        assertEquals(listOf(CornerHoldManifest(1), CornerHoldManifest(2)), saved.holds)
+        // A retaken hold reopens the check; a balanced rerun passes with no reason.
+        recordHold(group, 1, null)
+        val passed = recordCountCheck(group, ColorCountCheck(Color.entries.associateWith { 9 }), null)
+        assertEquals(CornerCountCheck.PASSED, passed.countCheck)
+        assertNull(passed.overrideReason)
+        assertThrows(java.io.IOException::class.java) { recordCountCheck(File(root, "missing"), refused, "reason") }
     }
 }

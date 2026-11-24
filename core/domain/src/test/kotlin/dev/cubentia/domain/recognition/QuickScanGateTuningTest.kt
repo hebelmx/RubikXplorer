@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.util.Locale
 import kotlin.math.ceil
@@ -38,18 +39,23 @@ class QuickScanGateTuningTest {
             get() = records.flatMap { record -> record.labeledSamples.map { it.sample.face to (record.torch == true) } }.toMap()
     }
 
-    /** The tuning groups (10.22 pipeline, split `tuning` in the group index); nothing else is decoded. */
+    /**
+     * The tuning groups (10.22 pipeline, split `tuning` in the group index's used groups); nothing else is decoded. Story
+     * 10.28: a group [CornerGroupUse] does not mark used (unsaved, or overridden and not included by the PO) is skipped.
+     */
     private fun tuningGroups(root: File = FIXTURES): List<Group> {
         assumeTrue(root.isDirectory, "Corner fixtures are recorded in the device session")
         val indexFile = File(root, CornerFixturePaths.GROUP_INDEX)
         assumeTrue(indexFile.isFile, "No corner group index")
         val index = CornerFixtureJson.decodeIndex(indexFile.readText())
-        return index.groups
+        return index
+            .used()
             .filter { it.split == CornerSplit.TUNING }
             .sortedBy { it.group }
             .mapNotNull { entry ->
                 val dir = File(root, entry.group)
                 val manifest = CornerFixtureJson.decodeManifest(File(dir, CornerFixturePaths.MANIFEST).readText())
+                if (CornerGroupUse.of(entry.group, manifest, index) != CornerGroupUse.USED) return@mapNotNull null
                 val records =
                     dir
                         .listFiles()
@@ -70,6 +76,58 @@ class QuickScanGateTuningTest {
                     entry.pastel,
                 )
             }
+    }
+
+/** Story 10.28: how many recorded groups under [root] [CornerGroupUse] does not mark used, as the reports' line. */
+    private fun skippedLine(root: File = FIXTURES): String {
+        val index =
+            File(root, CornerFixturePaths.GROUP_INDEX).takeIf { it.isFile }?.let { CornerFixtureJson.decodeIndex(it.readText()) }
+        val uses =
+            root.listFiles().orEmpty().filter { it.isDirectory }.mapNotNull { dir ->
+                File(dir, CornerFixturePaths.MANIFEST).takeIf { it.isFile }?.let {
+                    CornerGroupUse.of(dir.name, CornerFixtureJson.decodeManifest(it.readText()), index)
+                }
+            }
+        return "Skipped: ${uses.count { it == CornerGroupUse.OVERRIDE_SKIPPED }} overridden (not included by the PO), " +
+            "${uses.count { it == CornerGroupUse.UNSAVED }} unsaved"
+    }
+
+    @Test
+    fun `story 10-28 only used tuning groups are tuned and the skipped ones are counted`(
+        @TempDir root: File,
+    ) {
+        val source = File(FIXTURES, "lenovo-tb128xu_stka_warm")
+        assumeTrue(source.isDirectory, "The legacy Lenovo group is needed as copies")
+        val first = CornerFixtureJson.decode(File(source, CornerFixturePaths.fileName(1)).readText())
+        val base = CornerGroupManifest(CornerFixturePaths.PIPELINE_10_22, LightDirection.FRONT, first.device, first.cube, first.light)
+        mapOf(
+            "passed" to base.copy(countCheck = CornerCountCheck.PASSED),
+            "pending" to base.copy(countCheck = CornerCountCheck.PENDING),
+            "refused" to base.copy(countCheck = CornerCountCheck.REFUSED),
+            "over_in" to base.copy(countCheck = CornerCountCheck.OVERRIDDEN, overrideReason = "reason"),
+            "over_out" to base.copy(countCheck = CornerCountCheck.OVERRIDDEN, overrideReason = "reason"),
+        ).forEach { (name, manifest) ->
+            val target = File(root, name)
+            source.copyRecursively(target)
+            File(target, CornerFixturePaths.MANIFEST).writeText(CornerFixtureJson.encodeManifest(manifest))
+        }
+        val index =
+            CornerGroupIndex(
+                groups =
+                    listOf(
+                        CornerGroupIndexEntry("passed", CornerSplit.TUNING),
+                        // Listed by mistake: an unsaved group is still never tuned.
+                        CornerGroupIndexEntry("pending", CornerSplit.TUNING),
+                    ),
+                overridden =
+                    listOf(
+                        CornerOverriddenEntry("over_in", CornerSplit.TUNING, "reason", included = true),
+                        CornerOverriddenEntry("over_out", CornerSplit.TUNING, "reason"),
+                    ),
+            )
+        File(root, CornerFixturePaths.GROUP_INDEX).writeText(CornerFixtureJson.encodeIndex(index))
+        assertEquals(listOf("over_in", "passed"), tuningGroups(root).map { it.name })
+        assertEquals("Skipped: 1 overridden (not included by the PO), 2 unsaved", skippedLine(root))
     }
 
     /** Every calibration the scan could hold for [group]: none, its own, and every other tuning group's of the same device. */
@@ -318,6 +376,7 @@ class QuickScanGateTuningTest {
             buildString {
                 appendLine("# Story 10.21 tuning fit (tuning split only)")
                 appendLine()
+                appendLine("- ${skippedLine()}")
                 appendLine("- plain groups (fit): ${plain.joinToString { it.name }}")
                 appendLine("- pastel groups (reported, Story 10.27): ${groups.filter { it.pastel }.joinToString { it.name }}")
                 appendLine("- agreement margins (fit): ${margins.entries.joinToString { "${it.key}=${it.value}" }}")

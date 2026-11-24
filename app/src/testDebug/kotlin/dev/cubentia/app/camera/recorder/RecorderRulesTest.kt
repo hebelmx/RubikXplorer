@@ -473,7 +473,7 @@ class RecorderRulesTest {
             ),
             two.holds,
         )
-        assertEquals(manifest.copy(holds = two.holds), two)
+        assertEquals(manifest.copy(holds = two.holds, countCheck = dev.cubentia.domain.recognition.CornerCountCheck.PENDING), two)
         // A retaken hold replaces only its own entry, kept in hold order; a camera without a flash records null.
         assertEquals(
             listOf(
@@ -766,5 +766,252 @@ class RecorderRulesTest {
         assertEquals(CornerMiss.TOO_DARK, cornerMiss(1, located))
         val missed = CornerReader.read(yuv, guide, detector = CornerDetector { _, _ -> null })
         assertEquals(CornerMiss.NO_CUBE, cornerMiss(1, missed))
+    }
+
+    /*
+     * Story 10.28: the nine-of-each-colour count check, the refusal, the override reason and the side-face pre-fill lock.
+     */
+
+    /** A hold's labels with every face its own centre colour (a solved cube over both holds); all entered, none reviewed. */
+    private fun solvedHold(hold: Int): CornerHoldLabels {
+        val plan =
+            dev.cubentia.domain.recognition.QuickScanPlan.holds[hold - 1]
+        return CornerHoldLabels(
+            faces = plan.map { it.face },
+            colors = plan.map { step -> List(9) { step.centerColor } },
+            sources = plan.map { List(9) { TruthSource.ENTERED } },
+            reviewed = plan.map { List(9) { false } },
+        )
+    }
+
+    /** [labels] with sticker [index] of face [faceIndex] set to [color] as an unreviewed pre-fill. */
+    private fun withPrefilled(
+        labels: CornerHoldLabels,
+        faceIndex: Int,
+        index: Int,
+        color: Color,
+    ) = labels.copy(
+        colors =
+            labels.colors.mapIndexed { f, face ->
+                if (f ==
+                    faceIndex
+                ) {
+                    face.mapIndexed { i, c -> if (i == index) color else c }
+                } else {
+                    face
+                }
+            },
+        sources =
+            labels.sources.mapIndexed { f, face ->
+                if (f == faceIndex) face.mapIndexed { i, s -> if (i == index) TruthSource.PREFILLED else s } else face
+            },
+    )
+
+    /** Where the BLUE-centred face sits in the plan: its hold and face index. */
+    private fun blueFace(): Pair<Int, Int> =
+        dev.cubentia.domain.recognition.QuickScanPlan.holds
+            .withIndex()
+            .firstNotNullOf { (hold, plan) ->
+                plan.indexOfFirst { it.centerColor == Color.BLUE }.takeIf { it >= 0 }?.let { (hold + 1) to it }
+            }
+
+    @Test fun `a balanced group passes the count check over both holds, centres included`() {
+        val check = checkNotNull(colorCount(mapOf(1 to solvedHold(1), 2 to solvedHold(2))))
+        assertTrue(check.passed)
+        assertEquals(Color.entries.associateWith { 9 }, check.counts)
+        assertTrue(check.over.isEmpty() && check.under.isEmpty())
+    }
+
+    @Test fun `10 White and 8 Blue is refused, naming both, and rings the pre-filled White on its face`() {
+        val (hold, faceIndex) = blueFace()
+        val holds = mapOf(1 to solvedHold(1), 2 to solvedHold(2)).toMutableMap()
+        holds[hold] = withPrefilled(holds.getValue(hold), faceIndex, 8, Color.WHITE)
+        val check = checkNotNull(colorCount(holds))
+        assertFalse(check.passed)
+        assertEquals(mapOf(Color.WHITE to 10), check.over)
+        assertEquals(mapOf(Color.BLUE to 8), check.under)
+        assertEquals("Not saved: White 10 (over) · Blue 8 (under)", countRefusal(check))
+        val faces = overCountedPrefills(holds, check.over.keys)
+        assertEquals(1, faces.size)
+        val face = faces.single()
+        assertEquals(hold, face.hold)
+        assertEquals(faceIndex, face.faceIndex)
+        assertEquals(holds.getValue(hold).faces[faceIndex], face.face)
+        assertEquals(setOf(8), face.ringed)
+        assertEquals(holds.getValue(hold).colors[faceIndex], face.colors)
+        // An entered (not pre-filled) over colour is not ringed: no face is listed.
+        val entered = holds.toMutableMap()
+        entered[hold] = holds.getValue(hold).copy(sources = solvedHold(hold).sources)
+        assertEquals(emptyList<RefusalFace>(), overCountedPrefills(entered, check.over.keys))
+    }
+
+    @Test fun `faces with over-coloured pre-fills are listed in hold order, then face index`() {
+        val holds =
+            mapOf(
+                2 to withPrefilled(withPrefilled(solvedHold(2), 2, 0, Color.WHITE), 1, 3, Color.WHITE),
+                1 to withPrefilled(solvedHold(1), 1, 5, Color.WHITE),
+            )
+        val faces = overCountedPrefills(holds, setOf(Color.WHITE))
+        assertEquals(listOf(1 to 1, 2 to 1, 2 to 2), faces.map { it.hold to it.faceIndex })
+        assertEquals(listOf(setOf(5), setOf(3), setOf(0)), faces.map { it.ringed })
+    }
+
+    @Test fun `the count check waits for both holds and uses the latest capture of a retaken hold`() {
+        assertNull(colorCount(emptyMap()))
+        assertNull(colorCount(mapOf(1 to solvedHold(1))))
+        assertNull(colorCount(mapOf(2 to solvedHold(2))))
+        val (hold, faceIndex) = blueFace()
+        val bad = withPrefilled(solvedHold(hold), faceIndex, 0, Color.WHITE)
+        val holds = mutableMapOf(1 to solvedHold(1), 2 to solvedHold(2))
+        holds[hold] = bad
+        assertFalse(checkNotNull(colorCount(holds)).passed)
+        // Retaking the hold replaces its labels; the check reruns on the latest capture of each hold.
+        holds[hold] = solvedHold(hold)
+        assertTrue(checkNotNull(colorCount(holds)).passed)
+    }
+
+    @Test fun `the next hold after a write is the first hold not complete, else 3`() {
+        assertEquals(1, nextCornerHold(emptySet()))
+        assertEquals(2, nextCornerHold(setOf(1)))
+        assertEquals(1, nextCornerHold(setOf(2)))
+        assertEquals(3, nextCornerHold(setOf(1, 2)))
+    }
+
+    @Test fun `an override needs a reason that is not blank after trimming and writes it to the manifest`() {
+        assertNull(overrideReason(""))
+        assertNull(overrideReason("   "))
+        assertNull(overrideReason(" \t\n "))
+        assertEquals("peeling sticker", overrideReason("  peeling sticker "))
+        val device =
+            dev.cubentia.domain.recognition
+                .DeviceInfo("TB128XU", "LENOVO", "13", "b", 33)
+        val manifest = withHold(groupManifest(device, "stla", "warm", dev.cubentia.domain.recognition.LightDirection.FRONT), 1, null)
+        val refused =
+            ColorCountCheck(
+                Color.entries.associateWith {
+                    if (it == Color.WHITE) {
+                        10
+                    } else if (it == Color.BLUE) {
+                        8
+                    } else {
+                        9
+                    }
+                },
+            )
+        val passed = ColorCountCheck(Color.entries.associateWith { 9 })
+        val overridden = withCountCheck(manifest, refused, "  peeling sticker ")
+        assertEquals(dev.cubentia.domain.recognition.CornerCountCheck.OVERRIDDEN, overridden.countCheck)
+        assertEquals("peeling sticker", overridden.overrideReason)
+        assertTrue(overridden.saved)
+        listOf(null, "", "   ").forEach { blank ->
+            val kept = withCountCheck(manifest, refused, blank)
+            assertEquals(dev.cubentia.domain.recognition.CornerCountCheck.REFUSED, kept.countCheck)
+            assertNull(kept.overrideReason)
+            assertFalse(kept.saved)
+        }
+        val ok = withCountCheck(manifest, passed, "ignored")
+        assertEquals(dev.cubentia.domain.recognition.CornerCountCheck.PASSED, ok.countCheck)
+        assertNull(ok.overrideReason)
+        // A written hold leaves the group pending again, without a reason.
+        val again = withHold(overridden, 2, null)
+        assertEquals(dev.cubentia.domain.recognition.CornerCountCheck.PENDING, again.countCheck)
+        assertNull(again.overrideReason)
+        assertFalse(again.saved)
+    }
+
+    @Test fun `a side face stays locked until each pre-fill is tapped or colour-picked, and face 0 never locks`() {
+        val prefilled = List(9) { if (it == 4) null else Color.WHITE }
+        val entry = TruthEntry().withPrefill(prefilled)
+        // Automatic selection of the blank centre is not a review.
+        assertEquals(4, entry.selected)
+        assertEquals(List(9) { false }, entry.reviewed)
+        assertEquals(listOf("Confirm locked: tap the 8 pre-filled stickers not checked yet"), cornerFaceLocks(1, entry))
+        assertEquals(listOf("Confirm locked: tap the 8 pre-filled stickers not checked yet"), cornerFaceLocks(2, entry))
+        assertEquals(emptyList<String>(), cornerFaceLocks(0, entry))
+        // A palette pick on the auto-selected blank fills it; the next auto-selection is not a review either.
+        val centred = entry.set(Color.BLUE, keepSamePrefill = true)
+        assertEquals(TruthSource.ENTERED, centred.sources[4])
+        assertEquals(listOf("Confirm locked: tap the 8 pre-filled stickers not checked yet"), cornerFaceLocks(1, centred))
+        // A tap reviews a pre-fill; picking its own colour keeps it PREFILLED and reviewed.
+        val tapped = centred.tap(0)
+        assertEquals(0, tapped.selected)
+        assertTrue(tapped.reviewed[0])
+        assertEquals(TruthSource.PREFILLED, tapped.sources[0])
+        assertEquals(listOf("Confirm locked: tap the 7 pre-filled stickers not checked yet"), cornerFaceLocks(1, tapped))
+        val same = centred.select(1).set(Color.WHITE, keepSamePrefill = true)
+        assertEquals(TruthSource.PREFILLED, same.sources[1])
+        assertTrue(same.reviewed[1])
+        assertEquals(listOf("Confirm locked: tap the 7 pre-filled stickers not checked yet"), cornerFaceLocks(2, same))
+        // Select alone (automatic) never reviews; without keepSamePrefill the same colour counts as entered.
+        assertFalse(centred.select(2).reviewed[2])
+        assertEquals(TruthSource.ENTERED, centred.select(2).set(Color.WHITE).sources[2])
+        // A different colour on a pre-fill is entered and reviewed.
+        val changed = centred.select(3).set(Color.RED, keepSamePrefill = true)
+        assertEquals(TruthSource.ENTERED, changed.sources[3])
+        assertTrue(changed.reviewed[3])
+        val all = (0 until 9).fold(centred) { acc, index -> acc.tap(index) }
+        assertEquals(emptyList<String>(), cornerFaceLocks(1, all))
+        assertEquals(emptyList<String>(), cornerFaceLocks(2, all))
+        // Fresh entries and prefills start unreviewed.
+        assertEquals(List(9) { false }, TruthEntry().reviewed)
+        // Suggest again re-prefills the pre-filled cells unreviewed; only the entered centre keeps its review.
+        assertEquals(List(9) { it == 4 }, all.suggestAgain(List(9) { Color.YELLOW }).reviewed)
+        assertEquals(entry, entry.tap(9))
+    }
+
+    @Test fun `the pre-correction labels of the 10 corrected groups at add0c79e are all refused`() {
+        val json = kotlinx.serialization.json.Json
+        val snapshot =
+            json
+                .parseToJsonElement(
+                    checkNotNull(
+                        javaClass.getResourceAsStream("/recorder/pre-correction-labels-add0c79e.json"),
+                    ).bufferedReader().readText(),
+                ).let { it as kotlinx.serialization.json.JsonObject }
+
+        fun kotlinx.serialization.json.JsonElement.text() = (this as kotlinx.serialization.json.JsonPrimitive).content
+
+        fun kotlinx.serialization.json.JsonElement.list() = this as kotlinx.serialization.json.JsonArray
+        val provenance = snapshot.getValue("provenance") as kotlinx.serialization.json.JsonObject
+        assertTrue(provenance.getValue("commit").text().startsWith("add0c79e"))
+        val groups =
+            snapshot.getValue("groups").list().associate { element ->
+                val group = element as kotlinx.serialization.json.JsonObject
+                group.getValue("group").text() to
+                    group.getValue("holds").list().associate { holdElement ->
+                        val hold = holdElement as kotlinx.serialization.json.JsonObject
+                        val faces = hold.getValue("faces").list().map { Face.valueOf(it.text()) }
+                        hold.getValue("hold").text().toInt() to
+                            CornerHoldLabels(
+                                faces = faces,
+                                colors = hold.getValue("truth").list().map { face -> face.list().map { Color.valueOf(it.text()) } },
+                                sources =
+                                    hold.getValue("sources").list().map { face ->
+                                        face.list().map { TruthSource.valueOf(it.text().uppercase()) }
+                                    },
+                                reviewed = faces.map { List(9) { false } },
+                            )
+                    }
+            }
+        val corrections =
+            json.parseToJsonElement(java.io.File("../docs/evidence/10-27/label-corrections-2026-11-23.json").readText())
+                as kotlinx.serialization.json.JsonObject
+        val corrected =
+            corrections
+                .getValue(
+                    "corrections",
+                ).list()
+                .map { (it as kotlinx.serialization.json.JsonObject).getValue("group").text() }
+        assertEquals(corrected.toSet(), groups.keys)
+        assertEquals(10, groups.size)
+        groups.forEach { (name, holds) ->
+            val check = checkNotNull(colorCount(holds)) { "$name: both holds are needed" }
+            assertFalse(check.passed, "$name was balanced before the corrections: ${check.counts}")
+        }
+        // The example the planning verified.
+        assertEquals(
+            "Not saved: White 10 (over) · Blue 8 (under)",
+            countRefusal(checkNotNull(colorCount(groups.getValue("lenovo-tb128xu_stka_cool")))),
+        )
     }
 }

@@ -36,11 +36,41 @@ class CornerGroupIndexTest {
             root
                 .listFiles()
                 .orEmpty()
-                .filter { dir -> manifest(dir)?.pipeline == CornerFixturePaths.PIPELINE_10_22 }
-                .map { it.name }
-                .toSet()
-        (recorded - index.groups.map { it.group }.toSet()).sorted().forEach { problems += "$it: a 10.22 group the index does not list" }
-        return index.groups.mapNotNull { entry ->
+                .mapNotNull { dir -> manifest(dir)?.takeIf { it.pipeline == CornerFixturePaths.PIPELINE_10_22 }?.let { dir.name to it } }
+                .sortedBy { it.first }
+        val listed = index.groups.map { it.group }.toSet()
+        val overridden = index.overridden.associateBy { it.group }
+        // Story 10.28: saved groups go under groups, overridden ones under overridden with their reason, unsaved ones nowhere.
+        recorded.forEach { (name, manifest) ->
+            when {
+                !manifest.saved -> {
+                    if (name in listed || name in overridden) {
+                        problems +=
+                            "$name: an unsaved group (count check ${manifest.countCheck?.name?.lowercase()}) the index must not list"
+                    }
+                }
+
+                manifest.countCheck == CornerCountCheck.OVERRIDDEN -> {
+                    val entry = overridden[name]
+                    if (entry == null) {
+                        problems += "$name: an overridden group the index does not list under overridden"
+                    } else if (entry.reason != manifest.overrideReason) {
+                        problems +=
+                            "$name: the index's override reason '${entry.reason}' is not the manifest's '${manifest.overrideReason}'"
+                    }
+                    if (name in listed) problems += "$name: an overridden group listed under groups"
+                }
+
+                else -> {
+                    if (name !in listed) problems += "$name: a 10.22 group the index does not list"
+                    if (name in overridden) problems += "$name: listed under overridden but its group.json is not overridden"
+                }
+            }
+        }
+        index.skippedOverrides().filterNot { File(root, it).isDirectory }.forEach {
+            problems += "$it: listed in the index but no such folder"
+        }
+        return index.used().mapNotNull { entry ->
             val dir = File(root, entry.group)
             val manifest = manifest(dir)
             when {
@@ -51,6 +81,11 @@ class CornerGroupIndexTest {
 
                 manifest?.pipeline != CornerFixturePaths.PIPELINE_10_22 -> {
                     problems += "${entry.group}: listed in the index but has no 10.22 group.json"
+                    null
+                }
+
+                // An unsaved group is already named above; it never counts toward coverage.
+                !manifest.saved -> {
                     null
                 }
 
@@ -188,10 +223,13 @@ class CornerGroupIndexTest {
         pipeline: String = CornerFixturePaths.PIPELINE_10_22,
         positives: Int = 0,
         negatives: Int = 0,
+        countCheck: CornerCountCheck? = null,
+        reason: String? = null,
     ) {
         val dir = File(root, name).also { it.mkdirs() }
-        File(dir, CornerFixturePaths.MANIFEST)
-            .writeText(CornerFixtureJson.encodeManifest(CornerGroupManifest(pipeline, LightDirection.FRONT, device, "stla", "warm")))
+        val manifest =
+            CornerGroupManifest(pipeline, LightDirection.FRONT, device, "stla", "warm", countCheck = countCheck, overrideReason = reason)
+        File(dir, CornerFixturePaths.MANIFEST).writeText(CornerFixtureJson.encodeManifest(manifest))
         val keypoints = File(dir, CornerFixturePaths.KEYPOINTS_DIR).also { it.mkdirs() }
         (1..positives + negatives).forEach { i ->
             val positive = i <= positives
@@ -244,6 +282,65 @@ class CornerGroupIndexTest {
         assertEquals(2 to 1, groups.first().positives to groups.first().negatives)
         val all = checkNotNull(check(root))
         assertTrue(all.containsAll(problems) && "Lenovo TB128XU: no backlit group" in all, all.joinToString("\n"))
+    }
+
+    @Test
+    fun `story 10-28 saved groups are listed, overridden ones apart with their reason, unsaved ones nowhere`(
+        @TempDir root: File,
+    ) {
+        writeGroup(root, "passed", lenovo, positives = 1, countCheck = CornerCountCheck.PASSED)
+        writeGroup(root, "legacy", lenovo, positives = 1)
+        writeGroup(root, "over_in", lenovo, positives = 2, countCheck = CornerCountCheck.OVERRIDDEN, reason = "peeling sticker")
+        writeGroup(root, "over_out", lenovo, positives = 4, countCheck = CornerCountCheck.OVERRIDDEN, reason = "logo centre")
+        writeGroup(root, "pending", lenovo, countCheck = CornerCountCheck.PENDING)
+        writeGroup(root, "refused", lenovo, countCheck = CornerCountCheck.REFUSED)
+        val good =
+            CornerGroupIndex(
+                groups = listOf(CornerGroupIndexEntry("passed", CornerSplit.HELDOUT), CornerGroupIndexEntry("legacy", CornerSplit.TUNING)),
+                overridden =
+                    listOf(
+                        CornerOverriddenEntry("over_in", CornerSplit.HELDOUT, "peeling sticker", included = true),
+                        CornerOverriddenEntry("over_out", CornerSplit.HELDOUT, "logo centre"),
+                    ),
+            )
+        File(root, CornerFixturePaths.GROUP_INDEX).writeText(CornerFixtureJson.encodeIndex(good))
+        val problems = mutableListOf<String>()
+        val groups = checkNotNull(load(root, problems))
+        assertEquals(emptyList<String>(), problems)
+        // Coverage counts the used groups only: the included override, never the skipped one.
+        assertEquals(listOf("passed", "legacy", "over_in"), groups.map { it.name })
+        assertEquals(3, groups.filter { it.split == CornerSplit.HELDOUT }.sumOf { it.positives })
+
+        val bad =
+            CornerGroupIndex(
+                groups =
+                    listOf(
+                        CornerGroupIndexEntry("passed", CornerSplit.HELDOUT),
+                        CornerGroupIndexEntry("over_in", CornerSplit.HELDOUT),
+                        CornerGroupIndexEntry("pending", CornerSplit.TUNING),
+                    ),
+                overridden =
+                    listOf(
+                        CornerOverriddenEntry("over_out", CornerSplit.HELDOUT, "another reason"),
+                        CornerOverriddenEntry("legacy", CornerSplit.TUNING, "not overridden"),
+                        CornerOverriddenEntry("refused", CornerSplit.TUNING, "refused, not overridden"),
+                    ),
+            )
+        File(root, CornerFixturePaths.GROUP_INDEX).writeText(CornerFixtureJson.encodeIndex(bad))
+        val named = mutableListOf<String>()
+        load(root, named)
+        assertEquals(
+            listOf(
+                "legacy: a 10.22 group the index does not list",
+                "legacy: listed under overridden but its group.json is not overridden",
+                "over_in: an overridden group the index does not list under overridden",
+                "over_in: an overridden group listed under groups",
+                "over_out: the index's override reason 'another reason' is not the manifest's 'logo centre'",
+                "pending: an unsaved group (count check pending) the index must not list",
+                "refused: an unsaved group (count check refused) the index must not list",
+            ),
+            named,
+        )
     }
 
     private companion object {

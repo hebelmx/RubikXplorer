@@ -101,3 +101,18 @@ internal fun recordHold(
     file.writeText(CornerFixtureJson.encodeManifest(updated))
     return updated
 }
+
+/**
+ * Story 10.28: rewrites the group's `group.json` with the count [check]'s outcome ([withCountCheck]): passed, overridden
+ * with the trimmed [reason], or refused. Throws when the manifest is missing or unreadable, like [recordHold].
+ */
+internal fun recordCountCheck(
+    directory: File,
+    check: ColorCountCheck,
+    reason: String?,
+): CornerGroupManifest {
+    val file = File(directory, CornerFixturePaths.MANIFEST)
+    val updated = withCountCheck(CornerFixtureJson.decodeManifest(file.readText()), check, reason)
+    file.writeText(CornerFixtureJson.encodeManifest(updated))
+    return updated
+}
