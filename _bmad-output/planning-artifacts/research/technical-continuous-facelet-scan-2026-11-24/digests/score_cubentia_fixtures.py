@@ -6,6 +6,7 @@ Run from the repository root with a temporary environment:
 """
 
 import argparse
+import ast
 import hashlib
 import json
 import sys
@@ -18,17 +19,22 @@ import numpy as np
 import onnxruntime as ort
 
 MODEL_SHA = "f158df4560063686cf90483e21bc611790bc63f6fc2b343a7a4e1dd6b5063dd3"
-COLORS = ("WHITE", "YELLOW", "GREEN", "BLUE", "RED", "ORANGE")
+EXCLUDED_LIVE_GROUPS = {"sm-s721u1_stkb_studio-a"}  # known bad truth (10 WHITE, 8 RED; assemble.py)
+DEVICES = {"lenovo-tb128xu": "Lenovo", "sm-s721u1": "S24FE", "sm-t738u": "TabS7FE"}
 TARGET = 640
 THRESHOLD = 0.35
 
 
-def predict(session, image_bgr):
+def load_color_map(session):
+    names = ast.literal_eval(session.get_modelmeta().custom_metadata_map["names"])
+    return {int(k): str(v).upper() for k, v in names.items() if str(v).lower() != "rubik_cube"}
+
+
+def predict(session, image_bgr, color_map):
     h, w = image_bgr.shape[:2]
     scale = min(TARGET / w, TARGET / h)
     nw, nh = int(w * scale), int(h * scale)
-    pad_x, pad_y = (TARGET - nw) / 2.0, (TARGET - nh) / 2.0
-    left, top = int(pad_x), int(pad_y)
+    left, top = int((TARGET - nw) / 2.0), int((TARGET - nh) / 2.0)
     canvas = np.zeros((TARGET, TARGET, 3), dtype=np.uint8)
     canvas[top : top + nh, left : left + nw] = cv2.resize(
         image_bgr, (nw, nh), interpolation=cv2.INTER_LINEAR
@@ -40,7 +46,8 @@ def predict(session, image_bgr):
     dt_ms = (time.perf_counter() - t0) * 1000.0
     classes = rows[:, 4:].argmax(axis=1)
     scores = rows[:, 4:].max(axis=1)
-    selected = np.flatnonzero((scores >= THRESHOLD) & (classes < len(COLORS)))
+    valid_cls = np.isin(classes, list(color_map.keys()))
+    selected = np.flatnonzero((scores >= THRESHOLD) & valid_cls)
     if not len(selected):
         return [], dt_ms
     boxes = rows[selected, :4].copy()
@@ -52,9 +59,9 @@ def predict(session, image_bgr):
         cx, cy, bw, bh = rows[idx, :4]
         preds.append(
             (
-                COLORS[classes[idx]],
+                color_map[int(classes[idx])],
                 float(scores[idx]),
-                (float((cx - pad_x) / scale), float((cy - pad_y) / scale), float(bw / scale), float(bh / scale)),
+                (float((cx - left) / scale), float((cy - top) / scale), float(bw / scale), float(bh / scale)),
             )
         )
     return preds, dt_ms
@@ -83,15 +90,36 @@ def sticker_polygons(pts, sc):
     return polygons
 
 
-def score_corner(session, repo_root, sc):
+def match_predictions(preds, polys):
+    matched = {}
+    dup = outside = 0
+    centroids = [poly.mean(axis=0) for poly in polys]
+    for pred_color, _, (ox, oy, _, _) in preds:
+        hits = [i for i, poly in enumerate(polys) if cv2.pointPolygonTest(poly, (ox, oy), False) >= 0]
+        if not hits:
+            outside += 1
+            continue
+        unmatched_hits = [i for i in hits if i not in matched]
+        if unmatched_hits:
+            idx = min(unmatched_hits, key=lambda i: float(np.hypot(ox - centroids[i][0], oy - centroids[i][1])))
+            matched[idx] = pred_color
+        else:
+            dup += 1
+    return matched, dup, outside
+
+
+def score_corner(session, repo_root, sc, color_map):
     buckets = defaultdict(Counter)
     slot_stats = defaultdict(Counter)
     ratios = []
     latencies = []
     for directory in sorted(p for p in (repo_root / "Fixtures/corner").iterdir() if p.is_dir()):
         device_id, cube, _ = directory.name.split("_", 2)
+        if device_id not in DEVICES:
+            raise ValueError(f"Unknown device id {device_id!r} in {directory.name}")
+        device = DEVICES[device_id]
         cube_type = "stickered" if cube.startswith("stk") else "stickerless"
-        device = "Lenovo" if "lenovo" in device_id else "S24FE"
+        is_pastel = cube == "stlb"
         for jpath in sorted(directory.glob("corner-*.json")):
             rec = json.loads(jpath.read_text())
             kp = rec.get("keypoints")
@@ -100,34 +128,31 @@ def score_corner(session, repo_root, sc):
             img = cv2.imread(str(directory / rec["frame"]))
             h, w = img.shape[:2]
             pts = uv_to_image_points(kp, w, h, sc)
-            polys = sticker_polygons(pts, sc)
+            poly_entries = sticker_polygons(pts, sc)
+            if poly_entries is None:
+                raise ValueError(f"Degenerate quad in {jpath}")
+            polys = [p for _, _, p in poly_entries]
             truths = [(fi, col) for fi, ls in enumerate(rec["labeledSamples"]) for col in ls["truth"]]
-            preds, dt_ms = predict(session, img)
+            preds, dt_ms = predict(session, img, color_map)
             latencies.append(dt_ms)
             for _, _, (_, _, ow, oh) in preds:
                 if oh > 0:
                     ratios.append(ow / oh)
-            matched = set()
-            dup = outside = correct = 0
-            for pred_color, _, (ox, oy, _, _) in preds:
-                hits = [i for i, (_, _, poly) in enumerate(polys) if cv2.pointPolygonTest(poly, (ox, oy), False) >= 0]
-                if not hits:
-                    outside += 1
-                    continue
-                idx = hits[0]
-                if idx in matched:
-                    dup += 1
-                else:
-                    matched.add(idx)
-                    fi, gt_color = truths[idx]
-                    slot = ("top(U/D)", "left(F/L)", "right(R/B)")[fi]
-                    slot_stats[slot]["hit"] += 1
-                    if pred_color == gt_color:
-                        correct += 1
-                        slot_stats[slot]["correct"] += 1
+            matched, dup, outside = match_predictions(preds, polys)
+            correct = 0
+            for idx, pred_color in matched.items():
+                fi, gt_color = truths[idx]
+                slot = ("top(U/D)", "left(F/L)", "right(R/B)")[fi]
+                slot_stats[slot]["hit"] += 1
+                if pred_color == gt_color:
+                    correct += 1
+                    slot_stats[slot]["correct"] += 1
             for fi, _ in truths:
                 slot_stats[("top(U/D)", "left(F/L)", "right(R/B)")[fi]]["total"] += 1
-            for key in ("ALL", cube_type, device, f"{device}/{cube_type}"):
+            keys = ["ALL", cube_type, device, f"{device}/{cube_type}"]
+            if is_pastel:
+                keys.append("pastel(stlb)")
+            for key in keys:
                 b = buckets[key]
                 b["photos"] += 1
                 b["gt"] += 27
@@ -141,8 +166,10 @@ def score_corner(session, repo_root, sc):
         f"corner (human-keypoint subset): median_ms={np.median(latencies):.1f} "
         f"box_wh_median={np.median(ratios):.2f} p10={np.percentile(ratios, 10):.2f} p90={np.percentile(ratios, 90):.2f}"
     )
-    for key in ("ALL", "stickered", "stickerless", "Lenovo/stickered", "S24FE/stickered", "Lenovo/stickerless", "S24FE/stickerless"):
+    for key in ("ALL", "stickered", "stickerless", "Lenovo/stickered", "S24FE/stickered", "Lenovo/stickerless", "S24FE/stickerless", "pastel(stlb)"):
         b = buckets[key]
+        if not b["photos"]:
+            continue
         print(
             f"  {key:18s} photos={b['photos']:2d} gt={b['gt']:3d} pred={b['pred']:3d} "
             f"hit={b['hit']:3d} ({100*b['hit']/b['gt']:4.1f}%) "
@@ -154,28 +181,32 @@ def score_corner(session, repo_root, sc):
         print(f"  slot {slot:10s} hit={s['hit']}/{s['total']} ({100*s['hit']/s['total']:.1f}%) correct={s['correct']}/{s['total']} ({100*s['correct']/s['total']:.1f}%)")
 
 
-def score_keypoints_negatives(session, repo_root):
+def score_keypoints_negatives(session, repo_root, color_map):
     neg = []
-    pos = []
     for jpath in sorted((repo_root / "Fixtures/corner").glob("*/keypoints/*.json")):
         rec = json.loads(jpath.read_text())
+        if rec["label"] != "negative":
+            continue
         img = cv2.imread(str(jpath.parent / rec["frame"]))
         if img is None:
             continue
-        preds, _ = predict(session, img)
-        (neg if rec["label"] == "negative" else pos).append(len(preds))
+        preds, _ = predict(session, img, color_map)
+        neg.append(len(preds))
     fp_frames = sum(1 for c in neg if c > 0)
-    print(f"keypoints negatives: n={len(neg)} fp_frames={fp_frames} ({100*fp_frames/max(1,len(neg)):.1f}%) total_fp={sum(neg)} max={max(neg, default=0)}")
-    print(f"keypoints positives: n={len(pos)} median={np.median(pos) if pos else 0:.1f} min={min(pos, default=0)} max={max(pos, default=0)}")
+    print(f"keypoints negatives (128x128 crops): n={len(neg)} fp_frames={fp_frames} ({100*fp_frames/max(1,len(neg)):.1f}%) total_fp={sum(neg)} max={max(neg, default=0)}")
 
 
-def score_live(session, repo_root, sc):
-    faces = gt = pred = hit = correct = 0
+def score_live(session, repo_root, sc, color_map):
+    faces = gt = pred = hit = correct = dup_tot = out_tot = 0
     ratios = []
     for directory in sorted(p for p in (repo_root / "Fixtures/live").iterdir() if p.is_dir()):
+        if directory.name in EXCLUDED_LIVE_GROUPS:
+            continue
         for jpath in sorted(directory.glob("*.json")):
             rec = json.loads(jpath.read_text())
             if not rec.get("frame"):
+                continue
+            if rec["labeledSample"]["sample"].get("orientationDegrees", 0) != 0:
                 continue
             img = cv2.imread(str(directory / rec["frame"]))
             if img is None:
@@ -197,25 +228,23 @@ def score_live(session, repo_root, sc):
                 for c in range(3)
             ]
             truth = rec["labeledSample"]["truth"]
-            preds, _ = predict(session, img)
+            preds, _ = predict(session, img, color_map)
             for _, _, (_, _, ow, oh) in preds:
                 if oh > 0:
                     ratios.append(ow / oh)
-            matched = set()
-            corr = 0
-            for pred_color, _, (ox, oy, _, _) in preds:
-                hits = [i for i, poly in enumerate(polys) if cv2.pointPolygonTest(poly, (ox, oy), False) >= 0]
-                if len(hits) == 1 and hits[0] not in matched:
-                    matched.add(hits[0])
-                    corr += int(pred_color == truth[hits[0]])
+            matched, dup, outside = match_predictions(preds, polys)
+            corr = sum(int(pred_color == truth[idx]) for idx, pred_color in matched.items())
             faces += 1
             gt += 9
             pred += len(preds)
             hit += len(matched)
             correct += corr
+            dup_tot += dup
+            out_tot += outside
     print(
-        f"live frontal: faces={faces} gt={gt} pred={pred} hit={hit} ({100*hit/max(1,gt):.1f}%) "
-        f"correct={correct} ({100*correct/max(1,gt):.1f}%) color|hit={100*correct/max(1,hit):.1f}% "
+        f"live frontal (excluding known-bad truth): faces={faces} gt={gt} pred={pred} "
+        f"hit={hit} ({100*hit/max(1,gt):.1f}%) correct={correct} ({100*correct/max(1,gt):.1f}%) "
+        f"color|hit={100*correct/max(1,hit):.1f}% dup={dup_tot} out={out_tot} "
         f"box_wh_median={np.median(ratios) if ratios else 0:.2f}"
     )
 
@@ -233,9 +262,10 @@ def main():
     options = ort.SessionOptions()
     options.intra_op_num_threads = 2
     session = ort.InferenceSession(str(args.model), options, providers=["CPUExecutionProvider"])
-    score_corner(session, repo_root, sc)
-    score_keypoints_negatives(session, repo_root)
-    score_live(session, repo_root, sc)
+    color_map = load_color_map(session)
+    score_corner(session, repo_root, sc, color_map)
+    score_keypoints_negatives(session, repo_root, color_map)
+    score_live(session, repo_root, sc, color_map)
 
 
 if __name__ == "__main__":

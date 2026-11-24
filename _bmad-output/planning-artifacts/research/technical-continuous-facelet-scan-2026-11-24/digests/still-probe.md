@@ -17,16 +17,17 @@ Grouping Lenovo and Galaxy S24 FE stickerless cohorts into one median (19) hides
 
 ## Ground-truth localization and color accuracy
 
-We projected the 27 labeled sticker quads from the human-verified 7-corner keypoints on all 30 schema-4 corner photos (`Fixtures/corner/*/corner-*.json` carrying `keypoints`, 810 stickers total; verified against recorded CIELAB sticker samples at median ΔE 3.98), evaluated all 73 cube-free negative frames under `Fixtures/corner/*/keypoints/*.png`, and scored all 48 guided single-face frontal photos under `Fixtures/live/` (432 stickers).
+We projected the 27 labeled sticker quads from the human-verified 7-corner keypoints on all 30 schema-4 corner photos (`Fixtures/corner/*/corner-*.json` carrying `keypoints`, 810 stickers total on pre-framed square crops), evaluated all 73 cube-free negative crops (`128×128`, upscaled 5× to `640×640`) under `Fixtures/corner/*/keypoints/*.png`, and scored all 42 valid guided single-face frontal photos under `Fixtures/live/` (378 stickers; excluding `live/sm-s721u1_stkb_studio-a`, whose ground truth is known invalid with 10 WHITE and 8 RED per `tools/sticker-model/assemble.py`).
 
 | Cubentia slice | Ground-truth stickers | Proposals | Unique cell hit | Exact cell + color | Color given hit | Duplicate hits | Box `w/h` median |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| **`Fixtures/live`** (48 frontal 1-face photos) | 432 | 423 | **420 (97.2%)** | **389 (90.0%)** | 92.6% | — | **1.00** |
+| **`Fixtures/live`** (42 valid frontal 1-face photos) | 378 | 368 | **366 (96.8%)** | **336 (88.9%)** | 91.8% | 0 | **1.01** |
 | **`Fixtures/corner`** (30 3-face photos) | 810 | 699 | **375 (46.3%)** | **239 (29.5%)** | 63.7% | **320** | **0.30** |
 | — Lenovo / stickered (4 photos) | 108 | 106 | 63 (58.3%) | 42 (38.9%) | 66.7% | 43 | — |
 | — S24 FE / stickered (8 photos) | 216 | 210 | 105 (48.6%) | 38 (17.6%) | 36.2% | 102 | — |
 | — Lenovo / stickerless (8 photos) | 216 | 139 | 86 (39.8%) | 67 (31.0%) | 77.9% | 53 | — |
 | — S24 FE / stickerless (10 photos) | 270 | 244 | 121 (44.8%) | 92 (34.1%) | 76.0% | 122 | — |
+| — Pastel cube `stlb` subset (2 photos) | 54 | 25 | 16 (29.6%) | 10 (18.5%) | 62.5% | 9 | — |
 
 By face slot across the 30 3-face corner photos:
 - **Top face (`U`/`D`):** 170/270 hit (**63.0%**), 112/270 exact cell+color (**41.5%**).
@@ -34,7 +35,7 @@ By face slot across the 30 3-face corner photos:
 - **Right side (`R`/`B`):** 97/270 hit (**35.9%**), 57/270 exact cell+color (**21.1%**).
 
 Additional checks:
-- **Negative rejection (`Fixtures/corner/*/keypoints/*.png`, 73 cube-free frames):** 14 of 73 frames (**19.2%**) produced false-positive sticker boxes (46 false boxes total, up to 25 on one frame).
+- **Negative rejection (`Fixtures/corner/*/keypoints/*.png`, 73 cube-free `128×128` crops):** 14 of 73 frames (**19.2%**) produced false-positive sticker boxes (46 false boxes total, up to 25 on one frame). Note that these are upscaled `128×128` corner crops rather than full-frame camera negatives; future detector benchmarks must include uncropped full-frame negatives.
 - **Off-center check:** Placing `corner-1.jpg` off-center (`x=[20, 226]`) inside a `640×640` canvas still compressed predicted boxes horizontally around the **cube's** vertical midline (`x` span 54.0 px vs. `y` span 125.6 px, median `w/h = 0.35`).
 - **Why raw counts misled:** `S24 FE / stickered` emitted 210 proposals for 216 stickers yet scored only **17.6% exact cell+color accuracy** because **102 boxes duplicated inner cells** while outer columns were horizontally pulled onto neighboring stickers. The upstream cause is confirmed in [facelets.md](facelets.md).
 
