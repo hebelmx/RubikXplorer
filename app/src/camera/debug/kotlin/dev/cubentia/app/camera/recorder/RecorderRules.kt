@@ -351,6 +351,63 @@ internal fun cornerSamples(
     }
 }
 
+/** Sticker-evidence cells a corner face needs to count as read: the same count `CornerReader.read` uses. */
+internal const val CORNER_FACE_MIN_EVIDENCE_CELLS = 6
+
+/** Why a corner capture has no color samples (GH-329): nothing located, faces too dark for colors, or an unread cell. */
+internal enum class CornerMiss { NO_CUBE, TOO_DARK, UNREAD_CELL }
+
+/**
+ * Why [cornerSamples] has no samples for [reading], or null when it has. "Located" is read from the frame only:
+ * `CornerReader` sets a zero score and three null faces exactly when the detector located nothing. A located frame is
+ * too dark when it was not detected, or a face is missing or below the sticker-evidence floors.
+ */
+internal fun cornerMiss(
+    hold: Int,
+    reading: dev.cubentia.app.camera.CornerFrame?,
+): CornerMiss? {
+    if (reading == null) return CornerMiss.NO_CUBE
+    if (cornerSamples(hold, reading) != null) return null
+    val located = reading.detected || reading.score > 0.0 || reading.faces.any { it != null }
+    if (!located) return CornerMiss.NO_CUBE
+    if (!reading.detected) return CornerMiss.TOO_DARK
+    val dark =
+        reading.faces.any { face ->
+            face == null ||
+                face.cells.count {
+                    it != null &&
+                        dev.cubentia.domain.recognition.FrameQuality
+                            .isStickerEvidence(it)
+                } < CORNER_FACE_MIN_EVIDENCE_CELLS
+        }
+    return if (dark) CornerMiss.TOO_DARK else CornerMiss.UNREAD_CELL
+}
+
+/** The capture status for a corner capture without colors. */
+internal fun cornerMissStatus(miss: CornerMiss): String =
+    when (miss) {
+        CornerMiss.NO_CUBE -> {
+            "Detector missed: place the 7 corners (colors are not saved)."
+        }
+
+        CornerMiss.TOO_DARK -> {
+            "Faces too dark for colors: tap EV+, then Retake and capture again, " +
+                "or place the 7 corners (colors are not saved)."
+        }
+
+        CornerMiss.UNREAD_CELL -> {
+            "A face had an unread cell: place the 7 corners (colors are not saved)."
+        }
+    }
+
+/** The status after a keypoint-only positive is saved as fixture [index], with an EV+ hint when the faces were too dark. */
+internal fun keypointsOnlySaved(
+    index: Int,
+    miss: CornerMiss?,
+): String =
+    "Saved positive %04d (keypoints only).".format(index) +
+        (if (miss == CornerMiss.TOO_DARK) " Faces were too dark for colors: tap EV+ to record them." else "")
+
 /*
  * Story 10.19 corner-mode rules: keypoint labels on the model-input crop, never-overwrite group folders, the manifest.
  */

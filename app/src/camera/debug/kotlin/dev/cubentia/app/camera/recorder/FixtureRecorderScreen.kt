@@ -132,7 +132,7 @@ private enum class CornerCapture { CORNER, KEYPOINTS_ONLY, NEGATIVE }
 /**
  * A frozen corner capture whose seven corners the operator places on the model-input crop (Story 10.19): [points] are
  * the manual labels, [detector] what the detector found (diagnostics only); [samples] are the color samples, null when
- * the detector missed or only keypoints are recorded.
+ * the detector missed or only keypoints are recorded; [miss] is why a corner capture has no samples (GH-329).
  */
 private data class Placement(
     val shot: CapturedFrame,
@@ -140,6 +140,7 @@ private data class Placement(
     val samples: List<FaceSample>?,
     val detector: List<List<Double>>?,
     val points: List<List<Double>>,
+    val miss: CornerMiss?,
 )
 
 /**
@@ -346,12 +347,10 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                         null
                     }
                 val detector = detectorKeypoints(shot.corner?.frameQuads.orEmpty(), crop)
-                placement = Placement(shot, kind, samples, detector, initialKeypoints())
-                status =
-                    when {
-                        kind == CornerCapture.CORNER && samples == null -> "Detector missed: place the 7 corners (colors are not saved)."
-                        else -> "Drag the 7 corners onto the cube, then Use corners."
-                    }
+                val miss =
+                    if (kind == CornerCapture.CORNER && samples == null) cornerMiss(cornerHold, shot.corner) ?: CornerMiss.NO_CUBE else null
+                placement = Placement(shot, kind, samples, detector, initialKeypoints(), miss)
+                status = miss?.let(::cornerMissStatus) ?: "Drag the 7 corners onto the cube, then Use corners."
             } catch (failure: Exception) {
                 status = "Save failed: ${failure.message}"
             } finally {
@@ -378,7 +377,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
         scope.launch {
             try {
                 val index = saveSupplemental(placed.shot, CornerLabel.POSITIVE, placed.points, placed.detector)
-                status = "Saved positive %04d (keypoints only).".format(index)
+                status = keypointsOnlySaved(index, placed.miss)
             } catch (failure: Exception) {
                 status = "Save failed: ${failure.message}"
             } finally {
