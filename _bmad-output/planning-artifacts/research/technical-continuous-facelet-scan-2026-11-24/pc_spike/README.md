@@ -32,37 +32,46 @@ uv run --no-project --with opencv-python-headless --with numpy python run_spike.
 uv run --no-project --with opencv-python-headless --with numpy python test_spike.py
 ```
 
-## Real-camera detector bridge (`lattice_fit.py`, `run_real_video.py`)
+## Clean-room Cubentia LiteRT sticker-center model (`litert_center/`)
 
-`lattice_fit.py` converts any unordered set of 2D sticker-center points into 1–3 non-overlapping projective 3×3 face quads (`DetectedQuad`) using local basis seeding, projective homography refinement, non-overlap checks, and a rigid-cube shared-edge bonus. It plugs directly into `mapper.process_frame()`.
+Cubentia's own clean-room MobileNetV2 inverted-residual FPN heatmap model (`sticker_centers.tflite`, **523,900 bytes / 511.6 KB FP16**, 255K params, input `192×192×3` RGB → `48×48×3` `[hm_prob, dx, dy]`, pure LiteRT built-in ops, **0 extra runtime `.so` bytes** on existing `litert:2.3.2`) was trained purely on synthetic 1–3 visible-face renders + non-held-out `Fixtures/live` textures (**zero** real `Fixtures/corner/` photos in training; canonical holdout union strictly untouched).
 
-### Read-only PC detector benchmark (tuning split only; canonical holdout union untouched)
+### Detector comparison on real Cubentia fixtures (canonical holdout union strictly untouched during training/tuning)
 
-| Public detector (PC-only benchmark) | 3-face tuning hit (`n=14`, 378 stickers) | Top / Left / Right hit | Duplicates | Frontal `Fixtures/live` tuning (`n=30`) | `lattice_fit` 3-face recovery |
-|---|---:|---|---:|---:|---:|
-| **`yush-io/cubeSolver`** (single-class `sticker`) | **89.9% (340/378)** (`S24FE/stk` 96.3%, `Lenovo/stk` 90.7%, `S24FE/stl` 92.6%, `pastel` 70.4%) | **92.1% / 88.9% / 88.9%** | **0** (2 outside) | **99.3% (268/270)** | **40/42 faces (95.2%)**, 13/14 complete 3-face corners, 32 shared edges |
-| **`YORO`** (6-color OBB + `cube face`) | 26.5% (100/378; only 3 `cube face` boxes) | 54.0% / 13.5% / 11.9% | 0 | 95.2% (257/270) | Disqualified |
-| `Super-Morse` (for reference) | 46.3% (all 30; poisoned generator) | 63.0% / 40.0% / 35.9% | 320 | 96.8% | Disqualified |
+| Detector | Model size | PC CPU latency | 3-face tuning hit (`n=14`, 378) | 3-face **held-out** hit (`n=16`, 432) | Frontal `Fixtures/live` (tuning / held-out) | Negative rejection (`n=73`) | `lattice_fit` 3-face recovery (tuning / held-out) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **Cubentia `sticker_centers.tflite` (clean-room LiteRT)** | **511.6 KB FP16** | **1.1–1.4 ms** | **97.1% (367/378)** (`prec 97.1%`; pastel `90.7%`) | **91.0% (393/432)** (`prec 92.0%`; `S24FE/stk 98.1%`, `Lenovo/stl 91.4%`) | **97.0%** (0 FP) / **99.1%** | **93.2%** (6.8% FP) | **42/42 (100%)** / **48/48 (100%)** — **90/90 faces, 30/30 corners, 89/90 shared edges** |
+| `yush-io/cubeSolver` (read-only PC comparator, no license) | 6.25 MB `.pt` | ~63 ms | 89.9% (340/378) (pastel 70.4%) | Untested (holdout untouched) | 99.3% / — | — | 40/42 (95.2%) / — |
+| `YORO` (read-only PC comparator, no license) | 6.40 MB `.pt` | ~65 ms | 26.5% (100/378) | Disqualified | 95.2% / — | — | Disqualified |
+| `Super-Morse` (AGPL-3.0, poisoned generator) | 10.67 MB `.onnx` | ~15 ms | 46.3% (all 30; 320 dupes) | Disqualified | 96.8% (all 42) | 80.8% (19.2% FP) | Disqualified |
 
-> **Clean-room rule:** `yush-io/cubeSolver` has no license file and is used **strictly** as a read-only PC spike comparator to test the real-video pipeline — never for bundling, pseudo-labeling, or training Cubentia's LiteRT model.
+### End-to-end `pixels -> sticker_centers.tflite -> lattice_fit -> mapper` (zero simulated detections)
 
-### Run on a real phone MP4 clip or live PC webcam
+All **7/7 continuous-scan stress scenarios** pass end-to-end from raw RGB pixels through `sticker_centers.tflite` → `lattice_fit.py` → `mapper.py` (**54/54 exact, 0 wrong, 0 transient wrong** across regrip, pastel+AWB drift, logo center+glare, mid-solve F2L symmetric regrip, finger occlusion+clutter, and starting without White; mid-scan layer twist caught cleanly on Scenario 7; LiteRT **1.0–1.2 ms**, mapper **4.0–7.7 ms** on PC CPU).
 
-Download the pinned `yush-io/cubeSolver` weights outside the repo (`SHA-256 68fd20b050a75f3268385e33afc8a9484ba498259e5a5b0e97914f28e2c1a739`), then run:
+> **Clean-room rule:** `yush-io/cubeSolver`, `YORO`, and `Super-Morse` are read-only PC comparators only — never bundled, distilled, or used for pseudo-labeling or training `sticker_centers.tflite`.
+
+### Train, evaluate, and run live on webcam or phone clip (LiteRT)
 
 ```sh
-# Recorded phone clip -> writes side-by-side MP4 replay + contact sheet
-uv run --no-project --extra-index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match \
-  --with torch --with torchvision --with ultralytics --with opencv-python-headless --with numpy \
-  python run_real_video.py --weights /tmp/cubesolver_best.pt --video path/to/clip.mp4 --stride 2 --out-dir /tmp/real_replay
+# 1. Re-train and export Cubentia's clean-room LiteRT model (~2.5 min on RTX A2000 GPU)
+/mnt/e/Dynamic/IndFun/RubikXplorer/tools/corner-model/.venv/bin/python litert_center/train_center_model.py \
+  --train-n 8000 --val-n 800 --epochs 20 --batch-size 48 --out /tmp/sticker_centers.tflite
 
-# Live PC webcam (/dev/video0) with interactive window (press r to reset, q to quit)
-uv run --no-project --extra-index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match \
-  --with torch --with torchvision --with ultralytics --with opencv-python --with numpy \
-  python run_real_video.py --weights /tmp/cubesolver_best.pt --webcam 0 --show
+# 2. Evaluate on real Cubentia fixtures + all 7 end-to-end continuous scenarios
+uv run --no-project --python 3.12 --with ai-edge-litert --with opencv-python-headless --with numpy --with pillow \
+  python litert_center/eval_end_to_end.py --model /tmp/sticker_centers.tflite --split tuning --thresh 0.35
+
+# 3. Run on a recorded phone MP4 clip -> writes side-by-side MP4 replay + contact sheet
+uv run --no-project --python 3.12 --with ai-edge-litert --with opencv-python-headless --with numpy --with pillow \
+  python run_real_video.py --litert-model /tmp/sticker_centers.tflite --video path/to/clip.mp4 --stride 2 --out-dir /tmp/real_replay
+
+# 4. Run live on PC webcam (/dev/video0) with interactive window (press r to reset, q to quit)
+uv run --no-project --python 3.12 --with ai-edge-litert --with opencv-python-headless --with numpy --with pillow \
+  python run_real_video.py --litert-model /tmp/sticker_centers.tflite --webcam 0 --show
 ```
 
 ## What stays open for real camera clips
 
-1. Record two clean handheld clips (stickered + stickerless) with known 54-cell truth and run `run_real_video.py` to score exact 54-cell agreement and regrip recovery end-to-end on real video.
-2. Extend `tools/corner-model/render_cube.py` (1–3 visible faces, off-center, hand-occlusion masks) and train a clean Cubentia-owned LiteRT sticker-center / face-quad model on our RTX A2000 GPU to replace the PC-only comparator with a portable model that runs identically on PC and Android.
+1. Record two clean handheld clips (stickered + stickerless) with known 54-cell truth (or test live via `--webcam 0 --show`) and score exact 54-cell agreement and regrip recovery end-to-end on real physical video.
+2. Benchmark `sticker_centers.tflite` (and an INT8 quantized variant) on the physical Lenovo TB128XU, Galaxy Tab S7 FE 5G, and Galaxy S24 FE once real-video PC replay passes.

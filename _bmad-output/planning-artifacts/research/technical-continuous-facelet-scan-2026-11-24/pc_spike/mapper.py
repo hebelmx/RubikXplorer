@@ -321,12 +321,20 @@ class ContinuousCubeMapper:
         return out
 
     def _match_to_tracked(
-        self, frag: CubeFragment, detections: Sequence[DetectedQuad]
+        self, frag: CubeFragment, image_bgr: np.ndarray, detections: Sequence[DetectedQuad]
     ) -> Tuple[Dict[int, Tuple[str, np.ndarray]], List[int]]:
-        """Match current detections to frag.tracked by minimum vertex displacement over 4 cyclic shifts."""
+        """Match current detections to frag.tracked by vertex displacement + center-color continuity guard."""
         matched_det: Dict[int, Tuple[str, np.ndarray]] = {}
         used_faces: set[str] = set()
         candidates = []
+        det_center_cache: Dict[int, Tuple[np.ndarray, float]] = {}
+
+        def _det_center(di: int, aligned: np.ndarray) -> Tuple[np.ndarray, float]:
+            if di not in det_center_cache:
+                rgbs, quals, _, _ = _sample_face_cells(image_bgr, aligned)
+                det_center_cache[di] = (shading_invariant_lab(rgbs[4]), float(quals[4]))
+            return det_center_cache[di]
+
         for di, det in enumerate(detections):
             for fname, tf in frag.tracked.items():
                 _, edge_len = _quad_quality(tf.aligned_quad)
@@ -339,7 +347,16 @@ class ContinuousCubeMapper:
                         best_d = d
                         best_shift = shift
                 if best_d < max_disp:
-                    candidates.append((best_d, di, fname, np.roll(det.corners, -best_shift, axis=0)))
+                    aligned = np.roll(det.corners, -best_shift, axis=0)
+                    # Center-color continuity guard: when a fast turn slides adjacent face B into R's prior
+                    # screen coordinates and R drops out, reject any match whose glare-free center color
+                    # jumped sharply (a cube center never changes color between consecutive frames!).
+                    cur_lab, cur_q = _det_center(di, aligned)
+                    prev_lab = shading_invariant_lab(tf.raw_rgbs[4])
+                    center_de = float(np.linalg.norm(cur_lab - prev_lab))
+                    if cur_q > 0.20 and float(tf.quals[4]) > 0.20 and center_de > 30.0:
+                        continue
+                    candidates.append((best_d, di, fname, aligned))
         candidates.sort(key=lambda x: x[0])
         for _, di, fname, aligned in candidates:
             if di in matched_det or fname in used_faces:
@@ -673,7 +690,7 @@ class ContinuousCubeMapper:
                         continue
                     lab, q_sum, n_obs = r
                     # Need sufficient accumulated observation quality (graded angle+glare+sharpness)
-                    if q_sum < 0.70 or n_obs < 2:
+                    if q_sum < 0.55 or n_obs < 2:
                         continue
                     # Compare against the cube's own 6 centers (weighting chromaticity slightly higher than shading L*)
                     diff = proto_labs - lab[None, :]
@@ -768,7 +785,7 @@ class ContinuousCubeMapper:
         else:
             # Try tracking on master first if master currently has live tracked faces
             if self.master.tracked:
-                assigned, unmatched = self._match_to_tracked(self.master, plausible)
+                assigned, unmatched = self._match_to_tracked(self.master, image_bgr, plausible)
                 if assigned:
                     assigned, _ = self._attach_by_shared_edge(plausible, assigned, unmatched)
                     any_glare = self._update_fragment_observations(self.master, frame_idx, image_bgr, assigned)
@@ -785,7 +802,7 @@ class ContinuousCubeMapper:
                     assigned, _ = self._attach_by_shared_edge(plausible, assigned, order[1:])
                     any_glare = self._update_fragment_observations(self.pending, frame_idx, image_bgr, assigned)
                 else:
-                    assigned, unmatched = self._match_to_tracked(self.pending, plausible)
+                    assigned, unmatched = self._match_to_tracked(self.pending, image_bgr, plausible)
                     if not assigned:
                         # Reset pending fragment on tracking loss
                         self.pending = self._new_fragment()

@@ -38,7 +38,9 @@ def _is_valid_face_quad(quad: np.ndarray, d_med: float) -> bool:
         return False
     edges = np.array([quad[(k + 1) % 4] - quad[k] for k in range(4)], dtype=np.float64)
     lens = np.linalg.norm(edges, axis=1)
-    if np.min(lens) < 1.4 * d_med or np.max(lens) > 5.2 * d_med:
+    if np.min(lens) < 1.15 * d_med or np.max(lens) > 5.4 * d_med:
+        return False
+    if np.max(lens) / max(1e-6, np.min(lens)) > 3.2:
         return False
     # Opposite edges must be reasonably parallel and comparable in length (perspective cube face)
     if max(lens[0], lens[2]) / max(1e-6, min(lens[0], lens[2])) > 2.1:
@@ -48,7 +50,7 @@ def _is_valid_face_quad(quad: np.ndarray, d_med: float) -> bool:
     for k in range(4):
         u = -edges[(k - 1) % 4] / max(1e-6, lens[(k - 1) % 4])
         v = edges[k] / max(1e-6, lens[k])
-        if abs(float(u[0] * v[1] - u[1] * v[0])) < 0.34:  # corner angle >= ~20 deg
+        if abs(float(u[0] * v[1] - u[1] * v[0])) < 0.32:  # corner angle >= ~19 deg
             return False
     return True
 
@@ -107,44 +109,76 @@ def _fit_one_face(
 
     grid_uv = np.array([[c, r] for r in range(3) for c in range(3)], dtype=np.float32)
     outer_uv = np.array([[-0.5, -0.5], [2.5, -0.5], [2.5, 2.5], [-0.5, 2.5]], dtype=np.float32).reshape(-1, 1, 2)
+    g_c = grid_uv[:, 0:1].astype(np.float64)
+    g_r = grid_uv[:, 1:2].astype(np.float64)
+
+    # Try points with ~4 near neighbors first (face centers hit a 9-inlier face on the first few iterations!)
+    nbrs_per_pt: List[List[int]] = []
+    for i in range(n):
+        nb = [j for j in range(n) if j != i and 0.48 * d_med <= dist_mat[i, j] <= 1.65 * d_med]
+        nb.sort(key=lambda j: dist_mat[i, j])
+        nbrs_per_pt.append(nb[:5])
+    seed_order = sorted(range(n), key=lambda i: abs(len(nbrs_per_pt[i]) - 4))
 
     seen_match_sets = set()
-    best_candidate: Optional[Tuple[int, float, np.ndarray, Tuple[int, ...], np.ndarray]] = None
-    for i in range(n):
-        nbrs = [j for j in range(n) if j != i and 0.55 * d_med <= dist_mat[i, j] <= 1.65 * d_med]
+    best_candidate: Optional[Tuple[Tuple[int, int, float], int, float, np.ndarray, Tuple[int, ...], np.ndarray]] = None
+    early_stop = False
+
+    for i in seed_order:
+        if early_stop:
+            break
+        nbrs = nbrs_per_pt[i]
         if len(nbrs) < 2:
             continue
-        nbrs.sort(key=lambda j: dist_mat[i, j])
-        nbrs = nbrs[:5]
+        pi_xy = pts[i]
         for a_idx in range(len(nbrs)):
+            if early_stop:
+                break
             j = nbrs[a_idx]
-            v1 = pts[j] - pts[i]
-            l1 = float(np.linalg.norm(v1))
+            v1 = pts[j] - pi_xy
+            l1 = float(dist_mat[i, j])
             for b_idx in range(len(nbrs)):
                 if a_idx == b_idx:
                     continue
                 k = nbrs[b_idx]
-                v2 = pts[k] - pts[i]
-                l2 = float(np.linalg.norm(v2))
+                v2 = pts[k] - pi_xy
+                l2 = float(dist_mat[i, k])
                 cross = float(v1[0] * v2[1] - v1[1] * v2[0])
                 sin_th = cross / max(1e-6, l1 * l2)
-                if sin_th < 0.42:
+                if sin_th < 0.40:
                     continue
-                if max(l1, l2) / max(1e-6, min(l1, l2)) > 2.2:
+                if max(l1, l2) / max(1e-6, min(l1, l2)) > 2.3:
                     continue
+
+                d_loc = min(d_med, max(l1, l2))
+                tol_init_sq = (0.34 * d_loc) ** 2
+                tol_final = 0.26 * d_loc
 
                 for r0 in (0, 1):
                     for c0 in (0, 1):
-                        pred_grid = pts[i][None, :] + (grid_uv[:, 0:1] - c0) * v1[None, :] + (grid_uv[:, 1:2] - r0) * v2[None, :]
-                        d_pg = np.linalg.norm(pred_grid[:, None, :] - pts[None, :, :], axis=-1)
+                        pred_grid = pi_xy[None, :] + (g_c - c0) * v1[None, :] + (g_r - r0) * v2[None, :]
+                        dx = pred_grid[:, None, 0] - pts[None, :, 0]
+                        dy = pred_grid[:, None, 1] - pts[None, :, 1]
+                        d2 = dx * dx + dy * dy
+                        best_pi = np.argmin(d2, axis=1)
+                        best_d2 = d2[np.arange(9), best_pi]
+                        if int(np.sum(best_d2 <= tol_init_sq)) < min_inliers:
+                            continue
+
                         matches: List[Tuple[int, int]] = []
                         used_p = set()
+                        rows_mask = 0
+                        cols_mask = 0
                         for gi in range(9):
-                            pi = int(np.argmin(d_pg[gi]))
-                            if d_pg[gi, pi] <= 0.36 * d_med and pi not in used_p:
-                                matches.append((gi, pi))
-                                used_p.add(pi)
-                        if len(matches) < min_inliers:
+                            if best_d2[gi] <= tol_init_sq:
+                                pi = int(best_pi[gi])
+                                if pi not in used_p:
+                                    matches.append((gi, pi))
+                                    used_p.add(pi)
+                                    rows_mask |= 1 << (gi // 3)
+                                    cols_mask |= 1 << (gi % 3)
+                        # Must span all 3 rows AND all 3 columns so a 2-row/2-col face can never shift by +-1!
+                        if len(matches) < min_inliers or rows_mask != 7 or cols_mask != 7:
                             continue
                         sig = frozenset(matches)
                         if sig in seen_match_sets:
@@ -163,18 +197,27 @@ def _fit_one_face(
                         if _overlaps_existing(proj_quad, existing_quads):
                             continue
 
-                        d_final = np.linalg.norm(proj_grid[:, None, :] - pts[None, :, :], axis=-1)
+                        fx = proj_grid[:, None, 0] - pts[None, :, 0]
+                        fy = proj_grid[:, None, 1] - pts[None, :, 1]
+                        d_final = np.sqrt(fx * fx + fy * fy)
+                        f_pi = np.argmin(d_final, axis=1)
                         f_matches = []
                         used_f = set()
+                        f_rows = 0
+                        f_cols = 0
                         for gi in range(9):
-                            pi = int(np.argmin(d_final[gi]))
-                            if d_final[gi, pi] <= 0.28 * d_med and pi not in used_f:
-                                f_matches.append((gi, pi, float(d_final[gi, pi])))
+                            pi = int(f_pi[gi])
+                            dist_v = float(d_final[gi, pi])
+                            if dist_v <= tol_final and pi not in used_f:
+                                f_matches.append((gi, pi, dist_v))
                                 used_f.add(pi)
-                        if len(f_matches) < min_inliers:
+                                f_rows |= 1 << (gi // 3)
+                                f_cols |= 1 << (gi % 3)
+                        if len(f_matches) < min_inliers or f_rows != 7 or f_cols != 7:
                             continue
                         mean_err = float(np.mean([e for _, _, e in f_matches]))
-                        if mean_err > 0.16 * d_med:
+                        max_err = max(e for _, _, e in f_matches)
+                        if mean_err > 0.16 * d_loc:
                             continue
                         inlier_orig = tuple(sorted(avail_idx[pi] for _, pi, _ in f_matches))
                         # On a rigid 3D cube, every additional visible face MUST share a 2D edge with an already-extracted face;
@@ -183,6 +226,13 @@ def _fit_one_face(
                         score_key = (len(f_matches) + edge_bonus, len(f_matches), -mean_err)
                         if best_candidate is None or score_key > best_candidate[0]:
                             best_candidate = (score_key, len(f_matches), mean_err, proj_quad.astype(np.float32), inlier_orig, proj_grid.astype(np.float32))
+                            if len(f_matches) == 9 and mean_err < 0.032 * d_loc and max_err < 0.065 * d_loc and (not existing_quads or edge_bonus > 0):
+                                early_stop = True
+                                break
+                    if early_stop:
+                        break
+                if early_stop:
+                    break
 
     if best_candidate is None:
         return None

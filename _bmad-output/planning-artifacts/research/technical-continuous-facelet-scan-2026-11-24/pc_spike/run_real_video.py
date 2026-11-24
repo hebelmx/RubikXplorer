@@ -1,35 +1,26 @@
-"""Run the continuous-scan mapper on a real recorded video clip or live PC webcam using a sticker detector.
+"""Run the continuous-scan mapper on a real recorded video clip or live PC webcam using either:
+  - Cubentia's clean-room LiteRT sticker-center heatmap (`--litert-model sticker_centers.tflite`), OR
+  - the read-only PC comparator `yush-io/cubeSolver` (`--weights /tmp/cubesolver_best.pt`).
 
-Uses yush-io/cubeSolver (single-class 'sticker', read-only PC comparator — never bundled or used for
-training) -> lattice_fit.py (unordered 2D sticker centers -> 1-3 projective face quads) -> mapper.py.
-
-Usage:
-    # Recorded phone MP4 clip (headless, writes side-by-side MP4 replay + contact sheet):
-    uv run --no-project --extra-index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match \
-      --with torch --with torchvision --with ultralytics --with opencv-python-headless --with numpy \
-      python run_real_video.py --weights /tmp/cubesolver_best.pt --video path/to/clip.mp4 --out-dir /tmp/real_replay
-
-    # Live webcam interactive window (requires opencv-python with GUI instead of headless):
-    uv run --no-project --extra-index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match \
-      --with torch --with torchvision --with ultralytics --with opencv-python --with numpy \
-      python run_real_video.py --weights /tmp/cubesolver_best.pt --webcam 0 --show
+Pipeline: detector -> lattice_fit.py (unordered 2D sticker centers -> 1-3 projective face quads) -> mapper.py.
 """
 
 from __future__ import annotations
 
 import argparse
 import hashlib
+import sys
 import time
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 import cv2
 import numpy as np
 
+from cube_model import FACES
 from lattice_fit import fit_face_quads_from_centers
 from mapper import ContinuousCubeMapper, MapperSnapshot
 from run_spike import NET_BGR, NET_POS
-from cube_model import FACES
 
 CUBESOLVER_SHA = "68fd20b050a75f3268385e33afc8a9484ba498259e5a5b0e97914f28e2c1a739"
 
@@ -107,19 +98,31 @@ def render_real_frame(
     return np.concatenate([left, right], axis=1)
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--weights", type=Path, required=True, help="Path to pinned yush-io/cubeSolver best.pt")
-    parser.add_argument("--video", type=Path, default=None, help="Input MP4/MOV clip")
-    parser.add_argument("--webcam", type=int, default=None, help="Webcam index (e.g. 0)")
-    parser.add_argument("--stride", type=int, default=2, help="Process every Nth frame from video file")
-    parser.add_argument("--max-frames", type=int, default=300, help="Max processed frames")
-    parser.add_argument("--conf", type=float, default=0.25, help="Sticker detector confidence threshold")
-    parser.add_argument("--crop", type=str, default=None, help="Optional normalized ROI crop x0,y0,x1,y1 (e.g. 0,0,0.48,1)")
-    parser.add_argument("--out-dir", type=Path, default=None, help="Write replay MP4 and contact sheet here")
-    parser.add_argument("--show", action="store_true", help="Display live interactive OpenCV window (q=quit, r=reset)")
-    args = parser.parse_args()
+def _build_detector(args) -> Callable[[np.ndarray], List[Tuple[float, float]]]:
+    if args.litert_model is not None:
+        sys.path.insert(0, str(Path(__file__).resolve().parent / "litert_center"))
+        from eval_litert_center import LiteRtCenterDetector
 
+        det = LiteRtCenterDetector(args.litert_model)
+
+        def run_litert(frame_bgr: np.ndarray) -> List[Tuple[float, float]]:
+            rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+            peaks, _ = det.detect_rgb(rgb, threshold=args.conf)
+            # On tall/wide frames (e.g. 16:9 phone preview or portrait recording), letterboxing shrinks
+            # a mid-sized cube to <1 heatmap cell per sticker; retry on the center square ROI (+1.4 ms).
+            fh, fw = rgb.shape[:2]
+            if len(peaks) < 6 and max(fh, fw) > 1.35 * min(fh, fw):
+                side = min(fh, fw)
+                x0, y0 = (fw - side) // 2, (fh - side) // 2
+                sq_peaks, _ = det.detect_rgb(rgb[y0 : y0 + side, x0 : x0 + side], threshold=args.conf)
+                if len(sq_peaks) > len(peaks):
+                    return [(x + x0, y + y0) for x, y, _ in sq_peaks]
+            return [(x, y) for x, y, _ in peaks]
+
+        return run_litert
+
+    if args.weights is None:
+        raise ValueError("Provide either --litert-model or --weights")
     sha = hashlib.sha256(args.weights.read_bytes()).hexdigest()
     if sha != CUBESOLVER_SHA:
         raise ValueError(f"Unexpected weights SHA-256 {sha}; expected pinned yush-io/cubeSolver {CUBESOLVER_SHA}")
@@ -127,6 +130,29 @@ def main() -> int:
     from ultralytics import YOLO
 
     model = YOLO(str(args.weights))
+
+    def run_yolo(frame_bgr: np.ndarray) -> List[Tuple[float, float]]:
+        res = model.predict(frame_bgr, conf=args.conf, iou=0.35, verbose=False, device="cpu")[0]
+        return [(float(x), float(y)) for x, y, _, _ in (res.boxes.xywh.cpu().numpy() if res.boxes is not None else [])]
+
+    return run_yolo
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--litert-model", type=Path, default=None, help="Path to Cubentia LiteRT sticker_centers.tflite")
+    parser.add_argument("--weights", type=Path, default=None, help="Path to pinned yush-io/cubeSolver best.pt")
+    parser.add_argument("--video", type=Path, default=None, help="Input MP4/MOV clip")
+    parser.add_argument("--webcam", type=int, default=None, help="Webcam index (e.g. 0)")
+    parser.add_argument("--stride", type=int, default=2, help="Process every Nth frame from video file")
+    parser.add_argument("--max-frames", type=int, default=300, help="Max processed frames")
+    parser.add_argument("--conf", type=float, default=0.30, help="Sticker detector confidence threshold")
+    parser.add_argument("--crop", type=str, default=None, help="Optional normalized ROI crop x0,y0,x1,y1 (e.g. 0,0,0.48,1)")
+    parser.add_argument("--out-dir", type=Path, default=None, help="Write replay MP4 and contact sheet here")
+    parser.add_argument("--show", action="store_true", help="Display live interactive OpenCV window (q=quit, r=reset)")
+    args = parser.parse_args()
+
+    detect_centers = _build_detector(args)
     src = str(args.video) if args.video is not None else (args.webcam if args.webcam is not None else 0)
     cap = cv2.VideoCapture(src)
     if not cap.isOpened():
@@ -165,8 +191,7 @@ def main() -> int:
             frame = frame[y0:y1, x0:x1].copy()
 
         t0 = time.perf_counter()
-        res = model.predict(frame, conf=args.conf, iou=0.35, verbose=False, device="cpu")[0]
-        centers = [(float(x), float(y)) for x, y, _, _ in (res.boxes.xywh.cpu().numpy() if res.boxes is not None else [])]
+        centers = detect_centers(frame)
         fitted = fit_face_quads_from_centers(centers)
         det_ms_list.append((time.perf_counter() - t0) * 1000.0)
 
