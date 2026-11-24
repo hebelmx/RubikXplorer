@@ -599,13 +599,15 @@ internal fun withHold(
  * One saved hold's diagnostics (Story 10.20): the [dev.cubentia.domain.recognition.SideLight] check of the three faces
  * in hold order against the recorder [calibration] (uncalibrated without a valid one), the uncalibrated score beside it,
  * and the light mode word by `ScanDiagnostics`' rule (`torch` when the torch was lit, else the check's mode), plus the
- * torch and metering [settle]. A face not measured leaves its level and the score null, and then nothing passed or failed.
+ * torch and metering [settle] and the EV compensation index at the capture ([evIndex], GH-330). A face not measured
+ * leaves its level and the score null, and then nothing passed or failed.
  */
 internal fun holdDiagnostics(
     faces: List<dev.cubentia.domain.recognition.FrameStats?>,
     calibration: CalibrationCenters?,
     torch: Boolean?,
     settle: dev.cubentia.domain.recognition.CornerSettleDiagnostics?,
+    evIndex: Int? = null,
 ): dev.cubentia.domain.recognition.CornerHoldDiagnostics {
     val three = List(3) { faces.getOrNull(it) }
     val verdict =
@@ -624,8 +626,55 @@ internal fun holdDiagnostics(
         uncalibratedScore = uncalibrated.score,
         torch = torch,
         settle = settle,
+        evIndex = evIndex,
     )
 }
+
+/** The settle lock word when no lock is held: a capture while the metering still settles, or with no metering at all. */
+internal const val SETTLE_LOCK_NONE = "none"
+
+/**
+ * The settle a corner capture records (GH-330), never null: the reported metering's when it [settled] (or hit the cap),
+ * `settling` with the elapsed [settlingMs] and [futureMs] while it still settles, and `manual-ev` when no metering ran
+ * since the last reset ([settled] null: after a capture or a camera rebind) or a settled metering left nothing reported.
+ * A `manual-ev` settle's lock word is `awb` while the hold-1 white balance stays locked ([awbLocked]), else `none`.
+ */
+internal fun captureSettle(
+    settled: Boolean?,
+    last: dev.cubentia.domain.recognition.CornerSettleDiagnostics?,
+    settlingMs: Long?,
+    futureMs: Long?,
+    awbLocked: Boolean,
+): dev.cubentia.domain.recognition.CornerSettleDiagnostics =
+    when (settled) {
+        true -> {
+            last ?: manualEvSettle(awbLocked)
+        }
+
+        false -> {
+            dev.cubentia.domain.recognition.CornerSettleDiagnostics(
+                settlingMs,
+                dev.cubentia.domain.recognition.SettleOutcome.SETTLING,
+                SETTLE_LOCK_NONE,
+                futureMs,
+            )
+        }
+
+        null -> {
+            manualEvSettle(awbLocked)
+        }
+    }
+
+/** The settle lock word of a `manual-ev` capture while the hold-1 white-balance lock is still held. */
+internal const val SETTLE_LOCK_AWB = "awb"
+
+private fun manualEvSettle(awbLocked: Boolean) =
+    dev.cubentia.domain.recognition.CornerSettleDiagnostics(
+        settleMs = null,
+        outcome = dev.cubentia.domain.recognition.SettleOutcome.MANUAL_EV,
+        lock = if (awbLocked) SETTLE_LOCK_AWB else SETTLE_LOCK_NONE,
+        futureMs = null,
+    )
 
 /** The `lightMode` word of `ScanDiagnostics.cornerFrameLine`: `torch` when the torch is lit, else the check's mode. */
 internal fun lightMode(
