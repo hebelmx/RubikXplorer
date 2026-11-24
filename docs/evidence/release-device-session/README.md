@@ -104,3 +104,31 @@ Doubts panel (PO accepted): #324  Placement: a solved-cube scan should also offe
 3. **#249 (6.6) and 6.9** in the same TalkBack pass.
 4. **Block 2** (includes 8.7 single-wrong-move Quick Check and the #200 end-of-playback check), **Block 6** camera items (6.2 #198, 6.4 #195, 6.5 #196, 6.8 #253), **Blocks 3, 4, 7**.
 5. Close-out: issue comments for what passed, `sprint_plan.py` for settled action items, push, PR, merge on green CI + PO OK, remove worktree.
+
+
+## 6.8 — #253 Editor orientation, incomplete state, guidance (2026-11-24)
+
+Device / Android: Lenovo TB128XU (Android 13), Galaxy S24 FE SM-S721U1 (Android 17)
+App revision / build: `880ff8e8` (origin/main), debug build (debug flag levels)
+Driven by adb taps (agent); cube states from a scripted simulator, scramble `R U F' L2 D B' R2 U'`.
+Screenshots: `shots/253/`.
+
+| Step | Check | Result | Evidence |
+|---|---|---|---|
+| 1 | Fresh editor: "6 faces left to enter: …", Accept disabled, no problem lines | PASS (Lenovo, Galaxy) | `l_fresh.png`, `g_200_fresh.png` |
+| 2 | Up entered at 90° → turned silently, "We turned the Up face to match the others.", Accept enabled, Up = true colours | PASS (Lenovo) | dump; `l_scr_fixed.png` (180°) |
+| 2 | Up entered at 180° → turned to the only valid cube, Accept enabled | PASS (Lenovo) | `l_scr_fixed.png` |
+| 2 | Up entered at 270° → turned, but **before the Up face was finished** (one sticker unset; its default White was already right). Selection moved with the face, so palette taps still land correctly; a tap on the on-screen sticker the Learner sees on their cube hits a different sticker | PASS with finding F1 | `l_270_before_last.png` |
+| 3 | Ambiguous entry (`R` scramble with Up at 180°: also fits L' with F, D, B turned) → "Check the Up face: hold green toward you and look at the top.", tab dots, numbered piece markers | PASS (Lenovo) | `l_up180.png` |
+| 4 | Wrong colour count → "White: 10 (one too many) · Yellow: 8 (one missing)"; impossible pieces → specific lines ("…shows two greens", "…opposite colors") with numbered markers | PASS (Lenovo) | `l_up180.png` |
+| 5 | Face-done cue "Up done ✓ → Right" (shown 1.5 s), tab ✓, pulsing next-sticker cursor | PASS visually (Lenovo) | `l_face_done.png` |
+| 5 | TalkBack (Galaxy, PO listening): the selected sticker as auto-advance moves, the face change, "all stickers set", "We turned the Up face to match the others." (case 3: scramble with Up at 90°, last sticker painted under TalkBack), "Check the Up face: hold green toward you…" (case 4: the ambiguous R entry, last sticker painted under TalkBack) | PASS (Galaxy) | `g_case3_ready.png`, `g_case4_ready.png` |
+| 6 | 200% text: tablet keeps tabs, net, palette, lines and Accept on one screen; phone stacks tabs in two rows, shows the neighbour-colour hold bands, palette and Accept reachable by scrolling | PASS (Lenovo, Galaxy) | `l_200.png`, `g_200_*.png` |
+| — | Lenovo frame timing (`dumpsys gfxinfo`, 1.5 s window after the paint): idle 0% janky; a mid-entry paint 10.6% janky, p99 53 ms; the last paint that triggers the turn search 18–27% janky, p99 65–113 ms, 9–22 slow UI-thread frames | FAIL vs "no dropped frame" (`issue-253-deferred-editor-turn-search-main-thread`) | gfxinfo |
+
+**F1 (proposed severity 3, #352):** the turn fit runs while a face is still incomplete; when the unset stickers' defaults happen to fit, the face turns mid-entry and Accept enables before every face is entered.
+**F3 (proposed severity 3–4, #353):** a face counts as entered once one of its stickers is set, so with every face touched and the last face only partly entered, the colour-count line and numbered piece markers already show (e.g. "White: 10 (one too many) · Blue: 8 (one missing)" with one Up sticker still to enter). Meets #253's wording ("faces the Learner hasn't edited"), but reads as an error mid-face.
+**F4 (proposed severity 2, #354):** Close discards the entry without a confirmation (reproduced: 3 Up stickers set → Close → reopened editor is blank), and with TalkBack the first focus is Close, so the first double-tap closes it. Screenshots `g_close_repro_ready.png`, `g_close_reopened.png`.
+**F2 (proposed severity 3):** on the minimum device the paint that triggers the turn search drops frames (about 2× an ordinary paint); every paint already drops some frames on the Lenovo.
+
+Issue disposition: all #253 criteria pass on device (orientation, ambiguous hint, no error before every face is touched, specific errors, advance cues, TalkBack, 200%). CLOSE #253 once the PO accepts F1–F3 as follow-up issues; the main-thread timing (F2) stays with `issue-253-deferred-editor-turn-search-main-thread`.
