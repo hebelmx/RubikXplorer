@@ -71,6 +71,7 @@ Confirm that no torch control shows in the corner view or in calibration. A cali
 | offline replay (label commit, exclusions hash, safety result, coverage per condition) | from `replay-10-21.md` |
 | device results per device (false blocks, missed blocks, waits over 10 s, faces kept, wrong kept, Red↔Orange) | from the AC7 tables |
 | pastel gate decision (plain fit as committed, or pastel-inclusive Red 44.1) | see tuning-and-replay.md |
+| coverage regression vs the 10.19 gate, weighed (fewer side stickers correct on 2 of 3 scored held-out groups: `stka_bar-cool-3` 23 → 20 of 32, `stka_bar-warm-2` 16 → 13 of 32; tuning faces kept 43/156 → 18/156) | see tuning-and-replay.md |
 | backlit blocking decision, light-clear steadiness confirmation | |
 | decision: `QUICK_SCAN` to BETA, or stays OFF | |
 | rationale, follow-ups (coverage issue draft, 10.26 go/no-go) | |

@@ -5,7 +5,7 @@ created: '2026-11-23'
 status: 'done'
 baseline_revision: 'fd2eff4e4025c6b0161f6bdfeaaed24448f672f5'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-10-context.md'
@@ -24,6 +24,27 @@ deferred:
       Not measured. Settle with a frame-time trace on the S24 FE and the Lenovo during the device session (the run sheet's live wait check), or by caching the self-calibration per frame.
     location: >-
       core/domain/src/main/kotlin/dev/cubentia/domain/recognition/QuickScan.kt onFrame
+    severity: medium (unverified)
+  - summary: >-
+      Lighting the torch in the calibration phase (ScanFrameSource.applyTorch with calibrating) is only checked against a fake camera.
+    evidence: |-
+      CameraXFrameSourceTest has no torch assertions and the route tests' fake camera never runs applyTorch. Settle with the device-session run sheet's physical torch check on the S24 FE and the Lenovo.
+    location: >-
+      app/src/camera/kotlin/dev/cubentia/app/camera/ScanFrameSource.kt applyTorch / calibrationMode
+    severity: medium
+  - summary: >-
+      The Orange agreement margin 21.3 is driven by one tuning sticker (sm-s721u1_stla_bar-warm-2 h1 F2, labelled Red, read Orange by both reads at about 21 ΔE) that may be a mislabel.
+    evidence: |-
+      It costs 145 correct tuning stickers and 25 kept faces. Checking or excluding that label is Story 10.27's label quarantine; refit once label-exclusions.json lands.
+    location: >-
+      core/domain/src/main/kotlin/dev/cubentia/domain/recognition/QuickScanClassification.kt AGREEMENT_MARGIN
+    severity: medium
+  - summary: >-
+      The calibrated light hysteresis band (1.33 to 1.35) was never tested against frame-to-frame jitter.
+    evidence: |-
+      Unverified. Settle with flip counts of old single cut versus new band on recorded bursts, or with the run sheet's light-clear steadiness check on the S24 FE.
+    location: >-
+      core/domain/src/main/kotlin/dev/cubentia/domain/recognition/SideLight.kt
     severity: medium (unverified)
 ---
 
@@ -171,6 +192,45 @@ Tests and data:
   - `[medium]` `[patch]` (edge) Quick Scan review used the saved calibration after a mismatch — fixed: QuickScanEffect.Done carries the calibration to use (null on mismatch) and review reads it via GuidedScanFlow.quickReviewOf; controller and flow tests added.
   - `[false]` `[reject]` (edge) A torch mismatch can be logged as a centre mismatch — matchFor checks the torch first per face, so with one torch state throughout every face reports TORCH; CENTRE only wins with a mid-scan torch switch (the blind mixed-torch row).
 
+### 2026-11-23 — Review pass (follow-up, Claude layers; Codex unavailable)
+- verdicts: 35 findings — high 0, medium 7, low 17, false 9, maybe-false 2
+- findings:
+  - `[false]` `[reject]` (intent) Coverage half of the replay bar is reported, not enforced — carried: the PO's AC6-split decision (a) in Design Notes settles this.
+  - `[false]` `[reject]` (intent) `OFF_FACE_UNSAFE` exempts `lenovo-tb128xu_stla_bar-cool` and `sm-s721u1_stla_bar-warm` from the safety assert — PO decision 2026-11-23 (off-face safety, Design Notes): both are fixture defects, report-only, routed to 10.27/#338 and the BETA call.
+  - `[medium]` `[defer]` (intent) Pastel tuning group still keeps a confidently wrong sticker — carried: already in `deferred` (10.27, BETA call).
+  - `[false]` `[reject]` (intent) The 1-blank rule never applies on a scored held-out group — that is the reported coverage shortfall the AC6 split accepts; the rule is exercised by unit tests and tuning groups.
+  - `[false]` `[reject]` (intent) N = 6 is the cap, not the data — carried: the spec says "start 6; largest N <= 6".
+  - `[low]` `[patch]` (intent) Calibrated light band not validated on backlight — carried: stated in the evidence's "Limits of this evidence"; no new patch.
+  - `[medium]` `[patch]` (intent) Settled UI behaviour checked only through pure helpers (Settings default, torch lit in calibration, Close/Back) — grouped with the gap Settings row: new route test `aCalibrationFromSettingsShowsTheTorchOnLightsItAndTagsTheSave`; Close/Back already covered by `theCalibrationTorchFollowsTheCornerChoiceLocksOnKeepAndTagsTheSave`; the physical lighting part is deferred with the gap torch row.
+  - `[false]` `[reject]` (intent) Only the first blank is pre-selected — `MAX_KEPT_BLANKS = 1`, so a kept face has at most one blank; the first is the only one.
+  - `[low]` `[reject]` (intent) Label-set commit is the repository HEAD — carried: spec-prescribed value.
+  - `[low]` `[reject]` (intent) A Quick Scan face-by-face from the start hands the raw `saved` to review — pre-existing Guided-grid use of calibration, which the Never list keeps unchanged; the comment in `done()` states it.
+  - `[medium]` `[patch]` (gap) A retake from a Quick Scan review rereads faces with the saved calibration the scan rejected — fixed: `GuidedScanPhase.Review.calibration` carries the calibration the review was read with (`Done.calibration` for Quick Scan, `saved` for Guided); `reviewAfterRetake` defaults to it and `handleRetake` no longer passes `vm.saved`; `GuidedScanFlowTest` case added.
+  - `[medium]` `[defer]` (gap) Lighting the torch in the calibration phase (`applyTorch` with `calibrating`) is only checked against a fake camera — CameraX torch state is not drivable in Robolectric; the run sheet's physical check settles it.
+  - `[medium]` `[patch]` (gap) A calibration opened from Settings depends on untested flash detection — fixed: route test opens `calibrationIntent` with a flash camera and asserts "Torch on", last `torch(true)` and a saved `torchOn == true`.
+  - `[low]` `[reject]` (gap, other) Face-by-face from the start keeps `saved` — same as the intent row above.
+  - `[medium]` `[patch]` (edge) Retake after a mismatch uses the rejected calibration — same root cause and fix as the gap retake row.
+  - `[low]` `[reject]` (edge) `done()` keeps blanks of matched faces when a later face mismatches — needs a mid-scan torch switch, and a blank is safe (the Learner fills it); clearing them adds a branch.
+  - `[low]` `[reject]` (edge) Swatches sampled before the torch applies but saved under one tag — carried: intent defines the tag at save.
+  - `[low]` `[reject]` (edge) Calibration from review sets the shared torch on and never restores it — carried: "opened from the review → on" and one shared choice are intent-settled.
+  - `[low]` `[reject]` (edge) A pending manual press captures while the pose is still marked few-confident, with no POSE_ACCEPTED — debug timeline only; manual shutter capturing is settled behaviour; the fix adds an event branch.
+  - `[low]` `[reject]` (edge) Band frames do not reset the clear window — carried: consistent with the existing neutral-frame rule.
+  - `[low]` `[reject]` (edge) Cells turning unread never count as moved in the clear window — such frames are neutral under the existing rule; counting null changes as moves risks a window that never clears; unlikely in use.
+  - `[false]` `[reject]` (edge) `gate` throws on a margin map missing a colour — `AGREEMENT_MARGIN` maps all six colours and is the only map production passes.
+  - `[low]` `[reject]` (edge) Light check uses scan-wide `matchAll` while faces match per capture torch — carried: real only for a mid-scan torch switch.
+  - `[false]` `[reject]` (edge) The few-confident gate is asked after settle/quality and a pending press bypasses it — nothing auto-captures while settle or quality fail, and "manual shutter still captures" is settled.
+  - `[low]` `[reject]` (blind) Final-run review counts do not add up — the fix edits this build's spec; this pass's Auto Run Result records its own counts.
+  - `[low]` `[reject]` (blind) Spec status and the halt headline contradict — the fix edits this build's spec; finalization sets `status: done`.
+  - `[medium]` `[defer]` (blind) Orange margin 21.3 rests on one tuning sticker that may be a mislabel — checking or excluding labels is Story 10.27's quarantine, which the Never list keeps out of this story.
+  - `[low]` `[patch]` (blind) Docs never say plainly that coverage regresses against the 10.19 gate — fixed: one sentence each in tuning-and-replay.md, issue-draft-coverage-shortfall.md and a BETA-template row in device-session-run-sheet.md (stka_bar-cool-3 23→20, stka_bar-warm-2 16→13, tuning faces kept 43→18 of 156).
+  - `[low]` `[reject]` (blind) Backlit trip margins weaker and no per-hold before/after — hold cut fitted by the spec's rule (above the tuning front-lit maximum), the replay asserts the trip; backlit blocking is the PO's device decision; per-hold reporting is added scope.
+  - `[maybe-false]` `[defer]` (blind) The 0.02-wide calibrated band was never tested against frame jitter — would be medium; settle with flip counts on bursts or the run sheet's light-clear steadiness check.
+  - `[false]` `[reject]` (blind) The wait counts centres and was never tested on blocking holds — the spec defines the count over the hold's 27 stickers; the live wait is a run-sheet check.
+  - `[low]` `[reject]` (blind) Settings calibrations default torch-on and Guided ignores the tag — carried: intent-settled default, residual risk recorded.
+  - `[low]` `[reject]` (blind) `calibration=mismatch centre` does not name the failing centre — adds fields to `Mismatch` and the log; the device session can read the per-sticker lines.
+  - `[maybe-false]` `[defer]` (blind) Duplicated per-frame match/self-calibration work — carried: already in `deferred` (unverified).
+  - `[false]` `[reject]` (blind) Migration test bypasses Room for the legacy row — `RoomCalibrationRepositoryTest` round-trips `torchOn = null` through the DAO, the migration test shows the null column, and `matchFor` treats null as off (unit test).
+
 ## Design Notes
 
 - "Uncertain" for the keep rule = any judged sticker not CONFIDENT after the gate (close call or soft disagreement); a hard disagreement (two CONFIDENT reads naming different colours) is "beyond the gate" and sends the face to the grid.
@@ -185,6 +245,7 @@ Tests and data:
   - backlit groups trip the light check.
 
   The **coverage half** (≥ 90% side stickers correct, ≥ 3/4 side faces kept) is **reported per device × light × torch against the bar, not enforced**. The shortfall goes to the PO's BETA call and to a new issue, drafted in `docs/evidence/10-21/issue-draft-coverage-shortfall.md` and not created by this story. Tuning stays on the tuning split only, and no safety rule is loosened to pass. This decision replaces the off-face exclusions for the coverage half; the off-face groups stay named in the report.
+- **PO decision, off-face safety (2026-11-23, follow-up review):** the off-face held-out groups `sm-s721u1_stla_bar-warm` and `lenovo-tb128xu_stla_bar-cool`, whose kept faces still carry confidently wrong stickers (bad hold-2 `L` samples), are accepted as **fixture defects**. They are **report-only** for the safety half too: the replay reports their confidently wrong kept stickers instead of asserting them, and no rule is changed to make them safe. They are routed to Story 10.27 (fixture quarantine), #338 and the PO's BETA call. Every other held-out group stays under the enforced safety half. Reviews must not treat their unsafe kept faces as a defect of this story.
 
 ## Verification
 
@@ -282,3 +343,26 @@ Status: done
 - The fit used plain tuning groups only; the implementer disclosed one held-out replay run with the pastel-inclusive fit before committing the plain fit (choice rests on the epic pastel rule).
 - Calibrated light cut unvalidated on backlight; calibrations opened from Settings now default to torch-lit, which the Guided 6-face scan will also use.
 - Device ACs (7, 8, PO light decisions) are on the run sheet, not yet run.
+
+### Follow-up review pass (2026-11-23)
+
+Status: done
+
+**Summary.** Follow-up review of the built story on Claude layers (Codex unavailable). PO decision recorded in Design Notes: the off-face held-out groups `sm-s721u1_stla_bar-warm` and `lenovo-tb128xu_stla_bar-cool` are fixture defects, report-only for safety too, routed to Story 10.27, #338 and the BETA call. Three patches applied: a retake from a Quick Scan review now uses the calibration the review was read with (null after a mismatch) instead of the rejected saved one; a route test covers a Settings-opened calibration on a flash camera; the evidence docs state the coverage regression against the 10.19 gate.
+
+**Files changed this pass.**
+- `app/src/camera/.../GuidedScanScreen.kt` — `GuidedScanPhase.Review.calibration` (the calibration the review was read with).
+- `app/src/camera/.../GuidedScanFlow.kt` — `reviewOf` fills it; `reviewAfterRetake` defaults to it.
+- `app/src/camera/.../GuidedScanActivity.kt` — `handleRetake` no longer passes `vm.saved`.
+- `app/src/testDebug/.../camera/GuidedScanFlowTest.kt` — mismatched-calibration retake case.
+- `app/src/testDebug/.../QuickScanRouteTest.kt` — `aCalibrationFromSettingsShowsTheTorchOnLightsItAndTagsTheSave`.
+- `docs/evidence/10-21/tuning-and-replay.md`, `issue-draft-coverage-shortfall.md`, `device-session-run-sheet.md` — coverage regression vs the 10.19 gate stated; BETA-template row.
+- This spec — PO off-face decision, triage log, three new deferred items.
+
+**Review.** 35 findings (high 0, medium 7, low 17, false 9, maybe-false 2). Patched entries: medium 2 (retake calibration; Settings-calibration route test), low 1 (docs); one carried low patch row needed no new change. Deferred: calibration-phase torch lighting on real hardware, the single-sticker Orange margin (10.27), the jitter test of the light band (unverified); two carried deferrals unchanged. Rejected: 9 false and 15 low, each with its reason in the triage log.
+
+**Follow-up review recommended: false.** Follow-up pass and no `high` entry was patched.
+
+**Verification.** `./gradlew spotlessCheck build` BUILD SUCCESSFUL (incl. Kover, migration test, replay); `./gradlew :core:domain:test --tests '*QuickScanSideFaceReplayTest*'` BUILD SUCCESSFUL. The patch worker ran QuickScanRouteTest (19) and GuidedScanFlowTest (51), all passing.
+
+**Residual risks.** As in the final run, plus: the retake test checks which calibration is carried, not a visible sticker difference (self-calibration overrides the saved centres on the synthetic samples); torch lighting in calibration and the light-band jitter rest on the device session; the off-face groups stay unsafe by PO decision.

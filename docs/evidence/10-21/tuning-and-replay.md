@@ -31,6 +31,8 @@ The fitted gate keeps no confidently wrong sticker on a kept face in any scored 
 | 10.19 (both reads CONFIDENT) | 1088 | 245 | 55 | 43/156 | 6 | 10 |
 | 10.21 per colour | 943 | 405 | 40 | 18/156 | 9 | **0** |
 
+The tuned gate keeps fewer faces than the 10.19 gate: 18 of 156 tuning faces kept instead of 43, the price of 0 wrong stickers on kept faces.
+
 ### Pastel tuning group: a decision for the PO
 
 `lenovo-tb128xu_stlb_bar-warm` is the only tuning group the group index marks `pastel`. Its orange stickers read as red in both reads with margins up to 48. If it were part of the gate fit, Red would need a margin of 44.1, which is more than the whole red-to-orange distance on most cubes. Red would then never be CONFIDENT: 0 of 192 tuning faces kept. The fit therefore uses the six plain tuning groups. The pastel group is reported and carried to Story 10.27, which judges pastel stickers against the cube's own calibrated colours. The fitted gate leaves it exactly as unsafe as the 10.19 gate did: D2 (label Orange, read Red) on a kept face, with no saved calibration or with its own. This follows the epic rule that pastel cubes are handled without changing the check for every cube. **The PO should confirm it at the BETA call.** The other option is to commit the 44.1 Red margin, which makes Quick Scan keep almost nothing.
@@ -72,6 +74,8 @@ The bar is at least 90% of side stickers correct and at least 3 of 4 side faces 
 | S24 FE × bar-warm × torch on (unscored, off-face) | `sm-s721u1_stla_bar-warm` | 18/32, 1/4 | 18/32, 1/4 (6 wrong kept) |
 | Lenovo × bar-cool (unscored, off-face) | `lenovo-tb128xu_stla_bar-cool` | 21–26/32, 2–4/4 | 21–22/32, 2/4 (wrong kept) |
 | Lenovo × bar-warm (unscored, off-face) | `lenovo-tb128xu_stla_bar-warm` | 20/32, 0/4 | 19/32, 0/4 |
+
+Coverage regresses against the 10.19 gate: the tuned gate reads fewer side stickers correctly on two of the three scored held-out groups (`sm-s721u1_stka_bar-cool-3` 23 → 20 of 32, `sm-s721u1_stka_bar-warm-2` 16 → 13 of 32) and the same on the third (`sm-s721u1_stla_bar-cool` 20 of 32).
 
 The matching scenario never applies to a scored S24 FE group. Every recorder calibration fails the centre check, mostly because Blue reads as White, so the 1-blank rule never takes part there. The coverage shortfall is drafted as an issue in [issue-draft-coverage-shortfall.md](issue-draft-coverage-shortfall.md).
 

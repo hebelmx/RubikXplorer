@@ -1049,4 +1049,48 @@ class GuidedScanFlowTest {
             GuidedScanFlow.quickReviewOf(mismatched)!!.review,
         )
     }
+
+    @Test fun `a retake from a quick scan review read after a calibration mismatch reads as with no calibration`() {
+        val labs =
+            mapOf(
+                Color.GREEN to Lab(55.0, -60.0, 40.0),
+                Color.RED to Lab(45.0, 65.0, 45.0),
+                Color.BLUE to Lab(40.0, 10.0, -50.0),
+                Color.ORANGE to Lab(65.0, 45.0, 65.0),
+                Color.WHITE to Lab(90.0, 0.0, 0.0),
+                Color.YELLOW to Lab(85.0, -5.0, 80.0),
+            )
+        val samples =
+            dev.cubentia.domain.recognition.QuickScanPlan.holds.flatten().map { step ->
+                FaceSample(
+                    face = step.face,
+                    orientationDegrees = 0,
+                    stickers = List(9) { labs.getValue(step.centerColor) },
+                    quality = CaptureQuality.ACCEPTABLE,
+                    centerColor = step.centerColor,
+                    upNeighborColor = step.upNeighborColor,
+                    centerPlain = true,
+                )
+            }
+        // The saved calibration the scan rejected (its torch tag differs); the Guided review below reads with it.
+        val saved =
+            CalibrationCenters(
+                labs + mapOf(Color.RED to labs.getValue(Color.ORANGE), Color.ORANGE to labs.getValue(Color.RED)),
+                torchOn = true,
+            )
+        val review =
+            checkNotNull(
+                GuidedScanFlow.quickReviewOf(
+                    dev.cubentia.domain.recognition.QuickScanEffect
+                        .Done(samples, calibration = null),
+                ),
+            )
+        assertNull(review.calibration)
+        val retaken = listOf(samples.first { it.face == Face.F })
+        val after = GuidedScanFlow.reviewAfterRetake(review, retaken)
+        assertEquals(GuidedScanFlow.reviewAfterRetake(review, retaken, null), after)
+        assertNull(after.calibration)
+        // A Guided review keeps the saved calibration it was read with.
+        assertEquals(saved, GuidedScanFlow.reviewOf(listOf(GuidedScanEffect.Done(samples)), saved)!!.calibration)
+    }
 }

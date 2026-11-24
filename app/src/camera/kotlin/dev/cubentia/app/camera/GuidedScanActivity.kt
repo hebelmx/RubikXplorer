@@ -847,7 +847,7 @@ class GuidedScanActivity : ComponentActivity() {
         val vm = scan
         val state = GuidedScanFlow.retakePhase(run)
         val done = effects.filterIsInstance<GuidedScanEffect.Done>().firstOrNull()
-        val result = done?.let { GuidedScanFlow.reviewAfterRetake(run.from, it.samples, vm.saved) }
+        val result = done?.let { GuidedScanFlow.reviewAfterRetake(run.from, it.samples) }
         if (result != null) vm.retake = null
         val captured = effects.filterIsInstance<GuidedScanEffect.Capture>().firstOrNull()
         ContextCompat.getMainExecutor(this).execute {

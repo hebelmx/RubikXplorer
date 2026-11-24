@@ -14,6 +14,8 @@ After Story 10.21, Quick Scan never keeps a confidently wrong sticker on a score
 | `sm-s721u1_stla_bar-cool` (cool, torch on) | 20/32 (62.5%) | 0/4 | 27/32, 1/4 |
 | `sm-s721u1_stka_bar-warm-2` (warm, torch off) | 13/32 (40.6%) | 0/4 | 28/32, 1/4 |
 
+This is a regression against the 10.19 gate: Story 10.21's tuned gate reads fewer side stickers correctly on two of the three scored groups (`sm-s721u1_stka_bar-cool-3` 23 → 20 of 32, `sm-s721u1_stka_bar-warm-2` 16 → 13 of 32; `sm-s721u1_stla_bar-cool` unchanged at 20 of 32), and keeps 18 of 156 tuning faces where the 10.19 gate kept 43.
+
 The ceiling is the best any gate allowed by the story's ACs could do. It counts every sticker that some read gets right as correct.
 
 ## Causes found

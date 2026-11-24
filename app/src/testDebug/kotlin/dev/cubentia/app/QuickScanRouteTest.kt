@@ -10,6 +10,7 @@ import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -718,6 +719,41 @@ class QuickScanRouteTest {
                 model.saved != null && !model.saving
             }
             assertEquals(true, model.saved?.torchOn)
+        }
+    }
+
+    /**
+     * Story 10.21: a calibration opened from Settings (the intent Settings starts) learns the flash unit from its first
+     * frame, so it shows the torch toggle on, lights the torch and tags the save with it.
+     */
+    @Test fun aCalibrationFromSettingsShowsTheTorchOnLightsItAndTagsTheSave() {
+        camera.flash = true
+        val intent = launcher.calibrationIntent(RuntimeEnvironment.getApplication())
+        val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, intent).setup()
+        try {
+            waitForCamera(corner = false)
+            val model = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
+            assertTrue(model.phase is GuidedScanPhase.Calibration)
+            camera.feed(ScanFrame(stats(Color.WHITE), 0))
+            settle(model)
+            rule.onNodeWithTag("quickScan:torch").assertIsDisplayed().assert(hasText("Torch on"))
+            assertEquals(true, camera.torchCalls.lastOrNull())
+            rule.runOnIdle {
+                val phase = model.phase as GuidedScanPhase.Calibration
+                var session = phase.session
+                while (session.current != null) {
+                    session = session.offer(CellReading(ScanRouteTest.labs.getValue(session.current!!), true)).keep()
+                }
+                model.phase = phase.copy(session = session)
+            }
+            rule.onNodeWithTag("calibration:save").performScrollTo().performClick()
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                model.saved != null && !model.saving
+            }
+            assertEquals(true, model.saved?.torchOn)
+        } finally {
+            scan.pause().stop().destroy()
         }
     }
 

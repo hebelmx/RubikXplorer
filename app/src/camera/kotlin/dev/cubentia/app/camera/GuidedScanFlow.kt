@@ -328,6 +328,7 @@ internal object GuidedScanFlow {
                 CalibrationOffer
                     .offered(it.samples, saved, review),
                 samples = it.samples,
+                calibration = saved,
             )
         }
 
@@ -361,12 +362,13 @@ internal object GuidedScanFlow {
      * The review after a retake from [before] whose [retaken] samples are all captured: kept faces exactly as reviewed
      * (edits included), retaken faces from the new capture only ([ScanReview.retaken]); corrections on retaken faces are
      * dropped, the review counts as edited (so *Close* asks), the calibration offer is recomputed over the merged samples,
-     * and those merged samples are what a later retake starts from.
+     * and those merged samples are what a later retake starts from. By default it reads with the calibration [before] was
+     * read with (Story 10.21: none after a Quick Scan mismatch, not the saved one the scan rejected).
      */
     fun reviewAfterRetake(
         before: GuidedScanPhase.Review,
         retaken: List<FaceSample>,
-        saved: CalibrationCenters?,
+        saved: CalibrationCenters? = before.calibration,
     ): GuidedScanPhase.Review {
         val faces = retaken.map { it.face }.toSet()
         val samples = ScanReview.mergedSamples(before.samples, retaken)

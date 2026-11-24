@@ -107,6 +107,11 @@ internal sealed interface GuidedScanPhase {
         val initialStickers: List<CubeColor?> = review.stickers,
         /** The scan's six samples (retaken faces replaced), for a retake from this review (Story 10.16). */
         val samples: List<FaceSample> = emptyList(),
+        /**
+         * Story 10.21: the calibration this review was read with (the saved one, or null after a Quick Scan torch or centre
+         * mismatch, as when none exists); a retake from it reads with the same one.
+         */
+        val calibration: dev.cubentia.domain.recognition.CalibrationCenters? = null,
     ) : GuidedScanPhase
 
     data class Calibration(
