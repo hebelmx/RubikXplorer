@@ -56,6 +56,31 @@ class RecorderRulesTest {
         assertEquals(done, done.set(Color.GREEN))
     }
 
+    @Test fun `new face review selects the first unread sticker and palette entry advances`() {
+        val prefilled = List(9) { if (it == 4 || it == 6) null else Color.WHITE }
+        val review = TruthEntry().withPrefill(prefilled)
+        assertEquals(4, review.selected)
+
+        val edited = review.set(Color.RED)
+        assertEquals(Color.RED, edited.colors[4])
+        assertEquals(TruthSource.ENTERED, edited.sources[4])
+        assertEquals(6, edited.selected)
+        assertEquals(Color.WHITE, edited.colors[0])
+        assertEquals(TruthSource.PREFILLED, edited.sources[0])
+    }
+
+    @Test fun `fully prefilled face review needs explicit selection before applying a palette color`() {
+        val review = TruthEntry().withPrefill(List(9) { Color.WHITE })
+        assertNull(review.selected)
+        assertTrue(review.complete)
+        assertEquals(review, review.set(Color.RED))
+
+        val edited = review.select(0).set(Color.RED)
+        assertEquals(Color.RED, edited.colors[0])
+        assertEquals(TruthSource.ENTERED, edited.sources[0])
+        assertTrue(edited.complete)
+    }
+
     @Test fun `prefill refreshes until the first entry, then freezes, and an equal entry still counts as entered`() {
         val first = TruthEntry(selected = null).withPrefill(listOf(null) + List(8) { Color.WHITE })
         assertEquals(0, first.selected)
