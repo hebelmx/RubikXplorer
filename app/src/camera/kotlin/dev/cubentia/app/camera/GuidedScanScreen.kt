@@ -237,11 +237,13 @@ internal fun GuidedScanScreen(
     detectedCornerQuads: List<List<CornerPoint>> = emptyList(),
     cornerThumbnail: ImageBitmap? = null,
     confirmDiscard: Boolean = false,
+    /** Which copy the discard question shows (GH #325). */
+    discardKind: DiscardKind = DiscardKind.Scan,
     /** Story 10.19: the torch control's state in Quick Scan's corner view; null shows no control (no flash unit). */
     cornerTorch: Boolean? = null,
     viewfinder: @Composable () -> Unit = {},
 ) {
-    if (confirmDiscard) DiscardDialog(strings, actions)
+    if (confirmDiscard) DiscardDialog(strings, actions, discardKind)
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().safeDrawingPadding()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -967,15 +969,28 @@ private fun CalibrationOfferLine(
     }
 }
 
-/** "Discard this scan?" before Close (or Back) would drop at least one captured face (Story 10.17). */
+/** The copy of the discard question: Quick Scan's "Discard this scan?" or the Guided viewfinder's (GH #325). */
+internal enum class DiscardKind(
+    val titleKey: String,
+    val dismissKey: String,
+) {
+    /** Quick Scan (Story 10.17): "Discard this scan?" / *Discard* / *Cancel*. */
+    Scan("msg.scan.discard-title", "btn.scan.cancel"),
+
+    /** A plain Guided 6-face viewfinder (GH #325): "Discard the faces you captured?" / *Discard* / *Keep scanning*. */
+    GuidedFaces("msg.scan.discard-faces-title", "btn.scan.keep-scanning"),
+}
+
+/** The discard question before Close (or Back) would drop at least one captured face (Story 10.17, GH #325). */
 @Composable
 private fun DiscardDialog(
     strings: ContentStrings,
     actions: GuidedScanActions,
+    kind: DiscardKind,
 ) {
     AlertDialog(
         onDismissRequest = actions.onDiscardCancel,
-        title = { Text(strings.resolve(ContentText("msg.scan.discard-title"))) },
+        title = { Text(strings.resolve(ContentText(kind.titleKey))) },
         confirmButton = {
             TextButton(onClick = actions.onDiscardConfirm, modifier = Modifier.testTag("scan:discard:confirm")) {
                 Text(strings.resolve(ContentText("btn.scan.discard")))
@@ -983,7 +998,7 @@ private fun DiscardDialog(
         },
         dismissButton = {
             TextButton(onClick = actions.onDiscardCancel, modifier = Modifier.testTag("scan:discard:cancel")) {
-                Text(strings.resolve(ContentText("btn.scan.cancel")))
+                Text(strings.resolve(ContentText(kind.dismissKey)))
             }
         },
         modifier = Modifier.testTag("scan:discard"),
