@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-24-2026 13:41'
+last_updated: '11-24-2026 15:14'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -157,8 +157,7 @@ development_status:
   10-25-quick-scan-starts-from-whichever-corner-it-is-shown: backlog
   10-26-quick-scan-fills-a-few-unread-stickers-from-the-cube-s-rules: backlog
   10-27-clean-the-corner-fixture-labels-and-judge-pastel-stickers-ag: backlog
-  10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa: 
-    in-progress
+  10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa: review
   10-29-solution-playback-shows-the-same-quick-check-result-as-lesso: backlog
   10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: done
   10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads: done
