@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-23-2026 15:10'
+last_updated: '11-23-2026 19:27'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -151,11 +151,11 @@ development_status:
   10-18-quick-scan-finds-the-cube-s-real-edges-and-corners: done
   10-19-quick-scan-reads-the-side-faces-in-good-light: done
   10-20-record-10-19-pipeline-corner-fixtures-and-check-the-corner-m: done
-  10-21-quick-scan-keeps-the-side-faces-it-reads-well: backlog
+  10-21-quick-scan-keeps-the-side-faces-it-reads-well: in-progress
   10-24-retake-a-corner-in-quick-scan: backlog
   10-25-quick-scan-starts-from-whichever-corner-it-is-shown: backlog
   10-26-quick-scan-fills-a-few-unread-stickers-from-the-cube-s-rules: backlog
-  10-27-clean-the-corner-fixture-labels-and-judge-pastel-stickers: backlog
+  10-27-clean-the-corner-fixture-labels-and-judge-pastel-stickers-ag: backlog
   10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: done
   10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads: done
   epic-10-retrospective: optional
@@ -2239,31 +2239,51 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-gh-252-re-placement-keeps-progress.md"
   - id: "epic-10-deferred-10.20-recording-session"
     epic: 10
-    action: "Run the Story 10.20 recording session on the debug fixture recorder (corner mode), Lenovo TB128XU and Galaxy S24 FE: record the Fixtures/corner/ groups with the held-out split (AC2), run evaluate_model.py on it (AC3), record and check the pastel cube (AC4), write the replay report and docs/evidence/10-20/ (AC5), and confirm the recorder's settle, lock and torch values in corner-N.json and group.json (high; PO merged the code part before the device gate on 2026-11-23, deferred from 10.20, FixtureRecorderActivity.kt). Done 2026-11-23 (PR #334): both devices recorded, groups.json and docs/evidence/10-20/ written; PO accepted the corner-error miss (#315); the pastel result moved to Story 10.27 (SCP 2026-11-23, PR #335)."
+    action: "Run the Story 10.20 recording session on the debug fixture recorder (corner
+      mode), Lenovo TB128XU and Galaxy S24 FE: record the Fixtures/corner/ groups
+      with the held-out split (AC2), run evaluate_model.py on it (AC3), record and
+      check the pastel cube (AC4), write the replay report and docs/evidence/10-20/
+      (AC5), and confirm the recorder's settle, lock and torch values in corner-N.json
+      and group.json (high; PO merged the code part before the device gate on 2026-11-23,
+      deferred from 10.20, FixtureRecorderActivity.kt). Done 2026-11-23 (PR #334):
+      both devices recorded, groups.json and docs/evidence/10-20/ written; PO accepted
+      the corner-error miss (#315); the pastel result moved to Story 10.27 (SCP 2026-11-23,
+      PR #335)."
     owner: "PO (BMad)"
     status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-20-record-10-19-pipeline-corner-fixtures-and-check-the-corner-m.md"
   - id: "epic-10-deferred-10.20-coverage-check-strength"
     epic: 10
-    action: "Make the corner group coverage check require, per device, a stickered, a stickerless and (S24 FE) a glossy cube, at least two front lights, S24 FE groups with the torch on and off, and held-out and tuning groups for non-front conditions; do this before the recording session (medium; deferred from 10.20, CornerGroupIndexTest.kt:87)"
+    action: "Make the corner group coverage check require, per device, a stickered,
+      a stickerless and (S24 FE) a glossy cube, at least two front lights, S24 FE
+      groups with the torch on and off, and held-out and tuning groups for non-front
+      conditions; do this before the recording session (medium; deferred from 10.20,
+      CornerGroupIndexTest.kt:87)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-20-record-10-19-pipeline-corner-fixtures-and-check-the-corner-m.md"
   - id: "epic-10-deferred-10.20-missing-groups-json"
     epic: 10
-    action: "Fail the corner group index check, and stop evaluate_model.py from falling back to all fixtures, when 10.22 groups exist without groups.json (medium; deferred from 10.20, CornerGroupIndexTest.kt:33, corner_index.py:89)"
+    action: "Fail the corner group index check, and stop evaluate_model.py from falling
+      back to all fixtures, when 10.22 groups exist without groups.json (medium; deferred
+      from 10.20, CornerGroupIndexTest.kt:33, corner_index.py:89)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-20-record-10-19-pipeline-corner-fixtures-and-check-the-corner-m.md"
   - id: "epic-10-deferred-10.20-epic-10-context-refresh"
     epic: 10
-    action: "Regenerate epic-10-context.md: it lists 10.11 as done and dropped constraints still in force (LiteRT 16 KB alignment, shadow-reader guardrails, Quick Scan torch carry rules) (low; deferred from 10.20, epic-10-context.md)"
+    action: "Regenerate epic-10-context.md: it lists 10.11 as done and dropped constraints
+      still in force (LiteRT 16 KB alignment, shadow-reader guardrails, Quick Scan
+      torch carry rules) (low; deferred from 10.20, epic-10-context.md)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-20-record-10-19-pipeline-corner-fixtures-and-check-the-corner-m.md"
   - id: "scp-2026-11-23-label-review"
     epic: 10
-    action: "PO label review of the corner fixtures on the label-audit review pages: done 2026-11-23, 20 labels corrected, all 23 groups count 9 of each colour (branch spike/label-cleanse c9c9f5cc, carried to main by the docs/device-session-2026-11 PR; Story 10.21 starts after that merge)"
+    action: "PO label review of the corner fixtures on the label-audit review pages:
+      done 2026-11-23, 20 labels corrected, all 23 groups count 9 of each colour (branch
+      spike/label-cleanse c9c9f5cc, carried to main by the docs/device-session-2026-11
+      PR; Story 10.21 starts after that merge)"
     owner: "PO (hebelmx)"
     status: done
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-23-pastel-plausibility.md"
