@@ -113,4 +113,37 @@ class ColorCalibrationScreenTest {
             Locale.setDefault(before)
         }
     }
+
+    @Test fun calibrationShowsTheTorchToggleAndLocksItFromTheFirstKeptSwatch() {
+        // Story 10.21: the corner view's toggle, top-end of the viewfinder; disabled (still shown) once a swatch is kept.
+        var phase by mutableStateOf(GuidedScanPhase.Calibration())
+        var torch by mutableStateOf<Boolean?>(true)
+        var toggles = 0
+        rule.setContent {
+            CubentiaTheme {
+                GuidedScanScreen(
+                    phase,
+                    strings,
+                    GuidedScanActions(
+                        onKeep = { phase = phase.copy(session = phase.session.keep()) },
+                        onToggleTorch = { toggles++ },
+                    ),
+                    cornerTorch = torch,
+                )
+            }
+        }
+        rule.onNodeWithTag("quickScan:torch").assertIsDisplayed().assertIsEnabled()
+        rule.onNodeWithText("Torch on").assertIsDisplayed()
+        rule.onNodeWithTag("quickScan:torch").performClick()
+        assertEquals(1, toggles)
+        rule.runOnIdle { phase = phase.copy(session = phase.session.offer(CellReading(Lab(55.0, -60.0, 40.0), true))) }
+        rule.onNodeWithTag("quickScan:torch").assertIsEnabled()
+        rule.onNodeWithTag("calibration:keep").performClick()
+        rule.onNodeWithTag("quickScan:torch").assertIsDisplayed().assertIsNotEnabled()
+        rule.onNodeWithTag("quickScan:torch").performClick()
+        assertEquals(1, toggles)
+        // No flash unit: no control.
+        rule.runOnIdle { torch = null }
+        rule.onNodeWithTag("quickScan:torch").assertDoesNotExist()
+    }
 }

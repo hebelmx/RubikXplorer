@@ -18,6 +18,7 @@ import dev.cubentia.domain.recognition.FrameInspection
 import dev.cubentia.domain.recognition.FrameQuality
 import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.PhysicalObservation
+import dev.cubentia.domain.recognition.QuickScanController
 import dev.cubentia.domain.recognition.ScanAssembler
 import dev.cubentia.domain.recognition.ScanReview
 import dev.cubentia.domain.recognition.ScanTrace
@@ -57,10 +58,94 @@ object ScanDiagnostics {
         light: SideLight.Verdict? = null,
         lightHeld: Boolean = false,
         torch: Boolean = false,
+        centers: CalibrationCenters? = null,
     ) {
+        // Story 10.21: a light state change inside the hysteresis band and a face's light level jumping between frames are
+        // logged as they happen (the level lines at most once per interval), beside the rate-limited frame line.
+        synchronized(lightTrace) {
+            lightFlipLine(lightTrace.held, lightHeld, light)?.let { Log.d(TAG, it) }
+            lightTrace.held = lightHeld
+            if (light != null) {
+                val lines = levelChangeLines(lightTrace.light, light, faces, centers)
+                if (lines.isNotEmpty() && nowMs - lightTrace.levelLoggedMs >= INTERVAL_MS) {
+                    lightTrace.levelLoggedMs = nowMs
+                    lines.forEach { Log.d(TAG, it) }
+                }
+                lightTrace.light = light
+            }
+        }
         val last = lastCornerLogMs.get()
         if (nowMs - last < INTERVAL_MS || !lastCornerLogMs.compareAndSet(last, nowMs)) return
         Log.d(TAG, cornerFrameLine(detected, faces, score, light, lightHeld, torch))
+    }
+
+    /** The light state the last corner frame showed (Story 10.21), for the flip and level-change lines. */
+    private class LightTrace {
+        var held: Boolean? = null
+        var light: SideLight.Verdict? = null
+        var levelLoggedMs = Long.MIN_VALUE / 2
+    }
+
+    private val lightTrace = LightTrace()
+
+    /**
+     * Story 10.21: `quickScan light flip` when the light hold changed ([held] against [before]) on a frame whose score is
+     * in the hysteresis band (between the mode's clear and hold cuts), where the hysteresis should keep it; else null.
+     */
+    internal fun lightFlipLine(
+        before: Boolean?,
+        held: Boolean,
+        light: SideLight.Verdict?,
+    ): String? {
+        if (before == null || before == held || light?.inBand != true) return null
+        val decimals = if (light.mode == SideLight.Mode.CALIBRATED) 3 else 1
+        return listOf(
+            "quickScan",
+            "light",
+            "flip",
+            "held=$held",
+            "lightScore=${format(light.score, decimals)}",
+            "clearCut=${format(light.mode.clearCut, decimals)}",
+            "holdCut=${format(light.mode.holdCut, decimals)}",
+            "lightMode=${light.mode.name.lowercase()}",
+        ).joinToString(" ")
+    }
+
+    /**
+     * Story 10.21: one `quickScan light levelChange` line per face (top, left, right) whose light level moved by at least
+     * [LEVEL_CHANGE_L] (uncalibrated L*) or [LEVEL_CHANGE_RATIO] (calibrated relative brightness) since [before], in the
+     * same mode, with each sticker's nearest calibrated colour on chroma ([SideLight.nearestOnChroma], `-` without
+     * [centers]). Colour letters and numbers only.
+     */
+    internal fun levelChangeLines(
+        before: SideLight.Verdict?,
+        now: SideLight.Verdict,
+        faces: List<FrameStats?>,
+        centers: CalibrationCenters?,
+    ): List<String> {
+        if (before == null || before.mode != now.mode) return emptyList()
+        val calibrated = now.mode == SideLight.Mode.CALIBRATED
+        val threshold = if (calibrated) LEVEL_CHANGE_RATIO else LEVEL_CHANGE_L
+        val decimals = if (calibrated) 3 else 1
+        val levels = listOf(before.topLevel to now.topLevel, before.leftLevel to now.leftLevel, before.rightLevel to now.rightLevel)
+        return levels.mapIndexedNotNull { index, (from, to) ->
+            if (from == null || to == null || kotlin.math.abs(to - from) < threshold) return@mapIndexedNotNull null
+            val stickers =
+                faces.getOrNull(index)?.cells.orEmpty().joinToString(",") { cell ->
+                    val colour = cell?.value?.let { lab -> centers?.let { SideLight.nearestOnChroma(lab, it) } }
+                    colour?.name?.take(1) ?: "-"
+                }
+            listOf(
+                "quickScan",
+                "light",
+                "levelChange",
+                "face=${FACE_NAMES[index]}",
+                "from=${format(from, decimals)}",
+                "to=${format(to, decimals)}",
+                "lightMode=${now.mode.name.lowercase()}",
+                "stickers=${stickers.ifEmpty { "-" }}",
+            ).joinToString(" ")
+        }
     }
 
     internal fun cornerFrameLine(
@@ -95,6 +180,8 @@ object ScanDiagnostics {
             if (calibrated) null else "sideDiff=${level(light?.darkerSideDifference)}",
             "lightScore=${level(light?.score)}",
             "lightCheck=$verdict",
+            // Story 10.21: a fail more than the hysteresis band's width above the hold cut.
+            if (light?.farAboveCut == true) "lightTag=far-above-cut" else null,
             // PO 2026-11-21: with the torch lit the check is measured but skipped (it holds nothing).
             "lightMode=${if (light != null && torch) "torch" else light?.mode?.name?.lowercase() ?: "-"}",
             "lightHold=$lightHeld",
@@ -117,7 +204,20 @@ object ScanDiagnostics {
      */
     fun onHoldEvent(event: CornerHoldEvent) {
         Log.d(TAG, holdEventLine(event))
+        // Story 10.21: a hold beginning (its viewfinder, or the capture that ends the last) starts the light trace afresh,
+        // and a clear made outside the check (torch lit, return from calibration) is not a flip on the next frame.
+        when {
+            event.kind == CornerHoldEventKind.VIEWFINDER || event.kind == CornerHoldEventKind.CAPTURE -> resetLightTrace()
+            event.kind == CornerHoldEventKind.LIGHT_CLEAR && event.reason != null -> synchronized(lightTrace) { lightTrace.held = false }
+        }
     }
+
+    /** Forgets the last corner frame's light state (Story 10.21): a new run or hold compares against nothing. */
+    private fun resetLightTrace() =
+        synchronized(lightTrace) {
+            lightTrace.held = null
+            lightTrace.light = null
+        }
 
     internal fun holdEventLine(event: CornerHoldEvent): String =
         listOfNotNull(
@@ -126,7 +226,10 @@ object ScanDiagnostics {
             "hold=${event.hold}",
             "t=${event.elapsedMs}",
             event.reason?.let { "${if (event.kind == CornerHoldEventKind.CAPTURE) "trigger" else "reason"}=$it" },
-            event.amount?.let { "amount=${format(it, 3)}" },
+            // Story 10.21: the few-confident wait's amount is a sticker count.
+            event.amount?.let {
+                if (event.reason == QuickScanController.POSE_FEW_CONFIDENT) "amount=${it.toInt()}" else "amount=${format(it, 3)}"
+            },
             event.timeout?.let { "timeout=$it" },
             event.durationMs?.let { "ms=$it" },
         ).joinToString(" ")
@@ -159,6 +262,9 @@ object ScanDiagnostics {
                     true -> "pass"
                     false -> "fail"
                 }}",
+                // Story 10.21: whether the saved calibration matched this scan (`none` without one) and the lit torch.
+                "calibration=${report.calibration?.label ?: "none"}",
+                "torch=${if (report.torchLit) "lit" else "off"}",
             ) +
                 report.faces.map { face ->
                     val reason =
@@ -188,7 +294,8 @@ object ScanDiagnostics {
                             }
                         }
                     "${face.face}:center=${face.center?.name ?: "-"},confident=${face.confident},uncertain=${face.uncertain}," +
-                        "${if (face.grid) "grid" else "kept"},reason=$reason"
+                        "${if (face.grid) "grid" else "kept"},reason=$reason" +
+                        (if (!face.grid && face.blanks > 0) ",blanks=${face.blanks}" else "")
                 }
         ).joinToString(" ")
 
@@ -285,7 +392,10 @@ object ScanDiagnostics {
 
     private fun elapsed(start: Long?): String = start?.let { (SystemClock.elapsedRealtime() - it).toString() } ?: "-"
 
-    fun startRun(): Long? = device?.let { SystemClock.elapsedRealtime() }
+    fun startRun(): Long? {
+        resetLightTrace()
+        return device?.let { SystemClock.elapsedRealtime() }
+    }
 
     fun onGuidedScanRun(
         started: Long?,
@@ -451,6 +561,11 @@ object ScanDiagnostics {
 
     const val TAG = "CubentiaScanDiag"
     private const val INTERVAL_MS = 500L
+
+    /** Story 10.21: the light-level moves a `levelChange` line reports (uncalibrated L*, calibrated relative brightness). */
+    private const val LEVEL_CHANGE_L = 5.0
+    private const val LEVEL_CHANGE_RATIO = 0.05
+    private val FACE_NAMES = listOf("top", "left", "right")
     private val lastLogMs = AtomicLong(Long.MIN_VALUE / 2)
 
     fun onFrame(

@@ -8,6 +8,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -350,13 +351,29 @@ class QuickScanRouteTest {
                         }
                     captureFaces(faces, model)
                 }
-                rule.onNodeWithTag("scanProgress").assertTextEquals("Face 1 of 1")
+                // Story 10.21: the fitted Orange margin also leaves this cube's Orange stickers uncertain on the faces whose
+                // normalized second read is shifted (no saved calibration), so the grid asks those faces too.
                 waitForCamera(corner = false)
-                // Held 180 degrees off the net's top at camera rotation 90: one clockwise quarter turn of the net in pixel order
-                // (ScanAssembler.rotateClockwise(net, 1), which is internal to :core:domain).
-                val pixels = listOf(6, 3, 0, 7, 4, 1, 8, 5, 2).map(net(Face.U)::get)
-                camera.feed(ScanFrame(stats(pixels), 90))
-                shutter(model)
+                val asked = mutableListOf<Face>()
+                while (true) {
+                    val viewfinder = model.phase as? dev.cubentia.app.camera.GuidedScanPhase.Viewfinder ?: break
+                    val face = checkNotNull(viewfinder.step).face
+                    if (face == Face.U) {
+                        // Held 180 degrees off the net's top at camera rotation 90: one clockwise quarter turn of the net in pixel
+                        // order (ScanAssembler.rotateClockwise(net, 1), which is internal to :core:domain).
+                        val pixels = listOf(6, 3, 0, 7, 4, 1, 8, 5, 2).map(net(Face.U)::get)
+                        camera.feed(ScanFrame(stats(pixels), 90))
+                    } else {
+                        camera.feed(ScanFrame(stats(net(face)), 0))
+                    }
+                    shutter(model)
+                    rule.waitForIdle()
+                    asked += face
+                    assertTrue("asked $asked", asked.size <= 6)
+                }
+                // Exactly the uncertain U and the three faces with Orange stickers (F, B, D), in the grid's order; the kept
+                // faces (R, L) are never asked again.
+                assertEquals(listOf(Face.F, Face.B, Face.U, Face.D), asked)
                 rule.onNodeWithTag("review:accept").performScrollTo().performClick()
                 val result = shadowOf(scan.get())
                 assertEquals(ScanOutcome.Accepted(cube), ScanFlowContract.decode(result.resultCode, result.resultIntent))
@@ -613,6 +630,119 @@ class QuickScanRouteTest {
             rule.onNodeWithTag("quickScan:faceByFace").performClick()
             settle(model)
             assertEquals("the torch is off on Scan face by face", false, camera.torchCalls.lastOrNull())
+        }
+    }
+
+    /** Story 10.21: hold-1 frames with dark sides and an outline that keeps moving, until the calibration offer shows. */
+    private fun holdUntilOffered(model: GuidedScanViewModel) {
+        shade = 40.0
+        shadedColors = setOf(Color.GREEN, Color.RED)
+        val quick = checkNotNull(model.quickScan)
+        var i = 0
+        while (!quick.calibrationOffered) {
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(100))
+            camera.feed(outlined(if (i++ % 2 == 0) 0.0 else 60.0))
+            assertTrue("offered within 8 s", i < 80)
+        }
+        settle(model)
+        rule.onNodeWithTag("quickScan:calibrate:offer").performClick()
+        rule.onNodeWithTag("quickScan:calibrate:confirm").performClick()
+        settle(model)
+    }
+
+    /**
+     * Story 10.21: the corner view's *Calibrate colors* offer keeps the corner torch choice; Back and Close from it clear
+     * the light hold and the offer; in calibration the toggle is the shared choice, locked from the first Keep; Save tags
+     * the calibration with the torch the camera applied.
+     */
+    @Test fun theCalibrationTorchFollowsTheCornerChoiceLocksOnKeepAndTagsTheSave() {
+        camera.flash = true
+        quickScanActivity { scan, model ->
+            camera.feed(outlined(0.0))
+            settle(model)
+            // Torch off in the corner view, so the light check runs and the offer can come.
+            rule.onNodeWithTag("quickScan:torch").performClick()
+            settle(model)
+            assertEquals(false, model.torchOn)
+            holdUntilOffered(model)
+            val calibration = model.phase as GuidedScanPhase.Calibration
+            assertTrue(calibration.fromQuickScan)
+            assertEquals("the corner view's choice carries into calibration", false, model.torchOn)
+            rule.onNodeWithText("Torch off").assertIsDisplayed()
+            // Back returns to the corner view with the light hold and the offer cleared.
+            ShadowLog.clear()
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            settle(model)
+            val quick = checkNotNull(model.quickScan)
+            assertTrue(model.phase is GuidedScanPhase.CornerViewfinder)
+            assertTrue(!quick.lightHeld && !quick.calibrationOffered)
+            assertTrue(
+                diagLines().toString(),
+                diagLines().any { Regex("""quickScan lightClear hold=1 t=\d+ reason=calibration.*""").matches(it) },
+            )
+            // Close does the same.
+            holdUntilOffered(model)
+            rule.onNodeWithTag("scanClose").performClick()
+            settle(model)
+            assertTrue(model.phase is GuidedScanPhase.CornerViewfinder)
+            assertTrue(!quick.lightHeld && !quick.calibrationOffered)
+            // In calibration the toggle is the shared choice: turned on there, it is on for the corner view too.
+            holdUntilOffered(model)
+            rule.onNodeWithTag("quickScan:torch").performClick()
+            settle(model)
+            assertEquals(true, model.torchOn)
+            assertEquals(true, camera.torchCalls.lastOrNull())
+            // A kept swatch locks it.
+            rule.runOnIdle {
+                val phase = model.phase as GuidedScanPhase.Calibration
+                model.phase = phase.copy(session = phase.session.offer(CellReading(evenLight.getValue(Color.GREEN), true)))
+            }
+            rule.onNodeWithTag("calibration:keep").performClick()
+            rule.onNodeWithTag("quickScan:torch").assertIsDisplayed().assertIsNotEnabled()
+            rule.onNodeWithTag("quickScan:torch").performClick()
+            assertEquals(true, model.torchOn)
+            // Save: tagged with the torch the camera applied (on).
+            rule.runOnIdle {
+                val phase = model.phase as GuidedScanPhase.Calibration
+                var session = phase.session
+                while (session.current !=
+                    null
+                ) {
+                    session = session.offer(CellReading(ScanRouteTest.labs.getValue(session.current!!), true)).keep()
+                }
+                model.phase = phase.copy(session = session)
+            }
+            rule.onNodeWithTag("calibration:save").performScrollTo().performClick()
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                model.saved != null && !model.saving
+            }
+            assertEquals(true, model.saved?.torchOn)
+        }
+    }
+
+    /** Story 10.21: a calibration opened from the review starts with the torch on, whatever the corner view chose. */
+    @Test fun aCalibrationOpenedFromTheReviewStartsWithTheTorchOn() {
+        camera.flash = true
+        quickScanActivity { _, model ->
+            camera.feed(outlined(0.0))
+            settle(model)
+            rule.onNodeWithTag("quickScan:torch").performClick()
+            settle(model)
+            assertEquals(false, model.torchOn)
+            rule.runOnIdle {
+                model.phase =
+                    GuidedScanPhase.Review(
+                        dev.cubentia.domain.recognition
+                            .ScanReview(List(54) { null }, 0),
+                        offerCalibration = true,
+                    )
+            }
+            rule.onNodeWithTag("review:calibrate:offer").performScrollTo().performClick()
+            rule.onNodeWithTag("review:calibrate:confirm").performClick()
+            settle(model)
+            assertTrue(model.phase is GuidedScanPhase.Calibration)
+            assertEquals(true, model.torchOn)
         }
     }
 

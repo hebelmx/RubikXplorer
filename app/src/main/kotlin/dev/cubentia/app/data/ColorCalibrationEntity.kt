@@ -1,5 +1,6 @@
 package dev.cubentia.app.data
 
+import androidx.room3.ColumnInfo
 import androidx.room3.Entity
 import androidx.room3.PrimaryKey
 import dev.cubentia.domain.cube.Color
@@ -27,6 +28,8 @@ data class ColorCalibrationEntity(
     val blue_l: Double,
     val blue_a: Double,
     val blue_b: Double,
+    /** Story 10.21: the torch lit when saved; null on a row saved before the tag (read as torch-off). */
+    @ColumnInfo(name = "torch_on") val torchOn: Boolean? = null,
 ) {
     fun calibration(): CalibrationCenters =
         CalibrationCenters(
@@ -38,6 +41,7 @@ data class ColorCalibrationEntity(
                 Color.ORANGE to Lab(orange_l, orange_a, orange_b),
                 Color.BLUE to Lab(blue_l, blue_a, blue_b),
             ),
+            torchOn = torchOn,
         )
 
     companion object {
@@ -62,6 +66,7 @@ data class ColorCalibrationEntity(
                 blue_l = calibration.centers.getValue(Color.BLUE).l,
                 blue_a = calibration.centers.getValue(Color.BLUE).a,
                 blue_b = calibration.centers.getValue(Color.BLUE).b,
+                torchOn = calibration.torchOn,
             )
     }
 }

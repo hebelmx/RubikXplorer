@@ -176,7 +176,7 @@ class GuidedScanActivity : ComponentActivity() {
                             calibration?.fromReview != null -> phase = calibration.fromReview
 
                             // Back from calibration opened in Quick Scan's corner view returns to it (Story 10.19).
-                            calibration?.fromQuickScan == true -> phase = scan.capturePhase()
+                            calibration?.fromQuickScan == true -> returnToCornerView()
 
                             else -> closeOrConfirm()
                         }
@@ -213,17 +213,21 @@ class GuidedScanActivity : ComponentActivity() {
                             it.copy(session = it.session.retake(), saveFailed = false)
                     }
                 },
-                onSave = { scan.saveCalibration(updateCalibration) },
+                // Story 10.21: the calibration is tagged with the torch actually lit when it is saved.
+                onSave = { scan.saveCalibration(updateCalibration, frameSource.torchApplied()) },
                 onUseAnyway = { decide { now -> scan.guidedController()?.onUseAnyway(now).orEmpty() } },
                 onFreezeEnd = { id -> scan.endFreeze(id) },
                 onFaceByFace = { switchToFaceByFace() },
                 // Story 10.19: the choice carries across holds, the hand-over and the background; the analyzer re-meters.
-                onToggleTorch = { scan.torchOn = !scan.torchOn },
+                // Story 10.21: locked in calibration from the first kept swatch until it is saved or left.
+                onToggleTorch = { if (!GuidedScanFlow.torchLocked(phase)) scan.torchOn = !scan.torchOn },
                 // Story 10.19 (PO 2026-11-21): the corner view's calibration offer, routed as the review's is.
                 onCalibrate = {
                     if (phase is GuidedScanPhase.CornerViewfinder && scan.quickScanMode && !scan.confirmDiscard) {
                         scan.captureCalibration = false
                         scan.calibrationMeterColor = null
+                        // Story 10.21: the corner view's torch choice is the calibration's (one shared choice).
+                        scan.torchOn = GuidedScanFlow.calibrationTorch(fromQuickScan = true, current = scan.torchOn)
                         phase = GuidedScanPhase.Calibration(fromQuickScan = true)
                     }
                 },
@@ -249,7 +253,7 @@ class GuidedScanActivity : ComponentActivity() {
                         if (!scan.saving) {
                             when {
                                 calibration?.fromReview != null -> phase = calibration.fromReview
-                                calibration?.fromQuickScan == true -> phase = scan.capturePhase()
+                                calibration?.fromQuickScan == true -> returnToCornerView()
                                 else -> finishWith(ScanOutcome.Cancelled)
                             }
                         }
@@ -327,6 +331,8 @@ class GuidedScanActivity : ComponentActivity() {
                                             // A Capture tap left over from an earlier calibration never samples this one.
                                             scan.captureCalibration = false
                                             scan.calibrationMeterColor = null
+                                            // Story 10.21: a calibration opened from the review starts with the torch on.
+                                            scan.torchOn = GuidedScanFlow.calibrationTorch(fromQuickScan = false, current = scan.torchOn)
                                             phase =
                                                 GuidedScanPhase.Calibration(
                                                     fromReview = reviewPhase,
@@ -543,6 +549,8 @@ class GuidedScanActivity : ComponentActivity() {
         if (!previewReady || cameraStarted || !hasPermission() || !scan.calibrationLoaded || !cameraPhase()) return
         cameraStarted = true
         frameSource.cornerMode(phase is GuidedScanPhase.CornerViewfinder)
+        // Story 10.21: the torch may be lit in the calibration phase too.
+        frameSource.calibrationMode(phase is GuidedScanPhase.Calibration)
         if (phase is GuidedScanPhase.CornerViewfinder) {
             // Story 10.22: the hold's timeline starts when its viewfinder opens (analyzer thread owns the controller).
             val entered = SystemClock.elapsedRealtime()
@@ -568,6 +576,9 @@ class GuidedScanActivity : ComponentActivity() {
         // One snapshot: main may leave calibration while this frame is read.
         val calibrating = phase as? GuidedScanPhase.Calibration
         if (calibrating != null) {
+            // Story 10.21: the flash unit is known once a camera is bound, so the calibration phase can show the torch.
+            val flash = frameSource.hasFlashUnit()
+            if (flash != null && flash != scan.hasFlash) ContextCompat.getMainExecutor(this).execute { scan.hasFlash = flash }
             val color = calibrating.session.current
             if (scan.calibrationMeterColor != color) {
                 scan.calibrationMeterColor = color
@@ -637,7 +648,8 @@ class GuidedScanActivity : ComponentActivity() {
                     corner.score,
                     quick.light.takeIf { measured },
                     quick.lightHeld,
-                    quick.torchOn,
+                    quick.torchLit,
+                    scan.saved,
                 )
             return
         }
@@ -723,8 +735,21 @@ class GuidedScanActivity : ComponentActivity() {
         return true
     }
 
-    private fun quickReview(done: QuickScanEffect.Done?): GuidedScanPhase.Review? =
-        done?.let { GuidedScanFlow.reviewOf(listOf(GuidedScanEffect.Done(it.samples)), scan.saved) }
+    private fun quickReview(done: QuickScanEffect.Done?): GuidedScanPhase.Review? = done?.let(GuidedScanFlow::quickReviewOf)
+
+    /**
+     * Main thread: *Close* or Back from a calibration opened in Quick Scan's corner view (Story 10.21): back to the corner
+     * view, its light coaching hold cleared so the offer needs a fresh hold (analyzer thread owns the controller).
+     */
+    private fun returnToCornerView() {
+        phase = scan.capturePhase()
+        val now = SystemClock.elapsedRealtime()
+        analyzerExecutor.execute {
+            val quick = scan.quickScan ?: return@execute
+            quick.returnFromCalibration(now)
+            quick.drainEvents().forEach(ScanDiagnostics::onHoldEvent)
+        }
+    }
 
     /** A shutter or override decision on the analyzer thread; none runs while a capture is frozen. */
     private fun decide(decision: (Long) -> List<GuidedScanEffect>) {
@@ -980,9 +1005,14 @@ internal class GuidedScanViewModel : ViewModel() {
         }
     }
 
-    fun saveCalibration(update: dev.cubentia.application.usecase.UpdateCalibration) {
+    /** Saves the calibration tagged with the torch lit now (Story 10.21): wanted, on a flash unit, and [torchApplied]. */
+    fun saveCalibration(
+        update: dev.cubentia.application.usecase.UpdateCalibration,
+        torchApplied: Boolean? = null,
+    ) {
         val calibration = phase as? GuidedScanPhase.Calibration ?: return
-        val centers = calibration.session.calibration ?: return
+        val centers =
+            calibration.session.calibration?.copy(torchOn = GuidedScanFlow.savedTorchTag(hasFlash, torchOn, torchApplied)) ?: return
         if (saving) return
         saving = true
         viewModelScope.launch {

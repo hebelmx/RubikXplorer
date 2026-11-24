@@ -128,6 +128,11 @@ internal class CornerHold(
         settled: Boolean? = null,
         torchOn: Boolean = false,
         outline: List<OutlinePoint>? = null,
+        /**
+         * Story 10.21: whether enough stickers read CONFIDENT for an automatic capture. Asked only once a steady window
+         * could start (detected, allowed, settled, acceptable quality); false waits without touching a queued press.
+         */
+        enoughConfident: () -> Boolean = { true },
         allowAuto: (List<Lab?>) -> Boolean,
     ): Decision {
         require(faces.size == 3)
@@ -224,6 +229,11 @@ internal class CornerHold(
             if (reference != null && settledSinceMeter) {
                 mark(nowMs, CornerHoldEventKind.STEADY_RESTART, reason = "quality")
             }
+            reference = null
+            return Decision.Wait
+        }
+        if (!enoughConfident()) {
+            // Story 10.21: too few CONFIDENT stickers; the steady window starts over once enough read.
             reference = null
             return Decision.Wait
         }
@@ -343,6 +353,7 @@ internal class CornerHold(
             return
         }
         if (!light.passed) {
+            // Story 10.21: a fail starts only above the mode's hold cut (passed is judged against it).
             if (!lightHeld && (settling || meteredAt == null)) {
                 // The first detected frame of an episode (exposed on the whole scene, it re-meters onto the cube) or an
                 // exposure transient while a metering change settles never starts the coaching (the verdict is reported).
@@ -364,6 +375,21 @@ internal class CornerHold(
             lightFailingSince = null
             return
         }
+        if (!light.belowClear) {
+            // Story 10.21: a score in the band between the clear and hold cuts is neutral: no flip either way.
+            lastPassAt = null
+            return
+        }
+        // Story 10.21 (rule of commit 46005a11): the clear window restarts when 2 or more cells of one face moved by the
+        // steady threshold since the window's first frame, so the light must stay clear on a steady view.
+        val values = values()
+        val prior = lightClearReference
+        if (prior == null || movedOnOneFace(values, prior)) {
+            lightClearReference = values
+            passedMs = 0L
+            lastPassAt = nowMs
+            return
+        }
         // Only consecutive passing frames add up: the time across a neutral frame never counts.
         lastPassAt?.let { passedMs += nowMs - it }
         lastPassAt = nowMs
@@ -376,16 +402,41 @@ internal class CornerHold(
     private fun resetPassWindow() {
         passedMs = 0L
         lastPassAt = null
+        lightClearReference = null
     }
+
+    /** The light-clear window's first frame (cell values); null while no window runs. */
+    private var lightClearReference: List<Lab?>? = null
+
+    /** True when [MIN_MOVED_CELLS] or more cells of one face moved by [GuidedScanController.STEADY_DELTA_E]. */
+    private fun movedOnOneFace(
+        now: List<Lab?>,
+        prior: List<Lab?>,
+    ): Boolean =
+        (0 until 3).any { face ->
+            (0 until FrameQuality.CELLS).count { cell ->
+                val index = face * FrameQuality.CELLS + cell
+                val a = now.getOrNull(index)
+                val b = prior.getOrNull(index)
+                a != null && b != null && StickerClassifier.deltaE(a, b) >= GuidedScanController.STEADY_DELTA_E
+            } >= MIN_MOVED_CELLS
+        }
 
     /** True once the cube has been undetected for [LOST_MS] or more. */
     private fun lost(nowMs: Long): Boolean = undetectedSince?.let { nowMs - it >= LOST_MS } == true
 
-    /** Clears a running light fail at [nowMs] (the torch was lit, PO 2026-11-21: the check is skipped while it is). */
-    fun clearLightHold(nowMs: Long) {
+    /**
+     * Clears a running light fail at [nowMs]: the torch was lit (PO 2026-11-21: the check is skipped while it is), or
+     * Story 10.21's return from calibration ([reason] `calibration`). The sides-dark line goes at once.
+     */
+    fun clearLightHold(
+        nowMs: Long,
+        reason: String = "torch",
+    ) {
         val since = lightHeldSince
-        if (lightHeld) mark(nowMs, CornerHoldEventKind.LIGHT_CLEAR, reason = "torch", durationMs = since?.let { nowMs - it })
+        if (lightHeld) mark(nowMs, CornerHoldEventKind.LIGHT_CLEAR, reason = reason, durationMs = since?.let { nowMs - it })
         clearLight()
+        if (coaching == Coaching.SIDES_DARK) coaching = null
     }
 
     private fun clearLight() {
@@ -433,8 +484,14 @@ internal class CornerHold(
         /** Continuous failing with the cube detected before the sides-dark coaching shows. */
         const val SIDES_DARK_COACHING_MS = 1000L
 
-        /** The light check must pass this long (in total since the last failing verdict) to clear the coaching. */
+        /**
+         * The light check must score below the clear cut this long (in total since the last failing verdict, on a steady
+         * view since Story 10.21) to clear the coaching.
+         */
         const val LIGHT_CLEAR_MS = 500L
+
+        /** Cells of one face that must move for the light-clear window to restart (Story 10.21, rule of commit 46005a11). */
+        const val MIN_MOVED_CELLS = 2
 
         /** Undetected this long, the cube is lost: metering, settle, the steady window and a queued press restart. */
         const val LOST_MS = 300L

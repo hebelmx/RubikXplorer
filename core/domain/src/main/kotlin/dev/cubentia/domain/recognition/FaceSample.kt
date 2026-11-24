@@ -2,6 +2,8 @@ package dev.cubentia.domain.recognition
 
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.Face
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 /** Neutral CIELAB measurement; no Android or image types cross into domain code. */
@@ -53,9 +55,15 @@ data class LabeledFaceSample(
     val truth: List<Color>,
 )
 
+/**
+ * Six colour centres. Story 10.21: [torchOn] is the torch state actually lit when the calibration was saved (null: a
+ * row saved before the torch tag, read as torch-off). It is never written when absent, so fixture JSON is unchanged.
+ */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class CalibrationCenters(
     val centers: Map<Color, Lab>,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val torchOn: Boolean? = null,
 )
 
 @Serializable

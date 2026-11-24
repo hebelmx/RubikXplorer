@@ -218,6 +218,9 @@ private val EXPANDED_WIDTH = 600.dp
 private const val NET_COLUMNS = 4
 private const val NET_ROWS = 3
 private const val SIDE = 3
+
+/** Material's disabled content alpha (Story 10.21: the locked calibration torch toggle). */
+private const val DISABLED_ALPHA = 0.38f
 private const val QUARTER = 90
 
 /** How long the frozen frame takes to shrink into its face on the mini net. */
@@ -237,7 +240,10 @@ internal fun GuidedScanScreen(
     detectedCornerQuads: List<List<CornerPoint>> = emptyList(),
     cornerThumbnail: ImageBitmap? = null,
     confirmDiscard: Boolean = false,
-    /** Story 10.19: the torch control's state in Quick Scan's corner view; null shows no control (no flash unit). */
+    /**
+     * Story 10.19: the torch control's state in Quick Scan's corner view (Story 10.21: and the calibration phase); null
+     * shows no control (no flash unit).
+     */
     cornerTorch: Boolean? = null,
     viewfinder: @Composable () -> Unit = {},
 ) {
@@ -302,7 +308,12 @@ internal fun GuidedScanScreen(
             }
             when (phase) {
                 is GuidedScanPhase.Calibration -> {
-                    CalibrationViewfinder(phase, strings, actions, offerEnterColors, viewfinder)
+                    // Story 10.21: the same torch toggle, locked from the first kept swatch until saved or left.
+                    val torch =
+                        cornerTorch?.let { on ->
+                            TorchControl(on, strings, actions.onToggleTorch, enabled = !GuidedScanFlow.torchLocked(phase))
+                        }
+                    CalibrationViewfinder(phase, strings, actions, offerEnterColors, viewfinder, torch)
                 }
 
                 is GuidedScanPhase.Review -> {
@@ -538,11 +549,12 @@ private fun CameraArea(
     }
 }
 
-/** The torch toggle's state and action (Story 10.19). */
+/** The torch toggle's state and action (Story 10.19); [enabled] false shows it disabled (Story 10.21, calibration lock). */
 internal class TorchControl(
     val on: Boolean,
     val strings: ContentStrings,
     val onToggle: () -> Unit,
+    val enabled: Boolean = true,
 )
 
 /**
@@ -557,8 +569,11 @@ internal fun TorchButton(
     testTag: String = "quickScan:torch",
 ) {
     val label = torch.strings.resolve(ContentText(if (torch.on) "btn.quick-scan.torch-on" else "btn.quick-scan.torch-off"))
+    val content = if (torch.on) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
     Surface(
         onClick = torch.onToggle,
+        // Story 10.21: a standard disabled button while locked (still shown, dimmed, not clickable).
+        enabled = torch.enabled,
         modifier =
             modifier
                 .widthIn(max = 160.dp)
@@ -568,7 +583,7 @@ internal fun TorchButton(
                 .testTag(testTag),
         shape = RoundedCornerShape(24.dp),
         color = if (torch.on) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-        contentColor = if (torch.on) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+        contentColor = if (torch.enabled) content else content.copy(alpha = DISABLED_ALPHA),
     ) {
         Row(
             Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -1010,6 +1025,7 @@ private fun CalibrationViewfinder(
     actions: GuidedScanActions,
     offerEnterColors: Boolean,
     preview: @Composable () -> Unit,
+    torch: TorchControl? = null,
 ) {
     val session = phase.session
     val color = session.current
@@ -1087,12 +1103,12 @@ private fun CalibrationViewfinder(
         val cameraHeight = maxHeight * VIEWFINDER_HEIGHT_FRACTION
         if (maxWidth >= EXPANDED_WIDTH || maxWidth > maxHeight) {
             Row(Modifier.fillMaxSize()) {
-                Box(Modifier.weight(1f).fillMaxHeight()) { CameraArea(geometry, preview) }
+                Box(Modifier.weight(1f).fillMaxHeight()) { CameraArea(geometry, preview, torch = torch) }
                 Box(Modifier.weight(1f)) { panel() }
             }
         } else {
             Column(Modifier.fillMaxSize()) {
-                Box(Modifier.fillMaxWidth().height(cameraHeight)) { CameraArea(geometry, preview) }
+                Box(Modifier.fillMaxWidth().height(cameraHeight)) { CameraArea(geometry, preview, torch = torch) }
                 panel()
             }
         }

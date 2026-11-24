@@ -25,6 +25,7 @@ object ScanDiagnostics {
         light: SideLight.Verdict? = null,
         lightHeld: Boolean = false,
         torch: Boolean = false,
+        centers: CalibrationCenters? = null,
     ) = Unit
 
     fun onHoldEvent(event: CornerHoldEvent) = Unit
