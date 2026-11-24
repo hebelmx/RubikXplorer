@@ -2565,3 +2565,21 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-321-seeded-editor-scan-fallback.md"
+  - id: "issue-313-deferred-compact-200-full-button-stack"
+    epic: 10
+    action: "The compact 200% font test renders without canUseAnyway or offerEnterColors, so the
+      fullest button stack (Use this face anyway + Close/Capture + Enter colors instead) is never
+      checked for fit; add that compact fontScale200 case (medium; deferred from #313,
+      GuidedScanScreenTest.kt:265)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-313-guided-scan-close-in-control-group.md"
+  - id: "issue-313-deferred-device-check-close-placement"
+    epic: 10
+    action: "Device check on the Lenovo TB128XU (landscape) and Galaxy S24 FE (portrait): Close sits
+      with Capture and the face prompt, TalkBack order, 200% font incl. the prompt swatch glyphs; PO to
+      confirm the phone-portrait reading (Close beside Capture below the net, prompt above the camera)
+      meets 'same control group' (medium; deferred from #313, GuidedScanScreen.kt:481)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-313-guided-scan-close-in-control-group.md"

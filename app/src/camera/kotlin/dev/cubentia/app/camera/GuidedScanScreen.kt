@@ -259,60 +259,49 @@ internal fun GuidedScanScreen(
     if (confirmDiscard) DiscardDialog(strings, actions, discardKind)
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(
-                    onClick = actions.onClose,
-                    modifier = Modifier.testTag("scanClose"),
-                ) { Text(strings.resolve(ContentText("btn.scan.close"))) }
-                if (phase is GuidedScanPhase.CornerViewfinder && phase.totalHolds == 2) {
-                    Row(
-                        Modifier.weight(1f).padding(end = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        if (cornerThumbnail != null) {
-                            Image(
-                                bitmap = cornerThumbnail,
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier =
-                                    Modifier
-                                        .size(36.dp)
-                                        .clipToBounds()
-                                        .border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(6.dp))
-                                        .testTag("quickScan:thumbnail"),
+            // GH #313: the Guided viewfinder holds *Close* and the progress in its own controls group instead.
+            if (phase !is GuidedScanPhase.Viewfinder) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedButton(
+                        onClick = actions.onClose,
+                        modifier = Modifier.testTag("scanClose"),
+                    ) { Text(strings.resolve(ContentText("btn.scan.close"))) }
+                    if (phase is GuidedScanPhase.CornerViewfinder && phase.totalHolds == 2) {
+                        Row(
+                            Modifier.weight(1f).padding(end = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (cornerThumbnail != null) {
+                                Image(
+                                    bitmap = cornerThumbnail,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier =
+                                        Modifier
+                                            .size(36.dp)
+                                            .clipToBounds()
+                                            .border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(6.dp))
+                                            .testTag("quickScan:thumbnail"),
+                                )
+                            }
+                            Text(
+                                strings.resolve(
+                                    ContentText("msg.quick-scan.counter", mapOf("n" to phase.hold, "total" to phase.totalHolds)),
+                                ),
+                                Modifier
+                                    .semantics { liveRegion = LiveRegionMode.Polite }
+                                    .testTag("quickScan:counter"),
+                                textAlign = TextAlign.End,
+                                style =
+                                    if (phase.hold > 1 || cornerThumbnail != null) {
+                                        MaterialTheme.typography.titleLarge
+                                    } else {
+                                        LocalRubikTextStyles.current.data
+                                    },
                             )
                         }
-                        Text(
-                            strings.resolve(
-                                ContentText("msg.quick-scan.counter", mapOf("n" to phase.hold, "total" to phase.totalHolds)),
-                            ),
-                            Modifier
-                                .semantics { liveRegion = LiveRegionMode.Polite }
-                                .testTag("quickScan:counter"),
-                            textAlign = TextAlign.End,
-                            style =
-                                if (phase.hold > 1 || cornerThumbnail != null) {
-                                    MaterialTheme.typography.titleLarge
-                                } else {
-                                    LocalRubikTextStyles.current.data
-                                },
-                        )
                     }
-                }
-                if (phase is GuidedScanPhase.Viewfinder) {
-                    Text(
-                        strings.resolve(progressText(phase)),
-                        // Announces each capture to TalkBack as the count moves on.
-                        modifier =
-                            Modifier
-                                .weight(1f)
-                                .padding(end = 8.dp)
-                                .semantics { liveRegion = LiveRegionMode.Polite }
-                                .testTag("scanProgress"),
-                        textAlign = TextAlign.End,
-                        style = MaterialTheme.typography.labelLarge,
-                    )
                 }
             }
             when (phase) {
@@ -381,7 +370,16 @@ internal fun GuidedScanScreen(
                 }
 
                 is GuidedScanPhase.Viewfinder -> {
-                    Viewfinder(phase, strings, actions, frozen, offerEnterColors, viewfinder)
+                    Viewfinder(
+                        phase,
+                        strings,
+                        actions,
+                        frozen,
+                        offerEnterColors,
+                        viewfinder,
+                        onClose = actions.onClose,
+                        progress = progressText(phase),
+                    )
                 }
             }
         }
@@ -432,6 +430,10 @@ private fun Viewfinder(
     faceByFace: Boolean = false,
     torch: TorchControl? = null,
     onCalibrate: (() -> Unit)? = null,
+    /** GH #313: the plain Guided viewfinder's *Close*, set beside *Capture*; null leaves *Close* out of the panel. */
+    onClose: (() -> Unit)? = null,
+    /** GH #313: the plain Guided viewfinder's "Face n of 6", set beside the face prompt. */
+    progress: ContentText? = null,
 ) {
     val geometry = remember { ViewfinderGeometry() }
     val steps = cornerHold?.takeIf { cornerPrompt == null }?.let { QuickScanPlan.holds[it - 1] }.orEmpty()
@@ -459,11 +461,15 @@ private fun Viewfinder(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    if (cornerHold == null) Prompt(phase, strings) else CornerPrompt(cornerHold, strings, cornerPrompt)
+                    if (cornerHold == null) {
+                        PromptRow(phase, strings, progress)
+                    } else {
+                        CornerPrompt(cornerHold, strings, cornerPrompt)
+                    }
                     CoachingLine(phase, strings)
                     if (onCalibrate != null) CalibrationOfferLine(strings, onCalibrate)
                     if (cornerPrompt == null) MiniNet(phase, geometry, Modifier.weight(1f).fillMaxWidth(), highlighted)
-                    CaptureButtons(phase, strings, actions)
+                    CaptureButtons(phase, strings, actions, onClose)
                     if (faceByFace) FaceByFaceButton(strings, actions.onFaceByFace)
                     if (offerEnterColors) EnterColorsButton(strings, actions.onEnterColors)
                 }
@@ -472,7 +478,7 @@ private fun Viewfinder(
             val cameraHeight = maxHeight * VIEWFINDER_HEIGHT_FRACTION
             Column(Modifier.fillMaxSize()) {
                 if (cornerHold == null) {
-                    Prompt(phase, strings, Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp))
+                    PromptRow(phase, strings, progress, Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp))
                 } else {
                     CornerPrompt(cornerHold, strings, cornerPrompt)
                 }
@@ -493,7 +499,7 @@ private fun Viewfinder(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     if (cornerPrompt == null) MiniNet(phase, geometry, Modifier.weight(1f).fillMaxWidth(), highlighted)
-                    CaptureButtons(phase, strings, actions)
+                    CaptureButtons(phase, strings, actions, onClose)
                     if (faceByFace) FaceByFaceButton(strings, actions.onFaceByFace)
                     if (offerEnterColors) EnterColorsButton(strings, actions.onEnterColors)
                 }
@@ -716,6 +722,38 @@ private fun progressText(phase: GuidedScanPhase.Viewfinder): ContentText =
         ?: ContentText("msg.scan.progress", mapOf("n" to minOf(phase.stepIndex + 1, phase.total), "total" to phase.total))
 
 /**
+ * The face prompt with, when [progress] is set (GH #313), "Face n of 6" at its end as a polite live region that
+ * announces each capture to TalkBack as the count moves on. Without [progress] this is the plain [Prompt].
+ */
+@Composable
+private fun PromptRow(
+    phase: GuidedScanPhase.Viewfinder,
+    strings: ContentStrings,
+    progress: ContentText?,
+    modifier: Modifier = Modifier,
+) {
+    if (progress == null) {
+        Prompt(phase, strings, modifier)
+        return
+    }
+    // The prompt keeps at least two thirds of the row; the progress wraps in what is left and sits at the end.
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+        Box(Modifier.weight(2f)) { Prompt(phase, strings, Modifier.fillMaxWidth()) }
+        Text(
+            strings.resolve(progress),
+            modifier =
+                Modifier
+                    .weight(1f, fill = false)
+                    .padding(start = 8.dp)
+                    .semantics { liveRegion = LiveRegionMode.Polite }
+                    .testTag("scanProgress"),
+            textAlign = TextAlign.End,
+            style = MaterialTheme.typography.labelLarge,
+        )
+    }
+}
+
+/**
  * "Show the green center." with the center's glyph swatch; a re-prompt that names a top reads "Show the green center,
  * with white on top." with a swatch for each color.
  */
@@ -883,12 +921,16 @@ private fun MiniNet(
     }
 }
 
-/** The primary *Capture*, plus *Use this face anyway* after a repeated face was rejected twice at this step. */
+/**
+ * The primary *Capture*, plus *Use this face anyway* after a repeated face was rejected twice at this step. With
+ * [onClose] (GH #313) an outlined *Close* starts *Capture*'s row, so the shutter and the way out sit together.
+ */
 @Composable
 private fun CaptureButtons(
     phase: GuidedScanPhase.Viewfinder,
     strings: ContentStrings,
     actions: GuidedScanActions,
+    onClose: (() -> Unit)? = null,
 ) {
     if (phase.canUseAnyway) {
         OutlinedButton(
@@ -896,8 +938,24 @@ private fun CaptureButtons(
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("scanUseAnyway"),
         ) { Text(strings.resolve(ContentText("btn.scan.use-anyway"))) }
     }
-    Button(onClick = actions.onCapture, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("scanCapture")) {
-        Text(strings.resolve(ContentText("btn.scan.capture")))
+    if (onClose == null) {
+        Button(onClick = actions.onCapture, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("scanCapture")) {
+            Text(strings.resolve(ContentText("btn.scan.capture")))
+        }
+        return
+    }
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        OutlinedButton(
+            onClick = onClose,
+            modifier = Modifier.heightIn(min = 48.dp).testTag("scanClose"),
+        ) { Text(strings.resolve(ContentText("btn.scan.close"))) }
+        Button(onClick = actions.onCapture, modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("scanCapture")) {
+            Text(strings.resolve(ContentText("btn.scan.capture")))
+        }
     }
 }
 
