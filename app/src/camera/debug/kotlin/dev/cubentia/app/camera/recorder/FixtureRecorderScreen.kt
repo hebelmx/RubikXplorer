@@ -420,7 +420,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                 keypoints = placed?.points,
                 detectorKeypoints = placed?.detector,
                 torch = holdTorch,
-                diagnostics = holdDiagnostics(shot.corner?.faces.orEmpty(), calibration, holdTorch, shot.settle),
+                diagnostics = holdDiagnostics(shot.corner?.faces.orEmpty(), calibration, holdTorch, shot.settle, shot.evIndex),
             )
         saving = true
         scope.launch {
