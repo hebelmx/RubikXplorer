@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-24-2026 10:26'
+last_updated: '11-24-2026 13:41'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -157,7 +157,8 @@ development_status:
   10-25-quick-scan-starts-from-whichever-corner-it-is-shown: backlog
   10-26-quick-scan-fills-a-few-unread-stickers-from-the-cube-s-rules: backlog
   10-27-clean-the-corner-fixture-labels-and-judge-pastel-stickers-ag: backlog
-  10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa: backlog
+  10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa: 
+    in-progress
   10-29-solution-playback-shows-the-same-quick-check-result-as-lesso: backlog
   10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: done
   10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads: done
@@ -2532,54 +2533,56 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
   - id: "issue-321-deferred-partial-scan-note-over-empty-net"
     epic: 10
-    action: "A partial Guided scan seeds no sticker (unposed faces, or no calibration), yet the
-      Editor shows \"Your scan is here. Fill in the stickers it couldn't read.\" over an empty
-      net; PO decides whether a payload with no read sticker opens the blank Editor with the
-      old note (medium; deferred from #321, SolveFlowViewModel.kt:136)"
+    action: "A partial Guided scan seeds no sticker (unposed faces, or no calibration),
+      yet the Editor shows \"Your scan is here. Fill in the stickers it couldn't read.\"\
+      \ over an empty net; PO decides whether a payload with no read sticker opens
+      the blank Editor with the old note (medium; deferred from #321, SolveFlowViewModel.kt:136)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-321-seeded-editor-scan-fallback.md"
   - id: "issue-321-deferred-unresolved-rotation-route-test"
     epic: 10
-    action: "Story 10.15 (P9) asks the Solve route tests to cover a captured face whose rotation is
-      unresolved; add a route or ViewModel test that a six-face review with an ambiguous face
-      falls back with that face unset and listed as left (medium; deferred from #321,
-      SolveFromScanRouteTest.kt)"
+    action: "Story 10.15 (P9) asks the Solve route tests to cover a captured face
+      whose rotation is unresolved; add a route or ViewModel test that a six-face
+      review with an ambiguous face falls back with that face unset and listed as
+      left (medium; deferred from #321, SolveFromScanRouteTest.kt)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-321-seeded-editor-scan-fallback.md"
   - id: "issue-321-deferred-talkback-face-naming"
     epic: 10
-    action: "An unset sticker is announced with the face tab label (\"Right sticker 1, not set\")
-      while set stickers use the colour-face name, so TalkBack names faces two ways; confirm
-      or align the wording at the device session (low; deferred from #321,
-      StickerReviewNet.kt:361)"
+    action: "An unset sticker is announced with the face tab label (\"Right sticker
+      1, not set\") while set stickers use the colour-face name, so TalkBack names
+      faces two ways; confirm or align the wording at the device session (low; deferred
+      from #321, StickerReviewNet.kt:361)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-321-seeded-editor-scan-fallback.md"
   - id: "issue-321-deferred-editor-saveable-key-initialset"
     epic: 10
-    action: "ManualCubeEditor keys rememberSaveable on (initial, fresh, seeded) but not initialSet,
-      so two back-to-back seeded fallbacks with identical placeholder facelets keep stale
-      state; add initialSet to the keys (low; deferred from #321, ManualCubeEditor.kt:173)"
+    action: "ManualCubeEditor keys rememberSaveable on (initial, fresh, seeded) but
+      not initialSet, so two back-to-back seeded fallbacks with identical placeholder
+      facelets keep stale state; add initialSet to the keys (low; deferred from #321,
+      ManualCubeEditor.kt:173)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-321-seeded-editor-scan-fallback.md"
   - id: "issue-313-deferred-compact-200-full-button-stack"
     epic: 10
-    action: "The compact 200% font test renders without canUseAnyway or offerEnterColors, so the
-      fullest button stack (Use this face anyway + Close/Capture + Enter colors instead) is never
-      checked for fit; add that compact fontScale200 case (medium; deferred from #313,
-      GuidedScanScreenTest.kt:265)"
+    action: "The compact 200% font test renders without canUseAnyway or offerEnterColors,
+      so the fullest button stack (Use this face anyway + Close/Capture + Enter colors
+      instead) is never checked for fit; add that compact fontScale200 case (medium;
+      deferred from #313, GuidedScanScreenTest.kt:265)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-313-guided-scan-close-in-control-group.md"
   - id: "issue-313-deferred-device-check-close-placement"
     epic: 10
-    action: "Device check on the Lenovo TB128XU (landscape) and Galaxy S24 FE (portrait): Close sits
-      with Capture and the face prompt, TalkBack order, 200% font incl. the prompt swatch glyphs; PO to
-      confirm the phone-portrait reading (Close beside Capture below the net, prompt above the camera)
-      meets 'same control group' (medium; deferred from #313, GuidedScanScreen.kt:481)"
+    action: "Device check on the Lenovo TB128XU (landscape) and Galaxy S24 FE (portrait):
+      Close sits with Capture and the face prompt, TalkBack order, 200% font incl.
+      the prompt swatch glyphs; PO to confirm the phone-portrait reading (Close beside
+      Capture below the net, prompt above the camera) meets 'same control group' (medium;
+      deferred from #313, GuidedScanScreen.kt:481)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-313-guided-scan-close-in-control-group.md"
