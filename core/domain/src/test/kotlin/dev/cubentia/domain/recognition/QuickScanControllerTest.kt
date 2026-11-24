@@ -1695,6 +1695,14 @@ class QuickScanControllerTest {
         val rejected = scan.drainEvents().filter { it.kind == CornerHoldEventKind.POSE_REJECTED }
         assertEquals(listOf(QuickScanController.POSE_FEW_CONFIDENT), rejected.map { it.reason })
         assertEquals(3.0, rejected.single().amount)
+        // Device-session diagnostics: the per-face counts sum to exactly the amount the wait compares with the need.
+        assertEquals(mapOf(Face.U to 1, Face.F to 1, Face.R to 1), rejected.single().confident)
+        assertEquals(
+            QuickScanDiagnosis.ConfidentCount(1, mapOf(Face.U to 1, Face.F to 1, Face.R to 1), QuickScanController.MIN_CONFIDENT),
+            scan.confidentCount,
+        )
+        assertEquals(3, scan.confidentCount!!.amount)
+        assertEquals(listOf(1, 1, 1), scan.confidentDiagnoses().map { it.counted })
         assertTrue(QuickScanController.MIN_CONFIDENT > 3)
         // Enough stickers read: the steady window starts and the capture counts the wait in its time since detected.
         var captured: Long? = null
@@ -1716,6 +1724,201 @@ class QuickScanControllerTest {
         manual.onFrame(true, few, 600)
         assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), manual.onShutter(700))
         assertTrue(manual.lastCapture!!.manual)
+    }
+
+    @Test
+    fun `with no calibration a logo top and a second unplain centre leave hold 1 nothing to read against`() {
+        // Story 10.21 device session (S24 FE, Rubik's logo top, torch lit): the logo White centre is guarded and the
+        // Green centre is not plain either, so only Red is a trusted centre: fewer than two, every read is null.
+        val first =
+            hold(1, CubeState.SOLVED).mapIndexed { index, stats ->
+                if (index == 2) {
+                    stats
+                } else {
+                    stats.copy(
+                        cells =
+                            stats.cells.mapIndexed { i, cell ->
+                                if (i ==
+                                    FaceSample.CENTER_INDEX
+                                ) {
+                                    cell!!.copy(plain = false)
+                                } else {
+                                    cell
+                                }
+                            },
+                    )
+                }
+            }
+        val scan = QuickScanController(lightCheck = false)
+        for (now in 0L..2000L step 100) scan.onFrame(true, first, now)
+        assertTrue(scan.fewConfident)
+        assertEquals(0, scan.confidentCount!!.amount)
+        val faces = scan.confidentDiagnoses()
+        assertEquals(listOf(Face.U, Face.F, Face.R), faces.map { it.face })
+        assertTrue(faces.all { it.reference == QuickScanDiagnosis.Reference.NONE && it.referenceColors == setOf(Color.RED) })
+        assertEquals(
+            listOf(
+                QuickScanDiagnosis.CentreIssue.GUARDED,
+                QuickScanDiagnosis.CentreIssue.GUARDED,
+                QuickScanDiagnosis.CentreIssue.NO_REFERENCE,
+            ),
+            faces.map { it.centreIssue },
+        )
+        assertEquals(setOf(Color.WHITE, Color.GREEN), faces.first().guarded)
+        assertTrue(faces.all { face -> face.stickers.all { it.color == null } && face.counted == 0 })
+        assertEquals(
+            listOf(
+                QuickScanDiagnosis.GridReason.UNCALIBRATED,
+                QuickScanDiagnosis.GridReason.UNCALIBRATED,
+                QuickScanDiagnosis.GridReason.CENTRE_UNCERTAIN,
+            ),
+            faces.map { it.gridReason },
+        )
+        assertEquals(listOf(false, false, true), faces.map { it.stickers[FaceSample.CENTER_INDEX].judged })
+    }
+
+    @Test
+    fun `a capture's diagnoses name the reference, every sticker's reads and the decision`() {
+        val solved = CubeState.SOLVED
+        val scan = QuickScanController(lightCheck = false)
+        assertTrue(scan.captureDiagnoses().isEmpty())
+        scan.onFrame(true, hold(1, solved), 0)
+        assertEquals(listOf(QuickScanEffect.CornerCaptured(1)), scan.onShutter())
+        val faces = scan.captureDiagnoses()
+        assertEquals(listOf(Face.U, Face.F, Face.R), faces.map { it.face })
+        faces.forEach { face ->
+            assertEquals(QuickScanDiagnosis.Reference.PARTIAL, face.reference)
+            assertEquals(setOf(Color.WHITE, Color.GREEN, Color.RED), face.referenceColors)
+            assertEquals(setOf(Color.YELLOW, Color.ORANGE, Color.BLUE), face.unresolved)
+            assertEquals(null, face.calibration)
+            assertEquals(null, face.centreIssue)
+            assertEquals(9, face.counted)
+            assertEquals(9, face.confident)
+            assertEquals(null, face.gridReason)
+            assertTrue(face.stickers.all { it.confident && it.judged && it.color == it.secondColor && it.firstMargin!! >= 10.0 })
+        }
+        // A matching saved calibration is the reference.
+        val matched = QuickScanController(saved, lightCheck = false)
+        matched.onFrame(true, hold(1, solved), 0)
+        matched.onShutter()
+        assertTrue(
+            matched.captureDiagnoses().all {
+                it.reference == QuickScanDiagnosis.Reference.SAVED &&
+                    it.calibration == CalibrationMatch.Match
+            },
+        )
+        // A blurred face goes to the grid for its quality.
+        val blurred = hold(1, solved).toMutableList().also { it[1] = it[1].copy(sharpness = 0.0) }
+        val poor = QuickScanController(lightCheck = false)
+        poor.onFrame(true, blurred, 0)
+        poor.onShutter()
+        assertEquals(QuickScanDiagnosis.GridReason.QUALITY, poor.captureDiagnoses()[1].gridReason)
+    }
+
+    @Test
+    fun `the hand-over report names the kept faces, the grid faces with why and the blanks`() {
+        val solved = CubeState.SOLVED
+        val uncertain = Lab(55.0, 55.0, 55.0)
+        val first =
+            hold(1, solved).toMutableList().also {
+                it[2] = it[2].withCell(0, uncertain)
+                it[1] = it[1].withCell(0, uncertain).withCell(2, uncertain)
+            }
+        val scan = QuickScanController(saved, lightCheck = false)
+        assertEquals(null, scan.lastHandOver)
+        assertEquals(QuickScanEffect.Fallback(listOf(Face.F)), capture(scan, first, hold(2, solved)))
+        assertEquals(
+            QuickScanDiagnosis.HandOverReport(
+                QuickScanDiagnosis.HandOverTrigger.AUTO,
+                kept = listOf(Face.U, Face.R, Face.D, Face.L, Face.B),
+                grid = mapOf(Face.F to QuickScanDiagnosis.GridReason.UNCERTAIN),
+                blanks = mapOf(Face.R to setOf(0)),
+                done = false,
+                calibration = CalibrationMatch.Match,
+            ),
+            scan.lastHandOver,
+        )
+        // The face the hand-over captures reads against the matched calibration.
+        val read =
+            scan.handOverRead(
+                FaceSample(
+                    face = Face.F,
+                    orientationDegrees = 0,
+                    stickers =
+                        List(9) {
+                            labs.getValue(Color.GREEN)
+                        },
+                    quality = CaptureQuality.ACCEPTABLE,
+                ),
+            )
+        assertEquals(QuickScanDiagnosis.Reference.SAVED, read.reference)
+        assertEquals(List(9) { StickerReading(Color.GREEN, StickerConfidence.CONFIDENT) }, read.readings)
+
+        // Face by face after hold 1: the faces never captured are missing.
+        val switched = QuickScanController(lightCheck = false)
+        val pale = hold(1, solved).toMutableList().also { it[2] = it[2].withCell(0, Lab(67.5, 32.5, 22.5)) }
+        switched.onFrame(true, pale, 0)
+        switched.onShutter()
+        switched.switchToFaceByFace()
+        val report = checkNotNull(switched.lastHandOver)
+        assertEquals(QuickScanDiagnosis.HandOverTrigger.FACE_BY_FACE, report.trigger)
+        assertEquals(listOf(Face.U, Face.F), report.kept)
+        assertEquals(QuickScanDiagnosis.GridReason.UNCERTAIN, report.grid[Face.R])
+        assertEquals(listOf(Face.D, Face.L, Face.B).associateWith { QuickScanDiagnosis.GridReason.MISSING }, report.grid - Face.R)
+        assertEquals(null, report.calibration)
+        // Without a saved calibration, a hand-over face reads against the kept faces' own centres.
+        val alone =
+            switched.handOverRead(
+                FaceSample(
+                    face = Face.D,
+                    orientationDegrees = 0,
+                    stickers =
+                        List(9) {
+                            labs.getValue(Color.YELLOW)
+                        },
+                    quality = CaptureQuality.ACCEPTABLE,
+                ),
+            )
+        assertEquals(QuickScanDiagnosis.Reference.PARTIAL, alone.reference)
+        // A clean scan goes straight to review.
+        val clean = QuickScanController(lightCheck = false)
+        assertTrue(capture(clean, hold(1, solved), hold(2, solved)) is QuickScanEffect.Done)
+        assertTrue(clean.lastHandOver!!.done)
+        assertEquals(Face.entries.toList(), clean.lastHandOver!!.kept)
+        assertTrue(clean.lastHandOver!!.grid.isEmpty())
+    }
+
+    @Test
+    fun `a guided read with fewer than two centres reads nothing`() {
+        val sample =
+            FaceSample(
+                face = Face.U,
+                orientationDegrees = 90,
+                stickers =
+                    List(9) {
+                        labs.getValue(Color.WHITE)
+                    },
+                quality = CaptureQuality.ACCEPTABLE,
+                centerColor = Color.WHITE,
+            )
+        val read = QuickScanDiagnosis.guidedRead(sample, listOf(sample), null)
+        assertEquals(QuickScanDiagnosis.Reference.NONE, read.reference)
+        assertEquals(90, read.orientationDegrees)
+        assertTrue(read.readings.all { it == null })
+        val all =
+            Face.entries.map { face ->
+                FaceSample(
+                    face = face,
+                    orientationDegrees = 0,
+                    stickers =
+                        List(9) {
+                            labs.getValue(Color.home(face))
+                        },
+                    quality = CaptureQuality.ACCEPTABLE,
+                    centerColor = Color.home(face),
+                )
+            }
+        assertEquals(QuickScanDiagnosis.Reference.SELF, QuickScanDiagnosis.guidedRead(all[0], all, null).reference)
     }
 
     @Test

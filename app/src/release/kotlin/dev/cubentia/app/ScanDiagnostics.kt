@@ -3,12 +3,15 @@ package dev.cubentia.app
 import dev.cubentia.application.usecase.Recognition
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.CornerCaptureReport
 import dev.cubentia.domain.recognition.CornerHoldEvent
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.PhysicalObservation
+import dev.cubentia.domain.recognition.QuickScanController
+import dev.cubentia.domain.recognition.QuickScanDiagnosis
 import dev.cubentia.domain.recognition.ScanReview
 import dev.cubentia.domain.recognition.SideLight
 import dev.cubentia.domain.tutor.Certainty
@@ -31,6 +34,26 @@ object ScanDiagnostics {
     fun onHoldEvent(event: CornerHoldEvent) = Unit
 
     fun onCornerCapture(report: CornerCaptureReport) = Unit
+
+    fun onFewConfident(
+        quick: QuickScanController,
+        nowMs: Long,
+    ) = Unit
+
+    fun onCornerCaptureReads(quick: QuickScanController) = Unit
+
+    fun onHandOver(report: QuickScanDiagnosis.HandOverReport?) = Unit
+
+    fun onGuidedCapture(
+        quick: QuickScanController,
+        sample: FaceSample,
+    ) = Unit
+
+    fun onGuidedEnd(
+        outcome: String,
+        kept: Collection<Face>,
+        added: Collection<Face>,
+    ) = Unit
 
     fun onCalibrationOffer(
         hold: Int,

@@ -183,7 +183,8 @@ object QuickScanClassification {
     /**
      * One face's Quick Scan decision: its gated [readings] (all nine, null where no read is possible), whether it is
      * [keep]t (not sent to the Guided grid), the judged positions left blank ([blanks], viewfinder order) and whether a
-     * saved calibration [matched].
+     * saved calibration [matched]. [gridReason] names the first rule that sends it to the grid (null: kept), for the debug
+     * diagnostics.
      */
     data class FaceDecision(
         val readings: List<StickerReading?>,
@@ -191,6 +192,7 @@ object QuickScanClassification {
         val blanks: Set<Int>,
         val matched: Boolean,
         val hardDisagreement: Boolean,
+        val gridReason: QuickScanDiagnosis.GridReason? = null,
     )
 
     /** [sample]'s decision among [merged] ([FaceDecision]), with the gate's per-colour [margin]. */
@@ -218,14 +220,96 @@ object QuickScanClassification {
         val hard = matched != null && judged.any { hard(reads.first.getOrNull(it), reads.second.getOrNull(it)) }
         val unresolved = reads.self is SelfCalibration.NeedsCalibration && Color.home(sample.face) in reads.self.colors
         val allowed = if (matched != null) MAX_KEPT_BLANKS else 0
-        val keep =
-            sample.quality == CaptureQuality.ACCEPTABLE &&
-                sample.stickers.size == ScanAssembler.STICKERS &&
-                !unresolved &&
-                !hard &&
-                !centreUncertain &&
-                blanks.size <= allowed
-        return FaceDecision(reads.gated, keep, blanks, matched != null, hard)
+        // The face is kept only when no rule sends it to the grid; the first failing rule is its reason.
+        val reason =
+            when {
+                sample.quality != CaptureQuality.ACCEPTABLE || sample.stickers.size != ScanAssembler.STICKERS -> {
+                    QuickScanDiagnosis.GridReason.QUALITY
+                }
+
+                unresolved -> {
+                    QuickScanDiagnosis.GridReason.UNCALIBRATED
+                }
+
+                hard -> {
+                    QuickScanDiagnosis.GridReason.HARD_DISAGREEMENT
+                }
+
+                centreUncertain -> {
+                    QuickScanDiagnosis.GridReason.CENTRE_UNCERTAIN
+                }
+
+                blanks.size > allowed -> {
+                    QuickScanDiagnosis.GridReason.UNCERTAIN
+                }
+
+                else -> {
+                    null
+                }
+            }
+        return FaceDecision(reads.gated, reason == null, blanks, matched != null, hard, reason)
+    }
+
+    /**
+     * Debug diagnostics of [sample] among [merged] ([QuickScanDiagnosis.FaceDiagnosis]): the same reads and decision as
+     * [decide], with the centre's issue, the reference used and why, and every sticker's two reads. Nothing decides on it.
+     */
+    fun diagnose(
+        sample: FaceSample,
+        merged: List<FaceSample>,
+        saved: CalibrationCenters?,
+        captureTorch: Map<Face, Boolean> = emptyMap(),
+    ): QuickScanDiagnosis.FaceDiagnosis {
+        val decision = decide(sample, merged, saved, captureTorch)
+        val matched = usable(sample.face, merged, saved, captureTorch)
+        val reads = reads(sample, merged, matched, AGREEMENT_MARGIN)
+        val centers =
+            when (val self = reads.self) {
+                is SelfCalibration.Calibrated -> self.calibration.centers
+                is SelfCalibration.NeedsCalibration -> SelfCalibration.trustedCenters(merged)
+            }
+        val judged = { index: Int -> index != FaceSample.CENTER_INDEX || sample.centerPlain != false }
+        val stickers =
+            sample.stickers.indices.map { index ->
+                val gated = reads.gated.getOrNull(index)
+                QuickScanDiagnosis.StickerDiagnosis(
+                    color = gated?.color,
+                    confident = gated?.confidence == StickerConfidence.CONFIDENT,
+                    judged = judged(index),
+                    firstMargin = reads.firstMargins.getOrNull(index),
+                    secondColor = reads.second.getOrNull(index)?.color,
+                    secondMargin = reads.margins.getOrNull(index),
+                )
+            }
+        val centre = stickers.getOrNull(FaceSample.CENTER_INDEX)
+        val own = sample.center
+        val issue =
+            when {
+                centre?.confident == true -> null
+                sample.centerPlain == false -> QuickScanDiagnosis.CentreIssue.GUARDED
+                own == null || !own.isValid() -> QuickScanDiagnosis.CentreIssue.INVALID
+                own.l <= FrameQuality.DARK_CELL_MAX_L -> QuickScanDiagnosis.CentreIssue.DARK
+                centre?.color == null -> QuickScanDiagnosis.CentreIssue.NO_REFERENCE
+                else -> QuickScanDiagnosis.CentreIssue.UNCERTAIN
+            }
+        val guarded = (reads.self as? SelfCalibration.Calibrated)?.guarded.orEmpty()
+        return QuickScanDiagnosis.FaceDiagnosis(
+            face = sample.face,
+            quality = sample.quality,
+            centrePlain = sample.centerPlain,
+            centre = centre,
+            centreIssue = issue,
+            reference = QuickScanDiagnosis.reference(matched != null, reads.self, centers),
+            referenceColors = centers.keys,
+            calibration = matchFor(sample.face, merged, saved, captureTorch),
+            guarded = guarded + merged.filter { it.centerPlain == false }.mapNotNull { it.centerColor },
+            unresolved = (reads.self as? SelfCalibration.NeedsCalibration)?.colors.orEmpty(),
+            stickers = stickers,
+            counted = decision.readings.count { it?.confidence == StickerConfidence.CONFIDENT },
+            confident = stickers.count { it.judged && it.confident },
+            gridReason = decision.gridReason,
+            blanks = decision.blanks,
+        )
     }
 
     /** Both reads CONFIDENT and naming different colours: beyond the gate, so the face goes to the grid. */

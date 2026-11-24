@@ -481,6 +481,7 @@ class GuidedScanActivity : ComponentActivity() {
             val quick = scan.quickScan ?: return@execute
             val effect = quick.switchToFaceByFace() ?: return@execute
             quick.drainEvents().forEach(ScanDiagnostics::onHoldEvent)
+            ScanDiagnostics.onHandOver(quick.lastHandOver)
             val next = GuidedScanFlow.phaseOf(quick)
             val review = quickReview(effect as? QuickScanEffect.Done)
             ContextCompat.getMainExecutor(this).execute {
@@ -647,6 +648,8 @@ class GuidedScanActivity : ComponentActivity() {
             scan.lastCornerCrops = corner.faceCrops
             // The light check runs in the domain over these faces (calibrated when a saved calibration exists).
             val measured = captureCorner { it.onFrame(corner.detected, corner.faces, now, settled, outline) }
+            // Story 10.21 device session (debug only): why the few-confident wait held this frame, rate-limited.
+            if (measured) ScanDiagnostics.onFewConfident(quick, now)
             // A frozen frame is not run through the domain: its verdict is not this frame's, so none is logged.
             dev.cubentia.app.ScanDiagnostics
                 .onCornerFrame(
@@ -707,6 +710,7 @@ class GuidedScanActivity : ComponentActivity() {
         if (capture != null) {
             scan.freeze.start(now)
             quick.lastCapture?.let(ScanDiagnostics::onCornerCapture)
+            ScanDiagnostics.onCornerCaptureReads(quick)
             // Story 10.23: the shadow reader reads the capturing frame's faces off this thread; it decides nothing.
             val crops = scan.lastCornerCrops
             scan.lastCornerCrops = null
@@ -716,6 +720,8 @@ class GuidedScanActivity : ComponentActivity() {
             // Story 10.22: the exposure lock ends with the capture; hold 1's white balance is carried to hold 2.
             frameSource.releaseExposure()
         }
+        // Story 10.21 device session (debug only): the faces kept and sent to the grid, and why.
+        if (effects.any { it is QuickScanEffect.Done || it is QuickScanEffect.Fallback }) ScanDiagnostics.onHandOver(quick.lastHandOver)
         val next = GuidedScanFlow.phaseOf(quick)
         val review = quickReview(effects.filterIsInstance<QuickScanEffect.Done>().firstOrNull())
         val includeAwb = quick.hold == 1
@@ -778,7 +784,13 @@ class GuidedScanActivity : ComponentActivity() {
         }
         val vm = scan
         val quick = scan.quickScan
+        val handingOver = quick?.fallback != null
         val quickDone = quick?.onGuidedEffects(effects) as? QuickScanEffect.Done
+        // Story 10.21 device session (debug only): each face the hand-over captured, and its end.
+        if (quick != null && handingOver) {
+            effects.filterIsInstance<GuidedScanEffect.Capture>().firstOrNull()?.let { ScanDiagnostics.onGuidedCapture(quick, it.sample) }
+            if (quickDone != null) ScanDiagnostics.onGuidedEnd("done", quick.keptFaces, quick.added.map { it.face })
+        }
         val state = if (quick == null) GuidedScanFlow.phaseOf(controller, scan.quickFaces != null) else GuidedScanFlow.phaseOf(quick)
         val done = effects.filterIsInstance<GuidedScanEffect.Done>().firstOrNull()
         done?.takeIf { quick == null }?.let {
@@ -1143,7 +1155,11 @@ internal class GuidedScanViewModel : ViewModel() {
         viewModelScope.launch {
             val next =
                 withContext(analyzerExecutor.asCoroutineDispatcher()) {
-                    quickScan?.takeIf { it.backOut() }?.let(GuidedScanFlow::phaseOf)
+                    quickScan
+                        ?.takeIf { quick ->
+                            val added = quick.added.map { it.face }
+                            quick.backOut().also { backed -> if (backed) ScanDiagnostics.onGuidedEnd("backOut", quick.keptFaces, added) }
+                        }?.let(GuidedScanFlow::phaseOf)
                 } ?: return@launch
             // A last capture handled before the back-out may have held its review meanwhile: it is dropped too.
             held = null

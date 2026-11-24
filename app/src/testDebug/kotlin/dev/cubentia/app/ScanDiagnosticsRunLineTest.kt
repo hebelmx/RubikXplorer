@@ -339,6 +339,21 @@ class ScanDiagnosticsRunLineTest {
             ),
             lines,
         )
+        // Story 10.21 device session: a rejection carrying its per-face counts logs them beside the amount and the need.
+        val perFace =
+            dev.cubentia.domain.recognition.CornerHoldEvent(
+                1,
+                800,
+                CornerHoldEventKind.POSE_REJECTED,
+                dev.cubentia.domain.recognition.QuickScanController.POSE_FEW_CONFIDENT,
+                5.0,
+                confident = mapOf(Face.R to 3, Face.U to 0, Face.F to 2),
+            )
+        assertEquals(
+            "quickScan poseRejected hold=1 t=800 reason=few-confident amount=5 perFace=U:0,R:3,F:2 " +
+                "need=${dev.cubentia.domain.recognition.QuickScanController.MIN_CONFIDENT}",
+            ScanDiagnostics.holdEventLine(perFace),
+        )
     }
 
     @Test fun `quick scan logs a light flip inside the hysteresis band and a face's light level jumping, with its stickers' colours`() {

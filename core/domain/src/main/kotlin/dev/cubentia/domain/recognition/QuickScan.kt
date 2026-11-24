@@ -149,6 +149,48 @@ class QuickScanController(
         private set
 
     /**
+     * Debug diagnostics (Story 10.21 device session): the few-confident wait's count on the last frame, per face; null
+     * when the wait did not run on it. Its amount is exactly the number compared with [MIN_CONFIDENT].
+     */
+    var confidentCount: QuickScanDiagnosis.ConfidentCount? = null
+        private set
+
+    /** Debug diagnostics: the last hand-over (kept and grid faces, why, blanks); null before the first. */
+    var lastHandOver: QuickScanDiagnosis.HandOverReport? = null
+        private set
+
+    /** The faces a read was judged among, for the debug diagnostics computed on demand. */
+    private class ReadSnapshot(
+        val faces: List<FaceSample>,
+        val merged: List<FaceSample>,
+        val torch: Map<Face, Boolean>,
+    )
+
+    private var confidentSnapshot: ReadSnapshot? = null
+    private var captureSnapshot: ReadSnapshot? = null
+
+    /** Debug diagnostics: how each face the last few-confident wait counted reads ([confidentCount]); empty when none ran. */
+    fun confidentDiagnoses(): List<QuickScanDiagnosis.FaceDiagnosis> = diagnoses(confidentSnapshot)
+
+    /** Debug diagnostics: how each face of the last corner capture ([lastCapture]) reads; empty before the first. */
+    fun captureDiagnoses(): List<QuickScanDiagnosis.FaceDiagnosis> = diagnoses(captureSnapshot)
+
+    private fun diagnoses(snapshot: ReadSnapshot?): List<QuickScanDiagnosis.FaceDiagnosis> =
+        snapshot?.let { s -> s.faces.map { QuickScanClassification.diagnose(it, s.merged, saved, s.torch) } }.orEmpty()
+
+    /**
+     * Debug diagnostics: how a hand-over capture [sample] reads against the self-calibration over the kept and added
+     * faces (with [saved] only when it matched the corner faces, as review reads).
+     */
+    fun handOverRead(sample: FaceSample): QuickScanDiagnosis.GuidedFaceRead {
+        val corners = captured
+        val usable =
+            saved.takeIf { corners.isEmpty() || QuickScanClassification.matchAll(corners, it, captureTorch) == CalibrationMatch.Match }
+        val all = (kept + added).filter { it.face != sample.face } + sample
+        return QuickScanDiagnosis.guidedRead(sample, all, usable)
+    }
+
+    /**
      * Whether the torch is wanted (Story 10.19): glare coaching then says to turn it off. The adapter sets it. Story 10.21:
      * the light check is skipped, a light fail cleared and the calibration offer withheld only while it is [torchLit].
      */
@@ -245,6 +287,7 @@ class QuickScanController(
         lastFrameMs = nowMs
         centerBlock = null
         fewConfident = false
+        confidentCount = null
         // Story 10.21: the hold in view with the faces captured before it, at the torch lit now, decides the match.
         val frame = if (detected) frameSamples(faces, hold, kept = true) else emptyList()
         val merged = captured.filter { old -> frame.none { it.face == old.face } } + frame
@@ -258,6 +301,7 @@ class QuickScanController(
         fun pose(
             rejected: String?,
             amount: Double? = null,
+            confident: Map<Face, Int>? = null,
         ) {
             // The capture's "since detected" time starts with the first detected frame that shows the corner to take.
             if (rejected == null && firstDetectedMs == null) firstDetectedMs = nowMs
@@ -268,6 +312,7 @@ class QuickScanController(
                     nowMs,
                     reason = rejected,
                     amount = amount ?: centerBlock?.deltaE?.filterNotNull()?.maxOrNull(),
+                    confident = confident,
                 )
             } else if (rejected == null && poseRejected != null) {
                 event(CornerHoldEventKind.POSE_ACCEPTED, nowMs)
@@ -297,20 +342,24 @@ class QuickScanController(
                 outline = outline.takeIf { detected },
                 enoughConfident = {
                     // Story 10.21: CONFIDENT stickers among the hold's 27, read with the faces captured before it.
-                    val count =
-                        frame.sumOf { sample ->
-                            QuickScanClassification
-                                .read(
-                                    sample,
-                                    merged,
-                                    saved,
-                                    torch,
-                                ).count { it?.confidence == StickerConfidence.CONFIDENT }
+                    val perFace =
+                        frame.associate { sample ->
+                            sample.face to
+                                QuickScanClassification
+                                    .read(
+                                        sample,
+                                        merged,
+                                        saved,
+                                        torch,
+                                    ).count { it?.confidence == StickerConfidence.CONFIDENT }
                         }
+                    val count = perFace.values.sum()
+                    confidentCount = QuickScanDiagnosis.ConfidentCount(hold, perFace, MIN_CONFIDENT)
+                    confidentSnapshot = ReadSnapshot(frame, merged, torch)
                     val enough = count >= MIN_CONFIDENT
                     fewConfident = !enough
                     if (!enough) {
-                        pose(POSE_FEW_CONFIDENT, count.toDouble())
+                        pose(POSE_FEW_CONFIDENT, count.toDouble(), perFace)
                     } else if (poseRejected == POSE_FEW_CONFIDENT) {
                         pose(null)
                     }
@@ -377,8 +426,9 @@ class QuickScanController(
         timeout: Boolean? = null,
         durationMs: Long? = null,
         ofHold: Int = hold,
+        confident: Map<Face, Int>? = null,
     ) {
-        events += CornerHoldEvent(ofHold, atMs - (holdStartMs ?: atMs), kind, reason, amount, timeout, durationMs)
+        events += CornerHoldEvent(ofHold, atMs - (holdStartMs ?: atMs), kind, reason, amount, timeout, durationMs, confident)
         // Never unbounded when nobody drains (tests, release): the oldest marks go first.
         if (events.size > MAX_EVENTS) events.removeAt(0)
     }
@@ -467,6 +517,8 @@ class QuickScanController(
         }
         holdCenters[taken] = CenterCheck.centers(corner.latest)
         val merged = captured
+        val reported = QuickScanPlan.holds[taken - 1].map { it.face }.filter { it !in keptSet }
+        captureSnapshot = ReadSnapshot(merged.filter { it.face in reported }, merged, captureTorch.toMap())
         lastCapture =
             CornerCaptureReport(
                 taken,
@@ -503,7 +555,45 @@ class QuickScanController(
                 repromptFaces = involvedFaces(captured, keptSet)
                 repromptFaces
             }
-        return listOf(capture, if (asked.isEmpty()) done(captured) else handOver(asked.toSet(), resumeAt = taken))
+        val reasons = gridReasons(asked, reprompt = fallbackFaces.isEmpty())
+        val calibration = QuickScanClassification.matchAll(captured, saved, captureTorch)
+        val next = if (asked.isEmpty()) done(captured) else handOver(asked.toSet(), resumeAt = taken)
+        lastHandOver = handOverReport(QuickScanDiagnosis.HandOverTrigger.AUTO, reasons, next, calibration)
+        return listOf(capture, next)
+    }
+
+    /** Why each face of [asked] goes to the grid (debug diagnostics), judged before the hand-over drops its sample. */
+    private fun gridReasons(
+        asked: List<Face>,
+        reprompt: Boolean,
+    ): Map<Face, QuickScanDiagnosis.GridReason> {
+        val merged = captured
+        return asked.associateWith { face ->
+            val sample = samples[face]
+            when {
+                sample == null -> QuickScanDiagnosis.GridReason.MISSING
+                reprompt -> QuickScanDiagnosis.GridReason.REPROMPT
+                else -> QuickScanClassification.decide(sample, merged, saved, captureTorch).gridReason ?: REPROMPT_REASON
+            }
+        }
+    }
+
+    /** The hand-over just made ([effect]) as the debug diagnostics report it. */
+    private fun handOverReport(
+        trigger: QuickScanDiagnosis.HandOverTrigger,
+        grid: Map<Face, QuickScanDiagnosis.GridReason>,
+        effect: QuickScanEffect,
+        calibration: CalibrationMatch?,
+    ): QuickScanDiagnosis.HandOverReport {
+        val stays = Face.entries.filter { it in samples && it !in grid }
+        return QuickScanDiagnosis.HandOverReport(
+            trigger = trigger,
+            kept = stays,
+            grid = grid,
+            blanks = keptBlanks.filter { (face, blanks) -> face in stays && blanks.isNotEmpty() },
+            done = effect is QuickScanEffect.Done,
+            calibration = calibration,
+        )
     }
 
     /**
@@ -575,7 +665,11 @@ class QuickScanController(
         val asked = Face.entries.filter { it !in keep }.toSet()
         fallbackFaces = asked.toList()
         repromptFaces = emptyList()
-        return handOver(asked, resumeAt = hold)
+        val reasons = gridReasons(asked.toList(), reprompt = false)
+        val calibration = QuickScanClassification.matchAll(captured, saved, captureTorch)
+        return handOver(asked, resumeAt = hold).also {
+            lastHandOver = handOverReport(QuickScanDiagnosis.HandOverTrigger.FACE_BY_FACE, reasons, it, calibration)
+        }
     }
 
     /** Each Guided capture is added beside the kept faces; the hand-over's Done is the combined scan. */
@@ -717,6 +811,9 @@ class QuickScanController(
          * frame reaches under its scan-time calibration. The manual shutter never waits for it.
          */
         const val MIN_CONFIDENT = 6
+
+        /** A face asked though the gate kept it: the assembly was ambiguous or did not fit (debug diagnostics). */
+        private val REPROMPT_REASON = QuickScanDiagnosis.GridReason.REPROMPT
 
         /** [CornerHoldEventKind.LIGHT_CLEAR] reason when the light hold is cleared on return from calibration. */
         const val REASON_CALIBRATION = "calibration"

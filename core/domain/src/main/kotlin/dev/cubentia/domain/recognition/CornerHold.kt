@@ -1,5 +1,6 @@
 package dev.cubentia.domain.recognition
 
+import dev.cubentia.domain.cube.Face
 import kotlin.math.abs
 import kotlin.math.hypot
 
@@ -679,7 +680,8 @@ internal data class CornerHoldMark(
 /**
  * One state change of Quick Scan corner hold [hold], [elapsedMs] after the hold began (Story 10.22). Numbers and fixed
  * words only, never pixels or Cube States (AD-9): [reason] names a cause, [amount] its measured value, [timeout] whether
- * a settle ended at the cap, [durationMs] how long the ended state lasted.
+ * a settle ended at the cap, [durationMs] how long the ended state lasted. Story 10.21 (device session): a few-confident
+ * rejection carries the [confident] stickers per face whose sum is its [amount].
  */
 data class CornerHoldEvent(
     val hold: Int,
@@ -689,6 +691,7 @@ data class CornerHoldEvent(
     val amount: Double? = null,
     val timeout: Boolean? = null,
     val durationMs: Long? = null,
+    val confident: Map<Face, Int>? = null,
 )
 
 /** Settle timing shared by the domain's corner hold and the camera adapter's settle signal (Story 10.19). */

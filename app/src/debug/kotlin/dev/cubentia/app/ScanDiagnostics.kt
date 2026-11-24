@@ -6,6 +6,7 @@ import android.util.Log
 import dev.cubentia.application.usecase.Recognition
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Orientation
 import dev.cubentia.domain.recognition.CalibrationCenters
@@ -19,6 +20,7 @@ import dev.cubentia.domain.recognition.FrameQuality
 import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.recognition.QuickScanController
+import dev.cubentia.domain.recognition.QuickScanDiagnosis
 import dev.cubentia.domain.recognition.ScanAssembler
 import dev.cubentia.domain.recognition.ScanReview
 import dev.cubentia.domain.recognition.ScanTrace
@@ -230,6 +232,9 @@ object ScanDiagnostics {
             event.amount?.let {
                 if (event.reason == QuickScanController.POSE_FEW_CONFIDENT) "amount=${it.toInt()}" else "amount=${format(it, 3)}"
             },
+            // Story 10.21 device session: the per-face counts the amount sums, and the count it is compared with.
+            event.confident?.let { "perFace=${counts(it)}" },
+            event.confident?.let { "need=${QuickScanController.MIN_CONFIDENT}" },
             event.timeout?.let { "timeout=$it" },
             event.durationMs?.let { "ms=$it" },
         ).joinToString(" ")
@@ -297,6 +302,209 @@ object ScanDiagnostics {
                         "${if (face.grid) "grid" else "kept"},reason=$reason" +
                         (if (!face.grid && face.blanks > 0) ",blanks=${face.blanks}" else "")
                 }
+        ).joinToString(" ")
+
+    /** Per face in [Face] order, `U:6,F:8`; `-` for none. */
+    private fun counts(perFace: Map<Face, Int>): String =
+        perFace.entries
+            .sortedBy { it.key.ordinal }
+            .joinToString(",") { (face, n) -> "$face:$n" }
+            .ifEmpty { "-" }
+
+    private var fewConfidentHold = 0
+    private var fewConfidentLoggedMs = Long.MIN_VALUE / 2
+
+    /**
+     * Story 10.21 device session: a frame on which the few-confident wait held auto-capture, at most one line per
+     * [INTERVAL_MS] per hold: the amount compared with the need, the per-face counts, and per face its quality, centre
+     * read and why it is not CONFIDENT, the reference the reads used and why ([faceFields]).
+     */
+    fun onFewConfident(
+        quick: QuickScanController,
+        nowMs: Long,
+    ) {
+        if (!quick.fewConfident) return
+        val count = quick.confidentCount ?: return
+        synchronized(this) {
+            if (count.hold == fewConfidentHold && nowMs - fewConfidentLoggedMs < INTERVAL_MS) return
+            fewConfidentHold = count.hold
+            fewConfidentLoggedMs = nowMs
+        }
+        Log.d(TAG, fewConfidentLine(count, quick.confidentDiagnoses()))
+    }
+
+    internal fun fewConfidentLine(
+        count: QuickScanDiagnosis.ConfidentCount,
+        faces: List<QuickScanDiagnosis.FaceDiagnosis>,
+    ): String =
+        (
+            listOf(
+                "quickScan",
+                "fewConfident",
+                "hold=${count.hold}",
+                "amount=${count.amount}",
+                "perFace=${counts(count.perFace)}",
+                "need=${count.need}",
+            ) + faces.map { face -> "${face.face}:" + faceFields(face).joinToString(",") }
+        ).joinToString(" ")
+
+    /**
+     * Story 10.21 device session: after [onCornerCapture], per face of the capture one `quickScan faceRead` line (centre,
+     * reference and decision, [faceReadLine]) and one `quickScan stickers` line (each sticker's two reads, [stickersLine]).
+     */
+    fun onCornerCaptureReads(quick: QuickScanController) {
+        val hold = quick.lastCapture?.hold ?: return
+        quick.captureDiagnoses().forEach { face ->
+            Log.d(TAG, faceReadLine(hold, face))
+            Log.d(TAG, stickersLine(hold, face))
+        }
+    }
+
+    /**
+     * One face's read as key=value fields: its shutter quality; its centre (`G?`: gated colour letter, `C` CONFIDENT or
+     * `?` not, `-` unread), why the centre is not CONFIDENT (`guarded`: not plain, a logo or glare; `invalid`; `dark`;
+     * `no-reference`: fewer than two centres to read against; `uncertain`; `-` when it is) and whether it is plain; the
+     * reference the reads used (`saved-match`, `self`, `partial`, `none`) over which colours, and why: the saved
+     * calibration's match (`none` without one), the guarded colours and those with no centre; and the CONFIDENT stickers
+     * among all nine (`counted`, what the few-confident wait sums).
+     */
+    internal fun faceFields(face: QuickScanDiagnosis.FaceDiagnosis): List<String> =
+        listOf(
+            "quality=${face.quality ?: "-"}",
+            "centre=${face.centre?.let(::readToken) ?: "-"}",
+            "centreWhy=${face.centreIssue?.label ?: "-"}",
+            "centrePlain=${face.centrePlain ?: "-"}",
+            "ref=${face.reference.label}",
+            "refColors=${colorLetters(face.referenceColors)}",
+            "cal=${face.calibration?.label?.replace(' ', '-') ?: "none"}",
+            "guarded=${colorLetters(face.guarded)}",
+            "unresolved=${colorLetters(face.unresolved)}",
+            "counted=${face.counted}",
+        )
+
+    /** `quickScan faceRead`: [faceFields], the judged CONFIDENT count, the decision (kept or grid, and why) and the blanks. */
+    internal fun faceReadLine(
+        hold: Int,
+        face: QuickScanDiagnosis.FaceDiagnosis,
+    ): String =
+        (
+            listOf("quickScan", "faceRead", "hold=$hold", "face=${face.face}") +
+                faceFields(face) +
+                listOf(
+                    "confident=${face.confident}/${face.stickers.count { it.judged }}",
+                    "decision=${if (face.gridReason == null) "kept" else "grid"}",
+                    "gridWhy=${face.gridReason?.label ?: "-"}",
+                    "blanks=${face.blanks.sorted().joinToString("/").ifEmpty { "-" }}",
+                )
+        ).joinToString(" ")
+
+    /**
+     * `quickScan stickers`: the nine stickers in viewfinder order, each `RC:14.2/R11.0`: the gated colour letter, `C`
+     * CONFIDENT or `?` not, the first read's margin (ΔE to the second-nearest centre), the second read's colour letter and
+     * margin; `~` marks a sticker not judged (a guarded centre), `-` one that could not be read.
+     */
+    internal fun stickersLine(
+        hold: Int,
+        face: QuickScanDiagnosis.FaceDiagnosis,
+    ): String =
+        listOf(
+            "quickScan",
+            "stickers",
+            "hold=$hold",
+            "face=${face.face}",
+            "ref=${face.reference.label}",
+            "s=${face.stickers.joinToString(",", transform = ::stickerToken)}",
+        ).joinToString(" ")
+
+    private fun readToken(sticker: QuickScanDiagnosis.StickerDiagnosis): String =
+        sticker.color?.let { ScanTrace.letter(it) + if (sticker.confident) "C" else "?" } ?: "-"
+
+    private fun stickerToken(sticker: QuickScanDiagnosis.StickerDiagnosis): String {
+        val head = (if (sticker.judged) "" else "~") + readToken(sticker)
+        if (sticker.color == null) return head
+        return "$head:${format(sticker.firstMargin)}/${ScanTrace.letter(sticker.secondColor)}${format(sticker.secondMargin)}"
+    }
+
+    private fun colorLetters(colors: Set<Color>): String =
+        colors.sortedBy { it.ordinal }.joinToString("") { ScanTrace.letter(it) }.ifEmpty { "-" }
+
+    private fun faceList(faces: Collection<Face>): String = faces.joinToString(",").ifEmpty { "-" }
+
+    /**
+     * Story 10.21 device session: Quick Scan handed over (after the second corner or on *Scan face by face*): the faces
+     * kept, those sent to the Guided grid with why, each kept face's blank positions (viewfinder order), whether it went
+     * straight to review (`result=done`) and the calibration match.
+     */
+    fun onHandOver(report: QuickScanDiagnosis.HandOverReport?) {
+        report?.let { Log.d(TAG, handOverLine(it)) }
+    }
+
+    internal fun handOverLine(report: QuickScanDiagnosis.HandOverReport): String =
+        listOf(
+            "quickScan",
+            "handOver",
+            "trigger=${report.trigger.label}",
+            "result=${if (report.done) "done" else "fallback"}",
+            "kept=${faceList(report.kept)}",
+            "grid=${report.grid.entries.joinToString(",") { (face, why) -> "$face:${why.label}" }.ifEmpty { "-" }}",
+            "blanks=${report.blanks.entries.joinToString(",") { (face, at) -> "$face:${at.sorted().joinToString("/")}" }.ifEmpty { "-" }}",
+            "calibration=${report.calibration?.label?.replace(' ', '-') ?: "none"}",
+        ).joinToString(" ")
+
+    /**
+     * Story 10.21 device session: one face captured in Quick Scan's face-by-face hand-over: which, the how-many-th, its
+     * rotation and quality, the reference it reads against, and per sticker (frame order) the colour letter and `C`
+     * CONFIDENT or `?` not.
+     */
+    fun onGuidedCapture(
+        quick: QuickScanController,
+        sample: FaceSample,
+    ) {
+        Log.d(TAG, guidedCaptureLine(quick.handOverRead(sample), quick.added.size))
+    }
+
+    internal fun guidedCaptureLine(
+        read: QuickScanDiagnosis.GuidedFaceRead,
+        number: Int,
+    ): String =
+        listOf(
+            "guided",
+            "capture",
+            "face=${read.face}",
+            "n=$number",
+            "rot=${read.orientationDegrees}",
+            "quality=${read.quality}",
+            "ref=${read.reference.label}",
+            "colours=${read.readings.joinToString("") { ScanTrace.letter(it?.color) }}",
+            "confidence=${read.readings.joinToString("") { reading ->
+                when (reading?.confidence) {
+                    null -> "-"
+                    dev.cubentia.domain.recognition.StickerConfidence.CONFIDENT -> "C"
+                    dev.cubentia.domain.recognition.StickerConfidence.UNCERTAIN -> "?"
+                }
+            }}",
+        ).joinToString(" ")
+
+    /** Story 10.21 device session: the face-by-face hand-over ended ([outcome] `done` or `backOut`) with the faces kept and added. */
+    fun onGuidedEnd(
+        outcome: String,
+        kept: Collection<Face>,
+        added: Collection<Face>,
+    ) {
+        Log.d(TAG, guidedEndLine(outcome, kept, added))
+    }
+
+    internal fun guidedEndLine(
+        outcome: String,
+        kept: Collection<Face>,
+        added: Collection<Face>,
+    ): String =
+        listOf(
+            "guided",
+            "end",
+            "outcome=$outcome",
+            "kept=${faceList(kept.sortedBy { it.ordinal })}",
+            "added=${faceList(added)}",
         ).joinToString(" ")
 
     /** Quick Scan's calibration offer showed (Story 10.19): at corner [hold], after an uncalibrated light hold of [heldMs]. */
