@@ -496,6 +496,13 @@ class QuickScanRouteTest {
             camera.feed(ScanFrame(stats(Color.BLUE), 0))
             shutter(model)
             rule.onNodeWithTag("scanProgress").assertTextEquals("Face 2 of 3")
+            // GH #325: Close in the hand-over keeps Quick Scan's own copy; Cancel keeps the hand-over.
+            rule.onNodeWithTag("scanClose").performClick()
+            assertQuickScanDiscardCopy()
+            rule.onNodeWithTag("scan:discard:cancel").performClick()
+            rule.waitForIdle()
+            rule.onNodeWithTag("scan:discard").assertDoesNotExist()
+            rule.onNodeWithTag("scanProgress").assertTextEquals("Face 2 of 3")
             scan.get().onBackPressedDispatcher.onBackPressed()
             settle(model)
             waitForCamera(corner = true)
@@ -504,7 +511,7 @@ class QuickScanRouteTest {
             rule.onNodeWithTag("scanNetFace:${Face.U.name}").assert(SemanticsMatcher.expectValue(ScanNetFaceCaptured, true))
             // Close with kept faces asks; Cancel keeps the scan exactly.
             rule.onNodeWithTag("scanClose").performClick()
-            rule.onNodeWithTag("scan:discard").assertIsDisplayed()
+            assertQuickScanDiscardCopy()
             rule.onNodeWithTag("scan:discard:cancel").performClick()
             rule.waitForIdle()
             rule.onNodeWithTag("scan:discard").assertDoesNotExist()
@@ -518,6 +525,14 @@ class QuickScanRouteTest {
             val result = shadowOf(scan.get())
             assertEquals(ScanOutcome.Cancelled, ScanFlowContract.decode(result.resultCode, result.resultIntent))
         }
+    }
+
+    /** Quick Scan's discard question keeps "Discard this scan?" / *Cancel*, never the Guided one's copy (GH #325). */
+    private fun assertQuickScanDiscardCopy() {
+        rule.onNodeWithTag("scan:discard").assertIsDisplayed()
+        rule.onNodeWithText("Discard this scan?").assertIsDisplayed()
+        rule.onNodeWithText("Discard the faces you captured?").assertDoesNotExist()
+        rule.onNodeWithTag("scan:discard:cancel").assertTextEquals("Cancel")
     }
 
     /** Issue #276: Close from the Guided fallback discards the scan; the next Quick Scan opens a fresh corner view at hold 1. */
