@@ -85,10 +85,12 @@ internal data class CapturedFrame(
     /** Story 10.19 corner mode: the model-input crop as a PNG and where it sits on the frame. */
     val modelInput: ByteArray? = null,
     val crop: ModelCrop? = null,
-    /** Story 10.20 corner mode: the 10.22 metering settle before this frame (null: no metering asked yet). */
+    /** Story 10.20 corner mode: the 10.22 metering settle before this frame (`manual-ev` with none; null outside corner mode). */
     val settle: CornerSettleDiagnostics? = null,
     /** The torch state last applied physically (null: no flash unit, or none applied yet). */
     val torch: Boolean? = null,
+    /** GH-330: the EV compensation index the camera was set to at the capture (the requested index; null: no exposure compensation, or no camera). */
+    val evIndex: Int? = null,
 )
 
 /** What the recorder screen needs from the camera; implemented by [FixtureRecorderActivity]. */
@@ -373,16 +375,27 @@ class FixtureRecorderActivity : ComponentActivity() {
     }
 
     /**
-     * The settle a capture now records: the latest metering's (reported and locked first if it just finished), or that it
-     * is still settling (lock word `none`: the metering released the lock); null before any metering.
+     * The settle a capture now records ([captureSettle]): the latest metering's (reported and locked first if it just
+     * finished), that it is still settling (lock word `none`: the metering released the lock), or `manual-ev` when no
+     * metering ran since the last reset (GH-330; lock word `awb` while the hold-1 white balance stays locked).
      */
     @Synchronized
-    private fun settleAtCapture(): CornerSettleDiagnostics? {
-        val settled = settledNow() ?: return null
-        if (settled) return lastSettle
+    private fun settleAtCapture(): CornerSettleDiagnostics {
+        val settled = settledNow()
         val now = SystemClock.elapsedRealtime()
-        return CornerSettleDiagnostics(settle.elapsed(now), SettleOutcome.SETTLING, LOCK_NONE, settle.futureMs())
+        return captureSettle(settled, lastSettle, settle.elapsed(now), settle.futureMs(), awbLocked = locks.get().awb)
     }
+
+    /**
+     * GH-330: the EV compensation index the camera was set to at the capture (the requested index), null on a camera
+     * without exposure compensation or before a bind.
+     */
+    private fun evIndexNow(): Int? =
+        camera
+            ?.cameraInfo
+            ?.exposureState
+            ?.takeIf { it.isExposureCompensationSupported }
+            ?.exposureCompensationIndex
 
     /** After a corner capture: no metering counts until the next request, so settled() and the next capture report none. */
     @Synchronized
@@ -604,6 +617,7 @@ class FixtureRecorderActivity : ComponentActivity() {
                     crop = modelCrop,
                     settle = if (cornerMode) settleAtCapture() else null,
                     torch = appliedTorch,
+                    evIndex = evIndexNow(),
                 ),
             )
             if (cornerMode) {
@@ -841,8 +855,5 @@ class FixtureRecorderActivity : ComponentActivity() {
 
     private companion object {
         const val CAPTURE_TIMEOUT_MS = 3000L
-
-        /** The settle lock word of a capture taken while the metering still settles (no lock is held then). */
-        const val LOCK_NONE = "none"
     }
 }
