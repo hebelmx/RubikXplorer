@@ -179,8 +179,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
     // The confirmed placement of the capture now being labeled (written with its color record).
     var cornerKeypoints by remember { mutableStateOf<Placement?>(null) }
 
-    // This recording session's group folder name; a new session never writes into a saved group (Story 10.19).
-    var groupName by remember { mutableStateOf<String?>(null) }
+    var cornerGroup by remember { mutableStateOf(CornerRecordingGroup()) }
     val cornerLabels = remember { mutableStateListOf<Pair<List<Color>, List<TruthSource>>>() }
     var saving by remember { mutableStateOf(false) }
 
@@ -231,7 +230,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
     fun newCondition(recalibrate: Boolean) {
         resetCorner()
         cornerHold = 1
-        groupName = null
+        cornerGroup = CornerRecordingGroup()
         if (recalibrate) {
             if (centers.isNotEmpty()) status = "Cube or light changed: calibrate all six again."
             centers.clear()
@@ -250,33 +249,34 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
         newCondition(recalibrate)
     }
 
-    /** IO: this session's group folder (a fresh numbered one when the base name is taken) with its manifest. */
-    fun groupDirectory(): File {
-        val root = checkNotNull(context.getExternalFilesDir(null)) { "External files directory unavailable" }
-        val parent = File(root, "Fixtures/corner")
-        val name =
-            groupName ?: freshGroupName(CornerFixturePaths.directoryName(device.model, cube.trim(), light.trim())) { candidate ->
-                File(parent, candidate).let { it.exists() && it.list().orEmpty().isNotEmpty() }
-            }
-        val directory = File(parent, name)
-        check(directory.isDirectory || directory.mkdirs()) { "Cannot create $directory" }
-        // Story 10.20: the manifest is created with the recorder calibration when the group starts; each hold adds itself.
-        ensureGroupManifest(
-            directory,
-            groupManifest(device, cube, light, checkNotNull(lightDirection), torch, CalibrationCenters(centers.toMap())),
-        )
-        groupName = name
-        return directory
+    /** Prepares the target folder and its manifest. The group becomes current after the capture is written. */
+    suspend fun groupDirectory(save: CornerGroupSave): File {
+        val group = cornerGroup
+        val base = CornerFixturePaths.directoryName(device.model, cube.trim(), light.trim())
+        val manifest = groupManifest(device, cube, light, checkNotNull(lightDirection), torch, CalibrationCenters(centers.toMap()))
+        return withContext(Dispatchers.IO) {
+            val root = checkNotNull(context.getExternalFilesDir(null)) { "External files directory unavailable" }
+            val parent = File(root, "Fixtures/corner")
+            val name =
+                group.targetName(save, base) { candidate ->
+                    File(parent, candidate).let { it.exists() && it.list()?.isEmpty() != true }
+                }
+            val directory = File(parent, name)
+            check(directory.isDirectory || directory.mkdirs()) { "Cannot create $directory" }
+            ensureGroupManifest(directory, manifest)
+            directory
+        }
     }
 
-    /** IO: writes one keypoint fixture (the model-input crop and its labels) into this session's group; returns its number. */
+    /** IO: writes one keypoint fixture (the model-input crop and its labels) into the given group; returns its number. */
     fun writeKeypoints(
+        directory: File,
         shot: CapturedFrame,
         label: CornerLabel,
         points: List<List<Double>>?,
         detector: List<List<Double>>?,
     ): Int {
-        val folder = File(groupDirectory(), CornerFixturePaths.KEYPOINTS_DIR)
+        val folder = File(directory, CornerFixturePaths.KEYPOINTS_DIR)
         check(folder.isDirectory || folder.mkdirs()) { "Cannot create $folder" }
         val index = nextKeypointIndex(folder.list().orEmpty().toList())
         val fixture =
@@ -297,11 +297,24 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
         return index
     }
 
+    suspend fun saveSupplemental(
+        shot: CapturedFrame,
+        label: CornerLabel,
+        points: List<List<Double>>?,
+        detector: List<List<Double>>?,
+    ): Int {
+        val directory = groupDirectory(CornerGroupSave.SUPPLEMENTAL)
+        val index = withContext(Dispatchers.IO) { writeKeypoints(directory, shot, label, points, detector) }
+        cornerGroup = cornerGroup.saved(directory.name, CornerGroupSave.SUPPLEMENTAL)
+        return index
+    }
+
     /**
      * Corner mode (Story 10.19): a corner with colors, a keypoint-only positive, or a no-cube negative. Positives freeze for
      * manual corner placement, even when the detector missed (colors are then not recorded); a negative saves at once.
      */
     fun captureCorner(kind: CornerCapture) {
+        if (saving) return
         saving = true
         scope.launch {
             try {
@@ -320,9 +333,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                 }
                 if (kind == CornerCapture.NEGATIVE) {
                     val index =
-                        withContext(
-                            Dispatchers.IO,
-                        ) { writeKeypoints(shot, CornerLabel.NEGATIVE, null, detectorKeypoints(shot.corner?.frameQuads.orEmpty(), crop)) }
+                        saveSupplemental(shot, CornerLabel.NEGATIVE, null, detectorKeypoints(shot.corner?.frameQuads.orEmpty(), crop))
                     status = "Saved negative %04d.".format(index)
                     return@launch
                 }
@@ -351,6 +362,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
 
     /** The operator placed the corners: label colors next, or save the keypoint-only positive now. */
     fun usePlacement() {
+        if (saving) return
         val placed = placement ?: return
         val samples = placed.samples
         placement = null
@@ -365,8 +377,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
         saving = true
         scope.launch {
             try {
-                val index =
-                    withContext(Dispatchers.IO) { writeKeypoints(placed.shot, CornerLabel.POSITIVE, placed.points, placed.detector) }
+                val index = saveSupplemental(placed.shot, CornerLabel.POSITIVE, placed.points, placed.detector)
                 status = "Saved positive %04d (keypoints only).".format(index)
             } catch (failure: Exception) {
                 status = "Save failed: ${failure.message}"
@@ -377,6 +388,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
     }
 
     fun confirmCornerFace() {
+        if (saving) return
         val shot = cornerShot ?: return
         val labels = entry.confirmed() ?: return
         val face = cornerSamples[cornerLabels.size].face
@@ -414,17 +426,19 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
         saving = true
         scope.launch {
             try {
+                val directory = groupDirectory(CornerGroupSave.HOLD)
+                withContext(Dispatchers.IO) { writeCornerHold(directory, record, checkNotNull(shot.jpeg)) }
+                // A retry after a companion write fails must use this folder, which already contains the hold.
+                cornerGroup = cornerGroup.saved(directory.name, CornerGroupSave.HOLD)
                 val manifestFailure =
                     withContext(Dispatchers.IO) {
-                        val directory = groupDirectory()
-                        // A session's group is new, so a corner file there is this session's own retake of that hold.
-                        writeCornerHold(directory, record, checkNotNull(shot.jpeg))
-                        if (placed != null) writeKeypoints(placed.shot, CornerLabel.POSITIVE, placed.points, placed.detector)
-                        // The capture is saved either way; a manifest that cannot take the hold is reported, not fatal.
-                        runCatching { recordHold(directory, record.hold, holdTorch) }.exceptionOrNull()
+                        // Record the saved hold even if the paired keypoints fail to write.
+                        val failure = runCatching { recordHold(directory, record.hold, holdTorch) }.exceptionOrNull()
+                        if (placed != null) writeKeypoints(directory, placed.shot, CornerLabel.POSITIVE, placed.points, placed.detector)
+                        failure
                     }
                 status =
-                    "Saved corner ${record.hold} in ${groupName.orEmpty()}." +
+                    "Saved corner ${record.hold} in ${directory.name}." +
                     (manifestFailure?.let { " group.json not updated: ${it.message}" } ?: "")
                 cornerHold++
                 resetCorner()
@@ -566,7 +580,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
 
     fun saveSwatch(value: SwatchPreview) {
         // Story 10.20: a group's manifest carries the calibration it was recorded with, so a changed swatch starts a new one.
-        if (groupName != null) newCondition(recalibrate = false)
+        if (cornerGroup.name != null) newCondition(recalibrate = false)
         centers[value.color] = value.swatch
         preview = null
         val next = PALETTE.firstOrNull { it !in centers }
@@ -703,7 +717,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                 onExposure = { status = camera.changeExposure(it) },
                 onOverride = { choosingOverride = true },
                 onResetLabels = { confirm = Confirm.RESET_LABELS },
-                onRecalibrate = { confirm = Confirm.RECALIBRATE },
+                onRecalibrate = { if (!saving) confirm = Confirm.RECALIBRATE },
             )
             // The texts and action row are measured first (unweighted); the net/palette row takes what is left, without
             // filling it, so the status and action sit right under it and leftover space falls below them.
@@ -737,6 +751,12 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                 }
             }
             Text(stepLine, style = MaterialTheme.typography.labelLarge)
+            if (cornerMode) {
+                Text(
+                    cornerGroup.name?.let { "Group folder: $it" } ?: "No group folder yet",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
             Text(
                 listOfNotNull(coaching, status, remeterNote).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
@@ -792,12 +812,17 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                                     Text("Capture corner $cornerHold")
                                 }
                             } else {
-                                // A new session: the next corners go to a new numbered group, never over this one.
-                                OutlinedButton(onClick = {
-                                    cornerHold = 1
-                                    groupName = null
-                                    resetCorner()
-                                }, modifier = Modifier.weight(1f)) { Text("Record both corners again") }
+                                OutlinedButton(
+                                    onClick = {
+                                        if (!saving) {
+                                            cornerHold = 1
+                                            cornerGroup = cornerGroup.restartHolds()
+                                            resetCorner()
+                                        }
+                                    },
+                                    enabled = !saving,
+                                    modifier = Modifier.weight(1f),
+                                ) { Text("Record both corners again") }
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -890,12 +915,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                         resetEntry()
                         status = "Labels cleared."
                     } else {
-                        centers.clear()
-                        preview = null
-                        calibrationColor = Color.WHITE
-                        resetEntry()
-                        // A pending corner was read and prefilled under the old calibration.
-                        resetCorner()
+                        newCondition(recalibrate = true)
                         status = "Calibration cleared: sample all six again."
                     }
                     confirm = null

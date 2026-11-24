@@ -461,6 +461,30 @@ internal fun freshGroupName(
     return "$base-$index"
 }
 
+internal enum class CornerGroupSave { SUPPLEMENTAL, HOLD }
+
+/** The current folder stays active for supplemental captures until the next session's first hold is written. */
+internal data class CornerRecordingGroup(
+    val name: String? = null,
+    private val restartPending: Boolean = false,
+) {
+    fun restartHolds(): CornerRecordingGroup = copy(restartPending = true)
+
+    fun targetName(
+        save: CornerGroupSave,
+        base: String,
+        taken: (String) -> Boolean,
+    ): String {
+        val reusable = name.takeUnless { restartPending && save == CornerGroupSave.HOLD }
+        return reusable ?: freshGroupName(base) { it == name || taken(it) }
+    }
+
+    fun saved(
+        name: String,
+        save: CornerGroupSave,
+    ): CornerRecordingGroup = copy(name = name, restartPending = restartPending && save == CornerGroupSave.SUPPLEMENTAL)
+}
+
 /** The next keypoint fixture number in a group's `keypoints/` folder, after every `NNNN.json` already there. */
 internal fun nextKeypointIndex(existing: List<String>): Int =
     (

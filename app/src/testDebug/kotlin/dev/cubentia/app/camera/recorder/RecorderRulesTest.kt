@@ -374,6 +374,56 @@ class RecorderRulesTest {
         assertEquals(4, nextKeypointIndex(listOf("0001.json", "0001.png", "0003.json", "notes.txt")))
     }
 
+    @Test fun `restarting holds keeps keypoint-only positives and no-cube shots in the completed group`() {
+        val base = "lenovo_stla_warm"
+        val taken = setOf(base, "$base-2")
+        val restarted = CornerRecordingGroup().saved(base, CornerGroupSave.HOLD).restartHolds()
+        assertEquals(base, restarted.name)
+
+        val positive = restarted.targetName(CornerGroupSave.SUPPLEMENTAL, base) { it in taken }
+        assertEquals(base, positive)
+        val afterPositive = restarted.saved(positive, CornerGroupSave.SUPPLEMENTAL)
+        val negative = afterPositive.targetName(CornerGroupSave.SUPPLEMENTAL, base) { it in taken }
+        assertEquals(base, negative)
+        val afterNegative = afterPositive.saved(negative, CornerGroupSave.SUPPLEMENTAL)
+        assertEquals(base, afterNegative.name)
+        assertEquals("$base-3", afterNegative.targetName(CornerGroupSave.HOLD, base) { it in taken })
+    }
+
+    @Test fun `the group changes only when the next labeled hold is written`() {
+        val base = "lenovo_stla_warm"
+        val taken = setOf(base)
+        val restarted = CornerRecordingGroup().saved(base, CornerGroupSave.HOLD).restartHolds()
+        val next = restarted.targetName(CornerGroupSave.HOLD, base) { it in taken }
+        assertEquals("$base-2", next)
+
+        // Preparing a target or failing to write the hold leaves supplemental saves in the previous group.
+        assertEquals(base, restarted.name)
+        assertEquals(base, restarted.targetName(CornerGroupSave.SUPPLEMENTAL, base) { it in taken + next })
+        assertEquals("$base-3", restarted.targetName(CornerGroupSave.HOLD, base) { it in taken + next })
+
+        // Once the hold is written, a retry after a companion failure, hold 2 and supplemental saves all reuse the folder.
+        val active = restarted.saved(next, CornerGroupSave.HOLD)
+        assertEquals(next, active.name)
+        assertEquals(next, active.targetName(CornerGroupSave.HOLD, base) { it in taken + next })
+        assertEquals(next, active.targetName(CornerGroupSave.SUPPLEMENTAL, base) { it in taken + next })
+    }
+
+    @Test fun `a new condition clears the active group and can start with standalone keypoints`() {
+        val base = "lenovo_stla_warm"
+        val taken = setOf(base)
+        val newCondition = CornerRecordingGroup()
+        assertNull(newCondition.name)
+
+        // A new calibration or torch state can have the same device, cube and light in its base name.
+        val standalone = newCondition.targetName(CornerGroupSave.SUPPLEMENTAL, base) { it in taken }
+        assertEquals("$base-2", standalone)
+        val active = newCondition.saved(standalone, CornerGroupSave.SUPPLEMENTAL)
+        assertEquals(standalone, active.name)
+        assertEquals(standalone, active.targetName(CornerGroupSave.HOLD, base) { it in taken + standalone })
+        assertEquals("lenovo_stlb_cool", newCondition.targetName(CornerGroupSave.HOLD, "lenovo_stlb_cool") { it in taken })
+    }
+
     @Test fun `the group manifest marks the 10-22 pipeline, the operator's light direction and the recorder calibration`() {
         val device =
             dev.cubentia.domain.recognition
