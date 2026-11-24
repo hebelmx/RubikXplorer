@@ -2277,3 +2277,28 @@ action_items:
     owner: "PO (hebelmx)"
     status: done
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-23-pastel-plausibility.md"
+  - id: "issue-329-deferred-glare-gets-ev-plus-hint"
+    epic: 10
+    action: "A located corner frame whose faces miss the evidence floors because of glare also
+      gets the 'too dark, try EV+' hint, which would make glare worse; check FrameQuality
+      on the located faces and drop the EV+ hint when glare is the cause (low; deferred
+      from #329, RecorderRules.kt:370)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-329-recorder-dark-faces-hint.md"
+  - id: "issue-329-deferred-no-jpeg-says-detector-missed"
+    epic: 10
+    action: "A corner capture with no encoded JPEG still shows 'Detector missed' although the
+      detector found the cube; show a separate 'no image encoded' status (low; deferred
+      from #329, FixtureRecorderScreen.kt:351)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-329-recorder-dark-faces-hint.md"
+  - id: "issue-329-deferred-evidence-floor-constant-drift"
+    epic: 10
+    action: "CORNER_FACE_MIN_EVIDENCE_CELLS = 6 copies the literal 6 in CornerReader.read; expose
+      one constant and use it in both places so they cannot drift (low; deferred from
+      #329, RecorderRules.kt:355, CornerLocator.kt:497)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-329-recorder-dark-faces-hint.md"
