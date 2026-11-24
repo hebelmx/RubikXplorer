@@ -1,5 +1,11 @@
 package dev.cubentia.app.camera.recorder
 
+import dev.cubentia.app.camera.CornerDetector
+import dev.cubentia.app.camera.CornerGuide
+import dev.cubentia.app.camera.CornerLocator
+import dev.cubentia.app.camera.CornerReader
+import dev.cubentia.app.camera.grid
+import dev.cubentia.app.camera.toCornerFrame
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.recognition.CalibrationCenters
@@ -599,5 +605,125 @@ class RecorderRulesTest {
         assertEquals(true, holdTorch(recorded = false, applied = true))
         assertEquals(true, holdTorch(recorded = true, applied = null))
         assertEquals(false, holdTorch(recorded = false, applied = null))
+    }
+
+    private fun cornerFace(
+        lightness: Double,
+        unread: Int? = null,
+    ) = dev.cubentia.domain.recognition.FrameStats(
+        List(9) {
+            if (it == unread) {
+                null
+            } else {
+                dev.cubentia.domain.recognition
+                    .CellReading(Lab(lightness, 0.0, 0.0), true)
+            }
+        },
+        120.0,
+        0.0,
+        300.0,
+        12,
+    )
+
+    @Test fun `a corner capture with nothing located is a no-cube miss with the detector-missed text`() {
+        assertEquals(CornerMiss.NO_CUBE, cornerMiss(1, null))
+        val none =
+            dev.cubentia.app.camera
+                .CornerFrame(false, List(3) { null })
+        assertEquals(CornerMiss.NO_CUBE, cornerMiss(1, none))
+        assertEquals("Detector missed: place the 7 corners (colors are not saved).", cornerMissStatus(CornerMiss.NO_CUBE))
+    }
+
+    @Test fun `a located corner whose faces fall below the evidence floors is too dark and suggests EV+`() {
+        val located =
+            dev.cubentia.app.camera
+                .CornerFrame(false, List(3) { cornerFace(40.0) }, score = 0.7)
+        assertEquals(CornerMiss.TOO_DARK, cornerMiss(1, located))
+        val scoreOnly =
+            dev.cubentia.app.camera
+                .CornerFrame(false, List(3) { null }, score = 0.4)
+        assertEquals(CornerMiss.TOO_DARK, cornerMiss(1, scoreOnly))
+        val status = cornerMissStatus(CornerMiss.TOO_DARK)
+        assertTrue(status.contains("EV+"))
+        assertTrue(status.contains("colors are not saved"))
+        val none =
+            dev.cubentia.app.camera
+                .CornerFrame(false, List(3) { null })
+        assertTrue(cornerMiss(1, none) != cornerMiss(1, located))
+        assertTrue(cornerMissStatus(cornerMiss(1, none)!!) != cornerMissStatus(cornerMiss(1, located)!!))
+    }
+
+    @Test fun `a detected corner with one face missing or dark is too dark`() {
+        val dropped =
+            dev.cubentia.app.camera
+                .CornerFrame(true, listOf(cornerFace(80.0), null, cornerFace(80.0)), score = 0.9)
+        assertEquals(CornerMiss.TOO_DARK, cornerMiss(1, dropped))
+        val dim =
+            dev.cubentia.app.camera.CornerFrame(
+                true,
+                listOf(cornerFace(80.0), cornerFace(40.0, unread = 0), cornerFace(80.0)),
+                score = 0.9,
+            )
+        assertEquals(CornerMiss.TOO_DARK, cornerMiss(1, dim))
+    }
+
+    @Test fun `a detected corner whose faces have evidence but an unread cell is an unread-cell miss`() {
+        val unread =
+            dev.cubentia.app.camera.CornerFrame(
+                true,
+                listOf(cornerFace(80.0), cornerFace(80.0, unread = 3), cornerFace(80.0)),
+                score = 0.9,
+            )
+        assertEquals(CornerMiss.UNREAD_CELL, cornerMiss(1, unread))
+        assertEquals("A face had an unread cell: place the 7 corners (colors are not saved).", cornerMissStatus(CornerMiss.UNREAD_CELL))
+    }
+
+    @Test fun `a usable corner is no miss`() {
+        val usable =
+            dev.cubentia.app.camera
+                .CornerFrame(true, List(3) { cornerFace(80.0) }, score = 0.9)
+        assertTrue(cornerSamples(1, usable) != null)
+        assertNull(cornerMiss(1, usable))
+    }
+
+    @Test fun `a keypoint-only save after a too-dark miss adds the EV+ hint`() {
+        assertEquals(
+            "Saved positive 0003 (keypoints only). Faces were too dark for colors: tap EV+ to record them.",
+            keypointsOnlySaved(3, CornerMiss.TOO_DARK),
+        )
+        assertEquals("Saved positive 0003 (keypoints only).", keypointsOnlySaved(3, CornerMiss.NO_CUBE))
+        assertEquals("Saved positive 0003 (keypoints only).", keypointsOnlySaved(3, null))
+    }
+
+    @Test fun `an undetected zero-score frame that still carries faces is too dark`() {
+        val zeroScore =
+            dev.cubentia.app.camera
+                .CornerFrame(false, List(3) { cornerFace(40.0) }, score = 0.0)
+        assertEquals(CornerMiss.TOO_DARK, cornerMiss(1, zeroScore))
+    }
+
+    @Test fun `CornerReader output on a dull gray frame is too dark when located and no cube when not`() {
+        val image = java.awt.image.BufferedImage(240, 320, java.awt.image.BufferedImage.TYPE_INT_RGB)
+        val graphics = image.createGraphics()
+        graphics.color = java.awt.Color(100, 100, 100)
+        graphics.fillRect(0, 0, 240, 320)
+        graphics.dispose()
+        val yuv = image.toCornerFrame()
+        val guide = CornerGuide(grid(240, 320, 0), 0)
+        val located =
+            CornerReader.read(
+                yuv,
+                guide,
+                detector =
+                    CornerDetector {
+                        _,
+                        g,
+                        ->
+                        CornerLocator.Location(g.quads(g.vertices()), 0.5)
+                    },
+            )
+        assertEquals(CornerMiss.TOO_DARK, cornerMiss(1, located))
+        val missed = CornerReader.read(yuv, guide, detector = CornerDetector { _, _ -> null })
+        assertEquals(CornerMiss.NO_CUBE, cornerMiss(1, missed))
     }
 }
