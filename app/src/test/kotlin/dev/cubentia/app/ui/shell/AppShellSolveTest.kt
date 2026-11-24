@@ -237,7 +237,7 @@ class AppShellSolveTest {
     }
 
     @Test fun scanFallBackOpensAFreshEditor() {
-        show(scan = { flow.onScanOutcome(ScanOutcome.FellBackToEditor) }, cameraScan = dev.cubentia.application.port.FlagLevel.GA)
+        show(scan = { flow.onScanOutcome(ScanOutcome.FellBackToEditor()) }, cameraScan = dev.cubentia.application.port.FlagLevel.GA)
         click("nav:solve")
         click("solve:scan")
         with(dev.cubentia.app.ui.editor.EditorFixtures) { rule.assertEditorGated() }

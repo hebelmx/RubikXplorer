@@ -245,7 +245,7 @@ class AppShellPlacementTest {
         val solved = CubeState.SOLVED.toFacelets().colors
         show()
         startScan()
-        deliver(ScanOutcome.FellBackToEditor)
+        deliver(ScanOutcome.FellBackToEditor())
         with(dev.cubentia.app.ui.editor.EditorFixtures) { rule.enterEveryFace() }
         repeat(6) { face ->
             if (rule.onAllNodesWithTag("editor:face:$face").fetchSemanticsNodes().isNotEmpty()) {
@@ -570,7 +570,7 @@ class AppShellPlacementTest {
     fun `fallback opens the manual editor and evaluates its accepted cube`() {
         show()
         startScan()
-        deliver(ScanOutcome.FellBackToEditor)
+        deliver(ScanOutcome.FellBackToEditor())
         rule
             .onNodeWithTag("placement:editorNote")
             .assertTextContains(bundle.strings.getValue("msg.solve.scan-fell-back"))
@@ -673,7 +673,7 @@ class AppShellPlacementTest {
         rule.onNodeWithTag("placement:prompt").assertDoesNotExist()
 
         startScan()
-        deliver(ScanOutcome.FellBackToEditor)
+        deliver(ScanOutcome.FellBackToEditor())
         rule.onNodeWithTag("placement:editorNote").assertExists()
         rule.runOnIdle { back.onBackPressed() }
         rule.onNodeWithTag("welcome").assertIsDisplayed()
@@ -703,7 +703,7 @@ class AppShellPlacementTest {
         rule.onNodeWithTag("placement:close").performClick()
         rule.onNodeWithTag("placement:close").performClick()
         startScan()
-        deliver(ScanOutcome.FellBackToEditor)
+        deliver(ScanOutcome.FellBackToEditor())
         rule.onNodeWithTag("placement:editorNote").assertIsDisplayed()
         assertPlacementSurface(DarkTokens.surfaceBase)
     }
@@ -735,7 +735,7 @@ class AppShellPlacementTest {
         rule.onNodeWithTag("welcome").assertIsDisplayed()
 
         startScan()
-        deliver(ScanOutcome.FellBackToEditor)
+        deliver(ScanOutcome.FellBackToEditor())
         rule.onNodeWithTag("placement:editorNote").assertIsDisplayed()
         rule.onNodeWithTag("placement:close").assertIsDisplayed().performClick()
         rule.onNodeWithTag("welcome").assertIsDisplayed()
@@ -838,7 +838,7 @@ class AppShellPlacementTest {
         startScan()
         rule.onNodeWithTag("welcome:imNew").performClick()
         assertDetail("Cube fundamentals")
-        for (late in listOf(ScanOutcome.Accepted(entry("lesson-03-01")), ScanOutcome.FellBackToEditor)) {
+        for (late in listOf(ScanOutcome.Accepted(entry("lesson-03-01")), ScanOutcome.FellBackToEditor())) {
             deliver(late)
             rule.waitForIdle()
             assertEquals(PlacementPhase.Idle, flow.phase.value)
@@ -876,7 +876,7 @@ class AppShellPlacementTest {
         rule.onNodeWithTag("you:settings").performClick()
         // Late outcomes land while Settings covers the shell.
         deliver(ScanOutcome.Accepted(entry("lesson-03-01")))
-        deliver(ScanOutcome.FellBackToEditor)
+        deliver(ScanOutcome.FellBackToEditor())
         rule.onNodeWithTag("settings:resetProgress").performScrollTo().performClick()
         rule.onNodeWithTag("settings:resetProgress:confirm").performClick()
         rule.waitUntil(5_000) { rule.onAllNodesWithTag("settings:resetProgress:confirm").fetchSemanticsNodes().isEmpty() }

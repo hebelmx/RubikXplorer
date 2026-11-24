@@ -2530,3 +2530,38 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "issue-321-deferred-partial-scan-note-over-empty-net"
+    epic: 10
+    action: "A partial Guided scan seeds no sticker (unposed faces, or no calibration), yet the
+      Editor shows \"Your scan is here. Fill in the stickers it couldn't read.\" over an empty
+      net; PO decides whether a payload with no read sticker opens the blank Editor with the
+      old note (medium; deferred from #321, SolveFlowViewModel.kt:136)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-321-seeded-editor-scan-fallback.md"
+  - id: "issue-321-deferred-unresolved-rotation-route-test"
+    epic: 10
+    action: "Story 10.15 (P9) asks the Solve route tests to cover a captured face whose rotation is
+      unresolved; add a route or ViewModel test that a six-face review with an ambiguous face
+      falls back with that face unset and listed as left (medium; deferred from #321,
+      SolveFromScanRouteTest.kt)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-321-seeded-editor-scan-fallback.md"
+  - id: "issue-321-deferred-talkback-face-naming"
+    epic: 10
+    action: "An unset sticker is announced with the face tab label (\"Right sticker 1, not set\")
+      while set stickers use the colour-face name, so TalkBack names faces two ways; confirm
+      or align the wording at the device session (low; deferred from #321,
+      StickerReviewNet.kt:361)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-321-seeded-editor-scan-fallback.md"
+  - id: "issue-321-deferred-editor-saveable-key-initialset"
+    epic: 10
+    action: "ManualCubeEditor keys rememberSaveable on (initial, fresh, seeded) but not initialSet,
+      so two back-to-back seeded fallbacks with identical placeholder facelets keep stale
+      state; add initialSet to the keys (low; deferred from #321, ManualCubeEditor.kt:173)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-321-seeded-editor-scan-fallback.md"

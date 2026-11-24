@@ -994,6 +994,69 @@ class ScanReviewScreenTest {
         assertEquals(true, closed)
     }
 
+    @Test fun `close after a change asks and Discard calls onDiscard, while close with no change keeps the scan`() {
+        var discarded = 0
+        var kept = 0
+        rule.setContent {
+            CubentiaTheme {
+                ScanReviewScreen(
+                    review,
+                    strings,
+                    { review = it },
+                    {},
+                    { kept++ },
+                    onDiscard = { discarded++ },
+                )
+            }
+        }
+        rule.onNodeWithTag("review:close").performScrollTo().performClick()
+        rule.onNodeWithTag("review:discard").assertDoesNotExist()
+        assertEquals(1 to 0, kept to discarded)
+        rule.onNodeWithTag("swatch:WHITE").performScrollTo().performClick()
+        rule.onNodeWithTag("review:close").performScrollTo().performClick()
+        rule.onNodeWithTag("review:discard:cancel").performClick()
+        rule.onNodeWithTag("review:discard").assertDoesNotExist()
+        assertEquals(1 to 0, kept to discarded)
+        rule.onNodeWithTag("review:close").performScrollTo().performClick()
+        rule.onNodeWithTag("review:discard:confirm").performClick()
+        assertEquals(1 to 1, kept to discarded)
+    }
+
+    @Test fun `Back after a change discards through onDiscard`() {
+        var discarded = false
+        rule.setContent {
+            backDispatcher = checkNotNull(LocalOnBackPressedDispatcherOwner.current).onBackPressedDispatcher
+            CubentiaTheme { ScanReviewScreen(review, strings, { review = it }, {}, { closed = true }, onDiscard = { discarded = true }) }
+        }
+        rule.onNodeWithTag("swatch:WHITE").performScrollTo().performClick()
+        rule.runOnIdle { backDispatcher.onBackPressed() }
+        rule.onNodeWithTag("review:discard:confirm").performClick()
+        assertTrue(discarded)
+        assertFalse(closed)
+    }
+
+    @Test fun `manual entry that keeps the fixes never asks, even after a change`() {
+        var entered: List<Color?>? = null
+        rule.setContent {
+            CubentiaTheme {
+                ScanReviewScreen(
+                    review,
+                    strings,
+                    { review = it },
+                    {},
+                    { closed = true },
+                    onEnterColors = { entered = review.stickers },
+                    enterColorsAsks = false,
+                )
+            }
+        }
+        rule.onNodeWithTag("swatch:WHITE").performScrollTo().performClick()
+        rule.onNodeWithTag("review:enterColors").performScrollTo().performClick()
+        rule.onNodeWithTag("review:discard").assertDoesNotExist()
+        assertEquals(Color.WHITE, entered?.get(7))
+        assertFalse(closed)
+    }
+
     @Test fun `a review already edited before it is shown still asks before discarding`() {
         rule.setContent { CubentiaTheme { ScanReviewScreen(review, strings, {}, {}, { closed = true }, edited = true) } }
         rule.onNodeWithTag("review:close").performScrollTo().performClick()

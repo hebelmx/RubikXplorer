@@ -4,12 +4,15 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.os.Looper
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.lifecycle.Lifecycle
@@ -21,6 +24,7 @@ import dagger.hilt.android.testing.HiltTestApplication
 import dagger.hilt.android.testing.UninstallModules
 import dev.cubentia.app.camera.CameraModule
 import dev.cubentia.app.camera.GuidedScanActivity
+import dev.cubentia.app.camera.GuidedScanFlow
 import dev.cubentia.app.camera.GuidedScanPhase
 import dev.cubentia.app.camera.GuidedScanViewModel
 import dev.cubentia.app.camera.ScanFrameSource
@@ -47,6 +51,7 @@ import dev.cubentia.domain.recognition.PhysicalObservation
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -63,6 +68,10 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(application = HiltTestApplication::class, qualifiers = "w411dp-h891dp")
 class SolveFromScanRouteTest {
+    private companion object {
+        const val KEPT_NOTE = "Your scan is here. Fill in the stickers it couldn't read."
+    }
+
     @get:Rule(order = 0)
     val hilt = HiltAndroidRule(this)
 
@@ -148,27 +157,86 @@ class SolveFromScanRouteTest {
     @Test fun manualEntryFromTheViewfinderReturnsToTheEditorWithTheFallbackNote() =
         solveScan { main, scan, started ->
             rule.onNodeWithTag("scanEnterColors").assertIsDisplayed().performClick()
-            returnToSolve(main, scan, started, ScanOutcome.FellBackToEditor)
+            returnToSolve(main, scan, started, ScanOutcome.FellBackToEditor())
             rule.onNodeWithTag("solve:scanNote").assertTextEquals("No scan this time. Enter your cube's colors here.")
             rule.onNodeWithTag("editor:accept").assertExists()
         }
 
-    @Test fun manualEntryFromAnEditedReviewAsksThenReturnsToTheEditorWithTheFallbackNote() =
+    @Test fun manualEntryFromAnEditedReviewKeepsTheFixInTheSeededEditorWithoutAsking() =
         solveScan { main, scan, started ->
             captureCube(scan)
-            if (rule.onAllNodesWithTag("review:coach").fetchSemanticsNodes().isNotEmpty()) {
-                rule.onNodeWithTag("review:coach").performClick()
-            }
+            dismissCoach()
             val index = 1
             val other = Color.entries.first { it != cube.toFacelets().colors[index] }
             rule.onNodeWithTag("sticker:$index").performScrollTo().performClick()
             rule.onNodeWithTag("swatch:${other.name}").performScrollTo().performClick()
+            val fixed = reviewStickers(scan)
+            assertEquals(other, fixed[index])
             rule.onNodeWithTag("review:enterColors").performScrollTo().performClick()
+            rule.onNodeWithTag("review:discard").assertDoesNotExist()
+            rule.waitForIdle()
+            returnToSolve(main, scan, started, ScanOutcome.FellBackToEditor(fixed))
+            rule.onNodeWithTag("solve:scanNote").assertTextEquals(KEPT_NOTE)
+            assertEquals(stickerDescription(other, index), description("sticker:$index"))
+        }
+
+    @Test fun reviewCloseWithNoChangeOpensTheSeededEditorWithTheScan() =
+        solveScan { main, scan, started ->
+            captureCube(scan)
+            val stickers = reviewStickers(scan)
+            rule.onNodeWithTag("review:close").performScrollTo().performClick()
+            rule.onNodeWithTag("review:discard").assertDoesNotExist()
+            rule.waitForIdle()
+            returnToSolve(main, scan, started, ScanOutcome.FellBackToEditor(stickers))
+            rule.onNodeWithTag("solve:scanNote").assertTextEquals(KEPT_NOTE)
+            // Every sticker was read, so the seeded Editor accepts the scanned cube as is.
+            rule.onNodeWithTag("editor:accept").performScrollTo().assertIsEnabled()
+            assertNotEquals(SessionKind.SOLVE_PLAYBACK, main.sessionHost.state.value.kind)
+        }
+
+    @Test fun reviewCloseAfterAChangeAsksAndDiscardReturnsToSolveHome() =
+        solveScan { main, scan, started ->
+            captureCube(scan)
+            dismissCoach()
+            val other = Color.entries.first { it != cube.toFacelets().colors[1] }
+            rule.onNodeWithTag("sticker:1").performScrollTo().performClick()
+            rule.onNodeWithTag("swatch:${other.name}").performScrollTo().performClick()
+            rule.onNodeWithTag("review:close").performScrollTo().performClick()
+            // Dismissing keeps the review as is.
+            rule.onNodeWithTag("review:discard:cancel").performClick()
+            rule.onNodeWithTag("review:screen").assertIsDisplayed()
+            assertEquals(other, reviewStickers(scan)[1])
+            rule.onNodeWithTag("review:close").performScrollTo().performClick()
             rule.onNodeWithTag("review:discard:confirm").performClick()
             rule.waitForIdle()
-            returnToSolve(main, scan, started, ScanOutcome.FellBackToEditor)
+            returnToSolve(main, scan, started, ScanOutcome.Cancelled)
+            rule.onNodeWithTag("solve:scan").assertIsDisplayed()
+            rule.onNodeWithTag("editor:accept").assertDoesNotExist()
+        }
+
+    @Test fun manualEntryAfterAPartialCaptureOpensTheSeededEditorWithEveryStickerToFill() =
+        solveScan { main, scan, started ->
+            captureCube(scan, faces = 2)
+            val viewModel = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
+            val phase = viewModel.phase as GuidedScanPhase.Viewfinder
+            assertEquals(2, phase.captured.size)
+            val stickers = GuidedScanFlow.fallbackStickers(phase, viewModel.saved)
+            rule.onNodeWithTag("scanEnterColors").performClick()
+            rule.waitForIdle()
+            returnToSolve(main, scan, started, ScanOutcome.FellBackToEditor(stickers))
+            rule.onNodeWithTag("solve:scanNote").assertTextEquals(KEPT_NOTE)
+            rule.onNodeWithTag("editor:instruction").assertTextEquals("6 faces left to enter: Up, Front, Right, Back, Left, Down.")
+            rule.onNodeWithTag("editor:accept").performScrollTo().assertIsNotEnabled()
+        }
+
+    @Test fun manualEntryFromTheDenialCardOpensTheBlankEditorWithTheFallbackNote() =
+        solveScan { main, scan, started ->
+            val viewModel = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
+            rule.runOnIdle { viewModel.phase = GuidedScanPhase.Denied(permanent = false) }
+            rule.onNodeWithText("Enter colors instead").performClick()
+            rule.waitForIdle()
+            returnToSolve(main, scan, started, ScanOutcome.FellBackToEditor())
             rule.onNodeWithTag("solve:scanNote").assertTextEquals("No scan this time. Enter your cube's colors here.")
-            rule.onNodeWithTag("editor:accept").assertExists()
         }
 
     @Test fun calibrationFromASolveReviewOffersManualEntryBackToTheEditor() =
@@ -181,8 +249,8 @@ class SolveFromScanRouteTest {
             rule.onNodeWithTag("calibration:prompt").assertIsDisplayed()
             rule.onNodeWithTag("scanEnterColors").assertIsDisplayed().performClick()
             rule.waitForIdle()
-            returnToSolve(main, scan, started, ScanOutcome.FellBackToEditor)
-            rule.onNodeWithTag("solve:scanNote").assertTextEquals("No scan this time. Enter your cube's colors here.")
+            returnToSolve(main, scan, started, ScanOutcome.FellBackToEditor(review.review.stickers))
+            rule.onNodeWithTag("solve:scanNote").assertTextEquals(KEPT_NOTE)
         }
 
     @Test fun fullQuickCheckKeepsManualEntryOutOfItsViewfinderAndReview() {
@@ -217,13 +285,44 @@ class SolveFromScanRouteTest {
         }
     }
 
+    private fun dismissCoach() {
+        if (rule.onAllNodesWithTag("review:coach").fetchSemanticsNodes().isNotEmpty()) {
+            rule.onNodeWithTag("review:coach").performClick()
+        }
+    }
+
+    private fun reviewStickers(scan: ActivityController<GuidedScanActivity>): List<Color?> =
+        (ViewModelProvider(scan.get())[GuidedScanViewModel::class.java].phase as GuidedScanPhase.Review).review.stickers
+
+    private fun description(tag: String): String =
+        rule
+            .onNodeWithTag(tag)
+            .fetchSemanticsNode()
+            .config[SemanticsProperties.ContentDescription]
+            .single()
+
+    private fun stickerDescription(
+        color: Color,
+        index: Int,
+    ): String {
+        val context = RuntimeEnvironment.getApplication()
+        val colorName =
+            context.getString(
+                dev.cubentia.app.ui.editor
+                    .colorName(color),
+            )
+        val face = context.getString(dev.cubentia.app.ui.editor.FACE_NAMES[index / 9])
+        return context.getString(R.string.editor_sticker, colorName, face, index % 9 + 1)
+    }
+
     private fun captureCube(
         scan: ActivityController<GuidedScanActivity>,
         state: CubeState = cube,
+        faces: Int = GuidedScanPlan.steps.size,
     ) {
         val viewModel = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
         val colors = state.toFacelets().colors
-        GuidedScanPlan.steps.forEach { step ->
+        GuidedScanPlan.steps.take(faces).forEach { step ->
             val start = step.face.ordinal * 9
             val cells = colors.subList(start, start + 9).map { CellReading(ScanRouteTest.labs.getValue(it), true) }
             camera.feed(FrameStats(cells, 120.0, 0.0, 100.0, 12), null)
@@ -247,6 +346,8 @@ class SolveFromScanRouteTest {
             }
             val started = activity.nextStartedActivityForResult.intent
             assertEquals(GuidedScanActivity::class.java.name, started.component?.className)
+            // A Solve-tab scan seeds its Editor from a fallback (GH #321).
+            assertTrue(started.getBooleanExtra(ScanFlowContract.EXTRA_SEEDS_EDITOR, false))
             withScan(started) { body(main.get(), it, started) }
         } finally {
             main.pause().stop().destroy()

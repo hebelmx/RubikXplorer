@@ -6,11 +6,16 @@ import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
 import dev.cubentia.app.scan.ScanFlowContract
 import dev.cubentia.app.scan.ScanOutcome
+import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.cube.NotationResult
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -42,10 +47,54 @@ class GuidedScanContractTest {
             ScanOutcome.Accepted(CubeState.SOLVED),
             ScanOutcome.Accepted(scrambled),
             ScanOutcome.Cancelled,
-            ScanOutcome.FellBackToEditor,
+            ScanOutcome.FellBackToEditor(),
+            ScanOutcome.FellBackToEditor(stickers),
+            ScanOutcome.FellBackToEditor(List(54) { null }),
         ).forEach {
             val (code, intent) = ScanFlowContract.encode(it)
             assertEquals(it, contract.parseResult(code, intent))
+        }
+    }
+
+    /** A partial read (GH #321): face U read, the rest unset except the centers, which are always home colors. */
+    private val stickers =
+        List(54) { i ->
+            when {
+                i < 9 -> Color.WHITE
+                i % 9 == 4 -> Color.home(Face.entries[i / 9])
+                else -> null
+            }
+        }
+
+    @Test fun `a fallback's sticker extra decodes leniently to no stickers`() {
+        val names = stickers.map { it?.name.orEmpty() }
+        listOf(
+            null,
+            Intent(),
+            Intent().putExtra(ScanFlowContract.EXTRA_FALLBACK_STICKERS, names.dropLast(1).toTypedArray()),
+            Intent().putExtra(ScanFlowContract.EXTRA_FALLBACK_STICKERS, (names + "WHITE").toTypedArray()),
+            Intent().putExtra(ScanFlowContract.EXTRA_FALLBACK_STICKERS, names.map { if (it.isEmpty()) "PURPLE" else it }.toTypedArray()),
+            Intent().putExtra(ScanFlowContract.EXTRA_FALLBACK_STICKERS, 42),
+        ).forEach { intent ->
+            assertEquals(ScanOutcome.FellBackToEditor(null), contract.parseResult(ScanFlowContract.RESULT_FELL_BACK_TO_EDITOR, intent))
+        }
+        // No stickers, no extra.
+        assertNull(ScanFlowContract.encode(ScanOutcome.FellBackToEditor()).second)
+    }
+
+    @Test fun `only a Solve contract marks its scan as seeding the Editor`() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val launcher = CameraScanLauncher()
+        for (quick in listOf(false, true)) {
+            assertTrue(
+                ScanFlowContract(launcher, quick, seedsEditor = true).createIntent(app, Unit).hasExtra(ScanFlowContract.EXTRA_SEEDS_EDITOR),
+            )
+            assertTrue(
+                ScanFlowContract(launcher, quick, seedsEditor = true)
+                    .createIntent(app, Unit)
+                    .getBooleanExtra(ScanFlowContract.EXTRA_SEEDS_EDITOR, false),
+            )
+            assertFalse(ScanFlowContract(launcher, quick).createIntent(app, Unit).hasExtra(ScanFlowContract.EXTRA_SEEDS_EDITOR))
         }
     }
 

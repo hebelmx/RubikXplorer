@@ -47,7 +47,7 @@ class QuickCheckContractTest {
         }
         val (code, data) = ScanFlowContract.encode(ScanOutcome.Accepted(CubeState.SOLVED))
         assertEquals(QuickCheckOutcome.Observed(PhysicalObservation.Full(CubeState.SOLVED)), QuickCheckContract.decode(code, data))
-        val (_, fallback) = ScanFlowContract.encode(ScanOutcome.FellBackToEditor)
+        val (_, fallback) = ScanFlowContract.encode(ScanOutcome.FellBackToEditor())
         assertEquals(QuickCheckOutcome.Cancelled, QuickCheckContract.decode(ScanFlowContract.RESULT_FELL_BACK_TO_EDITOR, fallback))
         assertEquals(QuickCheckOutcome.Cancelled, QuickCheckContract.decode(Activity.RESULT_CANCELED, data))
     }

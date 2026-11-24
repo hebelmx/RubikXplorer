@@ -136,6 +136,8 @@ class GuidedScanActivity : ComponentActivity() {
             !scan.calibrationMode &&
                 !intent.hasExtra(QuickCheckContract.EXTRA_FACES) &&
                 !intent.getBooleanExtra(QuickCheckContract.EXTRA_FULL_QUICK_CHECK, false)
+        // GH #321: a Solve-tab scan seeds its Editor, so review *Enter colors instead* keeps the fixes without asking.
+        val seedsEditor = intent.getBooleanExtra(ScanFlowContract.EXTRA_SEEDS_EDITOR, false)
         if (phase is GuidedScanPhase.Viewfinder && (scan.calibrationMode || scan.quickScanMode) && !scan.calibrationLoaded) {
             phase = scan.capturePhase()
         }
@@ -187,7 +189,7 @@ class GuidedScanActivity : ComponentActivity() {
                     permission.launch(Manifest.permission.CAMERA)
                 },
                 // Like Close, never leave while a calibration write is in flight.
-                onEnterColors = { if (!scan.saving) finishWith(ScanOutcome.FellBackToEditor) },
+                onEnterColors = { if (!scan.saving) finishWith(fallBackToEditor()) },
                 onOpenSettings = {
                     runCatching {
                         startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
@@ -347,7 +349,10 @@ class GuidedScanActivity : ComponentActivity() {
                                     null
                                 },
                             onAccept = { finishWith(ScanOutcome.Accepted(it, scan.runScanColorsToReturn())) },
-                            onClose = { finishWith(ScanOutcome.Cancelled) },
+                            // GH #321: Close with no change keeps the scan for the Editor; Discard (after a change) cancels.
+                            onClose = { finishWith(fallBackToEditor()) },
+                            onDiscard = { finishWith(ScanOutcome.Cancelled) },
+                            enterColorsAsks = !seedsEditor,
                             // Retake in a Guided 6-face Scan or Quick Scan review: never Quick Check, calibration or Case capture.
                             onRetake =
                                 if ((scan.isGuidedRun || scan.quickScanMode) && !isQuickCheck) {
@@ -503,6 +508,17 @@ class GuidedScanActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * GH #321: the fallback to the Editor, with the stickers of the current phase (a calibration opened from Quick Scan's
+     * corner view reads the Quick Scan capture it returns to); none in Case capture.
+     */
+    private fun fallBackToEditor(): ScanOutcome.FellBackToEditor {
+        if (scan.caseCorners != null) return ScanOutcome.FellBackToEditor(null)
+        val current = phase
+        val quickScanCapture = scan.capturePhase().takeIf { current is GuidedScanPhase.Calibration && current.fromQuickScan }
+        return ScanOutcome.FellBackToEditor(GuidedScanFlow.fallbackStickers(current, scan.saved, quickScanCapture))
+    }
+
     private fun finishWith(capture: ScanOutcome) {
         val review =
             (phase as? GuidedScanPhase.Review)
@@ -512,7 +528,7 @@ class GuidedScanActivity : ComponentActivity() {
             when (capture) {
                 is ScanOutcome.Accepted -> "ACCEPTED"
                 ScanOutcome.Cancelled -> "CANCELLED"
-                ScanOutcome.FellBackToEditor -> "FELL_BACK_TO_EDITOR"
+                is ScanOutcome.FellBackToEditor -> "FELL_BACK_TO_EDITOR"
             }
         if (isQuickCheck && !scan.guidedLogged) {
             scan.guidedLogged = true
@@ -543,7 +559,7 @@ class GuidedScanActivity : ComponentActivity() {
             )
         }
         val (code, data) =
-            if (scan.caseCorners != null && capture == ScanOutcome.FellBackToEditor) {
+            if (scan.caseCorners != null && capture is ScanOutcome.FellBackToEditor) {
                 CaseCaptureContract.editor()
             } else {
                 ScanFlowContract.encode(capture)

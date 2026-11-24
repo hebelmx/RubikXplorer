@@ -167,6 +167,45 @@ internal object GuidedScanFlow {
         corrections: Map<Int, dev.cubentia.domain.cube.Color>,
     ): ScanReview = review.corrected(corrections)
 
+    /**
+     * The stickers a fallback to the Editor carries from [phase] (GH #321): the review's (the Learner's fixes included),
+     * also from a retake or calibration opened from review; else the stickers [ScanReview.fromSamples] reads from the
+     * viewfinder's captured and kept faces or the corner view's captured ones, with [saved]. Null with no captured face,
+     * and for the rationale, denial and unavailable cards. A calibration opened from Quick Scan's corner view reads
+     * [quickScanCapture], the Quick Scan capture phase it returns to. Never filled from an expected state (AD-5).
+     */
+    fun fallbackStickers(
+        phase: GuidedScanPhase,
+        saved: CalibrationCenters?,
+        quickScanCapture: GuidedScanPhase? = null,
+    ): List<Color?>? {
+        fun read(samples: List<FaceSample>) = samples.takeIf { it.isNotEmpty() }?.let { ScanReview.fromSamples(it, saved).stickers }
+        return when (phase) {
+            is GuidedScanPhase.Review -> {
+                phase.review.stickers
+            }
+
+            is GuidedScanPhase.Calibration -> {
+                phase.fromReview?.review?.stickers
+                    ?: quickScanCapture
+                        ?.takeIf { phase.fromQuickScan && it !is GuidedScanPhase.Calibration }
+                        ?.let { fallbackStickers(it, saved) }
+            }
+
+            is GuidedScanPhase.Viewfinder -> {
+                phase.fromReview?.review?.stickers ?: read(phase.kept + phase.captured)
+            }
+
+            is GuidedScanPhase.CornerViewfinder -> {
+                read(phase.captured)
+            }
+
+            GuidedScanPhase.Rationale, is GuidedScanPhase.Denied, GuidedScanPhase.Unavailable -> {
+                null
+            }
+        }
+    }
+
     /** Granted → the viewfinder; otherwise the rationale card comes before any system dialog. */
     fun initialPhase(hasPermission: Boolean): GuidedScanPhase =
         if (hasPermission) GuidedScanPhase.Viewfinder() else GuidedScanPhase.Rationale

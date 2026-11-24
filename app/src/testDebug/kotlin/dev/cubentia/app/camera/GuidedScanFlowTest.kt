@@ -763,6 +763,61 @@ class GuidedScanFlowTest {
         assertTrue(GuidedScanFlow.reviewAfterRetake(fresh, listOf(upright(Face.B)), null).edited)
     }
 
+    @Test fun `a fallback carries the review's stickers with its fixes, also from a retake or calibration opened from it`() {
+        val review = misreadReview()
+        val stickers = review.review.stickers
+        assertEquals(Color.YELLOW, stickers[0])
+        assertEquals(stickers, GuidedScanFlow.fallbackStickers(review, null))
+        assertEquals(stickers, GuidedScanFlow.fallbackStickers(GuidedScanPhase.Calibration(fromReview = review), null))
+        val retake = GuidedScanFlow.retakePhase(GuidedScanFlow.retakeRun(setOf(Face.F), review))
+        assertEquals(stickers, GuidedScanFlow.fallbackStickers(retake, null))
+    }
+
+    @Test fun `a fallback before review reads the captured and kept faces, never filling the rest`() {
+        val captured = listOf(upright(Face.U), upright(Face.R))
+        val read = GuidedScanFlow.fallbackStickers(GuidedScanPhase.Viewfinder(captured = captured), null)
+        assertEquals(ScanReview.fromSamples(captured, null).stickers, read)
+        assertEquals(
+            ScanReview.fromSamples(captured, null).stickers,
+            GuidedScanFlow.fallbackStickers(GuidedScanPhase.Viewfinder(kept = captured.take(1), captured = captured.drop(1)), null),
+        )
+        assertEquals(
+            ScanReview.fromSamples(captured, null).stickers,
+            GuidedScanFlow.fallbackStickers(GuidedScanPhase.CornerViewfinder(hold = 1, captured = captured), null),
+        )
+        // A partial scan cannot pose faces: every non-center sticker is unset, centers stay home colors.
+        checkNotNull(read).forEachIndexed { i, color ->
+            assertEquals(if (i % 9 == 4) Color.home(Face.entries[i / 9]) else null, color)
+        }
+    }
+
+    @Test fun `a calibration opened from Quick Scan's corner view reads the corner faces it returns to`() {
+        val captured = listOf(upright(Face.U), upright(Face.R))
+        val corner = GuidedScanPhase.CornerViewfinder(hold = 2, captured = captured, faceByFace = true)
+        val calibration = GuidedScanPhase.Calibration(fromQuickScan = true)
+        assertEquals(ScanReview.fromSamples(captured, null).stickers, GuidedScanFlow.fallbackStickers(calibration, null, corner))
+        // Its hand-over reads the kept and added faces the same way.
+        val handOver = GuidedScanPhase.Viewfinder(kept = captured.take(1), captured = captured.drop(1), handOver = true)
+        assertEquals(ScanReview.fromSamples(captured, null).stickers, GuidedScanFlow.fallbackStickers(calibration, null, handOver))
+        // No corner face yet, or a calibration not opened from Quick Scan: no stickers.
+        assertNull(GuidedScanFlow.fallbackStickers(calibration, null, GuidedScanPhase.CornerViewfinder(hold = 1)))
+        assertNull(GuidedScanFlow.fallbackStickers(GuidedScanPhase.Calibration(), null, corner))
+    }
+
+    @Test fun `no captured face, a denial or the rationale carries no stickers`() {
+        listOf(
+            GuidedScanPhase.Viewfinder(),
+            GuidedScanPhase.CornerViewfinder(hold = 0),
+            GuidedScanPhase.Viewfinder(handOver = true),
+            GuidedScanPhase.Rationale,
+            GuidedScanPhase.Denied(permanent = false),
+            GuidedScanPhase.Denied(permanent = true),
+            GuidedScanPhase.Unavailable,
+            GuidedScanPhase.Calibration(),
+            GuidedScanPhase.Calibration(fromQuickScan = true),
+        ).forEach { assertNull(it.toString(), GuidedScanFlow.fallbackStickers(it, null)) }
+    }
+
     @Test fun `backing out of a retake restores the review it started from exactly`() {
         val vm = GuidedScanViewModel()
         val from = misreadReview()

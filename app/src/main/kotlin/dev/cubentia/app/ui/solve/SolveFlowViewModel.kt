@@ -9,7 +9,9 @@ import dev.cubentia.app.solver.SolverSource
 import dev.cubentia.application.session.Effect
 import dev.cubentia.application.usecase.SolveCube
 import dev.cubentia.application.usecase.SolveCubeOutcome
+import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Orientation
@@ -37,7 +39,8 @@ sealed interface SolvePhase {
 
     /**
      * The open editor: [fresh] when it opens on the default solved cube with no cube accepted yet (#253), and [set] the
-     * stickers already set in it (kept across a Solve tab switch).
+     * stickers already set in it (kept across a Solve tab switch). [seeded] (GH #321) when a scan's stickers opened it:
+     * only those in [set] hold a color, every other non-center sticker is unset ([initial] holds a placeholder there).
      */
     data class Editing(
         val initial: Facelets,
@@ -45,6 +48,7 @@ sealed interface SolvePhase {
         val note: Text? = null,
         val fresh: Boolean = false,
         val set: Set<Int> = emptySet(),
+        val seeded: Boolean = false,
     ) : SolvePhase
 
     data class Solving(
@@ -108,17 +112,34 @@ class SolveFlowViewModel
                     mutablePendingScan.value = outcome.state
                 }
 
-                ScanOutcome.FellBackToEditor -> {
+                is ScanOutcome.FellBackToEditor -> {
+                    // Only Accepted is the Full verified baseline: a fallback's stickers only seed the Editor (GH #321).
                     scanned = null
                     scannedColors = null
                     mutablePendingScan.value = null
-                    show(SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = Text("msg.solve.scan-fell-back"), fresh = true))
+                    show(outcome.stickers?.let(::seededEditing) ?: fellBackEditing())
                 }
 
                 ScanOutcome.Cancelled -> {
                     Unit
                 }
             }
+        }
+
+        private fun fellBackEditing() =
+            SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = Text("msg.solve.scan-fell-back"), fresh = true)
+
+        /**
+         * The Editor seeded with a fallback's [stickers] in the home frame (GH #321): read stickers are set, every other
+         * non-center one unset, holding its face's home color only as a placeholder; centers are always home colors.
+         * Stickers of the wrong size open the blank Editor instead.
+         */
+        private fun seededEditing(stickers: List<Color?>): SolvePhase.Editing {
+            if (stickers.size != Facelets.SIZE) return fellBackEditing()
+            val home = { index: Int -> Color.home(Face.entries[index / 9]) }
+            val colors = List(Facelets.SIZE) { index -> if (index % 9 == 4) home(index) else stickers[index] ?: home(index) }
+            val set = stickers.indices.filterTo(mutableSetOf()) { index -> index % 9 != 4 && stickers[index] != null }
+            return SolvePhase.Editing(Facelets(colors), note = Text("msg.solve.scan-kept"), set = set, seeded = true)
         }
 
         fun takePendingScan(): CubeState? = mutablePendingScan.getAndUpdate { null }
