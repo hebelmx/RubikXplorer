@@ -599,6 +599,33 @@ class AppShellEntryLevelTest {
     }
 
     @Test
+    fun `a Learn re-placement's solved outcome opens the picker, Back returns to it, and its scan shows the new result`() {
+        show(welcome = false, placement = true)
+        openSheet()
+        rule.onNodeWithTag("findMyPlace:scan").performClick()
+        waitGone("findMyPlace:scan")
+        rule.runOnIdle { flow.onScanOutcome(ScanOutcome.Accepted(CubeState.SOLVED)) }
+        waitForTag("placement:canAlreadySolve")
+        rule.onNodeWithTag("placement:canAlreadySolve").performScrollTo().performClick()
+        waitForTag("entryLevel")
+        assertTrue(records.isEmpty())
+
+        rule.onNodeWithTag("entryLevel:back").performClick()
+        waitForTag("placement:canAlreadySolve")
+        rule.onNodeWithTag("placement:canAlreadySolve").performScrollTo().assertIsDisplayed()
+
+        rule.onNodeWithTag("placement:canAlreadySolve").performClick()
+        waitForTag("entryLevel")
+        rule.onNodeWithTag("entryLevel:scan").performScrollTo().performClick()
+        assertEquals(2, scanCount)
+        rule.runOnIdle { flow.onScanOutcome(ScanOutcome.Accepted(entry("lesson-03-01"))) }
+        waitForTag("placement:prompt")
+        rule.onNodeWithTag("placement:prompt").assertTextContains("Start at First-layer corners?")
+        rule.onNodeWithTag("entryLevel").assertDoesNotExist()
+        assertTrue(records.isEmpty())
+    }
+
+    @Test
     fun `a scan from the sheet that returns after leaving Learn shows no Placement`() {
         show(welcome = false, placement = true)
         openSheet()
