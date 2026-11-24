@@ -54,6 +54,7 @@
   "btn.placement.faster-last-layer": "Faster last layer",
   "btn.placement.scan-again": "Scan again",
   "btn.placement.start-stage-1": "Start Stage 1",
+  "btn.placement.can-already-solve": "I can already solve it",
   "btn.placement.last-layer-anyway": "Show me the last layer anyway",
   "msg.placement.already-reached": "You've already reached {stage}.",
   "btn.placement.open-stage": "Open Stage",
