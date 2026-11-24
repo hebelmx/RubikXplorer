@@ -145,7 +145,7 @@ def main() -> int:
     parser.add_argument("--video", type=Path, default=None, help="Input MP4/MOV clip")
     parser.add_argument("--webcam", type=int, default=None, help="Webcam index (e.g. 0)")
     parser.add_argument("--stride", type=int, default=2, help="Process every Nth frame from video file")
-    parser.add_argument("--max-frames", type=int, default=300, help="Max processed frames")
+    parser.add_argument("--max-frames", type=int, default=None, help="Max processed frames (default: 300 for --video, unlimited for --webcam)")
     parser.add_argument("--conf", type=float, default=0.30, help="Sticker detector confidence threshold")
     parser.add_argument("--crop", type=str, default=None, help="Optional normalized ROI crop x0,y0,x1,y1 (e.g. 0,0,0.48,1)")
     parser.add_argument("--out-dir", type=Path, default=None, help="Write replay MP4 and contact sheet here")
@@ -178,7 +178,8 @@ def main() -> int:
         if len(crop_box) != 4:
             raise ValueError("--crop expects x0,y0,x1,y1")
 
-    while proc_idx < args.max_frames:
+    max_frames = args.max_frames if args.max_frames is not None else (300 if args.video is not None else 0)
+    while max_frames <= 0 or proc_idx < max_frames:
         ok, frame = cap.read()
         if not ok:
             break
