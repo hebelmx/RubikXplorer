@@ -150,6 +150,10 @@ private const val LOCK_CHECK_TEXT_FRACTION = 0.6f
  * status strip (a tap selects that face's first sticker), with no bands since the net shows every neighbour.
  * As a fallback, a wider class still gets one-face mode whenever the available width cannot give
  * every net sticker a [Spacing.touchMin] cell.
+ *
+ * A [seeded] entry (GH #321: a Solve-tab scan fell back here) draws every sticker not in [initialSet] as the review
+ * net's blank well, read "not set" by TalkBack; it shows the faces left to enter, and no problem line, until every
+ * sticker is set.
  */
 @Composable
 fun ManualCubeEditor(
@@ -162,18 +166,19 @@ fun ManualCubeEditor(
     fresh: Boolean = false,
     initialSet: Set<Int> = emptySet(),
     onChange: (Facelets, Set<Int>) -> Unit = { _, _ -> },
+    seeded: Boolean = false,
 ) {
     val compact = !windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
     val state =
-        rememberSaveable(initial, fresh, saver = ManualCubeEditorState.Saver) {
-            ManualCubeEditorState(initial, fresh, initialSet)
+        rememberSaveable(initial, fresh, seeded, saver = ManualCubeEditorState.Saver) {
+            ManualCubeEditorState(initial, fresh, initialSet, seeded)
         }
     val tokens = RubikTheme.tokens
     val hapticsEnabled = LocalHaptics.current
     val haptics = LocalHapticFeedback.current
     var cue by remember { mutableStateOf<StickerCue?>(null) }
     // Paint mode (#249): while a color is locked, a sticker tap sets it directly and the selection pauses.
-    val paint = rememberPaintMode(initial, fresh)
+    val paint = rememberPaintMode(initial, fresh, seeded)
     val painting = paint.locked
     val faceNames = FACE_LABELS.map { stringResource(it) }
     val colorNames = CubeColor.entries.associateWith { stringResource(colorName(it)) }
@@ -210,9 +215,17 @@ fun ManualCubeEditor(
                     },
                     editable = ManualCubeEditorState::isEditable,
                     face = if (onePerFace) state.face else null,
+                    // A seeded entry's unset stickers are blank wells (GH #321).
+                    unresolved =
+                        if (state.seeded) {
+                            state.facelets.colors.mapIndexed { index, color -> color.takeUnless { state.isUnset(index) } }
+                        } else {
+                            null
+                        },
                     strings = strings,
                     cue = cue,
                     problemMarks = state.marks,
+                    blankDescriptionKey = "msg.editor.sticker-not-set",
                     modifier = netModifier,
                 )
             }
@@ -337,14 +350,14 @@ private fun joinNames(
         }
     }
 
-/** The instruction line: faces left to enter on a fresh entry, else the face to check and its hold; null otherwise. */
+/** The instruction line: faces left to enter on a fresh or seeded entry, else the face to check and its hold; null otherwise. */
 private fun instruction(
     state: ManualCubeEditorState,
     strings: ContentStrings,
     faceNames: List<String>,
     colorNames: Map<CubeColor, String>,
 ): String? {
-    if (state.fresh && state.unentered.isNotEmpty()) {
+    if ((state.fresh || state.seeded) && state.unentered.isNotEmpty()) {
         val faces = state.unentered.map(faceNames::get).joinToString(", ")
         return strings.resolve(ContentText("msg.editor.faces-left", mapOf("count" to state.unentered.size, "faces" to faces)))
     }
@@ -531,12 +544,22 @@ private fun SelectedStickerLine(
 ) {
     val index = state.selected ?: return
     val sticker =
-        stringResource(
-            R.string.editor_sticker,
-            stringResource(colorName(state.facelets.colors[index])),
-            stringResource(FACE_NAMES[index / PER_FACE]),
-            index % PER_FACE + 1,
-        )
+        if (state.isUnset(index)) {
+            // A seeded entry's unset sticker has no color to name (GH #321).
+            strings.resolve(
+                ContentText(
+                    "msg.editor.sticker-not-set",
+                    mapOf("face" to stringResource(FACE_LABELS[index / PER_FACE]), "position" to (index % PER_FACE + 1).toString()),
+                ),
+            )
+        } else {
+            stringResource(
+                R.string.editor_sticker,
+                stringResource(colorName(state.facelets.colors[index])),
+                stringResource(FACE_NAMES[index / PER_FACE]),
+                index % PER_FACE + 1,
+            )
+        }
     Text(
         strings.resolve(ContentText("msg.editor.selected", mapOf("sticker" to sticker))),
         style = MaterialTheme.typography.bodyMedium,

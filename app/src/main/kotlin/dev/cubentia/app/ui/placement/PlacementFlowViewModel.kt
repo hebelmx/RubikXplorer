@@ -121,7 +121,7 @@ class PlacementFlowViewModel private constructor(
                 mutableAcceptedScan.value = outcome.state
             }
 
-            ScanOutcome.FellBackToEditor -> {
+            is ScanOutcome.FellBackToEditor -> {
                 show(PlacementPhase.Editing(Text("msg.solve.scan-fell-back")))
             }
 

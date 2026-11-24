@@ -210,6 +210,9 @@ internal val FACE_NAMES =
  * with its URFDLB index, each face is announced "Green face" or "Green face, selected for retake", and a selected face
  * gets a static `accent` outline and a ✓ badge; stickers are not clickable and show no selected ring, pulse, invalid
  * outline, problem mark or blank edge.
+ *
+ * With [blankDescriptionKey] (the seeded Manual Cube Editor, GH #321) a blank sticker is announced by that key (with
+ * {face} and {position}) and carries no "Color needed" state; it looks the same.
  */
 @Composable
 fun StickerReviewNet(
@@ -227,6 +230,7 @@ fun StickerReviewNet(
     problemMarks: Map<Int, StickerProblemMark>? = null,
     retakeSelected: Set<Int>? = null,
     onFaceClick: (Int) -> Unit = {},
+    blankDescriptionKey: String? = null,
 ) {
     val retake = retakeSelected != null
     val reduceMotion = rememberReduceMotion()
@@ -273,6 +277,7 @@ fun StickerReviewNet(
                         playedCues = playedCues,
                         problemMark = if (retake) null else problemMarks?.get(index),
                         retake = retake,
+                        blankDescriptionKey = blankDescriptionKey,
                         modifier = Modifier.offset(cell * column, cell * row),
                     )
                 }
@@ -310,6 +315,7 @@ private fun ReviewSticker(
     problemMark: StickerProblemMark?,
     modifier: Modifier,
     retake: Boolean = false,
+    blankDescriptionKey: String? = null,
 ) {
     val appearance = color?.let(StickerAppearance::of)
     val tokens = RubikTheme.tokens
@@ -349,9 +355,10 @@ private fun ReviewSticker(
         if (color == null) {
             requireNotNull(strings).resolve(
                 ContentText(
-                    "msg.scan.blank-sticker",
+                    blankDescriptionKey ?: "msg.scan.blank-sticker",
                     mapOf(
-                        "face" to stringResource(FACE_NAMES[index / CELLS_PER_FACE]),
+                        // The editor's "not set" line names the face as its tabs do ("Up sticker 2, not set").
+                        "face" to stringResource((if (blankDescriptionKey != null) FACE_LABELS else FACE_NAMES)[index / CELLS_PER_FACE]),
                         "position" to (index % CELLS_PER_FACE + 1).toString(),
                     ),
                 ),
@@ -419,7 +426,7 @@ private fun ReviewSticker(
                         this[StickerProblemFocusedKey] = problemMark.focusedNumber in problemMark.numbers
                         stateDescription = problemState
                     }
-                    if (color == null) {
+                    if (color == null && blankDescriptionKey == null) {
                         stateDescription =
                             requireNotNull(strings).resolve(
                                 ContentText("msg.scan.blank-state"),

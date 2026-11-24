@@ -93,6 +93,10 @@ private enum class DiscardAction { CLOSE, ENTER_COLORS }
  * as seen (PO 2026-11-16). It is hidden while no sticker needs a color, without counting as seen. A later review with blanks
  * shows it again until it is tapped. [edited] says the review was already changed before this screen
  * was shown (back from calibration), so Close and system Back still ask before discarding.
+ *
+ * GH #321: *Close* with no change calls [onClose]; after a change it asks "Discard this scan?" and *Discard* (also for
+ * system Back) calls [onDiscard]. With [enterColorsAsks] false, *Enter colors instead* never asks: it keeps the review's
+ * fixes for the caller's Editor, so nothing is discarded.
  */
 @Composable
 fun ScanReviewScreen(
@@ -109,6 +113,8 @@ fun ScanReviewScreen(
     edited: Boolean = false,
     onEnterColors: (() -> Unit)? = null,
     onRetake: ((Set<Face>) -> Unit)? = null,
+    onDiscard: () -> Unit = onClose,
+    enterColorsAsks: Boolean = true,
 ) {
     // Retake mode (Story 10.16): the net selects whole faces to scan again; every other control is hidden.
     var retaking by rememberSaveable { mutableStateOf(false) }
@@ -146,6 +152,8 @@ fun ScanReviewScreen(
                     onReview = onReview,
                     onAccept = onAccept,
                     onClose = onClose,
+                    onDiscard = onDiscard,
+                    enterColorsAsks = enterColorsAsks,
                     modifier = Modifier,
                     windowSizeClass = windowSizeClass,
                     coachMarkPending = coachMarkPending,
@@ -243,6 +251,8 @@ private fun ReviewMode(
     edited: Boolean,
     onEnterColors: (() -> Unit)?,
     paint: PaintMode,
+    onDiscard: () -> Unit,
+    enterColorsAsks: Boolean,
     onRetakeFaces: (() -> Unit)?,
 ) {
     val painting = paint.locked
@@ -443,7 +453,7 @@ private fun ReviewMode(
             }
             if (onEnterColors != null) {
                 SecondaryButton(
-                    onClick = { if (changed) discardAction = DiscardAction.ENTER_COLORS else onEnterColors() },
+                    onClick = { if (changed && enterColorsAsks) discardAction = DiscardAction.ENTER_COLORS else onEnterColors() },
                     label = strings.resolve(ContentText("btn.scan.enter-colors-instead")),
                     tag = "review:enterColors",
                 )
@@ -479,7 +489,7 @@ private fun ReviewMode(
                     onClick = {
                         discardAction = null
                         when (pendingDiscard) {
-                            DiscardAction.CLOSE -> onClose()
+                            DiscardAction.CLOSE -> onDiscard()
                             DiscardAction.ENTER_COLORS -> onEnterColors?.invoke()
                         }
                     },

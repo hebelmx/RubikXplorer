@@ -40,11 +40,16 @@ data class FaceDone(
  * selected. Once every face is entered and the stickers are invalid, each paint tries the faces' quarter turns through
  * [ScanAssembler.orient] (AD-9) once every color count is right: a unique fit replaces the stickers ([turned]), turning
  * the set flags, the selection and [cueIndex] with them; otherwise [checkFace] names the face to check.
+ *
+ * A [seeded] editor (GH #321: a Solve-tab scan fell back to it) holds the scanned stickers as [set] and every other
+ * non-center sticker [isUnset] (its color in [facelets] is only a placeholder, drawn as a blank well); a face counts as
+ * entered only once all its stickers are set ([complete]), and it opens on the first unset sticker.
  */
 class ManualCubeEditorState(
     initial: Facelets = CubeState.SOLVED.toFacelets(),
     val fresh: Boolean = false,
     initialSet: Set<Int> = emptySet(),
+    val seeded: Boolean = false,
 ) {
     /** The stickers as entered, centers forced to home colors. */
     var facelets: Facelets by mutableStateOf(withHomeCenters(initial))
@@ -55,10 +60,10 @@ class ManualCubeEditorState(
         private set
 
     /**
-     * The sticker the next palette color paints (moved on by [paint]); on a [fresh] entry the first sticker in
-     * [StickerOrder] not yet [set] (null when every sticker is set), so a restored draft never lands on an entered one.
+     * The sticker the next palette color paints (moved on by [paint]); on a [fresh] or [seeded] entry the first sticker
+     * in [StickerOrder] not yet [set] (null when every sticker is set), so a restored draft never lands on an entered one.
      */
-    var selected: Int? by mutableStateOf(if (fresh) StickerOrder.next(Facelets.SIZE - 1, wrap = true) { it !in set } else null)
+    var selected: Int? by mutableStateOf(if (fresh || seeded) StickerOrder.next(Facelets.SIZE - 1, wrap = true) { it !in set } else null)
         private set
 
     /** The face (URFDLB index) shown in one-face mode; follows the selected sticker. */
@@ -77,13 +82,19 @@ class ManualCubeEditorState(
     var faceDone: FaceDone? by mutableStateOf(null)
         private set
 
-    /** Whether [face] counts as entered: always, unless [fresh]; then once any of its stickers is [set]. */
-    fun entered(face: Int): Boolean = !fresh || stickersOf(face).any { it in set }
+    /**
+     * Whether [face] counts as entered: when [seeded], once it is [complete]; else always, unless [fresh]; then once any
+     * of its stickers is [set].
+     */
+    fun entered(face: Int): Boolean = if (seeded) complete(face) else !fresh || stickersOf(face).any { it in set }
+
+    /** Whether sticker [index] of a [seeded] editor has no color yet (a blank well); never a center. */
+    fun isUnset(index: Int): Boolean = seeded && isEditable(index) && index !in set
 
     /** Whether all 8 non-center stickers of [face] are [set]. */
     fun complete(face: Int): Boolean = stickersOf(face).filter(::isEditable).all { it in set }
 
-    /** Faces not yet entered, in Learner order U, F, R, B, L, D; empty unless [fresh]. */
+    /** Faces not yet entered, in Learner order U, F, R, B, L, D; empty unless [fresh] or [seeded]. */
     val unentered: List<Int> by derivedStateOf { LEARNER_ORDER.filter { !entered(it) } }
 
     /**
@@ -267,8 +278,8 @@ class ManualCubeEditorState(
 
         /**
          * Persists, across recreation: the 54 color ordinals, the selected index (-1 for none), the shown face, fresh
-         * (1 or 0), and the set stickers and the turned faces (each as a count then the indices). The face to check is
-         * derived from the stickers, so it is not saved.
+         * (1 or 0), the set stickers and the turned faces (each as a count then the indices), and seeded (1 or 0). The face
+         * to check is derived from the stickers, so it is not saved.
          */
         internal val Saver: Saver<ManualCubeEditorState, Any> =
             listSaver(
@@ -282,6 +293,7 @@ class ManualCubeEditorState(
                         addAll(state.set.sorted())
                         add(state.turned.size)
                         addAll(state.turned)
+                        add(if (state.seeded) 1 else 0)
                     }
                 },
                 restore = { saved ->
@@ -291,8 +303,9 @@ class ManualCubeEditorState(
                     val face = saved[at++]
                     val fresh = saved[at++] == 1
                     val set = saved.subList(at + 1, at + 1 + saved[at]).toSet().also { at += 1 + it.size }
-                    val turned = saved.subList(at + 1, at + 1 + saved[at]).toList()
-                    ManualCubeEditorState(colors, fresh, set).also { state ->
+                    val turned = saved.subList(at + 1, at + 1 + saved[at]).toList().also { at += 1 + it.size }
+                    val seeded = saved.getOrNull(at) == 1
+                    ManualCubeEditorState(colors, fresh, set, seeded).also { state ->
                         state.selected = null
                         state.select(selected)
                         state.showFace(face)

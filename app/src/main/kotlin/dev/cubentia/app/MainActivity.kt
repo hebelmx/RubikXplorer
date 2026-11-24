@@ -132,6 +132,8 @@ class MainActivity : ComponentActivity() {
         fun guidedScanAction(
             onDenied: () -> Unit,
             quick: Boolean = false,
+            // A Solve-tab scan: its Editor is seeded from a fallback's stickers (GH #321); Placement's is not.
+            seedsEditor: Boolean = false,
             onOutcome: (dev.cubentia.app.scan.ScanOutcome) -> Unit,
         ): (() -> Unit)? =
             if (featureFlags.isEnabled(if (quick) FeatureFlag.QUICK_SCAN else FeatureFlag.CAMERA_SCAN) && scanLauncher.isPresent) {
@@ -139,7 +141,7 @@ class MainActivity : ComponentActivity() {
                 val result =
                     registerForActivityResult(
                         dev.cubentia.app.scan
-                            .ScanFlowContract(launcher, quick),
+                            .ScanFlowContract(launcher, quick, seedsEditor),
                     ) {
                         scanInFlight = false
                         onOutcome(it)
@@ -149,8 +151,8 @@ class MainActivity : ComponentActivity() {
             } else {
                 null
             }
-        val onScan = guidedScanAction({ solveFlow.scanDenied() }) { solveFlow.onScanOutcome(it) }
-        val onQuickScan = guidedScanAction({ solveFlow.scanDenied() }, quick = true) { solveFlow.onScanOutcome(it) }
+        val onScan = guidedScanAction({ solveFlow.scanDenied() }, seedsEditor = true) { solveFlow.onScanOutcome(it) }
+        val onQuickScan = guidedScanAction({ solveFlow.scanDenied() }, quick = true, seedsEditor = true) { solveFlow.onScanOutcome(it) }
         val onPlacementScan =
             if (featureFlags.isEnabled(FeatureFlag.PLACEMENT)) {
                 guidedScanAction({ placementFlow.scanDenied() }) { placementFlow.onScanOutcome(it) }

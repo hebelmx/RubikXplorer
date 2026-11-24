@@ -531,4 +531,66 @@ class ManualCubeEditorStateTest {
         assertEquals(2, state.selected)
         assertEquals(scrambled, state.validState?.toFacelets())
     }
+
+    /** GH #321: a seeded editor with U read whole, two F stickers read, every other non-center sticker unset. */
+    private val seededSet = ((0 until 9).filter { it != 4 } + listOf(18, 19)).toSet()
+
+    private fun seeded() = ManualCubeEditorState(CubeState.SOLVED.toFacelets(), initialSet = seededSet, seeded = true)
+
+    @Test
+    fun `a seeded editor counts a face entered only once all its stickers are set`() {
+        val state = seeded()
+        assertTrue(state.entered(0))
+        assertFalse(state.entered(2))
+        assertEquals(listOf(2, 1, 5, 4, 3), state.unentered)
+        assertTrue(state.isUnset(9))
+        assertFalse(state.isUnset(18))
+        assertFalse(state.isUnset(13))
+        assertFalse(state.isUnset(0))
+        // While any face is unentered: no problem, no line, no valid state.
+        assertTrue(state.problems.isEmpty())
+        assertTrue(state.lines.isEmpty())
+        assertNull(state.validState)
+        assertNull(state.checkFace)
+        // It opens on the first unset sticker.
+        assertEquals(9, state.selected)
+    }
+
+    @Test
+    fun `painting or paint mode sets an unset sticker of a seeded editor`() {
+        val state = seeded()
+        state.paint(Color.BLUE)
+        assertFalse(state.isUnset(9))
+        assertEquals(Color.BLUE, state.facelets.colors[9])
+        assertEquals(10, state.selected)
+        state.paintAt(20, Color.GREEN)
+        assertFalse(state.isUnset(20))
+        assertEquals(10, state.selected)
+    }
+
+    @Test
+    fun `a seeded editor validates normally once every sticker is set`() {
+        val state = seeded()
+        val editable = (0 until Facelets.SIZE).filter(ManualCubeEditorState::isEditable)
+        for (index in editable - seededSet) state.paintAt(index, solved[index])
+        assertTrue(state.unentered.isEmpty())
+        assertEquals(CubeState.SOLVED, state.validState)
+        state.paintAt(0, Color.YELLOW)
+        assertNull(state.validState)
+        assertTrue(state.lines.isNotEmpty())
+    }
+
+    @Test
+    fun `a seeded editor survives recreation with its unset stickers`() {
+        val state = seeded()
+        val saved = with(ManualCubeEditorState.Saver) { SaverScope { true }.save(state) }
+        val restored = ManualCubeEditorState.Saver.restore(saved!!)!!
+        assertTrue(restored.seeded)
+        assertEquals(seededSet, restored.set)
+        assertTrue(restored.isUnset(9))
+        assertEquals(state.selected, restored.selected)
+        val plain = ManualCubeEditorState()
+        val savedPlain = with(ManualCubeEditorState.Saver) { SaverScope { true }.save(plain) }
+        assertFalse(ManualCubeEditorState.Saver.restore(savedPlain!!)!!.seeded)
+    }
 }

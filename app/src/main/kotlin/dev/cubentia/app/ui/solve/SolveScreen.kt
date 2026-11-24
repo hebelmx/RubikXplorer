@@ -123,6 +123,7 @@ fun SolveScreen(
                     fresh = current.fresh,
                     initialSet = current.set,
                     onChange = flow::onEdit,
+                    seeded = current.seeded,
                 )
             }
 

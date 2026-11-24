@@ -6,6 +6,7 @@ import dev.cubentia.app.solver.SolverLoad
 import dev.cubentia.app.solver.SolverSource
 import dev.cubentia.application.port.CubeSolver
 import dev.cubentia.application.port.SolveResult
+import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
@@ -131,7 +132,7 @@ class SolveFlowViewModelTest {
         for ((openEditor, note) in listOf(
             vm::enterColors to null,
             vm::scanDenied to Text("msg.solve.scan-camera-denied"),
-            { vm.onScanOutcome(ScanOutcome.FellBackToEditor) } to Text("msg.solve.scan-fell-back"),
+            { vm.onScanOutcome(ScanOutcome.FellBackToEditor()) } to Text("msg.solve.scan-fell-back"),
         )) {
             vm.onScanOutcome(ScanOutcome.Accepted(cube))
             vm.takePendingScan()
@@ -143,9 +144,43 @@ class SolveFlowViewModelTest {
         }
     }
 
+    @Test fun aFallbackWithStickersSeedsTheEditorInTheHomeFrameWithTheKeptNote() {
+        val vm = viewModel(source(CubeSolver { error("Fallback must not solve") }))
+        val read = cube.toFacelets().colors
+        // U read whole, one F sticker; centers arrive null and still read home colors.
+        val stickers = List(54) { i -> if ((i < 9 && i != 4) || i == 18) read[i] else null }
+        vm.onScanOutcome(ScanOutcome.Accepted(cube))
+        vm.takePendingScan()
+        vm.onScanOutcome(ScanOutcome.FellBackToEditor(stickers))
+        // Only Accepted is the Full verified baseline.
+        assertFalse(vm.isAcceptedScan())
+        assertNull(vm.acceptedScanColors())
+        val editing = vm.phase.value as SolvePhase.Editing
+        assertTrue(editing.seeded)
+        assertFalse(editing.fresh)
+        assertEquals(Text("msg.solve.scan-kept"), editing.note)
+        assertEquals(((0 until 9).filter { it != 4 } + 18).toSet(), editing.set)
+        editing.initial.colors.forEachIndexed { i, color ->
+            val expected = if (i in editing.set) read[i] else Color.home(Face.entries[i / 9])
+            assertEquals(expected, color, "sticker $i")
+        }
+        // The seeded flag survives a Solve tab switch with the draft.
+        vm.onEdit(editing.initial, editing.set + 9)
+        vm.leaveSolveTab()
+        val back = vm.phase.value as SolvePhase.Editing
+        assertTrue(back.seeded)
+        assertEquals(editing.set + 9, back.set)
+        // Wrong-sized stickers open the blank Editor.
+        vm.onScanOutcome(ScanOutcome.FellBackToEditor(stickers.drop(1)))
+        assertEquals(
+            SolvePhase.Editing(CubeState.SOLVED.toFacelets(), note = Text("msg.solve.scan-fell-back"), fresh = true),
+            vm.phase.value,
+        )
+    }
+
     @Test fun eachEditorFallbackDropsAPendingScan() {
         val vm = viewModel(source(CubeSolver { error("Fallback must not solve") }))
-        for (fallback in listOf(vm::enterColors, vm::scanDenied, { vm.onScanOutcome(ScanOutcome.FellBackToEditor) })) {
+        for (fallback in listOf(vm::enterColors, vm::scanDenied, { vm.onScanOutcome(ScanOutcome.FellBackToEditor()) })) {
             vm.onScanOutcome(ScanOutcome.Accepted(cube))
             assertEquals(cube, vm.pendingScan.value)
             fallback()
@@ -185,7 +220,7 @@ class SolveFlowViewModelTest {
             vm.cancel()
             assertFalse((vm.phase.value as SolvePhase.Editing).fresh)
             // A scan fall-back or a camera denial still opens on the default solved cube, so it stays fresh.
-            vm.onScanOutcome(ScanOutcome.FellBackToEditor)
+            vm.onScanOutcome(ScanOutcome.FellBackToEditor())
             assertTrue((vm.phase.value as SolvePhase.Editing).fresh)
             vm.scanDenied()
             assertTrue((vm.phase.value as SolvePhase.Editing).fresh)
@@ -271,7 +306,10 @@ class SolveFlowViewModelTest {
             val vm = viewModel(source(CubeSolver { SolveResult.Solved(listOf(move.inverse())) }))
             vm.accept(cube) { _, _ -> }
             withTimeout(5000) { vm.phase.first { it == SolvePhase.Home } }
-            vm.onScanOutcome(dev.cubentia.app.scan.ScanOutcome.FellBackToEditor)
+            vm.onScanOutcome(
+                dev.cubentia.app.scan.ScanOutcome
+                    .FellBackToEditor(),
+            )
             assertEquals(CubeState.SOLVED.toFacelets(), (vm.phase.value as SolvePhase.Editing).initial)
             vm.closeEditor()
             vm.scanDenied()

@@ -19,12 +19,15 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.filterToOne
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onChildren
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -41,6 +44,7 @@ import dev.cubentia.app.ui.editor.EditorFixtures.solved
 import dev.cubentia.app.ui.editor.EditorFixtures.swappedEdges
 import dev.cubentia.app.ui.editor.EditorFixtures.twistedAndFlipped
 import dev.cubentia.app.ui.theme.CubentiaTheme
+import dev.cubentia.app.ui.theme.DarkTokens
 import dev.cubentia.domain.appearance.StickerAppearance
 import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
@@ -94,6 +98,7 @@ class ManualCubeEditorTest {
         initialSet: Set<Int> = emptySet(),
         restoration: StateRestorationTester? = null,
         hapticsOn: Boolean = true,
+        seeded: Boolean = false,
     ) {
         val content: @androidx.compose.runtime.Composable () -> Unit = {
             CompositionLocalProvider(LocalHaptics provides hapticsOn, LocalHapticFeedback provides haptics) {
@@ -106,6 +111,7 @@ class ManualCubeEditorTest {
                         fresh = fresh,
                         initialSet = initialSet,
                         onChange = { facelets, set -> changes += facelets to set },
+                        seeded = seeded,
                     )
                 }
             }
@@ -818,5 +824,67 @@ class ManualCubeEditorTest {
         initial = scrambled
         rule.waitForIdle()
         CubeColor.entries.forEach { assertFalse(isLocked(it)) }
+    }
+
+    /** GH #321: U read whole and two F stickers read; every other non-center sticker is unset. */
+    private val seededSet = ((0 until 9).filter { it != 4 } + listOf(18, 19)).toSet()
+
+    @Test
+    fun `a seeded entry draws unset stickers as blank wells read not set`() {
+        launch(seeded = true, initialSet = seededSet)
+        rule
+            .onNodeWithTag("sticker:9", useUnmergedTree = true)
+            .onChildren()
+            .filterToOne(hasText("?"))
+            .assertExists()
+        val node = sticker(9).fetchSemanticsNode().config
+        assertEquals(DarkTokens.surfaceStage, node[StickerColorKey])
+        assertEquals(listOf("Right sticker 1, not set"), node[SemanticsProperties.ContentDescription])
+        assertNull(node.getOrNull(SemanticsProperties.StateDescription))
+        assertTrue(node.contains(StickerBlankEdgeKey))
+        // A read sticker keeps its color and no blank edge.
+        assertEquals(fill(CubeColor.WHITE), drawnColor(0))
+        assertFalse(sticker(0).fetchSemanticsNode().config.contains(StickerBlankEdgeKey))
+        // It opens on the first unset sticker, named as not set.
+        assertTrue(isSelected(9))
+        assertEquals("Selected: Right sticker 1, not set", selectedLine())
+    }
+
+    @Test
+    fun `a seeded entry lists the faces left, shows no problem and enables Accept only once every sticker is set`() {
+        launch(initial = scrambled, seeded = true, initialSet = seededSet)
+        assertEquals("5 faces left to enter: Front, Right, Back, Left, Down.", text("editor:instruction"))
+        assertEquals(emptyList<String>(), problemLines())
+        assertEquals(emptySet<Int>(), outlined())
+        accept().assertIsNotEnabled()
+        // Tap then a palette colour sets an unset sticker.
+        paint(9, scrambled.colors[9])
+        assertEquals(fill(scrambled.colors[9]), drawnColor(9))
+        assertFalse(sticker(9).fetchSemanticsNode().config.contains(StickerBlankEdgeKey))
+        assertEquals(seededSet + 9, changes.last().second)
+        // Paint mode sets them too.
+        val rest = editable - seededSet - 9
+        for (color in CubeColor.entries) {
+            val stickers = rest.filter { scrambled.colors[it] == color }
+            if (stickers.isEmpty()) continue
+            longPress(color)
+            stickers.forEach { sticker(it).performScrollTo().performClick() }
+            longPress(color)
+        }
+        rule.waitForIdle()
+        rule.onNodeWithTag("editor:instruction").assertDoesNotExist()
+        accept().assertIsEnabled().performClick()
+        rule.waitForIdle()
+        assertEquals(scrambled, accepted.single().toFacelets())
+    }
+
+    @Test
+    fun `a seeded entry keeps its unset stickers across recreation`() {
+        val restoration = StateRestorationTester(rule)
+        launch(seeded = true, initialSet = seededSet, restoration = restoration)
+        restoration.emulateSavedInstanceStateRestore()
+        rule.waitForIdle()
+        assertTrue(sticker(9).fetchSemanticsNode().config.contains(StickerBlankEdgeKey))
+        assertEquals("5 faces left to enter: Front, Right, Back, Left, Down.", text("editor:instruction"))
     }
 }

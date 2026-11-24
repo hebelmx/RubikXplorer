@@ -267,6 +267,8 @@ class QuickScanRouteTest {
             val intent = shadow.nextStartedActivityForResult.intent
             assertEquals(GuidedScanActivity::class.java.name, intent.component?.className)
             assertTrue(intent.getBooleanExtra(GuidedScanActivity.EXTRA_QUICK_SCAN, false))
+            // The Solve tab's Quick Scan seeds its Editor from a fallback (GH #321).
+            assertTrue(intent.getBooleanExtra(ScanFlowContract.EXTRA_SEEDS_EDITOR, false))
             val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, intent).setup()
             try {
                 waitForCamera(corner = true)
