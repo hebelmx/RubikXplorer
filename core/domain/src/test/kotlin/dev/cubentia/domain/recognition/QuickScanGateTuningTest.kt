@@ -158,7 +158,7 @@ class QuickScanGateTuningTest {
     /**
      * The centre closeness fit (PO 2026-11-24): over the tuning groups whose own (torch-tagged) calibration passes the
      * centre read alone, per colour the 0.1 step above the largest ΔE of a captured centre to its own calibration, so no
-     * such same-cube match is lost; a colour with no such centre takes the largest fitted value.
+     * such same-cube match is lost; a colour with no such centre takes the strictest (smallest) fitted value (PO 2026-11-24).
      */
     private fun fitCentreDeltaE(groups: List<Group>): Map<Color, Double> {
         val fitted =
@@ -167,7 +167,7 @@ class QuickScanGateTuningTest {
                 .flatMap { centreDistances(it, it.tagged) }
                 .groupBy({ it.first }, { it.second })
                 .mapValues { (_, distances) -> stepAbove(distances.max()) }
-        val fallback = fitted.values.max()
+        val fallback = fitted.values.min()
         return Color.entries.associateWith { fitted[it] ?: fallback }
     }
 

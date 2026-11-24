@@ -92,17 +92,18 @@ object QuickScanClassification {
      * 2026-11-24: another cube's or another light's calibration must fail the match). Fitted on the 10.20 tuning split only
      * by `QuickScanGateTuningTest` (docs/evidence/10-21/tuning-and-replay.md): per colour, the 0.1 step above the largest
      * distance of a centre to its own calibration among the tuning groups whose own calibration passes the centre read, so
-     * no such same-cube match is lost. A colour with no such centre on the tuning split (White) takes the largest fitted one.
+     * no such same-cube match is lost. A colour with no such centre on the tuning split (White) takes the strictest
+     * (smallest) fitted one, so an unfitted colour fails safe toward a mismatch (PO 2026-11-24; provisional, refit after
+     * Story 10.27 and the device session).
      */
     val MAX_CENTRE_DELTA_E: Map<Color, Double> =
         mapOf(
-            Color.WHITE to 40.4,
             Color.YELLOW to 18.1,
             Color.GREEN to 40.4,
             Color.BLUE to 31.3,
             Color.RED to 12.3,
             Color.ORANGE to 14.8,
-        )
+        ).let { fitted -> fitted + (Color.WHITE to fitted.values.min()) }
 
     /**
      * Whether [saved] may be used with faces captured under [torchLit] whose samples are [captured]; null when there is
