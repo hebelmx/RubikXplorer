@@ -446,7 +446,7 @@ class GuidedScanActivity : ComponentActivity() {
     }
 
     /**
-     * Close (and system Back in Quick Scan's corner view): asks "Discard this scan?" when it would drop at least one face
+     * Close, and system Back when no retake, hand-over or calibration handles it first: asks "Discard this scan?" when it would drop at least one face
      * Quick Scan captured, kept or read in its hand-over (Story 10.17), and "Discard the faces you captured?" when it
      * would drop a face of a plain Guided 6-face viewfinder (GH #325); otherwise the scan ends Cancelled at once.
      */
@@ -465,7 +465,8 @@ class GuidedScanActivity : ComponentActivity() {
 
     /**
      * The plain Guided 6-face viewfinder (GH #325): not a retake, Quick Scan, its hand-over, calibration, Case capture or
-     * a partial Quick Check; Close (or Back) there asks "Discard the faces you captured?" once a face is captured.
+     * a partial Quick Check; Close (or Back) there asks "Discard the faces you captured?" once a face is captured. The
+     * Quick Scan, calibration, Case capture and partial Quick Check exclusions come from [GuidedScanViewModel.isGuidedRun].
      */
     private fun plainGuidedViewfinder(current: GuidedScanPhase): Boolean =
         current is GuidedScanPhase.Viewfinder && current.fromReview == null && !current.handOver && scan.isGuidedRun
@@ -909,6 +910,8 @@ internal class GuidedScanViewModel : ViewModel() {
 
     @Volatile var quickCheckStartedAt: Long? = null
     var guidedLogged = false
+
+    /** A plain Guided 6-face run; also decides where Close asks "Discard the faces you captured?" (GH #325). */
     val isGuidedRun get() = !quickScanMode && quickScan == null && caseCorners == null && quickFaces == null && !calibrationMode
     var saving by mutableStateOf(false)
     var calibrationFinished by mutableStateOf(false)

@@ -141,6 +141,7 @@ class GuidedScanScreenTest {
                     strings,
                     GuidedScanActions(),
                     confirmDiscard = true,
+                    discardKind = DiscardKind.Scan,
                 )
             }
         }

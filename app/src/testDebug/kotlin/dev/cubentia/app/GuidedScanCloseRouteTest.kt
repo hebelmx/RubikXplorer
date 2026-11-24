@@ -60,7 +60,8 @@ import javax.inject.Inject
 /**
  * GH #325: in a plain Guided 6-face viewfinder, *Close* and system Back leave at once with no face captured and ask
  * "Discard the faces you captured?" once one is, for every caller: Welcome (Placement), Solve, Learn's *Find my place*
- * (re-placement) and a Lesson's full Quick Check. *Discard* returns the caller to the screen it opened the scan from.
+ * (re-placement) and a Lesson's full Quick Check. *Discard* returns the caller to its launching screen; for Learn that is
+ * the Stage list (`learn:findMyPlace`), since the Find my place sheet closes when the scan starts (deferred in the spec).
  */
 @HiltAndroidTest
 @UninstallModules(CameraModule::class, SolverModule::class)
@@ -242,6 +243,11 @@ class GuidedScanCloseRouteTest {
                 rule.onNodeWithTag("scanClose").performClick()
                 rule.waitForIdle()
                 assertAsking(scan)
+                // No face is captured behind the question: a clear frame of the prompted face changes nothing.
+                feedNextFace(scan)
+                rule.waitForIdle()
+                assertAsking(scan)
+                assertSameScan(asked, viewfinder(scan))
 
                 scan.recreate()
                 rule.waitForIdle()
@@ -342,17 +348,23 @@ class GuidedScanCloseRouteTest {
         count: Int,
     ) {
         val vm = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
-        val colors = cube.toFacelets().colors
         repeat(count) {
             val before = viewfinder(scan).captured.size
-            val face = checkNotNull(viewfinder(scan).step).face
-            val cells = colors.subList(face.ordinal * 9, face.ordinal * 9 + 9).map { CellReading(ScanRouteTest.labs.getValue(it), true) }
-            camera.feed(FrameStats(cells, 120.0, 0.0, 100.0, 12), null)
+            val face = feedNextFace(scan)
             rule.waitForIdle()
             vm.frozen?.let { vm.endFreeze(it.id) }
             rule.waitForIdle()
             assertEquals("Face $face not captured", before + 1, viewfinder(scan).captured.size)
         }
+    }
+
+    /** Feeds one clear frame of the prompted face of [cube]; returns that face. */
+    private fun feedNextFace(scan: ActivityController<GuidedScanActivity>): Face {
+        val face = checkNotNull(viewfinder(scan).step).face
+        val colors = cube.toFacelets().colors
+        val cells = colors.subList(face.ordinal * 9, face.ordinal * 9 + 9).map { CellReading(ScanRouteTest.labs.getValue(it), true) }
+        camera.feed(FrameStats(cells, 120.0, 0.0, 100.0, 12), null)
+        return face
     }
 
     /** The scan ended Cancelled; MainActivity receives it and the caller's launching control shows again. */

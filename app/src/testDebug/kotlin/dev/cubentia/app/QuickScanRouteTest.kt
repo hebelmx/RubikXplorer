@@ -493,7 +493,6 @@ class QuickScanRouteTest {
             rule.onNodeWithTag("scanNetFace:${Face.U.name}").assert(SemanticsMatcher.expectValue(ScanNetFaceCaptured, true))
             // Close with kept faces asks; Cancel keeps the scan exactly.
             rule.onNodeWithTag("scanClose").performClick()
-            rule.onNodeWithTag("scan:discard").assertIsDisplayed()
             assertQuickScanDiscardCopy()
             rule.onNodeWithTag("scan:discard:cancel").performClick()
             rule.waitForIdle()

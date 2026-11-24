@@ -5,7 +5,7 @@ created: '2026-11-24'
 status: 'done'
 baseline_revision: 'fb046d7fd32a10b90829d27b84d445f042670755'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
 warnings: ['oversized']
@@ -110,6 +110,33 @@ deferred:
   - `[low]` `[reject]` (intent) Quick Check run line skipped — same as the blind diagnostics row.
   - `[low]` `[reject]` (intent) device acceptance and TalkBack order not in the diff — device-session work outside code; AlertDialog's default reading order is used.
 
+### 2026-11-24 — Review pass (follow-up)
+- verdicts: 23 findings — high 0, medium 1, low 15, false 5, maybe-false 0
+- findings:
+  - `[medium]` `[patch]` (intent) `EXTRA_FACES` launch that falls back to the six-face plan asks (reading R2) instead of leaving at once (R1) — carried: same row as the first pass's `isGuidedRun` rule; code still reads `scan.isGuidedRun`; not patched again.
+  - `[low]` `[reject]` (intent) Quick Check full scan: one CANCELLED run line not asserted — carried: diagnostics are not part of the intent.
+  - `[low]` `[reject]` (intent) device behaviour, rotation on device and TalkBack order are not tested — carried: device-session work outside code; AlertDialog default order.
+  - `[low]` `[reject]` (intent) the scan result is handed to MainActivity with `receiveResult`, not the real activity-result path — standard Robolectric pattern used by every route test here; a real-path harness is more than a direct fix and no defect is shown.
+  - `[false]` `[reject]` (blind) the dialog copy is recomputed from the live phase, not saved when the question opens — carried: a plain Guided viewfinder cannot turn into a hand-over or retake without a phase-kind change, which clears `confirmDiscard`.
+  - `[low]` `[patch]` (blind) `discardKind` defaults to `Scan`; `quickScanDiscardQuestionKeepsItsCopy` tests the default, not the Quick Scan kind — the default itself is carried false (no diverging caller); the screen test now passes `discardKind = DiscardKind.Scan` explicitly.
+  - `[false]` `[reject]` (blind) unsafe cast `current as GuidedScanPhase.Viewfinder` in `closeOrConfirm()` — `plainGuidedViewfinder` checks `is GuidedScanPhase.Viewfinder` first, so the cast cannot fail; no harm named.
+  - `[low]` `[patch]` (blind) `closeOrConfirm()` KDoc says only "system Back in Quick Scan's corner view" — reworded to "system Back when no retake, hand-over or calibration handles it first".
+  - `[low]` `[patch]` (blind) `plainGuidedViewfinder` KDoc hides that its exclusions come from `isGuidedRun`, and `isGuidedRun` does not say it decides the question — KDoc now names `GuidedScanViewModel.isGuidedRun`, and `isGuidedRun` got a KDoc naming GH #325.
+  - `[low]` `[patch]` (blind) `GuidedScanCloseRouteTest` KDoc says Discard returns to "the screen it opened the scan from" while Learn asserts the Stage list — KDoc now says Learn returns to `learn:findMyPlace` and points to the spec deferral.
+  - `[low]` `[reject]` (blind) no-face path's diagnostics not asserted — carried: diagnostics are not part of the intent.
+  - `[low]` `[reject]` (blind) closing the question by Back or an outside tap untested — carried: `onDismissRequest = onDiscardCancel`, same handler as *Keep scanning*.
+  - `[low]` `[reject]` (blind) test helpers duplicated from `ScanRouteTest` / `QuickScanRouteTest`, reaching into `ScanRouteTest.FakeFrames` — the existing route tests share fixtures the same way; a shared fixture file is a refactor, not a direct fix.
+  - `[low]` `[patch]` (blind) redundant `scan:discard` assertion before `assertQuickScanDiscardCopy()`; hand-over Cancel does not check kept faces — redundant line deleted; the hand-over kept-face check is Story 10.17 behaviour the diff does not change, left as is.
+  - `[low]` `[reject]` (blind) question may close itself when a held review publishes at the end of a freeze; no comment says so — carried: no face is lost; same as Quick Scan.
+  - `[false]` `[reject]` (edge) Close in a Guided Review with six faces drops them without asking — the review's Close is `ScanReviewScreen`'s own (`onClose` / `review:discard`, asks when edited, Story 10.3) and never reaches `closeOrConfirm()`'s viewfinder branch; the intent forbids changing it.
+  - `[low]` `[reject]` (edge) Close during the last face's freeze lets the held Review dismiss the question — carried: no face lost; guards add complexity.
+  - `[low]` `[reject]` (edge) a frame passing the `confirmDiscard` check just before Close sets it — carried: millisecond window; guard adds complexity.
+  - `[false]` `[reject]` (edge) Quick Scan Viewfinder that is neither hand-over nor retake drops faces — unchanged pre-existing branch; Quick Scan's capture phase is a CornerViewfinder or a hand-over Viewfinder (`capturePhase()`), and the only other Viewfinder is the pre-load initial phase with no faces.
+  - `[false]` `[reject]` (edge) catalog failure shows raw keys for the new copy — a failed catalog blanks every scan string alike, not the new keys; both keys are in `en.json` and the content gates passed.
+  - `[low]` `[reject]` (edge) Back tested with 3 faces, not 2 — carried: same `captured.isNotEmpty()` branch.
+  - `[medium]` `[defer]` (edge) Learn asserts `learn:findMyPlace`, not the Find my place sheet — carried: already deferred; not deferred again.
+  - `[low]` `[patch]` (verification-gap) no test feeds a frame while the Guided question is open — `asksBeforeDiscardingFaces` now feeds a clear frame of the prompted face after Close and asserts the question still shows and `assertSameScan`; mutation check (dropping `|| scan.confirmDiscard` in `analyze`) made `welcomeAsksBeforeDiscardingFaces` fail, guard restored.
+
 ## Verification
 
 **Commands:**
@@ -120,20 +147,20 @@ deferred:
 
 Status: done
 
-**Summary:** In the plain Guided 6-face Scan viewfinder, *Close* and system Back now ask "Discard the faces you captured?" (*Keep scanning* / *Discard*) once one or more faces are captured, and leave at once with none, from every caller (Welcome, Solve, Learn → Find my place, Quick Check full scan, including a Quick Check that falls back to the six-face plan). *Discard* ends the scan `Cancelled`; caller code is unchanged. Retake, Quick Scan corner view and hand-over keep their own rules and copy.
+**Summary:** In the plain Guided 6-face Scan viewfinder, *Close* and system Back ask "Discard the faces you captured?" (*Keep scanning* / *Discard*) once one or more faces are captured, and leave at once with none, from every caller (Welcome, Solve, Learn → Find my place, Quick Check full scan, including a Quick Check that falls back to the six-face plan). *Discard* ends the scan `Cancelled`; caller code is unchanged. This follow-up pass found no high or new medium defects and tightened tests and comments.
 
-**Files changed:**
-- `app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt` -- `plainGuidedViewfinder()` (built on `scan.isGuidedRun`), `closeOrConfirm()` asks for it, passes the copy kind to the screen; comments say "the discard question".
+**Files changed (whole change since baseline):**
+- `app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt` -- `plainGuidedViewfinder()` (built on `scan.isGuidedRun`), `closeOrConfirm()` asks for it and passes the copy kind; follow-up: KDoc of `closeOrConfirm`, `plainGuidedViewfinder` and `isGuidedRun` updated.
 - `app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanScreen.kt` -- `DiscardKind` (Scan / GuidedFaces) picks title and dismiss text of `DiscardDialog`.
 - `core/domain/src/main/resources/content/strings/en.json` -- `msg.scan.discard-faces-title`, `btn.scan.keep-scanning`.
-- `app/src/testDebug/kotlin/dev/cubentia/app/GuidedScanCloseRouteTest.kt` -- new, 10 Robolectric route tests across the four callers, partial and fallen-back Quick Check.
-- `app/src/testDebug/kotlin/dev/cubentia/app/camera/GuidedScanScreenTest.kt` -- Guided and Quick Scan dialog copy tests.
-- `app/src/testDebug/kotlin/dev/cubentia/app/QuickScanRouteTest.kt` -- Quick Scan copy asserted at activity level (corner view and hand-over Close).
+- `app/src/testDebug/kotlin/dev/cubentia/app/GuidedScanCloseRouteTest.kt` -- 10 route tests; follow-up: feeds a frame behind the open question (no capture), `feedNextFace` helper, KDoc names the Learn return screen.
+- `app/src/testDebug/kotlin/dev/cubentia/app/camera/GuidedScanScreenTest.kt` -- Guided and Quick Scan dialog copy; follow-up: Quick Scan test passes `DiscardKind.Scan` explicitly.
+- `app/src/testDebug/kotlin/dev/cubentia/app/QuickScanRouteTest.kt` -- Quick Scan copy at activity level; follow-up: redundant assertion removed.
 
-**Review findings:** 25 rows. Patched: 2 medium entries (EXTRA_FACES / isGuidedRun rule, Quick Scan copy at activity level) and 2 low entries (Keep scanning state identity, stale comments). Deferred: 1 medium (Find my place sheet does not reopen after a Cancelled scan, pre-existing). Rejected: 16 low and 2 false, with reasons in the triage log.
+**Review findings (follow-up pass):** 23 rows. Patched: 6 low (frame-behind-question test, explicit `DiscardKind.Scan`, three KDoc fixes, redundant assertion); the medium `isGuidedRun` row was carried, not re-patched. Deferred: none new (the Find my place sheet item stays deferred). Rejected: 11 low and 5 false, with reasons in the triage log. First pass: see the earlier triage entry.
 
-**Follow-up review recommended:** true -- two medium entries were patched on this first pass (counts: high 0, medium 2, low 2). Unverified risk: the `scan.isGuidedRun`-based rule and the added hand-over Close step in `QuickScanRouteTest` have not had an independent review pass.
+**Follow-up review recommended:** false -- follow-up pass patched no high (patched counts: high 0, medium 0, low 6); the work has converged.
 
-**Verification:** targeted `:app:testDebugUnitTest` suites all green (GuidedScanCloseRouteTest 10/10, QuickScanRouteTest 16/16, GuidedScanScreenTest 21/21, ScanRouteTest 11, SolveFromScanRouteTest 8, PlacementFromScanRouteTest 3, QuickCheckRouteTest 7, QuickScanScreenTest 10); `./gradlew spotlessCheck build` BUILD SUCCESSFUL after the patches.
+**Verification:** targeted `:app:testDebugUnitTest` suites green (GuidedScanCloseRouteTest 10/10, QuickScanRouteTest 16/16, GuidedScanScreenTest 21/21, plus ScanRouteTest, SolveFromScanRouteTest, PlacementFromScanRouteTest, QuickCheckRouteTest, QuickScanScreenTest); mutation check of the `confirmDiscard` analyzer guard fails the new assertion as intended; `./gradlew spotlessCheck build` BUILD SUCCESSFUL after the patches (one spotless blank-line fix applied).
 
-**Residual risks:** no device run on the Lenovo / Galaxy S24 FE yet (TalkBack order, real camera timing); a Close tapped during the last face's capture freeze lets the dialog close itself when the review opens (no face lost).
+**Residual risks:** no device run on the Lenovo / Galaxy S24 FE yet (TalkBack order, real camera timing); a Close tapped during the last face's capture freeze lets the dialog close itself when the review opens (no face lost); after Discard from Learn the Stage list shows, not the Find my place sheet (deferred).
