@@ -36,6 +36,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.text.TextLayoutResult
@@ -584,13 +585,17 @@ class SolutionPlaybackTest {
 
         val control = tag("physicalModeSwitch")
         val caption = rule.onNodeWithText("Physical mode", useUnmergedTree = true)
-        control.assertHeightIsAtLeast(Spacing.touchMin)
+        control.performScrollTo().assertHeightIsAtLeast(Spacing.touchMin)
         val id = control.fetchSemanticsNode().id
         val switchRole = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Switch)
         val switchSubtree = hasTestTag("playback:physicalModeSwitch")
 
         fun assertSingleSwitch(checked: Boolean) {
-            control.assertIsDisplayed().assertContentDescriptionEquals("Physical mode").assert(switchRole)
+            control
+                .performScrollTo()
+                .assertIsDisplayed()
+                .assertContentDescriptionEquals("Physical mode")
+                .assert(switchRole)
             assertEquals(id, control.fetchSemanticsNode().id)
             rule
                 .onAllNodes(
@@ -632,7 +637,7 @@ class SolutionPlaybackTest {
 
         control.performTouchInput { click(centerRight - Offset(24.dp.toPx(), 0f)) }
         control.assertIsOn()
-        control.performTouchInput { click(centerRight - Offset(4.dp.toPx(), 0f)) }
+        control.performScrollTo().performTouchInput { click(centerRight - Offset(4.dp.toPx(), 0f)) }
         control.assertIsOff()
     }
 
@@ -1124,6 +1129,37 @@ class SolutionPlaybackTest {
     @Config(qualifiers = "w411dp-h480dp")
     fun netFitsShortPhone() = assertNetFits()
 
+    @Test
+    @Config(qualifiers = "w600dp-h240dp", fontScale = 2.0f)
+    fun aVeryShortSolveScreenKeepsTheCubeAndCanScrollToThePhysicalSwitch() {
+        var current by mutableStateOf(session())
+        val store = netPreferences()
+        rule.setContent {
+            CubentiaTheme {
+                PreferenceProvider(store) {
+                    SolvePlaybackScreen(current, strings, { current = reduce(current, it).state }, {}, {})
+                }
+            }
+        }
+
+        val cube = rule.onNodeWithTag("net")
+        val switch = tag("physicalModeSwitch")
+        val caption = rule.onNodeWithText("Physical mode", useUnmergedTree = true)
+        cube.assertIsDisplayed()
+        switch.performScrollTo().assertIsOff().assertHeightIsAtLeast(Spacing.touchMin)
+        val switchId = switch.fetchSemanticsNode().id
+        caption.performTouchInput { click() }
+
+        cube.assertIsDisplayed()
+        switch.performScrollTo().assertIsOn().assertHeightIsAtLeast(Spacing.touchMin)
+        assertEquals(switchId, switch.fetchSemanticsNode().id)
+        caption.performTouchInput { click() }
+
+        cube.assertIsDisplayed()
+        switch.performScrollTo().assertIsOff()
+        assertEquals(switchId, switch.fetchSemanticsNode().id)
+    }
+
     private fun assertNetFits() {
         val store = netPreferences()
         rule.setContent {
@@ -1161,7 +1197,7 @@ class SolutionPlaybackTest {
         assertEquals(DarkTokens.surfaceBase, pixels[0, 0])
         val length = rule.onNodeWithTag("solvePlayback:length")
         assertEquals(DarkTokens.inkPrimary, textLayout(length).layoutInput.style.color)
-        tag("physicalModeSwitch").assertIsOff().assertUncheckedPhysicalModeContrast()
+        tag("physicalModeSwitch").performScrollTo().assertIsOff().assertUncheckedPhysicalModeContrast()
     }
 
     @Test fun physicalPlaybackNoteHasStandardMargin() {

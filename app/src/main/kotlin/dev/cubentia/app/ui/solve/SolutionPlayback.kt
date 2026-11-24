@@ -555,19 +555,19 @@ fun SolutionPlayback(
                 }
             }
         }
-        key(state.isPhysical) {
-            Column(
-                Modifier.fillMaxWidth().playbackControlsScroll(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(Spacing.s2),
-            ) { controls() }
+        Column(
+            Modifier.fillMaxWidth().playbackControlsScroll(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(Spacing.s2),
+        ) {
+            key(state.isPhysical) { controls() }
+            PhysicalModeSwitch(
+                label = strings.resolve(ContentText("msg.physical.mode")),
+                checked = state.isPhysical,
+                onCheckedChange = { if (it) state.followOnMyCube() else state.switchToVirtual() },
+                modifier = Modifier.testTag("playback:physicalModeSwitch"),
+            )
         }
-        PhysicalModeSwitch(
-            label = strings.resolve(ContentText("msg.physical.mode")),
-            checked = state.isPhysical,
-            onCheckedChange = { if (it) state.followOnMyCube() else state.switchToVirtual() },
-            modifier = Modifier.testTag("playback:physicalModeSwitch"),
-        )
     }
 }
 

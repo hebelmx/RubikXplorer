@@ -78,13 +78,23 @@ deferred: []
 
 ## Auto Run Result
 
-The whole Physical mode row toggles from Lessons and Solution Playback, including its caption and track. The off thumb and outline use the secondary ink color. The playback switch now stays visible and retains its accessibility node when the mode changes.
+The whole Physical mode row toggles from Lessons and Solution Playback, including its caption and track. The off thumb and outline use the secondary ink color. The playback switch retains its accessibility node when the mode changes and can scroll into view on short screens.
 
 - `PhysicalModeSwitch.kt` provides the shared 48 dp switch, one platform accessibility action, and the unchecked colors.
 - `LessonScreen.kt` uses the control through the existing Lesson mode gate and confirmation flow.
-- `SolutionPlayback.kt` keeps the switch below and outside the mode-specific scrolling controls. The existing “I'm following on my cube” entry button remains available in virtual playback.
+- `SolutionPlayback.kt` keeps the switch in the shared scroll pane below the mode-specific controls. The existing “I'm following on my cube” entry button remains available in virtual playback.
 - The Lesson and playback tests exercise actual touch, screenshot contrast, a stable platform accessibility node, and the existing app navigation routes.
 
 Four review layers found three medium patch groups and one low patch group. No findings were deferred and the rejected findings have evidence in the review log. A follow-up review is recommended because the platform-node and compact-render checks use Robolectric, so physical-device TalkBack focus retention is still unverified.
 
 `./gradlew :app:testDebugUnitTest spotlessCheck build :app:compileDebugAndroidTestKotlin --console=plain --max-workers=4` passed with JDK 25 and the configured Android SDK. All 1,370 app tests and 1,561 core tests passed with zero skips. Lint, coverage, release and benchmark assembly, and Android test compilation passed. No physical-device TalkBack test was run.
+
+### Short-window acceptance follow-up
+
+The initial persistent switch sat outside the playback scroll pane and could consume the space reserved for the cube in a short window. The switch is now a sibling of the mode-keyed content inside the same scroll pane. It retains its accessibility node across mode changes and shares the existing controls height budget.
+
+On a 600 × 240 dp Solve Playback screen at 200% text size, the cube remains visible in both modes and the full 48 dp switch can scroll into view. The regression taps the caption in both directions and verifies the same semantics node survives both transitions.
+
+The focused command `./gradlew spotlessApply :app:testDebugUnitTest --tests '*SolutionPlaybackTest' --tests '*AppShellSolveTest.physicalStyleLocksAfterDoneUntilBackToStepOneAndAMethodKeepsFollowing' --console=plain --max-workers=4` passed all 51 tests with zero failures or skips.
+
+The full `./gradlew :app:testDebugUnitTest spotlessCheck build :app:compileDebugAndroidTestKotlin --console=plain --max-workers=4` gate passed with 1,371 app tests and 1,561 core tests, with zero failures or skips.
