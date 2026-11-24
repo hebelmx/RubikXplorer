@@ -53,11 +53,111 @@ def rgb_to_lab_vec(rgb: np.ndarray) -> np.ndarray:
 
 
 def shading_invariant_lab(rgb: np.ndarray) -> np.ndarray:
-    """Cancel scalar Lambertian shading (`s * RGB`) by L2-normalizing RGB before CIELAB conversion."""
+    """Cancel scalar Lambertian shading (`s * RGB`) by L2-normalizing RGB before CIELAB conversion.
+
+    Target norm 210.0 (strictly < 255) prevents saturating the R channel of vivid Red stickers,
+    which previously clipped R at 255 while boosting G/B and collapsing Red toward Orange.
+    """
     arr = np.clip(rgb, 1.0, 255.0).astype(np.float64)
     norms = np.linalg.norm(arr, axis=-1, keepdims=True)
-    scaled = np.clip(arr * (280.0 / np.maximum(norms, 1.0)), 0.0, 255.0)
+    scaled = np.clip(arr * (210.0 / np.maximum(norms, 1.0)), 0.0, 255.0)
     return rgb_to_lab_vec(scaled)
+
+
+def white_referenced_hue_dist(
+    lab: np.ndarray, proto: np.ndarray, white_ab: np.ndarray, is_white_proto: bool
+) -> float:
+    """CIEDE2000-style hue-weighted distance relative to the cube's own WHITE center `(a_W, b_W)`.
+
+    Soft specular glare and deep shadows change radial saturation (`C*`) far more than hue angle.
+    Weighting angular hue (`ΔH*`) strongly and radial saturation (`ΔC*`) lightly keeps Red vs Orange
+    cleanly separated even when one sticker is under lamp glare and another is in shadow.
+    """
+    dL = float(lab[0] - proto[0])
+    if is_white_proto:
+        da = float(lab[1] - proto[1])
+        db = float(lab[2] - proto[2])
+        return float(np.sqrt(0.35 * dL * dL + da * da + db * db))
+    ux = lab[1:3] - white_ab
+    up = proto[1:3] - white_ab
+    cx = float(np.linalg.norm(ux))
+    cp = float(np.linalg.norm(up))
+    if cx < 6.0 or cp < 6.0:
+        da = float(lab[1] - proto[1])
+        db = float(lab[2] - proto[2])
+        return float(np.sqrt(0.35 * dL * dL + da * da + db * db))
+    cos_t = float(np.clip(np.dot(ux, up) / (cx * cp), -1.0, 1.0))
+    sin_half = float(np.sqrt(max(0.0, 0.5 * (1.0 - cos_t))))
+    d_hue = 2.0 * float(np.sqrt(cx * cp)) * sin_half
+    d_rad = abs(cx - cp)
+    return float(np.sqrt(0.25 * dL * dL + (1.80 * d_hue) ** 2 + (0.22 * d_rad) ** 2))
+
+
+def _solve_balanced_8_per_color(cost_mat: np.ndarray, cap: int = 8) -> np.ndarray:
+    """Exact global min-cost assignment of 48 non-center cells to 6 colors (exactly `cap=8` each).
+
+    Pure-NumPy successive shortest augmenting paths on the 6-node color residual graph (<0.5 ms).
+    """
+    n_cells, k = cost_mat.shape
+    assign = np.argmin(cost_mat, axis=1).astype(np.int32)
+    counts = np.bincount(assign, minlength=k)
+    inf = 1e18
+
+    for _ in range(n_cells):
+        over = [c for c in range(k) if counts[c] > cap]
+        under = [c for c in range(k) if counts[c] < cap]
+        if not over or not under:
+            break
+        # Build 6x6 residual edge weights: cheapest cell currently in color u to move to color v
+        edge_w = np.full((k, k), inf, dtype=np.float64)
+        best_cell = np.full((k, k), -1, dtype=np.int32)
+        for u in range(k):
+            idxs = np.where(assign == u)[0]
+            if not len(idxs):
+                continue
+            base = cost_mat[idxs, u]
+            for v in range(k):
+                if u == v:
+                    continue
+                deltas = cost_mat[idxs, v] - base
+                j = int(np.argmin(deltas))
+                edge_w[u, v] = float(deltas[j])
+                best_cell[u, v] = int(idxs[j])
+
+        # Bellman-Ford from all excess colors (multi-source) to find shortest augmenting path
+        dist = np.full(k, inf, dtype=np.float64)
+        parent = np.full(k, -1, dtype=np.int32)
+        for u in over:
+            dist[u] = 0.0
+        for _step in range(k - 1):
+            updated = False
+            for u in range(k):
+                if dist[u] >= inf * 0.5:
+                    continue
+                for v in range(k):
+                    w = edge_w[u, v]
+                    if w < inf * 0.5 and dist[u] + w < dist[v] - 1e-12:
+                        dist[v] = dist[u] + w
+                        parent[v] = u
+                        updated = True
+            if not updated:
+                break
+
+        tgt = min(under, key=lambda v: dist[v])
+        if dist[tgt] >= inf * 0.5:
+            break
+        # Reconstruct path and shift 1 cell per edge along the augmenting path
+        path = []
+        cur = tgt
+        while parent[cur] != -1:
+            path.append((int(parent[cur]), int(cur)))
+            cur = int(parent[cur])
+        for u, v in path:
+            cell_i = int(best_cell[u, v])
+            assign[cell_i] = v
+            counts[u] -= 1
+            counts[v] += 1
+    return assign
 
 
 # Reference shading-invariant CIELAB prototypes used ONLY for global 24-rotation center matching.
@@ -259,6 +359,9 @@ class CubeFragment:
         top = clean[:k]
         labs = np.array([o.lab for o in top], dtype=np.float64)
         ws = np.array([o.quality for o in top], dtype=np.float64)
+        # Never average two wildly disagreeing samples (e.g. 1 noisy frame + 1 clean frame); wait 1 frame for tie-break!
+        if len(top) == 2 and float(np.linalg.norm(labs[0] - labs[1])) > 18.0:
+            return None
         # Reject strong color outliers from the top pool (e.g. a sharp unblended finger covering the cell)
         if len(top) >= 4:
             med = np.median(labs, axis=0)
@@ -362,7 +465,7 @@ class ContinuousCubeMapper:
                     cur_lab, cur_q = _det_center(di, aligned)
                     prev_lab = shading_invariant_lab(tf.raw_rgbs[4])
                     center_de = float(np.linalg.norm(cur_lab - prev_lab))
-                    if cur_q > 0.20 and float(tf.quals[4]) > 0.20 and center_de > 30.0:
+                    if cur_q > 0.20 and float(tf.quals[4]) > 0.20 and center_de > 24.0:
                         continue
                     candidates.append((best_d, di, fname, aligned))
         candidates.sort(key=lambda x: x[0])
@@ -465,9 +568,9 @@ class ContinuousCubeMapper:
                         h = frag.face_robust_lab(fname, ci)
                         if h is not None and h[2] >= 5 and h[1] >= 2.2:
                             de_all = float(np.linalg.norm(labs[ci] - h[0]))
-                            if de_all < 16.0:
+                            if de_all < 13.0:
                                 stable_cells += 1
-                            elif de_all > 26.0:
+                            elif de_all > 21.0:
                                 # Distinguish additive specular glare (brightness jumps up while chroma drops toward white)
                                 # from a real physical layer twist (color changes hue or becomes more saturated/darker).
                                 chroma_cur = float(np.linalg.norm(labs[ci, 1:]))
@@ -668,16 +771,13 @@ class ContinuousCubeMapper:
                     cost += float(np.linalg.norm(lab - REF_CENTER_LAB[canon_c]))
                 rot_costs.append((cost / len(center_labs), R))
             rot_costs.sort(key=lambda x: x[0])
-            if rot_costs[0][0] < 24.0 and (rot_costs[1][0] - rot_costs[0][0]) >= 10.0:
+            if rot_costs[0][0] < 20.0 and (rot_costs[1][0] - rot_costs[0][0]) >= 8.0:
                 self.global_R = rot_costs[0][1]
 
         if self.global_R is None:
             return
 
         # Build canonical center prototypes from the cube's OWN observed centers!
-        # Wait until all 6 centers are seen before classifying non-center stickers globally?
-        # Even better: classify a cell once all 6 centers are seen (global 6-cluster) — OR if < 6 centers
-        # are seen, classify only cells clearly closest to an already-observed center with large margin!
         protos: Dict[str, np.ndarray] = {}
         for mf, lab in center_labs.items():
             cf = _rotate_face_name(mf, self.global_R)
@@ -695,10 +795,14 @@ class ContinuousCubeMapper:
             new_support[(cf, 4)] = 1e6  # centers anchored globally
 
         # Non-center classification: require all 6 center prototypes for final commitment (avoids greedy
-        # misassignment before seeing e.g. Orange vs Red or Yellow vs White!)
+        # misassignment before seeing e.g. Orange vs Red or Yellow vs White!).
+        # Uses WHITE-centered CIEDE2000-style hue distance + exact global 8-per-color balanced refinement
+        # once all 48 non-center cells have sufficient quality, cleanly separating Red vs Orange even
+        # under mixed warm-lamp + cool-monitor lighting.
         if len(protos) == 6:
             proto_names = list(protos.keys())
-            proto_labs = np.stack([protos[c] for c in proto_names], axis=0)
+            white_ab = protos["WHITE"][1:3]
+            ready_cells: List[Tuple[str, int, float, np.ndarray]] = []
             for mf in m.observed_faces:
                 for mi in range(9):
                     if mi == 4:
@@ -707,17 +811,32 @@ class ContinuousCubeMapper:
                     if r is None:
                         continue
                     lab, q_sum, n_obs = r
-                    # Need sufficient accumulated observation quality (graded angle+glare+sharpness)
                     if q_sum < 0.55 or n_obs < 2:
                         continue
-                    # Compare against the cube's own 6 centers (weighting chromaticity slightly higher than shading L*)
-                    diff = proto_labs - lab[None, :]
-                    dists = np.sqrt(0.45 * diff[:, 0] ** 2 + diff[:, 1] ** 2 + diff[:, 2] ** 2)
+                    cf, ci = _rotate_fragment_slot(mf, mi, self.global_R)
+                    dists = np.array(
+                        [white_referenced_hue_dist(lab, protos[c], white_ab, c == "WHITE") for c in proto_names],
+                        dtype=np.float64,
+                    )
+                    ready_cells.append((cf, ci, q_sum, dists))
+
+            if len(ready_cells) == 48:
+                cost_mat = np.stack([d for _, _, _, d in ready_cells], axis=0)
+                bal_assign = _solve_balanced_8_per_color(cost_mat ** 2, cap=8)
+                for idx_c, (cf, ci, q_sum, dists) in enumerate(ready_cells):
+                    chosen = int(bal_assign[idx_c])
+                    chosen_d = float(dists[chosen])
+                    other_d = float(np.min(np.delete(dists, chosen)))
+                    margin = other_d - chosen_d
+                    if chosen_d < 55.0:
+                        new_net[cf][ci] = proto_names[chosen]
+                        new_support[(cf, ci)] = q_sum * (1.0 + 0.1 * max(0.0, margin))
+            else:
+                for cf, ci, q_sum, dists in ready_cells:
                     order = np.argsort(dists)
                     best_d, second_d = float(dists[order[0]]), float(dists[order[1]])
                     margin = second_d - best_d
-                    if best_d < 34.0 and margin >= 2.2:
-                        cf, ci = _rotate_fragment_slot(mf, mi, self.global_R)
+                    if best_d < 36.0 and margin >= 8.0:
                         new_net[cf][ci] = proto_names[int(order[0])]
                         new_support[(cf, ci)] = q_sum * (1.0 + 0.1 * margin)
 

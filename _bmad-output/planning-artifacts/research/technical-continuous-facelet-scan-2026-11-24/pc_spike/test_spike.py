@@ -18,7 +18,7 @@ from cube_model import (
     solved_cube,
 )
 from lattice_fit import fit_face_quads_from_centers
-from mapper import _shared_edge
+from mapper import _shared_edge, _solve_balanced_8_per_color, shading_invariant_lab, white_referenced_hue_dist
 from run_spike import build_scenarios, run_scenario
 from synth_video import generate_sequence
 
@@ -82,6 +82,39 @@ def test_cube_geometry_and_invariants():
     assert is_face_rotationally_symmetric(scr["F"]) is False
 
 
+def test_red_orange_hue_separation_and_balanced_solver():
+    """Real webcam Red vs Orange RGBs under simultaneous shadow + lamp glare separate cleanly."""
+    import numpy as np
+
+    white_ab = shading_invariant_lab(np.array([191.0, 145.0, 160.0]))[1:3]  # pinkish webcam white
+    orange_proto = shading_invariant_lab(np.array([213.0, 108.0, 74.0]))    # lamp-lit orange center
+    red_proto = shading_invariant_lab(np.array([123.0, 27.0, 41.0]))        # deep red
+    orange_samples = [
+        np.array([152.0, 54.0, 42.0]),
+        np.array([209.0, 100.0, 60.0]),
+        np.array([114.0, 42.0, 30.0]),
+        np.array([95.0, 24.0, 18.0]),   # deep shadow orange
+    ]
+    red_samples = [
+        np.array([123.0, 27.0, 41.0]),
+        np.array([157.0, 79.0, 89.0]),  # lamp-glared red
+        np.array([157.0, 46.0, 60.0]),
+        np.array([84.0, 22.0, 28.0]),   # deep shadow red
+    ]
+    for rgb in orange_samples:
+        lab = shading_invariant_lab(rgb)
+        assert white_referenced_hue_dist(lab, orange_proto, white_ab, False) < white_referenced_hue_dist(lab, red_proto, white_ab, False)
+    for rgb in red_samples:
+        lab = shading_invariant_lab(rgb)
+        assert white_referenced_hue_dist(lab, red_proto, white_ab, False) < white_referenced_hue_dist(lab, orange_proto, white_ab, False)
+
+    # Balanced 8-per-color solver assigns exactly 8 per color
+    rng = np.random.default_rng(123)
+    cost = rng.uniform(1.0, 50.0, size=(48, 6)) ** 2
+    assign = _solve_balanced_8_per_color(cost, cap=8)
+    assert np.all(np.bincount(assign, minlength=6) == 8)
+
+
 def test_all_seven_scenarios():
     for cfg in build_scenarios():
         res = run_scenario(cfg, render_out=None)
@@ -91,5 +124,6 @@ def test_all_seven_scenarios():
 if __name__ == "__main__":
     test_cube_geometry_and_invariants()
     test_lattice_fit_from_unordered_centers()
+    test_red_orange_hue_separation_and_balanced_solver()
     test_all_seven_scenarios()
     print("ALL PC SPIKE TESTS PASSED.")
