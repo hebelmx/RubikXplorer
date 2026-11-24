@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -103,6 +104,51 @@ class GuidedScanScreenTest {
         rule.onNodeWithTag("calibration:swatch").assertIsDisplayed()
         rule.onNodeWithTag("scanEnterColors").assertIsDisplayed().performClick()
         assertTrue(entered)
+    }
+
+    /** GH #325: the plain Guided viewfinder asks "Discard the faces you captured?" with *Keep scanning* and *Discard*. */
+    @Test fun guidedDiscardQuestionShowsItsOwnTitleAndActions() {
+        var discarded = 0
+        var kept = 0
+        rule.setContent {
+            CubentiaTheme {
+                GuidedScanScreen(
+                    GuidedScanPhase.Viewfinder(stepIndex = 1, captured = greenCaptured),
+                    strings,
+                    GuidedScanActions(onDiscardConfirm = { discarded++ }, onDiscardCancel = { kept++ }),
+                    confirmDiscard = true,
+                    discardKind = DiscardKind.GuidedFaces,
+                )
+            }
+        }
+        rule.onNodeWithTag("scan:discard").assertIsDisplayed()
+        rule.onNodeWithText("Discard the faces you captured?").assertIsDisplayed()
+        rule.onNodeWithText("Discard this scan?").assertDoesNotExist()
+        rule.onNodeWithTag("scan:discard:confirm").assertTextEquals("Discard").performClick()
+        rule.onNodeWithTag("scan:discard:cancel").assertTextEquals("Keep scanning").performClick()
+        rule.runOnIdle {
+            assertEquals(1, discarded)
+            assertEquals(1, kept)
+        }
+    }
+
+    /** GH #325 copy regression: Quick Scan's question keeps "Discard this scan?" / *Discard* / *Cancel*. */
+    @Test fun quickScanDiscardQuestionKeepsItsCopy() {
+        rule.setContent {
+            CubentiaTheme {
+                GuidedScanScreen(
+                    GuidedScanPhase.CornerViewfinder(hold = 1, captured = greenCaptured),
+                    strings,
+                    GuidedScanActions(),
+                    confirmDiscard = true,
+                    discardKind = DiscardKind.Scan,
+                )
+            }
+        }
+        rule.onNodeWithText("Discard this scan?").assertIsDisplayed()
+        rule.onNodeWithText("Discard the faces you captured?").assertDoesNotExist()
+        rule.onNodeWithTag("scan:discard:confirm").assertTextEquals("Discard")
+        rule.onNodeWithTag("scan:discard:cancel").assertTextEquals("Cancel")
     }
 
     private val greenCaptured =

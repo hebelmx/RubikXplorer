@@ -2382,3 +2382,28 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-330-recorder-hold-settle-after-ev.md"
+  - id: "issue-325-deferred-find-my-place-discard-lands-stage-list"
+    epic: 10
+    action: "After Discard from a Guided scan opened via Learn > Find my place, the Learner lands
+      on the Stage list, not the Find my place sheet that EXPERIENCE.md names; PO decides:
+      accept and amend EXPERIENCE.md, or reopen the sheet on Cancelled (medium; deferred
+      from #325, GuidedScanCloseRouteTest.kt:125)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-325-guided-scan-close-asks-before-discarding-faces.md"
+  - id: "issue-325-deferred-close-discard-back-keep-untested"
+    epic: 10
+    action: "Story 10.2 asks Keep scanning and Discard for both Close and system Back, but only
+      Close>Keep and Back>Discard are run; add the swapped pass (medium; deferred from
+      #325, GuidedScanCloseRouteTest.kt:236)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-325-guided-scan-close-asks-before-discarding-faces.md"
+  - id: "issue-325-deferred-close-during-capture-freeze"
+    epic: 10
+    action: "Tapping Close during the last face's capture freeze opens the discard question,
+      which then vanishes when the held Review is published; ignore Close while the freeze
+      is active (low; deferred from #325, GuidedScanActivity.kt:453)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-325-guided-scan-close-asks-before-discarding-faces.md"

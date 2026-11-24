@@ -363,6 +363,7 @@ class GuidedScanActivity : ComponentActivity() {
                             detectedCornerQuads = scan.detectedCornerQuads,
                             cornerThumbnail = scan.cornerThumbnail,
                             confirmDiscard = scan.confirmDiscard,
+                            discardKind = if (plainGuidedViewfinder(phase)) DiscardKind.GuidedFaces else DiscardKind.Scan,
                             cornerTorch = GuidedScanFlow.torchControl(phase, scan.hasFlash, scan.torchOn),
                         ) {
                             AndroidView(
@@ -445,13 +446,15 @@ class GuidedScanActivity : ComponentActivity() {
     }
 
     /**
-     * Close (and system Back in Quick Scan's corner view): asks "Discard this scan?" when it would drop at least one face
-     * Quick Scan captured, kept or read in its hand-over (Story 10.17); otherwise the scan ends Cancelled at once.
+     * Close, and system Back when no retake, hand-over or calibration handles it first: asks "Discard this scan?" when it would drop at least one face
+     * Quick Scan captured, kept or read in its hand-over (Story 10.17), and "Discard the faces you captured?" when it
+     * would drop a face of a plain Guided 6-face viewfinder (GH #325); otherwise the scan ends Cancelled at once.
      */
     private fun closeOrConfirm() {
         val current = phase
         val faces =
             when {
+                plainGuidedViewfinder(current) -> (current as GuidedScanPhase.Viewfinder).captured.isNotEmpty()
                 !scan.quickScanMode -> false
                 current is GuidedScanPhase.CornerViewfinder -> current.captured.isNotEmpty()
                 current is GuidedScanPhase.Viewfinder && current.handOver -> (current.kept + current.captured).isNotEmpty()
@@ -459,6 +462,14 @@ class GuidedScanActivity : ComponentActivity() {
             }
         if (faces) scan.confirmDiscard = true else finishWith(ScanOutcome.Cancelled)
     }
+
+    /**
+     * The plain Guided 6-face viewfinder (GH #325): not a retake, Quick Scan, its hand-over, calibration, Case capture or
+     * a partial Quick Check; Close (or Back) there asks "Discard the faces you captured?" once a face is captured. The
+     * Quick Scan, calibration, Case capture and partial Quick Check exclusions come from [GuidedScanViewModel.isGuidedRun].
+     */
+    private fun plainGuidedViewfinder(current: GuidedScanPhase): Boolean =
+        current is GuidedScanPhase.Viewfinder && current.fromReview == null && !current.handOver && scan.isGuidedRun
 
     /**
      * *Scan face by face* (Story 10.17): the switch runs on the analyzer thread; its hand-over viewfinder replaces the
@@ -561,7 +572,7 @@ class GuidedScanActivity : ComponentActivity() {
     /** Analyzer thread: read the frame into stats, drop it, and run the controller — unless a capture is frozen. */
     private fun analyze(frame: ScanFrame) {
         val now = SystemClock.elapsedRealtime()
-        // No capture decision runs while "Discard this scan?" is open (Story 10.17).
+        // No capture decision runs while the discard question is open (Story 10.17, GH #325).
         if (scan.freeze.isFrozen(now) || scan.confirmDiscard) return
         val rotation = frame.rotationDegrees
         val stats = frame.stats
@@ -899,6 +910,8 @@ internal class GuidedScanViewModel : ViewModel() {
 
     @Volatile var quickCheckStartedAt: Long? = null
     var guidedLogged = false
+
+    /** A plain Guided 6-face run; also decides where Close asks "Discard the faces you captured?" (GH #325). */
     val isGuidedRun get() = !quickScanMode && quickScan == null && caseCorners == null && quickFaces == null && !calibrationMode
     var saving by mutableStateOf(false)
     var calibrationFinished by mutableStateOf(false)
@@ -1017,7 +1030,7 @@ internal class GuidedScanViewModel : ViewModel() {
     var controller = newController()
     private var shownPhase by mutableStateOf<GuidedScanPhase>(GuidedScanPhase.Rationale)
 
-    /** The shown phase; a move to another kind of phase dismisses "Discard this scan?" (Story 10.17). */
+    /** The shown phase; a move to another kind of phase dismisses the discard question (Story 10.17, GH #325). */
     var phase: GuidedScanPhase
         get() = shownPhase
         set(value) {
@@ -1111,7 +1124,7 @@ internal class GuidedScanViewModel : ViewModel() {
         }
     }
 
-    /** Main thread: Close asked "Discard this scan?" (Story 10.17). */
+    /** Main thread: Close asked the discard question (Story 10.17, GH #325). */
     var confirmDiscard by mutableStateOf(false)
 
     /** Main thread: the freeze of capture [id] ended; live view resumes, or a held result is published. */
