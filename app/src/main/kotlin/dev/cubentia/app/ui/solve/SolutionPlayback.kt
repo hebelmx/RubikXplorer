@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -47,6 +46,7 @@ import dev.cubentia.app.render.Net2DRenderer
 import dev.cubentia.app.render.RenderStyle
 import dev.cubentia.app.render.ViewRotatedBadge
 import dev.cubentia.app.scan.QuickCheckCapture
+import dev.cubentia.app.ui.components.PhysicalModeSwitch
 import dev.cubentia.app.ui.freecube.ToolbarButton
 import dev.cubentia.app.ui.freecube.ViewControls
 import dev.cubentia.app.ui.lesson.QuickCheckButton
@@ -562,6 +562,12 @@ fun SolutionPlayback(
                 verticalArrangement = Arrangement.spacedBy(Spacing.s2),
             ) { controls() }
         }
+        PhysicalModeSwitch(
+            label = strings.resolve(ContentText("msg.physical.mode")),
+            checked = state.isPhysical,
+            onCheckedChange = { if (it) state.followOnMyCube() else state.switchToVirtual() },
+            modifier = Modifier.testTag("playback:physicalModeSwitch"),
+        )
     }
 }
 
@@ -661,30 +667,6 @@ private fun PhysicalPlaybackControls(
                         .padding(horizontal = Spacing.s4, vertical = Spacing.s2)
                         .semantics { liveRegion = LiveRegionMode.Polite }
                         .testTag("playback:solvedNow"),
-            )
-        }
-
-        val physicalModeLabel = strings.resolve(ContentText("msg.physical.mode"))
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Spacing.s2),
-        ) {
-            TextButton(
-                onClick = state::switchToVirtual,
-                modifier =
-                    Modifier
-                        .heightIn(min = Spacing.touchMin)
-                        .testTag("playback:switchToVirtual"),
-            ) {
-                Text(physicalModeLabel, color = tokens.inkSecondary)
-            }
-            Switch(
-                checked = state.isPhysical,
-                onCheckedChange = { if (!it) state.switchToVirtual() else state.followOnMyCube() },
-                modifier =
-                    Modifier
-                        .testTag("playback:physicalModeSwitch")
-                        .semantics { contentDescription = physicalModeLabel },
             )
         }
     }
