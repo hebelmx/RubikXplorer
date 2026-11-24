@@ -1,22 +1,23 @@
 # Continuous scan experiment tracker
 
-**Current decision.** Proceed to a PC video replay experiment. The existing release decision defers Quick Scan. The lowest supported hardware for a future continuous scanner remains open.
+**Current decision.** Prove the continuous-scan algorithm end-to-end on PC replay before creating or building Android stories. Super-Morse YOLO11n is disqualified as the multi-face PC reference due to an upstream synthetic-label bug (29.5% exact accuracy on Cubentia's corner photos). The existing release decision defers Quick Scan; the lowest supported hardware for a future continuous scanner stays open until the PC algorithm succeeds.
 
 | State | Work item | Evidence needed to close it |
 |---|---|---|
 | Done | Record the learner experience | [Agreed proposal](brief.md) |
 | Done | Find usable detector weights, mobile paths and tracking precedents | [Research report](research.md) and linked source digests |
-| Done | Check whether a public sticker detector returns proposals on our cube photos | [PC still probe](digests/still-counts.csv). Localization, color accuracy and tracking still require labels. |
-| Done | Score the public detector on third-party labeled photos | 104 of 243 annotated stickers had a matched box center and the correct color. The [comparison script](digests/facelet_probe.py) reproduces the result. |
-| Next | Assemble the first replay clip | A known scramble and independently verified 54-cell net, whole-cube rotation, at least one face leaving and returning. Label visible cells, identity and timestamps on selected keyframes. |
-| Open | Build the desktop replay | Show video, proposals and growing net side by side. Store frame, face, row, column and reason for accepting or reopening each observation. Run once with human-verified keyframe correspondences and once with automatic association. |
-| Open | Compare a mobile candidate on the identical input | Use the same coordinates, score definitions and held-out clips. Measure misses, wrong color, wrong position, duplicate placement, and recovery after occlusion separately. |
-| Open | Try the live interaction | Observe when a learner first sees progress, whether cues restore progress, whether the net flickers or moves trusted stickers, and how many cells they must correct. |
+| Done | Check whether Super-Morse returns proposals and accurate 3-face reads on Cubentia's photos | [PC still probe](digests/still-probe.md) and [scoring script](digests/score_cubentia_fixtures.py). Exposed Lenovo-stickerless device confound, 29.5% 3-face accuracy vs. 90.0% frontal accuracy, and 19.2% FP on negatives. |
+| Done | Score Super-Morse on third-party labeled photos and determine failure cause | 104 of 243 annotated stickers matched ([facelet_probe.py](digests/facelet_probe.py)); confirmed upstream `camera` vs. `offscreenCamera` aspect bug in Super-Morse's synthetic generator ([facelets.md](digests/facelets.md)). |
+| Next | Assemble the first clean PC replay clips | Two clean camera recordings (stickered, then stickerless) with known scrambles, independently verified 54-cell nets, whole-cube rotation, and at least one face leaving and returning. Label visible cells, identity and timestamps on selected keyframes. |
+| Next | Select or train an unpoisoned PC geometry detector | Benchmark `yush-io/cubeSolver` / `YORO` on the 30 labeled `Fixtures/corner/` photos OR train a small LiteRT multi-face quad / sticker-center heatmap from `tools/corner-model/render_cube.py` + `Fixtures/`. |
+| Open | Prove the continuous-scan algorithm on PC replay (Android gate) | Show video, proposals/quads, viewing-angle quality, and growing net side by side. Store frame, face, row, column, angle/glare quality, and reason for accepting or reopening each observation. Pass first with human-verified keyframes (proving registration, angle-weighted color fusion, local cubie invariants, and regrip recovery), then with the unpoisoned automatic detector. |
+| Open | Compare a portable LiteRT candidate on the identical PC input | Use the same coordinates, score definitions and held-out clips. Measure misses, wrong color, wrong position, duplicate placement, and recovery after occlusion separately, plus `./gradlew :app:checkCameraSize`. |
+| Open | Try the live interaction (only after PC gate passes) | Observe when a learner first sees progress, whether cues restore progress, whether the net flickers or moves trusted stickers, and how many cells they must correct. |
 | Open | Benchmark devices and decide the camera feature floor | Complete the device matrix below with model, runtime and build identities. |
 
 ## First replay
 
-The original checkout has an untracked 170-second screen recording at `captures/quickscan-20261122-111103/quickscan.mp4`. Sampled frames show the old scan interface and multiple cube appearances. It can supply exploratory frames. A single fixed scramble, the 54-cell truth and a clean camera feed have yet to be established for that recording.
+The original checkout has an untracked 170-second screen recording at `captures/quickscan-20261122-111103/quickscan.mp4` (720×1280, 5,754 frames, variable rate). Sampled frames show the old scan UI and multiple cube appearances (Super-Morse fired ≥ 9 proposals on only 8 of 25 sampled frames, median 6). It can supply rough exploratory frames only; a single fixed scramble, 54-cell truth, and a clean camera feed require fresh recordings.
 
 Record a stickered cube first, then repeat with a stickerless cube under the same light. Include off-center framing, a partial neighboring face, a brief regrip, a return to an earlier face, and a few seconds of background without a cube. Preserve the original camera image and timestamps. Keep complete sessions together when splitting training, tuning and evaluation. Include glare and backlighting in subsequent held-out sessions. A single clip can expose a failure, while varied held-out sessions are needed to compare models.
 
