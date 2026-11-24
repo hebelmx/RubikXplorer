@@ -2326,6 +2326,37 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-329-recorder-dark-faces-hint.md"
+  - id: "issue-324-deferred-give-up-check-lands-off-outcome"
+    epic: 11
+    action: "From the entry-level picker opened on Placement's solved outcome, giving up 'Check
+      me with a scramble instead' lands on Welcome or Learn, not back on the outcome;
+      untested (low; deferred from #324, AppShell.kt:610,621)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-324-placement-solved-offers-entry-level.md"
+  - id: "issue-324-deferred-picker-scan-loop-from-placement"
+    epic: 11
+    action: "The picker opened from Placement's solved outcome still offers 'Not sure? Scan my
+      cube', allowing a Placement -> picker -> Scan loop; hide it from this entry (low;
+      deferred from #324, SCP 2026-11-24 F13)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-324-placement-solved-offers-entry-level.md"
+  - id: "issue-324-deferred-process-death-back-from-picker"
+    epic: 11
+    action: "After process death, entryLevelFrom = placement is restored while the Placement
+      phase may come back Idle, so Back from the picker goes to Welcome or Learn; clear
+      the caller when the phase is Idle (low; deferred from #324, AppShell.kt:671)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-324-placement-solved-offers-entry-level.md"
+  - id: "issue-324-deferred-device-check-solved-picker"
+    epic: 11
+    action: "Check the solved Placement outcome's 'I can already solve it' flow on the Lenovo
+      TB128XU and Galaxy S24 FE (low; deferred from #324)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-324-placement-solved-offers-entry-level.md"
   - id: "issue-325-deferred-find-my-place-discard-lands-stage-list"
     epic: 10
     action: "After Discard from a Guided scan opened via Learn > Find my place, the Learner lands

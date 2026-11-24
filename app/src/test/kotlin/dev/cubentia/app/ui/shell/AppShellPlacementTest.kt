@@ -32,6 +32,10 @@ import dev.cubentia.app.scan.ScanOutcome
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.TickingClock
 import dev.cubentia.app.session.testFlags
+import dev.cubentia.app.ui.a11y.assertClickablesAtLeast48dp
+import dev.cubentia.app.ui.a11y.assertClickablesLabelled
+import dev.cubentia.app.ui.a11y.assertNoTextOverflow
+import dev.cubentia.app.ui.a11y.fontScale200
 import dev.cubentia.app.ui.freecube.FreeCubeViewModel
 import dev.cubentia.app.ui.placement.PlacementFlowViewModel
 import dev.cubentia.app.ui.placement.PlacementPhase
@@ -425,6 +429,144 @@ class AppShellPlacementTest {
     }
 
     @Test
+    fun `a solved cube offers Scan again, Start Stage 1 and I can already solve it in that order`() {
+        show()
+        startScan()
+        deliver(ScanOutcome.Accepted(CubeState.SOLVED))
+
+        assertPrompt("Your cube is solved.", "Scramble it and scan again, or start Stage 1.")
+        val tops =
+            listOf("placement:scanAgain", "placement:startStage1", "placement:canAlreadySolve").map { tag ->
+                rule
+                    .onNodeWithTag(tag)
+                    .assertIsDisplayed()
+                    .fetchSemanticsNode()
+                    .boundsInRoot.top
+            }
+        assertEquals(tops.sorted(), tops)
+        assertEquals(3, tops.distinct().size)
+        rule.onNodeWithTag("placement:canAlreadySolve").assertTextEquals(bundle.strings.getValue("btn.placement.can-already-solve"))
+        rule.onNodeWithTag("placement:canAlreadySolve").assertTextEquals("I can already solve it")
+    }
+
+    @Test
+    fun `I can already solve it opens the entry-level picker and writes nothing`() {
+        show()
+        startScan()
+        deliver(ScanOutcome.Accepted(CubeState.SOLVED))
+        rule.onNodeWithTag("placement:canAlreadySolve").performClick()
+
+        waitForTag("entryLevel")
+        rule.onNodeWithTag("placement:screen").assertDoesNotExist()
+        assertTrue(flow.phase.value is PlacementPhase.Result)
+        runBlocking { writer.flush() }
+        assertTrue(records.isEmpty())
+        assertFalse(preferences.preferences.value.onboarded)
+        assertFalse(savedPreferences.onboarded)
+    }
+
+    @Test
+    fun `top-bar and system Back on the picker return to the solved outcome without writing`() {
+        show()
+        startScan()
+        deliver(ScanOutcome.Accepted(CubeState.SOLVED))
+
+        rule.onNodeWithTag("placement:canAlreadySolve").performClick()
+        waitForTag("entryLevel")
+        rule.onNodeWithTag("entryLevel:back").performClick()
+        waitForTag("placement:prompt")
+        rule.onNodeWithTag("entryLevel").assertDoesNotExist()
+        assertPrompt("Your cube is solved.", "Scramble it and scan again, or start Stage 1.")
+        rule.onNodeWithTag("placement:canAlreadySolve").assertIsDisplayed()
+
+        rule.onNodeWithTag("placement:canAlreadySolve").performClick()
+        waitForTag("entryLevel")
+        rule.runOnIdle { back.onBackPressed() }
+        waitForTag("placement:prompt")
+        rule.onNodeWithTag("entryLevel").assertDoesNotExist()
+        assertPrompt("Your cube is solved.", "Scramble it and scan again, or start Stage 1.")
+
+        runBlocking { writer.flush() }
+        assertTrue(records.isEmpty())
+        assertFalse(preferences.preferences.value.onboarded)
+        assertFalse(savedPreferences.onboarded)
+    }
+
+    @Test
+    fun `choosing first two layers from the solved outcome's picker skips Stages 1 to 4 and lands on Learn`() {
+        show()
+        startScan()
+        deliver(ScanOutcome.Accepted(CubeState.SOLVED))
+        rule.onNodeWithTag("placement:canAlreadySolve").performClick()
+        waitForTag("entryLevel")
+        rule.onNodeWithTag("entryLevel:firstTwoLayers").performClick()
+
+        waitForTag("learn:topBar")
+        rule.onNodeWithTag("entryLevel").assertDoesNotExist()
+        rule.onNodeWithTag("placement:screen").assertDoesNotExist()
+        rule.onNodeWithTag("stageDetail").assertDoesNotExist()
+        val events = records.map { it.event }
+        assertEquals(
+            bundle.stages.take(4).map { it.id },
+            events.filterIsInstance<ProgressEvent.StageSkippedByChoice>().map { it.stageId },
+        )
+        assertTrue(events.none { it is ProgressEvent.StageSkippedByPlacement })
+        bundle.stages.take(4).forEach { assertEquals(StageStatus.SKIPPED, StageProgress.status(it, bundle.stages, events)) }
+        assertEquals(StageStatus.IN_PROGRESS, StageProgress.status(bundle.stages[4], bundle.stages, events))
+        assertEquals(PlacementPhase.Idle, flow.phase.value)
+        assertOnboarded()
+    }
+
+    @Test
+    fun `a failed level write from the solved outcome's picker keeps the picker with its error`() {
+        failWrite = true
+        show()
+        startScan()
+        deliver(ScanOutcome.Accepted(CubeState.SOLVED))
+        rule.onNodeWithTag("placement:canAlreadySolve").performClick()
+        waitForTag("entryLevel")
+        rule.onNodeWithTag("entryLevel:firstTwoLayers").performClick()
+
+        waitForTag("entryLevel:error")
+        rule.onNodeWithTag("entryLevel").assertIsDisplayed()
+        rule.onNodeWithTag("placement:screen").assertDoesNotExist()
+        assertTrue(records.isEmpty())
+        runBlocking { writer.flush() }
+        assertFalse(preferences.preferences.value.onboarded)
+        assertFalse(savedPreferences.onboarded)
+    }
+
+    @Test
+    fun `Not sure Scan my cube on the solved outcome's picker starts a new scan whose result shows`() {
+        show()
+        startScan()
+        deliver(ScanOutcome.Accepted(CubeState.SOLVED))
+        rule.onNodeWithTag("placement:canAlreadySolve").performClick()
+        waitForTag("entryLevel")
+        rule.onNodeWithTag("entryLevel:scan").performScrollTo().performClick()
+        assertEquals(2, scanCount)
+        deliver(ScanOutcome.Accepted(entry("lesson-03-01")))
+
+        waitForTag("placement:prompt")
+        rule.onNodeWithTag("entryLevel").assertDoesNotExist()
+        rule.onNodeWithTag("placement:prompt").assertTextContains("Start at First-layer corners?")
+        assertTrue(records.isEmpty())
+    }
+
+    @Test
+    @Config(qualifiers = "w600dp-h960dp")
+    fun `the solved outcome's controls are labelled, 48dp, and fit at 200 percent on 600dp`() {
+        show(largeType = true)
+        startScan()
+        deliver(ScanOutcome.Accepted(CubeState.SOLVED))
+        rule.onNodeWithTag("placement:canAlreadySolve").performScrollTo().assertIsDisplayed()
+
+        rule.assertClickablesLabelled("Placement solved outcome")
+        rule.assertClickablesAtLeast48dp("Placement solved outcome")
+        rule.assertNoTextOverflow("Placement solved outcome")
+    }
+
+    @Test
     fun `fallback opens the manual editor and evaluates its accepted cube`() {
         show()
         startScan()
@@ -773,6 +915,7 @@ class AppShellPlacementTest {
         dark: Boolean = false,
         restoration: StateRestorationTester? = null,
         awaitWelcome: Boolean = true,
+        largeType: Boolean = false,
     ) {
         val catalog =
             if (failedCatalog) {
@@ -785,19 +928,22 @@ class AppShellPlacementTest {
         setContent {
             view = androidx.compose.ui.platform.LocalView.current
             back = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
-            CubentiaTheme(darkTheme = dark) {
-                AppShell(
-                    host = host,
-                    catalog = catalog,
-                    freeCube = freeCube,
-                    showDebugToggles = false,
-                    flags = testFlags(placement = enabled),
-                    showWelcome = true,
-                    preferenceStore = preferences,
-                    placementFlow = flow,
-                    onPlacementScan = if (hasScan) ({ scanCount++ }) else null,
-                )
+            val shell = @androidx.compose.runtime.Composable {
+                CubentiaTheme(darkTheme = dark) {
+                    AppShell(
+                        host = host,
+                        catalog = catalog,
+                        freeCube = freeCube,
+                        showDebugToggles = false,
+                        flags = testFlags(placement = enabled),
+                        showWelcome = true,
+                        preferenceStore = preferences,
+                        placementFlow = flow,
+                        onPlacementScan = if (hasScan) ({ scanCount++ }) else null,
+                    )
+                }
             }
+            if (largeType) fontScale200(shell) else shell()
         }
         if (awaitWelcome) waitForTag("welcome")
     }
